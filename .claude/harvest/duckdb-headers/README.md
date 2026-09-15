@@ -23,7 +23,26 @@ same `args.txt`. Per-header counts:
 | `execution_ht_entry` | 12 | 92 |
 
 **123 methods, 1,622 events** where the `.cpp` pass yielded none for the same
-concepts. Two headers yield nothing and that is information too:
+concepts.
+
+> ⊘ **HONESTY NOTE, added 2026-09-15 after review.** Two things this file
+> claimed by implication and does not deliver.
+>
+> **The numbers are not re-derivable from this repo.** The TSV is not
+> committed, there is no `args.txt` here, and no DuckDB source is in this tree
+> — a repo-wide grep finds `harvest_events` and `args.txt` only inside this
+> README. Treat the counts as a recorded observation of a run that happened
+> against a local checkout, not as evidence a reader can verify.
+>
+> **§6's complaint is therefore NOT discharged.** §6 says *"no row in this
+> matrix cites a harvest TSV as evidence."* That is still true: what exists
+> now is a README quoting counts from a TSV that is absent. What the harvest
+> genuinely changed in the consumer crate is two things — `Cmp::MatchU64` and
+> the range-write note — and those stand on their own.
+>
+> **The headline and the inventory disagree.** The per-header table sums to
+> 123 and the method inventory below lists 92 distinct names; the difference
+> is overloads. Read 123 as definitions, 92 as names. Two headers yield nothing and that is information too:
 `row_matcher.hpp` and `constant_operators.hpp` are pure declarations whose
 bodies are templates no TU instantiates here — the .cpp pass already covered
 `row_matcher.cpp`, which did produce events.

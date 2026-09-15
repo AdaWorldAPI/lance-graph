@@ -173,25 +173,49 @@ row was NEEDS FALSIFIER; `examples/adaptive_order_probe.rs` is that falsifier
 — 65 536 rows, 5 conjuncts, all 120 permutations, 4 regimes, counting
 64-row words a gated `Pred` does not evaluate:
 
-| regime | survivors | as written | best | spread |
-|---|---|---|---|---|
-| selective | 36 (0.055%) | 5.66% | 80.66% | 75.00 pts, 14.2x |
-| moderate | 14 311 (21.8%) | 0.00% | 0.00% | 0 |
-| permissive | 61 777 (94.3%) | 0.00% | 0.00% | 0 |
-| clustered (address prefix) | 31 (0.047%) | 99.90% | 99.90% | 0 |
+| regime | survivors | as written | worst | best | spread (best−worst) |
+|---|---|---|---|---|---|
+| selective | 36 (0.055%) | 5.66% | 5.66% | 80.66% | 75.00 pts, 14.2x |
+| moderate | 14 311 (21.8%) | 0.00% | 0.00% | 0.00% | 0 |
+| permissive | 61 777 (94.3%) | 0.00% | 0.00% | 0.00% | 0 |
+| clustered (address prefix) | 31 (0.047%) | 99.90% | 0.00% | 99.90% | 99.90 pts |
 
-Verdict: order MOVES the skip fraction, so A1 is not ELIMINATE. But the
-control signal is **dead words, not selectivity** — selective and clustered
-have near-identical survivor counts (36 vs 31) and differ by 19 points of
-skip, because one conjunct's survivors are contiguous and the other's are
-scattered. At 21.8% survival a 64-row word is all-dead with probability
-~2e-7, so no ordering can skip anything and the knob is inert by arithmetic,
-not by implementation. DuckDB's adjacent-transposition hill-climb with
-swap-likeliness decay is deliberately NOT ported: the quantity is a step
-function of clustering, not a smooth function of selectivity, so a local
-search over adjacent swaps explores the wrong landscape. The score is the
-CALLER's — this crate builds programs and never evaluates one, so it cannot
-measure anything.
+> ⊘ **CORRECTED 2026-09-15.** This table had no `worst` column and silently
+> computed spread as `best − as-written`, so the clustered row published a
+> spread of **0** — reading as "order does not matter here", the exact inverse
+> of that row's whole point. The probe prints `best − worst` and the matrix
+> uses that; clustered is **0.00 % → 99.90 %**, the widest spread of the four.
+
+Verdict: order MOVES the skip fraction, so A1 is **ADAPT, conditionally** —
+it is exactly inert in two of the four regimes, and the pre-registered
+falsifier's *representative predicate stream* half was never run (filed in the
+matrix's §9). Selectivity cannot tell you WHETHER reordering is worth
+anything: selective and clustered have near-identical survivor counts (36 vs
+31) and differ by 19 points of achievable skip (best against best), because
+one conjunct's survivors are contiguous and the other's are scattered. At
+21.8% survival with survivors SCATTERED a 64-row word is all-dead with
+probability ~1.4e-7, so no ordering can skip anything there. The score is the
+CALLER's — the shipped surface builds programs and never evaluates one, so
+there is no point at which it could measure a score.
+
+> ⊘ **THREE CORRECTIONS 2026-09-15, one of them a measured reversal.**
+> (a) This read *"the control signal is **dead words, not selectivity**"* — a
+> claim about the right SORT KEY. The probe enumerates permutations and
+> reports min/max; it never ranks by either signal and never calls
+> `and_by_skip`. Only the between-regime diagnostic is supported.
+> (b) The inertness condition was stated as density ("at 21.8% survival … by
+> arithmetic, not by implementation"); the condition is SCATTERING, the
+> arithmetic is Bernoulli-independence and so conditional on this fixture's
+> LCG, and the figure is 1.4e-7 not 2e-7.
+> (c) **The hill-climb argument was FALSE.** It said "a local search over
+> adjacent swaps explores the wrong landscape". Measured, instrumenting the
+> probe's own model with the clustered prefix term at each index:
+> `[4092, 3069, 2046, 1023, 0]`, adjacent deltas all exactly `−1023` — a
+> monotone linear ramp, the friendliest hill-climb landscape there is. The
+> real reason it is not ported is narrower: this crate never executes, so
+> there is no runtime for a hill-climb to measure. (DuckDB adapts on measured
+> RUNTIME seeded from a selectivity heuristic, not on measured selectivity —
+> a second wording this entry had wrong.)
 
 Five disables, all red: gate-never-on-accumulator; an `OR` gating its children
 on its own accumulator; `hoist_gate_subset` never rotating; `and_by_skip`
@@ -236,8 +260,21 @@ Three things the scaffold owed and this closes:
   and the doc says why: `masked_strided_group_sum` exists in the facade but
   the IR names no strided operand and no group terminal.
 
-10 tests, every one differential against a per-row oracle that never sees a
-`Program`. The 64k vertical slice (`COUNT(alpha & ((A&B)|C))`) agrees across
+10 tests at the time of this entry.
+
+> ⊘ **CORRECTED 2026-09-15.** This read "10 tests, every one differential
+> against a per-row oracle that never sees a `Program`". The "every one" was
+> never true and the same overstatement reached two other places. Measured on
+> the branch as it stands (13 tests): **9 differential**, **4 structural** —
+> `the_gate_reaches_every_comparison_and_is_dropped_only_where_it_vanishes`
+> (reads the emitted `ops`), `the_fused_lowering_trades_slots_for_passes` (op
+> histogram), `a_wide_conjunction_costs_one_extra_slot_not_one_per_child`
+> (slot count), and `an_empty_junction_is_refused_rather_than_folded_to_an_identity`
+> (error shape). That is not a weakness — the structural four catch shapes no
+> row count would notice — but "all differential" is the wrong summary, and in
+> `rust-test.yml` it was the stated JUSTIFICATION for the CI line.
+
+The 64k vertical slice (`COUNT(alpha & ((A&B)|C))`) agrees across
 five readings — oracle, both lowerings on the executor, both on mask-risc's
 reference evaluator — with two-sided anti-vacuity (a proper subset of alpha
 AND strictly below the ungated remainder, so a dropped gate fails even though

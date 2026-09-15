@@ -100,16 +100,24 @@
 //! today and says so plainly; the range WRITE waits on the primitive, per the
 //! missing-capability STOP rule, rather than being hand-rolled one layer up.
 //!
-//! # The one thing DuckDB has that this does not
+//! # What DuckDB has that this does not: the measurement loop
 //!
-//! `AdaptiveFilter` (matrix row A1, its only NEEDS-FALSIFIER of this kind)
-//! permutes a conjunction's terms at RUNTIME by measured selectivity. This
-//! crate lowers children in the order they were written, and that is not
-//! neutral here: under the survivor skip a cheap, highly selective conjunct
-//! placed first shrinks every later predicate's live-word count, so order is a
-//! real cost lever and the caller currently owns it with no help. Saying so is
-//! the honest state; a selectivity-ordered lowering is a design with a
-//! measurement attached, not a line to add.
+//! `AdaptiveFilter` (matrix row A1) permutes a conjunction's terms at RUNTIME,
+//! seeded from a static selectivity heuristic and then adapted by measured
+//! RUNTIME. This crate cannot do that, and the reason is structural rather
+//! than unfinished: it never executes, so there is nothing for it to measure.
+//!
+//! Order is still a real cost lever here — under the survivor skip a conjunct
+//! whose survivors die in whole WORDS shrinks every later predicate's live
+//! count — so [`Filter::and_by_skip`] takes the ordering decision as an INPUT.
+//! The measurement that licensed even that much is
+//! `examples/adaptive_order_probe.rs`; read [`Filter::and_by_skip`] for what it
+//! does and does not establish.
+//!
+//! ⊘ This section previously called A1 "its only NEEDS-FALSIFIER of this kind"
+//! and said "the caller currently owns it with no help". Both were true when
+//! written and stopped being true in the same branch: A1 left that column and
+//! `and_by_skip` is the help.
 //!
 //! # Status
 //!
@@ -274,8 +282,11 @@ impl Filter {
     ///
     /// # Why the score is dead WORDS and not selectivity
     ///
-    /// DuckDB ranks conjunction terms by measured selectivity, because there
-    /// term `k` runs only on the survivors of `1..k-1` — a selective term
+    /// DuckDB orders conjunction terms by a static selectivity heuristic and
+    /// then adapts by measured RUNTIME (`adaptive_filter.cpp`: swap two
+    /// neighbours, measure 10 iterations, keep if mean runtime dropped). It
+    /// can rank that way because there term `k` runs only on the survivors of
+    /// `1..k-1` — a selective term
     /// first literally shrinks the input. In V3 a predicate sweep costs the
     /// full column wherever it sits, so ordering can only pay by AVOIDANCE:
     /// the survivor skip drops a 64-row WORD when the gate has no survivor in
@@ -290,34 +301,67 @@ impl Filter {
     /// | selective | 0.055 % | 5.66 % → **80.66 %** (14.2×) |
     /// | clustered (an address prefix) | 0.047 % | 0.00 % → **99.90 %** |
     ///
-    /// Two findings, and the second is the one that picks the control law.
+    /// Two findings, and a third that is a correction rather than a result.
     ///
     /// **Order does move the skip fraction, so A1 is not ELIMINATE** — but
-    /// only where there is anything to skip. At 21.8 % survival, uniformly
-    /// spread, a 64-row word is all-dead with probability `0.782^64 ≈ 2e-7`,
-    /// so NO ordering skips anything and the whole question is moot. Word
-    /// granularity needs the accumulator to die in whole words, not merely to
-    /// be small.
+    /// only where there is anything to skip. At 21.8 % survival with
+    /// survivors SCATTERED, a 64-row word is all-dead with probability
+    /// `0.78163^64 ≈ 1.4e-7`, so NO ordering skips anything and the whole
+    /// question is moot. Word granularity needs the accumulator to die in
+    /// whole words, not merely to be small — scattering is the condition,
+    /// not density, and a dense-but-contiguous population has plenty of dead
+    /// words.
     ///
-    /// **Which means selectivity is the wrong signal.** The selective and the
-    /// clustered regimes have almost identical survivor counts — 36 and 31
-    /// rows — and differ by 19 percentage points of skip, because one
-    /// conjunct's survivors are contiguous and the other's are scattered. Rank
-    /// by selectivity and those two look the same. Rank by DEAD WORDS and they
-    /// do not. That is also why V3 has this lever at all: an address prefix
-    /// selects a contiguous subtree ([`Filter::prefix_u64`]), which is the
-    /// clustered row of that table.
+    /// **Which means selectivity cannot tell you WHETHER reordering is worth
+    /// anything.** The selective and the clustered regimes have almost
+    /// identical survivor counts — 36 and 31 rows — and differ by 19
+    /// percentage points of achievable skip (best against best: 80.66 % vs
+    /// 99.90 %), because one conjunct's survivors are contiguous and the
+    /// other's are scattered. A selectivity-only cost model cannot separate
+    /// those two cases. That is also why V3 has this lever at all: an address
+    /// prefix selects a contiguous subtree ([`Filter::prefix_u64`]), which is
+    /// the clustered row of that table.
+    ///
+    /// Note what that does NOT say. An earlier version of this paragraph read
+    /// *"rank by selectivity and those two look the same; rank by DEAD WORDS
+    /// and they do not"* — a claim about the right SORT KEY. The probe does
+    /// not support it: it enumerates all 120 permutations and reports
+    /// min/max, never computing a selectivity-ranked order, never computing a
+    /// dead-word-ranked order, never comparing two ranking rules, and never
+    /// calling this function. Whether dead words is the better key to sort by
+    /// is **untested**; what is measured is the between-regime diagnostic
+    /// above.
     ///
     /// # Why the score is the CALLER's, and why there is no hill-climb
     ///
-    /// This crate builds programs and never evaluates one, so it cannot
-    /// measure anything; the score comes from a previous execution the caller
-    /// ran. DuckDB's adjacent-transposition hill-climb with swap-likeliness
-    /// decay is NOT ported — the matrix anticipated that too (*"its
-    /// swap-likeliness decay is not obviously the right control law"*), and
-    /// the measurement says why: the quantity being optimised is a step
-    /// function of clustering, not a smooth function of selectivity, so a
-    /// local search over adjacent swaps is exploring the wrong landscape.
+    /// The shipped surface of this crate builds programs and never evaluates
+    /// one, so there is no point at which it could measure a score; it comes
+    /// from a previous execution the caller ran.
+    ///
+    /// DuckDB's adjacent-transposition hill-climb is not ported — **and the
+    /// reason first given here was measured FALSE, so it is worth stating
+    /// correctly.** The claim was that "the quantity being optimised is a step
+    /// function of clustering … so a local search over adjacent swaps is
+    /// exploring the wrong landscape". Instrumenting the probe's own
+    /// `skipped_words` model with the clustered regime's prefix term at each
+    /// index gives `[4092, 3069, 2046, 1023, 0]` — adjacent deltas all
+    /// exactly `-1023`, a monotone linear ramp, because the prefix term's
+    /// mask is one live word of 1024 and each gated position past it skips
+    /// the other 1023. Every forward adjacent swap improves it by the same
+    /// amount. That is the friendliest possible hill-climb landscape, not the
+    /// wrong one.
+    ///
+    /// The step-like behaviour is BETWEEN regimes (does this conjunction
+    /// contain a clustered term at all); the search space is WITHIN one
+    /// permutation set. The original argument reasoned from the first to the
+    /// second.
+    ///
+    /// The real reason is narrower: this crate never executes, so there is no
+    /// runtime for a hill-climb to measure. Whether a consumer that DOES
+    /// execute should run one is unanswered here — and DuckDB's loop adapts
+    /// on measured RUNTIME, seeded from a static selectivity heuristic, not
+    /// on measured selectivity, so the comparison would have to be against
+    /// that.
     ///
     /// # One caveat, because it is a real override
     ///

@@ -127,8 +127,10 @@ jobs:
       # lance-graph-quack: the DuckDB-shaped surface that LOWERS to mask-risc.
       # Same reason as the mask-risc line above — a member's tests are not run
       # by `cargo build --workspace`, so the line lands the day the crate
-      # joins. Its 13 tests are all differential against a per-row oracle, so
-      # an un-run suite is an un-checked lowering, not merely an un-run test.
+      # joins. 9 of its 13 tests are differential against a per-row oracle
+      # (the other 4 are structural: gate shape, the pass/slot trade,
+      # width-vs-depth, the empty-junction refusal), so an un-run suite is an
+      # un-checked LOWERING, not merely an un-run test.
       - name: Run quack tests
         run: cargo test --manifest-path crates/lance-graph-quack/Cargo.toml
       # weather-poc is workspace-EXCLUDED. A new workflow introduced by the

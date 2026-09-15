@@ -117,7 +117,11 @@ actually exists.
 2. **Rewrite the 9 stale `substrate` strings** to name mask-algebra
    compositions, or mark them `unrealized` — a string naming a retired kernel
    reads as a spec and is worse than an empty one.
-3. **Fix the 2 Berry-Esseen citations** (1 RTE, 32 SDD) to Jirak 2016, per
+3. ⊘ **CLOSED in the same commit** — both strings now name shipped Jirak
+   surfaces (`recipes.rs:97` `SigmaTierBands::jirak_p`, `:408` `jc` Pillar 5),
+   and `no_recipe_cites_classical_berry_esseen` guards against a third. The
+   two rows above record the PRE-fix state and are kept as the finding, not
+   as outstanding work. Originally: **Fix the 2 Berry-Esseen citations** (1 RTE, 32 SDD) to Jirak 2016, per
    `I-NOISE-FLOOR-JIRAK`. These are iron-rule violations sitting in shipped data.
 4. **Re-pin 12 TCA** off the retired ±5 window onto the version-range read
    (`QueryReference::at(v, rung)`), which is what replaced it.

@@ -526,14 +526,14 @@ rounding error dressed as a finding.*
 
 | verdict | whole rows | split halves | rows |
 |---|---|---|---|
-| **ADAPT** | **15** | — | R5, R7, R8, E1, E2, E4, E5, E7, E10, E11, C1, C3, C5, A4, **A1** (moved 2026-09-14, §8a) |
+| **ADAPT** | **15** | — | R5, R7, R8, E1, E2, E4, E5, E7, E10, E11, C1, C3, C5, A4, **A1** (moved 2026-09-14 — **conditional**, see §8a: inert in 2 of the 4 regimes, and the pre-registered *representative predicate stream* half was never run) |
 | **ELIMINATE** | **8** | **+2** | R1, R3, R4, E3, E8, E9, C2, C4 · *plus* R6(the NULL **role**), A5(composition) |
 | **V3 BETTER** | **3** | **+1** | E6, C6, C7 · *plus* A3(addressed case) |
 | **KEEP** | **2** | **+2** | R2, C8 · *plus* R6(the mask **representation**), A5(egress) |
 | **NEEDS FALSIFIER** | **1** | **+1** | A2 · *plus* A3(unaddressed case) — ⊘ A1 left this column 2026-09-14 |
 | | **29** | **+6** | = 35 entries / 32 rows |
 
-Read the shape rather than the totals: **ADAPT dominates (14/32)**, which is the
+Read the shape rather than the totals: **ADAPT dominates (15/32)**, which is the
 non-obvious result. The tempting summary — "DuckDB's machinery is an artifact of
 index lists, delete it" — is contradicted by the matrix's own count: only 8 rows
 eliminate cleanly, and they are concentrated in *representation* (R1, R3, R4) and
@@ -606,31 +606,75 @@ positions of one ordering (term 0 is the ungated seed).
 **Verdict: ADAPT, not ELIMINATE — but not DuckDB's algorithm.** Three findings,
 each of which changes what should be built:
 
-1. **The knob is inert wherever the population is not sparse, by arithmetic
-   rather than by implementation.** At 21.8 % survival a 64-row word is
-   all-dead with probability ≈ 0.782⁶⁴ ≈ 2·10⁻⁷, so *no* ordering skips
+1. **The knob is inert wherever survivors are SCATTERED, whatever the
+   density.** At 21.8 % survival with independent placement a 64-row word is
+   all-dead with probability `0.78163⁶⁴ ≈ 1.4·10⁻⁷`, so *no* ordering skips
    anything and the best and worst permutations are identical. Reordering is
    not "a small win" in the moderate and permissive regimes; it is exactly
    zero. Any cost model that spends on ordering there is spending on nothing.
 
-2. **The control signal is DEAD WORDS, not selectivity.** The selective and
-   the clustered regimes have almost identical survivor counts — 36 and 31 —
-   and differ by **19 percentage points of achievable skip** *as written*,
-   because one conjunct's survivors are contiguous and the other's are
-   scattered. Rank by selectivity and those two look the same; rank by dead
-   words and they do not. This is also why V3 has the lever at all: an address
-   prefix selects a contiguous subtree (`Filter::prefix_u64`, R5/R8), which is
-   the clustered row.
+   > ⊘ **CORRECTED 2026-09-15.** This read *"inert wherever the population is
+   > not sparse, by arithmetic rather than by implementation"*, and both
+   > halves were wrong. **Density is not the condition** — finding 2 below
+   > says so two paragraphs later, and a dense-but-contiguous population has
+   > plenty of dead words. The condition is scattering. And the arithmetic is
+   > a Bernoulli-INDEPENDENCE computation, so it is conditional on a
+   > uniformity that is a property of this fixture's LCG, not of the
+   > substrate — "by arithmetic, not by implementation" claimed a hardness it
+   > does not have. The figure was also stated as `2·10⁻⁷`; recomputed, it is
+   > `1.419·10⁻⁷`.
 
-3. **DuckDB's adjacent-transposition hill-climb must NOT be ported**, and the
-   row above already anticipated the reason (*"its swap-likeliness decay is not
-   obviously the right control law"*). The measurement says why: the optimised
-   quantity is a **step function of clustering**, not a smooth function of
-   selectivity, so a local search over adjacent swaps is exploring the wrong
-   landscape. In the clustered regime the as-written order is already at 99.90 %
-   and the worst is 0.00 % — a hill-climb starting from the worst has no
-   adjacent swap that improves anything until it happens to move the prefix
-   term to the front.
+2. **Selectivity cannot tell you WHETHER reordering is worth anything.** The
+   selective and the clustered regimes have almost identical survivor counts —
+   36 and 31 — and differ by **19 percentage points of achievable skip**
+   (best-vs-best: 80.66 % against 99.90 %), because one conjunct's survivors
+   are contiguous and the other's are scattered. A selectivity-only cost model
+   cannot separate those two cases. This is also why V3 has the lever at all:
+   an address prefix selects a contiguous subtree (`Filter::prefix_u64`,
+   R5/R8), which is the clustered row.
+
+   > ⊘ **CORRECTED 2026-09-15, twice.** (a) The 19 points were attributed *as
+   > written*; as written the two regimes differ by **94.24** points (5.66 vs
+   > 99.90) and 19.24 is the best-vs-best figure. The italic made the sentence
+   > false against its own table. (b) The heading read *"the control signal is
+   > DEAD WORDS, not selectivity"* and closed *"rank by selectivity and those
+   > two look the same; rank by dead words and they do not"* — a claim about
+   > the right SORT KEY. **That is not what was measured.** The probe
+   > enumerates all 120 permutations and reports min/max; it never computes a
+   > selectivity-ranked order, never computes a dead-word-ranked order, never
+   > compares two ranking rules, and never calls `and_by_skip`. What the
+   > evidence supports is the diagnostic above — a between-regime statement —
+   > not a between-orderings one. Whether dead words is also the better sort
+   > key is **untested**.
+
+3. **DuckDB's adjacent-transposition hill-climb is not ported — but not
+   because its search would fail.** ⊘ **CORRECTED 2026-09-15: the original
+   argument here was measured FALSE.** It read: *"the optimised quantity is a
+   step function of clustering … so a local search over adjacent swaps is
+   exploring the wrong landscape. In the clustered regime … a hill-climb
+   starting from the worst has no adjacent swap that improves anything until
+   it happens to move the prefix term to the front."*
+
+   Measured, instrumenting the probe's own `skipped_words` model with the
+   prefix term at each index: **`[4092, 3069, 2046, 1023, 0]`, adjacent deltas
+   all exactly `−1023`.** The prefix term's mask is one live word of 1024, and
+   `skipped_words` charges `dead_words(acc)` once per gated position, so skip
+   is `(4 − p) · 1023` in the term's index `p` — a monotone linear ramp. Every
+   single forward adjacent swap improves it by the same amount. That is the
+   *most* hill-climb-friendly landscape possible, not the wrong one, and the
+   quoted sentence is the exact opposite of the truth.
+
+   The step-like behaviour is BETWEEN the four regimes (does this conjunction
+   contain a clustered term at all); the search space is WITHIN one
+   permutation set, where the objective is the ramp above. The original
+   reasoned from the first to the second.
+
+   **The real reason it is not ported** is narrower and is not about search
+   quality: this crate never executes, so there is no runtime for a hill-climb
+   to measure. Whether a consumer that DOES execute should run one is
+   **unanswered here** — and, per the note on `[H]` below, DuckDB's own loop
+   adapts on measured RUNTIME rather than on selectivity, so a comparison
+   would have to be against that.
 
 **What was built instead:** `Filter::and_by_skip(impl IntoIterator<Item = (u32,
 Filter)>)` — the caller supplies a measured skip score per conjunct from a
@@ -650,6 +694,28 @@ Board: `STATUS_BOARD.md` D-QCK-9; the probe is committed, not a one-off.
 ---
 
 ## §9 — Claims in this document that are NOT verified in code
+
+> **⊘ ADDED 2026-09-15 — two A1 claims belong here and were not filed.** §8a's
+> verdict was written as settled and this register, which exists for exactly
+> this, was not updated in the same pass.
+>
+> - **A1's own falsifier is half-run.** The pre-registered question (the A1
+>   row's FALSIFIER cell) is *"on a **representative predicate stream**, what
+>   fraction of `Pred` ops are skippable by `under`, and does term order
+>   change that fraction?"* What ran is one LCG seed, 65 536 rows, five
+>   conjuncts, and **four hand-designed regimes** — one of them constructed
+>   specifically to contain a contiguous address-prefix term. That answers the
+>   ORDER half on a fixture and answers the FRACTION half only as "between
+>   0 % and 99.9 %, pick a regime". `[H]` Nothing in this repo samples a
+>   workload V3 actually runs.
+> - **"Dead words is the better sort key" is untested**, per §8a finding 2's
+>   own correction: the probe never compares ranking rules. `[H]`
+>
+> A third, related: the pre-registered text ends *"its swap-likeliness decay
+> is **not obviously** the right control law"* — a hedge. §8a first cited that
+> as having "anticipated the reason" and upgraded it to "must NOT be ported".
+> A hedge quoted as a prediction is not a confirmation; §8a finding 3 is now
+> corrected to say so.
 
 Collected so they are not quoted as findings. Everything else in §2–§5 carries a
 `file:line` read this session.
