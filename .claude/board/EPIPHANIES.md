@@ -55,35 +55,52 @@ That is a ceiling, not a defect, and it says where the mask form stops being the
 right carrier. Above 10 bits the skip does the work; below it the mask cannot
 discriminate at all.
 
-### The same 65 536 indices: 8 B to 128 KiB for "how far", and no analytic form for "which"
+### Both questions have an 8-byte form; what differs is the CONDITION
 
 | reading | size | answers |
 |---|---|---|
-| literal mask | **8 KiB** | *which* cells — an exact set |
-| distance LUT, MATERIALIZED | **128 KiB** | *how far* — one load |
-| distance LUT, ANALYTIC (Fisher-z, per family) | **8 B** | *how far* — a formula |
+| literal mask | **8 KiB** | *which* cells — ANY subset |
+| prefix range (`Cmp::MatchU32`'s pattern+care) | **8 B** | *which* cells — a STRUCTURED subset |
+| `FisherZTable` materialized (i8, k=256) | **64 KiB + 8 B** | *how far* — one load |
+| `FamilyGamma` alone | **8 B** | *how far* — PARAMETERS, plus `atanh`/`tanh` + affine |
 
-Two things fall out, and the second is the sharper one.
+`le-contract.md` §"The canonical cosine/centroid replacement is ANALYTIC" is
+explicit that **"a materialized k×k table is a CACHE of the formula, never the
+canon"**, the canon being `bgz-tensor::fisher_z` (cosine → `atanh` → per-family
+affine → normalized i8; certified ρ≥0.999, `E-PALETTE-NNUE-COSINE-GREEN-1`).
+Verified in source rather than from that prose: `FamilyGamma { z_min: f32,
+z_range: f32 }` with `BYTE_SIZE = 8`, and `FisherZTable { entries: Vec<i8>, k,
+gamma }` whose `byte_size()` is `k*k + 8` — so at k=256 the materialized form is
+**64 KiB + 8 B**, entries at ONE BYTE each because the codec's output grade is
+the normalized i8. The palette index is 8 BITS; the family's affine is 8 BYTES;
+they are different objects and this table keeps them apart.
 
-**The materialized LUT is 16× LARGER than the mask** and falls out of L1, while
-being the reading normally called the O(1) trick. Same 65 536 indices, opposite
-cache behaviour, purely from bits-vs-bytes per cell.
+**The 8 B is parameters, not answers.** A distance from `FamilyGamma` still costs
+an `atanh`/`tanh` and the affine — it is compute-versus-table, not a smaller
+answer. Quoting the two sizes without that is the elision this row exists to
+prevent.
 
-**But "how far" also has an 8-byte form and "which" does not.** `le-contract.md`
-§"The canonical cosine/centroid replacement is ANALYTIC" is explicit that **"a
-materialized k×k table is a CACHE of the formula, never the canon"** — the canon
-is the analytic Fisher-z codec (`bgz-tensor::fisher_z::{FamilyGamma,
-FisherZTable}`, 8-byte per-family affine, certified ρ≥0.999,
-`E-PALETTE-NNUE-COSINE-GREEN-1`). So the same question spans **8 B to 128 KiB, a
-16 384× range**, at the operator's choice.
+**And the mask's compact form exists too — for STRUCTURED sets.** A prefix range
+is `Cmp::MatchU32 { pattern, care }`, 8 bytes of the same order as the gamma, and
+matrix row R5 says the same of DuckDB's `SequenceVector` ("a contiguous range to
+3 scalars", which DuckDB then throws away at the first predicate and V3 keeps).
+So the asymmetry is NOT metric-compacts / set-does-not:
 
-The mask has no such form, and cannot: a metric over a tile is a function of two
-coordinates and compresses to a formula; an arbitrary subset of 65 536 cells is
-2^65536 possibilities and compresses to nothing. **That asymmetry — the metric is
-a formula, the set is not — is why the two carriers cannot substitute for each
-other**, and it is the same boundary `E-CAM96-DISTRIBUTION-MEASURED-1` sits on
-(a ranking result, never a membership one). Figures are
-`E-X265-PROBE-GPU-LUT-1`'s and the contract's, not derivations here.
+- *how far* compacts UNCONDITIONALLY — a metric is a function of two coordinates,
+  so a formula always exists and the 8 bytes are its parameters.
+- *which* compacts CONDITIONALLY — only when the set is structured. An arbitrary
+  subset of 65 536 cells is one of 2^65536 and has no compact form at all.
+
+The clustered regime of §8a **is** the structured case (its conjunct is an address
+prefix), so in exactly the regime this entry is about, both carriers have their
+8-byte form and the 8 KiB / 64 KiB materializations are the caches.
+
+⊘ An earlier draft of this section, corrected before merge: it gave the
+materialized LUT as **128 KiB** and claimed the mask has no analytic form. The
+128 KiB u16 figure is `E-X265-PROBE-GPU-LUT-1`'s GPU table — a DIFFERENT object
+from `bgz-tensor`'s i8 `FisherZTable`, matched on "256² LUT" and carried across.
+The no-analytic-form half was true of arbitrary sets and false of the prefix
+ranges the entry is otherwise entirely about.
 
 ### Why 256×256 and not bigger — the bound is measured, elsewhere
 
