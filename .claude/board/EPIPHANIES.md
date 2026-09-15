@@ -1497,7 +1497,7 @@ the tile, seriation, LUT and spread contribute nothing that survives permutation
 **Scope.** Pure-Python lab, no Rust fingerprints — a shape proxy, never a measurement of
 `ndarray`/`bgz17`/`helix`. The cue reached **87.5 %** of the BPE incumbent (0.1579 vs 0.1805):
 PROCEED, not PASS.
-## E-A-FLOOR-PASSED-AT-ITS-BOUND-IS-A-DEAD-FIXTURE-1 (2026-09-14)
+## 2026-09-14 — E-A-FLOOR-PASSED-AT-ITS-BOUND-IS-A-DEAD-FIXTURE-1
 
 **Status:** FINDING (measured twice in one file, both arms)
 **Confidence:** High — the invisible-mis-map half is a direct red/green pair
