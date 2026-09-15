@@ -1,3 +1,50 @@
+## ISS-NO-MASK-HOP-OP (2026-09-15) — OPEN
+
+**Four subsystems implement the mask-native hop; none of them performs it. The joining op
+does not exist.**
+
+lance-graph-java's T2 doctrine already *rules* the shape — **"HOP MAY LOOK LIKE HOP. IT MUST
+EXECUTE AS MASK × CLASSVIEW/WIDEFIELDMASK → MASK"** — and that ruling was made independently
+of this arc, which is why it is evidence rather than a post-hoc fit.
+
+| have | where |
+|---|---|
+| the instruction | `ndarray::simd` — `ternlog`, 256 immediates; `AND2_ANDNOT = 0x40` is `a & b & !c` |
+| the mask algebra | `crates/lance-graph-mask-risc/` — `Pred/And/Or/Xor/AndNot/Not/Ternlog`, ≤3-leaf fusion to one `Ternlog{imm}` |
+| the adjacency | blasgraph CSR/CSC/COO/HyperCSR + `vxm`/`mxm`, 7 semirings |
+| the contract | lance-graph-java T2 (above) |
+| **the op** | **nothing** |
+
+**Verified absence, not assumed.** In `lance-graph-mask-risc/src/ir.rs`:
+`Operand = {Plane, Scratch}` · `MaskOp = {Pred, And, Or, Xor, AndNot, Not, Ternlog}` ·
+`Terminal = {Count, Any, All, MaskedSumI32, MaskedMinI32, MaskedMaxI32, BlendI32, Keep}`,
+and a case-insensitive scan of the whole file for `gather|hop|permute|adjacen|neighbor|csr`
+returns **zero hits**. The IR is mask algebra over row *lanes*; no operand says *follow edges*.
+
+**Where the two would meet is a scalar loop.** `blasgraph/ops.rs:157-195` (`hdr_bfs`) computes
+`frontier & adj & !visited` — the `AND2_ANDNOT` immediate exactly — as a per-index Rust loop
+(`result.get(idx).is_none()`), with no top-k, no bounded legal set, no truncation at the
+advance step. `max_depth` is the only cost control.
+
+**The sharpest single symptom:** `HdrSemiring::Boolean` (`blasgraph/semiring.rs:50-51`) is
+documented *"AND multiply, OR add. Boolean reachability"* and dispatches `match (a, b)` on
+`HdrScalar` **per element pair** (`:101`, `:158`). Boolean reachability is therefore **already
+expressible and already slow** — the cheap regime has a name in the semiring enum and pays
+semiring cost anyway.
+
+**Why this is filed rather than built:** `graph/refine/` (task #26) is gated on the operator's
+go, and the op is an IR-surface addition to a crate currently in PR3 — not a drive-by. The
+measurement that would justify it is named in
+`E-BOUNDED-ATTENTION-BUYS-REACH-AND-A-DISTANT-HOP-IS-A-TERNLOG-NOT-A-SEMIRING-1`
+and is two-sided: a bounded-k ternlog walk must match unbounded `hdr_bfs` recall at the same
+depth AND go red when k is raised to unbounded, or the bound is decoration.
+
+**Open sub-question, not yet answered:** whether the hop belongs in the mask-risc IR (a new
+`MaskOp` reading a CSR operand) or stays in blasgraph with mask-risc supplying the fused
+ternlog kernel. The IR has no non-lane operand today, so adding one is a shape decision about
+that crate, not a mechanical insertion.
+
+---
 ## ISS-ELK-DENSITY-UNISOLATED (2026-09-15) — OPEN
 
 **The 48.6 pp MQ↔MONDO divergence is measured; its mechanism is not.**

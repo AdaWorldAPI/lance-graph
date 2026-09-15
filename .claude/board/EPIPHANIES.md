@@ -1,3 +1,79 @@
+## 2026-09-15 — E-BOUNDED-ATTENTION-BUYS-REACH-AND-A-DISTANT-HOP-IS-A-TERNLOG-NOT-A-SEMIRING-1 — the architecture is already built in four places and the one op that joins them does not exist
+
+**Status:** FINDING on the code census (verified, file:line below). The ARCHITECTURE is the
+operator's, stated across three messages; the census and the absence are mine.
+**Confidence:** High on what exists and what does not — this is a located-code claim, not a
+measurement. The two supporting numbers are measured and are named as such.
+
+**Attribution first, because the framing error was mine.** Asked *"would MQ offer a cheap
+gating for the EWA 12-hop fanout"*, I read **MQ as a graph shape** — something to run arms
+against — and built it as a generality control. The operator meant **MQ as an access
+discipline**: in Mississippi Queen the river is revealed a bounded window ahead of the boat,
+the channel braids, and legal moves are bounded (speed 1–3, lane ±1). *That bounded legal set
+IS the prefetch window.* You never hold the river; you hold the frontier. Then, in order:
+
+> *"MQ is focus of attention for sparse adjacent blasgraph like prefetch"*
+> *"so it holds the Torch cheaply for further reach then blasgraph"*
+> *"MQ allows for ternlogq for the next n hops knowing its still further away"*
+
+**The cost model those three compose into.** (1) The torch is the bounded frontier — cheap
+attention. (2) Because the torch is cheap the **reach can be long**: bounded frontier × many
+hops beats unbounded frontier × few, so 12 hops is the wrong thing to be afraid of. (3) While
+the target is still *n* hops out **nothing exact is being asked** — only *in play / excluded* —
+so the hop is a **boolean mask op**, one `VPTERNLOGQ` over 8×u64 = 512 nodes, and the
+expensive semiring (Hamming / palette / NARS truth) is paid **only on arrival**.
+
+**Every piece exists. Nothing is wired.**
+
+| piece | location | state |
+|---|---|---|
+| ternlog primitive, 256 immediates | `ndarray::simd` (`simd.rs:592-594`) | shipped — `AND2_ANDNOT = 0x40` is `a & b & !c` |
+| mask algebra + ≤3-leaf fusion → one `Ternlog{imm}` | `crates/lance-graph-mask-risc/` (workspace member, `Cargo.toml:8`) | in PR3 (D-MRX-0..6) — **no hop** |
+| hop over CSR adjacency | blasgraph `vxm` / `mxm`, 7 semirings | shipped — **not in mask form** |
+| the contract itself | lance-graph-java T2 | *"HOP MAY LOOK LIKE HOP. IT MUST EXECUTE AS MASK × CLASSVIEW/WIDEFIELDMASK → MASK"* |
+| **an op joining them** | — | **ABSENT** |
+
+**`AND2_ANDNOT` is literally the advance step.** `a & b & !c` = `frontier & adj & !visited`.
+`hdr_bfs` (`blasgraph/ops.rs:157-195`) computes exactly that — as a **scalar per-index loop**
+(`result.get(idx).is_none()`), keeping *every* newly reached node with no top-k, no bounded
+legal set, no truncation. `max_depth` is its only cost control, so it lights the whole river
+each hop and rations depth to compensate — the inverse of the cost model above.
+
+**Two details that sharpen the gap rather than widen it.**
+
+*The cheap regime already has a name and still pays semiring cost.* `HdrSemiring::Boolean`
+(`blasgraph/semiring.rs:50-51`) is documented *"AND multiply, OR add. Boolean reachability"* —
+and dispatches through `match (a, b)` on `HdrScalar` **per element pair** (`:101`, `:158`). So
+boolean reachability is **already expressible and already slow**. That is the single clearest
+statement of the defect: the enum variant exists, the instruction exists, and they never meet.
+
+*The far/near split is already in the terminals.* `MaskOp` is `Pred / And / Or / Xor / AndNot /
+Not / Ternlog`; `Terminal` is `Count / Any / All / MaskedSum{I32} / MaskedMin / MaskedMax /
+BlendI32 / Keep`. While far you want `Any` or `Count` — a popcount, no materialization; on
+arrival `Keep` / `Blend`. Both halves are built. **Nothing routes between them by distance.**
+
+**What is MEASURED here, distinguished from what is censused.** Only two numbers, both from
+earlier in this arc: the torch's loss budget — top-6 successor mass **0.9792 / 0.9943** (W0
+CAPACITY, D-HXP-1, kill was < 0.40) — and the cost of not having one: the `is_a` frontier
+profile `[1,4,155,2121,5984,**6297**,4641,2724,978,281,35,3]`, peaking **6,297 nodes wide at
+hop 6 on a single seed**. Everything else above is located code.
+
+**I had the torch measurement and filed it under a half-struck result.** D-HXP-1 split into
+CAPACITY **PASS** and SIGNAL **STRUCK**; I let the struck half carry the summary. For a
+prefetch discipline **capacity is the whole question**, and it passed at 0.98–0.99. A bounded-6
+torch loses ~1–2 % of the successor mass and turns a 6,297-wide frontier into a 6-wide one.
+
+**Falsifier for the missing op, two-sided, on data already in hand:** a bounded-k ternlog walk
+must reach materially the same set as unbounded `hdr_bfs` at the same depth (recall against the
+full closure), **and must go red when k is raised to unbounded** — otherwise the bound is doing
+nothing and the result is about the graphs, not the mechanism. Anti-vacuity half: on a graph
+where top-k does NOT hold the mass it must lose recall, or 0.98 is a property of these two
+graphs rather than of the discipline.
+
+**Not built.** `graph/refine/` (task #26) remains gated on the operator's go; nothing in this
+entry is code.
+
+---
 ## 2026-09-15 — E-DEPTH-RANK-REPRODUCES-MOST-SPECIFIC-BUT-ONLY-ON-A-TAXONOMY-1 — I published "refuted" on a sign error, then the correction's reversal turned out to be taxonomy-shaped, not lens behaviour
 
 **Status:** FINDING (measured, `.claude/probes/elk-generality-v1/`, MQ arm re-runnable).
