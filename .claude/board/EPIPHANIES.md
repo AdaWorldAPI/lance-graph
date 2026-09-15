@@ -1,3 +1,65 @@
+## 2026-09-15 — E-I-BUILT-A-LEARNING-PATH-OUT-OF-TWO-DEAD-TENANTS-AND-CALLED-IT-THE-SUBSTRATE-1 — there is no residue in Hexagon, and the guard that refused the graft was recorded as a missing feature
+
+**Status:** CORRECTION. Operator-caught, same day, hours after
+`E-I-DECLARED-A-JOIN-ABSENT-BY-GREPPING-ONE-FILE-AND-COMPOSE-IS-THE-SAME-XOR-A-THIRD-TIME-1`
+merged in #1233 carrying the fabrication.
+**Confidence:** HIGH — every clause below is a census of shipped declarations and a
+count over the Hexagon artifacts, both re-runnable.
+**Stornoes:** five rows of that entry's organs/no-nerve table + its `Read edge → … →
+write HelixResidue + Plasticity` chain (annotated in place).
+
+### What I fabricated
+
+A five-stage Hexagon learning path — *read edge → encode residue → `observe`/`roll` →
+write `HelixResidue` + `Plasticity` → surround over six neighbours* — assembled from
+**two tenant declarations that nothing has ever written** and **a crate that is not part
+of Hexagon**, then published as the substrate's design with a "re-aim the loop at it"
+proposal on top.
+
+| my claim | measured |
+|---|---|
+| `HelixResidue` `U8×6` = "one byte per synapse, exactly six" | 6 B = **one 48-bit `Signed360` sphere angle** (`canonical_node.rs:868-871`). I read `6 == 6` as a mapping. |
+| `Plasticity` `U32×1` as a learning target | `U32` *"Hebbian counter + last-active stamp"* — a **scalar accumulator**, foreign to `6×(u8:u8)`, and 2 sites outside its own decl file |
+| helix residue belongs to Hexagon | `helix/src/lib.rs`: *"**HHTL is the deterministic PLACE**; helix is the **RESIDUE**"* — the HHTL axis, not the six rails |
+| the loop needs "a width-correct lane accessor" | `style_lane` returns the null lane for any non-12-byte tenant, *"release-safe by construction"* — **the contract's own guard was refusing the graft** |
+
+**The census that should have stopped it, in one line:** `residue` appears **0×** in
+`.claude/plans/hexagon-plasticity-v1.md`, **0×** across `.claude/probes/hexagon-plasticity-v1/`,
+**0×** in `STATUS_BOARD.md`. Hexagon was tested exhaustively — W-1, W0, W1/D-HXP-2, MQ-0..5,
+H5a–d — and a residue was never in it. One `grep -c` over the plan I wrote would have
+returned zero.
+
+### What plasticity actually is (three things, one of them a zombie)
+
+| named "plasticity" | shape | state |
+|---|---|---|
+| `PlasticityState`, `CausalEdge64[50:52]` | **3 bits, hot/cold per S/P/O** | **SHIPPED, 54 production sites**, written by `pack` |
+| the autopoiesis triangle 10/11/12 | `U8×12` = **`6×(u8:u8)`** each | shipped + correctly addressed; gate documented, **`src/` promoter absent = seam 6** |
+| `ValueTenant::Plasticity = 7` | `U32×1` counter + stamp | **zombie** — never written, duplicates row 1 in a foreign shape, and its *"last-active stamp"* is vocabulary from the **emission era the tombstone commit deleted** (`last_emission_cycle` → `last_active_cycle`) |
+
+I reached past the two live surfaces for the dead one.
+
+### The generalizable form — and it is the SAME rule as the entry it corrects, inverted
+
+That entry's own closing line is *"absence must be verified against the crate, not the
+file."* This is its mirror: **presence must be verified against the ARTIFACTS that tested
+the thing, not against the type system.** A declaration in `VALUE_TENANTS` proves a byte
+range is reserved; it proves nothing about whether the concept was ever part of the design.
+Two never-written tenants and a same-cardinality coincidence (`6 B` vs `6 rails`) were
+enough to manufacture an architecture — and the only reason it was caught is that the
+operator had run the Hexagon tests and knew no residue was in them.
+
+**The mechanical check, cheap enough to be unconditional:** before citing a type as part of
+a tested subsystem, `grep -c` its name in that subsystem's plan and probes. Zero hits means
+it is not part of it, whatever the type system says.
+
+Refs: `crates/lance-graph-contract/src/canonical_node.rs` (`VALUE_TENANTS`, `style_lane`),
+`crates/causal-edge/src/edge.rs` (`PlasticityState`, `PLAST_SHIFT`), `crates/helix/src/lib.rs`,
+`.claude/knowledge/causal-plane-inventory.md` §2 (the triangle) + §3 seam 6,
+`.claude/plans/hexagon-plasticity-v1.md`.
+
+---
+
 ## 2026-09-15 — E-I-DECLARED-A-JOIN-ABSENT-BY-GREPPING-ONE-FILE-AND-COMPOSE-IS-THE-SAME-XOR-A-THIRD-TIME-1 — the canonical join shipped in `hhtl.rs` all along, `[a,b]:[b,c]` is `compose_chain`, and the Hexagon substrate is every organ shipped with no nerve between them
 
 **Status:** CORRECTION + FINDING. Census against shipped code, operator-corrected across eight
@@ -69,15 +131,32 @@ already running.
 | currency: cosine replacement, i8, never float | `FisherZTable` 256×256 | ✓ | ✓ as storage; **decoded at every read** |
 | read one Wabe | `v3::read(tenant, fz)` | ✓ | materializes; `_cell` computed and discarded |
 | edge between two Waben `[a,b]:[b,c]` | `compose_chain` / `compose` | ✓ | ✓ `p64-bridge::deduce_path` |
-| plasticity as tenant | `ValueTenant::Plasticity = 7` | ✓ | **never written** |
-| synapse residue as tenant | `ValueTenant::HelixResidue = 4` | ✓ | **never written** |
-| synapse: deterministic place + 3-byte residue | `ResidueEncoder::encode(&self, place, n)` | ✓ | — |
-| learning write-back, gated | `observe` / `roll` (`&mut self`) | ✓ | **zero production callers** |
-| two synapses compared | `distance_adaptive(a, b, lut)` | ✓ | zero production callers |
+| ⊘ plasticity as tenant | `ValueTenant::Plasticity = 7` | ✓ | **never written** |
+| ⊘ synapse residue as tenant | `ValueTenant::HelixResidue = 4` | ✓ | **never written** |
+| ⊘ synapse: deterministic place + 3-byte residue | `ResidueEncoder::encode(&self, place, n)` | ✓ | — |
+| ⊘ learning write-back, gated | `observe` / `roll` (`&mut self`) | ✓ | **zero production callers** |
+| ⊘ two synapses compared | `distance_adaptive(a, b, lut)` | ✓ | zero production callers |
 | spread to the six neighbours | Pillar-15 DoG | certified | kernel DEFERRED |
 
-Read edge (i8) → compare to expectation → encode residue → `observe`/`roll` → write
-`HelixResidue` + `Plasticity` → surround over six edges. Every stage a type; zero stages joined.
+> ⊘ **THE FIVE ⊘ ROWS ABOVE AND THIS CHAIN ARE A FABRICATION — struck
+> 2026-09-15, operator-caught, hours after this entry merged.** There is no
+> residue in Hexagon. `HelixResidue` is a **48-bit `Signed360` sphere angle**,
+> ONE orientation per node — I read `6 B == 6 rails` as a mapping; `Plasticity`
+> is a `U32` *"Hebbian counter + last-active stamp"*, a scalar accumulator
+> foreign to a `6×(u8:u8)` substrate and a duplicate of the plasticity that
+> ships in the substrate's own shape (`PlasticityState`, **3 bits at
+> `CausalEdge64[50:52]`**, hot/cold per S/P/O, 54 production sites). helix is
+> the residue of **HHTL**, not of Hexagon (`helix/src/lib.rs`: *"HHTL is the
+> deterministic PLACE; helix is the RESIDUE"*). **`residue` appears 0× in
+> `hexagon-plasticity-v1.md`, 0× across the W1 probes, 0× in `STATUS_BOARD`** —
+> Hexagon was tested exhaustively and never involved one. The real learning
+> surface is seam 6 of this session's own inventory, already hexagon-shaped:
+> `FrozenStyle`/`LearnedStyle`/`ExploreStyle`, `U8×12` = `6×(u8:u8)` each, with
+> the shipped held-out promote gate. Full storno:
+> `E-I-BUILT-A-LEARNING-PATH-OUT-OF-TWO-DEAD-TENANTS-AND-CALLED-IT-THE-SUBSTRATE-1`.
+
+~~Read edge (i8) → compare to expectation → encode residue → `observe`/`roll` → write
+`HelixResidue` + `Plasticity` → surround over six edges.~~ Every stage a type; zero stages joined.
 The currency is consistent across crates without a float anywhere — i8 in bgz-tensor, u16 L1 on
 a z-indexed residue in helix (the Fisher-z is baked in at encode, stage 3), 3 bytes in
 `ResidueEdge`. The body mesh (`CLASSID_FMA = 0x0A01_0000`, `ReadMode::FMA`) is the existence

@@ -32,10 +32,12 @@
   `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED`,
   `ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY` (unmeasured).
 - **Queued on operator go, not started:** `graph/refine/` W1–W5 (task #26);
-  the Hexagon learning-loop re-aim (`probe_sudoku_teacher`'s learn →
-  held-out-check → freeze loop pointed at `HelixResidue` U8×6 / `Plasticity`
-  U32×1 instead of the U8×12 style lanes, which needs a width-correct lane
-  accessor — `set_style_lane` no-ops on those tenants); `NiblePath::as_match`
+  the `src/` promoter for seam 6 (`LearnedStyle → FrozenStyle`, the held-out
+  gate that today exists only in `probe_sudoku_teacher.rs`) — **on the
+  triangle lanes, which are already `6×(u8:u8)` and already correctly
+  addressed by `style_lane`'s 12-byte guard.** ⊘ *This bullet first proposed
+  re-aiming that loop at `HelixResidue` / `Plasticity` — a fabrication,
+  struck before merge; see the arc entry's storno.* `NiblePath::as_match`
   (guid-as-mask over `Pred::MatchU64`); the branchless `common_prefix_depth`;
   the 32-vs-5 register-ratio probe. The post-`82412ac` Hexagon-substrate
   census is measured and NOT yet on the board — see the arc entry's

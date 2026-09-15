@@ -116,17 +116,38 @@
   `NodeGuid` is reusable as a MASK without materialization — the nibbles are
   secondary**). The census that followed — `MatchU64` shipped with zero
   callers outside mask-risc; `clam_contained`/`cakes_nearest` empty on every
-  live view because `hhtl_path_at` defaults to `None`; `ValueTenant::HelixResidue`
-  is `U8×6` (one byte per synapse, exactly six) and `::Plasticity` `U32×1`,
-  both never written; `ResidueEncoder::observe`/`roll` and
-  `distance_adaptive` with zero production callers; the one existing
-  RLHF-shaped nerve is `probe_sudoku_teacher.rs` writing `LearnedStyle` /
-  `FrozenStyle` (U8×12) behind a held-out promote gate, and `set_style_lane`
-  no-ops on the 6-byte and 4-byte synapse lanes by width — is measured and
-  **NOT on the board.** The eleventh arc's EPIPHANIES entry carries the eight
-  corrections and the organs/no-nerve table; the post-commit census lands
-  with the learning-loop re-aim, on operator go. Filed here as debt, not
-  buried.
+  live view because `hhtl_path_at` defaults to `None` — is measured and **NOT
+  on the board.**
+  > ⊘ **AND THE REST OF THAT CENSUS WAS A FABRICATION — struck before it
+  > merged, operator-caught.** The draft of this bullet continued: *"`ValueTenant::HelixResidue`
+  > is `U8×6` (one byte per synapse, exactly six) and `::Plasticity` `U32×1`,
+  > both never written; `ResidueEncoder::observe`/`roll` and `distance_adaptive`
+  > with zero production callers; … `set_style_lane` no-ops on the 6-byte and
+  > 4-byte synapse lanes by width."* **Every clause of that is wrong about
+  > Hexagon.** `HelixResidue` is 6 B = a 48-bit `Signed360` sphere ANGLE — ONE
+  > orientation, not six synapse bytes; I read `6 == 6` as a mapping.
+  > `Plasticity` is a `U32` *"Hebbian counter + last-active stamp"* — a scalar
+  > accumulator, foreign to a `6×(u8:u8)` substrate, and it duplicates the
+  > plasticity that actually ships in the substrate's own shape:
+  > `PlasticityState`, **3 bits at `CausalEdge64[50:52]`, hot/cold per S/P/O,
+  > 54 production sites, written by `pack`.** helix is the residue of **HHTL**
+  > (its own `lib.rs`: *"HHTL is the deterministic PLACE; helix is the
+  > RESIDUE"*) — a different axis from Hexagon's six rails, grafted on by me.
+  > **Measured: `residue` appears 0× in `hexagon-plasticity-v1.md`, 0× across
+  > the W1 probes, 0× in `STATUS_BOARD` — Hexagon was tested exhaustively and
+  > never involved a residue.** And `set_style_lane`'s width guard is not a
+  > defect to work around: it returns the null lane for any non-12-byte tenant
+  > *"release-safe by construction"* — **the contract's own guard was refusing
+  > the graft and I recorded the refusal as a missing feature.** The real
+  > learning surface is already hexagon-shaped and already correctly
+  > addressed: `FrozenStyle`/`LearnedStyle`/`ExploreStyle`, `U8×12` each =
+  > `6×(u8:u8)` each, with the shipped gate *"`learned[f]` promotes to
+  > `frozen[f]` only after winning the held-out arm"* — seam 6 of this PR's
+  > own inventory, whose only gap is a `src/` promoter. The eleventh arc's
+  > merged EPIPHANIES entry carries the same fabrication in five rows of its
+  > organs/no-nerve table and in its `Read edge → … → write HelixResidue +
+  > Plasticity` chain; it is stornoed in place and in a new entry, both in
+  > this PR.
 - **Docs:** the PR body — eleven `⊘` arc blocks that are themselves the
   supersession record, with the VOID/FALSE annotations in place; the
   scope-note comment (`#issuecomment-5678239488`) and the frozen-checker note
