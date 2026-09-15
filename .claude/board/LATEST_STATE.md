@@ -34,7 +34,7 @@
 - **Queued on operator go, not started:** `graph/refine/` W1–W5 (task #26);
   the `src/` promoter for seam 6 (`LearnedStyle → FrozenStyle`, the held-out
   gate that today exists only in `probe_sudoku_teacher.rs`) — **on the
-  triangle lanes, which are already `6×(u8:u8)` and already correctly
+  triangle lanes, which are already **6 × 2 × palette256** and already correctly
   addressed by `style_lane`'s 12-byte guard.** ⊘ *This bullet first proposed
   re-aiming that loop at `HelixResidue` / `Plasticity` — a fabrication,
   struck before merge; see the arc entry's storno.* `NiblePath::as_match`

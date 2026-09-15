@@ -19,9 +19,31 @@ proposal on top.
 | my claim | measured |
 |---|---|
 | `HelixResidue` `U8×6` = "one byte per synapse, exactly six" | 6 B = **one 48-bit `Signed360` sphere angle** (`canonical_node.rs:868-871`). I read `6 == 6` as a mapping. |
-| `Plasticity` `U32×1` as a learning target | `U32` *"Hebbian counter + last-active stamp"* — a **scalar accumulator**, foreign to `6×(u8:u8)`, and 2 sites outside its own decl file |
+| `Plasticity` `U32×1` as a learning target | `U32` *"Hebbian counter + last-active stamp"* — a **scalar accumulator**, foreign to **6 × 2 × palette256**, and 2 sites outside its own decl file |
 | helix residue belongs to Hexagon | `helix/src/lib.rs`: *"**HHTL is the deterministic PLACE**; helix is the **RESIDUE**"* — the HHTL axis, not the six rails |
 | the loop needs "a width-correct lane accessor" | `style_lane` returns the null lane for any non-12-byte tenant, *"release-safe by construction"* — **the contract's own guard was refusing the graft** |
+
+### The shape was not merely available — it was ruled AND measured, and I proposed the option that measurement rejected
+
+**`6 × 2 × palette256` is the perfect shape**, and this board already says so with a number
+on it. `E-V3-FACET-4-PLUS-12` carves the 12 B as `6×(u8:u8)` rails whose sanctioned reading
+is **`palette256:palette256`** — each byte a centroid index, each rail a point in the
+256×256 pairwise distribution, similarity between two rails **one `FisherZTable` read in
+i8, never materialized** (`Palette256Pair`, `awareness_facet.rs:28-32`). The three learning
+lanes are const-asserted *"12 palette256 atoms"* (`canonical_node.rs:2674`). And
+`EPIPHANIES.md:19221` carries the operator ruling **with its confirming measurement**:
+
+> *"the full 6×(256×256) 96-bit tenant is better than cam_pq 48-bit; if you want it
+> perfect, the first is better"* — **CONFIRMED: ρ_all 0.966 ≥ 0.965, near-orth 0.881
+> (170×).**
+
+**`HelixResidue` is 48 bit.** I proposed as the learning surface the exact budget class
+that a recorded measurement in this repo had already ruled **the lesser one** — while the
+96-bit shape sat in three lanes with a held-out promote gate already on it. Not "I picked a
+different shape": I picked the one the ruling names as worse, and the better one was what I
+was standing on. (`EPIPHANIES.md:19050` places helix's `ResidueEdge` as **24 bits inside**
+one carving of that same 96-bit payload — a component of the register, never a surface over
+it.)
 
 **The census that should have stopped it, in one line:** `residue` appears **0×** in
 `.claude/plans/hexagon-plasticity-v1.md`, **0×** across `.claude/probes/hexagon-plasticity-v1/`,
@@ -34,7 +56,7 @@ returned zero.
 | named "plasticity" | shape | state |
 |---|---|---|
 | `PlasticityState`, `CausalEdge64[50:52]` | **3 bits, hot/cold per S/P/O** | **SHIPPED, 54 production sites**, written by `pack` |
-| the autopoiesis triangle 10/11/12 | `U8×12` = **`6×(u8:u8)`** each | shipped + correctly addressed; gate documented, **`src/` promoter absent = seam 6** |
+| the autopoiesis triangle 10/11/12 | `U8×12` = **6 × 2 × palette256** each — const-asserted *"12 palette256 atoms"* (`canonical_node.rs:2674`) | shipped + correctly addressed; gate documented, **`src/` promoter absent = seam 6** |
 | `ValueTenant::Plasticity = 7` | `U32×1` counter + stamp | **zombie** — never written, duplicates row 1 in a foreign shape, and its *"last-active stamp"* is vocabulary from the **emission era the tombstone commit deleted** (`last_emission_cycle` → `last_active_cycle`) |
 
 I reached past the two live surfaces for the dead one.
@@ -143,7 +165,7 @@ already running.
 > residue in Hexagon. `HelixResidue` is a **48-bit `Signed360` sphere angle**,
 > ONE orientation per node — I read `6 B == 6 rails` as a mapping; `Plasticity`
 > is a `U32` *"Hebbian counter + last-active stamp"*, a scalar accumulator
-> foreign to a `6×(u8:u8)` substrate and a duplicate of the plasticity that
+> foreign to a **6 × 2 × palette256** substrate and a duplicate of the plasticity that
 > ships in the substrate's own shape (`PlasticityState`, **3 bits at
 > `CausalEdge64[50:52]`**, hot/cold per S/P/O, 54 production sites). helix is
 > the residue of **HHTL**, not of Hexagon (`helix/src/lib.rs`: *"HHTL is the
@@ -151,8 +173,10 @@ already running.
 > `hexagon-plasticity-v1.md`, 0× across the W1 probes, 0× in `STATUS_BOARD`** —
 > Hexagon was tested exhaustively and never involved one. The real learning
 > surface is seam 6 of this session's own inventory, already hexagon-shaped:
-> `FrozenStyle`/`LearnedStyle`/`ExploreStyle`, `U8×12` = `6×(u8:u8)` each, with
-> the shipped held-out promote gate. Full storno:
+> `FrozenStyle`/`LearnedStyle`/`ExploreStyle`, `U8×12` = **6 × 2 × palette256** each —
+> the shape the operator ruled and this board MEASURED (`EPIPHANIES:19221`, ρ_all 0.966,
+> near-orth 170×) as better than the 48-bit class `HelixResidue` belongs to — with the
+> shipped held-out promote gate already on it. Full storno:
 > `E-I-BUILT-A-LEARNING-PATH-OUT-OF-TWO-DEAD-TENANTS-AND-CALLED-IT-THE-SUBSTRATE-1`.
 
 ~~Read edge (i8) → compare to expectation → encode residue → `observe`/`roll` → write

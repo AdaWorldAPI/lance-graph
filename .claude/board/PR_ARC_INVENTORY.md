@@ -127,7 +127,7 @@
   > Hexagon.** `HelixResidue` is 6 B = a 48-bit `Signed360` sphere ANGLE — ONE
   > orientation, not six synapse bytes; I read `6 == 6` as a mapping.
   > `Plasticity` is a `U32` *"Hebbian counter + last-active stamp"* — a scalar
-  > accumulator, foreign to a `6×(u8:u8)` substrate, and it duplicates the
+  > accumulator, foreign to a **6 × 2 × palette256** substrate, and it duplicates the
   > plasticity that actually ships in the substrate's own shape:
   > `PlasticityState`, **3 bits at `CausalEdge64[50:52]`, hot/cold per S/P/O,
   > 54 production sites, written by `pack`.** helix is the residue of **HHTL**
@@ -141,7 +141,9 @@
   > the graft and I recorded the refusal as a missing feature.** The real
   > learning surface is already hexagon-shaped and already correctly
   > addressed: `FrozenStyle`/`LearnedStyle`/`ExploreStyle`, `U8×12` each =
-  > `6×(u8:u8)` each, with the shipped gate *"`learned[f]` promotes to
+  > **6 × 2 × palette256** each — the shape operator-ruled and board-MEASURED better
+  > than the 48-bit class `HelixResidue` belongs to (`EPIPHANIES:19221`, ρ_all 0.966,
+  > near-orth 170×) — with the shipped gate *"`learned[f]` promotes to
   > `frozen[f]` only after winning the held-out arm"* — seam 6 of this PR's
   > own inventory, whose only gap is a `src/` promoter. The eleventh arc's
   > merged EPIPHANIES entry carries the same fabrication in five rows of its
