@@ -1,3 +1,151 @@
+## 2026-09-15 (6) — E-THE-SLOWEST-GATE-IS-THE-ONE-YOUR-OWN-PUSH-CADENCE-CANCELS-1 — 33 runs, 19 cancelled; the fix waited 75 minutes for a verdict, and three of its four heads were cancelled by my own next push
+
+**Status:** FINDING. Every number is the Actions API ledger for `rust-test.yml` filtered
+to this branch, re-fetchable.
+**Confidence:** HIGH.
+
+### The ledger
+
+`Rust Tests` on `claude/clone-repositories-71a5sw`: **33 runs — 19 cancelled, 7 success,
+7 failure.** A verdict on 14 of 33 heads. For #1235's fourteen runs on 2026-09-15: 7
+failures (`d73c742` 17:25Z → `36646a2` 18:43Z, each finishing 2.9–4.5 minutes after
+start — the compile-failure signature; the aws-smithy cause was verified by log on
+`36646a2`, `E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1`),
+**6 cancelled, 1 success** — `d77cd4e`, 19 minutes wall, the only time the workflow
+completed on this PR.
+
+The mechanism is a concurrency group keyed on the PR number with
+`cancel-in-progress: true` (`.github/workflows/rust-test.yml:13-15`), on a workflow that
+takes 19 minutes. Correct CI
+economy. The failure is the reader's, and the timeline is the finding:
+
+| head | committed | run created | outcome |
+|---|---|---|---|
+| `947753d` (the fix) | 19:09Z | — | no run: the PR was conflicted |
+| `99479a5` | 19:27Z | 19:28Z | cancelled 19:32Z by the next push, after 4 min |
+| `188d6b3` | 19:31Z | 19:32Z | cancelled 19:48Z, after 16 min |
+| `e43d12f` | 19:47Z | 19:48Z | cancelled 20:06Z, after 18 min — about a minute short of a full run |
+| `d77cd4e` | 20:05Z | 20:05Z | **success 20:24Z** |
+
+75 minutes from the fix to its first test verdict, and nothing but my own cadence in
+between.
+
+### What I read as confirmation meanwhile, and what it actually confirmed
+
+`Build` and `Style Check` went green on `188d6b3`. `build.yml` is `cargo build` /
+`cargo test` with `--manifest-path crates/lance-graph/Cargo.toml` — **one crate**. It
+proved the aws fix compiles the core crate and runs its tests; it never builds
+`lance-graph-quack` or `lance-graph-mask-risc` and cannot run their suites. "The fix is
+confirmed" was true for the compile and unsupported for the tests until 20:24Z.
+
+The check-in prompt I wrote for myself compounded it: it asked the next wake to confirm
+that `member-tests` reaches its `cargo test -p lance-graph-quack` line. **There is no such
+line.** The quack step is step 17 of the `test` job, `Run quack tests` =
+`cargo test --manifest-path crates/lance-graph-quack/Cargo.toml`
+(`.github/workflows/rust-test.yml:134-135`); the member-tests job enumerates other
+crates by manifest path and never names quack. Verified on `d77cd4e` by log: `Running unittests
+src/lib.rs (…lance_graph_quack-…)` → `test result: ok. 14 passed; 0 failed`. A wake that
+trusted the prompt would have grepped the wrong job's log, found nothing, and reported the
+suite as never run — a false negative primed thirty minutes ahead by its own author.
+
+### The rules
+
+1. **When you are waiting on the slowest gate, a push is a cancellation.** Hold the push
+   until the verdict, or accept that the verdict will be for the next head. The tell in
+   the ledger: a run whose `updated_at` matches the next run's `created_at` to the second.
+2. **A cancelled run leaves no verdict, and the greens beside it are the fast workflows.**
+   Read the slow workflow's ledger (`actions_list`, branch-filtered), not the PR page.
+3. **Name a job from its step list, never from memory.** `get_workflow_job` returns the
+   steps; thirty seconds against thirty minutes.
+
+Cross-ref: `E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1` is
+the conflicted-PR half of the same day — no run at all. This entry is the other half: a
+run that starts and is killed.
+
+## 2026-09-15 (5) — E-THE-SKIP-LEVER-LIVES-ONLY-BELOW-THE-DENSITY-WHERE-D-GTM-0N-SAYS-SWITCH-TO-SPARSE-AND-THE-CLUSTERED-99-90-IS-PREFIX-ARITHMETIC-1 — both readers dropped the density bound; both A1 lever regimes sit under it; the 99.90 % is 1023/1024 by construction
+
+**Status:** FINDING for the density collision and for the P = 50 arithmetic — both
+re-checkable from two board rows, two source lines and the §8a table. CONJECTURE for
+the prefix-length family below P = 50: derived, not run; its falsifier is named.
+**Confidence:** HIGH on every number quoted. The *competitive* claim — that a sparse
+arm beats the gated sweep at 0.05 % active — is deliberately NOT made. The probe has no
+sparse arm, and that absence is the finding.
+
+### 1. The bound two readers dropped
+
+`STATUS_BOARD` row `D-GTM-0n / P3` carries two bounds *"that ride with the number and
+may not be dropped when it is cited"*: the win is L2-residency-contingent, **and mask
+loses to sparse below 0.1 % active**. The crosswalk entry restates it — *"only above
+~0.1 % active — a crosswalk hop that thins the survivors below that must switch to
+sparse"* (its "bounds that ride with the claim" paragraph). The parallel session's second
+feedback cited D-GTM-0n by its L2 bound and its K = 1 control and omitted the density
+bound; earlier the same day I had cited D-GTM-0m without its one-fixture / upper-bound
+caveat (⊘ in `E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1`).
+Same move, two readers, two rows: the memorable bound survives the citation and the
+inconvenient one does not.
+
+### 2. Why it bites: the lever's only live regimes are under the bound
+
+§8a (`.claude/plans/duckdb-to-v3-translation-matrix-v1.md`) — 65 536 rows, 5 conjuncts,
+all 120 permutations:
+
+| regime | survivors | active | spread |
+|---|---|---|---|
+| selective | 36 | **0.055 %** | 75.00 pts |
+| clustered | 31 | **0.047 %** | 99.90 pts |
+| moderate | 14 311 | 21.8 % | 0 |
+| permissive | 61 777 | 94.3 % | 0 |
+
+The two regimes where ordering moves the skip fraction sit at roughly half of 0.1 %. The
+two regimes where the mask arm is the right arm by D-GTM-0n's own bound have spread 0.
+So `Filter::and_by_skip` is measurable exactly where the substrate's bound assigns the
+work to the sparse representation, and inert everywhere the mask representation is the
+right one.
+
+What that changes: the A1 verdict (*ADAPT conditionally*) was reached by comparing
+orderings of the gated sweep **to each other**. The competitor D-GTM-0n names at this
+density is a survivor list with per-row evaluation of the remaining conjuncts — on the
+order of 36 rows × 4 conjuncts against 1 024 gated words × 4 — and the probe never runs
+it. The falsifier is missing an arm, and it is not the fused arm (Phase 7): that one is
+order-independent by construction (the (4) entry above) and settles a different question.
+**The A1 row must carry the 0.1 % bound the way D-GTM-0n's row does.**
+
+### 3. The clustered 99.90 % is arithmetic, not a property of the data
+
+`crates/lance-graph-quack/examples/adaptive_order_probe.rs:136` — `(i as u64) << 8`;
+`:268` — `Filter::prefix_u64(ADDR, addr[N / 4], 50)`. A 50-bit prefix on a u64 leaves 14
+low bits free: 8 are the shift, **6 are log₂ 64 — the word.** The prefix pins `i`'s top
+10 bits, which IS the 64-row word index (N = 2¹⁶ rows = 1 024 words); exactly the 64 rows
+of one aligned word satisfy it. Gated on that accumulator, every later conjunct evaluates
+1 word of 1 024. The ramp `[4092, 3069, 2046, 1023, 0]` is 1 023 × (conjuncts after the
+prefix), and 4 092 / 4 096 = **99.90 % = 1023/1024**.
+
+The parallel session named the general form the *10-bit handoff*: on a 16-bit rail the
+low 6 bits address inside a word and the top 10 select it, so any prefix predicate of
+length ≥ 10 on an address-ordered rail is word-granular **by construction**. On this
+lane a prefix of P bits leaves 2^(50−P) live words — skip = 1 − 2^(50−P)/1024: 99.90 % at
+50, 99.80 % at 49, 99.61 % at 48, 0 % by 40. §8a measured the P = 50 point of that function
+and tabulated it beside three regimes that ARE properties of the data. "Clustered" should
+be read as *the predicate is a word address*, and 99.90 % as the mechanism's ceiling, not
+as an observation about clustering.
+
+Two consequences. The ceiling is reachable only on an ADDRESS-ORDERED lane — the blocker
+the parallel session already named for the V3-native seed; on an unsorted lane a prefix's
+survivors scatter and the function above does not apply. And a V3 `6×(u8:u8)` rail is 16
+bits wide, so the handoff sits at exactly 10 bits for every rail: above that length the
+prefix skip and the word skip are one mechanism, below it they are two.
+
+**Falsifier (not run):** the probe with the prefix at 50, 49, 48 must report 99.90 /
+99.80 / 99.61 %. A departure falsifies §3; a match promotes the family from CONJECTURE.
+
+### What to carry
+
+- Any citation of D-GTM-0n carries the 0.1 % bound; any citation of §8a's lever regimes
+  carries their densities (0.055 %, 0.047 %) beside it.
+- The A1 falsifier's missing arm is SPARSE, not fused. Filed as the operator's call in
+  `LATEST_STATE` 2026-09-15 (3).
+- No code changes here; `and_by_skip` stays as shipped.
+
 ## 2026-09-15 (4) — E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1 — the fused lowering is order-independent BY CONSTRUCTION, two readers derived it from source because the crate doc does not say so, and DuckDB's A1 turns out to have a dead seed as well as an unrunnable loop
 
 **Status:** FINDING. Convergent — derived independently in two sessions from the same

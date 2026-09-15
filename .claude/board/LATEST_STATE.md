@@ -1,3 +1,59 @@
+## 2026-09-15 (3) — PR #1235 merged (`e8d3c19`): `lance-graph-quack` is on `main` and the AWS SDK is opt-in on `main` — one new workspace member, NO contract inventory delta
+
+- **Added on `main`:** `crates/lance-graph-quack` — the DuckDB-shaped surface
+  whose operators lower to `lance-graph-mask-risc` programs (`Filter`/`Cmp`/
+  `Agg`/`Query`, `lower` + `lower_fused`, `Filter::Plane`, the survivor skip
+  with accumulator gating and `hoist_gate_subset`, `Filter::and_by_skip`,
+  `lower_group_by`, `LowerError: std::error::Error`); its only in-tree
+  dependency is mask-risc, no `ndarray`, by design.
+  `examples/adaptive_order_probe.rs` (the A1 falsifier, matrix §8a, RUN);
+  `.claude/harvest/duckdb-headers/README.md` (123 methods / 1 622 events — the
+  harvest §6 had recorded as FAILED, repaired against the headers);
+  `.claude/audits/nars-34-substrate-audit.md`; CI lines for the member
+  (`rust-test.yml` `Run quack tests`, `style.yml` clippy + fmt). 16 files,
+  +4 227 / −11, 25 commits; merged 20:25:15Z by the operator.
+- **Contract inventory delta: NONE.** The one `lance-graph-contract` file in
+  the diff is `src/recipes.rs` — two citations moved from classical
+  Berry-Esseen to Jirak (`I-NOISE-FLOOR-JIRAK`) plus the guard that keeps a
+  third from appearing. No type added or changed.
+- **Dependency state consumers should know:** `lance` is
+  `default-features = false` plus its own default list minus `aws`;
+  `lance-graph` gained the opt-in `aws-sdk = ["lance/aws"]` (`947753d`,
+  operator ruling *"make it optional so that later we fork 1.7 and fix it"*).
+  `rust-publish.yml` passes an explicit feature list that excludes `aws-sdk`
+  AND `lancedb-sdk` — the latter because `lancedb 0.38.0` cannot compile
+  without its `remote` feature (`ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE`).
+  Both stay declared in the manifest; whether a published crate (0.5.4,
+  89 276 downloads) keeps declared-but-unbuildable features is the
+  operator's call and was not picked here.
+- **Status board:** D-QCK-0..6, 8, 9 Shipped; D-QCK-10 shipped on the
+  lance-graph-java side; D-QCK-7 Blocked on mask-risc PR5 (no `hop` op).
+  Also corrected in this commit: `D-MRX-1..6` still read *In PR (PR3)*
+  although #1226 merged on 2026-09-14 (`0b1ebaa`) — status cells flipped,
+  nothing else in those rows touched.
+- **CI on the merged head, by log, not by badge:** `Rust Tests` completed on
+  `d77cd4e` only — the one completion in this PR's fourteen runs; `test` job
+  step 17 `Run quack tests` → `14 passed; 0 failed`. Ledger and lesson:
+  `E-THE-SLOWEST-GATE-IS-THE-ONE-YOUR-OWN-PUSH-CADENCE-CANCELS-1`.
+- **Open, and the operator's to decide:** (a) the two published-but-
+  unbuildable features above; (b) the citation-decay unique-basename resolver
+  — 92 of 3 216 citations verify today, 1 499 bare basenames resolve to
+  exactly one tracked file, so the resolver would take coverage to ~1 670,
+  gated on sampling the anchor heuristic's precision (2 of the 3 new decays
+  it surfaced were false positives); (c) the A1 falsifier's MISSING ARM is
+  the sparse arm, not the fused one — both lever regimes (0.055 %, 0.047 %
+  active) sit under D-GTM-0n's *mask loses to sparse below 0.1 %* bound,
+  which both readers had dropped
+  (`E-THE-SKIP-LEVER-LIVES-ONLY-BELOW-THE-DENSITY-WHERE-D-GTM-0N-SAYS-SWITCH-TO-SPARSE-AND-THE-CLUSTERED-99-90-IS-PREFIX-ARITHMETIC-1`);
+  the fused arm stays gated on Phase 7 as before; (d)
+  `ISS-QUACK-LOWER-FUSED-IS-SUPERLINEAR-AND-DEEP-FILTERS-ABORT` wants a depth
+  budget in `gate_walk`, and its sibling half lives in mask-risc; (e)
+  `ruff#115`, the only real cross-repo conflict of the day, still open.
+- **Branch:** `claude/clone-repositories-71a5sw` restarted from `main` at
+  `e8d3c19` (a fast-forward — it held only merged history); the #1235
+  check-in routine deleted.
+- Arc entry: `PR_ARC_INVENTORY.md` under PR #1235.
+
 ## 2026-09-15 (2) — PR #1234 merged (`74f6302`): three retractions on `main` — NO contract inventory delta, and two rules locked
 
 - **Nothing added.** Five commits, four board files, zero code, zero types,
