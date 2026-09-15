@@ -49,6 +49,26 @@
 //! differential suite runs both against the same per-row oracle; a consumer
 //! picks by whether it is scratch-bound or pass-bound.
 //!
+//! **They also differ in a way neither name suggests: only [`lower`] can
+//! skip.** [`lower`] chains — the first predicate is ungated and each later
+//! one gates on the running accumulator, so a conjunct narrows the input its
+//! successors read. [`lower_fused`] gives every predicate its own slot and
+//! gates it on the caller's resident plane ONLY (`under.map(Operand::Plane)`),
+//! never on an accumulator, because the Boolean combination is deferred to the
+//! ternlog — and [`MaskOp::Ternlog`] has no `under` field at all. So the fused
+//! program has no progressive narrowing, and **term order cannot change its
+//! skipped-word count.** The saving the gated form buys is physical, not
+//! bookkeeping: `pack_under` does `if gate == 0 { continue }` before loading
+//! the 64 values, so a dead word's column read never happens.
+//!
+//! This matters because it is the whole of what survives from DuckDB's
+//! `AdaptiveFilter` (matrix row A1 / §8a). Ordering is worth up to 99.90
+//! percentage points of skipped words on a clustered conjunction under
+//! [`lower`] — and exactly zero under [`lower_fused`], on the same query.
+//! [`Filter::and_by_skip`]'s lever is therefore alive in one configuration:
+//! gated lowering, plane-free conjunction, contiguous survivors. Under a
+//! plane it is inert too (`ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE`).
+//!
 //! # Provenance — this is harvest-driven, not remembered
 //!
 //! Every operator below answers to a row of

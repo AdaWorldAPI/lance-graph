@@ -1,3 +1,91 @@
+## 2026-09-15 (4) — E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1 — the fused lowering is order-independent BY CONSTRUCTION, two readers derived it from source because the crate doc does not say so, and DuckDB's A1 turns out to have a dead seed as well as an unrunnable loop
+
+**Status:** FINDING. Convergent — derived independently in two sessions from the same
+line, neither having read the other, before comparing.
+**Confidence:** HIGH — every claim is a source read or a row of §8a, all re-runnable.
+
+### The finding
+
+`lower` and `lower_fused` differ in a way neither name nor the crate doc suggested:
+**only `lower` can skip.**
+
+| | gate on a predicate | order changes skipped words? |
+|---|---|---|
+| `lower` (in place) | first ungated, later ones on the running ACCUMULATOR | **yes** — up to 99.90 pts (§8a) |
+| `lower_fused` | `under.map(\|m\| Operand::Plane(m.0))` — caller's plane ONLY | **no, ever** |
+
+`assign_slots` gives every predicate its own slot and never chains, because the Boolean
+combination is deferred to the fuser — and `MaskOp::Ternlog { imm, a, b, c, dst }` has
+**no `under` field at all**, where `MaskOp::Pred { pred, under, dst }` does. A ternlog
+combines already-materialised masks; by the time it runs, every sweep is paid for.
+
+The saving the gated form buys is physical, not bookkeeping. `ndarray`'s `pack_under`
+(`simd_masking_ops.rs:1541-1546`) is `if gate == 0 { out_words[w] = 0; continue; }` —
+the 64 values are never loaded. That `continue` is the entire mechanism §8a measures.
+
+The crate doc framed the choice as *"a consumer picks by whether it is scratch-bound or
+pass-bound"* and said nothing about the skip. Both readers fell into it and both had to
+go to source. Fixed in the same commit.
+
+### Why it matters beyond the doc
+
+It is the whole of what survived DuckDB's `AdaptiveFilter`. §8a measures ordering worth
+up to 99.90 percentage points of skipped words on a clustered conjunction — **under
+`lower` only**. On the same query under `lower_fused` it is exactly zero. So
+`Filter::and_by_skip`'s lever is alive in one configuration: gated lowering × plane-free
+conjunction × contiguous survivors. Under a plane it is inert as well
+(`ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE`). `adaptive_order_probe.rs` has no fused
+arm, so its table cannot see this and does not claim to.
+
+### A1 fails in TWO places, and only one of them was recorded
+
+`AdaptiveFilter` is a seed plus a loop, and they die of different causes:
+
+- **the seed** — `GetInitialOrder`, from the optimizer's static SELECTIVITY heuristic.
+  §8a kills it independently of anything about V3's executor: selective (36 survivors,
+  0.055 %) and clustered (31, 0.047 %) are indistinguishable by density and **19.24
+  points apart best-vs-best**. A selectivity-seeded reorderer seeds on a statistic that
+  provably does not separate the two regimes where the lever exists.
+- **the loop** — swap, measure RUNTIME, keep or revert, halve likeliness. This one would
+  find contiguity, because contiguity shows up in runtime whether or not you can name
+  it. It is the half quack structurally cannot run: `Program.ops` is a fixed `Vec` with
+  no measurement.
+
+**The half that would work cannot run; the half that can run measures the wrong thing.**
+That is stronger than the matrix's "not DuckDB's algorithm" — it says why no amount of
+porting reaches it.
+
+### The V3-native seed, and its one blocker
+
+The clustered regime IS an address prefix. `Filter::prefix_u32` builds
+`care = u32::MAX << (32 - b)` — a contiguous high run — so a `Cmp::MatchU32/MatchU64`
+whose care mask has that shape is prefix-shaped **at lowering time**: free, structural,
+no measurement loop. That would feed an ordering score from structure instead of asking
+the caller.
+
+The blocker is exact and is one bit: `prefix_u32`'s own doc says contiguous *"on an
+address-ordered lane"* — a property of the DATA, not the query — and `Col(pub u16)` is
+deliberately not a name ("name resolution is the catalogue's job"). quack carries no
+catalogue by design, so the seed needs a schema fact the crate does not hold. Real
+blocker, not a detail.
+
+### ⊘ A citation of mine that was under-qualified
+
+I cited D-GTM-0m as "22.4–22.8 µs, survivor-independent" without its stated limits. The
+matrix carries them twice and I should have carried them too: R5 — *"measured on ONE
+fixture (65 536 rows = 256×256 axial hex, 62 % permeable, one tile size, timing floor
+50 ms, no `perf`)"*; E4 — it *"widened a u8 permeability column 4× to use
+`gt_i32_to_mask`, and reported its `n_gen` and coal numbers as upper bounds because of
+it."*
+
+The rescue offered for it — that survivor-independence is structural because
+`gt_i32_to_mask` takes no gate parameter — is right about that function and must not be
+read as a general claim about predicate generation, or it contradicts §8a. The accurate
+form: **an UNGATED sweep is structurally survivor-independent; a GATED one structurally
+is not**, `gt_i32_to_mask_under` exists (`simd_masking_ops.rs:1614`), and `pack_under`'s
+`continue` is where the difference physically lives. The µs figure is one geometry; the
+asymmetry is not.
+
 ## 2026-09-15 (3) — E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1 — "lots of CI errors" was stale red plus silence, and chasing it found `--all-features` broken since the lancedb 0.38 bump
 
 **Status:** FINDING. Two independent mechanisms, one shape. Both measured on PR #1235.
