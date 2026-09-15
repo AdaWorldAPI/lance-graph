@@ -76,6 +76,64 @@
   census is measured and NOT yet on the board — see the arc entry's
   *Un-recorded* bullet.
 - Arc entry: `PR_ARC_INVENTORY.md` under PR #1233.
+## 2026-09-15 — #1235 round 2: an independent review re-found the P1, and my own fmt decline was WRONG
+
+An Opus correctness review ran against the branch while the fix was in flight and found the
+same `emit_gated` defect independently — **2,021 wrong answers in 200,000 randomised trees**
+against a per-row oracle that never builds a `Program`, smallest counterexample
+`And([Not(Plane(2)), And([Cmp(Col(2), EqI32(39)), Plane(2)])])`. It then verified the fix
+rather than taking it: 120,000 cases clean with the fix, **2,668 red** with only the pre-fix
+gate line restored (the anti-vacuity control), plus 200,000-case fuzz, a 320,000-case sweep
+across all eight `Agg`s, and 5,000 `GROUP BY` plans — all clean. Its verdict was HOLD on two
+PROSE items, both now fixed.
+
+**I reversed my own review reply, and this is the uncomfortable half.** I declined CodeRabbit's
+`cargo fmt --all` suggestion on the grounds that the scoped per-manifest line "already covers
+everything `--all` would", and said I had measured it. CodeRabbit pushed back citing the
+documented selection behaviour. **It was right and I was wrong**: mis-formatting
+`mask-risc/src/ir.rs` and running the scoped quack line gives **exit 0** while mask-risc's own
+line gives **exit 1** on the identical file. My earlier "measurement" must have been a
+workspace-wide invocation misattributed to the scoped one — the same class of error as
+measuring the wrong function.
+
+The CONCLUSION survives for a different reason than the one I gave: this fmt job is **per-crate
+by design** (its own comments say so — `causal-edge` is workspace-excluded, so `--all` would
+never reach it), and `mask-risc` has its own line directly above quack's. But checking the job
+against the member list instead of reading it found the real defect the reviewer was circling:
+**four workspace members had no rustfmt line at all** — `lance-graph-contract` (which THIS
+branch edits), `lance-graph-callcenter`, `lance-graph-supervisor`, `bgz-tensor`. All four
+measured clean and are now armed. A per-crate gate omits whatever nobody added a line for, and
+nothing was checking that.
+
+**Fixed this round:** the three doc sites that still called `hoist_gate_subset`'s rotation a
+"correctness requirement" and a "silent WRONG ANSWER" — true before the fix, false after, and
+the reviewer disable-verified it (rotation removed, 120,000 cases, 65,919 planed, zero
+divergences, on the harness ARM3 proves can see this regression). What the rotation still buys
+is slot economy, 1 slot vs 2. Also the probe's `best/worst infx` print, which read
+`spread 0.00 percentage points, best/worst infx` on the two regimes that skip nothing in any
+order — self-contradictory, and those rows are cited in `and_by_skip`'s own doc table.
+
+**And a test I re-pinned this session was half-vacuous.** `assert!(!on_acc)` ran over both
+lowerings, but `assign_slots` never emits a `Scratch` gate, so on the FUSED arm no input can
+make it fail. It is now scoped to the in-place arm, where restoring the pre-fix line turns it
+red, with the fused arm asserting the structural fact instead. One `assert!` over two arms
+reads as twice the evidence and is once.
+
+**Recorded, not fixed** (`ISSUES.md`, two new entries): `and_by_skip`'s ordering lever is now
+**inert on any conjunction carrying a plane** — the crate's own headline shape — which is a
+genuine cost the P1 fix created and the right trade anyway (a lost optimisation beats a lost
+row); and two caller-controlled pre-execution costs, `lower_fused` at ~7.6× per doubling
+(`IN(2048)` = 1 443 ms against `lower`'s 0.13 ms, mechanism in another crate's
+`distinct_leaves`) and a deep `Filter` **aborting the process** at depth 20,000, which also
+makes `LowerError::TooManySlots` unreachable on the in-place path.
+
+**Also fixed:** the one review finding that never appeared inline. A §8a summary line said "the
+signal is dead words rather than selectivity"; the probe permutes terms and measures skip and
+never ranks by dead words against a selectivity ranking, so only the negative half is measured
+(`selective` and `clustered` have near-identical survivor counts, 36 and 31, and differ by
+94.24 points). The sort-key half is untested and §8a and §9 already said so — that one summary
+line did not.
+
 ## 2026-09-15 — PR #1235 review round: a codex P1 that was a real wrong answer, and three accepted doc/CI fixes
 
 Seven review threads on `claude/clone-repositories-71a5sw`. One was a genuine correctness

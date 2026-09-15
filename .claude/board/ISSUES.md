@@ -1,3 +1,86 @@
+## ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE (2026-09-15) — OPEN, and it is the price of the P1 fix
+
+**`Query::and_by_skip`'s ordering lever buys exactly zero on any conjunction that carries a
+resident plane — which is this crate's own headline query shape.**
+
+Created deliberately by the codex-P1 fix (`b7e6cef`,
+`E-THE-ACCUMULATOR-GATE-OUTRANKED-THE-PLANE-AND-SILENTLY-DROPPED-IT-1`): `emit_gated` now
+prefers the caller's plane over the accumulator, so every `Pred` inside a planed `AND` gates on
+the same FIXED plane regardless of position. Measured at HEAD, each entry `predicate <- its gate`:
+
+```
+PLANE-FREE    And[A,B,C] : [GtI32<-none,      EqU32<-ACC(s0),  LtI32<-ACC(s0)]
+              And[C,B,A] : [LtI32<-none,      EqU32<-ACC(s0),  GtI32<-ACC(s0)]
+
+WITH A PLANE  And[P,A,B,C]: [GtI32<-Plane(0), EqU32<-Plane(0), LtI32<-Plane(0)]
+              And[P,C,B,A]: [LtI32<-Plane(0), EqU32<-Plane(0), GtI32<-Plane(0)]
+```
+
+Order changes which predicate runs first and nothing else; the skipped-word count is
+order-independent. Plane-free conjunctions are unaffected — those preds take the `None` arm and
+still chain on the accumulator, so **A1's measured lever survives exactly where the probe
+measured it and nowhere else.**
+
+**Why it is the right trade anyway.** The alternative is preferring the accumulator, which drops
+a conjunct when the accumulator crossed a nesting boundary — a wrong answer, not a slower one
+(oracle 29, emitted 204). A lost optimisation beats a lost row.
+
+**Why no gate catches it.** `examples/adaptive_order_probe.rs`'s four scenarios are all
+plane-free, so its table cannot measure this and does not claim to. Its
+`accumulator_gated == terms.len() - 1` assertion is what keeps it honest and would fire
+immediately on a planed scenario — which is why the honest move is to say "not measured" rather
+than to add a scenario that would simply assert the inertness.
+
+**The way out, if it is ever worth taking:** gate on `plane ∧ accumulator` rather than choosing
+between them. That is strictly narrower than either, so it restores the lever without
+reintroducing the hole — at the cost of one extra op per gated predicate, which is exactly the
+measurement nobody has made. Not attempted here; recorded so the option is not re-derived.
+
+Found by an independent correctness review of the fix, not by the fix's author.
+
+## ISS-QUACK-LOWER-FUSED-IS-SUPERLINEAR-AND-DEEP-FILTERS-ABORT (2026-09-15) — OPEN, both caller-controlled
+
+Two pre-execution costs on `lance-graph-quack`'s public surface, measured in **release**, both
+reachable from ordinary caller input and both hit before a single row is touched.
+
+**1. `lower_fused` is ~cubic in leaf count, reachable from `Filter::in_u32`.**
+
+| | `lower` | `lower_fused` |
+|---|---|---|
+| `IN(64)` | 0.01 ms | 0.12 ms |
+| `IN(256)` | 0.02 ms | 4.28 ms |
+| `IN(1024)` | 0.03 ms | **192.70 ms** |
+| `IN(2048)` | 0.13 ms | **1 443 ms** |
+| flat `AND` w=4096 | — | **10 597 ms** |
+| flat `AND` w=65 000 | **2.99 ms** | (not attempted) |
+
+~7.6× per doubling; `lower` is linear, the blow-up is entirely `lower_fused`. Mechanism sits in
+`lance-graph-mask-risc/src/fuse.rs` — `Lowering::lower`'s reduction calls `leaf_count` on BOTH
+children at every level, `leaf_count` calls `distinct_leaves`, and that uses `Vec::contains`,
+O(k) per leaf; quack's `assign_slots` left-folds an n-ary junction into a depth-n binary
+`BoolExpr`. Same class as the quadratic-`validate` stall `reference.rs:110-137` already records
+and fixed on that side. Cheapest mitigation is a sorted set or `u64` bitset in `distinct_leaves`.
+**Not fixed here** because it lives in a different crate and this PR is about the query surface —
+widening it on my own is the thing the repo's own push rules forbid.
+
+**2. A deep `Filter` ABORTS the process; `LowerError::TooManySlots` is unreachable on the
+in-place path.** Default 8 MiB stack, one process per depth:
+
+```
+depth=15000  -> LOWER OK slots=2 ops=30001
+depth=20000  -> fatal runtime error: stack overflow, aborting
+```
+
+Construction and `Drop` of the same tree survive to 30,000, so the recursion is
+`gate_walk`/`emit_gated`'s, not the data structure's. It is an **abort**, not a catchable panic —
+`catch_unwind` and `JoinHandle::join` cannot contain it. Meanwhile `emit_gated`'s
+`dst.checked_add(1) → TooManySlots` needs depth 65,535, which the stack cannot reach: **the error
+the crate defines for this condition can never fire on `lower`.** An explicit depth budget in
+`gate_walk` returning `LowerError` would make the declared refusal real.
+
+Neither is a correctness defect and neither is reachable from the differential suite, which builds
+trees to depth 6. Both were found by an independent correctness review.
+
 ## ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS (2026-09-15) — ⊘ RESOLVED SAME DAY: falsifier ran, hazard CONFIRMED (0 vs 3); see E-THE-TWO-FAMILY-NAMINGS-INVERT-AND-FROM-BE-BYTES-IS-THE-PLAUSIBLE-WRONG-JOIN-1
 
 **"family" denotes four different things in this tree, and the two that share a width sit at

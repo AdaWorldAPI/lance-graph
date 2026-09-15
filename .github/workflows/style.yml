@@ -190,6 +190,22 @@ jobs:
         run: cargo fmt --manifest-path crates/lance-graph-planner/Cargo.toml -- --check
       - name: Rustfmt lance-graph-mask-risc
         run: cargo fmt --manifest-path crates/lance-graph-mask-risc/Cargo.toml -- --check
+      # The four workspace members that had NO rustfmt line at all. Found by
+      # measuring the job against the member list rather than reading it: this
+      # job is per-crate by design (`causal-edge` is workspace-excluded, so
+      # `--all` would never reach it), and a per-crate job silently omits any
+      # member nobody added a line for. `lance-graph-contract` is the one that
+      # matters here — this branch edits `recipes.rs` and nothing was gating it.
+      # All four verified rustfmt-clean on the pinned toolchain before arming,
+      # the same rule the block below this one records.
+      - name: Rustfmt lance-graph-contract (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-contract/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-callcenter (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-callcenter/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-supervisor (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-supervisor/Cargo.toml -- --check
+      - name: Rustfmt bgz-tensor (previously ungated)
+        run: cargo fmt --manifest-path crates/bgz-tensor/Cargo.toml -- --check
       - name: Rustfmt lance-graph-quack
         run: cargo fmt --manifest-path crates/lance-graph-quack/Cargo.toml -- --check
       - name: Rustfmt lance-graph-ontology (previously ungated)

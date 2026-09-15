@@ -379,15 +379,23 @@ fn main() {
             pct(worst.0)
         );
         println!("      {:<12} {:>9} {:>8.2}%", "best", best.0, pct(best.0));
-        println!(
-            "      spread {:.2} percentage points, best/worst {:.2}x",
-            pct(best.0) - pct(worst.0),
-            if worst.0 == 0 {
-                f64::INFINITY
-            } else {
-                best.0 as f64 / worst.0 as f64
-            }
-        );
+        // 0/0 is not an infinite ratio, it is NO SPREAD — the `moderate` and
+        // `permissive` regimes skip nothing in ANY order, and printing `infx`
+        // beside `spread 0.00` made the line contradict itself. Those two rows
+        // are cited in `Query::and_by_skip`'s doc table, so the print is the
+        // evidence a reader sees.
+        match (best.0, worst.0) {
+            (0, 0) => println!("      spread 0.00 percentage points, no skip in any order"),
+            (_, 0) => println!(
+                "      spread {:.2} percentage points, best/worst unbounded (worst skips 0)",
+                pct(best.0) - pct(worst.0)
+            ),
+            (_, w) => println!(
+                "      spread {:.2} percentage points, best/worst {:.2}x",
+                pct(best.0) - pct(worst.0),
+                best.0 as f64 / w as f64
+            ),
+        }
         println!("      best order: {}", best.2.join("  <  "));
         println!();
     }

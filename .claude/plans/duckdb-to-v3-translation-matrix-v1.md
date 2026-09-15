@@ -575,8 +575,14 @@ before any design:
    not to be needed. That is a cheap answer with a large consequence, and it is
    answered by measurement (1) plus one sweep.~~ **ANSWERED 2026-09-14 — see
    §8a.** Order moves it (up to 75 percentage points, 14.2×), so A1 is not
-   ELIMINATE; but the signal is dead words rather than selectivity and the
-   hill-climb is not ported. Note this did NOT need measurement (1): the skip
+   ELIMINATE; selectivity alone does **not** predict skip — `selective` and
+   `clustered` have near-identical survivor counts (36 and 31) and differ by
+   94.24 points of as-written skip — and the hill-climb is not ported.
+   ⊘ This read "the signal is dead words rather than selectivity", which
+   overstates the probe: it permutes terms and measures skip, and never
+   ranks by dead words against a selectivity ranking, so the SORT-KEY half
+   is untested (§8a and §9 already say so; this summary line did not).
+   Note this did NOT need measurement (1): the skip
    fraction is a count of avoided word-evaluations, not a timing, so it was
    answerable on its own.
 

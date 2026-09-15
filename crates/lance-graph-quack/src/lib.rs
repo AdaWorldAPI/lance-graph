@@ -363,13 +363,35 @@ impl Filter {
     /// on measured selectivity, so the comparison would have to be against
     /// that.
     ///
+    /// # This lever is INERT on a conjunction that carries a resident plane
+    ///
+    /// Measured, and it is the price of the `emit_gated` fix in `b7e6cef`:
+    /// once an `AND` carries a plane, every `Pred` inside it gates on that
+    /// same FIXED plane regardless of position, so the skipped-word count is
+    /// order-independent and this ordering buys exactly zero. Plane-free
+    /// conjunctions are unaffected — their preds still chain on the running
+    /// accumulator, which is where `adaptive_order_probe` measured the lever
+    /// and the only place it claims one. Since the crate's own headline shape
+    /// (`Filter::Plane(alpha)` = `SELECT … FROM t`) IS planed, that is most
+    /// real queries. Recorded as `ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE`
+    /// with the measurement and the way out.
+    ///
     /// # One caveat, because it is a real override
     ///
     /// When this `AND` also carries a resident plane that the gate walk
     /// DROPS as implied, a child whose result is a subset of that plane is
-    /// rotated to the front regardless of score. That rotation is a
-    /// correctness requirement, not a preference, so it wins. The ordering
-    /// here applies among the children the rotation leaves alone.
+    /// rotated to the front regardless of score, so the ordering here applies
+    /// among the children the rotation leaves alone.
+    ///
+    /// ⊘ That rotation was called "a correctness requirement, not a
+    /// preference" until 2026-09-15. It WAS one before the `emit_gated` fix;
+    /// afterwards the plane gates every child wherever it sits, so what the
+    /// rotation still buys is SLOT ECONOMY (a plane first makes the
+    /// accumulator a plane operand, costing no scratch slot: 1 vs 2 on
+    /// `alpha AND focus AND v < 50`). Disable-verified — rotation removed,
+    /// 120,000 differential cases, 65,919 of them planed, zero divergences, on
+    /// a harness proven able to see this class of regression by restoring the
+    /// pre-fix gate line and watching it fail 2,668 of the same cases.
     pub fn and_by_skip(parts: impl IntoIterator<Item = (u32, Filter)>) -> Self {
         let mut scored: Vec<(u32, Filter)> = parts.into_iter().collect();
         // `sort_by_key` is stable, so equal scores keep the caller's order
@@ -666,8 +688,15 @@ enum Node {
 /// `flags[i]` is `gate_walk`'s "vanishes with the gate", which is exactly
 /// "this child's result is a subset of the gate". Putting such a child first
 /// makes the running accumulator a subset of the gate from the first fold
-/// onward, and that is the precondition [`emit_gated`] needs before it may
-/// narrow later comparisons onto the accumulator instead of onto the gate.
+/// onward, which keeps the accumulator a plane operand and costs no scratch
+/// slot.
+///
+/// ⊘ This read "that is the precondition [`emit_gated`] needs before it may
+/// narrow later comparisons onto the accumulator instead of onto the gate".
+/// Since `b7e6cef` `emit_gated` does not narrow onto the accumulator at all
+/// while a plane gate is live — the plane always wins — so the rotation is an
+/// optimisation, not a precondition. See the disable run recorded on
+/// [`Query::and_by_skip`].
 ///
 /// Shared by BOTH `AND` arms of [`gate_walk`] — the already-gated one and the
 /// one that establishes a gate — because a first version rotated only in the
@@ -747,8 +776,14 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
                 // [`emit_gated`] narrow later comparisons onto the accumulator
                 // without losing the gate.
                 //
-                // Without the rotation this is a silent WRONG ANSWER, not a
-                // missed optimisation, and it was measured: on
+                // ⊘ This said "Without the rotation this is a silent WRONG
+                // ANSWER, not a missed optimisation". TRUE BEFORE `b7e6cef`,
+                // FALSE AFTER: the plane now gates every child wherever it
+                // sits, so the `AND` emits `⋂ children` where each flagged
+                // child is `plane & pred ⊆ plane`, and `⋂ children ⊆ plane`
+                // holds for ANY ordering. What survives is slot economy.
+                // The original measurement, kept because it is what the
+                // rotation was built from:
                 // `alpha AND focus AND v < 50`, the foreign plane `focus` sat
                 // first, the accumulator therefore started as `focus` (which is
                 // NOT a subset of `alpha`), the comparison was gated on that
@@ -1525,13 +1560,36 @@ mod tests {
             // `skip_ordering_moves_the_work_and_never_the_answer`, whose
             // conjunction carries no plane — those preds still gate on the
             // accumulator.
-            assert!(
-                !on_acc,
-                "a plane-gated comparison narrowed onto the accumulator \
-                 instead of the plane — the codex-P1 override is back: {:?}",
-                slice.ops
-            );
-            let _ = is_inplace;
+            //
+            // ⊘ AND IT IS A REAL FALSIFIER ON ONE ARM ONLY. `assign_slots`
+            // never emits a `Scratch` gate at all, so on the FUSED arm no
+            // input can make this fail — it passes structurally, not because
+            // the property holds. The in-place arm is where it bites, and
+            // where restoring the pre-fix gate line turns it red. Asserting
+            // the two separately is the point: a single `assert!` run over
+            // both arms reads as twice the evidence and is once.
+            if is_inplace {
+                assert!(
+                    !on_acc,
+                    "a plane-gated comparison narrowed onto the accumulator \
+                     instead of the plane — the codex-P1 override is back: {:?}",
+                    slice.ops
+                );
+            } else {
+                assert!(
+                    !slice.ops.iter().any(|op| matches!(
+                        op,
+                        MaskOp::Pred {
+                            under: Some(Operand::Scratch(_)),
+                            ..
+                        }
+                    )),
+                    "the fused arm is expected to carry no scratch gate at \
+                     all; if that ever changes, the in-place assertion above \
+                     stops being the only place this is tested: {:?}",
+                    slice.ops
+                );
+            }
 
             let negated = lowering(&Query {
                 filter: Filter::and([
