@@ -1,3 +1,76 @@
+## ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE (2026-09-15) — OPEN, upstream bug, our `lancedb-sdk` feature does not build
+
+`lancedb 0.38.0` does not compile with its own default feature set. Measured, reading the
+vendored crate:
+
+| site | fact |
+|---|---|
+| `Cargo.toml` | `default = []` — so `default-features = false` on our side is a **no-op** |
+| `src/error.rs:111` | `Error::Http` is `#[cfg(feature = "remote")]` |
+| `src/lib.rs:188` | `pub mod job;` — **not** gated |
+| `src/job.rs:56,66` | uses `Error::Http` unconditionally |
+
+Result: `error[E0599]: no variant named 'Http' found for enum 'error::Error'`, twice,
+inside lancedb itself. Reproduce with
+`cargo check -p lance-graph --features lancedb-sdk`.
+
+**Not ours and not new.** `lancedb = { version = "=0.38.0", default-features = false }` is
+on `main` (Cargo.toml:265), landed with the lance-11 / lancedb-0.38 bump (#1190). Nothing
+caught it because `lancedb-sdk` is optional, off by default, enabled by no workspace
+member, and reachable in CI only through `rust-publish.yml`'s `--all-features` — a
+workflow that never runs on push. See
+`E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1`.
+
+**Candidate fix, NOT applied here:** add `features = ["remote"]` to the workspace `lancedb`
+entry. `remote = ["dep:reqwest", "dep:http", "dep:urlencoding", "lance-namespace-impls/rest",
+"lance-namespace-impls/rest-adapter"]` — no aws, so it does not reintroduce the
+`aws-smithy` breakage. Deliberately deferred: it adds `reqwest` to anyone enabling
+`lancedb-sdk`, which is a dependency-graph decision that wants its own measured PR rather
+than a tail-end change in a PR about something else. The alternative — report it upstream
+and pin the fixed patch — is also open.
+
+**Blast radius, measured** — every crate that can reach the crate, and whether anything
+turns it on:
+
+| crate | declaration | default-on? |
+|---|---|---|
+| `lance-graph` | `lancedb-sdk = ["dep:lancedb"]` | no (`default` at :87 omits it) |
+| `surreal_container` | `lancedb-sdk = ["dep:lancedb"]` | no (`default = []`) |
+| `holograph` | a feature literally NAMED `lancedb` — but it maps to `["dep:lance"]`, i.e. it does **not** pull the lancedb crate | n/a |
+
+So **two** unbuildable `lancedb-sdk` features exist, not one, and a fix must clear both.
+Nothing enables either, which is why `cargo check --workspace` is EXIT 0 and always has
+been. The `holograph` entry is a naming trap worth knowing about separately: a feature
+called `lancedb` that has nothing to do with lancedb.
+
+Until then `lancedb-sdk` is a declared-but-unbuildable feature, the same status
+`aws-sdk` carries, and both are excluded from the publish verification list.
+
+## ISS-PUBLISH-FEATURE-LIST-CAN-DRIFT (2026-09-15) — OPEN, low severity
+
+`.github/workflows/rust-publish.yml` no longer passes `--all-features`; it passes an
+explicit list of every `lance-graph` feature except the two that do not build —
+`aws-sdk` (ISS-AWS-SMITHY-…) and `lancedb-sdk` (ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE).
+That was forced: the publish step runs a verification build, and `--all-features` enables
+both. Measured — `cargo check -p lance-graph --all-features` exits **101**; the explicit
+list exits **0**.
+
+**The residue:** a feature added to `crates/lance-graph/Cargo.toml` later is silently NOT
+covered by the publish verification, where `--all-features` would have picked it up for
+free. The list was verified complete at landing by parsing both files and diffing the sets
+(`declared - passed == {aws-sdk, lancedb-sdk}`, `passed - declared == {}`) — but that was a
+one-off, not a gate.
+
+**The real fix, ~20 lines, not done:** a CI check that parses `[features]` out of
+`crates/lance-graph/Cargo.toml`, parses the `args:` line out of `rust-publish.yml`, and
+fails when the difference is anything other than the two known-broken names. Same shape as
+the existing `append_only_gate.py` / `supersession_index.py` gates, and it would also make
+the two exclusions expire loudly instead of silently outliving their cause.
+
+Severity is low: the publish workflow runs only on `release: released` /
+`workflow_dispatch`, and a drift there costs one failed release job, not a bad artifact —
+the verification build failing is precisely what *stops* the publish.
+
 ## ISS-AWS-SMITHY-BREAKS-THE-WORKSPACE-BUILD-AND-THERE-ARE-TWO-REMEDIES (2026-09-15) — ⊘ RESOLVED SAME DAY, and the recorded cost was WRONG
 
 **Resolved by the operator's own framing — "make it optional so that later we fork 1.7 and fix

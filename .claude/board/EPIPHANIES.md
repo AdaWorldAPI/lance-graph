@@ -1,3 +1,82 @@
+## 2026-09-15 (3) — E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1 — "lots of CI errors" was stale red plus silence, and chasing it found `--all-features` broken since the lancedb 0.38 bump
+
+**Status:** FINDING. Two independent mechanisms, one shape. Both measured on PR #1235.
+**Confidence:** HIGH — every claim below is an API read, a `cargo` exit code, or a line
+number in a vendored crate. All re-runnable.
+
+### The shape
+
+A verdict you can see is not a verdict about the code you have. Two ways that breaks, and
+both were live in this repo at the same moment:
+
+1. **The workflow could not run** — the PR was conflicted, so GitHub had no merge ref to
+   run `pull_request` workflows against. The last runnable SHA's red stayed on the page.
+2. **The workflow does not run on push** — `rust-publish.yml` fires only on
+   `release: released` / `workflow_dispatch`, so what it checks rots between releases with
+   nothing to report it.
+
+Case 1 shows you a stale answer. Case 2 shows you no answer and you read it as "fine".
+Neither is distinguishable from green by looking.
+
+### Mechanism 1 — a conflicted PR produces NO run, and the UI does not say so
+
+| what | measured |
+|---|---|
+| PR #1235 head | `947753d` (the aws-smithy fix) |
+| workflow runs for `947753d` | **0** — none, in any state |
+| newest runs on the branch | `36646a2`, the commit BEFORE the fix |
+| PR `mergeable` / `mergeable_state` | `false` / **`dirty`** |
+
+`build.yml`, `rust-test.yml` and `style.yml` trigger on `pull_request`, which GitHub runs
+against `refs/pull/<n>/merge` — a ref it can only synthesise when the PR merges cleanly.
+A conflicted PR therefore produces no run at all. Five non-`pull_request` workflows
+(`Supersession index`, `Append-only gate`, …) DID run and DID pass, so the page showed
+five greens beside two stale reds and **not one of the seven described the head**.
+
+**The check, before believing any red on a PR:** compare the failing run's `head_sha`
+against the PR's `head.sha`, and read `mergeable_state`. `dirty` means CI is silent, not
+failing, and the remedy is to merge or rebase the base in — not to debug the code.
+
+### Mechanism 2 — `--all-features` was already broken, and only a release would have said so
+
+Chasing mechanism 1 turned up a second one by accident. `.github/workflows/rust-publish.yml`
+passes `args: "--all-features"` to `katyo/publish-crates@v2`, which runs a verification
+build before publishing. Measured on this tree:
+
+| invocation | exit |
+|---|---|
+| `cargo check --workspace` | 0 |
+| `cargo check --workspace --all-targets` | 0 |
+| `cargo check -p lance-graph --all-features` | **101** |
+
+TWO independent causes, and the interesting one is not ours:
+
+- **`aws-sdk`** — ours, added this session, opt-in by design because
+  `aws-smithy-json 0.63.0` does not build against `aws-smithy-types 1.7.0`.
+- **`lancedb-sdk`** — **not ours, and older.** `lancedb 0.38.0` declares `default = []`,
+  gates `Error::Http` behind `#[cfg(feature = "remote")]` (`src/error.rs:111`), but leaves
+  `pub mod job;` ungated (`src/lib.rs:188`) while `job.rs` uses `Error::Http`
+  unconditionally at `:56` and `:66`. **That crate cannot compile without `remote`.** The
+  workspace pin `lancedb = { version = "=0.38.0", default-features = false }` sits on
+  `main` at line 265 and was untouched by `947753d`.
+
+So `--all-features` has been failing since the lancedb 0.38 bump (#1190), and **no branch
+could ever have gone red for it**, because the only call site is a workflow that never
+runs on push. The `aws-sdk` flag did not create this; it added a second reason to the
+same silent failure.
+
+### What generalizes
+
+**Adding a feature you know to be broken is not a local act** — every `--all-features`
+call site becomes a caller of it. Grep before landing one. Here there were two:
+`rust-publish.yml` (fixed) and `style.yml:95`, which is scoped to `lance-graph-quack` —
+one path dep, zero declared features — so it cannot reach `lance` or `lancedb`.
+
+**And the stronger one:** a workflow that only runs on release is not a gate, it is a
+deferred assertion. Its failure is dated to whenever someone next cuts a release and will
+be attributed to whatever PR happens to be adjacent. If a check matters, it has to run on
+a cadence where its failure is still traceable to a cause.
+
 ## 2026-09-15 — E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1 — there is no residue in Hexagon; the guard that refused the graft was recorded as a missing feature; and then I called two of the operator's shipped tenants dead
 
 **Status:** CORRECTION. Operator-caught, same day, hours after
