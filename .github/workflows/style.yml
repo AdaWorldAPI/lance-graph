@@ -87,6 +87,12 @@ jobs:
       # clean so it cannot silently regress — the deepnsm rule below.
       - name: Clippy lance-graph-mask-risc (mandatory)
         run: cargo clippy --manifest-path crates/lance-graph-mask-risc/Cargo.toml --all-targets -- -D warnings
+      # lance-graph-quack joined clean; gated while clean, same rule.
+      # `--all-targets` is load-bearing here rather than habitual: the A1
+      # measurement lives in `examples/adaptive_order_probe.rs`, and `--lib`
+      # would leave the probe unlinted.
+      - name: Clippy lance-graph-quack (mandatory)
+        run: cargo clippy --manifest-path crates/lance-graph-quack/Cargo.toml --all-targets -- -D warnings
       # Tier B (advisory until incrementally cleaned, non-gating):
       #   lance-graph core has ~91 pre-existing clippy violations to be paid down
       #   in subsequent PRs (TD-CLIPPY-LG-1). Don't auto-fix — each violation
@@ -184,6 +190,8 @@ jobs:
         run: cargo fmt --manifest-path crates/lance-graph-planner/Cargo.toml -- --check
       - name: Rustfmt lance-graph-mask-risc
         run: cargo fmt --manifest-path crates/lance-graph-mask-risc/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-quack
+        run: cargo fmt --manifest-path crates/lance-graph-quack/Cargo.toml -- --check
       - name: Rustfmt lance-graph-ontology (previously ungated)
         run: cargo fmt --manifest-path crates/lance-graph-ontology/Cargo.toml -- --check
       - name: Rustfmt lance-graph-rbac (previously ungated)

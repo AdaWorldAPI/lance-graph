@@ -124,6 +124,13 @@ jobs:
       # exits non-zero when the committed region differs from its output.
       - name: Ternlog dispatch table is regenerated-and-diffed
         run: python3 crates/lance-graph-mask-risc/tools/gen_ternlog_dispatch.py --check
+      # lance-graph-quack: the DuckDB-shaped surface that LOWERS to mask-risc.
+      # Same reason as the mask-risc line above — a member's tests are not run
+      # by `cargo build --workspace`, so the line lands the day the crate
+      # joins. Its 13 tests are all differential against a per-row oracle, so
+      # an un-run suite is an un-checked lowering, not merely an un-run test.
+      - name: Run quack tests
+        run: cargo test --manifest-path crates/lance-graph-quack/Cargo.toml
       # weather-poc is workspace-EXCLUDED. A new workflow introduced by the
       # same pull request cannot gate that pull request because `pull_request`
       # workflow selection comes from the base branch. Run both surfaces here
