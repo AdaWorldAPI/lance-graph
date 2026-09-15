@@ -35,6 +35,21 @@
 //! OPPORTUNITIES. The honest reading of the output is "how much work becomes
 //! avoidable", not "how much time is saved".
 //!
+//! # Two granularities, and which one is the substrate's
+//!
+//! The 64-row word is the FACADE's unit — the `u64` the executor tests before
+//! it loads a chunk. The V3 rail's unit is coarser and exact: a rail is
+//! `u8:u8`, 256 × 256 = 65 536 rows = this fixture's `N`, and its hi byte
+//! addresses one of 256 BLOCKS of 256 rows (four words — one 256-bit vector).
+//! Operator, 2026-09-15: *"256:256 is exactly 64k. Es darf gar keinen Rest
+//! geben."* A 64-row word is a quarter of a block, and a quarter is a
+//! remainder. So the probe reports BOTH — words (what the shipped executor
+//! skips) and blocks (what a rail-addressed skip may count) — and the clustered
+//! regime's prefix sits on the byte boundary: `/48` on this lane is the hi
+//! byte of the row index, one whole block. An earlier run used `/50`, which
+//! selected a quarter block by widening across the rail's two bytes; its
+//! numbers (99.90 % = 1023/1024) are recorded on the board as that cut's.
+//!
 //! Run: `cargo run -p lance-graph-quack --example adaptive_order_probe --release`
 
 use lance_graph_mask_risc::{MaskOp, Operand};
@@ -46,6 +61,15 @@ const ADDR: Col = Col(2);
 
 const N: usize = 1 << 16;
 const WORDS: usize = N / 64;
+/// Rows per rail block: the hi byte of a `u8:u8` rail selects one of 256 blocks
+/// of 256 rows — four 64-row words, one 256-bit vector.
+const BLOCK_ROWS: usize = 256;
+const BLOCK_WORDS: usize = BLOCK_ROWS / 64;
+const BLOCKS: usize = N / BLOCK_ROWS;
+const _: () = assert!(
+    N == 256 * 256 && BLOCKS * BLOCK_WORDS == WORDS,
+    "256:256 is exactly 64k — no remainder"
+);
 
 /// One conjunct: a label, the filter, and the rows it selects.
 struct Term {
@@ -74,6 +98,15 @@ fn dead_words(mask: &[u64]) -> usize {
     mask.iter().filter(|w| **w == 0).count()
 }
 
+/// Blocks of `mask` (four words each) that are entirely zero — the units a
+/// rail-addressed skip may count. A block with one live word is LIVE, not
+/// three-quarters dead: there is no fractional block.
+fn dead_blocks(mask: &[u64]) -> usize {
+    let (blocks, rest) = mask.as_chunks::<BLOCK_WORDS>();
+    assert!(rest.is_empty(), "a mask over a rail has no remainder");
+    blocks.iter().filter(|c| c.iter().all(|w| *w == 0)).count()
+}
+
 fn and_into(acc: &mut [u64], other: &[u64]) {
     for (a, b) in acc.iter_mut().zip(other) {
         *a &= *b;
@@ -84,20 +117,21 @@ fn popcount(mask: &[u64]) -> u32 {
     mask.iter().map(|w| w.count_ones()).sum()
 }
 
-/// Total words SKIPPED across a conjunction evaluated in this order.
+/// Total words and blocks SKIPPED across a conjunction evaluated in this order.
 ///
 /// Term 0 is ungated and skips nothing — it is the seed. Term `i` for `i > 0`
 /// is gated on the accumulation of `0..i`, and skips that accumulation's dead
-/// words.
-fn skipped_words(terms: &[&Term]) -> (usize, u32) {
+/// words (the executor's unit) and dead blocks (the rail's unit).
+fn skipped(terms: &[&Term]) -> (usize, usize, u32) {
     let mut acc = vec![u64::MAX; WORDS];
     and_into(&mut acc, &terms[0].mask);
-    let mut skipped = 0usize;
+    let (mut words, mut blocks) = (0usize, 0usize);
     for t in &terms[1..] {
-        skipped += dead_words(&acc);
+        words += dead_words(&acc);
+        blocks += dead_blocks(&acc);
         and_into(&mut acc, &t.mask);
     }
-    (skipped, popcount(&acc))
+    (words, blocks, popcount(&acc))
 }
 
 /// EXHAUSTIVE, not sampled — which is what lets the probe report a true
@@ -263,11 +297,14 @@ fn main() {
         Scenario {
             name: "clustered (one conjunct is an ADDRESS PREFIX)",
             terms: vec![
+                // /48 on `i << 8` pins the row index's HI BYTE: one whole
+                // 256-row block, on the rail's byte boundary. (/50 would pin two
+                // more bits — a quarter block — by reading across `u8:u8`.)
                 build(
-                    "addr prefix /50  (contiguous)",
-                    Filter::prefix_u64(ADDR, addr[N / 4], 50),
+                    "addr prefix /48  (hi byte: one block)",
+                    Filter::prefix_u64(ADDR, addr[N / 4], 48),
                     &|r| {
-                        let care = u64::MAX << (64 - 50);
+                        let care = u64::MAX << (64 - 48);
                         (addr[r] ^ addr[N / 4]) & care == 0
                     },
                 ),
@@ -295,15 +332,19 @@ fn main() {
         },
     ];
 
-    println!("N = {N} rows, {WORDS} words per mask, 5 conjuncts per scenario");
     println!(
-        "\nskipped = 64-row words a gated `Pred` does not evaluate, summed over the\n         {} gated positions of one ordering (term 0 is the ungated seed).\n",
-        4 * WORDS
+        "N = {N} rows = {BLOCKS} blocks x {BLOCK_ROWS} = {WORDS} words x 64, 5 conjuncts per scenario"
+    );
+    println!(
+        "\nskipped = 64-row words (the executor's unit) and 256-row blocks (the rail's hi\n         byte) a gated `Pred` does not evaluate, summed over the {} word / {} block\n         gated positions of one ordering (term 0 is the ungated seed).\n",
+        4 * WORDS,
+        4 * BLOCKS
     );
 
     for sc in &scenarios {
         let refs: Vec<&Term> = sc.terms.iter().collect();
-        let gated_positions = (sc.terms.len() - 1) * WORDS;
+        let gated_words = (sc.terms.len() - 1) * WORDS;
+        let gated_blocks = (sc.terms.len() - 1) * BLOCKS;
 
         // The model is tied to the SHIPPED lowering rather than assumed: the
         // conjunction is really lowered, and every term after the first must
@@ -337,17 +378,18 @@ fn main() {
         );
 
         let perms = permutations(&refs);
-        let mut results: Vec<(usize, u32, Vec<&'static str>)> = perms
+        // (words, blocks, survivors, order)
+        let mut results: Vec<(usize, usize, u32, Vec<&'static str>)> = perms
             .iter()
             .map(|p| {
-                let (skipped, count) = skipped_words(p);
-                (skipped, count, p.iter().map(|t| t.label).collect())
+                let (words, blocks, count) = skipped(p);
+                (words, blocks, count, p.iter().map(|t| t.label).collect())
             })
             .collect();
 
-        let answer = results[0].1;
+        let answer = results[0].2;
         assert!(
-            results.iter().all(|r| r.1 == answer),
+            results.iter().all(|r| r.2 == answer),
             "{}: orderings disagree on the count; the probe is measuring a defect",
             sc.name
         );
@@ -361,8 +403,9 @@ fn main() {
         results.sort_by_key(|r| r.0);
         let worst = &results[0];
         let best = results.last().expect("non-empty");
-        let (written, _) = skipped_words(&refs);
-        let pct = |s: usize| 100.0 * s as f64 / gated_positions as f64;
+        let (written_w, written_b, _) = skipped(&refs);
+        let pct = |s: usize| 100.0 * s as f64 / gated_words as f64;
+        let pct_b = |s: usize| 100.0 * s as f64 / gated_blocks as f64;
 
         println!(
             "=== {} — {answer} survivors ({:.3}%)",
@@ -373,22 +416,20 @@ fn main() {
             println!("      {:<30} sel {:.4}", t.label, t.selectivity);
         }
         println!(
-            "      {:<12} {:>9} {:>9}",
-            "ordering", "skipped", "of gated"
+            "      {:<12} {:>7} {:>8}   {:>7} {:>8}",
+            "ordering", "words", "of gated", "blocks", "of gated"
         );
-        println!(
-            "      {:<12} {:>9} {:>8.2}%",
-            "as written",
-            written,
-            pct(written)
-        );
-        println!(
-            "      {:<12} {:>9} {:>8.2}%",
-            "worst",
-            worst.0,
-            pct(worst.0)
-        );
-        println!("      {:<12} {:>9} {:>8.2}%", "best", best.0, pct(best.0));
+        for (name, w, b) in [
+            ("as written", written_w, written_b),
+            ("worst", worst.0, worst.1),
+            ("best", best.0, best.1),
+        ] {
+            println!(
+                "      {name:<12} {w:>7} {:>7.2}%   {b:>7} {:>7.2}%",
+                pct(w),
+                pct_b(b)
+            );
+        }
         // 0/0 is not an infinite ratio, it is NO SPREAD — the `moderate` and
         // `permissive` regimes skip nothing in ANY order, and printing `infx`
         // beside `spread 0.00` made the line contradict itself. Those two rows
@@ -406,13 +447,44 @@ fn main() {
                 best.0 as f64 / w as f64
             ),
         }
-        println!("      best order: {}", best.2.join("  <  "));
+        println!("      best order: {}", best.3.join("  <  "));
+        // Term 0 walked through every index with the rest in written order —
+        // the ramp `Filter::and_by_skip`'s doc quotes. Printed, so the quoted
+        // figure is a re-runnable measurement rather than a one-off
+        // instrumentation.
+        let ramp: Vec<(usize, usize)> = (0..refs.len())
+            .map(|p| {
+                let mut order: Vec<&Term> = refs[1..].to_vec();
+                order.insert(p, refs[0]);
+                let (w, b, _) = skipped(&order);
+                (w, b)
+            })
+            .collect();
+        println!(
+            "      term 0 at index 0..={}: words {:?}  blocks {:?}",
+            refs.len() - 1,
+            ramp.iter().map(|r| r.0).collect::<Vec<_>>(),
+            ramp.iter().map(|r| r.1).collect::<Vec<_>>()
+        );
+        // The rail's unit, ranked on its own: the best-by-blocks ordering can
+        // differ from the best-by-words one, and the spread in blocks is the
+        // number a rail-addressed skip can actually realise.
+        let (wb, bb) = (
+            results.iter().map(|r| r.1).min().expect("non-empty"),
+            results.iter().map(|r| r.1).max().expect("non-empty"),
+        );
+        println!(
+            "      blocks:      worst {wb} ({:.2}%)  best {bb} ({:.2}%)  spread {:.2} percentage points",
+            pct_b(wb),
+            pct_b(bb),
+            pct_b(bb) - pct_b(wb)
+        );
         println!();
     }
 
     println!(
         "A1's falsifier: if term order does not move the skipped fraction, the row is\n\
          ELIMINATE and DuckDB's hill-climb must not be ported. These are counts of\n\
-         AVOIDABLE word-evaluations, not timings."
+         AVOIDABLE word- and block-evaluations, not timings."
     );
 }

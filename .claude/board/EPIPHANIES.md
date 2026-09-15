@@ -1,3 +1,82 @@
+## 2026-09-15 (7) — E-256-BY-256-IS-EXACTLY-64K-THE-RAILS-SKIP-UNIT-IS-ITS-HI-BYTE-AND-A-QUARTER-BLOCK-IS-A-REMAINDER-1 — operator-ruled; the `/50` cut read across `u8:u8`, and re-measured on the byte boundary the clustered regime moves ABOVE the density bound
+
+**Status:** RULING — operator, verbatim: *"256:256 is exactly 64k. Es darf gar keinen
+Rest geben."* — plus FINDING for everything measured below: the probe now prints both
+units and the ramp, re-runnable. Reading the ruling as *the rail's hi byte is the skip
+unit* is my derivation and is labelled as such.
+**Confidence:** HIGH on the numbers. The derivation is the only reading under which
+"no remainder" and the `u8:u8` canon (two separate bytes, never widened —
+`E-V1-TAIL-FORBIDDEN-V3-IS-CONTENT-BLIND-1`) are satisfied by one skip unit.
+
+### The ruling, and what it rules out
+
+A rail is `u8:u8`: 256 × 256 = 65 536 rows — exactly the 64k slab, exactly the A1
+probe's `N`. Its hi byte addresses 256 blocks of 256 rows; a block is four 64-row
+words, one 256-bit vector. "No remainder" cuts two ways:
+
+- **Addressing.** A prefix on a rail is a whole number of hi-byte cells or it is not a
+  rail address. `/48` on the probe's `i << 8` lane pins the hi byte — one block. The
+  `/50` the (5) entry measured pins two more bits by reading across the two bytes as
+  if they were a `u16`, and selects a QUARTER block. That quarter is the remainder.
+- **Counting.** A skip counted on a rail is counted in blocks. The 64-row word is the
+  facade's machine unit — `MaskOp::Pred`'s doc already lets an executor skip coarser
+  chunks with an identical result — but as an ADDRESSING unit it straddles the lo byte
+  (6 bits against a nibble cascade), and a block with one live word is live, not
+  three-quarters dead.
+
+### Re-measured on the byte boundary (`crates/lance-graph-quack/examples/adaptive_order_probe.rs`, both units, ramp printed)
+
+| regime | survivors | words, worst → best | 256-row blocks, worst → best |
+|---|---|---|---|
+| selective | 36 (0.055 %) | 5.66 % → 80.66 % | **0.00 % → 61.91 %** |
+| moderate | 14 311 (21.8 %) | 0 → 0 | 0 → 0 |
+| permissive | 61 777 (94.3 %) | 0 → 0 | 0 → 0 |
+| clustered, `/48` | **116 (0.177 %)** | 0.00 % → **99.61 %** | 0.00 % → **99.61 %** |
+
+Three things the byte boundary changes:
+
+1. **99.61 % = 1 − 1/256, predicted before the run, held.** Words and blocks agree
+   exactly on the clustered regime (4 080 / 4 096 and 1 020 / 1 024): one live block,
+   four live words. The ramp is `[4080, 3060, 2040, 1020, 0]` words /
+   `[1020, 765, 510, 255, 0]` blocks — monotone, linear, in both units. The (5)
+   entry's 99.90 % was the quarter-block cut's number: correct for that cut, and that
+   cut is not a rail address.
+2. **The clustered regime sits ABOVE D-GTM-0n's 0.1 % bound, not under it.** 116
+   survivors fill one block: 0.177 % active. The (5) entry's "both lever regimes sit
+   under the bound" was an artifact of `/50` (31 survivors). What survives: the
+   SELECTIVE regime (0.055 %) is under the bound and the probe still has no sparse arm
+   — the missing-arm finding stands, narrowed to that one regime.
+3. **In the rail's unit the selective regime's written order skips NOTHING.** 232 dead
+   words of 4 096 in the written order — and 0 dead blocks: scattered survivors leave
+   no 256-row block empty until the two selective conjuncts have run. Best drops
+   80.66 → 61.91 %. The word count flattered the lever by 19 points on the scattered
+   regime; on the contiguous regime it was exact.
+
+Sharper than before, too: the clustered regime has three times the selective regime's
+survivors and skips MORE — 116 vs 36 rows, 99.61 vs 80.66 % of words, 99.61 vs 61.91 %
+of blocks. Ranked by selectivity the two come out backwards. That replaces the (5)-era
+"near-identical counts, 19 points apart" argument, which was also `/50`'s.
+
+### Where it landed
+
+- The probe: `dead_blocks`, `skipped → (words, blocks, count)`, `/48`, a
+  `const _: () = assert!(N == 256 * 256 && BLOCKS * BLOCK_WORDS == WORDS)` that says
+  "no remainder" in code, and the ramp printed so the quoted figure is a measurement.
+- `lib.rs`: the `and_by_skip` doc table carries both units and the new figures; the
+  crate doc's 99.90 → 99.61; the prefix-halving test keeps `/49` and `/50` as
+  COMPARATOR arithmetic (a ternary match pins any care mask) and says which prefixes
+  are rail cells.
+- mask-risc `MaskOp::Pred` doc: one paragraph naming the rail's unit.
+- Board: (5) ⊘-regraded in place at both affected sections; matrix §8a and D-QCK-9
+  ⊘-annotated; `LATEST_STATE` 2026-09-15 (4).
+
+### The rule
+
+**Count in the unit the address is carved in.** A skip fraction measured in a unit
+finer than the rail's cell reports a saving the rail cannot address — and on scattered
+populations overstates it. The word is how the executor tests; the block is what the
+rail can promise.
+
 ## 2026-09-15 (6) — E-THE-SLOWEST-GATE-IS-THE-ONE-YOUR-OWN-PUSH-CADENCE-CANCELS-1 — 33 runs, 19 cancelled; the fix waited 75 minutes for a verdict, and three of its four heads were cancelled by my own next push
 
 **Status:** FINDING. Every number is the Actions API ledger for `rust-test.yml` filtered
@@ -110,10 +189,16 @@ it. The falsifier is missing an arm, and it is not the fused arm (Phase 7): that
 order-independent by construction (the (4) entry above) and settles a different question.
 **The A1 row must carry the 0.1 % bound the way D-GTM-0n's row does.**
 
+> ⊘ **Corrected the same day (operator ruling, entry (7)).** The clustered row above is
+> the `/50` cut's — a quarter block. On the rail's byte boundary (`/48`) the clustered
+> regime has **116 survivors = 0.177 %**, ABOVE the bound; only the selective regime
+> (0.055 %) sits under it. The missing-arm finding stands for that regime.
+
 ### 3. The clustered 99.90 % is arithmetic, not a property of the data
 
-`crates/lance-graph-quack/examples/adaptive_order_probe.rs:136` — `(i as u64) << 8`;
-`:268` — `Filter::prefix_u64(ADDR, addr[N / 4], 50)`. A 50-bit prefix on a u64 leaves 14
+`crates/lance-graph-quack/examples/adaptive_order_probe.rs:170` — `(i as u64) << 8`;
+`:305` — `Filter::prefix_u64(ADDR, addr[N / 4], 48)` (it read `50` when this entry was
+measured; see the ⊘ below). A 50-bit prefix on a u64 leaves 14
 low bits free: 8 are the shift, **6 are log₂ 64 — the word.** The prefix pins `i`'s top
 10 bits, which IS the 64-row word index (N = 2¹⁶ rows = 1 024 words); exactly the 64 rows
 of one aligned word satisfy it. Gated on that accumulator, every later conjunct evaluates
@@ -137,6 +222,16 @@ prefix skip and the word skip are one mechanism, below it they are two.
 
 **Falsifier (not run):** the probe with the prefix at 50, 49, 48 must report 99.90 /
 99.80 / 99.61 %. A departure falsifies §3; a match promotes the family from CONJECTURE.
+
+> ⊘ **Corrected the same day — the handoff is at the BYTE, not at 10 bits.** Operator:
+> *"256:256 is exactly 64k. Es darf gar keinen Rest geben."* The rail's unit is its hi
+> byte — 256 blocks of 256 rows, four words each. `/50` pins two bits of the lo byte,
+> reading across `u8:u8`, and selects a quarter block; the 1023/1024 is that cut's
+> arithmetic. On the byte boundary the ceiling is 1 − 1/256 = **99.61 %**, measured in
+> both units (entry (7); the `/48` point of the falsifier above ran and matched). The
+> prefix-length family below the boundary is withdrawn as a family of rail addresses —
+> legal prefixes are nibble-multiples and the skip unit is the block. The word-level
+> figures above remain correct as facade arithmetic for the cut they describe.
 
 ### What to carry
 

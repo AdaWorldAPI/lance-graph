@@ -1,3 +1,24 @@
+## 2026-09-15 (4) — operator ruling *"256:256 is exactly 64k. Es darf gar keinen Rest geben."* — the A1 probe counts in the rail's unit, and two figures in (3) moved
+
+- **What changed (this commit, no lowering behaviour touched):**
+  `crates/lance-graph-quack/examples/adaptive_order_probe.rs` reports 64-row
+  words (the executor's unit) AND 256-row blocks (the rail's hi byte, four
+  words, one 256-bit vector), cuts the clustered prefix on the byte boundary
+  (`/48` — one whole block; the earlier `/50` selected a quarter block by
+  reading across `u8:u8`), const-asserts `N == 256 * 256` with no remainder,
+  and prints the ramp its doc quotes. `lib.rs` docs and the prefix-halving
+  test's message follow; mask-risc `MaskOp::Pred`'s doc names the rail's unit.
+- **Figures, re-measured:** clustered 99.90 → **99.61 %** (= 1 − 1/256, in
+  both units), survivors 31 → **116 (0.177 %, ABOVE the 0.1 % bound)**;
+  selective in blocks **0.00 → 61.91 %** (its written order skips no block
+  at all); moderate and permissive still 0 in both units. Ramp
+  `[4080, 3060, 2040, 1020, 0]` words / `[1020, 765, 510, 255, 0]` blocks.
+- **Consequence for (3)(c) below:** the missing SPARSE arm stands for the
+  selective regime only; the clustered regime is above the bound on the byte
+  boundary. Entry:
+  `E-256-BY-256-IS-EXACTLY-64K-THE-RAILS-SKIP-UNIT-IS-ITS-HI-BYTE-AND-A-QUARTER-BLOCK-IS-A-REMAINDER-1`;
+  the (5) epiphany is ⊘-regraded in place.
+
 ## 2026-09-15 (3) — PR #1235 merged (`e8d3c19`): `lance-graph-quack` is on `main` and the AWS SDK is opt-in on `main` — one new workspace member, NO contract inventory delta
 
 - **Added on `main`:** `crates/lance-graph-quack` — the DuckDB-shaped surface

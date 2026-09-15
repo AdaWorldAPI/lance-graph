@@ -92,6 +92,14 @@ pub enum MaskOp {
     /// executor is free to skip coarser chunks; the result is identical by
     /// construction, since a skipped chunk is an all-zero gate). Compare cost
     /// follows the gate's live words; the per-word gate test is still ∝ rows/64.
+    ///
+    /// On a V3 rail the coarser chunk is not a choice but the unit: a rail is
+    /// `u8:u8`, 256 × 256 = 65 536 rows exactly, and its hi byte addresses one
+    /// of 256 BLOCKS of 256 rows — four words, one 256-bit vector. A word is a
+    /// quarter of a block and a quarter is a remainder (operator, 2026-09-15:
+    /// *"256:256 is exactly 64k. Es darf gar keinen Rest geben."*), so a skip
+    /// COUNTED on a rail is counted in blocks; the per-word test remains the
+    /// executor's machine detail.
     Pred {
         pred: Pred,
         under: Option<Operand>,
