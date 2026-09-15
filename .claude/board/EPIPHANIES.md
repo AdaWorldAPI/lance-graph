@@ -1,3 +1,102 @@
+## 2026-09-15 — E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-AND-ITS-LOAD-BEARING-LINKS-ARE-STUBS-1 — every link is named in the source, down to the words "a single masked load, no gather", and the shipped lookups are a `None`, a scalar loop, and a linear scan
+
+**Status:** FINDING on the code census — located-code claims with file:line, NOT a measurement.
+**Confidence:** High on what exists and what does not. The ARCHITECTURE is the operator's,
+stated across six messages; the census, the three materialization sites and the W1 demarcation
+are mine.
+**Supersedes in scope:** `E-BOUNDED-ATTENTION-BUYS-REACH-AND-A-DISTANT-HOP-IS-A-TERNLOG-NOT-A-SEMIRING-1`
+(`20c7579`, earlier today) claimed only *"the joining op is absent."* That was too narrow and is
+widened here, not withdrawn: the canon specified the **whole chain**, the workspace's own
+reviewer **flagged the gap**, the contract **declares it**, and three links are stubs.
+
+**The architecture, in the operator's order.** (1) MQ is an **access discipline**, not a graph
+shape: the bounded legal move set IS the prefetch window — the torch. (2) The torch being cheap
+is what **buys reach**; bounded frontier × many hops beats unbounded × few. (3) While still *n*
+hops out nothing exact is asked, only *in play / excluded*, so the hop is **boolean** — and
+ternlog is 3-input while HHTL is 3 tiers, so **two endpoints fold to `2 × 3` masked + cached**.
+(4) After those ternlogs the **first N bytes of the NodeGuid are reusable** — HHTL·family·leaf
+minus the part still being explored — so access becomes **masked O(1)**. (5) That O(1) is what
+makes **trie adjacency cheap**. (6) And the adjacent spread **uses MQ again locally** — one rule,
+every level.
+
+**The canon already says all of it.** `canonical_node.rs:5-6`: *"family + identity are the
+CONTIGUOUS TRAILING 6 BYTES → the basin-local key you can use alone after an HHTL radix walk
+(**skip the prefix**)."* `canonical_node.rs:301-303` on `local_key()`: *"After an HHTL radix walk
+has bound classid+HEEL+HIP+TWIG, this is the only part that still discriminates — **a single
+masked load, no gather**."* And the self-similarity is canon too (`CLAUDE.md`, codebook
+scoping): *"Finer scopes … follow the same longest-prefix-wins rule — **one rule, every
+level**."* The address is self-similar in code as well: `twig_search` **is** `hip_search`
+(`heel_hip_twig_leaf.rs:225-226`, *"Structurally identical to hip_search"*).
+
+**The chain, link by link, with what actually ships.**
+
+| link | state |
+|---|---|
+| prefix resolution via N ternlogs (the mask hop) | **ABSENT** — `ISS-NO-MASK-HOP-OP` |
+| `local_key()` — *"the only part that still discriminates"* | **SHIPPED** (`canonical_node.rs:305`) |
+| `row_for_local_key` — key → row, the masked O(1) | **STUB: `None` for every key**, param `_local_key` unused (`soa_view.rs:127-130`) |
+| `hhtl_path` — *"the radix-trie / CLAM cluster address"* | declared |
+| what consumers do today | **fall back to the positional `(mailbox_id, row)` address** |
+
+**The workspace's own reviewer already caught this**, and the doc cites it verbatim: *"the
+baton-handoff-auditor's CATCH-CRITICAL — the View previously exposed only `n_rows`, with no way
+to go from the canon address back to a row."* The response **declared the contract and deferred
+the implementation**. That deferral is precisely what keeps trie adjacency expensive: with no
+canon-address → row, adjacency can only be positional or scanned.
+
+**Three materialization sites, one disease at three scales.**
+
+| site | bounded? | what it materializes |
+|---|---|---|
+| `hdr_bfs` (`blasgraph/ops.rs:157-195`) | **✗ unbounded** | keeps every newly reached node; `result.get(idx).is_none()` **per index**; `max_depth` is the only cost control |
+| `cascade_search` (`heel_hip_twig_leaf.rs:352`) | ✓ `SearchConfig.k` = 50 | **5 heap allocations per query** — `Vec<SearchHit>` ×3 + `Vec<usize>` ×2 *between* tiers — and **3 sequential dependent stages**. Two endpoints: 10 allocations, 6 stages. Folded: 2 ternlogs, zero intermediate. |
+| `Scope::position_of` (`neighborhood.rs:62`) | — | **`self.node_ids.iter().position(...)` — a LINEAR SCAN, up to `MAX_SCOPE_SIZE = 10_000`.** Plus `scent_column()` / `resolution_column()` allocating a fresh `Vec<u8>` **per call**. |
+
+The last row is the sharpest single line in this entry: **the canon specifies "a single masked
+load, no gather" and the shipped local lookup is `iter().position()` over ≤10,000 entries.** It
+is also a straight zero-copy-law violation by this workspace's own rule (*"the array itself is a
+ClassView projection"*) — a gathered `Vec<u8>` where a borrowed view exists.
+
+**The torch and the mask each exist in exactly one place and never together.** `cascade_search`
+is bounded but materializes and runs sequentially; `hdr_bfs` is unbounded and scalar-looped.
+Neither uses masks.
+
+**⚠ DEMARCATION — MQ-local is NOT the spread W1 falsified.** W1 killed a spread, and arm B was
+the damning arm: a **permuted** layout BEAT the learned one (0.1654 vs 0.1579), so the
+seriation-based neighbourhood carries no signal. MQ-local is a **different mechanism** and this
+entry must not be read as reviving a dead one. W1's spread was **metric diffusion** over palette
+cells — a radius ball whose measured failure was a radius *smaller than the cell spacing*, so it
+diffused into empty space, with no surround. MQ-local spreads over the **bounded legal adjacent
+set** (trie siblings / edges), not a distance ball: it cannot diffuse into empty space by
+construction and does not depend on seriation quality at all. **Arm B does not bear against it,
+and the falsified spread stays falsified.**
+
+**CENSUS, NOT MEASUREMENT** — and the distinction is load-bearing. The only measured numbers
+anywhere in this chain are the torch's loss budget (top-6 successor mass **0.9792 / 0.9943**,
+D-HXP-1 CAPACITY **PASS**) and the cost of having no torch (`is_a` frontier peaking **6,297
+nodes wide at hop 6** on one seed). The allocation and stage counts above are read off the
+source, not profiled. **No claim here is that the fold is faster** — see the honest caveat below.
+
+**The fold is not free, and the cache is what pays for it.** Today tier *N* only evaluates the
+survivors of tier *N−1* — sequential narrowing does less work per tier. Masked `AND3` evaluates
+full-width and intersects. So the fold trades **narrowing for width**, and it wins only because
+tier masks are **reusable across queries**. At 512 nodes per instruction that should beat 5
+allocations and 3 dependent stages comfortably, but that is the measurement, not the claim.
+
+**Falsifiers, cheapest first** — and the first is far cheaper than the ternlog walk:
+1. **`row_for_local_key`** — materialize a `local_key` column on ONE view and show it stops
+   returning `None`, with a two-sided arm: a key that IS present resolves to the right row, and a
+   key that is NOT present still returns `None` (a lookup that answers every key is the
+   fires-on-everything defect).
+2. **Fold** — folded HHTL must reproduce `cascade_search`'s survivor set **exactly**, and must
+   LOSE when the cache is cold or query count is 1 (else the cache isn't what's paying).
+3. **Bounded-k ternlog walk** — must match unbounded `hdr_bfs` recall at the same depth AND go
+   red when k is raised to unbounded, plus an anti-vacuity arm on a graph where top-k does NOT
+   hold the mass (else 0.98 is a property of these graphs, not of the discipline).
+
+**Nothing built.** `graph/refine/` (task #26) stays gated.
+
+---
 ## 2026-09-15 — E-BOUNDED-ATTENTION-BUYS-REACH-AND-A-DISTANT-HOP-IS-A-TERNLOG-NOT-A-SEMIRING-1 — the architecture is already built in four places and the one op that joins them does not exist
 
 **Status:** FINDING on the code census (verified, file:line below). The ARCHITECTURE is the

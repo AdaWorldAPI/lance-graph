@@ -1,4 +1,83 @@
+## ISS-ROW-FOR-LOCAL-KEY-RETURNS-NONE (2026-09-15) — OPEN
+
+**The masked-O(1) key→row lookup the canon specifies is a stub that answers `None` for every
+key, and every consumer silently falls back to positional addressing.**
+
+`soa_view.rs:127-130`:
+
+```rust
+fn row_for_local_key(&self, _local_key: u64) -> Option<usize> {
+    None
+}
+```
+
+The parameter is `_`-prefixed because it is unused. Its own doc: *"A view that has NOT
+materialized a per-row key index returns `None` for every key … **Until then a consumer that
+gets `None` falls back to the positional `(mailbox_id, row)` address.**"* The only implementor
+in the tree that returns anything is a **test** impl doing a linear `.find()` (`mailbox_scan.rs:434`).
+
+**What makes this the load-bearing stub rather than an ordinary TODO:** `canonical_node.rs:301-303`
+specifies the intended behaviour in words — *"After an HHTL radix walk has bound
+classid+HEEL+HIP+TWIG, this is the only part that still discriminates — **a single masked load,
+no gather**"* — and `local_key()` itself SHIPS. So the discriminator exists and the lookup that
+would make it O(1) does not. Without canon-address → row, **trie adjacency can only be
+positional or scanned**, which is the whole cost the prefix-reuse architecture exists to remove
+(`E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-AND-ITS-LOAD-BEARING-LINKS-ARE-STUBS-1`).
+
+**Already flagged once.** The doc cites *"the baton-handoff-auditor's CATCH-CRITICAL — the View
+previously exposed only `n_rows`, with no way to go from the canon address back to a row."* The
+response declared the contract and deferred the implementation; this issue is that deferral,
+named.
+
+**Cheapest falsifier in the whole chain — no ternlog, no kernel.** Materialize a `local_key`
+column on ONE view and show it stops returning `None`. Two-sided and mandatory: a key that IS
+present must resolve to the right row, and a key that is NOT present must still return `None`.
+A lookup that answers every key is the fires-on-everything defect.
+
+---
+
+## ISS-THREE-MATERIALIZING-TRAVERSAL-SITES (2026-09-15) — OPEN
+
+**The same "hold the river instead of the frontier" pattern at three scales, none of them
+using masks, and the bound and the mask never co-occurring.**
+
+| site | bounded? | materializes |
+|---|---|---|
+| `hdr_bfs` (`blasgraph/ops.rs:157-195`) | **✗ unbounded** | keeps every newly reached node; `result.get(idx).is_none()` per index; `max_depth` the only cost control |
+| `cascade_search` (`heel_hip_twig_leaf.rs:352`) | ✓ `SearchConfig.k` = 50 | **5 heap allocations per query** (`Vec<SearchHit>` ×3 + `Vec<usize>` ×2 between tiers), **3 sequential dependent stages** |
+| `Scope::position_of` (`neighborhood.rs:62`) | — | `self.node_ids.iter().position(...)` — **a LINEAR SCAN up to `MAX_SCOPE_SIZE = 10_000`**; plus `scent_column()`/`resolution_column()` allocating a fresh `Vec<u8>` **per call** |
+
+**`cascade_search` has the torch and no mask; `hdr_bfs` has neither.** `SearchConfig.k` bounds
+survivors at every tier — the bounded legal set, already present — but the tiers communicate
+through materialized `Vec<usize>`, and `twig_search` is *literally* `hip_search` (`:225-226`,
+*"Structurally identical to hip_search"*), i.e. the three tiers are the same operation at three
+scales and therefore fold into one 3-input immediate (`heel & hip & twig` = `AND3`).
+
+**`Scope::position_of` is the one to read first.** The canon specifies *"a single masked load,
+no gather"*; the shipped local lookup is `iter().position()` over ≤10,000 entries. The column
+accessors are additionally a plain zero-copy-law violation by this workspace's own rule (*"the
+array itself is a ClassView projection"*) — a gathered `Vec<u8>` where a borrowed view exists.
+
+**Not one fix.** Each row has a different shape: `hdr_bfs` needs a *bound* (it has none);
+`cascade_search` needs the *fold* (it has the bound already); `Scope` needs an *index or a
+borrowed view* (it has neither). Filed together because they are one pattern, to be fixed
+separately.
+
+**The fold is not free and its falsifier must say so:** folded HHTL must reproduce
+`cascade_search`'s survivor set exactly, **and must LOSE when the cache is cold or the query
+count is 1** — sequential narrowing genuinely does less work per tier, so if the folded form
+wins even with a cold cache, the cache is not what is paying and the explanation is wrong.
+
+---
 ## ISS-NO-MASK-HOP-OP (2026-09-15) — OPEN
+
+> **⊘ WIDENED same day** — this issue named ONE absent op. The census went further:
+> the canon specifies the **entire** masked-O(1) chain in source, down to the words
+> *"a single masked load, no gather"*, and **three** links are stubs — this op, plus
+> `ISS-ROW-FOR-LOCAL-KEY-RETURNS-NONE` and `ISS-THREE-MATERIALIZING-TRAVERSAL-SITES`.
+> Read all three through
+> `E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-AND-ITS-LOAD-BEARING-LINKS-ARE-STUBS-1`.
+> The text below stands; its scope was one link of six.
 
 **Four subsystems implement the mask-native hop; none of them performs it. The joining op
 does not exist.**
