@@ -62,7 +62,27 @@ returned. Related: `E-THE-SEMIRING-IS-FREE-THE-COST-IS-CARRIER-WIDTH-AND-THE-JOI
 
 ---
 
-## ISS-NODEGUID-HAS-NO-JOIN-SURFACE (2026-09-15) — OPEN
+## ISS-NODEGUID-HAS-NO-JOIN-SURFACE (2026-09-15) — ⊘ INVALID (same day, operator correction)
+
+> **⊘ INVALID — the evidence was a grep of `canonical_node.rs` ALONE.** The join lives one
+> module over in the SAME crate: `hhtl::NiblePath` (`pub mod hhtl`, `lib.rs:111`) —
+> `from_guid_prefix_v2` / `_v3(&NodeGuid)` pack `heel<<48 | hip<<32 | twig<<16 | leaf`
+> root-first from DECODED fields (exactly the recomposition this issue's sibling calls the
+> only correct join), then `common_prefix_depth`, `family_hop_count`, `common_ancestor`,
+> `is_ancestor_of`. Two of this issue's own six grep terms (`common_prefix`, `is_ancestor`)
+> would have hit it. And it is CALLED in production: `lance-graph/src/graph/mailbox_scan.rs:149`
+> (per row, inside a scan), `:263` (`DistanceMeans::PrefixDepth`),
+> `lance-graph-contract/src/soa_graph.rs:408` (`nearest_anchor`), `holograph/src/dntree.rs:188,1002`.
+> Measured on this issue's own probe fixtures (`family-join-v1`, arm added same day): the
+> canonical join agrees with `CascadeKey` on every pair at **16-nibble** resolution —
+> P1 `3→16`, P2 `0→0`, P3 `3→16`, P4 `0→0`. It reads the HEEL/HIP/TWIG/leaf path ONLY (the
+> Abstammung axis — `soa_graph.rs` "two head axes"), so T1 (classid) and T2 (identity) both
+> read `16`: invisible BY DESIGN, not a defect. The "fourth instance of the same gap" framing is
+> withdrawn for this item. **What survives:** the byte-order trap is real, and
+> `from_guid_prefix_v3` AVOIDS it (LE `u16` per tier, then root-first shift). Lesson, second
+> time this session: I searched one file and declared a crate empty. The text below stands as
+> the record of what was claimed.
+
 
 **The canonical address type has no way to compute the one operation the canon says the address
 exists for — while a parallel key type in the same repo has it, measured.**
@@ -87,7 +107,19 @@ differing in the FIRST nibble and a pair differing in the LAST must not be confu
 
 ---
 
-## ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES (2026-09-15) — OPEN
+## ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES (2026-09-15) — OPEN, ⊘ RE-SCOPED same day
+
+> **⊘ RE-SCOPED.** True of `CascadeKey::shared_prefix_tiers` as stated. But the CANONICAL join
+> is `hhtl::NiblePath::common_prefix_depth`, not this one, and it splits the finding in two:
+> **tier-coarse does NOT apply** — `MAX_DEPTH = 16` nibbles (finer than the canon's 12, and 5.3×
+> finer than the 3 tiers here); **branches DOES apply** — it is a
+> `while d < max { match (prefix(next), prefix(next)) … }` loop, O(depth) branches per call,
+> where the canon pins *"a shift, never a branch."* And it runs **per row inside a scan**
+> (`mailbox_scan.rs:149`), so the loop is on a hot path, not a curiosity. `packed()` returns
+> `(path: u64, depth: u8)` root-first, so the branchless form is one line:
+> `((a.path ^ b.path).leading_zeros() >> 2).min(a.depth.min(b.depth))`. The `morton48()`-unused
+> observation in perturbation-sim stands as written.
+
 
 **The shipped join is 4× coarser than the canon's own level granularity and uses a branch chain
 where the canon pins a shift — and the correctly-composed integer sits seven lines above it,
@@ -279,7 +311,18 @@ count is 1** — sequential narrowing genuinely does less work per tier, so if t
 wins even with a cold cache, the cache is not what is paying and the explanation is wrong.
 
 ---
-## ISS-NO-MASK-HOP-OP (2026-09-15) — OPEN
+## ISS-NO-MASK-HOP-OP (2026-09-15) — OPEN, ⊘ RE-SCOPED same day
+
+> **⊘ RE-SCOPED — "the joining op does not exist" is wrong as a universal.** It exists on the
+> PALETTE carrier: `p64-bridge/src/lib.rs::deduce_path` (`:479`) — *"Transitive deduction:
+> A→B→C via compose"* — a `visited[]` + `next_frontier` + `bits &= bits - 1` bitmask walk that,
+> per hop, calls `semiring.compose(current, target)` AND `semiring.distance(current, target)`.
+> That is a masked hop with compose+distance, on 1-byte palette codes, shipped and wired. It is
+> ABSENT on the BitVec carrier (blasgraph `hdr_bfs`) and in mask-risc's IR — which is where this
+> issue looked, and where it stays correct. The scoping is itself evidence for the sixth arc's
+> carrier finding from the other side: **the cheap carrier (1 B/code) already has the walk; the
+> expensive one (32 registers/value) does not.**
+
 
 > **⊘ WIDENED same day** — this issue named ONE absent op. The census went further:
 > the canon specifies the **entire** masked-O(1) chain in source, down to the words

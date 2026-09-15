@@ -191,5 +191,47 @@ fn main() {
     assert!(be_t1 < be_t2, "from_be is monotone — this is why ordering is not enough");
     assert!(le_t1 > le_t2, "from_le inverts the two ends");
 
+    // ── THE ARM THIS PROBE WAS MISSING (2026-09-15, operator correction) ──
+    // `ISS-NODEGUID-HAS-NO-JOIN-SURFACE` was filed on a grep of canonical_node.rs
+    // ALONE. The canonical join lives one module over: `hhtl::NiblePath`
+    // (`from_guid_prefix_v2` + `common_prefix_depth`), and it is CALLED in
+    // production — mailbox_scan.rs:149 (per row, in a scan), :263
+    // (DistanceMeans::PrefixDepth), soa_graph.rs:408 (nearest_anchor). This arm
+    // runs it on the same fixtures. It reads a DIFFERENT prefix than `recompose`:
+    // the 16-nibble HEEL/HIP/TWIG/leaf path (the Abstammung axis) — NOT classid,
+    // NOT the family/identity tail. So T1 (classid differs) and T2 (identity
+    // differs) are invisible to it BY DESIGN; P1/P2 are what exercise it.
+    use lance_graph_contract::hhtl::NiblePath;
+    let cpd = |a: &NodeGuid, b: &NodeGuid| -> u8 {
+        NiblePath::from_guid_prefix_v2(a).common_prefix_depth(NiblePath::from_guid_prefix_v2(b))
+    };
+    println!(
+        "\n{:<38} {:>8} {:>10}   {}",
+        "pair", "cascade", "canonical", "(cascade 0..=3 tiers; canonical 0..=16 nibbles)"
+    );
+    println!("{}", "-".repeat(74));
+    for (name, a, b, _, _) in &pairs {
+        let c = cascade_of(a).shared_prefix_tiers(cascade_of(b));
+        println!("{name:<38} {c:>8} {:>10}", cpd(a, b));
+    }
+    for (name, a, b) in [("T1 classid top nibble (OUTSIDE path)", &t1a, &t1b),
+                         ("T2 identity last nibble (OUTSIDE path)", &t2a, &t2b)] {
+        println!("{name:<38} {:>8} {:>10}", "-", cpd(a, b));
+    }
+
+    // Pinned from the run above — EXACT, both ends, per the rule this probe states.
+    // canonical == 16 exactly where cascade == 3, and 0 exactly where cascade == 0:
+    // the shipped join agrees with CascadeKey on every pair, at 16-nibble
+    // resolution instead of 3 tiers. T1/T2 read 16 because classid and identity
+    // sit OUTSIDE the HEEL/HIP/TWIG/leaf path — the "two head axes" design.
+    let canon: Vec<(u8, u8)> = pairs
+        .iter()
+        .map(|(_, a, b, _, _)| (cascade_of(a).shared_prefix_tiers(cascade_of(b)), cpd(a, b)))
+        .collect();
+    assert_eq!(canon, vec![(3, 16), (0, 0), (3, 16), (0, 0)], "canonical join moved");
+    assert_eq!((cpd(&t1a, &t1b), cpd(&t2a, &t2b)), (16, 16), "path must be blind to classid/identity");
+    // and the resolution ratio is not a constant someone typed: 16 nibbles / 3 tiers.
+    assert_eq!(NiblePath::from_guid_prefix_v2(&p3a).depth(), 16, "MAX_DEPTH changed");
+
     println!("\nVERDICT: the two namings are NOT interchangeable. Filed hazard CONFIRMED.");
 }

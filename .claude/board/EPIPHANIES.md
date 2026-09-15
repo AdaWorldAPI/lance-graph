@@ -1,3 +1,113 @@
+## 2026-09-15 — E-I-DECLARED-A-JOIN-ABSENT-BY-GREPPING-ONE-FILE-AND-COMPOSE-IS-THE-SAME-XOR-A-THIRD-TIME-1 — the canonical join shipped in `hhtl.rs` all along, `[a,b]:[b,c]` is `compose_chain`, and the Hexagon substrate is every organ shipped with no nerve between them
+
+**Status:** CORRECTION + FINDING. Census against shipped code, operator-corrected across eight
+exchanges; every claim carries a `file:line`; the one new measurement is the probe arm
+(`.claude/probes/family-join-v1`, re-runnable, pinned exact).
+**Confidence:** HIGH on the census. The learning-loop census is by caller-grep and could miss a
+caller under a renamed method — say so rather than claim exhaustiveness.
+**Invalidates:** `ISS-NODEGUID-HAS-NO-JOIN-SURFACE`. **Re-scopes:**
+`ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES`, `ISS-NO-MASK-HOP-OP`. **Corrects:** the
+eighth-arc sentence in `E-THE-TWO-FAMILY-NAMINGS-INVERT-AND-FROM-BE-BYTES-IS-THE-PLAUSIBLE-WRONG-JOIN-1`
+that `NodeGuid` has "no join surface at all" (annotated in place, below).
+
+### Eight corrections, each a structure I had wrong — recorded in order because the ORDER is the lesson
+
+1. I censused the **V1 `[u8;12]+[u8;4]` edge block** — marked retired in the `CLAUDE.md` I was holding.
+2. I merged **HHTL and Hexagon** into "the same 6 bytes." They are the cell's **address** (trie,
+   `is_a`, WordNet-shaped, boring by design) and the cell's **content** (six rails, behaviour).
+3. I measured the Hexagon on **MONDO** — HHTL material. A taxonomy has no behaviour to put on the
+   rails; rails 0–3 reading empty there is not a Hexagon finding.
+4. I hunted for a **tile-as-distribution type**. The 4⁴ codebook makes each `palette256` code the
+   centroid *of* a distribution, and the `FisherZTable` (ρ≥0.999) already encodes
+   distribution-level similarity — one read compares two distributions without expanding
+   either. That is what "never materialized" means.
+5. I proposed `meet(a,b)` with **36 reads** over 6×6 pairs. Between two Waben there is exactly
+   ONE edge — the shared code. 36 reads materializes.
+6. I called `lookup_f32` "the read." **The i8 is the currency.** `decode → tanh → cosine` is a
+   materialization; `v3::read` then averages those cosines — the averaging `distance.rs:37`
+   names as wrong, whose z-space replacement `mean_similarity_fisher` has zero callers, which is
+   *correct*: it takes `&[f32]`, so it materializes too. Stay in i8.
+7. I wrote "edge between two Waben — ABSENT." **`[a,b]:[b,c]`** = `ComposeTable::compose_chain(a,b,c)`
+   = `compose(compose(a,b), c)` — two reads, O(1), shipped in bgz-tensor; `PaletteSemiring::compose`
+   in bgz17; **wired** in `p64-bridge::deduce_path` (*"Transitive deduction: A→B→C via compose"*).
+8. I wrote "adjacency absent from the contract." **`hhtl::NiblePath`** — there for months.
+
+### The join was there: `hhtl.rs`, same crate, one module over
+
+| pair | `CascadeKey` (0..=3 tiers) | `NiblePath::common_prefix_depth` (0..=16 nibbles) |
+|---|---|---|
+| P1 same HHTL, different v2 family | 3 | **16** |
+| P2 different HEEL, same v2 tail | 0 | **0** |
+| P3 identical (control) | 3 | 16 |
+| P4 differ in both (control) | 0 | 0 |
+| T1 classid top nibble | – | 16 (outside the path — by design) |
+| T2 identity last nibble | – | 16 (outside the path — by design) |
+
+`ISS-NODEGUID-HAS-NO-JOIN-SURFACE` was filed on a grep of `canonical_node.rs` **alone**; two of
+its six terms would have hit `hhtl.rs`. The canonical join agrees with `CascadeKey` on every
+fixture at **16-nibble** resolution against 3 tiers, packs root-first from decoded fields
+(`from_guid_prefix_v2`: `heel<<48|hip<<32|twig<<16|leaf`) — so it *avoids* the byte-order
+trap the eighth arc measured — and it is **wired**: `mailbox_scan.rs:149` per row inside a scan,
+`:263` as `DistanceMeans::PrefixDepth`, `soa_graph.rs:408` in `nearest_anchor`. It is a
+`while … match` loop, not a shift — the "branches" half of the sibling issue transfers to it;
+the "tier-coarse" half does not. The branchless form is one line on `packed()`.
+
+### Compose is the same XOR, a third time
+
+`compose_table[a*k+b] = palette index of palette[a].xor_bind(palette[b])` (bgz17
+`palette_semiring.rs:7`). The sixth arc found one XOR is both the ⊗ of 6/7 semirings and the
+CLZ join. Compose is XOR-bind quantized back to the palette. **Same instruction, three readings:
+multiply, join, compose.** The edge between two Waben is `b`; its algebra is the algebra
+already running.
+
+### The Hexagon substrate — every organ shipped, no nerve
+
+| organ | type | ships | wired |
+|---|---|---|---|
+| Wabe = SoA row, Morton-trie addressed | `NodeRow`, `NiblePath` | ✓ | join ✓; trie unminted on the one real bake |
+| Hexagon, six rails `(basin, identity)` | `SpoFacet` | ✓ | ✓ |
+| currency: cosine replacement, i8, never float | `FisherZTable` 256×256 | ✓ | ✓ as storage; **decoded at every read** |
+| read one Wabe | `v3::read(tenant, fz)` | ✓ | materializes; `_cell` computed and discarded |
+| edge between two Waben `[a,b]:[b,c]` | `compose_chain` / `compose` | ✓ | ✓ `p64-bridge::deduce_path` |
+| plasticity as tenant | `ValueTenant::Plasticity = 7` | ✓ | **never written** |
+| synapse residue as tenant | `ValueTenant::HelixResidue = 4` | ✓ | **never written** |
+| synapse: deterministic place + 3-byte residue | `ResidueEncoder::encode(&self, place, n)` | ✓ | — |
+| learning write-back, gated | `observe` / `roll` (`&mut self`) | ✓ | **zero production callers** |
+| two synapses compared | `distance_adaptive(a, b, lut)` | ✓ | zero production callers |
+| spread to the six neighbours | Pillar-15 DoG | certified | kernel DEFERRED |
+
+Read edge (i8) → compare to expectation → encode residue → `observe`/`roll` → write
+`HelixResidue` + `Plasticity` → surround over six edges. Every stage a type; zero stages joined.
+The currency is consistent across crates without a float anywhere — i8 in bgz-tensor, u16 L1 on
+a z-indexed residue in helix (the Fisher-z is baked in at encode, stage 3), 3 bytes in
+`ResidueEdge`. The body mesh (`CLASSID_FMA = 0x0A01_0000`, `ReadMode::FMA`) is the existence
+proof that this place/residue split carries exact continuous structure at scale; as a synapse
+it is the same encoder, not a new one.
+
+### What survives of the eighth arc
+
+The byte-order trap is real, `from_be` at `6/29` is the plausible-wrong join, and the shipped
+code **dodges it**. The two namings inverting (`0` vs `3`) is real. The probe measured what it
+measured; it was missing the arm that mattered, and now has it.
+
+### The generalizable form
+
+**Absence must be verified against the crate, not the file — and against the canonical name,
+not the name I would have used.** Twice in one session I declared something absent after
+searching one file or one name-set, and both times the operator's correction was simply to
+name the file. The rule already existed (*"absence verified, not assumed"*, fourth arc, applied
+to mask-risc). It was not applied to the contract, which is the one crate where absence claims
+carry the most weight.
+
+Refs: `crates/lance-graph-contract/src/hhtl.rs` (`NiblePath`), `soa_graph.rs` ("two head axes"),
+`crates/bgz-tensor/src/attention.rs` (`compose_chain`), `crates/bgz17/src/palette_semiring.rs`,
+`crates/p64-bridge/src/lib.rs::deduce_path`, `crates/helix/src/residue.rs`,
+`ValueTenant::{HelixResidue, Plasticity}`;
+`E-THE-SEMIRING-IS-FREE-THE-COST-IS-CARRIER-WIDTH-AND-THE-JOIN-IS-THE-SAME-XOR-1` (the first two
+XOR readings); `E-THE-TWO-FAMILY-NAMINGS-INVERT-AND-FROM-BE-BYTES-IS-THE-PLAUSIBLE-WRONG-JOIN-1`
+(corrected in place).
+
+---
 ## 2026-09-15 — E-A-DISABLE-CAN-GO-RED-FOR-THE-WRONG-REASON-AND-THE-TWO-PEAK-FIGURES-WERE-NEVER-IN-CONFLICT-1 — 142 and 6,297 are maxima over different seed pools; the flag saying they could not both stand was itself the error
 
 **Status:** FINDING (measured, `.claude/probes/density-sweep-v1/frontier_peak.py`, re-runnable
@@ -245,6 +355,8 @@ It does not show anyone has written the wrong join: `NodeGuid` has **no join sur
 (`ISS-NODEGUID-HAS-NO-JOIN-SURFACE`), which is why the probe had to supply the comparison. The
 hazard is live *because* the operation is unwritten — this measures what the namings would yield
 the moment someone writes it.
+
+> ⊘ **CORRECTED same day — this sentence is false.** `NodeGuid` HAS a join surface: `hhtl::NiblePath::{from_guid_prefix_v2,_v3, common_prefix_depth, family_hop_count, common_ancestor}`, same crate, wired in `mailbox_scan.rs:149/263` and `soa_graph.rs:408`. The probe's missing arm now runs it: agrees with `CascadeKey` on every fixture at 16-nibble resolution. See `E-I-DECLARED-A-JOIN-ABSENT-BY-GREPPING-ONE-FILE-AND-COMPOSE-IS-THE-SAME-XOR-A-THIRD-TIME-1`. The byte-order trap this paragraph measures stands; the shipped join avoids it.
 
 It also does not indict the shipped API. `family_v2` is distinctly named, feature-gated, and its
 own doc comment already reads *"different name, different bytes — no silent semantic swap."*
