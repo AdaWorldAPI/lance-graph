@@ -13,14 +13,16 @@ vantage `τ`), three fixtures each:
 |---|---|---|---|
 | reverses? | **0/19 γ, all fixtures** | fires on all three | fires inside `[T2−T1+1, T2−1]`, **matching the derivation on all three** |
 | direction | — | `later → sooner` | **`sooner → later` — OPPOSITE** |
-| flip margin | — | ~0.03–0.15 | **41–206× larger** |
+| flip margin | — | crosses **continuously** (some `k` arbitrarily close to 0) | exactly **`V2 − V1`** — bounded below, **cannot** be small |
 
 **Two findings.** (1) The boxcar is not a steep discount — it reverses the other way.
 Hyperbolic impatience *rises* with proximity (akrasia); under a horizon, **blindness
 FALLS** with proximity, because closing distance buys visibility, not urgency.
 (2) There is **no indifference region**: at the flip the far reward jumps from unbound
 to full value. A hard-horizon agent never *almost* sees a consequence, so it cannot
-hedge and cannot be nudged.
+hedge and cannot be nudged. ⊘ **Corrected from review:** first published as a measured
+**41–206×** margin ratio, which was an artifact of the `k = i/10` grid. The analytic
+form above is stronger and grid-free.
 
 **What it falsified — my own claim, same session.** *"An A9-locus agent is
 constitutionally a scorpion"* is **false**. The scorpion stings midstream, i.e.
@@ -28,9 +30,17 @@ impatience rising with proximity, which is the hyperbolic signature. A boxcar ag
 would have crossed: midstream is exactly when the far shore becomes visible.
 Nature-as-curvature and nature-as-register-width are different pathologies.
 
-**At the substrate's real width.** `w=8` with far rewards at `T2=12` / `T2=20` reads
-all-`sooner` from every vantage — **uninformed, not impatient, and unable to report
-the difference.** That is a measured argument for the `EMPTY, −7..+7` nibble the
+**At the substrate's real width.** ⊘ **Corrected from review (Major):** the first
+published run used `w=8` and reported a reversal on fixture 2. `Locus` is a signed
+**i4, `[−8, +7]`** with `+` = consequent, and these fixtures place both rewards in the
+future — so `+8` is unrepresentable and *that* produced the reversal. At the true
+forward bound **`w=7` no fixture reverses**: all three read all-`sooner` from every
+vantage — **uninformed, not impatient, and unable to report the difference.** The
+correction makes the blindness uniform rather than wrinkled.
+
+**And the window is asymmetric the wrong way.** Two's complement gives **8 steps
+backward** (antecedents) and **7 forward** (consequents): one more step of cause than
+of consequence. That is a measured argument for the `EMPTY, −7..+7` nibble the
 six-families ruling already deferred (`EMPTY` = no valid observation, `0` = observed
 neutral): without it the agent cannot say it is blind.
 
@@ -48,9 +58,11 @@ Refs: `.claude/knowledge/causal-plane-inventory.md` §7; `causal_witness.rs`;
 **Status:** FINDING (census of shipped code). **Confidence:** High on rows 1–6;
 the `traverse` A×A note is read-not-run.
 
-Six independent "the substrate should do X" proposals in one session each resolved to
-the same shape: **X's selector ships, X's kernel ships and is proven, and nothing
-connects them at the step where the distinction would do work.**
+Six independent "the substrate should do X" proposals in one session each show a
+missing production connection: **X's selector or kernel is represented or documented,
+but the distinction is not consumed at the step where it would do work.** Validation
+and production status differ by row — rows 1–4 have proven kernels, row 5's returns a
+placeholder, row 6's promoter is absent from `src/`.
 
 | # | selector | kernel | state |
 |---|---|---|---|

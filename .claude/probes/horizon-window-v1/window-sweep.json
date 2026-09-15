@@ -58,10 +58,11 @@
    "hyperbolic_directions": [
     "later->sooner"
    ],
-   "min_flip_margin_boxcar": 4.0,
-   "min_flip_margin_hyperbolic": 0.0673,
-   "margin_ratio": 59.4,
-   "w8_trace": [
+   "min_flip_margin_boxcar_GRID_DEPENDENT": 4.0,
+   "min_flip_margin_hyperbolic_GRID_DEPENDENT": 0.0673,
+   "boxcar_margin_analytic": 4.0,
+   "margin_distinction": "categorical, not a ratio: boxcar flip margin == V2-V1 exactly and cannot be small; hyperbolic crosses continuously, so some k gives a margin below any epsilon. Sampled minima are grid artifacts.",
+   "w7_trace": [
     [
      0,
      "sooner",
@@ -83,7 +84,9 @@
      3.0
     ]
    ],
-   "w8_reverses": false
+   "w7_reverses": false,
+   "forward_reach_i4": 7,
+   "backward_reach_i4": 8
   },
   {
    "T1": 3,
@@ -372,10 +375,11 @@
    "hyperbolic_directions": [
     "later->sooner"
    ],
-   "min_flip_margin_boxcar": 7.0,
-   "min_flip_margin_hyperbolic": 0.034,
-   "margin_ratio": 205.8,
-   "w8_trace": [
+   "min_flip_margin_boxcar_GRID_DEPENDENT": 7.0,
+   "min_flip_margin_hyperbolic_GRID_DEPENDENT": 0.034,
+   "boxcar_margin_analytic": 7.0,
+   "margin_distinction": "categorical, not a ratio: boxcar flip margin == V2-V1 exactly and cannot be small; hyperbolic crosses continuously, so some k gives a margin below any epsilon. Sampled minima are grid artifacts.",
+   "w7_trace": [
     [
      0,
      "sooner",
@@ -388,11 +392,13 @@
     ],
     [
      2,
-     "later",
-     7.0
+     "sooner",
+     2.0
     ]
    ],
-   "w8_reverses": true
+   "w7_reverses": false,
+   "forward_reach_i4": 7,
+   "backward_reach_i4": 8
   },
   {
    "T1": 6,
@@ -459,10 +465,11 @@
    "hyperbolic_directions": [
     "later->sooner"
    ],
-   "min_flip_margin_boxcar": 6.0,
-   "min_flip_margin_hyperbolic": 0.1455,
-   "margin_ratio": 41.25,
-   "w8_trace": [
+   "min_flip_margin_boxcar_GRID_DEPENDENT": 6.0,
+   "min_flip_margin_hyperbolic_GRID_DEPENDENT": 0.1455,
+   "boxcar_margin_analytic": 6.0,
+   "margin_distinction": "categorical, not a ratio: boxcar flip margin == V2-V1 exactly and cannot be small; hyperbolic crosses continuously, so some k gives a margin below any epsilon. Sampled minima are grid artifacts.",
+   "w7_trace": [
     [
      0,
      "sooner",
@@ -494,7 +501,9 @@
      5.0
     ]
    ],
-   "w8_reverses": false
+   "w7_reverses": false,
+   "forward_reach_i4": 7,
+   "backward_reach_i4": 8
   }
  ]
 }

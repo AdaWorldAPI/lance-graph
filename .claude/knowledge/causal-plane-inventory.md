@@ -14,9 +14,10 @@
 
 The recurring failure in this area is **not** a missing carrier. It is reading a
 shipped shape as a shipped capability. Across one session, six distinct
-"the substrate should do X" proposals each turned out to be: *X's selector ships,
-X's kernel ships, and nothing connects them at the step where the distinction does
-work.* This file is the inventory that makes that checkable in one read instead of
+"the substrate should do X" proposals each showed a missing production connection:
+*X's selector or kernel is represented or documented, but the distinction is not
+consumed at the step where it would do work.* **Validation and production status
+differ by row** — see §3; rows 5 and 6 in particular are neither proven nor in `src/`. This file is the inventory that makes that checkable in one read instead of
 six greps.
 
 ---
@@ -99,7 +100,10 @@ the held-out arm"* — is "nature wins" as a shipped rule.
 
 ## §3 — The six unwired seams (the load-bearing section)
 
-Every row: the selector ships, the kernel ships, the wire does not.
+Every row: a selector and a kernel exist as named surfaces, and nothing consumes the
+distinction where it would matter. **Their maturity is NOT uniform** — rows 1–4 have
+kernels that ship and are proven; row 5's kernel returns a placeholder; row 6's
+promoter exists only in a probe.
 
 | # | selector (ships) | kernel (ships) | state |
 |---|---|---|---|
@@ -207,9 +211,15 @@ producing one register. The 59–60 pair is the shipped worked example.
 - **direction is OPPOSITE to hyperbolic on all three**: hyperbolic `later→sooner`
   (impatience rises with proximity — akrasia); boxcar `sooner→later` (blindness
   *falls* with proximity)
-- **no indifference region**: flip margin **41–206×** the hyperbolic crossing
-- at the real `w=8`, rewards at `T2=12` and `T2=20` are invisible from every
-  vantage — **uninformed, not impatient, and unable to report the difference**
+- **no indifference region, analytically**: the boxcar flip margin is exactly
+  `V2 − V1` and cannot be small; hyperbolic crosses continuously, so some `k` is
+  arbitrarily close to indifference (an earlier **41–206×** ratio was a
+  sampling-grid artifact and is withdrawn)
+- at the representable forward bound `w=7` (i4 is `[−8, +7]` and `+` = consequent),
+  **all three fixtures** read all-`sooner` from every vantage — **uninformed, not
+  impatient, and unable to report the difference**. The window is **asymmetric**:
+  8 steps backward, 7 forward — one more step of cause than of consequence, which
+  is the wrong way round for a causal agent
 
 **Falsified by this:** *"an A9-locus agent is constitutionally a scorpion."* The
 scorpion's signature is hyperbolic **curvature**; the substrate's pathology is

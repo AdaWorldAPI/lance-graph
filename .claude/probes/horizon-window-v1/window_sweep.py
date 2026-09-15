@@ -151,7 +151,23 @@ for (T1, V1, T2, V2) in FIXTURES:
     print(f"  DISABLE w=inf -> reverses={reverses(tr_inf)}  "
           f"{'OK (horizon is load-bearing)' if not reverses(tr_inf) else 'VACUOUS'}")
 
-    # -- the finding: margin at the flip ------------------------------------
+    # -- the finding: the flip margin is CATEGORICALLY different -------------
+    #
+    # ⊘ CORRECTED 2026-09-15 (CodeRabbit, PR #1233). An earlier revision reported
+    # a "margin ratio" of boxcar-min / hyperbolic-min. That number is an artifact
+    # of the sampling grid, not a property of the two models: hyperbolic margins
+    # are collected only at k = i/10, and a finer grid lands arbitrarily close to
+    # a reversal boundary, driving the denominator toward 0 and the ratio toward
+    # infinity. The ratio has been removed.
+    #
+    # The ANALYTIC distinction is stronger and needs no grid:
+    #   boxcar      flip margin == V2 - V1 EXACTLY (far jumps unbound -> full
+    #               value while near sits at V1). Bounded below by the value gap;
+    #               it CANNOT be made small.
+    #   hyperbolic  the perceived values cross CONTINUOUSLY, so for any epsilon
+    #               there is a k whose flip margin is < epsilon.
+    # So hyperbolic admits an indifference region and the boxcar cannot have one.
+    # Raw margins are still recorded, labelled as grid-dependent.
     if box_margins and hyp_margins:
         bdirs = {d for _, (d, _) in box_margins}
         hdirs = {d for d, _ in hyp_margins}
@@ -161,17 +177,40 @@ for (T1, V1, T2, V2) in FIXTURES:
               f"   {'OPPOSITE' if bdirs.isdisjoint(hdirs) else 'same'}")
         bmin = min(m for _, (_, m) in box_margins)
         hmin = min(m for _, m in hyp_margins)
-        rec["min_flip_margin_boxcar"] = round(bmin, 4)
-        rec["min_flip_margin_hyperbolic"] = round(hmin, 4)
-        rec["margin_ratio"] = round(bmin / hmin, 2) if hmin > 0 else None
-        print(f"  FLIP MARGIN  boxcar min={bmin:.4f}   hyperbolic min={hmin:.4f}"
-              f"   ratio={rec['margin_ratio']}x")
+        rec["min_flip_margin_boxcar_GRID_DEPENDENT"] = round(bmin, 4)
+        rec["min_flip_margin_hyperbolic_GRID_DEPENDENT"] = round(hmin, 4)
+        rec["boxcar_margin_analytic"] = round(V2 - V1, 4)
+        rec["margin_distinction"] = (
+            "categorical, not a ratio: boxcar flip margin == V2-V1 exactly and "
+            "cannot be small; hyperbolic crosses continuously, so some k gives a "
+            "margin below any epsilon. Sampled minima are grid artifacts."
+        )
+        print(f"  FLIP MARGIN  boxcar == V2-V1 == {V2-V1:.4f} ANALYTIC (cannot be small); "
+              f"hyperbolic crosses continuously -> some k is arbitrarily close to 0")
+        print(f"               (sampled minima, GRID-DEPENDENT: box={bmin:.4f} hyp={hmin:.4f}"
+              f" -- do not quote as a ratio)")
 
-    # -- the substrate's real width -----------------------------------------
-    tr8 = trace(T1, V1, T2, V2, lambda v, o: see_boxcar(v, o, 8))
-    rec["w8_trace"] = [[tau, c, (round(m, 4) if m is not None else None)] for tau, c, m in tr8]
-    rec["w8_reverses"] = reverses(tr8)
-    print(f"  w=8 (A9)     {[c for _, c, _ in tr8]}  reverses={reverses(tr8)}")
+    # -- the substrate's real width, and it is ASYMMETRIC --------------------
+    #
+    # ⊘ CORRECTED 2026-09-15 (CodeRabbit, PR #1233, Major). An earlier revision
+    # used w=8 here and reported a reversal on fixture 2. That was INVALID: a
+    # Locus is a signed i4, range [-8, +7], with `+` = after/consequent. This
+    # fixture places both rewards in the FUTURE, so every offset is positive and
+    # the representable bound is +7. The w=8 arm asked the register to hold a
+    # +8 offset it cannot store, and that unrepresentable value was what produced
+    # the reversal.
+    #
+    # The asymmetry is itself the finding, and it runs the wrong way for a causal
+    # agent: two's complement gives 8 steps BACKWARD (antecedents, -8) and only 7
+    # FORWARD (consequents, +7). You can point one step further into the cause
+    # than into the consequence.
+    tr7 = trace(T1, V1, T2, V2, lambda v, o: see_boxcar(v, o, 7))
+    rec["w7_trace"] = [[tau, c, (round(m, 4) if m is not None else None)] for tau, c, m in tr7]
+    rec["w7_reverses"] = reverses(tr7)
+    rec["forward_reach_i4"] = 7
+    rec["backward_reach_i4"] = 8
+    print(f"  w=7 (A9 fwd) {[c for _, c, _ in tr7]}  reverses={reverses(tr7)}"
+          f"   [i4 forward bound; backward is 8 -- the window is ASYMMETRIC]")
     RESULT["fixtures"].append(rec)
 
 print("=" * 74)
