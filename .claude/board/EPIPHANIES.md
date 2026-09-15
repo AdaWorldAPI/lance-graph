@@ -1,3 +1,173 @@
+## 2026-09-15 — E-DEPTH-RANK-REPRODUCES-MOST-SPECIFIC-BUT-ONLY-ON-A-TAXONOMY-1 — I published "refuted" on a sign error, then the correction's reversal turned out to be taxonomy-shaped, not lens behaviour
+
+**Status:** FINDING (measured, `.claude/probes/elk-generality-v1/`, MQ arm re-runnable).
+**Confidence:** High on both measurements. The scope limit is the load-bearing half.
+
+**Two reversals in one chain, and the second is the one worth keeping.**
+
+**Reversal 1 — my own sign error, published as a headline.** `ogar-elk`'s
+`LensClosure::supers_of` already computes a BFS depth and throws it away; the graded
+proposal is that ranking the meet by that depth reproduces `most_specific` without the
+pairwise ancestry test. I ranked **descending** — `-max(A[x], B[x])`, i.e. *deepest
+from the seed* — measured **6.7 %**, and published the graded proposal REFUTED. I had
+even flagged the risk in the same breath (*"my ranking is one naive choice"*) and
+published the verdict as fact anyway. The clinical cases exposed it: RA ∩ Still's, RA ∩
+Felty's and Still's ∩ Felty's all returned `"disease"`, **the root** — which is the
+node FARTHEST from every seed, so max-depth was selecting the most GENERAL ancestor by
+construction. Ascending: **84.6 %** (min-max) / **85.1 %** (min-sum), 3/3 on the
+clinical pairs. A flagged uncertainty that is not resolved before publication is not a
+hedge; it is the defect with a disclaimer attached.
+
+**Reversal 2 — the corrected result is NOT the lens's.** Every number came from one
+graph, and a taxonomy is exactly the shape most likely to produce them trivially. MQ —
+a Mississippi-Queen river course, same DAG algebra, ancestors = *upstream positions*
+rather than generalisations, both graphs through the **same arm functions** — gives
+**36.0 %** against MONDO's 84.6 %. **Δ 48.6 pp.** The pre-registered reading
+("diverges ⇒ it was the taxonomy's shape") fires. The claim stands **scoped to a
+taxonomy** and must never be restated as lens behaviour.
+
+**The two confounds that could have faked it, both measured, both cleared.**
+
+| | MQ | MONDO | Δ |
+|---|---|---|---|
+| depth ascending | 36.0 % | 84.6 % | **48.6 pp** |
+| A4 non-vacuous (`\|I\|` > 1) | 36.0 % | 84.6 % | 48.6 pp |
+| A5 braided pairs only | 36.0 % | 83.5 % | 47.5 pp |
+
+*A4.* At `|I| == 1` the argmin IS the only `most_specific` member — agreement there is
+arithmetic. **Neither graph has one such pair**, so nothing is carried by arithmetic;
+that worry was unfounded and is now measured rather than assumed. The stratification
+also kills the confound in the other direction: MONDO's agreement **rises** with
+intersection size (75.9 → 90.5 → 100 %) while MQ's **falls** (100 → 42.9 → 31.8 %).
+Same confound would trend the same way in both; they trend opposite. MONDO's
+small-`|I|` majority is its *worst* bucket, so the headline **understates** the effect.
+
+*A5 — a mechanism proposed and FALSIFIED, which is the result.* `supers_of` keeps the
+MINIMUM depth, so the natural story is that depth stops tracking specificity once the
+DAG **braids** (several path lengths to one ancestor; a general ancestor scores shallow
+via a shortcut). Braiding is real and directional *inside* MONDO — flat 13/13 = 100 %,
+braided 152/182 = 83.5 % — but it cannot carry 48.6 pp: braided-only leaves **47.5 pp**.
+Controlling for the mechanism removes almost none of the divergence.
+
+**What is NOT established.** The mechanism is **unnamed**. The remaining unisolated
+variable is ancestry density — MQ's node has 69.4 ancestors of 151 (46 % of the graph)
+against MONDO's 14.1 of 60,467 (0.02 %). MQ was built as a *different* graph, not as a
+density sweep, so it proves non-universality without identifying the property
+responsible. MQ is also one synthetic graph at one seed: sufficient to falsify a
+universal claim, evidence about no other real ontology.
+
+**The meet has a parent-child blind spot, and I praised it before I understood it.**
+Felty's is a **direct `is_a` child of RA**, and `supers_of` excludes self, so RA can
+**never** appear in RA ∩ Felty's. I had called that meet "the sharper of the two" — it
+is a grandparent-level answer to a question the machinery is structurally unable to
+answer. A meet over strict ancestors cannot express *"one of these IS the other's
+genus"*; that needs a subsumption test the lens already has and the meet never calls.
+
+**Provenance caveat on every MONDO number here.** MONDO asserts `ankylosing spondylitis
+is_a rheumatoid arthritis` (verified parents: spondylitis; spondyloarthropathy;
+rheumatoid arthritis; vertebral joint disorder). The spine is a real source with real
+edges I would not have authored. Numbers measured on it are measurements *of MONDO*.
+
+---
+
+## 2026-09-15 — E-A-HORIZON-CUT-AND-AN-UNBOUND-MEET-ARE-NOT-THE-SAME-ANSWER-1 — a width sweep that does not separate them reports blindness as absence
+
+**Status:** FINDING (measured, `.claude/probes/elk-generality-v1/`).
+**Confidence:** High on the measurement; the naming consequence is an argument.
+
+I hardcoded `DEPTH_CAP = 64` and swept nothing, in an arc whose entire subject is
+horizon width. When the sweep finally ran, the thing it exposed was not a number but a
+**conflation**: an empty meet at width `w` has two disjoint causes, and code that
+returns `∅` for both cannot tell them apart.
+
+- **EMPTY** — no shared ancestor exists at any width. The answer is *"unrelated"*.
+- **CUT** — a shared ancestor exists but sits beyond `w`. The answer is *"I cannot see
+  that far"*, and it is **not** the same claim.
+
+| | `w=1` | `w=7` | `w=14` | `w=64` |
+|---|---|---|---|---|
+| MONDO CUT / recall | 194, 0.1 % | **3, 84.5 %** | 0, 100 % | 0, 100 % |
+| MQ CUT / recall | 178, 0.3 % | 85, 24.2 % | **21, 64.5 %** | 0, 100 % |
+| true EMPTY | MONDO **5**, MQ **0** — width-invariant, as it must be | | | |
+
+Two consequences. **(1) A window tuned on a taxonomy does not transfer.** MONDO
+saturates by `w = 14` and is already at 84.5 % recall by 7; MQ is still cutting 21/197
+pairs at 14 and reaches 24.2 % at 7. **(2) This is the same missing symbol the boxcar
+entry argued for from the other side** — `E-THE-BOXCAR-HORIZON-IS-NOT-A-DISCOUNT…`
+asked for `EMPTY` distinct from observed-neutral so a hard-horizon agent can *say it is
+blind*. A meet that returns `∅` for both CUT and EMPTY has exactly that defect one layer
+up: it reports blindness as absence, and a caller that acts on "unrelated" when the
+truth is "beyond my horizon" has been misinformed by a correct-looking answer.
+
+---
+
+## 2026-09-15 — E-A-UNIFORM-WEIGHT-ARM-CANNOT-MEASURE-EVIDENCE-ITS-ARGMIN-IS-INVARIANT-1 — I caught two vacuous arms in my own register probe, one of which was pure arithmetic I had built in
+
+**Status:** FINDING (measured; probe is scratchpad, the finding is the durable part).
+**Confidence:** High on the catch. The K3 result is one probe on one fixture.
+
+Two arms of the register probe were vacuous, and **both were mine**:
+
+1. **The TAX arm was coded as `random.randrange(K) == k`** — arithmetic I had written in,
+   presented as a measured baseline. It could only ever report `1/K`.
+2. **The REG+E arm used `w = [0.5 + ev] * D`** — a weight vector **uniform across
+   dimensions**. `argmin` over a uniformly scaled vector is **invariant to the scale**,
+   so "evidence changes the assignment" was true by construction and K3 firing was
+   guaranteed. This is the `closed_class_guess` 150/150 defect in a new costume: a
+   channel that fires on everything carries exactly the information of one that never
+   fires.
+
+Fixed with **per-rail** evidence weights, `w = [(qev(c)/255)**2 for c in counts]`, so
+the weighting is allowed to vary across the dimensions the argmin ranges over. Then the
+anti-vacuity check has something to say: evidence changed **7/79** assignments (not 0,
+not 79), and REG+E scored **60/79** against REG's **56/79** — +5.1 pp, small and real,
+where the broken arm had promised a guaranteed win.
+
+**The transferable rule.** *A knob is only measured if the quantity it turns can change
+the decision the metric reads.* Turning a constant is not a disable when the guarded
+quantity reaches the same outcome by another route — and a weight is not a weight if it
+is constant along the axis being argmin'd. Both failures pass every type check, both
+produce plausible numbers, and neither is visible without asking what input would change
+the answer. Fourth and fifth instance of this family in this workspace; the first three
+are in `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`.
+
+---
+
+## 2026-09-15 — E-THE-RLHF-SHAPED-PROMOTION-LOOP-IS-IMPLEMENTED-END-TO-END-IN-A-PROBE-AND-HAS-NO-SRC-PROMOTER-1 — the plasticity the substrate needs exists as a demonstration, not as a surface
+
+**Status:** FINDING (code census, `probe_sudoku_teacher.rs` + `recipe_loci.rs`).
+**Confidence:** High on what exists. The RLHF framing is an ANALOGY and is fenced below.
+
+The operator's framing — *"the substrate is fairly deterministic, and hexagon allows
+learning where no reasoning has been before; that's the plasticity this substrate
+needs"* — has a precise status in the tree, and it is neither "absent" nor "shipped".
+
+**What exists.** The autopoiesis triangle is a real typed ladder:
+`ValueTenant::{FrozenStyle(10), LearnedStyle(11), ExploreStyle(12)}`, with promotion
+gated on a **held-out win**, not on training-set fit. `probe_sudoku_teacher.rs`
+implements the whole `ExploreStyle → LearnedStyle → FrozenStyle` loop end to end on
+sudoku. `recipe_loci.rs`'s **Door C — the organ gate** is the existing dispatch whose
+reachability is contingent on the live `CausalWitnessFacet` rather than on a
+style/surprise-band argmax, which is exactly the shape a plasticity surface needs.
+
+**What does not exist.** **No `src/` promoter calls the loop.** The promotion path ships
+only as a probe. So the substrate has the mechanism, the typed states, and a working
+demonstration — and no production caller that can move a rail from Explore to Learned to
+Frozen. That is the gap, stated as a gap.
+
+**The RLHF analogy, fenced.** *"Hexagon would store the feedback learning the way RLHF
+stores it in LLM weights"* is structurally apt on one axis and must not be stretched
+past it. Apt: both are a **preference signal promoted into a durable substrate** rather
+than held in a context window, and both gate promotion on generalisation rather than
+recall. Not apt, and load-bearing: RLHF's substrate is **dense continuous weights
+updated by gradient**, while this one is a **discrete addressed register promoted by a
+held-out test** — no gradient, no differentiability, and promotion is a decision with a
+falsifier rather than a step size. The shared property is *where the feedback lands*,
+not *how it gets there*. Per `cross-domain-synthesizer`'s rule the analogy is [H] on
+mechanism-of-storage and [S] on mechanism-of-update; it earns a sentence in a design
+doc, never a claim that the substrate does RLHF.
+
+---
 ## 2026-09-15 — E-THE-BOXCAR-HORIZON-IS-NOT-A-DISCOUNT-IT-REVERSES-THE-OTHER-WAY-1 — the A9 ±8 window produces the OPPOSITE preference reversal from hyperbolic discounting, and has no indifference region
 
 **Status:** FINDING (measured, `.claude/probes/horizon-window-v1/`, re-runnable).

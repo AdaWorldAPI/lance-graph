@@ -1,3 +1,91 @@
+## ISS-ELK-DENSITY-UNISOLATED (2026-09-15) — OPEN
+
+**The 48.6 pp MQ↔MONDO divergence is measured; its mechanism is not.**
+
+`.claude/probes/elk-generality-v1/` establishes that depth-rank reproduces
+`LensClosure::most_specific` on 84.6 % of MONDO pairs and 36.0 % of MQ pairs, and
+that the gap survives both confounds tested (A4 vacuity: 48.6 pp; A5 braiding:
+47.5 pp). What it does **not** establish is which structural property is
+responsible.
+
+The named, unisolated variable is **ancestry density**:
+
+| | ancestors of a typical node | as a fraction of the graph |
+|---|---|---|
+| MQ river | 69.4 of 151 nodes | **46 %** |
+| MONDO `is_a` | 14.1 of 60,467 nodes | **0.02 %** |
+
+MQ was constructed as a *different graph* (different semantics, different degree
+profile) — deliberately, because the question was "is this universal". It is
+therefore a sound falsifier for a universal claim and an unsound instrument for
+attributing the cause, because several variables move at once.
+
+**The measurement that would close this:** a density-swept FAMILY of MQ variants
+(hold the semantics, vary branching/advance so ancestry coverage sweeps from
+MONDO-like to MQ-like) and check whether agreement tracks the sweep monotonically.
+If it does, density is the property and the claim becomes *"depth-rank works while
+ancestry stays sparse"* — a testable precondition any caller can check. If it does
+not, the cause is elsewhere and the sweep says where to look next.
+
+**Why this is filed rather than fixed:** the sweep is cheap (the MQ builder already
+takes the parameters) but it would be a *third* result landed on top of two
+reversals in one session, and the entry it would amend is already scoped correctly
+without it — the board currently claims non-universality, which is what was
+measured. Adding "and the cause is density" without the sweep would be the same
+class of error as the descending-depth publication.
+
+---
+
+## ISS-ELK-MEET-CANNOT-SEE-PARENT-CHILD (2026-09-15) — OPEN
+
+**`meet_via` over strict ancestors is structurally unable to answer *"one of these
+IS the other's genus"*, and the clinical cases are where it shows.**
+
+Felty's syndrome is a **direct `is_a` child of rheumatoid arthritis** in MONDO.
+`LensClosure::supers_of` excludes self, so RA is in Felty's ancestor set but not in
+its own — and the intersection `supers(RA) ∩ supers(Felty)` can therefore **never
+contain RA**. The meet returns a grandparent-level answer to a question whose
+correct answer is one edge away.
+
+I reported that meet as *"the sharper of the two"* before understanding this. It was
+not sharper; it was answering a different question.
+
+**The fix is not in the meet.** A meet over strict ancestors is doing exactly what it
+says. What is missing is that the caller never asks the *other* question first —
+`supers_of` already contains the subsumption test (`b ∈ supers_of(a)`), so
+`meet_via` could cheaply report `Subsumes(a, b)` / `SubsumedBy(a, b)` as a distinct
+outcome from `Meet(set)` instead of silently degrading to the grandparent. That is a
+return-type change on a shipped API and wants its own proposal, not a drive-by.
+
+**Falsifier for any proposed fix:** RA ∩ Felty's must report the RA→Felty's
+relationship *as such*, and two genuinely sibling diseases must still report a meet —
+a version that reports subsumption for everything is the fires-on-everything defect.
+
+---
+
+## ISS-ELK-MONDO-ASSERTS-AS-IS-RA (2026-09-15) — OPEN (provenance, not a defect in our code)
+
+**Every MONDO-derived number in the D-ELK rows is a measurement *of MONDO*, and
+MONDO contains assertions I would not have authored.**
+
+Verified while re-cutting the clinical pairs: MONDO asserts
+`ankylosing spondylitis is_a rheumatoid arthritis` — parents read directly from the
+bake are *spondylitis; spondyloarthropathy; **rheumatoid arthritis**; vertebral joint
+disorder*. AS and RA are distinct entities clinically (seronegative
+spondyloarthropathy vs seropositive symmetric polyarthritis); an `is_a` edge between
+them changes what every meet through that region returns.
+
+**This is not a bug to fix here.** The bake faithfully carries the source. The
+consequence is a *citation rule*: a number measured on this spine supports claims
+about the lens's behaviour **on MONDO**, and does not transfer to "the taxonomy of
+disease" without saying which taxonomy. Any downstream consumer that treats a meet
+result as clinical ground truth inherits the source's assertions wholesale.
+
+**Related:** the 9,809 `Other`-predicate edges in the census are erased — their
+original predicate did not survive the bake's 3-bit `Predicate` discriminant. Nothing
+in the D-ELK rows depends on them, but a future arm that needs full predicate
+fidelity cannot get it from this artifact.
+
 ## ISS-TYPEDGRAPH-TRAVERSE-HOP-COUNT (2026-09-15) — OPEN
 
 **Two functions in `graph/blasgraph/typed_graph.rs` compute two hops while
