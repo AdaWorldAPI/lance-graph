@@ -163,7 +163,16 @@ cells while r@10 stayed flat, because it was diffusing into empty address space
    may silently become the other. This is why the substrate can represent an agent
    whose correct reasoning does not determine its act, and a correlational model
    cannot: one number collapses "reasoned well" and "acts accordingly".
-3. **Dialogue is branch diff, not messages.** Perspectives reason with each other
+3. **A correction is not applied until every site states it.** Prose describing a fix
+   and the fix itself get written in the same breath, and only the prose is checked.
+   Measured six times in one session — a §11a amendment that left the sentence it
+   *quotes* unqualified; a commit message describing a vacuous-test repair the commit
+   did not contain; one overclaim corrected in three files while the PR body and a
+   `STATUS_BOARD` Status cell kept it. **The mechanical check is to grep the STRUCK
+   PHRASE**, not to re-read the amendment — and to include the PR body and board cells
+   in the sweep, because they are the most-read sites and are not in the diff you just
+   reviewed.
+4. **Dialogue is branch diff, not messages.** Perspectives reason with each other
    by being diffed over deterministic forks — `scenario-world`'s branch diff /
    deterministic replay / time-travel reads, with three already-distinguished
    carriers. Per-agent RPCs are the actor/message shape lance-graph **deleted**
