@@ -102,9 +102,22 @@ Two never-written tenants and a same-cardinality coincidence (`6 B` vs `6 rails`
 enough to manufacture an architecture — and the only reason it was caught is that the
 operator had run the Hexagon tests and knew no residue was in them.
 
-**The mechanical check, cheap enough to be unconditional:** before citing a type as part of
-a tested subsystem, `grep -c` its name in that subsystem's plan and probes. Zero hits means
-it is not part of it, whatever the type system says.
+**The mechanical check, cheap enough to be unconditional — and it is a HEURISTIC, not a
+proof:** before citing a type as part of a tested subsystem, `grep -c` its name in that
+subsystem's plan and probes.
+
+> ⊘ **The first draft of this rule ended *"Zero hits means it is not part of it, whatever
+> the type system says"* — CodeRabbit caught it, and the catch is exact: that sentence
+> makes exact-name grep PROOF OF ABSENCE, which is row 5 of the table above restated as
+> advice.** This repo already has the named precedent —
+> `.claude/board/entries/2026-08-21-e-abbreviation-grep-manufactured-an-absence-1.md`, where
+> `fn .*ppr` matched `approx` and a `head` limit hid the real hits, and a shipped 15-module
+> subsystem was reported non-existent. Nothing requires a plan or probe to spell a type's
+> canonical name: it can appear under an alias, a wrapper, an abbreviation, or only at a
+> call site. **So: a nonzero count is evidence of presence; a zero count is a prompt to run
+> a broader census (call sites, wrappers, sibling crates), never a verdict.** Three of this
+> session's five rows were absence claims, and all three were wrong — the rule that would
+> have prevented them is *widen the search*, not *trust the first grep*.
 
 ### The generalizable form, REWRITTEN after review — it is not one rule, it is one MOVE made five times
 

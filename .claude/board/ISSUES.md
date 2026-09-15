@@ -219,17 +219,26 @@ something, or it is being fit rather than tested.
 
 ## ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED (2026-09-15) — OPEN
 
-**The torch's WIDTH claim is currently unearned: `k=50` returns 100 % on every MQ config and
+**The torch's recall claim is currently unearned: `k=50` returns 100 % on every MQ config and
 99.4 % on MONDO.**
 
-> **⊘ SCOPED 2026-09-15 (operator-pointed): this issue is about WIDTH only.** The DEPTH
-> half is CERTIFIED by `jc::ewa_sandwich` (Pillar 6): PSD ≥ 0.999 with geometric rather
-> than arithmetic error growth, bound `CV ≤ √(2/n)·√(1+2σ²n)`. That bound DECREASES with
-> n, and the operator's `0.45..0.65` aperture is exactly its admissible window —
-> `0.65 ⇔ n = 7.62`, `0.45 ⇔ n = 47.06` ⇒ **n ∈ [8, 47]**; n=5 is outside (0.7483),
-> n=12 is 0.5715, the shipped run is n=10 at 0.600. Pillar 6 says nothing about k-truncation,
-> so nothing here is discharged — but the flat-across-hops observation is no longer evidence
-> FOR this issue, it is the certified regime behaviour.
+> **⊘ SCOPED 2026-09-15 — this issue is about WIDTH only.** *The sentence above is the
+> entry's original text, restored verbatim: an earlier edit in this PR substituted "WIDTH"
+> for "recall" IN PLACE, which is a rewrite of a merged governance entry and is not
+> permitted (`CLAUDE.md`: append-only, "never edit past entries except the `**Status:**` /
+> `**Confidence:**` lines"). CodeRabbit caught it. The scoping belongs here, in a dated
+> annotation, not in the original sentence.*
+>
+> **Read "recall" as WIDTH — whether top-k frontier truncation loses reachability.** The
+> DEPTH half is a SEPARATE question and is **predicted, not certified**:
+> `jc::ewa_sandwich` (Pillar 6) proves PSD ≥ 0.999 with geometric rather than arithmetic
+> error growth on **1,000 synthetic SPD matrix paths at `PATH_LENGTH = 10`** — it never
+> traverses MONDO or MQ. Its bound `CV ≤ √(2/n)·√(1+2σ²n)` DECREASES with n, and the
+> operator's `0.45..0.65` aperture is its admissible window: `0.65 ⇔ n = 7.62`,
+> `0.45 ⇔ n = 47.06` ⇒ **n ∈ [8, 47]** (n=5 outside at 0.7483; n=12 = 0.5715; shipped run
+> n=10 = 0.600). **`D-HXP-7` is still `Queued`** and is the gate that would close depth.
+> So: nothing here is discharged, depth is open on `D-HXP-7`, and the flat-across-hops
+> observation is neither evidence FOR this issue nor a certification against it.
 
 A bound that never costs anything on any graph tested is the **fires-on-everything** shape —
 exactly the defect `E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1` names, and
