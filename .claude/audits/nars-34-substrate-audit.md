@@ -113,7 +113,11 @@ actually exists.
 ## What needs improving, in order
 
 1. **Re-derive `bucket` from the masking algebra**, not from the VSA substrate.
-   The five above are the honest `Datapath` set today; the current nine are not.
+   The five above are what the algebra can run today, and the table classifies
+   them **4 `Gate` + 1 `Control`, zero `Datapath`** — the current nine
+   `Datapath` labels are the ones that are not honest. ⊘ This read "the five
+   above are the honest `Datapath` set today", contradicting the table two
+   sections up; caught in review on PR #1235.
 2. **Rewrite the 9 stale `substrate` strings** to name mask-algebra
    compositions, or mark them `unrealized` — a string naming a retired kernel
    reads as a spec and is worse than an empty one.
@@ -133,5 +137,8 @@ actually exists.
 
 It does not say the 34 are wrong as *tactics*. It says their recorded
 realization is against a substrate that no longer exists, and that the routing
-column derived from it cannot be trusted as a dispatch key until re-derived.
+column derived from it cannot be trusted until re-derived. (⊘ this said
+"as a dispatch key"; per the correction at the top of this file `bucket` is
+NOT a dispatch key at all except for the `Bucket::Gate` arm, so the phrase
+re-asserted the thing the correction retracted.)
 Nothing here was executed; this is a read of the catalogue against the op list.

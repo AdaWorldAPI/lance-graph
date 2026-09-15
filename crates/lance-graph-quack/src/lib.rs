@@ -837,12 +837,44 @@ fn emit_gated(
 ) -> Result<Operand, LowerError> {
     match n {
         Node::Pred { pred, under } => {
-            // The accumulator gate wins over the plane gate when both are
-            // available, and it is strictly narrower rather than merely
-            // different: the plane was the AND's first conjunct, so it is
-            // already folded into the accumulator. A `Pred` carries exactly
-            // one `under`, which is why this is a choice and not a union.
-            let gate = acc_gate.or_else(|| under.map(|m| Operand::Plane(m.0)));
+            // A `Pred` carries exactly ONE `under`, so when both a plane gate
+            // and an accumulator are available this is a choice, not a union
+            // — and the choice is the PLANE, always.
+            //
+            // An earlier version preferred the accumulator on the reasoning
+            // that it is strictly narrower, "because the plane was the AND's
+            // first conjunct, so it is already folded into the accumulator".
+            // That holds only inside the AND that ESTABLISHED the plane,
+            // where [`hoist_gate_subset`] arranges it. It is false the moment
+            // an OUTER conjunction with no plane of its own wraps an inner one
+            // that has:
+            //
+            // ```text
+            // P1 AND (Plane(focus) AND P2)
+            // ```
+            //
+            // The outer AND finds no plane among its own parts, so it
+            // establishes no gate and simply folds; the inner AND establishes
+            // `focus`, gates P2 under it, sees P2 vanish and DROPS the plane
+            // as implied. Then the outer emitter hands its accumulator `P1`
+            // down, this line preferred it over `focus`, and `focus` — already
+            // elided — appeared nowhere in the program. Measured on a 512-row
+            // fixture: the oracle selects 29 rows, the emitted program
+            // selected 204, and the op list was `GtI32 AND NeU32` with no
+            // trace of the plane. A silent wrong answer, not a slow one.
+            // Pinned by `a_nested_plane_survives_an_outer_accumulator`.
+            //
+            // Preferring the plane is sound unconditionally: the emitted mask
+            // is `plane & pred`, and the enclosing junction intersects the
+            // accumulator afterwards anyway, so `acc & (plane & pred)` is
+            // exactly the wanted value. What it costs is the EXTRA narrowing
+            // the accumulator would have given inside a plane's own AND — the
+            // plane still gates there, just less tightly than it could. That
+            // cost is named in `ISSUES.md` rather than traded against a
+            // correctness hole, and A1's lever is untouched because a
+            // conjunction of plain comparisons carries no plane at all: those
+            // preds take the `None` arm below and gate on the accumulator.
+            let gate = under.map(|m| Operand::Plane(m.0)).or(acc_gate);
             ops.push(MaskOp::Pred {
                 pred: *pred,
                 under: gate,
@@ -1177,6 +1209,68 @@ mod tests {
         }
     }
 
+    /// FAILS IF: an outer conjunction's accumulator replaces a plane gate
+    /// established by an INNER conjunction, so the plane — already elided as
+    /// implied — vanishes from the program entirely.
+    ///
+    /// The shape is `P1 AND (Plane(focus) AND P2)`. It is the one the survivor
+    /// skip's own machinery cannot reach by the route the other gate tests
+    /// take: the OUTER `AND` finds no plane among its parts, so it establishes
+    /// no gate, while the INNER one establishes `focus`, sees `P2` vanish
+    /// under it and drops it. Nothing in the outer scope then carries `focus`.
+    ///
+    /// Reported as a P1 by codex on PR #1235 and reproduced before it was
+    /// believed: the oracle selected **29** rows of 512 and the emitted
+    /// program selected **204**, its op list `GtI32 AND NeU32` with no trace
+    /// of the plane. That is the failure mode this asserts against, and the
+    /// op-list half is what distinguishes "the answer happened to match" from
+    /// "the gate is actually there".
+    #[test]
+    fn a_nested_plane_survives_an_outer_accumulator() {
+        let fx = Fx::new(512);
+        let f = Filter::and([
+            Filter::cmp(VALS, Cmp::GtI32(0)),
+            Filter::and([Filter::plane(FOCUS), Filter::cmp(CLASS, Cmp::NeU32(0))]),
+        ]);
+
+        // Anti-vacuity, two-sided: the plane must actually exclude rows the
+        // rest admits, or a lost gate would be invisible in the count.
+        let without_plane = fx
+            .rows(&Filter::and([
+                Filter::cmp(VALS, Cmp::GtI32(0)),
+                Filter::cmp(CLASS, Cmp::NeU32(0)),
+            ]))
+            .len();
+        let expected = fx.rows(&f).len();
+        assert!(
+            expected > 0 && expected * 2 < without_plane,
+            "the fixture must make the plane load-bearing: {expected} with it, \
+             {without_plane} without"
+        );
+
+        assert_eq!(
+            fx.count(&f),
+            expected,
+            "the plane was lost from the program"
+        );
+
+        // ...and structurally: SOME operand must still read `FOCUS`. A count
+        // that happens to agree is not evidence the gate survived.
+        let prog = lower(&Query {
+            filter: f,
+            agg: Agg::Count,
+        })
+        .expect("lowers");
+        let reads_focus = prog.ops.iter().any(
+            |op| matches!(op, MaskOp::Pred { under: Some(Operand::Plane(p)), .. } if *p == FOCUS.0),
+        );
+        assert!(
+            reads_focus,
+            "no op reads FOCUS — the nested plane is gone: {:?}",
+            prog.ops
+        );
+    }
+
     /// `alpha & ((A & B) | C)` — the vertical slice.
     fn slice_filter() -> Filter {
         Filter::and([
@@ -1417,19 +1511,27 @@ mod tests {
                 "the slice: every predicate gated, alpha implied: {:?}",
                 slice.ops
             );
-            // The accumulator gate is asserted for the IN-PLACE lowering only.
-            // The fused one gives every comparison its own slot and hands the
-            // skeleton to the fuser, so there is no running partial result for
-            // a later comparison to narrow onto. That is a real property of
-            // that lowering, not an omission, and asserting it for both would
-            // be asserting something false.
-            if is_inplace {
-                assert!(
-                    on_acc,
-                    "no comparison narrowed onto the accumulator: {:?}",
-                    slice.ops
-                );
-            }
+            // ⊘ RE-PINNED. This asserted `on_acc` for the in-place lowering:
+            // inside a plane's own AND, later comparisons narrowed onto the
+            // running accumulator rather than onto the plane. That override
+            // is what the codex P1 on PR #1235 showed to be UNSOUND once an
+            // outer conjunction supplies an unrelated accumulator, so
+            // [`emit_gated`] now always prefers the plane and the assertion
+            // became false. It is inverted rather than deleted, because the
+            // property is load-bearing in the other direction: a plane gate
+            // must never be silently replaced.
+            //
+            // A1's lever is untouched and is pinned separately by
+            // `skip_ordering_moves_the_work_and_never_the_answer`, whose
+            // conjunction carries no plane — those preds still gate on the
+            // accumulator.
+            assert!(
+                !on_acc,
+                "a plane-gated comparison narrowed onto the accumulator \
+                 instead of the plane — the codex-P1 override is back: {:?}",
+                slice.ops
+            );
+            let _ = is_inplace;
 
             let negated = lowering(&Query {
                 filter: Filter::and([

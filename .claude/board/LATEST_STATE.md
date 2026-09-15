@@ -76,6 +76,42 @@
   census is measured and NOT yet on the board — see the arc entry's
   *Un-recorded* bullet.
 - Arc entry: `PR_ARC_INVENTORY.md` under PR #1233.
+## 2026-09-15 — PR #1235 review round: a codex P1 that was a real wrong answer, and three accepted doc/CI fixes
+
+Seven review threads on `claude/clone-repositories-71a5sw`. One was a genuine correctness
+bug; two reviewer suggestions were DECLINED on measurement; three were accepted and applied.
+
+**The P1 (fixed).** `lance-graph-quack` `emit_gated` preferred the accumulator gate over the
+caller-supplied plane (`acc_gate.or_else(|| under…)`). On `P1 AND (Plane(focus) AND P2)` the
+outer accumulator — which has never seen the inner plane — won, and `FOCUS` never reached the
+emitted program. Reproduced against the reference oracle: **oracle 29, emitted 204**. Fixed by
+inverting the preference so the plane always wins (conservative: can cost skip, can never drop
+a conjunct). One existing test asserted the buggy behaviour and is inverted in place with a ⊘
+note; `a_nested_plane_survives_an_outer_accumulator` is the permanent two-sided regression.
+Full statement: `EPIPHANIES.md`
+`E-THE-ACCUMULATOR-GATE-OUTRANKED-THE-PLANE-AND-SILENTLY-DROPPED-IT-1`.
+
+**Accepted.** `.claude/audits/nars-34-substrate-audit.md` item 1 contradicted its own table two
+sections up ("the honest `Datapath` set" for five recipes the table classifies **4 `Gate` + 1
+`Control`, zero `Datapath`**) — corrected in place, plus the stale "as a dispatch key" phrase in
+the closing section, which re-asserted exactly what the file's own top correction retracts.
+`STATUS_BOARD.md` D-QCK-6's unescaped `|` inside `COUNT(alpha & ((A&B)|C))` split the row into a
+sixth cell — escaped. `style.yml`'s quack clippy line gained `--all-features`.
+
+**Declined, both on measurement rather than preference.** (1) `cargo fmt --all` in place of the
+per-manifest quack line: mis-formatting `crates/lance-graph-mask-risc/src/ir.rs` and re-running
+shows the existing scoped line already reports it, so `--all` widens the blast radius without
+adding coverage. (2) Reordering the new `EPIPHANIES.md` entry below the existing 09-15 block:
+that file is reverse-chronological, and within a date the later entry goes first.
+
+**CI `linux-build` is red on this PR and the failure is the BASE's, not the branch's.** `main`
+at `030ad80` fails identically. Root cause established rather than guessed: `aws-smithy-types
+1.7.0` published 18 minutes after the last green run; `aws-smithy-json 0.63.0` declares
+`^1.6.1`, so it always resolves the new one; the newest `aws-config 1.12.0` requires
+`^0.63.0` and cannot reach the fixed `0.64.0`. **No resolver-only fix exists**, and none of the
+four pinnable coordinates (lance / lancedb / arrow / datafusion) is in that chain — so nothing
+in this PR's scope can clear it. Tracked as a repo-wide blocker, not a PR defect.
+
 ## 2026-09-14 (6) — the convergence, answered: pin them equal, do not delegate
 
 The operator's hypothesis was *"wiring duckdb through lance-graph-java might

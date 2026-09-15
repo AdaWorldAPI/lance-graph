@@ -155,6 +155,77 @@ the seam-6 promoter that does ship),
 `.claude/plans/hexagon-plasticity-v1.md`.
 
 ---
+## 2026-09-15 — E-THE-ACCUMULATOR-GATE-OUTRANKED-THE-PLANE-AND-SILENTLY-DROPPED-IT-1 — a nested `Plane` vanished from the emitted program because the *enclosing* conjunction already had a gate
+
+**Status:** CORRECTION — a real correctness bug in shipped-in-PR code (`lance-graph-quack`
+`emit_gated`), found by codex review on PR #1235, reproduced against the reference oracle
+before the fix, fixed, and pinned by a permanent regression.
+**Confidence:** HIGH — the reproduction is a number, not an argument: oracle **29**, emitted
+program **204**, and the op list showed the plane's `FOCUS` operand absent entirely.
+
+### What happened
+
+`emit_gated(filter, under, acc_gate)` carries two gates. `under` is the plane the CALLER
+handed down — `Filter::Plane(m)` encountered as a child, which must gate everything to its
+right. `acc_gate` is the accumulator-so-far, the thing that makes the survivor skip work:
+once some terms have been evaluated into a scratch, later comparisons can be evaluated
+`Pred { under: Some(acc) }` and skip the 64-row words the accumulator already killed.
+
+The line was:
+
+```rust
+let gate = acc_gate.or_else(|| under.map(|m| Operand::Plane(m.0)));
+```
+
+`Option::or_else` — the accumulator WINS whenever both are present. For a flat conjunction
+that is right and is the whole point (the accumulator is strictly narrower than the plane
+it already absorbed). For a **nested** one it is wrong, because the accumulator belongs to
+the OUTER conjunction and has never seen the inner plane:
+
+```
+P1 AND (Plane(focus) AND P2)
+```
+
+The outer `AND` evaluates `P1` into the accumulator, recurses into the parenthesis with
+`under = None, acc_gate = Some(acc)`; the inner `AND` meets `Plane(focus)`, sets
+`under = Some(focus)`, and then for `P2` the `or_else` picks the accumulator and drops the
+plane on the floor. `FOCUS` never appears in the program. Measured: 204 rows where the
+oracle says 29.
+
+### The fix, and why it is the conservative direction
+
+```rust
+let gate = under.map(|m| Operand::Plane(m.0)).or(acc_gate);
+```
+
+The plane always wins. This is conservative rather than optimal: where both are live the
+accumulator may be the narrower gate, so preferring the plane can leave some skip on the
+table. It can never be WRONG, because `Pred { under: g }` is exactly `g ∧ pred`
+(`reference.rs:460`) and the `AND` that consumes the scratch re-applies the accumulator
+anyway. The reverse — preferring the accumulator — drops a conjunct, which is a wrong
+answer, not a slower one. **A gate you can only lose by choosing beats a gate you can drop
+by choosing.**
+
+### The lesson that generalizes past this bug
+
+**`or_else` between two gates is a silent priority decision, and priority between gates is
+only safe when one PROVABLY subsumes the other.** The accumulator subsumes `under` exactly
+when the accumulator was built from a prefix that already included it — true for a flat
+conjunction, false the moment recursion hands the accumulator across a nesting boundary. My
+own hand-trace missed it because I traced the flat case, where the two are in fact ordered.
+The shape that breaks it needs a plane that is BOTH nested and not first, which no existing
+test had: `hoist_gate_subset` rotates a plane-subset child to the front precisely so the
+accumulator starts inside the plane, and every fixture went down that path.
+
+### What the fix cost in the test suite, recorded because it is uncomfortable
+
+`the_gate_reaches_every_comparison_and_is_dropped_only_where_it_vanishes` asserted the plane
+rode the ACCUMULATOR (`assert!(on_acc)`). That assertion was a description of the bug, not
+of the law — it is now inverted (`assert!(!on_acc)`) with a ⊘ note, and the permanent
+regression `a_nested_plane_survives_an_outer_accumulator` is what actually pins the
+behaviour: two-sided (`expected * 2 < without_plane`, so a fixture whose plane admits
+everything cannot pass) plus a structural check that some emitted op reads `FOCUS`. Both
+arms of the disable run are RED.
 
 ## 2026-09-15 — E-I-DECLARED-A-JOIN-ABSENT-BY-GREPPING-ONE-FILE-AND-COMPOSE-IS-THE-SAME-XOR-A-THIRD-TIME-1 — the canonical join shipped in `hhtl.rs` all along, `[a,b]:[b,c]` is `compose_chain`, and the Hexagon substrate is every organ shipped with no nerve between them
 
