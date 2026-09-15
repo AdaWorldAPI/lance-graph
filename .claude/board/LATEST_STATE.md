@@ -25,6 +25,50 @@
   result `n ∈ [8, 47]` is **predicted, not certified**), width on
   `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED`.
 - Arc entry: `PR_ARC_INVENTORY.md` under PR #1234.
+## 2026-09-15 — the workspace build is GREEN again: the AWS SDK is now optional, and the cost I recorded for that was wrong
+
+`cargo check --workspace` **EXIT=0 in 2m56s** — the job that had been red on `main` and on every
+branch since `aws-smithy-types 1.7.0` published. Not a pin, not a deletion: the operator's
+framing, verbatim, was *"make it optional so that later we fork 1.7 and fix it if we ever want
+it."* So `lance` takes `default-features = false` + its own default list minus `aws`, and
+`lance-graph` gains `aws-sdk = ["lance/aws"]` — one documented switch instead of a silent
+removal.
+
+**Two corrections came out of this, and both were prompted by the operator asking a question
+rather than accepting my summary.**
+
+**1. "S3 support" was the wrong unit.** I had recorded the cost as "drops S3 object-store
+support". The operator asked whether I meant the native AWS library, *"not to be confused with
+Tigris RAILWAY S3 slab hydration"* — and that distinction is load-bearing, because `lance-io`'s
+one `aws` feature bundles the AWS **SDK** (`aws-config`, the broken half) together with
+`object_store/aws`, the generic **S3-compatible** backend. Only the first is dropped: the
+workspace and `crates/lance-graph` declare `object_store = { features = ["aws"] }` directly, so
+unification keeps it on. Measured — `aws-smithy-json` ABSENT, `aws-config` ABSENT,
+`object_store` feature `aws` ENABLED, and `--features lance-graph/aws-sdk` brings `aws-config`
+back, which is the anti-vacuity check that the switch is real. `lance-graph-hydrate`'s slab
+hydration never touches the SDK; it drives `object_store` with `aws_endpoint` +
+`aws_virtual_hosted_style_request = false`. Real cost: AWS-native credentials only — IMDS, SSO,
+STS assume-role.
+
+**A past session had already paid for this.** `crates/lance-graph/Cargo.toml:149` declares
+`object_store/aws` directly and explains that slimming lance's defaults *"would silently remove
+S3 from THIS crate's own S3 callers … it makes the capability this crate USES a thing this crate
+ASKS FOR."* That defensive declaration is the entire reason today's change is safe. Worth
+noticing as a pattern: the comment cost one paragraph then and saved a capability now.
+
+**2. "Check upstream" produced a root cause, not a patch.** This repo is a fork of
+`lance-format/lance-graph`. Upstream is fully green and has NOTHING to port — no aws-smithy pin,
+patch or workaround anywhere in its tree. It is green because it **tracks a `Cargo.lock`**
+(`aws-smithy-json 0.61.5` / `aws-smithy-types 1.3.2`) and sits on `lance 1.0.1` /
+`object_store 0.12.4`, ten majors back. So its immunity is precisely the mechanism we removed in
+`ISS-STALE-AUTHORITY-LOCKS-RESIDUE` (2026-09-04): with no tracked lock, every CI run re-resolves
+and can pick up a crate published minutes earlier. **The blocker was a symptom of the
+no-lock ruling**, which is a third remedy nobody has taken and the only one that reverses a
+prior decision.
+
+Scope note, stated rather than buried: this is a repo-wide dependency change riding inside a
+feature PR (#1235, quack). It is here because it is what unblocks that PR's CI and the operator
+asked for it in that context; it splits out cleanly if a reviewer would rather see it alone.
 
 ## 2026-09-15 — PR #1233 merged (`030ad80`): eleven measurement arcs are on `main` — docs and probes only, NO contract inventory delta
 

@@ -260,7 +260,50 @@ resolver = "2"
 # deltalake was the only thing that pulled 53, and it is gone (0 hits in the
 # lock).
 [workspace.dependencies]
-lance = "=11.0.0"
+# `default-features = false` + lance's own default list MINUS `aws`.
+#
+# WHY: `lance/aws` -> `lance-io/aws` -> `dep:aws-config` -> `aws-smithy-json
+# 0.63.0`, which does not compile against `aws-smithy-types 1.7.0`
+# (`Document::Object` took a `DocumentObject`, `Document` went
+# `#[non_exhaustive]`). 0.63.0 declares `aws-smithy-types ^1.6.1`, so it ALWAYS
+# resolves the breaking 1.7.0, and the newest `aws-config` requires `^0.63.0`
+# and cannot reach the fixed 0.64.0. No version selection fixes it; this repo
+# tracks no lock, so every CI run re-resolves into the break. It is upstream's
+# bug, reproducing on our `main` and on every branch.
+#
+# WHAT THIS DOES *NOT* COST -- measured, not assumed. `lance-io`'s `aws`
+# feature bundles TWO unrelated things: the AWS *SDK* (`aws-config`, the broken
+# half) and `object_store/aws`, the generic S3-COMPATIBLE backend. Only the
+# first is dropped here: `object_store/aws` is declared DIRECTLY by this
+# workspace and by `crates/lance-graph`, so cargo unification keeps it on.
+# Verified with the change applied: `cargo tree -i aws-config` -> "did not
+# match any packages", while `cargo tree -e features -i object_store` still
+# lists feature "aws". So S3-compatible object storage is UNAFFECTED --
+# including `lance-graph-hydrate`'s slab hydration, which drives `object_store`
+# with `aws_endpoint` + `aws_virtual_hosted_style_request = false` (an
+# S3-compatible endpoint, not an AWS-native one) and never touches the SDK.
+# Nothing in this workspace names `aws_config` / `aws_sdk_*` /
+# `aws_credential_types` at all -- the SDK was pure transitive weight.
+#
+# WHAT IT DOES COST: AWS-*native* credential machinery only -- IMDS, SSO,
+# STS assume-role -- which a deployment carrying explicit key/secret/endpoint
+# does not use.
+#
+# TO RESTORE: `--features lance-graph/aws-sdk` (see that crate's [features]).
+# If upstream is still broken when someone wants it, the escape hatch is a
+# fork of `aws-smithy-json` fixed against `aws-smithy-types 1.7` -- the two
+# call sites need `.into()` and one wildcard arm; upstream's own compiler
+# hints spell both out.
+lance = { version = "=11.0.0", default-features = false, features = [
+    "azure",
+    "gcp",
+    "oss",
+    "huggingface",
+    "tencent",
+    "tos",
+    "goosefs",
+    "geo",
+] }
 lance-linalg = "=11.0.0"
 lance-index = "=11.0.0"
 lancedb = { version = "=0.38.0", default-features = false }

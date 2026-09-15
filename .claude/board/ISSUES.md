@@ -1,3 +1,43 @@
+## ISS-AWS-SMITHY-BREAKS-THE-WORKSPACE-BUILD-AND-THERE-ARE-TWO-REMEDIES (2026-09-15) — ⊘ RESOLVED SAME DAY, and the recorded cost was WRONG
+
+**Resolved by the operator's own framing — "make it optional so that later we fork 1.7 and fix
+it if we ever want it"** — which is better than either remedy below, because it keeps the
+capability addressable instead of deleting it. `lance` now takes `default-features = false` plus
+its own default list MINUS `aws`, and `lance-graph` gains an opt-in `aws-sdk = ["lance/aws"]`.
+**Measured after: `cargo check --workspace` EXIT=0 in 2m56s** — the job that had been red on
+`main` and every branch.
+
+**⊘ The cost recorded below ("drop lance's `aws` feature → costs S3 object-store support") was
+WRONG, and the operator caught it** by asking whether this was the native AWS library rather
+than Tigris/Railway S3 slab hydration. It is the native SDK. `lance-io`'s `aws` feature bundles
+TWO unrelated things — the AWS SDK (`aws-config`, broken) and `object_store/aws`, the generic
+S3-COMPATIBLE backend — and only the first is dropped, because `object_store = { features =
+["aws"] }` is declared DIRECTLY by the workspace and by `crates/lance-graph`. Verified:
+`aws-smithy-json` ABSENT, `aws-config` ABSENT, `object_store` feature `aws` still ENABLED, and
+`--features lance-graph/aws-sdk` brings `aws-config` back (so the switch is real, not
+decoration). `lance-graph-hydrate`'s slab hydration is untouched — it drives `object_store`
+with `aws_endpoint` + `aws_virtual_hosted_style_request = false`, an S3-compatible endpoint,
+and never names the SDK. **Nothing in this workspace references `aws_config` / `aws_sdk_*` /
+`aws_credential_types` at all.** What is actually lost: AWS-*native* credential machinery only
+(IMDS, SSO, STS assume-role).
+
+**A past session had already built the insurance that makes this safe.**
+`crates/lance-graph/Cargo.toml:149` declares `object_store/aws` directly and says why:
+*"slimming them to `default-features = false` is a plausible future move — and it would silently
+remove S3 from THIS crate's own S3 callers … it makes the capability this crate USES a thing
+this crate ASKS FOR."* That is exactly this move, anticipated.
+
+**Upstream has no fix, and checking told us the root cause.** This repo is a fork of
+`lance-format/lance-graph`, which is fully green — because it **tracks a `Cargo.lock`** pinning
+`aws-smithy-json 0.61.5` / `aws-smithy-types 1.3.2`, and sits on `lance 1.0.1` /
+`object_store 0.12.4`, ten majors behind. It carries no aws-smithy pin, patch or workaround;
+grep finds the string nowhere in its tree. So there was nothing to port — its immunity is the
+tracked lock we deliberately removed (`ISS-STALE-AUTHORITY-LOCKS-RESIDUE`, 2026-09-04), which
+is why our CI re-resolves into newly-published breakage on every run. That is a THIRD remedy
+(restore a tracked lock) and the only one that reverses a prior ruling; not taken.
+
+The original entry follows unchanged.
+
 ## ISS-AWS-SMITHY-BREAKS-THE-WORKSPACE-BUILD-AND-THERE-ARE-TWO-REMEDIES (2026-09-15) — OPEN, repo-wide, operator decision
 
 **`cargo build --workspace` fails on `main` and on every branch**, in a third-party crate, and
