@@ -1,3 +1,87 @@
+## 2026-09-15 — E-THE-BOXCAR-HORIZON-IS-NOT-A-DISCOUNT-IT-REVERSES-THE-OTHER-WAY-1 — the A9 ±8 window produces the OPPOSITE preference reversal from hyperbolic discounting, and has no indifference region
+
+**Status:** FINDING (measured, `.claude/probes/horizon-window-v1/`, re-runnable).
+**Confidence:** High on the measurement; the fixture is synthetic by design.
+
+A `Locus` is a signed offset into the ±8 `temporal.rs` window, so the register is a
+**temporal-distance** carrier and its perception rule is a boxcar: full value inside,
+`0 = unbound` outside. Swept against two controls on the canonical preference-reversal
+fixture (sooner-smaller at `T1`, later-larger at `T2 > T1`, agent deciding from each
+vantage `τ`), three fixtures each:
+
+| | exponential (control) | hyperbolic (control) | boxcar |
+|---|---|---|---|
+| reverses? | **0/19 γ, all fixtures** | fires on all three | fires inside `[T2−T1+1, T2−1]`, **matching the derivation on all three** |
+| direction | — | `later → sooner` | **`sooner → later` — OPPOSITE** |
+| flip margin | — | ~0.03–0.15 | **41–206× larger** |
+
+**Two findings.** (1) The boxcar is not a steep discount — it reverses the other way.
+Hyperbolic impatience *rises* with proximity (akrasia); under a horizon, **blindness
+FALLS** with proximity, because closing distance buys visibility, not urgency.
+(2) There is **no indifference region**: at the flip the far reward jumps from unbound
+to full value. A hard-horizon agent never *almost* sees a consequence, so it cannot
+hedge and cannot be nudged.
+
+**What it falsified — my own claim, same session.** *"An A9-locus agent is
+constitutionally a scorpion"* is **false**. The scorpion stings midstream, i.e.
+impatience rising with proximity, which is the hyperbolic signature. A boxcar agent
+would have crossed: midstream is exactly when the far shore becomes visible.
+Nature-as-curvature and nature-as-register-width are different pathologies.
+
+**At the substrate's real width.** `w=8` with far rewards at `T2=12` / `T2=20` reads
+all-`sooner` from every vantage — **uninformed, not impatient, and unable to report
+the difference.** That is a measured argument for the `EMPTY, −7..+7` nibble the
+six-families ruling already deferred (`EMPTY` = no valid observation, `0` = observed
+neutral): without it the agent cannot say it is blind.
+
+**Instrument bug worth keeping.** The first run printed no margin comparison and looked
+like a null. `flip_margin` scanned only `sooner → later`, so it returned `None` for
+every hyperbolic trace — **the direction it could not see was the finding.** Third
+instance this session of *a null result is a claim about the apparatus until proven
+otherwise*.
+
+Refs: `.claude/knowledge/causal-plane-inventory.md` §7; `causal_witness.rs`;
+`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1` (the deferred nibble).
+
+## 2026-09-15 — E-SIX-SEAMS-EVERY-CAUSAL-SELECTOR-SHIPS-AND-NONE-IS-WIRED-AT-THE-HOP-1 — the four-plane geometry is represented but not operative
+
+**Status:** FINDING (census of shipped code). **Confidence:** High on rows 1–6;
+the `traverse` A×A note is read-not-run.
+
+Six independent "the substrate should do X" proposals in one session each resolved to
+the same shape: **X's selector ships, X's kernel ships and is proven, and nothing
+connects them at the step where the distinction would do work.**
+
+| # | selector | kernel | state |
+|---|---|---|---|
+| 1 | `CausalTopology` 59–60 | `AND3` hop, `lgj-abi/exports.rs:1816` | third mask slot carries `struct_f`, not the causal plane |
+| 2 | `CausalTopology` 59–60 | `ewa_sandwich(m, σ)`, PSD-proven 10000/10000 | **M is caller-supplied**; only `jc`'s own proof calls it |
+| 3 | `InferenceType` / `ReasoningBand` | NARS revision, truth semirings | `adjacent_truth_propagate` takes bare `TruthValue`; the plane picks a semiring once **per plan** (`orchestration_impl.rs:146`), never per edge |
+| 4 | `CausalTopology` / `InferenceType` | `PlasticityState` | no update reads across them; the only co-occurrences are field-isolation tests asserting they don't touch |
+| 5 | `AND_ANDNOT2` (the surround) | ternlog immediate | not wired at the hop — **and Pillar-15 returns placeholder `passed=true`**, so the Mexican hat has no certified shape |
+| 6 | `LearnedStyle → FrozenStyle` promotion | documented in the tenant | implemented **only in `probe_sudoku_teacher.rs`**; no promoter in any `src/` |
+
+**Consequence for how the four-plane probe should be cited.** It proves the planes stay
+**distinguishable in the ABI** — jointly resident, never derived — exactly as its header
+claims. It does **not** show anything downstream consuming the distinction. The geometry
+is represented; it is not yet operative.
+
+**Consequence for W1.** The arc spread with a radius over palette *address geometry*
+while `masked_traverse` / `mxv` — activation along typed relation matrices under a
+semiring — shipped unused. Measured: the field grew 25 → 123 → 311 cells at radius
+0/1/2 while r@10 stayed flat, because it diffused into **empty address space** (1305
+occupied of 65536). The recorded post-mortem (*"a spread without a surround is a
+blur"*) named one defect; **spreading over the address space instead of the edge set**
+was the more basic one and went unrecorded. You cannot inhibit a neighbour that does
+not exist.
+
+**Separate defect, same family, not a wire.** `blasgraph/typed_graph.rs:71` documents
+`traverse` as "Single-hop traversal" and computes `matrix.mxm(matrix, …)` = **A × A**;
+`multi_hop(&["r"])` returns `A`. Two functions in one file disagree by one hop. Read,
+not run — needs a test before it is called a bug.
+
+Refs: `.claude/knowledge/causal-plane-inventory.md` §3 (the reusable inventory).
+
 ## 2026-09-15 — E-A-SPREAD-WITHOUT-A-SURROUND-IS-A-BLUR-INHIBITION-IS-THE-FREE-HALF-1 — lateral spread over a GOOD similarity ordering measurably costs discrimination; the mask algebra is already an inhibition algebra
 
 **Status:** FINDING (measured, W1/D-HXP-2, plan `hexagon-plasticity-v1.md` §11).
