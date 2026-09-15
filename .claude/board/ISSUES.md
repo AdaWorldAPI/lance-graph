@@ -1,3 +1,54 @@
+## ISS-AWS-SMITHY-BREAKS-THE-WORKSPACE-BUILD-AND-THERE-ARE-TWO-REMEDIES (2026-09-15) — OPEN, repo-wide, operator decision
+
+**`cargo build --workspace` fails on `main` and on every branch**, in a third-party crate, and
+it is NOT a resolver problem — no version selection fixes it:
+
+```
+error[E0308] aws-smithy-json-0.63.0/src/codec/deserializer.rs:707
+              expected `DocumentObject`, found `HashMap<String, Document>`
+error[E0004] aws-smithy-json-0.63.0/src/serialize.rs:36  non-exhaustive patterns
+```
+
+`aws-smithy-types` 1.7.0 changed `Document::Object` to take a `DocumentObject` and marked
+`Document` `#[non_exhaustive]`; `aws-smithy-json` 0.63.0 has not caught up. `aws-smithy-json`
+declares `aws-smithy-types ^1.6.1`, so it ALWAYS resolves the breaking 1.7.0, and the newest
+`aws-config` 1.12.0 requires `aws-smithy-json ^0.63.0` and cannot reach the fixed 0.64.0. This
+repo tracks no `Cargo.lock`, so every CI run resolves fresh and picks the incompatible pair.
+Jobs affected: `linux-build`, `test`, `member-tests`, `test-with-coverage` — all four die at the
+same `cargo build --workspace` step, before any test body runs.
+
+**There are TWO remedies and both are operator decisions. Neither is a pin-vs-nothing choice.**
+
+| remedy | cost | touches the pin whitelist? |
+|---|---|---|
+| exact-pin `aws-smithy-types` | a FIFTH pinned coordinate | **yes** — `CLAUDE.md`: nothing outside lance/lancedb/arrow/datafusion is pinned at all |
+| drop lance's `aws` feature | S3 object-store support | **no** |
+
+**The second one is the newly-established fact, and it is TESTED rather than inferred.**
+`aws-config` is an OPTIONAL dependency of `lance-io` behind its `aws` feature; `lance` takes
+`lance-io` with `default-features = false` and re-exposes `aws = ["lance-io/aws"]` inside its own
+default. So the chain is feature-reachable from our side:
+
+```toml
+lance = { version = "=11.0.0", default-features = false, features = [
+    "azure", "gcp", "oss", "huggingface", "tencent", "tos", "goosefs", "geo",
+] }
+```
+
+`cargo tree -i aws-smithy-json` then reports **"did not match any packages"** — gone from the
+graph entirely, with every other lance default feature retained. (`default-features = false`
+alone works too, but drops eight features instead of one.)
+
+**How real the S3 cost is, stated precisely.** No hard-coded AWS calls in this tree, but
+`lance-graph-catalog`'s `storage_options` surface documents and passes through
+`aws_access_key_id` / `aws_secret_access_key` / `aws_region`, and `DirNamespace` parses `s3://`
+URIs. The capability is exposed to callers even though nothing here exercises it in CI. Whether
+a deployment depends on it cannot be determined from the tree.
+
+**Correction recorded on purpose:** the stand-down comment on PR #1235 said the remedy "is a
+version pin", naming one option as if it were the only one. That was incomplete, and the missing
+option is the one that leaves the pin rule alone. Corrected on the PR.
+
 ## ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE (2026-09-15) — OPEN, and it is the price of the P1 fix
 
 **`Query::and_by_skip`'s ordering lever buys exactly zero on any conjunction that carries a
