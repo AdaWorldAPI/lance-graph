@@ -1,3 +1,93 @@
+## 2026-09-15 — E-A-DISABLE-CAN-GO-RED-FOR-THE-WRONG-REASON-AND-THE-TWO-PEAK-FIGURES-WERE-NEVER-IN-CONFLICT-1 — 142 and 6,297 are maxima over different seed pools; the flag saying they could not both stand was itself the error
+
+**Status:** FINDING (measured, `.claude/probes/density-sweep-v1/frontier_peak.py`, re-runnable
+whenever the bake is present; every figure asserted exactly, mechanism disable-verified).
+**Confidence:** HIGH. The exhaustive arm turns the root claim from an assumption about
+ontology shape into a measurement, and the clean disable reproduces the separating figure
+to the unit.
+**Resolves:** the `⊘ NEEDS RE-DERIVATION` flag carried inline in PR #1233's fourth and
+fifth arcs.
+
+### Two figures, one graph, no contradiction
+
+Published one arc apart as "the MONDO `is_a` peak frontier": **6,297 at hop 6** (fourth
+arc, one seed) and **142 at hop 12** (fifth arc, 60 sampled seeds). I flagged them with
+*"both cannot stand as 'the' peak."* **That flag was the error.** Measured:
+
+| pool | peak |
+|---|---|
+| 60 sampled **interior** seeds (`sweep.py`'s own `walk_seeds`) | **142** |
+| all 3 MONDO **roots** | **6,297 at hop 6** |
+| **exhaustive**, every one of the 6,194 nodes with children | **6,297 — global maximum** |
+
+`sweep.py` draws walk seeds from `[n for n in po if n[0] == MONDO and po[n]]` — nodes that
+**have parents**. A root has none, so **a root is excluded from that pool by construction**
+and no amount of resampling inside it can ever reach the root's frontier. Both numbers are
+correct maxima over different pools.
+
+**The exhaustive arm is what makes this a measurement rather than a plausible story.**
+Without it, "the root is the widest" would be an assumption about what an ontology looks
+like — a deep-but-narrow root and a wide interior hub are both a priori possible in an
+`is_a` DAG. Measured, no node anywhere beats the root.
+
+**It strengthens the original claim rather than weakening it.** 6,297 was reported as "a
+single seed", which reads like an anecdote. It is the **widest frontier the graph admits**,
+and it is the right figure for the fourth arc's cost-of-no-torch argument precisely because
+a traversal seeded at the ontology root is the worst case a bounded frontier exists to bound.
+
+### ⊘ The blocker was also stale
+
+Both the PR body and the session's own check-in note recorded this as blocked on the 31 MB
+bake being absent. The bake was **present** — 30,964,736 B = 60,478 rows, remainder 0,
+fetched earlier the same day. The work had been re-deferred against a condition that had
+already cleared. **A blocker is state, not a property**; it needs re-checking on the same
+schedule as a measurement, and nothing in the flag's wording invited that.
+
+### THE TRANSFERABLE FINDING — my first disable went red for the wrong reason
+
+To prove root-exclusion was the mechanism rather than sampling luck, I disabled the
+has-parents restriction so roots could enter pool (a). **It went red.** Taking that as
+confirmation would have been wrong: it failed with `sampled peak moved: 107` — *lower* than
+142, and nowhere near 6,297. Enlarging the pool from 6,191 to 6,194 changes which 60 seeds
+`random.Random(11)` draws, so the red came from a reshuffled sample, not from a root. With
+3 roots in 6,194 the chance any of 60 draws hits one is ~2.9 %.
+
+The clean disable keeps the sample **identical** and appends the widest root:
+`sampled_peak` becomes **6,297 exactly**. Mechanism confirmed to the unit.
+
+**A red you do not read is as uninformative as a green you do not question.** The whole
+disable-verification discipline rests on the failure being caused by the thing you removed,
+and "it went red" does not establish that — the failure message has to be *the one the
+mechanism predicts*. This session already collected the sibling forms (zeroing a constant
+the guarded quantity can pass by another route; an anchor that silently stopped matching);
+this is the third shape: **the disable applied, it went red, and it was still not evidence.**
+
+### Second, smaller: an exemption audited rather than cited
+
+The standing justification for the docstring-coverage warning is *"permanent by design —
+frozen W1 probes whose corpus no longer exists."* The warning had since moved from 43.86 %
+to 57.69 % and now covers 78 functions across 8 files, i.e. it had grown to span four NEW,
+**re-runnable** probes the exemption was never argued for. Measured rather than assumed:
+
+| group | documented |
+|---|---|
+| frozen W1 (corpus gone — exempt) | 20/50 = **40.0 %** |
+| new re-runnable probes | 21/23 = **91.3 %** |
+
+**The exemption is sound and covers exactly what it claims** — the new probes clear the
+80 % threshold on their own, and the frozen block is what drags the total down. My suspicion
+that it had silently widened was wrong, and checking cost one `ast` walk. The two genuine
+gaps (`sweep.py`'s `measure` and `u24`) sat outside the exemption and are now closed; `u24`
+names its endianness explicitly, because this same session measured a join where reading
+identical bytes big-endian returns a plausible wrong answer that passes an ordering check.
+
+Refs: `.claude/probes/density-sweep-v1/frontier_peak.py`;
+`E-THE-REVIEW-FOUND-A-REAL-BUG-THAT-FALSIFIED-MY-OWN-ISSUES-PREMISE-AND-I-BROKE-MY-OWN-RULE-IN-THE-FILE-STATING-IT-1`
+(the same day's disable-discipline findings);
+`E-BOUNDED-ATTENTION-BUYS-REACH-AND-A-DISTANT-HOP-IS-A-TERNLOG-NOT-A-SEMIRING-1` (the arc
+whose cost argument the 6,297 figure carries).
+
+---
 ## 2026-09-15 — E-THE-REVIEW-FOUND-A-REAL-BUG-THAT-FALSIFIED-MY-OWN-ISSUES-PREMISE-AND-I-BROKE-MY-OWN-RULE-IN-THE-FILE-STATING-IT-1 — nine findings, nine valid, and the two that matter are a 21× measurement error and a probe that asserts the relation it exists to condemn
 
 **Status:** FINDING (all nine verified against source before any edit; the code fixes are
