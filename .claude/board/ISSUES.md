@@ -1,3 +1,49 @@
+## ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY (2026-09-15) — OPEN
+
+**The path-length-spread dose-response holds WITHIN the MQ family and MONDO does not sit on
+the axis.**
+
+Measured (`.claude/probes/density-sweep-v1/`, controlled arm): agreement is monotone in the span
+of reachable path lengths across six MQ configs at pinned density, 100.0 % → 26.9 %. But MONDO
+braids (mean spread **0.44**, 182/195 pairs) and scores **84.6 %** — *higher* than MQ `(1,2)` at
+**55.3 %**, which has comparable spread. So spread predicts within one synthetic family and does
+not carry to the one real ontology measured.
+
+**Why that matters rather than being a curiosity:** the whole point of naming a mechanism was to
+turn *"depth-rank is taxonomy-shaped"* into a **checkable precondition** a caller could evaluate
+on its own graph. A predictor that works only inside the family it was tuned on is not that.
+
+**What would close it:** measure the spread distribution of MONDO (and ideally a second real
+ontology) on the same footing as the MQ configs, and check whether a single spread→agreement
+curve fits both. If it does not, the honest statement is that spread is an MQ-family artifact and
+the taxonomy result remains mechanism-free. Anti-vacuity: the curve must also *mis*-predict
+something, or it is being fit rather than tested.
+
+---
+
+## ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED (2026-09-15) — OPEN
+
+**The torch's recall claim is currently unearned: `k=50` returns 100 % on every MQ config and
+99.4 % on MONDO.**
+
+A bound that never costs anything on any graph tested is the **fires-on-everything** shape —
+exactly the defect `E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1` names, and
+the twin of the `closed_class_guess` 150/150 finding. `k=6` discriminates only mildly (89–100 %).
+
+**Consequence for the architecture entries.** `E-BOUNDED-ATTENTION-…` and
+`E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-…` argue that a bounded frontier buys reach.
+The recall measurements are **consistent** with that — and equally consistent with *the bound
+never binding on these graphs*. The two readings are separated only by finding a graph where
+truncation genuinely costs reachability. Until then the amortization result (recall flat across
+hops 4/8/12) should be cited as **flat-and-high**, not as proof the bound is doing work.
+
+**What would close it:** a graph where bounded-k measurably loses recall — high fan-out with low
+path redundancy is the shape to hunt (MQ's braiding gives many alternative routes, which is
+plausibly *why* truncation is free there). If no such graph can be constructed, that is itself
+the finding, and the bound should be described as free rather than as cheap.
+
+---
+
 ## ISS-ROW-FOR-LOCAL-KEY-RETURNS-NONE (2026-09-15) — OPEN
 
 **The masked-O(1) key→row lookup the canon specifies is a stub that answers `None` for every
@@ -124,7 +170,25 @@ ternlog kernel. The IR has no non-lane operand today, so adding one is a shape d
 that crate, not a mechanical insertion.
 
 ---
-## ISS-ELK-DENSITY-UNISOLATED (2026-09-15) — OPEN
+## ISS-ELK-DENSITY-UNISOLATED (2026-09-15) — ⊘ RESOLVED SAME DAY: density FALSIFIED; successor filed
+
+> **⊘ The sweep this issue asked for was run (`.claude/probes/density-sweep-v1/`) and it
+> KILLED the hypothesis this issue names.** With width and shifts pinned and advances
+> varied alone, **density holds at exactly 45.05 % while agreement spans 26.9 % → 100.0 %**
+> — a 73-point swing at identical density — and `advances=(1,)` vs `(2,)` differ ~2× in
+> density with **identical** agreement, so density is *inert*, not merely weak. The
+> variable is the **SPAN of reachable path lengths**: `(1,2)` vs `(1,3)` have the same
+> count and the same density and sit **18 points apart**.
+> 
+> This also **re-opens A5** — the braid mechanism I closed as falsified this morning. That
+> arm used a binary `spread == 0` vs `> 0` split; this one uses a dose. The indicator was
+> underpowered, not wrong.
+> 
+> Full result + what is NOT established:
+> `E-DENSITY-IS-FALSIFIED-THE-VARIABLE-IS-PATH-LENGTH-SPREAD-AND-THIS-RE-OPENS-A5-1`.
+> Successor: `ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY`. The text below is kept verbatim
+> as the question that was asked, not deleted.
+
 
 **The 48.6 pp MQ↔MONDO divergence is measured; its mechanism is not.**
 

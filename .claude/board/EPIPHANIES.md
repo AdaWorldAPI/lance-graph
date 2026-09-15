@@ -1,3 +1,83 @@
+## 2026-09-15 — E-DENSITY-IS-FALSIFIED-THE-VARIABLE-IS-PATH-LENGTH-SPREAD-AND-THIS-RE-OPENS-A5-1 — my own filed hypothesis dies at 73 points of swing under pinned density, and the mechanism I closed as falsified this morning comes back
+
+**Status:** FINDING (measured, `.claude/probes/density-sweep-v1/`, MQ arms re-runnable).
+**Confidence:** High on the MQ dose-response — it is a controlled design with the confound
+removed. LOW on anything cross-family: MONDO does not sit on the axis (below).
+**Corrects:** `ISS-ELK-DENSITY-UNISOLATED` (density: FALSIFIED as the cause) and the A5 verdict
+in `E-DEPTH-RANK-REPRODUCES-MOST-SPECIFIC-BUT-ONLY-ON-A-TAXONOMY-1` (braiding: back on the
+table, my indicator was underpowered).
+
+**I filed density as the named-but-unisolated variable and deliberately declined to assert it
+without the sweep.** That restraint was the right call: the sweep kills it.
+
+**The first sweep was confounded, and I caught it before reading a mechanism off it.** Varying
+width, advances and shifts together already refused a density story (4× density change, same
+answer; 2× density change, same answer) — but width covaried with advances (2,3 / 4,5 / 6,6), so
+naming "advance multiplicity" from it would have repeated the *exact* error density was dying of.
+The controlled arm pins width and shifts and moves advances alone:
+
+| advances | \|adv\| | density | ASC |
+|---|---|---|---|
+| `(1,)` | 1 | 45.05 % | **100.0 %** |
+| `(2,)` | 1 | **21.90 %** | **100.0 %** |
+| `(1,2)` | 2 | 45.05 % | 55.3 % |
+| `(1,3)` | 2 | 45.05 % | **37.1 %** |
+| `(1,2,3)` | 3 | 45.05 % | 36.0 % |
+| `(1,2,3,4)` | 4 | 45.05 % | **26.9 %** |
+
+Three contrasts, and each one is a disable of a different story:
+
+1. **Density pinned at exactly 45.05 %; agreement spans 26.9 % → 100.0 %.** A **73-point swing at
+   identical density**. Density cannot be the cause.
+2. **`(1,)` vs `(2,)`** — multiplicity 1 in both, density differs ~2×, agreement **identical**.
+   Density is *inert* at fixed multiplicity, not merely weak.
+3. **`(1,2)` vs `(1,3)`** — same count, same density, **18 points apart**. So the variable is the
+   **SPAN** of reachable path lengths, not how many distinct advances exist.
+
+**This re-opens A5, and the correction is about statistical power, not about the measurement.**
+This morning I reported *"the braid mechanism I proposed is FALSIFIED as the explanation"* —
+braided-only pairs still left 47.5 pp of the 48.6. That arm split pairs on a **binary** indicator
+(`spread == 0` vs `> 0`) **within** each graph. The present design varies braiding as a **dose**
+and gets a clean monotone. The binary indicator lumps spread 0.1 with spread 3, and the two
+graphs' means (MONDO 0.44, MQ 0.73) sit close on that scale while being structurally different
+regimes — *every* MQ node reachable at three path lengths vs MONDO's incidental braiding. **A
+coarse indicator with almost no variance in the treatment cannot see a dose-response.** The A5
+numbers stand; the verdict drawn from them does not.
+
+That is the third time this session a conclusion of mine reversed, and the pattern is identical
+each time: **the measurement was sound and the inference outran its design.**
+
+**What is NOT established, stated before it can be cited otherwise.** **MONDO does not sit on
+this axis.** It braids (mean spread 0.44, 182/195 pairs) and scores **84.6 %** — *higher* than MQ
+`(1,2)` at 55.3 %. The dose-response is **within the MQ family**. Cross-family transfer is
+**unmeasured**, and nothing here licenses predicting a real ontology's agreement from its spread.
+
+**Q3 — amortization: SUPPORTED, with its own caveat attached.** Bounded-k recall is **flat across
+distance** in every config: MONDO k=6 → 92.1 / 89.5 / **89.1 %** at hops 4/8/12; MQ `(1,2,3,4)`
+k=6 → 94.0 / 95.2 / **95.0 %**. No decay as reach grows, which is what the EWA n=12 band
+(bound 0.5715, operator's 0.45..0.65) predicts. **But** flat-and-high is equally consistent with
+a bound that is simply never binding — see Q2.
+
+**Q2 — anti-vacuity: NOT SATISFIED, and this is the honest headline of the recall half.** `k=50`
+returns **100 % on every MQ config and 99.4 % on MONDO**. *A bound that never costs anything on
+any graph tested is the fires-on-everything shape* — exactly the defect
+`E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1` names. `k=6` discriminates only
+mildly (89–100 %). **No graph has been found where bounded-k genuinely fails**, so the recall
+result is about *these* graphs until it degrades somewhere. Finding that graph is outstanding
+work, not a footnote, and until it exists the torch's recall claim is unearned.
+
+**Deliberately not measured: "top-k successor mass."** That is the D-HXP-1 SIGNAL half, already
+**STRUCK as unanswerable by that instrument** (`uniform_expected = min(6,d)/d` is biased by
+small-sample concentration; on an unweighted graph every successor carries equal mass, so the
+statistic is arithmetic). Re-deriving it here would have re-run a struck measurement.
+
+**A number that needs re-deriving before it is cited again.** This run reports MONDO peak frontier
+@12 = **142** over 60 sampled seeds; an earlier run in this arc reported the `is_a` frontier
+profile peaking at **6,297** at hop 6. Different seed samples. Both cannot stand as "the" peak,
+and the 6,297 figure appears in `E-BOUNDED-ATTENTION-…` and
+`E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-…` as the cost-of-no-torch evidence.
+
+---
 ## 2026-09-15 — E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-AND-ITS-LOAD-BEARING-LINKS-ARE-STUBS-1 — every link is named in the source, down to the words "a single masked load, no gather", and the shipped lookups are a `None`, a scalar loop, and a linear scan
 
 **Status:** FINDING on the code census — located-code claims with file:line, NOT a measurement.
