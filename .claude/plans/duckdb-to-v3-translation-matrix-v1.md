@@ -545,7 +545,8 @@ gate Phase 2.
 
 > **⊘ A1 UPDATE 2026-09-14 — the falsifier ran (§8a) and moved the row to
 > ADAPT, which strengthens the shape above rather than dulling it.** Term order
-> does change the skip fraction (up to 75 percentage points, 14.2×), so the
+> does change the skip fraction (up to 99.90 percentage points in the clustered
+> regime; 75.00 points and 14.2× are the SELECTIVE regime's spread), so the
 > mechanism is not deleted — but what transferred is the INTENT (order the
 > conjuncts) and what did not is the CARRIER (an adjacent-transposition
 > hill-climb over measured runtimes). That is the same intent-transfers /
@@ -574,7 +575,8 @@ before any design:
    `AdaptiveFilter` is ELIMINATE and the only DuckDB mechanism V3 lacks turns out
    not to be needed. That is a cheap answer with a large consequence, and it is
    answered by measurement (1) plus one sweep.~~ **ANSWERED 2026-09-14 — see
-   §8a.** Order moves it (up to 75 percentage points, 14.2×), so A1 is not
+   §8a.** Order moves it (up to 99.90 percentage points, clustered — 75.00
+   points and 14.2× are the selective regime), so A1 is not
    ELIMINATE; selectivity alone does **not** predict skip — `selective` and
    `clustered` have near-identical survivor counts (36 and 31) and differ by
    94.24 points of as-written skip — and the hill-climb is not ported.
@@ -689,8 +691,9 @@ No measurement, no decay, no intervals, no `observe=10 / execute=20 / warmup=5`.
 The crate builds programs and never evaluates one, so it cannot measure
 anything; putting the score at the boundary is the whole adaptation.
 
-**One override, because it is a correctness requirement rather than a
-preference:** when the `AND` also carries a resident plane the gate walk DROPS
+**One override — and since the `emit_gated` fix it buys SLOT ECONOMY, not
+correctness (⊘ corrected 2026-09-15; it WAS a correctness requirement before
+that fix — see the ⊘ note on `hoist_gate_subset` in `lib.rs`):** when the `AND` also carries a resident plane the gate walk DROPS
 as implied, a child whose result is a subset of that plane is rotated to the
 front regardless of score (`hoist_gate_subset`). The ordering applies among the
 children that rotation leaves alone.

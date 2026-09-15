@@ -506,6 +506,13 @@ impl core::fmt::Display for LowerError {
     }
 }
 
+/// `LowerError` is public, so it must be usable as an error: without this a
+/// caller cannot `?` it into `Box<dyn Error>` and no wrapper can surface it
+/// through `source()`. Empty body — the variants carry no nested cause — which
+/// is the shape eight sibling crates already use (`cognitive-shader-driver`,
+/// `elixir-template`, `lance-graph-callcenter`, …).
+impl std::error::Error for LowerError {}
+
 /// What a query asks for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Agg {
@@ -696,7 +703,7 @@ enum Node {
 /// Since `b7e6cef` `emit_gated` does not narrow onto the accumulator at all
 /// while a plane gate is live — the plane always wins — so the rotation is an
 /// optimisation, not a precondition. See the disable run recorded on
-/// [`Query::and_by_skip`].
+/// [`Filter::and_by_skip`].
 ///
 /// Shared by BOTH `AND` arms of [`gate_walk`] — the already-gated one and the
 /// one that establishes a gate — because a first version rotated only in the

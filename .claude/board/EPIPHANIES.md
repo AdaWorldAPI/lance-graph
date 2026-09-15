@@ -39,9 +39,10 @@ failing, and the remedy is to merge or rebase the base in — not to debug the c
 
 ### Mechanism 2 — `--all-features` was already broken, and only a release would have said so
 
-Chasing mechanism 1 turned up a second one by accident. `.github/workflows/rust-publish.yml`
-passes `args: "--all-features"` to `katyo/publish-crates@v2`, which runs a verification
-build before publishing. Measured on this tree:
+Chasing mechanism 1 turned up a second one. `.github/workflows/rust-publish.yml`
+PASSED `args: "--all-features"` to `katyo/publish-crates@v2`, which runs a verification
+build before publishing; `c2b4bc7` in this same PR replaced it with an explicit list.
+Measured on the tree before that fix:
 
 | invocation | exit |
 |---|---|
@@ -61,10 +62,14 @@ TWO independent causes, and the interesting one is not ours:
   `lancedb` key in the root `Cargo.toml`'s `[workspace.dependencies]` — is on `main`
   unchanged and was untouched by `947753d`.
 
-So `--all-features` has been failing since the lancedb 0.38 bump (#1190), and **no branch
-could ever have gone red for it**, because the only call site is a workflow that never
-runs on push. The `aws-sdk` flag did not create this; it added a second reason to the
-same silent failure.
+So `--all-features` has been failing since the lancedb 0.38 bump (#1190), and **no
+push-triggered run could ever have gone red for it**, because the only call site is a
+workflow that fires on `release: released` / `workflow_dispatch` only. ⊘ An earlier
+draft of this line said *no branch* could have gone red — too strong:
+`workflow_dispatch` can be aimed at any branch, so the failure was reachable on
+demand, just never by the ordinary push/PR cadence that makes a failure traceable to
+a cause. The `aws-sdk` flag did not create this; it added a second reason to the same
+silent failure.
 
 ### What generalizes
 
@@ -399,7 +404,7 @@ already running.
 > Hexagon was tested exhaustively and never involved one. The real learning
 > surface is seam 6 of this session's own inventory, already hexagon-shaped:
 > `FrozenStyle`/`LearnedStyle`/`ExploreStyle`, `U8×12` = **6 × 2 × palette256** each —
-> the shape the operator ruled and this board MEASURED (`EPIPHANIES:19221`, ρ_all 0.966,
+> the shape the operator ruled and this board MEASURED (`E-CAM96-DISTRIBUTION-MEASURED-1`, ρ_all 0.966,
 > near-orth 170×) as better than the 48-bit class `HelixResidue` belongs to — with the
 > shipped held-out promote gate already on it. Full storno:
 > `E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1`.

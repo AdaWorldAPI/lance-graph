@@ -166,7 +166,7 @@ option is the one that leaves the pin rule alone. Corrected on the PR.
 
 ## ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE (2026-09-15) — OPEN, and it is the price of the P1 fix
 
-**`Query::and_by_skip`'s ordering lever buys exactly zero on any conjunction that carries a
+**`Filter::and_by_skip`'s ordering lever buys exactly zero on any conjunction that carries a
 resident plane — which is this crate's own headline query shape.**
 
 Created deliberately by the codex-P1 fix (`b7e6cef`,
