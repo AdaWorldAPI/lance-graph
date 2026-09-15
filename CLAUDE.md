@@ -430,12 +430,6 @@ carries 1–3 with their censuses):
 | 4 | a citation in a neighbouring entry | `le-contract.md:160-170` cited for the LUT | `:160-170` is CausalEdge64 residual carriers; the LUT section starts at `:169` |
 | 5 | the phrase "256² LUT" | 128 KiB u16 → `bgz-tensor`'s Fisher-z canon | that table is `Vec<i8>`, `byte_size() = k*k + 8` → 64 KiB + 8 B |
 
-> **⊘ `HelixResidue` is DEPRECATED — operator-ruled 2026-09-15, touching strictly
-> forbidden; `24×i4` replaces it.** Rows 1 and 2 name it only as the target of two
-> of my errors. They are the record of those errors, not a live surface: a session
-> reading this table must not go and examine the tenant. See
-> `E-HELIXRESIDUE-IS-DEPRECATED-24xI4-REPLACES-IT-1`.
-
 **Instances 2, 4 and 5 occurred INSIDE the correction of 1, 3 and 4.** The rule
 therefore binds the correction as hard as the claim; a retraction written by
 matching is another instance, not a fix.
