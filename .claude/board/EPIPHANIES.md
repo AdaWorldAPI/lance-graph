@@ -1,3 +1,71 @@
+## 2026-09-15 (11) — E-POPCOUNT-FINDS-ELEPHANT-WHALE-BECAUSE-IT-IS-POSITION-BLIND-THE-TREES-METRIC-IS-LZCNT-AND-THE-BOARD-ALREADY-FILED-IT-1 — the operator's caveat on (10), and it lands on an open issue
+
+**Status:** RULING — operator, verbatim: *"Der 'Nachteil' beim popcount ist daß
+Ähnlichkeit auch elephant : Wal findet — Ähnlichkeit im oberen Bereich."* The reading
+below is mine; the census is a read of the tree; the issue it lands on is already filed
+(`ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES`).
+**Confidence:** HIGH — the ranking inversion is arithmetic (worked below), and the dual
+instruction is the one the board's own re-scope already names.
+
+### Why popcount finds the whale
+
+A root→leaf code RANKS its positions: the bit at depth 3 outweighs every bit below it.
+Popcount does not know that — it counts disagreements wherever they are. Take elephant
+and whale sharing `animal · mammal` and parting at the order nibble by ONE bit (`0001`
+vs `0011`), and two elephant species sharing everything down to the leaf nibble, where
+they differ in all four (`0000` vs `1111`). Popcount says whale 1, sibling 4: the cousin
+is "closer" than the sibling. The similarity it reports is real — the shared upper tiers
+ARE shared ancestry, *im oberen Bereich* — but it answers *how much do we share*, and
+the tree asks *how deep do we agree*. The quotes around "Nachteil" are right: as
+generalisation (find the cousin) it is the feature; as retrieval (find the sibling) it is
+the defect.
+
+### The tree's metric is one instruction, and it is the same XOR
+
+Longest common prefix = the depth of the FIRST disagreement = `lzcnt(u ⊕ self)` in
+root→leaf bit order — one instruction, one cycle, next to popcount's one. `>> 2` is the
+level, `>> 4` the tier: the canon's *"tier-of-level = level >> 2 — a shift, never a
+branch."* On the example: whale parts at depth 8 (nibble 3), the sibling at depth 12 —
+sibling nearer, as the tree says.
+
+The substrate already names this exact measure: `NiblePath::common_prefix_depth`
+(`lance-graph-contract`, `hhtl.rs`) — *"the radix-trie nearest-neighbor measure"*,
+`E-PANCAKES-IS-RADIX-IS-HHTL` — and the board already carries its branchless form as an
+open item, `ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES` (re-scope): the shipped
+function is a `while … match` nibble walk running per row inside `mailbox_scan`, and the
+one-liner is `((a.path ^ b.path).leading_zeros() >> 2).min(a.depth.min(b.depth))`. The
+operator's caveat is the SEMANTIC reason that issue matters, beyond the branch count.
+
+### How (9), (10) and this compose
+
+| question | metric | instruction | selection | ships |
+|---|---|---|---|---|
+| how deep do we agree (tree) | `lcp = lzcnt(u ⊕ self)` | LZCNT | `lcp ≥ d` ≡ `(u ⊕ self) ∧ care(d) == 0` — (9), k = 0 | threshold-to-mask: yes (ternary match); per-row depth vector: no |
+| how much do we share (exchangeable bits) | `popcount((u ⊕ self) ∧ care)` | POPCNT | `≤ k` — (10) | k = 0: yes; k > 0 fused: no |
+
+So on the tree rails the `(self, d)` prefix IS the predicate, and popcount's k > 0 is
+not wanted there — which narrows (10)'s gap to the carriers whose positions are
+exchangeable (planes, bipolar identities): the `I-VSA-IDENTITIES` fence, seen from the
+other side. What the tree rails lack is the VECTORISED lcp per row — `lzcnt` over
+`u ⊕ self` in the strided 12-byte form, yielding a depth vector (`u8` per row) for
+RANKING, nearest = deepest — where the threshold-to-mask form already ships. ndarray has
+no `lzcnt` / `leading_zeros` primitive today (census, this session), and a per-row
+`u8`-out shape is new: not a mask, not a count, a sibling of `hamming_batch_raw`.
+
+A middle ground exists: `heel_weighted_hamming` (ndarray) weights popcount per plane;
+with weights falling by level it approaches the lexicographic order lcp gives exactly.
+Recorded, not recommended — lcp is one instruction and exact.
+
+### Consequence
+
+- (10)'s gap is re-scoped: the fused `popcount ≤ k` predicate is for exchangeable-bit
+  carriers; on tree rails the missing primitive is per-row `lzcnt` (a depth vector),
+  and its threshold form is already the ternary match.
+- `ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES` gains its motivation: not merely
+  branch-free, but the metric under which the sibling outranks the cousin.
+- Phase 7: no new arm — `lzcnt` costs what `popcnt` costs; the k > 0 arm stays for the
+  carriers it applies to.
+
 ## 2026-09-15 (10) — E-POPCOUNT-TIMES-SELF-THE-EXACT-PREFIX-IS-THE-K-EQUALS-ZERO-HAMMING-BALL-AND-THE-FUSED-ROW-PREDICATE-IS-THE-GAP-1 — the operator's one-line generalisation of (9), what of it ships, and where I-VSA-IDENTITIES fences it
 
 **Status:** RULING — operator, verbatim: *"You could even say it's popcount × self."*
@@ -32,6 +100,11 @@ not a mask. `masked_popcount_batch(words, mask) -> Vec<u32>` — per-word
 `Pred::HammingLe { lane, pattern, care, k }` in mask-risc. Today k > 0 is two passes
 through a 64k-entry distance vector (512 KiB) plus an allocation — exactly the shape the
 masking floor exists to remove. Named, not built.
+
+> ⊘ **Per (11), same day:** scoped to exchangeable-bit carriers (planes, bipolar
+> identities). On tree rails popcount is position-blind — it ranks a cousin above a
+> sibling — and the missing primitive there is a per-row `lzcnt` depth vector; the
+> threshold form is already the ternary match.
 
 ### Reading 2 — per mask: `popcount(mask(self, d)) = |ball(self, d)|`
 

@@ -1,3 +1,20 @@
+## 2026-09-15 (8) — operator: popcount also finds *elephant : Wal* — position-blind; the tree's metric is `lzcnt(u ⊕ self)`, and the board had already filed its branchless form
+
+- **State consumers should know:** on a root→leaf code popcount ranks a
+  cousin that parts by one bit at the order level above a sibling that
+  parts by four bits at the leaf. The tree's metric is the longest common
+  prefix — `lzcnt(u ⊕ self)`, `>> 2` = level — which the substrate already
+  names as `NiblePath::common_prefix_depth` (the radix NN measure) and whose
+  branchless one-liner is filed in
+  `ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES`. The (9) prefix
+  selection is its threshold form and ships; the per-row depth VECTOR
+  (`u8` per row, for ranking) is the missing vectorised piece — ndarray has
+  no `lzcnt` primitive today. (10)'s fused `popcount ≤ k` gap is thereby
+  scoped to exchangeable-bit carriers (planes, bipolar identities).
+- Nothing built; entry
+  `E-POPCOUNT-FINDS-ELEPHANT-WHALE-BECAUSE-IT-IS-POSITION-BLIND-THE-TREES-METRIC-IS-LZCNT-AND-THE-BOARD-ALREADY-FILED-IT-1`;
+  (10) and the issue each carry one ⊘ line.
+
 ## 2026-09-15 (7) — operator: *"You could even say it's popcount × self"* — the (self, d) prefix is the k = 0 Hamming ball; the fused k > 0 row predicate is a named gap in ndarray AND mask-risc; nothing built
 
 - **State consumers should know:** `(self, care, k)` with
