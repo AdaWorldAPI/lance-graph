@@ -1,3 +1,92 @@
+## 2026-09-15 — E-FAMILY-HAS-FOUR-WIDTHS-AND-4096-HAS-FIVE-REFERENTS-PIN-THE-UNIT-BEFORE-THE-ARITHMETIC-1 — the 4096-compartment arithmetic is EXACT and is the canon's own structure; what does not survive checking is which "family" and which "4096"
+
+**Status:** FINDING (code census + citation audit; every claim below read from source or from a
+board line, none from recollection). The arithmetic half is self-verifying.
+**Confidence:** HIGH throughout — the four widths are read from four declarations, the five
+referents from four board lines, and the two unit slips are arithmetic.
+**Operator question:** *"a masked set of 4096 compartments could reach every family
+(64k / 4096 (12 bytes) = 16 bit / 4 bytes (identity))"*, recalled from another session.
+
+### The arithmetic is exact, and it is not a new idea
+
+4096 = 2¹² = **3 nibbles**. 16 = 2⁴ = **1 nibble**. 3 + 1 = 4 nibbles = 16 bits = **64k**. So
+"4096 compartments each masking 16" is a **3-nibble prefix table with the final nibble's fan-out
+left open**, and that is the canon's own sentence: *"the one 4×3 synergy (tier index = one
+4096-codebook slot) is recoverable inside 3×4 for free — codebooks attach at any nibble depth, so
+a 3-nibble prefix indexes a 4096 sub-table whenever wanted"* (`OGAR/CLAUDE.md:186`, verified on
+disk). It also lands exactly on FAN_OUT=16 / "1 hex digit = 1 nibble = 1 level".
+
+**So the answer is yes — for a `u16` family, at mask width 16.** For a `u24` family the same 4096
+compartments still reach everything, but the mask is **4096 wide, not 16** (2²⁴/2¹² = 2¹²) —
+256× wider. The `= 16` in the shorthand is what silently picks which one.
+
+### "family" has FOUR widths in this tree, and two of them are at OPPOSITE ENDS of the address
+
+| site | declaration | width | position |
+|---|---|---|---|
+| `canonical_node.rs:30` | `family (u24)`, bytes 10..13 | 16.7 M | v1 key tail |
+| `canonical_node.rs:499` layout, `:552` accessor | v2 `family_v2() -> u16`, bytes **12..14** | 64 k | 5th field — near the FINE end |
+| `cascade_key.rs:54` | `pub family: u16` — *"HEEL — coarsest 256×256 tile: the broad basin / family"* | 64 k | **the COARSEST tier** |
+| `cascade_key.rs:226` | `CascadeKeyV3 { heel, hip, twig }` — no `family` at all | — | renamed away |
+
+**The dangerous pair is rows 2 and 3.** Same name, same width, and they sit at opposite ends of
+the key: `cascade_key::family` **is** HEEL (the root-most tier), while `NodeGuid`'s v2 `family` is
+the second-finest field, after `leaf`. A prefix or join computed over one is **not** the same
+quantity computed over the other, and nothing in either type's name says so. **Mitigation already in place, and it is real:** the v2 accessor is named `family_v2`, not
+`family` — I-LEGACY-API-FEATURE-GATED is being obeyed, so no function silently changes meaning
+under a feature flag. The collision is therefore in the **concept**, not in a silently-aliased
+call: a reader reasoning about "the family" across the two types is the exposure, not a caller
+getting the wrong bytes back. This is the
+`E-THE-SEMIRING-IS-FREE-…-JOIN-IS-THE-SAME-XOR-1` layout trap one level up: there the hazard was
+byte order inside a field, here it is which field the name denotes.
+
+**v2 also makes the L in "HHTL" explicit.** Its comment reads *"leaf(u16) 10..12 (the 4th HHTL
+tier)"* — so v1 folds Leaf into the u24 tail and v2 promotes it to its own tier. The stated
+motive is worth quoting because it is the same failure class: *"Each tail field is a full `u16` —
+**no 24-bit truncation footgun (the point of v2)**."* v2 exists because a width was getting lost.
+
+### "4096" has FIVE referents — four confirmed IDENTICAL, one confirmed DISTINCT
+
+- **Four are one anchor** (`EPIPHANIES.md:18836`): *"4096 COCA vocabulary = the CAM index codebook
+  (4096² u8) = the 64×64 gridlake measured sweet spot = the 4096-centroid palette codebook."*
+- **One is not** (`EPIPHANIES.md:23084`, `AGENT_LOG.md:3276`,
+  `.claude/specs/episodic-witness64-ce64-prefetch.md:122`): the **~4096 story basins** carry an
+  *independent* **12-bit `local`** and are tracked as `OQ-BASIN-COUNT — "4096 ≠ COCA, confirmed
+  distinct."*
+
+**That fifth one is decisive twice over.** It confirms the *bits* reading (its `local` is
+12 **bits**, 2¹² = 4096), and it is a standing precedent that a 4096 in this workspace can look
+like the others and not be one. **A new compartment set must declare which of the five it is
+before anything reads a codebook through it** — sharing a numeral is not sharing an index.
+
+### The two unit slips, and the rule that already exists for them
+
+- **`4096 (12 bytes)` → 12 *bits*.** 4096 = 2¹². The **12 bytes** is the V3 content-blind payload
+  (96 bits). Two different 12s one layer apart in the same address.
+- **`16 bit / 4 bytes` → 16 bits is 2 bytes.** "16 bit" is correct for `CascadeKey::identity`
+  (`u16`); "4" only works read as 4 *nibbles*, which is the same 16 bits.
+
+`OGAR/CLAUDE.md:257` already pins this as **theorem-checker rule 0 — "pin the unit system first
+(bits vs hex vs bytes)"**, and its provenance (`OGAR/.claude/handovers/2026-06-10-canon-arc-session-handover.md:20`)
+is the same class of miss: *"Born from a real failure: I read an operator-pinned HEX layout as
+bits for two full passes, and **the 5+3 review didn't catch it because every lens audited
+arithmetic and populations — none audited units**."*
+
+**That is the transferable point.** The arithmetic here was right at every step; nothing an
+arithmetic or population check could test would have failed. What needed checking was which
+declaration each symbol denoted — and that is a *census*, not a calculation. Rule 0 exists
+because a full 5+3 council missed exactly this, so "it added up" is not evidence.
+
+### What would falsify / what closes it
+
+The four widths and five referents are declarations and board lines — falsifiable by pointing at
+a fifth `family` or a sixth `4096`, which strengthens rather than refutes the claim. The part
+that could be wrong is the *hazard*: it is an inference that the row-2/row-3 collision will
+actually bite. It closes the moment someone computes a prefix over `NodeGuid`'s v2 tail and
+compares it to one over `CascadeKey`, on the same underlying entity, and shows they agree or
+disagree. Filed as `ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS`. Cheap, and unrun.
+
+---
 ## 2026-09-15 — E-THE-SEMIRING-IS-FREE-THE-COST-IS-CARRIER-WIDTH-AND-THE-JOIN-IS-THE-SAME-XOR-1 — the masked-O(1) claim censused against shipped code: every semiring's multiply is one bitwise op, and the XOR that computes it is the XOR whose CLZ gives the tree relationship
 
 **Status:** FINDING (code census — `graph/blasgraph/semiring.rs`, `graph/blasgraph/types.rs`,

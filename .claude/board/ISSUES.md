@@ -1,3 +1,42 @@
+## ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS (2026-09-15) — OPEN
+
+**"family" denotes four different things in this tree, and the two that share a width sit at
+opposite ends of the key.**
+
+| site | declaration | width | position |
+|---|---|---|---|
+| `canonical_node.rs:30` | `family (u24)`, bytes 10..13 | 16.7 M | v1 key tail |
+| `canonical_node.rs:499`/`:552` | v2 `family_v2() -> u16`, bytes 12..14 | 64 k | 5th field, near the FINE end |
+| `cascade_key.rs:54` | `pub family: u16` — *"HEEL — coarsest 256×256 tile: the broad basin / family"* | 64 k | **the COARSEST tier** |
+| `cascade_key.rs:226` | `CascadeKeyV3 { heel, hip, twig }` — no `family` | — | renamed away |
+
+Rows 2 and 3 are the hazard: identical name, identical width, **opposite ends of the address**.
+A prefix or join computed over one is a different quantity than the same computation over the
+other, and neither type's name carries the distinction.
+
+**What is NOT wrong, stated so the issue is not over-read:** the v2 accessor is named `family_v2`
+and is feature-gated, so I-LEGACY-API-FEATURE-GATED is satisfied — **no function silently changes
+semantics**. The exposure is a *reader* (or a doc, or a cross-type design) reasoning about "the
+family" as one concept, not a caller receiving wrong bytes.
+
+**Why it is filed rather than noted:** the join/prefix work in
+`E-THE-SEMIRING-IS-FREE-THE-COST-IS-CARRIER-WIDTH-AND-THE-JOIN-IS-THE-SAME-XOR-1` and
+`ISS-NODEGUID-HAS-NO-JOIN-SURFACE` is about to put a `CLZ`-shaped operation on exactly these
+fields. Choosing the wrong "family" there produces a **plausible small number**, which is the
+same non-failing failure mode as the byte-order trap in the same arc.
+
+**What would close it:** compute a shared-prefix over `NodeGuid`'s v2 tail and over `CascadeKey`
+for the same underlying entity and report whether they agree. Either answer is useful — agreement
+means the two namings are safely interchangeable at that depth; disagreement pins the hazard with
+a number. Anti-vacuity: the entity pair must differ somewhere in bytes 4..14, or both sides
+return the same trivial answer and the test proves nothing.
+
+**Related unit hazard, same arc:** `4096` has five referents here — four confirmed identical
+(`EPIPHANIES.md:18836`) and one confirmed distinct (`OQ-BASIN-COUNT`, a 12-**bit** `local`,
+`EPIPHANIES.md:23084`). Any new compartment set must declare which it is before a codebook is
+read through it.
+
+---
 ## ISS-SEMIRING-BOOL-CARRIER-SILENTLY-DROPS-EDGE (2026-09-15) — OPEN
 
 **Six of the seven shipped semirings return the annihilator on a `Bool`-carried edge, and `add`
