@@ -1,3 +1,31 @@
+## 2026-09-15 (2) — PR #1234 merged (`74f6302`): three retractions on `main` — NO contract inventory delta, and two rules locked
+
+- **Nothing added.** Five commits, four board files, zero code, zero types,
+  zero plans. #1233's fabricated Hexagon learning path (`HelixResidue` +
+  `Plasticity` as a learning surface) is retracted and ⊘-annotated in place;
+  my own first-draft deprecation verdict on those two tenants is retracted
+  before it merged; the depth/width conflation is corrected.
+- **Rules locked:** *report state, do not grade someone else's architecture*
+  (a tenant's status is the operator's ruling, not a measurement); and
+  *before claiming A tells you about B, name the measurement that ranged over
+  B* — which replaces a draft rule that made exact-name `grep` proof of
+  absence, the very failure `E-ABBREVIATION-GREP-MANUFACTURED-AN-ABSENCE-1`
+  already records.
+- **Standing state corrections consumers should know:** `HelixResidue` is one
+  48-bit `Signed360` angle on the **HHTL** axis, not a Hexagon synapse lane;
+  the hexagon-shaped learning lanes are `FrozenStyle`/`LearnedStyle`/
+  `ExploreStyle`, `U8×12` = **6 × 2 × palette256** each, const-asserted
+  *"12 palette256 atoms"*; the shipped plasticity is `PlasticityState`,
+  **3 bits at `CausalEdge64[50:52]`**, 54 production sites; and
+  `MailboxSoA::promote_family` (`mailbox_soa.rs:829`) **does** ship — #1233's
+  seam-6 "no promoter in any `src/`" is FALSE, the narrower gap is that its
+  only callers are examples.
+- **Both halves of the torch claim are OPEN:** depth on `D-HXP-7` (`Queued`;
+  `jc::ewa_sandwich` is synthetic SPD at `PATH_LENGTH = 10`, so the aperture
+  result `n ∈ [8, 47]` is **predicted, not certified**), width on
+  `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED`.
+- Arc entry: `PR_ARC_INVENTORY.md` under PR #1234.
+
 ## 2026-09-15 — PR #1233 merged (`030ad80`): eleven measurement arcs are on `main` — docs and probes only, NO contract inventory delta
 
 - **No contract inventory delta.** 27 files, +7652/−3, all under `.claude/`;
