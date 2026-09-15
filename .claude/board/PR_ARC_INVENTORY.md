@@ -1,3 +1,106 @@
+## 2026-09-15 (2) — lance-graph PR #1234 (merged `74f6302`, branch `claude/ladybug-transcoding-plan-q5zbrs`) — three retractions, and ONE MOVE found six times, three of them inside the correction
+
+- **Added: nothing.** Zero types, zero plans, zero deliverables, zero code —
+  five commits over four board files, every change a retraction, an ⊘
+  annotation, or a rule rewrite. `EPIPHANIES` gains
+  `E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1`;
+  `ISSUES` gains a dated scope annotation on
+  `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED`; `PR_ARC_INVENTORY` +
+  `LATEST_STATE` carry #1233's merged-PR record with their own draft
+  fabrication struck before it shipped. **No contract inventory delta.**
+- **The three retractions.** (1) **#1233's fabricated Hexagon learning path**
+  — *read edge → encode residue → `observe`/`roll` → write `HelixResidue` +
+  `Plasticity` → surround over six neighbours* — assembled from two tenant
+  declarations nothing has ever written plus a crate on a different axis, and
+  published as the substrate's design. `HelixResidue` is **one 48-bit
+  `Signed360` sphere angle**, not six synapse bytes; helix is the residue of
+  **HHTL** (`helix/src/lib.rs`), not of Hexagon; `residue` is **0×** in
+  `hexagon-plasticity-v1.md`, **0×** across the W1 probes, **0×** in
+  `STATUS_BOARD`; and `style_lane`'s 12-byte guard — *"release-safe by
+  construction"* — was **refusing the graft while I logged the refusal as a
+  missing feature.** (2) **My own storno's first draft**, which called
+  `ValueTenant::{HelixResidue, Plasticity}` *"zombies"* and *"dead"* and named
+  itself after that verdict — **a deprecation ruling on the operator's
+  architecture, made unilaterally.** *"Never written"* is a measurement;
+  *"dead"* is a decision. Nothing in this repo deprecates either tenant; no
+  code changed; both stand as shipped. (3) **The depth/width conflation** in
+  #1233's fifth arc.
+- **Locked — two rules, both earned the hard way.**
+  **(a) Report state; do not grade someone else's architecture.** This is
+  `architectural-compliance` inverted: that rule forbids substituting *away*
+  from a specified component because it "appears to be a stub"; declaring one
+  deprecated because it is unwritten is the same move with the same authority
+  problem.
+  **(b) Before claiming A tells you about B, name the measurement that ranged
+  over B.** Replaces the draft's *"`grep -c` the name; zero hits means it is
+  not part of it"* — which CodeRabbit correctly read as **proof of absence**,
+  i.e. row 5 of this entry's own table restated as advice. The repo already
+  carried the precedent: `E-ABBREVIATION-GREP-MANUFACTURED-AN-ABSENCE-1`
+  (`fn .*ppr` matched `approx`; a shipped 15-module subsystem reported
+  non-existent). **A nonzero count is evidence of presence; a zero count is a
+  prompt to widen the census, never a verdict.**
+- **The finding is not a rule — it is ONE MOVE, made six times:** transfer a
+  property across a boundary on the strength of a shared surface feature.
+
+  | # | shared feature | transferred | caught by |
+  |---|---|---|---|
+  | 1 | `6 B == 6 rails` | helix residue → a Hexagon synapse surface | operator |
+  | 2 | `48 bit == 48 bit` | `cam_pq`'s measured ranking → `HelixResidue` | Codex |
+  | 3 | "multi-hop" | synthetic-SPD concentration → graph-traversal recall | Codex |
+  | 4 | the word "plasticity" | an unwritten tenant → a deprecation verdict | operator |
+  | 5 | "I grepped one file" | absent ×3, wrong ×3 (`hhtl::NiblePath`, `deduce_path`, `promote_family`) | operator ×2, Codex ×1 |
+  | 6 | — | **the rule written to prevent 1–5, restating 5 as advice** | CodeRabbit |
+
+  **Rows 2, 3 and 6 happened INSIDE the correction.** That is the transferable
+  part: *a correction written in the same voice that produced the error
+  reproduces the error's operating move.* More care is not the fix; a
+  different question is.
+- **Review: 5 findings, 5 valid, 0 disputed — and one citation NOT adopted.**
+  Codex P2 (the `48==48` transfer — the sharpest of the session), Codex P1
+  (depth is **predicted, not certified**: `jc::ewa_sandwich` runs 1,000
+  synthetic SPD matrix paths at `PATH_LENGTH = 10`, never traverses MONDO or
+  MQ; `D-HXP-7` is the open gate), Codex P2 (`MailboxSoA::promote_family`
+  ships at `mailbox_soa.rs:829` — the **third** absence claim wrong in this
+  arc), CodeRabbit Major (I substituted a word **in place** in a merged `ISS-`
+  entry, violating append-only; restored verbatim, and
+  `git diff 030ad80 -- ISSUES.md` now shows **zero deletions**), CodeRabbit
+  Minor (grep-as-proof, above). **Not adopted:** Codex cited a D-HXP-7
+  requirement *"through n=14"*; that string is not in the plan — plan and
+  board row both say `n ≥ 10`. Recorded as unverified rather than echoed,
+  which is the same discipline the five findings enforce in the other
+  direction.
+- **The aperture result, stated at its real strength.** The operator pointed
+  at `jc::ewa_sandwich`; measured, its bound `CV ≤ √(2/n)·√(1+2σ²n)`
+  (σ_step 0.2) **falls** with n, and the operator's `0.45..0.65` aperture is
+  exactly its admissible window — `0.65 ⇔ n = 7.62`, `0.45 ⇔ n = 47.06`,
+  asymptote 0.40, so **n ∈ [8, 47]**; n=5 outside at 0.7483, n=12 at 0.5715,
+  the shipped run n=10 at 0.600. **Predicted, not certified** (Codex P1): the
+  pillar is synthetic SPD, not graph traversal. Depth and width are now both
+  open — depth on `D-HXP-7`, width on `ISS-BOUNDED-K-NEVER-FAILS`.
+- **Deferred, named:** `D-HXP-7` (the EWA concentration gate, `Queued`, with a
+  mandatory anti-vacuity arm and an additive disable arm — the gate that would
+  close depth); the narrower seam-6 gap (`promote_family`'s only callers are
+  examples; `NodeRow` equivalence unchecked); `ISS-BOUNDED-K-NEVER-FAILS`
+  (width); `NiblePath::as_match`; the branchless `common_prefix_depth`; the
+  32-vs-5 register-ratio probe; `graph/refine/` W1–W5 (task #26). **Every one
+  gated on the operator's go — this arc is why.**
+- **Docs / process.** The PR body leads with *why the previous was retracted*,
+  all three retractions with their measurements. Citation rule learned
+  mechanically: this entry first cited `EPIPHANIES.md:19221` and `:19050`,
+  **both stale before the commit landed**, because 152 lines were prepended to
+  the same append-only file being cited — **cite board files by entry name,
+  never by line number**; `citation-decay` covers source citations only.
+  Gates green on every head; index regenerated after each board write.
+- **Confidence: high on every measurement, and that is the uncomfortable
+  part** — the measurements in #1233 were sound and the inferences drawn from
+  them were not, five times. The corrections here are measurements too. What
+  protects them is not confidence; it is that three came from the operator and
+  five from reviewers, on a PR whose four CI gates compile no Rust and could
+  not have seen any of it.
+- **Termination clause:** this entry is the merged-PR obligation for a MIXED
+  PR (hygiene + corrections). The entry itself is hygiene-only and generates
+  none of its own.
+
 ## 2026-09-15 — lance-graph PR #1233 (merged `030ad80`, branch `claude/ladybug-transcoding-plan-q5zbrs`) — eleven measurement arcs, docs plus one excluded probe crate: W1 falsified, and the canonical join was in the contract crate all along
 
 - **Added:** five probes under `.claude/probes/` — `hexagon-plasticity-v1/`
