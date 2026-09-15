@@ -1,3 +1,127 @@
+## 2026-09-15 (5) — E-THE-99-90-PERCENT-IS-1023-OVER-1024-THE-CLUSTERED-SKIP-SATURATES-A-256x256-TILE-RATHER-THAN-APPROACHING-IT-1 — §8a's best measured order is the tile's arithmetic ceiling, so 256×256 is the skip's UNIT and not the fixture's accident
+
+**Status:** FINDING. Arithmetic over an already-recorded measurement — no new
+measurement was taken, and none is claimed.
+**Confidence:** HIGH on the identities (each is one line of arithmetic, restated
+below so a reader can check them without running anything); the pairings in
+§"8 B to 128 KiB" and §"why not bigger" are structural readings of numbers
+measured elsewhere and cited to their source.
+
+### The identity
+
+`adaptive_order_probe.rs` measures the clustered regime's best ordering at
+**99.90 %** of words skipped (§8a, `crates/lance-graph-quack/src/lib.rs`; the run is
+65 536 rows × five conjuncts × all 120 orderings). The skip's granularity is the
+**64-row word** — `MaskOp::Pred`'s own doc states it (`crates/lance-graph-mask-risc/src/ir.rs:88-94`:
+*"Its granularity is the facade's: 64-row WORDS"*), and `ndarray`'s `pack_under`
+is where it physically happens (`simd_masking_ops.rs:1541-1546`).
+
+65 536 rows ÷ 64 = **1024 words**, and
+
+```
+1023 / 1024 = 0.9990234…  →  99.90 %
+```
+
+The measured figure is not near the ceiling. It **is** the ceiling: one live word
+out of 1024, the least a non-empty mask can occupy. The probe's own `skipped_words`
+ramp says the same thing a second way — `[4092, 3069, 2046, 1023, 0]`, where
+`4092 = 4 × 1023` exactly and every adjacent delta is `−1023`. One unit, counted
+four times down to zero.
+
+So there is **no tuning headroom above 99.90 % on a 256×256 tile**, and a future
+session trying to push past it is chasing an arithmetic impossibility rather than
+an unoptimised path.
+
+### What that reframes
+
+256×256 stops being the fixture's geometry and becomes the skip's **unit**: a tile
+is exactly 1024 skip-units, and an address prefix collapses it to one. The tile and
+the word ladder are one object counted twice (65 536 bits ÷ 64).
+
+The complement is equally exact and is already in the quack doc: at 21.8 % survival
+with survivors SCATTERED a word is all-dead with probability `0.78163⁶⁴ ≈ 1.42e-7`,
+so no ordering skips anything. Contiguity, not density — and the two ends of that
+statement are both closed-form.
+
+### The carriers hand off at 10 bits of 16
+
+A 16-bit tile coordinate against 64-row words splits **10 / 6**: the top 10 bits
+select the word, the bottom 6 select a bit inside it. So descending a prefix buys
+skip for exactly 10 bits and then stops — the last 6 bits are structurally
+invisible to a mask carrier however precisely they are named, because they never
+cross a word boundary.
+
+That is a ceiling, not a defect, and it says where the mask form stops being the
+right carrier. Above 10 bits the skip does the work; below it the mask cannot
+discriminate at all.
+
+### The same 65 536 indices: 8 B to 128 KiB for "how far", and no analytic form for "which"
+
+| reading | size | answers |
+|---|---|---|
+| literal mask | **8 KiB** | *which* cells — an exact set |
+| distance LUT, MATERIALIZED | **128 KiB** | *how far* — one load |
+| distance LUT, ANALYTIC (Fisher-z, per family) | **8 B** | *how far* — a formula |
+
+Two things fall out, and the second is the sharper one.
+
+**The materialized LUT is 16× LARGER than the mask** and falls out of L1, while
+being the reading normally called the O(1) trick. Same 65 536 indices, opposite
+cache behaviour, purely from bits-vs-bytes per cell.
+
+**But "how far" also has an 8-byte form and "which" does not.** `le-contract.md`
+§"The canonical cosine/centroid replacement is ANALYTIC" is explicit that **"a
+materialized k×k table is a CACHE of the formula, never the canon"** — the canon
+is the analytic Fisher-z codec (`bgz-tensor::fisher_z::{FamilyGamma,
+FisherZTable}`, 8-byte per-family affine, certified ρ≥0.999,
+`E-PALETTE-NNUE-COSINE-GREEN-1`). So the same question spans **8 B to 128 KiB, a
+16 384× range**, at the operator's choice.
+
+The mask has no such form, and cannot: a metric over a tile is a function of two
+coordinates and compresses to a formula; an arbitrary subset of 65 536 cells is
+2^65536 possibilities and compresses to nothing. **That asymmetry — the metric is
+a formula, the set is not — is why the two carriers cannot substitute for each
+other**, and it is the same boundary `E-CAM96-DISTRIBUTION-MEASURED-1` sits on
+(a ranking result, never a membership one). Figures are
+`E-X265-PROBE-GPU-LUT-1`'s and the contract's, not derivations here.
+
+### Why 256×256 and not bigger — the bound is measured, elsewhere
+
+D-GTM-0n measured chained ternlog paying (`T3/T1 → 0.50` by K=8) **only while the
+masks stay L2-resident**, with the ratio back to `1.03` at a **512 KiB** mask
+(`STATUS_BOARD.md` D-GTM-0n / P3; the bound rides with the number and may not be
+dropped when it is cited).
+
+`512 KiB / 8 KiB = 64`. A 512 KiB mask at one bit per cell is 4 194 304 rows —
+**2048×2048**. So the tile at which chaining stops paying is exactly 8× per side
+from the one that works, and 256×256 sits 64× inside the measured-good band.
+That is a coincidence worth naming precisely because it is *not* load-bearing yet:
+nothing measured a tile-size sweep, and D-GTM-0n's fixture is not §8a's.
+
+### What this does NOT say
+
+- **Not that the skip is good in general.** §8a's permissive (94.3 %) and moderate
+  (21.8 %) rows are `0.00 % → 0.00 %` and are unchanged by anything here. The
+  ceiling is reachable only under the three conditions
+  `E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1`
+  names: gated lowering × plane-free conjunction × contiguous survivors.
+- **Not a claim about the facet carrier.** The 12-byte `6 × (u8:u8)` facet is not a
+  compressed mask — it expresses six points, never a set — and nothing measured
+  here ranged over it. `E-CAM96-DISTRIBUTION-MEASURED-1` is a ranking result and
+  stays one.
+- **Not an identification of a facet RAIL with a cascade TIER.** Both are two
+  bytes and both index a 256×256 tile; the path carries three, the facet six.
+  Shape identity, not object identity. The 10/6 split above is arithmetic on a
+  16-bit index against a 64-row word and needs neither of those namings.
+- **Not a measurement.** Every number above is either re-stated from §8a /
+  D-GTM-0n / E-X265-PROBE-GPU-LUT-1 with its source, or one line of arithmetic on
+  such a number. The contribution is the identity, not the data.
+
+**Cross-ref:** `E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1`
+(2026-09-15 (4)) — the conditions under which the lever exists at all, and the A1
+seed/loop split; `ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE`; `ISS-NO-MASK-HOP-OP`
+(the hop that would consume a saturated gate still does not exist).
+
 ## 2026-09-15 (4) — E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1 — the fused lowering is order-independent BY CONSTRUCTION, two readers derived it from source because the crate doc does not say so, and DuckDB's A1 turns out to have a dead seed as well as an unrunnable loop
 
 **Status:** FINDING. Convergent — derived independently in two sessions from the same
