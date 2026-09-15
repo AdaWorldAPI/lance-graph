@@ -87,6 +87,12 @@ jobs:
       # clean so it cannot silently regress — the deepnsm rule below.
       - name: Clippy lance-graph-mask-risc (mandatory)
         run: cargo clippy --manifest-path crates/lance-graph-mask-risc/Cargo.toml --all-targets -- -D warnings
+      # lance-graph-quack joined clean; gated while clean, same rule.
+      # `--all-targets` is load-bearing here rather than habitual: the A1
+      # measurement lives in `examples/adaptive_order_probe.rs`, and `--lib`
+      # would leave the probe unlinted.
+      - name: Clippy lance-graph-quack (mandatory)
+        run: cargo clippy --manifest-path crates/lance-graph-quack/Cargo.toml --all-targets --all-features -- -D warnings
       # Tier B (advisory until incrementally cleaned, non-gating):
       #   lance-graph core has ~91 pre-existing clippy violations to be paid down
       #   in subsequent PRs (TD-CLIPPY-LG-1). Don't auto-fix — each violation
@@ -184,6 +190,24 @@ jobs:
         run: cargo fmt --manifest-path crates/lance-graph-planner/Cargo.toml -- --check
       - name: Rustfmt lance-graph-mask-risc
         run: cargo fmt --manifest-path crates/lance-graph-mask-risc/Cargo.toml -- --check
+      # The four workspace members that had NO rustfmt line at all. Found by
+      # measuring the job against the member list rather than reading it: this
+      # job is per-crate by design (`causal-edge` is workspace-excluded, so
+      # `--all` would never reach it), and a per-crate job silently omits any
+      # member nobody added a line for. `lance-graph-contract` is the one that
+      # matters here — this branch edits `recipes.rs` and nothing was gating it.
+      # All four verified rustfmt-clean on the pinned toolchain before arming,
+      # the same rule the block below this one records.
+      - name: Rustfmt lance-graph-contract (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-contract/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-callcenter (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-callcenter/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-supervisor (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-supervisor/Cargo.toml -- --check
+      - name: Rustfmt bgz-tensor (previously ungated)
+        run: cargo fmt --manifest-path crates/bgz-tensor/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-quack
+        run: cargo fmt --manifest-path crates/lance-graph-quack/Cargo.toml -- --check
       - name: Rustfmt lance-graph-ontology (previously ungated)
         run: cargo fmt --manifest-path crates/lance-graph-ontology/Cargo.toml -- --check
       - name: Rustfmt lance-graph-rbac (previously ungated)

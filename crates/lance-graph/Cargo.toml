@@ -102,6 +102,19 @@ unity-catalog = ["lance-graph-catalog/unity-catalog"]
 # lancedb: high-level table/connection API (Python/JS SDK equivalent in Rust).
 # Enables LanceDB-compatible connection strings, table management, and the
 # vector search API surface that third-party tooling (DuckDB ext, Polars) expects.
+# The AWS-NATIVE SDK path (IMDS / SSO / STS assume-role), OFF by default.
+#
+# Not a capability judgement -- it is off because `aws-smithy-json 0.63.0` does
+# not compile against `aws-smithy-types 1.7.0` (full reasoning at the `lance`
+# entry in the workspace `Cargo.toml`). S3-COMPATIBLE storage is NOT behind
+# this flag: `object_store/aws` is declared directly below and stays on, so
+# Tigris/Railway-style endpoints and `lance-graph-hydrate` are unaffected.
+#
+# Turning this on today re-introduces the broken build. It exists so the
+# capability stays addressable by name instead of being silently deleted:
+# when upstream fixes the pair -- or when someone forks `aws-smithy-json`
+# against 1.7 -- this is the one switch to flip.
+aws-sdk = ["lance/aws"]
 lancedb-sdk = ["dep:lancedb"]
 # ndarray-hpc: use AdaWorldAPI/ndarray for Fingerprint<256>, CAM-PQ, CLAM, BLAS, ZeckF64.
 # Disable for minimal builds (CI, wasm, embedded) — falls back to standalone ndarray_bridge.rs.

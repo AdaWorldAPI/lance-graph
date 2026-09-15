@@ -25,6 +25,51 @@
   result `n ∈ [8, 47]` is **predicted, not certified**), width on
   `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED`.
 - Arc entry: `PR_ARC_INVENTORY.md` under PR #1234.
+## 2026-09-15 — the workspace build is GREEN again: the AWS SDK is now optional, and the cost I recorded for that was wrong
+
+`cargo check --workspace` **EXIT=0 in 2m56s** — the job that had been red on `main` and on every
+branch since `aws-smithy-types 1.7.0` published. Not a pin, not a deletion: the operator's
+framing, verbatim, was *"make it optional so that later we fork 1.7 and fix it if we ever want
+it."* So `lance` takes `default-features = false` + its own default list minus `aws`, and
+`lance-graph` gains `aws-sdk = ["lance/aws"]` — one documented switch instead of a silent
+removal.
+
+**Two corrections came out of this, and both were prompted by the operator asking a question
+rather than accepting my summary.**
+
+**1. "S3 support" was the wrong unit.** I had recorded the cost as "drops S3 object-store
+support". The operator asked whether I meant the native AWS library, *"not to be confused with
+Tigris RAILWAY S3 slab hydration"* — and that distinction is load-bearing, because `lance-io`'s
+one `aws` feature bundles the AWS **SDK** (`aws-config`, the broken half) together with
+`object_store/aws`, the generic **S3-compatible** backend. Only the first is dropped: the
+workspace and `crates/lance-graph` declare `object_store = { features = ["aws"] }` directly, so
+unification keeps it on. Measured — `aws-smithy-json` ABSENT, `aws-config` ABSENT,
+`object_store` feature `aws` ENABLED, and `--features lance-graph/aws-sdk` brings `aws-config`
+back, which is the anti-vacuity check that the switch is real. `lance-graph-hydrate`'s slab
+hydration never touches the SDK; it drives `object_store` with `aws_endpoint` +
+`aws_virtual_hosted_style_request = false`. Real cost: AWS-native credentials only — IMDS, SSO,
+STS assume-role.
+
+**A past session had already paid for this.** The `object_store` entry in
+`crates/lance-graph/Cargo.toml`'s `[dev-dependencies]` declares `object_store/aws`
+directly and explains that slimming lance's defaults *"would silently remove
+S3 from THIS crate's own S3 callers … it makes the capability this crate USES a thing this crate
+ASKS FOR."* That defensive declaration is the entire reason today's change is safe. Worth
+noticing as a pattern: the comment cost one paragraph then and saved a capability now.
+
+**2. "Check upstream" produced a root cause, not a patch.** This repo is a fork of
+`lance-format/lance-graph`. Upstream is fully green and has NOTHING to port — no aws-smithy pin,
+patch or workaround anywhere in its tree. It is green because it **tracks a `Cargo.lock`**
+(`aws-smithy-json 0.61.5` / `aws-smithy-types 1.3.2`) and sits on `lance 1.0.1` /
+`object_store 0.12.4`, ten majors back. So its immunity is precisely the mechanism we removed in
+`ISS-STALE-AUTHORITY-LOCKS-RESIDUE` (2026-09-04): with no tracked lock, every CI run re-resolves
+and can pick up a crate published minutes earlier. **The blocker was a symptom of the
+no-lock ruling**, which is a third remedy nobody has taken and the only one that reverses a
+prior decision.
+
+Scope note, stated rather than buried: this is a repo-wide dependency change riding inside a
+feature PR (#1235, quack). It is here because it is what unblocks that PR's CI and the operator
+asked for it in that context; it splits out cleanly if a reviewer would rather see it alone.
 
 ## 2026-09-15 — PR #1233 merged (`030ad80`): eleven measurement arcs are on `main` — docs and probes only, NO contract inventory delta
 
@@ -76,6 +121,314 @@
   census is measured and NOT yet on the board — see the arc entry's
   *Un-recorded* bullet.
 - Arc entry: `PR_ARC_INVENTORY.md` under PR #1233.
+## 2026-09-15 — #1235 round 2: an independent review re-found the P1, and my own fmt decline was WRONG
+
+An Opus correctness review ran against the branch while the fix was in flight and found the
+same `emit_gated` defect independently — **2,021 wrong answers in 200,000 randomised trees**
+against a per-row oracle that never builds a `Program`, smallest counterexample
+`And([Not(Plane(2)), And([Cmp(Col(2), EqI32(39)), Plane(2)])])`. It then verified the fix
+rather than taking it: 120,000 cases clean with the fix, **2,668 red** with only the pre-fix
+gate line restored (the anti-vacuity control), plus 200,000-case fuzz, a 320,000-case sweep
+across all eight `Agg`s, and 5,000 `GROUP BY` plans — all clean. Its verdict was HOLD on two
+PROSE items, both now fixed.
+
+**I reversed my own review reply, and this is the uncomfortable half.** I declined CodeRabbit's
+`cargo fmt --all` suggestion on the grounds that the scoped per-manifest line "already covers
+everything `--all` would", and said I had measured it. CodeRabbit pushed back citing the
+documented selection behaviour. **It was right and I was wrong**: mis-formatting
+`mask-risc/src/ir.rs` and running the scoped quack line gives **exit 0** while mask-risc's own
+line gives **exit 1** on the identical file. My earlier "measurement" must have been a
+workspace-wide invocation misattributed to the scoped one — the same class of error as
+measuring the wrong function.
+
+The CONCLUSION survives for a different reason than the one I gave: this fmt job is **per-crate
+by design** (its own comments say so — `causal-edge` is workspace-excluded, so `--all` would
+never reach it), and `mask-risc` has its own line directly above quack's. But checking the job
+against the member list instead of reading it found the real defect the reviewer was circling:
+**four workspace members had no rustfmt line at all** — `lance-graph-contract` (which THIS
+branch edits), `lance-graph-callcenter`, `lance-graph-supervisor`, `bgz-tensor`. All four
+measured clean and are now armed. A per-crate gate omits whatever nobody added a line for, and
+nothing was checking that.
+
+**Fixed this round:** the three doc sites that still called `hoist_gate_subset`'s rotation a
+"correctness requirement" and a "silent WRONG ANSWER" — true before the fix, false after, and
+the reviewer disable-verified it (rotation removed, 120,000 cases, 65,919 planed, zero
+divergences, on the harness ARM3 proves can see this regression). What the rotation still buys
+is slot economy, 1 slot vs 2. Also the probe's `best/worst infx` print, which read
+`spread 0.00 percentage points, best/worst infx` on the two regimes that skip nothing in any
+order — self-contradictory, and those rows are cited in `and_by_skip`'s own doc table.
+
+**And a test I re-pinned this session was half-vacuous.** `assert!(!on_acc)` ran over both
+lowerings, but `assign_slots` never emits a `Scratch` gate, so on the FUSED arm no input can
+make it fail. It is now scoped to the in-place arm, where restoring the pre-fix line turns it
+red, with the fused arm asserting the structural fact instead. One `assert!` over two arms
+reads as twice the evidence and is once.
+
+**Recorded, not fixed** (`ISSUES.md`, two new entries): `and_by_skip`'s ordering lever is now
+**inert on any conjunction carrying a plane** — the crate's own headline shape — which is a
+genuine cost the P1 fix created and the right trade anyway (a lost optimisation beats a lost
+row); and two caller-controlled pre-execution costs, `lower_fused` at ~7.6× per doubling
+(`IN(2048)` = 1 443 ms against `lower`'s 0.13 ms, mechanism in another crate's
+`distinct_leaves`) and a deep `Filter` **aborting the process** at depth 20,000, which also
+makes `LowerError::TooManySlots` unreachable on the in-place path.
+
+**Also fixed:** the one review finding that never appeared inline. A §8a summary line said "the
+signal is dead words rather than selectivity"; the probe permutes terms and measures skip and
+never ranks by dead words against a selectivity ranking, so only the negative half is measured
+(`selective` and `clustered` have near-identical survivor counts, 36 and 31, and differ by
+94.24 points). The sort-key half is untested and §8a and §9 already said so — that one summary
+line did not.
+
+## 2026-09-15 — PR #1235 review round: a codex P1 that was a real wrong answer, and three accepted doc/CI fixes
+
+Seven review threads on `claude/clone-repositories-71a5sw`. One was a genuine correctness
+bug; two reviewer suggestions were DECLINED on measurement; three were accepted and applied.
+
+**The P1 (fixed).** `lance-graph-quack` `emit_gated` preferred the accumulator gate over the
+caller-supplied plane (`acc_gate.or_else(|| under…)`). On `P1 AND (Plane(focus) AND P2)` the
+outer accumulator — which has never seen the inner plane — won, and `FOCUS` never reached the
+emitted program. Reproduced against the reference oracle: **oracle 29, emitted 204**. Fixed by
+inverting the preference so the plane always wins (conservative: can cost skip, can never drop
+a conjunct). One existing test asserted the buggy behaviour and is inverted in place with a ⊘
+note; `a_nested_plane_survives_an_outer_accumulator` is the permanent two-sided regression.
+Full statement: `EPIPHANIES.md`
+`E-THE-ACCUMULATOR-GATE-OUTRANKED-THE-PLANE-AND-SILENTLY-DROPPED-IT-1`.
+
+**Accepted.** `.claude/audits/nars-34-substrate-audit.md` item 1 contradicted its own table two
+sections up ("the honest `Datapath` set" for five recipes the table classifies **4 `Gate` + 1
+`Control`, zero `Datapath`**) — corrected in place, plus the stale "as a dispatch key" phrase in
+the closing section, which re-asserted exactly what the file's own top correction retracts.
+`STATUS_BOARD.md` D-QCK-6's unescaped `|` inside `COUNT(alpha & ((A&B)|C))` split the row into a
+sixth cell — escaped. `style.yml`'s quack clippy line gained `--all-features`.
+
+**Declined, both on measurement rather than preference.** (1) `cargo fmt --all` in place of the
+per-manifest quack line: mis-formatting `crates/lance-graph-mask-risc/src/ir.rs` and re-running
+shows the existing scoped line already reports it, so `--all` widens the blast radius without
+adding coverage. (2) Reordering the new `EPIPHANIES.md` entry below the existing 09-15 block:
+that file is reverse-chronological, and within a date the later entry goes first.
+
+**CI `linux-build` is red on this PR and the failure is the BASE's, not the branch's.** `main`
+at `030ad80` fails identically. Root cause established rather than guessed: `aws-smithy-types
+1.7.0` published 18 minutes after the last green run; `aws-smithy-json 0.63.0` declares
+`^1.6.1`, so it always resolves the new one; the newest `aws-config 1.12.0` requires
+`^0.63.0` and cannot reach the fixed `0.64.0`. **No resolver-only fix exists**, and none of the
+four pinnable coordinates (lance / lancedb / arrow / datafusion) is in that chain — so nothing
+in this PR's scope can clear it. Tracked as a repo-wide blocker, not a PR defect.
+
+## 2026-09-14 (6) — the convergence, answered: pin them equal, do not delegate
+
+The operator's hypothesis was *"wiring duckdb through lance-graph-java might
+help both sides to converge."* It paid twice, and the second payment settles
+what "converge" should mean here.
+
+**First payment (already landed, `0bc5e8d`):** quack gained the accumulator
+gate `lgj-abi`'s `plan_lower` already had. That was a capability transfer in
+one direction, and it exposed a real correctness bug (`hoist_gate_subset`)
+that neither crate's own tests could have found, because quack had no
+accumulator to be wrong about.
+
+**Second payment (lance-graph-java `8ad1a1b` + `e9bf3aa`):** the two
+lowerings are now pinned equal by a differential —
+`native/lgj-abi/src/exports/tests/lowering_convergence.rs`, 3 tests, 5
+disables red.
+
+### The verdict: shared LAW, not a shared DEPENDENCY
+
+`lgj-abi` could retire `plan_lower` and delegate to `quack::lower`. It does
+not, and `lance-graph-quack` is wired as a **dev**-dependency to make that
+impossible by construction. The membrane — the `cdylib` Java's `Linker`
+loads — must not depend on a CONSUMER of the IR it serves; that dependency
+points the wrong way. What the two share is the law, and the differential is
+what keeps "one law, two implementations" a checkable statement instead of a
+comment.
+
+The three rules they share are not equally placed, and the differential made
+that legible:
+
+- **the accumulator gate** and **the AND/OR asymmetry** are facts about
+  `MaskOp::Pred { under }` — IR facts, which is why both lowerings must have
+  them and why a future shared helper would belong in `mask-risc` (which
+  already hosts `fuse`/`BoolExpr`) rather than in either consumer;
+- **the prefix rewrite** is NOT an IR fact. It is a property of the
+  all-ones-seeded FOLD, and in tree form it is not a rule at all:
+  `all_ones | p == all_ones` means an OR before the first AND never becomes
+  a node. `plan_lower` scans for the least AND index; the tree reading gets
+  the same answer for free. A shared helper would have had to carry it as a
+  special case for one caller.
+
+So the duplication is smaller than it looked: one genuinely shared pair of
+IR facts, and one artifact of `lgj-abi`'s own input shape. Not enough to
+justify a helper today — pinned instead, and the pin is what will tell us if
+that judgement ever stops holding.
+
+### Two dead fixtures, and one of them made a real defect invisible
+
+Both anti-vacuity bounds arrived as FLOORS (`>= 15` of 28, `>= 7` of 9) and
+both passed **exactly at their bound**, which is what a floor looks like
+when the fixture is dead. The values lane is `-150..=361`; the arity-4 arm
+appended `LT_I32(500)`, an always-true op, and the whole 16-vector arm
+collapsed to eight saturated 1000s plus eight verbatim copies of the
+arity-3 row. `LT_I32(200)` took it 15 → 21.
+
+The sharper half: `LT_I32`/`LE_I32` carried `500` in the per-opcode arm too.
+Measured, mis-mapping `LGJ_OP_LE_I32` to `Pred::LtI32` in `plan_lower` — one
+token, and precisely the defect class the file exists to catch — is **red at
+operand 300** (866 vs 865, one row) and **green at 500**, where both
+readings select all 1000 and the two arms agree on an answer neither
+computed correctly. Two of nine opcodes would have shipped untested while
+the file read as covering all nine. Both bounds are `assert_eq!` now, with
+the incident recorded at the assertion.
+
+## 2026-09-14 (5) — quack A1: the accumulator gate, and the falsifier the matrix asked for
+
+Two changes in `crates/lance-graph-quack`, one of them a correctness fix the
+other one exposed.
+
+**The accumulator gate (D-QCK-8) — the convergence.** An `AND` gated its
+children only under a resident PLANE. `lgj-abi`'s `plan_lower` already gated
+each later conjunct under the ACCUMULATOR built so far, and the two lowerings
+were implementing different laws for the same algebra. Now quack does both:
+the first child establishes the accumulator, every later child is emitted with
+`under = Scratch(acc)`. The asymmetry `plan_lower` documents carries over
+unchanged and is the whole correctness question — an `OR` must NOT gate its
+children on its own accumulator, because `acc | p` depends on `p` exactly
+where `acc` is ZERO, which is what a gate under `acc` discards.
+
+**`hoist_gate_subset` — the bug the gate exposed.** With both gates available
+a `Pred` can carry only one `under`, so the accumulator wins (it is strictly
+narrower — the plane was folded into it). But the plane DROP decision depends
+on the plane still gating the term that implies it, and on `alpha AND focus
+AND v<50` the accumulator started as `focus`, which is not a subset of
+`alpha` — the plane was elided while nothing constrained it, and rows outside
+`alpha` were counted. Fix: rotate a child whose result is a subset of the
+plane to the FRONT, so the accumulator starts inside the plane. Found once,
+then found again one level down (a gated `AND` nested in a gated `AND`
+reproduced it), which is why the helper is called from BOTH arms rather than
+inlined in the one that first needed it.
+
+**A1 (D-QCK-9) — RUN, not ported.** `Filter::and_by_skip` takes the caller's
+measured skip score per conjunct and orders the `AND` by it. The matrix's A1
+row was NEEDS FALSIFIER; `examples/adaptive_order_probe.rs` is that falsifier
+— 65 536 rows, 5 conjuncts, all 120 permutations, 4 regimes, counting
+64-row words a gated `Pred` does not evaluate:
+
+| regime | survivors | as written | worst | best | spread (best−worst) |
+|---|---|---|---|---|---|
+| selective | 36 (0.055%) | 5.66% | 5.66% | 80.66% | 75.00 pts, 14.2x |
+| moderate | 14 311 (21.8%) | 0.00% | 0.00% | 0.00% | 0 |
+| permissive | 61 777 (94.3%) | 0.00% | 0.00% | 0.00% | 0 |
+| clustered (address prefix) | 31 (0.047%) | 99.90% | 0.00% | 99.90% | 99.90 pts |
+
+> ⊘ **CORRECTED 2026-09-15.** This table had no `worst` column and silently
+> computed spread as `best − as-written`, so the clustered row published a
+> spread of **0** — reading as "order does not matter here", the exact inverse
+> of that row's whole point. The probe prints `best − worst` and the matrix
+> uses that; clustered is **0.00 % → 99.90 %**, the widest spread of the four.
+
+Verdict: order MOVES the skip fraction, so A1 is **ADAPT, conditionally** —
+it is exactly inert in two of the four regimes, and the pre-registered
+falsifier's *representative predicate stream* half was never run (filed in the
+matrix's §9). Selectivity cannot tell you WHETHER reordering is worth
+anything: selective and clustered have near-identical survivor counts (36 vs
+31) and differ by 19 points of achievable skip (best against best), because
+one conjunct's survivors are contiguous and the other's are scattered. At
+21.8% survival with survivors SCATTERED a 64-row word is all-dead with
+probability ~1.4e-7, so no ordering can skip anything there. The score is the
+CALLER's — the shipped surface builds programs and never evaluates one, so
+there is no point at which it could measure a score.
+
+> ⊘ **THREE CORRECTIONS 2026-09-15, one of them a measured reversal.**
+> (a) This read *"the control signal is **dead words, not selectivity**"* — a
+> claim about the right SORT KEY. The probe enumerates permutations and
+> reports min/max; it never ranks by either signal and never calls
+> `and_by_skip`. Only the between-regime diagnostic is supported.
+> (b) The inertness condition was stated as density ("at 21.8% survival … by
+> arithmetic, not by implementation"); the condition is SCATTERING, the
+> arithmetic is Bernoulli-independence and so conditional on this fixture's
+> LCG, and the figure is 1.4e-7 not 2e-7.
+> (c) **The hill-climb argument was FALSE.** It said "a local search over
+> adjacent swaps explores the wrong landscape". Measured, instrumenting the
+> probe's own model with the clustered prefix term at each index:
+> `[4092, 3069, 2046, 1023, 0]`, adjacent deltas all exactly `−1023` — a
+> monotone linear ramp, the friendliest hill-climb landscape there is. The
+> real reason it is not ported is narrower: this crate never executes, so
+> there is no runtime for a hill-climb to measure. (DuckDB adapts on measured
+> RUNTIME seeded from a selectivity heuristic, not on measured selectivity —
+> a second wording this entry had wrong.)
+
+Five disables, all red: gate-never-on-accumulator; an `OR` gating its children
+on its own accumulator; `hoist_gate_subset` never rotating; `and_by_skip`
+sorting ascending; `and_by_skip` not sorting. 13 tests, clippy `-D warnings`
+and `fmt` clean.
+
+## 2026-09-14 (3) — `lance-graph-quack`: the DuckDB-shaped surface whose operators ARE masking ops
+
+New workspace member `crates/lance-graph-quack`, one dependency
+(`lance-graph-mask-risc`, path). Inventory: `Col`, `Mask`, `Cmp` (9
+comparisons, one per `Pred` that produces a mask from a value lane), `Filter`
+(`Cmp`/`Plane`/`And`/`Or`/`Not`, builders `cmp`/`plane`/`and`/`or`/`negate`/
+`in_u32`/`in_i32`), `Agg` (`Count`/`Any`/`All`/`SumI32`/`MinI32`/`MaxI32`/
+`Rows`/`BlendI32`), `Query`, `GroupBy`, `GroupPlan`, `LowerError`
+(`EmptyJunction`/`TooManySlots`/`GroupedBlend`), and three lowerings —
+`lower` (in-place), `lower_fused` (Boolean skeleton through
+`mask_risc::fuse`), `lower_group_by` (two-phase).
+
+**The crate builds a `Program` and never evaluates one.** `execute` stays the
+consumer's call on a scratch the consumer owns; a `match` here that computed
+anything would be the duplicate evaluator the arc exists to avoid. No
+`ndarray` dep for the same reason — the masking algebra is reached THROUGH
+mask-risc, never beside it.
+
+Three things the scaffold owed and this closes:
+
+- **`Filter::Plane`** — a resident mask plane read as a predicate. The
+  scaffold's own doc recorded that "every row" had no honest spelling (no
+  `Fill` op; the draft's `NeU32{lane:0}` + constant-ternlog trick typechecked
+  only when lane 0 happened to be `U32`, a latent lane-kind bug). The plane
+  leaf is correct by construction, costs zero ops and zero slots, and is the
+  truer model: the table IS its validity plane, which is why there is no NULL
+  here to be three-valued about.
+- **The survivor skip.** An `AND` with a plane child gates every comparison
+  beneath it (`MaskOp::Pred`'s `under`). Sound for any Boolean remainder
+  (`g ∧ rest(X) = g ∧ rest(g∧X)`), so the gate passes through `NOT` and `OR`;
+  what does not pass is the DROP — the plane leaf is elided only where the
+  gated remainder is identically zero wherever the gate is (a comparison is;
+  an `AND` if any child is; an `OR` if every child is; a `NOT` never).
+- **`GROUP BY` with a mask plane where the hash table would be** — keep the
+  filter, bind it as a plane, one gated equality per key. K programs, not one,
+  and the doc says why: `masked_strided_group_sum` exists in the facade but
+  the IR names no strided operand and no group terminal.
+
+10 tests at the time of this entry.
+
+> ⊘ **CORRECTED 2026-09-15.** This read "10 tests, every one differential
+> against a per-row oracle that never sees a `Program`". The "every one" was
+> never true and the same overstatement reached two other places. Measured on
+> the branch as it stands (13 tests): **9 differential**, **4 structural** —
+> `the_gate_reaches_every_comparison_and_is_dropped_only_where_it_vanishes`
+> (reads the emitted `ops`), `the_fused_lowering_trades_slots_for_passes` (op
+> histogram), `a_wide_conjunction_costs_one_extra_slot_not_one_per_child`
+> (slot count), and `an_empty_junction_is_refused_rather_than_folded_to_an_identity`
+> (error shape). That is not a weakness — the structural four catch shapes no
+> row count would notice — but "all differential" is the wrong summary, and in
+> `rust-test.yml` it was the stated JUSTIFICATION for the CI line.
+
+The 64k vertical slice (`COUNT(alpha & ((A&B)|C))`) agrees across
+five readings — oracle, both lowerings on the executor, both on mask-risc's
+reference evaluator — with two-sided anti-vacuity (a proper subset of alpha
+AND strictly below the ungated remainder, so a dropped gate fails even though
+its count would still look plausible).
+
+Named absent: the join (`src_mask → hop → dst_mask` is mask-risc's PR5; there
+is no `hop` op to lower to yet), a one-terminal grouped SUM, and everything
+the IR itself excludes (strings, `ORDER BY`, three-valued NULL).
+
+Disable table: 8 arms, 7 load-bearing first try. The 8th is recorded as a
+finding — the empty-junction refusal is spelled at three sites, so disabling
+any one leaves the suite green while all three together turn it red. Both the
+guard and the test now say so, because the failure mode is a future session
+measuring one site, reading green, and deleting a guard as dead. Commits
+`18c1d85`, `f1d41c8`.
 
 ## 2026-09-14 (2) — PR3 (branch `claude/clone-repositories-71a5sw`): `lance-graph-mask-risc` gains its executor, oracle, fuser and generated dispatch
 

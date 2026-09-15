@@ -1,3 +1,176 @@
+## 2026-09-15 (4) — E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1 — the fused lowering is order-independent BY CONSTRUCTION, two readers derived it from source because the crate doc does not say so, and DuckDB's A1 turns out to have a dead seed as well as an unrunnable loop
+
+**Status:** FINDING. Convergent — derived independently in two sessions from the same
+line, neither having read the other, before comparing.
+**Confidence:** HIGH — every claim is a source read or a row of §8a, all re-runnable.
+
+### The finding
+
+`lower` and `lower_fused` differ in a way neither name nor the crate doc suggested:
+**only `lower` can skip.**
+
+| | gate on a predicate | order changes skipped words? |
+|---|---|---|
+| `lower` (in place) | first ungated, later ones on the running ACCUMULATOR | **yes** — up to 99.90 pts (§8a) |
+| `lower_fused` | `under.map(\|m\| Operand::Plane(m.0))` — caller's plane ONLY | **no, ever** |
+
+`assign_slots` gives every predicate its own slot and never chains, because the Boolean
+combination is deferred to the fuser — and `MaskOp::Ternlog { imm, a, b, c, dst }` has
+**no `under` field at all**, where `MaskOp::Pred { pred, under, dst }` does. A ternlog
+combines already-materialised masks; by the time it runs, every sweep is paid for.
+
+The saving the gated form buys is physical, not bookkeeping. `ndarray`'s `pack_under`
+(`simd_masking_ops.rs:1541-1546`) is `if gate == 0 { out_words[w] = 0; continue; }` —
+the 64 values are never loaded. That `continue` is the entire mechanism §8a measures.
+
+The crate doc framed the choice as *"a consumer picks by whether it is scratch-bound or
+pass-bound"* and said nothing about the skip. Both readers fell into it and both had to
+go to source. Fixed in the same commit.
+
+### Why it matters beyond the doc
+
+It is the whole of what survived DuckDB's `AdaptiveFilter`. §8a measures ordering worth
+up to 99.90 percentage points of skipped words on a clustered conjunction — **under
+`lower` only**. On the same query under `lower_fused` it is exactly zero. So
+`Filter::and_by_skip`'s lever is alive in one configuration: gated lowering × plane-free
+conjunction × contiguous survivors. Under a plane it is inert as well
+(`ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE`). `adaptive_order_probe.rs` has no fused
+arm, so its table cannot see this and does not claim to.
+
+### A1 fails in TWO places, and only one of them was recorded
+
+`AdaptiveFilter` is a seed plus a loop, and they die of different causes:
+
+- **the seed** — `GetInitialOrder`, from the optimizer's static SELECTIVITY heuristic.
+  §8a kills it independently of anything about V3's executor: selective (36 survivors,
+  0.055 %) and clustered (31, 0.047 %) are indistinguishable by density and **19.24
+  points apart best-vs-best**. A selectivity-seeded reorderer seeds on a statistic that
+  provably does not separate the two regimes where the lever exists.
+- **the loop** — swap, measure RUNTIME, keep or revert, halve likeliness. This one would
+  find contiguity, because contiguity shows up in runtime whether or not you can name
+  it. It is the half quack structurally cannot run: `Program.ops` is a fixed `Vec` with
+  no measurement.
+
+**The half that would work cannot run; the half that can run measures the wrong thing.**
+That is stronger than the matrix's "not DuckDB's algorithm" — it says why no amount of
+porting reaches it.
+
+### The V3-native seed, and its one blocker
+
+The clustered regime IS an address prefix. `Filter::prefix_u32` builds
+`care = u32::MAX << (32 - b)` — a contiguous high run — so a `Cmp::MatchU32/MatchU64`
+whose care mask has that shape is prefix-shaped **at lowering time**: free, structural,
+no measurement loop. That would feed an ordering score from structure instead of asking
+the caller.
+
+The blocker is exact and is one bit: `prefix_u32`'s own doc says contiguous *"on an
+address-ordered lane"* — a property of the DATA, not the query — and `Col(pub u16)` is
+deliberately not a name ("name resolution is the catalogue's job"). quack carries no
+catalogue by design, so the seed needs a schema fact the crate does not hold. Real
+blocker, not a detail.
+
+### ⊘ A citation of mine that was under-qualified
+
+I cited D-GTM-0m as "22.4–22.8 µs, survivor-independent" without its stated limits. The
+matrix carries them twice and I should have carried them too: R5 — *"measured on ONE
+fixture (65 536 rows = 256×256 axial hex, 62 % permeable, one tile size, timing floor
+50 ms, no `perf`)"*; E4 — it *"widened a u8 permeability column 4× to use
+`gt_i32_to_mask`, and reported its `n_gen` and coal numbers as upper bounds because of
+it."*
+
+The rescue offered for it — that survivor-independence is structural because
+`gt_i32_to_mask` takes no gate parameter — is right about that function and must not be
+read as a general claim about predicate generation, or it contradicts §8a. The accurate
+form: **an UNGATED sweep is structurally survivor-independent; a GATED one structurally
+is not**, `gt_i32_to_mask_under` exists (`simd_masking_ops.rs:1614`), and `pack_under`'s
+`continue` is where the difference physically lives. The µs figure is one geometry; the
+asymmetry is not.
+
+## 2026-09-15 (3) — E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1 — "lots of CI errors" was stale red plus silence, and chasing it found `--all-features` broken since the lancedb 0.38 bump
+
+**Status:** FINDING. Two independent mechanisms, one shape. Both measured on PR #1235.
+**Confidence:** HIGH — every claim below is an API read, a `cargo` exit code, or a line
+number in a vendored crate. All re-runnable.
+
+### The shape
+
+A verdict you can see is not a verdict about the code you have. Two ways that breaks, and
+both were live in this repo at the same moment:
+
+1. **The workflow could not run** — the PR was conflicted, so GitHub had no merge ref to
+   run `pull_request` workflows against. The last runnable SHA's red stayed on the page.
+2. **The workflow does not run on push** — `rust-publish.yml` fires only on
+   `release: released` / `workflow_dispatch`, so what it checks rots between releases with
+   nothing to report it.
+
+Case 1 shows you a stale answer. Case 2 shows you no answer and you read it as "fine".
+Neither is distinguishable from green by looking.
+
+### Mechanism 1 — a conflicted PR produces NO run, and the UI does not say so
+
+| what | measured |
+|---|---|
+| PR #1235 head | `947753d` (the aws-smithy fix) |
+| workflow runs for `947753d` | **0** — none, in any state |
+| newest runs on the branch | `36646a2`, the commit BEFORE the fix |
+| PR `mergeable` / `mergeable_state` | `false` / **`dirty`** |
+
+`build.yml`, `rust-test.yml` and `style.yml` trigger on `pull_request`, which GitHub runs
+against `refs/pull/<n>/merge` — a ref it can only synthesise when the PR merges cleanly.
+A conflicted PR therefore produces no run at all. Five non-`pull_request` workflows
+(`Supersession index`, `Append-only gate`, …) DID run and DID pass, so the page showed
+five greens beside two stale reds and **not one of the seven described the head**.
+
+**The check, before believing any red on a PR:** compare the failing run's `head_sha`
+against the PR's `head.sha`, and read `mergeable_state`. `dirty` means CI is silent, not
+failing, and the remedy is to merge or rebase the base in — not to debug the code.
+
+### Mechanism 2 — `--all-features` was already broken, and only a release would have said so
+
+Chasing mechanism 1 turned up a second one. `.github/workflows/rust-publish.yml`
+PASSED `args: "--all-features"` to `katyo/publish-crates@v2`, which runs a verification
+build before publishing; `c2b4bc7` in this same PR replaced it with an explicit list.
+Measured on the tree before that fix:
+
+| invocation | exit |
+|---|---|
+| `cargo check --workspace` | 0 |
+| `cargo check --workspace --all-targets` | 0 |
+| `cargo check -p lance-graph --all-features` | **101** |
+
+TWO independent causes, and the interesting one is not ours:
+
+- **`aws-sdk`** — ours, added this session, opt-in by design because
+  `aws-smithy-json 0.63.0` does not build against `aws-smithy-types 1.7.0`.
+- **`lancedb-sdk`** — **not ours, and older.** `lancedb 0.38.0` declares `default = []`,
+  gates `Error::Http` behind `#[cfg(feature = "remote")]` (`src/error.rs:111`), but leaves
+  `pub mod job;` ungated (`src/lib.rs:188`) while `job.rs` uses `Error::Http`
+  unconditionally at `:56` and `:66`. **That crate cannot compile without `remote`.** The
+  workspace pin `lancedb = { version = "=0.38.0", default-features = false }` — the
+  `lancedb` key in the root `Cargo.toml`'s `[workspace.dependencies]` — is on `main`
+  unchanged and was untouched by `947753d`.
+
+So `--all-features` has been failing since the lancedb 0.38 bump (#1190), and **no
+push-triggered run could ever have gone red for it**, because the only call site is a
+workflow that fires on `release: released` / `workflow_dispatch` only. ⊘ An earlier
+draft of this line said *no branch* could have gone red — too strong:
+`workflow_dispatch` can be aimed at any branch, so the failure was reachable on
+demand, just never by the ordinary push/PR cadence that makes a failure traceable to
+a cause. The `aws-sdk` flag did not create this; it added a second reason to the same
+silent failure.
+
+### What generalizes
+
+**Adding a feature you know to be broken is not a local act** — every `--all-features`
+call site becomes a caller of it. Grep before landing one. Here there were two:
+`rust-publish.yml` (fixed) and `style.yml:95`, which is scoped to `lance-graph-quack` —
+one path dep, zero declared features — so it cannot reach `lance` or `lancedb`.
+
+**And the stronger one:** a workflow that only runs on release is not a gate, it is a
+deferred assertion. Its failure is dated to whenever someone next cuts a release and will
+be attributed to whatever PR happens to be adjacent. If a check matters, it has to run on
+a cadence where its failure is still traceable to a cause.
+
 ## 2026-09-15 — E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1 — there is no residue in Hexagon; the guard that refused the graft was recorded as a missing feature; and then I called two of the operator's shipped tenants dead
 
 **Status:** CORRECTION. Operator-caught, same day, hours after
@@ -155,6 +328,77 @@ the seam-6 promoter that does ship),
 `.claude/plans/hexagon-plasticity-v1.md`.
 
 ---
+## 2026-09-15 — E-THE-ACCUMULATOR-GATE-OUTRANKED-THE-PLANE-AND-SILENTLY-DROPPED-IT-1 — a nested `Plane` vanished from the emitted program because the *enclosing* conjunction already had a gate
+
+**Status:** CORRECTION — a real correctness bug in shipped-in-PR code (`lance-graph-quack`
+`emit_gated`), found by codex review on PR #1235, reproduced against the reference oracle
+before the fix, fixed, and pinned by a permanent regression.
+**Confidence:** HIGH — the reproduction is a number, not an argument: oracle **29**, emitted
+program **204**, and the op list showed the plane's `FOCUS` operand absent entirely.
+
+### What happened
+
+`emit_gated(filter, under, acc_gate)` carries two gates. `under` is the plane the CALLER
+handed down — `Filter::Plane(m)` encountered as a child, which must gate everything to its
+right. `acc_gate` is the accumulator-so-far, the thing that makes the survivor skip work:
+once some terms have been evaluated into a scratch, later comparisons can be evaluated
+`Pred { under: Some(acc) }` and skip the 64-row words the accumulator already killed.
+
+The line was:
+
+```rust
+let gate = acc_gate.or_else(|| under.map(|m| Operand::Plane(m.0)));
+```
+
+`Option::or_else` — the accumulator WINS whenever both are present. For a flat conjunction
+that is right and is the whole point (the accumulator is strictly narrower than the plane
+it already absorbed). For a **nested** one it is wrong, because the accumulator belongs to
+the OUTER conjunction and has never seen the inner plane:
+
+```text
+P1 AND (Plane(focus) AND P2)
+```
+
+The outer `AND` evaluates `P1` into the accumulator, recurses into the parenthesis with
+`under = None, acc_gate = Some(acc)`; the inner `AND` meets `Plane(focus)`, sets
+`under = Some(focus)`, and then for `P2` the `or_else` picks the accumulator and drops the
+plane on the floor. `FOCUS` never appears in the program. Measured: 204 rows where the
+oracle says 29.
+
+### The fix, and why it is the conservative direction
+
+```rust
+let gate = under.map(|m| Operand::Plane(m.0)).or(acc_gate);
+```
+
+The plane always wins. This is conservative rather than optimal: where both are live the
+accumulator may be the narrower gate, so preferring the plane can leave some skip on the
+table. It can never be WRONG, because `Pred { under: g }` is exactly `g ∧ pred`
+(`reference.rs:460`) and the `AND` that consumes the scratch re-applies the accumulator
+anyway. The reverse — preferring the accumulator — drops a conjunct, which is a wrong
+answer, not a slower one. **A gate you can only lose by choosing beats a gate you can drop
+by choosing.**
+
+### The lesson that generalizes past this bug
+
+**`or_else` between two gates is a silent priority decision, and priority between gates is
+only safe when one PROVABLY subsumes the other.** The accumulator subsumes `under` exactly
+when the accumulator was built from a prefix that already included it — true for a flat
+conjunction, false the moment recursion hands the accumulator across a nesting boundary. My
+own hand-trace missed it because I traced the flat case, where the two are in fact ordered.
+The shape that breaks it needs a plane that is BOTH nested and not first, which no existing
+test had: `hoist_gate_subset` rotates a plane-subset child to the front precisely so the
+accumulator starts inside the plane, and every fixture went down that path.
+
+### What the fix cost in the test suite, recorded because it is uncomfortable
+
+`the_gate_reaches_every_comparison_and_is_dropped_only_where_it_vanishes` asserted the plane
+rode the ACCUMULATOR (`assert!(on_acc)`). That assertion was a description of the bug, not
+of the law — it is now inverted (`assert!(!on_acc)`) with a ⊘ note, and the permanent
+regression `a_nested_plane_survives_an_outer_accumulator` is what actually pins the
+behaviour: two-sided (`expected * 2 < without_plane`, so a fixture whose plane admits
+everything cannot pass) plus a structural check that some emitted op reads `FOCUS`. Both
+arms of the disable run are RED.
 
 ## 2026-09-15 — E-I-DECLARED-A-JOIN-ABSENT-BY-GREPPING-ONE-FILE-AND-COMPOSE-IS-THE-SAME-XOR-A-THIRD-TIME-1 — the canonical join shipped in `hhtl.rs` all along, `[a,b]:[b,c]` is `compose_chain`, and the Hexagon substrate is every organ shipped with no nerve between them
 
@@ -248,7 +492,7 @@ already running.
 > Hexagon was tested exhaustively and never involved one. The real learning
 > surface is seam 6 of this session's own inventory, already hexagon-shaped:
 > `FrozenStyle`/`LearnedStyle`/`ExploreStyle`, `U8×12` = **6 × 2 × palette256** each —
-> the shape the operator ruled and this board MEASURED (`EPIPHANIES:19221`, ρ_all 0.966,
+> the shape the operator ruled and this board MEASURED (`E-CAM96-DISTRIBUTION-MEASURED-1`, ρ_all 0.966,
 > near-orth 170×) as better than the 48-bit class `HelixResidue` belongs to — with the
 > shipped held-out promote gate already on it. Full storno:
 > `E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1`.
@@ -1426,6 +1670,52 @@ the tile, seriation, LUT and spread contribute nothing that survives permutation
 **Scope.** Pure-Python lab, no Rust fingerprints — a shape proxy, never a measurement of
 `ndarray`/`bgz17`/`helix`. The cue reached **87.5 %** of the BPE incumbent (0.1579 vs 0.1805):
 PROCEED, not PASS.
+## 2026-09-14 — E-A-FLOOR-PASSED-AT-ITS-BOUND-IS-A-DEAD-FIXTURE-1
+
+**Status:** FINDING (measured twice in one file, both arms)
+**Confidence:** High — the invisible-mis-map half is a direct red/green pair
+
+**An anti-vacuity bound written as a FLOOR (`>= N`) that passes at exactly
+`N` is not a pass. It is the fixture telling you it is dead.**
+
+`lowering_convergence.rs` (lance-graph-java `native/lgj-abi`) arrived with
+two: `>= 15` of 28 combine vectors non-degenerate, and `>= 7` of 9 opcode
+seeds selecting a proper subset. Both measured **exactly** at their bound.
+Both bounds had been reasoned to, honestly, from the fixture's DOCUMENTED
+domain — and the documented domain was not the measured one.
+
+- The values lane is `-150..=361`. The arity-4 arm appended `LT_I32(500)`,
+  an always-true op, so the entire 16-vector arm was eight saturated
+  `n`-row answers plus eight verbatim copies of the arity-3 row: **zero**
+  additional discriminating power, clearing `>= 15` by sitting on it.
+  Measuring the lane and using `LT_I32(200)` took it **15 -> 21**.
+- Worse, the same operand appeared in the per-opcode arm, so `LT_I32` and
+  `LE_I32` both selected every row. Measured: mis-mapping `LGJ_OP_LE_I32`
+  to `Pred::LtI32` — one token, and exactly the defect the file exists to
+  catch — is **RED at operand 300** (866 vs 865, a one-row difference) and
+  **GREEN at operand 500**. Two of nine opcodes were untested while the
+  file read as covering all nine.
+
+**Three rules, each with its own force:**
+
+1. **A floor is the wrong shape for an anti-vacuity bound.** Its whole job
+   is to notice the fixture going inert, and a floor cannot: inert is
+   exactly where it still passes. Write `assert_eq!` with the measured
+   count and the instruction not to relax it.
+2. **Reason operands from the MEASURED lane, never from the documented
+   domain.** "The doc says the max is 361, so 500 is safely past it" is
+   sound arithmetic and produces a tautology. Probe the distribution.
+3. **In a differential between two ARMS (not against ground truth), two
+   quantities that select the same number of rows hide a swap between
+   exactly those two.** Give the comparisons distinct counts on purpose.
+   This is specific to arm-vs-arm testing and does not arise when one side
+   is an oracle.
+
+Cross-ref: the falsifiability rule in `CLAUDE.md` already names
+"a tolerance/threshold parameter needs an inertness test". This is its
+sibling for the FIXTURE rather than the threshold — and the sharper case,
+because a dead fixture leaves every assertion above it reading as green.
+Board: `STATUS_BOARD.md` D-QCK-10; `LATEST_STATE.md` 2026-09-14 (6).
 
 ## 2026-09-14 (3) — E-THE-VOCABULARY-IS-THE-RECOGNITION-ORGAN-THE-LAW-IS-THE-TRANSFER-ORGAN-1 — F-MQ8 and H5b were filed as one null; they are a division of labour, and they say which half is weak
 

@@ -145,7 +145,7 @@ Verdict vocabulary, used strictly:
 
 | # | DuckDB concept | verdict | DuckDB file:line | V3 / ndarray counterpart | mechanism | FALSIFIER |
 |---|---|---|---|---|---|---|
-| A1 | `AdaptiveFilter` — runtime permutation of conjunction terms by measured selectivity | **NEEDS FALSIFIER — the one row where DuckDB has something V3 does not** | `adaptive_filter.cpp:17-29` (ctor), `:113-186` (`AdaptRuntimeStatistics`); the swap `:127,163`; likeliness decay `:132-134`; intervals `observe=10 / execute=20 / warmup=5` (`:17,31,180`) | **absent** — `Program.ops` is a fixed `Vec<MaskOp>` (`ir.rs:133`) executed in order, with no reordering and no measurement | An adjacent-transposition hill-climb: swap two neighbouring terms, measure 10 iterations, keep if mean runtime dropped else revert and **halve** that position's swap likeliness (floor 1, so exploration never dies). `GetInitialOrder` seeds from the optimizer's static heuristic. V3 has no analog at any layer. | **The falsifier is prior to the port, and it may kill the whole idea.** DuckDB's reordering pays because term k runs only on survivors of 1..k−1, so a selective term first *shrinks the input*. In V3 a predicate sweep costs the **full column** regardless of position (`gt_i32_to_mask` writes every word; D-GTM-0m: 22.4–22.8 µs, survivor-independent) — so **reordering saves nothing on generation**. It can only save by *avoidance*: `mask_any` says empty, skip the rest (E5), or `MaskOp::Pred { under }` skips chunks (`ir.rs:84-86`). **Measure:** on a representative predicate stream, what fraction of `Pred` ops are skippable by `under`, and does term order change that fraction? If order does not move the skip fraction, A1 is ELIMINATE and the machinery must not be ported. If it does, the port is a reordering of *skip opportunities*, not of costs — a different algorithm than DuckDB's, and its swap-likeliness decay is not obviously the right control law for it. |
+| A1 | `AdaptiveFilter` — runtime permutation of conjunction terms by measured selectivity | **⊘ FALSIFIER RUN 2026-09-14 → ADAPT (not ELIMINATE), and the control law is DIFFERENT — see §8a. Was: NEEDS FALSIFIER — the one row where DuckDB has something V3 does not** | `adaptive_filter.cpp:17-29` (ctor), `:113-186` (`AdaptRuntimeStatistics`); the swap `:127,163`; likeliness decay `:132-134`; intervals `observe=10 / execute=20 / warmup=5` (`:17,31,180`) | **absent** — `Program.ops` is a fixed `Vec<MaskOp>` (`ir.rs:133`) executed in order, with no reordering and no measurement | An adjacent-transposition hill-climb: swap two neighbouring terms, measure 10 iterations, keep if mean runtime dropped else revert and **halve** that position's swap likeliness (floor 1, so exploration never dies). `GetInitialOrder` seeds from the optimizer's static heuristic. V3 has no analog at any layer. | **The falsifier is prior to the port, and it may kill the whole idea.** DuckDB's reordering pays because term k runs only on survivors of 1..k−1, so a selective term first *shrinks the input*. In V3 a predicate sweep costs the **full column** regardless of position (`gt_i32_to_mask` writes every word; D-GTM-0m: 22.4–22.8 µs, survivor-independent) — so **reordering saves nothing on generation**. It can only save by *avoidance*: `mask_any` says empty, skip the rest (E5), or `MaskOp::Pred { under }` skips chunks (`ir.rs:84-86`). **Measure:** on a representative predicate stream, what fraction of `Pred` ops are skippable by `under`, and does term order change that fraction? If order does not move the skip fraction, A1 is ELIMINATE and the machinery must not be ported. If it does, the port is a reordering of *skip opportunities*, not of costs — a different algorithm than DuckDB's, and its swap-likeliness decay is not obviously the right control law for it. |
 | A2 | `VectorHash` / `CombineHash` (`TightLoopHash`, `CombineHashScalar`) | **NEEDS FALSIFIER** | `vector_hash.cpp:50-67` (`TightLoopHash`); `:43-47` (`CombineHashScalar`); NULL_HASH `:24` | **absent** from `simd_masking_ops` by design (a hash is a value, not a mask) | Hashing is not a mask operation and does not belong in T1. The open question is whether V3 needs hashing **at all** on the addressed path: a minted classid prefix is already a *semantic* bucket, so the hash's job (map a key to a bucket) is done by the address. | Where does V3 need a hash that the address does not already give? Candidate: joining on a **non-address column**. Enumerate real consumers; if every join key is a minted address, A2 is ELIMINATE for this substrate and hashing stays outside T1 entirely. If a non-address join key exists, A2 is a real gap but belongs to a value-kernel family, **not** to the mask vocabulary — do not let it widen `simd_masking_ops`. |
 | A3 | `JoinHashTable` — probe, salt prefilter, linear-probe chains | **V3 BETTER for the addressed case; NEEDS FALSIFIER otherwise** | `join_hashtable.cpp:248-296` (`ProbeForPointersInternal`); `ht_entry.hpp:34-37` (salt/pointer split), `:49-51` (`IsOccupied`) | prefix range on the minted address; `ternary_match_u32_to_mask` with a care mask over the prefix (`simd_masking_ops.rs:1285`) | `ht_entry_t` packs **16 bits of salt + 48 bits of pointer** in one u64 and prefilters on the salt to avoid a full key compare (`:271-277`). That is a *probabilistic* prefix derived from a hash. **The V3 classid prefix is the real thing**: matching it is not a filter that may be wrong, it is a **contiguous row range** (R5, D-GTM-0m: 49–99 ns vs 22.4 µs). Also note `IsOccupied() == (value != 0)` (`ht_entry.hpp:50`) — DuckDB independently arrived at zero-is-absence, the same convention as `CLAUDE.md:1657`'s ladder. | The comparison only holds when **both sides are minted into the same address space**. A join between a minted V3 population and an external, unminted key set has no shared prefix and falls back to A2's hash question. Falsifier: exhibit the intended join workload. If either side is unminted, "V3 BETTER" is false for it and the honest verdict is NEEDS FALSIFIER. Second: `join_hashtable.cpp` is 6,986 harvested events, by far the largest TU read — this row is a **reading of two functions, not of the join**; spilling, radix partitioning, and chain building are not assessed. |
 | A4 | `RowMatcher` (multi-column match by sequential in-place sel compaction) | **ADAPT — the single cleanest mapping in the matrix** | `row_matcher.cpp:19-62` (`TemplatedMatchLoop`); the in-place compaction `:56`; the 4-way validity specialization `:64-89`; `row_matcher.hpp:47` (`Match`) | `ternary_match_strided_to_mask(bytes, first_offset, stride_bytes, count, &[u8;12] pattern, &[u8;12] care, out)` (`simd_masking_ops.rs:1415-1424`) | DuckDB matches **one key column at a time**, narrowing `sel` in place each round (`sel.set_index(match_count++, idx)`, `:56`) — k columns, k passes, k compactions. The V3 12-byte register **is** the multi-column key, and the `care` mask names which rails participate, so k columns become **one pass** with no compaction. The strided form is shaped for exactly the V3 facet: `stride_bytes = 16`, `first_offset = 4`, pattern/care = `[u8;12]` — the 4+12 atom of `le-contract.md` §1. | **Scope, and it is narrow.** `ternary_match` is *equality with don't-cares only*. `RowMatcher` dispatches a per-column `ExpressionType` predicate (`row_matcher.hpp:52-56`) and NULL-semantics variants (DISTINCT FROM). So A4 covers the **equi-match** case and nothing else. Falsifier: take a real multi-column match from a V3 consumer; if any column needs an ordered or distinct-from predicate, the one-pass claim fails for it and it degrades to per-column masks + `mask_and` — still allocation-free, but k passes, not one. |
@@ -526,14 +526,14 @@ rounding error dressed as a finding.*
 
 | verdict | whole rows | split halves | rows |
 |---|---|---|---|
-| **ADAPT** | **14** | — | R5, R7, R8, E1, E2, E4, E5, E7, E10, E11, C1, C3, C5, A4 |
+| **ADAPT** | **15** | — | R5, R7, R8, E1, E2, E4, E5, E7, E10, E11, C1, C3, C5, A4, **A1** (moved 2026-09-14 — **conditional**, see §8a: inert in 2 of the 4 regimes, and the pre-registered *representative predicate stream* half was never run) |
 | **ELIMINATE** | **8** | **+2** | R1, R3, R4, E3, E8, E9, C2, C4 · *plus* R6(the NULL **role**), A5(composition) |
 | **V3 BETTER** | **3** | **+1** | E6, C6, C7 · *plus* A3(addressed case) |
 | **KEEP** | **2** | **+2** | R2, C8 · *plus* R6(the mask **representation**), A5(egress) |
-| **NEEDS FALSIFIER** | **2** | **+1** | A1, A2 · *plus* A3(unaddressed case) |
+| **NEEDS FALSIFIER** | **1** | **+1** | A2 · *plus* A3(unaddressed case) — ⊘ A1 left this column 2026-09-14 |
 | | **29** | **+6** | = 35 entries / 32 rows |
 
-Read the shape rather than the totals: **ADAPT dominates (14/32)**, which is the
+Read the shape rather than the totals: **ADAPT dominates (15/32)**, which is the
 non-obvious result. The tempting summary — "DuckDB's machinery is an artifact of
 index lists, delete it" — is contradicted by the matrix's own count: only 8 rows
 eliminate cleanly, and they are concentrated in *representation* (R1, R3, R4) and
@@ -542,6 +542,18 @@ in the two places representation leaks into execution (E3, E8, E9). The
 does not. And exactly **one** DuckDB mechanism has no V3 counterpart at all
 (A1, `AdaptiveFilter`) — which is why its falsifier is one of the three that
 gate Phase 2.
+
+> **⊘ A1 UPDATE 2026-09-14 — the falsifier ran (§8a) and moved the row to
+> ADAPT, which strengthens the shape above rather than dulling it.** Term order
+> does change the skip fraction (up to 99.90 percentage points in the clustered
+> regime; 75.00 points and 14.2× are the SELECTIVE regime's spread), so the
+> mechanism is not deleted — but what transferred is the INTENT (order the
+> conjuncts) and what did not is the CARRIER (an adjacent-transposition
+> hill-climb over measured runtimes). That is the same intent-transfers /
+> carrier-does-not pattern the paragraph above describes for representation,
+> arriving from a third direction: the optimised quantity here is a step
+> function of clustering, so the control law has to change even though the
+> goal does not.
 
 **Phase 2's ordering falls out of the falsifiers, not from the verdict counts.**
 Three measurements gate the largest number of downstream rows and should run
@@ -559,10 +571,22 @@ before any design:
    75 µs M1b generation. The substrate's native width is the byte
    (`le-contract.md` §3); i32 is the foreign one, and D-GTM-0m's numbers are
    explicitly **upper bounds** because of it.
-3. **A1's prior question** — does term order change the *skip fraction*? If not,
+3. ~~**A1's prior question** — does term order change the *skip fraction*? If not,
    `AdaptiveFilter` is ELIMINATE and the only DuckDB mechanism V3 lacks turns out
    not to be needed. That is a cheap answer with a large consequence, and it is
-   answered by measurement (1) plus one sweep.
+   answered by measurement (1) plus one sweep.~~ **ANSWERED 2026-09-14 — see
+   §8a.** Order moves it (up to 99.90 percentage points, clustered — 75.00
+   points and 14.2× are the selective regime), so A1 is not
+   ELIMINATE; selectivity alone does **not** predict skip — `selective` and
+   `clustered` have near-identical survivor counts (36 and 31) and differ by
+   94.24 points of as-written skip — and the hill-climb is not ported.
+   ⊘ This read "the signal is dead words rather than selectivity", which
+   overstates the probe: it permutes terms and measures skip, and never
+   ranks by dead words against a selectivity ranking, so the SORT-KEY half
+   is untested (§8a and §9 already say so; this summary line did not).
+   Note this did NOT need measurement (1): the skip
+   fraction is a count of avoided word-evaluations, not a timing, so it was
+   answerable on its own.
 
 **What Phase 2 must NOT do**: build G5 (masked compaction) before A5's egress
 count exists — it is the most expensive gap on the list (five backends, BACKEND
@@ -571,7 +595,136 @@ counted.
 
 ---
 
+## §8a — A1's falsifier, RUN (2026-09-14)
+
+The queue item above asks one question: *does term order change the skip
+fraction?* It does. `crates/lance-graph-quack/examples/adaptive_order_probe.rs`
+is the measurement — 65 536 rows (1024 words), five conjuncts, **all 120
+permutations**, four regimes, counting the 64-row words a gated
+`MaskOp::Pred { under }` does not evaluate, summed over the 4096 gated
+positions of one ordering (term 0 is the ungated seed).
+
+| regime | survivors | as written | worst | best | spread |
+|---|---|---|---|---|---|
+| selective (a long tail of survivors) | 36 (0.055 %) | 5.66 % | 5.66 % | **80.66 %** | 75.00 pts, 14.2× |
+| moderate | 14 311 (21.8 %) | 0.00 % | 0.00 % | 0.00 % | 0 |
+| permissive | 61 777 (94.3 %) | 0.00 % | 0.00 % | 0.00 % | 0 |
+| clustered (one conjunct is an ADDRESS PREFIX) | 31 (0.047 %) | **99.90 %** | 0.00 % | 99.90 % | 99.90 pts |
+
+**Verdict: ADAPT, not ELIMINATE — but not DuckDB's algorithm.** Three findings,
+each of which changes what should be built:
+
+1. **The knob is inert wherever survivors are SCATTERED, whatever the
+   density.** At 21.8 % survival with independent placement a 64-row word is
+   all-dead with probability `0.78163⁶⁴ ≈ 1.4·10⁻⁷`, so *no* ordering skips
+   anything and the best and worst permutations are identical. Reordering is
+   not "a small win" in the moderate and permissive regimes; it is exactly
+   zero. Any cost model that spends on ordering there is spending on nothing.
+
+   > ⊘ **CORRECTED 2026-09-15.** This read *"inert wherever the population is
+   > not sparse, by arithmetic rather than by implementation"*, and both
+   > halves were wrong. **Density is not the condition** — finding 2 below
+   > says so two paragraphs later, and a dense-but-contiguous population has
+   > plenty of dead words. The condition is scattering. And the arithmetic is
+   > a Bernoulli-INDEPENDENCE computation, so it is conditional on a
+   > uniformity that is a property of this fixture's LCG, not of the
+   > substrate — "by arithmetic, not by implementation" claimed a hardness it
+   > does not have. The figure was also stated as `2·10⁻⁷`; recomputed, it is
+   > `1.419·10⁻⁷`.
+
+2. **Selectivity cannot tell you WHETHER reordering is worth anything.** The
+   selective and the clustered regimes have almost identical survivor counts —
+   36 and 31 — and differ by **19 percentage points of achievable skip**
+   (best-vs-best: 80.66 % against 99.90 %), because one conjunct's survivors
+   are contiguous and the other's are scattered. A selectivity-only cost model
+   cannot separate those two cases. This is also why V3 has the lever at all:
+   an address prefix selects a contiguous subtree (`Filter::prefix_u64`,
+   R5/R8), which is the clustered row.
+
+   > ⊘ **CORRECTED 2026-09-15, twice.** (a) The 19 points were attributed *as
+   > written*; as written the two regimes differ by **94.24** points (5.66 vs
+   > 99.90) and 19.24 is the best-vs-best figure. The italic made the sentence
+   > false against its own table. (b) The heading read *"the control signal is
+   > DEAD WORDS, not selectivity"* and closed *"rank by selectivity and those
+   > two look the same; rank by dead words and they do not"* — a claim about
+   > the right SORT KEY. **That is not what was measured.** The probe
+   > enumerates all 120 permutations and reports min/max; it never computes a
+   > selectivity-ranked order, never computes a dead-word-ranked order, never
+   > compares two ranking rules, and never calls `and_by_skip`. What the
+   > evidence supports is the diagnostic above — a between-regime statement —
+   > not a between-orderings one. Whether dead words is also the better sort
+   > key is **untested**.
+
+3. **DuckDB's adjacent-transposition hill-climb is not ported — but not
+   because its search would fail.** ⊘ **CORRECTED 2026-09-15: the original
+   argument here was measured FALSE.** It read: *"the optimised quantity is a
+   step function of clustering … so a local search over adjacent swaps is
+   exploring the wrong landscape. In the clustered regime … a hill-climb
+   starting from the worst has no adjacent swap that improves anything until
+   it happens to move the prefix term to the front."*
+
+   Measured, instrumenting the probe's own `skipped_words` model with the
+   prefix term at each index: **`[4092, 3069, 2046, 1023, 0]`, adjacent deltas
+   all exactly `−1023`.** The prefix term's mask is one live word of 1024, and
+   `skipped_words` charges `dead_words(acc)` once per gated position, so skip
+   is `(4 − p) · 1023` in the term's index `p` — a monotone linear ramp. Every
+   single forward adjacent swap improves it by the same amount. That is the
+   *most* hill-climb-friendly landscape possible, not the wrong one, and the
+   quoted sentence is the exact opposite of the truth.
+
+   The step-like behaviour is BETWEEN the four regimes (does this conjunction
+   contain a clustered term at all); the search space is WITHIN one
+   permutation set, where the objective is the ramp above. The original
+   reasoned from the first to the second.
+
+   **The real reason it is not ported** is narrower and is not about search
+   quality: this crate never executes, so there is no runtime for a hill-climb
+   to measure. Whether a consumer that DOES execute should run one is
+   **unanswered here** — and, per the note on `[H]` below, DuckDB's own loop
+   adapts on measured RUNTIME rather than on selectivity, so a comparison
+   would have to be against that.
+
+**What was built instead:** `Filter::and_by_skip(impl IntoIterator<Item = (u32,
+Filter)>)` — the caller supplies a measured skip score per conjunct from a
+previous execution and the builder orders the `AND` by it, descending, stably.
+No measurement, no decay, no intervals, no `observe=10 / execute=20 / warmup=5`.
+The crate builds programs and never evaluates one, so it cannot measure
+anything; putting the score at the boundary is the whole adaptation.
+
+**One override — and since the `emit_gated` fix it buys SLOT ECONOMY, not
+correctness (⊘ corrected 2026-09-15; it WAS a correctness requirement before
+that fix — see the ⊘ note on `hoist_gate_subset` in `lib.rs`):** when the `AND` also carries a resident plane the gate walk DROPS
+as implied, a child whose result is a subset of that plane is rotated to the
+front regardless of score (`hoist_gate_subset`). The ordering applies among the
+children that rotation leaves alone.
+
+Board: `STATUS_BOARD.md` D-QCK-9; the probe is committed, not a one-off.
+
+---
+
 ## §9 — Claims in this document that are NOT verified in code
+
+> **⊘ ADDED 2026-09-15 — two A1 claims belong here and were not filed.** §8a's
+> verdict was written as settled and this register, which exists for exactly
+> this, was not updated in the same pass.
+>
+> - **A1's own falsifier is half-run.** The pre-registered question (the A1
+>   row's FALSIFIER cell) is *"on a **representative predicate stream**, what
+>   fraction of `Pred` ops are skippable by `under`, and does term order
+>   change that fraction?"* What ran is one LCG seed, 65 536 rows, five
+>   conjuncts, and **four hand-designed regimes** — one of them constructed
+>   specifically to contain a contiguous address-prefix term. That answers the
+>   ORDER half on a fixture and answers the FRACTION half only as "between
+>   0 % and 99.9 %, pick a regime". `[H]` Nothing in this repo samples a
+>   workload V3 actually runs.
+> - **"Dead words is the better sort key" is untested**, per §8a finding 2's
+>   own correction: the probe never compares ranking rules. `[H]`
+>
+> A third, related: the pre-registered text ends *"its swap-likeliness decay
+> is **not obviously** the right control law"* — a hedge. §8a first cited that
+> as having "anticipated the reason" and upgraded it to "must NOT be ported".
+> A hedge quoted as a prediction is not a confirmation; §8a finding 3 is now
+> corrected to say so.
 
 Collected so they are not quoted as findings. Everything else in §2–§5 carries a
 `file:line` read this session.

@@ -1,3 +1,257 @@
+## ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE (2026-09-15) — OPEN, upstream bug, our `lancedb-sdk` feature does not build
+
+`lancedb 0.38.0` does not compile with its own default feature set. Measured, reading the
+vendored crate:
+
+| site | fact |
+|---|---|
+| `Cargo.toml` | `default = []` — so `default-features = false` on our side is a **no-op** |
+| `src/error.rs:111` | `Error::Http` is `#[cfg(feature = "remote")]` |
+| `src/lib.rs:188` | `pub mod job;` — **not** gated |
+| `src/job.rs:56,66` | uses `Error::Http` unconditionally |
+
+Result: `error[E0599]: no variant named 'Http' found for enum 'error::Error'`, twice,
+inside lancedb itself. Reproduce with
+`cargo check -p lance-graph --features lancedb-sdk`.
+
+**Not ours and not new.** `lancedb = { version = "=0.38.0", default-features = false }` is
+on `main` (the `lancedb` key in the root `Cargo.toml`'s `[workspace.dependencies]`),
+landed with the lance-11 / lancedb-0.38 bump (#1190). Nothing
+caught it because `lancedb-sdk` is optional, off by default, enabled by no workspace
+member, and reachable in CI only through `rust-publish.yml`'s `--all-features` — a
+workflow that never runs on push. See
+`E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1`.
+
+**Candidate fix, NOT applied here:** add `features = ["remote"]` to the workspace `lancedb`
+entry. `remote = ["dep:reqwest", "dep:http", "dep:urlencoding", "lance-namespace-impls/rest",
+"lance-namespace-impls/rest-adapter"]` — no aws, so it does not reintroduce the
+`aws-smithy` breakage. Deliberately deferred: it adds `reqwest` to anyone enabling
+`lancedb-sdk`, which is a dependency-graph decision that wants its own measured PR rather
+than a tail-end change in a PR about something else. The alternative — report it upstream
+and pin the fixed patch — is also open.
+
+**Blast radius, measured** — every crate that can reach the crate, and whether anything
+turns it on:
+
+| crate | declaration | default-on? |
+|---|---|---|
+| `lance-graph` | `lancedb-sdk = ["dep:lancedb"]` | no — its `default` list omits it |
+| `surreal_container` | `lancedb-sdk = ["dep:lancedb"]` | no (`default = []`) |
+| `holograph` | a feature literally NAMED `lancedb` — but it maps to `["dep:lance"]`, i.e. it does **not** pull the lancedb crate | n/a |
+
+So **two** unbuildable `lancedb-sdk` features exist, not one, and a fix must clear both.
+Nothing enables either, which is why `cargo check --workspace` is EXIT 0 and always has
+been. The `holograph` entry is a naming trap worth knowing about separately: a feature
+called `lancedb` that has nothing to do with lancedb.
+
+Until then `lancedb-sdk` is a declared-but-unbuildable feature, the same status
+`aws-sdk` carries, and both are excluded from the publish verification list.
+
+## ISS-PUBLISH-FEATURE-LIST-CAN-DRIFT (2026-09-15) — OPEN, low severity
+
+`.github/workflows/rust-publish.yml` no longer passes `--all-features`; it passes an
+explicit list of every `lance-graph` feature except the two that do not build —
+`aws-sdk` (ISS-AWS-SMITHY-…) and `lancedb-sdk` (ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE).
+That was forced: the publish step runs a verification build, and `--all-features` enables
+both. Measured — `cargo check -p lance-graph --all-features` exits **101**; the explicit
+list exits **0**.
+
+**The residue:** a feature added to `crates/lance-graph/Cargo.toml` later is silently NOT
+covered by the publish verification, where `--all-features` would have picked it up for
+free. The list was verified complete at landing by parsing both files and diffing the sets
+(`declared - passed == {aws-sdk, lancedb-sdk}`, `passed - declared == {}`) — but that was a
+one-off, not a gate.
+
+**The real fix, ~20 lines, not done:** a CI check that parses `[features]` out of
+`crates/lance-graph/Cargo.toml`, parses the `args:` line out of `rust-publish.yml`, and
+fails when the difference is anything other than the two known-broken names. Same shape as
+the existing `append_only_gate.py` / `supersession_index.py` gates, and it would also make
+the two exclusions expire loudly instead of silently outliving their cause.
+
+Severity is low: the publish workflow runs only on `release: released` /
+`workflow_dispatch`, and a drift there costs one failed release job, not a bad artifact —
+the verification build failing is precisely what *stops* the publish.
+
+## ISS-AWS-SMITHY-BREAKS-THE-WORKSPACE-BUILD-AND-THERE-ARE-TWO-REMEDIES (2026-09-15) — ⊘ RESOLVED SAME DAY, and the recorded cost was WRONG
+
+**Resolved by the operator's own framing — "make it optional so that later we fork 1.7 and fix
+it if we ever want it"** — which is better than either remedy below, because it keeps the
+capability addressable instead of deleting it. `lance` now takes `default-features = false` plus
+its own default list MINUS `aws`, and `lance-graph` gains an opt-in `aws-sdk = ["lance/aws"]`.
+**Measured after: `cargo check --workspace` EXIT=0 in 2m56s** — the job that had been red on
+`main` and every branch.
+
+**⊘ The cost recorded below ("drop lance's `aws` feature → costs S3 object-store support") was
+WRONG, and the operator caught it** by asking whether this was the native AWS library rather
+than Tigris/Railway S3 slab hydration. It is the native SDK. `lance-io`'s `aws` feature bundles
+TWO unrelated things — the AWS SDK (`aws-config`, broken) and `object_store/aws`, the generic
+S3-COMPATIBLE backend — and only the first is dropped, because `object_store = { features =
+["aws"] }` is declared DIRECTLY by the workspace and by `crates/lance-graph`. Verified:
+`aws-smithy-json` ABSENT, `aws-config` ABSENT, `object_store` feature `aws` still ENABLED, and
+`--features lance-graph/aws-sdk` brings `aws-config` back (so the switch is real, not
+decoration). `lance-graph-hydrate`'s slab hydration is untouched — it drives `object_store`
+with `aws_endpoint` + `aws_virtual_hosted_style_request = false`, an S3-compatible endpoint,
+and never names the SDK. **Nothing in this workspace references `aws_config` / `aws_sdk_*` /
+`aws_credential_types` at all.** What is actually lost: AWS-*native* credential machinery only
+(IMDS, SSO, STS assume-role).
+
+**A past session had already built the insurance that makes this safe.**
+`crates/lance-graph/Cargo.toml`'s `[dev-dependencies]` `object_store` entry declares
+`object_store/aws` directly and says why:
+*"slimming them to `default-features = false` is a plausible future move — and it would silently
+remove S3 from THIS crate's own S3 callers … it makes the capability this crate USES a thing
+this crate ASKS FOR."* That is exactly this move, anticipated.
+
+**Upstream has no fix, and checking told us the root cause.** This repo is a fork of
+`lance-format/lance-graph`, which is fully green — because it **tracks a `Cargo.lock`** pinning
+`aws-smithy-json 0.61.5` / `aws-smithy-types 1.3.2`, and sits on `lance 1.0.1` /
+`object_store 0.12.4`, ten majors behind. It carries no aws-smithy pin, patch or workaround;
+grep finds the string nowhere in its tree. So there was nothing to port — its immunity is the
+tracked lock we deliberately removed (`ISS-STALE-AUTHORITY-LOCKS-RESIDUE`, 2026-09-04), which
+is why our CI re-resolves into newly-published breakage on every run. That is a THIRD remedy
+(restore a tracked lock) and the only one that reverses a prior ruling; not taken.
+
+The original entry follows unchanged.
+
+## ISS-AWS-SMITHY-BREAKS-THE-WORKSPACE-BUILD-AND-THERE-ARE-TWO-REMEDIES (2026-09-15) — OPEN, repo-wide, operator decision
+
+**`cargo build --workspace` fails on `main` and on every branch**, in a third-party crate, and
+it is NOT a resolver problem — no version selection fixes it:
+
+```text
+error[E0308] aws-smithy-json-0.63.0/src/codec/deserializer.rs:707
+              expected `DocumentObject`, found `HashMap<String, Document>`
+error[E0004] aws-smithy-json-0.63.0/src/serialize.rs:36  non-exhaustive patterns
+```
+
+`aws-smithy-types` 1.7.0 changed `Document::Object` to take a `DocumentObject` and marked
+`Document` `#[non_exhaustive]`; `aws-smithy-json` 0.63.0 has not caught up. `aws-smithy-json`
+declares `aws-smithy-types ^1.6.1`, so it ALWAYS resolves the breaking 1.7.0, and the newest
+`aws-config` 1.12.0 requires `aws-smithy-json ^0.63.0` and cannot reach the fixed 0.64.0. This
+repo tracks no `Cargo.lock`, so every CI run resolves fresh and picks the incompatible pair.
+Jobs affected: `linux-build`, `test`, `member-tests`, `test-with-coverage` — all four die at the
+same `cargo build --workspace` step, before any test body runs.
+
+**There are TWO remedies and both are operator decisions. Neither is a pin-vs-nothing choice.**
+
+| remedy | cost | touches the pin whitelist? |
+|---|---|---|
+| exact-pin `aws-smithy-types` | a FIFTH pinned coordinate | **yes** — `CLAUDE.md`: nothing outside lance/lancedb/arrow/datafusion is pinned at all |
+| drop lance's `aws` feature | S3 object-store support | **no** |
+
+**The second one is the newly-established fact, and it is TESTED rather than inferred.**
+`aws-config` is an OPTIONAL dependency of `lance-io` behind its `aws` feature; `lance` takes
+`lance-io` with `default-features = false` and re-exposes `aws = ["lance-io/aws"]` inside its own
+default. So the chain is feature-reachable from our side:
+
+```toml
+lance = { version = "=11.0.0", default-features = false, features = [
+    "azure", "gcp", "oss", "huggingface", "tencent", "tos", "goosefs", "geo",
+] }
+```
+
+`cargo tree -i aws-smithy-json` then reports **"did not match any packages"** — gone from the
+graph entirely, with every other lance default feature retained. (`default-features = false`
+alone works too, but drops eight features instead of one.)
+
+**How real the S3 cost is, stated precisely.** No hard-coded AWS calls in this tree, but
+`lance-graph-catalog`'s `storage_options` surface documents and passes through
+`aws_access_key_id` / `aws_secret_access_key` / `aws_region`, and `DirNamespace` parses `s3://`
+URIs. The capability is exposed to callers even though nothing here exercises it in CI. Whether
+a deployment depends on it cannot be determined from the tree.
+
+**Correction recorded on purpose:** the stand-down comment on PR #1235 said the remedy "is a
+version pin", naming one option as if it were the only one. That was incomplete, and the missing
+option is the one that leaves the pin rule alone. Corrected on the PR.
+
+## ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE (2026-09-15) — OPEN, and it is the price of the P1 fix
+
+**`Filter::and_by_skip`'s ordering lever buys exactly zero on any conjunction that carries a
+resident plane — which is this crate's own headline query shape.**
+
+Created deliberately by the codex-P1 fix (`b7e6cef`,
+`E-THE-ACCUMULATOR-GATE-OUTRANKED-THE-PLANE-AND-SILENTLY-DROPPED-IT-1`): `emit_gated` now
+prefers the caller's plane over the accumulator, so every `Pred` inside a planed `AND` gates on
+the same FIXED plane regardless of position. Measured at HEAD, each entry `predicate <- its gate`:
+
+```text
+PLANE-FREE    And[A,B,C] : [GtI32<-none,      EqU32<-ACC(s0),  LtI32<-ACC(s0)]
+              And[C,B,A] : [LtI32<-none,      EqU32<-ACC(s0),  GtI32<-ACC(s0)]
+
+WITH A PLANE  And[P,A,B,C]: [GtI32<-Plane(0), EqU32<-Plane(0), LtI32<-Plane(0)]
+              And[P,C,B,A]: [LtI32<-Plane(0), EqU32<-Plane(0), GtI32<-Plane(0)]
+```
+
+Order changes which predicate runs first and nothing else; the skipped-word count is
+order-independent. Plane-free conjunctions are unaffected — those preds take the `None` arm and
+still chain on the accumulator, so **A1's measured lever survives exactly where the probe
+measured it and nowhere else.**
+
+**Why it is the right trade anyway.** The alternative is preferring the accumulator, which drops
+a conjunct when the accumulator crossed a nesting boundary — a wrong answer, not a slower one
+(oracle 29, emitted 204). A lost optimisation beats a lost row.
+
+**Why no gate catches it.** `examples/adaptive_order_probe.rs`'s four scenarios are all
+plane-free, so its table cannot measure this and does not claim to. Its
+`accumulator_gated == terms.len() - 1` assertion is what keeps it honest and would fire
+immediately on a planed scenario — which is why the honest move is to say "not measured" rather
+than to add a scenario that would simply assert the inertness.
+
+**The way out, if it is ever worth taking:** gate on `plane ∧ accumulator` rather than choosing
+between them. That is strictly narrower than either, so it restores the lever without
+reintroducing the hole — at the cost of one extra op per gated predicate, which is exactly the
+measurement nobody has made. Not attempted here; recorded so the option is not re-derived.
+
+Found by an independent correctness review of the fix, not by the fix's author.
+
+## ISS-QUACK-LOWER-FUSED-IS-SUPERLINEAR-AND-DEEP-FILTERS-ABORT (2026-09-15) — OPEN, both caller-controlled
+
+Two pre-execution costs on `lance-graph-quack`'s public surface, measured in **release**, both
+reachable from ordinary caller input and both hit before a single row is touched.
+
+**1. `lower_fused` is ~cubic in leaf count, reachable from `Filter::in_u32`.**
+
+| | `lower` | `lower_fused` | source |
+|---|---|---|---|
+| `IN(64)` | 6.02 µs | 97.20 µs | reproduced here (review: 0.12 ms) |
+| `IN(256)` | 16.33 µs | 3.08 ms | reproduced here (review: 4.28 ms) |
+| `IN(1024)` | 24.40 µs | **158.47 ms** | reproduced here (review: 192.70 ms) |
+| `IN(2048)` | 0.13 ms | **1 443 ms** | review only, not re-run |
+| flat `AND` w=4096 | — | **10 597 ms** | review only, not re-run |
+| flat `AND` w=65 000 | **2.99 ms** | (not attempted) | review only, not re-run |
+
+The first three rows are first-hand, and they agree with the review within ~25 % (machine
+variance, not a discrepancy). `lower` is linear across all of them; the blow-up is entirely
+`lower_fused` — ×31.7 then ×51.5 for each 4× in leaves. Mechanism verified in source rather than
+taken from the report: `distinct_leaves` (`fuse.rs:72`) is `out.contains(o)`, O(k) per leaf;
+`leaf_count` (`:87`) allocates a fresh `Vec` and re-walks; `:173` calls it on **both** children
+(`leaf_count(l) >= leaf_count(r)`) at every level. Mechanism sits in
+`lance-graph-mask-risc/src/fuse.rs` — `Lowering::lower`'s reduction calls `leaf_count` on BOTH
+children at every level, `leaf_count` calls `distinct_leaves`, and that uses `Vec::contains`,
+O(k) per leaf; quack's `assign_slots` left-folds an n-ary junction into a depth-n binary
+`BoolExpr`. Same class as the quadratic-`validate` stall `reference.rs:110-137` already records
+and fixed on that side. Cheapest mitigation is a sorted set or `u64` bitset in `distinct_leaves`.
+**Not fixed here** because it lives in a different crate and this PR is about the query surface —
+widening it on my own is the thing the repo's own push rules forbid.
+
+**2. A deep `Filter` ABORTS the process; `LowerError::TooManySlots` is unreachable on the
+in-place path.** Default 8 MiB stack, one process per depth:
+
+```text
+depth=15000  -> LOWER OK slots=2 ops=30001
+depth=20000  -> fatal runtime error: stack overflow, aborting
+```
+
+Construction and `Drop` of the same tree survive to 30,000, so the recursion is
+`gate_walk`/`emit_gated`'s, not the data structure's. It is an **abort**, not a catchable panic —
+`catch_unwind` and `JoinHandle::join` cannot contain it. Meanwhile `emit_gated`'s
+`dst.checked_add(1) → TooManySlots` needs depth 65,535, which the stack cannot reach: **the error
+the crate defines for this condition can never fire on `lower`.** An explicit depth budget in
+`gate_walk` returning `LowerError` would make the declared refusal real.
+
+Neither is a correctness defect and neither is reachable from the differential suite, which builds
+trees to depth 6. Both were found by an independent correctness review.
+
 ## ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS (2026-09-15) — ⊘ RESOLVED SAME DAY: falsifier ran, hazard CONFIRMED (0 vs 3); see E-THE-TWO-FAMILY-NAMINGS-INVERT-AND-FROM-BE-BYTES-IS-THE-PLAUSIBLE-WRONG-JOIN-1
 
 **"family" denotes four different things in this tree, and the two that share a width sit at

@@ -52,6 +52,30 @@ jobs:
       - uses: katyo/publish-crates@v2
         with:
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          args: "--all-features"
+          # Every `lance-graph` feature EXCEPT the TWO that do not build. `--all-features`
+          # turns both on and fails the verification build this step runs before
+          # publishing. Measured on this tree: `cargo check -p lance-graph --all-features`
+          # exits 101; this list exits 0.
+          #
+          #   aws-sdk      — ours, opt-in by design. `aws-smithy-json 0.63.0` does not
+          #                  compile against `aws-smithy-types 1.7.0` (full reasoning at
+          #                  the `lance` entry in the workspace `Cargo.toml`). The feature
+          #                  exists so the capability stays addressable by name.
+          #   lancedb-sdk  — NOT ours, and it predates the `aws-sdk` flag: `lancedb 0.38.0`
+          #                  declares `default = []`, gates `Error::Http` behind
+          #                  `#[cfg(feature = "remote")]` (`src/error.rs:111`), but leaves
+          #                  `pub mod job;` ungated (`src/lib.rs:188`) while `job.rs` uses
+          #                  `Error::Http` unconditionally. The crate therefore cannot
+          #                  compile at all without `remote`. So `--all-features` has been
+          #                  broken here since the lancedb 0.38 bump — invisibly, because
+          #                  this is the only workflow that passes it and it never runs on
+          #                  push (`release: released` / `workflow_dispatch` only).
+          #                  See ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE.
+          #
+          # The cost of spelling the list out, stated rather than hidden: a feature added
+          # to `crates/lance-graph/Cargo.toml` later is NOT covered here, where
+          # `--all-features` would have picked it up for free. Add it in the same PR.
+          # See ISS-PUBLISH-FEATURE-LIST-CAN-DRIFT.
+          args: "--features unity-catalog,ndarray-hpc,with-cam-pq,planner,bgz17-codec,tensor-codec,lite-unified"
           path: crates/lance-graph
           dry-run: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'dry_run') }}
