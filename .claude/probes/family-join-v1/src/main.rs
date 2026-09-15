@@ -1,0 +1,173 @@
+//! ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS — the falsifier.
+//!
+//! The issue claims: `family` denotes four different things in this tree, and the
+//! two that share a width sit at OPPOSITE ENDS of the key — `CascadeKey::family`
+//! IS HEEL (the root-most tier), while `NodeGuid`'s v2 `family` is the
+//! second-finest field, after `leaf`. If that is real, then "the shared prefix by
+//! family" is not one quantity, and a join computed under one naming is not the
+//! join computed under the other.
+//!
+//! This links BOTH REAL TYPES — `lance_graph_contract::NodeGuid` (with
+//! `guid-v2-tail`) and `perturbation_sim::CascadeKey` — rather than
+//! reimplementing either. A probe that rebuilds the structure it is testing
+//! tests nothing about the producer.
+//!
+//! Anti-vacuity, per the issue's own requirement: every pair below must differ
+//! somewhere in bytes 4..14, or both sides return the same trivial answer and
+//! the comparison proves nothing. Asserted, not assumed.
+
+use lance_graph_contract::canonical_node::NodeGuid;
+use perturbation_sim::CascadeKey;
+
+/// The v2 tail read as a 3-tier cascade: `(leaf, family_v2, identity_v2)`.
+/// This is the naive analog of `CascadeKey::shared_prefix_tiers` a caller would
+/// write if they took "family" to mean the v2 tail's family.
+fn v2_tail_tiers(a: &NodeGuid, b: &NodeGuid) -> u8 {
+    if a.leaf() != b.leaf() {
+        0
+    } else if a.family_v2() != b.family_v2() {
+        1
+    } else if a.identity_v2() != b.identity_v2() {
+        2
+    } else {
+        3
+    }
+}
+
+/// The same GUID's HHTL triple, handed to the REAL `CascadeKey` — whose own
+/// field names are `family`/`leaf`/`identity` but whose documented meanings are
+/// HEEL/HIP/TWIG.
+fn cascade_of(g: &NodeGuid) -> CascadeKey {
+    CascadeKey { family: g.heel(), leaf: g.hip(), identity: g.twig() }
+}
+
+/// Root-first recomposition from DECODED field values — the only correct input
+/// to a CLZ join (see E-THE-SEMIRING-IS-FREE-...-JOIN-IS-THE-SAME-XOR-1).
+fn recompose(g: &NodeGuid) -> u128 {
+    ((g.classid() as u128) << 96)
+        | ((g.heel() as u128) << 80)
+        | ((g.hip() as u128) << 64)
+        | ((g.twig() as u128) << 48)
+        | ((g.leaf() as u128) << 32)
+        | ((g.family_v2() as u128) << 16)
+        | (g.identity_v2() as u128)
+}
+
+/// Nibble level of first divergence, 0..=32. 32 == identical.
+fn nibble_level(x: u128) -> u32 {
+    x.leading_zeros() / 4
+}
+
+fn main() {
+    // classid held constant except in the byte-order arm, so the tail comparisons
+    // are not decided by the prefix.
+    const C: u32 = 0x0701_1000;
+
+    // ---- the two hazard pairs -------------------------------------------------
+    // P1: IDENTICAL HHTL (heel/hip/twig), DIFFERENT v2-tail family.
+    let p1a = NodeGuid::new_v2(C, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666);
+    let p1b = NodeGuid::new_v2(C, 0x1111, 0x2222, 0x3333, 0x4444, 0xAAAA, 0x6666);
+
+    // P2: DIFFERENT HEEL, IDENTICAL v2 tail.
+    let p2a = NodeGuid::new_v2(C, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666);
+    let p2b = NodeGuid::new_v2(C, 0x9999, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666);
+
+    // ---- controls -------------------------------------------------------------
+    // P3: identical keys — both namings must say 3.
+    let p3a = NodeGuid::new_v2(C, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666);
+    let p3b = p3a;
+
+    // P4: differ in BOTH the coarse tier and the tail — both namings must say 0.
+    let p4a = NodeGuid::new_v2(C, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666);
+    let p4b = NodeGuid::new_v2(C, 0x9999, 0x2222, 0x3333, 0xBBBB, 0x5555, 0x6666);
+
+    let pairs: [(&str, &NodeGuid, &NodeGuid); 4] = [
+        ("P1 same HHTL, different v2 family", &p1a, &p1b),
+        ("P2 different HEEL, same v2 tail  ", &p2a, &p2b),
+        ("P3 identical (control)           ", &p3a, &p3b),
+        ("P4 differ in both (control)      ", &p4a, &p4b),
+    ];
+
+    println!("== ISS-FAMILY falsifier: does \"shared prefix by family\" mean one thing? ==\n");
+    println!("{:<34} {:>8} {:>8}   {}", "pair", "cascade", "v2tail", "verdict");
+    println!("{}", "-".repeat(72));
+
+    let mut disagreements = 0;
+    for (name, a, b) in pairs {
+        // anti-vacuity: the pair must actually differ in bytes 4..14, else the
+        // comparison is trivially satisfied and proves nothing.
+        let differs_in_key = a.as_bytes()[4..14] != b.as_bytes()[4..14];
+        let is_control_identical = name.starts_with("P3");
+        assert!(
+            differs_in_key || is_control_identical,
+            "VACUOUS FIXTURE: {name} does not differ in bytes 4..14"
+        );
+
+        let cascade = cascade_of(a).shared_prefix_tiers(cascade_of(b));
+        let v2tail = v2_tail_tiers(a, b);
+        let agree = cascade == v2tail;
+        if !agree {
+            disagreements += 1;
+        }
+        println!(
+            "{:<34} {:>8} {:>8}   {}",
+            name,
+            cascade,
+            v2tail,
+            if agree { "agree" } else { "** DISAGREE **" }
+        );
+    }
+
+    println!("\n{} of 4 pairs disagree.", disagreements);
+    assert!(
+        disagreements >= 2,
+        "the issue claims the two namings diverge; fewer than 2 disagreements would refute it"
+    );
+
+    // ---- the byte-order trap, from the sixth arc ------------------------------
+    println!("\n== byte-order trap: CLZ over the raw 16 bytes vs recomposed ==\n");
+    let t1a = NodeGuid::new_v2(0xA000_0000, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666);
+    let t1b = NodeGuid::new_v2(0x2000_0000, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666);
+    let t2a = NodeGuid::new_v2(C, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x0001);
+    let t2b = NodeGuid::new_v2(C, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x0002);
+
+    println!(
+        "{:<38} {:>10} {:>10} {:>12}",
+        "pair", "from_le", "from_be", "recomposed"
+    );
+    println!("{}", "-".repeat(74));
+    for (name, a, b) in [
+        ("T1 differs in classid's TOP nibble", &t1a, &t1b),
+        ("T2 differs in identity's LAST nibble", &t2a, &t2b),
+    ] {
+        let le = nibble_level(
+            u128::from_le_bytes(*a.as_bytes()) ^ u128::from_le_bytes(*b.as_bytes()),
+        );
+        let be = nibble_level(
+            u128::from_be_bytes(*a.as_bytes()) ^ u128::from_be_bytes(*b.as_bytes()),
+        );
+        let rc = nibble_level(recompose(a) ^ recompose(b));
+        println!("{name:<38} {le:>10} {be:>10} {rc:>12}");
+    }
+
+    let le_t1 = nibble_level(
+        u128::from_le_bytes(*t1a.as_bytes()) ^ u128::from_le_bytes(*t1b.as_bytes()),
+    );
+    let le_t2 = nibble_level(
+        u128::from_le_bytes(*t2a.as_bytes()) ^ u128::from_le_bytes(*t2b.as_bytes()),
+    );
+    let rc_t1 = nibble_level(recompose(&t1a) ^ recompose(&t1b));
+    let rc_t2 = nibble_level(recompose(&t2a) ^ recompose(&t2b));
+
+    println!(
+        "\nrecomposed: root-nibble diff -> level {rc_t1}, leaf-nibble diff -> level {rc_t2} (expected 0 and 31)"
+    );
+    println!("from_le:    root-nibble diff -> level {le_t1}, leaf-nibble diff -> level {le_t2} (INVERTED if le_t1 > le_t2)");
+    assert!(
+        le_t1 > le_t2,
+        "from_le_bytes should invert the two ends; if it does not, the trap claim is wrong"
+    );
+    assert_eq!(rc_t1, 0, "recomposed: a root-nibble difference must be level 0");
+
+    println!("\nVERDICT: the two namings are NOT interchangeable. Filed hazard CONFIRMED.");
+}

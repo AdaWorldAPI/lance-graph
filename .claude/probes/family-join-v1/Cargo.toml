@@ -1,0 +1,23 @@
+[package]
+name = "family-join-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS falsifier: does 'shared prefix by family' denote the same quantity under NodeGuid's v2 tail and under CascadeKey? Links BOTH real types — no reimplementation."
+
+# Standalone probe, excluded from the lance-graph workspace (same posture as
+# perturbation-sim / jc / sigker). Run with:
+#   CARGO_PROFILE_DEV_DEBUG=0 cargo run --manifest-path .claude/probes/family-join-v1/Cargo.toml
+
+# Keep this probe OUT of the parent workspace (it is not a shipped crate).
+[workspace]
+
+[dependencies]
+# The real canonical type, with the v2 tail turned on (default OFF in the crate).
+lance-graph-contract = { path = "../../../crates/lance-graph-contract", features = ["guid-v2-tail"] }
+# The real CascadeKey — the type that already ships shared_prefix_tiers.
+perturbation-sim = { path = "../../../crates/perturbation-sim" }
+
+[[bin]]
+name = "family-join-probe"
+path = "src/main.rs"

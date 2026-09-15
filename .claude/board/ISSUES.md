@@ -1,4 +1,4 @@
-## ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS (2026-09-15) — OPEN
+## ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS (2026-09-15) — ⊘ RESOLVED SAME DAY: falsifier ran, hazard CONFIRMED (0 vs 3); see E-THE-TWO-FAMILY-NAMINGS-INVERT-AND-FROM-BE-BYTES-IS-THE-PLAUSIBLE-WRONG-JOIN-1
 
 **"family" denotes four different things in this tree, and the two that share a width sit at
 opposite ends of the key.**

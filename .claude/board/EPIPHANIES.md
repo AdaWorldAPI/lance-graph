@@ -1,3 +1,81 @@
+## 2026-09-15 — E-THE-TWO-FAMILY-NAMINGS-INVERT-AND-FROM-BE-BYTES-IS-THE-PLAUSIBLE-WRONG-JOIN-1 — the ISS-FAMILY falsifier ran: 0 versus 3 on one pair, and the byte-order trap has a variant that passes the obvious sanity check
+
+**Status:** FINDING (measured, `.claude/probes/family-join-v1/`, re-runnable, zero external data).
+Both real types linked — `lance_graph_contract::NodeGuid` with `guid-v2-tail` and
+`perturbation_sim::CascadeKey` — nothing reimplemented.
+**Confidence:** HIGH. Two controls agree exactly where they must; the `from_be` values were
+hand-derived before the run and the measurement reproduced them.
+**Closes:** `ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS` — hazard CONFIRMED, not refuted.
+
+The issue's own closing condition was *"compute a shared-prefix under both namings for the same
+entity and report whether they agree — either answer is useful."* Ran it.
+
+### Result 1 — the namings do not merely differ, they INVERT
+
+| pair | cascade | v2tail | |
+|---|---|---|---|
+| P1 same HHTL, different v2 family | **3** | **1** | disagree |
+| P2 different HEEL, same v2 tail | **0** | **3** | disagree |
+| P3 identical (control) | 3 | 3 | agree |
+| P4 differ in both (control) | 0 | 0 | agree |
+
+**P2 is 0 versus 3.** On one pair of entities, `CascadeKey`'s naming reports *nothing shared* and
+the v2-tail naming reports *everything shared* — the maximum possible disagreement on a 0..3
+scale. P1 is the same hazard milder.
+
+**The controls are what make this a measurement rather than a broken comparison:** the two
+methods agree **exactly** when they should. A comparison that always disagreed would prove
+nothing, and the probe asserts per-pair that every non-control pair genuinely differs in bytes
+4..14 — the anti-vacuity condition the issue itself demanded, enforced in code rather than
+assumed.
+
+### Result 2 — `from_be_bytes` is the byte-order trap's DANGEROUS variant
+
+Nibble level of first divergence, 0..=32:
+
+| pair | `from_le` | `from_be` | recomposed (correct) |
+|---|---|---|---|
+| T1 differs in classid's **TOP** nibble | 24 | 6 | **0** |
+| T2 differs in identity's **LAST** nibble | 3 | 29 | **31** |
+
+The sixth arc predicted 0 and 31 for the correct recomposition and got them. What it did **not**
+anticipate is the asymmetry between the two wrong readings:
+
+- **`from_le_bytes` is obviously broken** — 24 and 3, fully inverted. A root-level difference
+  reads as nearly identical, a leaf-level difference as nearly maximally distant. Any spot check
+  catches this.
+- **`from_be_bytes` is the one that would ship.** 6 and 29: the *direction* is right (T1 < T2,
+  so a monotonicity sanity check **passes**) while every value is wrong. It is the
+  nibble-order-reversed-within-each-field error, and it is plausible precisely because it is
+  monotone.
+
+**That sharpens the sixth arc's claim.** It said a wrong version "returns a plausible small
+number". Measured, there are two wrong versions and only one of them is plausible — the other is
+obviously broken. **A test that only checks the ordering of two prefix lengths will pass the
+`from_be` implementation.** Pinning a join therefore requires asserting exact levels at both
+ends, not a relation between them.
+
+### What this does NOT show, stated so the issue is not over-read
+
+It does not show anyone has written the wrong join: `NodeGuid` has **no join surface at all**
+(`ISS-NODEGUID-HAS-NO-JOIN-SURFACE`), which is why the probe had to supply the comparison. The
+hazard is live *because* the operation is unwritten — this measures what the namings would yield
+the moment someone writes it.
+
+It also does not indict the shipped API. `family_v2` is distinctly named, feature-gated, and its
+own doc comment already reads *"different name, different bytes — no silent semantic swap."*
+I-LEGACY-API-FEATURE-GATED is satisfied. The exposure is a reader or a cross-type design treating
+"family" as one concept — which is exactly what the recalled 4096-compartment shorthand did.
+
+### Consequence for the queued work
+
+`ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES` proposes replacing three branches with
+`(a.morton48() ^ b.morton48()).leading_zeros()`. That fix is **correct only over
+`CascadeKey`** — `morton48()` composes HEEL·HIP·TWIG root-first by construction. Porting the same
+shape to `NodeGuid` requires the full decoded recomposition, not a byte reinterpretation, and the
+`from_be` result above is why that distinction cannot be left to reviewer discipline.
+
+---
 ## 2026-09-15 — E-FAMILY-HAS-FOUR-WIDTHS-AND-4096-HAS-FIVE-REFERENTS-PIN-THE-UNIT-BEFORE-THE-ARITHMETIC-1 — the 4096-compartment arithmetic is EXACT and is the canon's own structure; what does not survive checking is which "family" and which "4096"
 
 **Status:** FINDING (code census + citation audit; every claim below read from source or from a
