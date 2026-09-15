@@ -1,3 +1,54 @@
+## 2026-09-15 — PR #1233 merged (`030ad80`): eleven measurement arcs are on `main` — docs and probes only, NO contract inventory delta
+
+- **No contract inventory delta.** 27 files, +7652/−3, all under `.claude/`;
+  no shipped crate changed or gained a dependency; `CausalEdge64` untouched;
+  no default flipped. The one crate added is an EXCLUDED probe,
+  `.claude/probes/family-join-v1/` (own empty `[workspace]`, links the real
+  `lance-graph-contract` `NodeGuid` + `perturbation-sim::CascadeKey`).
+- **What `main` now records as verdicts:** W1 cue **FALSIFIED** (D-HXP-2 —
+  the palette contributes nothing, ORDER of unit types is the signal; bare
+  integer IDs 0.1729 beat the palette's 0.1579); the ±8 locus window is a
+  **boxcar, not a discount** (forward bound `w = 7`, no fixture reverses);
+  depth-rank is **taxonomy-shaped** (MONDO 84.6 % vs MQ 36.0 %; mechanism =
+  path-length SPAN, density INERT at a pinned 45.05 %); the semiring is
+  **free, the carrier is the cost** (all 7 ⊗ one bitwise op; `BitVec` = 32
+  registers vs 5 facets per register); the two `family` namings **invert**
+  (0 vs 3) and `from_be_bytes` is the plausible-wrong join (6/29 vs 0/31);
+  both peak-frontier figures **stand** (142 interior-sampled, 6,297 the
+  root's and the global max); and the canonical join
+  **`hhtl::NiblePath::common_prefix_depth` shipped all along** — same crate,
+  wired in `mailbox_scan.rs` / `soa_graph.rs`, agrees with `CascadeKey` at
+  16-nibble resolution on every fixture.
+- **Issues moved:** `ISS-NODEGUID-HAS-NO-JOIN-SURFACE` **INVALID**;
+  `ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS` RESOLVED, hazard
+  CONFIRMED; `ISS-NO-MASK-HOP-OP` and
+  `ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES` re-scoped (the hop
+  exists on the palette carrier in `p64-bridge::deduce_path`, absent on
+  `BitVec`; the join is nibble-fine but branches per row);
+  `ISS-ELK-DENSITY-UNISOLATED` answered by its own sweep. **Live and open:**
+  `ISS-TYPEDGRAPH-TRAVERSE-HOP-COUNT` (`traverse` and `masked_traverse`
+  compute two hops, documented as one),
+  `ISS-SEMIRING-BOOL-CARRIER-SILENTLY-DROPS-EDGE`,
+  `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED`,
+  `ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY` (unmeasured).
+- **Queued on operator go, not started:** `graph/refine/` W1–W5 (task #26);
+  ⊘ **the seam-6 promoter is NOT absent — Codex P2, caught in review, and it is
+  the THIRD absence claim I got wrong this session.** `MailboxSoA::promote_family`
+  ships at `cognitive-shader-driver/src/mailbox_soa.rs:829` — `pub fn`, copies
+  `learned_style[row][f] → frozen_style[row][f]`, with unit tests and a
+  production-path call in `probe_metacognitive_triangle.rs:638`. So #1233's seam-6
+  row (*"no promoter in any `src/`"*) and this bullet's first draft are both FALSE.
+  **What IS narrower and still open:** the promoter's only callers are examples, and
+  whether `NodeRow` (as opposed to `MailboxSoA`) has an equivalent is unchecked. That
+  narrower gap — not a missing promoter — ⊘ *This bullet first proposed
+  re-aiming that loop at `HelixResidue` / `Plasticity` — a fabrication,
+  struck before merge; see the arc entry's storno.* `NiblePath::as_match`
+  (guid-as-mask over `Pred::MatchU64`); the branchless `common_prefix_depth`;
+  the 32-vs-5 register-ratio probe. The post-`82412ac` Hexagon-substrate
+  census is measured and NOT yet on the board — see the arc entry's
+  *Un-recorded* bullet.
+- Arc entry: `PR_ARC_INVENTORY.md` under PR #1233.
+
 ## 2026-09-14 (2) — PR3 (branch `claude/clone-repositories-71a5sw`): `lance-graph-mask-risc` gains its executor, oracle, fuser and generated dispatch
 
 `crates/lance-graph-mask-risc` is no longer a skeleton. Inventory delta, all

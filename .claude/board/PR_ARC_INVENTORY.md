@@ -1,3 +1,191 @@
+## 2026-09-15 — lance-graph PR #1233 (merged `030ad80`, branch `claude/ladybug-transcoding-plan-q5zbrs`) — eleven measurement arcs, docs plus one excluded probe crate: W1 falsified, and the canonical join was in the contract crate all along
+
+- **Added:** five probes under `.claude/probes/` — `hexagon-plasticity-v1/`
+  (the W1 cue benchmark, D-HXP-2; **auditable, not re-runnable** — its
+  ~10 GB `r2harvest` corpus was ephemeral), `horizon-window-v1/`
+  (re-runnable: no corpus, no fetch, no RNG), `elk-generality-v1/` (the MQ
+  synthetic arm is seeded and re-runnable; the MONDO arm skips when the
+  31 MB bake is absent), `density-sweep-v1/` (`sweep.py` + `frontier_peak.py`,
+  every figure asserted exactly), and `family-join-v1/` — the ONE crate this
+  PR adds: a Rust probe with its own empty `[workspace]`, excluded from the
+  lance-graph workspace, linking `lance-graph-contract` (`guid-v2-tail`) and
+  `perturbation-sim::CascadeKey` so it tests the producers rather than a
+  re-implementation. Knowledge: `.claude/knowledge/causal-plane-inventory.md`
+  (§3, the six unwired seams). Plan: `hexagon-plasticity-v1.md` §11 + §11a.
+  Board: `D-ELK-0..5` rows, `D-HXP-2` verdict, EPIPHANIES entries per arc
+  (among them `E-BOUNDED-ATTENTION-BUYS-REACH-AND-A-DISTANT-HOP-IS-A-TERNLOG-NOT-A-SEMIRING-1`,
+  `E-A-DISABLE-CAN-GO-RED-FOR-THE-WRONG-REASON-AND-THE-TWO-PEAK-FIGURES-WERE-NEVER-IN-CONFLICT-1`,
+  `E-I-DECLARED-A-JOIN-ABSENT-BY-GREPPING-ONE-FILE-AND-COMPOSE-IS-THE-SAME-XOR-A-THIRD-TIME-1`),
+  and the ISSUES named below. 21 commits, 27 files, +7652/−3, **all under
+  `.claude/`** — no shipped crate changed or gained a dependency,
+  `CausalEdge64` untouched, no default flipped.
+- **Measured, and what `main` now records as verdicts.** (1) **W1 FALSIFIED**
+  (D-HXP-2): the palette contributes nothing; the entire cue signal is the
+  ORDER of unit types — real cells `r@10` 0.1579, cells permuted 0.1654
+  (rose), bare integer IDs 0.1729 (beats the palette), identity + order
+  shuffle 0.0902 (collapses). Mechanism: 7827 unit types over 1305 occupied
+  cells, a 5.998× lossy hash. The task was structurally incapable of
+  rewarding a lossy code — identity was available and maximal. (2) **The ±8
+  locus window is a boxcar, not a discount**: where it reverses it reverses
+  the OPPOSITE way from hyperbolic and has no indifference region; at the
+  representable forward bound `w = 7` (a `Locus` is a signed i4, `[−8, +7]`)
+  no fixture reverses at all — the first run's single reversal came from
+  asking the register to hold `w = 8`. (3) **Depth-rank is
+  taxonomy-shaped**: ascending-depth meet gives MONDO 84.6 % vs MQ 36.0 %
+  through the same arm functions, Δ 48.6 pp; the controlled density sweep
+  pins density at 45.05 % while agreement spans 26.9 → 100 %, so density is
+  INERT and the variable is the SPAN of reachable path lengths (within the MQ
+  family only). (4) **The semiring is free, the carrier is the cost**: all 7
+  `HdrSemiring` ⊗ are one bitwise op (six `xor`, one `and`); `BitVec` is
+  `[u64; 256]` inline, so a value is 32 AVX-512 registers where the 96-bit
+  facet fits 5 per register. (5) **The two `family` namings INVERT** —
+  `CascadeKey` vs v2-tail on P2 is 0 vs 3, controls agree exactly — and
+  `from_be_bytes` is the wrong join that PASSES a monotonicity check
+  (6/29 against the correct 0/31; `from_le` gives 24/3 and is obviously
+  broken). (6) **Both peak-frontier figures stand**: 142 is the maximum over
+  60 sampled INTERIOR seeds (a pool that excludes roots by construction),
+  6,297 at hop 6 is a root's, and the exhaustive arm over all 6,194 parents
+  confirms 6,297 is the GLOBAL maximum. (7) **The canonical join shipped all
+  along**: `hhtl::NiblePath::{from_guid_prefix_v2, common_prefix_depth}`
+  (same crate, one module over from `canonical_node.rs`; wired at
+  `mailbox_scan.rs:149`, `:263`, `soa_graph.rs:408`) agrees with
+  `CascadeKey` on every probe fixture at 16-nibble resolution and avoids the
+  byte-order trap by recomposing from decoded fields.
+- **Reversed in-arc, kept struck rather than deleted** (five, in order):
+  §11 PROCEED → §11a FALSIFIED (the pre-committed disable fired); `w = 8` →
+  `w = 7`; descending → ascending depth rank (max-depth selects the most
+  GENERAL ancestor — the clinical pairs all returned `"disease"`); the A5
+  braid verdict withdrawn by the dose design (binary indicator was
+  underpowered, not wrong); and the eighth arc's *"`NodeGuid` has no join
+  surface at all"* → **FALSE**, `ISS-NODEGUID-HAS-NO-JOIN-SURFACE` INVALID
+  the same day — filed on a grep of ONE file for a symbol under a name I
+  would have used, not the canonical one.
+- **Review.** Fourteen findings over the PR, fourteen valid; the final
+  CodeRabbit round was nine for nine and one was a REAL BUG:
+  `elk-generality-v1/generality.py`'s `supers_minmax` wrote `mn`/`mx` above
+  its own change test, so only the first discovery propagated — MQ mean
+  path-length spread 0.73 → **15.55 (21×)**, MONDO 0.44 → 1.35. A3/A5 read
+  the SIGN of spread and are unchanged; every MAGNITUDE claim built on the
+  old numbers is annotated VOID in the PR body. Also caught there: the probe
+  that states *"pin exact levels at both ends, never a relation"* shipped
+  asserting `le_t1 > le_t2` — a relation — in the same commit. **Green CI on
+  this repo compiles no Rust**: the four gates (`no-shrink`,
+  `regenerate-and-diff`, `citation-decay`, `added-plans-have-dids`) are
+  documentation gates, so "green" never spoke to any of the above.
+- **Locked.** Nothing in shipped code — this PR ships MEASUREMENTS, and the
+  three that bind future work are: a test where identity is available and
+  sufficient cannot reward a lossy code (the W1 theorem); pinning a join
+  requires exact levels at both ends; and absence must be verified against
+  the CRATE and the CANONICAL name, never one file and the name one would
+  have chosen (the fourth arc applied that rule to mask-risc and not to the
+  contract — the crate where an absence claim weighs most).
+- **Deferred, named — every one filed or re-scoped, none silently dropped:**
+  `ISS-NO-MASK-HOP-OP` (re-scoped: the op EXISTS on the palette carrier —
+  `p64-bridge::deduce_path` is a `visited[]` + `next_frontier` bitmask walk
+  calling `compose` and `distance` per hop — and is absent on the `BitVec`
+  carrier, where it stays correct); `ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES`
+  (re-scoped: tier-coarse does NOT apply to the canonical join, `MAX_DEPTH =
+  16`; a `while … match` per row in a scan DOES — branchless form is one
+  line on `packed()`); `ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY` (OPEN as
+  UNMEASURED — its "comparable spread" premise was the 21× bug, two points are
+  not a curve); `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED` (k=50 is
+  100 % on every MQ config, 99.4 % on MONDO — the fires-on-everything shape;
+  the torch's recall claim is UNEARNED until a graph where truncation costs
+  reachability exists); `ISS-TYPEDGRAPH-TRAVERSE-HOP-COUNT` (`traverse` is
+  documented single-hop and computes `A × A`; `masked_traverse` carries the
+  identical defect — a behaviour change to a shipped primitive, not a
+  docs-PR fix); `ISS-SEMIRING-BOOL-CARRIER-SILENTLY-DROPS-EDGE` (six
+  semirings return the annihilator on a `Bool`-carried edge and `add` treats
+  it as identity — no test in the suite can catch it because every test
+  carries one type throughout); `ISS-ELK-DENSITY-UNISOLATED` (its sweep ran
+  and KILLED its own hypothesis); the 32-vs-5 register-ratio probe (unrun —
+  whether the carrier width dominates a real traversal or frontier
+  management swamps it); `graph/refine/` W1–W5 stays gated (task #26). Two
+  two-line helpers await operator go rather than being slipped into a docs
+  PR: `NiblePath::as_match(self) -> (u64, u64)` (the guid-as-mask read —
+  `Pred::MatchU64 { lane, pattern, care }` already ships in mask-risc `ir.rs`
+  and `care = !0 << (64 − 4·depth)` selects every row sharing a prefix in one
+  XOR) and the branchless `common_prefix_depth`.
+- **Un-recorded, stated so the gap is visible rather than found later.**
+  After `82412ac` the operator corrected the Hexagon-substrate reading eight
+  times in chat (HHTL = the cell's trie ADDRESS, Hexagon = the cell's CONTENT
+  — six `(u8:u8)` rails = the six deterministic edges to its six neighbours;
+  between two Waben exactly ONE edge; `[a,b]:[b,c]` = `compose_chain`; the
+  i8 Fisher-z is the currency and `lookup_f32` a materialization; HLRF =
+  Human-Loop Reinforcement Feedback; and the primary epiphany: **any
+  `NodeGuid` is reusable as a MASK without materialization — the nibbles are
+  secondary**). The census that followed — `MatchU64` shipped with zero
+  callers outside mask-risc; `clam_contained`/`cakes_nearest` empty on every
+  live view because `hhtl_path_at` defaults to `None` — is measured and **NOT
+  on the board.**
+  > ⊘ **AND THE REST OF THAT CENSUS WAS A FABRICATION — struck before it
+  > merged, operator-caught.** The draft of this bullet continued: *"`ValueTenant::HelixResidue`
+  > is `U8×6` (one byte per synapse, exactly six) and `::Plasticity` `U32×1`,
+  > both never written; `ResidueEncoder::observe`/`roll` and `distance_adaptive`
+  > with zero production callers; … `set_style_lane` no-ops on the 6-byte and
+  > 4-byte synapse lanes by width."* **Every clause of that is wrong about
+  > Hexagon.** `HelixResidue` is 6 B = a 48-bit `Signed360` sphere ANGLE — ONE
+  > orientation, not six synapse bytes; I read `6 == 6` as a mapping.
+  > `Plasticity` is a `U32` *"Hebbian counter + last-active stamp"* — a scalar
+  > accumulator, foreign to a **6 × 2 × palette256** substrate, and it duplicates the
+  > plasticity that actually ships in the substrate's own shape:
+  > `PlasticityState`, **3 bits at `CausalEdge64[50:52]`, hot/cold per S/P/O,
+  > 54 production sites, written by `pack`.** helix is the residue of **HHTL**
+  > (its own `lib.rs`: *"HHTL is the deterministic PLACE; helix is the
+  > RESIDUE"*) — a different axis from Hexagon's six rails, grafted on by me.
+  > **Measured: `residue` appears 0× in `hexagon-plasticity-v1.md`, 0× across
+  > the W1 probes, 0× in `STATUS_BOARD` — Hexagon was tested exhaustively and
+  > never involved a residue.** And `set_style_lane`'s width guard is not a
+  > defect to work around: it returns the null lane for any non-12-byte tenant
+  > *"release-safe by construction"* — **the contract's own guard was refusing
+  > the graft and I recorded the refusal as a missing feature.** The real
+  > learning surface is already hexagon-shaped and already correctly
+  > addressed: `FrozenStyle`/`LearnedStyle`/`ExploreStyle`, `U8×12` each =
+  > **6 × 2 × palette256** each — the shape operator-ruled and board-MEASURED better
+  > than the 48-bit class `HelixResidue` belongs to (`EPIPHANIES:19221`, ρ_all 0.966,
+  > near-orth 170×) — with the shipped gate *"`learned[f]` promotes to
+  > `frozen[f]` only after winning the held-out arm"* — seam 6 of this PR's
+  > own inventory. ⊘ *That clause first read "whose only gap is a `src/`
+  > promoter" — FALSE, Codex-caught: `MailboxSoA::promote_family` ships at
+  > `cognitive-shader-driver/src/mailbox_soa.rs:829` with a production-path
+  > call in `probe_metacognitive_triangle.rs:638`. The narrower open gap is
+  > that its only callers are examples, and `NodeRow` equivalence is
+  > unchecked.* The eleventh arc's
+  > merged EPIPHANIES entry carries the same fabrication in five rows of its
+  > organs/no-nerve table and in its `Read edge → … → write HelixResidue +
+  > Plasticity` chain; it is stornoed in place and in a new entry, both in
+  > this PR. **And the first draft of that storno committed a SECOND violation** —
+  > it called `ValueTenant::{HelixResidue, Plasticity}` *"zombies"* and *"dead"*,
+  > which is a DEPRECATION RULING on the operator's architecture that I had no
+  > authority to make. *"Never written"* is a measurement; *"dead"* is a decision.
+  > Struck before merge; **nothing here deprecates either tenant, no code changed,
+  > and their status is the operator's to rule.** Entry renamed to
+  > `E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1`.
+- **Docs:** the PR body — eleven `⊘` arc blocks that are themselves the
+  supersession record, with the VOID/FALSE annotations in place; the
+  scope-note comment (`#issuecomment-5678239488`) and the frozen-checker note
+  (`#issuecomment-5683792004`, CodeRabbit's visible assessment frozen at
+  `43dbfde`; docstring 57.69 % over the frozen 8-file set vs 61.0 % live —
+  the W1 exemption audited: frozen W1 20/50 = 40.0 %, new re-runnable
+  probes 21/23 = 91.3 %, so the exemption covers exactly what it claims).
+- **Confidence: high on every re-runnable measurement** (horizon, elk MQ arm,
+  density, peak frontier, family-join — each figure asserted exactly and
+  disable-verified red-then-green, including the one disable that went red
+  for the WRONG reason and was redone); **medium on W1** (auditable, not
+  re-runnable; a pure-Python shape proxy, never a measurement of
+  `ndarray`/`bgz17`/`helix`; apparatus failures outnumbered hypothesis
+  failures 3:1 and run 1 is kept in-tree as that record). One published
+  number in the board entry was the wrong metric (`r@10` vs `r@5`) while the
+  PR body carried the right one — two artifacts by one author disagreed and
+  nothing could flag it.
+- **Process.** The post-merge check-in found the PR merged at 17:10 Z; the
+  branch was restarted from `origin/main` (`030ad80`) only after
+  `git merge-base --is-ancestor 82412ac origin/main` returned YES — the
+  #1217 rule applied to its own restart — so no unmerged commit existed to
+  orphan. Merged by merge commit, so the restart is a fast-forward of the
+  remote branch, not a force. This entry is the merged-PR row obligation and
+  generates none of its own (termination clause).
+
 ## 2026-09-14 — lance-graph PR #1226 (merged `0b1ebaa`, branch `claude/clone-repositories-71a5sw`) — the mask-risc executor, and five findings that arrived AFTER the council
 
 - **Added:** `crates/lance-graph-mask-risc` — `ir` (the op vocabulary),
