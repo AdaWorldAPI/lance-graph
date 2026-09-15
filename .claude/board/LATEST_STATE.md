@@ -1,3 +1,23 @@
+## 2026-09-15 (5) — operator clarification: the rail is the exact row ADDRESS (2 bytes ↔ 64k rows), not a mask — (4)'s "counts in the rail's unit" is withdrawn, the two-unit measurement stays
+
+- **What changed (this commit, docs only):** the probe header, `lib.rs`'s
+  `and_by_skip` doc, the prefix test's comment and mask-risc `MaskOp::Pred`'s
+  doc no longer say the rail's hi byte is the skip unit. They say: a `u8:u8`
+  rail is the exact SoA row address of a 64k table (256 × 256, every value a
+  row — that is the "no remainder"); a mask over the 64k area is a larger
+  object, bitpacked 1 024 words = 256 four-word blocks; the 256-row block is
+  the OGAR tier tile's 2-nibble cell, a coarser skip unit an executor may use.
+  No number moved; the probe reproduces `[4080, 3060, 2040, 1020, 0]` /
+  `[1020, 765, 510, 255, 0]`.
+- **The operator's candidate reading for masking, recorded not built:**
+  `256:256⁶` = the 96-bit facet payload — six exact needles (a sparse
+  survivor set of ≤ 6 rows in the register the facet already has) or six
+  per-rail prefixes; or bitpacked 64k. The sparse arm the A1 falsifier lacks
+  is the needle list; it lands in Phase 7's very-sparse density arm.
+- Entry:
+  `E-THE-RAIL-IS-A-NEEDLE-NOT-A-MASK-256-BY-256-IS-THE-EXACT-ROW-ADDRESS-AND-A-MASK-OVER-THE-AREA-IS-ANOTHER-OBJECT-1`;
+  (7) ⊘-regraded in place.
+
 ## 2026-09-15 (4) — operator ruling *"256:256 is exactly 64k. Es darf gar keinen Rest geben."* — the A1 probe counts in the rail's unit, and two figures in (3) moved
 
 - **What changed (this commit, no lowering behaviour touched):**
@@ -18,6 +38,8 @@
   boundary. Entry:
   `E-256-BY-256-IS-EXACTLY-64K-THE-RAILS-SKIP-UNIT-IS-ITS-HI-BYTE-AND-A-QUARTER-BLOCK-IS-A-REMAINDER-1`;
   the (5) epiphany is ⊘-regraded in place.
+- ⊘ **Same day, entry (5) above:** "the rail's unit" was my reading, not the
+  ruling — the rail is a row address, not a mask. Numbers unchanged.
 
 ## 2026-09-15 (3) — PR #1235 merged (`e8d3c19`): `lance-graph-quack` is on `main` and the AWS SDK is opt-in on `main` — one new workspace member, NO contract inventory delta
 

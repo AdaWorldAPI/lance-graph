@@ -64,8 +64,8 @@
 //! This matters because it is the whole of what survives from DuckDB's
 //! `AdaptiveFilter` (matrix row A1 / §8a). Ordering is worth up to 99.61
 //! percentage points of skipped words — and of skipped 256-row blocks, the
-//! rail's own unit — on a clustered conjunction under [`lower`], and exactly
-//! zero under [`lower_fused`], on the same query.
+//! tier tile's 2-nibble cell — on a clustered conjunction under [`lower`], and
+//! exactly zero under [`lower_fused`], on the same query.
 //! [`Filter::and_by_skip`]'s lever is therefore alive in one configuration:
 //! gated lowering, plane-free conjunction, contiguous survivors. Under a
 //! plane it is inert too (`ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE`).
@@ -129,7 +129,7 @@
 //! than unfinished: it never executes, so there is nothing for it to measure.
 //!
 //! Order is still a real cost lever here — under the survivor skip a conjunct
-//! whose survivors die in whole WORDS — on a rail, whole 256-row blocks —
+//! whose survivors die in whole WORDS — or whole 256-row blocks —
 //! shrinks every later predicate's live
 //! count — so [`Filter::and_by_skip`] takes the ordering decision as an INPUT.
 //! The measurement that licensed even that much is
@@ -312,14 +312,16 @@ impl Filter {
     /// first literally shrinks the input. In V3 a predicate sweep costs the
     /// full column wherever it sits, so ordering can only pay by AVOIDANCE:
     /// the survivor skip drops a 64-row WORD when the gate has no survivor in
-    /// it — and on a V3 rail the unit that can be ADDRESSED is coarser: the
-    /// rail's hi byte names one of 256 blocks of 256 rows (four words), and
-    /// "256:256 is exactly 64k, es darf gar keinen Rest geben" (operator,
-    /// 2026-09-15), so a skip counted on a rail is counted in blocks. The
-    /// matrix (row A1) said so and required the measurement before any
-    /// port. `examples/adaptive_order_probe.rs` is that measurement, over
-    /// 65,536 rows, five conjuncts, all 120 orderings, four regimes, in both
-    /// units:
+    /// it — and a 256-row block (four words, the OGAR tier tile's 2-nibble
+    /// cell) is the coarser unit an executor may skip in; on scattered
+    /// survivors the two units disagree, so the probe reports both. A `u8:u8`
+    /// rail itself is neither: it is the exact row ADDRESS of a 64k table —
+    /// 256 × 256, every value a row, no remainder — not a mask and not a skip
+    /// unit (operator, 2026-09-15: *"64k sind 2 byte … für Maske über 64k als
+    /// Fläche bräuchte es entsprechend mehr"*). The matrix (row A1) said so
+    /// and required the measurement before any port.
+    /// `examples/adaptive_order_probe.rs` is that measurement, over 65,536
+    /// rows, five conjuncts, all 120 orderings, four regimes, in both units:
     ///
     /// | regime | survivors | words, worst → best order | 256-row blocks, worst → best |
     /// |---|---|---|---|
@@ -2066,13 +2068,13 @@ mod tests {
             }
             previous = Some(rows.len());
         }
-        // 48 is the byte boundary — the rail's hi byte, one 256-row block.
-        // 46, 47, 49 and 50 are not nibble-aligned: legal for the comparator,
-        // which is a ternary match on any care mask, but not addresses of the
-        // rail, whose cells are nibble-multiples and whose skip unit is the
-        // block ("256:256 is exactly 64k, es darf gar keinen Rest geben" —
-        // operator, 2026-09-15). The halving is the comparator's arithmetic
-        // and holds through the boundary either way.
+        // 48 is the byte boundary — the row index's hi byte, one 256-row
+        // block, a 2-nibble cell of the OGAR tier tile. 46, 47, 49 and 50 are
+        // not nibble-aligned: legal for the comparator, which is a ternary
+        // match on any care mask, but not cells of the tile, whose cascade is
+        // 4-ary per byte. (A rail as such is a row ADDRESS — 2 bytes for 64k
+        // rows, no remainder — not a mask; operator, 2026-09-15.) The halving
+        // is the comparator's arithmetic and holds through the boundary.
         assert_eq!(
             previous,
             Some(64),

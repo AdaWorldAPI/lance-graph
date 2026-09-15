@@ -1,3 +1,61 @@
+## 2026-09-15 (8) — E-THE-RAIL-IS-A-NEEDLE-NOT-A-MASK-256-BY-256-IS-THE-EXACT-ROW-ADDRESS-AND-A-MASK-OVER-THE-AREA-IS-ANOTHER-OBJECT-1 — operator clarification; (7)'s "hi byte = skip unit" is withdrawn as the ruling's meaning, and its measurement is kept as data
+
+**Status:** RULING — operator, verbatim (2026-09-15, five lines): *"Ich meine 64k sind
+2 byte. 256:256 sind 2 byte für die exakte SoA inna given table. Das gilt nur für needle
+in a haystack x table. Für Maske über 64k als Fläche bräuchte es entsprechend mehr. Eine
+Mögliche Lesart für masking wäre 256:256⁶, also genau 96 bit, oder bitpacked 64k."*
+Everything below the ruling is my reading of it, labelled as such.
+**Confidence:** HIGH that (7)'s derivation was not what was meant — the operator says so
+in the first word. MEDIUM on the two sub-readings of `256:256⁶`: the operator called it
+*eine mögliche Lesart*, and it stays open here.
+
+### What the ruling says, read plainly
+
+1. **The rail is an address, not a mask.** `u8:u8` = 2 bytes = the exact SoA row in a
+   given 64k table. 256 × 256 = 65 536: every value a row, every row a value. THAT is
+   "kein Rest" — a bijection between rail values and rows — not a tiling of the mask
+   into skip units. It holds for the needle-in-a-haystack × table case: one value,
+   one row.
+2. **A mask over the 64k AREA is a different, larger object.** Bitpacked it is 65 536
+   bits = 8 KiB = 1 024 words = 256 four-word blocks, and it tiles with no remainder in
+   either unit. The rail does not dictate which unit an executor skips in; nothing in
+   the ruling does.
+3. **`256:256⁶` = 96 bits is the facet payload — the operator's candidate for a masking
+   reading.** Two ways to read it, both recorded, neither ruled: (i) six exact
+   needles — a sparse survivor set of at most six rows, in the 12 bytes the facet
+   already has; (ii) six per-rail prefixes — a product cell in the six-rail tile space,
+   a mask given by predicate rather than by bits. Reading (i) is the sparse arm the A1
+   falsifier is missing, in the substrate's own register: D-GTM-0n's *below ~0.1 %
+   active, switch to sparse* is below 65 rows of 64k, and six needles are 0.009 %.
+
+### What (7) got wrong, and what of it stands
+
+- **Wrong as the ruling's meaning:** *"the rail's unit is its hi byte"*, *"a quarter
+  block is a remainder"*, *"count in the unit the address is carved in"*. The address
+  is not carved into the mask at all. Withdrawn; (7) is ⊘-regraded in place. The same
+  sentences had been pushed as canon in `d80b802` — in the probe header, `lib.rs`'s
+  `and_by_skip` doc, the prefix test's comment and mask-risc's `MaskOp::Pred` doc — and
+  are corrected in this commit to the reading above.
+- **Stands as data:** the two-unit measurement. 64-row words are the executor's unit;
+  256-row blocks are the 2-nibble prefix cell of the OGAR tier tile (`OGAR/CLAUDE.md`
+  "Tier interpretation — 256×256 CENTROID TILE": a 4-ary hierarchy per byte) — a
+  legitimate coarser skip unit, not the rail's. Clustered `/48`: 99.61 % in both
+  units; selective: 80.66 % words / 61.91 % blocks, written order 0 blocks; the ramps.
+  The `/48` cut stays: it is nibble-aligned under the tile canon, which is a separate
+  and older ruling; `/50` (2.5 nibbles) is not.
+- **Stands, restated:** the probe's `N == 256 * 256` assert now says what it is — the
+  table is exactly 2-byte addressable — rather than "no fractional block".
+- **Stands from (5)/(7):** the clustered regime at `/48` sits above the 0.1 % bound
+  (0.177 %); the selective regime (0.055 %) is under it and the probe has no sparse arm.
+
+### Consequence
+
+The missing sparse arm now has a shape and a home. Shape: a needle list of `u16` row
+ids — the very thing a rail value is. Home: Phase 7's *very-sparse* density arm
+(task #6), measured against the bitpacked sweep at 6, 36 and 116 survivors, where six
+is the count the facet register itself can hold. Not built here; recorded so the arm
+is built against the operator's reading and not against mine.
+
 ## 2026-09-15 (7) — E-256-BY-256-IS-EXACTLY-64K-THE-RAILS-SKIP-UNIT-IS-ITS-HI-BYTE-AND-A-QUARTER-BLOCK-IS-A-REMAINDER-1 — operator-ruled; the `/50` cut read across `u8:u8`, and re-measured on the byte boundary the clustered regime moves ABOVE the density bound
 
 **Status:** RULING — operator, verbatim: *"256:256 is exactly 64k. Es darf gar keinen
@@ -7,6 +65,14 @@ unit* is my derivation and is labelled as such.
 **Confidence:** HIGH on the numbers. The derivation is the only reading under which
 "no remainder" and the `u8:u8` canon (two separate bytes, never widened —
 `E-V1-TAIL-FORBIDDEN-V3-IS-CONTENT-BLIND-1`) are satisfied by one skip unit.
+
+> ⊘ **Superseded the same day by the operator's own clarification — entry (8).** The
+> reading *hi byte = skip unit, quarter block = remainder* was mine, and it is not what
+> was meant: the rail is the exact row ADDRESS of a 64k table (2 bytes ↔ 65 536 rows —
+> that bijection is the "no remainder"), not a mask; a mask over the area is a larger
+> object, and the rail dictates no skip unit. The measurements below stand as data in
+> two units (words; 256-row blocks = the tier tile's 2-nibble cell), the `/48` cut
+> stands under the tile canon, and the "rule" at the end is withdrawn.
 
 ### The ruling, and what it rules out
 
@@ -196,8 +262,8 @@ order-independent by construction (the (4) entry above) and settles a different 
 
 ### 3. The clustered 99.90 % is arithmetic, not a property of the data
 
-`crates/lance-graph-quack/examples/adaptive_order_probe.rs:170` — `(i as u64) << 8`;
-`:305` — `Filter::prefix_u64(ADDR, addr[N / 4], 48)` (it read `50` when this entry was
+`crates/lance-graph-quack/examples/adaptive_order_probe.rs:177` — `(i as u64) << 8`;
+`:313` — `Filter::prefix_u64(ADDR, addr[N / 4], 48)` (it read `50` when this entry was
 measured; see the ⊘ below). A 50-bit prefix on a u64 leaves 14
 low bits free: 8 are the shift, **6 are log₂ 64 — the word.** The prefix pins `i`'s top
 10 bits, which IS the 64-row word index (N = 2¹⁶ rows = 1 024 words); exactly the 64 rows

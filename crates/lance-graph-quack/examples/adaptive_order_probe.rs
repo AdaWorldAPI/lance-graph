@@ -35,20 +35,25 @@
 //! OPPORTUNITIES. The honest reading of the output is "how much work becomes
 //! avoidable", not "how much time is saved".
 //!
-//! # Two granularities, and which one is the substrate's
+//! # Two granularities — and the rail is neither
 //!
 //! The 64-row word is the FACADE's unit — the `u64` the executor tests before
-//! it loads a chunk. The V3 rail's unit is coarser and exact: a rail is
-//! `u8:u8`, 256 × 256 = 65 536 rows = this fixture's `N`, and its hi byte
-//! addresses one of 256 BLOCKS of 256 rows (four words — one 256-bit vector).
-//! Operator, 2026-09-15: *"256:256 is exactly 64k. Es darf gar keinen Rest
-//! geben."* A 64-row word is a quarter of a block, and a quarter is a
-//! remainder. So the probe reports BOTH — words (what the shipped executor
-//! skips) and blocks (what a rail-addressed skip may count) — and the clustered
-//! regime's prefix sits on the byte boundary: `/48` on this lane is the hi
-//! byte of the row index, one whole block. An earlier run used `/50`, which
-//! selected a quarter block by widening across the rail's two bytes; its
-//! numbers (99.90 % = 1023/1024) are recorded on the board as that cut's.
+//! it loads a chunk. A 256-row block (four words, one 256-bit vector) is the
+//! 2-nibble prefix cell of the OGAR tier tile — a coarser unit an executor may
+//! skip in, with an identical result. The probe reports BOTH, because on
+//! scattered survivors they disagree: a block with one live word is live.
+//!
+//! What a rail is NOT is a unit of either. Operator, 2026-09-15: *"64k sind 2
+//! byte. 256:256 sind 2 byte für die exakte SoA in a given table — needle in a
+//! haystack × table. Für Maske über 64k als Fläche bräuchte es entsprechend
+//! mehr."* A `u8:u8` rail is the exact row ADDRESS of a 64k table: 256 × 256 =
+//! 65 536 = this fixture's `N`, every value a row and every row a value — that
+//! is the "no remainder". A mask over the same 64k is a different, larger
+//! object (bitpacked: 1 024 words = 256 blocks, tiling with no remainder in
+//! either unit), and the rail says nothing about which unit it is skipped in.
+//! The clustered regime's prefix is `/48` — the hi byte of the row index, a
+//! 2-nibble cell of the tile; an earlier run used `/50`, 2.5 nibbles, and its
+//! figures (99.90 % = 1023/1024) are on the board as that cut's.
 //!
 //! Run: `cargo run -p lance-graph-quack --example adaptive_order_probe --release`
 
@@ -61,14 +66,15 @@ const ADDR: Col = Col(2);
 
 const N: usize = 1 << 16;
 const WORDS: usize = N / 64;
-/// Rows per rail block: the hi byte of a `u8:u8` rail selects one of 256 blocks
-/// of 256 rows — four 64-row words, one 256-bit vector.
+/// Rows per block: the 2-nibble prefix cell of the tier tile — 256 rows, four
+/// 64-row words, one 256-bit vector. A coarser skip unit than the word; not a
+/// property of the rail, which is a row address (see the module doc).
 const BLOCK_ROWS: usize = 256;
 const BLOCK_WORDS: usize = BLOCK_ROWS / 64;
 const BLOCKS: usize = N / BLOCK_ROWS;
 const _: () = assert!(
     N == 256 * 256 && BLOCKS * BLOCK_WORDS == WORDS,
-    "256:256 is exactly 64k — no remainder"
+    "a 2-byte rail addresses exactly N rows, and N is whole words and whole blocks — no remainder"
 );
 
 /// One conjunct: a label, the filter, and the rows it selects.
@@ -98,12 +104,13 @@ fn dead_words(mask: &[u64]) -> usize {
     mask.iter().filter(|w| **w == 0).count()
 }
 
-/// Blocks of `mask` (four words each) that are entirely zero — the units a
-/// rail-addressed skip may count. A block with one live word is LIVE, not
-/// three-quarters dead: there is no fractional block.
+/// Blocks of `mask` (four words each) that are entirely zero — a coarser skip
+/// unit an executor may use. A block with one live word is LIVE, not
+/// three-quarters dead, so block counting is stricter than word counting on
+/// scattered survivors.
 fn dead_blocks(mask: &[u64]) -> usize {
     let (blocks, rest) = mask.as_chunks::<BLOCK_WORDS>();
-    assert!(rest.is_empty(), "a mask over a rail has no remainder");
+    assert!(rest.is_empty(), "a 64k mask is whole blocks — no remainder");
     blocks.iter().filter(|c| c.iter().all(|w| *w == 0)).count()
 }
 
@@ -297,9 +304,10 @@ fn main() {
         Scenario {
             name: "clustered (one conjunct is an ADDRESS PREFIX)",
             terms: vec![
-                // /48 on `i << 8` pins the row index's HI BYTE: one whole
-                // 256-row block, on the rail's byte boundary. (/50 would pin two
-                // more bits — a quarter block — by reading across `u8:u8`.)
+                // /48 on `i << 8` pins the row index's hi byte: 2 nibbles of
+                // the tier tile's 4-ary cascade, one whole 256-row block. (/50
+                // is 2.5 nibbles — not a cell of the tile; it selected a
+                // quarter block.)
                 build(
                     "addr prefix /48  (hi byte: one block)",
                     Filter::prefix_u64(ADDR, addr[N / 4], 48),
@@ -336,7 +344,7 @@ fn main() {
         "N = {N} rows = {BLOCKS} blocks x {BLOCK_ROWS} = {WORDS} words x 64, 5 conjuncts per scenario"
     );
     println!(
-        "\nskipped = 64-row words (the executor's unit) and 256-row blocks (the rail's hi\n         byte) a gated `Pred` does not evaluate, summed over the {} word / {} block\n         gated positions of one ordering (term 0 is the ungated seed).\n",
+        "\nskipped = 64-row words (the executor's unit) and 256-row blocks (the tile's\n         2-nibble cell) a gated `Pred` does not evaluate, summed over the {} word /\n         {} block gated positions of one ordering (term 0 is the ungated seed).\n",
         4 * WORDS,
         4 * BLOCKS
     );

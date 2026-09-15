@@ -93,13 +93,13 @@ pub enum MaskOp {
     /// construction, since a skipped chunk is an all-zero gate). Compare cost
     /// follows the gate's live words; the per-word gate test is still ∝ rows/64.
     ///
-    /// On a V3 rail the coarser chunk is not a choice but the unit: a rail is
-    /// `u8:u8`, 256 × 256 = 65 536 rows exactly, and its hi byte addresses one
-    /// of 256 BLOCKS of 256 rows — four words, one 256-bit vector. A word is a
-    /// quarter of a block and a quarter is a remainder (operator, 2026-09-15:
-    /// *"256:256 is exactly 64k. Es darf gar keinen Rest geben."*), so a skip
-    /// COUNTED on a rail is counted in blocks; the per-word test remains the
-    /// executor's machine detail.
+    /// On a V3 table the coarser chunk has a natural size: a 256-row block —
+    /// four words, one 256-bit vector, the 2-nibble prefix cell of the OGAR
+    /// tier tile — and a 64k table's mask is exactly 1 024 words or 256 such
+    /// blocks, no remainder in either unit. The rail (`u8:u8`) is not a unit
+    /// of the mask at all: it is the exact row ADDRESS of a 64k table, 256 ×
+    /// 256 = every row and nothing else (operator, 2026-09-15). Which unit an
+    /// executor skips in is its own choice; the result is identical.
     Pred {
         pred: Pred,
         under: Option<Operand>,

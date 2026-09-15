@@ -617,7 +617,10 @@ positions of one ordering (term 0 is the ungated seed).
 > rail's `u8:u8`. On the byte boundary (`/48`, the rail's hi byte): **116 survivors
 > (0.177 %)**, 0.00 % → **99.61 %** in words AND in 256-row blocks (1 − 1/256); the
 > selective row in blocks is 0.00 % → 61.91 % (its written order skips no block). The
-> probe now prints both units and the ramp.
+> probe now prints both units and the ramp. ⊘ Same day, operator clarification
+> (`E-THE-RAIL-IS-A-NEEDLE-NOT-A-MASK-…-1`): "the rail's hi byte" as a skip unit was
+> my reading — a rail is the exact 2-byte row address of a 64k table, not a mask; the
+> 256-row block is the tier tile's 2-nibble cell. Numbers unchanged.
 
 **Verdict: ADAPT, not ELIMINATE — but not DuckDB's algorithm.** Three findings,
 each of which changes what should be built:
