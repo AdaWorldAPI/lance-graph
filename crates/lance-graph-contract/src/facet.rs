@@ -223,12 +223,26 @@ impl FacetCascade {
     }
 
     /// Shared coarse→fine prefix length (0..=6) of two 6-byte chains.
+    ///
+    /// Folded, not looped: the six bytes are formatted into one `u64` by position
+    /// (`"{0}{1}{2}{3}{4}{5}" -f chain`, LE so tier 0 is the low byte), and the
+    /// prefix is `xor` + `trailing_zeros / 8` — the same single-register readout
+    /// [`shared_prefix_tiles`](Self::shared_prefix_tiles) already uses for the
+    /// whole facet, applied per axis. The two zero pad bytes at 48..64 are
+    /// identical on both sides, so `xor == 0` ⇔ all six bytes agree, and the
+    /// clamp to 6 only ever fires on that case.
     const fn shared6(a: [u8; 6], b: [u8; 6]) -> u8 {
-        let mut n = 0u8;
-        while (n as usize) < 6 && a[n as usize] == b[n as usize] {
-            n += 1;
+        let x = Self::fold6(a) ^ Self::fold6(b);
+        if x == 0 {
+            6
+        } else {
+            (x.trailing_zeros() / 8) as u8
         }
-        n
+    }
+
+    /// `"{0}…{5}" -f chain` — six tier bytes into one LE `u64`, tier 0 lowest.
+    const fn fold6(c: [u8; 6]) -> u64 {
+        u64::from_le_bytes([c[0], c[1], c[2], c[3], c[4], c[5], 0, 0])
     }
 
     /// `hi`-chain distance: `6 − shared hi-prefix` — locality along the `hi` hierarchy,
@@ -672,6 +686,43 @@ mod tests {
         let h = FacetCascade::from_u128(f.as_u128() ^ 1);
         assert_eq!(h.shared_prefix_tiles(f), 0);
         assert_eq!(h.row_match_mask(f), 0b1110);
+    }
+
+    /// The folded `shared6` against the byte loop it replaced, at every divergence
+    /// position and on the identical case. A fold that read the chain big-endian
+    /// (tier 5 lowest) or forgot the identical-clamp would fail one of these rows.
+    /// Disable-verified 2026-09-16: reversing `fold6`'s byte order fails `hi t=0`.
+    #[test]
+    fn folded_axis_prefix_matches_the_loop_at_every_position() {
+        const fn looped(a: [u8; 6], b: [u8; 6]) -> u8 {
+            let mut n = 0u8;
+            while (n as usize) < 6 && a[n as usize] == b[n as usize] {
+                n += 1;
+            }
+            n
+        }
+        let f = FacetCascade::from_bytes(&sample());
+        let base = sample();
+        // identical: both axes fully shared (the xor == 0 clamp).
+        assert_eq!(f.hi_distance(f), 0);
+        assert_eq!(f.lo_distance(f), 0);
+        // flip exactly tier `t`'s hi byte, then its lo byte: prefix must be `t` on
+        // that axis and 6 on the other, and equal the loop's answer.
+        for t in 0..6usize {
+            for (axis_off, is_hi) in [(1usize, true), (0usize, false)] {
+                let mut b = base;
+                b[4 + 2 * t + axis_off] ^= 0x80;
+                let g = FacetCascade::from_bytes(&b);
+                let (sh, sl) = (6 - f.hi_distance(g) as usize, 6 - f.lo_distance(g) as usize);
+                assert_eq!(sh, looped(f.hi_chain(), g.hi_chain()) as usize, "hi t={t}");
+                assert_eq!(sl, looped(f.lo_chain(), g.lo_chain()) as usize, "lo t={t}");
+                if is_hi {
+                    assert_eq!((sh, sl), (t, 6), "hi flip at tier {t}");
+                } else {
+                    assert_eq!((sh, sl), (6, t), "lo flip at tier {t}");
+                }
+            }
+        }
     }
 
     #[test]
