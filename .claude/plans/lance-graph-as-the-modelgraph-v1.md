@@ -1049,3 +1049,246 @@ NOT in doubt, whichever wins:
 **Recorded, not guessed.** The one thing already done is the inert
 `datafusion = []` feature's removal (planner tests green, 435 passed) — real,
 small, and independent of which route is chosen.
+
+---
+
+## §14 — The mindset check, and the correction I owe first
+
+Operator, three messages in one turn: *"make sure that you keep kanban soa
+owned / the plans are the glove so that consumers dont have to care"*, *"check
+if my mindset has it right or if you see a better way"*, and *"the consumers
+should not care that the SoA mailboxes are smart, they still should have a
+surface to be reached even if they were AGI and duckdb combined."*
+
+### §14.0 — The correction: §13's A/B/C fork was already ruled, three months ago
+
+`fe726fa` (§13) recorded an open placement fork — A (lowering in core) / B
+(plan vocabulary into the zero-dep contract) / C (bridge crate) — and left it
+for the operator on the grounds that *"the routes produce materially different
+repos and neither reverses cheaply."*
+
+**That fork does not exist.** `.claude/plans/cypher-mask-lowering-v1.md` §5.2
+ruled it, in three parts, with a register I did not have:
+
+1. **Boolean combination CONSUMES `ogar_loco::TERNLOG = 0x86`** (`ogar-loco/src/lib.rs:607`,
+   arity 3, *"the call's ONE VALUE BYTE is the 8-bit truth table … the purest
+   `(function : value)` in the ABI"*), which has **zero consumers**. So the
+   Boolean half is a NET REDUCTION in unconsumed surface. **Nothing is minted.**
+2. **`Pred`, the hop and the terminals are a LOWERING TARGET ONLY.** The
+   mechanical test, borrowed from `tesseract-rs/CLAUDE.md`'s *"types exist only
+   BEFORE the bake"*: **does a BYTE of this survive the query that produced it?**
+   No → it must never get a mint. A `Program` is built from one
+   `LogicalOperator`, executed once, and dropped.
+3. **The trigger that would flip (2), written down before anyone hits it:** the
+   moment a mask program becomes a **stored artifact**, the ops must be minted as
+   a domain vocabulary **above `DOMAIN_FLOOR`** — and where is settled by
+   precedent, not choice: `lance-graph-ogar`, which git-deps `ogar-loco` and
+   path-deps `lance-graph-contract`, because *"neither may import the other …
+   a vocabulary needs both, so it lives in a consumer that already depends on
+   both"* (`recipe_vocab.rs:8-16`; the 34 NARS recipes already occupy
+   `0x90..=0xB1` there).
+
+So the answer to "where does the vocabulary live" is **nowhere — it is not a
+vocabulary**, and the crate question I raised was the wrong question. This is
+the `CLAUDE.md` § *grep FINDS, reading DECIDES* rule one level up: I measured the
+dependency graph correctly and inferred a fork, without reading the plan that
+had already closed it. The prior-art rule ("grep the existing ~100 files before
+writing a new one") exists for exactly this.
+
+### §14.1 — The mindset is right, and three things already enforce it
+
+**"the plans are the glove so that consumers dont have to care."** Right, and it
+is not aspiration — it is the shape the code already has AND has a *mechanical*
+enforcement:
+
+| the claim | what enforces it | where |
+|---|---|---|
+| a plan describes, it never computes | `lance-graph-quack` has ONE dep (mask-risc) and its manifest says *"a `match` here that computed anything would be the duplicate evaluator the whole arc exists to avoid"* | `lance-graph-quack/Cargo.toml:9-12` |
+| the executor borrows, the caller owns | law A1 — *"the plan describes, the executor borrows, ndarray computes, the caller owns memory"* | `mask-risc/src/lib.rs` A1 |
+| a consumer cannot be coupled to it | §5.2's byte test: no byte of a `Program` is persisted, transmitted, or read by a reader that did not build it | `cypher-mask-lowering-v1.md` §5.2 Part 2 |
+
+The third row is the load-bearing one. *"Consumers don't have to care"* is
+usually a promise about discipline; here it is a property: **you cannot couple
+to something that does not persist.**
+
+**"keep kanban soa owned."** Already true, and fenced three ways — two by
+convention and one structurally:
+
+1. `try_advance_phase` is a method on `MailboxSoaOwner`, in the **zero-dep
+   contract** (`lance-graph-contract/src/soa_view.rs:311`), returning
+   `Result<KanbanMove, RubiconTransitionError>` — the lifecycle DAG is the
+   owner's, not a caller's.
+2. `lance-graph-supervisor/tests/probe_ignition.rs:1234-1241` asserts the
+   probe's own source contains **no** `.try_advance_phase(` and no
+   `.advance_phase(` — with a paired can-stay-silent assertion so the scan is
+   proven live rather than vacuously green.
+3. **And the glove structurally cannot reach the ownership.**
+   `mask-risc::Program` is `{ ops: Vec<MaskOp>, terminal: Terminal,
+   scratch_slots: u32 }`; `MaskOp` has 8 variants, `Terminal` has 8, `Operand`
+   is slot / plane / lane. **There is no spelling for an owner, a phase, or a
+   move.** A consumer holding a plan cannot express a kanban transition even if
+   it wanted to — the vocabulary does not contain one.
+
+**"a surface to be reached even if they were AGI and duckdb combined."** This is
+the sharpest of the three, and it is what makes §5.2 Part 3's trigger
+load-bearing rather than pedantic. A plan that does not persist lets the
+substrate change arbitrarily underneath it. The moment one persists, a consumer
+is coupled to a byte layout, and "AGI or duckdb" stops being free. Part 3 is
+therefore not bureaucracy — it is the exact condition under which the operator's
+sentence stops being true, written down in advance.
+
+### §14.2 — One correction to the instruction, and one better way
+
+**Correction — the DataFusion is not in the planner.** Measured:
+`lance-graph-planner` contained exactly one `datafusion` token, `datafusion = []`
+under `[features]` — a feature NAME with no body and no `cfg` reader. Removed in
+`3cafd13`; 435 tests still pass. The 8,044 LOC of DataFusion lives in
+`lance-graph` **core** (`datafusion_planner/`). So *"replace all the DataFusion
+shit in lance-graph-planner"* is already discharged and it bought nothing,
+because there was nothing there to remove.
+
+**And "revive the planner as the center of gravity" cannot be done as literally
+stated**, because the arrow runs the other way:
+
+| edge | state |
+|---|---|
+| `lance-graph` core → `lance-graph-planner` | EXISTS (optional, `planner` feature, `Cargo.toml:72`) |
+| planner → core | **NONE — would be a cycle** |
+
+**The better way: `mask-risc` is the convergence point, and neither side owns
+the other.** `lance-graph-mask-risc` deps only `ndarray`; core deps `ndarray`;
+planner deps `ndarray`. So **both can depend on mask-risc with no cycle**, and
+neither has to import the other:
+
+```text
+core:     parser → AST → LogicalOperator ──mask_lower──┐
+                                                        ├──→ Program ──exec──→ ndarray::simd
+planner:  kanban / mailbox → what to ask ───lower──────┘
+```
+
+That is not a new idea — it is the shape `p64` already plays between ndarray and
+lance-graph (`CLAUDE.md`: *"p64 = convergence point (both repos meet, no circular
+deps)"*). Reused, not invented.
+
+And it delivers the operator's stated GOAL without needing the planner to be
+central in the dependency sense:
+
+- the glove is the **plan**, and the plan is stable because it does not persist;
+- the planner keeps what it actually owns — kanban, mailbox, `batch_writer`,
+  `persist_sink`, `owner_adapter` — without importing a query pipeline;
+- core keeps the parser it already has, and gains ONE new thing: §2's Phase 2.5.
+
+So: **"planner as center of gravity" is a MEANS; "the plan is the glove" is the
+END.** The end is reachable; the means as literally stated is a cycle, and does
+not need to be paid for.
+
+### §14.3 — What is actually next, and it is not code
+
+`cypher-mask-lowering-v1.md` §7.0 is a **STOP gate**: *"Nothing is built until
+Wave 0 answers, with numbers."* And `mask_lower` exists nowhere in the tree — the
+only hit is `mask-risc/src/lib.rs:20` naming it as an absence. So Wave 0 has not
+run, and the boring correct move is to run it. §15 is W0-b.
+
+---
+
+## §15 — W0-b RUN. The corpus census, measured
+
+`cypher-mask-lowering-v1.md` §7.0's second measurement, and half of its STOP
+gate. Instrument: `crates/lance-graph/examples/w0b_corpus_census.rs`
+(committed; run it, do not trust this table). Corpus: every Cypher literal in
+`parser.rs`, `logical_plan.rs` and `semantic.rs`, extracted at runtime by
+`include_str!` so it cannot drift from the tests it mirrors. Classification is
+§3/§4's, row by row, through the REAL `parse_cypher_query` +
+`LogicalPlanner::plan`.
+
+```
+candidate literals extracted : 62
+    from parser.rs             : 40
+    from logical_plan.rs       : 22
+    from semantic.rs           :  0   <- it holds no query literals at all
+  did not parse (negative tests): 2
+  parsed but did not plan       : 10
+  CLASSIFIED                    : 50
+
+  Full  (everything lowers)  :  23  ( 46.0 %)
+  Split (mask prefix + DF)   :  27  ( 54.0 %)
+  Grace (nothing lowers)     :   0  (  0.0 %)
+```
+
+**§7.0's STOP condition does NOT fire.** Its words were *"if the full-lowering
+fraction is negligible, this plan's premise is wrong and Wave 1 does not
+start."* 46.0 % full and **zero** pure-grace is not negligible.
+
+### §15.1 — Why a query is not Full (counted, not guessed)
+
+| n | plan row | the question it asks that a mask cannot answer |
+|---|---|---|
+| 10 | §4.2 G-3 string predicate | variable-width values |
+| 7 | §4.2 P-9 non-integer literal | " |
+| 6 | §4.1 G-2 `LIMIT` | which POSITION in an order |
+| 6 | §4.1 G-2 `SKIP` | " |
+| 5 | §4.1 G-1 `ORDER BY` | in what ORDER |
+| 2 | §4.3 G-5 `UNWIND` | what VALUE, as a new relation |
+| 2 | §4.4 G-7 vector distance / similarity | how CLOSE |
+| 2 | §4.5 `Join` | across which ADDRESS SPACES |
+
+Every reason lands in §4.6's table, which is the check that the classifier is
+reading the plan rather than inventing a boundary: **17 of 40 grace hits are
+one axis — strings and non-integer literals**, i.e. §4.2 alone. Order and
+position are the next 17. Nothing else is above 2.
+
+### §15.2 — The finding the percentages do not contain
+
+**9 of the 10 plan-refusals return a BARE NODE VARIABLE.** Measured, not read:
+the example inspects the AST the planner refused and counts the returns whose
+every item is `ValueExpression::Variable(_)`.
+
+```
+[T-3 RETURN <node>] MATCH (a:Person) RETURN a
+[T-3 RETURN <node>] MATCH (a:Person) RETURN a AS b
+[other]             MATCH (a:Person)-[:KNOWS]->(shared:Person), (shared:Company)-…
+[T-3 RETURN <node>] MATCH (n:Person {name: "John", age: 30}) RETURN n
+[T-3 RETURN <node>] MATCH (n:Person) WHERE n.name CONTAINS 'Jo' … RETURN n
+[T-3 RETURN <node>] MATCH (p:Person) WHERE p.age = $min_age RETURN p
+… 3 more
+```
+
+`RETURN <node>` is §3.5 **T-3**: *"the mask itself — `Terminal::Keep`. Not a row
+list. The caller reads the plane."* It is the cheapest thing the mask path can
+do and it is graded `[G]`.
+
+So the incumbent planner **refuses** the query the mask path answers with no
+work at all, and because a refusal is excluded from the denominator, **46.0 %
+understates the premise by exactly the shape that most favours it.** That is
+not an argument for a bigger number — those queries genuinely do not plan
+today, and a census that silently counted them would be the vacuous kind. It is
+a reason to read the refusal bucket, which is why the example enumerates both
+exclusion buckets instead of counting them.
+
+### §15.3 — Three things this number is not
+
+1. **Conditional on OQ-1.** Every Full query scans by LABEL, and §1.4 states
+   the `label → classid` binding is ABSENT. The census counts the SHAPE as
+   lowering; that is what keeps the premise falsifiable, and it is not a claim
+   the route exists. **W0-a is still unrun and is the gate that matters most.**
+2. **It measures the TEST corpus.** These queries exist to exercise a parser and
+   a planner, so the distribution is theirs, not a workload's.
+3. **It says nothing about speed.** §7.0 is a correctness gate; no row above is
+   a performance claim.
+
+### §15.4 — The extractor was wrong once, and the bug moved the headline 29 points
+
+The first run reported **15 of 20 (75.0 %)**. The extractor did not know about
+Rust char literals, and `parser.rs:931-933` contains `char('"')` three times — a
+double quote inside `'…'`. The scanner opened a string there, ran one quote out
+of phase for the rest of the file, and emitted raw Rust source as three
+"queries" while swallowing real ones. Fixed: 62 candidates instead of 26,
+50 classified instead of 20, and the headline fell from 75.0 % to **46.0 %**.
+
+Both numbers came from a green run that exited 0. What caught it was
+**enumerating the exclusion buckets instead of counting them** — a bucket
+labelled "3 did not parse" is unfalsifiable, and the same bucket printed showed
+`); // Verify the AST structure let ast = result.unwrap(); …` on its first line.
+The lesson is the repo's own and it recurred here: a measurement's REJECTS are
+evidence about the instrument, and a census that only counts them cannot be
+checked.
