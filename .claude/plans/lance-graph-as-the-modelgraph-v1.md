@@ -1634,3 +1634,41 @@ So "boring" is the load-bearing property at BOTH tiers: the Java surface is
 boring so a customer needs no manual, and the spine is boring so a reader,
 an author, or a model needs none either. The speed is somewhere neither of
 them has to look.
+
+### §18.7 — And the circling is the SYMPTOM, not a separate problem
+
+> *"everything else is running in circles around what's not in your training."*
+
+This is the strongest form of §18.6, and it diagnoses a mechanism rather than
+stating a preference.
+
+A private vocabulary has to be RE-DERIVED from documents every time it is
+reasoned about. Re-derivation is where the circling comes from, and this
+session is the receipt:
+
+| the circle | what it cost |
+|---|---|
+| three "blockers" quoted as current | each was true once and false when quoted |
+| an A/B/C placement fork raised as open | §5.2 had ruled it months earlier |
+| a grep treated as a verdict, three times | a dependency edge, an impl, a seam — all wrong |
+| a corpus chosen from one of those greps | 46.0 % over 50 was 37.3 % over 303 |
+| Wave 1 queued as the next build | it was a third lowering onto one floor |
+
+Not one of those is a hard problem. Every one is a re-derivation that went
+wrong, and they went wrong because the thing being re-derived is **not in the
+model's training** — it exists only in this workspace's own documents, so
+every reasoning step is a lookup, and every lookup is a chance to be stale,
+partial, or confidently wrong.
+
+DuckDB's shape does not have that failure mode. A filter, an aggregate, a
+group-by, a projection are not looked up. They are known, by every model and
+every engineer, before the session starts. Work on that shape does not circle
+because there is nothing to reconstruct.
+
+**So "boring" is not a style choice at any tier.** It is what removes the
+lookup, and removing the lookup is what removes the circling. The operator's
+three statements are one statement read at three depths: a customer should not
+need a manual (`sql()`), a reader should not need one (the spine), and a model
+should not need one either — because when it does, it spends the session
+re-deriving instead of building, which is exactly what happened here before
+this redirect.
