@@ -60,6 +60,25 @@ Cross-ref: ndarray `.claude/knowledge/masking-ops-state.md` (G1/G2 RUN, #310);
 `E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1` above — the
 `-f` naming is the same muscle-memory argument applied to a register layout.
 
+**Corrections 2026-09-16 (appended; the sibling session's read of this entry
+against `facet.rs`, and Codex on #1242/#1243 — the same defect the summaries
+carried):**
+- The axis prefix above is written *"`trailing_zeros/16` past the classid"*.
+  The merged `shared_axis` is `(tz((a ^ b) & AXIS_BYTES) − 32) / 16`
+  (`facet.rs`): the 32 classid bits sit below the tiers and the subtraction
+  is load-bearing — without it a tier-0 divergence reads as prefix 2, not 0.
+  "Past the classid" gestured at it; the record now states it.
+- "12 hand-rolled `if !tail.is_empty()` sites" under *Gaps* was attributed,
+  not counted. Counted: **23** `if !<tail>.is_empty()` branches in
+  ndarray `src/simd_masking_ops.rs` at `c746735` (grep `if ![a-z_]*\.is_empty()`,
+  2026-09-16): 22 named `tail`/`ta`/`td` plus the `ts` branch in
+  `mask_shift_morton` — Codex on #1244 caught the set named here as one
+  short of the number. The original "12" was in fact the exact count of
+  branches literally named `tail` (12 `tail` + 7 `ta` + 3 `td` + 1 `ts`);
+  it was right for that pattern and understated the set. The un-gated
+  `pack<const L>` follow-up would retire all 23, not 12; whether the Morton-shift tail fits the same helper is
+  part of that follow-up, not settled here.
+
 ## 2026-09-16 (15) — E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1 — the operator's quack redirect, and the four errors of one session that all substituted an address for the thing
 
 **Status:** OPERATOR-RULED (the redirect, verbatim below) + MEASURED (the census
