@@ -1,3 +1,33 @@
+## 2026-09-16 (1) — lance-graph-as-the-modelgraph-v1 — the ModelGraph stops being a transient Rust object and becomes addressed rows in the V3 SoA → `.claude/plans/lance-graph-as-the-modelgraph-v1.md`
+
+**Status:** PROPOSAL (operator-set endgame: *"endgame should be to wire
+lance-graph as ModelGraph"*). No code. The document is a SURVEY whose point is
+that the chain is **already built except one step**: `ruff_cpp_spo::extract_tree`
+→ `ruff_spo_address::mint` (16 B, byte-identical to `FacetCascade`, **no
+dependency edge**) → `ogar-from-ruff::mint` → `lance_sink` → `as_le_bytes()`,
+all live and unstubbed, stopping at a `Dataset::write` that `lance_sink.rs`
+names out of scope in its own words. G-C is that write.
+
+The direction is FORCED, not chosen: no ruff crate may compile against
+lance-graph (verified — `lance.graph` appears in `ruff/crates/*/Cargo.toml`
+only inside two `description =` strings), so the spine can only be the HOME,
+fed across a byte boundary. Matches `assembler-vs-storage-substrate.md`.
+
+Confirms two operator recollections and corrects a third: **two codegen arms**
+are `ruff_cpp_codegen` (→ Rust `MethodSig` source) and `ruff_spo_address` (→ the
+`(part_of:is_a)` rank-mint) — NOT `ruff_python_codegen`, which is upstream
+ruff's `Generator`/`Stylist`. **arm-discovery is the table→SPO arm** exactly as
+described (`translator.rs`: ARM confidence → NARS frequency, evidence `m` →
+`m/(m+k)`, canonical `TruthU8` = the `CausalEdge64` wire), and it already names
+`ruff_spo_triplet::Triple` as its downstream. **JSONML does not exist** in any
+of the five repos.
+
+Carries G-A..G-E and waves W1-W4, each with a falsifier. G-E is the
+uncomfortable one and is independent of the endgame: **quack has no DuckDB in
+its loop at all** — zero dependency, every "DuckDB" in it a doc comment, its
+oracles hand-written Rust. What is called parity today is quack ↔ its own
+oracle; task #8's DuckDB differential fixtures remain unstarted.
+
 ## 2026-09-14 (4) — hexagon-plasticity-v1 — can six learned rails discover local adjacency, and can ARM promote a cue to a path? → `.claude/plans/hexagon-plasticity-v1.md`
 
 **Status:** ACTIVE (W-1 and W0 RUN before landing; §9 carries their results and

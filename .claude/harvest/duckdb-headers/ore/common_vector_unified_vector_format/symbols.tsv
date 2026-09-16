@@ -1,0 +1,6 @@
+s0	scope_kind	-	Function	walk
+s1	member	own	is_constant	clang
+s2	member	own	needs_slicing	clang
+s3	member	own	child_list_info	clang
+s4	callee	this		walk
+s5	callee	this	list_entry_t	clang

@@ -1,0 +1,12 @@
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	0	ScopeEnter	s0	-	c0	-	1679	-	-	walk
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	1	Param	s1	-	c0	-	1736	-	s2	clang
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	2	Return	-	-	c0	-	1764	-	-	walk
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	3	Call	-	s3	c0	-	1764	-	-	walk
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	4	Call	-	s4	c0	-	1771	-	ctor	clang
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	5	Call	s5	s6	c0	-	1771	-	member	clang
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	6	Read	s7	-	c0	-	1771	-	-	walk
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	7	Call	s8	s9	c0	-	1771	-	member	clang
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	8	Read	s1	-	c0	-	1771	-	-	clang
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	9	ScopeExit	s0	-	c0	-	1679	-	-	walk
+duckdb::ExpressionState.~ExpressionState()	0	ScopeEnter	s0	-	c0	-	647	-	-	walk
+duckdb::ExpressionState.~ExpressionState()	1	ScopeExit	s0	-	c0	-	647	-	-	walk

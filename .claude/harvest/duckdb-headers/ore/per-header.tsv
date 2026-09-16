@@ -1,0 +1,12 @@
+header	methods	events
+common_operator_comparison_operators	5	39
+common_operator_constant_operators	0	0
+common_row_operations_row_matcher	0	0
+common_types_selection_vector	26	311
+common_types_validity_mask	61	836
+common_types_vector	6	42
+common_vector_operations_scalar_executor	10	281
+common_vector_unified_vector_format	1	7
+execution_expression_executor_state	2	12
+execution_ht_entry	12	92
+TOTAL	123	1620

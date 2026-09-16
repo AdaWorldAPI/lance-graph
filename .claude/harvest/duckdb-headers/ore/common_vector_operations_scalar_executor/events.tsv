@@ -1,0 +1,281 @@
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	0	ScopeEnter	s0	-	c0	-	20827	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	1	Param	s10	-	c0	-	20846	-	s11	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	2	Param	s12	-	c0	-	20870	-	s13	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	3	ScopeEnter	s14	-	c1	c0	20893	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	4	Read	s4	-	c1	c0	20897	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	5	Condition	-	-	c1	c0	20897	if	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	6	Branch	-	-	c1	c0	20913	then	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	7	ScopeEnter	s15	-	c2	c1	20913	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	8	Call	s29	s30	c2	c1	20919	-	member	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	9	Read	s4	-	c2	c1	20919	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	10	Read	s16	-	c2	c1	20945	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	11	Read	s12	-	c2	c1	20957	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	12	ReadWrite	s16	-	c2	c1	20974	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	13	Read	s10	-	c2	c1	20988	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	14	ScopeExit	s15	-	c2	c1	20913	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	15	ScopeExit	s14	-	c1	c0	20893	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	16	ScopeEnter	s14	-	c3	c0	21015	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	17	Read	s7	-	c3	c0	21019	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	18	Condition	-	-	c3	c0	21019	if	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	19	Branch	-	-	c3	c0	21036	then	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	20	ScopeEnter	s15	-	c4	c3	21036	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	21	Call	s31	s30	c4	c3	21042	-	member	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	22	Read	s7	-	c4	c3	21042	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	23	Read	s17	-	c4	c3	21069	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	24	Read	s12	-	c4	c3	21082	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	25	ReadWrite	s17	-	c4	c3	21099	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	26	Read	s10	-	c4	c3	21115	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	27	ScopeExit	s15	-	c4	c3	21036	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	28	ScopeExit	s14	-	c3	c0	21015	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	29	ScopeExit	s0	-	c0	-	20827	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	0	ScopeEnter	s0	-	c0	-	21146	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	1	Param	s18	-	c0	-	21177	-	s19	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	2	Param	s20	-	c0	-	21205	-	s13	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	3	Param	s21	-	c0	-	21218	-	s13	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	4	ScopeEnter	s14	-	c1	c0	21234	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	5	Read	s7	-	c1	c0	21238	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	6	Condition	-	-	c1	c0	21238	if	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	7	Branch	-	-	c1	c0	21255	then	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	8	ScopeEnter	s15	-	c2	c1	21255	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	9	ScopeEnter	s22	-	c3	c2	21261	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	10	Decl	s23	-	c3	c2	21266	for_init	s13	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	11	Read	s20	-	c3	c2	21278	for_init	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	12	Read	s23	-	c3	c2	21285	for_cond	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	13	Read	s21	-	c3	c2	21291	for_cond	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	14	ReadWrite	s23	-	c3	c2	21296	for_inc	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	15	Condition	-	-	c3	c2	21261	for	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	16	Call	s31	s30	c3	c2	21310	-	member	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	17	Read	s7	-	c3	c2	21310	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	18	ReadWrite	s17	-	c3	c2	21337	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	19	Call	s24	s25	c3	c2	21352	-	member	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	20	Read	s18	-	c3	c2	21352	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	21	Read	s23	-	c3	c2	21366	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	22	ScopeExit	s22	-	c3	c2	21261	back_edge	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	23	ScopeExit	s15	-	c2	c1	21255	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	24	ScopeExit	s14	-	c1	c0	21234	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	25	ScopeExit	s0	-	c0	-	21146	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	0	ScopeEnter	s0	-	c0	-	21391	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	1	Param	s10	-	c0	-	21410	-	s11	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	2	Param	s18	-	c0	-	21434	-	s19	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	3	Param	s26	-	c0	-	21462	-	s13	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	4	ScopeEnter	s14	-	c1	c0	21480	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	5	Read	s10	-	c1	c0	21484	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	6	Condition	-	-	c1	c0	21484	if	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	7	Branch	-	-	c1	c0	21503	then	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	8	ScopeEnter	s15	-	c2	c1	21503	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	9	ScopeEnter	s14	-	c3	c2	21509	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	10	Read	s4	-	c3	c2	21513	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	11	Condition	-	-	c3	c2	21513	if	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	12	Branch	-	-	c3	c2	21529	then	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	13	ScopeEnter	s15	-	c4	c3	21529	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	14	ScopeEnter	s22	-	c5	c4	21536	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	15	Decl	s23	-	c5	c4	21541	for_init	s13	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	16	Read	s23	-	c5	c4	21556	for_cond	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	17	Read	s26	-	c5	c4	21562	for_cond	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	18	ReadWrite	s23	-	c5	c4	21569	for_inc	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	19	Condition	-	-	c5	c4	21536	for	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	20	Call	s29	s30	c5	c4	21584	-	member	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	21	Read	s4	-	c5	c4	21584	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	22	Read	s23	-	c5	c4	21610	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	23	Call	s24	s25	c5	c4	21615	-	member	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	24	Read	s18	-	c5	c4	21615	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	25	Read	s23	-	c5	c4	21629	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	26	ScopeExit	s22	-	c5	c4	21536	back_edge	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	27	Write	s16	-	c4	c3	21648	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	28	Read	s26	-	c4	c3	21661	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	29	ScopeExit	s15	-	c4	c3	21529	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	30	ScopeExit	s14	-	c3	c2	21509	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	31	ScopeExit	s15	-	c2	c1	21503	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	32	Branch	-	-	c1	c0	21684	else	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	33	ScopeEnter	s27	-	c6	c1	21684	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	34	ScopeEnter	s14	-	c7	c6	21684	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	35	Read	s7	-	c7	c6	21688	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	36	Condition	-	-	c7	c6	21688	if	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	37	Branch	-	-	c7	c6	21705	then	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	38	ScopeEnter	s15	-	c8	c7	21705	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	39	ScopeEnter	s22	-	c9	c8	21711	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	40	Decl	s23	-	c9	c8	21716	for_init	s13	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	41	Read	s23	-	c9	c8	21731	for_cond	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	42	Read	s26	-	c9	c8	21737	for_cond	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	43	ReadWrite	s23	-	c9	c8	21744	for_inc	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	44	Condition	-	-	c9	c8	21711	for	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	45	Call	s31	s30	c9	c8	21758	-	member	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	46	Read	s7	-	c9	c8	21758	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	47	Read	s23	-	c9	c8	21785	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	48	Call	s24	s25	c9	c8	21790	-	member	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	49	Read	s18	-	c9	c8	21790	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	50	Read	s23	-	c9	c8	21804	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	51	ScopeExit	s22	-	c9	c8	21711	back_edge	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	52	Write	s17	-	c8	c7	21821	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	53	Read	s26	-	c8	c7	21835	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	54	ScopeExit	s15	-	c8	c7	21705	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	55	ScopeExit	s14	-	c7	c6	21684	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	56	ScopeExit	s27	-	c6	c1	21684	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	57	ScopeExit	s14	-	c1	c0	21480	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	58	Return	-	-	c0	-	21850	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	59	Call	-	s28	c0	-	21857	-	member	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	60	Read	s26	-	c0	-	21864	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	61	ScopeExit	s0	-	c0	-	21391	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Result(idx_t) const	0	ScopeEnter	s0	-	c0	-	21879	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Result(idx_t) const	1	Param	s26	-	c0	-	21899	-	s13	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Result(idx_t) const	2	Return	-	-	c0	-	21923	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Result(idx_t) const	3	Read	s4	-	c0	-	21930	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Result(idx_t) const	4	Read	s16	-	c0	-	21947	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Result(idx_t) const	5	Read	s26	-	c0	-	21960	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.Result(idx_t) const	6	Read	s17	-	c0	-	21968	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.Result(idx_t) const	7	ScopeExit	s0	-	c0	-	21879	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.RuntimeSelectionSink(SelectionVector *,SelectionVector *)	0	ScopeEnter	s0	-	c0	-	20649	-	-	walk
+duckdb::ScalarExecutor::RuntimeSelectionSink.RuntimeSelectionSink(SelectionVector *,SelectionVector *)	1	Param	s1	-	c0	-	20670	-	s2	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.RuntimeSelectionSink(SelectionVector *,SelectionVector *)	2	Param	s3	-	c0	-	20705	-	s2	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.RuntimeSelectionSink(SelectionVector *,SelectionVector *)	3	CtorInit	s4	-	c0	-	20749	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.RuntimeSelectionSink(SelectionVector *,SelectionVector *)	4	Read	s1	-	c0	-	20764	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.RuntimeSelectionSink(SelectionVector *,SelectionVector *)	5	CtorInit	s7	-	c0	-	20783	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.RuntimeSelectionSink(SelectionVector *,SelectionVector *)	6	Read	s3	-	c0	-	20799	-	-	clang
+duckdb::ScalarExecutor::RuntimeSelectionSink.RuntimeSelectionSink(SelectionVector *,SelectionVector *)	7	ScopeExit	s0	-	c0	-	20649	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	0	ScopeEnter	s0	-	c0	-	19165	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	1	Param	s10	-	c0	-	19184	-	s11	clang
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	2	Param	s12	-	c0	-	19208	-	s13	clang
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	3	ScopeEnter	s14	-	c1	c0	19231	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	4	Condition	-	-	c1	c0	19245	if	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	5	Branch	-	-	c1	c0	19265	then	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	6	ScopeEnter	s15	-	c2	c1	19265	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	7	Write	s4	-	c2	c1	19271	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	8	Read	s4	-	c2	c1	19271	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	9	Read	s16	-	c2	c1	19286	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	10	Read	s12	-	c2	c1	19325	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	11	ReadWrite	s16	-	c2	c1	19342	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	12	Read	s10	-	c2	c1	19356	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	13	ScopeExit	s15	-	c2	c1	19265	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	14	ScopeExit	s14	-	c1	c0	19231	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	15	ScopeEnter	s14	-	c3	c0	19383	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	16	Condition	-	-	c3	c0	19397	if	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	17	Branch	-	-	c3	c0	19418	then	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	18	ScopeEnter	s15	-	c4	c3	19418	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	19	Write	s7	-	c4	c3	19424	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	20	Read	s7	-	c4	c3	19424	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	21	Read	s17	-	c4	c3	19440	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	22	Read	s12	-	c4	c3	19480	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	23	ReadWrite	s17	-	c4	c3	19497	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	24	Read	s10	-	c4	c3	19513	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	25	ScopeExit	s15	-	c4	c3	19418	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	26	ScopeExit	s14	-	c3	c0	19383	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	27	ScopeExit	s0	-	c0	-	19165	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	0	ScopeEnter	s0	-	c0	-	19544	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	1	Param	s18	-	c0	-	19575	-	s19	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	2	Param	s20	-	c0	-	19603	-	s13	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	3	Param	s21	-	c0	-	19616	-	s13	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	4	ScopeEnter	s14	-	c1	c0	19632	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	5	Condition	-	-	c1	c0	19646	if	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	6	Branch	-	-	c1	c0	19667	then	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	7	ScopeEnter	s15	-	c2	c1	19667	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	8	ScopeEnter	s22	-	c3	c2	19673	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	9	Decl	s23	-	c3	c2	19678	for_init	s13	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	10	Read	s20	-	c3	c2	19690	for_init	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	11	Read	s23	-	c3	c2	19697	for_cond	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	12	Read	s21	-	c3	c2	19703	for_cond	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	13	ReadWrite	s23	-	c3	c2	19708	for_inc	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	14	Condition	-	-	c3	c2	19673	for	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	15	Write	s7	-	c3	c2	19722	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	16	Read	s7	-	c3	c2	19722	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	17	ReadWrite	s17	-	c3	c2	19738	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	18	Call	s24	s25	c3	c2	19780	-	member	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	19	Read	s18	-	c3	c2	19780	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	20	Read	s23	-	c3	c2	19794	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	21	ScopeExit	s22	-	c3	c2	19673	back_edge	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	22	ScopeExit	s15	-	c2	c1	19667	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	23	ScopeExit	s14	-	c1	c0	19632	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	24	ScopeExit	s0	-	c0	-	19544	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	0	ScopeEnter	s0	-	c0	-	19819	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	1	Param	s10	-	c0	-	19838	-	s11	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	2	Param	s18	-	c0	-	19862	-	s19	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	3	Param	s26	-	c0	-	19890	-	s13	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	4	ScopeEnter	s14	-	c1	c0	19908	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	5	Read	s10	-	c1	c0	19912	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	6	Condition	-	-	c1	c0	19912	if	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	7	Branch	-	-	c1	c0	19931	then	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	8	ScopeEnter	s15	-	c2	c1	19931	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	9	ScopeEnter	s14	-	c3	c2	19937	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	10	Condition	-	-	c3	c2	19951	if	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	11	Branch	-	-	c3	c2	19971	then	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	12	ScopeEnter	s15	-	c4	c3	19971	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	13	ScopeEnter	s22	-	c5	c4	19978	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	14	Decl	s23	-	c5	c4	19983	for_init	s13	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	15	Read	s23	-	c5	c4	19998	for_cond	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	16	Read	s26	-	c5	c4	20004	for_cond	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	17	ReadWrite	s23	-	c5	c4	20011	for_inc	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	18	Condition	-	-	c5	c4	19978	for	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	19	Write	s4	-	c5	c4	20026	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	20	Read	s4	-	c5	c4	20026	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	21	Read	s23	-	c5	c4	20041	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	22	Call	s24	s25	c5	c4	20073	-	member	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	23	Read	s18	-	c5	c4	20073	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	24	Read	s23	-	c5	c4	20087	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	25	ScopeExit	s22	-	c5	c4	19978	back_edge	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	26	Write	s16	-	c4	c3	20106	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	27	Read	s26	-	c4	c3	20119	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	28	ScopeExit	s15	-	c4	c3	19971	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	29	ScopeExit	s14	-	c3	c2	19937	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	30	ScopeExit	s15	-	c2	c1	19931	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	31	Branch	-	-	c1	c0	20142	else	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	32	ScopeEnter	s27	-	c6	c1	20142	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	33	ScopeEnter	s14	-	c7	c6	20142	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	34	Condition	-	-	c7	c6	20156	if	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	35	Branch	-	-	c7	c6	20177	then	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	36	ScopeEnter	s15	-	c8	c7	20177	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	37	ScopeEnter	s22	-	c9	c8	20183	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	38	Decl	s23	-	c9	c8	20188	for_init	s13	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	39	Read	s23	-	c9	c8	20203	for_cond	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	40	Read	s26	-	c9	c8	20209	for_cond	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	41	ReadWrite	s23	-	c9	c8	20216	for_inc	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	42	Condition	-	-	c9	c8	20183	for	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	43	Write	s7	-	c9	c8	20230	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	44	Read	s7	-	c9	c8	20230	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	45	Read	s23	-	c9	c8	20246	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	46	Call	s24	s25	c9	c8	20278	-	member	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	47	Read	s18	-	c9	c8	20278	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	48	Read	s23	-	c9	c8	20292	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	49	ScopeExit	s22	-	c9	c8	20183	back_edge	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	50	Write	s17	-	c8	c7	20309	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	51	Read	s26	-	c8	c7	20323	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	52	ScopeExit	s15	-	c8	c7	20177	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	53	ScopeExit	s14	-	c7	c6	20142	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	54	ScopeExit	s27	-	c6	c1	20142	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	55	ScopeExit	s14	-	c1	c0	19908	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	56	Return	-	-	c0	-	20338	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	57	Call	-	s28	c0	-	20345	-	member	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	58	Read	s26	-	c0	-	20352	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	59	ScopeExit	s0	-	c0	-	19819	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	0	ScopeEnter	s0	-	c0	-	20367	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	1	Param	s26	-	c0	-	20387	-	s13	clang
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	2	ScopeEnter	s14	-	c1	c0	20411	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	3	Condition	-	-	c1	c0	20425	if	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	4	Branch	-	-	c1	c0	20445	then	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	5	ScopeEnter	s15	-	c2	c1	20445	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	6	Return	-	-	c2	c1	20451	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	7	Read	s16	-	c2	c1	20458	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	8	ScopeExit	s15	-	c2	c1	20445	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	9	ScopeExit	s14	-	c1	c0	20411	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	10	Return	-	-	c0	-	20478	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	11	Read	s26	-	c0	-	20485	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	12	Read	s17	-	c0	-	20493	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	13	ScopeExit	s0	-	c0	-	20367	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	0	ScopeEnter	s0	-	c0	-	18799	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	1	Param	s1	-	c0	-	18819	-	s2	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	2	Param	s3	-	c0	-	18854	-	s2	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	3	CtorInit	s4	-	c0	-	18898	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	4	Read	s1	-	c0	-	18913	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	5	Call	s5	s6	c0	-	18932	-	member	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	6	Read	s1	-	c0	-	18932	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	7	CtorInit	s7	-	c0	-	18977	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	8	Read	s3	-	c0	-	18993	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	9	Call	s8	s6	c0	-	19013	-	member	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	10	Read	s3	-	c0	-	19013	-	-	clang
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	11	Cast	-	-	c0	-	19055	-	static	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	12	Read	s4	-	c0	-	19087	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	13	Cast	-	-	c0	-	19055	-	functional	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	14	Call	-	s9	c0	-	19055	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	15	Cast	-	-	c0	-	19107	-	static	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	16	Read	s7	-	c0	-	19140	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	17	Cast	-	-	c0	-	19107	-	functional	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	18	Call	-	s9	c0	-	19107	-	-	walk
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	19	ScopeExit	s0	-	c0	-	18799	-	-	walk

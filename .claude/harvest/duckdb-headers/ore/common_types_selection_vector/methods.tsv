@@ -1,0 +1,26 @@
+duckdb::SelectionVector.Capacity() const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	4	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::SelectionVector.Incremental(idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	7	1	Empty	0	0	0	0	0	0	1	0	0	method	public	1	-
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	23	2	Empty	0	0	0	0	0	0	1	0	0	method	public	2	-
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	31	4	Compute	1	3	0	0	0	0	0	0	0	method	public	1	-
+duckdb::SelectionVector.Initialize(const SelectionVector &)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	13	1	Compute	0	3	0	0	0	0	0	0	0	method	public	1	-
+duckdb::SelectionVector.Initialize(idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	15	1	Compute	1	3	0	0	0	0	0	0	0	method	public	1	-
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	10	1	Compute	1	2	0	0	0	0	0	0	0	method	public	2	-
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	35	4	Empty	0	0	0	0	0	0	1	0	0	method	public	4	-
+duckdb::SelectionVector.IsSet() const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	4	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::SelectionVector.SelectionVector()	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	4	1	Empty	0	0	0	0	0	0	0	0	0	ctor	public	0	-
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	16	1	Empty	0	0	0	0	0	0	0	0	0	ctor	public	1	-
+duckdb::SelectionVector.SelectionVector(buffer_ptr<SelectionData> &&)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	7	1	Empty	0	0	0	0	0	0	0	0	0	ctor	public	1	-
+duckdb::SelectionVector.SelectionVector(const SelectionVector &)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	5	1	Empty	0	0	0	0	0	0	0	0	0	ctor	public	1	-
+duckdb::SelectionVector.SelectionVector(idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	5	1	Empty	0	0	0	0	0	0	0	0	0	ctor	public	1	-
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	18	2	Empty	0	0	0	0	0	0	0	0	0	ctor	public	2	-
+duckdb::SelectionVector.SelectionVector(sel_t *,idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	7	1	Empty	0	0	0	0	0	0	0	0	0	ctor	public	2	-
+duckdb::SelectionVector.data()	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	4	1	Observe	1	0	0	0	0	0	0	0	0	method	public	0	-
+duckdb::SelectionVector.data() const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	4	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::SelectionVector.get_index(idx_t) const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	8	1	Observe	1	0	0	0	0	1	0	0	0	method	public	1	-
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	11	1	Observe	2	0	0	0	0	1	0	0	0	method	public	1	-
+duckdb::SelectionVector.operator=(SelectionVector &&)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	17	1	Compute	0	3	0	0	0	0	0	0	0	operator	public	1	-
+duckdb::SelectionVector.operator[](idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	11	1	Observe	2	0	0	0	0	0	0	0	0	operator	public	1	-
+duckdb::SelectionVector.operator[](idx_t) const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	11	1	Observe	2	0	0	0	0	1	0	0	0	operator	public	1	-
+duckdb::SelectionVector.sel_data()	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	4	1	Observe	1	0	0	0	0	0	0	0	0	method	public	0	-
+duckdb::SelectionVector.set_index(idx_t,idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	14	1	Compute	1	1	0	0	0	0	0	0	0	method	public	2	-
+duckdb::SelectionVector.swap(idx_t,idx_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/selection_vector.hpp	duckdb::SelectionVector	23	1	Normalize	2	1	0	0	0	0	0	0	0	method	public	2	-

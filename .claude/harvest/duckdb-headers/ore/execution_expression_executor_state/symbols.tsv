@@ -1,0 +1,10 @@
+s0	scope_kind	-	Function	walk
+s1	param	param	state	clang
+s2	type	-	ExpressionState &	clang
+s3	callee	this		walk
+s4	callee	this	optional_ptr	clang
+s5	callee	ext	local_state	walk
+s6	callee	ext	get	clang
+s7	member	ext	local_state	walk
+s8	callee	ext	state	walk
+s9	callee	ext	Cast	clang

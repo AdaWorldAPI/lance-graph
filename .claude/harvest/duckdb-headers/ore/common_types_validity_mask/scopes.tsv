@@ -1,0 +1,122 @@
+duckdb::TemplatedValidityData.EntryCount(idx_t)	c0	-	Function	0	0	6
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	c0	-	Function	0	0	25
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	c1	c0	For	1	13	24
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	c0	-	Function	0	0	19
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	c1	c0	For	1	8	18
+duckdb::TemplatedValidityMask.AllValid() const	c0	-	Function	0	0	3
+duckdb::TemplatedValidityMask.AllValid(V)	c0	-	Function	0	0	5
+duckdb::TemplatedValidityMask.CanHaveNull() const	c0	-	Function	0	0	3
+duckdb::TemplatedValidityMask.CannotHaveNull() const	c0	-	Function	0	0	3
+duckdb::TemplatedValidityMask.CheckAllInvalid(idx_t) const	c0	-	Function	0	0	6
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t) const	c0	-	Function	0	0	7
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	c0	-	Function	0	0	30
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	c1	c0	If	1	3	10
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	c2	c1	Then	2	7	9
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	c3	c0	For	1	11	28
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	c4	c3	If	2	18	27
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	c5	c4	Then	3	24	26
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	c0	-	Function	0	0	29
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	c1	c0	If	1	5	28
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	c2	c1	Then	2	11	14
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	c3	c1	Else	2	16	27
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c0	-	Function	0	0	68
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c1	c0	If	1	2	11
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c2	c1	Then	2	7	10
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c3	c0	For	1	16	65
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c4	c3	If	2	24	57
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c5	c4	Then	3	31	41
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c6	c4	Else	3	43	56
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c7	c6	If	4	44	55
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c8	c7	Then	5	50	54
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	c9	c3	While	2	58	64
+duckdb::TemplatedValidityMask.EnsureWritable()	c0	-	Function	0	0	10
+duckdb::TemplatedValidityMask.EnsureWritable()	c1	c0	If	1	1	9
+duckdb::TemplatedValidityMask.EnsureWritable()	c2	c1	Then	2	5	8
+duckdb::TemplatedValidityMask.EntryCount(idx_t)	c0	-	Function	0	0	5
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	c0	-	Function	0	0	14
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	c1	c0	If	1	2	10
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	c2	c1	Then	2	6	9
+duckdb::TemplatedValidityMask.GetAllocationSize() const	c0	-	Function	0	0	12
+duckdb::TemplatedValidityMask.GetAllocationSize() const	c1	c0	If	1	1	8
+duckdb::TemplatedValidityMask.GetAllocationSize() const	c2	c1	Then	2	5	7
+duckdb::TemplatedValidityMask.GetData() const	c0	-	Function	0	0	3
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	c0	-	Function	0	0	10
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	c0	-	Function	0	0	14
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	c1	c0	If	1	2	10
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	c2	c1	Then	2	6	9
+duckdb::TemplatedValidityMask.GetValidityEntryUnsafe(idx_t) const	c0	-	Function	0	0	5
+duckdb::TemplatedValidityMask.Initialize()	c0	-	Function	0	0	4
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	c0	-	Function	0	0	11
+duckdb::TemplatedValidityMask.Initialize(idx_t)	c0	-	Function	0	0	12
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	c0	-	Function	0	0	10
+duckdb::TemplatedValidityMask.IsMaskSet() const	c0	-	Function	0	0	10
+duckdb::TemplatedValidityMask.IsMaskSet() const	c1	c0	If	1	1	8
+duckdb::TemplatedValidityMask.IsMaskSet() const	c2	c1	Then	2	5	7
+duckdb::TemplatedValidityMask.NoneValid(V)	c0	-	Function	0	0	5
+duckdb::TemplatedValidityMask.Reset(idx_t)	c0	-	Function	0	0	8
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	c0	-	Function	0	0	9
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	c0	-	Function	0	0	13
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	c1	c0	If	1	2	9
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	c2	c1	Then	2	6	8
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	c0	-	Function	0	0	20
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	c0	-	Function	0	0	17
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	c1	c0	If	1	3	16
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	c2	c1	Then	2	7	10
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	c3	c1	Else	2	12	15
+duckdb::TemplatedValidityMask.SetAllInvalid(idx_t)	c0	-	Function	0	0	6
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	c0	-	Function	0	0	39
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	c1	c0	If	1	3	10
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	c2	c1	Then	2	7	9
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	c3	c0	For	1	15	26
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	c0	-	Function	0	0	15
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	c1	c0	If	1	2	11
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	c2	c1	Then	2	6	10
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	c0	-	Function	0	0	12
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	c0	-	Function	0	0	14
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	c0	-	Function	0	0	51
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	c1	c0	If	1	5	12
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	c2	c1	Then	2	9	11
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	c3	c0	For	1	17	30
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	c4	c0	If	1	31	39
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	c5	c4	Then	2	36	38
+duckdb::TemplatedValidityMask.SetValid(idx_t)	c0	-	Function	0	0	12
+duckdb::TemplatedValidityMask.SetValid(idx_t)	c1	c0	If	1	2	9
+duckdb::TemplatedValidityMask.SetValid(idx_t)	c2	c1	Then	2	6	8
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	c0	-	Function	0	0	19
+duckdb::TemplatedValidityMask.SizeInBytes(idx_t)	c0	-	Function	0	0	6
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>()	c0	-	Function	0	0	3
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(V *,idx_t)	c0	-	Function	0	0	7
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(const TemplatedValidityMask<V> &,idx_t)	c0	-	Function	0	0	6
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(idx_t)	c0	-	Function	0	0	5
+duckdb::TemplatedValidityMask.ValidityMaskSize(idx_t)	c0	-	Function	0	0	5
+duckdb::ValidityArray.AllValid() const	c0	-	Function	0	0	3
+duckdb::ValidityArray.CanHaveNull() const	c0	-	Function	0	0	3
+duckdb::ValidityArray.CannotHaveNull() const	c0	-	Function	0	0	3
+duckdb::ValidityArray.Capacity() const	c0	-	Function	0	0	3
+duckdb::ValidityArray.Initialize(idx_t,bool)	c0	-	Function	0	0	16
+duckdb::ValidityArray.InitializeEmpty(idx_t)	c0	-	Function	0	0	4
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c0	-	Function	0	0	85
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c1	c0	If	1	3	13
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c2	c1	Then	2	7	12
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c3	c0	For	1	27	55
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c4	c3	For	2	34	51
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c5	c4	If	3	40	50
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c6	c5	Then	4	45	49
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c7	c0	If	1	56	84
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c8	c7	Then	2	60	83
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c9	c8	For	3	62	79
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c10	c9	If	4	68	78
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	c11	c10	Then	5	73	77
+duckdb::ValidityArray.RowIsValid(idx_t) const	c0	-	Function	0	0	13
+duckdb::ValidityArray.RowIsValid(idx_t) const	c1	c0	If	1	2	9
+duckdb::ValidityArray.RowIsValid(idx_t) const	c2	c1	Then	2	6	8
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	c0	-	Function	0	0	9
+duckdb::ValidityArray.SetValid(idx_t)	c0	-	Function	0	0	12
+duckdb::ValidityArray.SetValid(idx_t)	c1	c0	If	1	2	9
+duckdb::ValidityArray.SetValid(idx_t)	c2	c1	Then	2	6	8
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	c0	-	Function	0	0	9
+duckdb::ValidityArray.ValidityArray()	c0	-	Function	0	0	1
+duckdb::ValidityMask.ValidityMask()	c0	-	Function	0	0	2
+duckdb::ValidityMask.ValidityMask(const ValidityMask &,idx_t)	c0	-	Function	0	0	6
+duckdb::ValidityMask.ValidityMask(idx_t)	c0	-	Function	0	0	4
+duckdb::ValidityMask.ValidityMask(validity_t *,idx_t)	c0	-	Function	0	0	6

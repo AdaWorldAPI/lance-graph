@@ -1,0 +1,44 @@
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	c0	-	Function	0	0	29
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	c1	c0	If	1	3	15
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	c2	c1	Then	2	7	14
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	c3	c0	If	1	16	28
+duckdb::ScalarExecutor::RuntimeSelectionSink.Append(bool,idx_t)	c4	c3	Then	2	20	27
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	c0	-	Function	0	0	25
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	c1	c0	If	1	4	24
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	c2	c1	Then	2	8	23
+duckdb::ScalarExecutor::RuntimeSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	c3	c2	For	3	9	22
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c0	-	Function	0	0	61
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c1	c0	If	1	4	57
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c2	c1	Then	2	8	31
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c3	c2	If	3	9	30
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c4	c3	Then	4	13	29
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c5	c4	For	5	14	26
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c6	c1	Else	2	33	56
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c7	c6	If	3	34	55
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c8	c7	Then	4	38	54
+duckdb::ScalarExecutor::RuntimeSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c9	c8	For	5	39	51
+duckdb::ScalarExecutor::RuntimeSelectionSink.Result(idx_t) const	c0	-	Function	0	0	7
+duckdb::ScalarExecutor::RuntimeSelectionSink.RuntimeSelectionSink(SelectionVector *,SelectionVector *)	c0	-	Function	0	0	7
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	c0	-	Function	0	0	27
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	c1	c0	If	1	3	14
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	c2	c1	Then	2	6	13
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	c3	c0	If	1	15	26
+duckdb::ScalarExecutor::StaticSelectionSink.Append(bool,idx_t)	c4	c3	Then	2	18	25
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	c0	-	Function	0	0	24
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	c1	c0	If	1	4	23
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	c2	c1	Then	2	7	22
+duckdb::ScalarExecutor::StaticSelectionSink.AppendInvalidRange(const SelectionVector &,idx_t,idx_t)	c3	c2	For	3	8	21
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c0	-	Function	0	0	59
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c1	c0	If	1	4	55
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c2	c1	Then	2	8	30
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c3	c2	If	3	9	29
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c4	c3	Then	4	12	28
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c5	c4	For	5	13	25
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c6	c1	Else	2	32	54
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c7	c6	If	3	33	53
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c8	c7	Then	4	36	52
+duckdb::ScalarExecutor::StaticSelectionSink.FillConstant(bool,const SelectionVector &,idx_t)	c9	c8	For	5	37	49
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	c0	-	Function	0	0	13
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	c1	c0	If	1	2	9
+duckdb::ScalarExecutor::StaticSelectionSink.Result(idx_t) const	c2	c1	Then	2	5	8
+duckdb::ScalarExecutor::StaticSelectionSink.StaticSelectionSink<HAS_TRUE_SELECTION, HAS_FALSE_SELECTION>(SelectionVector *,SelectionVector *)	c0	-	Function	0	0	19

@@ -1,0 +1,836 @@
+duckdb::TemplatedValidityData.EntryCount(idx_t)	0	ScopeEnter	s0	-	c0	-	1306	-	-	walk
+duckdb::TemplatedValidityData.EntryCount(idx_t)	1	Param	s1	-	c0	-	1337	-	s2	clang
+duckdb::TemplatedValidityData.EntryCount(idx_t)	2	Return	-	-	c0	-	1354	-	-	walk
+duckdb::TemplatedValidityData.EntryCount(idx_t)	3	Read	s1	-	c0	-	1362	-	-	clang
+duckdb::TemplatedValidityData.EntryCount(idx_t)	4	Read	s12	-	c0	-	1371	-	-	clang
+duckdb::TemplatedValidityData.EntryCount(idx_t)	5	Read	s12	-	c0	-	1394	-	-	clang
+duckdb::TemplatedValidityData.EntryCount(idx_t)	6	ScopeExit	s0	-	c0	-	1306	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	0	ScopeEnter	s0	-	c0	-	927	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	1	Param	s10	-	c0	-	956	-	s11	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	2	Param	s1	-	c0	-	980	-	s2	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	3	Cast	-	-	c0	-	997	-	static	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	4	Read	s10	-	c0	-	1006	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	5	Cast	-	-	c0	-	997	-	functional	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	6	Call	-	s6	c0	-	997	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	7	Decl	s3	-	c0	-	1024	-	s2	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	8	Call	-	s4	c0	-	1043	-	static	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	9	Read	s1	-	c0	-	1054	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	10	Write	s5	-	c0	-	1064	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	11	Call	-	s6	c0	-	1077	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	12	Read	s3	-	c0	-	1117	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	13	ScopeEnter	s7	-	c1	c0	1133	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	14	Decl	s8	-	c1	c0	1138	for_init	s2	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	15	Read	s8	-	c1	c0	1159	for_cond	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	16	Read	s3	-	c1	c0	1171	for_cond	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	17	ReadWrite	s8	-	c1	c0	1184	for_inc	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	18	Condition	-	-	c1	c0	1133	for	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	19	Write	s5	-	c1	c0	1202	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	20	Read	s5	-	c1	c0	1202	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	21	Read	s8	-	c1	c0	1213	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	22	Read	s10	-	c1	c0	1226	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	23	Read	s8	-	c1	c0	1240	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	24	ScopeExit	s7	-	c1	c0	1133	back_edge	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(const V *,idx_t)	25	ScopeExit	s0	-	c0	-	927	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	0	ScopeEnter	s0	-	c0	-	651	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	1	Param	s1	-	c0	-	689	-	s2	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	2	Decl	s3	-	c0	-	706	-	s2	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	3	Call	-	s4	c0	-	725	-	static	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	4	Read	s1	-	c0	-	736	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	5	Write	s5	-	c0	-	746	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	6	Call	-	s6	c0	-	759	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	7	Read	s3	-	c0	-	799	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	8	ScopeEnter	s7	-	c1	c0	815	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	9	Decl	s8	-	c1	c0	820	for_init	s2	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	10	Read	s8	-	c1	c0	841	for_cond	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	11	Read	s3	-	c1	c0	853	for_cond	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	12	ReadWrite	s8	-	c1	c0	866	for_inc	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	13	Condition	-	-	c1	c0	815	for	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	14	Write	s5	-	c1	c0	884	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	15	Read	s5	-	c1	c0	884	-	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	16	Read	s8	-	c1	c0	895	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	17	Read	s9	-	c1	c0	908	-	-	clang
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	18	ScopeExit	s7	-	c1	c0	815	back_edge	-	walk
+duckdb::TemplatedValidityData.TemplatedValidityData<V>(idx_t)	19	ScopeExit	s0	-	c0	-	651	-	-	walk
+duckdb::TemplatedValidityMask.AllValid() const	0	ScopeEnter	s0	-	c0	-	2856	-	-	walk
+duckdb::TemplatedValidityMask.AllValid() const	1	Return	-	-	c0	-	2889	-	-	walk
+duckdb::TemplatedValidityMask.AllValid() const	2	Call	-	s22	c0	-	2896	-	member	clang
+duckdb::TemplatedValidityMask.AllValid() const	3	ScopeExit	s0	-	c0	-	2856	-	-	walk
+duckdb::TemplatedValidityMask.AllValid(V)	0	ScopeEnter	s0	-	c0	-	4661	-	-	walk
+duckdb::TemplatedValidityMask.AllValid(V)	1	Param	s44	-	c0	-	4689	-	s45	clang
+duckdb::TemplatedValidityMask.AllValid(V)	2	Return	-	-	c0	-	4785	-	-	walk
+duckdb::TemplatedValidityMask.AllValid(V)	3	Call	-	s6	c0	-	4792	-	-	walk
+duckdb::TemplatedValidityMask.AllValid(V)	4	Read	s44	-	c0	-	4792	-	-	clang
+duckdb::TemplatedValidityMask.AllValid(V)	5	ScopeExit	s0	-	c0	-	4661	-	-	walk
+duckdb::TemplatedValidityMask.CanHaveNull() const	0	ScopeEnter	s0	-	c0	-	2700	-	-	walk
+duckdb::TemplatedValidityMask.CanHaveNull() const	1	Return	-	-	c0	-	2736	-	-	walk
+duckdb::TemplatedValidityMask.CanHaveNull() const	2	Read	s13	-	c0	-	2743	-	-	walk
+duckdb::TemplatedValidityMask.CanHaveNull() const	3	ScopeExit	s0	-	c0	-	2700	-	-	walk
+duckdb::TemplatedValidityMask.CannotHaveNull() const	0	ScopeEnter	s0	-	c0	-	2634	-	-	walk
+duckdb::TemplatedValidityMask.CannotHaveNull() const	1	Return	-	-	c0	-	2673	-	-	walk
+duckdb::TemplatedValidityMask.CannotHaveNull() const	2	Read	s13	-	c0	-	2681	-	-	walk
+duckdb::TemplatedValidityMask.CannotHaveNull() const	3	ScopeExit	s0	-	c0	-	2634	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllInvalid(idx_t) const	0	ScopeEnter	s0	-	c0	-	3006	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllInvalid(idx_t) const	1	Param	s1	-	c0	-	3034	-	s2	clang
+duckdb::TemplatedValidityMask.CheckAllInvalid(idx_t) const	2	Return	-	-	c0	-	3057	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllInvalid(idx_t) const	3	Call	-	s6	c0	-	3064	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllInvalid(idx_t) const	4	Call	-	s23	c0	-	3064	-	member	clang
+duckdb::TemplatedValidityMask.CheckAllInvalid(idx_t) const	5	Read	s1	-	c0	-	3075	-	-	clang
+duckdb::TemplatedValidityMask.CheckAllInvalid(idx_t) const	6	ScopeExit	s0	-	c0	-	3006	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t) const	0	ScopeEnter	s0	-	c0	-	2918	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t) const	1	Param	s1	-	c0	-	2944	-	s2	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t) const	2	Return	-	-	c0	-	2967	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t) const	3	Call	-	s6	c0	-	2974	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t) const	4	Call	-	s23	c0	-	2974	-	member	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t) const	5	Read	s1	-	c0	-	2985	-	-	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t) const	6	Read	s1	-	c0	-	2995	-	-	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t) const	7	ScopeExit	s0	-	c0	-	2918	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	0	ScopeEnter	s0	-	c0	-	3093	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	1	Param	s24	-	c0	-	3119	-	s2	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	2	Param	s25	-	c0	-	3129	-	s2	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	3	ScopeEnter	s26	-	c1	c0	3151	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	4	Call	-	s22	c1	c0	3155	-	member	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	5	Condition	-	-	c1	c0	3155	if	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	6	Branch	-	-	c1	c0	3173	then	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	7	ScopeEnter	s27	-	c2	c1	3173	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	8	Return	-	-	c2	c1	3178	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	9	ScopeExit	s27	-	c2	c1	3173	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	10	ScopeExit	s26	-	c1	c0	3151	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	11	ScopeEnter	s7	-	c3	c0	3197	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	12	Decl	s28	-	c3	c0	3202	for_init	s2	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	13	Read	s25	-	c3	c0	3212	for_init	-	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	14	Read	s28	-	c3	c0	3218	for_cond	-	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	15	Read	s24	-	c3	c0	3222	for_cond	-	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	16	ReadWrite	s28	-	c3	c0	3226	for_inc	-	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	17	Condition	-	-	c3	c0	3197	for	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	18	ScopeEnter	s26	-	c4	c3	3236	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	19	Call	-	s6	c4	c3	3241	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	20	Read	s29	-	c4	c3	3241	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	21	Read	s28	-	c4	c3	3252	-	-	clang
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	22	Condition	-	-	c4	c3	3240	if	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	23	Branch	-	-	c4	c3	3256	then	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	24	ScopeEnter	s27	-	c5	c4	3256	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	25	Return	-	-	c5	c4	3262	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	26	ScopeExit	s27	-	c5	c4	3256	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	27	ScopeExit	s26	-	c4	c3	3236	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	28	ScopeExit	s7	-	c3	c0	3197	back_edge	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	29	Return	-	-	c0	-	3287	-	-	walk
+duckdb::TemplatedValidityMask.CheckAllValid(idx_t,idx_t) const	30	ScopeExit	s0	-	c0	-	3093	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	0	ScopeEnter	s0	-	c0	-	10625	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	1	Param	s69	-	c0	-	10642	-	s20	clang
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	2	Param	s1	-	c0	-	10678	-	s2	clang
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	3	Write	s14	-	c0	-	10695	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	4	Read	s1	-	c0	-	10706	-	-	clang
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	5	ScopeEnter	s26	-	c1	c0	10715	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	6	Call	-	s6	c1	c0	10719	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	7	Read	s29	-	c1	c0	10719	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	8	Read	s69	-	c1	c0	10719	-	-	clang
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	9	Condition	-	-	c1	c0	10719	if	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	10	Branch	-	-	c1	c0	10743	then	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	11	ScopeEnter	s27	-	c2	c1	10743	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	12	Write	s41	-	c2	c1	10748	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	13	Write	s13	-	c2	c1	10776	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	14	ScopeExit	s27	-	c2	c1	10743	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	15	Branch	-	-	c1	c0	10810	else	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	16	ScopeEnter	s38	-	c3	c1	10810	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	17	Write	s41	-	c3	c1	10815	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	18	Call	-	s6	c3	c1	10831	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	19	Read	s29	-	c3	c1	10859	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	20	Read	s69	-	c3	c1	10859	-	-	clang
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	21	Read	s1	-	c3	c1	10880	-	-	clang
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	22	Write	s13	-	c3	c1	10891	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	23	Call	-	s6	c3	c1	10907	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	24	Read	s29	-	c3	c1	10907	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	25	Read	s29	-	c3	c1	10907	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	26	Read	s41	-	c3	c1	10907	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	27	ScopeExit	s38	-	c3	c1	10810	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	28	ScopeExit	s26	-	c1	c0	10715	-	-	walk
+duckdb::TemplatedValidityMask.Copy(const TemplatedValidityMask<V> &,idx_t)	29	ScopeExit	s0	-	c0	-	10625	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	0	ScopeEnter	s0	-	c0	-	3305	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	1	Param	s1	-	c0	-	3322	-	s30	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	2	ScopeEnter	s26	-	c1	c0	3351	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	3	Call	-	s22	c1	c0	3355	-	member	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	4	Read	s1	-	c1	c0	3375	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	5	Condition	-	-	c1	c0	3355	if	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	6	Branch	-	-	c1	c0	3387	then	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	7	ScopeEnter	s27	-	c2	c1	3387	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	8	Return	-	-	c2	c1	3392	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	9	Read	s1	-	c2	c1	3399	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	10	ScopeExit	s27	-	c2	c1	3387	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	11	ScopeExit	s26	-	c1	c0	3351	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	12	Decl	s31	-	c0	-	3413	-	s2	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	13	Decl	s3	-	c0	-	3432	-	s30	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	14	Call	-	s4	c0	-	3457	-	static	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	15	Read	s1	-	c0	-	3468	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	16	ScopeEnter	s7	-	c3	c0	3478	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	17	Decl	s8	-	c3	c0	3483	for_init	s2	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	18	Read	s8	-	c3	c0	3504	for_cond	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	19	Read	s3	-	c3	c0	3516	for_cond	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	20	Condition	-	-	c3	c0	3478	for	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	21	Decl	s32	-	c3	c0	3535	-	s33	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	22	Call	-	s34	c3	c0	3548	-	member	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	23	ReadWrite	s8	-	c3	c0	3565	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	24	ScopeEnter	s26	-	c4	c3	3650	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	25	Read	s8	-	c4	c3	3654	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	26	Read	s3	-	c4	c3	3667	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	27	Read	s1	-	c4	c3	3682	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	28	Read	s12	-	c4	c3	3690	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	29	Condition	-	-	c4	c3	3654	if	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	30	Branch	-	-	c4	c3	3711	then	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	31	ScopeEnter	s27	-	c5	c4	3711	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	32	Decl	s35	-	c5	c4	3717	-	s30	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	33	Read	s12	-	c5	c4	3736	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	34	Read	s1	-	c5	c4	3754	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	35	Read	s12	-	c5	c4	3762	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	36	Decl	s36	-	c5	c4	3783	-	s37	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	37	Read	s29	-	c5	c4	3801	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	38	Read	s35	-	c5	c4	3830	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	39	ReadWrite	s32	-	c5	c4	3841	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	40	Read	s36	-	c5	c4	3850	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	41	ScopeExit	s27	-	c5	c4	3711	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	42	Branch	-	-	c4	c3	3866	else	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	43	ScopeEnter	s38	-	c6	c4	3866	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	44	ScopeEnter	s26	-	c7	c6	3866	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	45	Call	-	s6	c7	c6	3870	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	46	Read	s29	-	c7	c6	3870	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	47	Read	s32	-	c7	c6	3879	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	48	Condition	-	-	c7	c6	3870	if	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	49	Branch	-	-	c7	c6	3887	then	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	50	ScopeEnter	s27	-	c8	c7	3887	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	51	ReadWrite	s31	-	c8	c7	3915	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	52	Read	s12	-	c8	c7	3924	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	53	Continue	-	-	c8	c7	3944	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	54	ScopeExit	s27	-	c8	c7	3887	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	55	ScopeExit	s26	-	c7	c6	3866	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	56	ScopeExit	s38	-	c6	c4	3866	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	57	ScopeExit	s26	-	c4	c3	3650	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	58	ScopeEnter	s39	-	c9	c3	4013	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	59	Read	s32	-	c9	c3	4020	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	60	Condition	-	-	c9	c3	4013	while	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	61	ReadWrite	s32	-	c9	c3	4033	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	62	Read	s32	-	c9	c3	4043	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	63	ReadWrite	s31	-	c9	c3	4061	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	64	ScopeExit	s39	-	c9	c3	4013	back_edge	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	65	ScopeExit	s7	-	c3	c0	3478	back_edge	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	66	Return	-	-	c0	-	4080	-	-	walk
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	67	Read	s31	-	c0	-	4087	-	-	clang
+duckdb::TemplatedValidityMask.CountValid(const idx_t) const	68	ScopeExit	s0	-	c0	-	3305	-	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	0	ScopeEnter	s0	-	c0	-	8270	-	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	1	ScopeEnter	s26	-	c1	c0	8303	-	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	2	Read	s13	-	c1	c0	8308	-	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	3	Condition	-	-	c1	c0	8307	if	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	4	Branch	-	-	c1	c0	8323	then	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	5	ScopeEnter	s27	-	c2	c1	8323	-	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	6	Call	-	s6	c2	c1	8328	-	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	7	Read	s29	-	c2	c1	8328	-	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	8	ScopeExit	s27	-	c2	c1	8323	-	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	9	ScopeExit	s26	-	c1	c0	8303	-	-	walk
+duckdb::TemplatedValidityMask.EnsureWritable()	10	ScopeExit	s0	-	c0	-	8270	-	-	walk
+duckdb::TemplatedValidityMask.EntryCount(idx_t)	0	ScopeEnter	s0	-	c0	-	4306	-	-	walk
+duckdb::TemplatedValidityMask.EntryCount(idx_t)	1	Param	s1	-	c0	-	4337	-	s2	clang
+duckdb::TemplatedValidityMask.EntryCount(idx_t)	2	Return	-	-	c0	-	4354	-	-	walk
+duckdb::TemplatedValidityMask.EntryCount(idx_t)	3	Call	-	s6	c0	-	4361	-	-	walk
+duckdb::TemplatedValidityMask.EntryCount(idx_t)	4	Read	s1	-	c0	-	4388	-	-	clang
+duckdb::TemplatedValidityMask.EntryCount(idx_t)	5	ScopeExit	s0	-	c0	-	4306	-	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	0	ScopeEnter	s0	-	c0	-	5273	-	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	1	Param	s51	-	c0	-	5308	-	s2	clang
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	2	ScopeEnter	s26	-	c1	c0	5321	-	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	3	Read	s51	-	c1	c0	5325	-	-	clang
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	4	Condition	-	-	c1	c0	5325	if	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	5	Branch	-	-	c1	c0	5333	then	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	6	ScopeEnter	s27	-	c2	c1	5333	-	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	7	Return	-	-	c2	c1	5338	-	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	8	Call	-	s6	c2	c1	5345	-	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	9	ScopeExit	s27	-	c2	c1	5333	-	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	10	ScopeExit	s26	-	c1	c0	5321	-	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	11	Return	-	-	c0	-	5357	-	-	walk
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	12	Read	s12	-	c0	-	5394	-	-	clang
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	13	Read	s51	-	c0	-	5411	-	-	clang
+duckdb::TemplatedValidityMask.EntryWithValidBits(idx_t)	14	ScopeExit	s0	-	c0	-	5273	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	0	ScopeEnter	s0	-	c0	-	9949	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	1	ScopeEnter	s26	-	c1	c0	9985	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	2	Read	s13	-	c1	c0	9990	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	3	Condition	-	-	c1	c0	9989	if	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	4	Branch	-	-	c1	c0	10005	then	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	5	ScopeEnter	s27	-	c2	c1	10005	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	6	Return	-	-	c2	c1	10010	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	7	ScopeExit	s27	-	c2	c1	10005	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	8	ScopeExit	s26	-	c1	c0	9985	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	9	Return	-	-	c0	-	10026	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	10	Call	-	s4	c0	-	10033	-	static	clang
+duckdb::TemplatedValidityMask.GetAllocationSize() const	11	Read	s14	-	c0	-	10044	-	-	walk
+duckdb::TemplatedValidityMask.GetAllocationSize() const	12	ScopeExit	s0	-	c0	-	9949	-	-	walk
+duckdb::TemplatedValidityMask.GetData() const	0	ScopeEnter	s0	-	c0	-	4099	-	-	walk
+duckdb::TemplatedValidityMask.GetData() const	1	Return	-	-	c0	-	4129	-	-	walk
+duckdb::TemplatedValidityMask.GetData() const	2	Read	s13	-	c0	-	4136	-	-	walk
+duckdb::TemplatedValidityMask.GetData() const	3	ScopeExit	s0	-	c0	-	4099	-	-	walk
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	0	ScopeEnter	s0	-	c0	-	5020	-	-	walk
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	1	Param	s49	-	c0	-	5053	-	s2	clang
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	2	Param	s42	-	c0	-	5068	-	s50	clang
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	3	Param	s47	-	c0	-	5086	-	s50	clang
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	4	Write	s42	-	c0	-	5111	-	-	clang
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	5	Read	s49	-	c0	-	5123	-	-	clang
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	6	Read	s12	-	c0	-	5133	-	-	clang
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	7	Write	s47	-	c0	-	5151	-	-	clang
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	8	Read	s49	-	c0	-	5166	-	-	clang
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	9	Read	s12	-	c0	-	5176	-	-	clang
+duckdb::TemplatedValidityMask.GetEntryIndex(idx_t,idx_t &,idx_t &)	10	ScopeExit	s0	-	c0	-	5020	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	0	ScopeEnter	s0	-	c0	-	4400	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	1	Param	s42	-	c0	-	4426	-	s2	clang
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	2	ScopeEnter	s26	-	c1	c0	4453	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	3	Read	s13	-	c1	c0	4458	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	4	Condition	-	-	c1	c0	4457	if	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	5	Branch	-	-	c1	c0	4473	then	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	6	ScopeEnter	s27	-	c2	c1	4473	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	7	Return	-	-	c2	c1	4478	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	8	Read	s29	-	c2	c1	4485	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	9	ScopeExit	s27	-	c2	c1	4473	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	10	ScopeExit	s26	-	c1	c0	4453	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	11	Return	-	-	c0	-	4518	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	12	Call	-	s43	c0	-	4525	-	member	clang
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	13	Read	s42	-	c0	-	4548	-	-	clang
+duckdb::TemplatedValidityMask.GetValidityEntry(idx_t) const	14	ScopeExit	s0	-	c0	-	4400	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntryUnsafe(idx_t) const	0	ScopeEnter	s0	-	c0	-	4564	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntryUnsafe(idx_t) const	1	Param	s42	-	c0	-	4597	-	s2	clang
+duckdb::TemplatedValidityMask.GetValidityEntryUnsafe(idx_t) const	2	Return	-	-	c0	-	4624	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntryUnsafe(idx_t) const	3	Read	s13	-	c0	-	4631	-	-	walk
+duckdb::TemplatedValidityMask.GetValidityEntryUnsafe(idx_t) const	4	Read	s42	-	c0	-	4645	-	-	clang
+duckdb::TemplatedValidityMask.GetValidityEntryUnsafe(idx_t) const	5	ScopeExit	s0	-	c0	-	4564	-	-	walk
+duckdb::TemplatedValidityMask.Initialize()	0	ScopeEnter	s0	-	c0	-	10570	-	-	walk
+duckdb::TemplatedValidityMask.Initialize()	1	Call	-	s6	c0	-	10599	-	-	walk
+duckdb::TemplatedValidityMask.Initialize()	2	Read	s29	-	c0	-	10599	-	-	walk
+duckdb::TemplatedValidityMask.Initialize()	3	Read	s14	-	c0	-	10610	-	-	walk
+duckdb::TemplatedValidityMask.Initialize()	4	ScopeExit	s0	-	c0	-	10570	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	0	ScopeEnter	s0	-	c0	-	10231	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	1	Param	s69	-	c0	-	10254	-	s20	clang
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	2	Write	s13	-	c0	-	10294	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	3	Read	s29	-	c0	-	10310	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	4	Read	s69	-	c0	-	10310	-	-	clang
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	5	Write	s41	-	c0	-	10333	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	6	Read	s29	-	c0	-	10349	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	7	Read	s69	-	c0	-	10349	-	-	clang
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	8	Write	s14	-	c0	-	10372	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	9	Read	s29	-	c0	-	10383	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	10	Read	s69	-	c0	-	10383	-	-	clang
+duckdb::TemplatedValidityMask.Initialize(const TemplatedValidityMask<V> &)	11	ScopeExit	s0	-	c0	-	10231	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	0	ScopeEnter	s0	-	c0	-	10403	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	1	Param	s1	-	c0	-	10426	-	s2	clang
+duckdb::TemplatedValidityMask.Initialize(idx_t)	2	Write	s14	-	c0	-	10443	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	3	Read	s1	-	c0	-	10454	-	-	clang
+duckdb::TemplatedValidityMask.Initialize(idx_t)	4	Write	s41	-	c0	-	10463	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	5	Call	-	s6	c0	-	10479	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	6	Read	s1	-	c0	-	10507	-	-	clang
+duckdb::TemplatedValidityMask.Initialize(idx_t)	7	Write	s13	-	c0	-	10517	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	8	Call	-	s6	c0	-	10533	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	9	Read	s29	-	c0	-	10533	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	10	Read	s29	-	c0	-	10533	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	11	Read	s41	-	c0	-	10533	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(idx_t)	12	ScopeExit	s0	-	c0	-	10403	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	0	ScopeEnter	s0	-	c0	-	10080	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	1	Param	s66	-	c0	-	10103	-	s67	clang
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	2	Param	s68	-	c0	-	10125	-	s2	clang
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	3	Call	-	s6	c0	-	10149	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	4	Read	s29	-	c0	-	10149	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	5	Read	s41	-	c0	-	10149	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	6	Write	s13	-	c0	-	10174	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	7	Read	s66	-	c0	-	10190	-	-	clang
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	8	Write	s14	-	c0	-	10202	-	-	walk
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	9	Read	s68	-	c0	-	10213	-	-	clang
+duckdb::TemplatedValidityMask.Initialize(validity_t *,idx_t)	10	ScopeExit	s0	-	c0	-	10080	-	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	0	ScopeEnter	s0	-	c0	-	9853	-	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	1	ScopeEnter	s26	-	c1	c0	9887	-	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	2	Read	s13	-	c1	c0	9891	-	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	3	Condition	-	-	c1	c0	9891	if	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	4	Branch	-	-	c1	c0	9906	then	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	5	ScopeEnter	s27	-	c2	c1	9906	-	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	6	Return	-	-	c2	c1	9911	-	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	7	ScopeExit	s27	-	c2	c1	9906	-	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	8	ScopeExit	s26	-	c1	c0	9887	-	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	9	Return	-	-	c0	-	9930	-	-	walk
+duckdb::TemplatedValidityMask.IsMaskSet() const	10	ScopeExit	s0	-	c0	-	9853	-	-	walk
+duckdb::TemplatedValidityMask.NoneValid(V)	0	ScopeEnter	s0	-	c0	-	4832	-	-	walk
+duckdb::TemplatedValidityMask.NoneValid(V)	1	Param	s44	-	c0	-	4861	-	s45	clang
+duckdb::TemplatedValidityMask.NoneValid(V)	2	Return	-	-	c0	-	4874	-	-	walk
+duckdb::TemplatedValidityMask.NoneValid(V)	3	Call	-	s6	c0	-	4881	-	-	walk
+duckdb::TemplatedValidityMask.NoneValid(V)	4	Read	s44	-	c0	-	4881	-	-	clang
+duckdb::TemplatedValidityMask.NoneValid(V)	5	ScopeExit	s0	-	c0	-	4832	-	-	walk
+duckdb::TemplatedValidityMask.Reset(idx_t)	0	ScopeEnter	s0	-	c0	-	4155	-	-	walk
+duckdb::TemplatedValidityMask.Reset(idx_t)	1	Param	s40	-	c0	-	4173	-	s2	clang
+duckdb::TemplatedValidityMask.Reset(idx_t)	2	Write	s13	-	c0	-	4222	-	-	walk
+duckdb::TemplatedValidityMask.Reset(idx_t)	3	Call	-	s6	c0	-	4249	-	-	walk
+duckdb::TemplatedValidityMask.Reset(idx_t)	4	Read	s29	-	c0	-	4249	-	-	walk
+duckdb::TemplatedValidityMask.Reset(idx_t)	5	Read	s41	-	c0	-	4249	-	-	walk
+duckdb::TemplatedValidityMask.Reset(idx_t)	6	Write	s14	-	c0	-	4274	-	-	walk
+duckdb::TemplatedValidityMask.Reset(idx_t)	7	Read	s40	-	c0	-	4285	-	-	clang
+duckdb::TemplatedValidityMask.Reset(idx_t)	8	ScopeExit	s0	-	c0	-	4155	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	0	ScopeEnter	s0	-	c0	-	4897	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	1	Param	s44	-	c0	-	4927	-	s46	clang
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	2	Param	s47	-	c0	-	4943	-	s48	clang
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	3	Return	-	-	c0	-	4974	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	4	Read	s44	-	c0	-	4981	-	-	clang
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	5	Call	-	s6	c0	-	4990	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	6	Call	-	s6	c0	-	4990	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	7	Call	-	s6	c0	-	4998	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	8	Read	s47	-	c0	-	5000	-	-	clang
+duckdb::TemplatedValidityMask.RowIsValid(const V &,const idx_t &)	9	ScopeExit	s0	-	c0	-	4897	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	0	ScopeEnter	s0	-	c0	-	5987	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	1	Param	s49	-	c0	-	6010	-	s2	clang
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	2	ScopeEnter	s26	-	c1	c0	6247	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	3	Read	s13	-	c1	c0	6252	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	4	Condition	-	-	c1	c0	6251	if	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	5	Branch	-	-	c1	c0	6267	then	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	6	ScopeEnter	s27	-	c2	c1	6267	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	7	Return	-	-	c2	c1	6272	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	8	ScopeExit	s27	-	c2	c1	6267	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	9	ScopeExit	s26	-	c1	c0	6247	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	10	Return	-	-	c0	-	6291	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	11	Call	-	s54	c0	-	6298	-	member	clang
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	12	Read	s49	-	c0	-	6315	-	-	clang
+duckdb::TemplatedValidityMask.RowIsValid(idx_t) const	13	ScopeExit	s0	-	c0	-	5987	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	0	ScopeEnter	s0	-	c0	-	5658	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	1	Param	s49	-	c0	-	5687	-	s2	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	2	Cast	-	-	c0	-	5712	-	static	walk
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	3	Read	s13	-	c0	-	5721	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	4	Cast	-	-	c0	-	5712	-	functional	walk
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	5	Call	-	s6	c0	-	5712	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	6	Decl	s8	-	c0	-	5739	-	s2	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	7	Decl	s52	-	c0	-	5756	-	s2	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	8	Call	-	s53	c0	-	5772	-	static	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	9	Read	s49	-	c0	-	5786	-	-	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	10	Read	s8	-	c0	-	5795	-	-	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	11	Read	s52	-	c0	-	5806	-	-	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	12	Decl	s32	-	c0	-	5823	-	s33	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	13	Call	-	s43	c0	-	5836	-	member	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	14	Read	s8	-	c0	-	5859	-	-	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	15	Return	-	-	c0	-	5873	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	16	Call	-	s6	c0	-	5880	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	17	Read	s29	-	c0	-	5880	-	-	walk
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	18	Read	s32	-	c0	-	5891	-	-	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	19	Read	s52	-	c0	-	5898	-	-	clang
+duckdb::TemplatedValidityMask.RowIsValidUnsafe(idx_t) const	20	ScopeExit	s0	-	c0	-	5658	-	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	0	ScopeEnter	s0	-	c0	-	8059	-	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	1	Param	s49	-	c0	-	8075	-	s2	clang
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	2	Param	s56	-	c0	-	8090	-	s57	clang
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	3	ScopeEnter	s26	-	c1	c0	8106	-	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	4	Read	s56	-	c1	c0	8110	-	-	clang
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	5	Condition	-	-	c1	c0	8110	if	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	6	Branch	-	-	c1	c0	8117	then	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	7	ScopeEnter	s27	-	c2	c1	8117	-	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	8	Call	-	s58	c2	c1	8122	-	member	clang
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	9	Read	s49	-	c2	c1	8131	-	-	clang
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	10	ScopeExit	s27	-	c2	c1	8117	-	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	11	Branch	-	-	c1	c0	8150	else	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	12	ScopeEnter	s38	-	c3	c1	8150	-	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	13	Call	-	s59	c3	c1	8155	-	member	clang
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	14	Read	s49	-	c3	c1	8166	-	-	clang
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	15	ScopeExit	s38	-	c3	c1	8150	-	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	16	ScopeExit	s26	-	c1	c0	8106	-	-	walk
+duckdb::TemplatedValidityMask.Set(idx_t,bool)	17	ScopeExit	s0	-	c0	-	8059	-	-	walk
+duckdb::TemplatedValidityMask.SetAllInvalid(idx_t)	0	ScopeEnter	s0	-	c0	-	9134	-	-	walk
+duckdb::TemplatedValidityMask.SetAllInvalid(idx_t)	1	Param	s1	-	c0	-	9160	-	s2	clang
+duckdb::TemplatedValidityMask.SetAllInvalid(idx_t)	2	Call	-	s65	c0	-	9177	-	member	clang
+duckdb::TemplatedValidityMask.SetAllInvalid(idx_t)	3	Read	s1	-	c0	-	9193	-	-	clang
+duckdb::TemplatedValidityMask.SetAllInvalid(idx_t)	4	Call	-	s4	c0	-	9203	-	static	clang
+duckdb::TemplatedValidityMask.SetAllInvalid(idx_t)	5	Read	s1	-	c0	-	9214	-	-	clang
+duckdb::TemplatedValidityMask.SetAllInvalid(idx_t)	6	ScopeExit	s0	-	c0	-	9134	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	0	ScopeEnter	s0	-	c0	-	9301	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	1	Param	s1	-	c0	-	9325	-	s2	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	2	Call	-	s62	c0	-	9342	-	member	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	3	ScopeEnter	s26	-	c1	c0	9362	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	4	Read	s1	-	c1	c0	9366	-	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	5	Condition	-	-	c1	c0	9366	if	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	6	Branch	-	-	c1	c0	9378	then	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	7	ScopeEnter	s27	-	c2	c1	9378	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	8	Return	-	-	c2	c1	9383	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	9	ScopeExit	s27	-	c2	c1	9378	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	10	ScopeExit	s26	-	c1	c0	9362	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	11	Decl	s63	-	c0	-	9397	-	s33	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	12	Call	-	s6	c0	-	9421	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	13	Read	s29	-	c0	-	9421	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	14	Read	s1	-	c0	-	9448	-	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	15	ScopeEnter	s7	-	c3	c0	9462	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	16	Decl	s28	-	c3	c0	9467	for_init	s2	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	17	Call	-	s6	c3	c0	9480	for_cond	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	18	Read	s28	-	c3	c0	9480	for_cond	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	19	Read	s63	-	c3	c0	9484	for_cond	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	20	ReadWrite	s28	-	c3	c0	9502	for_inc	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	21	Condition	-	-	c3	c0	9462	for	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	22	Write	s13	-	c3	c0	9512	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	23	Read	s13	-	c3	c0	9512	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	24	Read	s28	-	c3	c0	9526	-	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	25	Read	s29	-	c3	c0	9531	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	26	ScopeExit	s7	-	c3	c0	9462	back_edge	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	27	Decl	s64	-	c0	-	9564	-	s2	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	28	Read	s1	-	c0	-	9587	-	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	29	Read	s12	-	c0	-	9595	-	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	30	ReadWrite	s13	-	c0	-	9613	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	31	Read	s13	-	c0	-	9613	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	32	Read	s63	-	c0	-	9627	-	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	33	Read	s64	-	c0	-	9649	-	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	34	Read	s29	-	c0	-	9714	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	35	Cast	-	-	c0	-	9784	-	static	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	36	Call	-	s6	c0	-	9799	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	37	Read	s29	-	c0	-	9799	-	-	walk
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	38	Read	s64	-	c0	-	9829	-	-	clang
+duckdb::TemplatedValidityMask.SetAllValid(idx_t)	39	ScopeExit	s0	-	c0	-	9301	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	0	ScopeEnter	s0	-	c0	-	7631	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	1	Param	s49	-	c0	-	7654	-	s2	clang
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	2	ScopeEnter	s26	-	c1	c0	7885	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	3	Read	s13	-	c1	c0	7890	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	4	Condition	-	-	c1	c0	7889	if	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	5	Branch	-	-	c1	c0	7905	then	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	6	ScopeEnter	s27	-	c2	c1	7905	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	7	Call	-	s6	c2	c1	7910	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	8	Read	s29	-	c2	c1	7910	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	9	Read	s14	-	c2	c1	7921	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	10	ScopeExit	s27	-	c2	c1	7905	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	11	ScopeExit	s26	-	c1	c0	7885	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	12	Call	-	s6	c0	-	7938	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	13	Read	s29	-	c0	-	7938	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	14	Read	s49	-	c0	-	7955	-	-	clang
+duckdb::TemplatedValidityMask.SetInvalid(idx_t)	15	ScopeExit	s0	-	c0	-	7631	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	0	ScopeEnter	s0	-	c0	-	7380	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	1	Param	s49	-	c0	-	7409	-	s2	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	2	Decl	s8	-	c0	-	7428	-	s2	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	3	Decl	s52	-	c0	-	7445	-	s2	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	4	Call	-	s53	c0	-	7461	-	static	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	5	Read	s49	-	c0	-	7475	-	-	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	6	Read	s8	-	c0	-	7484	-	-	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	7	Read	s52	-	c0	-	7495	-	-	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	8	Call	-	s6	c0	-	7512	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	9	Read	s29	-	c0	-	7512	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	10	Read	s8	-	c0	-	7529	-	-	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	11	Read	s52	-	c0	-	7540	-	-	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t)	12	ScopeExit	s0	-	c0	-	7380	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	0	ScopeEnter	s0	-	c0	-	7153	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	1	Param	s42	-	c0	-	7182	-	s2	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	2	Param	s47	-	c0	-	7199	-	s2	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	3	Cast	-	-	c0	-	7223	-	static	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	4	Read	s13	-	c0	-	7232	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	5	Cast	-	-	c0	-	7223	-	functional	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	6	Call	-	s6	c0	-	7223	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	7	ReadWrite	s13	-	c0	-	7250	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	8	Read	s13	-	c0	-	7250	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	9	Read	s42	-	c0	-	7264	-	-	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	10	Call	-	s6	c0	-	7280	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	11	Call	-	s6	c0	-	7280	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	12	Call	-	s6	c0	-	7288	-	-	walk
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	13	Read	s47	-	c0	-	7290	-	-	clang
+duckdb::TemplatedValidityMask.SetInvalidUnsafe(idx_t,idx_t)	14	ScopeExit	s0	-	c0	-	7153	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	0	ScopeEnter	s0	-	c0	-	8482	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	1	Param	s1	-	c0	-	8510	-	s30	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	2	Param	s60	-	c0	-	8529	-	s30	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	3	Param	s61	-	c0	-	8554	-	s30	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	4	Call	-	s62	c0	-	8581	-	member	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	5	ScopeEnter	s26	-	c1	c0	8601	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	6	Read	s1	-	c1	c0	8605	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	7	Condition	-	-	c1	c0	8605	if	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	8	Branch	-	-	c1	c0	8617	then	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	9	ScopeEnter	s27	-	c2	c1	8617	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	10	Return	-	-	c2	c1	8622	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	11	ScopeExit	s27	-	c2	c1	8617	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	12	ScopeExit	s26	-	c1	c0	8601	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	13	Decl	s63	-	c0	-	8636	-	s37	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	14	Call	-	s6	c0	-	8666	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	15	Read	s29	-	c0	-	8666	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	16	Read	s1	-	c0	-	8693	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	17	ScopeEnter	s7	-	c3	c0	8707	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	18	Decl	s28	-	c3	c0	8712	for_init	s2	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	19	Read	s60	-	c3	c0	8722	for_init	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	20	Call	-	s6	c3	c0	8735	for_cond	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	21	Read	s28	-	c3	c0	8735	for_cond	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	22	Call	-	s6	c3	c0	8739	for_cond	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	23	Read	s63	-	c3	c0	8748	for_cond	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	24	Read	s61	-	c3	c0	8766	for_cond	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	25	ReadWrite	s28	-	c3	c0	8778	for_inc	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	26	Condition	-	-	c3	c0	8707	for	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	27	Write	s13	-	c3	c0	8788	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	28	Read	s13	-	c3	c0	8788	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	29	Read	s28	-	c3	c0	8802	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	30	ScopeExit	s7	-	c3	c0	8707	back_edge	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	31	ScopeEnter	s26	-	c4	c0	8816	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	32	Read	s61	-	c4	c0	8820	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	33	Read	s63	-	c4	c0	8833	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	34	Condition	-	-	c4	c0	8820	if	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	35	Branch	-	-	c4	c0	8851	then	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	36	ScopeEnter	s27	-	c5	c4	8851	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	37	Return	-	-	c5	c4	8856	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	38	ScopeExit	s27	-	c5	c4	8851	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	39	ScopeExit	s26	-	c4	c0	8816	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	40	Decl	s64	-	c0	-	8870	-	s30	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	41	Read	s1	-	c0	-	8899	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	42	Read	s12	-	c0	-	8907	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	43	Write	s13	-	c0	-	8925	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	44	Read	s13	-	c0	-	8925	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	45	Read	s63	-	c0	-	8939	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	46	Read	s64	-	c0	-	8966	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	47	Cast	-	-	c0	-	8994	-	static	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	48	Call	-	s6	c0	-	9009	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	49	Read	s29	-	c0	-	9009	-	-	walk
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	50	Read	s64	-	c0	-	9039	-	-	clang
+duckdb::TemplatedValidityMask.SetRangeInvalid(const idx_t,const idx_t,const idx_t)	51	ScopeExit	s0	-	c0	-	8482	-	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	0	ScopeEnter	s0	-	c0	-	6683	-	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	1	Param	s49	-	c0	-	6704	-	s2	clang
+duckdb::TemplatedValidityMask.SetValid(idx_t)	2	ScopeEnter	s26	-	c1	c0	6933	-	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	3	Read	s13	-	c1	c0	6938	-	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	4	Condition	-	-	c1	c0	6937	if	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	5	Branch	-	-	c1	c0	6953	then	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	6	ScopeEnter	s27	-	c2	c1	6953	-	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	7	Return	-	-	c2	c1	7044	-	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	8	ScopeExit	s27	-	c2	c1	6953	-	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	9	ScopeExit	s26	-	c1	c0	6933	-	-	walk
+duckdb::TemplatedValidityMask.SetValid(idx_t)	10	Call	-	s55	c0	-	7058	-	member	clang
+duckdb::TemplatedValidityMask.SetValid(idx_t)	11	Read	s49	-	c0	-	7073	-	-	clang
+duckdb::TemplatedValidityMask.SetValid(idx_t)	12	ScopeExit	s0	-	c0	-	6683	-	-	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	0	ScopeEnter	s0	-	c0	-	6393	-	-	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	1	Param	s49	-	c0	-	6420	-	s2	clang
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	2	Cast	-	-	c0	-	6439	-	static	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	3	Read	s13	-	c0	-	6448	-	-	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	4	Cast	-	-	c0	-	6439	-	functional	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	5	Call	-	s6	c0	-	6439	-	-	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	6	Decl	s8	-	c0	-	6466	-	s2	clang
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	7	Decl	s52	-	c0	-	6483	-	s2	clang
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	8	Call	-	s53	c0	-	6499	-	static	clang
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	9	Read	s49	-	c0	-	6513	-	-	clang
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	10	Read	s8	-	c0	-	6522	-	-	clang
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	11	Read	s52	-	c0	-	6533	-	-	clang
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	12	ReadWrite	s13	-	c0	-	6550	-	-	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	13	Read	s13	-	c0	-	6550	-	-	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	14	Read	s8	-	c0	-	6564	-	-	clang
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	15	Call	-	s6	c0	-	6579	-	-	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	16	Call	-	s6	c0	-	6579	-	-	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	17	Call	-	s6	c0	-	6587	-	-	walk
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	18	Read	s52	-	c0	-	6589	-	-	clang
+duckdb::TemplatedValidityMask.SetValidUnsafe(idx_t)	19	ScopeExit	s0	-	c0	-	6393	-	-	walk
+duckdb::TemplatedValidityMask.SizeInBytes(idx_t)	0	ScopeEnter	s0	-	c0	-	5419	-	-	walk
+duckdb::TemplatedValidityMask.SizeInBytes(idx_t)	1	Param	s51	-	c0	-	5451	-	s2	clang
+duckdb::TemplatedValidityMask.SizeInBytes(idx_t)	2	Return	-	-	c0	-	5464	-	-	walk
+duckdb::TemplatedValidityMask.SizeInBytes(idx_t)	3	Read	s51	-	c0	-	5472	-	-	clang
+duckdb::TemplatedValidityMask.SizeInBytes(idx_t)	4	Read	s12	-	c0	-	5476	-	-	clang
+duckdb::TemplatedValidityMask.SizeInBytes(idx_t)	5	Read	s12	-	c0	-	5498	-	-	clang
+duckdb::TemplatedValidityMask.SizeInBytes(idx_t)	6	ScopeExit	s0	-	c0	-	5419	-	-	walk
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>()	0	ScopeEnter	s0	-	c0	-	2070	-	-	walk
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>()	1	CtorInit	s13	-	c0	-	2103	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>()	2	CtorInit	s14	-	c0	-	2127	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>()	3	ScopeExit	s0	-	c0	-	2070	-	-	walk
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(V *,idx_t)	0	ScopeEnter	s0	-	c0	-	2277	-	-	walk
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(V *,idx_t)	1	Param	s16	-	c0	-	2315	-	s17	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(V *,idx_t)	2	Param	s18	-	c0	-	2323	-	s2	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(V *,idx_t)	3	CtorInit	s13	-	c0	-	2341	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(V *,idx_t)	4	Read	s16	-	c0	-	2355	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(V *,idx_t)	5	CtorInit	s14	-	c0	-	2361	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(V *,idx_t)	6	Read	s18	-	c0	-	2370	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(V *,idx_t)	7	ScopeExit	s0	-	c0	-	2277	-	-	walk
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(const TemplatedValidityMask<V> &,idx_t)	0	ScopeEnter	s0	-	c0	-	2386	-	-	walk
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(const TemplatedValidityMask<V> &,idx_t)	1	Param	s19	-	c0	-	2415	-	s20	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(const TemplatedValidityMask<V> &,idx_t)	2	Param	s1	-	c0	-	2454	-	s2	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(const TemplatedValidityMask<V> &,idx_t)	3	Call	-	s21	c0	-	2471	-	member	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(const TemplatedValidityMask<V> &,idx_t)	4	Read	s19	-	c0	-	2476	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(const TemplatedValidityMask<V> &,idx_t)	5	Read	s1	-	c0	-	2486	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(const TemplatedValidityMask<V> &,idx_t)	6	ScopeExit	s0	-	c0	-	2386	-	-	walk
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(idx_t)	0	ScopeEnter	s0	-	c0	-	2164	-	-	walk
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(idx_t)	1	Param	s15	-	c0	-	2202	-	s2	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(idx_t)	2	CtorInit	s13	-	c0	-	2224	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(idx_t)	3	CtorInit	s14	-	c0	-	2248	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(idx_t)	4	Read	s15	-	c0	-	2257	-	-	clang
+duckdb::TemplatedValidityMask.TemplatedValidityMask<V>(idx_t)	5	ScopeExit	s0	-	c0	-	2164	-	-	walk
+duckdb::TemplatedValidityMask.ValidityMaskSize(idx_t)	0	ScopeEnter	s0	-	c0	-	2499	-	-	walk
+duckdb::TemplatedValidityMask.ValidityMaskSize(idx_t)	1	Param	s1	-	c0	-	2536	-	s2	clang
+duckdb::TemplatedValidityMask.ValidityMaskSize(idx_t)	2	Return	-	-	c0	-	2576	-	-	walk
+duckdb::TemplatedValidityMask.ValidityMaskSize(idx_t)	3	Call	-	s6	c0	-	2583	-	-	walk
+duckdb::TemplatedValidityMask.ValidityMaskSize(idx_t)	4	Read	s1	-	c0	-	2610	-	-	clang
+duckdb::TemplatedValidityMask.ValidityMaskSize(idx_t)	5	ScopeExit	s0	-	c0	-	2499	-	-	walk
+duckdb::ValidityArray.AllValid() const	0	ScopeEnter	s0	-	c0	-	12821	-	-	walk
+duckdb::ValidityArray.AllValid() const	1	Return	-	-	c0	-	12854	-	-	walk
+duckdb::ValidityArray.AllValid() const	2	Call	-	s22	c0	-	12861	-	member	clang
+duckdb::ValidityArray.AllValid() const	3	ScopeExit	s0	-	c0	-	12821	-	-	walk
+duckdb::ValidityArray.CanHaveNull() const	0	ScopeEnter	s0	-	c0	-	12665	-	-	walk
+duckdb::ValidityArray.CanHaveNull() const	1	Return	-	-	c0	-	12701	-	-	walk
+duckdb::ValidityArray.CanHaveNull() const	2	Read	s13	-	c0	-	12708	-	-	walk
+duckdb::ValidityArray.CanHaveNull() const	3	ScopeExit	s0	-	c0	-	12665	-	-	walk
+duckdb::ValidityArray.CannotHaveNull() const	0	ScopeEnter	s0	-	c0	-	12599	-	-	walk
+duckdb::ValidityArray.CannotHaveNull() const	1	Return	-	-	c0	-	12638	-	-	walk
+duckdb::ValidityArray.CannotHaveNull() const	2	Read	s13	-	c0	-	12646	-	-	walk
+duckdb::ValidityArray.CannotHaveNull() const	3	ScopeExit	s0	-	c0	-	12599	-	-	walk
+duckdb::ValidityArray.Capacity() const	0	ScopeEnter	s0	-	c0	-	13185	-	-	walk
+duckdb::ValidityArray.Capacity() const	1	Return	-	-	c0	-	13212	-	-	walk
+duckdb::ValidityArray.Capacity() const	2	Read	s14	-	c0	-	13219	-	-	walk
+duckdb::ValidityArray.Capacity() const	3	ScopeExit	s0	-	c0	-	13185	-	-	walk
+duckdb::ValidityArray.Initialize(idx_t,bool)	0	ScopeEnter	s0	-	c0	-	12884	-	-	walk
+duckdb::ValidityArray.Initialize(idx_t,bool)	1	Param	s1	-	c0	-	12907	-	s2	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	2	Param	s72	-	c0	-	12920	-	s57	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	3	Write	s14	-	c0	-	12945	-	-	walk
+duckdb::ValidityArray.Initialize(idx_t,bool)	4	Read	s1	-	c0	-	12956	-	-	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	5	Call	-	s73	c0	-	12965	-	member	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	6	Read	s41	-	c0	-	12965	-	-	walk
+duckdb::ValidityArray.Initialize(idx_t,bool)	7	Call	-	s74	c0	-	12981	-	free	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	8	Read	s1	-	c0	-	13010	-	-	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	9	Write	s13	-	c0	-	13020	-	-	walk
+duckdb::ValidityArray.Initialize(idx_t,bool)	10	Call	s75	s76	c0	-	13036	-	member	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	11	Read	s41	-	c0	-	13036	-	-	walk
+duckdb::ValidityArray.Initialize(idx_t,bool)	12	Call	-	s77	c0	-	13059	-	free	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	13	Read	s13	-	c0	-	13066	-	-	walk
+duckdb::ValidityArray.Initialize(idx_t,bool)	14	Read	s72	-	c0	-	13081	-	-	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	15	Read	s1	-	c0	-	13105	-	-	clang
+duckdb::ValidityArray.Initialize(idx_t,bool)	16	ScopeExit	s0	-	c0	-	12884	-	-	walk
+duckdb::ValidityArray.InitializeEmpty(idx_t)	0	ScopeEnter	s0	-	c0	-	13117	-	-	walk
+duckdb::ValidityArray.InitializeEmpty(idx_t)	1	Param	s1	-	c0	-	13145	-	s2	clang
+duckdb::ValidityArray.InitializeEmpty(idx_t)	2	Write	s14	-	c0	-	13162	-	-	walk
+duckdb::ValidityArray.InitializeEmpty(idx_t)	3	Read	s1	-	c0	-	13173	-	-	clang
+duckdb::ValidityArray.InitializeEmpty(idx_t)	4	ScopeExit	s0	-	c0	-	13117	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	0	ScopeEnter	s0	-	c0	-	14553	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	1	Param	s79	-	c0	-	14570	-	s80	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	2	Param	s1	-	c0	-	14590	-	s30	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	3	ScopeEnter	s26	-	c1	c0	14619	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	4	Call	-	s22	c1	c0	14623	-	member	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	5	Condition	-	-	c1	c0	14623	if	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	6	Branch	-	-	c1	c0	14641	then	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	7	ScopeEnter	s27	-	c2	c1	14641	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	8	Call	s81	s82	c2	c1	14646	-	member	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	9	Read	s79	-	c2	c1	14646	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	10	Read	s1	-	c2	c1	14657	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	11	Return	-	-	c2	c1	14668	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	12	ScopeExit	s27	-	c2	c1	14641	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	13	ScopeExit	s26	-	c1	c0	14619	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	14	Call	s81	s83	c0	-	14682	-	member	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	15	Read	s79	-	c0	-	14682	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	16	Read	s1	-	c0	-	14698	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	17	Decl	s84	-	c0	-	14709	-	s30	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	18	Read	s1	-	c0	-	14737	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	19	Read	s12	-	c0	-	14745	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	20	Decl	s85	-	c0	-	14777	-	s30	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	21	Read	s1	-	c0	-	14797	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	22	Read	s12	-	c0	-	14805	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	23	Decl	s86	-	c0	-	14837	-	s87	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	24	Call	s81	s88	c0	-	14849	-	member	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	25	Read	s79	-	c0	-	14849	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	26	Decl	s89	-	c0	-	14867	-	s2	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	27	ScopeEnter	s7	-	c3	c0	14888	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	28	Decl	s28	-	c3	c0	14893	for_init	s2	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	29	Read	s28	-	c3	c0	14906	for_cond	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	30	Read	s84	-	c3	c0	14910	for_cond	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	31	ReadWrite	s28	-	c3	c0	14928	for_inc	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	32	Condition	-	-	c3	c0	14888	for	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	33	Decl	s32	-	c3	c0	14936	-	s90	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	34	ScopeEnter	s7	-	c4	c3	14961	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	35	Decl	s91	-	c4	c3	14966	for_init	s2	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	36	Read	s91	-	c4	c3	14979	for_cond	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	37	Read	s12	-	c4	c3	14983	for_cond	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	38	ReadWrite	s91	-	c4	c3	15015	for_inc	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	39	Condition	-	-	c4	c3	14961	for	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	40	ScopeEnter	s26	-	c5	c4	15024	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	41	Call	-	s54	c5	c4	15028	-	member	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	42	ReadWrite	s89	-	c5	c4	15045	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	43	Condition	-	-	c5	c4	15028	if	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	44	Branch	-	-	c5	c4	15057	then	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	45	ScopeEnter	s27	-	c6	c5	15057	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	46	ReadWrite	s32	-	c6	c5	15064	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	47	Cast	-	-	c6	c5	15073	-	functional	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	48	Read	s91	-	c6	c5	15090	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	49	ScopeExit	s27	-	c6	c5	15057	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	50	ScopeExit	s26	-	c5	c4	15024	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	51	ScopeExit	s7	-	c4	c3	14961	back_edge	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	52	Write	s92	-	c3	c0	15107	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	53	ReadWrite	s86	-	c3	c0	15108	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	54	Read	s32	-	c3	c0	15117	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	55	ScopeExit	s7	-	c3	c0	14888	back_edge	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	56	ScopeEnter	s26	-	c7	c0	15130	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	57	Read	s85	-	c7	c0	15134	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	58	Condition	-	-	c7	c0	15134	if	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	59	Branch	-	-	c7	c0	15142	then	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	60	ScopeEnter	s27	-	c8	c7	15142	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	61	Decl	s32	-	c8	c7	15147	-	s90	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	62	ScopeEnter	s7	-	c9	c8	15172	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	63	Decl	s91	-	c9	c8	15177	for_init	s2	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	64	Read	s91	-	c9	c8	15190	for_cond	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	65	Read	s85	-	c9	c8	15194	for_cond	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	66	ReadWrite	s91	-	c9	c8	15204	for_inc	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	67	Condition	-	-	c9	c8	15172	for	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	68	ScopeEnter	s26	-	c10	c9	15213	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	69	Call	-	s54	c10	c9	15217	-	member	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	70	ReadWrite	s89	-	c10	c9	15234	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	71	Condition	-	-	c10	c9	15217	if	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	72	Branch	-	-	c10	c9	15246	then	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	73	ScopeEnter	s27	-	c11	c10	15246	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	74	ReadWrite	s32	-	c11	c10	15253	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	75	Cast	-	-	c11	c10	15262	-	functional	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	76	Read	s91	-	c11	c10	15279	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	77	ScopeExit	s27	-	c11	c10	15246	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	78	ScopeExit	s26	-	c10	c9	15213	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	79	ScopeExit	s7	-	c9	c8	15172	back_edge	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	80	Write	s92	-	c8	c7	15296	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	81	ReadWrite	s86	-	c8	c7	15297	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	82	Read	s32	-	c8	c7	15306	-	-	clang
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	83	ScopeExit	s27	-	c8	c7	15142	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	84	ScopeExit	s26	-	c7	c0	15130	-	-	walk
+duckdb::ValidityArray.Pack(ValidityMask &,const idx_t) const	85	ScopeExit	s0	-	c0	-	14553	-	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	0	ScopeEnter	s0	-	c0	-	13559	-	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	1	Param	s49	-	c0	-	13582	-	s2	clang
+duckdb::ValidityArray.RowIsValid(idx_t) const	2	ScopeEnter	s26	-	c1	c0	13819	-	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	3	Read	s13	-	c1	c0	13824	-	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	4	Condition	-	-	c1	c0	13823	if	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	5	Branch	-	-	c1	c0	13839	then	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	6	ScopeEnter	s27	-	c2	c1	13839	-	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	7	Return	-	-	c2	c1	13844	-	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	8	ScopeExit	s27	-	c2	c1	13839	-	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	9	ScopeExit	s26	-	c1	c0	13819	-	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	10	Return	-	-	c0	-	13863	-	-	walk
+duckdb::ValidityArray.RowIsValid(idx_t) const	11	Call	-	s54	c0	-	13870	-	member	clang
+duckdb::ValidityArray.RowIsValid(idx_t) const	12	Read	s49	-	c0	-	13887	-	-	clang
+duckdb::ValidityArray.RowIsValid(idx_t) const	13	ScopeExit	s0	-	c0	-	13559	-	-	walk
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	0	ScopeEnter	s0	-	c0	-	13373	-	-	walk
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	1	Param	s49	-	c0	-	13402	-	s2	clang
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	2	Cast	-	-	c0	-	13427	-	static	walk
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	3	Read	s13	-	c0	-	13436	-	-	walk
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	4	Cast	-	-	c0	-	13427	-	functional	walk
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	5	Call	-	s78	c0	-	13427	-	free	clang
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	6	Return	-	-	c0	-	13454	-	-	walk
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	7	Read	s13	-	c0	-	13461	-	-	walk
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	8	Read	s49	-	c0	-	13475	-	-	clang
+duckdb::ValidityArray.RowIsValidUnsafe(idx_t) const	9	ScopeExit	s0	-	c0	-	13373	-	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	0	ScopeEnter	s0	-	c0	-	14147	-	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	1	Param	s49	-	c0	-	14168	-	s2	clang
+duckdb::ValidityArray.SetValid(idx_t)	2	ScopeEnter	s26	-	c1	c0	14397	-	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	3	Read	s13	-	c1	c0	14402	-	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	4	Condition	-	-	c1	c0	14401	if	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	5	Branch	-	-	c1	c0	14417	then	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	6	ScopeEnter	s27	-	c2	c1	14417	-	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	7	Return	-	-	c2	c1	14508	-	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	8	ScopeExit	s27	-	c2	c1	14417	-	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	9	ScopeExit	s26	-	c1	c0	14397	-	-	walk
+duckdb::ValidityArray.SetValid(idx_t)	10	Call	-	s55	c0	-	14523	-	member	clang
+duckdb::ValidityArray.SetValid(idx_t)	11	Read	s49	-	c0	-	14538	-	-	clang
+duckdb::ValidityArray.SetValid(idx_t)	12	ScopeExit	s0	-	c0	-	14147	-	-	walk
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	0	ScopeEnter	s0	-	c0	-	13965	-	-	walk
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	1	Param	s49	-	c0	-	13992	-	s2	clang
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	2	Cast	-	-	c0	-	14011	-	static	walk
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	3	Read	s13	-	c0	-	14020	-	-	walk
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	4	Cast	-	-	c0	-	14011	-	functional	walk
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	5	Call	-	s78	c0	-	14011	-	free	clang
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	6	Write	s13	-	c0	-	14038	-	-	walk
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	7	Read	s13	-	c0	-	14038	-	-	walk
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	8	Read	s49	-	c0	-	14052	-	-	clang
+duckdb::ValidityArray.SetValidUnsafe(idx_t)	9	ScopeExit	s0	-	c0	-	13965	-	-	walk
+duckdb::ValidityArray.ValidityArray()	0	ScopeEnter	s0	-	c0	-	12569	-	-	walk
+duckdb::ValidityArray.ValidityArray()	1	ScopeExit	s0	-	c0	-	12569	-	-	walk
+duckdb::ValidityMask.ValidityMask()	0	ScopeEnter	s0	-	c0	-	11116	-	-	walk
+duckdb::ValidityMask.ValidityMask()	1	Call	-	s70	c0	-	11140	-	ctor	clang
+duckdb::ValidityMask.ValidityMask()	2	ScopeExit	s0	-	c0	-	11116	-	-	walk
+duckdb::ValidityMask.ValidityMask(const ValidityMask &,idx_t)	0	ScopeEnter	s0	-	c0	-	11391	-	-	walk
+duckdb::ValidityMask.ValidityMask(const ValidityMask &,idx_t)	1	Param	s19	-	c0	-	11411	-	s71	clang
+duckdb::ValidityMask.ValidityMask(const ValidityMask &,idx_t)	2	Param	s1	-	c0	-	11441	-	s2	clang
+duckdb::ValidityMask.ValidityMask(const ValidityMask &,idx_t)	3	Call	-	s70	c0	-	11456	-	ctor	clang
+duckdb::ValidityMask.ValidityMask(const ValidityMask &,idx_t)	4	Read	s19	-	c0	-	11478	-	-	clang
+duckdb::ValidityMask.ValidityMask(const ValidityMask &,idx_t)	5	Read	s1	-	c0	-	11488	-	-	clang
+duckdb::ValidityMask.ValidityMask(const ValidityMask &,idx_t)	6	ScopeExit	s0	-	c0	-	11391	-	-	walk
+duckdb::ValidityMask.ValidityMask(idx_t)	0	ScopeEnter	s0	-	c0	-	11199	-	-	walk
+duckdb::ValidityMask.ValidityMask(idx_t)	1	Param	s18	-	c0	-	11228	-	s2	clang
+duckdb::ValidityMask.ValidityMask(idx_t)	2	Call	-	s70	c0	-	11246	-	ctor	clang
+duckdb::ValidityMask.ValidityMask(idx_t)	3	Read	s18	-	c0	-	11268	-	-	clang
+duckdb::ValidityMask.ValidityMask(idx_t)	4	ScopeExit	s0	-	c0	-	11199	-	-	walk
+duckdb::ValidityMask.ValidityMask(validity_t *,idx_t)	0	ScopeEnter	s0	-	c0	-	11284	-	-	walk
+duckdb::ValidityMask.ValidityMask(validity_t *,idx_t)	1	Param	s16	-	c0	-	11313	-	s67	clang
+duckdb::ValidityMask.ValidityMask(validity_t *,idx_t)	2	Param	s18	-	c0	-	11330	-	s2	clang
+duckdb::ValidityMask.ValidityMask(validity_t *,idx_t)	3	Call	-	s70	c0	-	11348	-	ctor	clang
+duckdb::ValidityMask.ValidityMask(validity_t *,idx_t)	4	Read	s16	-	c0	-	11370	-	-	clang
+duckdb::ValidityMask.ValidityMask(validity_t *,idx_t)	5	Read	s18	-	c0	-	11375	-	-	clang
+duckdb::ValidityMask.ValidityMask(validity_t *,idx_t)	6	ScopeExit	s0	-	c0	-	11284	-	-	walk

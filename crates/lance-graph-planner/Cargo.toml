@@ -85,7 +85,14 @@ jc = { path = "../jc" }
 [features]
 default = []
 jit = []
-datafusion = []
+# ⊘ REMOVED 2026-09-16: `datafusion = []` was an INERT feature — nothing in
+# this crate was `cfg`-gated on it and no manifest in the workspace enabled it,
+# so turning it on was already a no-op. Its only live effect was to make every
+# `grep datafusion crates/*/Cargo.toml` report this crate as a DataFusion
+# consumer, which it has never been (the trap `CLAUDE.md`'s pin-rule comment
+# already warns about by name). The planner's DataFusion content is ten doc
+# comments crediting a pattern; the real 8,044 LOC live in
+# `lance-graph/src/datafusion_planner/`.
 serve = ["dep:axum", "tokio/rt-multi-thread", "tokio/macros"]
 
 [[bin]]

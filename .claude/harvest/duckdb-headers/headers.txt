@@ -1,0 +1,10 @@
+common/operator/comparison_operators
+common/operator/constant_operators
+common/row_operations/row_matcher
+common/types/selection_vector
+common/types/validity_mask
+common/types/vector
+common/vector_operations/scalar_executor
+common/vector/unified_vector_format
+execution/expression_executor_state
+execution/ht_entry

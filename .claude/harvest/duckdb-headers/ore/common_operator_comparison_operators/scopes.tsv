@@ -1,0 +1,5 @@
+duckdb::Equals.Operation(const interval_t &,const interval_t &)	c0	-	Function	0	0	7
+duckdb::Equals.Operation(const string_t &,const string_t &)	c0	-	Function	0	0	7
+duckdb::GreaterThan.Operation(const bool &,const bool &)	c0	-	Function	0	0	6
+duckdb::GreaterThan.Operation(const interval_t &,const interval_t &)	c0	-	Function	0	0	7
+duckdb::GreaterThan.Operation(const string_t &,const string_t &)	c0	-	Function	0	0	7

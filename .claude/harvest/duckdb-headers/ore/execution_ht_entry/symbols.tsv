@@ -1,0 +1,22 @@
+s0	scope_kind	-	Function	walk
+s1	member	own	value	clang
+s2	param	param	value_p	clang
+s3	type	-	hash_t	clang
+s4	param	param	salt	clang
+s5	type	-	const hash_t &	clang
+s6	param	param	pointer	clang
+s7	type	-	const data_ptr_t &	clang
+s8	callee	this	cast_pointer_to_uint64	clang
+s9	local	local	SALT_MASK	clang
+s10	callee	this	IsOccupied	clang
+s11	callee	this	__assert_fail	clang
+s12	callee	this	GetPointerOrNull	clang
+s13	callee	this	cast_uint64_to_pointer	clang
+s14	local	local	POINTER_MASK	clang
+s15	param	param	hash	clang
+s16	callee	this	ExtractSalt	clang
+s17	param	param	offset	clang
+s18	type	-	idx_t &	clang
+s19	param	param	capacity_mask	clang
+s20	type	-	const uint64_t &	clang
+s21	other	unknown	?	walk

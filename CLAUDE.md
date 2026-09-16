@@ -1436,6 +1436,39 @@ No knowledge doc should contain unmarked conjectures. Label everything.
 
 ## In-Session Orchestration Discipline
 
+**P0 Rule: grep FINDS, reading DECIDES (operator, 2026-09-16: *"when you
+grep, only use it for finding and read after"*).** A grep result is a claim
+about a PATTERN, never about the tree. Use it to locate candidates, then open
+the file and read before concluding anything — especially before concluding
+that something is ABSENT.
+
+Measured 2026-09-16, three false claims in ONE document, all from grep-as-verdict,
+all caught before commit only because a later read contradicted them:
+
+| grep said | the truth | what reading found |
+|---|---|---|
+| planner→loco has "no dependency edge" | `lance-graph-ogar` is a workspace member depending on BOTH sides | its `Cargo.toml` (`ogar-loco` at `:137`, contract at `:86`) |
+| `CapabilityAuthority` is "unimplemented" | it is implemented AND production | the impl is written fully-qualified — `impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority` — so `impl.*CapabilityAuthority` missed it |
+| the kanban seam is "unwired both directions" | the seam is built; only one edge is missing | `recipe_vocab.rs`'s module doc states the design ("neither may import the other… so it lives in a consumer that already depends on both") |
+
+The third is the instructive one: the grep was CORRECT (those planner-side hits
+really are doc comments) and the CONCLUSION was still wrong, because the file
+that would have explained why was never opened. **A correct grep can support a
+false conclusion.**
+
+Two corollaries:
+
+- **A negative result is the weakest thing grep produces.** Absence under one
+  pattern is not absence in the tree — fully-qualified paths, re-exports,
+  macros, aliases, and line breaks all defeat a reasonable-looking regex. Before
+  writing "X does not exist", open the place X would live.
+- **Never count grep hits as evidence without reading them.** The same session
+  nearly reported 20 `BatchWriter::cast` call sites; reading showed ~17 were
+  ractor's unrelated `ActorRef::cast(SupervisorMsg::…)` and only 3 were real.
+
+Cross-ref: the sibling rule below (Read before Write) protects FILES from a
+blind write; this one protects CONCLUSIONS from a blind read.
+
 **P0 Rule: Read before Write, always.** Before calling `Write` on any path
 that may already exist, run `Read` (or `git status` for committed files).
 The `Edit` tool is the default for modifying existing files; `Write` is only

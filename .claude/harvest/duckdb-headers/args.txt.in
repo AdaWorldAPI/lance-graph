@@ -1,0 +1,14 @@
+-x
+c++
+-std=c++11
+-I@DUCKDB_SRC@/src/include
+-I@DUCKDB_SRC@/third_party/fmt/include
+-I@DUCKDB_SRC@/third_party/re2
+-I@DUCKDB_SRC@/third_party/fsst
+-I@DUCKDB_SRC@/third_party/fastpforlib
+-I@DUCKDB_SRC@/third_party/utf8proc/include
+-I@DUCKDB_SRC@/third_party/concurrentqueue
+-I@DUCKDB_SRC@/third_party/pcg
+-I@DUCKDB_SRC@/third_party/tdigest
+-I@DUCKDB_SRC@/third_party/mbedtls/include
+-DDUCKDB_BUILD_LIBRARY
