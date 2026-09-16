@@ -373,6 +373,11 @@ differing in the FIRST nibble and a pair differing in the LAST must not be confu
 > `(path: u64, depth: u8)` root-first, so the branchless form is one line:
 > `((a.path ^ b.path).leading_zeros() >> 2).min(a.depth.min(b.depth))`. The `morton48()`-unused
 > observation in perturbation-sim stands as written.
+> ⊘ **2026-09-15, later — the semantic reason (operator):** popcount over the same XOR is
+> position-blind and finds *elephant : Wal* — a cousin parting by one bit at the order level
+> outranks a sibling parting by four at the leaf. The branchless `leading_zeros` form above is
+> the tree's own metric, not only a branch-free rewrite; see
+> `E-POPCOUNT-FINDS-ELEPHANT-WHALE-BECAUSE-IT-IS-POSITION-BLIND-THE-TREES-METRIC-IS-LZCNT-AND-THE-BOARD-ALREADY-FILED-IT-1`.
 
 
 **The shipped join is 4× coarser than the canon's own level granularity and uses a branch chain

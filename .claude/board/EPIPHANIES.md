@@ -1,3 +1,837 @@
+## 2026-09-16 (14) — E-THE-NET-ARM-RANKED-ON-A-PARTIAL-SUM-AND-ITS-ONLY-APPARENT-SIGNAL-WAS-THAT-BUG-1 — entry (13)'s NET row is re-measured; the arm is a census on BOTH arms, not one
+
+**Status:** MEASURED — re-run of `D-HXP-8` arm 1 after a one-line ranking fix in
+`crates/perturbation-sim/examples/tictactoe_raumgewinn.rs`. **Confidence:** HIGH
+(the fix is a derivation from `TierFloors::stack_early_exit`'s own return value,
+and the re-measured numbers are self-consistent with entry (13)'s structural
+result rather than against it).
+
+### The defect
+
+`score()` ranked BOTH arms by `StackResult.stacked`. That field is the
+**cumulative sum up to and including the exit tier only** — it equals the true
+full stack iff `exit_tier == 3`. Entry (13)'s own meter note already said a
+partial is not a bound under signed terms, and measured that early exit changed
+the top move in **10.13 %** of positions. The prose was right; the ranking code
+did not honour it. So for `Arm::Net`, F1 was being scored against a quantity that
+is a genuine partial sum in ~1 position in 10 — and with signed per-tier terms a
+later negative tier can pull the true total below what an earlier positive
+partial suggested.
+
+Fixed: `Arm::Agreement` keeps ranking by the early-exit value (its terms are
+non-negative, so the partial IS a bound); `Arm::Net` ranks by the full stack.
+`tied` and `distinct` follow the same match, since they must be computed over
+whatever F1 actually ranked by. **F2 is deliberately untouched and stays
+arm-independent** — it compares the same two values for both arms by
+construction.
+
+### What the re-measurement says, and it is the uncomfortable half
+
+| quantity | entry (13) NET | re-measured NET | AGREEMENT (unchanged) |
+|---|---|---|---|
+| F1 det / tie-aware | 0.5677 / 0.5655 | **0.5865 / 0.5797** | 0.5865 / 0.5797 |
+| mean distinct stacked | **1.157** | **1.000** | 1.000 |
+| F3 degree-1 drop | +0.0152 | **+0.0011** | +0.0004 |
+| null shuffle, 20 seeds | 0.5768 [0.5617, 0.5899] | **0.5797 [0.5797, 0.5797]** | 0.5797 [0.5797, 0.5797] |
+| F2 | 0.8987 | 0.8987 | 1.0000 |
+
+**The `1.157 → 1.000` is the finding.** Entry (13) reported the mean number of
+distinct FULL-stack values as `1.000` on both arms — correctly — but the NET
+arm's *scored* quantity showed `1.157`, i.e. it looked like the NET arm had at
+least a little discrimination where AGREEMENT had none. It did not. That 0.157
+was entirely the partial-sum artifact, and with the fix NET is exactly the
+census, identically to AGREEMENT.
+
+Two corroborating collapses, neither of which was arranged: the null shuffle
+degenerates to a **single point** (shuffling the rails changes nothing, because
+the full stack is the board census regardless of rail topology — which is the
+F0-degenerate claim restated from a direction entry (13) did not test), and F1
+lands exactly on the random-move baseline `0.5797`.
+
+### What this supersedes
+
+⊘ Entry (13)'s NET row and every number derived from it. The structural verdict
+— **F0 DEGENERATE, F1/F2/F3 are DATA not verdicts** — is UNCHANGED and is in
+fact strengthened: it now holds identically on both arms instead of holding on
+one while the other showed a small unexplained spread.
+
+⊘ The same-day `⊘ UNPINNED` block proposing a flat-vs-DROP tolerance for NET's
+`+0.0152`. That block did honest work on a number that no longer exists: the
+re-measured drop is **+0.0011**, flat by any tolerance, so the question it was
+opened to adjudicate is closed by measurement rather than by a threshold. The
+tolerance proposal itself stays on file as unpinned and unused.
+
+### Why it was invisible
+
+`0.5677` is not an implausible number next to a `0.5797` baseline, and `1.157`
+reads as "barely any discrimination" — which is the same story the entry was
+already telling. **A bug whose output agrees with your conclusion is the hardest
+kind to see**, and nothing in the suite could have caught it: there was no test
+that distinguished "ranks by early-exit" from "ranks by full stack" for the NET
+arm at all. There is now (`net_arm_ranks_by_the_full_stack_not_the_early_exit_partial`,
+disable-verified: reverting `top` to `top_early` turns it red), plus 7 more unit
+tests on the probe's own primitives (negamax exact values, the symmetry-class
+relation, the three `Horizon` cases, the rail shuffle's permutation invariants).
+
+**Cross-refs:** entry (13) (`E-RAUMGEWINN-NEEDS-A-HORIZON-SMALLER-THAN-THE-BOARD-…`)
+— structural result stands, NET numbers superseded; `TierFloors::stack_early_exit`
+in `crates/perturbation-sim/src/rolling_floor.rs` (the return value the fix is
+derived from); D-HXP-8 arm 2 (a board larger than the rails' horizon) remains
+the unblocked next arm, unchanged by this.
+
+## 2026-09-15 (13) — E-RAUMGEWINN-NEEDS-A-HORIZON-SMALLER-THAN-THE-BOARD-TIC-TAC-TOE-HAS-NONE-SO-ARM-1-IS-F0-DEGENERATE-NOT-A-KILL-1 — D-HXP-8 arm 1 ran; the pre-registration lacked a fixture-validity gate, and the fixture failed it
+
+**Status:** MEASURED — `D-HXP-8` arm 1 (tic-tac-toe) RUN. Probe
+`crates/perturbation-sim/examples/tictactoe_raumgewinn.rs`
+(`cargo run --manifest-path crates/perturbation-sim/Cargo.toml --example tictactoe_raumgewinn --release`),
+committed with the F0 gate that this entry adds to the pre-registration of (12).
+**Confidence:** HIGH on the structural result — it is a derivation confirmed by
+measurement (mean distinct FULL-stack values per position `1.000` on both arms); HIGH
+on the meter note (measured `0.1013`); the next-arm criterion is a proposal.
+
+### What ran
+
+Full negamax over the 4520 reachable non-terminal positions (627 classes up to
+symmetry; the "765" in (12) counts the terminal classes too — the probe scores the
+627 that have a move); a move is optimal when it preserves the value. Rails = Chebyshev
+rings 1..4 (rings 3 and 4 empty on 3×3), floors preheated on every (position, empty
+cell) pair with `k = 2`, `stack_early_exit` on a clone per candidate, rank by the
+stacked value. Random-move baseline `0.5797`.
+
+| arm | F1 det / tie-aware | F2 early == full | all tied | distinct stacked / FULL | F3 degree-1 tie-aware (drop) | shuffled-rail null, 20 seeds |
+|---|---|---|---|---|---|---|
+| AGREEMENT (pre-registered) | 0.5865 / **0.5797** | 1.0000 | **1.0000** | 1.000 / 1.000 | 0.5800 (+0.0004) | 0.5797 [0.5797, 0.5797] |
+| NET own − opp (exploratory) | 0.5677 / 0.5655 | **0.8987** | 0.8434 | 1.157 / 1.000 | 0.5808 (+0.0152) | 0.5768 [0.5617, 0.5899] |
+
+Read naively, the pre-registered arm sits EXACTLY on the baseline and the null collapses
+to a point — the KILL rule of (12) ("F1 at chance") would fire. It does not fire, and
+the reason is the finding.
+
+### F0 — the horizon exhausts the board, so the stack is a census
+
+On 3×3 every cell's rings 1 ∪ 2 reach all 8 other cells (measured: `reach 8..=8 of 8`,
+`horizon exhausts the board on 9/9 cells`). Both arms are ring-ADDITIVE — tier `r` sums
+a per-cell term `f(b[j])` over `j ∈ ring_r(m)` — so the full stack of candidate `m` is
+`Σ_{j≠m} f(b[j]) = Σ_j f(b[j]) − f(E)`, the same number for every empty `m`. The full
+stack cannot rank anything; it is the board census. Measured, not assumed: mean distinct
+FULL-stack values per position `1.000` on both arms, every candidate tied in `1.0000`
+of positions on AGREEMENT. F1 = baseline, F2 = 1 and F3 flat are all the census
+signature — not a KILL, not a pass, not a reading. **The fixture is degenerate.**
+
+This is (11)'s elephant : Wal at board scale: popcount is position-blind, and when the
+horizon reaches the whole world, position-blindness is total blindness. Raumgewinn is a
+LOCALITY property — it exists only where a cell's rails reach strictly less than the
+board. The number that decides a fixture is `reach / (board − 1)`; the gate is computed
+from the rails alone before any position is scored, and its silent twin is the degree-1
+rails (reach 1 of 8 — the probe asserts the gate stays silent there, so it discriminates).
+
+**F0 joins the pre-registration from here on.** A readable arm needs the board diameter
+strictly greater than twice the deepest ring, so that not even the centre sees everything:
+Gobang 15×15 (Chebyshev diameter 14 > 8 ✓), Go 9×9 (Manhattan 16 > 8 ✓), Hex ≥ 7×7 (hex
+diameter 12 > 8 ✓). Hex 5×5 fails it (diameter 8 — the centre reaches every cell) and
+must not be the next arm. Tic-tac-toe is retired as a Raumgewinn falsifier; it remains
+the ground-truth harness the larger boards reuse (negamax, symmetries, the F1/F2/F3
+scoring are board-size-agnostic in the probe).
+
+### The meter note — early exit presumes non-negative stacking
+
+`stack_early_exit` returns the PARTIAL sum at the exit tier —
+`crates/perturbation-sim/src/rolling_floor.rs:239` (`if crossed || band == FloorBand::Alarm {`)
+returns `stacked` as accumulated so far — and its doc promises
+`rolling_floor.rs:220` (`decision is confident, the finer tiers need not be computed`).
+That promise holds only when the remaining tiers cannot LOWER the reading, i.e. for
+non-negative intensity (the shipped caller, `weyl_over_fiedler`, is non-negative). The NET
+arm is signed (own − opp): a partial is then not a bound on the full stack, and the early
+exit changed the top move in **10.13 %** of positions (F2 `0.8987`) while AGREEMENT held
+`1.0000`. On this fixture that spread is the ONLY spread (FULL stack `1.000`), which is
+what makes the mechanism unambiguous. Filed in `TECH_DEBT.md` (the premise is unstated
+in the doc, not a bug in the shipped non-negative use). Consequence for D-HXP-8: the
+pre-registered arm stays AGREEMENT; a signed arm runs full-stack, or the meter grows a
+signed-safe exit (exit only when the remaining tiers' maximum magnitude cannot reverse
+the ranking — a bound, not a guess).
+
+### Process
+
+The pre-registration in (12) had a KILL rule that assumed the fixture could read F1.
+Every falsifier from here on carries F0 before F1: **can this fixture distinguish the
+candidates at all?** — measured as the distinct-value count of the quantity being ranked,
+before the ranking is read. The `all candidates tied 1.0000` line existed only because
+the anti-vacuity counters were added after the first run showed F1 == baseline to four
+decimals; had the KILL been read at face value, a correct claim would have been retired by
+a fixture that could not test it.
+
+Home: `hexagon-plasticity-v1.md` §12a (appended), `STATUS_BOARD` `D-HXP-8` (In
+progress — arm 1 RUN, F0 degenerate; next Gobang 15×15 / Hex ≥ 7×7 / Go 9×9),
+`LATEST_STATE` (10), `TECH_DEBT` 2026-09-15 (early-exit premise).
+
+## 2026-09-15 (12) — E-POPCOUNTS-UPPER-RANGE-SIMILARITY-IS-THE-HEXAGONS-RAUMGEWINN-AND-BOARD-GAMES-MAKE-IT-FALSIFIABLE-1 — the counterweight to (11): the same position-blindness is territory on the hexagon substrate, the toolkit for it ships under the operator's own words, and the games give it ground truth
+
+**Status:** RULING — operator, verbatim, two messages: *"Der Vorteil von HDR popcount
+stacking early exit Belichtungsmesser statistical confidence interval thresholds
+preheating rolling floor bucket assignment ist jedoch daß es für hexagon Substrate
+hilfreich ist — der sprichwörtliche Raumgewinn beim Go boardgame."* and *"Und
+witzigerweise müsste tiktaktoe gobbang, go damit sogar falsifiable sein."* The census is
+a read of the tree; the pre-registration at the end is mine, on the operator's proposal.
+**Confidence:** HIGH on the census and on the `head2head` mapping (shipped code); the
+falsifier is pre-registered, NOT run — and the board already holds one measured
+counterexample it must beat (E-Q8).
+
+### The pair, in shipped vocabulary
+
+(11) said popcount finds *elephant : Wal* because it is position-blind. This entry says:
+on the hexagon that is the point. The operator's Go framing is already in the contract —
+`lance_graph_contract::head2head::WinnerCriterion` (D-H2H-1, 2026-05-31): **infight** ≈
+`DissonanceMin` (the tightest match wins), **Raumgewinn** ≈ `SupportSpread` (the widest
+distinct support wins). Read against (11): lcp asks how DEEP one agreement goes —
+infight; stacked popcount asks how MANY neighbours agree — Raumgewinn. Elephant : whale
+is territory: the class's influence reaches the whale. Neither metric is wrong; they are
+`head2head`'s two criteria, and the substrate already competes them.
+
+### The toolkit, by name — every word in the operator's list is a shipped surface
+
+- **HDR bands, Belichtungsmesser, CI thresholds, recalibration** —
+  `ndarray::hpc::cascade::Cascade::{calibrate, expose, observe, recalibrate}`:
+  `calibrate` takes a distance sample to μ/σ, `expose(distance) -> Band` IS the light-meter
+  reading, `observe` returns a `ShiftAlert`, `recalibrate` takes it; `adaptive_resolution`
+  picks the band from query entropy × corpus CV; `PackedDatabase::cascade_query` runs it.
+- **Popcount stacking, early exit, preheating, rolling floor, bucket assignment** —
+  `perturbation_sim::rolling_floor::{RollingFloor::{preheat, observe, threshold, z, band},
+  TierFloors::{preheat, stack_early_exit}}`: the L1..L4 tiers as an HDR popcount-stacking,
+  early-exit cascade over a self-calibrating μ + kσ floor; `band` → `FloorBand`; the
+  bf16-hhtl-terrain knowledge doc names it *bucket-ROUTING (the rolling floor), NOT
+  reconstruction*.
+- `belichtungsmesser()` — 7 sample points `[0,19,41,59,79,101,127]` → (mean, sd), the SD
+  entropy gate (`agi-stack-cross-repo.md`); `holo.rs`: batch Wasserstein search with an
+  early-exit cascade.
+- The operator's exact phrase is already a doctrine line:
+  `observer-effect-tfpn-doctrine.md` — *"early exit, statistical confidence-interval
+  thresholds, preheating + rolling floor bucket — the Belichtungsmesser reading."*
+
+Nothing to build for the toolkit. What is unbuilt is the EVIDENCE that it helps the
+hexagon.
+
+### The caveat the board already holds
+
+`E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1`
+(2026-08-31): B beat A and the RAND null on every metric — and at degree 1 it scored
+identically to four decimals; *"the six does nothing; B is a bigram successor table."*
+That is not a refutation of six-neighbourness; it is the finding that THAT task never
+consulted more than the first neighbour. "Helpful for hexagon substrates" is therefore,
+on the board today, a claim with one measured non-result behind it — and the operator's
+second message is the answer: pick tasks whose ground truth NEEDS the neighbours.
+
+### The games as the falsifier — pre-registered, not run
+
+Why games: exact ground truth (solved values, legal territory); rules that ARE neighbour
+relations; and the degree-ablation twin built in — a line needs aligned neighbours, a
+liberty count needs all four, a Hex connection needs six. E-Q8's failure mode cannot
+pass silently here: on these tasks degree 1 is provably insufficient.
+
+Lattices, stated so the six is not oversold: tic-tac-toe and Gobang are square with 8
+directions; Go is square with 4-adjacency (territory = 4-connected flood fill); **Hex is
+the six-neighbour game** — the exact match for six rails as six neighbour pointers, with
+the square games as 4- or 8-subgraphs. Order: tic-tac-toe (solved, a draw; 765 positions
+up to symmetry), Hex on small boards (first-player win by strategy stealing, explicit
+solutions on small boards), Gobang (free-style 15×15 a first-player win, Allis 1994), Go
+(small boards solved; end-position territory is pure flood-fill ground truth).
+
+The claim, operationalised: each cell a unit whose six rails are its neighbours, the
+stone colour in the payload; a position evaluated by popcount stacking over the rails'
+agreement ring by ring (the HDR stack), `TierFloors::stack_early_exit` deciding when the
+reading is settled, floors preheated from a position sample.
+
+- **F1 — correctness.** Tic-tac-toe: the top-ranked move is value-preserving in ≥ 95 % of
+  the 765 positions, chance level measured by a shuffled-rail null, not assumed. Go end
+  positions: stacked territory == flood-fill scoring — an equality, no tolerance.
+
+> ⊘ **CORRECTED, same day, entry (13).** "The 765 positions" is not the population F1 can
+> score — a terminal class has no move to rank, so F1 is undefined on it. Entry (13) runs
+> the probe over the 4,520 reachable non-terminal positions (627 classes up to symmetry)
+> and says so explicitly: *"the '765' in (12) counts the terminal classes too — the probe
+> scores the 627 that have a move."* Read every F1 percentage in this entry, and in (13),
+> against 627, not 765.
+
+- **F2 — economy.** Early exit changes NO verdict (equality against the full stack) and
+  the mean exposed tiers is below the full depth; the fraction is measured and stated.
+- **F3 — the degree ablation, mandatory.** At degree 1, F1 must DROP. Flat = the task did
+  not exercise the six, and the probe proves nothing (E-Q8 as a gate, not a memory).
+- **KILL:** F1 at chance on tic-tac-toe, or F3 flat.
+
+> ⊘ **UNPINNED, flagged same day.** Neither "DROP" nor "flat" carries a numeric tolerance
+> or a rounding rule above. Entry (13) measured AGREEMENT's degree-1 tie-aware F3 at
+> 0.5800 against the un-ablated tie-aware value 0.5797 (Δ = +0.0004) and read the whole
+> arm through F0 (the fixture is a census, so F1/F2/F3 all read as the census signature)
+> rather than against an independent flatness threshold. A rule derivable from the
+> fixture's own size (n = 4,520 non-terminal positions, p ≈ 0.58): binomial standard
+> error √(p(1−p)/n) ≈ 0.0073, so treat |Δ| < 1 SE (~0.007) as flat and require |Δ| ≥ 2 SE
+> (~0.015) to call a genuine DROP toward the 0.5797 chance baseline. Under that reading
+> AGREEMENT's +0.0004 is flat; NET's +0.0152 sits at the 2-SE edge but moves AWAY from
+> chance, not toward it, so it is not a DROP either. This is proposed here, not
+> pre-registered before the run — treat it as UNPINNED until a non-degenerate arm (F0
+> passes) lets the ranking variance, not census noise, decide the tolerance.
+
+Home: `hexagon-plasticity-v1.md` §12 (appended), `STATUS_BOARD` `D-HXP-8` (Queued).
+Precedent for the method: `E-SF-AWARENESS-OPPONENT-ARC-1` ran the operator's Go
+Raumgewinn-vs-infight design inputs as five gated chess probes on stockfish-rs — same
+discipline, different board.
+
+## 2026-09-15 (11) — E-POPCOUNT-FINDS-ELEPHANT-WHALE-BECAUSE-IT-IS-POSITION-BLIND-THE-TREES-METRIC-IS-LZCNT-AND-THE-BOARD-ALREADY-FILED-IT-1 — the operator's caveat on (10), and it lands on an open issue
+
+**Status:** RULING — operator, verbatim: *"Der 'Nachteil' beim popcount ist daß
+Ähnlichkeit auch elephant : Wal findet — Ähnlichkeit im oberen Bereich."* The reading
+below is mine; the census is a read of the tree; the issue it lands on is already filed
+(`ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES`).
+**Confidence:** HIGH — the ranking inversion is arithmetic (worked below), and the dual
+instruction is the one the board's own re-scope already names.
+
+### Why popcount finds the whale
+
+A root→leaf code RANKS its positions: the bit at depth 3 outweighs every bit below it.
+Popcount does not know that — it counts disagreements wherever they are. Take elephant
+and whale sharing `animal · mammal` and parting at the order nibble by ONE bit (`0001`
+vs `0011`), and two elephant species sharing everything down to the leaf nibble, where
+they differ in all four (`0000` vs `1111`). Popcount says whale 1, sibling 4: the cousin
+is "closer" than the sibling. The similarity it reports is real — the shared upper tiers
+ARE shared ancestry, *im oberen Bereich* — but it answers *how much do we share*, and
+the tree asks *how deep do we agree*. The quotes around "Nachteil" are right: as
+generalisation (find the cousin) it is the feature; as retrieval (find the sibling) it is
+the defect.
+
+### The tree's metric is one instruction, and it is the same XOR
+
+Longest common prefix = the depth of the FIRST disagreement = `lzcnt(u ⊕ self)` in
+root→leaf bit order — one instruction, one cycle, next to popcount's one. `>> 2` is the
+level, `>> 4` the tier: the canon's *"tier-of-level = level >> 2 — a shift, never a
+branch."* On the example: whale parts at depth 8 (nibble 3), the sibling at depth 12 —
+sibling nearer, as the tree says.
+
+The substrate already names this exact measure: `NiblePath::common_prefix_depth`
+(`lance-graph-contract`, `hhtl.rs`) — *"the radix-trie nearest-neighbor measure"*,
+`E-PANCAKES-IS-RADIX-IS-HHTL` — and the board already carries its branchless form as an
+open item, `ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES` (re-scope): the shipped
+function is a `while … match` nibble walk running per row inside `mailbox_scan`, and the
+one-liner is `((a.path ^ b.path).leading_zeros() >> 2).min(a.depth.min(b.depth))`. The
+operator's caveat is the SEMANTIC reason that issue matters, beyond the branch count.
+
+### How (9), (10) and this compose
+
+| question | metric | instruction | selection | ships |
+|---|---|---|---|---|
+| how deep do we agree (tree) | `lcp = lzcnt(u ⊕ self)` | LZCNT | `lcp ≥ d` ≡ `(u ⊕ self) ∧ care(d) == 0` — (9), k = 0 | threshold-to-mask: yes (ternary match); per-row depth vector: no |
+| how much do we share (exchangeable bits) | `popcount((u ⊕ self) ∧ care)` | POPCNT | `≤ k` — (10) | k = 0: yes; k > 0 fused: no |
+
+So on the tree rails the `(self, d)` prefix IS the predicate, and popcount's k > 0 is
+not wanted there — which narrows (10)'s gap to the carriers whose positions are
+exchangeable (planes, bipolar identities): the `I-VSA-IDENTITIES` fence, seen from the
+other side. What the tree rails lack is the VECTORISED lcp per row — `lzcnt` over
+`u ⊕ self` in the strided 12-byte form, yielding a depth vector (`u8` per row) for
+RANKING, nearest = deepest — where the threshold-to-mask form already ships. ndarray has
+no `lzcnt` / `leading_zeros` primitive today (census, this session), and a per-row
+`u8`-out shape is new: not a mask, not a count, a sibling of `hamming_batch_raw`.
+
+A middle ground exists: `heel_weighted_hamming` (ndarray) weights popcount per plane;
+with weights falling by level it approaches the lexicographic order lcp gives exactly.
+Recorded, not recommended — lcp is one instruction and exact.
+
+### Consequence
+
+- (10)'s gap is re-scoped: the fused `popcount ≤ k` predicate is for exchangeable-bit
+  carriers; on tree rails the missing primitive is per-row `lzcnt` (a depth vector),
+  and its threshold form is already the ternary match.
+- `ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES` gains its motivation: not merely
+  branch-free, but the metric under which the sibling outranks the cousin.
+- Phase 7: no new arm — `lzcnt` costs what `popcnt` costs; the k > 0 arm stays for the
+  carriers it applies to.
+
+> ⊘ **Per (12), same day:** the popcount side is not demoted by this — it is the hexagon's
+> Raumgewinn, and lcp / stacked popcount are `head2head`'s two criteria (infight /
+> SupportSpread). The games falsifier (`D-HXP-8`) is where the pair gets ground truth.
+
+## 2026-09-15 (10) — E-POPCOUNT-TIMES-SELF-THE-EXACT-PREFIX-IS-THE-K-EQUALS-ZERO-HAMMING-BALL-AND-THE-FUSED-ROW-PREDICATE-IS-THE-GAP-1 — the operator's one-line generalisation of (9), what of it ships, and where I-VSA-IDENTITIES fences it
+
+**Status:** RULING — operator, verbatim: *"You could even say it's popcount × self."*
+The two readings below are mine and labelled; the census of primitives is a read of the
+tree (every name verified); the fence is the substrate's own iron rule, applied.
+**Confidence:** HIGH on the census and on the k = 0 identity; MEDIUM on the second
+reading; the fence is a consequence of `I-VSA-IDENTITIES`, not a new ruling.
+
+### Reading 1 — per row: the exact prefix is the k = 0 Hamming ball
+
+(9)'s selection `(u ⊕ self) ∧ care(d) == 0` is `popcount((u ⊕ self) ∧ care(d)) ≤ 0`.
+Generalise the 0 to k and the triple `(self, care, k)` is one predicate family:
+
+- `care = care(d), k = 0` — the exact stepless prefix: tree distance ≤ d from root, (9);
+- `care = all 96, k > 0` — the Hamming ball of radius k around self;
+- `care = care(d), k > 0` — a Hamming ball inside the prefix.
+
+"Distance from root" and "Hamming distance" are the same popcount over different
+care masks, both 0..=96. Per row: XOR, AND, POPCNT, CMP.
+
+**What ships** (ndarray, names as in the tree): `ternary_match_u32_to_mask`,
+`ternary_match_u64_to_mask`, `ternary_match_strided_to_mask` — the k = 0 form, one
+pass, a mask out. `hamming_distance_raw`, `hamming_batch_raw(query, database,
+num_rows, row_bytes) -> Vec<u64>`, `hamming_top_k_raw` — per-row DISTANCES, a `Vec`,
+not a mask. `masked_popcount_batch(words, mask) -> Vec<u32>` — per-word
+`popcount(w ∧ mask)`, one XOR short of the row predicate on a u64 lane. mask-risc:
+`Pred::MatchU32` / `Pred::MatchU64` (k = 0 only); `Terminal::Count` =
+`popcount_batch_u64(mask)`.
+
+**The gap:** the fused one-pass `popcount((row ⊕ pattern) ∧ care) ≤ k → mask` — a
+`hamming_le_*_to_mask` kernel in ndarray (per lane and 12-byte strided) and a
+`Pred::HammingLe { lane, pattern, care, k }` in mask-risc. Today k > 0 is two passes
+through a 64k-entry distance vector (512 KiB) plus an allocation — exactly the shape the
+masking floor exists to remove. Named, not built.
+
+> ⊘ **Per (11), same day:** scoped to exchangeable-bit carriers (planes, bipolar
+> identities). On tree rails popcount is position-blind — it ranks a cousin above a
+> sibling — and the missing primitive there is a per-row `lzcnt` depth vector; the
+> threshold form is already the ternary match.
+
+### Reading 2 — per mask: `popcount(mask(self, d)) = |ball(self, d)|`
+
+The cardinality of self's neighbourhood at depth d is `Terminal::Count` over the (9)
+mask — the probe's radius sweep already prints it as `rows` (2^(56−d) on the
+perfect-tree lane). Swept over d it is a thought's specificity profile: how many units
+share its first d bits. One popcount per 64 rows; nothing to build.
+
+### The fence — `I-VSA-IDENTITIES`, applied
+
+Reading 1 with k > 0 is sound only where bit-Hamming IS a distance: fingerprint planes,
+bipolar identities, and the tree through `care(d)` with k = 0. It is NOT a distance over
+the L4 `palette256²` rails or any CAM-PQ code: two centroid INDICES that differ in every
+bit may be neighbours, and the substrate's distance there is the 256×256 LUT (bgz17
+lineage), never a popcount. `I-VSA-IDENTITIES` already forbids superposing content
+codes; the same register-loss argument forbids Hamming over them. So "popcount × self"
+is exact for k = 0 on every carving, and for k > 0 only on Hamming-meaningful bits —
+which bits those are is the ClassView's to say.
+
+### Phase 7, second arm — pre-registered, not run
+
+Beside (9)'s cycles/row for the k = 0 strided match: the k > 0 fused predicate. Pass:
+≤ 1 cycle/row with `vpopcntq` (AVX-512 VPOPCNTDQ); expect 2–3 cycles/row on AVX2
+through the nibble-LUT popcount. If the fused kernel does not exist by then, the
+two-pass form is what gets measured, and the delta IS the cost of the gap.
+
+## 2026-09-15 (9) — E-A-THOUGHT-MASKS-ITSELF-BY-ITS-DISTANCE-FROM-ROOT-THE-V3-FACET-IS-THE-MASK-AND-THE-RADIUS-IS-STEPLESS-1 — the operator's favourite masking variant; it is already the shape of `MatchU64`, ndarray ships its 12-byte strided form, and the probe measured it stepless
+
+**Status:** RULING — operator, verbatim: *"Meine Lieblingsvariante ist V3 Format. Jeder
+beliebige Gedanke kann sich selbst × Abstand from root 0–96 bit maskieren und somit
+eine exakte stufenlose Auswahl treffen mit close to 1 CPU cycle."* — plus FINDING for
+the radius sweep (re-runnable). The lowering shape and the one-cycle mechanism below
+are derivations; the timing claim is a pre-registered Phase 7 falsifier, NOT measured
+here.
+**Confidence:** HIGH on the sweep; HIGH that the primitive exists — ndarray ships it;
+MEDIUM on the root→leaf bit order inside the 12 bytes, which is the ClassView's
+carving and lives in the care table, not in a shift.
+
+### The variant, as the substrate sees it
+
+A mask is a pair `(self, d)`: the unit's own 96-bit payload as the pattern, its
+distance from root `d ∈ 0..=96` as the radius, `care(d)` = the first d bits in
+root→leaf order, and the selection is every unit `u` with
+`(u.payload ^ self.payload) & care(d) == 0`. Three properties, each literal:
+
+- **exact** — a ternary equality; no threshold, no approximation, no 8 KiB object
+  unless the caller wants the result materialised;
+- **stepless** — every d is a distinct selection: d = 0 is the class, d = 96 the unit
+  itself. Nibble boundaries are where the codebook's centroid cells sit (OGAR: *1
+  nibble = 1 level of the 16-ary tree*) — a fact about MEANING; the mask cuts anywhere;
+- **~1 cycle** — one AND and one compare per row, both vectorised.
+  `ndarray::simd::ternary_match_strided_to_mask(bytes, first_offset, stride_bytes,
+  count, pattern: &[u8; 12], care: &[u8; 12], out_words)` IS this call over a
+  16-byte-strided table: 12-byte pattern, 12-byte care, one mask word per 64 rows.
+  Shipped. mask-risc's `LaneRef::U64` doc names the strided `Operand` as the IR's
+  own gap (PR4/PR5); `Pred::MatchU64` / `MatchU32` are the same operation on one lane,
+  and `Filter::prefix_u64(col, self, d)` is `(self, d)` on that lane today.
+
+The root→leaf order of the 96 bits is not memory order — each rail is LE `hi:lo`, and
+which bits are "closer to root" is the ClassView's carving — so `care(d)` is a
+97-entry table per carving, not `!0 << (96 − d)`. The ternary match does not care
+which, and that is the point: any bit order, any d, one instruction.
+
+### What the sweep measured
+
+`examples/adaptive_order_probe.rs`, radius d on the 16 row bits of `i << 8`
+(d = 40 is every row, d = 56 is one), the prefix leading the clustered conjunction:
+
+| d | rows | words skipped | blocks skipped |
+|---|---|---|---|
+| 40 | 65 536 | 0.00 % | 0.00 % |
+| 41 | 32 768 | 50.00 % | 50.00 % |
+| 44 | 4 096 | 93.75 % | 93.75 % |
+| 47 | 512 | 99.22 % | 99.22 % |
+| 48 | 256 | 99.61 % | **99.61 %** |
+| 49 | 128 | 99.80 % | 99.61 % |
+| 50 | 64 | **99.90 %** | 99.61 % |
+| 51…56 | 32…1 | 99.90 % | 99.61 % |
+
+- Every d selects exactly 2^(56−d) rows — asserted per step. Stepless and exact.
+- The skip is a step function of the UNIT, not of d: words gain until one live word
+  (d = 50), blocks until one live block (d = 48); between 48 and 50 the units part
+  ways. `/50` — which (7) called illegal and (8) "not a tile cell" — is the radius at
+  which the word-skip saturates. Legal, exact, one of 97.
+- The (5) §3 family `1 − 2^(50−P)/1024`, labelled CONJECTURE there and withdrawn in
+  (7), is measured across 40..=56 and holds for words down to the word floor; its block
+  twin saturates two bits earlier. Restored as FINDING.
+
+### Corrections this makes
+
+- (7), (8): *"legal prefixes are nibble-multiples"* — nibble alignment is codebook
+  structure, not a legality condition on selection. `/48` stays in the probe's
+  clustered regime as a representative radius, not the only legal one; the sweep now
+  carries every d.
+- (8) sub-reading (ii), *six per-rail prefixes*: the operator's variant is ONE radius
+  over the whole payload in root→leaf order, self-referential. Sub-reading (i), six
+  needles, is a different object — a survivor set — and stays as the sparse arm's
+  shape.
+
+### Pre-registered falsifier — Phase 7, not run
+
+`ternary_match_strided_to_mask` over a 64k × 16 B table, release build, ≥ 10 runs,
+cycles per row from `rdtsc`. **Pass:** ≤ 1 cycle per row sustained (the SIMD kernel
+should land well under: four u64 lanes per compare on AVX2). **Fail:** > 1 cycle per
+row — then "close to 1 CPU cycle" is true of the primitive and not yet of the
+substrate end to end, and the strided `Operand` in mask-risc is what closes it.
+
+## 2026-09-15 (8) — E-THE-RAIL-IS-A-NEEDLE-NOT-A-MASK-256-BY-256-IS-THE-EXACT-ROW-ADDRESS-AND-A-MASK-OVER-THE-AREA-IS-ANOTHER-OBJECT-1 — operator clarification; (7)'s "hi byte = skip unit" is withdrawn as the ruling's meaning, and its measurement is kept as data
+
+**Status:** RULING — operator, verbatim (2026-09-15, five lines): *"Ich meine 64k sind
+2 byte. 256:256 sind 2 byte für die exakte SoA inna given table. Das gilt nur für needle
+in a haystack x table. Für Maske über 64k als Fläche bräuchte es entsprechend mehr. Eine
+Mögliche Lesart für masking wäre 256:256⁶, also genau 96 bit, oder bitpacked 64k."*
+Everything below the ruling is my reading of it, labelled as such.
+**Confidence:** HIGH that (7)'s derivation was not what was meant — the operator says so
+in the first word. MEDIUM on the two sub-readings of `256:256⁶`: the operator called it
+*eine mögliche Lesart*, and it stays open here.
+
+### What the ruling says, read plainly
+
+1. **The rail is an address, not a mask.** `u8:u8` = 2 bytes = the exact SoA row in a
+   given 64k table. 256 × 256 = 65 536: every value a row, every row a value. THAT is
+   "kein Rest" — a bijection between rail values and rows — not a tiling of the mask
+   into skip units. It holds for the needle-in-a-haystack × table case: one value,
+   one row.
+2. **A mask over the 64k AREA is a different, larger object.** Bitpacked it is 65 536
+   bits = 8 KiB = 1 024 words = 256 four-word blocks, and it tiles with no remainder in
+   either unit. The rail does not dictate which unit an executor skips in; nothing in
+   the ruling does.
+3. **`256:256⁶` = 96 bits is the facet payload — the operator's candidate for a masking
+   reading.** Two ways to read it, both recorded, neither ruled: (i) six exact
+   needles — a sparse survivor set of at most six rows, in the 12 bytes the facet
+   already has; (ii) six per-rail prefixes — a product cell in the six-rail tile space,
+   a mask given by predicate rather than by bits. Reading (i) is the sparse arm the A1
+   falsifier is missing, in the substrate's own register: D-GTM-0n's *below ~0.1 %
+   active, switch to sparse* is below 65 rows of 64k, and six needles are 0.009 %.
+
+### What (7) got wrong, and what of it stands
+
+- **Wrong as the ruling's meaning:** *"the rail's unit is its hi byte"*, *"a quarter
+  block is a remainder"*, *"count in the unit the address is carved in"*. The address
+  is not carved into the mask at all. Withdrawn; (7) is ⊘-regraded in place. The same
+  sentences had been pushed as canon in `d80b802` — in the probe header, `lib.rs`'s
+  `and_by_skip` doc, the prefix test's comment and mask-risc's `MaskOp::Pred` doc — and
+  are corrected in this commit to the reading above.
+- **Stands as data:** the two-unit measurement. 64-row words are the executor's unit;
+  256-row blocks are the 2-nibble prefix cell of the OGAR tier tile (`OGAR/CLAUDE.md`
+  "Tier interpretation — 256×256 CENTROID TILE": a 4-ary hierarchy per byte) — a
+  legitimate coarser skip unit, not the rail's. Clustered `/48`: 99.61 % in both
+  units; selective: 80.66 % words / 61.91 % blocks, written order 0 blocks; the ramps.
+  The `/48` cut stays: it is nibble-aligned under the tile canon, which is a separate
+  and older ruling; `/50` (2.5 nibbles) is not.
+- **Stands, restated:** the probe's `N == 256 * 256` assert now says what it is — the
+  table is exactly 2-byte addressable — rather than "no fractional block".
+- **Stands from (5)/(7):** the clustered regime at `/48` sits above the 0.1 % bound
+  (0.177 %); the selective regime (0.055 %) is under it and the probe has no sparse arm.
+
+### Consequence
+
+The missing sparse arm now has a shape and a home. Shape: a needle list of `u16` row
+ids — the very thing a rail value is. Home: Phase 7's *very-sparse* density arm
+(task #6), measured against the bitpacked sweep at 6, 36 and 116 survivors, where six
+is the count the facet register itself can hold. Not built here; recorded so the arm
+is built against the operator's reading and not against mine.
+
+> ⊘ **Same day, entry (9):** the operator's favourite is neither sub-reading — it is
+> `(self, d)`, ONE stepless radius over the whole 96-bit payload in root→leaf order,
+> self-referential; sub-reading (i), six needles, stays as the sparse arm's shape.
+
+## 2026-09-15 (7) — E-256-BY-256-IS-EXACTLY-64K-THE-RAILS-SKIP-UNIT-IS-ITS-HI-BYTE-AND-A-QUARTER-BLOCK-IS-A-REMAINDER-1 — operator-ruled; the `/50` cut read across `u8:u8`, and re-measured on the byte boundary the clustered regime moves ABOVE the density bound
+
+**Status:** RULING — operator, verbatim: *"256:256 is exactly 64k. Es darf gar keinen
+Rest geben."* — plus FINDING for everything measured below: the probe now prints both
+units and the ramp, re-runnable. Reading the ruling as *the rail's hi byte is the skip
+unit* is my derivation and is labelled as such.
+**Confidence:** HIGH on the numbers. The derivation is the only reading under which
+"no remainder" and the `u8:u8` canon (two separate bytes, never widened —
+`E-V1-TAIL-FORBIDDEN-V3-IS-CONTENT-BLIND-1`) are satisfied by one skip unit.
+
+> ⊘ **Superseded the same day by the operator's own clarification — entry (8).** The
+> reading *hi byte = skip unit, quarter block = remainder* was mine, and it is not what
+> was meant: the rail is the exact row ADDRESS of a 64k table (2 bytes ↔ 65 536 rows —
+> that bijection is the "no remainder"), not a mask; a mask over the area is a larger
+> object, and the rail dictates no skip unit. The measurements below stand as data in
+> two units (words; 256-row blocks = the tier tile's 2-nibble cell), the `/48` cut
+> stands under the tile canon, and the "rule" at the end is withdrawn.
+> ⊘ And per (9): `/48` is a representative radius, not the only legal one — the
+> operator's variant makes the radius STEPLESS; `/50` is where the word-skip saturates.
+
+### The ruling, and what it rules out
+
+A rail is `u8:u8`: 256 × 256 = 65 536 rows — exactly the 64k slab, exactly the A1
+probe's `N`. Its hi byte addresses 256 blocks of 256 rows; a block is four 64-row
+words, one 256-bit vector. "No remainder" cuts two ways:
+
+- **Addressing.** A prefix on a rail is a whole number of hi-byte cells or it is not a
+  rail address. `/48` on the probe's `i << 8` lane pins the hi byte — one block. The
+  `/50` the (5) entry measured pins two more bits by reading across the two bytes as
+  if they were a `u16`, and selects a QUARTER block. That quarter is the remainder.
+- **Counting.** A skip counted on a rail is counted in blocks. The 64-row word is the
+  facade's machine unit — `MaskOp::Pred`'s doc already lets an executor skip coarser
+  chunks with an identical result — but as an ADDRESSING unit it straddles the lo byte
+  (6 bits against a nibble cascade), and a block with one live word is live, not
+  three-quarters dead.
+
+### Re-measured on the byte boundary (`crates/lance-graph-quack/examples/adaptive_order_probe.rs`, both units, ramp printed)
+
+| regime | survivors | words, worst → best | 256-row blocks, worst → best |
+|---|---|---|---|
+| selective | 36 (0.055 %) | 5.66 % → 80.66 % | **0.00 % → 61.91 %** |
+| moderate | 14 311 (21.8 %) | 0 → 0 | 0 → 0 |
+| permissive | 61 777 (94.3 %) | 0 → 0 | 0 → 0 |
+| clustered, `/48` | **116 (0.177 %)** | 0.00 % → **99.61 %** | 0.00 % → **99.61 %** |
+
+Three things the byte boundary changes:
+
+1. **99.61 % = 1 − 1/256, predicted before the run, held.** Words and blocks agree
+   exactly on the clustered regime (4 080 / 4 096 and 1 020 / 1 024): one live block,
+   four live words. The ramp is `[4080, 3060, 2040, 1020, 0]` words /
+   `[1020, 765, 510, 255, 0]` blocks — monotone, linear, in both units. The (5)
+   entry's 99.90 % was the quarter-block cut's number: correct for that cut, and that
+   cut is not a rail address.
+
+> ⊘ **CORRECTED, same day.** The printed totals do not match this entry's own unit
+> definitions. Above: "a block is four 64-row words, one 256-bit vector," on
+> N = 256 × 256 = 65,536 rows. That arithmetic gives **1,024** total 64-row words
+> (65,536 / 64) and **256** total 256-row blocks (65,536 / 256) — not 4,096 and 1,024.
+> A one-live-block result under THOSE totals is **1,020 / 1,024 words skipped** and
+> **255 / 256 blocks skipped**, both = 99.61 % = 1 − 1/256, matching this section's own
+> headline claim. The printed pair — "4,080 / 4,096" labelled words, "1,020 / 1,024"
+> labelled blocks — has totals (4,096 and 1,024) that are one granularity finer than
+> each label: 4,096 is the total for a 16-row unit (not defined anywhere else in this
+> entry), and 1,024 is the total for the entry's own 64-row WORD definition, not its
+> 256-row BLOCK definition. Both mislabeled pairs reduce to the identical 99.61 % ratio
+> (4,080/4,096 = 1,020/1,024 = 255/256), which is why the qualitative claim — words and
+> blocks agree, ceiling = 1 − 1/256 — survives; the printed raw counts and their column
+> labels do not. Cite the percentage, not these counts, until the labels are checked
+> against `adaptive_order_probe.rs`'s actual column definitions.
+2. **The clustered regime sits ABOVE D-GTM-0n's 0.1 % bound, not under it.** 116
+   survivors fill one block: 0.177 % active. The (5) entry's "both lever regimes sit
+   under the bound" was an artifact of `/50` (31 survivors). What survives: the
+   SELECTIVE regime (0.055 %) is under the bound and the probe still has no sparse arm
+   — the missing-arm finding stands, narrowed to that one regime.
+3. **In the rail's unit the selective regime's written order skips NOTHING.** 232 dead
+   words of 4 096 in the written order — and 0 dead blocks: scattered survivors leave
+   no 256-row block empty until the two selective conjuncts have run. Best drops
+   80.66 → 61.91 %. The word count flattered the lever by 19 points on the scattered
+   regime; on the contiguous regime it was exact.
+
+Sharper than before, too: the clustered regime has three times the selective regime's
+survivors and skips MORE — 116 vs 36 rows, 99.61 vs 80.66 % of words, 99.61 vs 61.91 %
+of blocks. Ranked by selectivity the two come out backwards. That replaces the (5)-era
+"near-identical counts, 19 points apart" argument, which was also `/50`'s.
+
+### Where it landed
+
+- The probe: `dead_blocks`, `skipped → (words, blocks, count)`, `/48`, a
+  `const _: () = assert!(N == 256 * 256 && BLOCKS * BLOCK_WORDS == WORDS)` that says
+  "no remainder" in code, and the ramp printed so the quoted figure is a measurement.
+- `lib.rs`: the `and_by_skip` doc table carries both units and the new figures; the
+  crate doc's 99.90 → 99.61; the prefix-halving test keeps `/49` and `/50` as
+  COMPARATOR arithmetic (a ternary match pins any care mask) and says which prefixes
+  are rail cells.
+- mask-risc `MaskOp::Pred` doc: one paragraph naming the rail's unit.
+- Board: (5) ⊘-regraded in place at both affected sections; matrix §8a and D-QCK-9
+  ⊘-annotated; `LATEST_STATE` 2026-09-15 (4).
+
+### The rule
+
+**Count in the unit the address is carved in.** A skip fraction measured in a unit
+finer than the rail's cell reports a saving the rail cannot address — and on scattered
+populations overstates it. The word is how the executor tests; the block is what the
+rail can promise.
+
+## 2026-09-15 (6) — E-THE-SLOWEST-GATE-IS-THE-ONE-YOUR-OWN-PUSH-CADENCE-CANCELS-1 — 33 runs, 19 cancelled; the fix waited 75 minutes for a verdict, and three of its four heads were cancelled by my own next push
+
+**Status:** FINDING. Every number is the Actions API ledger for `rust-test.yml` filtered
+to this branch, re-fetchable.
+**Confidence:** HIGH.
+
+### The ledger
+
+`Rust Tests` on `claude/clone-repositories-71a5sw`: **33 runs — 19 cancelled, 7 success,
+7 failure.** A verdict on 14 of 33 heads. For #1235's fourteen runs on 2026-09-15: 7
+failures (`d73c742` 17:25Z → `36646a2` 18:43Z, each finishing 2.9–4.5 minutes after
+start — the compile-failure signature; the aws-smithy cause was verified by log on
+`36646a2`, `E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1`),
+**6 cancelled, 1 success** — `d77cd4e`, 19 minutes wall, the only time the workflow
+completed on this PR.
+
+The mechanism is a concurrency group keyed on the PR number with
+`cancel-in-progress: true` (`.github/workflows/rust-test.yml:13-15`), on a workflow that
+takes 19 minutes. Correct CI
+economy. The failure is the reader's, and the timeline is the finding:
+
+| head | committed | run created | outcome |
+|---|---|---|---|
+| `947753d` (the fix) | 19:09Z | — | no run: the PR was conflicted |
+| `99479a5` | 19:27Z | 19:28Z | cancelled 19:32Z by the next push, after 4 min |
+| `188d6b3` | 19:31Z | 19:32Z | cancelled 19:48Z, after 16 min |
+| `e43d12f` | 19:47Z | 19:48Z | cancelled 20:06Z, after 18 min — about a minute short of a full run |
+| `d77cd4e` | 20:05Z | 20:05Z | **success 20:24Z** |
+
+75 minutes from the fix to its first test verdict, and nothing but my own cadence in
+between.
+
+### What I read as confirmation meanwhile, and what it actually confirmed
+
+`Build` and `Style Check` went green on `188d6b3`. `build.yml` is `cargo build` /
+`cargo test` with `--manifest-path crates/lance-graph/Cargo.toml` — **one crate**. It
+proved the aws fix compiles the core crate and runs its tests; it never builds
+`lance-graph-quack` or `lance-graph-mask-risc` and cannot run their suites. "The fix is
+confirmed" was true for the compile and unsupported for the tests until 20:24Z.
+
+The check-in prompt I wrote for myself compounded it: it asked the next wake to confirm
+that `member-tests` reaches its `cargo test -p lance-graph-quack` line. **There is no such
+line.** The quack step is step 17 of the `test` job, `Run quack tests` =
+`cargo test --manifest-path crates/lance-graph-quack/Cargo.toml`
+(`.github/workflows/rust-test.yml:134-135`); the member-tests job enumerates other
+crates by manifest path and never names quack. Verified on `d77cd4e` by log: `Running unittests
+src/lib.rs (…lance_graph_quack-…)` → `test result: ok. 14 passed; 0 failed`. A wake that
+trusted the prompt would have grepped the wrong job's log, found nothing, and reported the
+suite as never run — a false negative primed thirty minutes ahead by its own author.
+
+### The rules
+
+1. **When you are waiting on the slowest gate, a push is a cancellation.** Hold the push
+   until the verdict, or accept that the verdict will be for the next head. The tell in
+   the ledger: a run whose `updated_at` matches the next run's `created_at` to the second.
+2. **A cancelled run leaves no verdict, and the greens beside it are the fast workflows.**
+   Read the slow workflow's ledger (`actions_list`, branch-filtered), not the PR page.
+3. **Name a job from its step list, never from memory.** `get_workflow_job` returns the
+   steps; thirty seconds against thirty minutes.
+
+Cross-ref: `E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1` is
+the conflicted-PR half of the same day — no run at all. This entry is the other half: a
+run that starts and is killed.
+
+## 2026-09-15 (5) — E-THE-SKIP-LEVER-LIVES-ONLY-BELOW-THE-DENSITY-WHERE-D-GTM-0N-SAYS-SWITCH-TO-SPARSE-AND-THE-CLUSTERED-99-90-IS-PREFIX-ARITHMETIC-1 — both readers dropped the density bound; both A1 lever regimes sit under it; the 99.90 % is 1023/1024 by construction
+
+**Status:** FINDING for the density collision and for the P = 50 arithmetic — both
+re-checkable from two board rows, two source lines and the §8a table. CONJECTURE for
+the prefix-length family below P = 50: derived, not run; its falsifier is named.
+**Confidence:** HIGH on every number quoted. The *competitive* claim — that a sparse
+arm beats the gated sweep at 0.05 % active — is deliberately NOT made. The probe has no
+sparse arm, and that absence is the finding.
+
+### 1. The bound two readers dropped
+
+`STATUS_BOARD` row `D-GTM-0n / P3` carries two bounds *"that ride with the number and
+may not be dropped when it is cited"*: the win is L2-residency-contingent, **and mask
+loses to sparse below 0.1 % active**. The crosswalk entry restates it — *"only above
+~0.1 % active — a crosswalk hop that thins the survivors below that must switch to
+sparse"* (its "bounds that ride with the claim" paragraph). The parallel session's second
+feedback cited D-GTM-0n by its L2 bound and its K = 1 control and omitted the density
+bound; earlier the same day I had cited D-GTM-0m without its one-fixture / upper-bound
+caveat (⊘ in `E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1`).
+Same move, two readers, two rows: the memorable bound survives the citation and the
+inconvenient one does not.
+
+### 2. Why it bites: the lever's only live regimes are under the bound
+
+§8a (`.claude/plans/duckdb-to-v3-translation-matrix-v1.md`) — 65 536 rows, 5 conjuncts,
+all 120 permutations:
+
+| regime | survivors | active | spread |
+|---|---|---|---|
+| selective | 36 | **0.055 %** | 75.00 pts |
+| clustered | 31 | **0.047 %** | 99.90 pts |
+| moderate | 14 311 | 21.8 % | 0 |
+| permissive | 61 777 | 94.3 % | 0 |
+
+The two regimes where ordering moves the skip fraction sit at roughly half of 0.1 %. The
+two regimes where the mask arm is the right arm by D-GTM-0n's own bound have spread 0.
+So `Filter::and_by_skip` is measurable exactly where the substrate's bound assigns the
+work to the sparse representation, and inert everywhere the mask representation is the
+right one.
+
+What that changes: the A1 verdict (*ADAPT conditionally*) was reached by comparing
+orderings of the gated sweep **to each other**. The competitor D-GTM-0n names at this
+density is a survivor list with per-row evaluation of the remaining conjuncts — on the
+order of 36 rows × 4 conjuncts against 1 024 gated words × 4 — and the probe never runs
+it. The falsifier is missing an arm, and it is not the fused arm (Phase 7): that one is
+order-independent by construction (the (4) entry above) and settles a different question.
+**The A1 row must carry the 0.1 % bound the way D-GTM-0n's row does.**
+
+> ⊘ **Corrected the same day (operator ruling, entry (7)).** The clustered row above is
+> the `/50` cut's — a quarter block. On the rail's byte boundary (`/48`) the clustered
+> regime has **116 survivors = 0.177 %**, ABOVE the bound; only the selective regime
+> (0.055 %) sits under it. The missing-arm finding stands for that regime.
+
+### 3. The clustered 99.90 % is arithmetic, not a property of the data
+
+`crates/lance-graph-quack/examples/adaptive_order_probe.rs:186` — `(i as u64) << 8`;
+`:322` — `Filter::prefix_u64(ADDR, addr[N / 4], 48)` (it read `50` when this entry was
+measured; see the ⊘ below). A 50-bit prefix on a u64 leaves 14
+low bits free: 8 are the shift, **6 are log₂ 64 — the word.** The prefix pins `i`'s top
+10 bits, which IS the 64-row word index (N = 2¹⁶ rows = 1 024 words); exactly the 64 rows
+of one aligned word satisfy it. Gated on that accumulator, every later conjunct evaluates
+1 word of 1 024. The ramp `[4092, 3069, 2046, 1023, 0]` is 1 023 × (conjuncts after the
+prefix), and 4 092 / 4 096 = **99.90 % = 1023/1024**.
+
+The parallel session named the general form the *10-bit handoff*: on a 16-bit rail the
+low 6 bits address inside a word and the top 10 select it, so any prefix predicate of
+length ≥ 10 on an address-ordered rail is word-granular **by construction**. On this
+lane a prefix of P bits leaves 2^(50−P) live words — skip = 1 − 2^(50−P)/1024: 99.90 % at
+50, 99.80 % at 49, 99.61 % at 48, 0 % by 40. §8a measured the P = 50 point of that function
+and tabulated it beside three regimes that ARE properties of the data. "Clustered" should
+be read as *the predicate is a word address*, and 99.90 % as the mechanism's ceiling, not
+as an observation about clustering.
+
+Two consequences. The ceiling is reachable only on an ADDRESS-ORDERED lane — the blocker
+the parallel session already named for the V3-native seed; on an unsorted lane a prefix's
+survivors scatter and the function above does not apply. And a V3 `6×(u8:u8)` rail is 16
+bits wide, so the handoff sits at exactly 10 bits for every rail: above that length the
+prefix skip and the word skip are one mechanism, below it they are two.
+
+**Falsifier (not run):** the probe with the prefix at 50, 49, 48 must report 99.90 /
+99.80 / 99.61 %. A departure falsifies §3; a match promotes the family from CONJECTURE.
+
+> ⊘ **Corrected the same day — the handoff is at the BYTE, not at 10 bits.** Operator:
+> *"256:256 is exactly 64k. Es darf gar keinen Rest geben."* The rail's unit is its hi
+> byte — 256 blocks of 256 rows, four words each. `/50` pins two bits of the lo byte,
+> reading across `u8:u8`, and selects a quarter block; the 1023/1024 is that cut's
+> arithmetic. On the byte boundary the ceiling is 1 − 1/256 = **99.61 %**, measured in
+> both units (entry (7); the `/48` point of the falsifier above ran and matched). The
+> prefix-length family below the boundary is withdrawn as a family of rail addresses —
+> legal prefixes are nibble-multiples and the skip unit is the block. The word-level
+> figures above remain correct as facade arithmetic for the cut they describe.
+
+### What to carry
+
+- Any citation of D-GTM-0n carries the 0.1 % bound; any citation of §8a's lever regimes
+  carries their densities (0.055 %, 0.047 %) beside it.
+
+> ⊘ **STALE, same day — superseded by entry (7) above (earlier in this file's reading
+> order).** `0.047 %` here is the `/50` quarter-block cut's clustered density. Entry
+> (7)'s byte-boundary (`/48`) re-measurement gives the clustered regime **116
+> survivors = 0.177 %** — ABOVE the 0.1 % bound, not sitting beside the selective
+> regime under it. Only the selective regime (0.055 %) still sits under the bound.
+> Cite (0.055 %, 0.177 %), not (0.055 %, 0.047 %).
+
+- The A1 falsifier's missing arm is SPARSE, not fused. Filed as the operator's call in
+  `LATEST_STATE` 2026-09-15 (3).
+- No code changes here; `and_by_skip` stays as shipped.
+
 ## 2026-09-15 (4) — E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1 — the fused lowering is order-independent BY CONSTRUCTION, two readers derived it from source because the crate doc does not say so, and DuckDB's A1 turns out to have a dead seed as well as an unrunnable loop
 
 **Status:** FINDING. Convergent — derived independently in two sessions from the same

@@ -149,7 +149,7 @@ fn dither(guid: u64, level: usize, comma: bool) -> f64 {
     } else {
         0
     };
-    let phase = (hash2(guid, 0xC0FF_EE) % M + step) % M;
+    let phase = (hash2(guid, 0x00C0_FFEE) % M + step) % M;
     phase as f64 / M as f64 - 0.5
 }
 

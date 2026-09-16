@@ -1,3 +1,92 @@
+## 2026-09-15 (3) — lance-graph PR #1235 (merged `e8d3c19`, branch `claude/clone-repositories-71a5sw`) — `lance-graph-quack`: the DuckDB-shaped surface whose operators ARE masking ops, and A1's falsifier run
+
+- **Added:** the workspace member `crates/lance-graph-quack` (builds mask-risc
+  `Program`s and never evaluates one — no expression interpreter, no row
+  iterator, no per-operator kernel library, no `dyn Operator` chain, no
+  validity bitmap beside the data, no hash table for `GROUP BY`; each is a
+  lowering); the survivor skip with the DROP law (a comparison vanishes with
+  the gate, an `AND` if ANY child does, an `OR` if EVERY child does, a `NOT`
+  never) and accumulator gating made sound by `hoist_gate_subset`;
+  `Filter::and_by_skip` (the caller's measured score orders an `AND` — no
+  decay, no intervals, no warm-up counters, because the crate cannot measure);
+  `examples/adaptive_order_probe.rs` (65 536 rows × 5 conjuncts × all 120
+  permutations × 4 regimes); the repaired DuckDB header harvest; the
+  34-recipe substrate audit with two `recipes.rs` citations Jirak-corrected;
+  the AWS-optional dependency change and the explicit publish feature list;
+  three CI lines. 16 files, +4 227 / −11, 25 commits.
+- **Locked:** *a plan is a `Program` — one flat op list, one terminal*; a
+  `match` in quack that computed anything would be the duplicate evaluator
+  this arc exists to remove. *The DROP does not pass through `NOT`.* *The
+  accumulator gate is sound only inside the plane*, which the rotation
+  guarantees — found twice, nested one level down
+  (`E-THE-ACCUMULATOR-GATE-OUTRANKED-THE-PLANE-AND-SILENTLY-DROPPED-IT-1`).
+  *Only `lower` can skip; `lower_fused` is order-independent by construction*
+  (`E-FUSING-FORFEITS-THE-SKIP-AND-ADAPTIVEFILTER-FAILS-IN-TWO-PLACES-NOT-ONE-1`,
+  convergent with a parallel session).
+- **Measured — and what the measurement is now known to lack.** Ordering
+  moves the skip fraction only in the two sparse regimes (75.00 pts at 0.055 %
+  active, 99.90 pts at 0.047 %), never in the two dense ones, so A1 is ADAPT
+  conditionally and DuckDB's hill-climb is not ported. Post-merge re-read:
+  both lever regimes sit under D-GTM-0n's *mask loses to sparse below 0.1 %*
+  bound and the probe has no sparse arm; the clustered 99.90 % is 1023/1024 by
+  prefix arithmetic
+  (`E-THE-SKIP-LEVER-LIVES-ONLY-BELOW-THE-DENSITY-WHERE-D-GTM-0N-SAYS-SWITCH-TO-SPARSE-AND-THE-CLUSTERED-99-90-IS-PREFIX-ARITHMETIC-1`).
+  The verdict stands as an ORDERING result; it is not yet a REPRESENTATION
+  result.
+- **Review: CodeRabbit twice, codex once — nothing disputed.** The codex P1
+  was a real wrong answer (a nested `Plane` dropped under an accumulator not
+  inside it), fixed with two falsifiers; round 2 re-found the same P1
+  independently and reversed my own fmt decline (`LATEST_STATE`, the two
+  2026-09-15 #1235 review entries). Six CodeRabbit findings verified and
+  fixed in `e43d12f`: [1] the §8a summary lines credited 75.00 pts / 14.2×
+  (selective) as the maximum when clustered's 99.90 pts is; [2] the plan
+  still called `hoist_gate_subset` a correctness requirement the code had
+  already retracted — ⊘-annotated to match; [3] `Query::and_by_skip` →
+  `Filter::and_by_skip` in `lib.rs:699` and `ISSUES.md` (the file disagreed
+  with itself and the intra-doc link did not resolve); [4] `LowerError` gains
+  `std::error::Error`, matching eight workspace precedents — mask-risc's own
+  `FuseError`/`ExecError` lack it, noted and not touched; [5] a board
+  citation by LINE (`EPIPHANIES:19221`, already decayed to style-table
+  content) → the entry name; [9] my own entry described `rust-publish.yml` as
+  PRESENTLY passing `--all-features` after `c2b4bc7` had already replaced it
+  — rewritten as historical, and its "no branch could ever have gone red"
+  narrowed to *no push-triggered run* (`workflow_dispatch` can aim at any
+  branch). Then `188d6b3`: four more citations by section instead of line.
+  Two findings deferred with reasons (the `gate_walk` depth budget; the
+  published-feature question — operator's), one unverified (whether the
+  cam96 passage over-ranks `HelixResidue`). One reply comment discharged the
+  rest.
+- **CI, honestly:** red from the PR's opening (17:25Z) to the fix (`947753d`,
+  19:09Z) on the aws-smithy 0.63 / 1.7 mismatch, with NO run at all on the
+  fixing head because the PR was conflicted
+  (`E-A-CHECK-THAT-CANNOT-RUN-IS-INDISTINGUISHABLE-FROM-A-CHECK-THAT-PASSES-1`);
+  after the rebase, `Rust Tests` completed ONCE in the PR's fourteen runs —
+  on the final head — and that completion ran the quack suite (`14 passed`).
+  The other thirteen outcomes are seven compile failures and six
+  cancellations, three of the latter by my own pushes after the fix
+  (`E-THE-SLOWEST-GATE-IS-THE-ONE-YOUR-OWN-PUSH-CADENCE-CANCELS-1`).
+  `citation-decay`, `append-only`, `supersession-index`, `Build`, `Style
+  Check` green on the merged head.
+- **Deferred, named:** D-QCK-7 (the join — blocked on mask-risc PR5's `hop`);
+  the SPARSE arm of the A1 falsifier (new); the fused arm (Phase 7); the depth
+  budget for `gate_walk`
+  (`ISS-QUACK-LOWER-FUSED-IS-SUPERLINEAR-AND-DEEP-FILTERS-ABORT`); the two
+  declared-but-unbuildable published features
+  (`ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE`,
+  `ISS-PUBLISH-FEATURE-LIST-CAN-DRIFT`) — operator's call; the citation-decay
+  resolver — gated on precision sampling; `ruff#115`.
+- **Docs:** the crate doc's "two lowerings, one meaning" section now names the
+  skip asymmetry; `rust-publish.yml` carries a comment explaining both
+  exclusions and their drift cost; matrix §8a corrected (99.90 pts clustered,
+  75.00 pts + 14.2× selective) and its `hoist_gate_subset` paragraph
+  ⊘-annotated; the D-QCK-9 row corrected in place (the "dead words" and
+  "wrong landscape" reasons were measured false — the ramp is monotone).
+- **Confidence:** high on the lowerings — every test differential against a
+  per-row oracle that never sees a `Program`, anti-vacuity `0 < selected < n`,
+  five arms agreeing on the 64k slice, and the suite run in CI on the merged
+  head; medium on A1's standing, for the reason under *Measured*; high on the
+  ledger numbers, which are the API's, not mine.
+
 ## 2026-09-15 (2) — lance-graph PR #1234 (merged `74f6302`, branch `claude/ladybug-transcoding-plan-q5zbrs`) — three retractions, and ONE MOVE found six times, three of them inside the correction
 
 - **Added: nothing.** Zero types, zero plans, zero deliverables, zero code —

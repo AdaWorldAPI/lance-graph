@@ -62,9 +62,10 @@
 //! the 64 values, so a dead word's column read never happens.
 //!
 //! This matters because it is the whole of what survives from DuckDB's
-//! `AdaptiveFilter` (matrix row A1 / §8a). Ordering is worth up to 99.90
-//! percentage points of skipped words on a clustered conjunction under
-//! [`lower`] — and exactly zero under [`lower_fused`], on the same query.
+//! `AdaptiveFilter` (matrix row A1 / §8a). Ordering is worth up to 99.61
+//! percentage points of skipped words — and of skipped 256-row blocks, the
+//! tier tile's 2-nibble cell — on a clustered conjunction under [`lower`], and
+//! exactly zero under [`lower_fused`], on the same query.
 //! [`Filter::and_by_skip`]'s lever is therefore alive in one configuration:
 //! gated lowering, plane-free conjunction, contiguous survivors. Under a
 //! plane it is inert too (`ISS-QUACK-AND-BY-SKIP-IS-INERT-UNDER-A-PLANE`).
@@ -128,7 +129,8 @@
 //! than unfinished: it never executes, so there is nothing for it to measure.
 //!
 //! Order is still a real cost lever here — under the survivor skip a conjunct
-//! whose survivors die in whole WORDS shrinks every later predicate's live
+//! whose survivors die in whole WORDS — or whole 256-row blocks —
+//! shrinks every later predicate's live
 //! count — so [`Filter::and_by_skip`] takes the ordering decision as an INPUT.
 //! The measurement that licensed even that much is
 //! `examples/adaptive_order_probe.rs`; read [`Filter::and_by_skip`] for what it
@@ -310,16 +312,29 @@ impl Filter {
     /// first literally shrinks the input. In V3 a predicate sweep costs the
     /// full column wherever it sits, so ordering can only pay by AVOIDANCE:
     /// the survivor skip drops a 64-row WORD when the gate has no survivor in
-    /// it. The matrix (row A1) said so and required the measurement before any
-    /// port. `examples/adaptive_order_probe.rs` is that measurement, over
-    /// 65,536 rows, five conjuncts, all 120 orderings, four regimes:
+    /// it — and a 256-row block (four words, the OGAR tier tile's 2-nibble
+    /// cell) is the coarser unit an executor may skip in; on scattered
+    /// survivors the two units disagree, so the probe reports both. A `u8:u8`
+    /// rail itself is neither: it is the exact row ADDRESS of a 64k table —
+    /// 256 × 256, every value a row, no remainder — not a mask and not a skip
+    /// unit (operator, 2026-09-15: *"64k sind 2 byte … für Maske über 64k als
+    /// Fläche bräuchte es entsprechend mehr"*). The matrix (row A1) said so
+    /// and required the measurement before any port.
+    /// `examples/adaptive_order_probe.rs` is that measurement, over 65,536
+    /// rows, five conjuncts, all 120 orderings, four regimes, in both units:
     ///
-    /// | regime | survivors | skipped, worst → best order |
-    /// |---|---|---|
-    /// | permissive | 94.3 % | **0.00 % → 0.00 %** |
-    /// | moderate | 21.8 % | **0.00 % → 0.00 %** |
-    /// | selective | 0.055 % | 5.66 % → **80.66 %** (14.2×) |
-    /// | clustered (an address prefix) | 0.047 % | 0.00 % → **99.90 %** |
+    /// | regime | survivors | words, worst → best order | 256-row blocks, worst → best |
+    /// |---|---|---|---|
+    /// | permissive | 94.3 % | **0.00 % → 0.00 %** | 0.00 % → 0.00 % |
+    /// | moderate | 21.8 % | **0.00 % → 0.00 %** | 0.00 % → 0.00 % |
+    /// | selective | 0.055 % | 5.66 % → **80.66 %** (14.2×) | 0.00 % → **61.91 %** |
+    /// | clustered (an address prefix: one block) | 0.177 % | 0.00 % → **99.61 %** | 0.00 % → **99.61 %** |
+    ///
+    /// (An earlier run cut the clustered prefix at `/50` — the radius at which
+    /// the word-skip saturates: one live word, 31 survivors, 99.90 % =
+    /// 1023/1024. The radius is stepless — the operator's V3 variant masks a
+    /// unit by its own facet × a distance from root of 0–96 bits — and the
+    /// probe's sweep walks 40..=56.)
     ///
     /// Two findings, and a third that is a correction rather than a result.
     ///
@@ -333,12 +348,15 @@ impl Filter {
     /// words.
     ///
     /// **Which means selectivity cannot tell you WHETHER reordering is worth
-    /// anything.** The selective and the clustered regimes have almost
-    /// identical survivor counts — 36 and 31 rows — and differ by 19
-    /// percentage points of achievable skip (best against best: 80.66 % vs
-    /// 99.90 %), because one conjunct's survivors are contiguous and the
-    /// other's are scattered. A selectivity-only cost model cannot separate
-    /// those two cases. That is also why V3 has this lever at all: an address
+    /// anything.** The clustered regime has three times the selective
+    /// regime's survivors — 116 against 36 rows — and skips MORE, not less:
+    /// 99.61 % against 80.66 % of words, 99.61 % against 61.91 % of blocks,
+    /// because one conjunct's survivors fill one block and the other's are
+    /// scattered. Ranked by selectivity the two come out backwards; a
+    /// selectivity-only cost model cannot separate those two cases. And in
+    /// the 256-row block unit the selective regime's written order skips NOTHING
+    /// (232 dead words, 0 dead blocks): scattered survivors leave no block
+    /// empty until the two selective conjuncts have run. That is also why V3 has this lever at all: an address
     /// prefix selects a contiguous subtree ([`Filter::prefix_u64`]), which is
     /// the clustered row of that table.
     ///
@@ -362,14 +380,15 @@ impl Filter {
     /// reason first given here was measured FALSE, so it is worth stating
     /// correctly.** The claim was that "the quantity being optimised is a step
     /// function of clustering … so a local search over adjacent swaps is
-    /// exploring the wrong landscape". Instrumenting the probe's own
-    /// `skipped_words` model with the clustered regime's prefix term at each
-    /// index gives `[4092, 3069, 2046, 1023, 0]` — adjacent deltas all
-    /// exactly `-1023`, a monotone linear ramp, because the prefix term's
-    /// mask is one live word of 1024 and each gated position past it skips
-    /// the other 1023. Every forward adjacent swap improves it by the same
-    /// amount. That is the friendliest possible hill-climb landscape, not the
-    /// wrong one.
+    /// exploring the wrong landscape". The probe walks the clustered
+    /// regime's prefix term through every index (its `term 0 at index` line)
+    /// and prints `[4080, 3060, 2040, 1020, 0]` words — adjacent deltas all
+    /// exactly `-1020` — and `[1020, 765, 510, 255, 0]` blocks, deltas
+    /// `-255`: a monotone linear ramp in both units, because the prefix
+    /// term's mask is one live block of 256 (four live words of 1024) and
+    /// each gated position past it skips the other 255 blocks. Every forward
+    /// adjacent swap improves it by the same amount. That is the friendliest
+    /// possible hill-climb landscape, not the wrong one.
     ///
     /// The step-like behaviour is BETWEEN regimes (does this conjunction
     /// contain a clustered term at all); the search space is WITHIN one
@@ -2051,10 +2070,19 @@ mod tests {
             }
             previous = Some(rows.len());
         }
+        // 48 is the byte boundary — the row index's hi byte, one 256-row
+        // block, a 2-nibble cell of the OGAR tier tile. 46, 47, 49 and 50 are
+        // not nibble-aligned: not cells of the codebook's 4-ary-per-byte
+        // cascade, but every one a legal, exact selection radius — the V3
+        // variant masks a unit by its own facet × a STEPLESS distance from
+        // root (operator, 2026-09-15). The comparator is a ternary match on
+        // any care mask; the halving is its arithmetic and holds through
+        // every boundary.
         assert_eq!(
             previous,
             Some(64),
-            "the 50-bit prefix pins the row index down to a 64-row subtree"
+            "the 50-bit prefix pins the row index down to 64 rows — a quarter of \
+             the 256-row block that /48 selects"
         );
 
         // The widest prefix is a single address; the empty one is every row.

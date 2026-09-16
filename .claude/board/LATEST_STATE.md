@@ -1,3 +1,205 @@
+## 2026-09-15 (10) — D-HXP-8 arm 1 RAN: tic-tac-toe is F0-degenerate (rails reach the whole board → the stack is a census), not a KILL; the early-exit meter presumes non-negative stacking
+
+- **State consumers should know:** the Raumgewinn falsifier's first arm is
+  committed (`crates/perturbation-sim/examples/tictactoe_raumgewinn.rs`) and
+  ran clean: 4520 positions / 627 classes, F1 tie-aware `0.5797` = the
+  random-move baseline, null `[0.5797, 0.5797]`. That is the CENSUS
+  signature, not chance: on 3×3 every cell's rings reach all 8 others, so
+  the full stack of any ring-additive intensity is identical for every
+  candidate (measured: distinct FULL-stack values per position `1.000`).
+  A new **F0 fixture-validity gate** now runs before any scoring and the
+  verdict prints `F0 DEGENERATE — F1 not read`. Next readable arm needs board
+  diameter > 2 × deepest ring: Gobang 15×15, Go 9×9, Hex ≥ 7×7 (Hex 5×5 fails).
+- **Meter note:** `TierFloors::stack_early_exit` returns the partial sum at
+  the exit tier; with SIGNED tiers (the exploratory NET arm) that is not a
+  bound and the early exit changed the top move in 10.13 % of positions
+  (F2 `0.8987` vs `1.0000` on the non-negative arm). Doc premise unstated —
+  `TECH_DEBT` 2026-09-15.
+- **Mississippi Queen "im Anschluss":** two readings, neither buildable
+  without a decision — hexagon W2 (D-HXP-3/4, "rail in the loop on the
+  river") is DATA-blocked (no MQ docs / river fixture in any repo or git
+  history; not fabricated), and ndarray `gemm-ternlog-mask-consolidation-v1.md`
+  §9 M1–M3 (`pack_a_masked_f32`, tile cache, ±1 ladder, coal budget) has spec
+  but no code — a first-writer implementation. Operator picks the reading.
+- Entry:
+  `E-RAUMGEWINN-NEEDS-A-HORIZON-SMALLER-THAN-THE-BOARD-TIC-TAC-TOE-HAS-NONE-SO-ARM-1-IS-F0-DEGENERATE-NOT-A-KILL-1`;
+  plan §12a; `D-HXP-8` → In progress.
+
+## 2026-09-15 (9) — operator: the popcount side is the hexagon's Raumgewinn, its toolkit ships under the operator's own words, and tic-tac-toe / Gobang / Go / Hex make it falsifiable — `D-HXP-8` queued
+
+- **State consumers should know:** (11)'s lcp and (12)'s stacked popcount are
+  `head2head::WinnerCriterion::{DissonanceMin, SupportSpread}` — infight vs
+  Raumgewinn — already shipped (D-H2H-1). The Belichtungsmesser toolkit is
+  `ndarray::hpc::cascade::Cascade::{calibrate, expose, observe, recalibrate}` +
+  `perturbation_sim::rolling_floor::{RollingFloor, TierFloors::stack_early_exit}`;
+  nothing to build there. What is unbuilt is the evidence that it helps the
+  hexagon — E-Q8 is the one measured non-result (degree 1 sufficed).
+- **New D-id:** `D-HXP-8` — board games as the falsifier (F1 agreement with
+  the solved value, F2 early-exit economy at unchanged verdict, F3 mandatory
+  degree-1 ablation that must DROP; KILL at chance or flat). Hex is the
+  six-neighbour game; the square games are its 4-/8-subgraphs. Queued; plan
+  §12 appended. Nothing built.
+- Entry:
+  `E-POPCOUNTS-UPPER-RANGE-SIMILARITY-IS-THE-HEXAGONS-RAUMGEWINN-AND-BOARD-GAMES-MAKE-IT-FALSIFIABLE-1`;
+  (11) carries one ⊘ line.
+
+## 2026-09-15 (8) — operator: popcount also finds *elephant : Wal* — position-blind; the tree's metric is `lzcnt(u ⊕ self)`, and the board had already filed its branchless form
+
+- **State consumers should know:** on a root→leaf code popcount ranks a
+  cousin that parts by one bit at the order level above a sibling that
+  parts by four bits at the leaf. The tree's metric is the longest common
+  prefix — `lzcnt(u ⊕ self)`, `>> 2` = level — which the substrate already
+  names as `NiblePath::common_prefix_depth` (the radix NN measure) and whose
+  branchless one-liner is filed in
+  `ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES`. The (9) prefix
+  selection is its threshold form and ships; the per-row depth VECTOR
+  (`u8` per row, for ranking) is the missing vectorised piece — ndarray has
+  no `lzcnt` primitive today. (10)'s fused `popcount ≤ k` gap is thereby
+  scoped to exchangeable-bit carriers (planes, bipolar identities).
+- Nothing built; entry
+  `E-POPCOUNT-FINDS-ELEPHANT-WHALE-BECAUSE-IT-IS-POSITION-BLIND-THE-TREES-METRIC-IS-LZCNT-AND-THE-BOARD-ALREADY-FILED-IT-1`;
+  (10) and the issue each carry one ⊘ line.
+
+## 2026-09-15 (7) — operator: *"You could even say it's popcount × self"* — the (self, d) prefix is the k = 0 Hamming ball; the fused k > 0 row predicate is a named gap in ndarray AND mask-risc; nothing built
+
+- **State consumers should know:** `(self, care, k)` with
+  `popcount((u ⊕ self) ∧ care) ≤ k` is one predicate family. k = 0 ships
+  (`ternary_match_{u32,u64,strided}_to_mask`; `Pred::MatchU32/U64`). k > 0
+  does not ship as a mask builder: ndarray has per-row distances
+  (`hamming_batch_raw -> Vec<u64>`) and per-word masked popcounts
+  (`masked_popcount_batch`), mask-risc has no `Pred::HammingLe`. Two passes
+  and a 512 KiB vector today; the fused one-pass kernel + predicate is the
+  gap, named in the entry, not built.
+- **Fence:** Hamming with k > 0 is a distance only on Hamming-meaningful bits
+  (planes, bipolar identities, the tree via `care(d)`) — never over
+  `palette256²` rails or CAM-PQ codes, whose distance is the 256×256 LUT
+  (`I-VSA-IDENTITIES`).
+- **Already visible:** the probe sweep's `rows` column is
+  `popcount(mask(self, d))` = |ball(self, d)| — reading 2 of the entry.
+- Entry:
+  `E-POPCOUNT-TIMES-SELF-THE-EXACT-PREFIX-IS-THE-K-EQUALS-ZERO-HAMMING-BALL-AND-THE-FUSED-ROW-PREDICATE-IS-THE-GAP-1`.
+  Phase 7 gains a second pre-registered arm (k > 0 cycles/row).
+
+## 2026-09-15 (6) — operator: *"Meine Lieblingsvariante ist V3 Format"* — a thought masks itself × distance from root, 0–96 bit, stepless, ~1 cycle; measured stepless on the probe, primitive already shipped in ndarray
+
+- **What changed (this commit):** the A1 probe gained a stepless radius sweep
+  (`d = 40..=56` on the address lane: rows = 2^(56−d) asserted per step;
+  words saturate at d = 50 / 99.90 %, blocks at d = 48 / 99.61 %); the
+  three doc sites that read as "only nibble-aligned prefixes are legal" now
+  say the radius is stepless and nibble boundaries are codebook cells. No
+  lowering behaviour changed.
+- **State consumers should know:** the operator's variant `(self, d)` —
+  `(u.payload ^ self.payload) & care(d) == 0` — is exactly
+  `ndarray::simd::ternary_match_strided_to_mask` (12-byte pattern + care
+  over a 16-byte stride, shipped) and, per lane, `Pred::MatchU64` /
+  `Filter::prefix_u64`. What is missing is the strided `Operand` in
+  mask-risc (its own `LaneRef::U64` doc names it, PR4/PR5) and a 97-entry
+  `care(d)` table per ClassView carving. The "close to 1 CPU cycle" claim is
+  a pre-registered Phase 7 falsifier (cycles/row over 64k × 16 B), not
+  measured.
+- Entry:
+  `E-A-THOUGHT-MASKS-ITSELF-BY-ITS-DISTANCE-FROM-ROOT-THE-V3-FACET-IS-THE-MASK-AND-THE-RADIUS-IS-STEPLESS-1`;
+  (7) and (8) carry one ⊘ line each.
+
+## 2026-09-15 (5) — operator clarification: the rail is the exact row ADDRESS (2 bytes ↔ 64k rows), not a mask — (4)'s "counts in the rail's unit" is withdrawn, the two-unit measurement stays
+
+- **What changed (this commit, docs only):** the probe header, `lib.rs`'s
+  `and_by_skip` doc, the prefix test's comment and mask-risc `MaskOp::Pred`'s
+  doc no longer say the rail's hi byte is the skip unit. They say: a `u8:u8`
+  rail is the exact SoA row address of a 64k table (256 × 256, every value a
+  row — that is the "no remainder"); a mask over the 64k area is a larger
+  object, bitpacked 1 024 words = 256 four-word blocks; the 256-row block is
+  the OGAR tier tile's 2-nibble cell, a coarser skip unit an executor may use.
+  No number moved; the probe reproduces `[4080, 3060, 2040, 1020, 0]` /
+  `[1020, 765, 510, 255, 0]`.
+- **The operator's candidate reading for masking, recorded not built:**
+  `256:256⁶` = the 96-bit facet payload — six exact needles (a sparse
+  survivor set of ≤ 6 rows in the register the facet already has) or six
+  per-rail prefixes; or bitpacked 64k. The sparse arm the A1 falsifier lacks
+  is the needle list; it lands in Phase 7's very-sparse density arm.
+- Entry:
+  `E-THE-RAIL-IS-A-NEEDLE-NOT-A-MASK-256-BY-256-IS-THE-EXACT-ROW-ADDRESS-AND-A-MASK-OVER-THE-AREA-IS-ANOTHER-OBJECT-1`;
+  (7) ⊘-regraded in place.
+
+## 2026-09-15 (4) — operator ruling *"256:256 is exactly 64k. Es darf gar keinen Rest geben."* — the A1 probe counts in the rail's unit, and two figures in (3) moved
+
+- **What changed (this commit, no lowering behaviour touched):**
+  `crates/lance-graph-quack/examples/adaptive_order_probe.rs` reports 64-row
+  words (the executor's unit) AND 256-row blocks (the rail's hi byte, four
+  words, one 256-bit vector), cuts the clustered prefix on the byte boundary
+  (`/48` — one whole block; the earlier `/50` selected a quarter block by
+  reading across `u8:u8`), const-asserts `N == 256 * 256` with no remainder,
+  and prints the ramp its doc quotes. `lib.rs` docs and the prefix-halving
+  test's message follow; mask-risc `MaskOp::Pred`'s doc names the rail's unit.
+- **Figures, re-measured:** clustered 99.90 → **99.61 %** (= 1 − 1/256, in
+  both units), survivors 31 → **116 (0.177 %, ABOVE the 0.1 % bound)**;
+  selective in blocks **0.00 → 61.91 %** (its written order skips no block
+  at all); moderate and permissive still 0 in both units. Ramp
+  `[4080, 3060, 2040, 1020, 0]` words / `[1020, 765, 510, 255, 0]` blocks.
+- **Consequence for (3)(c) below:** the missing SPARSE arm stands for the
+  selective regime only; the clustered regime is above the bound on the byte
+  boundary. Entry:
+  `E-256-BY-256-IS-EXACTLY-64K-THE-RAILS-SKIP-UNIT-IS-ITS-HI-BYTE-AND-A-QUARTER-BLOCK-IS-A-REMAINDER-1`;
+  the (5) epiphany is ⊘-regraded in place.
+- ⊘ **Same day, entry (5) above:** "the rail's unit" was my reading, not the
+  ruling — the rail is a row address, not a mask. Numbers unchanged.
+
+## 2026-09-15 (3) — PR #1235 merged (`e8d3c19`): `lance-graph-quack` is on `main` and the AWS SDK is opt-in on `main` — one new workspace member, NO contract inventory delta
+
+- **Added on `main`:** `crates/lance-graph-quack` — the DuckDB-shaped surface
+  whose operators lower to `lance-graph-mask-risc` programs (`Filter`/`Cmp`/
+  `Agg`/`Query`, `lower` + `lower_fused`, `Filter::Plane`, the survivor skip
+  with accumulator gating and `hoist_gate_subset`, `Filter::and_by_skip`,
+  `lower_group_by`, `LowerError: std::error::Error`); its only in-tree
+  dependency is mask-risc, no `ndarray`, by design.
+  `examples/adaptive_order_probe.rs` (the A1 falsifier, matrix §8a, RUN);
+  `.claude/harvest/duckdb-headers/README.md` (123 methods / 1 622 events — the
+  harvest §6 had recorded as FAILED, repaired against the headers);
+  `.claude/audits/nars-34-substrate-audit.md`; CI lines for the member
+  (`rust-test.yml` `Run quack tests`, `style.yml` clippy + fmt). 16 files,
+  +4 227 / −11, 25 commits; merged 20:25:15Z by the operator.
+- **Contract inventory delta: NONE.** The one `lance-graph-contract` file in
+  the diff is `src/recipes.rs` — two citations moved from classical
+  Berry-Esseen to Jirak (`I-NOISE-FLOOR-JIRAK`) plus the guard that keeps a
+  third from appearing. No type added or changed.
+- **Dependency state consumers should know:** `lance` is
+  `default-features = false` plus its own default list minus `aws`;
+  `lance-graph` gained the opt-in `aws-sdk = ["lance/aws"]` (`947753d`,
+  operator ruling *"make it optional so that later we fork 1.7 and fix it"*).
+  `rust-publish.yml` passes an explicit feature list that excludes `aws-sdk`
+  AND `lancedb-sdk` — the latter because `lancedb 0.38.0` cannot compile
+  without its `remote` feature (`ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE`).
+  Both stay declared in the manifest; whether a published crate (0.5.4,
+  89 276 downloads) keeps declared-but-unbuildable features is the
+  operator's call and was not picked here.
+- **Status board:** D-QCK-0..6, 8, 9 Shipped; D-QCK-10 shipped on the
+  lance-graph-java side; D-QCK-7 Blocked on mask-risc PR5 (no `hop` op).
+  Also corrected in this commit: `D-MRX-1..6` still read *In PR (PR3)*
+  although #1226 merged on 2026-09-14 (`0b1ebaa`) — status cells flipped,
+  nothing else in those rows touched.
+- **CI on the merged head, by log, not by badge:** `Rust Tests` completed on
+  `d77cd4e` only — the one completion in this PR's fourteen runs; `test` job
+  step 17 `Run quack tests` → `14 passed; 0 failed`. Ledger and lesson:
+  `E-THE-SLOWEST-GATE-IS-THE-ONE-YOUR-OWN-PUSH-CADENCE-CANCELS-1`.
+- **Open, and the operator's to decide:** (a) the two published-but-
+  unbuildable features above; (b) the citation-decay unique-basename resolver
+  — 92 of 3 216 citations verify today, 1 499 bare basenames resolve to
+  exactly one tracked file, so the resolver would take coverage to ~1 670,
+  gated on sampling the anchor heuristic's precision (2 of the 3 new decays
+  it surfaced were false positives); (c) the A1 falsifier's MISSING ARM is
+  the sparse arm, not the fused one — both lever regimes (0.055 %, 0.047 %
+  active) sit under D-GTM-0n's *mask loses to sparse below 0.1 %* bound,
+  which both readers had dropped
+  (`E-THE-SKIP-LEVER-LIVES-ONLY-BELOW-THE-DENSITY-WHERE-D-GTM-0N-SAYS-SWITCH-TO-SPARSE-AND-THE-CLUSTERED-99-90-IS-PREFIX-ARITHMETIC-1`);
+  the fused arm stays gated on Phase 7 as before; (d)
+  `ISS-QUACK-LOWER-FUSED-IS-SUPERLINEAR-AND-DEEP-FILTERS-ABORT` wants a depth
+  budget in `gate_walk`, and its sibling half lives in mask-risc; (e)
+  `ruff#115`, the only real cross-repo conflict of the day, still open.
+- **Branch:** `claude/clone-repositories-71a5sw` restarted from `main` at
+  `e8d3c19` (a fast-forward — it held only merged history); the #1235
+  check-in routine deleted.
+- Arc entry: `PR_ARC_INVENTORY.md` under PR #1235.
+
 ## 2026-09-15 (2) — PR #1234 merged (`74f6302`): three retractions on `main` — NO contract inventory delta, and two rules locked
 
 - **Nothing added.** Five commits, four board files, zero code, zero types,

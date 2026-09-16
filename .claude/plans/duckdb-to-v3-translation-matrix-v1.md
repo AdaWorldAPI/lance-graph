@@ -611,6 +611,21 @@ positions of one ordering (term 0 is the ungated seed).
 | permissive | 61 777 (94.3 %) | 0.00 % | 0.00 % | 0.00 % | 0 |
 | clustered (one conjunct is an ADDRESS PREFIX) | 31 (0.047 %) | **99.90 %** | 0.00 % | 99.90 % | 99.90 pts |
 
+> ⊘ **2026-09-15, operator ruling
+> (`E-256-BY-256-IS-EXACTLY-64K-THE-RAILS-SKIP-UNIT-IS-ITS-HI-BYTE-AND-A-QUARTER-BLOCK-IS-A-REMAINDER-1`):**
+> the clustered row is the `/50` cut's — a quarter of a 256-row block, read across the
+> rail's `u8:u8`. On the byte boundary (`/48`, the rail's hi byte): **116 survivors
+> (0.177 %)**, 0.00 % → **99.61 %** in words AND in 256-row blocks (1 − 1/256); the
+> selective row in blocks is 0.00 % → 61.91 % (its written order skips no block). The
+> probe now prints both units and the ramp. ⊘ Same day, operator clarification
+> (`E-THE-RAIL-IS-A-NEEDLE-NOT-A-MASK-…-1`): "the rail's hi byte" as a skip unit was
+> my reading — a rail is the exact 2-byte row address of a 64k table, not a mask; the
+> 256-row block is the tier tile's 2-nibble cell. Numbers unchanged.
+> ⊘ And per `E-A-THOUGHT-MASKS-ITSELF-BY-ITS-DISTANCE-FROM-ROOT-…-1`: the radius is
+> STEPLESS — the probe's sweep over d = 40..=56 selects exactly 2^(56−d) rows at every
+> step; the word-skip saturates at d = 50 (99.90 %), the block-skip at d = 48 (99.61 %).
+> `/50` was never illegal; it is the word-skip's saturation point.
+
 **Verdict: ADAPT, not ELIMINATE — but not DuckDB's algorithm.** Three findings,
 each of which changes what should be built:
 
@@ -665,7 +680,9 @@ each of which changes what should be built:
 
    Measured, instrumenting the probe's own `skipped_words` model with the
    prefix term at each index: **`[4092, 3069, 2046, 1023, 0]`, adjacent deltas
-   all exactly `−1023`.** The prefix term's mask is one live word of 1024, and
+   all exactly `−1023`.** (⊘ On the byte boundary, `/48`, the printed ramp is
+   `[4080, 3060, 2040, 1020, 0]` words / `[1020, 765, 510, 255, 0]` blocks —
+   still monotone and linear; see the ⊘ under the §8a table.) The prefix term's mask is one live word of 1024, and
    `skipped_words` charges `dead_words(acc)` once per gated position, so skip
    is `(4 − p) · 1023` in the term's index `p` — a monotone linear ramp. Every
    single forward adjacent swap improves it by the same amount. That is the
