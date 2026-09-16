@@ -141,7 +141,7 @@ a licence to act on it.
 | **RESCOPE** | `entropy-closure-causal-ground-v1` | `ThinkingStyle` | PROPOSAL (measured, unbuilt) — 2026-08-26. P | 3/8 |
 | **RESCOPE** | `foundry-consumer-parity-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `foundry-roadmap-unified-smb-medcare-v1` | `BindSpace` | Active | 0/0 |
-| **RESCOPE** | `lance-graph-as-the-modelgraph-v1` | `BindSpace` | PROPOSAL (operator-set endgame, 2026-09-16). | 4/4 |
+| **RESCOPE** | `lance-graph-as-the-modelgraph-v1` | `BindSpace` | PROPOSAL (operator-set endgame, 2026-09-16). | 5/5 |
 | **RESCOPE** | `lf-integration-mapping-v1` | `BindSpace` | Active (2026-04-25) | 0/0 |
 | **RESCOPE** | `lite-unified-surrealql-lance-v1` | `BindSpace` | CONJECTURE / design. **Test via feature gate | 0/0 |
 | **RESCOPE** | `ogit-cascade-supabase-callcenter-v1` | `BindSpace` | plan, not implementation. | 0/16 |

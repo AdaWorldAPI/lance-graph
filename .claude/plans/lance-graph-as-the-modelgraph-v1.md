@@ -755,3 +755,63 @@ onto; what it lacks is the migration itself.
 `deinterlace` (the observation arm) drops out of the critical path entirely —
 it is what `revision.rs` will eventually need to EVALUATE an outcome, but it
 gates neither the write nor the advance.
+
+## The join leg — replace the inherited SQL joins with a DuckDB version fed from loco
+
+Operator: *"and then to replace the sql joins inherited from upstream
+lance-graph with a duckdb version fed from ogar-loco."*
+
+This closes the arc the DuckDB harvest opened, and the assessment is already
+written. `duckdb-to-v3-translation-matrix-v1.md` row **A3** reads
+`JoinHashTable`'s probe path (`join_hashtable.cpp:248-296`,
+`ht_entry.hpp:34-37/49-51`) and rules it **"V3 BETTER for the addressed case;
+NEEDS FALSIFIER otherwise"**, because:
+
+> `ht_entry_t` packs **16 bits of salt + 48 bits of pointer** in one u64 and
+> prefilters on the salt to avoid a full key compare. That is a *probabilistic*
+> prefix derived from a hash. **The V3 classid prefix is the real thing**:
+> matching it is not a filter that may be wrong, it is a **contiguous row
+> range** (R5, D-GTM-0m: **49–99 ns vs 22.4 µs**). Also `IsOccupied() == (value
+> != 0)` — DuckDB independently arrived at zero-is-absence, the same convention
+> as the zero-fallback ladder.
+
+And it states its own limit, which is the falsifier this leg inherits:
+
+> *"The comparison only holds when **both sides are minted into the same address
+> space**. A join between a minted V3 population and an external, unminted key
+> set has no shared prefix and falls back to A2's hash question."*
+> Plus: *"`join_hashtable.cpp` is 6,986 harvested events, by far the largest TU
+> read — this row is a **reading of two functions, not of the join**; spilling,
+> radix partitioning, and chain building are not assessed."*
+
+**Why "fed from ogar-loco" is the right shape rather than a port.** A join is a
+`(function : value)` call like any other: the vocabulary above `DOMAIN_FLOOR`
+names it, the classid selects it, and it lowers to a `Program` the one mask-risc
+evaluator runs — exactly as quack already does for scan/filter/project/group.
+So this is not "reimplement DuckDB's hash join in Rust"; it is **mint the join
+into the vocabulary and let the existing lowering carry it**. The minted-address
+case collapses to a prefix range (a mask), and only the unminted case needs the
+hash machinery at all.
+
+It also lands on an already-queued deliverable: **task #10 / PR5** is the
+join-elision experiment — `src_mask → hop → dst_mask` versus the DataFusion
+node-edge-node join, with set semantics explicit and *"no replacement claim for
+bag or cross-address-space joins."* That caveat and A3's are the same caveat,
+arrived at independently, and together they bound the leg honestly: **the
+replacement claim is for the minted, set-semantics case; bag semantics and
+cross-address-space joins stay with the inherited path until measured.**
+
+### Revised final wave order
+
+| wave | what | why here |
+|---|---|---|
+| **W1** | `extract_tree` on DuckDB | first step of the vocabulary build, not a survey |
+| **W-HP** | the planner's `HotPlug` const + `activate` | smallest change, largest unlock: G-F, the vocabulary store, and what lets `sql()` exist above the floor |
+| **W3'** | connect `recover_and_apply` | both ends built; the glue is test-only |
+| **W-DF** | planner DataFusion → masked ops | standing ruling + quack's proven shape to migrate onto |
+| **W-JOIN** | the join leg, fed from loco | gated on W-HP (needs the vocabulary) and on W1 (needs the harvest); PR5 is its falsifier |
+| **W4** | the real DuckDB differential (G-E) | independent; the only thing that makes "parity" true |
+
+W-JOIN is deliberately last of the build waves: it is the one that needs BOTH
+the vocabulary (W-HP) and the harvest (W1) to exist, and its honest scope is
+set by two independently-derived caveats rather than by ambition.
