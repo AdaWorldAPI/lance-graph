@@ -240,3 +240,68 @@ third codegen arm for the count, (b) the view-template convergence with
 askama fieldview, and (c) route-dedup/SoC as an existing capability for the
 Python-shaped consumers (odoo-rs, woa-rs, the `list_for_tenant`/`soft_delete`
 recipes it already implements end-to-end against the woa-rs oracle).
+
+---
+
+## ⊘ G-C's BLOCKER AS STATED IS STALE — ractor is not what the write needs
+
+Operator, 2026-09-16: *"ractor is replaced by the lance-graph soa_mailbox.rs and
+lance-graph-supervisor kanban_actor.rs is the readonly monitoring version."*
+
+Confirmed in source, and it **removes an imaginary blocker from this plan**.
+G-C above quotes `lance_sink.rs`: *"that column write needs the lance engine /
+ractor runtime."* The ractor half of that sentence is out of date.
+
+**`kanban_actor.rs` says so in its own module doc** (tombstone dated
+2026-08-05, `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`):
+
+> *"Message-free kanban **visibility + pure helpers** — what remains of the
+> retired actor surface."* … `KanbanActor` + `KanbanMsg::{Advance, MulAdvance,
+> Tick}` and the RPC drivers are *"DELETED, not deprecated: a version tick was
+> being read as permission to advance, and an ack-shaped RPC was being read as
+> what makes the substrate progress."*
+
+And it names the model that replaced them:
+
+```text
+think → seal → publish Lance version → next cycle reads the published version
+```
+
+> *"Nothing signals, acknowledges, or schedules that."*
+
+**The write discipline lives in `mailbox_soa.rs`** — `crates/cognitive-shader-driver/
+src/mailbox_soa.rs` (the operator's "soa_mailbox.rs", words swapped; searching
+the filename alone finds nothing, which is why this was worth checking rather
+than restating). It carries one-writer-per-mailbox as a *compile-time* property,
+not a convention: rows are *"consumed in place by the owner (no emission)"*,
+*"ownership is compile-proven"*, and the *"mutated only via the owner trait
+invariant is compiler-enforced"* (E-CE64-MB-4).
+
+### What this changes, concretely
+
+| | before this note | after |
+|---|---|---|
+| G-C is | "build or adopt an actor runtime we don't have" | **publish a Lance version from an owned mailbox** |
+| the shape | an ack-shaped RPC per write | `think → seal → publish`; progression is existence, not command |
+| the risk | none stated | porting actor-per-write would re-add the exact architecture this repo DELETED |
+
+The last row is the one to carry into W3. `lance-graph-java/CLAUDE.md` already
+states it as an inherited rule — *"actor/message-per-write is the architecture
+lance-graph itself DELETED — never port it… per-owner `advance(owner)` RPCs are
+exactly the deleted shape"* — and it applies with equal force here, on the
+repo that did the deleting.
+
+**Residue, so it is not mistaken for the live model:** `ractor` still appears in
+four `Cargo.toml` files — `cognitive-stack`, `symbiont`, `onebrc-probe`,
+`lance-graph-supervisor` (the last two `optional = true`, and the supervisor's
+`description` still advertises a *"ractor-supervised actor tree"*). `symbiont`
+is operator-ruled no-go (`CLAUDE.md`: *"⊘ DEPRECATED 2026-08-18, operator
+no-go"*). Those entries are leftovers; none of them is evidence that the write
+path wants an actor.
+
+**Consequence for the wave order:** W3 gets cheaper and its acceptance gate gets
+sharper. It is not "stand up a runtime"; it is "seal a `NodeRow` batch and
+publish one version, written by the mailbox that owns those rows." The
+falsifier follows directly — a W3 implementation that introduces a message, an
+ack, a tick, or a per-owner `advance()` RPC has re-created the deleted shape and
+fails on that ground regardless of whether the bytes land.
