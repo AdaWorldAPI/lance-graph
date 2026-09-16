@@ -990,3 +990,62 @@ operators quack already ships:
    caveats already recorded
 6. `vector_ops` / `lance_vector_search` → NOT in scope: the Lance ANN path is
    not a DataFusion artifact and has no masked equivalent claimed.
+
+---
+
+## ⚠ THE BLOCKER FOR "planner as centre of gravity" — it sits BELOW core, not above
+
+Measured before writing any lowering:
+
+| edge | state |
+|---|---|
+| `lance-graph` core → `lance-graph-planner` | **EXISTS** — optional dep (`Cargo.toml:72`, behind the `planner` feature) **and** a dev-dep (`:155`) |
+| `lance-graph-planner` → `lance-graph` core | **NONE** — and adding it would be a **cycle** |
+| planner → `lance-graph-mask-risc` | **NONE** (only `lance-graph-quack` depends on mask-risc) |
+
+So the planner **cannot** hold a `logical_plan → Program` lowering as things
+stand: the logical plan lives in core, and reaching it from the planner is a
+cycle. Defining a planner-local copy would be the parallel-IR anti-pattern this
+whole arc exists to avoid.
+
+Two further facts make the position honest rather than merely awkward: the
+planner's own `CypherParse`/`GqlParse`/`GremlinParse`/`SparqlParse` strategies
+are **regex stubs** — this repo's own open list says *"Wire planner strategies
+to lance-graph core (actual parser, not regex)"* — and the real 1,932-LOC nom
+parser is in core. The planner is genuinely downstream of the vocabulary today.
+
+### Three routes, and the repo has already solved this exact shape once
+
+| | route | cost | does it make the planner central? |
+|---|---|---|---|
+| **A** | lowering lives in **core**, beside `logical_plan.rs`; core gains `mask-risc` | smallest — no cycle, no new crate, no new IR | **No.** Planner stays centre for STRATEGY + the write path only |
+| **B** | move the plan/AST vocabulary **down into `lance-graph-contract`** (zero-dep), planner then owns the lowering | largest — touches the contract's surface | **Yes**, and durably |
+| **C** | a **bridge crate** depending on both | one more crate | Yes, by delegation |
+
+**C is established precedent here.** `lance-graph-ogar` exists for precisely
+this situation and says so: *"`ogar_loco` is zero-dep by design and
+`lance_graph_contract` is zero-dep by charter. **Neither may import the other** …
+A vocabulary needs both, so it lives in a consumer that already depends on
+both."* The same reasoning transfers verbatim.
+
+**B is what the operator's words actually ask for** — *"revive its status as the
+centre of gravity"* — because A leaves the query side in core permanently, and C
+puts the centre in a fourth crate rather than in the planner. B is also what the
+zero-dep contract is FOR: it already hosts `kanban`, `soa_view`, `revision`,
+`hotplug` — the shared vocabulary every tier reads. A plan vocabulary is the
+same kind of thing.
+
+**This is a genuine fork and it is the operator's to call**, because A and B
+produce materially different repos and neither is reversible cheaply. What is
+NOT in doubt, whichever wins:
+
+- the seam is `logical_plan.rs` (the backend says so itself);
+- the vocabulary above it (5,612 LOC) is kept;
+- the 8,044-LOC DataFusion backend and the `semiring_map`/16 Kbit leg are the
+  two legs retired;
+- quack is the worked shape and the migration order is scan → pushdown →
+  expression → projection/aggregate → join.
+
+**Recorded, not guessed.** The one thing already done is the inert
+`datafusion = []` feature's removal (planner tests green, 435 passed) — real,
+small, and independent of which route is chosen.
