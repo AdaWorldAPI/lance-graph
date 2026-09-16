@@ -60,6 +60,19 @@ Cross-ref: ndarray `.claude/knowledge/masking-ops-state.md` (G1/G2 RUN, #310);
 `E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1` above — the
 `-f` naming is the same muscle-memory argument applied to a register layout.
 
+**Corrections 2026-09-16 (appended; the sibling session's read of this entry
+against `facet.rs`, and Codex on #1242/#1243 — the same defect the summaries
+carried):**
+- The axis prefix above is written *"`trailing_zeros/16` past the classid"*.
+  The merged `shared_axis` is `(tz((a ^ b) & AXIS_BYTES) − 32) / 16`
+  (`facet.rs`): the 32 classid bits sit below the tiers and the subtraction
+  is load-bearing — without it a tier-0 divergence reads as prefix 2, not 0.
+  "Past the classid" gestured at it; the record now states it.
+- "12 hand-rolled `if !tail.is_empty()` sites" under *Gaps* was attributed,
+  not counted. Counted: **23** `if !tail/ta/td.is_empty()` branches in
+  ndarray `src/simd_masking_ops.rs` (grep, 2026-09-16). The un-gated
+  `pack<const L>` follow-up would retire that many, not 12.
+
 ## 2026-09-16 (15) — E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1 — the operator's quack redirect, and the four errors of one session that all substituted an address for the thing
 
 **Status:** OPERATOR-RULED (the redirect, verbatim below) + MEASURED (the census
