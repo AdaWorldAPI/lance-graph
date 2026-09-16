@@ -1292,3 +1292,88 @@ labelled "3 did not parse" is unfalsifiable, and the same bucket printed showed
 The lesson is the repo's own and it recurred here: a measurement's REJECTS are
 evidence about the instrument, and a census that only counts them cannot be
 checked.
+
+---
+
+## §16 — W0-a / OQ-1 ANSWERED BY READING: the binding exists, unconsumed, and the gap is one config field
+
+§7.0's STOP condition is sharper on W0-a than on W0-b: *"If W0-a says there is
+no `label → classid` route AND no cheap one can be minted, §3.1 is unbuildable
+and the plan is re-scoped … or shelved."* §1.4 finding (3) states the route
+*"does not exist"* and names `canonical_concept_id` as a resolver.
+
+Read rather than grepped, and the picture is one piece larger than §1.4 records.
+
+### §16.1 — The binding is already minted, already exported, and has zero consumers
+
+`lance-graph-contract/src/ogar_codebook.rs` carries **`LabelDTO`**, and its own
+doc comment is the specification of exactly this route:
+
+> *"A curator-agnostic label binding: a consumer-local `label`, its OGAR codebook
+> `id` (binary identity), and the portable `canonical` symbol. … Identity
+> comparison uses `id`; AST/planner emission uses `canonical`; presentation uses
+> `label`."* — with `id` documented as *"the OGAR codebook binary identity (the
+> classid low u16)."*
+
+`LabelDTO::from_canonical(concept) -> Option<Self>` resolves through
+`canonical_concept_id`; curator-shaped aliases (`"Issue"` → `"project_work_item"`)
+normalize through OGAR `ogar_vocab::canonical_concept` first, which stays out of
+the zero-dep contract by design.
+
+And the far end already takes exactly that type:
+`mailbox_scan::match_nodes_by_class(view, class_id: u16)`.
+
+**Consumers of `LabelDTO` across the workspace: ZERO.** The only hit outside its
+own module is its re-export at `lance-graph-contract/src/lib.rs:234`. That is the
+same shape as `TERNLOG = 0x86` (§14.0 Part 1): a minted, exported, unconsumed
+surface that the lowering would *consume* rather than duplicate. Two of this
+plan's supposed gaps are the same kind of thing — **built ends that do not
+meet** — which is the pattern §13 already recorded as the session's recurring
+finding.
+
+### §16.2 — What is actually missing: a field, not a mechanism
+
+`GraphConfig`'s `NodeMapping` (`crates/lance-graph/src/config.rs:60-71`) is
+`{ label, id_field, property_fields, filter_conditions }`. There is nowhere to
+put a canonical concept or an id. So the missing hop is:
+
+```text
+Cypher label "Person"
+      ?                      <- THE GAP: NodeMapping has no field for this
+      ↓
+canonical concept  ──canonical_concept_id──▶  u16  ──▶ match_nodes_by_class / a class-equality mask
+      ↑                                        ↑
+   LabelDTO.canonical                    LabelDTO.id        (both already exist, both unconsumed)
+```
+
+**§7.0's STOP does not fire.** A cheap mint exists: one field on `NodeMapping`
+carrying the canonical concept, wiring a binding that already ships. No new
+codebook, no new vocabulary, no byte minted — §14.0 Part 2's test is untouched,
+because none of this persists a lowering.
+
+### §16.3 — The honest caveat, and it changes how §15's 46 % should be read
+
+**The corpus's labels are not in the codebook.** Measured against the 123 entries
+of `ogar_codebook::CODEBOOK`:
+
+| label | in codebook? |
+|---|---|
+| `Person` | **no** |
+| `Company` | **no** |
+| `Thing` | **no** |
+| `Node` | no (`osm_node`, `mars_node_template`, `osm_way_node`, `osm_street_node` are different concepts) |
+
+The codebook carries real domain concepts — `project` `0x0101`,
+`project_work_item` `0x0102`, `billing_party` `0x0204`, `osm_node` `0x0F01`. The
+Cypher test corpus's labels are synthetic and were never minted, which is
+unsurprising: they exist to exercise a parser.
+
+So §15's caveat 1 is not a formality. The 46 % measures the **shape** of the
+corpus, and a production number would have to be measured over queries whose
+labels are minted concepts. That is a different census, and it needs a real bake
+— which is the rest of W0-a (OQ-2 mint order, OQ-3 column widths, OQ-6
+transpose lanes), still unrun.
+
+**What §16 does settle:** the one gate that could have shelved the plan does not.
+The route is buildable, it is buildable cheaply, and building it consumes
+existing surface instead of adding any.
