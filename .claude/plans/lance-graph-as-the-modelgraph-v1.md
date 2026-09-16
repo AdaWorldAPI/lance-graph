@@ -1501,3 +1501,95 @@ The rule for this plan and for session reporting: **say what a thing does and
 why it matters in plain words first; the symbol, file and section go at the END
 as receipts.** A decision request that cannot be understood without opening
 three documents is not a decision request.
+
+---
+
+## §18 — ⊘ OPERATOR REDIRECT: quack is the spine. Cypher is a cheap proof of concept.
+
+> *"cypher is just a cheap proof of concept — and an even better proof of
+> concept is quack."*
+> *"my point is quack is the spine you need to rebuild from."*
+
+This supersedes the direction of §14.2, §15 and §16. Not their measurements —
+those stand — but what they were measuring TOWARD.
+
+### §18.1 — What I was about to do, and why it was wrong
+
+I had Wave 1 of `cypher-mask-lowering-v1.md` queued as the next build: a new
+`mask_lower(&LogicalOperator) -> Program`, written from scratch, with its own
+six falsifiers.
+
+**That is a third lowering onto the same floor.** `lance-graph-quack` already
+turns a query into a `Program` and has since PR3 — 2 260 lines, 14 tests, and
+a manifest that states the rule it lives by: *"this crate may build a
+`Program` and must never evaluate one."* `lgj-abi`'s `plan_lower` is the
+second, and it is pinned equal to quack's by a differential precisely so the
+two cannot drift. Adding a third would have been the "second vocabulary"
+failure both of those exist to prevent — and I would have been building it
+while writing, elsewhere in this same document, that the recurring finding is
+*two built ends that do not meet*.
+
+### §18.2 — What the spine actually is today
+
+`quack::Query` is two fields:
+
+```rust
+pub struct Query {
+    pub filter: Filter,   // comparisons, AND/OR/NOT, IN, prefix, resident planes
+    pub agg: Agg,         // Count · Any · All · SumI32 · MinI32 · MaxI32 · Rows · BlendI32
+}
+```
+
+Filter a population, reduce over the survivors. Every operator lowers to a
+`MaskOp`; the validity bitmap is a resident plane rather than a second NULL
+representation; a group is a mask rather than a hash table. That is DuckDB's
+shape with the row iterator and the selection vector deliberately absent.
+
+**The spine's one missing leg is the HOP.** There is no `src_mask → edge lane →
+dst_mask` in quack, and none in the IR beneath it — `mask-risc`'s own module
+doc names `hop` as absent and assigns it to PR5. Without it the spine answers
+"which rows of this table", never "which rows does this row reach".
+
+### §18.3 — The order this implies, replacing the Cypher wave plan
+
+1. **The hop lands in the spine** — `Program` gains it, quack gains a `Filter`
+   or operator spelling for it, both against the shipped `lgj_hop` shape, whose
+   selection algebra (`ternlog<AND3>(class, src, struct)` then scatter) and
+   whose three rejected predecessors are already written down. This is the
+   existing PR5 / task #10, and its gate ("only after PR1-4 green") lifted
+   today when those four merged.
+2. **Front-ends lower INTO quack, never past it.** Cypher's `LogicalOperator`
+   becomes one such front-end. So does `sql()`. So does whatever OGAR's loco
+   vocabulary addresses. One lowering to the floor, N front-ends above it.
+3. **The DataFusion residue shrinks by subtraction, not by replacement.** A
+   construct leaves the residue when the spine grows a spelling for it — which
+   is a change to quack, in one place, that every front-end inherits.
+
+### §18.4 — What the W0-b census is still worth, re-targeted
+
+§15's measurement does not go stale; its TARGET changes. It asked *"how much
+Cypher could a new mask lowering express?"* The question is now *"how much
+Cypher can the SPINE express?"* — and the answer is read off the same
+histogram, because the grace rows are properties of masks, not of any
+particular lowering:
+
+- **The 131 order-and-position hits** (`ORDER BY`, `LIMIT`, `SKIP`, `DISTINCT`
+  over values, `collect`) are outside the spine by construction. A mask
+  answers *which rows*, never *in what order* or *how many times*.
+- **The 124 string-and-float hits** are outside it until the spine carries a
+  variable-width lane, which is its own decision and not a lowering's.
+- **The 28 `Join` hits are the hop**, i.e. exactly §18.3 step 1.
+- **The 23 vector-distance hits** are the different-mechanism boundary (§4.4).
+
+So the census now reads as a work order on the SPINE rather than a feasibility
+estimate for a lowering, which is a more useful thing than it was.
+
+### §18.5 — What this does NOT change
+
+`cypher-mask-lowering-v1.md` §5.2's placement ruling stands unaltered, and is
+in fact reinforced: `Pred`, the hop and the terminals are a lowering target
+that must never be minted, because no byte of them survives the query. A spine
+does not change that — it makes it apply in ONE place instead of three.
+
+§17.1's ordering also stands: the alpha channel is storage-tier and settles
+before the read side consumes `TERNLOG 0x86`.
