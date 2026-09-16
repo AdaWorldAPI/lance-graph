@@ -131,7 +131,7 @@ fn popcount(mask: &[u64]) -> u32 {
 ///
 /// Term 0 is ungated and skips nothing — it is the seed. Term `i` for `i > 0`
 /// is gated on the accumulation of `0..i`, and skips that accumulation's dead
-/// words (the executor's unit) and dead blocks (the rail's unit).
+/// words (the executor's unit) and dead blocks (the 256-row block unit).
 fn skipped(terms: &[&Term]) -> (usize, usize, u32) {
     let masks: Vec<&[u64]> = terms.iter().map(|t| t.mask.as_slice()).collect();
     skipped_masks(&masks)
@@ -483,9 +483,10 @@ fn main() {
             ramp.iter().map(|r| r.0).collect::<Vec<_>>(),
             ramp.iter().map(|r| r.1).collect::<Vec<_>>()
         );
-        // The rail's unit, ranked on its own: the best-by-blocks ordering can
-        // differ from the best-by-words one, and the spread in blocks is the
-        // number a rail-addressed skip can actually realise.
+        // The 256-row block unit, ranked on its own: the best-by-blocks ordering
+        // can differ from the best-by-words one, and the spread in blocks is the
+        // number a block-granular skip can actually realise. (A rail is an exact
+        // ROW ADDRESS, never a unit of the mask — see `Filter::prefix_u64`'s note.)
         let (wb, bb) = (
             results.iter().map(|r| r.1).min().expect("non-empty"),
             results.iter().map(|r| r.1).max().expect("non-empty"),

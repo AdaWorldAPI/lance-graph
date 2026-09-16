@@ -354,7 +354,7 @@ impl Filter {
     /// because one conjunct's survivors fill one block and the other's are
     /// scattered. Ranked by selectivity the two come out backwards; a
     /// selectivity-only cost model cannot separate those two cases. And in
-    /// the rail's unit the selective regime's written order skips NOTHING
+    /// the 256-row block unit the selective regime's written order skips NOTHING
     /// (232 dead words, 0 dead blocks): scattered survivors leave no block
     /// empty until the two selective conjuncts have run. That is also why V3 has this lever at all: an address
     /// prefix selects a contiguous subtree ([`Filter::prefix_u64`]), which is

@@ -162,11 +162,32 @@ reading is settled, floors preheated from a position sample.
 - **F1 — correctness.** Tic-tac-toe: the top-ranked move is value-preserving in ≥ 95 % of
   the 765 positions, chance level measured by a shuffled-rail null, not assumed. Go end
   positions: stacked territory == flood-fill scoring — an equality, no tolerance.
+
+> ⊘ **CORRECTED, same day, entry (13).** "The 765 positions" is not the population F1 can
+> score — a terminal class has no move to rank, so F1 is undefined on it. Entry (13) runs
+> the probe over the 4,520 reachable non-terminal positions (627 classes up to symmetry)
+> and says so explicitly: *"the '765' in (12) counts the terminal classes too — the probe
+> scores the 627 that have a move."* Read every F1 percentage in this entry, and in (13),
+> against 627, not 765.
+
 - **F2 — economy.** Early exit changes NO verdict (equality against the full stack) and
   the mean exposed tiers is below the full depth; the fraction is measured and stated.
 - **F3 — the degree ablation, mandatory.** At degree 1, F1 must DROP. Flat = the task did
   not exercise the six, and the probe proves nothing (E-Q8 as a gate, not a memory).
 - **KILL:** F1 at chance on tic-tac-toe, or F3 flat.
+
+> ⊘ **UNPINNED, flagged same day.** Neither "DROP" nor "flat" carries a numeric tolerance
+> or a rounding rule above. Entry (13) measured AGREEMENT's degree-1 tie-aware F3 at
+> 0.5800 against the un-ablated tie-aware value 0.5797 (Δ = +0.0004) and read the whole
+> arm through F0 (the fixture is a census, so F1/F2/F3 all read as the census signature)
+> rather than against an independent flatness threshold. A rule derivable from the
+> fixture's own size (n = 4,520 non-terminal positions, p ≈ 0.58): binomial standard
+> error √(p(1−p)/n) ≈ 0.0073, so treat |Δ| < 1 SE (~0.007) as flat and require |Δ| ≥ 2 SE
+> (~0.015) to call a genuine DROP toward the 0.5797 chance baseline. Under that reading
+> AGREEMENT's +0.0004 is flat; NET's +0.0152 sits at the 2-SE edge but moves AWAY from
+> chance, not toward it, so it is not a DROP either. This is proposed here, not
+> pre-registered before the run — treat it as UNPINNED until a non-degenerate arm (F0
+> passes) lets the ranking variance, not census noise, decide the tolerance.
 
 Home: `hexagon-plasticity-v1.md` §12 (appended), `STATUS_BOARD` `D-HXP-8` (Queued).
 Precedent for the method: `E-SF-AWARENESS-OPPONENT-ARC-1` ran the operator's Go
@@ -506,6 +527,22 @@ Three things the byte boundary changes:
    `[1020, 765, 510, 255, 0]` blocks — monotone, linear, in both units. The (5)
    entry's 99.90 % was the quarter-block cut's number: correct for that cut, and that
    cut is not a rail address.
+
+> ⊘ **CORRECTED, same day.** The printed totals do not match this entry's own unit
+> definitions. Above: "a block is four 64-row words, one 256-bit vector," on
+> N = 256 × 256 = 65,536 rows. That arithmetic gives **1,024** total 64-row words
+> (65,536 / 64) and **256** total 256-row blocks (65,536 / 256) — not 4,096 and 1,024.
+> A one-live-block result under THOSE totals is **1,020 / 1,024 words skipped** and
+> **255 / 256 blocks skipped**, both = 99.61 % = 1 − 1/256, matching this section's own
+> headline claim. The printed pair — "4,080 / 4,096" labelled words, "1,020 / 1,024"
+> labelled blocks — has totals (4,096 and 1,024) that are one granularity finer than
+> each label: 4,096 is the total for a 16-row unit (not defined anywhere else in this
+> entry), and 1,024 is the total for the entry's own 64-row WORD definition, not its
+> 256-row BLOCK definition. Both mislabeled pairs reduce to the identical 99.61 % ratio
+> (4,080/4,096 = 1,020/1,024 = 255/256), which is why the qualitative claim — words and
+> blocks agree, ceiling = 1 − 1/256 — survives; the printed raw counts and their column
+> labels do not. Cite the percentage, not these counts, until the labels are checked
+> against `adaptive_order_probe.rs`'s actual column definitions.
 2. **The clustered regime sits ABOVE D-GTM-0n's 0.1 % bound, not under it.** 116
    survivors fill one block: 0.177 % active. The (5) entry's "both lever regimes sit
    under the bound" was an artifact of `/50` (31 survivors). What survives: the
@@ -702,6 +739,14 @@ prefix skip and the word skip are one mechanism, below it they are two.
 
 - Any citation of D-GTM-0n carries the 0.1 % bound; any citation of §8a's lever regimes
   carries their densities (0.055 %, 0.047 %) beside it.
+
+> ⊘ **STALE, same day — superseded by entry (7) above (earlier in this file's reading
+> order).** `0.047 %` here is the `/50` quarter-block cut's clustered density. Entry
+> (7)'s byte-boundary (`/48`) re-measurement gives the clustered regime **116
+> survivors = 0.177 %** — ABOVE the 0.1 % bound, not sitting beside the selective
+> regime under it. Only the selective regime (0.055 %) still sits under the bound.
+> Cite (0.055 %, 0.177 %), not (0.055 %, 0.047 %).
+
 - The A1 falsifier's missing arm is SPARSE, not fused. Filed as the operator's call in
   `LATEST_STATE` 2026-09-15 (3).
 - No code changes here; `and_by_skip` stays as shipped.
