@@ -1204,107 +1204,130 @@ run, and the boring correct move is to run it. §15 is W0-b.
 
 ---
 
-## §15 — W0-b RUN. The corpus census, measured
+## §15 — W0-b RUN. The corpus census, measured — and CORRECTED after review
 
 `cypher-mask-lowering-v1.md` §7.0's second measurement, and half of its STOP
 gate. Instrument: `crates/lance-graph/examples/w0b_corpus_census.rs`
-(committed; run it, do not trust this table). Corpus: every Cypher literal in
-`parser.rs`, `logical_plan.rs` and `semantic.rs`, extracted at runtime by
-`include_str!` so it cannot drift from the tests it mirrors. Classification is
-§3/§4's, row by row, through the REAL `parse_cypher_query` +
-`LogicalPlanner::plan`.
+(committed; run it, do not trust this table).
+
+**The corpus is every `.rs` file under the workspace's `crates/`, walked at run
+time** — not a hand-listed set. Classification is §3/§4's, row by row, through
+the REAL `parse_cypher_query` + `LogicalPlanner::plan`.
 
 ```
-candidate literals extracted : 62
-    from parser.rs             : 40
-    from logical_plan.rs       : 22
-    from semantic.rs           :  0   <- it holds no query literals at all
-  did not parse (negative tests): 2
-  parsed but did not plan       : 10
-  CLASSIFIED                    : 50
+candidate literals extracted : 342
+    rust files walked          : 1451
+    files carrying a query     : 27
+  did not parse                : 17
+  parsed but did not plan      : 22
+  CLASSIFIED                   : 303
 
-  Full  (everything lowers)  :  23  ( 46.0 %)
-  Split (mask prefix + DF)   :  27  ( 54.0 %)
+  Full  (everything lowers)  : 113  ( 37.3 %)
+  Split (mask prefix + DF)   : 190  ( 62.7 %)
   Grace (nothing lowers)     :   0  (  0.0 %)
 ```
 
-**§7.0's STOP condition does NOT fire.** Its words were *"if the full-lowering
+**§7.0's STOP condition does not fire.** Its words were *"if the full-lowering
 fraction is negligible, this plan's premise is wrong and Wave 1 does not
-start."* 46.0 % full and **zero** pure-grace is not negligible.
+start."* 37.3 % full and **zero** pure-grace is not negligible.
+
+### §15.0 — ⊘ THE FIRST RUN OF THIS CENSUS WAS WRONG, AND CODEX CAUGHT IT
+
+The version that landed in this plan first reported **46.0 % over 50 classified
+queries**, from three hand-listed files. Codex filed four P1s on lance-graph
+#1240. All four were correct, and three of them moved the number:
+
+| finding | what it was | effect |
+|---|---|---|
+| **the corpus was a subset** | the census read `parser.rs`, `logical_plan.rs`, `semantic.rs`. A walk of the same tree with the same extractor finds queries in **27 files** — the whole of `crates/lance-graph/tests/`, `src/query.rs`, the planner's strategy modules, the Python bindings | 50 classified → **303** |
+| **inline pattern properties were ignored** | `MATCH (p:Person {name: "Alice"})` files its predicate in `ScanByLabel.properties` / `Expand.properties` / `.target_properties`, and all four maps went unread. A string equality there is P-9 grace | new row, **53** hits |
+| **T-12 never fired** | `DISTINCT n.p` is grace, `DISTINCT n` is free. The `Distinct` arm recursed and left it to `classify_value`, which accepts a bare `Property` unconditionally (T-4 is legitimately `[G]`) — so the distinction was never made and the histogram had no T-12 row at all | new rows, **37** hits |
+
+**The defect before the defect.** The three files were chosen after a `grep`
+for `"…MATCH …"` reported zero hits in the DataFusion builder modules. That
+grep cannot see a raw string or a literal spanning lines — the same blind spot
+that made the extractor itself wrong (§15.4). **I used grep as a verdict on the
+same day I added the rule to `CLAUDE.md` saying not to.** The fix is therefore
+structural rather than a longer list: the corpus is now a WALK, so a file added
+to the tree enters it with no edit, and the list cannot go stale the way the
+last one did.
 
 ### §15.1 — Why a query is not Full (counted, not guessed)
 
 | n | plan row | the question it asks that a mask cannot answer |
 |---|---|---|
-| 10 | §4.2 G-3 string predicate | variable-width values |
-| 7 | §4.2 P-9 non-integer literal | " |
-| 6 | §4.1 G-2 `LIMIT` | which POSITION in an order |
-| 6 | §4.1 G-2 `SKIP` | " |
-| 5 | §4.1 G-1 `ORDER BY` | in what ORDER |
-| 2 | §4.3 G-5 `UNWIND` | what VALUE, as a new relation |
-| 2 | §4.4 G-7 vector distance / similarity | how CLOSE |
-| 2 | §4.5 `Join` | across which ADDRESS SPACES |
+| 93 | §4.1 G-1 `ORDER BY` | in what ORDER |
+| 53 | §4.2 P-9 inline string property | variable-width values |
+| 45 | §4.2 P-9 non-integer literal | " |
+| 29 | §4.1 T-12 `DISTINCT` over a value | how many TIMES |
+| 28 | §4.1 G-2 `LIMIT` | which POSITION in an order |
+| 28 | §4.5 `Join` | across which ADDRESS SPACES |
+| 24 | §4.2 G-3 string predicate | variable-width values |
+| 23 | §4.4 G-7 vector distance / similarity | how CLOSE |
+| 10 | §4.1 G-2 `SKIP` | which POSITION |
+| 6 | §4.3 G-5 `UNWIND` | what VALUE, as a new relation |
+| 5 | §4.1 T-12 `count(DISTINCT …)` | how many TIMES |
+| 3 | §4.1 T-12 `collect()` | " |
+| 2 | §4.2 G-4 scalar function | variable-width values |
 
 Every reason lands in §4.6's table, which is the check that the classifier is
-reading the plan rather than inventing a boundary: **17 of 40 grace hits are
-one axis — strings and non-integer literals**, i.e. §4.2 alone. Order and
-position are the next 17. Nothing else is above 2.
+reading the plan rather than inventing a boundary. **Order and position are the
+largest axis (131), strings and non-integer literals the second (124)** —
+inverting the three-file census, where the two were tied at 17 each. A subset
+misranks the boundary as well as mis-measuring it.
 
 ### §15.2 — The finding the percentages do not contain
 
-**9 of the 10 plan-refusals return a BARE NODE VARIABLE.** Measured, not read:
+**21 of the 22 plan-refusals return a BARE NODE VARIABLE** — measured, not read:
 the example inspects the AST the planner refused and counts the returns whose
-every item is `ValueExpression::Variable(_)`.
-
-```
-[T-3 RETURN <node>] MATCH (a:Person) RETURN a
-[T-3 RETURN <node>] MATCH (a:Person) RETURN a AS b
-[other]             MATCH (a:Person)-[:KNOWS]->(shared:Person), (shared:Company)-…
-[T-3 RETURN <node>] MATCH (n:Person {name: "John", age: 30}) RETURN n
-[T-3 RETURN <node>] MATCH (n:Person) WHERE n.name CONTAINS 'Jo' … RETURN n
-[T-3 RETURN <node>] MATCH (p:Person) WHERE p.age = $min_age RETURN p
-… 3 more
-```
+every item is `ValueExpression::Variable(_)`. (The three-file census said 9 of
+10; the wider corpus strengthens it.)
 
 `RETURN <node>` is §3.5 **T-3**: *"the mask itself — `Terminal::Keep`. Not a row
 list. The caller reads the plane."* It is the cheapest thing the mask path can
 do and it is graded `[G]`.
 
 So the incumbent planner **refuses** the query the mask path answers with no
-work at all, and because a refusal is excluded from the denominator, **46.0 %
-understates the premise by exactly the shape that most favours it.** That is
-not an argument for a bigger number — those queries genuinely do not plan
-today, and a census that silently counted them would be the vacuous kind. It is
-a reason to read the refusal bucket, which is why the example enumerates both
-exclusion buckets instead of counting them.
+work at all, and because a refusal is excluded from the denominator, **37.3 %
+understates the premise by exactly the shape that most favours it.**
 
 ### §15.3 — Three things this number is not
 
-1. **Conditional on OQ-1.** Every Full query scans by LABEL, and §1.4 states
-   the `label → classid` binding is ABSENT. The census counts the SHAPE as
-   lowering; that is what keeps the premise falsifiable, and it is not a claim
-   the route exists. **W0-a is still unrun and is the gate that matters most.**
-2. **It measures the TEST corpus.** These queries exist to exercise a parser and
-   a planner, so the distribution is theirs, not a workload's.
+1. **Conditional on OQ-1.** Every Full query scans by LABEL, and §1.4 states the
+   `label → classid` binding is ABSENT (see §16 — it is not, but the wiring
+   hop is). The census counts the SHAPE as lowering; that is what keeps the
+   premise falsifiable, and it is not a claim the route exists.
+2. **It measures COMMITTED TEST SOURCE.** These queries exist to exercise a
+   parser, a planner and a DataFusion backend, so the distribution is theirs,
+   not a production workload's.
 3. **It says nothing about speed.** §7.0 is a correctness gate; no row above is
    a performance claim.
 
-### §15.4 — The extractor was wrong once, and the bug moved the headline 29 points
+The 17 that do not parse are also honest signal rather than noise: they are
+`LET … IN`, `UNION`, `LEFT MATCH`, and `RESONATE(fp, $q, 0.3)` — dialect the
+parser does not implement, sitting in planner and cognitive tests as
+aspirational syntax. They are excluded because there is no plan to classify,
+and they are ENUMERATED so that is checkable.
 
-The first run reported **15 of 20 (75.0 %)**. The extractor did not know about
-Rust char literals, and `parser.rs:931-933` contains `char('"')` three times — a
-double quote inside `'…'`. The scanner opened a string there, ran one quote out
-of phase for the rest of the file, and emitted raw Rust source as three
-"queries" while swallowing real ones. Fixed: 62 candidates instead of 26,
-50 classified instead of 20, and the headline fell from 75.0 % to **46.0 %**.
+### §15.4 — The extractor was wrong once too, and that bug moved the headline 29 points
 
-Both numbers came from a green run that exited 0. What caught it was
-**enumerating the exclusion buckets instead of counting them** — a bucket
-labelled "3 did not parse" is unfalsifiable, and the same bucket printed showed
-`); // Verify the AST structure let ast = result.unwrap(); …` on its first line.
-The lesson is the repo's own and it recurred here: a measurement's REJECTS are
-evidence about the instrument, and a census that only counts them cannot be
-checked.
+Before the corpus was widened, the first run reported **15 of 20 (75.0 %)**.
+`parser.rs:931-933` contains `char('"')` three times. A scanner that does not
+know about char literals opens a string there, runs one quote out of phase for
+the rest of the file, and emits raw Rust source as three "queries" while
+swallowing real ones. Fixed: 26 candidates → 62, and the headline fell from
+75.0 % to 46.0 % — before codex's finding took it to 37.3 % over 303.
+
+All three runs exited 0. What caught the extractor was **enumerating the
+exclusion buckets instead of counting them** — a bucket labelled "3 did not
+parse" is unfalsifiable, and printed, its first line read
+`); // Verify the AST structure let ast = result.unwrap(); …`.
+
+**Three measurements, three numbers, one instrument.** The lesson is not that
+the census was careless; it is that a measurement's SCOPE is part of the
+measurement, and nothing in a green run reports its own scope. The walk now
+prints how many files it read and which ones carried a query, so the next
+reader can see the scope without reconstructing it.
 
 ---
 

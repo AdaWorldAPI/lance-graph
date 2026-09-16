@@ -33,6 +33,8 @@
 //! Run: `cargo run -p lance-graph --example w0b_corpus_census`
 
 use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use lance_graph::ast::{BooleanExpression, PropertyValue, ValueExpression};
 use lance_graph::logical_plan::{LogicalOperator, LogicalPlanner};
@@ -43,13 +45,50 @@ use lance_graph::GraphConfig;
 /// census line can be checked against the plan without re-deriving anything.
 type GraceReason = &'static str;
 
-/// Every committed source that carries Cypher query literals. Adding a fourth
-/// is a one-line change here; the extractor never needs to know.
-const SOURCES: &[(&str, &str)] = &[
-    ("parser.rs", include_str!("../src/parser.rs")),
-    ("logical_plan.rs", include_str!("../src/logical_plan.rs")),
-    ("semantic.rs", include_str!("../src/semantic.rs")),
-];
+/// The corpus is EVERY `.rs` file under the workspace's `crates/`, walked at
+/// run time — not a hand-listed set.
+///
+/// ⊘ The first version of this census listed three files by hand
+/// (`parser.rs`, `logical_plan.rs`, `semantic.rs`) and reported **46.0 %** over
+/// 50 classified queries. Codex flagged it on the PR and was right: a walk of
+/// the same tree with the same extractor finds Cypher query literals in **33
+/// files** carrying **342 distinct queries** — the whole of
+/// `crates/lance-graph/tests/`, `src/query.rs`, the planner's strategy modules,
+/// the Python bindings. The hand list was 15 % of the corpus, and a STOP gate
+/// cleared on 15 % of a corpus is cleared on a subset nobody chose
+/// deliberately.
+///
+/// The defect before the defect: the three files were picked after a `grep` for
+/// `"…MATCH …"` reported zero hits in the DataFusion builder modules. That grep
+/// cannot see a raw string or a literal spanning lines, which is the same blind
+/// spot that made the extractor itself wrong (see [`string_literals`]). Hence a
+/// WALK: a file added to the tree enters the corpus with no edit here, so this
+/// list cannot silently go stale the way the last one did.
+fn rust_sources(dir: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            // `target/` is build output, not committed source.
+            if path.file_name().is_some_and(|n| n == "target") {
+                continue;
+            }
+            rust_sources(&path, out);
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            out.push(path);
+        }
+    }
+}
+
+/// The workspace's `crates/` directory, derived from this crate's manifest dir
+/// so the walk is anchored to the checkout rather than to a working directory.
+fn crates_root() -> PathBuf {
+    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    p.pop(); // crates/lance-graph -> crates
+    p
+}
 
 /// Pull every string literal out of Rust source: raw (`r#"…"#`) first, then
 /// ordinary (`"…"`, honouring `\"`). Raw strings are taken first because an
@@ -197,6 +236,43 @@ fn classify_value(v: &ValueExpression, grace: &mut Vec<GraceReason>) {
     }
 }
 
+/// §3.2 / §4.2 — an INLINE PATTERN PROPERTY's disposition (`MATCH (p:Person
+/// {name: "Alice"})`). These are `PropertyValue`, not `ValueExpression`, and
+/// they are a different surface from `WHERE`: the planner stores them on the
+/// operator (`ScanByLabel.properties`, `Expand.properties` /
+/// `.target_properties`) rather than in a `Filter` node.
+///
+/// ⊘ The first version of this census ignored all four maps and counted every
+/// scan as lowered, so `MATCH (p:Person {name: "Alice"})-[:KNOWS]->…` came back
+/// **Full** when its string equality is P-9 grace. Codex flagged it on the PR.
+/// An inline property is a predicate wherever the planner chose to file it.
+fn classify_property_value(v: &PropertyValue, grace: &mut Vec<GraceReason>) {
+    match v {
+        // P-1..P-5 — an integer or boolean equality against a lane.
+        PropertyValue::Integer(_) | PropertyValue::Boolean(_) => {}
+        // A parameter is substituted before planning; its VALUE decides, and
+        // this census cannot see it, so it is counted maskable and said so.
+        PropertyValue::Parameter(_) => {}
+        // `IS NULL` has no NULL to test against — absence is a zero-fallback.
+        PropertyValue::Null => {}
+        // A property-to-property equality is two lanes, still Boolean.
+        PropertyValue::Property(_) => {}
+        // P-9 — §4.2. A string or float constant is not a mask operand.
+        PropertyValue::String(_) => grace.push("§4.2 P-9 inline string property"),
+        PropertyValue::Float(_) => grace.push("§4.2 P-9 inline float property"),
+    }
+}
+
+/// Every inline property map on one operator.
+fn classify_property_map(
+    props: &std::collections::HashMap<String, PropertyValue>,
+    grace: &mut Vec<GraceReason>,
+) {
+    for v in props.values() {
+        classify_property_value(v, grace);
+    }
+}
+
 /// §3.2 / §3.3 / §4.2 — a `WHERE` predicate's disposition.
 fn classify_bool(e: &BooleanExpression, grace: &mut Vec<GraceReason>) {
     match e {
@@ -238,20 +314,37 @@ fn classify_plan(op: &LogicalOperator, grace: &mut Vec<GraceReason>, lowered: &m
         // census counts the SHAPE as lowering and reports OQ-1 separately,
         // because conflating "no route yet" with "cannot lower" would make the
         // premise unfalsifiable.
-        LogicalOperator::ScanByLabel { .. } => *lowered += 1,
+        LogicalOperator::ScanByLabel { properties, .. } => {
+            *lowered += 1;
+            classify_property_map(properties, grace);
+        }
         LogicalOperator::Filter { input, predicate } => {
             *lowered += 1;
             classify_bool(predicate, grace);
             classify_plan(input, grace, lowered);
         }
-        // §3.4 R-1 — the hop (Wave 2).
-        LogicalOperator::Expand { input, .. } => {
+        // §3.4 R-1 — the hop (Wave 2). Both property maps count: an inline
+        // property on the relationship and one on the target node are each a
+        // predicate the hop has to carry.
+        LogicalOperator::Expand {
+            input,
+            properties,
+            target_properties,
+            ..
+        } => {
             *lowered += 1;
+            classify_property_map(properties, grace);
+            classify_property_map(target_properties, grace);
             classify_plan(input, grace, lowered);
         }
         // §3.4 R-7/R-8 — the fixpoint (Wave 3).
-        LogicalOperator::VariableLengthExpand { input, .. } => {
+        LogicalOperator::VariableLengthExpand {
+            input,
+            target_properties,
+            ..
+        } => {
             *lowered += 1;
+            classify_property_map(target_properties, grace);
             classify_plan(input, grace, lowered);
         }
         LogicalOperator::Project { input, projections } => {
@@ -261,11 +354,35 @@ fn classify_plan(op: &LogicalOperator, grace: &mut Vec<GraceReason>, lowered: &m
             }
             classify_plan(input, grace, lowered);
         }
-        // T-11 — `DISTINCT` over a node variable is the identity and lowers to
-        // nothing at all; over a value (T-12) it is grace. The distinction is
-        // made by what the projection under it holds, so it is decided there:
-        // this node itself is free either way.
-        LogicalOperator::Distinct { input } => classify_plan(input, grace, lowered),
+        // T-11 vs T-12 — and the distinction has to be made HERE.
+        //
+        // `DISTINCT n` (a node variable) is FREE: a mask IS a set, so there is
+        // no multiplicity to collapse. `DISTINCT n.p` (a value) is GRACE:
+        // distinct over VALUES needs value identity, which a population mask
+        // does not carry.
+        //
+        // ⊘ The first version of this census recursed and left the decision to
+        // `classify_value`, whose comment even said so — but that function
+        // accepts a bare `Property` unconditionally (T-4, `RETURN n.prop`, is
+        // legitimately `[G]`), so T-12 never fired at all and the reason
+        // histogram carried no T-12 row. Codex flagged it on the PR. What
+        // distinguishes the two is not the projection alone but the projection
+        // UNDER A `Distinct`, so the `Distinct` node is the only place that can
+        // tell them apart.
+        LogicalOperator::Distinct { input } => {
+            // A guarded `matches!` rather than a let chain: this crate is
+            // edition 2021, where let chains are not available.
+            if matches!(
+                input.as_ref(),
+                LogicalOperator::Project { projections, .. }
+                    if !projections
+                        .iter()
+                        .all(|p| matches!(p.expression, ValueExpression::Variable(_)))
+            ) {
+                grace.push("§4.1 T-12 DISTINCT over a value");
+            }
+            classify_plan(input, grace, lowered);
+        }
         // §4.1 — order and position.
         LogicalOperator::Sort { input, .. } => {
             grace.push("§4.1 G-1 ORDER BY");
@@ -298,11 +415,24 @@ fn classify_plan(op: &LogicalOperator, grace: &mut Vec<GraceReason>, lowered: &m
 fn main() {
     let config = GraphConfig::default();
 
-    let mut seen: BTreeMap<String, &'static str> = BTreeMap::new();
-    for (file, src) in SOURCES {
-        for lit in string_literals(src) {
+    let root = crates_root();
+    let mut files = Vec::new();
+    rust_sources(&root, &mut files);
+    files.sort();
+
+    let mut seen: BTreeMap<String, String> = BTreeMap::new();
+    for path in &files {
+        let Ok(src) = fs::read_to_string(path) else {
+            continue;
+        };
+        let label = path
+            .strip_prefix(&root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .into_owned();
+        for lit in string_literals(&src) {
             if looks_like_a_query(&lit) {
-                seen.entry(lit).or_insert(file);
+                seen.entry(lit).or_insert_with(|| label.clone());
             }
         }
     }
@@ -316,9 +446,9 @@ fn main() {
 
     // Provenance per source, so a reader can see WHICH committed file supplied
     // the corpus rather than taking "62 literals" on trust.
-    let mut per_source: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut per_source: BTreeMap<&str, usize> = BTreeMap::new();
     for file in seen.values() {
-        *per_source.entry(file).or_insert(0) += 1;
+        *per_source.entry(file.as_str()).or_insert(0) += 1;
     }
 
     for q in seen.keys() {
@@ -360,8 +490,12 @@ fn main() {
     println!("W0-b — CORPUS CENSUS (cypher-mask-lowering-v1 §7.0)");
     println!("=================================================\n");
     println!("candidate literals extracted : {}", seen.len());
-    for (file, n) in &per_source {
-        println!("    from {file:<16}       : {n}");
+    println!("    rust files walked          : {}", files.len());
+    println!("    files carrying a query     : {}", per_source.len());
+    let mut by_count: Vec<_> = per_source.iter().collect();
+    by_count.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+    for (file, n) in by_count {
+        println!("      {n:>4}  {file}");
     }
     println!("  did not parse (not queries): {}", parse_fail.len());
     println!("  parsed but did not plan    : {}", plan_fail.len());

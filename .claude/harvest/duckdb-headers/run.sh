@@ -64,8 +64,23 @@ while read -r rel; do
   tag="${rel//\//_}"
   hdr="$DUCKDB_SRC/src/include/duckdb/$rel.hpp"
   [ -f "$hdr" ] || { echo "MISSING $hdr" >&2; exit 3; }
+  # The previous output for this header is REMOVED before the harvest, and a
+  # harvester failure ABORTS the run.
+  #
+  # ⊘ This line used to end `|| true`. Codex flagged it on lance-graph #1240
+  # and was right: `OUT` defaults to the directory holding the ALREADY
+  # COMMITTED TSVs, so a failed harvest left the old files in place, the `wc`
+  # below counted them, and the run exited 0 — while `provenance.txt` had
+  # already been rewritten with the CURRENT DuckDB and ruff commits. The
+  # result is the exact failure this script exists to prevent: old
+  # measurements attributed to a new checkout, reported as a clean run. A
+  # harvest that cannot run is not a harvest that found nothing.
+  rm -rf "$OUT/$tag"
   ORE_FILE="$hdr" ORE_ARGS_FILE="$ARGS" ORE_OUT="$OUT/$tag" \
-    LIBCLANG_PATH="$LIBCLANG_PATH" "$HARVESTER" >/dev/null 2>&1 || true
+    LIBCLANG_PATH="$LIBCLANG_PATH" "$HARVESTER" >/dev/null 2>&1 || {
+      echo "HARVEST FAILED for $rel -- rerun without the output redirect to see clang's error" >&2
+      exit 4
+    }
   # NEITHER TSV carries a header row -- line 1 is already data, so the raw
   # line count IS the count. An earlier version of this script subtracted a
   # header row that does not exist and reported 115/1612 against the README's
