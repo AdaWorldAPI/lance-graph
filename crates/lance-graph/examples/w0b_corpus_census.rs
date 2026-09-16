@@ -629,15 +629,57 @@ fn main() -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::string_literals;
+    use super::{crates_root, rust_sources, string_literals};
+    use std::path::{Path, PathBuf};
 
-    /// FAILS IF: the raw-string branch demands at least one `#`.
+    /// FAILS IF: a traversal error is swallowed instead of propagated.
     ///
-    /// A zero-hash `r"..."` then falls through to the ordinary-string branch,
-    /// which is wrong twice: it processes escapes a raw literal does not have,
-    /// and it is one more blind spot in the thing that BUILDS the corpus. The
-    /// census is only ever as honest as its extractor — that is how three
-    /// files stood in for thirty-three.
+    /// The falsifier for the MAJOR finding. The old body was
+    /// `let Ok(entries) = fs::read_dir(dir) else { return; }`, which yields
+    /// `Ok(())` over an empty corpus — so a census that could not read the
+    /// tree reported a clean result and §7.0's STOP gate was cleared on
+    /// nothing. Disable-verified: restoring that swallow fails exactly this
+    /// test, and only this one.
+    ///
+    /// A NONEXISTENT path, not an unreadable one, on purpose: this container
+    /// runs as root, where `chmod 000` does not deny a read, so a permissions
+    /// fixture would pass for the wrong reason. Absence errors for every uid.
+    #[test]
+    fn an_unreadable_tree_is_an_error_not_an_empty_corpus() {
+        let mut out = Vec::new();
+        let missing = Path::new("/nonexistent-path-for-the-w0b-census-falsifier");
+        assert!(
+            !missing.exists(),
+            "the fixture path must really be absent, or this proves nothing"
+        );
+        assert!(
+            rust_sources(missing, &mut out).is_err(),
+            "a tree that cannot be walked must be reported, not counted as empty"
+        );
+
+        // The paired silent half: a real tree still walks, and finds this very
+        // file. Without it, an `Err(_)` for everything would also pass above.
+        let mut real: Vec<PathBuf> = Vec::new();
+        rust_sources(&crates_root(), &mut real).expect("the real tree walks");
+        assert!(
+            real.iter().any(|p| p.ends_with("w0b_corpus_census.rs")),
+            "the walk finds the census's own source"
+        );
+    }
+
+    /// FAILS IF: a zero-hash `r"..."` is not extracted at all — a raw branch
+    /// that matches and then forgets to push, say.
+    ///
+    /// ⊘ It does NOT falsify the zero-hash fix, and the disable run is what
+    /// said so: with the `h > i + 1` bound restored this test still PASSED.
+    /// For a literal with nothing to escape, the raw branch and the
+    /// ordinary-string branch produce byte-identical output, so no such
+    /// fixture can tell them apart — by construction, not by oversight. Its
+    /// first doc comment claimed to be the falsifier; the claim was wrong and
+    /// is corrected here rather than quietly reworded.
+    ///
+    /// The falsifier is [`a_raw_string_keeps_its_backslashes`] — the only
+    /// case where the two branches disagree.
     #[test]
     fn a_zero_hash_raw_string_is_extracted() {
         // Source text:  let q = r"MATCH (n:P) RETURN n";
@@ -651,9 +693,11 @@ mod tests {
 
     /// FAILS IF: a raw literal's backslashes are unescaped on the way out.
     ///
-    /// This is the half that changes the extracted QUERY rather than merely
-    /// the path taken: through the ordinary-string branch `\d+` arrives as
-    /// `d+`, so the census would classify a query the tree does not contain.
+    /// **The falsifier for the zero-hash fix** — disable-verified: restoring
+    /// the `h > i + 1` bound fails exactly this test, `["d+"]` against
+    /// `["\\d+"]`. It is the half that changes the extracted QUERY rather than
+    /// merely the path taken, so the census would otherwise classify a query
+    /// the tree does not contain.
     #[test]
     fn a_raw_string_keeps_its_backslashes() {
         // Source text:  let p = r"\d+";   (RAW, so the content is \d+)
