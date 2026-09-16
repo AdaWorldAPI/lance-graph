@@ -815,3 +815,96 @@ cross-address-space joins stay with the inherited path until measured.**
 W-JOIN is deliberately last of the build waves: it is the one that needs BOTH
 the vocabulary (W-HP) and the harvest (W1) to exist, and its honest scope is
 set by two independently-derived caveats rather than by ambition.
+
+---
+
+## ⊘ FOURTH CORRECTION — there is no DataFusion in `lance-graph-planner` to remove
+
+Operator: *"the immediate endgame is to replace all the DataFusion shit in
+lance-graph-planner to revive its status as the center of gravity and wire it
+into `mailbox_soa.rs` <> kanban rubikon."*
+
+Measured before acting, and the target is not where it looks:
+
+| | |
+|---|---|
+| planner DataFusion **dependency** | **none** — no `[dependencies]` entry at all |
+| planner DataFusion **code** | **none** |
+| planner DataFusion **mentions** | **10, every one a DOC COMMENT** crediting a pattern: *"Strategy #4: RuleOptimizer — Composable rule-based optimization (from DataFusion)"*, *"From DataFusion's ExtensionPlanner + UserDefinedLogicalNode pattern"*, *"inspired by DataFusion's OptimizerRule trait"*, *"Analogous to DataFusion's Repartition but for fingerprint vectors"* — in 10,028 LOC |
+| the `datafusion = []` line | a **FEATURE**, under `[features]` beside `jit = []` — **inert**: nothing `cfg`-gated on it, nothing in the workspace enabling it |
+
+**The real DataFusion is 8,044 LOC in `crates/lance-graph/src/datafusion_planner/`**
+— `scan_ops`, `join_ops`, `predicate_pushdown`, `vector_ops`, `expression`,
+`cost_estimation`, `udf`, `analysis`, `builder/`. In the CORE crate. The crates
+carrying a real dep are `lance-graph` (4 entries), `lance-graph-callcenter` (3),
+`holograph` (2), `lance-graph-catalog` (1), `lance-graph-python` (1). **Not the
+planner.**
+
+> My own census script reported "planner: 1 entry" — its regex matched the
+> FEATURE line. The trap is documented in this repo's own pin-rule comment
+> (*"a FEATURE NAME, not a version pin. It is not a counter-example"*) and I
+> walked into it anyway, one turn after adding the rule that forbids it.
+
+**Done now (small, gated):** the inert `datafusion = []` feature is REMOVED with
+the reason inline. Its only live effect was making every
+`grep datafusion crates/*/Cargo.toml` misreport this crate as a consumer.
+`cargo test -p lance-graph-planner`: **435 passed, 0 failed, 2 ignored** (+4).
+
+### So "revive its status as the center of gravity" is a MIGRATION, not a deletion
+
+Nothing leaves the planner; capability **arrives**. The work is to move what
+`lance-graph::datafusion_planner` does INTO the planner as masked-op lowerings —
+and `lance-graph-quack` is the worked example, with `plan_lower == quack::lower`
+already pinned by a differential.
+
+**And the planner is already structurally central to the write path**, which is
+the strongest argument that "center of gravity" is a restoration rather than a
+promotion: `cognitive-shader-driver` depends on `lance-graph-planner` (its
+`mailbox_soa.rs:760` takes `&mut lance_graph_planner::batch_writer::BatchWriter<P>`),
+and `owner_adapter.rs` / `batch_writer.rs` / `persist_sink.rs` all live in the
+planner. The kanban write staging is the planner's already; what is missing is
+the QUERY side rejoining it.
+
+## The intake vocabulary — the Cypher parser, and what it must stop feeding
+
+Operator: *"there is a parser upstream in lance-graph that is supposed to handle
+table rows and column joins akin to cypher"* … *"if we could reroute that
+vocabulary to replace semiring json to masked intake <> masked ops."*
+
+The parser is `crates/lance-graph/src/parser.rs` — **1,932 LOC of nom
+combinators** over `ast.rs` (544 LOC), *"parsing … Cypher queries … focused on
+graph pattern matching and property access."* That is the intake vocabulary: a
+table row is a node, a column join is a pattern edge.
+
+**What it must stop feeding is dated substrate.** `graph/semiring_map.rs` maps
+GraphBLAS semirings onto *"7 HDR semirings over **16Kbit BitVec matrices**"* —
+and 16 Kbit Hamming is exactly what the recent PRs found deprecated, alongside
+the singleton BindSpace (`E-MARKOV-TEMPORAL-STREAM-1`; `engine_bridge.rs:370`
+calls that plane *"the deprecated one"*).
+
+So the reroute is a THREE-way convergence, not a rename:
+
+```
+  parser.rs (Cypher AST)                  ← the intake vocabulary, keep
+       │
+       ├─ TODAY ─► semiring_map ─► HDR semirings over 16Kbit BitVec   ⊘ deprecated
+       │
+       └─ TARGET ─► masked INTAKE ─► Program ─► the ONE mask-risc evaluator
+                                     (the quack shape, already proven)
+```
+
+The parser stays; the semiring/16Kbit leg is what the masked path replaces. That
+also re-uses W-DF's own justification rather than opening a second argument —
+one lowering, one evaluator, and the differential already pins them equal.
+
+### W-DF, restated concretely
+
+1. Delete nothing in the planner (there is nothing to delete) — **✓ done** for
+   the one inert artifact.
+2. Lower the Cypher AST to `Program` via the quack-proven path, so intake is
+   masked from the parser onward.
+3. Retire the `semiring_map` → 16 Kbit BitVec leg as those lowerings land — it
+   is deprecated substrate, not a design choice to preserve.
+4. Migrate `datafusion_planner`'s capability (scan → filter → project → join)
+   crate-by-crate into planner lowerings; `join_ops` is W-JOIN and lands last
+   for the reasons already stated.
