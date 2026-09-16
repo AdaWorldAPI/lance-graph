@@ -1413,3 +1413,91 @@ transpose lanes), still unrun.
 **What §16 does settle:** the one gate that could have shelved the plan does not.
 The route is buildable, it is buildable cheaply, and building it consumes
 existing surface instead of adding any.
+
+---
+
+## §17 — Operator rulings, 2026-09-16
+
+### §17.1 — TERNLOG sequencing: the alpha channel goes first, and NOT merely because it asked first
+
+I had framed this as a scheduling tie between two claimants on one opcode.
+That was the wrong frame, and the operator's reason is structural:
+
+> *"spog alpha channel is important because it affects the underlying storage
+> and table 'multitenant' access — meaning SPOG interactions writing to alpha
+> split tunnel without changing ontologies itself as saccade focus of attention
+> sparse write and meta awareness of simultaneous rung.*
+>
+> *before it was 10 rung not talking to each other despite `kanban_actor.rs`,
+> or deprecated 'one at a time' — levels of thinking interact and require priors
+> to be on the same level."*
+
+Three things follow, and none of them is about calendar order.
+
+**(a) The alpha channel is a STORAGE-tier change; a query lowering is not.**
+It changes how a write lands and who can see it — multitenant table access.
+A mask lowering reads. A reader must not define the semantics the writer will
+have to honour, so the write side settles first or the read side is built
+against a contract that has not been decided.
+
+**(b) The point of the split tunnel is that attention writes WITHOUT rewriting
+the ontology.** A sparse, saccade-shaped write — focus lands, something is
+recorded, the shared structure is untouched. That is what makes concurrent
+attention safe, and it is a property of the channel, not of any consumer.
+
+**(c) The thing actually being bought is SIMULTANEOUS RUNGS.** The prior state
+was ten rungs that did not talk to each other, and the deprecated alternative
+was "one at a time". Levels of thinking interact, and interaction requires
+priors to sit on the same level. So the alpha channel is what makes a rung's
+prior legible to another rung at all — and "meta awareness of simultaneous
+rung" is the capability, not a nice-to-have.
+
+**Consequence for the Cypher lowering:** it consumes `TERNLOG 0x86` AFTER the
+alpha channel does, and it inherits whatever simultaneity contract that first
+consumer establishes. §5.2's OQ-9 said "defer rather than race"; this says why
+deferring is correct rather than merely polite.
+
+### §17.2 — `RevisionKind` lives beside `belief.rs`, and the wiring is the real work
+
+Operator: *"belief is historically correct but needs to be adjusted for proper
+wiring."*
+
+So: the planner, beside `belief.rs` (option A in
+`mask-algebra-revision-read-v1.md` §5 Q1), not the contract. The history is
+right; what needs attention is the wiring, not the home. Recorded here; the
+adjustment itself is that plan's D-MAR-2.
+
+### §17.3 — I withdraw the "is 46 % negligible?" question
+
+Operator: *"46% negligible how do i know what you are talking about"* — and
+that is a fair hit, twice over.
+
+First, I asked for a ruling on a WORD from a plan the operator did not write
+(§7.0's own "negligible"), without supplying what anyone would need to judge
+it. Second, and worse, the number had already moved: codex's review took it
+from 46.0 % over 50 queries to **37.3 % over 303** (§15.0). I put a stale
+figure up for decision.
+
+**It was never a decision. It is a measurement, and the measurement answers
+it:** zero queries out of 303 fail to lower at all. Every single one lowers
+either fully or as a mask prefix with a DataFusion remainder. A premise that
+covers some of every query in the corpus is not negligible, and no ruling is
+required to say so. Wave 1's gate is open on the evidence.
+
+### §17.4 — The reporting defect this exposed, named so it stops
+
+Operator: *"i have no idea what you are talking about when you talk
+incoherently which i call 'reverse grep' — throwing pattern matching that
+doesn't make any context for me."*
+
+Correct, and it is a specific failure rather than a style complaint. I had been
+reporting in symbol names and section numbers — `§5.2 Part 2`, `LabelDTO has
+zero consumers`, `T-3`, `OQ-1` — which are ADDRESSES. An address is only
+meaningful to a reader who already holds the map. Handing someone addresses
+instead of meaning is the same defect as citing a line number instead of an
+anchor, one layer up: it reads as precision and carries none.
+
+The rule for this plan and for session reporting: **say what a thing does and
+why it matters in plain words first; the symbol, file and section go at the END
+as receipts.** A decision request that cannot be understood without opening
+three documents is not a decision request.
