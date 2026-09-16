@@ -1,3 +1,32 @@
+## 2026-09-16 — lance-graph PR #1241 (merged `d5d3f7ab`, branch `claude/c64-6502-falsifier-shztkk`) — the facet's per-axis LCP reads the single register; the `"{0}{1}" -f` fold is done ONCE at mint
+
+- **Added:** `FacetCascade::{HI_BYTES, LO_BYTES}` (const byte masks over the
+  tier bytes of the LE `u128`, computed by a `const fn`, never typed) and
+  `shared_axis(xor, mask)`; `hi_distance` / `lo_distance` now route through it.
+  `shared6` (the six-byte loop over a gathered chain) is gone. One falsifier
+  (`folded_axis_prefix_matches_the_loop_at_every_position`) compares against
+  the loop it replaced at every divergence tier on both axes plus the
+  identical case. Board: `E-FORMAT-SLOT-FOLD-IS-THE-SAME-OP-AS-THE-VL-DESCENT-1`.
+  2 files, 3 commits (the first cut re-folded the gathered chain into a
+  `u64` — 1.5×; the operator's *"fold the PowerShell logic once"* replaced it).
+- **Locked:** *the register is already the formatted form; never un-format it
+  to compute on it.* An axis prefix is `tz((a ^ b) & AXIS_BYTES) / 16` past
+  the classid — the same op as the whole-facet `prefix_distance`.
+- **Measured (64K random facet pairs, release, best of 7):** byte loop
+  12.5–14.0 ns → gathered-chain fold 8.3–9.3 → masked readout **5.8 ns for
+  both axes** (2.9 each; whole-facet `prefix_distance` 2.6–3.1). 0 mismatches
+  at every step. Disable-run (swap `HI_BYTES`/`LO_BYTES`) fails at tier 0.
+- **Deferred / named:** the same fold across a COLUMN of facets — a
+  `u128`-lane / `u16`-tile compare family in `ndarray::simd`
+  (`lcp_u128_to_mask`, `eq_u16_to_mask`) so HHTL `heel_search`, the CAM-PQ
+  6×256 path distance and the rail compare stop gathering; the truth
+  `(f:c)` tile as the same `u8:u8` unit. Not built.
+- **Review:** CodeRabbit (no actionable comments, minimal risk); Codex
+  reacted without findings. Docstring-coverage warning (77.8 %) on the two
+  private `const fn`s — not addressed, private helpers.
+- **Confidence:** HIGH on the numbers (two scratch-bench runs, identical
+  ordering); the "column of facets" door is the operator's framing, unmeasured.
+
 ## 2026-09-15 (3) — lance-graph PR #1235 (merged `e8d3c19`, branch `claude/clone-repositories-71a5sw`) — `lance-graph-quack`: the DuckDB-shaped surface whose operators ARE masking ops, and A1's falsifier run
 
 - **Added:** the workspace member `crates/lance-graph-quack` (builds mask-risc

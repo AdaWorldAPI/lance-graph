@@ -1,3 +1,15 @@
+## 2026-09-16 — PR #1241 merged (`d5d3f7ab`): the facet's per-axis LCP is one masked register readout — NO contract inventory delta
+
+`FacetCascade::hi_distance` / `lo_distance` now read `tz((a ^ b) & AXIS_BYTES)
+/ 16` off the `u128` instead of gathering a six-byte chain and walking it:
+12.5 → 5.8 ns for both axes, bit-identical over 64K pairs, disable-verified.
+No public type added or removed; two private consts + one private `const fn`.
+Arc entry in `PR_ARC_INVENTORY.md`; the fold-once epiphany
+(`E-FORMAT-SLOT-FOLD-IS-THE-SAME-OP-AS-THE-VL-DESCENT-1`) landed with the PR.
+Sibling measurements the same day: ndarray #311 (ternlogq tail descent 5–8×;
+64×2 re-apply on a full-width mask NO; GEMM block-stop tail inert) and
+lance-graph-java #79 (cached hop tile breaks even at hop two).
+
 ## 2026-09-15 (10) — D-HXP-8 arm 1 RAN: tic-tac-toe is F0-degenerate (rails reach the whole board → the stack is a census), not a KILL; the early-exit meter presumes non-negative stacking
 
 - **State consumers should know:** the Raumgewinn falsifier's first arm is
