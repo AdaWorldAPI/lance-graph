@@ -73,8 +73,10 @@ carried):**
   ndarray `src/simd_masking_ops.rs` at `c746735` (grep `if ![a-z_]*\.is_empty()`,
   2026-09-16): 22 named `tail`/`ta`/`td` plus the `ts` branch in
   `mask_shift_morton` — Codex on #1244 caught the set named here as one
-  short of the number. The un-gated `pack<const L>` follow-up would retire
-  that many, not 12; whether the Morton-shift tail fits the same helper is
+  short of the number. The original "12" was in fact the exact count of
+  branches literally named `tail` (12 `tail` + 7 `ta` + 3 `td` + 1 `ts`);
+  it was right for that pattern and understated the set. The un-gated
+  `pack<const L>` follow-up would retire all 23, not 12; whether the Morton-shift tail fits the same helper is
   part of that follow-up, not settled here.
 
 ## 2026-09-16 (15) — E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1 — the operator's quack redirect, and the four errors of one session that all substituted an address for the thing
