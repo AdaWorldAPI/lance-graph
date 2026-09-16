@@ -1,0 +1,42 @@
+duckdb::Vector.Buffer() const	0	ScopeEnter	s0	-	c0	-	9574	-	-	walk
+duckdb::Vector.Buffer() const	1	Return	-	-	c0	-	9620	-	-	walk
+duckdb::Vector.Buffer() const	2	Call	-	s11	c0	-	9627	-	member	clang
+duckdb::Vector.Buffer() const	3	Read	s12	-	c0	-	9628	-	-	walk
+duckdb::Vector.Buffer() const	4	ScopeExit	s0	-	c0	-	9574	-	-	walk
+duckdb::Vector.BufferMutable()	0	ScopeEnter	s0	-	c0	-	9513	-	-	walk
+duckdb::Vector.BufferMutable()	1	Return	-	-	c0	-	9554	-	-	walk
+duckdb::Vector.BufferMutable()	2	Call	-	s11	c0	-	9561	-	member	clang
+duckdb::Vector.BufferMutable()	3	Read	s12	-	c0	-	9562	-	-	walk
+duckdb::Vector.BufferMutable()	4	ScopeExit	s0	-	c0	-	9513	-	-	walk
+duckdb::Vector.GetBufferRef() const	0	ScopeEnter	s0	-	c0	-	9640	-	-	walk
+duckdb::Vector.GetBufferRef() const	1	Return	-	-	c0	-	9704	-	-	walk
+duckdb::Vector.GetBufferRef() const	2	Read	s12	-	c0	-	9711	-	-	walk
+duckdb::Vector.GetBufferRef() const	3	ScopeExit	s0	-	c0	-	9640	-	-	walk
+duckdb::Vector.GetType() const	0	ScopeEnter	s0	-	c0	-	9450	-	-	walk
+duckdb::Vector.GetType() const	1	Return	-	-	c0	-	9496	-	-	walk
+duckdb::Vector.GetType() const	2	Read	s10	-	c0	-	9503	-	-	walk
+duckdb::Vector.GetType() const	3	ScopeExit	s0	-	c0	-	9450	-	-	walk
+duckdb::Vector.GetVectorType() const	0	ScopeEnter	s0	-	c0	-	9269	-	-	walk
+duckdb::Vector.GetVectorType() const	1	Decl	s1	-	c0	-	9313	-	s2	clang
+duckdb::Vector.GetVectorType() const	2	Call	-	s3	c0	-	9332	-	member	clang
+duckdb::Vector.GetVectorType() const	3	ScopeEnter	s4	-	c1	c0	9350	-	-	walk
+duckdb::Vector.GetVectorType() const	4	Call	s5	s6	c1	c0	9355	-	member	clang
+duckdb::Vector.GetVectorType() const	5	Read	s1	-	c1	c0	9355	-	-	clang
+duckdb::Vector.GetVectorType() const	6	Condition	-	-	c1	c0	9354	if	-	walk
+duckdb::Vector.GetVectorType() const	7	Branch	-	-	c1	c0	9367	then	-	walk
+duckdb::Vector.GetVectorType() const	8	ScopeEnter	s7	-	c2	c1	9367	-	-	walk
+duckdb::Vector.GetVectorType() const	9	Return	-	-	c2	c1	9372	-	-	walk
+duckdb::Vector.GetVectorType() const	10	ScopeExit	s7	-	c2	c1	9367	-	-	walk
+duckdb::Vector.GetVectorType() const	11	ScopeExit	s4	-	c1	c0	9350	-	-	walk
+duckdb::Vector.GetVectorType() const	12	Return	-	-	c0	-	9410	-	-	walk
+duckdb::Vector.GetVectorType() const	13	Call	-	s8	c0	-	9417	-	member	clang
+duckdb::Vector.GetVectorType() const	14	Call	-	s9	c0	-	9417	-	member	clang
+duckdb::Vector.GetVectorType() const	15	Read	s1	-	c0	-	9417	-	-	clang
+duckdb::Vector.GetVectorType() const	16	ScopeExit	s0	-	c0	-	9269	-	-	walk
+duckdb::Vector.SetBuffer(buffer_ptr<VectorBuffer>)	0	ScopeEnter	s0	-	c0	-	9723	-	-	walk
+duckdb::Vector.SetBuffer(buffer_ptr<VectorBuffer>)	1	Param	s13	-	c0	-	9738	-	s14	clang
+duckdb::Vector.SetBuffer(buffer_ptr<VectorBuffer>)	2	Call	-	s15	c0	-	9777	-	member	clang
+duckdb::Vector.SetBuffer(buffer_ptr<VectorBuffer>)	3	Read	s12	-	c0	-	9777	-	-	walk
+duckdb::Vector.SetBuffer(buffer_ptr<VectorBuffer>)	4	Call	-	s16	c0	-	9786	-	free	clang
+duckdb::Vector.SetBuffer(buffer_ptr<VectorBuffer>)	5	Read	s13	-	c0	-	9796	-	-	clang
+duckdb::Vector.SetBuffer(buffer_ptr<VectorBuffer>)	6	ScopeExit	s0	-	c0	-	9723	-	-	walk

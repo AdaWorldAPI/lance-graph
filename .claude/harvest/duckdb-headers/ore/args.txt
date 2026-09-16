@@ -1,0 +1,14 @@
+-x
+c++
+-std=c++11
+-I/home/user/adaworldapi/duckdb/src/include
+-I/home/user/adaworldapi/duckdb/third_party/fmt/include
+-I/home/user/adaworldapi/duckdb/third_party/re2
+-I/home/user/adaworldapi/duckdb/third_party/fsst
+-I/home/user/adaworldapi/duckdb/third_party/fastpforlib
+-I/home/user/adaworldapi/duckdb/third_party/utf8proc/include
+-I/home/user/adaworldapi/duckdb/third_party/concurrentqueue
+-I/home/user/adaworldapi/duckdb/third_party/pcg
+-I/home/user/adaworldapi/duckdb/third_party/tdigest
+-I/home/user/adaworldapi/duckdb/third_party/mbedtls/include
+-DDUCKDB_BUILD_LIBRARY

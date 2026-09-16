@@ -1,0 +1,93 @@
+s0	scope_kind	-	Function	walk
+s1	param	param	count	clang
+s2	type	-	idx_t	clang
+s3	local	local	entry_count	clang
+s4	callee	this	EntryCount	clang
+s5	member	own	owned_data	walk
+s6	callee	this		walk
+s7	scope_kind	-	For	walk
+s8	local	local	entry_idx	clang
+s9	local	local	MAX_ENTRY	clang
+s10	param	param	validity_mask	clang
+s11	type	-	const V *	clang
+s12	local	local	BITS_PER_VALUE	clang
+s13	member	own	validity_mask	clang
+s14	member	own	capacity	clang
+s15	param	param	target_count	clang
+s16	param	param	ptr	clang
+s17	type	-	V *	clang
+s18	param	param	capacity	clang
+s19	param	param	original	clang
+s20	type	-	const TemplatedValidityMask	clang
+s21	callee	this	Copy	clang
+s22	callee	this	CannotHaveNull	clang
+s23	callee	this	CountValid	clang
+s24	param	param	to	clang
+s25	param	param	from	clang
+s26	scope_kind	-	If	walk
+s27	scope_kind	-	Then	walk
+s28	local	local	i	clang
+s29	member	ext		walk
+s30	type	-	const idx_t	clang
+s31	local	local	valid	clang
+s32	local	local	entry	clang
+s33	type	-	auto	clang
+s34	callee	this	GetValidityEntry	clang
+s35	local	local	shift	clang
+s36	local	local	mask	clang
+s37	type	-	const auto	clang
+s38	scope_kind	-	Else	walk
+s39	scope_kind	-	While	walk
+s40	param	param	target_count_p	clang
+s41	member	own	validity_data	walk
+s42	param	param	entry_idx	clang
+s43	callee	this	GetValidityEntryUnsafe	clang
+s44	param	param	entry	clang
+s45	type	-	V	clang
+s46	type	-	const V &	clang
+s47	param	param	idx_in_entry	clang
+s48	type	-	const idx_t &	clang
+s49	param	param	row_idx	clang
+s50	type	-	idx_t &	clang
+s51	param	param	n	clang
+s52	local	local	idx_in_entry	clang
+s53	callee	this	GetEntryIndex	clang
+s54	callee	this	RowIsValidUnsafe	clang
+s55	callee	this	SetValidUnsafe	clang
+s56	param	param	valid	clang
+s57	type	-	bool	clang
+s58	callee	this	SetValid	clang
+s59	callee	this	SetInvalid	clang
+s60	param	param	begin_entry	clang
+s61	param	param	end_entry	clang
+s62	callee	this	EnsureWritable	clang
+s63	local	local	last_entry_index	clang
+s64	local	local	last_entry_bits	clang
+s65	callee	this	SetRangeInvalid	clang
+s66	param	param	validity	clang
+s67	type	-	validity_t *	clang
+s68	param	param	new_capacity	clang
+s69	param	param	other	clang
+s70	callee	this	TemplatedValidityMask	clang
+s71	type	-	const ValidityMask &	clang
+s72	param	param	initial	clang
+s73	callee	this	operator=	clang
+s74	callee	this	make_unsafe_uniq_array	clang
+s75	callee	ext	validity_data	walk
+s76	callee	ext	get	clang
+s77	callee	this	memset	clang
+s78	callee	this	__assert_fail	clang
+s79	param	param	mask	clang
+s80	type	-	ValidityMask &	clang
+s81	callee	ext	mask	walk
+s82	callee	ext	Reset	clang
+s83	callee	ext	Initialize	clang
+s84	local	local	entire_entries	clang
+s85	local	local	ragged	clang
+s86	local	local	bits	clang
+s87	type	-	unsigned long *	clang
+s88	callee	ext	GetData	clang
+s89	local	local	row_idx	clang
+s90	type	-	validity_t	clang
+s91	local	local	j	clang
+s92	other	unknown	?	walk

@@ -1,0 +1,66 @@
+s0	scope_kind	-	Function	walk
+s1	member	own	sel_vector	clang
+s2	member	own	capacity	clang
+s3	param	param	sel	clang
+s4	type	-	sel_t *	clang
+s5	param	param	capacity	clang
+s6	type	-	idx_t	clang
+s7	callee	this	Initialize	clang
+s8	param	param	count	clang
+s9	param	param	start	clang
+s10	callee	this	MaxValue	clang
+s11	scope_kind	-	For	walk
+s12	local	local	i	clang
+s13	callee	this	set_index	clang
+s14	param	param	sel_vector	clang
+s15	type	-	const SelectionVector &	clang
+s16	param	param	other	clang
+s17	type	-	SelectionVector &&	clang
+s18	member	ext	sel_vector	walk
+s19	member	own	selection_data	clang
+s20	callee	this	shared_ptr	clang
+s21	callee	this	move	clang
+s22	member	ext	selection_data	walk
+s23	member	ext	capacity	walk
+s24	param	param	data	clang
+s25	type	-	buffer_ptr	clang
+s26	callee	this	operator=	clang
+s27	local	local	result	clang
+s28	type	-	SelectionVector	clang
+s29	callee	this	SelectionVector	clang
+s30	callee	ext	result	walk
+s31	callee	ext	set_index	clang
+s32	callee	this		walk
+s33	callee	this	Incremental	clang
+s34	param	param	src	clang
+s35	param	param	dst	clang
+s36	type	-	SelectionVector &	clang
+s37	param	param	source_size	clang
+s38	local	local	src_idx	clang
+s39	local	local	dst_idx	clang
+s40	scope_kind	-	If	walk
+s41	callee	ext	src	walk
+s42	callee	ext	get_index	clang
+s43	scope_kind	-	Then	walk
+s44	callee	ext	dst	walk
+s45	param	param	capacity_p	clang
+s46	callee	ext	selection_data	walk
+s47	callee	ext	reset	clang
+s48	callee	this	make_shared_ptr	clang
+s49	callee	ext	owned_data	walk
+s50	callee	ext	get	clang
+s51	member	ext	owned_data	walk
+s52	callee	this	operator->	clang
+s53	callee	ext	operator bool	clang
+s54	callee	ext	GetSize	clang
+s55	scope_kind	-	Else	walk
+s56	param	param	idx	clang
+s57	param	param	loc	clang
+s58	callee	this	__assert_fail	clang
+s59	callee	this	UnsafeNumericCast	clang
+s60	param	param	i	clang
+s61	param	param	j	clang
+s62	local	local	tmp	clang
+s63	type	-	sel_t	clang
+s64	callee	this	get_index_unsafe	clang
+s65	param	param	index	clang

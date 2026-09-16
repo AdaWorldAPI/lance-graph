@@ -1,0 +1,34 @@
+duckdb::SelectionVector.Capacity() const	c0	-	Function	0	0	3
+duckdb::SelectionVector.Incremental(idx_t)	c0	-	Function	0	0	6
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	c0	-	Function	0	0	22
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	c1	c0	For	1	7	18
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	c0	-	Function	0	0	30
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	c1	c0	If	1	6	29
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	c2	c1	Then	2	11	23
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	c3	c1	Else	2	25	28
+duckdb::SelectionVector.Initialize(const SelectionVector &)	c0	-	Function	0	0	12
+duckdb::SelectionVector.Initialize(idx_t)	c0	-	Function	0	0	14
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	c0	-	Function	0	0	9
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	c0	-	Function	0	0	34
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	c1	c0	For	1	7	31
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	c2	c1	If	2	13	26
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	c3	c2	Then	3	22	25
+duckdb::SelectionVector.IsSet() const	c0	-	Function	0	0	3
+duckdb::SelectionVector.SelectionVector()	c0	-	Function	0	0	3
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	c0	-	Function	0	0	15
+duckdb::SelectionVector.SelectionVector(buffer_ptr<SelectionData> &&)	c0	-	Function	0	0	6
+duckdb::SelectionVector.SelectionVector(const SelectionVector &)	c0	-	Function	0	0	4
+duckdb::SelectionVector.SelectionVector(idx_t)	c0	-	Function	0	0	4
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	c0	-	Function	0	0	17
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	c1	c0	For	1	6	16
+duckdb::SelectionVector.SelectionVector(sel_t *,idx_t)	c0	-	Function	0	0	6
+duckdb::SelectionVector.data()	c0	-	Function	0	0	3
+duckdb::SelectionVector.data() const	c0	-	Function	0	0	3
+duckdb::SelectionVector.get_index(idx_t) const	c0	-	Function	0	0	7
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	c0	-	Function	0	0	10
+duckdb::SelectionVector.operator=(SelectionVector &&)	c0	-	Function	0	0	16
+duckdb::SelectionVector.operator[](idx_t)	c0	-	Function	0	0	10
+duckdb::SelectionVector.operator[](idx_t) const	c0	-	Function	0	0	10
+duckdb::SelectionVector.sel_data()	c0	-	Function	0	0	3
+duckdb::SelectionVector.set_index(idx_t,idx_t)	c0	-	Function	0	0	13
+duckdb::SelectionVector.swap(idx_t,idx_t)	c0	-	Function	0	0	22

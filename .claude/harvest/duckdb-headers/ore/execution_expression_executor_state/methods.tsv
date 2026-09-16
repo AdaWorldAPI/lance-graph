@@ -1,0 +1,2 @@
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/expression_executor_state.hpp	duckdb::ExecuteFunctionState	10	1	Empty	0	0	0	0	0	0	1	0	0	method	public	1	-
+duckdb::ExpressionState.~ExpressionState()	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/expression_executor_state.hpp	duckdb::ExpressionState	2	1	Empty	0	0	0	0	0	0	0	1	0	dtor	public	0	-

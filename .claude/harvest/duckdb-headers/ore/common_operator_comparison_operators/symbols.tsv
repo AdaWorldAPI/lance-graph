@@ -1,0 +1,10 @@
+s0	scope_kind	-	Function	walk
+s1	param	param	left	clang
+s2	type	-	const bool &	clang
+s3	param	param	right	clang
+s4	type	-	const string_t &	clang
+s5	callee	this	operator==	clang
+s6	callee	this	operator>	clang
+s7	type	-	const interval_t &	clang
+s8	callee	this	Equals	clang
+s9	callee	this	GreaterThan	clang

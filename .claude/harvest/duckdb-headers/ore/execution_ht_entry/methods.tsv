@@ -1,0 +1,12 @@
+duckdb.IncrementAndWrap(idx_t &,const uint64_t &)	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb	7	1	Empty	0	0	0	0	0	0	0	0	0	method	public	2	-
+duckdb::ht_entry_t.ExtractSalt(const hash_t &)	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	6	1	Empty	0	0	0	0	0	0	1	0	0	method	public	1	-
+duckdb::ht_entry_t.GetPointer() const	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	8	1	Empty	0	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::ht_entry_t.GetPointerOrNull() const	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	6	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::ht_entry_t.GetSalt() const	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	5	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::ht_entry_t.GetSaltWithNulls() const	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	5	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::ht_entry_t.IsOccupied() const	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	4	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	19	1	Normalize	1	1	0	0	0	0	0	0	0	method	public	1	-
+duckdb::ht_entry_t.SetSalt(const hash_t &)	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	15	1	Compute	0	1	0	0	0	0	0	0	0	method	public	1	-
+duckdb::ht_entry_t.ht_entry_t()	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	3	1	Empty	0	0	0	0	0	0	0	0	0	ctor	public	0	-
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	9	1	Empty	0	0	0	0	0	0	0	0	0	ctor	public	2	-
+duckdb::ht_entry_t.ht_entry_t(hash_t)	/home/user/adaworldapi/duckdb/src/include/duckdb/execution/ht_entry.hpp	duckdb::ht_entry_t	5	1	Empty	0	0	0	0	0	0	0	0	0	ctor	public	1	-

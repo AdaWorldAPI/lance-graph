@@ -1,0 +1,2 @@
+duckdb::ExecuteFunctionState.GetFunctionState(ExpressionState &)	c0	-	Function	0	0	9
+duckdb::ExpressionState.~ExpressionState()	c0	-	Function	0	0	1

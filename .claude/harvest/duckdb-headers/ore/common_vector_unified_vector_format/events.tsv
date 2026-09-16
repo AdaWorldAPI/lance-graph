@@ -1,0 +1,7 @@
+duckdb::ConsecutiveChildListInfo.ConsecutiveChildListInfo()	0	ScopeEnter	s0	-	c0	-	3583	-	-	walk
+duckdb::ConsecutiveChildListInfo.ConsecutiveChildListInfo()	1	CtorInit	s1	-	c0	-	3612	-	-	clang
+duckdb::ConsecutiveChildListInfo.ConsecutiveChildListInfo()	2	CtorInit	s2	-	c0	-	3631	-	-	clang
+duckdb::ConsecutiveChildListInfo.ConsecutiveChildListInfo()	3	CtorInit	s3	-	c0	-	3653	-	-	clang
+duckdb::ConsecutiveChildListInfo.ConsecutiveChildListInfo()	4	Call	-	s4	c0	-	3653	-	-	walk
+duckdb::ConsecutiveChildListInfo.ConsecutiveChildListInfo()	5	Call	-	s5	c0	-	3669	-	ctor	clang
+duckdb::ConsecutiveChildListInfo.ConsecutiveChildListInfo()	6	ScopeExit	s0	-	c0	-	3583	-	-	walk

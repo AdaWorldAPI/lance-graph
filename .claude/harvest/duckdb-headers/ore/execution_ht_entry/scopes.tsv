@@ -1,0 +1,12 @@
+duckdb.IncrementAndWrap(idx_t &,const uint64_t &)	c0	-	Function	0	0	6
+duckdb::ht_entry_t.ExtractSalt(const hash_t &)	c0	-	Function	0	0	5
+duckdb::ht_entry_t.GetPointer() const	c0	-	Function	0	0	7
+duckdb::ht_entry_t.GetPointerOrNull() const	c0	-	Function	0	0	5
+duckdb::ht_entry_t.GetSalt() const	c0	-	Function	0	0	4
+duckdb::ht_entry_t.GetSaltWithNulls() const	c0	-	Function	0	0	4
+duckdb::ht_entry_t.IsOccupied() const	c0	-	Function	0	0	3
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	c0	-	Function	0	0	18
+duckdb::ht_entry_t.SetSalt(const hash_t &)	c0	-	Function	0	0	14
+duckdb::ht_entry_t.ht_entry_t()	c0	-	Function	0	0	2
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	c0	-	Function	0	0	8
+duckdb::ht_entry_t.ht_entry_t(hash_t)	c0	-	Function	0	0	4

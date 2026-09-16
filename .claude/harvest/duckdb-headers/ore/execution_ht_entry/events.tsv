@@ -1,0 +1,92 @@
+duckdb.IncrementAndWrap(idx_t &,const uint64_t &)	0	ScopeEnter	s0	-	c0	-	3038	-	-	walk
+duckdb.IncrementAndWrap(idx_t &,const uint64_t &)	1	Param	s17	-	c0	-	3067	-	s18	clang
+duckdb.IncrementAndWrap(idx_t &,const uint64_t &)	2	Param	s19	-	c0	-	3082	-	s20	clang
+duckdb.IncrementAndWrap(idx_t &,const uint64_t &)	3	ReadWrite	s21	-	c0	-	3116	-	-	walk
+duckdb.IncrementAndWrap(idx_t &,const uint64_t &)	4	Read	s17	-	c0	-	3118	-	-	clang
+duckdb.IncrementAndWrap(idx_t &,const uint64_t &)	5	Read	s19	-	c0	-	3128	-	-	clang
+duckdb.IncrementAndWrap(idx_t &,const uint64_t &)	6	ScopeExit	s0	-	c0	-	3038	-	-	walk
+duckdb::ht_entry_t.ExtractSalt(const hash_t &)	0	ScopeEnter	s0	-	c0	-	2376	-	-	walk
+duckdb::ht_entry_t.ExtractSalt(const hash_t &)	1	Param	s15	-	c0	-	2409	-	s5	clang
+duckdb::ht_entry_t.ExtractSalt(const hash_t &)	2	Return	-	-	c0	-	2433	-	-	walk
+duckdb::ht_entry_t.ExtractSalt(const hash_t &)	3	Read	s15	-	c0	-	2440	-	-	clang
+duckdb::ht_entry_t.ExtractSalt(const hash_t &)	4	Read	s14	-	c0	-	2447	-	-	clang
+duckdb::ht_entry_t.ExtractSalt(const hash_t &)	5	ScopeExit	s0	-	c0	-	2376	-	-	walk
+duckdb::ht_entry_t.GetPointer() const	0	ScopeEnter	s0	-	c0	-	1664	-	-	walk
+duckdb::ht_entry_t.GetPointer() const	1	Cast	-	-	c0	-	1705	-	static	walk
+duckdb::ht_entry_t.GetPointer() const	2	Call	-	s10	c0	-	1714	-	member	clang
+duckdb::ht_entry_t.GetPointer() const	3	Cast	-	-	c0	-	1705	-	functional	walk
+duckdb::ht_entry_t.GetPointer() const	4	Call	-	s11	c0	-	1705	-	free	clang
+duckdb::ht_entry_t.GetPointer() const	5	Return	-	-	c0	-	1731	-	-	walk
+duckdb::ht_entry_t.GetPointer() const	6	Call	-	s12	c0	-	1738	-	member	clang
+duckdb::ht_entry_t.GetPointer() const	7	ScopeExit	s0	-	c0	-	1664	-	-	walk
+duckdb::ht_entry_t.GetPointerOrNull() const	0	ScopeEnter	s0	-	c0	-	1812	-	-	walk
+duckdb::ht_entry_t.GetPointerOrNull() const	1	Return	-	-	c0	-	1859	-	-	walk
+duckdb::ht_entry_t.GetPointerOrNull() const	2	Call	-	s13	c0	-	1866	-	free	clang
+duckdb::ht_entry_t.GetPointerOrNull() const	3	Read	s1	-	c0	-	1889	-	-	walk
+duckdb::ht_entry_t.GetPointerOrNull() const	4	Read	s14	-	c0	-	1897	-	-	clang
+duckdb::ht_entry_t.GetPointerOrNull() const	5	ScopeExit	s0	-	c0	-	1812	-	-	walk
+duckdb::ht_entry_t.GetSalt() const	0	ScopeEnter	s0	-	c0	-	2466	-	-	walk
+duckdb::ht_entry_t.GetSalt() const	1	Return	-	-	c0	-	2500	-	-	walk
+duckdb::ht_entry_t.GetSalt() const	2	Call	-	s16	c0	-	2507	-	static	clang
+duckdb::ht_entry_t.GetSalt() const	3	Read	s1	-	c0	-	2519	-	-	walk
+duckdb::ht_entry_t.GetSalt() const	4	ScopeExit	s0	-	c0	-	2466	-	-	walk
+duckdb::ht_entry_t.GetSaltWithNulls() const	0	ScopeEnter	s0	-	c0	-	2532	-	-	walk
+duckdb::ht_entry_t.GetSaltWithNulls() const	1	Return	-	-	c0	-	2575	-	-	walk
+duckdb::ht_entry_t.GetSaltWithNulls() const	2	Read	s1	-	c0	-	2582	-	-	walk
+duckdb::ht_entry_t.GetSaltWithNulls() const	3	Read	s9	-	c0	-	2590	-	-	clang
+duckdb::ht_entry_t.GetSaltWithNulls() const	4	ScopeExit	s0	-	c0	-	2532	-	-	walk
+duckdb::ht_entry_t.IsOccupied() const	0	ScopeEnter	s0	-	c0	-	1522	-	-	walk
+duckdb::ht_entry_t.IsOccupied() const	1	Return	-	-	c0	-	1557	-	-	walk
+duckdb::ht_entry_t.IsOccupied() const	2	Read	s1	-	c0	-	1564	-	-	walk
+duckdb::ht_entry_t.IsOccupied() const	3	ScopeExit	s0	-	c0	-	1522	-	-	walk
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	0	ScopeEnter	s0	-	c0	-	1917	-	-	walk
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	1	Param	s6	-	c0	-	1940	-	s7	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	2	Cast	-	-	c0	-	2009	-	static	walk
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	3	Call	-	s8	c0	-	2019	-	free	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	4	Read	s6	-	c0	-	2042	-	-	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	5	Read	s9	-	c0	-	2053	-	-	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	6	Cast	-	-	c0	-	2009	-	functional	walk
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	7	Call	-	s11	c0	-	2009	-	free	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	8	Cast	-	-	c0	-	2124	-	static	walk
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	9	Read	s1	-	c0	-	2134	-	-	walk
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	10	Read	s14	-	c0	-	2142	-	-	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	11	Read	s14	-	c0	-	2159	-	-	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	12	Cast	-	-	c0	-	2124	-	functional	walk
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	13	Call	-	s11	c0	-	2124	-	free	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	14	ReadWrite	s1	-	c0	-	2237	-	-	walk
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	15	Call	-	s8	c0	-	2246	-	free	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	16	Read	s6	-	c0	-	2269	-	-	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	17	Read	s9	-	c0	-	2280	-	-	clang
+duckdb::ht_entry_t.SetPointer(const data_ptr_t &)	18	ScopeExit	s0	-	c0	-	1917	-	-	walk
+duckdb::ht_entry_t.SetSalt(const hash_t &)	0	ScopeEnter	s0	-	c0	-	2606	-	-	walk
+duckdb::ht_entry_t.SetSalt(const hash_t &)	1	Param	s4	-	c0	-	2626	-	s5	clang
+duckdb::ht_entry_t.SetSalt(const hash_t &)	2	Cast	-	-	c0	-	2694	-	static	walk
+duckdb::ht_entry_t.SetSalt(const hash_t &)	3	Call	-	s10	c0	-	2704	-	member	clang
+duckdb::ht_entry_t.SetSalt(const hash_t &)	4	Cast	-	-	c0	-	2694	-	functional	walk
+duckdb::ht_entry_t.SetSalt(const hash_t &)	5	Call	-	s11	c0	-	2694	-	free	clang
+duckdb::ht_entry_t.SetSalt(const hash_t &)	6	Cast	-	-	c0	-	2772	-	static	walk
+duckdb::ht_entry_t.SetSalt(const hash_t &)	7	Read	s4	-	c0	-	2782	-	-	clang
+duckdb::ht_entry_t.SetSalt(const hash_t &)	8	Read	s14	-	c0	-	2789	-	-	clang
+duckdb::ht_entry_t.SetSalt(const hash_t &)	9	Read	s14	-	c0	-	2806	-	-	clang
+duckdb::ht_entry_t.SetSalt(const hash_t &)	10	Cast	-	-	c0	-	2772	-	functional	walk
+duckdb::ht_entry_t.SetSalt(const hash_t &)	11	Call	-	s11	c0	-	2772	-	free	clang
+duckdb::ht_entry_t.SetSalt(const hash_t &)	12	Write	s1	-	c0	-	2876	-	-	walk
+duckdb::ht_entry_t.SetSalt(const hash_t &)	13	Read	s4	-	c0	-	2884	-	-	clang
+duckdb::ht_entry_t.SetSalt(const hash_t &)	14	ScopeExit	s0	-	c0	-	2606	-	-	walk
+duckdb::ht_entry_t.ht_entry_t()	0	ScopeEnter	s0	-	c0	-	1281	-	-	walk
+duckdb::ht_entry_t.ht_entry_t()	1	CtorInit	s1	-	c0	-	1305	-	-	clang
+duckdb::ht_entry_t.ht_entry_t()	2	ScopeExit	s0	-	c0	-	1281	-	-	walk
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	0	ScopeEnter	s0	-	c0	-	1390	-	-	walk
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	1	Param	s4	-	c0	-	1401	-	s5	clang
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	2	Param	s6	-	c0	-	1421	-	s7	clang
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	3	CtorInit	s1	-	c0	-	1455	-	-	clang
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	4	Call	-	s8	c0	-	1461	-	free	clang
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	5	Read	s6	-	c0	-	1484	-	-	clang
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	6	Read	s4	-	c0	-	1496	-	-	clang
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	7	Read	s9	-	c0	-	1503	-	-	clang
+duckdb::ht_entry_t.ht_entry_t(const hash_t &,const data_ptr_t &)	8	ScopeExit	s0	-	c0	-	1390	-	-	walk
+duckdb::ht_entry_t.ht_entry_t(hash_t)	0	ScopeEnter	s0	-	c0	-	1321	-	-	walk
+duckdb::ht_entry_t.ht_entry_t(hash_t)	1	Param	s2	-	c0	-	1341	-	s3	clang
+duckdb::ht_entry_t.ht_entry_t(hash_t)	2	CtorInit	s1	-	c0	-	1368	-	-	clang
+duckdb::ht_entry_t.ht_entry_t(hash_t)	3	Read	s2	-	c0	-	1374	-	-	clang
+duckdb::ht_entry_t.ht_entry_t(hash_t)	4	ScopeExit	s0	-	c0	-	1321	-	-	walk

@@ -1,0 +1,8 @@
+duckdb::Vector.Buffer() const	c0	-	Function	0	0	4
+duckdb::Vector.BufferMutable()	c0	-	Function	0	0	4
+duckdb::Vector.GetBufferRef() const	c0	-	Function	0	0	3
+duckdb::Vector.GetType() const	c0	-	Function	0	0	3
+duckdb::Vector.GetVectorType() const	c0	-	Function	0	0	16
+duckdb::Vector.GetVectorType() const	c1	c0	If	1	3	11
+duckdb::Vector.GetVectorType() const	c2	c1	Then	2	8	10
+duckdb::Vector.SetBuffer(buffer_ptr<VectorBuffer>)	c0	-	Function	0	0	6

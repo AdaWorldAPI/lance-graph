@@ -1,0 +1,32 @@
+s0	scope_kind	-	Function	walk
+s1	param	param	true_selection_p	clang
+s2	type	-	SelectionVector *	clang
+s3	param	param	false_selection_p	clang
+s4	member	own	true_selection	clang
+s5	callee	ext	true_selection_p	walk
+s6	callee	ext	data	clang
+s7	member	own	false_selection	clang
+s8	callee	ext	false_selection_p	walk
+s9	callee	this		walk
+s10	param	param	comparison_result	clang
+s11	type	-	bool	clang
+s12	param	param	result_idx	clang
+s13	type	-	idx_t	clang
+s14	scope_kind	-	If	walk
+s15	scope_kind	-	Then	walk
+s16	member	own	true_count	walk
+s17	member	own	false_count	walk
+s18	param	param	sel	clang
+s19	type	-	const SelectionVector &	clang
+s20	param	param	start	clang
+s21	param	param	end	clang
+s22	scope_kind	-	For	walk
+s23	local	local	row	clang
+s24	callee	ext	sel	walk
+s25	callee	ext	get_index	clang
+s26	param	param	count	clang
+s27	scope_kind	-	Else	walk
+s28	callee	this	Result	clang
+s29	callee	ext	true_selection	walk
+s30	callee	ext	set_index	clang
+s31	callee	ext	false_selection	walk

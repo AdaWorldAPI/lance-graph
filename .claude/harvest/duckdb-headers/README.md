@@ -156,3 +156,76 @@ ht_entry_t.SetPointer
 ht_entry_t.SetSalt
 ht_entry_t.ht_entry_t
 ```
+
+---
+
+## ⊘ §6 IS NOW DISCHARGED — the harvest is reproducible, 2026-09-16
+
+The honesty note above says what was missing: *"The TSV is not committed, there
+is no `args.txt` here, and no DuckDB source is in this tree."* All three are
+fixed, and the fix is committed beside this file:
+
+| file | what it is |
+|---|---|
+| `run.sh` | the whole harvest, one command, `DUCKDB_SRC=… ./run.sh` |
+| `headers.txt` | the ten headers, by path |
+| `args.txt.in` | the clang args as a TEMPLATE — `@DUCKDB_SRC@` is substituted at run time, so the include paths are not pinned to one machine |
+| `ore/**` | the 40 TSVs (4 per header), 348 K, committed |
+| `ore/per-header.tsv` | the counts table, regenerated |
+| `ore/provenance.txt` | DuckDB commit + origin + ruff commit + clang version |
+
+**The source is `AdaWorldAPI/duckdb`** (P0: the fork, never upstream —
+`duckdb/duckdb` is correctly out of this session's scope and returns 403).
+Read-clone: `GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1
+https://github.com/AdaWorldAPI/duckdb /home/user/adaworldapi/duckdb`.
+
+### The counts, re-derived rather than quoted
+
+**Methods: 123 — an EXACT match with the table above, on every one of the ten
+rows.** The recorded observation is confirmed reproducibly; it is no longer a
+number quoting an absent TSV.
+
+Events land at **1620** against the recorded 1622, differing on four rows:
+
+| header | events now | recorded | Δ |
+|---|---|---|---|
+| `common_types_selection_vector` | 311 | 310 | +1 |
+| `common_vector_operations_scalar_executor` | 281 | 286 | **−5** |
+| `common_vector_unified_vector_format` | 7 | 6 | +1 |
+| `execution_expression_executor_state` | 12 | 11 | +1 |
+
+**The cause is not determinable, and that is itself the point.** Methods match
+exactly, so no method was added or removed — the deltas are inside bodies,
+which is what source drift between two DuckDB checkouts looks like. The
+2026-09-14 run recorded no commit, so there is nothing to diff against. That
+is precisely the gap `ore/provenance.txt` now closes: every future run carries
+`duckdb_head`, and a count without its commit is an anecdote.
+
+> **⚠ MY OWN HARNESS NEARLY PRODUCED A FALSE FINDING AGAINST THIS FILE.** The
+> first `run.sh` subtracted a header row from each TSV before counting, and
+> reported **115 / 1612** against the recorded 123 / 1622 — a clean, uniform
+> −1 on every non-empty header, which reads exactly like "the earlier numbers
+> were inflated." They were not. **Neither `methods.tsv` nor `events.tsv` has
+> a header row**; line 1 of each is already data
+> (`duckdb::TemplatedValidityData.EntryCount(idx_t)…`), so the raw line count
+> IS the count.
+>
+> What caught it was the SHAPE of the disagreement: −1 on every non-empty
+> header and 0 on the two empty ones is not how source drift behaves, it is
+> how an off-by-one behaves. **A measurement harness is code and gets the same
+> scepticism as the thing it measures** — this workspace's own rule that a
+> null result is a claim about the apparatus until proven otherwise, applied
+> to a counting script. The corrected rule is now stated at the counting site
+> rather than assumed.
+
+### What this does NOT yet do — the structural arm is still unrun
+
+`harvest_events` is the BEHAVIOURAL arm (four TSVs of ordered method-body
+events). `ruff_cpp_spo` also carries a STRUCTURAL arm that has never been
+pointed at DuckDB: `extract_tree(root, args) -> ModelGraph` (`lib.rs:338`),
+yielding `CppClass` / `CppFunction` / `CppEnum` with `has_function` /
+`inherits_from` / `virtually_overrides` — the ClassView method-resolution
+manifest — which then feeds `ruff_spo_triplet::reassemble` and
+`ruff_cpp_codegen::{project, render}`. That is the arm that answers *what
+DuckDB's operator class tree IS*, where this one answers *what one method
+body does*. Running it on DuckDB is the next step, not a claim made here.

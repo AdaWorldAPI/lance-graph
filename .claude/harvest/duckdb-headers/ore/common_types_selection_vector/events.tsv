@@ -1,0 +1,311 @@
+duckdb::SelectionVector.Capacity() const	0	ScopeEnter	s0	-	c0	-	4937	-	-	walk
+duckdb::SelectionVector.Capacity() const	1	Return	-	-	c0	-	4964	-	-	walk
+duckdb::SelectionVector.Capacity() const	2	Read	s2	-	c0	-	4971	-	-	walk
+duckdb::SelectionVector.Capacity() const	3	ScopeExit	s0	-	c0	-	4937	-	-	walk
+duckdb::SelectionVector.Incremental(idx_t)	0	ScopeEnter	s0	-	c0	-	2306	-	-	walk
+duckdb::SelectionVector.Incremental(idx_t)	1	Param	s8	-	c0	-	2341	-	s6	clang
+duckdb::SelectionVector.Incremental(idx_t)	2	Return	-	-	c0	-	2358	-	-	walk
+duckdb::SelectionVector.Incremental(idx_t)	3	Call	-	s32	c0	-	2365	-	-	walk
+duckdb::SelectionVector.Incremental(idx_t)	4	Call	-	s33	c0	-	2365	-	static	clang
+duckdb::SelectionVector.Incremental(idx_t)	5	Read	s8	-	c0	-	2383	-	-	clang
+duckdb::SelectionVector.Incremental(idx_t)	6	ScopeExit	s0	-	c0	-	2306	-	-	walk
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	0	ScopeEnter	s0	-	c0	-	1992	-	-	walk
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	1	Param	s9	-	c0	-	2027	-	s6	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	2	Param	s8	-	c0	-	2040	-	s6	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	3	Decl	s27	-	c0	-	2057	-	s28	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	4	Call	-	s29	c0	-	2073	-	ctor	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	5	Call	-	s10	c0	-	2080	-	free	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	6	Read	s8	-	c0	-	2096	-	-	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	7	ScopeEnter	s11	-	c1	c0	2129	-	-	walk
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	8	Decl	s12	-	c1	c0	2134	for_init	s6	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	9	Read	s12	-	c1	c0	2147	for_cond	-	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	10	Read	s8	-	c1	c0	2151	for_cond	-	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	11	ReadWrite	s12	-	c1	c0	2158	for_inc	-	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	12	Condition	-	-	c1	c0	2129	for	-	walk
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	13	Call	s30	s31	c1	c0	2168	-	member	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	14	Read	s27	-	c1	c0	2168	-	-	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	15	Read	s12	-	c1	c0	2185	-	-	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	16	Read	s9	-	c1	c0	2188	-	-	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	17	Read	s12	-	c1	c0	2196	-	-	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	18	ScopeExit	s11	-	c1	c0	2129	back_edge	-	walk
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	19	Return	-	-	c0	-	2206	-	-	walk
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	20	Call	-	s29	c0	-	2213	-	ctor	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	21	Read	s27	-	c0	-	2213	-	-	clang
+duckdb::SelectionVector.Incremental(idx_t,idx_t)	22	ScopeExit	s0	-	c0	-	1992	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	0	ScopeEnter	s0	-	c0	-	3325	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	1	Param	s24	-	c0	-	3341	-	s25	clang
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	2	Call	-	s26	c0	-	3377	-	member	clang
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	3	Read	s19	-	c0	-	3377	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	4	Call	-	s21	c0	-	3394	-	free	clang
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	5	Read	s24	-	c0	-	3404	-	-	clang
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	6	ScopeEnter	s40	-	c1	c0	3413	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	7	Call	s46	s53	c1	c0	3417	-	member	clang
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	8	Read	s19	-	c1	c0	3417	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	9	Condition	-	-	c1	c0	3417	if	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	10	Branch	-	-	c1	c0	3433	then	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	11	ScopeEnter	s43	-	c2	c1	3433	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	12	Write	s1	-	c2	c1	3438	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	13	Cast	-	-	c2	c1	3451	-	reinterpret	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	14	Call	s49	s50	c2	c1	3477	-	member	clang
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	15	Read	s51	-	c2	c1	3477	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	16	Call	-	s52	c2	c1	3477	-	member	clang
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	17	Read	s19	-	c2	c1	3477	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	18	Write	s2	-	c2	c1	3515	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	19	Call	s49	s54	c2	c1	3526	-	member	clang
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	20	Read	s51	-	c2	c1	3526	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	21	Call	-	s52	c2	c1	3526	-	member	clang
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	22	Read	s19	-	c2	c1	3526	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	23	ScopeExit	s43	-	c2	c1	3433	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	24	Branch	-	-	c1	c0	3589	else	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	25	ScopeEnter	s55	-	c3	c1	3589	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	26	Write	s1	-	c3	c1	3594	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	27	Write	s2	-	c3	c1	3619	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	28	ScopeExit	s55	-	c3	c1	3589	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	29	ScopeExit	s40	-	c1	c0	3413	-	-	walk
+duckdb::SelectionVector.Initialize(buffer_ptr<SelectionData>)	30	ScopeExit	s0	-	c0	-	3325	-	-	walk
+duckdb::SelectionVector.Initialize(const SelectionVector &)	0	ScopeEnter	s0	-	c0	-	3644	-	-	walk
+duckdb::SelectionVector.Initialize(const SelectionVector &)	1	Param	s16	-	c0	-	3660	-	s15	clang
+duckdb::SelectionVector.Initialize(const SelectionVector &)	2	Call	-	s26	c0	-	3694	-	member	clang
+duckdb::SelectionVector.Initialize(const SelectionVector &)	3	Read	s19	-	c0	-	3694	-	-	walk
+duckdb::SelectionVector.Initialize(const SelectionVector &)	4	Read	s22	-	c0	-	3711	-	-	walk
+duckdb::SelectionVector.Initialize(const SelectionVector &)	5	Read	s16	-	c0	-	3711	-	-	clang
+duckdb::SelectionVector.Initialize(const SelectionVector &)	6	Write	s1	-	c0	-	3735	-	-	walk
+duckdb::SelectionVector.Initialize(const SelectionVector &)	7	Read	s18	-	c0	-	3748	-	-	walk
+duckdb::SelectionVector.Initialize(const SelectionVector &)	8	Read	s16	-	c0	-	3748	-	-	clang
+duckdb::SelectionVector.Initialize(const SelectionVector &)	9	Write	s2	-	c0	-	3768	-	-	walk
+duckdb::SelectionVector.Initialize(const SelectionVector &)	10	Read	s23	-	c0	-	3779	-	-	walk
+duckdb::SelectionVector.Initialize(const SelectionVector &)	11	Read	s16	-	c0	-	3779	-	-	clang
+duckdb::SelectionVector.Initialize(const SelectionVector &)	12	ScopeExit	s0	-	c0	-	3644	-	-	walk
+duckdb::SelectionVector.Initialize(idx_t)	0	ScopeEnter	s0	-	c0	-	3113	-	-	walk
+duckdb::SelectionVector.Initialize(idx_t)	1	Param	s8	-	c0	-	3129	-	s6	clang
+duckdb::SelectionVector.Initialize(idx_t)	2	Call	-	s26	c0	-	3169	-	member	clang
+duckdb::SelectionVector.Initialize(idx_t)	3	Read	s19	-	c0	-	3169	-	-	walk
+duckdb::SelectionVector.Initialize(idx_t)	4	Call	-	s48	c0	-	3186	-	free	clang
+duckdb::SelectionVector.Initialize(idx_t)	5	Read	s8	-	c0	-	3217	-	-	clang
+duckdb::SelectionVector.Initialize(idx_t)	6	Write	s1	-	c0	-	3227	-	-	walk
+duckdb::SelectionVector.Initialize(idx_t)	7	Cast	-	-	c0	-	3240	-	reinterpret	walk
+duckdb::SelectionVector.Initialize(idx_t)	8	Call	s49	s50	c0	-	3266	-	member	clang
+duckdb::SelectionVector.Initialize(idx_t)	9	Read	s51	-	c0	-	3266	-	-	walk
+duckdb::SelectionVector.Initialize(idx_t)	10	Call	-	s52	c0	-	3266	-	member	clang
+duckdb::SelectionVector.Initialize(idx_t)	11	Read	s19	-	c0	-	3266	-	-	walk
+duckdb::SelectionVector.Initialize(idx_t)	12	Write	s2	-	c0	-	3303	-	-	walk
+duckdb::SelectionVector.Initialize(idx_t)	13	Read	s8	-	c0	-	3314	-	-	clang
+duckdb::SelectionVector.Initialize(idx_t)	14	ScopeExit	s0	-	c0	-	3113	-	-	walk
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	0	ScopeEnter	s0	-	c0	-	2869	-	-	walk
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	1	Param	s3	-	c0	-	2885	-	s4	clang
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	2	Param	s45	-	c0	-	2897	-	s6	clang
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	3	Call	s46	s47	c0	-	3040	-	member	clang
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	4	Read	s19	-	c0	-	3040	-	-	walk
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	5	Write	s1	-	c0	-	3066	-	-	walk
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	6	Read	s3	-	c0	-	3079	-	-	clang
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	7	Write	s2	-	c0	-	3086	-	-	walk
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	8	Read	s45	-	c0	-	3097	-	-	clang
+duckdb::SelectionVector.Initialize(sel_t *,idx_t)	9	ScopeExit	s0	-	c0	-	2869	-	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	0	ScopeEnter	s0	-	c0	-	2395	-	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	1	Param	s34	-	c0	-	2417	-	s15	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	2	Param	s35	-	c0	-	2445	-	s36	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	3	Param	s37	-	c0	-	2467	-	s6	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	4	Param	s8	-	c0	-	2486	-	s6	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	5	Decl	s38	-	c0	-	2503	-	s6	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	6	Decl	s39	-	c0	-	2524	-	s6	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	7	ScopeEnter	s11	-	c1	c0	2545	-	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	8	Decl	s12	-	c1	c0	2550	for_init	s6	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	9	Read	s12	-	c1	c0	2563	for_cond	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	10	Read	s8	-	c1	c0	2567	for_cond	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	11	ReadWrite	s12	-	c1	c0	2574	for_inc	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	12	Condition	-	-	c1	c0	2545	for	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	13	ScopeEnter	s40	-	c2	c1	2584	-	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	14	Read	s38	-	c2	c1	2588	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	15	Read	s37	-	c2	c1	2598	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	16	Call	s41	s42	c2	c1	2613	-	member	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	17	Read	s34	-	c2	c1	2613	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	18	Read	s38	-	c2	c1	2627	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	19	Read	s12	-	c2	c1	2639	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	20	Condition	-	-	c2	c1	2588	if	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	21	Branch	-	-	c2	c1	2642	then	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	22	ScopeEnter	s43	-	c3	c2	2642	-	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	23	ReadWrite	s38	-	c3	c2	2648	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	24	Continue	-	-	c3	c2	2720	-	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	25	ScopeExit	s43	-	c3	c2	2642	-	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	26	ScopeExit	s40	-	c2	c1	2584	-	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	27	Call	s44	s31	c1	c0	2813	-	member	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	28	Read	s35	-	c1	c0	2813	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	29	ReadWrite	s39	-	c1	c0	2827	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	30	Read	s12	-	c1	c0	2838	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	31	ScopeExit	s11	-	c1	c0	2545	back_edge	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	32	Return	-	-	c0	-	2848	-	-	walk
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	33	Read	s39	-	c0	-	2855	-	-	clang
+duckdb::SelectionVector.Inverted(const SelectionVector &,SelectionVector &,idx_t,idx_t)	34	ScopeExit	s0	-	c0	-	2395	-	-	walk
+duckdb::SelectionVector.IsSet() const	0	ScopeEnter	s0	-	c0	-	5423	-	-	walk
+duckdb::SelectionVector.IsSet() const	1	Return	-	-	c0	-	5453	-	-	walk
+duckdb::SelectionVector.IsSet() const	2	Read	s1	-	c0	-	5460	-	-	walk
+duckdb::SelectionVector.IsSet() const	3	ScopeExit	s0	-	c0	-	5423	-	-	walk
+duckdb::SelectionVector.SelectionVector()	0	ScopeEnter	s0	-	c0	-	905	-	-	walk
+duckdb::SelectionVector.SelectionVector()	1	CtorInit	s1	-	c0	-	925	-	-	clang
+duckdb::SelectionVector.SelectionVector()	2	CtorInit	s2	-	c0	-	946	-	-	clang
+duckdb::SelectionVector.SelectionVector()	3	ScopeExit	s0	-	c0	-	905	-	-	walk
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	0	ScopeEnter	s0	-	c0	-	1378	-	-	walk
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	1	Param	s16	-	c0	-	1394	-	s17	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	2	CtorInit	s1	-	c0	-	1435	-	-	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	3	Read	s18	-	c0	-	1446	-	-	walk
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	4	Read	s16	-	c0	-	1446	-	-	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	5	CtorInit	s19	-	c0	-	1465	-	-	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	6	Call	-	s20	c0	-	1465	-	ctor	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	7	Call	-	s21	c0	-	1480	-	free	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	8	Read	s22	-	c0	-	1490	-	-	walk
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	9	Read	s16	-	c0	-	1490	-	-	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	10	CtorInit	s2	-	c0	-	1514	-	-	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	11	Read	s23	-	c0	-	1523	-	-	walk
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	12	Read	s16	-	c0	-	1523	-	-	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	13	Write	s1	-	c0	-	1543	-	-	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	14	Read	s16	-	c0	-	1543	-	-	clang
+duckdb::SelectionVector.SelectionVector(SelectionVector &&)	15	ScopeExit	s0	-	c0	-	1378	-	-	walk
+duckdb::SelectionVector.SelectionVector(buffer_ptr<SelectionData> &&)	0	ScopeEnter	s0	-	c0	-	1575	-	-	walk
+duckdb::SelectionVector.SelectionVector(buffer_ptr<SelectionData> &&)	1	Param	s24	-	c0	-	1600	-	s25	clang
+duckdb::SelectionVector.SelectionVector(buffer_ptr<SelectionData> &&)	2	Call	-	s7	c0	-	1638	-	member	clang
+duckdb::SelectionVector.SelectionVector(buffer_ptr<SelectionData> &&)	3	Call	-	s20	c0	-	1649	-	ctor	clang
+duckdb::SelectionVector.SelectionVector(buffer_ptr<SelectionData> &&)	4	Call	-	s21	c0	-	1649	-	free	clang
+duckdb::SelectionVector.SelectionVector(buffer_ptr<SelectionData> &&)	5	Read	s24	-	c0	-	1659	-	-	clang
+duckdb::SelectionVector.SelectionVector(buffer_ptr<SelectionData> &&)	6	ScopeExit	s0	-	c0	-	1575	-	-	walk
+duckdb::SelectionVector.SelectionVector(const SelectionVector &)	0	ScopeEnter	s0	-	c0	-	1295	-	-	walk
+duckdb::SelectionVector.SelectionVector(const SelectionVector &)	1	Param	s14	-	c0	-	1311	-	s15	clang
+duckdb::SelectionVector.SelectionVector(const SelectionVector &)	2	Call	-	s7	c0	-	1350	-	member	clang
+duckdb::SelectionVector.SelectionVector(const SelectionVector &)	3	Read	s14	-	c0	-	1361	-	-	clang
+duckdb::SelectionVector.SelectionVector(const SelectionVector &)	4	ScopeExit	s0	-	c0	-	1295	-	-	walk
+duckdb::SelectionVector.SelectionVector(idx_t)	0	ScopeEnter	s0	-	c0	-	1052	-	-	walk
+duckdb::SelectionVector.SelectionVector(idx_t)	1	Param	s8	-	c0	-	1077	-	s6	clang
+duckdb::SelectionVector.SelectionVector(idx_t)	2	Call	-	s7	c0	-	1094	-	member	clang
+duckdb::SelectionVector.SelectionVector(idx_t)	3	Read	s8	-	c0	-	1105	-	-	clang
+duckdb::SelectionVector.SelectionVector(idx_t)	4	ScopeExit	s0	-	c0	-	1052	-	-	walk
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	0	ScopeEnter	s0	-	c0	-	1117	-	-	walk
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	1	Param	s9	-	c0	-	1133	-	s6	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	2	Param	s8	-	c0	-	1146	-	s6	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	3	Call	-	s7	c0	-	1163	-	member	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	4	Call	-	s10	c0	-	1174	-	free	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	5	Read	s8	-	c0	-	1190	-	-	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	6	ScopeEnter	s11	-	c1	c0	1223	-	-	walk
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	7	Decl	s12	-	c1	c0	1228	for_init	s6	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	8	Read	s12	-	c1	c0	1241	for_cond	-	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	9	Read	s8	-	c1	c0	1245	for_cond	-	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	10	ReadWrite	s12	-	c1	c0	1252	for_inc	-	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	11	Condition	-	-	c1	c0	1223	for	-	walk
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	12	Call	-	s13	c1	c0	1262	-	member	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	13	Read	s12	-	c1	c0	1272	-	-	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	14	Read	s9	-	c1	c0	1275	-	-	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	15	Read	s12	-	c1	c0	1283	-	-	clang
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	16	ScopeExit	s11	-	c1	c0	1223	back_edge	-	walk
+duckdb::SelectionVector.SelectionVector(idx_t,idx_t)	17	ScopeExit	s0	-	c0	-	1117	-	-	walk
+duckdb::SelectionVector.SelectionVector(sel_t *,idx_t)	0	ScopeEnter	s0	-	c0	-	964	-	-	walk
+duckdb::SelectionVector.SelectionVector(sel_t *,idx_t)	1	Param	s3	-	c0	-	989	-	s4	clang
+duckdb::SelectionVector.SelectionVector(sel_t *,idx_t)	2	Param	s5	-	c0	-	1001	-	s6	clang
+duckdb::SelectionVector.SelectionVector(sel_t *,idx_t)	3	Call	-	s7	c0	-	1021	-	member	clang
+duckdb::SelectionVector.SelectionVector(sel_t *,idx_t)	4	Read	s3	-	c0	-	1032	-	-	clang
+duckdb::SelectionVector.SelectionVector(sel_t *,idx_t)	5	Read	s5	-	c0	-	1037	-	-	clang
+duckdb::SelectionVector.SelectionVector(sel_t *,idx_t)	6	ScopeExit	s0	-	c0	-	964	-	-	walk
+duckdb::SelectionVector.data()	0	ScopeEnter	s0	-	c0	-	4639	-	-	walk
+duckdb::SelectionVector.data()	1	Return	-	-	c0	-	4700	-	-	walk
+duckdb::SelectionVector.data()	2	Read	s1	-	c0	-	4707	-	-	walk
+duckdb::SelectionVector.data()	3	ScopeExit	s0	-	c0	-	4639	-	-	walk
+duckdb::SelectionVector.data() const	0	ScopeEnter	s0	-	c0	-	4723	-	-	walk
+duckdb::SelectionVector.data() const	1	Return	-	-	c0	-	4796	-	-	walk
+duckdb::SelectionVector.data() const	2	Read	s1	-	c0	-	4803	-	-	walk
+duckdb::SelectionVector.data() const	3	ScopeExit	s0	-	c0	-	4723	-	-	walk
+duckdb::SelectionVector.get_index(idx_t) const	0	ScopeEnter	s0	-	c0	-	4349	-	-	walk
+duckdb::SelectionVector.get_index(idx_t) const	1	Param	s56	-	c0	-	4372	-	s6	clang
+duckdb::SelectionVector.get_index(idx_t) const	2	Return	-	-	c0	-	4436	-	-	walk
+duckdb::SelectionVector.get_index(idx_t) const	3	Read	s1	-	c0	-	4443	-	-	walk
+duckdb::SelectionVector.get_index(idx_t) const	4	Call	-	s64	c0	-	4456	-	member	clang
+duckdb::SelectionVector.get_index(idx_t) const	5	Read	s56	-	c0	-	4473	-	-	clang
+duckdb::SelectionVector.get_index(idx_t) const	6	Read	s56	-	c0	-	4480	-	-	clang
+duckdb::SelectionVector.get_index(idx_t) const	7	ScopeExit	s0	-	c0	-	4349	-	-	walk
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	0	ScopeEnter	s0	-	c0	-	4489	-	-	walk
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	1	Param	s56	-	c0	-	4519	-	s6	clang
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	2	Cast	-	-	c0	-	4583	-	static	walk
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	3	Read	s56	-	c0	-	4592	-	-	clang
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	4	Read	s2	-	c0	-	4598	-	-	walk
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	5	Cast	-	-	c0	-	4583	-	functional	walk
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	6	Call	-	s58	c0	-	4583	-	free	clang
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	7	Return	-	-	c0	-	4611	-	-	walk
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	8	Read	s1	-	c0	-	4618	-	-	walk
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	9	Read	s56	-	c0	-	4629	-	-	clang
+duckdb::SelectionVector.get_index_unsafe(idx_t) const	10	ScopeExit	s0	-	c0	-	4489	-	-	walk
+duckdb::SelectionVector.operator=(SelectionVector &&)	0	ScopeEnter	s0	-	c0	-	1671	-	-	walk
+duckdb::SelectionVector.operator=(SelectionVector &&)	1	Param	s16	-	c0	-	1698	-	s17	clang
+duckdb::SelectionVector.operator=(SelectionVector &&)	2	Write	s1	-	c0	-	1736	-	-	walk
+duckdb::SelectionVector.operator=(SelectionVector &&)	3	Read	s18	-	c0	-	1749	-	-	walk
+duckdb::SelectionVector.operator=(SelectionVector &&)	4	Read	s16	-	c0	-	1749	-	-	clang
+duckdb::SelectionVector.operator=(SelectionVector &&)	5	Write	s1	-	c0	-	1769	-	-	clang
+duckdb::SelectionVector.operator=(SelectionVector &&)	6	Read	s16	-	c0	-	1769	-	-	clang
+duckdb::SelectionVector.operator=(SelectionVector &&)	7	Call	-	s26	c0	-	1799	-	member	clang
+duckdb::SelectionVector.operator=(SelectionVector &&)	8	Read	s19	-	c0	-	1799	-	-	walk
+duckdb::SelectionVector.operator=(SelectionVector &&)	9	Call	-	s21	c0	-	1816	-	free	clang
+duckdb::SelectionVector.operator=(SelectionVector &&)	10	Read	s22	-	c0	-	1826	-	-	walk
+duckdb::SelectionVector.operator=(SelectionVector &&)	11	Read	s16	-	c0	-	1826	-	-	clang
+duckdb::SelectionVector.operator=(SelectionVector &&)	12	Write	s2	-	c0	-	1851	-	-	walk
+duckdb::SelectionVector.operator=(SelectionVector &&)	13	Read	s23	-	c0	-	1862	-	-	walk
+duckdb::SelectionVector.operator=(SelectionVector &&)	14	Read	s16	-	c0	-	1862	-	-	clang
+duckdb::SelectionVector.operator=(SelectionVector &&)	15	Return	-	-	c0	-	1880	-	-	walk
+duckdb::SelectionVector.operator=(SelectionVector &&)	16	ScopeExit	s0	-	c0	-	1671	-	-	walk
+duckdb::SelectionVector.operator[](idx_t)	0	ScopeEnter	s0	-	c0	-	5321	-	-	walk
+duckdb::SelectionVector.operator[](idx_t)	1	Param	s65	-	c0	-	5346	-	s6	clang
+duckdb::SelectionVector.operator[](idx_t)	2	Cast	-	-	c0	-	5363	-	static	walk
+duckdb::SelectionVector.operator[](idx_t)	3	Read	s65	-	c0	-	5372	-	-	clang
+duckdb::SelectionVector.operator[](idx_t)	4	Read	s2	-	c0	-	5380	-	-	walk
+duckdb::SelectionVector.operator[](idx_t)	5	Cast	-	-	c0	-	5363	-	functional	walk
+duckdb::SelectionVector.operator[](idx_t)	6	Call	-	s58	c0	-	5363	-	free	clang
+duckdb::SelectionVector.operator[](idx_t)	7	Return	-	-	c0	-	5393	-	-	walk
+duckdb::SelectionVector.operator[](idx_t)	8	Read	s1	-	c0	-	5400	-	-	walk
+duckdb::SelectionVector.operator[](idx_t)	9	Read	s65	-	c0	-	5411	-	-	clang
+duckdb::SelectionVector.operator[](idx_t)	10	ScopeExit	s0	-	c0	-	5321	-	-	walk
+duckdb::SelectionVector.operator[](idx_t) const	0	ScopeEnter	s0	-	c0	-	5207	-	-	walk
+duckdb::SelectionVector.operator[](idx_t) const	1	Param	s65	-	c0	-	5238	-	s6	clang
+duckdb::SelectionVector.operator[](idx_t) const	2	Cast	-	-	c0	-	5261	-	static	walk
+duckdb::SelectionVector.operator[](idx_t) const	3	Read	s65	-	c0	-	5270	-	-	clang
+duckdb::SelectionVector.operator[](idx_t) const	4	Read	s2	-	c0	-	5278	-	-	walk
+duckdb::SelectionVector.operator[](idx_t) const	5	Cast	-	-	c0	-	5261	-	functional	walk
+duckdb::SelectionVector.operator[](idx_t) const	6	Call	-	s58	c0	-	5261	-	free	clang
+duckdb::SelectionVector.operator[](idx_t) const	7	Return	-	-	c0	-	5291	-	-	walk
+duckdb::SelectionVector.operator[](idx_t) const	8	Read	s1	-	c0	-	5298	-	-	walk
+duckdb::SelectionVector.operator[](idx_t) const	9	Read	s65	-	c0	-	5309	-	-	clang
+duckdb::SelectionVector.operator[](idx_t) const	10	ScopeExit	s0	-	c0	-	5207	-	-	walk
+duckdb::SelectionVector.sel_data()	0	ScopeEnter	s0	-	c0	-	4819	-	-	walk
+duckdb::SelectionVector.sel_data()	1	Return	-	-	c0	-	4910	-	-	walk
+duckdb::SelectionVector.sel_data()	2	Read	s19	-	c0	-	4917	-	-	walk
+duckdb::SelectionVector.sel_data()	3	ScopeExit	s0	-	c0	-	4819	-	-	walk
+duckdb::SelectionVector.set_index(idx_t,idx_t)	0	ScopeEnter	s0	-	c0	-	3800	-	-	walk
+duckdb::SelectionVector.set_index(idx_t,idx_t)	1	Param	s56	-	c0	-	3822	-	s6	clang
+duckdb::SelectionVector.set_index(idx_t,idx_t)	2	Param	s57	-	c0	-	3833	-	s6	clang
+duckdb::SelectionVector.set_index(idx_t,idx_t)	3	Cast	-	-	c0	-	3891	-	static	walk
+duckdb::SelectionVector.set_index(idx_t,idx_t)	4	Read	s56	-	c0	-	3900	-	-	clang
+duckdb::SelectionVector.set_index(idx_t,idx_t)	5	Read	s2	-	c0	-	3906	-	-	walk
+duckdb::SelectionVector.set_index(idx_t,idx_t)	6	Cast	-	-	c0	-	3891	-	functional	walk
+duckdb::SelectionVector.set_index(idx_t,idx_t)	7	Call	-	s58	c0	-	3891	-	free	clang
+duckdb::SelectionVector.set_index(idx_t,idx_t)	8	Write	s1	-	c0	-	3919	-	-	walk
+duckdb::SelectionVector.set_index(idx_t,idx_t)	9	Read	s1	-	c0	-	3919	-	-	walk
+duckdb::SelectionVector.set_index(idx_t,idx_t)	10	Read	s56	-	c0	-	3930	-	-	clang
+duckdb::SelectionVector.set_index(idx_t,idx_t)	11	Call	-	s59	c0	-	3937	-	free	clang
+duckdb::SelectionVector.set_index(idx_t,idx_t)	12	Read	s57	-	c0	-	3962	-	-	clang
+duckdb::SelectionVector.set_index(idx_t,idx_t)	13	ScopeExit	s0	-	c0	-	3800	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	0	ScopeEnter	s0	-	c0	-	4138	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	1	Param	s60	-	c0	-	4155	-	s6	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	2	Param	s61	-	c0	-	4164	-	s6	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	3	Cast	-	-	c0	-	4220	-	static	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	4	Read	s60	-	c0	-	4229	-	-	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	5	Read	s2	-	c0	-	4233	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	6	Read	s61	-	c0	-	4245	-	-	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	7	Read	s2	-	c0	-	4249	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	8	Cast	-	-	c0	-	4220	-	functional	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	9	Call	-	s58	c0	-	4220	-	free	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	10	Decl	s62	-	c0	-	4262	-	s63	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	11	Read	s1	-	c0	-	4274	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	12	Read	s60	-	c0	-	4285	-	-	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	13	Write	s1	-	c0	-	4291	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	14	Read	s1	-	c0	-	4291	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	15	Read	s60	-	c0	-	4302	-	-	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	16	Read	s1	-	c0	-	4307	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	17	Read	s61	-	c0	-	4318	-	-	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	18	Write	s1	-	c0	-	4324	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	19	Read	s1	-	c0	-	4324	-	-	walk
+duckdb::SelectionVector.swap(idx_t,idx_t)	20	Read	s61	-	c0	-	4335	-	-	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	21	Read	s62	-	c0	-	4340	-	-	clang
+duckdb::SelectionVector.swap(idx_t,idx_t)	22	ScopeExit	s0	-	c0	-	4138	-	-	walk

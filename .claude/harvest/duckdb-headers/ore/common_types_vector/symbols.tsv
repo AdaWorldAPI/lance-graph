@@ -1,0 +1,17 @@
+s0	scope_kind	-	Function	walk
+s1	local	local	buffer_ref	clang
+s2	type	-	const buffer_ptr	clang
+s3	callee	this	GetBufferRef	clang
+s4	scope_kind	-	If	walk
+s5	callee	ext	buffer_ref	walk
+s6	callee	ext	operator bool	clang
+s7	scope_kind	-	Then	walk
+s8	callee	this	GetVectorType	clang
+s9	callee	this	operator->	clang
+s10	member	own	type	walk
+s11	callee	this	operator*	clang
+s12	member	own	buffer	walk
+s13	param	param	buffer_p	clang
+s14	type	-	buffer_ptr	clang
+s15	callee	this	operator=	clang
+s16	callee	this	move	clang

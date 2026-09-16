@@ -1,0 +1,6 @@
+duckdb::Vector.Buffer() const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/vector.hpp	duckdb::Vector	5	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::Vector.BufferMutable()	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/vector.hpp	duckdb::Vector	5	1	Observe	1	0	0	0	0	0	0	0	0	method	public	0	-
+duckdb::Vector.GetBufferRef() const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/vector.hpp	duckdb::Vector	4	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::Vector.GetType() const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/vector.hpp	duckdb::Vector	4	1	Observe	1	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::Vector.GetVectorType() const	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/vector.hpp	duckdb::Vector	17	3	Empty	0	0	0	0	0	1	0	0	0	method	public	0	-
+duckdb::Vector.SetBuffer(buffer_ptr<VectorBuffer>)	/home/user/adaworldapi/duckdb/src/include/duckdb/common/types/vector.hpp	duckdb::Vector	7	1	Compute	0	1	0	0	0	0	0	0	0	method	public	1	-
