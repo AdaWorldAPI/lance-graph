@@ -13,10 +13,11 @@
 //!
 //! # The corpus is the committed corpus, by construction
 //!
-//! The query strings are not transcribed here — they are `include_str!`-ed out
-//! of the three committed sources that hold them and extracted at runtime. A
-//! transcribed corpus drifts silently from the tests it claims to mirror; an
-//! extracted one cannot. Strings that are not queries (the planner's own error
+//! The query strings are not transcribed here — every `.rs` file under
+//! `crates/` is WALKED and its string literals extracted at runtime. A
+//! transcribed corpus drifts silently from the tests it claims to mirror, and
+//! a hand-listed one is a corpus nobody chose deliberately; a walked one is
+//! neither. Strings that are not queries (the planner's own error
 //! messages, which also contain the word `MATCH`) self-eliminate: they fail to
 //! parse and are reported in their own bucket rather than counted.
 //!
@@ -32,8 +33,9 @@
 //!
 //! Run: `cargo run -p lance-graph --example w0b_corpus_census`
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use lance_graph::ast::{BooleanExpression, PropertyValue, ValueExpression};
@@ -50,7 +52,7 @@ type GraceReason = &'static str;
 ///
 /// ⊘ The first version of this census listed three files by hand
 /// (`parser.rs`, `logical_plan.rs`, `semantic.rs`) and reported **46.0 %** over
-/// 50 classified queries. Codex flagged it on the PR and was right: a walk of
+/// 50 classified queries. Review flagged it on the PR and was right: a walk of
 /// the same tree with the same extractor finds Cypher query literals in **33
 /// files** carrying **342 distinct queries** — the whole of
 /// `crates/lance-graph/tests/`, `src/query.rs`, the planner's strategy modules,
@@ -64,22 +66,27 @@ type GraceReason = &'static str;
 /// spot that made the extractor itself wrong (see [`string_literals`]). Hence a
 /// WALK: a file added to the tree enters the corpus with no edit here, so this
 /// list cannot silently go stale the way the last one did.
-fn rust_sources(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
+fn rust_sources(dir: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
+    // Every I/O failure PROPAGATES. It used to `return` on an unreadable
+    // directory and `flatten()` away a failed entry, which is the same defect
+    // as the `|| true` this arc already removed from `run.sh`: a run that
+    // cannot read part of the tree then reports a clean census over whatever
+    // it did read, and a STOP gate cleared on a partial corpus is cleared on a
+    // corpus nobody chose. A census that cannot see the tree is not a census
+    // that found nothing.
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
         if path.is_dir() {
             // `target/` is build output, not committed source.
             if path.file_name().is_some_and(|n| n == "target") {
                 continue;
             }
-            rust_sources(&path, out);
+            rust_sources(&path, out)?;
         } else if path.extension().is_some_and(|e| e == "rs") {
             out.push(path);
         }
     }
+    Ok(())
 }
 
 /// The workspace's `crates/` directory, derived from this crate's manifest dir
@@ -150,7 +157,12 @@ fn string_literals(src: &str) -> Vec<String> {
             while h < b.len() && b[h] == b'#' {
                 h += 1;
             }
-            if h > i + 1 && h < b.len() && b[h] == b'"' {
+            // `h > i + 1` here would demand at least one `#`, so a
+            // ZERO-hash `r"..."` fell through to the ordinary-string branch
+            // and had its backslashes unescaped. In valid Rust an `r`
+            // immediately followed by `"` is always a raw string, so the hash
+            // count may be zero.
+            if h < b.len() && b[h] == b'"' {
                 let hashes = h - (i + 1);
                 let close = format!("\"{}", "#".repeat(hashes));
                 if let Some(end) = src[h + 1..].find(&close) {
@@ -412,19 +424,25 @@ fn classify_plan(op: &LogicalOperator, grace: &mut Vec<GraceReason>, lowered: &m
     }
 }
 
-fn main() {
+fn main() -> io::Result<()> {
     let config = GraphConfig::default();
 
     let root = crates_root();
     let mut files = Vec::new();
-    rust_sources(&root, &mut files);
+    rust_sources(&root, &mut files)?;
     files.sort();
 
-    let mut seen: BTreeMap<String, String> = BTreeMap::new();
+    // Literal -> EVERY file carrying it. Storing only the first source made
+    // `per_source` (and therefore "files carrying a query") count a file only
+    // when it was the first to introduce a literal, so a file whose every
+    // query also appears elsewhere vanished from the provenance entirely.
+    let mut seen: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for path in &files {
-        let Ok(src) = fs::read_to_string(path) else {
-            continue;
-        };
+        // Propagated, not skipped: a file the census could not read is a
+        // hole in the corpus, and a hole that reports success is the failure
+        // this whole arc keeps finding. (A non-UTF-8 `.rs` file would fail
+        // here — that is correct; it is also not something this tree has.)
+        let src = fs::read_to_string(path)?;
         let label = path
             .strip_prefix(&root)
             .unwrap_or(path)
@@ -432,7 +450,7 @@ fn main() {
             .into_owned();
         for lit in string_literals(&src) {
             if looks_like_a_query(&lit) {
-                seen.entry(lit).or_insert_with(|| label.clone());
+                seen.entry(lit).or_default().insert(label.clone());
             }
         }
     }
@@ -447,8 +465,10 @@ fn main() {
     // Provenance per source, so a reader can see WHICH committed file supplied
     // the corpus rather than taking "62 literals" on trust.
     let mut per_source: BTreeMap<&str, usize> = BTreeMap::new();
-    for file in seen.values() {
-        *per_source.entry(file.as_str()).or_insert(0) += 1;
+    for files_with_this_query in seen.values() {
+        for file in files_with_this_query {
+            *per_source.entry(file.as_str()).or_insert(0) += 1;
+        }
     }
 
     for q in seen.keys() {
@@ -602,5 +622,69 @@ fn main() {
         println!("     no row of this output is a performance claim.");
         println!("  Whether that is 'negligible' is §7.0's word and the");
         println!("  operator's call; the number is the number.");
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::string_literals;
+
+    /// FAILS IF: the raw-string branch demands at least one `#`.
+    ///
+    /// A zero-hash `r"..."` then falls through to the ordinary-string branch,
+    /// which is wrong twice: it processes escapes a raw literal does not have,
+    /// and it is one more blind spot in the thing that BUILDS the corpus. The
+    /// census is only ever as honest as its extractor — that is how three
+    /// files stood in for thirty-three.
+    #[test]
+    fn a_zero_hash_raw_string_is_extracted() {
+        // Source text:  let q = r"MATCH (n:P) RETURN n";
+        let src = r##"let q = r"MATCH (n:P) RETURN n";"##;
+        assert_eq!(
+            string_literals(src),
+            vec!["MATCH (n:P) RETURN n".to_string()],
+            "a zero-hash raw string must be extracted verbatim"
+        );
+    }
+
+    /// FAILS IF: a raw literal's backslashes are unescaped on the way out.
+    ///
+    /// This is the half that changes the extracted QUERY rather than merely
+    /// the path taken: through the ordinary-string branch `\d+` arrives as
+    /// `d+`, so the census would classify a query the tree does not contain.
+    #[test]
+    fn a_raw_string_keeps_its_backslashes() {
+        // Source text:  let p = r"\d+";   (RAW, so the content is \d+)
+        let src = r##"let p = r"\d+";"##;
+        assert_eq!(
+            string_literals(src),
+            vec![r"\d+".to_string()],
+            "a raw literal's backslashes survive extraction"
+        );
+    }
+
+    /// The paired silent half, so the fix cannot be "treat every string as
+    /// raw": a HASHED raw string still spans its embedded quotes, and an
+    /// ORDINARY string still resolves its escapes. A blanket change breaks
+    /// both, and neither breakage is visible in the headline percentage.
+    #[test]
+    fn hashed_raw_and_ordinary_strings_are_unchanged() {
+        // Source text:  let q = r#"MATCH (n) WHERE n.s = "x" RETURN n"#;
+        let src = r###"let q = r#"MATCH (n) WHERE n.s = "x" RETURN n"#;"###;
+        assert_eq!(
+            string_literals(src),
+            vec![r#"MATCH (n) WHERE n.s = "x" RETURN n"#.to_string()],
+            "a hashed raw string still spans its embedded quotes"
+        );
+
+        // Source text:  let q = "a\"b";
+        let src = r##"let q = "a\"b";"##;
+        assert_eq!(
+            string_literals(src),
+            vec!["a\"b".to_string()],
+            "an ordinary string still resolves its escaped quote"
+        );
     }
 }

@@ -53,12 +53,27 @@ cannot see a query built as a raw string literal. codex flagged it on #1240.
 |---|---|---|---|
 | as first reported | 3 files, hand-listed | 20 | 15 — **75.0 %** |
 | after a quote-parity fix | same 3 files | 50 | 23 — **46.0 %** |
-| after codex: directory walk | **27 files** of 1451 walked | **303** | 113 — **37.3 %** |
+| after review: directory walk | **33 files** of 1451 walked | **303** | 113 — **37.3 %** |
 
 The corpus grew **17×** and the headline halved. The root cause is named in
 this repo's own P0 rule — *grep FINDS, reading DECIDES* — which was written
 into `CLAUDE.md` **the same day**. Writing a rule is not the same as being
 immune to it.
+
+**And the file count in that last row was itself wrong when first published —
+`27`, corrected here to `33`.** A second review pass found that the census
+kept only the FIRST source per query literal, so a file whose every query also
+appeared elsewhere vanished from the provenance entirely. The classification is
+untouched by it (342 candidates, 303 classified, 113 Full, 37.3 % — all
+unchanged; dedup by literal was always right, only the attribution was not).
+
+The uncomfortable half is that **the repo already held the right number**: the
+census's own module doc said *33 files* while the program it documents printed
+*27*, in the same commit, and I quoted whichever was nearer to hand — the doc's
+33 into the source, the program's 27 into the plan and into this entry. Nothing
+flagged it, because neither number is wrong-looking on its own. Third instance
+in one session of two values for one quantity (see also G-F, whose summary row
+contradicted its own document's body four sections above it).
 
 Three classifier defects rode in with the fix (inline pattern properties never
 read, 4 maps → 53 hits; `DISTINCT`-over-a-value never firing, 37 hits; and

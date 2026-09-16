@@ -173,3 +173,15 @@ lance-graph-planner = { path = "../lance-graph-planner" }
 # capability this crate USES a thing this crate ASKS FOR. Same declaration q2's
 # `cockpit-server` already carries for the same reason.
 object_store = { workspace = true }
+
+# Declared so `cargo test` RUNS this example's `#[cfg(test)]` module. An
+# example's `test` flag defaults to false, so unit tests inside one are
+# compiled-but-never-run — a test that cannot fail where anyone looks is the
+# defect it was written to prevent. The extractor those tests cover is what
+# BUILDS the W0-b corpus, so a silent regression in it moves a STOP-gate
+# number. Auto-discovery still finds every other example; declaring one target
+# does not disable it for the rest.
+[[example]]
+name = "w0b_corpus_census"
+path = "examples/w0b_corpus_census.rs"
+test = true

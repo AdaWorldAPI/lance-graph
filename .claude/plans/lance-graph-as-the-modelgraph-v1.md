@@ -553,8 +553,18 @@ open end with its status, not folded in.
 | **G-C2** | `deinterlace` / durability read | not identified | **the real one — and it is what closes Heckhausen's last phase** |
 | G-D | `sql()` | gated on G-C | gated on G-C2 (a surface over an unreadable write is not a surface) |
 | G-E | quack has no DuckDB in its loop | real | unchanged |
-| **G-F** | planner ↔ loco ↔ r2il kanban seam | not in plan | **unwired both ways; a build, not a wiring** |
+| **G-F** | planner ↔ loco ↔ r2il kanban seam | not in plan | **smaller than it reads: the planner declares a `HotPlug` and calls `activate`** |
 | **G-G** | alpha-channel split tunnel ↔ SPOG | not in plan | **SPEC Phase 0 exists; needs its own pass** |
+
+> ⊘ **G-F's row said "unwired both ways; a build, not a wiring" — and this
+> document's own body, four sections up, said the opposite:** *"socket,
+> authority and the loco landing are all in place; the one consumer that needs
+> the kanban has never plugged in."* The body is right; the row was written
+> from the first impression and never re-read against the finding that
+> replaced it. Corrected in place rather than deleted, because the failure is
+> the point: **a summary row is a second place to be wrong, and it is the
+> place a reader looks first.** Same shape as the corpus row above it, where
+> `27` and `33` were both in the repo for one quantity.
 
 ---
 
@@ -1239,7 +1249,7 @@ queries**, from three hand-listed files. Codex filed four P1s on lance-graph
 
 | finding | what it was | effect |
 |---|---|---|
-| **the corpus was a subset** | the census read `parser.rs`, `logical_plan.rs`, `semantic.rs`. A walk of the same tree with the same extractor finds queries in **27 files** — the whole of `crates/lance-graph/tests/`, `src/query.rs`, the planner's strategy modules, the Python bindings | 50 classified → **303** |
+| **the corpus was a subset** | the census read `parser.rs`, `logical_plan.rs`, `semantic.rs`. A walk of the same tree with the same extractor finds queries in **33 files** — the whole of `crates/lance-graph/tests/`, `src/query.rs`, the planner's strategy modules, the Python bindings | 50 classified → **303** |
 | **inline pattern properties were ignored** | `MATCH (p:Person {name: "Alice"})` files its predicate in `ScanByLabel.properties` / `Expand.properties` / `.target_properties`, and all four maps went unread. A string equality there is P-9 grace | new row, **53** hits |
 | **T-12 never fired** | `DISTINCT n.p` is grace, `DISTINCT n` is free. The `Distinct` arm recursed and left it to `classify_value`, which accepts a bare `Property` unconditionally (T-4 is legitimately `[G]`) — so the distinction was never made and the histogram had no T-12 row at all | new rows, **37** hits |
 
@@ -1404,7 +1414,7 @@ The codebook carries real domain concepts — `project` `0x0101`,
 Cypher test corpus's labels are synthetic and were never minted, which is
 unsurprising: they exist to exercise a parser.
 
-So §15's caveat 1 is not a formality. The 46 % measures the **shape** of the
+So §15's caveat 1 is not a formality. The 37.3 % measures the **shape** of the
 corpus, and a production number would have to be measured over queries whose
 labels are minted concepts. That is a different census, and it needs a real bake
 — which is the rest of W0-a (OQ-2 mint order, OQ-3 column widths, OQ-6
