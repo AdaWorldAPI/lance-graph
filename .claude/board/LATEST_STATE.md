@@ -1,9 +1,14 @@
 ## 2026-09-16 — PR #1241 merged (`d5d3f7ab`): the facet's per-axis LCP is one masked register readout — NO contract inventory delta
 
-`FacetCascade::hi_distance` / `lo_distance` now read `tz((a ^ b) & AXIS_BYTES)
-/ 16` off the `u128` instead of gathering a six-byte chain and walking it:
-12.5 → 5.8 ns for both axes, bit-identical over 64K pairs, disable-verified.
-No public type added or removed; two private consts + one private `const fn`.
+`FacetCascade::hi_distance` / `lo_distance` now read
+`(tz((a ^ b) & AXIS_BYTES) − 32) / 16` off the `u128` — the 32 classid bits
+sit below the tiers, so the subtraction is load-bearing: without it a tier-0
+divergence reads as prefix 2, not 0 (Codex on #1242 caught the formula as
+first written here, which omitted it; the merged code always had it) —
+instead of gathering a six-byte chain and walking it: 12.5 → 5.8 ns for both
+axes, bit-identical over 64K pairs, disable-verified. No public type added or
+removed; two private consts + two private `const fn`s (`tier_byte_mask`,
+`shared_axis` — "one" as first written here was wrong, same review).
 Arc entry in `PR_ARC_INVENTORY.md`; the fold-once epiphany
 (`E-FORMAT-SLOT-FOLD-IS-THE-SAME-OP-AS-THE-VL-DESCENT-1`) landed with the PR.
 Sibling measurements the same day: ndarray #311 (ternlogq tail descent 5–8×;
