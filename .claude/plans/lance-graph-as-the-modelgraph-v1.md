@@ -908,3 +908,85 @@ one lowering, one evaluator, and the differential already pins them equal.
 4. Migrate `datafusion_planner`'s capability (scan → filter → project → join)
    crate-by-crate into planner lowerings; `join_ops` is W-JOIN and lands last
    for the reasons already stated.
+
+---
+
+## The upstream inventory, and where the seam actually is
+
+Operator: *"everything what upstream has is here —
+`github.com/lance-format/lance-graph/tree/main/crates/lance-graph/src`."*
+Censused against our fork:
+
+| upstream file | LOC | role |
+|---|---|---|
+| **`datafusion_planner/`** | **8,044** | the DataFusion backend — 44 % of the whole surface |
+| `query.rs` | 2,171 | entry |
+| `parser.rs` | 1,932 | nom Cypher |
+| `semantic.rs` | 1,719 | semantic analysis |
+| `logical_plan.rs` | 1,417 | the graph logical plan |
+| `lance_vector_search.rs` | 560 | Lance ANN path |
+| `ast.rs` | 544 | the AST |
+| `config.rs` / `case_insensitive.rs` / `sql_query.rs` | 465 / 377 / 356 | |
+| `parameter_substitution.rs` / `lance_native_planner.rs` | 280 / 121 | |
+| `error.rs` / `spark_dialect.rs` / `lib.rs` / `table_readers.rs` / `sql_catalog.rs` | 111 / 107 / 83 / 69 / 47 | |
+
+≈ **18,400 LOC inherited**, and two divergences worth naming: upstream's
+`csr_index.rs` (its #160 "CSR adjacency index for native graph traversal") is
+**ABSENT here** — this fork went its own way with the planner's Kuzu-style
+`adjacency/` — and our three additions are `soa_config.rs`, `reasoning.rs`,
+`dev_s3_env.rs`.
+
+### `logical_plan.rs` is the seam, stated by the backend itself
+
+`datafusion_planner/mod.rs` opens:
+
+> *"**Translates graph logical plans into DataFusion logical plans** … Phase 2:
+> Plan Building — **Nodes → Table scans, Relationships → Linking tables,
+> Traversals → Joins.** Variable-length paths (`*1..3`) use unrolling: generate
+> fixed-length plans + UNION."*
+
+So the boundary is unambiguous, and the migration does not touch the vocabulary:
+
+```
+parser.rs → ast.rs → semantic.rs → logical_plan.rs      5,612 LOC — the VOCABULARY, KEEP
+                                        │
+                                   ── THE SEAM ──
+                                        │
+        TODAY  datafusion_planner/ 8,044 LOC          TARGET  Program → the ONE
+               "Traversals → Joins"                          mask-risc evaluator
+               (+ UNION-unrolled var-length paths)            traversal = src_mask
+                                                              → hop → dst_mask
+```
+
+**"Traversals → Joins" IS the inherited SQL join the operator wants replaced**,
+and its masked counterpart is already a queued deliverable: task #10 / PR5 is
+exactly `src_mask → hop → dst_mask` versus the DataFusion node-edge-node join.
+The two halves were specified independently and meet here.
+
+Variable-length paths are the interesting sub-case rather than an obstacle:
+upstream UNROLLS `*1..3` into fixed-length plans plus a UNION, which in mask
+terms is N hops OR'd together — a `MaskOp` composition, not a plan rewrite.
+
+### What W-DF actually is, now that the seam is located
+
+**Re-point `logical_plan.rs` at a `Program`, not at DataFusion.** Everything
+above the seam stays; the 8,044-LOC backend is what the masked path replaces,
+operator by operator, with quack as the worked example and
+`plan_lower == quack::lower` already pinned by a differential.
+
+That also answers the *"semiring json → masked intake"* reroute in the same
+move: the graph-side leg (`semiring_map` → HDR semirings over 16 Kbit BitVec,
+deprecated substrate) and the SQL-side leg (`datafusion_planner`) are two
+backends under one vocabulary. **One seam, two legs retired, one replacement.**
+
+**Migration order within W-DF**, cheapest and most-proven first, matching the
+operators quack already ships:
+
+1. `scan_ops` → the plane leaf + survivor-skip gate (quack ships this)
+2. `predicate_pushdown` → gating is the lowering (`under`), already the default
+3. `expression` → `Pred` (a filter IS a predicate; no expression interpreter)
+4. projection / aggregate → quack's Keep/Blend + two-phase GROUP BY
+5. `join_ops` → **W-JOIN**, last, bounded by the two independently-derived
+   caveats already recorded
+6. `vector_ops` / `lance_vector_search` → NOT in scope: the Lance ANN path is
+   not a DataFusion artifact and has no masked equivalent claimed.
