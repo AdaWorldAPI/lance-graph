@@ -1593,3 +1593,44 @@ does not change that — it makes it apply in ONE place instead of three.
 
 §17.1's ordering also stands: the alpha channel is storage-tier and settles
 before the read side consumes `TERNLOG 0x86`.
+
+### §18.6 — The real argument for the spine is MUSCLE MEMORY, not elegance
+
+> *"any graph traversal in the end will be a modified version of it. any SPOG
+> query will be just another flavor. and the benefit is quack / duckdb — no AI
+> will ever ask what it is, you can use muscle memory."*
+
+§18.2-18.4 argued the spine from deduplication: three lowerings onto one floor
+is two too many. That is true and it is the smaller half.
+
+**The larger half is that the spine is ALREADY KNOWN.** quack is DuckDB's
+shape. Filter a population, reduce over the survivors, group, project. Every
+engineer and every model has that shape in hand before they arrive — nobody
+asks what a `WHERE` is, or what `COUNT(*)` means, or why a filter composes with
+`AND`. A novel graph IR would have to be taught to every reader, every
+front-end author, and every model that ever touches it; DuckDB's shape does
+not, ever.
+
+And the two things that look like they need their own IR do not:
+
+- **A graph traversal is a modified filter.** Reach is `src_mask → edge lane →
+  dst_mask` — still a population narrowing to a population. The hop is a new
+  OPERATOR in a known algebra, not a new algebra.
+- **A SPOG query is another flavor of the same shape.** Subject, predicate,
+  object, graph are four columns. Asking for the objects of a subject under a
+  predicate is a filter and a projection. Nothing about it needs a vocabulary
+  that DuckDB does not already have a word for.
+
+**This is the `sql()` argument one layer down, and it is the same test.**
+`lance-graph-java/CLAUDE.md` asks of any Java addition: *"would a customer who
+has never read our documentation write this line by accident, from habit
+alone?"* Applied to the IR: **would a reader who has never read our
+documentation understand this plan by accident, from DuckDB habit alone?** A
+spine that passes that costs nothing to adopt and nothing to explain. A novel
+one charges rent forever, in onboarding, in review, and in every model that has
+to be told what it is looking at.
+
+So "boring" is the load-bearing property at BOTH tiers: the Java surface is
+boring so a customer needs no manual, and the spine is boring so a reader,
+an author, or a model needs none either. The speed is somewhere neither of
+them has to look.
