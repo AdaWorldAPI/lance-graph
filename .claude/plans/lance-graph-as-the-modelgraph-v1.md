@@ -623,3 +623,135 @@ anyone importing anyone. The cascade the operator named —
 ogar-loco vocabulary"* — IS the emancipation mechanism, stated as a pipeline.
 Every consumer that hot-plugs adds a sibling vocabulary and takes nothing from
 the floor.
+
+---
+
+## ⊘ THIRD CORRECTION — the progress loop does NOT wait on `deinterlace`
+
+Operator, 2026-09-16: *"batchwrite fire and forget write + try progress kanban."*
+
+Read `batch_writer.rs` properly (not grepped) and both halves are already in its
+module doc, in those words:
+
+> *"The sink drains EAGERLY (ASAP on cast, background), and the write masks the
+> thinking and vice versa: the thinker reports (casts) and moves on — **'melden
+> macht frei'** — it is NEVER refused."*
+
+And the progress half is named end to end: `cycle_driver::collect_casts` drains
+the payloads, seals the FIRST move per owner as `SweepSlot::paired_move`, and
+`persist_sink::recover_and_apply` applies it via
+**`MailboxSoaOwner::try_advance_phase`** — *"consulting no scheduler at any
+point."*
+
+**So G-C2 as I wrote it — "a write nothing reads back is not yet a loop" — is
+wrong.** The loop closes on *fire-and-forget cast + try-advance*, not on a
+read-back. `deinterlace` belongs to a DIFFERENT arm: the durable OBSERVATION
+path (temporal queries, pinned-reference recovery). Conflating the two made an
+observation gap look like a liveness blocker. Corrected: the loop's liveness
+does not depend on it.
+
+### The kanban IS the Rubicon DAG — one mechanism, not two
+
+`try_advance_phase` (in `contract/soa_view.rs`) returns
+**`Result<KanbanMove, RubiconTransitionError>`** and its whole body is
+`from.can_transition_to(to)`. The kanban columns ARE the Heckhausen phases and
+the transition DAG is the Rubicon crossing. That is why *"kanban rubikon and
+revision.rs wrapping it"* is one chain rather than three subsystems.
+
+`revision.rs`'s binding to it is already stated AND tested in
+`contract/kanban.rs:560`:
+
+> *"Whatever `revise` proposes must be an edge `try_advance_phase` accepts — **it
+> completes the Rubicon DAG, it does not route around it.** And a column with no
+> `Plan` successor must stay silent."*
+> — test `revise_only_ever_proposes_a_legal_edge_and_is_silent_elsewhere`
+
+So revision is not bolted on: the contract already forbids it from inventing an
+edge, and a test enforces both the legality and the silence half.
+
+### Measured wiring of the progress chain
+
+| piece | production callers |
+|---|---|
+| `BatchWriter::cast` | **3** — `mailbox_soa:764` (owner), `owner_adapter:100` (on-behalf), `cycle_driver:407` (P4a drain) |
+| `MailboxSoaOwner::try_advance_phase` | **1** — `mailbox_soa.rs:1281` (`.try_advance_phase(mv.to)`); every other hit is a doc comment |
+| `persist_sink::recover_and_apply` | **0** — its only two call sites (`:1128`, `:1146`) are inside `mod tests` at `:732` |
+
+**So the chain `batch_writer`'s doc describes is wired at both ends and hollow
+in the middle**: casts land, the owner can advance, and the glue that turns
+sealed slots into applied moves has no production caller. That is the honest
+G-C2 — narrower than "no loop", and it is a connect, not a build.
+
+> **Caller consequence the doc flags as documented nowhere else**, worth
+> carrying into any W3 work: *"at most ONE move per owner per cycle is sealed.
+> Casting three transitions for one mailbox performs one and defers two — and
+> because the deferred ones do eventually apply, **code assuming otherwise is
+> wrong in a way nothing reports.**"*
+
+## The planner is the hot-plug home — and `sql()` is just a classid
+
+Operator: *"lance-graph-planner is the correct to get a ogar-loco and ogar-vocab
+> hotplug.rs store for the vocabulary, which then ogar-loco is empowered to feed
+into kanban rubikon and revision.rs wrapping it"* … *"eg ogar-loco could get the
+classid for `sql()`"* … *"which then gets the whole duckdb vocabulary"* …
+*"that would be the easiest and cleanest move."*
+
+This resolves G-D, and it dissolves it rather than solving it:
+
+```
+DuckDB C++
+  ─(ruff_cpp_spo::extract_tree)──────►  ModelGraph
+  ─(ruff_spo_address::mint)──────────►  classids  (part_of:is_a, 16 B facet)
+  ─(planner's HotPlug const + activate)─►  ogar-vocab rows (Class + ActionDef)
+  ────────────────────────────────────►  ogar-loco VOCABULARY above DOMAIN_FLOOR
+                                             ├─ sql() is ONE classid in it
+                                             └─ the whole DuckDB vocabulary beside it
+  ─(kanban = Rubicon DAG, try_advance_phase)─►  executed
+  ─(revision.rs)─────────────────────────────►  postactional phase wraps it
+```
+
+**`sql()` stops being a bespoke Java surface and becomes a vocabulary entry.**
+That is why it is the cleanest move: there is nothing to design. The Java glove
+calls a classid; loco defines what that classid means; the classid is the join —
+the same join key the hot-plug socket already uses on both sides. It also keeps
+the Java ruling intact for free: the surface stays boring because it is not a
+surface at all, just an address.
+
+**And it is what the DuckDB harvest was FOR.** Today's reproducible header
+harvest (123 methods / 1620 events, provenance-stamped) is not documentation of
+a competitor — it is **vocabulary source**. W1's structural arm
+(`extract_tree`) produces the class tree that becomes the vocabulary above the
+floor. That reframes G-A from "a survey we owe" to "the first step of the
+build".
+
+### The remaining DataFusion leg
+
+Operator: *"planner historically had datafusion stuff that we need to replace
+with masked ops."* This is the standing ruling applied to the planner
+specifically — `CLAUDE.md` already records *"every planning is in migration to
+`ogar-loco` and `ogar-r2il`, especially datafusion is out of the picture, what
+exists gets a grace period, nothing new will migrate to it"*
+(`E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1`).
+
+The replacement target is not in doubt — `lance-graph-quack` already proves the
+shape (every operator lowers to a `Program` executed by the ONE mask-risc
+evaluator) and `plan_lower == quack::lower` is pinned by a differential. So the
+planner's DataFusion surface has both a ruling and a worked example to migrate
+onto; what it lacks is the migration itself.
+
+## Wave order, revised by everything above
+
+1. **W1 — `extract_tree` on DuckDB.** Now the first step of the vocabulary
+   build, not a survey. Same falsifier.
+2. **W-HP — the planner's `HotPlug` const + `activate`.** Smallest change with
+   the largest unlock: it is G-F, it is the vocabulary store, and it is what
+   lets `sql()` and the DuckDB vocabulary exist above the floor.
+3. **W3' — connect `recover_and_apply`** (not "build a write"). Both ends
+   exist; the glue is test-only.
+4. **W-DF — planner DataFusion → masked ops**, onto quack's proven shape.
+5. **W4 — the real DuckDB differential** (G-E), still independent and still the
+   only thing that makes "parity" true.
+
+`deinterlace` (the observation arm) drops out of the critical path entirely —
+it is what `revision.rs` will eventually need to EVALUATE an outcome, but it
+gates neither the write nor the advance.
