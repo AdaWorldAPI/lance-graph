@@ -305,3 +305,240 @@ publish one version, written by the mailbox that owns those rows." The
 falsifier follows directly — a W3 implementation that introduces a message, an
 ack, a tick, or a per-owner `advance()` RPC has re-created the deleted shape and
 fails on that ground regardless of whether the bytes land.
+
+---
+
+## ⊘ SECOND CORRECTION — G-C IS NOT "no write". The writer EXISTS; the READ is the gap.
+
+Operator, 2026-09-16: *"lance-graph 879 + 908..912 949 (?) started to migrate it
+accordingly to batchwriter."* Followed. The arc, and what it left:
+
+| PR | landed |
+|---|---|
+| #879 | D-MBX-A6-P4 cycle loop-closure driver — sparse seal/apply + MUL-gate thought seam |
+| #908-910 | boot config at `.config/<repo>/config.yaml`; `soa_config` unknown-key rejection + classid doc corrections |
+| #911 | `graph/cycle_sink` — the concrete Lance-backed `WalSink` |
+| **#912** | **Phase A: artifact-backed commits + THE SOLE OWNED LANCE WRITER** (supersedes #911's contract) |
+| #949 | D-WXS-2a half A — row-major vs Morton KILL fires, no code change |
+
+**So `Dataset::write` is real and in-tree**: `crates/lance-graph/src/graph/cycle_sink.rs:675`
+and `:710`, under a module doc saying the I/O *"is INTERNAL to this one writer."*
+The plan's G-C above — *"no `Dataset::write`"* — was **wrong when written.**
+
+### `batch_writer.rs`'s own status note is ALSO stale
+
+It carries, dated 2026-07-27: *"`cast()` itself has **zero production call
+sites**."* Measured 2026-09-16 — **three**, all production, none in `#[cfg(test)]`:
+
+| site | role |
+|---|---|
+| `cognitive-shader-driver/src/mailbox_soa.rs:764` | the **owner** casting its own moves (`writer: &mut BatchWriter<P>` in a production signature) |
+| `lance-graph-planner/src/owner_adapter.rs:100` | **write-on-behalf** (`//! write-on-behalf to the BatchWriter`) |
+| `lance-graph-supervisor/src/cycle_driver.rs:407` | **P4a (drain)** — *"Map the fleet's staged `BatchWriter` casts into `SweepSlot`s"* |
+
+(The ~17 other `.cast(` hits are ractor `ActorRef::cast(SupervisorMsg::…)` — a
+different method entirely. Counting them would have inflated this.)
+
+### What IS still unwired — and it is the observation leg, not the write
+
+**`deinterlace` has zero production callers.** Every hit outside `temporal.rs`
+is a doc comment; `witness_fabric.rs:510` cites the same 2026-07-27 note. So:
+
+```
+intent staged  (BatchWriter::cast)        ✓ wired, 3 sites
+bytes written  (cycle_sink Dataset::write) ✓ exists, #912
+durability READ (deinterlace)              ✗ ZERO production callers
+OGAR bytes → that writer                   ✗ lance_sink still stops at as_le_bytes()
+```
+
+**G-C therefore splits, and neither half is what the plan said:**
+
+- **G-C1 — connect `ogar-from-ruff::lance_sink` to the writer that already
+  exists.** Smaller than "build a write": both ends are built and they do not
+  meet.
+- **G-C2 — wire the durability read.** `batch_writer.rs` states the ruling it
+  obeys (`E-ACK-ELIMINATED-1`, no confirmation bookkeeping — durability is the
+  row's own `LanceVersion` read through `temporal`) and then says that read has
+  no production implementor. **A write nothing reads back is not yet a loop.**
+
+> **Third stale blocker this session.** `lance_sink`'s "needs the ractor
+> runtime", `batch_writer`'s "zero call sites", and this plan's own "no
+> `Dataset::write`" were all true once and all false when I quoted them. The
+> pattern is specific enough to name: **a STATUS note dated months back is a
+> measurement, and this workspace's own rule is that a measurement without a
+> re-run is an anecdote.** Re-measure before citing — three for three.
+
+## The Rubicon connection — why `revision.rs` and the missing read are ONE gap
+
+Operator: *"ogar-loco and revision.rs are 2 of the loose ends"* … *"revision.rs
+is supposed to be the rubikon heckhausen last phase."*
+
+Heckhausen's Rubicon model runs **predecisional → preactional → actional →
+postactional**, and the last phase is *evaluating the achieved outcome against
+the original goal*. The model is genuinely wired here — `cognitive-compiler/
+src/lib.rs:18` carries *"The five Rubicon phases (Heckhausen). A trace records
+which phase produced…"*, `lance-graph-contract/src/rubicon_witness.rs` maps the
+phases and asks *"why a focus mask can falsify it"*, and `lib.rs:167` names
+**D-ACR-8 — reading the Heckhausen crossing from the focus of attention**.
+
+`revision.rs` (in the CONTRACT, not the planner) says of itself:
+
+> *"models revision, not truth persistence, and still has **no production write
+> capability** — the output types stop before actual-world mutation by design"*,
+> closing a gap where `entropy-closure-causal-ground-v1` (#1057) names revision
+> *"the only write-back"* and *"the court of appeal."*
+
+**These are the same gap seen from two ends.** The postactional phase cannot
+evaluate an outcome it cannot observe; observation is `deinterlace`; the court
+of appeal has no write-back because the durable read that would tell it what
+actually happened is unwired. G-C2 is therefore not plumbing — **it is what
+closes the last Rubicon phase**, and "revision has no write capability" is a
+symptom rather than an independent item.
+
+## The kanban seam — planner ↔ ogar-loco ↔ ogar-r2il
+
+Operator: *"lance-graph-planner <> ogar-loco <> ogar-r2il has a lot of gaps to
+wire the kanban."* Measured — and the gap is NARROWER and more specific than
+"unwired".
+
+> ⊘ **I drafted "unwired in both directions" and it was FALSE.** Caught before
+> commit by re-checking a citation I had just written, which is the same
+> re-measure rule this document states three paragraphs up. The bridge crate
+> EXISTS.
+
+**`lance-graph-ogar` IS the seam, and it is built.** A workspace member
+(`Cargo.toml:96`) that depends on BOTH sides — `lance-graph-contract` by path
+(`:86`, `:159`) and `ogar-loco` by git (`:137`) — for the stated reason that
+neither may import the other:
+
+> `recipe_vocab.rs` — *"the 34 NARS recipes as `ogar-loco` ops above
+> `DOMAIN_FLOOR`, with the kanban census as the awareness surface
+> (`D-ACR-9`)"* … *"`ogar_loco` is zero-dep by design and
+> `lance_graph_contract` is zero-dep by charter. **Neither may import the
+> other** … A vocabulary needs both, so it lives in a consumer that already
+> depends on both"* … *"**The ladder IS a program**: `recipe_dispatch::ladder`
+> returns an ordered `Vec<RecipeStep>`; loco executes ordered
+> `(function : value)` calls. That is mechanism, not analogy."*
+
+So the 34-recipe → loco-op unification and the kanban census surface are
+**already written**. What is missing is one edge:
+
+- **The planner does not depend on `lance-graph-ogar`** (verified: no such line
+  in `lance-graph-planner/Cargo.toml`). The seam exists in a crate the planner
+  cannot see.
+- **`ogar-loco` / `ogar-r2il` themselves: zero `kanban` hits.** Correct by
+  design — the zero-dep rule above means the kanban vocabulary belongs in the
+  bridge, not in loco. Their silence is conformance, not a gap.
+- The planner-side references stay forward-looking doc comments
+  (`cognitive_palette.rs:77` *"Growth from here is `ogar-loco`, not this
+  table"*; `recipe_dispatch.rs:301` *"what an ogar-loco `FunctionBody` WILL
+  carry"*) because nothing has connected them to the bridge that now exists.
+
+> ⊘ **AND THE REMEDIATION I FIRST WROTE HERE — "add a planner → lance-graph-ogar
+> dependency" — IS ALSO WRONG.** The operator pointed at `hotplug.rs`, and it
+> names a different mechanism entirely. Second correction to this same section,
+> both caught before commit.
+
+### The sanctioned mechanism is HOT-PLUG, and a Cargo edge is not it
+
+`lance-graph-contract/src/hotplug.rs` — *"Generic consumer hot-plug — the
+plug-and-play pattern EVERY consumer migrates to (operator, 2026-07-07)"* —
+three roles, three homes:
+
+| role | home | note |
+|---|---|---|
+| **socket** | `lance-graph-contract::hotplug` | `HotPlug` + `CapabilityAuthority`, **zero-dep**: *"No OGAR dep — the contract … MUST stay dependency-free (a path dep here breaks every CI cargo invocation at workspace-load time; learned 2026-07-07)"* |
+| **authority** | OGAR-side | resolves classids → vocab rows, action defs, and the storage reading (`Activation::read_modes`); verifies registration |
+| **consumer** | its own crate | declares **one `HotPlug` const**, calls `activate` in its own binary/tests |
+
+> *"The classid is the join key on BOTH sides … drift bangs once, **no pins, no
+> serialization, no per-consumer plug crate**."*
+
+**The activation cascade** (operator, 2026-09-16): *"plug and play mints the
+classid. and classid mints ogar-vocab which triggers ogar-loco vocabulary."*
+
+```
+HotPlug const (consumer)  →  activate()  →  classid minted
+                                         →  ogar-vocab rows (Class + ActionDef)
+                                         →  ogar-loco vocabulary (the palette /
+                                            recipe ops, landing in recipe_vocab.rs)
+```
+
+That is why `recipe_vocab.rs` can carry *"the 34 NARS recipes as `ogar-loco`
+ops … with the kanban census as the awareness surface (`D-ACR-9`)"* without
+either zero-dep crate importing the other: **the classid is the join, not a
+dependency edge.**
+
+### Measured state of the hot-plug spine
+
+| piece | state |
+|---|---|
+| socket (`HotPlug`, `CapabilityAuthority`) | **built**, zero-dep, in the contract |
+| authority (`impl … CapabilityAuthority for OgarAuthority`) | **built and PRODUCTION** — `lance-graph-ogar/src/lib.rs:524`; `#[cfg(test)]` does not begin until `:612` |
+| consumer declarations | **all eight are TEST FIXTURES** (`:618`–`:831`, inside the two `cfg(test)` modules at `:612` and `:681`) — including `BLOCKLY` |
+| **the planner's own `HotPlug`** | **ABSENT** — zero `HotPlug`/`hotplug` hits anywhere in `lance-graph-planner/src` |
+
+> A grep note worth keeping: `impl.*CapabilityAuthority` found nothing on the
+> first pass because the impl is written fully-qualified
+> (`impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority`).
+> I nearly recorded "the authority is unimplemented", which would have been the
+> fourth false blocker of the session. **A negative grep result is a claim about
+> the pattern, not about the tree.**
+
+**So G-F is: the planner declares a `HotPlug` const and calls `activate`.** No
+dependency edge, no plug crate, no seam to build — socket, authority and the
+loco landing are all in place; the one consumer that needs the kanban has never
+plugged in. Third instance this session of two built ends that do not meet.
+
+### The palette arc — and what checking it turned up
+
+Operator: *"ogar loco has a palette arc to unify the 34 nars templates which
+just have been checked last few PRs only to find old VSA bindspace singleton
+and hamming 16kbit deprecated."*
+
+The palette surface is in `ogar-loco` (`registry.rs`, `basin.rs`,
+`vocabulary.rs`, `lib.rs`), and `recipe_vocab.rs` above is its lance-side
+landing. The deprecation the recent PRs surfaced is recorded in-tree —
+`cognitive-shader-driver/src/engine_bridge.rs:370` calls the
+`Vsa16kF32`/`Binary16K` set-bits plane *"the deprecated one"* — and this repo's
+own `CLAUDE.md` carries both supersessions: PR #477's three-tier model
+(no singleton, no inter-mailbox handoff type at all) and
+`E-MARKOV-TEMPORAL-STREAM-1` (2026-07-10), which moves the Markov trajectory
+**off the VSA braid onto the `temporal.rs` sorted stream** and demotes VSA to
+its `I-VSA-IDENTITIES` four-test niche (N ≤ 32 lossless role superposition
+inside ONE compartment).
+
+**Consequence for the palette arc, and it is a real constraint:** a unification
+of the 34 templates must NOT be carried on a 16 Kbit Hamming plane or a
+singleton BindSpace. Both are superseded substrate, and `temporal.rs`'s
+version-range read (`QueryReference::at(v, rung)` + deinterlace) is what
+replaced them — **which lands on G-C2 again**, since that read has no
+production caller. The palette arc, the Rubicon last phase, and the durability
+read are three names for the same missing leg.
+
+## The other loose end — alpha channel split tunnel ↔ SPOG
+
+`.claude/plans/spog-alpha-channel-v1.md` exists: **SPEC (Phase 0), 2026-09-07,
+48 KB**, self-described *"Register-before-code. Every 'exists' claim below was
+read this session … Every 'absent' claim names the search that backs it."* Its
+operator mandate targets MedCare-rs, and it carries the lance-11 constraint
+(*"rows are experimental in lance 11 and only required for tombstones which we
+avoid by having sealed batch per cycle"*) — the same sealed-batch-per-cycle
+shape #912's writer implements.
+
+**Not surveyed further here** — it is a private-consumer-facing spec and
+deserves its own pass rather than a paragraph in this plan. Recorded as a named
+open end with its status, not folded in.
+
+## Revised gap table
+
+| # | gap | was | now |
+|---|---|---|---|
+| G-A | `extract_tree` never run on DuckDB | small | unchanged |
+| G-B | no ore-TSV → `Dataset` encoder | small | unchanged |
+| **G-C1** | OGAR bytes → the existing owned writer | *"the real one"* | **smaller — both ends exist, they do not meet** |
+| **G-C2** | `deinterlace` / durability read | not identified | **the real one — and it is what closes Heckhausen's last phase** |
+| G-D | `sql()` | gated on G-C | gated on G-C2 (a surface over an unreadable write is not a surface) |
+| G-E | quack has no DuckDB in its loop | real | unchanged |
+| **G-F** | planner ↔ loco ↔ r2il kanban seam | not in plan | **unwired both ways; a build, not a wiring** |
+| **G-G** | alpha-channel split tunnel ↔ SPOG | not in plan | **SPEC Phase 0 exists; needs its own pass** |
