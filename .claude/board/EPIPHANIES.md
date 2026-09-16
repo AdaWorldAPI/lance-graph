@@ -1,3 +1,65 @@
+## 2026-09-16 (16) — E-FORMAT-SLOT-FOLD-IS-THE-SAME-OP-AS-THE-VL-DESCENT-1 — `"{0}{1}" -f hi,lo`: the register is a template with fixed arity, and both the facet LCP and the ternlogq tail are "pick the template whose arity matches the arguments, never pad them"
+
+**Status:** MEASURED on the ndarray side (the descent probe, ndarray
+`examples/ternlogq_tail_descent_probe.rs`, AVX-512 v4, 3 runs) + SHIPPED on
+the contract side (`facet.rs` `shared6` fold, this PR).
+**Confidence:** HIGH on both numbers; the analogy is the operator's
+(*"Powershell `{0}{1} -F $1,$2` logic"*, 2026-09-16) and is recorded as the
+naming, not derived.
+
+### The one shape
+
+PowerShell's `-f` fills positional slots of a fixed-arity template; a missing
+argument throws — it never zero-pads. Read against this tree:
+
+| `-f` | contract `facet.rs` | ndarray |
+|---|---|---|
+| `"{0}{1}" -f hi,lo` | `FacetTier::as_u16` | — |
+| `"{0}…{7}" -f class,t0..t5` | `as_u128` (8 u16 tiles, one register) | the xmm rung |
+| prefix of two formatted strings | `shared_prefix_tiles` = `u128` xor + `tzcnt/16` | — |
+| template arity chosen **by argument count** | — | zmm→ymm→xmm descent for a 1..7-word tail |
+| `pack_under<T, const L>` (`64 % L == 0`) | — | already IS `-f` with arity `L` — gated side only |
+
+### What was un-folded thirty lines from the fold
+
+`shared_prefix_tiles` read the whole facet as one register; `hi_distance` /
+`lo_distance` (`shared6`) still gathered six strided bytes per axis into a
+chain and walked them. First cut re-folded the gathered chain into a `u64`
+(1.5× — the gather dominated). The operator's correction (*"fold the
+PowerShell logic ONCE"*): the `u128` facet already holds both axes by
+position, so an axis prefix is the whole-facet xor **masked to that axis's
+tier bytes** (`HI_BYTES` = bytes 5,7,…,15; `LO_BYTES` = 4,6,…,14), then
+`trailing_zeros/16` past the classid — the `-f` was done at mint, never per
+call. Measured, 64K random pairs: loop 12.5 ns → masked readout **5.8 ns** for
+both axes (2.9 ns each, the same as the whole-facet `prefix_distance`).
+Falsifier compares against the loop at every divergence tier on both axes;
+disable-run (swap `HI_BYTES`/`LO_BYTES`) fails at `hi flip at tier 0`.
+
+### What the same shape is worth one repo down (measured, not yet wired)
+
+`mask_ternlog` pads its 1..7-word tail into three zeroed `[u64; 8]` arrays.
+Descending instead (`4 + 2 + 1`, every lane live, all in vector registers):
+greedy widest-first wins at every `t >= 2` — **5–8× over padding**, 1.3–1.6×
+over all-xmm; `t=6` `4+2` 2.26–2.74 ns vs `2+2+2` 3.29–3.68 vs padded
+17.0–18.3. `ogar-r2il`'s `CallMask = [u64; 3]` has zero full chunks, so the
+whole op is that tail: 18.1 → 2.3 ns. asm: 33 zmm + 3 ymm + 6 xmm `vpternlogq`,
+zero GPR logic on lane data — a descent is not the scalar peel
+`codegen-witness.sh` caps at `SLICE_GPR_CAP=6`.
+
+### Gaps this names (ndarray, not this PR)
+
+- `U64x4::ternlog` / `U64x2::ternlog` do not exist on the facade; the descent
+  calls the intrinsics a wrapper would hold. Adding them + rewiring
+  `mask_ternlog`'s tail is the follow-up.
+- No `u16` compare family (`eq_u16_to_mask`) — the `(u8:u8)` rail IS a u16
+  tile, and lgj-abi's `simd_rowstore_facet_match` compares classids only.
+- An un-gated `pack<const L>` sibling of `pack_under` would retire the 12
+  hand-rolled `if !tail.is_empty()` sites.
+
+Cross-ref: ndarray `.claude/knowledge/masking-ops-state.md` (G1/G2 RUN, #310);
+`E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1` above — the
+`-f` naming is the same muscle-memory argument applied to a register layout.
+
 ## 2026-09-16 (15) — E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1 — the operator's quack redirect, and the four errors of one session that all substituted an address for the thing
 
 **Status:** OPERATOR-RULED (the redirect, verbatim below) + MEASURED (the census
