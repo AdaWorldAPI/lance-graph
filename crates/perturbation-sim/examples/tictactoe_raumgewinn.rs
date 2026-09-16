@@ -22,7 +22,16 @@
 //!   Floors are preheated on the population of every (position, empty cell)
 //!   pair with `k = 2`, then `stack_early_exit` runs per candidate on a CLONE of
 //!   the preheated floors, so the ranking inside a position is order-independent.
-//!   Rank = stacked value, descending, ties to the lowest index.
+//!   Rank = descending, ties to the lowest index — but the RANKED QUANTITY is
+//!   arm-dependent: AGREEMENT's per-tier terms are non-negative popcounts, so
+//!   the early-exit *partial* stacked sum is a sound monotone bound and F1
+//!   ranks on it directly; NET's per-tier terms are SIGNED (own − opp), so a
+//!   partial sum is NOT a bound on the full stack (a later tier can be
+//!   negative and pull the total below what an earlier positive partial
+//!   suggested — see the "meter note" printed at the verdict site), and F1
+//!   ranks NET candidates on the FULL stack instead. F2 (below) is unaffected
+//!   by this split either way — it always compares the EARLY-EXIT top move
+//!   against the FULL-STACK top move, regardless of which one F1 used.
 //! - **F0 fixture validity, read FIRST** — the rails' horizon must be smaller
 //!   than the board. If every cell's rings reach every other cell, the FULL stack
 //!   of any ring-additive intensity (both arms sum a per-cell term over ring
@@ -38,7 +47,9 @@
 //!   optimal moves per position) and the shuffled-rail null (every cell's rails
 //!   rewired to random cells of the same count, 20 seeds).
 //! - **F2 economy** — the early-exited top move must equal the full-stack top
-//!   move (an equality), and the mean exposed tiers is reported.
+//!   move (an equality), and the mean exposed tiers is reported. This
+//!   comparison is independent of which value F1 ranks by (see "The stack"
+//!   above): it always pits the early-exit top against the full-stack top.
 //! - **F3 degree ablation, mandatory** — every cell keeps ONE rail (its first
 //!   ring-1 neighbour); F1 must DROP, or the task never exercised the six (E-Q8).
 //!
@@ -262,9 +273,24 @@ impl Horizon {
         }
     }
 
-    /// Every cell's rings reach every other cell — the horizon IS the board.
+    /// **Any** cell whose rings reach every other cell makes the ranked
+    /// population contaminated — not only the all-cells case.
+    ///
+    /// The first version of this gate tested `exhausted_cells == N`, which is
+    /// right for a uniform board like 3×3 and wrong for a board where only the
+    /// CENTRE is covered by all rings (Hex 5×5 is the intended next fixture).
+    /// There `exhausted_cells` is non-zero but less than `N`, the old
+    /// predicate declared the fixture readable, and census-valued candidates —
+    /// ones whose stacked score carries no ranking information at all — went
+    /// straight into F1/F2 alongside real ones. Reported by codex on PR #1239.
+    ///
+    /// Strictly-any is deliberately conservative: it reports contamination
+    /// rather than trying to weigh it. The probe already computes
+    /// `f1_tie_nondegenerate` (F1 over the uncontaminated positions only), so
+    /// a partially-exhausted board is not lost — it is read from that field
+    /// instead of from `f1_tie`, and the verdict says so.
     fn exhausts_board(&self) -> bool {
-        self.exhausted_cells == N
+        self.exhausted_cells > 0
     }
 }
 
@@ -403,8 +429,17 @@ fn score(
             rows.push((m, res.stacked, inc.iter().sum(), res.exit_tier, res.early));
         }
         candidates_total += rows.len();
-        // Deterministic ranking: stacked descending, then lowest index.
-        let top = rows
+        // Deterministic ranking: descending, then lowest index. `top_early`
+        // always ranks by the early-exit stacked value (index 1); `top_full`
+        // always ranks by the full stack (index 2) — F2 below compares these
+        // two UNCONDITIONALLY, regardless of arm. F1's own ranking (`top`) is
+        // arm-dependent: AGREEMENT's per-tier terms are non-negative, so the
+        // early-exit partial is a sound bound and F1 ranks on it directly
+        // (== `top_early`, unchanged from before this split existed); NET's
+        // per-tier terms are signed, so a partial is NOT a bound on the full
+        // stack (see the module doc's "The stack" + the "meter note" below),
+        // and F1 must rank NET candidates on the full stack (== `top_full`).
+        let top_early = rows
             .iter()
             .copied()
             .max_by(|a, b| a.1.partial_cmp(&b.1).expect("finite").then(b.0.cmp(&a.0)))
@@ -414,14 +449,24 @@ fn score(
             .copied()
             .max_by(|a, b| a.2.partial_cmp(&b.2).expect("finite").then(b.0.cmp(&a.0)))
             .expect("non-terminal has a move");
+        let top = match arm {
+            Arm::Agreement => top_early,
+            Arm::Net => top_full,
+        };
         if opt.contains(&top.0) {
             hit_det += 1.0;
         }
-        let tied: Vec<usize> = rows.iter().filter(|r| r.1 == top.1).map(|r| r.0).collect();
+        let tied: Vec<usize> = match arm {
+            Arm::Agreement => rows.iter().filter(|r| r.1 == top.1).map(|r| r.0).collect(),
+            Arm::Net => rows.iter().filter(|r| r.2 == top.2).map(|r| r.0).collect(),
+        };
         let tied_opt = tied.iter().filter(|m| opt.contains(m)).count();
         let tie_score = tied_opt as f64 / tied.len() as f64;
         hit_tie += tie_score;
-        let mut distinct: Vec<u64> = rows.iter().map(|r| r.1.to_bits()).collect();
+        let mut distinct: Vec<u64> = match arm {
+            Arm::Agreement => rows.iter().map(|r| r.1.to_bits()).collect(),
+            Arm::Net => rows.iter().map(|r| r.2.to_bits()).collect(),
+        };
         distinct.sort_unstable();
         distinct.dedup();
         distinct_sum += distinct.len();
@@ -435,7 +480,9 @@ fn score(
             nondeg_hit += tie_score;
             nondeg_n += 1;
         }
-        if top.0 == top_full.0 {
+        // F2's own question — does early exit change the top move — is
+        // asked the SAME way regardless of which quantity F1 ranked by.
+        if top_early.0 == top_full.0 {
             equal += 1.0;
         }
         for r in &rows {
@@ -510,7 +557,14 @@ fn main() {
         horizon_d1.max_reach,
         N - 1
     );
-    let degenerate = horizon.exhausts_board();
+    // F0 has TWO independent ways to be unreadable, and the topology is only
+    // the first. A board can be locally bounded — every cell's horizon smaller
+    // than the board — and STILL give every candidate the same full-stack
+    // value under the chosen intensity, in which case there is nothing to rank
+    // and an F1 PASS/KILL would be meaningless. The second half is measured,
+    // not derived, so it can only be applied after `score` runs; see
+    // `score_is_degenerate` at the verdict site. Reported by codex on #1239.
+    let topology_degenerate = horizon.exhausts_board();
     println!(
         "F0  fixture validity — ring coverage: each cell's rails reach {}..={} of {} other cells; horizon exhausts the board on {}/{N} cells (degree-1 rails reach {} — the gate stays silent there)",
         horizon.min_reach,
@@ -519,12 +573,13 @@ fn main() {
         horizon.exhausted_cells,
         horizon_d1.max_reach
     );
-    if degenerate {
+    if topology_degenerate {
         println!(
-            "    => FIXTURE DEGENERATE: the full stack of any ring-additive intensity is the board census, identical for every candidate. F1/F2/F3 below are DATA, not verdicts; the readable arm needs a board larger than the rails' horizon.\n"
+            "    => FIXTURE DEGENERATE (topology): {}/{N} cells reach every other cell, so their full stack is the board census and carries no ranking information. F1/F2/F3 below are DATA, not verdicts; the readable arm needs a board larger than the rails' horizon.\n",
+            horizon.exhausted_cells
         );
     } else {
-        println!("    => fixture readable: the horizon is smaller than the board.\n");
+        println!("    => topology readable: every cell's horizon is smaller than the board (the SCORE is checked separately, per arm, below).\n");
     }
     for (arm, name) in [
         (Arm::Agreement, "AGREEMENT (pre-registered)"),
@@ -581,6 +636,18 @@ fn main() {
             "      null shuffled rails, {NULL_SEEDS} seeds, F1 tie-aware: mean {:.4}  range [{:.4}, {:.4}]",
             mean, lo, hi
         );
+        // The measured half of F0: if the ranked quantity has one distinct
+        // value per position, the ranking is empty whatever the topology says.
+        // `full_distinct_mean` is the mean number of distinct FULL-stack values
+        // per position; 1.000 means every candidate tied everywhere.
+        let score_degenerate = s.full_distinct_mean <= 1.0 + 1e-9;
+        let degenerate = topology_degenerate || score_degenerate;
+        if score_degenerate && !topology_degenerate {
+            println!(
+                "      F0 (score): every candidate carries the SAME full-stack value (mean distinct {:.3}) although the topology is bounded — the ranking is empty and F1 below is not a verdict",
+                s.full_distinct_mean
+            );
+        }
         let verdict = if degenerate {
             "F0 DEGENERATE — F1 not read (F1 at the baseline is the census signature, not a KILL)"
         } else if s.f1_tie >= F1_BAR {
@@ -612,5 +679,289 @@ fn main() {
             );
         }
         println!();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ---- negamax ---------------------------------------------------------
+
+    #[test]
+    fn negamax_forced_win_returns_exact_value_one() {
+        // X to move, top row two-thirds full: cell 2 completes a line right
+        // now. Whatever else is true of the position, having an immediately
+        // winning move pins the negamax value at the domain's maximum, 1 —
+        // no deeper search can ever beat "win this move."
+        #[rustfmt::skip]
+        let b: Board = [
+            Cell::X, Cell::X, Cell::E,
+            Cell::O, Cell::O, Cell::E,
+            Cell::E, Cell::E, Cell::E,
+        ];
+        assert!(winner(&b).is_none(), "fixture must not already be decided");
+        let mut memo = HashMap::new();
+        let (value, moves) = solve(&b, Cell::X, &mut memo);
+        assert_eq!(
+            value, 1,
+            "an immediate winning move must yield the maximum negamax value"
+        );
+        assert!(
+            moves.contains(&2),
+            "cell 2 completes the top row and must be among the optimal moves"
+        );
+    }
+
+    #[test]
+    fn negamax_forced_draw_returns_exact_value_zero() {
+        // The empty board, X to move: the single best-established fact about
+        // tic-tac-toe — perfect play from the start draws. `main()` leans on
+        // this exact same fact (`assert_eq!(empty_value, 0, ...)`); pinning
+        // it here as a dedicated unit test means a `solve`/`winner`/
+        // `terminal` regression is caught by `cargo test`, not only by a
+        // one-off assertion buried inside `main`.
+        let mut memo = HashMap::new();
+        let (value, moves) = solve(&[Cell::E; N], Cell::X, &mut memo);
+        assert_eq!(
+            value, 0,
+            "tic-tac-toe from the empty board is a draw under perfect play"
+        );
+        assert!(
+            !moves.is_empty(),
+            "a non-terminal position must report at least one optimal move"
+        );
+    }
+
+    // ---- reachable-position filtering -------------------------------------
+
+    #[test]
+    fn reachable_and_symmetry_classes_stay_linked() {
+        // Deliberately NOT pinned against the classic external combinatorics
+        // trivia for tic-tac-toe (the well-known ~5478/~765 figures) — those
+        // numbers were not independently re-derived here and hard-coding a
+        // misremembered one would be worse than no test at all. Instead this
+        // pins a relationship between `reachable()` and the up-to-symmetry
+        // class count that is TRUE BY CONSTRUCTION whenever the underlying
+        // code is correct, so the two can never drift apart silently even
+        // without trusting an external number.
+        let positions = reachable();
+        assert!(
+            positions.contains(&([Cell::E; N], Cell::X)),
+            "the empty board is the BFS seed and is itself non-terminal"
+        );
+        for (b, _) in &positions {
+            assert!(
+                !terminal(b),
+                "reachable() must never report an already-decided board"
+            );
+        }
+        let syms = symmetries();
+        let classes: HashSet<(u32, Cell)> = positions
+            .iter()
+            .map(|(b, p)| (canonical(b, &syms), *p))
+            .collect();
+        // Canonicalization can only ever coarsen: `classes` is the image of
+        // `positions` under `canonical`, so its cardinality cannot exceed the
+        // domain's.
+        assert!(
+            classes.len() <= positions.len(),
+            "canonicalization must not manufacture positions: {} classes over {} positions",
+            classes.len(),
+            positions.len()
+        );
+        // Every orbit under the eight square symmetries has size at most 8,
+        // so no canonical class can be the image of more than 8 positions —
+        // a bug that OVER-merges distinct positions (e.g. an `encode`
+        // collision, or a broken `canonical` that isn't actually a per-
+        // symmetry minimum) would drive `classes.len()` below this floor.
+        assert!(
+            classes.len() * 8 >= positions.len(),
+            "an orbit of size <= 8 cannot make {} classes cover {} positions",
+            classes.len(),
+            positions.len()
+        );
+        // Anti-vacuity: the two bounds above both hold even if `classes.len()
+        // == 1` (total collapse) or `classes.len() == positions.len()` (no
+        // reduction at all) — neither of which is what symmetry reduction on
+        // a real board should do. Assert the reduction is genuine and partial.
+        assert!(
+            classes.len() > 1 && classes.len() < positions.len(),
+            "canonicalization must produce a real, non-trivial reduction: {} classes from {} positions",
+            classes.len(),
+            positions.len()
+        );
+    }
+
+    // ---- horizon detection -------------------------------------------------
+
+    #[test]
+    fn horizon_detects_the_full_lattice_as_exhausted() {
+        let lattice = lattice_rails();
+        let h = Horizon::of(&lattice);
+        assert!(h.exhausts_board());
+        assert_eq!(
+            h.exhausted_cells, N,
+            "every cell's ring1+ring2 rails reach all 8 of the other cells on 3x3"
+        );
+        assert_eq!(h.max_reach, N - 1);
+    }
+
+    #[test]
+    fn horizon_stays_silent_on_degree_one_rails() {
+        let d1 = degree_one(&lattice_rails());
+        let h = Horizon::of(&d1);
+        assert!(!h.exhausts_board());
+        assert_eq!(h.exhausted_cells, 0);
+        assert_eq!(h.max_reach, 1);
+    }
+
+    #[test]
+    fn horizon_detects_partial_exhaustion_from_a_single_cell() {
+        // Built directly as a `Rails` value (not derived from a board or from
+        // `lattice_rails`): cell 0's single ring reaches every one of the
+        // other 8 cells (exhausted), while every other cell keeps exactly one
+        // harmless ring-1 rail back to cell 0 (nowhere near exhausted). This
+        // is exactly the case the `exhausts_board` doc comment's fix
+        // addresses: the OLD predicate (`exhausted_cells == N`) would have
+        // read this as fine (1 != 9), while the fixed, strictly-any predicate
+        // (`exhausted_cells > 0`) must flag it.
+        let mut rails: Rails = vec![Default::default(); N];
+        rails[0][0] = (1..N).collect();
+        for i in 1..N {
+            rails[i][0] = vec![0];
+        }
+        let h = Horizon::of(&rails);
+        assert_eq!(h.exhausted_cells, 1, "exactly cell 0 is exhausted");
+        assert_eq!(h.max_reach, N - 1);
+        assert_eq!(h.min_reach, 1);
+        assert!(
+            h.exhausts_board(),
+            "ANY exhausted cell must contaminate the board, not only ALL cells"
+        );
+    }
+
+    // ---- rail shuffling ------------------------------------------------------
+
+    #[test]
+    fn shuffled_rails_permutes_targets_and_preserves_per_ring_counts() {
+        // A hand-built `Rails` with distinct, easily-checked ring sizes per
+        // cell (3/3/2/0), independent of `lattice_rails`'s own correctness,
+        // so the shuffle's ring-by-ring "deal it out" step has real structure
+        // to preserve.
+        let mut rails: Rails = vec![Default::default(); N];
+        for i in 0..N {
+            let others: Vec<usize> = (0..N).filter(|&j| j != i).collect();
+            rails[i][0] = others[0..3].to_vec();
+            rails[i][1] = others[3..6].to_vec();
+            rails[i][2] = others[6..8].to_vec();
+        }
+        let shuffled = shuffled_rails(&rails, 7);
+        for i in 0..N {
+            for r in 0..4 {
+                assert_eq!(
+                    rails[i][r].len(),
+                    shuffled[i][r].len(),
+                    "cell {i} ring {r}'s rail COUNT must survive the shuffle"
+                );
+            }
+            let mut before: Vec<usize> = rails[i].iter().flatten().copied().collect();
+            let mut after: Vec<usize> = shuffled[i].iter().flatten().copied().collect();
+            before.sort_unstable();
+            after.sort_unstable();
+            assert_eq!(
+                before, after,
+                "cell {i}'s shuffled targets must be a PERMUTATION of the originals, \
+                 never an invention or a drop"
+            );
+            assert!(
+                !after.contains(&i),
+                "a cell must never rail to itself after shuffling"
+            );
+        }
+        // Anti-vacuity: every assertion above would also pass for an
+        // implementation that returns `rails` unchanged. Assert the shuffle
+        // actually moved something.
+        let moved = (0..N).any(|i| rails[i] != shuffled[i]);
+        assert!(
+            moved,
+            "shuffled_rails(seed=7) must not be the identity permutation"
+        );
+    }
+
+    // ---- signed-arm ranking --------------------------------------------------
+
+    #[test]
+    fn net_arm_ranks_by_the_full_stack_not_the_early_exit_partial() {
+        // A hand-built board + rails where cell 0's tier-0 term alone (+3,
+        // all-own) trips the Alarm on a virgin floor and stops the cascade
+        // before its own negative tiers 1..3 ever get added, while cell 1
+        // sails through all four tiers on net-zero terms and only shows its
+        // value at the leaf. Every number below is hand-traced against
+        // `intensity`'s own own-opp formula and `stack_early_exit`'s own
+        // preheat/observe mechanics — nothing here is asserted "because the
+        // compiler said so."
+        #[rustfmt::skip]
+        let b: Board = [
+            Cell::E, Cell::E, Cell::X,
+            Cell::X, Cell::O, Cell::O,
+            Cell::X, Cell::O, Cell::X,
+        ];
+        let p = Cell::X;
+        let mut rails: Rails = vec![Default::default(); N];
+        // Candidate A (cell 0): tier 0 alone is +3 (own-dominant, all-X
+        // ring), tiers 1..3 are each a single opposing stone (-1 apiece).
+        rails[0][0] = vec![2, 6, 8];
+        rails[0][1] = vec![4];
+        rails[0][2] = vec![5];
+        rails[0][3] = vec![7];
+        // Candidate B (cell 1): every non-leaf tier nets to zero (one X, one
+        // O each); only the leaf tier carries a net +1.
+        rails[1][0] = vec![2, 4];
+        rails[1][1] = vec![3, 5];
+        rails[1][2] = vec![6, 7];
+        rails[1][3] = vec![8];
+
+        let floors = TierFloors::new(K_SIGMA);
+        let inc_a = intensity(&b, p, 0, &rails, Arm::Net);
+        let inc_b = intensity(&b, p, 1, &rails, Arm::Net);
+        assert_eq!(inc_a, [3.0, -1.0, -1.0, -1.0]);
+        assert_eq!(inc_b, [0.0, 0.0, 0.0, 1.0]);
+        let res_a = floors.clone().stack_early_exit(inc_a);
+        let res_b = floors.clone().stack_early_exit(inc_b);
+        let full_a: f64 = inc_a.iter().sum();
+        let full_b: f64 = inc_b.iter().sum();
+        // The scenario's whole point: the two readings DISAGREE on which
+        // candidate is best.
+        assert!(
+            res_a.stacked > res_b.stacked,
+            "A's early-exit partial ({}) must beat B's ({}) — that is the OLD \
+             ranking this test would otherwise vindicate",
+            res_a.stacked,
+            res_b.stacked
+        );
+        assert!(
+            full_b > full_a,
+            "B's full stack ({full_b}) must beat A's ({full_a}) — that is the \
+             signal a signed arm's F1 ranking must use"
+        );
+        assert!(
+            res_a.early,
+            "A must exit early, before its own negative tiers land"
+        );
+        assert!(
+            !res_b.early,
+            "B must run to the leaf, where stacked == full"
+        );
+
+        let mut optimal = HashMap::new();
+        optimal.insert((b, p), vec![1usize]);
+        let positions = vec![(b, p)];
+        let s = score(&positions, &optimal, &rails, &floors, Arm::Net);
+        assert_eq!(
+            s.f1_det, 1.0,
+            "Arm::Net must rank by the full stack and pick cell 1, not the \
+             early-exit-favoured cell 0 (reverting the fix flips this to 0.0)"
+        );
     }
 }

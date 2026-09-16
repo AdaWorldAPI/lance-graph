@@ -1,3 +1,84 @@
+## 2026-09-16 (14) — E-THE-NET-ARM-RANKED-ON-A-PARTIAL-SUM-AND-ITS-ONLY-APPARENT-SIGNAL-WAS-THAT-BUG-1 — entry (13)'s NET row is re-measured; the arm is a census on BOTH arms, not one
+
+**Status:** MEASURED — re-run of `D-HXP-8` arm 1 after a one-line ranking fix in
+`crates/perturbation-sim/examples/tictactoe_raumgewinn.rs`. **Confidence:** HIGH
+(the fix is a derivation from `TierFloors::stack_early_exit`'s own return value,
+and the re-measured numbers are self-consistent with entry (13)'s structural
+result rather than against it).
+
+### The defect
+
+`score()` ranked BOTH arms by `StackResult.stacked`. That field is the
+**cumulative sum up to and including the exit tier only** — it equals the true
+full stack iff `exit_tier == 3`. Entry (13)'s own meter note already said a
+partial is not a bound under signed terms, and measured that early exit changed
+the top move in **10.13 %** of positions. The prose was right; the ranking code
+did not honour it. So for `Arm::Net`, F1 was being scored against a quantity that
+is a genuine partial sum in ~1 position in 10 — and with signed per-tier terms a
+later negative tier can pull the true total below what an earlier positive
+partial suggested.
+
+Fixed: `Arm::Agreement` keeps ranking by the early-exit value (its terms are
+non-negative, so the partial IS a bound); `Arm::Net` ranks by the full stack.
+`tied` and `distinct` follow the same match, since they must be computed over
+whatever F1 actually ranked by. **F2 is deliberately untouched and stays
+arm-independent** — it compares the same two values for both arms by
+construction.
+
+### What the re-measurement says, and it is the uncomfortable half
+
+| quantity | entry (13) NET | re-measured NET | AGREEMENT (unchanged) |
+|---|---|---|---|
+| F1 det / tie-aware | 0.5677 / 0.5655 | **0.5865 / 0.5797** | 0.5865 / 0.5797 |
+| mean distinct stacked | **1.157** | **1.000** | 1.000 |
+| F3 degree-1 drop | +0.0152 | **+0.0011** | +0.0004 |
+| null shuffle, 20 seeds | 0.5768 [0.5617, 0.5899] | **0.5797 [0.5797, 0.5797]** | 0.5797 [0.5797, 0.5797] |
+| F2 | 0.8987 | 0.8987 | 1.0000 |
+
+**The `1.157 → 1.000` is the finding.** Entry (13) reported the mean number of
+distinct FULL-stack values as `1.000` on both arms — correctly — but the NET
+arm's *scored* quantity showed `1.157`, i.e. it looked like the NET arm had at
+least a little discrimination where AGREEMENT had none. It did not. That 0.157
+was entirely the partial-sum artifact, and with the fix NET is exactly the
+census, identically to AGREEMENT.
+
+Two corroborating collapses, neither of which was arranged: the null shuffle
+degenerates to a **single point** (shuffling the rails changes nothing, because
+the full stack is the board census regardless of rail topology — which is the
+F0-degenerate claim restated from a direction entry (13) did not test), and F1
+lands exactly on the random-move baseline `0.5797`.
+
+### What this supersedes
+
+⊘ Entry (13)'s NET row and every number derived from it. The structural verdict
+— **F0 DEGENERATE, F1/F2/F3 are DATA not verdicts** — is UNCHANGED and is in
+fact strengthened: it now holds identically on both arms instead of holding on
+one while the other showed a small unexplained spread.
+
+⊘ The same-day `⊘ UNPINNED` block proposing a flat-vs-DROP tolerance for NET's
+`+0.0152`. That block did honest work on a number that no longer exists: the
+re-measured drop is **+0.0011**, flat by any tolerance, so the question it was
+opened to adjudicate is closed by measurement rather than by a threshold. The
+tolerance proposal itself stays on file as unpinned and unused.
+
+### Why it was invisible
+
+`0.5677` is not an implausible number next to a `0.5797` baseline, and `1.157`
+reads as "barely any discrimination" — which is the same story the entry was
+already telling. **A bug whose output agrees with your conclusion is the hardest
+kind to see**, and nothing in the suite could have caught it: there was no test
+that distinguished "ranks by early-exit" from "ranks by full stack" for the NET
+arm at all. There is now (`net_arm_ranks_by_the_full_stack_not_the_early_exit_partial`,
+disable-verified: reverting `top` to `top_early` turns it red), plus 7 more unit
+tests on the probe's own primitives (negamax exact values, the symmetry-class
+relation, the three `Horizon` cases, the rail shuffle's permutation invariants).
+
+**Cross-refs:** entry (13) (`E-RAUMGEWINN-NEEDS-A-HORIZON-SMALLER-THAN-THE-BOARD-…`)
+— structural result stands, NET numbers superseded; `TierFloors::stack_early_exit`
+in `crates/perturbation-sim/src/rolling_floor.rs` (the return value the fix is
+derived from); D-HXP-8 arm 2 (a board larger than the rails' horizon) remains
+the unblocked next arm, unchanged by this.
+
 ## 2026-09-15 (13) — E-RAUMGEWINN-NEEDS-A-HORIZON-SMALLER-THAN-THE-BOARD-TIC-TAC-TOE-HAS-NONE-SO-ARM-1-IS-F0-DEGENERATE-NOT-A-KILL-1 — D-HXP-8 arm 1 ran; the pre-registration lacked a fixture-validity gate, and the fixture failed it
 
 **Status:** MEASURED — `D-HXP-8` arm 1 (tic-tac-toe) RUN. Probe
