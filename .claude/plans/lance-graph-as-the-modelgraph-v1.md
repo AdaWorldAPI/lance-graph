@@ -542,3 +542,84 @@ open end with its status, not folded in.
 | G-E | quack has no DuckDB in its loop | real | unchanged |
 | **G-F** | planner ↔ loco ↔ r2il kanban seam | not in plan | **unwired both ways; a build, not a wiring** |
 | **G-G** | alpha-channel split tunnel ↔ SPOG | not in plan | **SPEC Phase 0 exists; needs its own pass** |
+
+---
+
+## `ogar-loco`'s emancipation — the boring floor is the MOAT, not the burden
+
+Operator, 2026-09-16: *"ogar-loco has the burden of being boring scratch /
+blockly-rs but needs to emancipate."*
+
+Read rather than grepped, and the architecture is **already emancipated**; what
+has not moved is the crate's IDENTITY. Its own `lib.rs` opens by arguing the
+point:
+
+> *"`ogar-loco` — the **low-code program surface**: the vocabulary-agnostic call
+> ABI that every block/template/flow frontend shares … The block-editor arc
+> (the `blockly-rs` consumers) **proved a storage shape**; the operator
+> direction that created this crate **generalizes it**: elixir-shaped templates
+> are 'just a rails-shaped semantic over classid index, 256:256 — not much
+> different than blockly, just different vocabulary — a reusable surface for
+> any other purposes.' Power-Automate-style flows are the third consumer in
+> line."*
+
+So Blockly is **consumer #1 of three named**, not the crate's purpose. The
+burden is that it was born there and is still read as its storage crate.
+
+### The seam that does the emancipating, and it is enforced
+
+`vocabulary.rs` — *"One call-ABI, sibling vocabularies selected by classid"* —
+splits at `DOMAIN_FLOOR`:
+
+| range | owner | rule |
+|---|---|---|
+| **below** `DOMAIN_FLOOR` | the **shared computational core** | arities live ONCE, *"so `IF` cannot quietly mean two things in two domains, and no sibling can drift on `ADD`'s arity"* |
+| **at/above** the floor | the **vocabulary** | a `Vocabulary` impl answers for exactly that range via `domain_*` hooks |
+| a core byte the core does not cover | **nobody** | *"refused everywhere — a vocabulary does not get to guess for it. Coverage grows in the core, once, for everyone."* |
+
+`conformance::check` is the mechanical gate, and its stated posture is exactly
+right for a shared floor: *"the JVM-verifier / Wasm-validator posture: validate
+before trusting, refuse loudly."*
+
+The two-quantity split is the other sign this is not a toy: `stack_arity`
+(operands evaluated before the call, on the stack) vs `body_refs` (function
+indices in the call's VALUE bytes). `forever` proves they are independent —
+zero operands, one body — and *"a single conflated number cannot express it."*
+
+### So what "emancipate" actually means
+
+**Not "become less boring."** The boring floor is load-bearing: `ADD`, `IF`,
+`repeat`, `forever` are Scratch-shaped *on purpose*, because a shared core that
+every sibling vocabulary agrees on is what stops N dialects. That is the moat.
+
+**Emancipation is upward, above the floor — and it has already started.**
+`lance-graph-ogar::recipe_vocab` is the first act: *"the 34 NARS recipes as
+`ogar-loco` ops above `DOMAIN_FLOOR`, with the kanban census as the awareness
+surface."* NARS tactics expressed in the same `(function : value)` two-byte call
+as `repeat`. Nothing about the ABI had to change to carry them — which is the
+claim "vocabulary-agnostic" was making, now cashed.
+
+### This is the JAVA RULING one tier down — same shape, same reasoning
+
+| | `sql()` (T3, Java) | `ogar-loco` (the program surface) |
+|---|---|---|
+| the surface | ordinary SQL a developer already knows | ordinary blocks an author already knows |
+| why boring | *"novel API is the enemy, not slow API"* — every unit of novelty is lock-in-by-learning-curve | a drifting core is N dialects; the floor is what makes siblings composable |
+| where power lives | lance-graph, reached by classid → ClassView | the vocabulary above `DOMAIN_FLOOR`, reached by classid → `Vocabulary` |
+| what the caller learns | nothing | nothing |
+| the join key | **the classid** | **the classid** |
+
+Both surfaces are deliberately dumb, both resolve meaning through the classid,
+and in both the temptation is to make the SURFACE cleverer. **On the Java side
+that temptation is already ruled out in writing; the same ruling should be read
+as covering loco.** A loco emancipation that grew new core opcodes, or let a
+vocabulary redefine a shared-core byte, would be `Mask.minus()` in block
+clothing — power leaking into the front instead of arriving through the address.
+
+**Consequence for G-F:** the planner's missing `HotPlug` is not merely a wiring
+chore, it is how the kanban vocabulary gets to exist above the floor without
+anyone importing anyone. The cascade the operator named —
+*"plug and play mints the classid; the classid mints ogar-vocab; which triggers
+ogar-loco vocabulary"* — IS the emancipation mechanism, stated as a pipeline.
+Every consumer that hot-plugs adds a sibling vocabulary and takes nothing from
+the floor.
