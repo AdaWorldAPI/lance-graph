@@ -23,10 +23,17 @@ argument throws — it never zero-pads. Read against this tree:
 ### What was un-folded thirty lines from the fold
 
 `shared_prefix_tiles` read the whole facet as one register; `hi_distance` /
-`lo_distance` (`shared6`) still walked six bytes in a loop. Same fold per axis:
-`"{0}…{5}" -f chain` → LE `u64`, xor, `trailing_zeros/8`, clamp 6. Falsifier
-compares fold vs the loop at every divergence tier on both axes; disable-run
-(reversed byte order) fails at `hi t=0`.
+`lo_distance` (`shared6`) still gathered six strided bytes per axis into a
+chain and walked them. First cut re-folded the gathered chain into a `u64`
+(1.5× — the gather dominated). The operator's correction (*"fold the
+PowerShell logic ONCE"*): the `u128` facet already holds both axes by
+position, so an axis prefix is the whole-facet xor **masked to that axis's
+tier bytes** (`HI_BYTES` = bytes 5,7,…,15; `LO_BYTES` = 4,6,…,14), then
+`trailing_zeros/16` past the classid — the `-f` was done at mint, never per
+call. Measured, 64K random pairs: loop 12.5 ns → masked readout **5.8 ns** for
+both axes (2.9 ns each, the same as the whole-facet `prefix_distance`).
+Falsifier compares against the loop at every divergence tier on both axes;
+disable-run (swap `HI_BYTES`/`LO_BYTES`) fails at `hi flip at tier 0`.
 
 ### What the same shape is worth one repo down (measured, not yet wired)
 
