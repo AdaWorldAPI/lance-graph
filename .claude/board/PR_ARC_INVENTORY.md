@@ -27,6 +27,94 @@
 - **Confidence:** HIGH on the numbers (two scratch-bench runs, identical
   ordering); the "column of facets" door is the operator's framing, unmeasured.
 
+## 2026-09-16 — lance-graph PR #1240 (merged `e054dcf`, branch `claude/clone-repositories-71a5sw`) — Wave 0 for the Cypher→mask lowering: the STOP gate is answered, and the operator's redirect cancelled the wave it was gating
+
+- **Added:** `crates/lance-graph/examples/w0b_corpus_census.rs` — the W0-b
+  instrument, which classifies a Cypher corpus through the REAL
+  `parse_cypher_query` + `LogicalPlanner::plan` (never a regex over the text),
+  declared with `[[example]] test = true` because an example's `test` flag
+  defaults to FALSE and a `#[cfg(test)]` module inside one is otherwise
+  compiled and never run; four extractor/traversal falsifiers with it. The
+  only code change is a REMOVAL — `lance-graph-planner`'s `datafusion = []`,
+  a feature NAME with no body and no `cfg` reader. Plus
+  `CLAUDE.md`'s *grep FINDS, reading DECIDES* P0 rule; the DuckDB harvest made
+  reproducible (`run.sh` + `headers.txt` + `args.txt.in` + 40 committed TSVs,
+  discharging the translation matrix's §6);
+  `.claude/plans/lance-graph-as-the-modelgraph-v1.md`; and the EPIPHANIES entry
+  `E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1`.
+  55 files, +5 104 / −6, 22 commits; merged 14:08:50Z by the operator.
+- **Measured — the STOP gate does not fire.** 33 files of 1 451 walked,
+  342 candidate literals, **303 classified: 113 Full (37.3 %), 190 Split
+  (62.7 %), 0 Grace.** `cypher-mask-lowering-v1.md` §7.0 asks whether the
+  full-lowering fraction is negligible; **0 of 303 fail to lower**, and Split
+  is a two-stage plan, not a failure. W0-a / OQ-1 is answered by READING
+  rather than by building: §1.4 says the `label → classid` binding *"does not
+  exist"* — it does (`contract::ogar_codebook::LabelDTO`, with
+  `match_nodes_by_class` already taking that `u16` at the far end), with zero
+  consumers workspace-wide. What is missing is a FIELD on `NodeMapping`, not a
+  mechanism.
+- **Locked — the operator's redirect, which is the reason this arc ends here.**
+  *"quack is the spine you need to rebuild from … any SPOG query will be just
+  another flavor … no AI will ever ask what it is, you can use muscle
+  memory."* A Cypher→mask lowering would have been a THIRD lowering onto one
+  evaluator floor; the measurement stands as a corpus fact and the wave it was
+  gating is cancelled rather than scheduled. Also locked: *a summary is a
+  second place to be wrong — the place a reader looks first.*
+- **Review: two rounds, nine findings, all correct, and they moved the headline
+  twice.** Round 1 — the corpus was a HAND LIST of three files, chosen from a
+  grep that structurally cannot see a raw string, on the same day this branch
+  wrote *grep FINDS, reading DECIDES* into `CLAUDE.md`; fixed structurally as a
+  directory walk, so a file added to the tree now enters the corpus with no
+  edit. Inline pattern properties (+53 grace hits) and `DISTINCT` over a value
+  (+37) were never read. `run.sh`'s `|| true` let a failed harvest leave stale
+  TSVs to be counted beside fresh provenance, and exit 0. Round 2 — **Major:**
+  traversal errors were DISCARDED (`read_dir`, entry iteration,
+  `read_to_string`), so a census that could not read part of the tree reported
+  a clean result; both `rust_sources` and `main` now propagate `io::Result`.
+  Zero-hash `r"…"` fell through to the ordinary-string branch and had its
+  escapes processed. `per_source` kept only the first source per literal
+  (27 → 33 files; the classification did not move).
+- **The same failure four times, which is the finding worth keeping.** A number
+  corrected where it was DERIVED and left standing where it was SUMMARIZED:
+  the plan's G-F row contradicted its own body four sections above it; §15's
+  caveat still quoted 46 % after §17.3 had withdrawn it; the census's module
+  doc said *33 files* while the program it documents printed *27*, in one
+  commit; and the PR title carried the superseded percentage.
+- **Two disable-run results the green tests could not have produced.** One
+  falsifier was VACUOUS on first write — with the raw-string bound restored,
+  `a_zero_hash_raw_string_is_extracted` still passed, because for a literal
+  with nothing to escape both branches emit identical bytes; its doc claimed
+  to BE the falsifier. Corrected in place with the disable result quoted, and
+  the real falsifier named (`a_raw_string_keeps_its_backslashes`). The Major
+  fix's falsifier walks a NONEXISTENT path rather than a `chmod 000` one,
+  because this container runs as root, where `chmod 000` does not deny a read
+  — the obvious fixture would have passed for the wrong reason.
+- **CI on the merged head `84c7ebe`, by check run, not by badge:** all ten
+  green — `format`, `member-tests`, `test-with-coverage`, `test`, `clippy`,
+  `regenerate-and-diff`, `citation-decay`, `no-shrink`, `linux-build`,
+  `added-plans-have-dids`. `regenerate-and-diff` was RED at four intermediate
+  SHAs for one reason, worth recording because `CLAUDE.md` already warns about
+  it in as many words: the supersession index reads the BOARD as an input, so
+  regenerating BEFORE the board write produces a byte-identical file that
+  reads as current while CI recomputes it on the merge commit and goes red.
+  **Regenerate LAST.**
+- **Deferred, named:** the rest of W0-a — the corpus's labels (`Person`,
+  `Company`, `Thing`) are NOT in the codebook's 123 entries, so 37.3 % is a
+  measurement of SHAPE and a production number needs a real bake; PR5, the hop
+  into quack (`src_mask → edge lane → dst_mask`), the one leg quack lacks and
+  the operator-endorsed next brick, deliberately NOT started here;
+  `ISS-THE-34-RECIPE-LOCO-VOCABULARY-EXISTS-TWICE-AND-THE-TWO-DISAGREE`, filed
+  after this merge.
+- **Docs:** the plan's G-F row corrected with a ⊘ note quoting what it said;
+  §15's caveat moved 46 % → 37.3 %; the census's module doc reconciled to the
+  program's own output. The EPIPHANIES entry carries the corrections rather
+  than restating the first numbers.
+- **Confidence:** high on the classification — it runs the shipped parser and
+  planner, so it cannot drift from the tests it mirrors, and every disposition
+  cites the §3/§4 row that rules it. Medium on 37.3 % as a PRODUCTION number,
+  for the codebook reason under *Deferred*. High on the direction, which is
+  the operator's and not a measurement at all.
+
 ## 2026-09-15 (3) — lance-graph PR #1235 (merged `e8d3c19`, branch `claude/clone-repositories-71a5sw`) — `lance-graph-quack`: the DuckDB-shaped surface whose operators ARE masking ops, and A1's falsifier run
 
 - **Added:** the workspace member `crates/lance-graph-quack` (builds mask-risc

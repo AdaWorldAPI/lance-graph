@@ -1,3 +1,61 @@
+## ISS-THE-34-RECIPE-LOCO-VOCABULARY-EXISTS-TWICE-AND-THE-TWO-DISAGREE (2026-09-16) — OPEN, needs an operator ruling, latent today
+
+The 34 NARS recipes are mapped to loco op bytes **twice**, in two repos, and the two
+implementations answer `Vocabulary` differently over the identical byte range.
+
+| | `lance-graph-ogar::recipe_vocab` (this repo) | `ogar-loco::nars` (OGAR #304, merged `5055b06`) |
+|---|---|---|
+| base | `RECIPE_OP_BASE = DOMAIN_FLOOR` | `NARS_BASE = DOMAIN_FLOOR` |
+| map | `op_of` = `base + id - 1` | `byte_of_id` = `base + id - 1` |
+| type | `RecipeVocabulary` | `NarsVocabulary` |
+| `domain_stack_arity` | **1** for all 34 | **2** for the nine `Datapath`, 1 otherwise |
+| `domain_value_codebook` | `CB_ATTENTION_FOCUS` | **not overridden** → trait default `None` |
+| `domain_body_refs` | 0 | 0 — agree |
+| `domain_pushes_result` | `Some(true)` | `Some(true)` — agree |
+| `domain_name` | `r.code` | `r.code` — agree |
+
+**Why the arity disagreement is not cosmetic.** `stack_arity` is what statement
+segmentation reads, so the same recipe bytes bound into different statements depending on
+which vocabulary a caller holds.
+
+**The older answer is the better-grounded one.** `RecipeVocabulary` argues *why* not two —
+*"the recipe's own parameters are properties of the recipe (a table lookup by id), never
+stack operands, so a second operand would be a value with no source"* — i.e. it names where
+operand #2 would come from and answers: nowhere. `NarsVocabulary`'s module doc labels its
+own 2 as **POLICY, not a measurement**, *"a stated default per bucket"*, chosen without
+knowledge that the other implementation existed.
+
+**Latent, not live — but not for long by construction.** `NarsVocabulary` has **zero
+consumers**: the only hits workspace-wide are its own `struct` and `impl`. However
+`lance-graph-ogar`'s manifest pins `ogar-loco = { git = "…/OGAR", branch = "main" }` — a
+FLOATING ref, so the next dependency resolve compiles `nars.rs` and `recipe_vocab.rs` into
+one unit: two public vocabularies over one byte range, one `use` away from firing.
+
+**Three claims #304 made false, none of them corrected yet:**
+
+- `ogar-loco`'s package `description` still ends *"Zero-dep."* while its `[dependencies]`
+  now carries a mandatory `lance-graph-contract` git dep.
+- `lance-graph-ogar`'s `Cargo.toml`, in the comment above the `ogar-loco` dependency:
+  *"ogar-loco is zero-dep and lance-graph-contract is zero-dep; neither may …"*.
+- `recipe_vocab.rs`'s module doc justifies its own LOCATION with that premise —
+  *"Neither may import the other … so it lives in a consumer that already depends on
+  both"*. `ogar-loco` now imports `lance-graph-contract` directly, so the reason the file
+  gives for being where it is no longer holds.
+
+**Recommendation, not applied.** Keep `nars.rs`'s `tier_of` / `is_mask_op` — the
+"which calls are masking ops" column is genuinely new, is a property of the loco byte, and
+belongs in loco — and drop or delegate its `impl Vocabulary`, leaving `RecipeVocabulary` as
+the single vocabulary. Not done here: it crosses two repos and edits a just-merged PR, so
+the call is the operator's.
+
+**How it got in.** #304 was reviewed in this session and this was not caught. The PR's claim
+was *"the mapping was already a column"*; the review verified that the **bucket column**
+exists in the shipped catalogue and never asked whether the **vocabulary** already existed.
+One search for `impl Vocabulary` finds it. Worse, `CLAUDE.md`'s own *grep FINDS, reading
+DECIDES* section quotes `recipe_vocab.rs`'s module doc **by name** as its third example — the
+file was cited in the reviewer's own standing instructions while the duplicate was being
+approved. The rule's failure mode was reproduced by the rule's own witness.
+
 ## ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE (2026-09-15) — OPEN, upstream bug, our `lancedb-sdk` feature does not build
 
 `lancedb 0.38.0` does not compile with its own default feature set. Measured, reading the

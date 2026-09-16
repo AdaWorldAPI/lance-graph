@@ -10,6 +10,65 @@ Sibling measurements the same day: ndarray #311 (ternlogq tail descent 5–8×;
 64×2 re-apply on a full-width mask NO; GEMM block-stop tail inert) and
 lance-graph-java #79 (cached hop tile breaks even at hop two).
 
+## 2026-09-16 — PR #1240 merged (`e054dcf`): the Cypher→mask STOP gate is answered on `main` — NO contract inventory delta, and the wave it gated is cancelled by the operator's redirect
+
+- **Added on `main`:** `crates/lance-graph/examples/w0b_corpus_census.rs` (the
+  W0-b instrument — classifies a Cypher corpus through the shipped
+  `parse_cypher_query` + `LogicalPlanner::plan`, declared `test = true` so its
+  four falsifiers actually run); the REMOVAL of `lance-graph-planner`'s inert
+  `datafusion = []` feature; `CLAUDE.md`'s *grep FINDS, reading DECIDES* P0
+  rule; the reproducible DuckDB harvest (`run.sh` + `headers.txt` +
+  `args.txt.in` + 40 TSVs, discharging the translation matrix's §6);
+  `.claude/plans/lance-graph-as-the-modelgraph-v1.md`. 55 files,
+  +5 104 / −6, 22 commits; merged 14:08:50Z by the operator.
+- **Contract inventory delta: NONE — verified, not assumed.** `git diff
+  31273cb..84c7ebe` touches **zero** files under `crates/lance-graph-contract`.
+  No type added, changed, or removed.
+- **The measurement consumers should know:** 33 files of 1 451 walked,
+  342 candidates, **303 classified — 113 Full (37.3 %), 190 Split (62.7 %),
+  0 Grace.** §7.0's STOP condition does not fire: **0 of 303 fail to lower**.
+  Carry its bound with it — the corpus's labels (`Person`, `Company`,
+  `Thing`) are NOT among the codebook's 123 entries, so 37.3 % measures
+  SHAPE, and a production number needs a real bake. Also settled by reading:
+  `contract::ogar_codebook::LabelDTO` IS the `label → classid` binding the
+  plan said did not exist, with zero consumers workspace-wide; what is
+  missing is a FIELD on `NodeMapping`, not a mechanism.
+- **Direction, and it is the operator's:** *"quack is the spine you need to
+  rebuild from … any SPOG query will be just another flavor … no AI will ever
+  ask what it is, you can use muscle memory."* A Cypher→mask lowering would
+  have been a THIRD lowering onto one evaluator floor. The census stands as a
+  corpus fact; the wave is cancelled, not scheduled. Board:
+  `E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1`.
+- **Status board:** `D-GTM-0m / P3` row ADDED in this commit — it is
+  pre-existing debt, not #1240's: the deliverable shipped in an earlier arc
+  (`ndarray` `d9459f0` + the §15 `mask_shift_morton` spec `df7fe9c`) and had
+  no status row, while its sibling `D-GTM-0n` did, so *"where is D-GTM-0m"*
+  had no answer on this board. The row carries the bounds EPIPHANIES says a
+  citation of it must carry (one fixture; `n_gen`/coal are upper bounds).
+- **CI on the merged head `84c7ebe`, by check run, not by badge:** all ten
+  green — `format`, `member-tests`, `test-with-coverage`, `test`, `clippy`,
+  `regenerate-and-diff`, `citation-decay`, `no-shrink`, `linux-build`,
+  `added-plans-have-dids`. `regenerate-and-diff` was red at four intermediate
+  SHAs, for the reason `CLAUDE.md` already states in as many words: the
+  supersession index reads the BOARD as an input, so regenerating BEFORE the
+  board write yields a byte-identical file that reads as current while CI
+  recomputes it on the merge commit. **Regenerate LAST** — obeyed in this
+  commit, violated four times in the PR.
+- **Open, and the operator's to decide:** (a)
+  `ISS-THE-34-RECIPE-LOCO-VOCABULARY-EXISTS-TWICE-AND-THE-TWO-DISAGREE` —
+  filed today after OGAR #304 merged; `ogar-loco::nars` and
+  `lance-graph-ogar::recipe_vocab` both implement `Vocabulary` over
+  `DOMAIN_FLOOR..`, disagreeing on `stack_arity` and `value_codebook`, latent
+  only because `NarsVocabulary` has zero consumers — and this repo pins
+  `ogar-loco` at `branch = "main"`, a floating ref, so the next resolve
+  compiles both together; (b) PR5, the hop into quack
+  (`src_mask → edge lane → dst_mask`), operator-endorsed and deliberately NOT
+  started; (c) the rest of W0-a, the real bake behind the SHAPE caveat above.
+- **Branch:** `claude/clone-repositories-71a5sw` restarted from `main` at
+  `e054dcf` (fast-forward — it held only merged history). The OGAR sibling
+  branch was restarted the same way at `5055b06` after #304 merged.
+- Arc entry: `PR_ARC_INVENTORY.md` under PR #1240.
+
 ## 2026-09-15 (10) — D-HXP-8 arm 1 RAN: tic-tac-toe is F0-degenerate (rails reach the whole board → the stack is a census), not a KILL; the early-exit meter presumes non-negative stacking
 
 - **State consumers should know:** the Raumgewinn falsifier's first arm is
