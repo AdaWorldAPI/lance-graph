@@ -12,6 +12,12 @@
   - *Correction 2026-09-16 (Codex on #1242):* **4 commits**, not 3 —
     `95e2863` (u64 fold), `ce6664e` (epiphany entry), `76bb237` (masked
     single-register readout), `45c5199` (entry corrected to the readout).
+  - *Correction 2026-09-16 (Codex on #1243):* the **Locked** line below
+    reads `tz((a ^ b) & AXIS_BYTES) / 16` — it omits the `− 32` for the four
+    classid bytes below the tiers. The merged `shared_axis` is
+    `(tz((a ^ b) & AXIS_BYTES) − 32) / 16`; without the offset a tier-0
+    divergence would read as prefix 2, not 0. The line itself stays as
+    written (append-only); this note is the record.
 - **Locked:** *the register is already the formatted form; never un-format it
   to compute on it.* An axis prefix is `tz((a ^ b) & AXIS_BYTES) / 16` past
   the classid — the same op as the whole-facet `prefix_distance`.
