@@ -87,7 +87,7 @@ a licence to act on it.
 | **READ** | `graphrag-doc-retrieval-soa-integration-v1` | `GateDecision` | DESIGN + FIRST CODE. **v1.2 (2026-07-17):**  | 7/10 |
 | **READ** | `hexagon-plasticity-v1` | `MergeMode` | ACTIVE — landed 2026-09-14 on operator go. * | 5/10 |
 | **READ** | `integration-actionhandler-rbac-orchestration-v1` | `GateDecision` | HARDENING (5+3 in progress). | 0/0 |
-| **READ** | `mask-algebra-revision-read-v1` | `StepMask` | DRAFT, awaiting operator ruling on §5 | 2/3 |
+| **READ** | `mask-algebra-revision-read-v1` | `StepMask` | DRAFT, awaiting operator ruling on §5 | 3/3 |
 | **READ** | `mul-calibration-not-verdict-v1` | `GateDecision` | PROPOSAL (unbuilt) — 2026-08-26. PLAN/BOARD  | 6/12 |
 | **READ** | `mul-consumer-build-gate-v1` | `GateDecision` | GATE RUN — 2026-08-27. Discharges D-MCAL-6 a | 3/7 |
 | **READ** | `mul-consumer-census-v1` | `GateDecision` | MEASUREMENT COMPLETE — 2026-08-27. Measureme | 1/2 |
@@ -141,7 +141,7 @@ a licence to act on it.
 | **RESCOPE** | `entropy-closure-causal-ground-v1` | `ThinkingStyle` | PROPOSAL (measured, unbuilt) — 2026-08-26. P | 3/8 |
 | **RESCOPE** | `foundry-consumer-parity-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `foundry-roadmap-unified-smb-medcare-v1` | `BindSpace` | Active | 0/0 |
-| **RESCOPE** | `lance-graph-as-the-modelgraph-v1` | `BindSpace` | PROPOSAL (operator-set endgame, 2026-09-16). | 5/5 |
+| **RESCOPE** | `lance-graph-as-the-modelgraph-v1` | `BindSpace` | PROPOSAL (operator-set endgame, 2026-09-16). | 6/6 |
 | **RESCOPE** | `lf-integration-mapping-v1` | `BindSpace` | Active (2026-04-25) | 0/0 |
 | **RESCOPE** | `lite-unified-surrealql-lance-v1` | `BindSpace` | CONJECTURE / design. **Test via feature gate | 0/0 |
 | **RESCOPE** | `ogit-cascade-supabase-callcenter-v1` | `BindSpace` | plan, not implementation. | 0/16 |

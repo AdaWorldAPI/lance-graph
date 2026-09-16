@@ -1,3 +1,130 @@
+## 2026-09-16 (15) — E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1 — the operator's quack redirect, and the four errors of one session that all substituted an address for the thing
+
+**Status:** OPERATOR-RULED (the redirect, verbatim below) + MEASURED (the census
+numbers, re-run over the whole tree after codex's review of #1240).
+**Confidence:** HIGH on the census — the corpus mechanism is now a directory
+walk, so the number is a property of the tree rather than of a file list I
+chose. The spine ruling is the operator's; it is recorded, not derived.
+
+### The redirect, in the operator's own four messages
+
+> *"cypher is just a cheap proof of concept / and an even better proof of
+> concept is quack"* → *"my point is quack is the spine you need to rebuild
+> from"* → *"any graph traversal in the end will be a modified version of it /
+> any SPOG query will be just another flavor / and the benefit is quack /
+> duckdb no AI will ever ask what it is, you can use muscle memory"* →
+> *"everything else is running in circles around whats not in your training"*.
+
+**The argument is muscle memory, not elegance, and reading it as elegance is
+how it gets lost.** `lance_graph_quack::Query { filter, agg }` — filter a
+population, reduce over the survivors — is a shape every reader, every author
+and every model already holds without being taught. A novel IR has to be taught
+to each of them, every time, and the teaching cost recurs on every future
+session. That is the same test the Java surface passes one tier down
+(lance-graph-java `CLAUDE.md` § *THE JAVA SURFACE IS `sql()`*): the boring front
+wins because nobody has to learn it, not because it is nicer.
+
+The last message is the mechanism behind the other three, and it is the one
+worth keeping: **circling is the symptom of building on what is not in
+training.** Work that re-derives its own vocabulary every session does not
+accumulate — each session pays the teaching cost again and mistakes paying it
+for progress.
+
+### What it cancels, stated plainly because I had it queued
+
+The Cypher→mask lowering (`.claude/plans/cypher-mask-lowering-v1.md`, Wave 1)
+would have been a **third** lowering onto one floor — beside quack's `lower`
+and `lgj-abi`'s `plan_eval`, both already pinned equal to `lance-graph-mask-risc`
+by a differential. Three dialects, one evaluator, and two of them novel.
+
+quack's one missing leg is the **hop** (`src_mask → edge lane → dst_mask`). That
+is one brick, and it makes SPOG a *flavour* of a shape that already exists
+rather than a fourth thing to learn. It is now the recommended next brick
+(task #10 / PR5), where before it was gated behind PR1-4.
+
+### The census defect — same shape, and self-inflicted on the day the rule landed
+
+`w0b_corpus_census` was built to answer §7.0's STOP gate: what fraction of the
+Cypher the tree actually contains lowers to a mask. Its first corpus was a
+**hand list of three files**, chosen from a grep — and a grep structurally
+cannot see a query built as a raw string literal. codex flagged it on #1240.
+
+| | corpus | classified | Full (mask-lowerable) |
+|---|---|---|---|
+| as first reported | 3 files, hand-listed | 20 | 15 — **75.0 %** |
+| after a quote-parity fix | same 3 files | 50 | 23 — **46.0 %** |
+| after codex: directory walk | **27 files** of 1451 walked | **303** | 113 — **37.3 %** |
+
+The corpus grew **17×** and the headline halved. The root cause is named in
+this repo's own P0 rule — *grep FINDS, reading DECIDES* — which was written
+into `CLAUDE.md` **the same day**. Writing a rule is not the same as being
+immune to it.
+
+Three classifier defects rode in with the fix (inline pattern properties never
+read, 4 maps → 53 hits; `DISTINCT`-over-a-value never firing, 37 hits; and
+`run.sh`'s `|| true`, which let a failed harvest leave stale TSVs to be counted
+while `provenance.txt` already carried the new commits — a clean exit reporting
+old measurements against a new checkout).
+
+### The four errors of this session share ONE shape
+
+| what I substituted | for what |
+|---|---|
+| a grep pattern | the corpus |
+| a section number and a symbol name | the argument (operator: *"reverse grep… pattern matching that doesnt make any context for me"*) |
+| a stale 46 % | a decision I asked the operator to make (withdrawn — 0 of 303 fail to lower, so no ruling was ever needed) |
+| an A/B/C fork I raised as open | a ruling `cypher-mask-lowering-v1` §5.2 had already made |
+
+**An address is not the thing.** Each one is cheap to produce and looks like
+work. And the redirect above is the positive form of the same insight: build on
+the spine the reader already has an address for, because a novel IR is an
+address nobody can resolve.
+
+Operational consequence, and it is the cheap half: **plain words first; the
+symbol, file and section go at the END, as receipts.** A report that opens with
+`§5.2 / TERNLOG 0x86 / D-MAR-2` has told the reader nothing they can act on.
+
+### The three rulings that came with it
+
+**Alpha channel first, and the reason is not sequencing convenience.** Operator:
+the SPOG alpha channel *"affects the underlying storage and table 'multitenant'
+access… writing to alpha split tunnel without changing ontologies itself as
+saccade focus of attention sparse write and meta awareness of simultaneous
+rung"*, where *"before it was 10 rung not talking to each other despite
+kanban_actor.rs or deprecated 'one at a time'"*. Three things are being bought:
+a write path that does not rewrite the shared ontology (which is what makes
+concurrent attention safe); a channel property rather than a consumer
+convention; and **simultaneous rungs** — levels of thinking interact, and
+interaction requires the priors to sit on the same level. So any second consumer
+of `ogar_loco::TERNLOG = 0x86` inherits whatever simultaneity contract the alpha
+channel establishes first. `cypher-mask-lowering-v1` §5.2's OQ-9 said "defer
+rather than race"; this says *why* deferring is correct rather than merely
+polite.
+
+**`RevisionKind` lives beside `belief.rs`.** Operator: *"belief is historically
+correct but needs to be adjusted for proper wiring"* — so the planner, not the
+contract (option A of `mask-algebra-revision-read-v1.md` §5 Q1). The history is
+right; the wiring is the work. The adjustment is that plan's **D-MAR-2**.
+
+**The 46 % question is withdrawn, not answered.** Operator: *"46% negligable how
+do i know what you are talking about"* — a fair hit twice over. I asked for a
+ruling on a word from a plan the operator did not write, without supplying what
+anyone would need to judge it; and the number had already moved to 37.3 % (see
+the table above). Re-reading the census, **0 of 303 queries fail to lower** —
+Split is a two-stage plan, not a failure — so there was never a ruling to make.
+
+### Receipts
+
+- Plan: `.claude/plans/lance-graph-as-the-modelgraph-v1.md` §§14-18 (the mindset
+  check, the census, `LabelDTO` as the answer to OQ-1, the rulings, the redirect).
+- Instrument: `crates/lance-graph/examples/w0b_corpus_census.rs` — the corpus is
+  now `rust_sources()`, a walk, so the denominator is the tree's property.
+- Gate discipline, second measured instance: `SUPERSESSION-INDEX.md` was
+  regenerated BEFORE these board writes and went red at four successive SHAs on
+  #1240 — exactly the failure `CLAUDE.md` § *Regenerate LAST, after the board
+  writes* already records from #1085. The rule is right; it needs to be executed
+  in the order it states.
+
 ## 2026-09-16 (14) — E-THE-NET-ARM-RANKED-ON-A-PARTIAL-SUM-AND-ITS-ONLY-APPARENT-SIGNAL-WAS-THAT-BUG-1 — entry (13)'s NET row is re-measured; the arm is a census on BOTH arms, not one
 
 **Status:** MEASURED — re-run of `D-HXP-8` arm 1 after a one-line ranking fix in
