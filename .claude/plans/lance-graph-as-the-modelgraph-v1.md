@@ -321,9 +321,22 @@ accordingly to batchwriter."* Followed. The arc, and what it left:
 | **#912** | **Phase A: artifact-backed commits + THE SOLE OWNED LANCE WRITER** (supersedes #911's contract) |
 | #949 | D-WXS-2a half A — row-major vs Morton KILL fires, no code change |
 
-**So `Dataset::write` is real and in-tree**: `crates/lance-graph/src/graph/cycle_sink.rs:675`
-and `:710`, under a module doc saying the I/O *"is INTERNAL to this one writer."*
-The plan's G-C above — *"no `Dataset::write`"* — was **wrong when written.**
+**So `Dataset::write` is real and in-tree** — two call sites, under a module doc
+saying the I/O *"is INTERNAL to this one writer"*:
+`Dataset::write` at `crates/lance-graph/src/graph/cycle_sink.rs:675` (the Create
+inside `LanceCycleWriter::bootstrap`) and `Dataset::write` at
+`crates/lance-graph/src/graph/cycle_sink.rs:710` (the Create-or-Append inside
+`LanceCycleWriter::raw_append`). The plan's G-C above — *"no `Dataset::write`"* —
+was **wrong when written.**
+
+> ⊘ The first spelling of this citation was `…rs:675` followed by a bare
+> `` `:710` ``, and the citation-decay gate correctly failed it: its anchor is the
+> NEAREST backticked token, so `:710` — which is not a symbol and appears nowhere
+> near line 675 — became the thing it went looking for. The fix the gate asks for
+> is not a corrected number but an anchor that is an ADDRESS, so each citation now
+> carries `Dataset::write` adjacent to it, and that string is literally on both
+> cited lines. A shorthand second reference is cheap to write and costs a real
+> gate failure.
 
 ### `batch_writer.rs`'s own status note is ALSO stale
 
