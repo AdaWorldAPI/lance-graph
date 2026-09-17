@@ -1,6 +1,6 @@
 ## ISS-NIBLEPATH-FOLD-IS-CARRIER-2-UNMASKED (2026-09-17) — OPEN, the one prefix fold that genuinely wants a mask, and does not have one
 
-`NiblePath::common_prefix_depth` (`crates/lance-graph-contract/src/hhtl.rs:251`) is
+`NiblePath::common_prefix_depth` (`crates/lance-graph-contract/src/hhtl.rs`, `fn common_prefix_depth`) is
 carrier 2 per `.claude/knowledge/three-prefix-fold-carriers.md`: 16 nibbles packed into
 one `u64`, sub-byte, no byte addresses. It walks depth-by-depth, each step a shift, an
 `Option` construct and a two-field compare:
@@ -17,7 +17,7 @@ while d < max {
 Up to 16 iterations for what is `((self.path ^ other.path).leading_zeros() >> 2)` clamped
 to `min(self.depth, other.depth)` — root-first, so `leading_zeros`, not `trailing_zeros`.
 
-**Live, not hypothetical:** `crates/lance-graph/src/graph/mailbox_scan.rs:263` calls it for
+**Live, not hypothetical:** `crates/lance-graph/src/graph/mailbox_scan.rs` (`pa.common_prefix_depth(pb)`) calls it for
 CAKES nearest-ranking (`E-PANCAKES-IS-RADIX-IS-HHTL`). Two further local copies of the
 same fold shape exist over `HhtlKey` in `crates/perturbation-sim/examples/`
 (`outage_over_hhtl_hops.rs:76`, `basin_placement_learning.rs:76`) and should be

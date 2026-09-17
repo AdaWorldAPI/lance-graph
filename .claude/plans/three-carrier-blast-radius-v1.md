@@ -4,6 +4,10 @@
 this document.
 **Doctrine:** `.claude/knowledge/three-prefix-fold-carriers.md`
 **Board:** `E-THREE-CARRIERS-THREE-FOLDS-1` (EPIPHANIES entry 17)
+**D-ids (STATUS_BOARD § three-carrier prefix folds):** the four census passes
+below are **D-TCF-5**; the carrier-2 probe + rewrite they gate is **D-TCF-4**.
+The shipped rows this plan builds on are D-TCF-1 (probe), D-TCF-2 (revert) and
+D-TCF-3 (doctrine).
 
 ## Why a blast-radius pass at all
 
@@ -30,7 +34,7 @@ live. Delegate the sweeps to Sonnet (grindwork: "find every site that X"),
 keep the classification on the main thread (accumulation: "is this site
 carrier 2 or carrier 3").
 
-### Pass 1 — type census (per carrier, exhaustive)
+### Pass 1 — type census (per carrier, exhaustive) — D-TCF-5
 
 For each carrier, the type(s) that ARE it, and every constructor / accessor /
 `from_*_bytes` / `to_*_bytes` on them. Output: a table of
@@ -58,7 +62,7 @@ is_ancestor|prefix_depth`, then open each and assign a carrier.
 be assigned is a finding — it means a fourth carrier exists, or that a site
 mixes two.
 
-### Pass 3 — the seams (highest value; do not skip)
+### Pass 3 — the seams (highest value; do not skip) — D-TCF-5
 
 Where does one carrier's output become another's input? Three candidate seams
 are already visible and each must be opened and characterized:
@@ -107,7 +111,7 @@ stated cost is unassessed, not free.
 1. Passes 1–2 (census). Read-only.
 2. Pass 3 (seams). Read-only. **Highest value — if only one pass runs, run this.**
 3. Pass 4 (outward radius). Read-only.
-4. *Then* the carrier-2 probe (four arms, same harness, `NiblePath` workloads
+4. *Then* the carrier-2 probe — **D-TCF-4** (four arms, same harness, `NiblePath` workloads
    incl. `EMPTY`, unequal depths, ancestor pairs, full-16 agreement).
 5. *Then*, and only on a green probe, the carrier-2 rewrite.
 
