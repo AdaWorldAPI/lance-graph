@@ -239,37 +239,30 @@ impl FacetCascade {
     ///
     /// The masked form is retained as this fold's test oracle
     /// (`masked_axis_oracle`), the same license a raw intrinsic gets under
-    /// `#[cfg(test)]`.
-    const fn shared_axis_chain(a: &Self, b: &Self, hi: bool) -> u8 {
-        let mut n = 0usize;
-        while n < 6 {
-            let (x, y) = if hi {
-                (a.tiers[n].hi, b.tiers[n].hi)
-            } else {
-                (a.tiers[n].lo, b.tiers[n].lo)
-            };
-            if x != y {
-                break;
-            }
+    /// `#[cfg(test)]`. This is the pre-#1242 `shared6` verbatim — restored, not
+    /// rewritten, so the probe's arm A and the shipped path are one function.
+    const fn shared6(a: [u8; 6], b: [u8; 6]) -> u8 {
+        let mut n = 0u8;
+        while (n as usize) < 6 && a[n as usize] == b[n as usize] {
             n += 1;
         }
-        n as u8
+        n
     }
 
     /// `hi`-chain distance: `6 − shared hi-prefix` — locality along the `hi` hierarchy,
     /// orthogonal to [`lo_distance`](Self::lo_distance).
     #[inline]
     #[must_use]
-    pub const fn hi_distance(&self, other: &Self) -> u8 {
-        6 - Self::shared_axis_chain(self, other, true)
+    pub const fn hi_distance(self, other: Self) -> u8 {
+        6 - Self::shared6(self.hi_chain(), other.hi_chain())
     }
 
     /// `lo`-chain distance: `6 − shared lo-prefix` — locality along the orthogonal `lo`
     /// hierarchy, on the SAME facet.
     #[inline]
     #[must_use]
-    pub const fn lo_distance(&self, other: &Self) -> u8 {
-        6 - Self::shared_axis_chain(self, other, false)
+    pub const fn lo_distance(self, other: Self) -> u8 {
+        6 - Self::shared6(self.lo_chain(), other.lo_chain())
     }
 
     /// Number of fully-matching low **tiles** (0..=8, classid tiles 0–1 first, then the
@@ -683,8 +676,8 @@ mod tests {
         let mut b = sample();
         b[4] = 0x99; // tier0 lo
         let g = FacetCascade::from_bytes(&b);
-        assert_eq!(f.hi_distance(&g), 0, "hi chain unchanged");
-        assert!(f.lo_distance(&g) > 0, "lo chain diverges at tier0");
+        assert_eq!(f.hi_distance(g), 0, "hi chain unchanged");
+        assert!(f.lo_distance(g) > 0, "lo chain diverges at tier0");
         assert_eq!(
             f.shared_prefix_tiles(g),
             2,
@@ -733,8 +726,8 @@ mod tests {
         let f = FacetCascade::from_bytes(&sample());
         let base = sample();
         // identical: both axes fully shared (the oracle's xor == 0 clamp).
-        assert_eq!(f.hi_distance(&f), 0);
-        assert_eq!(f.lo_distance(&f), 0);
+        assert_eq!(f.hi_distance(f), 0);
+        assert_eq!(f.lo_distance(f), 0);
         // flip exactly tier `t`'s hi byte, then its lo byte: prefix must be `t` on
         // that axis and 6 on the other, and equal the loop's answer.
         for t in 0..6usize {
@@ -742,10 +735,7 @@ mod tests {
                 let mut b = base;
                 b[4 + 2 * t + axis_off] ^= 0x80;
                 let g = FacetCascade::from_bytes(&b);
-                let (sh, sl) = (
-                    6 - f.hi_distance(&g) as usize,
-                    6 - f.lo_distance(&g) as usize,
-                );
+                let (sh, sl) = (6 - f.hi_distance(g) as usize, 6 - f.lo_distance(g) as usize);
                 let (xf, xg) = (f.as_u128(), g.as_u128());
                 assert_eq!(sh, masked_axis_oracle(xf, xg, 1) as usize, "hi t={t}");
                 assert_eq!(sl, masked_axis_oracle(xf, xg, 0) as usize, "lo t={t}");

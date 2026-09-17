@@ -247,7 +247,7 @@ const ARMS: [Arm; 4] = [
 
 fn check_arms_agree(pairs: &[(FacetCascade, FacetCascade)], what: &str) {
     for (a, b) in pairs {
-        let shipped = (6 - a.hi_distance(b), 6 - a.lo_distance(b));
+        let shipped = (6 - a.hi_distance(*b), 6 - a.lo_distance(*b));
         for (name, f) in ARMS {
             let got = f(a, b);
             assert_eq!(
