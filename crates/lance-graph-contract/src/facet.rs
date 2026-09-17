@@ -222,54 +222,54 @@ impl FacetCascade {
         [t[0].lo, t[1].lo, t[2].lo, t[3].lo, t[4].lo, t[5].lo]
     }
 
-    /// Byte mask selecting the `hi` byte of every tier in the LE `u128` facet
-    /// (bytes 5, 7, … 15; the classid occupies 0..4, tier `t` sits at `4 + 2t`).
-    const HI_BYTES: u128 = Self::tier_byte_mask(1);
-    /// Byte mask selecting the `lo` byte of every tier (bytes 4, 6, … 14).
-    const LO_BYTES: u128 = Self::tier_byte_mask(0);
-
-    const fn tier_byte_mask(axis_off: u32) -> u128 {
-        let mut m = 0u128;
-        let mut t = 0;
-        while t < 6 {
-            m |= 0xFF << (8 * (4 + 2 * t + axis_off));
-            t += 1;
-        }
-        m
-    }
-
-    /// Shared coarse→fine prefix length (0..=6) along one axis, read straight
-    /// off the single-register facet — no chain gather, no re-fold.
+    /// Shared coarse→fine prefix length (0..=6) along one axis — the early-exit
+    /// byte chain fold, comparing tier `t`'s axis byte straight out of each
+    /// facet's backing bytes.
     ///
-    /// The facet's `u128` already holds both axes formatted by position
-    /// (`"{0}{1}" -f hi,lo` per tier, tier 0 lowest), so the `-f` was done once,
-    /// at mint. An axis prefix is the whole-facet xor masked to that axis's
-    /// bytes, then `trailing_zeros / 16` past the 4 classid bytes — the same
-    /// readout [`shared_prefix_tiles`](Self::shared_prefix_tiles) uses for the
-    /// whole facet. `xor == 0` under the mask ⇔ all six bytes agree.
-    const fn shared_axis(x: u128, axis: u128) -> u8 {
-        let x = x & axis;
-        if x == 0 {
-            6
-        } else {
-            ((x.trailing_zeros() - 32) / 16) as u8
+    /// **This is a PEEK, not a mask** (`E-THREE-CARRIERS-THREE-FOLDS-1`). The
+    /// cascade is byte-addressed: tier `t`'s axis byte sits at the compile-time
+    /// constant offset `4 + 2t` (lo) or `5 + 2t` (hi), so each step lowers to a
+    /// `movzbl` plus a `cmp` against the other facet's memory and a `jne` that
+    /// exits at the first divergence. Nothing is gathered — LLVM never
+    /// materializes the `[u8; 6]`. The single-register masked readout (`xor`,
+    /// mask, `tzcnt`, offset-correct) performs the SAME byte loads, then pays
+    /// to reassemble them and cannot exit early; measured 2026-09-17 by
+    /// `examples/facet_axis_lcp_probe.rs` at **3.64 ns vs 1.72 ns** on 64K
+    /// random pairs, and slower at every divergence depth 0..5.
+    ///
+    /// The masked form is retained as this fold's test oracle
+    /// (`masked_axis_oracle`), the same license a raw intrinsic gets under
+    /// `#[cfg(test)]`.
+    const fn shared_axis_chain(a: &Self, b: &Self, hi: bool) -> u8 {
+        let mut n = 0usize;
+        while n < 6 {
+            let (x, y) = if hi {
+                (a.tiers[n].hi, b.tiers[n].hi)
+            } else {
+                (a.tiers[n].lo, b.tiers[n].lo)
+            };
+            if x != y {
+                break;
+            }
+            n += 1;
         }
+        n as u8
     }
 
     /// `hi`-chain distance: `6 − shared hi-prefix` — locality along the `hi` hierarchy,
     /// orthogonal to [`lo_distance`](Self::lo_distance).
     #[inline]
     #[must_use]
-    pub const fn hi_distance(self, other: Self) -> u8 {
-        6 - Self::shared_axis(self.as_u128() ^ other.as_u128(), Self::HI_BYTES)
+    pub const fn hi_distance(&self, other: &Self) -> u8 {
+        6 - Self::shared_axis_chain(self, other, true)
     }
 
     /// `lo`-chain distance: `6 − shared lo-prefix` — locality along the orthogonal `lo`
     /// hierarchy, on the SAME facet.
     #[inline]
     #[must_use]
-    pub const fn lo_distance(self, other: Self) -> u8 {
-        6 - Self::shared_axis(self.as_u128() ^ other.as_u128(), Self::LO_BYTES)
+    pub const fn lo_distance(&self, other: &Self) -> u8 {
+        6 - Self::shared_axis_chain(self, other, false)
     }
 
     /// Number of fully-matching low **tiles** (0..=8, classid tiles 0–1 first, then the
@@ -683,8 +683,8 @@ mod tests {
         let mut b = sample();
         b[4] = 0x99; // tier0 lo
         let g = FacetCascade::from_bytes(&b);
-        assert_eq!(f.hi_distance(g), 0, "hi chain unchanged");
-        assert!(f.lo_distance(g) > 0, "lo chain diverges at tier0");
+        assert_eq!(f.hi_distance(&g), 0, "hi chain unchanged");
+        assert!(f.lo_distance(&g) > 0, "lo chain diverges at tier0");
         assert_eq!(
             f.shared_prefix_tiles(g),
             2,
@@ -699,25 +699,42 @@ mod tests {
         assert_eq!(h.row_match_mask(f), 0b1110);
     }
 
-    /// The masked single-register axis readout against the byte loop it replaced,
-    /// at every divergence position and on the identical case. A mask off by one
-    /// byte (hi/lo swapped, or the classid bytes included) or a missing
-    /// identical-clamp fails one of these rows. Disable-verified 2026-09-16:
-    /// swapping `HI_BYTES`/`LO_BYTES` fails `hi flip at tier 0`.
+    /// The shipped byte-chain fold against the **masked single-register oracle**
+    /// it is measured faster than, at every divergence position and on the
+    /// identical case.
+    ///
+    /// Direction reversed 2026-09-17 (`E-THREE-CARRIERS-THREE-FOLDS-1`): the
+    /// masked readout is now the `#[cfg(test)]` oracle and the chain is what
+    /// ships, so this stays a real differential rather than becoming a
+    /// restatement of the implementation. The `−32` in the oracle is the
+    /// classid's 32 bits sitting below the tiers in the LE `u128`: the mask
+    /// removes the classid's *bits*, never its *offset*. Disable-verified
+    /// 2026-09-16 in its prior direction: swapping the hi/lo masks fails
+    /// `hi flip at tier 0`; it still does.
     #[test]
     fn folded_axis_prefix_matches_the_loop_at_every_position() {
-        const fn looped(a: [u8; 6], b: [u8; 6]) -> u8 {
-            let mut n = 0u8;
-            while (n as usize) < 6 && a[n as usize] == b[n as usize] {
-                n += 1;
+        /// The retired single-register readout, kept as the oracle: xor the whole
+        /// facet, mask to one axis's six bytes, `tzcnt`, subtract the classid's
+        /// 32-bit offset, divide by the 16-bit tier stride.
+        const fn masked_axis_oracle(a: u128, b: u128, axis_off: u32) -> u8 {
+            let mut mask = 0u128;
+            let mut t = 0;
+            while t < 6 {
+                mask |= 0xFF << (8 * (4 + 2 * t + axis_off));
+                t += 1;
             }
-            n
+            let x = (a ^ b) & mask;
+            if x == 0 {
+                6
+            } else {
+                ((x.trailing_zeros() - 32) / 16) as u8
+            }
         }
         let f = FacetCascade::from_bytes(&sample());
         let base = sample();
-        // identical: both axes fully shared (the xor == 0 clamp).
-        assert_eq!(f.hi_distance(f), 0);
-        assert_eq!(f.lo_distance(f), 0);
+        // identical: both axes fully shared (the oracle's xor == 0 clamp).
+        assert_eq!(f.hi_distance(&f), 0);
+        assert_eq!(f.lo_distance(&f), 0);
         // flip exactly tier `t`'s hi byte, then its lo byte: prefix must be `t` on
         // that axis and 6 on the other, and equal the loop's answer.
         for t in 0..6usize {
@@ -725,9 +742,13 @@ mod tests {
                 let mut b = base;
                 b[4 + 2 * t + axis_off] ^= 0x80;
                 let g = FacetCascade::from_bytes(&b);
-                let (sh, sl) = (6 - f.hi_distance(g) as usize, 6 - f.lo_distance(g) as usize);
-                assert_eq!(sh, looped(f.hi_chain(), g.hi_chain()) as usize, "hi t={t}");
-                assert_eq!(sl, looped(f.lo_chain(), g.lo_chain()) as usize, "lo t={t}");
+                let (sh, sl) = (
+                    6 - f.hi_distance(&g) as usize,
+                    6 - f.lo_distance(&g) as usize,
+                );
+                let (xf, xg) = (f.as_u128(), g.as_u128());
+                assert_eq!(sh, masked_axis_oracle(xf, xg, 1) as usize, "hi t={t}");
+                assert_eq!(sl, masked_axis_oracle(xf, xg, 0) as usize, "lo t={t}");
                 if is_hi {
                     assert_eq!((sh, sl), (t, 6), "hi flip at tier {t}");
                 } else {

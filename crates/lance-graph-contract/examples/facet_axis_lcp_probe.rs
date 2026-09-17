@@ -195,7 +195,25 @@ fn arm_b_peek_u64(a: &FacetCascade, b: &FacetCascade) -> (u8, u8) {
 /// **Arm C** — the shipped masked `u128` readout, through the public API.
 #[inline(never)]
 fn arm_c_masked_u128(a: &FacetCascade, b: &FacetCascade) -> (u8, u8) {
-    (6 - a.hi_distance(*b), 6 - a.lo_distance(*b))
+    const fn axis_mask(axis_off: u32) -> u128 {
+        let mut m = 0u128;
+        let mut t = 0;
+        while t < 6 {
+            m |= 0xFF << (8 * (4 + 2 * t + axis_off));
+            t += 1;
+        }
+        m
+    }
+    const fn shared(x: u128, mask: u128) -> u8 {
+        let x = x & mask;
+        if x == 0 {
+            6
+        } else {
+            ((x.trailing_zeros() - 32) / 16) as u8
+        }
+    }
+    let x = a.as_u128() ^ b.as_u128();
+    (shared(x, axis_mask(1)), shared(x, axis_mask(0)))
 }
 
 /// **Arm D** — arm B with the two `as_bytes()` reads shared across both axes,
@@ -229,7 +247,7 @@ const ARMS: [Arm; 4] = [
 
 fn check_arms_agree(pairs: &[(FacetCascade, FacetCascade)], what: &str) {
     for (a, b) in pairs {
-        let shipped = (6 - a.hi_distance(*b), 6 - a.lo_distance(*b));
+        let shipped = (6 - a.hi_distance(b), 6 - a.lo_distance(b));
         for (name, f) in ARMS {
             let got = f(a, b);
             assert_eq!(
@@ -329,7 +347,10 @@ fn main() {
     for w in workloads {
         let pairs = make_pairs(w, N, &mut rng);
         check_arms_agree(&pairs[..256.min(pairs.len())], &w.label());
-        let times: Vec<f64> = ARMS.iter().map(|(_, f)| time_arm(*f, &pairs, RUNS)).collect();
+        let times: Vec<f64> = ARMS
+            .iter()
+            .map(|(_, f)| time_arm(*f, &pairs, RUNS))
+            .collect();
         if let Workload::Depth(_) = w {
             arm_a_by_depth.push(times[0]);
         }

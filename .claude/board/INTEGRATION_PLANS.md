@@ -1,3 +1,20 @@
+## 2026-09-17 (1) — three-carrier-blast-radius-v1 — how far do the three prefix-fold carriers reach, and where do they touch → `.claude/plans/three-carrier-blast-radius-v1.md`
+
+**Status:** PROPOSAL. Read-only census + seam map; gates only, no code
+authorized. Arose from `E-THREE-CARRIERS-THREE-FOLDS-1`: an optimization
+measured on the bit-plane/nibble side was shipped into the byte-addressed facet
+side, where it is 2.1× slower. The defect was a **scope error, not a bad
+optimization** — and no gate the workspace runs can see one, because the three
+carriers share a vocabulary ("prefix fold", "LCP", "shared depth").
+
+Four passes (type census · fold census · **seams** · outward radius), five
+gates (G-EXH / G-FOLD / G-SEAM / G-PROBE / G-ZERO). Pass 3 is the highest-value
+one: `mailbox_scan.rs` already consumes two carriers, which is the exact
+confusion surface. Explicitly NOT authorized: any carrier-2 rewrite before its
+own probe, any carrier-1 change, and any widening of `FacetTier`'s `u8:u8` to
+make a mask cheaper (`E-V3-FACET-4-PLUS-12` — the fold adapts to the layout,
+never the reverse).
+
 ## 2026-09-16 (1) — lance-graph-as-the-modelgraph-v1 — the ModelGraph stops being a transient Rust object and becomes addressed rows in the V3 SoA → `.claude/plans/lance-graph-as-the-modelgraph-v1.md`
 
 **Status:** PROPOSAL (operator-set endgame: *"endgame should be to wire
