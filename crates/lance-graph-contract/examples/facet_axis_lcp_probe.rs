@@ -346,7 +346,7 @@ fn main() {
 
     for w in workloads {
         let pairs = make_pairs(w, N, &mut rng);
-        check_arms_agree(&pairs[..256.min(pairs.len())], &w.label());
+        check_arms_agree(&pairs, &w.label());
         let times: Vec<f64> = ARMS
             .iter()
             .map(|(_, f)| time_arm(*f, &pairs, RUNS))
@@ -380,16 +380,26 @@ fn main() {
     // early-exit loop is not being compiled as one and the A/B contrast is not
     // measuring what this probe claims.
     let (a0, a5) = (arm_a_by_depth[0], arm_a_by_depth[5]);
+    let binds = a5 > a0 * 1.05;
     println!(
         "arm A depth-0 {a0:.2} ns → depth-5 {a5:.2} ns ({:+.1}%) — the early-exit loop {}",
         (a5 - a0) / a0 * 100.0,
-        if a5 > a0 * 1.05 {
+        if binds {
             "does depend on prefix length, as it must"
         } else {
             "does NOT depend on prefix length — READ THE ASM before trusting any row above"
         }
     );
     println!();
+    // This is a gate, not a remark: a flat slope means the A/B contrast is not
+    // measuring what this probe claims, so the table above must not be
+    // recorded. Fail the process rather than let an inattentive run bank it.
+    assert!(
+        binds,
+        "ANTI-VACUITY FAILED: arm A depth-5 ({a5:.2} ns) is not >5% above depth-0 \
+         ({a0:.2} ns); the early-exit chain is not being compiled as one on this \
+         target and every row above is invalid"
+    );
     println!("next: cargo asm --example facet_axis_lcp_probe arm_a_chain_loop");
     println!("      cargo asm --example facet_axis_lcp_probe arm_b_peek_u64");
     println!("      A scalar shift/mask vs B byte-loads is the whole question.");
