@@ -1,3 +1,97 @@
+## 2026-09-17 (17) — E-THREE-CARRIERS-THREE-FOLDS-1 — one workspace holds THREE prefix-fold carriers; entry (16) measured a real win on one of them and shipped it into another, where it is 2.1× SLOWER
+
+**Status:** MEASURED (`crates/lance-graph-contract/examples/facet_axis_lcp_probe.rs`,
+four arms, 64K pairs, min of 7, oracle-first, in-tree and reproducible) +
+SHIPPED (the revert, same PR). The carrier-2 opportunity is CONJECTURE — named,
+not measured.
+**Confidence:** HIGH on the numbers and the disassembly. The three-carrier
+taxonomy is a reading of the tree, offered as the strongest available
+explanation of (16)'s inversion, not as a proof of what (16) originally timed.
+
+### The correction
+
+Entry (16) records *"loop 12.5 ns → masked readout 5.8 ns"* for the facet
+per-axis LCP. **On the facet carrier that ordering is inverted.** Measured
+2026-09-17 on its own 64K-random workload, both axes, ns/op:
+
+| workload | A chain fold (retired by #1244) | C masked `u128` (shipped by #1244) |
+|---|---|---|
+| random | **1.72** | 3.64 |
+| depth 0 | **1.66** | 4.68 |
+| depth 5 | **3.50** | 3.56 |
+| identical | **3.30** | 3.73 |
+
+Arm A wins at every workload; on the entry's own workload by **2.1×**. Arm A
+depth-0 1.66 → depth-5 3.50 (+111%) — the early exit is real and is where the
+win comes from. Two further arms (a pack-to-`u64` PEEK, and a shared-load
+variant) were slower than both; the prediction that packing would win was
+wrong and is recorded as wrong.
+
+**⊘ Struck from (16): "the gather dominated".** The disassembly refutes the
+premise. LLVM never materializes the `[u8; 6]` and never gathers:
+
+```
+movzbl 0x5(%rdi),%eax     ; PEEK hi[0] of a
+cmp    0x5(%rsi),%al      ; compare straight against b's memory
+jne    <exit>             ; done — one tier compared
+movzbl 0x7(%rdi),%r8d     ; only now PEEK hi[1]
+```
+
+Arm C performs the *same* byte loads, then pays to reassemble them
+(`shl`/`or`), materialize `movabs $0xff00ff00ff00ff00`, run two `tzcnt` + a
+`cmove`, and apply the `−32` correction — and cannot exit early. It is strictly
+more work on the same loads.
+
+**What survives (16) unchanged:** the `-f` naming; `shared_prefix_tiles` (a
+genuine whole-register `xor`+`tzcnt`, different op, untouched); the entire
+ndarray `ternlogq` descent half (5–8× over padding — measured on its own
+carrier and not in question); the `−32` correction note; the 23-tail-site count.
+
+### Why it inverted — three carriers, three folds
+
+The same words ("prefix fold", "LCP", "shared depth") name three different
+operations on three different carriers. The op that is optimal on one is
+pessimal on the next, and nothing in the vocabulary flags the crossing.
+
+| # | carrier | shape | right fold | state |
+|---|---|---|---|---|
+| 1 | **bit-planes** — `mailbox_soa.rs` `identity_plane_at → &[u64]`, `N × WORDS_PER_FP` | sub-byte, no byte addresses | **mask / popcount** (`DistanceMeans::Hamming`) | correct, untouched |
+| 2 | **nibble path** — `NiblePath` (`hhtl.rs:251`), packed `u64`, 16 nibbles | sub-byte, packed into one register | **mask** — `xor` + `leading_zeros() >> 2` | **walks nibble-by-nibble today; the one real opportunity** |
+| 3 | **facet cascade** — `FacetCascade`, 6×2×8 bytes at fixed offsets | byte-addressed, offsets known at compile time | **PEEK** — `movzbl` + `cmp` + early exit | reverted to PEEK by this entry |
+
+The rule, in the operator's formulation (2026-09-17): **masking wins when the
+slice is granular; PEEK wins when the slice is addressed.** A fold result is
+scoped to its carrier and does not travel. (16)'s 12.5 ns is entirely plausible
+as a measurement of a *carrier-2-shaped* loop — a per-step walk against a
+packed integer, which is exactly what `common_prefix_depth` still is. What is
+not supportable is transferring that conclusion to carrier 3, where the loop
+compiles to compares against memory.
+
+### The opportunity this names (carrier 2 — CONJECTURE, unmeasured)
+
+`NiblePath::common_prefix_depth` is the fold `mailbox_scan.rs:263` actually
+calls for CAKES nearest-ranking. It walks up to 16 nibbles, each step a shift,
+an `Option` construct and a two-field compare, to compute what is
+`((a.path ^ b.path).leading_zeros() >> 2)` clamped to `min(depth)`. This is the
+carrier where (16)'s instinct was right and was never applied. **Gate:** the
+same four-arm probe harness, against this carrier, before any rewrite — the
+whole point of this entry is that a fold is not portable on argument alone.
+
+### The generalized rule
+
+**Before moving a fold, name its carrier.** A measurement is a statement about
+(operation, carrier, workload); dropping the carrier makes it a slogan. Any PR
+that changes a prefix/LCP/distance fold must state which of the three carriers
+it touches and carry a probe on *that* carrier. Sibling of the falsifiability
+rule in `CLAUDE.md`: an assertion implied by the code it tests is not a test,
+and a measurement transferred off its carrier is not a measurement.
+
+Doctrine: `.claude/knowledge/three-prefix-fold-carriers.md`.
+Blast radius: `.claude/plans/three-carrier-blast-radius-v1.md`.
+Cross-ref: (16) above (struck in part, cited in full); `E-PANCAKES-IS-RADIX-IS-HHTL`
+(carrier 2's doctrine); `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` (the
+differential test was inverted in the revert so it stays falsifiable).
+
 ## 2026-09-16 (16) — E-FORMAT-SLOT-FOLD-IS-THE-SAME-OP-AS-THE-VL-DESCENT-1 — `"{0}{1}" -f hi,lo`: the register is a template with fixed arity, and both the facet LCP and the ternlogq tail are "pick the template whose arity matches the arguments, never pad them"
 
 **Status:** MEASURED on the ndarray side (the descent probe, ndarray
@@ -78,6 +172,20 @@ carried):**
   it was right for that pattern and understated the set. The un-gated
   `pack<const L>` follow-up would retire all 23, not 12; whether the Morton-shift tail fits the same helper is
   part of that follow-up, not settled here.
+
+**⊘ PARTIAL STRIKE 2026-09-17 (appended; see entry (17)
+`E-THREE-CARRIERS-THREE-FOLDS-1` above).** The facet half of this entry is
+inverted on its own carrier: measured four ways in-tree, the retired chain fold
+is **1.72 ns** and the shipped masked readout **3.64 ns** on this entry's own
+64K-random workload — the opposite ordering, 2.1×. The premise *"the gather
+dominated"* is refuted by disassembly: LLVM never materializes the `[u8; 6]`.
+`shared_axis` is reverted to the chain fold; the masked form is retained as its
+test oracle. Everything else here stands unchanged — the `-f` naming,
+`shared_prefix_tiles`, the `−32` note, the 23-site count, and the whole ndarray
+`ternlogq` descent half (a different carrier, measured on its own and not in
+question). What the 12.5 ns actually timed is unknown — no harness was
+committed with it; entry (17) gives the strongest available account (a
+carrier-2-shaped loop) and labels it as such.
 
 ## 2026-09-16 (15) — E-THE-SPINE-IS-WHATEVER-THE-READER-ALREADY-HAS-AN-ADDRESS-FOR-1 — the operator's quack redirect, and the four errors of one session that all substituted an address for the thing
 

@@ -1,3 +1,37 @@
+## ISS-NIBLEPATH-FOLD-IS-CARRIER-2-UNMASKED (2026-09-17) — OPEN, the one prefix fold that genuinely wants a mask, and does not have one
+
+`NiblePath::common_prefix_depth` (`crates/lance-graph-contract/src/hhtl.rs`, `fn common_prefix_depth`) is
+carrier 2 per `.claude/knowledge/three-prefix-fold-carriers.md`: 16 nibbles packed into
+one `u64`, sub-byte, no byte addresses. It walks depth-by-depth, each step a shift, an
+`Option` construct and a two-field compare:
+
+```rust
+while d < max {
+    match (self.prefix(next), other.prefix(next)) {
+        (Some(a), Some(b)) if a.path == b.path && a.depth == b.depth => d = next,
+        _ => break,
+    }
+}
+```
+
+Up to 16 iterations for what is `((self.path ^ other.path).leading_zeros() >> 2)` clamped
+to `min(self.depth, other.depth)` — root-first, so `leading_zeros`, not `trailing_zeros`.
+
+**Live, not hypothetical:** `crates/lance-graph/src/graph/mailbox_scan.rs` (`pa.common_prefix_depth(pb)`) calls it for
+CAKES nearest-ranking (`E-PANCAKES-IS-RADIX-IS-HHTL`). Two further local copies of the
+same fold shape exist over `HhtlKey` in `crates/perturbation-sim/examples/`
+(`outage_over_hhtl_hops.rs:76`, `basin_placement_learning.rs:76`) and should be
+classified with it.
+
+**This is the opportunity the 2026-09-16 sweep was reaching for and applied to the wrong
+carrier** (`E-THREE-CARRIERS-THREE-FOLDS-1`). Which is exactly why it must NOT be rewritten
+on that entry's authority: **CONJECTURE until probed on this carrier.** Gate: the four-arm
+harness from `examples/facet_axis_lcp_probe.rs`, re-armed for `NiblePath`, with workloads
+covering `EMPTY`, unequal depths, ancestor pairs, and full-16 agreement — the depth clamp
+and the edge cases are where a fast prefix fold gets quietly wrong.
+
+Sequencing and the gates: `.claude/plans/three-carrier-blast-radius-v1.md` steps 4–5.
+
 ## ISS-LANCEDB-038-NEEDS-REMOTE-TO-COMPILE (2026-09-15) — OPEN, upstream bug, our `lancedb-sdk` feature does not build
 
 `lancedb 0.38.0` does not compile with its own default feature set. Measured, reading the

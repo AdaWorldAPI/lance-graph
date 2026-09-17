@@ -1,3 +1,17 @@
+## three-carrier prefix folds (D-ids minted 2026-09-17, plan `.claude/plans/three-carrier-blast-radius-v1.md`)
+
+Arose from the −32 offset correction sweep (#1244) and the operator's challenge to it.
+Doctrine: `.claude/knowledge/three-prefix-fold-carriers.md`. Board:
+`E-THREE-CARRIERS-THREE-FOLDS-1`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-TCF-1 | probe the facet per-axis LCP four ways and settle which fold the byte-addressed carrier wants | **Shipped.** `examples/facet_axis_lcp_probe.rs`, 64K pairs, min-of-7, oracle-first. Chain PEEK **1.72 ns** vs masked `u128` **3.64 ns** on random; PEEK wins at every workload; the two pack-to-register arms are slowest | all four arms must agree with the shipped API before timing; the depth knob must bind (A: 1.66 → 3.50 ns over depth 0..5, +111%) — a flat slope would mean the early exit is not the mechanism |
+| D-TCF-2 | revert `shared_axis` to the chain fold; keep the differential test falsifiable | **Shipped.** Masked form retained as `masked_axis_oracle` under `#[cfg(test)]` — direction reversed so the test compares shipped-vs-oracle, not shipped-vs-itself | post-revert re-run reproduces the ordering (A 1.76 / C 4.48); 1354 contract tests green; the prior disable-run (swap hi/lo masks ⇒ fail at `hi flip at tier 0`) still holds on the oracle |
+| D-TCF-3 | name the three carriers and the law that separates them | **Shipped.** `.claude/knowledge/three-prefix-fold-carriers.md` — bit-planes / nibble path / facet cascade; *masking wins when the slice is granular, PEEK wins when the slice is addressed* | falsified by a fourth carrier, or by one carrier consuming another's fold. Two greps must stay empty: `FacetCascade` in `mailbox_soa.rs`; `trailing_zeros\|leading_zeros` in `hhtl.rs` |
+| D-TCF-4 | carrier-2 (`NiblePath::common_prefix_depth`) masked rewrite | **Queued — CONJECTURE, deliberately unbuilt.** `ISS-NIBLEPATH-FOLD-IS-CARRIER-2-UNMASKED`. This is the carrier the 2026-09-16 instinct was right about | must be probed on ITS OWN carrier first (G-PROBE). Landing it on entry (16)'s number would be the original defect recurring |
+| D-TCF-5 | blast-radius census of all three carriers + their seams | **Queued.** Plan above, passes 1–4, read-only | G-EXH (walk, not a chosen file list) · G-FOLD (every fold site carries a carrier) · G-SEAM (owner-in / owner-out / cost) · G-ZERO (a "no callers" claim verified by opening, never by an empty grep) |
+
 ## elk/ro factfinder — the meet, the horizon and their generality (D-ids minted 2026-09-15, probe `.claude/probes/elk-generality-v1/`)
 
 Arose from the EWA 12-hop fanout question ("would MQ offer a cheap gating"). No plan
