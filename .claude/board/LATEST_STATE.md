@@ -1,3 +1,25 @@
+## 2026-09-17 (3) — CONTRACT INVENTORY DELTA: `EdgeBlock` is now `pub type EdgeBlock = FacetCascade` (the V1 `12 + 4` struct is gone); `FacetCascade::as_bytes_mut` added
+
+- **State consumers should know:** bytes 16..32 of `NodeRow` are the same
+  `4 + 12` content-blind facet type as the key. `EdgeBlock` survives as a
+  NAME only; `.in_family` / `.out_family` no longer exist — read through
+  `as_bytes()`, write through the new `as_bytes_mut()`. Byte positions are
+  unchanged, `NODE_ROW_STRIDE` unchanged, `node_rows_from_le_bytes`
+  unchanged, no `ENVELOPE_LAYOUT_VERSION` bump. `EdgeBlock::default()` and
+  equality compile as before (OGAR `lance_sink.rs` uses only those, via git
+  `main`). Every in-tree field site (symbiont ×3, soa_graph, aiwar,
+  callcenter, weather-poc, mailbox_scan, contract tests) migrated
+  mechanically to the same bytes.
+- **Operator ruling:** *"It's forbidden for the edge block to even know it's
+  an edge block — it's just another content blind facet cascade."* Board:
+  `E-THE-SECOND-FACET-IS-NOT-AN-EDGE-BLOCK-1`.
+- **Residue named, not touched:** the readers that still split at 12 on
+  their own authority — `ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`.
+- **Withdrawn this session before landing:** `EdgeCodecFlavor::Refs16`,
+  `EdgeRefs`, the `T8` facet shape, `ColumnDescriptor::class_id`, and a
+  `le-contract.md` §3c ruling — all consequences of the contamination, all
+  discarded on the ruling. Nothing of them is on `main` or on this branch.
+
 ## 2026-09-17 (2) — `Pred::Range` lands in mask-risc: the contiguous-range write the IR could not name — one IR variant + one error, NO contract inventory delta
 
 - **State consumers should know:** `lance-graph-mask-risc` gains

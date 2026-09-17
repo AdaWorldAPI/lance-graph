@@ -325,6 +325,11 @@ move; jc pillars prove the READING preserves the semantics.
   stays authoritative for the 512-byte row: `key(16) | edges(16) |
   value(480)`. The facet atom is the unit INSIDE value lanes (and the key
   itself is 16 bytes with the same 4+12 rhythm — see §3 open items).
+- **2026-09-17 (operator ruling, `E-THE-SECOND-FACET-IS-NOT-AN-EDGE-BLOCK-1`):**
+  `edges(16)` is not a third thing — it is the same `4 + 12` facet as the
+  key (`pub type EdgeBlock = FacetCascade`). Its prefix says what its rails
+  ARE for that row; the ClassView projects them; `EdgeCodecFlavor` is how
+  a class reads it. Nothing about the slot knows it holds "edges".
 - The 480-byte value slab holds facets per the tenant schema:
   `classid_read_mode(c).value_schema` selects which lanes/layouts a class
   carries (`tenants.md` catalogues them).

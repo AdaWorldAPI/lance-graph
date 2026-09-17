@@ -1,3 +1,60 @@
+## 2026-09-17 (18) — E-THE-SECOND-FACET-IS-NOT-AN-EDGE-BLOCK-1 — bytes 16..32 are just another content-blind facet cascade; giving them their own type was how the V1 `12 + 4` carving survived its own retirement
+
+**Status:** OPERATOR-RULED (verbatim below) + SHIPPED (`pub type EdgeBlock =
+FacetCascade;`, `FacetCascade::as_bytes_mut`, every field site migrated
+byte-for-byte). Residue named in
+`ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`.
+**Confidence:** HIGH — the ruling is the operator's; the mechanics are a
+type alias over an identical `repr(C, align(16))` 16-byte layout, 1425
+contract tests unchanged, every in-tree consumer builds.
+
+### The ruling
+
+> *"It's forbidden for the edge block to even know it's an edge block —
+> it's just another content blind facet cascade."*
+> *"How hard can it be to fold `[u16;8]` / `[u8;16]` — same algorithm,
+> just 6 vs 8, 12 vs 16."*
+> *"What you call edge codec flavor, quoting 12+4 in/out family, is a V1
+> contamination."*
+
+### What it corrects, including in this session
+
+The canon had retired the `12 in-family + 4 out-of-family` carving as a
+V1-LEGACY *reading* — but `EdgeBlock { in_family: [u8; 12], out_family:
+[u8; 4] }` was that reading spelled as a *type*, and a type outlives a
+regraded paragraph. Every `.in_family` / `.out_family` access re-asserted
+it. This session then proposed, in order: a fourth `EdgeCodecFlavor`
+(`Refs16`), a second view type (`EdgeRefs`), an 8×2×8 `T8` facet shape, a
+`ColumnDescriptor::class_id` field, and a §3c ruling — each one a
+consequence of treating the second 16 bytes as something other than a
+facet. All of it was discarded on the ruling. What remains is one line.
+
+### The shape that is left
+
+`NodeRow = key: FacetCascade | edges: FacetCascade | value(480)`. The
+second facet's 4-byte prefix says what its six `(u8:u8)` rails ARE for
+this row — the predicate, the codebook — and the ClassView projects them.
+"Sixteen refs" is `4 + 12` read as L1 rails; the classid that a `T8` shape
+or a lane-level field was invented to carry was already in the register.
+`EdgeCodecFlavor` is how a class *reads* the second facet, which is all it
+ever was. The fold is `shared::<N>` on `[u8; N]`, one algorithm, `6` or
+`8` — the cascade discipline from `E-THREE-CARRIERS-THREE-FOLDS-1` applies
+to both facets identically because they are the same type.
+
+### The rule, generalized
+
+**A second type for the same bytes is a carving pretending to be a
+layout.** The content-blind invariant is not "the ClassView chooses the
+reading"; it is "there is no type in which a reading could hide." Where
+the canon has already regraded a reading as legacy, grep for the *type*
+that still spells it — the paragraph did not retire it if the struct is
+still there.
+
+Cross-ref: `E-V3-FACET-4-PLUS-12` (now visibly true of bytes 16..32 as
+well), `E-V1-TAIL-FORBIDDEN-V3-IS-CONTENT-BLIND-1`,
+`E-THREE-CARRIERS-THREE-FOLDS-1`, CLAUDE.md § CANON (⊘ note appended),
+`le-contract.md` §4 (bullet appended).
+
 ## 2026-09-17 (17) — E-THREE-CARRIERS-THREE-FOLDS-1 — one workspace holds THREE prefix-fold carriers; entry (16) measured a real win on one of them and shipped it into another, where it is 2.1× SLOWER
 
 **Status:** MEASURED (`crates/lance-graph-contract/examples/facet_axis_lcp_probe.rs`,

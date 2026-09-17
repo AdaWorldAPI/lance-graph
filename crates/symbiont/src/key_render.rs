@@ -68,15 +68,13 @@ pub fn render_key_only(rows: &[NodeRow]) -> KeyGraph {
         // ── the ONLY two field reads: the 32-byte head ──
         let guid = row.key;
         let eb = row.edges;
-        let in_family: Vec<(u8, u8)> = eb
-            .in_family
+        let in_family: Vec<(u8, u8)> = eb.as_bytes()[..12]
             .iter()
             .enumerate()
             .filter(|(_, &b)| b != 0)
             .map(|(i, &b)| (i as u8, b))
             .collect();
-        let out_family: Vec<(u8, u8)> = eb
-            .out_family
+        let out_family: Vec<(u8, u8)> = eb.as_bytes()[12..]
             .iter()
             .enumerate()
             .filter(|(_, &b)| b != 0)

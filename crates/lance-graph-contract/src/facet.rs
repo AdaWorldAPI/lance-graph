@@ -174,6 +174,18 @@ impl FacetCascade {
         unsafe { &*(self as *const Self).cast::<[u8; 16]>() }
     }
 
+    /// Mutable twin of [`as_bytes`](Self::as_bytes): write the facet's own 16
+    /// backing bytes in place. Every byte pattern is a valid facet (it is
+    /// content-blind by construction), so no invariant can be broken through
+    /// this view.
+    #[inline]
+    #[must_use]
+    pub fn as_bytes_mut(&mut self) -> &mut [u8; 16] {
+        // SAFETY: as for `as_bytes`; `&mut self` guarantees exclusivity, and
+        // all bit patterns of [u8; 16] are valid `FacetCascade` values.
+        unsafe { &mut *(self as *mut Self).cast::<[u8; 16]>() }
+    }
+
     /// **Zero-copy borrow** of 16 slab bytes AS a facet — the literal no-op decode: the
     /// compiler reads fields/lanes straight from the slab, nothing materializes. Returns
     /// `None` if `b` is not 16-byte aligned (then copy via [`from_bytes`](Self::from_bytes)).

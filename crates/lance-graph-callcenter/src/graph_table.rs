@@ -151,7 +151,7 @@ mod tests {
     /// GraphSnapshot → arrow tables. End-to-end head → DataFusion.
     fn sample_snapshot() -> GraphSnapshot {
         let mut a_edges = EdgeBlock::default();
-        a_edges.out_family[0] = 0x0B;
+        a_edges.as_bytes_mut()[12] = 0x0B;
         let rows = [
             NodeRow {
                 key: osint_key(1, 0xA, 1),

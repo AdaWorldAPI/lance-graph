@@ -166,13 +166,9 @@ where
     let key = encode_key(classid, lat_idx, lon_idx);
     let mut facets = [[0u8; FACET_LEN]; W1_FACET_COUNT];
     for (facet_idx, facet_bytes) in facets.iter_mut().enumerate() {
-        *facet_bytes = pack_facet(
-            classid,
-            facet_idx as u8,
-            manifest,
-            floors,
-            |entry| value_of(entry),
-        )?;
+        *facet_bytes = pack_facet(classid, facet_idx as u8, manifest, floors, |entry| {
+            value_of(entry)
+        })?;
     }
 
     Ok(PackedWeatherCell {
@@ -213,14 +209,9 @@ where
     let mut written = 0usize;
     for lat_idx in 0..LAT_COUNT {
         for lon_idx in 0..LON_COUNT {
-            let cell = pack_cell(
-                classid,
-                lat_idx,
-                lon_idx,
-                manifest,
-                floors,
-                |entry| value_of(lat_idx, lon_idx, entry),
-            )
+            let cell = pack_cell(classid, lat_idx, lon_idx, manifest, floors, |entry| {
+                value_of(lat_idx, lon_idx, entry)
+            })
             .map_err(BakeStreamError::Bake)?;
             sink(cell).map_err(BakeStreamError::Sink)?;
             written += 1;
@@ -330,24 +321,10 @@ mod tests {
 
     #[test]
     fn manifest_mutation_is_load_bearing_end_to_end() {
-        let a = pack_cell(
-            WEATHER_W1_CLASSID,
-            10,
-            20,
-            &manifest("a"),
-            &floors(),
-            value,
-        )
-        .expect("a packs");
-        let b = pack_cell(
-            WEATHER_W1_CLASSID,
-            10,
-            20,
-            &manifest("b"),
-            &floors(),
-            value,
-        )
-        .expect("b packs");
+        let a = pack_cell(WEATHER_W1_CLASSID, 10, 20, &manifest("a"), &floors(), value)
+            .expect("a packs");
+        let b = pack_cell(WEATHER_W1_CLASSID, 10, 20, &manifest("b"), &floors(), value)
+            .expect("b packs");
 
         assert_ne!(
             a.facet_image(),
