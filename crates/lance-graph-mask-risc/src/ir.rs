@@ -80,6 +80,28 @@ pub enum Pred {
     MatchU32 { lane: u16, pattern: u32, care: u32 },
     /// `((lane[i] ^ pattern) & care) == 0` over a `u64` lane.
     MatchU64 { lane: u16, pattern: u64, care: u64 },
+    /// `lo <= i < hi` — a predicate on the ROW INDEX, reading no lane.
+    ///
+    /// The contiguous-range write. On an address-ordered lane an address
+    /// prefix names a contiguous subtree, so the prefix's mask is a range,
+    /// not a sweep: `ndarray::simd::mask_set_range` fills it in three passes
+    /// over the words (zero before, ones inside, zero after, two computed
+    /// edge words) with no per-row compare at all. This is the op
+    /// `lance-graph-quack`'s `Filter::prefix_u64` doc named as *"NOT yet a
+    /// range WRITE … waits on the primitive"* — the primitive is in ndarray;
+    /// this is the IR name for it (`ISS-MASK-RISC-HAD-NO-RANGE-OP`).
+    ///
+    /// The IR does NOT decide whether a lane is address-ordered — that is the
+    /// planner's knowledge (a V3 table's row address is its rail). A caller
+    /// that lowers a prefix to `Range` on an unordered lane gets a wrong
+    /// answer, not an error; the oracle agrees with the executor on the range
+    /// itself, which is all either can check.
+    ///
+    /// Validated: `lo <= hi` and `hi <= n_rows`
+    /// ([`crate::ExecError::RangeOutOfBounds`]), so the write can never reach
+    /// the tail. `lo == hi` is a legal empty range (an all-zero write, not a
+    /// no-op). With `under`, the result is `range & gate`.
+    Range { lo: u32, hi: u32 },
 }
 
 /// One instruction. Destinations are always [`Operand::Scratch`]; input planes
