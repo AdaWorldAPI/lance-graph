@@ -1,3 +1,19 @@
+## 2026-09-17 — PR #1245 merged (`83369cad`): the facet per-axis LCP is the `shared6` byte chain again, verbatim pre-#1241 — NO contract inventory delta
+
+`FacetCascade::{hi_distance, lo_distance}` are back to the by-value
+`shared6` chain, byte-identical to `95e28637^`; #1241's masked `u128`
+readout survives only as `masked_axis_oracle` under `#[cfg(test)]`. No
+type added or removed; the public signature is exactly pre-#1241. Measured
+in-tree (`examples/facet_axis_lcp_probe.rs`, oracle over every pair): chain
+1.72 ns vs masked 3.64 on 64K random — #1241's ordering inverted on its own
+carrier. Doctrine: `.claude/knowledge/three-prefix-fold-carriers.md` —
+three prefix-fold carriers (bit-planes / nibble path / facet cascade), and
+the rule *masking wins when the slice is granular, PEEK wins when the slice
+is addressed*. The real masking opportunity is carrier 2
+(`NiblePath::common_prefix_depth`), filed as
+`ISS-NIBLEPATH-FOLD-IS-CARRIER-2-UNMASKED`, gated on its own probe. Arc:
+`PR_ARC_INVENTORY.md` 2026-09-17 #1245.
+
 ## 2026-09-16 — PR #1241 merged (`d5d3f7ab`): the facet's per-axis LCP is one masked register readout — NO contract inventory delta
 
 `FacetCascade::hi_distance` / `lo_distance` now read

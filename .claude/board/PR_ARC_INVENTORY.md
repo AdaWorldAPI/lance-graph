@@ -1,3 +1,58 @@
+## 2026-09-17 — lance-graph PR #1245 (merged `83369cad`, branch `claude/great-pascal-k96kok`) — the facet's per-axis LCP goes BACK to the `shared6` byte chain, verbatim; #1241's masked readout is the test oracle now; three prefix-fold carriers named
+
+- **Added:** `examples/facet_axis_lcp_probe.rs` — four-arm benchmark
+  (A chain PEEK / B pack-to-`u64` / C masked `u128` / D shared-load PEEK),
+  64K pairs × 8 workloads, min of 7, oracle over EVERY pair before timing,
+  depth-knob and anti-vacuity gates that `assert!` (a flat depth-0→5 slope
+  fails the process). `.claude/knowledge/three-prefix-fold-carriers.md`
+  (doctrine); `.claude/plans/three-carrier-blast-radius-v1.md` (read-only
+  census, gates only); `ISS-NIBLEPATH-FOLD-IS-CARRIER-2-UNMASKED`; EPIPHANIES
+  (17) `E-THREE-CARRIERS-THREE-FOLDS-1` + partial strike appended to (16);
+  STATUS_BOARD D-TCF-1..5. 8 files, 5 commits.
+- **Reversed (of #1241):** `shared_axis(xor, mask)` + `HI_BYTES`/`LO_BYTES`
+  are gone from the shipped path. `shared6([u8; 6], [u8; 6])` and the
+  by-value `hi_distance(self, other: Self)` / `lo_distance` are restored
+  **byte-identical to `95e28637^`** (diff-verified; the first revert commit
+  had shipped a semantically-equivalent respelling — `6e79c784` corrected
+  it). The falsifier is REVERSED, not deleted: the masked form lives on as
+  `masked_axis_oracle` under `#[cfg(test)]`, so the test compares shipped
+  against oracle rather than against a restatement of itself. Public API is
+  exactly pre-#1241.
+- **Locked:** *masking wins when the slice is granular; PEEK wins when the
+  slice is addressed.* A measurement is a statement about
+  `(operation, carrier, workload)`; drop the carrier and it is a slogan.
+  Three carriers: bit-planes (`mailbox_soa` `&[u64]`, mask — untouched);
+  nibble path (`NiblePath`, packed `u64`, mask — NOT DONE, walks
+  nibble-by-nibble); facet cascade (`FacetCascade`, 6×2×8 byte-addressed,
+  PEEK — this PR). Before moving a fold, name its carrier.
+- **Measured (64K random pairs, release, min of 7, both axes):** A chain
+  **1.72 ns** vs C masked 3.64 — the opposite of #1241's "12.5 → 5.8"; A
+  wins at every depth 0..5 and on identical; both pack-to-register arms are
+  slowest (the author's prediction that B would win was wrong). A's
+  depth-0→5 slope +81–111% across runs is the anti-vacuity evidence.
+  Disassembly: LLVM never materializes the `[u8; 6]` — `movzbl`/`cmp`
+  straight against memory/`jne`; arm C issues the same loads then
+  reassembles, `movabs` mask, two `tzcnt` + `cmove`, `−32`, no early exit.
+  *"The gather dominated"* is refuted. What #1241's 12.5 ns timed is
+  unknown (no harness shipped with it); entry (17) gives the carrier-2
+  account as the strongest available and labels it so.
+- **Deferred / named:** `as_u128()` is NOT a reinterpret — it rebuilds
+  through `to_bytes()` while `as_bytes()` (the documented no-op) sits unused
+  on that path; the E-carve (`{axis} × {near, far}`, stride 2) and the
+  fixed-width-register sentence for doctrine §1; carrier-2's masked rewrite
+  (gated on its own probe, D-TCF-4); the census passes (D-TCF-5). None
+  built.
+- **Review:** Codex 2× P2 on the probe (oracle checked 256 of 65,536; the
+  anti-vacuity check warned and exited 0) — both real, both fixed in
+  `c3de1d2e`. Two board gates red on the first push — `D-3CF-*` does not
+  match the D-id pattern (two letters first) → `D-TCF-*`; two `ISSUES.md`
+  line-number citations → stable symbol anchors. CodeRabbit had not
+  finished when the operator merged.
+- **Confidence:** HIGH on the numbers (in-tree, reproducible, oracle-first,
+  three independent runs same ordering). HIGH that the restore is verbatim
+  (diff). The three-carrier taxonomy is a reading of the tree offered as
+  explanation, not a proof of what #1241 timed.
+
 ## 2026-09-16 — lance-graph PR #1241 (merged `d5d3f7ab`, branch `claude/c64-6502-falsifier-shztkk`) — the facet's per-axis LCP reads the single register; the `"{0}{1}" -f` fold is done ONCE at mint
 
 - **Added:** `FacetCascade::{HI_BYTES, LO_BYTES}` (const byte masks over the
