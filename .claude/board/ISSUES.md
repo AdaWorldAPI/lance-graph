@@ -1,3 +1,43 @@
+## ISS-MASK-RISC-HAD-NO-RANGE-OP (2026-09-17) — PARTLY RESOLVED: the IR op shipped; the quack lowering still waits on ordering knowledge
+
+**The chain, as found:** `ndarray::simd::mask_set_range(out_words, lo, hi)` is on the
+facade (`simd_masking_ops.rs`, `pub fn mask_set_range`) — a three-pass contiguous fill,
+no per-row compare. `lance-graph-mask-risc`'s IR had **no op that reaches it** (`ir.rs`
+`Pred` was the ten lane predicates and nothing else). So `lance-graph-quack`'s
+`Filter::prefix_u64` — *"the closest DuckDB comes to the V3 address"*, matrix row R5 —
+lowered an address prefix to a full `MatchU64` ternary SWEEP, and its own doc said
+*"NOT yet a range WRITE … waits on the primitive."* The primitive existed; the IR
+name did not. **ndarray has it → mask-risc can't name it → quack sweeps.**
+
+Why it matters: on an address-ordered lane a prefix names ONE contiguous subtree, and
+that is the whole reason V3 has the survivor-skip lever at all — `adaptive_order_probe`'s
+clustered regime skips **99.61 %** of words precisely because the prefix term's
+survivors fill one block. A range write makes that selection free instead of a sweep
+that happens to be cheap. It is also the "mask from root, O(1) adjacent" half of the
+similarity question (`E-…-POPCOUNT-×-SELF`, LATEST_STATE 2026-09-15 (6)–(8)) as an IR
+op rather than a per-row match.
+
+**Resolved 2026-09-17 (this branch):** `Pred::Range { lo: u32, hi: u32 }` — rows
+`lo <= i < hi`, reads no lane; exec = `mask_set_range` (+ `mask_and_assign` under a
+gate); oracle = row-index predicate; `ExecError::RangeOutOfBounds` for `lo > hi` or
+`hi > n_rows`, refused by the shared validator before any write. Three differential
+tests across the eight row counts (word-edge shapes incl. 63/64/65; `== hi − lo`
+counted through the EXECUTOR; identical refusal). Disable-verified: an off-by-one in
+the exec arm fails two of the three.
+
+**Still OPEN — the lowering.** `Filter::prefix_u64` still emits the sweep, and
+correctly so: the IR does not know whether a lane is address-ordered (a V3 table's
+row address is its rail; a borrowed `&[u64]` of edge targets is not), and quack's
+`Filter` carries no ordering evidence. Lowering a prefix to `Range` on an unordered
+lane is a wrong answer, not an error. The remaining arm is therefore on the planner
+side: an ordering witness on the lane (or on `Col`) that licenses `prefix → Range`.
+Until it exists the sweep is the honest lowering, and the quack doc now says exactly
+that.
+
+**Also named, not built:** `mask_set_range` has no `_under` sibling on the facade;
+the gated form here is two passes (`set_range` then `and_assign`). One fused pass is
+a T1 follow-up, measured-then-pinned like every other facade member.
+
 ## ISS-NIBLEPATH-FOLD-IS-CARRIER-2-UNMASKED (2026-09-17) — OPEN, the one prefix fold that genuinely wants a mask, and does not have one
 
 `NiblePath::common_prefix_depth` (`crates/lance-graph-contract/src/hhtl.rs`, `fn common_prefix_depth`) is

@@ -1,3 +1,32 @@
+## 2026-09-17 (2) — `Pred::Range` lands in mask-risc: the contiguous-range write the IR could not name — one IR variant + one error, NO contract inventory delta
+
+- **State consumers should know:** `lance-graph-mask-risc` gains
+  `Pred::Range { lo: u32, hi: u32 }` (rows `lo <= i < hi`, reads no lane) and
+  `ExecError::RangeOutOfBounds`. Exec is `ndarray::simd::mask_set_range`
+  (+ `mask_and_assign` under a gate); the oracle is a row-index predicate;
+  `lo <= hi <= n_rows` is refused by the shared validator before any write.
+  `D-MRX-7`, in PR on `claude/great-pascal-k96kok` (`c3931a1a`).
+- **Why:** `mask_set_range` was on the ndarray facade with nothing in the IR
+  able to reach it, so `lance-graph-quack`'s `Filter::prefix_u64` — an
+  address prefix, which on an ordered lane is ONE contiguous subtree —
+  lowered to a full ternary sweep and said *"waits on the primitive"*. The
+  primitive was there; the name was not (`ISS-MASK-RISC-HAD-NO-RANGE-OP`).
+  This is the "mask from root, O(1) adjacent" half of the similarity
+  question ((6)–(8) below) as an op, and the mechanism behind the 99.61 %
+  clustered word-skip in `adaptive_order_probe`.
+- **What did NOT move:** quack still lowers `prefix_u64` to the sweep, and
+  should — the IR does not know whether a lane is address-ordered, and
+  `Filter` carries no ordering evidence. The remaining arm is an ordering
+  witness on the planner side; quack's doc now says so. The
+  `lance-graph-contract` inventory is untouched.
+- **Process receipt:** the first draft of the population test counted
+  through the oracle (`Fixture::count`) and a disable-run with an
+  off-by-one in the exec arm PASSED it — vacuous against the side under
+  test. Fixed to count through `execute`; the disable-run now fails 2 of 3.
+  Same session also walked into the ruff "commit BEFORE you disable" trap
+  once (`git checkout` after a disable-run reverted uncommitted work);
+  re-applied, then committed first and re-ran.
+
 ## 2026-09-17 — PR #1245 merged (`83369cad`): the facet per-axis LCP is the `shared6` byte chain again, verbatim pre-#1241 — NO contract inventory delta
 
 `FacetCascade::{hi_distance, lo_distance}` are back to the by-value
