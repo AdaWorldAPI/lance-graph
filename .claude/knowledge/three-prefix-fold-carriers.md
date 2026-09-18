@@ -155,12 +155,21 @@ locates a contiguous row range with two `partition_point`s — cost O(log N),
 answer size O(1) (two integers) — instead of visiting every row.
 
 Measured (`crates/d-diamond-1-probe`, N=1M): bound 238–265 ns flat, vs a full
-sweep at 429,100–910,240 ns — 119×–707×. A second, independently-ordered
+sweep at 429,100–910,240 ns. **119×–707× is the `bound + touched_write`
+TOTAL against that sweep** — the comparable pair, since the sweep produces a
+mask and the bound alone produces two integers. The bound-alone ratio against
+the same sweeps is larger (≈1,619×–3,435×) and is not the number to quote: it
+compares a range against a mask. A second, independently-ordered
 population over the SAME rows (a correlated tenant lane) is not sorted under
 the ontology's lens and gets no bound of its own by construction
 (`WitnessError`, confirmed) — but a JOINT lens built over both (a Morton
 interleave, probe-only, `JointIndex`) turns their intersection into ONE bound:
-83–85 ns against 907,944–908,880 ns for two sweeps + AND — 10,682×–10,950×.
+69–79 ns, or **89–98 ns including `materialize_rows`** — the remap back to the
+world's own ordinal, which is the output the comparator actually produces —
+against 745,473–797,268 ns for two sweeps + AND: **8,135×–8,376×**, quoting
+the materialized column. The win is **conditional on a prebuilt `JointIndex`**
+(≈61 ms per 1M rows, a real one-time cost amortized over queries), never a
+free property of the substrate.
 
 **The corollary this fold enforces, learned the hard way mid-arc
 (`E-NO-FOLD-REPORTS-AN-O-POPULATION-COST-1`):** a bound's answer is `(lo, hi)`

@@ -253,6 +253,18 @@ pub enum PrefixLowering {
         lo: u32,
         /// One past the last row.
         hi: u32,
+        /// The sealed lane's version the range is expressed in.
+        ///
+        /// `lo`/`hi` are ORDINALS IN THAT LANE'S ORDER, not row ids. They are
+        /// only meaningful against planes that are the same rows in the same
+        /// order. This crate cannot check that — a `Planes` value carries no
+        /// order identity — so the version and digest are carried out here for
+        /// the execution side to check against whatever it knows about its own
+        /// row order. See the precondition on [`Filter::prefix_facet`] and
+        /// `ISSUES.md` `ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER`.
+        lane_version: u64,
+        /// The sealed lane's order-sensitive digest at that version.
+        lane_digest: u64,
     },
     /// No witness was offered: the prefix lowers to the [`Cmp::MatchU64`]
     /// sweep over the semantic `u64` planes.
@@ -585,6 +597,27 @@ impl Filter {
     ///
     /// `lane_col` is the column the range is bound on (provenance on the
     /// `Range` leaf).
+    ///
+    /// # Precondition the caller owns — not checked here
+    ///
+    /// A `Bound` lowering emits `[lo, hi)` as ORDINALS IN THE SEALED LANE'S
+    /// ORDER. `SealedFacetLane::seal` sorts its own private key vector; if the
+    /// `Planes` the program executes over are in their original order, or come
+    /// from any other same-sized lane, the range selects unrelated rows. The
+    /// witness attests the LANE, not the execution row order; `lane_col` is
+    /// provenance only, and `Pred::Range` reads no lane at all, so nothing in
+    /// this crate or in `mask-risc` can detect the mismatch.
+    ///
+    /// **The caller must guarantee that the planes are the sealed lane's rows
+    /// in the sealed lane's order** — i.e. apply the seal's permutation to
+    /// every aligned plane, or seal from planes already in that order. To make
+    /// a violation detectable one level up, [`PrefixLowering::Bound`] carries
+    /// the lane's `version` and order-sensitive `digest`; an execution layer
+    /// that knows its own row order should check them before running the
+    /// range. Tracked as `ISSUES.md`
+    /// `ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER` — sealing does not yet
+    /// expose the permutation, so today this is a documented obligation with
+    /// carried evidence, not an enforced invariant.
     #[must_use]
     pub fn prefix_facet(
         witnessed: Option<(&SealedFacetLane, &OrderedLaneWitness)>,
@@ -611,7 +644,12 @@ impl Filter {
             Some((lane, w)) => match lane.bound(w, prefix) {
                 Ok((lo, hi)) => (
                     Filter::Cmp(lane_col, Cmp::Range { lo, hi }),
-                    PrefixLowering::Bound { lo, hi },
+                    PrefixLowering::Bound {
+                        lo,
+                        hi,
+                        lane_version: w.version(),
+                        lane_digest: w.digest(),
+                    },
                 ),
                 Err(e) => sweep(PrefixLowering::SweepInvalidWitness(e)),
             },
@@ -2509,8 +2547,18 @@ mod diamond_lowering_tests {
                     truth,
                     "sweep, pick {pick} depth {depth}"
                 );
-                if let PrefixLowering::Bound { lo, hi } = how_b {
+                if let PrefixLowering::Bound {
+                    lo,
+                    hi,
+                    lane_version,
+                    lane_digest,
+                } = how_b
+                {
                     assert_eq!((lo as usize..hi as usize).collect::<Vec<_>>(), truth);
+                    // The evidence a downstream executor needs to detect a
+                    // plane-order mismatch must actually reach it.
+                    assert_eq!(lane_version, w.version(), "carried lane version");
+                    assert_eq!(lane_digest, w.digest(), "carried lane digest");
                 }
             }
         }

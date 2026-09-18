@@ -186,6 +186,55 @@ fn p2_touched_write_beats_the_old_whole_lane_sized_buffer() {
     );
 }
 
+/// The falsifier the first flatness test could NOT be: hold the range's WIDTH
+/// fixed and move its POSITION. The earlier `touched_write` sized its buffer to
+/// `words_for(hi)` and wrote from word 0, so its cost was proportional to the
+/// range's end position — a range of 100 rows at `[3_999_900, 4_000_000)` cost
+/// as much as a sweep-shaped write, while `[500, 600)` looked flat. Holding
+/// `(lo, hi)` at a fixed absolute position across `N` (the only thing the
+/// previous tests varied) cannot see that; only moving the position can.
+///
+/// Both ranges are 100 rows wide. With the base-word offset, the far range must
+/// not cost materially more than the near one.
+#[test]
+fn f_touched_write_is_position_independent() {
+    const WIDTH: u32 = 100;
+    const NEAR_LO: u32 = 500;
+    const FAR_LO: u32 = 3_999_900;
+
+    // Correctness first: the fragment must carry exactly WIDTH set bits and sit
+    // at the right base word, wherever it is.
+    for lo in [NEAR_LO, FAR_LO] {
+        let (w0, d) = touched_write(lo, lo + WIDTH);
+        assert_eq!(w0, lo as usize / 64, "base word for lo={lo}");
+        let set: u32 = d.iter().map(|w| w.count_ones()).sum();
+        assert_eq!(set, WIDTH, "set-bit count for [{lo},{})", lo + WIDTH);
+        assert!(
+            d.len() <= WIDTH as usize / 64 + 2,
+            "buffer for [{lo},{}) is {} words — must cover only the touched \
+             words, not everything up to hi",
+            lo + WIDTH,
+            d.len()
+        );
+    }
+
+    let cost = |lo: u32| {
+        time_ns(9, 500, || {
+            let d = touched_write(std::hint::black_box(lo), std::hint::black_box(lo + WIDTH));
+            std::hint::black_box(&d);
+        })
+    };
+    let _warm = cost(NEAR_LO);
+    let near = cost(NEAR_LO);
+    let far = cost(FAR_LO);
+    assert!(
+        far < near * 4.0 + 50.0,
+        "a {WIDTH}-row range at {FAR_LO} ({far:.1}ns) must not cost materially more than the \
+         same width at {NEAR_LO} ({near:.1}ns) — position-dependent cost means the write is \
+         still O(end position), not O(width)"
+    );
+}
+
 #[test]
 fn p3_intersection_arms_agree_with_oracle_and_are_nontrivial() {
     let world = build_world(N, SEED, 0.7);

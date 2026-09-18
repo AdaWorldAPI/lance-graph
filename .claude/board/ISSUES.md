@@ -1,3 +1,33 @@
+## ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER (2026-09-18) — OPEN (D-DIAMOND-1, found in review of #1250)
+
+**What it is.** `Filter::prefix_facet`'s `Bound` lowering emits `Cmp::Range { lo, hi }`
+where `lo`/`hi` are **ordinals in the sealed lane's order**. `SealedFacetLane::seal`
+sorts its own private key vector. Nothing ties that order to the order of the `Planes`
+the program actually executes over: `lane_col` is provenance only, `Pred::Range` reads
+no lane, and a `Planes` value carries no order identity. If the planes are in their
+original order — or belong to any other same-sized lane — the range selects or
+aggregates unrelated rows, and no layer can tell.
+
+**Why it is not closed by this PR.** Closing it needs one of two substrate changes,
+neither of which belongs in a probe arc:
+
+- `seal` exposes its permutation, and the caller is required to apply it to every
+  aligned plane (making the planes definitionally the lane's order); or
+- the execution surface gains a row-order identity that a witness can attest against,
+  so the check is mechanical rather than a caller promise.
+
+**What was done instead.** The precondition is now stated explicitly on
+`Filter::prefix_facet` as a caller obligation, and `PrefixLowering::Bound` carries the
+lane's `version` and order-sensitive `digest` so an execution layer that DOES know its
+own row order can reject a mismatch one level up. A test asserts the evidence actually
+reaches the caller. That makes the gap detectable and recorded; it does not make it
+enforced.
+
+**Falsifier when it is closed.** Build planes in a deliberately different order from
+the sealed lane, run a witnessed prefix, and assert the mismatch is refused — not that
+it returns a plausible wrong answer. No such test can be written today, which is the
+issue.
+
 ## ISS-SHARED-PREFIX-TILES-CLASSID-INVERSION (2026-09-18) — RESOLVED at the lens (D-DIAMOND-1 R1, commit 1); recorded because it was latent, not because it was live
 
 **What it was.** `FacetCascade::shared_prefix_tiles` — the whole-facet 8-tile prefix

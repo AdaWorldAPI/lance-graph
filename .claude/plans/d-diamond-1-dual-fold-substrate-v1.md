@@ -139,8 +139,11 @@ Both were rewritten before any number below was taken:
   `SealedFacetLane::bound` rejects a lens mismatch before searching
   (`WitnessError::LensMismatch`), the same discipline as version/rows/digest.
   Contract: 1367 → 1368 tests.
-- **P2's write is now `touched_write(lo, hi)`** — allocates `words_for(hi)`,
-  never `words_for(n_rows)`; `n_rows` does not appear in its signature. The
+- **P2's write is now `touched_write(lo, hi) -> (w0, dst)`** — a base word
+  index `w0 = lo / 64` plus `words_for(hi) - w0` words, so the cost is
+  O((hi − lo) / 64) at any position; `n_rows` does not appear in its signature.
+  (The first version of this fix sized to `words_for(hi)` and wrote from word 0
+  — cost O(hi), the range's end position. See §5's position table.) The
   full-lane sweep is kept ONLY as an explicitly separate `reference_sweep_ns`
   column, never summed into `bound_fold_total()`.
 - **P3's fold arm is a `JointIndex`** — a probe-only (not shipped) Morton-style
@@ -181,20 +184,40 @@ the class's expected LCP on every generated pair before timing (oracle-first).
 
 ### P2 — field universe: bound + touched-write vs the full-lane sweep
 
-Flatness falsifier (fixed absolute range `[500,600)`, independent of N —
-a range whose position moves with N is invalid here because `mask_set_range`
-also zeroes every word before `lo`, so a growing `lo` would show growth for a
-reason unrelated to the fix):
+Two falsifiers, because the answer has two axes and the first one alone
+certified only one of them.
+
+**(a) Size axis** — fixed absolute range `[500,600)`, N varied 1000×:
 
 | N | touched_write_ns | old whole-lane-sized_ns |
 |---|---|---|
-| 1,000 | 28.86 | 41.13 |
-| 16,000 | 28.76 | 58.16 |
-| 256,000 | 28.53 | 392.75 |
-| 1,000,000 | 28.98 | 5,496.49 |
+| 1,000 | 22.11 | 34.45 |
+| 16,000 | 23.14 | 54.48 |
+| 256,000 | 21.98 | 334.92 |
+| 1,000,000 | 22.57 | 4,619.80 |
 
-**Flat within noise across a 1000× growth in N; the old buffer grew ~134×.**
-The O(N) bug is gone; the fold's cost depends on `(lo, hi)`, never on `N`.
+**(b) Position axis** — fixed 100-row width, position moved 8000×:
+
+| range | width | touched_write_ns |
+|---|---|---|
+| `[500, 600)` | 100 | 21.68 |
+| `[64,000, 64,100)` | 100 | 20.50 |
+| `[1,000,000, 1,000,100)` | 100 | 20.75 |
+| `[3,999,900, 4,000,000)` | 100 | 20.49 |
+
+**Flat within noise on both axes; the old whole-lane buffer grew ~134× on (a).**
+
+Table (b) is the correction this plan's own first fix needed. That fix sized
+the destination to `words_for(hi)` and wrote from word 0, so `mask_set_range`
+zeroed every word before `lo` and the cost was O(`hi`) — the range's END
+POSITION, still population-shaped for a range near the lane's end. Table (a)
+could not see it, because holding `(lo, hi)` fixed across N holds `hi` fixed.
+The plan text at the time even argued that moving the position would be an
+*invalid* measurement; that argument was the defect defending itself. The
+shipped `touched_write` returns `(w0, dst)` with `w0 = lo / 64`, making the
+cost O((hi − lo) / 64) at any position. Falsifier
+`f_touched_write_is_position_independent`, disable-verified red against the
+old shape.
 
 At N = 1M: `bound` 238–265 ns (flat, O(log N)), `touched_write` 234–4,287 ns
 (scales with the RANGE width, not N — d=1..4 prefixes here keep large
@@ -214,14 +237,21 @@ first inversion at row 1) — the structural finding the plan predicted: one
 sequence, one lens-order; a second, independently-generated lane over the
 same rows is not sorted under that lens and gets no bound of its own.
 
-Joint index build (sort 1,000,000 interleaved `u128` keys, once): **69.8 ms**.
-Fold cost thereafter — the ENTIRE timed cost, two `partition_point`s, zero
-per-row work:
+Joint index build (sort 1,000,000 interleaved `u128` keys, once): **61.2 ms**.
+Fold cost thereafter — two `partition_point`s and, for the comparable column,
+the O(kept) remap back to the world's own ordinal. Zero per-row work over the
+population in either:
 
-| depth | kept A | kept B | kept ∩ | fold ns | reference (2 sweeps + AND) ns | speedup |
-|---|---|---|---|---|---|---|
-| 3 | 1,984 | 194 | 64 | 83 | 908,880 | 10,950× |
-| 4 | 1,666 | 66 | 65 | 85 | 907,944 | 10,682× |
+| depth | kept A | kept B | kept ∩ | bound ns | + materialize ns | reference (2 sweeps + AND) ns | speedup |
+|---|---|---|---|---|---|---|---|
+| 3 | 1,984 | 194 | 64 | 79 | 98 | 797,268 | 8,135× |
+| 4 | 1,666 | 66 | 65 | 69 | 89 | 745,473 | 8,376× |
+
+**Quote the `+ materialize` column, not `bound`.** The comparator produces a
+full original-ordinal mask; `JointIndex::bound` produces two offsets into the
+JOINT index's own order. Timing only the bound compares inequivalent outputs
+and inflated this ratio to ~10,700× in the first write-up. `materialize_rows`
+is O(kept) — proportional to the answer, so still a fold — but it is not free.
 
 (depth 2 found no F4-passing pair in 20,000 draws at this seed — not a defect,
 the intersection floor of 32 rows was simply not hit at that depth's
@@ -260,11 +290,11 @@ named here rather than smoothed over:
    populations shipped by this generator (wide at shallow depth, singleton at
    deep depth) both cross this line by N=1M but the WIDTH-dependent
    `touched_write` term matters at the wide end.
-3. **P3's win is unconditional but its APPLICABILITY is conditional on the
-   ordering witness's lens matching, which a second, independently-written
-   lane almost never satisfies for free.** The 10,700× fold speedup is real
-   and unconditional once a `JointIndex` exists, but building one is a
-   ~70 ms up-front cost that amortizes only across repeated queries at fixed
+3. **P3's win is CONDITIONAL on a prebuilt `JointIndex`, and its applicability
+   is further conditional on the ordering witness's lens matching — which a
+   second, independently-written lane almost never satisfies for free.** The
+   ~8,200× fold speedup is real once a `JointIndex` exists, but building one is
+   a ~61 ms up-front cost that amortizes only across repeated queries at fixed
    depths on a fixed pair of lanes — this is a cache/index the caller must
    choose to build, not a free property of the substrate.
 4. **The `SemanticLens` correction is load-bearing, not decorative**: it is

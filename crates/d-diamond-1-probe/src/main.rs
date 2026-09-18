@@ -122,6 +122,24 @@ fn main() {
         );
     }
 
+    println!(
+        "\n-- P2 touched-write POSITION independence: the range's WIDTH is held at 100 rows and \
+         its POSITION is moved. The fixed-position sweep above cannot see an O(end-position) \
+         cost; only this can. --"
+    );
+    for &lo in &[500u32, 64_000, 1_000_000, 3_999_900] {
+        let ns = time_ns(9, 200, || {
+            let d = touched_write(std::hint::black_box(lo), std::hint::black_box(lo + 100));
+            std::hint::black_box(&d);
+        });
+        println!(
+            "range=[{:>9},{:>9}) width=100 touched_write_ns={:>8.2}",
+            lo,
+            lo + 100,
+            ns
+        );
+    }
+
     // ── P3 ──
     println!("\n== P3 — fold intersection over ONE ordinal via a Morton-interleaved joint key ==");
     println!("(equal depths only — a joint key packs 2 tiles·16 bits per depth, capped at JOINT_MAX_DEPTH=4 to fit a u128)");
@@ -135,20 +153,33 @@ fn main() {
         joint_build_ns / 1e6
     );
     println!(
-        "{:>4} {:>9} {:>9} {:>9} | {:>12} {:>22} {:>8}",
-        "d", "kept A", "kept B", "kept ∩", "fold ns", "ref (2 sweeps+AND) ns", "speedup"
+        "(the comparable column is fold+materialize: the comparator produces a full \
+         original-ordinal mask, so a bound that returns only (lo,hi) in JOINT order is not the \
+         same output)"
+    );
+    println!(
+        "{:>4} {:>9} {:>9} {:>9} | {:>10} {:>14} {:>22} {:>10}",
+        "d",
+        "kept A",
+        "kept B",
+        "kept ∩",
+        "bound ns",
+        "+materialize",
+        "ref (2 sweeps+AND) ns",
+        "speedup"
     );
     for d in [2u8, 3, 4] {
         match run_p3(&world, &joint, d, &mut r) {
             Some(row) => println!(
-                "{:>4} {:>9} {:>9} {:>9} | {:>12.0} {:>22.0} {:>8.2}x",
+                "{:>4} {:>9} {:>9} {:>9} | {:>10.0} {:>14.0} {:>22.0} {:>9.2}x",
                 row.depth,
                 row.kept_a,
                 row.kept_b,
                 row.kept_and,
                 row.fold_ns,
+                row.fold_materialize_ns,
                 row.reference_two_sweeps_ns,
-                row.reference_two_sweeps_ns / row.fold_ns
+                row.reference_two_sweeps_ns / row.fold_materialize_ns
             ),
             None => println!("{d:>4}  (no F4-passing pair found)"),
         }

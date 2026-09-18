@@ -34,29 +34,53 @@ hidden one call deeper than the reviewer looked.
 
 **The fix, both instances (D-DIAMOND-1 commit 2, `crates/d-diamond-1-probe`):**
 
-- P2: `touched_write(lo, hi)` allocates `words_for(hi)` — `hi` alone, never
-  `n_rows` — so cost depends on `(lo, hi)`, not on the lane size. Verified by
-  a flatness falsifier at a FIXED absolute range across N = 1K → 1M: 28.5–29.0
-  ns flat (old buffer: 41 → 5,496 ns, ~134× growth). The full-lane sweep is
-  kept ONLY as an explicitly separate `reference_sweep_ns` column, never
-  summed into the fold's own total.
+- P2: `touched_write(lo, hi)` returns `(w0, dst)` — a base word index
+  `w0 = lo / 64` and a buffer of `words_for(hi) - w0` words, so cost is
+  O((hi − lo) / 64) for a range at ANY position. `n_rows` never appears in its
+  signature. Flat 20.5–22.6 ns across N = 1K → 1M at a fixed range (old
+  whole-lane buffer over the same range: 34 → 4,620 ns, ~134×) AND flat
+  20.5–21.7 ns across positions 500 → 3,999,900 at a fixed 100-row width. The
+  full-lane sweep is kept ONLY as an explicitly separate `reference_sweep_ns`
+  column, never summed into the fold's own total.
+
+  **This bullet is itself the second correction, and the sharper half of the
+  lesson.** Its first version sized the buffer to `words_for(hi)` and wrote
+  from word 0 — so `mask_set_range` zeroed every word BEFORE `lo` and the cost
+  was O(hi), the range's END POSITION in the lane. That is still a
+  population-shaped cost for a range near the lane's end, and the flatness
+  falsifier could not see it, because holding `(lo, hi)` at a FIXED ABSOLUTE
+  position across N holds `hi` constant by construction. Fixing the answer and
+  varying N is NOT sufficient; the answer has a position as well as a size, and
+  a cost proportional to position passes every N-sweep unchallenged. Falsifier:
+  `f_touched_write_is_position_independent` — fixed width, moving position;
+  red against the old shape, green against the fix.
 - P3: the fold arm is rebuilt around a `JointIndex` — a Morton-interleaved
   joint key over BOTH lanes, sorted once (a real, separately-timed cost), then
   bounded with two `partition_point`s and NOTHING ELSE. Verified structurally,
   not by report: `ternary_match_u64_to_mask` appears in the probe crate ONLY
   inside the `reference_sweep_ns` timing block — zero occurrences in
-  `JointIndex`. Fold cost: 83–85 ns against a 907,944–908,880 ns two-sweep
-  reference — 10,682×–10,950×, the honest number once the sweep is actually
-  gone rather than narrowed.
+  `JointIndex`. Bound alone: 69–79 ns. **Bound + `materialize_rows`: 89–98 ns**
+  — and that is the number to quote, because the comparator produces a full
+  original-ordinal mask while a bound alone produces two offsets into the
+  JOINT index's own order. Against 745,473–797,268 ns for two sweeps + AND:
+  **8,135×–8,376×**. The remap is O(kept), so it is a legitimate fold cost, but
+  omitting it compares inequivalent outputs and inflated the ratio to
+  ~10,700×. Conditional on a prebuilt `JointIndex` (≈61 ms per 1M rows).
 
 **The reusable check, for any future "we measured a fold" claim:** name the
 quantity the reported cost is a function of. If it is a function of N, or of
 the number of rows touched by a predicate rather than the number of rows in
 the ANSWER, it is not a fold measurement — it is a narrowed sweep or a
-population-sized buffer, whatever the code calls it. `d-diamond-1-probe`'s two
-new tests (`p2_touched_write_cost_does_not_scale_with_lane_size`,
-`p2_touched_write_beats_the_old_whole_lane_sized_buffer`) are the falsifier
-shape this check demands: fix the answer, vary N, assert flatness.
+population-sized buffer, whatever the code calls it.
+
+And then vary the answer along EVERY axis it has, not just its size. Three
+tests, not two, are the shape this check demands:
+`p2_touched_write_cost_does_not_scale_with_lane_size` (fix the answer, vary N),
+`p2_touched_write_beats_the_old_whole_lane_sized_buffer` (the old shape is
+measurably worse), and `f_touched_write_is_position_independent` (fix the
+answer's SIZE, move its POSITION). The third exists because the first two were
+both green over a cost that was still O(end position) — a benchmark that varies
+one parameter certifies exactly one parameter.
 
 Cross-ref: `three-prefix-fold-carriers.md` §1 (*"masking wins when the slice
 is GRANULAR, PEEK wins when the slice is ADDRESSED"* — this entry adds the

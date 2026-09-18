@@ -432,21 +432,30 @@ pub fn bound_mask(
     Ok((lo, hi))
 }
 
-/// The TOUCHED-ONLY write: a destination sized to `words_for(hi)`, not
-/// `words_for(n_rows)`. `mask_set_range` zeroes `dst[..lo_word]` and
-/// `dst[hi_word+1..]` and only ever needs to reach `dst.len()` — so a
-/// destination whose length depends on `hi` (not on the lane's row count)
-/// bounds `mask_set_range`'s own work to `words_for(hi)` words, never to the
-/// whole lane. This is the fix for the materialization bug: the old P2 write
-/// path allocated `dst` sized to `words_for(n_rows)` regardless of how narrow
-/// `[lo, hi)` was, so `mask_set_range` always did O(n_rows/64) work. Returns
-/// the touched slice `dst[w0..w1]` where `w0 = lo/64`.
-pub fn touched_write(lo: u32, hi: u32) -> Vec<u64> {
+/// The TOUCHED-ONLY write: a destination covering ONLY the words the range
+/// actually intersects, `[w0, w1)` where `w0 = lo / 64` and
+/// `w1 = words_for(hi)`. Returns `(w0, dst)` — the base word index and the
+/// `w1 - w0` words of mask, so the caller can place the fragment at its
+/// absolute position without ever allocating the words before it.
+///
+/// **Why the base offset is load-bearing.** `mask_set_range` writes EVERY word
+/// of the slice it is given (zero before the range, ones inside, zero after),
+/// so its cost is the slice's length, not the range's width. An earlier
+/// version of this function allocated `words_for(hi)` and wrote from word 0,
+/// which made the cost O(hi) — proportional to the range's END POSITION in the
+/// lane, not to `hi - lo`. That is still a population-shaped cost for a range
+/// near the lane's end, and the original flatness test could not see it
+/// because it held `[lo, hi)` at a FIXED absolute position across every `N`.
+/// Sizing from `w0` makes the cost O((hi - lo) / 64) for any position — which
+/// is what "a fold's cost is a function of its answer's size" actually
+/// requires. Falsifier: `f_touched_write_is_position_independent`.
+pub fn touched_write(lo: u32, hi: u32) -> (usize, Vec<u64>) {
     let (lo, hi) = (lo as usize, hi as usize);
+    let w0 = lo / 64;
     let w1 = words_for(hi);
-    let mut dst = vec![0u64; w1];
-    mask_set_range(&mut dst, lo, hi);
-    dst
+    let mut dst = vec![0u64; w1.saturating_sub(w0)];
+    mask_set_range(&mut dst, lo - w0 * 64, hi - w0 * 64);
+    (w0, dst)
 }
 
 #[derive(Debug, Clone)]
@@ -457,8 +466,8 @@ pub struct P2Row {
     pub bound_ns: f64,
     pub touched_write_ns: f64,
     /// The `MatchU64` sweep over the WHOLE lane — a reference comparator,
-    /// never part of any fold's own lowering (`no sweep, we said
-    /// fold`). Kept because the original spec asked to compare the witnessed
+    /// never part of any fold's own lowering — a fold does not run a per-row
+    /// predicate. Kept because the original spec asked to compare the witnessed
     /// bound against this exact kernel.
     pub reference_sweep_ns: f64,
 }
@@ -736,7 +745,16 @@ pub struct P3Row {
     pub kept_b: usize,
     pub kept_and: usize,
     /// The fold arm: ONE `JointIndex::bound` call. No sweep anywhere in it.
+    /// Its ANSWER is a `(lo, hi)` pair in the JOINT index's own order — the
+    /// right number only for a consumer that can work in that order.
     pub fold_ns: f64,
+    /// The fold arm PLUS `materialize_rows(lo, hi)` — the remap back to the
+    /// world's original ordinal. This is the number comparable to
+    /// `reference_two_sweeps_ns`, which produces a full original-ordinal mask;
+    /// `fold_ns` alone compares inequivalent outputs and flatters the fold.
+    /// The remap is O(kept), i.e. proportional to the ANSWER, not to the
+    /// population — so it is a legitimate fold cost, but it is not free.
+    pub fold_materialize_ns: f64,
     /// The non-fold reference comparator: sweep(A) + sweep(B) + AND, kept
     /// exactly as the original spec asked ("two sweeps + AND") — never
     /// labelled or treated as part of any fold's own lowering.
@@ -812,6 +830,11 @@ pub fn run_p3(world: &World, joint: &JointIndex, depth: u8, r: &mut SplitMix64) 
         let (lo, hi) = joint.bound(black_box(a), black_box(b), black_box(depth));
         black_box((lo, hi));
     });
+    let fold_materialize_ns = time_ns(7, 1, || {
+        let (lo, hi) = joint.bound(black_box(a), black_box(b), black_box(depth));
+        let rows = joint.materialize_rows(lo, hi);
+        black_box(&rows);
+    });
     let reference_two_sweeps_ns = time_ns(7, 1, || {
         sweep_mask(
             black_box(&world.a_hi),
@@ -836,6 +859,7 @@ pub fn run_p3(world: &World, joint: &JointIndex, depth: u8, r: &mut SplitMix64) 
         kept_b: popcount(&mb),
         kept_and: popcount(&truth),
         fold_ns,
+        fold_materialize_ns,
         reference_two_sweeps_ns,
     })
 }
