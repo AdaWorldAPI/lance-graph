@@ -4,7 +4,15 @@
   `#[repr(C, align(16))]` over `[u8; 16]`, the exact mirror of `NodeGuid`,
   with `as_bytes` / `as_bytes_mut` / `from_bytes` / `to_bytes` / `facet()`
   and `From`/`Into` against `FacetCascade`. `pub type EdgeBlock = EdgeFacet`
-  keeps every call site compiling. Falsifier
+  keeps the in-tree call sites compiling — and only those: they use
+  `default()`, byte access, equality and `Copy`, all of which `EdgeFacet`
+  carries. **It is NOT a drop-in for `FacetCascade`'s whole surface**, which is
+  the point of the retype, not an oversight: `EdgeFacet` deliberately exposes
+  bytes, so `FacetCascade`'s public `facet_classid` / `tiers` fields and any
+  method not on `EdgeFacet` do not resolve through the alias. An out-of-tree
+  caller reaching for one gets a compile error and names the projection
+  instead (`edges.facet().facet_classid`) — see Source-breaking below.
+  Falsifier
   `edges_store_bytes_verbatim_and_project_the_integer_little_endian` asserts
   BOTH superpowers at once: the stored bytes are verbatim (endian-free) AND
   `facet().facet_classid` decodes `0xDEAD_BEEF` little-endian. Disable-run
