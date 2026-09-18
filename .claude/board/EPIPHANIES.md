@@ -1,3 +1,93 @@
+## 2026-09-18 — E-BYTES-ARE-STORED-INTEGERS-ARE-PROJECTED-1 — byte-agnosticism is the STORAGE superpower and little-endian is the COMPUTE superpower; the bug is always a stored projection
+
+**Status:** OPERATOR-RULED (the framing is the operator's: *"byte is storage
+superpower, LE is compute superpower"*) + SHIPPED at the one site that
+violated it (`NodeRow::edges` is now the byte-backed `EdgeFacet([u8; 16])`).
+**Confidence:** HIGH on the mechanics — measured census, 1356 contract tests,
+every consumer unchanged, the new falsifier disable-verified red-then-green.
+HIGH on the doctrine as a *reading of this tree*: two of the three sites
+already obeyed it before it was written down.
+
+### The line
+
+**Bytes are stored. Integers are projected.**
+
+- **Storage is byte-agnostic, and that is a superpower:** a byte array has no
+  endianness to get wrong, every bit pattern is valid, no niche, and the
+  in-memory image equals the wire image on every target for free.
+- **Little-endian is a superpower too, but a COMPUTE one:** memory order and
+  arithmetic significance agree, so a prefix compare is `vpxor` + `tzcnt` with
+  nothing materialized. That is why the facet's byte-chain LCP measures
+  **1.72 ns** (`examples/facet_axis_lcp_probe.rs`, #1245) — the reinterpret IS
+  the speed.
+- **They must not be mixed, and the failure has exactly one shape: storing a
+  projection.** The moment a typed, native-endian value becomes the stored
+  image, the storage lane inherits the compute lane's endianness — and the
+  only defence left is a target guard.
+
+### The tree already agreed, at two sites out of three (measured)
+
+| site | form | verdict |
+|---|---|---|
+| `NodeGuid([u8; 16])` | stores bytes, projects via `.facet()` | obeys — the exemplar |
+| `AttentionFocusFacet { facet: FacetCascade, .. }` | holds the TYPED facet, is not `repr(C)`, no `SoaEnvelope`, and reaches bytes only through the explicit `to_bytes()` encode | obeys — compute, contained, costs nothing |
+| `NodeRow::edges` | stored a `FacetCascade` inside a `repr(C, align(64))` row whose `as_le_bytes()` reinterprets `&[NodeRow] → &[u8]` for Lance | **violated** — a stored projection |
+
+The third is why #1246 had to add
+`const _: () = assert!(cfg!(target_endian = "little"))` to `facet::`. That
+guard was a stopgap holding a seam shut, not a fix.
+
+### What shipped
+
+`EdgeFacet([u8; 16])` — `#[repr(C, align(16))]`, the exact mirror of
+`NodeGuid` — with `as_bytes` / `as_bytes_mut` / `from_bytes` / `to_bytes` /
+`facet()`, and `pub type EdgeBlock = EdgeFacet` so every call site compiles
+unchanged. Consequence: **all three `NodeRow` fields are now byte arrays**
+(`[u8;16] | [u8;16] | [u8;480]`), so the 512-byte row contains no
+native-endian integer at all, and `as_le_bytes` is byte-identical across
+targets by construction rather than by assertion. Both stale SAFETY comments
+are corrected in place — one of them had said, in its own last sentence, that
+`EdgeBlock` was "the one field that is not" a byte array.
+
+### The correction this entry carries
+
+#1246's arc entry and PR body both said byte-backing `edges` "would retire the
+`target_endian` guard entirely." **That was wrong, and the code said so.**
+`FacetCascade::as_bytes` / `ref_from_bytes` are still reinterprets, and they
+are *supposed* to be — that reinterpret is the 1.72 ns hot path. So the guard
+stays; what changed is its blast radius. It no longer protects a row at rest
+(that dependency is gone); it protects the compute lens's own
+`reinterpret == encode` identity, where a violation can mis-read a value in
+flight and nothing more. The guard's comment is rewritten to say exactly that.
+
+### Why the change was nearly free (the census, not a guess)
+
+Every `EdgeBlock` site in the tree is `default()`, `as_bytes()` /
+`as_bytes_mut()`, `from_bytes()`, equality, or a `Copy` — and every
+struct-literal construction and every `.facet_classid` / `.tiers` read is on a
+*projected* facet (`FacetCascade::from_bytes(&bytes).tiers[0]`,
+`… .facet_classid == CLASSID`). **Not one is a field access on
+`NodeRow::edges`.** #1246's migration had already moved them all to bytes. The
+two real consumers (`symbiont::key_render`, `soa_graph`) read
+`eb.as_bytes()[..12]` / `[12..]` and are untouched. So this change did not
+impose the doctrine — it ratified what the code was already doing, and let the
+type system say it.
+
+### The reusable pattern, named
+
+`byte-backed newtype + .facet() projection`. Storage type owns the bytes and
+offers no integer; the lens type owns the integers and is obtained by an
+explicit decode. If a type is `repr(C)` AND reachable from a stored image AND
+contains a multi-byte integer, it is a stored projection — fix it by moving the
+integer behind a projection, not by adding a target guard.
+
+### Residue (unchanged by this entry)
+
+The readers that still split those 16 bytes at 12 — the V1 `12 + 4` carving —
+remain named in `ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`. Byte
+backing neither fixes nor worsens that; it is a *reading* of the bytes, and the
+ClassView is still what should decide it.
+
 ## 2026-09-17 (18) — E-THE-SECOND-FACET-IS-NOT-AN-EDGE-BLOCK-1 — bytes 16..32 are just another content-blind facet cascade; giving them their own type was how the V1 `12 + 4` carving survived its own retirement
 
 **Status:** OPERATOR-RULED (verbatim below) + SHIPPED (`pub type EdgeBlock =
