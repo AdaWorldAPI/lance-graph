@@ -1,3 +1,40 @@
+## 2026-09-18 — PR #1246 merged (`568965e9`): `EdgeBlock` is a `FacetCascade` on `main`, `Pred::Range` is in the mask-risc IR, and no manifest in this repo carries a `.0.0` pin
+
+The two entries below dated 2026-09-17 (3) and (2) describe what is now on
+`main`, not what is in PR: the `EdgeBlock` contract-inventory delta and
+`D-MRX-7`. Read them as shipped.
+
+- **New in the pin doctrine (operator, 2026-09-18):** *"never pin to x.00,
+  always float x.*"* / *"so no decimal .0.0"*. Eight exact-equals pins are
+  gone: `lance` / `lance-linalg` / `lance-index` now `11.*`, `lancedb`
+  `0.38.*`, plus `lance` in holograph and `lance-namespace` / `lance-arrow`
+  in `lance-graph-catalog` / `lance-graph`. Resolution is UNCHANGED — arrow
+  58.4.0, datafusion 54.1.0, lancedb 0.38.0, lance family 11.0.0 — verified
+  byte-identical on throwaway lockfiles before and after, then compiled and
+  tested end-to-end by CI on the merge parent. `arrow` and `datafusion` were
+  already caret. **CLAUDE.md § Key Dependencies is updated in the same
+  arc**: its `=11.0.0` / `=0.38.0` lines were stale the moment the manifest
+  changed, and the superseded 2026-09-05 half-sentence is struck in place
+  rather than deleted.
+- **New contract surface:** `FacetCascade::as_bytes_mut`, plus a
+  `target_endian = "little"` compile-time assert on `FacetCascade`. The
+  assert exists because `as_bytes()` is a raw reinterpret while `to_bytes()`
+  is an explicit LE encode of `facet_classid` — identical on LE, divergent
+  on BE, and the struct's in-memory image IS the canonical stored row image.
+  Failing at compile time beats corrupting a row at runtime. The shape that
+  needs no guard — `edges` byte-backed the way `NodeGuid` is, with the lanes
+  projected — is named and NOT built.
+- **State consumers should know:** nothing about byte positions moved.
+  `NODE_ROW_STRIDE`, `node_rows_from_le_bytes` and
+  `ENVELOPE_LAYOUT_VERSION` are all unchanged; `EdgeBlock::default()` and
+  equality still compile.
+- **Gated ranges cost two passes:** `OpHistogram` gained `ranges`, and a
+  gated `Pred::Range` charges `two_input` as well, because `exec.rs` runs
+  `mask_set_range` and then `mask_and_assign`. Every lane predicate has a
+  fused `*_to_mask_under` kernel and stays free under a gate; Range is the
+  sole exception until `mask_set_range_under` exists upstream. Arc:
+  `PR_ARC_INVENTORY.md` 2026-09-18 #1246.
+
 ## 2026-09-17 (3) — CONTRACT INVENTORY DELTA: `EdgeBlock` is now `pub type EdgeBlock = FacetCascade` (the V1 `12 + 4` struct is gone); `FacetCascade::as_bytes_mut` added
 
 - **State consumers should know:** bytes 16..32 of `NodeRow` are the same

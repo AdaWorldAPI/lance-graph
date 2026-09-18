@@ -1,3 +1,69 @@
+## 2026-09-18 — lance-graph PR #1246 (merged `568965e9`, branch `claude/great-pascal-k96kok`) — `EdgeBlock` becomes `FacetCascade`, `Pred::Range` joins the mask-risc IR, and every `.0.0` exact pin floats
+
+- **Added:** `Pred::Range { lo: u32, hi: u32 }` + `ExecError::RangeOutOfBounds`
+  in `lance-graph-mask-risc` (D-MRX-7); `OpHistogram::ranges`;
+  `FacetCascade::as_bytes_mut`; a `target_endian = "little"` compile-time
+  assert on `FacetCascade` with a round-trip test proving `as_bytes()` and
+  `to_bytes()` agree on a non-zero `facet_classid`.
+- **Retired:** the V1 `EdgeBlock { in_family: [u8; 12], out_family: [u8; 4] }`
+  struct. `EdgeBlock` is now `pub type EdgeBlock = FacetCascade` — bytes
+  16..32 are the same content-blind `4 + 12` facet as the key, and the 12+4
+  split no longer exists as a type. Byte positions, `NODE_ROW_STRIDE` and
+  `node_rows_from_le_bytes` are unchanged; no `ENVELOPE_LAYOUT_VERSION` bump.
+  Operator ruling `E-THE-SECOND-FACET-IS-NOT-AN-EDGE-BLOCK-1`: *"It's
+  forbidden for the edge block to even know it's an edge block."*
+- **Pin doctrine changed (operator, 2026-09-18):** *"never pin to x.00,
+  always float x.*"* / *"so no decimal .0.0"*. Eight exact-equals pins
+  floated — `lance` / `lance-linalg` / `lance-index` to `11.*`, `lancedb` to
+  `0.38.*`, plus `lance` in holograph and `lance-namespace` / `lance-arrow`
+  in the two members. Verified a resolution NO-OP against throwaway
+  lockfiles before and after: arrow 58.4.0, datafusion 54.1.0, lancedb
+  0.38.0, the whole lance family 11.0.0, byte-identical. `arrow` and
+  `datafusion` were already caret and were not touched. CLAUDE.md's pin
+  block carried `=11.0.0` / `=0.38.0` until this arc's hygiene entry; the
+  superseded half-sentence is struck in place there, not deleted.
+- **Locked:** a gated `Pred::Range` costs TWO mask passes, not one. Every
+  LANE predicate has a fused `*_to_mask_under` kernel, so gating one is
+  free; Range is the sole exception — `exec.rs:541` runs `mask_set_range`
+  and THEN `mask_and_assign`. Charged to `two_input` (the second pass
+  literally IS an `and`), which leaves the asymmetry visible in the
+  histogram instead of hidden behind a range-specific name. The fused
+  primitive that would close it is named in the doc comment as
+  `mask_set_range_under`; it does not exist upstream.
+- **Deferred / named, not built:** `mask_set_range_under`; the planner-side
+  ordering witness quack's `prefix_u64` lowering waits on (the IR does not
+  know a lane is address-ordered, and `Filter` carries no ordering
+  evidence); the readers that still split at 12 on their own authority
+  (`ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`); making `edges`
+  byte-backed the way `NodeGuid` is, which would retire the new
+  `target_endian` guard entirely.
+- **Withdrawn before landing:** `EdgeCodecFlavor::Refs16`, `EdgeRefs`, the
+  `T8` facet shape, `ColumnDescriptor::class_id`, and a `le-contract.md` §3c
+  ruling. None reached `main` or the branch.
+- **Review:** codex P2 on the endian exposure — real, and the fix is the
+  compile-time assert plus two stale `canonical_node.rs` SAFETY comments
+  that still justified themselves with "EdgeBlock is plain `[u8; _]`".
+  CodeRabbit raised three; one (the gated-range undercount) was correct and
+  is the Locked item above, and CodeRabbit confirmed the fix. Two did NOT
+  survive checking and were declined with reasons: `mask_set_range` costs
+  ONE mask pass, not three (every word of `out_words` is written exactly
+  once across disjoint segments), and `STATUS_BOARD.md` is ascending by
+  D-id, so the prepend rule — which names the append-only ledgers — does not
+  reach it. CodeRabbit withdrew the second and recorded a learning.
+- **CI note:** `member-tests` was CANCELLED on both attempts of run
+  35330298662 with all 22 work steps green, dying in the
+  `Post Run Swatinem/rust-cache@v2` teardown. No test failed on either
+  attempt; `test`, `test-with-coverage`, Build and Style Check were green.
+  The one licensed re-run was spent on attempt 2; the operator merged during
+  attempt 2's teardown.
+- **Confidence:** HIGH that the type change is byte-neutral (positions,
+  stride and the `from_le_bytes` path are untouched, and every in-tree field
+  site moved mechanically to the same bytes). HIGH that the pin change is a
+  resolution no-op (two throwaway lockfiles, byte-identical, plus a green
+  `Build` and a green `test` on `main`'s merge parent). MEDIUM on the
+  endian guard being the RIGHT shape rather than a correct stopgap — the
+  byte-backed `edges` above is the shape that needs no guard.
+
 ## 2026-09-17 — lance-graph PR #1245 (merged `83369cad`, branch `claude/great-pascal-k96kok`) — the facet's per-axis LCP goes BACK to the `shared6` byte chain, verbatim; #1241's masked readout is the test oracle now; three prefix-fold carriers named
 
 - **Added:** `examples/facet_axis_lcp_probe.rs` — four-arm benchmark
