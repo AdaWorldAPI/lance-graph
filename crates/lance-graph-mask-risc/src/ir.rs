@@ -300,6 +300,13 @@ impl Program {
         let mut h = OpHistogram::default();
         for op in &self.ops {
             match op {
+                // `Pred::Range` reads NO value lane (it is a row-index
+                // predicate), so it is not a value-lane predicate pass; it
+                // spends one linear write over the destination mask instead.
+                MaskOp::Pred {
+                    pred: Pred::Range { .. },
+                    ..
+                } => h.ranges += 1,
                 MaskOp::Pred { .. } => h.predicates += 1,
                 MaskOp::And { .. }
                 | MaskOp::Or { .. }
@@ -324,12 +331,19 @@ pub struct OpHistogram {
     pub not: usize,
     /// Three-input passes.
     pub ternlog: usize,
+    /// Row-index range writes (`Pred::Range`) — counted apart from
+    /// [`predicates`](Self::predicates) because they read no value lane.
+    /// Each is ONE pass over the destination mask: `mask_set_range` writes
+    /// every word of `out_words` exactly once across disjoint segments (the
+    /// two zero-fills below/above the range, then the head/body/tail of the
+    /// range itself), never re-walking the whole mask per segment.
+    pub ranges: usize,
 }
 
 impl OpHistogram {
     /// Total mask-word passes the program spends after its predicates.
     pub fn mask_passes(&self) -> usize {
-        self.two_input + self.not + self.ternlog
+        self.two_input + self.not + self.ternlog + self.ranges
     }
 }
 
@@ -427,6 +441,45 @@ mod tests {
     /// reported separately). Fixture: one of each kind, so every counter is
     /// exactly 1 and the pass total is 4.
     #[test]
+    /// `Pred::Range` is a row-index predicate: it reads no value lane, so it
+    /// must NOT land in `predicates`, and its destination write must be
+    /// counted in `mask_passes()`. Before this split a range-only program
+    /// reported one predicate and ZERO mask passes, which is the one shape a
+    /// cost model would read as free. (CodeRabbit, PR #1246.)
+    #[test]
+    fn range_is_counted_apart_from_value_lane_predicates() {
+        let range_only = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::Range { lo: 3, hi: 9 },
+                under: None,
+                dst: 0,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
+        );
+        let h = range_only.op_histogram();
+        assert_eq!(h.ranges, 1, "the range must be counted");
+        assert_eq!(h.predicates, 0, "a range reads no value lane");
+        assert_eq!(h.mask_passes(), 1, "and its write is not free");
+
+        // A lane-reading predicate still counts as one, and not as a range.
+        let lane_only = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::GtI32 { lane: 0, t: 3 },
+                under: None,
+                dst: 0,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
+        );
+        let h2 = lane_only.op_histogram();
+        assert_eq!((h2.predicates, h2.ranges), (1, 0));
+        assert_eq!(h2.mask_passes(), 0, "a bare lane predicate spends none");
+    }
+
+    #[test]
     fn op_histogram_counts_each_physical_kind_once() {
         let p = Program::new(
             vec![
@@ -463,7 +516,8 @@ mod tests {
                 predicates: 1,
                 two_input: 1,
                 not: 1,
-                ternlog: 1
+                ternlog: 1,
+                ranges: 0,
             }
         );
         assert_eq!(h.mask_passes(), 3);
