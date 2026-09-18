@@ -1,3 +1,55 @@
+## TD-JC-CLIPPY-RED-ON-BASE-2 (2026-09-18) — the 1.98 pre-bump lint sweep was WORKSPACE-scoped, and `jc` is workspace-EXCLUDED
+
+**`JC Substrate Proof` is RED on `main`** (run `35335429357`, head `568965e9`):
+`clippy::chunks_exact_to_as_chunks` at `crates/jc/src/jirak.rs:37` and
+`crates/jc/src/pearl.rs:59`, both `for chunk in fp.chunks_exact_mut(8)`,
+under the workflow's own `-D warnings`.
+
+**It is NOT the merge that surfaced it.** Both lines are present verbatim at
+`83369cad` (`main` before #1246), and #1246 touched no `jc` file. Verified by
+checking out the base and grepping the two paths, not inferred from the diff.
+
+**Why the existing guards did not catch it, precisely:**
+
+- `jc-proof.yml` DOES run on pull_request — but path-filtered to
+  `crates/jc/**`, `crates/lance-graph-contract/src/cam.rs` and the workflow
+  itself. #1246 changed `facet.rs` / `canonical_node.rs`, so it correctly
+  never ran there. The filter is not the defect.
+- `git log -S` dates both sites to `5959463f` (#1170, 2026-09-04) — ONE DAY
+  BEFORE `TD-JC-CLIPPY-RED-ON-BASE-1` was closed as "jc clippy clean"
+  (`13fdd587`). They survived that sweep because the lint did not exist yet:
+  `chunks_exact_to_as_chunks` is new in 1.98.
+- `rust-toolchain.toml`'s own bump log says the 1.97.1 → 1.98.1 leg is
+  "ONE lint … at ten sites across four crates", closed separately in #1194
+  and "verified clean on BOTH 1.97.1 and 1.98.1" — which is what licensed
+  the bump as a one-line channel edit. **That verification was
+  workspace-scoped, and `jc` is in `[workspace] exclude`.** A
+  workspace-wide `cargo clippy` cannot reach it — which is exactly the
+  reason `jc-proof.yml` carries its own `--manifest-path` clippy step in
+  the first place, as its comment says. The sweep and the gate knew about
+  the exclusion independently; the bump's measurement did not.
+
+**The fix (2 lines, mechanical):** `fp.chunks_exact_mut(8)` →
+`fp.as_chunks_mut::<8>().0`, which is what clippy suggests and what #1194
+applied at its ten sites. NOT done here: it is code in a crate this PR does
+not touch, and this PR is board hygiene.
+
+**Wider candidate surface — GREP, NOT VERDICT.** A `chunks_exact(_mut)\(\d+\)`
+census over all 22 workspace-excluded members finds 114 candidate sites:
+thinking-engine 98 (mostly `examples/`), highheelbgz 4,
+lance-graph-cognitive 4, reader-lm 3, bge-m3 2, jc 2,
+quasicryth-research 1. **Only `jc` is RED**, because only `jc` has a clippy
+gate; the rest are ungated, so none of the other 112 has been compiled
+against the lint at all. Whether they would fire is UNVERIFIED — the regex
+matches a call shape, not a lint verdict, and `--all-targets` is what pulls
+`examples/` in. Do not quote 114 as a defect count.
+
+**Same shape as:** `TD-JC-CLIPPY-RED-ON-BASE-1` (resolved #1183) and
+`TD-SIGKER-CLIPPY-RED-ON-BASE-1`. The recurring lesson is one line: **a
+workspace-scoped measurement says nothing about a workspace-excluded
+crate**, and this repo excludes 22 of them. A toolchain bump's "verified
+clean" is only as wide as its manifest list.
+
 ## 2026-09-15 — `TierFloors::stack_early_exit` promises a settled reading; that is true only for non-negative intensity, and the doc does not say so
 
 - **The premise, unstated.** `crates/perturbation-sim/src/rolling_floor.rs:220`
