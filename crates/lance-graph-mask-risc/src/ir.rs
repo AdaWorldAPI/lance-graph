@@ -303,10 +303,27 @@ impl Program {
                 // `Pred::Range` reads NO value lane (it is a row-index
                 // predicate), so it is not a value-lane predicate pass; it
                 // spends one linear write over the destination mask instead.
+                //
+                // A GATED range spends a SECOND pass, and that is not true of
+                // any other predicate: every lane predicate has a fused
+                // `*_to_mask_under` kernel, so gating it costs nothing extra.
+                // There is no `mask_set_range_under`, so `exec` runs the gated
+                // range as `mask_set_range` followed by `mask_and_assign` —
+                // literally an `and`, which is what `two_input` already counts.
+                // Charged there rather than to a new field, so the asymmetry is
+                // visible in the histogram instead of hidden behind a name.
+                // (CodeRabbit, PR #1246. Closing this would need the fused
+                // primitive upstream, tracked as `mask_set_range_under`.)
                 MaskOp::Pred {
                     pred: Pred::Range { .. },
+                    under,
                     ..
-                } => h.ranges += 1,
+                } => {
+                    h.ranges += 1;
+                    if under.is_some() {
+                        h.two_input += 1;
+                    }
+                }
                 MaskOp::Pred { .. } => h.predicates += 1,
                 MaskOp::And { .. }
                 | MaskOp::Or { .. }
@@ -337,6 +354,11 @@ pub struct OpHistogram {
     /// every word of `out_words` exactly once across disjoint segments (the
     /// two zero-fills below/above the range, then the head/body/tail of the
     /// range itself), never re-walking the whole mask per segment.
+    ///
+    /// A range under a gate spends a second pass, counted in
+    /// [`two_input`](Self::two_input) because it IS one: `exec` follows the
+    /// write with `mask_and_assign`. Unlike every lane predicate, which has a
+    /// fused `*_to_mask_under` kernel, no `mask_set_range_under` exists.
     pub ranges: usize,
 }
 
@@ -476,6 +498,46 @@ mod tests {
         let h2 = lane_only.op_histogram();
         assert_eq!((h2.predicates, h2.ranges), (1, 0));
         assert_eq!(h2.mask_passes(), 0, "a bare lane predicate spends none");
+    }
+
+    /// A GATED range costs two passes, and a gated LANE predicate costs none:
+    /// every lane predicate has a fused `*_to_mask_under` kernel, while the
+    /// range has no `mask_set_range_under`, so `exec` runs write-then-`and`.
+    /// Both halves matter — asserting only the range would not show that the
+    /// extra pass is specific to it. (CodeRabbit, PR #1246.)
+    #[test]
+    fn a_gated_range_costs_the_intersection_but_a_gated_lane_predicate_does_not() {
+        let gated_range = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::Range { lo: 3, hi: 9 },
+                under: Some(Operand::Plane(0)),
+                dst: 0,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
+        );
+        let h = gated_range.op_histogram();
+        assert_eq!((h.ranges, h.two_input), (1, 1), "write + intersection");
+        assert_eq!(h.mask_passes(), 2, "a gated range spends BOTH");
+
+        let gated_lane = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::GtI32 { lane: 0, t: 3 },
+                under: Some(Operand::Plane(0)),
+                dst: 0,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
+        );
+        let h2 = gated_lane.op_histogram();
+        assert_eq!(
+            (h2.predicates, h2.two_input),
+            (1, 0),
+            "the fused `*_to_mask_under` kernel adds no pass"
+        );
+        assert_eq!(h2.mask_passes(), 0, "so gating a lane predicate is free");
     }
 
     #[test]
