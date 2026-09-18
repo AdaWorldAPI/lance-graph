@@ -1,3 +1,22 @@
+## D-DIAMOND-1 — dual fold substrate over the shipped `FacetCascade` (D-ids minted 2026-09-18, plan `.claude/plans/d-diamond-1-dual-fold-substrate-v1.md`)
+
+Operator-directed probe arc from `main` `a2a51012`: «Can one canonical 8×2×8-shaped carrier
+support both point-peek and population-mask traversal, with semantic hierarchy reduced to
+prefix/bound folds, while async writes remain invisible to sealed readers?» Verdict vocabulary
+fixed in advance: PROVEN / BOUNDED / FALSIFIED. Fence: no GridLake, no placement, no JC
+cleanup, no planner redesign, no new graph abstraction.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-DMD-R1 | tile 0 is canon: fix the semantic projection in `FacetCascade::shared_prefix_tiles` (classid tile swap on the XOR); stored LE image unchanged | **Shipped (commit 1).** `ISS-SHARED-PREFIX-TILES-CLASSID-INVERSION` recorded; one existing expectation flipped and annotated | F1 seen RED against `a2a51012` (lens said 0 shared tiles for same-concept/different-app), GREEN after; F5 depth test likewise |
+| D-DMD-R2 | the ordering witness — «numeric projection order over the canonical LE image», «storage-attested, planner-consumed»: `ordered_lane::{OrderedLaneWitness, SealedFacetLane, WitnessError}`, `FacetCascade::{semantic_tiles, from_semantic_tiles, cmp_numeric_projection, semantic_u64_halves}`, `SemanticPrefix` | **Shipped (commit 1).** contract 1356 → 1367 tests | R2 tuple order == semantic-tile lexicographic, ≠ byte-wise image order; F2 shuffled lane unattestable + unwitnessed bound caught; F3 forged/stale/re-sealed witness rejected before any bound |
+| D-DMD-L | witnessed prefix → bound lowering: quack `Cmp::Range` + `PrefixLowering` + `Filter::prefix_facet` (no witness → `MatchU64` sweep; rejected witness → sweep + reason) | **Shipped (commit 1).** quack 14 → 17 tests | bound and sweep lower the SAME predicate at every depth 0..=8 (differential vs oracle); a rejected witness emits no `Range` leaf |
+| D-DMD-P1 | point universe: 8-tile `is_ancestor` latency, six pair classes, corrected tzcnt lens vs peek chain | **Queued (commit 2).** | oracle-first; the unmeasured whole-facet cell — no 1.7 ns assumed |
+| D-DMD-P2 | field universe: witnessed bound + `mask_set_range` vs `MatchU64` sweep — bound / write / sweep / total, crossover N, hit sensitivity, L2-resident vs evicted | **Queued (commit 2).** | F4 anti-vacuity on every timed range; must show «locate interval once, then paint» rather than per-row compare |
+| D-DMD-P3 | fold intersection over one ordinal: bound + narrowed tenant sweep + AND vs two sweeps + AND; the tenant lane's refusal to attest over the ontology ordinal is a recorded finding | **Queued (commit 2).** | F4: neither mask contains the other; AND ≠ ∅ / A / B; no join structure |
+| D-DMD-P4 | sealed reader under an open writer: peek and bound latency ± writer, seal-sort, attest, publish | **Queued (commit 2).** | «open-lane producer arrival order must not perturb reads from the sealed image»; sort-at-seal is the reference, placement out of scope |
+| D-DMD-F | the five falsifiers F1–F5 | **F1/F2/F3/F5 shipped at contract + lowering level (commit 1); F4 lands with the probe** | see plan §3 |
+
 ## three-carrier prefix folds (D-ids minted 2026-09-17, plan `.claude/plans/three-carrier-blast-radius-v1.md`)
 
 Arose from the −32 offset correction sweep (#1244) and the operator's challenge to it.

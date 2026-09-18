@@ -1,3 +1,20 @@
+## 2026-09-18 (1) — d-diamond-1-dual-fold-substrate-v1 — can one 8×2×8-shaped carrier carry both point-peek and population-mask traversal → `.claude/plans/d-diamond-1-dual-fold-substrate-v1.md`
+
+**Status:** ACTIVE (operator-directed 2026-09-18; one probe arc; verdict fixed in
+advance as PROVEN / BOUNDED / FALSIFIED). Two rulings locked and shipped first, with
+tests before any optimization code: **R1** tile 0 is canon — the whole-facet
+`shared_prefix_tiles` lens counted APP_PREFIX before the concept because the LE image
+stores `custom` at bytes 0..2; the projection is corrected, the image is not touched
+(`ISS-SHARED-PREFIX-TILES-CLASSID-INVERSION`). **R2** the ordering witness — «numeric
+projection order over the canonical LE image», «storage-attested, planner-consumed»;
+no witness → sweep, false witness → the bound is unavailable. Then four measured
+arms over 1M skewed synthetic keys: P1 point (8-tile ancestry, six pair classes),
+P2 field (witnessed bound + `mask_set_range` vs `MatchU64` sweep, crossover N),
+P3 fold intersection over one ordinal, P4 sealed reader under an open writer.
+Explicitly NOT authorized: GridLake landing, address-derived placement, `NodeGuid` /
+`CausalEdge64` changes, the JC clippy fix, DAG folding, Hamming folds, value-slab
+decoding, planner cost-model work.
+
 ## 2026-09-17 (1) — three-carrier-blast-radius-v1 — how far do the three prefix-fold carriers reach, and where do they touch → `.claude/plans/three-carrier-blast-radius-v1.md`
 
 **Status:** PROPOSAL. Read-only census + seam map; gates only, no code

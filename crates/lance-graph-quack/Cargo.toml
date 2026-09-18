@@ -11,5 +11,10 @@ description = "A columnar query surface whose OPERATORS ARE MASKING OPS over the
 # algebra is reached THROUGH mask-risc, never beside it.
 [dependencies]
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# D-DIAMOND-1 R2: the ordered-lane witness is a CONTRACT type (storage-attested,
+# planner-consumed). This crate is the planner-side lowering that consumes it:
+# `Filter::prefix_facet` lowers a facet prefix to `Cmp::Range` only when a
+# witness validates against the sealed lane, and to the MatchU64 sweep otherwise.
+lance-graph-contract = { path = "../lance-graph-contract" }
 
 [dev-dependencies]

@@ -1,3 +1,38 @@
+## ISS-SHARED-PREFIX-TILES-CLASSID-INVERSION (2026-09-18) — RESOLVED at the lens (D-DIAMOND-1 R1, commit 1); recorded because it was latent, not because it was live
+
+**What it was.** `FacetCascade::shared_prefix_tiles` — the whole-facet 8-tile prefix
+lens, "classid tiles 0–1 first, then the 6 cascade tiers" — ran `trailing_zeros / 16`
+straight over `as_u128()` of the LE image. Since the canon-high flip
+(`ogar_codebook::ClassidOrder::CanonHigh => (canon << 16) | custom`,
+D-CLASSID-CANON-HIGH-FLIP), the LE image holds **`custom` (APP_PREFIX) at bytes `[0..2)`
+and `canon` (the concept) at `[2..4)`**, so the lens read tile 0 = app, tile 1 = concept:
+
+- **the semantic prefix is canon-first** — the concept is the shared, coarse thing; the
+  app prefix is the fine, per-render thing (OGAR `OGAR-CONSUMER-BEST-PRACTICES.md`);
+- **the raw LE byte order is custom-first at the classid boundary** — a property of
+  storing a `u32` little-endian, not a traversal order anyone chose;
+- **zero current callers** — verified by reading (`shared_prefix_tiles` /
+  `prefix_distance` appear only in `facet.rs` and its tests), so nothing shipped read
+  the inverted count;
+- **latent until whole-facet traversal used the lens** — which is exactly what
+  D-DIAMOND-1 proposes, and how it was found: `shared_prefix_tiles(account.move@odoo,
+  account.move@medcare)` was `0`, `shared_prefix_tiles(account.move@odoo,
+  res.partner@odoo)` was `1`.
+
+**What changed.** Only the projection: the two classid tiles of the XOR are swapped
+(`rotate_left(16)` on the low 32 bits) before counting. **The stored LE image, the ABI and
+every serialized form are unchanged** — F1 asserts the bytes byte-for-byte before and after.
+One existing test expectation flipped (`redout_is_granularity_free_and_orthogonal`: flipping
+image bit 0 flips `custom`, so the corrected lens reports 1 shared tile, not 0), annotated
+in place. Red-first: F1 and the F5 depth test failed against `a2a51012` before the fix.
+
+**Why it is worth an entry though nothing shipped read it.** It is the −32 smell of
+`three-prefix-fold-carriers.md` §2 one layer down: a coordinate system (LE integer
+storage) leaking into an operation that wanted a different one (coarse→fine hierarchy).
+The cure is the same doctrine as #1248 — bytes are stored, integers are projected — and
+the R2 witness is built on the projections (`semantic_tiles`, `cmp_numeric_projection`),
+never on byte order, so the inversion cannot recur on the bound path.
+
 ## ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET (2026-09-17) — RESOLVED at the type; the readers that still split at 12 are the named residue
 
 **Operator ruling (verbatim, 2026-09-17):** *"It's forbidden for the edge block to even
