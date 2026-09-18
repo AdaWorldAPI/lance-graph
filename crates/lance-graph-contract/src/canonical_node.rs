@@ -755,6 +755,34 @@ impl From<EdgeFacet> for crate::facet::FacetCascade {
 /// The historical name for bytes 16..32. Kept as an alias so every existing
 /// call site (`EdgeBlock::default()`, `as_bytes()`, `from_bytes()`, equality)
 /// compiles unchanged; what changed is the TYPE it names.
+///
+/// # Migration — this alias is source-BREAKING for field access
+///
+/// `EdgeBlock` named [`FacetCascade`](crate::facet::FacetCascade) before this
+/// change, so its `facet_classid` / `tiers` fields and every inherent
+/// `FacetCascade` method were reachable straight through the alias. They are
+/// not any more: [`EdgeFacet`] deliberately exposes **bytes only**, because a
+/// typed integer inside [`NodeRow`] is a *stored projection* — the one shape
+/// this failure ever takes.
+///
+/// The fix is to name the projection you were implicitly taking:
+///
+/// ```
+/// # use lance_graph_contract::canonical_node::EdgeBlock;
+/// # let edges = EdgeBlock::default();
+/// // before: edges.facet_classid
+/// let classid = edges.facet().facet_classid;
+/// # let _ = classid;
+/// ```
+///
+/// This breaks LOUDLY — it is a compile error at the call site, never a silent
+/// reinterpretation of stored bytes — which is why no feature gate or
+/// read-mode alias is warranted under `I-LEGACY-API-FEATURE-GATED` (that rule
+/// governs a name whose *semantics* change silently, not one that stops
+/// compiling). No consumer is known to be affected: every in-tree site is
+/// `default()` / byte access / equality / `Copy`, and the one named
+/// out-of-repo consumer of this module, `lance-graph-java`'s `lgj-abi`,
+/// imports `canonical_node::EdgeCodecFlavor` and never the block type.
 pub type EdgeBlock = EdgeFacet;
 
 /// Which edge-codec flavor a class uses to *read* its node's edge block.
