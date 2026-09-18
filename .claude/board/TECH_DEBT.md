@@ -1,9 +1,14 @@
 ## TD-JC-CLIPPY-RED-ON-BASE-2 (2026-09-18) — the 1.98 pre-bump lint sweep was WORKSPACE-scoped, and `jc` is workspace-EXCLUDED
 
 **`JC Substrate Proof` is RED on `main`** (run `35335429357`, head `568965e9`):
-`clippy::chunks_exact_to_as_chunks` at `crates/jc/src/jirak.rs:37` and
-`crates/jc/src/pearl.rs:59`, both `for chunk in fp.chunks_exact_mut(8)`,
-under the workflow's own `-D warnings`.
+`clippy::chunks_exact_to_as_chunks` in `crates/jc/src/jirak.rs` and
+`crates/jc/src/pearl.rs`, in each file's `deterministic_fingerprint`, both
+spelled `chunks_exact_mut`, under the workflow's own `-D warnings`. Cited by
+FUNCTION, not by line: the first draft of this entry wrote `jirak.rs:37` /
+`pearl.rs:59` and the citation-decay gate failed it (one new decay, correctly
+attributed to this entry) because the nearest backticked symbol to those
+coordinates was the LINT NAME, which is nowhere near the code. The gate's
+point, taken: a number is a coordinate in a moving frame.
 
 **It is NOT the merge that surfaced it.** Both lines are present verbatim at
 `83369cad` (`main` before #1246), and #1246 touched no `jc` file. Verified by
