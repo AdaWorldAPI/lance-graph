@@ -6,9 +6,12 @@ The two entries below dated 2026-09-17 (3) and (2) describe what is now on
 
 - **New in the pin doctrine (operator, 2026-09-18):** *"never pin to x.00,
   always float x.*"* / *"so no decimal .0.0"*. Eight exact-equals pins are
-  gone: `lance` / `lance-linalg` / `lance-index` now `11.*`, `lancedb`
-  `0.38.*`, plus `lance` in holograph and `lance-namespace` / `lance-arrow`
-  in `lance-graph-catalog` / `lance-graph`. Resolution is UNCHANGED — arrow
+  gone, one per DECLARATION: `lance` / `lance-linalg` / `lance-index` now
+  `11.*` and `lancedb` `0.38.*` in the workspace table (4), `lance` in
+  holograph (5), `lance-namespace` in `lance-graph-catalog` (6), and
+  `lance-namespace` + `lance-arrow` in `lance-graph` (7, 8).
+  `lance-namespace` is floated TWICE — it is declared in two manifests —
+  which is why an earlier wording that named it once read as seven. Resolution is UNCHANGED — arrow
   58.4.0, datafusion 54.1.0, lancedb 0.38.0, lance family 11.0.0 — verified
   byte-identical on throwaway lockfiles before and after, then compiled and
   tested end-to-end by CI on the merge parent. `arrow` and `datafusion` were
