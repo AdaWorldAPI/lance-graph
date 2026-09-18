@@ -99,19 +99,28 @@ pub struct FacetCascade {
     pub tiers: [FacetTier; 6],
 }
 
-// The facet is a STORED row field (`NodeRow::edges`), and `as_bytes` /
-// `ref_from_bytes` are pure pointer reinterprets — so the struct's in-memory
-// image IS the canonical LE row image. `facet_classid` is a native-endian
-// `u32`, which makes that identity hold on little-endian targets ONLY: on a
-// big-endian target `from_bytes` (explicitly `u32::from_le_bytes`) and
-// `as_bytes` (a reinterpret) would disagree on bytes `[0..4)`, silently
-// byte-swapping a non-zero class id through serialization. The predecessor
-// type at this row offset (`EdgeBlock { in_family: [u8; 12], out_family:
-// [u8; 4] }`) was byte-backed and so endian-independent; aliasing it to this
-// typed facet is what introduced the dependency. Fail LOUD at compile time
-// rather than corrupt a row image at runtime — the round trip is pinned by
-// `le_byte_image_round_trips_with_a_non_zero_classid` below.
-// (codex P2 on PR #1246; `ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`.)
+// ⊘ NARROWED. This guard was introduced (codex P2 on #1246) because
+// `NodeRow::edges` WAS a `FacetCascade`, so this struct's in-memory image was
+// the canonical stored row image — and `facet_classid` is a native-endian
+// `u32`, so on a big-endian target `as_bytes` (a reinterpret) and `from_bytes`
+// (an explicit `u32::from_le_bytes`) would disagree on `[0..4)` and silently
+// byte-swap a class id through serialization. **That storage dependency is
+// GONE:** `edges` is now the byte-backed `EdgeFacet([u8; 16])`, so the whole
+// 512-byte row is `[u8;16] | [u8;16] | [u8;480]` with no native-endian integer
+// anywhere in it, and nothing typed is stored.
+//
+// What the guard still protects is this type AS A COMPUTE LENS: `as_bytes` /
+// `ref_from_bytes` remain pointer reinterprets, and that is deliberate — the
+// reinterpret IS the fast path (`examples/facet_axis_lcp_probe.rs` measures the
+// byte-chain LCP at 1.72 ns precisely because nothing is materialized). So the
+// `reinterpret == encode` identity is still assumed, and is still pinned by
+// `le_byte_image_round_trips_with_a_non_zero_classid` below — but a violation
+// can now only mis-read a value in flight, never corrupt a row at rest.
+//
+// The doctrine, in one line: BYTES ARE STORED, INTEGERS ARE PROJECTED. Storage
+// is byte-agnostic (any target, any bit pattern); little-endian is a COMPUTE
+// superpower and lives on this side of the projection only.
+// (`ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`.)
 const _: () = assert!(
     cfg!(target_endian = "little"),
     "FacetCascade's reinterpret-based LE byte image assumes a little-endian target"

@@ -1,3 +1,40 @@
+## 2026-09-18 (2) — CONTRACT INVENTORY DELTA: `EdgeFacet([u8; 16])` — `NodeRow::edges` is byte-backed, so no field of the 512-byte row is a native-endian integer any more
+
+- **Added:** `lance_graph_contract::canonical_node::EdgeFacet` —
+  `#[repr(C, align(16))]` over `[u8; 16]`, the exact mirror of `NodeGuid`, with
+  `as_bytes` / `as_bytes_mut` / `from_bytes` / `to_bytes` / `facet()` and
+  `From`/`Into` against `FacetCascade`. **`pub type EdgeBlock = EdgeFacet`** —
+  the name is unchanged, the TYPE it points at changed.
+- **Retyped:** `NodeRow::edges` was `FacetCascade` (since the 2026-09-17 alias);
+  it is now `EdgeFacet`. Byte positions, `NODE_ROW_STRIDE`,
+  `ENVELOPE_LAYOUT_VERSION` and `node_rows_from_le_bytes` are all unchanged.
+- **State consumers should know:** nothing breaks. Every call site is
+  `default()`, `as_bytes()`, `as_bytes_mut()`, `from_bytes()`, equality or a
+  `Copy`, and all of those are preserved; the typed cascade is now reached by
+  **projection** — `row.edges.facet()` — the same way `NodeGuid::facet()` has
+  always worked. `weather-poc` (40 tests) and `lance-graph-planner` build and
+  pass unchanged.
+- **Why:** `NodeRow` is `#[repr(C, align(64))]` and `as_le_bytes()` reinterprets
+  `&[NodeRow] → &[u8]` for Lance, so a typed `edges` made the compute type's
+  native-endian `u32` part of the **stored** image. Doctrine and full census:
+  `EPIPHANIES.md` `E-BYTES-ARE-STORED-INTEGERS-ARE-PROJECTED-1` — *bytes are
+  stored, integers are projected*.
+- **The `target_endian` guard STAYS, narrowed.** #1246's arc entry said
+  byte-backing `edges` would retire it entirely; that was wrong.
+  `FacetCascade::as_bytes` is still a reinterpret **by design** — it is the
+  1.72 ns hot path — so the `reinterpret == encode` identity is still assumed.
+  What changed is the blast radius: a violation can now mis-read a value in
+  flight, never corrupt a row at rest. The guard's comment says so.
+- **Corrected in place:** both `canonical_node.rs` SAFETY comments. One of them
+  ended by asserting `EdgeBlock` was "the one field that is not" a byte array —
+  true when written, false now, and struck rather than silently reworded.
+- **Falsifier:** `edges_store_bytes_verbatim_and_project_the_integer_little_endian`
+  asserts both superpowers at once — the stored bytes are verbatim (endian-free)
+  AND `facet().facet_classid` decodes `0xDEAD_BEEF` little-endian. Disable-run:
+  byte-swapping the first four bytes in `from_bytes` fails it on "stored bytes
+  are verbatim"; restoring passes. 1356 contract tests green, clippy clean under
+  `-D warnings`.
+
 ## 2026-09-18 — PR #1246 merged (`568965e9`): `EdgeBlock` is a `FacetCascade` on `main`, `Pred::Range` is in the mask-risc IR, and no manifest in this repo carries a `.0.0` pin
 
 The two entries below dated 2026-09-17 (3) and (2) describe what is now on

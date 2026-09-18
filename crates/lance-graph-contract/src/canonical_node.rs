@@ -685,7 +685,77 @@ impl core::fmt::Display for NodeGuid {
 /// `ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`. New code says
 /// `FacetCascade` and reads through `as_bytes()` / the ClassView; migration
 /// pointer per I-LEGACY-API-FEATURE-GATED.
-pub type EdgeBlock = crate::facet::FacetCascade;
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[repr(C, align(16))]
+pub struct EdgeFacet([u8; 16]);
+
+impl EdgeFacet {
+    /// The 16 bytes, verbatim. This is a byte read, not a reinterpret of a
+    /// typed field, so it is identical on every target.
+    #[inline]
+    #[must_use]
+    pub const fn as_bytes(&self) -> &[u8; 16] {
+        &self.0
+    }
+
+    /// The 16 bytes, mutably — the only write path (`EdgeCodecFlavor` decides
+    /// what a byte MEANS; this type never does).
+    #[inline]
+    pub fn as_bytes_mut(&mut self) -> &mut [u8; 16] {
+        &mut self.0
+    }
+
+    /// Adopt 16 stored bytes. No decode: the bytes ARE the value.
+    #[inline]
+    #[must_use]
+    pub const fn from_bytes(b: &[u8; 16]) -> Self {
+        Self(*b)
+    }
+
+    /// The 16 bytes by value.
+    #[inline]
+    #[must_use]
+    pub const fn to_bytes(self) -> [u8; 16] {
+        self.0
+    }
+
+    /// **The projection.** Read these bytes through the typed cascade lens —
+    /// `facet_classid(4) | 6×(8:8)` — exactly as [`NodeGuid::facet`] does for
+    /// the key. The integer fields are DECODED here (`u32::from_le_bytes`),
+    /// they are not stored here.
+    #[inline]
+    #[must_use]
+    pub const fn facet(&self) -> crate::facet::FacetCascade {
+        crate::facet::FacetCascade::from_bytes(&self.0)
+    }
+}
+
+impl core::fmt::Debug for EdgeFacet {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "EdgeFacet({:02x?})", self.0)
+    }
+}
+
+impl From<crate::facet::FacetCascade> for EdgeFacet {
+    /// Encode a computed facet down into stored bytes — explicitly, via
+    /// [`FacetCascade::to_bytes`](crate::facet::FacetCascade::to_bytes).
+    #[inline]
+    fn from(f: crate::facet::FacetCascade) -> Self {
+        Self(f.to_bytes())
+    }
+}
+
+impl From<EdgeFacet> for crate::facet::FacetCascade {
+    #[inline]
+    fn from(e: EdgeFacet) -> Self {
+        e.facet()
+    }
+}
+
+/// The historical name for bytes 16..32. Kept as an alias so every existing
+/// call site (`EdgeBlock::default()`, `as_bytes()`, `from_bytes()`, equality)
+/// compiles unchanged; what changed is the TYPE it names.
+pub type EdgeBlock = EdgeFacet;
 
 /// Which edge-codec flavor a class uses to *read* its node's edge block.
 ///
@@ -1678,16 +1748,18 @@ impl<'a> SoaEnvelope for NodeRowPacket<'a> {
         // every byte position is valid for reads (no padding past size_of,
         // alignment of NodeRow (64) ⊇ alignment of u8 (1)).
         //
-        // The NodeGuid and EdgeBlock fields hold their bytes in canon-LE
-        // order, so the resulting byte slice IS the envelope's LE packet — no
-        // translation needed at the boundary. NodeGuid earns that by being
-        // `[u8; 16]` outright. EdgeBlock does NOT: since the 2026-09-17 alias
-        // it is a `FacetCascade`, whose `facet_classid` is a native-endian
-        // `u32`, so this cast reproduces the LE packet only on a little-endian
-        // target. That is enforced, not assumed — `facet::` carries a
-        // crate-level `const _: () = assert!(cfg!(target_endian = "little"))`
-        // for exactly this path (codex P2 on #1246). Do not restate EdgeBlock
-        // as a byte array here; it is the one field that is not.
+        // The resulting byte slice IS the envelope's LE packet, with no
+        // translation at the boundary and no target dependency, because EVERY
+        // field of NodeRow is byte-backed: `NodeGuid([u8; 16])`,
+        // `EdgeFacet([u8; 16])`, `value: [u8; 480]`. There is no native-endian
+        // integer anywhere in the 512 bytes to reorder.
+        //
+        // ⊘ This comment previously said the opposite of its last sentence —
+        // that EdgeBlock was "the one field that is not" a byte array, being a
+        // `FacetCascade` with a native-endian `u32`, so the cast reproduced the
+        // LE packet on little-endian targets only. True from the 2026-09-17
+        // alias until `edges` was byte-backed; the typed cascade is now reached
+        // by PROJECTION (`row.edges.facet()`), never stored.
         unsafe {
             core::slice::from_raw_parts(
                 self.rows.as_ptr().cast::<u8>(),
@@ -1739,12 +1811,12 @@ pub fn node_rows_from_le_bytes(bytes: &[u8]) -> Option<&[NodeRow]> {
     // (const-asserted above). We checked (1) bytes.len() is an exact multiple of
     // the stride, so n rows span the whole slice with no trailing bytes, and (2)
     // the pointer is aligned to align_of::<NodeRow>() (64). Every bit pattern in
-    // the 512 bytes is a valid NodeRow (NodeGuid is `[u8; 16]`; EdgeBlock is a
-    // `FacetCascade`, 16 B `repr(C, align(16))` whose fields are all plain
-    // integers, so it too has no niche; value is `[u8; 480]`) — nothing to
-    // invalidate, so the reinterpretation is sound. Soundness does not imply
-    // byte-identity across targets: see `as_le_bytes` above and the
-    // little-endian assert in `facet::` that this path also relies on. The returned slice borrows `bytes` for its lifetime (no copy).
+    // the 512 bytes is a valid NodeRow — all three fields are byte arrays
+    // (`NodeGuid([u8; 16])`, `EdgeFacet([u8; 16])`, `value: [u8; 480]`), so none
+    // has a niche — nothing to invalidate, and the reinterpretation is sound.
+    // Since no field is a native-endian integer, byte-identity across targets
+    // holds too (it did not while `edges` was a typed `FacetCascade`; see
+    // `as_le_bytes` above). The returned slice borrows `bytes` for its lifetime (no copy).
     Some(unsafe { core::slice::from_raw_parts(bytes.as_ptr().cast::<NodeRow>(), n) })
 }
 
@@ -2159,13 +2231,48 @@ mod tests {
             core::mem::align_of::<EdgeBlock>(),
             core::mem::align_of::<NodeGuid>()
         );
-        let f: crate::facet::FacetCascade = e; // an alias, not a conversion
-        assert_eq!(f.as_bytes(), &[0u8; 16]);
+        let f: crate::facet::FacetCascade = e.facet(); // a PROJECTION, not an alias
+        assert_eq!(f.to_bytes(), [0u8; 16]);
         let mut g = EdgeBlock::from_bytes(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
         g.as_bytes_mut()[12] = 0;
         assert_eq!(g.as_bytes()[11], 12);
         assert_eq!(g.as_bytes()[12], 0);
         assert_eq!(g.as_bytes()[13], 14);
+    }
+
+    /// **The two superpowers, in one test.** What is STORED is bytes, verbatim,
+    /// on any target; the integer is PROJECTED out of them, little-endian, by an
+    /// explicit decode.
+    ///
+    /// This is the test the old `edges: FacetCascade` could not pass on a
+    /// big-endian target: `as_bytes()` was a reinterpret of a native-endian
+    /// `u32`, so the first assert would have seen a byte-swapped class id and
+    /// the stored row image would silently disagree with `to_bytes()`. Now the
+    /// first assert is a byte identity (nothing to swap) and the second is a
+    /// decode that names its own endianness — so BOTH hold everywhere, which is
+    /// why bytes 16..32 no longer depend on the target at all.
+    #[test]
+    fn edges_store_bytes_verbatim_and_project_the_integer_little_endian() {
+        let b: [u8; 16] = [
+            0xEF, 0xBE, 0xAD, 0xDE, // classid, LE on the wire
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+        ];
+        let e = EdgeFacet::from_bytes(&b);
+
+        // STORAGE: byte-agnostic. The stored image is the source bytes, and a
+        // round trip through the row field cannot reorder them.
+        assert_eq!(e.as_bytes(), &b, "stored bytes are verbatim");
+        assert_eq!(e.to_bytes(), b);
+
+        // COMPUTE: little-endian, and it says so. The integer exists only here.
+        assert_eq!(
+            e.facet().facet_classid,
+            0xDEAD_BEEF,
+            "the class id is DECODED from the stored bytes, never stored as a u32"
+        );
+
+        // And the projection is lossless back to the same stored bytes.
+        assert_eq!(EdgeFacet::from(e.facet()).as_bytes(), &b);
     }
 
     #[test]
