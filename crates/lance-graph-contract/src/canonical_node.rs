@@ -666,19 +666,26 @@ impl core::fmt::Display for NodeGuid {
     }
 }
 
-/// 16-byte canonical edge block: 12 in-family + 4 out-of-family.
+/// Bytes 16..32 of the node row — **just another content-blind facet**
+/// (operator ruling, 2026-09-17: *"It's forbidden for the edge block to even
+/// know it's an edge block; it's just another content blind facet cascade"*).
 ///
-/// Canonical, not mandatory: the 16 bytes are ALWAYS reserved (zeroed when unused).
-/// A class never shrinks this block — opting out of edges is resolved via
-/// classid → ClassView in the registry, never by changing the row stride.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[repr(C, align(16))]
-pub struct EdgeBlock {
-    /// 12 local adjacency slots (basin-local), one byte each.
-    pub in_family: [u8; 12],
-    /// 4 inherited adapter slots (out-of-family interfaces), one byte each.
-    pub out_family: [u8; 4],
-}
+/// The same 16-byte `4 + 12` register as the key: a classid prefix that says
+/// what the six `(u8:u8)` rails ARE for this row (the predicate, the codebook),
+/// and rails the `ClassView` projects. Nothing about the slot knows it holds
+/// "edges"; [`EdgeCodecFlavor`] is how a class *reads* this second facet.
+///
+/// `EdgeBlock` is kept as a NAME for source compatibility only. The V1
+/// carving it used to present — `12 in-family + 4 out-of-family` one-byte
+/// slots — is **retired**: it was never the layout (CLAUDE.md § CANON, the ⊘
+/// V1-LEGACY READING note), and giving those 16 bytes their own type with
+/// those field names is what let the carving pass for one. Byte positions
+/// are unchanged — a reader that still splits at 12 does so on its own
+/// authority, and every such site is named in
+/// `ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`. New code says
+/// `FacetCascade` and reads through `as_bytes()` / the ClassView; migration
+/// pointer per I-LEGACY-API-FEATURE-GATED.
+pub type EdgeBlock = crate::facet::FacetCascade;
 
 /// Which edge-codec flavor a class uses to *read* its node's edge block.
 ///
@@ -1672,9 +1679,15 @@ impl<'a> SoaEnvelope for NodeRowPacket<'a> {
         // alignment of NodeRow (64) ⊇ alignment of u8 (1)).
         //
         // The NodeGuid and EdgeBlock fields hold their bytes in canon-LE
-        // order (NodeGuid::new uses to_le_bytes; EdgeBlock is plain [u8;_]),
-        // so the resulting byte slice IS the envelope's LE packet — no
-        // translation needed at the boundary.
+        // order, so the resulting byte slice IS the envelope's LE packet — no
+        // translation needed at the boundary. NodeGuid earns that by being
+        // `[u8; 16]` outright. EdgeBlock does NOT: since the 2026-09-17 alias
+        // it is a `FacetCascade`, whose `facet_classid` is a native-endian
+        // `u32`, so this cast reproduces the LE packet only on a little-endian
+        // target. That is enforced, not assumed — `facet::` carries a
+        // crate-level `const _: () = assert!(cfg!(target_endian = "little"))`
+        // for exactly this path (codex P2 on #1246). Do not restate EdgeBlock
+        // as a byte array here; it is the one field that is not.
         unsafe {
             core::slice::from_raw_parts(
                 self.rows.as_ptr().cast::<u8>(),
@@ -1726,9 +1739,12 @@ pub fn node_rows_from_le_bytes(bytes: &[u8]) -> Option<&[NodeRow]> {
     // (const-asserted above). We checked (1) bytes.len() is an exact multiple of
     // the stride, so n rows span the whole slice with no trailing bytes, and (2)
     // the pointer is aligned to align_of::<NodeRow>() (64). Every bit pattern in
-    // the 512 bytes is a valid NodeRow (NodeGuid is bytes, EdgeBlock is [u8;16],
-    // value is [u8;480] — no niche/enum to invalidate), so the reinterpretation
-    // is sound. The returned slice borrows `bytes` for its lifetime (no copy).
+    // the 512 bytes is a valid NodeRow (NodeGuid is `[u8; 16]`; EdgeBlock is a
+    // `FacetCascade`, 16 B `repr(C, align(16))` whose fields are all plain
+    // integers, so it too has no niche; value is `[u8; 480]`) — nothing to
+    // invalidate, so the reinterpretation is sound. Soundness does not imply
+    // byte-identity across targets: see `as_le_bytes` above and the
+    // little-endian assert in `facet::` that this path also relies on. The returned slice borrows `bytes` for its lifetime (no copy).
     Some(unsafe { core::slice::from_raw_parts(bytes.as_ptr().cast::<NodeRow>(), n) })
 }
 
@@ -2038,18 +2054,18 @@ mod tests {
         let rows = vec![
             NodeRow {
                 key: NodeGuid::new(NodeGuid::CLASSID_OSINT, 1, 2, 3, 0xAB, 0xCD),
-                edges: EdgeBlock {
-                    in_family: [0xA1; 12],
-                    out_family: [0xB2; 4],
-                },
+                edges: EdgeBlock::from_bytes(&[
+                    0xA1, 0xA1, 0xA1, 0xA1, 0xA1, 0xA1, 0xA1, 0xA1, 0xA1, 0xA1, 0xA1, 0xA1, 0xB2,
+                    0xB2, 0xB2, 0xB2,
+                ]),
                 value: [7u8; 480],
             },
             NodeRow {
                 key: NodeGuid::new(NodeGuid::CLASSID_PROJECT, 4, 5, 6, 0x11, 0x22),
-                edges: EdgeBlock {
-                    in_family: [0xC3; 12],
-                    out_family: [0xD4; 4],
-                },
+                edges: EdgeBlock::from_bytes(&[
+                    0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xD4,
+                    0xD4, 0xD4, 0xD4,
+                ]),
                 value: [9u8; 480],
             },
         ];
@@ -2070,10 +2086,9 @@ mod tests {
         for (i, row) in rows.iter().enumerate() {
             let start = i * NODE_ROW_STRIDE + offset;
             let slice = &bytes[start..start + elems];
-            // 16 bytes/row, straight out of the store: 12 in-family then
-            // 4 out-of-family (repr(C) field order within the block).
-            assert_eq!(&slice[..12], &row.edges.in_family);
-            assert_eq!(&slice[12..], &row.edges.out_family);
+            // 16 bytes/row, straight out of the store: the second facet's
+            // own bytes, in order.
+            assert_eq!(slice, row.edges.as_bytes());
         }
     }
 
@@ -2133,12 +2148,24 @@ mod tests {
         assert_eq!(&g.as_bytes()[10..16], &[0xAB, 0x00, 0x00, 0xCD, 0x00, 0x00]);
     }
 
+    /// The second facet IS a facet: same type, same 16 bytes, same alignment
+    /// as the key. A `12 + 4` carving appears nowhere here — that reading is
+    /// retired, not relocated.
     #[test]
-    fn edge_block_is_twelve_plus_four() {
+    fn edge_block_is_the_same_facet_type_as_the_key() {
         let e = EdgeBlock::default();
-        assert_eq!(e.in_family.len(), 12);
-        assert_eq!(e.out_family.len(), 4);
         assert_eq!(core::mem::size_of_val(&e), 16);
+        assert_eq!(
+            core::mem::align_of::<EdgeBlock>(),
+            core::mem::align_of::<NodeGuid>()
+        );
+        let f: crate::facet::FacetCascade = e; // an alias, not a conversion
+        assert_eq!(f.as_bytes(), &[0u8; 16]);
+        let mut g = EdgeBlock::from_bytes(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+        g.as_bytes_mut()[12] = 0;
+        assert_eq!(g.as_bytes()[11], 12);
+        assert_eq!(g.as_bytes()[12], 0);
+        assert_eq!(g.as_bytes()[13], 14);
     }
 
     #[test]

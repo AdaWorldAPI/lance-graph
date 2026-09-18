@@ -462,9 +462,23 @@ impl Filter {
     ///
     /// A ternary match — a full sweep of the lane, one pass, no allocation. It
     /// is NOT yet a range WRITE. The range write is `mask_set_range`, the
-    /// matrix's T1 gap G6, and it is absent from `ndarray::simd`; per the
+    /// matrix's T1 gap G6. ~~and it is absent from `ndarray::simd`; per the
     /// missing-capability STOP rule a consumer does not hand-roll it one layer
-    /// up, so this crate spells the PREDICATE and waits for the primitive.
+    /// up, so this crate spells the PREDICATE and waits for the primitive.~~
+    /// ⊘ STRUCK — that clause is false as of the note below, which says the
+    /// opposite; it is kept struck rather than deleted so the reason the
+    /// lowering was once blocked stays legible. The STOP rule still applies;
+    /// what changed is that the capability is no longer missing.
+    ///
+    /// ⊘ 2026-09-17 (`ISS-MASK-RISC-HAD-NO-RANGE-OP`): both halves of that
+    /// paragraph have moved. `mask_set_range` IS on `ndarray::simd`
+    /// (`simd_masking_ops.rs`), and mask-risc now names it —
+    /// `Pred::Range { lo, hi }`, validated `lo <= hi <= n_rows`, gate-aware.
+    /// What this crate still lacks is the one thing the IR deliberately does
+    /// not carry: whether the lane is ADDRESS-ORDERED. A prefix is a range
+    /// only on an ordered lane, and `Filter` has no ordering evidence to
+    /// lower on, so this still lowers to the sweep. The lowering waits on
+    /// the planner's ordering knowledge now, not on any primitive.
     ///
     /// That the primitive is real rather than wished for is the harvest's
     /// evidence, not this crate's opinion: DuckDB's own bit-plane carries

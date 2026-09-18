@@ -1687,6 +1687,15 @@ stride change.
 > fidelity: `ndarray::hpc::reliability` (`edge_codec_compare`). Append-only:
 > the V1 line is regraded in place, not deleted.
 
+> **⊘ 2026-09-17 — the TYPE is retired too (operator ruling,
+> `E-THE-SECOND-FACET-IS-NOT-AN-EDGE-BLOCK-1`):** *"It's forbidden for the
+> edge block to even know it's an edge block — it's just another content
+> blind facet cascade."* `EdgeBlock` is now `pub type EdgeBlock =
+> FacetCascade;` — bytes 16..32 are the same `4 + 12` facet as the key, and
+> the `in_family` / `out_family` fields no longer exist. A regraded
+> paragraph does not retire a reading while a struct still spells it.
+> Readers that still split at 12: `ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`.
+
 **Zero-fallback ladder (monotonic — zero = fall through to the broader default):**
 - `classid == 0x0000_0000` → default class, no prefix routing (dormant)
 - `family  == 0x00_0000`    → default basin, no neighborhood grouping (dormant)

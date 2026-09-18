@@ -31,14 +31,16 @@ fn kind_of(lane: &LaneRef<'_>) -> LaneKind {
     }
 }
 
-/// The lane a predicate reads, and the width that lane must have.
+/// The lane a predicate reads, and the width that lane must have — `None`
+/// for a predicate that reads no lane at all ([`Pred::Range`] is on the row
+/// index).
 ///
 /// One place where `Pred`'s variants map to lane widths, so the executor and
 /// the oracle cannot disagree about which column a predicate touches. Adding a
 /// `Pred` variant without extending this match is a compile error, which is
 /// the point of listing the variants explicitly rather than matching a field.
-fn pred_lane_and_kind(pred: Pred) -> (u16, LaneKind) {
-    match pred {
+fn pred_lane_and_kind(pred: Pred) -> Option<(u16, LaneKind)> {
+    Some(match pred {
         Pred::GtI32 { lane, .. }
         | Pred::LtI32 { lane, .. }
         | Pred::GeI32 { lane, .. }
@@ -49,7 +51,8 @@ fn pred_lane_and_kind(pred: Pred) -> (u16, LaneKind) {
             (lane, LaneKind::U32)
         }
         Pred::MatchU64 { lane, .. } => (lane, LaneKind::U64),
-    }
+        Pred::Range { .. } => return None,
+    })
 }
 
 /// One operand's index, against the two address spaces it could name.
@@ -282,8 +285,19 @@ pub(crate) fn validate(
                     }
                     written(u)?;
                 }
-                let (lane, kind) = pred_lane_and_kind(pred);
-                check_lane(planes, lane, kind)?;
+                if let Some((lane, kind)) = pred_lane_and_kind(pred) {
+                    check_lane(planes, lane, kind)?;
+                }
+                if let Pred::Range { lo, hi } = pred {
+                    let hi_fits = usize::try_from(hi).is_ok_and(|h| h <= planes.n_rows);
+                    if lo > hi || !hi_fits {
+                        return Err(ExecError::RangeOutOfBounds {
+                            lo,
+                            hi,
+                            n_rows: planes.n_rows,
+                        });
+                    }
+                }
                 check_operand(p, planes, Operand::Scratch(dst))?;
             }
             MaskOp::And { a, b, dst }
@@ -409,6 +423,8 @@ fn eval_pred(planes: &Planes<'_>, pred: Pred, row: usize) -> bool {
             pattern,
             care,
         } => (u64_at(lane) ^ pattern) & care == 0,
+        // `hi <= n_rows` and `lo <= hi` were validated, so both fit a usize.
+        Pred::Range { lo, hi } => (lo as usize..hi as usize).contains(&row),
     }
 }
 

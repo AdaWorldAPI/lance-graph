@@ -99,6 +99,24 @@ pub struct FacetCascade {
     pub tiers: [FacetTier; 6],
 }
 
+// The facet is a STORED row field (`NodeRow::edges`), and `as_bytes` /
+// `ref_from_bytes` are pure pointer reinterprets — so the struct's in-memory
+// image IS the canonical LE row image. `facet_classid` is a native-endian
+// `u32`, which makes that identity hold on little-endian targets ONLY: on a
+// big-endian target `from_bytes` (explicitly `u32::from_le_bytes`) and
+// `as_bytes` (a reinterpret) would disagree on bytes `[0..4)`, silently
+// byte-swapping a non-zero class id through serialization. The predecessor
+// type at this row offset (`EdgeBlock { in_family: [u8; 12], out_family:
+// [u8; 4] }`) was byte-backed and so endian-independent; aliasing it to this
+// typed facet is what introduced the dependency. Fail LOUD at compile time
+// rather than corrupt a row image at runtime — the round trip is pinned by
+// `le_byte_image_round_trips_with_a_non_zero_classid` below.
+// (codex P2 on PR #1246; `ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`.)
+const _: () = assert!(
+    cfg!(target_endian = "little"),
+    "FacetCascade's reinterpret-based LE byte image assumes a little-endian target"
+);
+
 const _: () = assert!(core::mem::size_of::<FacetTier>() == 2, "one 8:8 tile");
 const _: () = assert!(
     core::mem::size_of::<FacetCascade>() == 16,
@@ -172,6 +190,18 @@ impl FacetCascade {
         // to [u8; 16] and strictly more-aligned (16 ≥ 1). The bytes ARE the facet's own
         // backing store — a pure pointer reinterpret, lifetime tied to `&self`.
         unsafe { &*(self as *const Self).cast::<[u8; 16]>() }
+    }
+
+    /// Mutable twin of [`as_bytes`](Self::as_bytes): write the facet's own 16
+    /// backing bytes in place. Every byte pattern is a valid facet (it is
+    /// content-blind by construction), so no invariant can be broken through
+    /// this view.
+    #[inline]
+    #[must_use]
+    pub fn as_bytes_mut(&mut self) -> &mut [u8; 16] {
+        // SAFETY: as for `as_bytes`; `&mut self` guarantees exclusivity, and
+        // all bit patterns of [u8; 16] are valid `FacetCascade` values.
+        unsafe { &mut *(self as *mut Self).cast::<[u8; 16]>() }
     }
 
     /// **Zero-copy borrow** of 16 slab bytes AS a facet — the literal no-op decode: the
@@ -659,6 +689,44 @@ mod tests {
         assert_eq!(
             f.tiers[0].morton() & 0x5555,
             FacetTier { lo: 0x01, hi: 0 }.morton()
+        );
+    }
+
+    /// The **reinterpret** view and the **explicit LE codec** must agree byte for
+    /// byte on a non-zero `facet_classid`.
+    ///
+    /// These are two different mechanisms, and only one of them was pinned before:
+    /// `to_bytes` encodes with `u32::to_le_bytes`, while `as_bytes` (and
+    /// `ref_from_bytes`) reinterpret the struct's own memory — which is what
+    /// `NodeRowPacket::as_le_bytes` and `row_bytes` serialize, now that a facet is
+    /// a STORED row field (`NodeRow::edges`). A zero class id byte-swaps to itself
+    /// and would hide the divergence, so the fixture's `0xDEAD_BEEF` is doing the
+    /// work here. The compile-time `target_endian` guard above is what keeps this
+    /// property from being merely asserted on the one target that satisfies it.
+    /// (codex P2 on PR #1246.)
+    #[test]
+    fn le_byte_image_round_trips_with_a_non_zero_classid() {
+        let b = sample();
+        let f = FacetCascade::from_bytes(&b);
+        assert_ne!(f.facet_classid, 0, "a zero class id cannot detect a swap");
+        assert_ne!(
+            f.facet_classid.swap_bytes(),
+            f.facet_classid,
+            "the fixture class id must be byte-order sensitive"
+        );
+
+        assert_eq!(
+            f.as_bytes(),
+            &f.to_bytes(),
+            "the reinterpret view must equal the explicit LE encoding"
+        );
+        assert_eq!(f.as_bytes(), &b, "and both must equal the source bytes");
+
+        // The borrowed no-op decode reads the same image.
+        let aligned = FacetCascade::from_bytes(&b);
+        assert_eq!(
+            FacetCascade::ref_from_bytes(aligned.as_bytes()),
+            Some(&aligned)
         );
     }
 

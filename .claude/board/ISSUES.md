@@ -1,3 +1,87 @@
+## ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET (2026-09-17) — RESOLVED at the type; the readers that still split at 12 are the named residue
+
+**Operator ruling (verbatim, 2026-09-17):** *"It's forbidden for the edge block to even
+know it's an edge block — it's just another content blind facet cascade."* And the diagnosis
+that preceded it: *"what you call edge codec flavor … quoting 12+4 in/out family is a V1
+contamination."*
+
+**The contamination:** bytes 16..32 of the node row had their own type, `EdgeBlock
+{ in_family: [u8; 12], out_family: [u8; 4] }`. The canon had already regraded the `12 + 4`
+carving as *"NOT the layout … V1-LEGACY READING"* (CLAUDE.md § CANON), but a struct with
+those two field names IS that reading, stated as a type — and every reader that touched
+`.in_family` / `.out_family` re-asserted it. A session drafting an ontology edge reading
+(this one) reached for a *fourth* `EdgeCodecFlavor` and a *second* view type beside it,
+and wrote a test that pinned the 12+4 split as the baseline the new reading sat beside.
+That draft was discarded; this is what replaced it.
+
+**Resolved at the type (this branch):** `pub type EdgeBlock = FacetCascade;` — the second
+16 bytes are the same `4 + 12` content-blind facet as the key. Byte positions unchanged;
+`NodeRow`, `node_rows_from_le_bytes`, every `EdgeBlock::default()` and every equality
+compile unchanged (OGAR `lance_sink.rs` pulls the contract from git `main` and uses only
+`default()` / `==`, so it is unaffected until merge and unbroken after). 
+`FacetCascade::as_bytes_mut` added (same `SAFETY` pattern as `as_bytes`) so the in-place
+writers have a lens. `EdgeCodecFlavor` stays: it is how a ClassView READS the second facet,
+which was always its job.
+
+**The residue — readers that still split the 16 bytes at 12 on their own authority** (all
+migrated to `as_bytes()[..12]` / `[12..]` mechanically so the bytes they read are exactly
+the bytes they read before; none was redesigned, per the "alias only" scope):
+
+| site | what it still believes |
+|---|---|
+| `lance-graph/src/graph/mailbox_scan.rs` `edge_slots_coarse` → `EdgeNeighbors { in_family, external }` | 12 local + 4 external |
+| `lance-graph-contract/src/soa_graph.rs` render (`domain.in_family_edge` / `out_family_edge` labels) | two edge kinds by byte position |
+| `lance-graph-contract/src/aiwar.rs` (writes bytes 12..16 as "the 4 canonical out-of-family slots") | 4 adapter slots |
+| `symbiont/src/{domino,key_render,kanban_loop}.rs` (⊘ deprecated crate) | ring neighbour at byte 0, adapter at byte 12 |
+| `lance-graph-callcenter/src/graph_table.rs` test fixture | adapter byte 0x0B at byte 12 |
+| `deepnsm/examples/tri_fidelity_edges.rs`, `perturbation-sim/examples/reinforce.rs` (prose only) | "12 in-family + 4 out-of-family" |
+| `EdgeCodecFlavor::CoarseOnly` doc comment | "the 12+4 block read literally" |
+
+Each becomes correct the moment its ClassView names what the second facet's prefix and
+rails mean for that class — which is the whole point: the READING belongs to the class,
+never to the slot. Closing this issue = every row above reads through the ClassView (or is
+deleted with its crate).
+
+## ISS-MASK-RISC-HAD-NO-RANGE-OP (2026-09-17) — PARTLY RESOLVED: the IR op shipped; the quack lowering still waits on ordering knowledge
+
+**The chain, as found:** `ndarray::simd::mask_set_range(out_words, lo, hi)` is on the
+facade (`simd_masking_ops.rs`, `pub fn mask_set_range`) — a three-pass contiguous fill,
+no per-row compare. `lance-graph-mask-risc`'s IR had **no op that reaches it** (`ir.rs`
+`Pred` was the ten lane predicates and nothing else). So `lance-graph-quack`'s
+`Filter::prefix_u64` — *"the closest DuckDB comes to the V3 address"*, matrix row R5 —
+lowered an address prefix to a full `MatchU64` ternary SWEEP, and its own doc said
+*"NOT yet a range WRITE … waits on the primitive."* The primitive existed; the IR
+name did not. **ndarray has it → mask-risc can't name it → quack sweeps.**
+
+Why it matters: on an address-ordered lane a prefix names ONE contiguous subtree, and
+that is the whole reason V3 has the survivor-skip lever at all — `adaptive_order_probe`'s
+clustered regime skips **99.61 %** of words precisely because the prefix term's
+survivors fill one block. A range write makes that selection free instead of a sweep
+that happens to be cheap. It is also the "mask from root, O(1) adjacent" half of the
+similarity question (`E-…-POPCOUNT-×-SELF`, LATEST_STATE 2026-09-15 (6)–(8)) as an IR
+op rather than a per-row match.
+
+**Resolved 2026-09-17 (this branch):** `Pred::Range { lo: u32, hi: u32 }` — rows
+`lo <= i < hi`, reads no lane; exec = `mask_set_range` (+ `mask_and_assign` under a
+gate); oracle = row-index predicate; `ExecError::RangeOutOfBounds` for `lo > hi` or
+`hi > n_rows`, refused by the shared validator before any write. Three differential
+tests across the eight row counts (word-edge shapes incl. 63/64/65; `== hi − lo`
+counted through the EXECUTOR; identical refusal). Disable-verified: an off-by-one in
+the exec arm fails two of the three.
+
+**Still OPEN — the lowering.** `Filter::prefix_u64` still emits the sweep, and
+correctly so: the IR does not know whether a lane is address-ordered (a V3 table's
+row address is its rail; a borrowed `&[u64]` of edge targets is not), and quack's
+`Filter` carries no ordering evidence. Lowering a prefix to `Range` on an unordered
+lane is a wrong answer, not an error. The remaining arm is therefore on the planner
+side: an ordering witness on the lane (or on `Col`) that licenses `prefix → Range`.
+Until it exists the sweep is the honest lowering, and the quack doc now says exactly
+that.
+
+**Also named, not built:** `mask_set_range` has no `_under` sibling on the facade;
+the gated form here is two passes (`set_range` then `and_assign`). One fused pass is
+a T1 follow-up, measured-then-pinned like every other facade member.
+
 ## ISS-NIBLEPATH-FOLD-IS-CARRIER-2-UNMASKED (2026-09-17) — OPEN, the one prefix fold that genuinely wants a mask, and does not have one
 
 `NiblePath::common_prefix_depth` (`crates/lance-graph-contract/src/hhtl.rs`, `fn common_prefix_depth`) is

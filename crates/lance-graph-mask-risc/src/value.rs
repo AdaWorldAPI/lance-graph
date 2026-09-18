@@ -103,4 +103,9 @@ pub enum ExecError {
     /// A gated predicate whose gate IS its destination: the facade cannot
     /// read the gate while overwriting it, so the program is refused.
     GateAliasesDst { dst: u16 },
+    /// [`crate::Pred::Range`] with `lo > hi` or `hi > n_rows`. Refused by the
+    /// validator both paths share, so the executor never hands
+    /// `mask_set_range` a bound past the scratch words (its own assert would
+    /// panic) and the oracle never indexes a row that does not exist.
+    RangeOutOfBounds { lo: u32, hi: u32, n_rows: usize },
 }

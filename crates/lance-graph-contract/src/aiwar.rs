@@ -108,7 +108,7 @@ pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
             // 4 canonical out-of-family slots.
             let mut edges = EdgeBlock::default();
             for (k, &b) in slots.iter().take(4).enumerate() {
-                edges.out_family[k] = b;
+                edges.as_bytes_mut()[12 + k] = b;
             }
             NodeRow {
                 // Route through `mint_for` so the classid's registered

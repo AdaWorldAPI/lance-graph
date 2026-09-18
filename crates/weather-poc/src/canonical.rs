@@ -166,8 +166,7 @@ pub fn assemble_row(cell: &PackedWeatherCell) -> Result<NodeRow, CanonicalRowErr
 pub fn row_bytes(row: &NodeRow) -> [u8; NODE_ROW_STRIDE] {
     let mut out = [0u8; NODE_ROW_STRIDE];
     out[0..16].copy_from_slice(row.key.as_bytes());
-    out[16..28].copy_from_slice(&row.edges.in_family);
-    out[28..32].copy_from_slice(&row.edges.out_family);
+    out[16..32].copy_from_slice(row.edges.as_bytes());
     out[VALUE_SLAB_ROW_OFFSET..].copy_from_slice(&row.value);
     out
 }
@@ -202,9 +201,7 @@ where
         |lat, lon, entry| value_of(lat, lon, entry),
         |cell| {
             let row = assemble_row(&cell).map_err(SinkError::Canonical)?;
-            writer
-                .write_all(&row_bytes(&row))
-                .map_err(SinkError::Io)
+            writer.write_all(&row_bytes(&row)).map_err(SinkError::Io)
         },
     );
 
@@ -239,24 +236,26 @@ mod tests {
 
     fn fixture_floors() -> HashMap<String, CalibratedFloor> {
         let sample: Vec<f64> = (0..10_000).map(|i| i as f64 / 100.0).collect();
-        HashMap::from([(
-            "f".to_string(),
-            calibrate(&sample).expect("fixture floor"),
-        )])
+        HashMap::from([("f".to_string(), calibrate(&sample).expect("fixture floor"))])
     }
 
     #[test]
     fn live_contract_places_weather_after_every_named_tenant() {
         let manifest = fixture_manifest();
         let floors = fixture_floors();
-        let cell = pack_cell(WEATHER_W1_CLASSID, 720, 1439, &manifest, &floors, |entry| {
-            match entry.variable.as_str() {
+        let cell = pack_cell(
+            WEATHER_W1_CLASSID,
+            720,
+            1439,
+            &manifest,
+            &floors,
+            |entry| match entry.variable.as_str() {
                 "a" => Some(10.0),
                 "b" => Some(20.0),
                 "c" => Some(30.0),
                 _ => None,
-            }
-        })
+            },
+        )
         .expect("cell packs");
 
         let row = assemble_row(&cell).expect("canonical row assembles");
@@ -265,18 +264,15 @@ mod tests {
 
         assert_eq!(weather_value_offset(), expected_offset);
         assert_eq!(row.key.as_bytes(), &cell.key);
-        assert!(row.edges.in_family.iter().all(|b| *b == 0));
-        assert!(row.edges.out_family.iter().all(|b| *b == 0));
+        assert!(row.edges.as_bytes().iter().all(|b| *b == 0));
         assert!(row.value[..expected_offset].iter().all(|b| *b == 0));
         assert_eq!(
             &row.value[expected_offset..expected_offset + W1_IMAGE_LEN],
             &image
         );
-        assert!(
-            row.value[expected_offset + W1_IMAGE_LEN..]
-                .iter()
-                .all(|b| *b == 0)
-        );
+        assert!(row.value[expected_offset + W1_IMAGE_LEN..]
+            .iter()
+            .all(|b| *b == 0));
         assert!(VALUE_SLAB_LEN - expected_offset >= W1_IMAGE_LEN);
     }
 
@@ -284,11 +280,13 @@ mod tests {
     fn canonical_serialization_is_exactly_512_bytes_and_key_agrees() {
         let manifest = fixture_manifest();
         let floors = fixture_floors();
-        let cell = pack_cell(WEATHER_W1_CLASSID, 123, 456, &manifest, &floors, |_| Some(42.0))
-            .expect("cell packs");
+        let cell = pack_cell(WEATHER_W1_CLASSID, 123, 456, &manifest, &floors, |_| {
+            Some(42.0)
+        })
+        .expect("cell packs");
         let mut row = assemble_row(&cell).expect("row");
-        row.edges.in_family[0] = 0xA5;
-        row.edges.out_family[3] = 0x5A;
+        row.edges.as_bytes_mut()[0] = 0xA5;
+        row.edges.as_bytes_mut()[15] = 0x5A;
         let bytes = row_bytes(&row);
 
         let expected_offset = ValueSchema::Full.tenant_bytes();

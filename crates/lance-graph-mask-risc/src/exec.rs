@@ -27,10 +27,10 @@ use ndarray::simd::{
     ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask, gt_i32_to_mask_under, le_i32_to_mask,
     le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
     mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_not, mask_not_assign, mask_or,
-    mask_or_assign, mask_xor, mask_xor_assign, masked_max_i32, masked_min_i32, masked_sum_i32,
-    ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
-    ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
-    ternary_match_u64_to_mask_under,
+    mask_or_assign, mask_set_range, mask_xor, mask_xor_assign, masked_max_i32, masked_min_i32,
+    masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under,
+    popcount_batch_u64, ternary_match_u32_to_mask, ternary_match_u32_to_mask_under,
+    ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
 };
 
 use crate::ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS};
@@ -535,6 +535,13 @@ fn run_pred<'a>(
             read(planes, s, u),
             dst,
         ),
+        // `lo <= hi <= n_rows` was validated, so the bounds are in-range for
+        // the scratch words and `mask_set_range`'s own asserts cannot fire.
+        (Pred::Range { lo, hi }, None) => mask_set_range(dst, lo as usize, hi as usize),
+        (Pred::Range { lo, hi }, Some(u)) => {
+            mask_set_range(dst, lo as usize, hi as usize);
+            mask_and_assign(dst, read(planes, s, u));
+        }
     }
 }
 

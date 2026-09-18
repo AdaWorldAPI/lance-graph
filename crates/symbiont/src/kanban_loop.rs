@@ -254,7 +254,10 @@ mod tests {
         let mut board = SymbiontBoard::spawn(4096, 13);
         let trail = board.run_to_absorbing(&NextPhaseScheduler);
 
-        assert!(board.phase().is_absorbing(), "must reach the absorbing Commit");
+        assert!(
+            board.phase().is_absorbing(),
+            "must reach the absorbing Commit"
+        );
         assert!(!trail.is_empty(), "the arc must have advanced");
 
         let energy = board.energy();
@@ -263,10 +266,19 @@ mod tests {
         let inf = energy.iter().filter(|e| e.is_infinite()).count();
         let nonzero = energy.iter().filter(|&&e| e != 0.0).count();
 
-        assert_eq!(nan, 0, "live-cycle NaN census: {nan}/{total} NaN over the arc");
-        assert_eq!(inf, 0, "live-cycle Inf census: {inf}/{total} Inf over the arc");
+        assert_eq!(
+            nan, 0,
+            "live-cycle NaN census: {nan}/{total} NaN over the arc"
+        );
+        assert_eq!(
+            inf, 0,
+            "live-cycle Inf census: {inf}/{total} Inf over the arc"
+        );
         // The sweep must have produced real, finite energy (not a no-op all-zeros).
-        assert!(nonzero > 0, "the BF16 Domino sweep produced no finite energy");
+        assert!(
+            nonzero > 0,
+            "the BF16 Domino sweep produced no finite energy"
+        );
     }
 
     #[test]
@@ -286,8 +298,8 @@ mod tests {
         let eb = board
             .edge_block_at(3)
             .expect("owner materialises the edge block");
-        assert_eq!(eb.in_family[0], 4); // ring edge (3 % 255) + 1
-        assert_eq!(eb.out_family[0], 4); // adapter slot 1 + (3 % 4)
+        assert_eq!(eb.as_bytes()[0], 4); // ring edge (3 % 255) + 1
+        assert_eq!(eb.as_bytes()[12], 4); // byte 12: 1 + (3 % 4)
         assert!(
             board.hhtl_path_at(3).is_some(),
             "owner materialises the HHTL path"

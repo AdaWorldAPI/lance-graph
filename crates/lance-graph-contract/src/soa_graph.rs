@@ -323,7 +323,7 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
         });
         // 16 family-node adapters: 12 in-family + 4 out-of-family, each → a family.
         let eb = row.edges;
-        for &b in eb.in_family.iter().filter(|&&b| b != 0) {
+        for &b in eb.as_bytes()[..12].iter().filter(|&&b| b != 0) {
             if let Some(target) = resolve(b, fam) {
                 edges.push(RenderEdge {
                     source: g.to_string(),
@@ -335,7 +335,7 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
                 });
             }
         }
-        for &b in eb.out_family.iter().filter(|&&b| b != 0) {
+        for &b in eb.as_bytes()[12..].iter().filter(|&&b| b != 0) {
             if let Some(target) = resolve(b, fam) {
                 edges.push(RenderEdge {
                     source: g.to_string(),
@@ -439,10 +439,10 @@ mod tests {
         use crate::canonical_node::classid_read_mode;
         let mut edges = EdgeBlock::default();
         for (i, &b) in in_fam.iter().enumerate().take(12) {
-            edges.in_family[i] = b;
+            edges.as_bytes_mut()[i] = b;
         }
         for (i, &b) in out_fam.iter().enumerate().take(4) {
-            edges.out_family[i] = b;
+            edges.as_bytes_mut()[12 + i] = b;
         }
         NodeRow {
             // Route through `mint_for` so the domain classid's `tail_variant`

@@ -408,3 +408,176 @@ fn every_terminal() {
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// `Pred::Range` — the contiguous-range write (`ISS-MASK-RISC-HAD-NO-RANGE-OP`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Every `(lo, hi)` the word geometry can make interesting at `n` rows: empty,
+/// single-word, word-straddling, edge-aligned at 63/64/65, and the full table.
+fn range_cases(n: usize) -> Vec<(u32, u32)> {
+    let n32 = n as u32;
+    let mut v = vec![(0, 0), (0, n32), (n32, n32)];
+    for &(lo, hi) in &[
+        (0, 1),
+        (1, 2),
+        (62, 63),
+        (63, 64),
+        (63, 65),
+        (64, 65),
+        (60, 70),
+        (1, 127),
+        (64, 128),
+        (65, 129),
+        (100, 900),
+        (7, 65_000),
+    ] {
+        if hi <= n32 {
+            v.push((lo, hi));
+        }
+    }
+    v
+}
+
+/// FAILS IF: the executor's `mask_set_range` path and the oracle's row-index
+/// predicate disagree on any range at any row count — ungated, under a plane,
+/// or under a scratch gate — on values OR scratch words.
+#[test]
+fn range_matches_the_oracle_at_every_word_edge() {
+    for n in ROWS {
+        let f = Fixture::new(n, 23);
+        for (lo, hi) in range_cases(n) {
+            let pred = Pred::Range { lo, hi };
+            for under in [None, Some(P0), Some(S1)] {
+                let mut ops = Vec::new();
+                if under == Some(S1) {
+                    ops.push(MaskOp::Not { a: P1, dst: 1 });
+                }
+                ops.push(MaskOp::Pred {
+                    pred,
+                    under,
+                    dst: 0,
+                });
+                let p = Program::new(ops, Terminal::Keep { mask: S0 });
+                f.run(&p, &format!("{pred:?} under {under:?}"));
+            }
+        }
+    }
+}
+
+/// Count through the EXECUTOR. `Fixture::count` goes through the oracle, which
+/// is the right side for fixture-validity guards but the wrong side for a
+/// population check on the `mask_set_range` path: a disable-run (an
+/// off-by-one in `exec.rs`'s `Range` arm) passed the oracle-counted version of
+/// this test, which is exactly the vacuity it now cannot have.
+fn exec_count(f: &Fixture, p: &Program) -> usize {
+    let masks: Vec<&[u64]> = f.masks.iter().map(|m| m.as_slice()).collect();
+    let lanes = [LaneRef::I32(&f.i32s)];
+    let planes = Planes {
+        n_rows: f.n,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let mut scratch = Scratch::for_program(p, f.n).expect("addressable");
+    match execute(p, &planes, &mut scratch, None) {
+        Ok(Value::Count(c)) => c,
+        other => panic!("expected a count, got {other:?}"),
+    }
+}
+
+/// FAILS IF: the executor's range population is not EXACTLY `hi - lo` — the
+/// can-it-fire half (a non-empty range selects something) and the
+/// can-it-stay-silent half (an empty range selects nothing, and it selects
+/// nothing OUTSIDE its bounds) in one equality, `==` not `>=`.
+#[test]
+fn range_population_is_exactly_hi_minus_lo() {
+    for n in ROWS {
+        let f = Fixture::new(n, 29);
+        for (lo, hi) in range_cases(n) {
+            let c = Program::new(
+                vec![MaskOp::Pred {
+                    pred: Pred::Range { lo, hi },
+                    under: None,
+                    dst: 0,
+                }],
+                Terminal::Count { mask: S0 },
+            );
+            assert_eq!(
+                exec_count(&f, &c),
+                (hi - lo) as usize,
+                "Range {{ {lo}, {hi} }} @ n={n}"
+            );
+        }
+        // Silent half with a non-trivial input: a range gated by its own
+        // complement selects nothing, and this is only informative when the
+        // range is non-empty.
+        if n >= 2 {
+            let (lo, hi) = (0u32, (n / 2) as u32);
+            let disjoint = Program::new(
+                vec![
+                    MaskOp::Pred {
+                        pred: Pred::Range { lo, hi },
+                        under: None,
+                        dst: 1,
+                    },
+                    MaskOp::Not { a: S1, dst: 2 },
+                    MaskOp::Pred {
+                        pred: Pred::Range { lo, hi },
+                        under: Some(Operand::Scratch(2)),
+                        dst: 0,
+                    },
+                ],
+                Terminal::Count { mask: S0 },
+            );
+            assert_eq!(
+                exec_count(&f, &disjoint),
+                0,
+                "range under its complement @ n={n}"
+            );
+        }
+    }
+}
+
+/// FAILS IF: an out-of-bounds range is accepted by either path, or the two
+/// paths refuse it with different errors. `lo > hi` and `hi > n_rows` are the
+/// two ways to be out of bounds; both must be refused BEFORE any write.
+#[test]
+fn range_out_of_bounds_is_refused_identically() {
+    use lance_graph_mask_risc::ExecError;
+    for n in ROWS {
+        let f = Fixture::new(n, 31);
+        let n32 = n as u32;
+        for (lo, hi) in [(n32 + 1, n32 + 1), (0, n32 + 1), (3, 2), (n32, n32 + 5)] {
+            if lo <= hi && hi <= n32 {
+                continue; // not actually out of bounds at this n
+            }
+            let p = Program::new(
+                vec![MaskOp::Pred {
+                    pred: Pred::Range { lo, hi },
+                    under: None,
+                    dst: 0,
+                }],
+                Terminal::Count { mask: S0 },
+            );
+            let masks: Vec<&[u64]> = f.masks.iter().map(|m| m.as_slice()).collect();
+            let lanes = [LaneRef::I32(&f.i32s)];
+            let planes = Planes {
+                n_rows: n,
+                masks: &masks,
+                lanes: &lanes,
+            };
+            let mut scratch = Scratch::for_program(&p, n).expect("addressable");
+            let got = execute(&p, &planes, &mut scratch, None);
+            let want = reference_execute(&p, &planes, None);
+            assert_eq!(
+                got, want,
+                "Range {{ {lo}, {hi} }} @ n={n}: refusal must match"
+            );
+            assert_eq!(
+                got,
+                Err(ExecError::RangeOutOfBounds { lo, hi, n_rows: n }),
+                "Range {{ {lo}, {hi} }} @ n={n}: must be refused as out of bounds"
+            );
+        }
+    }
+}

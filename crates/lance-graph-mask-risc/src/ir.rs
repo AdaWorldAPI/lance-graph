@@ -80,6 +80,28 @@ pub enum Pred {
     MatchU32 { lane: u16, pattern: u32, care: u32 },
     /// `((lane[i] ^ pattern) & care) == 0` over a `u64` lane.
     MatchU64 { lane: u16, pattern: u64, care: u64 },
+    /// `lo <= i < hi` — a predicate on the ROW INDEX, reading no lane.
+    ///
+    /// The contiguous-range write. On an address-ordered lane an address
+    /// prefix names a contiguous subtree, so the prefix's mask is a range,
+    /// not a sweep: `ndarray::simd::mask_set_range` fills it in three passes
+    /// over the words (zero before, ones inside, zero after, two computed
+    /// edge words) with no per-row compare at all. This is the op
+    /// `lance-graph-quack`'s `Filter::prefix_u64` doc named as *"NOT yet a
+    /// range WRITE … waits on the primitive"* — the primitive is in ndarray;
+    /// this is the IR name for it (`ISS-MASK-RISC-HAD-NO-RANGE-OP`).
+    ///
+    /// The IR does NOT decide whether a lane is address-ordered — that is the
+    /// planner's knowledge (a V3 table's row address is its rail). A caller
+    /// that lowers a prefix to `Range` on an unordered lane gets a wrong
+    /// answer, not an error; the oracle agrees with the executor on the range
+    /// itself, which is all either can check.
+    ///
+    /// Validated: `lo <= hi` and `hi <= n_rows`
+    /// ([`crate::ExecError::RangeOutOfBounds`]), so the write can never reach
+    /// the tail. `lo == hi` is a legal empty range (an all-zero write, not a
+    /// no-op). With `under`, the result is `range & gate`.
+    Range { lo: u32, hi: u32 },
 }
 
 /// One instruction. Destinations are always [`Operand::Scratch`]; input planes
@@ -278,6 +300,30 @@ impl Program {
         let mut h = OpHistogram::default();
         for op in &self.ops {
             match op {
+                // `Pred::Range` reads NO value lane (it is a row-index
+                // predicate), so it is not a value-lane predicate pass; it
+                // spends one linear write over the destination mask instead.
+                //
+                // A GATED range spends a SECOND pass, and that is not true of
+                // any other predicate: every lane predicate has a fused
+                // `*_to_mask_under` kernel, so gating it costs nothing extra.
+                // There is no `mask_set_range_under`, so `exec` runs the gated
+                // range as `mask_set_range` followed by `mask_and_assign` —
+                // literally an `and`, which is what `two_input` already counts.
+                // Charged there rather than to a new field, so the asymmetry is
+                // visible in the histogram instead of hidden behind a name.
+                // (CodeRabbit, PR #1246. Closing this would need the fused
+                // primitive upstream, tracked as `mask_set_range_under`.)
+                MaskOp::Pred {
+                    pred: Pred::Range { .. },
+                    under,
+                    ..
+                } => {
+                    h.ranges += 1;
+                    if under.is_some() {
+                        h.two_input += 1;
+                    }
+                }
                 MaskOp::Pred { .. } => h.predicates += 1,
                 MaskOp::And { .. }
                 | MaskOp::Or { .. }
@@ -302,12 +348,24 @@ pub struct OpHistogram {
     pub not: usize,
     /// Three-input passes.
     pub ternlog: usize,
+    /// Row-index range writes (`Pred::Range`) — counted apart from
+    /// [`predicates`](Self::predicates) because they read no value lane.
+    /// Each is ONE pass over the destination mask: `mask_set_range` writes
+    /// every word of `out_words` exactly once across disjoint segments (the
+    /// two zero-fills below/above the range, then the head/body/tail of the
+    /// range itself), never re-walking the whole mask per segment.
+    ///
+    /// A range under a gate spends a second pass, counted in
+    /// [`two_input`](Self::two_input) because it IS one: `exec` follows the
+    /// write with `mask_and_assign`. Unlike every lane predicate, which has a
+    /// fused `*_to_mask_under` kernel, no `mask_set_range_under` exists.
+    pub ranges: usize,
 }
 
 impl OpHistogram {
     /// Total mask-word passes the program spends after its predicates.
     pub fn mask_passes(&self) -> usize {
-        self.two_input + self.not + self.ternlog
+        self.two_input + self.not + self.ternlog + self.ranges
     }
 }
 
@@ -404,6 +462,84 @@ mod tests {
     /// predicate as a mask pass (predicates sweep VALUE lanes and are
     /// reported separately). Fixture: one of each kind, so every counter is
     /// exactly 1 and the pass total is 4.
+    /// `Pred::Range` is a row-index predicate: it reads no value lane, so it
+    /// must NOT land in `predicates`, and its destination write must be
+    /// counted in `mask_passes()`. Before this split a range-only program
+    /// reported one predicate and ZERO mask passes, which is the one shape a
+    /// cost model would read as free. (CodeRabbit, PR #1246.)
+    #[test]
+    fn range_is_counted_apart_from_value_lane_predicates() {
+        let range_only = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::Range { lo: 3, hi: 9 },
+                under: None,
+                dst: 0,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
+        );
+        let h = range_only.op_histogram();
+        assert_eq!(h.ranges, 1, "the range must be counted");
+        assert_eq!(h.predicates, 0, "a range reads no value lane");
+        assert_eq!(h.mask_passes(), 1, "and its write is not free");
+
+        // A lane-reading predicate still counts as one, and not as a range.
+        let lane_only = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::GtI32 { lane: 0, t: 3 },
+                under: None,
+                dst: 0,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
+        );
+        let h2 = lane_only.op_histogram();
+        assert_eq!((h2.predicates, h2.ranges), (1, 0));
+        assert_eq!(h2.mask_passes(), 0, "a bare lane predicate spends none");
+    }
+
+    /// A GATED range costs two passes, and a gated LANE predicate costs none:
+    /// every lane predicate has a fused `*_to_mask_under` kernel, while the
+    /// range has no `mask_set_range_under`, so `exec` runs write-then-`and`.
+    /// Both halves matter — asserting only the range would not show that the
+    /// extra pass is specific to it. (CodeRabbit, PR #1246.)
+    #[test]
+    fn a_gated_range_costs_the_intersection_but_a_gated_lane_predicate_does_not() {
+        let gated_range = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::Range { lo: 3, hi: 9 },
+                under: Some(Operand::Plane(0)),
+                dst: 0,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
+        );
+        let h = gated_range.op_histogram();
+        assert_eq!((h.ranges, h.two_input), (1, 1), "write + intersection");
+        assert_eq!(h.mask_passes(), 2, "a gated range spends BOTH");
+
+        let gated_lane = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::GtI32 { lane: 0, t: 3 },
+                under: Some(Operand::Plane(0)),
+                dst: 0,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
+        );
+        let h2 = gated_lane.op_histogram();
+        assert_eq!(
+            (h2.predicates, h2.two_input),
+            (1, 0),
+            "the fused `*_to_mask_under` kernel adds no pass"
+        );
+        assert_eq!(h2.mask_passes(), 0, "so gating a lane predicate is free");
+    }
+
     #[test]
     fn op_histogram_counts_each_physical_kind_once() {
         let p = Program::new(
@@ -441,7 +577,8 @@ mod tests {
                 predicates: 1,
                 two_input: 1,
                 not: 1,
-                ternlog: 1
+                ternlog: 1,
+                ranges: 0,
             }
         );
         assert_eq!(h.mask_passes(), 3);

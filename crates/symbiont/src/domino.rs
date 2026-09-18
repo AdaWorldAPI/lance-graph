@@ -93,8 +93,8 @@ pub fn energy_of(row: &NodeRow) -> f32 {
 /// tenants), so seeding edges here is free for the AMX path.
 fn seed_board(idx: usize) -> NodeRow {
     let mut edges = EdgeBlock::default();
-    edges.in_family[0] = ((idx % 255) + 1) as u8; // ring neighbour (always 1..=255)
-    edges.out_family[0] = (1 + (idx % 4)) as u8; // inherited-adapter slot (1..=4)
+    edges.as_bytes_mut()[0] = ((idx % 255) + 1) as u8; // ring neighbour (always 1..=255)
+    edges.as_bytes_mut()[12] = (1 + (idx % 4)) as u8; // byte 12 (the V1 "adapter slot 0" position)
     let mut row = NodeRow {
         key: NodeGuid::local(idx as u32),
         edges,
@@ -155,7 +155,11 @@ fn domino_batch(boards: &mut [NodeRow], w: &[u16; K * BATCH], stages: usize) {
 /// The POC: build `n_boards` SoA boards, run a `stages`-deep Domino sweep in AMX
 /// 16-board batches, project onto the NaN-detection surface, report.
 pub fn run_poc(n_boards: usize, stages: usize) {
-    assert_eq!(n_boards % BATCH, 0, "n_boards must be a multiple of {BATCH}");
+    assert_eq!(
+        n_boards % BATCH,
+        0,
+        "n_boards must be a multiple of {BATCH}"
+    );
     let w = weight();
     let mut rows: Vec<NodeRow> = (0..n_boards).map(seed_board).collect();
 
@@ -173,7 +177,10 @@ pub fn run_poc(n_boards: usize, stages: usize) {
             report.nonfinite
         );
     }
-    assert!(report.is_clean(), "Domino sweep produced a non-finite board");
+    assert!(
+        report.is_clean(),
+        "Domino sweep produced a non-finite board"
+    );
 
     let path = if amx_available() {
         "AMX TDPBF16PS"

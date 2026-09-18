@@ -197,14 +197,12 @@ pub fn edge_slots_coarse<V: MailboxSoaView>(
     }
     let block = view.edge_block_at(row)?;
     Some(EdgeNeighbors {
-        in_family: block
-            .in_family
+        in_family: block.as_bytes()[..12]
             .iter()
             .copied()
             .filter(|&b| b != 0)
             .collect(),
-        external: block
-            .out_family
+        external: block.as_bytes()[12..]
             .iter()
             .copied()
             .filter(|&b| b != 0)
@@ -469,10 +467,9 @@ mod tests {
             ],
             // row0 has in-family edges to refs 2,5 and one external ref 1; rest empty.
             blocks: vec![
-                Some(EdgeBlock {
-                    in_family: [2, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    out_family: [1, 0, 0, 0],
-                }),
+                Some(EdgeBlock::from_bytes(&[
+                    2, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                ])),
                 Some(EdgeBlock::default()),
                 None,
                 None,
