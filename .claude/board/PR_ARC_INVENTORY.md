@@ -14,9 +14,12 @@
   forbidden for the edge block to even know it's an edge block."*
 - **Pin doctrine changed (operator, 2026-09-18):** *"never pin to x.00,
   always float x.*"* / *"so no decimal .0.0"*. Eight exact-equals pins
-  floated — `lance` / `lance-linalg` / `lance-index` to `11.*`, `lancedb` to
-  `0.38.*`, plus `lance` in holograph and `lance-namespace` / `lance-arrow`
-  in the two members. Verified a resolution NO-OP against throwaway
+  floated, one per DECLARATION: `lance` / `lance-linalg` / `lance-index` /
+  `lancedb` in the workspace table (4), `lance` in holograph (5),
+  `lance-namespace` in `lance-graph-catalog` (6), and `lance-namespace` +
+  `lance-arrow` in `lance-graph` (7, 8). `lance-namespace` is floated TWICE
+  because it is declared in two manifests — the earlier wording named it
+  once and so read as seven, which is what a reviewer counted. Verified a resolution NO-OP against throwaway
   lockfiles before and after: arrow 58.4.0, datafusion 54.1.0, lancedb
   0.38.0, the whole lance family 11.0.0, byte-identical. `arrow` and
   `datafusion` were already caret and were not touched. CLAUDE.md's pin
@@ -24,8 +27,9 @@
   superseded half-sentence is struck in place there, not deleted.
 - **Locked:** a gated `Pred::Range` costs TWO mask passes, not one. Every
   LANE predicate has a fused `*_to_mask_under` kernel, so gating one is
-  free; Range is the sole exception — `exec.rs:541` runs `mask_set_range`
-  and THEN `mask_and_assign`. Charged to `two_input` (the second pass
+  free; Range is the sole exception — `exec.rs`'s `run_pred`, in its
+  `(Pred::Range { .. }, Some(u))` arm, runs `mask_set_range` and THEN
+  `mask_and_assign`. Charged to `two_input` (the second pass
   literally IS an `and`), which leaves the asymmetry visible in the
   histogram instead of hidden behind a range-specific name. The fused
   primitive that would close it is named in the doc comment as

@@ -67,7 +67,7 @@ matches a call shape, not a lint verdict, and `--all-targets` is what pulls
 **Same shape as:** `TD-JC-CLIPPY-RED-ON-BASE-1` (resolved #1183) and
 `TD-SIGKER-CLIPPY-RED-ON-BASE-1`. The recurring lesson is one line: **a
 workspace-scoped measurement says nothing about a workspace-excluded
-crate**, and this repo excludes 22 of them. A toolchain bump's "verified
+crate**, and this repo excludes 32 of them. A toolchain bump's "verified
 clean" is only as wide as its manifest list.
 
 ## 2026-09-15 — `TierFloors::stack_early_exit` promises a settled reading; that is true only for non-negative intensity, and the doc does not say so
