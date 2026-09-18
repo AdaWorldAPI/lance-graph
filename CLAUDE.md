@@ -25,8 +25,16 @@ workspace is local — prefer the local/fork source over the registry, always.
 > finds them must not read the P0 above as a mandate to wire them in. Registry
 > pins for this family are therefore CORRECT, not a policy violation to
 > "fix". The version discipline that DOES apply: the family moves in exact
-> lockstep (`=X.Y.Z` across every member, `lancedb` pinning its matching
-> `lance`), so a bump is one deliberate, measured PR — never a drift.
+> lockstep, so a bump is one deliberate, measured PR — never a drift.
+> **⊘ The parenthetical that stood here — "(`=X.Y.Z` across every member,
+> `lancedb` pinning its matching `lance`)" — is SUPERSEDED by the operator
+> ruling 2026-09-18** (*"never pin to x.00, always float x.*"*): the family
+> still moves in lockstep, but WE express that as a floating patch (`11.*`,
+> `0.38.*`), never a `.0.0` exact pin. Lockstep is about the MAJOR moving
+> together; it never required us to restate lancedb's own `=11.0.0`, and
+> restating it can only narrow the graph. Full rule and the receipt:
+> § Key Dependencies below — which is the ONE authoritative pin policy in
+> this file.
 - If a fork's coordinates (git URL, branch/tag, feature flag) are unknown,
   **STOP and ask**. Do NOT fall back to crates.io as a convenience or to make a
   build pass.
@@ -1208,8 +1216,16 @@ cd crates/lance-graph-python && maturin develop
 ## Key Dependencies
 
 ```toml
-# THE PIN RULE (operator-ruled 2026-09-05). Exact-pin (`=X.Y.Z`) ONLY where an
-# upstream crate itself demands exact-equals. Everywhere else the MAJOR, so the
+# THE PIN RULE. ⊘ The 2026-09-05 half-sentence "Exact-pin (`=X.Y.Z`) ONLY
+# where an upstream crate itself demands exact-equals" is SUPERSEDED by the
+# operator ruling 2026-09-18: *"never pin to x.00, always float x.*"* / *"so no
+# decimal .0.0"*. NOTHING in this workspace carries a `.0.0` exact pin any more;
+# the patch FLOATS (`11.*`, `0.38.*`) even where lancedb spells its own
+# requirement `=11.0.0`. Floating is strictly SAFER, not looser: our own pin can
+# only ever be equal to or NARROWER than what the family asks for, so an exact
+# one buys nothing and deadlocks the moment lancedb's transitive requirement
+# moves by a patch (the Cargo.toml:141-144 receipt below is exactly that
+# failure). What survives verbatim: everywhere else the MAJOR, so the
 # family can converge on the newest compatible patch. Nothing outside the
 # lance / lancedb / arrow / datafusion family is pinned at all, and NO repo
 # tracks a Cargo.lock (.gitignore; ISS-STALE-AUTHORITY-LOCKS, RESOLVED).
@@ -1231,7 +1247,7 @@ cd crates/lance-graph-python && maturin develop
 # (Rust crate line is 0.33.0 -> 0.37.1 -> 0.38.0; 0.34/0.35/0.36 do not exist as
 # Rust crates -- those numbers are the independently-versioned PyPI package.)
 #
-# The lance family moves in EXACT lockstep -- currently =11.0.0. Line of state:
+# The lance family moves in EXACT lockstep -- currently the 11 line. Line of state:
 # lance 7 (2026-06-14) -> 9 (the lance-9 sweep, b2b08b07 / PR #896 arc) -> 10
 # (#1187, D-LNC-1) -> 11 (#1190, D-LNC-3, probe-gated on the D-LNC-2 fragment-id
 # probe #1189). arrow/datafusion did NOT move with any of them.
@@ -1266,10 +1282,10 @@ datafusion = "54"     # OUR direct pin, in every crate that DEPENDS on it
                       # 2026-08-18; crates.io releases still DF 53) — as its
                       # own deliberate PR if a consumer needs Delta.
                       # Probe: .claude/plans/lance9-datafusion54-upgrade-probe-v1.md
-lance = "=11.0.0"         # exact-pinned: lancedb 0.38.0 requires lance =11.0.0
-lance-linalg = "=11.0.0"
-lance-index = "=11.0.0"
-lancedb = "=0.38.0"       # the lance-11 pairing (`default-features = false` in
+lance = "11.*"            # lancedb 0.38 requires `=11.0.0`; we float the patch
+lance-linalg = "11.*"     # and resolve to whatever it demands (today 11.0.0)
+lance-index = "11.*"
+lancedb = "0.38.*"        # the lance-11 pairing (`default-features = false` in
                           # the workspace table). NOTE: the Rust crate line is
                           # 0.33.0 -> 0.37.1 -> 0.38.0; 0.34/0.35/0.36 exist only
                           # as the independently-versioned PyPI package.
