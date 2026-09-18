@@ -32,20 +32,27 @@
 //!
 //! [`attest_sorted`]: SealedFacetLane::attest_sorted
 
-use crate::facet::{FacetCascade, SemanticPrefix};
+use crate::facet::{FacetCascade, SemanticLens, SemanticPrefix};
 use crate::temporal_pov::LanceVersion;
 use core::cmp::Ordering;
 use std::vec::Vec;
 
 /// What a sealer attests about one sealed lane: that at `version` the lane
-/// holds `n_rows` keys in numeric projection order, whose sequence digests to
-/// `digest`. Opaque to the planner — it can only hand it back to
-/// [`SealedFacetLane::bound`], which validates it.
+/// holds `n_rows` keys in numeric projection order under `lens`, whose
+/// sequence digests to `digest`. Opaque to the planner — it can only hand it
+/// back to [`SealedFacetLane::bound`], which validates it.
+///
+/// **The lens is part of the attestation, not decoration.** Storage holds a
+/// content-blind ordinal; "sorted" only means something under a named
+/// projection, and one physical sequence can be monotone under exactly one
+/// lens at a time. A witness that does not name its lens cannot be checked
+/// against a prefix stated under a different one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct OrderedLaneWitness {
     version: LanceVersion,
     n_rows: u32,
     digest: u64,
+    lens: SemanticLens,
 }
 
 impl OrderedLaneWitness {
@@ -67,9 +74,17 @@ impl OrderedLaneWitness {
         self.digest
     }
 
+    /// The lens this witness's attested order holds under.
+    #[must_use]
+    pub const fn lens(&self) -> SemanticLens {
+        self.lens
+    }
+
     /// Build a witness from raw fields — **falsifier-only** (F3: a forged or
     /// stale witness must be rejected before any bound runs). Never a
-    /// production path: real witnesses come only from sealing.
+    /// production path: real witnesses come only from sealing. Always names
+    /// [`SemanticLens::CanonHighTiles8`] — the only lens `SealedFacetLane`
+    /// ever attests.
     #[doc(hidden)]
     #[must_use]
     pub const fn forged(version: LanceVersion, n_rows: u32, digest: u64) -> Self {
@@ -77,6 +92,7 @@ impl OrderedLaneWitness {
             version,
             n_rows,
             digest,
+            lens: SemanticLens::CanonHighTiles8,
         }
     }
 }
@@ -115,6 +131,15 @@ pub enum WitnessError {
         /// The lane's sealed digest.
         lane: u64,
     },
+    /// The witness's attested order holds under a different lens than the
+    /// prefix is stated under. A lowering may pair a prefix with a witness
+    /// only when the two lenses agree.
+    LensMismatch {
+        /// The lens the witness attests.
+        witnessed: SemanticLens,
+        /// The lens the prefix is asked under.
+        asked: SemanticLens,
+    },
 }
 
 impl core::fmt::Display for WitnessError {
@@ -135,6 +160,12 @@ impl core::fmt::Display for WitnessError {
             }
             WitnessError::DigestMismatch { witnessed, lane } => {
                 write!(f, "witness digest {witnessed:#x} != lane digest {lane:#x}")
+            }
+            WitnessError::LensMismatch { witnessed, asked } => {
+                write!(
+                    f,
+                    "witness attests order under lens {witnessed:?}, prefix asked under {asked:?}"
+                )
             }
         }
     }
@@ -191,6 +222,7 @@ impl SealedFacetLane {
                 version,
                 n_rows,
                 digest,
+                lens: SemanticLens::CanonHighTiles8,
             },
         })
     }
@@ -290,6 +322,12 @@ impl SealedFacetLane {
         prefix: &SemanticPrefix,
     ) -> Result<(u32, u32), WitnessError> {
         self.validate(w)?;
+        if w.lens() != prefix.lens() {
+            return Err(WitnessError::LensMismatch {
+                witnessed: w.lens(),
+                asked: prefix.lens(),
+            });
+        }
         Ok(bound_unwitnessed(&self.keys, prefix))
     }
 }
@@ -515,5 +553,21 @@ mod tests {
         let sealed = SealedFacetLane::seal(skewed_keys(500, 7), 2).unwrap();
         let again = SealedFacetLane::attest_sorted(sealed.keys().to_vec(), 2).unwrap();
         assert_eq!(again.witness(), sealed.witness());
+    }
+
+    /// The witness names its lens, and `bound` checks it against the
+    /// prefix's own lens before running. With only one lens variant existing
+    /// today, the mismatch branch is unreachable by construction — this pins
+    /// that the field exists and round-trips.
+    #[test]
+    fn witness_names_its_lens_and_bound_checks_it() {
+        let lane = SealedFacetLane::seal(skewed_keys(200, 42), 5).unwrap();
+        assert_eq!(lane.witness().lens(), SemanticLens::CanonHighTiles8);
+
+        let probe = lane.keys()[0];
+        let prefix = SemanticPrefix::of(probe, 2);
+        assert_eq!(prefix.lens(), SemanticLens::CanonHighTiles8);
+
+        assert!(lane.bound(&lane.witness(), &prefix).is_ok());
     }
 }

@@ -20,11 +20,11 @@ this arc earns them.
 
 ---
 
-## 0. The question (operator, verbatim)
+## 0. The question
 
-> «Can one canonical 8×2×8-shaped carrier support both point-peek and population-mask
+> Can one canonical 8×2×8-shaped carrier support both point-peek and population-mask
 > traversal, with semantic hierarchy reduced to prefix/bound folds, while async writes
-> remain invisible to sealed readers?»
+> remain invisible to sealed readers?
 
 - **point universe = peek** — a pairwise fold over one `FacetCascade` (carrier 3,
   byte-addressed; `three-prefix-fold-carriers.md` §2).
@@ -113,6 +113,166 @@ Final report must carry: commit SHA · exact test counts · disable/falsifier ru
 benchmark environment · raw timings · crossover N · whether sealed-read silence held ·
 seal-sort cost · cache sensitivity · **the smallest ruling the measurements support**.
 
-## 5. Results
+## 5. Results (commit 2, N = 1M, this branch, `rustc 1.98.1 (48a229cea 2026-09-01)`, 4-core Xeon @ 2.10GHz, L1d 192KiB/4, L2 8MiB/4, L3 260MiB)
 
-_(commit 3 — not yet measured; nothing below this line is a claim until it is.)_
+### The no-sweep-in-a-fold correction (mid-arc)
+
+The first probe pass (commit-2 draft, not landed) put a materialization on both
+timed fold paths and was rejected before commit: **P2** sized its mask
+destination to `words_for(n_rows)` — the WHOLE lane — so `mask_set_range`'s own
+zero-before/ones-inside/zero-after write touched O(N) words regardless of how
+narrow `[lo, hi)` was, hiding an O(N) cost inside what was reported as a fold.
+**P3**'s "fold" arm A called `ternary_match_u64_to_mask` (a per-row sweep)
+narrowed to the bound's row range — still a sweep, since narrowing the range a
+sweep runs over does not change what it is. The rule the rewrite follows: a fold
+must not build a population- or lane-sized buffer, and must not run a per-row
+predicate.
+
+Both were rewritten before any number below was taken:
+
+- **R2 gained a `SemanticLens`.** Storage is a content-blind ordinal; "sorted"
+  is meaningful only under a named projection, and one physical sequence is
+  monotone under exactly one lens at a time (F1 had already shown this at the
+  byte level — the LE image's own order disagrees with its numeric
+  projection's order). `OrderedLaneWitness` now carries
+  `lens: SemanticLens` (one variant shipped, `CanonHighTiles8`) and
+  `SealedFacetLane::bound` rejects a lens mismatch before searching
+  (`WitnessError::LensMismatch`), the same discipline as version/rows/digest.
+  Contract: 1367 → 1368 tests.
+- **P2's write is now `touched_write(lo, hi)`** — allocates `words_for(hi)`,
+  never `words_for(n_rows)`; `n_rows` does not appear in its signature. The
+  full-lane sweep is kept ONLY as an explicitly separate `reference_sweep_ns`
+  column, never summed into `bound_fold_total()`.
+- **P3's fold arm is a `JointIndex`** — a probe-only (not shipped) Morton-style
+  interleave of the two lanes' semantic tiles (`A0 B0 A1 B1 …`, capped at
+  `JOINT_MAX_DEPTH = 4` tiles per side to fit a `u128`), built once
+  (`JointIndex::build`, timed separately as a real cost) and then bounded with
+  exactly two `partition_point`s. Verified structurally, not just by report:
+  `ternary_match_u64_to_mask` appears nowhere in `JointIndex`; the only sweep
+  call sites in the probe crate are inside the `reference_sweep_ns` timing
+  block. Limitation: equal-depth prefixes only (`a_depth == b_depth`); unequal
+  depths were not attempted rather than shipping a complicated scheme.
+- **P4**: the writer's clone is structurally necessary (the open buffer must
+  keep accumulating independently of the immutably-published snapshot); what
+  changed is sorting `open` in place before cloning, so pdqsort sees a mostly-
+  sorted prefix with a short unsorted tail on repeat seals, cheaper than
+  sorting a freshly-cloned, fully-shuffled-since-last-seal buffer.
+
+### P1 — point universe (64K pairs/class, min of 7)
+
+The previously unmeasured whole-facet 8-tile cell does **not** inherit the
+1.72 ns axis-chain number: all three arms cluster at 1.7–4.2 ns, with the
+byte-peek arm (the shape that WAS 1.72 ns on the 6-tier axis chain) actually
+SLOWEST on identical/late-tier pairs (~4.0 ns) because it pays two byte loads
+per tile with no early exit until 8 tiles in. The 8-tile classid-first
+layout does not give the axis chain its early-exit advantage back.
+
+| pair class | tzcnt+swap | peek u16 | peek bytes |
+|---|---|---|---|
+| fully equal | 2.02 | 2.38 | 4.18 |
+| classid canon mismatch | 2.01 | 1.73 | 1.73 |
+| classid custom mismatch | 2.01 | 1.73 | 2.07 |
+| early tier (t0) mismatch | 2.01 | 1.73–2.28 | 2.08–2.28 |
+| late tier (t5) mismatch | 1.98 | 2.30–2.36 | 3.94–3.98 |
+| unrelated | 2.00 | 2.84–2.93 | 2.93–2.94 |
+
+`is_ancestor(a,b) := LCP(a,b) >= depth(a)` verified against all three arms and
+the class's expected LCP on every generated pair before timing (oracle-first).
+
+### P2 — field universe: bound + touched-write vs the full-lane sweep
+
+Flatness falsifier (fixed absolute range `[500,600)`, independent of N —
+a range whose position moves with N is invalid here because `mask_set_range`
+also zeroes every word before `lo`, so a growing `lo` would show growth for a
+reason unrelated to the fix):
+
+| N | touched_write_ns | old whole-lane-sized_ns |
+|---|---|---|
+| 1,000 | 28.86 | 41.13 |
+| 16,000 | 28.76 | 58.16 |
+| 256,000 | 28.53 | 392.75 |
+| 1,000,000 | 28.98 | 5,496.49 |
+
+**Flat within noise across a 1000× growth in N; the old buffer grew ~134×.**
+The O(N) bug is gone; the fold's cost depends on `(lo, hi)`, never on `N`.
+
+At N = 1M: `bound` 238–265 ns (flat, O(log N)), `touched_write` 234–4,287 ns
+(scales with the RANGE width, not N — d=1..4 prefixes here keep large
+populations, `1.2%–3.4%` of the lane, so their touched write is wide;
+d≥5 prefixes are near-singleton, 1 row, and their touched write is one word),
+`reference_sweep` 429,100–910,240 ns. Speedup (bound+write vs reference sweep)
+119×–707× at 1M, 200×–564× at 256K, degrading toward parity below N≈256–512
+where the reference sweep is itself cheap. L2-evicted (64 MiB stream before
+each round; L3=260MiB is not evicted): bound and touched-write both grow
+(2.4–8.2 µs) but the reference sweep grows more (up to 1.51 ms), so the
+speedup ratio survives the cache-cold regime, just narrower.
+
+### P3 — fold intersection over one ordinal (JointIndex, equal depths only)
+
+The tenant lane cannot be attested over the ontology ordinal (`WitnessError`,
+first inversion at row 1) — the structural finding the plan predicted: one
+sequence, one lens-order; a second, independently-generated lane over the
+same rows is not sorted under that lens and gets no bound of its own.
+
+Joint index build (sort 1,000,000 interleaved `u128` keys, once): **69.8 ms**.
+Fold cost thereafter — the ENTIRE timed cost, two `partition_point`s, zero
+per-row work:
+
+| depth | kept A | kept B | kept ∩ | fold ns | reference (2 sweeps + AND) ns | speedup |
+|---|---|---|---|---|---|---|
+| 3 | 1,984 | 194 | 64 | 83 | 908,880 | 10,950× |
+| 4 | 1,666 | 66 | 65 | 85 | 907,944 | 10,682× |
+
+(depth 2 found no F4-passing pair in 20,000 draws at this seed — not a defect,
+the intersection floor of 32 rows was simply not hit at that depth's
+population sizes here.) F4 anti-vacuity (`kept ∩ >= 32`, neither side a
+subset) holds on both rows.
+
+### P4 — sealed reader under an open writer
+
+Peek and bound distributions (min/median/p90) essentially unchanged with an
+active writer publishing 20K-row batches: no perturbation beyond measurement
+noise; the pinned `Arc<SealedFacetLane>`'s digest and validation were
+unchanged throughout (`SealedFacetLane::validate` still `Ok` against the
+witness taken before the writer started, after the writer had published a
+strictly higher version). **Property held: open-lane producer arrival order
+does not perturb reads from the sealed image.**
+
+### Falsifier status
+
+F1/F2/F3/F5 shipped and green at commit 1 (contract + lowering level). F4
+enforced at runtime throughout P2/P3 (anti-vacuity: `kept > 0`, `kept·3 <
+total`; intersection floor 32, neither side a subset). No falsifier failed.
+
+### Verdict: **BOUNDED**
+
+The dual peek/mask substrate over one 8×2×8-shaped carrier works, and the
+bound fold materially wins in its region — but the region has a real edge,
+named here rather than smoothed over:
+
+1. **P1 does not transfer.** The 1.72 ns axis-chain result was specific to
+   that carrier's 6-tier, 2-tile-excluded shape. The whole-facet 8-tile
+   compare is ~2 ns regardless of arm — a real number, not the number that
+   was extrapolated for it in the plan's own framing ("do not assume 1.7 ns").
+2. **P2's crossover is real and depends on depth.** Below N≈256–512 the bound
+   fold does not clearly beat a full sweep (the sweep itself is cheap at
+   small N); above it, the win is 100×–700× and grows with N. The two
+   populations shipped by this generator (wide at shallow depth, singleton at
+   deep depth) both cross this line by N=1M but the WIDTH-dependent
+   `touched_write` term matters at the wide end.
+3. **P3's win is unconditional but its APPLICABILITY is conditional on the
+   ordering witness's lens matching, which a second, independently-written
+   lane almost never satisfies for free.** The 10,700× fold speedup is real
+   and unconditional once a `JointIndex` exists, but building one is a
+   ~70 ms up-front cost that amortizes only across repeated queries at fixed
+   depths on a fixed pair of lanes — this is a cache/index the caller must
+   choose to build, not a free property of the substrate.
+4. **The `SemanticLens` correction is load-bearing, not decorative**: it is
+   the reason P3 could not simply reuse the ontology lane's witness, and it
+   is the mechanism that will let a second, differently-lensed order (e.g. a
+   joint key) coexist with the first without either silently validating
+   against the wrong one.
+
+Not touched, per the fence: no GridLake placement, no `NodeGuid`/`CausalEdge64`
+change, no JC clippy fix, no DAG folding, no Hamming fold, no value-slab
+decode, no planner cost-model work.

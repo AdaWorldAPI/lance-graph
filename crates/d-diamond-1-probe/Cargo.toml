@@ -1,0 +1,22 @@
+[package]
+name = "d-diamond-1-probe"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "D-DIAMOND-1 probe: can one 8x2x8-shaped carrier (the shipped FacetCascade) support both point-peek and population-mask traversal, with semantic hierarchy reduced to prefix/bound folds, while async writes stay invisible to sealed readers. Four measured arms (P1 point, P2 field, P3 fold intersection, P4 sealed reader under an open writer) plus the F4/F5 runtime falsifiers. Probe-only machinery; workspace-excluded like onebrc-probe. See .claude/plans/d-diamond-1-dual-fold-substrate-v1.md."
+
+# Probe-only: excluded from the workspace so the fence holds (no member gains a
+# dependency for a measurement). Run with:
+#   cargo run --release --manifest-path crates/d-diamond-1-probe/Cargo.toml
+#   cargo test           --manifest-path crates/d-diamond-1-probe/Cargo.toml
+[workspace]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
+[profile.release]
+debug = 1

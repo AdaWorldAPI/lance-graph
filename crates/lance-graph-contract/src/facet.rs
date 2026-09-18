@@ -512,9 +512,29 @@ impl FacetCascade {
 /// so the same `G·D = CASCADE_UNITS` invariant binds bytes and fields alike.
 pub const CASCADE_UNITS: usize = 12;
 
+/// **The lens an order is stated under.** Storage holds an ORDINAL (a physical
+/// sequence of content-blind bytes) and no order; "sorted" is meaningful only
+/// under a projection, and one sequence can be monotone under one projection
+/// at a time. So every order claim — a witness, a prefix, a bound — names its
+/// lens, and a lowering may pair a prefix with a witness only when the two
+/// lenses agree. (Operator, 2026-09-18: *"if storage is normalized and compute
+/// is LE aligned then there's no sort order"* — correct; the order lives on the
+/// compute side, in the lens.)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum SemanticLens {
+    /// The canon-high 8-tile reading: `[canon, custom, t0.as_u16() … t5.as_u16()]`
+    /// ([`FacetCascade::semantic_tiles`]), ordered by
+    /// [`FacetCascade::cmp_numeric_projection`]. The only lens D-DIAMOND-1
+    /// measures; others (a `4×(8:8:8)` SPO reading, a palette-pair reading)
+    /// would order the SAME bytes differently and get their own variant.
+    CanonHighTiles8,
+}
+
 /// A **semantic prefix** over a [`FacetCascade`]: the first `depth` of its 8
-/// semantic tiles (see [`FacetCascade::semantic_tiles`]), coarse→fine. `depth`
-/// is `0..=8`; `0` matches every facet, `8` matches exactly one key value.
+/// semantic tiles (see [`FacetCascade::semantic_tiles`]), coarse→fine, under
+/// [`SemanticLens::CanonHighTiles8`]. `depth` is `0..=8`; `0` matches every
+/// facet, `8` matches exactly one key value.
 ///
 /// On a lane in [numeric projection order](FacetCascade::cmp_numeric_projection)
 /// the facets matching a prefix are CONTIGUOUS and bracketed by
@@ -548,6 +568,13 @@ impl SemanticPrefix {
     #[must_use]
     pub const fn depth(self) -> u8 {
         self.depth
+    }
+
+    /// The lens this prefix is stated under. A witness must carry the same
+    /// lens for the prefix to lower to a bound on that lane.
+    #[must_use]
+    pub const fn lens(self) -> SemanticLens {
+        SemanticLens::CanonHighTiles8
     }
 
     /// The fixed tiles; entries at index `>= depth()` are zero.
