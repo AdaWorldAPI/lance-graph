@@ -440,7 +440,6 @@ mod tests {
     /// predicate as a mask pass (predicates sweep VALUE lanes and are
     /// reported separately). Fixture: one of each kind, so every counter is
     /// exactly 1 and the pass total is 4.
-    #[test]
     /// `Pred::Range` is a row-index predicate: it reads no value lane, so it
     /// must NOT land in `predicates`, and its destination write must be
     /// counted in `mask_passes()`. Before this split a range-only program
