@@ -40,14 +40,29 @@ applied at its ten sites. NOT done here: it is code in a crate this PR does
 not touch, and this PR is board hygiene.
 
 **Wider candidate surface — GREP, NOT VERDICT.** A `chunks_exact(_mut)\(\d+\)`
-census over all 22 workspace-excluded members finds 114 candidate sites:
-thinking-engine 98 (mostly `examples/`), highheelbgz 4,
-lance-graph-cognitive 4, reader-lm 3, bge-m3 2, jc 2,
-quasicryth-research 1. **Only `jc` is RED**, because only `jc` has a clippy
-gate; the rest are ungated, so none of the other 112 has been compiled
-against the lint at all. Whether they would fire is UNVERIFIED — the regex
+census over all **32** workspace-excluded members finds **118** candidate
+sites: thinking-engine 98 (mostly `examples/`), highheelbgz 4,
+lance-graph-cognitive 4, onebrc-probe 3, reader-lm 3, bge-m3 2, jc 2,
+quasicryth-research 1, weather-poc 1.
+
+⊘ **The first version of this entry said 22 crates / 114 sites and missed
+`onebrc-probe` and `weather-poc` entirely** (codex P2 on #1247, verified and
+correct). Cause, which is the entry's own subject one level up: the census
+parsed `[workspace].exclude` with a NON-GREEDY REGEX that stopped at the
+first `]` and silently returned 22 of 32 members. An entry about a
+workspace-scoped measurement missing workspace-excluded crates was itself
+produced by a scope that silently truncated. Recounted with `tomllib` —
+`len(exclude) == 32`, 118 sites across 9 crates — which reproduces codex's
+numbers exactly. **Use a TOML parser for a TOML list; a regex over TOML is
+the same class of error as a grep standing in for a read.**
+
+**Only `jc` is RED**, because only `jc` has a clippy
+gate; the rest are ungated, so none of the other 116 has been compiled
+against the lint at all. `weather-poc` has its own workflow, but it runs
+`cargo test` only — no clippy step — so its one site is ungated like the
+rest. Whether they would fire is UNVERIFIED — the regex
 matches a call shape, not a lint verdict, and `--all-targets` is what pulls
-`examples/` in. Do not quote 114 as a defect count.
+`examples/` in. Do not quote 118 as a defect count.
 
 **Same shape as:** `TD-JC-CLIPPY-RED-ON-BASE-1` (resolved #1183) and
 `TD-SIGKER-CLIPPY-RED-ON-BASE-1`. The recurring lesson is one line: **a

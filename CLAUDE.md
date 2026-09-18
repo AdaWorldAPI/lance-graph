@@ -25,8 +25,16 @@ workspace is local — prefer the local/fork source over the registry, always.
 > finds them must not read the P0 above as a mandate to wire them in. Registry
 > pins for this family are therefore CORRECT, not a policy violation to
 > "fix". The version discipline that DOES apply: the family moves in exact
-> lockstep (`=X.Y.Z` across every member, `lancedb` pinning its matching
-> `lance`), so a bump is one deliberate, measured PR — never a drift.
+> lockstep, so a bump is one deliberate, measured PR — never a drift.
+> **⊘ The parenthetical that stood here — "(`=X.Y.Z` across every member,
+> `lancedb` pinning its matching `lance`)" — is SUPERSEDED by the operator
+> ruling 2026-09-18** (*"never pin to x.00, always float x.*"*): the family
+> still moves in lockstep, but WE express that as a floating patch (`11.*`,
+> `0.38.*`), never a `.0.0` exact pin. Lockstep is about the MAJOR moving
+> together; it never required us to restate lancedb's own `=11.0.0`, and
+> restating it can only narrow the graph. Full rule and the receipt:
+> § Key Dependencies below — which is the ONE authoritative pin policy in
+> this file.
 - If a fork's coordinates (git URL, branch/tag, feature flag) are unknown,
   **STOP and ask**. Do NOT fall back to crates.io as a convenience or to make a
   build pass.
