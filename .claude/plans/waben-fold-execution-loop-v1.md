@@ -5,7 +5,9 @@
 > Source docs: `waben_fold_architecture.md` + `waben_implementation_prompt.md`
 > (operator-supplied, 2026-09-19).
 >
-> **Prefix for this arc's deliverables: `D-WFL-*`** (unused in `STATUS_BOARD.md`).
+> **Prefix for this arc's deliverables: `D-WFL-*`** (minted by this arc; the
+> `D-WFL-W*` rows in `STATUS_BOARD.md` are the live set and supersede the flat
+> `D-WFL-1..7` rows the first commit added).
 >
 > **⊘ REVISED 2026-09-19 after external review of #1251.** Five corrections and
 > one addition, all verified by reading before acceptance:
@@ -214,9 +216,14 @@ gets written is the task's **existence**, never a command and never an ack.
 
 **W1 is the precondition, not merely a correctness gate.** A replay is sound
 only if the domain it replays against is pinned — version, lens, and the
-permutation the seal applied. That is exactly `RowDomain`. Without Seam A
-closed, "replay" means *recompute against whatever the lane looks like now*,
-which is not replay. With it closed, the `RowDomain` IS the replay key.
+associated-row order. Without Seam A closed, "replay" means *recompute against
+whatever the lane looks like now*, which is not replay.
+
+⊘ **But `RowDomain` is NOT "the replay key"** — an earlier phrasing here said so
+and it will cause a collision later. `RowDomain` is the **row-coordinate
+component** of a replay key. The rest of the key (lens identities, focus/carrier
+input, external-edge snapshot, deterministic parameters) is enumerated below and
+is not optional.
 
 Two consequences for the accounting in §6: the agreed exact answer carrier for
 such an insight is the **task descriptor**, not the row set it denotes; and the
@@ -239,6 +246,45 @@ than the one above it:
 | **meta kanban atom** | *a hypothesis worth testing* — the question, not any answer | a small intermediary write at the META level; **never an SoA row** | the cheap, frequent case: speculation |
 | **replayable task** | the domain + program that regenerates an insight | a descriptor (`RowDomain` + program) | the insight is settled but need not be materialized |
 | **materialized effect** | the answer itself, as state | the alpha row / SoA write | it crossed the rubicon: worth being state |
+
+**The Rubicon is a four-way policy on the delta, not a FIRE / no-FIRE binary.**
+FIRE stays exactly what it is — a sparse delta. What the Rubicon decides is what
+*durability that event earns*:
+
+```
+ephemeral fold / bound / intersection / Wabe / frontier
+        │
+        ├─ nothing interesting          -> vanish
+        ├─ interesting QUESTION         -> meta atom
+        ├─ result worth REPRODUCING     -> replay spec
+        └─ result worth becoming STATE  -> materialized effect
+```
+
+and the three retained tiers are three **increasingly strong contracts**, not
+three storage sizes:
+
+| tier | what it must carry to be honest |
+|---|---|
+| META | enough identity to know *what question existed* |
+| REPLAY | enough identity to *regenerate the same answer* |
+| STATE | enough epistemic justification to *retain the answer itself* |
+
+⊘ **A replay spec is more than `RowDomain + program`** — that is necessary and
+not sufficient, and the earlier text implied otherwise. The proof obligation
+(not necessarily a struct) is the complete deterministic input identity **for
+this computation** — as REFERENCES, never re-serialized contents:
+
+```
+RowDomain  +  program identity  +  ClassView/lens version
+           +  focus carrier identity  +  external-edge snapshot ID
+           +  deterministic parameters
+```
+
+pins the computation without duplicating anything it read. Miss one and `replay(task)` can return a different answer while
+looking valid — the thought may also have depended on another overlay, a mutable
+attention input, a changed ClassView, or a different Wabe mapping. **The
+determinism gate (`D-WFL-DET`) therefore precedes the replay tier being blessed,
+not merely its use.**
 
 **The rubicon is the point of the design.** An atom *at* the rubicon is written
 at the meta level; only what crosses it earns the full row. That is what lets
@@ -263,10 +309,24 @@ new transport, a second store, or an actor message per hypothesis. The meta tier
 is an intermediary write through the existing owner, and naming it does not
 authorize inventing one.
 
+⊘ **Specified now, BUILT after W6's measurement — the ladder must not jump the
+queue.** Execute W1→W5, then let W6 produce the actual per-stage numbers against
+the CURRENT `AlphaOverlay::claim()`. If the existing publication is indeed
+orders of magnitude costlier than the reasoning that precedes it, the ladder has
+measured motivation and the smallest meta-atom / replay surface the measured
+workload demands gets built. If the costs are not widely separated, the tiering
+is dropped rather than maintained. Building a three-tier memory architecture
+before proving that writes dominate THIS loop is the exact failure this plan
+keeps warning about, one level up.
+
 **The falsifier this needs, and it is not optional.** Determinism must be a
 *proved* property, not an assumed one: same `RowDomain` + same program ⇒
 bit-identical mask, across repeated runs, across SIMD backends, and across
-process restarts. Anything that makes a result depend on scratch contents,
+process restarts. ⊘ **Scoped to the integer / Boolean mask substrate** — the
+right bar for everything this arc runs on, and deliberately not a general rule:
+if Gaussian / f32 propagation later enters the Wabe it needs a
+*numerical-equivalence* contract instead, and nothing here outlaws the kernels
+the architecture already anticipates. Anything that makes a result depend on scratch contents,
 iteration order of a hash map, or a runtime ISA choice breaks replay silently —
 and silently is the only way this can break, because a wrong replay still
 returns a plausible mask. Gate it before any wave relies on replay.
@@ -402,6 +462,50 @@ rule: never build the next layer until the current one proves its compact
 result survives into the actual consumer.** That sentence is the whole
 foldability thesis in executable form.
 
+### W0 — separate the two attestations (the ruling that precedes W1)
+
+⊘ **`(key, ordinal)` does not work, and the plan said it might.** If `ordinal`
+means post-sort position, then `K→row-A, K→row-B` and `K→row-B, K→row-A` both
+digest as `(K,0), (K,1)`. Identical. A positional index added to a key digest
+attests nothing a key digest did not already attest.
+
+The missing attestation is not another property of the KEY lane. It is an
+attestation of the **associated row permutation**, and it belongs in a separate
+object:
+
+```
+OrderedLaneWitness          RowDomain
+  version                     same version
+  lens                        same physical row population
+  n_rows                      same row ORDER
+  key_digest = H(K0,K1,…)     row_order_digest = H(ID0,ID1,…)
+```
+
+where `ID` is a **stable row identity** — the `NodeGuid` sequence, or the
+writer's source ordinals — never the semantic facet key. The executor then
+requires BOTH. Duplicate semantic keys stay legal, exactly as
+`ordered_lane.rs:194` permits, and swapping the two rows behind one key changes
+`row_order_digest` while leaving `key_digest`, lens, version and `n_rows`
+untouched. That is precisely the falsifier W1 wants, and it is the reason the
+two digests cannot be merged into one.
+
+**W0's deliverable is a decision, not code:** find the smallest stable row
+identity that ALREADY exists where the ordered lane and the execution planes are
+assembled. Minting a new identity is the failure mode here.
+
+**W0 answers WHAT is attested. W1 must answer WHO MAY MINT IT** — and without
+that second answer the split is decorative, because the failure simply moves up
+one level:
+
+```
+before W0:   Program.RowDomain        == Planes.RowDomain          (metadata vs metadata)
+after W0:    Program.row_order_digest == Planes.row_order_digest   (STILL metadata vs metadata)
+```
+
+A caller can permute the slices and carry the old digest along for the ride.
+Copying a digest field into an otherwise freely-constructed `Planes` proves
+nothing at all.
+
 ### W1 — row identity and order attestation (Seam A)
 
 - **Files:** `contract/src/ordered_lane.rs`, `mask-risc/src/{ir,exec}.rs`,
@@ -416,20 +520,76 @@ foldability thesis in executable form.
   them freely. So the witness must attest the associated row identity — the
   permutation the seal applied, or an identity carried per row — never key
   uniqueness and never a key-only digest.
-- **Gate:** wrong version, wrong lens, and a permuted-planes case (same rows,
-  same length, same key digest, different associated order) — each
-  disable-verified RED first.
-- **Falsified if:** a permuted-planes program still returns the oracle's answer.
+- ⊘ **Carrying a `RowDomain` is NOT the same as verifying one, and the first
+  revision conflated them.** Comparing the program's `RowDomain` against
+  `planes.domain` compares two *metadata copies*. A caller can permute a mask or
+  a payload lane while keeping version, lens, key digest and row count
+  identical — so the permuted-planes falsifier below would PASS against a
+  metadata check, and the range would silently associate with the wrong rows.
+  The mechanism has to bind the actual row identities of every participating
+  plane, not a label attached to them — which is what W0's separate
+  `row_order_digest` is for. Three candidate shapes for enforcing it, to be
+  chosen by measurement, not by preference:
+  1. **PREFERRED — make the borrow the proof.** The executed view is a borrow of
+     ONE known coordinate system, not "some slices plus trustworthy-looking
+     metadata":
+
+     ```
+     sealed row image
+        ├── semantic keys
+        ├── mask planes
+        ├── value lanes
+        └── row identity sequence
+                  ↓
+            AttestedPlanes<'a>        (typed constructor; no public assembly)
+     ```
+
+     An unattested plane set becomes **unrepresentable** rather than merely
+     rejected. Strongest shape, least ceremony at the call site, most invasive
+     to build.
+  2. **Second best — verify at the attachment boundary.** Recompute
+     `H(NodeGuid_0 … NodeGuid_n)` once where planes attach to the execution, and
+     cache the resulting attestation against the immutable borrow. Honest, and
+     costs one pass that amortizes.
+  3. **Rejected — carry a digest field on a freely-constructed `Planes`.** This
+     is the decorative option and is named here so it is not rediscovered as an
+     idea. It reproduces exactly the defect W0 exists to remove.
+  **Choosing between (1) and (2) is W1's first deliverable**, ahead of any code.
+- **Gate — the brutal case, stated exactly.** Construct a program in which
+  *everything a metadata check can see is identical*:
+
+  ```
+  same semantic keys        same version        same lens
+  same n_rows               same key_digest
+  same RowDomain metadata — COPIED BY THE CALLER
+
+  but: row identities A and B swapped
+       and one actual value plane swapped to match
+
+  => execution MUST refuse, BEFORE the Range is consumed
+  ```
+
+  Plus the simpler wrong-version and wrong-lens cases. Each disable-verified RED
+  first.
+- **Falsified if:** that program still returns the oracle's answer. It is the
+  load-bearing test precisely because a metadata-only check passes it. Red
+  before the fix and green only when the ACTUAL executed plane ordering is
+  attested ⇒ Seam A is genuinely closed. Anything less and it is not.
 
 ### W2a — range-native terminals, zero `Scratch` (Seam B, half one)
 
 - `Bound(lo,hi) → Count = hi - lo`, `→ Any = lo != hi`. Arithmetic on the
   endpoints, correct only when the program is exactly one un-`under`ed
-  `Pred::Range`; gate on that. **No mask-risc scratch touched at all** — which
-  means `execute()`'s unconditional `scratch.words == words_for(n_rows)` check
-  must become conditional on the program actually needing planes.
+  `Pred::Range`; gate on that. **No mask-risc scratch touched at all.**
+  `execute()`'s unconditional `scratch.words == words_for(n_rows)` check must
+  become conditional — and conditional on a property **derived from the
+  validated program shape** (`program.requires_scratch() == false` for exactly
+  the range-terminal shape), never on an ad-hoc flag a caller can assert. A flag
+  is a claim; a derived predicate is a proof.
 - **Gate:** `N` from 1K to 100M, same width, different absolute positions —
-  **mask words written must be 0**, and latency flat in both axes.
+  **scratch words required = 0, mask words written = 0, answer = `hi - lo`**,
+  latency flat in both axes. If a zero-mask program still demands
+  `words_for(N)`, the wave fails.
 - **Falsified if:** any mask word is written, or cost moves with `N` or position.
 - This is the cleanest available proof of the whole thesis, and it is small.
 
@@ -495,6 +655,39 @@ foldability thesis in executable form.
 - **Gate:** one trace where changing the local result changes the next region
   processed, with the same final answer as the reference route.
 
+### W6.0 — pin ATTEND vs EPISTEMIC FIRE (the ruling that precedes the measurement)
+
+The current `AlphaOverlay` is **attention memory, not epistemic truth**: it
+records where attention went, preserving `NodeGuid` identity, claim order, rung
+and revisits. It is discardable, not canonical. That gives the minimum legal
+Boolean → epistemic crossing without waiting for a full cognitive theory, and it
+fits in one sentence:
+
+> **A non-empty Boolean delta is sufficient for an ATTENTION effect, and never
+> sufficient for an EPISTEMIC effect.**
+
+So:
+
+```
+Wabe / fold result
+   -> ATTEND / ELIGIBLE
+        may update focus and the alpha attention trace
+        does NOT revise TruthU8 / NARS evidence
+   -> EPISTEMIC FIRE
+        requires provenance and evidence identity
+        may enter revision and durable consequence
+```
+
+This keeps `TruthU8` and NARS cleanly outside the Boolean mechanics, and it
+stops the degenerate reading in which every successful intersection counts as
+learning something. It also composes with the Rubicon: FIRE names the event,
+ATTEND-vs-EPISTEMIC names its KIND, and the Rubicon names its DURABILITY. Three
+orthogonal questions that the first draft collapsed into one.
+
+⊘ Repeated activation is still not independent evidence, and popcount is still
+not truth arithmetic. This ruling is the *floor* the crossing must clear, not
+the crossing's full semantics (§8 item 5).
+
 ### W6 — publish through the EXISTING alpha route, and pay for it
 
 - Use `AlphaOverlay::claim()` as it stands — the 512-byte `NodeRow` push, the
@@ -502,9 +695,18 @@ foldability thesis in executable form.
 - ⊘ `claim_ordinals` is **deferred, and split in two** — the first draft treated
   it as one change and it is not:
   - **The input coordinate** (accept an ordinal or a mask the reader already
-    holds, instead of demanding a `NodeGuid` to hash) touches no stored bytes.
-    Since FIRE writes what the read already had, this is the API admitting what
-    the caller is holding — not an optimization layered on top.
+    holds, instead of demanding a `NodeGuid` to hash). Since FIRE writes what the
+    read already had, this is the API admitting what the caller is holding — not
+    an optimization layered on top.
+    ⊘ **But "touches no stored bytes" was too glib.** Downstream readers go
+    through rows: `AlphaTunnel::merge` iterates `lane.rows()`
+    (`alpha_tunnel.rs:185`) and `AlphaOverlay::rows()` exposes only `claimed`. A
+    claim that pushes no `NodeRow` is therefore **invisible to publication** —
+    it would vanish before W7's chain ever sees it. So the input-coordinate
+    change still owes either a compact ordinal/stamp representation with every
+    reader updated, or an explicit later boundary at which rows are
+    materialized. Naming that boundary is part of the deferred work, not a
+    detail of it.
   - **The storage contract** (`claimed: Vec<NodeRow>`, and with it `NodeGuid`
     identity, scanpath ordering and visit counts) is a genuinely different
     question, and the one the first draft would have changed by accident.
@@ -548,6 +750,16 @@ shipped, sealed, witnessed. (ii) A second lens over the **second** facet's rail
 plane, which is a new `SemanticLens` variant and therefore new implementation,
 not assembly.
 
+**No real relationship bytes are read as propagation gates.** The slice's
+`P_d` comes from SYNTHETIC tenant bytes the probe generates, exactly as
+`hex_tenant_mq_probe` does. Reading a node's actual second-facet rail bytes as
+`(permeability, strength)` would reinterpret operator-locked relationship
+semantics (`le-contract.md` §3 sanctions `basin:relationtype` and two orthogonal
+relation types on that plane — never permeability and strength), and would
+silently turn stored relations into propagation gates. That reinterpretation
+requires an explicitly sanctioned Wabe ClassView, which does not exist and is
+not this arc's to mint (§8 item 2).
+
 **How the slice reads the rail plane — stated, not assumed.** ⊘ The first draft
 deferred `LaneRef::Strided` while §5 required a second-facet lens; that was a
 contradiction. Resolution: the slice runs in the **probe crate**, which owns its
@@ -568,15 +780,36 @@ Bound_semantic                 ->  ROTATION  ->  Morton positions     [W3]  <-- 
 Morton positions ∩ closed tile ->  A_0
 A_{t+1} = (A_t ∪ ⋃_d S_d(A_t ∩ P_d)) ∩ T                              [W4]
 delta = A_{t+1} \ A_t
-delta empty      ->  Any == false, nothing published
+delta empty      ->  MASK emptiness test on delta itself, nothing published
 delta non-empty  ->  AlphaOverlay::claim() as it stands, measured     [W6]
                  ->  owner-stamped cast -> one DatasetVersion
 same NodeGuid, context B, reacts; next focus changes                  [W7]
 ```
 
+⊘ **The publication decision tests the DELTA, not the bound.** W2a's
+`Terminal::RangeAny` is endpoint arithmetic (`lo != hi`) valid only for a single
+un-`under`ed `Pred::Range`; `delta` is an arbitrary, possibly fragmented mask
+produced by `A_{t+1} \ A_t`. Applying the range terminal to it reports "publish"
+whenever the *prefix* was non-empty — so every converged step, where propagation
+has reached a fixed point and the delta is empty, is misclassified as an
+insight. The no-publication decision needs an emptiness test over the bounded
+delta carrier itself. Keep `RangeAny` for what it is; give the delta its own.
+
 **Two thought contexts.** Two rungs via `TemporalPov`. The *track* coordinate
 stays a hypothesis (§2) and the slice must not depend on `w_slot` meaning a
-thought track.
+thought track — see the next paragraph, which is now closer to a refutation
+than a caution.
+
+**The `w_slot` hypothesis is in trouble, and the slice must not lean on it.**
+`AttentionMaskSoA::touch` (`attention_mask.rs:83-88`) locates an entry by
+`mailbox_id` ALONE and overwrites its `w_slot`. So one mailbox holds exactly one
+W-slot: touching a second track at the same node erases the first rather than
+leaving both visible. A carrier that cannot represent two concurrent tracks at
+one address is not a thought-track carrier. Either the slice defines a separate
+mailbox identity per track and carries that mapping explicitly, or the
+identification is wrong. **Do not write an acceptance criterion that assumes two
+tracks are simultaneously visible at one `NodeGuid`** — the shipped carrier
+cannot satisfy it. (§8 item 1.)
 
 **Invariant, asserted by counter and not by comment:** between a successful
 bound and tile entry, no allocation or write is sized by the population.
@@ -675,7 +908,18 @@ later wave, none blocks W1–W4.
    rung × tenant cross that way. The 64-bit per-node track summary is a
    *possible* representation, never a mandate to materialize a dense cross.
    Blocks W5's generalization beyond tile-local.
-5. **Where may Boolean occupancy legally cross into epistemic truth?** Occupancy
-   and popcount are not `TruthU8` arithmetic, and repeated activation is not
-   independent evidence. W6 needs one concrete legal crossing point — not a
-   full theory, but not silence either.
+5. **Where may Boolean occupancy legally cross into epistemic truth?** The
+   FLOOR is now pinned in W6.0 — a non-empty Boolean delta is sufficient for an
+   attention effect and never for an epistemic one — which unblocks W6 without
+   a full theory. What remains open is the crossing's actual semantics: what
+   provenance and evidence identity an epistemic effect must carry, and how
+   revision consumes it. Occupancy and popcount are not `TruthU8` arithmetic,
+   and repeated activation is not independent evidence.
+6. **The Rubicon policy itself.** Given a deterministic sparse cognitive delta,
+   what properties justify (a) forgetting it, (b) retaining only a
+   hypothesis / meta-kanban atom, (c) retaining a replay specification, or (d)
+   materializing it as world state? Each boundary needs its minimum evidence and
+   its minimum replay identity, **without conflating attention, novelty,
+   confidence and truth** — four things the substrate keeps separate and prose
+   keeps merging. This is the question the whole write-tier ladder rests on, and
+   it is the one an implementation session is least equipped to answer.

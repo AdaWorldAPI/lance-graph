@@ -1,3 +1,132 @@
+## 2026-09-19 — E-A-POSITIONAL-INDEX-ADDED-TO-A-KEY-DIGEST-ATTESTS-NOTHING-1
+
+**Status:** FINDING (proved by counter-example). **Confidence:** high.
+
+Attesting row order by digesting `(key, ordinal)` pairs **does not work**, and
+this plan floated it as the alternative to refusing duplicate keys. With
+`ordinal` = post-sort position, the two distinct lanes
+
+```
+K -> row-A ;  K -> row-B          and          K -> row-B ;  K -> row-A
+```
+
+both digest as `(K,0), (K,1)`. Identical. A positional index added to a key
+digest attests exactly what the key digest already attested — the position is a
+function of the sort, not of the row, so it cannot witness which row landed
+there.
+
+**The correct shape is two attestations over two different things:**
+
+```
+OrderedLaneWitness : key_digest       = H(K0, K1, …)        (semantic order)
+RowDomain          : row_order_digest = H(ID0, ID1, …)      (physical order)
+```
+
+where `ID` is a **stable row identity** — the `NodeGuid` sequence, or the
+writer's source ordinals — and never the semantic facet key. The executor
+requires both. Duplicate semantic keys then remain legal exactly as
+`ordered_lane.rs:194` permits (*"Equal keys are indistinguishable, so an
+unstable sort is exact"*), while swapping the two rows behind one key changes
+`row_order_digest` and leaves key digest, lens, version and `n_rows` untouched.
+That is the falsifier the seam needs, and it is why the two digests must not be
+merged.
+
+**The sibling error, same review, same root:** *carrying* a `RowDomain` is not
+*verifying* one. Comparing a program's domain against `planes.domain` compares
+two metadata copies; a caller can permute a mask or payload lane with every
+label intact, so a metadata-only check PASSES the permuted-planes falsifier it
+was introduced to fail. Enforcement must bind the actual row identities —
+derive the digest from lane contents, carry the seal's permutation, or make
+`Planes` constructible only from a sealed lane so unattested planes are
+unrepresentable rather than merely rejected.
+
+**Generalization worth keeping:** a label that travels WITH the data it
+describes cannot attest that data. Attestation requires either deriving the
+label from the content at the point of use, or making the unattested state
+unconstructible. This is the same shape as the workspace's own
+`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` — an assertion implied by the thing
+it tests is not a test — lifted from tests to type invariants.
+
+**So the split answers WHAT is attested; it does not answer WHO MAY MINT IT**,
+and without the second answer the defect just moves up a level: from
+`Program.RowDomain == Planes.RowDomain` to
+`Program.row_order_digest == Planes.row_order_digest`, still metadata against
+metadata, still permutable by a caller who carries the old digest along.
+Preferred shape: the executed view is a BORROW of one known coordinate system —
+`AttestedPlanes<'a>` constructible only from the sealed row image (keys, mask
+planes, value lanes, row-identity sequence), so an unattested plane set is
+unrepresentable. Second best: recompute `H(NodeGuid_0 … NodeGuid_n)` once at the
+attachment boundary and cache it against the immutable borrow. Carrying a digest
+field on a freely-constructed `Planes` is the decorative option, named here so
+it is not rediscovered as an idea.
+
+**The acceptance case that decides it**, and it must be red before the fix:
+identical semantic keys, version, lens, `n_rows`, `key_digest`, and a
+`RowDomain` **copied by the caller** — but row identities A and B swapped and
+one actual value plane swapped to match. Execution must refuse before the
+`Range` is consumed.
+
+---
+
+## 2026-09-19 — E-ATTENTION-IS-NOT-EVIDENCE-AND-FIRE-IS-NOT-DURABILITY-1
+
+**Status:** RULING (the floor, not the full semantics). **Confidence:** high on
+the demarcation; the crossing's full contract is open.
+
+Three questions were being collapsed into one word. Separated:
+
+| question | answer |
+|---|---|
+| **what happened?** | FIRE — a sparse alpha delta, always; it writes what the read already had |
+| **what KIND of thing is it?** | ATTEND vs EPISTEMIC |
+| **what DURABILITY does it earn?** | the Rubicon: vanish / meta atom / replay spec / materialized state |
+
+The kind-demarcation, which is the part that unblocks implementation now:
+
+> **A non-empty Boolean delta is sufficient for an ATTENTION effect, and never
+> sufficient for an EPISTEMIC effect.**
+
+Grounded, not stipulated: `AlphaOverlay` IS attention memory — it records where
+attention went (claim order, rung, revisits, `NodeGuid` identity) and is
+discardable rather than canonical. So an attention effect may move focus and the
+alpha trace; an epistemic effect requires provenance and evidence identity
+before it may touch `TruthU8` / NARS revision. This keeps the epistemic algebra
+cleanly outside the Boolean mechanics and kills the degenerate reading in which
+every successful intersection counts as having learned something.
+
+The durability question is separately structured as a FOUR-way policy on the
+delta, not a FIRE/no-FIRE binary, with three increasingly strong contracts:
+META needs enough identity to know *what question existed*; REPLAY needs enough
+to *regenerate the same answer*; STATE needs enough epistemic justification to
+*retain the answer*.
+
+⊘ **A replay spec is more than `RowDomain + program`** — necessary, not
+sufficient, and `E-REPLAY-CAN-BE-CHEAPER-THAN-STORAGE-1` implied otherwise. That
+entry's phrase *"the `RowDomain` IS the replay key"* is CORRECTED here: it is the
+**row-coordinate component** of a replay key, never the whole of one. The
+distinction is worth the words — the loose version invites a later session to
+treat a version-pinned domain as sufficient grounds to replay. The
+proof obligation is the complete deterministic input identity **for this
+computation** — REFERENCES, not re-serialized contents. A set like
+
+```
+RowDomain  +  program identity  +  ClassView/lens version
+           +  focus carrier identity  +  external-edge snapshot ID
+           +  deterministic parameters
+```
+
+pins the computation without duplicating anything it read. A thought may also have
+depended on another overlay, a mutable attention input, a changed ClassView, or
+a different Wabe mapping — miss one and replay returns a different answer while
+looking valid. The determinism gate therefore precedes the replay tier being
+BLESSED, not merely used.
+
+**Still open, and explicitly not an implementation session's to answer:** the
+Rubicon policy itself — what properties justify forgetting a delta, keeping only
+a hypothesis atom, keeping a replay spec, or materializing state — with each
+boundary's minimum evidence and minimum replay identity, **without conflating
+attention, novelty, confidence and truth.**
+
 ## 2026-09-19 — E-A-BOUND-AND-A-TILE-ARE-INTERVALS-IN-DIFFERENT-ORDERS-1
 
 **Status:** FINDING (read-verified). **Confidence:** high.
@@ -82,7 +211,12 @@ storage strategy.
 
 **Falsifier, mandatory before any wave relies on replay:** same `RowDomain` +
 same program ⇒ bit-identical mask, across repeated runs, across SIMD backends,
-and across process restarts. Anything that lets a result depend on scratch
+and across process restarts. ⊘ **Scope: the integer / Boolean mask substrate**,
+which is what the whole arc runs on today, and where bit-identity is exactly the
+right bar. It is NOT a general prohibition — if Gaussian / f32 propagation later
+enters Wabe cognition it will need a *numerical-equivalence* contract instead,
+and this entry must not be read as outlawing the kernels the architecture
+already anticipates. Anything that lets a result depend on scratch
 contents, hash-map iteration order, or a runtime ISA choice breaks replay
 SILENTLY — which is the only way it can break, because a wrong replay still
 returns a plausible mask.
