@@ -1,3 +1,19 @@
+## D-WFL — the axis correction (2026-09-19): masking is an operation, a mask is a carrier
+
+⊘ Corrects the AXIS of the D-WFL-SIBLING section below (substance stands). "FOLD
+path vs MASK path" implied that electing to mask means giving up zero-copy. It
+does not — two datasets can be folded and masked against each other with NO
+materialization, and that is the ideal Layer-0 operation, not a compromise.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-AXIS | **Three independent axes, not one binary:** OPERATORS (fold · mask/ternlog · project · rotate · neighbour · reduce) × CARRIERS (canonical lane · range · descriptor · resident mask · cached mask) × MATERIALIZATION CHOICE (fused vs materialized bitmap). The BBB question is not *fold or mask?* but **is this membership relation transient algebra, or has it been PROMOTED to a mask carrier?** | Queued | every plan must record the promotion, not the operator choice. Falsified if a plan can promote a membership relation to a carrier without that appearing in it |
+| D-WFL-ENTROPY | **Representation entropy should follow ANSWER entropy.** *"Do these two million-row regions intersect?"* ≈ 1 bit; building 125 KB of mask to find it is the obscenity — and 125 KB is Seam B's MEASURED number at N=1M, not rhetoric. *"How many overlap?"* = 32–64 bits; also fused. *"Give me the overlap, six thoughts will manipulate it"* justifies the bitmap, which is then low-entropy **relative to its future workload** | Queued | the ratio `materialized bytes : answer bytes` reported per operation (§6's `R_info`), with the downstream workload named whenever it exceeds 1 |
+| D-WFL-W2b‴ | ⊘ supersedes W2b″'s "fold arm vs mask arm" — **both arms mask.** W2b-A: `Range × resident → FUSED masking → Count/Any`, no result mask. W2b-B: `→ masking → a MATERIALIZED bounded mask`. Same masking semantics, different result carrier | Queued | differential across arms and against the oracle. **W2b-B carries a burden W2b-A does not: it must NAME and MEASURE the downstream reuse justifying the carrier — a materialization with no demonstrated consumer FAILS the arm.** That is what deliberate promotion costs |
+
+**Shortest form:** fold the datasets, mask the folds, materialize only when the
+mask itself is worth keeping.
+
 ## D-WFL — the resolution (2026-09-19): masks are allowed, accidental masks aren't
 
 ⊘ Resolves five sections written today that read as *fold good, mask bad*. None

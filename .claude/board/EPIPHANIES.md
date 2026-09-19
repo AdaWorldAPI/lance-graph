@@ -1,3 +1,80 @@
+## 2026-09-19 — E-MASKING-IS-AN-OPERATION-A-MASK-IS-A-CARRIER-1
+
+**Status:** RULING — corrects the AXIS of
+`E-FOLD-AND-MASK-ARE-SIBLING-PHYSICAL-PLANS-1` (written minutes earlier), whose
+substance stands. **Confidence:** high. This is the cleanest formulation the arc
+has reached.
+
+> **Masking is an OPERATION. A mask is a CARRIER. Never confuse the two.**
+
+⊘ The previous entry framed the choice as *"FOLD path vs MASK path"*, which
+implies that electing to mask means giving up zero-copy. **It does not.** Two
+datasets can be folded and masked against each other with **no materialization
+at all** — and that is not a compromise, it is probably the ideal Layer-0
+operation:
+
+```
+dataset A ──fold──┐
+                  ├─ AND / TERNLOG / gate ──> tiny answer
+dataset B ──fold──┘
+      no mask population ever exists
+```
+
+The membership relation lives **logically, in registers**; the result is a
+`Count`, an `Any`, a `[lo,hi)`, a `First`, a next focus. The photolithography
+metaphor lands exactly here: **shine two patterns through each other and measure
+where the light survives — you do not manufacture a transparency showing every
+surviving pixel.**
+
+**Three independent axes, not one binary:**
+
+```
+OPERATORS          CARRIERS           MATERIALIZATION CHOICE
+fold               canonical lane     fused / zero-copy
+mask · ternlog     range              materialized bitmap
+project            descriptor
+rotate             resident mask
+neighbour          cached mask
+reduce             …
+```
+
+**The entropy principle that falls out — the sharpest statement of the arc:**
+
+> **Representation entropy should follow ANSWER entropy.**
+
+*"Do these two million-row semantic regions intersect?"* carries ~1 bit.
+Constructing 125 KB of mask to discover that bit is the obscenity — and 125 KB
+is not rhetorical: it is Seam B's measured number at N = 1M. *"How many
+overlap?"* is 32–64 bits. Both belong in the fused arm.
+
+Conversely *"give me the overlap, because six later thoughts will manipulate it
+spatially"* justifies materializing — the bitmap is then the **low-entropy
+working representation relative to its future workload**, even though it dwarfs
+the immediate scalar.
+
+**So the BBB's precise question is not "fold or mask?" but:**
+
+> **Is this membership relation transient algebra, or has it been PROMOTED to a
+> mask carrier?**
+
+That promotion is the deliberate boundary. Everything the previous entry says
+about elections being visible at T2 is right; only the axis needed fixing.
+
+**W2b, restated a final time — both arms MASK:**
+
+```
+W2b-A   Range × resident mask -> FUSED masking -> Count / Any   (no result mask)
+W2b-B   Range × resident mask -> masking -> a MATERIALIZED bounded mask
+        — and this arm must PROVE the downstream reuse that justifies the carrier
+```
+
+Same masking semantics, different result carrier. W2b-B carries a burden W2b-A
+does not: a materialization with no demonstrated consumer **fails** the arm.
+That is what making the promotion deliberate actually costs.
+
+**Shortest form of the whole doctrine:** *fold the datasets, mask the folds,
+materialize only when the mask itself is worth keeping.*
+
 ## 2026-09-19 — E-FOLD-AND-MASK-ARE-SIBLING-PHYSICAL-PLANS-1
 
 **Status:** RULING — the resolution of five entries written today that read as

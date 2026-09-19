@@ -515,7 +515,67 @@ working memory, but a transformation you run your own context through. So the
 continuations, crossable between kanban boards wherever their dependencies are
 satisfiable.
 
-### FOLD and MASK are sibling physical plans
+### Masking is an OPERATION. A mask is a CARRIER. Never confuse the two.
+
+⊘ **The section below frames the choice as "FOLD path vs MASK path", and that
+axis is wrong** — it implies electing to mask means giving up zero-copy. It does
+not. **You can fold two datasets and mask them against each other with no
+materialization at all**, and that is not a compromise; it is probably the ideal
+Layer-0 operation:
+
+```
+dataset A ──fold──┐
+                  ├─ AND / TERNLOG / gate ──> tiny answer
+dataset B ──fold──┘
+
+    no mask population ever exists
+```
+
+The membership relation lives **logically, in registers**. The answer is a
+`Count`, an `Any`, a `[lo,hi)`, a `First`, a next focus. This is the
+photolithography metaphor landing exactly: **shine two patterns through each
+other and measure where the light survives — you do not manufacture a
+transparency showing every surviving pixel.**
+
+So the taxonomy has three independent axes, not one binary:
+
+```
+OPERATORS            CARRIERS                MATERIALIZATION CHOICE
+fold                 canonical lane          fused / zero-copy
+mask · ternlog       range                   materialized bitmap
+project              descriptor
+rotate               resident mask
+neighbour            cached mask
+reduce               …
+```
+
+**The entropy principle that falls out, and it is the sharpest statement of the
+whole arc:**
+
+> **Representation entropy should follow ANSWER entropy.**
+
+*"Do these two million-row semantic regions intersect?"* carries about one bit.
+Constructing 125 KB of mask to discover that bit is the obscenity — and 125 KB
+is not rhetorical, it is Seam B's measured number at N = 1M. *"How many
+overlap?"* is 32 or 64 bits. Both belong in the fused arm.
+
+Whereas *"give me the overlap, because six later thoughts will manipulate it
+spatially"* justifies materializing: the bitmap is now the **low-entropy working
+representation relative to its future workload**, even though it dwarfs the
+immediate scalar.
+
+**So the BBB's precise question is not "fold or mask?" but:**
+
+> **Is this membership relation transient algebra, or has it been PROMOTED to a
+> mask carrier?**
+
+That promotion is the deliberate boundary. Everything the section below says
+about elections and visibility is right; it is the *axis* that needed fixing.
+
+**Shortest form of the whole doctrine: fold the datasets, mask the folds,
+materialize only when the mask itself is worth keeping.**
+
+### FOLD and MASK as physical plans — read through the correction above
 
 The shortest form of everything below: **masks are allowed; accidental masks
 aren't.**
@@ -1148,20 +1208,23 @@ paths over identical semantics**, because that is the whole point — the defect
 was the missing choice, not the mask:
 
 ```
-FOLD-NATIVE   Range ∩ resident mask -> Count / Any
-              peek only the intersecting words, AND in registers,
-              produce NO second mask
+W2b-A   Range × resident mask -> FUSED masking -> Count / Any
+        the masking happens; no result mask is ever written
 
-MASK-NATIVE   Range ∩ resident mask -> a bounded / cached mask
-              because a downstream consumer genuinely needs or reuses it
+W2b-B   Range × resident mask -> masking -> a MATERIALIZED bounded mask
+        and the arm must PROVE downstream reuse makes the carrier worthwhile
 ```
 
-Same answer, different physical plan — pipeline versus materialize. What W2b
-proves is that the planner can **elect** either one and that the election is
-visible in the plan, not buried in a helper.
+**Same masking semantics. Different result carrier.** Not "fold arm vs mask
+arm" — both arms mask; they differ only in whether the membership relation is
+promoted to a carrier.
 
-- The two arms must be differentially checked against each other and against the
-  oracle: identical row sets, identical `Count`/`Any`.
+- The two arms are differentially checked against each other and the oracle:
+  identical row sets, identical `Count`/`Any`.
+- **W2b-B carries a burden W2b-A does not:** it must name and measure the
+  downstream reuse that justifies the carrier. A materialization with no
+  demonstrated consumer fails the arm — that is the whole point of making the
+  promotion deliberate.
 - **This is where the anti-zoo rule licenses a new T1 primitive** — and the
   framing is stronger than "an optimization". A fused `popcount(a[i] & b[i])`
   over a word span cannot be expressed by the existing algebra without an
