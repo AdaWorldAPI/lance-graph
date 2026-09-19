@@ -727,10 +727,15 @@ sense. Keep the analogy; drop the two labels.
 | FIRST | **missing** |
 | carrier transforms (range↔runs↔bounded words, ordinal mapping) | **missing entirely** |
 
-The residue maps one-to-one onto the open waves: **W1** = ADDRESS attestation,
+The residue maps onto the open waves: **W1** = ADDRESS attestation,
 **W2a/W2b** = carrier transforms + range-native terminals, **W3** = ROTATE,
 **W4** = NEIGHBOUR/STENCIL, and the strided PEEK is the deferred `LaneRef`
-variant. That convergence is the finding's real value: two independent routes
+variant. The two remaining gaps have an explicit disposition rather than
+silence: **PROJECT** (the lens, today only in `contract::facet`) lands **after
+W3**, because the rotation must be measured before a lens op is worth exposing;
+**FIRST** is **intentionally deferred, unscheduled** — no wave in this arc needs
+it, and under `D-WFL-FUSE` it may turn out to be a fusion rule rather than an
+op. That convergence is the finding's real value: two independent routes
 arrived at the same missing five.
 
 ### The conformance criterion this hands mask-risc, which it did not have
@@ -1250,8 +1255,8 @@ looks interesting, let me test this hypothesis"* must not cost an SoA row. Under
 one undifferentiated publish path it does, and the cost of curiosity becomes the
 cost of knowledge.
 
-So the durable side is a LADDER of at least three tiers, each strictly cheaper
-than the one above:
+So the durable side is a LADDER of at least three tiers, each strictly MORE
+EXPENSIVE than the one above:
 
 | tier | records | carrier |
 |---|---|---|

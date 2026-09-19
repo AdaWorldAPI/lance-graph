@@ -1030,8 +1030,8 @@ framing above still allows: a speculative *"this looks interesting, let me test
 this hypothesis"* must not cost an SoA row. Under one undifferentiated publish
 path it does, and the cost of curiosity becomes the cost of knowledge.
 
-So the durable side is a ladder of at least three tiers, each strictly cheaper
-than the one above it:
+So the durable side is a ladder of at least three tiers, each strictly MORE
+EXPENSIVE than the one above it:
 
 | tier | what it records | carrier | when |
 |---|---|---|---|
@@ -1229,7 +1229,7 @@ T0 = ndarray backends, T1 = `ndarray::simd` facade + mask ALU, T2 = behaviour
 | **bound ⇄ executed planes binding** | `Planes` has no version/lens/digest (`ir.rs:50`) | lg@25988f3c | **M** | `Planes.domain: RowDomain`, bound to the PERMUTATION (W1) | wrong-version / wrong-lens / permuted-planes falsifiers, each red before the fix |
 | **semantic ordinal → Morton ordinal** | nothing; the two orders are simply different (Seam D) | lg@25988f3c | **M** | measure the rotation before building on it (W3) | bytes touched, fragments, index build + footprint, reuse count — on an independently-ordered lane |
 | range survives execution | `Pred::Range` → `mask_set_range(dst=full)` (`exec.rs:540`) | lg@25988f3c · nd@40a71ad | **M** | range-native terminals, zero scratch (W2a) | mask words written == 0, at every N and every position |
-| bounded mask composition | no windowed operand descriptor exists | lg@25988f3c | **M** | a descriptor with global `base_word` + local length + tail + row-domain (W2b); do NOT narrow generic `Scratch` first | touched words == `ceil(width/64)+1`, flat in N and position |
+| bounded mask composition | no windowed operand descriptor exists | lg@25988f3c | **M** | a descriptor with global `base_word` + local length + tail + row-domain (W2b); do NOT narrow generic `Scratch` first | touched words == the offset-aware span `floor((hi-1)/64) - floor(lo/64) + 1` (equivalently `<= ceil(width/64)+1` — a span straddling a word boundary touches one more word than an aligned one of the same width), tested at BOTH aligned and unaligned `lo`, and flat in N and in position |
 | touched-window write | `d_diamond_1_probe::touched_write` — **probe-only** | lg@25988f3c | **D** | the shape W2b's descriptor generalizes | 20.5–23.1 ns flat vs 34→4,620 ns whole-lane |
 | six-neighbour shift | `ndarray::simd::mask_shift_morton` · hex probe | nd@40a71ad | **I** (as a *whole-field* op) | closed-tile contract (W4) | axial BFS oracle + degree-one control (both already in the probe) |
 | u8 gate predicates | `gt_u8_to_mask` etc. · hex probe | nd@40a71ad | **I** | — | in-probe |
@@ -1456,6 +1456,28 @@ original view is still alive proves nothing:
 5. result must be bit-identical
 ```
 
+⊘ **And the gate must range over the COMPLETE identity, not two of its
+components.** An earlier phrasing tested only `RowDomain + program`, which is
+the very insufficiency this section establishes: a replay can return a
+plausible-but-wrong mask when an omitted input moves. Every component gets a
+perturbation arm, each one disable-verified:
+
+| perturb, holding all else fixed | replay must |
+|---|---|
+| row domain / snapshot | differ, or be refused |
+| program identity | differ |
+| **lens / ClassView identity** | differ |
+| **focus / carrier input** | differ |
+| **external-edge snapshot** | differ |
+| **deterministic parameters** | differ |
+| **Morton / Wabe mapping identity** | differ |
+| nothing | be **bit-identical** |
+
+A component whose perturbation leaves the result unchanged is either not an
+input or not in the spec — and either way the finding is the point of the
+matrix. This is the can-it-fire twin applied to a determinism gate: a gate that
+passes under every perturbation carries no information.
+
 If step 3 secretly needs a surviving pointer, a cached view, an ordinal map or
 any process-local object, the thought was never replayable.
 
@@ -1513,8 +1535,12 @@ promoted to a carrier.
   identity, because local word zero is not global word zero. That descriptor is
   the deliverable. **Do not modify generic `Scratch` until the descriptor has
   proved itself against a real consumer.**
-- **Gate:** touched words = `ceil(width/64) + 1`, independent of `N` and of
-  absolute position.
+- **Gate:** ⊘ NOT a constant — the touched-word count depends on the starting
+  bit offset. Assert the offset-aware span
+  `floor((hi-1)/64) - floor(lo/64) + 1` (equivalently `<= ceil(width/64)+1`: a
+  span straddling a word boundary touches one more word than an aligned one of
+  the same width), and test BOTH aligned and unaligned `lo`. Independent of `N`
+  and of absolute position.
 
 ### W3 — the semantic → Morton rotation probe (Seam D) — **NEW, and the crux**
 
