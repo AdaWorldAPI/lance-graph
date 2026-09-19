@@ -124,6 +124,37 @@ Seam B is the cleanest example: `Pred::Range` emits a population-sized mask, so
 by this definition the executor's range path is materialization wearing a fold's
 name.
 
+### Where the law lives: T1, and it already has an ISA
+
+The law above is not a new tier. `membrane-tiers.md:22` already defines **T1** as
+the population algebra and states its return contract as *"a mask, a count, a
+lane descriptor — **never the population**"*, and `:48` says outright that the
+ladder does not need another tier. So the zero-copy law is a SHARPENING of T1.
+
+And T1's instruction set already exists: **`lance-graph-mask-risc`** — the crate
+name says RISC. `Program` is the plan a thought compiles into; `MaskOp`,
+`Pred`, `Terminal`, `fuse.rs` (Boolean tree → one ternlog) and
+`ternlog_dispatch.rs` are the ISA and its fuser. Nothing needs minting.
+
+Which yields the membrane law this whole plan operates under:
+
+> Higher layers may invent arbitrary cognition. They may NOT invent new
+> population execution semantics — they compile cognition into T1.
+
+No thought style owns intersection, prefix, locality, range, projection or
+rotation. Those are physics. A style owns only *which* T1 operations it composes
+and *why*. **ISA, not standard library:** a new T1 primitive earns existence only
+by exposing a genuinely new zero-copy operation the existing algebra cannot
+express by composition or fusion — `fuse.rs` is the precedent, collapsing a
+Boolean tree rather than growing a variant per shape.
+
+**And the law gives mask-risc a conformance criterion it did not have.** Every
+scratch plane is required to be `words_for(n_rows)` (`exec.rs:566`), so every
+`MaskOp` today emits population-sized output. A *bounded* word window is a
+legitimate focus-sized carrier; a mask unconditionally sized to the population is
+not. So Seam B is not a performance complaint — it is a conformance failure
+against the tier the crate belongs to.
+
 **Where the code leaves the representation — four seams, in dependency order.**
 
 ### Seam A — the executed planes never prove they are the witnessed lane
@@ -984,6 +1015,24 @@ the crossing's full semantics (§8 item 5).
   `LanceCycleWriter::commit_cycle` → one `DatasetVersion`, assembled outside
   `tests/`. No new transport type, no per-cell or per-thought actor message, no
   `KanbanActor` resurrection (that actor was deleted, not deprecated).
+
+### The ISA residue IS the wave plan
+
+The small orthogonal instruction set T1 wants, minus what `lance-graph-mask-risc`
+already ships, lands exactly on the open waves — two independent routes arriving
+at the same missing five:
+
+| op | state | wave |
+|---|---|---|
+| AND / OR / XOR / NOT / ANDNOT · TERNLOG · GATE (`under`) · ANY / ALL / COUNT / REDUCE | **shipped** | — |
+| BOUND | half — `Pred::Range` carries the result; the search is in `quack` | W2a |
+| ADDRESS | implicit, unattested | **W1** |
+| carrier transforms — range ↔ runs ↔ bounded words, ordinal mapping | **missing entirely** | **W2b** |
+| ROTATE | **missing** | **W3** |
+| SHIFT / NEIGHBOUR / STENCIL | **missing** (`mask_shift_morton` is an ndarray primitive, not an ISA op) | **W4** |
+| PEEK, strided | half — `LaneRef{I32,U32,U64}`; `ir.rs:21-27` names its own gap | deferred |
+| PROJECT (lens) | **missing** — the lens lives in `contract::facet`, never in the ISA | after W3 |
+| FIRST | **missing** | unscheduled |
 
 ### Deferred behind the slice
 

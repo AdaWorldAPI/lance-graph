@@ -1,3 +1,97 @@
+## 2026-09-19 — E-LAYER-0-IS-T1-AND-MASK-RISC-IS-ALREADY-ITS-ISA-1
+
+**Status:** FINDING (the mapping is read-verified) + RULING (the conformance
+criterion). **Confidence:** high on the inventory, high on the criterion.
+
+A "Layer 0 photolithographic execution algebra" was proposed as the substrate
+every cognitive style compiles into: one constitutional law (everything inside
+is zero-copy), two program kinds (COMBINE = no materialization, RECONSTRUCT =
+an explicit, justified escape), a small orthogonal ISA rather than a zoo, and
+metacognition as a query planner — `compile(thought) -> Layer0Plan` — so no
+thought style owns intersection, prefix, locality, range, projection or
+rotation, because those are physics.
+
+**The architecture is right and it is not new. Three corrections of NAME, none
+of substance:**
+
+**1. "Layer 0" is T1, and the ladder must not grow a fifth vocabulary.**
+`membrane-tiers.md:22` already defines T1 as the population algebra
+(`ndarray::simd`, `mask_*`, `eq_*_to_mask`, `ternlog`, `popcount`) and states its
+return contract as *"a mask, a count, a lane descriptor — **never the
+population**."* Line 48 of the same doc says outright: **"The ladder does not
+need a sixth tier."** So this is a SHARPENING of T1, not an addition beneath it.
+T0 is the byte/row/Lance substrate; T2 names behaviour; T3 expresses intent.
+
+**2. `lance-graph-mask-risc` is already the ISA — the crate name says RISC.**
+Verified by reading `ir.rs`: `Operand`, `LaneRef`, `Planes`, `Pred` (11
+variants), `MaskOp{Pred,And,Or,Xor,AndNot,Not,Ternlog}`,
+`Terminal{Count,Any,All,MaskedSum/Min/MaxI32,BlendI32,Keep}`, `Program`, plus
+`fuse.rs` (Boolean-tree → ternlog fuser), `ternlog_dispatch.rs` (256-arm
+runtime-immediate → const-generic bridge) and `reference.rs` (row-at-a-time
+oracle). `Program` IS `Layer0Plan`. Nothing needs minting to have an ISA.
+
+**3. "Valhalla is the storage membrane" does not hold against the tree.** In
+lance-graph-java, Valhalla is E4: *"Vector API is permanently a lab arm… it
+never ships in `src/main`."* T0 is the storage tier. Panama IS the membrane, but
+the T2/T3 one (ABI ↔ Java facade), not a "thought" membrane in the cognitive
+sense. Keep the analogy; drop the two labels.
+
+### The ISA gap analysis — the proposal minus what ships IS the wave plan
+
+| proposed op | state in `lance-graph-mask-risc` |
+|---|---|
+| AND / OR / XOR / NOT / ANDNOT | **shipped** — `MaskOp::*` |
+| TERNLOG | **shipped** — `MaskOp::Ternlog` + `fuse.rs` + `ternlog_dispatch.rs` |
+| GATE | **shipped** — the `under` operand (the `*_to_mask_under` family) |
+| ANY / ALL / COUNT / REDUCE | **shipped** — `Terminal::{Any,All,Count,MaskedSum/Min/Max}` |
+| BOUND | **half** — `Pred::Range{lo,hi}` carries a bound's RESULT; the search lives in `quack` |
+| PEEK | **half** — `LaneRef{I32,U32,U64}`; no strided/facet peek (`ir.rs:21-27` names its own gap) |
+| ADDRESS | **implicit** — `Planes.n_rows` + ordinals, with no attested identity (Seam A) |
+| PROJECT (lens) | **missing** — the lens lives in `contract::facet`, never in the ISA |
+| ROTATE | **missing** — Seam D has no op |
+| SHIFT / NEIGHBOUR / STENCIL | **missing** — `mask_shift_morton` exists in ndarray, is not an ISA op |
+| FIRST | **missing** |
+| carrier transforms (range↔runs↔bounded words, ordinal mapping) | **missing entirely** |
+
+The residue maps one-to-one onto the open waves: **W1** = ADDRESS attestation,
+**W2a/W2b** = carrier transforms + range-native terminals, **W3** = ROTATE,
+**W4** = NEIGHBOUR/STENCIL, and the strided PEEK is the deferred `LaneRef`
+variant. That convergence is the finding's real value: two independent routes
+arrived at the same missing five.
+
+### The conformance criterion this hands mask-risc, which it did not have
+
+Apply the constitutional law to the crate that is supposed to embody it:
+`exec.rs:566` requires every scratch plane to be `words_for(n_rows)`, so **every
+`MaskOp` today emits population-sized output.** By T1's own stated return
+contract — and by
+`E-FOLDS-ARE-ZERO-COPY-PERIOD-PEEK-NOT-BORROW-BUILD-FOLD-1`'s "population-sized
+output is materialization, not folding" — the mask-algebra core has already left
+Layer 0.
+
+The distinction that keeps this fair: a **bounded** word window is a legitimate
+focus-sized carrier; a mask unconditionally sized `words_for(n_rows)` is
+population-sized. So Seam B stops being a performance complaint and becomes a
+**conformance failure against the tier the crate belongs to** — a much stronger
+reason to fix it, and a criterion any future op can be checked against.
+
+### The membrane law, and the anti-zoo rule
+
+> Higher layers may invent arbitrary cognition. They may NOT invent new
+> population execution semantics — they compile cognition into T1.
+
+And: **ISA, not standard library.** A new T1 primitive earns existence only by
+exposing a genuinely new zero-copy operation that the existing algebra cannot
+express efficiently by composition or fusion. `fuse.rs` is the precedent — it
+collapses a Boolean tree into one ternlog rather than growing a variant per
+shape. Otherwise T1 becomes the zoo the proposal warns about.
+
+**Thesis, worth carrying:** *thinking is compilation into zero-copy
+photolithography; memory begins only where reconstruction is cheaper than replay
+or where meaning requires persistence.* The second clause is
+`E-A-THOUGHT-IS-A-REPLAYABLE-OPERATOR-NOT-A-MAINTAINED-STATE-1`'s two reasons to
+store, restated — economic, or semantic. Nothing else.
+
 ## 2026-09-19 — E-FOLDS-ARE-ZERO-COPY-PERIOD-PEEK-NOT-BORROW-BUILD-FOLD-1
 
 **Status:** LAW (operator-stated). **Confidence:** high. Supersedes the
