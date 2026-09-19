@@ -1,3 +1,98 @@
+## 2026-09-19 — E-THREE-CONVERGENCES-TARSKI-SHANNON-JC-AND-THE-BAND-IS-A-SANDBOX-1
+
+**Status:** RULING on the demarcations; FINDING on the inventory
+(read-verified); **GAP** on the entropy half. **Confidence:** high on what was
+checked; one cited reference did not resolve.
+
+### Three convergences, never to be conflated
+
+```
+TARSKI   have I exhausted the consequences?   X_{n+1} = X_n
+SHANNON  am I still learning anything?         ΔH ≈ 0
+JC       is the apparent information bigger than substrate noise,
+         dependence and representation drift?
+```
+
+**Tarski gives the Wabe's `delta == empty` a REASON.** On a finite lattice
+`L = (P(E), ⊆)` with monotone operators, the inflationary chain
+`X_{n+1} = X_n ∪ ⋃_H F_H(X_n)` must stop, and its stopping point is the least
+fixed point of the admitted operators. Lattice termination, not a
+done-thinking detector.
+
+**But ANDNOT, retraction, confidence decay, inhibition and counterfactual
+replacement destroy monotonicity** — legal, but a different phase. A two-stroke
+engine: MONOTONE CLOSURE (accumulate → fixed point) / NON-MONOTONE REVISION
+(retract, counterfact, decay → a new starting state) / closure again. ⊘ The
+D-WFL recurrence `A_{t+1} = (A_t ∪ ⋃_d S_d(A_t ∩ P_d)) ∩ T` is the monotone
+stroke ONLY, while §5's `ANDNOT explained` is already the other one — the first
+slice crosses the phase boundary and must say so.
+
+### The band is a semantic sandbox — usefulness is not causal licensing
+
+Read-verified in `crates/causal-edge/src/layout.rs`:
+
+- **bits 59–60 `CausalTopology`** `{Direct, IndirectKnownIntermediates,
+  IndirectUnknownIntermediates, Unknown}`, documented as an *"additive factual
+  view over `TrustTexture`"* — ONE physical field, two lenses, not two
+  independent variables.
+- **bits 61–63 `ReasoningBand`** `{Surface, Association, Relation, Causal,
+  Counterfactual, Perspective, Meta, Transcendent}`, with explicit orthogonality
+  notes to `CausalMask`, the inference mantissa's −6 slot, and `direction`.
+
+**The ruling:** a donor thought at `band = Relation` with `f=.81, c=.94` and
+spectacular information gain **must not be silently promoted to causal
+knowledge.** High IG makes it a *candidate causal investigation*, which then
+requires an explicit Causal-band operation before any new CE64 is written.
+`Counterfactual` may likewise explore without mutating factual causal state. The
+band is a sandbox label around identical R2IL mechanics.
+
+⊘ **A citation to "#1224" for this distinction does not resolve** — no `#1224`
+anywhere in `.claude/` or `docs/`, and no board text matching *"causal
+licensing"* / *"usefulness is not"*. The PRINCIPLE stands on its own merits and
+on the orthogonality notes in the source; the REFERENCE does not, and is
+recorded as uncited rather than repeated as established.
+
+And `ReasoningBand::Meta` earns its keep with **no meta-opcode**: bind the
+fold/mask machinery to the thought programs and transfer histories themselves —
+which donors transfer, which repeatedly fail, which masks deserve caching, which
+motifs collapse uncertainty fastest. Exactly what the variant's own doc comment
+says it is for.
+
+### JC is the brake; the entropy half does not exist
+
+Read-verified present in `crates/jc/src/`: `jirak.rs`, `cartan.rs`, `weyl.rs`,
+`drift.rs`, `ewa_sandwich{,_3d}.rs`, `reliability.rs`, `quorum.rs`, `pearl.rs`,
+and `stats.rs` (`cohen_kappa`, `omega_total`, `phi`, `binary_association`,
+`kr20`, `multiple_r_squared`, `eta_squared`, the t-test family).
+
+⊘ **`jc` contains NO Shannon/entropy implementation** — zero hits for
+`shannon`/`entropy` across its source. The information-gain half of any such
+scheduler **must be built**; naming it is not having it. Filed as a gap, not a
+capability.
+
+**And the trap it must avoid is already an iron rule one level down.** 500
+candidate thoughts sharing prefixes, vocabularies, R2IL motifs and masks are
+**not independent lottery tickets**. Raw `−Σ p log p` is a fine descriptive
+quantity; an information-GAIN claim about this substrate needs dependence
+calibration, because `I-NOISE-FLOOR-JIRAK` already establishes that classical
+IID Berry-Esseen is wrong for these fingerprints. So `R_JC` is not one scalar —
+it means *passes the relevant dependence, noise and reliability gates*. The
+scheduler is the iron rule's next consumer, and it does not get an exemption for
+being cognitive.
+
+### The shape, for when it is built
+
+```
+X_{t+1} = X_t ∪ ⋃_H  1[ G(f_H, c_H, T_H, B_H, C_t) ] · F_H(X_t)
+U(H)    = IG(H) · R_JC(H) / C_fold(H)
+stop when X_{t+1} = X_t, or earlier when max_H U(H) < ε
+```
+
+`G` is a cheap eligibility GATE composed from currencies that already exist —
+never one giant score. And underneath all of it the computation stays the stupid
+beautiful thing: fold × mask × ternlog × popcount → three bits of consequence,
+without ever constructing the state the question never required.
+
 ## 2026-09-19 — E-A-VARNODE-IS-NOT-A-BUFFER-R2IL-IS-MICROCODE-FOR-MASKED-THINKING-1
 
 **Status:** RULING on the framing; FINDING on the inventory (cross-repo,

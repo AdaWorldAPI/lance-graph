@@ -515,6 +515,101 @@ working memory, but a transformation you run your own context through. So the
 continuations, crossable between kanban boards wherever their dependencies are
 satisfiable.
 
+### Three convergences, and they must never be conflated
+
+The termination question this plan kept deferring ("when is thinking finished?")
+has three separate answers, and collapsing any two of them is how a budget
+becomes a superstition:
+
+```
+TARSKI   have I exhausted the consequences?      X_{n+1} = X_n
+SHANNON  am I still learning anything?            ΔH ≈ 0
+JC       is the apparent information bigger than substrate noise,
+         dependence and representation drift?
+```
+
+**TARSKI gives `delta == empty` a reason.** On a finite lattice
+`L = (P(E), ⊆)` with monotone operators (`X ⊆ Y ⟹ F_H(X) ⊆ F_H(Y)`), the
+inflationary chain `X_{n+1} = X_n ∪ ⋃_H F_H(X_n)` must stop, and its stopping
+point is the least fixed point of the admitted operators. So W5's empty-delta
+test is not a heuristic — it is lattice termination. No mystical done-thinking
+detector.
+
+**But ANDNOT, retraction, confidence decay, inhibition and counterfactual
+replacement DESTROY monotonicity.** They are not illegal; they belong to a
+different phase. A two-stroke engine:
+
+```
+MONOTONE CLOSURE    accumulate admissible consequences -> Tarski fixed point
+NON-MONOTONE REVISION   retract / counterfact / revise / decay
+                        -> a NEW starting state
+then MONOTONE CLOSURE again
+```
+
+⊘ This plan's W4/W5 recurrence `A_{t+1} = (A_t ∪ ⋃_d S_d(A_t ∩ P_d)) ∩ T` is the
+monotone stroke only. The `ANDNOT explained` step in §5's chain is already the
+other one — so the slice crosses the phase boundary and must say so.
+
+### The scheduler: eligibility is a cheap gate, not a score
+
+```
+X_{t+1} = X_t ∪ ⋃_H  1[ G(f_H, c_H, T_H, B_H, C_t) ] · F_H(X_t)
+U(H)    = IG(H) · R_JC(H) / C_fold(H)
+stop when X_{t+1} = X_t, or earlier when max_H U(H) < ε
+```
+
+`G` is composed from currencies that **already exist**, read-verified in
+`crates/causal-edge/src/layout.rs`:
+
+| currency | bits | verified |
+|---|---|---|
+| `f`, `c` | evidential | the CE64 truth pair |
+| `CausalTopology` | **59–60** | `{Direct, IndirectKnownIntermediates, IndirectUnknownIntermediates, Unknown}` — documented as an *"additive factual view over `TrustTexture`"*: ONE field, two lenses, not two variables |
+| `ReasoningBand` | **61–63** | `{Surface, Association, Relation, Causal, Counterfactual, Perspective, Meta, Transcendent}`, with explicit orthogonality notes to `CausalMask`, the inference mantissa's −6 slot, and `direction` |
+
+**The band is a semantic sandbox, and this is the load-bearing part.** A donor
+thought at `band = Relation` with `f = .81, c = .94` and spectacular information
+gain **must not be silently promoted to causal knowledge.** High IG makes it a
+*candidate causal investigation*, which then requires an explicit Causal-band
+operation before any new CE64 is written. Likewise `Counterfactual` can explore
+freely without mutating factual causal state. **Usefulness is not causal
+licensing** — recorded here on its own merits; ⊘ a citation to "#1224" for this
+distinction does not resolve anywhere in `.claude/` or `docs/`, so the principle
+stands and the reference does not.
+
+And `ReasoningBand::Meta` earns its keep without any meta-opcode: bind the
+fold/mask machinery to the thought programs and transfer histories themselves —
+*which donors transfer? which repeatedly fail? which masks are worth caching?
+which motifs collapse uncertainty fastest?* Reasoning about reasoning, exactly
+as the variant's own doc comment says.
+
+### JC is the brake, and the Jirak trap is already an iron rule
+
+Read-verified in `crates/jc/src/`: `jirak.rs`, `cartan.rs`, `weyl.rs`,
+`drift.rs`, `ewa_sandwich{,_3d}.rs`, `reliability.rs`, `quorum.rs`, `pearl.rs`,
+and `stats.rs` (`cohen_kappa`, `omega_total`, `phi`, `binary_association`,
+`kr20`, `multiple_r_squared`, `eta_squared`, the t-test family).
+
+⊘ **`jc` contains NO Shannon/entropy implementation** — zero hits for
+`shannon`/`entropy` across its source. So the information-gain half of the
+scheduler **does not exist and would have to be built.** Naming it is not having
+it.
+
+**And the trap it must not fall into is already `I-NOISE-FLOOR-JIRAK`**, one
+level up. 500 candidate thoughts sharing prefixes, vocabularies, R2IL motifs and
+masks are **not independent lottery tickets**. Raw `−Σ p log p` is fine as a
+descriptive quantity of a distribution; an *information-gain claim about this
+substrate* needs dependence calibration, because the iron rule already
+establishes that classical IID Berry-Esseen is wrong for these fingerprints.
+`R_JC` is therefore not one scalar — it means *passes the relevant dependence,
+noise and reliability gates*.
+
+**Keep the three convergences apart in every report.** Tarski convergence
+(`X_{n+1} = X_n`) is semantic exhaustion. JC convergence is numerical
+stabilisation within a calibrated error regime. `ΔH ≈ 0` is diminishing returns.
+Conflating them produces a thinking budget that stops for the wrong reason and
+cannot say which.
+
 ### A VARNODE IS NOT A BUFFER — and the architecture is already in the tree
 
 Same category error as the section below, one level over. Cross-repo reads
