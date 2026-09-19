@@ -1,3 +1,95 @@
+## 2026-09-19 — E-A-MASK-EXPRESSION-DOES-NOT-IMPLY-A-BITMAP-1
+
+**Status:** RULING — the global primitive the whole D-WFL arc was circling.
+Subsumes the six fold-law entries written today; none is wrong, all were one
+level too low. **Confidence:** high; the relocation of the defect is
+read-verified.
+
+> **Mask algebra is globally NON-MATERIALIZING by default. A mask EXPRESSION
+> denotes membership; it does not imply a bitmap exists. Materialization occurs
+> only at an explicit TERMINAL, when the membership set itself is requested as a
+> carrier.**
+
+This is stronger and more accurate than *"folds are zero-copy"*, because it lets
+folding, masking, ternlog, gating, projection and reduction all participate in
+ONE zero-materialization algebra. **The fold was never the whole trick.** The
+trick is that the expression can remain unevaluated as population state all the
+way to a low-entropy terminal — DuckDB's pipeline insight, in a semantic
+substrate.
+
+**Three concepts; this arc collapsed 1 and 3 for a full day:**
+
+```
+1. MASKING            a Boolean/ternlog/gating OPERATION — may be entirely
+                      zero-materialization
+2. MASK EXPRESSION    a composition of predicates/folds/fields/populations —
+                      still need not exist as a bitmap
+3. MATERIALIZED MASK  an actual membership bitmap, chosen because its BITS are
+                      useful downstream
+```
+
+Collapsing 1 into 3 is exactly why the discussion oscillated between *masks are
+wonderful* and *masks violate folds*: both were true, of different referents.
+
+**`ClassView` × `WideFieldMask` were designed for this.** `WideFieldMask` is a
+field-PARTICIPATION currency, not a tiny bitmap — *only these semantic facets
+take part*. Stack the apertures optically (ClassView × WideFieldMask × semantic
+bound × focus × permissions × temporal POV × another dataset) and measure what
+survives; **do not manufacture a new transparency after every aperture.**
+Cognition and rendering are the same photolithographic machine with different
+lenses and terminals, and neither inherently needs a population mask.
+
+### The defect relocates: the election is ALREADY in the ISA, and the ops annihilate it
+
+Read-verified in `lance-graph-mask-risc/src/ir.rs`:
+
+- `Terminal::Keep { mask }` (`:184`) — *"The final mask itself stays in `mask`
+  (a scratch slot the caller reads back); nothing is reduced."* **That IS the
+  materialization election.** `Count` / `Any` / `All` / the masked reductions
+  never request the membership set as a carrier.
+- But `MaskOp::And { a, b, dst }` is documented `dst = a & b`, and **every
+  `MaskOp` is an assignment to a destination slot.** So the ops destroy at level
+  N−1 precisely the choice the terminals encode at level N — and `exec.rs:566`
+  then forces every slot to `words_for(n_rows)`.
+
+> **`MaskOp` must not semantically mean "produce a Scratch mask". It must mean
+> CONTRIBUTE TO A MASK EXPRESSION. Scratch is one possible physical LOWERING,
+> never the semantics.**
+
+**So `Pred::Range → Scratch` is a SYMPTOM, not the disease.** Every earlier
+framing of Seam B — performance complaint, T1 conformance failure, fold-law
+violation, absent decision — was chasing one op. Fixing `Range` alone leaves
+`And`, `Or`, `Xor`, `AndNot`, `Ternlog` all writing full planes. The correction
+belongs to the execution MODEL:
+
+```
+MaskExpr: A AND B ANDNOT C TERNLOG D,E,F RANGE lo,hi GATE focus
+   ├─ Terminal::{Any, Count, First, Reduce}
+   │     fuse to registers; NEVER emit intermediate membership bits -> u64
+   └─ Terminal::{Keep, Cache, Publish}
+         permission to create the bitmap
+```
+
+**And half the "missing primitives" dissolve into lowering rules.** The fused
+`popcount(a & b)` of `D-WFL-T1-FUSED` is not a bespoke instruction — it is what
+a fuser emits for `MaskExpr → Terminal::Count`. `fuse.rs` already collapses a
+Boolean tree into one ternlog; what it does not do is fuse **across the
+op → terminal boundary**, which is exactly the boundary this ruling moves.
+
+### Why this took a day, recorded so it is not repeated
+
+The design already encoded the distinction — `Keep` vs `Count`, and
+`WideFieldMask` as a participation currency rather than a population. What was
+never written down is **the semantics of `MaskOp`**, so every reading defaulted
+to its physical lowering, and `Mask × ClassView/WideFieldMask → Mask` was read
+as *allocate a bitmap* when the arrow only ever meant *denotes membership*. A
+spec gap, not a misunderstanding by anyone: an unstated semantics will always be
+read as its implementation.
+
+The compounding error was mine: six escalating laws about FOLDS, each corrected
+in turn, while the actual primitive sat one level up in the mask algebra. Each
+law was true and none was the general case.
+
 ## 2026-09-19 — E-MASKING-IS-AN-OPERATION-A-MASK-IS-A-CARRIER-1
 
 **Status:** RULING — corrects the AXIS of

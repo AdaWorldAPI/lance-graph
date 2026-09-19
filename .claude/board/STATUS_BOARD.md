@@ -1,3 +1,24 @@
+## D-WFL — THE GLOBAL PRIMITIVE (2026-09-19): a mask expression does not imply a bitmap
+
+⊘ Subsumes every D-WFL fold-law row below. None is wrong; all were one level too
+low. **Settle this BEFORE W0/W1** — it shrinks several waves from "add a
+primitive" to "add a fusion rule".
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-EXPR | **Mask algebra is globally NON-MATERIALIZING by default.** A mask EXPRESSION denotes membership; it does not imply a bitmap exists. Materialization happens only at an explicit TERMINAL, when the membership set is requested as a carrier. Stronger than "folds are zero-copy" because folding, masking, ternlog, gating, projection and reduction all join ONE algebra — the expression stays unevaluated as population state all the way to a low-entropy terminal | Queued | three concepts kept distinct in every plan: MASKING (operation) · MASK EXPRESSION (composition) · MATERIALIZED MASK (bitmap). Falsified if a plan cannot express a multi-operand masking chain that emits no membership bits |
+| D-WFL-MASKOP | ⊘ **`MaskOp` must not semantically mean "produce a Scratch mask" — it must mean CONTRIBUTE TO A MASK EXPRESSION.** Scratch is one physical LOWERING, never the semantics. Read-verified: `Terminal::Keep{mask}` (`ir.rs:184`, *"the final mask itself stays in `mask`… nothing is reduced"*) IS the materialization election, but `MaskOp::And{a,b,dst}` is `dst = a & b` — every op is an assignment, so the ops destroy at level N−1 the choice the terminals encode at level N, and `exec.rs:566` then forces every slot to `words_for(n_rows)` | Queued | **This is the deepest correction in the arc and it precedes W0/W1.** Falsified if changing `MaskOp` semantics does not remove the need for per-op fixes |
+| D-WFL-SEAMB″ | ⊘ `Pred::Range → Scratch` is a **SYMPTOM, not the disease** — every earlier framing (performance complaint · T1 conformance failure · fold-law violation · absent decision) was chasing one op. Fixing `Range` alone leaves `And`/`Or`/`Xor`/`AndNot`/`Ternlog` all writing full planes | Queued | the fix is judged at the execution MODEL, not at one variant |
+| D-WFL-FUSE | **Half the "missing primitives" dissolve into lowering rules.** The fused `popcount(a & b)` of `D-WFL-T1-FUSED` is not a bespoke instruction — it is what a fuser emits for `MaskExpr → Terminal::Count`. `fuse.rs` already collapses a Boolean tree into one ternlog; what it does NOT do is fuse across the **op → terminal** boundary, which is exactly the boundary D-WFL-MASKOP moves | Queued | re-audit every "missing op" against this before minting any. A primitive that a fusion rule could emit is not a primitive |
+
+**Why it took a day, so it is not repeated:** the design already encoded the
+distinction (`Keep` vs `Count`; `WideFieldMask` as a field-PARTICIPATION
+currency, not a population). What was never written down is **the semantics of
+`MaskOp`** — so every reading defaulted to its physical lowering, and
+`Mask × ClassView/WideFieldMask → Mask` was read as *allocate a bitmap* when the
+arrow only ever meant *denotes membership*. An unstated semantics will always be
+read as its implementation.
+
 ## D-WFL — the axis correction (2026-09-19): masking is an operation, a mask is a carrier
 
 ⊘ Corrects the AXIS of the D-WFL-SIBLING section below (substance stands). "FOLD
