@@ -1,3 +1,24 @@
+## D-WFL-L0 — clauses 2, 4 and 5 AMENDED (2026-09-19, same day): zero-copy is not a size threshold
+
+⊘ Two loopholes in the D-WFL-L0 section below, both closed here rather than
+edited into it (append-only).
+
+| # | amendment |
+|---|---|
+| 2′ | ⊘ *"T1 owns zero-copy primitive execution"* implied all of T1 is a fold. It is not — `mask_set_range`, every `*_to_mask` compare and the import paths WRITE. Corrected: **the Layer-0 fold SUBSET executes through T1 primitives zero-copy; T1 also contains explicitly materializing primitives, which are RECONSTRUCTION when invoked that way.** They stay legitimate; only their classification inside a Layer-0 program changes |
+| 4′/5′ | ⊘ the fold law was stated size-conditionally (*"may not materialize an N-sized derived representation when its compact consequence can stay a range/runs/bounded window/scalar"*) two lines under *"folds are zero copy, period"*. Those are not equivalent. **Foldhood is whether a derived software representation is WRITTEN, never how big it is.** A fresh 12-word bounded mask is still materialization. Size affects reconstruction ECONOMICS, never the DEFINITION of a fold |
+
+**Fold carriers** (they NAME an answer or region): `Count`, `Any`, an ordinal,
+`[lo,hi)`, `base_word + length`, a run descriptor that names rather than
+populates. **Not fold results** (they HOLD one): a populated bounded-mask
+buffer, `[u64; 12]` filled from an intersection, `Vec<Run>`, a full mask — any
+newly written derived buffer.
+
+| D-id | scope | status | gate |
+|---|---|---|---|
+| D-WFL-W2b′ | **respec: bounded composition must not WRITE the intersection.** `WRONG: Range × resident mask → write a bounded mask → Count/Any`. `RIGHT: peek only the intersecting resident words → AND in registers → Count/Any`. The moment the bounded mask is written the program has crossed into RECONSTRUCT — legitimately perhaps, but it is no longer a fold and must be named | Queued | zero derived buffers allocated or written between the bound and the terminal, asserted by counter. A bounded-mask write fails the wave even at 12 words |
+| D-WFL-T1-FUSED | the clean case for the anti-zoo rule licensing a NEW T1 primitive: a fused `popcount(a[i] & b[i])` accumulated over a word span. It cannot be expressed by the existing algebra without an intermediate buffer, so it exposes a genuinely new zero-copy operation rather than a convenience | Queued | differential vs `mask_and` + `popcount_batch_u64` over the same span; identical answer, zero intermediate bytes. Falsified if composition already achieves it without a buffer |
+
 ## D-WFL-L0 — the foundational ruling, to land BEFORE any W0/W1 code (2026-09-19)
 
 Six clauses. Docs-only; it is the ruling the wave plan stands on, and it

@@ -156,9 +156,17 @@ algebra)"*). The receipt is one line of the crate itself: `exec.rs:25` is
 doctrine's own definition. The DuckDB analogy makes the same point: a planner is
 not the vectorized primitive it dispatches.
 
-So the ruling is: **T1 owns zero-copy primitive execution; `mask-risc` is the
-existing T2 RISC plan language that composes those primitives without exposing
-population mechanics upward.** Neither needs minting; neither is the other.
+So the ruling is: **`mask-risc` is the existing T2 RISC plan language that
+composes T1 primitives without exposing population mechanics upward.** Neither
+needs minting; neither is the other.
+
+⊘ **And T1 is NOT universally zero-copy — do not say it is.** T1 contains
+primitives that write mask outputs (`mask_set_range`, every `*_to_mask` compare,
+the import paths). The accurate statement: *the Layer-0 FOLD SUBSET executes
+through T1 primitives zero-copy; T1 also contains explicitly materializing
+primitives, and those are **reconstruction** operations when invoked that way.*
+They remain legitimate substrate machinery. What the law changes is their
+**classification inside a Layer-0 program**, never their right to exist.
 
 Which yields the membrane law this whole plan operates under:
 
@@ -188,13 +196,40 @@ The honest statement is two laws, one strictly stronger:
 
 ```
 OLD T1 LAW    may return a Mask; must not return the Population
-NEW FOLD LAW  a FOLD additionally may not materialize an N-sized derived
-              representation when its compact consequence can stay a
-              range / runs / bounded window / scalar
+NEW FOLD LAW  a FOLD writes NO derived software representation at all —
+              it returns a descriptor, a reduction, or a register consequence
 ```
 
+⊘ **An earlier revision stated the new law size-conditionally** — *"may not
+materialize an N-sized derived representation when its compact consequence can
+stay a range / runs / bounded window / scalar"* — which contradicts *"folds are
+zero copy, period"* two lines above it. **Zero-copy is not a size threshold.** A
+smaller materialization is still a materialization, and a size-graded rule is
+exactly the loophole through which, six months from now, someone argues that a
+fourteen-word buffer is "basically zero-copy". The frozen ducks come back in
+tiny hats.
+
+**The line is whether Layer 0 wrote a second software-visible representation at
+all:**
+
+```
+FOLD CARRIERS                        NOT FOLD RESULTS
+Count                                a populated bounded-mask buffer
+Any                                  [u64; 12] filled from an intersection
+an ordinal                           Vec<Run>
+[lo, hi)                             a full mask
+base_word + length descriptor        any newly written derived buffer
+(a run DESCRIPTOR, if it names
+ rather than populates)
+```
+
+A descriptor **names** an answer or a region. A buffer **holds** one. Only the
+first is a fold carrier, at any size.
+
 `Pred::Range → words_for(N)` is a fold-conformance failure under the **new**
-law. Recorded as a doctrine sharpening, not as something already entailed.
+law. Recorded as a doctrine sharpening, not as something already entailed. So,
+now, is a bounded-mask write — and that is the point of stating the law without
+a size clause.
 
 **And the generous corollary that keeps the law usable: not every full mask is
 illegal.** If the consumer genuinely demands a population mask as its answer,
@@ -934,10 +969,29 @@ any process-local object, the thought was never replayable.
 - **Falsified if:** any mask word is written, or cost moves with `N` or position.
 - This is the cleanest available proof of the whole thesis, and it is small.
 
-### W2b — bounded mask composition (Seam B, half two)
+### W2b — bounded composition WITHOUT writing a mask (Seam B, half two)
 
 - `Range(lo,hi) ∩ resident aligned mask → Count/Any`, touching only words
   `w0..w1`.
+- ⊘ **And the implementation must not write the intersection.** The size-free
+  law above disqualifies the obvious shape:
+
+  ```
+  WRONG   Range × resident mask -> WRITE a bounded mask -> Count / Any
+  RIGHT   peek only the intersecting resident words
+          -> AND in registers
+          -> Count / Any
+  ```
+
+  The moment the bounded mask is written, the program has crossed into
+  RECONSTRUCT — legitimately, perhaps, but it is no longer a fold and must be
+  named as what it is.
+- **This is where the anti-zoo rule licenses a new T1 primitive**, and it is the
+  clean case: a fused `popcount(a[i] & b[i])` accumulated over a word span
+  cannot be expressed by the existing algebra without an intermediate buffer, so
+  it exposes a genuinely new zero-copy operation rather than a convenience. The
+  descriptor (`base_word + length`) crosses; the intersection never exists as
+  bytes.
 - ⊘ **Not** a narrowing of the existing `Scratch`. Changing
   `words == words_for(N)` to a smaller window is insufficient: operands need a
   global `base_word`, a local length, tail semantics, and a row-domain
@@ -1101,7 +1155,9 @@ popcount, **`mask_shift_morton`**, and the **strided** matchers
 | gap | wave |
 |---|---|
 | ADDRESS integrity — ordinal → canonical row, attested | **W1** |
-| compact `Bound` terminals; bounded windows and runs | **W2a / W2b** |
+| compact addressing / window DESCRIPTORS (`base_word + length`, `[lo,hi)`) | **W2a / W2b** |
+| direct bounded REDUCTIONS — fused `popcount(a & b)` over a span, no written intersection | **W2b** |
+| *optional* named reconstruction of runs / windows, when a consumer demands the buffer | after W6 |
 | semantic → geometric ROTATE | **W3** |
 | local NEIGHBOUR / STENCIL exposure (the T1 primitive exists) | **W4** |
 | strided PEEK exposure (`ir.rs:21-27` names its own gap; the T1 primitive exists) | deferred |

@@ -1,3 +1,79 @@
+## 2026-09-19 — E-ZERO-COPY-IS-NOT-A-SIZE-THRESHOLD-1
+
+**Status:** RULING — closes a loophole in
+`E-FOLDS-ARE-ZERO-COPY-PERIOD-PEEK-NOT-BORROW-BUILD-FOLD-1` and in the
+`OLD/NEW` law pair recorded in
+`E-DO-NOT-BACK-DATE-A-NEW-LAW-ONTO-AN-OLD-DOCTRINE-1`. **Confidence:** high.
+
+> **A smaller materialization is still a materialization.** Foldhood is
+> determined by **whether a derived software representation is written**, never
+> by whether that representation is population-sized. Ranges, ordinals and
+> window descriptors are fold carriers because they NAME an answer or a region;
+> a populated bounded-mask buffer is reconstruction. **Size affects
+> reconstruction ECONOMICS; it never affects the DEFINITION of a fold.**
+
+**The loophole, verbatim as it was written hours earlier:** *"a FOLD may not
+materialize an N-sized derived representation when its compact consequence can
+stay a range / runs / bounded window / scalar."* That is size-conditional, and
+it sat two lines below *"folds are zero copy, period."* The two are not
+equivalent. A fresh 12-word bounded mask avoids an N-sized mask and still writes
+derived bytes — so under the stated law it is not a fold either, and the
+size-graded phrasing would have let a future session argue that fourteen words
+is "basically zero-copy". The frozen ducks return in tiny hats.
+
+**The line, stated without a size clause:**
+
+```
+FOLD CARRIERS                      NOT FOLD RESULTS
+Count                              a populated bounded-mask buffer
+Any                                [u64; 12] filled from an intersection
+an ordinal                         Vec<Run>
+[lo, hi)                           a full mask
+base_word + length descriptor      ANY newly written derived buffer
+a run DESCRIPTOR that names
+  rather than populates
+```
+
+A descriptor **names**; a buffer **holds**. Only the first is a fold carrier, at
+any size.
+
+**⊘ Companion correction: T1 is NOT universally zero-copy, and the previous
+entry implied it was.** T1 contains primitives that write mask outputs —
+`mask_set_range`, every `*_to_mask` compare, the import paths. Accurate
+statement: *the Layer-0 FOLD SUBSET executes through T1 primitives zero-copy; T1
+also contains explicitly materializing primitives, and those are RECONSTRUCTION
+operations when invoked that way.* They stay legitimate substrate machinery —
+what the law changes is their **classification inside a Layer-0 program**, never
+their right to exist.
+
+**Which makes the A/B boundary exact:**
+
+```
+COMBINE       no derived software buffer written;
+              composition / reduction directly over canonical state
+RECONSTRUCT   the first derived representation is deliberately written
+```
+
+**Consequence for W2b, immediate and concrete.** The obvious implementation is
+disqualified:
+
+```
+WRONG   Range × resident mask -> WRITE a bounded mask -> Count / Any
+RIGHT   peek only the intersecting resident words -> AND in registers
+        -> Count / Any
+```
+
+And this is the clean case for the anti-zoo rule licensing a **new T1
+primitive**: a fused `popcount(a[i] & b[i])` accumulated over a word span cannot
+be expressed by the existing algebra without an intermediate buffer, so it
+exposes a genuinely new zero-copy operation rather than a convenience. The
+descriptor crosses; the intersection never exists as bytes.
+
+The gap list is reworded accordingly — not "bounded windows and runs" as missing
+carriers, but **compact addressing / window descriptors**, **direct bounded
+reductions**, and *optionally* **named reconstruction** of runs or windows when
+a consumer genuinely demands the buffer.
+
 ## 2026-09-19 — E-DO-NOT-BACK-DATE-A-NEW-LAW-ONTO-AN-OLD-DOCTRINE-1
 
 **Status:** CORRECTION of `E-LAYER-0-IS-T1-AND-MASK-RISC-IS-ALREADY-ITS-ISA-1`,
