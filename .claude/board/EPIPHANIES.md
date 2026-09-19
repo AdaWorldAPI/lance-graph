@@ -1,3 +1,35 @@
+## 2026-09-19 — E-A-DOMAIN-IS-AN-OPTIONAL-CONSUMER-THROUGH-OGAR-NEVER-A-CO-DEFINER-1
+
+**Status:** RULING (sharpens `E-1224-WAS-A-BIDIRECTIONAL-DOMAIN-INVERSION-…-1`
+directly below). **Confidence:** high; every edge cited is read from the tree.
+
+The #1224 failure, stated in one line: the architecture forgot that DisMech is
+an **optional domain consumer of lance-graph through OGAR**, and let the
+substrate and the domain define each other. Consequences that the earlier
+entries under-stated:
+
+- `lance-graph-contract/src/dismech_evidence.rs` is not "in the wrong
+  neighbourhood"; **it should not exist in lance-graph.** Zero dependency
+  weight and byte-perfect parity are not the question — semantic ownership is.
+  Its only external consumer imports it as `mirror` to assert parity against
+  `ogar_dismech::RELATIONS` (`lance-graph-ogar/src/lib.rs:228,320,342`): a copy
+  whose whole job is to be compared to the original.
+- The three planner `dismech_*` modules are wrong AS DisMech modules however
+  much generic algebra they contain. Generic algebra is extracted into a real
+  domain-neutral home; DisMech knowledge moves to `ogar-dismech`; what existed
+  only through the entanglement is deleted. **Never** a rename, **never** a
+  feature flag — both preserve the inversion, one awake and one asleep.
+- Compile-time ownership runs one way: `ogar-dismech` depends on lance-graph
+  and integrates `dismech-rs`; with both present DisMech behaviour exists,
+  without them lance-graph is unaware DisMech exists.
+
+The repair test is the contamination test: **can lance-graph compile, test,
+document and explain every public concept without knowing DisMech exists?** If
+not, the seam is still cut wrong. The positive half is separate: **can
+`ogar-dismech` + `dismech-rs` bind onto the generic mechanics without modifying
+lance-graph?** Resolution shape and measured edges:
+`ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS` (corrected entry).
+
 ## 2026-09-19 — E-1224-WAS-A-BIDIRECTIONAL-DOMAIN-INVERSION-NOT-A-LEAK-1
 
 **Status:** SHARPENING of the two entries below it. **Confidence:** high — both

@@ -1,3 +1,50 @@
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — resolution shape CORRECTED (2026-09-19)
+
+⊘ The entry below proposes, as step (1), *"rename the generic 80 % domain-neutral
+… plus a `pub use` shim"*. **Withdrawn.** A rename leaves the inversion
+structurally intact under a new spelling, and a `cfg`/feature flag would leave
+it intact and asleep. Neither cuts the strip. The dependency direction is the
+whole repair:
+
+```
+lance-graph      generic substrate ONLY — replay / counterfactual / mask / evidence mechanics
+     ▲  reused by
+ogar-dismech     (exists: OGAR/crates/ogar-dismech) — DisMech vocabulary, bindings, adapters
+     ▲  activated only when composed with
+dismech-rs       the disease / mechanism domain
+```
+
+**The salvage is asymmetric, per line of code:** genuinely generic → EXTRACT
+into domain-neutral lance-graph machinery (a real home, not a renamed file);
+knows anything DisMech-specific → MOVE to `ogar-dismech`; exists only because
+the two were entangled → DELETE. `lance-graph` neither knows DisMech exists nor
+carries a dormant mirror.
+
+**Measured edges, all read from the tree:** the only consumer of
+`lance_graph_contract::dismech_evidence` outside itself is
+`lance-graph-ogar/src/lib.rs:228,320,342`, which imports it *as `mirror`* to
+assert parity against `ogar_dismech::RELATIONS` — i.e. the mirror's sole
+purpose is to be compared with the thing it mirrors. That is the "just in case"
+copy, and it goes. The three planner modules have zero production consumers
+(one doc comment `cache/nars_engine.rs:490`, one example
+`examples/house_differential.rs:164`). Origin: `.claude/plans/dismech-causal-replay-v1.md`
+(D-DCR-1), which must be re-scoped or archived with the same PR.
+
+**Two acceptance tests, in this order:**
+1. **Negative:** `lance-graph` compiles, tests, documents and explains every
+   public concept with no `dismech` token in any crate under `crates/` except
+   `lance-graph-ogar` (which is the seam and may name the OGAR crate). A grep is
+   the finder; the fence test is the decider.
+2. **Positive:** `ogar-dismech` + `dismech-rs` bind onto the generic mechanics
+   **without modifying lance-graph.** If a binding needs a lance-graph change,
+   that change is a generic capability with a generic name — or the binding is
+   wrong.
+
+Generic concepts a contract MAY expose because they are lance-graph's own:
+vocabulary id, predicate ordinal, evidence stance, replay step, `CausalTopology`.
+Concepts it MUST NOT: `DISMECH_PREDICATES`, `DismechTopology`, `dismech:{name}`,
+corpus counts, `Supports` semantics — all `ogar-dismech`'s to supply.
+
 ## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS
 
 **Status:** OPEN. **Filed:** 2026-09-19. **Severity:** high — a live
