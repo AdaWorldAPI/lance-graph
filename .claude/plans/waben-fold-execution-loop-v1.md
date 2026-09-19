@@ -124,17 +124,41 @@ Seam B is the cleanest example: `Pred::Range` emits a population-sized mask, so
 by this definition the executor's range path is materialization wearing a fold's
 name.
 
-### Where the law lives: T1, and it already has an ISA
+### Where the law lives: a membrane, not a tier — and T1 ≠ T2
 
-The law above is not a new tier. `membrane-tiers.md:22` already defines **T1** as
-the population algebra and states its return contract as *"a mask, a count, a
-lane descriptor — **never the population**"*, and `:48` says outright that the
-ladder does not need another tier. So the zero-copy law is a SHARPENING of T1.
+The law above does not mint a tier. `membrane-tiers.md:48` says outright that
+the ladder does not need another one. **"Layer 0" is the photolithographic
+computational MEMBRANE**, and it spans two existing tiers that must not be
+flattened into each other:
 
-And T1's instruction set already exists: **`lance-graph-mask-risc`** — the crate
-name says RISC. `Program` is the plan a thought compiles into; `MaskOp`,
-`Pred`, `Terminal`, `fuse.rs` (Boolean tree → one ternlog) and
-`ternlog_dispatch.rs` are the ISA and its fuser. Nothing needs minting.
+```
+            METACOGNITION
+                  │  compiles a thought
+                  ▼
+      mask-risc Program / MaskOp / Pred / Terminal      T2
+      ──────────────────────────────────────────────
+        the photolithographic RISC PLAN LANGUAGE
+                  │  names primitive ops
+                  ▼
+      ndarray::simd — mask_*, ternlog, popcount, …      T1
+      ──────────────────────────────────────────────
+        the zero-copy primitive EXECUTION algebra
+                  │
+                  ▼
+            canonical state                            T0
+```
+
+⊘ **An earlier revision of this section said "mask-risc is T1's ISA." That was
+wrong, and it contradicted this document's own legend two sections up** (§3:
+*"T1 = `ndarray::simd` facade + mask ALU, T2 = behaviour (exec, lowering, alpha
+algebra)"*). The receipt is one line of the crate itself: `exec.rs:25` is
+`use ndarray::simd::{…}` — mask-risc **consumes** T1, so it is T2 by the
+doctrine's own definition. The DuckDB analogy makes the same point: a planner is
+not the vectorized primitive it dispatches.
+
+So the ruling is: **T1 owns zero-copy primitive execution; `mask-risc` is the
+existing T2 RISC plan language that composes those primitives without exposing
+population mechanics upward.** Neither needs minting; neither is the other.
 
 Which yields the membrane law this whole plan operates under:
 
@@ -148,12 +172,47 @@ by exposing a genuinely new zero-copy operation the existing algebra cannot
 express by composition or fusion — `fuse.rs` is the precedent, collapsing a
 Boolean tree rather than growing a variant per shape.
 
-**And the law gives mask-risc a conformance criterion it did not have.** Every
-scratch plane is required to be `words_for(n_rows)` (`exec.rs:566`), so every
-`MaskOp` today emits population-sized output. A *bounded* word window is a
-legitimate focus-sized carrier; a mask unconditionally sized to the population is
-not. So Seam B is not a performance complaint — it is a conformance failure
-against the tier the crate belongs to.
+**And the law gives the plan language a conformance criterion it did not have —
+a NEW one.** Every scratch plane is required to be `words_for(n_rows)`
+(`exec.rs:566`), so every `MaskOp` today emits population-sized output.
+
+⊘ **Do not claim the old doctrine already forbade this; it did not, and an
+earlier revision here said so.** `membrane-tiers.md:22` lets T1 return *"a mask,
+a count, a lane descriptor — never the population"*, and **a full-length bitmap
+is still a mask under that wording.** "Never the population" historically meant
+*do not return rows or arrays of the represented population* — it never said a
+derived mask sized to N is itself forbidden. Starting a constitutional law by
+back-dating it leaves a crack anyone can quote the table back through.
+
+The honest statement is two laws, one strictly stronger:
+
+```
+OLD T1 LAW    may return a Mask; must not return the Population
+NEW FOLD LAW  a FOLD additionally may not materialize an N-sized derived
+              representation when its compact consequence can stay a
+              range / runs / bounded window / scalar
+```
+
+`Pred::Range → words_for(N)` is a fold-conformance failure under the **new**
+law. Recorded as a doctrine sharpening, not as something already entailed.
+
+**And the generous corollary that keeps the law usable: not every full mask is
+illegal.** If the consumer genuinely demands a population mask as its answer,
+producing one is legitimate — it simply **is not a fold**. `mask_set_range` over
+a full destination is not forbidden code; it is **misclassified execution** when
+it happens inside a fold. Which is exactly the A/B split:
+
+```
+A) COMBINE      PEEK → PROJECT → BOUND → ROTATE → AND → TERNLOG → …
+                zero-copy, compact carriers, no population materialization
+
+B) RECONSTRUCT  a Layer-0 result
+                   ↓  an EXPLICITLY NAMED materialization boundary
+                full mask / rows / SoA state / publication
+```
+
+Folds are zero-copy, period. **Reconstruction is not a fold** — and it does not
+get to hide under the word.
 
 **Where the code leaves the representation — four seams, in dependency order.**
 
@@ -995,6 +1054,11 @@ the crossing's full semantics (§8 item 5).
   Both stay deferred behind W6's measurement. Optimising a correct boundary
   before the full loop exists risks swapping a known-expensive correct thing for
   an elegant thing whose semantics quietly differ.
+- **The question W6 answers, restated now that the law is in place.** Not *are
+  writes expensive?* but: **where should the zero-copy program terminate and
+  reconstruction become economically or semantically justified?** That is the
+  Rubicon in computational terms, and it is the same two reasons as ever —
+  economic (`C_retain < C_replay`) or semantic (it must become history).
 - **Deliverable is a cost line**, not a speedup: fold ~ns, bound ~100s of ns,
   rotation (W3), Wabe, alpha bytes + µs, commit. If alpha then dominates, the
   follow-up is well-posed and falsifiable: *can publication keep ordinal
@@ -1016,23 +1080,40 @@ the crossing's full semantics (§8 item 5).
   `tests/`. No new transport type, no per-cell or per-thought actor message, no
   `KanbanActor` resurrection (that actor was deleted, not deprecated).
 
-### The ISA residue IS the wave plan
+### The residue IS the wave plan — and it is an EXPOSURE gap, not a compute gap
 
-The small orthogonal instruction set T1 wants, minus what `lance-graph-mask-risc`
-already ships, lands exactly on the open waves — two independent routes arriving
-at the same missing five:
+Split by tier, the inventory says something better than "we rediscovered five
+operations":
 
-| op | state | wave |
-|---|---|---|
-| AND / OR / XOR / NOT / ANDNOT · TERNLOG · GATE (`under`) · ANY / ALL / COUNT / REDUCE | **shipped** | — |
-| BOUND | half — `Pred::Range` carries the result; the search is in `quack` | W2a |
-| ADDRESS | implicit, unattested | **W1** |
-| carrier transforms — range ↔ runs ↔ bounded words, ordinal mapping | **missing entirely** | **W2b** |
-| ROTATE | **missing** | **W3** |
-| SHIFT / NEIGHBOUR / STENCIL | **missing** (`mask_shift_morton` is an ndarray primitive, not an ISA op) | **W4** |
-| PEEK, strided | half — `LaneRef{I32,U32,U64}`; `ir.rs:21-27` names its own gap | deferred |
-| PROJECT (lens) | **missing** — the lens lives in `contract::facet`, never in the ISA | after W3 |
-| FIRST | **missing** | unscheduled |
+**T1 — the photolithographic algebra (`ndarray::simd`), SHIPPED:** Boolean
+composition, ternlog, the compare families, the `_under` gate, reductions,
+popcount, **`mask_shift_morton`**, and the **strided** matchers
+(`eq_u32_strided_to_mask`, `ternary_match_strided_to_mask`).
+
+**T2 — the mask-risc RISC exposure, SHIPPED:** `Pred`, `And`/`Or`/`Xor`/
+`AndNot`/`Not`, `Ternlog` (+ `fuse.rs`, `ternlog_dispatch.rs`), gates,
+`Any`/`All`/`Count`, the masked reductions.
+
+**BROKEN REPRESENTATION:** `Range` → an N-sized scratch mask.
+
+**MISSING at T2 (the carriers and the exposures):**
+
+| gap | wave |
+|---|---|
+| ADDRESS integrity — ordinal → canonical row, attested | **W1** |
+| compact `Bound` terminals; bounded windows and runs | **W2a / W2b** |
+| semantic → geometric ROTATE | **W3** |
+| local NEIGHBOUR / STENCIL exposure (the T1 primitive exists) | **W4** |
+| strided PEEK exposure (`ir.rs:21-27` names its own gap; the T1 primitive exists) | deferred |
+| PROJECT — the lens lives in `contract::facet`, never in the plan language | after W3 |
+| FIRST | unscheduled |
+
+**That asymmetry is the finding.** The substrate is further along than the
+language that exposes it: Morton shift and strided matching already exist one
+tier down. So most of the remaining work is **not inventing computation** — it
+is making existing computation speak the fold algebra **without forcing an
+N-sized carrier between instructions.** Which is a much cheaper programme than
+the op list first suggested.
 
 ### Deferred behind the slice
 

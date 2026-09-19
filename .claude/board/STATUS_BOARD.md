@@ -1,3 +1,31 @@
+## D-WFL-L0 — the foundational ruling, to land BEFORE any W0/W1 code (2026-09-19)
+
+Six clauses. Docs-only; it is the ruling the wave plan stands on, and it
+corrects two errors of my own from earlier the same day.
+
+| # | clause |
+|---|---|
+| 1 | **"Layer 0" does not mint a new membrane tier.** `membrane-tiers.md:48` — the ladder does not need another one. Layer 0 is the photolithographic computational MEMBRANE, spanning two existing tiers |
+| 2 | **T1 owns zero-copy primitive execution** — `ndarray::simd`, `mask_*`, `ternlog`, `popcount`, `mask_shift_morton`, the strided matchers |
+| 3 | **`lance-graph-mask-risc` is the T2 RISC PLAN LANGUAGE over T1**, not T1 itself. ⊘ Corrects "mask-risc is T1's ISA". Receipt: `exec.rs:25` is `use ndarray::simd::{…}` — it CONSUMES T1. A planner is not the primitive it dispatches |
+| 4 | **A fold is zero-copy by definition** (`E-FOLDS-ARE-ZERO-COPY-PERIOD…-1`) |
+| 5 | **Population-sized reconstruction is legal only at an explicitly named materialization boundary**, never disguised as a fold. `mask_set_range` over a full destination is not forbidden code — it is misclassified execution inside a fold |
+| 6 | **The old "a mask may cross T1" wording REMAINS VALID.** A full mask may be an intentional reconstruction result; it is simply not automatically a fold result. ⊘ Corrects the claim that Seam B was already a violation of T1's existing return contract — it is a violation of the NEW fold law, recorded as a sharpening, never back-dated |
+
+| D-id | scope | status | gate |
+|---|---|---|---|
+| D-WFL-L0 | the six clauses above, landed in `.claude/plans/waben-fold-execution-loop-v1.md` §1 | **In PR (#1251)** | none — a ruling, not a measurement. Its falsifier is textual: if a future session can quote `membrane-tiers.md` to argue a full mask is a legal fold output, clause 6 failed to draw the line |
+
+**Wave mapping this makes self-evident:** W1 ADDRESS integrity · W2 compact
+carrier preservation · W3 ROTATE · W4 spatial/local operators · W5 metacognitive
+feedback · W6 RECONSTRUCT economics — *where should the zero-copy program
+terminate and reconstruction become justified?*
+
+**And the residue is an EXPOSURE gap, not a compute gap:** T1 already ships the
+Morton shift and the strided matchers; the missing work is at T2, making existing
+computation speak the fold algebra without an N-sized carrier between
+instructions.
+
 ## D-WFL — round 3: the census, the borrow/replay law, and the fold economics (2026-09-19)
 
 Append-only; supersedes the round-2 rows where they overlap. One of these

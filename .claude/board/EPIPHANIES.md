@@ -1,3 +1,89 @@
+## 2026-09-19 — E-DO-NOT-BACK-DATE-A-NEW-LAW-ONTO-AN-OLD-DOCTRINE-1
+
+**Status:** CORRECTION of `E-LAYER-0-IS-T1-AND-MASK-RISC-IS-ALREADY-ITS-ISA-1`,
+prepended rather than edited into it (append-only). Two errors in that entry,
+both mine, both caught in review within the hour.
+
+### Error 1 — T1 and T2 were flattened into each other
+
+That entry said *"mask-risc is already T1's ISA."* It is not. `membrane-tiers.md`
+puts `ndarray::simd` / `mask_*` / `ternlog` / `popcount` at **T1** (`:22`) and
+`plan_eval` / execution / lowering at **T2** (`:23`). The receipt is one line of
+the crate: `exec.rs:25` is `use ndarray::simd::{…}` — mask-risc **consumes** T1,
+which makes it T2 by the doctrine's own definition. The plan file had even
+stated the correct legend two sections earlier and then contradicted it.
+
+**Corrected ruling — "Layer 0" is a MEMBRANE spanning two tiers, not a tier:**
+
+```
+METACOGNITION
+      │ compiles a thought
+      ▼
+mask-risc Program / MaskOp / Pred / Terminal    T2  the RISC PLAN LANGUAGE
+      │ names primitive ops
+      ▼
+ndarray::simd — mask_*, ternlog, popcount       T1  the zero-copy EXECUTION algebra
+      ▼
+canonical state                                 T0
+```
+
+The DuckDB analogy makes the same point and should have caught this: a planner
+is not the vectorized primitive it dispatches.
+
+### Error 2 — the new fold law was claimed to be already entailed
+
+That entry called Seam B *"a conformance failure against T1's own return
+contract."* **It is not, under the old wording.** `membrane-tiers.md:22` lets T1
+return *"a mask, a count, a lane descriptor — never the population"*, and **a
+full-length bitmap is still a mask under that sentence.** "Never the population"
+historically meant *do not return rows or arrays of the represented population*.
+It never said a derived mask sized to N is itself forbidden.
+
+Two laws, one strictly stronger, and the second is NEW:
+
+```
+OLD T1 LAW    may return a Mask; must not return the Population
+NEW FOLD LAW  a FOLD additionally may not materialize an N-sized derived
+              representation when its compact consequence can stay a
+              range / runs / bounded window / scalar
+```
+
+`Pred::Range → words_for(N)` is a fold-conformance failure under the **new** law.
+**Record it as a doctrine sharpening, never as something already implied.**
+Back-dating a constitutional law leaves a crack anyone can later quote the
+existing table back through — and the workspace's whole append-only,
+regrade-in-place discipline exists to stop exactly this.
+
+### The corollary that keeps the law usable
+
+**Not every full mask is illegal.** If a consumer genuinely demands a population
+mask as its answer, producing one is legitimate — it simply **is not a fold**.
+`mask_set_range` over a full destination is not forbidden code; it is
+**misclassified execution** when it happens inside a fold. Hence the A/B split:
+
+```
+A) COMBINE      zero-copy, compact carriers, no population materialization
+B) RECONSTRUCT  a Layer-0 result → an EXPLICITLY NAMED materialization
+                boundary → full mask / rows / SoA state / publication
+```
+
+Folds are zero-copy, period. Reconstruction is not a fold, and does not get to
+hide under the word.
+
+### And the gap list gets a better reading
+
+Split by tier, the residue is an **EXPOSURE gap, not a compute gap**. T1 already
+ships `mask_shift_morton` and the strided matchers; what is missing is at T2 —
+ADDRESS integrity, compact bound terminals, bounded windows/runs, ROTATE, the
+NEIGHBOUR/STENCIL and strided-PEEK exposures, PROJECT, FIRST. **The substrate is
+further along than the language that exposes it**, so most remaining work is not
+inventing computation but making existing computation speak the fold algebra
+without forcing an N-sized carrier between instructions.
+
+**Consequence for W6:** its question is no longer *are writes expensive?* but
+*where should the zero-copy program terminate and reconstruction become
+economically or semantically justified?* — the Rubicon in computational terms.
+
 ## 2026-09-19 — E-LAYER-0-IS-T1-AND-MASK-RISC-IS-ALREADY-ITS-ISA-1
 
 **Status:** FINDING (the mapping is read-verified) + RULING (the conformance
