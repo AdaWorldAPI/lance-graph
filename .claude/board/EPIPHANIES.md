@@ -1,3 +1,76 @@
+## 2026-09-19 — E-WE-THINK-WITH-OGAR-GRAPHS-OGAR-DOES-NOT-DO-THE-THINKING-1
+
+**Status:** RULING (operator) + the ownership CENSUS it demanded before any
+cut. **Confidence:** high; every row is read from the tree at
+lance-graph `9fd6956d` / OGAR `ogar-dismech` + `ogar-ro` / MedCare-rs `90eb1f9`.
+
+### The rule, recorded before the cut is revised
+
+**Ontology thinking is a lance-graph / SPOG concern. OGAR ontologies are
+knowledge graphs supplied to that reasoning substrate. `ogar-dismech` is one
+optional graph to consult — not a DisMech reasoning plugin, not the owner of
+ontology cognition.** Shorter: *we think with OGAR graphs; OGAR does not do the
+thinking.* `ogar-ro`, `ogar-obo`, `ogar-fma`, `ogar-dismech`, a patient graph,
+a code graph are all just `G` in `(S,P,O,G ; f,c ; topology ; band)`. There is
+no "activate DisMech reasoning"; mounting a graph makes facts available and
+nothing else changes. **The falsifier:** if generic reasoning must know WHICH
+graph supplied a relation to run its mechanics, either the graph failed to say
+what it means in SPOG / f,c / context, or domain policy leaked into the engine.
+`G` may matter as provenance and context; it never selects an algorithm.
+
+⊘ This corrects the cut proposed earlier today in
+`ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS`, which gave `ogar-dismech` too much
+agency (it was to "grow the typed parse") and proposed `contract::revision::
+Stance` — the DisMech `supports` vocabulary renamed and promoted, i.e. the
+same contamination with the serial number filed off. Both withdrawn.
+
+### Ownership census of `lance-graph-contract/src/dismech_evidence.rs` (817 lines)
+
+| item | what it is | owner | disposition |
+|---|---|---|---|
+| `DismechTopology` (4) + `from_source` | the `causal_link_type` YAML tokens `DIRECT / INDIRECT_KNOWN_INTERMEDIATES / INDIRECT_UNKNOWN_INTERMEDIATES / UNKNOWN` — its meaning is ALREADY generic as `causal_edge::CausalTopology` (CE64 59–60), 1:1 by the module's own doc | **source-format** | the enum is redundant with `CausalTopology`; the token parse belongs with whoever reads the source (see open decision) |
+| `Supports` (4) + `from_source` | `SUPPORT / PARTIAL / REFUTE / NO_EVIDENCE` — **zero consumers outside `dismech_candidates.rs`** | **source-format** | NOT promoted to a generic `Stance`; at ingestion it becomes SPOG evidence attributes / `f,c` (a REFUTE is a relation with negative polarity or low `f`, the domain's call) |
+| `EvidenceSource` (5) + `from_source` | `HUMAN_CLINICAL / MODEL_ORGANISM / IN_VITRO / COMPUTATIONAL / OTHER` | **source-format** | source side |
+| `modifier` (7), `frequency` (19) | in the doc table only; no enum exists | — | nothing to move |
+| `CitationNamespace / CitationKey / BibliographyRecord` (+ `ContentId`) | `(namespace, id)` citation identity — PMID/DOI/URL are cross-domain, ORPHA/CGGV are medical; **zero consumers outside the module** | domain-neutral in SHAPE, single-domain in USE | no independent cross-domain consumer exists, so it does NOT earn a generic home today; it travels with the source side and returns as `contract::citation` when a second domain needs it |
+| `DISMECH_PREDICATE_FLOOR`, `DISMECH_PREDICATES`, `dismech_predicate`, `is_dismech_predicate` | the predicate mirror; authority `ogar_dismech::{RELATIONS, CAUSES, by_index}` | **ontology identity, already owned by `ogar-dismech`** | **DELETE** |
+
+### Census of the planner modules
+
+| module | generic mechanics (stay, domain-neutral name) | DisMech knowledge (leaves) |
+|---|---|---|
+| `dismech_replay.rs` | `ChainStep`, `ReplayTraceRow`, `ComposeTables`, `replay_step/chain`, `first_divergence`, `next_base_seq` | `validate_chain` / `chain_step_predicate` against the mirror. Replacement is a GENERIC validity contract (`validate_chain(chain, is_valid_predicate)`), acceptable only because the validator is generic — proven by running the SAME code under two vocabularies (`ogar_dismech::by_index` and `ogar_ro::by_index` both exist) |
+| `dismech_counterfactual.rs` | cut-one-step, both arms, load-bearing test | none — but its `Verdict{Consistent, Inconsistent}` / `EdgeRole::is_load_bearing` must reconcile with the EXISTING generic `revision::CounterfactualVerdict{Necessary, Dispensable, NotRun}`; two verdict types for one question is the drift the cut exists to remove |
+| `dismech_candidates.rs` | `EvidenceMask` (already generic, `revision.rs:31`) | the POLICY `Support ⇒ ∩ · Refute ⇒ ∖ · Partial/NoEvidence ⇒ no-op` is derived from the source vocabulary, has zero independent consumers, and is NOT canonized as a lance-graph law. `apply/evaluate/is_informative` go with it unless they take the OPERATION as input rather than the stance |
+
+### `lance-graph-ogar` is a mount, not a reasoner
+
+Its test is not "lance-graph can replay a DisMech chain". It is: register a
+vocabulary → build ordinary SPOG relations → hand generic inputs to
+lance-graph → **the identical program runs when the graph is `ogar-dismech`,
+`ogar-ro`, or another registered vocabulary.** Mount, unmount: only available
+knowledge changes.
+
+### Acceptance (replaces the token-grep as the decisive test; the grep stays as hygiene)
+
+1. lance-graph generic reasoning compiles and tests with no DisMech present.
+2. Mount `ogar-dismech`: no reasoning code changes; facts become available.
+3. Mount a second unrelated graph: the SAME machinery consults it.
+4. Unmount `ogar-dismech`: nothing changes but available knowledge.
+5. No DisMech source enum or policy has been renamed into lance-graph to
+   preserve existing code.
+
+### One open decision, flagged, not decided here
+
+Two versions of the ruling arrived; they agree on everything except WHERE the
+source-token parsers live: one places them in `dismech-rs` (source/domain
+implementation), the other allows `ogar-dismech` (source normalization is a
+vocabulary concern). Read from the tree: `dismech-rs` is not a local checkout;
+MedCare's `medcare-dismech` bake tool already carries its own fail-closed
+token match (`freeze.rs`) and is the only thing that reads the YAML today. So
+the parse currently lives with the reader, which is the source side either
+way. Recorded as open; nothing is moved into `ogar-dismech` until it is closed.
+
 ## 2026-09-19 — E-THE-CENTER-IS-SPOG-PLUS-FC-EVERYTHING-ELSE-IS-CAST-1
 
 **Status:** RULING on the center of gravity for the whole arc; FINDING on what

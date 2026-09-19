@@ -1,3 +1,24 @@
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — cut REVISED per operator ruling (2026-09-19)
+
+⊘ Supersedes the PR-A/B/C shape in the entries below. Ruling and census:
+`E-WE-THINK-WITH-OGAR-GRAPHS-OGAR-DOES-NOT-DO-THE-THINKING-1`.
+
+- **PR-B (lance-graph) lands FIRST and alone** — it needs no new OGAR code:
+  delete the mirror and the three source enums from the contract; extract
+  replay + counterfactual under domain-neutral names with a GENERIC predicate
+  validator; reconcile the counterfactual verdict with
+  `revision::CounterfactualVerdict`; delete the stance policy in candidates
+  (zero independent consumers); `lance-graph-ogar` test = the same replay
+  program under `ogar_dismech::by_index` AND `ogar_ro::by_index`; fence test as
+  hygiene. Re-scope `dismech-causal-replay-v1.md`; retarget `nan-ci-mode-v1.md`
+  pointers. **No `Stance`. No parser moves into lance-graph or OGAR.**
+- **PR-A (source side) waits on the open decision** — where the token parsers
+  live (`dismech-rs` vs `ogar-dismech`). Until then the only reader,
+  `medcare-dismech/freeze.rs`, keeps its local fail-closed match.
+- **PR-C (MedCare)** — `freeze.rs:66-70`'s "known follow-up" is retargeted
+  away from the mirror to wherever PR-A's decision lands; no mirror edge is
+  ever acquired.
+
 ## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — the MedCare-rs bank, read (2026-09-19)
 
 The two entries below map the lance-graph and OGAR banks; this reads the
