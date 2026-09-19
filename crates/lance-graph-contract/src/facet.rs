@@ -21,7 +21,7 @@
 //! |---|---|---|---|
 //! | **row** | 4× `u32` | [`FacetCascade::rows`] / [`row_match_mask`](FacetCascade::row_match_mask) | `vpcmpeqd` + `vmovmskps` |
 //! | **tile** | 8× `u16` (the 8:8) | [`tiers`](FacetCascade::tiers) / [`hi_chain`](FacetCascade::hi_chain) | `vpcmpeqw` / `pshufb` |
-//! | **prefix** | bit (LCP) | [`prefix_distance`](FacetCascade::prefix_distance) | `vpxor` + `tzcnt` (granularity-free) |
+//! | **prefix** | semantic tile (LCP, canon→custom→tiers) | [`prefix_distance`](FacetCascade::prefix_distance) | `vpxor` + `tzcnt` (+ classid tile swap) |
 //! | **nibble** | 32× `[4]` (Morton) | [`FacetTier::morton`] | GFNI `vgf2p8affineqb` (AVX-512) |
 //!
 //! Row 0 is the `facet_classid` (`{domain}{schema}`); rows 1–3 are the 6 cascade
@@ -304,13 +304,32 @@ impl FacetCascade {
         6 - Self::shared6(self.lo_chain(), other.lo_chain())
     }
 
-    /// Number of fully-matching low **tiles** (0..=8, classid tiles 0–1 first, then the
-    /// 6 cascade tiers) — the granularity-free LCP redout: `(xor).trailing_zeros() / 16`.
-    /// `8` ⇒ identical. The whole-facet prefix over class + cascade in one `vpxor`+`tzcnt`.
+    /// Number of fully-matching **semantic tiles** (0..=8), coarse→fine: **canon**
+    /// (the concept — the HIGH `u16` of `facet_classid`), then **custom** (the app
+    /// prefix — the LOW `u16`), then the 6 cascade tiers. `8` ⇒ identical. The
+    /// whole-facet prefix over class + cascade, still one `vpxor` + `tzcnt`.
+    ///
+    /// ⊘ CORRECTED 2026-09-18 — D-DIAMOND-1 R1
+    /// (`ISS-SHARED-PREFIX-TILES-CLASSID-INVERSION`). The stored LE image holds
+    /// `custom` at bytes `[0..2)` and `canon` at `[2..4)`
+    /// (`ClassidOrder::CanonHigh => (canon << 16) | custom`), so the previous
+    /// form — `trailing_zeros` straight over `as_u128()` — counted the APP before
+    /// the CONCEPT: same concept / different app shared 0 tiles, same app /
+    /// different concept shared 1. Fine-before-coarse at exactly the boundary the
+    /// canon-high flip exists for. **The stored image is unchanged**; this
+    /// projection swaps the two classid tiles of the XOR (a fixed 4-op fixup on
+    /// the low 32 bits) before counting, so tile 0 IS canon. Zero callers when
+    /// corrected; latent until whole-facet traversal used the lens. Proven by
+    /// `diamond_tests::f1_le_byte_order_is_not_semantic_tuple_order`.
     #[inline]
     #[must_use]
     pub const fn shared_prefix_tiles(self, other: Self) -> u8 {
         let x = self.as_u128() ^ other.as_u128();
+        // Semantic tile order: canon (image bytes 2..4) is tile 0, custom (image
+        // bytes 0..2) is tile 1. Swap the two 16-bit halves of the classid XOR.
+        let cls = x as u32;
+        let cls = cls.rotate_left(16);
+        let x = (x & !0xFFFF_FFFFu128) | cls as u128;
         if x == 0 {
             8
         } else {
@@ -324,6 +343,101 @@ impl FacetCascade {
     #[must_use]
     pub const fn prefix_distance(self, other: Self) -> u8 {
         8 - self.shared_prefix_tiles(other)
+    }
+
+    /// The 8 **semantic** tiles, coarse→fine, as their numeric projections:
+    /// `[canon, custom, tiers[0].as_u16(), …, tiers[5].as_u16()]` — `canon` is the
+    /// HIGH `u16` of [`facet_classid`](Self::facet_classid) (the shared concept),
+    /// `custom` the LOW `u16` (the app prefix), per the canon-high flip
+    /// (`ogar_codebook::ClassidOrder::CanonHigh`).
+    ///
+    /// Lexicographic unsigned order over this array is the **normative lane
+    /// order** (D-DIAMOND-1 R2) — see
+    /// [`cmp_numeric_projection`](Self::cmp_numeric_projection), which compares
+    /// the tuple `(facet_classid, tiers[i].as_u16() …)` literally and is proven
+    /// equal to this array's order in the tests. Note the two are the same
+    /// because comparing the `u32` classid numerically already puts `canon`
+    /// (its high half) first; nothing here re-orders the stored bytes.
+    #[inline]
+    #[must_use]
+    pub const fn semantic_tiles(self) -> [u16; 8] {
+        let t = &self.tiers;
+        [
+            (self.facet_classid >> 16) as u16,
+            (self.facet_classid & 0xFFFF) as u16,
+            t[0].as_u16(),
+            t[1].as_u16(),
+            t[2].as_u16(),
+            t[3].as_u16(),
+            t[4].as_u16(),
+            t[5].as_u16(),
+        ]
+    }
+
+    /// Inverse of [`semantic_tiles`](Self::semantic_tiles): rebuild the facet
+    /// from its 8 semantic tiles. Round-trips exactly (tested).
+    #[inline]
+    #[must_use]
+    pub const fn from_semantic_tiles(t: [u16; 8]) -> Self {
+        const fn tier(v: u16) -> FacetTier {
+            FacetTier {
+                lo: (v & 0xFF) as u8,
+                hi: (v >> 8) as u8,
+            }
+        }
+        FacetCascade {
+            facet_classid: ((t[0] as u32) << 16) | t[1] as u32,
+            tiers: [
+                tier(t[2]),
+                tier(t[3]),
+                tier(t[4]),
+                tier(t[5]),
+                tier(t[6]),
+                tier(t[7]),
+            ],
+        }
+    }
+
+    /// **The normative lane order (D-DIAMOND-1 R2):** lexicographic unsigned
+    /// order over the numeric projections
+    /// `(facet_classid, tiers[0].as_u16(), …, tiers[5].as_u16())` — *numeric
+    /// projection order over the canonical LE image*. `facet_classid` is compared
+    /// as its projected `u32`, which preserves canon-high semantics (the concept
+    /// is the high half, so it decides first).
+    ///
+    /// This is NOT byte-wise order over the stored image: the LE image holds
+    /// `custom` at bytes `[0..2)` and each tile's fine byte before its coarse
+    /// byte, so a `memcmp` of the image orders fine-before-coarse. The
+    /// projections are what carry the hierarchy; the bytes only store it.
+    /// The 8 semantic tiles packed into two `u64` planes, coarse tile in the
+    /// HIGH bits: `hi = t0<<48 | t1<<32 | t2<<16 | t3`, `lo = t4<<48 | … | t7`.
+    /// Numeric order over `(hi, lo)` equals
+    /// [`cmp_numeric_projection`](Self::cmp_numeric_projection), so a prefix of
+    /// `d` tiles is a `MatchU64` with `care = u64::MAX << (64 - 16·d)` on `hi`
+    /// (and on `lo` for `d > 4`) — the SWEEP form a prefix lowers to when no
+    /// ordering witness is available (`ordered_lane`).
+    #[inline]
+    #[must_use]
+    pub const fn semantic_u64_halves(self) -> (u64, u64) {
+        let t = self.semantic_tiles();
+        (
+            ((t[0] as u64) << 48) | ((t[1] as u64) << 32) | ((t[2] as u64) << 16) | t[3] as u64,
+            ((t[4] as u64) << 48) | ((t[5] as u64) << 32) | ((t[6] as u64) << 16) | t[7] as u64,
+        )
+    }
+
+    #[must_use]
+    pub fn cmp_numeric_projection(&self, other: &Self) -> core::cmp::Ordering {
+        self.facet_classid.cmp(&other.facet_classid).then_with(|| {
+            let mut i = 0;
+            while i < 6 {
+                match self.tiers[i].as_u16().cmp(&other.tiers[i].as_u16()) {
+                    core::cmp::Ordering::Equal => i += 1,
+                    o => return o,
+                }
+            }
+            core::cmp::Ordering::Equal
+        })
     }
 
     /// 4-bit mask: bit `i` set iff [`row`](Self::rows) `i` matches `other` — the
@@ -397,6 +511,111 @@ impl FacetCascade {
 /// the field-count of a 12-field class — the cascade algebra is unit-agnostic,
 /// so the same `G·D = CASCADE_UNITS` invariant binds bytes and fields alike.
 pub const CASCADE_UNITS: usize = 12;
+
+/// **The lens an order is stated under.** Storage holds an ORDINAL (a physical
+/// sequence of content-blind bytes) and no order; "sorted" is meaningful only
+/// under a projection, and one sequence can be monotone under one projection
+/// at a time. So every order claim — a witness, a prefix, a bound — names its
+/// lens, and a lowering may pair a prefix with a witness only when the two
+/// lenses agree. (Operator, 2026-09-18: *"if storage is normalized and compute
+/// is LE aligned then there's no sort order"* — correct; the order lives on the
+/// compute side, in the lens.)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum SemanticLens {
+    /// The canon-high 8-tile reading: `[canon, custom, t0.as_u16() … t5.as_u16()]`
+    /// ([`FacetCascade::semantic_tiles`]), ordered by
+    /// [`FacetCascade::cmp_numeric_projection`]. The only lens D-DIAMOND-1
+    /// measures; others (a `4×(8:8:8)` SPO reading, a palette-pair reading)
+    /// would order the SAME bytes differently and get their own variant.
+    CanonHighTiles8,
+}
+
+/// A **semantic prefix** over a [`FacetCascade`]: the first `depth` of its 8
+/// semantic tiles (see [`FacetCascade::semantic_tiles`]), coarse→fine, under
+/// [`SemanticLens::CanonHighTiles8`]. `depth` is `0..=8`; `0` matches every
+/// facet, `8` matches exactly one key value.
+///
+/// On a lane in [numeric projection order](FacetCascade::cmp_numeric_projection)
+/// the facets matching a prefix are CONTIGUOUS and bracketed by
+/// [`lo_key`](Self::lo_key) / [`hi_key`](Self::hi_key) — which is what lets a
+/// prefix predicate lower to a bound (`lower_bound + upper_bound +
+/// mask_set_range`) instead of a sweep. On an unordered lane it is just a
+/// predicate with holes; that is why the lowering is gated on an ordering
+/// witness (`ordered_lane::OrderedLaneWitness`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SemanticPrefix {
+    tiles: [u16; 8],
+    depth: u8,
+}
+
+impl SemanticPrefix {
+    /// The first `depth` semantic tiles of `f`. `depth` is clamped to 8.
+    #[must_use]
+    pub const fn of(f: FacetCascade, depth: u8) -> Self {
+        let depth = if depth > 8 { 8 } else { depth };
+        let src = f.semantic_tiles();
+        let mut tiles = [0u16; 8];
+        let mut i = 0;
+        while i < depth as usize {
+            tiles[i] = src[i];
+            i += 1;
+        }
+        SemanticPrefix { tiles, depth }
+    }
+
+    /// Number of leading semantic tiles this prefix fixes (`0..=8`).
+    #[must_use]
+    pub const fn depth(self) -> u8 {
+        self.depth
+    }
+
+    /// The lens this prefix is stated under. A witness must carry the same
+    /// lens for the prefix to lower to a bound on that lane.
+    #[must_use]
+    pub const fn lens(self) -> SemanticLens {
+        SemanticLens::CanonHighTiles8
+    }
+
+    /// The fixed tiles; entries at index `>= depth()` are zero.
+    #[must_use]
+    pub const fn tiles(self) -> [u16; 8] {
+        self.tiles
+    }
+
+    /// Does `f` carry this prefix? — its first `depth` semantic tiles equal ours.
+    /// Equivalent to `shared_prefix_tiles(lo_key()) >= depth`, spelled directly.
+    #[must_use]
+    pub const fn matches(self, f: FacetCascade) -> bool {
+        let t = f.semantic_tiles();
+        let mut i = 0;
+        while i < self.depth as usize {
+            if t[i] != self.tiles[i] {
+                return false;
+            }
+            i += 1;
+        }
+        true
+    }
+
+    /// The smallest key carrying this prefix (unfixed tiles `= 0`).
+    #[must_use]
+    pub const fn lo_key(self) -> FacetCascade {
+        FacetCascade::from_semantic_tiles(self.tiles)
+    }
+
+    /// The largest key carrying this prefix (unfixed tiles `= 0xFFFF`).
+    #[must_use]
+    pub const fn hi_key(self) -> FacetCascade {
+        let mut t = self.tiles;
+        let mut i = self.depth as usize;
+        while i < 8 {
+            t[i] = 0xFFFF;
+            i += 1;
+        }
+        FacetCascade::from_semantic_tiles(t)
+    }
+}
 
 /// **One cascade algebra; carvings are VIEW rotations, not function layouts.**
 /// The 12 cascade units (the facet's [`tier_bytes`](FacetCascade::tier_bytes),
@@ -763,10 +982,20 @@ mod tests {
         // row 1 (HEEL:HIP, holds tier0) differs; rows 0/2/3 match.
         assert_eq!(f.row_match_mask(g), 0b1101);
 
-        // Differ in the classid (row 0) ⇒ diverge at the very first tile.
+        // Differ in the classid (row 0). Bit 0 of the image is the LOW half of the
+        // classid = `custom` (the app prefix), which is SEMANTIC tile 1, not 0.
+        // ⊘ 2026-09-18 (D-DIAMOND-1 R1): this asserted `0` while the lens counted
+        // the raw LE tile order; the concept (canon, semantic tile 0) is shared
+        // here, so the corrected lens reports 1. Flipping a canon bit reports 0.
         let h = FacetCascade::from_u128(f.as_u128() ^ 1);
-        assert_eq!(h.shared_prefix_tiles(f), 0);
+        assert_eq!(h.shared_prefix_tiles(f), 1, "custom differs, canon shared");
         assert_eq!(h.row_match_mask(f), 0b1110);
+        let h2 = FacetCascade::from_u128(f.as_u128() ^ (1 << 16));
+        assert_eq!(
+            h2.shared_prefix_tiles(f),
+            0,
+            "canon differs ⇒ nothing shared"
+        );
     }
 
     /// The shipped byte-chain fold against the **masked single-register oracle**
@@ -989,5 +1218,202 @@ mod tests {
             "ref_from_bytes is a borrow reinterpret, no decode"
         );
         assert_eq!(core::mem::align_of::<FacetCascade>(), 16);
+    }
+}
+
+/// D-DIAMOND-1 contract tests (R1 semantic projection, R2 normative order, F1,
+/// F5). Kept as their own module so the falsifiers read as one block.
+#[cfg(test)]
+mod diamond_tests {
+    use super::*;
+    use core::cmp::Ordering;
+
+    /// The pre-R1 lens, verbatim: `trailing_zeros` over the raw LE image. Kept
+    /// ONLY as the thing F1 proves wrong at the classid boundary.
+    fn raw_le_prefix_tiles(a: FacetCascade, b: FacetCascade) -> u8 {
+        let x = a.as_u128() ^ b.as_u128();
+        if x == 0 {
+            8
+        } else {
+            (x.trailing_zeros() / 16) as u8
+        }
+    }
+
+    fn key(canon: u16, custom: u16, tiers: [u16; 6]) -> FacetCascade {
+        FacetCascade::from_semantic_tiles([
+            canon, custom, tiers[0], tiers[1], tiers[2], tiers[3], tiers[4], tiers[5],
+        ])
+    }
+
+    /// F1 — LE byte order is not semantic tuple order at the classid boundary.
+    ///
+    /// Same concept, different app: semantically ONE tile shared (canon), but the
+    /// raw LE scan says ZERO because `custom` sits at bytes 0..2. Same app,
+    /// different concept: semantically ZERO shared, raw says ONE. The corrected
+    /// projection reverses both.
+    #[test]
+    fn f1_le_byte_order_is_not_semantic_tuple_order() {
+        let t = [0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666];
+        let account_move_odoo = key(0x0202, 0x0001, t);
+        let account_move_medcare = key(0x0202, 0x0002, t);
+        let res_partner_odoo = key(0x0303, 0x0001, t);
+
+        // The stored image is what it always was: custom first, canon second.
+        let b = account_move_odoo.to_bytes();
+        assert_eq!(&b[0..2], &[0x01, 0x00], "custom at bytes 0..2 (LE)");
+        assert_eq!(&b[2..4], &[0x02, 0x02], "canon at bytes 2..4 (LE)");
+
+        // Raw LE scan: app before concept — the inversion.
+        assert_eq!(
+            raw_le_prefix_tiles(account_move_odoo, account_move_medcare),
+            0
+        );
+        assert_eq!(raw_le_prefix_tiles(account_move_odoo, res_partner_odoo), 1);
+
+        // Corrected semantic projection: concept before app.
+        assert_eq!(
+            account_move_odoo.shared_prefix_tiles(account_move_medcare),
+            1,
+            "same concept, different app ⇒ canon tile shared"
+        );
+        assert_eq!(
+            account_move_odoo.shared_prefix_tiles(res_partner_odoo),
+            0,
+            "same app, different concept ⇒ nothing shared"
+        );
+        // The stored bytes did not move.
+        assert_eq!(account_move_odoo.to_bytes(), b);
+    }
+
+    #[test]
+    fn semantic_tiles_round_trip_and_name_the_halves() {
+        let f = key(0xBEEF, 0xDEAD, [1, 2, 3, 4, 5, 6]);
+        assert_eq!(f.facet_classid, 0xBEEF_DEAD, "canon high, custom low");
+        assert_eq!(f.semantic_tiles(), [0xBEEF, 0xDEAD, 1, 2, 3, 4, 5, 6]);
+        assert_eq!(FacetCascade::from_semantic_tiles(f.semantic_tiles()), f);
+        // And through the LE image.
+        assert_eq!(
+            FacetCascade::from_bytes(&f.to_bytes()).semantic_tiles(),
+            f.semantic_tiles()
+        );
+    }
+
+    /// R2 — the normative tuple compare equals lexicographic order over the
+    /// semantic tiles, on a deliberately adversarial set (every tile position
+    /// decides at least one pair, and the classid halves disagree with byte order).
+    #[test]
+    fn r2_numeric_projection_order_is_semantic_tile_lexicographic() {
+        let mut rng = 0x9E37_79B9_7F4A_7C15u64;
+        let mut next = || {
+            rng = rng.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = rng;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        };
+        let mut keys = Vec::new();
+        for _ in 0..512 {
+            let mut t = [0u16; 8];
+            for x in &mut t {
+                // small alphabets so ties at each position are common
+                *x = (next() % 4) as u16;
+            }
+            keys.push(FacetCascade::from_semantic_tiles(t));
+        }
+        let mut decided_at = [0usize; 8];
+        for a in &keys {
+            for b in &keys {
+                let by_tuple = a.cmp_numeric_projection(b);
+                let by_tiles = a.semantic_tiles().cmp(&b.semantic_tiles());
+                assert_eq!(by_tuple, by_tiles);
+                if by_tuple != Ordering::Equal {
+                    let (ta, tb) = (a.semantic_tiles(), b.semantic_tiles());
+                    let i = (0..8).find(|&i| ta[i] != tb[i]).unwrap();
+                    decided_at[i] += 1;
+                }
+            }
+        }
+        assert!(
+            decided_at.iter().all(|&n| n > 0),
+            "every position must decide some pair: {decided_at:?}"
+        );
+
+        // And the thing R2 forbids as normative: byte-wise image order differs.
+        let by_bytes_differs = keys
+            .iter()
+            .zip(keys.iter().skip(1))
+            .any(|(a, b)| a.to_bytes().cmp(&b.to_bytes()) != a.cmp_numeric_projection(b));
+        assert!(
+            by_bytes_differs,
+            "byte-wise LE order must NOT coincide with the normative order"
+        );
+    }
+
+    /// F5 — every prefix depth brackets exactly the matching keys on a sorted
+    /// lane: 0, the canon boundary (1), the custom boundary (2), every cascade
+    /// tier (3..=7), full-depth exact match (8). Checked against the `matches`
+    /// oracle AND against `shared_prefix_tiles >= depth`.
+    #[test]
+    fn f5_prefix_lo_hi_bracket_exactly_the_matching_keys_at_every_depth() {
+        let mut keys: Vec<FacetCascade> = Vec::new();
+        for canon in [0x0100u16, 0x0200] {
+            for custom in [1u16, 2] {
+                for t0 in [0u16, 7] {
+                    for t5 in [0u16, 1, 0xFFFF] {
+                        keys.push(key(canon, custom, [t0, 3, 3, 3, 3, t5]));
+                    }
+                }
+            }
+        }
+        keys.sort_by(FacetCascade::cmp_numeric_projection);
+        let probe = key(0x0200, 1, [7, 3, 3, 3, 3, 1]);
+        for depth in 0..=8u8 {
+            let p = SemanticPrefix::of(probe, depth);
+            let lo =
+                keys.partition_point(|k| k.cmp_numeric_projection(&p.lo_key()) == Ordering::Less);
+            let hi = keys
+                .partition_point(|k| k.cmp_numeric_projection(&p.hi_key()) != Ordering::Greater);
+            let expect: Vec<usize> = (0..keys.len()).filter(|&i| p.matches(keys[i])).collect();
+            assert_eq!((lo..hi).collect::<Vec<_>>(), expect, "depth {depth}");
+            for (i, k) in keys.iter().enumerate() {
+                assert_eq!(
+                    p.matches(*k),
+                    probe.shared_prefix_tiles(*k) >= depth,
+                    "depth {depth} row {i}: matches must agree with the tzcnt lens"
+                );
+            }
+            match depth {
+                0 => assert_eq!(hi - lo, keys.len(), "depth 0 is the whole lane"),
+                8 => assert_eq!(hi - lo, 1, "full depth is exactly one key"),
+                _ => assert!(
+                    hi - lo > 0 && hi - lo < keys.len(),
+                    "depth {depth} non-trivial"
+                ),
+            }
+        }
+    }
+
+    /// The two-`u64` sweep projection orders exactly as the normative tuple —
+    /// so the sweep and the bound lower the SAME predicate.
+    #[test]
+    fn semantic_u64_halves_order_equals_numeric_projection_order() {
+        let ks = [
+            key(1, 2, [3, 4, 5, 6, 7, 8]),
+            key(1, 2, [3, 4, 5, 6, 7, 9]),
+            key(1, 3, [0, 0, 0, 0, 0, 0]),
+            key(2, 0, [0, 0, 0, 0, 0, 0]),
+            key(0xFFFF, 0xFFFF, [0xFFFF; 6]),
+        ];
+        for a in &ks {
+            for b in &ks {
+                assert_eq!(
+                    a.semantic_u64_halves().cmp(&b.semantic_u64_halves()),
+                    a.cmp_numeric_projection(b)
+                );
+            }
+        }
+        let (h, l) = key(0xAAAA, 0xBBBB, [1, 2, 3, 4, 5, 6]).semantic_u64_halves();
+        assert_eq!(h, 0xAAAA_BBBB_0001_0002);
+        assert_eq!(l, 0x0003_0004_0005_0006);
     }
 }

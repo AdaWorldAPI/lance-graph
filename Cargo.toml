@@ -126,6 +126,7 @@ exclude = [
     # `cargo test --manifest-path crates/weather-poc/Cargo.toml`.
     # Plan: .claude/plans/weather-soa-bake-v1.md.
     "crates/weather-poc",
+    "crates/d-diamond-1-probe",
 ]
 resolver = "2"
 

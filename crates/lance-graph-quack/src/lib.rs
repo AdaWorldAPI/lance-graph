@@ -158,6 +158,8 @@
 
 use std::cmp::Reverse;
 
+use lance_graph_contract::facet::SemanticPrefix;
+use lance_graph_contract::ordered_lane::{OrderedLaneWitness, SealedFacetLane};
 use lance_graph_mask_risc::{
     fuse, BoolExpr, FuseError, MaskOp, Operand, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
 };
@@ -220,6 +222,56 @@ pub enum Cmp {
         /// Which bits participate; zero means "don't care".
         care: u64,
     },
+    /// `lo <= row < hi` — a predicate on the ROW ORDINAL, reading no lane
+    /// (`Pred::Range`, `mask_set_range`). The `Col` it is attached to is the
+    /// ORDERED lane the range was bound on, kept for provenance so the leaf
+    /// reads as "addr IN [lo, hi)"; the executor never touches it.
+    ///
+    /// This leaf is minted ONLY by [`Filter::prefix_facet`] from a validated
+    /// [`OrderedLaneWitness`](lance_graph_contract::ordered_lane::OrderedLaneWitness)
+    /// (D-DIAMOND-1 R2): a prefix is a range only on a lane in numeric
+    /// projection order, and this crate does not infer that — storage attests
+    /// it, the planner consumes it. Constructing it by hand on an unordered
+    /// lane yields a plausible wrong mask, which is exactly what the witness
+    /// gate exists to make unreachable.
+    Range {
+        /// First row in the range.
+        lo: u32,
+        /// One past the last row.
+        hi: u32,
+    },
+}
+
+/// How [`Filter::prefix_facet`] lowered a facet prefix — reported beside the
+/// filter so a caller (and a probe) can see WHICH fold it got and why.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrefixLowering {
+    /// A validated witness: the prefix is the contiguous row range `[lo, hi)`
+    /// and lowers to one [`Cmp::Range`] — locate the interval once, then paint.
+    Bound {
+        /// First row.
+        lo: u32,
+        /// One past the last row.
+        hi: u32,
+        /// The sealed lane's version the range is expressed in.
+        ///
+        /// `lo`/`hi` are ORDINALS IN THAT LANE'S ORDER, not row ids. They are
+        /// only meaningful against planes that are the same rows in the same
+        /// order. This crate cannot check that — a `Planes` value carries no
+        /// order identity — so the version and digest are carried out here for
+        /// the execution side to check against whatever it knows about its own
+        /// row order. See the precondition on [`Filter::prefix_facet`] and
+        /// `ISSUES.md` `ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER`.
+        lane_version: u64,
+        /// The sealed lane's order-sensitive digest at that version.
+        lane_digest: u64,
+    },
+    /// No witness was offered: the prefix lowers to the [`Cmp::MatchU64`]
+    /// sweep over the semantic `u64` planes.
+    SweepNoWitness,
+    /// A witness was offered and REJECTED by the sealed lane; the prefix
+    /// lowers to the sweep and the reason is carried.
+    SweepInvalidWitness(lance_graph_contract::ordered_lane::WitnessError),
 }
 
 /// A filter expression: predicates over columns and resident planes, composed
@@ -520,6 +572,88 @@ impl Filter {
                 care,
             },
         )
+    }
+
+    /// **The witnessed prefix → bound lowering (D-DIAMOND-1 R2).**
+    ///
+    /// A [`SemanticPrefix`] over a facet lane lowers to ONE of two folds:
+    ///
+    /// - **bound** — `Some((lane, witness))` and
+    ///   [`SealedFacetLane::bound`] validates the witness against the lane:
+    ///   the prefix is the contiguous row range `[lo, hi)` and the filter is a
+    ///   single [`Cmp::Range`] (`mask_set_range`, no per-row compare);
+    /// - **sweep** — no witness, or a witness the lane rejects: the filter is
+    ///   the [`Cmp::MatchU64`] ternary match over the two semantic `u64`
+    ///   planes ([`FacetCascade::semantic_u64_halves`]): `hi_col` carries
+    ///   tiles 0..4 and `lo_col` tiles 4..8, so a prefix of `d` tiles is
+    ///   `care = u64::MAX << (64 − 16·d)` on `hi_col`, plus the same on
+    ///   `lo_col` for `d > 4`. Depth 0 matches every row.
+    ///
+    /// The two lower the SAME predicate (the planes order exactly as the
+    /// tuple — tested in the contract), so a caller can run either and the
+    /// probe can time both. **This function never infers ordering**: it
+    /// cannot see column placement or schema, only a witness storage minted,
+    /// and a rejected witness is reported, never silently accepted.
+    ///
+    /// `lane_col` is the column the range is bound on (provenance on the
+    /// `Range` leaf).
+    ///
+    /// # Precondition the caller owns — not checked here
+    ///
+    /// A `Bound` lowering emits `[lo, hi)` as ORDINALS IN THE SEALED LANE'S
+    /// ORDER. `SealedFacetLane::seal` sorts its own private key vector; if the
+    /// `Planes` the program executes over are in their original order, or come
+    /// from any other same-sized lane, the range selects unrelated rows. The
+    /// witness attests the LANE, not the execution row order; `lane_col` is
+    /// provenance only, and `Pred::Range` reads no lane at all, so nothing in
+    /// this crate or in `mask-risc` can detect the mismatch.
+    ///
+    /// **The caller must guarantee that the planes are the sealed lane's rows
+    /// in the sealed lane's order** — i.e. apply the seal's permutation to
+    /// every aligned plane, or seal from planes already in that order. To make
+    /// a violation detectable one level up, [`PrefixLowering::Bound`] carries
+    /// the lane's `version` and order-sensitive `digest`; an execution layer
+    /// that knows its own row order should check them before running the
+    /// range. Tracked as `ISSUES.md`
+    /// `ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER` — sealing does not yet
+    /// expose the permutation, so today this is a documented obligation with
+    /// carried evidence, not an enforced invariant.
+    #[must_use]
+    pub fn prefix_facet(
+        witnessed: Option<(&SealedFacetLane, &OrderedLaneWitness)>,
+        lane_col: Col,
+        hi_col: Col,
+        lo_col: Col,
+        prefix: &SemanticPrefix,
+    ) -> (Self, PrefixLowering) {
+        let sweep = |how: PrefixLowering| {
+            let (p_hi, p_lo) = prefix.lo_key().semantic_u64_halves();
+            let d = u32::from(prefix.depth());
+            let f = if d <= 4 {
+                Filter::prefix_u64(hi_col, p_hi, 16 * d)
+            } else {
+                Filter::And(vec![
+                    Filter::prefix_u64(hi_col, p_hi, 64),
+                    Filter::prefix_u64(lo_col, p_lo, 16 * (d - 4)),
+                ])
+            };
+            (f, how)
+        };
+        match witnessed {
+            None => sweep(PrefixLowering::SweepNoWitness),
+            Some((lane, w)) => match lane.bound(w, prefix) {
+                Ok((lo, hi)) => (
+                    Filter::Cmp(lane_col, Cmp::Range { lo, hi }),
+                    PrefixLowering::Bound {
+                        lo,
+                        hi,
+                        lane_version: w.version(),
+                        lane_digest: w.digest(),
+                    },
+                ),
+                Err(e) => sweep(PrefixLowering::SweepInvalidWitness(e)),
+            },
+        }
     }
 }
 
@@ -1119,6 +1253,8 @@ fn pred_of(col: Col, cmp: Cmp) -> Pred {
             pattern,
             care,
         },
+        // Reads no lane: `lane` is provenance only (see `Cmp::Range`).
+        Cmp::Range { lo, hi } => Pred::Range { lo, hi },
     }
 }
 
@@ -1231,6 +1367,7 @@ mod tests {
                     Cmp::MatchU64 { pattern, care } => {
                         (self.u64_at(*col, row) ^ pattern) & care == 0
                     }
+                    Cmp::Range { lo, hi } => (lo as usize) <= row && row < (hi as usize),
                 },
                 Filter::Plane(m) => self.bit(*m, row),
                 Filter::And(ps) => ps.iter().all(|p| self.oracle(p, row)),
@@ -2270,5 +2407,190 @@ mod tests {
         assert_eq!(fx.exec(&fused, &[], None), Value::Count(expected));
         assert_eq!(fx.reference(&inplace, None), Value::Count(expected));
         assert_eq!(fx.reference(&fused, None), Value::Count(expected));
+    }
+}
+
+/// D-DIAMOND-1 R2 — the witnessed prefix lowering, differential against the
+/// sweep and against a row oracle; the two witness-less paths.
+#[cfg(test)]
+mod diamond_lowering_tests {
+    use super::*;
+    use lance_graph_contract::facet::FacetCascade;
+    use lance_graph_contract::ordered_lane::WitnessError;
+    use lance_graph_mask_risc::{
+        execute, materialize_rows, scratch_words_for, words_for, LaneRef, Operand, Planes, Scratch,
+        Value,
+    };
+
+    const LANE: Col = Col(0); // provenance only
+    const HI: Col = Col(0);
+    const LO: Col = Col(1);
+
+    struct SplitMix64(u64);
+    impl SplitMix64 {
+        fn next(&mut self) -> u64 {
+            self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        }
+    }
+
+    fn skewed(n: usize, seed: u64) -> Vec<FacetCascade> {
+        let mut r = SplitMix64(seed);
+        (0..n)
+            .map(|_| {
+                let t = [
+                    (r.next() % 3) as u16,
+                    (r.next() % 2) as u16,
+                    (r.next() % 4) as u16,
+                    (r.next() % 3) as u16,
+                    (r.next() % 5) as u16,
+                    (r.next() % 3) as u16,
+                    (r.next() % 7) as u16,
+                    (r.next() % 2) as u16,
+                ];
+                FacetCascade::from_semantic_tiles(t)
+            })
+            .collect()
+    }
+
+    /// A sealed lane plus its two semantic u64 planes in sealed order.
+    struct Fx {
+        lane: SealedFacetLane,
+        hi: Vec<u64>,
+        lo: Vec<u64>,
+        alpha: Vec<u64>,
+    }
+
+    impl Fx {
+        fn new(n: usize, seed: u64) -> Self {
+            let lane = SealedFacetLane::seal(skewed(n, seed), 1).expect("seals");
+            let (hi, lo): (Vec<u64>, Vec<u64>) =
+                lane.keys().iter().map(|k| k.semantic_u64_halves()).unzip();
+            let mut alpha = vec![0u64; words_for(n)];
+            for r in 0..n {
+                alpha[r / 64] |= 1u64 << (r % 64);
+            }
+            Fx {
+                lane,
+                hi,
+                lo,
+                alpha,
+            }
+        }
+
+        fn n(&self) -> usize {
+            self.lane.keys().len()
+        }
+
+        fn rows_of(&self, f: &Filter) -> Vec<usize> {
+            let q = Query {
+                filter: Filter::And(vec![Filter::Plane(Mask(0)), f.clone()]),
+                agg: Agg::Rows,
+            };
+            let program = lower(&q).expect("lowers");
+            let lanes = [LaneRef::U64(&self.hi), LaneRef::U64(&self.lo)];
+            let masks: Vec<&[u64]> = vec![&self.alpha];
+            let planes = Planes {
+                n_rows: self.n(),
+                masks: &masks,
+                lanes: &lanes,
+            };
+            let words = words_for(self.n());
+            let slots = program.scratch_slots as usize;
+            let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+            let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+            let mask = match execute(&program, &planes, &mut scratch, None).expect("runs") {
+                Value::Mask(Operand::Scratch(i)) => scratch.slot(i).expect("written").to_vec(),
+                Value::Mask(Operand::Plane(p)) => planes.masks[usize::from(p)].to_vec(),
+                other => panic!("not a mask: {other:?}"),
+            };
+            materialize_rows(&mask, self.n())
+        }
+
+        fn oracle(&self, p: &SemanticPrefix) -> Vec<usize> {
+            (0..self.n())
+                .filter(|&i| p.matches(self.lane.keys()[i]))
+                .collect()
+        }
+    }
+
+    /// F5 at the lowering: for every depth 0..=8 the BOUND lowering, the SWEEP
+    /// lowering and the row oracle select the same rows — and the bound is a
+    /// single `Cmp::Range` while the sweep is MatchU64(s).
+    #[test]
+    fn witnessed_bound_and_sweep_lower_the_same_predicate_at_every_depth() {
+        let fx = Fx::new(3000, 11);
+        let w = fx.lane.witness();
+        for &pick in &[0usize, 700, 1500, 2999] {
+            let probe = fx.lane.keys()[pick];
+            for depth in 0..=8u8 {
+                let p = SemanticPrefix::of(probe, depth);
+                let (bound, how_b) = Filter::prefix_facet(Some((&fx.lane, &w)), LANE, HI, LO, &p);
+                let (sweep, how_s) = Filter::prefix_facet(None, LANE, HI, LO, &p);
+                assert!(
+                    matches!(how_b, PrefixLowering::Bound { .. }),
+                    "depth {depth}: {how_b:?}"
+                );
+                assert_eq!(how_s, PrefixLowering::SweepNoWitness);
+                assert!(matches!(bound, Filter::Cmp(_, Cmp::Range { .. })));
+                let truth = fx.oracle(&p);
+                assert_eq!(
+                    fx.rows_of(&bound),
+                    truth,
+                    "bound, pick {pick} depth {depth}"
+                );
+                assert_eq!(
+                    fx.rows_of(&sweep),
+                    truth,
+                    "sweep, pick {pick} depth {depth}"
+                );
+                if let PrefixLowering::Bound {
+                    lo,
+                    hi,
+                    lane_version,
+                    lane_digest,
+                } = how_b
+                {
+                    assert_eq!((lo as usize..hi as usize).collect::<Vec<_>>(), truth);
+                    // The evidence a downstream executor needs to detect a
+                    // plane-order mismatch must actually reach it.
+                    assert_eq!(lane_version, w.version(), "carried lane version");
+                    assert_eq!(lane_digest, w.digest(), "carried lane digest");
+                }
+            }
+        }
+    }
+
+    /// F3 at the lowering: a rejected witness never yields a `Range`; the
+    /// prefix lowers to the sweep and the rejection is reported.
+    #[test]
+    fn invalid_witness_lowers_to_the_sweep_and_says_why() {
+        let fx = Fx::new(500, 12);
+        let w = fx.lane.witness();
+        let p = SemanticPrefix::of(fx.lane.keys()[250], 3);
+        let forged = OrderedLaneWitness::forged(w.version() + 5, w.n_rows(), w.digest());
+        let (f, how) = Filter::prefix_facet(Some((&fx.lane, &forged)), LANE, HI, LO, &p);
+        assert!(matches!(
+            how,
+            PrefixLowering::SweepInvalidWitness(WitnessError::VersionMismatch { .. })
+        ));
+        assert!(
+            !matches!(f, Filter::Cmp(_, Cmp::Range { .. })),
+            "no Range leaf from a rejected witness"
+        );
+        assert_eq!(fx.rows_of(&f), fx.oracle(&p), "the sweep is still correct");
+    }
+
+    /// The `Range` leaf itself: lowered, executed, and the reference oracle agree.
+    #[test]
+    fn range_leaf_selects_exactly_the_ordinal_interval() {
+        let fx = Fx::new(1000, 13);
+        let f = Filter::Cmp(LANE, Cmp::Range { lo: 100, hi: 300 });
+        assert_eq!(fx.rows_of(&f), (100..300).collect::<Vec<_>>());
+        let empty = Filter::Cmp(LANE, Cmp::Range { lo: 42, hi: 42 });
+        assert!(fx.rows_of(&empty).is_empty());
     }
 }

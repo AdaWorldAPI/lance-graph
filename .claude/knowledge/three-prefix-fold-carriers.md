@@ -142,6 +142,45 @@ Reading, including the parts that went against the author's prediction:
   not verifiable from here). The revert is therefore near-zero-risk *and* the
   performance of either form is currently unobserved by anything shipping.
 
+## §5a A fourth fold, on carrier 3, under a named lens: BOUND (2026-09-18, D-DIAMOND-1)
+
+Not a fourth carrier — §5's falsifier for that is unchanged and still holds
+(no fourth carrier found; no carrier consumes another's fold). This is a
+fourth FOLD on carrier 3 (the facet cascade), gated by a precondition the
+other three folds don't have: **the population must be ordered under a named
+lens** (`SemanticLens` — storage is a content-blind ordinal, "sorted" only
+means something under a projection, and one physical sequence is monotone
+under exactly one lens at a time). Given that, `SealedFacetLane::bound`
+locates a contiguous row range with two `partition_point`s — cost O(log N),
+answer size O(1) (two integers) — instead of visiting every row.
+
+Measured (`crates/d-diamond-1-probe`, N=1M): bound 238–265 ns flat, vs a full
+sweep at 429,100–910,240 ns. **119×–707× is the `bound + touched_write`
+TOTAL against that sweep** — the comparable pair, since the sweep produces a
+mask and the bound alone produces two integers. The bound-alone ratio against
+the same sweeps is larger (≈1,619×–3,435×) and is not the number to quote: it
+compares a range against a mask. A second, independently-ordered
+population over the SAME rows (a correlated tenant lane) is not sorted under
+the ontology's lens and gets no bound of its own by construction
+(`WitnessError`, confirmed) — but a JOINT lens built over both (a Morton
+interleave, probe-only, `JointIndex`) turns their intersection into ONE bound:
+69–79 ns, or **89–98 ns including `materialize_rows`** — the remap back to the
+world's own ordinal, which is the output the comparator actually produces —
+against 745,473–797,268 ns for two sweeps + AND: **8,135×–8,376×**, quoting
+the materialized column. The win is **conditional on a prebuilt `JointIndex`**
+(≈61 ms per 1M rows, a real one-time cost amortized over queries), never a
+free property of the substrate.
+
+**The corollary this fold enforces, learned the hard way mid-arc
+(`E-NO-FOLD-REPORTS-AN-O-POPULATION-COST-1`):** a bound's answer is `(lo, hi)`
+— two integers. Turning it into a mask sized to the WHOLE lane (rather than to
+`hi` alone) or feeding its range into a sweep (rather than a narrowed
+AND/popcount) silently reintroduces the O(N) cost bound exists to avoid. The
+fold's cost must be a function of the ANSWER's size, never of the lane's.
+
+Full measurement and the BOUNDED verdict:
+`.claude/plans/d-diamond-1-dual-fold-substrate-v1.md` §5.
+
 ## §5 Falsifier for this page
 
 - The four-arm probe is in-tree, runs in ~2 s, and is the falsifier for §3. If

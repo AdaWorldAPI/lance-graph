@@ -132,6 +132,8 @@ pub mod ontology;
 pub mod ontology_warrant;
 pub mod orchestration;
 pub mod orchestration_mode;
+/// D-DIAMOND-1 R2 — the ordered-lane witness (storage-attested, planner-consumed).
+pub mod ordered_lane;
 pub mod pearl_junction;
 pub mod persona;
 pub mod plan;

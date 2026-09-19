@@ -1,3 +1,96 @@
+## E-NO-FOLD-REPORTS-AN-O-POPULATION-COST-1 (2026-09-18) — a "fold" that materializes a population- or lane-sized buffer is a sweep wearing a fold's name
+
+**The rule, stated once:** a fold's cost is a function of its ANSWER's size,
+never of the population it was searched over. An allocation sized to the lane,
+or a per-row predicate — even a narrowed one — is a materialization, and a
+measurement that includes one is not measuring a fold.
+
+**What happened.** The first commit-2 draft of the D-DIAMOND-1 probe measured
+two things and called both "folds" while neither was one:
+
+- **P2's write** allocated `dst = vec![0u64; words_for(n_rows)]` — sized to the
+  WHOLE lane — before calling `mask_set_range(&mut dst, lo, hi)`.
+  `mask_set_range` writes every word of whatever slice it is given (zero
+  before, ones inside, zero after), so the cost was O(n_rows) regardless of
+  how narrow `[lo, hi)` was. The bound search itself (`partition_point` × 2)
+  was a real fold; the write immediately after it silently reintroduced an
+  O(N) term and the report did not distinguish the two.
+- **P3's "fold" arm A** called `ternary_match_u64_to_mask` — the shipped
+  per-row ternary-match SWEEP — narrowed to the bound's row range. Narrowing
+  the RANGE a sweep runs over does not change that it is still a sweep: every
+  row in the narrowed range is still individually compared. It was reported
+  next to "arm B: two sweeps + AND" as though it were a different KIND of
+  operation; it was the same kind, just over fewer rows.
+
+**The diagnosis, stated generally:** a materialization test for "is this
+actually a fold" is not "does it look like one API call" — it is **does its
+cost scale with the population touched, or only with the answer's own size**.
+A bound's answer is `(lo, hi)` — two integers — and a fold-shaped consumer of
+it (a narrowed AND, a popcount over `hi − lo` bits) costs O(range width) or
+O(1), never O(N). The moment a fold's output is unconditionally turned into a
+buffer sized by the LANE rather than by the RANGE, or into a call that visits
+every row rather than every match, the O(N)/O(sweep) term is back — just
+hidden one call deeper than the reviewer looked.
+
+**The fix, both instances (D-DIAMOND-1 commit 2, `crates/d-diamond-1-probe`):**
+
+- P2: `touched_write(lo, hi)` returns `(w0, dst)` — a base word index
+  `w0 = lo / 64` and a buffer of `words_for(hi) - w0` words, so cost is
+  O((hi − lo) / 64) for a range at ANY position. `n_rows` never appears in its
+  signature. Flat 20.5–22.6 ns across N = 1K → 1M at a fixed range (old
+  whole-lane buffer over the same range: 34 → 4,620 ns, ~134×) AND flat
+  20.5–21.7 ns across positions 500 → 3,999,900 at a fixed 100-row width. The
+  full-lane sweep is kept ONLY as an explicitly separate `reference_sweep_ns`
+  column, never summed into the fold's own total.
+
+  **This bullet is itself the second correction, and the sharper half of the
+  lesson.** Its first version sized the buffer to `words_for(hi)` and wrote
+  from word 0 — so `mask_set_range` zeroed every word BEFORE `lo` and the cost
+  was O(hi), the range's END POSITION in the lane. That is still a
+  population-shaped cost for a range near the lane's end, and the flatness
+  falsifier could not see it, because holding `(lo, hi)` at a FIXED ABSOLUTE
+  position across N holds `hi` constant by construction. Fixing the answer and
+  varying N is NOT sufficient; the answer has a position as well as a size, and
+  a cost proportional to position passes every N-sweep unchallenged. Falsifier:
+  `f_touched_write_is_position_independent` — fixed width, moving position;
+  red against the old shape, green against the fix.
+- P3: the fold arm is rebuilt around a `JointIndex` — a Morton-interleaved
+  joint key over BOTH lanes, sorted once (a real, separately-timed cost), then
+  bounded with two `partition_point`s and NOTHING ELSE. Verified structurally,
+  not by report: `ternary_match_u64_to_mask` appears in the probe crate ONLY
+  inside the `reference_sweep_ns` timing block — zero occurrences in
+  `JointIndex`. Bound alone: 69–79 ns. **Bound + `materialize_rows`: 89–98 ns**
+  — and that is the number to quote, because the comparator produces a full
+  original-ordinal mask while a bound alone produces two offsets into the
+  JOINT index's own order. Against 745,473–797,268 ns for two sweeps + AND:
+  **8,135×–8,376×**. The remap is O(kept), so it is a legitimate fold cost, but
+  omitting it compares inequivalent outputs and inflated the ratio to
+  ~10,700×. Conditional on a prebuilt `JointIndex` (≈61 ms per 1M rows).
+
+**The reusable check, for any future "we measured a fold" claim:** name the
+quantity the reported cost is a function of. If it is a function of N, or of
+the number of rows touched by a predicate rather than the number of rows in
+the ANSWER, it is not a fold measurement — it is a narrowed sweep or a
+population-sized buffer, whatever the code calls it.
+
+And then vary the answer along EVERY axis it has, not just its size. Three
+tests, not two, are the shape this check demands:
+`p2_touched_write_cost_does_not_scale_with_lane_size` (fix the answer, vary N),
+`p2_touched_write_beats_the_old_whole_lane_sized_buffer` (the old shape is
+measurably worse), and `f_touched_write_is_position_independent` (fix the
+answer's SIZE, move its POSITION). The third exists because the first two were
+both green over a cost that was still O(end position) — a benchmark that varies
+one parameter certifies exactly one parameter.
+
+Cross-ref: `three-prefix-fold-carriers.md` §1 (*"masking wins when the slice
+is GRANULAR, PEEK wins when the slice is ADDRESSED"* — this entry adds the
+third case: **BOUND wins when the population is ORDERED, and its cost is the
+answer's size, never the lane's**); D-DIAMOND-1 plan §5 (the full corrected
+numbers); `E-BYTES-ARE-STORED-INTEGERS-ARE-PROJECTED-1` (the sibling
+discipline one layer down — a fold's OUTPUT can be a projection too: `(lo,
+hi)` stored as two integers, materialized into a mask only at the point a
+consumer genuinely needs one).
+
 ## 2026-09-18 — E-BYTES-ARE-STORED-INTEGERS-ARE-PROJECTED-1 — byte-agnosticism is the STORAGE superpower and little-endian is the COMPUTE superpower; the bug is always a stored projection
 
 **Status:** OPERATOR-RULED (the framing is the operator's: *"byte is storage
