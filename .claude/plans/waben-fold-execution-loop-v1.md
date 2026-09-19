@@ -1178,11 +1178,14 @@ no new subsystem is needed — but the literal count does not.
 
 ## §2 The address — resolved onto what exists, with no new storage
 
-The prompt's `(G, NodeGuid, Thought-or-Rung)` resolves as:
+The prompt's `(G, NodeGuid, Thought-or-Rung)` resolves as FOUR rows, not
+three — ⊘ the first cut folded `G` and `ClassView` into one line, the exact
+collapse §2's list below forbids (caught in review on #1252):
 
 | coordinate | existing home | evidence | new storage? |
 |---|---|---|---|
-| **G** (ontology / ClassView) | `classid: u32` at facet bytes `0..4`, canon-high (`concept << 16 \| app`); resolved through `lance-graph-ontology`'s `class_resolver` | `facet.rs:94`, canon-high flip on the board | none |
+| **G** (graph / context / frame) | ⊘ **not `classid`.** `G` is the graph a relation sits in — an ontology graph, a patient graph, a code graph, an episode. Its home is the SPOG tenant lane (`contract/src/spog_tenants.rs`, D-SPG-2 shipped), never the facet's class word | `spog_tenants.rs`; `E-THE-CENTER-IS-SPOG-PLUS-FC-…-1` | none |
+| **`classid` → `ClassView`** (byte interpretation) | `classid: u32` at facet bytes `0..4`, canon-high (`concept << 16 \| app`); resolved through `lance-graph-ontology`'s `class_resolver` | `facet.rs:94`, canon-high flip on the board | none |
 | **NodeGuid** | `canonical_node::NodeGuid`, 16 B, stable | `canonical_node.rs:862` | none |
 | **Rung** | **`TemporalPov { range, rung: u8 }`** — already a *reader's* coordinate, not per-node state | `contract/src/temporal_pov.rs:151` | **none** |
 | **Thought track (≤64)** | **[HYPOTHESIS, not resolved]** the 6-bit W-slot palette, `AttentionMaskEntry { mailbox_id, w_slot: u8 /* 0..64 */ }` — a *physical* attention slot with LRU state, bound to a `MailboxId`. Nothing read establishes that it semantically IS a thought track; it is a carrier that happens to have the right cardinality | `cognitive-shader-driver/src/attention_mask.rs:29` | none, IF the hypothesis holds |
