@@ -1,3 +1,68 @@
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — counterfactual adjudication CORRECTED; cleanup pass closed (2026-09-19)
+
+⊘ The census addendum below says the DisMech `Verdict{Consistent,
+Inconsistent}` should collapse into `revision::CounterfactualVerdict`.
+**Corrected:** collapsing it discards the two-arm measurement. `Consistent →
+Inconsistent` supports `Necessary`; `Consistent → Consistent` supports
+`Dispensable`; `Inconsistent → Consistent` and `Inconsistent → Inconsistent`
+are NOT automatically the same adjudication. The cut therefore preserves the
+factual and without-step readings as `CounterfactualAttack { factual,
+without_step, … }` with `adjudicate() -> CounterfactualVerdict`, and **a
+falsifier over all four quadrants lands before the local reading type is
+deleted**. Everything else in the addendum stands: no new
+`counterfactual_replay.rs`; the structural mechanics sit beside the generic
+replay core.
+
+Also closed by the cleanup pass: `Support / Partial / Refute / NoEvidence` is
+NOT promoted to a generic `Stance` (the SPOG / `f,c` model gets first refusal),
+and **DisMech archaeology stops here** — the seam is now accurately recorded;
+the next DisMech action is the implementation PR, on operator word.
+
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — census addendum: the generic counterfactual home ALREADY EXISTS (2026-09-19)
+
+⊘ The revised cut below still says "extract counterfactual under a
+domain-neutral name" as if a new module were needed. It is not. Read from the
+tree, three counterfactual surfaces predate the DisMech one:
+
+| module | what it is | consumers |
+|---|---|---|
+| `lance-graph-contract/src/counterfactual.rs` (546) | D-ATOM-4 — split resolution: minority pole deposited as the CE64 −6 mantissa (`InferenceType::Counterfactual`), `EpisodicEdge` trait, `CounterfactualMailbox` (ghost tier), `revise_if_minority_wins`, `RevisionOutcome` | `lance-graph/src/reasoning.rs`, `lance-graph-cognitive/world`, planner `nars_engine.rs`, contract `scenario.rs`, + tests/examples — a LIVE generic surface |
+| `lance-graph-contract/src/revision.rs` | `CounterfactualVerdict{Necessary, Dispensable, NotRun}` — the load-bearing question, adjudicated in the Fusion → Counterfactual → Revision docket | revision policy |
+| `lance-graph-cognitive/src/world/counterfactual.rs` (286) | binding substitution on fingerprint worlds — explicitly NOT do-calculus (its own doc says so) | re-exported by `reasoning.rs:44` |
+| `lance-graph-planner/src/dismech_counterfactual.rs` (674) | cut-one-step-and-replay-both-arms over a recorded `CausalEdge64` chain; **already `impl EpisodicEdge for CounterfactualEdge`** (`:64`) — it consumes the generic contract today | none in production |
+
+**Consequence for PR-B:** no `counterfactual_replay.rs`. The cut-one-step
+mechanics are the missing *structural* arm (an actual edge severed, which the
+cognitive module says it lacks) and land beside the generic replay core as a
+method of the recorded chain, and its `Verdict{Consistent, Inconsistent}` +
+`EdgeRole::is_load_bearing` collapse into the EXISTING
+`revision::CounterfactualVerdict{Necessary, Dispensable, NotRun}` — one verdict
+type for one question. Four modules named counterfactual is the drift; the cut
+must leave three that each answer a different question (split-pole deposit /
+load-bearing adjudication / fingerprint substitution), not add a fourth
+generic name.
+
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — cut REVISED per operator ruling (2026-09-19)
+
+⊘ Supersedes the PR-A/B/C shape in the entries below. Ruling and census:
+`E-WE-THINK-WITH-OGAR-GRAPHS-OGAR-DOES-NOT-DO-THE-THINKING-1`.
+
+- **PR-B (lance-graph) lands FIRST and alone** — it needs no new OGAR code:
+  delete the mirror and the three source enums from the contract; extract
+  replay + counterfactual under domain-neutral names with a GENERIC predicate
+  validator; reconcile the counterfactual verdict with
+  `revision::CounterfactualVerdict`; delete the stance policy in candidates
+  (zero independent consumers); `lance-graph-ogar` test = the same replay
+  program under `ogar_dismech::by_index` AND `ogar_ro::by_index`; fence test as
+  hygiene. Re-scope `dismech-causal-replay-v1.md`; retarget `nan-ci-mode-v1.md`
+  pointers. **No `Stance`. No parser moves into lance-graph or OGAR.**
+- **PR-A (source side) waits on the open decision** — where the token parsers
+  live (`dismech-rs` vs `ogar-dismech`). Until then the only reader,
+  `medcare-dismech/freeze.rs`, keeps its local fail-closed match.
+- **PR-C (MedCare)** — `freeze.rs:66-70`'s "known follow-up" is retargeted
+  away from the mirror to wherever PR-A's decision lands; no mirror edge is
+  ever acquired.
+
 ## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — the MedCare-rs bank, read (2026-09-19)
 
 The two entries below map the lance-graph and OGAR banks; this reads the

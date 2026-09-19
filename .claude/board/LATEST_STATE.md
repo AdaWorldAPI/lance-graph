@@ -1,3 +1,20 @@
+## 2026-09-19 (2) — PR #1251 merged (`16090965`): the Waben fold execution-loop plan is on `main`; `main` is `16090965`
+
+- **#1251 — docs only, 21 commits, +3,928 / −1 across 8 files.** Ships
+  `.claude/plans/waben-fold-execution-loop-v1.md` (§0–§10) and its board
+  record. **No contract inventory delta** — no type, crate or API changed.
+  Full record: `PR_ARC_INVENTORY.md` 2026-09-19 #1251.
+- **Queued behind it, on operator word only:** `D-WFL-MASKOP` (precedes
+  W0/W1), then W0 (two attestations), then W1 (assembly-boundary census). The
+  DisMech cut per `ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS` (revised: PR-B first
+  and alone; parser location an open decision). `TD-JC-CLIPPY-RED-ON-BASE-2`
+  remains red on `main`, untouched.
+- **Rulings now on `main`** a session must read before touching masks, folds,
+  replay or ontology seams: `E-THE-CENTER-IS-SPOG-PLUS-FC-…-1`,
+  `E-ONE-OBSERVABLE-IS-NOT-THREE-INSTRUMENTS-…-1`, `E-FOLDS-ARE-ZERO-COPY-
+  PERIOD-…-1`, `E-A-DOMAIN-IS-AN-OPTIONAL-CONSUMER-THROUGH-OGAR-…-1`; and, in
+  the follow-up PR, `E-WE-THINK-WITH-OGAR-GRAPHS-OGAR-DOES-NOT-DO-THE-THINKING-1`.
+
 ## 2026-09-19 (1) — PRs #1249 (`bb988363`) and #1250 (`25988f3c`) merged; `main` is `25988f3c`
 
 - **#1250 — D-DIAMOND-1, verdict BOUNDED.** Ships `ordered_lane`

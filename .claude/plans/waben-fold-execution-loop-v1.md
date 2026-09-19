@@ -570,25 +570,26 @@ stop when X_{t+1} = X_t, or earlier when max_H U(H) < ε
 | `CausalTopology` | **59–60** | `{Direct, IndirectKnownIntermediates, IndirectUnknownIntermediates, Unknown}` — documented as an *"additive factual view over `TrustTexture`"*: ONE field, two lenses, not two variables |
 | `ReasoningBand` | **61–63** | `{Surface, Association, Relation, Causal, Counterfactual, Perspective, Meta, Transcendent}`, with explicit orthogonality notes to `CausalMask`, the inference mantissa's −6 slot, and `direction` |
 
-**The band is a semantic sandbox, and this is the load-bearing part.** A donor
-thought at `band = Relation` with `f = .81, c = .94` and spectacular information
-gain **must not be silently promoted to causal knowledge.** High IG makes it a
-*candidate causal investigation*, which then requires an explicit Causal-band
-operation before any new CE64 is written. Likewise `Counterfactual` can explore
-freely without mutating factual causal state. **Usefulness is not causal
-licensing** — recorded here on its own merits. ⊘ The first cut said a citation to
-"#1224" *does not resolve*; that was a search of `.claude/` and `docs/` only.
-**Corrected 2026-09-19 by reading the PR itself, and corrected AGAIN the same
-day:** #1224 exists and was **withdrawn and closed without merging because it
-was fundamentally wrong** — it converted a criticism into an invented
-maturity-ladder specification, and it placed causal-licensing semantics inside
-a DisMech module against the ruling that DisMech is not a thinking atom. ⊘ The
-first correction here said the helpers were "deleted after a measured zero
-production consumers" as if that were the reason; it was not. The zero-consumer
-count only meant the deleted helpers needed no re-homing. Making a side
-measurement into the verdict is itself the error #1224 warns about. It is cited
-here as a *negative* receipt, never as architecture: a helper existing is not
-enforcement, and association or usefulness does not grant causal status.
+**The band is an explicit, coarse, ORTHOGONAL classifier — never a permission
+ladder** (operator, 2026-09-19; the whole licensing paragraph that stood here
+is DELETED, not softened). The source contract is explicit that setting one
+field never implies, derives, or requires another, so `Relation`, `Causal` and
+`Counterfactual` are *contexts*, and nothing about band ordinality gates a
+write. ⊘ This plan previously read: *high information gain at `Relation`
+requires an explicit Causal-band operation before a new CE64 may be written.*
+That rule was invented here, from band ordering, and is struck. **It is not
+replaced by another licensing mechanism.** Any future epistemic or causal write
+gate must come from actual SPOG / `f,c` / provenance / revision semantics and
+measured code — not from a band progression.
+
+⊘ **#1224 is no longer cited for any reasoning law.** It was withdrawn and
+closed unmerged because its architectural premise was wrong, and the single
+fact worth keeping from it is historical: **it exposed the live bidirectional
+domain inversion** (domain semantics in the substrate; generic reasoning
+trapped under domain names) — recorded in
+`ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS`. The "causal licensing" doctrine, the
+helper-existence lesson, and the zero-consumer census as an explanation of the
+closure are all withdrawn from this plan.
 
 And `ReasoningBand::Meta` earns its keep without any meta-opcode: bind the
 fold/mask machinery to the thought programs and transfer histories themselves —
@@ -628,14 +629,21 @@ cannot say which.
 Same category error as the section below, one level over. Cross-repo reads
 (OGAR `5055b06`, r2sleigh `99d2553`, lance-graph this branch):
 
-> **A varnode is not a buffer.** R2IL varnodes carry behavioral DEPENDENCIES,
-> not an obligation to materialize their values. `v2 = ternlog(v0,v1,…)` may
-> never exist as bytes.
+> **A varnode is not a semantic-population materialization obligation.**
+> ⊘ Narrowed 2026-09-19 from *"a varnode is not a buffer"*, which was too
+> broad: R2IL varnodes ARE real typed machine values/locations with explicit
+> size and address-space semantics, and that is not weakened here. What does
+> not follow is that a varnode BOUND to a population-valued semantic
+> expression obliges bytes for that population.
 
-Compiler instinct reads `v0 = …; v1 = AND(v0,…)` as *allocate a representation
-per name*. The intended semantics is SSA in a **fused dataflow engine**: each
-varnode names a logical value / address / membership expression, and only a
-terminal that asks for membership as a carrier forces bytes.
+The split is by layer, and R2IL keeps its own: **R2IL stays mechanical
+behavioral microcode** — it is not redefined into a lazy-expression language.
+The zero-materialization freedom belongs to the BINDING and LOWERING layer: a
+varnode may bind to a population-valued expression, the physical lowering may
+keep that population virtual and fused, and only an explicit carrier demand
+materializes it. Compiler instinct reads `v0 = …; v1 = AND(v0,…)` as *allocate
+a representation per name*; in a fused dataflow lowering only a terminal that
+asks for membership as a carrier forces bytes.
 
 **The fragments are already built, and nobody had joined them:**
 
@@ -1170,11 +1178,14 @@ no new subsystem is needed — but the literal count does not.
 
 ## §2 The address — resolved onto what exists, with no new storage
 
-The prompt's `(G, NodeGuid, Thought-or-Rung)` resolves as:
+The prompt's `(G, NodeGuid, Thought-or-Rung)` resolves as FOUR rows, not
+three — ⊘ the first cut folded `G` and `ClassView` into one line, the exact
+collapse §2's list below forbids (caught in review on #1252):
 
 | coordinate | existing home | evidence | new storage? |
 |---|---|---|---|
-| **G** (ontology / ClassView) | `classid: u32` at facet bytes `0..4`, canon-high (`concept << 16 \| app`); resolved through `lance-graph-ontology`'s `class_resolver` | `facet.rs:94`, canon-high flip on the board | none |
+| **G** (graph / context / frame) | ⊘ **not `classid`.** `G` is the graph a relation sits in — an ontology graph, a patient graph, a code graph, an episode. Its home is the SPOG tenant lane (`contract/src/spog_tenants.rs`, D-SPG-2 shipped), never the facet's class word | `spog_tenants.rs`; `E-THE-CENTER-IS-SPOG-PLUS-FC-…-1` | none |
+| **`classid` → `ClassView`** (byte interpretation) | `classid: u32` at facet bytes `0..4`, canon-high (`concept << 16 \| app`); resolved through `lance-graph-ontology`'s `class_resolver` | `facet.rs:94`, canon-high flip on the board | none |
 | **NodeGuid** | `canonical_node::NodeGuid`, 16 B, stable | `canonical_node.rs:862` | none |
 | **Rung** | **`TemporalPov { range, rung: u8 }`** — already a *reader's* coordinate, not per-node state | `contract/src/temporal_pov.rs:151` | **none** |
 | **Thought track (≤64)** | **[HYPOTHESIS, not resolved]** the 6-bit W-slot palette, `AttentionMaskEntry { mailbox_id, w_slot: u8 /* 0..64 */ }` — a *physical* attention slot with LRU state, bound to a `MailboxId`. Nothing read establishes that it semantically IS a thought track; it is a carrier that happens to have the right cardinality | `cognitive-shader-driver/src/attention_mask.rs:29` | none, IF the hypothesis holds |
@@ -1191,7 +1202,12 @@ already sized, already canon.
 
 Five things the plan must keep distinct (the prompt's demand):
 
-1. outer ontology `G` — which ClassView interprets the bytes;
+1. **`G`** — the graph / context / frame / source context a relation sits in.
+   ⊘ Corrected 2026-09-19: this line read *"outer ontology `G` — which
+   ClassView interprets the bytes"*, collapsing two different things. `G` may
+   be an ontology graph, a patient graph, a code graph, an episode, or any
+   other context; **`ClassView` is how canonical bytes are interpreted.** They
+   are never the same axis and never collapse;
 2. the facet's own embedded `classid` — which concept×app the node IS;
 3. `NodeGuid` — stable identity, never rewritten by a change of view;
 4. **execution ordinal** — position in one lane under one lens, valid only with

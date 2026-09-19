@@ -1,3 +1,54 @@
+## 2026-09-19 — lance-graph PR #1251 (merged `16090965`, branch `claude/waben-fold-loop`, head `78c5016b`, 21 commits, docs only) — the Waben fold execution loop: four seams, and attestation that has an author
+
+- **Added:** `.claude/plans/waben-fold-execution-loop-v1.md` (§0–§10: baseline
+  at lg `25988f3c` / nd `40a71ad`; the composition; four seams A–D; the global
+  primitive; R2IL as behavioural microcode; the three convergences; address
+  resolution with no new storage; capability table; waves W0–W7 + `D-WFL-DET`;
+  the first slice; measurement plan; what it proves; §8 deliberately not
+  decided; §9 cross-domain imports as probes with one fence; §10 the center).
+  Board: `STATUS_BOARD` D-WFL rows (three review rounds recorded by prepend),
+  `INTEGRATION_PLANS` entry, `ISSUES` `ISS-TWO-THINGS-ARE-NAMED-R2IL-…` and
+  `ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS`, ~14 `EPIPHANIES` entries. Discharged
+  #1250's merged-PR obligation. No code, no crate, no API change.
+- **Locked:** a mask EXPRESSION denotes membership and does not imply a bitmap;
+  materialization only at an explicit terminal (`D-WFL-EXPR`). Folds are
+  zero-copy, period, with the software-level definition of materialization.
+  Recompute-or-freeze vs continuously maintain is the real boundary; frozen
+  cached masks are fine. FIRE is a sparse delta that writes what read already
+  had; ATTEND vs EPISTEMIC (W6.0); the write-tier ladder is increasing cost.
+  T1 ≠ T2 (`exec.rs:25` — mask-risc is T2 consuming T1). Two attestations
+  (`key_digest`, separate `row_order_digest` over stable row identity), with
+  `AttestedPlanes<'a>` retracted the day it was proposed. One observable is not
+  three instruments (Tarski / Shannon / JC). The center is SPOG + `f,c` + CE64
+  59–60 / 61–63; everything else is cast.
+- **Corrected in-arc (all by prepend, none edited):** T1/T2 flattening;
+  back-dating the new law onto old T1 doctrine; a size-conditional fold law;
+  the fold-vs-mask hierarchy; a W2b gate stricter than the law it enforces
+  (position-dependent span; then the empty-range case); `D-WFL-DET` over an
+  incomplete identity (then identity vs output sensitivity); tier ordering
+  reversed; the Tarski fixed point relative to `X_0`; #1224 mis-cited twice
+  (does not resolve → deleted-for-zero-consumers → withdrawn for being
+  fundamentally wrong: a bidirectional domain inversion).
+- **Measured / read:** Seam B costs 125 KB per `Pred::Range` at 1M rows
+  (`simd_masking_ops.rs:1587-1588` fills to the end of the slice) and D-DMD-P2's
+  control arm already measured it (34 → 4,620 ns). The loop's parts exist and
+  are never assembled (`dispatch_thought`, `AlphaFocus`, `StepMask`,
+  `BatchWriter::cast`, `CallcenterSupervisor`, `prefix_facet` — no live caller).
+  `ogar-r2il` is proxy glue, 82 arities, no r2sleigh dep. `crates/jc` has no
+  Shannon term. `facet.rs` `i >> 2` is `G3D4::group_of`, not a rung ladder.
+- **Deferred:** every wave (nothing of W0–W7 is built); `D-WFL-MASKOP` precedes
+  W0/W1; `FIRST` unscheduled; `PROJECT` after W3; the three D-DIAMOND-1 seal
+  proposals; `TD-JC-CLIPPY-RED-ON-BASE-2` (red on `main`, two lines, not
+  touched); the DisMech cut (`ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS`, revised
+  shape, on operator word); the Valhalla / three-consumer entry (paused).
+- **Review:** CodeRabbit three real rounds (5 + 5 + 3 findings, all verified
+  against the files, all valid, all fixed); Codex once at `e977f9e9`. 13
+  threads, 0 unresolved at merge. One post-merge commit (`1208e632`, the
+  OGAR-does-not-think ruling + census) was stranded on the branch and rides
+  the follow-up PR.
+- **Confidence:** high on the inventory and the seams; the waves are
+  unexecuted plans and carry no implementation confidence.
+
 ## 2026-09-19 — lance-graph PR #1250 (merged `25988f3c`, branch `claude/d-diamond-1`) — D-DIAMOND-1: the dual fold substrate, verdict BOUNDED
 
 - **Added:** `lance_graph_contract::ordered_lane` (`OrderedLaneWitness`,
