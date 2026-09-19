@@ -1,3 +1,77 @@
+## 2026-09-18 — lance-graph PR #1248 (merged `a2a51012`, branch `claude/great-pascal-k96kok`) — `NodeRow::edges` is byte-backed: bytes are stored, integers are projected
+
+- **Added:** `lance_graph_contract::canonical_node::EdgeFacet` —
+  `#[repr(C, align(16))]` over `[u8; 16]`, the exact mirror of `NodeGuid`,
+  with `as_bytes` / `as_bytes_mut` / `from_bytes` / `to_bytes` / `facet()`
+  and `From`/`Into` against `FacetCascade`. `pub type EdgeBlock = EdgeFacet`
+  keeps the in-tree call sites compiling — and only those: they use
+  `default()`, byte access, equality and `Copy`, all of which `EdgeFacet`
+  carries. **It is NOT a drop-in for `FacetCascade`'s whole surface**, which is
+  the point of the retype, not an oversight: `EdgeFacet` deliberately exposes
+  bytes, so `FacetCascade`'s public `facet_classid` / `tiers` fields and any
+  method not on `EdgeFacet` do not resolve through the alias. An out-of-tree
+  caller reaching for one gets a compile error and names the projection
+  instead (`edges.facet().facet_classid`) — see Source-breaking below.
+  Falsifier
+  `edges_store_bytes_verbatim_and_project_the_integer_little_endian` asserts
+  BOTH superpowers at once: the stored bytes are verbatim (endian-free) AND
+  `facet().facet_classid` decodes `0xDEAD_BEEF` little-endian. Disable-run
+  red-then-green (byte-swap in `from_bytes` fails it on "stored bytes are
+  verbatim"). A running doctest on the `EdgeBlock` alias verifies the
+  migration `edges.facet().facet_classid` compiles.
+- **Retyped:** `NodeRow::edges` from `FacetCascade` to `EdgeFacet`. All three
+  `NodeRow` fields are now byte arrays (`[u8;16] | [u8;16] | [u8;480]`), so the
+  512-byte stored image contains no native-endian integer and `as_le_bytes` is
+  byte-identical across targets by construction. Byte positions,
+  `NODE_ROW_STRIDE`, `ENVELOPE_LAYOUT_VERSION`, `node_rows_from_le_bytes`
+  unchanged.
+- **Doctrine (operator, 2026-09-18):** byte-agnosticism is the STORAGE
+  superpower; little-endian is the COMPUTE superpower. The failure has one
+  shape: *storing a projection*. `EPIPHANIES.md`
+  `E-BYTES-ARE-STORED-INTEGERS-ARE-PROJECTED-1` carries the three-site census
+  (`NodeGuid` obeyed, `AttentionFocusFacet` obeyed, `NodeRow::edges` violated)
+  and the reusable pattern *byte-backed newtype + `.facet()` projection*.
+- **Locked:** the `target_endian = "little"` guard on `FacetCascade` STAYS,
+  narrowed. #1246's arc entry said byte-backing `edges` would retire it
+  entirely — wrong, and the code said so: `FacetCascade::as_bytes` is a
+  reinterpret BY DESIGN (the 1.72 ns byte-chain LCP hot path), so the
+  `reinterpret == encode` identity is still assumed. The guard's blast radius
+  is now a value in flight, never a row at rest. Both `canonical_node.rs`
+  SAFETY comments corrected in place; the one that called `EdgeBlock` "the one
+  field that is not" a byte array is struck, not reworded.
+- **Source-breaking, documented, not versioned:** `EdgeBlock` no longer
+  exposes `FacetCascade`'s `facet_classid` / `tiers` or inherent methods —
+  callers doing field access through the alias get a compile error (the loud
+  failure; `I-LEGACY-API-FEATURE-GATED` governs SILENT semantic change and
+  does not reach this). No in-tree consumer affected (every site is
+  `default()` / byte access / equality / `Copy`); `lance-graph-java`'s
+  `lgj-abi` — the one named out-of-repo consumer of `canonical_node` — imports
+  `EdgeCodecFlavor` and never the block type. No SemVer bump: the crate is
+  `0.1.0`, unpublished, and the stable-API phase is Room 5 PREP
+  (`docs/SUBSTRATE-ENDGAME-RUNTIME-VIEW.md`), not a contract in force.
+- **Deferred / named, not built:** readers that still split the 16 bytes at
+  12 on their own authority (`ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`
+  — a READING, for the ClassView to decide; byte-backing neither fixes nor
+  worsens it); `mask_set_range_under`; the planner-side ordering witness.
+- **Review:** CodeRabbit raised one Major — the alias change is a breaking
+  API change, version it. Half accepted (the break is real → migration note +
+  compile-verified doctest, `adba78bf`), half declined (SemVer bump — premise
+  wrong in tense; compatibility shim — would restore the stored projection the
+  PR removes). CodeRabbit accepted both declines by name, withdrew the finding,
+  dropped Merge Risk Moderate → Minimal, and recorded a repo learning (pre-1.0
+  unpublished contract crate: intentional source-breaking changes need a
+  compile-verified migration path, not a major bump or a shim). Cursor Bugbot
+  did not run (usage cap).
+- **CI:** green on all eight rows at `adba78bf`. Struck from the PR body in
+  place: the claim that the full workspace build was "blocked in this
+  container by a missing `protoc`" — the block was self-inflicted
+  (`protobuf-compiler` not installed); with it installed,
+  `cargo check --workspace --all-targets` passed locally in 2m 26s.
+- **Confidence:** HIGH that the stored image is endian-free by construction
+  (three byte-array fields, `const` size asserts, falsifier + disable-run).
+  MEDIUM on "no out-of-tree consumer breaks": in-tree and `lance-graph-java`
+  verified by reading; other AdaWorldAPI consumers not checked from here.
+
 ## 2026-09-18 — lance-graph PR #1246 (merged `568965e9`, branch `claude/great-pascal-k96kok`) — `EdgeBlock` becomes `FacetCascade`, `Pred::Range` joins the mask-risc IR, and every `.0.0` exact pin floats
 
 - **Added:** `Pred::Range { lo: u32, hi: u32 }` + `ExecError::RangeOutOfBounds`

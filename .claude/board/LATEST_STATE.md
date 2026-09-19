@@ -1,3 +1,23 @@
+## 2026-09-18 (3) — PR #1248 merged (`a2a51012`): `NodeRow::edges` is `EdgeFacet([u8; 16])` on `main` — no field of the 512-byte row is a native-endian integer
+
+The entry below dated 2026-09-18 (2) describes what is now on `main`, not
+what is in PR. Read it as shipped.
+
+- **On `main`:** `EdgeFacet`, `pub type EdgeBlock = EdgeFacet`, the
+  two-superpower falsifier, the corrected SAFETY comments, the narrowed
+  `target_endian` guard, and a running doctest on the alias verifying the
+  migration `edges.facet().facet_classid`.
+- **Source-breaking for field access through `EdgeBlock`** (`facet_classid`
+  / `tiers` / inherent methods are gone from the alias) — a compile error,
+  never a silent reinterpretation. Documented on the alias; NOT versioned:
+  `lance-graph-contract` is `0.1.0`, unpublished, the stable-API phase is
+  Room 5 PREP. CodeRabbit accepted this and recorded it as a repo learning.
+- **Unchanged after this PR:** `ISS-EDGE-BLOCK-WAS-A-SECOND-TYPE-FOR-THE-SAME-FACET`
+  (readers splitting at 12 remain a reading for the ClassView to decide);
+  `TD-JC-CLIPPY-RED-ON-BASE-2` (`main` still clippy-red in `crates/jc`, the
+  two-line fix is written up and awaits its own PR).
+- Full record: `PR_ARC_INVENTORY.md` 2026-09-18 #1248.
+
 ## 2026-09-18 (2) — CONTRACT INVENTORY DELTA: `EdgeFacet([u8; 16])` — `NodeRow::edges` is byte-backed, so no field of the 512-byte row is a native-endian integer any more
 
 - **Added:** `lance_graph_contract::canonical_node::EdgeFacet` —
