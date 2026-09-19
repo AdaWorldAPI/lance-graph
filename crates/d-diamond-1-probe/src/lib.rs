@@ -563,11 +563,12 @@ pub fn run_p2(
             }
             best
         };
-        // TOUCHED-ONLY write: the destination is sized to `words_for(hi)`,
-        // never to `words_for(n)` — so cost scales with `hi`, not with the
-        // lane's row count. Allocation is INSIDE the timed loop deliberately:
-        // it is the size of the allocation (bounded by `hi`, not `n`) that is
-        // under test, not amortized-away allocator cost.
+        // TOUCHED-ONLY write: the destination covers only `[lo/64,
+        // words_for(hi))` — the words the range actually intersects — so cost
+        // scales with the range's WIDTH, not with its position and not with
+        // the lane's row count. Allocation is INSIDE the timed loop
+        // deliberately: it is the size of the allocation (bounded by
+        // `hi - lo`) that is under test, not amortized-away allocator cost.
         let touched_write_ns = {
             let mut best = f64::INFINITY;
             for _ in 0..7 {
