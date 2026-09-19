@@ -6,6 +6,20 @@
 > (operator-supplied, 2026-09-19).
 >
 > **Prefix for this arc's deliverables: `D-WFL-*`** (unused in `STATUS_BOARD.md`).
+>
+> **⊘ REVISED 2026-09-19 after external review of #1251.** Five corrections and
+> one addition, all verified by reading before acceptance:
+> **(1)** a fourth seam — **Seam D**, the semantic-order → Morton-order rotation
+> — was missing, and §5's first slice silently crossed it; **(2)** the
+> duplicate-key recommendation is WITHDRAWN (it was a semantic regression);
+> **(3)** D-WFL-2 splits in two, because a bounded `Scratch` is a second
+> experiment, not a widening of the first; **(4)** `AlphaFocus` cannot be the
+> slice's focus carrier as it stands — every READ accessor materializes a
+> full-population mask; **(5)** `claim_ordinals` is deferred behind a
+> measurement. Two claims are downgraded from *resolved* to *hypothesis*:
+> `thought track == w_slot` and `rail position == axial direction`. The wave
+> order below is the revised one; the original D-WFL-1..7 numbering is
+> superseded.
 
 ---
 
@@ -59,7 +73,7 @@ the coordinate system?*
 6. **Sparse publication.** Only the delta crosses into `AlphaOverlay`, stamped
    by an owner, batched into one `DatasetVersion`.
 
-**Where the code leaves the representation — three seams, in dependency order.**
+**Where the code leaves the representation — four seams, in dependency order.**
 
 ### Seam A — the executed planes never prove they are the witnessed lane
 
@@ -112,12 +126,150 @@ pub struct AlphaOverlay<'a> {
 }
 ```
 
-`attended_mask()` (`alpha.rs:783`) allocates `AlphaMask::empty(base.len())` and
-scatters set-bits by iterating the HashMap. So the publication boundary
-round-trips **ordinal → NodeGuid → hash → ordinal → full mask** exactly where
-the architecture wants ordinals to stay ordinals. `AlphaMask` itself is the
-right type (bitset with explicit phantom-tail discipline, `alpha.rs:224`); the
-claim path is what is row-shaped.
+Start from what FIRE actually is, because every loose framing of this seam
+inverts it:
+
+> **FIRE only ever writes what the read already had.** It is a sparse
+> alpha-channel delta, and the delta is not computed at publication time — the
+> fold, the tile and the frontier were already holding it, in their own compact
+> form. Publication is persistence, not production. There is no version of FIRE
+> that reconstructs, rebuilds, or re-derives state.
+
+That is the measuring stick, and it makes the seam precise: **any re-addressing
+at the write boundary is pure loss.** Not expensive work — *unnecessary* work,
+because the information was in hand one instruction earlier.
+
+Two places the current code asks for it back:
+
+- **The claim's input coordinate.** `claim()` demands an `AlphaAddr` =
+  `NodeGuid`, and hashes it. But the read path holds **ordinals** — a mask, a
+  bound, a frontier. So the caller must re-derive a coordinate it already had in
+  a cheaper form, purely to satisfy the signature. This is the seam proper, and
+  it is about the *key*, not the storage.
+- **The focus query.** `attended_mask()` (`alpha.rs:783`) allocates
+  `AlphaMask::empty(base.len())` and scatters bits by walking the HashMap — a
+  dense answer to a question asked of sparse state, one layer after the sparse
+  write.
+
+`AlphaMask` is the right type (bitset with explicit phantom-tail discipline,
+`alpha.rs:224`), and `claimed: Vec<NodeRow>` is the *storage contract*, which is
+a separate question from the key (see W6). What is mis-shaped is the coordinate
+the write demands and the materialization the read performs — never the delta,
+which was compact the whole way.
+
+### Seam D — the bound and the tile are intervals in DIFFERENT orders
+
+The sharpest of the four, and the one this plan's own first draft walked
+straight through.
+
+`SealedFacetLane` sorts by `FacetCascade::cmp_numeric_projection`, so a
+`Bound { lo, hi }` is an interval in **semantic projection order**.
+`mask_shift_morton` reads bit position as `ordinal = Morton(q, r)` — an interval
+in **geometric order**. §1 states two paragraphs earlier that one physical
+sequence is monotone under one lens at a time. It follows that these two
+intervals are *not* the same set of rows, and the draft's `window ∩ tile` joined
+them with a bare intersection.
+
+```
+semantic ordinal  --(identity-preserving rotation)-->  Morton ordinal
+```
+
+That rotation has a cost, and nothing in the plan accounted for it. It is also
+the most interesting unknown in the whole architecture, because the two outcomes
+are the thesis and its refutation:
+
+- if the rotation is a cheap projection or an index lookup, that IS the
+  schema-rotation claim, demonstrated;
+- if it is a scatter of thousands of `NodeGuid`s through a hash table, the
+  resistance the fold removed at the bound has simply moved one stage later.
+
+It must be **measured before the Wabe wave**, and it must not be hidden inside
+fixture construction — a fixture that builds the population already in Morton
+order and then seals it semantically has assumed the answer.
+
+### The consequence of A + D: replay can be cheaper than storage
+
+Mask intersection is deterministic and cheap — that is the whole point of the
+substrate. Take that seriously at the publication boundary and a third option
+appears beside the two the architecture names:
+
+```
+fold(address, condition)
+    -> NoChange
+    |  PublishEffect(address', delta)          the result
+    |  PublishReplayableTask(domain, program)  the QUESTION that regenerates it
+```
+
+If the same row domain and the same program yield a bit-identical mask every
+time, then persisting the *task* — a kanban entry naming the domain and the
+program — is a complete record of the insight, and the insight itself can be
+recomputed on demand. The system can then afford to hold **many** insights as
+replayable rather than as stored answers, because each one costs a descriptor
+instead of a result set, and each replay costs an intersection.
+
+This is not a new transport and not a new actor message. It is a claim about
+what the durable unit *is*, and it sits naturally with the deleted
+`KanbanActor`'s own ruling (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`): what
+gets written is the task's **existence**, never a command and never an ack.
+
+**W1 is the precondition, not merely a correctness gate.** A replay is sound
+only if the domain it replays against is pinned — version, lens, and the
+permutation the seal applied. That is exactly `RowDomain`. Without Seam A
+closed, "replay" means *recompute against whatever the lane looks like now*,
+which is not replay. With it closed, the `RowDomain` IS the replay key.
+
+Two consequences for the accounting in §6: the agreed exact answer carrier for
+such an insight is the **task descriptor**, not the row set it denotes; and the
+replay cost must be reported as its own column, because an insight that is cheap
+to store and expensive to re-derive has only moved its cost.
+
+### Writing is the expensive part — so the boundary has TIERS, not a switch
+
+The reason replay wins is not that reading is cheap; it is that **writing is
+expensive**. That asymmetry, stated plainly, forbids a design the two-option
+framing above still allows: a speculative *"this looks interesting, let me test
+this hypothesis"* must not cost an SoA row. Under one undifferentiated publish
+path it does, and the cost of curiosity becomes the cost of knowledge.
+
+So the durable side is a ladder of at least three tiers, each strictly cheaper
+than the one above it:
+
+| tier | what it records | carrier | when |
+|---|---|---|---|
+| **meta kanban atom** | *a hypothesis worth testing* — the question, not any answer | a small intermediary write at the META level; **never an SoA row** | the cheap, frequent case: speculation |
+| **replayable task** | the domain + program that regenerates an insight | a descriptor (`RowDomain` + program) | the insight is settled but need not be materialized |
+| **materialized effect** | the answer itself, as state | the alpha row / SoA write | it crossed the rubicon: worth being state |
+
+**The rubicon is the point of the design.** An atom *at* the rubicon is written
+at the meta level; only what crosses it earns the full row. That is what lets
+the system afford to be curious — to fire off many hypotheses — without each one
+costing what a conclusion costs. It also matches
+`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` at a second level: the meta atom
+records that a question EXISTS, not a command to answer it and not its answer.
+
+Two things this makes measurable, and W6 must report both:
+
+- **Cost per tier, separately** — bytes and µs for a meta atom, for a replayable
+  task, for a materialized effect. If the ladder is not strictly increasing by a
+  wide margin, the tiering buys nothing and should be dropped rather than
+  maintained.
+- **Tier mix under a real workload** — how many speculations per replayable
+  task, how many replayable tasks per materialized effect. A tiering whose cheap
+  tier is rarely used is decoration; a system whose expensive tier fires on
+  every speculation never had a rubicon.
+
+⊘ This is a claim about the SHAPE of the durable side, not a licence to build a
+new transport, a second store, or an actor message per hypothesis. The meta tier
+is an intermediary write through the existing owner, and naming it does not
+authorize inventing one.
+
+**The falsifier this needs, and it is not optional.** Determinism must be a
+*proved* property, not an assumed one: same `RowDomain` + same program ⇒
+bit-identical mask, across repeated runs, across SIMD backends, and across
+process restarts. Anything that makes a result depend on scratch contents,
+iteration order of a hash map, or a runtime ISA choice breaks replay silently —
+and silently is the only way this can break, because a wrong replay still
+returns a plausible mask. Gate it before any wave relies on replay.
 
 ### And the finding that reframes the sequence
 
@@ -138,10 +290,16 @@ outside reference is a `pub mod` line):
 
 `kanban_actor.rs` carries an explicit tombstone (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`): `KanbanActor` and its `Advance`/`MulAdvance`/`Tick` RPCs were **deleted**, not deprecated. Do not reintroduce that shape.
 
-**Consequence for the plan: the deliverable is an ASSEMBLY, not a construction.**
-Most PRs below connect two existing symbols and delete a materialization between
-them. Only two build something genuinely new (D-WFL-3's tile contract and
-D-WFL-6's strided facet lane).
+**Consequence for the plan: the deliverable is mostly ASSEMBLY, not
+construction.** Most waves below connect two existing symbols and delete a
+materialization between them.
+
+⊘ The first draft said *"only two build anything genuinely new."* That is too
+strong and is withdrawn. `RowDomain` is new semantics; the range-native
+terminals are new execution; the Morton rotation is a new mapping; a second
+`SemanticLens` variant is new implementation; and an ordinal-keyed claim path
+would be a new alpha mutation path. The *architectural* conclusion survives —
+no new subsystem is needed — but the literal count does not.
 
 ---
 
@@ -154,10 +312,14 @@ The prompt's `(G, NodeGuid, Thought-or-Rung)` resolves as:
 | **G** (ontology / ClassView) | `classid: u32` at facet bytes `0..4`, canon-high (`concept << 16 \| app`); resolved through `lance-graph-ontology`'s `class_resolver` | `facet.rs:94`, canon-high flip on the board | none |
 | **NodeGuid** | `canonical_node::NodeGuid`, 16 B, stable | `canonical_node.rs:862` | none |
 | **Rung** | **`TemporalPov { range, rung: u8 }`** — already a *reader's* coordinate, not per-node state | `contract/src/temporal_pov.rs:151` | **none** |
-| **Thought track (≤64)** | the **6-bit W-slot palette**, `AttentionMaskEntry { mailbox_id: MailboxId, w_slot: u8 /* 0..64 */ }` | `cognitive-shader-driver/src/attention_mask.rs:29` | **none** |
+| **Thought track (≤64)** | **[HYPOTHESIS, not resolved]** the 6-bit W-slot palette, `AttentionMaskEntry { mailbox_id, w_slot: u8 /* 0..64 */ }` — a *physical* attention slot with LRU state, bound to a `MailboxId`. Nothing read establishes that it semantically IS a thought track; it is a carrier that happens to have the right cardinality | `cognitive-shader-driver/src/attention_mask.rs:29` | none, IF the hypothesis holds |
 
-So neither a packed 6+4 ABI nor an `N × 64 × 10` slab is needed: **rung is a
-read POV, track is a W-slot claim.** Both are already typed. The per-node
+So no packed 6+4 ABI and no `N × 64 × 10` slab is needed. **Rung is a read POV
+— that one is resolved.** *Track* is the open one: a six-bit field is not a
+thought track merely because both fit in six bits. Two things sharing a width
+is not a semantic identity, and this plan must not canonize one by noticing a
+coincidence. Marked HYPOTHESIS pending the cognitive-semantics question
+(§8). The per-node
 `AlphaStamp { cycle, seq, rung, visits }` occupies value slot 0 (16 B,
 `ALPHA_STAMP_OFFSET = 0`) and is the *only* per-node track/rung residue —
 already sized, already canon.
@@ -183,10 +345,20 @@ directions → `(permeability, strength)` at `r[2d]`, `r[2d+1]`. And §3's
 polymorphic-pair extension already sanctions, for a node's **second GUID
 dedicated to relationships**, six relations as one-byte pairs.
 
-**The six-neighbour Wabe tenant is the second facet's rail plane, read under a
-ClassView.** Six directions = six rails = six relations. No new column, no new
-stride, no `ENVELOPE_LAYOUT_VERSION` bump. This is the single largest piece of
-free ground in the whole proposal.
+What this establishes, stated exactly:
+
+> `6 × (u8:u8)` gives the **storage capacity** for a Wabe tenant for free.
+> A **Wabe ClassView** is what would give those six slots *directional*
+> semantics.
+
+⊘ The first draft wrote *"six directions = six rails = six relations"* and
+treated the mapping as already made. It is not. The LE contract sanctions six
+`(basin, relationtype)` pairs on a relationship facet; it nowhere says those six
+positions mean `+q, -q, +r, -r, +q-r, -q+r`. §3's own rule is that the reading
+is ALWAYS selected by the ClassView, never by convention-in-code — and inferring
+a directional reading from a slot count is exactly convention-in-code. The
+capacity is free; the meaning still has to be declared and named. No new column,
+no stride change, no `ENVELOPE_LAYOUT_VERSION` bump either way.
 
 ---
 
@@ -202,168 +374,215 @@ T0 = ndarray backends, T1 = `ndarray::simd` facade + mask ALU, T2 = behaviour
 | point fold (8-tile LCP) | `FacetCascade::shared_prefix_tiles` · d-diamond-1-probe P1 | lg@25988f3c | **I** | — | 1.7–4.2 ns, all three arms; oracle-checked |
 | lens-tagged order witness | `ordered_lane::{SealedFacetLane, OrderedLaneWitness}` | lg@25988f3c | **I** | — | F2/F3 green: shuffled unattestable, forged/stale/lens-mismatch rejected |
 | prefix → bound lowering | `quack::Filter::prefix_facet` · **tests only** (`lib.rs:2531,2532,2575`) | lg@25988f3c | **D** | first production caller (D-WFL-2) | differential vs row-scan oracle at every depth 0..=8 |
-| **bound ⇄ executed planes binding** | `Planes` has no version/lens/digest (`ir.rs:50`) | lg@25988f3c | **M** | `Planes.domain: RowDomain` + check in `validate` (D-WFL-1) | wrong-version / wrong-lens / duplicate-key falsifiers, each red before the fix |
-| range survives execution | `Pred::Range` → `mask_set_range(dst=full)` (`exec.rs:540`) | lg@25988f3c · nd@40a71ad | **M** | `Terminal::{RangeAny, RangeCount}` + `BoundedMask` scratch (D-WFL-2) | touched-word counter; cost flat in N and in absolute position |
-| touched-window write | `d_diamond_1_probe::touched_write` — **probe-only** | lg@25988f3c | **D** | promote to a `BoundedMask` view in mask-risc (D-WFL-2) | 20.5–23.1 ns flat vs 34→4,620 ns whole-lane |
-| six-neighbour shift | `ndarray::simd::mask_shift_morton` · hex probe | nd@40a71ad | **I** (as a *whole-field* op) | tile contract, D-WFL-3 | axial BFS oracle + degree-one control (both already in the probe) |
+| **bound ⇄ executed planes binding** | `Planes` has no version/lens/digest (`ir.rs:50`) | lg@25988f3c | **M** | `Planes.domain: RowDomain`, bound to the PERMUTATION (W1) | wrong-version / wrong-lens / permuted-planes falsifiers, each red before the fix |
+| **semantic ordinal → Morton ordinal** | nothing; the two orders are simply different (Seam D) | lg@25988f3c | **M** | measure the rotation before building on it (W3) | bytes touched, fragments, index build + footprint, reuse count — on an independently-ordered lane |
+| range survives execution | `Pred::Range` → `mask_set_range(dst=full)` (`exec.rs:540`) | lg@25988f3c · nd@40a71ad | **M** | range-native terminals, zero scratch (W2a) | mask words written == 0, at every N and every position |
+| bounded mask composition | no windowed operand descriptor exists | lg@25988f3c | **M** | a descriptor with global `base_word` + local length + tail + row-domain (W2b); do NOT narrow generic `Scratch` first | touched words == `ceil(width/64)+1`, flat in N and position |
+| touched-window write | `d_diamond_1_probe::touched_write` — **probe-only** | lg@25988f3c | **D** | the shape W2b's descriptor generalizes | 20.5–23.1 ns flat vs 34→4,620 ns whole-lane |
+| six-neighbour shift | `ndarray::simd::mask_shift_morton` · hex probe | nd@40a71ad | **I** (as a *whole-field* op) | closed-tile contract (W4) | axial BFS oracle + degree-one control (both already in the probe) |
 | u8 gate predicates | `gt_u8_to_mask` etc. · hex probe | nd@40a71ad | **I** | — | in-probe |
 | gated predicate | `*_to_mask_under` — skips compare on a zero gate word, still visits the gate span | nd@40a71ad | **I** | pass bounded gates, never a global one | gate-word visit counter |
-| **strided facet lane** | `LaneRef::{I32,U32,U64}` — no strided variant; `ir.rs:21-27` names the gap itself | lg@25988f3c | **M** | `LaneRef::Strided{base,stride,group}`, mirroring `ndarray::simd::ternary_match_strided_to_mask` (D-WFL-6) | differential vs a contiguous copy of the same lane |
+| **strided facet lane** | `LaneRef::{I32,U32,U64}` — no strided variant; `ir.rs:21-27` names the gap itself | lg@25988f3c | **M** | `LaneRef::Strided{base,stride,group}`, mirroring `ndarray::simd::ternary_match_strided_to_mask` — needed only when the rail read leaves the probe (§5) | differential vs a contiguous copy of the same lane |
 | tree-depth column ("G8") | nothing in ndarray `src/` | nd@40a71ad | **M** | out of scope for this arc; name it, don't assume it | — |
-| alpha claim algebra | `AlphaOverlay::claim` · `wave_dispatch::dispatch_thought` (**orphan**) | lg@25988f3c | **D** | ordinal-keyed claim path (D-WFL-4) | claimed bytes; no `Vec<NodeRow>` growth per claim |
-| rung × tenant focus | `AlphaFocus` · **no caller** | lg@25988f3c | **D** | make it the slice's focus carrier (D-WFL-5) | `unlooked()` non-empty and non-total |
-| rung wave scheduler | `rung_schedule::schedule_for` · `wave_dispatch` (orphan) | lg@25988f3c | **D** | one live caller (D-WFL-5) | two contexts, deterministic wave order |
+| alpha claim algebra | `AlphaOverlay::claim` · `wave_dispatch::dispatch_thought` (**orphan**) | lg@25988f3c | **D** | use AS IS in W6 and measure; the input-coordinate change is deferred behind that number | a cost line per stage, not a speedup |
+| rung × tenant focus | `AlphaFocus` · **no caller**; every read accessor materializes a full-population mask | lg@25988f3c | **D** | NOT the slice's carrier — W5 stays tile-local | — |
+| rung wave scheduler | `rung_schedule::schedule_for` · `wave_dispatch` (orphan) | lg@25988f3c | **D** | one live caller (W7) | two contexts, deterministic wave order |
 | owner stamping | `SoaEnvelope::mailbox_owner()` — default 0, only its own tests | lg@25988f3c | **D** | stamp on the slice's write (D-WFL-4) | owner ≠ 0 on every published row |
 | batch → DatasetVersion | `BatchWriter::cast` → `LanceCycleWriter::commit_cycle` · tests + one example | lg@25988f3c | **D** | assemble once in the slice (D-WFL-7) | exactly one new version per cycle; append-only |
-| track (≤64) | `w_slot: u8` (6-bit palette) | lg@25988f3c | **I** as a claim; **M** as a dispatch | two active tracks only (D-WFL-5) | both tracks visible at one NodeGuid |
+| track (≤64) | `w_slot: u8` (6-bit palette) | lg@25988f3c | **HYPOTHESIS** — a physical attention slot, not established as a thought track (§8) | do not depend on the identification | — |
 | rung (0–9) | `TemporalPov.rung` | lg@25988f3c | **I** | — | — |
 
 ---
 
-## §4 Dependency-ordered PRs
+## §4 Wave order (revised)
 
-Each names: files · invariant · the real consumer · the gate · **the result that
-falsifies the step's claim**.
+⊘ The original flat `D-WFL-1..7` list is superseded by the wave order below.
+Each wave ends in a falsifier and a merge / no-merge ruling. **The governing
+rule: never build the next layer until the current one proves its compact
+result survives into the actual consumer.** That sentence is the whole
+foldability thesis in executable form.
 
-### D-WFL-1 — bind the bound to the planes it executes on (closes Seam A)
+### W1 — row identity and order attestation (Seam A)
 
-- **Files:** `contract/src/ordered_lane.rs` (new `RowDomain`), `mask-risc/src/ir.rs`
-  (`Planes.domain`), `mask-risc/src/exec.rs` (`validate`), `quack/src/lib.rs`
-  (carry it on `Bound`).
-- **Shape.** No new registry, no second identity system: `RowDomain { version:
-  LanceVersion, lens: SemanticLens, digest: u64, n_rows: u32 }` — the four
-  fields `OrderedLaneWitness` already holds, lifted so `Planes` can hold one
-  too. `OrderedLaneWitness::domain()` produces it; `validate()` rejects a
-  `Pred::Range` whose program-carried domain ≠ `planes.domain`.
-- **Duplicate keys.** The key digest cannot attest payload order. Either the
-  digest must cover the associated-row identity (digest over `(key, ordinal)`
-  pairs), or `SealedFacetLane` must refuse to attest a lane with duplicate keys.
-  **Recommend the second** — it is one `if` and it is honest; widening the
-  digest silently changes what every existing witness means.
-- **Consumer:** `quack`'s lowering; the executor.
-- **Gate:** three falsifiers, each disable-verified RED first — wrong version,
-  wrong lens, duplicate key. Plus a permuted-planes case: same rows, same
-  length, same key digest, different order ⇒ must be rejected.
-- **Falsifies the step:** a permuted-planes program that still returns the
-  oracle's answer. That would mean the binding is decorative.
+- **Files:** `contract/src/ordered_lane.rs`, `mask-risc/src/{ir,exec}.rs`,
+  `quack/src/lib.rs`.
+- **Bind to the PERMUTATION, not to key uniqueness.** ⊘ The first draft
+  recommended `SealedFacetLane` refuse to attest a lane with duplicate keys.
+  **Withdrawn.** `ordered_lane.rs:194` states the shipped semantics —
+  *"Equal keys are indistinguishable, so an unstable sort is exact."* Refusing
+  duplicates is a semantic regression against that, and it would not have
+  proven what is actually needed: equal keys are indistinguishable **to the
+  comparator**, their associated rows are not, and an unstable sort may permute
+  them freely. So the witness must attest the associated row identity — the
+  permutation the seal applied, or an identity carried per row — never key
+  uniqueness and never a key-only digest.
+- **Gate:** wrong version, wrong lens, and a permuted-planes case (same rows,
+  same length, same key digest, different associated order) — each
+  disable-verified RED first.
+- **Falsified if:** a permuted-planes program still returns the oracle's answer.
 
-### D-WFL-2 — let the range stay a range (closes Seam B)
+### W2a — range-native terminals, zero `Scratch` (Seam B, half one)
 
-- **Files:** `mask-risc/src/ir.rs` (`Terminal::{RangeAny, RangeCount}`,
-  `Scratch` gains a bounded variant), `mask-risc/src/exec.rs`, `quack/src/lib.rs`.
-- **Shape.** Two independent halves, and the first is nearly free:
-  - **(a) terminals that never build a mask.** `Any` over a bound is `hi > lo`;
-    `Count` is `hi - lo`. Both are arithmetic on the endpoints and both are
-    correct *only* when every row in the range satisfies the query — i.e. when
-    the program is exactly one `Pred::Range` with no `under`. Gate it on that.
-  - **(b) `BoundedMask` scratch.** Lift `touched_write`'s `(base_word, words)`
-    shape out of the probe: a scratch slot declares a word window, and
-    `mask_set_range` is called on the window, not the population. `Scratch`'s
-    current `words == words_for(n_rows)` check becomes `>=` on the window.
-- **Consumer:** the slice's prefix→terminal path (D-WFL-5).
-- **Gate:** a touched-word counter asserted against `(hi - lo)/64 + 2`, with
-  equal-width windows at the near and far end of the population — **position
-  and width varied independently**, because a fixed-position sweep cannot see an
-  O(end-position) cost. This is exactly the falsifier that caught the probe's
-  own first fix.
-- **Falsifies the step:** touched words growing with `n_rows` at fixed width, or
-  with absolute position at fixed width. Either means the carrier did not survive.
-- **Hard rule this PR enforces.** Between a successful bound and Wabe entry, no
-  allocation or write sized by the population may occur unless the requested
-  terminal contract genuinely demands a dense full-domain mask. The rule has one
-  mechanical violation site — `Scratch`'s full-population definition — which is
-  exactly what (b) removes, so it is enforceable by a counter rather than by
-  review discipline.
+- `Bound(lo,hi) → Count = hi - lo`, `→ Any = lo != hi`. Arithmetic on the
+  endpoints, correct only when the program is exactly one un-`under`ed
+  `Pred::Range`; gate on that. **No mask-risc scratch touched at all** — which
+  means `execute()`'s unconditional `scratch.words == words_for(n_rows)` check
+  must become conditional on the program actually needing planes.
+- **Gate:** `N` from 1K to 100M, same width, different absolute positions —
+  **mask words written must be 0**, and latency flat in both axes.
+- **Falsified if:** any mask word is written, or cost moves with `N` or position.
+- This is the cleanest available proof of the whole thesis, and it is small.
 
-### D-WFL-3 — one exactly-specified Wabe tile
+### W2b — bounded mask composition (Seam B, half two)
 
-- **Files:** new module in the probe crate first, **not** in a shipped crate.
-- **Decision to state up front — closed tile, not moving window.**
-  `mask_shift_morton` requires `4^k` words, OR-accumulates, treats *the slice as
-  the field*, and drops edge carries. A trie-aligned closed tile is therefore
-  exactly supported today; a moving aperture over a larger interacting field is
-  **not** the restriction of a global shift and needs a halo. Start closed. The
-  locality condition `P_F S_d P_{H(F)} A = P_F S_d A` is what a later halo step
-  must prove; for a closed tile `H(F) = F` and it holds trivially.
-- **Identity mapping:** `ordinal = Morton(q, r)`, declared per tile, asserted
-  against the tile's own base ordinal — never assumed globally.
-- **Gate:** the hex probe's axial BFS oracle, its degree-one control, and a
-  sparse delta-frontier arm (all three already exist in
-  `ndarray/examples/hex_tenant_mq_probe.rs`; reuse, don't rebuild).
-- **Falsifies the step:** any advantage that survives the degree-one control is
-  not hex; any mismatch at a tile edge means the closed-tile claim is false.
+- `Range(lo,hi) ∩ resident aligned mask → Count/Any`, touching only words
+  `w0..w1`.
+- ⊘ **Not** a narrowing of the existing `Scratch`. Changing
+  `words == words_for(N)` to a smaller window is insufficient: operands need a
+  global `base_word`, a local length, tail semantics, and a row-domain
+  identity, because local word zero is not global word zero. That descriptor is
+  the deliverable. **Do not modify generic `Scratch` until the descriptor has
+  proved itself against a real consumer.**
+- **Gate:** touched words = `ceil(width/64) + 1`, independent of `N` and of
+  absolute position.
 
-### D-WFL-4 — an ordinal-keyed claim path (closes Seam C)
+### W3 — the semantic → Morton rotation probe (Seam D) — **NEW, and the crux**
 
-- **Files:** `contract/src/alpha.rs`.
-- **Shape:** add `AlphaOverlay::claim_ordinals(&mut self, mask: &AlphaMask, rung:
-  u8)` beside the existing `claim`. It writes stamps without hashing a
-  `NodeGuid` and without pushing a `NodeRow`. The existing `claim` stays,
-  unchanged, for callers that genuinely start from an address.
-- **Consumer:** the slice's publication step.
-- **Gate:** published bytes and claimed-row growth counted per claim; a no-change
-  step publishes zero; an inhibitory change publishes non-zero.
-- **Falsifies the step:** claimed bytes still scaling at 512 B/claim.
+- Take `Bound_semantic(lo, hi)`, resolve the **same NodeGuids** to their Morton
+  tile positions, and measure: bytes touched, fragments produced, index build
+  cost, index footprint, and reuse count across queries.
+- **The rotation must not be hidden in fixture construction.** A fixture that
+  generates the population already in Morton order and then seals it
+  semantically has assumed the answer. The probe must start from an
+  independently-ordered lane.
+- **Falsified if:** the rotation costs a per-row hash scatter with no reuse. That
+  does not kill the architecture — it relocates the resistance, and says so.
+- Nothing downstream should be built until this number exists.
 
-### D-WFL-5 — the assembly (the first slice; see §5)
+### W4 — one closed Wabe tile
 
-### D-WFL-6 — strided facet lane in the IR
+- CLOSED (`4^k`, trie-aligned), not a moving aperture: `mask_shift_morton`
+  treats the slice as the field and drops edge carries, so a subspan is not a
+  restricted global shift. `H(F) = F`, locality holds trivially.
+- **Gate:** the hex probe's existing axial-BFS oracle, its degree-one control,
+  and a sparse delta-frontier arm — all three already exist in
+  `ndarray/examples/hex_tenant_mq_probe.rs`. Same terminal on every arm.
+- **Win condition is not "hex beats everything."** It is: cost follows focused
+  tile area and active frontier, not total population.
+- **Falsified if:** any tile-edge mismatch against the oracle, or an advantage
+  that survives the degree-one control (then it is not hex).
 
-Deferred until the slice needs it. `ir.rs:21-27` already names the gap and
-already names `ndarray::simd::ternary_match_strided_to_mask` as the shape. Adding
-`LaneRef::Strided` before a consumer exists would be building a facade word with
-no backend behind it.
+### W5 — focus produced by the result
 
-### D-WFL-7 — one real publication through the existing owner
+- Feed the surviving frontier back as the next region. Exercise narrowing,
+  translation, splitting, and reopening after an outside contribution.
+- ⊘ **`AlphaFocus` cannot be the carrier yet — and the reason is a READ-side
+  materialization, not anything FIRE does.** State it precisely, because the
+  loose version of this sentence gets the architecture backwards:
 
-`BatchWriter::cast` → `collect_casts` → `seal` → `LanceCycleWriter::commit_cycle`
-→ one `DatasetVersion`. Every link exists; assemble it once, outside `tests/`.
-**No** new transport type, **no** per-cell or per-thought actor message, **no**
-resurrection of `KanbanActor`. `FIRE` names the effect, not an object.
+  > **FIRE can only ever be a sparse alpha-channel delta.** That is what it IS,
+  > by construction — there is no version of FIRE that reconstructs state, and
+  > "rebuild after FIRE" is not a failure mode this substrate can even express.
 
----
+  The defect is one layer later, on the **query** side. Verified: `cell`
+  (`:122`), `any_rung_mask` (`:158` — ten times, once per rung lane), `unlooked`
+  (`:175`) and `rung_reach` (`:183`) each answer *"what is focused?"* by calling
+  `attended_mask()`, which allocates a full-population `AlphaMask` and scatters
+  bits into it. So a sparse write is followed by a dense **read**, and routing
+  the next focus through that read is what would reintroduce the population
+  cost Seam B removes. W5 therefore stays **tile-local**: the frontier is
+  carried forward directly, and no focus question is asked of `AlphaFocus`.
+- **Gate:** one trace where changing the local result changes the next region
+  processed, with the same final answer as the reference route.
+
+### W6 — publish through the EXISTING alpha route, and pay for it
+
+- Use `AlphaOverlay::claim()` as it stands — the 512-byte `NodeRow` push, the
+  `NodeGuid` hash, the scanpath order, the revisit counter. **Deliberately.**
+- ⊘ `claim_ordinals` is **deferred, and split in two** — the first draft treated
+  it as one change and it is not:
+  - **The input coordinate** (accept an ordinal or a mask the reader already
+    holds, instead of demanding a `NodeGuid` to hash) touches no stored bytes.
+    Since FIRE writes what the read already had, this is the API admitting what
+    the caller is holding — not an optimization layered on top.
+  - **The storage contract** (`claimed: Vec<NodeRow>`, and with it `NodeGuid`
+    identity, scanpath ordering and visit counts) is a genuinely different
+    question, and the one the first draft would have changed by accident.
+  Both stay deferred behind W6's measurement. Optimising a correct boundary
+  before the full loop exists risks swapping a known-expensive correct thing for
+  an elegant thing whose semantics quietly differ.
+- **Deliverable is a cost line**, not a speedup: fold ~ns, bound ~100s of ns,
+  rotation (W3), Wabe, alpha bytes + µs, commit. If alpha then dominates, the
+  follow-up is well-posed and falsifiable: *can publication keep ordinal
+  compactness without losing NodeGuid identity, scanpath order, visits,
+  evidence semantics or replay?*
+- **And the tier line, because writing is the expensive part.** Measure the
+  three durable tiers separately — meta kanban atom, replayable task,
+  materialized effect — in bytes and µs, plus their mix under the slice's
+  workload. The question W6 answers is not only *what does publication cost* but
+  *does a speculation cost what a conclusion costs?* If it does, the rubicon is
+  not implemented, whatever the docs say.
+
+### W7 — the second context reacts; the slice closes
+
+- A consequence published at one `NodeGuid` becomes eligible input at the same
+  `NodeGuid` under another context, and that changes the next focus.
+- Owner-stamped, through `BatchWriter::cast` → `collect_casts` → `seal` →
+  `LanceCycleWriter::commit_cycle` → one `DatasetVersion`, assembled outside
+  `tests/`. No new transport type, no per-cell or per-thought actor message, no
+  `KanbanActor` resurrection (that actor was deleted, not deprecated).
+
+### Deferred behind the slice
+
+Compact alpha (the W6 follow-up) · the full orchestra · a moving halo and
+cross-tile scheduling · Gaussian / weighted influence · the Boolean↔epistemic
+crossing · `LaneRef::Strided` · G8.
 
 ## §5 The first slice — concrete fixture
 
 **Population.** 65,536 rows — the hex probe's size, so its oracle and its
-degree-one control transfer unchanged. One `NodeRow` per cell;
-`ordinal = Morton(q, r)` over a 256×256 axial field.
+degree-one control transfer unchanged. One `NodeRow` per cell.
 
 **Two lenses.** (i) `SemanticLens::CanonHighTiles8` over the **key** facet —
-the shipped lens, sealed, witnessed. (ii) A second lens over the **second**
-facet's rail plane. It gets its own `SemanticLens` variant, and the slice must
-demonstrate that the lane is **not** attestable under both at once — one physical
-sequence is monotone under one lens at a time. D-DIAMOND-1's P3 already showed
-exactly this (tenant lane unattestable over the ontology ordinal, inversion at
-row 1); the slice reproduces it as a *designed* property rather than a finding.
+shipped, sealed, witnessed. (ii) A second lens over the **second** facet's rail
+plane, which is a new `SemanticLens` variant and therefore new implementation,
+not assembly.
 
-**Two thought contexts.** Two W-slots, two rungs via `TemporalPov`. Not 64, not 10.
+**How the slice reads the rail plane — stated, not assumed.** ⊘ The first draft
+deferred `LaneRef::Strided` while §5 required a second-facet lens; that was a
+contradiction. Resolution: the slice runs in the **probe crate**, which owns its
+own data layout and can hold the six rail bytes in a contiguous `[u8]` tenant
+array exactly as `hex_tenant_mq_probe` does. `LaneRef::Strided` is required only
+when the read moves into the mask-risc IR over real 16-byte-stride rows, and
+that is a later wave. The slice must say which of the two it is using in its own
+header, every time.
 
-**The chain.**
+**The rotation is explicit.** The chain crosses Seam D, and the crossing is a
+named, measured step (W3) — never a bare `∩`:
 
 ```
-witnessed prefix on lens (i)      ->  Bound{lo,hi} + RowDomain        [D-WFL-1]
-Bound  ->  BoundedMask window (no full-population mask)               [D-WFL-2]
-window ∩ tile  ->  A_0
-A_{t+1} = (A_t ∪ ⋃_d S_d(A_t ∩ P_d)) ∩ T   on a closed 4^k tile       [D-WFL-3]
-   P_d = permeability byte of rail d, second facet, lens (ii)
+witnessed prefix on lens (i)   ->  Bound{lo,hi} + RowDomain           [W1]
+Bound                          ->  Count / Any, no mask at all        [W2a]
+Bound x resident mask          ->  touched words only                 [W2b]
+Bound_semantic                 ->  ROTATION  ->  Morton positions     [W3]  <-- measured
+Morton positions ∩ closed tile ->  A_0
+A_{t+1} = (A_t ∪ ⋃_d S_d(A_t ∩ P_d)) ∩ T                              [W4]
 delta = A_{t+1} \ A_t
-delta empty      ->  Terminal::RangeAny == false, nothing published
-delta non-empty  ->  claim_ordinals(delta, rung)                      [D-WFL-4]
-                 ->  owner-stamped cast -> one DatasetVersion         [D-WFL-7]
-publication at the same NodeGuid, other context, changes next eligibility
-   ->  AlphaFocus(rung x tenant) is the next focus                    [D-WFL-5]
+delta empty      ->  Any == false, nothing published
+delta non-empty  ->  AlphaOverlay::claim() as it stands, measured     [W6]
+                 ->  owner-stamped cast -> one DatasetVersion
+same NodeGuid, context B, reacts; next focus changes                  [W7]
 ```
 
-**What must be true throughout:** no allocation sized by `n_rows` occurs between
-the bound and the tile entry. Assert it with a counter, not a comment.
+**Two thought contexts.** Two rungs via `TemporalPov`. The *track* coordinate
+stays a hypothesis (§2) and the slice must not depend on `w_slot` meaning a
+thought track.
 
-**Irregular ingress.** One explicit non-local edge, entering focus sideways (the
-architecture's `G → F` arrow), proving a remote contribution can reopen a region
-the local recurrence had closed. One edge is enough to prove the seam; BLASGraph
-integration is not in this slice.
+**Invariant, asserted by counter and not by comment:** between a successful
+bound and tile entry, no allocation or write is sized by the population.
 
----
+**Irregular ingress.** One explicit non-local edge, entering focus sideways,
+proving a remote contribution can reopen a region the local recurrence closed.
 
 ## §6 Measurement plan
 
@@ -424,4 +643,39 @@ any statement about total-system throughput.
 
 Remaining to build after it: halo + cross-tile scheduling, the lens catalogue,
 `LaneRef::Strided`, G8, the epistemic crossing between Boolean occupancy and
-`TruthU8`, and the conductor over the full track set.
+`TruthU8`, compact alpha (the W6 follow-up), and the conductor over the full
+track set.
+
+---
+
+## §8 Deliberately NOT decided here
+
+These are cognitive semantics, and an implementation session must not canonize
+them by noticing that two things fit in the same number of bits. Each blocks a
+later wave, none blocks W1–W4.
+
+1. **What is a thought track?** Is `w_slot` its semantic identity, or merely a
+   carrier with the right cardinality? (§2 marks this HYPOTHESIS.) Blocks the
+   orchestra.
+2. **What is a Wabe direction?** Which ClassView makes six rail positions mean
+   six axial directions, and who declares it? (§2.) Blocks W4's tenant reading
+   moving out of the probe.
+3. **What survives FIRE?** FIRE is a sparse delta that writes what the read
+   already had — that much is settled. What is NOT settled is which *kind* of
+   thing the delta carries: activation, attention, evidence, belief revision,
+   inhibition. Without this, "novel consequence" degenerates to "the delta was
+   non-empty" and every non-empty intersection publishes. **Blocks W6.**
+   Its twin, given replay: **when is an insight better stored than replayed?**
+   A replayable task is complete only if nothing about the world it questioned
+   has moved; the version-pinned `RowDomain` says when that holds, but the
+   *policy* — which insights earn a materialized answer — is a cognitive call,
+   not an engineering one.
+4. **What is the minimal meta-awareness carrier?** It should not default to N
+   full-population masks merely because `AlphaFocus` currently represents the
+   rung × tenant cross that way. The 64-bit per-node track summary is a
+   *possible* representation, never a mandate to materialize a dense cross.
+   Blocks W5's generalization beyond tile-local.
+5. **Where may Boolean occupancy legally cross into epistemic truth?** Occupancy
+   and popcount are not `TruthU8` arithmetic, and repeated activation is not
+   independent evidence. W6 needs one concrete legal crossing point — not a
+   full theory, but not silence either.

@@ -1,3 +1,135 @@
+## 2026-09-19 — E-A-BOUND-AND-A-TILE-ARE-INTERVALS-IN-DIFFERENT-ORDERS-1
+
+**Status:** FINDING (read-verified). **Confidence:** high.
+
+A witnessed `Bound { lo, hi }` is an interval in **semantic projection order**
+(`SealedFacetLane` sorts by `FacetCascade::cmp_numeric_projection`). A Morton
+tile is an interval in **geometric order** (`ordinal = Morton(q, r)`). These are
+not the same set of rows, and the first draft of
+`.claude/plans/waben-fold-execution-loop-v1.md` joined them with a bare `∩` —
+two paragraphs after asserting that one physical sequence is monotone under one
+lens at a time. The document contained its own refutation and shipped anyway.
+
+Named **Seam D**. The rotation `semantic ordinal → Morton ordinal` is now an
+explicit, measured wave (W3) that must run on an INDEPENDENTLY-ORDERED lane: a
+fixture that generates the population already in Morton order and then seals it
+semantically has assumed the answer. Its two outcomes are the thesis and its
+refutation — a cheap projection/index lookup demonstrates the schema-rotation
+claim; a per-row hash scatter with no reuse relocates the resistance rather than
+removing it, and says so.
+
+**The general lesson, which is the reusable part:** an order-bearing carrier
+that names its lens is not thereby safe to intersect with another
+order-bearing carrier. `SemanticLens` was introduced (D-DMD-L2) precisely so an
+order claim names its projection — and a lens tag prevents pairing a prefix with
+a MISMATCHED witness, while doing nothing at all to prevent joining two
+correctly-lensed intervals from DIFFERENT lenses. The guard that catches a
+forged witness does not catch a coordinate-system change, and nothing in the
+type system distinguished them.
+
+Three companion corrections from the same review, each read-verified:
+
+1. **Duplicate keys — the D-WFL-1 recommendation is WITHDRAWN.**
+   `ordered_lane.rs:194` states the shipped semantics: *"Equal keys are
+   indistinguishable, so an unstable sort is exact."* Refusing to attest a lane
+   with duplicates is a semantic regression against that, AND it would not prove
+   what is needed — equal keys are indistinguishable to the comparator, their
+   associated rows are not, and an unstable sort may permute them freely. Bind
+   the witness to the PERMUTATION, never to key uniqueness.
+2. **`AlphaFocus` materializes on the READ side.** `cell` (`:122`),
+   `any_rung_mask` (`:158`, ten times — once per rung lane), `unlooked` (`:175`)
+   and `rung_reach` (`:183`) each answer "what is focused?" via
+   `attended_mask()`, which allocates a full-population `AlphaMask`. A sparse
+   write followed by a dense read.
+3. **FIRE only ever writes what the read already had.** It is a sparse
+   alpha-channel delta by construction; the delta is not produced at publication
+   time, it was already in the fold's hands. So any RE-ADDRESSING at the write
+   boundary is pure loss, not work — and `claim()` demanding a `NodeGuid` to
+   hash, when the caller holds ordinals, is exactly that. This splits the
+   deferred `claim_ordinals` in two: the INPUT COORDINATE (touches no stored
+   bytes) and the STORAGE CONTRACT (`claimed: Vec<NodeRow>`, scanpath order,
+   visit counts) — a change the first draft would have made by accident.
+
+---
+
+## 2026-09-19 — E-REPLAY-CAN-BE-CHEAPER-THAN-STORAGE-1
+
+**Status:** CONJECTURE (gated on the determinism falsifier below).
+**Confidence:** medium-high on the mechanism, unmeasured on the policy.
+
+Mask intersection is deterministic and cheap. Taken seriously at the publication
+boundary, a third option appears beside the two the architecture names:
+
+```
+NoChange | PublishEffect(addr', delta) | PublishReplayableTask(domain, program)
+```
+
+If the same row domain and the same program yield a bit-identical mask every
+time, the durable unit of an insight can be **the task that regenerates it**
+rather than the result. The system can then afford to carry MANY insights as
+replayable, each costing a descriptor instead of a result set. This is not a new
+transport and not an actor message; it is a claim about what the durable unit
+IS, and it sits with `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` — what gets
+written is the task's existence, never a command and never an ack.
+
+**Seam A's closure is the precondition, not merely a correctness gate.** A
+replay is sound only against a pinned domain — version, lens, and the
+permutation the seal applied. That is `RowDomain`. Without it, "replay" means
+*recompute against whatever the lane looks like now*, which is not replay; with
+it, **the `RowDomain` IS the replay key**. This retroactively raises W1's value:
+it was filed as a correctness fix and is also the enabling condition for a
+storage strategy.
+
+**Falsifier, mandatory before any wave relies on replay:** same `RowDomain` +
+same program ⇒ bit-identical mask, across repeated runs, across SIMD backends,
+and across process restarts. Anything that lets a result depend on scratch
+contents, hash-map iteration order, or a runtime ISA choice breaks replay
+SILENTLY — which is the only way it can break, because a wrong replay still
+returns a plausible mask.
+
+**Accounting consequence (§6):** for such an insight the agreed exact answer
+carrier is the TASK DESCRIPTOR, not the row set it denotes — and replay cost
+gets its own column, because an insight cheap to store and expensive to
+re-derive has only moved its cost.
+
+**The asymmetry that drives it: WRITING is the expensive part.** Replay does not
+win because reading is cheap; it wins because writing is not. Stated plainly,
+that forbids a design the two-option framing still allows — a speculative *"this
+looks interesting, let me test this hypothesis"* must not cost an SoA row. Under
+one undifferentiated publish path it does, and the cost of curiosity becomes the
+cost of knowledge.
+
+So the durable side is a LADDER of at least three tiers, each strictly cheaper
+than the one above:
+
+| tier | records | carrier |
+|---|---|---|
+| meta kanban atom | a hypothesis worth testing — the question, no answer | a small intermediary write at the META level; **never an SoA row** |
+| replayable task | the domain + program that regenerates an insight | a descriptor (`RowDomain` + program) |
+| materialized effect | the answer, as state | the alpha row / SoA write |
+
+**The rubicon is the point.** An atom AT the rubicon is written at the meta
+level; only what crosses earns the full row. That is what lets the system afford
+to be curious — many hypotheses, none priced like a conclusion. It is
+`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` at a second level: the meta atom
+records that a QUESTION exists, not a command to answer it and not its answer.
+
+Measurable, and W6 must report both: **cost per tier** (bytes + µs for each —
+if the ladder is not strictly increasing by a wide margin, the tiering buys
+nothing and should be dropped rather than maintained), and **tier mix** under a
+real workload (speculations per replayable task, tasks per materialized effect).
+A cheap tier that is rarely used is decoration; an expensive tier that fires on
+every speculation means there was never a rubicon.
+
+⊘ A claim about the SHAPE of the durable side — NOT a licence to build a new
+transport, a second store, or an actor message per hypothesis. The meta tier is
+an intermediary write through the existing owner.
+
+**Left to the cognitive-semantics session:** *which* insights earn a
+materialized answer instead of a replay, and where the rubicon sits. The
+`RowDomain` says when a replay is still valid; it does not say when one is worth
+avoiding, and nothing in the substrate says when a hypothesis has earned a row.
+
 ## E-NO-FOLD-REPORTS-AN-O-POPULATION-COST-1 (2026-09-18) — a "fold" that materializes a population- or lane-sized buffer is a sweep wearing a fold's name
 
 **The rule, stated once:** a fold's cost is a function of its ANSWER's size,

@@ -1,3 +1,27 @@
+## D-WFL — REVISED wave order after review (supersedes the flat D-WFL-1..7 section below, 2026-09-19)
+
+⊘ The `D-WFL-1..7` section further down was written before external review of
+#1251. It is left intact (append-only) and is SUPERSEDED by this one. Changes:
+a fourth seam (**Seam D**, semantic→Morton rotation) was missing and gets its
+own wave; the duplicate-key recommendation is withdrawn; the range work splits
+in two; `AlphaFocus` is disqualified as the focus carrier; `claim_ordinals` is
+deferred behind a measurement. Governing rule: **never build the next layer
+until the current one proves its compact result survives into the actual
+consumer.**
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-W1 | row identity + order attestation: `RowDomain {version, lens, permutation-or-row-identity, n_rows}` on `Planes`, checked in `validate`. Binds to the PERMUTATION — NOT key uniqueness (`ordered_lane.rs:194`: equal keys are indistinguishable, so refusing duplicates is a semantic regression that also proves nothing). Also the precondition for replay (`E-REPLAY-CAN-BE-CHEAPER-THAN-STORAGE-1`) | Queued | wrong-version / wrong-lens / permuted-planes (same rows, same length, same key digest, different associated order), each disable-verified RED first. Falsified if a permuted-planes program still returns the oracle's answer |
+| D-WFL-W2a | range-native terminals, ZERO scratch: `Count = hi-lo`, `Any = lo!=hi`, gated on the program being exactly one un-`under`ed `Pred::Range`. Requires `execute()`'s unconditional `scratch.words == words_for(n_rows)` check to become conditional on the program needing planes | Queued | N from 1K to 100M, same width, varying absolute position — **mask words written must be 0**. Falsified if any mask word is written, or cost moves with N or position |
+| D-WFL-W2b | bounded mask composition: `Range ∩ resident aligned mask → Count/Any` over words `w0..w1`. Needs a real operand descriptor (global `base_word` + local length + tail semantics + row-domain), because local word zero is not global word zero. Do NOT narrow generic `Scratch` until the descriptor has a real consumer | Queued | touched words == `ceil(width/64)+1`, flat in N and in position |
+| D-WFL-W3 | **Seam D — the semantic→Morton rotation probe.** Same NodeGuids, semantic bound → Morton tile positions. NEW; the crux of the whole arc | Queued | bytes touched, fragments, index build cost + footprint, reuse count — measured on an INDEPENDENTLY-ORDERED lane (a fixture pre-built in Morton order has assumed the answer). Falsified (as a cheap rotation) if it is a per-row hash scatter with no reuse — which relocates the resistance rather than removing it |
+| D-WFL-W4 | one CLOSED Morton tile (`4^k`, trie-aligned). Not a moving aperture: `mask_shift_morton` treats the slice as the field and drops edge carries | Queued | the hex probe's existing axial-BFS oracle + degree-one control + sparse delta-frontier arm, same terminal on every arm. Falsified by any tile-edge mismatch, or by an advantage surviving the degree-one control (then it is not hex) |
+| D-WFL-W5 | focus produced by the result — narrowing, translation, splitting, reopening. **Tile-local**: `AlphaFocus` is disqualified as the carrier because `cell:122` / `any_rung_mask:158` (×10) / `unlooked:175` / `rung_reach:183` all materialize a full-population mask on the READ side | Queued | one trace where changing the local result changes the next region processed, same final answer as the reference route |
+| D-WFL-W6 | publish through the EXISTING `AlphaOverlay::claim()` — 512-byte row, GUID hash, scanpath, visits — deliberately, and measure it. `claim_ordinals` deferred and SPLIT: the input coordinate (no stored bytes) vs the storage contract (two different changes) | Queued | a per-stage cost line, not a speedup. FIRE writes what the read already had, so any re-addressing at the write is pure loss — quantify it before removing it |
+| D-WFL-W7 | second context reacts at the same NodeGuid; owner-stamped `cast` → `collect_casts` → `seal` → `commit_cycle` → one `DatasetVersion`, assembled outside `tests/` | Queued | exactly one version per cycle, append-only, owner ≠ 0. No new transport, no per-cell message, no `KanbanActor` resurrection |
+| D-WFL-W6t | the WRITE-TIER ladder, measured inside W6: meta kanban atom (a hypothesis, never an SoA row) < replayable task (descriptor) < materialized effect (alpha/SoA row). Writing is the expensive part, so a speculation must not cost what a conclusion costs — the rubicon is where an atom earns a row | Queued | cost per tier (bytes + µs) AND tier mix under the slice's workload. Falsified if the ladder is not strictly increasing by a wide margin (then drop the tiering rather than maintain it), or if the expensive tier fires on every speculation (then there is no rubicon) |
+| D-WFL-DET | determinism gate for replay: same `RowDomain` + same program ⇒ bit-identical mask, across repeated runs, SIMD backends, and process restarts | Queued | MANDATORY before any wave relies on replay. A wrong replay still returns a plausible mask, so silent breakage is the only breakage mode |
+
 ## D-WFL — the Waben fold execution loop (D-ids minted 2026-09-19, plan `.claude/plans/waben-fold-execution-loop-v1.md`)
 
 Operator-supplied architecture (`waben_fold_architecture.md` + its implementation
