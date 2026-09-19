@@ -515,6 +515,87 @@ working memory, but a transformation you run your own context through. So the
 continuations, crossable between kanban boards wherever their dependencies are
 satisfiable.
 
+### FOLD and MASK are sibling physical plans
+
+The shortest form of everything below: **masks are allowed; accidental masks
+aren't.**
+
+⊘ Four sections of this plan read as *fold good, mask bad*. That was never the
+claim and it would sabotage the machine. **Both are first-class execution
+strategies**, and *"folds are zero copy, period"* stays exactly true — it
+defines what a FOLD is, not what the machine is allowed to do.
+
+```
+FOLD                              MASK
+canonical bytes                   canonical bytes / folds / other masks
+   ↓ peek / bound / compose          ↓ materialize or REUSE a bitmap
+   ↓ reduce                          ↓ mask algebra / cache / fan-out
+compact answer                    a resident plane
+```
+
+**When each is attractive:**
+
+| choose FOLD when the output entropy is low | choose MASK when the mask itself has computational value |
+|---|---|
+| `Count`, `Any`, `Bound`, `First`, a descriptor | reused many times · shared by many thoughts |
+| the answer is consumed once | AND / OR / TERNLOG fan-out |
+| | ~11 ns lookup · a resident attention/focus plane |
+| | an expensive derivation worth caching |
+
+At the point a mask is reused twelve thousand times, insisting on recomputation
+*because folds are pure* is self-sabotage. The decision is economic and
+semantic: **choose MASK if `C_build + C_reuse < C_repeated_fold`, or if a later
+operation genuinely wants mask algebra.** Both of these are correct for 64K
+thoughts at once:
+
+```
+thought A  -> fold, because it is asked once
+thought B  -> fold once -> mask -> reused by 12,000 thoughts at ~11 ns
+```
+
+**So the rule is about the TRANSITION, not the bytes:**
+
+> The crossing from fold-native to mask-native execution must be **deliberate
+> and visible at the T2 planning membrane.**
+
+```
+T2 planner
+   ├── FOLD path   preserve the compact carrier; reduce directly
+   └── MASK path   explicitly ELECT the bitmap; materialize / cache / reuse,
+                   and then behave like a mask engine without shame
+```
+
+What is forbidden is only this:
+
+```
+the planner believes it is executing a fold
+        ↓
+a helper silently allocates words_for(N)
+        ↓
+everything downstream is mask-native — and NOBODY MADE THE DECISION
+```
+
+**Which restates Seam B more precisely than anywhere above.** The defect in
+`Pred::Range` is not that it writes a mask. It is that the planner has no way to
+elect that and no way to decline it — **there is only one path, so the choice
+does not exist.** Seam B is an *absent decision*, not a present mask.
+
+**And the BBB question becomes answerable:** *who decided this computation should
+become a mask, and on what basis?* It need not be runtime cost estimation at
+first; static plan knowledge is enough to start:
+
+```
+terminal Count           -> stay FOLD
+one AND then Count       -> probably stay FOLD
+reuse_count > 1          -> consider MASK
+shared cached result     -> MASK
+Wabe frontier reused     -> maybe MASK
+a ~11 ns cached mask     -> almost certainly MASK
+```
+
+DuckDB-style dynamic costing can come later. This is pipeline-vs-materialize,
+and it is a solved shape.
+
 ### Frozen is fine. Marching is the disaster.
 
 ⊘ **The previous section's rule slid from a definition into an anti-cache
@@ -1060,30 +1141,34 @@ any process-local object, the thought was never replayable.
 - **Falsified if:** any mask word is written, or cost moves with `N` or position.
 - This is the cleanest available proof of the whole thesis, and it is small.
 
-### W2b — bounded composition WITHOUT writing a mask (Seam B, half two)
+### W2b — BOTH physical plans for the same semantics (Seam B, half two)
 
-- `Range(lo,hi) ∩ resident aligned mask → Count/Any`, touching only words
-  `w0..w1`.
-- ⊘ **The fold arm must not write the intersection** — though writing one is a
-  *cache decision* to be priced, not a sin (see § *Frozen is fine*). The
-  size-free law disqualifies the obvious shape **as a fold**:
+⊘ **Not "never write the bounded mask."** W2b must demonstrate **both legal
+paths over identical semantics**, because that is the whole point — the defect
+was the missing choice, not the mask:
 
-  ```
-  WRONG   Range × resident mask -> WRITE a bounded mask -> Count / Any
-  RIGHT   peek only the intersecting resident words
-          -> AND in registers
-          -> Count / Any
-  ```
+```
+FOLD-NATIVE   Range ∩ resident mask -> Count / Any
+              peek only the intersecting words, AND in registers,
+              produce NO second mask
 
-  The moment the bounded mask is written, the program has crossed into
-  RECONSTRUCT — legitimately, perhaps, but it is no longer a fold and must be
-  named as what it is.
-- **This is where the anti-zoo rule licenses a new T1 primitive**, and it is the
-  clean case: a fused `popcount(a[i] & b[i])` accumulated over a word span
-  cannot be expressed by the existing algebra without an intermediate buffer, so
-  it exposes a genuinely new zero-copy operation rather than a convenience. The
-  descriptor (`base_word + length`) crosses; the intersection never exists as
-  bytes.
+MASK-NATIVE   Range ∩ resident mask -> a bounded / cached mask
+              because a downstream consumer genuinely needs or reuses it
+```
+
+Same answer, different physical plan — pipeline versus materialize. What W2b
+proves is that the planner can **elect** either one and that the election is
+visible in the plan, not buried in a helper.
+
+- The two arms must be differentially checked against each other and against the
+  oracle: identical row sets, identical `Count`/`Any`.
+- **This is where the anti-zoo rule licenses a new T1 primitive** — and the
+  framing is stronger than "an optimization". A fused `popcount(a[i] & b[i])`
+  over a word span cannot be expressed by the existing algebra without an
+  intermediate buffer, so **without it the fold-native arm does not exist at
+  all.** The primitive is what CREATES the choice; before it there is only the
+  mask path, which is precisely why Seam B had no decision in it. The descriptor
+  (`base_word + length`) crosses; the intersection never exists as bytes.
 - ⊘ **Not** a narrowing of the existing `Scratch`. Changing
   `words == words_for(N)` to a smaller window is insufficient: operands need a
   global `base_word`, a local length, tail semantics, and a row-domain

@@ -1,3 +1,18 @@
+## D-WFL — the resolution (2026-09-19): masks are allowed, accidental masks aren't
+
+⊘ Resolves five sections written today that read as *fold good, mask bad*. None
+retracted; all were being read as a preference when only one was a definition.
+**FOLD and MASK are sibling physical plans.** *"Folds are zero copy, period"*
+defines what a fold IS — never what the machine may do.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-SIBLING | **The rule governs the TRANSITION, not the bytes:** crossing from fold-native to mask-native execution must be deliberate and visible at the T2 planning membrane. Once MASK is elected, behaving like a mask engine (AND → TERNLOG → shift → cache) is legitimate. Forbidden only: the planner believes it is folding, a helper silently allocates `words_for(N)`, and nobody made the decision | Queued | the BBB question must be answerable for every plan: *who elected the mask, on what basis?* Falsified if a plan can become mask-native without an election appearing in it |
+| D-WFL-SEAMB′ | ⊘ **restates Seam B more precisely than every earlier framing** (performance complaint · T1 conformance failure · fold-law violation — all circling this). The defect in `Pred::Range` is NOT that it writes a mask. It is that the planner can neither elect nor decline: there is exactly ONE path, so **the choice does not exist**. Seam B is an ABSENT DECISION, not a present mask | Queued | fixed when both paths exist and the plan records which was taken — not when the mask disappears |
+| D-WFL-W2b″ | ⊘ **supersedes D-WFL-W2b′'s "must not write".** W2b demonstrates BOTH legal paths over identical semantics: FOLD-NATIVE (`Range ∩ resident → Count/Any`, no second mask) and MASK-NATIVE (`→ a bounded/cached mask` because a consumer reuses it). Pipeline vs materialize | Queued | the two arms differentially checked against each other AND the oracle — identical row sets, identical Count/Any. The earlier "zero derived buffers, asserted by counter" gate now scopes to the FOLD arm only |
+| D-WFL-T1-FUSED′ | ⊘ upgrade from optimization to **enabler**: without a fused `popcount(a & b)` over a span there is no intermediate-buffer-free path, so **the fold-native arm does not exist at all**. The primitive CREATES the choice — which is exactly why Seam B had no decision in it | Queued | unchanged differential gate vs `mask_and` + `popcount_batch_u64`; the framing change raises its priority from nice-to-have to W2b-blocking |
+| D-WFL-ELECT | the election rule, static first: `terminal Count → FOLD`; `one AND then Count → probably FOLD`; `reuse_count > 1 → consider MASK`; `shared cached result → MASK`; `Wabe frontier reused → maybe MASK`; `~11 ns cached mask → almost certainly MASK`. DuckDB-style dynamic costing later | Queued | static rules must be inspectable in the plan. Falsified if the rule set fires the same way on every program (it would carry no information — cf. the can-it-stay-silent twin) |
+
 ## D-WFL — the cache scoping (2026-09-19): frozen is fine, marching is the disaster
 
 ⊘ Scopes the rows below rather than retracting them. Across three sections today

@@ -1,3 +1,85 @@
+## 2026-09-19 — E-FOLD-AND-MASK-ARE-SIBLING-PHYSICAL-PLANS-1
+
+**Status:** RULING — the resolution of five entries written today that read as
+*fold good, mask bad*. None is retracted; all were being read as a preference
+when only one was a definition. **Confidence:** high.
+
+> **Masks are allowed. Accidental masks aren't.**
+
+**FOLD and MASK are sibling first-class execution strategies.** Neither is
+universally preferred. *"Folds are zero copy, period"* stays exactly true — it
+defines what a FOLD **is**, never what the machine is permitted to do.
+
+```
+FOLD                              MASK
+canonical bytes                   canonical bytes / folds / other masks
+   ↓ peek / bound / compose          ↓ materialize or REUSE a bitmap
+   ↓ reduce                          ↓ mask algebra / cache / fan-out
+compact answer                    a resident plane
+```
+
+**FOLD is attractive when output entropy is low** — `Count`, `Any`, `Bound`,
+`First`, a descriptor, an answer consumed once. **MASK is attractive when the
+mask itself has computational value** — reused many times, shared by many
+thoughts, AND/OR/TERNLOG fan-out, ~11 ns lookup, a resident attention/focus
+plane, an expensive derivation worth caching. At the point a mask is reused
+twelve thousand times, insisting on recomputation *because folds are pure* is
+self-sabotage.
+
+The choice is economic and semantic: **elect MASK if
+`C_build + C_reuse < C_repeated_fold`, or if a later operation genuinely wants
+mask algebra.** Both are simultaneously correct at 64K: *thought A → fold,
+asked once; thought B → fold once → mask → reused by 12,000 thoughts at ~11 ns.*
+
+**So the rule governs the TRANSITION, not the bytes:**
+
+> The crossing from fold-native to mask-native execution must be **deliberate
+> and visible at the T2 planning membrane.**
+
+Once MASK is elected there is no shame in behaving like a mask engine —
+`Mask → AND → TERNLOG → shift → cache → another mask` is legitimate
+photolithography too. What is forbidden is only:
+
+```
+the planner believes it is executing a fold
+        ↓
+a helper silently allocates words_for(N)
+        ↓
+everything downstream is mask-native — and NOBODY MADE THE DECISION
+```
+
+**This restates Seam B more precisely than any earlier entry.** The defect in
+`Pred::Range` is NOT that it writes a mask. It is that the planner has no way to
+elect that and no way to decline it — there is exactly one path, so **the choice
+does not exist.** Seam B is an ABSENT DECISION, not a present mask. Every
+earlier framing of it (performance complaint · conformance failure · fold-law
+violation) was circling this.
+
+**The BBB question becomes answerable:** *who decided this computation should
+become a mask, and on what basis?* Static plan knowledge suffices to start —
+`terminal Count → stay FOLD`; `one AND then Count → probably FOLD`;
+`reuse_count > 1 → consider MASK`; `shared cached result → MASK`;
+`a ~11 ns cached mask → almost certainly MASK`. DuckDB-style dynamic costing can
+follow. This is pipeline-vs-materialize, a solved shape.
+
+**Consequence for W2b — it must demonstrate BOTH paths, not forbid one:**
+
+```
+FOLD-NATIVE   Range ∩ resident mask -> Count / Any, no second mask
+MASK-NATIVE   Range ∩ resident mask -> a bounded / cached mask,
+                                       because a consumer reuses it
+```
+
+Identical semantics, differentially checked against each other and the oracle.
+What W2b proves is that the planner can **elect** either and that the election
+is visible in the plan rather than buried in a helper.
+
+**And it upgrades `D-WFL-T1-FUSED` from optimization to enabler:** a fused
+`popcount(a & b)` over a span cannot be expressed without an intermediate
+buffer, so **without it the fold-native arm does not exist at all.** The
+primitive is what CREATES the choice — which is exactly why Seam B had no
+decision in it.
+
 ## 2026-09-19 — E-FROZEN-IS-FINE-MARCHING-IS-THE-DISASTER-1
 
 **Status:** RULING — scopes `E-ZERO-COPY-IS-NOT-A-SIZE-THRESHOLD-1` and
