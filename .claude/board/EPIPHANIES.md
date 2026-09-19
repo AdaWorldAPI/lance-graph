@@ -1,3 +1,82 @@
+## 2026-09-19 — E-A-VARNODE-IS-NOT-A-BUFFER-R2IL-IS-MICROCODE-FOR-MASKED-THINKING-1
+
+**Status:** RULING on the framing; FINDING on the inventory (cross-repo,
+read-verified at OGAR `5055b06`, r2sleigh `99d2553`); CONJECTURE on motif
+mining. Twin of `E-A-MASK-EXPRESSION-DOES-NOT-IMPLY-A-BITMAP-1`, one level over.
+
+> **A varnode is not a buffer.** R2IL varnodes carry behavioral DEPENDENCIES,
+> not an obligation to materialize their values. `v2 = ternlog(v0,v1,…)` may
+> never exist as bytes.
+
+Compiler instinct reads `v0 = …; v1 = AND(v0,…)` as *allocate a representation
+per name*. The intended semantics is SSA in a **fused dataflow engine**: a
+varnode names a logical value / address / membership expression, and only a
+terminal requesting membership as a carrier forces bytes. Exactly the mask
+error, transposed.
+
+### The architecture is already in the tree, in fragments nobody had joined
+
+- **`ogar-r2il/src/lib.rs`** module doc: *"proxy glue: r2sleigh's R2IL opcode
+  set as an `ogar_loco::Vocabulary`, plus the **masked lane projection** that
+  re-reads one already-written body under any `LaneShape` **without rebuilding
+  it**."* That clause IS the non-materializing re-projection this arc spent a
+  day deriving — already shipped, in another repo, under another name. Surface:
+  `project()`, `project_r2il()`, `r2il_mask()`, `CallMask { shape: LaneShape }`.
+- **`ogar-loco/src/basin.rs:94-98`**: *"Orchestration is agnostic; the thinking
+  IR is a caller… `ogar-r2il` plugs its vocabulary and codebooks in."* **The
+  wrapper is `Vocabulary`** — the seam exists; nothing needs minting.
+- **`ogar-r2il` carries NO `r2sleigh` dependency by design**: 82 arities as a
+  table, pinned to the source enum by a drift test. The opcode set travels as an
+  arity table, not an object graph.
+- **`LOCO-ORCHESTRATION-GAP.md`**: R2IL occupies one **classid** vocabulary
+  while query / NARS-tactic / Blockly occupy their own through the same
+  registry.
+
+### ⊘ Two corrections to the premise, both read-verified
+
+1. **r2il is STRONGLY TYPED, not "nontyped".** `r2sleigh/doc/r2il.md`: *"a
+   strongly-typed intermediate language based on Ghidra's P-code operations.
+   Every operation has explicit input and output varnodes with known sizes and
+   address spaces."* It exists to fix ESIL's untypedness. **This strengthens the
+   design:** it types the MACHINE (sizes, address spaces), never the MEANING —
+   precisely the "keep the opcode table embarrassingly mechanical" property to
+   protect. ABI-friendliness comes from sized varnodes + explicit spaces + serde
+   + the arity table, not from absent types.
+2. **NAME COLLISION — the shape that bit this arc twice today.**
+   `membrane-tiers.md:24-25` places an **"R2IL" at T3** (*"emits T3 artifacts…
+   its ceiling IS T3's; door-knocker test"*), beside the Java facade and
+   low-code. The R2IL here is behavioral microcode far below that. Two things
+   named R2IL at opposite ends of the ladder is exactly how T1 and T2 got
+   flattened this morning. **Whichever keeps the name, the other must be renamed
+   before either is built against.** Filed as an issue, not resolved here.
+
+### The joining sentence
+
+> R2IL is **not** the harvested representation of machine code. R2IL is the
+> **vocabulary-neutral behavioral microcode for masked thinking.** Harvesting
+> via r2sleigh/ruff is one PRODUCER of R2IL programs. `ogar-loco` orchestrates
+> them, `classid` selects their vocabulary, and the substrate executes their
+> mask/fold expressions **without materializing intermediate populations unless
+> a terminal explicitly requests one.**
+
+And the whole doctrine, shorter than this arc's Layer-0 prose: *SPOG says what
+exists. ClassView says how to see it. `ogar-loco` says what to do next. R2IL
+says how the thought behaves. Mask/fold algebra executes it without constructing
+what it can merely observe.*
+
+**Keep cognition OUT of the opcode table.** No `NARS_REVISION`, `EMPATHY`,
+`CAUSE`, `ANALOGY` opcodes — that destroys the entire advantage. Cognition lives
+in bindings, composition, macro discovery, selection, focus, terminal
+interpretation and the Rubicon; never in opcode semantics.
+
+**Re-reading of the harvest (CONJECTURE — no motif mining has been run):** not
+*"assembly instructions we collected"* but *millions of tiny programs humans
+already wrote to transform, compare, gate, branch, select, normalize, search and
+decide.* BPE/macro mining over R2IL streams would then discover reusable
+BEHAVIORAL MOTIFS — promotable to callable operators and bindable to entirely
+different classid-selected vocabularies. Harvest → R2IL → motif discovery →
+promote → bind → execute as masked thought. This names an endgame, not a result.
+
 ## 2026-09-19 — E-A-MASK-EXPRESSION-DOES-NOT-IMPLY-A-BITMAP-1
 
 **Status:** RULING — the global primitive the whole D-WFL arc was circling.

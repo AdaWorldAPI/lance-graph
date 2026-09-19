@@ -1,3 +1,37 @@
+## ISS-TWO-THINGS-ARE-NAMED-R2IL-AT-OPPOSITE-ENDS-OF-THE-LADDER
+
+**Status:** OPEN. **Filed:** 2026-09-19. **Severity:** high — this is the exact
+shape that flattened T1 and T2 earlier the same day.
+
+Two distinct things carry the name **R2IL**:
+
+1. **T3 R2IL** — `.claude/knowledge/membrane-tiers.md:24-25`: *"R2IL | emits T3
+   artifacts | T3's vocabulary (names, outcomes) | an outcome | its ceiling IS
+   T3's; door-knocker test (layer-boundary-warden)"*, listed beside the Java
+   facade, OGAR `ActionDef` and low-code. An INTENT surface.
+2. **Microcode R2IL** — `r2sleigh/crates/r2il` (a strongly-typed Ghidra-P-code
+   IL: sized varnodes, explicit address spaces, serde) and its proxy
+   `OGAR/crates/ogar-r2il` (that opcode set as an `ogar_loco::Vocabulary`, 82
+   arities, drift-tested, no `r2sleigh` dep). BEHAVIORAL microcode, far below
+   T3 — `ogar-loco/src/basin.rs:94-98` calls it "the thinking IR".
+
+Verified at OGAR `5055b06`, r2sleigh `99d2553`.
+
+**Why it must be resolved before either is built against:** a session reading
+`membrane-tiers.md` will place *any* R2IL at T3 and apply the door-knocker test
+to behavioral microcode that belongs several tiers down — or, inversely, read
+the OGAR vocabulary seam as licence for an intent surface to carry opcodes. The
+identical collision (a name used at two tiers) produced
+`E-DO-NOT-BACK-DATE-A-NEW-LAW-ONTO-AN-OLD-DOCTRINE-1`'s T1/T2 flattening hours
+earlier in this arc.
+
+**Not resolved here** — renaming either is an operator call, and both names are
+load-bearing in their own repos. What this issue does is record that the two
+exist, that they are NOT the same thing, and that any plan naming "R2IL" must
+say which one it means until one is renamed.
+
+Cross-ref: `E-A-VARNODE-IS-NOT-A-BUFFER-R2IL-IS-MICROCODE-FOR-MASKED-THINKING-1`.
+
 ## ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER (2026-09-18) — OPEN (D-DIAMOND-1, found in review of #1250)
 
 **What it is.** `Filter::prefix_facet`'s `Bound` lowering emits `Cmp::Range { lo, hi }`
