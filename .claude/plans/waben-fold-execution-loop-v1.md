@@ -575,12 +575,17 @@ operation before any new CE64 is written. Likewise `Counterfactual` can explore
 freely without mutating factual causal state. **Usefulness is not causal
 licensing** — recorded here on its own merits. ⊘ The first cut said a citation to
 "#1224" *does not resolve*; that was a search of `.claude/` and `docs/` only.
-**Corrected 2026-09-19 by reading the PR itself:** #1224 exists, was **withdrawn
-and closed without merging**, and the two causal-licensing helpers it added were
-**deleted after a measured count of zero production consumers**. So it is cited
+**Corrected 2026-09-19 by reading the PR itself, and corrected AGAIN the same
+day:** #1224 exists and was **withdrawn and closed without merging because it
+was fundamentally wrong** — it converted a criticism into an invented
+maturity-ladder specification, and it placed causal-licensing semantics inside
+a DisMech module against the ruling that DisMech is not a thinking atom. ⊘ The
+first correction here said the helpers were "deleted after a measured zero
+production consumers" as if that were the reason; it was not. The zero-consumer
+count only meant the deleted helpers needed no re-homing. Making a side
+measurement into the verdict is itself the error #1224 warns about. It is cited
 here as a *negative* receipt, never as architecture: a helper existing is not
-enforcement, and association or usefulness does not grant causal status — the
-exact lesson this section's ruling rests on.
+enforcement, and association or usefulness does not grant causal status.
 
 And `ReasoningBand::Meta` earns its keep without any meta-opcode: bind the
 fold/mask machinery to the thought programs and transfer histories themselves —

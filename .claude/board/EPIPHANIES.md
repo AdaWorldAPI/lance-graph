@@ -1,3 +1,22 @@
+## 2026-09-19 — E-1224-CLOSED-FOR-BEING-WRONG-NOT-FOR-LACKING-CONSUMERS-1
+
+**Status:** CORRECTION of the entry directly below this one. **Confidence:**
+high — read from the PR body.
+
+⊘ `E-ONE-OBSERVABLE-IS-NOT-THREE-INSTRUMENTS-…-1` says #1224's helpers were
+"deleted after a measured zero production consumers" and lets that read as the
+reason the PR closed. **Wrong causal reading.** #1224 was withdrawn and closed
+unmerged because it was **fundamentally wrong**: it turned a criticism into an
+invented maturity-ladder specification (states, counters, a progression, and
+acceptance criteria that never existed), and it placed causal-licensing
+semantics inside a DisMech module against the ruling that DisMech is not a
+thinking atom. The zero-consumer count was a footnote — it meant the deleted
+helpers needed no re-homing, nothing more.
+
+The compression is the defect the PR itself names: a measurement standing next
+to a decision was promoted into its cause. Recorded by prepend; the plan's §1
+paragraph is corrected in place (live plan, not ledger).
+
 ## 2026-09-19 — E-ONE-OBSERVABLE-IS-NOT-THREE-INSTRUMENTS-AND-IMPORTS-ARE-PROBES-1
 
 **Status:** FENCE (ruling) + CORRECTION + five named PROBES, all unscheduled.
