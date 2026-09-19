@@ -45,13 +45,31 @@ that half.
   the two-arm measurement to remove a duplicate enum**; `CounterfactualAttack {
   factual, without_step }` with `adjudicate() → CounterfactualVerdict`, and a
   four-quadrant falsifier lands BEFORE the local reading type is deleted.
-- **Open, and it is mine to have found:** two of those four quadrants have no
-  home in `{Necessary, Dispensable, NotRun}`. `Inconsistent → Consistent` means
-  removing the step REPAIRED the chain (not "dispensable"); `Inconsistent →
-  Inconsistent` means the attack ran and learned nothing. Folding either into
-  `NotRun` is a semantic regression — its doc defines it as *not attacked*. **So
-  the falsifier cannot pass until the enum gains an "attacked, uninformative"
-  variant.**
+- **Open, and deliberately left open:** the four-quadrant measurement shows
+  `CounterfactualVerdict {Necessary, Dispensable, NotRun}` is **not TOTAL** over
+  structural cut/replay outcomes. The mapping that is ruled here is only the
+  half that is unambiguous:
+
+  | factual → cut | verdict |
+  |---|---|
+  | `Consistent → Inconsistent` | `Necessary` |
+  | `Consistent → Consistent` | `Dispensable` |
+  | `Inconsistent → Consistent` | **OPEN** — preserve the measurement |
+  | `Inconsistent → Inconsistent` | **OPEN** — preserve the measurement |
+  | attack not executed | `NotRun` |
+
+  **`NotRun` continues to mean exactly "attack not run"**, and **no new verdict
+  variant is ruled here.** Adjudication is intentionally PARTIAL until a real
+  consumer requires semantics for the remaining two. ⊘ An earlier draft of this
+  entry said the falsifier *"cannot pass until the enum gains an 'attacked,
+  uninformative' variant"* — **withdrawn before merge**, on two grounds. It
+  invented semantics inside a hygiene entry; and the label is wrong for
+  `Inconsistent → Consistent`, which is **strong positive information** (removing
+  the edge REPAIRED the chain — obstructive / contradictory / inhibitory, names
+  that are hypotheses and not today's contract), the opposite of uninformative.
+  Only `Inconsistent → Inconsistent` is plausibly "attacked, uninformative", and
+  that too stays a hypothesis. Collapsing the two was the same compression this
+  arc corrected in the #1224 citation: one label over two different facts.
 - **Deferred:** the DisMech cut itself (PR-B first and alone; the source-token
   parser location is an OPEN decision); every Waben wave; `D-WFL-MASKOP`;
   `TD-JC-CLIPPY-RED-ON-BASE-2` (still red on `main`, two lines, untouched).
