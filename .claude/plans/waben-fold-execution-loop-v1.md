@@ -75,6 +75,55 @@ the coordinate system?*
 6. **Sparse publication.** Only the delta crosses into `AlphaOverlay`, stamped
    by an owner, batched into one `DatasetVersion`.
 
+### Folds are zero copy. Period.
+
+**Zero-copy is not an optimization of the fold. It is part of the definition of
+a fold.**
+
+> A fold reads canonical state in place and returns a compact consequence. If it
+> copies or materializes the source population, it is not a fold.
+
+**Definitional caveat, so the law cannot be argued away:** *zero-copy* means no
+**software-level** materialization, duplication, re-encoding, or retained
+derived population. CPU loads into registers and cache lines obviously still
+happen — those are not a second representation, and nobody gets to cite them as
+proof the rule is unmeetable.
+
+The boundary, exactly:
+
+```
+FOLD                              NOT A FOLD
+canonical bytes                   canonical bytes
+ -> zero-copy projection           -> duplicate lane
+ -> compare / prefix /             -> build full mask
+    intersection / reduction       -> scatter rows
+ -> scalar / range / runs /        -> accumulate state
+    tiny descriptor                -> sweep later
+```
+
+Six invariants, stated so a future session cannot soften them by degrees:
+
+- source bytes are never copied by a fold;
+- source layout is never rewritten by a fold;
+- a fold does not retain an execution view;
+- a fold may emit only answer-sized or focus-sized state;
+- **population-sized output is materialization, not folding**;
+- replay is repeated zero-copy folding over pinned canonical state.
+
+**And the corollary that makes it a membrane rather than a slogan: the moment an
+operation needs to materialize population state, the fold has ended.**
+
+This does not forbid materialization. It forbids materialization *hiding under
+the word fold*. Building an index, caching a projection, publishing an effect —
+all legitimate, all sometimes necessary, and each must be **named honestly as
+what it is** and priced accordingly.
+
+Everything below — the four seams, the wave order, the write tiers — is
+downstream of this. A seam is exactly a place where the code violates it, and
+Seam B is the cleanest example: `Pred::Range` emits a population-sized mask, so
+by this definition the executor's range path is materialization wearing a fold's
+name.
+
 **Where the code leaves the representation — four seams, in dependency order.**
 
 ### Seam A — the executed planes never prove they are the witnessed lane
@@ -229,6 +278,117 @@ Two consequences for the accounting in §6: the agreed exact answer carrier for
 such an insight is the **task descriptor**, not the row set it denotes; and the
 replay cost must be reported as its own column, because an insight that is cheap
 to store and expensive to re-derive has only moved its cost.
+
+### If thinking again is cheaper than remembering the answer, think again
+
+The replay tier above is framed as a fallback. At this substrate's ratios it is
+often the **fast path**, and that inverts the ordinary database instinct the
+rest of this plan would otherwise inherit.
+
+Order-of-magnitude arithmetic, and it must be read as exactly that:
+
+```
+one fold          ~1.7 ns      (#1245's six-tier axis chain)
+1000 stacked folds ~1.7 us
+one population sweep ~10 us    -> ~5,900 fold-equivalents
+                               -> ~6 complete 1000-fold chains, on ONE lane
+```
+
+⊘ **The 1.7 ns does not transfer and this is not a measurement.** #1250
+explicitly declined to carry #1245's axis-chain figure to the whole-facet cell
+(1.7–4.2 ns there), and a "fold" inside a 1000-fold chain is not necessarily
+that axis chain. What survives is the SHAPE of the argument, which holds at any
+plausible ratio: a sweep costs thousands of folds, so a stored answer can be
+slower to retrieve than the answer is to re-derive. Measuring the real ratio is
+W6's job.
+
+**The law:**
+
+> Never retain derived execution state merely to avoid replay, when replay
+> through stacked folds is cheaper than maintaining the retained state.
+
+Which sets the real violation criterion. A transient `&T` lasting 20 ns is
+irrelevant and always was; the enemy is a **retained** representation that needs
+maintenance because we might want it again:
+
+```
+peek -> fold -> answer -> nothing survives        GOOD (a temporary optical path)
+retain a view/mask/cache "for later"              SUSPICIOUS
+stacked folds                                     GOOD
+population sweep to keep state coherent           SUSPICIOUS
+recompute                                         the DEFAULT
+cache / materialize                               must earn its existence
+```
+
+Stated once, as the rule that replaces the borrow doctrine: **a fold consumes
+zero-copy peeks from canonical state and does not retain a view of it. Any
+execution object that persists merely to make later folds possible is suspect,
+because the fold should reacquire the canonical address and peek again.**
+
+Once a "fold" starts maintaining an N-sized representation, the frozen-duck
+problem has been recreated under a prettier name.
+
+So the target is not zero reads, and not even zero repeated computation. It is
+**zero unnecessary representational entropy.** Repeated computation is nearly
+free while every step remains a fold; it is the second representation — and the
+machinery to keep it coherent — that costs.
+
+**Two, and only two, reasons to store** (W5/W6 use this, not "does it borrow?"):
+
+```
+C_retain  = C_materialize + C_maintain + C_invalidate + C_readback
+C_replay  = sum(C_fold_i) + C_rotation + C_local
+
+1. ECONOMIC   retain only when C_retain < C_replay
+2. SEMANTIC   or when durability has value independent of speed —
+              it crossed the Rubicon and must become history / evidence / state
+```
+
+Everything else evaporates.
+
+### The scale consequence: 64K thoughts are continuations, not processes
+
+This stops being an optimization at 64K logical contexts, because it decides
+what "64K thoughts in parallel" even means:
+
+```
+WRONG   64K mutable cognitive machines, swept to stay current
+RIGHT   64K suspended continuation points, each cheaply represented by
+        address/domain + lens + fold program + dependencies + tiny meta state
+```
+
+Dormant thoughts consume approximately zero compute:
+
+```
+wake thought 18,721  ->  peek -> fold -> fold -> fold -> answer -> vanish
+```
+
+The canonical SoA is the lake. A thought does not carry a bucket of water around
+in case it wants to drink again later — it remembers where the lake is and how
+to drink. Enormous LOGICAL concurrency without paying physical concurrency; if
+every dormant thought had to preserve a view, we would already have lost.
+
+**The scheduler law:** *no dormant thought may consume sweep cost merely to
+remain current.* And the metric that follows: the cost of a sweep is properly
+measured in **fold-equivalents** — how many complete alternative reasoning
+chains the substrate could have run while it ran. A machine holding 64K thoughts
+but spending its time refreshing their masks may be LESS cognitively parallel
+than one holding 64K replay descriptors.
+
+**And thoughts become shareable in the useful sense.** If one mailbox has found
+a reasoning structure, another that needs it does not wait for a sweep to
+refresh its maintained state:
+
+```
+share a RESULT   expensive, possibly stale, bound to its original context
+share a THOUGHT  a compact replayable operator, REBOUND to the recipient's context
+```
+
+The second is what reuse of an idea actually is: not a snapshot of someone's
+working memory, but a transformation you run your own context through. So the
+64K palette is not 64K attention channels — it is 64K callable cognitive
+continuations, crossable between kanban boards wherever their dependencies are
+satisfiable.
 
 ### Writing is the expensive part — so the boundary has TIERS, not a switch
 
@@ -530,31 +690,68 @@ nothing at all.
   plane, not a label attached to them — which is what W0's separate
   `row_order_digest` is for. Three candidate shapes for enforcing it, to be
   chosen by measurement, not by preference:
-  1. **PREFERRED — make the borrow the proof.** The executed view is a borrow of
-     ONE known coordinate system, not "some slices plus trustworthy-looking
-     metadata":
+  ⊘ **First, a trap that would make (1) ceremonial.** `SealedFacetLane` is NOT
+  the sealed row image — read it: `SealedFacetLane { keys: Vec<FacetCascade>,
+  witness }` (`ordered_lane.rs:180`). It owns the facet KEYS and nothing else:
+  no `NodeGuid` sequence, no mask planes, no value lanes.
 
-     ```
-     sealed row image
-        ├── semantic keys
-        ├── mask planes
-        ├── value lanes
-        └── row identity sequence
-                  ↓
-            AttestedPlanes<'a>        (typed constructor; no public assembly)
-     ```
+  ⊘ **And the `AttestedPlanes<'a>` proposal recorded here earlier is RETRACTED
+  as an architectural carrier.** It smuggled Rust's ownership vocabulary into
+  the semantic model and made a zero-copy peek sound like a persistent execution
+  object. The implementation will of course receive something spelled `&[u8]` or
+  `&[u64]` while the instructions run — that is memory-safety syntax with a
+  ~20 ns lifetime, and promoting it to a named aggregate builds exactly the
+  intermediary this substrate exists to avoid:
 
-     An unattested plane set becomes **unrepresentable** rather than merely
-     rejected. Strongest shape, least ceremony at the call site, most invasive
-     to build.
-  2. **Second best — verify at the attachment boundary.** Recompute
-     `H(NodeGuid_0 … NodeGuid_n)` once where planes attach to the execution, and
-     cache the resulting attestation against the immutable borrow. Honest, and
-     costs one pass that amortizes.
-  3. **Rejected — carry a digest field on a freely-constructed `Planes`.** This
-     is the decorative option and is named here so it is not rediscovered as an
-     idea. It reproduces exactly the defect W0 exists to remove.
-  **Choosing between (1) and (2) is W1's first deliverable**, ahead of any code.
+  ```
+  WRONG   storage -> construct execution view -> attest it -> carry it -> fold
+  RIGHT   pinned canonical version -> verify the address/order contract
+                                   -> PEEK zero-copy -> fold
+  ```
+
+  **The attestation belongs to the address/order RELATIONSHIP, not to a
+  transient aggregate of all the planes.**
+
+  **So what W1 must prove is sharper than "these slices belong together":**
+
+  > ordinal `i` under this witnessed semantic order resolves to the same
+  > canonical row `i` that every subsequent operation peeks.
+
+  Once that holds, every fold independently peeks whatever canonical column it
+  needs at ordinal `i`, and there is no execution assembly at all:
+
+  ```
+  RowDomain { DatasetVersion, lens identity, row-order identity, n_rows }
+                              ↓
+                  peek(domain, ordinal, column)        zero-copy
+                              ↓
+                           fold(...)
+  ```
+
+  Every operation is `fold(peek(…))`. Nothing owns the source, nothing copies
+  it, nothing accumulates it, and the temporary view ideally never even gets a
+  name.
+
+  **W1 therefore begins with an assembly-boundary census**, and the census
+  question is now the sharper one: *where does ordinal → canonical-row
+  resolution happen today, and is it the same resolution every peek uses?*
+
+  ```
+  ONE resolution, used by every peek
+     -> W1 is small: verify the address/order contract once against the pinned
+        version, then peek freely.
+
+  SEVERAL resolutions, or one nobody re-checks
+     -> that IS Seam A's real depth, and finding it is the deliverable.
+        The honest first implementation is a boundary check over the ACTUAL
+        row ids at the point resolution is established.
+  ```
+
+  Do **not** invent a new "sealed row image", and do **not** revive a typed
+  aggregate, to satisfy this plan. A digest field carried on a freely
+  constructed `Planes` remains the rejected decorative option — it reproduces
+  exactly the defect W0 exists to remove — but the answer to it is a verified
+  address/order contract, not a bigger object.
 - **Gate — the brutal case, stated exactly.** Construct a program in which
   *everything a metadata check can see is identical*:
 
@@ -575,6 +772,60 @@ nothing at all.
   load-bearing test precisely because a metadata-only check passes it. Red
   before the fix and green only when the ACTUAL executed plane ordering is
   attested ⇒ Seam A is genuinely closed. Anything less and it is not.
+
+### W1b — nothing transient may carry replay
+
+With `AttestedPlanes` retracted, this law gets simpler rather than harder. There
+are two kinds of thing and they must never be substituted for one another:
+
+| | question | lifetime |
+|---|---|---|
+| a peek | *what do these canonical bytes say, right now?* | transient; dies within the fold |
+| `RowDomain` | *which immutable coordinate system must be REACQUIRED to replay?* | owned, serializable, outlives everything |
+
+The law, because the failure is silent:
+
+> **Nothing required to replay may be borrowed from the execution that produced
+> the replay task.** A replay descriptor may NAME immutable state; it may never
+> depend on owning a live view of it.
+
+So replay is not "keep the view alive" — and it is not "rebuild the view"
+either, which was one abstraction too many. Replay **reacquires the canonical
+coordinates and folds directly from zero-copy storage**:
+
+```
+ReplaySpec (owned identities only)
+   -> reacquire the pinned canonical version
+   -> peek
+   -> fold
+   -> the same answer
+```
+
+A `ReplaySpec` therefore contains **no** `&[NodeGuid]`, `&Planes`,
+`&SealedFacetLane`, `&AlphaMask`, or anything else tied to a lifetime. Only:
+`DatasetVersion`, row-order identity, lens / ClassView identity, program
+identity, Morton / Wabe mapping identity, external-edge snapshot identity,
+focus / input identity, deterministic parameters.
+
+⊘ **Fence around the boundary-hash cache** (the census's NO branch): a cached
+attestation is valid for THIS live immutable image, as a runtime execution
+optimization. It is **not replay evidence, not persisted, and not part of any
+`ReplaySpec`.**
+
+**The falsifier, which also DEFINES what a legitimate replay test is** — and
+therefore ranks above `D-WFL-DET`, since a determinism test run while the
+original view is still alive proves nothing:
+
+```
+1. produce a ReplaySpec
+2. DROP every execution object and every transient view
+3. re-open using ONLY the identities in the ReplaySpec
+4. peek and fold
+5. result must be bit-identical
+```
+
+If step 3 secretly needs a surviving pointer, a cached view, an ordinal map or
+any process-local object, the thought was never replayable.
 
 ### W2a — range-native terminals, zero `Scratch` (Seam B, half one)
 

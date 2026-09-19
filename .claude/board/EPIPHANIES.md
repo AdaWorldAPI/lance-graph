@@ -1,3 +1,252 @@
+## 2026-09-19 — E-FOLDS-ARE-ZERO-COPY-PERIOD-PEEK-NOT-BORROW-BUILD-FOLD-1
+
+**Status:** LAW (operator-stated). **Confidence:** high. Supersedes the
+`AttestedPlanes<'a>` half of `E-A-BORROW-IS-NOT-A-REPLAY-CARRIER-1`, which
+stands on everything else.
+
+> **Folds are zero copy. Period.**
+>
+> **Zero-copy is not an optimization of the fold. It is part of the DEFINITION
+> of a fold.** A fold reads canonical state in place and returns a compact
+> consequence. If it copies or materializes the source population, it is not a
+> fold.
+
+**Definitional caveat, so the law cannot be argued away:** *zero-copy* means no
+**software-level** materialization, duplication, re-encoding, or retained
+derived population. CPU loads into registers and cache lines obviously still
+happen; those are not a second representation, and nobody gets to cite them as
+proof the rule is unmeetable.
+
+```
+FOLD                              NOT A FOLD
+canonical bytes                   canonical bytes
+ -> zero-copy projection           -> duplicate lane
+ -> compare / prefix /             -> build full mask
+    intersection / reduction       -> scatter rows
+ -> scalar / range / runs /        -> accumulate state
+    tiny descriptor                -> sweep later
+```
+
+Six invariants, stated so they cannot be softened by degrees: source bytes are
+never copied by a fold; source layout is never rewritten by a fold; a fold does
+not retain an execution view; a fold may emit only answer-sized or focus-sized
+state; **population-sized output is materialization, not folding**; replay is
+repeated zero-copy folding over pinned canonical state.
+
+**The corollary that makes it a membrane rather than a slogan: the moment an
+operation needs to materialize population state, the fold has ended.**
+
+This does not forbid materialization — it forbids materialization HIDING under
+the word fold. An index build, a projection cache, a publication are all
+legitimate and sometimes necessary; each must be named honestly as what it is
+and priced accordingly. A seam is exactly a place where the code violates this,
+and Seam B is the cleanest example: `Pred::Range` emits a population-sized mask,
+so the executor's range path is materialization wearing a fold's name.
+
+**⊘ RETRACTION, same day, same arc: `AttestedPlanes<'a>` as an architectural
+carrier.** Proposed hours earlier in this arc as the "preferred, strongest"
+shape for closing Seam A. It smuggled **Rust's ownership vocabulary into the
+semantic model** and made a zero-copy peek sound like a persistent execution
+object. The implementation does of course receive something spelled `&[u8]` /
+`&[u64]` / `&FacetCascade` while the instructions run — that is memory-safety
+syntax with a ~20 ns lifetime, and promoting it to a named aggregate builds
+exactly the intermediary being avoided:
+
+```
+WRONG   storage -> construct execution view -> attest it -> carry it -> fold
+RIGHT   pinned canonical version -> verify the address/order contract
+                                 -> PEEK zero-copy -> fold
+```
+
+**The attestation belongs to the address/order RELATIONSHIP, not to a transient
+aggregate of all the planes.** So the proof obligation sharpens from *"these
+borrowed slices belong together"* to:
+
+> ordinal `i` under this witnessed semantic order resolves to the same canonical
+> row `i` that every subsequent operation peeks.
+
+Once that holds, every fold independently peeks whatever canonical column it
+needs at ordinal `i`, and there is no execution assembly at all:
+
+```
+RowDomain { DatasetVersion, lens identity, row-order identity, n_rows }
+                  ↓
+      peek(domain, ordinal, column)     zero-copy
+                  ↓
+               fold(...)
+```
+
+Every operation is `fold(peek(…))`. Nothing owns the source, nothing copies it,
+nothing accumulates it, and the temporary view ideally never even gets a name.
+
+**Replay collapses too.** "Reconstruct fresh `AttestedPlanes`" was one
+abstraction too many: replay **reacquires the pinned canonical version and runs
+the same peeks and folds.** `ReplaySpec -> DatasetVersion + lens + program +
+inputs -> peek -> fold -> same result`.
+
+**The real violation criterion** — a transient `&T` lasting 20 ns is irrelevant
+and always was:
+
+```
+peek -> fold -> answer -> nothing survives    GOOD (a temporary optical path)
+retain a view/mask/cache "for later"          SUSPICIOUS
+```
+
+Stated as the rule that REPLACES the borrow doctrine: *a fold consumes zero-copy
+peeks from canonical state and does not retain a view of it. Any execution
+object that persists merely to make later folds possible is suspect, because the
+fold should reacquire the canonical address and peek again.*
+
+**Why this matters at 64K.** If every dormant thought had to preserve a view,
+64K thoughts would mean 64K execution views, lifetime machinery, and eventual
+coherence sweeps — lost before starting. Instead: `wake thought 18,721 -> peek
+-> fold -> fold -> fold -> answer -> vanish`. The canonical SoA is the lake; a
+thought does not carry a bucket of water around in case it wants to drink again
+later, it remembers where the lake is and how to drink.
+
+**Consequence for W1:** it gets SMALLER, not harder. The census question is no
+longer "does an object own all four planes under one permutation" but *where
+does ordinal → canonical-row resolution happen today, and is it the same
+resolution every peek uses?* One resolution ⇒ verify the contract once against
+the pinned version and peek freely. Several, or one nobody re-checks ⇒ that is
+Seam A's real depth, and finding it is the deliverable.
+
+## 2026-09-19 — E-A-THOUGHT-IS-A-REPLAYABLE-OPERATOR-NOT-A-MAINTAINED-STATE-1
+
+**Status:** RULING on the doctrine; the ratio it rests on is CONJECTURE until
+W6 measures it. **Confidence:** high on the shape, unmeasured on the constant.
+
+A logical thought does not earn continuous execution merely by existing. When
+deterministic fold replay is cheaper than maintaining accumulated state, dormant
+thoughts stay as compact **replayable operators** and consume no sweep budget.
+
+The economics, as an order-of-magnitude argument:
+
+```
+one fold             ~1.7 ns
+1000 stacked folds   ~1.7 us
+one population sweep ~10 us  ->  ~5,900 fold-equivalents
+                             ->  ~6 complete 1000-fold chains, on ONE lane
+```
+
+⊘ **Not a measurement, and the 1.7 ns does not transfer.** #1250 explicitly
+declined to carry #1245's six-tier axis-chain figure to the whole-facet cell
+(1.7–4.2 ns there), and a "fold" inside a 1000-fold chain need not be that
+chain. What survives is the SHAPE, which holds at any plausible ratio: a sweep
+costs thousands of folds, so **a stored answer can be slower to retrieve than
+the answer is to re-derive.** W6 measures the real ratio.
+
+**The law:** never retain derived execution state merely to avoid replay, when
+replay through stacked folds is cheaper than maintaining that state. Shortest
+form: *if thinking again is cheaper than remembering the answer, think again.*
+
+This reclassifies borrowing — and corrects the `AttestedPlanes` enthusiasm
+recorded hours earlier in the same arc:
+
+```
+borrow for projection/folding, then DROP    GOOD (a temporary optical path)
+borrow to preserve an accumulated result    SUSPICIOUS
+stacked folds                               GOOD
+population sweep to keep state coherent     SUSPICIOUS
+recompute                                   the DEFAULT
+cache / materialize                         must earn its existence
+```
+
+So the target is not zero reads nor even zero repeated computation: it is **zero
+unnecessary representational entropy.** Repeated computation is nearly free
+while every step stays a fold; the cost is the SECOND representation and the
+machinery that keeps it coherent.
+
+**Two and only two reasons to store:** ECONOMIC —
+`C_retain = C_materialize + C_maintain + C_invalidate + C_readback` is less than
+`C_replay = Σ C_fold_i + C_rotation + C_local`; or SEMANTIC — durability has
+value independent of speed, because it crossed the Rubicon and must become
+history / evidence / state. Everything else evaporates.
+
+**The scale consequence, which is why this is architecture and not tuning.** At
+64K logical contexts it decides what the number means:
+
+```
+WRONG   64K mutable cognitive machines, swept to stay current
+RIGHT   64K suspended continuation points — address/domain + lens
+        + fold program + dependencies + tiny meta state
+```
+
+Scheduler law: **no dormant thought may consume sweep cost merely to remain
+current**, and a sweep's cost is properly measured in FOLD-EQUIVALENTS — how
+many complete alternative reasoning chains the substrate could have run
+instead. A machine holding 64K thoughts while refreshing their masks may be LESS
+cognitively parallel than one holding 64K replay descriptors.
+
+**And it makes thoughts shareable in the useful sense:** sharing a RESULT is
+expensive, possibly stale and bound to its original context; sharing a THOUGHT
+is a compact replayable operator REBOUND to the recipient's context. That is
+what reuse of an idea actually is — not a snapshot of someone's working memory,
+but a transformation you run your own context through. The 64K palette is
+therefore 64K callable cognitive continuations, crossable between kanban boards
+wherever their dependencies are satisfiable.
+
+**Corollary worth carving deep:** a scheduler that spends more time keeping
+thoughts current than it would spend thinking them again has inverted the
+substrate.
+
+---
+
+## 2026-09-19 — E-A-BORROW-IS-NOT-A-REPLAY-CARRIER-1
+
+**Status:** RULING. **Confidence:** high — the failure mode is silent, which is
+why it needs a law rather than care.
+
+A borrow may attest a LIVE execution view. Anything needed for REPLAY must
+survive that view's destruction. Replay may store identities that later
+reconstruct equivalent borrows; it may never preserve, cache, or depend on the
+original borrow. **A borrowed attestation is runtime proof, not durable
+evidence.**
+
+Two questions that were being answered by one object:
+
+| | question | lifetime |
+|---|---|---|
+| `AttestedPlanes<'a>` | are these actual slices aligned RIGHT NOW? | borrowed; dies with the execution |
+| `RowDomain` | which immutable row coordinate system must be REACQUIRED to replay? | owned, serializable, outlives everything |
+
+They are not interchangeable and neither may contain the other as a shortcut.
+Replay is `attach` run again — `ReplaySpec` → resolve identities against pinned
+immutable state → fresh borrows → fresh `AttestedPlanes<'new>` → re-execute — so
+a `ReplaySpec` contains **no** `&[NodeGuid]`, `&Planes`, `&SealedFacetLane`,
+`&AlphaMask`, or anything tied to `'a`. Only owned names: `DatasetVersion`,
+row-order identity, lens/ClassView identity, program identity, Morton/Wabe
+mapping identity, external-edge snapshot identity, focus/input identity,
+deterministic parameters.
+
+⊘ **Fence around the boundary-hash cache** (the honest first implementation when
+no aggregate owns the aligned planes): a cached attestation is valid for THIS
+live immutable image as a runtime optimization — **not replay evidence, not
+persisted, not part of any `ReplaySpec`.**
+
+**The falsifier, which also DEFINES what a legitimate replay test is** — and
+therefore ranks ABOVE the determinism gate, because a determinism test run while
+the original view is still alive proves nothing:
+
+```
+1. produce a ReplaySpec
+2. DROP every execution object and every borrow
+3. re-open using ONLY the identities in the ReplaySpec
+4. reconstruct fresh AttestedPlanes
+5. replay
+6. result must be bit-identical
+```
+
+If step 3 secretly needs a surviving pointer, cached view, ordinal map, borrowed
+lane or process-local object, the thought was never replayable.
+
+**Read with `E-A-THOUGHT-IS-A-REPLAYABLE-OPERATOR-NOT-A-MAINTAINED-STATE-1`:**
+that entry says recompute rather than retain; this one says what a retained
+*recipe* may legally contain. Together they give the three durability tiers a
+single shared rule — **no borrowed state crosses any tier boundary**: META owns
+the identity of the question, REPLAY owns the identity of all deterministic
+inputs plus the computation, STATE owns the answer.
+
 ## 2026-09-19 — E-A-POSITIONAL-INDEX-ADDED-TO-A-KEY-DIGEST-ATTESTS-NOTHING-1
 
 **Status:** FINDING (proved by counter-example). **Confidence:** high.
