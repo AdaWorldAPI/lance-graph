@@ -1,3 +1,27 @@
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — census addendum: the generic counterfactual home ALREADY EXISTS (2026-09-19)
+
+⊘ The revised cut below still says "extract counterfactual under a
+domain-neutral name" as if a new module were needed. It is not. Read from the
+tree, three counterfactual surfaces predate the DisMech one:
+
+| module | what it is | consumers |
+|---|---|---|
+| `lance-graph-contract/src/counterfactual.rs` (546) | D-ATOM-4 — split resolution: minority pole deposited as the CE64 −6 mantissa (`InferenceType::Counterfactual`), `EpisodicEdge` trait, `CounterfactualMailbox` (ghost tier), `revise_if_minority_wins`, `RevisionOutcome` | `lance-graph/src/reasoning.rs`, `lance-graph-cognitive/world`, planner `nars_engine.rs`, contract `scenario.rs`, + tests/examples — a LIVE generic surface |
+| `lance-graph-contract/src/revision.rs` | `CounterfactualVerdict{Necessary, Dispensable, NotRun}` — the load-bearing question, adjudicated in the Fusion → Counterfactual → Revision docket | revision policy |
+| `lance-graph-cognitive/src/world/counterfactual.rs` (286) | binding substitution on fingerprint worlds — explicitly NOT do-calculus (its own doc says so) | re-exported by `reasoning.rs:44` |
+| `lance-graph-planner/src/dismech_counterfactual.rs` (674) | cut-one-step-and-replay-both-arms over a recorded `CausalEdge64` chain; **already `impl EpisodicEdge for CounterfactualEdge`** (`:64`) — it consumes the generic contract today | none in production |
+
+**Consequence for PR-B:** no `counterfactual_replay.rs`. The cut-one-step
+mechanics are the missing *structural* arm (an actual edge severed, which the
+cognitive module says it lacks) and land beside the generic replay core as a
+method of the recorded chain, and its `Verdict{Consistent, Inconsistent}` +
+`EdgeRole::is_load_bearing` collapse into the EXISTING
+`revision::CounterfactualVerdict{Necessary, Dispensable, NotRun}` — one verdict
+type for one question. Four modules named counterfactual is the drift; the cut
+must leave three that each answer a different question (split-pole deposit /
+load-bearing adjudication / fingerprint substitution), not add a fourth
+generic name.
+
 ## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — cut REVISED per operator ruling (2026-09-19)
 
 ⊘ Supersedes the PR-A/B/C shape in the entries below. Ruling and census:
