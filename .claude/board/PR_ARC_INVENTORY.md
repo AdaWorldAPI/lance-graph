@@ -1,3 +1,38 @@
+## 2026-09-19 — lance-graph PR #1250 (merged `25988f3c`, branch `claude/d-diamond-1`) — D-DIAMOND-1: the dual fold substrate, verdict BOUNDED
+
+- **Added:** `lance_graph_contract::ordered_lane` (`OrderedLaneWitness`,
+  `SealedFacetLane`, `WitnessError`, `digest_of`, `first_inversion`);
+  `SemanticLens` + `SemanticPrefix` and `FacetCascade::{semantic_tiles,
+  from_semantic_tiles, cmp_numeric_projection, semantic_u64_halves}`;
+  `quack::{Cmp::Range, PrefixLowering, Filter::prefix_facet}`; the
+  `d-diamond-1-probe` crate (P1–P4 arms, nine falsifiers, `seal_cost` example).
+- **Corrected in-arc:** R1 — the whole-facet `shared_prefix_tiles` lens counted
+  `APP_PREFIX` before the concept, because the canon-high image stores `custom`
+  at bytes 0..2. Fixed by rotating the projection; the stored image is
+  untouched (`ISS-SHARED-PREFIX-TILES-CLASSID-INVERSION`).
+- **Measured:** P1 1.7–4.2 ns across all three whole-facet arms — #1245's
+  ~1.72 ns six-tier axis chain does NOT transfer to the 8-tile cell. P2 bound
+  ~250 ns at 1M; `touched_write` flat 20.5–23.1 ns across N=1K→4M **and**
+  across positions 500→3,999,900 at fixed width, against 34→4,620 ns for a
+  whole-lane-sized destination; 119×–707× bound+write vs sweep. P3 8,135×–8,376×
+  including `materialize_rows` (the comparable terminal), CONDITIONAL on a
+  61.2 ms/1M `JointIndex`, equal depths, `JOINT_MAX_DEPTH = 4`. P4 no reader
+  perturbation under an open writer. Seal priced: sort-from-shuffled 98.28 ms,
+  already-ordered 4.29 ms, `first_inversion` 4.45 ms, `digest_of` 19.17 ms,
+  `validate` 0.00004 ms, `verify` 23.64 ms at 1M.
+- **Locked:** storage is a content-blind ORDINAL, not an order — one physical
+  sequence is monotone under one `SemanticLens` at a time, so every order claim
+  names its lens and a lowering pairs prefix with witness only when the lenses
+  agree.
+- **Deferred:** `ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER` left OPEN by
+  design — closing it needs a substrate change (either `seal` exposes its
+  permutation, or the execution surface gains a row-order identity) in its own
+  PR. Three seal proposals (drop `digest_of` from `attest_sorted`; make
+  `attest_sorted` the documented producer path; probe a Lance-maintained
+  projection order) specified with measurements, not started.
+- **Confidence:** high on the measured region; the verdict is BOUNDED and its
+  edges are named, not hedged.
+
 ## 2026-09-18 — lance-graph PR #1248 (merged `a2a51012`, branch `claude/great-pascal-k96kok`) — `NodeRow::edges` is byte-backed: bytes are stored, integers are projected
 
 - **Added:** `lance_graph_contract::canonical_node::EdgeFacet` —

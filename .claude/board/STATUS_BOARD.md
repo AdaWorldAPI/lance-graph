@@ -1,3 +1,210 @@
+## D-WFL — CodeRabbit round 3 on `9fd6956d` (2026-09-19): three findings, all valid, all outside the diff
+
+| D-id | correction |
+|---|---|
+| **D-WFL-W2b-GATE′** | ⊘ the W2b-GATE row below applies `floor((hi-1)/64) - floor(lo/64) + 1` unconditionally; for an EMPTY unaligned range such as `[65, 65)` it yields 1 where the truth is 0. **Rule:** `lo == hi` ⇒ zero touched words; the span formula only for `lo < hi`. The arm tests empty, aligned and unaligned `lo` |
+| **D-WFL-DET‴** | ⊘ the DET″ row below says a component whose perturbation changes nothing is "either not an input or not in the spec". Too strong: a perturbed lens or external-edge snapshot that does not touch the folded domain legitimately yields the same mask. **Split:** replay must REACQUIRE every `ReplaySpec` component (identity); a DIFFERENT mask is required only for perturbations known to change the oracle result (output sensitivity), with at least one such perturbation per component class so the matrix can fire |
+| **Tarski wording** | the plan said the closure stops at "the least fixed point of the admitted operators"; it stops at the least fixed point **containing `X_0`** (above the seed), not the lattice-wide one — an identity operator stops at any non-empty seed. Corrected in the plan; the epiphany entry carries the same sentence and is corrected by this row (append-only) |
+
+## D-WFL — CodeRabbit round 2 on `e1031f2b` (2026-09-19): five findings, all valid
+
+All five verified against the files before acting. Two of them are rows in THIS
+board that went stale under later rulings; recorded here rather than edited in
+place.
+
+| D-id | correction |
+|---|---|
+| **D-WFL-W1-AUTH′** | ⊘ the D-WFL-W1-AUTH row below still names `AttestedPlanes<'a>` the PREFERRED enforcement shape. **That preference is RETRACTED** (`E-FOLDS-ARE-ZERO-COPY-PERIOD-PEEK-NOT-BORROW-BUILD-FOLD-1`): it promoted a ~20 ns Rust lifetime into an architectural carrier. **The single W1 contract is:** verify plane addresses and ordering against the pinned canonical state AT THE ATTACHMENT BOUNDARY, then use zero-copy peeks during execution — `fold(peek(…))`, no execution aggregate. The acceptance case is unchanged and still binding: identical keys / version / lens / n_rows / key_digest / a caller-COPIED `RowDomain`, but row identities A↔B swapped and one value plane swapped to match ⇒ **refuse before the `Range` is consumed** |
+| **D-WFL-DET″** | ⊘ the D-WFL-DET′ row below defines the gate over `RowDomain + program` while the replay contract lists far more. **The gate ranges over the COMPLETE `ReplaySpec` identity** — row domain/snapshot, program identity, **lens/ClassView identity**, **focus/carrier input**, **external-edge snapshot**, **deterministic parameters**, **Morton/Wabe mapping** — one perturbation arm per component, each disable-verified, plus the unperturbed bit-identical arm. A component whose perturbation changes nothing is either not an input or not in the spec; either way that is the finding. The gate still precedes the replay tier being blessed |
+| **D-WFL-W2b-GATE** | ⊘ `touched words == ceil(width/64)+1` treated a **position-dependent** quantity as a constant. The count is `floor((hi-1)/64) - floor(lo/64) + 1`, i.e. `<= ceil(width/64)+1` — a span straddling a word boundary touches one more word than an aligned one of the same width. Corrected at all three sites, and the arm must test BOTH aligned and unaligned `lo`. **This is the exact failure this arc named in itself an hour earlier: a gate stricter than the law it enforces** |
+| **tier ordering** | ⊘ *"each strictly cheaper than the one above"* reversed the ladder against its own table (meta → replay → materialized is INCREASING cost). Now *"strictly MORE EXPENSIVE than the one above"*, in both the plan and the epiphany |
+| **PROJECT / FIRST** | disposition was silent. **PROJECT** lands **after W3** (the rotation must be measured before a lens op is worth exposing); **FIRST** is **intentionally deferred, unscheduled** — no wave needs it, and under `D-WFL-FUSE` it may be a fusion rule rather than an op |
+
+## D-WFL — THE GLOBAL PRIMITIVE (2026-09-19): a mask expression does not imply a bitmap
+
+⊘ Subsumes every D-WFL fold-law row below. None is wrong; all were one level too
+low. **Settle this BEFORE W0/W1** — it shrinks several waves from "add a
+primitive" to "add a fusion rule".
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-EXPR | **Mask algebra is globally NON-MATERIALIZING by default.** A mask EXPRESSION denotes membership; it does not imply a bitmap exists. Materialization happens only at an explicit TERMINAL, when the membership set is requested as a carrier. Stronger than "folds are zero-copy" because folding, masking, ternlog, gating, projection and reduction all join ONE algebra — the expression stays unevaluated as population state all the way to a low-entropy terminal | Queued | three concepts kept distinct in every plan: MASKING (operation) · MASK EXPRESSION (composition) · MATERIALIZED MASK (bitmap). Falsified if a plan cannot express a multi-operand masking chain that emits no membership bits |
+| D-WFL-MASKOP | ⊘ **`MaskOp` must not semantically mean "produce a Scratch mask" — it must mean CONTRIBUTE TO A MASK EXPRESSION.** Scratch is one physical LOWERING, never the semantics. Read-verified: `Terminal::Keep{mask}` (`ir.rs:184`, *"the final mask itself stays in `mask`… nothing is reduced"*) IS the materialization election, but `MaskOp::And{a,b,dst}` is `dst = a & b` — every op is an assignment, so the ops destroy at level N−1 the choice the terminals encode at level N, and `exec.rs:566` then forces every slot to `words_for(n_rows)` | Queued | **This is the deepest correction in the arc and it precedes W0/W1.** Falsified if changing `MaskOp` semantics does not remove the need for per-op fixes |
+| D-WFL-SEAMB″ | ⊘ `Pred::Range → Scratch` is a **SYMPTOM, not the disease** — every earlier framing (performance complaint · T1 conformance failure · fold-law violation · absent decision) was chasing one op. Fixing `Range` alone leaves `And`/`Or`/`Xor`/`AndNot`/`Ternlog` all writing full planes | Queued | the fix is judged at the execution MODEL, not at one variant |
+| D-WFL-FUSE | **Half the "missing primitives" dissolve into lowering rules.** The fused `popcount(a & b)` of `D-WFL-T1-FUSED` is not a bespoke instruction — it is what a fuser emits for `MaskExpr → Terminal::Count`. `fuse.rs` already collapses a Boolean tree into one ternlog; what it does NOT do is fuse across the **op → terminal** boundary, which is exactly the boundary D-WFL-MASKOP moves | Queued | re-audit every "missing op" against this before minting any. A primitive that a fusion rule could emit is not a primitive |
+
+**Why it took a day, so it is not repeated:** the design already encoded the
+distinction (`Keep` vs `Count`; `WideFieldMask` as a field-PARTICIPATION
+currency, not a population). What was never written down is **the semantics of
+`MaskOp`** — so every reading defaulted to its physical lowering, and
+`Mask × ClassView/WideFieldMask → Mask` was read as *allocate a bitmap* when the
+arrow only ever meant *denotes membership*. An unstated semantics will always be
+read as its implementation.
+
+## D-WFL — the axis correction (2026-09-19): masking is an operation, a mask is a carrier
+
+⊘ Corrects the AXIS of the D-WFL-SIBLING section below (substance stands). "FOLD
+path vs MASK path" implied that electing to mask means giving up zero-copy. It
+does not — two datasets can be folded and masked against each other with NO
+materialization, and that is the ideal Layer-0 operation, not a compromise.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-AXIS | **Three independent axes, not one binary:** OPERATORS (fold · mask/ternlog · project · rotate · neighbour · reduce) × CARRIERS (canonical lane · range · descriptor · resident mask · cached mask) × MATERIALIZATION CHOICE (fused vs materialized bitmap). The BBB question is not *fold or mask?* but **is this membership relation transient algebra, or has it been PROMOTED to a mask carrier?** | Queued | every plan must record the promotion, not the operator choice. Falsified if a plan can promote a membership relation to a carrier without that appearing in it |
+| D-WFL-ENTROPY | **Representation entropy should follow ANSWER entropy.** *"Do these two million-row regions intersect?"* ≈ 1 bit; building 125 KB of mask to find it is the obscenity — and 125 KB is Seam B's MEASURED number at N=1M, not rhetoric. *"How many overlap?"* = 32–64 bits; also fused. *"Give me the overlap, six thoughts will manipulate it"* justifies the bitmap, which is then low-entropy **relative to its future workload** | Queued | the ratio `materialized bytes : answer bytes` reported per operation (§6's `R_info`), with the downstream workload named whenever it exceeds 1 |
+| D-WFL-W2b‴ | ⊘ supersedes W2b″'s "fold arm vs mask arm" — **both arms mask.** W2b-A: `Range × resident → FUSED masking → Count/Any`, no result mask. W2b-B: `→ masking → a MATERIALIZED bounded mask`. Same masking semantics, different result carrier | Queued | differential across arms and against the oracle. **W2b-B carries a burden W2b-A does not: it must NAME and MEASURE the downstream reuse justifying the carrier — a materialization with no demonstrated consumer FAILS the arm.** That is what deliberate promotion costs |
+
+**Shortest form:** fold the datasets, mask the folds, materialize only when the
+mask itself is worth keeping.
+
+## D-WFL — the resolution (2026-09-19): masks are allowed, accidental masks aren't
+
+⊘ Resolves five sections written today that read as *fold good, mask bad*. None
+retracted; all were being read as a preference when only one was a definition.
+**FOLD and MASK are sibling physical plans.** *"Folds are zero copy, period"*
+defines what a fold IS — never what the machine may do.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-SIBLING | **The rule governs the TRANSITION, not the bytes:** crossing from fold-native to mask-native execution must be deliberate and visible at the T2 planning membrane. Once MASK is elected, behaving like a mask engine (AND → TERNLOG → shift → cache) is legitimate. Forbidden only: the planner believes it is folding, a helper silently allocates `words_for(N)`, and nobody made the decision | Queued | the BBB question must be answerable for every plan: *who elected the mask, on what basis?* Falsified if a plan can become mask-native without an election appearing in it |
+| D-WFL-SEAMB′ | ⊘ **restates Seam B more precisely than every earlier framing** (performance complaint · T1 conformance failure · fold-law violation — all circling this). The defect in `Pred::Range` is NOT that it writes a mask. It is that the planner can neither elect nor decline: there is exactly ONE path, so **the choice does not exist**. Seam B is an ABSENT DECISION, not a present mask | Queued | fixed when both paths exist and the plan records which was taken — not when the mask disappears |
+| D-WFL-W2b″ | ⊘ **supersedes D-WFL-W2b′'s "must not write".** W2b demonstrates BOTH legal paths over identical semantics: FOLD-NATIVE (`Range ∩ resident → Count/Any`, no second mask) and MASK-NATIVE (`→ a bounded/cached mask` because a consumer reuses it). Pipeline vs materialize | Queued | the two arms differentially checked against each other AND the oracle — identical row sets, identical Count/Any. The earlier "zero derived buffers, asserted by counter" gate now scopes to the FOLD arm only |
+| D-WFL-T1-FUSED′ | ⊘ upgrade from optimization to **enabler**: without a fused `popcount(a & b)` over a span there is no intermediate-buffer-free path, so **the fold-native arm does not exist at all**. The primitive CREATES the choice — which is exactly why Seam B had no decision in it | Queued | unchanged differential gate vs `mask_and` + `popcount_batch_u64`; the framing change raises its priority from nice-to-have to W2b-blocking |
+| D-WFL-ELECT | the election rule, static first: `terminal Count → FOLD`; `one AND then Count → probably FOLD`; `reuse_count > 1 → consider MASK`; `shared cached result → MASK`; `Wabe frontier reused → maybe MASK`; `~11 ns cached mask → almost certainly MASK`. DuckDB-style dynamic costing later | Queued | static rules must be inspectable in the plan. Falsified if the rule set fires the same way on every program (it would carry no information — cf. the can-it-stay-silent twin) |
+
+## D-WFL — the cache scoping (2026-09-19): frozen is fine, marching is the disaster
+
+⊘ Scopes the rows below rather than retracting them. Across three sections today
+the zero-copy DEFINITION slid into an anti-cache POSITION. A fold is still
+zero-copy; writing a bounded mask is still not-a-fold; but writing one is a
+**cache decision with economics**, not a sin. The boundary is
+**recompute-or-freeze vs continuously maintain** — never copy vs no-copy.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-CACHE | **Materialization is allowed when its amortized retrieval value earns it; what is forbidden is entropy accumulation solely to keep derived state current.** 64K cached masks are welcome — no sweep, no refresh, no coherence work, no CPU while dormant. COMBINE vs RECONSTRUCT becomes an EXECUTION decision (discard / cache / persist), not a permanent type distinction | Queued | `C_cache = C_lookup + p_miss·C_replay + amortized C_materialize` vs `C_always_replay`. ⊘ The ~11 ns hit cost is a PREMISE, not a measurement — same discipline as the 1.7 ns figure; measure it before any policy leans on it |
+| D-WFL-CACHEKEY | **Invalidation by KEY MISMATCH, never by update.** `CacheKey = DatasetVersion + RowDomain + lens/ClassView + program + focus/input identity + external-edge snapshot`. A new version leaves every entry FROZEN at zero cost; a later request misses, replays, optionally re-caches. **This key IS the `ReplaySpec`, field for field** — one artifact, two uses: a recipe that regenerates, a key that memoizes. That identity is why invalidation is free | Queued | falsified if any world change requires touching a cache entry. A sweep over cached masks on version bump fails the wave outright |
+| D-WFL-POLICY | metacognitive policy: novel → replay · frequent → cache · historical truth → persist · stale → ignore and do NOT maintain. A reused operator may carry BOTH a `ReplaySpec` and a hot entry: same domain+version ⇒ cached answer; different context ⇒ replay against it | Queued | measured hit rate and tier mix under the slice's workload (W6). A cache whose entries are never hit is waste; one hit on every call means replay was never needed |
+
+## D-WFL-L0 — clauses 2, 4 and 5 AMENDED (2026-09-19, same day): zero-copy is not a size threshold
+
+⊘ Two loopholes in the D-WFL-L0 section below, both closed here rather than
+edited into it (append-only).
+
+| # | amendment |
+|---|---|
+| 2′ | ⊘ *"T1 owns zero-copy primitive execution"* implied all of T1 is a fold. It is not — `mask_set_range`, every `*_to_mask` compare and the import paths WRITE. Corrected: **the Layer-0 fold SUBSET executes through T1 primitives zero-copy; T1 also contains explicitly materializing primitives, which are RECONSTRUCTION when invoked that way.** They stay legitimate; only their classification inside a Layer-0 program changes |
+| 4′/5′ | ⊘ the fold law was stated size-conditionally (*"may not materialize an N-sized derived representation when its compact consequence can stay a range/runs/bounded window/scalar"*) two lines under *"folds are zero copy, period"*. Those are not equivalent. **Foldhood is whether a derived software representation is WRITTEN, never how big it is.** A fresh 12-word bounded mask is still materialization. Size affects reconstruction ECONOMICS, never the DEFINITION of a fold |
+
+**Fold carriers** (they NAME an answer or region): `Count`, `Any`, an ordinal,
+`[lo,hi)`, `base_word + length`, a run descriptor that names rather than
+populates. **Not fold results** (they HOLD one): a populated bounded-mask
+buffer, `[u64; 12]` filled from an intersection, `Vec<Run>`, a full mask — any
+newly written derived buffer.
+
+| D-id | scope | status | gate |
+|---|---|---|---|
+| D-WFL-W2b′ | **respec: bounded composition must not WRITE the intersection.** `WRONG: Range × resident mask → write a bounded mask → Count/Any`. `RIGHT: peek only the intersecting resident words → AND in registers → Count/Any`. The moment the bounded mask is written the program has crossed into RECONSTRUCT — legitimately perhaps, but it is no longer a fold and must be named | Queued | zero derived buffers allocated or written between the bound and the terminal, asserted by counter. A bounded-mask write fails the wave even at 12 words |
+| D-WFL-T1-FUSED | the clean case for the anti-zoo rule licensing a NEW T1 primitive: a fused `popcount(a[i] & b[i])` accumulated over a word span. It cannot be expressed by the existing algebra without an intermediate buffer, so it exposes a genuinely new zero-copy operation rather than a convenience | Queued | differential vs `mask_and` + `popcount_batch_u64` over the same span; identical answer, zero intermediate bytes. Falsified if composition already achieves it without a buffer |
+
+## D-WFL-L0 — the foundational ruling, to land BEFORE any W0/W1 code (2026-09-19)
+
+Six clauses. Docs-only; it is the ruling the wave plan stands on, and it
+corrects two errors of my own from earlier the same day.
+
+| # | clause |
+|---|---|
+| 1 | **"Layer 0" does not mint a new membrane tier.** `membrane-tiers.md:48` — the ladder does not need another one. Layer 0 is the photolithographic computational MEMBRANE, spanning two existing tiers |
+| 2 | **T1 owns zero-copy primitive execution** — `ndarray::simd`, `mask_*`, `ternlog`, `popcount`, `mask_shift_morton`, the strided matchers |
+| 3 | **`lance-graph-mask-risc` is the T2 RISC PLAN LANGUAGE over T1**, not T1 itself. ⊘ Corrects "mask-risc is T1's ISA". Receipt: `exec.rs:25` is `use ndarray::simd::{…}` — it CONSUMES T1. A planner is not the primitive it dispatches |
+| 4 | **A fold is zero-copy by definition** (`E-FOLDS-ARE-ZERO-COPY-PERIOD…-1`) |
+| 5 | **Population-sized reconstruction is legal only at an explicitly named materialization boundary**, never disguised as a fold. `mask_set_range` over a full destination is not forbidden code — it is misclassified execution inside a fold |
+| 6 | **The old "a mask may cross T1" wording REMAINS VALID.** A full mask may be an intentional reconstruction result; it is simply not automatically a fold result. ⊘ Corrects the claim that Seam B was already a violation of T1's existing return contract — it is a violation of the NEW fold law, recorded as a sharpening, never back-dated |
+
+| D-id | scope | status | gate |
+|---|---|---|---|
+| D-WFL-L0 | the six clauses above, landed in `.claude/plans/waben-fold-execution-loop-v1.md` §1 | **In PR (#1251)** | none — a ruling, not a measurement. Its falsifier is textual: if a future session can quote `membrane-tiers.md` to argue a full mask is a legal fold output, clause 6 failed to draw the line |
+
+**Wave mapping this makes self-evident:** W1 ADDRESS integrity · W2 compact
+carrier preservation · W3 ROTATE · W4 spatial/local operators · W5 metacognitive
+feedback · W6 RECONSTRUCT economics — *where should the zero-copy program
+terminate and reconstruction become justified?*
+
+**And the residue is an EXPOSURE gap, not a compute gap:** T1 already ships the
+Morton shift and the strided matchers; the missing work is at T2, making existing
+computation speak the fold algebra without an N-sized carrier between
+instructions.
+
+## D-WFL — round 3: the census, the borrow/replay law, and the fold economics (2026-09-19)
+
+Append-only; supersedes the round-2 rows where they overlap. One of these
+corrects this arc's own `AttestedPlanes` preference from earlier the same day.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-W1a | **W1 starts with an assembly-boundary CENSUS, not a new type.** ⊘ `SealedFacetLane` is NOT the sealed row image — it is `{ keys: Vec<FacetCascade>, witness }` (`ordered_lane.rs:180`): no NodeGuid sequence, no mask planes, no value lanes. So the aggregate `AttestedPlanes` would borrow from does not exist, and `AttestedPlanes::new(keys, masks, lanes)` over three independently-supplied args proves nothing unless it verifies their relationship — the boundary hash in a type's clothes | Queued | find where `semantic key[i]` + `NodeGuid[i]` + `mask[i]` + `value lane[i]` already meet in production. YES an object owns all four under one permutation ⇒ borrow from it, alignment unrepresentable otherwise. NO ⇒ boundary hash over ACTUAL ids is the honest first implementation. **Do not invent a sealed row image to satisfy the plan** — a NO is a real finding about Seam A's depth |
+| D-WFL-W1b | **A borrow attests execution; it can never carry replay.** `AttestedPlanes<'a>` (is this aligned NOW?) and `RowDomain` (which coordinate system must be REACQUIRED?) answer different questions, are not interchangeable, and neither may contain the other. Replay = `attach` run again from owned identities. A `ReplaySpec` holds no `&[NodeGuid]` / `&Planes` / `&SealedFacetLane` / `&AlphaMask` / anything tied to `'a`. The boundary-hash cache is a runtime optimization — never replay evidence, never persisted | Queued | **Ranks ABOVE D-WFL-DET, because it defines what a legitimate replay test IS:** produce a ReplaySpec → DROP every execution object and borrow → re-open from ReplaySpec identities ALONE → fresh AttestedPlanes → replay → bit-identical. If step 3 needs any surviving pointer, cached view, ordinal map or process-local object, it was never replayable |
+| D-WFL-ECON | **If thinking again is cheaper than remembering the answer, think again.** Never retain derived execution state merely to avoid replay when stacked-fold replay is cheaper than maintaining it. Retain for exactly two reasons: ECONOMIC (`C_retain = materialize+maintain+invalidate+readback` < `C_replay = ΣC_fold + C_rotation + C_local`) or SEMANTIC (crossed the Rubicon, must become history/evidence/state). ⊘ Corrects this arc's own W1 enthusiasm: `AttestedPlanes` is legitimate only as a zero-cost ephemeral view created at the fold and dropped — never a maintained aligned representation | Queued | W6 measures the real ratio. The order-of-magnitude argument (a ~10 µs sweep ≈ 5,900 fold-equivalents ≈ six 1000-fold chains on one lane) is CONJECTURE: #1245's 1.7 ns does not transfer to a whole-facet cell, per #1250. The SHAPE holds at any plausible ratio; the constant does not |
+| D-WFL-SCHED | **64K thoughts are continuations, not processes.** Dormant thoughts consume ~zero compute: address/domain + lens + fold program + dependencies + tiny meta state. Scheduler law: no dormant thought may consume sweep cost merely to remain current. A sweep's cost is measured in FOLD-EQUIVALENTS — how many complete alternative chains could have run instead. Sharing a THOUGHT (a replayable operator rebound to the recipient's context) beats sharing a RESULT (expensive, stale, context-bound) | Queued | falsified if a machine holding 64K replay descriptors is not more cognitively parallel than one refreshing 64K masks. Corollary to carve deep: a scheduler spending more time keeping thoughts current than it would spend thinking them again has inverted the substrate |
+
+## D-WFL — round 2 additions after two bot reviews on #1251 (2026-09-19; supersedes the D-WFL-W* rows below where they overlap)
+
+Five findings verified against the tree before acceptance; two of them overturn
+text this arc had already written. Append-only: the earlier sections stand.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-W0 | **Two attestations, not one.** ⊘ `(key, ordinal)` is NOT a fix: with `ordinal` = post-sort position, `K→A,K→B` and `K→B,K→A` both digest as `(K,0),(K,1)`. Split instead — `OrderedLaneWitness` keeps `key_digest = H(K0,K1,…)`; a separate `RowDomain` carries `row_order_digest = H(ID0,ID1,…)` over a STABLE row identity (NodeGuid sequence or writer source ordinals), never the semantic key. Executor requires both. Duplicate keys stay legal per `ordered_lane.rs:194` | Queued | a swap of two rows behind one key must fail while key_digest, lens, version and n_rows are all unchanged. Deliverable is a DECISION: the smallest stable row identity that already exists where lane and planes are assembled — minting a new one is the failure mode |
+| D-WFL-W1-AUTH | **W0 says WHAT is attested; W1 must say WHO MAY MINT IT.** Without it the defect moves up one level — `Program.row_order_digest == Planes.row_order_digest` is still metadata vs metadata. PREFERRED: `AttestedPlanes<'a>` borrowed from the sealed row image (keys + mask planes + value lanes + row-identity sequence), typed constructor, no public assembly — unattested planes UNREPRESENTABLE. Second best: recompute `H(NodeGuid_0…n)` once at the attachment boundary, cached against the immutable borrow. REJECTED: a digest field on a freely-constructed `Planes` | Queued | THE acceptance case: identical keys / version / lens / n_rows / key_digest / `RowDomain` **copied by the caller**, but row identities A↔B swapped and one value plane swapped to match ⇒ execution MUST refuse before the `Range` is consumed. Red before the fix, green only when the actual executed plane ordering is attested |
+| D-WFL-W1′ | ⊘ **Carrying a `RowDomain` is not verifying one.** Comparing program-domain against `planes.domain` compares two metadata copies; a caller can permute a lane with every label intact, so a metadata check PASSES the permuted-planes falsifier. Three enforcement shapes: derive the digest from lane contents; carry the seal's permutation; or make `Planes` constructible only from a sealed lane (unattested planes unrepresentable) | Queued | the permuted-planes case is load-bearing precisely because a metadata-only check passes it |
+| D-WFL-W2a′ | scratch necessity must be DERIVED from the validated program shape (`requires_scratch() == false` for the range-terminal shape), never an ad-hoc caller flag — a flag is a claim, a derived predicate is a proof | Queued | scratch words required = 0, mask words written = 0, answer = `hi-lo`. A zero-mask program still demanding `words_for(N)` fails the wave |
+| D-WFL-W5′ | ⊘ the `w_slot` = thought-track hypothesis is close to REFUTED: `AttentionMaskSoA::touch` (`attention_mask.rs:83-88`) finds by `mailbox_id` alone and overwrites `w_slot`, so a second track at one node ERASES the first. Do not write an acceptance criterion assuming two tracks visible at one NodeGuid | Queued | either a separate mailbox identity per track with that mapping carried explicitly, or the identification is wrong |
+| D-WFL-W5″ | the publication decision must test the DELTA's own emptiness, not `Terminal::RangeAny`. RangeAny is endpoint arithmetic for one un-`under`ed `Pred::Range`; `delta = A_{t+1} \ A_t` is an arbitrary, possibly fragmented mask, so a non-empty PREFIX reports "publish" on every converged step | Queued | a fixed-point step (delta empty, prefix non-empty) must publish nothing |
+| D-WFL-W6.0 | **ATTEND vs EPISTEMIC FIRE.** `AlphaOverlay` is attention memory, not epistemic truth. Ruling: *a non-empty Boolean delta is sufficient for an ATTENTION effect and never sufficient for an EPISTEMIC effect.* Attention may move focus and the alpha trace; epistemic effects require provenance + evidence identity before touching TruthU8/NARS | Queued | the floor that unblocks W6 without a full cognitive theory. Falsified by any path where a bare intersection revises truth |
+| D-WFL-W6t′ | the write-tier ladder is SPECIFIED now and BUILT after W6's measurement. Run W1→W5, measure current `claim()`, and build the smallest meta-atom/replay surface the measured workload demands — or drop the tiering if costs are not widely separated | Queued | building it before writes are proven to dominate THIS loop is the failure this plan warns about, one level up |
+| D-WFL-DET′ | a replay spec is MORE than `RowDomain + program`: it owes the complete deterministic input identity — row domain/snapshot, program identity, LENS identities, focus/carrier input, external-edge snapshot, deterministic parameters. Proof obligation, not necessarily a struct | Queued | the determinism gate precedes the replay tier being BLESSED, not merely used. Miss one input and replay returns a different answer while looking valid |
+
+## D-WFL — REVISED wave order after review (supersedes the flat D-WFL-1..7 section below, 2026-09-19)
+
+⊘ The `D-WFL-1..7` section further down was written before external review of
+#1251. It is left intact (append-only) and is SUPERSEDED by this one. Changes:
+a fourth seam (**Seam D**, semantic→Morton rotation) was missing and gets its
+own wave; the duplicate-key recommendation is withdrawn; the range work splits
+in two; `AlphaFocus` is disqualified as the focus carrier; `claim_ordinals` is
+deferred behind a measurement. Governing rule: **never build the next layer
+until the current one proves its compact result survives into the actual
+consumer.**
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-W1 | row identity + order attestation: `RowDomain {version, lens, permutation-or-row-identity, n_rows}` on `Planes`, checked in `validate`. Binds to the PERMUTATION — NOT key uniqueness (`ordered_lane.rs:194`: equal keys are indistinguishable, so refusing duplicates is a semantic regression that also proves nothing). Also the precondition for replay (`E-REPLAY-CAN-BE-CHEAPER-THAN-STORAGE-1`) | Queued | wrong-version / wrong-lens / permuted-planes (same rows, same length, same key digest, different associated order), each disable-verified RED first. Falsified if a permuted-planes program still returns the oracle's answer |
+| D-WFL-W2a | range-native terminals, ZERO scratch: `Count = hi-lo`, `Any = lo!=hi`, gated on the program being exactly one un-`under`ed `Pred::Range`. Requires `execute()`'s unconditional `scratch.words == words_for(n_rows)` check to become conditional on the program needing planes | Queued | N from 1K to 100M, same width, varying absolute position — **mask words written must be 0**. Falsified if any mask word is written, or cost moves with N or position |
+| D-WFL-W2b | bounded mask composition: `Range ∩ resident aligned mask → Count/Any` over words `w0..w1`. Needs a real operand descriptor (global `base_word` + local length + tail semantics + row-domain), because local word zero is not global word zero. Do NOT narrow generic `Scratch` until the descriptor has a real consumer | Queued | touched words == the offset-aware span `floor((hi-1)/64) - floor(lo/64) + 1` (equivalently `<= ceil(width/64)+1` — a span straddling a word boundary touches one more word than an aligned one of the same width), tested at BOTH aligned and unaligned `lo`, and flat in N and in position |
+| D-WFL-W3 | **Seam D — the semantic→Morton rotation probe.** Same NodeGuids, semantic bound → Morton tile positions. NEW; the crux of the whole arc | Queued | bytes touched, fragments, index build cost + footprint, reuse count — measured on an INDEPENDENTLY-ORDERED lane (a fixture pre-built in Morton order has assumed the answer). Falsified (as a cheap rotation) if it is a per-row hash scatter with no reuse — which relocates the resistance rather than removing it |
+| D-WFL-W4 | one CLOSED Morton tile (`4^k`, trie-aligned). Not a moving aperture: `mask_shift_morton` treats the slice as the field and drops edge carries | Queued | the hex probe's existing axial-BFS oracle + degree-one control + sparse delta-frontier arm, same terminal on every arm. Falsified by any tile-edge mismatch, or by an advantage surviving the degree-one control (then it is not hex) |
+| D-WFL-W5 | focus produced by the result — narrowing, translation, splitting, reopening. **Tile-local**: `AlphaFocus` is disqualified as the carrier because `cell:122` / `any_rung_mask:158` (×10) / `unlooked:175` / `rung_reach:183` all materialize a full-population mask on the READ side | Queued | one trace where changing the local result changes the next region processed, same final answer as the reference route |
+| D-WFL-W6 | publish through the EXISTING `AlphaOverlay::claim()` — 512-byte row, GUID hash, scanpath, visits — deliberately, and measure it. `claim_ordinals` deferred and SPLIT: the input coordinate (no stored bytes) vs the storage contract (two different changes) | Queued | a per-stage cost line, not a speedup. FIRE writes what the read already had, so any re-addressing at the write is pure loss — quantify it before removing it |
+| D-WFL-W7 | second context reacts at the same NodeGuid; owner-stamped `cast` → `collect_casts` → `seal` → `commit_cycle` → one `DatasetVersion`, assembled outside `tests/` | Queued | exactly one version per cycle, append-only, owner ≠ 0. No new transport, no per-cell message, no `KanbanActor` resurrection |
+| D-WFL-W6t | the WRITE-TIER ladder, measured inside W6: meta kanban atom (a hypothesis, never an SoA row) < replayable task (descriptor) < materialized effect (alpha/SoA row). Writing is the expensive part, so a speculation must not cost what a conclusion costs — the rubicon is where an atom earns a row | Queued | cost per tier (bytes + µs) AND tier mix under the slice's workload. Falsified if the ladder is not strictly increasing by a wide margin (then drop the tiering rather than maintain it), or if the expensive tier fires on every speculation (then there is no rubicon) |
+| D-WFL-DET | determinism gate for replay: same `RowDomain` + same program ⇒ bit-identical mask, across repeated runs, SIMD backends, and process restarts | Queued | MANDATORY before any wave relies on replay. A wrong replay still returns a plausible mask, so silent breakage is the only breakage mode |
+
+## D-WFL — the Waben fold execution loop (D-ids minted 2026-09-19, plan `.claude/plans/waben-fold-execution-loop-v1.md`)
+
+Operator-supplied architecture (`waben_fold_architecture.md` + its implementation
+prompt, 2026-09-19), grounded against `main` `25988f3c` / ndarray `40a71ad`.
+PROPOSAL — no code authorized yet. The arc's own framing: the parts exist and are
+never assembled, so these are assembly steps, not constructions.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-1 | bind the bound to the planes it executes on: `RowDomain {version, lens, digest, n_rows}` lifted from the fields `OrderedLaneWitness` already holds; `Planes.domain` + a `validate` check. Duplicate keys: recommend `SealedFacetLane` REFUSE to attest rather than widen the digest | Queued | wrong-version / wrong-lens / duplicate-key falsifiers, each disable-verified RED first, **plus** a permuted-planes case (same rows, same length, same key digest, different order) that must be rejected. Falsified if a permuted-planes program still returns the oracle's answer |
+| D-WFL-2 | let the range stay a range: `Terminal::{RangeAny, RangeCount}` (arithmetic on endpoints, gated on the program being exactly one un-`under`ed `Pred::Range`) + a `BoundedMask` scratch window lifting `touched_write`'s `(base_word, words)` shape out of the probe | Queued | touched-word counter asserted against `(hi-lo)/64 + 2`, with width and ABSOLUTE POSITION varied independently. Falsified if touched words grow with `n_rows` at fixed width, or with position at fixed width |
+| D-WFL-3 | one exactly-specified Wabe tile — CLOSED (`4^k`, trie-aligned), not a moving aperture: `mask_shift_morton` treats the slice as the field and drops edge carries, so a subspan is not a restricted global shift. `H(F) = F`, locality holds trivially | Queued | the hex probe's existing axial-BFS oracle + degree-one control + sparse delta-frontier arm. Falsified by any tile-edge mismatch, or by an advantage that survives the degree-one control (then it is not hex) |
+| D-WFL-4 | `AlphaOverlay::claim_ordinals(&AlphaMask, rung)` beside the existing address-keyed `claim` — closes the ordinal → GUID → hash → ordinal round-trip at the publication boundary | Queued | published bytes + claimed-row growth counted per claim; a no-change step publishes zero, an inhibitory change publishes non-zero. Falsified if claimed bytes still scale at 512 B/claim |
+| D-WFL-5 | the assembly / first slice: 65,536 rows, two lenses (and a DEMONSTRATION that the lane is unattestable under both at once), two W-slots, two rungs, one closed tile, one irregular edge entering sideways, `AlphaFocus` as the focus carrier | Queued | one trace where changing the local result changes the next region processed, with the same final answer as the reference route; no allocation sized by `n_rows` between bound and tile entry, asserted by counter |
+| D-WFL-6 | `LaneRef::Strided {base, stride, group}` mirroring `ndarray::simd::ternary_match_strided_to_mask` — the gap `ir.rs:21-27` already names | Deferred until D-WFL-5 needs it (a facade word with no consumer is the anti-pattern) | differential vs a contiguous copy of the same lane |
+| D-WFL-7 | one real publication through the existing owner: `BatchWriter::cast` → `collect_casts` → `seal` → `LanceCycleWriter::commit_cycle` → one `DatasetVersion`, assembled outside `tests/` | Queued | exactly one new version per cycle, append-only, owner ≠ 0 on every published row. No new transport type, no per-cell actor message, no `KanbanActor` resurrection |
+
 ## D-DIAMOND-1 — dual fold substrate over the shipped `FacetCascade` (D-ids minted 2026-09-18, plan `.claude/plans/d-diamond-1-dual-fold-substrate-v1.md`)
 
 Operator-directed probe arc from `main` `a2a51012`: «Can one canonical 8×2×8-shaped carrier

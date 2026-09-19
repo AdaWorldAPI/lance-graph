@@ -1,3 +1,1507 @@
+## 2026-09-19 — E-THE-CENTER-IS-SPOG-PLUS-FC-EVERYTHING-ELSE-IS-CAST-1
+
+**Status:** RULING on the center of gravity for the whole arc; FINDING on what
+exists; PROPOSAL on thought-as-relations. **Confidence:** high on the ruling
+and the inventory (read-verified below); the proposal has no code.
+
+### The center
+
+```
+SPOG            S, P, O + G (context / graph / frame)     — the semantic address space
++ f, c          evidential frequency + confidence         — the compact evidence currency
++ CE64 59–60    causal-topology lens                       — what causal route the edge claims
++ CE64 61–63    ReasoningBand                              — in what context it is being read
+        ↓  generic reasoning over relations
+        ↓  mask / fold / ternlog / neighbourhood
+        ↓  next focus / novel consequence / reusable thought
+```
+
+Four orthogonal questions, one atom: `(S,P,O,G) f=.82 c=.91 Topology=IndirectKnown
+Band=Relation`. A counterfactual thought reads it under `Band=Counterfactual`
+without overwriting the factual relation; a Meta thought asks whether the
+relation or the thought that produced it transfers. Reasoning maturity is NOT
+encoded into `f,c`; that is what the bands are for.
+
+**Read-verified, all present today:** SPOG — `contract/spog_tenants.rs`,
+`doc_graph.rs`, `wave_dispatch.rs`, `alpha_focus.rs`, `arigraph/triplet_graph.rs`;
+D-SPG-1/D-SPG-2 shipped 2026-09-07. `f,c` — `graph/spo/truth.rs` (NARS
+`TruthValue` = frequency, confidence, with `TruthGate`). CE64 59–60 / 61–63 —
+`causal-edge/src/layout.rs`. Nothing at the center needs minting.
+
+### Everything else is cast, and goes back in its box
+
+```
+SPOG + f,c              KNOWLEDGE
+CE64 bands              CONTEXT / CAUSAL READING
+R2IL + ogar-loco        BEHAVIOR   — what operations happen given bound values; never the knowledge model
+mask / fold / ternlog   EXECUTION
+Quack / DuckDB          teaches physical lowering + economics (an SPOG conjunction is
+                        Mask(P1,O1,G) AND Mask(P2,O2,G) → Count/Any/NextFocus, never a join table)
+lgj / Panama / Valhalla proves another runtime can inhabit it zero-copy
+DeepNSM / COCA / ARM    supply priors, role/context, evidence
+JC                      calibrates whether a signal is real
+```
+
+None of Quack, R2IL, Valhalla, Panama, DisMech or MedCare redefines the center.
+Tarski / Shannon / JC sit ABOVE the graph as operators on the SPOG field, not
+as another ontology: monotone closure `X_{n+1} = X_n ∪ F(X_n)` until `ΔX = ∅`;
+information gain at choice points; JC at evidence boundaries.
+
+### Thought transfer in SPOG terms — PROPOSAL, no code
+
+A previously useful thought is itself relations, with `f,c` on each:
+`H uses_predicate P · H binds_role S/O/G · H useful_under Context · H produced
+Consequence · H transfers_to TargetContext`. "Use this other thinking as a
+dictionary" is then ordinary graph reasoning — find motifs with compatible
+G/role/POS/vocabulary, rank by `f,c`, rebind, run, test whether new SPO
+relations resulted, update the transfer evidence. No analogy subsystem. The
+reusable thing is boring — *select relation set · intersect with context · find
+residual · follow neighbours · test terminal* — and SPOG supplies the meaning;
+POS/register/context refine G rather than opening a second score universe.
+Verified absent from the tree (`uses_predicate` / `transfers_to` /
+`useful_under`: zero hits) — a proposal, recorded as one.
+
+### Standing rule
+
+The endgame is a self-reusing SPOG reasoning machine where evidence, context
+and prior successful motifs make the next semantic operation cheaper to choose
+and cheaper to execute. **No more DisMech archaeology unless it physically
+blocks this path** — `ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS` stays filed with
+its three-PR shape and is executed on operator word, not pursued further here.
+
+## 2026-09-19 — E-A-DOMAIN-IS-AN-OPTIONAL-CONSUMER-THROUGH-OGAR-NEVER-A-CO-DEFINER-1
+
+**Status:** RULING (sharpens `E-1224-WAS-A-BIDIRECTIONAL-DOMAIN-INVERSION-…-1`
+directly below). **Confidence:** high; every edge cited is read from the tree.
+
+The #1224 failure, stated in one line: the architecture forgot that DisMech is
+an **optional domain consumer of lance-graph through OGAR**, and let the
+substrate and the domain define each other. Consequences that the earlier
+entries under-stated:
+
+- `lance-graph-contract/src/dismech_evidence.rs` is not "in the wrong
+  neighbourhood"; **it should not exist in lance-graph.** Zero dependency
+  weight and byte-perfect parity are not the question — semantic ownership is.
+  Its only external consumer imports it as `mirror` to assert parity against
+  `ogar_dismech::RELATIONS` (`lance-graph-ogar/src/lib.rs:228,320,342`): a copy
+  whose whole job is to be compared to the original.
+- The three planner `dismech_*` modules are wrong AS DisMech modules however
+  much generic algebra they contain. Generic algebra is extracted into a real
+  domain-neutral home; DisMech knowledge moves to `ogar-dismech`; what existed
+  only through the entanglement is deleted. **Never** a rename, **never** a
+  feature flag — both preserve the inversion, one awake and one asleep.
+- Compile-time ownership runs one way: `ogar-dismech` depends on lance-graph
+  and integrates `dismech-rs`; with both present DisMech behaviour exists,
+  without them lance-graph is unaware DisMech exists.
+
+The repair test is the contamination test: **can lance-graph compile, test,
+document and explain every public concept without knowing DisMech exists?** If
+not, the seam is still cut wrong. The positive half is separate: **can
+`ogar-dismech` + `dismech-rs` bind onto the generic mechanics without modifying
+lance-graph?** Resolution shape and measured edges:
+`ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS` (corrected entry).
+
+## 2026-09-19 — E-1224-WAS-A-BIDIRECTIONAL-DOMAIN-INVERSION-NOT-A-LEAK-1
+
+**Status:** SHARPENING of the two entries below it. **Confidence:** high — both
+directions are measured in #1224's own body, and the second is still live.
+
+The two #1224 corrections below describe a one-way leak: disease-specific
+semantics crossed DOWN into the generic thinking substrate. That is half of it.
+#1224's own addendum measured the other half: of the 1,941 planner lines under
+`dismech_*` names, **1,547 (80 %) carry no DisMech semantics at all** —
+`dismech_counterfactual.rs` (674 lines, 0 domain refs) and `dismech_replay.rs`
+(873, one label lookup) are generic counterfactual-replay algebra that merely
+inherited a domain filename because MedCare was the first consumer. So generic
+reasoning crossed UP and got trapped inside domain vocabulary at the same time
+domain vocabulary crossed down. A Möbius strip, not a leak:
+
+```
+MedCare / DisMech semantics ──▼ leaked down ──▶ lance-graph thinking substrate
+lance-graph generic reasoning ──▲ leaked up ──▶ stranded behind dismech_* names
+```
+
+The boundary is supposed to be one-way and boring: domain semantics adapt /
+bind / provide evidence through the OGAR vocabulary and the loco seam INTO the
+generic substrate; generic results (mask, replay, evidence, causal result) come
+back and the DOMAIN interprets them in its own vocabulary. Neither a domain-named
+planner in the substrate nor generic algebra under a domain filename.
+
+**This is why "re-home the helper" was never enough** — the seam itself had to
+be re-established, and it has not been: all four `dismech_*` files are on this
+branch today (1,941 planner lines + `dismech_evidence.rs` in the zero-dep
+contract). Filed as `ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS`. Cross-ref: the
+consumer-side mirror is `ogar-consumer-preflight.md` (a consumer never
+re-implements the Core locally) — the same seam, seen from the other bank.
+
+## 2026-09-19 — E-1224-CLOSED-FOR-BEING-WRONG-NOT-FOR-LACKING-CONSUMERS-1
+
+**Status:** CORRECTION of the entry directly below this one. **Confidence:**
+high — read from the PR body.
+
+⊘ `E-ONE-OBSERVABLE-IS-NOT-THREE-INSTRUMENTS-…-1` says #1224's helpers were
+"deleted after a measured zero production consumers" and lets that read as the
+reason the PR closed. **Wrong causal reading.** #1224 was withdrawn and closed
+unmerged because it was **fundamentally wrong**: it turned a criticism into an
+invented maturity-ladder specification (states, counters, a progression, and
+acceptance criteria that never existed), and it placed causal-licensing
+semantics inside a DisMech module against the ruling that DisMech is not a
+thinking atom. The zero-consumer count was a footnote — it meant the deleted
+helpers needed no re-homing, nothing more.
+
+The compression is the defect the PR itself names: a measurement standing next
+to a decision was promoted into its cause. Recorded by prepend; the plan's §1
+paragraph is corrected in place (live plan, not ledger).
+
+## 2026-09-19 — E-ONE-OBSERVABLE-IS-NOT-THREE-INSTRUMENTS-AND-IMPORTS-ARE-PROBES-1
+
+**Status:** FENCE (ruling) + CORRECTION + five named PROBES, all unscheduled.
+**Confidence:** high on the fence and the correction (read-verified); the
+probes are conjectures by construction.
+
+### The fence
+
+A lateral pass on the Waben loop produced this sentence, in chat only, never
+committed: *a frontier XOR-popcount is Tarski when it reaches zero, Shannon
+when its delta reaches zero, and JC when compared to the Jirak floor.* **Struck
+before it was ever written down as a rule.** A popcount is an OBSERVABLE that
+may be fed to all three analyses; it is none of them. Tarski is a fixed point of
+a monotone operator on a lattice; Shannon is `−Σ p log p` and gain is a
+difference of it; JC is distinguishability from a calibrated weak-dependence
+regime (`I-NOISE-FLOOR-JIRAK`), not a threshold on a count. `popcount → 0` is
+not a fixed point (a non-monotone step can raise it) and not zero entropy (a
+stable non-zero disagreement is low-entropy with non-zero popcount). Same
+failure shape as `MaskOp`-means-bitmap: a carrier promoted to a semantics.
+Sibling fence already on the board: entropy says WHERE closure is, never WHAT
+hole (CE64 59–60) nor HOW asserted (61–63).
+
+### Roaring sits under `KEEP`, not in place of the mask expression
+
+Density-adaptive containers answer *which representation for a set I have
+decided to hold*. The arc's primitive answers the prior question — *whether a
+represented set is needed at all* (`Fold × Fold × AND × TERNLOG → COUNT` holds
+no set). Where `Terminal::Keep` elects one, Roaring's per-chunk rule is a fine
+container choice. It is not an argument for eager ops. Recorded so it is not
+re-imported one tier too high.
+
+### Correction: #1224 resolves — as a NEGATIVE receipt
+
+The entry below this one (`E-THREE-CONVERGENCES-…-1`) says a citation to
+"#1224" does not resolve. That was a search of `.claude/` and `docs/` only.
+Read from GitHub: **#1224 exists, was withdrawn and closed without merging**,
+and the two causal-licensing helpers it added were **deleted after a measured
+zero production consumers**. It must not be cited as positive architecture; its
+failure is exactly the lesson — a helper existing is not enforcement, and
+usefulness or association does not grant causal status. The plan's §1 paragraph
+is corrected in place (it is the live plan, not a ledger); this entry corrects
+the ledger by prepend.
+
+### The five imports — probes, each with a falsifier (plan §9)
+
+Retina (read as contrast → sparse FIRE by consequence); inhibition of return
+(deliberately non-monotone, OUTSIDE Tarski closure); erosion (Go/Bouzy —
+`expand → close → prune → close`, never "add erosion to Tarski"); pre-shaped
+geometry (a VIEW selects a codebook trained for its own predicates — NOT one
+global order, which fixes one lens by breaking another); aperture (depth as
+address resolution, orthogonal to `ReasoningBand`: band = what KIND, prefix =
+what RESOLUTION — never collapse). **Evidence check on the last one:**
+`facet.rs:645/683/796` `i >> 2` is `G3D4::group_of`, a carving shift — NOT a
+rung ladder. "Rung = prefix depth" stays CONJECTURE until depth-stepping is
+shown to move IG monotonically on a real lane.
+
+The shared rhythm is the two-stroke engine already ruled: monotone stroke to a
+fixed point, then a non-monotone stroke (inhibit / prune / revise / change
+resolution / change dictionary / change band), then closure again. Thinking
+harder need not mean more state.
+
+## 2026-09-19 — E-THREE-CONVERGENCES-TARSKI-SHANNON-JC-AND-THE-BAND-IS-A-SANDBOX-1
+
+**Status:** RULING on the demarcations; FINDING on the inventory
+(read-verified); **GAP** on the entropy half. **Confidence:** high on what was
+checked; one cited reference did not resolve.
+
+### Three convergences, never to be conflated
+
+```
+TARSKI   have I exhausted the consequences?   X_{n+1} = X_n
+SHANNON  am I still learning anything?         ΔH ≈ 0
+JC       is the apparent information bigger than substrate noise,
+         dependence and representation drift?
+```
+
+**Tarski gives the Wabe's `delta == empty` a REASON.** On a finite lattice
+`L = (P(E), ⊆)` with monotone operators, the inflationary chain
+`X_{n+1} = X_n ∪ ⋃_H F_H(X_n)` must stop, and its stopping point is the least
+fixed point of the admitted operators. Lattice termination, not a
+done-thinking detector.
+
+**But ANDNOT, retraction, confidence decay, inhibition and counterfactual
+replacement destroy monotonicity** — legal, but a different phase. A two-stroke
+engine: MONOTONE CLOSURE (accumulate → fixed point) / NON-MONOTONE REVISION
+(retract, counterfact, decay → a new starting state) / closure again. ⊘ The
+D-WFL recurrence `A_{t+1} = (A_t ∪ ⋃_d S_d(A_t ∩ P_d)) ∩ T` is the monotone
+stroke ONLY, while §5's `ANDNOT explained` is already the other one — the first
+slice crosses the phase boundary and must say so.
+
+### The band is a semantic sandbox — usefulness is not causal licensing
+
+Read-verified in `crates/causal-edge/src/layout.rs`:
+
+- **bits 59–60 `CausalTopology`** `{Direct, IndirectKnownIntermediates,
+  IndirectUnknownIntermediates, Unknown}`, documented as an *"additive factual
+  view over `TrustTexture`"* — ONE physical field, two lenses, not two
+  independent variables.
+- **bits 61–63 `ReasoningBand`** `{Surface, Association, Relation, Causal,
+  Counterfactual, Perspective, Meta, Transcendent}`, with explicit orthogonality
+  notes to `CausalMask`, the inference mantissa's −6 slot, and `direction`.
+
+**The ruling:** a donor thought at `band = Relation` with `f=.81, c=.94` and
+spectacular information gain **must not be silently promoted to causal
+knowledge.** High IG makes it a *candidate causal investigation*, which then
+requires an explicit Causal-band operation before any new CE64 is written.
+`Counterfactual` may likewise explore without mutating factual causal state. The
+band is a sandbox label around identical R2IL mechanics.
+
+⊘ **A citation to "#1224" for this distinction does not resolve** — no `#1224`
+anywhere in `.claude/` or `docs/`, and no board text matching *"causal
+licensing"* / *"usefulness is not"*. The PRINCIPLE stands on its own merits and
+on the orthogonality notes in the source; the REFERENCE does not, and is
+recorded as uncited rather than repeated as established.
+
+And `ReasoningBand::Meta` earns its keep with **no meta-opcode**: bind the
+fold/mask machinery to the thought programs and transfer histories themselves —
+which donors transfer, which repeatedly fail, which masks deserve caching, which
+motifs collapse uncertainty fastest. Exactly what the variant's own doc comment
+says it is for.
+
+### JC is the brake; the entropy half does not exist
+
+Read-verified present in `crates/jc/src/`: `jirak.rs`, `cartan.rs`, `weyl.rs`,
+`drift.rs`, `ewa_sandwich{,_3d}.rs`, `reliability.rs`, `quorum.rs`, `pearl.rs`,
+and `stats.rs` (`cohen_kappa`, `omega_total`, `phi`, `binary_association`,
+`kr20`, `multiple_r_squared`, `eta_squared`, the t-test family).
+
+⊘ **`jc` contains NO Shannon/entropy implementation** — zero hits for
+`shannon`/`entropy` across its source. The information-gain half of any such
+scheduler **must be built**; naming it is not having it. Filed as a gap, not a
+capability.
+
+**And the trap it must avoid is already an iron rule one level down.** 500
+candidate thoughts sharing prefixes, vocabularies, R2IL motifs and masks are
+**not independent lottery tickets**. Raw `−Σ p log p` is a fine descriptive
+quantity; an information-GAIN claim about this substrate needs dependence
+calibration, because `I-NOISE-FLOOR-JIRAK` already establishes that classical
+IID Berry-Esseen is wrong for these fingerprints. So `R_JC` is not one scalar —
+it means *passes the relevant dependence, noise and reliability gates*. The
+scheduler is the iron rule's next consumer, and it does not get an exemption for
+being cognitive.
+
+### The shape, for when it is built
+
+```
+X_{t+1} = X_t ∪ ⋃_H  1[ G(f_H, c_H, T_H, B_H, C_t) ] · F_H(X_t)
+U(H)    = IG(H) · R_JC(H) / C_fold(H)
+stop when X_{t+1} = X_t, or earlier when max_H U(H) < ε
+```
+
+`G` is a cheap eligibility GATE composed from currencies that already exist —
+never one giant score. And underneath all of it the computation stays the stupid
+beautiful thing: fold × mask × ternlog × popcount → three bits of consequence,
+without ever constructing the state the question never required.
+
+## 2026-09-19 — E-A-VARNODE-IS-NOT-A-BUFFER-R2IL-IS-MICROCODE-FOR-MASKED-THINKING-1
+
+**Status:** RULING on the framing; FINDING on the inventory (cross-repo,
+read-verified at OGAR `5055b06`, r2sleigh `99d2553`); CONJECTURE on motif
+mining. Twin of `E-A-MASK-EXPRESSION-DOES-NOT-IMPLY-A-BITMAP-1`, one level over.
+
+> **A varnode is not a buffer.** R2IL varnodes carry behavioral DEPENDENCIES,
+> not an obligation to materialize their values. `v2 = ternlog(v0,v1,…)` may
+> never exist as bytes.
+
+Compiler instinct reads `v0 = …; v1 = AND(v0,…)` as *allocate a representation
+per name*. The intended semantics is SSA in a **fused dataflow engine**: a
+varnode names a logical value / address / membership expression, and only a
+terminal requesting membership as a carrier forces bytes. Exactly the mask
+error, transposed.
+
+### The architecture is already in the tree, in fragments nobody had joined
+
+- **`ogar-r2il/src/lib.rs`** module doc: *"proxy glue: r2sleigh's R2IL opcode
+  set as an `ogar_loco::Vocabulary`, plus the **masked lane projection** that
+  re-reads one already-written body under any `LaneShape` **without rebuilding
+  it**."* That clause IS the non-materializing re-projection this arc spent a
+  day deriving — already shipped, in another repo, under another name. Surface:
+  `project()`, `project_r2il()`, `r2il_mask()`, `CallMask { shape: LaneShape }`.
+- **`ogar-loco/src/basin.rs:94-98`**: *"Orchestration is agnostic; the thinking
+  IR is a caller… `ogar-r2il` plugs its vocabulary and codebooks in."* **The
+  wrapper is `Vocabulary`** — the seam exists; nothing needs minting.
+- **`ogar-r2il` carries NO `r2sleigh` dependency by design**: 82 arities as a
+  table, pinned to the source enum by a drift test. The opcode set travels as an
+  arity table, not an object graph.
+- **`LOCO-ORCHESTRATION-GAP.md`**: R2IL occupies one **classid** vocabulary
+  while query / NARS-tactic / Blockly occupy their own through the same
+  registry.
+
+### ⊘ Two corrections to the premise, both read-verified
+
+1. **r2il is STRONGLY TYPED, not "nontyped".** `r2sleigh/doc/r2il.md`: *"a
+   strongly-typed intermediate language based on Ghidra's P-code operations.
+   Every operation has explicit input and output varnodes with known sizes and
+   address spaces."* It exists to fix ESIL's untypedness. **This strengthens the
+   design:** it types the MACHINE (sizes, address spaces), never the MEANING —
+   precisely the "keep the opcode table embarrassingly mechanical" property to
+   protect. ABI-friendliness comes from sized varnodes + explicit spaces + serde
+   + the arity table, not from absent types.
+2. **NAME COLLISION — the shape that bit this arc twice today.**
+   `membrane-tiers.md:24-25` places an **"R2IL" at T3** (*"emits T3 artifacts…
+   its ceiling IS T3's; door-knocker test"*), beside the Java facade and
+   low-code. The R2IL here is behavioral microcode far below that. Two things
+   named R2IL at opposite ends of the ladder is exactly how T1 and T2 got
+   flattened this morning. **Whichever keeps the name, the other must be renamed
+   before either is built against.** Filed as an issue, not resolved here.
+
+### The joining sentence
+
+> R2IL is **not** the harvested representation of machine code. R2IL is the
+> **vocabulary-neutral behavioral microcode for masked thinking.** Harvesting
+> via r2sleigh/ruff is one PRODUCER of R2IL programs. `ogar-loco` orchestrates
+> them, `classid` selects their vocabulary, and the substrate executes their
+> mask/fold expressions **without materializing intermediate populations unless
+> a terminal explicitly requests one.**
+
+And the whole doctrine, shorter than this arc's Layer-0 prose: *SPOG says what
+exists. ClassView says how to see it. `ogar-loco` says what to do next. R2IL
+says how the thought behaves. Mask/fold algebra executes it without constructing
+what it can merely observe.*
+
+**Keep cognition OUT of the opcode table.** No `NARS_REVISION`, `EMPATHY`,
+`CAUSE`, `ANALOGY` opcodes — that destroys the entire advantage. Cognition lives
+in bindings, composition, macro discovery, selection, focus, terminal
+interpretation and the Rubicon; never in opcode semantics.
+
+**Re-reading of the harvest (CONJECTURE — no motif mining has been run):** not
+*"assembly instructions we collected"* but *millions of tiny programs humans
+already wrote to transform, compare, gate, branch, select, normalize, search and
+decide.* BPE/macro mining over R2IL streams would then discover reusable
+BEHAVIORAL MOTIFS — promotable to callable operators and bindable to entirely
+different classid-selected vocabularies. Harvest → R2IL → motif discovery →
+promote → bind → execute as masked thought. This names an endgame, not a result.
+
+## 2026-09-19 — E-A-MASK-EXPRESSION-DOES-NOT-IMPLY-A-BITMAP-1
+
+**Status:** RULING — the global primitive the whole D-WFL arc was circling.
+Subsumes the six fold-law entries written today; none is wrong, all were one
+level too low. **Confidence:** high; the relocation of the defect is
+read-verified.
+
+> **Mask algebra is globally NON-MATERIALIZING by default. A mask EXPRESSION
+> denotes membership; it does not imply a bitmap exists. Materialization occurs
+> only at an explicit TERMINAL, when the membership set itself is requested as a
+> carrier.**
+
+This is stronger and more accurate than *"folds are zero-copy"*, because it lets
+folding, masking, ternlog, gating, projection and reduction all participate in
+ONE zero-materialization algebra. **The fold was never the whole trick.** The
+trick is that the expression can remain unevaluated as population state all the
+way to a low-entropy terminal — DuckDB's pipeline insight, in a semantic
+substrate.
+
+**Three concepts; this arc collapsed 1 and 3 for a full day:**
+
+```
+1. MASKING            a Boolean/ternlog/gating OPERATION — may be entirely
+                      zero-materialization
+2. MASK EXPRESSION    a composition of predicates/folds/fields/populations —
+                      still need not exist as a bitmap
+3. MATERIALIZED MASK  an actual membership bitmap, chosen because its BITS are
+                      useful downstream
+```
+
+Collapsing 1 into 3 is exactly why the discussion oscillated between *masks are
+wonderful* and *masks violate folds*: both were true, of different referents.
+
+**`ClassView` × `WideFieldMask` were designed for this.** `WideFieldMask` is a
+field-PARTICIPATION currency, not a tiny bitmap — *only these semantic facets
+take part*. Stack the apertures optically (ClassView × WideFieldMask × semantic
+bound × focus × permissions × temporal POV × another dataset) and measure what
+survives; **do not manufacture a new transparency after every aperture.**
+Cognition and rendering are the same photolithographic machine with different
+lenses and terminals, and neither inherently needs a population mask.
+
+### The defect relocates: the election is ALREADY in the ISA, and the ops annihilate it
+
+Read-verified in `lance-graph-mask-risc/src/ir.rs`:
+
+- `Terminal::Keep { mask }` (`:184`) — *"The final mask itself stays in `mask`
+  (a scratch slot the caller reads back); nothing is reduced."* **That IS the
+  materialization election.** `Count` / `Any` / `All` / the masked reductions
+  never request the membership set as a carrier.
+- But `MaskOp::And { a, b, dst }` is documented `dst = a & b`, and **every
+  `MaskOp` is an assignment to a destination slot.** So the ops destroy at level
+  N−1 precisely the choice the terminals encode at level N — and `exec.rs:566`
+  then forces every slot to `words_for(n_rows)`.
+
+> **`MaskOp` must not semantically mean "produce a Scratch mask". It must mean
+> CONTRIBUTE TO A MASK EXPRESSION. Scratch is one possible physical LOWERING,
+> never the semantics.**
+
+**So `Pred::Range → Scratch` is a SYMPTOM, not the disease.** Every earlier
+framing of Seam B — performance complaint, T1 conformance failure, fold-law
+violation, absent decision — was chasing one op. Fixing `Range` alone leaves
+`And`, `Or`, `Xor`, `AndNot`, `Ternlog` all writing full planes. The correction
+belongs to the execution MODEL:
+
+```
+MaskExpr: A AND B ANDNOT C TERNLOG D,E,F RANGE lo,hi GATE focus
+   ├─ Terminal::{Any, Count, First, Reduce}
+   │     fuse to registers; NEVER emit intermediate membership bits -> u64
+   └─ Terminal::{Keep, Cache, Publish}
+         permission to create the bitmap
+```
+
+**And half the "missing primitives" dissolve into lowering rules.** The fused
+`popcount(a & b)` of `D-WFL-T1-FUSED` is not a bespoke instruction — it is what
+a fuser emits for `MaskExpr → Terminal::Count`. `fuse.rs` already collapses a
+Boolean tree into one ternlog; what it does not do is fuse **across the
+op → terminal boundary**, which is exactly the boundary this ruling moves.
+
+### Why this took a day, recorded so it is not repeated
+
+The design already encoded the distinction — `Keep` vs `Count`, and
+`WideFieldMask` as a participation currency rather than a population. What was
+never written down is **the semantics of `MaskOp`**, so every reading defaulted
+to its physical lowering, and `Mask × ClassView/WideFieldMask → Mask` was read
+as *allocate a bitmap* when the arrow only ever meant *denotes membership*. A
+spec gap, not a misunderstanding by anyone: an unstated semantics will always be
+read as its implementation.
+
+The compounding error was mine: six escalating laws about FOLDS, each corrected
+in turn, while the actual primitive sat one level up in the mask algebra. Each
+law was true and none was the general case.
+
+## 2026-09-19 — E-MASKING-IS-AN-OPERATION-A-MASK-IS-A-CARRIER-1
+
+**Status:** RULING — corrects the AXIS of
+`E-FOLD-AND-MASK-ARE-SIBLING-PHYSICAL-PLANS-1` (written minutes earlier), whose
+substance stands. **Confidence:** high. This is the cleanest formulation the arc
+has reached.
+
+> **Masking is an OPERATION. A mask is a CARRIER. Never confuse the two.**
+
+⊘ The previous entry framed the choice as *"FOLD path vs MASK path"*, which
+implies that electing to mask means giving up zero-copy. **It does not.** Two
+datasets can be folded and masked against each other with **no materialization
+at all** — and that is not a compromise, it is probably the ideal Layer-0
+operation:
+
+```
+dataset A ──fold──┐
+                  ├─ AND / TERNLOG / gate ──> tiny answer
+dataset B ──fold──┘
+      no mask population ever exists
+```
+
+The membership relation lives **logically, in registers**; the result is a
+`Count`, an `Any`, a `[lo,hi)`, a `First`, a next focus. The photolithography
+metaphor lands exactly here: **shine two patterns through each other and measure
+where the light survives — you do not manufacture a transparency showing every
+surviving pixel.**
+
+**Three independent axes, not one binary:**
+
+```
+OPERATORS          CARRIERS           MATERIALIZATION CHOICE
+fold               canonical lane     fused / zero-copy
+mask · ternlog     range              materialized bitmap
+project            descriptor
+rotate             resident mask
+neighbour          cached mask
+reduce             …
+```
+
+**The entropy principle that falls out — the sharpest statement of the arc:**
+
+> **Representation entropy should follow ANSWER entropy.**
+
+*"Do these two million-row semantic regions intersect?"* carries ~1 bit.
+Constructing 125 KB of mask to discover that bit is the obscenity — and 125 KB
+is not rhetorical: it is Seam B's measured number at N = 1M. *"How many
+overlap?"* is 32–64 bits. Both belong in the fused arm.
+
+Conversely *"give me the overlap, because six later thoughts will manipulate it
+spatially"* justifies materializing — the bitmap is then the **low-entropy
+working representation relative to its future workload**, even though it dwarfs
+the immediate scalar.
+
+**So the BBB's precise question is not "fold or mask?" but:**
+
+> **Is this membership relation transient algebra, or has it been PROMOTED to a
+> mask carrier?**
+
+That promotion is the deliberate boundary. Everything the previous entry says
+about elections being visible at T2 is right; only the axis needed fixing.
+
+**W2b, restated a final time — both arms MASK:**
+
+```
+W2b-A   Range × resident mask -> FUSED masking -> Count / Any   (no result mask)
+W2b-B   Range × resident mask -> masking -> a MATERIALIZED bounded mask
+        — and this arm must PROVE the downstream reuse that justifies the carrier
+```
+
+Same masking semantics, different result carrier. W2b-B carries a burden W2b-A
+does not: a materialization with no demonstrated consumer **fails** the arm.
+That is what making the promotion deliberate actually costs.
+
+**Shortest form of the whole doctrine:** *fold the datasets, mask the folds,
+materialize only when the mask itself is worth keeping.*
+
+## 2026-09-19 — E-FOLD-AND-MASK-ARE-SIBLING-PHYSICAL-PLANS-1
+
+**Status:** RULING — the resolution of five entries written today that read as
+*fold good, mask bad*. None is retracted; all were being read as a preference
+when only one was a definition. **Confidence:** high.
+
+> **Masks are allowed. Accidental masks aren't.**
+
+**FOLD and MASK are sibling first-class execution strategies.** Neither is
+universally preferred. *"Folds are zero copy, period"* stays exactly true — it
+defines what a FOLD **is**, never what the machine is permitted to do.
+
+```
+FOLD                              MASK
+canonical bytes                   canonical bytes / folds / other masks
+   ↓ peek / bound / compose          ↓ materialize or REUSE a bitmap
+   ↓ reduce                          ↓ mask algebra / cache / fan-out
+compact answer                    a resident plane
+```
+
+**FOLD is attractive when output entropy is low** — `Count`, `Any`, `Bound`,
+`First`, a descriptor, an answer consumed once. **MASK is attractive when the
+mask itself has computational value** — reused many times, shared by many
+thoughts, AND/OR/TERNLOG fan-out, ~11 ns lookup, a resident attention/focus
+plane, an expensive derivation worth caching. At the point a mask is reused
+twelve thousand times, insisting on recomputation *because folds are pure* is
+self-sabotage.
+
+The choice is economic and semantic: **elect MASK if
+`C_build + C_reuse < C_repeated_fold`, or if a later operation genuinely wants
+mask algebra.** Both are simultaneously correct at 64K: *thought A → fold,
+asked once; thought B → fold once → mask → reused by 12,000 thoughts at ~11 ns.*
+
+**So the rule governs the TRANSITION, not the bytes:**
+
+> The crossing from fold-native to mask-native execution must be **deliberate
+> and visible at the T2 planning membrane.**
+
+Once MASK is elected there is no shame in behaving like a mask engine —
+`Mask → AND → TERNLOG → shift → cache → another mask` is legitimate
+photolithography too. What is forbidden is only:
+
+```
+the planner believes it is executing a fold
+        ↓
+a helper silently allocates words_for(N)
+        ↓
+everything downstream is mask-native — and NOBODY MADE THE DECISION
+```
+
+**This restates Seam B more precisely than any earlier entry.** The defect in
+`Pred::Range` is NOT that it writes a mask. It is that the planner has no way to
+elect that and no way to decline it — there is exactly one path, so **the choice
+does not exist.** Seam B is an ABSENT DECISION, not a present mask. Every
+earlier framing of it (performance complaint · conformance failure · fold-law
+violation) was circling this.
+
+**The BBB question becomes answerable:** *who decided this computation should
+become a mask, and on what basis?* Static plan knowledge suffices to start —
+`terminal Count → stay FOLD`; `one AND then Count → probably FOLD`;
+`reuse_count > 1 → consider MASK`; `shared cached result → MASK`;
+`a ~11 ns cached mask → almost certainly MASK`. DuckDB-style dynamic costing can
+follow. This is pipeline-vs-materialize, a solved shape.
+
+**Consequence for W2b — it must demonstrate BOTH paths, not forbid one:**
+
+```
+FOLD-NATIVE   Range ∩ resident mask -> Count / Any, no second mask
+MASK-NATIVE   Range ∩ resident mask -> a bounded / cached mask,
+                                       because a consumer reuses it
+```
+
+Identical semantics, differentially checked against each other and the oracle.
+What W2b proves is that the planner can **elect** either and that the election
+is visible in the plan rather than buried in a helper.
+
+**And it upgrades `D-WFL-T1-FUSED` from optimization to enabler:** a fused
+`popcount(a & b)` over a span cannot be expressed without an intermediate
+buffer, so **without it the fold-native arm does not exist at all.** The
+primitive is what CREATES the choice — which is exactly why Seam B had no
+decision in it.
+
+## 2026-09-19 — E-FROZEN-IS-FINE-MARCHING-IS-THE-DISASTER-1
+
+**Status:** RULING — scopes `E-ZERO-COPY-IS-NOT-A-SIZE-THRESHOLD-1` and
+`E-A-THOUGHT-IS-A-REPLAYABLE-OPERATOR-NOT-A-MAINTAINED-STATE-1`. Neither is
+retracted; both were being read further than they said. **Confidence:** high on
+the boundary, unmeasured on the constants.
+
+⊘ **The drift being corrected is mine:** across three entries today the
+zero-copy definition slid into an **anti-cache position**. *A fold is zero-copy*
+stays exactly true, and writing a bounded mask stays not-a-fold. What does NOT
+follow is that writing one is a sin. **It is a cache decision, with its own
+economics.**
+
+> **The real boundary was never copy vs no-copy. It is
+> RECOMPUTE-OR-FREEZE vs CONTINUOUSLY MAINTAIN.**
+
+```
+FOLD         canonical state -> zero-copy computation -> consequence
+CACHE MISS   fold consequence -> materialize it ONCE, deliberately
+CACHE HIT    cached mask -> zero-copy peek -> ~11 ns
+```
+
+If a cached result is callable in ~11 ns, discarding it because it once crossed
+a materialization boundary would be absurd. **64K cached masks are welcome** —
+no sweeping, no incremental refresh, no coherence work, no CPU while dormant.
+Frozen ducks, and **frozen is the point**. Marching 64K ducks around every cycle
+is the disaster, and that was always the enemy; storage never was.
+
+> **Materialization is allowed when its amortized retrieval value earns it.
+> What is forbidden is entropy accumulation solely to keep derived state
+> current.**
+
+**So COMBINE vs RECONSTRUCT is an EXECUTION DECISION, not a permanent type
+distinction** — the earlier entries implied the latter:
+
+```
+thought P over domain D, first use: replay folds -> R
+  cheap / unlikely reuse   -> discard R
+  expensive / likely reuse -> cache R
+  semantic commitment      -> persist R
+```
+
+**Invalidation must be by KEY MISMATCH, never by update.** A world change must
+not walk 64K entries:
+
+```
+CacheKey = DatasetVersion + RowDomain + lens/ClassView + program
+         + focus/input identity + external-edge snapshot
+
+new DatasetVersion -> old entries stay FROZEN (zero work)
+                   -> request -> MISS -> replay -> optionally re-cache
+```
+
+**And that key is the `ReplaySpec`, field for field.** The replay descriptor and
+the cache key are **one artifact used two ways**: as a recipe it regenerates the
+answer, as a key it memoizes it. This is why invalidation can be free — a
+descriptor built from owned identities either matches the world or does not, and
+nothing must be swept to discover which. The two doctrines were the same object
+all along.
+
+**The economics are memoization economics, not a prohibition:**
+
+```
+C_cache = C_lookup + p_miss · C_replay + amortized C_materialize
+        vs
+C_always_replay = C_replay
+```
+
+⊘ **The ~11 ns is a premise, not a measurement** — same discipline as the 1.7 ns
+figure. A cached-mask lookup cost must itself be measured before policy leans on
+it. But if lookup is tens of ns and replay hundreds, a heavily reused mask earns
+caching almost at once; a thought called once never did.
+
+**Metacognitive policy, directly:** novel → replay · frequent → cache ·
+historical truth → persist · stale → ignore, do NOT maintain.
+
+**Consequence for reuse across boards:** a heavily reused operator can carry BOTH
+a `ReplaySpec` (the reasoning recipe) and a hot cache entry (the precomputed
+result for one exact domain and version). Same domain and version ⇒ the cached
+answer. Different context ⇒ replay the operator against it. Memory and
+thought-reuse at once, with no maintenance treadmill.
+
+**Net doctrine:** *Folds are zero-copy. Cached fold results are allowed. A
+cached result is an immutable consequence of a pinned input state — not live
+derived state that must be swept to stay current. Recompute on miss; never
+maintain an entry merely because the world moved.*
+
+## 2026-09-19 — E-ZERO-COPY-IS-NOT-A-SIZE-THRESHOLD-1
+
+**Status:** RULING — closes a loophole in
+`E-FOLDS-ARE-ZERO-COPY-PERIOD-PEEK-NOT-BORROW-BUILD-FOLD-1` and in the
+`OLD/NEW` law pair recorded in
+`E-DO-NOT-BACK-DATE-A-NEW-LAW-ONTO-AN-OLD-DOCTRINE-1`. **Confidence:** high.
+
+> **A smaller materialization is still a materialization.** Foldhood is
+> determined by **whether a derived software representation is written**, never
+> by whether that representation is population-sized. Ranges, ordinals and
+> window descriptors are fold carriers because they NAME an answer or a region;
+> a populated bounded-mask buffer is reconstruction. **Size affects
+> reconstruction ECONOMICS; it never affects the DEFINITION of a fold.**
+
+**The loophole, verbatim as it was written hours earlier:** *"a FOLD may not
+materialize an N-sized derived representation when its compact consequence can
+stay a range / runs / bounded window / scalar."* That is size-conditional, and
+it sat two lines below *"folds are zero copy, period."* The two are not
+equivalent. A fresh 12-word bounded mask avoids an N-sized mask and still writes
+derived bytes — so under the stated law it is not a fold either, and the
+size-graded phrasing would have let a future session argue that fourteen words
+is "basically zero-copy". The frozen ducks return in tiny hats.
+
+**The line, stated without a size clause:**
+
+```
+FOLD CARRIERS                      NOT FOLD RESULTS
+Count                              a populated bounded-mask buffer
+Any                                [u64; 12] filled from an intersection
+an ordinal                         Vec<Run>
+[lo, hi)                           a full mask
+base_word + length descriptor      ANY newly written derived buffer
+a run DESCRIPTOR that names
+  rather than populates
+```
+
+A descriptor **names**; a buffer **holds**. Only the first is a fold carrier, at
+any size.
+
+**⊘ Companion correction: T1 is NOT universally zero-copy, and the previous
+entry implied it was.** T1 contains primitives that write mask outputs —
+`mask_set_range`, every `*_to_mask` compare, the import paths. Accurate
+statement: *the Layer-0 FOLD SUBSET executes through T1 primitives zero-copy; T1
+also contains explicitly materializing primitives, and those are RECONSTRUCTION
+operations when invoked that way.* They stay legitimate substrate machinery —
+what the law changes is their **classification inside a Layer-0 program**, never
+their right to exist.
+
+**Which makes the A/B boundary exact:**
+
+```
+COMBINE       no derived software buffer written;
+              composition / reduction directly over canonical state
+RECONSTRUCT   the first derived representation is deliberately written
+```
+
+**Consequence for W2b, immediate and concrete.** The obvious implementation is
+disqualified:
+
+```
+WRONG   Range × resident mask -> WRITE a bounded mask -> Count / Any
+RIGHT   peek only the intersecting resident words -> AND in registers
+        -> Count / Any
+```
+
+And this is the clean case for the anti-zoo rule licensing a **new T1
+primitive**: a fused `popcount(a[i] & b[i])` accumulated over a word span cannot
+be expressed by the existing algebra without an intermediate buffer, so it
+exposes a genuinely new zero-copy operation rather than a convenience. The
+descriptor crosses; the intersection never exists as bytes.
+
+The gap list is reworded accordingly — not "bounded windows and runs" as missing
+carriers, but **compact addressing / window descriptors**, **direct bounded
+reductions**, and *optionally* **named reconstruction** of runs or windows when
+a consumer genuinely demands the buffer.
+
+## 2026-09-19 — E-DO-NOT-BACK-DATE-A-NEW-LAW-ONTO-AN-OLD-DOCTRINE-1
+
+**Status:** CORRECTION of `E-LAYER-0-IS-T1-AND-MASK-RISC-IS-ALREADY-ITS-ISA-1`,
+prepended rather than edited into it (append-only). Two errors in that entry,
+both mine, both caught in review within the hour.
+
+### Error 1 — T1 and T2 were flattened into each other
+
+That entry said *"mask-risc is already T1's ISA."* It is not. `membrane-tiers.md`
+puts `ndarray::simd` / `mask_*` / `ternlog` / `popcount` at **T1** (`:22`) and
+`plan_eval` / execution / lowering at **T2** (`:23`). The receipt is one line of
+the crate: `exec.rs:25` is `use ndarray::simd::{…}` — mask-risc **consumes** T1,
+which makes it T2 by the doctrine's own definition. The plan file had even
+stated the correct legend two sections earlier and then contradicted it.
+
+**Corrected ruling — "Layer 0" is a MEMBRANE spanning two tiers, not a tier:**
+
+```
+METACOGNITION
+      │ compiles a thought
+      ▼
+mask-risc Program / MaskOp / Pred / Terminal    T2  the RISC PLAN LANGUAGE
+      │ names primitive ops
+      ▼
+ndarray::simd — mask_*, ternlog, popcount       T1  the zero-copy EXECUTION algebra
+      ▼
+canonical state                                 T0
+```
+
+The DuckDB analogy makes the same point and should have caught this: a planner
+is not the vectorized primitive it dispatches.
+
+### Error 2 — the new fold law was claimed to be already entailed
+
+That entry called Seam B *"a conformance failure against T1's own return
+contract."* **It is not, under the old wording.** `membrane-tiers.md:22` lets T1
+return *"a mask, a count, a lane descriptor — never the population"*, and **a
+full-length bitmap is still a mask under that sentence.** "Never the population"
+historically meant *do not return rows or arrays of the represented population*.
+It never said a derived mask sized to N is itself forbidden.
+
+Two laws, one strictly stronger, and the second is NEW:
+
+```
+OLD T1 LAW    may return a Mask; must not return the Population
+NEW FOLD LAW  a FOLD additionally may not materialize an N-sized derived
+              representation when its compact consequence can stay a
+              range / runs / bounded window / scalar
+```
+
+`Pred::Range → words_for(N)` is a fold-conformance failure under the **new** law.
+**Record it as a doctrine sharpening, never as something already implied.**
+Back-dating a constitutional law leaves a crack anyone can later quote the
+existing table back through — and the workspace's whole append-only,
+regrade-in-place discipline exists to stop exactly this.
+
+### The corollary that keeps the law usable
+
+**Not every full mask is illegal.** If a consumer genuinely demands a population
+mask as its answer, producing one is legitimate — it simply **is not a fold**.
+`mask_set_range` over a full destination is not forbidden code; it is
+**misclassified execution** when it happens inside a fold. Hence the A/B split:
+
+```
+A) COMBINE      zero-copy, compact carriers, no population materialization
+B) RECONSTRUCT  a Layer-0 result → an EXPLICITLY NAMED materialization
+                boundary → full mask / rows / SoA state / publication
+```
+
+Folds are zero-copy, period. Reconstruction is not a fold, and does not get to
+hide under the word.
+
+### And the gap list gets a better reading
+
+Split by tier, the residue is an **EXPOSURE gap, not a compute gap**. T1 already
+ships `mask_shift_morton` and the strided matchers; what is missing is at T2 —
+ADDRESS integrity, compact bound terminals, bounded windows/runs, ROTATE, the
+NEIGHBOUR/STENCIL and strided-PEEK exposures, PROJECT, FIRST. **The substrate is
+further along than the language that exposes it**, so most remaining work is not
+inventing computation but making existing computation speak the fold algebra
+without forcing an N-sized carrier between instructions.
+
+**Consequence for W6:** its question is no longer *are writes expensive?* but
+*where should the zero-copy program terminate and reconstruction become
+economically or semantically justified?* — the Rubicon in computational terms.
+
+## 2026-09-19 — E-LAYER-0-IS-T1-AND-MASK-RISC-IS-ALREADY-ITS-ISA-1
+
+**Status:** FINDING (the mapping is read-verified) + RULING (the conformance
+criterion). **Confidence:** high on the inventory, high on the criterion.
+
+A "Layer 0 photolithographic execution algebra" was proposed as the substrate
+every cognitive style compiles into: one constitutional law (everything inside
+is zero-copy), two program kinds (COMBINE = no materialization, RECONSTRUCT =
+an explicit, justified escape), a small orthogonal ISA rather than a zoo, and
+metacognition as a query planner — `compile(thought) -> Layer0Plan` — so no
+thought style owns intersection, prefix, locality, range, projection or
+rotation, because those are physics.
+
+**The architecture is right and it is not new. Three corrections of NAME, none
+of substance:**
+
+**1. "Layer 0" is T1, and the ladder must not grow a fifth vocabulary.**
+`membrane-tiers.md:22` already defines T1 as the population algebra
+(`ndarray::simd`, `mask_*`, `eq_*_to_mask`, `ternlog`, `popcount`) and states its
+return contract as *"a mask, a count, a lane descriptor — **never the
+population**."* Line 48 of the same doc says outright: **"The ladder does not
+need a sixth tier."** So this is a SHARPENING of T1, not an addition beneath it.
+T0 is the byte/row/Lance substrate; T2 names behaviour; T3 expresses intent.
+
+**2. `lance-graph-mask-risc` is already the ISA — the crate name says RISC.**
+Verified by reading `ir.rs`: `Operand`, `LaneRef`, `Planes`, `Pred` (11
+variants), `MaskOp{Pred,And,Or,Xor,AndNot,Not,Ternlog}`,
+`Terminal{Count,Any,All,MaskedSum/Min/MaxI32,BlendI32,Keep}`, `Program`, plus
+`fuse.rs` (Boolean-tree → ternlog fuser), `ternlog_dispatch.rs` (256-arm
+runtime-immediate → const-generic bridge) and `reference.rs` (row-at-a-time
+oracle). `Program` IS `Layer0Plan`. Nothing needs minting to have an ISA.
+
+**3. "Valhalla is the storage membrane" does not hold against the tree.** In
+lance-graph-java, Valhalla is E4: *"Vector API is permanently a lab arm… it
+never ships in `src/main`."* T0 is the storage tier. Panama IS the membrane, but
+the T2/T3 one (ABI ↔ Java facade), not a "thought" membrane in the cognitive
+sense. Keep the analogy; drop the two labels.
+
+### The ISA gap analysis — the proposal minus what ships IS the wave plan
+
+| proposed op | state in `lance-graph-mask-risc` |
+|---|---|
+| AND / OR / XOR / NOT / ANDNOT | **shipped** — `MaskOp::*` |
+| TERNLOG | **shipped** — `MaskOp::Ternlog` + `fuse.rs` + `ternlog_dispatch.rs` |
+| GATE | **shipped** — the `under` operand (the `*_to_mask_under` family) |
+| ANY / ALL / COUNT / REDUCE | **shipped** — `Terminal::{Any,All,Count,MaskedSum/Min/Max}` |
+| BOUND | **half** — `Pred::Range{lo,hi}` carries a bound's RESULT; the search lives in `quack` |
+| PEEK | **half** — `LaneRef{I32,U32,U64}`; no strided/facet peek (`ir.rs:21-27` names its own gap) |
+| ADDRESS | **implicit** — `Planes.n_rows` + ordinals, with no attested identity (Seam A) |
+| PROJECT (lens) | **missing** — the lens lives in `contract::facet`, never in the ISA |
+| ROTATE | **missing** — Seam D has no op |
+| SHIFT / NEIGHBOUR / STENCIL | **missing** — `mask_shift_morton` exists in ndarray, is not an ISA op |
+| FIRST | **missing** |
+| carrier transforms (range↔runs↔bounded words, ordinal mapping) | **missing entirely** |
+
+The residue maps onto the open waves: **W1** = ADDRESS attestation,
+**W2a/W2b** = carrier transforms + range-native terminals, **W3** = ROTATE,
+**W4** = NEIGHBOUR/STENCIL, and the strided PEEK is the deferred `LaneRef`
+variant. The two remaining gaps have an explicit disposition rather than
+silence: **PROJECT** (the lens, today only in `contract::facet`) lands **after
+W3**, because the rotation must be measured before a lens op is worth exposing;
+**FIRST** is **intentionally deferred, unscheduled** — no wave in this arc needs
+it, and under `D-WFL-FUSE` it may turn out to be a fusion rule rather than an
+op. That convergence is the finding's real value: two independent routes
+arrived at the same missing five.
+
+### The conformance criterion this hands mask-risc, which it did not have
+
+Apply the constitutional law to the crate that is supposed to embody it:
+`exec.rs:566` requires every scratch plane to be `words_for(n_rows)`, so **every
+`MaskOp` today emits population-sized output.** By T1's own stated return
+contract — and by
+`E-FOLDS-ARE-ZERO-COPY-PERIOD-PEEK-NOT-BORROW-BUILD-FOLD-1`'s "population-sized
+output is materialization, not folding" — the mask-algebra core has already left
+Layer 0.
+
+The distinction that keeps this fair: a **bounded** word window is a legitimate
+focus-sized carrier; a mask unconditionally sized `words_for(n_rows)` is
+population-sized. So Seam B stops being a performance complaint and becomes a
+**conformance failure against the tier the crate belongs to** — a much stronger
+reason to fix it, and a criterion any future op can be checked against.
+
+### The membrane law, and the anti-zoo rule
+
+> Higher layers may invent arbitrary cognition. They may NOT invent new
+> population execution semantics — they compile cognition into T1.
+
+And: **ISA, not standard library.** A new T1 primitive earns existence only by
+exposing a genuinely new zero-copy operation that the existing algebra cannot
+express efficiently by composition or fusion. `fuse.rs` is the precedent — it
+collapses a Boolean tree into one ternlog rather than growing a variant per
+shape. Otherwise T1 becomes the zoo the proposal warns about.
+
+**Thesis, worth carrying:** *thinking is compilation into zero-copy
+photolithography; memory begins only where reconstruction is cheaper than replay
+or where meaning requires persistence.* The second clause is
+`E-A-THOUGHT-IS-A-REPLAYABLE-OPERATOR-NOT-A-MAINTAINED-STATE-1`'s two reasons to
+store, restated — economic, or semantic. Nothing else.
+
+## 2026-09-19 — E-FOLDS-ARE-ZERO-COPY-PERIOD-PEEK-NOT-BORROW-BUILD-FOLD-1
+
+**Status:** LAW (operator-stated). **Confidence:** high. Supersedes the
+`AttestedPlanes<'a>` half of `E-A-BORROW-IS-NOT-A-REPLAY-CARRIER-1`, which
+stands on everything else.
+
+> **Folds are zero copy. Period.**
+>
+> **Zero-copy is not an optimization of the fold. It is part of the DEFINITION
+> of a fold.** A fold reads canonical state in place and returns a compact
+> consequence. If it copies or materializes the source population, it is not a
+> fold.
+
+**Definitional caveat, so the law cannot be argued away:** *zero-copy* means no
+**software-level** materialization, duplication, re-encoding, or retained
+derived population. CPU loads into registers and cache lines obviously still
+happen; those are not a second representation, and nobody gets to cite them as
+proof the rule is unmeetable.
+
+```
+FOLD                              NOT A FOLD
+canonical bytes                   canonical bytes
+ -> zero-copy projection           -> duplicate lane
+ -> compare / prefix /             -> build full mask
+    intersection / reduction       -> scatter rows
+ -> scalar / range / runs /        -> accumulate state
+    tiny descriptor                -> sweep later
+```
+
+Six invariants, stated so they cannot be softened by degrees: source bytes are
+never copied by a fold; source layout is never rewritten by a fold; a fold does
+not retain an execution view; a fold may emit only answer-sized or focus-sized
+state; **population-sized output is materialization, not folding**; replay is
+repeated zero-copy folding over pinned canonical state.
+
+**The corollary that makes it a membrane rather than a slogan: the moment an
+operation needs to materialize population state, the fold has ended.**
+
+This does not forbid materialization — it forbids materialization HIDING under
+the word fold. An index build, a projection cache, a publication are all
+legitimate and sometimes necessary; each must be named honestly as what it is
+and priced accordingly. A seam is exactly a place where the code violates this,
+and Seam B is the cleanest example: `Pred::Range` emits a population-sized mask,
+so the executor's range path is materialization wearing a fold's name.
+
+**⊘ RETRACTION, same day, same arc: `AttestedPlanes<'a>` as an architectural
+carrier.** Proposed hours earlier in this arc as the "preferred, strongest"
+shape for closing Seam A. It smuggled **Rust's ownership vocabulary into the
+semantic model** and made a zero-copy peek sound like a persistent execution
+object. The implementation does of course receive something spelled `&[u8]` /
+`&[u64]` / `&FacetCascade` while the instructions run — that is memory-safety
+syntax with a ~20 ns lifetime, and promoting it to a named aggregate builds
+exactly the intermediary being avoided:
+
+```
+WRONG   storage -> construct execution view -> attest it -> carry it -> fold
+RIGHT   pinned canonical version -> verify the address/order contract
+                                 -> PEEK zero-copy -> fold
+```
+
+**The attestation belongs to the address/order RELATIONSHIP, not to a transient
+aggregate of all the planes.** So the proof obligation sharpens from *"these
+borrowed slices belong together"* to:
+
+> ordinal `i` under this witnessed semantic order resolves to the same canonical
+> row `i` that every subsequent operation peeks.
+
+Once that holds, every fold independently peeks whatever canonical column it
+needs at ordinal `i`, and there is no execution assembly at all:
+
+```
+RowDomain { DatasetVersion, lens identity, row-order identity, n_rows }
+                  ↓
+      peek(domain, ordinal, column)     zero-copy
+                  ↓
+               fold(...)
+```
+
+Every operation is `fold(peek(…))`. Nothing owns the source, nothing copies it,
+nothing accumulates it, and the temporary view ideally never even gets a name.
+
+**Replay collapses too.** "Reconstruct fresh `AttestedPlanes`" was one
+abstraction too many: replay **reacquires the pinned canonical version and runs
+the same peeks and folds.** `ReplaySpec -> DatasetVersion + lens + program +
+inputs -> peek -> fold -> same result`.
+
+**The real violation criterion** — a transient `&T` lasting 20 ns is irrelevant
+and always was:
+
+```
+peek -> fold -> answer -> nothing survives    GOOD (a temporary optical path)
+retain a view/mask/cache "for later"          SUSPICIOUS
+```
+
+Stated as the rule that REPLACES the borrow doctrine: *a fold consumes zero-copy
+peeks from canonical state and does not retain a view of it. Any execution
+object that persists merely to make later folds possible is suspect, because the
+fold should reacquire the canonical address and peek again.*
+
+**Why this matters at 64K.** If every dormant thought had to preserve a view,
+64K thoughts would mean 64K execution views, lifetime machinery, and eventual
+coherence sweeps — lost before starting. Instead: `wake thought 18,721 -> peek
+-> fold -> fold -> fold -> answer -> vanish`. The canonical SoA is the lake; a
+thought does not carry a bucket of water around in case it wants to drink again
+later, it remembers where the lake is and how to drink.
+
+**Consequence for W1:** it gets SMALLER, not harder. The census question is no
+longer "does an object own all four planes under one permutation" but *where
+does ordinal → canonical-row resolution happen today, and is it the same
+resolution every peek uses?* One resolution ⇒ verify the contract once against
+the pinned version and peek freely. Several, or one nobody re-checks ⇒ that is
+Seam A's real depth, and finding it is the deliverable.
+
+## 2026-09-19 — E-A-THOUGHT-IS-A-REPLAYABLE-OPERATOR-NOT-A-MAINTAINED-STATE-1
+
+**Status:** RULING on the doctrine; the ratio it rests on is CONJECTURE until
+W6 measures it. **Confidence:** high on the shape, unmeasured on the constant.
+
+A logical thought does not earn continuous execution merely by existing. When
+deterministic fold replay is cheaper than maintaining accumulated state, dormant
+thoughts stay as compact **replayable operators** and consume no sweep budget.
+
+The economics, as an order-of-magnitude argument:
+
+```
+one fold             ~1.7 ns
+1000 stacked folds   ~1.7 us
+one population sweep ~10 us  ->  ~5,900 fold-equivalents
+                             ->  ~6 complete 1000-fold chains, on ONE lane
+```
+
+⊘ **Not a measurement, and the 1.7 ns does not transfer.** #1250 explicitly
+declined to carry #1245's six-tier axis-chain figure to the whole-facet cell
+(1.7–4.2 ns there), and a "fold" inside a 1000-fold chain need not be that
+chain. What survives is the SHAPE, which holds at any plausible ratio: a sweep
+costs thousands of folds, so **a stored answer can be slower to retrieve than
+the answer is to re-derive.** W6 measures the real ratio.
+
+**The law:** never retain derived execution state merely to avoid replay, when
+replay through stacked folds is cheaper than maintaining that state. Shortest
+form: *if thinking again is cheaper than remembering the answer, think again.*
+
+This reclassifies borrowing — and corrects the `AttestedPlanes` enthusiasm
+recorded hours earlier in the same arc:
+
+```
+borrow for projection/folding, then DROP    GOOD (a temporary optical path)
+borrow to preserve an accumulated result    SUSPICIOUS
+stacked folds                               GOOD
+population sweep to keep state coherent     SUSPICIOUS
+recompute                                   the DEFAULT
+cache / materialize                         must earn its existence
+```
+
+So the target is not zero reads nor even zero repeated computation: it is **zero
+unnecessary representational entropy.** Repeated computation is nearly free
+while every step stays a fold; the cost is the SECOND representation and the
+machinery that keeps it coherent.
+
+**Two and only two reasons to store:** ECONOMIC —
+`C_retain = C_materialize + C_maintain + C_invalidate + C_readback` is less than
+`C_replay = Σ C_fold_i + C_rotation + C_local`; or SEMANTIC — durability has
+value independent of speed, because it crossed the Rubicon and must become
+history / evidence / state. Everything else evaporates.
+
+**The scale consequence, which is why this is architecture and not tuning.** At
+64K logical contexts it decides what the number means:
+
+```
+WRONG   64K mutable cognitive machines, swept to stay current
+RIGHT   64K suspended continuation points — address/domain + lens
+        + fold program + dependencies + tiny meta state
+```
+
+Scheduler law: **no dormant thought may consume sweep cost merely to remain
+current**, and a sweep's cost is properly measured in FOLD-EQUIVALENTS — how
+many complete alternative reasoning chains the substrate could have run
+instead. A machine holding 64K thoughts while refreshing their masks may be LESS
+cognitively parallel than one holding 64K replay descriptors.
+
+**And it makes thoughts shareable in the useful sense:** sharing a RESULT is
+expensive, possibly stale and bound to its original context; sharing a THOUGHT
+is a compact replayable operator REBOUND to the recipient's context. That is
+what reuse of an idea actually is — not a snapshot of someone's working memory,
+but a transformation you run your own context through. The 64K palette is
+therefore 64K callable cognitive continuations, crossable between kanban boards
+wherever their dependencies are satisfiable.
+
+**Corollary worth carving deep:** a scheduler that spends more time keeping
+thoughts current than it would spend thinking them again has inverted the
+substrate.
+
+---
+
+## 2026-09-19 — E-A-BORROW-IS-NOT-A-REPLAY-CARRIER-1
+
+**Status:** RULING. **Confidence:** high — the failure mode is silent, which is
+why it needs a law rather than care.
+
+A borrow may attest a LIVE execution view. Anything needed for REPLAY must
+survive that view's destruction. Replay may store identities that later
+reconstruct equivalent borrows; it may never preserve, cache, or depend on the
+original borrow. **A borrowed attestation is runtime proof, not durable
+evidence.**
+
+Two questions that were being answered by one object:
+
+| | question | lifetime |
+|---|---|---|
+| `AttestedPlanes<'a>` | are these actual slices aligned RIGHT NOW? | borrowed; dies with the execution |
+| `RowDomain` | which immutable row coordinate system must be REACQUIRED to replay? | owned, serializable, outlives everything |
+
+They are not interchangeable and neither may contain the other as a shortcut.
+Replay is `attach` run again — `ReplaySpec` → resolve identities against pinned
+immutable state → fresh borrows → fresh `AttestedPlanes<'new>` → re-execute — so
+a `ReplaySpec` contains **no** `&[NodeGuid]`, `&Planes`, `&SealedFacetLane`,
+`&AlphaMask`, or anything tied to `'a`. Only owned names: `DatasetVersion`,
+row-order identity, lens/ClassView identity, program identity, Morton/Wabe
+mapping identity, external-edge snapshot identity, focus/input identity,
+deterministic parameters.
+
+⊘ **Fence around the boundary-hash cache** (the honest first implementation when
+no aggregate owns the aligned planes): a cached attestation is valid for THIS
+live immutable image as a runtime optimization — **not replay evidence, not
+persisted, not part of any `ReplaySpec`.**
+
+**The falsifier, which also DEFINES what a legitimate replay test is** — and
+therefore ranks ABOVE the determinism gate, because a determinism test run while
+the original view is still alive proves nothing:
+
+```
+1. produce a ReplaySpec
+2. DROP every execution object and every borrow
+3. re-open using ONLY the identities in the ReplaySpec
+4. reconstruct fresh AttestedPlanes
+5. replay
+6. result must be bit-identical
+```
+
+If step 3 secretly needs a surviving pointer, cached view, ordinal map, borrowed
+lane or process-local object, the thought was never replayable.
+
+**Read with `E-A-THOUGHT-IS-A-REPLAYABLE-OPERATOR-NOT-A-MAINTAINED-STATE-1`:**
+that entry says recompute rather than retain; this one says what a retained
+*recipe* may legally contain. Together they give the three durability tiers a
+single shared rule — **no borrowed state crosses any tier boundary**: META owns
+the identity of the question, REPLAY owns the identity of all deterministic
+inputs plus the computation, STATE owns the answer.
+
+## 2026-09-19 — E-A-POSITIONAL-INDEX-ADDED-TO-A-KEY-DIGEST-ATTESTS-NOTHING-1
+
+**Status:** FINDING (proved by counter-example). **Confidence:** high.
+
+Attesting row order by digesting `(key, ordinal)` pairs **does not work**, and
+this plan floated it as the alternative to refusing duplicate keys. With
+`ordinal` = post-sort position, the two distinct lanes
+
+```
+K -> row-A ;  K -> row-B          and          K -> row-B ;  K -> row-A
+```
+
+both digest as `(K,0), (K,1)`. Identical. A positional index added to a key
+digest attests exactly what the key digest already attested — the position is a
+function of the sort, not of the row, so it cannot witness which row landed
+there.
+
+**The correct shape is two attestations over two different things:**
+
+```
+OrderedLaneWitness : key_digest       = H(K0, K1, …)        (semantic order)
+RowDomain          : row_order_digest = H(ID0, ID1, …)      (physical order)
+```
+
+where `ID` is a **stable row identity** — the `NodeGuid` sequence, or the
+writer's source ordinals — and never the semantic facet key. The executor
+requires both. Duplicate semantic keys then remain legal exactly as
+`ordered_lane.rs:194` permits (*"Equal keys are indistinguishable, so an
+unstable sort is exact"*), while swapping the two rows behind one key changes
+`row_order_digest` and leaves key digest, lens, version and `n_rows` untouched.
+That is the falsifier the seam needs, and it is why the two digests must not be
+merged.
+
+**The sibling error, same review, same root:** *carrying* a `RowDomain` is not
+*verifying* one. Comparing a program's domain against `planes.domain` compares
+two metadata copies; a caller can permute a mask or payload lane with every
+label intact, so a metadata-only check PASSES the permuted-planes falsifier it
+was introduced to fail. Enforcement must bind the actual row identities —
+derive the digest from lane contents, carry the seal's permutation, or make
+`Planes` constructible only from a sealed lane so unattested planes are
+unrepresentable rather than merely rejected.
+
+**Generalization worth keeping:** a label that travels WITH the data it
+describes cannot attest that data. Attestation requires either deriving the
+label from the content at the point of use, or making the unattested state
+unconstructible. This is the same shape as the workspace's own
+`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` — an assertion implied by the thing
+it tests is not a test — lifted from tests to type invariants.
+
+**So the split answers WHAT is attested; it does not answer WHO MAY MINT IT**,
+and without the second answer the defect just moves up a level: from
+`Program.RowDomain == Planes.RowDomain` to
+`Program.row_order_digest == Planes.row_order_digest`, still metadata against
+metadata, still permutable by a caller who carries the old digest along.
+Preferred shape: the executed view is a BORROW of one known coordinate system —
+`AttestedPlanes<'a>` constructible only from the sealed row image (keys, mask
+planes, value lanes, row-identity sequence), so an unattested plane set is
+unrepresentable. Second best: recompute `H(NodeGuid_0 … NodeGuid_n)` once at the
+attachment boundary and cache it against the immutable borrow. Carrying a digest
+field on a freely-constructed `Planes` is the decorative option, named here so
+it is not rediscovered as an idea.
+
+**The acceptance case that decides it**, and it must be red before the fix:
+identical semantic keys, version, lens, `n_rows`, `key_digest`, and a
+`RowDomain` **copied by the caller** — but row identities A and B swapped and
+one actual value plane swapped to match. Execution must refuse before the
+`Range` is consumed.
+
+---
+
+## 2026-09-19 — E-ATTENTION-IS-NOT-EVIDENCE-AND-FIRE-IS-NOT-DURABILITY-1
+
+**Status:** RULING (the floor, not the full semantics). **Confidence:** high on
+the demarcation; the crossing's full contract is open.
+
+Three questions were being collapsed into one word. Separated:
+
+| question | answer |
+|---|---|
+| **what happened?** | FIRE — a sparse alpha delta, always; it writes what the read already had |
+| **what KIND of thing is it?** | ATTEND vs EPISTEMIC |
+| **what DURABILITY does it earn?** | the Rubicon: vanish / meta atom / replay spec / materialized state |
+
+The kind-demarcation, which is the part that unblocks implementation now:
+
+> **A non-empty Boolean delta is sufficient for an ATTENTION effect, and never
+> sufficient for an EPISTEMIC effect.**
+
+Grounded, not stipulated: `AlphaOverlay` IS attention memory — it records where
+attention went (claim order, rung, revisits, `NodeGuid` identity) and is
+discardable rather than canonical. So an attention effect may move focus and the
+alpha trace; an epistemic effect requires provenance and evidence identity
+before it may touch `TruthU8` / NARS revision. This keeps the epistemic algebra
+cleanly outside the Boolean mechanics and kills the degenerate reading in which
+every successful intersection counts as having learned something.
+
+The durability question is separately structured as a FOUR-way policy on the
+delta, not a FIRE/no-FIRE binary, with three increasingly strong contracts:
+META needs enough identity to know *what question existed*; REPLAY needs enough
+to *regenerate the same answer*; STATE needs enough epistemic justification to
+*retain the answer*.
+
+⊘ **A replay spec is more than `RowDomain + program`** — necessary, not
+sufficient, and `E-REPLAY-CAN-BE-CHEAPER-THAN-STORAGE-1` implied otherwise. That
+entry's phrase *"the `RowDomain` IS the replay key"* is CORRECTED here: it is the
+**row-coordinate component** of a replay key, never the whole of one. The
+distinction is worth the words — the loose version invites a later session to
+treat a version-pinned domain as sufficient grounds to replay. The
+proof obligation is the complete deterministic input identity **for this
+computation** — REFERENCES, not re-serialized contents. A set like
+
+```
+RowDomain  +  program identity  +  ClassView/lens version
+           +  focus carrier identity  +  external-edge snapshot ID
+           +  deterministic parameters
+```
+
+pins the computation without duplicating anything it read. A thought may also have
+depended on another overlay, a mutable attention input, a changed ClassView, or
+a different Wabe mapping — miss one and replay returns a different answer while
+looking valid. The determinism gate therefore precedes the replay tier being
+BLESSED, not merely used.
+
+**Still open, and explicitly not an implementation session's to answer:** the
+Rubicon policy itself — what properties justify forgetting a delta, keeping only
+a hypothesis atom, keeping a replay spec, or materializing state — with each
+boundary's minimum evidence and minimum replay identity, **without conflating
+attention, novelty, confidence and truth.**
+
+## 2026-09-19 — E-A-BOUND-AND-A-TILE-ARE-INTERVALS-IN-DIFFERENT-ORDERS-1
+
+**Status:** FINDING (read-verified). **Confidence:** high.
+
+A witnessed `Bound { lo, hi }` is an interval in **semantic projection order**
+(`SealedFacetLane` sorts by `FacetCascade::cmp_numeric_projection`). A Morton
+tile is an interval in **geometric order** (`ordinal = Morton(q, r)`). These are
+not the same set of rows, and the first draft of
+`.claude/plans/waben-fold-execution-loop-v1.md` joined them with a bare `∩` —
+two paragraphs after asserting that one physical sequence is monotone under one
+lens at a time. The document contained its own refutation and shipped anyway.
+
+Named **Seam D**. The rotation `semantic ordinal → Morton ordinal` is now an
+explicit, measured wave (W3) that must run on an INDEPENDENTLY-ORDERED lane: a
+fixture that generates the population already in Morton order and then seals it
+semantically has assumed the answer. Its two outcomes are the thesis and its
+refutation — a cheap projection/index lookup demonstrates the schema-rotation
+claim; a per-row hash scatter with no reuse relocates the resistance rather than
+removing it, and says so.
+
+**The general lesson, which is the reusable part:** an order-bearing carrier
+that names its lens is not thereby safe to intersect with another
+order-bearing carrier. `SemanticLens` was introduced (D-DMD-L2) precisely so an
+order claim names its projection — and a lens tag prevents pairing a prefix with
+a MISMATCHED witness, while doing nothing at all to prevent joining two
+correctly-lensed intervals from DIFFERENT lenses. The guard that catches a
+forged witness does not catch a coordinate-system change, and nothing in the
+type system distinguished them.
+
+Three companion corrections from the same review, each read-verified:
+
+1. **Duplicate keys — the D-WFL-1 recommendation is WITHDRAWN.**
+   `ordered_lane.rs:194` states the shipped semantics: *"Equal keys are
+   indistinguishable, so an unstable sort is exact."* Refusing to attest a lane
+   with duplicates is a semantic regression against that, AND it would not prove
+   what is needed — equal keys are indistinguishable to the comparator, their
+   associated rows are not, and an unstable sort may permute them freely. Bind
+   the witness to the PERMUTATION, never to key uniqueness.
+2. **`AlphaFocus` materializes on the READ side.** `cell` (`:122`),
+   `any_rung_mask` (`:158`, ten times — once per rung lane), `unlooked` (`:175`)
+   and `rung_reach` (`:183`) each answer "what is focused?" via
+   `attended_mask()`, which allocates a full-population `AlphaMask`. A sparse
+   write followed by a dense read.
+3. **FIRE only ever writes what the read already had.** It is a sparse
+   alpha-channel delta by construction; the delta is not produced at publication
+   time, it was already in the fold's hands. So any RE-ADDRESSING at the write
+   boundary is pure loss, not work — and `claim()` demanding a `NodeGuid` to
+   hash, when the caller holds ordinals, is exactly that. This splits the
+   deferred `claim_ordinals` in two: the INPUT COORDINATE (touches no stored
+   bytes) and the STORAGE CONTRACT (`claimed: Vec<NodeRow>`, scanpath order,
+   visit counts) — a change the first draft would have made by accident.
+
+---
+
+## 2026-09-19 — E-REPLAY-CAN-BE-CHEAPER-THAN-STORAGE-1
+
+**Status:** CONJECTURE (gated on the determinism falsifier below).
+**Confidence:** medium-high on the mechanism, unmeasured on the policy.
+
+Mask intersection is deterministic and cheap. Taken seriously at the publication
+boundary, a third option appears beside the two the architecture names:
+
+```
+NoChange | PublishEffect(addr', delta) | PublishReplayableTask(domain, program)
+```
+
+If the same row domain and the same program yield a bit-identical mask every
+time, the durable unit of an insight can be **the task that regenerates it**
+rather than the result. The system can then afford to carry MANY insights as
+replayable, each costing a descriptor instead of a result set. This is not a new
+transport and not an actor message; it is a claim about what the durable unit
+IS, and it sits with `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` — what gets
+written is the task's existence, never a command and never an ack.
+
+**Seam A's closure is the precondition, not merely a correctness gate.** A
+replay is sound only against a pinned domain — version, lens, and the
+permutation the seal applied. That is `RowDomain`. Without it, "replay" means
+*recompute against whatever the lane looks like now*, which is not replay; with
+it, **the `RowDomain` IS the replay key**. This retroactively raises W1's value:
+it was filed as a correctness fix and is also the enabling condition for a
+storage strategy.
+
+**Falsifier, mandatory before any wave relies on replay:** same `RowDomain` +
+same program ⇒ bit-identical mask, across repeated runs, across SIMD backends,
+and across process restarts. ⊘ **Scope: the integer / Boolean mask substrate**,
+which is what the whole arc runs on today, and where bit-identity is exactly the
+right bar. It is NOT a general prohibition — if Gaussian / f32 propagation later
+enters Wabe cognition it will need a *numerical-equivalence* contract instead,
+and this entry must not be read as outlawing the kernels the architecture
+already anticipates. Anything that lets a result depend on scratch
+contents, hash-map iteration order, or a runtime ISA choice breaks replay
+SILENTLY — which is the only way it can break, because a wrong replay still
+returns a plausible mask.
+
+**Accounting consequence (§6):** for such an insight the agreed exact answer
+carrier is the TASK DESCRIPTOR, not the row set it denotes — and replay cost
+gets its own column, because an insight cheap to store and expensive to
+re-derive has only moved its cost.
+
+**The asymmetry that drives it: WRITING is the expensive part.** Replay does not
+win because reading is cheap; it wins because writing is not. Stated plainly,
+that forbids a design the two-option framing still allows — a speculative *"this
+looks interesting, let me test this hypothesis"* must not cost an SoA row. Under
+one undifferentiated publish path it does, and the cost of curiosity becomes the
+cost of knowledge.
+
+So the durable side is a LADDER of at least three tiers, each strictly MORE
+EXPENSIVE than the one above:
+
+| tier | records | carrier |
+|---|---|---|
+| meta kanban atom | a hypothesis worth testing — the question, no answer | a small intermediary write at the META level; **never an SoA row** |
+| replayable task | the domain + program that regenerates an insight | a descriptor (`RowDomain` + program) |
+| materialized effect | the answer, as state | the alpha row / SoA write |
+
+**The rubicon is the point.** An atom AT the rubicon is written at the meta
+level; only what crosses earns the full row. That is what lets the system afford
+to be curious — many hypotheses, none priced like a conclusion. It is
+`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` at a second level: the meta atom
+records that a QUESTION exists, not a command to answer it and not its answer.
+
+Measurable, and W6 must report both: **cost per tier** (bytes + µs for each —
+if the ladder is not strictly increasing by a wide margin, the tiering buys
+nothing and should be dropped rather than maintained), and **tier mix** under a
+real workload (speculations per replayable task, tasks per materialized effect).
+A cheap tier that is rarely used is decoration; an expensive tier that fires on
+every speculation means there was never a rubicon.
+
+⊘ A claim about the SHAPE of the durable side — NOT a licence to build a new
+transport, a second store, or an actor message per hypothesis. The meta tier is
+an intermediary write through the existing owner.
+
+**Left to the cognitive-semantics session:** *which* insights earn a
+materialized answer instead of a replay, and where the rubicon sits. The
+`RowDomain` says when a replay is still valid; it does not say when one is worth
+avoiding, and nothing in the substrate says when a hypothesis has earned a row.
+
 ## E-NO-FOLD-REPORTS-AN-O-POPULATION-COST-1 (2026-09-18) — a "fold" that materializes a population- or lane-sized buffer is a sweep wearing a fold's name
 
 **The rule, stated once:** a fold's cost is a function of its ANSWER's size,

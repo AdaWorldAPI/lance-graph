@@ -1,3 +1,132 @@
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — the MedCare-rs bank, read (2026-09-19)
+
+The two entries below map the lance-graph and OGAR banks; this reads the
+domain consumer itself (MedCare-rs `90eb1f9`). Architecture only — no cohort
+content, no codebook, nothing private crosses into this public board.
+
+**Finding: MedCare-rs is already on the correct side of the seam in code, with
+ONE pending edge pointed at the contaminated mirror.**
+
+| edge | state | reading |
+|---|---|---|
+| `medcare-cohorts` → `ogar_dismech::{RELATIONS, CAUSES}` (`provenance.rs:357,390`; Cargo dep `ogar-dismech` from OGAR `main`) | LIVE | the falsifier is written against the REAL mint, and its own doc comment says why: a mirror could drift, the table cannot. Its `Cargo.toml:71` states the rule outright — *lance-graph stays concept-blind*. This is the direction the ruling wants, already practised |
+| `medcare-dismech` (offline bake tool, 4,074 lines) → lance-graph / OGAR | **NONE** | deps are `serde`, `serde_yaml`, `serde_json`, `flate2` only; zero consumers outside itself; five standalone binaries. It does not touch the inversion |
+| `medcare-dismech/src/bin/freeze.rs:66-70` → `lance_graph_contract::dismech_evidence::DismechTopology::from_source` | **PENDING, documented as a "known follow-up"** blocked only by a lock bump | ⊘ this would be the FIRST real consumer of the contract mirror from a domain repo — it deepens the inversion from the consumer bank the moment the lock moves. **Redirect:** the typed parse of a DisMech source token is DisMech knowledge; it belongs in `ogar-dismech`, which today exports the vocabulary (`RELATIONS`, `CAUSES`, `by_index`, `DisMechVocabulary`, `plug_into`, the search ops) but **no `from_source` typed parse** — that capability exists only in the mirror. Moving it is part of the cut, not a separate task |
+| `docs/CAUSALITY_V3_DISMECH_CONTRACT.md` | prose | already commits to the right shape: vocab in `ogar-dismech` (§7.1, :155, :440), corpus as a data artifact never compiled in, lance-graph's role limited to generic `NodeRow` / bake precedents (:932-959). It names `lance-graph-contract` as the *type* provider, not the *vocabulary* provider — consistent with the ruling |
+
+**Consequence for the resolution shape:** the cut has a third acceptance
+condition beyond the two negative/positive tests — **no consumer repo may
+acquire an edge to the mirror while it still exists.** The MedCare follow-up is
+the one known candidate; it is redirected to `ogar-dismech` (which grows the
+typed parse) rather than waiting for the mirror to vanish under it. `dismech-rs`
+itself is not a local checkout here and was not read; MedCare's plans describe
+it as the public oracle that stays boring and as the origin of `graph.rs`'s
+port — the domain bank below `ogar-dismech`, exactly where the direction puts it.
+
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — resolution shape CORRECTED (2026-09-19)
+
+⊘ The entry below proposes, as step (1), *"rename the generic 80 % domain-neutral
+… plus a `pub use` shim"*. **Withdrawn.** A rename leaves the inversion
+structurally intact under a new spelling, and a `cfg`/feature flag would leave
+it intact and asleep. Neither cuts the strip. The dependency direction is the
+whole repair:
+
+```
+lance-graph      generic substrate ONLY — replay / counterfactual / mask / evidence mechanics
+     ▲  reused by
+ogar-dismech     (exists: OGAR/crates/ogar-dismech) — DisMech vocabulary, bindings, adapters
+     ▲  activated only when composed with
+dismech-rs       the disease / mechanism domain
+```
+
+**The salvage is asymmetric, per line of code:** genuinely generic → EXTRACT
+into domain-neutral lance-graph machinery (a real home, not a renamed file);
+knows anything DisMech-specific → MOVE to `ogar-dismech`; exists only because
+the two were entangled → DELETE. `lance-graph` neither knows DisMech exists nor
+carries a dormant mirror.
+
+**Measured edges, all read from the tree:** the only consumer of
+`lance_graph_contract::dismech_evidence` outside itself is
+`lance-graph-ogar/src/lib.rs:228,320,342`, which imports it *as `mirror`* to
+assert parity against `ogar_dismech::RELATIONS` — i.e. the mirror's sole
+purpose is to be compared with the thing it mirrors. That is the "just in case"
+copy, and it goes. The three planner modules have zero production consumers
+(one doc comment `cache/nars_engine.rs:490`, one example
+`examples/house_differential.rs:164`). Origin: `.claude/plans/dismech-causal-replay-v1.md`
+(D-DCR-1), which must be re-scoped or archived with the same PR.
+
+**Two acceptance tests, in this order:**
+1. **Negative:** `lance-graph` compiles, tests, documents and explains every
+   public concept with no `dismech` token in any crate under `crates/` except
+   `lance-graph-ogar` (which is the seam and may name the OGAR crate). A grep is
+   the finder; the fence test is the decider.
+2. **Positive:** `ogar-dismech` + `dismech-rs` bind onto the generic mechanics
+   **without modifying lance-graph.** If a binding needs a lance-graph change,
+   that change is a generic capability with a generic name — or the binding is
+   wrong.
+
+Generic concepts a contract MAY expose because they are lance-graph's own:
+vocabulary id, predicate ordinal, evidence stance, replay step, `CausalTopology`.
+Concepts it MUST NOT: `DISMECH_PREDICATES`, `DismechTopology`, `dismech:{name}`,
+corpus counts, `Supports` semantics — all `ogar-dismech`'s to supply.
+
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS
+
+**Status:** OPEN. **Filed:** 2026-09-19. **Severity:** high — a live
+bidirectional domain inversion in the thinking substrate, measured, not fixed.
+
+Present on this branch: `lance-graph-planner/src/{dismech_candidates,
+dismech_counterfactual, dismech_replay}.rs` (1,941 lines) and
+`lance-graph-contract/src/dismech_evidence.rs`. Per #1224's own measurement
+(closed, unmerged), 80 % of the planner lines are generic counterfactual-replay
+algebra under a domain filename; `dismech_candidates.rs` (394 lines, 21 domain
+refs) is genuinely domain-bound. Both directions of the inversion are therefore
+still in the tree.
+
+**Resolution shape (not yet scheduled):** (1) re-home the generic 80 % under
+domain-neutral names in the planner with no behaviour change — a rename plus a
+`pub use` shim under I-LEGACY-API-FEATURE-GATED; (2) move `dismech_candidates`
+and the evidence vocabulary to the MedCare-rs / `ogar-dismech` adapter side of
+the loco seam; (3) a fence test: no `dismech` token in `lance-graph-planner` or
+`lance-graph-contract` sources afterwards. `nan-ci-mode-v1.md` depends on the
+generic half only (its own count: zero references to `dismech_candidates`), so
+(1) must land before or with any work on that plan. **Not a #1224 revival** —
+#1224 added domain semantics; this removes them.
+
+## ISS-TWO-THINGS-ARE-NAMED-R2IL-AT-OPPOSITE-ENDS-OF-THE-LADDER
+
+**Status:** OPEN. **Filed:** 2026-09-19. **Severity:** high — this is the exact
+shape that flattened T1 and T2 earlier the same day.
+
+Two distinct things carry the name **R2IL**:
+
+1. **T3 R2IL** — `.claude/knowledge/membrane-tiers.md:24-25`: *"R2IL | emits T3
+   artifacts | T3's vocabulary (names, outcomes) | an outcome | its ceiling IS
+   T3's; door-knocker test (layer-boundary-warden)"*, listed beside the Java
+   facade, OGAR `ActionDef` and low-code. An INTENT surface.
+2. **Microcode R2IL** — `r2sleigh/crates/r2il` (a strongly-typed Ghidra-P-code
+   IL: sized varnodes, explicit address spaces, serde) and its proxy
+   `OGAR/crates/ogar-r2il` (that opcode set as an `ogar_loco::Vocabulary`, 82
+   arities, drift-tested, no `r2sleigh` dep). BEHAVIORAL microcode, far below
+   T3 — `ogar-loco/src/basin.rs:94-98` calls it "the thinking IR".
+
+Verified at OGAR `5055b06`, r2sleigh `99d2553`.
+
+**Why it must be resolved before either is built against:** a session reading
+`membrane-tiers.md` will place *any* R2IL at T3 and apply the door-knocker test
+to behavioral microcode that belongs several tiers down — or, inversely, read
+the OGAR vocabulary seam as licence for an intent surface to carry opcodes. The
+identical collision (a name used at two tiers) produced
+`E-DO-NOT-BACK-DATE-A-NEW-LAW-ONTO-AN-OLD-DOCTRINE-1`'s T1/T2 flattening hours
+earlier in this arc.
+
+**Not resolved here** — renaming either is an operator call, and both names are
+load-bearing in their own repos. What this issue does is record that the two
+exist, that they are NOT the same thing, and that any plan naming "R2IL" must
+say which one it means until one is renamed.
+
+Cross-ref: `E-A-VARNODE-IS-NOT-A-BUFFER-R2IL-IS-MICROCODE-FOR-MASKED-THINKING-1`.
+
 ## ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER (2026-09-18) — OPEN (D-DIAMOND-1, found in review of #1250)
 
 **What it is.** `Filter::prefix_facet`'s `Bound` lowering emits `Cmp::Range { lo, hi }`
