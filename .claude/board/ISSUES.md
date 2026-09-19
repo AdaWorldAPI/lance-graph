@@ -1,3 +1,23 @@
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — counterfactual adjudication CORRECTED; cleanup pass closed (2026-09-19)
+
+⊘ The census addendum below says the DisMech `Verdict{Consistent,
+Inconsistent}` should collapse into `revision::CounterfactualVerdict`.
+**Corrected:** collapsing it discards the two-arm measurement. `Consistent →
+Inconsistent` supports `Necessary`; `Consistent → Consistent` supports
+`Dispensable`; `Inconsistent → Consistent` and `Inconsistent → Inconsistent`
+are NOT automatically the same adjudication. The cut therefore preserves the
+factual and without-step readings as `CounterfactualAttack { factual,
+without_step, … }` with `adjudicate() -> CounterfactualVerdict`, and **a
+falsifier over all four quadrants lands before the local reading type is
+deleted**. Everything else in the addendum stands: no new
+`counterfactual_replay.rs`; the structural mechanics sit beside the generic
+replay core.
+
+Also closed by the cleanup pass: `Support / Partial / Refute / NoEvidence` is
+NOT promoted to a generic `Stance` (the SPOG / `f,c` model gets first refusal),
+and **DisMech archaeology stops here** — the seam is now accurately recorded;
+the next DisMech action is the implementation PR, on operator word.
+
 ## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — census addendum: the generic counterfactual home ALREADY EXISTS (2026-09-19)
 
 ⊘ The revised cut below still says "extract counterfactual under a

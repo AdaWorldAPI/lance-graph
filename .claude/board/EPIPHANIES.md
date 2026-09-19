@@ -1,3 +1,86 @@
+## 2026-09-19 — E-THE-1224-DETOUR-CLEANUP-PASS-WHAT-WAS-CONTAMINATION-AND-WHAT-SURVIVES-1
+
+**Status:** CLEANUP RULING (operator-directed, one pass, no new architecture).
+**Confidence:** high — each row names the statement it supersedes and where it
+lived. Board entries are append-only, so nothing below is deleted from the
+ledger; the live PLAN is corrected in place (it is not a ledger) and the
+corrections are listed here.
+
+### Exit condition this pass serves
+
+A new session reads the live board and reaches **SPOG + `f,c` → generic
+reasoning → R2IL / replay / mask / fold / ternlog → next consequence / focus**
+directly — without reproducing the #1224 causal-licensing detour, treating
+OGAR as the thinker, conflating `G` with `ClassView`, weakening R2IL varnode
+semantics, or demoting the Panama/Valhalla zero-copy lesson.
+
+### 1. Removed or superseded as contamination
+
+| # | statement, and where it stood | why it goes |
+|---|---|---|
+| C1 | *"High IG at `band = Relation` … requires an explicit Causal-band operation before any new CE64 is written"* (plan §1, and echoed in `E-THREE-CONVERGENCES-…-1`) | **Invented here, from band ordinality.** `ReasoningBand` is an explicit, coarse, ORTHOGONAL classifier; the source contract says setting one field never implies, derives or requires another. Not a permission ladder. **Deleted, and not replaced by another licensing mechanism** — any future epistemic/causal write gate must come from SPOG / `f,c` / provenance / revision semantics and measured code |
+| C2 | *"Usefulness is not causal licensing"* as a doctrine derived from #1224; the helper-existence lesson; the zero-consumer census as the reason the PR closed | #1224 is **not an architectural source**. It was withdrawn because its premise was wrong; the census was forensic evidence only. All three derivations withdrawn |
+| C3 | *"outer ontology `G` — which ClassView interprets the bytes"* (plan §2 list) | **Collapsed two axes.** `G` is the graph / context / frame / source context (an ontology graph, a patient graph, a code graph, an episode); `ClassView` is how canonical bytes are interpreted. Never the same axis |
+| C4 | *"A varnode is not a buffer"* (plan §1, `E-A-VARNODE-IS-NOT-A-BUFFER`-adjacent text) | **Too broad.** R2IL varnodes ARE real typed machine values/locations with explicit size and address-space semantics. Narrowed to: *a varnode is not a semantic-population materialization obligation.* R2IL stays mechanical behavioral microcode; the zero-materialization freedom belongs to the binding/lowering layer |
+| C5 | *"'Valhalla is the storage membrane' does not hold against the tree … Valhalla is E4: Vector API is permanently a lab arm"* (`E-LAYER0-IS-T1-…` item 3, this board) | **Conflated Valhalla with the Vector API lab arm — two different things.** Correct: **lance-graph / T0 owns canonical storage; Panama gives Java direct reach into it; Valhalla gives Java cheap value-shaped semantic carriers over it; lgj therefore inhabits the substrate zero-copy.** Valhalla is a Java-side storage MEMBRANE, never storage OWNERSHIP. E4 (no Vector API in `src/main`) is untouched and unrelated. lgj is one consumer teaching how this works — never the center |
+| C6 | *"mount `ogar-dismech` + `dismech-rs` ⇒ DisMech behaviour becomes available"* read as activation | Mounting a graph makes **facts** available; generic reasoning is unchanged. `lance-graph-ogar` is a mount/integration seam, not an ontology reasoner. *We think with OGAR graphs; OGAR does not do the thinking* |
+
+### 2. Retained — independently supported, not #1224-derived
+
+`ReasoningBand` and `CausalTopology` exist as CE64 61–63 / 59–60 and are
+orthogonal (read from `causal-edge/src/layout.rs`, not from #1224). The
+**bidirectional domain inversion** #1224 exposed is real and still live in the
+tree — that single historical fact survives, in
+`ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS`. And the measured Waben work is
+untouched by this pass: mask operation ≠ materialized bitmap; a flat explicit
+program lowers into fused execution; materialization is deliberate; W0/W1
+attestation; W2 range terminals and bounded composition; W3 semantic→geometric
+rotation; W4 closed tile; W5 local focus; W6 publication cost; replay identity
+and determinism; cache-by-key-mismatch rather than maintenance; Quack/DuckDB
+economics; R2IL as mechanical behaviour; lgj as zero-copy evidence. **The
+goose ride was in the architecture commentary, not in the execution plan.**
+
+### 3. Final DisMech seam wording
+
+```
+ogar-dismech     the DisMech graph / vocabulary / source-specific semantics
+lance-graph      zero knowledge that DisMech exists — generic SPOG reasoning only
+```
+
+Per existing `dismech_*` file: generic mechanics → extract under generic names;
+DisMech-specific semantics → the source/ontology side; entanglement-only code →
+delete. **No generic-looking type may be minted to preserve DisMech policy** —
+`Support / Partial / Refute / NoEvidence` is NOT promoted to a lance-graph
+`Stance` absent an independent non-DisMech requirement; the SPOG / `f,c` model
+gets first refusal.
+
+### 4. Final counterfactual module ownership
+
+⊘ **Amends the census addendum below**, which said the DisMech verdict type
+should "collapse into" `revision::CounterfactualVerdict`. **Do not collapse the
+measurement to remove a duplicate enum.** The two-arm reading is the
+experiment: `Consistent → Inconsistent` clearly supports `Necessary`, and
+`Consistent → Consistent` supports `Dispensable`, but `Inconsistent → *` are
+**not automatically the same adjudication**. The shape is therefore
+`CounterfactualAttack { factual, without_step, … }` with
+`adjudicate() -> CounterfactualVerdict`, and **a falsifier covering all four
+factual × cut-arm quadrants lands BEFORE the local reading type is deleted.**
+Ownership stays: `contract/counterfactual.rs` = split-pole deposit;
+`revision::CounterfactualVerdict` = the adjudication; `cognitive/world` =
+fingerprint substitution (explicitly not structural intervention); the
+structural cut/replay mechanics move beside the generic replay core — **no new
+standalone `counterfactual_replay.rs`.**
+
+### 5. The center, restored in one line
+
+```
+SPOG + f,c  →  generic reasoning  →  R2IL / replay / mask / fold / ternlog  →  next consequence / focus
+```
+
+Around it, none of which redefines it: OGAR graphs = knowledge to consult;
+Quack = lowering and economics; lgj = zero-copy runtime consumer; JC =
+calibration and metrology; DeepNSM / ARM = priors and evidence producers.
+
 ## 2026-09-19 — E-WE-THINK-WITH-OGAR-GRAPHS-OGAR-DOES-NOT-DO-THE-THINKING-1
 
 **Status:** RULING (operator) + the ownership CENSUS it demanded before any
