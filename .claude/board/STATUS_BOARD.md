@@ -1,3 +1,20 @@
+## D-WFL — the Waben fold execution loop (D-ids minted 2026-09-19, plan `.claude/plans/waben-fold-execution-loop-v1.md`)
+
+Operator-supplied architecture (`waben_fold_architecture.md` + its implementation
+prompt, 2026-09-19), grounded against `main` `25988f3c` / ndarray `40a71ad`.
+PROPOSAL — no code authorized yet. The arc's own framing: the parts exist and are
+never assembled, so these are assembly steps, not constructions.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-1 | bind the bound to the planes it executes on: `RowDomain {version, lens, digest, n_rows}` lifted from the fields `OrderedLaneWitness` already holds; `Planes.domain` + a `validate` check. Duplicate keys: recommend `SealedFacetLane` REFUSE to attest rather than widen the digest | Queued | wrong-version / wrong-lens / duplicate-key falsifiers, each disable-verified RED first, **plus** a permuted-planes case (same rows, same length, same key digest, different order) that must be rejected. Falsified if a permuted-planes program still returns the oracle's answer |
+| D-WFL-2 | let the range stay a range: `Terminal::{RangeAny, RangeCount}` (arithmetic on endpoints, gated on the program being exactly one un-`under`ed `Pred::Range`) + a `BoundedMask` scratch window lifting `touched_write`'s `(base_word, words)` shape out of the probe | Queued | touched-word counter asserted against `(hi-lo)/64 + 2`, with width and ABSOLUTE POSITION varied independently. Falsified if touched words grow with `n_rows` at fixed width, or with position at fixed width |
+| D-WFL-3 | one exactly-specified Wabe tile — CLOSED (`4^k`, trie-aligned), not a moving aperture: `mask_shift_morton` treats the slice as the field and drops edge carries, so a subspan is not a restricted global shift. `H(F) = F`, locality holds trivially | Queued | the hex probe's existing axial-BFS oracle + degree-one control + sparse delta-frontier arm. Falsified by any tile-edge mismatch, or by an advantage that survives the degree-one control (then it is not hex) |
+| D-WFL-4 | `AlphaOverlay::claim_ordinals(&AlphaMask, rung)` beside the existing address-keyed `claim` — closes the ordinal → GUID → hash → ordinal round-trip at the publication boundary | Queued | published bytes + claimed-row growth counted per claim; a no-change step publishes zero, an inhibitory change publishes non-zero. Falsified if claimed bytes still scale at 512 B/claim |
+| D-WFL-5 | the assembly / first slice: 65,536 rows, two lenses (and a DEMONSTRATION that the lane is unattestable under both at once), two W-slots, two rungs, one closed tile, one irregular edge entering sideways, `AlphaFocus` as the focus carrier | Queued | one trace where changing the local result changes the next region processed, with the same final answer as the reference route; no allocation sized by `n_rows` between bound and tile entry, asserted by counter |
+| D-WFL-6 | `LaneRef::Strided {base, stride, group}` mirroring `ndarray::simd::ternary_match_strided_to_mask` — the gap `ir.rs:21-27` already names | Deferred until D-WFL-5 needs it (a facade word with no consumer is the anti-pattern) | differential vs a contiguous copy of the same lane |
+| D-WFL-7 | one real publication through the existing owner: `BatchWriter::cast` → `collect_casts` → `seal` → `LanceCycleWriter::commit_cycle` → one `DatasetVersion`, assembled outside `tests/` | Queued | exactly one new version per cycle, append-only, owner ≠ 0 on every published row. No new transport type, no per-cell actor message, no `KanbanActor` resurrection |
+
 ## D-DIAMOND-1 — dual fold substrate over the shipped `FacetCascade` (D-ids minted 2026-09-18, plan `.claude/plans/d-diamond-1-dual-fold-substrate-v1.md`)
 
 Operator-directed probe arc from `main` `a2a51012`: «Can one canonical 8×2×8-shaped carrier

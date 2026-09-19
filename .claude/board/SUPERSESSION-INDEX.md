@@ -50,7 +50,7 @@ coverage instead.
 | symbol | verdict | successor | live in crates | named in plans | blind plans |
 |---|---|---|---|---|---|
 | `A2AMessage` | BLOCKED | — | 2 | 1 | 0 |
-| `StepMask` | BLOCKED | — | 3 | 9 | 4 |
+| `StepMask` | BLOCKED | — | 3 | 10 | 4 |
 | `commit_to_l4` | BLOCKED | — | 2 | 2 | 0 |
 | `dispatch_busdto` | BLOCKED | — | 3 | 8 | 5 |
 | `persist_cycle` | BLOCKED | — | 11 | 8 | 5 |

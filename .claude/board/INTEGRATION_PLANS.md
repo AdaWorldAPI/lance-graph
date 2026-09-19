@@ -1,3 +1,41 @@
+## 2026-09-19 (1) — waben-fold-execution-loop-v1 — from the merged folds to one addressed execution loop → `.claude/plans/waben-fold-execution-loop-v1.md`
+
+**Status:** PROPOSAL. No code authorized; this is the grounded implementation
+plan for the operator-supplied Waben fold architecture, written against
+`main` `25988f3c` and ndarray `40a71ad`. The loop it sequences: project bytes
+through a named lens → fold to an address/range/runs/bounded mask → propagate
+locally on a declared six-neighbour Wabe → let the result produce the next
+focus → publish only novel alpha effects through the existing owner.
+
+Three seams, in dependency order. **A** — `Planes` (`mask-risc/src/ir.rs:50`)
+carries no version, lens or order identity, so a witnessed bound indexes a row
+order the executor never attested (`ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER`).
+**B** — `exec.rs:566` requires every scratch plane to be `words_for(n_rows)`
+and `exec.rs:540` hands that plane to `mask_set_range`, which paints the whole
+destination by contract (`simd_masking_ops.rs:1587-1588`); a range therefore
+cannot stay a range anywhere inside the IR. The tax is already measured under
+another name — D-DMD-P2's "old whole-lane buffer" control arm (34 → 4,620 ns)
+IS the production executor's behaviour. **C** (newly named) — `AlphaOverlay`
+is hash-and-row shaped (`claimed: Vec<NodeRow>`, 512 B/claim; `at:
+HashMap<NodeGuid, usize>`), so publication round-trips ordinal → GUID → hash →
+ordinal → full mask at the far end of the same loop.
+
+Dominant census finding: the loop's parts almost all exist, are tested and are
+doc-honest, and are **never assembled** — `wave_dispatch::dispatch_thought`,
+`AlphaFocus`, `StepMask`, `BatchWriter::cast` → `LanceCycleWriter`,
+`CallcenterSupervisor` and `quack::Filter::prefix_facet` each have no live
+caller outside tests. The deliverable is an ASSEMBLY, not a construction.
+
+Resolved with no new storage: **rung** = `TemporalPov.rung` (a reader's
+coordinate); **track (≤64)** = the 6-bit W-slot palette
+(`AttentionMaskEntry.w_slot`); **the six-neighbour tenant** = the second
+facet's `6 × (u8:u8)` rail plane, already in the locked LE catalogue (§3) and
+already used in that exact shape by ndarray's `hex_tenant_mq_probe`.
+
+D-ids `D-WFL-1..7`. Explicitly NOT authorized: a new carrier enum, registry or
+slab; a moving Morton aperture before a closed tile is exact; G8 (named in
+three ndarray docs, built in none); any `KanbanActor`-shaped per-cell message.
+
 ## 2026-09-18 (1) — d-diamond-1-dual-fold-substrate-v1 — can one 8×2×8-shaped carrier carry both point-peek and population-mask traversal → `.claude/plans/d-diamond-1-dual-fold-substrate-v1.md`
 
 **Status:** ACTIVE (operator-directed 2026-09-18; one probe arc; verdict fixed in

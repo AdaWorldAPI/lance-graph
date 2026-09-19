@@ -1,3 +1,23 @@
+## 2026-09-19 (1) — PRs #1249 (`bb988363`) and #1250 (`25988f3c`) merged; `main` is `25988f3c`
+
+- **#1250 — D-DIAMOND-1, verdict BOUNDED.** Ships `ordered_lane`
+  (`OrderedLaneWitness` / `SealedFacetLane` / `WitnessError`), `SemanticLens` +
+  `SemanticPrefix`, `FacetCascade::{semantic_tiles, from_semantic_tiles,
+  cmp_numeric_projection, semantic_u64_halves}`, `quack::{Cmp::Range,
+  PrefixLowering, Filter::prefix_facet}`, and the `d-diamond-1-probe` crate.
+  Contract inventory grows by the `ordered_lane` module and the two `facet`
+  types above. Full record: `PR_ARC_INVENTORY.md` 2026-09-19 #1250.
+- **#1249** was board hygiene only and is discharged by the entries it wrote
+  (CLAUDE.md § Termination clause) — no arc entry, no `LATEST_STATE` row of its
+  own beyond this line.
+- **Open, by design:** `ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER`.
+  `PrefixLowering::Bound` carries `lane_version` + `lane_digest` and nothing
+  compares them to the executed `Planes`, which carry no order identity at all.
+  Closing it is `D-WFL-1`.
+- **Queued:** the `D-WFL` arc (plan `.claude/plans/waben-fold-execution-loop-v1.md`,
+  PROPOSAL) — the assembly sequence from the merged folds to one addressed
+  execution loop.
+
 ## 2026-09-18 (3) — PR #1248 merged (`a2a51012`): `NodeRow::edges` is `EdgeFacet([u8; 16])` on `main` — no field of the 512-byte row is a native-endian integer
 
 The entry below dated 2026-09-18 (2) describes what is now on `main`, not
