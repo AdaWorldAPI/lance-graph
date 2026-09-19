@@ -1,3 +1,36 @@
+## 2026-09-19 — E-1224-WAS-A-BIDIRECTIONAL-DOMAIN-INVERSION-NOT-A-LEAK-1
+
+**Status:** SHARPENING of the two entries below it. **Confidence:** high — both
+directions are measured in #1224's own body, and the second is still live.
+
+The two #1224 corrections below describe a one-way leak: disease-specific
+semantics crossed DOWN into the generic thinking substrate. That is half of it.
+#1224's own addendum measured the other half: of the 1,941 planner lines under
+`dismech_*` names, **1,547 (80 %) carry no DisMech semantics at all** —
+`dismech_counterfactual.rs` (674 lines, 0 domain refs) and `dismech_replay.rs`
+(873, one label lookup) are generic counterfactual-replay algebra that merely
+inherited a domain filename because MedCare was the first consumer. So generic
+reasoning crossed UP and got trapped inside domain vocabulary at the same time
+domain vocabulary crossed down. A Möbius strip, not a leak:
+
+```
+MedCare / DisMech semantics ──▼ leaked down ──▶ lance-graph thinking substrate
+lance-graph generic reasoning ──▲ leaked up ──▶ stranded behind dismech_* names
+```
+
+The boundary is supposed to be one-way and boring: domain semantics adapt /
+bind / provide evidence through the OGAR vocabulary and the loco seam INTO the
+generic substrate; generic results (mask, replay, evidence, causal result) come
+back and the DOMAIN interprets them in its own vocabulary. Neither a domain-named
+planner in the substrate nor generic algebra under a domain filename.
+
+**This is why "re-home the helper" was never enough** — the seam itself had to
+be re-established, and it has not been: all four `dismech_*` files are on this
+branch today (1,941 planner lines + `dismech_evidence.rs` in the zero-dep
+contract). Filed as `ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS`. Cross-ref: the
+consumer-side mirror is `ogar-consumer-preflight.md` (a consumer never
+re-implements the Core locally) — the same seam, seen from the other bank.
+
 ## 2026-09-19 — E-1224-CLOSED-FOR-BEING-WRONG-NOT-FOR-LACKING-CONSUMERS-1
 
 **Status:** CORRECTION of the entry directly below this one. **Confidence:**

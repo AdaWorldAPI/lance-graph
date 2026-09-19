@@ -1,3 +1,26 @@
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS
+
+**Status:** OPEN. **Filed:** 2026-09-19. **Severity:** high — a live
+bidirectional domain inversion in the thinking substrate, measured, not fixed.
+
+Present on this branch: `lance-graph-planner/src/{dismech_candidates,
+dismech_counterfactual, dismech_replay}.rs` (1,941 lines) and
+`lance-graph-contract/src/dismech_evidence.rs`. Per #1224's own measurement
+(closed, unmerged), 80 % of the planner lines are generic counterfactual-replay
+algebra under a domain filename; `dismech_candidates.rs` (394 lines, 21 domain
+refs) is genuinely domain-bound. Both directions of the inversion are therefore
+still in the tree.
+
+**Resolution shape (not yet scheduled):** (1) re-home the generic 80 % under
+domain-neutral names in the planner with no behaviour change — a rename plus a
+`pub use` shim under I-LEGACY-API-FEATURE-GATED; (2) move `dismech_candidates`
+and the evidence vocabulary to the MedCare-rs / `ogar-dismech` adapter side of
+the loco seam; (3) a fence test: no `dismech` token in `lance-graph-planner` or
+`lance-graph-contract` sources afterwards. `nan-ci-mode-v1.md` depends on the
+generic half only (its own count: zero references to `dismech_candidates`), so
+(1) must land before or with any work on that plan. **Not a #1224 revival** —
+#1224 added domain semantics; this removes them.
+
 ## ISS-TWO-THINGS-ARE-NAMED-R2IL-AT-OPPOSITE-ENDS-OF-THE-LADDER
 
 **Status:** OPEN. **Filed:** 2026-09-19. **Severity:** high — this is the exact
