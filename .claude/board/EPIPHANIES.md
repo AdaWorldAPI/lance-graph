@@ -1,3 +1,90 @@
+## 2026-09-19 — E-FROZEN-IS-FINE-MARCHING-IS-THE-DISASTER-1
+
+**Status:** RULING — scopes `E-ZERO-COPY-IS-NOT-A-SIZE-THRESHOLD-1` and
+`E-A-THOUGHT-IS-A-REPLAYABLE-OPERATOR-NOT-A-MAINTAINED-STATE-1`. Neither is
+retracted; both were being read further than they said. **Confidence:** high on
+the boundary, unmeasured on the constants.
+
+⊘ **The drift being corrected is mine:** across three entries today the
+zero-copy definition slid into an **anti-cache position**. *A fold is zero-copy*
+stays exactly true, and writing a bounded mask stays not-a-fold. What does NOT
+follow is that writing one is a sin. **It is a cache decision, with its own
+economics.**
+
+> **The real boundary was never copy vs no-copy. It is
+> RECOMPUTE-OR-FREEZE vs CONTINUOUSLY MAINTAIN.**
+
+```
+FOLD         canonical state -> zero-copy computation -> consequence
+CACHE MISS   fold consequence -> materialize it ONCE, deliberately
+CACHE HIT    cached mask -> zero-copy peek -> ~11 ns
+```
+
+If a cached result is callable in ~11 ns, discarding it because it once crossed
+a materialization boundary would be absurd. **64K cached masks are welcome** —
+no sweeping, no incremental refresh, no coherence work, no CPU while dormant.
+Frozen ducks, and **frozen is the point**. Marching 64K ducks around every cycle
+is the disaster, and that was always the enemy; storage never was.
+
+> **Materialization is allowed when its amortized retrieval value earns it.
+> What is forbidden is entropy accumulation solely to keep derived state
+> current.**
+
+**So COMBINE vs RECONSTRUCT is an EXECUTION DECISION, not a permanent type
+distinction** — the earlier entries implied the latter:
+
+```
+thought P over domain D, first use: replay folds -> R
+  cheap / unlikely reuse   -> discard R
+  expensive / likely reuse -> cache R
+  semantic commitment      -> persist R
+```
+
+**Invalidation must be by KEY MISMATCH, never by update.** A world change must
+not walk 64K entries:
+
+```
+CacheKey = DatasetVersion + RowDomain + lens/ClassView + program
+         + focus/input identity + external-edge snapshot
+
+new DatasetVersion -> old entries stay FROZEN (zero work)
+                   -> request -> MISS -> replay -> optionally re-cache
+```
+
+**And that key is the `ReplaySpec`, field for field.** The replay descriptor and
+the cache key are **one artifact used two ways**: as a recipe it regenerates the
+answer, as a key it memoizes it. This is why invalidation can be free — a
+descriptor built from owned identities either matches the world or does not, and
+nothing must be swept to discover which. The two doctrines were the same object
+all along.
+
+**The economics are memoization economics, not a prohibition:**
+
+```
+C_cache = C_lookup + p_miss · C_replay + amortized C_materialize
+        vs
+C_always_replay = C_replay
+```
+
+⊘ **The ~11 ns is a premise, not a measurement** — same discipline as the 1.7 ns
+figure. A cached-mask lookup cost must itself be measured before policy leans on
+it. But if lookup is tens of ns and replay hundreds, a heavily reused mask earns
+caching almost at once; a thought called once never did.
+
+**Metacognitive policy, directly:** novel → replay · frequent → cache ·
+historical truth → persist · stale → ignore, do NOT maintain.
+
+**Consequence for reuse across boards:** a heavily reused operator can carry BOTH
+a `ReplaySpec` (the reasoning recipe) and a hot cache entry (the precomputed
+result for one exact domain and version). Same domain and version ⇒ the cached
+answer. Different context ⇒ replay the operator against it. Memory and
+thought-reuse at once, with no maintenance treadmill.
+
+**Net doctrine:** *Folds are zero-copy. Cached fold results are allowed. A
+cached result is an immutable consequence of a pinned input state — not live
+derived state that must be swept to stay current. Recompute on miss; never
+maintain an entry merely because the world moved.*
+
 ## 2026-09-19 — E-ZERO-COPY-IS-NOT-A-SIZE-THRESHOLD-1
 
 **Status:** RULING — closes a loophole in

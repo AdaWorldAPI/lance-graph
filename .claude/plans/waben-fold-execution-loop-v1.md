@@ -515,6 +515,97 @@ working memory, but a transformation you run your own context through. So the
 continuations, crossable between kanban boards wherever their dependencies are
 satisfiable.
 
+### Frozen is fine. Marching is the disaster.
+
+⊘ **The previous section's rule slid from a definition into an anti-cache
+position, and that is wrong.** *A fold is zero-copy* remains exactly true, and
+writing a bounded mask remains not-a-fold. What does NOT follow is that writing
+one is a sin. It is a **cache decision**, with its own economics.
+
+**The real boundary was never copy vs no-copy. It is
+recompute-or-freeze vs continuously maintain.**
+
+```
+FOLD         canonical state -> zero-copy computation -> consequence
+CACHE MISS   fold consequence -> materialize it ONCE, deliberately
+CACHE HIT    cached mask -> zero-copy peek -> ~11 ns
+```
+
+If a cached result is callable in ~11 ns, discarding it because it once crossed
+a materialization boundary would be absurd. So 64K cached masks are entirely
+welcome:
+
+```
+64K cached masks
+   no sweeping · no incremental refresh · no coherence work
+   no CPU while dormant
+          -> frozen ducks, and FROZEN IS THE POINT
+```
+
+Frozen is cheap. **Marching 64K ducks around every cycle is the disaster**, and
+that — not storage — was always the enemy.
+
+> **Materialization is allowed when its amortized retrieval value earns it.
+> What is forbidden is entropy accumulation solely to keep derived state
+> current.**
+
+**So COMBINE vs RECONSTRUCT is an EXECUTION DECISION, not a permanent type
+distinction:**
+
+```
+thought P over domain D, first use:  replay folds -> result R
+   cheap / unlikely reuse    -> discard R
+   expensive / likely reuse  -> cache R
+   semantic commitment       -> persist R
+```
+
+**Invalidation is the load-bearing part, and it must be by key mismatch, never
+by update.** A world change must NOT walk 64K entries:
+
+```
+CacheKey = DatasetVersion + RowDomain + lens/ClassView + program
+         + focus/input identity + external-edge snapshot
+
+new DatasetVersion -> old entries stay FROZEN (no work at all)
+                   -> a request arrives -> MISS -> replay -> optionally re-cache
+```
+
+**And notice what that key IS.** It is the `ReplaySpec` from W1b, field for
+field. The replay descriptor and the cache key are **the same artifact used two
+ways**: as a recipe it regenerates the answer; as a key it memoizes it. That is
+not a coincidence to be admired — it is the reason invalidation can be free,
+because a descriptor made of owned identities either matches the world or does
+not, and nothing has to be swept to find out.
+
+**The economics are memoization economics**, not a prohibition:
+
+```
+C_cache         = C_lookup + p_miss · C_replay + amortized C_materialize
+C_always_replay = C_replay
+```
+
+⊘ **The ~11 ns is a premise, not a measurement** — the same discipline applied
+to the 1.7 ns figure. A cached-mask lookup cost must itself be measured before
+any policy leans on it. But if lookup is tens of ns and replay is hundreds, a
+heavily reused mask earns caching almost immediately; a thought called once
+never did.
+
+Which gives the metacognitive policy directly:
+
+```
+novel thought      -> replay
+frequent thought    -> cache
+historical truth    -> persist
+stale thought       -> ignore; do NOT maintain
+```
+
+**And it makes reuse across kanban boards richer than either half alone.** A
+heavily reused operator can carry both a `ReplaySpec` (the reasoning recipe) and
+a hot cache entry (the precomputed result for one exact domain and version).
+Same domain and version ⇒ the cached answer. Different context ⇒ replay the
+operator against it. Memory and thought-reuse at once, with no maintenance
+treadmill.
+
 ### Writing is the expensive part — so the boundary has TIERS, not a switch
 
 The reason replay wins is not that reading is cheap; it is that **writing is
@@ -973,8 +1064,9 @@ any process-local object, the thought was never replayable.
 
 - `Range(lo,hi) ∩ resident aligned mask → Count/Any`, touching only words
   `w0..w1`.
-- ⊘ **And the implementation must not write the intersection.** The size-free
-  law above disqualifies the obvious shape:
+- ⊘ **The fold arm must not write the intersection** — though writing one is a
+  *cache decision* to be priced, not a sin (see § *Frozen is fine*). The
+  size-free law disqualifies the obvious shape **as a fold**:
 
   ```
   WRONG   Range × resident mask -> WRITE a bounded mask -> Count / Any

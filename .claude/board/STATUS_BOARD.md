@@ -1,3 +1,17 @@
+## D-WFL — the cache scoping (2026-09-19): frozen is fine, marching is the disaster
+
+⊘ Scopes the rows below rather than retracting them. Across three sections today
+the zero-copy DEFINITION slid into an anti-cache POSITION. A fold is still
+zero-copy; writing a bounded mask is still not-a-fold; but writing one is a
+**cache decision with economics**, not a sin. The boundary is
+**recompute-or-freeze vs continuously maintain** — never copy vs no-copy.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-WFL-CACHE | **Materialization is allowed when its amortized retrieval value earns it; what is forbidden is entropy accumulation solely to keep derived state current.** 64K cached masks are welcome — no sweep, no refresh, no coherence work, no CPU while dormant. COMBINE vs RECONSTRUCT becomes an EXECUTION decision (discard / cache / persist), not a permanent type distinction | Queued | `C_cache = C_lookup + p_miss·C_replay + amortized C_materialize` vs `C_always_replay`. ⊘ The ~11 ns hit cost is a PREMISE, not a measurement — same discipline as the 1.7 ns figure; measure it before any policy leans on it |
+| D-WFL-CACHEKEY | **Invalidation by KEY MISMATCH, never by update.** `CacheKey = DatasetVersion + RowDomain + lens/ClassView + program + focus/input identity + external-edge snapshot`. A new version leaves every entry FROZEN at zero cost; a later request misses, replays, optionally re-caches. **This key IS the `ReplaySpec`, field for field** — one artifact, two uses: a recipe that regenerates, a key that memoizes. That identity is why invalidation is free | Queued | falsified if any world change requires touching a cache entry. A sweep over cached masks on version bump fails the wave outright |
+| D-WFL-POLICY | metacognitive policy: novel → replay · frequent → cache · historical truth → persist · stale → ignore and do NOT maintain. A reused operator may carry BOTH a `ReplaySpec` and a hot entry: same domain+version ⇒ cached answer; different context ⇒ replay against it | Queued | measured hit rate and tier mix under the slice's workload (W6). A cache whose entries are never hit is waste; one hit on every call means replay was never needed |
+
 ## D-WFL-L0 — clauses 2, 4 and 5 AMENDED (2026-09-19, same day): zero-copy is not a size threshold
 
 ⊘ Two loopholes in the D-WFL-L0 section below, both closed here rather than
