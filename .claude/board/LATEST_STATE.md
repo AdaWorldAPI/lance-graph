@@ -1,3 +1,24 @@
+## 2026-09-19 (3) — PR #1252 merged (`8545a555`): the #1224 detour is cleaned up and the OGAR ownership ruling is canon; `main` is `8545a555`
+
+- **Docs only, no contract inventory delta.** The center to read first:
+  **SPOG + `f,c` → generic reasoning → R2IL / replay / mask / fold / ternlog →
+  next consequence.** Around it, none of which redefines it: OGAR graphs =
+  knowledge to consult, Quack = lowering economics, lgj = zero-copy consumer,
+  JC = calibration.
+- **Standing rulings now on `main`:** *we think with OGAR graphs; OGAR does not
+  do the thinking*; `ReasoningBand` is an orthogonal classifier and **never a
+  permission ladder**; `G` (graph / context / frame) is never `classid` /
+  `ClassView`; a varnode is not a semantic-population materialization
+  obligation; Valhalla is a storage MEMBRANE, never storage ownership.
+- **Queued, operator word only:** the DisMech cut
+  (`ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS` — PR-B first and alone; parser
+  location OPEN), `D-WFL-MASKOP`, then W0/W1. `TD-JC-CLIPPY-RED-ON-BASE-2`
+  remains red on `main`, untouched.
+- **One blocker recorded for the counterfactual work:** the four-quadrant
+  falsifier cannot pass until `CounterfactualVerdict` gains an "attacked,
+  uninformative" variant — two quadrants have no home in the current three.
+- Full record: `PR_ARC_INVENTORY.md` 2026-09-19 #1252.
+
 ## 2026-09-19 (2) — PR #1251 merged (`16090965`): the Waben fold execution-loop plan is on `main`; `main` is `16090965`
 
 - **#1251 — docs only, 21 commits, +3,928 / −1 across 8 files.** Ships

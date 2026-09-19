@@ -1,3 +1,65 @@
+## 2026-09-19 — lance-graph PR #1252 (merged `8545a555`, branch `claude/great-pascal-k96kok`, head `16a0130d`, 5 commits, docs only) — the #1224 detour cleanup, the OGAR ownership ruling, and the DisMech census
+
+**Not exempt under the termination clause.** #1252 carried #1251's hygiene AND
+new rulings, scope and corrections; per `CLAUDE.md` *"a mixed PR still gets its
+entry — the non-hygiene half is what the entry is for."* This entry records
+that half.
+
+- **Added (rulings):** `E-WE-THINK-WITH-OGAR-GRAPHS-OGAR-DOES-NOT-DO-THE-THINKING-1`
+  — ontology thinking is a lance-graph / SPOG concern; OGAR graphs are
+  knowledge to consult; `ogar-dismech` is one optional graph, not a reasoning
+  plugin; mounting a graph makes FACTS available and changes no algorithm.
+  **Falsifier:** if generic reasoning must know WHICH graph supplied a relation
+  to run its mechanics, either the graph failed to say what it means in
+  SPOG / `f,c` / context, or domain policy leaked into the engine.
+  `E-A-DOMAIN-IS-AN-OPTIONAL-CONSUMER-THROUGH-OGAR-…-1`;
+  `E-THE-1224-DETOUR-CLEANUP-PASS-…-1` (six contaminated statements, each named
+  with where it stood).
+- **Added (census, read from the tree):** per-item ownership of
+  `contract/dismech_evidence.rs` — `DismechTopology` / `Supports` /
+  `EvidenceSource` are source-format token enums (the first redundant with
+  `causal_edge::CausalTopology`; the second has zero consumers outside
+  `dismech_candidates.rs`); the citation types are domain-neutral in shape with
+  no second consumer, so they earn no generic home yet; the predicate mirror's
+  authority already exists as `ogar_dismech::{RELATIONS, CAUSES, by_index}`.
+  Planner: replay and counterfactual are generic mechanics; the candidates'
+  `Support ⇒ ∩ / Refute ⇒ ∖` policy is source-derived and is NOT canonized.
+  **Measured edges:** the contract mirror's only external consumer is the
+  parity assert in `lance-graph-ogar` (a copy whose job is to be compared with
+  its original); the three planner modules have zero production consumers;
+  MedCare-rs already binds the real mint and has ONE pending edge aimed at the
+  mirror, redirected.
+- **Corrected (each by prepend, none edited in place):** the invented
+  `ReasoningBand` licensing ladder — **deleted, not replaced**, and no
+  substitute licensing mechanism admitted; the three #1224-derived doctrines
+  (causal licensing, helper-existence, zero-consumers-as-the-reason);
+  `G` = `ClassView` collapsed in the §2 list **and again in the coordinate
+  table seven lines above it** (caught in review — a residue of the cleanup
+  pass itself); *"a varnode is not a buffer"* narrowed to *not a
+  semantic-population materialization obligation*, with R2IL kept as mechanical
+  microcode; the Valhalla fossil that conflated the storage membrane with the
+  Vector API lab arm.
+- **Locked:** four coordinates, not three — `G` (graph / context / frame, home
+  in the SPOG tenant lane) is never `classid`, and `classid → ClassView` is how
+  canonical bytes are interpreted. Counterfactual ownership: **do not collapse
+  the two-arm measurement to remove a duplicate enum**; `CounterfactualAttack {
+  factual, without_step }` with `adjudicate() → CounterfactualVerdict`, and a
+  four-quadrant falsifier lands BEFORE the local reading type is deleted.
+- **Open, and it is mine to have found:** two of those four quadrants have no
+  home in `{Necessary, Dispensable, NotRun}`. `Inconsistent → Consistent` means
+  removing the step REPAIRED the chain (not "dispensable"); `Inconsistent →
+  Inconsistent` means the attack ran and learned nothing. Folding either into
+  `NotRun` is a semantic regression — its doc defines it as *not attacked*. **So
+  the falsifier cannot pass until the enum gains an "attacked, uninformative"
+  variant.**
+- **Deferred:** the DisMech cut itself (PR-B first and alone; the source-token
+  parser location is an OPEN decision); every Waben wave; `D-WFL-MASKOP`;
+  `TD-JC-CLIPPY-RED-ON-BASE-2` (still red on `main`, two lines, untouched).
+- **Hygiene discharged:** #1251's arc entry + `LATEST_STATE`.
+- **Confidence:** high on the census and the rulings (every row read from the
+  tree); the counterfactual enum gap is an inference from the shipped variants
+  and their doc comments, not yet a failing test.
+
 ## 2026-09-19 — lance-graph PR #1251 (merged `16090965`, branch `claude/waben-fold-loop`, head `78c5016b`, 21 commits, docs only) — the Waben fold execution loop: four seams, and attestation that has an author
 
 - **Added:** `.claude/plans/waben-fold-execution-loop-v1.md` (§0–§10: baseline
