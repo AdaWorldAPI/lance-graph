@@ -1,3 +1,28 @@
+## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — the MedCare-rs bank, read (2026-09-19)
+
+The two entries below map the lance-graph and OGAR banks; this reads the
+domain consumer itself (MedCare-rs `90eb1f9`). Architecture only — no cohort
+content, no codebook, nothing private crosses into this public board.
+
+**Finding: MedCare-rs is already on the correct side of the seam in code, with
+ONE pending edge pointed at the contaminated mirror.**
+
+| edge | state | reading |
+|---|---|---|
+| `medcare-cohorts` → `ogar_dismech::{RELATIONS, CAUSES}` (`provenance.rs:357,390`; Cargo dep `ogar-dismech` from OGAR `main`) | LIVE | the falsifier is written against the REAL mint, and its own doc comment says why: a mirror could drift, the table cannot. Its `Cargo.toml:71` states the rule outright — *lance-graph stays concept-blind*. This is the direction the ruling wants, already practised |
+| `medcare-dismech` (offline bake tool, 4,074 lines) → lance-graph / OGAR | **NONE** | deps are `serde`, `serde_yaml`, `serde_json`, `flate2` only; zero consumers outside itself; five standalone binaries. It does not touch the inversion |
+| `medcare-dismech/src/bin/freeze.rs:66-70` → `lance_graph_contract::dismech_evidence::DismechTopology::from_source` | **PENDING, documented as a "known follow-up"** blocked only by a lock bump | ⊘ this would be the FIRST real consumer of the contract mirror from a domain repo — it deepens the inversion from the consumer bank the moment the lock moves. **Redirect:** the typed parse of a DisMech source token is DisMech knowledge; it belongs in `ogar-dismech`, which today exports the vocabulary (`RELATIONS`, `CAUSES`, `by_index`, `DisMechVocabulary`, `plug_into`, the search ops) but **no `from_source` typed parse** — that capability exists only in the mirror. Moving it is part of the cut, not a separate task |
+| `docs/CAUSALITY_V3_DISMECH_CONTRACT.md` | prose | already commits to the right shape: vocab in `ogar-dismech` (§7.1, :155, :440), corpus as a data artifact never compiled in, lance-graph's role limited to generic `NodeRow` / bake precedents (:932-959). It names `lance-graph-contract` as the *type* provider, not the *vocabulary* provider — consistent with the ruling |
+
+**Consequence for the resolution shape:** the cut has a third acceptance
+condition beyond the two negative/positive tests — **no consumer repo may
+acquire an edge to the mirror while it still exists.** The MedCare follow-up is
+the one known candidate; it is redirected to `ogar-dismech` (which grows the
+typed parse) rather than waiting for the mirror to vanish under it. `dismech-rs`
+itself is not a local checkout here and was not read; MedCare's plans describe
+it as the public oracle that stays boring and as the origin of `graph.rs`'s
+port — the domain bank below `ogar-dismech`, exactly where the direction puts it.
+
 ## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — resolution shape CORRECTED (2026-09-19)
 
 ⊘ The entry below proposes, as step (1), *"rename the generic 80 % domain-neutral
