@@ -1,3 +1,64 @@
+## 2026-09-19 — E-ONE-OBSERVABLE-IS-NOT-THREE-INSTRUMENTS-AND-IMPORTS-ARE-PROBES-1
+
+**Status:** FENCE (ruling) + CORRECTION + five named PROBES, all unscheduled.
+**Confidence:** high on the fence and the correction (read-verified); the
+probes are conjectures by construction.
+
+### The fence
+
+A lateral pass on the Waben loop produced this sentence, in chat only, never
+committed: *a frontier XOR-popcount is Tarski when it reaches zero, Shannon
+when its delta reaches zero, and JC when compared to the Jirak floor.* **Struck
+before it was ever written down as a rule.** A popcount is an OBSERVABLE that
+may be fed to all three analyses; it is none of them. Tarski is a fixed point of
+a monotone operator on a lattice; Shannon is `−Σ p log p` and gain is a
+difference of it; JC is distinguishability from a calibrated weak-dependence
+regime (`I-NOISE-FLOOR-JIRAK`), not a threshold on a count. `popcount → 0` is
+not a fixed point (a non-monotone step can raise it) and not zero entropy (a
+stable non-zero disagreement is low-entropy with non-zero popcount). Same
+failure shape as `MaskOp`-means-bitmap: a carrier promoted to a semantics.
+Sibling fence already on the board: entropy says WHERE closure is, never WHAT
+hole (CE64 59–60) nor HOW asserted (61–63).
+
+### Roaring sits under `KEEP`, not in place of the mask expression
+
+Density-adaptive containers answer *which representation for a set I have
+decided to hold*. The arc's primitive answers the prior question — *whether a
+represented set is needed at all* (`Fold × Fold × AND × TERNLOG → COUNT` holds
+no set). Where `Terminal::Keep` elects one, Roaring's per-chunk rule is a fine
+container choice. It is not an argument for eager ops. Recorded so it is not
+re-imported one tier too high.
+
+### Correction: #1224 resolves — as a NEGATIVE receipt
+
+The entry below this one (`E-THREE-CONVERGENCES-…-1`) says a citation to
+"#1224" does not resolve. That was a search of `.claude/` and `docs/` only.
+Read from GitHub: **#1224 exists, was withdrawn and closed without merging**,
+and the two causal-licensing helpers it added were **deleted after a measured
+zero production consumers**. It must not be cited as positive architecture; its
+failure is exactly the lesson — a helper existing is not enforcement, and
+usefulness or association does not grant causal status. The plan's §1 paragraph
+is corrected in place (it is the live plan, not a ledger); this entry corrects
+the ledger by prepend.
+
+### The five imports — probes, each with a falsifier (plan §9)
+
+Retina (read as contrast → sparse FIRE by consequence); inhibition of return
+(deliberately non-monotone, OUTSIDE Tarski closure); erosion (Go/Bouzy —
+`expand → close → prune → close`, never "add erosion to Tarski"); pre-shaped
+geometry (a VIEW selects a codebook trained for its own predicates — NOT one
+global order, which fixes one lens by breaking another); aperture (depth as
+address resolution, orthogonal to `ReasoningBand`: band = what KIND, prefix =
+what RESOLUTION — never collapse). **Evidence check on the last one:**
+`facet.rs:645/683/796` `i >> 2` is `G3D4::group_of`, a carving shift — NOT a
+rung ladder. "Rung = prefix depth" stays CONJECTURE until depth-stepping is
+shown to move IG monotonically on a real lane.
+
+The shared rhythm is the two-stroke engine already ruled: monotone stroke to a
+fixed point, then a non-monotone stroke (inhibit / prune / revise / change
+resolution / change dictionary / change band), then closure again. Thinking
+harder need not mean more state.
+
 ## 2026-09-19 — E-THREE-CONVERGENCES-TARSKI-SHANNON-JC-AND-THE-BAND-IS-A-SANDBOX-1
 
 **Status:** RULING on the demarcations; FINDING on the inventory

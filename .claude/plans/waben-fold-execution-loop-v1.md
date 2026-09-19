@@ -573,9 +573,14 @@ gain **must not be silently promoted to causal knowledge.** High IG makes it a
 *candidate causal investigation*, which then requires an explicit Causal-band
 operation before any new CE64 is written. Likewise `Counterfactual` can explore
 freely without mutating factual causal state. **Usefulness is not causal
-licensing** — recorded here on its own merits; ⊘ a citation to "#1224" for this
-distinction does not resolve anywhere in `.claude/` or `docs/`, so the principle
-stands and the reference does not.
+licensing** — recorded here on its own merits. ⊘ The first cut said a citation to
+"#1224" *does not resolve*; that was a search of `.claude/` and `docs/` only.
+**Corrected 2026-09-19 by reading the PR itself:** #1224 exists, was **withdrawn
+and closed without merging**, and the two causal-licensing helpers it added were
+**deleted after a measured count of zero production consumers**. So it is cited
+here as a *negative* receipt, never as architecture: a helper existing is not
+enforcement, and association or usefulness does not grant causal status — the
+exact lesson this section's ruling rests on.
 
 And `ReasoningBand::Meta` earns its keep without any meta-opcode: bind the
 fold/mask machinery to the thought programs and transfer histories themselves —
@@ -1901,3 +1906,64 @@ later wave, none blocks W1–W4.
    confidence and truth** — four things the substrate keeps separate and prose
    keeps merging. This is the question the whole write-tier ladder rests on, and
    it is the one an implementation session is least equipped to answer.
+
+## §9 Imports from other domains — held as PROBES, with one fence in front
+
+Added 2026-09-19 after a lateral pass. None of these is doctrine; each is a
+question with a falsifier, and none reorders W0–W7. The fence comes first
+because the pass produced one attractive unification that must not be written
+anywhere as a rule.
+
+### The fence: one observable is not three instruments
+
+A frontier XOR-popcount is a perfectly good **observable** — it can be *fed to*
+a Tarski check, a Shannon estimate and a JC noise test. It **is not** those three
+things, and no scalar is:
+
+```
+TARSKI    Δset = ∅  /  F(X) = X          a semantic fixed point of a monotone operator
+SHANNON   H(P) = −Σ p log p              uncertainty; information gain is a DIFFERENCE of it
+JC        is the observed signal distinguishable from the calibrated
+          weak-dependence noise regime?  (I-NOISE-FLOOR-JIRAK, not a threshold on a count)
+```
+
+`popcount → 0` is neither a fixed point (a non-monotone step can raise it again)
+nor zero entropy (a stable non-zero disagreement has *low* entropy and non-zero
+popcount). Any sentence of the form "this one dial is all three" is the same
+failure shape as `MaskOp`-means-bitmap: a carrier promoted to a semantics. The
+board already carries the sibling fence — entropy says WHERE closure is, never
+WHAT kind of hole (CE64 59–60) nor HOW it may be asserted (61–63).
+
+### Roaring belongs UNDER `KEEP`, not instead of the mask expression
+
+Density-adaptive containers (run list when sparse, bitmap when dense, chosen per
+chunk) answer *"given that I want a represented set, which representation?"* The
+arc's primitive answers the **prior** question — *"do I need a represented set at
+all?"*
+
+```
+Fold(A) × Fold(B) × AND × TERNLOG(C) → COUNT     no run list, no bitmap, ever
+```
+
+Where a set IS elected (`Terminal::Keep`, a cached mask), the container is a
+free choice and Roaring's rule is a good one. It is not a reason to make ops
+eager. Recorded so the next session does not re-import it one level too high.
+
+### The probes (each names what would falsify it)
+
+| import | mechanism | where it sits in the two-stroke engine | probe / falsifier |
+|---|---|---|---|
+| **Retina** — read as contrast | the read itself is `current field × six-neighbour field → local residual`; the substrate reads *difference*, not state, so a sparse FIRE is a consequence rather than a discipline | inside the monotone stroke (a lens, not a write) | on the W5 fixture, residual-read vs field-read-then-diff: same delta set, count words touched; falsified if the residual read touches ≥ the field read |
+| **Inhibition of return** | a decaying mask over recent foci that suppresses re-fixation | **outside** Tarski closure, by construction — it is intentionally non-monotone: `closure → choose focus → apply inhibition → new episode` | W5+: with vs without, count revisits of the same focus in N episodes; falsified if revisit rate is unchanged or coverage drops |
+| **Erosion** (Go, Bouzy dilation-then-erosion) | pure dilation `A_{t+1} = A_t ∪ N(A_t)` paints everything reachable; a structural-support requirement lets the unsupported fringe evaporate | **not** "add erosion to Tarski" — erosion can break monotonicity; the shape is `monotone expansion → closure → structural pruning → new closure` | W4+: dilation-only vs dilation+support on the same tile; falsified if the supported set is not a strict subset with lower entropy |
+| **Pre-shaped geometry** (lithography) | NOT one global order that makes every neighbourhood a prefix — that optimizes one lens by damaging another. Instead: a ClassView/ThoughtView **selects a codebook whose geometry was trained to make its own common predicates cheap** (a donor thought may bring its preferred lens with it) | mint time, per view | W3 sibling: same predicate family under a view-trained 4⁴ codebook vs the default; falsified if range/prefix mask cost does not drop for that view or rises for another |
+| **Aperture** (camera obscura) | reasoning depth expressed as **address resolution** — coarse prefix = broad aperture, deep prefix = pinhole; "try at depth 3, if informative depth 5, then 8" | orthogonal to `ReasoningBand` 61–63: the band says what KIND of reasoning, the prefix says at what RESOLUTION — never collapse them | **evidence status:** the prefix machinery exists (`is_ancestor_of`, prefix routing); `facet.rs:645/683/796` `i >> 2` is `G3D4::group_of` — tier-of-tile-index, a carving shift. It is NOT a rung ladder. "The 0–9 rung is prefix depth" is CONJECTURE until a probe shows depth-stepping changes IG monotonically on a real lane |
+
+The recurring rhythm across every row is the engine already ruled in W6.0 and
+`E-THREE-CONVERGENCES-…-1`: a monotone stroke to a fixed point, then a
+deliberately non-monotone stroke (inhibit, prune, revise, change resolution,
+change dictionary, change band), then closure again. **"Thinking harder" need
+not mean more state** — it can mean another dictionary, another resolution,
+another band, another program, and a measurement of whether entropy actually
+fell. That is the frame these probes are judged in.
+
