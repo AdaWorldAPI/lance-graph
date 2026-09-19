@@ -1,3 +1,11 @@
+## D-WFL — CodeRabbit round 3 on `9fd6956d` (2026-09-19): three findings, all valid, all outside the diff
+
+| D-id | correction |
+|---|---|
+| **D-WFL-W2b-GATE′** | ⊘ the W2b-GATE row below applies `floor((hi-1)/64) - floor(lo/64) + 1` unconditionally; for an EMPTY unaligned range such as `[65, 65)` it yields 1 where the truth is 0. **Rule:** `lo == hi` ⇒ zero touched words; the span formula only for `lo < hi`. The arm tests empty, aligned and unaligned `lo` |
+| **D-WFL-DET‴** | ⊘ the DET″ row below says a component whose perturbation changes nothing is "either not an input or not in the spec". Too strong: a perturbed lens or external-edge snapshot that does not touch the folded domain legitimately yields the same mask. **Split:** replay must REACQUIRE every `ReplaySpec` component (identity); a DIFFERENT mask is required only for perturbations known to change the oracle result (output sensitivity), with at least one such perturbation per component class so the matrix can fire |
+| **Tarski wording** | the plan said the closure stops at "the least fixed point of the admitted operators"; it stops at the least fixed point **containing `X_0`** (above the seed), not the lattice-wide one — an identity operator stops at any non-empty seed. Corrected in the plan; the epiphany entry carries the same sentence and is corrected by this row (append-only) |
+
 ## D-WFL — CodeRabbit round 2 on `e1031f2b` (2026-09-19): five findings, all valid
 
 All five verified against the files before acting. Two of them are rows in THIS

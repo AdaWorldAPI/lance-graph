@@ -531,7 +531,10 @@ JC       is the apparent information bigger than substrate noise,
 **TARSKI gives `delta == empty` a reason.** On a finite lattice
 `L = (P(E), ⊆)` with monotone operators (`X ⊆ Y ⟹ F_H(X) ⊆ F_H(Y)`), the
 inflationary chain `X_{n+1} = X_n ∪ ⋃_H F_H(X_n)` must stop, and its stopping
-point is the least fixed point of the admitted operators. So W5's empty-delta
+point is the least fixed point of the admitted operators **containing `X_0`** —
+the least fixed point *above the seed*, not the lattice-wide one (an identity
+operator stops at a non-empty `X_0` while the lattice-wide least fixed point is
+`∅`). So W5's empty-delta
 test is not a heuristic — it is lattice termination. No mystical done-thinking
 detector.
 
@@ -1483,10 +1486,15 @@ perturbation arm, each one disable-verified:
 | **Morton / Wabe mapping identity** | differ |
 | nothing | be **bit-identical** |
 
-A component whose perturbation leaves the result unchanged is either not an
-input or not in the spec — and either way the finding is the point of the
-matrix. This is the can-it-fire twin applied to a determinism gate: a gate that
-passes under every perturbation carries no information.
+Two requirements, kept apart. **Identity:** replay must *reacquire* every
+component of the `ReplaySpec` — a perturbed component that replay never reads
+is the defect, whatever the mask does. **Output:** a different mask is required
+only for perturbations *known to change the oracle result*; a changed lens or
+external-edge snapshot that does not touch the folded domain legitimately
+yields the same mask, and that is a finding about scope ("this computation
+does not depend on it"), not a gate failure. The can-it-fire twin applies to
+the output half: at least one perturbation per component class must be known
+to move the oracle, or the matrix carries no information.
 
 If step 3 secretly needs a surviving pointer, a cached view, an ordinal map or
 any process-local object, the thought was never replayable.
@@ -1546,11 +1554,12 @@ promoted to a carrier.
   the deliverable. **Do not modify generic `Scratch` until the descriptor has
   proved itself against a real consumer.**
 - **Gate:** ⊘ NOT a constant — the touched-word count depends on the starting
-  bit offset. Assert the offset-aware span
-  `floor((hi-1)/64) - floor(lo/64) + 1` (equivalently `<= ceil(width/64)+1`: a
-  span straddling a word boundary touches one more word than an aligned one of
-  the same width), and test BOTH aligned and unaligned `lo`. Independent of `N`
-  and of absolute position.
+  bit offset. **Empty range first:** `lo == hi` touches **zero** words (the
+  span formula gives 1 for `[65, 65)`, which is wrong). For `lo < hi` assert
+  the offset-aware span `floor((hi-1)/64) - floor(lo/64) + 1` (equivalently
+  `<= ceil(width/64)+1`: a span straddling a word boundary touches one more
+  word than an aligned one of the same width). Test empty, aligned and
+  unaligned `lo`. Independent of `N` and of absolute position.
 
 ### W3 — the semantic → Morton rotation probe (Seam D) — **NEW, and the crux**
 
