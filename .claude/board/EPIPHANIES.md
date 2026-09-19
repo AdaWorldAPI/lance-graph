@@ -1,3 +1,74 @@
+## 2026-09-19 — E-THE-CENTER-IS-SPOG-PLUS-FC-EVERYTHING-ELSE-IS-CAST-1
+
+**Status:** RULING on the center of gravity for the whole arc; FINDING on what
+exists; PROPOSAL on thought-as-relations. **Confidence:** high on the ruling
+and the inventory (read-verified below); the proposal has no code.
+
+### The center
+
+```
+SPOG            S, P, O + G (context / graph / frame)     — the semantic address space
++ f, c          evidential frequency + confidence         — the compact evidence currency
++ CE64 59–60    causal-topology lens                       — what causal route the edge claims
++ CE64 61–63    ReasoningBand                              — in what context it is being read
+        ↓  generic reasoning over relations
+        ↓  mask / fold / ternlog / neighbourhood
+        ↓  next focus / novel consequence / reusable thought
+```
+
+Four orthogonal questions, one atom: `(S,P,O,G) f=.82 c=.91 Topology=IndirectKnown
+Band=Relation`. A counterfactual thought reads it under `Band=Counterfactual`
+without overwriting the factual relation; a Meta thought asks whether the
+relation or the thought that produced it transfers. Reasoning maturity is NOT
+encoded into `f,c`; that is what the bands are for.
+
+**Read-verified, all present today:** SPOG — `contract/spog_tenants.rs`,
+`doc_graph.rs`, `wave_dispatch.rs`, `alpha_focus.rs`, `arigraph/triplet_graph.rs`;
+D-SPG-1/D-SPG-2 shipped 2026-09-07. `f,c` — `graph/spo/truth.rs` (NARS
+`TruthValue` = frequency, confidence, with `TruthGate`). CE64 59–60 / 61–63 —
+`causal-edge/src/layout.rs`. Nothing at the center needs minting.
+
+### Everything else is cast, and goes back in its box
+
+```
+SPOG + f,c              KNOWLEDGE
+CE64 bands              CONTEXT / CAUSAL READING
+R2IL + ogar-loco        BEHAVIOR   — what operations happen given bound values; never the knowledge model
+mask / fold / ternlog   EXECUTION
+Quack / DuckDB          teaches physical lowering + economics (an SPOG conjunction is
+                        Mask(P1,O1,G) AND Mask(P2,O2,G) → Count/Any/NextFocus, never a join table)
+lgj / Panama / Valhalla proves another runtime can inhabit it zero-copy
+DeepNSM / COCA / ARM    supply priors, role/context, evidence
+JC                      calibrates whether a signal is real
+```
+
+None of Quack, R2IL, Valhalla, Panama, DisMech or MedCare redefines the center.
+Tarski / Shannon / JC sit ABOVE the graph as operators on the SPOG field, not
+as another ontology: monotone closure `X_{n+1} = X_n ∪ F(X_n)` until `ΔX = ∅`;
+information gain at choice points; JC at evidence boundaries.
+
+### Thought transfer in SPOG terms — PROPOSAL, no code
+
+A previously useful thought is itself relations, with `f,c` on each:
+`H uses_predicate P · H binds_role S/O/G · H useful_under Context · H produced
+Consequence · H transfers_to TargetContext`. "Use this other thinking as a
+dictionary" is then ordinary graph reasoning — find motifs with compatible
+G/role/POS/vocabulary, rank by `f,c`, rebind, run, test whether new SPO
+relations resulted, update the transfer evidence. No analogy subsystem. The
+reusable thing is boring — *select relation set · intersect with context · find
+residual · follow neighbours · test terminal* — and SPOG supplies the meaning;
+POS/register/context refine G rather than opening a second score universe.
+Verified absent from the tree (`uses_predicate` / `transfers_to` /
+`useful_under`: zero hits) — a proposal, recorded as one.
+
+### Standing rule
+
+The endgame is a self-reusing SPOG reasoning machine where evidence, context
+and prior successful motifs make the next semantic operation cheaper to choose
+and cheaper to execute. **No more DisMech archaeology unless it physically
+blocks this path** — `ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS` stays filed with
+its three-PR shape and is executed on operator word, not pursued further here.
+
 ## 2026-09-19 — E-A-DOMAIN-IS-AN-OPTIONAL-CONSUMER-THROUGH-OGAR-NEVER-A-CO-DEFINER-1
 
 **Status:** RULING (sharpens `E-1224-WAS-A-BIDIRECTIONAL-DOMAIN-INVERSION-…-1`

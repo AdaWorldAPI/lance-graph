@@ -1972,3 +1972,14 @@ not mean more state** — it can mean another dictionary, another resolution,
 another band, another program, and a measurement of whether entropy actually
 fell. That is the frame these probes are judged in.
 
+## §10 The center this plan serves (added 2026-09-19)
+
+Read `E-THE-CENTER-IS-SPOG-PLUS-FC-EVERYTHING-ELSE-IS-CAST-1` first. The
+Waben loop, the four seams, the fold law and every wave above are EXECUTION
+and PLUMBING for one center: **SPOG as the semantic address space, `f,c` as
+the evidence currency, CE64 59–60 / 61–63 as the causal and reasoning context.**
+An SPOG conjunction under G lowers to `Mask(P1,O1,G) AND Mask(P2,O2,G) →
+Count / Any / NextFocus` — that is the whole reason Seam B and `D-WFL-MASKOP`
+matter. Nothing in W0–W7 may redefine the center; a wave that needs a new
+knowledge type is a wave that has drifted.
+
