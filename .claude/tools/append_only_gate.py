@@ -61,7 +61,11 @@ DEFAULT_BASE = "origin/main"
 # append-only too, so the set is the canonical eight PLUS that one -- nine.
 PROTECTED = (
     ".claude/board/LATEST_STATE.md",
-    ".claude/board/EPIPHANIES.md",
+    # EPIPHANIES.md left this list 2026-09-20: it is now a GENERATED compact
+    # projection of EPIPHANIES-ARCHIVE-2026-09-20.md (compact_epiphanies.py),
+    # regenerated whole, so "did not shrink" is not a property it has. The
+    # archive is the lossless history; it is frozen, never appended to, and is
+    # not in this list either -- append-only is the wrong invariant for it.
     ".claude/board/PR_ARC_INVENTORY.md",
     ".claude/board/STATUS_BOARD.md",
     ".claude/board/ISSUES.md",

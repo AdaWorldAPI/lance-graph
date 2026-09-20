@@ -1,4 +1,4 @@
-name: Append-only board files never shrink
+name: Board file gates
 on:
   pull_request:
     paths:
@@ -20,6 +20,9 @@ on:
       # The gate's own two files, so a change to either is checked by itself.
       - .claude/tools/append_only_gate.py
       - .github/workflows/append-only-gate.yml
+      # The EPIPHANIES projection's tool, so its staleness check runs whenever
+      # the renderer changes -- not only when the board data does.
+      - .claude/tools/compact_epiphanies.py
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -52,3 +55,18 @@ jobs:
         run: |
           python3 .claude/tools/append_only_gate.py \
             "origin/${{ github.event.pull_request.base.ref }}"
+
+      - name: Self-test the EPIPHANIES compactor
+        # Same reasoning as the gate's own self-test above: the projection's
+        # provenance rule (every row resolves to a real archive heading) and its
+        # closed topic vocabulary are only worth trusting if they can be shown
+        # to refuse a bad row.
+        run: python3 .claude/tools/compact_epiphanies.py --self-test
+
+      - name: Check the EPIPHANIES projection is current
+        # EPIPHANIES.md is GENERATED from the frozen archive plus the committed
+        # consolidation rows, so it is not on the append-only list -- a
+        # projection legitimately shrinks when a row is closed out. What must
+        # hold instead is that it matches its inputs: a hand-edit, or a rows
+        # change without a regenerate, fails here.
+        run: python3 .claude/tools/compact_epiphanies.py --check

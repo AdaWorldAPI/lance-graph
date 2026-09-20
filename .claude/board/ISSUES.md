@@ -1,6 +1,35 @@
-## ISS-R2IL-PROBE-HAS-NO-CI-LINE-UNTIL-OGAR-305
+## ISS-R2IL-PROBE-HAS-NO-CI-LINE-UNTIL-OGAR-305 — RESOLVED (OGAR #305 merged; step restored)
 
-**Status:** OPEN — one-line follow-up, blocked on a cross-repo merge.
+**Status:** RESOLVED 2026-09-20. AdaWorldAPI/OGAR #305 merged (OGAR main
+`a5b852e`) and the step is restored in `rust-test.yml`'s `test` job, after the
+`lance-graph-ogar` step, byte-identical to the YAML banked below.
+
+**Verified the way this entry prescribed — from the FILE, never the PR state.**
+A merge event is a claim about a pull request; the gate depends on a symbol. Read
+`crates/ogar-r2il/src/lib.rs` at `?ref=main`: exactly one `impl CallMask`, and
+`pub fn words(&self) -> &[u64]` at :492 returning
+`&self.words[..(self.len.div_ceil(64) as usize)]` — sliced to the POPULATION, not
+the full `MASK_WORDS` carrier, which is precisely what
+`both_sides_span_the_same_words` pins and what its disable ("`words()` widened to
+the full carrier") reddens. A `words()` that handed out the carrier would have
+satisfied the merge event and failed the probe.
+
+**Then reproduced CI's own configuration**, because the job checks the OGAR
+sibling out with NO `ref:` and so compiles against the DEFAULT branch: detached
+the local sibling to `origin/main` (the same method this entry used to measure
+the 16 × E0599), ran
+`CARGO_PROFILE_DEV_DEBUG=0 cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml`
+→ **6/6 green, exit 0** (`both_sides_span_the_same_words`,
+`and_or_xor_andnot_agree_bit_for_bit`, `not_agrees_including_the_tail`,
+`count_agrees_with_the_count_terminal`, `ternlog_reproduces_callmask_s_binary_ops`,
+`the_fixtures_actually_discriminate`), then restored the sibling branch (clean).
+Running on the local feature branch alone would have proven nothing about CI,
+since that branch is not what the workflow checks out.
+
+**The risk this entry existed to keep visible is closed:** the probe is no longer
+an excluded crate with no CI line. Original OPEN text preserved below as history.
+
+**Status (historical):** OPEN — one-line follow-up, blocked on a cross-repo merge.
 **Basis:** measured. `rust-test.yml`'s `test` job checks `AdaWorldAPI/OGAR` out
 with no `ref:`, so `crates/r2il-mask-abi-probe` compiles against OGAR's DEFAULT
 branch, where `CallMask::words()` does not exist yet (OGAR #305). Complete log
