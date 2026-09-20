@@ -50,7 +50,7 @@ t DENY "grep -rn CallMask crates/ | head -20"
 t DENY "rg -l CallMask | head"
 t DENY "find . -name '*.rs' | head -5"
 
-echo '### ALLOW -- output limiting of a NON-search command (the tail-30 discipline)'
+echo '### ALLOW -- display limiting of a NON-search command (ephemeral process output)'
 t INJECT "cargo test 2>&1 | tail -30"
 t INJECT "cargo build --release | head -5"
 t INJECT "head -1 /tmp/out.err"

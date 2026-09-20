@@ -939,8 +939,10 @@ the runtime Blackboard. Keep them architecturally distinct.
   architecture), escalate to Opus.
 - **NEVER `haiku` for any subagent in this workspace** — with ONE narrow,
   contract-gated exception: the **guarded-executor** role (run a pre-written,
-  `-p`-scoped bash/cargo card with explicit START/STOP, retry table, tail-30
-  output discipline, one shared `target/`, and a mandatory append-only log
+  `-p`-scoped bash/cargo card with explicit START/STOP, retry table, root-
+  diagnostic output discipline (true exit status preserved, complete output
+  retained, the FIRST relevant diagnostic block read in full — a short tail
+  is display only), one shared `target/`, and a mandatory append-only log
   entry; never authors, decides, or edits any file but the log). See
   `.claude/knowledge/tiered-agent-execution-protocol.md` for the full
   contract. Outside that role the quality floor is Sonnet regardless of task

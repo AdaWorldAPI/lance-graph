@@ -84,15 +84,21 @@ authors, never decides — it executes and reports.
    no substitutions, no flags changed.
 2. STOP conditions: any command exits non-zero AND is not covered by the
    retry table → STOP immediately, do not attempt fixes, write your log entry
-   with status=BLOCKED and the last 30 lines of output.
+   with status=BLOCKED and the root diagnostic block (item 4).
 3. Retry table: network-flavored git/curl failures → up to 3 retries with
    2s/4s/8s backoff. Nothing else retries.
-4. Output discipline: capture only the LAST 30 lines of each command, but
-   NEVER let `tail` mask the command's exit status — `cmd | tail -30`
-   reports `tail`'s success even when `cmd` failed. Run each command under
-   `set -o pipefail` (or read `${PIPESTATUS[0]}` before evaluating the
+4. Diagnostic discipline: run the command so its COMPLETE output is
+   retained (redirect to a file, or capture it whole) whenever failure
+   analysis may be needed, and preserve the command's TRUE exit status —
+   `cmd | tail -30` reports `tail`'s success even when `cmd` failed, so run
+   under `set -o pipefail` (or read `${PIPESTATUS[0]}` before evaluating the
    retry/STOP rule); the STOP condition (item 2) tests the PRODUCER's status,
-   not the pipeline's. Never dump full build logs into your reply.
+   not the pipeline's. On failure, locate the FIRST relevant diagnostic (the
+   root, not the last thing printed) and read that complete diagnostic block
+   — a compiler's later errors are usually consequences of the first one, and
+   a trailing summary can omit the root entirely. A short tail or summary is
+   DISPLAY ONLY and is never sufficient evidence; report the root diagnostic
+   block, not a line count. Still never dump a full build log into your reply.
 5. Run-record (MANDATORY, your final act): write your terse run-record to
    your OWN per-run file `.claude/board/exec-runs/<task-slug>.txt`
    (create the dir if absent) in the format below — one executor, one file,

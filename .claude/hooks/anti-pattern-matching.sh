@@ -64,10 +64,13 @@ emit_prepend() {
 # looks precise while being an arbitrary cut. FIRST-HAND SOURCE LAW rule 3.
 #
 # Scoped to SOURCE INSPECTION, deliberately: limiting a non-search command's
-# output (`cargo test 2>&1 | tail -30`) is REQUIRED elsewhere in this fleet
-# (the guarded-executor tail-30 discipline) and is not what fabricates a
-# false semantic boundary. A deny that fires on every build command would be
-# worked around within the hour and would then guard nothing.
+# DISPLAY (`cargo test 2>&1 | tail -30`) does not fabricate a false semantic
+# boundary -- the producer's own output is ephemeral process output, not a
+# source file. It is allowed, but it is display only: the guarded-executor
+# contract requires the complete output be retained and the FIRST relevant
+# diagnostic block read in full when a command fails. A deny that fired on
+# every build command would be worked around within the hour and would then
+# guard nothing.
 SLICE_DENY='VERBOTEN (FIRST-HAND SOURCE LAW, Regel 3): sed/head/tail/awk auf eine QUELLDATEI. Eine numerische Scheibe hat keine semantische Grenze -- `head -100 x.rs` endet womoeglich direkt vor dem entscheidenden impl, `tail` trennt Definition und Invariante, `sed -n 120,180p` sieht praezise aus und ist ein willkuerlicher Schnitt. Stattdessen: Grep/Glob lokalisiert das Symbol, dann Read auf das VOLLSTAENDIGE semantische Element (und bei Teilausgabe vom exakten naechsten Offset weiterlesen, niemals die ungesehene Mitte erraten). Output-Limitierung eines Nicht-Such-Kommandos (cargo ... | tail -30) bleibt erlaubt. Gesetz: .claude/knowledge/FIRST-HAND-SOURCE-LAW.md'
 
 # Capping a SEARCH result is how a truncated result set masquerades as a
