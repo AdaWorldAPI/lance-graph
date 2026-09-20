@@ -66,6 +66,7 @@ class Entry:
     __slots__ = ("line", "heading", "date", "eid", "status")
 
     def __init__(self, line, heading, date, eid, status):
+        """One level-2 entry: 1-based line, raw heading, and its parsed fields."""
         self.line, self.heading, self.date = line, heading, date
         self.eid, self.status = eid, status
 
@@ -131,6 +132,7 @@ def finding_of(e: Entry) -> str:
 
 
 def render(kept, archive_rel: str) -> str:
+    """The compact table. Deterministic: same input, byte-identical output."""
     out = [
         "# Epiphanies",
         "",
@@ -160,6 +162,7 @@ def render(kept, archive_rel: str) -> str:
 
 
 def load(path):
+    """Read the archive, or refuse -- it is the only input this tool has."""
     p = pathlib.Path(path)
     if not p.is_file():
         raise SystemExit(
@@ -170,6 +173,7 @@ def load(path):
 
 
 def measure(root, archive):
+    """Print the census and assert the accounting balances. Writes nothing."""
     raw = load(pathlib.Path(root, archive))
     text = raw.decode("utf-8", "replace")
     entries, structural, no_id = parse(text)
@@ -214,6 +218,7 @@ def measure(root, archive):
 
 
 def main(argv):
+    """Dispatch --measure (default) / --write / --check / --self-test."""
     root = pathlib.Path(__file__).resolve().parents[2]
     archive = ARCHIVE
     if "--from" in argv:
@@ -245,9 +250,11 @@ def main(argv):
 
 
 def self_test() -> int:
+    """Falsifiers for both mechanical rules: the status token and the dedup."""
     ok = True
 
     def parse1(md):
+        """Parse a markdown fixture; returns (entries, structural, no_id)."""
         e, s, n = parse(md)
         return e, s, n
 
