@@ -24,7 +24,10 @@ cat crates/bgz17/src/similarity.rs
 cat crates/lance-graph/src/graph/blasgraph/hdr.rs    # Cascade, HHTL
 find . -name "*.rs" | xargs grep -l "euler\|fibonacci\|rotation\|palette\|codebook"
 find . -name "*.rs" | xargs grep -l "gguf\|quantiz\|compress"
-cargo test --workspace 2>&1 | tail -30
+cargo test --workspace > /tmp/verify.log 2>&1; status=$?
+tail -30 /tmp/verify.log            # display only
+# status != 0 -> read the FIRST relevant diagnostic block in /tmp/verify.log,
+# not this tail: cargo prints the root error first and its consequences after.
 ```
 
 Wenn eine Datei nicht existiert → die Behauptung ist NICHT implementiert.

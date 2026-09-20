@@ -223,7 +223,9 @@ grep "pub fn\|pub use" ndarray/src/simd.rs | head -20
 
 # rs-graph-llm: what's broken?
 cat rs-graph-llm/CLAUDE.md 2>/dev/null
-cargo check --manifest-path rs-graph-llm/Cargo.toml 2>&1 | tail -30
+cargo check --manifest-path rs-graph-llm/Cargo.toml > /tmp/rsg.log 2>&1; status=$?
+tail -30 /tmp/rsg.log               # display only
+# "list them all" (Step 2 Q3) is answered from /tmp/rsg.log, never from this tail.
 ```
 
 ## Step 2: Map
