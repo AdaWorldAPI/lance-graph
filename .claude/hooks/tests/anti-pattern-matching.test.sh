@@ -135,7 +135,7 @@ multiedit SILENT x.md "b" "b tidied" "MultiEdit with no label"
 
 # A hook's stdout must be exactly ONE response document. Two violating edits in
 # one batch used to emit TWO, and a concatenated pair parses as neither denial
-# (CodeRabbit on #1255). This asserts the COUNT, not merely that a denial
+# (CodeRabbit on #1254). This asserts the COUNT, not merely that a denial
 # appeared -- the pre-existing rows above could not see the defect, because they
 # carry one violating edit each. Disable-verified: removing `exit 0` from
 # emit_deny makes this row report docs=2.

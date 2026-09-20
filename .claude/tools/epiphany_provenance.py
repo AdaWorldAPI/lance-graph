@@ -263,7 +263,7 @@ def self_test() -> int:
 
     # (d) ADVANCING the marker past an uncited heading must not erase the
     # delta. Without the merge-base read this is the measured bypass: two
-    # ordinary commits and the gate goes silent (CodeRabbit on #1255).
+    # ordinary commits and the gate goes silent (CodeRabbit on #1254).
     pathlib.Path(d, MARKER).write_text(
         f"PROCESSED_THROUGH_SHA={run(['git', 'rev-parse', 'HEAD'], d).stdout.strip()}\n")
     commit("advance the marker past the uncited headings")

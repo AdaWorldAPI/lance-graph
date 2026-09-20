@@ -83,7 +83,7 @@ CAP_DENY='VERBOTEN (FIRST-HAND SOURCE LAW, Regel 9): eine SUCHE in head/tail/sed
 # The hook's stdout must be exactly ONE hook response; the MultiEdit branch
 # below loops over a batch, so without the exit a second violating edit wrote a
 # second JSON document and the pair parsed as neither denial (CodeRabbit on
-# #1255, reproduced before fixing). Exiting inside the function is what stops
+# #1254, reproduced before fixing). Exiting inside the function is what stops
 # the next branch that loops from re-introducing it.
 emit_deny() {
   jq -n --arg c "$1" \
