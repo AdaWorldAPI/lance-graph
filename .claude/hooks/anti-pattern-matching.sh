@@ -13,6 +13,25 @@
 # as context at the exact moment a pattern/partial-range tool is reached for, so
 # the discipline is in front of the model every time.
 
+# WHAT THIS ENFORCES (the law itself:
+# .claude/knowledge/FIRST-HAND-SOURCE-LAW.md):
+#   DENY    a slicer (sed/head/tail/awk) naming a source/config file
+#   DENY    a search (grep/rg/ugrep/find/fd/ls) piped into a slicer
+#   DENY    an edit that INTRODUCES an authority label (operator-ruled etc.)
+#   INJECT  the law summary + auto-deepen triggers, on search
+#
+# GUIDANCE-ONLY, because no regex decides it: "enough enclosing context",
+# the paging judgement, shard-or-report, the ambiguity call, whether a state
+# label is the right one, and whether a diagnostic block was read to its root.
+#
+# KNOWN GAP (measured 2026-09-20, not closed): the slicer DENY keys on a file
+# ARGUMENT or on a search PRODUCER, so evidence-input slicing through any other
+# producer still passes -- `cat source.rs | tail`, `git show HEAD:source.rs |
+# tail`. Prohibited by the law, not yet by this hook.
+#
+# Tests: .claude/hooks/tests/anti-pattern-matching.test.sh (two-sided; every
+# DENY branch disable-verified).
+
 set -euo pipefail
 
 input="$(cat)"
