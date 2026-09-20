@@ -64,6 +64,56 @@ t SILENT "ls crates/"
 t SILENT "git log --oneline -1"
 t SILENT "cargo test -p ogar-r2il --lib"
 
+# ---- §G: authority labels may not be INTRODUCED into canonical material ----
+edit() {
+  local want="$1" path="$2" old="$3" new="$4" got
+  got="$(printf '%s' "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$path"),\"old_string\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$old"),\"new_string\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$new")}}" \
+    | bash "$HOOK" | python3 -c '
+import json,sys
+raw = sys.stdin.read().strip()
+if not raw:
+    print("SILENT"); raise SystemExit
+o = json.loads(raw)["hookSpecificOutput"]
+print("DENY" if o.get("permissionDecision") == "deny" else "INJECT")')"
+  if [ "$got" = "$want" ]; then printf '  ok    %-7s %s\n' "$got" "$5"
+  else printf '  FAIL  want=%s got=%s  %s\n' "$want" "$got" "$5"; fails=$((fails + 1)); fi
+}
+write() {
+  local want="$1" path="$2" content="$3" got
+  got="$(printf '%s' "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$path"),\"content\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$content")}}" \
+    | bash "$HOOK" | python3 -c '
+import json,sys
+raw = sys.stdin.read().strip()
+if not raw:
+    print("SILENT"); raise SystemExit
+o = json.loads(raw)["hookSpecificOutput"]
+print("DENY" if o.get("permissionDecision") == "deny" else "INJECT")')"
+  if [ "$got" = "$want" ]; then printf '  ok    %-7s %s\n' "$got" "$4"
+  else printf '  FAIL  want=%s got=%s  %s\n' "$want" "$got" "$4"; fails=$((fails + 1)); fi
+}
+
+echo '### DENY -- an edit that INTRODUCES an authority label (law §G)'
+edit DENY x.md "Status: WORKING-MODEL" "Status: operator-ruled"            "introduce operator-ruled"
+edit DENY x.md "the pin"              "the operator-locked pin"            "introduce operator-locked"
+write DENY n.md "# New
+
+Status: operator-pinned, 2026-09-20.
+"          "new file with operator-pinned"
+
+# An ALLOWED Edit/Write emits nothing: injection is a Grep/Bash-only
+# behaviour, so "allowed" reads as SILENT here, never INJECT.
+echo '### ALLOW (silent) -- label already present, or quoted by a supersession note'
+edit SILENT x.md "operator-ruled 2026-07-02" "operator-ruled 2026-07-02, now measured" "already present: not an introduction"
+edit SILENT x.md "the rule"           "⊘ previously operator-locked; now TEST-PINNED"  "quoted under a supersession marker"
+edit SILENT x.md "a"                  "SUPERSEDED: the operator-confirmed wording"     "quoted under SUPERSEDED"
+
+echo '### ALLOW -- an evidence-bearing state is the whole point'
+edit SILENT x.md "Status: OPEN"       "Status: MEASURED (cargo metadata, exit 0)"      "MEASURED"
+edit SILENT x.md "a"                  "DECISION: keep path form\nBASIS: offline cost" "DECISION record"
+
+echo '### ALLOW -- not canonical prose/source'
+write SILENT c.json '{"k":"operator-ruled"}'                                           "json is out of scope"
+
 echo '### the Grep TOOL always carries the law'
 got="$(classify Grep '')"
 if [ "$got" = "INJECT" ]; then printf '  ok    %-7s %s\n' "$got" "(Grep tool)"; else

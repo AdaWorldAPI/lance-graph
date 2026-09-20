@@ -66,11 +66,50 @@ emit_deny() {
 # `head -1 /tmp/out.txt` is none of this hook's business.
 SRC_EXT='\.(rs|toml|lock|md|py|c|cc|cpp|h|hpp|java|kt|ts|tsx|js|mjs|json|ya?ml|sql|proto|sh|surql|ttl)'
 SEARCH_CMD='(grep|rg|ugrep|egrep|fgrep|find|fd|ls)'
+
+# FIRST-HAND SOURCE LAW §G: human authorization is PROVENANCE, NOT VALIDATION.
+# These four are not technical status labels, so an edit may not INTRODUCE one
+# into canonical material. Scoped to introduction deliberately: they occur in
+# 73 / 43 / 8 / 4 files respectively (measured 2026-09-20), and a guard that
+# fired on every edit to a file that already contains one would be unusable
+# and worked around. Historical files are not this hook's business.
+AUTHORITY_LABELS='operator-ruled|operator-pinned|operator-locked|operator-confirmed'
+# A supersession note must be able to QUOTE the label it retires, so a line
+# that also carries a quoting/supersession marker is allowed through.
+QUOTE_MARKER='⊘|SUPERSEDED|superseded|previously|historical|formerly|was:'
+AUTHORITY_DENY='VERBOTEN (FIRST-HAND SOURCE LAW §G): operator-ruled / operator-pinned / operator-locked / operator-confirmed sind KEINE technischen Status-Labels. HUMAN AUTHORIZATION IS PROVENANCE, NOT VALIDATION -- "der Nutzer hat X gewaehlt" wird nie "X ist technisch wahr" ohne unabhaengige Evidenz. Stattdessen ein evidenztragender Zustand: MEASURED (mit dem Kommando) | VERIFIED-IN-CODE (mit der Stelle) | TEST-PINNED | CURRENT-CONTRACT | WORKING-MODEL | HYPOTHESIS | PROPOSED | OPEN | DEFERRED | SUPERSEDED | REJECTED-BY-FALSIFIER. Fuer eine echte Nutzer-Entscheidung das Entscheidungs-Format: DECISION / SCOPE / BASIS / REVISIT WHEN -- Entscheidung und Messung sind zwei Felder, nie ein Label. Eine Supersession-Notiz DARF das alte Label zitieren (Zeile mit "⊘" / SUPERSEDED / previously / formerly / was:). Gesetz: .claude/knowledge/FIRST-HAND-SOURCE-LAW.md'
+
+# True when $1 contains a line that introduces an authority label WITHOUT a
+# quoting marker on that same line.
+introduces_authority_label() {
+  printf '%s' "$1" | grep -Ei "$AUTHORITY_LABELS" | grep -Eviq "$QUOTE_MARKER"
+}
 SLICER='(sed|head|tail|awk)'
 
 case "$tool" in
   Grep)
     emit
+    ;;
+  Edit)
+    # Only canonical prose/source carries these labels; skip anything else.
+    path="$(printf '%s' "$input" | jq -r '.tool_input.file_path // ""')"
+    if printf '%s' "$path" | grep -Eq '\.(md|rs)$'; then
+      new="$(printf '%s' "$input" | jq -r '.tool_input.new_string // ""')"
+      old="$(printf '%s' "$input" | jq -r '.tool_input.old_string // ""')"
+      # INTRODUCTION only: the label must be arriving, not already present.
+      if introduces_authority_label "$new" && ! printf '%s' "$old" | grep -Eiq "$AUTHORITY_LABELS"; then
+        emit_deny "$AUTHORITY_DENY"
+      fi
+    fi
+    ;;
+  Write)
+    path="$(printf '%s' "$input" | jq -r '.tool_input.file_path // ""')"
+    if printf '%s' "$path" | grep -Eq '\.(md|rs)$'; then
+      content="$(printf '%s' "$input" | jq -r '.tool_input.content // ""')"
+      if introduces_authority_label "$content"; then
+        emit_deny "$AUTHORITY_DENY"
+      fi
+    fi
     ;;
   Bash)
     cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""')"
