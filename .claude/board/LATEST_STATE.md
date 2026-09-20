@@ -1,3 +1,18 @@
+## 2026-09-19 (3) — PR #1252 merged (`8545a555`); `main` is `8545a555`
+
+- **Docs only, no contract inventory delta.** Ruling now on `main`: *we think
+  with OGAR graphs; OGAR does not do the thinking.*
+- **Dependency fact:** `contract::dismech_evidence` has three consumers outside
+  itself — the `lance-graph-ogar` parity assert, `planner::dismech_replay:142`
+  (`chain_step_predicate` → `validate_chain:236`), and
+  `planner::dismech_candidates:69` (`Supports`). The mirror's deletion migrates
+  the planner consumers with it.
+- **Two INDEPENDENT tracks, both on operator word, no dependency between them:**
+  the DisMech cut (`ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS`, PR-B first and alone,
+  parser location undecided); and `D-WFL-MASKOP` → W0 → W1.
+- `TD-JC-CLIPPY-RED-ON-BASE-2` remains red on `main`, untouched.
+- Full record: `PR_ARC_INVENTORY.md` 2026-09-19 #1252.
+
 ## 2026-09-19 (2) — PR #1251 merged (`16090965`): the Waben fold execution-loop plan is on `main`; `main` is `16090965`
 
 - **#1251 — docs only, 21 commits, +3,928 / −1 across 8 files.** Ships
