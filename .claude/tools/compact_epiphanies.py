@@ -222,7 +222,11 @@ def main(argv):
     root = pathlib.Path(__file__).resolve().parents[2]
     archive = ARCHIVE
     if "--from" in argv:
-        archive = argv[argv.index("--from") + 1]
+        i = argv.index("--from")
+        if i + 1 >= len(argv):
+            print(__doc__)
+            return 2
+        archive = argv[i + 1]
     if "--self-test" in argv:
         return self_test()
     if "--measure" in argv or not argv:
@@ -231,10 +235,10 @@ def main(argv):
     raw = load(pathlib.Path(root, archive))
     entries, _s, _n = parse(raw.decode("utf-8", "replace"))
     kept, *_ = compact(entries)
-    body = render(kept, ARCHIVE)
+    body = render(kept, archive)
     target = pathlib.Path(root, COMPACT)
     if "--check" in argv:
-        cur = target.read_text(errors="replace") if target.is_file() else ""
+        cur = target.read_text(encoding="utf-8") if target.is_file() else ""
         if cur == body:
             print("compact-epiphanies: %s is current (%d rows)" % (COMPACT, len(kept)))
             return 0
@@ -242,7 +246,7 @@ def main(argv):
               "python3 .claude/tools/compact_epiphanies.py --write" % COMPACT)
         return 1
     if "--write" in argv:
-        target.write_text(body)
+        target.write_text(body, encoding="utf-8")
         print("compact-epiphanies: wrote %s (%d rows)" % (COMPACT, len(kept)))
         return 0
     print(__doc__)
