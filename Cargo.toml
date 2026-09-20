@@ -85,6 +85,13 @@ exclude = [
     # session + Railway/CI. MUST stay excluded (keeps surrealdb-core/OGAR out of
     # the default build). Verify via `cargo build --manifest-path crates/symbiont/Cargo.toml`
     # or `docker build -f crates/symbiont/Dockerfile -t symbiont .`.
+    # W0B mask-ABI differential at the R2IL seam: proves ogar-r2il's CallMask
+    # algebra and lance-graph-mask-risc's agree bit-identically over the same
+    # borrowed words, with CallMask as the oracle. MUST stay excluded -- it
+    # path-deps the OGAR sibling, and no ordinary workspace test should need
+    # that checkout present. Verify via
+    # `cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml`.
+    "crates/r2il-mask-abi-probe",
     "crates/symbiont",
     # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
     # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +
