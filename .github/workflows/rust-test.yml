@@ -156,12 +156,20 @@ jobs:
       - name: Run lance-graph-ogar codebook-parity + hotplug-activation tests (armed tier, OGAR sibling)
         run: cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml
       # r2il-mask-abi-probe (crates/r2il-mask-abi-probe, workspace-EXCLUDED):
-      # its CI step is DELIBERATELY ABSENT until ogar-r2il's `CallMask::words()`
-      # is on OGAR's default branch (AdaWorldAPI/OGAR #305) -- this job checks
-      # the OGAR sibling out with no `ref:`, so the step can only be red before
-      # then, and a red step that lands on main is worse than a gate that
-      # arrives one merge later. Restore it as a one-line follow-up:
-      #   ISS-R2IL-PROBE-HAS-NO-CI-LINE-UNTIL-OGAR-305 (.claude/board/ISSUES.md)
+      # the W0B mask-ABI differential -- ogar-r2il's `CallMask` Boolean algebra
+      # vs lance-graph-mask-risc's, bit-identical over the same borrowed words.
+      # The step was DELIBERATELY ABSENT until `CallMask::words()` reached OGAR's
+      # DEFAULT branch, because this job checks the OGAR sibling out with no
+      # `ref:` and the step could only be red before then (16 x E0599, one class,
+      # all `words`). AdaWorldAPI/OGAR #305 merged 2026-09-20 (main a5b852e), so
+      # it is restored here. Verified the way the entry itself prescribed --
+      # NOT from the PR state: read `words()` at `?ref=main` (it slices to
+      # `len.div_ceil(64)`, the population, not the full MASK_WORDS carrier,
+      # which is exactly what `both_sides_span_the_same_words` pins), then
+      # detached the local OGAR sibling to `origin/main` and ran the probe:
+      # 6/6 green, exit 0. Closes ISS-R2IL-PROBE-HAS-NO-CI-LINE-UNTIL-OGAR-305.
+      - name: Run r2il-mask-abi-probe mask-ABI differential (excluded tier, OGAR + ndarray siblings)
+        run: cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml
       # deepnsm: standalone 0-dep codec crate, workspace-excluded, so the
       # lance-graph test steps above never reached it. ~217 lib + integration +
       # doctests, fast (no lance/datafusion/ndarray deps). Gating.
