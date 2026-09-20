@@ -1,3 +1,40 @@
+## ISS-NDARRAY-CANONICAL-COORDINATE-COUPLES-FLEET-MSRV — one canonical ndarray source imposes one MSRV floor; three repos pin below it (2026-09-20)
+
+**Status:** OPEN. Operator decision, not a dependency-pass side effect.
+
+The CARGO COMPUTE SUBSTRATE LAW (`.claude/knowledge/CARGO-COMPUTE-SUBSTRATE.md`,
+rule 3) requires ONE canonical `ndarray` source coordinate across the fleet.
+Measured 2026-09-20, that has a price nobody had stated: ndarray master
+(`e1ef350`) reports **requires Rust 1.98**, and the fleet does not agree on a
+toolchain.
+
+| toolchain | repos |
+|---|---|
+| **1.98.1** | lance-graph, OGAR, a2ui-rs, stockfish-rs, MedCare-rs, q2 |
+| 1.97.1 | tesseract-rs |
+| 1.95 | odoo-rs |
+| 1.94.0 | ladybug-rs |
+
+`tesseract-rs` and `ladybug-rs` both path-dep ndarray DIRECTLY
+(`path = "../../../ndarray"` with `features = ["runtime-dispatch"]`, and
+`path = "../ndarray"` respectively), so on current master they are measurably
+unable to build against it. Whatever they build against today is an older
+checkout.
+
+**So "one canonical source" and "each repo keeps its own toolchain pin" cannot
+both hold.** The options are a fleet-wide 1.98 bump, a pinned older ndarray
+`rev` as the canonical coordinate, or an explicit two-tier split — each with
+consequences outside a dependency pass.
+
+**Do NOT resolve this by bumping three toolchains inside a unification PR.**
+`cargo-substrate-architect` is instructed to report it and stop; the card names
+this issue id.
+
+Method note: `tesseract-rs`'s own CLAUDE.md records a 1.97.1 pin and
+`stockfish-rs`'s records 1.95 while its `rust-toolchain.toml` says 1.98.1 — the
+FILES were read, not the prose, per this workspace's own rule that a document
+is not evidence about the state of the tree.
+
 ## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — counterfactual adjudication CORRECTED; cleanup pass closed (2026-09-19)
 
 ⊘ The census addendum below says the DisMech `Verdict{Consistent,
