@@ -19,7 +19,7 @@ input="$(cat)"
 
 tool="$(printf '%s' "$input" | jq -r '.tool_name // ""')"
 
-RULE='ANTI-MUSTER-REGEL (Operator-Direktive): Grep/grep/rg/sed/tail/head sind NUR schnelle Discovery-Suche ueber den kompletten Corpus (ein Symbol/eine Datei lokalisieren) — NIEMALS Ersatz fuers Verstehen. Auf einen Treffer NICHT handeln (editieren, loeschen, beurteilen, "verstanden" behaupten), bevor die betroffene Datei VOLLSTAENDIG mit dem Read-Tool gelesen wurde. Verstehen = ganzes Read, kein Snippet. (Grund: geloeschter Code, der nur gemustert, nie gelesen wurde.)'
+RULE='ANTI-MUSTER-REGEL (Operator-Direktive): Grep/grep/rg/sed/tail/head sind NUR schnelle Discovery-Suche ueber den kompletten Corpus (ein Symbol/eine Datei lokalisieren) — NIEMALS Ersatz fuers Verstehen. Auf einen Treffer NICHT handeln (editieren, loeschen, beurteilen, "verstanden" behaupten), bevor die betroffene Datei VOLLSTAENDIG mit dem Read-Tool gelesen wurde. Verstehen = ganzes Read, kein Snippet. (Grund: geloeschter Code, der nur gemustert, nie gelesen wurde.) || SEARCH IS NAVIGATION, NEVER EVIDENCE. Suche darf NUR feststellen: "Kandidaten sind X, Y, Z". Sie darf NIE feststellen: was ein Typ bedeutet, was eine Funktion garantiert, dass ein Consumer NICHT existiert, dass ein Mechanismus unbenutzt ist, wer etwas besitzt, wie eine Dependency-Richtung laeuft. AUTO-DEEPEN (Pflicht-Read vor jeder Aussage) bei: 0 Treffer + Absenz-Behauptung | den Worten none/no consumer/unused/never/only/all/every/not implemented | nur einem Snippet als Grundlage | trait/macro/generated/re-export/alias/feature-gated | Crate- oder Repo-Grenze | abgeschnittener/gekappter/fehlerhafter/unerwartet kleiner Ausgabe | mehreren gleichnamigen Symbolen | einer Folgerung, die Architektur aendert, Code loescht, einen Carrier mintet oder Doktrin schafft. 0 Treffer beweist NICHTS: nicht "hat keine Consumer", sondern "die Suche fand keine Kandidaten" -- ein globales Negativ braucht einen GESCHLOSSENEN, ausdruecklich benannten Suchraum. Und: eine Suche darf nie das LETZTE Tool-Ergebnis vor einer architektonischen Schlussfolgerung sein. Gesetz: .claude/knowledge/FIRST-HAND-SOURCE-LAW.md'
 
 # Destructive-prepend guard (operator directive, 2026-08-30, after
 # open(p, "w").write(entry + open(p).read()) truncated PR_ARC_INVENTORY.md
@@ -39,6 +39,35 @@ emit_prepend() {
     '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $c}}'
 }
 
+# A numeric slice of a SOURCE file is the one artifact with no semantic
+# boundary: `head -100 foo.rs` can stop just before the decisive `impl`,
+# `tail` can separate a definition from its invariant, and `sed -n '120,180p'`
+# looks precise while being an arbitrary cut. FIRST-HAND SOURCE LAW rule 3.
+#
+# Scoped to SOURCE INSPECTION, deliberately: limiting a non-search command's
+# output (`cargo test 2>&1 | tail -30`) is REQUIRED elsewhere in this fleet
+# (the guarded-executor tail-30 discipline) and is not what fabricates a
+# false semantic boundary. A deny that fires on every build command would be
+# worked around within the hour and would then guard nothing.
+SLICE_DENY='VERBOTEN (FIRST-HAND SOURCE LAW, Regel 3): sed/head/tail/awk auf eine QUELLDATEI. Eine numerische Scheibe hat keine semantische Grenze -- `head -100 x.rs` endet womoeglich direkt vor dem entscheidenden impl, `tail` trennt Definition und Invariante, `sed -n 120,180p` sieht praezise aus und ist ein willkuerlicher Schnitt. Stattdessen: Grep/Glob lokalisiert das Symbol, dann Read auf das VOLLSTAENDIGE semantische Element (und bei Teilausgabe vom exakten naechsten Offset weiterlesen, niemals die ungesehene Mitte erraten). Output-Limitierung eines Nicht-Such-Kommandos (cargo ... | tail -30) bleibt erlaubt. Gesetz: .claude/knowledge/FIRST-HAND-SOURCE-LAW.md'
+
+# Capping a SEARCH result is how a truncated result set masquerades as a
+# complete one -- the shape behind every "no consumer" claim in this repo's
+# correction history. The Grep tool's own `head_limit` reports the cap;
+# `| head` hides it.
+CAP_DENY='VERBOTEN (FIRST-HAND SOURCE LAW, Regel 9): eine SUCHE in head/tail/sed/awk pipen. Das kappt eine Beweismenge und laesst ein abgeschnittenes Ergebnis wie ein vollstaendiges aussehen -- genau die Form hinter jeder "kein Consumer"-Behauptung in der Korrekturgeschichte dieses Repos. Stattdessen: das Grep-Tool mit `head_limit` (das die Kappung MELDET), oder ungekappt suchen und den Suchraum benennen. Gesetz: .claude/knowledge/FIRST-HAND-SOURCE-LAW.md'
+
+emit_deny() {
+  jq -n --arg c "$1" \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $c}}'
+}
+
+# Source/config extensions only. Scratch and temp outputs are not source, so
+# `head -1 /tmp/out.txt` is none of this hook's business.
+SRC_EXT='\.(rs|toml|lock|md|py|c|cc|cpp|h|hpp|java|kt|ts|tsx|js|mjs|json|ya?ml|sql|proto|sh|surql|ttl)'
+SEARCH_CMD='(grep|rg|ugrep|egrep|fgrep|find|fd|ls)'
+SLICER='(sed|head|tail|awk)'
+
 case "$tool" in
   Grep)
     emit
@@ -53,7 +82,18 @@ case "$tool" in
       emit_prepend
     # Match grep/rg/sed/tail/head as a command word (start, or after a
     # pipe/semicolon/&&/whitespace), not as a substring of another word.
-    elif printf '%s' "$cmd" | grep -Eq '(^|[|&;]|[[:space:]])(grep|rg|sed|tail|head)([[:space:]]|$)'; then
+    # DENY 1 -- a slicer whose argument list names a source file, and which is
+    # not reading from a pipe. `cmd` is split on pipes so `cargo x | tail -30`
+    # is judged on the `tail -30` segment alone (no file argument -> allowed).
+    elif printf '%s' "$cmd" | tr '|;' '\n\n' \
+         | grep -Eq "(^|[[:space:]])$SLICER([[:space:]]+-[^[:space:]]+)*[[:space:]]+([^[:space:]]*[[:space:]]+)*[^[:space:]]*$SRC_EXT([[:space:]]|$)"; then
+      emit_deny "$SLICE_DENY"
+    # DENY 2 -- a search piped into a slicer: the cap that hides itself.
+    elif printf '%s' "$cmd" \
+         | grep -Eq "(^|[|&;]|[[:space:]])$SEARCH_CMD([[:space:]]|$).*\\|[[:space:]]*$SLICER([[:space:]]|$)"; then
+      emit_deny "$CAP_DENY"
+    # Otherwise: non-blocking injection, as before.
+    elif printf '%s' "$cmd" | grep -Eq '(^|[|&;]|[[:space:]])(grep|rg|ugrep|sed|tail|head|awk)([[:space:]]|$)'; then
       emit
     fi
     ;;
