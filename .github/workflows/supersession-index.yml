@@ -25,6 +25,13 @@ on:
       # filter had not caught up.
       - .claude/board/entries/**
       - .claude/board/EPIPHANIES.md
+      # The entries tier's OWN generator + index. Added 2026-09-20 with
+      # `entries_index.py`: the index was hand-maintained, its header claimed
+      # 135 entries against 144 files, and its own falsifier #2 was red on two
+      # stranded files -- invisible because the three checks were shell
+      # snippets in a README that nothing executed.
+      - .claude/tools/entries_index.py
+      - .claude/board/entries/README.md
       # `crates/` decides the "live" column (:27 globs it per symbol). Broad,
       # and deliberately so: a symbol deleted from the tree changes the table,
       # and the generator takes ~15 s, so the gate is cheap next to the Rust
@@ -59,3 +66,12 @@ jobs:
             exit 1
           fi
           echo "index is current"
+      # The transient tier's index is generated too, and by a SEPARATE
+      # generator: `supersession_index.py` reads `entries/*.md` only to count
+      # D-id coverage and never writes this table. One step, both gates --
+      # staleness AND the three structural falsifiers (row with no file / file
+      # with no row / duplicate id), which until now existed only as prose.
+      - name: Entries index is current and structurally sound
+        run: python3 .claude/tools/entries_index.py --check
+      - name: Entries index generator self-test
+        run: python3 .claude/tools/entries_index.py --self-test

@@ -342,6 +342,7 @@ updating the relevant board file in the SAME commit is incomplete.**
 | A merged PR (post-merge commit) | `.claude/board/LATEST_STATE.md` table + `.claude/board/PR_ARC_INVENTORY.md` PREPEND entry |
 | A new integration plan | `.claude/board/INTEGRATION_PLANS.md` PREPEND + `.claude/plans/<name>-v<N>.md` |
 | A new D-id / deliverable | `.claude/board/STATUS_BOARD.md` row (status = Queued → In progress → In PR → Shipped) |
+| A finding / measurement / probe result / open point | `.claude/board/entries/YYYY-MM-DD-<entry-id>.md` (the entry verbatim) **+** `python3 .claude/tools/entries_index.py --write` in the SAME commit |
 | A genuine Eureka (passes the § Closeout admission gate below) | `.claude/board/EPIPHANIES.md` PREPEND dated entry |
 | An ordinary correction / lesson learned | **NOTHING** — one closeout line, see § Closeout below |
 | A tech-debt observation | `.claude/board/TECH_DEBT.md` entry |
@@ -460,6 +461,35 @@ Concretely: *"I was wrong about which CI job held the step"* is a correction
 can share a Boolean algebra while inhabiting different population axes, so
 algebraic compatibility does not imply representational substitutability"*
 survives its own mistake and is a candidate. Keep the categories separate.
+
+**The transient tier, and the ONE promotion rule.** Ordinary work lands in
+`.claude/board/entries/` as a dated file — the **transient work/finding tier**,
+not an Epiphany staging folder. It is noisy on purpose: a finding there may be
+wrong, superseded tomorrow, or merely a measurement. Its index is GENERATED
+(`entries_index.py --write`; never `> README.md` — the file is its own input)
+and CI runs the three structural falsifiers, so a stranded file or a stale
+header cannot recur.
+
+At closeout each entry is reconciled against project truth — reuse what exists:
+`PLAN-INVENTORY`'s verdict rubric (**OPEN** = its own status line and/or its
+`STATUS_BOARD` D-ids say work remains · **CLOSED** = its deliverable is
+delivered · **SUPERSEDED** = a higher-numbered sibling or its status says so ·
+**AMBIGUOUS** = no house-format status and no board row), `SUPERSESSION-INDEX`'s
+`route` column, and `preflight_drift` for board-claim-vs-cargo-reality. Then
+exactly four destinations, and no fifth:
+
+| the entry is… | destination |
+|---|---|
+| fixed / obsolete / duplicate / already represented | **nothing durable** — it dies in the tier; git keeps the journey |
+| still genuinely unresolved | one compact **OPEN** row (`ISSUES.md` or `STATUS_BOARD.md`) |
+| implemented / closed | one compact **DONE** row (`STATUS_BOARD.md`, or `LATEST_STATE.md` if it changed the inventory) |
+| NEW **and** LOAD-BEARING **and** DURABLE, and still true after reconciliation | `EPIPHANIES.md` — the rare case |
+
+A surviving Eureka must clear **both** gates: the three-way admission test above
+*and* still being true against the current implementation. **`MIRROR` is never
+promoted by itself** — it is transient reflection and normally dies at closeout;
+only a factual consequence of it (a real open implementation issue) becomes a
+row, and a `BIAS CHECK` line has no durable home at all.
 
 **No recursive post-mortems.** A correction does not entitle a post-mortem, and
 a corrected post-mortem does not entitle another — § Termination clause above is
