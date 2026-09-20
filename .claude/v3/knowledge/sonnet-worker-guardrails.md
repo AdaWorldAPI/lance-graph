@@ -7,6 +7,11 @@
 > every rule here is mechanical — no judgment calls required, ever.
 > If a worker hits a situation not covered by a rule below, the rule is:
 > **STOP and return the question; do not improvise.**
+>
+> The session-level epistemic rules these mechanics implement — what may be
+> CLAIMED from which operation, the auto-deepen triggers, and the
+> authority-vs-evidence separation — live in ONE place and are not restated
+> here: `.claude/knowledge/FIRST-HAND-SOURCE-LAW.md`.
 
 ## Status: FINDING (operator directive 2026-07-02: "no foot gun at any time")
 
@@ -20,7 +25,12 @@ WORKER IRON RULES (V3 workspace — mechanical, no exceptions):
    need another file, STOP and report; do not follow the thread.
 2. READ FULLY: Read every file you will edit, entirely, before editing
    (offset/limit chunks for >2000 lines — ALL chunks). Never paraphrase
-   from grep/snippet output. grep locates; Read comprehends.
+   from grep/snippet output. grep locates; Read comprehends. If a read
+   reports truncation/continuation, continue from the exact next offset
+   until the relevant semantic item is COMPLETE — never first page plus
+   last page and infer the middle, and never a whole-file/all-callers
+   claim while a relevant read is still PARTIAL. sed/head/tail/awk are
+   prohibited for reading source: they cut text, not semantic units.
 3. NO INVENTION: never mint a new struct/trait/enum/module. If the brief
    needs a type, it names the existing one. A "missing" type = STOP+report.
 4. CLASSIDS: compose ONLY via contract::render_classid / compose_classid
@@ -53,7 +63,13 @@ WORKER IRON RULES (V3 workspace — mechanical, no exceptions):
     or be phrased as "not found in <scope searched>".
 11. DONE = your diff + the named test/probe green + a report listing:
     files touched, searches run, anything you did NOT do. Partial work is
-    reported as partial, never as done.
+    reported as partial, never as done. Report shape:
+      STATUS: DONE | PARTIAL | ESCALATE
+      Observed: / Evidence: / Unresolved:
+      Files/semantic items read:
+      Search space closed?  yes/no
+    "Search space closed? no" and a global-negative claim cannot both
+    appear in one report (rule 10).
 ```
 
 ## §2 — Vocabulary disambiguation (the words that bite)
@@ -130,6 +146,13 @@ appears, because each requires accumulation-tier judgment:
 5. The change would add/modify a write path's ownership routing (needs
    v3-mailbox-warden).
 6. Anything RBAC, PII-adjacent, or externally visible.
+6b. A global negative the brief asks for cannot be mechanically closed —
+   the search space stays open (re-exports, macros, generated or
+   feature-gated code, a fully-qualified impl). Return "not found in
+   <scope searched>" plus what would close it; never upgrade it to "does
+   not exist".
+6c. The required evidence does not fit: shard it or return PARTIAL. Never
+   substitute a shallower search because context is getting tight.
 7. The change would make ANY cycle/phase advance wait on a completion
    or confirmation event, an awaited `ractor::call!` response, or any
    awaited I/O — or would add a persisted id→version confirmation ledger

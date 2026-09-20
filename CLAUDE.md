@@ -1485,6 +1485,29 @@ Two corollaries:
 Cross-ref: the sibling rule below (Read before Write) protects FILES from a
 blind write; this one protects CONCLUSIONS from a blind read.
 
+**The full rule set lives in ONE place: `.claude/knowledge/FIRST-HAND-SOURCE-LAW.md`.**
+The measured table above is why the rule exists; that file is the rule —
+what may be claimed from which operation (search is navigation, never
+evidence), the auto-deepen triggers, the paging rule (a partial Read is not
+evidence for a whole-file claim), and *context exhaustion must reduce SCOPE,
+never evidence quality*. Worker-side mechanics stay where they already are:
+`.claude/v3/knowledge/sonnet-worker-guardrails.md` §1/§5 and
+`.claude/knowledge/tiered-agent-execution-protocol.md`. Read it before the
+first search of a task; do not restate it anywhere.
+
+It also carries the one rule with no other home: **human authorization is
+PROVENANCE, NOT VALIDATION.** A person chooses direction, scope, policy,
+naming and acceptable risk — *"the user chose X"* never becomes *"X is
+technically true"* without independent evidence. So new canonical material
+does not use `operator-ruled` / `operator-pinned` / `operator-locked` /
+`operator-confirmed` as a technical status; it uses an evidence-bearing state
+(`MEASURED` with its command, `VERIFIED-IN-CODE` with its location,
+`TEST-PINNED`, `CURRENT-CONTRACT`, `WORKING-MODEL`, `HYPOTHESIS`, `OPEN`,
+`SUPERSEDED`, `REJECTED-BY-FALSIFIER`), and records a real decision as
+`DECISION` / `SCOPE` / `BASIS` / `REVISIT WHEN`. Historical files keep their
+wording; the `PreToolUse` guard blocks only an edit that INTRODUCES one of
+the four, and lets a supersession note quote it.
+
 **P0 Rule: Read before Write, always.** Before calling `Write` on any path
 that may already exist, run `Read` (or `git status` for committed files).
 The `Edit` tool is the default for modifying existing files; `Write` is only
