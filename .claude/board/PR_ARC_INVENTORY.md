@@ -1,3 +1,31 @@
+## 2026-09-19 — lance-graph PR #1252 (merged `8545a555`, branch `claude/great-pascal-k96kok`, head `16a0130d`, 5 commits, docs only)
+
+Mixed PR (hygiene + rulings), so not exempt under the termination clause. Only
+what survives inspection of the current head is recorded here.
+
+- **Ruling on `main`:** `E-WE-THINK-WITH-OGAR-GRAPHS-OGAR-DOES-NOT-DO-THE-THINKING-1`,
+  with its falsifier — if generic reasoning must know WHICH graph supplied a
+  relation to run its mechanics, either the graph failed to say what it means in
+  SPOG / `f,c` / context, or domain policy leaked into the engine. Also
+  `E-A-DOMAIN-IS-AN-OPTIONAL-CONSUMER-THROUGH-OGAR-…-1` and
+  `E-THE-1224-DETOUR-CLEANUP-PASS-…-1`.
+- **Dependency fact (read at head).** `lance_graph_contract::dismech_evidence`
+  is reached from three sites outside itself:
+  - `lance-graph-ogar/src/lib.rs:230,242,257,322,349` — the parity assert;
+  - `lance-graph-planner/src/dismech_replay.rs:142` — `dismech_predicate`,
+    behind the public `chain_step_predicate`, which `validate_chain` uses at
+    `:236`;
+  - `lance-graph-planner/src/dismech_candidates.rs:69` — `Supports`.
+
+  Deleting the mirror is therefore not isolated to `lance-graph-ogar`: the
+  planner consumers migrate with it.
+- **Open, unchanged:** the DisMech cut (`ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS`
+  — PR-B first and alone; the source-token parser location is undecided). No
+  counterfactual semantics are settled here.
+- **Deferred:** every Waben wave; `D-WFL-MASKOP`; `TD-JC-CLIPPY-RED-ON-BASE-2`
+  (red on `main`, untouched).
+- **Hygiene discharged:** #1251's arc entry + `LATEST_STATE`.
+
 ## 2026-09-19 — lance-graph PR #1251 (merged `16090965`, branch `claude/waben-fold-loop`, head `78c5016b`, 21 commits, docs only) — the Waben fold execution loop: four seams, and attestation that has an author
 
 - **Added:** `.claude/plans/waben-fold-execution-loop-v1.md` (§0–§10: baseline
