@@ -226,8 +226,11 @@ def self_test() -> int:
         return bad, n
 
     ok = True
+    # startswith, not `in`: the FALLBACK string also names the merge-base (it
+    # says the marker was absent there), so a substring test passed under the
+    # very disable it exists to catch -- vacuous, found by running that disable.
     _bad, _n, _sha, whence = check(d, "main")
-    if "merge-base" not in whence:
+    if not whence.startswith("inherited at merge-base"):
         print(f"  FAILED: the merge-base reference was not used ({whence})")
         ok = False
 
