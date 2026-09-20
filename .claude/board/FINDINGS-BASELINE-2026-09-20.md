@@ -6,7 +6,9 @@
 > routine closeout is DELTA ONLY and never censuses the monolith again.
 > Like `PLAN-INVENTORY-2026-09-07.md` it mints **no D-ids**, so
 > `supersession_index.py` and `plan_dids.py` do not see it — by design.
-> Regenerate: `python3 .claude/tools/findings_baseline.py --emit <this file>`.
+> A FROZEN snapshot, not a live artifact: the classifier that produced it
+> was the instrument for this one historical pass and is retired. Git holds
+> it at `2374b1d` if the measurement ever needs reproducing.
 >
 > **The historical prose is FROZEN, not reconciled away.** `EPIPHANIES.md`
 > is untouched: nothing was migrated, re-split, deleted or rewritten, and

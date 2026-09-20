@@ -498,7 +498,7 @@ forward, closeout consumes only the **delta**: read `PROCESSED_THROUGH_SHA`
 from `.claude/board/PROCESSED_THROUGH`, reconcile
 `PROCESSED_THROUGH_SHA..<captured HEAD>`, write the compact state, then
 advance the marker to that captured head. **Routine work never censuses the
-33,528-line monolith again.**
+historical `EPIPHANIES.md` monolith again.**
 
 The watermark is a **SHA, not a date** — imports, backdated headings, rebases
 and concurrent work all make a calendar watermark lie, the same reason
@@ -508,10 +508,11 @@ If the SHA is unreachable (shallow clone), tooling FAILS CLOSED — an invisible
 delta is not an empty one.
 
 **The historical prose is FROZEN, not reconciled.** Frozen means *not reread by
-routine closeout*; 224 of the 306 rows were NOT adjudicated (mechanically
-unjoinable, conflicting evidence, or — most of them — graded `FINDING` /
-`RULING` / `CORRECTION`, an epistemic grade that answers *how well established*
-rather than *is it done*). **FROZEN ≠ RECONCILED**, and the ambiguous rows are
+routine closeout*. **Most historical rows were NOT adjudicated** — mechanically
+unjoinable, conflicting evidence, or, most of them, graded `FINDING` / `RULING`
+/ `CORRECTION`, an epistemic grade answering *how well established* rather than
+*is it done*. The generated baseline owns the exact counts; they are not
+restated here. **FROZEN ≠ RECONCILED**, and the ambiguous rows are
 not an invitation to another archaeology pass; if one matters later it resurfaces
 as live work and enters the transient tier like anything else.
 

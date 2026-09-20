@@ -1,28 +1,2 @@
-# Findings watermark — machine-readable. ONE authoritative field.
-#
-# PROCESSED_THROUGH_SHA names the source revision whose findings have been
-# CONSUMED into a baseline. It is NOT the SHA of the commit that carries this
-# file: a commit cannot contain its own hash, because the file's bytes feed
-# the hash. The commit that first recorded this value has a different SHA of
-# its own, and that is correct.
-#
-# Incremental semantics, one step per closeout:
-#
-#   1. capture NEW_HEAD = git rev-parse HEAD   (before generating anything)
-#   2. consume the delta  PROCESSED_THROUGH_SHA..NEW_HEAD
-#   3. reconcile it -> OPEN | CLOSED | SUPERSEDED | AMBIGUOUS
-#   4. write the compact state
-#   5. set PROCESSED_THROUGH_SHA = NEW_HEAD
-#
-# Routine closeout reads the DELTA only. It never censuses the historical
-# monolith again. If this SHA cannot be resolved (a shallow clone whose
-# grafts cut above it), tooling MUST FAIL CLOSED with a diagnostic naming the
-# revision — an unresolvable baseline is never an empty delta.
-#
-# The date is metadata for humans and is not load-bearing. If the two ever
-# disagree, the SHA wins: imports, backdated headings, rebases and concurrent
-# work all make a calendar watermark lie.
-
 PROCESSED_THROUGH_SHA=181bb2c28005c185a967edd61367008c6722eb5c
-PROCESSED_THROUGH_DATE=2026-09-20
 BASELINE=.claude/board/FINDINGS-BASELINE-2026-09-20.md
