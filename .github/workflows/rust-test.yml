@@ -155,6 +155,22 @@ jobs:
       # had never minted them). One scoped step closes both.
       - name: Run lance-graph-ogar codebook-parity + hotplug-activation tests (armed tier, OGAR sibling)
         run: cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml
+      # r2il-mask-abi-probe: the W0B mask-ABI differential, workspace-EXCLUDED
+      # and path-depping BOTH siblings checked out above (mask-risc reaches
+      # `ndarray` at ../../../ndarray; the probe reaches ogar-r2il at
+      # ../../../OGAR/crates/ogar-r2il). It proves ogar-r2il's CallMask
+      # Boolean algebra and lance-graph-mask-risc's agree BIT-IDENTICALLY over
+      # the same borrowed words -- the check that decides whether CallMask's
+      # and/or/xor/and_not/not/count is a second algebra beside the one
+      # evaluator or a subset of it. Excluded means no step above reaches it,
+      # and an excluded crate with no CI line rots invisibly.
+      #
+      # ORDERING: requires ogar-r2il's `CallMask::words()` (AdaWorldAPI/OGAR
+      # #305). This step is RED until that merges, because it compiles against
+      # the OGAR sibling's default branch -- a stated stacked dependency, not a
+      # defect in this probe.
+      - name: Run r2il-mask-abi-probe mask-ABI differential (excluded tier, OGAR + ndarray siblings)
+        run: cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml
       # deepnsm: standalone 0-dep codec crate, workspace-excluded, so the
       # lance-graph test steps above never reached it. ~217 lib + integration +
       # doctests, fast (no lance/datafusion/ndarray deps). Gating.
