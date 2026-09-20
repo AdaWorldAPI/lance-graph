@@ -199,7 +199,21 @@ class Finding:
         )
 
 
+def is_frozen_archive(path: str, root: str) -> bool:
+    """Is this path one of the frozen historical archives?"""
+    rel = os.path.relpath(os.path.abspath(path), root).replace(os.sep, "/")
+    return rel in FROZEN_ARCHIVES
+
+
 def scan_file(path: str, root: str) -> list[Finding]:
+    # The frozen-archive exclusion lives HERE, at the single choke point every
+    # entry point passes through, and not in the callers. It was first written
+    # in collect_citations (the `--since` path) only, so CI went green while a
+    # bare invocation still globbed the archive through run() and failed on its
+    # preserved decays -- two code paths answering one question, which is the
+    # bug class this repo keeps meeting. A caller cannot forget this.
+    if is_frozen_archive(path, root):
+        return []
     with open(path, encoding="utf-8", errors="replace") as fh:
         text = fh.read()
     line_starts = [0]
@@ -326,8 +340,6 @@ def collect_citations(root: str) -> dict[tuple, Finding]:
         if not os.path.isfile(path):
             continue
         rel = os.path.relpath(path, root).replace(os.sep, "/")
-        if rel in FROZEN_ARCHIVES:
-            continue
         occ: dict[tuple, int] = {}
         for f in scan_file(path, root):
             base_key = (rel, f.cited, f.start, f.end)
@@ -525,6 +537,49 @@ def _git(args: list[str], cwd: str) -> None:
     )
 
 
+def self_test_frozen_archive() -> int:
+    """A frozen archive is skipped by EVERY entry point, not just `--since`.
+
+    The exclusion was first written into collect_citations (the `--since` path)
+    alone, so CI went green while a bare invocation still globbed the archive
+    through run() and failed on its deliberately preserved decays. This proves
+    the skip at the shared choke point AND that it is narrow: the same decayed
+    citation in an ordinary board file is still reported.
+    """
+    ok = True
+    d = tempfile.mkdtemp(prefix="citation-decay-selftest-frozen-")
+    sub = os.path.join(d, ".claude", "board")
+    os.makedirs(sub)
+    with open(os.path.join(sub, "TARGET.md"), "w") as fh:
+        fh.write("l1\nl2\nl3 the anchor moved away from here\n")
+    decayed = 'A ruling at `.claude/board/TARGET.md:1` for `E-FROZEN-ANCHOR-1`.\n'
+    # the SAME citation, once in a frozen archive and once in a live board file
+    frozen = os.path.join(sub, os.path.basename(FROZEN_ARCHIVES[0]))
+    with open(frozen, "w") as fh:
+        fh.write(decayed)
+    live = os.path.join(sub, "LIVE.md")
+    with open(live, "w") as fh:
+        fh.write(decayed)
+
+    if scan_file(frozen, d):
+        print("  FAILED: the frozen archive was scanned"); ok = False
+    else:
+        print("  frozen archive at the choke point : skipped")
+    if not scan_file(live, d):
+        print("  FAILED: an ordinary board file was skipped too -- too broad"); ok = False
+    else:
+        print("  the same citation in a live file  : still scanned")
+
+    # and the whole-corpus collector agrees with the choke point
+    hits = collect_citations(d)
+    if any(f.citing.endswith(os.path.basename(FROZEN_ARCHIVES[0])) for f in hits.values()):
+        print("  FAILED: collect_citations returned archive findings"); ok = False
+    else:
+        print("  collect_citations                 : agrees, no archive findings")
+    print("--- self-test frozen-archive " + ("PASSED" if ok else "FAILED") + " ---")
+    return 0 if ok else 1
+
+
 def self_test_since_regression() -> int:
     """Prove `--since` fires on a NEW decay and stays silent on backlog.
 
@@ -624,7 +679,8 @@ def self_test_since_regression() -> int:
 def main(argv: list[str]) -> int:
     root = os.getcwd()
     if "--self-test" in argv:
-        return self_test()
+        rc = self_test()
+        return rc or self_test_frozen_archive()
     if "--since" in argv:
         i = argv.index("--since")
         base = argv[i + 1]

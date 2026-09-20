@@ -195,18 +195,40 @@ def load_canon(root, rel=CANON):
 
 
 def assert_archive_unchanged(doc, raw):
-    """The archive's hash must match the one the closeout was made against.
+    """Every recorded archive measurement must match the file being projected.
 
     Without this the table could describe a file that has since moved, which is
     the one way an immutable-record claim can quietly become false.
+
+    A MISSING hash is REFUSED, never skipped. The first version read
+    `if want and want != got`, so an absent or empty sha256 disabled the
+    immutability check silently -- and a guard that cannot fire carries exactly
+    as much information as one that never fires. This one exists for the single
+    claim the whole design rests on.
+
+    Bytes and lines are checked against the actual file too. They are printed in
+    the projection's header, so leaving them unchecked would let one file's
+    measurements be reported over another file's content.
     """
-    want = (doc.get("archive") or {}).get("sha256")
+    arc = doc.get("archive") or {}
+    want = arc.get("sha256")
     got = hashlib.sha256(raw).hexdigest()
-    if want and want != got:
+    if not want:
+        raise SystemExit(
+            "compact-epiphanies: the decisions file records no archive sha256, "
+            "so the immutability check cannot run. Restore the recorded hash; "
+            "do not project an unverified archive.")
+    if want != got:
         raise SystemExit(
             "compact-epiphanies: ARCHIVE MUTATED\n  recorded %s\n  actual   %s\n"
             "  The archive is immutable. Restore it; do not re-record the hash."
             % (want, got))
+    nl = raw.count(b"\n")
+    if (arc.get("bytes"), arc.get("lines")) != (len(raw), nl):
+        raise SystemExit(
+            "compact-epiphanies: archive measurements do not match the file\n"
+            "  recorded %s bytes, %s lines\n  actual   %s bytes, %s lines"
+            % (arc.get("bytes"), arc.get("lines"), len(raw), nl))
     return got
 
 
@@ -275,7 +297,10 @@ def render(doc, raw, entries):
         "|---|---|",
         "| archive | `%s` |" % arc["file"],
         "| | %s bytes, %s lines, sha256 `%s` |" % (
-            f"{arc['bytes']:,}", f"{arc['lines']:,}", arc["sha256"][:16] + "…"),
+            # MEASURED from the file in hand, never copied from the decisions
+            # block: this header is a claim about what was projected.
+            f"{len(raw):,}", f"{raw.count(chr(10).encode()):,}",
+            arc["sha256"][:16] + "…"),
         "| historical entries | %d |" % len(entries),
         "| live after closeout | %d (%s) |" % (
             len(live), ", ".join("%s %d" % (s, counts.get(s, 0))
@@ -428,6 +453,7 @@ def main(argv):
 
 def _doc(rows, decisions, sha="0" * 64):
     """A minimal valid decisions document, for the falsifiers."""
+    # bytes/lines match the b"##\n" fixture every falsifier passes in.
     return {"archive": {"file": "A.md", "sha256": sha, "bytes": 3, "lines": 1},
             "decisions": decisions, "rows": rows}
 
@@ -502,6 +528,18 @@ def self_test():
           lambda: assert_archive_unchanged(_doc([], {}, real), b"##\n"), False)
     check("archive mutated under a recorded hash",
           lambda: assert_archive_unchanged(_doc([], {}, real), b"##!\n"), True)
+    # The guard must REFUSE a missing hash, not skip the check. `if want and
+    # want != got` passed here, which is a guard that cannot fire.
+    # The fixture's bytes/lines are CORRECT on purpose. With them omitted the
+    # byte/line check refused instead, so the arm passed with the hash-presence
+    # check disabled -- vacuous, and only the disable run showed it. Now the
+    # ONLY thing wrong with this document is the missing hash.
+    check("no recorded hash, everything else correct",
+          lambda: assert_archive_unchanged(
+              {"archive": {"bytes": 3, "lines": 1}}, b"##\n"), True)
+    check("recorded byte/line counts that do not match the file",
+          lambda: assert_archive_unchanged(
+              {"archive": {"sha256": real, "bytes": 999, "lines": 7}}, b"##\n"), True)
 
     # --- provenance: a row cannot outrun the archive ------------------------
     ent = [{"line": 1, "source": "E-ALPHA-1"}]
