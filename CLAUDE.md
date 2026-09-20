@@ -491,6 +491,36 @@ promoted by itself** — it is transient reflection and normally dies at closeou
 only a factual consequence of it (a real open implementation issue) becomes a
 row, and a `BIAS CHECK` line has no durable home at all.
 
+**The checkpoint, and DELTA-ONLY closeout.** `.claude/board/FINDINGS-BASELINE-2026-09-20.md`
+is the one historical catch-up over the 306 findings that went into the
+`EPIPHANIES.md` monolith after the 2026-08-06 split — a **k-frame**. From it
+forward, closeout consumes only the **delta**: read `PROCESSED_THROUGH_SHA`
+from `.claude/board/PROCESSED_THROUGH`, reconcile
+`PROCESSED_THROUGH_SHA..<captured HEAD>`, write the compact state, then
+advance the marker to that captured head. **Routine work never censuses the
+33,528-line monolith again.**
+
+The watermark is a **SHA, not a date** — imports, backdated headings, rebases
+and concurrent work all make a calendar watermark lie, the same reason
+`supersession_index.py` refuses git mtime as a signal. It names the CONSUMED
+INPUT, never the commit that records it: a commit cannot contain its own hash.
+If the SHA is unreachable (shallow clone), tooling FAILS CLOSED — an invisible
+delta is not an empty one.
+
+**The historical prose is FROZEN, not reconciled.** Frozen means *not reread by
+routine closeout*; 224 of the 306 rows were NOT adjudicated (mechanically
+unjoinable, conflicting evidence, or — most of them — graded `FINDING` /
+`RULING` / `CORRECTION`, an epistemic grade that answers *how well established*
+rather than *is it done*). **FROZEN ≠ RECONCILED**, and the ambiguous rows are
+not an invitation to another archaeology pass; if one matters later it resurfaces
+as live work and enters the transient tier like anything else.
+
+A promotion to `EPIPHANIES.md` after the baseline must name the
+`entries/YYYY-MM-DD-*.md` it came from — `epiphany_provenance.py` checks that
+the reference RESOLVES, and nothing more. It proves the route; whether the
+content is a Eureka stays the admission gate above, because a regex that judged
+Eureka-ness would be a guard that fires on everything.
+
 **No recursive post-mortems.** A correction does not entitle a post-mortem, and
 a corrected post-mortem does not entitle another — § Termination clause above is
 the same stopping rule one level down. A review earns a follow-up only for a
