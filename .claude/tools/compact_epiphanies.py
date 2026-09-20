@@ -1,18 +1,36 @@
 #!/usr/bin/env python3
 """Mechanically project the EPIPHANIES archive into a compact canonical table.
 
-    compact_epiphanies.py --measure           # census only, writes nothing
-    compact_epiphanies.py --write             # emit the compact EPIPHANIES.md
-    compact_epiphanies.py --check             # compact file is current
+    compact_epiphanies.py --measure           # archive census only, writes nothing
+    compact_epiphanies.py --write             # render EPIPHANIES.md from the rows file
+    compact_epiphanies.py --check             # the projection is current
     compact_epiphanies.py --self-test         # falsifiers
 
 WHAT THIS IS, AND ONLY THIS
 ---------------------------
-COMPACTION, never adjudication. It reads ONE input (the archive), inspects each
-entry's own STRUCTURED leading status token, drops the explicitly terminal ones,
-deduplicates exact E-ids, and emits a table. It consults no code, no
-TECH_DEBT/STATUS_BOARD, no PR state, no plan, no supersession prose, no citation
-decay, and no model. A finding's meaning is never reinterpreted here.
+TWO INPUTS, and the split between them is the whole design:
+
+  1. the ARCHIVE -- frozen, lossless, byte-identical to the pre-compaction file,
+     never appended to and never rewritten. `--measure` reads only this and
+     prints the mechanical census (structured status tokens, terminal drops,
+     duplicate E-ids) with an accounting assertion.
+  2. the ROWS file -- `.claude/board/epiphanies-rows.json`, the committed
+     CONSOLIDATION data: one record per archived heading carrying its topic,
+     priority, one-line finding and closed-out verdict. It was produced ONCE, by
+     a Sonnet worker fleet over the archive, and is data from here on.
+
+`--write` renders the kanban projection from the ROWS file; `--check` proves the
+projection is current. Rendering is pure: same rows in, byte-identical table
+out, no model in the loop. The one provenance rule is enforced in code -- every
+row's line must resolve to a real level-2 heading in the archive, so a row can
+never describe an entry that does not exist.
+
+The MECHANICAL status filter was measured and REJECTED as the compaction
+mechanism: the corpus grades epistemically (FINDING / RULING / CORRECTION), so
+dropping explicit terminal tokens took 891 rows to 877 -- no compaction at all.
+It is retained as the census (`--measure`), which is what it is honestly good
+for. Compaction comes from the consolidation instead: a 3.5 MB prose corpus
+becomes a ~150 KB one-line-per-entry table.
 
 WHY THE STATUS PARSER IS STRUCTURED-FIELD-ONLY
 ----------------------------------------------
@@ -33,15 +51,33 @@ compactor that guessed would be adjudicating.
 """
 
 import hashlib
+import json
 import pathlib
 import re
 import sys
+import tempfile
 
 ARCHIVE = ".claude/board/EPIPHANIES-ARCHIVE-2026-09-20.md"
 COMPACT = ".claude/board/EPIPHANIES.md"
+ROWS = ".claude/board/epiphanies-rows.json"
+
+# The consolidation's topic vocabulary. Closed: a row outside it is a defect,
+# not a new topic -- a table whose topic column is open-ended cannot be scanned.
+TOPICS = {
+    "nars-thinking", "classid-facet", "evidence-method", "ogar-transcode",
+    "substrate-soa", "vsa-codec", "planner-r2il-loco", "mask-risc-quack",
+    "deps-cargo", "board-process", "ci-tooling", "lance-storage",
+    "ocr-tesseract", "consumer-app", "java-lgj", "other",
+}
+PRIORITIES = {"P0", "P1", "P2", "P3"}
 
 H2 = re.compile(r"^##\s+(?!#)(.*)$")
-EID = re.compile(r"\b(E-[A-Z0-9][A-Z0-9-]{3,})\b")
+# Lowercase is admitted after the first char and a trailing `-` is stripped:
+# `E-0xFFF-IS-ONE-ALIGNED-ADDRESS` was unmatchable (the `x`), so the heading's
+# CITED id got taken as its own; `E-X265-MORTON-SHIFT-1a`/`-1b` both truncated
+# to `E-X265-MORTON-SHIFT-` and one was discarded as a false duplicate. Measured
+# on the archive before the fix; both keyed correctly after it.
+EID = re.compile(r"\b(E-[A-Z0-9][A-Za-z0-9-]{3,}?)(?=[^A-Za-z0-9-]|$)")
 DATE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 BARE_DATE = re.compile(r"^\s*\d{4}-\d{2}-\d{2}\s*$")
 
@@ -88,12 +124,13 @@ def parse(text: str):
                 break
         d = DATE.search(heading)
         e = EID.search(heading)
+        eid = e.group(1).rstrip("-") if e else None
         if BARE_DATE.match(heading) or not d:
             structural.append(Entry(i + 1, heading, d.group(1) if d else None, None, status))
         elif not e:
             no_id.append(Entry(i + 1, heading, d.group(1), None, status))
         else:
-            entries.append(Entry(i + 1, heading, d.group(1), e.group(1), status))
+            entries.append(Entry(i + 1, heading, d.group(1), eid, status))
     return entries, structural, no_id
 
 
@@ -121,7 +158,11 @@ def compact(entries):
 
 
 def finding_of(e: Entry) -> str:
-    """Heading minus date/E-id boilerplate. Ambiguous -> verbatim heading."""
+    """Heading minus date/E-id boilerplate -- the claim, for `--measure` output.
+
+    Ambiguous -> verbatim heading. This was also the fallback the one-off
+    consolidation used when a worker echoed a status line instead of summarising.
+    """
     s = e.heading
     for pat in (rf"^\s*{re.escape(e.date)}\s*[—–:-]*\s*", rf"^\s*{re.escape(e.eid)}\s*[—–:-]*\s*"):
         s2 = re.sub(pat, "", s, count=1)
@@ -131,32 +172,124 @@ def finding_of(e: Entry) -> str:
     return (s or e.heading).replace("|", "\\|")
 
 
-def render(kept, archive_rel: str) -> str:
-    """The compact table. Deterministic: same input, byte-identical output."""
+def cell(text, limit=110) -> str:
+    """One-line, markdown-free, pipe-safe table cell text."""
+    t = re.sub(r"\s+", " ", str(text or "")).strip()
+    t = t.replace("`", "").replace("|", "/").replace("*", "")
+    if len(t) > limit:
+        t = t[: limit - 1].rstrip() + "\u2026"
+    return t
+
+
+def load_rows(root, rows_rel: str):
+    """Read the committed consolidation rows and validate their closed shape.
+
+    Validation is not decoration: an out-of-vocabulary topic or a row whose line
+    does not resolve to a real archive heading would silently put a claim in the
+    table that nothing in the record backs.
+    """
+    p = pathlib.Path(root, rows_rel)
+    if not p.is_file():
+        raise SystemExit(
+            "compact-epiphanies: %s is missing. It is the consolidation DATA "
+            "and cannot be regenerated mechanically; restore it from git."
+            % rows_rel
+        )
+    rows = json.loads(p.read_text(encoding="utf-8"))
+    problems = []
+    seen = set()
+    for r in rows:
+        ln = r.get("line")
+        if not isinstance(ln, int):
+            problems.append("non-integer line %r" % (ln,))
+            continue
+        if ln in seen:
+            problems.append("line %d: duplicate row" % ln)
+        seen.add(ln)
+        if r.get("topic") not in TOPICS:
+            problems.append("line %d: topic %r outside the closed vocabulary" % (ln, r.get("topic")))
+        if r.get("priority") not in PRIORITIES:
+            problems.append("line %d: priority %r" % (ln, r.get("priority")))
+        if not str(r.get("finding") or "").strip():
+            problems.append("line %d: empty finding" % ln)
+    if problems:
+        raise SystemExit("compact-epiphanies: %d invalid rows\n  %s" % (
+            len(problems), "\n  ".join(problems[:20])))
+    return rows
+
+
+def assert_rows_resolve(rows, archive_text: str):
+    """Every row must name a real level-2 heading line in the archive.
+
+    The falsifier for the projection's provenance. Without it a row could
+    describe an entry the archive does not contain, and the table would be
+    unfalsifiable against its own source.
+    """
+    lines = archive_text.split("\n")
+    bad = []
+    for r in rows:
+        i = r["line"] - 1
+        if not (0 <= i < len(lines)) or not H2.match(lines[i]):
+            bad.append(r["line"])
+    if bad:
+        raise SystemExit(
+            "compact-epiphanies: %d rows do not resolve to an archive heading "
+            "(first: %s). The rows file and the archive have diverged."
+            % (len(bad), bad[:10])
+        )
+
+
+def render(rows, archive_rel: str, archive_raw: bytes) -> str:
+    """The kanban projection. Deterministic: same rows in, byte-identical out."""
+    live = [r for r in rows if not r.get("closed_out")]
+    closed = len(rows) - len(live)
+    # Priority first, then topic, then date: the table is read by "what is most
+    # load-bearing in this area", not chronologically -- the archive is where
+    # chronology lives.
+    live.sort(key=lambda r: (r.get("priority", "P3"), r.get("topic", ""),
+                             r.get("date") or "", r["line"]))
+
     out = [
-        "# Epiphanies",
+        "# Epiphanies \u2014 compact kanban projection",
         "",
-        f"Historical source: `{archive_rel}`",
+        "GENERATED by `.claude/tools/compact_epiphanies.py --write` from two inputs:",
+        "the frozen archive `%s`" % pathlib.Path(archive_rel).name,
+        "(%s bytes, %d lines, sha256 `%s`) and the committed consolidation rows"
+        % (f"{len(archive_raw):,}", archive_raw.count(b"\n"),
+           hashlib.sha256(archive_raw).hexdigest()[:16] + "\u2026"),
+        "`%s`. Do not hand-edit this file \u2014 edit the rows and regenerate." % ROWS,
         "",
-        "This file is the COMPACT CANONICAL PROJECTION of that archive, generated by",
-        "`.claude/tools/compact_epiphanies.py`. Terminal findings (explicitly CLOSED /",
-        "DONE / FIXED / DEPRECATED / SUPERSEDED / RETIRED / WITHDRAWN /",
-        "REJECTED-BY-FALSIFIER / ⊘) and older duplicate occurrences of the same E-id are",
-        "PRESERVED IN THE ARCHIVE and omitted here. Nothing was summarised, reworded or",
-        "reinterpreted: each row's text is its own heading.",
+        "The ARCHIVE is the record: lossless, never appended to, never rewritten, and",
+        "never read by routine work. This table is the PROJECTION: one line per entry,",
+        "so the surface stays scannable while nothing is lost. Everything omitted here",
+        "is in the archive, at the line each row names.",
         "",
-        "The archive is lossless history and is never appended to, never rewritten, and",
-        "never read by routine work. New work goes to `.claude/board/entries/`; only a",
-        "rare surviving Eureka is promoted here, and a promotion must cite the entry it",
-        "came from (`epiphany_provenance.py` enforces that the reference resolves).",
+        "Closed-out rows (%d of %d) are corrections whose fix landed, superseded or"
+        % (closed, len(rows)),
+        "retired rulings, and one-off process lessons already encoded in a test, a guard",
+        "or CLAUDE.md. They are history, not live contract.",
         "",
-        f"Rows: {len(kept)}",
+        "New work goes to `.claude/board/entries/`. Only a rare surviving Eureka is",
+        "promoted here, and a promotion must cite the entry it came from",
+        "(`epiphany_provenance.py` enforces that the reference resolves).",
         "",
-        "| date | id | status | finding |",
-        "|---|---|---|---|",
+        "`P` is load-bearing-ness: P0 substrate law or canon pin, P1 architecture",
+        "decision, P2 finding or measurement, P3 process note. `refs` is the entry's own",
+        "provenance \u2014 PR, plan, D-id/ISS, else the commit that authored the heading.",
+        "`line` is its line in the archive.",
+        "",
+        "Live rows: %d" % len(live),
+        "",
+        "| P | topic | date | id | status | finding | refs | line |",
+        "|---|---|---|---|---|---|---|---|",
     ]
-    for e in kept:
-        out.append(f"| {e.date} | {e.eid} | {e.status or '—'} | {finding_of(e)} |")
+    for r in live:
+        out.append("| %s | %s | %s | %s | %s | %s | %s | %d |" % (
+            r["priority"], r["topic"], r.get("date") or "\u2014",
+            cell(r.get("eid") or "\u2014", 52), cell(r.get("status") or "\u2014", 16),
+            cell(r.get("finding"), 110), cell(r.get("refs") or "\u2014", 46),
+            r["line"],
+        ))
     out.append("")
     return "\n".join(out)
 
@@ -233,21 +366,23 @@ def main(argv):
         measure(root, archive)
         return 0
     raw = load(pathlib.Path(root, archive))
-    entries, _s, _n = parse(raw.decode("utf-8", "replace"))
-    kept, *_ = compact(entries)
-    body = render(kept, archive)
+    rows = load_rows(root, ROWS)
+    assert_rows_resolve(rows, raw.decode("utf-8", "replace"))
+    body = render(rows, archive, raw)
+    live = sum(1 for r in rows if not r.get("closed_out"))
     target = pathlib.Path(root, COMPACT)
     if "--check" in argv:
         cur = target.read_text(encoding="utf-8") if target.is_file() else ""
         if cur == body:
-            print("compact-epiphanies: %s is current (%d rows)" % (COMPACT, len(kept)))
+            print("compact-epiphanies: %s is current (%d live rows)" % (COMPACT, live))
             return 0
         print("::error::%s is stale. Regenerate: "
               "python3 .claude/tools/compact_epiphanies.py --write" % COMPACT)
         return 1
     if "--write" in argv:
         target.write_text(body, encoding="utf-8")
-        print("compact-epiphanies: wrote %s (%d rows)" % (COMPACT, len(kept)))
+        print("compact-epiphanies: wrote %s (%d live rows of %d)"
+              % (COMPACT, live, len(rows)))
         return 0
     print(__doc__)
     return 2
@@ -311,12 +446,57 @@ def self_test() -> int:
         print("  bare date / id-less / section  : 0 entries, 1 no-id, 2 structural")
 
     # (g) idempotence: rendering twice is byte-identical
-    e, _, _ = parse1("## 2026-01-01 E-HOTEL-1 — x\n\n**Status:** FINDING\n")
-    k, *_ = compact(e)
-    if render(k, ARCHIVE) != render(k, ARCHIVE):
+    rows = [{"line": 1, "date": "2026-01-01", "eid": "E-HOTEL-1", "status": "FINDING",
+             "topic": "board-process", "priority": "P2", "finding": "x",
+             "refs": "\u2014", "closed_out": False}]
+    if render(rows, ARCHIVE, b"##\n") != render(rows, ARCHIVE, b"##\n"):
         print("  FAILED: render is not deterministic"); ok = False
     else:
         print("  render determinism             : byte-identical")
+
+    # (h) a closed-out row leaves the table but stays COUNTED in the header --
+    # the accounting the archive-is-lossless claim rests on.
+    rows2 = rows + [dict(rows[0], line=2, eid="E-INDIA-1", closed_out=True)]
+    body = render(rows2, ARCHIVE, b"##\n")
+    if "E-INDIA-1" in body or "Live rows: 1" not in body or "(1 of 2)" not in body:
+        print("  FAILED: closed-out row not omitted-and-counted"); ok = False
+    else:
+        print("  closed-out row                 : omitted from table, counted in header")
+
+    # (i) a row that does not resolve to an archive heading is REFUSED. The
+    # projection's provenance falsifier: without it the table could carry a
+    # claim the archive does not contain.
+    try:
+        assert_rows_resolve([{"line": 2}], "## real heading\nprose\n")
+    except SystemExit:
+        print("  row off a non-heading line     : refused")
+    else:
+        print("  FAILED: a non-heading row line was accepted"); ok = False
+    try:
+        assert_rows_resolve([{"line": 1}], "## real heading\nprose\n")
+    except SystemExit:
+        print("  FAILED: a valid heading row was refused"); ok = False
+    else:
+        print("  row on a real heading line     : accepted")
+
+    # (j) the topic vocabulary is CLOSED -- an unknown tag is a defect, because a
+    # table whose topic column is open-ended cannot be scanned by topic.
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td, ".claude", "board")
+        d.mkdir(parents=True)
+        bad = dict(rows[0], topic="freshly-invented")
+        (d / "epiphanies-rows.json").write_text(json.dumps([bad]), encoding="utf-8")
+        try:
+            load_rows(td, ROWS)
+        except SystemExit:
+            print("  topic outside the vocabulary   : refused")
+        else:
+            print("  FAILED: an unknown topic was accepted"); ok = False
+        (d / "epiphanies-rows.json").write_text(json.dumps(rows), encoding="utf-8")
+        if len(load_rows(td, ROWS)) != 1:
+            print("  FAILED: a valid rows file was refused"); ok = False
+        else:
+            print("  valid rows file                : accepted")
 
     print("compact-epiphanies --self-test " + ("PASSED" if ok else "FAILED"))
     return 0 if ok else 1
