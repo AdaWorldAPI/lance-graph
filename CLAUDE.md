@@ -342,7 +342,8 @@ updating the relevant board file in the SAME commit is incomplete.**
 | A merged PR (post-merge commit) | `.claude/board/LATEST_STATE.md` table + `.claude/board/PR_ARC_INVENTORY.md` PREPEND entry |
 | A new integration plan | `.claude/board/INTEGRATION_PLANS.md` PREPEND + `.claude/plans/<name>-v<N>.md` |
 | A new D-id / deliverable | `.claude/board/STATUS_BOARD.md` row (status = Queued → In progress → In PR → Shipped) |
-| A finding / correction / "aha" | `.claude/board/EPIPHANIES.md` PREPEND dated entry |
+| A genuine Eureka (passes the § Closeout admission gate below) | `.claude/board/EPIPHANIES.md` PREPEND dated entry |
+| An ordinary correction / lesson learned | **NOTHING** — one closeout line, see § Closeout below |
 | A tech-debt observation | `.claude/board/TECH_DEBT.md` entry |
 | An unresolved issue / blocker | `.claude/board/ISSUES.md` entry |
 | A completed agent run | `.claude/board/AGENT_LOG.md` PREPEND entry (D-ids, commit, tests, outcome) |
@@ -374,6 +375,107 @@ half is what the entry is for.
 This is a stopping rule, not a loosening: the original gap — merging #881,
 #882 and #883 with no entries at all — remains a real violation. What is
 excluded is only the degenerate tail.
+
+### Closeout — the default is one line, and a fixed mistake has no right to residency
+
+**DECISION (2026-09-20).** The workspace was accumulating correction-shaped
+prose faster than architecture: a mistake became a correction, then a finding,
+then an epiphany, then a post-mortem, then a correction OF the post-mortem, then
+permanent terminology. Measured: `EPIPHANIES.md` is 33,528 lines with no
+admission gate, and no closeout surface existed anywhere under `.claude/`. The
+default is now **fix → compress → keep open points visible → move on.**
+SCOPE: all ordinary work — implementation, audits, PR review, probes,
+integration, `/5plus3` alike. REVISIT WHEN: the ledger starts losing a
+*discovery* rather than a correction.
+
+**The default closeout is ONE compact status record** — not a board entry, not a
+file:
+
+```
+PR #<id> | STATUS: <fixed|measured|open|rejected|done> |
+OUTCOME: <smallest useful statement of what changed> |
+OPEN: <remaining live question(s), or none>
+```
+
+Several trivial corrections collapse into one line (`OUTCOME: 4 review defects
+corrected; executable contract unchanged`). **Do not create one permanent
+artifact per correction.** If a session fixed several things and discovered no
+new architecture, a boring closeout IS success: `STATUS: done | OUTCOME: review
+corrections applied; architecture unchanged | OPEN: none`.
+
+**MIRROR — self-reflection without paperwork.** At a meaningful closeout, at
+most these four fields; omit any field that carries nothing, and omit the whole
+section when it carries nothing. **Silence is allowed.**
+
+```
+MIRROR
+- LESSON: <one sentence, only if useful>
+- BLIND SPOT: <what relevant thing was not inspected / weighted / challenged>
+- BIAS CHECK: <heuristic that may have distorted the search or conclusion>
+- STILL OPEN: <uncertainty we genuinely do not yet understand>
+```
+
+**Kahneman/Tversky as QUESTIONS, never as labels.** Never write "this was
+anchoring" or "confirmation bias caused X" — diagnosing a past self is the
+residue this rule exists to stop. Ask only whether any MAY have contributed:
+
+- **Anchoring** — did the first plausible explanation become the reference later
+  evidence was read *against*, instead of being re-tested independently?
+- **Availability** — was the easiest grep hit, the recent PR or the vivid
+  failure overweighted because it was cheap to retrieve?
+- **Representativeness** — did something LOOK like a known pattern and get
+  treated as the same mechanism without reading the actual contract?
+- **Base rate / population** — was the denominator, frequency or index space
+  ignored; do two similarly shaped masks describe different populations?
+- **Framing** — did the task's wording make one reading feel inevitable; would
+  the conclusion survive a different phrasing?
+- **WYSIATI** — did "what we saw" become "all that exists"; did `search = 0`
+  become absence; did a small visible set become the whole search space?
+- **Sunk cost** — was a mechanism, doc or test preserved mainly because it was
+  already written?
+- **Confirmation pressure** — after forming the hypothesis, did we look for a
+  disable, a counterexample and an alternative, or only for agreement?
+
+**OPEN stays open.** `UNKNOWN` is a valid result. Never manufacture a doctrine,
+a carrier, a term, a follow-up PR or an Epiphany to turn OPEN into CLOSED — a
+visible blind spot is healthier than a fabricated conclusion. Write it plainly:
+`OPEN: ownership still undecided; no measured row-level predicate yet; search
+space not closed; competing explanations remain`.
+
+**Epiphany admission gate — lessons learned are NOT Epiphanies.** "the
+hand-written ternlog immediate was wrong", "the test failed by underflow rather
+than by its assertion", "the CI job attribution was guessed", "the grep was
+correct and the conclusion false", "the tail hid the root diagnostic" are
+LESSONS. Each may become one `MIRROR` line. None enters `EPIPHANIES.md`. A
+candidate must be all three — **NEW** (not already represented),
+**LOAD-BEARING** (changes future architecture, reasoning or representation),
+**DURABLE** (still matters once the PR and the mistake are forgotten) — and pass
+one test:
+
+> **Would this insight still matter if the mistake that led to it had never
+> happened?** NO ⇒ it is not an Epiphany.
+
+Concretely: *"I was wrong about which CI job held the step"* is a correction
+(`STATUS: fixed | OUTCOME: job attribution corrected | OPEN: none`). *"Two masks
+can share a Boolean algebra while inhabiting different population axes, so
+algebraic compatibility does not imply representational substitutability"*
+survives its own mistake and is a candidate. Keep the categories separate.
+
+**No recursive post-mortems.** A correction does not entitle a post-mortem, and
+a corrected post-mortem does not entitle another — § Termination clause above is
+the same stopping rule one level down. A review earns a follow-up only for a
+still-live executable defect, an unresolved implementation task, or a true
+Eureka needing independent architectural work. *Documenting what went wrong is
+not itself a follow-up task.*
+
+**Ore and slag.** Ask what survived that future work genuinely needs. **Keep:**
+the current contract, the measured result, the open point, a genuine Eureka.
+**Discard:** stale reasoning, the correction narrative, the duplicate
+explanation, the wrong hypothesis, procedural autobiography, and any elaborate
+lesson already encoded in a test or a guard. **The closeout should usually be
+SMALLER than the reasoning history it closes.** Optimize for clarity, current
+truth, visible uncertainty and minimal durable residue — never for maximum
+documentation. The architecture should stay enjoyable to work on.
 
 ### The falsifiability rule (P0, added 2026-07-26 — 7 instances in one session)
 
