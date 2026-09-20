@@ -1,3 +1,31 @@
+## ISS-R2IL-PROBE-HAS-NO-CI-LINE-UNTIL-OGAR-305
+
+**Status:** OPEN — one-line follow-up, blocked on a cross-repo merge.
+**Basis:** measured. `rust-test.yml`'s `test` job checks `AdaWorldAPI/OGAR` out
+with no `ref:`, so `crates/r2il-mask-abi-probe` compiles against OGAR's DEFAULT
+branch, where `CallMask::words()` does not exist yet (OGAR #305). Complete log
+of run 35513415131: **16 × E0599, one class, all `words`**, `exit 101`.
+Reproduced locally by detaching the OGAR sibling to `origin/main` (16 errors)
+and restoring (6/6 green).
+
+The step was REMOVED from the workflow rather than left red. The earlier
+position — keep it red and rely on merging OGAR #305 first — made a green `main`
+depend on human merge ordering that this repo cannot enforce; if #1254 merges
+first, `main` carries a red job. A gate arriving one merge later is the smaller
+cost.
+
+**To close (one line, no design):** after OGAR #305 is on OGAR's default branch,
+re-add to the `test` job, after the `lance-graph-ogar` step:
+
+```yaml
+      - name: Run r2il-mask-abi-probe mask-ABI differential (excluded tier, OGAR + ndarray siblings)
+        run: cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml
+```
+
+**Until then the probe is locally-verified only** (6/6, all disable-verified) and
+has NO CI enforcement — which is the actual risk this entry exists to keep
+visible, since an excluded crate with no CI line rots invisibly.
+
 ## ISS-NDARRAY-CANONICAL-COORDINATE-COUPLES-FLEET-MSRV — one canonical ndarray source imposes one MSRV floor; three repos pin below it (2026-09-20)
 
 **Status:** OPEN. Operator decision, not a dependency-pass side effect.
