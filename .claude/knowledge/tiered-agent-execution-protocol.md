@@ -161,7 +161,13 @@ receipt, NOT a board entry; the supervisor turns it into the board entry.
 - commands: <n>/<total> completed
 - status: GREEN | BLOCKED@cmd<k>
 - gates: <one line per gate command: name → PASS/FAIL/SKIPPED>
-- tail: <last ≤10 lines of the failing command, only if BLOCKED>
+- root_diagnostic: <the FIRST relevant diagnostic block of the failing
+  command, complete, only if BLOCKED — e.g. the first `error[E...]` and its
+  whole body. Bounded: if that block exceeds ~40 lines, give its first 40
+  and say how many were omitted. NEVER a trailing tail: a compiler prints
+  the causal error FIRST and its consequences after, so the last lines are
+  usually the cascade, not the cause.>
+- tail: <last ≤10 lines, only if BLOCKED — context ONLY, never the evidence>
 ```
 
 ## Supervision loop
@@ -181,7 +187,8 @@ receipt, NOT a board entry; the supervisor turns it into the board entry.
   audit trail — the `AGENT_LOG.md` entry the supervisor prepends IS the
   audit trail.
 - A BLOCKED run-record escalates to a Sonnet fix-agent (with the receipt's
-  tail as brief) or to the supervisor; Haiku is never asked to fix.
+  root_diagnostic as the evidence, tail as context) or to the supervisor;
+  Haiku is never asked to fix.
 - Multiple Haiku executors may run in parallel ONLY on disjoint
   crates/directories, ONLY sharing the one `target/` (never
   `isolation: "worktree"`, never a per-executor target dir — see

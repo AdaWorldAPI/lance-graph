@@ -93,6 +93,23 @@ print("DENY" if o.get("permissionDecision") == "deny" else "INJECT")')"
 }
 
 echo '### DENY -- an edit that INTRODUCES an authority label (law §G)'
+# MultiEdit: `edit`'s batch sibling. Added with the #1254 review fix -- the
+# matcher named only Edit/Write, so a batch could carry a label past the guard.
+# A leading untouched edit is included so one edit cannot be excused by another.
+multiedit() {
+  local want="$1" path="$2" old="$3" new="$4" got
+  got="$(printf '%s' "{\"tool_name\":\"MultiEdit\",\"tool_input\":{\"file_path\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$path"),\"edits\":[{\"old_string\":\"untouched\",\"new_string\":\"untouched\"},{\"old_string\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$old"),\"new_string\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$new")}]}}" \
+    | bash "$HOOK" | python3 -c '
+import json,sys
+raw = sys.stdin.read().strip()
+if not raw:
+    print("SILENT"); raise SystemExit
+o = json.loads(raw)["hookSpecificOutput"]
+print("DENY" if o.get("permissionDecision") == "deny" else "INJECT")')"
+  if [ "$got" = "$want" ]; then printf '  ok    %-7s %s\n' "$got" "$5"
+  else printf '  FAIL  want=%s got=%s  %s\n' "$want" "$got" "$5"; fails=$((fails + 1)); fi
+}
+
 edit DENY x.md "Status: WORKING-MODEL" "Status: operator-ruled"            "introduce operator-ruled"
 edit DENY x.md "the pin"              "the operator-locked pin"            "introduce operator-locked"
 write DENY n.md "# New
@@ -112,7 +129,24 @@ edit SILENT x.md "Status: OPEN"       "Status: MEASURED (cargo metadata, exit 0)
 edit SILENT x.md "a"                  "DECISION: keep path form\nBASIS: offline cost" "DECISION record"
 
 echo '### ALLOW -- not canonical prose/source'
+edit DENY x.md "was operator-ruled." "was operator-ruled. New: operator-pinned too." "a label ADDED beside an existing one is still an introduction"
+multiedit DENY x.md "b" "b operator-locked" "MultiEdit introducing a label"
+multiedit SILENT x.md "b" "b tidied" "MultiEdit with no label"
 write SILENT c.json '{"k":"operator-ruled"}'                                           "json is out of scope"
+
+echo '### DENY -- review findings on #1254, each reproduced before it was fixed'
+# codex P2: a quoted operand escaped the slice branch (the extension was
+# followed by a quote, not whitespace-or-end). Both quote styles.
+t DENY 'head -20 "src/lib.rs"'
+t DENY "sed -n 1,50p 'crates/x/src/lib.rs'"
+# codex P2: a pipeline written across lines was invisible to the capped-search
+# branch -- grep -E works one line at a time and `.*` never spans a newline.
+t DENY 'rg -n CallMask crates/ \
+  | head -20'
+
+echo '### ALLOW -- the carve-out those three fixes must not eat'
+t INJECT 'cargo test 2>&1 | tail -30'
+t INJECT 'cargo test > /tmp/probe.log 2>&1; tail -30 /tmp/probe.log'
 
 echo '### the Grep TOOL always carries the law'
 got="$(classify Grep '')"

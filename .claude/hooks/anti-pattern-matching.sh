@@ -106,6 +106,14 @@ AUTHORITY_DENY='VERBOTEN (FIRST-HAND SOURCE LAW §G): operator-ruled / operator-
 introduces_authority_label() {
   printf '%s' "$1" | grep -Ei "$AUTHORITY_LABELS" | grep -Eviq "$QUOTE_MARKER"
 }
+# Non-quoted label OCCURRENCES, for comparing an edit's two sides. A blanket
+# "old already had one" exemption let an edit ADD a label beside an existing
+# one -- `operator-ruled` present, `operator-pinned` arriving, no denial, which
+# is exactly the introduction the guard promises to block (codex P2 on #1254,
+# reproduced before fixing).
+count_authority_labels() {
+  printf '%s' "$1" | grep -Eiv "$QUOTE_MARKER" | grep -Eio "$AUTHORITY_LABELS" | wc -l | tr -d ' '
+}
 SLICER='(sed|head|tail|awk)'
 
 case "$tool" in
@@ -118,10 +126,33 @@ case "$tool" in
     if printf '%s' "$path" | grep -Eq '\.(md|rs)$'; then
       new="$(printf '%s' "$input" | jq -r '.tool_input.new_string // ""')"
       old="$(printf '%s' "$input" | jq -r '.tool_input.old_string // ""')"
-      # INTRODUCTION only: the label must be arriving, not already present.
-      if introduces_authority_label "$new" && ! printf '%s' "$old" | grep -Eiq "$AUTHORITY_LABELS"; then
+      # INTRODUCTION only, measured per OCCURRENCE: more non-quoted labels
+      # after than before. Comparing counts (not mere presence) is what stops
+      # a label riding in beside one that was already there.
+      if introduces_authority_label "$new" \
+         && [ "$(count_authority_labels "$new")" -gt "$(count_authority_labels "$old")" ]; then
         emit_deny "$AUTHORITY_DENY"
       fi
+    fi
+    ;;
+  MultiEdit)
+    # Same guard as Edit, per edit in the batch: a MultiEdit that introduces a
+    # label must not slip past because the matcher only named Edit/Write
+    # (CodeRabbit on #1254). Compared per-edit so one edit cannot be excused by
+    # another edit's pre-existing label.
+    path="$(printf '%s' "$input" | jq -r '.tool_input.file_path // ""')"
+    if printf '%s' "$path" | grep -Eq '\.(md|rs)$'; then
+      n="$(printf '%s' "$input" | jq -r '.tool_input.edits | length // 0')"
+      i=0
+      while [ "$i" -lt "${n:-0}" ]; do
+        new="$(printf '%s' "$input" | jq -r ".tool_input.edits[$i].new_string // \"\"")"
+        old="$(printf '%s' "$input" | jq -r ".tool_input.edits[$i].old_string // \"\"")"
+        if introduces_authority_label "$new" \
+           && [ "$(count_authority_labels "$new")" -gt "$(count_authority_labels "$old")" ]; then
+          emit_deny "$AUTHORITY_DENY"
+        fi
+        i=$((i + 1))
+      done
     fi
     ;;
   Write)
@@ -135,6 +166,17 @@ case "$tool" in
     ;;
   Bash)
     cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""')"
+    # Normalized copy, for MATCHING ONLY (never for execution or display).
+    # Two measured bypasses, both codex P2 on #1254, both reproduced first:
+    #   * a pipeline written across lines -- `rg ... \<newline> | head -20` --
+    #     was invisible to the capped-search branch, because grep -E works a
+    #     line at a time and `.*` never spans a newline;
+    #   * a quoted operand -- `head -20 "src/lib.rs"` -- escaped the slice
+    #     branch, because the extension was followed by a quote instead of
+    #     whitespace-or-end.
+    # Folding newlines to spaces and dropping shell quotes/continuations makes
+    # both read like the bare forms the patterns already catch.
+    scan="$(printf '%s' "$cmd" | tr '\n' ' ' | sed 's/[\"'"'"'\\]//g')"
     # Destructive-prepend shape: an open-for-write and a .read() of a file in
     # the same command (Python one-liner or heredoc). Heuristic, non-blocking
     # — false positives only cost an injected reminder.
@@ -146,15 +188,15 @@ case "$tool" in
     # DENY 1 -- a slicer whose argument list names a source file, and which is
     # not reading from a pipe. `cmd` is split on pipes so `cargo x | tail -30`
     # is judged on the `tail -30` segment alone (no file argument -> allowed).
-    elif printf '%s' "$cmd" | tr '|;' '\n\n' \
+    elif printf '%s' "$scan" | tr '|;' '\n\n' \
          | grep -Eq "(^|[[:space:]])$SLICER([[:space:]]+-[^[:space:]]+)*[[:space:]]+([^[:space:]]*[[:space:]]+)*[^[:space:]]*$SRC_EXT([[:space:]]|$)"; then
       emit_deny "$SLICE_DENY"
     # DENY 2 -- a search piped into a slicer: the cap that hides itself.
-    elif printf '%s' "$cmd" \
+    elif printf '%s' "$scan" \
          | grep -Eq "(^|[|&;]|[[:space:]])$SEARCH_CMD([[:space:]]|$).*\\|[[:space:]]*$SLICER([[:space:]]|$)"; then
       emit_deny "$CAP_DENY"
     # Otherwise: non-blocking injection, as before.
-    elif printf '%s' "$cmd" | grep -Eq '(^|[|&;]|[[:space:]])(grep|rg|ugrep|sed|tail|head|awk)([[:space:]]|$)'; then
+    elif printf '%s' "$scan" | grep -Eq '(^|[|&;]|[[:space:]])(grep|rg|ugrep|sed|tail|head|awk)([[:space:]]|$)'; then
       emit
     fi
     ;;
