@@ -105,6 +105,21 @@ OK, DECAYED, UNVERIFIABLE = "OK", "DECAYED", "UNVERIFIABLE"
 
 DEFAULT_GLOBS = [".claude/plans/*.md", ".claude/board/*.md"]
 
+# FROZEN historical archives are excluded, and the reason is not convenience.
+# An archive is a byte-for-byte copy of prose as it was written; its citations
+# are historical statements, not live claims. Demanding they resolve against
+# today's tree demands the archive be EDITED, which is the one thing an
+# immutable record may never be -- and the gate's own remedy ("replace the line
+# number with a stable anchor") is an edit. Worse, archiving a file makes every
+# citation it carried look NEWLY INTRODUCED to the two-revision arm, so a
+# lossless copy fails the gate for being a copy. Measured on the EPIPHANIES
+# archive: 5 decays reported, all of them statements that were already stale in
+# the original and were preserved deliberately.
+#
+# The live projection generated FROM an archive is NOT excluded -- it makes
+# current claims and is held to them.
+FROZEN_ARCHIVES = (".claude/board/EPIPHANIES-ARCHIVE-2026-09-20.md",)
+
 
 def norm(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip().lower()
@@ -311,6 +326,8 @@ def collect_citations(root: str) -> dict[tuple, Finding]:
         if not os.path.isfile(path):
             continue
         rel = os.path.relpath(path, root).replace(os.sep, "/")
+        if rel in FROZEN_ARCHIVES:
+            continue
         occ: dict[tuple, int] = {}
         for f in scan_file(path, root):
             base_key = (rel, f.cited, f.start, f.end)
