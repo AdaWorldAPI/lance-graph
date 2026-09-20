@@ -79,9 +79,16 @@ SLICE_DENY='VERBOTEN (FIRST-HAND SOURCE LAW, Regel 3): sed/head/tail/awk auf ein
 # `| head` hides it.
 CAP_DENY='VERBOTEN (FIRST-HAND SOURCE LAW, Regel 9): eine SUCHE in head/tail/sed/awk pipen. Das kappt eine Beweismenge und laesst ein abgeschnittenes Ergebnis wie ein vollstaendiges aussehen -- genau die Form hinter jeder "kein Consumer"-Behauptung in der Korrekturgeschichte dieses Repos. Stattdessen: das Grep-Tool mit `head_limit` (das die Kappung MELDET), oder ungekappt suchen und den Suchraum benennen. Gesetz: .claude/knowledge/FIRST-HAND-SOURCE-LAW.md'
 
+# A deny is TERMINAL, by construction rather than by call-site discipline.
+# The hook's stdout must be exactly ONE hook response; the MultiEdit branch
+# below loops over a batch, so without the exit a second violating edit wrote a
+# second JSON document and the pair parsed as neither denial (CodeRabbit on
+# #1255, reproduced before fixing). Exiting inside the function is what stops
+# the next branch that loops from re-introducing it.
 emit_deny() {
   jq -n --arg c "$1" \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $c}}'
+  exit 0
 }
 
 # Source/config extensions only. Scratch and temp outputs are not source, so

@@ -132,6 +132,34 @@ echo '### ALLOW -- not canonical prose/source'
 edit DENY x.md "was operator-ruled." "was operator-ruled. New: operator-pinned too." "a label ADDED beside an existing one is still an introduction"
 multiedit DENY x.md "b" "b operator-locked" "MultiEdit introducing a label"
 multiedit SILENT x.md "b" "b tidied" "MultiEdit with no label"
+
+# A hook's stdout must be exactly ONE response document. Two violating edits in
+# one batch used to emit TWO, and a concatenated pair parses as neither denial
+# (CodeRabbit on #1255). This asserts the COUNT, not merely that a denial
+# appeared -- the pre-existing rows above could not see the defect, because they
+# carry one violating edit each. Disable-verified: removing `exit 0` from
+# emit_deny makes this row report docs=2.
+multiedit_two_violations() {
+  local got
+  got="$(printf '%s' '{"tool_name":"MultiEdit","tool_input":{"file_path":"x.md","edits":[{"old_string":"a","new_string":"a operator-ruled"},{"old_string":"b","new_string":"b operator-pinned"}]}}' \
+    | bash "$HOOK" | python3 -c '
+import json, sys
+dec = json.JSONDecoder()
+raw, i, docs, denies = sys.stdin.read(), 0, 0, 0
+while i < len(raw):
+    while i < len(raw) and raw[i].isspace():
+        i += 1
+    if i >= len(raw):
+        break
+    o, i = dec.raw_decode(raw, i)
+    docs += 1
+    if o["hookSpecificOutput"].get("permissionDecision") == "deny":
+        denies += 1
+print(f"docs={docs} denies={denies}")')"
+  if [ "$got" = "docs=1 denies=1" ]; then printf '  ok    %-7s %s\n' "$got" "two violating edits -> ONE deny document"
+  else printf '  FAIL  want=docs=1 denies=1 got=%s  %s\n' "$got" "two violating edits -> ONE deny document"; fails=$((fails + 1)); fi
+}
+multiedit_two_violations
 write SILENT c.json '{"k":"operator-ruled"}'                                           "json is out of scope"
 
 echo '### DENY -- review findings on #1254, each reproduced before it was fixed'
