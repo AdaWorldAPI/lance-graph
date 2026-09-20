@@ -85,6 +85,13 @@ exclude = [
     # session + Railway/CI. MUST stay excluded (keeps surrealdb-core/OGAR out of
     # the default build). Verify via `cargo build --manifest-path crates/symbiont/Cargo.toml`
     # or `docker build -f crates/symbiont/Dockerfile -t symbiont .`.
+    # W0B mask-ABI differential at the R2IL seam: proves ogar-r2il's CallMask
+    # algebra and lance-graph-mask-risc's agree bit-identically over the same
+    # borrowed words, with CallMask as the oracle. MUST stay excluded -- it
+    # path-deps the OGAR sibling, and no ordinary workspace test should need
+    # that checkout present. Verify via
+    # `cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml`.
+    "crates/r2il-mask-abi-probe",
     "crates/symbiont",
     # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
     # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +
@@ -334,12 +341,33 @@ datafusion-functions-aggregate = "54"
 object_store = { version = "0.13", features = ["aws"] }
 
 [patch.crates-io]
-# Local sibling checkout of the SAME fork (P0: "prefer the local/fork source,
-# always"; the direct deps already assume the sibling via path = "../../../ndarray").
-# The git-URL form re-fetched AdaWorldAPI/ndarray+its burn submodule on every
-# resolve; burn is outside the session repo scope (403) and the gitlink rev is
-# unfetchable, so the git form deadlocks offline sessions. Path form = zero
-# network, identical source.
+# Redirects the REAL crates.io `ndarray` -- the upstream numeric crate this is
+# a fork OF -- onto the fork, so a transitive pull of upstream can never become
+# a second package identity. Note the section: `[patch.crates-io]` CANNOT
+# redirect the AdaWorldAPI git URL, and two excluded crates
+# (`perturbation-sim`, `helix`) do use that git coordinate. No member binary
+# sees both identities today, but that is a consequence of those crates being
+# EXCLUDED, not of this patch.
+#
+# P0: "prefer the local/fork source, always"; the direct deps already assume
+# the sibling via path = "../../../ndarray".
+#
+# ⊘ CORRECTED 2026-09-20. This comment previously read: "The git-URL form
+# re-fetched AdaWorldAPI/ndarray+its burn submodule on every resolve; burn is
+# outside the session repo scope (403) and the gitlink rev is unfetchable, so
+# the git form deadlocks offline sessions." Measured on master (e1ef350):
+# `git ls-tree HEAD` shows NO `160000` gitlink and NO `.gitmodules` -- `burn`
+# is `crates/burn`, an in-tree workspace member. Its OWN git deps
+# (AdaWorldAPI/burn.git rev 9b2b671) are genuinely out of session scope, but
+# cargo resolves the `ndarray` package rather than every member's
+# dependencies: a throwaway crate with `ndarray = { git = ".../ndarray",
+# branch = "master" }` returned `cargo metadata` exit 0, `Locking 10
+# packages`, `ndarray v0.17.2 (...#e1ef350a)`, no burn fetch, no 403. So the
+# git form does NOT deadlock. What survives: a git coordinate needs network on
+# a fresh resolve where a path coordinate needs none. Path form = zero network,
+# identical source -- which is the reason to keep it, and it is a smaller
+# reason than the one this comment used to give.
+# Full measurement + the target geometry: .claude/knowledge/CARGO-COMPUTE-SUBSTRATE.md
 ndarray = { path = "../ndarray" }
 
 # Dev/test debuginfo OFF (operator, 2026-08-18: "Cargo Debug*=0 or so makes it

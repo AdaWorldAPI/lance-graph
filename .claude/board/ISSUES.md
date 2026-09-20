@@ -1,3 +1,68 @@
+## ISS-R2IL-PROBE-HAS-NO-CI-LINE-UNTIL-OGAR-305
+
+**Status:** OPEN — one-line follow-up, blocked on a cross-repo merge.
+**Basis:** measured. `rust-test.yml`'s `test` job checks `AdaWorldAPI/OGAR` out
+with no `ref:`, so `crates/r2il-mask-abi-probe` compiles against OGAR's DEFAULT
+branch, where `CallMask::words()` does not exist yet (OGAR #305). Complete log
+of run 35513415131: **16 × E0599, one class, all `words`**, `exit 101`.
+Reproduced locally by detaching the OGAR sibling to `origin/main` (16 errors)
+and restoring (6/6 green).
+
+The step was REMOVED from the workflow rather than left red. The earlier
+position — keep it red and rely on merging OGAR #305 first — made a green `main`
+depend on human merge ordering that this repo cannot enforce; if #1254 merges
+first, `main` carries a red job. A gate arriving one merge later is the smaller
+cost.
+
+**To close (one line, no design):** after OGAR #305 is on OGAR's default branch,
+re-add to the `test` job, after the `lance-graph-ogar` step:
+
+```yaml
+      - name: Run r2il-mask-abi-probe mask-ABI differential (excluded tier, OGAR + ndarray siblings)
+        run: cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml
+```
+
+**Until then the probe is locally-verified only** (6/6, all disable-verified) and
+has NO CI enforcement — which is the actual risk this entry exists to keep
+visible, since an excluded crate with no CI line rots invisibly.
+
+## ISS-NDARRAY-CANONICAL-COORDINATE-COUPLES-FLEET-MSRV — one canonical ndarray source imposes one MSRV floor; three repos pin below it (2026-09-20)
+
+**Status:** OPEN. Operator decision, not a dependency-pass side effect.
+
+The CARGO COMPUTE SUBSTRATE LAW (`.claude/knowledge/CARGO-COMPUTE-SUBSTRATE.md`,
+rule 3) requires ONE canonical `ndarray` source coordinate across the fleet.
+Measured 2026-09-20, that has a price nobody had stated: ndarray master
+(`e1ef350`) reports **requires Rust 1.98**, and the fleet does not agree on a
+toolchain.
+
+| toolchain | repos |
+|---|---|
+| **1.98.1** | lance-graph, OGAR, a2ui-rs, stockfish-rs, MedCare-rs, q2 |
+| 1.97.1 | tesseract-rs |
+| 1.95 | odoo-rs |
+| 1.94.0 | ladybug-rs |
+
+`tesseract-rs` and `ladybug-rs` both path-dep ndarray DIRECTLY
+(`path = "../../../ndarray"` with `features = ["runtime-dispatch"]`, and
+`path = "../ndarray"` respectively), so on current master they are measurably
+unable to build against it. Whatever they build against today is an older
+checkout.
+
+**So "one canonical source" and "each repo keeps its own toolchain pin" cannot
+both hold.** The options are a fleet-wide 1.98 bump, a pinned older ndarray
+`rev` as the canonical coordinate, or an explicit two-tier split — each with
+consequences outside a dependency pass.
+
+**Do NOT resolve this by bumping three toolchains inside a unification PR.**
+`cargo-substrate-architect` is instructed to report it and stop; the card names
+this issue id.
+
+Method note: `tesseract-rs`'s own CLAUDE.md records a 1.97.1 pin and
+`stockfish-rs`'s records 1.95 while its `rust-toolchain.toml` says 1.98.1 — the
+FILES were read, not the prose, per this workspace's own rule that a document
+is not evidence about the state of the tree.
+
 ## ISS-DISMECH-SEAM-INVERTED-BOTH-WAYS — counterfactual adjudication CORRECTED; cleanup pass closed (2026-09-19)
 
 ⊘ The census addendum below says the DisMech `Verdict{Consistent,

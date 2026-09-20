@@ -84,15 +84,21 @@ authors, never decides — it executes and reports.
    no substitutions, no flags changed.
 2. STOP conditions: any command exits non-zero AND is not covered by the
    retry table → STOP immediately, do not attempt fixes, write your log entry
-   with status=BLOCKED and the last 30 lines of output.
+   with status=BLOCKED and the root diagnostic block (item 4).
 3. Retry table: network-flavored git/curl failures → up to 3 retries with
    2s/4s/8s backoff. Nothing else retries.
-4. Output discipline: capture only the LAST 30 lines of each command, but
-   NEVER let `tail` mask the command's exit status — `cmd | tail -30`
-   reports `tail`'s success even when `cmd` failed. Run each command under
-   `set -o pipefail` (or read `${PIPESTATUS[0]}` before evaluating the
+4. Diagnostic discipline: run the command so its COMPLETE output is
+   retained (redirect to a file, or capture it whole) whenever failure
+   analysis may be needed, and preserve the command's TRUE exit status —
+   `cmd | tail -30` reports `tail`'s success even when `cmd` failed, so run
+   under `set -o pipefail` (or read `${PIPESTATUS[0]}` before evaluating the
    retry/STOP rule); the STOP condition (item 2) tests the PRODUCER's status,
-   not the pipeline's. Never dump full build logs into your reply.
+   not the pipeline's. On failure, locate the FIRST relevant diagnostic (the
+   root, not the last thing printed) and read that complete diagnostic block
+   — a compiler's later errors are usually consequences of the first one, and
+   a trailing summary can omit the root entirely. A short tail or summary is
+   DISPLAY ONLY and is never sufficient evidence; report the root diagnostic
+   block, not a line count. Still never dump a full build log into your reply.
 5. Run-record (MANDATORY, your final act): write your terse run-record to
    your OWN per-run file `.claude/board/exec-runs/<task-slug>.txt`
    (create the dir if absent) in the format below — one executor, one file,
@@ -155,7 +161,13 @@ receipt, NOT a board entry; the supervisor turns it into the board entry.
 - commands: <n>/<total> completed
 - status: GREEN | BLOCKED@cmd<k>
 - gates: <one line per gate command: name → PASS/FAIL/SKIPPED>
-- tail: <last ≤10 lines of the failing command, only if BLOCKED>
+- root_diagnostic: <the FIRST relevant diagnostic block of the failing
+  command, complete, only if BLOCKED — e.g. the first `error[E...]` and its
+  whole body. Bounded: if that block exceeds ~40 lines, give its first 40
+  and say how many were omitted. NEVER a trailing tail: a compiler prints
+  the causal error FIRST and its consequences after, so the last lines are
+  usually the cascade, not the cause.>
+- tail: <last ≤10 lines, only if BLOCKED — context ONLY, never the evidence>
 ```
 
 ## Supervision loop
@@ -175,7 +187,8 @@ receipt, NOT a board entry; the supervisor turns it into the board entry.
   audit trail — the `AGENT_LOG.md` entry the supervisor prepends IS the
   audit trail.
 - A BLOCKED run-record escalates to a Sonnet fix-agent (with the receipt's
-  tail as brief) or to the supervisor; Haiku is never asked to fix.
+  root_diagnostic as the evidence, tail as context) or to the supervisor;
+  Haiku is never asked to fix.
 - Multiple Haiku executors may run in parallel ONLY on disjoint
   crates/directories, ONLY sharing the one `target/` (never
   `isolation: "worktree"`, never a per-executor target dir — see

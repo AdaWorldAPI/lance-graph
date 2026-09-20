@@ -342,7 +342,9 @@ updating the relevant board file in the SAME commit is incomplete.**
 | A merged PR (post-merge commit) | `.claude/board/LATEST_STATE.md` table + `.claude/board/PR_ARC_INVENTORY.md` PREPEND entry |
 | A new integration plan | `.claude/board/INTEGRATION_PLANS.md` PREPEND + `.claude/plans/<name>-v<N>.md` |
 | A new D-id / deliverable | `.claude/board/STATUS_BOARD.md` row (status = Queued → In progress → In PR → Shipped) |
-| A finding / correction / "aha" | `.claude/board/EPIPHANIES.md` PREPEND dated entry |
+| A finding / measurement / probe result / open point | `.claude/board/entries/YYYY-MM-DD-<entry-id>.md` (the entry verbatim) **+** `python3 .claude/tools/entries_index.py --write` in the SAME commit |
+| A genuine Eureka (passes the § Closeout admission gate below) | `.claude/board/EPIPHANIES.md` PREPEND dated entry |
+| An ordinary correction / lesson learned | **NOTHING** — one closeout line, see § Closeout below |
 | A tech-debt observation | `.claude/board/TECH_DEBT.md` entry |
 | An unresolved issue / blocker | `.claude/board/ISSUES.md` entry |
 | A completed agent run | `.claude/board/AGENT_LOG.md` PREPEND entry (D-ids, commit, tests, outcome) |
@@ -374,6 +376,167 @@ half is what the entry is for.
 This is a stopping rule, not a loosening: the original gap — merging #881,
 #882 and #883 with no entries at all — remains a real violation. What is
 excluded is only the degenerate tail.
+
+### Closeout — the default is one line, and a fixed mistake has no right to residency
+
+**DECISION (2026-09-20).** The workspace was accumulating correction-shaped
+prose faster than architecture: a mistake became a correction, then a finding,
+then an epiphany, then a post-mortem, then a correction OF the post-mortem, then
+permanent terminology. Measured: `EPIPHANIES.md` is 33,528 lines with no
+admission gate, and no closeout surface existed anywhere under `.claude/`. The
+default is now **fix → compress → keep open points visible → move on.**
+SCOPE: all ordinary work — implementation, audits, PR review, probes,
+integration, `/5plus3` alike. REVISIT WHEN: the ledger starts losing a
+*discovery* rather than a correction.
+
+**The default closeout is ONE compact status record** — not a board entry, not a
+file:
+
+```
+PR #<id> | STATUS: <fixed|measured|open|rejected|done> |
+OUTCOME: <smallest useful statement of what changed> |
+OPEN: <remaining live question(s), or none>
+```
+
+Several trivial corrections collapse into one line (`OUTCOME: 4 review defects
+corrected; executable contract unchanged`). **Do not create one permanent
+artifact per correction.** If a session fixed several things and discovered no
+new architecture, a boring closeout IS success: `STATUS: done | OUTCOME: review
+corrections applied; architecture unchanged | OPEN: none`.
+
+**MIRROR — self-reflection without paperwork.** At a meaningful closeout, at
+most these four fields; omit any field that carries nothing, and omit the whole
+section when it carries nothing. **Silence is allowed.**
+
+```
+MIRROR
+- LESSON: <one sentence, only if useful>
+- BLIND SPOT: <what relevant thing was not inspected / weighted / challenged>
+- BIAS CHECK: <heuristic that may have distorted the search or conclusion>
+- STILL OPEN: <uncertainty we genuinely do not yet understand>
+```
+
+**Kahneman/Tversky as QUESTIONS, never as labels.** Never write "this was
+anchoring" or "confirmation bias caused X" — diagnosing a past self is the
+residue this rule exists to stop. Ask only whether any MAY have contributed:
+
+- **Anchoring** — did the first plausible explanation become the reference later
+  evidence was read *against*, instead of being re-tested independently?
+- **Availability** — was the easiest grep hit, the recent PR or the vivid
+  failure overweighted because it was cheap to retrieve?
+- **Representativeness** — did something LOOK like a known pattern and get
+  treated as the same mechanism without reading the actual contract?
+- **Base rate / population** — was the denominator, frequency or index space
+  ignored; do two similarly shaped masks describe different populations?
+- **Framing** — did the task's wording make one reading feel inevitable; would
+  the conclusion survive a different phrasing?
+- **WYSIATI** — did "what we saw" become "all that exists"; did `search = 0`
+  become absence; did a small visible set become the whole search space?
+- **Sunk cost** — was a mechanism, doc or test preserved mainly because it was
+  already written?
+- **Confirmation pressure** — after forming the hypothesis, did we look for a
+  disable, a counterexample and an alternative, or only for agreement?
+
+**OPEN stays open.** `UNKNOWN` is a valid result. Never manufacture a doctrine,
+a carrier, a term, a follow-up PR or an Epiphany to turn OPEN into CLOSED — a
+visible blind spot is healthier than a fabricated conclusion. Write it plainly:
+`OPEN: ownership still undecided; no measured row-level predicate yet; search
+space not closed; competing explanations remain`.
+
+**Epiphany admission gate — lessons learned are NOT Epiphanies.** "the
+hand-written ternlog immediate was wrong", "the test failed by underflow rather
+than by its assertion", "the CI job attribution was guessed", "the grep was
+correct and the conclusion false", "the tail hid the root diagnostic" are
+LESSONS. Each may become one `MIRROR` line. None enters `EPIPHANIES.md`. A
+candidate must be all three — **NEW** (not already represented),
+**LOAD-BEARING** (changes future architecture, reasoning or representation),
+**DURABLE** (still matters once the PR and the mistake are forgotten) — and pass
+one test:
+
+> **Would this insight still matter if the mistake that led to it had never
+> happened?** NO ⇒ it is not an Epiphany.
+
+Concretely: *"I was wrong about which CI job held the step"* is a correction
+(`STATUS: fixed | OUTCOME: job attribution corrected | OPEN: none`). *"Two masks
+can share a Boolean algebra while inhabiting different population axes, so
+algebraic compatibility does not imply representational substitutability"*
+survives its own mistake and is a candidate. Keep the categories separate.
+
+**The transient tier, and the ONE promotion rule.** Ordinary work lands in
+`.claude/board/entries/` as a dated file — the **transient work/finding tier**,
+not an Epiphany staging folder. It is noisy on purpose: a finding there may be
+wrong, superseded tomorrow, or merely a measurement. Its index is GENERATED
+(`entries_index.py --write`; never `> README.md` — the file is its own input)
+and CI runs the three structural falsifiers, so a stranded file or a stale
+header cannot recur.
+
+At closeout each entry is reconciled against project truth — reuse what exists:
+`PLAN-INVENTORY`'s verdict rubric (**OPEN** = its own status line and/or its
+`STATUS_BOARD` D-ids say work remains · **CLOSED** = its deliverable is
+delivered · **SUPERSEDED** = a higher-numbered sibling or its status says so ·
+**AMBIGUOUS** = no house-format status and no board row), `SUPERSESSION-INDEX`'s
+`route` column, and `preflight_drift` for board-claim-vs-cargo-reality. Then
+exactly four destinations, and no fifth:
+
+| the entry is… | destination |
+|---|---|
+| fixed / obsolete / duplicate / already represented | **nothing durable** — it dies in the tier; git keeps the journey |
+| still genuinely unresolved | one compact **OPEN** row (`ISSUES.md` or `STATUS_BOARD.md`) |
+| implemented / closed | one compact **DONE** row (`STATUS_BOARD.md`, or `LATEST_STATE.md` if it changed the inventory) |
+| NEW **and** LOAD-BEARING **and** DURABLE, and still true after reconciliation | `EPIPHANIES.md` — the rare case |
+
+A surviving Eureka must clear **both** gates: the three-way admission test above
+*and* still being true against the current implementation. **`MIRROR` is never
+promoted by itself** — it is transient reflection and normally dies at closeout;
+only a factual consequence of it (a real open implementation issue) becomes a
+row, and a `BIAS CHECK` line has no durable home at all.
+
+**The checkpoint, and DELTA-ONLY closeout.** `.claude/board/FINDINGS-BASELINE-2026-09-20.md`
+is the one historical catch-up over the 306 findings that went into the
+`EPIPHANIES.md` monolith after the 2026-08-06 split — a **k-frame**. From it
+forward, closeout consumes only the **delta**: read `PROCESSED_THROUGH_SHA`
+from `.claude/board/PROCESSED_THROUGH`, reconcile
+`PROCESSED_THROUGH_SHA..<captured HEAD>`, write the compact state, then
+advance the marker to that captured head. **Routine work never censuses the
+historical `EPIPHANIES.md` monolith again.**
+
+The watermark is a **SHA, not a date** — imports, backdated headings, rebases
+and concurrent work all make a calendar watermark lie, the same reason
+`supersession_index.py` refuses git mtime as a signal. It names the CONSUMED
+INPUT, never the commit that records it: a commit cannot contain its own hash.
+If the SHA is unreachable (shallow clone), tooling FAILS CLOSED — an invisible
+delta is not an empty one.
+
+**The historical prose is FROZEN, not reconciled.** Frozen means *not reread by
+routine closeout*. **Most historical rows were NOT adjudicated** — mechanically
+unjoinable, conflicting evidence, or, most of them, graded `FINDING` / `RULING`
+/ `CORRECTION`, an epistemic grade answering *how well established* rather than
+*is it done*. The generated baseline owns the exact counts; they are not
+restated here. **FROZEN ≠ RECONCILED**, and the ambiguous rows are
+not an invitation to another archaeology pass; if one matters later it resurfaces
+as live work and enters the transient tier like anything else.
+
+A promotion to `EPIPHANIES.md` after the baseline must name the
+`entries/YYYY-MM-DD-*.md` it came from — `epiphany_provenance.py` checks that
+the reference RESOLVES, and nothing more. It proves the route; whether the
+content is a Eureka stays the admission gate above, because a regex that judged
+Eureka-ness would be a guard that fires on everything.
+
+**No recursive post-mortems.** A correction does not entitle a post-mortem, and
+a corrected post-mortem does not entitle another — § Termination clause above is
+the same stopping rule one level down. A review earns a follow-up only for a
+still-live executable defect, an unresolved implementation task, or a true
+Eureka needing independent architectural work. *Documenting what went wrong is
+not itself a follow-up task.*
+
+**Ore and slag.** Ask what survived that future work genuinely needs. **Keep:**
+the current contract, the measured result, the open point, a genuine Eureka.
+**Discard:** stale reasoning, the correction narrative, the duplicate
+explanation, the wrong hypothesis, procedural autobiography, and any elaborate
+lesson already encoded in a test or a guard. **The closeout should usually be
+SMALLER than the reasoning history it closes.** Optimize for clarity, current
+truth, visible uncertainty and minimal durable residue — never for maximum
+documentation. The architecture should stay enjoyable to work on.
 
 ### The falsifiability rule (P0, added 2026-07-26 — 7 instances in one session)
 
@@ -939,8 +1102,10 @@ the runtime Blackboard. Keep them architecturally distinct.
   architecture), escalate to Opus.
 - **NEVER `haiku` for any subagent in this workspace** — with ONE narrow,
   contract-gated exception: the **guarded-executor** role (run a pre-written,
-  `-p`-scoped bash/cargo card with explicit START/STOP, retry table, tail-30
-  output discipline, one shared `target/`, and a mandatory append-only log
+  `-p`-scoped bash/cargo card with explicit START/STOP, retry table, root-
+  diagnostic output discipline (true exit status preserved, complete output
+  retained, the FIRST relevant diagnostic block read in full — a short tail
+  is display only), one shared `target/`, and a mandatory append-only log
   entry; never authors, decides, or edits any file but the log). See
   `.claude/knowledge/tiered-agent-execution-protocol.md` for the full
   contract. Outside that role the quality floor is Sonnet regardless of task
@@ -1484,6 +1649,29 @@ Two corollaries:
 
 Cross-ref: the sibling rule below (Read before Write) protects FILES from a
 blind write; this one protects CONCLUSIONS from a blind read.
+
+**The full rule set lives in ONE place: `.claude/knowledge/FIRST-HAND-SOURCE-LAW.md`.**
+The measured table above is why the rule exists; that file is the rule —
+what may be claimed from which operation (search is navigation, never
+evidence), the auto-deepen triggers, the paging rule (a partial Read is not
+evidence for a whole-file claim), and *context exhaustion must reduce SCOPE,
+never evidence quality*. Worker-side mechanics stay where they already are:
+`.claude/v3/knowledge/sonnet-worker-guardrails.md` §1/§5 and
+`.claude/knowledge/tiered-agent-execution-protocol.md`. Read it before the
+first search of a task; do not restate it anywhere.
+
+It also carries the one rule with no other home: **human authorization is
+PROVENANCE, NOT VALIDATION.** A person chooses direction, scope, policy,
+naming and acceptable risk — *"the user chose X"* never becomes *"X is
+technically true"* without independent evidence. So new canonical material
+does not use `operator-ruled` / `operator-pinned` / `operator-locked` /
+`operator-confirmed` as a technical status; it uses an evidence-bearing state
+(`MEASURED` with its command, `VERIFIED-IN-CODE` with its location,
+`TEST-PINNED`, `CURRENT-CONTRACT`, `WORKING-MODEL`, `HYPOTHESIS`, `OPEN`,
+`SUPERSEDED`, `REJECTED-BY-FALSIFIER`), and records a real decision as
+`DECISION` / `SCOPE` / `BASIS` / `REVISIT WHEN`. Historical files keep their
+wording; the `PreToolUse` guard blocks only an edit that INTRODUCES one of
+the four, and lets a supersession note quote it.
 
 **P0 Rule: Read before Write, always.** Before calling `Write` on any path
 that may already exist, run `Read` (or `git status` for committed files).

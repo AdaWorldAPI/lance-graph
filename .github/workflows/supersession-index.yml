@@ -25,6 +25,18 @@ on:
       # filter had not caught up.
       - .claude/board/entries/**
       - .claude/board/EPIPHANIES.md
+      # The entries tier's OWN generator + index. Added 2026-09-20 with
+      # `entries_index.py`: the index was hand-maintained, its header claimed
+      # 135 entries against 144 files, and its own falsifier #2 was red on two
+      # stranded files -- invisible because the three checks were shell
+      # snippets in a README that nothing executed.
+      - .claude/tools/entries_index.py
+      - .claude/board/entries/README.md
+      # The findings watermark + the provenance gate. An EPIPHANIES addition
+      # after the baseline must cite the entry it was promoted from, so both
+      # the marker and the checker are inputs to that claim.
+      - .claude/tools/epiphany_provenance.py
+      - .claude/board/PROCESSED_THROUGH
       # `crates/` decides the "live" column (:27 globs it per symbol). Broad,
       # and deliberately so: a symbol deleted from the tree changes the table,
       # and the generator takes ~15 s, so the gate is cheap next to the Rust
@@ -42,7 +54,16 @@ jobs:
   regenerate-and-diff:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 is REQUIRED by the provenance gate, not a convenience.
+      # `actions/checkout@v4` defaults to depth 1, and MEASURED: a depth-1
+      # clone whose head is ahead of the baseline does not contain the
+      # baseline commit at all (`git rev-list --count HEAD` == 1). The gate
+      # fails CLOSED on an unreachable baseline -- correctly -- so with the
+      # default depth it would go red on every PR after the baseline landed,
+      # for want of history rather than for want of provenance.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Regenerate and compare
         run: |
           python3 .claude/tools/supersession_index.py > /tmp/regen.md
@@ -59,3 +80,22 @@ jobs:
             exit 1
           fi
           echo "index is current"
+      # The transient tier's index is generated too, and by a SEPARATE
+      # generator: `supersession_index.py` reads `entries/*.md` only to count
+      # D-id coverage and never writes this table. One step, both gates --
+      # staleness AND the three structural falsifiers (row with no file / file
+      # with no row / duplicate id), which until now existed only as prose.
+      - name: Entries index is current and structurally sound
+        run: python3 .claude/tools/entries_index.py --check
+      - name: Entries index generator self-test
+        run: python3 .claude/tools/entries_index.py --self-test
+      # Provenance for anything promoted to EPIPHANIES.md since the findings
+      # baseline: the heading must name an entries/ file that EXISTS. Purely
+      # structural -- it proves the route, never that the content is a Eureka
+      # (that stays the closeout admission rule). Fails CLOSED if the baseline
+      # revision is unreachable in a shallow clone, because an invisible delta
+      # is not an empty one.
+      - name: Post-baseline epiphanies cite their originating entry
+        run: python3 .claude/tools/epiphany_provenance.py
+      - name: Provenance gate self-test
+        run: python3 .claude/tools/epiphany_provenance.py --self-test

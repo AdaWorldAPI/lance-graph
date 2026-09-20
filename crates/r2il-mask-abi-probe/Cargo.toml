@@ -1,0 +1,25 @@
+[package]
+name = "r2il-mask-abi-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "W0B: the mask-ABI differential at the R2IL seam. Proves ogar-r2il's CallMask algebra and lance-graph-mask-risc's agree BIT-IDENTICALLY over the same borrowed words — and nothing more. NOT a Quack<->R2IL bridge: CallMask indexes call slots inside ONE body (<=180), mask-risc indexes rows of a projection (~64K). Same algebra, different index spaces; the row bridge is W0C."
+
+# Its OWN workspace root. Excluded from lance-graph's so no ordinary
+# workspace test pays for the OGAR sibling checkout, and so `ndarray`'s
+# escaping `../../../ndarray` path (reached through mask-risc) still resolves
+# from its own manifest dir. Same shape as `helix` / `symbiont`.
+[workspace]
+
+[dependencies]
+
+[dev-dependencies]
+# The candidate for the ONE executing algebra.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# The oracle in THIS probe — deliberately not yet the delegating side. Reached
+# by PATH, not git: mask-risc path-deps `ndarray` at `../../../ndarray`, a
+# path that leaves its own workspace and can never resolve through a cargo git
+# checkout, so the differential cannot live on the OGAR side. The direction
+# here matches `crates/symbiont`'s existing `../../../OGAR/crates/...` deps.
+ogar-r2il = { path = "../../../OGAR/crates/ogar-r2il" }
+ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
