@@ -159,6 +159,13 @@ struct CaseMetrics {
     /// case is `0`. The law's "no population intermediate" is checked
     /// against THIS field, not against `alloc_bytes_exec`.
     population_state_bytes: usize,
+    /// Bytes of population-sized state the TEST built to hand the fold a
+    /// view it does not have resident — a reordered copy of the lanes. This
+    /// is materialisation in the harness, not in the terminal, and it is
+    /// printed so a `population_state_bytes=0` next to it cannot be read as
+    /// a zero-materialisation proof: the terminal is O(1) WHEN GIVEN that
+    /// view; producing the view is the open question. `0` everywhere else.
+    fixture_view_bytes: usize,
 }
 
 fn print_metric(id: &str, m: &CaseMetrics) {
@@ -167,7 +174,7 @@ fn print_metric(id: &str, m: &CaseMetrics) {
         Some(k) => eprintln!(
             "METRIC case={id} ops={} scratch_words={} tile_words={} scratch_bytes={} \
              alloc_bytes_exec={} rows_materialized={} index_vec_len={} out_bytes={} \
-             pair_relation_bytes={} population_state_bytes={} programs={k}",
+             pair_relation_bytes={} population_state_bytes={} fixture_view_bytes={} programs={k}",
             m.ops,
             m.scratch_words,
             m.tile_words,
@@ -178,11 +185,12 @@ fn print_metric(id: &str, m: &CaseMetrics) {
             m.out_bytes,
             m.pair_relation_bytes,
             m.population_state_bytes,
+            m.fixture_view_bytes,
         ),
         None => eprintln!(
             "METRIC case={id} ops={} scratch_words={} tile_words={} scratch_bytes={} \
              alloc_bytes_exec={} rows_materialized={} index_vec_len={} out_bytes={} \
-             pair_relation_bytes={} population_state_bytes={}",
+             pair_relation_bytes={} population_state_bytes={} fixture_view_bytes={}",
             m.ops,
             m.scratch_words,
             m.tile_words,
@@ -193,6 +201,7 @@ fn print_metric(id: &str, m: &CaseMetrics) {
             m.out_bytes,
             m.pair_relation_bytes,
             m.population_state_bytes,
+            m.fixture_view_bytes,
         ),
     }
 }
@@ -260,6 +269,7 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
             programs: None,
             pair_relation_bytes: 0,
             population_state_bytes: 0,
+            fixture_view_bytes: 0,
         },
     )
 }
@@ -355,6 +365,7 @@ fn run_group(
             programs: Some(plan.groups.len()),
             pair_relation_bytes: 0,
             population_state_bytes: 0,
+            fixture_view_bytes: 0,
         },
     )
 }
@@ -649,6 +660,7 @@ fn group_sum_cc() {
         programs: Some(1),
         pair_relation_bytes: 0,
         population_state_bytes: 0,
+        fixture_view_bytes: 0,
     };
     print_metric("group_sum_cc", &m);
     assert_case(&cases, "group_sum_cc", &encoded);
@@ -735,6 +747,7 @@ fn join_sum_country() {
         // shape built is gone too, no foreign MASK ever exists either.
         pair_relation_bytes: 0,
         population_state_bytes: 0,
+        fixture_view_bytes: 0,
     };
     print_metric("join_sum_country", &m);
     assert_case(&cases, "join_sum_country", &encoded);
@@ -752,10 +765,14 @@ fn join_sum_country() {
 ///   minimum exact state on an unclustered lane (mask-risc
 ///   `tests/distinct.rs`' pigeonhole falsifier); it never leaves the fold,
 ///   only its popcount does.
-/// - the same lines stored under their doc (`doc_id` clustered — the address
+/// - the same lines GIVEN in doc order (`doc_id` clustered — the address
 ///   order of a child population under its parent):
 ///   [`Agg::CountDistinctClusteredU32`] → `Terminal::CountKeyRunsU32`, two
-///   words of state, `Out::None`, `population_state_bytes = 0`.
+///   words of state, `Out::None`. This arm proves the TERMINAL is O(1) when
+///   handed a clustered view; the view itself is built by the test
+///   (`fixture_view_bytes`, a reordered copy) because the fixture has no
+///   resident doc-major projection. It is a semantic proof of the fold, not
+///   a zero-materialisation proof of the query on this fixture.
 ///
 /// The old shape — `ScatterOrU32` into a doc bitmap read back by a second
 /// `Count` program — is gone: a population mask consumed by the next fold is
@@ -808,6 +825,7 @@ fn join_count_docs_with_posted() {
         programs: Some(1),
         pair_relation_bytes: 0,
         population_state_bytes: sink.len() * std::mem::size_of::<u64>(),
+        fixture_view_bytes: 0,
     };
     print_metric("join_count_docs_with_posted", &m);
     assert_case(&cases, "join_count_docs_with_posted", &encoded);
@@ -828,7 +846,8 @@ fn join_count_docs_with_posted() {
         "unclustered: the run fold must over-count ({over:?} vs {want})"
     );
 
-    // ── Arm 2: the clustered layout — CountKeyRunsU32, no population state. ──
+    // ── Arm 2: a clustered VIEW handed to CountKeyRunsU32. The reorder below
+    // is the test's own materialisation, counted as `fixture_view_bytes`. ──
     let mut order: Vec<usize> = (0..fx.line.doc_id_u32.len()).collect();
     order.sort_by_key(|&i| fx.line.doc_id_u32[i]); // stable: runs, not a resort
     let by = |v: &[u32]| -> Vec<u32> { order.iter().map(|&i| v[i]).collect() };
@@ -867,8 +886,12 @@ fn join_count_docs_with_posted() {
         programs: Some(1),
         pair_relation_bytes: 0,
         population_state_bytes: 0,
+        // What the TEST built to hand the fold a clustered view: the
+        // permutation plus eight reordered 4-byte lanes. Not the terminal's
+        // state — and not evidence that a resident doc-major view exists.
+        fixture_view_bytes: order.len() * (std::mem::size_of::<usize>() + 8 * 4),
     };
-    print_metric("join_count_docs_with_posted_clustered", &m);
+    print_metric("join_count_docs_with_posted_clustered_view_given", &m);
     // A distinct count is permutation-invariant: same DuckDB row, same answer.
     assert_case(&cases, "join_count_docs_with_posted", &c_encoded);
 }
@@ -941,6 +964,7 @@ fn join_group_sum_country() {
         // partner)` pair list or a remapped key lane.
         pair_relation_bytes: 0,
         population_state_bytes: 0,
+        fixture_view_bytes: 0,
     };
     print_metric("join_group_sum_country", &m);
     assert_case(&cases, "join_group_sum_country", &encoded);
