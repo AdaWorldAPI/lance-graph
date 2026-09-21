@@ -809,17 +809,45 @@ pub enum Agg {
         /// The lane read where it does not.
         els: Col,
     },
-    /// The one-to-many hop back: for every surviving row, sets bit `fk[row]`
-    /// of a caller-supplied `Out::Mask` buffer of `words_for(out_rows)` —
-    /// `Terminal::ScatterOrU32`. `"docs that have a posted line"` is
-    /// `Agg::ScatterOrU32 { fk: doc_id, out_rows: DOC_ROWS }` over a
-    /// `status == 1` filter.
+    /// The one-to-many hop back AS THE DEMANDED RESULT: for every surviving
+    /// row, sets bit `fk[row]` of a caller-supplied `Out::Mask` buffer of
+    /// `words_for(out_rows)` — `Terminal::ScatterOrU32`. Legal only when
+    /// that target mask IS what the query asks for (a `hop`). A query that
+    /// asks for a COUNT over the targets is [`Agg::CountDistinctU32`] /
+    /// [`Agg::CountDistinctClusteredU32`]; handing this mask to a second
+    /// program is the forbidden population intermediate.
     ScatterOrU32 {
         /// The foreign-key column naming the target row on the OTHER table.
         fk: Col,
         /// The target table's row count — the caller's `Out::Mask` buffer
         /// must be exactly `words_for(out_rows)` long.
         out_rows: u32,
+    },
+    /// `COUNT(DISTINCT key)` over the surviving rows on an UNCLUSTERED key
+    /// lane — `Terminal::ScatterCountU32`. `SELECT COUNT(*) FROM doc WHERE
+    /// EXISTS(line … doc_id = doc.rid AND status = 1)` is
+    /// `Agg::CountDistinctU32 { key: doc_id, universe: DOC_ROWS }`: ONE
+    /// program whose accumulator (the caller's `Out::Mask`, one bit per key
+    /// of `universe`) never leaves the fold — only its popcount does. That
+    /// accumulator is the minimum exact state on an unclustered lane
+    /// (mask-risc `tests/distinct.rs`, the pigeonhole falsifier); a key at or
+    /// past `universe` is dropped, not an error.
+    CountDistinctU32 {
+        /// The key column (`u32`) whose distinct values are counted.
+        key: Col,
+        /// The key universe — the accumulator is `words_for(universe)`.
+        universe: u32,
+    },
+    /// `COUNT(DISTINCT key)` on a KEY-CLUSTERED lane (equal keys contiguous —
+    /// the address order a projection stores a child population under its
+    /// parent) — `Terminal::CountKeyRunsU32`, two words of state, `Out::None`.
+    /// Clustering is the caller's precondition, exactly as
+    /// [`Filter::prefix_facet`]'s witnessed range carries its row-order
+    /// obligation: on a lane that is not clustered this counts runs and
+    /// over-counts. Use [`Agg::CountDistinctU32`] there.
+    CountDistinctClusteredU32 {
+        /// The key column (`u32`), stored in key order.
+        key: Col,
     },
     /// The one-terminal `GROUP BY key SUM(val)` — `Terminal::GroupSumI32`,
     /// ONE program instead of `lower_group_by`'s K. The caller supplies an
@@ -1437,6 +1465,12 @@ fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
             lane: fk.0,
             out_rows,
         },
+        Agg::CountDistinctU32 { key, universe } => Terminal::ScatterCountU32 {
+            mask,
+            lane: key.0,
+            out_rows: universe,
+        },
+        Agg::CountDistinctClusteredU32 { key } => Terminal::CountKeyRunsU32 { mask, lane: key.0 },
         Agg::GroupSumI32 { key, val } => Terminal::GroupSumI32 {
             mask,
             key: key.0,
@@ -1995,6 +2029,8 @@ mod tests {
                 | Terminal::MaskedMaxI32 { mask, .. }
                 | Terminal::BlendI32 { mask, .. }
                 | Terminal::ScatterOrU32 { mask, .. }
+                | Terminal::ScatterCountU32 { mask, .. }
+                | Terminal::CountKeyRunsU32 { mask, .. }
                 | Terminal::GroupSumI32 { mask, .. }
                 | Terminal::GroupSumViaI32 { mask, .. }
                 | Terminal::Keep { mask } if mask == gate

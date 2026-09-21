@@ -28,10 +28,11 @@ use ndarray::simd::{
     le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
     mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_gather_u32, mask_not,
     mask_not_assign, mask_or, mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor,
-    mask_xor_assign, masked_group_sum_i32, masked_group_sum_i32_via, masked_max_i32,
-    masked_min_i32, masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask,
-    ne_u32_to_mask_under, popcount_batch_u64, ternary_match_u32_to_mask,
+    mask_xor_assign, masked_group_sum_i32, masked_group_sum_i32_via, masked_key_run_count_u32,
+    masked_max_i32, masked_min_i32, masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under,
+    ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64, ternary_match_u32_to_mask,
     ternary_match_u32_to_mask_under, ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
+    KeyRunCarry,
 };
 
 use crate::ir::{
@@ -733,6 +734,10 @@ pub fn execute_into(
     let mut sum = 0i64;
     let mut min: Option<i32> = None;
     let mut max: Option<i32> = None;
+    // The whole state of a key-clustered distinct count: the open run's key
+    // and whether it was hit. Two words, however many rows.
+    let mut run_carry = KeyRunCarry::default();
+    let mut runs = 0usize;
 
     let mut w0 = 0usize;
     while w0 < words {
@@ -933,6 +938,13 @@ pub fn execute_into(
                     );
                 }
             }
+            Terminal::CountKeyRunsU32 { mask, lane } => {
+                runs += masked_key_run_count_u32(
+                    lane_u32(planes, lane, t),
+                    read(planes, &slots, mask, t),
+                    &mut run_carry,
+                );
+            }
             Terminal::GroupSumI32 { mask, key, val } => {
                 // `validate` already refused a missing or too-small `out`;
                 // the kernel adds into it, tile after tile.
@@ -984,6 +996,7 @@ pub fn execute_into(
             Out::Mask(o) => popcount_batch_u64(o) as usize,
             _ => 0,
         }),
+        Terminal::CountKeyRunsU32 { .. } => Value::Count(runs + run_carry.finish()),
         Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. } => Value::GroupSummed,
         Terminal::Keep { mask } => Value::Mask(mask),
     })

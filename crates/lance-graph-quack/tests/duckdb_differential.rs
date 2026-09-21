@@ -152,6 +152,13 @@ struct CaseMetrics {
     /// row-pair list. Named explicitly (rather than left implicit) so the
     /// absence is a printed fact, not an inference from a missing field.
     pair_relation_bytes: usize,
+    /// Bytes of POPULATION-SIZED state a fold carried that is neither the
+    /// tile scratch nor the encoded answer — the accumulator of a
+    /// `ScatterCountU32` (one bit per key of the universe). Printed so the
+    /// one case that carries such state says so in numbers; every other
+    /// case is `0`. The law's "no population intermediate" is checked
+    /// against THIS field, not against `alloc_bytes_exec`.
+    population_state_bytes: usize,
 }
 
 fn print_metric(id: &str, m: &CaseMetrics) {
@@ -160,7 +167,7 @@ fn print_metric(id: &str, m: &CaseMetrics) {
         Some(k) => eprintln!(
             "METRIC case={id} ops={} scratch_words={} tile_words={} scratch_bytes={} \
              alloc_bytes_exec={} rows_materialized={} index_vec_len={} out_bytes={} \
-             pair_relation_bytes={} programs={k}",
+             pair_relation_bytes={} population_state_bytes={} programs={k}",
             m.ops,
             m.scratch_words,
             m.tile_words,
@@ -170,11 +177,12 @@ fn print_metric(id: &str, m: &CaseMetrics) {
             m.index_vec_len,
             m.out_bytes,
             m.pair_relation_bytes,
+            m.population_state_bytes,
         ),
         None => eprintln!(
             "METRIC case={id} ops={} scratch_words={} tile_words={} scratch_bytes={} \
              alloc_bytes_exec={} rows_materialized={} index_vec_len={} out_bytes={} \
-             pair_relation_bytes={}",
+             pair_relation_bytes={} population_state_bytes={}",
             m.ops,
             m.scratch_words,
             m.tile_words,
@@ -184,6 +192,7 @@ fn print_metric(id: &str, m: &CaseMetrics) {
             m.index_vec_len,
             m.out_bytes,
             m.pair_relation_bytes,
+            m.population_state_bytes,
         ),
     }
 }
@@ -232,9 +241,7 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
             (s, n, n)
         }
         Value::Blended => panic!("case {id}: no BlendI32 case in this suite"),
-        Value::Scattered => panic!(
-            "case {id}: run_query doesn't handle ScatterOrU32 — see join_count_docs_with_posted"
-        ),
+        Value::Scattered => panic!("case {id}: no ScatterOrU32 case in this suite"),
         Value::GroupSummed => panic!(
             "case {id}: run_query doesn't handle GroupSumI32 — see group_sum_cc's one-terminal arm"
         ),
@@ -252,6 +259,7 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
             out_bytes,
             programs: None,
             pair_relation_bytes: 0,
+            population_state_bytes: 0,
         },
     )
 }
@@ -346,6 +354,7 @@ fn run_group(
             out_bytes,
             programs: Some(plan.groups.len()),
             pair_relation_bytes: 0,
+            population_state_bytes: 0,
         },
     )
 }
@@ -639,6 +648,7 @@ fn group_sum_cc() {
         out_bytes,
         programs: Some(1),
         pair_relation_bytes: 0,
+        population_state_bytes: 0,
     };
     print_metric("group_sum_cc", &m);
     assert_case(&cases, "group_sum_cc", &encoded);
@@ -724,99 +734,143 @@ fn join_sum_country() {
         // list — and, since the partner-side plane the old two-program
         // shape built is gone too, no foreign MASK ever exists either.
         pair_relation_bytes: 0,
+        population_state_bytes: 0,
     };
     print_metric("join_sum_country", &m);
     assert_case(&cases, "join_sum_country", &encoded);
 }
 
 /// `SELECT COUNT(*) FROM doc d WHERE EXISTS(SELECT 1 FROM line l WHERE
-/// l.doc_id=d.rid AND l.status=1)` — the one-to-many hop BACK:
-/// `Agg::ScatterOrU32` sets bit `doc_id` of an 8-word `Out::Mask` buffer for
-/// every posted line, then a tiny doc-side program counts the buffer as a
-/// resident plane.
+/// l.doc_id=d.rid AND l.status=1)` — `COUNT(DISTINCT doc_id)` over the
+/// posted lines, ONE program either way; which terminal is legal is a
+/// property of the KEY LANE'S LAYOUT, and both layouts are run here against
+/// the same DuckDB answer:
+///
+/// - the fixture as generated (`doc_id` random — unclustered):
+///   [`Agg::CountDistinctU32`] → `Terminal::ScatterCountU32`. The fold's
+///   accumulator is one bit per doc (`population_state_bytes = 64`), the
+///   minimum exact state on an unclustered lane (mask-risc
+///   `tests/distinct.rs`' pigeonhole falsifier); it never leaves the fold,
+///   only its popcount does.
+/// - the same lines stored under their doc (`doc_id` clustered — the address
+///   order of a child population under its parent):
+///   [`Agg::CountDistinctClusteredU32`] → `Terminal::CountKeyRunsU32`, two
+///   words of state, `Out::None`, `population_state_bytes = 0`.
+///
+/// The old shape — `ScatterOrU32` into a doc bitmap read back by a second
+/// `Count` program — is gone: a population mask consumed by the next fold is
+/// forbidden intermediate state whatever it was called.
 #[test]
 fn join_count_docs_with_posted() {
     let cases = load_cases();
     let fx = fixture::generate();
+
+    // ── Arm 1: the generated (unclustered) layout — ScatterCountU32. ──
     let lanes = fx.line.lanes();
     let planes = lanes.planes();
-
-    // Phase 1 (line side): `status == 1` -> ScatterOrU32(doc_id, DOC_ROWS).
-    let line_program = lower(&Query {
+    let program = lower(&Query {
         filter: Filter::cmp(STATUS, Cmp::EqU32(1)),
-        agg: Agg::ScatterOrU32 {
-            fk: DOC_ID_U32,
-            out_rows: DOC_ROWS as u32,
+        agg: Agg::CountDistinctU32 {
+            key: DOC_ID_U32,
+            universe: DOC_ROWS as u32,
         },
     })
     .expect("lowers");
-    let mut scratch = Scratch::for_program(&line_program, planes.n_rows).expect("carves");
+    assert!(matches!(program.terminal, Terminal::ScatterCountU32 { .. }));
+    let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
     let tile_words = scratch.words();
     let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
-    let mut scattered = vec![0u64; words_for(DOC_ROWS)];
-    let before1 = BYTES.load(Ordering::Relaxed);
-    let value1 = execute_into(
-        &line_program,
+    // The fold's own accumulator: one bit per doc. Counted below as
+    // population state, because that is what it is.
+    let mut sink = vec![0u64; words_for(DOC_ROWS)];
+    let before = BYTES.load(Ordering::Relaxed);
+    let value = execute_into(
+        &program,
         &planes,
         &Foreign::NONE,
         &mut scratch,
-        Out::Mask(&mut scattered),
+        Out::Mask(&mut sink),
     )
     .expect("runs");
-    let alloc1 = alloc_delta(before1);
-    assert_eq!(value1, Value::Scattered);
-    // The demanded terminal RESULT of this phase is the 8-word buffer
-    // itself — count it in bytes here rather than the final scalar answer.
-    let scattered_bytes = scattered.len() * std::mem::size_of::<u64>();
-
-    // Phase 2 (doc side): a tiny program reading `scattered` as a resident
-    // plane and counting it — a second `Terminal::Count`, per the module
-    // doc's "say which": this repo's own executor over a plain `Filter::Plane`,
-    // not a bespoke `ndarray::simd::popcount_batch_u64` call, so the count
-    // goes through the SAME validated, differential-tested path as every
-    // other case in this suite.
-    let doc_masks: [&[u64]; 1] = [&scattered];
-    let doc_planes = Planes {
-        n_rows: DOC_ROWS,
-        masks: &doc_masks,
-        lanes: &[],
-    };
-    let doc_program = lower(&Query {
-        filter: Filter::plane(lance_graph_quack::Mask(0)),
-        agg: Agg::Count,
-    })
-    .expect("lowers");
-    let mut d_scratch = Scratch::for_program(&doc_program, DOC_ROWS).expect("carves");
-    let d_scratch_words = scratch_words_for(d_scratch.words(), d_scratch.slots()).expect("sized");
-    let before2 = BYTES.load(Ordering::Relaxed);
-    let value2 = execute_into(
-        &doc_program,
-        &doc_planes,
-        &Foreign::NONE,
-        &mut d_scratch,
-        Out::None,
-    )
-    .expect("runs");
-    let alloc2 = alloc_delta(before2);
-
-    let encoded = match value2 {
+    let alloc = alloc_delta(before);
+    let encoded = match value {
         Value::Count(c) => c.to_string(),
         other => panic!("expected a count, got {other:?}"),
     };
-    let out_bytes = scattered_bytes + encoded.len();
     let m = CaseMetrics {
-        ops: line_program.ops.len() + doc_program.ops.len(),
-        scratch_words: scratch_words + d_scratch_words,
+        ops: program.ops.len(),
+        scratch_words,
         tile_words,
-        alloc_bytes_exec: alloc1 + alloc2,
+        alloc_bytes_exec: alloc,
         rows_materialized: 0,
         index_vec_len: 0,
-        out_bytes,
-        programs: Some(2),
+        out_bytes: encoded.len(),
+        programs: Some(1),
         pair_relation_bytes: 0,
+        population_state_bytes: sink.len() * std::mem::size_of::<u64>(),
     };
     print_metric("join_count_docs_with_posted", &m);
     assert_case(&cases, "join_count_docs_with_posted", &encoded);
+
+    // The run fold is NOT legal on this layout, and the harness proves it
+    // rather than assuming it: on the unclustered lane it counts runs.
+    let runs = lower(&Query {
+        filter: Filter::cmp(STATUS, Cmp::EqU32(1)),
+        agg: Agg::CountDistinctClusteredU32 { key: DOC_ID_U32 },
+    })
+    .expect("lowers");
+    let mut r_scratch = Scratch::for_program(&runs, planes.n_rows).expect("carves");
+    let over =
+        execute_into(&runs, &planes, &Foreign::NONE, &mut r_scratch, Out::None).expect("runs");
+    let want: usize = encoded.parse().expect("a count");
+    assert!(
+        matches!(over, Value::Count(c) if c > want),
+        "unclustered: the run fold must over-count ({over:?} vs {want})"
+    );
+
+    // ── Arm 2: the clustered layout — CountKeyRunsU32, no population state. ──
+    let mut order: Vec<usize> = (0..fx.line.doc_id_u32.len()).collect();
+    order.sort_by_key(|&i| fx.line.doc_id_u32[i]); // stable: runs, not a resort
+    let by = |v: &[u32]| -> Vec<u32> { order.iter().map(|&i| v[i]).collect() };
+    let by_i = |v: &[i32]| -> Vec<i32> { order.iter().map(|&i| v[i]).collect() };
+    let clustered = fixture::LineTable {
+        doc_id: by_i(&fx.line.doc_id),
+        doc_id_u32: by(&fx.line.doc_id_u32),
+        partner_id: by(&fx.line.partner_id),
+        amount: by_i(&fx.line.amount),
+        qty: by_i(&fx.line.qty),
+        status: by(&fx.line.status),
+        cost_center: by(&fx.line.cost_center),
+        gl_account: by(&fx.line.gl_account),
+    };
+    let c_lanes = clustered.lanes();
+    let c_planes = c_lanes.planes();
+    let mut c_scratch = Scratch::for_program(&runs, c_planes.n_rows).expect("carves");
+    let c_tile_words = c_scratch.words();
+    let c_scratch_words = scratch_words_for(c_tile_words, c_scratch.slots()).expect("sized");
+    let before = BYTES.load(Ordering::Relaxed);
+    let c_value =
+        execute_into(&runs, &c_planes, &Foreign::NONE, &mut c_scratch, Out::None).expect("runs");
+    let c_alloc = alloc_delta(before);
+    let c_encoded = match c_value {
+        Value::Count(c) => c.to_string(),
+        other => panic!("expected a count, got {other:?}"),
+    };
+    let m = CaseMetrics {
+        ops: runs.ops.len(),
+        scratch_words: c_scratch_words,
+        tile_words: c_tile_words,
+        alloc_bytes_exec: c_alloc,
+        rows_materialized: 0,
+        index_vec_len: 0,
+        out_bytes: c_encoded.len(),
+        programs: Some(1),
+        pair_relation_bytes: 0,
+        population_state_bytes: 0,
+    };
+    print_metric("join_count_docs_with_posted_clustered", &m);
+    // A distinct count is permutation-invariant: same DuckDB row, same answer.
+    assert_case(&cases, "join_count_docs_with_posted", &c_encoded);
 }
 
 /// `SELECT p.country, SUM(l.amount) FROM line l JOIN partner p ON
@@ -886,6 +940,7 @@ fn join_group_sum_country() {
         // `partner.country` in place — never a materialized `(line,
         // partner)` pair list or a remapped key lane.
         pair_relation_bytes: 0,
+        population_state_bytes: 0,
     };
     print_metric("join_group_sum_country", &m);
     assert_case(&cases, "join_group_sum_country", &encoded);

@@ -253,8 +253,17 @@ pub enum Terminal {
     /// out_rows`. Writes `out[i] |= lane[i]`'s target, union across
     /// repeats — [`ndarray::simd::mask_scatter_or_u32`]'s contract, out of
     /// range silently dropped. The caller's buffer must be exactly
-    /// `words_for(out_rows)` long; a follow-on program then reads it back
-    /// as a [`ForeignPlane`] or an input [`Planes::masks`] entry.
+    /// `words_for(out_rows)` long.
+    ///
+    /// **Survival condition:** the scattered mask is legal only when it IS
+    /// the externally demanded result (a `hop` whose answer is the target
+    /// population's mask). It is never an intermediate: a follow-on program
+    /// or fold that consumes it is the forbidden
+    /// projection → population → projection shape. A count over the
+    /// targets is [`Terminal::ScatterCountU32`] (unclustered key) or
+    /// [`Terminal::CountKeyRunsU32`] (key-clustered lane); a filter through
+    /// the targets is [`Pred::EqU32Via`] / [`MaskOp::Gather`] over a
+    /// RESIDENT plane.
     ScatterOrU32 {
         mask: Operand,
         lane: u16,
@@ -269,11 +278,35 @@ pub enum Terminal {
     /// reads it: `docs WHERE EXISTS line … ` counted, without the doc mask
     /// becoming an intermediate. (When the mask itself is the demanded
     /// result — a `hop` — use [`Terminal::ScatterOrU32`].)
+    ///
+    /// The accumulator is population-sized (one bit per key of the
+    /// universe) and that is the MINIMUM for an exact distinct count over an
+    /// UNCLUSTERED key lane: `tests/distinct.rs`'s pigeonhole falsifier shows
+    /// two prefixes with different key sets always diverge under some
+    /// suffix, so any exact fold's state separates all `2^K` key sets. When
+    /// the key lane is clustered — equal keys contiguous, the address order
+    /// a projection stores a child population under its parent — use
+    /// [`Terminal::CountKeyRunsU32`], which needs two words of state.
     ScatterCountU32 {
         mask: Operand,
         lane: u16,
         out_rows: u32,
     },
+    /// `COUNT(DISTINCT lane[i])` over the rows where `mask` holds, on a
+    /// KEY-CLUSTERED lane — every run of equal consecutive `lane` values is
+    /// one key, so the count is the number of runs containing a selected
+    /// row, folded tile by tile with a two-word carry
+    /// ([`ndarray::simd::masked_key_run_count_u32`] + `KeyRunCarry`): no
+    /// population-sized set, no `Out` buffer, `Out::None`. The answer is
+    /// [`Value::Count`].
+    ///
+    /// Clustering is the CALLER's precondition (the lane is stored in key
+    /// order — the T0 address projection, or a witnessed ordered lane). On a
+    /// lane that is not clustered this counts runs, not keys, and
+    /// over-counts; the executor cannot check clustering without the very
+    /// seen-set this terminal exists to avoid, so it does not try. For an
+    /// unclustered lane use [`Terminal::ScatterCountU32`].
+    CountKeyRunsU32 { mask: Operand, lane: u16 },
     /// The one-terminal `GROUP BY … SUM`: for every row `i` where `mask`
     /// holds, adds `val[i]` into the caller's `Out::I64` buffer at index
     /// `key[i]` — provided `key[i] < out.len()`
@@ -415,6 +448,7 @@ impl Program {
             | Terminal::BlendI32 { mask, .. }
             | Terminal::ScatterOrU32 { mask, .. }
             | Terminal::ScatterCountU32 { mask, .. }
+            | Terminal::CountKeyRunsU32 { mask, .. }
             | Terminal::GroupSumI32 { mask, .. }
             | Terminal::GroupSumViaI32 { mask, .. }
             | Terminal::Keep { mask } => touch(mask),

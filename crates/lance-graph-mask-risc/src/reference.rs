@@ -404,6 +404,11 @@ pub(crate) fn validate(
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)
         }
+        Terminal::CountKeyRunsU32 { mask, lane } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            check_lane(planes, lane, LaneKind::U32)
+        }
         Terminal::Keep { mask } => {
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)?;
@@ -745,6 +750,23 @@ pub fn reference_execute_into(
     let survivors = |mask: Operand| (0..n).filter(move |&r| rows.bit(planes, mask, r));
     Ok(match p.terminal {
         Terminal::Count { mask } => Value::Count(survivors(mask).count()),
+        Terminal::CountKeyRunsU32 { mask, lane } => {
+            // Independent formulation: a selected row is counted iff it is
+            // the FIRST selected row of its run (no selected row between the
+            // run's start and it). Row-at-a-time, no carry object.
+            let n = planes.n_rows;
+            let mut count = 0usize;
+            let mut run_start = 0usize;
+            for r in 0..n {
+                if r > 0 && u32_at(planes, lane, r) != u32_at(planes, lane, r - 1) {
+                    run_start = r;
+                }
+                if rows.bit(planes, mask, r) && !(run_start..r).any(|q| rows.bit(planes, mask, q)) {
+                    count += 1;
+                }
+            }
+            Value::Count(count)
+        }
         Terminal::Any { mask } => Value::Bool(survivors(mask).next().is_some()),
         Terminal::All { mask } => Value::Bool(survivors(mask).count() == n),
         Terminal::MaskedSumI32 { mask, lane } => Value::SumI64(
