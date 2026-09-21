@@ -823,28 +823,17 @@ pub enum Agg {
         /// must be exactly `words_for(out_rows)` long.
         out_rows: u32,
     },
-    /// `COUNT(DISTINCT key)` over the surviving rows on an UNCLUSTERED key
-    /// lane — `Terminal::ScatterCountU32`. `SELECT COUNT(*) FROM doc WHERE
-    /// EXISTS(line … doc_id = doc.rid AND status = 1)` is
-    /// `Agg::CountDistinctU32 { key: doc_id, universe: DOC_ROWS }`: ONE
-    /// program whose accumulator (the caller's `Out::Mask`, one bit per key
-    /// of `universe`) never leaves the fold — only its popcount does. That
-    /// accumulator is the minimum exact state on an unclustered lane
-    /// (mask-risc `tests/distinct.rs`, the pigeonhole falsifier); a key at or
-    /// past `universe` is dropped, not an error.
-    CountDistinctU32 {
-        /// The key column (`u32`) whose distinct values are counted.
-        key: Col,
-        /// The key universe — the accumulator is `words_for(universe)`.
-        universe: u32,
-    },
-    /// `COUNT(DISTINCT key)` on a KEY-CLUSTERED lane (equal keys contiguous —
-    /// the address order a projection stores a child population under its
-    /// parent) — `Terminal::CountKeyRunsU32`, two words of state, `Out::None`.
-    /// Clustering is the caller's precondition, exactly as
-    /// [`Filter::prefix_facet`]'s witnessed range carries its row-order
-    /// obligation: on a lane that is not clustered this counts runs and
-    /// over-counts. Use [`Agg::CountDistinctU32`] there.
+    /// `COUNT(DISTINCT key)` — `Terminal::CountKeyRunsU32`, two words of
+    /// state, `Out::None`. The physical precondition is a key lane stored
+    /// in KEY ORDER (the address order a projection stores a child
+    /// population under its parent); the executor ENFORCES it and refuses a
+    /// lane out of order with `ExecError::LaneNotOrdered`, so a wrong count
+    /// is impossible. Quack cannot see lanes, so it does not pre-judge:
+    /// the lowering always succeeds and the refusal is physical. There is
+    /// deliberately NO other spelling of exact DISTINCT here — an
+    /// unordered physical layout is a lowering limitation, not permission
+    /// to fold through a population seen-set (`Terminal::ScatterCountU32`
+    /// is held, never emitted).
     CountDistinctClusteredU32 {
         /// The key column (`u32`), stored in key order.
         key: Col,
@@ -1464,11 +1453,6 @@ fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
             mask,
             lane: fk.0,
             out_rows,
-        },
-        Agg::CountDistinctU32 { key, universe } => Terminal::ScatterCountU32 {
-            mask,
-            lane: key.0,
-            out_rows: universe,
         },
         Agg::CountDistinctClusteredU32 { key } => Terminal::CountKeyRunsU32 { mask, lane: key.0 },
         Agg::GroupSumI32 { key, val } => Terminal::GroupSumI32 {

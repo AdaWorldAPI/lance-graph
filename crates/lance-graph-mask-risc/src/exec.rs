@@ -939,11 +939,17 @@ pub fn execute_into(
                 }
             }
             Terminal::CountKeyRunsU32 { mask, lane } => {
-                runs += masked_key_run_count_u32(
+                // A key below the open run's key means the lane is not in
+                // key order: refuse, never over-count. Sinks are untouched
+                // (this terminal has none) and scratch is ALU state.
+                match masked_key_run_count_u32(
                     lane_u32(planes, lane, t),
                     read(planes, &slots, mask, t),
                     &mut run_carry,
-                );
+                ) {
+                    Some(closed) => runs += closed,
+                    None => return Err(ExecError::LaneNotOrdered { lane }),
+                }
             }
             Terminal::GroupSumI32 { mask, key, val } => {
                 // `validate` already refused a missing or too-small `out`;

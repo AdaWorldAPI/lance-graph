@@ -6,17 +6,18 @@
 //! - `Terminal::CountKeyRunsU32` — a key-clustered lane (equal keys
 //!   contiguous). Two words of state, tile by tile. Proven here against the
 //!   oracle and an independent seen-set, across tilings.
-//! - `Terminal::ScatterCountU32` — an unclustered lane. Its accumulator is
-//!   one bit per key of the universe, and the pigeonhole falsifier below
-//!   shows that is the MINIMUM any exact fold can carry on such a lane, so
-//!   the accumulator is the fold's own sufficient statistic, not an
-//!   avoidable intermediate.
+//! - `Terminal::ScatterCountU32` — HELD. Its accumulator is one bit per key
+//!   of the universe; the pigeonhole falsifier below shows that is the
+//!   minimum any exact fold can carry under ARBITRARY row order. That bounds
+//!   the wrong traversal, it does not license it: a lane out of key order is
+//!   REFUSED (`ExecError::LaneNotOrdered`), never folded through a seen-set
+//!   as a fallback. The terminal remains as the falsifier's instrument.
 
 use lance_graph_mask_risc::exec::{execute_into, Scratch};
 use lance_graph_mask_risc::reference::reference_execute_into;
 use lance_graph_mask_risc::{
-    scratch_words_for, words_for, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program,
-    Terminal, Value,
+    scratch_words_for, words_for, ExecError, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred,
+    Program, Terminal, Value,
 };
 use std::collections::BTreeSet;
 
@@ -69,14 +70,14 @@ fn oracle(program: &Program, planes: &Planes<'_>) -> usize {
 }
 
 #[test]
-fn on_a_clustered_key_lane_the_run_fold_is_the_distinct_count_under_every_tiling() {
+fn on_a_lane_in_key_order_the_run_fold_is_the_distinct_count_under_every_tiling() {
     let mut seed = 0xD15u64;
     for &n in &[1usize, 63, 64, 65, 500, 4096] {
         let universe = 97u32;
         let mut key: Vec<u32> = (0..n)
             .map(|_| (lcg(&mut seed) % u64::from(universe)) as u32)
             .collect();
-        key.sort_unstable(); // clustered: equal keys contiguous
+        key.sort_unstable(); // key order: the T0 address projection, given
         let status: Vec<u32> = (0..n).map(|_| (lcg(&mut seed) % 3) as u32).collect();
         let lanes = [LaneRef::U32(&status), LaneRef::U32(&key)];
         let planes = Planes {
@@ -130,7 +131,7 @@ fn a_run_split_across_a_tile_edge_is_counted_once_and_an_unhit_run_never() {
 }
 
 #[test]
-fn on_an_unclustered_lane_the_run_fold_over_counts_and_scatter_count_is_exact() {
+fn a_lane_out_of_key_order_is_refused_by_executor_and_oracle_alike() {
     let mut seed = 0xBADu64;
     let n = 2048usize;
     let universe = 64u32;
@@ -138,48 +139,66 @@ fn on_an_unclustered_lane_the_run_fold_over_counts_and_scatter_count_is_exact() 
         .map(|_| (lcg(&mut seed) % u64::from(universe)) as u32)
         .collect();
     let status: Vec<u32> = (0..n).map(|_| (lcg(&mut seed) % 2) as u32).collect();
+    assert!(
+        key.windows(2).any(|w| w[1] < w[0]),
+        "fixture must be out of order"
+    );
     let lanes = [LaneRef::U32(&status), LaneRef::U32(&key)];
     let planes = Planes {
         n_rows: n,
         masks: &[],
         lanes: &lanes,
     };
-    let want = seen_set(&status, &key);
-    assert!(want > 2, "fixture must have several distinct keys");
-
     let runs = program(|m| Terminal::CountKeyRunsU32 { mask: m, lane: 1 });
-    let over = run(&runs, &planes, 8);
-    assert!(
-        over > want,
-        "unclustered: runs ({over}) must exceed keys ({want})"
-    );
-    assert_eq!(
-        oracle(&runs, &planes),
-        over,
-        "executor and oracle agree on the run count"
-    );
-
-    let scatter = Program::new(
-        runs.ops.clone(),
-        Terminal::ScatterCountU32 {
-            mask: S0,
-            lane: 1,
-            out_rows: universe,
-        },
-    );
-    let mut sink = vec![0u64; words_for(universe as usize)];
-    let slots = scatter.scratch_slots as usize;
+    let slots = runs.scratch_slots as usize;
     let mut buf = vec![0u64; scratch_words_for(8, slots).expect("sized")];
     let mut scratch = Scratch::over(&mut buf, 8, slots).expect("carves");
-    let got = execute_into(
-        &scatter,
-        &planes,
-        &Foreign::NONE,
-        &mut scratch,
-        Out::Mask(&mut sink),
-    )
-    .expect("runs");
-    assert_eq!(got, Value::Count(want));
+    assert_eq!(
+        execute_into(&runs, &planes, &Foreign::NONE, &mut scratch, Out::None),
+        Err(ExecError::LaneNotOrdered { lane: 1 })
+    );
+    assert_eq!(
+        reference_execute_into(&runs, &planes, &Foreign::NONE, Out::None),
+        Err(ExecError::LaneNotOrdered { lane: 1 })
+    );
+    // The smallest witness of why: 1,2,1 has three runs and two keys.
+    let k = [1u32, 2, 1];
+    let s1 = [1u32; 3];
+    let l = [LaneRef::U32(&s1), LaneRef::U32(&k)];
+    let p3 = Planes {
+        n_rows: 3,
+        masks: &[],
+        lanes: &l,
+    };
+    let mut b3 = vec![0u64; scratch_words_for(1, slots).expect("sized")];
+    let mut s3 = Scratch::over(&mut b3, 1, slots).expect("carves");
+    assert_eq!(
+        execute_into(&runs, &p3, &Foreign::NONE, &mut s3, Out::None),
+        Err(ExecError::LaneNotOrdered { lane: 1 })
+    );
+    assert_eq!(seen_set(&s1, &k), 2);
+}
+
+#[test]
+fn clustered_but_unsorted_is_refused_by_design() {
+    // 3 3 1 1: a run count WOULD be exact here, but the certificate the fold
+    // can check in O(1) is order, and 1 < 3 breaks it.
+    let k = [3u32, 3, 1, 1];
+    let s = [1u32; 4];
+    let l = [LaneRef::U32(&s), LaneRef::U32(&k)];
+    let planes = Planes {
+        n_rows: 4,
+        masks: &[],
+        lanes: &l,
+    };
+    let p = program(|m| Terminal::CountKeyRunsU32 { mask: m, lane: 1 });
+    let slots = p.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(1, slots).expect("sized")];
+    let mut scratch = Scratch::over(&mut buf, 1, slots).expect("carves");
+    assert_eq!(
+        execute_into(&p, &planes, &Foreign::NONE, &mut scratch, Out::None),
+        Err(ExecError::LaneNotOrdered { lane: 1 })
+    );
 }
 
 /// The pigeonhole falsifier for "an exact distinct count over an

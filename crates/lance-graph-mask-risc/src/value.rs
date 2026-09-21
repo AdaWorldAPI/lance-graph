@@ -131,6 +131,14 @@ pub enum ExecError {
     /// `mask_set_range` a bound past the scratch words (its own assert would
     /// panic) and the oracle never indexes a row that does not exist.
     RangeOutOfBounds { lo: u32, hi: u32, n_rows: usize },
+    /// [`crate::Terminal::CountKeyRunsU32`] met a key smaller than the open
+    /// run's key: the lane is not in key order, so a run is not a key and
+    /// the count would be wrong. Refused at that element, with O(1) state —
+    /// non-decreasing order is the clustering certificate the fold can
+    /// check in its own pass. The logical query is fine; THIS lowering
+    /// needs a lane stored in key order (a T0 address projection), and no
+    /// such projection is resident for this lane.
+    LaneNotOrdered { lane: u16 },
     /// [`crate::MaskOp::Gather`]'s `foreign` names no entry of the caller's
     /// [`crate::Foreign::planes`].
     ForeignOutOfRange(u16),

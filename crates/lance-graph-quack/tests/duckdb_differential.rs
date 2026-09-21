@@ -32,15 +32,14 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use lance_graph_mask_risc::{
-    execute_into, materialize_rows, scratch_words_for, words_for, Foreign, LaneRef, Out, Planes,
-    Scratch, Terminal, Value,
+    execute_into, materialize_rows, scratch_words_for, words_for, ExecError, Foreign, LaneRef, Out,
+    Planes, Scratch, Terminal, Value,
 };
 use lance_graph_quack::{
     lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignLane, GroupBy, Query,
 };
 
 use fixture::col::{AMOUNT, COST_CENTER, DOC_ID, DOC_ID_U32, GL_ACCOUNT, PARTNER_ID, QTY, STATUS};
-use fixture::DOC_ROWS;
 
 // ---------------------------------------------------------------------
 // The counting allocator — `no_alloc.rs`'s pattern (lance-graph-mask-risc),
@@ -755,95 +754,50 @@ fn join_sum_country() {
 
 /// `SELECT COUNT(*) FROM doc d WHERE EXISTS(SELECT 1 FROM line l WHERE
 /// l.doc_id=d.rid AND l.status=1)` — `COUNT(DISTINCT doc_id)` over the
-/// posted lines, ONE program either way; which terminal is legal is a
-/// property of the KEY LANE'S LAYOUT, and both layouts are run here against
-/// the same DuckDB answer:
+/// posted lines. ONE spelling: [`Agg::CountDistinctClusteredU32`] →
+/// `Terminal::CountKeyRunsU32`, whose precondition is a key lane in key
+/// order — the T0 address projection of lines under their doc.
 ///
-/// - the fixture as generated (`doc_id` random — unclustered):
-///   [`Agg::CountDistinctU32`] → `Terminal::ScatterCountU32`. The fold's
-///   accumulator is one bit per doc (`population_state_bytes = 64`), the
-///   minimum exact state on an unclustered lane (mask-risc
-///   `tests/distinct.rs`' pigeonhole falsifier); it never leaves the fold,
-///   only its popcount does.
-/// - the same lines GIVEN in doc order (`doc_id` clustered — the address
-///   order of a child population under its parent):
-///   [`Agg::CountDistinctClusteredU32`] → `Terminal::CountKeyRunsU32`, two
-///   words of state, `Out::None`. This arm proves the TERMINAL is O(1) when
-///   handed a clustered view; the view itself is built by the test
-///   (`fixture_view_bytes`, a reordered copy) because the fixture has no
-///   resident doc-major projection. It is a semantic proof of the fold, not
-///   a zero-materialisation proof of the query on this fixture.
+/// - On the fixture AS GENERATED (`doc_id` random, no resident doc-major
+///   projection) the executor REFUSES the program
+///   (`ExecError::LaneNotOrdered`). That is the ruled outcome: the logical
+///   query is valid, this physical lowering is not, and no seen-set is
+///   allocated in its place. The `1,2,1` falsifier lives in mask-risc
+///   `tests/distinct.rs`.
+/// - GIVEN a doc-ordered view of the same lines, the fold answers the same
+///   DuckDB 511 with two words of state. The view is built by the test
+///   (`fixture_view_bytes`, a reordered copy): a semantic proof of the
+///   terminal, not a zero-materialisation proof of the query on this
+///   fixture.
 ///
 /// The old shape — `ScatterOrU32` into a doc bitmap read back by a second
-/// `Count` program — is gone: a population mask consumed by the next fold is
-/// forbidden intermediate state whatever it was called.
+/// `Count` program — is gone, and so is its one-program successor
+/// (`ScatterCountU32`): a population seen-set is not the fallback for a
+/// lane that merely happens to be unordered.
 #[test]
 fn join_count_docs_with_posted() {
     let cases = load_cases();
     let fx = fixture::generate();
 
-    // ── Arm 1: the generated (unclustered) layout — ScatterCountU32. ──
+    // ── Arm 1: the generated (unordered) layout is REFUSED. ──
     let lanes = fx.line.lanes();
     let planes = lanes.planes();
-    let program = lower(&Query {
-        filter: Filter::cmp(STATUS, Cmp::EqU32(1)),
-        agg: Agg::CountDistinctU32 {
-            key: DOC_ID_U32,
-            universe: DOC_ROWS as u32,
-        },
-    })
-    .expect("lowers");
-    assert!(matches!(program.terminal, Terminal::ScatterCountU32 { .. }));
-    let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
-    let tile_words = scratch.words();
-    let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
-    // The fold's own accumulator: one bit per doc. Counted below as
-    // population state, because that is what it is.
-    let mut sink = vec![0u64; words_for(DOC_ROWS)];
-    let before = BYTES.load(Ordering::Relaxed);
-    let value = execute_into(
-        &program,
-        &planes,
-        &Foreign::NONE,
-        &mut scratch,
-        Out::Mask(&mut sink),
-    )
-    .expect("runs");
-    let alloc = alloc_delta(before);
-    let encoded = match value {
-        Value::Count(c) => c.to_string(),
-        other => panic!("expected a count, got {other:?}"),
-    };
-    let m = CaseMetrics {
-        ops: program.ops.len(),
-        scratch_words,
-        tile_words,
-        alloc_bytes_exec: alloc,
-        rows_materialized: 0,
-        index_vec_len: 0,
-        out_bytes: encoded.len(),
-        programs: Some(1),
-        pair_relation_bytes: 0,
-        population_state_bytes: sink.len() * std::mem::size_of::<u64>(),
-        fixture_view_bytes: 0,
-    };
-    print_metric("join_count_docs_with_posted", &m);
-    assert_case(&cases, "join_count_docs_with_posted", &encoded);
-
-    // The run fold is NOT legal on this layout, and the harness proves it
-    // rather than assuming it: on the unclustered lane it counts runs.
     let runs = lower(&Query {
         filter: Filter::cmp(STATUS, Cmp::EqU32(1)),
         agg: Agg::CountDistinctClusteredU32 { key: DOC_ID_U32 },
     })
     .expect("lowers");
+    assert!(matches!(runs.terminal, Terminal::CountKeyRunsU32 { .. }));
     let mut r_scratch = Scratch::for_program(&runs, planes.n_rows).expect("carves");
-    let over =
-        execute_into(&runs, &planes, &Foreign::NONE, &mut r_scratch, Out::None).expect("runs");
-    let want: usize = encoded.parse().expect("a count");
-    assert!(
-        matches!(over, Value::Count(c) if c > want),
-        "unclustered: the run fold must over-count ({over:?} vs {want})"
+    let refused = execute_into(&runs, &planes, &Foreign::NONE, &mut r_scratch, Out::None);
+    assert_eq!(
+        refused,
+        Err(ExecError::LaneNotOrdered { lane: DOC_ID_U32.0 }),
+        "an unordered key lane must be refused, never folded through a seen-set"
+    );
+    eprintln!(
+        "REFUSED case=join_count_docs_with_posted terminal=CountKeyRunsU32 \
+         reason=LaneNotOrdered population_state_bytes=0"
     );
 
     // ── Arm 2: a clustered VIEW handed to CountKeyRunsU32. The reorder below

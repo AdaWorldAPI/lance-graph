@@ -279,14 +279,17 @@ pub enum Terminal {
     /// becoming an intermediate. (When the mask itself is the demanded
     /// result — a `hop` — use [`Terminal::ScatterOrU32`].)
     ///
-    /// The accumulator is population-sized (one bit per key of the
-    /// universe) and that is the MINIMUM for an exact distinct count over an
-    /// UNCLUSTERED key lane: `tests/distinct.rs`'s pigeonhole falsifier shows
-    /// two prefixes with different key sets always diverge under some
-    /// suffix, so any exact fold's state separates all `2^K` key sets. When
-    /// the key lane is clustered — equal keys contiguous, the address order
-    /// a projection stores a child population under its parent — use
-    /// [`Terminal::CountKeyRunsU32`], which needs two words of state.
+    /// **HELD, not a lowering target.** The accumulator is population-sized
+    /// (one bit per key of the universe). `tests/distinct.rs`'s pigeonhole
+    /// falsifier shows that is the minimum for an exact distinct count
+    /// under ARBITRARY row order — but an arbitrary row order is not a
+    /// licence to carry it: the law is that an equivalent T0 projection
+    /// (a lane stored in key order) serves the fold with O(1) state
+    /// ([`Terminal::CountKeyRunsU32`]), and a lane that lacks one is a
+    /// lowering limitation, not permission to materialise a seen-set. This
+    /// terminal survives as the falsifier's instrument and for a caller
+    /// whose requested computation explicitly asks for a seen-set; no
+    /// lowering emits it as the automatic fallback for exact DISTINCT.
     ScatterCountU32 {
         mask: Operand,
         lane: u16,
@@ -300,12 +303,16 @@ pub enum Terminal {
     /// population-sized set, no `Out` buffer, `Out::None`. The answer is
     /// [`Value::Count`].
     ///
-    /// Clustering is the CALLER's precondition (the lane is stored in key
-    /// order — the T0 address projection, or a witnessed ordered lane). On a
-    /// lane that is not clustered this counts runs, not keys, and
-    /// over-counts; the executor cannot check clustering without the very
-    /// seen-set this terminal exists to avoid, so it does not try. For an
-    /// unclustered lane use [`Terminal::ScatterCountU32`].
+    /// The precondition is a lane stored in KEY ORDER (the T0 address
+    /// projection that puts a child population under its parent), and it is
+    /// ENFORCED, not trusted: the first key smaller than the open run's key
+    /// refuses the program with [`ExecError::LaneNotOrdered`]. Non-decreasing
+    /// order is the one clustering certificate checkable with O(1) state in
+    /// the same pass (an exact clustering check would need the seen-set
+    /// this terminal exists to avoid); a clustered-but-unsorted lane is
+    /// refused too, deliberately. Nothing is ever over-counted. A lane with
+    /// no key-ordered projection resident is a lowering limitation, and the
+    /// refusal is the answer — not [`Terminal::ScatterCountU32`].
     CountKeyRunsU32 { mask: Operand, lane: u16 },
     /// The one-terminal `GROUP BY … SUM`: for every row `i` where `mask`
     /// holds, adds `val[i]` into the caller's `Out::I64` buffer at index

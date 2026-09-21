@@ -758,6 +758,9 @@ pub fn reference_execute_into(
             let mut count = 0usize;
             let mut run_start = 0usize;
             for r in 0..n {
+                if r > 0 && u32_at(planes, lane, r) < u32_at(planes, lane, r - 1) {
+                    return Err(ExecError::LaneNotOrdered { lane });
+                }
                 if r > 0 && u32_at(planes, lane, r) != u32_at(planes, lane, r - 1) {
                     run_start = r;
                 }
