@@ -268,17 +268,6 @@ pub mod col {
     /// same value as [`DOC_ID`], cast; `DOC_ID` stays for `range_docid`'s
     /// ordered compare.
     pub const DOC_ID_U32: Col = Col(7);
-
-    /// `partner` table columns, over `partner`'s OWN row space
-    /// ([`super::PARTNER_ROWS`]) — a separate `Planes` from `line`'s.
-    /// `pgroup` (lane 1, see [`super::PartnerTable::lanes`]) has no named
-    /// constant here — no case in this suite filters on it — but the lane
-    /// itself stays borrowed so a future case can reach it as `Col(1)`.
-    pub mod partner {
-        use lance_graph_quack::Col;
-
-        pub const COUNTRY: Col = Col(0);
-    }
 }
 
 /// The `line` table's lanes, borrowed and held so [`Planes`] can borrow them
@@ -308,30 +297,10 @@ impl LineTable {
     }
 }
 
-/// The `partner` table's lanes — see [`col::partner`].
-pub struct PartnerLanes<'a> {
-    lanes: [LaneRef<'a>; 2],
-}
-
-impl PartnerTable {
-    /// Borrow every lane in the fixed order `col::partner` indexes into.
-    pub fn lanes(&self) -> PartnerLanes<'_> {
-        PartnerLanes {
-            lanes: [LaneRef::U32(&self.country), LaneRef::U32(&self.pgroup)],
-        }
-    }
-}
-
-impl<'a> PartnerLanes<'a> {
-    /// Borrow `PARTNER_ROWS` rows over these lanes, no resident mask planes.
-    pub fn planes(&self) -> Planes<'_> {
-        Planes {
-            n_rows: PARTNER_ROWS,
-            masks: &[],
-            lanes: &self.lanes,
-        }
-    }
-}
+// The `partner` table is never run as its own `Planes`: its lanes are read
+// THROUGH `line.partner_id` (`Filter::EqU32Via`, `Agg::GroupSumViaI32`) as
+// `Foreign::lanes`, so no partner-side program — and no partner-side kept
+// mask — ever exists. `pgroup` stays generated for the DuckDB oracle only.
 
 impl<'a> LineLanes<'a> {
     /// Borrow `LINE_ROWS` rows over these lanes, no resident mask planes —

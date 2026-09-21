@@ -14,13 +14,15 @@
 //! ONE program reading `partner.country` as a caller-owned
 //! [`Foreign::lanes`] entry, no two-hop materialisation and no K-program
 //! spelling. `join_sum_country` and `join_count_docs_with_posted` are the
-//! other two join cases: the former lowers a real `Filter::Semijoin` (the
-//! fk gather) against a real partner-side `Program`; the latter lowers
-//! `Agg::ScatterOrU32` (the one-to-many hop back) into a caller-owned
-//! mask, then counts it with a second tiny program. `group_sum_cc` runs
-//! the one-terminal `Agg::GroupSumI32` (`Terminal::GroupSumI32`, ONE
-//! program) alongside the pre-existing K-program `lower_group_by` reading,
-//! printing both METRIC lines so the fold is visible.
+//! other two join cases: the former lowers a real `Filter::EqU32Via` — the
+//! fk join predicate in FACTORED form, `p.country` read straight through
+//! `l.partner_id` in ONE program, no foreign plane, no gathered mask; the
+//! latter lowers `Agg::ScatterOrU32` (the one-to-many hop back) into a
+//! caller-owned mask, then counts it with a second tiny program.
+//! `group_sum_cc` runs the one-terminal `Agg::GroupSumI32`
+//! (`Terminal::GroupSumI32`, ONE program) alongside the pre-existing
+//! K-program `lower_group_by` reading, printing both METRIC lines so the
+//! fold is visible.
 
 #[path = "duckdb/fixture.rs"]
 mod fixture;
@@ -30,16 +32,14 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use lance_graph_mask_risc::{
-    execute_into, materialize_rows, scratch_words_for, words_for, Foreign, ForeignPlane, LaneRef,
-    Out, Planes, Scratch, Terminal, Value,
+    execute_into, materialize_rows, scratch_words_for, words_for, Foreign, LaneRef, Out, Planes,
+    Scratch, Terminal, Value,
 };
 use lance_graph_quack::{
-    lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignLane, ForeignMask, GroupBy, Query,
+    lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignLane, GroupBy, Query,
 };
 
-use fixture::col::{
-    partner::COUNTRY, AMOUNT, COST_CENTER, DOC_ID, DOC_ID_U32, GL_ACCOUNT, PARTNER_ID, QTY, STATUS,
-};
+use fixture::col::{AMOUNT, COST_CENTER, DOC_ID, DOC_ID_U32, GL_ACCOUNT, PARTNER_ID, QTY, STATUS};
 use fixture::DOC_ROWS;
 
 // ---------------------------------------------------------------------
@@ -659,66 +659,37 @@ fn group_sum_cc() {
 }
 
 // ---------------------------------------------------------------------
-// The join cases. `join_sum_country` (fk gather),
+// The join cases. `join_sum_country` (the fk join predicate, factored),
 // `join_count_docs_with_posted` (the one-to-many hop back), and
 // `join_group_sum_country` (the fk-keyed group-sum) are all real,
-// one-or-two-program lowerings now — no open seam remains.
+// ONE-program lowerings now — no open seam, no forbidden intermediate
+// mask remains.
 // ---------------------------------------------------------------------
 
 /// `SELECT SUM(l.amount) FROM line l JOIN partner p ON p.rid=l.partner_id
-/// WHERE l.status=1 AND p.country=3` — two programs: the partner-side
-/// filter kept as a mask, handed to the line-side program as a
-/// [`ForeignPlane`] its `Filter::Semijoin` gathers through.
+/// WHERE l.status=1 AND p.country=3` — ONE program: `p.country` is read
+/// straight through `l.partner_id` by [`Filter::EqU32Via`]
+/// (`Pred::EqU32Via`'s `foreign.lanes[key][fk[i]] == v`), so no partner-side
+/// `Program` is ever run, no partner kept-mask is ever materialised, and no
+/// `ForeignPlane`/`MaskOp::Gather` exists anywhere in this case — a mask
+/// produced only because another fold needed it is forbidden intermediate
+/// state.
 #[test]
 fn join_sum_country() {
     let cases = load_cases();
     let fx = fixture::generate();
 
-    // Phase 1 (partner side): `country == 3` -> Keep.
-    let partner_lanes = fx.partner.lanes();
-    let partner_planes = partner_lanes.planes();
-    let partner_program = lower(&Query {
-        filter: Filter::cmp(COUNTRY, Cmp::EqU32(3)),
-        agg: Agg::Rows,
-    })
-    .expect("lowers");
-    let mut p_scratch =
-        Scratch::for_program(&partner_program, partner_planes.n_rows).expect("carves");
-    let p_tile_words = p_scratch.words();
-    let p_scratch_words = scratch_words_for(p_tile_words, p_scratch.slots()).expect("sized");
-    // Phase 1 is a `Terminal::Keep` — its kept bits land in this owned
-    // `Out::Mask` buffer, never in a scratch slot.
-    let mut partner_bits = vec![0u64; words_for(partner_planes.n_rows)];
-    let before1 = BYTES.load(Ordering::Relaxed);
-    let p_value = execute_into(
-        &partner_program,
-        &partner_planes,
-        &Foreign::NONE,
-        &mut p_scratch,
-        Out::Mask(&mut partner_bits),
-    )
-    .expect("runs");
-    let alloc1 = alloc_delta(before1);
-    match p_value {
-        Value::Mask(_) => {}
-        other => panic!("partner-side filter did not Keep a mask: {other:?}"),
-    }
-
-    let foreign_plane = ForeignPlane {
-        words: &partner_bits,
-        rows: fixture::PARTNER_ROWS,
-    };
-    let foreign = Foreign {
-        planes: &[foreign_plane],
-        lanes: &[],
-    };
-
-    // Phase 2 (line side): `status == 1 AND Semijoin(partner_id, 0)` -> SUM.
     let lanes = fx.line.lanes();
     let planes = lanes.planes();
+    let country_lane = [LaneRef::U32(&fx.partner.country)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &country_lane,
+    };
+
     let line_filter = Filter::and([
         Filter::cmp(STATUS, Cmp::EqU32(1)),
-        Filter::semijoin(PARTNER_ID, ForeignMask(0)),
+        Filter::eq_u32_via(PARTNER_ID, ForeignLane(0), 3),
     ]);
     let line_program = lower(&Query {
         filter: line_filter,
@@ -726,11 +697,12 @@ fn join_sum_country() {
     })
     .expect("lowers");
     let mut scratch = Scratch::for_program(&line_program, planes.n_rows).expect("carves");
-    let scratch_words = scratch_words_for(scratch.words(), scratch.slots()).expect("sized");
-    let before2 = BYTES.load(Ordering::Relaxed);
+    let tile_words = scratch.words();
+    let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
+    let before = BYTES.load(Ordering::Relaxed);
     let value =
         execute_into(&line_program, &planes, &foreign, &mut scratch, Out::None).expect("runs");
-    let alloc2 = alloc_delta(before2);
+    let alloc_bytes = alloc_delta(before);
 
     let encoded = match value {
         Value::SumI64(s) => s.to_string(),
@@ -738,17 +710,19 @@ fn join_sum_country() {
     };
     let out_bytes = encoded.len();
     let m = CaseMetrics {
-        ops: partner_program.ops.len() + line_program.ops.len(),
-        scratch_words: p_scratch_words + scratch_words,
-        tile_words: p_tile_words,
-        alloc_bytes_exec: alloc1 + alloc2,
+        ops: line_program.ops.len(),
+        scratch_words,
+        tile_words,
+        alloc_bytes_exec: alloc_bytes,
         rows_materialized: 0,
         index_vec_len: 0,
         out_bytes,
-        programs: Some(2),
+        programs: Some(1),
         // No N×M pair-relation object exists anywhere in this case: the fk
-        // resolves through one `MaskOp::Gather` read of the foreign plane
-        // per line row, never a materialized `(line, partner)` pair list.
+        // resolves through one `Pred::EqU32Via` read of the foreign VALUE
+        // lane per line row, never a materialized `(line, partner)` pair
+        // list — and, since the partner-side plane the old two-program
+        // shape built is gone too, no foreign MASK ever exists either.
         pair_relation_bytes: 0,
     };
     print_metric("join_sum_country", &m);

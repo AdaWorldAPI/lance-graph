@@ -146,9 +146,13 @@
 //! Filter (`=`/`<>`/`<`/`<=`/`>`/`>=`/ternary match/`IN`, `AND`/`OR`/`NOT`,
 //! resident planes), the aggregates `COUNT`/`EXISTS`/`ALL`/`SUM`/`MIN`/`MAX`,
 //! projection ([`Agg::Rows`] keeps the mask, [`Agg::BlendI32`] is the `CASE`
-//! shape), a two-phase `GROUP BY` over a categorical key, and the fk join
-//! ([`Filter::Semijoin`] / [`Agg::ScatterOrU32`] over
-//! `lance-graph-mask-risc`'s [`MaskOp::Gather`]/`Terminal::ScatterOrU32`).
+//! shape), a two-phase `GROUP BY` over a categorical key, and TWO fk join
+//! shapes: [`Filter::EqU32Via`] reads the foreign predicate THROUGH the fk
+//! in one facade pass (`lance-graph-mask-risc`'s [`Pred::EqU32Via`]), no
+//! foreign plane and no gathered mask; [`Filter::Semijoin`] lowers to
+//! [`MaskOp::Gather`] over a caller-supplied RESIDENT foreign plane — never
+//! a mask another `Program` produced — alongside [`Agg::ScatterOrU32`] for
+//! the one-to-many hop back (`Terminal::ScatterOrU32`).
 //! The one-terminal `GROUP BY SUM` is ONE program either way now:
 //! [`Agg::GroupSumI32`] for a key on THIS table, [`Agg::GroupSumViaI32`] for
 //! a key resolved through a foreign table's [`ForeignLane`]
@@ -180,20 +184,19 @@ pub struct Col(pub u16);
 pub struct Mask(pub u16);
 
 /// A FOREIGN table's kept mask — an index into
-/// [`Foreign::planes`](lance_graph_mask_risc::Foreign), never
-/// [`Planes::masks`](lance_graph_mask_risc::Planes). A row-space belonging to
-/// another table, addressed through [`Filter::semijoin`] rather than read as
-/// an ordinary operand — the same distinction [`lance_graph_mask_risc::ir`]
-/// draws between [`Mask`] (this table) and this.
+/// [`Foreign::planes`](lance_graph_mask_risc::Foreign): a RESIDENT plane of
+/// the foreign table, supplied by the caller alongside its `Planes`. See
+/// [`Filter::Semijoin`] for the precondition this index carries — it must
+/// never be a mask this crate's own [`lower`]/[`lower_fused`] produced for
+/// another `Program`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ForeignMask(pub u16);
+pub struct ForeignPlane(pub u16);
 
 /// A FOREIGN table's VALUE lane — an index into
-/// [`Foreign::lanes`](lance_graph_mask_risc::Foreign), the value-lane twin of
-/// [`ForeignMask`]. Addressed through [`Agg::GroupSumViaI32`]: `SUM(l.amount)
-/// GROUP BY p.country` names the group key as a foreign lane, resolved
-/// through THIS table's own fk column — never a lane this crate reads as an
-/// ordinary [`Col`].
+/// [`Foreign::lanes`](lance_graph_mask_risc::Foreign). Addressed through
+/// [`Agg::GroupSumViaI32`] (`SUM(l.amount) GROUP BY p.country`) and
+/// [`Filter::EqU32Via`] (`p.country = 3` read through `l.partner_id`) — both
+/// resolve through THIS table's own fk column, never as an ordinary [`Col`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ForeignLane(pub u16);
 
@@ -308,6 +311,24 @@ pub enum Filter {
     /// with no `WHERE`: the table is its validity plane, and a query over
     /// every row of it lowers to zero ops.
     Plane(Mask),
+    /// The fk join predicate in FACTORED form — `p.country = 3` read
+    /// through `l.partner_id`, lowered to [`Pred::EqU32Via`] over the
+    /// caller-supplied [`Foreign`](lance_graph_mask_risc::Foreign). A LEAF,
+    /// like [`Filter::Cmp`] / [`Filter::Plane`]: `Pred::EqU32Via` already
+    /// carries its own `under`, so this lowers exactly the way
+    /// [`Filter::Cmp(col, Cmp::EqU32(v))`](Cmp::EqU32) lowers to
+    /// [`Pred::EqU32`] — one `Node::Pred`, one gate, no second emitter arm.
+    /// No foreign plane is ever built and no mask is ever gathered: the
+    /// predicate is evaluated once per row, through the fk, in one facade
+    /// pass.
+    EqU32Via {
+        /// The foreign-key column on THIS table.
+        fk: Col,
+        /// Which foreign table's value lane the fk resolves into.
+        key: ForeignLane,
+        /// The value the resolved lane entry must equal.
+        v: u32,
+    },
     /// The fk SEMIJOIN — `EXISTS(SELECT 1 FROM foreign f WHERE f.rid =
     /// this.fk AND <pred on f>)`, lowered to [`MaskOp::Gather`] over the
     /// caller-supplied [`Foreign`](lance_graph_mask_risc::Foreign). A LEAF,
@@ -317,11 +338,23 @@ pub enum Filter {
     /// the scratch slot its `Gather` wrote (or, when `lower_fused` gives it
     /// its own slot, `AND`ed with a resident gate as a `BoolExpr::And`,
     /// exactly what happens to a gated `Cmp`).
+    ///
+    /// # Precondition: `foreign` names a RESIDENT plane, never a produced one
+    ///
+    /// `foreign` must index a plane the caller supplied in its own right —
+    /// the foreign table's validity, a focus, a class mask — never a mask
+    /// another `Program`'s `Keep` terminal just computed. `Gather` may
+    /// survive as a masking op only when its source is already legitimate
+    /// resident state, its output is tile-local, and no dynamically-created
+    /// population mask feeds it; a `Keep`-then-`Gather` pipeline across two
+    /// programs is exactly the forbidden shape — see [`Filter::EqU32Via`]
+    /// for the factored form that reads the foreign predicate directly and
+    /// needs no such mask at all.
     Semijoin {
         /// The foreign-key column on THIS table.
         fk: Col,
-        /// Which foreign table's kept mask the fk resolves into.
-        foreign: ForeignMask,
+        /// Which foreign table's RESIDENT kept plane the fk resolves into.
+        foreign: ForeignPlane,
     },
     /// Every child must hold.
     And(Vec<Filter>),
@@ -342,8 +375,14 @@ impl Filter {
         Filter::Plane(mask)
     }
 
-    /// The fk semijoin leaf — see [`Filter::Semijoin`].
-    pub fn semijoin(fk: Col, foreign: ForeignMask) -> Self {
+    /// The fk join leaf, factored — see [`Filter::EqU32Via`].
+    pub fn eq_u32_via(fk: Col, key: ForeignLane, v: u32) -> Self {
+        Filter::EqU32Via { fk, key, v }
+    }
+
+    /// The fk semijoin leaf — see [`Filter::Semijoin`], including the
+    /// precondition on `foreign`.
+    pub fn semijoin(fk: Col, foreign: ForeignPlane) -> Self {
         Filter::Semijoin { fk, foreign }
     }
 
@@ -946,7 +985,10 @@ fn lower_with(
 
 /// The filter after the survivor-skip pass, before any slot is assigned.
 enum Node {
-    /// A comparison, evaluated under `under` when there is a gate.
+    /// A comparison, evaluated under `under` when there is a gate. The fk
+    /// join leaf ([`Filter::EqU32Via`]) lowers here too — `Pred::EqU32Via`
+    /// is just another `Pred` variant, so it needs no `Node` shape of its
+    /// own.
     Pred {
         pred: Pred,
         under: Option<Mask>,
@@ -1014,6 +1056,21 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
             gate.is_some(),
         ),
         Filter::Plane(m) => (Node::Plane(*m), gate == Some(*m)),
+        // Exactly the `Cmp` arm above: `Pred::EqU32Via` carries its own
+        // `under`, so this is a single `Node::Pred`, not a second `Node`
+        // shape — "vanishes with the gate" for the same reason a gated
+        // `Cmp` does.
+        Filter::EqU32Via { fk, key, v } => (
+            Node::Pred {
+                pred: Pred::EqU32Via {
+                    fk: fk.0,
+                    key: key.0,
+                    v: *v,
+                },
+                under: gate,
+            },
+            gate.is_some(),
+        ),
         // Same "vanishes with the gate" reasoning as `Cmp` above: both
         // emitters apply `under` as an explicit `AND` on the `Gather`
         // result, so the emitted value is literally `gather & gate`
@@ -1450,9 +1507,10 @@ mod tests {
         /// the range claim would be untestable.
         addr: Vec<u64>,
         masks: Vec<Vec<u64>>,
-        /// Foreign tables' kept masks, indexed by `ForeignMask.0` — empty for
-        /// every single-table fixture; populated only by the two-table
-        /// semijoin tests.
+        /// Foreign tables' kept RESIDENT planes, indexed by
+        /// `ForeignPlane.0` — empty for every single-table fixture;
+        /// populated only by the two-table semijoin test, via a hand-built
+        /// plane fixture (never a mask this module's own `lower` produced).
         foreign: Vec<Vec<u64>>,
         /// The EXACT row count each `foreign[i]` spans — needed because a
         /// word-rounded length alone cannot distinguish "row 63 of a 64-row
@@ -1460,8 +1518,8 @@ mod tests {
         foreign_rows: Vec<usize>,
         /// Foreign `u32` VALUE lanes, indexed by [`ForeignLane`] — opt-in and
         /// EMPTY for every single-table fixture, populated only by the
-        /// `GroupSumViaI32` test via [`Fx::push_foreign_lane`]. No existing
-        /// fixture's shape moves.
+        /// `GroupSumViaI32` and `EqU32Via` tests via [`Fx::push_foreign_lane`].
+        /// No existing fixture's shape moves.
         foreign_lanes: Vec<Vec<u32>>,
     }
 
@@ -1494,18 +1552,21 @@ mod tests {
             }
         }
 
-        /// Register a foreign table's kept mask at the next `ForeignMask`
-        /// index (`0`, `1`, …, in call order) and return that index.
-        fn push_foreign(&mut self, bits: Vec<u64>, rows: usize) -> ForeignMask {
+        /// Register a foreign table's kept RESIDENT plane at the next
+        /// `ForeignPlane` index (`0`, `1`, …, in call order) and return that
+        /// index. A hand-built fixture, never a mask [`lower`]/[`lower_fused`]
+        /// produced — that is precisely what [`Filter::Semijoin`]'s
+        /// precondition forbids.
+        fn push_foreign(&mut self, bits: Vec<u64>, rows: usize) -> ForeignPlane {
             let idx = self.foreign.len() as u16;
             self.foreign.push(bits);
             self.foreign_rows.push(rows);
-            ForeignMask(idx)
+            ForeignPlane(idx)
         }
 
         /// Register a foreign `u32` VALUE lane at the next `ForeignLane`
-        /// index (`0`, `1`, …, in call order) and return that index — the
-        /// [`Fx::push_foreign`] twin for [`ForeignLane`]/`GroupSumViaI32`.
+        /// index (`0`, `1`, …, in call order) and return that index — used
+        /// by both [`Agg::GroupSumViaI32`] and [`Filter::EqU32Via`].
         fn push_foreign_lane(&mut self, values: Vec<u32>) -> ForeignLane {
             let idx = self.foreign_lanes.len() as u16;
             self.foreign_lanes.push(values);
@@ -1567,6 +1628,11 @@ mod tests {
                     Cmp::Range { lo, hi } => (lo as usize) <= row && row < (hi as usize),
                 },
                 Filter::Plane(m) => self.bit(*m, row),
+                Filter::EqU32Via { fk, key, v } => {
+                    let idx = self.u32_at(*fk, row) as usize;
+                    let lane = &self.foreign_lanes[usize::from(key.0)];
+                    idx < lane.len() && lane[idx] == *v
+                }
                 Filter::Semijoin { fk, foreign } => {
                     let idx = self.u32_at(*fk, row) as usize;
                     let bits = &self.foreign[usize::from(foreign.0)];
@@ -2635,12 +2701,78 @@ mod tests {
         assert_eq!(fx.reference(&fused, None), Value::Count(expected));
     }
 
+    /// FAILS IF: `Filter::EqU32Via` disagrees with an independent per-row
+    /// reading (the oracle's `EqU32Via` arm), in EITHER lowering — the fk
+    /// join in FACTORED form: `CLASS` is the fk into a 4-row foreign VALUE
+    /// lane (shorter than `CLASS`'s own `0..5` range, so class 4 drops as
+    /// out-of-range), the resolved value compared against `3`. Anti-vacuity:
+    /// the bare predicate alone is selective (neither 0 nor every row),
+    /// composing it with `AND` narrows further still, and the fixture
+    /// exercises an out-of-range fk.
+    #[test]
+    fn eq_u32_via_matches_an_independent_per_row_reading() {
+        let mut fx = Fx::new(N);
+        let remap = vec![3u32, 1, 3, 2];
+        let foreign_rows = remap.len();
+        let foreign_lane = fx.push_foreign_lane(remap);
+
+        let bare = Filter::eq_u32_via(CLASS, foreign_lane, 3);
+        let bare_expected = fx.rows(&bare).len();
+        assert!(
+            bare_expected > 0 && bare_expected < N,
+            "the bare eq_u32_via selects {bare_expected}/{N} — not selective"
+        );
+        assert!(
+            (0..fx.n()).any(|r| fx.classes[r] as usize >= foreign_rows),
+            "the fixture never exercises an out-of-range fk"
+        );
+
+        let f = Filter::and([Filter::cmp(VALS, Cmp::GtI32(0)), bare.clone()]);
+        let expected: i64 = (0..fx.n())
+            .filter(|&r| fx.oracle(&f, r))
+            .map(|r| i64::from(fx.alt[r]))
+            .sum();
+        let narrowed = fx.rows(&f).len();
+        assert!(
+            narrowed > 0 && narrowed < bare_expected,
+            "composing with AND must narrow: {narrowed} vs {bare_expected}"
+        );
+
+        let q = Query {
+            filter: f,
+            agg: Agg::SumI32(ALT),
+        };
+        let remap = &fx.foreign_lanes[usize::from(foreign_lane.0)];
+        let foreign_lanes = [LaneRef::U32(remap)];
+        let mask_risc_foreign = lance_graph_mask_risc::Foreign {
+            planes: &[],
+            lanes: &foreign_lanes,
+        };
+        for (label, program) in [
+            ("in place", lower(&q).expect("lowers in place")),
+            ("fused", lower_fused(&q).expect("lowers fused")),
+        ] {
+            let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
+            let value = fx.with_planes(&[], |planes| {
+                lance_graph_mask_risc::execute_into(
+                    &program,
+                    planes,
+                    &mask_risc_foreign,
+                    &mut scratch,
+                    lance_graph_mask_risc::Out::None,
+                )
+                .expect("runs")
+            });
+            assert_eq!(value, Value::SumI64(expected), "{label}: value");
+        }
+    }
+
     /// FAILS IF: `Filter::Semijoin` disagrees with an independent per-row
-    /// reading (the oracle's new `Semijoin` arm), in EITHER lowering — a
-    /// two-table shape: `CLASS` is the fk into a 5-row foreign table whose
-    /// kept mask selects classes `{1, 3}`. Anti-vacuity: the semijoin alone
-    /// is selective (neither 0 nor every row), and composing it with `AND`
-    /// narrows further still.
+    /// reading (the oracle's `Semijoin` arm), in EITHER lowering — a
+    /// two-table shape: `CLASS` is the fk into a 5-row foreign RESIDENT
+    /// plane whose kept mask selects classes `{1, 3}`. Anti-vacuity: the
+    /// semijoin alone is selective (neither 0 nor every row), and composing
+    /// it with `AND` narrows further still.
     #[test]
     fn semijoin_matches_an_independent_per_row_reading() {
         let mut fx = Fx::new(N);
