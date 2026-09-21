@@ -818,3 +818,74 @@ fn eq_u32_via_refusals_match_between_executor_and_oracle() {
         assert_eq!(oracle, Err(want), "oracle refusal for key={key}");
     }
 }
+
+/// FAILS IF: `ScatterCountU32` disagrees with the oracle, or with an
+/// independent distinct-count over the survivors' in-range keys, on the
+/// tiled default scratch — for `out_rows` both smaller and larger than
+/// `n_rows`. Non-vacuous: repeats must occur (distinct < survivors) and at
+/// least one key must be out of range, so the union and the drop both bite.
+#[test]
+fn scatter_count_matches_the_oracle_and_an_independent_distinct_count() {
+    for &n in &ROWS {
+        for &out_rows in &[5u32, 64, 70, (n as u32).saturating_sub(1).max(1)] {
+            let fx = Fixture::new(n, out_rows as usize, 8, 0xC0_0E7);
+            let (lanes, masks) = fx.planes();
+            let planes = Planes {
+                n_rows: n,
+                masks: &masks,
+                lanes: &lanes,
+            };
+            let p = Program::new(
+                vec![MaskOp::Pred {
+                    pred: Pred::EqU32 { lane: 1, v: 1 },
+                    under: None,
+                    dst: 0,
+                }],
+                Terminal::ScatterCountU32 {
+                    mask: S0,
+                    lane: 0,
+                    out_rows,
+                },
+            );
+            let mut scratch = Scratch::for_program(&p, n).expect("addressable");
+            let mut acc = vec![u64::MAX; words_for(out_rows as usize)];
+            let got = execute_into(
+                &p,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                Out::Mask(&mut acc),
+            )
+            .expect("runs");
+            let mut acc_ref = vec![0u64; words_for(out_rows as usize)];
+            let want = reference_execute_into(&p, &planes, &Foreign::NONE, Out::Mask(&mut acc_ref))
+                .expect("oracle runs");
+            assert_eq!(got, want, "n={n} out_rows={out_rows}: value");
+            let mut seen = std::collections::BTreeSet::new();
+            let mut survivors = 0usize;
+            for i in 0..n {
+                if fx.status[i] == 1 {
+                    survivors += 1;
+                    if (fx.fk[i] as usize) < out_rows as usize {
+                        seen.insert(fx.fk[i]);
+                    }
+                }
+            }
+            assert_eq!(
+                got,
+                Value::Count(seen.len()),
+                "n={n} out_rows={out_rows}: distinct"
+            );
+            if n >= 130 {
+                assert!(
+                    seen.len() < survivors,
+                    "n={n} out_rows={out_rows}: no repeats"
+                );
+            }
+            assert!(
+                fx.fk.iter().any(|&i| i >= out_rows),
+                "n={n} out_rows={out_rows}: no drop"
+            );
+        }
+    }
+}

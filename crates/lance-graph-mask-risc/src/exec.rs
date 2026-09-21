@@ -720,7 +720,9 @@ pub fn execute_into(
     // sink is the requested result, so this is a write the law permits; the
     // facade kernels themselves never zero a destination they only add to.
     match (&program.terminal, &mut out) {
-        (Terminal::ScatterOrU32 { .. }, Out::Mask(o)) => o.fill(0),
+        (Terminal::ScatterOrU32 { .. } | Terminal::ScatterCountU32 { .. }, Out::Mask(o)) => {
+            o.fill(0)
+        }
         (Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. }, Out::I64(o)) => o.fill(0),
         _ => {}
     }
@@ -912,9 +914,16 @@ pub fn execute_into(
                 mask,
                 lane,
                 out_rows,
+            }
+            | Terminal::ScatterCountU32 {
+                mask,
+                lane,
+                out_rows,
             } => {
                 // `validate` already refused a missing or mis-sized `out`;
-                // the kernel ORs into it, tile after tile.
+                // the kernel ORs into it, tile after tile. For the count
+                // form the buffer is the fold's accumulator and only its
+                // popcount leaves.
                 if let Out::Mask(o) = &mut out {
                     mask_scatter_or_u32(
                         read(planes, &slots, mask, t),
@@ -971,6 +980,10 @@ pub fn execute_into(
         Terminal::MaskedMaxI32 { .. } => Value::OptI32(max),
         Terminal::BlendI32 { .. } => Value::Blended,
         Terminal::ScatterOrU32 { .. } => Value::Scattered,
+        Terminal::ScatterCountU32 { .. } => Value::Count(match &out {
+            Out::Mask(o) => popcount_batch_u64(o) as usize,
+            _ => 0,
+        }),
         Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. } => Value::GroupSummed,
         Terminal::Keep { mask } => Value::Mask(mask),
     })

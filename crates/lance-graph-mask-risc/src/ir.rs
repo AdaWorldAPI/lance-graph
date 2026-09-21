@@ -260,6 +260,20 @@ pub enum Terminal {
         lane: u16,
         out_rows: u32,
     },
+    /// `COUNT(DISTINCT lane[i])` over the rows where `mask` holds, keys `<
+    /// out_rows` (out of range silently dropped) — the one-to-many hop
+    /// FOLDED to its count. The caller's `Out::Mask` (exactly
+    /// `words_for(out_rows)` long) is the fold's accumulator, one bit per
+    /// distinct key; the terminal zeroes it, scatters into it tile by tile
+    /// and answers its popcount as [`Value::Count`]. No second program ever
+    /// reads it: `docs WHERE EXISTS line … ` counted, without the doc mask
+    /// becoming an intermediate. (When the mask itself is the demanded
+    /// result — a `hop` — use [`Terminal::ScatterOrU32`].)
+    ScatterCountU32 {
+        mask: Operand,
+        lane: u16,
+        out_rows: u32,
+    },
     /// The one-terminal `GROUP BY … SUM`: for every row `i` where `mask`
     /// holds, adds `val[i]` into the caller's `Out::I64` buffer at index
     /// `key[i]` — provided `key[i] < out.len()`
@@ -400,6 +414,7 @@ impl Program {
             | Terminal::MaskedMaxI32 { mask, .. }
             | Terminal::BlendI32 { mask, .. }
             | Terminal::ScatterOrU32 { mask, .. }
+            | Terminal::ScatterCountU32 { mask, .. }
             | Terminal::GroupSumI32 { mask, .. }
             | Terminal::GroupSumViaI32 { mask, .. }
             | Terminal::Keep { mask } => touch(mask),

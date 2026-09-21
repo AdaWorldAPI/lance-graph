@@ -456,11 +456,20 @@ pub(crate) fn validate(
             mask,
             lane,
             out_rows,
+        }
+        | Terminal::ScatterCountU32 {
+            mask,
+            lane,
+            out_rows,
         } => {
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)?;
             check_lane(planes, lane, LaneKind::U32)?;
             let want = words_for(out_rows as usize);
+            let what = match p.terminal {
+                Terminal::ScatterCountU32 { .. } => "ScatterCountU32",
+                _ => "ScatterOrU32",
+            };
             match out {
                 OutShape::Mask(len) if len == want => Ok(()),
                 OutShape::Mask(len) => Err(ExecError::LenMismatch {
@@ -469,9 +478,7 @@ pub(crate) fn validate(
                     found: len,
                 }),
                 OutShape::None | OutShape::I32(_) | OutShape::I64(_) => {
-                    Err(ExecError::TerminalNeedsOut {
-                        what: "ScatterOrU32",
-                    })
+                    Err(ExecError::TerminalNeedsOut { what })
                 }
             }
         }
@@ -777,6 +784,26 @@ pub fn reference_execute_into(
                 }
             }
             Value::Scattered
+        }
+        Terminal::ScatterCountU32 {
+            mask,
+            lane,
+            out_rows,
+        } => {
+            let mut distinct = 0usize;
+            if let Out::Mask(o) = out {
+                for w in o.iter_mut() {
+                    *w = 0;
+                }
+                for r in survivors(mask) {
+                    let idx = u32_at(planes, lane, r) as usize;
+                    if idx < out_rows as usize {
+                        o[idx / 64] |= 1u64 << (idx % 64);
+                    }
+                }
+                distinct = o.iter().map(|w| w.count_ones() as usize).sum();
+            }
+            Value::Count(distinct)
         }
         Terminal::GroupSumI32 { mask, key, val } => {
             if let Out::I64(o) = out {
