@@ -30,8 +30,8 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use lance_graph_mask_risc::{
-    execute, execute_into, materialize_rows, scratch_words_for, words_for, Foreign, ForeignPlane,
-    LaneRef, Operand, Out, Planes, Scratch, Value,
+    execute_into, materialize_rows, scratch_words_for, words_for, Foreign, ForeignPlane, LaneRef,
+    Out, Planes, Scratch, Terminal, Value,
 };
 use lance_graph_quack::{
     lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignLane, ForeignMask, GroupBy, Query,
@@ -133,6 +133,11 @@ fn assert_case(cases: &[Case], id: &str, actual: &str) {
 struct CaseMetrics {
     ops: usize,
     scratch_words: usize,
+    /// The scratch slot width [`Scratch::for_program`] actually carved —
+    /// `tile_words_for(n_rows)`, never `words_for(n_rows)`. For a
+    /// multi-phase case this is the FIRST (filter/phase-1) scratch's width;
+    /// `scratch_words` stays the sum over every phase, as before.
+    tile_words: usize,
     alloc_bytes_exec: usize,
     rows_materialized: usize,
     index_vec_len: usize,
@@ -150,12 +155,16 @@ struct CaseMetrics {
 }
 
 fn print_metric(id: &str, m: &CaseMetrics) {
+    let scratch_bytes = m.scratch_words * std::mem::size_of::<u64>();
     match m.programs {
         Some(k) => eprintln!(
-            "METRIC case={id} ops={} scratch_words={} alloc_bytes_exec={} \
-             rows_materialized={} index_vec_len={} out_bytes={} pair_relation_bytes={} programs={k}",
+            "METRIC case={id} ops={} scratch_words={} tile_words={} scratch_bytes={} \
+             alloc_bytes_exec={} rows_materialized={} index_vec_len={} out_bytes={} \
+             pair_relation_bytes={} programs={k}",
             m.ops,
             m.scratch_words,
+            m.tile_words,
+            scratch_bytes,
             m.alloc_bytes_exec,
             m.rows_materialized,
             m.index_vec_len,
@@ -163,25 +172,19 @@ fn print_metric(id: &str, m: &CaseMetrics) {
             m.pair_relation_bytes,
         ),
         None => eprintln!(
-            "METRIC case={id} ops={} scratch_words={} alloc_bytes_exec={} \
-             rows_materialized={} index_vec_len={} out_bytes={} pair_relation_bytes={}",
+            "METRIC case={id} ops={} scratch_words={} tile_words={} scratch_bytes={} \
+             alloc_bytes_exec={} rows_materialized={} index_vec_len={} out_bytes={} \
+             pair_relation_bytes={}",
             m.ops,
             m.scratch_words,
+            m.tile_words,
+            scratch_bytes,
             m.alloc_bytes_exec,
             m.rows_materialized,
             m.index_vec_len,
             m.out_bytes,
             m.pair_relation_bytes,
         ),
-    }
-}
-
-/// Copy a kept mask's bits out of wherever `Value::Mask` says they landed —
-/// a scratch slot, or (for a bare-plane filter) the plane itself.
-fn mask_bits(planes: &Planes<'_>, scratch: &Scratch<'_>, op: Operand) -> Vec<u64> {
-    match op {
-        Operand::Scratch(i) => scratch.slot(i).expect("Keep names a written slot").to_vec(),
-        Operand::Plane(p) => planes.masks[usize::from(p)].to_vec(),
     }
 }
 
@@ -190,14 +193,24 @@ fn mask_bits(planes: &Planes<'_>, scratch: &Scratch<'_>, op: Operand) -> Vec<u64
 /// `tests/duckdb/README.txt`.
 fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String, CaseMetrics) {
     let program = lower(&Query { filter, agg }).expect("lowers");
-    let words = words_for(planes.n_rows);
-    let slots = program.scratch_slots as usize;
-    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-    let scratch_words = buf.len();
-    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
+    let tile_words = scratch.words();
+    let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
+
+    // `Terminal::Keep` under tiled execution demands a caller `Out::Mask`
+    // buffer — the kept bits land THERE, never in a scratch slot the caller
+    // chases down by `Value::Mask`'s operand (see D-LGJ… the mask-risc
+    // tiling note). Every other terminal folds into its own `Value`, so
+    // `Out::None` is enough for it.
+    let mut kept_buf = vec![0u64; words_for(planes.n_rows)];
+    let out = if matches!(program.terminal, Terminal::Keep { .. }) {
+        Out::Mask(&mut kept_buf)
+    } else {
+        Out::None
+    };
 
     let before = BYTES.load(Ordering::Relaxed);
-    let value = execute(&program, planes, &mut scratch, None).expect("runs");
+    let value = execute_into(&program, planes, &Foreign::NONE, &mut scratch, out).expect("runs");
     let alloc_bytes_exec = alloc_delta(before);
 
     let (encoded, rows_materialized, index_vec_len) = match value {
@@ -208,9 +221,8 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
         Value::OptI32(None) => {
             panic!("case {id}: min/max over an empty set — fixture is not what the case assumes")
         }
-        Value::Mask(op) => {
-            let bits = mask_bits(planes, &scratch, op);
-            let rows = materialize_rows(&bits, planes.n_rows);
+        Value::Mask(_) => {
+            let rows = materialize_rows(&kept_buf, planes.n_rows);
             let n = rows.len();
             let s = rows
                 .iter()
@@ -233,6 +245,7 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
         CaseMetrics {
             ops: program.ops.len(),
             scratch_words,
+            tile_words,
             alloc_bytes_exec,
             rows_materialized,
             index_vec_len,
@@ -269,20 +282,29 @@ fn run_group(
         "case {id}: filter_plane drifted from where we place the kept mask"
     );
 
-    let words = words_for(planes.n_rows);
-    let f_slots = plan.filter.scratch_slots as usize;
-    let mut f_buf = vec![0u64; scratch_words_for(words, f_slots).expect("sized")];
-    let mut scratch_words_total = f_buf.len();
-    let mut f_scratch = Scratch::over(&mut f_buf, words, f_slots).expect("carves");
+    let mut f_scratch = Scratch::for_program(&plan.filter, planes.n_rows).expect("carves");
+    let f_tile_words = f_scratch.words();
+    let mut scratch_words_total =
+        scratch_words_for(f_tile_words, f_scratch.slots()).expect("sized");
 
+    // Phase 1 is a `Terminal::Keep` — its kept bits land in this owned
+    // `Out::Mask` buffer, never in a scratch slot (see `run_query`'s note).
+    let mut kept_bits = vec![0u64; words_for(planes.n_rows)];
     let before = BYTES.load(Ordering::Relaxed);
-    let kept = execute(&plan.filter, planes, &mut f_scratch, None).expect("runs");
+    let kept = execute_into(
+        &plan.filter,
+        planes,
+        &Foreign::NONE,
+        &mut f_scratch,
+        Out::Mask(&mut kept_bits),
+    )
+    .expect("runs");
     let mut alloc_bytes_exec = alloc_delta(before);
 
-    let kept_bits = match kept {
-        Value::Mask(op) => mask_bits(planes, &f_scratch, op),
+    match kept {
+        Value::Mask(_) => {}
         other => panic!("case {id}: group filter did not Keep a mask: {other:?}"),
-    };
+    }
     let widened_masks: Vec<&[u64]> = std::iter::once(kept_bits.as_slice()).collect();
     let widened = Planes {
         n_rows: planes.n_rows,
@@ -293,13 +315,13 @@ fn run_group(
     let mut ops = plan.filter.ops.len();
     let mut pairs = Vec::with_capacity(plan.groups.len());
     for (k, prog) in plan.groups.iter().enumerate() {
-        let g_slots = prog.scratch_slots as usize;
-        let mut g_buf = vec![0u64; scratch_words_for(words, g_slots).expect("sized")];
-        scratch_words_total += g_buf.len();
-        let mut g_scratch = Scratch::over(&mut g_buf, words, g_slots).expect("carves");
+        let mut g_scratch = Scratch::for_program(prog, planes.n_rows).expect("carves");
+        scratch_words_total +=
+            scratch_words_for(g_scratch.words(), g_scratch.slots()).expect("sized");
 
         let before = BYTES.load(Ordering::Relaxed);
-        let v = execute(prog, &widened, &mut g_scratch, None).expect("runs");
+        let v =
+            execute_into(prog, &widened, &Foreign::NONE, &mut g_scratch, Out::None).expect("runs");
         alloc_bytes_exec += alloc_delta(before);
         ops += prog.ops.len();
 
@@ -317,6 +339,7 @@ fn run_group(
         CaseMetrics {
             ops,
             scratch_words: scratch_words_total,
+            tile_words: f_tile_words,
             alloc_bytes_exec,
             rows_materialized: 0,
             index_vec_len: 0,
@@ -584,11 +607,9 @@ fn group_sum_cc() {
         },
     })
     .expect("lowers");
-    let words = words_for(planes.n_rows);
-    let slots = program.scratch_slots as usize;
-    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-    let scratch_words = buf.len();
-    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
+    let tile_words = scratch.words();
+    let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
     let mut out = [0i64; 8];
     let before = BYTES.load(Ordering::Relaxed);
     let value = execute_into(
@@ -611,6 +632,7 @@ fn group_sum_cc() {
     let m = CaseMetrics {
         ops: program.ops.len(),
         scratch_words,
+        tile_words,
         alloc_bytes_exec,
         rows_materialized: 0,
         index_vec_len: 0,
@@ -660,19 +682,27 @@ fn join_sum_country() {
         agg: Agg::Rows,
     })
     .expect("lowers");
-    let p_words = words_for(partner_planes.n_rows);
-    let p_slots = partner_program.scratch_slots as usize;
-    let mut p_buf = vec![0u64; scratch_words_for(p_words, p_slots).expect("sized")];
-    let p_scratch_words = p_buf.len();
-    let mut p_scratch = Scratch::over(&mut p_buf, p_words, p_slots).expect("carves");
+    let mut p_scratch =
+        Scratch::for_program(&partner_program, partner_planes.n_rows).expect("carves");
+    let p_tile_words = p_scratch.words();
+    let p_scratch_words = scratch_words_for(p_tile_words, p_scratch.slots()).expect("sized");
+    // Phase 1 is a `Terminal::Keep` — its kept bits land in this owned
+    // `Out::Mask` buffer, never in a scratch slot.
+    let mut partner_bits = vec![0u64; words_for(partner_planes.n_rows)];
     let before1 = BYTES.load(Ordering::Relaxed);
-    let p_value = execute(&partner_program, &partner_planes, &mut p_scratch, None).expect("runs");
+    let p_value = execute_into(
+        &partner_program,
+        &partner_planes,
+        &Foreign::NONE,
+        &mut p_scratch,
+        Out::Mask(&mut partner_bits),
+    )
+    .expect("runs");
     let alloc1 = alloc_delta(before1);
-    let p_op = match p_value {
-        Value::Mask(op) => op,
+    match p_value {
+        Value::Mask(_) => {}
         other => panic!("partner-side filter did not Keep a mask: {other:?}"),
-    };
-    let partner_bits = mask_bits(&partner_planes, &p_scratch, p_op);
+    }
 
     let foreign_plane = ForeignPlane {
         words: &partner_bits,
@@ -695,11 +725,8 @@ fn join_sum_country() {
         agg: Agg::SumI32(AMOUNT),
     })
     .expect("lowers");
-    let words = words_for(planes.n_rows);
-    let slots = line_program.scratch_slots as usize;
-    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-    let scratch_words = buf.len();
-    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let mut scratch = Scratch::for_program(&line_program, planes.n_rows).expect("carves");
+    let scratch_words = scratch_words_for(scratch.words(), scratch.slots()).expect("sized");
     let before2 = BYTES.load(Ordering::Relaxed);
     let value =
         execute_into(&line_program, &planes, &foreign, &mut scratch, Out::None).expect("runs");
@@ -713,6 +740,7 @@ fn join_sum_country() {
     let m = CaseMetrics {
         ops: partner_program.ops.len() + line_program.ops.len(),
         scratch_words: p_scratch_words + scratch_words,
+        tile_words: p_tile_words,
         alloc_bytes_exec: alloc1 + alloc2,
         rows_materialized: 0,
         index_vec_len: 0,
@@ -748,11 +776,9 @@ fn join_count_docs_with_posted() {
         },
     })
     .expect("lowers");
-    let words = words_for(planes.n_rows);
-    let slots = line_program.scratch_slots as usize;
-    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-    let scratch_words = buf.len();
-    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let mut scratch = Scratch::for_program(&line_program, planes.n_rows).expect("carves");
+    let tile_words = scratch.words();
+    let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
     let mut scattered = vec![0u64; words_for(DOC_ROWS)];
     let before1 = BYTES.load(Ordering::Relaxed);
     let value1 = execute_into(
@@ -786,13 +812,17 @@ fn join_count_docs_with_posted() {
         agg: Agg::Count,
     })
     .expect("lowers");
-    let d_words = words_for(DOC_ROWS);
-    let d_slots = doc_program.scratch_slots as usize;
-    let mut d_buf = vec![0u64; scratch_words_for(d_words, d_slots).expect("sized")];
-    let d_scratch_words = d_buf.len();
-    let mut d_scratch = Scratch::over(&mut d_buf, d_words, d_slots).expect("carves");
+    let mut d_scratch = Scratch::for_program(&doc_program, DOC_ROWS).expect("carves");
+    let d_scratch_words = scratch_words_for(d_scratch.words(), d_scratch.slots()).expect("sized");
     let before2 = BYTES.load(Ordering::Relaxed);
-    let value2 = execute(&doc_program, &doc_planes, &mut d_scratch, None).expect("runs");
+    let value2 = execute_into(
+        &doc_program,
+        &doc_planes,
+        &Foreign::NONE,
+        &mut d_scratch,
+        Out::None,
+    )
+    .expect("runs");
     let alloc2 = alloc_delta(before2);
 
     let encoded = match value2 {
@@ -803,6 +833,7 @@ fn join_count_docs_with_posted() {
     let m = CaseMetrics {
         ops: line_program.ops.len() + doc_program.ops.len(),
         scratch_words: scratch_words + d_scratch_words,
+        tile_words,
         alloc_bytes_exec: alloc1 + alloc2,
         rows_materialized: 0,
         index_vec_len: 0,
@@ -838,11 +869,9 @@ fn join_group_sum_country() {
         },
     })
     .expect("lowers");
-    let words = words_for(planes.n_rows);
-    let slots = program.scratch_slots as usize;
-    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-    let scratch_words = buf.len();
-    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
+    let tile_words = scratch.words();
+    let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
 
     let country_lane = [LaneRef::U32(&fx.partner.country)];
     let foreign = Foreign {
@@ -872,6 +901,7 @@ fn join_group_sum_country() {
     let m = CaseMetrics {
         ops: program.ops.len(),
         scratch_words,
+        tile_words,
         alloc_bytes_exec,
         rows_materialized: 0,
         index_vec_len: 0,

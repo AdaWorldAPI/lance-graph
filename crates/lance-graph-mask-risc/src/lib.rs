@@ -118,7 +118,9 @@ pub mod reference;
 pub mod ternlog_dispatch;
 pub mod value;
 
-pub use exec::{execute, execute_into, materialize_rows, scratch_words_for, Scratch};
+pub use exec::{
+    execute, execute_into, materialize_rows, scratch_words_for, tile_words_for, Scratch, TILE_WORDS,
+};
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
 pub use ir::{
     Foreign, ForeignPlane, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,

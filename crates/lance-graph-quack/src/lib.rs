@@ -849,9 +849,12 @@ pub struct GroupBy {
 /// The two-phase plan a [`GroupBy`] lowers to — DuckDB's pipeline break,
 /// with a mask plane where the hash table would be.
 ///
-/// The caller runs `filter` (a [`Terminal::Keep`]), reads the mask its
-/// `Value::Mask(op)` names — a scratch slot, or for a bare-plane filter the
-/// plane itself — presents it as `planes.masks[filter_plane]`, and runs each
+/// The caller runs `filter` (a [`Terminal::Keep`]) through `execute_into`
+/// with an `Out::Mask` buffer of `words_for(n_rows)` — the kept bits land
+/// there (tiled execution never leaves them sitting in a scratch slot the
+/// caller must chase down by `Value::Mask`'s operand, which for `filter`
+/// names a scratch slot or, for a bare-plane filter, the plane itself),
+/// presents that buffer as `planes.masks[filter_plane]`, and runs each
 /// program in `groups` over the widened planes. Each group program is ONE
 /// gated equality and a terminal: the key lane is compared once per group,
 /// but only over the live words of the kept filter (the survivor skip), which
@@ -1422,7 +1425,7 @@ fn pred_of(col: Col, cmp: Cmp) -> Pred {
 mod tests {
     use super::*;
     use lance_graph_mask_risc::{
-        execute, materialize_rows, reference_execute, scratch_words_for, words_for, LaneRef,
+        execute_into, materialize_rows, reference_execute, words_for, Foreign, LaneRef, Out,
         Planes, Scratch, Value,
     };
 
@@ -1595,28 +1598,43 @@ mod tests {
             })
         }
 
-        /// The executor, on a scratch sized exactly from the program.
+        /// The executor, tiled per [`Scratch::for_program`]. A `Keep`
+        /// terminal is handed an owned `Out::Mask` buffer (discarded here —
+        /// `exec_mask` is the caller that wants the bits); every other
+        /// terminal gets the caller's `out` or `Out::None`.
         fn exec(&self, program: &Program, extra: &[Vec<u64>], out: Option<&mut [i32]>) -> Value {
             self.with_planes(extra, |planes| {
-                let words = words_for(self.n());
-                let slots = program.scratch_slots as usize;
-                let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-                let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
-                execute(program, planes, &mut scratch, out).expect("runs")
+                let mut scratch = Scratch::for_program(program, self.n()).expect("carves");
+                let mut kept_buf = vec![0u64; words_for(self.n())];
+                let dst = if matches!(program.terminal, Terminal::Keep { .. }) {
+                    Out::Mask(&mut kept_buf)
+                } else if let Some(o) = out {
+                    Out::I32(o)
+                } else {
+                    Out::None
+                };
+                execute_into(program, planes, &Foreign::NONE, &mut scratch, dst).expect("runs")
             })
         }
 
-        /// The executor on a `Keep` program, copying the kept mask out of
-        /// wherever `Value::Mask` says it landed.
+        /// The executor on a `Keep` program: tiled execution lands the kept
+        /// bits in the `Out::Mask` buffer this owns and returns, never in a
+        /// scratch slot the caller must chase down by `Value::Mask`'s
+        /// operand.
         fn exec_mask(&self, program: &Program, extra: &[Vec<u64>]) -> Vec<u64> {
             self.with_planes(extra, |planes| {
-                let words = words_for(self.n());
-                let slots = program.scratch_slots as usize;
-                let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-                let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
-                match execute(program, planes, &mut scratch, None).expect("runs") {
-                    Value::Mask(Operand::Scratch(i)) => scratch.slot(i).expect("written").to_vec(),
-                    Value::Mask(Operand::Plane(p)) => planes.masks[usize::from(p)].to_vec(),
+                let mut scratch = Scratch::for_program(program, self.n()).expect("carves");
+                let mut kept = vec![0u64; words_for(self.n())];
+                match execute_into(
+                    program,
+                    planes,
+                    &Foreign::NONE,
+                    &mut scratch,
+                    Out::Mask(&mut kept),
+                )
+                .expect("runs")
+                {
+                    Value::Mask(_) => kept,
                     other => panic!("not a kept mask: {other:?}"),
                 }
             })
@@ -2663,10 +2681,7 @@ mod tests {
             ("in place", lower(&q).expect("lowers in place")),
             ("fused", lower_fused(&q).expect("lowers fused")),
         ] {
-            let words = words_for(fx.n());
-            let slots = program.scratch_slots as usize;
-            let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-            let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+            let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
             let value = fx.with_planes(&[], |planes| {
                 lance_graph_mask_risc::execute_into(
                     &program,
@@ -2717,10 +2732,7 @@ mod tests {
             },
         };
         let program = lower(&q).expect("lowers");
-        let words = words_for(fx.n());
-        let slots = program.scratch_slots as usize;
-        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
         let mut got = vec![0u64; words_for(out_rows as usize)];
         let value = fx.with_planes(&[], |planes| {
             lance_graph_mask_risc::execute_into(
@@ -2767,10 +2779,7 @@ mod tests {
             },
         };
         let program = lower(&q).expect("lowers");
-        let words = words_for(fx.n());
-        let slots = program.scratch_slots as usize;
-        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
         let mut got = vec![0i64; groups];
         let value = fx.with_planes(&[], |planes| {
             lance_graph_mask_risc::execute_into(
@@ -2841,10 +2850,7 @@ mod tests {
             },
         };
         let program = lower(&q).expect("lowers");
-        let words = words_for(fx.n());
-        let slots = program.scratch_slots as usize;
-        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
         let mut got = vec![0i64; groups];
         let foreign_lanes = [LaneRef::U32(remap)];
         let mask_risc_foreign = lance_graph_mask_risc::Foreign {
@@ -2874,8 +2880,7 @@ mod diamond_lowering_tests {
     use lance_graph_contract::facet::FacetCascade;
     use lance_graph_contract::ordered_lane::WitnessError;
     use lance_graph_mask_risc::{
-        execute, materialize_rows, scratch_words_for, words_for, LaneRef, Operand, Planes, Scratch,
-        Value,
+        execute_into, materialize_rows, words_for, Foreign, LaneRef, Out, Planes, Scratch, Value,
     };
 
     const LANE: Col = Col(0); // provenance only
@@ -2954,15 +2959,20 @@ mod diamond_lowering_tests {
                 masks: &masks,
                 lanes: &lanes,
             };
-            let words = words_for(self.n());
-            let slots = program.scratch_slots as usize;
-            let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-            let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
-            let mask = match execute(&program, &planes, &mut scratch, None).expect("runs") {
-                Value::Mask(Operand::Scratch(i)) => scratch.slot(i).expect("written").to_vec(),
-                Value::Mask(Operand::Plane(p)) => planes.masks[usize::from(p)].to_vec(),
+            let mut scratch = Scratch::for_program(&program, self.n()).expect("carves");
+            let mut mask = vec![0u64; words_for(self.n())];
+            match execute_into(
+                &program,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                Out::Mask(&mut mask),
+            )
+            .expect("runs")
+            {
+                Value::Mask(_) => {}
                 other => panic!("not a mask: {other:?}"),
-            };
+            }
             materialize_rows(&mask, self.n())
         }
 
