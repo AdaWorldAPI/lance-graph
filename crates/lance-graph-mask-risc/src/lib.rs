@@ -13,12 +13,16 @@
 //! word lowers to is its question, answered by its own parity tests, and
 //! running this suite under another realization would test ndarray through a
 //! proxy rather than test this crate. `tests/no_alloc.rs` pins the
-//! zero-allocation law. Still absent, named:
-//! `hop` (PR5); a strided `Operand` — the gap is in THIS IR, not in T1:
-//! `ndarray::simd` already ships `ternary_match_strided_to_mask`,
-//! `eq_u32_strided_to_mask` and `masked_strided_group_sum`, and nothing here
-//! can name a `(base, stride, group)` source; and the Cypher `mask_lower`
-//! seam (the Cypher plan's Wave 1 consumes this crate).
+//! zero-allocation law. `hop` (PR5) LANDED as [`MaskOp::Gather`] (the fk
+//! semijoin, over [`ir::Foreign`]) and [`Terminal::ScatterOrU32`] (the
+//! one-to-many hop back); [`Terminal::GroupSumI32`] is the one-terminal
+//! `GROUP BY … SUM`. Still absent, named: a strided `Operand` — the gap is
+//! in THIS IR, not in T1: `ndarray::simd` already ships
+//! `ternary_match_strided_to_mask`, `eq_u32_strided_to_mask` and
+//! `masked_strided_group_sum`, and nothing here can name a `(base, stride,
+//! group)` source; a via-key group-sum ([`ndarray::simd::masked_group_sum_i32_via`],
+//! `SUM(...) GROUP BY partner.country`); and the Cypher `mask_lower` seam
+//! (the Cypher plan's Wave 1 consumes this crate).
 //!
 //! One duplication is filed rather than resolved here: `lgj-abi` already
 //! carries its own runtime-immediate → const-generic ternlog bridge
@@ -103,15 +107,17 @@ pub mod reference;
 pub mod ternlog_dispatch;
 pub mod value;
 
-pub use exec::{execute, materialize_rows, scratch_words_for, Scratch};
+pub use exec::{execute, execute_into, materialize_rows, scratch_words_for, Scratch};
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
 pub use ir::{
-    LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS,
-    MAX_SCRATCH_SLOTS,
+    Foreign, ForeignPlane, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
+    MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
-pub use reference::{reference_execute, reference_scratch};
+pub use reference::{
+    reference_execute, reference_execute_into, reference_scratch, reference_scratch_with_foreign,
+};
 pub use ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
-pub use value::{ExecError, LaneKind, Value};
+pub use value::{ExecError, LaneKind, Out, Value};
 
 /// Number of `u64` words a mask over `n_rows` occupies.
 #[inline]

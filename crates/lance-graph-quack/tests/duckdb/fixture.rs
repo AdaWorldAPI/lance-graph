@@ -89,6 +89,13 @@ pub struct DocTable {
 /// needs an order, so they stay `u32`, matching the schema's own typing.
 pub struct LineTable {
     pub doc_id: Vec<i32>,
+    /// `doc_id`, again, but `u32` — the fk shape [`MaskOp::Gather`] /
+    /// [`Terminal::ScatterOrU32`] need (their lane must be
+    /// [`LaneKind::U32`](lance_graph_mask_risc::LaneKind::U32); `doc_id`
+    /// stays `i32` above for `range_docid`'s ordered compare). Same values,
+    /// cast at generation time — the fixture's `doc_id` domain is always
+    /// `0..DOC_ROWS`, so the cast loses nothing.
+    pub doc_id_u32: Vec<u32>,
     pub partner_id: Vec<u32>,
     pub amount: Vec<i32>,
     pub qty: Vec<i32>,
@@ -151,8 +158,13 @@ pub fn generate() -> Fixture {
         cost_center.push(next_u32(&mut state, 8));
         gl_account.push(next_gl_account(&mut state));
     }
+    // Derived, not drawn: no RNG state is consumed here, so this can never
+    // shift any later draw or desync the committed CSVs / DuckDB `expected`
+    // values from the generator.
+    let doc_id_u32: Vec<u32> = doc_id.iter().map(|&d| d as u32).collect();
     let line = LineTable {
         doc_id,
+        doc_id_u32,
         partner_id,
         amount,
         qty,
@@ -235,10 +247,11 @@ impl Fixture {
 }
 
 /// The `line` table's lanes, in the fixed order the `Col` constants below
-/// index into. Only `line` is exposed as [`Planes`] — `partner` and `doc`
-/// are never the target of a lowered [`lance_graph_quack::Query`] in this
-/// suite (Quack has no join lowering; see the `join_*_is_the_open_seam`
-/// tests), so they exist only as CSV rows for the oracle.
+/// index into. `line` is the table every lowered [`lance_graph_quack::Query`]
+/// runs against; `partner` is now ALSO exposed as [`Planes`] (see
+/// [`col::partner`]) so the two join cases can lower a real partner-side
+/// filter to a real `Program` — `doc` still exists only as CSV rows for the
+/// oracle, since no case in this suite filters it directly.
 pub mod col {
     use lance_graph_quack::Col;
 
@@ -248,6 +261,24 @@ pub mod col {
     pub const STATUS: Col = Col(3);
     pub const COST_CENTER: Col = Col(4);
     pub const GL_ACCOUNT: Col = Col(5);
+    /// `line.partner_id`, `u32` — the fk into `partner` (`p.rid`), the
+    /// lane [`lance_graph_mask_risc::MaskOp::Gather`] needs.
+    pub const PARTNER_ID: Col = Col(6);
+    /// `line.doc_id`, `u32` — see [`super::LineTable::doc_id_u32`]. The
+    /// same value as [`DOC_ID`], cast; `DOC_ID` stays for `range_docid`'s
+    /// ordered compare.
+    pub const DOC_ID_U32: Col = Col(7);
+
+    /// `partner` table columns, over `partner`'s OWN row space
+    /// ([`super::PARTNER_ROWS`]) — a separate `Planes` from `line`'s.
+    /// `pgroup` (lane 1, see [`super::PartnerTable::lanes`]) has no named
+    /// constant here — no case in this suite filters on it — but the lane
+    /// itself stays borrowed so a future case can reach it as `Col(1)`.
+    pub mod partner {
+        use lance_graph_quack::Col;
+
+        pub const COUNTRY: Col = Col(0);
+    }
 }
 
 /// The `line` table's lanes, borrowed and held so [`Planes`] can borrow them
@@ -256,7 +287,7 @@ pub mod col {
 /// return, so this struct is the thing that DOES outlive it, owned by the
 /// caller for exactly as long as the [`Planes`] it lends out.
 pub struct LineLanes<'a> {
-    lanes: [LaneRef<'a>; 6],
+    lanes: [LaneRef<'a>; 8],
 }
 
 impl LineTable {
@@ -270,7 +301,34 @@ impl LineTable {
                 LaneRef::U32(&self.status),
                 LaneRef::U32(&self.cost_center),
                 LaneRef::U32(&self.gl_account),
+                LaneRef::U32(&self.partner_id),
+                LaneRef::U32(&self.doc_id_u32),
             ],
+        }
+    }
+}
+
+/// The `partner` table's lanes — see [`col::partner`].
+pub struct PartnerLanes<'a> {
+    lanes: [LaneRef<'a>; 2],
+}
+
+impl PartnerTable {
+    /// Borrow every lane in the fixed order `col::partner` indexes into.
+    pub fn lanes(&self) -> PartnerLanes<'_> {
+        PartnerLanes {
+            lanes: [LaneRef::U32(&self.country), LaneRef::U32(&self.pgroup)],
+        }
+    }
+}
+
+impl<'a> PartnerLanes<'a> {
+    /// Borrow `PARTNER_ROWS` rows over these lanes, no resident mask planes.
+    pub fn planes(&self) -> Planes<'_> {
+        Planes {
+            n_rows: PARTNER_ROWS,
+            masks: &[],
+            lanes: &self.lanes,
         }
     }
 }

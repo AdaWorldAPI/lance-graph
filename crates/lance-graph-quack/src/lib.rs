@@ -177,6 +177,15 @@ pub struct Col(pub u16);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Mask(pub u16);
 
+/// A FOREIGN table's kept mask — an index into
+/// [`Foreign::planes`](lance_graph_mask_risc::Foreign), never
+/// [`Planes::masks`](lance_graph_mask_risc::Planes). A row-space belonging to
+/// another table, addressed through [`Filter::semijoin`] rather than read as
+/// an ordinary operand — the same distinction [`lance_graph_mask_risc::ir`]
+/// draws between [`Mask`] (this table) and this.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ForeignMask(pub u16);
+
 /// A predicate over one column — the filter's whole vocabulary.
 ///
 /// One variant per masking op that produces a mask from a value lane. That is
@@ -288,6 +297,21 @@ pub enum Filter {
     /// with no `WHERE`: the table is its validity plane, and a query over
     /// every row of it lowers to zero ops.
     Plane(Mask),
+    /// The fk SEMIJOIN — `EXISTS(SELECT 1 FROM foreign f WHERE f.rid =
+    /// this.fk AND <pred on f>)`, lowered to [`MaskOp::Gather`] over the
+    /// caller-supplied [`Foreign`](lance_graph_mask_risc::Foreign). A LEAF,
+    /// like [`Filter::Cmp`] / [`Filter::Plane`]: it composes with
+    /// `And`/`Or`/`Not` normally, and both [`lower`] and [`lower_fused`]
+    /// treat it as opaque — the fuser never looks inside it, it only sees
+    /// the scratch slot its `Gather` wrote (or, when `lower_fused` gives it
+    /// its own slot, `AND`ed with a resident gate as a `BoolExpr::And`,
+    /// exactly what happens to a gated `Cmp`).
+    Semijoin {
+        /// The foreign-key column on THIS table.
+        fk: Col,
+        /// Which foreign table's kept mask the fk resolves into.
+        foreign: ForeignMask,
+    },
     /// Every child must hold.
     And(Vec<Filter>),
     /// Some child must hold.
@@ -305,6 +329,11 @@ impl Filter {
     /// A resident plane as a predicate.
     pub fn plane(mask: Mask) -> Self {
         Filter::Plane(mask)
+    }
+
+    /// The fk semijoin leaf — see [`Filter::Semijoin`].
+    pub fn semijoin(fk: Col, foreign: ForeignMask) -> Self {
+        Filter::Semijoin { fk, foreign }
     }
 
     /// Conjunction.
@@ -730,6 +759,29 @@ pub enum Agg {
         /// The lane read where it does not.
         els: Col,
     },
+    /// The one-to-many hop back: for every surviving row, sets bit `fk[row]`
+    /// of a caller-supplied `Out::Mask` buffer of `words_for(out_rows)` —
+    /// `Terminal::ScatterOrU32`. `"docs that have a posted line"` is
+    /// `Agg::ScatterOrU32 { fk: doc_id, out_rows: DOC_ROWS }` over a
+    /// `status == 1` filter.
+    ScatterOrU32 {
+        /// The foreign-key column naming the target row on the OTHER table.
+        fk: Col,
+        /// The target table's row count — the caller's `Out::Mask` buffer
+        /// must be exactly `words_for(out_rows)` long.
+        out_rows: u32,
+    },
+    /// The one-terminal `GROUP BY key SUM(val)` — `Terminal::GroupSumI32`,
+    /// ONE program instead of `lower_group_by`'s K. The caller supplies an
+    /// `Out::I64` buffer whose length IS the group universe; a `key` at or
+    /// past that length is dropped, not an error (the same zero-fallback
+    /// `Agg::ScatterOrU32`'s out-of-range fk gets).
+    GroupSumI32 {
+        /// The group key column (`u32`).
+        key: Col,
+        /// The value column summed per group.
+        val: Col,
+    },
 }
 
 /// One query: a filter and what to ask of the rows that pass it.
@@ -871,6 +923,15 @@ enum Node {
     },
     /// A resident plane read as an operand.
     Plane(Mask),
+    /// The fk semijoin leaf ([`Filter::Semijoin`]), gated by `under` when
+    /// there is one — same shape as `Pred`, except the gate cannot be baked
+    /// into `MaskOp::Gather` itself (it has no `under` field), so the two
+    /// emitters apply it as an explicit `AND` after the `Gather` write.
+    Gather {
+        fk: u16,
+        foreign: u16,
+        under: Option<Mask>,
+    },
     And(Vec<Node>),
     Or(Vec<Node>),
     Not(Box<Node>),
@@ -923,6 +984,19 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
             gate.is_some(),
         ),
         Filter::Plane(m) => (Node::Plane(*m), gate == Some(*m)),
+        // Same "vanishes with the gate" reasoning as `Cmp` above: both
+        // emitters apply `under` as an explicit `AND` on the `Gather`
+        // result, so the emitted value is literally `gather & gate`
+        // whenever `under` is `Some` — a real subset of the gate, not a
+        // conservative guess.
+        Filter::Semijoin { fk, foreign } => (
+            Node::Gather {
+                fk: fk.0,
+                foreign: foreign.0,
+                under: gate,
+            },
+            gate.is_some(),
+        ),
         // Gating passes THROUGH a negation (the rewrite is sound for any
         // remainder while the gate stays a leaf), but `!x` is 1 where the
         // gate is 0, so a negation never lets the gate be dropped.
@@ -1112,6 +1186,26 @@ fn emit_gated(
             Ok(Operand::Scratch(dst))
         }
         Node::Plane(m) => Ok(Operand::Plane(m.0)),
+        Node::Gather { fk, foreign, under } => {
+            ops.push(MaskOp::Gather {
+                lane: *fk,
+                foreign: *foreign,
+                dst,
+            });
+            // Same choice as `Pred` above: the plane gate `under` wins over
+            // the accumulator when both are available — `Gather` has no
+            // `under` field of its own, so this is an explicit `AND` rather
+            // than a baked-in gate, but the precedence rule is identical.
+            let gate = under.map(|m| Operand::Plane(m.0)).or(acc_gate);
+            if let Some(g) = gate {
+                ops.push(MaskOp::And {
+                    a: Operand::Scratch(dst),
+                    b: g,
+                    dst,
+                });
+            }
+            Ok(Operand::Scratch(dst))
+        }
         Node::Not(inner) => {
             let a = emit_gated(inner, dst, acc_gate, ops)?;
             ops.push(MaskOp::Not { a, dst });
@@ -1191,6 +1285,29 @@ fn assign_slots(n: &Node, ops: &mut Vec<MaskOp>) -> Result<BoolExpr, LowerError>
             Ok(BoolExpr::Leaf(Operand::Scratch(dst)))
         }
         Node::Plane(m) => Ok(BoolExpr::Leaf(Operand::Plane(m.0))),
+        Node::Gather { fk, foreign, under } => {
+            let dst = u16::try_from(ops.len()).map_err(|_| LowerError::TooManySlots {
+                needed: ops.len() + 1,
+            })?;
+            ops.push(MaskOp::Gather {
+                lane: *fk,
+                foreign: *foreign,
+                dst,
+            });
+            let leaf = BoolExpr::Leaf(Operand::Scratch(dst));
+            // `Gather` has no `under` field, so the gate — unlike a `Pred`'s
+            // — cannot be baked into the op. Folding it into the BOOLEAN
+            // EXPRESSION instead lets the fuser absorb the `AND` into a
+            // ternlog along with everything else, rather than paying a
+            // separate mask pass the way `emit_gated`'s in-place form does.
+            Ok(match under {
+                Some(m) => BoolExpr::And(
+                    Box::new(leaf),
+                    Box::new(BoolExpr::Leaf(Operand::Plane(m.0))),
+                ),
+                None => leaf,
+            })
+        }
         Node::Not(inner) => Ok(BoolExpr::Not(Box::new(assign_slots(inner, ops)?))),
         Node::And(parts) | Node::Or(parts) => {
             let is_and = matches!(n, Node::And(_));
@@ -1227,6 +1344,16 @@ fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
             mask,
             then: then.0,
             els: els.0,
+        },
+        Agg::ScatterOrU32 { fk, out_rows } => Terminal::ScatterOrU32 {
+            mask,
+            lane: fk.0,
+            out_rows,
+        },
+        Agg::GroupSumI32 { key, val } => Terminal::GroupSumI32 {
+            mask,
+            key: key.0,
+            val: val.0,
         },
     }
 }
@@ -1287,6 +1414,14 @@ mod tests {
         /// the range claim would be untestable.
         addr: Vec<u64>,
         masks: Vec<Vec<u64>>,
+        /// Foreign tables' kept masks, indexed by `ForeignMask.0` — empty for
+        /// every single-table fixture; populated only by the two-table
+        /// semijoin tests.
+        foreign: Vec<Vec<u64>>,
+        /// The EXACT row count each `foreign[i]` spans — needed because a
+        /// word-rounded length alone cannot distinguish "row 63 of a 64-row
+        /// table" from "the dirty tail of a 60-row one".
+        foreign_rows: Vec<usize>,
     }
 
     fn plane(n: usize, set: impl Fn(usize) -> bool) -> Vec<u64> {
@@ -1312,7 +1447,18 @@ mod tests {
                 alt,
                 addr,
                 masks,
+                foreign: Vec::new(),
+                foreign_rows: Vec::new(),
             }
+        }
+
+        /// Register a foreign table's kept mask at the next `ForeignMask`
+        /// index (`0`, `1`, …, in call order) and return that index.
+        fn push_foreign(&mut self, bits: Vec<u64>, rows: usize) -> ForeignMask {
+            let idx = self.foreign.len() as u16;
+            self.foreign.push(bits);
+            self.foreign_rows.push(rows);
+            ForeignMask(idx)
         }
 
         fn n(&self) -> usize {
@@ -1370,6 +1516,12 @@ mod tests {
                     Cmp::Range { lo, hi } => (lo as usize) <= row && row < (hi as usize),
                 },
                 Filter::Plane(m) => self.bit(*m, row),
+                Filter::Semijoin { fk, foreign } => {
+                    let idx = self.u32_at(*fk, row) as usize;
+                    let bits = &self.foreign[usize::from(foreign.0)];
+                    let rows = self.foreign_rows[usize::from(foreign.0)];
+                    idx < rows && (bits[idx / 64] >> (idx % 64)) & 1 == 1
+                }
                 Filter::And(ps) => ps.iter().all(|p| self.oracle(p, row)),
                 Filter::Or(ps) => ps.iter().any(|p| self.oracle(p, row)),
                 Filter::Not(p) => !self.oracle(p, row),
@@ -1694,6 +1846,11 @@ mod tests {
                 MaskOp::Ternlog { a, b, c, .. } => {
                     read_as_leaf |= a == gate || b == gate || c == gate;
                 }
+                // `Gather` names no `Operand` among its own fields (`lane`
+                // and `foreign` are plain indices, not `a`/`b`/`c`), so it
+                // can never read `gate` as a Boolean operand the way the
+                // other ops can.
+                MaskOp::Gather { .. } => {}
             }
         }
         let terminal_reads_gate = matches!(
@@ -1705,6 +1862,8 @@ mod tests {
                 | Terminal::MaskedMinI32 { mask, .. }
                 | Terminal::MaskedMaxI32 { mask, .. }
                 | Terminal::BlendI32 { mask, .. }
+                | Terminal::ScatterOrU32 { mask, .. }
+                | Terminal::GroupSumI32 { mask, .. }
                 | Terminal::Keep { mask } if mask == gate
         );
         (
@@ -2407,6 +2566,174 @@ mod tests {
         assert_eq!(fx.exec(&fused, &[], None), Value::Count(expected));
         assert_eq!(fx.reference(&inplace, None), Value::Count(expected));
         assert_eq!(fx.reference(&fused, None), Value::Count(expected));
+    }
+
+    /// FAILS IF: `Filter::Semijoin` disagrees with an independent per-row
+    /// reading (the oracle's new `Semijoin` arm), in EITHER lowering — a
+    /// two-table shape: `CLASS` is the fk into a 5-row foreign table whose
+    /// kept mask selects classes `{1, 3}`. Anti-vacuity: the semijoin alone
+    /// is selective (neither 0 nor every row), and composing it with `AND`
+    /// narrows further still.
+    #[test]
+    fn semijoin_matches_an_independent_per_row_reading() {
+        let mut fx = Fx::new(N);
+        let foreign_rows = 5usize;
+        let foreign_bits = plane(foreign_rows, |r| r == 1 || r == 3);
+        let foreign = fx.push_foreign(foreign_bits.clone(), foreign_rows);
+
+        let bare = Filter::semijoin(CLASS, foreign);
+        let bare_expected = fx.rows(&bare).len();
+        assert!(
+            bare_expected > 0 && bare_expected < N,
+            "the bare semijoin selects {bare_expected}/{N} — not selective"
+        );
+
+        let f = Filter::and([Filter::cmp(VALS, Cmp::GtI32(0)), bare.clone()]);
+        let expected: i64 = (0..fx.n())
+            .filter(|&r| fx.oracle(&f, r))
+            .map(|r| i64::from(fx.alt[r]))
+            .sum();
+        let narrowed = fx.rows(&f).len();
+        assert!(
+            narrowed > 0 && narrowed < bare_expected,
+            "composing with AND must narrow: {narrowed} vs {bare_expected}"
+        );
+
+        let q = Query {
+            filter: f,
+            agg: Agg::SumI32(ALT),
+        };
+        let mask_risc_foreign = lance_graph_mask_risc::Foreign {
+            planes: &[lance_graph_mask_risc::ForeignPlane {
+                words: &foreign_bits,
+                rows: foreign_rows,
+            }],
+        };
+        for (label, program) in [
+            ("in place", lower(&q).expect("lowers in place")),
+            ("fused", lower_fused(&q).expect("lowers fused")),
+        ] {
+            let words = words_for(fx.n());
+            let slots = program.scratch_slots as usize;
+            let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+            let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+            let value = fx.with_planes(&[], |planes| {
+                lance_graph_mask_risc::execute_into(
+                    &program,
+                    planes,
+                    &mask_risc_foreign,
+                    &mut scratch,
+                    lance_graph_mask_risc::Out::None,
+                )
+                .expect("runs")
+            });
+            assert_eq!(value, Value::SumI64(expected), "{label}: value");
+        }
+    }
+
+    /// FAILS IF: `Agg::ScatterOrU32` disagrees with an independent per-row
+    /// reading — CLASS is the fk, out_rows = 5 (the same "foreign" row
+    /// space, addressed as a plain OWNED `Out::Mask` this time, not a
+    /// foreign read). Anti-vacuity: the scattered mask is neither empty nor
+    /// full, and more rows survive the filter than bits end up set (a real
+    /// union of repeats — CLASS only takes 5 values over 1000 rows).
+    #[test]
+    fn scatter_or_u32_matches_an_independent_per_row_reading() {
+        let fx = Fx::new(N);
+        let out_rows = 5u32;
+        let f = Filter::cmp(VALS, Cmp::GtI32(0));
+        let selected = fx.rows(&f);
+        assert!(!selected.is_empty() && selected.len() < N);
+
+        let mut want = vec![0u64; words_for(out_rows as usize)];
+        for &r in &selected {
+            let idx = fx.classes[r] as usize;
+            if idx < out_rows as usize {
+                want[idx / 64] |= 1u64 << (idx % 64);
+            }
+        }
+        let want_bits: u32 = want.iter().map(|w| w.count_ones()).sum();
+        assert!(
+            want_bits > 0 && (selected.len() as u32) > want_bits,
+            "expected a real union of repeats: {} rows -> {want_bits} bits",
+            selected.len()
+        );
+
+        let q = Query {
+            filter: f,
+            agg: Agg::ScatterOrU32 {
+                fk: CLASS,
+                out_rows,
+            },
+        };
+        let program = lower(&q).expect("lowers");
+        let words = words_for(fx.n());
+        let slots = program.scratch_slots as usize;
+        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        let mut got = vec![0u64; words_for(out_rows as usize)];
+        let value = fx.with_planes(&[], |planes| {
+            lance_graph_mask_risc::execute_into(
+                &program,
+                planes,
+                &lance_graph_mask_risc::Foreign::NONE,
+                &mut scratch,
+                lance_graph_mask_risc::Out::Mask(&mut got),
+            )
+            .expect("runs")
+        });
+        assert_eq!(value, Value::Scattered);
+        assert_eq!(got, want);
+    }
+
+    /// FAILS IF: `Agg::GroupSumI32` disagrees with an independent per-row
+    /// reading. `groups = 3` while `CLASS` ranges `0..5`, so classes 3 and 4
+    /// are DROPPED — exercised deliberately, not incidentally.
+    #[test]
+    fn group_sum_i32_matches_an_independent_per_row_reading() {
+        let fx = Fx::new(N);
+        let groups = 3usize;
+        let f = Filter::cmp(VALS, Cmp::GtI32(-50));
+        let selected = fx.rows(&f);
+        assert!(!selected.is_empty() && selected.len() < N);
+        let dropped = selected.iter().any(|&r| fx.classes[r] as usize >= groups);
+        assert!(dropped, "the fixture never drops a key at all");
+
+        let mut want = vec![0i64; groups];
+        for &r in &selected {
+            let k = fx.classes[r] as usize;
+            if k < groups {
+                want[k] = want[k].wrapping_add(i64::from(fx.alt[r]));
+            }
+        }
+        let distinct: std::collections::HashSet<i64> = want.iter().copied().collect();
+        assert!(distinct.len() > 1, "every group summed to the same value");
+
+        let q = Query {
+            filter: f,
+            agg: Agg::GroupSumI32 {
+                key: CLASS,
+                val: ALT,
+            },
+        };
+        let program = lower(&q).expect("lowers");
+        let words = words_for(fx.n());
+        let slots = program.scratch_slots as usize;
+        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        let mut got = vec![0i64; groups];
+        let value = fx.with_planes(&[], |planes| {
+            lance_graph_mask_risc::execute_into(
+                &program,
+                planes,
+                &lance_graph_mask_risc::Foreign::NONE,
+                &mut scratch,
+                lance_graph_mask_risc::Out::I64(&mut got),
+            )
+            .expect("runs")
+        });
+        assert_eq!(value, Value::GroupSummed);
+        assert_eq!(got, want);
     }
 }
 

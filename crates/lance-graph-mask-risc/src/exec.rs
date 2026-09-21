@@ -26,17 +26,20 @@ use ndarray::simd::{
     blend_i32, eq_i32_to_mask, eq_i32_to_mask_under, eq_u32_to_mask, eq_u32_to_mask_under,
     ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask, gt_i32_to_mask_under, le_i32_to_mask,
     le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
-    mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_not, mask_not_assign, mask_or,
-    mask_or_assign, mask_set_range, mask_xor, mask_xor_assign, masked_max_i32, masked_min_i32,
-    masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under,
-    popcount_batch_u64, ternary_match_u32_to_mask, ternary_match_u32_to_mask_under,
-    ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
+    mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_gather_u32, mask_not,
+    mask_not_assign, mask_or, mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor,
+    mask_xor_assign, masked_group_sum_i32, masked_max_i32, masked_min_i32, masked_sum_i32,
+    ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
+    ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
+    ternary_match_u64_to_mask_under,
 };
 
-use crate::ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS};
-use crate::reference::validate;
+use crate::ir::{
+    Foreign, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
+};
+use crate::reference::{out_shape, validate};
 use crate::ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
-use crate::value::{ExecError, Value};
+use crate::value::{ExecError, Out, Value};
 use crate::words_for;
 
 /// Where a [`Scratch`]'s words live: owned by the arena, or borrowed from a
@@ -549,11 +552,39 @@ fn run_pred<'a>(
 /// destination a [`Terminal::BlendI32`] writes. Validation is total and
 /// happens before any result write, so an `Err` leaves the scratch slots and
 /// `out` untouched.
+///
+/// A thin wrapper over [`execute_into`]: no foreign planes, and `out` widened
+/// to [`Out::I32`] (or [`Out::None`] for `out: None`) — the shape every
+/// caller of this crate already had before [`MaskOp::Gather`] existed.
 pub fn execute(
     program: &Program,
     planes: &Planes<'_>,
     scratch: &mut Scratch<'_>,
     out: Option<&mut [i32]>,
+) -> Result<Value, ExecError> {
+    execute_into(
+        program,
+        planes,
+        &Foreign::NONE,
+        scratch,
+        out.map_or(Out::None, Out::I32),
+    )
+}
+
+/// Run `program` over `planes` with the caller's `scratch`, resolving any
+/// [`MaskOp::Gather`] against `foreign`; `out` is the destination a
+/// [`Terminal::BlendI32`] / [`Terminal::ScatterOrU32`] /
+/// [`Terminal::GroupSumI32`] writes (every other terminal ignores it — an
+/// `Out` of the wrong shape for the terminal that IS present is refused by
+/// [`validate`], never silently accepted and silently not written).
+/// Validation is total and happens before any result write, so an `Err`
+/// leaves the scratch slots and `out` untouched.
+pub fn execute_into(
+    program: &Program,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    scratch: &mut Scratch<'_>,
+    out: Out<'_>,
 ) -> Result<Value, ExecError> {
     // BEFORE the capacity check, not after: an over-declared count is a lie
     // about the PROGRAM, and the caller's buffer is irrelevant to it. Checked
@@ -583,7 +614,8 @@ pub fn execute(
     validate(
         program,
         planes,
-        out.as_deref().map(<[i32]>::len),
+        foreign,
+        out_shape(&out),
         scratch.written_mut(),
     )?;
     let n_rows = planes.n_rows;
@@ -683,6 +715,19 @@ pub fn execute(
                     clear_tail(x, n_rows);
                 }
             }
+            MaskOp::Gather {
+                lane,
+                foreign: fidx,
+                dst,
+            } => {
+                // No aliasing shape to consider: unlike every other op,
+                // `Gather` never reads `dst` as an input — it only writes it
+                // — so there is no `dst == a` case to route to an in-place
+                // facade form.
+                let (d, _rest) = scratch.split(dst);
+                let fp = &foreign.planes[usize::from(fidx)];
+                mask_gather_u32(fp.words, fp.rows, lane_u32(planes, lane), d);
+            }
         }
     }
 
@@ -706,8 +751,8 @@ pub fn execute(
             read(planes, &all, mask),
         )),
         Terminal::BlendI32 { mask, then, els } => {
-            // `validate` already refused a missing or mis-sized `out`.
-            if let Some(o) = out {
+            // `validate` already refused a missing or mis-shaped `out`.
+            if let Out::I32(o) = out {
                 blend_i32(
                     read(planes, &all, mask),
                     lane_i32(planes, then),
@@ -716,6 +761,34 @@ pub fn execute(
                 );
             }
             Value::Blended
+        }
+        Terminal::ScatterOrU32 {
+            mask,
+            lane,
+            out_rows,
+        } => {
+            // `validate` already refused a missing or mis-sized `out`.
+            if let Out::Mask(o) = out {
+                mask_scatter_or_u32(
+                    read(planes, &all, mask),
+                    lane_u32(planes, lane),
+                    o,
+                    out_rows as usize,
+                );
+            }
+            Value::Scattered
+        }
+        Terminal::GroupSumI32 { mask, key, val } => {
+            // `validate` already refused a missing or too-small `out`.
+            if let Out::I64(o) = out {
+                masked_group_sum_i32(
+                    read(planes, &all, mask),
+                    lane_u32(planes, key),
+                    lane_i32(planes, val),
+                    o,
+                );
+            }
+            Value::GroupSummed
         }
         Terminal::Keep { mask } => Value::Mask(mask),
     })

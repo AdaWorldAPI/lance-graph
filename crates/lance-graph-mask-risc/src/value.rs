@@ -22,6 +22,29 @@ pub enum Value {
     OptI32(Option<i32>),
     /// [`crate::Terminal::BlendI32`]: the caller's `out` slice was written.
     Blended,
+    /// [`crate::Terminal::ScatterOrU32`]: the caller's `Out::Mask` buffer was
+    /// written.
+    Scattered,
+    /// [`crate::Terminal::GroupSumI32`]: the caller's `Out::I64` buffer was
+    /// written, one slot per group.
+    GroupSummed,
+}
+
+/// The caller's terminal-result destination — one variant per shape a
+/// [`crate::Terminal`] may write into, plus `None` for a terminal that writes
+/// nothing (every reducer that returns its answer as a [`Value`] instead).
+#[derive(Debug, PartialEq, Eq)]
+pub enum Out<'a> {
+    /// No destination buffer is needed for this terminal.
+    None,
+    /// [`crate::Terminal::BlendI32`]'s destination, `n_rows` long.
+    I32(&'a mut [i32]),
+    /// [`crate::Terminal::GroupSumI32`]'s destination — one `i64` per group,
+    /// its length IS the group universe `K`.
+    I64(&'a mut [i64]),
+    /// [`crate::Terminal::ScatterOrU32`]'s destination, `words_for(out_rows)`
+    /// long.
+    Mask(&'a mut [u64]),
 }
 
 /// The lane width a predicate or terminal expects, for [`ExecError::LaneKind`].
@@ -108,4 +131,17 @@ pub enum ExecError {
     /// `mask_set_range` a bound past the scratch words (its own assert would
     /// panic) and the oracle never indexes a row that does not exist.
     RangeOutOfBounds { lo: u32, hi: u32, n_rows: usize },
+    /// [`crate::MaskOp::Gather`]'s `foreign` names no entry of the caller's
+    /// [`crate::Foreign::planes`].
+    ForeignOutOfRange(u16),
+    /// A terminal's [`crate::Out`] is missing, or is the wrong SHAPE
+    /// (`Out::I32` where an `Out::I64` was needed, and so on) — or, for
+    /// [`crate::Terminal::ScatterOrU32`], sized to the wrong `out_rows`, or
+    /// for [`crate::Terminal::GroupSumI32`], the empty `Out::I64([])`
+    /// (`K == 0` names no group at all). `what` names the terminal.
+    /// [`crate::Terminal::BlendI32`] keeps its own [`Self::BlendNeedsOut`]
+    /// rather than routing through here — two spellings of "needs an `out`",
+    /// kept apart because `BlendI32` predates `Out` and every existing
+    /// caller already matches on the old variant.
+    TerminalNeedsOut { what: &'static str },
 }

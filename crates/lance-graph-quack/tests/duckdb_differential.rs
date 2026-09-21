@@ -7,12 +7,19 @@
 //! encoded the same way, and compared. **Expected values are never
 //! hand-edited** — see `tests/duckdb/README.txt`.
 //!
-//! `join_*_is_the_open_seam` tests are the honest exception: Quack has no
-//! join lowering (`src/lib.rs`'s own status section names it — `src_mask →
-//! hop → dst_mask` is `lance-graph-mask-risc`'s PR5 and there is no `hop` op
-//! to lower to yet). Those three still load their oracle-computed `expected`
-//! value — proving the oracle side is real and committed — then `todo!()`.
-//! They are `#[should_panic]` by design, not disabled and not deleted.
+//! `join_group_sum_country_is_the_open_seam` is the one honest exception
+//! left: it needs a group-sum key resolved through a FOREIGN table
+//! (`SUM(l.amount) GROUP BY p.country`), which waits on
+//! `ndarray::simd::masked_group_sum_i32_via` — `Terminal::GroupSumI32`'s key
+//! is a lane on THIS table, not a fk-resolved one. `join_sum_country` and
+//! `join_count_docs_with_posted` are no longer open seams: the former lowers
+//! a real `Filter::Semijoin` (the fk gather) against a real partner-side
+//! `Program`; the latter lowers `Agg::ScatterOrU32` (the one-to-many hop
+//! back) into a caller-owned mask, then counts it with a second tiny
+//! program. `group_sum_cc` now runs the one-terminal `Agg::GroupSumI32`
+//! (`Terminal::GroupSumI32`, ONE program) alongside the pre-existing K-program
+//! `lower_group_by` reading, printing both METRIC lines so the fold is
+//! visible.
 
 #[path = "duckdb/fixture.rs"]
 mod fixture;
@@ -22,11 +29,17 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use lance_graph_mask_risc::{
-    execute, materialize_rows, scratch_words_for, words_for, Operand, Planes, Scratch, Value,
+    execute, execute_into, materialize_rows, scratch_words_for, words_for, Foreign, ForeignPlane,
+    Operand, Out, Planes, Scratch, Value,
 };
-use lance_graph_quack::{lower, lower_group_by, Agg, Cmp, Col, Filter, GroupBy, Query};
+use lance_graph_quack::{
+    lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignMask, GroupBy, Query,
+};
 
-use fixture::col::{AMOUNT, COST_CENTER, DOC_ID, GL_ACCOUNT, QTY, STATUS};
+use fixture::col::{
+    partner::COUNTRY, AMOUNT, COST_CENTER, DOC_ID, DOC_ID_U32, GL_ACCOUNT, PARTNER_ID, QTY, STATUS,
+};
+use fixture::DOC_ROWS;
 
 // ---------------------------------------------------------------------
 // The counting allocator — `no_alloc.rs`'s pattern (lance-graph-mask-risc),
@@ -139,29 +152,37 @@ struct CaseMetrics {
     /// are then the SUM over the phase-1 filter and all K phase-2 programs,
     /// per the spec's "record ops/allocs as the SUM over the K runs".
     programs: Option<usize>,
+    /// Bytes an N×M pair-relation object would have cost — always `0` here.
+    /// No such object is ever built: a join is a `Gather`/`ScatterOrU32`
+    /// read against a caller-owned foreign mask, never a materialized
+    /// row-pair list. Named explicitly (rather than left implicit) so the
+    /// absence is a printed fact, not an inference from a missing field.
+    pair_relation_bytes: usize,
 }
 
 fn print_metric(id: &str, m: &CaseMetrics) {
     match m.programs {
         Some(k) => eprintln!(
             "METRIC case={id} ops={} scratch_words={} alloc_bytes_exec={} \
-             rows_materialized={} index_vec_len={} out_bytes={} programs={k}",
+             rows_materialized={} index_vec_len={} out_bytes={} pair_relation_bytes={} programs={k}",
             m.ops,
             m.scratch_words,
             m.alloc_bytes_exec,
             m.rows_materialized,
             m.index_vec_len,
-            m.out_bytes
+            m.out_bytes,
+            m.pair_relation_bytes,
         ),
         None => eprintln!(
             "METRIC case={id} ops={} scratch_words={} alloc_bytes_exec={} \
-             rows_materialized={} index_vec_len={} out_bytes={}",
+             rows_materialized={} index_vec_len={} out_bytes={} pair_relation_bytes={}",
             m.ops,
             m.scratch_words,
             m.alloc_bytes_exec,
             m.rows_materialized,
             m.index_vec_len,
-            m.out_bytes
+            m.out_bytes,
+            m.pair_relation_bytes,
         ),
     }
 }
@@ -210,6 +231,12 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
             (s, n, n)
         }
         Value::Blended => panic!("case {id}: no BlendI32 case in this suite"),
+        Value::Scattered => panic!(
+            "case {id}: run_query doesn't handle ScatterOrU32 — see join_count_docs_with_posted"
+        ),
+        Value::GroupSummed => panic!(
+            "case {id}: run_query doesn't handle GroupSumI32 — see group_sum_cc's one-terminal arm"
+        ),
     };
     let out_bytes = encoded.len();
     (
@@ -222,6 +249,7 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
             index_vec_len,
             out_bytes,
             programs: None,
+            pair_relation_bytes: 0,
         },
     )
 }
@@ -305,6 +333,7 @@ fn run_group(
             index_vec_len: 0,
             out_bytes,
             programs: Some(plan.groups.len()),
+            pair_relation_bytes: 0,
         },
     )
 }
@@ -555,7 +584,58 @@ fn group_sum_cc() {
     let lanes = fx.line.lanes();
     let planes = lanes.planes();
     let filter = Filter::cmp(STATUS, Cmp::EqU32(1));
-    let (actual, m) = run_group(
+
+    // The one-terminal spelling: ONE program, `Terminal::GroupSumI32`, no
+    // K-program loop.
+    let program = lower(&Query {
+        filter: filter.clone(),
+        agg: Agg::GroupSumI32 {
+            key: COST_CENTER,
+            val: AMOUNT,
+        },
+    })
+    .expect("lowers");
+    let words = words_for(planes.n_rows);
+    let slots = program.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+    let scratch_words = buf.len();
+    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let mut out = [0i64; 8];
+    let before = BYTES.load(Ordering::Relaxed);
+    let value = execute_into(
+        &program,
+        &planes,
+        &Foreign::NONE,
+        &mut scratch,
+        Out::I64(&mut out),
+    )
+    .expect("runs");
+    let alloc_bytes_exec = alloc_delta(before);
+    assert_eq!(value, Value::GroupSummed);
+    let encoded = out
+        .iter()
+        .enumerate()
+        .map(|(k, v)| format!("{k}:{v}"))
+        .collect::<Vec<_>>()
+        .join(";");
+    let out_bytes = encoded.len();
+    let m = CaseMetrics {
+        ops: program.ops.len(),
+        scratch_words,
+        alloc_bytes_exec,
+        rows_materialized: 0,
+        index_vec_len: 0,
+        out_bytes,
+        programs: Some(1),
+        pair_relation_bytes: 0,
+    };
+    print_metric("group_sum_cc", &m);
+    assert_case(&cases, "group_sum_cc", &encoded);
+
+    // The pre-existing K-program (`lower_group_by`) spelling, run and
+    // printed alongside so the fold from K programs to one is visible in
+    // the METRIC output rather than only in the source diff.
+    let (actual_k, m_k) = run_group(
         "group_sum_cc",
         &planes,
         filter,
@@ -563,45 +643,196 @@ fn group_sum_cc() {
         8,
         Agg::SumI32(AMOUNT),
     );
-    print_metric("group_sum_cc", &m);
-    assert_case(&cases, "group_sum_cc", &actual);
+    print_metric("group_sum_cc_kprogram", &m_k);
+    assert_case(&cases, "group_sum_cc", &actual_k);
 }
 
 // ---------------------------------------------------------------------
-// The 3 join cases — the open seam. Quack lowers filters and one-table
-// aggregates; it has no join lowering (`src/lib.rs`'s `# Status` section
-// names the gap explicitly). Each of these loads its oracle-computed
-// `expected` — proving the DuckDB side is real and committed — then
-// `todo!()`s, so the case is red until join lowering exists rather than
-// silently absent from the suite.
+// The join cases. `join_sum_country` (fk gather) and
+// `join_count_docs_with_posted` (the one-to-many hop back) are real
+// two-program lowerings now; `join_group_sum_country` stays the honest
+// open seam — see the module doc for why.
 // ---------------------------------------------------------------------
 
+/// `SELECT SUM(l.amount) FROM line l JOIN partner p ON p.rid=l.partner_id
+/// WHERE l.status=1 AND p.country=3` — two programs: the partner-side
+/// filter kept as a mask, handed to the line-side program as a
+/// [`ForeignPlane`] its `Filter::Semijoin` gathers through.
 #[test]
-#[should_panic(expected = "NO JOIN LOWERING")]
-fn join_sum_country_is_the_open_seam() {
+fn join_sum_country() {
     let cases = load_cases();
-    let expected = expected_only(&cases, "join_sum_country");
-    assert!(
-        !expected.is_empty(),
-        "join_sum_country has no oracle value — run oracle.py first"
-    );
-    todo!("NO JOIN LOWERING: join_sum_country");
+    let fx = fixture::generate();
+
+    // Phase 1 (partner side): `country == 3` -> Keep.
+    let partner_lanes = fx.partner.lanes();
+    let partner_planes = partner_lanes.planes();
+    let partner_program = lower(&Query {
+        filter: Filter::cmp(COUNTRY, Cmp::EqU32(3)),
+        agg: Agg::Rows,
+    })
+    .expect("lowers");
+    let p_words = words_for(partner_planes.n_rows);
+    let p_slots = partner_program.scratch_slots as usize;
+    let mut p_buf = vec![0u64; scratch_words_for(p_words, p_slots).expect("sized")];
+    let p_scratch_words = p_buf.len();
+    let mut p_scratch = Scratch::over(&mut p_buf, p_words, p_slots).expect("carves");
+    let before1 = BYTES.load(Ordering::Relaxed);
+    let p_value = execute(&partner_program, &partner_planes, &mut p_scratch, None).expect("runs");
+    let alloc1 = alloc_delta(before1);
+    let p_op = match p_value {
+        Value::Mask(op) => op,
+        other => panic!("partner-side filter did not Keep a mask: {other:?}"),
+    };
+    let partner_bits = mask_bits(&partner_planes, &p_scratch, p_op);
+
+    let foreign_plane = ForeignPlane {
+        words: &partner_bits,
+        rows: fixture::PARTNER_ROWS,
+    };
+    let foreign = Foreign {
+        planes: &[foreign_plane],
+    };
+
+    // Phase 2 (line side): `status == 1 AND Semijoin(partner_id, 0)` -> SUM.
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let line_filter = Filter::and([
+        Filter::cmp(STATUS, Cmp::EqU32(1)),
+        Filter::semijoin(PARTNER_ID, ForeignMask(0)),
+    ]);
+    let line_program = lower(&Query {
+        filter: line_filter,
+        agg: Agg::SumI32(AMOUNT),
+    })
+    .expect("lowers");
+    let words = words_for(planes.n_rows);
+    let slots = line_program.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+    let scratch_words = buf.len();
+    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let before2 = BYTES.load(Ordering::Relaxed);
+    let value =
+        execute_into(&line_program, &planes, &foreign, &mut scratch, Out::None).expect("runs");
+    let alloc2 = alloc_delta(before2);
+
+    let encoded = match value {
+        Value::SumI64(s) => s.to_string(),
+        other => panic!("expected a sum, got {other:?}"),
+    };
+    let out_bytes = encoded.len();
+    let m = CaseMetrics {
+        ops: partner_program.ops.len() + line_program.ops.len(),
+        scratch_words: p_scratch_words + scratch_words,
+        alloc_bytes_exec: alloc1 + alloc2,
+        rows_materialized: 0,
+        index_vec_len: 0,
+        out_bytes,
+        programs: Some(2),
+        // No N×M pair-relation object exists anywhere in this case: the fk
+        // resolves through one `MaskOp::Gather` read of the foreign plane
+        // per line row, never a materialized `(line, partner)` pair list.
+        pair_relation_bytes: 0,
+    };
+    print_metric("join_sum_country", &m);
+    assert_case(&cases, "join_sum_country", &encoded);
 }
 
+/// `SELECT COUNT(*) FROM doc d WHERE EXISTS(SELECT 1 FROM line l WHERE
+/// l.doc_id=d.rid AND l.status=1)` — the one-to-many hop BACK:
+/// `Agg::ScatterOrU32` sets bit `doc_id` of an 8-word `Out::Mask` buffer for
+/// every posted line, then a tiny doc-side program counts the buffer as a
+/// resident plane.
 #[test]
-#[should_panic(expected = "NO JOIN LOWERING")]
-fn join_count_docs_with_posted_is_the_open_seam() {
+fn join_count_docs_with_posted() {
     let cases = load_cases();
-    let expected = expected_only(&cases, "join_count_docs_with_posted");
-    assert!(
-        !expected.is_empty(),
-        "join_count_docs_with_posted has no oracle value — run oracle.py first"
-    );
-    todo!("NO JOIN LOWERING: join_count_docs_with_posted");
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+
+    // Phase 1 (line side): `status == 1` -> ScatterOrU32(doc_id, DOC_ROWS).
+    let line_program = lower(&Query {
+        filter: Filter::cmp(STATUS, Cmp::EqU32(1)),
+        agg: Agg::ScatterOrU32 {
+            fk: DOC_ID_U32,
+            out_rows: DOC_ROWS as u32,
+        },
+    })
+    .expect("lowers");
+    let words = words_for(planes.n_rows);
+    let slots = line_program.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+    let scratch_words = buf.len();
+    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let mut scattered = vec![0u64; words_for(DOC_ROWS)];
+    let before1 = BYTES.load(Ordering::Relaxed);
+    let value1 = execute_into(
+        &line_program,
+        &planes,
+        &Foreign::NONE,
+        &mut scratch,
+        Out::Mask(&mut scattered),
+    )
+    .expect("runs");
+    let alloc1 = alloc_delta(before1);
+    assert_eq!(value1, Value::Scattered);
+    // The demanded terminal RESULT of this phase is the 8-word buffer
+    // itself — count it in bytes here rather than the final scalar answer.
+    let scattered_bytes = scattered.len() * std::mem::size_of::<u64>();
+
+    // Phase 2 (doc side): a tiny program reading `scattered` as a resident
+    // plane and counting it — a second `Terminal::Count`, per the module
+    // doc's "say which": this repo's own executor over a plain `Filter::Plane`,
+    // not a bespoke `ndarray::simd::popcount_batch_u64` call, so the count
+    // goes through the SAME validated, differential-tested path as every
+    // other case in this suite.
+    let doc_masks: [&[u64]; 1] = [&scattered];
+    let doc_planes = Planes {
+        n_rows: DOC_ROWS,
+        masks: &doc_masks,
+        lanes: &[],
+    };
+    let doc_program = lower(&Query {
+        filter: Filter::plane(lance_graph_quack::Mask(0)),
+        agg: Agg::Count,
+    })
+    .expect("lowers");
+    let d_words = words_for(DOC_ROWS);
+    let d_slots = doc_program.scratch_slots as usize;
+    let mut d_buf = vec![0u64; scratch_words_for(d_words, d_slots).expect("sized")];
+    let d_scratch_words = d_buf.len();
+    let mut d_scratch = Scratch::over(&mut d_buf, d_words, d_slots).expect("carves");
+    let before2 = BYTES.load(Ordering::Relaxed);
+    let value2 = execute(&doc_program, &doc_planes, &mut d_scratch, None).expect("runs");
+    let alloc2 = alloc_delta(before2);
+
+    let encoded = match value2 {
+        Value::Count(c) => c.to_string(),
+        other => panic!("expected a count, got {other:?}"),
+    };
+    let out_bytes = scattered_bytes + encoded.len();
+    let m = CaseMetrics {
+        ops: line_program.ops.len() + doc_program.ops.len(),
+        scratch_words: scratch_words + d_scratch_words,
+        alloc_bytes_exec: alloc1 + alloc2,
+        rows_materialized: 0,
+        index_vec_len: 0,
+        out_bytes,
+        programs: Some(2),
+        pair_relation_bytes: 0,
+    };
+    print_metric("join_count_docs_with_posted", &m);
+    assert_case(&cases, "join_count_docs_with_posted", &encoded);
 }
 
+/// `SELECT p.country, SUM(l.amount) FROM line l JOIN partner p ON
+/// p.rid=l.partner_id WHERE l.status=1 GROUP BY p.country ORDER BY
+/// p.country` — a group-sum whose KEY lives on the FOREIGN table
+/// (`p.country`, reached through `l.partner_id`). `Terminal::GroupSumI32`'s
+/// `key` lane is read directly off THIS program's own `Planes`; there is no
+/// via-key variant wired to `ndarray::simd::masked_group_sum_i32_via` yet
+/// (see the module doc). Still the honest open seam.
 #[test]
-#[should_panic(expected = "NO JOIN LOWERING")]
+#[should_panic(expected = "NO VIA-KEY GROUP SUM")]
 fn join_group_sum_country_is_the_open_seam() {
     let cases = load_cases();
     let expected = expected_only(&cases, "join_group_sum_country");
@@ -609,5 +840,5 @@ fn join_group_sum_country_is_the_open_seam() {
         !expected.is_empty(),
         "join_group_sum_country has no oracle value — run oracle.py first"
     );
-    todo!("NO JOIN LOWERING: join_group_sum_country");
+    todo!("NO VIA-KEY GROUP SUM: join_group_sum_country");
 }
