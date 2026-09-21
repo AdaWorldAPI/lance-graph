@@ -260,8 +260,8 @@ pub enum Terminal {
     /// population's mask). It is never an intermediate: a follow-on program
     /// or fold that consumes it is the forbidden
     /// projection → population → projection shape. A count over the
-    /// targets is [`Terminal::ScatterCountU32`] (unclustered key) or
-    /// [`Terminal::CountKeyRunsU32`] (key-clustered lane); a filter through
+    /// targets is [`Terminal::CountKeyRunsU32`] (a key-ORDERED lane; there
+    /// is no lowering for an unordered one); a filter through
     /// the targets is [`Pred::EqU32Via`] / [`MaskOp::Gather`] over a
     /// RESIDENT plane.
     ScatterOrU32 {
@@ -296,7 +296,7 @@ pub enum Terminal {
         out_rows: u32,
     },
     /// `COUNT(DISTINCT lane[i])` over the rows where `mask` holds, on a
-    /// KEY-CLUSTERED lane — every run of equal consecutive `lane` values is
+    /// KEY-ORDERED lane — every run of equal consecutive `lane` values is
     /// one key, so the count is the number of runs containing a selected
     /// row, folded tile by tile with a two-word carry
     /// ([`ndarray::simd::masked_key_run_count_u32`] + `KeyRunCarry`): no
@@ -307,10 +307,12 @@ pub enum Terminal {
     /// projection that puts a child population under its parent), and it is
     /// ENFORCED, not trusted: the first key smaller than the open run's key
     /// refuses the program with [`ExecError::LaneNotOrdered`]. Non-decreasing
-    /// order is the one clustering certificate checkable with O(1) state in
-    /// the same pass (an exact clustering check would need the seen-set
-    /// this terminal exists to avoid); a clustered-but-unsorted lane is
-    /// refused too, deliberately. Nothing is ever over-counted. A lane with
+    /// order is the one contiguity certificate checkable with O(1) state in
+    /// the same pass (proving "each key occurs in one run" would need the seen-set
+    /// this terminal exists to avoid); a contiguous-but-unsorted lane is
+    /// refused too, deliberately, and the check inspects EVERY key, selected
+    /// or not (`1 2 1` under `1 0 1` is two runs of `1`, not one). Nothing is
+    /// ever over-counted. A lane with
     /// no key-ordered projection resident is a lowering limitation, and the
     /// refusal is the answer — not [`Terminal::ScatterCountU32`].
     CountKeyRunsU32 { mask: Operand, lane: u16 },

@@ -754,7 +754,7 @@ fn join_sum_country() {
 
 /// `SELECT COUNT(*) FROM doc d WHERE EXISTS(SELECT 1 FROM line l WHERE
 /// l.doc_id=d.rid AND l.status=1)` — `COUNT(DISTINCT doc_id)` over the
-/// posted lines. ONE spelling: [`Agg::CountDistinctClusteredU32`] →
+/// posted lines. ONE spelling: [`Agg::CountDistinctOrderedU32`] →
 /// `Terminal::CountKeyRunsU32`, whose precondition is a key lane in key
 /// order — the T0 address projection of lines under their doc.
 ///
@@ -764,7 +764,7 @@ fn join_sum_country() {
 ///   query is valid, this physical lowering is not, and no seen-set is
 ///   allocated in its place. The `1,2,1` falsifier lives in mask-risc
 ///   `tests/distinct.rs`.
-/// - GIVEN a doc-ordered view of the same lines, the fold answers the same
+/// - GIVEN a doc-ORDERED view of the same lines, the fold answers the same
 ///   DuckDB 511 with two words of state. The view is built by the test
 ///   (`fixture_view_bytes`, a reordered copy): a semantic proof of the
 ///   terminal, not a zero-materialisation proof of the query on this
@@ -784,7 +784,7 @@ fn join_count_docs_with_posted() {
     let planes = lanes.planes();
     let runs = lower(&Query {
         filter: Filter::cmp(STATUS, Cmp::EqU32(1)),
-        agg: Agg::CountDistinctClusteredU32 { key: DOC_ID_U32 },
+        agg: Agg::CountDistinctOrderedU32 { key: DOC_ID_U32 },
     })
     .expect("lowers");
     assert!(matches!(runs.terminal, Terminal::CountKeyRunsU32 { .. }));
@@ -800,13 +800,13 @@ fn join_count_docs_with_posted() {
          reason=LaneNotOrdered population_state_bytes=0"
     );
 
-    // ── Arm 2: a clustered VIEW handed to CountKeyRunsU32. The reorder below
+    // ── Arm 2: an ORDERED view handed to CountKeyRunsU32. The reorder below
     // is the test's own materialisation, counted as `fixture_view_bytes`. ──
     let mut order: Vec<usize> = (0..fx.line.doc_id_u32.len()).collect();
     order.sort_by_key(|&i| fx.line.doc_id_u32[i]); // stable: runs, not a resort
     let by = |v: &[u32]| -> Vec<u32> { order.iter().map(|&i| v[i]).collect() };
     let by_i = |v: &[i32]| -> Vec<i32> { order.iter().map(|&i| v[i]).collect() };
-    let clustered = fixture::LineTable {
+    let ordered = fixture::LineTable {
         doc_id: by_i(&fx.line.doc_id),
         doc_id_u32: by(&fx.line.doc_id_u32),
         partner_id: by(&fx.line.partner_id),
@@ -816,7 +816,7 @@ fn join_count_docs_with_posted() {
         cost_center: by(&fx.line.cost_center),
         gl_account: by(&fx.line.gl_account),
     };
-    let c_lanes = clustered.lanes();
+    let c_lanes = ordered.lanes();
     let c_planes = c_lanes.planes();
     let mut c_scratch = Scratch::for_program(&runs, c_planes.n_rows).expect("carves");
     let c_tile_words = c_scratch.words();
@@ -840,12 +840,12 @@ fn join_count_docs_with_posted() {
         programs: Some(1),
         pair_relation_bytes: 0,
         population_state_bytes: 0,
-        // What the TEST built to hand the fold a clustered view: the
+        // What the TEST built to hand the fold an ordered view: the
         // permutation plus eight reordered 4-byte lanes. Not the terminal's
         // state — and not evidence that a resident doc-major view exists.
         fixture_view_bytes: order.len() * (std::mem::size_of::<usize>() + 8 * 4),
     };
-    print_metric("join_count_docs_with_posted_clustered_view_given", &m);
+    print_metric("join_count_docs_with_posted_ordered_view_given", &m);
     // A distinct count is permutation-invariant: same DuckDB row, same answer.
     assert_case(&cases, "join_count_docs_with_posted", &c_encoded);
 }

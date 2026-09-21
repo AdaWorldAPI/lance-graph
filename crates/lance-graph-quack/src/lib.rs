@@ -814,7 +814,7 @@ pub enum Agg {
     /// `words_for(out_rows)` — `Terminal::ScatterOrU32`. Legal only when
     /// that target mask IS what the query asks for (a `hop`). A query that
     /// asks for a COUNT over the targets is [`Agg::CountDistinctU32`] /
-    /// [`Agg::CountDistinctClusteredU32`]; handing this mask to a second
+    /// [`Agg::CountDistinctOrderedU32`]; handing this mask to a second
     /// program is the forbidden population intermediate.
     ScatterOrU32 {
         /// The foreign-key column naming the target row on the OTHER table.
@@ -825,16 +825,18 @@ pub enum Agg {
     },
     /// `COUNT(DISTINCT key)` — `Terminal::CountKeyRunsU32`, two words of
     /// state, `Out::None`. The physical precondition is a key lane stored
-    /// in KEY ORDER (the address order a projection stores a child
-    /// population under its parent); the executor ENFORCES it and refuses a
-    /// lane out of order with `ExecError::LaneNotOrdered`, so a wrong count
-    /// is impossible. Quack cannot see lanes, so it does not pre-judge:
+    /// in KEY ORDER — non-decreasing over EVERY row, selected or not (the
+    /// address order a projection stores a child population under its
+    /// parent); the executor ENFORCES it in the fold's own pass and refuses
+    /// a lane out of order with `ExecError::LaneNotOrdered`, so a wrong
+    /// count is impossible. ORDERED, not merely "clustered": contiguity of
+    /// equal keys is not O(1)-checkable, order is. Quack cannot see lanes, so it does not pre-judge:
     /// the lowering always succeeds and the refusal is physical. There is
     /// deliberately NO other spelling of exact DISTINCT here — an
     /// unordered physical layout is a lowering limitation, not permission
     /// to fold through a population seen-set (`Terminal::ScatterCountU32`
     /// is held, never emitted).
-    CountDistinctClusteredU32 {
+    CountDistinctOrderedU32 {
         /// The key column (`u32`), stored in key order.
         key: Col,
     },
@@ -1454,7 +1456,7 @@ fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
             lane: fk.0,
             out_rows,
         },
-        Agg::CountDistinctClusteredU32 { key } => Terminal::CountKeyRunsU32 { mask, lane: key.0 },
+        Agg::CountDistinctOrderedU32 { key } => Terminal::CountKeyRunsU32 { mask, lane: key.0 },
         Agg::GroupSumI32 { key, val } => Terminal::GroupSumI32 {
             mask,
             key: key.0,

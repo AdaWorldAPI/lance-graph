@@ -734,7 +734,7 @@ pub fn execute_into(
     let mut sum = 0i64;
     let mut min: Option<i32> = None;
     let mut max: Option<i32> = None;
-    // The whole state of a key-clustered distinct count: the open run's key
+    // The whole state of a key-ORDERED distinct count: the open run's key
     // and whether it was hit. Two words, however many rows.
     let mut run_carry = KeyRunCarry::default();
     let mut runs = 0usize;

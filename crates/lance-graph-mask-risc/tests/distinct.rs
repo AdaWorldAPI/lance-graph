@@ -3,9 +3,10 @@
 //! Two terminals answer it, and which one is legal is a property of the KEY
 //! LANE'S LAYOUT, not of the query:
 //!
-//! - `Terminal::CountKeyRunsU32` — a key-clustered lane (equal keys
-//!   contiguous). Two words of state, tile by tile. Proven here against the
-//!   oracle and an independent seen-set, across tilings.
+//! - `Terminal::CountKeyRunsU32` — a key-ORDERED lane (non-decreasing
+//!   keys, checked over every row in the same pass). Two words of state,
+//!   tile by tile. Proven here against the oracle and an independent
+//!   seen-set, across tilings; an unordered lane is refused.
 //! - `Terminal::ScatterCountU32` — HELD. Its accumulator is one bit per key
 //!   of the universe; the pigeonhole falsifier below shows that is the
 //!   minimum any exact fold can carry under ARBITRARY row order. That bounds
@@ -180,9 +181,9 @@ fn a_lane_out_of_key_order_is_refused_by_executor_and_oracle_alike() {
 }
 
 #[test]
-fn clustered_but_unsorted_is_refused_by_design() {
+fn contiguous_but_unsorted_is_refused_by_design() {
     // 3 3 1 1: a run count WOULD be exact here, but the certificate the fold
-    // can check in O(1) is order, and 1 < 3 breaks it.
+    // can check in O(1) is ORDER, and 1 < 3 breaks it.
     let k = [3u32, 3, 1, 1];
     let s = [1u32; 4];
     let l = [LaneRef::U32(&s), LaneRef::U32(&k)];
@@ -201,8 +202,36 @@ fn clustered_but_unsorted_is_refused_by_design() {
     );
 }
 
+#[test]
+fn the_order_check_inspects_unselected_rows_too() {
+    // keys 1 2 1, selected 1 0 1: the SELECTED subsequence reads 1,1, but
+    // the lane holds two runs of 1 with an unselected 2 between them. A
+    // fold that validated order over survivors only would count 2 keys
+    // where the honest answer is a refusal.
+    let k = [1u32, 2, 1];
+    let s = [1u32, 0, 1];
+    let l = [LaneRef::U32(&s), LaneRef::U32(&k)];
+    let planes = Planes {
+        n_rows: 3,
+        masks: &[],
+        lanes: &l,
+    };
+    let p = program(|m| Terminal::CountKeyRunsU32 { mask: m, lane: 1 });
+    let slots = p.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(1, slots).expect("sized")];
+    let mut scratch = Scratch::over(&mut buf, 1, slots).expect("carves");
+    assert_eq!(
+        execute_into(&p, &planes, &Foreign::NONE, &mut scratch, Out::None),
+        Err(ExecError::LaneNotOrdered { lane: 1 })
+    );
+    assert_eq!(
+        reference_execute_into(&p, &planes, &Foreign::NONE, Out::None),
+        Err(ExecError::LaneNotOrdered { lane: 1 })
+    );
+}
+
 /// The pigeonhole falsifier for "an exact distinct count over an
-/// UNCLUSTERED key lane can be folded with less than one bit per key".
+/// UNORDERED key lane can be folded with less than one bit per key".
 ///
 /// Take a universe of `K` keys. For every pair of DISTINCT key sets
 /// `A ≠ B`, build the prefix streams "one selected row per key of A" and
