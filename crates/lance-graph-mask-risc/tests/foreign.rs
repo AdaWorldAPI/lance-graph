@@ -5,8 +5,8 @@
 use lance_graph_mask_risc::exec::{execute_into, Scratch};
 use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch_with_foreign};
 use lance_graph_mask_risc::{
-    scratch_words_for, words_for, ExecError, Foreign, ForeignPlane, LaneRef, MaskOp, Operand, Out,
-    Planes, Pred, Program, Terminal, Value,
+    scratch_words_for, words_for, ExecError, Foreign, ForeignPlane, LaneKind, LaneRef, MaskOp,
+    Operand, Out, Planes, Pred, Program, Terminal, Value,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -681,4 +681,140 @@ fn group_sum_via_refusals_match_between_executor_and_oracle() {
             found: lance_graph_mask_risc::LaneKind::I32,
         },
     );
+}
+
+/// FAILS IF: `Pred::EqU32Via` disagrees with the oracle — ungated and under a
+/// gate — for a foreign lane shorter than the fk range (zero-fallback), on
+/// the TILED default scratch with the mask demanded through `Out::Mask`, at
+/// every `n` in `ROWS`. Non-vacuous: the fixture must produce hits AND
+/// misses, and at least one out-of-range fk. This is the factored join
+/// filter: no predicate plane over the foreign table, no gathered mask.
+#[test]
+fn eq_u32_via_matches_the_oracle_gated_and_ungated_on_the_tiled_default() {
+    for &n in &ROWS {
+        for &foreign_rows in &[5usize, 64, 70, n.saturating_sub(1).max(1)] {
+            let fx = Fixture::new(n, foreign_rows, 8, 0xE0_1A);
+            let (lanes, masks) = fx.planes();
+            let planes = Planes {
+                n_rows: n,
+                masks: &masks,
+                lanes: &lanes,
+            };
+            // country[j] = j % 4 for every foreign row — a 4-way key.
+            let country: Vec<u32> = (0..foreign_rows).map(|j| (j % 4) as u32).collect();
+            let flanes = [LaneRef::U32(&country)];
+            let foreign = Foreign {
+                planes: &[],
+                lanes: &flanes,
+            };
+            for gated in [false, true] {
+                let mut ops = Vec::new();
+                if gated {
+                    ops.push(MaskOp::Pred {
+                        pred: Pred::EqU32 { lane: 1, v: 1 },
+                        under: None,
+                        dst: 1,
+                    });
+                }
+                ops.push(MaskOp::Pred {
+                    pred: Pred::EqU32Via {
+                        fk: 0,
+                        key: 0,
+                        v: 3,
+                    },
+                    under: gated.then_some(S1),
+                    dst: 0,
+                });
+                let p = Program::new(ops, Terminal::Keep { mask: S0 });
+
+                let mut scratch = Scratch::for_program(&p, n).expect("addressable");
+                let mut kept = vec![u64::MAX; words_for(n)];
+                let got = execute_into(&p, &planes, &foreign, &mut scratch, Out::Mask(&mut kept))
+                    .expect("runs");
+                let mut want_kept = vec![0u64; words_for(n)];
+                let want = reference_execute_into(&p, &planes, &foreign, Out::Mask(&mut want_kept))
+                    .expect("oracle runs");
+                assert_eq!(
+                    got, want,
+                    "n={n} foreign_rows={foreign_rows} gated={gated}: value"
+                );
+                assert_eq!(
+                    kept, want_kept,
+                    "n={n} foreign_rows={foreign_rows} gated={gated}: kept mask"
+                );
+
+                // Independent per-row expectation, so the two sides cannot
+                // agree by sharing a mistake.
+                let mut expect = vec![0u64; words_for(n)];
+                let mut hits = 0usize;
+                for i in 0..n {
+                    let via = country.get(fx.fk[i] as usize).is_some_and(|&c| c == 3);
+                    let gate = !gated || fx.status[i] == 1;
+                    if via && gate {
+                        expect[i / 64] |= 1 << (i % 64);
+                        hits += 1;
+                    }
+                }
+                assert_eq!(
+                    kept, expect,
+                    "n={n} foreign_rows={foreign_rows} gated={gated}: expected"
+                );
+                if n >= 64 {
+                    assert!(
+                        hits > 0 && hits < n,
+                        "n={n} gated={gated}: vacuous fixture ({hits} hits)"
+                    );
+                }
+            }
+            assert!(
+                fx.fk.iter().any(|&i| i as usize >= foreign_rows),
+                "n={n} foreign_rows={foreign_rows}: no out-of-range fk"
+            );
+        }
+    }
+}
+
+/// FAILS IF: a `Pred::EqU32Via` naming a missing or wrong-width foreign lane
+/// is not refused identically by executor and oracle, before any write.
+#[test]
+fn eq_u32_via_refusals_match_between_executor_and_oracle() {
+    let n = 70;
+    let fx = Fixture::new(n, 16, 4, 0xBAD);
+    let (lanes, masks) = fx.planes();
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let i32_lane: Vec<i32> = vec![0; 16];
+    let flanes = [LaneRef::I32(&i32_lane)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    for (key, want) in [
+        (1u16, ExecError::ForeignLaneOutOfRange(1)),
+        (
+            0u16,
+            ExecError::ForeignLaneKind {
+                lane: 0,
+                expected: LaneKind::U32,
+                found: LaneKind::I32,
+            },
+        ),
+    ] {
+        let p = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::EqU32Via { fk: 0, key, v: 0 },
+                under: None,
+                dst: 0,
+            }],
+            Terminal::Count { mask: S0 },
+        );
+        let mut scratch = Scratch::for_program(&p, n).expect("addressable");
+        let got = execute_into(&p, &planes, &foreign, &mut scratch, Out::None);
+        let oracle = reference_execute_into(&p, &planes, &foreign, Out::None);
+        assert_eq!(got, Err(want), "executor refusal for key={key}");
+        assert_eq!(oracle, Err(want), "oracle refusal for key={key}");
+    }
 }

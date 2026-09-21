@@ -75,6 +75,9 @@ fn pred_lane_and_kind(pred: Pred) -> Option<(u16, LaneKind)> {
             (lane, LaneKind::U32)
         }
         Pred::MatchU64 { lane, .. } => (lane, LaneKind::U64),
+        // The fk is this table's lane; the foreign lane is checked separately
+        // (`validate`'s `Pred` arm), against the OTHER address space.
+        Pred::EqU32Via { fk, .. } => (fk, LaneKind::U32),
         Pred::Range { .. } => return None,
     })
 }
@@ -334,6 +337,9 @@ pub(crate) fn validate(
                 if let Some((lane, kind)) = pred_lane_and_kind(pred) {
                     check_lane(planes, lane, kind)?;
                 }
+                if let Pred::EqU32Via { key, .. } = pred {
+                    check_foreign_lane(foreign, key, LaneKind::U32)?;
+                }
                 if let Pred::Range { lo, hi } = pred {
                     let hi_fits = usize::try_from(hi).is_ok_and(|h| h <= planes.n_rows);
                     if lo > hi || !hi_fits {
@@ -394,12 +400,27 @@ pub(crate) fn validate(
         written_slots.mark(dst_of(op));
     }
     match p.terminal {
-        Terminal::Count { mask }
-        | Terminal::Any { mask }
-        | Terminal::All { mask }
-        | Terminal::Keep { mask } => {
+        Terminal::Count { mask } | Terminal::Any { mask } | Terminal::All { mask } => {
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)
+        }
+        Terminal::Keep { mask } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            // The kept mask is a DEMANDED sink: `Out::Mask` sized to the
+            // population, or `Out::None` for a caller whose single-tile
+            // scratch holds it (the executor refuses `None` under tiling).
+            // Any other shape is ignored, as `Keep` always ignored `out`
+            // (the legacy `execute` passes `Out::I32` for every terminal).
+            let want = words_for(n);
+            match out {
+                OutShape::Mask(len) if len != want => Err(ExecError::LenMismatch {
+                    what: "out",
+                    expected: want,
+                    found: len,
+                }),
+                _ => Ok(()),
+            }
         }
         Terminal::MaskedSumI32 { mask, lane } => {
             check_operand(p, planes, mask)?;
@@ -527,7 +548,7 @@ fn u32_at(planes: &Planes<'_>, lane: u16, row: usize) -> u32 {
 /// safe only because `validate` has already refused a mismatched lane kind
 /// (`ExecError::LaneKind`) before this is ever called. Both the executor and
 /// this oracle call that same `validate`, so neither can reach the fallback.
-fn eval_pred(planes: &Planes<'_>, pred: Pred, row: usize) -> bool {
+fn eval_pred(planes: &Planes<'_>, foreign: &Foreign<'_>, pred: Pred, row: usize) -> bool {
     let u32_at = |lane: u16| match planes.lanes[usize::from(lane)] {
         LaneRef::U32(v) => v[row],
         _ => 0,
@@ -555,6 +576,15 @@ fn eval_pred(planes: &Planes<'_>, pred: Pred, row: usize) -> bool {
             pattern,
             care,
         } => (u64_at(lane) ^ pattern) & care == 0,
+        // Both hops are the zero fallback: a key past the foreign lane's end
+        // names no row and therefore does not match.
+        Pred::EqU32Via { fk, key, v } => {
+            let idx = u32_at(fk) as usize;
+            match foreign.lanes[usize::from(key)] {
+                LaneRef::U32(f) => f.get(idx).is_some_and(|&x| x == v),
+                _ => false,
+            }
+        }
         // `hi <= n_rows` and `lo <= hi` were validated, so both fit a usize.
         Pred::Range { lo, hi } => (lo as usize..hi as usize).contains(&row),
     }
@@ -605,7 +635,10 @@ fn run(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>) -> Rows {
                     pred,
                     under,
                     dst: _,
-                } => under.is_none_or(|u| rows.bit(planes, u, row)) && eval_pred(planes, pred, row),
+                } => {
+                    under.is_none_or(|u| rows.bit(planes, u, row))
+                        && eval_pred(planes, foreign, pred, row)
+                }
                 MaskOp::And { a, b, .. } => rows.bit(planes, a, row) & rows.bit(planes, b, row),
                 MaskOp::Or { a, b, .. } => rows.bit(planes, a, row) | rows.bit(planes, b, row),
                 MaskOp::Xor { a, b, .. } => rows.bit(planes, a, row) ^ rows.bit(planes, b, row),
@@ -787,7 +820,17 @@ pub fn reference_execute_into(
             }
             Value::GroupSummed
         }
-        Terminal::Keep { mask } => Value::Mask(mask),
+        Terminal::Keep { mask } => {
+            if let Out::Mask(o) = out {
+                for w in o.iter_mut() {
+                    *w = 0;
+                }
+                for r in survivors(mask) {
+                    o[r / 64] |= 1u64 << (r % 64);
+                }
+            }
+            Value::Mask(mask)
+        }
     })
 }
 

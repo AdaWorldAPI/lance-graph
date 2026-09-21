@@ -4,10 +4,10 @@
 //! 256 ternlog immediates; every `Terminal`. Values AND scratch contents are
 //! compared, so a wrong word that a terminal happens to hide is still caught.
 
-use lance_graph_mask_risc::exec::{execute, Scratch};
+use lance_graph_mask_risc::exec::{execute, execute_into, Scratch};
 use lance_graph_mask_risc::reference::{reference_execute, reference_scratch};
 use lance_graph_mask_risc::{
-    words_for, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, Value,
+    words_for, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
 };
 
 const ROWS: [usize; 8] = [0, 1, 63, 64, 65, 130, 1000, 65_536];
@@ -92,7 +92,9 @@ impl Fixture {
             masks: &masks,
             lanes: &lanes,
         };
-        let mut scratch = Scratch::for_program(p, self.n).expect("addressable");
+        // ONE tile as wide as the population: every intermediate stays in
+        // its slot, so the oracle's packed slots can be diffed word for word.
+        let mut scratch = Scratch::new(words_for(self.n), p.scratch_slots as usize);
         let mut out_exec = vec![0i32; self.n];
         let mut out_ref = vec![0i32; self.n];
         let got = execute(p, &planes, &mut scratch, Some(&mut out_exec));
@@ -109,6 +111,38 @@ impl Fixture {
                     self.n
                 );
             }
+        }
+        // The DEFAULT scratch — tiled — must answer identically: the same
+        // `Value`, the same blend output, and for a `Keep` the demanded
+        // `Out::Mask` equal to the single-tile slot (or plane) it names.
+        let mut tiled = Scratch::for_program(p, self.n).expect("addressable");
+        let mut out_tiled = vec![0i32; self.n];
+        let mut kept = vec![0u64; words_for(self.n)];
+        let got_tiled = if let Terminal::Keep { .. } = p.terminal {
+            execute_into(p, &planes, &Foreign::NONE, &mut tiled, Out::Mask(&mut kept))
+        } else {
+            execute_into(
+                p,
+                &planes,
+                &Foreign::NONE,
+                &mut tiled,
+                Out::I32(&mut out_tiled),
+            )
+        };
+        assert_eq!(got_tiled, want, "{name} @ n={}: tiled value", self.n);
+        if let Ok(Value::Blended) = want {
+            assert_eq!(
+                out_tiled, out_ref,
+                "{name} @ n={}: tiled blend output",
+                self.n
+            );
+        }
+        if let Ok(Value::Mask(op)) = want {
+            let full: &[u64] = match op {
+                Operand::Scratch(i) => scratch.slot(i).expect("kept slot"),
+                Operand::Plane(i) => planes.masks[usize::from(i)],
+            };
+            assert_eq!(kept.as_slice(), full, "{name} @ n={}: tiled Keep", self.n);
         }
     }
 

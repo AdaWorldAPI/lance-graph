@@ -24,8 +24,8 @@
 
 use ndarray::simd::{
     blend_i32, eq_i32_to_mask, eq_i32_to_mask_under, eq_u32_to_mask, eq_u32_to_mask_under,
-    ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask, gt_i32_to_mask_under, le_i32_to_mask,
-    le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
+    eq_u32_via_to_mask, ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask, gt_i32_to_mask_under,
+    le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
     mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_gather_u32, mask_not,
     mask_not_assign, mask_or, mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor,
     mask_xor_assign, masked_group_sum_i32, masked_group_sum_i32_via, masked_max_i32,
@@ -79,6 +79,18 @@ impl Store<'_> {
 /// buffer for [`Scratch::over`] asks this rather than reimplementing the
 /// layout, which is the only way the two can never disagree. `None` on
 /// overflow, never a wrapped answer that would silently under-allocate.
+/// Words per scratch slot the default constructors carve. The executor runs a
+/// program one tile at a time (see [`execute_into`]), so execution state is
+/// `slots × TILE_WORDS` words however many rows the planes hold — 8 words =
+/// 512 rows = one full-width vector per facade call.
+pub const TILE_WORDS: usize = 8;
+
+/// The slot width [`Scratch::for_program`] / [`Scratch::over_for_program`]
+/// carve for `n_rows`: one tile, or the whole (shorter) population.
+pub fn tile_words_for(n_rows: usize) -> usize {
+    words_for(n_rows).min(TILE_WORDS)
+}
+
 pub fn scratch_words_for(words: usize, slots: usize) -> Option<usize> {
     slots.checked_mul(words)?.checked_add(slots.div_ceil(64))
 }
@@ -157,7 +169,8 @@ impl Scratch<'static> {
         }
     }
 
-    /// Allocate exactly what `program` needs over `n_rows` rows.
+    /// Allocate exactly what `program` needs over `n_rows` rows: `scratch_slots`
+    /// slots of ONE TILE each ([`tile_words_for`]), never the population.
     ///
     /// Fallible, and deliberately so. `Operand::Scratch` is a `u16`, so no
     /// program can ADDRESS more than [`MAX_SCRATCH_SLOTS`] slots; a larger
@@ -176,7 +189,10 @@ impl Scratch<'static> {
         }
         // `scratch_slots` is a `u32` count; a program naming slot `u16::MAX`
         // needs 65,536 buffers, which fits `usize` on every supported target.
-        Ok(Self::new(words_for(n_rows), program.scratch_slots as usize))
+        Ok(Self::new(
+            tile_words_for(n_rows),
+            program.scratch_slots as usize,
+        ))
     }
 }
 
@@ -232,7 +248,7 @@ impl<'a> Scratch<'a> {
                 declared: program.scratch_slots,
             });
         }
-        Self::over(buf, words_for(n_rows), program.scratch_slots as usize)
+        Self::over(buf, tile_words_for(n_rows), program.scratch_slots as usize)
     }
 
     /// Words per slot.
@@ -245,7 +261,9 @@ impl<'a> Scratch<'a> {
         self.slots
     }
 
-    /// Borrow slot `i` (the way a caller reads back a [`Terminal::Keep`] result).
+    /// Borrow slot `i` — ONE tile wide; after a tiled run it holds the LAST
+    /// tile only. A [`Terminal::Keep`] result is read from its [`Out::Mask`],
+    /// or from this slot when the scratch is a single population-wide tile.
     pub fn slot(&self, i: u16) -> Option<&[u64]> {
         let i = usize::from(i);
         if i >= self.slots {
@@ -377,6 +395,7 @@ fn two_input(
     op: fn(&[u64], &[u64], &mut [u64]),
     assign: fn(&mut [u64], &[u64]),
     imm: u8,
+    t: Tile,
 ) {
     let d = Operand::Scratch(dst);
     // Every two-input table is EVEN (`f(0,0,0) = 0`), which is why this
@@ -386,19 +405,20 @@ fn two_input(
     debug_assert!(imm & 1 == 0, "two-input table {imm:#04x} is odd");
     let commutative = remap_imm(imm, [1, 0, 2]) == imm;
     let (x, rest) = s.split(dst);
+    let x = &mut x[..t.words];
     if a == d && b == d {
-        ternlog_self(remap_imm(imm, [0, 0, 0]), x, planes.n_rows);
+        ternlog_self(remap_imm(imm, [0, 0, 0]), x, t.rows);
     } else if a == d {
-        assign(x, read(planes, &rest, b));
+        assign(x, read(planes, &rest, b, t));
     } else if b == d {
-        let aa = read(planes, &rest, a);
+        let aa = read(planes, &rest, a, t);
         if commutative {
             assign(x, aa);
         } else {
             ternlog_dispatch_assign(remap_imm(imm, [1, 0, 0]), x, aa, aa);
         }
     } else {
-        op(read(planes, &rest, a), read(planes, &rest, b), x);
+        op(read(planes, &rest, a, t), read(planes, &rest, b, t), x);
     }
 }
 
@@ -419,43 +439,64 @@ fn ternlog_self(imm: u8, x: &mut [u64], n_rows: usize) {
     }
 }
 
+/// One tile of the population: words `[w0, w0 + words)` of every mask and
+/// scratch slot, rows `[r0, r0 + rows)` of every lane. The executor walks a
+/// program tile by tile, so nothing it writes is ever population-sized: the
+/// scratch is `slots × tile` words whatever `n_rows` is, and the only
+/// population-sized writes are the DEMANDED sinks (`Out`). The last tile is
+/// short when `words` is not a multiple of the slot width; `rows` is then
+/// exactly the rows those words carry, so every tail law holds per tile.
+#[derive(Debug, Clone, Copy)]
+struct Tile {
+    w0: usize,
+    words: usize,
+    r0: usize,
+    rows: usize,
+}
+
 /// Borrow an operand for reading (the scratch arena with `dst` already taken
-/// out, so a read of `dst`'s own slot here is a bug the aliasing arms prevent).
-fn read<'a>(planes: &Planes<'a>, s: &Slots<'a>, o: Operand) -> &'a [u64] {
+/// out, so a read of `dst`'s own slot here is a bug the aliasing arms prevent),
+/// restricted to tile `t`.
+fn read<'a>(planes: &Planes<'a>, s: &Slots<'a>, o: Operand, t: Tile) -> &'a [u64] {
     match o {
-        Operand::Plane(i) => planes.masks[usize::from(i)],
-        Operand::Scratch(i) => s.get(usize::from(i)),
+        Operand::Plane(i) => &planes.masks[usize::from(i)][t.w0..t.w0 + t.words],
+        Operand::Scratch(i) => &s.get(usize::from(i))[..t.words],
     }
 }
 
-fn lane_i32<'a>(planes: &Planes<'a>, lane: u16) -> &'a [i32] {
+/// Rows `[r0, r0 + rows)` of `v`, or the empty slice when the lane is short —
+/// unreachable after `validate`, but a slice out of range would panic where
+/// an empty lane makes every facade call a no-op of the right shape.
+fn rows_of<T>(v: &[T], t: Tile) -> &[T] {
+    v.get(t.r0..t.r0 + t.rows).unwrap_or(&[])
+}
+
+fn lane_i32<'a>(planes: &Planes<'a>, lane: u16, t: Tile) -> &'a [i32] {
     match planes.lanes[usize::from(lane)] {
-        LaneRef::I32(v) => v,
-        // unreachable after `validate`, but the type system does not know
-        // that: an empty lane makes every facade call a no-op of the right
-        // shape rather than a panic.
+        LaneRef::I32(v) => rows_of(v, t),
         _ => &[],
     }
 }
 
-fn lane_u32<'a>(planes: &Planes<'a>, lane: u16) -> &'a [u32] {
+fn lane_u32<'a>(planes: &Planes<'a>, lane: u16, t: Tile) -> &'a [u32] {
     match planes.lanes[usize::from(lane)] {
-        LaneRef::U32(v) => v,
+        LaneRef::U32(v) => rows_of(v, t),
         _ => &[],
     }
 }
 
-fn lane_u64<'a>(planes: &Planes<'a>, lane: u16) -> &'a [u64] {
+fn lane_u64<'a>(planes: &Planes<'a>, lane: u16, t: Tile) -> &'a [u64] {
     match planes.lanes[usize::from(lane)] {
-        LaneRef::U64(v) => v,
+        LaneRef::U64(v) => rows_of(v, t),
         _ => &[],
     }
 }
 
 /// Borrow a foreign `U32` lane for reading — [`lane_u32`]'s twin over
 /// [`Foreign::lanes`], a SEPARATE address space from `planes.lanes` (see
-/// [`Foreign`]'s own doc). Unreachable after `validate` on a well-typed
-/// program, same fallback discipline as `lane_i32`/`lane_u32`/`lane_u64`.
+/// [`Foreign`]'s own doc). WHOLE, never tiled: it is addressed through a
+/// foreign key, not by this population's row. Unreachable after `validate`
+/// on a well-typed program, same fallback discipline as the lane helpers.
 fn foreign_lane_u32<'a>(foreign: &Foreign<'a>, key: u16) -> &'a [u32] {
     match foreign.lanes[usize::from(key)] {
         LaneRef::U32(v) => v,
@@ -463,47 +504,65 @@ fn foreign_lane_u32<'a>(foreign: &Foreign<'a>, key: u16) -> &'a [u32] {
     }
 }
 
-/// One predicate pass into `dst`: the ungated facade member, or the `_under`
-/// member when a gate is present (cost then follows the gate's live words).
+/// One predicate pass into `dst` (one tile of it): the ungated facade member,
+/// or the `_under` member when a gate is present (cost then follows the
+/// gate's live words).
 fn run_pred<'a>(
     planes: &Planes<'a>,
+    foreign: &Foreign<'a>,
     s: &Slots<'a>,
     pred: Pred,
     under: Option<Operand>,
     dst: &mut [u64],
+    t: Tile,
 ) {
     match (pred, under) {
-        (Pred::GtI32 { lane, t }, None) => gt_i32_to_mask(lane_i32(planes, lane), t, dst),
-        (Pred::GtI32 { lane, t }, Some(u)) => {
-            gt_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst)
+        // The join filter in factored form: the foreign lane is read WHOLE
+        // (addressed by the key), this table's fk one tile at a time. The
+        // gate is applied after, as for `Range` — there is no `_under` twin
+        // and one AND over a tile costs less than a second facade word.
+        (Pred::EqU32Via { fk, key, v }, under) => {
+            eq_u32_via_to_mask(
+                lane_u32(planes, fk, t),
+                foreign_lane_u32(foreign, key),
+                v,
+                dst,
+            );
+            if let Some(u) = under {
+                mask_and_assign(dst, read(planes, s, u, t));
+            }
         }
-        (Pred::LtI32 { lane, t }, None) => lt_i32_to_mask(lane_i32(planes, lane), t, dst),
-        (Pred::LtI32 { lane, t }, Some(u)) => {
-            lt_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst)
+        (Pred::GtI32 { lane, t: v }, None) => gt_i32_to_mask(lane_i32(planes, lane, t), v, dst),
+        (Pred::GtI32 { lane, t: v }, Some(u)) => {
+            gt_i32_to_mask_under(lane_i32(planes, lane, t), v, read(planes, s, u, t), dst)
         }
-        (Pred::GeI32 { lane, t }, None) => ge_i32_to_mask(lane_i32(planes, lane), t, dst),
-        (Pred::GeI32 { lane, t }, Some(u)) => {
-            ge_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst)
+        (Pred::LtI32 { lane, t: v }, None) => lt_i32_to_mask(lane_i32(planes, lane, t), v, dst),
+        (Pred::LtI32 { lane, t: v }, Some(u)) => {
+            lt_i32_to_mask_under(lane_i32(planes, lane, t), v, read(planes, s, u, t), dst)
         }
-        (Pred::LeI32 { lane, t }, None) => le_i32_to_mask(lane_i32(planes, lane), t, dst),
-        (Pred::LeI32 { lane, t }, Some(u)) => {
-            le_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst)
+        (Pred::GeI32 { lane, t: v }, None) => ge_i32_to_mask(lane_i32(planes, lane, t), v, dst),
+        (Pred::GeI32 { lane, t: v }, Some(u)) => {
+            ge_i32_to_mask_under(lane_i32(planes, lane, t), v, read(planes, s, u, t), dst)
         }
-        (Pred::EqI32 { lane, v }, None) => eq_i32_to_mask(lane_i32(planes, lane), v, dst),
+        (Pred::LeI32 { lane, t: v }, None) => le_i32_to_mask(lane_i32(planes, lane, t), v, dst),
+        (Pred::LeI32 { lane, t: v }, Some(u)) => {
+            le_i32_to_mask_under(lane_i32(planes, lane, t), v, read(planes, s, u, t), dst)
+        }
+        (Pred::EqI32 { lane, v }, None) => eq_i32_to_mask(lane_i32(planes, lane, t), v, dst),
         (Pred::EqI32 { lane, v }, Some(u)) => {
-            eq_i32_to_mask_under(lane_i32(planes, lane), v, read(planes, s, u), dst)
+            eq_i32_to_mask_under(lane_i32(planes, lane, t), v, read(planes, s, u, t), dst)
         }
-        (Pred::NeI32 { lane, v }, None) => ne_i32_to_mask(lane_i32(planes, lane), v, dst),
+        (Pred::NeI32 { lane, v }, None) => ne_i32_to_mask(lane_i32(planes, lane, t), v, dst),
         (Pred::NeI32 { lane, v }, Some(u)) => {
-            ne_i32_to_mask_under(lane_i32(planes, lane), v, read(planes, s, u), dst)
+            ne_i32_to_mask_under(lane_i32(planes, lane, t), v, read(planes, s, u, t), dst)
         }
-        (Pred::EqU32 { lane, v }, None) => eq_u32_to_mask(lane_u32(planes, lane), v, dst),
+        (Pred::EqU32 { lane, v }, None) => eq_u32_to_mask(lane_u32(planes, lane, t), v, dst),
         (Pred::EqU32 { lane, v }, Some(u)) => {
-            eq_u32_to_mask_under(lane_u32(planes, lane), v, read(planes, s, u), dst)
+            eq_u32_to_mask_under(lane_u32(planes, lane, t), v, read(planes, s, u, t), dst)
         }
-        (Pred::NeU32 { lane, v }, None) => ne_u32_to_mask(lane_u32(planes, lane), v, dst),
+        (Pred::NeU32 { lane, v }, None) => ne_u32_to_mask(lane_u32(planes, lane, t), v, dst),
         (Pred::NeU32 { lane, v }, Some(u)) => {
-            ne_u32_to_mask_under(lane_u32(planes, lane), v, read(planes, s, u), dst)
+            ne_u32_to_mask_under(lane_u32(planes, lane, t), v, read(planes, s, u, t), dst)
         }
         (
             Pred::MatchU32 {
@@ -512,7 +571,7 @@ fn run_pred<'a>(
                 care,
             },
             None,
-        ) => ternary_match_u32_to_mask(lane_u32(planes, lane), pattern, care, dst),
+        ) => ternary_match_u32_to_mask(lane_u32(planes, lane, t), pattern, care, dst),
         (
             Pred::MatchU32 {
                 lane,
@@ -521,10 +580,10 @@ fn run_pred<'a>(
             },
             Some(u),
         ) => ternary_match_u32_to_mask_under(
-            lane_u32(planes, lane),
+            lane_u32(planes, lane, t),
             pattern,
             care,
-            read(planes, s, u),
+            read(planes, s, u, t),
             dst,
         ),
         (
@@ -534,7 +593,7 @@ fn run_pred<'a>(
                 care,
             },
             None,
-        ) => ternary_match_u64_to_mask(lane_u64(planes, lane), pattern, care, dst),
+        ) => ternary_match_u64_to_mask(lane_u64(planes, lane, t), pattern, care, dst),
         (
             Pred::MatchU64 {
                 lane,
@@ -543,18 +602,22 @@ fn run_pred<'a>(
             },
             Some(u),
         ) => ternary_match_u64_to_mask_under(
-            lane_u64(planes, lane),
+            lane_u64(planes, lane, t),
             pattern,
             care,
-            read(planes, s, u),
+            read(planes, s, u, t),
             dst,
         ),
-        // `lo <= hi <= n_rows` was validated, so the bounds are in-range for
-        // the scratch words and `mask_set_range`'s own asserts cannot fire.
-        (Pred::Range { lo, hi }, None) => mask_set_range(dst, lo as usize, hi as usize),
-        (Pred::Range { lo, hi }, Some(u)) => {
-            mask_set_range(dst, lo as usize, hi as usize);
-            mask_and_assign(dst, read(planes, s, u));
+        // `lo <= hi <= n_rows` was validated; clipped to this tile the range
+        // is in-range for the tile's words and `mask_set_range`'s own asserts
+        // cannot fire. A range that misses the tile entirely clips to an empty
+        // one, which clears the tile — the correct answer for it.
+        (Pred::Range { lo, hi }, under) => {
+            let clip = |r: u32| (r as usize).clamp(t.r0, t.r0 + t.rows) - t.r0;
+            mask_set_range(dst, clip(lo), clip(hi));
+            if let Some(u) = under {
+                mask_and_assign(dst, read(planes, s, u, t));
+            }
         }
     }
 }
@@ -582,20 +645,40 @@ pub fn execute(
     )
 }
 
+/// Fold one tile's `Option` reduction into the running one.
+fn fold_opt(acc: Option<i32>, tile: Option<i32>, f: fn(i32, i32) -> i32) -> Option<i32> {
+    match (acc, tile) {
+        (Some(a), Some(b)) => Some(f(a, b)),
+        (a, None) => a,
+        (None, b) => b,
+    }
+}
+
 /// Run `program` over `planes` with the caller's `scratch`, resolving any
-/// [`MaskOp::Gather`] against `foreign`; `out` is the destination a
-/// [`Terminal::BlendI32`] / [`Terminal::ScatterOrU32`] /
-/// [`Terminal::GroupSumI32`] writes (every other terminal ignores it — an
-/// `Out` of the wrong shape for the terminal that IS present is refused by
-/// [`validate`], never silently accepted and silently not written).
-/// Validation is total and happens before any result write, so an `Err`
-/// leaves the scratch slots and `out` untouched.
+/// [`MaskOp::Gather`] / [`Terminal::GroupSumViaI32`] against `foreign`;
+/// `out` is the DEMANDED sink — the destination a [`Terminal::BlendI32`] /
+/// [`Terminal::ScatterOrU32`] / [`Terminal::GroupSumI32`] /
+/// [`Terminal::GroupSumViaI32`] / [`Terminal::Keep`] writes (every other
+/// terminal ignores it — an `Out` of the wrong shape for the terminal that IS
+/// present is refused by [`validate`], never silently accepted and silently
+/// not written). Validation is total and happens before any result write, so
+/// an `Err` leaves the scratch slots and `out` untouched.
+///
+/// **Execution is tiled.** The program runs once per `scratch.words()`-word
+/// tile of the population; every op writes at most one tile of its slot, and
+/// the terminal folds each tile into O(1) accumulators or into `out`. Nothing
+/// population-sized is written except `out` itself — a mask exists as a
+/// whole only where a caller demanded it ([`Out::Mask`]). A caller who carves
+/// a scratch `words_for(n_rows)` wide gets one tile, i.e. the old
+/// whole-population behaviour, and may then read a [`Terminal::Keep`] result
+/// from its slot with `out: Out::None`; under a narrower scratch `Keep`
+/// requires `Out::Mask` (`TerminalNeedsOut`).
 pub fn execute_into(
     program: &Program,
     planes: &Planes<'_>,
     foreign: &Foreign<'_>,
     scratch: &mut Scratch<'_>,
-    out: Out<'_>,
+    mut out: Out<'_>,
 ) -> Result<Value, ExecError> {
     // BEFORE the capacity check, not after: an over-declared count is a lie
     // about the PROGRAM, and the caller's buffer is irrelevant to it. Checked
@@ -616,10 +699,11 @@ pub fn execute_into(
         });
     }
     let words = words_for(planes.n_rows);
-    if scratch.words != words {
+    let tw = scratch.words;
+    if words > 0 && tw == 0 {
         return Err(ExecError::ScratchWords {
-            expected: words,
-            found: scratch.words,
+            expected: 1,
+            found: 0,
         });
     }
     validate(
@@ -629,194 +713,265 @@ pub fn execute_into(
         out_shape(&out),
         scratch.written_mut(),
     )?;
+    if matches!(program.terminal, Terminal::Keep { .. }) && matches!(out, Out::None) && tw < words {
+        return Err(ExecError::TerminalNeedsOut { what: "Keep" });
+    }
+    // The sinks that ACCUMULATE across tiles start from zero here, once. The
+    // sink is the requested result, so this is a write the law permits; the
+    // facade kernels themselves never zero a destination they only add to.
+    match (&program.terminal, &mut out) {
+        (Terminal::ScatterOrU32 { .. }, Out::Mask(o)) => o.fill(0),
+        (Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. }, Out::I64(o)) => o.fill(0),
+        _ => {}
+    }
     let n_rows = planes.n_rows;
+    let mut count = 0usize;
+    let mut any = false;
+    let mut all = true;
+    let mut sum = 0i64;
+    let mut min: Option<i32> = None;
+    let mut max: Option<i32> = None;
 
-    for op in &program.ops {
-        match *op {
-            MaskOp::Pred { pred, under, dst } => {
-                let (d, rest) = scratch.split(dst);
-                run_pred(planes, &rest, pred, under, d);
-            }
-            MaskOp::And { a, b, dst } => two_input(
-                planes,
-                scratch,
-                a,
-                b,
-                dst,
-                mask_and,
-                mask_and_assign,
-                AND_IMM,
-            ),
-            MaskOp::Or { a, b, dst } => {
-                two_input(planes, scratch, a, b, dst, mask_or, mask_or_assign, OR_IMM)
-            }
-            MaskOp::Xor { a, b, dst } => two_input(
-                planes,
-                scratch,
-                a,
-                b,
-                dst,
-                mask_xor,
-                mask_xor_assign,
-                XOR_IMM,
-            ),
-            MaskOp::AndNot { a, b, dst } => two_input(
-                planes,
-                scratch,
-                a,
-                b,
-                dst,
-                mask_andnot,
-                mask_andnot_assign,
-                ANDNOT_IMM,
-            ),
-            MaskOp::Not { a, dst } => {
-                let (d, rest) = scratch.split(dst);
-                if a == Operand::Scratch(dst) {
-                    mask_not_assign(d, n_rows);
-                } else {
-                    mask_not(read(planes, &rest, a), n_rows, d);
+    let mut w0 = 0usize;
+    while w0 < words {
+        let tws = tw.min(words - w0);
+        let r0 = w0 * 64;
+        let t = Tile {
+            w0,
+            words: tws,
+            r0,
+            rows: (n_rows - r0).min(tws * 64),
+        };
+        for op in &program.ops {
+            match *op {
+                MaskOp::Pred { pred, under, dst } => {
+                    let (d, rest) = scratch.split(dst);
+                    run_pred(planes, foreign, &rest, pred, under, &mut d[..t.words], t);
                 }
-            }
-            MaskOp::Ternlog { imm, a, b, c, dst } => {
-                let d = Operand::Scratch(dst);
-                let (x, rest) = scratch.split(dst);
-                if a != d && b != d && c != d {
-                    ternlog_dispatch(
-                        imm,
-                        read(planes, &rest, a),
-                        read(planes, &rest, b),
-                        read(planes, &rest, c),
-                        x,
-                    );
-                } else {
-                    // `dst` is an input: the in-place form takes it as `x`,
-                    // the remaining distinct operands become `y` (and `z`),
-                    // and the table is re-indexed to match.
-                    let mut map = [0u8; 3];
-                    let mut others: [Option<Operand>; 2] = [None, None];
-                    let mut n = 0usize;
-                    for (i, o) in [a, b, c].into_iter().enumerate() {
-                        if o == d {
-                            map[i] = 0;
-                        } else if let Some(pos) = others[..n].iter().position(|&p| p == Some(o)) {
-                            map[i] = pos as u8 + 1;
-                        } else {
-                            others[n] = Some(o);
-                            map[i] = n as u8 + 1;
-                            n += 1;
-                        }
+                MaskOp::And { a, b, dst } => two_input(
+                    planes,
+                    scratch,
+                    a,
+                    b,
+                    dst,
+                    mask_and,
+                    mask_and_assign,
+                    AND_IMM,
+                    t,
+                ),
+                MaskOp::Or { a, b, dst } => two_input(
+                    planes,
+                    scratch,
+                    a,
+                    b,
+                    dst,
+                    mask_or,
+                    mask_or_assign,
+                    OR_IMM,
+                    t,
+                ),
+                MaskOp::Xor { a, b, dst } => two_input(
+                    planes,
+                    scratch,
+                    a,
+                    b,
+                    dst,
+                    mask_xor,
+                    mask_xor_assign,
+                    XOR_IMM,
+                    t,
+                ),
+                MaskOp::AndNot { a, b, dst } => two_input(
+                    planes,
+                    scratch,
+                    a,
+                    b,
+                    dst,
+                    mask_andnot,
+                    mask_andnot_assign,
+                    ANDNOT_IMM,
+                    t,
+                ),
+                MaskOp::Not { a, dst } => {
+                    let (d, rest) = scratch.split(dst);
+                    let d = &mut d[..t.words];
+                    if a == Operand::Scratch(dst) {
+                        mask_not_assign(d, t.rows);
+                    } else {
+                        mask_not(read(planes, &rest, a, t), t.rows, d);
                     }
-                    let imm2 = remap_imm(imm, map);
-                    match (others[0], others[1]) {
-                        (Some(y), Some(z)) => ternlog_dispatch_assign(
-                            imm2,
+                }
+                MaskOp::Ternlog { imm, a, b, c, dst } => {
+                    let d = Operand::Scratch(dst);
+                    let (x, rest) = scratch.split(dst);
+                    let x = &mut x[..t.words];
+                    if a != d && b != d && c != d {
+                        ternlog_dispatch(
+                            imm,
+                            read(planes, &rest, a, t),
+                            read(planes, &rest, b, t),
+                            read(planes, &rest, c, t),
                             x,
-                            read(planes, &rest, y),
-                            read(planes, &rest, z),
-                        ),
-                        (Some(y), None) => {
-                            let yy = read(planes, &rest, y);
-                            ternlog_dispatch_assign(imm2, x, yy, yy)
+                        );
+                    } else {
+                        // `dst` is an input: the in-place form takes it as
+                        // `x`, the remaining distinct operands become `y`
+                        // (and `z`), and the table is re-indexed to match.
+                        let mut map = [0u8; 3];
+                        let mut others: [Option<Operand>; 2] = [None, None];
+                        let mut n = 0usize;
+                        for (i, o) in [a, b, c].into_iter().enumerate() {
+                            if o == d {
+                                map[i] = 0;
+                            } else if let Some(pos) = others[..n].iter().position(|&p| p == Some(o))
+                            {
+                                map[i] = pos as u8 + 1;
+                            } else {
+                                others[n] = Some(o);
+                                map[i] = n as u8 + 1;
+                                n += 1;
+                            }
                         }
-                        _ => ternlog_self(imm2, x, n_rows),
+                        let imm2 = remap_imm(imm, map);
+                        match (others[0], others[1]) {
+                            (Some(y), Some(z)) => ternlog_dispatch_assign(
+                                imm2,
+                                x,
+                                read(planes, &rest, y, t),
+                                read(planes, &rest, z, t),
+                            ),
+                            (Some(y), None) => {
+                                let yy = read(planes, &rest, y, t);
+                                ternlog_dispatch_assign(imm2, x, yy, yy)
+                            }
+                            _ => ternlog_self(imm2, x, t.rows),
+                        }
+                    }
+                    if imm & 1 == 1 {
+                        clear_tail(x, t.rows);
                     }
                 }
-                if imm & 1 == 1 {
-                    clear_tail(x, n_rows);
+                MaskOp::Gather {
+                    lane,
+                    foreign: fidx,
+                    dst,
+                } => {
+                    // No aliasing shape to consider: unlike every other op,
+                    // `Gather` never reads `dst` as an input — it only writes
+                    // it — so there is no `dst == a` case to route to an
+                    // in-place facade form. The foreign plane is read WHOLE
+                    // (it is addressed by the key, not by this tile's rows).
+                    let (d, _rest) = scratch.split(dst);
+                    let fp = &foreign.planes[usize::from(fidx)];
+                    mask_gather_u32(
+                        fp.words,
+                        fp.rows,
+                        lane_u32(planes, lane, t),
+                        &mut d[..t.words],
+                    );
                 }
-            }
-            MaskOp::Gather {
-                lane,
-                foreign: fidx,
-                dst,
-            } => {
-                // No aliasing shape to consider: unlike every other op,
-                // `Gather` never reads `dst` as an input — it only writes it
-                // — so there is no `dst == a` case to route to an in-place
-                // facade form.
-                let (d, _rest) = scratch.split(dst);
-                let fp = &foreign.planes[usize::from(fidx)];
-                mask_gather_u32(fp.words, fp.rows, lane_u32(planes, lane), d);
             }
         }
+
+        let slots = scratch.all();
+        match program.terminal {
+            Terminal::Count { mask } => {
+                count += popcount_batch_u64(read(planes, &slots, mask, t)) as usize;
+            }
+            Terminal::Any { mask } => any |= mask_any(read(planes, &slots, mask, t)),
+            Terminal::All { mask } => all &= mask_all(read(planes, &slots, mask, t), t.rows),
+            Terminal::MaskedSumI32 { mask, lane } => {
+                sum += masked_sum_i32(lane_i32(planes, lane, t), read(planes, &slots, mask, t));
+            }
+            Terminal::MaskedMinI32 { mask, lane } => {
+                min = fold_opt(
+                    min,
+                    masked_min_i32(lane_i32(planes, lane, t), read(planes, &slots, mask, t)),
+                    i32::min,
+                );
+            }
+            Terminal::MaskedMaxI32 { mask, lane } => {
+                max = fold_opt(
+                    max,
+                    masked_max_i32(lane_i32(planes, lane, t), read(planes, &slots, mask, t)),
+                    i32::max,
+                );
+            }
+            Terminal::BlendI32 { mask, then, els } => {
+                // `validate` already refused a missing or mis-shaped `out`.
+                if let Out::I32(o) = &mut out {
+                    blend_i32(
+                        read(planes, &slots, mask, t),
+                        lane_i32(planes, then, t),
+                        lane_i32(planes, els, t),
+                        &mut o[t.r0..t.r0 + t.rows],
+                    );
+                }
+            }
+            Terminal::ScatterOrU32 {
+                mask,
+                lane,
+                out_rows,
+            } => {
+                // `validate` already refused a missing or mis-sized `out`;
+                // the kernel ORs into it, tile after tile.
+                if let Out::Mask(o) = &mut out {
+                    mask_scatter_or_u32(
+                        read(planes, &slots, mask, t),
+                        lane_u32(planes, lane, t),
+                        o,
+                        out_rows as usize,
+                    );
+                }
+            }
+            Terminal::GroupSumI32 { mask, key, val } => {
+                // `validate` already refused a missing or too-small `out`;
+                // the kernel adds into it, tile after tile.
+                if let Out::I64(o) = &mut out {
+                    masked_group_sum_i32(
+                        read(planes, &slots, mask, t),
+                        lane_u32(planes, key, t),
+                        lane_i32(planes, val, t),
+                        o,
+                    );
+                }
+            }
+            Terminal::GroupSumViaI32 { mask, fk, key, val } => {
+                // `validate` already refused a missing/too-small `out`, a
+                // wrong-width `fk`/`val`, and an out-of-range or wrong-width
+                // foreign `key` — one delegation per tile (law L3).
+                if let Out::I64(o) = &mut out {
+                    masked_group_sum_i32_via(
+                        read(planes, &slots, mask, t),
+                        lane_u32(planes, fk, t),
+                        foreign_lane_u32(foreign, key),
+                        lane_i32(planes, val, t),
+                        o,
+                    );
+                }
+            }
+            Terminal::Keep { mask } => {
+                // The demanded mask, one tile at a time. With `Out::None` the
+                // scratch is single-tile (checked above) and the slot IS the
+                // result.
+                if let Out::Mask(o) = &mut out {
+                    o[t.w0..t.w0 + t.words].copy_from_slice(read(planes, &slots, mask, t));
+                }
+            }
+        }
+        w0 += tws;
     }
 
-    let all = scratch.all();
     Ok(match program.terminal {
-        Terminal::Count { mask } => {
-            Value::Count(popcount_batch_u64(read(planes, &all, mask)) as usize)
-        }
-        Terminal::Any { mask } => Value::Bool(mask_any(read(planes, &all, mask))),
-        Terminal::All { mask } => Value::Bool(mask_all(read(planes, &all, mask), n_rows)),
-        Terminal::MaskedSumI32 { mask, lane } => Value::SumI64(masked_sum_i32(
-            lane_i32(planes, lane),
-            read(planes, &all, mask),
-        )),
-        Terminal::MaskedMinI32 { mask, lane } => Value::OptI32(masked_min_i32(
-            lane_i32(planes, lane),
-            read(planes, &all, mask),
-        )),
-        Terminal::MaskedMaxI32 { mask, lane } => Value::OptI32(masked_max_i32(
-            lane_i32(planes, lane),
-            read(planes, &all, mask),
-        )),
-        Terminal::BlendI32 { mask, then, els } => {
-            // `validate` already refused a missing or mis-shaped `out`.
-            if let Out::I32(o) = out {
-                blend_i32(
-                    read(planes, &all, mask),
-                    lane_i32(planes, then),
-                    lane_i32(planes, els),
-                    o,
-                );
-            }
-            Value::Blended
-        }
-        Terminal::ScatterOrU32 {
-            mask,
-            lane,
-            out_rows,
-        } => {
-            // `validate` already refused a missing or mis-sized `out`.
-            if let Out::Mask(o) = out {
-                mask_scatter_or_u32(
-                    read(planes, &all, mask),
-                    lane_u32(planes, lane),
-                    o,
-                    out_rows as usize,
-                );
-            }
-            Value::Scattered
-        }
-        Terminal::GroupSumI32 { mask, key, val } => {
-            // `validate` already refused a missing or too-small `out`.
-            if let Out::I64(o) = out {
-                masked_group_sum_i32(
-                    read(planes, &all, mask),
-                    lane_u32(planes, key),
-                    lane_i32(planes, val),
-                    o,
-                );
-            }
-            Value::GroupSummed
-        }
-        Terminal::GroupSumViaI32 { mask, fk, key, val } => {
-            // `validate` already refused a missing/too-small `out`, a
-            // wrong-width `fk`/`val`, and an out-of-range or wrong-width
-            // foreign `key` — one delegation, same as every other terminal
-            // (law L3).
-            if let Out::I64(o) = out {
-                masked_group_sum_i32_via(
-                    read(planes, &all, mask),
-                    lane_u32(planes, fk),
-                    foreign_lane_u32(foreign, key),
-                    lane_i32(planes, val),
-                    o,
-                );
-            }
-            Value::GroupSummed
-        }
+        Terminal::Count { .. } => Value::Count(count),
+        Terminal::Any { .. } => Value::Bool(any),
+        Terminal::All { .. } => Value::Bool(all),
+        Terminal::MaskedSumI32 { .. } => Value::SumI64(sum),
+        Terminal::MaskedMinI32 { .. } => Value::OptI32(min),
+        Terminal::MaskedMaxI32 { .. } => Value::OptI32(max),
+        Terminal::BlendI32 { .. } => Value::Blended,
+        Terminal::ScatterOrU32 { .. } => Value::Scattered,
+        Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. } => Value::GroupSummed,
         Terminal::Keep { mask } => Value::Mask(mask),
     })
 }
@@ -903,11 +1058,11 @@ mod borrowed_scratch_tests {
                 lanes: &lanes,
             };
 
-            let need = scratch_words_for(words_for(n), p.scratch_slots as usize).unwrap();
+            let need = scratch_words_for(tile_words_for(n), p.scratch_slots as usize).unwrap();
             // twice the room, every excess word poisoned
             let mut buf = vec![u64::MAX; need * 2 + 16];
             let excess_start = need;
-            let mut s = Scratch::over(&mut buf, words_for(n), p.scratch_slots as usize)
+            let mut s = Scratch::over(&mut buf, tile_words_for(n), p.scratch_slots as usize)
                 .expect("buffer is long enough");
             let got = execute(&p, &planes, &mut s, None).expect("runs");
             let got_slots: Vec<Vec<u64>> = (0..s.slots())
@@ -1349,17 +1504,25 @@ mod tests {
             execute(&p, &planes, &mut small, None),
             Err(ExecError::ScratchTooSmall { need: 4, have: 2 })
         );
-        let mut wrong = Scratch::new(1, 4);
+        let mut wrong = Scratch::new(0, 4);
         assert_eq!(
             execute(&p, &planes, &mut wrong, None),
             Err(ExecError::ScratchWords {
-                expected: 2,
-                found: 1
+                expected: 1,
+                found: 0
             })
         );
-        assert!(
-            wrong.slot(3).is_some_and(|w| w.iter().all(|&x| x == 0)),
-            "nothing was written"
+        // A NARROW scratch is not wrong — it is a tile width. One word over
+        // 70 rows runs as two tiles and answers exactly what two words do.
+        let mut narrow = Scratch::new(1, 4);
+        let mut wide = Scratch::new(2, 4);
+        assert_eq!(
+            execute(&p, &planes, &mut narrow, None),
+            execute(&p, &planes, &mut wide, None)
+        );
+        assert_eq!(
+            execute(&p, &planes, &mut narrow, None),
+            Ok(Value::Bool(true))
         );
     }
 }

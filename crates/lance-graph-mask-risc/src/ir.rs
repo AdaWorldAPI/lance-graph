@@ -122,6 +122,17 @@ pub enum Pred {
     MatchU32 { lane: u16, pattern: u32, care: u32 },
     /// `((lane[i] ^ pattern) & care) == 0` over a `u64` lane.
     MatchU64 { lane: u16, pattern: u64, care: u64 },
+    /// `foreign.lanes[key][fk[i]] == v` — an equality predicate on the OTHER
+    /// table, evaluated THROUGH this table's foreign key, row by row, in one
+    /// facade pass (`ndarray::simd::eq_u32_via_to_mask`). This is the join
+    /// filter in factored form: `line WHERE partner.country = 3` reads
+    /// `country[partner_id[i]]` directly, so neither a predicate plane over
+    /// `partner` nor a gathered mask over `line` ever exists — the same
+    /// address indirection [`Terminal::GroupSumViaI32`] uses for its key,
+    /// applied to a predicate. Zero fallback: an `fk` that names no foreign
+    /// row does not match. `fk` is a `U32` lane of THIS table; `key` indexes
+    /// [`Foreign::lanes`] and must be `U32`.
+    EqU32Via { fk: u16, key: u16, v: u32 },
     /// `lo <= i < hi` — a predicate on the ROW INDEX, reading no lane.
     ///
     /// The contiguous-range write. On an address-ordered lane an address
@@ -199,7 +210,7 @@ pub enum MaskOp {
     /// `dst[i] = foreign.planes[foreign].words[lane_u32[i]]` — the fk
     /// SEMIJOIN: `dst` is set for row `i` exactly when `lane`'s value names a
     /// row that survives on the foreign table. Out-of-range is the
-    /// zero-fallback ([`crate::exec::Gather`]'s underlying facade primitive
+    /// zero-fallback ([`MaskOp::Gather`]'s underlying facade primitive
     /// contract), never an error: `line WHERE EXISTS partner p ON p.rid =
     /// line.partner_id AND <pred on p>` is `Gather{lane: partner_id, foreign:
     /// <mask of p rows satisfying pred>}` — the fk gather.

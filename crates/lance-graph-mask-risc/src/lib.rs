@@ -13,7 +13,16 @@
 //! word lowers to is its question, answered by its own parity tests, and
 //! running this suite under another realization would test ndarray through a
 //! proxy rather than test this crate. `tests/no_alloc.rs` pins the
-//! zero-allocation law. `hop` (PR5) LANDED as [`MaskOp::Gather`] (the fk
+//! zero-allocation law. **Execution is TILED** (2026-09-21, operator ruling:
+//! an intermediate population is forbidden when the next fold can consume the
+//! projection directly — allocation is irrelevant, a caller-owned bitmap is
+//! still materialisation): [`exec::execute_into`] runs a program one
+//! [`exec::TILE_WORDS`]-word tile at a time, so execution state is
+//! `slots × 8` words whatever `n_rows` is, and the only population-sized
+//! writes are the DEMANDED sinks ([`Out`]). A [`Terminal::Keep`] therefore
+//! takes its mask through [`Out::Mask`]; `tests/differential.rs` proves every
+//! program shape answers identically tiled and single-tile. `hop` (PR5)
+//! LANDED as [`MaskOp::Gather`] (the fk
 //! semijoin, over [`ir::Foreign`]) and [`Terminal::ScatterOrU32`] (the
 //! one-to-many hop back); [`Terminal::GroupSumI32`] is the one-terminal
 //! `GROUP BY … SUM`, and [`Terminal::GroupSumViaI32`] is its fk-keyed
