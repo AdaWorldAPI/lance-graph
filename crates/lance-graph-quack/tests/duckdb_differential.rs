@@ -7,19 +7,20 @@
 //! encoded the same way, and compared. **Expected values are never
 //! hand-edited** — see `tests/duckdb/README.txt`.
 //!
-//! `join_group_sum_country_is_the_open_seam` is the one honest exception
-//! left: it needs a group-sum key resolved through a FOREIGN table
-//! (`SUM(l.amount) GROUP BY p.country`), which waits on
-//! `ndarray::simd::masked_group_sum_i32_via` — `Terminal::GroupSumI32`'s key
-//! is a lane on THIS table, not a fk-resolved one. `join_sum_country` and
-//! `join_count_docs_with_posted` are no longer open seams: the former lowers
-//! a real `Filter::Semijoin` (the fk gather) against a real partner-side
-//! `Program`; the latter lowers `Agg::ScatterOrU32` (the one-to-many hop
-//! back) into a caller-owned mask, then counts it with a second tiny
-//! program. `group_sum_cc` now runs the one-terminal `Agg::GroupSumI32`
-//! (`Terminal::GroupSumI32`, ONE program) alongside the pre-existing K-program
-//! `lower_group_by` reading, printing both METRIC lines so the fold is
-//! visible.
+//! `join_group_sum_country` closes the last open seam: `SUM(l.amount)
+//! GROUP BY p.country` is a group-sum key resolved through a FOREIGN
+//! table (`p.country`, reached via `l.partner_id`) —
+//! `Terminal::GroupSumViaI32` over `ndarray::simd::masked_group_sum_i32_via`,
+//! ONE program reading `partner.country` as a caller-owned
+//! [`Foreign::lanes`] entry, no two-hop materialisation and no K-program
+//! spelling. `join_sum_country` and `join_count_docs_with_posted` are the
+//! other two join cases: the former lowers a real `Filter::Semijoin` (the
+//! fk gather) against a real partner-side `Program`; the latter lowers
+//! `Agg::ScatterOrU32` (the one-to-many hop back) into a caller-owned
+//! mask, then counts it with a second tiny program. `group_sum_cc` runs
+//! the one-terminal `Agg::GroupSumI32` (`Terminal::GroupSumI32`, ONE
+//! program) alongside the pre-existing K-program `lower_group_by` reading,
+//! printing both METRIC lines so the fold is visible.
 
 #[path = "duckdb/fixture.rs"]
 mod fixture;
@@ -30,10 +31,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use lance_graph_mask_risc::{
     execute, execute_into, materialize_rows, scratch_words_for, words_for, Foreign, ForeignPlane,
-    Operand, Out, Planes, Scratch, Value,
+    LaneRef, Operand, Out, Planes, Scratch, Value,
 };
 use lance_graph_quack::{
-    lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignMask, GroupBy, Query,
+    lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignLane, ForeignMask, GroupBy, Query,
 };
 
 use fixture::col::{
@@ -122,18 +123,6 @@ fn assert_case(cases: &[Case], id: &str, actual: &str) {
         "case {id} diverged from the DuckDB oracle\n  sql:     {}\n  rust:    {actual}\n  duckdb:  {}",
         case.sql, case.expected
     );
-}
-
-/// Load `id`'s expected value without asserting anything — the `join_*`
-/// cases use this to prove the oracle side is real before `todo!()`-ing the
-/// Rust side.
-fn expected_only<'a>(cases: &'a [Case], id: &str) -> &'a str {
-    cases
-        .iter()
-        .find(|c| c.id == id)
-        .unwrap_or_else(|| panic!("case {id} is not in cases.tsv"))
-        .expected
-        .as_str()
 }
 
 // ---------------------------------------------------------------------
@@ -648,10 +637,10 @@ fn group_sum_cc() {
 }
 
 // ---------------------------------------------------------------------
-// The join cases. `join_sum_country` (fk gather) and
-// `join_count_docs_with_posted` (the one-to-many hop back) are real
-// two-program lowerings now; `join_group_sum_country` stays the honest
-// open seam — see the module doc for why.
+// The join cases. `join_sum_country` (fk gather),
+// `join_count_docs_with_posted` (the one-to-many hop back), and
+// `join_group_sum_country` (the fk-keyed group-sum) are all real,
+// one-or-two-program lowerings now — no open seam remains.
 // ---------------------------------------------------------------------
 
 /// `SELECT SUM(l.amount) FROM line l JOIN partner p ON p.rid=l.partner_id
@@ -691,6 +680,7 @@ fn join_sum_country() {
     };
     let foreign = Foreign {
         planes: &[foreign_plane],
+        lanes: &[],
     };
 
     // Phase 2 (line side): `status == 1 AND Semijoin(partner_id, 0)` -> SUM.
@@ -827,18 +817,72 @@ fn join_count_docs_with_posted() {
 /// `SELECT p.country, SUM(l.amount) FROM line l JOIN partner p ON
 /// p.rid=l.partner_id WHERE l.status=1 GROUP BY p.country ORDER BY
 /// p.country` — a group-sum whose KEY lives on the FOREIGN table
-/// (`p.country`, reached through `l.partner_id`). `Terminal::GroupSumI32`'s
-/// `key` lane is read directly off THIS program's own `Planes`; there is no
-/// via-key variant wired to `ndarray::simd::masked_group_sum_i32_via` yet
-/// (see the module doc). Still the honest open seam.
+/// (`p.country`, reached through `l.partner_id`). ONE program:
+/// `Agg::GroupSumViaI32` lowers to `Terminal::GroupSumViaI32`, reading
+/// `partner.country` directly as a caller-owned [`Foreign::lanes`] entry —
+/// no partner-side filter program, no K-program loop, and no materialised
+/// remapped key lane between the two hops.
 #[test]
-#[should_panic(expected = "NO VIA-KEY GROUP SUM")]
-fn join_group_sum_country_is_the_open_seam() {
+fn join_group_sum_country() {
     let cases = load_cases();
-    let expected = expected_only(&cases, "join_group_sum_country");
-    assert!(
-        !expected.is_empty(),
-        "join_group_sum_country has no oracle value — run oracle.py first"
-    );
-    todo!("NO VIA-KEY GROUP SUM: join_group_sum_country");
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+
+    let program = lower(&Query {
+        filter: Filter::cmp(STATUS, Cmp::EqU32(1)),
+        agg: Agg::GroupSumViaI32 {
+            fk: PARTNER_ID,
+            key: ForeignLane(0),
+            val: AMOUNT,
+        },
+    })
+    .expect("lowers");
+    let words = words_for(planes.n_rows);
+    let slots = program.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+    let scratch_words = buf.len();
+    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+
+    let country_lane = [LaneRef::U32(&fx.partner.country)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &country_lane,
+    };
+    let mut out = [0i64; 8];
+    let before = BYTES.load(Ordering::Relaxed);
+    let value = execute_into(
+        &program,
+        &planes,
+        &foreign,
+        &mut scratch,
+        Out::I64(&mut out),
+    )
+    .expect("runs");
+    let alloc_bytes_exec = alloc_delta(before);
+    assert_eq!(value, Value::GroupSummed);
+
+    let encoded = out
+        .iter()
+        .enumerate()
+        .map(|(k, v)| format!("{k}:{v}"))
+        .collect::<Vec<_>>()
+        .join(";");
+    let out_bytes = encoded.len();
+    let m = CaseMetrics {
+        ops: program.ops.len(),
+        scratch_words,
+        alloc_bytes_exec,
+        rows_materialized: 0,
+        index_vec_len: 0,
+        out_bytes,
+        programs: Some(1),
+        // No N×M pair-relation object anywhere: the fk resolves through
+        // ONE `masked_group_sum_i32_via` call per selected row, reading
+        // `partner.country` in place — never a materialized `(line,
+        // partner)` pair list or a remapped key lane.
+        pair_relation_bytes: 0,
+    };
+    print_metric("join_group_sum_country", &m);
+    assert_case(&cases, "join_group_sum_country", &encoded);
 }

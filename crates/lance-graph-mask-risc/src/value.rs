@@ -134,6 +134,20 @@ pub enum ExecError {
     /// [`crate::MaskOp::Gather`]'s `foreign` names no entry of the caller's
     /// [`crate::Foreign::planes`].
     ForeignOutOfRange(u16),
+    /// [`crate::Terminal::GroupSumViaI32`]'s `key` names no entry of the
+    /// caller's [`crate::Foreign::lanes`]. Distinct from [`Self::LaneOutOfRange`]
+    /// — that one bounds a program's OWN `Planes::lanes`, this one bounds
+    /// the SEPARATE foreign address space, and the two must never be
+    /// checked against the same length.
+    ForeignLaneOutOfRange(u16),
+    /// The foreign lane [`crate::Terminal::GroupSumViaI32::key`] names
+    /// exists, but at the wrong width — mirrors [`Self::LaneKind`] over
+    /// [`crate::Foreign::lanes`] rather than `Planes::lanes`.
+    ForeignLaneKind {
+        lane: u16,
+        expected: LaneKind,
+        found: LaneKind,
+    },
     /// A terminal's [`crate::Out`] is missing, or is the wrong SHAPE
     /// (`Out::I32` where an `Out::I64` was needed, and so on) — or, for
     /// [`crate::Terminal::ScatterOrU32`], sized to the wrong `out_rows`, or

@@ -127,6 +127,25 @@ fn check_lane(planes: &Planes<'_>, lane: u16, expected: LaneKind) -> Result<(), 
     }
 }
 
+/// [`check_lane`]'s twin over [`Foreign::lanes`] — a SEPARATE address space
+/// from `Planes::lanes`, so `key` is bounded against `foreign.lanes.len()`,
+/// never against `planes.lanes.len()`.
+fn check_foreign_lane(
+    foreign: &Foreign<'_>,
+    key: u16,
+    expected: LaneKind,
+) -> Result<(), ExecError> {
+    match foreign.lanes.get(usize::from(key)) {
+        None => Err(ExecError::ForeignLaneOutOfRange(key)),
+        Some(l) if kind_of(l) != expected => Err(ExecError::ForeignLaneKind {
+            lane: key,
+            expected,
+            found: kind_of(l),
+        }),
+        Some(_) => Ok(()),
+    }
+}
+
 /// A scratch slot is readable only after some EARLIER op has written it.
 ///
 /// Without this rule the executor would read whatever the caller's REUSED
@@ -452,6 +471,24 @@ pub(crate) fn validate(
                 }
             }
         }
+        Terminal::GroupSumViaI32 { mask, fk, key, val } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            check_lane(planes, fk, LaneKind::U32)?;
+            check_foreign_lane(foreign, key, LaneKind::U32)?;
+            check_lane(planes, val, LaneKind::I32)?;
+            if n > MASKED_SUM_I32_MAX_ROWS {
+                return Err(ExecError::SumRowBound { n_rows: n });
+            }
+            match out {
+                OutShape::I64(len) if len >= 1 => Ok(()),
+                OutShape::None | OutShape::I32(_) | OutShape::I64(_) | OutShape::Mask(_) => {
+                    Err(ExecError::TerminalNeedsOut {
+                        what: "GroupSumViaI32",
+                    })
+                }
+            }
+        }
     }
 }
 
@@ -715,6 +752,33 @@ pub fn reference_execute_into(
                 }
                 for r in survivors(mask) {
                     let k = u32_at(planes, key, r) as usize;
+                    if k < o.len() {
+                        let v = i64::from(i32_at(planes, val, r));
+                        o[k] = o[k].wrapping_add(v);
+                    }
+                }
+            }
+            Value::GroupSummed
+        }
+        Terminal::GroupSumViaI32 { mask, fk, key, val } => {
+            if let Out::I64(o) = out {
+                for x in o.iter_mut() {
+                    *x = 0;
+                }
+                // `key` was validated `LaneKind::U32` over `foreign.lanes`,
+                // so the fallback never fires on a well-typed program — the
+                // same "validated before this is called" rule
+                // `eval_pred`'s lane fallbacks already document.
+                let remap = match foreign.lanes.get(usize::from(key)) {
+                    Some(LaneRef::U32(v)) => &v[..],
+                    _ => &[][..],
+                };
+                for r in survivors(mask) {
+                    let idx = u32_at(planes, fk, r) as usize;
+                    if idx >= remap.len() {
+                        continue;
+                    }
+                    let k = remap[idx] as usize;
                     if k < o.len() {
                         let v = i64::from(i32_at(planes, val, r));
                         o[k] = o[k].wrapping_add(v);

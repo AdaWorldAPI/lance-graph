@@ -135,6 +135,7 @@ fn gather_matches_the_oracle_including_out_of_range_and_a_tail() {
             let fp = fx.foreign_plane();
             let foreign = Foreign {
                 planes: std::slice::from_ref(&fp),
+                lanes: &[],
             };
             let p = Program::new(
                 vec![MaskOp::Gather {
@@ -336,6 +337,7 @@ fn validation_refusals_match_between_executor_and_oracle() {
     let fp = fx.foreign_plane();
     let foreign = Foreign {
         planes: std::slice::from_ref(&fp),
+        lanes: &[],
     };
 
     let assert_same_refusal = |label: &str,
@@ -465,6 +467,7 @@ fn gather_composes_with_and_like_any_other_leaf() {
     let fp = fx.foreign_plane();
     let foreign = Foreign {
         planes: std::slice::from_ref(&fp),
+        lanes: &[],
     };
     let p = Program::new(
         vec![
@@ -498,4 +501,184 @@ fn gather_composes_with_and_like_any_other_leaf() {
     } else {
         panic!("expected a count, got {got:?}");
     }
+}
+
+/// FAILS IF: `Terminal::GroupSumViaI32` disagrees with the oracle anywhere
+/// in a sweep that mixes BOTH drop kinds — a fk naming no foreign row (the
+/// first hop) and a resolved key naming no group (the second hop) — with
+/// negative values in the summed lane. Non-vacuous: asserts both drop
+/// kinds actually fire somewhere across the sweep.
+#[test]
+fn group_sum_via_matches_the_oracle_with_both_hops_dropping_and_negatives() {
+    let groups = 4u32;
+    let mut any_first_hop_dropped = false;
+    let mut any_second_hop_dropped = false;
+    for &n in &ROWS {
+        let fx = Fixture::new(n, 10, groups, 0xFEED ^ n as u64);
+        let (lanes, masks) = fx.planes();
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+
+        // A SECOND remap lane over the foreign table's own row space
+        // (`fx.foreign_rows`), values `0..(groups + slack)` so some
+        // resolved keys are dropped at the SECOND hop, independently of
+        // `fx.fk`'s own out-of-range draws (the FIRST hop).
+        let mut s = 0x600D_FEEDu64 ^ n as u64;
+        let key_range = groups + 5;
+        let remap: Vec<u32> = (0..fx.foreign_rows)
+            .map(|_| {
+                if key_range == 0 {
+                    0
+                } else {
+                    (lcg(&mut s) % u64::from(key_range)) as u32
+                }
+            })
+            .collect();
+        let foreign_lanes = [LaneRef::U32(&remap)];
+        let foreign = Foreign {
+            planes: &[],
+            lanes: &foreign_lanes,
+        };
+
+        let p = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::NeU32 { lane: 1, v: 2 },
+                under: None,
+                dst: 0,
+            }],
+            Terminal::GroupSumViaI32 {
+                mask: S0,
+                fk: 0,
+                key: 0,
+                val: 2,
+            },
+        );
+        let words = words_for(n);
+        let slots = p.scratch_slots as usize;
+        let mut exec_buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+        let mut scratch = Scratch::over(&mut exec_buf, words, slots).expect("carves");
+        let mut got_out = vec![0i64; groups as usize];
+        let got = execute_into(&p, &planes, &foreign, &mut scratch, Out::I64(&mut got_out))
+            .expect("runs");
+        let mut want_out = vec![0i64; groups as usize];
+        let want = reference_execute_into(&p, &planes, &foreign, Out::I64(&mut want_out))
+            .expect("oracle runs");
+        assert_eq!(got, want, "n={n}: value");
+        assert_eq!(got_out, want_out, "n={n}: out buffer");
+        assert!(matches!(got, Value::GroupSummed));
+
+        let first_hop_dropped = fx
+            .status
+            .iter()
+            .zip(fx.fk.iter())
+            .filter(|(&st, &fk)| st != 2 && fk as usize >= fx.foreign_rows)
+            .count();
+        if first_hop_dropped > 0 {
+            any_first_hop_dropped = true;
+        }
+        let second_hop_dropped = fx
+            .status
+            .iter()
+            .zip(fx.fk.iter())
+            .filter(|(&st, &fk)| {
+                st != 2 && (fk as usize) < fx.foreign_rows && remap[fk as usize] >= groups
+            })
+            .count();
+        if second_hop_dropped > 0 {
+            any_second_hop_dropped = true;
+        }
+    }
+    assert!(
+        any_first_hop_dropped,
+        "the sweep never dropped at the first hop (fk out of range)"
+    );
+    assert!(
+        any_second_hop_dropped,
+        "the sweep never dropped at the second hop (resolved key >= groups)"
+    );
+}
+
+/// FAILS IF: `GroupSumViaI32`'s two NEW refusals — a `key` past
+/// `foreign.lanes.len()`, and a `key` naming a foreign lane of the wrong
+/// width — are not reported IDENTICALLY by the executor and the oracle.
+#[test]
+fn group_sum_via_refusals_match_between_executor_and_oracle() {
+    let fx = Fixture::new(200, 10, 4, 0xFACE);
+    let (lanes, masks) = fx.planes();
+    let planes = Planes {
+        n_rows: 200,
+        masks: &masks,
+        lanes: &lanes,
+    };
+
+    // Foreign lane 0 is the correct kind (U32); foreign lane 1 is the
+    // WRONG kind (I32) for a group key.
+    let remap_u32: Vec<u32> = (0..fx.foreign_rows).map(|i| (i % 4) as u32).collect();
+    let remap_i32: Vec<i32> = (0..fx.foreign_rows).map(|i| i as i32).collect();
+    let foreign_lanes = [LaneRef::U32(&remap_u32), LaneRef::I32(&remap_i32)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &foreign_lanes,
+    };
+
+    let assert_same_refusal = |label: &str, p: &Program, want: ExecError| {
+        let words = words_for(planes.n_rows);
+        let slots = p.scratch_slots.max(1) as usize;
+        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        let mut got_out = [0i64; 4];
+        let got = execute_into(p, &planes, &foreign, &mut scratch, Out::I64(&mut got_out));
+        assert_eq!(got, Err(want), "{label}: executor");
+        let mut want_out = [0i64; 4];
+        let oracle = reference_execute_into(p, &planes, &foreign, Out::I64(&mut want_out));
+        assert_eq!(oracle, Err(want), "{label}: oracle");
+    };
+
+    // (a) `key` past `foreign.lanes.len()`.
+    let p_bad_key = Program::new(
+        vec![MaskOp::Pred {
+            pred: Pred::NeU32 { lane: 1, v: 99 },
+            under: None,
+            dst: 0,
+        }],
+        Terminal::GroupSumViaI32 {
+            mask: S0,
+            fk: 0,
+            key: 5,
+            val: 2,
+        },
+    );
+    assert_same_refusal(
+        "foreign lane out of range",
+        &p_bad_key,
+        ExecError::ForeignLaneOutOfRange(5),
+    );
+
+    // (b) `key` names a foreign lane of the wrong width (I32 where a U32
+    // group key is required).
+    let p_wrong_kind = Program::new(
+        vec![MaskOp::Pred {
+            pred: Pred::NeU32 { lane: 1, v: 99 },
+            under: None,
+            dst: 0,
+        }],
+        Terminal::GroupSumViaI32 {
+            mask: S0,
+            fk: 0,
+            key: 1,
+            val: 2,
+        },
+    );
+    assert_same_refusal(
+        "wrong foreign lane kind",
+        &p_wrong_kind,
+        ExecError::ForeignLaneKind {
+            lane: 1,
+            expected: lance_graph_mask_risc::LaneKind::U32,
+            found: lance_graph_mask_risc::LaneKind::I32,
+        },
+    );
 }

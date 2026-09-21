@@ -73,16 +73,29 @@ pub struct ForeignPlane<'a> {
 /// never a member of [`Planes::masks`] and its length is never checked
 /// against the executing program's `n_rows`: that would be checking a
 /// population against a population it is not.
+///
+/// `lanes` is the value-lane twin: foreign VALUE lanes over the SAME other
+/// table's rows, addressed by [`Terminal::GroupSumViaI32::key`]. Its length
+/// is the foreign table's row count — never `n_rows` either, and never
+/// [`ForeignPlane::rows`]-checked against a particular plane, since a
+/// program may name planes and lanes belonging to different foreign tables
+/// in the same [`Foreign`] (there is no assumption that plane `i` and lane
+/// `i` share a row space).
 #[derive(Debug, Clone, Copy)]
 pub struct Foreign<'a> {
     /// Foreign planes, indexed by [`MaskOp::Gather::foreign`].
     pub planes: &'a [ForeignPlane<'a>],
+    /// Foreign value lanes, indexed by [`Terminal::GroupSumViaI32::key`].
+    pub lanes: &'a [LaneRef<'a>],
 }
 
 impl Foreign<'_> {
-    /// The empty foreign set — every program that names no `Gather` runs
-    /// against this.
-    pub const NONE: Foreign<'static> = Foreign { planes: &[] };
+    /// The empty foreign set — every program that names no `Gather` or
+    /// `GroupSumViaI32` runs against this.
+    pub const NONE: Foreign<'static> = Foreign {
+        planes: &[],
+        lanes: &[],
+    };
 }
 
 /// A value-lane predicate that produces a mask — the vector half of a
@@ -246,6 +259,26 @@ pub enum Terminal {
     /// past it either, since it is strictly less work than the one-group
     /// sum the bound was derived against.
     GroupSumI32 { mask: Operand, key: u16, val: u16 },
+    /// The FK-KEYED `GROUP BY … SUM`: `SUM(line.amount) GROUP BY
+    /// partner.country` — `fk` is a `U32` lane of THIS table (the foreign
+    /// key), `key` indexes [`Foreign::lanes`] and must be a `U32` lane on
+    /// the foreign table (the group key there), and `val` is an `I32` lane
+    /// of this table. For every row `i` where `mask` holds, resolves
+    /// `foreign.lanes[key][fk[i]]` and adds `val[i]` at that index into the
+    /// caller's `Out::I64` buffer
+    /// ([`ndarray::simd::masked_group_sum_i32_via`]'s contract). Zero
+    /// fallback at BOTH hops — `fk[i] >= foreign.lanes[key].len()` drops the
+    /// row (the fk names no foreign row), and a resolved key `>= out.len()`
+    /// drops it too (the resolved key names no group); neither is an error.
+    /// The indirection is FUSED: no remapped key lane is ever materialised
+    /// between the two hops. Same carry bound as [`Terminal::GroupSumI32`]
+    /// ([`MASKED_SUM_I32_MAX_ROWS`]).
+    GroupSumViaI32 {
+        mask: Operand,
+        fk: u16,
+        key: u16,
+        val: u16,
+    },
 }
 
 /// The widest plane [`Terminal::MaskedSumI32`] is defined on: `2^32` rows.
@@ -357,6 +390,7 @@ impl Program {
             | Terminal::BlendI32 { mask, .. }
             | Terminal::ScatterOrU32 { mask, .. }
             | Terminal::GroupSumI32 { mask, .. }
+            | Terminal::GroupSumViaI32 { mask, .. }
             | Terminal::Keep { mask } => touch(mask),
         }
         Self {

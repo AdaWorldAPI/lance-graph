@@ -28,10 +28,10 @@ use ndarray::simd::{
     le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
     mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_gather_u32, mask_not,
     mask_not_assign, mask_or, mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor,
-    mask_xor_assign, masked_group_sum_i32, masked_max_i32, masked_min_i32, masked_sum_i32,
-    ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
-    ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
-    ternary_match_u64_to_mask_under,
+    mask_xor_assign, masked_group_sum_i32, masked_group_sum_i32_via, masked_max_i32,
+    masked_min_i32, masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask,
+    ne_u32_to_mask_under, popcount_batch_u64, ternary_match_u32_to_mask,
+    ternary_match_u32_to_mask_under, ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
 };
 
 use crate::ir::{
@@ -452,6 +452,17 @@ fn lane_u64<'a>(planes: &Planes<'a>, lane: u16) -> &'a [u64] {
     }
 }
 
+/// Borrow a foreign `U32` lane for reading — [`lane_u32`]'s twin over
+/// [`Foreign::lanes`], a SEPARATE address space from `planes.lanes` (see
+/// [`Foreign`]'s own doc). Unreachable after `validate` on a well-typed
+/// program, same fallback discipline as `lane_i32`/`lane_u32`/`lane_u64`.
+fn foreign_lane_u32<'a>(foreign: &Foreign<'a>, key: u16) -> &'a [u32] {
+    match foreign.lanes[usize::from(key)] {
+        LaneRef::U32(v) => v,
+        _ => &[],
+    }
+}
+
 /// One predicate pass into `dst`: the ungated facade member, or the `_under`
 /// member when a gate is present (cost then follows the gate's live words).
 fn run_pred<'a>(
@@ -784,6 +795,22 @@ pub fn execute_into(
                 masked_group_sum_i32(
                     read(planes, &all, mask),
                     lane_u32(planes, key),
+                    lane_i32(planes, val),
+                    o,
+                );
+            }
+            Value::GroupSummed
+        }
+        Terminal::GroupSumViaI32 { mask, fk, key, val } => {
+            // `validate` already refused a missing/too-small `out`, a
+            // wrong-width `fk`/`val`, and an out-of-range or wrong-width
+            // foreign `key` — one delegation, same as every other terminal
+            // (law L3).
+            if let Out::I64(o) = out {
+                masked_group_sum_i32_via(
+                    read(planes, &all, mask),
+                    lane_u32(planes, fk),
+                    foreign_lane_u32(foreign, key),
                     lane_i32(planes, val),
                     o,
                 );

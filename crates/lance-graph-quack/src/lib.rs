@@ -146,13 +146,15 @@
 //! Filter (`=`/`<>`/`<`/`<=`/`>`/`>=`/ternary match/`IN`, `AND`/`OR`/`NOT`,
 //! resident planes), the aggregates `COUNT`/`EXISTS`/`ALL`/`SUM`/`MIN`/`MAX`,
 //! projection ([`Agg::Rows`] keeps the mask, [`Agg::BlendI32`] is the `CASE`
-//! shape), and a two-phase `GROUP BY` over a categorical key. Absent, named:
-//! the join (`src_mask → hop → dst_mask` is `lance-graph-mask-risc`'s PR5 —
-//! there is no `hop` op to lower to yet); a one-terminal `GROUP BY SUM`
-//! (`ndarray::simd` ships `masked_strided_group_sum`, but the IR names no
-//! strided operand or group terminal, so K programs is the honest spelling
-//! today); and everything the IR itself excludes — strings, `ORDER BY`,
-//! three-valued NULL.
+//! shape), a two-phase `GROUP BY` over a categorical key, and the fk join
+//! ([`Filter::Semijoin`] / [`Agg::ScatterOrU32`] over
+//! `lance-graph-mask-risc`'s [`MaskOp::Gather`]/`Terminal::ScatterOrU32`).
+//! The one-terminal `GROUP BY SUM` is ONE program either way now:
+//! [`Agg::GroupSumI32`] for a key on THIS table, [`Agg::GroupSumViaI32`] for
+//! a key resolved through a foreign table's [`ForeignLane`]
+//! (`SUM(l.amount) GROUP BY p.country`) — the indirect-key group-sum is no
+//! longer a gap. Absent, and everything the IR itself excludes: `ORDER BY`,
+//! strings, three-valued NULL.
 
 #![forbid(unsafe_code)]
 
@@ -185,6 +187,15 @@ pub struct Mask(pub u16);
 /// draws between [`Mask`] (this table) and this.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ForeignMask(pub u16);
+
+/// A FOREIGN table's VALUE lane — an index into
+/// [`Foreign::lanes`](lance_graph_mask_risc::Foreign), the value-lane twin of
+/// [`ForeignMask`]. Addressed through [`Agg::GroupSumViaI32`]: `SUM(l.amount)
+/// GROUP BY p.country` names the group key as a foreign lane, resolved
+/// through THIS table's own fk column — never a lane this crate reads as an
+/// ordinary [`Col`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ForeignLane(pub u16);
 
 /// A predicate over one column — the filter's whole vocabulary.
 ///
@@ -782,6 +793,22 @@ pub enum Agg {
         /// The value column summed per group.
         val: Col,
     },
+    /// The FK-KEYED `GROUP BY … SUM` — `Terminal::GroupSumViaI32`:
+    /// `SUM(line.amount) GROUP BY partner.country` is `Agg::GroupSumViaI32 {
+    /// fk: partner_id, key: ForeignLane(0), val: amount }` over a foreign
+    /// [`ForeignLane`] carrying `partner.country`. Same zero-fallback at
+    /// BOTH hops as [`Agg::GroupSumI32`]'s single-hop drop (an fk naming no
+    /// foreign row, or a resolved key at or past the group universe, are
+    /// both dropped, not errors). The indirection is fused — no remapped
+    /// key lane is ever materialised.
+    GroupSumViaI32 {
+        /// The foreign-key column on THIS table.
+        fk: Col,
+        /// The group key column on the FOREIGN table.
+        key: ForeignLane,
+        /// The value column summed per group, on THIS table.
+        val: Col,
+    },
 }
 
 /// One query: a filter and what to ask of the rows that pass it.
@@ -1355,6 +1382,12 @@ fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
             key: key.0,
             val: val.0,
         },
+        Agg::GroupSumViaI32 { fk, key, val } => Terminal::GroupSumViaI32 {
+            mask,
+            fk: fk.0,
+            key: key.0,
+            val: val.0,
+        },
     }
 }
 
@@ -1422,6 +1455,11 @@ mod tests {
         /// word-rounded length alone cannot distinguish "row 63 of a 64-row
         /// table" from "the dirty tail of a 60-row one".
         foreign_rows: Vec<usize>,
+        /// Foreign `u32` VALUE lanes, indexed by [`ForeignLane`] — opt-in and
+        /// EMPTY for every single-table fixture, populated only by the
+        /// `GroupSumViaI32` test via [`Fx::push_foreign_lane`]. No existing
+        /// fixture's shape moves.
+        foreign_lanes: Vec<Vec<u32>>,
     }
 
     fn plane(n: usize, set: impl Fn(usize) -> bool) -> Vec<u64> {
@@ -1449,6 +1487,7 @@ mod tests {
                 masks,
                 foreign: Vec::new(),
                 foreign_rows: Vec::new(),
+                foreign_lanes: Vec::new(),
             }
         }
 
@@ -1459,6 +1498,15 @@ mod tests {
             self.foreign.push(bits);
             self.foreign_rows.push(rows);
             ForeignMask(idx)
+        }
+
+        /// Register a foreign `u32` VALUE lane at the next `ForeignLane`
+        /// index (`0`, `1`, …, in call order) and return that index — the
+        /// [`Fx::push_foreign`] twin for [`ForeignLane`]/`GroupSumViaI32`.
+        fn push_foreign_lane(&mut self, values: Vec<u32>) -> ForeignLane {
+            let idx = self.foreign_lanes.len() as u16;
+            self.foreign_lanes.push(values);
+            ForeignLane(idx)
         }
 
         fn n(&self) -> usize {
@@ -1864,6 +1912,7 @@ mod tests {
                 | Terminal::BlendI32 { mask, .. }
                 | Terminal::ScatterOrU32 { mask, .. }
                 | Terminal::GroupSumI32 { mask, .. }
+                | Terminal::GroupSumViaI32 { mask, .. }
                 | Terminal::Keep { mask } if mask == gate
         );
         (
@@ -2608,6 +2657,7 @@ mod tests {
                 words: &foreign_bits,
                 rows: foreign_rows,
             }],
+            lanes: &[],
         };
         for (label, program) in [
             ("in place", lower(&q).expect("lowers in place")),
@@ -2727,6 +2777,85 @@ mod tests {
                 &program,
                 planes,
                 &lance_graph_mask_risc::Foreign::NONE,
+                &mut scratch,
+                lance_graph_mask_risc::Out::I64(&mut got),
+            )
+            .expect("runs")
+        });
+        assert_eq!(value, Value::GroupSummed);
+        assert_eq!(got, want);
+    }
+
+    /// FAILS IF: `Agg::GroupSumViaI32` disagrees with an independent per-row
+    /// reading. `CLASS` is the fk into a 4-row foreign table (shorter than
+    /// `CLASS`'s own `0..5` range, so class 4 drops at the FIRST hop); its
+    /// `remap` lane resolves to `0..4`, while `groups = 3` drops some
+    /// resolved keys at the SECOND hop. Both drop kinds are exercised
+    /// deliberately, alongside negatives in the summed lane.
+    #[test]
+    fn group_sum_via_i32_matches_an_independent_per_row_reading() {
+        let mut fx = Fx::new(N);
+        let remap = vec![0u32, 3, 1, 3];
+        let foreign_rows = remap.len();
+        let foreign_lane = fx.push_foreign_lane(remap);
+
+        let f = Filter::cmp(VALS, Cmp::GtI32(-50));
+        let selected = fx.rows(&f);
+        assert!(!selected.is_empty() && selected.len() < N);
+
+        let groups = 3usize;
+        let remap = &fx.foreign_lanes[usize::from(foreign_lane.0)];
+        let mut want = vec![0i64; groups];
+        let mut first_hop_dropped = false;
+        let mut second_hop_dropped = false;
+        for &r in &selected {
+            let fk = fx.classes[r] as usize;
+            if fk >= foreign_rows {
+                first_hop_dropped = true;
+                continue;
+            }
+            let k = remap[fk] as usize;
+            if k >= groups {
+                second_hop_dropped = true;
+                continue;
+            }
+            want[k] = want[k].wrapping_add(i64::from(fx.alt[r]));
+        }
+        assert!(
+            first_hop_dropped,
+            "the fixture never drops at the first hop"
+        );
+        assert!(
+            second_hop_dropped,
+            "the fixture never drops at the second hop"
+        );
+        let distinct: std::collections::HashSet<i64> = want.iter().copied().collect();
+        assert!(distinct.len() > 1, "every group summed to the same value");
+
+        let q = Query {
+            filter: f,
+            agg: Agg::GroupSumViaI32 {
+                fk: CLASS,
+                key: foreign_lane,
+                val: ALT,
+            },
+        };
+        let program = lower(&q).expect("lowers");
+        let words = words_for(fx.n());
+        let slots = program.scratch_slots as usize;
+        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        let mut got = vec![0i64; groups];
+        let foreign_lanes = [LaneRef::U32(remap)];
+        let mask_risc_foreign = lance_graph_mask_risc::Foreign {
+            planes: &[],
+            lanes: &foreign_lanes,
+        };
+        let value = fx.with_planes(&[], |planes| {
+            lance_graph_mask_risc::execute_into(
+                &program,
+                planes,
+                &mask_risc_foreign,
                 &mut scratch,
                 lance_graph_mask_risc::Out::I64(&mut got),
             )
