@@ -20,14 +20,13 @@ description = "Spectral + edge-propagation outage simulator: models the perturba
 ndarray-simd = ["dep:ndarray"]
 
 [dependencies]
-# The AdaWorldAPI fork ("The Foundation"), optional + behind `ndarray-simd`.
-# Sourced by GIT (not a local path): an optional *path* dep is read at manifest
-# resolution, so a clean checkout without the sibling `../../../ndarray` fails
-# even with the feature OFF — breaking the zero-dep default (codex P2 on #504,
-# the helix-#460 lesson). A git source resolves remotely and is only fetched/
-# built when `ndarray-simd` activates it. Local-dev alternative: swap to
-#   ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
-ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master", optional = true, default-features = false, features = ["std"] }
+# The AdaWorldAPI fork ("The Foundation"), optional + behind `ndarray-simd`,
+# from the SAME sibling path every other crate in this tree resolves — one
+# Cargo package identity. It was a git source until 2026-09-21 (codex P2 on
+# #504: an optional path dep is read at resolution even with the feature OFF,
+# so a checkout without the sibling fails); a second ndarray identity is the
+# worse trade, and the sibling checkout is a requirement of the whole tree.
+ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
 
 [lib]
 name = "perturbation_sim"
