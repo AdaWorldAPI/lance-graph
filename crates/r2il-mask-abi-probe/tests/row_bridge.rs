@@ -389,8 +389,9 @@ struct FoldDialect<'p> {
     /// Reset to 0 every time a fold finalizes and runs.
     next_slot: u16,
     /// Fold generation that makes a `Val::Slot` a capability rather than a
-    /// bare reusable integer. Incremented after every successful finalized
-    /// fold, exactly when `next_slot` is allowed to restart at zero.
+    /// bare reusable integer. Incremented at every finalized fold boundary,
+    /// exactly when `next_slot` restarts at zero, even if execution then
+    /// refuses the program. Namespace reuse and execution success are separate.
     epoch: u64,
     /// Caller-owned scratch for `Scratch::over`, allocated ONCE at
     /// construction to `scratch_words_for(tile_words_for(n_rows), MAX_SLOTS)`
@@ -515,19 +516,23 @@ impl<'p> FoldDialect<'p> {
     fn finalize_and_run(&mut self, terminal: Terminal) -> Result<Value, FoldError> {
         let ops = std::mem::take(&mut self.ops);
         self.next_slot = 0;
+        // The logical namespace ends HERE, not after successful execution.
+        // Once numeric slot allocation may restart at zero, every SlotRef
+        // minted for the previous program is stale. Advancing only on success
+        // would reopen the ABA hole after a validation/runtime refusal if the
+        // dialect were reused.
+        self.epoch = self
+            .epoch
+            .checked_add(1)
+            .expect("one interpreter run cannot exhaust u64 fold epochs");
         self.facade_passes += ops.len();
         self.programs_run += 1;
         let program = Program::new(ops, terminal);
         let words = tile_words_for(self.planes.n_rows);
         let mut scratch = Scratch::over(&mut self.scratch, words, program.scratch_slots as usize)
             .map_err(FoldError::Exec)?;
-        let value = execute_into(&program, self.planes, self.foreign, &mut scratch, Out::None)
-            .map_err(FoldError::Exec)?;
-        self.epoch = self
-            .epoch
-            .checked_add(1)
-            .expect("one interpreter run cannot exhaust u64 fold epochs");
-        Ok(value)
+        execute_into(&program, self.planes, self.foreign, &mut scratch, Out::None)
+            .map_err(FoldError::Exec)
     }
 
     /// [`Self::finalize_and_run`], asserting the terminal's known result
@@ -1427,7 +1432,10 @@ fn a_stale_slot_cannot_alias_a_live_slot_in_the_next_fold_epoch() {
     let first_mask = d.scratch_operand(stale).expect("fresh slot is current");
     d.finalize_and_run_scalar(Terminal::Count { mask: first_mask })
         .expect("first fold runs");
-    assert_eq!(d.epoch, 1, "a successful fold advances the generation");
+    assert_eq!(
+        d.epoch, 1,
+        "finalizing a fold advances the generation at the namespace boundary"
+    );
 
     // Epoch 1 writes numeric slot 0, then slot 1. This is the decisive ABA
     // shape: the stale name's NUMBER is live in the current program.
@@ -1481,6 +1489,72 @@ fn a_stale_slot_cannot_alias_a_live_slot_in_the_next_fold_epoch() {
     assert!(
         execute_into(&aliased, &planes, &foreign, &mut scratch, Out::None).is_ok(),
         "numeric ABA is validator-clean once the reused slot was written this epoch"
+    );
+}
+
+/// FAILS IF: a fold that resets numeric slot allocation but then errors
+/// leaves the old generation live.
+///
+/// Execution success is irrelevant to slot identity. Once `next_slot` can
+/// restart at zero, a pre-boundary SlotRef must be stale, otherwise a caller
+/// that inspects/reuses the dialect after a refusal can recreate the same ABA
+/// alias as the successful-fold case.
+#[test]
+fn a_failed_finalized_fold_still_ends_the_slot_epoch() {
+    let t = Tables::seeded(64, 8, 29);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: 64,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    let mut d = FoldDialect::new(&planes, &foreign);
+
+    let mut stack = Vec::new();
+    d.emit_pred(Pred::GtI32 { lane: 1, t: 0 }, &mut stack);
+    let Val::Slot(stale) = stack.pop().expect("predicate pushes slot") else {
+        unreachable!();
+    };
+
+    // Replace the valid pending op with a deliberately invalid current
+    // program: it reads scratch 0 before any op writes it.
+    d.ops.clear();
+    d.ops.push(MaskOp::And {
+        a: Operand::Scratch(0),
+        b: Operand::Scratch(0),
+        dst: 0,
+    });
+    assert!(
+        d.finalize_and_run_scalar(Terminal::Count {
+            mask: Operand::Scratch(0),
+        })
+        .is_err(),
+        "the adversarial program must refuse"
+    );
+    assert_eq!(
+        d.epoch, 1,
+        "namespace generation advances even though execution failed"
+    );
+
+    let mut current = Vec::new();
+    d.emit_pred(Pred::GtI32 { lane: 1, t: 3 }, &mut current);
+    let Val::Slot(live) = current.pop().expect("fresh predicate slot") else {
+        unreachable!();
+    };
+    assert_eq!(stale.slot, live.slot, "numeric slot zero is reused");
+    assert_ne!(stale.epoch, live.epoch, "logical names must not alias");
+    assert_eq!(
+        d.scratch_operand(stale),
+        Err(FoldError::StaleSlot {
+            slot: stale.slot,
+            produced_epoch: stale.epoch,
+            current_epoch: live.epoch,
+        })
     );
 }
 
