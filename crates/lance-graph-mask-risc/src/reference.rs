@@ -17,11 +17,35 @@
 //! path a consumer should reach for.
 
 use crate::ir::{
-    LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS,
+    Foreign, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS,
     MAX_SCRATCH_SLOTS,
 };
-use crate::value::{ExecError, LaneKind, Value};
+use crate::value::{ExecError, LaneKind, Out, Value};
 use crate::words_for;
+
+/// The caller's terminal-out, described by SHAPE rather than borrowed — what
+/// [`validate`] needs to check a terminal's destination without holding the
+/// destination itself (which [`execute`](crate::exec::execute) and
+/// [`reference_execute_into`] still need afterwards). One spelling for the
+/// four `Out` shapes, read off an `&Out<'_>` by [`out_shape`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OutShape {
+    None,
+    I32(usize),
+    I64(usize),
+    Mask(usize),
+}
+
+/// [`OutShape`] of a borrowed `out` — the caller keeps `out` itself to write
+/// into after validation passes.
+pub(crate) fn out_shape(out: &Out<'_>) -> OutShape {
+    match out {
+        Out::None => OutShape::None,
+        Out::I32(v) => OutShape::I32(v.len()),
+        Out::I64(v) => OutShape::I64(v.len()),
+        Out::Mask(v) => OutShape::Mask(v.len()),
+    }
+}
 
 fn kind_of(lane: &LaneRef<'_>) -> LaneKind {
     match lane {
@@ -51,6 +75,9 @@ fn pred_lane_and_kind(pred: Pred) -> Option<(u16, LaneKind)> {
             (lane, LaneKind::U32)
         }
         Pred::MatchU64 { lane, .. } => (lane, LaneKind::U64),
+        // The fk is this table's lane; the foreign lane is checked separately
+        // (`validate`'s `Pred` arm), against the OTHER address space.
+        Pred::EqU32Via { fk, .. } => (fk, LaneKind::U32),
         Pred::Range { .. } => return None,
     })
 }
@@ -96,6 +123,25 @@ fn check_lane(planes: &Planes<'_>, lane: u16, expected: LaneKind) -> Result<(), 
         None => Err(ExecError::LaneOutOfRange(lane)),
         Some(l) if kind_of(l) != expected => Err(ExecError::LaneKind {
             lane,
+            expected,
+            found: kind_of(l),
+        }),
+        Some(_) => Ok(()),
+    }
+}
+
+/// [`check_lane`]'s twin over [`Foreign::lanes`] — a SEPARATE address space
+/// from `Planes::lanes`, so `key` is bounded against `foreign.lanes.len()`,
+/// never against `planes.lanes.len()`.
+fn check_foreign_lane(
+    foreign: &Foreign<'_>,
+    key: u16,
+    expected: LaneKind,
+) -> Result<(), ExecError> {
+    match foreign.lanes.get(usize::from(key)) {
+        None => Err(ExecError::ForeignLaneOutOfRange(key)),
+        Some(l) if kind_of(l) != expected => Err(ExecError::ForeignLaneKind {
+            lane: key,
             expected,
             found: kind_of(l),
         }),
@@ -193,26 +239,29 @@ fn dst_of(op: &MaskOp) -> u16 {
         | MaskOp::Xor { dst, .. }
         | MaskOp::AndNot { dst, .. }
         | MaskOp::Not { dst, .. }
-        | MaskOp::Ternlog { dst, .. } => dst,
+        | MaskOp::Ternlog { dst, .. }
+        | MaskOp::Gather { dst, .. } => dst,
     }
 }
 
 /// The validation rules, in the order both the executor and the oracle apply
 /// them: (1) addressable scratch and plane counts; (2) plane and lane lengths,
 /// then a dirty plane tail; (3) every op in program order, operands in field
-/// order; (4) the terminal's mask, its lanes, the sum bound, and the blend
-/// destination. `out_len` is the caller's `out` slice length, if any.
-/// `written_bits` supplies one caller-owned bit per declared scratch slot.
-/// Every path that reaches step (3) clears and reuses that prefix first,
-/// including paths that then return an error — but step (1) returns ahead of
-/// the clear, so an `ScratchSlotsUnaddressable` refusal leaves the caller's
-/// bits exactly as they were. That is deliberate: the refusal happens before
-/// the declared count is known to be addressable, and sizing anything from it
-/// is the failure that check exists to prevent.
+/// order (a [`MaskOp::Gather`]'s `foreign` is checked against `foreign`, never
+/// against `planes`); (4) the terminal's mask, its lanes, the sum bound, and
+/// the destination `out` needs, described by [`OutShape`] rather than
+/// borrowed. `written_bits` supplies one caller-owned bit per declared
+/// scratch slot. Every path that reaches step (3) clears and reuses that
+/// prefix first, including paths that then return an error — but step (1)
+/// returns ahead of the clear, so an `ScratchSlotsUnaddressable` refusal
+/// leaves the caller's bits exactly as they were. That is deliberate: the
+/// refusal happens before the declared count is known to be addressable, and
+/// sizing anything from it is the failure that check exists to prevent.
 pub(crate) fn validate(
     p: &Program,
     planes: &Planes<'_>,
-    out_len: Option<usize>,
+    foreign: &Foreign<'_>,
+    out: OutShape,
     written_bits: &mut [u64],
 ) -> Result<(), ExecError> {
     // FIRST, before anything walks a plane or an op: a declared slot count
@@ -288,6 +337,9 @@ pub(crate) fn validate(
                 if let Some((lane, kind)) = pred_lane_and_kind(pred) {
                     check_lane(planes, lane, kind)?;
                 }
+                if let Pred::EqU32Via { key, .. } = pred {
+                    check_foreign_lane(foreign, key, LaneKind::U32)?;
+                }
                 if let Pred::Range { lo, hi } = pred {
                     let hi_fits = usize::try_from(hi).is_ok_and(|h| h <= planes.n_rows);
                     if lo > hi || !hi_fits {
@@ -324,16 +376,56 @@ pub(crate) fn validate(
                 written(b)?;
                 written(c)?;
             }
+            MaskOp::Gather {
+                lane,
+                foreign: fidx,
+                dst,
+            } => {
+                check_lane(planes, lane, LaneKind::U32)?;
+                let fp = foreign
+                    .planes
+                    .get(usize::from(fidx))
+                    .ok_or(ExecError::ForeignOutOfRange(fidx))?;
+                let want = words_for(fp.rows);
+                if fp.words.len() < want {
+                    return Err(ExecError::LenMismatch {
+                        what: "foreign",
+                        expected: want,
+                        found: fp.words.len(),
+                    });
+                }
+                check_operand(p, planes, Operand::Scratch(dst))?;
+            }
         }
         written_slots.mark(dst_of(op));
     }
     match p.terminal {
-        Terminal::Count { mask }
-        | Terminal::Any { mask }
-        | Terminal::All { mask }
-        | Terminal::Keep { mask } => {
+        Terminal::Count { mask } | Terminal::Any { mask } | Terminal::All { mask } => {
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)
+        }
+        Terminal::CountKeyRunsU32 { mask, lane } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            check_lane(planes, lane, LaneKind::U32)
+        }
+        Terminal::Keep { mask } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            // The kept mask is a DEMANDED sink: `Out::Mask` sized to the
+            // population, or any other shape for a caller whose single-tile
+            // scratch holds it (the legacy `execute` passes `Out::I32` for
+            // every terminal). The oracle has no tiles; the executor refuses
+            // every non-`Mask` shape under tiling (`TerminalNeedsOut`).
+            let want = words_for(n);
+            match out {
+                OutShape::Mask(len) if len != want => Err(ExecError::LenMismatch {
+                    what: "out",
+                    expected: want,
+                    found: len,
+                }),
+                _ => Ok(()),
+            }
         }
         Terminal::MaskedSumI32 { mask, lane } => {
             check_operand(p, planes, mask)?;
@@ -354,14 +446,80 @@ pub(crate) fn validate(
             written_slots.readable(mask)?;
             check_lane(planes, then, LaneKind::I32)?;
             check_lane(planes, els, LaneKind::I32)?;
-            match out_len {
-                None => Err(ExecError::BlendNeedsOut),
-                Some(len) if len != n => Err(ExecError::LenMismatch {
+            match out {
+                OutShape::None => Err(ExecError::BlendNeedsOut),
+                OutShape::I32(len) if len != n => Err(ExecError::LenMismatch {
                     what: "out",
                     expected: n,
                     found: len,
                 }),
-                Some(_) => Ok(()),
+                OutShape::I32(_) => Ok(()),
+                OutShape::I64(_) | OutShape::Mask(_) => Err(ExecError::BlendNeedsOut),
+            }
+        }
+        Terminal::ScatterOrU32 {
+            mask,
+            lane,
+            out_rows,
+        }
+        | Terminal::ScatterCountU32 {
+            mask,
+            lane,
+            out_rows,
+        } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            check_lane(planes, lane, LaneKind::U32)?;
+            let want = words_for(out_rows as usize);
+            let what = match p.terminal {
+                Terminal::ScatterCountU32 { .. } => "ScatterCountU32",
+                _ => "ScatterOrU32",
+            };
+            match out {
+                OutShape::Mask(len) if len == want => Ok(()),
+                OutShape::Mask(len) => Err(ExecError::LenMismatch {
+                    what: "out",
+                    expected: want,
+                    found: len,
+                }),
+                OutShape::None | OutShape::I32(_) | OutShape::I64(_) => {
+                    Err(ExecError::TerminalNeedsOut { what })
+                }
+            }
+        }
+        Terminal::GroupSumI32 { mask, key, val } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            check_lane(planes, key, LaneKind::U32)?;
+            check_lane(planes, val, LaneKind::I32)?;
+            if n > MASKED_SUM_I32_MAX_ROWS {
+                return Err(ExecError::SumRowBound { n_rows: n });
+            }
+            match out {
+                OutShape::I64(len) if len >= 1 => Ok(()),
+                OutShape::None | OutShape::I32(_) | OutShape::I64(_) | OutShape::Mask(_) => {
+                    Err(ExecError::TerminalNeedsOut {
+                        what: "GroupSumI32",
+                    })
+                }
+            }
+        }
+        Terminal::GroupSumViaI32 { mask, fk, key, val } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            check_lane(planes, fk, LaneKind::U32)?;
+            check_foreign_lane(foreign, key, LaneKind::U32)?;
+            check_lane(planes, val, LaneKind::I32)?;
+            if n > MASKED_SUM_I32_MAX_ROWS {
+                return Err(ExecError::SumRowBound { n_rows: n });
+            }
+            match out {
+                OutShape::I64(len) if len >= 1 => Ok(()),
+                OutShape::None | OutShape::I32(_) | OutShape::I64(_) | OutShape::Mask(_) => {
+                    Err(ExecError::TerminalNeedsOut {
+                        what: "GroupSumViaI32",
+                    })
+                }
             }
         }
     }
@@ -374,6 +532,13 @@ fn plane_bit(planes: &Planes<'_>, i: u16, row: usize) -> bool {
 fn i32_at(planes: &Planes<'_>, lane: u16, row: usize) -> i32 {
     match planes.lanes[usize::from(lane)] {
         LaneRef::I32(v) => v[row],
+        _ => 0,
+    }
+}
+
+fn u32_at(planes: &Planes<'_>, lane: u16, row: usize) -> u32 {
+    match planes.lanes[usize::from(lane)] {
+        LaneRef::U32(v) => v[row],
         _ => 0,
     }
 }
@@ -395,7 +560,7 @@ fn i32_at(planes: &Planes<'_>, lane: u16, row: usize) -> i32 {
 /// safe only because `validate` has already refused a mismatched lane kind
 /// (`ExecError::LaneKind`) before this is ever called. Both the executor and
 /// this oracle call that same `validate`, so neither can reach the fallback.
-fn eval_pred(planes: &Planes<'_>, pred: Pred, row: usize) -> bool {
+fn eval_pred(planes: &Planes<'_>, foreign: &Foreign<'_>, pred: Pred, row: usize) -> bool {
     let u32_at = |lane: u16| match planes.lanes[usize::from(lane)] {
         LaneRef::U32(v) => v[row],
         _ => 0,
@@ -423,6 +588,15 @@ fn eval_pred(planes: &Planes<'_>, pred: Pred, row: usize) -> bool {
             pattern,
             care,
         } => (u64_at(lane) ^ pattern) & care == 0,
+        // Both hops are the zero fallback: a key past the foreign lane's end
+        // names no row and therefore does not match.
+        Pred::EqU32Via { fk, key, v } => {
+            let idx = u32_at(fk) as usize;
+            match foreign.lanes[usize::from(key)] {
+                LaneRef::U32(f) => f.get(idx).is_some_and(|&x| x == v),
+                _ => false,
+            }
+        }
         // `hi <= n_rows` and `lo <= hi` were validated, so both fit a usize.
         Pred::Range { lo, hi } => (lo as usize..hi as usize).contains(&row),
     }
@@ -461,7 +635,7 @@ impl Rows {
 /// slot no earlier op wrote (`ExecError::ScratchReadBeforeWrite`), and it
 /// refuses a `scratch_slots` count past `MAX_SCRATCH_SLOTS` before this
 /// allocates anything proportional to it.
-fn run(p: &Program, planes: &Planes<'_>) -> Rows {
+fn run(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>) -> Rows {
     let n = planes.n_rows;
     let mut rows = Rows {
         slots: (0..p.scratch_slots).map(|_| vec![false; n]).collect(),
@@ -473,7 +647,10 @@ fn run(p: &Program, planes: &Planes<'_>) -> Rows {
                     pred,
                     under,
                     dst: _,
-                } => under.is_none_or(|u| rows.bit(planes, u, row)) && eval_pred(planes, pred, row),
+                } => {
+                    under.is_none_or(|u| rows.bit(planes, u, row))
+                        && eval_pred(planes, foreign, pred, row)
+                }
                 MaskOp::And { a, b, .. } => rows.bit(planes, a, row) & rows.bit(planes, b, row),
                 MaskOp::Or { a, b, .. } => rows.bit(planes, a, row) | rows.bit(planes, b, row),
                 MaskOp::Xor { a, b, .. } => rows.bit(planes, a, row) ^ rows.bit(planes, b, row),
@@ -485,6 +662,19 @@ fn run(p: &Program, planes: &Planes<'_>) -> Rows {
                         | u8::from(rows.bit(planes, c, row));
                     (imm >> idx) & 1 == 1
                 }
+                // `idx` is validated `LaneKind::U32`, so `u32_at` never falls
+                // back to `0` on a well-typed program. Out-of-range is the
+                // zero-fallback the facade primitive owns; the oracle mirrors
+                // it as a plain bounds check rather than reading past `fp`.
+                MaskOp::Gather {
+                    lane,
+                    foreign: fidx,
+                    ..
+                } => {
+                    let idx = u32_at(planes, lane, row) as usize;
+                    let fp = &foreign.planes[usize::from(fidx)];
+                    idx < fp.rows && (fp.words[idx / 64] >> (idx % 64)) & 1 == 1
+                }
             };
             let dst = match *op {
                 MaskOp::Pred { dst, .. }
@@ -493,7 +683,8 @@ fn run(p: &Program, planes: &Planes<'_>) -> Rows {
                 | MaskOp::Xor { dst, .. }
                 | MaskOp::AndNot { dst, .. }
                 | MaskOp::Not { dst, .. }
-                | MaskOp::Ternlog { dst, .. } => dst,
+                | MaskOp::Ternlog { dst, .. }
+                | MaskOp::Gather { dst, .. } => dst,
             };
             rows.set(dst, row, v);
         }
@@ -525,24 +716,60 @@ fn written_bitmap(p: &Program) -> Result<Vec<u64>, ExecError> {
 
 /// Evaluate `p` over `planes` row by row; `out` is the destination a
 /// [`Terminal::BlendI32`] writes. Same validation, same [`Value`], same
-/// [`ExecError`] as the executor.
+/// [`ExecError`] as the executor — the same shape
+/// [`execute`](crate::exec::execute) keeps against
+/// [`execute_into`](crate::exec::execute_into).
 pub fn reference_execute(
     p: &Program,
     planes: &Planes<'_>,
     out: Option<&mut [i32]>,
+) -> Result<Value, ExecError> {
+    reference_execute_into(p, planes, &Foreign::NONE, out.map_or(Out::None, Out::I32))
+}
+
+/// Evaluate `p` over `planes` row by row, resolving any [`MaskOp::Gather`]
+/// against `foreign`; `out` is the destination the terminal writes
+/// ([`Terminal::BlendI32`]/[`Terminal::ScatterOrU32`]/
+/// [`Terminal::GroupSumI32`]; every other terminal ignores it). Same
+/// validation, same [`Value`], same [`ExecError`] as the executor.
+pub fn reference_execute_into(
+    p: &Program,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    out: Out<'_>,
 ) -> Result<Value, ExecError> {
     // The oracle allocates by design (its `Rows` arena is this crate's one
     // named L5 exemption), so a local bitmap costs it nothing it was not
     // already paying — but it is sized through the guarded helper, not from
     // the declared count.
     let mut bits = written_bitmap(p)?;
-    validate(p, planes, out.as_deref().map(<[i32]>::len), &mut bits)?;
+    validate(p, planes, foreign, out_shape(&out), &mut bits)?;
     let n = planes.n_rows;
-    let rows = run(p, planes);
+    let rows = run(p, planes, foreign);
     let rows = &rows;
     let survivors = |mask: Operand| (0..n).filter(move |&r| rows.bit(planes, mask, r));
     Ok(match p.terminal {
         Terminal::Count { mask } => Value::Count(survivors(mask).count()),
+        Terminal::CountKeyRunsU32 { mask, lane } => {
+            // Independent formulation: a selected row is counted iff it is
+            // the FIRST selected row of its run (no selected row between the
+            // run's start and it). Row-at-a-time, no carry object.
+            let n = planes.n_rows;
+            let mut count = 0usize;
+            let mut run_start = 0usize;
+            for r in 0..n {
+                if r > 0 && u32_at(planes, lane, r) < u32_at(planes, lane, r - 1) {
+                    return Err(ExecError::LaneNotOrdered { lane });
+                }
+                if r > 0 && u32_at(planes, lane, r) != u32_at(planes, lane, r - 1) {
+                    run_start = r;
+                }
+                if rows.bit(planes, mask, r) && !(run_start..r).any(|q| rows.bit(planes, mask, q)) {
+                    count += 1;
+                }
+            }
+            Value::Count(count)
+        }
         Terminal::Any { mask } => Value::Bool(survivors(mask).next().is_some()),
         Terminal::All { mask } => Value::Bool(survivors(mask).count() == n),
         Terminal::MaskedSumI32 { mask, lane } => Value::SumI64(
@@ -557,7 +784,7 @@ pub fn reference_execute(
             Value::OptI32(survivors(mask).map(|r| i32_at(planes, lane, r)).max())
         }
         Terminal::BlendI32 { mask, then, els } => {
-            if let Some(o) = out {
+            if let Out::I32(o) = out {
                 for (r, slot) in o.iter_mut().enumerate() {
                     let pick = if rows.bit(planes, mask, r) { then } else { els };
                     *slot = i32_at(planes, pick, r);
@@ -565,22 +792,129 @@ pub fn reference_execute(
             }
             Value::Blended
         }
-        Terminal::Keep { mask } => Value::Mask(mask),
+        Terminal::ScatterOrU32 {
+            mask,
+            lane,
+            out_rows,
+        } => {
+            if let Out::Mask(o) = out {
+                for w in o.iter_mut() {
+                    *w = 0;
+                }
+                for r in survivors(mask) {
+                    let idx = u32_at(planes, lane, r) as usize;
+                    if idx < out_rows as usize {
+                        o[idx / 64] |= 1u64 << (idx % 64);
+                    }
+                }
+            }
+            Value::Scattered
+        }
+        Terminal::ScatterCountU32 {
+            mask,
+            lane,
+            out_rows,
+        } => {
+            let mut distinct = 0usize;
+            if let Out::Mask(o) = out {
+                for w in o.iter_mut() {
+                    *w = 0;
+                }
+                for r in survivors(mask) {
+                    let idx = u32_at(planes, lane, r) as usize;
+                    if idx < out_rows as usize {
+                        o[idx / 64] |= 1u64 << (idx % 64);
+                    }
+                }
+                distinct = o.iter().map(|w| w.count_ones() as usize).sum();
+            }
+            Value::Count(distinct)
+        }
+        Terminal::GroupSumI32 { mask, key, val } => {
+            if let Out::I64(o) = out {
+                for x in o.iter_mut() {
+                    *x = 0;
+                }
+                for r in survivors(mask) {
+                    let k = u32_at(planes, key, r) as usize;
+                    if k < o.len() {
+                        let v = i64::from(i32_at(planes, val, r));
+                        o[k] = o[k].wrapping_add(v);
+                    }
+                }
+            }
+            Value::GroupSummed
+        }
+        Terminal::GroupSumViaI32 { mask, fk, key, val } => {
+            if let Out::I64(o) = out {
+                for x in o.iter_mut() {
+                    *x = 0;
+                }
+                // `key` was validated `LaneKind::U32` over `foreign.lanes`,
+                // so the fallback never fires on a well-typed program — the
+                // same "validated before this is called" rule
+                // `eval_pred`'s lane fallbacks already document.
+                let remap = match foreign.lanes.get(usize::from(key)) {
+                    Some(LaneRef::U32(v)) => &v[..],
+                    _ => &[][..],
+                };
+                for r in survivors(mask) {
+                    let idx = u32_at(planes, fk, r) as usize;
+                    if idx >= remap.len() {
+                        continue;
+                    }
+                    let k = remap[idx] as usize;
+                    if k < o.len() {
+                        let v = i64::from(i32_at(planes, val, r));
+                        o[k] = o[k].wrapping_add(v);
+                    }
+                }
+            }
+            Value::GroupSummed
+        }
+        Terminal::Keep { mask } => {
+            if let Out::Mask(o) = out {
+                for w in o.iter_mut() {
+                    *w = 0;
+                }
+                for r in survivors(mask) {
+                    o[r / 64] |= 1u64 << (r % 64);
+                }
+            }
+            Value::Mask(mask)
+        }
     })
 }
 
 /// Every scratch slot's FINAL contents after `p` runs, packed LSB-first with
 /// tail bits zero — the shape an executor's `Scratch` holds, built here by
 /// hand so a `Keep` result and every intermediate can be diffed word by word.
+/// `p` sees no foreign planes; see [`reference_scratch_with_foreign`] for a
+/// program that names a [`MaskOp::Gather`].
 pub fn reference_scratch(p: &Program, planes: &Planes<'_>) -> Result<Vec<Vec<u64>>, ExecError> {
-    // `Some(n_rows)`, not `None`: slot contents are a function of the OPS
-    // alone, so a `BlendI32` terminal's missing `out` must not make this
-    // report `BlendNeedsOut` — that silently skipped the differential's
-    // whole scratch comparison for every blend program.
+    reference_scratch_with_foreign(p, planes, &Foreign::NONE)
+}
+
+/// [`reference_scratch`], resolving any [`MaskOp::Gather`] against `foreign`.
+pub fn reference_scratch_with_foreign(
+    p: &Program,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+) -> Result<Vec<Vec<u64>>, ExecError> {
+    // `OutShape::I32(n_rows)`, not `OutShape::None`: slot contents are a
+    // function of the OPS alone, so a `BlendI32` terminal's missing `out`
+    // must not make this report `BlendNeedsOut` — that silently skipped the
+    // differential's whole scratch comparison for every blend program. A
+    // `ScatterOrU32`/`GroupSumI32` program still validates fine against this
+    // shape because their own `out` requirement is checked independently of
+    // `BlendI32`'s — but this helper cannot also satisfy THEIR `out`
+    // requirement at once, so a caller diffing a scatter or group-sum
+    // program's scratch reads `Err` and should call [`validate`]'s shape
+    // directly instead (or simply not call this helper for those programs).
     let mut bits = written_bitmap(p)?;
-    validate(p, planes, Some(planes.n_rows), &mut bits)?;
+    validate(p, planes, foreign, OutShape::I32(planes.n_rows), &mut bits)?;
     let n = planes.n_rows;
-    let rows = run(p, planes);
+    let rows = run(p, planes, foreign);
     Ok(rows
         .slots
         .iter()

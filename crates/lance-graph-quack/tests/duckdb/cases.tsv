@@ -1,0 +1,17 @@
+id	sql	expected
+sel_count_posted	SELECT COUNT(*) FROM line WHERE status=1	2825
+conj_count	SELECT COUNT(*) FROM line WHERE status=1 AND amount>1000 AND cost_center<4	1083
+disj_count	SELECT COUNT(*) FROM line WHERE status=2 OR amount<0	1200
+not_count	SELECT COUNT(*) FROM line WHERE NOT(status=1)	1271
+in_count	SELECT COUNT(*) FROM line WHERE gl_account IN (400000,600000)	2052
+sum_posted	SELECT SUM(amount) FROM line WHERE status=1	20939713
+min_posted_cc3	SELECT MIN(amount) FROM line WHERE status=1 AND cost_center=3	-4997
+max_posted_cc3	SELECT MAX(amount) FROM line WHERE status=1 AND cost_center=3	19977
+exists_neg	SELECT EXISTS(SELECT 1 FROM line WHERE amount<-4990)	1
+rows_proj	SELECT rid FROM line WHERE status=2 AND qty>45 ORDER BY rid	133,665,699,764,770,891,954,969,1174,1272,1455,1673,1680,1747,1866,1881,1946,2017,2082,2149,2309,2368,2705,2814,2930,3216,3254,3405,3534,3606,3639,3961,4032
+range_docid	SELECT COUNT(*) FROM line WHERE doc_id>=128 AND doc_id<256	1056
+group_count_cc	WITH g AS (SELECT UNNEST(GENERATE_SERIES(0,7)) AS cost_center) SELECT g.cost_center, COUNT(l.rid) FROM g LEFT JOIN line l ON l.cost_center=g.cost_center AND l.status=1 GROUP BY g.cost_center ORDER BY g.cost_center	0:359;1:358;2:360;3:347;4:343;5:388;6:347;7:323
+group_sum_cc	WITH g AS (SELECT UNNEST(GENERATE_SERIES(0,7)) AS cost_center) SELECT g.cost_center, COALESCE(SUM(l.amount),0) FROM g LEFT JOIN line l ON l.cost_center=g.cost_center AND l.status=1 GROUP BY g.cost_center ORDER BY g.cost_center	0:2930321;1:2840790;2:2760912;3:2446433;4:2404560;5:2827013;6:2512475;7:2217209
+join_sum_country	SELECT SUM(l.amount) FROM line l JOIN partner p ON p.rid=l.partner_id WHERE l.status=1 AND p.country=3	1237848
+join_count_docs_with_posted	SELECT COUNT(*) FROM doc d WHERE EXISTS(SELECT 1 FROM line l WHERE l.doc_id=d.rid AND l.status=1)	511
+join_group_sum_country	SELECT p.country, SUM(l.amount) FROM line l JOIN partner p ON p.rid=l.partner_id WHERE l.status=1 GROUP BY p.country ORDER BY p.country	0:4090182;1:1635484;2:5539383;3:1237848;4:2109547;5:1533177;6:2552339;7:2241753

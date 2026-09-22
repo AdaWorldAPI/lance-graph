@@ -56,6 +56,48 @@ pub struct Planes<'a> {
     pub lanes: &'a [LaneRef<'a>],
 }
 
+/// One foreign table's resident validity, as bits over ITS OWN row space —
+/// never `n_rows`-checked against the program's own [`Planes`], because it
+/// isn't the same population.
+#[derive(Debug, Clone, Copy)]
+pub struct ForeignPlane<'a> {
+    /// The plane's packed bits, LSB-first, `words_for(rows)` long.
+    pub words: &'a [u64],
+    /// The row count this plane spans — the FOREIGN table's row count, not
+    /// the executing program's `n_rows`.
+    pub rows: usize,
+}
+
+/// The foreign-table masks a program's [`MaskOp::Gather`] may address —
+/// every entry a mask over ANOTHER table's row space. A foreign plane is
+/// never a member of [`Planes::masks`] and its length is never checked
+/// against the executing program's `n_rows`: that would be checking a
+/// population against a population it is not.
+///
+/// `lanes` is the value-lane twin: foreign VALUE lanes over the SAME other
+/// table's rows, addressed by [`Terminal::GroupSumViaI32::key`]. Its length
+/// is the foreign table's row count — never `n_rows` either, and never
+/// [`ForeignPlane::rows`]-checked against a particular plane, since a
+/// program may name planes and lanes belonging to different foreign tables
+/// in the same [`Foreign`] (there is no assumption that plane `i` and lane
+/// `i` share a row space).
+#[derive(Debug, Clone, Copy)]
+pub struct Foreign<'a> {
+    /// Foreign planes, indexed by [`MaskOp::Gather::foreign`].
+    pub planes: &'a [ForeignPlane<'a>],
+    /// Foreign value lanes, indexed by [`Terminal::GroupSumViaI32::key`].
+    pub lanes: &'a [LaneRef<'a>],
+}
+
+impl Foreign<'_> {
+    /// The empty foreign set — every program that names no `Gather` or
+    /// `GroupSumViaI32` runs against this.
+    pub const NONE: Foreign<'static> = Foreign {
+        planes: &[],
+        lanes: &[],
+    };
+}
+
 /// A value-lane predicate that produces a mask — the vector half of a
 /// columnar filter. `lane` indexes [`Planes::lanes`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,6 +122,17 @@ pub enum Pred {
     MatchU32 { lane: u16, pattern: u32, care: u32 },
     /// `((lane[i] ^ pattern) & care) == 0` over a `u64` lane.
     MatchU64 { lane: u16, pattern: u64, care: u64 },
+    /// `foreign.lanes[key][fk[i]] == v` — an equality predicate on the OTHER
+    /// table, evaluated THROUGH this table's foreign key, row by row, in one
+    /// facade pass (`ndarray::simd::eq_u32_via_to_mask`). This is the join
+    /// filter in factored form: `line WHERE partner.country = 3` reads
+    /// `country[partner_id[i]]` directly, so neither a predicate plane over
+    /// `partner` nor a gathered mask over `line` ever exists — the same
+    /// address indirection [`Terminal::GroupSumViaI32`] uses for its key,
+    /// applied to a predicate. Zero fallback: an `fk` that names no foreign
+    /// row does not match. `fk` is a `U32` lane of THIS table; `key` indexes
+    /// [`Foreign::lanes`] and must be `U32`.
+    EqU32Via { fk: u16, key: u16, v: u32 },
     /// `lo <= i < hi` — a predicate on the ROW INDEX, reading no lane.
     ///
     /// The contiguous-range write. On an address-ordered lane an address
@@ -154,6 +207,19 @@ pub enum MaskOp {
         c: Operand,
         dst: u16,
     },
+    /// `dst[i] = foreign.planes[foreign].words[lane_u32[i]]` — the fk
+    /// SEMIJOIN: `dst` is set for row `i` exactly when `lane`'s value names a
+    /// row that survives on the foreign table. Out-of-range is the
+    /// zero-fallback ([`MaskOp::Gather`]'s underlying facade primitive
+    /// contract), never an error: `line WHERE EXISTS partner p ON p.rid =
+    /// line.partner_id AND <pred on p>` is `Gather{lane: partner_id, foreign:
+    /// <mask of p rows satisfying pred>}` — the fk gather.
+    ///
+    /// No `under` field: the facade primitive it lowers to
+    /// (`ndarray::simd::mask_gather_u32`) takes no gate. Compose a gate with
+    /// [`MaskOp::And`] instead — the same shape a gated `Ternlog` or a gated
+    /// `Range` write already uses when the fused kernel doesn't exist.
+    Gather { lane: u16, foreign: u16, dst: u16 },
 }
 
 /// What the program produces. Exactly one per program; the mask it reads is
@@ -182,6 +248,104 @@ pub enum Terminal {
     /// The final mask itself stays in `mask` (a scratch slot the caller
     /// reads back); nothing is reduced.
     Keep { mask: Operand },
+    /// The one-to-many hop: for every row `i` where `mask` holds, sets bit
+    /// `lane[i]` of the caller's `Out::Mask` buffer — provided it is `<
+    /// out_rows`. Writes `out[i] |= lane[i]`'s target, union across
+    /// repeats — [`ndarray::simd::mask_scatter_or_u32`]'s contract, out of
+    /// range silently dropped. The caller's buffer must be exactly
+    /// `words_for(out_rows)` long.
+    ///
+    /// **Survival condition:** the scattered mask is legal only when it IS
+    /// the externally demanded result (a `hop` whose answer is the target
+    /// population's mask). It is never an intermediate: a follow-on program
+    /// or fold that consumes it is the forbidden
+    /// projection → population → projection shape. A count over the
+    /// targets is [`Terminal::CountKeyRunsU32`] (a key-ORDERED lane; there
+    /// is no lowering for an unordered one); a filter through
+    /// the targets is [`Pred::EqU32Via`] / [`MaskOp::Gather`] over a
+    /// RESIDENT plane.
+    ScatterOrU32 {
+        mask: Operand,
+        lane: u16,
+        out_rows: u32,
+    },
+    /// `COUNT(DISTINCT lane[i])` over the rows where `mask` holds, keys `<
+    /// out_rows` (out of range silently dropped) — the one-to-many hop
+    /// FOLDED to its count. The caller's `Out::Mask` (exactly
+    /// `words_for(out_rows)` long) is the fold's accumulator, one bit per
+    /// distinct key; the terminal zeroes it, scatters into it tile by tile
+    /// and answers its popcount as [`Value::Count`]. No second program ever
+    /// reads it: `docs WHERE EXISTS line … ` counted, without the doc mask
+    /// becoming an intermediate. (When the mask itself is the demanded
+    /// result — a `hop` — use [`Terminal::ScatterOrU32`].)
+    ///
+    /// **HELD, not a lowering target.** The accumulator is population-sized
+    /// (one bit per key of the universe). `tests/distinct.rs`'s pigeonhole
+    /// falsifier shows that is the minimum for an exact distinct count
+    /// under ARBITRARY row order — but an arbitrary row order is not a
+    /// licence to carry it: the law is that an equivalent T0 projection
+    /// (a lane stored in key order) serves the fold with O(1) state
+    /// ([`Terminal::CountKeyRunsU32`]), and a lane that lacks one is a
+    /// lowering limitation, not permission to materialise a seen-set. This
+    /// terminal survives as the falsifier's instrument and for a caller
+    /// whose requested computation explicitly asks for a seen-set; no
+    /// lowering emits it as the automatic fallback for exact DISTINCT.
+    ScatterCountU32 {
+        mask: Operand,
+        lane: u16,
+        out_rows: u32,
+    },
+    /// `COUNT(DISTINCT lane[i])` over the rows where `mask` holds, on a
+    /// KEY-ORDERED lane — every run of equal consecutive `lane` values is
+    /// one key, so the count is the number of runs containing a selected
+    /// row, folded tile by tile with a two-word carry
+    /// ([`ndarray::simd::masked_key_run_count_u32`] + `KeyRunCarry`): no
+    /// population-sized set, no `Out` buffer, `Out::None`. The answer is
+    /// [`Value::Count`].
+    ///
+    /// The precondition is a lane stored in KEY ORDER (the T0 address
+    /// projection that puts a child population under its parent), and it is
+    /// ENFORCED, not trusted: the first key smaller than the open run's key
+    /// refuses the program with [`ExecError::LaneNotOrdered`]. Non-decreasing
+    /// order is the one contiguity certificate checkable with O(1) state in
+    /// the same pass (proving "each key occurs in one run" would need the seen-set
+    /// this terminal exists to avoid); a contiguous-but-unsorted lane is
+    /// refused too, deliberately, and the check inspects EVERY key, selected
+    /// or not (`1 2 1` under `1 0 1` is two runs of `1`, not one). Nothing is
+    /// ever over-counted. A lane with
+    /// no key-ordered projection resident is a lowering limitation, and the
+    /// refusal is the answer — not [`Terminal::ScatterCountU32`].
+    CountKeyRunsU32 { mask: Operand, lane: u16 },
+    /// The one-terminal `GROUP BY … SUM`: for every row `i` where `mask`
+    /// holds, adds `val[i]` into the caller's `Out::I64` buffer at index
+    /// `key[i]` — provided `key[i] < out.len()`
+    /// ([`ndarray::simd::masked_group_sum_i32`]'s contract; a key past the
+    /// group universe is dropped, not an error). `out.len()` IS the group
+    /// universe `K`. Same carry bound as [`Terminal::MaskedSumI32`]
+    /// ([`MASKED_SUM_I32_MAX_ROWS`]) — a per-key sum can never overflow
+    /// past it either, since it is strictly less work than the one-group
+    /// sum the bound was derived against.
+    GroupSumI32 { mask: Operand, key: u16, val: u16 },
+    /// The FK-KEYED `GROUP BY … SUM`: `SUM(line.amount) GROUP BY
+    /// partner.country` — `fk` is a `U32` lane of THIS table (the foreign
+    /// key), `key` indexes [`Foreign::lanes`] and must be a `U32` lane on
+    /// the foreign table (the group key there), and `val` is an `I32` lane
+    /// of this table. For every row `i` where `mask` holds, resolves
+    /// `foreign.lanes[key][fk[i]]` and adds `val[i]` at that index into the
+    /// caller's `Out::I64` buffer
+    /// ([`ndarray::simd::masked_group_sum_i32_via`]'s contract). Zero
+    /// fallback at BOTH hops — `fk[i] >= foreign.lanes[key].len()` drops the
+    /// row (the fk names no foreign row), and a resolved key `>= out.len()`
+    /// drops it too (the resolved key names no group); neither is an error.
+    /// The indirection is FUSED: no remapped key lane is ever materialised
+    /// between the two hops. Same carry bound as [`Terminal::GroupSumI32`]
+    /// ([`MASKED_SUM_I32_MAX_ROWS`]).
+    GroupSumViaI32 {
+        mask: Operand,
+        fk: u16,
+        key: u16,
+        val: u16,
+    },
 }
 
 /// The widest plane [`Terminal::MaskedSumI32`] is defined on: `2^32` rows.
@@ -275,6 +439,12 @@ impl Program {
                     touch(c);
                     touch(Operand::Scratch(dst));
                 }
+                // `foreign` is not a `Scratch`/`Plane` operand — it indexes
+                // `Foreign::planes`, a wholly separate address space this
+                // touch-based accounting has no business over.
+                MaskOp::Gather { dst, .. } => {
+                    touch(Operand::Scratch(dst));
+                }
             }
         }
         match terminal {
@@ -285,6 +455,11 @@ impl Program {
             | Terminal::MaskedMinI32 { mask, .. }
             | Terminal::MaskedMaxI32 { mask, .. }
             | Terminal::BlendI32 { mask, .. }
+            | Terminal::ScatterOrU32 { mask, .. }
+            | Terminal::ScatterCountU32 { mask, .. }
+            | Terminal::CountKeyRunsU32 { mask, .. }
+            | Terminal::GroupSumI32 { mask, .. }
+            | Terminal::GroupSumViaI32 { mask, .. }
             | Terminal::Keep { mask } => touch(mask),
         }
         Self {
@@ -331,6 +506,7 @@ impl Program {
                 | MaskOp::AndNot { .. } => h.two_input += 1,
                 MaskOp::Not { .. } => h.not += 1,
                 MaskOp::Ternlog { .. } => h.ternlog += 1,
+                MaskOp::Gather { .. } => h.gather += 1,
             }
         }
         h
@@ -360,12 +536,17 @@ pub struct OpHistogram {
     /// write with `mask_and_assign`. Unlike every lane predicate, which has a
     /// fused `*_to_mask_under` kernel, no `mask_set_range_under` exists.
     pub ranges: usize,
+    /// `Gather` (the fk semijoin). One pass over the destination mask, the
+    /// same accounting as a range write — it reads no value LANE (it reads
+    /// a foreign PLANE at a data-dependent row), so it is counted apart from
+    /// [`predicates`](Self::predicates) for the same reason `ranges` is.
+    pub gather: usize,
 }
 
 impl OpHistogram {
     /// Total mask-word passes the program spends after its predicates.
     pub fn mask_passes(&self) -> usize {
-        self.two_input + self.not + self.ternlog + self.ranges
+        self.two_input + self.not + self.ternlog + self.ranges + self.gather
     }
 }
 
@@ -579,6 +760,7 @@ mod tests {
                 not: 1,
                 ternlog: 1,
                 ranges: 0,
+                gather: 0,
             }
         );
         assert_eq!(h.mask_passes(), 3);

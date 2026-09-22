@@ -11,14 +11,15 @@ description = "Place/Residue encoding: golden-spiral hemisphere placement, Fishe
 # helix's batch hot path (src/simd.rs) runs on `ndarray::simd`, and per the stack
 # rule "ndarray is mandatory for lance-graph" it is a hard dep, not an opt-in.
 [dependencies]
-# MANDATORY ndarray (the AdaWorldAPI fork). Sourced by GIT, not a local path: a
-# local *path* dep forces Cargo to read the sibling manifest during resolution,
-# so a clean checkout without the sibling fails (codex P2 on #460); a git source
-# resolves the manifest remotely. `master` is the commit helix was tested against.
-# The fork is self-contained (internal subcrates only — no external path dep, no
-# back-dependency on lance-graph → no import cycle). `std` enables `ndarray::simd`
-# (simd_ln_f32 / F32x16 / U8x64).
-ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master", default-features = false, features = ["std"] }
+# MANDATORY ndarray (the AdaWorldAPI fork), the SAME sibling path every other
+# crate in this tree resolves — one Cargo package identity, one execution
+# algebra. It was a git source until 2026-09-21 (codex P2 on #460: a clean
+# checkout without the sibling fails to resolve); that bought a second ndarray
+# package identity, which is the worse trade. A sibling checkout is a stated
+# requirement of the whole tree, not of this crate. The fork is self-contained
+# (no back-dependency on lance-graph → no import cycle). `std` enables
+# `ndarray::simd` (simd_ln_f32 / F32x16 / U8x64).
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 

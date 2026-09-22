@@ -146,13 +146,19 @@
 //! Filter (`=`/`<>`/`<`/`<=`/`>`/`>=`/ternary match/`IN`, `AND`/`OR`/`NOT`,
 //! resident planes), the aggregates `COUNT`/`EXISTS`/`ALL`/`SUM`/`MIN`/`MAX`,
 //! projection ([`Agg::Rows`] keeps the mask, [`Agg::BlendI32`] is the `CASE`
-//! shape), and a two-phase `GROUP BY` over a categorical key. Absent, named:
-//! the join (`src_mask → hop → dst_mask` is `lance-graph-mask-risc`'s PR5 —
-//! there is no `hop` op to lower to yet); a one-terminal `GROUP BY SUM`
-//! (`ndarray::simd` ships `masked_strided_group_sum`, but the IR names no
-//! strided operand or group terminal, so K programs is the honest spelling
-//! today); and everything the IR itself excludes — strings, `ORDER BY`,
-//! three-valued NULL.
+//! shape), a two-phase `GROUP BY` over a categorical key, and TWO fk join
+//! shapes: [`Filter::EqU32Via`] reads the foreign predicate THROUGH the fk
+//! in one facade pass (`lance-graph-mask-risc`'s [`Pred::EqU32Via`]), no
+//! foreign plane and no gathered mask; [`Filter::Semijoin`] lowers to
+//! [`MaskOp::Gather`] over a caller-supplied RESIDENT foreign plane — never
+//! a mask another `Program` produced — alongside [`Agg::ScatterOrU32`] for
+//! the one-to-many hop back (`Terminal::ScatterOrU32`).
+//! The one-terminal `GROUP BY SUM` is ONE program either way now:
+//! [`Agg::GroupSumI32`] for a key on THIS table, [`Agg::GroupSumViaI32`] for
+//! a key resolved through a foreign table's [`ForeignLane`]
+//! (`SUM(l.amount) GROUP BY p.country`) — the indirect-key group-sum is no
+//! longer a gap. Absent, and everything the IR itself excludes: `ORDER BY`,
+//! strings, three-valued NULL.
 
 #![forbid(unsafe_code)]
 
@@ -176,6 +182,23 @@ pub struct Col(pub u16);
 /// mask, a kept filter. The table's validity lives here, not in a NULL bit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Mask(pub u16);
+
+/// A FOREIGN table's kept mask — an index into
+/// [`Foreign::planes`](lance_graph_mask_risc::Foreign): a RESIDENT plane of
+/// the foreign table, supplied by the caller alongside its `Planes`. See
+/// [`Filter::Semijoin`] for the precondition this index carries — it must
+/// never be a mask this crate's own [`lower`]/[`lower_fused`] produced for
+/// another `Program`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ForeignPlane(pub u16);
+
+/// A FOREIGN table's VALUE lane — an index into
+/// [`Foreign::lanes`](lance_graph_mask_risc::Foreign). Addressed through
+/// [`Agg::GroupSumViaI32`] (`SUM(l.amount) GROUP BY p.country`) and
+/// [`Filter::EqU32Via`] (`p.country = 3` read through `l.partner_id`) — both
+/// resolve through THIS table's own fk column, never as an ordinary [`Col`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ForeignLane(pub u16);
 
 /// A predicate over one column — the filter's whole vocabulary.
 ///
@@ -288,6 +311,51 @@ pub enum Filter {
     /// with no `WHERE`: the table is its validity plane, and a query over
     /// every row of it lowers to zero ops.
     Plane(Mask),
+    /// The fk join predicate in FACTORED form — `p.country = 3` read
+    /// through `l.partner_id`, lowered to [`Pred::EqU32Via`] over the
+    /// caller-supplied [`Foreign`](lance_graph_mask_risc::Foreign). A LEAF,
+    /// like [`Filter::Cmp`] / [`Filter::Plane`]: `Pred::EqU32Via` already
+    /// carries its own `under`, so this lowers exactly the way
+    /// [`Filter::Cmp(col, Cmp::EqU32(v))`](Cmp::EqU32) lowers to
+    /// [`Pred::EqU32`] — one `Node::Pred`, one gate, no second emitter arm.
+    /// No foreign plane is ever built and no mask is ever gathered: the
+    /// predicate is evaluated once per row, through the fk, in one facade
+    /// pass.
+    EqU32Via {
+        /// The foreign-key column on THIS table.
+        fk: Col,
+        /// Which foreign table's value lane the fk resolves into.
+        key: ForeignLane,
+        /// The value the resolved lane entry must equal.
+        v: u32,
+    },
+    /// The fk SEMIJOIN — `EXISTS(SELECT 1 FROM foreign f WHERE f.rid =
+    /// this.fk AND <pred on f>)`, lowered to [`MaskOp::Gather`] over the
+    /// caller-supplied [`Foreign`](lance_graph_mask_risc::Foreign). A LEAF,
+    /// like [`Filter::Cmp`] / [`Filter::Plane`]: it composes with
+    /// `And`/`Or`/`Not` normally, and both [`lower`] and [`lower_fused`]
+    /// treat it as opaque — the fuser never looks inside it, it only sees
+    /// the scratch slot its `Gather` wrote (or, when `lower_fused` gives it
+    /// its own slot, `AND`ed with a resident gate as a `BoolExpr::And`,
+    /// exactly what happens to a gated `Cmp`).
+    ///
+    /// # Precondition: `foreign` names a RESIDENT plane, never a produced one
+    ///
+    /// `foreign` must index a plane the caller supplied in its own right —
+    /// the foreign table's validity, a focus, a class mask — never a mask
+    /// another `Program`'s `Keep` terminal just computed. `Gather` may
+    /// survive as a masking op only when its source is already legitimate
+    /// resident state, its output is tile-local, and no dynamically-created
+    /// population mask feeds it; a `Keep`-then-`Gather` pipeline across two
+    /// programs is exactly the forbidden shape — see [`Filter::EqU32Via`]
+    /// for the factored form that reads the foreign predicate directly and
+    /// needs no such mask at all.
+    Semijoin {
+        /// The foreign-key column on THIS table.
+        fk: Col,
+        /// Which foreign table's RESIDENT kept plane the fk resolves into.
+        foreign: ForeignPlane,
+    },
     /// Every child must hold.
     And(Vec<Filter>),
     /// Some child must hold.
@@ -305,6 +373,17 @@ impl Filter {
     /// A resident plane as a predicate.
     pub fn plane(mask: Mask) -> Self {
         Filter::Plane(mask)
+    }
+
+    /// The fk join leaf, factored — see [`Filter::EqU32Via`].
+    pub fn eq_u32_via(fk: Col, key: ForeignLane, v: u32) -> Self {
+        Filter::EqU32Via { fk, key, v }
+    }
+
+    /// The fk semijoin leaf — see [`Filter::Semijoin`], including the
+    /// precondition on `foreign`.
+    pub fn semijoin(fk: Col, foreign: ForeignPlane) -> Self {
+        Filter::Semijoin { fk, foreign }
     }
 
     /// Conjunction.
@@ -730,6 +809,64 @@ pub enum Agg {
         /// The lane read where it does not.
         els: Col,
     },
+    /// The one-to-many hop back AS THE DEMANDED RESULT: for every surviving
+    /// row, sets bit `fk[row]` of a caller-supplied `Out::Mask` buffer of
+    /// `words_for(out_rows)` — `Terminal::ScatterOrU32`. Legal only when
+    /// that target mask IS what the query asks for (a `hop`). A query that
+    /// asks for a COUNT over the targets is [`Agg::CountDistinctU32`] /
+    /// [`Agg::CountDistinctOrderedU32`]; handing this mask to a second
+    /// program is the forbidden population intermediate.
+    ScatterOrU32 {
+        /// The foreign-key column naming the target row on the OTHER table.
+        fk: Col,
+        /// The target table's row count — the caller's `Out::Mask` buffer
+        /// must be exactly `words_for(out_rows)` long.
+        out_rows: u32,
+    },
+    /// `COUNT(DISTINCT key)` — `Terminal::CountKeyRunsU32`, two words of
+    /// state, `Out::None`. The physical precondition is a key lane stored
+    /// in KEY ORDER — non-decreasing over EVERY row, selected or not (the
+    /// address order a projection stores a child population under its
+    /// parent); the executor ENFORCES it in the fold's own pass and refuses
+    /// a lane out of order with `ExecError::LaneNotOrdered`, so a wrong
+    /// count is impossible. ORDERED, not merely "clustered": contiguity of
+    /// equal keys is not O(1)-checkable, order is. Quack cannot see lanes, so it does not pre-judge:
+    /// the lowering always succeeds and the refusal is physical. There is
+    /// deliberately NO other spelling of exact DISTINCT here — an
+    /// unordered physical layout is a lowering limitation, not permission
+    /// to fold through a population seen-set (`Terminal::ScatterCountU32`
+    /// is held, never emitted).
+    CountDistinctOrderedU32 {
+        /// The key column (`u32`), stored in key order.
+        key: Col,
+    },
+    /// The one-terminal `GROUP BY key SUM(val)` — `Terminal::GroupSumI32`,
+    /// ONE program instead of `lower_group_by`'s K. The caller supplies an
+    /// `Out::I64` buffer whose length IS the group universe; a `key` at or
+    /// past that length is dropped, not an error (the same zero-fallback
+    /// `Agg::ScatterOrU32`'s out-of-range fk gets).
+    GroupSumI32 {
+        /// The group key column (`u32`).
+        key: Col,
+        /// The value column summed per group.
+        val: Col,
+    },
+    /// The FK-KEYED `GROUP BY … SUM` — `Terminal::GroupSumViaI32`:
+    /// `SUM(line.amount) GROUP BY partner.country` is `Agg::GroupSumViaI32 {
+    /// fk: partner_id, key: ForeignLane(0), val: amount }` over a foreign
+    /// [`ForeignLane`] carrying `partner.country`. Same zero-fallback at
+    /// BOTH hops as [`Agg::GroupSumI32`]'s single-hop drop (an fk naming no
+    /// foreign row, or a resolved key at or past the group universe, are
+    /// both dropped, not errors). The indirection is fused — no remapped
+    /// key lane is ever materialised.
+    GroupSumViaI32 {
+        /// The foreign-key column on THIS table.
+        fk: Col,
+        /// The group key column on the FOREIGN table.
+        key: ForeignLane,
+        /// The value column summed per group, on THIS table.
+        val: Col,
+    },
 }
 
 /// One query: a filter and what to ask of the rows that pass it.
@@ -770,9 +907,12 @@ pub struct GroupBy {
 /// The two-phase plan a [`GroupBy`] lowers to — DuckDB's pipeline break,
 /// with a mask plane where the hash table would be.
 ///
-/// The caller runs `filter` (a [`Terminal::Keep`]), reads the mask its
-/// `Value::Mask(op)` names — a scratch slot, or for a bare-plane filter the
-/// plane itself — presents it as `planes.masks[filter_plane]`, and runs each
+/// The caller runs `filter` (a [`Terminal::Keep`]) through `execute_into`
+/// with an `Out::Mask` buffer of `words_for(n_rows)` — the kept bits land
+/// there (tiled execution never leaves them sitting in a scratch slot the
+/// caller must chase down by `Value::Mask`'s operand, which for `filter`
+/// names a scratch slot or, for a bare-plane filter, the plane itself),
+/// presents that buffer as `planes.masks[filter_plane]`, and runs each
 /// program in `groups` over the widened planes. Each group program is ONE
 /// gated equality and a terminal: the key lane is compared once per group,
 /// but only over the live words of the kept filter (the survivor skip), which
@@ -864,13 +1004,25 @@ fn lower_with(
 
 /// The filter after the survivor-skip pass, before any slot is assigned.
 enum Node {
-    /// A comparison, evaluated under `under` when there is a gate.
+    /// A comparison, evaluated under `under` when there is a gate. The fk
+    /// join leaf ([`Filter::EqU32Via`]) lowers here too — `Pred::EqU32Via`
+    /// is just another `Pred` variant, so it needs no `Node` shape of its
+    /// own.
     Pred {
         pred: Pred,
         under: Option<Mask>,
     },
     /// A resident plane read as an operand.
     Plane(Mask),
+    /// The fk semijoin leaf ([`Filter::Semijoin`]), gated by `under` when
+    /// there is one — same shape as `Pred`, except the gate cannot be baked
+    /// into `MaskOp::Gather` itself (it has no `under` field), so the two
+    /// emitters apply it as an explicit `AND` after the `Gather` write.
+    Gather {
+        fk: u16,
+        foreign: u16,
+        under: Option<Mask>,
+    },
     And(Vec<Node>),
     Or(Vec<Node>),
     Not(Box<Node>),
@@ -923,6 +1075,34 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
             gate.is_some(),
         ),
         Filter::Plane(m) => (Node::Plane(*m), gate == Some(*m)),
+        // Exactly the `Cmp` arm above: `Pred::EqU32Via` carries its own
+        // `under`, so this is a single `Node::Pred`, not a second `Node`
+        // shape — "vanishes with the gate" for the same reason a gated
+        // `Cmp` does.
+        Filter::EqU32Via { fk, key, v } => (
+            Node::Pred {
+                pred: Pred::EqU32Via {
+                    fk: fk.0,
+                    key: key.0,
+                    v: *v,
+                },
+                under: gate,
+            },
+            gate.is_some(),
+        ),
+        // Same "vanishes with the gate" reasoning as `Cmp` above: both
+        // emitters apply `under` as an explicit `AND` on the `Gather`
+        // result, so the emitted value is literally `gather & gate`
+        // whenever `under` is `Some` — a real subset of the gate, not a
+        // conservative guess.
+        Filter::Semijoin { fk, foreign } => (
+            Node::Gather {
+                fk: fk.0,
+                foreign: foreign.0,
+                under: gate,
+            },
+            gate.is_some(),
+        ),
         // Gating passes THROUGH a negation (the rewrite is sound for any
         // remainder while the gate stays a leaf), but `!x` is 1 where the
         // gate is 0, so a negation never lets the gate be dropped.
@@ -1112,6 +1292,26 @@ fn emit_gated(
             Ok(Operand::Scratch(dst))
         }
         Node::Plane(m) => Ok(Operand::Plane(m.0)),
+        Node::Gather { fk, foreign, under } => {
+            ops.push(MaskOp::Gather {
+                lane: *fk,
+                foreign: *foreign,
+                dst,
+            });
+            // Same choice as `Pred` above: the plane gate `under` wins over
+            // the accumulator when both are available — `Gather` has no
+            // `under` field of its own, so this is an explicit `AND` rather
+            // than a baked-in gate, but the precedence rule is identical.
+            let gate = under.map(|m| Operand::Plane(m.0)).or(acc_gate);
+            if let Some(g) = gate {
+                ops.push(MaskOp::And {
+                    a: Operand::Scratch(dst),
+                    b: g,
+                    dst,
+                });
+            }
+            Ok(Operand::Scratch(dst))
+        }
         Node::Not(inner) => {
             let a = emit_gated(inner, dst, acc_gate, ops)?;
             ops.push(MaskOp::Not { a, dst });
@@ -1191,6 +1391,29 @@ fn assign_slots(n: &Node, ops: &mut Vec<MaskOp>) -> Result<BoolExpr, LowerError>
             Ok(BoolExpr::Leaf(Operand::Scratch(dst)))
         }
         Node::Plane(m) => Ok(BoolExpr::Leaf(Operand::Plane(m.0))),
+        Node::Gather { fk, foreign, under } => {
+            let dst = u16::try_from(ops.len()).map_err(|_| LowerError::TooManySlots {
+                needed: ops.len() + 1,
+            })?;
+            ops.push(MaskOp::Gather {
+                lane: *fk,
+                foreign: *foreign,
+                dst,
+            });
+            let leaf = BoolExpr::Leaf(Operand::Scratch(dst));
+            // `Gather` has no `under` field, so the gate — unlike a `Pred`'s
+            // — cannot be baked into the op. Folding it into the BOOLEAN
+            // EXPRESSION instead lets the fuser absorb the `AND` into a
+            // ternlog along with everything else, rather than paying a
+            // separate mask pass the way `emit_gated`'s in-place form does.
+            Ok(match under {
+                Some(m) => BoolExpr::And(
+                    Box::new(leaf),
+                    Box::new(BoolExpr::Leaf(Operand::Plane(m.0))),
+                ),
+                None => leaf,
+            })
+        }
         Node::Not(inner) => Ok(BoolExpr::Not(Box::new(assign_slots(inner, ops)?))),
         Node::And(parts) | Node::Or(parts) => {
             let is_and = matches!(n, Node::And(_));
@@ -1228,6 +1451,23 @@ fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
             then: then.0,
             els: els.0,
         },
+        Agg::ScatterOrU32 { fk, out_rows } => Terminal::ScatterOrU32 {
+            mask,
+            lane: fk.0,
+            out_rows,
+        },
+        Agg::CountDistinctOrderedU32 { key } => Terminal::CountKeyRunsU32 { mask, lane: key.0 },
+        Agg::GroupSumI32 { key, val } => Terminal::GroupSumI32 {
+            mask,
+            key: key.0,
+            val: val.0,
+        },
+        Agg::GroupSumViaI32 { fk, key, val } => Terminal::GroupSumViaI32 {
+            mask,
+            fk: fk.0,
+            key: key.0,
+            val: val.0,
+        },
     }
 }
 
@@ -1262,7 +1502,7 @@ fn pred_of(col: Col, cmp: Cmp) -> Pred {
 mod tests {
     use super::*;
     use lance_graph_mask_risc::{
-        execute, materialize_rows, reference_execute, scratch_words_for, words_for, LaneRef,
+        execute_into, materialize_rows, reference_execute, words_for, Foreign, LaneRef, Out,
         Planes, Scratch, Value,
     };
 
@@ -1287,6 +1527,20 @@ mod tests {
         /// the range claim would be untestable.
         addr: Vec<u64>,
         masks: Vec<Vec<u64>>,
+        /// Foreign tables' kept RESIDENT planes, indexed by
+        /// `ForeignPlane.0` — empty for every single-table fixture;
+        /// populated only by the two-table semijoin test, via a hand-built
+        /// plane fixture (never a mask this module's own `lower` produced).
+        foreign: Vec<Vec<u64>>,
+        /// The EXACT row count each `foreign[i]` spans — needed because a
+        /// word-rounded length alone cannot distinguish "row 63 of a 64-row
+        /// table" from "the dirty tail of a 60-row one".
+        foreign_rows: Vec<usize>,
+        /// Foreign `u32` VALUE lanes, indexed by [`ForeignLane`] — opt-in and
+        /// EMPTY for every single-table fixture, populated only by the
+        /// `GroupSumViaI32` and `EqU32Via` tests via [`Fx::push_foreign_lane`].
+        /// No existing fixture's shape moves.
+        foreign_lanes: Vec<Vec<u32>>,
     }
 
     fn plane(n: usize, set: impl Fn(usize) -> bool) -> Vec<u64> {
@@ -1312,7 +1566,31 @@ mod tests {
                 alt,
                 addr,
                 masks,
+                foreign: Vec::new(),
+                foreign_rows: Vec::new(),
+                foreign_lanes: Vec::new(),
             }
+        }
+
+        /// Register a foreign table's kept RESIDENT plane at the next
+        /// `ForeignPlane` index (`0`, `1`, …, in call order) and return that
+        /// index. A hand-built fixture, never a mask [`lower`]/[`lower_fused`]
+        /// produced — that is precisely what [`Filter::Semijoin`]'s
+        /// precondition forbids.
+        fn push_foreign(&mut self, bits: Vec<u64>, rows: usize) -> ForeignPlane {
+            let idx = self.foreign.len() as u16;
+            self.foreign.push(bits);
+            self.foreign_rows.push(rows);
+            ForeignPlane(idx)
+        }
+
+        /// Register a foreign `u32` VALUE lane at the next `ForeignLane`
+        /// index (`0`, `1`, …, in call order) and return that index — used
+        /// by both [`Agg::GroupSumViaI32`] and [`Filter::EqU32Via`].
+        fn push_foreign_lane(&mut self, values: Vec<u32>) -> ForeignLane {
+            let idx = self.foreign_lanes.len() as u16;
+            self.foreign_lanes.push(values);
+            ForeignLane(idx)
         }
 
         fn n(&self) -> usize {
@@ -1370,6 +1648,17 @@ mod tests {
                     Cmp::Range { lo, hi } => (lo as usize) <= row && row < (hi as usize),
                 },
                 Filter::Plane(m) => self.bit(*m, row),
+                Filter::EqU32Via { fk, key, v } => {
+                    let idx = self.u32_at(*fk, row) as usize;
+                    let lane = &self.foreign_lanes[usize::from(key.0)];
+                    idx < lane.len() && lane[idx] == *v
+                }
+                Filter::Semijoin { fk, foreign } => {
+                    let idx = self.u32_at(*fk, row) as usize;
+                    let bits = &self.foreign[usize::from(foreign.0)];
+                    let rows = self.foreign_rows[usize::from(foreign.0)];
+                    idx < rows && (bits[idx / 64] >> (idx % 64)) & 1 == 1
+                }
                 Filter::And(ps) => ps.iter().all(|p| self.oracle(p, row)),
                 Filter::Or(ps) => ps.iter().any(|p| self.oracle(p, row)),
                 Filter::Not(p) => !self.oracle(p, row),
@@ -1395,28 +1684,43 @@ mod tests {
             })
         }
 
-        /// The executor, on a scratch sized exactly from the program.
+        /// The executor, tiled per [`Scratch::for_program`]. A `Keep`
+        /// terminal is handed an owned `Out::Mask` buffer (discarded here —
+        /// `exec_mask` is the caller that wants the bits); every other
+        /// terminal gets the caller's `out` or `Out::None`.
         fn exec(&self, program: &Program, extra: &[Vec<u64>], out: Option<&mut [i32]>) -> Value {
             self.with_planes(extra, |planes| {
-                let words = words_for(self.n());
-                let slots = program.scratch_slots as usize;
-                let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-                let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
-                execute(program, planes, &mut scratch, out).expect("runs")
+                let mut scratch = Scratch::for_program(program, self.n()).expect("carves");
+                let mut kept_buf = vec![0u64; words_for(self.n())];
+                let dst = if matches!(program.terminal, Terminal::Keep { .. }) {
+                    Out::Mask(&mut kept_buf)
+                } else if let Some(o) = out {
+                    Out::I32(o)
+                } else {
+                    Out::None
+                };
+                execute_into(program, planes, &Foreign::NONE, &mut scratch, dst).expect("runs")
             })
         }
 
-        /// The executor on a `Keep` program, copying the kept mask out of
-        /// wherever `Value::Mask` says it landed.
+        /// The executor on a `Keep` program: tiled execution lands the kept
+        /// bits in the `Out::Mask` buffer this owns and returns, never in a
+        /// scratch slot the caller must chase down by `Value::Mask`'s
+        /// operand.
         fn exec_mask(&self, program: &Program, extra: &[Vec<u64>]) -> Vec<u64> {
             self.with_planes(extra, |planes| {
-                let words = words_for(self.n());
-                let slots = program.scratch_slots as usize;
-                let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-                let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
-                match execute(program, planes, &mut scratch, None).expect("runs") {
-                    Value::Mask(Operand::Scratch(i)) => scratch.slot(i).expect("written").to_vec(),
-                    Value::Mask(Operand::Plane(p)) => planes.masks[usize::from(p)].to_vec(),
+                let mut scratch = Scratch::for_program(program, self.n()).expect("carves");
+                let mut kept = vec![0u64; words_for(self.n())];
+                match execute_into(
+                    program,
+                    planes,
+                    &Foreign::NONE,
+                    &mut scratch,
+                    Out::Mask(&mut kept),
+                )
+                .expect("runs")
+                {
+                    Value::Mask(_) => kept,
                     other => panic!("not a kept mask: {other:?}"),
                 }
             })
@@ -1694,6 +1998,11 @@ mod tests {
                 MaskOp::Ternlog { a, b, c, .. } => {
                     read_as_leaf |= a == gate || b == gate || c == gate;
                 }
+                // `Gather` names no `Operand` among its own fields (`lane`
+                // and `foreign` are plain indices, not `a`/`b`/`c`), so it
+                // can never read `gate` as a Boolean operand the way the
+                // other ops can.
+                MaskOp::Gather { .. } => {}
             }
         }
         let terminal_reads_gate = matches!(
@@ -1705,6 +2014,11 @@ mod tests {
                 | Terminal::MaskedMinI32 { mask, .. }
                 | Terminal::MaskedMaxI32 { mask, .. }
                 | Terminal::BlendI32 { mask, .. }
+                | Terminal::ScatterOrU32 { mask, .. }
+                | Terminal::ScatterCountU32 { mask, .. }
+                | Terminal::CountKeyRunsU32 { mask, .. }
+                | Terminal::GroupSumI32 { mask, .. }
+                | Terminal::GroupSumViaI32 { mask, .. }
                 | Terminal::Keep { mask } if mask == gate
         );
         (
@@ -2408,6 +2722,308 @@ mod tests {
         assert_eq!(fx.reference(&inplace, None), Value::Count(expected));
         assert_eq!(fx.reference(&fused, None), Value::Count(expected));
     }
+
+    /// FAILS IF: `Filter::EqU32Via` disagrees with an independent per-row
+    /// reading (the oracle's `EqU32Via` arm), in EITHER lowering — the fk
+    /// join in FACTORED form: `CLASS` is the fk into a 4-row foreign VALUE
+    /// lane (shorter than `CLASS`'s own `0..5` range, so class 4 drops as
+    /// out-of-range), the resolved value compared against `3`. Anti-vacuity:
+    /// the bare predicate alone is selective (neither 0 nor every row),
+    /// composing it with `AND` narrows further still, and the fixture
+    /// exercises an out-of-range fk.
+    #[test]
+    fn eq_u32_via_matches_an_independent_per_row_reading() {
+        let mut fx = Fx::new(N);
+        let remap = vec![3u32, 1, 3, 2];
+        let foreign_rows = remap.len();
+        let foreign_lane = fx.push_foreign_lane(remap);
+
+        let bare = Filter::eq_u32_via(CLASS, foreign_lane, 3);
+        let bare_expected = fx.rows(&bare).len();
+        assert!(
+            bare_expected > 0 && bare_expected < N,
+            "the bare eq_u32_via selects {bare_expected}/{N} — not selective"
+        );
+        assert!(
+            (0..fx.n()).any(|r| fx.classes[r] as usize >= foreign_rows),
+            "the fixture never exercises an out-of-range fk"
+        );
+
+        let f = Filter::and([Filter::cmp(VALS, Cmp::GtI32(0)), bare.clone()]);
+        let expected: i64 = (0..fx.n())
+            .filter(|&r| fx.oracle(&f, r))
+            .map(|r| i64::from(fx.alt[r]))
+            .sum();
+        let narrowed = fx.rows(&f).len();
+        assert!(
+            narrowed > 0 && narrowed < bare_expected,
+            "composing with AND must narrow: {narrowed} vs {bare_expected}"
+        );
+
+        let q = Query {
+            filter: f,
+            agg: Agg::SumI32(ALT),
+        };
+        let remap = &fx.foreign_lanes[usize::from(foreign_lane.0)];
+        let foreign_lanes = [LaneRef::U32(remap)];
+        let mask_risc_foreign = lance_graph_mask_risc::Foreign {
+            planes: &[],
+            lanes: &foreign_lanes,
+        };
+        for (label, program) in [
+            ("in place", lower(&q).expect("lowers in place")),
+            ("fused", lower_fused(&q).expect("lowers fused")),
+        ] {
+            let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
+            let value = fx.with_planes(&[], |planes| {
+                lance_graph_mask_risc::execute_into(
+                    &program,
+                    planes,
+                    &mask_risc_foreign,
+                    &mut scratch,
+                    lance_graph_mask_risc::Out::None,
+                )
+                .expect("runs")
+            });
+            assert_eq!(value, Value::SumI64(expected), "{label}: value");
+        }
+    }
+
+    /// FAILS IF: `Filter::Semijoin` disagrees with an independent per-row
+    /// reading (the oracle's `Semijoin` arm), in EITHER lowering — a
+    /// two-table shape: `CLASS` is the fk into a 5-row foreign RESIDENT
+    /// plane whose kept mask selects classes `{1, 3}`. Anti-vacuity: the
+    /// semijoin alone is selective (neither 0 nor every row), and composing
+    /// it with `AND` narrows further still.
+    #[test]
+    fn semijoin_matches_an_independent_per_row_reading() {
+        let mut fx = Fx::new(N);
+        let foreign_rows = 5usize;
+        let foreign_bits = plane(foreign_rows, |r| r == 1 || r == 3);
+        let foreign = fx.push_foreign(foreign_bits.clone(), foreign_rows);
+
+        let bare = Filter::semijoin(CLASS, foreign);
+        let bare_expected = fx.rows(&bare).len();
+        assert!(
+            bare_expected > 0 && bare_expected < N,
+            "the bare semijoin selects {bare_expected}/{N} — not selective"
+        );
+
+        let f = Filter::and([Filter::cmp(VALS, Cmp::GtI32(0)), bare.clone()]);
+        let expected: i64 = (0..fx.n())
+            .filter(|&r| fx.oracle(&f, r))
+            .map(|r| i64::from(fx.alt[r]))
+            .sum();
+        let narrowed = fx.rows(&f).len();
+        assert!(
+            narrowed > 0 && narrowed < bare_expected,
+            "composing with AND must narrow: {narrowed} vs {bare_expected}"
+        );
+
+        let q = Query {
+            filter: f,
+            agg: Agg::SumI32(ALT),
+        };
+        let mask_risc_foreign = lance_graph_mask_risc::Foreign {
+            planes: &[lance_graph_mask_risc::ForeignPlane {
+                words: &foreign_bits,
+                rows: foreign_rows,
+            }],
+            lanes: &[],
+        };
+        for (label, program) in [
+            ("in place", lower(&q).expect("lowers in place")),
+            ("fused", lower_fused(&q).expect("lowers fused")),
+        ] {
+            let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
+            let value = fx.with_planes(&[], |planes| {
+                lance_graph_mask_risc::execute_into(
+                    &program,
+                    planes,
+                    &mask_risc_foreign,
+                    &mut scratch,
+                    lance_graph_mask_risc::Out::None,
+                )
+                .expect("runs")
+            });
+            assert_eq!(value, Value::SumI64(expected), "{label}: value");
+        }
+    }
+
+    /// FAILS IF: `Agg::ScatterOrU32` disagrees with an independent per-row
+    /// reading — CLASS is the fk, out_rows = 5 (the same "foreign" row
+    /// space, addressed as a plain OWNED `Out::Mask` this time, not a
+    /// foreign read). Anti-vacuity: the scattered mask is neither empty nor
+    /// full, and more rows survive the filter than bits end up set (a real
+    /// union of repeats — CLASS only takes 5 values over 1000 rows).
+    #[test]
+    fn scatter_or_u32_matches_an_independent_per_row_reading() {
+        let fx = Fx::new(N);
+        let out_rows = 5u32;
+        let f = Filter::cmp(VALS, Cmp::GtI32(0));
+        let selected = fx.rows(&f);
+        assert!(!selected.is_empty() && selected.len() < N);
+
+        let mut want = vec![0u64; words_for(out_rows as usize)];
+        for &r in &selected {
+            let idx = fx.classes[r] as usize;
+            if idx < out_rows as usize {
+                want[idx / 64] |= 1u64 << (idx % 64);
+            }
+        }
+        let want_bits: u32 = want.iter().map(|w| w.count_ones()).sum();
+        assert!(
+            want_bits > 0 && (selected.len() as u32) > want_bits,
+            "expected a real union of repeats: {} rows -> {want_bits} bits",
+            selected.len()
+        );
+
+        let q = Query {
+            filter: f,
+            agg: Agg::ScatterOrU32 {
+                fk: CLASS,
+                out_rows,
+            },
+        };
+        let program = lower(&q).expect("lowers");
+        let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
+        let mut got = vec![0u64; words_for(out_rows as usize)];
+        let value = fx.with_planes(&[], |planes| {
+            lance_graph_mask_risc::execute_into(
+                &program,
+                planes,
+                &lance_graph_mask_risc::Foreign::NONE,
+                &mut scratch,
+                lance_graph_mask_risc::Out::Mask(&mut got),
+            )
+            .expect("runs")
+        });
+        assert_eq!(value, Value::Scattered);
+        assert_eq!(got, want);
+    }
+
+    /// FAILS IF: `Agg::GroupSumI32` disagrees with an independent per-row
+    /// reading. `groups = 3` while `CLASS` ranges `0..5`, so classes 3 and 4
+    /// are DROPPED — exercised deliberately, not incidentally.
+    #[test]
+    fn group_sum_i32_matches_an_independent_per_row_reading() {
+        let fx = Fx::new(N);
+        let groups = 3usize;
+        let f = Filter::cmp(VALS, Cmp::GtI32(-50));
+        let selected = fx.rows(&f);
+        assert!(!selected.is_empty() && selected.len() < N);
+        let dropped = selected.iter().any(|&r| fx.classes[r] as usize >= groups);
+        assert!(dropped, "the fixture never drops a key at all");
+
+        let mut want = vec![0i64; groups];
+        for &r in &selected {
+            let k = fx.classes[r] as usize;
+            if k < groups {
+                want[k] = want[k].wrapping_add(i64::from(fx.alt[r]));
+            }
+        }
+        let distinct: std::collections::HashSet<i64> = want.iter().copied().collect();
+        assert!(distinct.len() > 1, "every group summed to the same value");
+
+        let q = Query {
+            filter: f,
+            agg: Agg::GroupSumI32 {
+                key: CLASS,
+                val: ALT,
+            },
+        };
+        let program = lower(&q).expect("lowers");
+        let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
+        let mut got = vec![0i64; groups];
+        let value = fx.with_planes(&[], |planes| {
+            lance_graph_mask_risc::execute_into(
+                &program,
+                planes,
+                &lance_graph_mask_risc::Foreign::NONE,
+                &mut scratch,
+                lance_graph_mask_risc::Out::I64(&mut got),
+            )
+            .expect("runs")
+        });
+        assert_eq!(value, Value::GroupSummed);
+        assert_eq!(got, want);
+    }
+
+    /// FAILS IF: `Agg::GroupSumViaI32` disagrees with an independent per-row
+    /// reading. `CLASS` is the fk into a 4-row foreign table (shorter than
+    /// `CLASS`'s own `0..5` range, so class 4 drops at the FIRST hop); its
+    /// `remap` lane resolves to `0..4`, while `groups = 3` drops some
+    /// resolved keys at the SECOND hop. Both drop kinds are exercised
+    /// deliberately, alongside negatives in the summed lane.
+    #[test]
+    fn group_sum_via_i32_matches_an_independent_per_row_reading() {
+        let mut fx = Fx::new(N);
+        let remap = vec![0u32, 3, 1, 3];
+        let foreign_rows = remap.len();
+        let foreign_lane = fx.push_foreign_lane(remap);
+
+        let f = Filter::cmp(VALS, Cmp::GtI32(-50));
+        let selected = fx.rows(&f);
+        assert!(!selected.is_empty() && selected.len() < N);
+
+        let groups = 3usize;
+        let remap = &fx.foreign_lanes[usize::from(foreign_lane.0)];
+        let mut want = vec![0i64; groups];
+        let mut first_hop_dropped = false;
+        let mut second_hop_dropped = false;
+        for &r in &selected {
+            let fk = fx.classes[r] as usize;
+            if fk >= foreign_rows {
+                first_hop_dropped = true;
+                continue;
+            }
+            let k = remap[fk] as usize;
+            if k >= groups {
+                second_hop_dropped = true;
+                continue;
+            }
+            want[k] = want[k].wrapping_add(i64::from(fx.alt[r]));
+        }
+        assert!(
+            first_hop_dropped,
+            "the fixture never drops at the first hop"
+        );
+        assert!(
+            second_hop_dropped,
+            "the fixture never drops at the second hop"
+        );
+        let distinct: std::collections::HashSet<i64> = want.iter().copied().collect();
+        assert!(distinct.len() > 1, "every group summed to the same value");
+
+        let q = Query {
+            filter: f,
+            agg: Agg::GroupSumViaI32 {
+                fk: CLASS,
+                key: foreign_lane,
+                val: ALT,
+            },
+        };
+        let program = lower(&q).expect("lowers");
+        let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
+        let mut got = vec![0i64; groups];
+        let foreign_lanes = [LaneRef::U32(remap)];
+        let mask_risc_foreign = lance_graph_mask_risc::Foreign {
+            planes: &[],
+            lanes: &foreign_lanes,
+        };
+        let value = fx.with_planes(&[], |planes| {
+            lance_graph_mask_risc::execute_into(
+                &program,
+                planes,
+                &mask_risc_foreign,
+                &mut scratch,
+                lance_graph_mask_risc::Out::I64(&mut got),
+            )
+            .expect("runs")
+        });
+        assert_eq!(value, Value::GroupSummed);
+        assert_eq!(got, want);
+    }
 }
 
 /// D-DIAMOND-1 R2 — the witnessed prefix lowering, differential against the
@@ -2418,8 +3034,7 @@ mod diamond_lowering_tests {
     use lance_graph_contract::facet::FacetCascade;
     use lance_graph_contract::ordered_lane::WitnessError;
     use lance_graph_mask_risc::{
-        execute, materialize_rows, scratch_words_for, words_for, LaneRef, Operand, Planes, Scratch,
-        Value,
+        execute_into, materialize_rows, words_for, Foreign, LaneRef, Out, Planes, Scratch, Value,
     };
 
     const LANE: Col = Col(0); // provenance only
@@ -2498,15 +3113,20 @@ mod diamond_lowering_tests {
                 masks: &masks,
                 lanes: &lanes,
             };
-            let words = words_for(self.n());
-            let slots = program.scratch_slots as usize;
-            let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-            let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
-            let mask = match execute(&program, &planes, &mut scratch, None).expect("runs") {
-                Value::Mask(Operand::Scratch(i)) => scratch.slot(i).expect("written").to_vec(),
-                Value::Mask(Operand::Plane(p)) => planes.masks[usize::from(p)].to_vec(),
+            let mut scratch = Scratch::for_program(&program, self.n()).expect("carves");
+            let mut mask = vec![0u64; words_for(self.n())];
+            match execute_into(
+                &program,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                Out::Mask(&mut mask),
+            )
+            .expect("runs")
+            {
+                Value::Mask(_) => {}
                 other => panic!("not a mask: {other:?}"),
-            };
+            }
             materialize_rows(&mask, self.n())
         }
 
