@@ -1437,27 +1437,36 @@ mod tests {
         let mut found = Vec::new();
         for src in CRATE_SOURCES {
             let production = src.split("#[cfg(test)]").next().unwrap_or("");
-            for line in production.lines() {
-                let t = line.trim_start();
+            // Read each signature WHOLE, up to its body: a `pub fn` whose
+            // parameters wrap onto several lines carries its `->` on a later
+            // line, and a guard that reads the first line alone cannot see
+            // it (`reference_scratch_with_foreign` escaped exactly so).
+            for decl in production.split("pub fn ").skip(1) {
+                let sig = decl.split('{').next().unwrap_or("");
                 // ANY owning collection RETURN, not just `Vec<usize>`: the
                 // oracle's arena copy is a `Vec<Vec<u64>>`, and a guard that
                 // greps the one shape it knows cannot see the next one. Split
                 // on the arrow so a `Vec` PARAMETER is not read as a return.
-                let returns = t.split("->").nth(1).unwrap_or("");
-                if t.starts_with("pub fn ") && returns.contains("Vec<") {
-                    let name = t
-                        .strip_prefix("pub fn ")
-                        .and_then(|r| r.split('(').next())
-                        .unwrap_or(t);
+                let returns = sig.split("->").nth(1).unwrap_or("");
+                if returns.contains("Vec<") {
+                    let name = sig.split('(').next().unwrap_or(sig).trim();
                     found.push(name.to_string());
                 }
             }
         }
-        // `reference_scratch` is the ONE written-down exemption: the oracle
-        // must hold its own unpacked reading of the arena, because an oracle
+        // `reference_scratch` / `reference_scratch_with_foreign` are the ONE
+        // written-down exemption in its two entry shapes: the oracle must
+        // hold its own unpacked reading of the arena, because an oracle
         // sharing the executor's bit packing could not falsify a packing bug
-        // (law L4). Named here so the guard SEES it.
-        assert_eq!(found, ["materialize_rows", "reference_scratch"]);
+        // (law L4). Named here so the guard SEES them.
+        assert_eq!(
+            found,
+            [
+                "materialize_rows",
+                "reference_scratch",
+                "reference_scratch_with_foreign"
+            ]
+        );
     }
 
     /// FAILS IF: `materialize_rows` reads phantom bits past `n_rows` or
