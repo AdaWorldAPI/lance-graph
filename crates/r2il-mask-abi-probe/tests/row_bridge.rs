@@ -50,11 +50,12 @@
 //! # What is implemented, and what is refused BY NAME
 //!
 //! Of the twelve `0xE2..=0xED` fold-band opcodes: **`VIA`** (the join-key
-//! address constructor) and **`SUM`** (the reduction this file's three
-//! frontends actually need) are wired. The other ten — `RANGE`, `MIN`,
-//! `MAX`, `GROUP_SUM`, `KEY_RUNS`, `ANY`, `ALL`, `KEEP`, `SCATTER_OR`,
-//! `BLEND` — are refused as [`FoldError::Unimplemented`], named individually
-//! in the refusal, never silently coerced into one of the two that exist.
+//! address constructor), **`SUM`** (scalar reduction), and **`GROUP_SUM`**
+//! (one keyed scatter-reduction selecting direct vs VIA addressing from the
+//! key operand) are wired. The other nine — `RANGE`, `MIN`, `MAX`,
+//! `KEY_RUNS`, `ANY`, `ALL`, `KEEP`, `SCATTER_OR`, `BLEND` — are
+//! refused as [`FoldError::Unimplemented`], named individually
+//! in the refusal, never silently coerced into one of the three that exist.
 //! Landing any of them without its own falsifier would be the same enum-
 //! explosion `ogar_r2il`'s own `ARITY` doc warns against ("a first draft…
 //! invented nine variants from memory").
@@ -95,13 +96,18 @@
 //! fits in `NUMBER`'s 0..=255, so `CONSTANT` is left as one more
 //! `Unimplemented` byte, not a gap load-bearing for anything below.
 //!
-//! **Deviation from the W1b spec's literal `FoldDialect` shape:** the spec
-//! lists a `group_sink: Vec<i64>` field "sized by `groups` at construction".
-//! It is intentionally OMITTED here: `GROUP_SUM` is one of the ten refused
-//! ops, so nothing ever writes to it, and an unused field fails
-//! `cargo clippy -- -D warnings` (`dead_code`) in this crate's gate. It is
-//! not a functional gap — reintroducing it is exactly the work of landing
-//! `GROUP_SUM` for real, with its own falsifier, per the rule above.
+//! **W1d scheduler seed — forest → grouped fold.** `GROUP_SUM` is now the
+//! first deliberately horizontal fold in this probe. Sixteen independent
+//! bodies of the form `SUM(value WHERE active && key == k)` are the
+//! Rayon-shaped forest: sixteen programs, each repeating the same population
+//! walk. The grouped spelling keeps the shared predicate once and passes the
+//! key ADDRESS to one `GROUP_SUM`; mask-risc lowers that to
+//! `masked_group_sum_i32` (or `_via`) and writes one small group sink.
+//! The test below pins identical per-group answers while reducing 16 programs
+//! to 1 and 48 primitive stages (2 predicate ops + 1 terminal per group) to
+//! 2 (1 shared predicate + 1 grouped terminal). This is semantic scheduling:
+//! combine by algebra first, dispatch afterward. No population bitmap is
+//! introduced by the scheduler itself.
 //!
 //! # MEASURED GAP: a branch on a population is DETECTABLE, not ABORTABLE
 //!
@@ -202,7 +208,7 @@ use ogar_loco::vocabulary::conformance::validate;
 use ogar_loco::{
     Call, Dialect, FnIndex, FunctionBody, Interpreter, LaneShape, Program as LocoProgram,
 };
-use ogar_r2il::{R2ILVocabulary, R2IL_BASE, SUM, VIA};
+use ogar_r2il::{GROUP_SUM, R2ILVocabulary, R2IL_BASE, SUM, VIA};
 
 // ── allocation counter — THREAD-LOCAL, not global ──────────────────────────
 //
@@ -400,6 +406,10 @@ struct FoldDialect<'p> {
     /// property `the_dialect_side_allocates_nothing_proportional_to_rows`
     /// pins.
     scratch: Vec<u64>,
+    /// Caller-owned grouped result sink. Empty for the scalar-only frontends;
+    /// sized once by `with_groups` for `GROUP_SUM`. Its width is the group
+    /// universe K, never the row population N.
+    group_sink: Vec<i64>,
     /// Total `MaskOp`s across every finalized program this dialect has run —
     /// the "physical facade passes" measurement.
     facade_passes: usize,
@@ -427,10 +437,19 @@ impl<'p> FoldDialect<'p> {
             next_slot: 0,
             epoch: 0,
             scratch: vec![0u64; cap],
+            group_sink: Vec::new(),
             facade_passes: 0,
             programs_run: 0,
             poison: Cell::new(None),
         }
+    }
+
+    /// Same dialect, with one caller-owned grouped sink of width `groups`.
+    /// The sink is O(K), not O(N): it is the demanded GROUP BY result.
+    fn with_groups(planes: &'p Planes<'p>, foreign: &'p Foreign<'p>, groups: usize) -> Self {
+        let mut d = Self::new(planes, foreign);
+        d.group_sink = vec![0i64; groups];
+        d
     }
 
     /// The population-branch poison flag, if [`Dialect::truthy`] ever set
@@ -518,9 +537,7 @@ impl<'p> FoldDialect<'p> {
         self.next_slot = 0;
         // The logical namespace ends HERE, not after successful execution.
         // Once numeric slot allocation may restart at zero, every SlotRef
-        // minted for the previous program is stale. Advancing only on success
-        // would reopen the ABA hole after a validation/runtime refusal if the
-        // dialect were reused.
+        // minted for the previous program is stale.
         self.epoch = self
             .epoch
             .checked_add(1)
@@ -545,6 +562,36 @@ impl<'p> FoldDialect<'p> {
             Value::Count(n) => Ok(i64::try_from(n).unwrap_or(i64::MAX)),
             Value::SumI64(n) => Ok(n),
             other => panic!("terminal shape guarantees Count or SumI64, got {other:?}"),
+        }
+    }
+
+    /// Finalize one grouped fold into the caller-owned O(K) sink. This is
+    /// deliberately separate from `finalize_and_run`: GROUP_SUM demands an
+    /// `Out::I64`, while scalar reducers demand no output buffer.
+    fn finalize_and_run_group(&mut self, terminal: Terminal) -> Result<(), FoldError> {
+        let ops = std::mem::take(&mut self.ops);
+        self.next_slot = 0;
+        self.epoch = self
+            .epoch
+            .checked_add(1)
+            .expect("one interpreter run cannot exhaust u64 fold epochs");
+        self.facade_passes += ops.len();
+        self.programs_run += 1;
+        let program = Program::new(ops, terminal);
+        let words = tile_words_for(self.planes.n_rows);
+        let mut scratch = Scratch::over(&mut self.scratch, words, program.scratch_slots as usize)
+            .map_err(FoldError::Exec)?;
+        let value = execute_into(
+            &program,
+            self.planes,
+            self.foreign,
+            &mut scratch,
+            Out::I64(&mut self.group_sink),
+        )
+        .map_err(FoldError::Exec)?;
+        match value {
+            Value::GroupSummed => Ok(()),
+            other => panic!("GROUP_SUM terminal shape guarantees GroupSummed, got {other:?}"),
         }
     }
 }
@@ -795,6 +842,37 @@ impl Dialect for FoldDialect<'_> {
                 stack.push(Val::Scalar(n));
                 Ok(())
             }
+            GROUP_SUM => {
+                // Stack spelling: mask, key-address, value-address. The SAME
+                // byte chooses the physical terminal from the key address:
+                // resident U32 -> GroupSumI32; VIA -> GroupSumViaI32.
+                let val = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let key = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let mask = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let Val::Slot(slot) = mask else {
+                    return Err(FoldError::WrongOperandKind(f));
+                };
+                let mask = self.scratch_operand(slot)?;
+                let Val::Address(Addr::Lane {
+                    idx: val,
+                    kind: LaneKind::I32,
+                }) = val
+                else {
+                    return Err(FoldError::WrongOperandKind(f));
+                };
+                let terminal = match key {
+                    Val::Address(Addr::Lane {
+                        idx: key,
+                        kind: LaneKind::U32,
+                    }) => Terminal::GroupSumI32 { mask, key, val },
+                    Val::Address(Addr::Via { fk, key }) => {
+                        Terminal::GroupSumViaI32 { mask, fk, key, val }
+                    }
+                    _ => return Err(FoldError::WrongOperandKind(f)),
+                };
+                self.finalize_and_run_group(terminal)?;
+                Ok(())
+            }
             other => Err(FoldError::Unimplemented(other)),
         }
     }
@@ -921,6 +999,97 @@ impl LedgerTables {
     }
 }
 
+/// W1d fixture: one active flag, one direct group key, one VIA spelling of
+/// the SAME key, and one signed value. Direct and VIA therefore have an
+/// identical oracle while exercising different address kinds.
+struct GroupTables {
+    active: Vec<u32>,
+    direct_key: Vec<u32>,
+    fk: Vec<u32>,
+    value: Vec<i32>,
+    foreign_key: Vec<u32>,
+}
+
+const GROUPS: usize = 16;
+
+impl GroupTables {
+    fn seeded(n: usize, foreign_rows: usize, seed: u64) -> Self {
+        let mut s = seed;
+        let foreign_key: Vec<u32> = (0..foreign_rows)
+            .map(|i| {
+                // Some valid foreign rows deliberately resolve outside the
+                // group universe, exercising the second-hop drop.
+                if i % 11 == 0 {
+                    GROUPS as u32 + 3
+                } else {
+                    (lcg(&mut s) % GROUPS as u64) as u32
+                }
+            })
+            .collect();
+        let fk: Vec<u32> = (0..n)
+            .map(|i| {
+                // Some rows deliberately address no foreign row, exercising
+                // the first-hop VIA drop.
+                if i % 13 == 0 {
+                    foreign_rows as u32 + 5
+                } else {
+                    (lcg(&mut s) % foreign_rows as u64) as u32
+                }
+            })
+            .collect();
+        // Encode the SAME drop semantics in the direct lane: invalid first
+        // hop or invalid resolved key becomes an out-of-universe direct key.
+        let direct_key = fk
+            .iter()
+            .map(|&addr| {
+                foreign_key
+                    .get(addr as usize)
+                    .copied()
+                    .filter(|&k| (k as usize) < GROUPS)
+                    .unwrap_or(GROUPS as u32 + 7)
+            })
+            .collect();
+        let active = (0..n)
+            .map(|_| if lcg(&mut s) & 1 != 0 { 1 } else { 0 })
+            .collect();
+        let value = (0..n)
+            .map(|_| (lcg(&mut s) % 401) as i32 - 200)
+            .collect();
+        Self {
+            active,
+            direct_key,
+            fk,
+            value,
+            foreign_key,
+        }
+    }
+
+    fn lanes(&self) -> [LaneRef<'_>; 4] {
+        [
+            LaneRef::U32(&self.active),    // idx0
+            LaneRef::U32(&self.direct_key), // idx1
+            LaneRef::U32(&self.fk),        // idx2
+            LaneRef::I32(&self.value),     // idx3
+        ]
+    }
+
+    fn foreign_lanes(&self) -> [LaneRef<'_>; 1] {
+        [LaneRef::U32(&self.foreign_key)]
+    }
+
+    fn oracle(&self) -> Vec<i64> {
+        let mut out = vec![0i64; GROUPS];
+        for ((&active, &key), &value) in self.active.iter().zip(&self.direct_key).zip(&self.value) {
+            if active == 1 {
+                if let Some(slot) = out.get_mut(key as usize) {
+                    *slot += i64::from(value);
+                }
+            }
+        }
+        out
+    }
+}
+
 /// Runs a native `quack::lower`-produced mask-risc [`Program`] directly
 /// (never through loco) — the "native path" comparator this file's
 /// correctness tests check the loco-carried result against.
@@ -1022,6 +1191,67 @@ fn frontend_c() -> LocoProgram {
     }
 }
 
+/// One grouped fold over the resident key lane.
+fn frontend_group_sum_direct() -> LocoProgram {
+    let calls = [
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(FnIndex::NUMBER, 0), // active idx0
+        Call::with_value(LOAD, 0),
+        Call::new(INT_EQUAL),                 // -> mask
+        Call::with_value(FnIndex::NUMBER, 1), // direct key idx1
+        Call::with_value(LOAD, 0),
+        Call::with_value(FnIndex::NUMBER, 3), // value idx3
+        Call::with_value(LOAD, 1),
+        Call::new(GROUP_SUM),
+    ];
+    let body = FunctionBody::from_calls(LaneShape::Quads, &calls).expect("9 calls fit Quads");
+    LocoProgram {
+        functions: vec![body],
+    }
+}
+
+/// Same grouped fold, but the key address is `foreign_key[fk[i]]`.
+fn frontend_group_sum_via() -> LocoProgram {
+    let calls = [
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(FnIndex::NUMBER, 0), // active idx0
+        Call::with_value(LOAD, 0),
+        Call::new(INT_EQUAL),                 // -> mask
+        Call::with_value(FnIndex::NUMBER, 0), // foreign key idx0
+        Call::with_value(FnIndex::NUMBER, 2), // fk idx2
+        Call::new(VIA),
+        Call::with_value(FnIndex::NUMBER, 3), // value idx3
+        Call::with_value(LOAD, 1),
+        Call::new(GROUP_SUM),
+    ];
+    let body = FunctionBody::from_calls(LaneShape::Quads, &calls).expect("10 calls fit Quads");
+    LocoProgram {
+        functions: vec![body],
+    }
+}
+
+/// One member of the unfused forest: `SUM(value WHERE active && key == k)`.
+fn frontend_group_sum_forest_member(k: u8) -> LocoProgram {
+    let calls = [
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(FnIndex::NUMBER, 0),
+        Call::with_value(LOAD, 0),
+        Call::new(INT_EQUAL),
+        Call::with_value(FnIndex::NUMBER, k),
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(LOAD, 0),
+        Call::new(INT_EQUAL),
+        Call::new(INT_AND),
+        Call::with_value(FnIndex::NUMBER, 3),
+        Call::with_value(LOAD, 1),
+        Call::new(SUM),
+    ];
+    let body = FunctionBody::from_calls(LaneShape::Quads, &calls).expect("12 calls fit Quads");
+    LocoProgram {
+        functions: vec![body],
+    }
+}
+
 /// Runs one loco body to completion through a fresh [`FoldDialect`] and
 /// returns the final loco stack — for tests that only need the RESULT, not
 /// the measurement fields [`RunStats`] carries.
@@ -1043,6 +1273,8 @@ struct RunStats {
     facade_passes: usize,
     /// How many folds actually finalized-and-ran.
     programs_run: usize,
+    /// O(K) grouped sink, empty for frontends that did not request GROUP_SUM.
+    group_sink: Vec<i64>,
     /// [`FoldDialect::poison`], read after the run completed.
     poison: Option<FoldError>,
 }
@@ -1064,6 +1296,28 @@ fn run_frontend_with_stats(
         stack: it.stack().to_vec(),
         facade_passes: d.facade_passes,
         programs_run: d.programs_run,
+        group_sink: d.group_sink.clone(),
+        poison: d.poison(),
+    })
+}
+
+/// Run a body with a demanded GROUP_SUM sink of width `groups`.
+fn run_group_frontend_with_stats(
+    body: &LocoProgram,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    groups: usize,
+) -> Result<RunStats, ogar_loco::RunError<FoldError>> {
+    let vocab = validate(R2ILVocabulary).expect("R2ILVocabulary conforms");
+    let dialect = FoldDialect::with_groups(planes, foreign, groups);
+    let mut it = Interpreter::new(&vocab, body, dialect);
+    it.run()?;
+    let d = it.dialect();
+    Ok(RunStats {
+        stack: it.stack().to_vec(),
+        facade_passes: d.facade_passes,
+        programs_run: d.programs_run,
+        group_sink: d.group_sink.clone(),
         poison: d.poison(),
     })
 }
@@ -1397,6 +1651,80 @@ fn the_mathcad_case_runs_two_folds_and_subtracts_them() {
     );
 }
 
+/// W1d scheduler seed: prove that a forest of independent per-key folds is
+/// the same mathematics as ONE keyed grouped fold, and that the SAME
+/// `GROUP_SUM` byte selects direct vs VIA addressing from its key operand.
+///
+/// The pass count includes each program's terminal as one primitive stage:
+/// a forest member is 2 predicate ops + SUM = 3; sixteen members = 48.
+/// The grouped form is 1 shared predicate + GROUP_SUM = 2.
+#[test]
+fn group_sum_collapses_a_sixteen_fold_forest_and_selects_direct_or_via() {
+    let t = GroupTables::seeded(4096, 47, 0x1258);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: t.active.len(),
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    let expect = t.oracle();
+
+    let direct = run_group_frontend_with_stats(
+        &frontend_group_sum_direct(),
+        &planes,
+        &foreign,
+        GROUPS,
+    )
+    .expect("direct GROUP_SUM runs");
+    let via =
+        run_group_frontend_with_stats(&frontend_group_sum_via(), &planes, &foreign, GROUPS)
+            .expect("VIA GROUP_SUM runs");
+
+    assert!(direct.stack.is_empty(), "GROUP_SUM is a write terminal, no push");
+    assert!(via.stack.is_empty(), "GROUP_SUM is a write terminal, no push");
+    assert_eq!(direct.group_sink, expect, "direct grouped result");
+    assert_eq!(via.group_sink, expect, "VIA grouped result");
+    assert_eq!(direct.programs_run, 1);
+    assert_eq!(via.programs_run, 1);
+    assert_eq!(direct.facade_passes, 1, "one shared active predicate");
+    assert_eq!(via.facade_passes, 1, "same shared predicate; VIA lives in terminal");
+
+    let mut forest = Vec::with_capacity(GROUPS);
+    let mut forest_ops = 0usize;
+    let mut forest_programs = 0usize;
+    for k in 0..GROUPS {
+        let stats = run_frontend_with_stats(
+            &frontend_group_sum_forest_member(k as u8),
+            &planes,
+            &foreign,
+        )
+        .expect("forest member runs");
+        let [Val::Scalar(sum)] = stats.stack.as_slice() else {
+            panic!("one SUM fold must leave exactly one scalar");
+        };
+        forest.push(*sum);
+        forest_ops += stats.facade_passes;
+        forest_programs += stats.programs_run;
+    }
+    assert_eq!(forest, expect, "sixteen scalar folds equal one grouped fold");
+
+    let forest_stages = forest_ops + forest_programs;
+    let grouped_stages = direct.facade_passes + direct.programs_run;
+    assert_eq!(forest_programs, GROUPS, "one program per key in the forest");
+    assert_eq!(forest_ops, GROUPS * 2, "two predicate ops per forest member");
+    assert_eq!(forest_stages, GROUPS * 3, "predicate + predicate + SUM");
+    assert_eq!(grouped_stages, 2, "shared predicate + GROUP_SUM");
+    assert!(
+        expect.iter().filter(|&&x| x != 0).count() >= GROUPS / 2,
+        "anti-vacuity: fixture must populate many groups, got {expect:?}"
+    );
+}
+
 /// FAILS IF: a logical slot name can survive one finalized fold and then
 /// alias a newly-written slot with the same numeric id in the next fold.
 ///
@@ -1496,9 +1824,7 @@ fn a_stale_slot_cannot_alias_a_live_slot_in_the_next_fold_epoch() {
 /// leaves the old generation live.
 ///
 /// Execution success is irrelevant to slot identity. Once `next_slot` can
-/// restart at zero, a pre-boundary SlotRef must be stale, otherwise a caller
-/// that inspects/reuses the dialect after a refusal can recreate the same ABA
-/// alias as the successful-fold case.
+/// restart at zero, a pre-boundary SlotRef must be stale.
 #[test]
 fn a_failed_finalized_fold_still_ends_the_slot_epoch() {
     let t = Tables::seeded(64, 8, 29);
@@ -1521,8 +1847,6 @@ fn a_failed_finalized_fold_still_ends_the_slot_epoch() {
         unreachable!();
     };
 
-    // Replace the valid pending op with a deliberately invalid current
-    // program: it reads scratch 0 before any op writes it.
     d.ops.clear();
     d.ops.push(MaskOp::And {
         a: Operand::Scratch(0),
