@@ -62,7 +62,8 @@
 //! Of the R2IL band: `Load`, `IntSub` (scalar/scalar only — `Addr`/`Addr` is
 //! a NAMED refusal, not an omission), `IntAnd` (with the survivor-gating
 //! peephole), `IntEqual`, `IntSLess`, and `PopCount` are wired. `IntAdd` is
-//! refused as `Unimplemented` (nothing in the three frontends below needs
+//! refused as `Unimplemented` (nothing in the three frontend-SHAPED programs
+//! below needs
 //! it — the Mathcad case only ever SUBTRACTS two folds). `IntLess` and
 //! `IntSLessEqual`'s unsigned sibling `IntLessEqual` are refused by NAME as
 //! [`FoldError::NoUnsignedLaneCompare`], because mask-risc — this dialect's
@@ -70,9 +71,41 @@
 //! doc states this explicitly; it is the mechanical REASON the refusal
 //! exists, not a gap this file left open). `IntSLessEqual`, `IntNotEqual`,
 //! `IntOr`, `IntXor`, `IntNot` are untested and fall to the generic
-//! `Unimplemented` catch-all — none of the three frontends needs them, and
+//! `Unimplemented` catch-all — none of the three frontend-shaped programs
+//! needs them, and
 //! landing them ahead of a falsifier would be exactly the anti-pattern this
 //! doc already names twice.
+//!
+//! # What this file establishes, and two things it does NOT
+//!
+//! Stated because both were claimed more strongly than the code supports,
+//! and review caught them rather than a test (added 2026-09-22, post-#1258).
+//!
+//! **Established.** ONE checked R2IL vocabulary and ONE typed `Dialect`
+//! execute ordinary scalar R2IL operations and population folds in the SAME
+//! body, on one stack. `the_mathcad_case_runs_two_folds_and_subtracts_them`
+//! is the proof: two folds run (`programs_run == 2`), each returns a scalar
+//! at its fold boundary, and R2IL arithmetic continues over the results.
+//!
+//! **NOT established: that two classids are needed for that.** This file
+//! never touches `VocabularyRegistry`, `CONCEPT_R2IL_MACHINE` or
+//! `CONCEPT_R2IL_FOLD`; it calls `validate(R2ILVocabulary)` and nothing
+//! else. OGAR #306 mints those ids, and they may well be right as an
+//! ENTRY-POINT discriminator between the machine and folded readings of the
+//! same table — but scalar R2IL and folds coexisting inside one folded body
+//! demonstrably needs no cross-vocabulary call, because that is exactly what
+//! this file does without one. A body switching vocabularies mid-stream is
+//! unexercised here and may not be a seam this workload ever needs.
+//!
+//! **NOT established: that three FRONTENDS agree.** There are three
+//! hand-written byte programs in three frontend SHAPES. Only the
+//! quack-shaped one is checked against an independently executed oracle
+//! (`lance_graph_quack::lower` in the same test). `blockly_abi::
+//! lower_program_with_pool` is never invoked, and Mathcad is not a producer
+//! at all. The honest claim is that three program shapes execute through one
+//! dialect and one of them matches a native path bit-for-bit. Feeding real
+//! blockly-rs output through this dialect is the wave that would upgrade it,
+//! and it is blocked only on that repo not being present here.
 //!
 //! # Immediate ranges — one decode, so one range, stated exactly
 //!
@@ -85,7 +118,7 @@
 //! decodes as the same non-negative `i32`). This file never decodes a
 //! signed inline byte (no `as i8`, no two's-complement reinterpretation
 //! anywhere in [`FoldDialect::call`]), so every literal used by the three
-//! frontends and every test below (`V = 3`, `T = 17`, `POSTED = 2`, every
+//! frontend-shaped programs and every test below (`V = 3`, `T = 17`, `POSTED = 2`, every
 //! lane index, every `LOAD` space) is chosen to stay non-negative and under
 //! 256 — a real constraint this file ran into directly: seeing
 //! `gating_only_folds_the_last_ungated_pred`'s own doc comment for the
