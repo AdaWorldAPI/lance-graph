@@ -2657,16 +2657,7 @@ mod tests {
             "K=0 is not equivalent to GroupSumI32 with an empty sink"
         );
 
-        for agg in [
-            Agg::Count,
-            Agg::MinI32(ALT),
-            Agg::MaxI32(ALT),
-            Agg::Rows,
-            Agg::BlendI32 {
-                then: VALS,
-                els: ALT,
-            },
-        ] {
+        for agg in [Agg::Count, Agg::MinI32(ALT), Agg::MaxI32(ALT), Agg::Rows] {
             let unsupported = GroupBy {
                 filter: grouped.filter.clone(),
                 key: CLASS,
@@ -2679,16 +2670,35 @@ mod tests {
                     .is_none(),
                 "{agg:?} must stay on the old path until an exact grouped primitive exists"
             );
-
             assert!(
                 matches!(
                     lower_group_by_auto(&unsupported, filter_plane)
-                        .expect("fallback lowering succeeds"),
+                        .expect("valid fallback lowering succeeds"),
                     GroupLowering::Forest(_)
                 ),
                 "{agg:?} must remain executable as irreducible forest residue"
             );
         }
+
+        let invalid = GroupBy {
+            filter: grouped.filter.clone(),
+            key: CLASS,
+            groups,
+            agg: Agg::BlendI32 {
+                then: VALS,
+                els: ALT,
+            },
+        };
+        assert!(
+            lower_group_by_semantic(&invalid)
+                .expect("semantic pass merely declines Blend")
+                .is_none()
+        );
+        assert_eq!(
+            lower_group_by_auto(&invalid, filter_plane),
+            Err(LowerError::GroupedBlend),
+            "automatic scheduling must preserve the legacy invalid-shape refusal"
+        );
     }
 
     /// FAILS IF: an address prefix does not select a CONTIGUOUS row range, or
