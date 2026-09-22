@@ -311,13 +311,23 @@ enum Addr {
 /// A predicate-producing call pushes [`Val::Slot`], a scratch slot NAME, and
 /// nothing else in this file ever reaches for the population the slot
 /// addresses.
+/// A scratch-slot capability is valid only inside the fold epoch that minted
+/// it. Slot NUMBERS are deliberately reused from zero after every finalized
+/// fold; the epoch is what prevents an old logical name from becoming an ABA
+/// alias of a new slot with the same number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SlotRef {
+    slot: u16,
+    epoch: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Val {
     /// A number computed by the loco body — a literal, a comparison result,
     /// or a fold's finalized-and-executed answer.
     Scalar(i64),
     /// A scratch slot holding a mask, produced by a predicate or a mask op.
-    Slot(u16),
+    Slot(SlotRef),
     /// A resolved address — a lane or a join — not yet combined with a
     /// value into a predicate.
     Address(Addr),
@@ -347,6 +357,14 @@ enum FoldError {
     LaneVersusLane(FnIndex),
     /// `LOAD`'s own immediate named a space outside `{0=U32, 1=I32, 2=U64}`.
     UnknownLoadSpace(u8),
+    /// A scratch-slot NAME crossed a fold boundary. Numeric slot ids are
+    /// reused after every finalized fold, so accepting this would let an old
+    /// value silently alias a live slot in the next program.
+    StaleSlot {
+        slot: u16,
+        produced_epoch: u64,
+        current_epoch: u64,
+    },
     /// [`Dialect::truthy`] was asked to branch on a non-`Scalar` value — see
     /// the module doc's § MEASURED GAP. Set via [`FoldDialect::poison`],
     /// never returned directly (the trait cannot return an error here).
@@ -370,6 +388,10 @@ struct FoldDialect<'p> {
     /// The next unused scratch slot WITHIN the current `ops` accumulation.
     /// Reset to 0 every time a fold finalizes and runs.
     next_slot: u16,
+    /// Fold generation that makes a `Val::Slot` a capability rather than a
+    /// bare reusable integer. Incremented after every successful finalized
+    /// fold, exactly when `next_slot` is allowed to restart at zero.
+    epoch: u64,
     /// Caller-owned scratch for `Scratch::over`, allocated ONCE at
     /// construction to `scratch_words_for(tile_words_for(n_rows), MAX_SLOTS)`
     /// and carved fresh (never re-allocated) at every fold boundary — this
@@ -402,6 +424,7 @@ impl<'p> FoldDialect<'p> {
             foreign,
             ops: Vec::new(),
             next_slot: 0,
+            epoch: 0,
             scratch: vec![0u64; cap],
             facade_passes: 0,
             programs_run: 0,
@@ -416,17 +439,38 @@ impl<'p> FoldDialect<'p> {
     }
 
     /// The next unused scratch slot within the current `ops` accumulation,
-    /// advancing [`Self::next_slot`] by one.
-    fn fresh(&mut self) -> u16 {
-        let s = self.next_slot;
+    /// advancing [`Self::next_slot`] by one and tagging the name with the
+    /// current fold epoch.
+    fn fresh(&mut self) -> SlotRef {
+        let slot = self.next_slot;
         self.next_slot += 1;
-        s
+        SlotRef {
+            slot,
+            epoch: self.epoch,
+        }
+    }
+
+    /// Lower a logical slot name to mask-risc's physical scratch operand.
+    /// The executor intentionally knows only numeric slots inside ONE
+    /// `Program`; the dialect is therefore the boundary that must reject a
+    /// name carried across fold programs before numeric reuse can alias it.
+    fn scratch_operand(&self, s: SlotRef) -> Result<Operand, FoldError> {
+        if s.epoch != self.epoch {
+            return Err(FoldError::StaleSlot {
+                slot: s.slot,
+                produced_epoch: s.epoch,
+                current_epoch: self.epoch,
+            });
+        }
+        Ok(Operand::Scratch(s.slot))
     }
 
     /// Survivor gating (verbatim from W0C, restated over `Operand`): if `b`
     /// was produced by the op emitted LAST and that op is an ungated `Pred`,
     /// gate it under `a` instead of spending a facade pass on `And`.
-    fn and_peephole(&mut self, a: Operand, b: Operand) -> u16 {
+    fn and_peephole(&mut self, a: SlotRef, b: SlotRef) -> Result<SlotRef, FoldError> {
+        let a = self.scratch_operand(a)?;
+        let b = self.scratch_operand(b)?;
         if let (
             Operand::Scratch(bs),
             Some(MaskOp::Pred {
@@ -438,12 +482,19 @@ impl<'p> FoldDialect<'p> {
         {
             if *dst == bs {
                 *under = Some(a);
-                return bs;
+                return Ok(SlotRef {
+                    slot: bs,
+                    epoch: self.epoch,
+                });
             }
         }
         let dst = self.fresh();
-        self.ops.push(MaskOp::And { a, b, dst });
-        dst
+        self.ops.push(MaskOp::And {
+            a,
+            b,
+            dst: dst.slot,
+        });
+        Ok(dst)
     }
 
     /// Emit a predicate, push its scratch slot.
@@ -452,7 +503,7 @@ impl<'p> FoldDialect<'p> {
         self.ops.push(MaskOp::Pred {
             pred,
             under: None,
-            dst,
+            dst: dst.slot,
         });
         stack.push(Val::Slot(dst));
     }
@@ -470,8 +521,13 @@ impl<'p> FoldDialect<'p> {
         let words = tile_words_for(self.planes.n_rows);
         let mut scratch = Scratch::over(&mut self.scratch, words, program.scratch_slots as usize)
             .map_err(FoldError::Exec)?;
-        execute_into(&program, self.planes, self.foreign, &mut scratch, Out::None)
-            .map_err(FoldError::Exec)
+        let value = execute_into(&program, self.planes, self.foreign, &mut scratch, Out::None)
+            .map_err(FoldError::Exec)?;
+        self.epoch = self
+            .epoch
+            .checked_add(1)
+            .expect("one interpreter run cannot exhaust u64 fold epochs");
+        Ok(value)
     }
 
     /// [`Self::finalize_and_run`], asserting the terminal's known result
@@ -676,7 +732,7 @@ impl Dialect for FoldDialect<'_> {
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
                 match (a, b) {
                     (Val::Slot(sa), Val::Slot(sb)) => {
-                        let dst = self.and_peephole(Operand::Scratch(sa), Operand::Scratch(sb));
+                        let dst = self.and_peephole(sa, sb)?;
                         stack.push(Val::Slot(dst));
                         Ok(())
                     }
@@ -704,32 +760,32 @@ impl Dialect for FoldDialect<'_> {
                 let Val::Slot(s) = mask else {
                     return Err(FoldError::WrongOperandKind(f));
                 };
-                let n = self.finalize_and_run_scalar(Terminal::Count {
-                    mask: Operand::Scratch(s),
-                })?;
+                let mask = self.scratch_operand(s)?;
+                let n = self.finalize_and_run_scalar(Terminal::Count { mask })?;
                 stack.push(Val::Scalar(n));
                 Ok(())
             }
             SUM => {
                 let b = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
-                let (mask, lane) = match (a, b) {
+                let (slot, lane) = match (a, b) {
                     (
                         Val::Slot(s),
                         Val::Address(Addr::Lane {
                             idx,
                             kind: LaneKind::I32,
                         }),
-                    ) => (Operand::Scratch(s), idx),
+                    ) => (s, idx),
                     (
                         Val::Address(Addr::Lane {
                             idx,
                             kind: LaneKind::I32,
                         }),
                         Val::Slot(s),
-                    ) => (Operand::Scratch(s), idx),
+                    ) => (s, idx),
                     _ => return Err(FoldError::WrongOperandKind(f)),
                 };
+                let mask = self.scratch_operand(slot)?;
                 let n = self.finalize_and_run_scalar(Terminal::MaskedSumI32 { mask, lane })?;
                 stack.push(Val::Scalar(n));
                 Ok(())
@@ -1333,6 +1389,98 @@ fn the_mathcad_case_runs_two_folds_and_subtracts_them() {
     assert_eq!(
         stats.programs_run, 2,
         "two folds actually ran, not one fused program"
+    );
+}
+
+/// FAILS IF: a logical slot name can survive one finalized fold and then
+/// alias a newly-written slot with the same numeric id in the next fold.
+///
+/// The positive control matters: after the first fold resets `next_slot`,
+/// epoch 1 deliberately writes numeric slot 0 before using the stale epoch-0
+/// slot 0 as a gate for live slot 1. If the epoch check is removed, this is
+/// NOT a read-before-write shape: mask-risc sees slot 0 as genuinely written
+/// in the current program and accepts the numeric alias. The dialect must
+/// reject it before lowering to `Operand::Scratch(0)`.
+#[test]
+fn a_stale_slot_cannot_alias_a_live_slot_in_the_next_fold_epoch() {
+    let t = Tables::seeded(64, 8, 17);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: 64,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    let mut d = FoldDialect::new(&planes, &foreign);
+
+    // Epoch 0: mint slot 0, run a fold through it, but retain the logical
+    // name as the adversarial stale value.
+    let mut first = Vec::new();
+    d.emit_pred(Pred::GtI32 { lane: 1, t: 0 }, &mut first);
+    let Val::Slot(stale) = first.pop().expect("predicate pushes a slot") else {
+        unreachable!("emit_pred only pushes Val::Slot");
+    };
+    let first_mask = d.scratch_operand(stale).expect("fresh slot is current");
+    d.finalize_and_run_scalar(Terminal::Count { mask: first_mask })
+        .expect("first fold runs");
+    assert_eq!(d.epoch, 1, "a successful fold advances the generation");
+
+    // Epoch 1 writes numeric slot 0, then slot 1. This is the decisive ABA
+    // shape: the stale name's NUMBER is live in the current program.
+    let mut current = Vec::new();
+    d.emit_pred(Pred::GtI32 { lane: 1, t: 3 }, &mut current);
+    let Val::Slot(live0) = current.pop().expect("slot 0") else {
+        unreachable!();
+    };
+    d.emit_pred(Pred::LtI32 { lane: 1, t: 120 }, &mut current);
+    let Val::Slot(live1) = current.pop().expect("slot 1") else {
+        unreachable!();
+    };
+    assert_eq!(stale.slot, live0.slot, "numeric slot 0 is intentionally reused");
+    assert_ne!(
+        stale.epoch, live0.epoch,
+        "only the generation distinguishes the two logical names"
+    );
+
+    let mut combine = vec![Val::Slot(stale), Val::Slot(live1)];
+    let err = d
+        .call(INT_AND, [0; 3], &mut combine)
+        .expect_err("a stale logical name must be refused before lowering");
+    assert_eq!(
+        err,
+        FoldError::StaleSlot {
+            slot: stale.slot,
+            produced_epoch: stale.epoch,
+            current_epoch: live1.epoch,
+        }
+    );
+
+    // Positive control: model exactly what deleting the epoch check would
+    // lower. Because current epoch slot 0 has already been written, the
+    // executor's own read-before-write validator ACCEPTS the alias. That is
+    // why this guard belongs above mask-risc rather than inside Scratch.
+    let mut aliased_ops = d.ops.clone();
+    match aliased_ops.last_mut().expect("two current-epoch predicates") {
+        MaskOp::Pred { under, dst, .. } => {
+            assert_eq!(*dst, live1.slot);
+            *under = Some(Operand::Scratch(stale.slot));
+        }
+        other => panic!("expected trailing predicate, got {other:?}"),
+    }
+    let aliased = Program::new(
+        aliased_ops,
+        Terminal::Count {
+            mask: Operand::Scratch(live1.slot),
+        },
+    );
+    let mut scratch = Scratch::for_program(&aliased, planes.n_rows).expect("addressable");
+    assert!(
+        execute_into(&aliased, &planes, &foreign, &mut scratch, Out::None).is_ok(),
+        "numeric ABA is validator-clean once the reused slot was written this epoch"
     );
 }
 
