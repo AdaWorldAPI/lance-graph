@@ -1,7 +1,7 @@
 //! Cold, fallible ingestion. The output owns numeric columns; execution borrows
 //! them as the existing LaneRef. Dictionaries are lossless edge metadata.
 use crate::schema::{CatsSchema, FIELDS, FIELD_COUNT};
-use lance_graph_mask_risc::{words_for, LaneRef};
+use lance_graph_mask_risc::LaneRef;
 
 pub const EMPLOYEE: usize = 5;
 pub const WORK_DATE: usize = 9;
@@ -44,7 +44,6 @@ pub struct CatsBatch {
     pub schema: CatsSchema,
     columns: Vec<Column>,
     dictionaries: [Vec<String>; FIELD_COUNT],
-    alpha: Vec<u64>,
     len: usize,
     scale: u32,
 }
@@ -90,14 +89,18 @@ impl CatsBatch {
                     .collect::<Result<_, _>>()?;
                 scale = decimals.iter().map(|(_, s)| *s).max().unwrap_or(0);
                 let mut lane = Vec::with_capacity(len);
+                let mut total = 0i64;
                 for (coefficient, s) in decimals {
                     let scaled = coefficient
                         .checked_mul(10i128.pow(scale - s))
                         .ok_or_else(|| error("decimal overflow"))?;
-                    lane.push(
-                        i32::try_from(scaled)
-                            .map_err(|_| error("exact batch decimal scale exceeds I32 carrier"))?,
-                    );
+                    let value = i32::try_from(scaled)
+                        .map_err(|_| error("exact batch decimal scale exceeds I32 carrier"))?;
+                    // Hours are positive: bounding their total bounds every subset/group.
+                    total = total
+                        .checked_add(i64::from(value))
+                        .ok_or_else(|| error("batch hours exceed exact I64 sum"))?;
+                    lane.push(value);
                 }
                 Column::I32(lane)
             } else if f.native_type == "pernr_d" {
@@ -152,15 +155,10 @@ impl CatsBatch {
         columns.push(Column::I32(
             dates.iter().map(|v| (v / 1_000_000) as i32).collect(),
         ));
-        let mut alpha = vec![u64::MAX; words_for(len)];
-        if !len.is_multiple_of(64) {
-            *alpha.last_mut().unwrap() = (1u64 << (len % 64)) - 1;
-        }
         Ok(Self {
             schema,
             columns,
             dictionaries,
-            alpha,
             len,
             scale,
         })
@@ -173,9 +171,6 @@ impl CatsBatch {
     }
     pub fn scale(&self) -> u32 {
         self.scale
-    }
-    pub fn alpha(&self) -> &[u64] {
-        &self.alpha
     }
     pub fn lanes(&self) -> [LaneRef<'_>; FIELD_COUNT + 1] {
         std::array::from_fn(|i| self.columns[i].borrow())

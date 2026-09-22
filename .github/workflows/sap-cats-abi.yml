@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: AdaWorldAPI/ndarray
-          ref: master
+          ref: d0376505a47a817af72f5482e107359d946f956b # ndarray PR #318
           path: ndarray
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable

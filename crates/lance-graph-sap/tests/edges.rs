@@ -11,7 +11,9 @@ fn same_carrier_emits_totals_and_only_selected_original_bapi_assignments() {
     let batch = bind(&input);
     let mut query = CatsQuery::prepare(&batch, "00000042", "2026-09-01", "2026-09-30").unwrap();
     let mut sums = vec![0; query.groups()];
-    let kept = query.execute_into(&mut sums).unwrap();
+    query.execute_into(&mut sums).unwrap();
+    let mut kept = vec![0; batch.len().div_ceil(64)];
+    query.select_into(&mut kept).unwrap();
     let totals = activity_totals(&batch, &sums).unwrap();
     assert_eq!(
         totals,
@@ -20,7 +22,7 @@ fn same_carrier_emits_totals_and_only_selected_original_bapi_assignments() {
             hours: "17.0".into()
         }]
     );
-    let posted = bapi_sink(&batch, kept).unwrap();
+    let posted = bapi_sink(&batch, &kept).unwrap();
     assert_eq!(posted.len(), 2);
     assert_eq!(posted[0].hours, "8.5");
     assert_eq!(posted[0].workdate, "20260901");
@@ -79,7 +81,7 @@ fn unsupported_oracle_cases_fail_instead_of_claiming_equivalence() {
         assert!(ordered_hash_projection(&batch, 0, HashProfile::SmbMiddleware).is_err());
     }
     let batch = bind(&fixture(1));
-    assert!(bapi_sink(&batch, batch.alpha()).is_err());
+    assert!(bapi_sink(&batch, &[1]).is_err());
 }
 
 /// The BAPI order is a coordinate map over the canonical field identity —
@@ -122,7 +124,7 @@ fn bapi_order_is_a_permutation_over_canonical_field_identity() {
     input[20] = vec![Some("123456789012345678901234567890123456789012345678901234567890"); 3];
     input[7][2] = Some("WBS-2");
     let batch = bind(&input);
-    let posted = bapi_sink(&batch, batch.alpha()).unwrap();
+    let posted = bapi_sink(&batch, &[7]).unwrap();
     assert_eq!(posted.len(), 3);
     for (row, p) in posted.iter().enumerate() {
         let at = |o: usize| batch.edge_value(o, row).unwrap().unwrap_or_default();

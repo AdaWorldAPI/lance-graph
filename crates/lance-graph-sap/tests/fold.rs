@@ -1,6 +1,6 @@
 mod common;
 use common::*;
-use lance_graph_mask_risc::{reference_execute, Planes, Value};
+use lance_graph_mask_risc::{reference_execute_into, Foreign, Out, Planes, Terminal, Value};
 use lance_graph_sap::query::CatsQuery;
 
 #[test]
@@ -30,7 +30,15 @@ fn employee_date_activity_sum_matches_independent_oracle_across_word_tails() {
         let batch = bind(&input);
         let mut query = CatsQuery::prepare(&batch, "00000042", "2026-09-01", "2026-09-30").unwrap();
         let mut sums = vec![0; query.groups()];
-        let mask = query.execute_into(&mut sums).unwrap().to_vec(); // TEST-only copy for oracle
+        query.execute_into(&mut sums).unwrap();
+        assert!(matches!(
+            query.plan().terminal,
+            Terminal::GroupSumI32 { .. }
+        ));
+        assert!(
+            query.scratch_words() <= 64,
+            "scratch must stay tile-bounded"
+        );
         for (i, &sum) in sums.iter().enumerate() {
             let expected = match batch.activity_label(i as u32) {
                 Some("DEV") => expected_dev,
@@ -41,16 +49,32 @@ fn employee_date_activity_sum_matches_independent_oracle_across_word_tails() {
             assert_eq!(sum, expected, "n={n}, group={i}");
         }
         let lanes = batch.lanes();
-        let masks = [mask.as_slice()];
         let planes = Planes {
             n_rows: n,
-            masks: &masks,
+            masks: &[],
             lanes: &lanes,
         };
-        for (program, sum) in query.plan().groups.iter().zip(sums) {
+        let mut reference = vec![0; query.groups()];
+        assert_eq!(
+            reference_execute_into(
+                query.plan(),
+                &planes,
+                &Foreign::NONE,
+                Out::I64(&mut reference)
+            )
+            .unwrap(),
+            Value::GroupSummed
+        );
+        assert_eq!(sums, reference);
+        let first = sums.clone();
+        query.execute_into(&mut sums).unwrap();
+        assert_eq!(sums, first, "execution must reset the accumulated sink");
+        let mut mask = vec![0; n.div_ceil(64)];
+        query.select_into(&mut mask).unwrap();
+        for i in 0..n {
             assert_eq!(
-                reference_execute(program, &planes, None).unwrap(),
-                Value::SumI64(sum)
+                (mask[i / 64] >> (i % 64)) & 1 != 0,
+                i % 3 != 0 && i % 5 != 0
             );
         }
         let mut absent =

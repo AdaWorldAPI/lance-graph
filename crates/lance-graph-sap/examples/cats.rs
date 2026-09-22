@@ -16,14 +16,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let mut query = CatsQuery::prepare(&batch, "00000042", "2026-09-01", "2026-09-30")?;
     let mut sums = vec![0; query.groups()];
-    let kept = query
+    query
         .execute_into(&mut sums)
         .map_err(|e| format!("execution: {e:?}"))?;
+    let mut kept = vec![0; batch.len().div_ceil(64)];
+    query
+        .select_into(&mut kept)
+        .map_err(|e| format!("selection: {e:?}"))?;
     println!("Exact scale: {}", batch.scale());
     for total in activity_totals(&batch, &sums)? {
         println!("{} = {} hours", total.activity_type, total.hours);
     }
-    let records = bapi_sink(&batch, kept)?;
+    let records = bapi_sink(&batch, &kept)?;
     println!(
         "{}: {} selected original assignments",
         BAPI_FUNCTION,

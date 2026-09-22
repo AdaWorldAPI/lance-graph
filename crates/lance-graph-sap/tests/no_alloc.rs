@@ -36,7 +36,7 @@ fn the_entire_bound_query_allocates_zero_bytes() {
     let mut query = CatsQuery::prepare(&batch, "00000042", "2026-09-01", "2026-09-30").unwrap();
     let mut sums = vec![0; query.groups()];
     ACTIVE.with(|a| a.set(true));
-    let result = query.execute_into(&mut sums).map(|mask| mask.len());
+    let result = query.execute_into(&mut sums);
     ACTIVE.with(|a| a.set(false));
     assert!(result.is_ok());
     assert_eq!(COUNT.with(Cell::get), 0);

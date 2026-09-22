@@ -21,7 +21,6 @@ fn columns_borrow_without_copy_and_preserve_null_zero_empty_and_time() {
     assert_eq!(a.as_ptr(), b.as_ptr());
     assert_eq!(a[0], 8500);
     assert_eq!(a[1], 125);
-    assert_eq!(batch.alpha(), &[u64::MAX, 1]);
     assert_eq!(batch.edge_value(6, 0).unwrap(), None);
     assert_eq!(batch.edge_value(6, 1).unwrap().as_deref(), Some(""));
     assert_eq!(

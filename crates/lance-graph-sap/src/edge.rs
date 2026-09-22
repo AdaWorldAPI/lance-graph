@@ -169,7 +169,11 @@ pub const BAPI_FUNCTION: &str = "BAPI_CATIMESHEETMGR_INSERT";
 /// Explicit row sink. The substrate's sole materializer is used only here.
 /// Aggregated hours MUST NOT be posted under an invented project/date.
 pub fn bapi_sink(batch: &CatsBatch, kept: &[u64]) -> Result<Vec<BapiCatsInsert>, BindError> {
-    if kept.len() != batch.alpha().len() || kept.iter().zip(batch.alpha()).any(|(a, b)| a & !b != 0)
+    if kept.len() != batch.len().div_ceil(64)
+        || (!batch.len().is_multiple_of(64)
+            && kept
+                .last()
+                .is_some_and(|word| word >> (batch.len() % 64) != 0))
     {
         return Err(BindError("invalid terminal selection mask".into()));
     }
