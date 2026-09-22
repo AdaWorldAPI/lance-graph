@@ -32,7 +32,7 @@ and R2IL arithmetic continues over the results.
 
 | quantity | value |
 |---|---|
-| probe tests | 16, plus 6 in `algebra_differential` |
+| probe tests | 17, plus 6 in `algebra_differential` |
 | dialect-side allocation | 728 B, independent of row count |
 | executor scratch | tile-local at 65,536 rows |
 | Mathcad folds | `programs_run == 2` |
