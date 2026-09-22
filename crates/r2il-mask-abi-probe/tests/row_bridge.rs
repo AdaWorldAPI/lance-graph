@@ -1989,6 +1989,26 @@ fn a_stale_slot_that_aliases_a_live_slot_is_refused_not_answered_wrongly() {
 /// AND the poison is unset, because a poisoned run would mean the body took
 /// the branch-on-population path and this sequence would be proving
 /// something else.
+///
+/// WHY THAT EXPECTED VALUE IS DISCRIMINATING, not merely correct — the
+/// argument is the reviewer's, added here because a future reader will
+/// otherwise raise the same doubt the author did. `INT_AND` accepts
+/// `(Slot, Slot)` or `(Scalar, Scalar)` and answers anything mixed with
+/// `WrongOperandKind`. So each way this fixture could be passing for the
+/// wrong reason produces a DIFFERENT error:
+///
+/// - if `POP_COUNT` on the empty mask yielded something truthy, `IF` would
+///   branch into `never_taken`, which pushes a scalar, and step 6 would see
+///   `(Scalar, Slot)` → `WrongOperandKind`
+/// - if `IF` did NOT pop its condition, step 6 would see `(Scalar, Slot)`
+///   for the same reason → `WrongOperandKind`
+/// - `poison() == None` independently witnesses that `IF` received a
+///   `Scalar` and not a `Slot`
+///
+/// `StaleSlot` is therefore reachable only through the intended path, which
+/// is what makes the assertion evidence rather than a coincidence. The
+/// disable run agrees from the other side: with all four epoch checks
+/// removed the body returns `Ok(())`.
 #[test]
 fn engine_control_flow_reaches_a_stale_slot_so_the_guard_is_load_bearing() {
     // `amount` (lane 1, I32) is in [-100, 99], so 200 matches no row and the
