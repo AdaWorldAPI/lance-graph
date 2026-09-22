@@ -1119,6 +1119,99 @@ pub fn lower_group_by_semantic(g: &GroupBy) -> Result<Option<Program>, LowerErro
     .map(Some)
 }
 
+/// `AVG(val)` over the rows `filter` keeps: two folds over the SAME filter,
+/// finished outside the hot path by [`avg_finish`].
+///
+/// AVG is not a new primitive. It is `SUM(val) / COUNT(val)`, and both halves
+/// already have exact terminals. What makes it `AVG(val)` rather than
+/// `SUM/COUNT(*)` is the filter the CALLER composes: for a nullable column the
+/// caller ANDs its validity plane into `filter`, so both folds skip the NULL
+/// rows and the denominator is `COUNT(val)`, exactly as SQL requires.
+///
+/// Two programs cost two passes over the filter. That is correct but not yet
+/// minimal; a fused sum+count sink is a later keyed-reduction member, not a
+/// correctness requirement.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AvgPlan {
+    /// `SUM(val)` under the filter — [`Terminal::MaskedSumI32`].
+    pub sum: Program,
+    /// `COUNT(*)` under the same filter — [`Terminal::Count`].
+    pub count: Program,
+}
+
+/// Lower `AVG(val) WHERE filter` to its [`AvgPlan`].
+///
+/// # Errors
+///
+/// As [`lower`].
+pub fn lower_avg(filter: &Filter, val: Col) -> Result<AvgPlan, LowerError> {
+    Ok(AvgPlan {
+        sum: lower(&Query {
+            filter: filter.clone(),
+            agg: Agg::SumI32(val),
+        })?,
+        count: lower(&Query {
+            filter: filter.clone(),
+            agg: Agg::Count,
+        })?,
+    })
+}
+
+/// `GROUP BY key AVG(val)`: the grouped form of [`AvgPlan`], one K-slot
+/// sum sink and one K-slot count sink over the same filter. Both programs
+/// take an `Out::I64` of exactly `groups` slots; finish each group with
+/// [`avg_finish`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupAvgPlan {
+    /// `GROUP BY key SUM(val)` — `GroupSumI32` / `GroupSumViaI32`.
+    pub sum: Program,
+    /// `GROUP BY key COUNT(*)` — `GroupReduce { fold: Count }`.
+    pub count: Program,
+    /// The group universe K both sinks are sized to.
+    pub groups: u32,
+}
+
+/// Lower `GROUP BY key AVG(val) WHERE filter` to its [`GroupAvgPlan`].
+/// `key` may be a column of this table or reached through an fk.
+///
+/// # Errors
+///
+/// As [`lower`].
+pub fn lower_group_avg(
+    filter: &Filter,
+    key: GroupAddr,
+    val: Col,
+    groups: u32,
+) -> Result<GroupAvgPlan, LowerError> {
+    let sum_agg = match key {
+        GroupAddr::Local(k) => Agg::GroupSumI32 { key: k, val },
+        GroupAddr::Via { fk, key } => Agg::GroupSumViaI32 { fk, key, val },
+    };
+    Ok(GroupAvgPlan {
+        sum: lower(&Query {
+            filter: filter.clone(),
+            agg: sum_agg,
+        })?,
+        count: lower(&Query {
+            filter: filter.clone(),
+            agg: Agg::GroupReduce {
+                key,
+                agg: GroupAgg::Count,
+            },
+        })?,
+        groups,
+    })
+}
+
+/// Finish an average: `sum / count`, or `None` (SQL `NULL`) when no row
+/// contributed. While `|sum| < 2^53` (e.g. up to `2^22` rows of any `i32`)
+/// both operands convert to `f64` exactly and this is ONE correctly-rounded
+/// divide. Past that the `i64 -> f64` conversion rounds first; the sum
+/// itself is still exact up to [`lance_graph_mask_risc::MASKED_SUM_I32_MAX_ROWS`].
+pub fn avg_finish(sum: i64, count: u64) -> Option<f64> {
+    (count != 0).then(|| sum as f64 / count as f64)
+}
+
 /// Lower one categorical `GROUP BY` with semantic compression before any
 /// execution scheduling.
 ///

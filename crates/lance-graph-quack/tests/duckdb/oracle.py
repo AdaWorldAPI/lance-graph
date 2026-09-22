@@ -40,6 +40,8 @@ GROUPED = {
     "group_max_cc_sparse",
     "join_group_count_country",
     "join_group_min_country",
+    "group_avg_cc",
+    "join_group_avg_country",
 }
 BOOLEAN = {"exists_neg"}
 ROWS = {"rows_proj"}

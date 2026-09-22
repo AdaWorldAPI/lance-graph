@@ -36,10 +36,14 @@ use lance_graph_mask_risc::{
     LaneRef, Out, Planes, Scratch, Terminal, Value,
 };
 use lance_graph_quack::{
-    lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignLane, GroupAddr, GroupAgg, GroupBy, Query,
+    avg_finish, lower, lower_avg, lower_group_avg, lower_group_by, Agg, Cmp, Col, Filter,
+    ForeignLane, GroupAddr, GroupAgg, GroupBy, Query,
 };
 
-use fixture::col::{AMOUNT, COST_CENTER, DOC_ID, DOC_ID_U32, GL_ACCOUNT, PARTNER_ID, QTY, STATUS};
+use fixture::col::{
+    AMOUNT, COST_CENTER, DISCOUNT, DOC_ID, DOC_ID_U32, GL_ACCOUNT, PARTNER_ID, QTY, STATUS,
+};
+use fixture::DISCOUNT_VALID;
 
 // ---------------------------------------------------------------------
 // The counting allocator — `no_alloc.rs`'s pattern (lance-graph-mask-risc),
@@ -972,6 +976,8 @@ fn join_count_docs_with_posted() {
         status: by(&fx.line.status),
         cost_center: by(&fx.line.cost_center),
         gl_account: by(&fx.line.gl_account),
+        discount: by_i(&fx.line.discount),
+        discount_null: order.iter().map(|&i| fx.line.discount_null[i]).collect(),
     };
     let c_lanes = ordered.lanes();
     let c_planes = c_lanes.planes();
@@ -998,9 +1004,10 @@ fn join_count_docs_with_posted() {
         pair_relation_bytes: 0,
         population_state_bytes: 0,
         // What the TEST built to hand the fold an ordered view: the
-        // permutation plus eight reordered 4-byte lanes. Not the terminal's
-        // state — and not evidence that a resident doc-major view exists.
-        fixture_view_bytes: order.len() * (std::mem::size_of::<usize>() + 8 * 4),
+        // permutation plus nine reordered 4-byte lanes and the one-byte
+        // NULL flag. Not the terminal's state — and not evidence that a
+        // resident doc-major view exists.
+        fixture_view_bytes: order.len() * (std::mem::size_of::<usize>() + 9 * 4 + 1),
     };
     print_metric("join_count_docs_with_posted_ordered_view_given", &m);
     // A distinct count is permutation-invariant: same DuckDB row, same answer.
@@ -1136,4 +1143,281 @@ fn join_group_min_country() {
     );
     print_metric("join_group_min_country", &m);
     assert_case(&cases, "join_group_min_country", &actual);
+}
+
+// ---------------------------------------------------------------------
+// Parity wave A — shapes that need NO new primitive. Each is an existing
+// fold under a filter the query composes: CASE-in-aggregate is a predicate
+// in the mask, AVG is SUM / COUNT, NOT EXISTS is `Not` around a factored
+// fk predicate, and NULL-skipping is a validity plane ANDed into the filter.
+// ---------------------------------------------------------------------
+
+/// Run one program that returns a scalar `Value`, over caller planes and
+/// foreign lanes. Returns the value and its program's METRIC line.
+fn run_scalar(
+    id: &str,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    program: &lance_graph_mask_risc::Program,
+) -> (Value, CaseMetrics) {
+    let mut scratch = Scratch::for_program(program, planes.n_rows).expect("carves");
+    let tile_words = scratch.words();
+    let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
+    let before = BYTES.load(Ordering::Relaxed);
+    let value = execute_into(program, planes, foreign, &mut scratch, Out::None)
+        .unwrap_or_else(|e| panic!("case {id}: {e:?}"));
+    let alloc_bytes_exec = alloc_delta(before);
+    (
+        value,
+        CaseMetrics {
+            ops: program.ops.len(),
+            scratch_words,
+            tile_words,
+            alloc_bytes_exec,
+            rows_materialized: 0,
+            index_vec_len: 0,
+            out_bytes: 0,
+            programs: Some(1),
+            pair_relation_bytes: 0,
+            population_state_bytes: 0,
+            fixture_view_bytes: 0,
+        },
+    )
+}
+
+/// `AVG(val) WHERE filter` through [`lower_avg`]: two scalar folds, finished
+/// by [`avg_finish`]. Encoded with `{:?}`, which prints the same shortest
+/// round-trip digits as Python's `repr(float)` for these magnitudes.
+fn run_avg(id: &str, planes: &Planes<'_>, filter: &Filter, val: Col) -> String {
+    let plan = lower_avg(filter, val).expect("lowers");
+    let (sum, m_sum) = run_scalar(id, planes, &Foreign::NONE, &plan.sum);
+    let (count, m_count) = run_scalar(id, planes, &Foreign::NONE, &plan.count);
+    print_metric(&format!("{id}_sum"), &m_sum);
+    print_metric(&format!("{id}_count"), &m_count);
+    let (Value::SumI64(sum), Value::Count(count)) = (sum, count) else {
+        panic!("case {id}: AVG halves returned {sum:?} / {count:?}");
+    };
+    match avg_finish(sum, count as u64) {
+        Some(v) => format!("{v:?}"),
+        None => "NULL".to_string(),
+    }
+}
+
+/// `GROUP BY key AVG(val)` through [`lower_group_avg`]: a K-slot sum sink and
+/// a K-slot count sink, finished per group.
+fn run_group_avg(
+    id: &str,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    filter: &Filter,
+    key: GroupAddr,
+    val: Col,
+    groups: u32,
+) -> String {
+    let plan = lower_group_avg(filter, key, val, groups).expect("lowers");
+    let sink = |program: &lance_graph_mask_risc::Program, expect: Value| {
+        let mut scratch = Scratch::for_program(program, planes.n_rows).expect("carves");
+        let mut out = vec![0x5a5a_i64; plan.groups as usize];
+        let v = execute_into(program, planes, foreign, &mut scratch, Out::I64(&mut out))
+            .unwrap_or_else(|e| panic!("case {id}: {e:?}"));
+        assert_eq!(v, expect, "case {id}");
+        out
+    };
+    let sums = sink(&plan.sum, Value::GroupSummed);
+    let counts = sink(&plan.count, Value::GroupReduced);
+    sums.iter()
+        .zip(&counts)
+        .enumerate()
+        .map(|(k, (&s, &c))| match avg_finish(s, c as u64) {
+            Some(v) => format!("{k}:{v:?}"),
+            None => format!("{k}:NULL"),
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+/// `SUM(CASE WHEN cost_center=3 THEN amount ELSE 0 END) WHERE status=1` —
+/// the CASE arm is a predicate: it moves into the mask, and the aggregate is
+/// the plain masked SUM. No blend, no per-row write.
+#[test]
+fn sum_case_posted_cc3() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let filter = Filter::and([
+        Filter::cmp(STATUS, Cmp::EqU32(1)),
+        Filter::cmp(COST_CENTER, Cmp::EqU32(3)),
+    ]);
+    let (actual, m) = run_query("sum_case_posted_cc3", &planes, filter, Agg::SumI32(AMOUNT));
+    print_metric("sum_case_posted_cc3", &m);
+    assert_case(&cases, "sum_case_posted_cc3", &actual);
+}
+
+/// `AVG(amount) WHERE status=1`.
+#[test]
+fn avg_posted() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let actual = run_avg(
+        "avg_posted",
+        &planes,
+        &Filter::cmp(STATUS, Cmp::EqU32(1)),
+        AMOUNT,
+    );
+    assert_case(&cases, "avg_posted", &actual);
+}
+
+/// `AVG(amount) GROUP BY cost_center WHERE status=1`.
+#[test]
+fn group_avg_cc() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let actual = run_group_avg(
+        "group_avg_cc",
+        &planes,
+        &Foreign::NONE,
+        &Filter::cmp(STATUS, Cmp::EqU32(1)),
+        GroupAddr::Local(COST_CENTER),
+        AMOUNT,
+        8,
+    );
+    assert_case(&cases, "group_avg_cc", &actual);
+}
+
+/// `AVG(l.amount) GROUP BY p.country WHERE l.status=1` — the key through
+/// `l.partner_id`.
+#[test]
+fn join_group_avg_country() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let country_lane = [LaneRef::U32(&fx.partner.country)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &country_lane,
+    };
+    let actual = run_group_avg(
+        "join_group_avg_country",
+        &planes,
+        &foreign,
+        &Filter::cmp(STATUS, Cmp::EqU32(1)),
+        GroupAddr::Via {
+            fk: PARTNER_ID,
+            key: ForeignLane(0),
+        },
+        AMOUNT,
+        8,
+    );
+    assert_case(&cases, "join_group_avg_country", &actual);
+}
+
+/// `COUNT(*) FROM line l WHERE l.status=1 AND NOT EXISTS (SELECT 1 FROM
+/// partner p WHERE p.rid=l.partner_id AND p.country=3)` — the anti-join is
+/// `Not` around the factored fk predicate. ONE program, no partner-side mask.
+///
+/// This is `NOT EXISTS`, not `p.country <> 3`: an fk naming no partner row
+/// makes `EqU32Via` false, so `Not` keeps the row, exactly as NOT EXISTS
+/// does and `<>` would not. On this fixture every fk is in range, so the two
+/// happen to agree; the semantics are stated so the difference is not lost.
+#[test]
+fn anti_join_not_country3() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let country_lane = [LaneRef::U32(&fx.partner.country)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &country_lane,
+    };
+    let program = lower(&Query {
+        filter: Filter::and([
+            Filter::cmp(STATUS, Cmp::EqU32(1)),
+            Filter::Not(Box::new(Filter::eq_u32_via(PARTNER_ID, ForeignLane(0), 3))),
+        ]),
+        agg: Agg::Count,
+    })
+    .expect("lowers");
+    let (value, m) = run_scalar("anti_join_not_country3", &planes, &foreign, &program);
+    let Value::Count(c) = value else {
+        panic!("expected a count, got {value:?}");
+    };
+    print_metric("anti_join_not_country3", &m);
+    assert_case(&cases, "anti_join_not_country3", &c.to_string());
+}
+
+/// `COUNT(discount) WHERE status=1` — NULL-skipping is the validity plane
+/// ANDed into the filter. Differs from `COUNT(*)` (`sel_count_posted`) by
+/// exactly the NULL rows, which the assertion below makes visible.
+#[test]
+fn count_col_discount_posted() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let valid = fx.line.discount_valid();
+    let masks = [valid.as_slice()];
+    let planes = lanes.planes_with(&masks);
+    let filter = Filter::and([
+        Filter::cmp(STATUS, Cmp::EqU32(1)),
+        Filter::plane(DISCOUNT_VALID),
+    ]);
+    let (actual, m) = run_query("count_col_discount_posted", &planes, filter, Agg::Count);
+    let star = cases
+        .iter()
+        .find(|c| c.id == "sel_count_posted")
+        .expect("sel_count_posted present");
+    assert_ne!(
+        actual, star.expected,
+        "COUNT(col) must differ from COUNT(*) on a column with NULLs, or this case tests nothing"
+    );
+    print_metric("count_col_discount_posted", &m);
+    assert_case(&cases, "count_col_discount_posted", &actual);
+}
+
+/// `SUM(discount) WHERE status=1` — NULLs skipped by the same plane.
+#[test]
+fn sum_discount_posted() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let valid = fx.line.discount_valid();
+    let masks = [valid.as_slice()];
+    let planes = lanes.planes_with(&masks);
+    let filter = Filter::and([
+        Filter::cmp(STATUS, Cmp::EqU32(1)),
+        Filter::plane(DISCOUNT_VALID),
+    ]);
+    let (actual, m) = run_query(
+        "sum_discount_posted",
+        &planes,
+        filter,
+        Agg::SumI32(DISCOUNT),
+    );
+    print_metric("sum_discount_posted", &m);
+    assert_case(&cases, "sum_discount_posted", &actual);
+}
+
+/// `AVG(discount) WHERE status=1` — the denominator is `COUNT(discount)`,
+/// not `COUNT(*)`, because the validity plane is in the filter both halves
+/// share.
+#[test]
+fn avg_discount_posted() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let valid = fx.line.discount_valid();
+    let masks = [valid.as_slice()];
+    let planes = lanes.planes_with(&masks);
+    let filter = Filter::and([
+        Filter::cmp(STATUS, Cmp::EqU32(1)),
+        Filter::plane(DISCOUNT_VALID),
+    ]);
+    let actual = run_avg("avg_discount_posted", &planes, &filter, DISCOUNT);
+    assert_case(&cases, "avg_discount_posted", &actual);
 }
