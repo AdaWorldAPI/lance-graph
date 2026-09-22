@@ -1,0 +1,14 @@
+[package]
+name = "lance-graph-sap"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Source-pinned CATS boundary adapters over ClassView and Quack"
+
+[workspace]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+

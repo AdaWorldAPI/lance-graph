@@ -1,0 +1,24 @@
+ordinal	abap_group	abap_name	native_type	csharp_name	optional	width	carrier
+0	ty_s_entry_header	entry_id	string	EntryID	false		U32
+1	ty_s_entry_header	source_system	string	SourceSystem	false		U32
+2	ty_s_entry_header	entry_type	string	EntryType	false		U32
+3	ty_s_entry_header	tenant_id	string	TenantID	false		U32
+4	ty_s_entry_header	timestamp_utc	string	TimestampUTC	false		U64
+5	ty_s_time_entry_details	employee_number	pernr_d	EmployeeNumber	false	8	U32
+6	ty_s_time_entry_details	customer_number	kunnr	CustomerNumber	true	10	U32
+7	ty_s_time_entry_details	project_code	ps_posid	ProjectCode	true	24	U32
+8	ty_s_time_entry_details	task_code	aufnr	TaskCode	true	12	U32
+9	ty_s_time_entry_details	work_date_utc	string	WorkDateUTC	false		U64
+10	ty_s_time_entry_details	hours_logged	catsquantity	HoursLogged	false		I32
+11	ty_s_time_entry_details	activity_type	lstar	ActivityType	false	6	U32
+12	ty_s_time_entry_details	billing_indicator	string	BillingIndicator	false		U32
+13	ty_s_time_sanitization	sanitized_input_date	string	SanitizedInputDate	false		U64
+14	ty_s_time_sanitization	original_input_date	string	OriginalInputDate	false		U32
+15	ty_s_time_sanitization	date_validation_status	string	DateValidationStatus	false		U32
+16	ty_s_time_sanitization	sanitization_reason	string	SanitizationReason	true		U32
+17	ty_s_security_metadata	encryption_indicator	abap_bool	EncryptionIndicator	false		U32
+18	ty_s_security_metadata	data_hash	string	DataHash	false		U32
+19	ty_s_security_metadata	compliance_label	string	ComplianceLabel	false		U32
+20	ty_s_additional_metadata	notes	string	Notes	true		U32
+21	ty_s_additional_metadata	approver_employee_num	pernr_d	ApproverEmployeeNumber	true	8	U32
+22	ty_s_additional_metadata	approval_timestamp_utc	string	ApprovalTimestampUTC	true		U64
