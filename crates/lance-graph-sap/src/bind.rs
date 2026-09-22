@@ -131,16 +131,21 @@ impl CatsBatch {
                 )
             } else {
                 let dict = &mut dictionaries[index];
+                // Cold borrowed lookup only; stable codes follow first occurrence.
+                // Discard it after binding; reverse labels remain edge metadata.
+                let mut lookup = std::collections::HashMap::<&str, u32>::new();
                 let mut codes = Vec::with_capacity(len);
                 for value in values {
                     codes.push(if let Some(value) = value {
-                        let position = if let Some(i) = dict.iter().position(|s| s == value) {
-                            i
+                        if let Some(&code) = lookup.get(value) {
+                            code
                         } else {
+                            let code = u32::try_from(dict.len() + 1)
+                                .map_err(|_| error("dictionary too large"))?;
                             dict.push((*value).into());
-                            dict.len() - 1
-                        };
-                        u32::try_from(position + 1).map_err(|_| error("dictionary too large"))?
+                            lookup.insert(value, code);
+                            code
+                        }
                     } else {
                         0
                     });

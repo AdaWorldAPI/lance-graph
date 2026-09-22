@@ -78,3 +78,23 @@ fn invalid_inputs_do_not_enter_the_abi() {
     .is_err());
     assert!(bind(&fixture(0)).is_empty());
 }
+
+#[test]
+fn unique_text_codes_preserve_first_occurrence_and_edge_values() {
+    let labels: Vec<_> = (0..4097).map(|i| format!("note-{i}")).collect();
+    let mut input = common::fixture(labels.len() + 2);
+    input[20] = labels.iter().map(|s| Some(s.as_str())).collect();
+    input[20].extend([Some(labels[0].as_str()), None]);
+    let batch = common::bind(&input);
+    for (i, label) in labels.iter().enumerate() {
+        assert_eq!(
+            batch.edge_value(20, i).unwrap().as_deref(),
+            Some(label.as_str())
+        );
+    }
+    assert_eq!(
+        batch.edge_value(20, labels.len()).unwrap().as_deref(),
+        Some("note-0")
+    );
+    assert_eq!(batch.edge_value(20, labels.len() + 1).unwrap(), None);
+}
