@@ -66,12 +66,37 @@ can be reissued. Fixed by epoch-tagging: `Val::Slot { slot, epoch }`, an
 epoch bumped where `next_slot` resets, and `FoldError::StaleSlot` at every
 consuming site.
 
-**Unreachable from a loco body today, for a named reason that is also the
-trigger.** All nine value-producing arms in `Dialect::call` push exactly one
-result, nothing consumes without pushing, so the stack never shrinks past a
-value beneath a fold's result. `Store` (arity 2, pushes nothing) is
-`Unimplemented`; implementing it opens the path.
-`no_implemented_op_can_expose_a_stale_slot` pins that reason.
+**REACHABLE, and the guard is load-bearing today.** ⊘ This paragraph said
+the opposite and the correction is the more useful finding: *"unreachable
+from a loco body today, for a named reason that is also the trigger — all
+nine value-producing arms in `Dialect::call` push exactly one result,
+nothing consumes without pushing, so the stack never shrinks past a value
+beneath a fold's result; `Store` is `Unimplemented`, implementing it opens
+the path."*
+
+The census was correct and the inference was not. **`IF` is never dispatched
+to a `Dialect` at all.** `ogar_loco`'s engine handles it in `run_branching`,
+where it pops the condition and pushes nothing, as `IF_ELSE` and `REPEAT`
+also do. So a census of the dialect's own match arms structurally cannot see
+the consumer that removes the barrier, and no future `Store` is needed.
+
+The reaching body, now pinned by
+`engine_control_flow_reaches_a_stale_slot_so_the_guard_is_load_bearing`:
+mint `S0`; mint `S1` from a predicate that matches nothing; `POP_COUNT(S1)`
+folds, advancing the epoch and leaving `[S0, Scalar(0)]`; `IF` eats the
+scalar and pushes nothing, so the stack is `[S0]` and the barrier is gone;
+mint `S2` in the current epoch; `INT_AND` reaches `S0`. It never poisons,
+because the branch is on a scalar. Asserted as
+`RunError::Dialect(FoldError::StaleSlot)` with poison unset.
+
+**The generalisable lesson:** an exhaustive census of one dispatch surface
+says nothing about a second dispatch surface above it. Found by review, and
+no test in the suite could have found it, because every test was written
+against the surface the census covered.
+
+`no_implemented_op_can_expose_a_stale_slot` is kept, with its claim narrowed
+to what it actually establishes: the dialect never shrinks the stack. That
+is true and worth pinning; it simply does not imply unreachability.
 
 **The severity measurement needed a second fixture, and this is the part to
 remember.** The first disable run produced mask-risc's own

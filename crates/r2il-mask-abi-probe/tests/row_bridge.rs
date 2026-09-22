@@ -1625,9 +1625,11 @@ fn wrong_operand_kind_on_a_fold_op_is_refused() {
 /// scratch. `finalize_and_run` resets `next_slot` to 0 on every fold, so a
 /// stale slot's NUMBER can numerically alias a slot minted fresh in the new
 /// epoch; only the epoch distinguishes them. Constructed directly at the
-/// dialect level (bypassing the interpreter) because no loco body reachable
-/// through `Interpreter::run` can produce this stack shape today — see
-/// `no_implemented_op_can_expose_a_stale_slot` for why.
+/// dialect level, which isolates the guard from the engine — for the same
+/// state reached by a REAL loco body through `Interpreter::run`, see
+/// `engine_control_flow_reaches_a_stale_slot_so_the_guard_is_load_bearing`.
+/// ⊘ This comment previously said no reachable body could produce this
+/// shape. That was wrong; see that test for the engine op that does.
 #[test]
 fn a_stale_slot_is_refused_not_silently_folded() {
     let t = Tables::seeded(16, 4, 9);
@@ -1686,21 +1688,26 @@ fn a_stale_slot_is_refused_not_silently_folded() {
 }
 
 /// FAILS IF: any implemented op ever pushes anything other than EXACTLY ONE
-/// value per call — which is what makes the stale-slot state
-/// `a_stale_slot_is_refused_not_silently_folded` constructs UNREACHABLE from
-/// any real loco body today. Every value-producing arm in `Dialect::call`
-/// pops its arity's worth of operands and pushes exactly one result, so the
-/// stack can never shrink past a value sitting BENEATH a fold's own result —
-/// a stale slot minted before a fold can never become a later fold's
-/// operand, because nothing ever pops far enough down to reach it.
-/// Implementing any op with `pushes == 0` (`Store`, arity 2, is the obvious
-/// next candidate — see the module doc's § "What is implemented, and what
-/// is refused BY NAME") would break this pin, and the `FoldError::StaleSlot`
-/// guard in the consuming arms (`INT_AND`/`POP_COUNT`/`SUM`) would then
-/// become load-bearing rather than merely defensive. Covers the implemented
-/// set — `NUMBER`, `LOAD`, `VIA`, `INT_EQUAL`, `INT_S_LESS`, `INT_AND`,
-/// `INT_SUB`, `POP_COUNT`, `SUM` — driving literally every refusal arm too
-/// would add nothing: a refusal never reaches a push at all.
+/// value per call. Every value-producing arm in `Dialect::call` pops its
+/// arity's worth of operands and pushes exactly one result, so THE DIALECT
+/// never shrinks the stack past a value sitting beneath a fold's own result.
+/// Covers the implemented set — `NUMBER`, `LOAD`, `VIA`, `INT_EQUAL`,
+/// `INT_S_LESS`, `INT_AND`, `INT_SUB`, `POP_COUNT`, `SUM` — driving the
+/// refusal arms too would add nothing: a refusal never reaches a push.
+///
+/// ⊘ WHAT THIS DOES NOT PROVE, corrected after review. This comment used to
+/// conclude that the push-exactly-one property makes a stale slot
+/// UNREACHABLE from any real loco body, with `Store` named as the op whose
+/// arrival would change that. The property is true and worth pinning; the
+/// conclusion was false. `IF` is never dispatched to a `Dialect` at all —
+/// `ogar_loco`'s engine handles it in `run_branching`, popping the condition
+/// and pushing nothing, as `IF_ELSE` and `REPEAT` also do. So a census of
+/// this trait's arms structurally cannot see the consumer that removes the
+/// barrier, and the `FoldError::StaleSlot` guard is load-bearing TODAY. The
+/// body that reaches it is
+/// `engine_control_flow_reaches_a_stale_slot_so_the_guard_is_load_bearing`.
+/// The lesson generalises past this file: an exhaustive census of one
+/// dispatch surface says nothing about a second dispatch surface above it.
 #[test]
 fn no_implemented_op_can_expose_a_stale_slot() {
     let t = Tables::seeded(16, 4, 13);
@@ -1950,6 +1957,110 @@ fn a_stale_slot_that_aliases_a_live_slot_is_refused_not_answered_wrongly() {
         ),
         other => panic!("SUM should leave exactly one scalar, got {other:?}"),
     }
+}
+
+/// The body that proves the stale-slot guard is LOAD-BEARING TODAY, not
+/// defensive against a future `Store`.
+///
+/// ⊘ This test exists because the reachability argument shipped in #1259's
+/// first draft was WRONG, and wrong in an instructive way: it enumerated the
+/// arms of [`FoldDialect::call`], found every one pushes exactly one result,
+/// and concluded the stack can never shrink past a value beneath a fold's
+/// result. The enumeration was correct. The conclusion did not follow,
+/// because `IF` is never dispatched to a `Dialect` at all — `ogar_loco`'s
+/// engine handles it in `run_branching`, where it does `self.pop(f)` for the
+/// condition and pushes NOTHING. `IF_ELSE` and `REPEAT` do the same. So the
+/// engine is a consumer-without-push that a census of the dialect's own
+/// match arms structurally cannot see. Found by review, not by the suite.
+///
+/// The sequence, which is a valid body and never poisons:
+///
+/// 1. a predicate mints `S0`
+/// 2. a predicate that matches NOTHING mints `S1`
+/// 3. `POP_COUNT(S1)` folds, so the epoch advances and `next_slot` resets,
+///    leaving `[S0, Scalar(0)]`
+/// 4. `IF` consumes the `Scalar(0)`. `truthy` on a `Scalar` is an ordinary
+///    answer, not the poison path, and 0 is false so nothing branches. The
+///    stack is now `[S0]` — the barrier is GONE
+/// 5. a predicate mints `S2` in the current epoch
+/// 6. `INT_AND` consumes both, and `S0` is a reachable stale slot
+///
+/// Asserted: the run fails with `RunError::Dialect(FoldError::StaleSlot)`
+/// AND the poison is unset, because a poisoned run would mean the body took
+/// the branch-on-population path and this sequence would be proving
+/// something else.
+#[test]
+fn engine_control_flow_reaches_a_stale_slot_so_the_guard_is_load_bearing() {
+    // `amount` (lane 1, I32) is in [-100, 99], so 200 matches no row and the
+    // fold at step 3 yields exactly 0 — which is what makes the IF fall
+    // through rather than branch.
+    const NO_MATCH: u8 = 200;
+    const EMPTY_BODY_TARGET: u8 = 1;
+
+    let calls = [
+        // 1. S0
+        Call::with_value(FnIndex::NUMBER, 0),
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(LOAD, 1),
+        Call::new(INT_EQUAL),
+        // 2. S1, an empty mask
+        Call::with_value(FnIndex::NUMBER, NO_MATCH),
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(LOAD, 1),
+        Call::new(INT_EQUAL),
+        // 3. fold it: epoch advances, next_slot resets, pushes Scalar(0)
+        Call::new(POP_COUNT),
+        // 4. the engine eats the scalar and pushes nothing
+        Call::with_value(FnIndex::IF, EMPTY_BODY_TARGET),
+        // 5. S2, current epoch, same slot NUMBER as the stale S0
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(LOAD, 1),
+        Call::new(INT_EQUAL),
+        // 6. S0 is now reachable, and stale
+        Call::new(INT_AND),
+    ];
+    let main = FunctionBody::from_calls(LaneShape::Quads, &calls).expect("15 calls fit Quads");
+    // Target 1 resolves to functions[1] (`body_at` is 0-based and rejects 0),
+    // so the program is well formed even though step 4 never branches.
+    let never_taken =
+        FunctionBody::from_calls(LaneShape::Pairs, &[Call::with_value(FnIndex::NUMBER, 0)])
+            .expect("one call fits Pairs");
+    let body = LocoProgram {
+        functions: vec![main, never_taken],
+    };
+
+    let t = Tables::seeded(64, 8, 17);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: 64,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+
+    let vocab = validate(R2ILVocabulary).expect("R2ILVocabulary conforms");
+    let dialect = FoldDialect::new(&planes, &foreign);
+    let mut it = Interpreter::new(&vocab, &body, dialect);
+    let outcome = it.run();
+
+    assert_eq!(
+        outcome,
+        Err(ogar_loco::RunError::Dialect(FoldError::StaleSlot)),
+        "engine control flow removes the barrier, so INT_AND reaches a stale \
+         slot and must be refused BY THE EPOCH GUARD"
+    );
+    assert_eq!(
+        it.dialect().poison(),
+        None,
+        "this body branches on a SCALAR, so it must not poison -- a poisoned \
+         run would mean the fixture proved the branch-on-population path \
+         instead of the stale-slot one"
+    );
 }
 
 /// The slot number inside a [`Val::Slot`], for fixtures that must prove two
