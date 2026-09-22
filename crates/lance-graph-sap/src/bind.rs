@@ -153,7 +153,7 @@ impl CatsBatch {
             dates.iter().map(|v| (v / 1_000_000) as i32).collect(),
         ));
         let mut alpha = vec![u64::MAX; words_for(len)];
-        if len % 64 != 0 {
+        if !len.is_multiple_of(64) {
             *alpha.last_mut().unwrap() = (1u64 << (len % 64)) - 1;
         }
         Ok(Self {
@@ -255,7 +255,7 @@ fn decimal(s: &str) -> Result<(i128, u32), BindError> {
     Ok((coefficient, scale))
 }
 
-pub fn format_decimal(value: i64, scale: u32) -> String {
+pub(crate) fn format_decimal(value: i64, scale: u32) -> String {
     if scale == 0 {
         return value.to_string();
     }
@@ -297,7 +297,7 @@ pub fn utc(s: &str) -> Result<u64, BindError> {
     let year = n / 10_000_000_000;
     let month = (n / 100_000_000 % 100) as usize;
     let day = n / 1_000_000 % 100;
-    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
     let days = [
         31,
         if leap { 29 } else { 28 },

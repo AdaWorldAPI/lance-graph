@@ -11,4 +11,5 @@ description = "Source-pinned CATS boundary adapters over ClassView and Quack"
 lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 lance-graph-quack = { path = "../lance-graph-quack" }
-
+hmac = "0.12"
+sha2 = "0.10"

@@ -4,6 +4,7 @@ use lance_graph_mask_risc::{reference_execute, Planes, Value};
 use lance_graph_sap::query::CatsQuery;
 
 #[test]
+#[allow(clippy::needless_range_loop)] // Independent test-only row oracle across separate input columns.
 fn employee_date_activity_sum_matches_independent_oracle_across_word_tails() {
     for n in [0, 1, 63, 64, 65, 131, 4097] {
         let mut input = fixture(n);
