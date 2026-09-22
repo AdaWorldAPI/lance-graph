@@ -17,11 +17,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: lance-graph
+          persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: AdaWorldAPI/ndarray
           ref: master
           path: ndarray
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
