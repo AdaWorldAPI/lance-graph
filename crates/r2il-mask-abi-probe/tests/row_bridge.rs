@@ -439,11 +439,14 @@ struct FoldDialect<'p> {
     /// property `the_dialect_side_allocates_nothing_proportional_to_rows`
     /// pins.
     scratch: Vec<u64>,
-    /// Caller-owned `GROUP_SUM` result sink. Empty unless the dialect was
-    /// built by [`Self::with_groups`]; its width is the group universe K,
-    /// never the row population N. `mask-risc` zero-fills it before each
-    /// grouped fold, so it always holds the LAST grouped fold's answer.
-    group_sink: Vec<i64>,
+    /// Caller-owned `GROUP_SUM` result sink, BORROWED — the same ownership
+    /// shape as `mask-risc`'s `Out::I64(&mut [i64])`. Empty unless the dialect
+    /// was built by [`Self::with_groups`]; its width is the group universe K,
+    /// never the row population N. The caller allocates it once and reads it
+    /// back after the run, so the dialect never copies it. `mask-risc`
+    /// zero-fills it before each grouped fold, so it always holds the LAST
+    /// grouped fold's answer.
+    group_sink: &'p mut [i64],
     /// Total `MaskOp`s across every finalized program this dialect has run —
     /// the "physical facade passes" measurement.
     facade_passes: usize,
@@ -471,18 +474,19 @@ impl<'p> FoldDialect<'p> {
             next_slot: 0,
             epoch: 0,
             scratch: vec![0u64; cap],
-            group_sink: Vec::new(),
+            group_sink: &mut [],
             facade_passes: 0,
             programs_run: 0,
             poison: Cell::new(None),
         }
     }
 
-    /// [`Self::new`], plus one `GROUP_SUM` sink of width `groups` — the only
-    /// allocation `GROUP_SUM` adds, O(K) and made once, here.
-    fn with_groups(planes: &'p Planes<'p>, foreign: &'p Foreign<'p>, groups: usize) -> Self {
+    /// [`Self::new`], writing `GROUP_SUM` results into the caller's `sink`.
+    /// Its length is the group universe K; the dialect allocates nothing for
+    /// it.
+    fn with_groups(planes: &'p Planes<'p>, foreign: &'p Foreign<'p>, sink: &'p mut [i64]) -> Self {
         let mut d = Self::new(planes, foreign);
-        d.group_sink = vec![0i64; groups];
+        d.group_sink = sink;
         d
     }
 
@@ -558,7 +562,7 @@ impl<'p> FoldDialect<'p> {
         let mut scratch = Scratch::over(&mut self.scratch, words, program.scratch_slots as usize)
             .map_err(FoldError::Exec)?;
         let out = if grouped {
-            Out::I64(&mut self.group_sink)
+            Out::I64(self.group_sink)
         } else {
             Out::None
         };
@@ -1288,8 +1292,8 @@ struct RunStats {
     facade_passes: usize,
     /// How many folds actually finalized-and-ran.
     programs_run: usize,
-    /// [`FoldDialect::group_sink`] after the run — empty unless the run was
-    /// given a `GROUP_SUM` sink.
+    /// The caller-owned `GROUP_SUM` sink, moved out after the run — empty
+    /// unless the run was given one. Never a copy of the dialect's.
     group_sink: Vec<i64>,
     /// [`FoldDialect::poison`], read after the run completed.
     poison: Option<FoldError>,
@@ -1306,8 +1310,10 @@ fn run_frontend_with_stats(
     run_frontend_with_groups(body, planes, foreign, 0)
 }
 
-/// [`run_frontend_with_stats`] over a dialect carrying a `GROUP_SUM` sink of
-/// width `groups` (0 = no sink, the scalar-only frontends).
+/// [`run_frontend_with_stats`] over a dialect writing `GROUP_SUM` results into
+/// a sink of width `groups` (0 = no sink, the scalar-only frontends). The sink
+/// is allocated once HERE, lent to the dialect, and moved into [`RunStats`]
+/// after the interpreter is dropped — never cloned.
 fn run_frontend_with_groups(
     body: &LocoProgram,
     planes: &Planes<'_>,
@@ -1315,16 +1321,25 @@ fn run_frontend_with_groups(
     groups: usize,
 ) -> Result<RunStats, ogar_loco::RunError<FoldError>> {
     let vocab = validate(R2ILVocabulary).expect("R2ILVocabulary conforms");
-    let dialect = FoldDialect::with_groups(planes, foreign, groups);
-    let mut it = Interpreter::new(&vocab, body, dialect);
-    it.run()?;
-    let d = it.dialect();
+    let mut group_sink = vec![0i64; groups];
+    let (stack, facade_passes, programs_run, poison) = {
+        let dialect = FoldDialect::with_groups(planes, foreign, &mut group_sink);
+        let mut it = Interpreter::new(&vocab, body, dialect);
+        it.run()?;
+        let d = it.dialect();
+        (
+            it.stack().to_vec(),
+            d.facade_passes,
+            d.programs_run,
+            d.poison(),
+        )
+    };
     Ok(RunStats {
-        stack: it.stack().to_vec(),
-        facade_passes: d.facade_passes,
-        programs_run: d.programs_run,
-        group_sink: d.group_sink.clone(),
-        poison: d.poison(),
+        stack,
+        facade_passes,
+        programs_run,
+        group_sink,
+        poison,
     })
 }
 
@@ -2073,7 +2088,8 @@ fn no_implemented_op_can_expose_a_stale_slot() {
     // a sink, over the `Tables` fixture's own U32 (`fk`, idx0) and I32
     // (`amount`, idx1) lanes.
     {
-        let mut dialect = FoldDialect::with_groups(&planes, &foreign, 4);
+        let mut sink = [0i64; 4];
+        let mut dialect = FoldDialect::with_groups(&planes, &foreign, &mut sink);
         let mut stack: Vec<Val> = Vec::new();
         dialect.emit_pred(Pred::EqI32 { lane: 1, v: 0 }, &mut stack);
         stack.push(Val::Address(Addr::Lane {
@@ -2559,7 +2575,8 @@ fn group_sum_refuses_every_other_operand_shape() {
         ),
     ];
     for (label, key, val, mask_is_slot, expected) in cases {
-        let mut d = FoldDialect::with_groups(&planes, &foreign, GROUPS);
+        let mut sink = [0i64; GROUPS];
+        let mut d = FoldDialect::with_groups(&planes, &foreign, &mut sink);
         let mut stack: Vec<Val> = Vec::new();
         if mask_is_slot {
             d.emit_pred(Pred::EqU32 { lane: 0, v: 1 }, &mut stack);
@@ -2577,7 +2594,8 @@ fn group_sum_refuses_every_other_operand_shape() {
 
     // Stale mask: minted in epoch 0, then a POP_COUNT fold ends that epoch.
     // Every other operand is well-shaped, so only the epoch can refuse it.
-    let mut d = FoldDialect::with_groups(&planes, &foreign, GROUPS);
+    let mut sink = [0i64; GROUPS];
+    let mut d = FoldDialect::with_groups(&planes, &foreign, &mut sink);
     let mut held: Vec<Val> = Vec::new();
     d.emit_pred(Pred::EqU32 { lane: 0, v: 1 }, &mut held);
     let stale = held.pop().expect("emit_pred pushed a slot");
@@ -2593,7 +2611,8 @@ fn group_sum_refuses_every_other_operand_shape() {
     );
 
     // Underflow: two operands where three are needed.
-    let mut d = FoldDialect::with_groups(&planes, &foreign, GROUPS);
+    let mut sink = [0i64; GROUPS];
+    let mut d = FoldDialect::with_groups(&planes, &foreign, &mut sink);
     let mut stack = vec![u32_key, i32_val];
     assert_eq!(
         d.call(GROUP_SUM, [0, 0, 0], &mut stack),
