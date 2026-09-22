@@ -1,6 +1,6 @@
 # 2026-09-22 — Quack/DuckDB parity by T0 folding: the keyed-reduction family, and the primitive basis
 
-**Status:** MEASURED (W-B shipped on this branch) · OPEN (W-A, W-C, W-D)
+**Status:** MEASURED (W-B and W-A shipped on this branch) · OPEN (W-C, W-D)
 **Depends on:** ndarray #320 (keyed-reduction family), lance-graph #1262 (fold seam)
 
 ## What landed (W-B)
@@ -52,14 +52,28 @@ already carries `GroupKey::{Local, Via}`, the same address split as
 three more exports. Java keeps seeing only the boring `sql()` / `sumBy()`
 surface; it never names a fold.
 
-## What is still open (not done here)
+## W-A landed — no new primitive, as predicted
 
-- **W-A needs no new primitives:**
-  - `AVG` = SUM/COUNT over the same fold
-  - `SUM(CASE WHEN p THEN x END)` = masked sum under a conjunction
-  - anti-join `NOT EXISTS` = `mask_andnot` after a hop
-  - `COUNT(col)` = count under a validity plane
-  - NULLs as validity planes
+Eight more cases, 29/29 against DuckDB 1.5.5, existing values unchanged:
+- `SUM(CASE WHEN p THEN x ELSE 0 END)` is the plain masked SUM with `p` in
+  the mask.
+- `AVG` is `lower_avg` / `lower_group_avg`: SUM and COUNT over the same
+  filter, finished by `avg_finish` outside the hot path. The float digits
+  match DuckDB exactly (scalar, resident-keyed and via-keyed). It costs two
+  passes; a fused sum+count sink would make it one.
+- `NOT EXISTS` is `Not` around the factored fk predicate (`EqU32Via`), one
+  program. The earlier prediction ("`mask_andnot` after a hop") was wrong in
+  shape: no hop and no second mask are needed for the many-to-one direction.
+  The one-to-many direction (docs with no posted line) still needs the
+  ordered-key projection, same as `COUNT DISTINCT`.
+- NULLs are a validity plane ANDed into the filter; `COUNT(col)`,
+  `SUM(col)` and `AVG(col)` follow. The fixture gained one derived nullable
+  column (no RNG draw).
+
+Disable-verified: an off-by-one AVG denominator, a dropped `Not`, a dropped
+validity plane, and NULL written as `0` each turned their cases red.
+
+## What is still open (not done here)
 - **W-C:**
   - `HAVING` over the K-sized sink. This needs an i64 compare-to-mask
     member. That is a predicate-family width, not a new family.
