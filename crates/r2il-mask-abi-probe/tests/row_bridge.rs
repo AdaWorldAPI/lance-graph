@@ -50,11 +50,13 @@
 //! # What is implemented, and what is refused BY NAME
 //!
 //! Of the twelve `0xE2..=0xED` fold-band opcodes: **`VIA`** (the join-key
-//! address constructor) and **`SUM`** (the reduction this file's three
-//! frontends actually need) are wired. The other ten — `RANGE`, `MIN`,
-//! `MAX`, `GROUP_SUM`, `KEY_RUNS`, `ANY`, `ALL`, `KEEP`, `SCATTER_OR`,
-//! `BLEND` — are refused as [`FoldError::Unimplemented`], named individually
-//! in the refusal, never silently coerced into one of the two that exist.
+//! address constructor), **`SUM`** (the scalar reduction this file's three
+//! frontends need) and **`GROUP_SUM`** (the keyed reduction, one byte whose
+//! physical terminal is chosen by the KEY operand's address kind) are wired.
+//! The other nine — `RANGE`, `MIN`, `MAX`, `KEY_RUNS`, `ANY`, `ALL`, `KEEP`,
+//! `SCATTER_OR`, `BLEND` — are refused as [`FoldError::Unimplemented`], named
+//! individually in the refusal, never silently coerced into one of the three
+//! that exist.
 //! Landing any of them without its own falsifier would be the same enum-
 //! explosion `ogar_r2il`'s own `ARITY` doc warns against ("a first draft…
 //! invented nine variants from memory").
@@ -128,13 +130,21 @@
 //! fits in `NUMBER`'s 0..=255, so `CONSTANT` is left as one more
 //! `Unimplemented` byte, not a gap load-bearing for anything below.
 //!
-//! **Deviation from the W1b spec's literal `FoldDialect` shape:** the spec
-//! lists a `group_sink: Vec<i64>` field "sized by `groups` at construction".
-//! It is intentionally OMITTED here: `GROUP_SUM` is one of the ten refused
-//! ops, so nothing ever writes to it, and an unused field fails
-//! `cargo clippy -- -D warnings` (`dead_code`) in this crate's gate. It is
-//! not a functional gap — reintroducing it is exactly the work of landing
-//! `GROUP_SUM` for real, with its own falsifier, per the rule above.
+//! **`GROUP_SUM` and its sink.** The W1b spec's `group_sink: Vec<i64>` field
+//! was left out while `GROUP_SUM` was a refused byte (an unwritten field fails
+//! `clippy -D warnings`). It is back now, as [`FoldDialect::group_sink`], sized
+//! ONCE by [`FoldDialect::with_groups`] to the group universe K — the demanded
+//! `GROUP BY` result, never the row population N. The stack spelling is
+//! `mask, key-address, value-address`: a resident `U32` key lane lowers to
+//! [`Terminal::GroupSumI32`], a `VIA` key address lowers to
+//! [`Terminal::GroupSumViaI32`]. The loco byte is the same in both cases; the
+//! ADDRESS decides the physical terminal, which is the point of carrying
+//! addresses on the stack instead of pre-resolved terminals.
+//!
+//! `GROUP_SUM` is a WRITE terminal: it pops three and pushes nothing, which
+//! makes it the first dialect-side op that can shrink the stack past a value
+//! sitting beneath it. See
+//! `group_sum_exposes_what_lay_beneath_it_and_the_epoch_guard_refuses_it`.
 //!
 //! # MEASURED GAP: a branch on a population is DETECTABLE, not ABORTABLE
 //!
@@ -235,7 +245,7 @@ use ogar_loco::vocabulary::conformance::validate;
 use ogar_loco::{
     Call, Dialect, FnIndex, FunctionBody, Interpreter, LaneShape, Program as LocoProgram,
 };
-use ogar_r2il::{R2ILVocabulary, R2IL_BASE, SUM, VIA};
+use ogar_r2il::{R2ILVocabulary, GROUP_SUM, R2IL_BASE, SUM, VIA};
 
 // ── allocation counter — THREAD-LOCAL, not global ──────────────────────────
 //
@@ -388,7 +398,7 @@ enum FoldError {
     /// `LOAD`'s own immediate named a space outside `{0=U32, 1=I32, 2=U64}`.
     UnknownLoadSpace(u8),
     /// A [`Val::Slot`] whose epoch does not match [`FoldDialect::epoch`] was
-    /// fed to a consuming arm (`INT_AND`/`POP_COUNT`/`SUM`). The slot names a
+    /// fed to a consuming arm (`INT_AND`/`POP_COUNT`/`SUM`/`GROUP_SUM`). The slot names a
     /// scratch position in an `ops` graph a PRIOR fold's `finalize_and_run`
     /// already discarded — its number may numerically alias a slot minted
     /// fresh in the current epoch, so it is refused rather than folded.
@@ -429,6 +439,11 @@ struct FoldDialect<'p> {
     /// property `the_dialect_side_allocates_nothing_proportional_to_rows`
     /// pins.
     scratch: Vec<u64>,
+    /// Caller-owned `GROUP_SUM` result sink. Empty unless the dialect was
+    /// built by [`Self::with_groups`]; its width is the group universe K,
+    /// never the row population N. `mask-risc` zero-fills it before each
+    /// grouped fold, so it always holds the LAST grouped fold's answer.
+    group_sink: Vec<i64>,
     /// Total `MaskOp`s across every finalized program this dialect has run —
     /// the "physical facade passes" measurement.
     facade_passes: usize,
@@ -456,10 +471,19 @@ impl<'p> FoldDialect<'p> {
             next_slot: 0,
             epoch: 0,
             scratch: vec![0u64; cap],
+            group_sink: Vec::new(),
             facade_passes: 0,
             programs_run: 0,
             poison: Cell::new(None),
         }
+    }
+
+    /// [`Self::new`], plus one `GROUP_SUM` sink of width `groups` — the only
+    /// allocation `GROUP_SUM` adds, O(K) and made once, here.
+    fn with_groups(planes: &'p Planes<'p>, foreign: &'p Foreign<'p>, groups: usize) -> Self {
+        let mut d = Self::new(planes, foreign);
+        d.group_sink = vec![0i64; groups];
+        d
     }
 
     /// The population-branch poison flag, if [`Dialect::truthy`] ever set
@@ -518,7 +542,12 @@ impl<'p> FoldDialect<'p> {
     /// RUN it over this dialect's borrowed planes, and reset for the next
     /// fold. This is the THE REFINEMENT the module doc describes: a
     /// scalar-producing fold executes here, not merely lowers.
-    fn finalize_and_run(&mut self, terminal: Terminal) -> Result<Value, FoldError> {
+    ///
+    /// `grouped` selects the output: `false` → `Out::None` (scalar
+    /// terminals), `true` → `Out::I64` over [`Self::group_sink`]. It is a
+    /// parameter rather than a second finalize function so the slot-epoch
+    /// boundary below exists in exactly one place for every terminal.
+    fn finalize_and_run(&mut self, terminal: Terminal, grouped: bool) -> Result<Value, FoldError> {
         let ops = std::mem::take(&mut self.ops);
         self.next_slot = 0;
         self.epoch += 1;
@@ -528,7 +557,12 @@ impl<'p> FoldDialect<'p> {
         let words = tile_words_for(self.planes.n_rows);
         let mut scratch = Scratch::over(&mut self.scratch, words, program.scratch_slots as usize)
             .map_err(FoldError::Exec)?;
-        execute_into(&program, self.planes, self.foreign, &mut scratch, Out::None)
+        let out = if grouped {
+            Out::I64(&mut self.group_sink)
+        } else {
+            Out::None
+        };
+        execute_into(&program, self.planes, self.foreign, &mut scratch, out)
             .map_err(FoldError::Exec)
     }
 
@@ -538,7 +572,7 @@ impl<'p> FoldDialect<'p> {
     /// every call site below passes a terminal whose `Value` shape is fixed
     /// by construction.
     fn finalize_and_run_scalar(&mut self, terminal: Terminal) -> Result<i64, FoldError> {
-        match self.finalize_and_run(terminal)? {
+        match self.finalize_and_run(terminal, false)? {
             Value::Count(n) => Ok(i64::try_from(n).unwrap_or(i64::MAX)),
             Value::SumI64(n) => Ok(n),
             other => panic!("terminal shape guarantees Count or SumI64, got {other:?}"),
@@ -820,6 +854,47 @@ impl Dialect for FoldDialect<'_> {
                 stack.push(Val::Scalar(n));
                 Ok(())
             }
+            GROUP_SUM => {
+                // Stack spelling: mask, key-address, value-address. The key
+                // ADDRESS picks the physical terminal: a resident U32 lane is
+                // `GroupSumI32`, a `VIA` address is `GroupSumViaI32`. Any
+                // other key shape is refused, never coerced onto one of them.
+                let val = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let key = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let mask = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let Val::Slot { slot: s, epoch } = mask else {
+                    return Err(FoldError::WrongOperandKind(f));
+                };
+                let Val::Address(Addr::Lane {
+                    idx: val,
+                    kind: LaneKind::I32,
+                }) = val
+                else {
+                    return Err(FoldError::WrongOperandKind(f));
+                };
+                let mask = Operand::Scratch(s);
+                let terminal = match key {
+                    Val::Address(Addr::Lane {
+                        idx: key,
+                        kind: LaneKind::U32,
+                    }) => Terminal::GroupSumI32 { mask, key, val },
+                    Val::Address(Addr::Via { fk, key }) => {
+                        Terminal::GroupSumViaI32 { mask, fk, key, val }
+                    }
+                    _ => return Err(FoldError::WrongOperandKind(f)),
+                };
+                // Epoch checked AFTER the shape checks so a wrong-kind body is
+                // reported as wrong-kind, and BEFORE the fold, like SUM's arm.
+                if epoch != self.epoch {
+                    return Err(FoldError::StaleSlot);
+                }
+                match self.finalize_and_run(terminal, true)? {
+                    Value::GroupSummed => Ok(()),
+                    other => {
+                        panic!("GROUP_SUM terminal shape guarantees GroupSummed, got {other:?}")
+                    }
+                }
+            }
             other => Err(FoldError::Unimplemented(other)),
         }
     }
@@ -946,6 +1021,98 @@ impl LedgerTables {
     }
 }
 
+/// Group-universe width K for the `GROUP_SUM` fixture.
+const GROUPS: usize = 16;
+
+/// The `GROUP_SUM` fixture: one `active` flag, one resident `direct_key`, and
+/// a `VIA` spelling of the SAME key (`foreign_key[fk[i]]`), plus a signed
+/// `value`. `direct_key` is BUILT from the VIA path, including both of its
+/// drops, so resident and VIA addressing share one oracle while exercising
+/// two different terminals.
+struct GroupTables {
+    active: Vec<u32>,
+    direct_key: Vec<u32>,
+    fk: Vec<u32>,
+    value: Vec<i32>,
+    foreign_key: Vec<u32>,
+}
+
+impl GroupTables {
+    fn seeded(n: usize, foreign_rows: usize, seed: u64) -> Self {
+        let mut s = seed;
+        // Every 11th foreign row resolves OUTSIDE the group universe: the
+        // second-hop drop.
+        let foreign_key: Vec<u32> = (0..foreign_rows)
+            .map(|i| {
+                if i % 11 == 0 {
+                    GROUPS as u32 + 3
+                } else {
+                    (lcg(&mut s) % GROUPS as u64) as u32
+                }
+            })
+            .collect();
+        // Every 13th row addresses NO foreign row: the first-hop drop.
+        let fk: Vec<u32> = (0..n)
+            .map(|i| {
+                if i % 13 == 0 {
+                    foreign_rows as u32 + 5
+                } else {
+                    (lcg(&mut s) % foreign_rows as u64) as u32
+                }
+            })
+            .collect();
+        // The resident key is the VIA key resolved ahead of time, with both
+        // drops folded into one out-of-universe value.
+        let direct_key = fk
+            .iter()
+            .map(|&a| {
+                foreign_key
+                    .get(a as usize)
+                    .copied()
+                    .filter(|&k| (k as usize) < GROUPS)
+                    .unwrap_or(GROUPS as u32 + 7)
+            })
+            .collect();
+        let active = (0..n).map(|_| (lcg(&mut s) & 1) as u32).collect();
+        let value = (0..n).map(|_| (lcg(&mut s) % 401) as i32 - 200).collect();
+        Self {
+            active,
+            direct_key,
+            fk,
+            value,
+            foreign_key,
+        }
+    }
+
+    fn lanes(&self) -> [LaneRef<'_>; 4] {
+        [
+            LaneRef::U32(&self.active),     // idx0
+            LaneRef::U32(&self.direct_key), // idx1
+            LaneRef::U32(&self.fk),         // idx2
+            LaneRef::I32(&self.value),      // idx3
+        ]
+    }
+
+    fn foreign_lanes(&self) -> [LaneRef<'_>; 1] {
+        [LaneRef::U32(&self.foreign_key)]
+    }
+
+    /// `SUM(value WHERE active = 1) GROUP BY key`, over whichever key lane
+    /// is passed — `direct_key` for the real oracle, `fk` for the wrong-
+    /// terminal control. Out-of-universe keys drop.
+    fn grouped_sum_by(&self, key: &[u32]) -> Vec<i64> {
+        let mut out = vec![0i64; GROUPS];
+        for ((&a, &k), &v) in self.active.iter().zip(key).zip(&self.value) {
+            if a == 1 {
+                if let Some(slot) = out.get_mut(k as usize) {
+                    *slot += i64::from(v);
+                }
+            }
+        }
+        out
+    }
+}
+
 /// Runs a native `quack::lower`-produced mask-risc [`Program`] directly
 /// (never through loco) — the "native path" comparator this file's
 /// correctness tests check the loco-carried result against.
@@ -966,6 +1133,47 @@ fn run_quack(program: &Program, tables: &Tables) -> Value {
 }
 
 // ── frontend byte programs ──────────────────────────────────────────────
+
+/// `SUM(value WHERE active = 1) GROUP BY direct_key` — the key is a resident
+/// `U32` lane address, so `GROUP_SUM` lowers to `GroupSumI32`.
+fn frontend_group_sum_direct() -> LocoProgram {
+    let calls = [
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(FnIndex::NUMBER, 0), // active idx0
+        Call::with_value(LOAD, 0),            // space=U32
+        Call::new(INT_EQUAL),                 // -> mask
+        Call::with_value(FnIndex::NUMBER, 1), // direct_key idx1
+        Call::with_value(LOAD, 0),            // -> key address (U32 lane)
+        Call::with_value(FnIndex::NUMBER, 3), // value idx3
+        Call::with_value(LOAD, 1),            // -> value address (I32 lane)
+        Call::new(GROUP_SUM),
+    ];
+    let body = FunctionBody::from_calls(LaneShape::Quads, &calls).expect("9 calls fit Quads");
+    LocoProgram {
+        functions: vec![body],
+    }
+}
+
+/// The same query with the key spelled `foreign_key THROUGH fk` — a `VIA`
+/// address, so the SAME `GROUP_SUM` byte lowers to `GroupSumViaI32`.
+fn frontend_group_sum_via() -> LocoProgram {
+    let calls = [
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(FnIndex::NUMBER, 0), // active idx0
+        Call::with_value(LOAD, 0),
+        Call::new(INT_EQUAL),                 // -> mask
+        Call::with_value(FnIndex::NUMBER, 0), // key: Foreign::lanes idx0
+        Call::with_value(FnIndex::NUMBER, 2), // fk: Planes::lanes idx2
+        Call::new(VIA),                       // -> key address (VIA)
+        Call::with_value(FnIndex::NUMBER, 3), // value idx3
+        Call::with_value(LOAD, 1),
+        Call::new(GROUP_SUM),
+    ];
+    let body = FunctionBody::from_calls(LaneShape::Quads, &calls).expect("10 calls fit Quads");
+    LocoProgram {
+        functions: vec![body],
+    }
+}
 
 const V: u8 = 3;
 const T: i8 = 17;
@@ -1080,6 +1288,9 @@ struct RunStats {
     facade_passes: usize,
     /// How many folds actually finalized-and-ran.
     programs_run: usize,
+    /// [`FoldDialect::group_sink`] after the run — empty unless the run was
+    /// given a `GROUP_SUM` sink.
+    group_sink: Vec<i64>,
     /// [`FoldDialect::poison`], read after the run completed.
     poison: Option<FoldError>,
 }
@@ -1092,8 +1303,19 @@ fn run_frontend_with_stats(
     planes: &Planes<'_>,
     foreign: &Foreign<'_>,
 ) -> Result<RunStats, ogar_loco::RunError<FoldError>> {
+    run_frontend_with_groups(body, planes, foreign, 0)
+}
+
+/// [`run_frontend_with_stats`] over a dialect carrying a `GROUP_SUM` sink of
+/// width `groups` (0 = no sink, the scalar-only frontends).
+fn run_frontend_with_groups(
+    body: &LocoProgram,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    groups: usize,
+) -> Result<RunStats, ogar_loco::RunError<FoldError>> {
     let vocab = validate(R2ILVocabulary).expect("R2ILVocabulary conforms");
-    let dialect = FoldDialect::new(planes, foreign);
+    let dialect = FoldDialect::with_groups(planes, foreign, groups);
     let mut it = Interpreter::new(&vocab, body, dialect);
     it.run()?;
     let d = it.dialect();
@@ -1101,6 +1323,7 @@ fn run_frontend_with_stats(
         stack: it.stack().to_vec(),
         facade_passes: d.facade_passes,
         programs_run: d.programs_run,
+        group_sink: d.group_sink.clone(),
         poison: d.poison(),
     })
 }
@@ -1695,6 +1918,13 @@ fn a_stale_slot_is_refused_not_silently_folded() {
 /// `INT_S_LESS`, `INT_AND`, `INT_SUB`, `POP_COUNT`, `SUM` — driving the
 /// refusal arms too would add nothing: a refusal never reaches a push.
 ///
+/// `GROUP_SUM` is the one implemented op that does NOT push exactly one: it
+/// is a write terminal, pops three and pushes nothing. That exception is
+/// pinned at the bottom of this test (so a later "push a status scalar"
+/// change cannot slip in unnoticed) and its consequence — the stack shrinks
+/// past whatever lay beneath the grouped fold — is pinned by
+/// `group_sum_exposes_what_lay_beneath_it_and_the_epoch_guard_refuses_it`.
+///
 /// ⊘ WHAT THIS DOES NOT PROVE, corrected after review. This comment used to
 /// conclude that the push-exactly-one property makes a stale slot
 /// UNREACHABLE from any real loco body, with `Store` named as the op whose
@@ -1838,6 +2068,31 @@ fn no_implemented_op_can_expose_a_stale_slot() {
             .call(SUM, [0, 0, 0], &mut stack)
             .expect("SUM of a current-epoch slot and a lane address succeeds");
         assert_pushes_exactly_one(SUM, 2, before, stack.len());
+    }
+    // GROUP_SUM: arity 3, pushes ZERO — the documented exception. Built with
+    // a sink, over the `Tables` fixture's own U32 (`fk`, idx0) and I32
+    // (`amount`, idx1) lanes.
+    {
+        let mut dialect = FoldDialect::with_groups(&planes, &foreign, 4);
+        let mut stack: Vec<Val> = Vec::new();
+        dialect.emit_pred(Pred::EqI32 { lane: 1, v: 0 }, &mut stack);
+        stack.push(Val::Address(Addr::Lane {
+            idx: 0,
+            kind: LaneKind::U32,
+        }));
+        stack.push(Val::Address(Addr::Lane {
+            idx: 1,
+            kind: LaneKind::I32,
+        }));
+        let before = stack.len();
+        dialect
+            .call(GROUP_SUM, [0, 0, 0], &mut stack)
+            .expect("GROUP_SUM of a slot, a U32 key and an I32 value succeeds");
+        assert_eq!(
+            stack.len(),
+            before - 3,
+            "GROUP_SUM is a write terminal: pops three, pushes nothing"
+        );
     }
 }
 
@@ -2131,4 +2386,285 @@ fn a_poisoned_run_is_not_reported_as_success() {
         functions: vec![body],
     };
     let _ = run_frontend(&program, &planes, &foreign);
+}
+
+// ── GROUP_SUM ────────────────────────────────────────────────────────────
+
+/// FAILS IF: resident and `VIA` addressing through the ONE `GROUP_SUM` byte
+/// disagree with each other or with an independent grouped oracle, at any
+/// row boundary — or if the key address stops deciding the terminal.
+///
+/// Both frontends are the same query. The resident one names `direct_key`,
+/// the `VIA` one names `foreign_key THROUGH fk`; `direct_key` is built from
+/// that very path, drops included, so one oracle serves both and a
+/// disagreement can only come from the lowering.
+///
+/// Anti-vacuity, because each is a way this could measure nothing:
+/// - many groups are non-zero (an all-zero sink would equal an all-zero
+///   oracle whatever the terminal did);
+/// - both VIA drops actually fire on active rows (otherwise the drop paths
+///   are untested and a terminal that ignored them would still pass);
+/// - the wrong-terminal answer (resident `GroupSumI32` over the `fk` lane,
+///   i.e. a lowering that saw `VIA` and forgot the second hop) DIFFERS from
+///   the oracle, so a selector that confused the two address kinds fails.
+#[test]
+fn group_sum_direct_and_via_both_equal_the_grouped_oracle() {
+    for (n, seed) in [
+        (63usize, 3u64),
+        (64, 5),
+        (130, 7),
+        (1000, 11),
+        (4096, 0x1261),
+    ] {
+        let t = GroupTables::seeded(n, 47, seed);
+        let lanes = t.lanes();
+        let flanes = t.foreign_lanes();
+        let planes = Planes {
+            n_rows: n,
+            masks: &[],
+            lanes: &lanes,
+        };
+        let foreign = Foreign {
+            planes: &[],
+            lanes: &flanes,
+        };
+        let expect = t.grouped_sum_by(&t.direct_key);
+
+        let direct =
+            run_frontend_with_groups(&frontend_group_sum_direct(), &planes, &foreign, GROUPS)
+                .expect("resident GROUP_SUM runs");
+        let via = run_frontend_with_groups(&frontend_group_sum_via(), &planes, &foreign, GROUPS)
+            .expect("VIA GROUP_SUM runs");
+
+        for (name, r) in [("resident", &direct), ("VIA", &via)] {
+            assert_eq!(r.group_sink, expect, "n={n}: {name} grouped result");
+            assert!(
+                r.stack.is_empty(),
+                "n={n}: {name}: GROUP_SUM pushes nothing"
+            );
+            assert_eq!(r.programs_run, 1, "n={n}: {name}: one grouped fold");
+            assert_eq!(r.facade_passes, 1, "n={n}: {name}: one shared predicate");
+            assert_eq!(r.poison, None, "n={n}: {name}: no population branch");
+        }
+        assert_eq!(direct.group_sink, via.group_sink, "n={n}: resident == VIA");
+
+        if n == 4096 {
+            let nonzero = expect.iter().filter(|&&x| x != 0).count();
+            assert!(
+                nonzero >= GROUPS / 2,
+                "anti-vacuity: {nonzero} non-zero groups"
+            );
+            let first_hop_drops = (0..n)
+                .filter(|&i| t.active[i] == 1 && t.fk[i] as usize >= t.foreign_key.len())
+                .count();
+            let second_hop_drops = (0..n)
+                .filter(|&i| {
+                    t.active[i] == 1
+                        && t.foreign_key
+                            .get(t.fk[i] as usize)
+                            .is_some_and(|&k| k as usize >= GROUPS)
+                })
+                .count();
+            assert!(
+                first_hop_drops > 0,
+                "anti-vacuity: first VIA hop never drops"
+            );
+            assert!(
+                second_hop_drops > 0,
+                "anti-vacuity: second VIA hop never drops"
+            );
+            assert_ne!(
+                t.grouped_sum_by(&t.fk),
+                expect,
+                "anti-vacuity: a VIA lowered as a resident fk-keyed sum must be wrong"
+            );
+        }
+    }
+}
+
+/// FAILS IF: `GROUP_SUM` accepts any operand shape other than
+/// `(current-epoch slot, U32-lane-or-VIA key, I32-lane value)` — or refuses
+/// the one it must accept. The positive control is the first case: without
+/// it, an arm that refused everything would pass the rest.
+#[test]
+fn group_sum_refuses_every_other_operand_shape() {
+    let t = GroupTables::seeded(64, 7, 17);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: 64,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    let u32_key = Val::Address(Addr::Lane {
+        idx: 1,
+        kind: LaneKind::U32,
+    });
+    let i32_val = Val::Address(Addr::Lane {
+        idx: 3,
+        kind: LaneKind::I32,
+    });
+    let i32_as_key = Val::Address(Addr::Lane {
+        idx: 3,
+        kind: LaneKind::I32,
+    });
+    let u32_as_val = Val::Address(Addr::Lane {
+        idx: 1,
+        kind: LaneKind::U32,
+    });
+    let via_as_val = Val::Address(Addr::Via { fk: 2, key: 0 });
+
+    // Each case: (label, key, value, mask-is-a-slot, expected).
+    type ShapeCase = (&'static str, Val, Val, bool, Result<(), FoldError>);
+    let cases: [ShapeCase; 6] = [
+        ("positive control", u32_key, i32_val, true, Ok(())),
+        (
+            "I32 lane as key",
+            i32_as_key,
+            i32_val,
+            true,
+            Err(FoldError::WrongOperandKind(GROUP_SUM)),
+        ),
+        (
+            "scalar as key",
+            Val::Scalar(1),
+            i32_val,
+            true,
+            Err(FoldError::WrongOperandKind(GROUP_SUM)),
+        ),
+        (
+            "U32 lane as value",
+            u32_key,
+            u32_as_val,
+            true,
+            Err(FoldError::WrongOperandKind(GROUP_SUM)),
+        ),
+        (
+            "VIA as value",
+            u32_key,
+            via_as_val,
+            true,
+            Err(FoldError::WrongOperandKind(GROUP_SUM)),
+        ),
+        (
+            "scalar as mask",
+            u32_key,
+            i32_val,
+            false,
+            Err(FoldError::WrongOperandKind(GROUP_SUM)),
+        ),
+    ];
+    for (label, key, val, mask_is_slot, expected) in cases {
+        let mut d = FoldDialect::with_groups(&planes, &foreign, GROUPS);
+        let mut stack: Vec<Val> = Vec::new();
+        if mask_is_slot {
+            d.emit_pred(Pred::EqU32 { lane: 0, v: 1 }, &mut stack);
+        } else {
+            stack.push(Val::Scalar(1));
+        }
+        stack.push(key);
+        stack.push(val);
+        assert_eq!(
+            d.call(GROUP_SUM, [0, 0, 0], &mut stack),
+            expected,
+            "{label}"
+        );
+    }
+
+    // Stale mask: minted in epoch 0, then a POP_COUNT fold ends that epoch.
+    // Every other operand is well-shaped, so only the epoch can refuse it.
+    let mut d = FoldDialect::with_groups(&planes, &foreign, GROUPS);
+    let mut held: Vec<Val> = Vec::new();
+    d.emit_pred(Pred::EqU32 { lane: 0, v: 1 }, &mut held);
+    let stale = held.pop().expect("emit_pred pushed a slot");
+    let mut fold: Vec<Val> = Vec::new();
+    d.emit_pred(Pred::EqU32 { lane: 0, v: 0 }, &mut fold);
+    d.call(POP_COUNT, [0, 0, 0], &mut fold)
+        .expect("the intervening fold runs");
+    let mut stack = vec![stale, u32_key, i32_val];
+    assert_eq!(
+        d.call(GROUP_SUM, [0, 0, 0], &mut stack),
+        Err(FoldError::StaleSlot),
+        "a mask from a finished epoch"
+    );
+
+    // Underflow: two operands where three are needed.
+    let mut d = FoldDialect::with_groups(&planes, &foreign, GROUPS);
+    let mut stack = vec![u32_key, i32_val];
+    assert_eq!(
+        d.call(GROUP_SUM, [0, 0, 0], &mut stack),
+        Err(FoldError::Underflow(GROUP_SUM))
+    );
+}
+
+/// FAILS IF: a slot minted BEFORE a `GROUP_SUM` fold, and left beneath it on
+/// the stack, can be consumed AFTER the fold as though it were still live.
+///
+/// This is new reachability, not a restatement of the IF case. Until now every
+/// dialect-dispatched op pushed exactly one value, so only the engine's
+/// `IF`/`IF_ELSE`/`REPEAT` could shrink the stack past a fold's operands.
+/// `GROUP_SUM` pushes nothing, so it does the same from INSIDE the dialect:
+/// the body below leaves slot A under the grouped fold, and after the fold ends
+/// the epoch, A is back on top for `POP_COUNT` with a dead epoch.
+///
+/// Positive control: the same body WITHOUT the leading slot A runs cleanly to
+/// the same grouped answer, so the refusal is the exposed stale slot and not
+/// a defect in `GROUP_SUM` itself.
+#[test]
+fn group_sum_exposes_what_lay_beneath_it_and_the_epoch_guard_refuses_it() {
+    let t = GroupTables::seeded(256, 23, 41);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: 256,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    let mask = [
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(FnIndex::NUMBER, 0), // active idx0
+        Call::with_value(LOAD, 0),
+        Call::new(INT_EQUAL),
+    ];
+    let group_sum = [
+        Call::with_value(FnIndex::NUMBER, 1), // direct_key idx1
+        Call::with_value(LOAD, 0),
+        Call::with_value(FnIndex::NUMBER, 3), // value idx3
+        Call::with_value(LOAD, 1),
+        Call::new(GROUP_SUM),
+    ];
+    let program = |calls: Vec<Call>| LocoProgram {
+        functions: vec![FunctionBody::from_calls(LaneShape::Quads, &calls).expect("fits Quads")],
+    };
+
+    // Positive control: mask + GROUP_SUM, nothing beneath.
+    let clean: Vec<Call> = mask.iter().chain(&group_sum).copied().collect();
+    let ok = run_frontend_with_groups(&program(clean), &planes, &foreign, GROUPS)
+        .expect("a clean grouped fold runs");
+    assert_eq!(ok.group_sink, t.grouped_sum_by(&t.direct_key));
+    assert!(ok.stack.is_empty());
+
+    // Slot A beneath, then the grouped fold, then consume whatever is on top.
+    let exposed: Vec<Call> = mask
+        .iter()
+        .chain(&mask)
+        .chain(&group_sum)
+        .copied()
+        .chain([Call::new(POP_COUNT)])
+        .collect();
+    let err = run_frontend_with_groups(&program(exposed), &planes, &foreign, GROUPS)
+        .err()
+        .expect("a stale slot exposed by GROUP_SUM must be refused");
+    assert!(
+        matches!(err, ogar_loco::RunError::Dialect(FoldError::StaleSlot)),
+        "expected StaleSlot, got {err:?}"
+    );
 }
