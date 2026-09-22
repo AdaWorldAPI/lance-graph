@@ -31,6 +31,12 @@ flow-shift field + the trip footprint (which lines tripped, in which round).
 
 ## Run it
 
+> The `ndarray-simd` feature resolves `ndarray` from the sibling checkout
+> `../ndarray` beside this repository (a path dependency, one Cargo package
+> identity for the whole tree). Cargo reads that manifest at resolution even
+> with the feature OFF, so clone `AdaWorldAPI/ndarray` next to `lance-graph`
+> before either command; CI does the same.
+
 ```sh
 cargo test  --manifest-path crates/perturbation-sim/Cargo.toml
 cargo run   --manifest-path crates/perturbation-sim/Cargo.toml --example simulate

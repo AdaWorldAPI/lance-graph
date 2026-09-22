@@ -248,10 +248,10 @@ impl Fixture {
 
 /// The `line` table's lanes, in the fixed order the `Col` constants below
 /// index into. `line` is the table every lowered [`lance_graph_quack::Query`]
-/// runs against; `partner` is now ALSO exposed as [`Planes`] (see
-/// [`col::partner`]) so the two join cases can lower a real partner-side
-/// filter to a real `Program` — `doc` still exists only as CSV rows for the
-/// oracle, since no case in this suite filters it directly.
+/// runs against. `partner` is never run as its own [`Planes`]: its lanes are
+/// read THROUGH `line.partner_id` as `Foreign::lanes` (see the note below the
+/// `col` module). `doc` exists only as CSV rows for the oracle, since no case
+/// in this suite filters it directly.
 pub mod col {
     use lance_graph_quack::Col;
 
