@@ -1067,10 +1067,7 @@ pub fn lower_group_by_semantic(g: &GroupBy) -> Result<Option<Program>, LowerErro
 /// # Errors
 ///
 /// Propagates the selected lowering path's [`LowerError`].
-pub fn lower_group_by_auto(
-    g: &GroupBy,
-    filter_plane: u16,
-) -> Result<GroupLowering, LowerError> {
+pub fn lower_group_by_auto(g: &GroupBy, filter_plane: u16) -> Result<GroupLowering, LowerError> {
     if let Some(program) = lower_group_by_semantic(g)? {
         return Ok(GroupLowering::Folded {
             program,
@@ -2689,11 +2686,9 @@ mod tests {
                 els: ALT,
             },
         };
-        assert!(
-            lower_group_by_semantic(&invalid)
-                .expect("semantic pass merely declines Blend")
-                .is_none()
-        );
+        assert!(lower_group_by_semantic(&invalid)
+            .expect("semantic pass merely declines Blend")
+            .is_none());
         assert_eq!(
             lower_group_by_auto(&invalid, filter_plane),
             Err(LowerError::GroupedBlend),
