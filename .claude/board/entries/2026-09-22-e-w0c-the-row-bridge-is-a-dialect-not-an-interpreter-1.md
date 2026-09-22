@@ -32,12 +32,12 @@ and R2IL arithmetic continues over the results.
 
 | quantity | value |
 |---|---|
-| probe tests | 17, plus 6 in `algebra_differential` |
+| probe tests | 20, plus 6 in `algebra_differential` |
 | dialect-side allocation | 728 B, independent of row count |
 | executor scratch | tile-local at 65,536 rows |
 | Mathcad folds | `programs_run == 2` |
 | quack agreement | bit-identical to `lance_graph_quack::lower` |
-| disable arms | 8, each red-then-green |
+| disable arms | 12, each red-then-green |
 
 ### Two things it does NOT establish
 
@@ -111,6 +111,23 @@ disabled guard returns **`Ok(())` carrying 1134 where the correct answer is
 downstream net does not cover the aliasing case and the severity is a silent
 wrong number, not a refusal.
 
+### `GROUP_SUM`: one byte, two terminals, chosen by the key address
+
+`GROUP_SUM` is wired. The stack spelling is `mask, key-address,
+value-address`: a resident `U32` key lane lowers to `GroupSumI32`, a `VIA`
+key address to `GroupSumViaI32`, and both land in a caller-owned O(K) sink.
+Resident and VIA agree with each other and with an independent grouped oracle
+at five row counts, with both VIA drops firing on active rows. A lowering
+that treats `VIA` as a resident fk-keyed sum (disable arm) goes red.
+
+It is a WRITE terminal: it pops three and pushes nothing. So it is the first
+**dialect-dispatched** op that can shrink the stack past a value beneath it,
+the same reachability the engine's `IF` already had, now from inside the
+dialect. `group_sum_exposes_what_lay_beneath_it_and_the_epoch_guard_refuses_it`
+pins it: a slot left under the grouped fold resurfaces with a dead epoch and
+is refused. Making `GROUP_SUM` push a status scalar instead (disable arm)
+hides that exposure and turns three tests red.
+
 ### Open, unfixed
 
 - **One trait-level control-flow gap with two instances.** `Dialect::truthy`
@@ -122,8 +139,6 @@ wrong number, not a refusal.
   ogar-loco change makes both fallible. `run_frontend` no longer reports a
   poisoned run as success, which contains the first instance at this layer
   without closing the trait gap.
-- `GROUP_SUM`'s kind-selection arm is declared in OGAR's arity table and
-  exercised by no dialect.
 - `quack::lower`'s redundant third facade pass: measured, pinned two-sided,
   not fixed.
 - `CONSTANT` (the pool) stays unwired here.
