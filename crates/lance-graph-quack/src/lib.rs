@@ -1056,7 +1056,6 @@ pub fn lower_group_by_semantic(g: &GroupBy) -> Result<Option<Program>, LowerErro
     .map(Some)
 }
 
-
 /// Lower one categorical `GROUP BY` with semantic compression before any
 /// execution scheduling.
 ///
