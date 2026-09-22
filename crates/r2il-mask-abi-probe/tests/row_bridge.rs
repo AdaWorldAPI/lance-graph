@@ -316,8 +316,15 @@ enum Val {
     /// A number computed by the loco body — a literal, a comparison result,
     /// or a fold's finalized-and-executed answer.
     Scalar(i64),
-    /// A scratch slot holding a mask, produced by a predicate or a mask op.
-    Slot(u16),
+    /// A scratch slot holding a mask, produced by a predicate or a mask op —
+    /// together with the EXECUTION EPOCH it was minted in
+    /// ([`FoldDialect::epoch`] at the moment of the push). `finalize_and_run`
+    /// discards the `ops` graph a slot number referred to and restarts slot
+    /// numbering from 0 on every fold, so a bare `u16` alone could alias a
+    /// slot freshly minted in a LATER epoch. The epoch is what lets a
+    /// consuming arm tell the two apart and refuse the stale one
+    /// ([`FoldError::StaleSlot`]) instead of silently folding it.
+    Slot { slot: u16, epoch: u32 },
     /// A resolved address — a lane or a join — not yet combined with a
     /// value into a predicate.
     Address(Addr),
@@ -347,6 +354,12 @@ enum FoldError {
     LaneVersusLane(FnIndex),
     /// `LOAD`'s own immediate named a space outside `{0=U32, 1=I32, 2=U64}`.
     UnknownLoadSpace(u8),
+    /// A [`Val::Slot`] whose epoch does not match [`FoldDialect::epoch`] was
+    /// fed to a consuming arm (`INT_AND`/`POP_COUNT`/`SUM`). The slot names a
+    /// scratch position in an `ops` graph a PRIOR fold's `finalize_and_run`
+    /// already discarded — its number may numerically alias a slot minted
+    /// fresh in the current epoch, so it is refused rather than folded.
+    StaleSlot,
     /// [`Dialect::truthy`] was asked to branch on a non-`Scalar` value — see
     /// the module doc's § MEASURED GAP. Set via [`FoldDialect::poison`],
     /// never returned directly (the trait cannot return an error here).
@@ -370,6 +383,12 @@ struct FoldDialect<'p> {
     /// The next unused scratch slot WITHIN the current `ops` accumulation.
     /// Reset to 0 every time a fold finalizes and runs.
     next_slot: u16,
+    /// The current execution epoch — incremented every time a fold
+    /// finalizes and runs, at the same point [`Self::next_slot`] resets to
+    /// 0. Every [`Val::Slot`] minted carries this value at mint time; a
+    /// consuming arm refuses a slot whose epoch does not match the CURRENT
+    /// value ([`FoldError::StaleSlot`]) — see [`Val::Slot`]'s doc comment.
+    epoch: u32,
     /// Caller-owned scratch for `Scratch::over`, allocated ONCE at
     /// construction to `scratch_words_for(tile_words_for(n_rows), MAX_SLOTS)`
     /// and carved fresh (never re-allocated) at every fold boundary — this
@@ -402,6 +421,7 @@ impl<'p> FoldDialect<'p> {
             foreign,
             ops: Vec::new(),
             next_slot: 0,
+            epoch: 0,
             scratch: vec![0u64; cap],
             facade_passes: 0,
             programs_run: 0,
@@ -446,7 +466,8 @@ impl<'p> FoldDialect<'p> {
         dst
     }
 
-    /// Emit a predicate, push its scratch slot.
+    /// Emit a predicate, push its scratch slot — carrying the CURRENT
+    /// epoch, per [`Val::Slot`]'s contract.
     fn emit_pred(&mut self, pred: Pred, stack: &mut Vec<Val>) {
         let dst = self.fresh();
         self.ops.push(MaskOp::Pred {
@@ -454,7 +475,10 @@ impl<'p> FoldDialect<'p> {
             under: None,
             dst,
         });
-        stack.push(Val::Slot(dst));
+        stack.push(Val::Slot {
+            slot: dst,
+            epoch: self.epoch,
+        });
     }
 
     /// Finalize the ops accumulated so far into a `Program` with `terminal`,
@@ -464,6 +488,7 @@ impl<'p> FoldDialect<'p> {
     fn finalize_and_run(&mut self, terminal: Terminal) -> Result<Value, FoldError> {
         let ops = std::mem::take(&mut self.ops);
         self.next_slot = 0;
+        self.epoch += 1;
         self.facade_passes += ops.len();
         self.programs_run += 1;
         let program = Program::new(ops, terminal);
@@ -675,9 +700,24 @@ impl Dialect for FoldDialect<'_> {
                 let b = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
                 match (a, b) {
-                    (Val::Slot(sa), Val::Slot(sb)) => {
+                    (
+                        Val::Slot {
+                            slot: sa,
+                            epoch: ea,
+                        },
+                        Val::Slot {
+                            slot: sb,
+                            epoch: eb,
+                        },
+                    ) => {
+                        if ea != self.epoch || eb != self.epoch {
+                            return Err(FoldError::StaleSlot);
+                        }
                         let dst = self.and_peephole(Operand::Scratch(sa), Operand::Scratch(sb));
-                        stack.push(Val::Slot(dst));
+                        stack.push(Val::Slot {
+                            slot: dst,
+                            epoch: self.epoch,
+                        });
                         Ok(())
                     }
                     (Val::Scalar(x), Val::Scalar(y)) => {
@@ -701,9 +741,12 @@ impl Dialect for FoldDialect<'_> {
             }
             POP_COUNT => {
                 let mask = stack.pop().ok_or(FoldError::Underflow(f))?;
-                let Val::Slot(s) = mask else {
+                let Val::Slot { slot: s, epoch } = mask else {
                     return Err(FoldError::WrongOperandKind(f));
                 };
+                if epoch != self.epoch {
+                    return Err(FoldError::StaleSlot);
+                }
                 let n = self.finalize_and_run_scalar(Terminal::Count {
                     mask: Operand::Scratch(s),
                 })?;
@@ -715,19 +758,29 @@ impl Dialect for FoldDialect<'_> {
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let (mask, lane) = match (a, b) {
                     (
-                        Val::Slot(s),
+                        Val::Slot { slot: s, epoch },
                         Val::Address(Addr::Lane {
                             idx,
                             kind: LaneKind::I32,
                         }),
-                    ) => (Operand::Scratch(s), idx),
+                    ) => {
+                        if epoch != self.epoch {
+                            return Err(FoldError::StaleSlot);
+                        }
+                        (Operand::Scratch(s), idx)
+                    }
                     (
                         Val::Address(Addr::Lane {
                             idx,
                             kind: LaneKind::I32,
                         }),
-                        Val::Slot(s),
-                    ) => (Operand::Scratch(s), idx),
+                        Val::Slot { slot: s, epoch },
+                    ) => {
+                        if epoch != self.epoch {
+                            return Err(FoldError::StaleSlot);
+                        }
+                        (Operand::Scratch(s), idx)
+                    }
                     _ => return Err(FoldError::WrongOperandKind(f)),
                 };
                 let n = self.finalize_and_run_scalar(Terminal::MaskedSumI32 { mask, lane })?;
@@ -963,12 +1016,24 @@ fn frontend_c() -> LocoProgram {
 
 /// Runs one loco body to completion through a fresh [`FoldDialect`] and
 /// returns the final loco stack — for tests that only need the RESULT, not
-/// the measurement fields [`RunStats`] carries.
+/// the measurement fields [`RunStats`] carries. Panics if the run completed
+/// but was POISONED (branched on a population — see the module doc's
+/// § MEASURED GAP): `Interpreter::run()` alone cannot see this, since a
+/// poisoned branch still returns `Ok`, and a caller that only wants the
+/// happy-path stack must never mistake a poisoned run for a clean one. A
+/// caller that needs to OBSERVE poison without panicking uses
+/// [`run_frontend_with_stats`] instead.
 fn run_frontend(body: &LocoProgram, planes: &Planes<'_>, foreign: &Foreign<'_>) -> Vec<Val> {
     let vocab = validate(R2ILVocabulary).expect("R2ILVocabulary conforms");
     let dialect = FoldDialect::new(planes, foreign);
     let mut it = Interpreter::new(&vocab, body, dialect);
     it.run().expect("body runs to completion");
+    if let Some(poison) = it.dialect().poison() {
+        panic!(
+            "run_frontend: the run completed Ok but was poisoned ({poison:?}) — \
+             refusing to report it as success"
+        );
+    }
     it.stack().to_vec()
 }
 
@@ -1517,4 +1582,389 @@ fn wrong_operand_kind_on_a_fold_op_is_refused() {
         err,
         ogar_loco::RunError::Dialect(FoldError::WrongOperandKind(f)) if f == VIA
     ));
+}
+
+// ── epoch / stale-slot tests ────────────────────────────────────────────
+
+/// FAILS IF: a [`Val::Slot`] minted before a fold executed — whose `ops`
+/// graph that fold's `finalize_and_run` has since DISCARDED — is ever
+/// accepted by a later consuming call as though it still named live
+/// scratch. `finalize_and_run` resets `next_slot` to 0 on every fold, so a
+/// stale slot's NUMBER can numerically alias a slot minted fresh in the new
+/// epoch; only the epoch distinguishes them. Constructed directly at the
+/// dialect level (bypassing the interpreter) because no loco body reachable
+/// through `Interpreter::run` can produce this stack shape today — see
+/// `no_implemented_op_can_expose_a_stale_slot` for why.
+#[test]
+fn a_stale_slot_is_refused_not_silently_folded() {
+    let t = Tables::seeded(16, 4, 9);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: 16,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    let mut dialect = FoldDialect::new(&planes, &foreign);
+
+    // Mint a slot in epoch 0, then hold onto it OFF the stack — as if a
+    // (hypothetical, currently unreachable) body kept a reference across a
+    // fold boundary.
+    let mut throwaway: Vec<Val> = Vec::new();
+    dialect.emit_pred(Pred::EqI32 { lane: 1, v: 0 }, &mut throwaway);
+    let stale = throwaway.pop().expect("emit_pred pushed a slot");
+
+    // Run a fold to completion: this is what discards the ops graph `stale`
+    // referred to, advances the epoch, and resets `next_slot` back to 0.
+    let mut fold_stack: Vec<Val> = Vec::new();
+    dialect.emit_pred(Pred::EqI32 { lane: 1, v: 1 }, &mut fold_stack);
+    dialect
+        .call(POP_COUNT, [0, 0, 0], &mut fold_stack)
+        .expect("the fold runs to completion");
+
+    // A slot minted in the NEW (current) epoch, after the fold — numerically
+    // slot 0 again, since `next_slot` was reset. POSITIVE CONTROL: without
+    // this half, an implementation that refused EVERY slot, stale or not,
+    // would also pass.
+    let mut fresh_stack: Vec<Val> = Vec::new();
+    dialect.emit_pred(Pred::EqI32 { lane: 1, v: 2 }, &mut fresh_stack);
+    let lane_addr = Val::Address(Addr::Lane {
+        idx: 1,
+        kind: LaneKind::I32,
+    });
+    fresh_stack.push(lane_addr);
+    dialect
+        .call(SUM, [0, 0, 0], &mut fresh_stack)
+        .expect("a slot from the CURRENT epoch is accepted by SUM");
+
+    // NEGATIVE: `stale` (minted before the fold, in the now-dead epoch) fed
+    // to SUM must be refused, not silently folded — folding it would run
+    // SUM against whatever the CURRENT epoch's slot 0 actually holds, which
+    // has nothing to do with the predicate `stale` originally named.
+    let mut stale_call_stack = vec![stale, lane_addr];
+    let err = dialect
+        .call(SUM, [0, 0, 0], &mut stale_call_stack)
+        .expect_err("a stale slot must be refused");
+    assert_eq!(err, FoldError::StaleSlot);
+}
+
+/// FAILS IF: any implemented op ever pushes anything other than EXACTLY ONE
+/// value per call — which is what makes the stale-slot state
+/// `a_stale_slot_is_refused_not_silently_folded` constructs UNREACHABLE from
+/// any real loco body today. Every value-producing arm in `Dialect::call`
+/// pops its arity's worth of operands and pushes exactly one result, so the
+/// stack can never shrink past a value sitting BENEATH a fold's own result —
+/// a stale slot minted before a fold can never become a later fold's
+/// operand, because nothing ever pops far enough down to reach it.
+/// Implementing any op with `pushes == 0` (`Store`, arity 2, is the obvious
+/// next candidate — see the module doc's § "What is implemented, and what
+/// is refused BY NAME") would break this pin, and the `FoldError::StaleSlot`
+/// guard in the consuming arms (`INT_AND`/`POP_COUNT`/`SUM`) would then
+/// become load-bearing rather than merely defensive. Covers the implemented
+/// set — `NUMBER`, `LOAD`, `VIA`, `INT_EQUAL`, `INT_S_LESS`, `INT_AND`,
+/// `INT_SUB`, `POP_COUNT`, `SUM` — driving literally every refusal arm too
+/// would add nothing: a refusal never reaches a push at all.
+#[test]
+fn no_implemented_op_can_expose_a_stale_slot() {
+    let t = Tables::seeded(16, 4, 13);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: 16,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+
+    /// Asserts `after == before - arity + 1` — exactly one value pushed,
+    /// regardless of arity — and prints the op so a failure names which one.
+    fn assert_pushes_exactly_one(f: FnIndex, arity: usize, before: usize, after: usize) {
+        assert_eq!(
+            after,
+            before - arity + 1,
+            "{f:?}: expected exactly one value pushed (arity {arity}), \
+             stack went {before} -> {after}"
+        );
+    }
+
+    // NUMBER: arity 0.
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack: Vec<Val> = Vec::new();
+        let before = stack.len();
+        dialect
+            .call(FnIndex::NUMBER, [7, 0, 0], &mut stack)
+            .expect("NUMBER always succeeds");
+        assert_pushes_exactly_one(FnIndex::NUMBER, 0, before, stack.len());
+    }
+    // LOAD: arity 1 (pops an index scalar), space=1 (I32).
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![Val::Scalar(1)];
+        let before = stack.len();
+        dialect
+            .call(LOAD, [1, 0, 0], &mut stack)
+            .expect("LOAD of a valid space/index succeeds");
+        assert_pushes_exactly_one(LOAD, 1, before, stack.len());
+    }
+    // VIA: arity 2 (pops key then fk, both scalars).
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![Val::Scalar(0), Val::Scalar(0)];
+        let before = stack.len();
+        dialect
+            .call(VIA, [0, 0, 0], &mut stack)
+            .expect("VIA of two scalars succeeds");
+        assert_pushes_exactly_one(VIA, 2, before, stack.len());
+    }
+    // INT_EQUAL: arity 2, the scalar/scalar (plain-arithmetic) shape.
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![Val::Scalar(3), Val::Scalar(3)];
+        let before = stack.len();
+        dialect
+            .call(INT_EQUAL, [0, 0, 0], &mut stack)
+            .expect("INT_EQUAL of two scalars succeeds");
+        assert_pushes_exactly_one(INT_EQUAL, 2, before, stack.len());
+    }
+    // INT_S_LESS: arity 2, the (Address::Lane I32, Scalar) shape.
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![
+            Val::Address(Addr::Lane {
+                idx: 1,
+                kind: LaneKind::I32,
+            }),
+            Val::Scalar(0),
+        ];
+        let before = stack.len();
+        dialect
+            .call(INT_S_LESS, [0, 0, 0], &mut stack)
+            .expect("INT_S_LESS of a lane and a scalar succeeds");
+        assert_pushes_exactly_one(INT_S_LESS, 2, before, stack.len());
+    }
+    // INT_AND: arity 2, the (Slot, Slot) shape — drives the peephole.
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack: Vec<Val> = Vec::new();
+        dialect.emit_pred(Pred::EqI32 { lane: 1, v: 0 }, &mut stack);
+        dialect.emit_pred(Pred::EqI32 { lane: 1, v: 1 }, &mut stack);
+        let before = stack.len();
+        dialect
+            .call(INT_AND, [0, 0, 0], &mut stack)
+            .expect("INT_AND of two current-epoch slots succeeds");
+        assert_pushes_exactly_one(INT_AND, 2, before, stack.len());
+    }
+    // INT_SUB: arity 2, the scalar/scalar shape.
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![Val::Scalar(5), Val::Scalar(2)];
+        let before = stack.len();
+        dialect
+            .call(INT_SUB, [0, 0, 0], &mut stack)
+            .expect("INT_SUB of two scalars succeeds");
+        assert_pushes_exactly_one(INT_SUB, 2, before, stack.len());
+    }
+    // POP_COUNT: arity 1 — finalizes and RUNS a fold, still pushes exactly
+    // one `Val::Scalar`.
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack: Vec<Val> = Vec::new();
+        dialect.emit_pred(Pred::EqI32 { lane: 1, v: 0 }, &mut stack);
+        let before = stack.len();
+        dialect
+            .call(POP_COUNT, [0, 0, 0], &mut stack)
+            .expect("POP_COUNT of a current-epoch slot succeeds");
+        assert_pushes_exactly_one(POP_COUNT, 1, before, stack.len());
+    }
+    // SUM: arity 2 — also finalizes and runs a fold.
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack: Vec<Val> = Vec::new();
+        dialect.emit_pred(Pred::EqI32 { lane: 1, v: 0 }, &mut stack);
+        stack.push(Val::Address(Addr::Lane {
+            idx: 1,
+            kind: LaneKind::I32,
+        }));
+        let before = stack.len();
+        dialect
+            .call(SUM, [0, 0, 0], &mut stack)
+            .expect("SUM of a current-epoch slot and a lane address succeeds");
+        assert_pushes_exactly_one(SUM, 2, before, stack.len());
+    }
+}
+
+/// The case that decides how bad a stale slot actually is: a stale slot
+/// number that is **live in the current epoch**.
+///
+/// `a_stale_slot_is_refused_not_silently_folded` proves the guard fires, but
+/// its disable run can only ever show `mask-risc`'s own
+/// `ScratchReadBeforeWrite`, because its positive control folds and so clears
+/// `ops` again -- by the negative case nothing has written slot 0. That makes
+/// the downstream net look like it already covers this. It does not.
+///
+/// Here the current epoch HAS written slot 0, by minting a predicate and
+/// deliberately NOT folding it, so with the epoch check removed there is no
+/// read-before-write to catch. The program is well-formed and answers under
+/// the WRONG predicate: a silent wrong number, not an error.
+///
+/// Three anti-vacuity guards, because each one is a way this fixture could
+/// measure nothing: the two slots must ALIAS by number, their two answers
+/// must DIFFER (otherwise the aliasing is unobservable even when it happens),
+/// and the live slot's accepted answer is checked against an independent
+/// oracle so the positive half cannot pass on a wrong-but-successful result.
+#[test]
+fn a_stale_slot_that_aliases_a_live_slot_is_refused_not_answered_wrongly() {
+    // `amount` (lane 1) is in [-100, 99], so these two thresholds select very
+    // different populations and therefore very different sums.
+    const T_STALE: i32 = -100;
+    const T_LIVE: i32 = 50;
+
+    let t = Tables::seeded(64, 8, 11);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: 64,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+
+    let sum_over = |thr: i32| -> i64 {
+        t.amount
+            .iter()
+            .filter(|&&a| a > thr)
+            .map(|&a| i64::from(a))
+            .sum()
+    };
+    let expect_live = sum_over(T_LIVE);
+    assert_ne!(
+        sum_over(T_STALE),
+        expect_live,
+        "the two predicates must disagree on this fixture, or aliasing one for \
+         the other could never be observed"
+    );
+
+    let mut dialect = FoldDialect::new(&planes, &foreign);
+
+    // Epoch 0: mint a slot and hold it off-stack, as a body keeping a
+    // reference across a fold boundary would.
+    let mut held: Vec<Val> = Vec::new();
+    dialect.emit_pred(
+        Pred::GtI32 {
+            lane: 1,
+            t: T_STALE,
+        },
+        &mut held,
+    );
+    let stale = held.pop().expect("emit_pred pushed a slot");
+
+    // Advance the epoch by folding something unrelated.
+    let mut warm: Vec<Val> = Vec::new();
+    dialect.emit_pred(Pred::GtI32 { lane: 1, t: 0 }, &mut warm);
+    dialect
+        .call(POP_COUNT, [0, 0, 0], &mut warm)
+        .expect("the warm-up fold runs");
+
+    // Epoch 1: mint the live predicate. It takes the same slot NUMBER, since
+    // next_slot was reset. Do NOT fold it -- `ops` must still carry its write
+    // when the stale slot is used below, or the downstream read-before-write
+    // guard would mask the aliasing this test exists to expose.
+    let mut live: Vec<Val> = Vec::new();
+    dialect.emit_pred(Pred::GtI32 { lane: 1, t: T_LIVE }, &mut live);
+    let fresh = *live.last().expect("a live slot");
+    assert_eq!(
+        slot_number_of(stale),
+        slot_number_of(fresh),
+        "the fixture is only meaningful if the two slots ALIAS: same number, \
+         different epoch. If next_slot stops resetting, this measures nothing"
+    );
+
+    let lane_addr = Val::Address(Addr::Lane {
+        idx: 1,
+        kind: LaneKind::I32,
+    });
+
+    // NEGATIVE. Without the epoch check this returns Ok, carrying the sum
+    // taken under T_LIVE while the caller believes it asked for T_STALE.
+    let mut bad: Vec<Val> = vec![stale, lane_addr];
+    assert_eq!(
+        dialect.call(SUM, [0, 0, 0], &mut bad),
+        Err(FoldError::StaleSlot),
+        "a stale slot aliasing a live one must be refused, never answered"
+    );
+
+    // POSITIVE. The fresh slot of the same number is accepted and answers
+    // under its own predicate.
+    let mut good: Vec<Val> = vec![fresh, lane_addr];
+    dialect
+        .call(SUM, [0, 0, 0], &mut good)
+        .expect("a current-epoch slot is accepted by SUM");
+    match good.as_slice() {
+        [Val::Scalar(n)] => assert_eq!(
+            *n, expect_live,
+            "the live slot must answer under ITS OWN predicate"
+        ),
+        other => panic!("SUM should leave exactly one scalar, got {other:?}"),
+    }
+}
+
+/// The slot number inside a [`Val::Slot`], for fixtures that must prove two
+/// slots alias. Panics on any other variant: a caller asking this of a
+/// non-slot has a broken fixture, not a runtime condition to handle.
+fn slot_number_of(v: Val) -> u16 {
+    match v {
+        Val::Slot { slot, .. } => slot,
+        other => panic!("expected a slot, got {other:?}"),
+    }
+}
+
+/// FAILS IF: `run_frontend` reports a poisoned run (one that branched on a
+/// population — see `cbranch_on_a_slot_poisons_but_does_not_abort`, whose
+/// body this test reuses verbatim) as though it were a clean success.
+/// `Interpreter::run()` itself returns `Ok` for this body (a poisoned branch
+/// is not a run error — see the module doc's § MEASURED GAP), so
+/// `run_frontend` must check [`FoldDialect::poison`] itself before handing
+/// the stack back; a silent `Ok` here would be indistinguishable from a body
+/// that never branched on a population at all.
+#[test]
+#[should_panic(expected = "poisoned")]
+fn a_poisoned_run_is_not_reported_as_success() {
+    let t = Tables::seeded(64, 8, 4);
+    let lanes = t.lanes();
+    let flanes = t.foreign_lanes();
+    let planes = Planes {
+        n_rows: 64,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    // Same body as `cbranch_on_a_slot_poisons_but_does_not_abort`: a Slot
+    // reaches `IF`, `truthy` answers `false` and sets the poison flag, and
+    // the run completes `Ok` regardless.
+    let calls = [
+        Call::with_value(FnIndex::NUMBER, 0),
+        Call::with_value(FnIndex::NUMBER, 1),
+        Call::with_value(LOAD, 1),
+        Call::new(INT_S_LESS),
+        Call::with_value(FnIndex::IF, 1),
+    ];
+    let body = FunctionBody::from_calls(LaneShape::Quads, &calls).unwrap();
+    let program = LocoProgram {
+        functions: vec![body],
+    };
+    let _ = run_frontend(&program, &planes, &foreign);
 }
