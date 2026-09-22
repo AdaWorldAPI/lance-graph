@@ -889,3 +889,109 @@ fn scatter_count_matches_the_oracle_and_an_independent_distinct_count() {
         }
     }
 }
+
+/// Under tiling a `Keep` result exists only in a demanded `Out::Mask`; every
+/// other `out` shape — `None`, and the `I32` the legacy `execute` wrapper
+/// passes for every terminal — must be refused, not answered with a
+/// `Value::Mask` whose scratch slot holds the last tile alone.
+#[test]
+fn a_tiled_keep_refuses_every_out_shape_but_mask() {
+    let n = 600usize; // words_for(600) == 10 > the 8-word tile below
+    let lane: Vec<u32> = (0..n as u32).collect();
+    let lanes = [LaneRef::U32(&lane)];
+    let planes = Planes {
+        n_rows: n,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let p = Program::new(
+        vec![MaskOp::Pred {
+            pred: Pred::NeU32 { lane: 0, v: 7 },
+            under: None,
+            dst: 0,
+        }],
+        Terminal::Keep { mask: S0 },
+    );
+    let slots = p.scratch_slots as usize;
+    let tile = 8usize;
+    let mut buf = vec![0u64; scratch_words_for(tile, slots).expect("sized")];
+
+    let mut i32_out = [0i32; 1];
+    let mut scratch = Scratch::over(&mut buf, tile, slots).expect("carves");
+    assert_eq!(
+        execute_into(
+            &p,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::I32(&mut i32_out)
+        ),
+        Err(ExecError::TerminalNeedsOut { what: "Keep" }),
+        "Out::I32 under tiling"
+    );
+    let mut i64_out = [0i64; 1];
+    let mut scratch = Scratch::over(&mut buf, tile, slots).expect("carves");
+    assert_eq!(
+        execute_into(
+            &p,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::I64(&mut i64_out)
+        ),
+        Err(ExecError::TerminalNeedsOut { what: "Keep" }),
+        "Out::I64 under tiling"
+    );
+    let mut scratch = Scratch::over(&mut buf, tile, slots).expect("carves");
+    assert_eq!(
+        execute_into(&p, &planes, &Foreign::NONE, &mut scratch, Out::None),
+        Err(ExecError::TerminalNeedsOut { what: "Keep" }),
+        "Out::None under tiling"
+    );
+    // The demanded sink is the one shape that carries a whole result.
+    let mut mask_out = vec![0u64; words_for(n)];
+    let mut scratch = Scratch::over(&mut buf, tile, slots).expect("carves");
+    assert_eq!(
+        execute_into(
+            &p,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::Mask(&mut mask_out)
+        ),
+        Ok(Value::Mask(S0))
+    );
+    assert_eq!(
+        mask_out
+            .iter()
+            .map(|w| w.count_ones() as usize)
+            .sum::<usize>(),
+        n - 1
+    );
+    // ...and the legacy single-tile shape keeps its old contract: one tile
+    // is the whole population, so `Out::I32` is ignored and the slot IS the
+    // result.
+    let whole = words_for(n);
+    let mut whole_buf = vec![0u64; scratch_words_for(whole, slots).expect("sized")];
+    let mut scratch = Scratch::over(&mut whole_buf, whole, slots).expect("carves");
+    let mut ignored = [0i32; 1];
+    assert_eq!(
+        execute_into(
+            &p,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::I32(&mut ignored)
+        ),
+        Ok(Value::Mask(S0))
+    );
+    assert_eq!(
+        scratch
+            .slot(0)
+            .unwrap()
+            .iter()
+            .map(|w| w.count_ones() as usize)
+            .sum::<usize>(),
+        n - 1
+    );
+}

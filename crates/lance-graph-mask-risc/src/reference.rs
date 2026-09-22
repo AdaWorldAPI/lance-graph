@@ -413,10 +413,10 @@ pub(crate) fn validate(
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)?;
             // The kept mask is a DEMANDED sink: `Out::Mask` sized to the
-            // population, or `Out::None` for a caller whose single-tile
-            // scratch holds it (the executor refuses `None` under tiling).
-            // Any other shape is ignored, as `Keep` always ignored `out`
-            // (the legacy `execute` passes `Out::I32` for every terminal).
+            // population, or any other shape for a caller whose single-tile
+            // scratch holds it (the legacy `execute` passes `Out::I32` for
+            // every terminal). The oracle has no tiles; the executor refuses
+            // every non-`Mask` shape under tiling (`TerminalNeedsOut`).
             let want = words_for(n);
             match out {
                 OutShape::Mask(len) if len != want => Err(ExecError::LenMismatch {

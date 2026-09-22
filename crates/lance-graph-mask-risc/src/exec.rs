@@ -626,7 +626,8 @@ fn run_pred<'a>(
 /// Run `program` over `planes` with the caller's `scratch`; `out` is the
 /// destination a [`Terminal::BlendI32`] writes. Validation is total and
 /// happens before any result write, so an `Err` leaves the scratch slots and
-/// `out` untouched.
+/// `out` untouched (the one run-time refusal, and what it may leave in
+/// scratch, is documented on [`execute_into`]).
 ///
 /// A thin wrapper over [`execute_into`]: no foreign planes, and `out` widened
 /// to [`Out::I32`] (or [`Out::None`] for `out: None`) — the shape every
@@ -663,7 +664,12 @@ fn fold_opt(acc: Option<i32>, tile: Option<i32>, f: fn(i32, i32) -> i32) -> Opti
 /// terminal ignores it — an `Out` of the wrong shape for the terminal that IS
 /// present is refused by [`validate`], never silently accepted and silently
 /// not written). Validation is total and happens before any result write, so
-/// an `Err` leaves the scratch slots and `out` untouched.
+/// a validation `Err` leaves the scratch slots and `out` untouched. ONE
+/// refusal is raised at run time instead: [`ExecError::LaneNotOrdered`] from
+/// [`Terminal::CountKeyRunsU32`], at the first key descent, mid-walk. That
+/// terminal has no sink, so `out` is still untouched; the scratch slots may
+/// hold the tiles walked before the descent — scratch is ALU state, never a
+/// result, and nothing reads it back as one.
 ///
 /// **Execution is tiled.** The program runs once per `scratch.words()`-word
 /// tile of the population; every op writes at most one tile of its slot, and
@@ -714,7 +720,14 @@ pub fn execute_into(
         out_shape(&out),
         scratch.written_mut(),
     )?;
-    if matches!(program.terminal, Terminal::Keep { .. }) && matches!(out, Out::None) && tw < words {
+    // Under tiling a `Keep` result exists as a whole ONLY in a demanded
+    // `Out::Mask`: the scratch slot holds the last tile alone, so any other
+    // `out` shape (`None`, or the `I32` the legacy `execute` wrapper passes
+    // for every terminal) would return `Value::Mask` over a partial result.
+    if matches!(program.terminal, Terminal::Keep { .. })
+        && !matches!(out, Out::Mask(_))
+        && tw < words
+    {
         return Err(ExecError::TerminalNeedsOut { what: "Keep" });
     }
     // The sinks that ACCUMULATE across tiles start from zero here, once. The
@@ -941,7 +954,8 @@ pub fn execute_into(
             Terminal::CountKeyRunsU32 { mask, lane } => {
                 // A key below the open run's key means the lane is not in
                 // key order: refuse, never over-count. Sinks are untouched
-                // (this terminal has none) and scratch is ALU state.
+                // (this terminal has none); scratch is ALU state and may
+                // hold the tiles walked so far (see `execute_into`'s doc).
                 match masked_key_run_count_u32(
                     lane_u32(planes, lane, t),
                     read(planes, &slots, mask, t),
