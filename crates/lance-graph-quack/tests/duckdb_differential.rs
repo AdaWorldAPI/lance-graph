@@ -32,11 +32,11 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use lance_graph_mask_risc::{
-    execute_into, materialize_rows, scratch_words_for, words_for, ExecError, Foreign, LaneRef, Out,
-    Planes, Scratch, Terminal, Value,
+    execute_into, materialize_rows, scratch_words_for, words_for, ExecError, Foreign, GroupFold,
+    LaneRef, Out, Planes, Scratch, Terminal, Value,
 };
 use lance_graph_quack::{
-    lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignLane, GroupBy, Query,
+    lower, lower_group_by, Agg, Cmp, Col, Filter, ForeignLane, GroupAddr, GroupAgg, GroupBy, Query,
 };
 
 use fixture::col::{AMOUNT, COST_CENTER, DOC_ID, DOC_ID_U32, GL_ACCOUNT, PARTNER_ID, QTY, STATUS};
@@ -253,6 +253,9 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
         Value::GroupSummed => panic!(
             "case {id}: run_query doesn't handle GroupSumI32 — see group_sum_cc's one-terminal arm"
         ),
+        Value::GroupReduced => {
+            panic!("case {id}: run_query doesn't handle GroupReduce — see run_group_reduce")
+        }
     };
     let out_bytes = encoded.len();
     (
@@ -362,6 +365,69 @@ fn run_group(
             index_vec_len: 0,
             out_bytes,
             programs: Some(plan.groups.len()),
+            pair_relation_bytes: 0,
+            population_state_bytes: 0,
+            fixture_view_bytes: 0,
+        },
+    )
+}
+
+/// A keyed reduction (`COUNT`/`MIN`/`MAX ... GROUP BY`) as ONE program:
+/// `Agg::GroupReduce` → `Terminal::GroupReduce`, a K-slot `Out::I64` sink.
+/// An empty MIN/MAX group still holds its [`GroupFold::seed`] and is encoded
+/// as SQL `NULL`, exactly as `oracle.py` encodes DuckDB's `NULL`.
+fn run_group_reduce(
+    id: &str,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    filter: Filter,
+    key: GroupAddr,
+    agg: GroupAgg,
+    groups: usize,
+) -> (String, CaseMetrics) {
+    let program = lower(&Query {
+        filter,
+        agg: Agg::GroupReduce { key, agg },
+    })
+    .expect("lowers");
+    let fold = match program.terminal {
+        Terminal::GroupReduce { fold, .. } => fold,
+        other => panic!("case {id}: lowered onto {other:?}, not GroupReduce"),
+    };
+    let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
+    let tile_words = scratch.words();
+    let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
+    let mut out = vec![0x5a5a_i64; groups];
+    let before = BYTES.load(Ordering::Relaxed);
+    let value =
+        execute_into(&program, planes, foreign, &mut scratch, Out::I64(&mut out)).expect("runs");
+    let alloc_bytes_exec = alloc_delta(before);
+    assert_eq!(value, Value::GroupReduced, "case {id}");
+    let empty_is_null = !matches!(fold, GroupFold::Count);
+    let encoded = out
+        .iter()
+        .enumerate()
+        .map(|(k, &v)| {
+            if empty_is_null && v == fold.seed() {
+                format!("{k}:NULL")
+            } else {
+                format!("{k}:{v}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(";");
+    let out_bytes = encoded.len();
+    (
+        encoded,
+        CaseMetrics {
+            ops: program.ops.len(),
+            scratch_words,
+            tile_words,
+            alloc_bytes_exec,
+            rows_materialized: 0,
+            index_vec_len: 0,
+            out_bytes,
+            programs: Some(1),
             pair_relation_bytes: 0,
             population_state_bytes: 0,
             fixture_view_bytes: 0,
@@ -596,7 +662,22 @@ fn group_count_cc() {
     let lanes = fx.line.lanes();
     let planes = lanes.planes();
     let filter = Filter::cmp(STATUS, Cmp::EqU32(1));
-    let (actual, m) = run_group(
+
+    // Folded: ONE program, `Terminal::GroupReduce { fold: Count }`.
+    let (folded, m) = run_group_reduce(
+        "group_count_cc",
+        &planes,
+        &Foreign::NONE,
+        filter.clone(),
+        GroupAddr::Local(COST_CENTER),
+        GroupAgg::Count,
+        8,
+    );
+    print_metric("group_count_cc", &m);
+    assert_case(&cases, "group_count_cc", &folded);
+
+    // The K-program forest, kept as the comparison METRIC.
+    let (actual_k, m_k) = run_group(
         "group_count_cc",
         &planes,
         filter,
@@ -604,8 +685,84 @@ fn group_count_cc() {
         8,
         Agg::Count,
     );
-    print_metric("group_count_cc", &m);
-    assert_case(&cases, "group_count_cc", &actual);
+    print_metric("group_count_cc_kprogram", &m_k);
+    assert_case(&cases, "group_count_cc", &actual_k);
+}
+
+/// `MIN(amount) GROUP BY cost_center` over posted lines — one
+/// `Terminal::GroupReduce { fold: MinI32 }` program.
+#[test]
+fn group_min_cc() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let (actual, m) = run_group_reduce(
+        "group_min_cc",
+        &planes,
+        &Foreign::NONE,
+        Filter::cmp(STATUS, Cmp::EqU32(1)),
+        GroupAddr::Local(COST_CENTER),
+        GroupAgg::MinI32(AMOUNT),
+        8,
+    );
+    print_metric("group_min_cc", &m);
+    assert_case(&cases, "group_min_cc", &actual);
+}
+
+/// `MAX(amount) GROUP BY cost_center` over posted lines.
+#[test]
+fn group_max_cc() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let (actual, m) = run_group_reduce(
+        "group_max_cc",
+        &planes,
+        &Foreign::NONE,
+        Filter::cmp(STATUS, Cmp::EqU32(1)),
+        GroupAddr::Local(COST_CENTER),
+        GroupAgg::MaxI32(AMOUNT),
+        8,
+    );
+    print_metric("group_max_cc", &m);
+    assert_case(&cases, "group_max_cc", &actual);
+}
+
+/// `MAX(amount) GROUP BY cost_center` over lines with `status=2`, `qty>45`
+/// and `cost_center IN (0,1,2)` — a filter tight enough that some groups are EMPTY,
+/// so the SQL `NULL` encoding of an empty MIN/MAX group is exercised against
+/// the fold's seed rather than assumed.
+#[test]
+fn group_max_cc_sparse() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let (actual, m) = run_group_reduce(
+        "group_max_cc_sparse",
+        &planes,
+        &Foreign::NONE,
+        Filter::and([
+            Filter::cmp(STATUS, Cmp::EqU32(2)),
+            Filter::cmp(QTY, Cmp::GtI32(45)),
+            Filter::or([
+                Filter::cmp(COST_CENTER, Cmp::EqU32(0)),
+                Filter::cmp(COST_CENTER, Cmp::EqU32(1)),
+                Filter::cmp(COST_CENTER, Cmp::EqU32(2)),
+            ]),
+        ]),
+        GroupAddr::Local(COST_CENTER),
+        GroupAgg::MaxI32(AMOUNT),
+        8,
+    );
+    assert!(
+        actual.contains(":NULL"),
+        "fixture must leave some group empty or this case tests nothing: {actual}"
+    );
+    print_metric("group_max_cc_sparse", &m);
+    assert_case(&cases, "group_max_cc_sparse", &actual);
 }
 
 #[test]
@@ -922,4 +1079,61 @@ fn join_group_sum_country() {
     };
     print_metric("join_group_sum_country", &m);
     assert_case(&cases, "join_group_sum_country", &encoded);
+}
+
+/// `COUNT(*) GROUP BY p.country` over posted lines — the key reached through
+/// `l.partner_id`, fused in ONE `GroupReduce` program (no remapped key lane).
+#[test]
+fn join_group_count_country() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let country_lane = [LaneRef::U32(&fx.partner.country)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &country_lane,
+    };
+    let (actual, m) = run_group_reduce(
+        "join_group_count_country",
+        &planes,
+        &foreign,
+        Filter::cmp(STATUS, Cmp::EqU32(1)),
+        GroupAddr::Via {
+            fk: PARTNER_ID,
+            key: ForeignLane(0),
+        },
+        GroupAgg::Count,
+        8,
+    );
+    print_metric("join_group_count_country", &m);
+    assert_case(&cases, "join_group_count_country", &actual);
+}
+
+/// `MIN(l.amount) GROUP BY p.country` — the via-keyed MIN fold.
+#[test]
+fn join_group_min_country() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let country_lane = [LaneRef::U32(&fx.partner.country)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &country_lane,
+    };
+    let (actual, m) = run_group_reduce(
+        "join_group_min_country",
+        &planes,
+        &foreign,
+        Filter::cmp(STATUS, Cmp::EqU32(1)),
+        GroupAddr::Via {
+            fk: PARTNER_ID,
+            key: ForeignLane(0),
+        },
+        GroupAgg::MinI32(AMOUNT),
+        8,
+    );
+    print_metric("join_group_min_country", &m);
+    assert_case(&cases, "join_group_min_country", &actual);
 }

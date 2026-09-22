@@ -167,7 +167,8 @@ use std::cmp::Reverse;
 use lance_graph_contract::facet::SemanticPrefix;
 use lance_graph_contract::ordered_lane::{OrderedLaneWitness, SealedFacetLane};
 use lance_graph_mask_risc::{
-    fuse, BoolExpr, FuseError, MaskOp, Operand, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
+    fuse, BoolExpr, FuseError, GroupFold, GroupKey, MaskOp, Operand, Pred, Program, Terminal,
+    MAX_SCRATCH_SLOTS,
 };
 
 /// A column reference — an index into [`Planes::lanes`](lance_graph_mask_risc::Planes).
@@ -867,6 +868,48 @@ pub enum Agg {
         /// The value column summed per group, on THIS table.
         val: Col,
     },
+    /// The rest of the one-terminal `GROUP BY` family — `COUNT(*)`,
+    /// `MIN(val)`, `MAX(val)` — as ONE program
+    /// (`Terminal::GroupReduce`), keyed either by a column of this table or
+    /// through an fk into a foreign one. Same `Out::I64` contract as
+    /// [`Agg::GroupSumI32`]: the buffer's length IS the group universe, and
+    /// a key past it (or an fk naming no foreign row) is dropped. The
+    /// executor seeds the buffer itself: `0` for a count, `i64::MAX` for a
+    /// minimum and `i64::MIN` for a maximum, so a MIN/MAX slot still
+    /// holding its seed is an empty group — SQL `NULL`.
+    GroupReduce {
+        /// Where each row's group lives.
+        key: GroupAddr,
+        /// What is folded per group.
+        agg: GroupAgg,
+    },
+}
+
+/// Where an [`Agg::GroupReduce`] reads each row's group — the same two
+/// address shapes lgj-abi's `plan_lower::GroupKey` names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupAddr {
+    /// A `u32` key column of this table.
+    Local(Col),
+    /// `key[fk[row]]`: a `u32` key column of a FOREIGN table, reached through
+    /// the fk column `fk` of this one. The two hops are fused.
+    Via {
+        /// The foreign-key column on THIS table.
+        fk: Col,
+        /// The group key column on the FOREIGN table.
+        key: ForeignLane,
+    },
+}
+
+/// What an [`Agg::GroupReduce`] folds per group.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupAgg {
+    /// `COUNT(*)`.
+    Count,
+    /// `MIN(col)` over a signed column.
+    MinI32(Col),
+    /// `MAX(col)` over a signed column.
+    MaxI32(Col),
 }
 
 /// One query: a filter and what to ask of the rows that pass it.
@@ -1023,11 +1066,17 @@ pub fn lower_group_by(g: &GroupBy, filter_plane: u16) -> Result<GroupPlan, Lower
 /// GROUP_SUM(filter, key, val)
 /// ```
 ///
-/// Today that law is implemented only for [`Agg::SumI32`], which lowers to
-/// [`Terminal::GroupSumI32`]. `Count`, `Min`, `Max`, projection and
-/// blend have no equivalent grouped terminal in the executing algebra, so
-/// they return `None` and the caller keeps [`lower_group_by`]'s existing
-/// two-phase path. No speculative fallback is minted.
+/// The law holds for every aggregate the executing algebra has a grouped
+/// terminal for: [`Agg::SumI32`] lowers to [`Terminal::GroupSumI32`], and
+/// [`Agg::Count`] / [`Agg::MinI32`] / [`Agg::MaxI32`] lower to
+/// [`Terminal::GroupReduce`]. Projection, blend, `Any`/`All` and the rest
+/// have no grouped terminal, so they return `None` and the caller keeps
+/// [`lower_group_by`]'s two-phase path. No speculative fallback is minted.
+///
+/// One encoding difference the caller must honour: where the K-program
+/// forest answers an empty group's MIN/MAX with `Value::OptI32(None)`, the
+/// folded program leaves that group's slot at its seed (`i64::MAX` /
+/// `i64::MIN`). Both are SQL `NULL`.
 ///
 /// The caller already owns `g.groups`; when this returns `Some(program)`,
 /// execute it with [`lance_graph_mask_risc::Out::I64`] of exactly that
@@ -1046,12 +1095,26 @@ pub fn lower_group_by_semantic(g: &GroupBy) -> Result<Option<Program>, LowerErro
     if g.groups == 0 {
         return Ok(None);
     }
-    let Agg::SumI32(val) = g.agg else {
-        return Ok(None);
+    let key = GroupAddr::Local(g.key);
+    let agg = match g.agg {
+        Agg::SumI32(val) => Agg::GroupSumI32 { key: g.key, val },
+        Agg::Count => Agg::GroupReduce {
+            key,
+            agg: GroupAgg::Count,
+        },
+        Agg::MinI32(val) => Agg::GroupReduce {
+            key,
+            agg: GroupAgg::MinI32(val),
+        },
+        Agg::MaxI32(val) => Agg::GroupReduce {
+            key,
+            agg: GroupAgg::MaxI32(val),
+        },
+        _ => return Ok(None),
     };
     lower(&Query {
         filter: g.filter.clone(),
-        agg: Agg::GroupSumI32 { key: g.key, val },
+        agg,
     })
     .map(Some)
 }
@@ -1555,6 +1618,21 @@ fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
             fk: fk.0,
             key: key.0,
             val: val.0,
+        },
+        Agg::GroupReduce { key, agg } => Terminal::GroupReduce {
+            mask,
+            key: match key {
+                GroupAddr::Local(c) => GroupKey::Lane(c.0),
+                GroupAddr::Via { fk, key } => GroupKey::Via {
+                    fk: fk.0,
+                    key: key.0,
+                },
+            },
+            fold: match agg {
+                GroupAgg::Count => GroupFold::Count,
+                GroupAgg::MinI32(c) => GroupFold::MinI32(c.0),
+                GroupAgg::MaxI32(c) => GroupFold::MaxI32(c.0),
+            },
         },
     }
 }
@@ -2654,28 +2732,87 @@ mod tests {
             "K=0 is not equivalent to GroupSumI32 with an empty sink"
         );
 
-        for agg in [Agg::Count, Agg::MinI32(ALT), Agg::MaxI32(ALT), Agg::Rows] {
-            let unsupported = GroupBy {
+        // COUNT / MIN / MAX now have an exact grouped primitive
+        // (`Terminal::GroupReduce`), so they fold too — and the folded sink
+        // must agree with the K-program forest group by group. An empty
+        // MIN/MAX group is `OptI32(None)` on the forest and the fold's seed
+        // in the sink; that correspondence is asserted, not assumed.
+        for agg in [Agg::Count, Agg::MinI32(ALT), Agg::MaxI32(ALT)] {
+            let g = GroupBy {
                 filter: grouped.filter.clone(),
                 key: CLASS,
                 groups,
                 agg,
             };
-            assert!(
-                lower_group_by_semantic(&unsupported)
-                    .expect("unsupported is not an error")
-                    .is_none(),
-                "{agg:?} must stay on the old path until an exact grouped primitive exists"
-            );
-            assert!(
-                matches!(
-                    lower_group_by_auto(&unsupported, filter_plane)
-                        .expect("valid fallback lowering succeeds"),
-                    GroupLowering::Forest(_)
-                ),
-                "{agg:?} must remain executable as irreducible forest residue"
-            );
+            let forest = lower_group_by(&g, filter_plane).expect("forest lowers");
+            let kept = fx.exec_mask(&forest.filter, &[]);
+            let extra = vec![kept];
+            let program = match lower_group_by_auto(&g, filter_plane).expect("auto lowering") {
+                GroupLowering::Folded { program, groups: k } => {
+                    assert_eq!(k, groups);
+                    program
+                }
+                GroupLowering::Forest(_) => panic!("{agg:?} has a grouped law and must fold"),
+            };
+            let fold = match program.terminal {
+                Terminal::GroupReduce {
+                    key: GroupKey::Lane(k),
+                    fold,
+                    ..
+                } => {
+                    assert_eq!(k, CLASS.0);
+                    fold
+                }
+                other => panic!("{agg:?} folded onto {other:?}, not GroupReduce"),
+            };
+            let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
+            let mut sink = vec![0x5a5a_5a5a_i64; groups as usize];
+            let value = fx.with_planes(&[], |planes| {
+                execute_into(
+                    &program,
+                    planes,
+                    &Foreign::NONE,
+                    &mut scratch,
+                    Out::I64(&mut sink),
+                )
+                .expect("folded group reduce runs")
+            });
+            assert_eq!(value, Value::GroupReduced);
+            let mut non_empty = 0;
+            for (gi, p) in forest.groups.iter().enumerate() {
+                let expect = match fx.exec(p, &extra, None) {
+                    Value::Count(n) => n as i64,
+                    Value::OptI32(Some(v)) => {
+                        non_empty += 1;
+                        i64::from(v)
+                    }
+                    Value::OptI32(None) => fold.seed(),
+                    other => panic!("forest {agg:?} returned {other:?}"),
+                };
+                assert_eq!(sink[gi], expect, "{agg:?} group {gi}");
+            }
+            if !matches!(agg, Agg::Count) {
+                assert!(non_empty > 0, "{agg:?}: fixture must populate some group");
+            }
         }
+
+        // ROWS has no keyed-reduction law: it stays irreducible forest residue.
+        let rows = GroupBy {
+            filter: grouped.filter.clone(),
+            key: CLASS,
+            groups,
+            agg: Agg::Rows,
+        };
+        assert!(lower_group_by_semantic(&rows)
+            .expect("unsupported is not an error")
+            .is_none());
+        assert!(
+            matches!(
+                lower_group_by_auto(&rows, filter_plane).expect("valid fallback lowering"),
+                GroupLowering::Forest(_)
+            ),
+            "Rows must remain executable as irreducible forest residue"
+        );
 
         let invalid = GroupBy {
             filter: grouped.filter.clone(),

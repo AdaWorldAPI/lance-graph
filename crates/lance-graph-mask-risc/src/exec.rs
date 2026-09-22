@@ -28,15 +28,17 @@ use ndarray::simd::{
     le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
     mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_gather_u32, mask_not,
     mask_not_assign, mask_or, mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor,
-    mask_xor_assign, masked_group_sum_i32, masked_group_sum_i32_via, masked_key_run_count_u32,
-    masked_max_i32, masked_min_i32, masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under,
-    ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64, ternary_match_u32_to_mask,
-    ternary_match_u32_to_mask_under, ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
-    KeyRunCarry,
+    mask_xor_assign, masked_group_count_u32, masked_group_count_u32_via, masked_group_max_i32,
+    masked_group_max_i32_via, masked_group_min_i32, masked_group_min_i32_via, masked_group_sum_i32,
+    masked_group_sum_i32_via, masked_key_run_count_u32, masked_max_i32, masked_min_i32,
+    masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under,
+    popcount_batch_u64, ternary_match_u32_to_mask, ternary_match_u32_to_mask_under,
+    ternary_match_u64_to_mask, ternary_match_u64_to_mask_under, KeyRunCarry,
 };
 
 use crate::ir::{
-    Foreign, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
+    Foreign, GroupFold, GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
+    MAX_SCRATCH_SLOTS,
 };
 use crate::reference::{out_shape, validate};
 use crate::ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
@@ -738,6 +740,7 @@ pub fn execute_into(
             o.fill(0)
         }
         (Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. }, Out::I64(o)) => o.fill(0),
+        (Terminal::GroupReduce { fold, .. }, Out::I64(o)) => o.fill(fold.seed()),
         _ => {}
     }
     let n_rows = planes.n_rows;
@@ -991,6 +994,57 @@ pub fn execute_into(
                     );
                 }
             }
+            Terminal::GroupReduce { mask, key, fold } => {
+                // `validate` already refused a missing/too-small `out` and
+                // every wrong-width lane; one delegation per tile (law L3),
+                // the sink seeded above with the fold's identity.
+                if let Out::I64(o) = &mut out {
+                    let m = read(planes, &slots, mask, t);
+                    match (key, fold) {
+                        (GroupKey::Lane(k), GroupFold::Count) => {
+                            masked_group_count_u32(m, lane_u32(planes, k, t), o)
+                        }
+                        (GroupKey::Via { fk, key }, GroupFold::Count) => {
+                            masked_group_count_u32_via(
+                                m,
+                                lane_u32(planes, fk, t),
+                                foreign_lane_u32(foreign, key),
+                                o,
+                            )
+                        }
+                        (GroupKey::Lane(k), GroupFold::MinI32(v)) => masked_group_min_i32(
+                            m,
+                            lane_u32(planes, k, t),
+                            lane_i32(planes, v, t),
+                            o,
+                        ),
+                        (GroupKey::Via { fk, key }, GroupFold::MinI32(v)) => {
+                            masked_group_min_i32_via(
+                                m,
+                                lane_u32(planes, fk, t),
+                                foreign_lane_u32(foreign, key),
+                                lane_i32(planes, v, t),
+                                o,
+                            )
+                        }
+                        (GroupKey::Lane(k), GroupFold::MaxI32(v)) => masked_group_max_i32(
+                            m,
+                            lane_u32(planes, k, t),
+                            lane_i32(planes, v, t),
+                            o,
+                        ),
+                        (GroupKey::Via { fk, key }, GroupFold::MaxI32(v)) => {
+                            masked_group_max_i32_via(
+                                m,
+                                lane_u32(planes, fk, t),
+                                foreign_lane_u32(foreign, key),
+                                lane_i32(planes, v, t),
+                                o,
+                            )
+                        }
+                    }
+                }
+            }
             Terminal::Keep { mask } => {
                 // The demanded mask, one tile at a time. With `Out::None` the
                 // scratch is single-tile (checked above) and the slot IS the
@@ -1018,6 +1072,7 @@ pub fn execute_into(
         }),
         Terminal::CountKeyRunsU32 { .. } => Value::Count(runs + run_carry.finish()),
         Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. } => Value::GroupSummed,
+        Terminal::GroupReduce { .. } => Value::GroupReduced,
         Terminal::Keep { mask } => Value::Mask(mask),
     })
 }

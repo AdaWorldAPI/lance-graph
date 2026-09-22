@@ -5,8 +5,8 @@
 use lance_graph_mask_risc::exec::{execute_into, Scratch};
 use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch_with_foreign};
 use lance_graph_mask_risc::{
-    scratch_words_for, words_for, ExecError, Foreign, ForeignPlane, LaneKind, LaneRef, MaskOp,
-    Operand, Out, Planes, Pred, Program, Terminal, Value,
+    scratch_words_for, tile_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupFold,
+    GroupKey, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -994,4 +994,174 @@ fn a_tiled_keep_refuses_every_out_shape_but_mask() {
             .sum::<usize>(),
         n - 1
     );
+}
+
+/// FAILS IF: any member of `Terminal::GroupReduce` (COUNT / MIN / MAX, each
+/// over a resident key lane and over a `Via` key) disagrees with the
+/// row-at-a-time oracle — including across TILE boundaries, where a sink
+/// re-seeded per tile instead of once would lose every earlier tile.
+///
+/// Anti-vacuity: the fixture must drop rows at the key universe, at the
+/// first VIA hop and at the second, must leave at least one MIN/MAX group
+/// empty (its seed survives), and must run more than one tile.
+#[test]
+fn group_reduce_matches_the_oracle_for_every_key_and_fold() {
+    let groups = 4u32;
+    let mut first_hop = false;
+    let mut second_hop = false;
+    let mut empty_group = false;
+    let mut multi_tile = false;
+    for &n in &[1usize, 63, 64, 130, 1000, 5000] {
+        let fx = Fixture::new(n, 10, groups, 0xC0DE ^ n as u64);
+        let (lanes, masks) = fx.planes();
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let mut s = 0xBEEFu64 ^ n as u64;
+        // Group key 3 is never produced by the remap, so every MIN/MAX over
+        // a Via key leaves group 3 at its seed — a real empty group.
+        let remap: Vec<u32> = (0..fx.foreign_rows)
+            .map(|_| match lcg(&mut s) % 5 {
+                3 => groups + 2,
+                k => k as u32 % 3,
+            })
+            .collect();
+        let foreign_lanes = [LaneRef::U32(&remap)];
+        let foreign = Foreign {
+            planes: &[],
+            lanes: &foreign_lanes,
+        };
+        let words = tile_words_for(n);
+        multi_tile |= words < words_for(n);
+
+        for key in [GroupKey::Lane(3), GroupKey::Via { fk: 0, key: 0 }] {
+            for fold in [GroupFold::Count, GroupFold::MinI32(2), GroupFold::MaxI32(2)] {
+                let p = Program::new(
+                    vec![MaskOp::Pred {
+                        pred: Pred::NeU32 { lane: 1, v: 2 },
+                        under: None,
+                        dst: 0,
+                    }],
+                    Terminal::GroupReduce {
+                        mask: S0,
+                        key,
+                        fold,
+                    },
+                );
+                let slots = p.scratch_slots as usize;
+                let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+                let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+                // Dirty sinks on purpose: the terminal must seed them itself.
+                let mut got_out = vec![7i64; groups as usize];
+                let got = execute_into(&p, &planes, &foreign, &mut scratch, Out::I64(&mut got_out))
+                    .expect("runs");
+                let mut want_out = vec![-7i64; groups as usize];
+                let want = reference_execute_into(&p, &planes, &foreign, Out::I64(&mut want_out))
+                    .expect("oracle runs");
+                assert_eq!(got, Value::GroupReduced, "n={n} {key:?} {fold:?}");
+                assert_eq!(got, want, "n={n} {key:?} {fold:?}: value");
+                assert_eq!(got_out, want_out, "n={n} {key:?} {fold:?}: sink");
+                if fold != GroupFold::Count && got_out.contains(&fold.seed()) {
+                    empty_group = true;
+                }
+            }
+        }
+        for i in 0..n {
+            if fx.status[i] == 2 {
+                continue;
+            }
+            let idx = fx.fk[i] as usize;
+            if idx >= remap.len() {
+                first_hop = true;
+            } else if remap[idx] >= groups {
+                second_hop = true;
+            }
+        }
+    }
+    assert!(first_hop, "no selected row dropped at the first VIA hop");
+    assert!(second_hop, "no selected row dropped at the second VIA hop");
+    assert!(empty_group, "no MIN/MAX group was left empty");
+    assert!(multi_tile, "every case ran in a single tile");
+}
+
+/// FAILS IF: `GroupReduce` accepts a wrong-width lane or a missing sink —
+/// it must refuse before writing, like `GroupSumI32`.
+#[test]
+fn group_reduce_refuses_wrong_lanes_and_a_missing_sink() {
+    let fx = Fixture::new(64, 10, 4, 1);
+    let (lanes, masks) = fx.planes();
+    let planes = Planes {
+        n_rows: 64,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let run = |terminal: Terminal, out: Out<'_>| {
+        let p = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::NeU32 { lane: 1, v: 2 },
+                under: None,
+                dst: 0,
+            }],
+            terminal,
+        );
+        let words = tile_words_for(64);
+        let slots = p.scratch_slots as usize;
+        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        execute_into(&p, &planes, &Foreign::NONE, &mut scratch, out)
+    };
+    let ok = GroupKey::Lane(3);
+    // Positive control: the well-formed program runs.
+    let mut sink = [0i64; 4];
+    assert!(run(
+        Terminal::GroupReduce {
+            mask: S0,
+            key: ok,
+            fold: GroupFold::Count
+        },
+        Out::I64(&mut sink)
+    )
+    .is_ok());
+    // An I32 lane (amount, lane 2) used as the key.
+    let mut sink = [0i64; 4];
+    assert!(matches!(
+        run(
+            Terminal::GroupReduce {
+                mask: S0,
+                key: GroupKey::Lane(2),
+                fold: GroupFold::Count
+            },
+            Out::I64(&mut sink)
+        ),
+        Err(ExecError::LaneKind { .. })
+    ));
+    // A U32 lane (status, lane 1) used as the MIN value.
+    let mut sink = [0i64; 4];
+    assert!(matches!(
+        run(
+            Terminal::GroupReduce {
+                mask: S0,
+                key: ok,
+                fold: GroupFold::MinI32(1)
+            },
+            Out::I64(&mut sink)
+        ),
+        Err(ExecError::LaneKind { .. })
+    ));
+    // No sink at all.
+    assert!(matches!(
+        run(
+            Terminal::GroupReduce {
+                mask: S0,
+                key: ok,
+                fold: GroupFold::MaxI32(2)
+            },
+            Out::None
+        ),
+        Err(ExecError::TerminalNeedsOut {
+            what: "GroupReduce"
+        })
+    ));
 }

@@ -28,6 +28,10 @@ pub enum Value {
     /// [`crate::Terminal::GroupSumI32`]: the caller's `Out::I64` buffer was
     /// written, one slot per group.
     GroupSummed,
+    /// [`crate::Terminal::GroupReduce`]: the caller's `Out::I64` buffer was
+    /// written, one slot per group; see [`crate::GroupFold::seed`] for what
+    /// an empty group holds.
+    GroupReduced,
 }
 
 /// The caller's terminal-result destination — one variant per shape a

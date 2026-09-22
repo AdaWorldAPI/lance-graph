@@ -346,6 +346,64 @@ pub enum Terminal {
         key: u16,
         val: u16,
     },
+    /// The rest of the keyed-reduction family — `COUNT(*)`, `MIN(v)`,
+    /// `MAX(v)` … `GROUP BY` — as ONE terminal parameterised by where each
+    /// row's group lives ([`GroupKey`]) and what is folded into it
+    /// ([`GroupFold`]). For every row `i` where `mask` holds, resolves the
+    /// row's group and folds it into the caller's `Out::I64` buffer, whose
+    /// length IS the group universe `K`. Delegates tile by tile to the
+    /// `ndarray::simd::masked_group_{count,min,max}` family; a key past the
+    /// universe, and (for [`GroupKey::Via`]) an fk naming no foreign row,
+    /// drop the row rather than erroring.
+    ///
+    /// The executor seeds the sink before the first tile with the fold's
+    /// identity ([`GroupFold::seed`]): `0` for a count, `i64::MAX` for a
+    /// minimum, `i64::MIN` for a maximum. A MIN/MAX slot still holding its
+    /// seed afterwards is a group no selected row named — the SQL `NULL` of
+    /// an empty group. No per-group sum is involved, so no row bound applies.
+    ///
+    /// `SUM` keeps its own terminals ([`Terminal::GroupSumI32`] /
+    /// [`Terminal::GroupSumViaI32`]); this one does not repeat them.
+    GroupReduce {
+        mask: Operand,
+        key: GroupKey,
+        fold: GroupFold,
+    },
+}
+
+/// Where a [`Terminal::GroupReduce`] reads each row's group.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupKey {
+    /// The group of row `i` is `lanes[lane][i]`, a `U32` lane of this table.
+    Lane(u16),
+    /// The group of row `i` is `foreign.lanes[key][lanes[fk][i]]` — `fk` a
+    /// `U32` lane of this table, `key` a `U32` lane of the foreign table.
+    /// The two hops are fused; no remapped key lane is materialised.
+    Via { fk: u16, key: u16 },
+}
+
+/// What a [`Terminal::GroupReduce`] folds into each group's slot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupFold {
+    /// `COUNT(*)`: each selected row adds 1.
+    Count,
+    /// `MIN(lanes[val])` over an `I32` lane.
+    MinI32(u16),
+    /// `MAX(lanes[val])` over an `I32` lane.
+    MaxI32(u16),
+}
+
+impl GroupFold {
+    /// The fold's identity — what every slot holds before the first row.
+    /// For MIN/MAX it lies outside the `i32` range, so it doubles as the
+    /// empty-group marker.
+    pub const fn seed(self) -> i64 {
+        match self {
+            GroupFold::Count => 0,
+            GroupFold::MinI32(_) => i64::MAX,
+            GroupFold::MaxI32(_) => i64::MIN,
+        }
+    }
 }
 
 /// The widest plane [`Terminal::MaskedSumI32`] is defined on: `2^32` rows.
@@ -460,6 +518,7 @@ impl Program {
             | Terminal::CountKeyRunsU32 { mask, .. }
             | Terminal::GroupSumI32 { mask, .. }
             | Terminal::GroupSumViaI32 { mask, .. }
+            | Terminal::GroupReduce { mask, .. }
             | Terminal::Keep { mask } => touch(mask),
         }
         Self {

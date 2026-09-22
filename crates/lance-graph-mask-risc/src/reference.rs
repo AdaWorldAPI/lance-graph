@@ -17,8 +17,8 @@
 //! path a consumer should reach for.
 
 use crate::ir::{
-    Foreign, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS,
-    MAX_SCRATCH_SLOTS,
+    Foreign, GroupFold, GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
+    MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
 use crate::value::{ExecError, LaneKind, Out, Value};
 use crate::words_for;
@@ -522,6 +522,31 @@ pub(crate) fn validate(
                 }
             }
         }
+        Terminal::GroupReduce { mask, key, fold } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            match key {
+                GroupKey::Lane(k) => check_lane(planes, k, LaneKind::U32)?,
+                GroupKey::Via { fk, key } => {
+                    check_lane(planes, fk, LaneKind::U32)?;
+                    check_foreign_lane(foreign, key, LaneKind::U32)?;
+                }
+            }
+            match fold {
+                GroupFold::Count => {}
+                GroupFold::MinI32(v) | GroupFold::MaxI32(v) => {
+                    check_lane(planes, v, LaneKind::I32)?
+                }
+            }
+            match out {
+                OutShape::I64(len) if len >= 1 => Ok(()),
+                OutShape::None | OutShape::I32(_) | OutShape::I64(_) | OutShape::Mask(_) => {
+                    Err(ExecError::TerminalNeedsOut {
+                        what: "GroupReduce",
+                    })
+                }
+            }
+        }
     }
 }
 
@@ -871,6 +896,48 @@ pub fn reference_execute_into(
                 }
             }
             Value::GroupSummed
+        }
+        Terminal::GroupReduce { mask, key, fold } => {
+            if let Out::I64(o) = out {
+                // Independent formulation: seed every slot, then walk the
+                // survivors one row at a time — no ndarray kernel involved.
+                let seed = match fold {
+                    GroupFold::Count => 0i64,
+                    GroupFold::MinI32(_) => i64::MAX,
+                    GroupFold::MaxI32(_) => i64::MIN,
+                };
+                for x in o.iter_mut() {
+                    *x = seed;
+                }
+                let remap = match key {
+                    GroupKey::Via { key, .. } => match foreign.lanes.get(usize::from(key)) {
+                        Some(LaneRef::U32(v)) => &v[..],
+                        _ => &[][..],
+                    },
+                    GroupKey::Lane(_) => &[][..],
+                };
+                for r in survivors(mask) {
+                    let k = match key {
+                        GroupKey::Lane(lane) => u32_at(planes, lane, r) as usize,
+                        GroupKey::Via { fk, .. } => {
+                            let idx = u32_at(planes, fk, r) as usize;
+                            if idx >= remap.len() {
+                                continue;
+                            }
+                            remap[idx] as usize
+                        }
+                    };
+                    if k >= o.len() {
+                        continue;
+                    }
+                    o[k] = match fold {
+                        GroupFold::Count => o[k] + 1,
+                        GroupFold::MinI32(v) => o[k].min(i64::from(i32_at(planes, v, r))),
+                        GroupFold::MaxI32(v) => o[k].max(i64::from(i32_at(planes, v, r))),
+                    };
+                }
+            }
+            Value::GroupReduced
         }
         Terminal::Keep { mask } => {
             if let Out::Mask(o) = out {

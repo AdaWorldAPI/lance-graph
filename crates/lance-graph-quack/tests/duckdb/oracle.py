@@ -31,7 +31,16 @@ CASES = HERE / "cases.tsv"
 
 # Case ids whose query returns one row of (key, value) pairs to encode as
 # "k:v;k:v;...". Every other id is either a bare scalar or `rows_proj`.
-GROUPED = {"group_count_cc", "group_sum_cc", "join_group_sum_country"}
+GROUPED = {
+    "group_count_cc",
+    "group_sum_cc",
+    "join_group_sum_country",
+    "group_min_cc",
+    "group_max_cc",
+    "group_max_cc_sparse",
+    "join_group_count_country",
+    "join_group_min_country",
+}
 BOOLEAN = {"exists_neg"}
 ROWS = {"rows_proj"}
 
@@ -44,7 +53,9 @@ def encode(case_id: str, rows: list[tuple]) -> str:
         return ",".join(str(r[0]) for r in sorted(rows, key=lambda r: r[0]))
     if case_id in GROUPED:
         pairs = sorted(rows, key=lambda r: r[0])
-        return ";".join(f"{k}:{v}" for k, v in pairs)
+        # An empty MIN/MAX group is SQL NULL (the LEFT JOIN over the key
+        # series keeps the group); encode it literally, never as 0.
+        return ";".join(f"{k}:{'NULL' if v is None else v}" for k, v in pairs)
     if case_id in BOOLEAN:
         (val,) = rows[0]
         return "1" if val else "0"
