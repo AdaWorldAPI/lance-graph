@@ -16,9 +16,7 @@
 //! enough, because it ignores the semantic boundary between row arithmetic
 //! and the widened terminal fold.
 
-use lance_graph_mask_risc::{
-    execute, LaneRef, Operand, Planes, Program, Scratch, Terminal, Value,
-};
+use lance_graph_mask_risc::{execute, LaneRef, Operand, Planes, Program, Scratch, Terminal, Value};
 
 /// Execute the shipped widened `MaskedSumI32` over an all-selected lane.
 ///
