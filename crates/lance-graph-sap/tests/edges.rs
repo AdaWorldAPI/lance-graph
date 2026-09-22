@@ -1,0 +1,153 @@
+mod common;
+use common::*;
+use lance_graph_sap::{edge::*, query::CatsQuery, schema::FIELDS};
+
+#[test]
+fn same_carrier_emits_totals_and_only_selected_original_bapi_assignments() {
+    let mut input = fixture(3);
+    input[20] = vec![Some("123456789012345678901234567890123456789012345678901234567890"); 3];
+    input[5][1] = Some("00000007");
+    input[7][2] = Some("WBS-2");
+    let batch = bind(&input);
+    let mut query = CatsQuery::prepare(&batch, "00000042", "2026-09-01", "2026-09-30").unwrap();
+    let mut sums = vec![0; query.groups()];
+    query.execute_into(&mut sums).unwrap();
+    let mut kept = vec![0; batch.len().div_ceil(64)];
+    query.select_into(&mut kept).unwrap();
+    let totals = activity_totals(&batch, &sums).unwrap();
+    assert_eq!(
+        totals,
+        vec![ActivityTotal {
+            activity_type: "DEV".into(),
+            hours: "17.0".into()
+        }]
+    );
+    let posted = bapi_sink(&batch, &kept).unwrap();
+    assert_eq!(posted.len(), 2);
+    assert_eq!(posted[0].hours, "8.5");
+    assert_eq!(posted[0].workdate, "20260901");
+    assert_eq!(posted[0].employeenumber, "00000042");
+    assert_eq!(posted[0].wbs_element, "WBS-1");
+    assert_eq!(posted[1].wbs_element, "WBS-2");
+    assert_eq!(posted[0].shorttext.len(), 50);
+    assert_eq!(
+        csharp_fields(&batch, 0).unwrap()[5].as_deref(),
+        Some("00000042")
+    );
+    assert!(bapi_sink(&batch, &[u64::MAX]).is_err());
+}
+
+#[test]
+fn current_hash_contracts_are_explicitly_incompatible() {
+    let batch = bind(&fixture(1));
+    let abap = ordered_hash_projection(
+        &batch,
+        0,
+        HashProfile::SimafPortAbap {
+            decimal_separator: '.',
+        },
+    )
+    .unwrap();
+    let smb = ordered_hash_projection(&batch, 0, HashProfile::SmbMiddleware).unwrap();
+    assert!(abap.starts_with("EntryID=entry-1|SourceSystem=SAP|EntryType=BillableHours|"));
+    assert!(smb.starts_with("ENTRY-1|SAP|BILLABLEHOURS|100|"));
+    assert!(abap.contains("|HoursLogged=8.50|"));
+    assert!(smb.contains("|8.50|DEV|"));
+    // Executed against the original pinned TimeTrackingHasher.cs under .NET 8;
+    // independently checked with Python hmac/SHA512 by verify_oracles.py.
+    assert_eq!(hash_projection(&smb, b"fixture-key"),
+        "261a980287713a250f5f2dcd6f7c304f255b1f5673b68604b660bb95f17c3d6570fd4f1e4072357b2e7c714a593478eea6dcc1adad5bc873ffd956923f9162a3");
+    assert_ne!(
+        hash_projection(&abap, b"fixture-key"),
+        hash_projection(&smb, b"fixture-key")
+    );
+    let comma = ordered_hash_projection(
+        &batch,
+        0,
+        HashProfile::SimafPortAbap {
+            decimal_separator: ',',
+        },
+    )
+    .unwrap();
+    assert!(comma.contains("HoursLogged=8,50"));
+}
+
+#[test]
+fn unsupported_oracle_cases_fail_instead_of_claiming_equivalence() {
+    for (field, value) in [(10, "0.125"), (3, "tenant-A"), (3, "0100"), (20, "ä")] {
+        let mut input = fixture(1);
+        input[field][0] = Some(value);
+        let batch = bind(&input);
+        assert!(ordered_hash_projection(&batch, 0, HashProfile::SmbMiddleware).is_err());
+    }
+    let batch = bind(&fixture(1));
+    assert!(bapi_sink(&batch, &[1]).is_err());
+}
+
+/// The BAPI order is a coordinate map over the canonical field identity —
+/// a permutation of a selection, never a second vocabulary. Same data,
+/// different coordinates.
+#[test]
+fn bapi_order_is_a_permutation_over_canonical_field_identity() {
+    // Class 1: distinct ordinals, all inside the canonical basis.
+    let mut seen = std::collections::BTreeSet::new();
+    for &o in &BAPI_ORDINALS {
+        assert!(o < FIELDS.len());
+        assert!(seen.insert(o), "ordinal {o} named twice");
+    }
+    // Position k of the BAPI list is canonical field BAPI_ORDINALS[k] —
+    // the pinned ABAP assignment, read back through the map.
+    let names: Vec<&str> = BAPI_ORDINALS
+        .iter()
+        .map(|&o| FIELDS[o].technical_name)
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "employee_number",
+            "work_date_utc",
+            "hours_logged",
+            "activity_type",
+            "project_code",
+            "task_code",
+            "customer_number",
+            "notes",
+        ]
+    );
+    // It is genuinely a different coordinate system, not the canonical one.
+    assert!(BAPI_ORDINALS.windows(2).any(|w| w[1] < w[0]));
+    assert_eq!(BAPI_PARAMETERS.len(), BAPI_ORDINALS.len());
+
+    // The wire struct is filled THROUGH the map: every posted value equals
+    // the canonical value at the mapped ordinal for its row.
+    let mut input = fixture(3);
+    input[20] = vec![Some("123456789012345678901234567890123456789012345678901234567890"); 3];
+    input[7][2] = Some("WBS-2");
+    let batch = bind(&input);
+    let posted = bapi_sink(&batch, &[7]).unwrap();
+    assert_eq!(posted.len(), 3);
+    for (row, p) in posted.iter().enumerate() {
+        let at = |o: usize| batch.edge_value(o, row).unwrap().unwrap_or_default();
+        let by_map = [
+            p.employeenumber.clone(),
+            at(BAPI_ORDINALS[1])[..10].replace('-', ""),
+            p.hours.clone(),
+            p.activitytype.clone(),
+            p.wbs_element.clone(),
+            p.orderid.clone(),
+            p.cust_spec_pr.clone(),
+            p.shorttext.clone(),
+        ];
+        let want = [
+            at(BAPI_ORDINALS[0]),
+            p.workdate.clone(),
+            at(BAPI_ORDINALS[2]),
+            at(BAPI_ORDINALS[3]),
+            at(BAPI_ORDINALS[4]),
+            at(BAPI_ORDINALS[5]),
+            at(BAPI_ORDINALS[6]),
+            at(BAPI_ORDINALS[7])[..50].to_string(),
+        ];
+        assert_eq!(by_map, want, "row {row}");
+    }
+}

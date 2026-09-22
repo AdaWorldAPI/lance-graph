@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-144 entries, 2026-08-06 .. 2026-08-31.
+145 entries, 2026-08-06 .. 2026-09-22.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-09-22 | `E-CATS-FOLD-DOES-NOT-RETAIN-A-POPULATION-BITMAP-1` | CATS aggregate lowers to one tiled grouped terminal; bitmap realization is a requested boundary sink | [2026-09-22-e-cats-fold-does-not-retain-a-population-bitmap-1.md](2026-09-22-e-cats-fold-does-not-retain-a-population-bitmap-1.md) |
 | 2026-08-31 | `E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1` | B passes every pre-registered gate and the pass is unattributable: at degree 1 it scores identically with 5.5× less memory | [2026-08-31-e-q8-the-six-does-no-work-a-degree-ablation-collapses-the-hex-overlays-entire-advantage-1.md](2026-08-31-e-q8-the-six-does-no-work-a-degree-ablation-collapses-the-hex-overlays-entire-advantage-1.md) |
 | 2026-08-27 | `E-THE-FUSED-PAYLOAD-IS-INERT-AT-EVERY-EXECUTION-GATE-THAT-CONSUMES-IT-1` |  | [2026-08-27-e-the-fused-payload-is-inert-at-every-execution-gate-that-consumes-it-1.md](2026-08-27-e-the-fused-payload-is-inert-at-every-execution-gate-that-consumes-it-1.md) |
 | 2026-08-26 | `E-THE-PERTURBATION-FIELD-NEVER-REACHED-THE-MASK-ALU-1` | the three DTOs are an adapter seam, not an ALU chain: PerturbationDto.energy is dropped, top_k collapses to a min/max window, and the p64 mask ALU is DTO-blind; 4096==4096 is not an address identity (S/4×O/4 vs codebook) — probe gate filed | [2026-08-26-e-the-perturbation-field-never-reached-the-mask-alu-1.md](2026-08-26-e-the-perturbation-field-never-reached-the-mask-alu-1.md) |
