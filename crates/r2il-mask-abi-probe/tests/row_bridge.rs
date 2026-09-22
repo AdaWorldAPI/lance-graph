@@ -107,7 +107,8 @@
 //! to 1 and 48 primitive stages (2 predicate ops + 1 terminal per group) to
 //! 2 (1 shared predicate + 1 grouped terminal). This is semantic scheduling:
 //! combine by algebra first, dispatch afterward. No population bitmap is
-//! introduced by the scheduler itself.
+//! introduced by the scheduler itself. Rayon, if used at all, therefore
+//! schedules only the irreducible residue AFTER this algebraic collapse.
 //!
 //! # MEASURED GAP: a branch on a population is DETECTABLE, not ABORTABLE
 //!
