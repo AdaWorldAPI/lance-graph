@@ -75,8 +75,18 @@ validity plane, and NULL written as `0` each turned their cases red.
 
 ## What is still open (not done here)
 - **W-C:**
-  - `HAVING` over the K-sized sink. This needs an i64 compare-to-mask
-    member. That is a predicate-family width, not a new family.
+  - `HAVING` over the K-sized sink. Correction to the plan above: filtering
+    K result slots is finalization over an O(K) sink, like `avg_finish`, so
+    it needs NO SIMD primitive at realistic K. What it DOES need is **group
+    existence**, and that is OPEN:
+    - A MIN/MAX slot at its seed is an empty group, so `HAVING MIN(x) > c`
+      must skip it. A naive filter on `i64::MAX` would wrongly KEEP it.
+    - A SUM slot cannot tell an empty group from a group summing to 0.
+      SQL gives the empty group `NULL` (excluded by any `HAVING`), not 0.
+    - Both are solved by carrying a count beside the value. That is the
+      same fused sum+count sink AVG wants to become one pass instead of
+      two, so one keyed-reduction member closes two gaps. Decide that sink's
+      shape before writing `HAVING`, not after.
   - `ORDER BY rid LIMIT n`. This needs a first-n select, a rank/select member.
 - **W-D:** multi-key `GROUP BY` via a fused composite address. This is a
   third `GroupKeyAddr` variant; the walker is unchanged.
