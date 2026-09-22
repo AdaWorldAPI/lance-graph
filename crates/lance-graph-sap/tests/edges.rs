@@ -1,6 +1,6 @@
 mod common;
 use common::*;
-use lance_graph_sap::{edge::*, query::CatsQuery};
+use lance_graph_sap::{edge::*, query::CatsQuery, schema::FIELDS};
 
 #[test]
 fn same_carrier_emits_totals_and_only_selected_original_bapi_assignments() {
@@ -80,4 +80,72 @@ fn unsupported_oracle_cases_fail_instead_of_claiming_equivalence() {
     }
     let batch = bind(&fixture(1));
     assert!(bapi_sink(&batch, batch.alpha()).is_err());
+}
+
+/// The BAPI order is a coordinate map over the canonical field identity —
+/// a permutation of a selection, never a second vocabulary. Same data,
+/// different coordinates.
+#[test]
+fn bapi_order_is_a_permutation_over_canonical_field_identity() {
+    // Class 1: distinct ordinals, all inside the canonical basis.
+    let mut seen = std::collections::BTreeSet::new();
+    for &o in &BAPI_ORDINALS {
+        assert!(o < FIELDS.len());
+        assert!(seen.insert(o), "ordinal {o} named twice");
+    }
+    // Position k of the BAPI list is canonical field BAPI_ORDINALS[k] —
+    // the pinned ABAP assignment, read back through the map.
+    let names: Vec<&str> = BAPI_ORDINALS
+        .iter()
+        .map(|&o| FIELDS[o].technical_name)
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "employee_number",
+            "work_date_utc",
+            "hours_logged",
+            "activity_type",
+            "project_code",
+            "task_code",
+            "customer_number",
+            "notes",
+        ]
+    );
+    // It is genuinely a different coordinate system, not the canonical one.
+    assert!(BAPI_ORDINALS.windows(2).any(|w| w[1] < w[0]));
+    assert_eq!(BAPI_PARAMETERS.len(), BAPI_ORDINALS.len());
+
+    // The wire struct is filled THROUGH the map: every posted value equals
+    // the canonical value at the mapped ordinal for its row.
+    let mut input = fixture(3);
+    input[20] = vec![Some("123456789012345678901234567890123456789012345678901234567890"); 3];
+    input[7][2] = Some("WBS-2");
+    let batch = bind(&input);
+    let posted = bapi_sink(&batch, batch.alpha()).unwrap();
+    assert_eq!(posted.len(), 3);
+    for (row, p) in posted.iter().enumerate() {
+        let at = |o: usize| batch.edge_value(o, row).unwrap().unwrap_or_default();
+        let by_map = [
+            p.employeenumber.clone(),
+            at(BAPI_ORDINALS[1])[..10].replace('-', ""),
+            p.hours.clone(),
+            p.activitytype.clone(),
+            p.wbs_element.clone(),
+            p.orderid.clone(),
+            p.cust_spec_pr.clone(),
+            p.shorttext.clone(),
+        ];
+        let want = [
+            at(BAPI_ORDINALS[0]),
+            p.workdate.clone(),
+            at(BAPI_ORDINALS[2]),
+            at(BAPI_ORDINALS[3]),
+            at(BAPI_ORDINALS[4]),
+            at(BAPI_ORDINALS[5]),
+            at(BAPI_ORDINALS[6]),
+            at(BAPI_ORDINALS[7])[..50].to_string(),
+        ];
+        assert_eq!(by_map, want, "row {row}");
+    }
 }

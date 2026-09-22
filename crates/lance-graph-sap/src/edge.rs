@@ -9,6 +9,26 @@ use sha2::Sha512;
 /// Pinned ABAP prepare_hash_data order, also used (without names) by SMB.
 pub const HASH_ORDINALS: [usize; 16] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20, 21, 22];
 
+/// The BAPI assignment order as a coordinate map over the canonical field
+/// identity: position `k` of the BAPI parameter list reads canonical
+/// ordinal `BAPI_ORDINALS[k]`. Same fields, same cardinality, different
+/// coordinates — a permutation of a selection of [`FIELDS`], not a second
+/// field vocabulary. [`bapi_sink`] reads through this map; the wire struct
+/// it fills is the boundary's shape, never a copied normal form.
+pub const BAPI_ORDINALS: [usize; 8] = [5, 9, 10, 11, 7, 8, 6, 20];
+
+/// The BAPI parameter names, positionally aligned with [`BAPI_ORDINALS`].
+pub const BAPI_PARAMETERS: [&str; 8] = [
+    "EMPLOYEENUMBER",
+    "WORKDATE",
+    "HOURS",
+    "ACTIVITYTYPE",
+    "WBS_ELEMENT",
+    "ORDERID",
+    "CUST_SPEC_PR",
+    "SHORTTEXT",
+];
+
 #[derive(Debug, Clone, Copy)]
 pub enum HashProfile {
     /// Named, case-preserving fields. Decimal formatting depends on the SAP
@@ -157,7 +177,8 @@ pub fn bapi_sink(batch: &CatsBatch, kept: &[u64]) -> Result<Vec<BapiCatsInsert>,
     for row in lance_graph_mask_risc::materialize_rows(kept, batch.len()) {
         let field =
             |i| -> Result<String, BindError> { Ok(batch.edge_value(i, row)?.unwrap_or_default()) };
-        let notes = field(20)?;
+        let [emp, date_o, hours, act, wbs, order, cust, notes_o] = BAPI_ORDINALS;
+        let notes = field(notes_o)?;
         // ABAP source uses notes(50), not a documented safe truncation helper.
         // Restrict the fixture to at least 50 ASCII characters; do not silently
         // repair or claim parity for short strings / UTF-16 substring behavior.
@@ -166,15 +187,15 @@ pub fn bapi_sink(batch: &CatsBatch, kept: &[u64]) -> Result<Vec<BapiCatsInsert>,
                 "BAPI notes(50) requires a 50-byte ASCII oracle fixture".into(),
             ));
         }
-        let date = field(9)?;
+        let date = field(date_o)?;
         result.push(BapiCatsInsert {
-            employeenumber: field(5)?,
+            employeenumber: field(emp)?,
             workdate: date[..10].replace('-', ""),
-            hours: field(10)?,
-            activitytype: field(11)?,
-            wbs_element: field(7)?,
-            orderid: field(8)?,
-            cust_spec_pr: field(6)?,
+            hours: field(hours)?,
+            activitytype: field(act)?,
+            wbs_element: field(wbs)?,
+            orderid: field(order)?,
+            cust_spec_pr: field(cust)?,
             shorttext: notes[..50].into(),
         });
     }
