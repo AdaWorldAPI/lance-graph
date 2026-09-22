@@ -1,7 +1,7 @@
 //! The harvested 23-field CATS schema, ordered by the ABAP leaf declarations.
 //! Ordinals are append-only. DDIC scale, ALPHA exits and localized labels are
 //! absent: none is defined by the pinned source. Widths come from the C# mirror.
-use lance_graph_contract::class_view::{ClassId, ClassView};
+use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_mask_risc::LaneKind;
 use lance_graph_quack::Col;
@@ -261,6 +261,20 @@ pub struct CatsSchema {
     fields: Vec<FieldRef>,
 }
 impl CatsSchema {
+    /// Explicit cold/UI projection boundary. The shared constructor is the
+    /// same one used by od_ontology::view_mask::mint_wide_mask. Unknown names
+    /// are refused before that constructor (which otherwise ignores them).
+    pub fn realize_projection(&self, names: &[&str]) -> Option<WideFieldMask> {
+        let universe: Vec<_> = FIELDS.iter().map(|f| f.technical_name).collect();
+        let present: Option<Vec<_>> = names
+            .iter()
+            .map(|name| {
+                self.resolve(name)
+                    .map(|col| FIELDS[usize::from(col.0)].technical_name)
+            })
+            .collect();
+        WideFieldMask::from_universe_present(&universe, &present?).ok()
+    }
     pub fn new(class: ClassId, category: u8) -> Self {
         Self {
             class,
