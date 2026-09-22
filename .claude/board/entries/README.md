@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-145 entries, 2026-08-06 .. 2026-09-22.
+146 entries, 2026-08-06 .. 2026-09-22.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-09-22 | `E-W0C-THE-ROW-BRIDGE-IS-A-DIALECT-NOT-AN-INTERPRETER-1` | a merged relational op carried as loco program data reaches the fused executor with no population crossing; the enum explosion is upstream of mask-risc | [2026-09-22-e-w0c-the-row-bridge-is-a-dialect-not-an-interpreter-1.md](2026-09-22-e-w0c-the-row-bridge-is-a-dialect-not-an-interpreter-1.md) |
 | 2026-09-22 | `E-CATS-FOLD-DOES-NOT-RETAIN-A-POPULATION-BITMAP-1` | CATS aggregate lowers to one tiled grouped terminal; bitmap realization is a requested boundary sink | [2026-09-22-e-cats-fold-does-not-retain-a-population-bitmap-1.md](2026-09-22-e-cats-fold-does-not-retain-a-population-bitmap-1.md) |
 | 2026-08-31 | `E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1` | B passes every pre-registered gate and the pass is unattributable: at degree 1 it scores identically with 5.5× less memory | [2026-08-31-e-q8-the-six-does-no-work-a-degree-ablation-collapses-the-hex-overlays-entire-advantage-1.md](2026-08-31-e-q8-the-six-does-no-work-a-degree-ablation-collapses-the-hex-overlays-entire-advantage-1.md) |
 | 2026-08-27 | `E-THE-FUSED-PAYLOAD-IS-INERT-AT-EVERY-EXECUTION-GATE-THAT-CONSUMES-IT-1` |  | [2026-08-27-e-the-fused-payload-is-inert-at-every-execution-gate-that-consumes-it-1.md](2026-08-27-e-the-fused-payload-is-inert-at-every-execution-gate-that-consumes-it-1.md) |
