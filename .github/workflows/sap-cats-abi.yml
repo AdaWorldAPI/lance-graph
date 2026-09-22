@@ -1,0 +1,37 @@
+name: SAP CATS ABI
+on:
+  pull_request:
+    paths:
+      - 'crates/lance-graph-sap/**'
+      - 'crates/lance-graph-quack/**'
+      - 'crates/lance-graph-mask-risc/**'
+      - 'crates/lance-graph-contract/**'
+      - '.github/workflows/sap-cats-abi.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+      - uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          ref: main
+          path: ndarray
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Record tested substrate
+        run: git -C ndarray rev-parse HEAD
+      - name: Format
+        run: cargo +stable fmt --manifest-path lance-graph/crates/lance-graph-sap/Cargo.toml -- --check
+      - name: Lint
+        run: cargo +stable clippy --manifest-path lance-graph/crates/lance-graph-sap/Cargo.toml --all-targets -- -D warnings
+      - name: ABI and boundary tests
+        run: cargo +stable test --manifest-path lance-graph/crates/lance-graph-sap/Cargo.toml
+      - name: Executable CATS slice
+        run: cargo +stable run --manifest-path lance-graph/crates/lance-graph-sap/Cargo.toml --example cats

@@ -16,9 +16,9 @@ fn repeated_domains_share_one_adapter_and_char_values_remain_lossless() {
     input[7][0] = Some("123456789012345678901234");
     input[20][0] = Some("naïve — Grüße"); // lossless text storage, independent of hash support
     let batch = bind(&input);
-    for row in 0..3 {
+    for (row, customer) in input[6].iter().enumerate() {
         assert_eq!(batch.edge_value(5, row), batch.edge_value(21, row));
-        assert_eq!(batch.edge_value(6, row).unwrap().as_deref(), input[6][row]);
+        assert_eq!(batch.edge_value(6, row).unwrap().as_deref(), *customer);
     }
     assert_eq!(batch.edge_value(7, 0).unwrap().as_deref(), input[7][0]);
     assert_eq!(batch.edge_value(20, 0).unwrap().as_deref(), input[20][0]);
