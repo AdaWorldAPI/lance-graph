@@ -989,7 +989,6 @@ pub fn lower_group_by(g: &GroupBy, filter_plane: u16) -> Result<GroupPlan, Lower
     })
 }
 
-
 /// Try to collapse a categorical `GROUP BY` forest into ONE program before
 /// the two-phase lowering above materialises its filter population.
 ///
@@ -1020,6 +1019,12 @@ pub fn lower_group_by(g: &GroupBy, filter_plane: u16) -> Result<GroupPlan, Lower
 /// available. Unsupported grouped aggregates return `Ok(None)`, not an
 /// error.
 pub fn lower_group_by_semantic(g: &GroupBy) -> Result<Option<Program>, LowerError> {
+    // K == 0 is a real boundary, not an optimization corner: the legacy
+    // lowering has zero group programs, while GroupSumI32 deliberately
+    // refuses an empty Out::I64 because there is no group universe to name.
+    if g.groups == 0 {
+        return Ok(None);
+    }
     let Agg::SumI32(val) = g.agg else {
         return Ok(None);
     };
@@ -2581,6 +2586,19 @@ mod tests {
 
         // The scheduler is rule-driven, not aspirational: no grouped
         // primitive means no rewrite.
+        let zero_groups = GroupBy {
+            filter: grouped.filter.clone(),
+            key: CLASS,
+            groups: 0,
+            agg: Agg::SumI32(ALT),
+        };
+        assert!(
+            lower_group_by_semantic(&zero_groups)
+                .expect("zero groups is not an error")
+                .is_none(),
+            "K=0 is not equivalent to GroupSumI32 with an empty sink"
+        );
+
         for agg in [
             Agg::Count,
             Agg::MinI32(ALT),
