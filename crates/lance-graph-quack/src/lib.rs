@@ -927,6 +927,27 @@ pub struct GroupPlan {
     pub groups: Vec<Program>,
 }
 
+/// The scheduler-facing result of lowering one categorical `GROUP BY`.
+///
+/// Algebraic compression is attempted BEFORE physical fan-out. A caller only
+/// sees a [`Forest`](Self::Forest) when no exact one-program primitive exists;
+/// that residue is then free to use Rayon or any other execution policy
+/// without teaching the thread scheduler semantic equivalences.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GroupLowering {
+    /// One mathematically equivalent mask-risc program replaced the K-program
+    /// forest. `groups` is the demanded O(K) output width.
+    Folded {
+        /// The single executable program.
+        program: Program,
+        /// The group universe K, i.e. the required output length.
+        groups: u32,
+    },
+    /// No exact algebraic fold exists yet; preserve the existing two-phase
+    /// lowering byte-for-byte.
+    Forest(GroupPlan),
+}
+
 /// Lower a query to a [`Program`], evaluating predicates in place.
 ///
 /// # The allocation rule
@@ -1033,6 +1054,31 @@ pub fn lower_group_by_semantic(g: &GroupBy) -> Result<Option<Program>, LowerErro
         agg: Agg::GroupSumI32 { key: g.key, val },
     })
     .map(Some)
+}
+
+
+/// Lower one categorical `GROUP BY` with semantic compression before any
+/// execution scheduling.
+///
+/// This is the narrow scheduler seam: exact algebra first, forest second.
+/// It never chooses thread counts, chunk sizes or Rayon lanes. Those are
+/// execution concerns and see only the irreducible [`GroupLowering::Forest`]
+/// residue.
+///
+/// # Errors
+///
+/// Propagates the selected lowering path's [`LowerError`].
+pub fn lower_group_by_auto(
+    g: &GroupBy,
+    filter_plane: u16,
+) -> Result<GroupLowering, LowerError> {
+    if let Some(program) = lower_group_by_semantic(g)? {
+        return Ok(GroupLowering::Folded {
+            program,
+            groups: g.groups,
+        });
+    }
+    lower_group_by(g, filter_plane).map(GroupLowering::Forest)
 }
 
 /// The shared front half of every lowering: gate the tree, emit it, read the
@@ -2558,6 +2604,19 @@ mod tests {
         let folded = lower_group_by_semantic(&grouped)
             .expect("semantic lowering itself succeeds")
             .expect("SUM has an exact grouped terminal");
+        let scheduled = lower_group_by_auto(&grouped, filter_plane).expect("auto lowering");
+        match scheduled {
+            GroupLowering::Folded {
+                program,
+                groups: scheduled_groups,
+            } => {
+                assert_eq!(scheduled_groups, groups);
+                assert_eq!(program, folded);
+            }
+            GroupLowering::Forest(_) => {
+                panic!("a proved GROUP_SUM law must be applied before fan-out")
+            }
+        }
         assert!(
             matches!(
                 folded.terminal,
@@ -2620,6 +2679,15 @@ mod tests {
                     .expect("unsupported is not an error")
                     .is_none(),
                 "{agg:?} must stay on the old path until an exact grouped primitive exists"
+            );
+
+            assert!(
+                matches!(
+                    lower_group_by_auto(&unsupported, filter_plane)
+                        .expect("fallback lowering succeeds"),
+                    GroupLowering::Forest(_)
+                ),
+                "{agg:?} must remain executable as irreducible forest residue"
             );
         }
     }
