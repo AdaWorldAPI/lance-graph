@@ -10,8 +10,8 @@
 //!
 //! Reported separately: median latency, population words visited, lane
 //! elements visited, and derived words written. The word counts are DERIVED
-//! from the plan the executor iterates (`extent_tiles`) and the fold's span
-//! (`touched_words`), not guessed; every extent result is cross-checked
+//! from the extent's semantic span (`touched_words`), which the executor's
+//! tile plan is test-pinned to cover exactly — not guessed; every extent result is cross-checked
 //! against a scalar oracle over the same absolute rows.
 //!
 //! `cargo run --release -p lance-graph-mask-risc --example extent_probe`
@@ -20,8 +20,8 @@ use std::time::Instant;
 
 use lance_graph_mask_risc::exec::{execute_extent, Scratch};
 use lance_graph_mask_risc::{
-    extent_tiles, touched_words, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program,
-    Terminal, Value, TILE_WORDS,
+    touched_words, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
+    TILE_WORDS,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -120,7 +120,6 @@ fn main() {
         ("lane", &lane, 1),
     ] {
         let mut s = Scratch::for_program(p, n).expect("scratch");
-        let tw = s.words();
         for (name, lo, hi) in extents {
             // Scalar oracle over the same ABSOLUTE rows.
             let want = match shape {
@@ -145,7 +144,9 @@ fn main() {
                 reps,
             );
             assert_eq!(got, want, "{shape} {name}");
-            let tiles_words: usize = extent_tiles(n, tw, lo..hi).map(|(w, _)| w.len()).sum();
+            // Words the extent touches: the semantic span, which the executor's
+            // tile plan covers exactly (pinned in-crate by `extent_tile_tests`).
+            let tiles_words = touched_words(lo as u32, hi as u32).len();
             let (words_read, lane_elems, derived) = match shape {
                 "fused" => {
                     let (a, b) = ((plo as usize).max(lo), (phi as usize).min(hi));

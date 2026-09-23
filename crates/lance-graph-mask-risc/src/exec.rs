@@ -726,9 +726,11 @@ fn run_fused(f: FusedTerminal, planes: &Planes<'_>) -> Value {
 /// `[0, n_rows)` there is no edge, and the tiles are exactly the ones
 /// whole-population execution has always walked.
 ///
-/// Public so the structural claim — work scales with the extent, not with
-/// `n_rows` — is checkable against the plan the executor actually iterates.
-pub fn extent_tiles(n_rows: usize, tile_words: usize, extent: Range<usize>) -> ExtentTiles {
+/// Crate-private: tile width and edge representation are executor
+/// implementation detail, not API. The structural claim — work scales with
+/// the extent, not with `n_rows` — is pinned by the in-crate test
+/// `extent_tile_tests` against this exact plan.
+pub(crate) fn extent_tiles(n_rows: usize, tile_words: usize, extent: Range<usize>) -> ExtentTiles {
     let span = span_words(extent.start, extent.end);
     ExtentTiles {
         first: span.start,
@@ -744,7 +746,7 @@ pub fn extent_tiles(n_rows: usize, tile_words: usize, extent: Range<usize>) -> E
 
 /// Iterator returned by [`extent_tiles`].
 #[derive(Debug, Clone)]
-pub struct ExtentTiles {
+pub(crate) struct ExtentTiles {
     first: usize,
     cur: usize,
     end: usize,
@@ -853,9 +855,17 @@ pub fn execute_into(
 /// `MaskedSumI32` (sum), `MaskedMinI32` / `MaskedMaxI32` (min / max) — plus
 /// `Keep`, which writes only the in-extent bits of its population-addressed
 /// [`Out::Mask`] and leaves every other bit as the caller holds it (so
-/// disjoint extents compose into one buffer in any order). Anything else is
+/// disjoint extents compose into one buffer in any SEQUENTIAL order). Anything else is
 /// [`ExecError::ExtentUnsupported`]; `lo > hi` or `hi > n_rows` is
 /// [`ExecError::ExtentOutOfRange`]. Both are refused before execution.
+///
+/// **Sequential, not concurrent.** An unaligned boundary puts two extents in
+/// one physical `u64` of the `Keep` sink, and the edge merge is a
+/// read-modify-write. Partial `Keep` sinks compose in any sequential order;
+/// concurrent execution requires word-disjoint sink ownership (boundaries on
+/// multiples of 64), separate partial sinks plus a merge, or another
+/// explicitly synchronized strategy. Nothing here licenses two writers on one
+/// `Out::Mask` at once.
 ///
 /// Foreign planes and lanes ([`MaskOp::Gather`], `GroupKey::Via`) are
 /// addressed by KEY, not by this table's rows, so the extent never slices
@@ -1344,6 +1354,62 @@ pub fn execute_extent(
         Terminal::GroupReduce { .. } => Value::GroupReduced,
         Terminal::Keep { mask } => Value::Mask(mask),
     })
+}
+
+#[cfg(test)]
+mod extent_tile_tests {
+    use super::*;
+
+    /// The plan the executor iterates is proportional to the extent. A tiny
+    /// extent in a million rows is one one-word tile; the whole population is
+    /// exactly the `TILE_WORDS` chunking whole-population execution always used.
+    #[test]
+    fn the_tiles_visited_scale_with_the_extent_not_the_population() {
+        let n = 1 << 20;
+        let tile_count = |lo: usize, hi: usize| extent_tiles(n, TILE_WORDS, lo..hi).count();
+        let words_visited = |lo: usize, hi: usize| {
+            extent_tiles(n, TILE_WORDS, lo..hi)
+                .map(|(w, _)| w.len())
+                .sum::<usize>()
+        };
+        assert_eq!(tile_count(500_001, 500_002), 1);
+        assert_eq!(words_visited(500_001, 500_002), 1);
+        // 64 rows across a word seam: two one-word edge tiles; aligned: one.
+        assert_eq!(tile_count(500_001, 500_065), 2);
+        assert_eq!(tile_count(500_032, 500_096), 1); // 500_032 = 64 * 7813
+        assert_eq!(words_visited(512_000, 512_512), 8);
+        assert_eq!(tile_count(512_000, 512_512), 1);
+        assert_eq!(tile_count(0, 0), 0);
+        let whole: Vec<_> = extent_tiles(n, TILE_WORDS, 0..n).collect();
+        assert_eq!(whole.len(), n / 64 / TILE_WORDS);
+        for (i, (w, edge)) in whole.iter().enumerate() {
+            assert_eq!(*w, i * TILE_WORDS..(i + 1) * TILE_WORDS);
+            assert!(edge.is_none());
+        }
+        // Every extent: tiles are contiguous, disjoint, cover exactly the touched
+        // words, and only a word the extent cuts carries an edge.
+        let n = 1317;
+        for lo in [0usize, 1, 63, 64, 65, 500, 1300] {
+            for hi in [lo, lo + 1, lo + 63, lo + 64, lo + 700, n] {
+                let hi = hi.min(n);
+                if hi < lo {
+                    continue;
+                }
+                let tiles: Vec<_> = extent_tiles(n, TILE_WORDS, lo..hi).collect();
+                let covered: Vec<usize> = tiles.iter().flat_map(|(w, _)| w.clone()).collect();
+                let want: Vec<usize> = touched_words(lo as u32, hi as u32).collect();
+                assert_eq!(covered, want, "extent {lo}..{hi}");
+                for (w, edge) in &tiles {
+                    if edge.is_some() {
+                        assert_eq!(w.len(), 1, "an edge tile is one word");
+                        let cut_lo = w.start == lo / 64 && lo % 64 != 0;
+                        let cut_hi = w.start == (hi - 1) / 64 && hi % 64 != 0 && hi < n;
+                        assert!(cut_lo || cut_hi, "edge on a word the extent does not cut");
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

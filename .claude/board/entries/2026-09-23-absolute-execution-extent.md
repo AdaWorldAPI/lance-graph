@@ -9,8 +9,10 @@ OQ-5 is untouched and still open.
 `execute_extent(program, planes, foreign, scratch, out, lo..hi)` in
 `crates/lance-graph-mask-risc/src/exec.rs`. `execute_into` is now that call with
 `0..n_rows`, so existing callers are unchanged and the whole extent accepts every terminal.
-`extent_tiles(n_rows, tile_words, lo..hi)` is public: it is the plan the executor iterates,
-which makes the structural claim checkable.
+`extent_tiles` (the tile plan the executor iterates) is **crate-private**: tile width and
+edge representation are executor detail, not API. The structural claim is pinned by the
+in-crate test `exec::extent_tile_tests`; the benchmark reports touched words from the
+semantic span (`touched_words`), which that test proves the plan covers exactly.
 
 ## The absolute-coordinate law (CURRENT-CONTRACT, TEST-PINNED)
 The extent is an OUTER restriction in the same row coordinates as `Planes`. A program
@@ -38,7 +40,13 @@ evaluator.
 - **Still materializes, deliberately:**
   - `Keep` writes its population-addressed `Out::Mask`, but only the in-extent bits: edge
     words are merged bit-exactly, and every other bit stays as the caller holds it. Disjoint
-    extents therefore compose into one absolute buffer in any order.
+    extents therefore compose into one absolute buffer in any **sequential** order.
+  - **Not a concurrency licence (CURRENT-CONTRACT).** An unaligned split such as
+    `[0, 65)` + `[65, N)` puts both extents in the same physical `u64`, and the edge merge
+    is a read-modify-write. Partial `Keep` sinks compose in any sequential order; concurrent
+    execution requires word-disjoint sink ownership (boundaries on multiples of 64),
+    separate partial sinks plus a merge, or another explicitly synchronized strategy. A
+    future scheduler must not infer two simultaneous writers on one `Out::Mask` from this.
   - The tiled (non-fused) path still writes tile-local scratch, but only for touched tiles.
 - **Refused on a partial extent**, as `ExtentUnsupported`, because there is no shipped merge
   law or disjoint sink here: `BlendI32`, `ScatterOrU32`, `ScatterCountU32`,
@@ -69,7 +77,7 @@ Distinct lane values sit at rows 63, 64, 65, 127, 128 and 129.
 ## Disable runs (committed first, then each restored)
 | disable | tests red |
 |---|---|
-| tiles walk from row 0 instead of the extent | 7 of 8, incl. the structural tile gate |
+| tiles walk from row 0 instead of the extent | 7 of 8, incl. the structural tile gate (since moved in-crate as `exec::extent_tile_tests`) |
 | edge word not restricted | 6 |
 | lanes read worker-local (`r0` relative to the extent) | 5, incl. the absolute-rows falsifier |
 | fused fold ignores the extent | 4 |
@@ -94,8 +102,8 @@ oracle over the same absolute rows.
 | lane | whole | 1,828,878 | 16,384 | 2,097,152 | 16,384 |
 
 - Cost follows extent width, not `n_rows`: a 1-row extent is 62–172 ns on every shape.
-- The word columns come from the plan the executor iterates (`extent_tiles` / `touched_words`),
-  not from instrumentation.
+- The word columns come from the extent's semantic span (`touched_words`), which the in-crate
+  tile-plan test pins the executor to cover exactly; not from instrumentation.
 
 ## Correction of #1267 (append-only)
 `2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md` lesson 1 says the ranged entry point
