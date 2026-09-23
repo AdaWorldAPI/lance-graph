@@ -35,6 +35,22 @@ full-range SUM + COUNT over the same data and would go red on a wrong merge —
 but only once the merge path runs under it. It does not exist yet, so the test
 cannot fire on it today.
 
+**Pinned law (2026-09-23, operator) — a law, not code.** With `⊥ = SYM_EMPTY_I64`:
+
+```text
+⊥ ⊕ x = x        x ⊕ ⊥ = x        ⊥ ⊕ ⊥ = ⊥
+x ⊕ y = x.wrapping_add(y)          (x, y ≠ ⊥)
+```
+
+- It is a commutative monoid with identity `⊥` only while no present value equals `⊥`. So
+  `GROUP_SUM_SYM_MAX_ROWS` bounds the **total rows across all merged partials**, never each
+  partial: two in-bound partials can merge into an out-of-bound total.
+- It preserves #1263's row-first wrapping law: wrapping addition is associative and
+  commutative mod 2⁶⁴, so merging present partials equals the row-first fold over all their
+  rows. A merge must never introduce a non-wrapping step.
+- No merge function and no test are written until partial aggregation actually enters the
+  execution path. See also `.claude/board/entries/2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md`.
+
 Cross-ref: `.claude/board/entries/2026-09-23-quack-having-sym-sum-presence-mask.md`
 (the `_sym` decision and the presence-mask boundary); ndarray #321; lance-graph #1266.
 

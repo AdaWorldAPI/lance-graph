@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-148 entries, 2026-08-06 .. 2026-09-23.
+149 entries, 2026-08-06 .. 2026-09-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-09-23 | `quack-having-sym-sum-presence-mask` |  | [2026-09-23-quack-having-sym-sum-presence-mask.md](2026-09-23-quack-having-sym-sum-presence-mask.md) |
+| 2026-09-23 | `cubecl-llvm-boundary-and-audit-regrade` |  | [2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md](2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md) |
 | 2026-09-22 | `quack-duckdb-parity-t0-keyed-reduction` |  | [2026-09-22-quack-duckdb-parity-t0-keyed-reduction.md](2026-09-22-quack-duckdb-parity-t0-keyed-reduction.md) |
 | 2026-09-22 | `E-W0C-THE-ROW-BRIDGE-IS-A-DIALECT-NOT-AN-INTERPRETER-1` | a merged relational op carried as loco program data reaches the fused executor with no population crossing; the enum explosion is upstream of mask-risc | [2026-09-22-e-w0c-the-row-bridge-is-a-dialect-not-an-interpreter-1.md](2026-09-22-e-w0c-the-row-bridge-is-a-dialect-not-an-interpreter-1.md) |
 | 2026-09-22 | `E-CATS-FOLD-DOES-NOT-RETAIN-A-POPULATION-BITMAP-1` | CATS aggregate lowers to one tiled grouped terminal; bitmap realization is a requested boundary sink | [2026-09-22-e-cats-fold-does-not-retain-a-population-bitmap-1.md](2026-09-22-e-cats-fold-does-not-retain-a-population-bitmap-1.md) |

@@ -102,13 +102,13 @@ a licence to act on it.
 | **RESCOPE** | `soa-migration-diff-resolution-2026-06-13` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | — | 1/5 |
 | **RESCOPE** | `cognitive-substrate-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | PROPOSAL (sprint-10 architectural decisions  | 3/13 |
 | **RESCOPE** | `cognitive-substrate-convergence-v2` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | ACTIVE — sprint-11 Phase A/B COMPLETE (pendi | 4/15 |
-| **RESCOPE** | `bindspace-singleton-to-mailbox-soa-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | CONJECTURE / design (migration spec). NOT ye | 2/19 |
+| **RESCOPE** | `bindspace-singleton-to-mailbox-soa-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | CONJECTURE / design (migration spec). NOT ye | 3/19 |
 | **RESCOPE** | `callcenter-membrane-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active | 0/0 |
-| **RESCOPE** | `causaledge64-mailbox-rename-soa-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active (draft, 2026-05-14) | 0/10 |
+| **RESCOPE** | `causaledge64-mailbox-rename-soa-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active (draft, 2026-05-14) | 1/10 |
 | **RESCOPE** | `integrated-cognitive-planner-v1` | `BindSpace`, `GateDecision`, `ResonanceDto`, `dispatch_busdto` | — | 0/3 |
 | **RESCOPE** | `palantir-parity-cascade-v2` | `BindSpace`, `MergeMode`, `ResonanceDto`, `ThinkingStyle` | plan, not implementation. | 0/17 |
 | **RESCOPE** | `temporal-markov-and-style-classes-v1` | `BindSpace`, `MergeMode`, `StepMask`, `ThinkingStyle` | ACTIVE (operator-ratified 2026-07-10: "other | 1/19 |
-| **RESCOPE** | `unified-soa-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | PROPOSAL / integration plan. Design-spec onl | 3/25 |
+| **RESCOPE** | `unified-soa-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | PROPOSAL / integration plan. Design-spec onl | 4/25 |
 | **RESCOPE** | `alpha-reason-witness-shader-field-archaeology-pass-1` | `BindSpace`, `MergeMode`, `ResonanceDto` | SOURCE AUDIT / PLAN ONLY. No production wiri | 0/1 |
 | **RESCOPE** | `bindspace-mailbox-soa-dependency-map-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | MAP / preflight. No source wired yet. Read-b | 0/2 |
 | **RESCOPE** | `bindspace-mailbox-soa-w3-w4a-impl-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | v2 — 5-consolidation + 3-brutal-critic pass  | 0/1 |
