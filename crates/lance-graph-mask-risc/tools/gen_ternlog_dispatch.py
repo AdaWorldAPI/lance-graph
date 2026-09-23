@@ -2,7 +2,8 @@
 """Generate the 256-arm dispatch tables in `src/ternlog_dispatch.rs`.
 
 A runtime `imm: u8` must reach a const-generic `ndarray::simd::mask_ternlog::<IMM>`
-(and its in-place sibling `mask_ternlog_assign::<IMM>`) — the const generic can only
+(and its in-place sibling `mask_ternlog_assign::<IMM>`, and the two no-mask folds
+`mask_ternlog_popcount::<IMM>` / `mask_ternlog_any::<IMM>`) — the const generic can only
 ever be instantiated with a literal, so there is no way to route a runtime byte into
 it except a 256-arm `match`, one arm per immediate. That match is pure boilerplate —
 256 near-identical lines twice over — so it is generated here instead of hand-typed,
@@ -87,6 +88,36 @@ def generate_region_lines() -> list[str]:
     lines.append("    match imm {")
     for imm in range(256):
         lines.append(_arm("mask_ternlog_assign", imm, "a, b, c"))
+    lines.append("    }")
+    lines.append("}")
+
+    lines.append("")
+
+    lines.append(
+        "/// `Σ popcount(table[imm](a, b, c))` — the no-mask Count fold, routed "
+        "like the others."
+    )
+    lines.append(
+        "pub fn ternlog_popcount_dispatch(imm: u8, a: &[u64], b: &[u64], c: &[u64]) -> u64 {"
+    )
+    lines.append("    match imm {")
+    for imm in range(256):
+        lines.append(_arm("mask_ternlog_popcount", imm, "a, b, c"))
+    lines.append("    }")
+    lines.append("}")
+
+    lines.append("")
+
+    lines.append(
+        "/// `table[imm](a, b, c) != 0` anywhere — the no-mask Any fold, routed "
+        "like the others."
+    )
+    lines.append(
+        "pub fn ternlog_any_dispatch(imm: u8, a: &[u64], b: &[u64], c: &[u64]) -> bool {"
+    )
+    lines.append("    match imm {")
+    for imm in range(256):
+        lines.append(_arm("mask_ternlog_any", imm, "a, b, c"))
     lines.append("    }")
     lines.append("}")
 
