@@ -36,8 +36,8 @@ use lance_graph_mask_risc::{
     LaneRef, Out, Planes, Scratch, Terminal, Value,
 };
 use lance_graph_quack::{
-    avg_finish, lower, lower_avg, lower_group_avg, lower_group_by, Agg, Cmp, Col, Filter,
-    ForeignLane, GroupAddr, GroupAgg, GroupBy, Query,
+    avg_finish, lower, lower_avg, lower_group_avg, lower_group_by, lower_group_having, Agg, Cmp,
+    Col, Filter, ForeignLane, GroupAddr, GroupAgg, GroupBy, GroupHaving, HavingCmp, Query,
 };
 
 use fixture::col::{
@@ -1420,4 +1420,170 @@ fn avg_discount_posted() {
     ]);
     let actual = run_avg("avg_discount_posted", &planes, &filter, DISCOUNT);
     assert_case(&cases, "avg_discount_posted", &actual);
+}
+
+// ---------------------------------------------------------------------
+// HAVING — O(K) finalization over the aggregate sinks.
+// ---------------------------------------------------------------------
+
+/// `GROUP BY … HAVING` through [`lower_group_having`]: one K-slot sink per
+/// aggregate, finished into a K-bit group mask; the surviving groups are
+/// encoded `k:v` with `v` read from aggregate `select`. A group no selected
+/// row reached is absent, exactly as DuckDB (no key series here) omits it.
+fn run_group_having(
+    id: &str,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    q: &GroupHaving,
+    select: usize,
+) -> String {
+    let plan = lower_group_having(q).expect("lowers");
+    let sinks: Vec<Vec<i64>> = plan
+        .programs
+        .iter()
+        .map(|program| {
+            let mut scratch = Scratch::for_program(program, planes.n_rows).expect("carves");
+            let mut out = vec![0x5a5a_i64; plan.groups as usize];
+            let v = execute_into(program, planes, foreign, &mut scratch, Out::I64(&mut out))
+                .unwrap_or_else(|e| panic!("case {id}: {e:?}"));
+            assert_eq!(v, Value::GroupReduced, "case {id}");
+            out
+        })
+        .collect();
+    let refs: Vec<&[i64]> = sinks.iter().map(Vec::as_slice).collect();
+    let keep = plan.finish(&refs).expect("sinks match the plan");
+    (0..plan.groups as usize)
+        .filter(|&g| (keep[g / 64] >> (g % 64)) & 1 == 1)
+        .map(|g| format!("{g}:{}", sinks[select][g]))
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn posted() -> Filter {
+    Filter::cmp(STATUS, Cmp::EqU32(1))
+}
+
+/// A filter that leaves cost centers 2, 5 and 7 with no rows at all.
+fn sparse() -> Filter {
+    Filter::and([
+        Filter::cmp(STATUS, Cmp::EqU32(2)),
+        Filter::cmp(QTY, Cmp::GtI32(48)),
+    ])
+}
+
+/// `HAVING SUM(amount) > 2600000` — the predicate on the selected aggregate.
+#[test]
+fn having_sum_cc() {
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let q = GroupHaving {
+        filter: posted(),
+        key: GroupAddr::Local(COST_CENTER),
+        groups: 8,
+        aggs: vec![GroupAgg::SumI32(AMOUNT)],
+        having: vec![(0, HavingCmp::Gt(2_600_000))],
+    };
+    let actual = run_group_having("having_sum_cc", &lanes.planes(), &Foreign::NONE, &q, 0);
+    assert_case(&load_cases(), "having_sum_cc", &actual);
+}
+
+/// `SELECT MIN(amount) … HAVING COUNT(*) < 350` — the predicate on a
+/// DIFFERENT aggregate from the one selected.
+#[test]
+fn having_min_by_count_cc() {
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let q = GroupHaving {
+        filter: posted(),
+        key: GroupAddr::Local(COST_CENTER),
+        groups: 8,
+        aggs: vec![GroupAgg::MinI32(AMOUNT), GroupAgg::Count],
+        having: vec![(1, HavingCmp::Lt(350))],
+    };
+    let actual = run_group_having(
+        "having_min_by_count_cc",
+        &lanes.planes(),
+        &Foreign::NONE,
+        &q,
+        0,
+    );
+    assert_case(&load_cases(), "having_min_by_count_cc", &actual);
+}
+
+/// `HAVING COUNT(*) >= 0` over a sparse filter. The predicate holds for
+/// EVERY count, so the only thing dropping cost centers 2, 5 and 7 is the
+/// reachedness rule: SQL makes no group from no rows.
+#[test]
+fn having_sparse_count_cc() {
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let q = GroupHaving {
+        filter: sparse(),
+        key: GroupAddr::Local(COST_CENTER),
+        groups: 8,
+        aggs: vec![GroupAgg::Count],
+        having: vec![(0, HavingCmp::Ge(0))],
+    };
+    let actual = run_group_having(
+        "having_sparse_count_cc",
+        &lanes.planes(),
+        &Foreign::NONE,
+        &q,
+        0,
+    );
+    assert_case(&load_cases(), "having_sparse_count_cc", &actual);
+}
+
+/// `SELECT COUNT(*) … HAVING SUM(amount) < 10000` over the sparse filter.
+/// A coalescing SUM would read the empty groups 2, 5, 7 as `0 < 10000` and
+/// admit them; the NULL-preserving SUM makes that comparison false.
+#[test]
+fn having_sparse_sum_lt_cc() {
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let q = GroupHaving {
+        filter: sparse(),
+        key: GroupAddr::Local(COST_CENTER),
+        groups: 8,
+        aggs: vec![GroupAgg::Count, GroupAgg::SumI32(AMOUNT)],
+        having: vec![(1, HavingCmp::Lt(10_000))],
+    };
+    let actual = run_group_having(
+        "having_sparse_sum_lt_cc",
+        &lanes.planes(),
+        &Foreign::NONE,
+        &q,
+        0,
+    );
+    assert_case(&load_cases(), "having_sparse_sum_lt_cc", &actual);
+}
+
+/// `GROUP BY p.country HAVING COUNT(*) >= 300` — the fk-keyed group.
+#[test]
+fn join_having_count_country() {
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let country_lane = [LaneRef::U32(&fx.partner.country)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &country_lane,
+    };
+    let q = GroupHaving {
+        filter: posted(),
+        key: GroupAddr::Via {
+            fk: PARTNER_ID,
+            key: ForeignLane(0),
+        },
+        groups: 8,
+        aggs: vec![GroupAgg::Count, GroupAgg::SumI32(AMOUNT)],
+        having: vec![(0, HavingCmp::Ge(300)), (1, HavingCmp::Gt(2_200_000))],
+    };
+    let actual = run_group_having(
+        "join_having_count_country",
+        &lanes.planes(),
+        &foreign,
+        &q,
+        1,
+    );
+    assert_case(&load_cases(), "join_having_count_country", &actual);
 }

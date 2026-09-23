@@ -360,10 +360,14 @@ pub enum Terminal {
     /// identity ([`GroupFold::seed`]): `0` for a count, `i64::MAX` for a
     /// minimum, `i64::MIN` for a maximum. A MIN/MAX slot still holding its
     /// seed afterwards is a group no selected row named — the SQL `NULL` of
-    /// an empty group. No per-group sum is involved, so no row bound applies.
+    /// an empty group. Only [`GroupFold::SumI32`] carries a row bound
+    /// ([`GROUP_SUM_SEEDED_MAX_ROWS`]).
     ///
-    /// `SUM` keeps its own terminals ([`Terminal::GroupSumI32`] /
-    /// [`Terminal::GroupSumViaI32`]); this one does not repeat them.
+    /// The coalescing `SUM` (empty group reads `0`) keeps its own terminals
+    /// ([`Terminal::GroupSumI32`] / [`Terminal::GroupSumViaI32`]). The
+    /// NULL-preserving `SUM` lives here as [`GroupFold::SumI32`], because the
+    /// empty-group rule is the same for every seeded fold: a slot still
+    /// holding [`GroupFold::seed`] is empty ([`GroupFold::is_empty_slot`]).
     GroupReduce {
         mask: Operand,
         key: GroupKey,
@@ -391,6 +395,14 @@ pub enum GroupFold {
     MinI32(u16),
     /// `MAX(lanes[val])` over an `I32` lane.
     MaxI32(u16),
+    /// `SUM(lanes[val])` over an `I32` lane, NULL-preserving: seeded with
+    /// `i64::MIN`, which the first row a group sees REPLACES rather than
+    /// adds to. A slot still holding `i64::MIN` afterwards is a group no
+    /// selected row reached — distinguishable from a group whose values
+    /// cancel to `0`, which the coalesced [`Terminal::GroupSumI32`] cannot
+    /// tell apart. `i64::MIN` is unreachable as a real sum below `2^32`
+    /// rows, so this fold carries the tighter [`GROUP_SUM_SEEDED_MAX_ROWS`].
+    SumI32(u16),
 }
 
 impl GroupFold {
@@ -402,9 +414,29 @@ impl GroupFold {
             GroupFold::Count => 0,
             GroupFold::MinI32(_) => i64::MAX,
             GroupFold::MaxI32(_) => i64::MIN,
+            GroupFold::SumI32(_) => i64::MIN,
+        }
+    }
+
+    /// Whether a slot holding `v` after the fold is a group no selected row
+    /// reached — the SQL `NULL` of an empty group. The rule is uniform:
+    /// empty ⇔ the slot still holds [`GroupFold::seed`]. `COUNT` has no
+    /// empty groups: a zero count is a real answer, not a `NULL`.
+    pub const fn is_empty_slot(self, v: i64) -> bool {
+        match self {
+            GroupFold::Count => false,
+            _ => v == self.seed(),
         }
     }
 }
+
+/// The widest plane a NULL-preserving [`GroupFold::SumI32`] is defined on:
+/// `2^32 − 1` rows. One less than [`MASKED_SUM_I32_MAX_ROWS`] because the
+/// seed doubles as the empty marker: exactly `2^32` rows of `i32::MIN` sum
+/// to `i64::MIN`, a real value that would read back as `NULL`. Below that
+/// row count every real sum lies strictly above `i64::MIN`, leaving the
+/// symmetric range `±(2^63 − 1)` — closed under negation.
+pub const GROUP_SUM_SEEDED_MAX_ROWS: usize = (1 << 32) - 1;
 
 /// The widest plane [`Terminal::MaskedSumI32`] is defined on: `2^32` rows.
 /// The binding side is the NEGATIVE one: `2^32 · i32::MIN = −2^63 = i64::MIN`

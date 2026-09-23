@@ -7,6 +7,7 @@ use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch
 use lance_graph_mask_risc::{
     scratch_words_for, tile_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupFold,
     GroupKey, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
+    GROUP_SUM_SEEDED_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -1037,7 +1038,12 @@ fn group_reduce_matches_the_oracle_for_every_key_and_fold() {
         multi_tile |= words < words_for(n);
 
         for key in [GroupKey::Lane(3), GroupKey::Via { fk: 0, key: 0 }] {
-            for fold in [GroupFold::Count, GroupFold::MinI32(2), GroupFold::MaxI32(2)] {
+            for fold in [
+                GroupFold::Count,
+                GroupFold::MinI32(2),
+                GroupFold::MaxI32(2),
+                GroupFold::SumI32(2),
+            ] {
                 let p = Program::new(
                     vec![MaskOp::Pred {
                         pred: Pred::NeU32 { lane: 1, v: 2 },
@@ -1084,6 +1090,72 @@ fn group_reduce_matches_the_oracle_for_every_key_and_fold() {
     assert!(second_hop, "no selected row dropped at the second VIA hop");
     assert!(empty_group, "no MIN/MAX group was left empty");
     assert!(multi_tile, "every case ran in a single tile");
+}
+
+/// FAILS IF: the NULL-preserving `SumI32` fold disagrees with the coalescing
+/// `GroupSumI32` terminal on a group that selected rows reached, OR fails to
+/// tell a group whose values cancel to `0` from a group no row reached. The
+/// second half is the whole reason the fold exists: `GroupSumI32` reads both
+/// as `0`.
+#[test]
+fn seeded_sum_agrees_with_the_coalesced_sum_and_keeps_empty_groups_null() {
+    // Rows: group 0 gets +5 and -5 (cancels to 0), group 1 gets 7, group 2
+    // is named by a row the mask drops, group 3 is never named.
+    let keys = [0u32, 0, 1, 2];
+    let vals = [5i32, -5, 7, 100];
+    let keep = [0b0111u64];
+    let lanes = [LaneRef::U32(&keys), LaneRef::I32(&vals)];
+    let masks: [&[u64]; 1] = [&keep];
+    let planes = Planes {
+        n_rows: 4,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &[],
+    };
+    let run = |terminal: Terminal| {
+        let p = Program::new(vec![], terminal);
+        let mut out = vec![99i64; 4];
+        reference_execute_into(&p, &planes, &foreign, Out::I64(&mut out)).expect("oracle runs");
+        let mut got = vec![-99i64; 4];
+        let words = tile_words_for(4);
+        let slots = p.scratch_slots as usize;
+        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        execute_into(&p, &planes, &foreign, &mut scratch, Out::I64(&mut got)).expect("runs");
+        assert_eq!(got, out, "executor vs oracle for {terminal:?}");
+        got
+    };
+    let fold = GroupFold::SumI32(1);
+    let seeded = run(Terminal::GroupReduce {
+        mask: Operand::Plane(0),
+        key: GroupKey::Lane(0),
+        fold,
+    });
+    let coalesced = run(Terminal::GroupSumI32 {
+        mask: Operand::Plane(0),
+        key: 0,
+        val: 1,
+    });
+    assert_eq!(seeded, vec![0, 7, i64::MIN, i64::MIN]);
+    assert_eq!(coalesced, vec![0, 7, 0, 0]);
+    let empty: Vec<bool> = seeded.iter().map(|&v| fold.is_empty_slot(v)).collect();
+    assert_eq!(
+        empty,
+        vec![false, false, true, true],
+        "cancelling group 0 must be present"
+    );
+    for (g, (&s, &c)) in seeded.iter().zip(&coalesced).enumerate() {
+        if !empty[g] {
+            assert_eq!(s, c, "group {g}: a reached group sums the same either way");
+        }
+    }
+    // COUNT never reports an empty slot: a zero count is an answer.
+    assert!(!GroupFold::Count.is_empty_slot(0));
+    // The marker costs exactly one row of range.
+    assert_eq!(GROUP_SUM_SEEDED_MAX_ROWS + 1, MASKED_SUM_I32_MAX_ROWS);
 }
 
 /// FAILS IF: `GroupReduce` accepts a wrong-width lane or a missing sink —
