@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-151 entries, 2026-08-06 .. 2026-09-23.
+152 entries, 2026-08-06 .. 2026-09-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-09-23 | `ternlog-count-any-fold` |  | [2026-09-23-ternlog-count-any-fold.md](2026-09-23-ternlog-count-any-fold.md) |
 | 2026-09-23 | `terminal-elects-materialization-range-plane` |  | [2026-09-23-terminal-elects-materialization-range-plane.md](2026-09-23-terminal-elects-materialization-range-plane.md) |
 | 2026-09-23 | `quack-having-sym-sum-presence-mask` |  | [2026-09-23-quack-having-sym-sum-presence-mask.md](2026-09-23-quack-having-sym-sum-presence-mask.md) |
 | 2026-09-23 | `cubecl-llvm-boundary-and-audit-regrade` |  | [2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md](2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md) |
