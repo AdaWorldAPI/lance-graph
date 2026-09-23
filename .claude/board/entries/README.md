@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-154 entries, 2026-08-06 .. 2026-09-23.
+155 entries, 2026-08-06 .. 2026-09-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-09-23 | `ternlog-count-any-fold` |  | [2026-09-23-ternlog-count-any-fold.md](2026-09-23-ternlog-count-any-fold.md) |
 | 2026-09-23 | `terminal-elects-materialization-range-plane` |  | [2026-09-23-terminal-elects-materialization-range-plane.md](2026-09-23-terminal-elects-materialization-range-plane.md) |
+| 2026-09-23 | `stable-row-ids-hold-tombstones-exact-seal-still-owns-cohort` | stable row ids ON: no id moved (compaction, both updates, 4 concurrent writers, BTree); tombstones exact; direct commits mint 1 version each and race the contended row — cohort + fold stay with the seal | [2026-09-23-stable-row-ids-hold-tombstones-exact-seal-still-owns-cohort.md](2026-09-23-stable-row-ids-hold-tombstones-exact-seal-still-owns-cohort.md) |
 | 2026-09-23 | `report-plan-zero-copy-pivot-docir-convergence` | ReportPlan lowers into Quack; pivot = view over shared Arc<CellSpace>; reports become OGAR ObjectSlot sources via grid_of (OGAR #307) | [2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md](2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md) |
 | 2026-09-23 | `quack-having-sym-sum-presence-mask` |  | [2026-09-23-quack-having-sym-sum-presence-mask.md](2026-09-23-quack-having-sym-sum-presence-mask.md) |
 | 2026-09-23 | `program-collapse-boolean-chains` |  | [2026-09-23-program-collapse-boolean-chains.md](2026-09-23-program-collapse-boolean-chains.md) |
