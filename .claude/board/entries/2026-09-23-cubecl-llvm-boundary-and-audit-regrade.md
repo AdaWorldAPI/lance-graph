@@ -38,11 +38,15 @@ polyfill goes to the operator, never straight into code.
 ## Corrected tier picture
 
 ```
-T1 semantics ─fold (T2)─► folded R2IL program ─► OUR dispatch unit ─► OUR scheduler
-                                  │              (program + requirements + extent + affinity)
-                                  └─► [parallel lab arm] LLVM/CubeCL compile of the SAME
-                                       folded program → result + timing, compared only
+T1 semantics ─fold (T2)─► R2IL/loco ─lower─► mask-risc Program ─► OUR dispatch unit ─► OUR scheduler
+                                                     │            (program + requirements + extent + affinity)
+                                                     └─► [parallel lab arm] LLVM/CubeCL compile of the SAME
+                                                          mask-risc Program → result + timing, compared only
 ```
+The artifact both arms receive is the `lance_graph_mask_risc::Program` that
+`GroupLowering::Folded` carries — not the upstream R2IL. An arm that ever consumes R2IL
+instead first needs its own R2IL→Program boundary, equivalence-tested against the native
+lowering; otherwise it is not a same-program oracle.
 T0 realization is `mask-risc` / `ndarray::simd` — one path, not a fork. The parallel arm
 answers only: do results agree (an oracle); what are JIT compile+run vs fold+dispatch
 latencies (never measured here); where does fused codegen beat the fold (a finding for us
@@ -50,9 +54,12 @@ to answer our own way).
 
 ## Lessons for OUR scheduler
 From reading CubeCL's CPU runtime (not built or run here; its CPU backend needs native LLVM):
-1. **Extent is a first-class field of the dispatch unit.** CubeCL buries its stealable unit
-   (a cube range) inside compiled code with no ABI slot for it. mask-risc already exposes it:
-   the unit is `(program, tile range)`.
+1. **Extent must become a first-class field of the dispatch unit.** CubeCL buries its
+   stealable unit (a cube range) inside compiled code with no ABI slot for it. mask-risc has
+   none yet either: `execute_into` takes a whole `Planes` and walks every word from 0 to
+   `n_rows`. **REQUIRED WORK before any split:** a ranged entry point over
+   `(program, tile range)`, including rebasing every mask and lane for ranges that do not
+   start on a word boundary.
 2. **A waiting task must not stall its worker.** CubeCL's 4-slot parked queue does exactly
    that, and is the likely route to the suspected cross-stream deadlock.
 3. **Special pools stay isolated.** CubeCL's barrier-overflow workers leak into ordinary work
@@ -80,7 +87,8 @@ vocabulary. The residue is not a task object or a generic IR. It is **group slot
 empty code + exact fold kernel + presence normalization at exit**: tiny, typed, algebraic,
 with materialization delayed to the boundary. The twin path (`_sym` SUM vs full-range SUM +
 COUNT) is a built-in semantic witness, not debt: it catches `_sym` degrading to an ordinary
-sum, and a genuine `i64::MIN` sum being mistaken for emptiness.
+sum and checks the presence invariant that would expose a genuine `i64::MIN` sum being
+mistaken for emptiness.
 
 ## `cognitive-shader-driver` and the NNUE reference — OPEN
 - The driver has no scheduler: one synchronous `run` per cycle
