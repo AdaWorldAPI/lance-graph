@@ -102,6 +102,14 @@ pub struct LineTable {
     pub status: Vec<u32>,
     pub cost_center: Vec<u32>,
     pub gl_account: Vec<u32>,
+    /// `line.discount`, NULLABLE — the only nullable column, so NULL-aware
+    /// aggregates (`COUNT(col)`, `SUM(col)`, `AVG(col)`) have something to
+    /// skip. The lane holds `0` at a NULL row; the value there is never read,
+    /// because every query over this column ANDs [`LineTable::discount_valid`]
+    /// into its filter. Derived, not drawn (see [`generate`]).
+    pub discount: Vec<i32>,
+    /// `true` where `discount` IS NULL.
+    pub discount_null: Vec<bool>,
 }
 
 pub struct Fixture {
@@ -162,6 +170,15 @@ pub fn generate() -> Fixture {
     // shift any later draw or desync the committed CSVs / DuckDB `expected`
     // values from the generator.
     let doc_id_u32: Vec<u32> = doc_id.iter().map(|&d| d as u32).collect();
+    // `discount`: NULL on every fifth row (rid % 5 == 3), otherwise
+    // `3 * qty - 60`, which spans negative and positive values. Same rule as
+    // `doc_id_u32`: derived from existing columns, no RNG draw.
+    let discount_null: Vec<bool> = (0..LINE_ROWS).map(|i| i % 5 == 3).collect();
+    let discount: Vec<i32> = qty
+        .iter()
+        .zip(&discount_null)
+        .map(|(&q, &null)| if null { 0 } else { 3 * q - 60 })
+        .collect();
     let line = LineTable {
         doc_id,
         doc_id_u32,
@@ -171,6 +188,8 @@ pub fn generate() -> Fixture {
         status,
         cost_center,
         gl_account,
+        discount,
+        discount_null,
     };
 
     Fixture { partner, doc, line }
@@ -214,13 +233,13 @@ impl Fixture {
         let mut buf = Vec::new();
         writeln!(
             buf,
-            "rid,doc_id,partner_id,amount,qty,status,cost_center,gl_account"
+            "rid,doc_id,partner_id,amount,qty,status,cost_center,gl_account,discount"
         )
         .expect("write to Vec never fails");
         for i in 0..LINE_ROWS {
             writeln!(
                 buf,
-                "{i},{},{},{},{},{},{},{}",
+                "{i},{},{},{},{},{},{},{},{}",
                 self.line.doc_id[i],
                 self.line.partner_id[i],
                 self.line.amount[i],
@@ -228,6 +247,12 @@ impl Fixture {
                 self.line.status[i],
                 self.line.cost_center[i],
                 self.line.gl_account[i],
+                // An empty field is how the CSV spells NULL to DuckDB.
+                if self.line.discount_null[i] {
+                    String::new()
+                } else {
+                    self.line.discount[i].to_string()
+                },
             )
             .expect("write to Vec never fails");
         }
@@ -268,7 +293,15 @@ pub mod col {
     /// same value as [`DOC_ID`], cast; `DOC_ID` stays for `range_docid`'s
     /// ordered compare.
     pub const DOC_ID_U32: Col = Col(7);
+    /// `line.discount`, `i32`, nullable — read only under
+    /// [`super::DISCOUNT_VALID`].
+    pub const DISCOUNT: Col = Col(8);
 }
+
+/// `line.discount`'s validity plane, as a [`lance_graph_quack::Mask`] index:
+/// plane 0 of [`LineLanes::planes_with`]. SQL's NULL-skipping is this plane
+/// ANDed into the filter.
+pub const DISCOUNT_VALID: lance_graph_quack::Mask = lance_graph_quack::Mask(0);
 
 /// The `line` table's lanes, borrowed and held so [`Planes`] can borrow them
 /// back in turn. Two steps because `Planes<'a>` needs `&'a [LaneRef<'a>]` —
@@ -276,7 +309,7 @@ pub mod col {
 /// return, so this struct is the thing that DOES outlive it, owned by the
 /// caller for exactly as long as the [`Planes`] it lends out.
 pub struct LineLanes<'a> {
-    lanes: [LaneRef<'a>; 8],
+    lanes: [LaneRef<'a>; 9],
 }
 
 impl LineTable {
@@ -292,8 +325,21 @@ impl LineTable {
                 LaneRef::U32(&self.gl_account),
                 LaneRef::U32(&self.partner_id),
                 LaneRef::U32(&self.doc_id_u32),
+                LaneRef::I32(&self.discount),
             ],
         }
+    }
+
+    /// `discount`'s validity as mask words: bit `i` set where row `i` is NOT
+    /// NULL, tail bits past `LINE_ROWS` clear.
+    pub fn discount_valid(&self) -> Vec<u64> {
+        let mut words = vec![0u64; LINE_ROWS.div_ceil(64)];
+        for (i, &null) in self.discount_null.iter().enumerate() {
+            if !null {
+                words[i / 64] |= 1 << (i % 64);
+            }
+        }
+        words
     }
 }
 
@@ -309,6 +355,16 @@ impl<'a> LineLanes<'a> {
         Planes {
             n_rows: LINE_ROWS,
             masks: &[],
+            lanes: &self.lanes,
+        }
+    }
+
+    /// The same lanes with resident mask planes — `masks[0]` is
+    /// [`DISCOUNT_VALID`] for the NULL-aware cases.
+    pub fn planes_with<'b>(&'b self, masks: &'b [&'b [u64]]) -> Planes<'b> {
+        Planes {
+            n_rows: LINE_ROWS,
+            masks,
             lanes: &self.lanes,
         }
     }
