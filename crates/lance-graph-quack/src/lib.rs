@@ -763,6 +763,11 @@ pub enum LowerError {
         /// How many aggregates the plan carries.
         aggs: usize,
     },
+    /// A grouped plan over an empty group universe (`groups == 0`). Every
+    /// sink program must run with an `Out::I64` of exactly `groups` slots, and
+    /// the executor refuses a zero-length sink — so the plan would be
+    /// unexecutable. Refused here, where the caller can see why.
+    EmptyGroupUniverse,
 }
 
 impl core::fmt::Display for LowerError {
@@ -779,6 +784,9 @@ impl core::fmt::Display for LowerError {
             }
             LowerError::HavingAggOutOfRange { index, aggs } => {
                 write!(f, "HAVING names aggregate {index}; the plan carries {aggs}")
+            }
+            LowerError::EmptyGroupUniverse => {
+                write!(f, "a grouped plan needs at least one group (groups == 0)")
             }
         }
     }
@@ -1313,9 +1321,13 @@ pub struct GroupHavingPlan {
 ///
 /// # Errors
 ///
+/// [`LowerError::EmptyGroupUniverse`] when `groups == 0`;
 /// [`LowerError::HavingAggOutOfRange`] when `aggs` is empty or a predicate
 /// names a missing aggregate; otherwise as [`lower`].
 pub fn lower_group_having(q: &GroupHaving) -> Result<GroupHavingPlan, LowerError> {
+    if q.groups == 0 {
+        return Err(LowerError::EmptyGroupUniverse);
+    }
     if q.aggs.is_empty() {
         return Err(LowerError::HavingAggOutOfRange { index: 0, aggs: 0 });
     }
@@ -1362,6 +1374,14 @@ pub enum HavingFinishError {
         /// Its length.
         found: usize,
     },
+    /// The plan itself is inconsistent — only reachable for a plan built by
+    /// hand rather than by [`lower_group_having`], whose fields are public:
+    /// no programs, `folds` not one per program, or a `HAVING` index past the
+    /// aggregates.
+    MalformedPlan {
+        /// Which rule the plan breaks.
+        reason: &'static str,
+    },
 }
 
 impl core::fmt::Display for HavingFinishError {
@@ -1375,6 +1395,7 @@ impl core::fmt::Display for HavingFinishError {
                 expected,
                 found,
             } => write!(f, "sink {index} has {found} slots, expected {expected}"),
+            HavingFinishError::MalformedPlan { reason } => write!(f, "malformed plan: {reason}"),
         }
     }
 }
@@ -1399,9 +1420,22 @@ impl GroupHavingPlan {
     ///
     /// # Errors
     ///
-    /// [`HavingFinishError`] when the sinks do not match the plan's shape.
+    /// [`HavingFinishError`] when the plan is malformed or the sinks do not
+    /// match its shape.
     /// Nothing is modified in that case.
     pub fn finish(&self, sinks: &mut [&mut [i64]]) -> Result<GroupHavingOutput, HavingFinishError> {
+        // Every shape rule is checked BEFORE the first write, so an error
+        // really does leave the sinks untouched.
+        let malformed = |reason| Err(HavingFinishError::MalformedPlan { reason });
+        if self.programs.is_empty() {
+            return malformed("no aggregate programs");
+        }
+        if self.folds.len() != self.programs.len() {
+            return malformed("folds must be one per program");
+        }
+        if self.having.iter().any(|&(i, _)| i >= self.folds.len()) {
+            return malformed("a HAVING index names a missing aggregate");
+        }
         if sinks.len() != self.programs.len() {
             return Err(HavingFinishError::SinkCount {
                 expected: self.programs.len(),
@@ -2055,6 +2089,73 @@ mod tests {
             "group 0 sums to 0 (>= 0), group 2 to -4"
         );
         assert_eq!(sum, [0, 0, -4], "the second sink's marker is gone");
+    }
+
+    /// FAILS IF a zero-group HAVING lowers to programs the executor would
+    /// refuse, instead of being refused at lowering with a named error.
+    #[test]
+    fn lower_group_having_refuses_an_empty_group_universe() {
+        let q = GroupHaving {
+            filter: Filter::cmp(Col(0), Cmp::EqU32(1)),
+            key: GroupAddr::Local(Col(1)),
+            groups: 0,
+            aggs: vec![GroupAgg::Count],
+            having: vec![],
+        };
+        assert_eq!(lower_group_having(&q), Err(LowerError::EmptyGroupUniverse));
+        // The same query with one group lowers: the refusal is about K alone.
+        assert!(lower_group_having(&GroupHaving { groups: 1, ..q }).is_ok());
+    }
+
+    /// FAILS IF `finish` panics on a hand-built plan, or modifies the sinks
+    /// before refusing one. Each case breaks exactly one shape rule; the
+    /// sink carries a `_sym` marker that a premature normalization would
+    /// have rewritten to 0.
+    #[test]
+    fn finish_refuses_a_malformed_plan_without_touching_the_sinks() {
+        let good = lower_group_having(&GroupHaving {
+            filter: Filter::cmp(Col(0), Cmp::EqU32(1)),
+            key: GroupAddr::Local(Col(1)),
+            groups: 2,
+            aggs: vec![GroupAgg::SumI32(Col(2))],
+            having: vec![(0, HavingCmp::Ge(0))],
+        })
+        .expect("lowers");
+        let e = GroupFold::SumSymI32(0).seed();
+        let cases = [
+            GroupHavingPlan {
+                programs: vec![],
+                folds: vec![],
+                having: vec![],
+                ..good.clone()
+            },
+            GroupHavingPlan {
+                folds: vec![],
+                ..good.clone()
+            },
+            GroupHavingPlan {
+                having: vec![(1, HavingCmp::Ge(0))],
+                ..good.clone()
+            },
+        ];
+        for (n, plan) in cases.iter().enumerate() {
+            let mut sink = [e, 5];
+            let sinks: &mut [&mut [i64]] = if plan.programs.is_empty() {
+                &mut []
+            } else {
+                &mut [&mut sink[..]]
+            };
+            let got = plan.finish(sinks);
+            assert!(
+                matches!(got, Err(HavingFinishError::MalformedPlan { .. })),
+                "case {n}: {got:?}"
+            );
+            assert_eq!(sink, [e, 5], "case {n}: sinks modified before refusal");
+        }
+        // Silence half: the well-formed plan still finishes.
+        let mut sink = [e, 5];
+        assert!(good.finish(&mut [&mut sink[..]]).is_ok());
+        assert_eq!(sink, [0, 5]);
     }
 
     #[test]

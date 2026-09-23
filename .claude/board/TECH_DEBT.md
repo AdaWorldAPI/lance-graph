@@ -35,7 +35,7 @@ full-range SUM + COUNT over the same data and would go red on a wrong merge —
 but only once the merge path runs under it. It does not exist yet, so the test
 cannot fire on it today.
 
-Cross-ref: `.claude/board/entries/2026-09-22-quack-duckdb-parity-t0-keyed-reduction.md`
+Cross-ref: `.claude/board/entries/2026-09-23-quack-having-sym-sum-presence-mask.md`
 (the `_sym` decision and the presence-mask boundary); ndarray #321; lance-graph #1266.
 
 ## TD-JC-CLIPPY-RED-ON-BASE-2 (2026-09-18) — the 1.98 pre-bump lint sweep was WORKSPACE-scoped, and `jc` is workspace-EXCLUDED
