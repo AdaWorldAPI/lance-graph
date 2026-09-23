@@ -16,14 +16,16 @@
 //!   buffers (allocated once per chain, outside every timed closure) — the
 //!   same word WRITES the tiled arm pays, but with no per-tile interpreter
 //!   dispatch: one `ndarray::simd` facade call per op, full span wide,
-//!   instead of one call per op per tile. It splits the tiled/fold gap into
-//!   two additive pieces: `wr_ns = bulk_ns - fold_ns` is the cost of writing
-//!   derived words at all (fold writes none), and `disp_ns = tiled_ns -
-//!   bulk_ns` is the cost of the per-tile interpreter loop on top of those
-//!   same writes. This is a FIRST-ORDER decomposition, not an exact one:
-//!   bulk still pays one facade call per op (i.e. one round of
-//!   interpretation), so `disp_ns` is the per-TILE overhead layered on top
-//!   of that single call, not the cost of interpretation itself.
+//!   instead of one call per op per tile. Two derived columns report the
+//!   MEASURED GAPS between these paths, not isolated costs:
+//!   `wr_ns = bulk_ns - fold_ns` is the gap between one fused pass that
+//!   reads at most three planes and writes nothing, and one pass PER OP that
+//!   reads and writes whole-span buffers; it mixes write cost with the
+//!   pass-count and read difference. `disp_ns = tiled_ns - bulk_ns` is the
+//!   gap between the same ops run per 8-word tile and run once over the
+//!   whole span; it mixes per-call overhead with batch-size effects (cache
+//!   residency, loop setup). Attributing either gap to one cause would need
+//!   matched-work controls this probe does not have.
 //!
 //! Reported per chain × extent: median ns per arm (fold/bulk/tiled/keep),
 //! the derived words the tiled arm writes (`ops × touched words`; the fold
@@ -492,7 +494,7 @@ fn main() {
     println!(
         "(n = {n}, {words} population words; tiled_wr = derived words the tiled path \
          writes, ops × touched words; the fold writes 0; fold_ns NaN = not collapsible; \
-         wr_ns = bulk_ns - fold_ns (cost of writing derived words); \
-         disp_ns = tiled_ns - bulk_ns (per-tile interpreter overhead on top of the same writes))"
+         wr_ns = bulk_ns - fold_ns and disp_ns = tiled_ns - bulk_ns are measured \
+         gaps between paths, not isolated write or dispatch costs)"
     );
 }
