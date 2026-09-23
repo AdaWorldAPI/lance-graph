@@ -2129,8 +2129,18 @@ mod tests {
                 having: vec![],
                 ..good.clone()
             },
+            // folds short, no HAVING: only the folds rule can refuse it
+            // (otherwise `folds[0]` panics).
             GroupHavingPlan {
                 folds: vec![],
+                having: vec![],
+                ..good.clone()
+            },
+            // folds long, no HAVING: only the folds rule can refuse it
+            // (otherwise it silently succeeds with a fold matching no sink).
+            GroupHavingPlan {
+                folds: vec![GroupFold::SumSymI32(2), GroupFold::Count],
+                having: vec![],
                 ..good.clone()
             },
             GroupHavingPlan {
