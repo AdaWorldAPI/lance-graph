@@ -563,6 +563,63 @@ impl Program {
         }
     }
 
+    /// The fused lowering of this program, if its terminal can fold straight
+    /// from its operands without any derived membership bits being written.
+    ///
+    /// A mask expression denotes membership; whether that membership ever
+    /// becomes a bitmap is the TERMINAL's decision, not the op's. The ops of
+    /// this IR are assignments (`dst = …`), so read literally every program
+    /// writes its intermediate membership into a scratch slot before the
+    /// terminal reads it back. For a demanded result that is a scalar —
+    /// `Count`, `Any` — that write is a materialization nobody asked for.
+    ///
+    /// The shape recognised here is `Range[lo, hi)` optionally gated by a
+    /// RESIDENT plane, folded by `Count` or `Any`: the range's interior words
+    /// have an all-ones mask, so the whole relation is the resident plane's own
+    /// words over the touched span plus two edge masks. No slot is needed.
+    ///
+    /// Everything else returns `None` and runs the ordinary tiled path.
+    /// `Keep` in particular is NEVER fused: it is the explicit election of a
+    /// bitmap, and the materialization is its whole point.
+    pub fn fused_terminal(&self) -> Option<FusedTerminal> {
+        let [MaskOp::Pred {
+            pred: Pred::Range { lo, hi },
+            under,
+            dst,
+        }] = self.ops.as_slice()
+        else {
+            return None;
+        };
+        let plane = match under {
+            None => None,
+            Some(Operand::Plane(p)) => Some(*p),
+            // A scratch gate is itself derived membership; nothing here holds
+            // it, so the shape is not fusable.
+            Some(Operand::Scratch(_)) => return None,
+        };
+        let fold = match self.terminal {
+            Terminal::Count { mask } if mask == Operand::Scratch(*dst) => FusedFold::Count,
+            Terminal::Any { mask } if mask == Operand::Scratch(*dst) => FusedFold::Any,
+            _ => return None,
+        };
+        Some(FusedTerminal {
+            lo: *lo,
+            hi: *hi,
+            plane,
+            fold,
+        })
+    }
+
+    /// Whether executing this program needs any scratch slot at all.
+    ///
+    /// DERIVED, not declared: a flag is a claim, a derived predicate is a
+    /// proof. `false` exactly when [`Program::fused_terminal`] lowers the
+    /// program (or it names no slot), and [`crate::Scratch::for_program`]
+    /// carves zero slots for such a program.
+    pub fn requires_scratch(&self) -> bool {
+        self.scratch_slots > 0 && self.fused_terminal().is_none()
+    }
+
     /// Count of ops of each physical kind — the "logical ops vs physical
     /// passes" bookkeeping the benchmark reports.
     pub fn op_histogram(&self) -> OpHistogram {
@@ -605,6 +662,39 @@ impl Program {
         }
         h
     }
+}
+
+/// A program the executor folds without writing membership bits: see
+/// [`Program::fused_terminal`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FusedTerminal {
+    /// First row of the range.
+    pub lo: u32,
+    /// One past the last row of the range.
+    pub hi: u32,
+    /// The resident plane gating the range, or `None` for a bare range.
+    pub plane: Option<u16>,
+    /// The scalar the terminal demands.
+    pub fold: FusedFold,
+}
+
+/// The scalar folds that may consume membership without materializing it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FusedFold {
+    /// Population of the relation.
+    Count,
+    /// Whether the relation is non-empty.
+    Any,
+}
+
+/// The mask words a row range `[lo, hi)` touches: none when `lo == hi`,
+/// otherwise `floor(lo / 64) ..= floor((hi - 1) / 64)`. One spelling, used by
+/// the fused executor and by the tests that pin the touched-word law.
+pub fn touched_words(lo: u32, hi: u32) -> core::ops::Range<usize> {
+    if lo >= hi {
+        return 0..0;
+    }
+    (lo as usize / 64)..((hi as usize - 1) / 64 + 1)
 }
 
 /// Per-kind op counts of a program.
