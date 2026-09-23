@@ -1885,12 +1885,13 @@ mod tests {
         );
         // CAN-STAY-SILENT: an ordinary program still gets its arena, sized
         // exactly. A guard that refused everything would pass the half above.
+        // `All` is never fused, so this program genuinely needs its slots.
         let ok = Program::new(
             vec![MaskOp::Not {
                 a: Operand::Plane(0),
                 dst: 2,
             }],
-            Terminal::Count {
+            Terminal::All {
                 mask: Operand::Scratch(2),
             },
         );
@@ -2016,12 +2017,14 @@ mod tests {
             masks: &masks,
             lanes: &[],
         };
+        // `All` is never fused (a `Count`/`Any` over this op would fold and
+        // need no scratch at all), so the scratch checks below are reached.
         let p = Program::new(
             vec![MaskOp::Not {
                 a: Operand::Plane(0),
                 dst: 3,
             }],
-            Terminal::Any {
+            Terminal::All {
                 mask: Operand::Scratch(3),
             },
         );

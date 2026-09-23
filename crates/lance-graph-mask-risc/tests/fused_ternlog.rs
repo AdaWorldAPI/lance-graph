@@ -360,48 +360,102 @@ fn the_fold_writes_no_membership_and_allocates_nothing() {
     );
 }
 
-/// FAILS IF: the recogniser admits a shape it cannot fold — a derived
-/// (scratch) operand, a complement, a non-scalar terminal — or refuses the
-/// shapes it can. The admit half keeps this from passing vacuously.
+/// FAILS IF: the recogniser admits a shape it cannot fold — a fourth distinct
+/// plane, a predicate or gather in the chain, a slot read before any op wrote
+/// it, a non-scalar terminal — or refuses a shape it can (a multi-op chain
+/// over at most three planes, a bare complement). The admit half keeps the
+/// refuse half from passing vacuously.
 #[test]
-fn the_recogniser_admits_exactly_resident_single_op_count_and_any() {
+fn the_recogniser_admits_exactly_collapsible_chains_to_count_and_any() {
+    let (p0, p1, p2, p3) = (
+        Operand::Plane(0),
+        Operand::Plane(1),
+        Operand::Plane(2),
+        Operand::Plane(3),
+    );
+    let count = |s: u16| Terminal::Count {
+        mask: Operand::Scratch(s),
+    };
+    // Admit: single ops, a derived operand, and a bare complement.
     assert!(count_p(Shape::And).fused_ternlog().is_some());
     assert!(any_p(Shape::Ternlog(0x96)).fused_ternlog().is_some());
-
-    let scratch_operand = Program::new(
+    let chain = Program::new(
         vec![
             MaskOp::And {
-                a: Operand::Plane(0),
-                b: Operand::Plane(1),
+                a: p0,
+                b: p1,
                 dst: 0,
             },
             MaskOp::Or {
                 a: Operand::Scratch(0),
-                b: Operand::Plane(2),
+                b: p2,
                 dst: 1,
             },
         ],
-        Terminal::Count {
-            mask: Operand::Scratch(1),
-        },
-    );
-    assert!(scratch_operand.fused_ternlog().is_none(), "derived operand");
-    assert!(scratch_operand.requires_scratch());
-
-    let not = Program::new(
-        vec![MaskOp::Not {
-            a: Operand::Plane(0),
-            dst: 0,
-        }],
-        Terminal::Count {
-            mask: Operand::Scratch(0),
-        },
+        count(1),
     );
     assert!(
-        not.fused_ternlog().is_none(),
-        "Not clears the tail: a different shape"
+        chain.fused_ternlog().is_some(),
+        "a derived operand collapses"
     );
+    assert!(!chain.requires_scratch());
+    let not = Program::new(vec![MaskOp::Not { a: p0, dst: 0 }], count(0));
+    assert!(not.fused_ternlog().is_some(), "a complement collapses");
 
+    // Refuse: a fourth distinct plane anywhere in the chain.
+    let four = Program::new(
+        vec![
+            MaskOp::And {
+                a: p0,
+                b: p1,
+                dst: 0,
+            },
+            MaskOp::Or {
+                a: p2,
+                b: p3,
+                dst: 1,
+            },
+            MaskOp::Xor {
+                a: Operand::Scratch(0),
+                b: Operand::Scratch(1),
+                dst: 2,
+            },
+        ],
+        count(2),
+    );
+    assert!(four.fused_ternlog().is_none(), "four distinct planes");
+    assert!(four.requires_scratch());
+
+    // Refuse: a predicate in the chain.
+    let pred = Program::new(
+        vec![
+            MaskOp::Pred {
+                pred: lance_graph_mask_risc::Pred::Range { lo: 0, hi: 5 },
+                under: None,
+                dst: 0,
+            },
+            MaskOp::And {
+                a: Operand::Scratch(0),
+                b: p1,
+                dst: 1,
+            },
+        ],
+        count(1),
+    );
+    assert!(pred.fused_ternlog().is_none(), "a predicate is not a plane");
+
+    // Refuse: a slot read before any op wrote it.
+    let unwritten = Program::new(
+        vec![MaskOp::And {
+            a: Operand::Scratch(5),
+            b: p1,
+            dst: 0,
+        }],
+        count(0),
+    );
+    assert!(unwritten.fused_ternlog().is_none(), "read before write");
+
+    // Refuse: only Count/Any fold.
     for t in [
         Terminal::Keep {
             mask: Operand::Scratch(0),
