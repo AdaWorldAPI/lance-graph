@@ -170,4 +170,16 @@ pub enum ExecError {
     /// kept apart because `BlendI32` predates `Out` and every existing
     /// caller already matches on the old variant.
     TerminalNeedsOut { what: &'static str },
+    /// An execution extent with `lo > hi` or `hi > n_rows`. The extent is an
+    /// outer restriction in the SAME absolute row coordinates as
+    /// [`crate::Planes`]; it can narrow the population, never name rows that
+    /// do not exist. Refused before any execution.
+    ExtentOutOfRange { lo: usize, hi: usize, n_rows: usize },
+    /// A partial execution extent over a terminal whose per-extent results
+    /// have no shipped merge law here (or whose sink is not a disjoint
+    /// write). The whole-population extent `[0, n_rows)` accepts every
+    /// terminal; a partial one accepts `Count`, `Any`, `All`,
+    /// `MaskedSumI32`, `MaskedMinI32`, `MaskedMaxI32` and `Keep`. `what`
+    /// names the refused terminal.
+    ExtentUnsupported { what: &'static str },
 }

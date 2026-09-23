@@ -38,13 +38,14 @@ use ndarray::simd::{
 };
 
 use crate::ir::{
-    touched_words, Foreign, FusedFold, FusedTerminal, GroupFold, GroupKey, LaneRef, MaskOp,
-    Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
+    span_words, touched_words, Foreign, FusedFold, FusedTerminal, GroupFold, GroupKey, LaneRef,
+    MaskOp, Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
 };
 use crate::reference::{out_shape, validate};
 use crate::ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
 use crate::value::{ExecError, Out, Value};
 use crate::words_for;
+use core::ops::Range;
 
 /// Where a [`Scratch`]'s words live: owned by the arena, or borrowed from a
 /// buffer the caller grows and keeps.
@@ -657,11 +658,12 @@ fn slots_needed(program: &Program) -> usize {
     }
 }
 
-/// The bits of word `w` that fall inside `[lo, hi)`.
-fn edge_mask(w: usize, lo: u32, hi: u32) -> u64 {
+/// The bits of word `w` that fall inside `[lo, hi)` (absolute rows; `w` must
+/// be a word the range touches, so `hi > w * 64`).
+fn edge_mask(w: usize, lo: usize, hi: usize) -> u64 {
     let base = w * 64;
-    let from = (lo as usize).saturating_sub(base).min(64);
-    let to = (hi as usize - base).min(64);
+    let from = lo.saturating_sub(base).min(64);
+    let to = (hi - base).min(64);
     let upper = if to == 64 { u64::MAX } else { (1u64 << to) - 1 };
     upper & (u64::MAX << from)
 }
@@ -688,8 +690,9 @@ fn run_fused(f: FusedTerminal, planes: &Planes<'_>) -> Value {
     }
     let plane = planes.masks[usize::from(p)];
     let (first, last) = (span.start, span.end - 1);
-    let head = [plane[first] & edge_mask(first, f.lo, f.hi)];
-    let tail = [plane[last] & edge_mask(last, f.lo, f.hi)];
+    let (lo, hi) = (f.lo as usize, f.hi as usize);
+    let head = [plane[first] & edge_mask(first, lo, hi)];
+    let tail = [plane[last] & edge_mask(last, lo, hi)];
     let interior = if last > first + 1 {
         &plane[first + 1..last]
     } else {
@@ -705,6 +708,88 @@ fn run_fused(f: FusedTerminal, planes: &Planes<'_>) -> Value {
         }
         FusedFold::Any => {
             Value::Bool(mask_any(&head) || mask_any(interior) || (last != first && mask_any(&tail)))
+        }
+    }
+}
+
+/// The tiles an execution over the ABSOLUTE row extent `[lo, hi)` visits,
+/// each as `(word range, edge)`.
+///
+/// The extent is an outer restriction in the same row coordinates as
+/// [`Planes`]: tile word `w` is word `w` of every resident mask, and its rows
+/// are `w * 64 ..` of every lane — nothing is rebased, copied, or renumbered.
+/// Only the words [`span_words`] says the extent touches are visited. A word
+/// the extent cuts (an unaligned `lo`, or an unaligned `hi` short of
+/// `n_rows`) is its own one-word tile carrying `Some(edge)`, the in-extent
+/// bits the terminal is restricted to; every other tile is at most
+/// `tile_words` whole words and carries `None`. For the whole population
+/// `[0, n_rows)` there is no edge, and the tiles are exactly the ones
+/// whole-population execution has always walked.
+///
+/// Crate-private: tile width and edge representation are executor
+/// implementation detail, not API. The structural claim — work scales with
+/// the extent, not with `n_rows` — is pinned by the in-crate test
+/// `extent_tile_tests` against this exact plan.
+pub(crate) fn extent_tiles(n_rows: usize, tile_words: usize, extent: Range<usize>) -> ExtentTiles {
+    let span = span_words(extent.start, extent.end);
+    ExtentTiles {
+        first: span.start,
+        cur: span.start,
+        end: span.end,
+        lo: extent.start,
+        hi: extent.end,
+        head_edge: !extent.start.is_multiple_of(64),
+        tail_edge: !extent.end.is_multiple_of(64) && extent.end < n_rows,
+        tile_words: tile_words.max(1),
+    }
+}
+
+/// Iterator returned by [`extent_tiles`].
+#[derive(Debug, Clone)]
+pub(crate) struct ExtentTiles {
+    first: usize,
+    cur: usize,
+    end: usize,
+    lo: usize,
+    hi: usize,
+    head_edge: bool,
+    tail_edge: bool,
+    tile_words: usize,
+}
+
+impl Iterator for ExtentTiles {
+    type Item = (Range<usize>, Option<u64>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cur >= self.end {
+            return None;
+        }
+        let w = self.cur;
+        if (w == self.first && self.head_edge) || (w + 1 == self.end && self.tail_edge) {
+            self.cur += 1;
+            return Some((w..w + 1, Some(edge_mask(w, self.lo, self.hi))));
+        }
+        let stop = if self.tail_edge {
+            self.end - 1
+        } else {
+            self.end
+        };
+        let n = self.tile_words.min(stop - w);
+        self.cur += n;
+        Some((w..w + n, None))
+    }
+}
+
+/// A terminal's mask on an edge tile, restricted to the extent. `fill`
+/// reads the out-of-extent rows as SET — the identity of `All` — every other
+/// terminal reads them as CLEAR. A one-word register temporary; nothing
+/// resident is written.
+fn clip<'a>(m: &'a [u64], edge: Option<u64>, buf: &'a mut [u64; 1], fill: bool) -> &'a [u64] {
+    match edge {
+        None => m,
+        Some(e) => {
+            buf[0] = if fill { m[0] | !e } else { m[0] & e };
+            &buf[..]
         }
     }
 }
@@ -747,7 +832,51 @@ pub fn execute_into(
     planes: &Planes<'_>,
     foreign: &Foreign<'_>,
     scratch: &mut Scratch<'_>,
+    out: Out<'_>,
+) -> Result<Value, ExecError> {
+    execute_extent(program, planes, foreign, scratch, out, 0..planes.n_rows)
+}
+
+/// [`execute_into`] restricted to the ABSOLUTE row extent `[lo, hi)`.
+///
+/// **The extent is an outer restriction, never a rebasing.** It lives in the
+/// same row coordinates as `planes`: a `Pred::Range { lo: 1000, hi: 2000 }`
+/// executed over the extent `1500..1700` means `[1000, 2000) ∩ [1500, 1700)`,
+/// and lane element `r` is row `r` whatever the extent. The program's
+/// meaning is unchanged; only the population it is evaluated over shrinks.
+///
+/// Work is proportional to the extent: only the tiles [`extent_tiles`]
+/// yields are visited, and a word the extent cuts is restricted in a
+/// register at the terminal. No lane or mask is copied or rebased.
+///
+/// `execute_into` is this call with `0..n_rows`, which accepts every
+/// terminal. A partial extent accepts the terminals whose per-extent results
+/// merge by a shipped law — `Count` (sum), `Any` (or), `All` (and),
+/// `MaskedSumI32` (sum), `MaskedMinI32` / `MaskedMaxI32` (min / max) — plus
+/// `Keep`, which writes only the in-extent bits of its population-addressed
+/// [`Out::Mask`] and leaves every other bit as the caller holds it (so
+/// disjoint extents compose into one buffer in any SEQUENTIAL order). Anything else is
+/// [`ExecError::ExtentUnsupported`]; `lo > hi` or `hi > n_rows` is
+/// [`ExecError::ExtentOutOfRange`]. Both are refused before execution.
+///
+/// **Sequential, not concurrent.** An unaligned boundary puts two extents in
+/// one physical `u64` of the `Keep` sink, and the edge merge is a
+/// read-modify-write. Partial `Keep` sinks compose in any sequential order;
+/// concurrent execution requires word-disjoint sink ownership (boundaries on
+/// multiples of 64), separate partial sinks plus a merge, or another
+/// explicitly synchronized strategy. Nothing here licenses two writers on one
+/// `Out::Mask` at once.
+///
+/// Foreign planes and lanes ([`MaskOp::Gather`], `GroupKey::Via`) are
+/// addressed by KEY, not by this table's rows, so the extent never slices
+/// them.
+pub fn execute_extent(
+    program: &Program,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    scratch: &mut Scratch<'_>,
     mut out: Out<'_>,
+    extent: Range<usize>,
 ) -> Result<Value, ExecError> {
     // BEFORE the capacity check, not after: an over-declared count is a lie
     // about the PROGRAM, and the caller's buffer is irrelevant to it. Checked
@@ -761,6 +890,36 @@ pub fn execute_into(
             declared: program.scratch_slots,
         });
     }
+    let (elo, ehi) = (extent.start, extent.end);
+    if elo > ehi || ehi > planes.n_rows {
+        return Err(ExecError::ExtentOutOfRange {
+            lo: elo,
+            hi: ehi,
+            n_rows: planes.n_rows,
+        });
+    }
+    let whole = elo == 0 && ehi == planes.n_rows;
+    if !whole {
+        let refused = match program.terminal {
+            Terminal::Count { .. }
+            | Terminal::Any { .. }
+            | Terminal::All { .. }
+            | Terminal::MaskedSumI32 { .. }
+            | Terminal::MaskedMinI32 { .. }
+            | Terminal::MaskedMaxI32 { .. }
+            | Terminal::Keep { .. } => None,
+            Terminal::BlendI32 { .. } => Some("BlendI32"),
+            Terminal::ScatterOrU32 { .. } => Some("ScatterOrU32"),
+            Terminal::ScatterCountU32 { .. } => Some("ScatterCountU32"),
+            Terminal::CountKeyRunsU32 { .. } => Some("CountKeyRunsU32"),
+            Terminal::GroupSumI32 { .. } => Some("GroupSumI32"),
+            Terminal::GroupSumViaI32 { .. } => Some("GroupSumViaI32"),
+            Terminal::GroupReduce { .. } => Some("GroupReduce"),
+        };
+        if let Some(what) = refused {
+            return Err(ExecError::ExtentUnsupported { what });
+        }
+    }
     // A fused program folds from its operands: it reads no slot and writes no
     // membership bit, so the scratch capacity checks below do not apply to it.
     // Validation stays total — the one declared slot is tracked in a local
@@ -768,6 +927,18 @@ pub fn execute_into(
     if let Some(f) = program.fused_terminal() {
         let mut written = [0u64; 1];
         validate(program, planes, foreign, out_shape(&out), &mut written)?;
+        // The extent composes with the program's own range by intersection,
+        // in absolute rows — the #1268 fold, over a narrower span.
+        let (a, b) = ((f.lo as usize).max(elo), (f.hi as usize).min(ehi));
+        let f = if a < b {
+            FusedTerminal {
+                lo: a as u32,
+                hi: b as u32,
+                ..f
+            }
+        } else {
+            FusedTerminal { hi: f.lo, ..f }
+        };
         return Ok(run_fused(f, planes));
     }
     if scratch.slots() < program.scratch_slots as usize {
@@ -797,7 +968,7 @@ pub fn execute_into(
     // for every terminal) would return `Value::Mask` over a partial result.
     if matches!(program.terminal, Terminal::Keep { .. })
         && !matches!(out, Out::Mask(_))
-        && tw < words
+        && (tw < words || !whole)
     {
         return Err(ExecError::TerminalNeedsOut { what: "Keep" });
     }
@@ -824,9 +995,8 @@ pub fn execute_into(
     let mut run_carry = KeyRunCarry::default();
     let mut runs = 0usize;
 
-    let mut w0 = 0usize;
-    while w0 < words {
-        let tws = tw.min(words - w0);
+    for (span, edge) in extent_tiles(n_rows, tw, elo..ehi) {
+        let (w0, tws) = (span.start, span.len());
         let r0 = w0 * 64;
         let t = Tile {
             w0,
@@ -834,6 +1004,8 @@ pub fn execute_into(
             r0,
             rows: (n_rows - r0).min(tws * 64),
         };
+        // The register an edge tile's terminal mask is restricted in.
+        let mut eb = [0u64; 1];
         for op in &program.ops {
             match *op {
                 MaskOp::Pred { pred, under, dst } => {
@@ -968,24 +1140,42 @@ pub fn execute_into(
         let slots = scratch.all();
         match program.terminal {
             Terminal::Count { mask } => {
-                count += popcount_batch_u64(read(planes, &slots, mask, t)) as usize;
+                count +=
+                    popcount_batch_u64(clip(read(planes, &slots, mask, t), edge, &mut eb, false))
+                        as usize;
             }
-            Terminal::Any { mask } => any |= mask_any(read(planes, &slots, mask, t)),
-            Terminal::All { mask } => all &= mask_all(read(planes, &slots, mask, t), t.rows),
+            Terminal::Any { mask } => {
+                any |= mask_any(clip(read(planes, &slots, mask, t), edge, &mut eb, false))
+            }
+            Terminal::All { mask } => {
+                all &= mask_all(
+                    clip(read(planes, &slots, mask, t), edge, &mut eb, true),
+                    t.rows,
+                )
+            }
             Terminal::MaskedSumI32 { mask, lane } => {
-                sum += masked_sum_i32(lane_i32(planes, lane, t), read(planes, &slots, mask, t));
+                sum += masked_sum_i32(
+                    lane_i32(planes, lane, t),
+                    clip(read(planes, &slots, mask, t), edge, &mut eb, false),
+                );
             }
             Terminal::MaskedMinI32 { mask, lane } => {
                 min = fold_opt(
                     min,
-                    masked_min_i32(lane_i32(planes, lane, t), read(planes, &slots, mask, t)),
+                    masked_min_i32(
+                        lane_i32(planes, lane, t),
+                        clip(read(planes, &slots, mask, t), edge, &mut eb, false),
+                    ),
                     i32::min,
                 );
             }
             Terminal::MaskedMaxI32 { mask, lane } => {
                 max = fold_opt(
                     max,
-                    masked_max_i32(lane_i32(planes, lane, t), read(planes, &slots, mask, t)),
+                    masked_max_i32(
+                        lane_i32(planes, lane, t),
+                        clip(read(planes, &slots, mask, t), edge, &mut eb, false),
+                    ),
                     i32::max,
                 );
             }
@@ -1134,11 +1324,16 @@ pub fn execute_into(
                 // scratch is single-tile (checked above) and the slot IS the
                 // result.
                 if let Out::Mask(o) = &mut out {
-                    o[t.w0..t.w0 + t.words].copy_from_slice(read(planes, &slots, mask, t));
+                    let m = read(planes, &slots, mask, t);
+                    match edge {
+                        None => o[t.w0..t.w0 + t.words].copy_from_slice(m),
+                        // An edge word writes only its in-extent bits: the
+                        // neighbour extent's bits in the same word survive.
+                        Some(e) => o[t.w0] = (o[t.w0] & !e) | (m[0] & e),
+                    }
                 }
             }
         }
-        w0 += tws;
     }
 
     Ok(match program.terminal {
@@ -1159,6 +1354,62 @@ pub fn execute_into(
         Terminal::GroupReduce { .. } => Value::GroupReduced,
         Terminal::Keep { mask } => Value::Mask(mask),
     })
+}
+
+#[cfg(test)]
+mod extent_tile_tests {
+    use super::*;
+
+    /// The plan the executor iterates is proportional to the extent. A tiny
+    /// extent in a million rows is one one-word tile; the whole population is
+    /// exactly the `TILE_WORDS` chunking whole-population execution always used.
+    #[test]
+    fn the_tiles_visited_scale_with_the_extent_not_the_population() {
+        let n = 1 << 20;
+        let tile_count = |lo: usize, hi: usize| extent_tiles(n, TILE_WORDS, lo..hi).count();
+        let words_visited = |lo: usize, hi: usize| {
+            extent_tiles(n, TILE_WORDS, lo..hi)
+                .map(|(w, _)| w.len())
+                .sum::<usize>()
+        };
+        assert_eq!(tile_count(500_001, 500_002), 1);
+        assert_eq!(words_visited(500_001, 500_002), 1);
+        // 64 rows across a word seam: two one-word edge tiles; aligned: one.
+        assert_eq!(tile_count(500_001, 500_065), 2);
+        assert_eq!(tile_count(500_032, 500_096), 1); // 500_032 = 64 * 7813
+        assert_eq!(words_visited(512_000, 512_512), 8);
+        assert_eq!(tile_count(512_000, 512_512), 1);
+        assert_eq!(tile_count(0, 0), 0);
+        let whole: Vec<_> = extent_tiles(n, TILE_WORDS, 0..n).collect();
+        assert_eq!(whole.len(), n / 64 / TILE_WORDS);
+        for (i, (w, edge)) in whole.iter().enumerate() {
+            assert_eq!(*w, i * TILE_WORDS..(i + 1) * TILE_WORDS);
+            assert!(edge.is_none());
+        }
+        // Every extent: tiles are contiguous, disjoint, cover exactly the touched
+        // words, and only a word the extent cuts carries an edge.
+        let n = 1317;
+        for lo in [0usize, 1, 63, 64, 65, 500, 1300] {
+            for hi in [lo, lo + 1, lo + 63, lo + 64, lo + 700, n] {
+                let hi = hi.min(n);
+                if hi < lo {
+                    continue;
+                }
+                let tiles: Vec<_> = extent_tiles(n, TILE_WORDS, lo..hi).collect();
+                let covered: Vec<usize> = tiles.iter().flat_map(|(w, _)| w.clone()).collect();
+                let want: Vec<usize> = touched_words(lo as u32, hi as u32).collect();
+                assert_eq!(covered, want, "extent {lo}..{hi}");
+                for (w, edge) in &tiles {
+                    if edge.is_some() {
+                        assert_eq!(w.len(), 1, "an edge tile is one word");
+                        let cut_lo = w.start == lo / 64 && lo % 64 != 0;
+                        let cut_hi = w.start == (hi - 1) / 64 && hi % 64 != 0 && hi < n;
+                        assert!(cut_lo || cut_hi, "edge on a word the extent does not cut");
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
