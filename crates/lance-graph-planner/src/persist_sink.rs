@@ -1984,4 +1984,91 @@ mod tests {
             "strictly after the bound — bounded recovery, not full history"
         );
     }
+
+    // ── PROBE (timing, #[ignore]): where does freeze spend its time at 64k? ──────
+    //
+    // `freeze` exists to amortize ONE seal over a whole cycle. It does three
+    // things; this measures each alone, on the main-model shape (65,536 owners,
+    // one cast each, 512-byte witness payloads), so a decision to move any of
+    // them off the thought loop is made on numbers, not guesses:
+    //   sort  — `order_cycle_stably` by `stream_position`
+    //   fold  — `row -> payload.clone()` into the image
+    //   hash  — `content_hash` (FNV-1a over frame + every landing's payload)
+    // Two arrival orders: bit-reversed (the O-arm's scrambled arrival, so the
+    // sort does real work) and in-order (what a slot-indexed stack would give).
+    // Inputs are built OUTSIDE every timed region; each figure is the median of
+    // 7 runs. Run: `cargo test -p lance-graph-planner --release --lib
+    // freeze_step_timing_at_64k -- --ignored --nocapture`
+    #[test]
+    #[ignore = "timing probe; run in --release"]
+    fn freeze_step_timing_at_64k() {
+        use std::time::{Duration, Instant};
+        const N: u64 = 65_536;
+        const RUNS: usize = 7;
+        let frame = CycleFrame::new(CycleId(1), DatasetVersion(0));
+        let casts = |scrambled: bool| -> Vec<SweepSlot> {
+            (0..N)
+                .map(|i| {
+                    // bit-reverse over 16 bits: a full permutation of 0..N
+                    let pos = if scrambled {
+                        u64::from((i as u16).reverse_bits())
+                    } else {
+                        i
+                    };
+                    let mut payload = vec![0u8; 512];
+                    payload[..8].copy_from_slice(&i.to_le_bytes());
+                    SweepSlot {
+                        cycle: CycleId(1),
+                        stream_position: pos,
+                        owner: i as MailboxId,
+                        row: i,
+                        paired_move: None,
+                        payload,
+                    }
+                })
+                .collect()
+        };
+        let median = |mut v: Vec<Duration>| -> f64 {
+            v.sort();
+            v[v.len() / 2].as_secs_f64() * 1e3
+        };
+        for scrambled in [true, false] {
+            let (mut sort, mut fold, mut hash, mut whole) = (vec![], vec![], vec![], vec![]);
+            for _ in 0..RUNS {
+                let mut c = casts(scrambled);
+                let t = Instant::now();
+                order_cycle_stably(&mut c, |s| s.stream_position);
+                sort.push(t.elapsed());
+
+                let t = Instant::now();
+                let mut image = BTreeMap::new();
+                for s in &c {
+                    image.insert(s.row, s.payload.clone());
+                }
+                fold.push(t.elapsed());
+                assert_eq!(image.len(), N as usize);
+
+                let t = Instant::now();
+                let h = DetachedCycleBatch::content_hash(frame, &c);
+                hash.push(t.elapsed());
+
+                let fresh = casts(scrambled);
+                let t = Instant::now();
+                let frozen = DetachedCycleBatch::freeze(frame, fresh);
+                whole.push(t.elapsed());
+                // The parts are the real thing: same image size, same hash.
+                assert_eq!(frozen.batch_hash, h, "timed hash must be freeze's hash");
+                assert_eq!(frozen.image.len(), N as usize);
+                drop(image);
+            }
+            eprintln!(
+                "freeze@64k arrival={} sort={:.2}ms fold={:.2}ms hash={:.2}ms whole_freeze={:.2}ms (median of {RUNS})",
+                if scrambled { "bit-reversed" } else { "in-order" },
+                median(sort),
+                median(fold),
+                median(hash),
+                median(whole),
+            );
+        }
+    }
 }
