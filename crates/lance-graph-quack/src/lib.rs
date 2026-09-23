@@ -1388,8 +1388,9 @@ impl GroupHavingPlan {
     /// `HAVING` comparison holds. Reachedness is one fact read off any sink,
     /// because every program shares the filter and the key: a count sink says
     /// it with a non-zero slot, every other fold with a slot that is not its
-    /// seed ([`GroupFold::is_empty_slot`]). A comparison against an empty
-    /// (NULL) slot is false, as in SQL.
+    /// seed ([`GroupFold::is_empty_slot`]). SQL's "a comparison against
+    /// `NULL` is false" needs no separate check: an unreached group is
+    /// already gone, and a reached one is non-empty in every sink.
     ///
     /// # Errors
     ///
@@ -1417,11 +1418,9 @@ impl GroupHavingPlan {
                 GroupFold::Count => v0 != 0,
                 other => !other.is_empty_slot(v0),
             };
-            let pass = reached
-                && self.having.iter().all(|&(i, cmp)| {
-                    let v = sinks[i][g];
-                    !self.folds[i].is_empty_slot(v) && cmp.holds(v)
-                });
+            // No per-predicate NULL check: every sink shares the filter and
+            // the key, so a reached group is non-empty in EVERY sink.
+            let pass = reached && self.having.iter().all(|&(i, cmp)| cmp.holds(sinks[i][g]));
             if pass {
                 out[g / 64] |= 1 << (g % 64);
             }

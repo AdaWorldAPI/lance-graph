@@ -1535,8 +1535,9 @@ fn having_sparse_count_cc() {
 }
 
 /// `SELECT COUNT(*) … HAVING SUM(amount) < 10000` over the sparse filter.
-/// A coalescing SUM would read the empty groups 2, 5, 7 as `0 < 10000` and
-/// admit them; the NULL-preserving SUM makes that comparison false.
+/// The SUM sink is FIRST, so it alone carries reachedness: a coalescing SUM
+/// would read the empty groups 2, 5, 7 as `0 < 10000` and admit them; the
+/// NULL-preserving SUM leaves them at the seed, and they are dropped.
 #[test]
 fn having_sparse_sum_lt_cc() {
     let fx = fixture::generate();
@@ -1545,15 +1546,15 @@ fn having_sparse_sum_lt_cc() {
         filter: sparse(),
         key: GroupAddr::Local(COST_CENTER),
         groups: 8,
-        aggs: vec![GroupAgg::Count, GroupAgg::SumI32(AMOUNT)],
-        having: vec![(1, HavingCmp::Lt(10_000))],
+        aggs: vec![GroupAgg::SumI32(AMOUNT), GroupAgg::Count],
+        having: vec![(0, HavingCmp::Lt(10_000))],
     };
     let actual = run_group_having(
         "having_sparse_sum_lt_cc",
         &lanes.planes(),
         &Foreign::NONE,
         &q,
-        0,
+        1,
     );
     assert_case(&load_cases(), "having_sparse_sum_lt_cc", &actual);
 }
