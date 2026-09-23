@@ -1,6 +1,6 @@
 # 2026-09-23 — freeze at 64k is hash and copy, not order
 
-**Status:** MEASURED (release, 4-core Xeon @ 2.8 GHz, median of 7) · OPEN (off-loop freeze design, contended-row fraction on a real workload)
+**Status:** MEASURED (release, 4-core Xeon @ 2.8 GHz, median of 7) · VERIFIED-IN-CODE (contended-row fraction = 0 on every in-tree path) · OPEN (off-loop freeze design)
 **D-ids:** none new — measurement input for the hot-window design (`.claude/plans/measure-64k-axes-v4.md`) and D-LNC-5b's seal discussion.
 
 ## Measured — `persist_sink::tests::freeze_step_timing_at_64k` (`#[ignore]`, run with `--release -- --ignored`)
@@ -34,3 +34,18 @@ idempotency key existing stores reconcile against.
 
 Synthetic payloads, one host, in-process only (no Lance write). v3's recorded seal of
 11.6–20 ms used a different payload shape; the two are not directly comparable.
+
+## Contended-row fraction — 0 by construction (VERIFIED-IN-CODE)
+
+A slot's row is `row_of(owner)` (`cycle_driver.rs:387`, `collect_casts`), a function of the
+owner alone. Every in-tree caller passes `u64::from` (production `run_cycle` callers, the
+supervisor tests, `measure_wal_curve`); `blw_tenant` casts many rows but from ONE owner. So two
+distinct owners can never target one row: **cross-owner contention is 0 on every path, not
+merely on this fixture.** What remains is same-owner repeats within a cycle, and their order is
+the owner's own cast order — per-owner information `temporal.rs` already carries (`cast_seq`).
+
+Consequence (WORKING-MODEL): under an injective `row_of` the seal's cross-owner sort has
+nothing to decide, and freeze reduces to hash + copy, both movable off the loop. The contract
+that would keep it so — `row_of` MUST be injective — is not written down anywhere. A future
+shared "intersection" row (many owners → one row) would bring contention back, and with it the
+need for the cross-owner order.
