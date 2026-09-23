@@ -83,7 +83,7 @@ entry above said "decide the fused sum+count sink's shape before writing
 with no second sink.
 
 - Seeds: `Count` → 0 (never empty — a zero count is an answer), `MinI32` →
-  `i64::MAX`, `MaxI32` → `i64::MIN`, **new `SumI32` → `i64::MIN`**. MIN
+  `i64::MAX`, `MaxI32` → `i64::MIN`, **new `SumSymI32` → `i64::MIN`**. MIN
   cannot share SUM's seed (a min fold must start from its identity), so the
   rule is "equals its own seed", not "equals `i64::MIN`".
 - **BASIS:** the same move as a 4-bit code read as −7..+7 + NaN rather than
@@ -91,10 +91,10 @@ with no second sink.
   range closed under negation. At 4/8 bit that also removes a median bias; at
   i64 the bias is negligible, and what is bought is closure + NULL.
 - Cost: exactly one row of range, for this fold only.
-  `GROUP_SUM_SEEDED_MAX_ROWS = 2^32 − 1`, because exactly 2^32 rows of
+  `GROUP_SUM_SYM_MAX_ROWS = 2^32 − 1`, because exactly 2^32 rows of
   `i32::MIN` sum to `i64::MIN`. `MASKED_SUM_I32_MAX_ROWS` stays `2^32`: the
   coalescing sums may legitimately produce `i64::MIN`.
-- Kernel: ndarray #321 `masked_group_sum_seeded_i32{,_via}`, first row
+- Kernel: ndarray #321 `masked_group_sum_sym_i32{,_via}`, first row
   REPLACES the marker, later rows `wrapping_add`. Two named closures over the
   shared `group_walk`; no new bit loop.
 
@@ -114,6 +114,24 @@ the SUM sink carrying reachedness). Disable-verified red:
 - non-count emptiness off → the SUM-first sparse case;
 - the executor routing `SumI32` through the coalescing kernel → both
   mask-risc differentials.
+
+**Boundary refinement (same day, operator-raised):** the marker is free
+inside the fold and a silent wrong answer outside it — any full-range
+consumer would sum, sort or negate `i64::MIN`. Two consequences, both
+landed:
+- **Named, not implied.** ndarray exposes the reservation only under a
+  `_sym` suffix (`masked_group_sum_sym_i32{,_via}`, `SYM_EMPTY_I64`); every
+  unsuffixed reduction stays full two's-complement and never treats
+  `i64::MIN` specially (pinned by a test). mask-risc names the fold
+  `GroupFold::SumSymI32` with `GROUP_SUM_SYM_MAX_ROWS`. This is the 4-bit
+  analogue of choosing −7..+7 + NaN by name, never silently narrowing a
+  −8..+7 consumer.
+- **NULL leaves as a mask.** `normalize_group_sink` is the quack boundary:
+  it returns a K-bit presence mask and zeroes absent slots in place; `finish`
+  runs it over every sink and returns `{present, keep}`. The raw sink is
+  internal encoding. Row NULL and group NULL now have the same shape.
+  Disable-verified: no zeroing → the leak assertion and unit tests fail;
+  normalizing only the first sink → the multi-sink unit test fails.
 
 REVISIT WHEN: a single-pass AVG is wanted — the fused sum+count sink is still
 the route to that, now for speed only, not for NULL.
