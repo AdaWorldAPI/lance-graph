@@ -160,7 +160,7 @@ fn check(pl: &[u64], n: usize, prog: (u32, u32), ext: (usize, usize), shape: Sha
 fn the_edge_matrix_agrees_with_the_scalar_oracle() {
     let n = 1317; // not a multiple of 64, three 8-word tiles
     let mut seed = 0xE17E_u64;
-    let scattered: Vec<bool> = (0..n).map(|_| lcg(&mut seed) % 3 == 0).collect();
+    let scattered: Vec<bool> = (0..n).map(|_| lcg(&mut seed).is_multiple_of(3)).collect();
     let planes: [(&str, Vec<u64>); 3] = [
         ("zero", plane(n, |_| false)),
         ("ones", plane(n, |_| true)),
@@ -366,7 +366,7 @@ fn merge_with(law: Law, a: Value, b: Value) -> Value {
 fn whole_execution_equals_the_merge_of_any_partition_in_any_order() {
     for n in [1317usize, 4096 + 37] {
         let mut seed = 0x5_1117 ^ n as u64;
-        let scattered: Vec<bool> = (0..n).map(|_| lcg(&mut seed) % 4 == 0).collect();
+        let scattered: Vec<bool> = (0..n).map(|_| lcg(&mut seed).is_multiple_of(4)).collect();
         let pl = plane(n, |r| scattered[r]);
         let vals: Vec<i32> = (0..n)
             .map(|_| (lcg(&mut seed) % 2001) as i32 - 1000)
