@@ -147,7 +147,7 @@ fn fold_and_keep_arms_agree_with_the_oracle() {
             ("one", plane(n, |_| true)),
             ("clustered", plane(n, |r| (r / 97) % 3 == 1)),
         ];
-        let scattered: Vec<bool> = (0..n).map(|_| lcg(&mut seed) % 5 == 0).collect();
+        let scattered: Vec<bool> = (0..n).map(|_| lcg(&mut seed).is_multiple_of(5)).collect();
         shapes.push(("scattered", plane(n, |r| scattered[r])));
         for (name, p) in &shapes {
             let masks: [&[u64]; 1] = [p];
