@@ -15,7 +15,7 @@
 //! counted is still a materialization.
 
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::cell::Cell;
 
 use lance_graph_mask_risc::exec::{execute_into, Scratch};
 use lance_graph_mask_risc::{
@@ -24,12 +24,21 @@ use lance_graph_mask_risc::{
 
 struct Counting;
 
-static BYTES: AtomicUsize = AtomicUsize::new(0);
+thread_local! {
+    // Per THREAD, not per process: the test harness runs tests on parallel
+    // threads, and a process-wide counter picks up their allocations inside
+    // this test's window (measured: 120 stray bytes on an otherwise clean run).
+    static BYTES: Cell<usize> = const { Cell::new(0) };
+}
+
+fn bytes() -> usize {
+    BYTES.with(Cell::get)
+}
 
 // SAFETY: a pure pass-through to `System`; the counter is the only addition.
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        BYTES.fetch_add(layout.size(), Ordering::Relaxed);
+        let _ = BYTES.try_with(|b| b.set(b.get() + layout.size()));
         // SAFETY: same layout, same contract as the caller's.
         unsafe { System.alloc(layout) }
     }
@@ -313,13 +322,13 @@ fn sizing_a_fold_allocates_nothing() {
             mask: Operand::Scratch(0),
         },
     );
-    let before = BYTES.load(Ordering::Relaxed);
+    let before = bytes();
     let s = Scratch::for_program(&count, 1 << 20).expect("scratch");
-    let fold_bytes = BYTES.load(Ordering::Relaxed) - before;
+    let fold_bytes = bytes() - before;
     drop(s);
-    let before = BYTES.load(Ordering::Relaxed);
+    let before = bytes();
     let s = Scratch::for_program(&keep_prog, 1 << 20).expect("scratch");
-    let keep_bytes = BYTES.load(Ordering::Relaxed) - before;
+    let keep_bytes = bytes() - before;
     drop(s);
     assert_eq!(fold_bytes, 0, "a fold carved a scratch arena");
     assert!(keep_bytes > 0, "the counter cannot see an allocation");
