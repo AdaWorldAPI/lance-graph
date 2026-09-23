@@ -7,7 +7,7 @@ use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch
 use lance_graph_mask_risc::{
     scratch_words_for, tile_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupFold,
     GroupKey, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
-    GROUP_SUM_SEEDED_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
+    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -1042,7 +1042,7 @@ fn group_reduce_matches_the_oracle_for_every_key_and_fold() {
                 GroupFold::Count,
                 GroupFold::MinI32(2),
                 GroupFold::MaxI32(2),
-                GroupFold::SumI32(2),
+                GroupFold::SumSymI32(2),
             ] {
                 let p = Program::new(
                     vec![MaskOp::Pred {
@@ -1128,7 +1128,7 @@ fn seeded_sum_agrees_with_the_coalesced_sum_and_keeps_empty_groups_null() {
         assert_eq!(got, out, "executor vs oracle for {terminal:?}");
         got
     };
-    let fold = GroupFold::SumI32(1);
+    let fold = GroupFold::SumSymI32(1);
     let seeded = run(Terminal::GroupReduce {
         mask: Operand::Plane(0),
         key: GroupKey::Lane(0),
@@ -1155,7 +1155,7 @@ fn seeded_sum_agrees_with_the_coalesced_sum_and_keeps_empty_groups_null() {
     // COUNT never reports an empty slot: a zero count is an answer.
     assert!(!GroupFold::Count.is_empty_slot(0));
     // The marker costs exactly one row of range.
-    assert_eq!(GROUP_SUM_SEEDED_MAX_ROWS + 1, MASKED_SUM_I32_MAX_ROWS);
+    assert_eq!(GROUP_SUM_SYM_MAX_ROWS + 1, MASKED_SUM_I32_MAX_ROWS);
 }
 
 /// FAILS IF: `GroupReduce` accepts a wrong-width lane or a missing sink —

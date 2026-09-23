@@ -887,7 +887,9 @@ pub enum Agg {
     /// a key past it (or an fk naming no foreign row) is dropped. The
     /// executor seeds the buffer itself: `0` for a count, `i64::MAX` for a
     /// minimum and `i64::MIN` for a maximum, so a MIN/MAX slot still
-    /// holding its seed is an empty group — SQL `NULL`.
+    /// holding its seed is an empty group — SQL `NULL`. That raw buffer is
+    /// internal encoding: pass it through [`normalize_group_sink`] before any
+    /// code treats its slots as plain integers.
     GroupReduce {
         /// Where each row's group lives.
         key: GroupAddr,
@@ -936,7 +938,7 @@ impl GroupAgg {
             GroupAgg::Count => GroupFold::Count,
             GroupAgg::MinI32(c) => GroupFold::MinI32(c.0),
             GroupAgg::MaxI32(c) => GroupFold::MaxI32(c.0),
-            GroupAgg::SumI32(c) => GroupFold::SumI32(c.0),
+            GroupAgg::SumI32(c) => GroupFold::SumSymI32(c.0),
         }
     }
 }
@@ -1380,22 +1382,26 @@ impl core::fmt::Display for HavingFinishError {
 impl std::error::Error for HavingFinishError {}
 
 impl GroupHavingPlan {
-    /// The surviving groups as a K-bit mask (`words_for(groups)` words, bit
-    /// `k` set ⇔ group `k` survives).
+    /// Finish the query in place: map every sink through
+    /// [`normalize_group_sink`] and return which groups exist and which
+    /// survive the `HAVING` conjunction.
     ///
     /// A group survives when (a) at least one selected row reached it — SQL
     /// `GROUP BY` never produces a group from no rows — and (b) every
     /// `HAVING` comparison holds. Reachedness is one fact read off any sink,
-    /// because every program shares the filter and the key: a count sink says
-    /// it with a non-zero slot, every other fold with a slot that is not its
-    /// seed ([`GroupFold::is_empty_slot`]). SQL's "a comparison against
-    /// `NULL` is false" needs no separate check: an unreached group is
-    /// already gone, and a reached one is non-empty in every sink.
+    /// because every program shares the filter and the key: it is taken from
+    /// the first. SQL's "a comparison against `NULL` is false" needs no
+    /// separate check: an unreached group is already gone, and a reached one
+    /// is non-empty in every sink.
+    ///
+    /// After this returns, every sink holds plain full-range integers: no
+    /// fold's internal marker survives, and an absent group's slot is `0`.
     ///
     /// # Errors
     ///
     /// [`HavingFinishError`] when the sinks do not match the plan's shape.
-    pub fn finish(&self, sinks: &[&[i64]]) -> Result<Vec<u64>, HavingFinishError> {
+    /// Nothing is modified in that case.
+    pub fn finish(&self, sinks: &mut [&mut [i64]]) -> Result<GroupHavingOutput, HavingFinishError> {
         if sinks.len() != self.programs.len() {
             return Err(HavingFinishError::SinkCount {
                 expected: self.programs.len(),
@@ -1410,23 +1416,64 @@ impl GroupHavingPlan {
                 found: s.len(),
             });
         }
-        let mut out = vec![0u64; k.div_ceil(64)];
+        let present = normalize_group_sink(self.folds[0], sinks[0]);
+        for (fold, sink) in self.folds.iter().zip(sinks.iter_mut()).skip(1) {
+            normalize_group_sink(*fold, sink);
+        }
+        let mut keep = present.clone();
         for g in 0..k {
-            let fold0 = self.folds[0];
-            let v0 = sinks[0][g];
-            let reached = match fold0 {
-                GroupFold::Count => v0 != 0,
-                other => !other.is_empty_slot(v0),
-            };
-            // No per-predicate NULL check: every sink shares the filter and
-            // the key, so a reached group is non-empty in EVERY sink.
-            let pass = reached && self.having.iter().all(|&(i, cmp)| cmp.holds(sinks[i][g]));
-            if pass {
-                out[g / 64] |= 1 << (g % 64);
+            let bit = 1u64 << (g % 64);
+            if keep[g / 64] & bit != 0
+                && !self.having.iter().all(|&(i, cmp)| cmp.holds(sinks[i][g]))
+            {
+                keep[g / 64] &= !bit;
             }
         }
-        Ok(out)
+        Ok(GroupHavingOutput { present, keep })
     }
+}
+
+/// What [`GroupHavingPlan::finish`] returns: two K-bit masks, bit `g` of word
+/// `g / 64`, LSB first — the same bit order as every row mask.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupHavingOutput {
+    /// Groups at least one selected row reached.
+    pub present: Vec<u64>,
+    /// Groups that are present AND pass every `HAVING` comparison. Always a
+    /// subset of `present`.
+    pub keep: Vec<u64>,
+}
+
+/// The consumer boundary of a grouped sink. Returns a K-bit presence mask
+/// (bit `g` set ⇔ some selected row reached group `g`) and rewrites the sink
+/// IN PLACE so every slot is a plain full-range integer: an absent group's
+/// slot becomes `0`.
+///
+/// Why this exists: a `GroupReduce` sink is internal encoding. MIN/MAX leave
+/// an empty group at a seed outside the `i32` range, and the symmetric-range
+/// SUM ([`GroupAgg::SumI32`]) leaves it at `ndarray::simd::SYM_EMPTY_I64` —
+/// a value that code assuming full range would read as −9.2·10¹⁸ and then
+/// sum, sort, or negate (`-i64::MIN` overflows). NULL leaves this crate the
+/// way row NULL already does: as a mask beside the values, never as a
+/// reserved value inside them. It also works for a future fold with no spare
+/// value to reserve.
+///
+/// For `COUNT` a slot is present exactly when it is non-zero, and its value
+/// is untouched.
+pub fn normalize_group_sink(fold: GroupFold, sink: &mut [i64]) -> Vec<u64> {
+    let mut present = vec![0u64; sink.len().div_ceil(64)];
+    for (g, slot) in sink.iter_mut().enumerate() {
+        let reached = match fold {
+            GroupFold::Count => *slot != 0,
+            other => !other.is_empty_slot(*slot),
+        };
+        if reached {
+            present[g / 64] |= 1 << (g % 64);
+        } else {
+            *slot = 0;
+        }
+    }
+    present
 }
 
 /// Lower one categorical `GROUP BY` with semantic compression before any
@@ -1977,6 +2024,72 @@ mod tests {
         execute_into, materialize_rows, reference_execute, words_for, Foreign, LaneRef, Out,
         Planes, Scratch, Value,
     };
+
+    /// FAILS IF: the consumer boundary lets a fold's internal marker through,
+    /// or mistakes a real value for an empty group. The `_sym` SUM case is the
+    /// one a full-range consumer would misread: a group cancelling to `0` is
+    /// present, a group left at `SYM_EMPTY_I64` is absent and becomes `0`.
+    /// FAILS IF: `finish` normalizes only the sink it reads reachedness from.
+    /// Here COUNT is first and the `_sym` SUM second, so the SUM's markers
+    /// can only be cleared by the loop over the remaining sinks.
+    #[test]
+    fn finish_normalizes_every_sink_not_just_the_first() {
+        let plan = lower_group_having(&GroupHaving {
+            filter: Filter::cmp(Col(0), Cmp::EqU32(1)),
+            key: GroupAddr::Local(Col(1)),
+            groups: 3,
+            aggs: vec![GroupAgg::Count, GroupAgg::SumI32(Col(2))],
+            having: vec![(1, HavingCmp::Ge(0))],
+        })
+        .expect("lowers");
+        let e = GroupFold::SumSymI32(0).seed();
+        let mut count = [2i64, 0, 1];
+        let mut sum = [0i64, e, -4];
+        let out = plan
+            .finish(&mut [&mut count[..], &mut sum[..]])
+            .expect("shapes match");
+        assert_eq!(out.present, vec![0b101]);
+        assert_eq!(
+            out.keep,
+            vec![0b001],
+            "group 0 sums to 0 (>= 0), group 2 to -4"
+        );
+        assert_eq!(sum, [0, 0, -4], "the second sink's marker is gone");
+    }
+
+    #[test]
+    fn normalize_group_sink_maps_every_marker_to_a_presence_bit() {
+        let e = GroupFold::SumSymI32(0).seed();
+        assert_eq!(e, i64::MIN, "the _sym marker");
+        let mut sum = [0, e, 7, e];
+        let p = normalize_group_sink(GroupFold::SumSymI32(0), &mut sum);
+        assert_eq!(p, vec![0b0101]);
+        assert_eq!(sum, [0, 0, 7, 0]);
+
+        let mut min = [i64::MAX, -3];
+        assert_eq!(
+            normalize_group_sink(GroupFold::MinI32(0), &mut min),
+            vec![0b10]
+        );
+        assert_eq!(min, [0, -3]);
+
+        // COUNT: present iff non-zero, value untouched.
+        let mut count = [0, 4];
+        assert_eq!(
+            normalize_group_sink(GroupFold::Count, &mut count),
+            vec![0b10]
+        );
+        assert_eq!(count, [0, 4]);
+
+        // Word boundary: group 64 lands in the second word.
+        let mut wide = vec![e; 65];
+        wide[64] = -1;
+        assert_eq!(
+            normalize_group_sink(GroupFold::SumSymI32(0), &mut wide),
+            vec![0, 1]
+        );
+        assert!(!wide.contains(&e));
+    }
 
     const N: usize = 1000;
 

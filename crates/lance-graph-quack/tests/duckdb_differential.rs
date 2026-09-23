@@ -36,8 +36,9 @@ use lance_graph_mask_risc::{
     LaneRef, Out, Planes, Scratch, Terminal, Value,
 };
 use lance_graph_quack::{
-    avg_finish, lower, lower_avg, lower_group_avg, lower_group_by, lower_group_having, Agg, Cmp,
-    Col, Filter, ForeignLane, GroupAddr, GroupAgg, GroupBy, GroupHaving, HavingCmp, Query,
+    avg_finish, lower, lower_avg, lower_group_avg, lower_group_by, lower_group_having,
+    normalize_group_sink, Agg, Cmp, Col, Filter, ForeignLane, GroupAddr, GroupAgg, GroupBy,
+    GroupHaving, HavingCmp, Query,
 };
 
 use fixture::col::{
@@ -407,12 +408,14 @@ fn run_group_reduce(
         execute_into(&program, planes, foreign, &mut scratch, Out::I64(&mut out)).expect("runs");
     let alloc_bytes_exec = alloc_delta(before);
     assert_eq!(value, Value::GroupReduced, "case {id}");
+    // Through the consumer boundary: the raw sink never reaches the encoder.
     let empty_is_null = !matches!(fold, GroupFold::Count);
+    let present = normalize_group_sink(fold, &mut out);
     let encoded = out
         .iter()
         .enumerate()
         .map(|(k, &v)| {
-            if empty_is_null && v == fold.seed() {
+            if empty_is_null && (present[k / 64] >> (k % 64)) & 1 == 0 {
                 format!("{k}:NULL")
             } else {
                 format!("{k}:{v}")
@@ -1438,7 +1441,7 @@ fn run_group_having(
     select: usize,
 ) -> String {
     let plan = lower_group_having(q).expect("lowers");
-    let sinks: Vec<Vec<i64>> = plan
+    let mut sinks: Vec<Vec<i64>> = plan
         .programs
         .iter()
         .map(|program| {
@@ -1450,8 +1453,17 @@ fn run_group_having(
             out
         })
         .collect();
-    let refs: Vec<&[i64]> = sinks.iter().map(Vec::as_slice).collect();
-    let keep = plan.finish(&refs).expect("sinks match the plan");
+    let mut refs: Vec<&mut [i64]> = sinks.iter_mut().map(Vec::as_mut_slice).collect();
+    let keep = plan.finish(&mut refs).expect("sinks match the plan").keep;
+    // The boundary guarantee: no fold's internal marker survives `finish`.
+    for (fold, sink) in plan.folds.iter().zip(&sinks) {
+        if !matches!(fold, GroupFold::Count) {
+            assert!(
+                !sink.contains(&fold.seed()),
+                "case {id}: {fold:?} leaked its marker past finish"
+            );
+        }
+    }
     (0..plan.groups as usize)
         .filter(|&g| (keep[g / 64] >> (g % 64)) & 1 == 1)
         .map(|g| format!("{g}:{}", sinks[select][g]))

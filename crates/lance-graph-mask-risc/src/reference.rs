@@ -18,7 +18,7 @@
 
 use crate::ir::{
     Foreign, GroupFold, GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
-    GROUP_SUM_SEEDED_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
+    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
 use crate::value::{ExecError, LaneKind, Out, Value};
 use crate::words_for;
@@ -537,9 +537,9 @@ pub(crate) fn validate(
                 GroupFold::MinI32(v) | GroupFold::MaxI32(v) => {
                     check_lane(planes, v, LaneKind::I32)?
                 }
-                GroupFold::SumI32(v) => {
+                GroupFold::SumSymI32(v) => {
                     check_lane(planes, v, LaneKind::I32)?;
-                    if n > GROUP_SUM_SEEDED_MAX_ROWS {
+                    if n > GROUP_SUM_SYM_MAX_ROWS {
                         return Err(ExecError::SumRowBound { n_rows: n });
                     }
                 }
@@ -911,7 +911,7 @@ pub fn reference_execute_into(
                     GroupFold::Count => 0i64,
                     GroupFold::MinI32(_) => i64::MAX,
                     GroupFold::MaxI32(_) => i64::MIN,
-                    GroupFold::SumI32(_) => i64::MIN,
+                    GroupFold::SumSymI32(_) => i64::MIN,
                 };
                 for x in o.iter_mut() {
                     *x = seed;
@@ -942,7 +942,7 @@ pub fn reference_execute_into(
                         GroupFold::MinI32(v) => o[k].min(i64::from(i32_at(planes, v, r))),
                         GroupFold::MaxI32(v) => o[k].max(i64::from(i32_at(planes, v, r))),
                         // First row replaces the empty marker; later rows add.
-                        GroupFold::SumI32(v) => {
+                        GroupFold::SumSymI32(v) => {
                             let x = i64::from(i32_at(planes, v, r));
                             if o[k] == i64::MIN {
                                 x
