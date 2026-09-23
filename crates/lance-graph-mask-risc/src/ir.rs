@@ -614,42 +614,127 @@ impl Program {
     }
 
     /// The no-mask lowering of a Boolean membership over RESIDENT planes, if
-    /// this program is one: a single `And` / `Or` / `Xor` / `AndNot` /
-    /// `Ternlog` whose operands are all [`Operand::Plane`], folded by `Count`
-    /// or `Any` of its own `dst`.
+    /// this program is one: a sequence of `And` / `Or` / `Xor` / `AndNot` /
+    /// `Not` / `Ternlog` ops that, taken together, read at most THREE distinct
+    /// [`Operand::Plane`]s, folded by `Count` or `Any` of a slot the sequence
+    /// wrote.
     ///
-    /// Every such op is one 3-input truth table (a 2-input op is a table that
-    /// ignores `c`), and `ndarray::simd::mask_ternlog_popcount` /
-    /// `mask_ternlog_any` fold a table straight from its operands' words to a
-    /// scalar. So the membership never becomes a bitmap: nothing is written.
+    /// The program representation collapses before execution: each op is
+    /// interpreted SYMBOLICALLY as an 8-bit truth table over the (at most
+    /// three) plane leaves, in the VPTERNLOG input convention (leaf 0 reads
+    /// `0xF0`, leaf 1 `0xCC`, leaf 2 `0xAA`). `And`/`Or`/`Xor`/`AndNot`/`Not`
+    /// combine their inputs' tables bitwise, and `Ternlog` applies its own
+    /// immediate to its three inputs' tables bit by bit. The table left in the
+    /// terminal's slot IS the immediate of one ternlog over the leaves, so
+    /// `ndarray::simd::mask_ternlog_popcount` / `mask_ternlog_any` fold the
+    /// whole sequence straight from the planes' words to a scalar. No
+    /// intermediate slot is ever written: the scratch ops exist only in the
+    /// program text, never in memory.
     ///
-    /// A scratch operand, `Not` (which clears the tail against `n_rows` — a
-    /// different shape), a predicate, a gather, or any other terminal returns
-    /// `None` and runs the ordinary path. `Keep` is NEVER fused.
+    /// Slots are tracked in program order, so a slot overwritten mid-sequence
+    /// reads its latest value, exactly as the tiled path executes it. `Not`'s
+    /// tail clearing needs no special case: the fold restricts the
+    /// population's own last word to its live rows, which is the same result
+    /// on every live row.
+    ///
+    /// Declines (returns `None`, ordinary path) on: a fourth distinct plane
+    /// anywhere in the sequence, a `Pred` or `Gather`, a read of a slot the
+    /// sequence has not yet written, a slot at or above
+    /// [`FUSED_SLOT_CAP`] (the interpreter keeps its tables in a fixed
+    /// on-stack array so that recognition never allocates), or any terminal
+    /// other than `Count`/`Any`. `Keep` is NEVER fused: it is the explicit
+    /// election of a bitmap.
     pub fn fused_ternlog(&self) -> Option<FusedTernlog> {
-        let plane = |o: &Operand| match *o {
-            Operand::Plane(p) => Some(p),
-            Operand::Scratch(_) => None,
-        };
-        let (imm, a, b, c, dst) = match self.ops.as_slice() {
-            [MaskOp::And { a, b, dst }] => (TABLE_AND, plane(a)?, plane(b)?, plane(b)?, *dst),
-            [MaskOp::Or { a, b, dst }] => (TABLE_OR, plane(a)?, plane(b)?, plane(b)?, *dst),
-            [MaskOp::Xor { a, b, dst }] => (TABLE_XOR, plane(a)?, plane(b)?, plane(b)?, *dst),
-            [MaskOp::AndNot { a, b, dst }] => (TABLE_ANDNOT, plane(a)?, plane(b)?, plane(b)?, *dst),
-            [MaskOp::Ternlog { imm, a, b, c, dst }] => {
-                (*imm, plane(a)?, plane(b)?, plane(c)?, *dst)
-            }
+        let fold = match self.terminal {
+            Terminal::Count {
+                mask: Operand::Scratch(s),
+            } => (FusedFold::Count, s),
+            Terminal::Any {
+                mask: Operand::Scratch(s),
+            } => (FusedFold::Any, s),
             _ => return None,
         };
-        if usize::from(dst) >= FUSED_SLOT_CAP {
+        if self.ops.is_empty() {
             return None;
         }
-        let fold = match self.terminal {
-            Terminal::Count { mask } if mask == Operand::Scratch(dst) => FusedFold::Count,
-            Terminal::Any { mask } if mask == Operand::Scratch(dst) => FusedFold::Any,
-            _ => return None,
+        // Distinct plane leaves in first-read order, and the table each one
+        // contributes in the VPTERNLOG input convention.
+        const LEAF_TABLES: [u8; 3] = [0xF0, 0xCC, 0xAA];
+        let mut leaves: [u16; 3] = [0; 3];
+        let mut n_leaves = 0usize;
+        let mut slots: [Option<u8>; FUSED_SLOT_CAP] = [None; FUSED_SLOT_CAP];
+        let read = |o: &Operand,
+                    leaves: &mut [u16; 3],
+                    n_leaves: &mut usize,
+                    slots: &[Option<u8>; FUSED_SLOT_CAP]|
+         -> Option<u8> {
+            match *o {
+                Operand::Plane(p) => {
+                    let i = match leaves[..*n_leaves].iter().position(|&q| q == p) {
+                        Some(i) => i,
+                        None if *n_leaves < 3 => {
+                            leaves[*n_leaves] = p;
+                            *n_leaves += 1;
+                            *n_leaves - 1
+                        }
+                        None => return None,
+                    };
+                    Some(LEAF_TABLES[i])
+                }
+                Operand::Scratch(s) => *slots.get(usize::from(s))?,
+            }
         };
-        Some(FusedTernlog { imm, a, b, c, fold })
+        for op in &self.ops {
+            let (t, dst) = match op {
+                MaskOp::And { a, b, dst } => (
+                    read(a, &mut leaves, &mut n_leaves, &slots)?
+                        & read(b, &mut leaves, &mut n_leaves, &slots)?,
+                    *dst,
+                ),
+                MaskOp::Or { a, b, dst } => (
+                    read(a, &mut leaves, &mut n_leaves, &slots)?
+                        | read(b, &mut leaves, &mut n_leaves, &slots)?,
+                    *dst,
+                ),
+                MaskOp::Xor { a, b, dst } => (
+                    read(a, &mut leaves, &mut n_leaves, &slots)?
+                        ^ read(b, &mut leaves, &mut n_leaves, &slots)?,
+                    *dst,
+                ),
+                MaskOp::AndNot { a, b, dst } => (
+                    read(a, &mut leaves, &mut n_leaves, &slots)?
+                        & !read(b, &mut leaves, &mut n_leaves, &slots)?,
+                    *dst,
+                ),
+                MaskOp::Not { a, dst } => (!read(a, &mut leaves, &mut n_leaves, &slots)?, *dst),
+                MaskOp::Ternlog { imm, a, b, c, dst } => {
+                    let (ta, tb, tc) = (
+                        read(a, &mut leaves, &mut n_leaves, &slots)?,
+                        read(b, &mut leaves, &mut n_leaves, &slots)?,
+                        read(c, &mut leaves, &mut n_leaves, &slots)?,
+                    );
+                    (apply_table(*imm, ta, tb, tc), *dst)
+                }
+                MaskOp::Pred { .. } | MaskOp::Gather { .. } => return None,
+            };
+            *slots.get_mut(usize::from(dst))? = Some(t);
+        }
+        let imm = (*slots.get(usize::from(fold.1))?)?;
+        if n_leaves == 0 {
+            return None;
+        }
+        // Unused leaf positions are don't-cares of `imm` (it was computed
+        // without them); bind them to leaf 0 so every operand is a real plane.
+        let a = leaves[0];
+        let b = if n_leaves > 1 { leaves[1] } else { a };
+        let c = if n_leaves > 2 { leaves[2] } else { a };
+        Some(FusedTernlog {
+            imm,
+            a,
+            b,
+            c,
+            fold: fold.0,
+        })
     }
 
     /// Whether executing this program needs any scratch slot at all.
@@ -725,8 +810,9 @@ pub struct FusedTerminal {
 /// without writing membership bits: see [`Program::fused_ternlog`].
 ///
 /// The table is in the VPTERNLOG index convention `(a << 2) | (b << 1) | c`
-/// that [`MaskOp::Ternlog`] already uses; a 2-input op reaches here as a
-/// table that ignores `c` (and `c` repeats `b`).
+/// that [`MaskOp::Ternlog`] already uses. It is the WHOLE op sequence's
+/// collapsed function; a sequence over fewer than three distinct planes gets a
+/// table that ignores the unused positions, which are bound to `a`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FusedTernlog {
     /// The 8-bit truth table.
@@ -741,22 +827,27 @@ pub struct FusedTernlog {
     pub fold: FusedFold,
 }
 
-/// `a & b` — true at indices 6, 7 (`a = b = 1`, either `c`).
-pub(crate) const TABLE_AND: u8 = 0xC0;
-/// `a | b` — true wherever `a` (4..7) or `b` (2, 3, 6, 7) is set.
-pub(crate) const TABLE_OR: u8 = 0xFC;
-/// `a ^ b` — true at 2, 3 (`b` only) and 4, 5 (`a` only).
-pub(crate) const TABLE_XOR: u8 = 0x3C;
-/// `a & !b` — true at 4, 5 (`a = 1`, `b = 0`).
-pub(crate) const TABLE_ANDNOT: u8 = 0x30;
+/// Apply the VPTERNLOG table `imm` bitwise to three input tables: output bit
+/// `i` is `imm[(ta_i << 2) | (tb_i << 1) | tc_i]`.
+fn apply_table(imm: u8, ta: u8, tb: u8, tc: u8) -> u8 {
+    let mut out = 0u8;
+    for i in 0..8 {
+        let idx = ((ta >> i) & 1) << 2 | ((tb >> i) & 1) << 1 | ((tc >> i) & 1);
+        out |= ((imm >> idx) & 1) << i;
+    }
+    out
+}
 
 /// The highest scratch slot (exclusive) a fused shape may name.
 ///
 /// The fused paths validate a program with an on-stack slot bitmap of
 /// `FUSED_SLOT_CAP.div_ceil(64)` words and never touch real scratch, so a
 /// slot the bitmap cannot mark would be rejected as a read before a write.
-/// A shape naming a higher slot is simply not fused and runs on the tiled
-/// path. A bound of the recogniser, never of the semantics.
+/// [`Program::fused_ternlog`]'s symbolic interpreter keeps its per-slot
+/// tables in a fixed on-stack array of the same length, because recognition
+/// runs on the execute path and must not allocate. A shape naming a higher
+/// slot is simply not fused and runs on the tiled path. A bound of the
+/// recogniser, never of the semantics.
 pub const FUSED_SLOT_CAP: usize = 32;
 
 /// The scalar folds that may consume membership without materializing it.
