@@ -56,9 +56,8 @@ fn splitmix64(state: &mut u64) -> u64 {
 fn fingerprint(seed: u64) -> Vec<u8> {
     let mut fp = vec![0u8; D_BYTES];
     let mut s = seed;
-    for chunk in fp.chunks_exact_mut(8) {
-        let r = splitmix64(&mut s);
-        chunk.copy_from_slice(&r.to_le_bytes());
+    for chunk in fp.as_chunks_mut::<8>().0 {
+        *chunk = splitmix64(&mut s).to_le_bytes();
     }
     fp
 }
