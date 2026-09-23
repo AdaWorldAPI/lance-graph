@@ -736,8 +736,8 @@ pub fn extent_tiles(n_rows: usize, tile_words: usize, extent: Range<usize>) -> E
         end: span.end,
         lo: extent.start,
         hi: extent.end,
-        head_edge: extent.start % 64 != 0,
-        tail_edge: extent.end % 64 != 0 && extent.end < n_rows,
+        head_edge: !extent.start.is_multiple_of(64),
+        tail_edge: !extent.end.is_multiple_of(64) && extent.end < n_rows,
         tile_words: tile_words.max(1),
     }
 }
