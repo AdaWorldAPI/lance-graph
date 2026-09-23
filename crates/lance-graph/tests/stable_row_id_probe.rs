@@ -346,12 +346,21 @@ struct Commit {
     writer: i32,
     round: i32,
     version: u64,
+    /// The dataset version this writer read before committing.
+    read_version: u64,
 }
 
 /// A2 — W writers commit concurrently to one dataset carrying a BTree index.
 ///
 /// Every round each writer upserts the contended key (`id = 0`) with its own
 /// value and inserts one fresh key; once, each writer deletes one key it owns.
+///
+/// Two barriers per round force real overlap: all writers finish the previous
+/// round, then all open the dataset, and only then does any of them commit. So
+/// every writer in a round commits against the same read version, and all but
+/// one must go through conflict resolution. Without the barriers an executor
+/// could run each writer's rounds back to back, and every other assertion here
+/// would still pass for purely sequential commits.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_writers_keep_row_ids_but_mint_one_version_per_commit() {
     let dir = tempfile::tempdir().expect("tempdir");
@@ -365,14 +374,19 @@ async fn concurrent_writers_keep_row_ids_but_mint_one_version_per_commit() {
     let base_version = ds.version().version;
     let base = rows(&ds).await;
 
+    let barrier = Arc::new(tokio::sync::Barrier::new(WRITERS as usize));
     let mut tasks = Vec::new();
     for w in 0..WRITERS {
         let path = path.clone();
+        let barrier = Arc::clone(&barrier);
         tasks.push(tokio::spawn(async move {
             let mut commits = Vec::new();
             let mut failures = 0u32;
             for r in 0..ROUNDS {
+                barrier.wait().await; // everyone finished the previous round
                 let ds = Arc::new(Dataset::open(&path).await.expect("open"));
+                let read_version = ds.version().version;
+                barrier.wait().await; // everyone has read; nobody has committed
                 let fresh = 1000 + w * 100 + r;
                 let job = MergeInsertBuilder::try_new(ds, vec!["id".into()])
                     .expect("merge")
@@ -397,6 +411,7 @@ async fn concurrent_writers_keep_row_ids_but_mint_one_version_per_commit() {
                         writer: w,
                         round: r,
                         version: new.version().version,
+                        read_version,
                     }),
                     Err(_) => failures += 1,
                 }
@@ -427,6 +442,27 @@ async fn concurrent_writers_keep_row_ids_but_mint_one_version_per_commit() {
         failures, 0,
         "CONTROL: every concurrent commit must land (conflict retries)"
     );
+    // CONTROL: the commits really overlapped. In every round all writers read
+    // the same version, and that version is below every commit of the round.
+    for r in 0..ROUNDS {
+        let round: Vec<&Commit> = commits.iter().filter(|c| c.round == r).collect();
+        assert_eq!(
+            round.len(),
+            WRITERS as usize,
+            "round {r}: one commit per writer"
+        );
+        let read: BTreeSet<u64> = round.iter().map(|c| c.read_version).collect();
+        assert_eq!(
+            read.len(),
+            1,
+            "CONTROL: round {r} writers read different versions {read:?} — commits were serialized"
+        );
+        let base = *read.iter().next().expect("one read version");
+        assert!(
+            round.iter().all(|c| c.version > base),
+            "round {r}: a commit landed at or below the shared read version {base}"
+        );
+    }
 
     let mut ds = Dataset::open(&path).await.expect("open");
     let end_version = ds.version().version;

@@ -44,8 +44,10 @@ distinct owners can never target one row: **cross-owner contention is 0 on every
 merely on this fixture.** What remains is same-owner repeats within a cycle, and their order is
 the owner's own cast order — per-owner information `temporal.rs` already carries (`cast_seq`).
 
-Consequence (WORKING-MODEL): under an injective `row_of` the seal's cross-owner sort has
-nothing to decide, and freeze reduces to hash + copy, both movable off the loop. The contract
-that would keep it so — `row_of` MUST be injective — is not written down anywhere. A future
-shared "intersection" row (many owners → one row) would bring contention back, and with it the
-need for the cross-owner order.
+The injectivity is the ownership model itself, not an accident of the callers. DECISION
+(2026-09-23), BASIS: an SoA row has exactly one owner, ever, and a `NodeGuid` IS its owner —
+the one-writer-per-mailbox rule (`SoaEnvelope::mailbox_owner`, E-CE64-MB-4). A row shared by
+several owners is not a design option to keep open.
+
+Consequence (WORKING-MODEL): the seal's cross-owner sort has nothing to decide, and freeze
+reduces to hash + copy, both movable off the loop.
