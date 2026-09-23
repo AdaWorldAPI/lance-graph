@@ -1,3 +1,15 @@
+## D-RPT — ReportPlan / zero-copy pivot / report-as-OGAR-projection (2026-09-23)
+
+Entry: `entries/2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-RPT-1** | `crates/lance-graph-report`: ReportPlan → Quack lowering, fold planner, CellSpace + View, KV/CAM boundary, JSON/CSV export | In PR | `tests/{agnostic,zero_copy,string_fence,reference_workload}.rs` |
+| **D-RPT-2** | z8run `crates/z8run-lance`: 8 native nodes, handle envelopes, physical-key cache (AdaWorldAPI/z8run#1) | In PR | z8run-lance `tests/nodes.rs` |
+| **D-RPT-3** | OGAR `SlotOutcome::Grid` / `grid_of` / typst `emit_grid` (AdaWorldAPI/OGAR#307) | In PR | ogar-doc-ir resolver grid tests |
+| **D-RPT-4** | `crates/lance-graph-report-ogar`: ReportSource (DocObjectSource) over any object source; Live/Revision; emit_typst | In PR | `tests/convergence.rs` |
+| **D-RPT-5** | composite-key (multi-lane) group fold primitive in ndarray::simd / mask-risc | Queued | `ISS-REPORT-NO-COMPOSITE-KEY-GROUP-FOLD` |
+
 ## D-WFL — CodeRabbit round 3 on `9fd6956d` (2026-09-19): three findings, all valid, all outside the diff
 
 | D-id | correction |

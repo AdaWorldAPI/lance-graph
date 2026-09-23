@@ -1,3 +1,16 @@
+## 2026-09-23 — ReportPlan + report-as-OGAR-projection (branch `claude/brave-mayer-65y3cy`, unmerged)
+
+### Current Contract Inventory — UNCHANGED (no contract type added; two crates added)
+- NEW workspace member `lance-graph-report`: `ReportPlan`, `Selection`,
+  `CoordSpec` (`Field` / derived `Bucket`), `Measure` / `FoldState` (mergeable),
+  `PhysicalKey` (role-free), `PlannerPolicy`, `PhysicalPlan` (explain),
+  `CellSpace` + `View` = `ReportResult`, `boundary::{MemKv, CamLabels, Catalog}`
+  (KV over the contract's `ContentStore`/`ContentSink`). Lowers into Quack only.
+- NEW excluded crate `lance-graph-report-ogar`: `ReportSource`
+  (`ogar_doc_ir::resolve::DocObjectSource`), `Orientation`, `emit_typst`.
+  Needs OGAR #307 (`SlotOutcome::Grid`).
+- Companion: z8run#1 (`z8run-lance`).
+
 ## 2026-09-22 — SAP/CATS fold-first dependency stack (PR #1257, unmerged)
 
 - Substrate: ndarray #318 `d0376505`; lance-graph #1256 `4d27032e`.

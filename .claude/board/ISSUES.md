@@ -1,3 +1,20 @@
+## ISS-REPORT-NO-COMPOSITE-KEY-GROUP-FOLD — a 2-D fold costs one pass per partition member (2026-09-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE. mask-risc's `GroupKey` is one
+`U32` lane or a `Via` hop, so `lance-graph-report` folds the widest coordinate as
+the key and evaluates every other coordinate as a PARTITION. A partition is a
+member conjunct, run tile-local, one pass per member tuple.
+
+- **Measured:** a 32×12 pivot over 4M rows takes 25 scans / 177 ms (report_bench).
+- **Consequence:** a high-cardinality, densely-observed partition side exceeds
+  `PlannerPolicy::pass_budget`, and the plan is REFUSED (`ReportError::PassBudget`).
+  It is never run slowly, and never allocated densely.
+- **What closes it:** a multi-lane (composite-key) masked group fold in `ndarray::simd`,
+  named in mask-risc as a `GroupKey` variant, so that ONE pass folds (a, b) → a
+  dense or sparse cell.
+- **What does NOT close it:** a report-side row loop, or a population-sized composite
+  key lane. Both are forbidden by the missing-capability STOP rule.
+
 ## ISS-R2IL-PROBE-HAS-NO-CI-LINE-UNTIL-OGAR-305 — RESOLVED (OGAR #305 merged; step restored)
 
 **Status:** RESOLVED 2026-09-20. AdaWorldAPI/OGAR #305 merged (OGAR main
