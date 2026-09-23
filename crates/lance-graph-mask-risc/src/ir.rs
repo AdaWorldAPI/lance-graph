@@ -691,10 +691,17 @@ pub enum FusedFold {
 /// otherwise `floor(lo / 64) ..= floor((hi - 1) / 64)`. One spelling, used by
 /// the fused executor and by the tests that pin the touched-word law.
 pub fn touched_words(lo: u32, hi: u32) -> core::ops::Range<usize> {
+    span_words(lo as usize, hi as usize)
+}
+
+/// [`touched_words`] over `usize` rows — the SAME law, for an execution
+/// extent, whose bounds are `Planes::n_rows`-typed rather than `Pred::Range`-
+/// typed. `touched_words` delegates here, so there is one spelling.
+pub(crate) fn span_words(lo: usize, hi: usize) -> core::ops::Range<usize> {
     if lo >= hi {
         return 0..0;
     }
-    (lo as usize / 64)..((hi as usize - 1) / 64 + 1)
+    (lo / 64)..((hi - 1) / 64 + 1)
 }
 
 /// Per-kind op counts of a program.
