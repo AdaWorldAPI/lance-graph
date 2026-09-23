@@ -38,11 +38,13 @@ use ndarray::simd::{
 };
 
 use crate::ir::{
-    span_words, touched_words, Foreign, FusedFold, FusedTerminal, GroupFold, GroupKey, LaneRef,
-    MaskOp, Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
+    span_words, touched_words, Foreign, FusedFold, FusedTerminal, FusedTernlog, GroupFold,
+    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
 };
 use crate::reference::{out_shape, validate};
-use crate::ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
+use crate::ternlog_dispatch::{
+    ternlog_any_dispatch, ternlog_dispatch, ternlog_dispatch_assign, ternlog_popcount_dispatch,
+};
 use crate::value::{ExecError, Out, Value};
 use crate::words_for;
 use core::ops::Range;
@@ -712,6 +714,77 @@ fn run_fused(f: FusedTerminal, planes: &Planes<'_>) -> Value {
     }
 }
 
+/// Evaluate a [`FusedTernlog`] over the absolute extent `[lo, hi)`.
+///
+/// Nothing is written. Whole words inside the extent go straight to
+/// `ndarray::simd::mask_ternlog_{popcount,any}` over the borrowed resident
+/// planes. A word the extent cuts — an unaligned `lo`, or an unaligned `hi`,
+/// which includes the population's own last word when `n_rows % 64 != 0` — is
+/// combined one word at a time into a one-word register and restricted by
+/// [`edge_mask`] before it is counted. That last case is load-bearing for an
+/// ODD table: `f(0,0,0) = 1` sets the dead tail bits of the last word, and
+/// only the edge mask keeps them out of the count (the tiled path clears the
+/// same tail against `n_rows`).
+fn run_fused_ternlog(f: FusedTernlog, planes: &Planes<'_>, lo: usize, hi: usize) -> Value {
+    let span = span_words(lo, hi);
+    let empty = match f.fold {
+        FusedFold::Count => Value::Count(0),
+        FusedFold::Any => Value::Bool(false),
+    };
+    if span.is_empty() {
+        return empty;
+    }
+    let (a, b, c) = (
+        planes.masks[usize::from(f.a)],
+        planes.masks[usize::from(f.b)],
+        planes.masks[usize::from(f.c)],
+    );
+    let (first, last) = (span.start, span.end - 1);
+    let head_cut = !lo.is_multiple_of(64);
+    let tail_cut = !hi.is_multiple_of(64);
+    // One cut word, combined in a register and restricted to the extent.
+    let edge = |w: usize| -> u64 {
+        let mut reg = [0u64; 1];
+        ternlog_dispatch(f.imm, &a[w..=w], &b[w..=w], &c[w..=w], &mut reg);
+        reg[0] & edge_mask(w, lo, hi)
+    };
+    let mut edges = [None, None];
+    if head_cut {
+        edges[0] = Some(edge(first));
+    }
+    if tail_cut && (last != first || !head_cut) {
+        edges[1] = Some(edge(last));
+    }
+    let from = first + usize::from(head_cut);
+    let to = (last + 1).saturating_sub(usize::from(tail_cut)).max(from);
+    let interior = from..to;
+    match f.fold {
+        FusedFold::Count => {
+            let e: u64 = edges
+                .iter()
+                .flatten()
+                .map(|w| u64::from(w.count_ones()))
+                .sum();
+            let n = ternlog_popcount_dispatch(
+                f.imm,
+                &a[interior.clone()],
+                &b[interior.clone()],
+                &c[interior],
+            );
+            Value::Count((e + n) as usize)
+        }
+        FusedFold::Any => Value::Bool(
+            edges.iter().flatten().any(|&w| w != 0)
+                || ternlog_any_dispatch(
+                    f.imm,
+                    &a[interior.clone()],
+                    &b[interior.clone()],
+                    &c[interior],
+                ),
+        ),
+    }
+}
+
 /// The tiles an execution over the ABSOLUTE row extent `[lo, hi)` visits,
 /// each as `(word range, edge)`.
 ///
@@ -940,6 +1013,13 @@ pub fn execute_extent(
             FusedTerminal { hi: f.lo, ..f }
         };
         return Ok(run_fused(f, planes));
+    }
+    // The Boolean-membership fold: a single 2/3-input op over resident planes,
+    // folded by Count/Any — also no slot, no membership bit written.
+    if let Some(f) = program.fused_ternlog() {
+        let mut written = [0u64; 1];
+        validate(program, planes, foreign, out_shape(&out), &mut written)?;
+        return Ok(run_fused_ternlog(f, planes, elo, ehi));
     }
     if scratch.slots() < program.scratch_slots as usize {
         return Err(ExecError::ScratchTooSmall {

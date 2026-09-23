@@ -124,14 +124,16 @@ pub use exec::{
 };
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
 pub use ir::{
-    touched_words, Foreign, ForeignPlane, FusedFold, FusedTerminal, GroupFold, GroupKey, LaneRef,
-    MaskOp, Operand, Planes, Pred, Program, Terminal, GROUP_SUM_SYM_MAX_ROWS,
+    touched_words, Foreign, ForeignPlane, FusedFold, FusedTerminal, FusedTernlog, GroupFold,
+    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, GROUP_SUM_SYM_MAX_ROWS,
     MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
 pub use reference::{
     reference_execute, reference_execute_into, reference_scratch, reference_scratch_with_foreign,
 };
-pub use ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
+pub use ternlog_dispatch::{
+    ternlog_any_dispatch, ternlog_dispatch, ternlog_dispatch_assign, ternlog_popcount_dispatch,
+};
 pub use value::{ExecError, LaneKind, Out, Value};
 
 /// Number of `u64` words a mask over `n_rows` occupies.

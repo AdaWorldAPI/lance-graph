@@ -610,14 +610,51 @@ impl Program {
         })
     }
 
+    /// The no-mask lowering of a Boolean membership over RESIDENT planes, if
+    /// this program is one: a single `And` / `Or` / `Xor` / `AndNot` /
+    /// `Ternlog` whose operands are all [`Operand::Plane`], folded by `Count`
+    /// or `Any` of its own `dst`.
+    ///
+    /// Every such op is one 3-input truth table (a 2-input op is a table that
+    /// ignores `c`), and `ndarray::simd::mask_ternlog_popcount` /
+    /// `mask_ternlog_any` fold a table straight from its operands' words to a
+    /// scalar. So the membership never becomes a bitmap: nothing is written.
+    ///
+    /// A scratch operand, `Not` (which clears the tail against `n_rows` — a
+    /// different shape), a predicate, a gather, or any other terminal returns
+    /// `None` and runs the ordinary path. `Keep` is NEVER fused.
+    pub fn fused_ternlog(&self) -> Option<FusedTernlog> {
+        let plane = |o: &Operand| match *o {
+            Operand::Plane(p) => Some(p),
+            Operand::Scratch(_) => None,
+        };
+        let (imm, a, b, c, dst) = match self.ops.as_slice() {
+            [MaskOp::And { a, b, dst }] => (TABLE_AND, plane(a)?, plane(b)?, plane(b)?, *dst),
+            [MaskOp::Or { a, b, dst }] => (TABLE_OR, plane(a)?, plane(b)?, plane(b)?, *dst),
+            [MaskOp::Xor { a, b, dst }] => (TABLE_XOR, plane(a)?, plane(b)?, plane(b)?, *dst),
+            [MaskOp::AndNot { a, b, dst }] => (TABLE_ANDNOT, plane(a)?, plane(b)?, plane(b)?, *dst),
+            [MaskOp::Ternlog { imm, a, b, c, dst }] => {
+                (*imm, plane(a)?, plane(b)?, plane(c)?, *dst)
+            }
+            _ => return None,
+        };
+        let fold = match self.terminal {
+            Terminal::Count { mask } if mask == Operand::Scratch(dst) => FusedFold::Count,
+            Terminal::Any { mask } if mask == Operand::Scratch(dst) => FusedFold::Any,
+            _ => return None,
+        };
+        Some(FusedTernlog { imm, a, b, c, fold })
+    }
+
     /// Whether executing this program needs any scratch slot at all.
     ///
     /// DERIVED, not declared: a flag is a claim, a derived predicate is a
-    /// proof. `false` exactly when [`Program::fused_terminal`] lowers the
-    /// program (or it names no slot), and [`crate::Scratch::for_program`]
-    /// carves zero slots for such a program.
+    /// proof. `false` exactly when [`Program::fused_terminal`] or
+    /// [`Program::fused_ternlog`] lowers the program (or it names no slot),
+    /// and [`crate::Scratch::for_program`] carves zero slots for such a
+    /// program.
     pub fn requires_scratch(&self) -> bool {
-        self.scratch_slots > 0 && self.fused_terminal().is_none()
+        self.scratch_slots > 0 && self.fused_terminal().is_none() && self.fused_ternlog().is_none()
     }
 
     /// Count of ops of each physical kind — the "logical ops vs physical
@@ -677,6 +714,35 @@ pub struct FusedTerminal {
     /// The scalar the terminal demands.
     pub fold: FusedFold,
 }
+
+/// A Boolean membership over resident planes that the executor folds
+/// without writing membership bits: see [`Program::fused_ternlog`].
+///
+/// The table is in the VPTERNLOG index convention `(a << 2) | (b << 1) | c`
+/// that [`MaskOp::Ternlog`] already uses; a 2-input op reaches here as a
+/// table that ignores `c` (and `c` repeats `b`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FusedTernlog {
+    /// The 8-bit truth table.
+    pub imm: u8,
+    /// Resident plane read as the table's `a`.
+    pub a: u16,
+    /// Resident plane read as the table's `b`.
+    pub b: u16,
+    /// Resident plane read as the table's `c`.
+    pub c: u16,
+    /// The scalar the terminal demands.
+    pub fold: FusedFold,
+}
+
+/// `a & b` — true at indices 6, 7 (`a = b = 1`, either `c`).
+pub(crate) const TABLE_AND: u8 = 0xC0;
+/// `a | b` — true wherever `a` (4..7) or `b` (2, 3, 6, 7) is set.
+pub(crate) const TABLE_OR: u8 = 0xFC;
+/// `a ^ b` — true at 2, 3 (`b` only) and 4, 5 (`a` only).
+pub(crate) const TABLE_XOR: u8 = 0x3C;
+/// `a & !b` — true at 4, 5 (`a = 1`, `b = 0`).
+pub(crate) const TABLE_ANDNOT: u8 = 0x30;
 
 /// The scalar folds that may consume membership without materializing it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
