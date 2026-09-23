@@ -1,6 +1,6 @@
 //! Multi-op Boolean chain → Count/Any at N = 1M rows: collapsed fold vs tiled.
 //!
-//! The same raw op sequence, three physical endings:
+//! The same raw op sequence, four physical endings:
 //!
 //! - FOLD: `Program::fused_ternlog` interprets the chain symbolically and
 //!   lowers it onto ONE `mask_ternlog_{popcount,any}` pass; no slot is carved
@@ -11,22 +11,41 @@
 //!   terminal reads the last one back. Same answer, today's scratch path.
 //! - KEEP: the chain with a `Keep` terminal into an `Out::Mask`, then
 //!   `popcount_batch_u64` / `mask_any` over the kept words.
+//! - BULK: the same op sequence evaluated ONCE per op over the extent's
+//!   whole touched-word span, into preallocated whole-population scratch
+//!   buffers (allocated once per chain, outside every timed closure) — the
+//!   same word WRITES the tiled arm pays, but with no per-tile interpreter
+//!   dispatch: one `ndarray::simd` facade call per op, full span wide,
+//!   instead of one call per op per tile. It splits the tiled/fold gap into
+//!   two additive pieces: `wr_ns = bulk_ns - fold_ns` is the cost of writing
+//!   derived words at all (fold writes none), and `disp_ns = tiled_ns -
+//!   bulk_ns` is the cost of the per-tile interpreter loop on top of those
+//!   same writes. This is a FIRST-ORDER decomposition, not an exact one:
+//!   bulk still pays one facade call per op (i.e. one round of
+//!   interpretation), so `disp_ns` is the per-TILE overhead layered on top
+//!   of that single call, not the cost of interpretation itself.
 //!
-//! Reported per chain × extent: median ns per arm and the derived words the
-//! tiled arm writes (`ops × touched words`; the fold writes 0). A four-plane
-//! chain is measured on the tiled path only: it is outside the algebra (one
-//! ternlog addresses three inputs), and its row records where the collapse
-//! stops. Every result is checked against a bit-serial scalar oracle.
+//! Reported per chain × extent: median ns per arm (fold/bulk/tiled/keep),
+//! the derived words the tiled arm writes (`ops × touched words`; the fold
+//! writes 0), and the two BULK-derived columns above. A four-plane chain is
+//! measured on the bulk and tiled paths only: it is outside the fold algebra
+//! (one ternlog addresses three inputs), and its row records where the
+//! collapse stops. Every result is checked against a bit-serial scalar
+//! oracle.
 //!
 //! `cargo run --release -p lance-graph-mask-risc --example program_collapse_probe`
 
+use std::ops::Range;
 use std::time::Instant;
 
 use lance_graph_mask_risc::exec::{execute_extent, Scratch};
+use lance_graph_mask_risc::ternlog_dispatch::ternlog_dispatch;
 use lance_graph_mask_risc::{
     touched_words, Foreign, MaskOp, Operand, Out, Planes, Program, Terminal, Value, FUSED_SLOT_CAP,
 };
-use ndarray::simd::{mask_any, popcount_batch_u64};
+use ndarray::simd::{
+    mask_and, mask_andnot, mask_any, mask_not, mask_or, mask_xor, popcount_batch_u64,
+};
 
 fn lcg(seed: &mut u64) -> u64 {
     *seed = seed
@@ -90,6 +109,141 @@ fn retarget(ops: &[MaskOp], from: u16, to: u16) -> Vec<MaskOp> {
             other => other,
         })
         .collect()
+}
+
+/// The scratch slot an op writes — every [`MaskOp`] variant has one.
+fn op_dst(op: &MaskOp) -> u16 {
+    match *op {
+        MaskOp::Pred { dst, .. }
+        | MaskOp::And { dst, .. }
+        | MaskOp::Or { dst, .. }
+        | MaskOp::Xor { dst, .. }
+        | MaskOp::AndNot { dst, .. }
+        | MaskOp::Not { dst, .. }
+        | MaskOp::Ternlog { dst, .. }
+        | MaskOp::Gather { dst, .. } => dst,
+    }
+}
+
+/// The bits of word `w` that fall inside `[lo, hi)` (absolute rows) — the
+/// BULK arm's own copy of `exec::edge_mask` (private to that module), used
+/// to restrict the terminal's first and last touched word to the extent
+/// exactly as `exec::run_fused`/`run_fused_ternlog` do.
+fn edge_mask(w: usize, lo: usize, hi: usize) -> u64 {
+    let base = w * 64;
+    let from = lo.saturating_sub(base).min(64);
+    let to = (hi - base).min(64);
+    let upper = if to == 64 { u64::MAX } else { (1u64 << to) - 1 };
+    upper & (u64::MAX << from)
+}
+
+/// Every BULK scratch buffer except the one an op is writing — this arm's
+/// analogue of `exec::Slots`, over per-slot `Vec<u64>` buffers rather than a
+/// flat tiled arena.
+struct BulkSlots<'s> {
+    /// Buffers `[0, hole)`.
+    left: &'s [Vec<u64>],
+    /// Buffers `(hole, bufs.len())`.
+    right: &'s [Vec<u64>],
+    hole: usize,
+}
+
+impl BulkSlots<'_> {
+    fn get(&self, i: usize, n: usize) -> &[u64] {
+        debug_assert!(
+            i != self.hole,
+            "bulk arm: slot {i} read while it is this op's write target"
+        );
+        if i < self.hole {
+            &self.left[i][..n]
+        } else {
+            &self.right[i - self.hole - 1][..n]
+        }
+    }
+}
+
+/// Evaluate `ops` ONCE per op over `span` (a word range, e.g. from
+/// [`touched_words`]) into `bufs`, one preallocated whole-population buffer
+/// per scratch slot the chain uses — no per-tile dispatch, one
+/// `ndarray::simd` facade call per op over the whole span. Leaf operands
+/// (`Operand::Plane`) read `leaves[i][span]` directly, no copy. `bufs` must
+/// have one entry per distinct scratch slot `ops` addresses, each at least
+/// `span.len()` words long; nothing is allocated here.
+///
+/// No edge masking happens here: bits outside the extent `[lo, hi)` but
+/// inside `span`'s first/last word are left as whatever the ops computed
+/// them to be. That is sound because those positions are masked OUT by
+/// [`bulk_terminal`] purely by WORD POSITION, so their VALUE never reaches
+/// the reported result — the same reasoning `exec::run_fused_ternlog` relies
+/// on for an odd ternlog's tail bits.
+fn bulk_eval(ops: &[MaskOp], leaves: &[&[u64]; 4], bufs: &mut [Vec<u64>], span: Range<usize>) {
+    let n = span.len();
+    for op in ops {
+        let dst = usize::from(op_dst(op));
+        let (left, rest) = bufs.split_at_mut(dst);
+        let (mid, right) = rest.split_at_mut(1);
+        let slots = BulkSlots {
+            left: &*left,
+            right: &*right,
+            hole: dst,
+        };
+        let rd = |o: Operand| -> &[u64] {
+            match o {
+                Operand::Plane(i) => &leaves[usize::from(i)][span.clone()],
+                Operand::Scratch(i) => slots.get(usize::from(i), n),
+            }
+        };
+        let d = &mut mid[0][..n];
+        match *op {
+            MaskOp::And { a, b, .. } => mask_and(rd(a), rd(b), d),
+            MaskOp::Or { a, b, .. } => mask_or(rd(a), rd(b), d),
+            MaskOp::Xor { a, b, .. } => mask_xor(rd(a), rd(b), d),
+            MaskOp::AndNot { a, b, .. } => mask_andnot(rd(a), rd(b), d),
+            // `n * 64` as the tail-clear bound disables `mask_not`'s own
+            // clipping (it is a no-op exactly at a word boundary, which `n *
+            // 64` always is) — any population-edge clipping is `bulk_eval`'s
+            // caller's job via `bulk_terminal`, not an interior op's.
+            MaskOp::Not { a, .. } => mask_not(rd(a), n * 64, d),
+            MaskOp::Ternlog { imm, a, b, c, .. } => ternlog_dispatch(imm, rd(a), rd(b), rd(c), d),
+            other => panic!("bulk arm: unsupported op {other:?}"),
+        }
+    }
+}
+
+/// Fold a BULK terminal slot (`buf`, the `span.len()`-word result of
+/// [`bulk_eval`], `span` starting at absolute word `w0`) into `Count` or
+/// `Any` over `[lo, hi)`, restricting the first and last word with
+/// [`edge_mask`] exactly as `exec::run_fused`/`run_fused_ternlog` do — the
+/// interior words are read as they are, since [`touched_words`] guarantees
+/// every word strictly between the first and last is wholly inside the
+/// extent.
+fn bulk_terminal(buf: &[u64], w0: usize, lo: usize, hi: usize, want_count: bool) -> Value {
+    let n = buf.len();
+    if n == 0 {
+        return if want_count {
+            Value::Count(0)
+        } else {
+            Value::Bool(false)
+        };
+    }
+    if n == 1 {
+        let w = buf[0] & edge_mask(w0, lo, hi);
+        return if want_count {
+            Value::Count(w.count_ones() as usize)
+        } else {
+            Value::Bool(w != 0)
+        };
+    }
+    let head = [buf[0] & edge_mask(w0, lo, hi)];
+    let tail = [buf[n - 1] & edge_mask(w0 + n - 1, lo, hi)];
+    let interior = &buf[1..n - 1];
+    if want_count {
+        let c =
+            popcount_batch_u64(&head) + popcount_batch_u64(interior) + popcount_batch_u64(&tail);
+        Value::Count(c as usize)
+    } else {
+        Value::Bool(mask_any(&head) || mask_any(interior) || mask_any(&tail))
+    }
 }
 
 fn main() {
@@ -207,8 +361,20 @@ fn main() {
     let extents = [("1%", mid, mid + n / 100), ("whole", 0, n)];
     let cap = FUSED_SLOT_CAP as u16;
     println!(
-        "{:>17} {:>5} {:>5} {:>3} {:>10} {:>10} {:>10} {:>6} {:>6} {:>9}",
-        "chain", "ext", "term", "ops", "fold_ns", "tiled_ns", "keep_ns", "t/f", "k/f", "tiled_wr"
+        "{:>17} {:>5} {:>5} {:>3} {:>10} {:>10} {:>10} {:>10} {:>6} {:>6} {:>9} {:>10} {:>10}",
+        "chain",
+        "ext",
+        "term",
+        "ops",
+        "fold_ns",
+        "bulk_ns",
+        "tiled_ns",
+        "keep_ns",
+        "t/f",
+        "k/f",
+        "tiled_wr",
+        "wr_ns",
+        "disp_ns"
     );
     for (name, ops, last, oracle) in chains {
         let term = |mask| (Terminal::Count { mask }, Terminal::Any { mask });
@@ -232,6 +398,12 @@ fn main() {
         let mut ts = Scratch::for_program(&tiled[0], n).expect("scratch");
         let mut ks = Scratch::for_program(&keep, n).expect("scratch");
         let mut out = vec![0u64; words];
+        // One buffer per distinct scratch slot `ops` addresses, each sized
+        // to the LARGEST span either extent below touches (`words`, the
+        // "whole" extent's span) — allocated once per chain, reused across
+        // both extents and both terminals by slicing to the live span.
+        let max_slot = ops.iter().map(op_dst).max().unwrap_or(0);
+        let mut bufs: Vec<Vec<u64>> = (0..=max_slot).map(|_| vec![0u64; words]).collect();
         for (ename, lo, hi) in extents {
             let want = (lo..hi)
                 .filter(|&r| oracle(bit(&pa, r), bit(&pb, r), bit(&pc, r), bit(&pd, r)))
@@ -260,6 +432,16 @@ fn main() {
                 } else {
                     (f64::NAN, expect)
                 };
+                let (bns, bv) = median(reps, || {
+                    bulk_eval(&ops, &masks, &mut bufs, span.clone());
+                    bulk_terminal(
+                        &bufs[usize::from(last)][..span.len()],
+                        span.start,
+                        lo,
+                        hi,
+                        k == 0,
+                    )
+                });
                 let (tns, tv) = median(reps, || {
                     execute_extent(
                         &tiled[k],
@@ -289,10 +471,16 @@ fn main() {
                     }
                 });
                 assert_eq!(fv, expect, "fold {name} {ename} {tname}");
+                assert_eq!(bv, expect, "bulk {name} {ename} {tname}");
                 assert_eq!(tv, expect, "tiled {name} {ename} {tname}");
                 assert_eq!(kv, expect, "keep {name} {ename} {tname}");
+                // NaN propagates automatically: when `fns` is NaN (the 4p
+                // chain, uncollapsible) `wr_ns` is NaN too, matching the
+                // fold_ns column's own NaN-means-not-collapsible convention.
+                let wr_ns = bns - fns;
+                let disp_ns = tns - bns;
                 println!(
-                    "{name:>17} {ename:>5} {tname:>5} {:>3} {fns:>10.0} {tns:>10.0} {kns:>10.0} {:>6.2} {:>6.2} {:>9}",
+                    "{name:>17} {ename:>5} {tname:>5} {:>3} {fns:>10.0} {bns:>10.0} {tns:>10.0} {kns:>10.0} {:>6.2} {:>6.2} {:>9} {wr_ns:>10.0} {disp_ns:>10.0}",
                     ops.len(),
                     tns / fns,
                     kns / fns,
@@ -303,6 +491,8 @@ fn main() {
     }
     println!(
         "(n = {n}, {words} population words; tiled_wr = derived words the tiled path \
-         writes, ops × touched words; the fold writes 0; fold_ns NaN = not collapsible)"
+         writes, ops × touched words; the fold writes 0; fold_ns NaN = not collapsible; \
+         wr_ns = bulk_ns - fold_ns (cost of writing derived words); \
+         disp_ns = tiled_ns - bulk_ns (per-tile interpreter overhead on top of the same writes))"
     );
 }
