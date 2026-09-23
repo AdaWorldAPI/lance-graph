@@ -1015,7 +1015,8 @@ pub fn execute_extent(
         };
         return Ok(run_fused(f, planes));
     }
-    // The Boolean-membership fold: a single 2/3-input op over resident planes,
+    // The Boolean-membership fold: a chain of Boolean ops over at most three
+    // resident planes, collapsed symbolically to one ternlog table (#1272) and
     // folded by Count/Any — also no slot, no membership bit written.
     if let Some(f) = program.fused_ternlog() {
         let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
