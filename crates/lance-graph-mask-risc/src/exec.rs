@@ -38,8 +38,8 @@ use ndarray::simd::{
 };
 
 use crate::ir::{
-    Foreign, GroupFold, GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
-    MAX_SCRATCH_SLOTS,
+    touched_words, Foreign, FusedFold, FusedTerminal, GroupFold, GroupKey, LaneRef, MaskOp,
+    Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
 };
 use crate::reference::{out_shape, validate};
 use crate::ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
@@ -193,10 +193,7 @@ impl Scratch<'static> {
         }
         // `scratch_slots` is a `u32` count; a program naming slot `u16::MAX`
         // needs 65,536 buffers, which fits `usize` on every supported target.
-        Ok(Self::new(
-            tile_words_for(n_rows),
-            program.scratch_slots as usize,
-        ))
+        Ok(Self::new(tile_words_for(n_rows), slots_needed(program)))
     }
 }
 
@@ -252,7 +249,7 @@ impl<'a> Scratch<'a> {
                 declared: program.scratch_slots,
             });
         }
-        Self::over(buf, tile_words_for(n_rows), program.scratch_slots as usize)
+        Self::over(buf, tile_words_for(n_rows), slots_needed(program))
     }
 
     /// Words per slot.
@@ -650,6 +647,68 @@ pub fn execute(
     )
 }
 
+/// Slots [`Scratch::for_program`] / [`Scratch::over_for_program`] carve: none
+/// for a program [`Program::requires_scratch`] says needs none.
+fn slots_needed(program: &Program) -> usize {
+    if program.requires_scratch() {
+        program.scratch_slots as usize
+    } else {
+        0
+    }
+}
+
+/// The bits of word `w` that fall inside `[lo, hi)`.
+fn edge_mask(w: usize, lo: u32, hi: u32) -> u64 {
+    let base = w * 64;
+    let from = (lo as usize).saturating_sub(base).min(64);
+    let to = (hi as usize - base).min(64);
+    let upper = if to == 64 { u64::MAX } else { (1u64 << to) - 1 };
+    upper & (u64::MAX << from)
+}
+
+/// Evaluate a [`FusedTerminal`] over the resident plane's touched words.
+///
+/// Nothing is written: the interior words are read from the borrowed plane
+/// as they are (a range's interior mask is all ones), and the two edge words
+/// are masked in a register. `validate` has already proven `lo <= hi <=
+/// n_rows` and the plane index in range.
+fn run_fused(f: FusedTerminal, planes: &Planes<'_>) -> Value {
+    let span = touched_words(f.lo, f.hi);
+    let Some(p) = f.plane else {
+        return match f.fold {
+            FusedFold::Count => Value::Count((f.hi - f.lo) as usize),
+            FusedFold::Any => Value::Bool(f.lo < f.hi),
+        };
+    };
+    if span.is_empty() {
+        return match f.fold {
+            FusedFold::Count => Value::Count(0),
+            FusedFold::Any => Value::Bool(false),
+        };
+    }
+    let plane = planes.masks[usize::from(p)];
+    let (first, last) = (span.start, span.end - 1);
+    let head = [plane[first] & edge_mask(first, f.lo, f.hi)];
+    let tail = [plane[last] & edge_mask(last, f.lo, f.hi)];
+    let interior = if last > first + 1 {
+        &plane[first + 1..last]
+    } else {
+        &[][..]
+    };
+    match f.fold {
+        FusedFold::Count => {
+            let mut n = popcount_batch_u64(&head) + popcount_batch_u64(interior);
+            if last != first {
+                n += popcount_batch_u64(&tail);
+            }
+            Value::Count(n as usize)
+        }
+        FusedFold::Any => {
+            Value::Bool(mask_any(&head) || mask_any(interior) || (last != first && mask_any(&tail)))
+        }
+    }
+}
+
 /// Fold one tile's `Option` reduction into the running one.
 fn fold_opt(acc: Option<i32>, tile: Option<i32>, f: fn(i32, i32) -> i32) -> Option<i32> {
     match (acc, tile) {
@@ -701,6 +760,15 @@ pub fn execute_into(
         return Err(ExecError::ScratchSlotsUnaddressable {
             declared: program.scratch_slots,
         });
+    }
+    // A fused program folds from its operands: it reads no slot and writes no
+    // membership bit, so the scratch capacity checks below do not apply to it.
+    // Validation stays total — the one declared slot is tracked in a local
+    // word of read-before-write bookkeeping, never in the caller's arena.
+    if let Some(f) = program.fused_terminal() {
+        let mut written = [0u64; 1];
+        validate(program, planes, foreign, out_shape(&out), &mut written)?;
+        return Ok(run_fused(f, planes));
     }
     if scratch.slots() < program.scratch_slots as usize {
         return Err(ExecError::ScratchTooSmall {
