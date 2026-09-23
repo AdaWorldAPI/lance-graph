@@ -1,3 +1,20 @@
+## 2026-09-23 — W0 recon: OGAR DocIR projection seam (read-only, one Opus general-purpose run)
+
+- D-ids: D-RPT-3, D-RPT-4. No edits, no cargo.
+- **Finding (VERIFIED-IN-CODE, file:line cited in the run):** `DocCompose` /
+  `ObjectSlot` / `ResolutionMode` / `resolve_doc` + `DocObjectSource` are SHIPPED.
+  `DocRenderer` / `FieldRow` / `FieldView::Table` are SPEC-ONLY, and the
+  resolved projection had no 2-D shape.
+- Consequences:
+  - the ONLY irreducible gap is a grid outcome, which became OGAR #307;
+  - `lance-graph-report`'s own HTML terminal was a parallel renderer, and was
+    removed;
+  - the adapter must be an EXCLUDED lance-graph crate, because of the dependency
+    direction.
+- Also found: paperless-rs is a dead copy (its CLAUDE.md marks it SUPERSEDED
+  2026-08-24); the intake seam lives in tesseract-rs `crates/tesseract-paperless*`.
+  Tantivy there is a borrowed-token probe plus an ordinary BM25 index.
+
 ## 2026-09-22 — SAP/CATS fold-first dependency stack (PR #1257, unmerged)
 
 - Substrate: ndarray #318 `d0376505`; lance-graph #1256 `4d27032e`.

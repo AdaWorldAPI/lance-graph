@@ -31,6 +31,7 @@ exactly one of them, never both.
 |---|---|---|---|
 | 2026-09-23 | `ternlog-count-any-fold` |  | [2026-09-23-ternlog-count-any-fold.md](2026-09-23-ternlog-count-any-fold.md) |
 | 2026-09-23 | `terminal-elects-materialization-range-plane` |  | [2026-09-23-terminal-elects-materialization-range-plane.md](2026-09-23-terminal-elects-materialization-range-plane.md) |
+| 2026-09-23 | `report-plan-zero-copy-pivot-docir-convergence` | ReportPlan lowers into Quack; pivot = view over shared Arc<CellSpace>; reports become OGAR ObjectSlot sources via grid_of (OGAR #307) | [2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md](2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md) |
 | 2026-09-23 | `quack-having-sym-sum-presence-mask` |  | [2026-09-23-quack-having-sym-sum-presence-mask.md](2026-09-23-quack-having-sym-sum-presence-mask.md) |
 | 2026-09-23 | `cubecl-llvm-boundary-and-audit-regrade` |  | [2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md](2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md) |
 | 2026-09-23 | `absolute-execution-extent` |  | [2026-09-23-absolute-execution-extent.md](2026-09-23-absolute-execution-extent.md) |

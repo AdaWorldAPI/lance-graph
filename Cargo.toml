@@ -7,6 +7,9 @@ members = [
     "crates/lance-graph-contract",
     "crates/lance-graph-mask-risc",
     "crates/lance-graph-quack",
+    # Z8RUN capstone: the ReportPlan / zero-copy pivot layer Quack and z8run
+    # both lower into (no second evaluator; lowers INTO lance-graph-quack).
+    "crates/lance-graph-report",
     "crates/neural-debug",
     "crates/lance-graph-callcenter",
     "crates/lance-graph-archetype",
@@ -102,6 +105,11 @@ exclude = [
     # half of the OGIT(ontology)/OGAR(ogar) clean separation. Verify via
     # `cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml`.
     "crates/lance-graph-ogar",
+    # A lance-graph ReportResult as an addressed OGAR ObjectSlot source
+    # (implements ogar-doc-ir's DocObjectSource::grid_of). EXCLUDED for the same
+    # reason as lance-graph-ogar: path-deps the OGAR sibling. Verify via
+    # `cargo test --manifest-path crates/lance-graph-report-ogar/Cargo.toml`.
+    "crates/lance-graph-report-ogar",
     # Cognitive Compilation loop (claude/cognitive-compilation-lance-graph-h8sgym).
     # The NEW piece is the Elixir-shaped template — thinking styles, JITson, and
     # i4-32D thinking-style vectors already exist; the template was the gap. Four

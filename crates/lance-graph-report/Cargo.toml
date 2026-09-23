@@ -1,0 +1,19 @@
+[package]
+name = "lance-graph-report"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The reporting plan both Quack and z8run lower into. A ReportPlan is control plane (selection, axes, measures, a coordinate view); it lowers into lance-graph-quack's Query and is executed by lance-graph-mask-risc's one evaluator over resident SoA lanes. Pivot is a change of coordinate system, never a transpose: never transpose data to pivot — transpose meaning."
+
+# Same two crates Quack itself stands on, and nothing else: this crate LOWERS
+# into Quack (so the two can never grow independent aggregate semantics — F10)
+# and runs the resulting `Program`s on scratch it owns. No serde, no ndarray; the zero-dep contract only for its KV traits:
+# rendering at the materialization boundary is plain `String` writing, and the
+# masking algebra is reached THROUGH mask-risc, never beside it.
+[dependencies]
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# ContentId / ContentStore / ContentSink: the KV ownership surface (zero-dep).
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[dev-dependencies]

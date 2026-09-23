@@ -1,0 +1,42 @@
+# lance-graph-report-ogar — a report result as an ADDRESSED OGAR projection
+# source. EXCLUDED from the lance-graph workspace (own [workspace] root below)
+# so OGAR never enters the default build — the same shape as lance-graph-ogar.
+#
+# Direction: this crate depends on BOTH sides; neither side depends on it.
+# lance-graph-report never learns OGAR exists, and OGAR never depends on the
+# lance-graph engine (only on the zero-dep contract). The seam is OGAR's own
+# `DocObjectSource` trait — this crate implements it, nothing more.
+#
+# OGAR sibling via NO-PIN path deps (`../../../OGAR`), the fleet convention the
+# rust-test workflow's OGAR checkout serves (see r2il-mask-abi-probe / symbiont).
+#
+# ONE contract source: ogar-doc-ir's `classview` feature git-deps the contract;
+# the [patch] below folds it onto the in-repo PATH copy, which is what
+# lance-graph-report compiles against. Without it `ClassView` would be two traits.
+#
+# Build/verify:  cargo test --manifest-path crates/lance-graph-report-ogar/Cargo.toml
+
+[package]
+name = "lance-graph-report-ogar"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "A lance-graph ReportResult as an addressed OGAR ObjectSlot source: implements ogar-doc-ir's DocObjectSource (grid_of) over any existing object source, so reports compose, rotate, pin (Live / Revision) and render through OGAR's existing composition + renderer path — no report-specific rendering ontology."
+license = "Apache-2.0"
+
+[workspace]
+
+[dependencies]
+lance-graph-report = { path = "../lance-graph-report" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+ogar-doc-ir = { path = "../../../OGAR/crates/ogar-doc-ir", features = ["classview"] }
+ogar-render-typst = { path = "../../../OGAR/crates/ogar-render-typst" }
+# Only for its `FieldView` row type, which the Typst emitter consumes for
+# ordinary (non-grid) object slots.
+ogar-render-askama = { path = "../../../OGAR/crates/ogar-render-askama" }
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
