@@ -7,19 +7,22 @@
 
 65,536 casts, one owner per row (the 1:1 main model), 512-byte payloads (witness ABI). Each step
 timed alone on inputs built outside the timed region; the timed hash is asserted equal to
-`freeze`'s own `batch_hash`.
+`freeze`'s own `batch_hash`. Both arms hold the SAME logical batch (cast identity, row and payload
+derive from `stream_position`); only the vector order differs, and a control asserts both arms
+freeze to the same `batch_hash`. (The first run keyed identity by vector index, so the arms were
+different batches — review finding; re-measured, conclusion unchanged.)
 
 | arrival | sort (`order_cycle_stably`) | fold (`row → payload.clone()`) | hash (`content_hash`, FNV-1a) | whole `freeze` |
 |---|---|---|---|---|
-| bit-reversed (O-arm's scrambled arrival) | 6.3 ms | 32.5 ms | **61.0 ms** | **102.7 ms** |
-| in-order (what a slot-indexed stack gives) | 0.4 ms | 12.6 ms | **43.6 ms** | 58.0 ms |
+| bit-reversed (O-arm's scrambled arrival) | 6.2 ms | 25.8 ms | **61.4 ms** | **109.0 ms** |
+| in-order (what a slot-indexed stack gives) | 0.4 ms | 13.1 ms | **43.9 ms** | 66.7 ms |
 
-- The hash is ~60 % of freeze: a byte-at-a-time FNV over all 32 MiB of payload. It is the
+- The hash is ~55–65 % of freeze: a byte-at-a-time FNV over all 32 MiB of payload. It is the
   commit's idempotency key only — no thought reads it.
-- The fold is ~30 %: 32 MiB of `payload.clone()`. The declared-but-unbuilt descriptor
+- The fold is ~20–25 %: 32 MiB of `payload.clone()`. The declared-but-unbuilt descriptor
   (`batch_writer.rs`: `(mailbox, dirty row-range, cycle)`) removes it.
-- The sort is negligible; arrival order also drives fold/hash locality (scrambled ≈ 1.8×).
-- The fixture has **zero contended rows** (1:1): all 58–103 ms is spent on rows no other owner
+- The sort is negligible; arrival order also drives fold/hash locality (scrambled ≈ 1.6×).
+- The fixture has **zero contended rows** (1:1): all 67–109 ms is spent on rows no other owner
   touched. Only contended rows need the seal's cross-owner order.
 
 ## Consequence (WORKING-MODEL, not built)

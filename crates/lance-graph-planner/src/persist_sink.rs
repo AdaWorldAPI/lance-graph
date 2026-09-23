@@ -2015,13 +2015,15 @@ mod tests {
                     } else {
                         i
                     };
+                    // The cast's identity is `pos` in both arms, so both arms hold
+                    // the SAME logical batch; only the vector (arrival) order differs.
                     let mut payload = vec![0u8; 512];
-                    payload[..8].copy_from_slice(&i.to_le_bytes());
+                    payload[..8].copy_from_slice(&pos.to_le_bytes());
                     SweepSlot {
                         cycle: CycleId(1),
                         stream_position: pos,
-                        owner: i as MailboxId,
-                        row: i,
+                        owner: pos as MailboxId,
+                        row: pos,
                         paired_move: None,
                         payload,
                     }
@@ -2032,6 +2034,12 @@ mod tests {
             v.sort();
             v[v.len() / 2].as_secs_f64() * 1e3
         };
+        // CONTROL: the two arms are one logical batch in two arrival orders.
+        assert_eq!(
+            DetachedCycleBatch::freeze(frame, casts(true)).batch_hash,
+            DetachedCycleBatch::freeze(frame, casts(false)).batch_hash,
+            "the arms must freeze to the same batch"
+        );
         for scrambled in [true, false] {
             let (mut sort, mut fold, mut hash, mut whole) = (vec![], vec![], vec![], vec![]);
             for _ in 0..RUNS {

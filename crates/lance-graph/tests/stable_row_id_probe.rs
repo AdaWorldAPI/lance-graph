@@ -321,9 +321,13 @@ async fn a_single_writer_keeps_every_row_id_and_tombstones_only_real_deletes() {
 
     // Compaction again, now materializing the deletion — no new tombstones.
     let v0 = ds.version().version;
-    compact_files(&mut ds, CompactionOptions::default(), None)
+    let m = compact_files(&mut ds, CompactionOptions::default(), None)
         .await
         .expect("compact");
+    assert!(
+        m.fragments_removed > 0,
+        "CONTROL: second compaction rewrote nothing — deletion not materialized"
+    );
     let fin = rows(&ds).await;
     let tomb = deleted(&ds, v0, ds.version().version).await;
     assert_eq!(
@@ -562,6 +566,15 @@ async fn concurrent_writers_keep_row_ids_but_mint_one_version_per_commit() {
     ds.optimize_indices(&OptimizeOptions::default())
         .await
         .expect("optimize indices");
+    let plan_after = {
+        let mut sc = ds.scan();
+        sc.use_scalar_index(true).filter("id = 3").expect("filter");
+        sc.explain_plan(true).await.expect("plan")
+    };
+    assert!(
+        plan_after.contains("ScalarIndexQuery"),
+        "CONTROL: after compaction the lookup must still run through the BTree:\n{plan_after}"
+    );
     let fin = rows(&ds).await;
     assert_eq!(
         moved(&end, &fin),
