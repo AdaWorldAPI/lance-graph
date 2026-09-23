@@ -54,7 +54,14 @@ x ⊕ y = x.wrapping_add(y)          (x, y ≠ ⊥)
 Cross-ref: `.claude/board/entries/2026-09-23-quack-having-sym-sum-presence-mask.md`
 (the `_sym` decision and the presence-mask boundary); ndarray #321; lance-graph #1266.
 
-## TD-JC-CLIPPY-RED-ON-BASE-2 (2026-09-18) — the 1.98 pre-bump lint sweep was WORKSPACE-scoped, and `jc` is workspace-EXCLUDED
+## TD-JC-CLIPPY-RED-ON-BASE-2 (2026-09-18) — the 1.98 pre-bump lint sweep was WORKSPACE-scoped, and `jc` is workspace-EXCLUDED — RESOLVED 2026-09-23 (the two jc sites)
+
+> **⊘ RESOLVED 2026-09-23 for `jc` only.** Both `deterministic_fingerprint` sites
+> now read `fp.as_chunks_mut::<8>().0`. Reproduced red locally on the unfixed
+> tree (4 hits under `--all-targets -D warnings`), then green on the fixed one;
+> the full `jc-proof.yml` sequence passes locally (`cargo test`, clippy,
+> `prove_it`, `substrate_compare`). The census below (116 ungated sites in
+> other excluded crates) is untouched and stays OPEN.
 
 **`JC Substrate Proof` is RED on `main`** (run `35335429357`, head `568965e9`):
 `clippy::chunks_exact_to_as_chunks` in `crates/jc/src/jirak.rs` and
