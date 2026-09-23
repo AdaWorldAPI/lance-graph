@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-155 entries, 2026-08-06 .. 2026-09-23.
+156 entries, 2026-08-06 .. 2026-09-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -35,6 +35,7 @@ exactly one of them, never both.
 | 2026-09-23 | `report-plan-zero-copy-pivot-docir-convergence` | ReportPlan lowers into Quack; pivot = view over shared Arc<CellSpace>; reports become OGAR ObjectSlot sources via grid_of (OGAR #307) | [2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md](2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md) |
 | 2026-09-23 | `quack-having-sym-sum-presence-mask` |  | [2026-09-23-quack-having-sym-sum-presence-mask.md](2026-09-23-quack-having-sym-sum-presence-mask.md) |
 | 2026-09-23 | `program-collapse-boolean-chains` |  | [2026-09-23-program-collapse-boolean-chains.md](2026-09-23-program-collapse-boolean-chains.md) |
+| 2026-09-23 | `freeze-at-64k-is-hash-and-copy-not-order` | freeze@64k×512B: hash 44–61 ms (~60 %), clone-fold 13–33 ms, sort 0.4–6 ms; zero contended rows in the 1:1 fixture — hash and copy can leave the thought loop | [2026-09-23-freeze-at-64k-is-hash-and-copy-not-order.md](2026-09-23-freeze-at-64k-is-hash-and-copy-not-order.md) |
 | 2026-09-23 | `cubecl-llvm-boundary-and-audit-regrade` |  | [2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md](2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md) |
 | 2026-09-23 | `absolute-execution-extent` |  | [2026-09-23-absolute-execution-extent.md](2026-09-23-absolute-execution-extent.md) |
 | 2026-09-22 | `quack-duckdb-parity-t0-keyed-reduction` |  | [2026-09-22-quack-duckdb-parity-t0-keyed-reduction.md](2026-09-22-quack-duckdb-parity-t0-keyed-reduction.md) |
