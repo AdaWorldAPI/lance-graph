@@ -1,3 +1,23 @@
+## 2026-09-23 — lance-graph PR #1271 (merged `d90600d`, branch `claude/brave-mayer-65y3cy`, head `d4dd251`, 1 commit) — ReportPlan fold substrate, zero-copy pivot, reports as OGAR projection sources
+
+- **Added:** `crates/lance-graph-report` (member): `ReportPlan` lowering into
+  `lance-graph-quack` only (no second evaluator); role-free `PhysicalKey`, so a
+  pivot rotation is the same `Arc<CellSpace>` with a new `View`; dense/sparse
+  accumulator with no Cartesian allocation; string-free execution core with a
+  source-fence test; KV/CAM boundary over the contract's `ContentStore`.
+  `crates/lance-graph-report-ogar` (excluded): `ReportSource` answers OGAR's
+  `DocObjectSource::grid_of`, so a report is one more addressed object in a
+  `DocCompose` (Live / Revision; Snapshot falls to the slot fallback).
+- **Locked (test-pinned):** execution allocates the same bytes at N and 64·N;
+  rotation allocates < 64 B (view) / < 256 B (reinterpret); fold does 0 CAM and
+  0 KV work. Each falsifier disable-verified.
+- **Companions:** OGAR #307 (merged; `SlotOutcome::Grid`); z8run#1 (open).
+- **Deferred / open:** D-RPT-5 composite-key group fold
+  (`ISS-REPORT-NO-COMPOSITE-KEY-GROUP-FOLD`); OGAR `DocRenderer` is still
+  spec-only; Snapshot has no content-addressed store.
+- **Confidence:** high for the fold/pivot contract (oracle-checked, 27 tests);
+  bench figures are one avx2 run, unrepeated.
+
 ## 2026-09-19 — lance-graph PR #1252 (merged `8545a555`, branch `claude/great-pascal-k96kok`, head `16a0130d`, 5 commits, docs only)
 
 Mixed PR (hygiene + rulings), so not exempt under the termination clause. Only

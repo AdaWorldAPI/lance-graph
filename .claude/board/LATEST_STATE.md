@@ -1,3 +1,9 @@
+## 2026-09-23 — lance-graph #1271 MERGED (`d90600d`); OGAR #307 merged
+
+The "unmerged" section below is now on `main`: `lance-graph-report` (workspace
+member) and `lance-graph-report-ogar` (excluded; needs OGAR #307, merged).
+Contract inventory unchanged. Still open: z8run#1 (D-RPT-2), D-RPT-5.
+
 ## 2026-09-23 — ReportPlan + report-as-OGAR-projection (branch `claude/brave-mayer-65y3cy`, unmerged)
 
 ### Current Contract Inventory — UNCHANGED (no contract type added; two crates added)
