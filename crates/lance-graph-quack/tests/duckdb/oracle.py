@@ -42,6 +42,11 @@ GROUPED = {
     "join_group_min_country",
     "group_avg_cc",
     "join_group_avg_country",
+    "having_sum_cc",
+    "having_min_by_count_cc",
+    "having_sparse_count_cc",
+    "having_sparse_sum_lt_cc",
+    "join_having_count_country",
 }
 BOOLEAN = {"exists_neg"}
 ROWS = {"rows_proj"}

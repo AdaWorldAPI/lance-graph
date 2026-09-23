@@ -30,10 +30,11 @@ use ndarray::simd::{
     mask_not_assign, mask_or, mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor,
     mask_xor_assign, masked_group_count_u32, masked_group_count_u32_via, masked_group_max_i32,
     masked_group_max_i32_via, masked_group_min_i32, masked_group_min_i32_via, masked_group_sum_i32,
-    masked_group_sum_i32_via, masked_key_run_count_u32, masked_max_i32, masked_min_i32,
-    masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under,
-    popcount_batch_u64, ternary_match_u32_to_mask, ternary_match_u32_to_mask_under,
-    ternary_match_u64_to_mask, ternary_match_u64_to_mask_under, KeyRunCarry,
+    masked_group_sum_i32_via, masked_group_sum_sym_i32, masked_group_sum_sym_i32_via,
+    masked_key_run_count_u32, masked_max_i32, masked_min_i32, masked_sum_i32, ne_i32_to_mask,
+    ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
+    ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
+    ternary_match_u64_to_mask_under, KeyRunCarry,
 };
 
 use crate::ir::{
@@ -1035,6 +1036,21 @@ pub fn execute_into(
                         ),
                         (GroupKey::Via { fk, key }, GroupFold::MaxI32(v)) => {
                             masked_group_max_i32_via(
+                                m,
+                                lane_u32(planes, fk, t),
+                                foreign_lane_u32(foreign, key),
+                                lane_i32(planes, v, t),
+                                o,
+                            )
+                        }
+                        (GroupKey::Lane(k), GroupFold::SumSymI32(v)) => masked_group_sum_sym_i32(
+                            m,
+                            lane_u32(planes, k, t),
+                            lane_i32(planes, v, t),
+                            o,
+                        ),
+                        (GroupKey::Via { fk, key }, GroupFold::SumSymI32(v)) => {
+                            masked_group_sum_sym_i32_via(
                                 m,
                                 lane_u32(planes, fk, t),
                                 foreign_lane_u32(foreign, key),

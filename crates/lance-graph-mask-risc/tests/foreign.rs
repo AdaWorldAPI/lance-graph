@@ -7,6 +7,7 @@ use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch
 use lance_graph_mask_risc::{
     scratch_words_for, tile_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupFold,
     GroupKey, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
+    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -1037,7 +1038,12 @@ fn group_reduce_matches_the_oracle_for_every_key_and_fold() {
         multi_tile |= words < words_for(n);
 
         for key in [GroupKey::Lane(3), GroupKey::Via { fk: 0, key: 0 }] {
-            for fold in [GroupFold::Count, GroupFold::MinI32(2), GroupFold::MaxI32(2)] {
+            for fold in [
+                GroupFold::Count,
+                GroupFold::MinI32(2),
+                GroupFold::MaxI32(2),
+                GroupFold::SumSymI32(2),
+            ] {
                 let p = Program::new(
                     vec![MaskOp::Pred {
                         pred: Pred::NeU32 { lane: 1, v: 2 },
@@ -1084,6 +1090,172 @@ fn group_reduce_matches_the_oracle_for_every_key_and_fold() {
     assert!(second_hop, "no selected row dropped at the second VIA hop");
     assert!(empty_group, "no MIN/MAX group was left empty");
     assert!(multi_tile, "every case ran in a single tile");
+}
+
+/// FAILS IF: the NULL-preserving `SumI32` fold disagrees with the coalescing
+/// `GroupSumI32` terminal on a group that selected rows reached, OR fails to
+/// tell a group whose values cancel to `0` from a group no row reached. The
+/// second half is the whole reason the fold exists: `GroupSumI32` reads both
+/// as `0`.
+#[test]
+fn sym_sum_agrees_with_the_coalesced_sum_and_keeps_empty_groups_null() {
+    // Rows: group 0 gets +5 and -5 (cancels to 0), group 1 gets 7, group 2
+    // is named by a row the mask drops, group 3 is never named.
+    let keys = [0u32, 0, 1, 2];
+    let vals = [5i32, -5, 7, 100];
+    let keep = [0b0111u64];
+    let lanes = [LaneRef::U32(&keys), LaneRef::I32(&vals)];
+    let masks: [&[u64]; 1] = [&keep];
+    let planes = Planes {
+        n_rows: 4,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &[],
+    };
+    let run = |terminal: Terminal| {
+        let p = Program::new(vec![], terminal);
+        let mut out = vec![99i64; 4];
+        reference_execute_into(&p, &planes, &foreign, Out::I64(&mut out)).expect("oracle runs");
+        let mut got = vec![-99i64; 4];
+        let words = tile_words_for(4);
+        let slots = p.scratch_slots as usize;
+        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+        execute_into(&p, &planes, &foreign, &mut scratch, Out::I64(&mut got)).expect("runs");
+        assert_eq!(got, out, "executor vs oracle for {terminal:?}");
+        got
+    };
+    let fold = GroupFold::SumSymI32(1);
+    let seeded = run(Terminal::GroupReduce {
+        mask: Operand::Plane(0),
+        key: GroupKey::Lane(0),
+        fold,
+    });
+    let coalesced = run(Terminal::GroupSumI32 {
+        mask: Operand::Plane(0),
+        key: 0,
+        val: 1,
+    });
+    assert_eq!(seeded, vec![0, 7, i64::MIN, i64::MIN]);
+    assert_eq!(coalesced, vec![0, 7, 0, 0]);
+    let empty: Vec<bool> = seeded.iter().map(|&v| fold.is_empty_slot(v)).collect();
+    assert_eq!(
+        empty,
+        vec![false, false, true, true],
+        "cancelling group 0 must be present"
+    );
+    for (g, (&s, &c)) in seeded.iter().zip(&coalesced).enumerate() {
+        if !empty[g] {
+            assert_eq!(s, c, "group {g}: a reached group sums the same either way");
+        }
+    }
+    // COUNT never reports an empty slot: a zero count is an answer.
+    assert!(!GroupFold::Count.is_empty_slot(0));
+    // The marker costs exactly one row of range.
+    assert_eq!(GROUP_SUM_SYM_MAX_ROWS + 1, MASKED_SUM_I32_MAX_ROWS);
+}
+
+/// The standing side-by-side: the full-range pair (`GroupSumI32` +
+/// `COUNT`) and the symmetric-range `SumSymI32` answer the same question two
+/// independent ways, and must agree group for group:
+///
+/// - present in `_sym`  ⇔  count ≠ 0;
+/// - present → `_sym` sum == full-range sum;
+/// - absent  → full-range sum == 0.
+///
+/// The pair also catches the one failure `_sym` cannot see on its own: a real
+/// sum landing on its reserved code (only possible at `2^32` rows) would read
+/// as absent while the count says present.
+///
+/// FAILS IF the two paths ever disagree, on either key address, at any length
+/// including multi-tile.
+#[test]
+fn sym_sum_agrees_with_full_range_sum_plus_count() {
+    let groups = 4u32;
+    let mut saw_absent = false;
+    let mut saw_present = false;
+    for &n in &[1usize, 63, 64, 130, 1000, 5000] {
+        let fx = Fixture::new(n, 10, groups, 0x5EED ^ n as u64);
+        let (lanes, masks) = fx.planes();
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let mut s = 0xFACEu64 ^ n as u64;
+        // Group 3 is never produced by the remap: a real empty group on VIA.
+        let remap: Vec<u32> = (0..fx.foreign_rows)
+            .map(|_| lcg(&mut s) as u32 % 3)
+            .collect();
+        let foreign_lanes = [LaneRef::U32(&remap)];
+        let foreign = Foreign {
+            planes: &[],
+            lanes: &foreign_lanes,
+        };
+        let filter = vec![MaskOp::Pred {
+            pred: Pred::NeU32 { lane: 1, v: 2 },
+            under: None,
+            dst: 0,
+        }];
+        let run = |terminal: Terminal| {
+            let p = Program::new(filter.clone(), terminal);
+            let words = tile_words_for(n);
+            let slots = p.scratch_slots as usize;
+            let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+            let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+            let mut out = vec![0x5a5a_i64; groups as usize];
+            execute_into(&p, &planes, &foreign, &mut scratch, Out::I64(&mut out)).expect("runs");
+            out
+        };
+        for key in [GroupKey::Lane(3), GroupKey::Via { fk: 0, key: 0 }] {
+            let full = match key {
+                GroupKey::Lane(k) => run(Terminal::GroupSumI32 {
+                    mask: S0,
+                    key: k,
+                    val: 2,
+                }),
+                GroupKey::Via { fk, key } => run(Terminal::GroupSumViaI32 {
+                    mask: S0,
+                    fk,
+                    key,
+                    val: 2,
+                }),
+            };
+            let count = run(Terminal::GroupReduce {
+                mask: S0,
+                key,
+                fold: GroupFold::Count,
+            });
+            let sym_fold = GroupFold::SumSymI32(2);
+            let sym = run(Terminal::GroupReduce {
+                mask: S0,
+                key,
+                fold: sym_fold,
+            });
+            for g in 0..groups as usize {
+                let present = !sym_fold.is_empty_slot(sym[g]);
+                assert_eq!(present, count[g] != 0, "n={n} {key:?} g={g}: presence");
+                if present {
+                    assert_eq!(sym[g], full[g], "n={n} {key:?} g={g}: value");
+                    saw_present = true;
+                } else {
+                    assert_eq!(full[g], 0, "n={n} {key:?} g={g}: absent reads 0 full-range");
+                    saw_absent = true;
+                }
+            }
+        }
+    }
+    assert!(
+        saw_present,
+        "no group was reached: the value half never ran"
+    );
+    assert!(
+        saw_absent,
+        "no group was empty: the presence half never ran"
+    );
 }
 
 /// FAILS IF: `GroupReduce` accepts a wrong-width lane or a missing sink —

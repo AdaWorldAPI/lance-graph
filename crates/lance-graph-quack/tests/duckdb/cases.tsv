@@ -28,3 +28,8 @@ anti_join_not_country3	SELECT COUNT(*) FROM line l WHERE l.status=1 AND NOT EXIS
 count_col_discount_posted	SELECT COUNT(discount) FROM line WHERE status=1	2260
 sum_discount_posted	SELECT SUM(discount) FROM line WHERE status=1	35397
 avg_discount_posted	SELECT AVG(discount) FROM line WHERE status=1	15.662389380530973
+having_sum_cc	SELECT cost_center, SUM(amount) FROM line WHERE status=1 GROUP BY cost_center HAVING SUM(amount) > 2600000 ORDER BY cost_center	0:2930321;1:2840790;2:2760912;5:2827013
+having_min_by_count_cc	SELECT cost_center, MIN(amount) FROM line WHERE status=1 GROUP BY cost_center HAVING COUNT(*) < 350 ORDER BY cost_center	3:-4997;4:-4904;6:-4941;7:-4937
+having_sparse_count_cc	SELECT cost_center, COUNT(*) FROM line WHERE status=2 AND qty>48 GROUP BY cost_center HAVING COUNT(*) >= 0 ORDER BY cost_center	0:3;1:2;3:2;4:1;6:1
+having_sparse_sum_lt_cc	SELECT cost_center, COUNT(*) FROM line WHERE status=2 AND qty>48 GROUP BY cost_center HAVING SUM(amount) < 10000 ORDER BY cost_center	1:2;4:1;6:1
+join_having_count_country	SELECT p.country, SUM(l.amount) FROM line l JOIN partner p ON p.rid=l.partner_id WHERE l.status=1 GROUP BY p.country HAVING COUNT(*) >= 300 AND SUM(l.amount) > 2200000 ORDER BY p.country	0:4090182;2:5539383;6:2552339;7:2241753

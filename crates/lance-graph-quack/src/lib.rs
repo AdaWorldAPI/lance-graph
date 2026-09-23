@@ -755,6 +755,19 @@ pub enum LowerError {
     /// the WHOLE `out` slice, so K groups would leave the last group's blend
     /// and silently discard K − 1 — refused rather than answered wrongly.
     GroupedBlend,
+    /// A `HAVING` predicate names an aggregate index the plan does not
+    /// carry, or the plan carries no aggregate at all.
+    HavingAggOutOfRange {
+        /// The index named.
+        index: usize,
+        /// How many aggregates the plan carries.
+        aggs: usize,
+    },
+    /// A grouped plan over an empty group universe (`groups == 0`). Every
+    /// sink program must run with an `Out::I64` of exactly `groups` slots, and
+    /// the executor refuses a zero-length sink — so the plan would be
+    /// unexecutable. Refused here, where the caller can see why.
+    EmptyGroupUniverse,
 }
 
 impl core::fmt::Display for LowerError {
@@ -768,6 +781,12 @@ impl core::fmt::Display for LowerError {
             }
             LowerError::GroupedBlend => {
                 write!(f, "a blend writes the whole output; it cannot be grouped")
+            }
+            LowerError::HavingAggOutOfRange { index, aggs } => {
+                write!(f, "HAVING names aggregate {index}; the plan carries {aggs}")
+            }
+            LowerError::EmptyGroupUniverse => {
+                write!(f, "a grouped plan needs at least one group (groups == 0)")
             }
         }
     }
@@ -876,7 +895,9 @@ pub enum Agg {
     /// a key past it (or an fk naming no foreign row) is dropped. The
     /// executor seeds the buffer itself: `0` for a count, `i64::MAX` for a
     /// minimum and `i64::MIN` for a maximum, so a MIN/MAX slot still
-    /// holding its seed is an empty group — SQL `NULL`.
+    /// holding its seed is an empty group — SQL `NULL`. That raw buffer is
+    /// internal encoding: pass it through [`normalize_group_sink`] before any
+    /// code treats its slots as plain integers.
     GroupReduce {
         /// Where each row's group lives.
         key: GroupAddr,
@@ -910,6 +931,24 @@ pub enum GroupAgg {
     MinI32(Col),
     /// `MAX(col)` over a signed column.
     MaxI32(Col),
+    /// `SUM(col)` over a signed column, NULL-preserving: an empty group
+    /// reads SQL `NULL`, never `0`, so a group whose values cancel stays
+    /// distinguishable from a group no row reached. This is the `SUM` a
+    /// `HAVING` must see; the coalescing `GROUP BY … SUM` stays
+    /// [`Agg::GroupSumI32`].
+    SumI32(Col),
+}
+
+impl GroupAgg {
+    /// The mask-risc fold this aggregate lowers to.
+    pub const fn fold(self) -> GroupFold {
+        match self {
+            GroupAgg::Count => GroupFold::Count,
+            GroupAgg::MinI32(c) => GroupFold::MinI32(c.0),
+            GroupAgg::MaxI32(c) => GroupFold::MaxI32(c.0),
+            GroupAgg::SumI32(c) => GroupFold::SumSymI32(c.0),
+        }
+    }
 }
 
 /// One query: a filter and what to ask of the rows that pass it.
@@ -1210,6 +1249,265 @@ pub fn lower_group_avg(
 /// itself is still exact up to [`lance_graph_mask_risc::MASKED_SUM_I32_MAX_ROWS`].
 pub fn avg_finish(sum: i64, count: u64) -> Option<f64> {
     (count != 0).then(|| sum as f64 / count as f64)
+}
+
+/// One `HAVING` comparison: aggregate `agg` (an index into
+/// [`GroupHaving::aggs`]) against an `i64` constant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HavingCmp {
+    /// `agg > v`
+    Gt(i64),
+    /// `agg >= v`
+    Ge(i64),
+    /// `agg < v`
+    Lt(i64),
+    /// `agg <= v`
+    Le(i64),
+    /// `agg = v`
+    Eq(i64),
+    /// `agg <> v`
+    Ne(i64),
+}
+
+impl HavingCmp {
+    const fn holds(self, x: i64) -> bool {
+        match self {
+            HavingCmp::Gt(v) => x > v,
+            HavingCmp::Ge(v) => x >= v,
+            HavingCmp::Lt(v) => x < v,
+            HavingCmp::Le(v) => x <= v,
+            HavingCmp::Eq(v) => x == v,
+            HavingCmp::Ne(v) => x != v,
+        }
+    }
+}
+
+/// `SELECT key, aggs… FROM t WHERE filter GROUP BY key HAVING p₀ AND p₁ …`.
+///
+/// HAVING is not a new primitive and not a population operation. Every
+/// aggregate is one K-slot sink program over the SAME filter and key; HAVING
+/// is the O(K) finalization over those sinks ([`GroupHavingPlan::finish`]),
+/// which yields the demanded result — a K-bit mask of surviving groups. No
+/// O(N) mask crosses a program boundary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupHaving {
+    /// The row filter (SQL `WHERE`).
+    pub filter: Filter,
+    /// Where each row's group lives.
+    pub key: GroupAddr,
+    /// The group universe K.
+    pub groups: u32,
+    /// The aggregates the query computes, in `SELECT` order.
+    pub aggs: Vec<GroupAgg>,
+    /// The `HAVING` conjunction: `(index into aggs, comparison)`.
+    pub having: Vec<(usize, HavingCmp)>,
+}
+
+/// The lowered [`GroupHaving`]: one program per aggregate, each executed
+/// with an `Out::I64` of exactly `groups` slots, then [`Self::finish`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupHavingPlan {
+    /// One `Terminal::GroupReduce` program per aggregate, in `aggs` order.
+    pub programs: Vec<Program>,
+    /// The fold each program runs — what [`Self::finish`] reads emptiness by.
+    pub folds: Vec<GroupFold>,
+    /// The `HAVING` conjunction, carried through.
+    pub having: Vec<(usize, HavingCmp)>,
+    /// The group universe K every sink is sized to.
+    pub groups: u32,
+}
+
+/// Lower a [`GroupHaving`].
+///
+/// # Errors
+///
+/// [`LowerError::EmptyGroupUniverse`] when `groups == 0`;
+/// [`LowerError::HavingAggOutOfRange`] when `aggs` is empty or a predicate
+/// names a missing aggregate; otherwise as [`lower`].
+pub fn lower_group_having(q: &GroupHaving) -> Result<GroupHavingPlan, LowerError> {
+    if q.groups == 0 {
+        return Err(LowerError::EmptyGroupUniverse);
+    }
+    if q.aggs.is_empty() {
+        return Err(LowerError::HavingAggOutOfRange { index: 0, aggs: 0 });
+    }
+    if let Some(&(index, _)) = q.having.iter().find(|(i, _)| *i >= q.aggs.len()) {
+        return Err(LowerError::HavingAggOutOfRange {
+            index,
+            aggs: q.aggs.len(),
+        });
+    }
+    let programs = q
+        .aggs
+        .iter()
+        .map(|&agg| {
+            lower(&Query {
+                filter: q.filter.clone(),
+                agg: Agg::GroupReduce { key: q.key, agg },
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(GroupHavingPlan {
+        programs,
+        folds: q.aggs.iter().map(|a| a.fold()).collect(),
+        having: q.having.clone(),
+        groups: q.groups,
+    })
+}
+
+/// Why [`GroupHavingPlan::finish`] refused its sinks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HavingFinishError {
+    /// Not one sink per program.
+    SinkCount {
+        /// Programs in the plan.
+        expected: usize,
+        /// Sinks supplied.
+        found: usize,
+    },
+    /// A sink is not exactly `groups` slots long.
+    SinkLen {
+        /// Which sink.
+        index: usize,
+        /// `groups`.
+        expected: usize,
+        /// Its length.
+        found: usize,
+    },
+    /// The plan itself is inconsistent — only reachable for a plan built by
+    /// hand rather than by [`lower_group_having`], whose fields are public:
+    /// no programs, `folds` not one per program, or a `HAVING` index past the
+    /// aggregates.
+    MalformedPlan {
+        /// Which rule the plan breaks.
+        reason: &'static str,
+    },
+}
+
+impl core::fmt::Display for HavingFinishError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            HavingFinishError::SinkCount { expected, found } => {
+                write!(f, "expected {expected} sinks, got {found}")
+            }
+            HavingFinishError::SinkLen {
+                index,
+                expected,
+                found,
+            } => write!(f, "sink {index} has {found} slots, expected {expected}"),
+            HavingFinishError::MalformedPlan { reason } => write!(f, "malformed plan: {reason}"),
+        }
+    }
+}
+
+impl std::error::Error for HavingFinishError {}
+
+impl GroupHavingPlan {
+    /// Finish the query in place: map every sink through
+    /// [`normalize_group_sink`] and return which groups exist and which
+    /// survive the `HAVING` conjunction.
+    ///
+    /// A group survives when (a) at least one selected row reached it — SQL
+    /// `GROUP BY` never produces a group from no rows — and (b) every
+    /// `HAVING` comparison holds. Reachedness is one fact read off any sink,
+    /// because every program shares the filter and the key: it is taken from
+    /// the first. SQL's "a comparison against `NULL` is false" needs no
+    /// separate check: an unreached group is already gone, and a reached one
+    /// is non-empty in every sink.
+    ///
+    /// After this returns, every sink holds plain full-range integers: no
+    /// fold's internal marker survives, and an absent group's slot is `0`.
+    ///
+    /// # Errors
+    ///
+    /// [`HavingFinishError`] when the plan is malformed or the sinks do not
+    /// match its shape.
+    /// Nothing is modified in that case.
+    pub fn finish(&self, sinks: &mut [&mut [i64]]) -> Result<GroupHavingOutput, HavingFinishError> {
+        // Every shape rule is checked BEFORE the first write, so an error
+        // really does leave the sinks untouched.
+        let malformed = |reason| Err(HavingFinishError::MalformedPlan { reason });
+        if self.programs.is_empty() {
+            return malformed("no aggregate programs");
+        }
+        if self.folds.len() != self.programs.len() {
+            return malformed("folds must be one per program");
+        }
+        if self.having.iter().any(|&(i, _)| i >= self.folds.len()) {
+            return malformed("a HAVING index names a missing aggregate");
+        }
+        if sinks.len() != self.programs.len() {
+            return Err(HavingFinishError::SinkCount {
+                expected: self.programs.len(),
+                found: sinks.len(),
+            });
+        }
+        let k = self.groups as usize;
+        if let Some((index, s)) = sinks.iter().enumerate().find(|(_, s)| s.len() != k) {
+            return Err(HavingFinishError::SinkLen {
+                index,
+                expected: k,
+                found: s.len(),
+            });
+        }
+        let present = normalize_group_sink(self.folds[0], sinks[0]);
+        for (fold, sink) in self.folds.iter().zip(sinks.iter_mut()).skip(1) {
+            normalize_group_sink(*fold, sink);
+        }
+        let mut keep = present.clone();
+        for g in 0..k {
+            let bit = 1u64 << (g % 64);
+            if keep[g / 64] & bit != 0
+                && !self.having.iter().all(|&(i, cmp)| cmp.holds(sinks[i][g]))
+            {
+                keep[g / 64] &= !bit;
+            }
+        }
+        Ok(GroupHavingOutput { present, keep })
+    }
+}
+
+/// What [`GroupHavingPlan::finish`] returns: two K-bit masks, bit `g` of word
+/// `g / 64`, LSB first — the same bit order as every row mask.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupHavingOutput {
+    /// Groups at least one selected row reached.
+    pub present: Vec<u64>,
+    /// Groups that are present AND pass every `HAVING` comparison. Always a
+    /// subset of `present`.
+    pub keep: Vec<u64>,
+}
+
+/// The consumer boundary of a grouped sink. Returns a K-bit presence mask
+/// (bit `g` set ⇔ some selected row reached group `g`) and rewrites the sink
+/// IN PLACE so every slot is a plain full-range integer: an absent group's
+/// slot becomes `0`.
+///
+/// Why this exists: a `GroupReduce` sink is internal encoding. MIN/MAX leave
+/// an empty group at a seed outside the `i32` range, and the symmetric-range
+/// SUM ([`GroupAgg::SumI32`]) leaves it at `ndarray::simd::SYM_EMPTY_I64` —
+/// a value that code assuming full range would read as −9.2·10¹⁸ and then
+/// sum, sort, or negate (`-i64::MIN` overflows). NULL leaves this crate the
+/// way row NULL already does: as a mask beside the values, never as a
+/// reserved value inside them. It also works for a future fold with no spare
+/// value to reserve.
+///
+/// For `COUNT` a slot is present exactly when it is non-zero, and its value
+/// is untouched.
+pub fn normalize_group_sink(fold: GroupFold, sink: &mut [i64]) -> Vec<u64> {
+    let mut present = vec![0u64; sink.len().div_ceil(64)];
+    for (g, slot) in sink.iter_mut().enumerate() {
+        let reached = match fold {
+            GroupFold::Count => *slot != 0,
+            other => !other.is_empty_slot(*slot),
+        };
+        if reached {
+            present[g / 64] |= 1 << (g % 64);
+        } else {
+            *slot = 0;
+        }
+    }
+    present
 }
 
 /// Lower one categorical `GROUP BY` with semantic compression before any
@@ -1721,11 +2019,7 @@ fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
                     key: key.0,
                 },
             },
-            fold: match agg {
-                GroupAgg::Count => GroupFold::Count,
-                GroupAgg::MinI32(c) => GroupFold::MinI32(c.0),
-                GroupAgg::MaxI32(c) => GroupFold::MaxI32(c.0),
-            },
+            fold: agg.fold(),
         },
     }
 }
@@ -1764,6 +2058,149 @@ mod tests {
         execute_into, materialize_rows, reference_execute, words_for, Foreign, LaneRef, Out,
         Planes, Scratch, Value,
     };
+
+    /// FAILS IF: the consumer boundary lets a fold's internal marker through,
+    /// or mistakes a real value for an empty group. The `_sym` SUM case is the
+    /// one a full-range consumer would misread: a group cancelling to `0` is
+    /// present, a group left at `SYM_EMPTY_I64` is absent and becomes `0`.
+    /// FAILS IF: `finish` normalizes only the sink it reads reachedness from.
+    /// Here COUNT is first and the `_sym` SUM second, so the SUM's markers
+    /// can only be cleared by the loop over the remaining sinks.
+    #[test]
+    fn finish_normalizes_every_sink_not_just_the_first() {
+        let plan = lower_group_having(&GroupHaving {
+            filter: Filter::cmp(Col(0), Cmp::EqU32(1)),
+            key: GroupAddr::Local(Col(1)),
+            groups: 3,
+            aggs: vec![GroupAgg::Count, GroupAgg::SumI32(Col(2))],
+            having: vec![(1, HavingCmp::Ge(0))],
+        })
+        .expect("lowers");
+        let e = GroupFold::SumSymI32(0).seed();
+        let mut count = [2i64, 0, 1];
+        let mut sum = [0i64, e, -4];
+        let out = plan
+            .finish(&mut [&mut count[..], &mut sum[..]])
+            .expect("shapes match");
+        assert_eq!(out.present, vec![0b101]);
+        assert_eq!(
+            out.keep,
+            vec![0b001],
+            "group 0 sums to 0 (>= 0), group 2 to -4"
+        );
+        assert_eq!(sum, [0, 0, -4], "the second sink's marker is gone");
+    }
+
+    /// FAILS IF a zero-group HAVING lowers to programs the executor would
+    /// refuse, instead of being refused at lowering with a named error.
+    #[test]
+    fn lower_group_having_refuses_an_empty_group_universe() {
+        let q = GroupHaving {
+            filter: Filter::cmp(Col(0), Cmp::EqU32(1)),
+            key: GroupAddr::Local(Col(1)),
+            groups: 0,
+            aggs: vec![GroupAgg::Count],
+            having: vec![],
+        };
+        assert_eq!(lower_group_having(&q), Err(LowerError::EmptyGroupUniverse));
+        // The same query with one group lowers: the refusal is about K alone.
+        assert!(lower_group_having(&GroupHaving { groups: 1, ..q }).is_ok());
+    }
+
+    /// FAILS IF `finish` panics on a hand-built plan, or modifies the sinks
+    /// before refusing one. Each case breaks exactly one shape rule; the
+    /// sink carries a `_sym` marker that a premature normalization would
+    /// have rewritten to 0.
+    #[test]
+    fn finish_refuses_a_malformed_plan_without_touching_the_sinks() {
+        let good = lower_group_having(&GroupHaving {
+            filter: Filter::cmp(Col(0), Cmp::EqU32(1)),
+            key: GroupAddr::Local(Col(1)),
+            groups: 2,
+            aggs: vec![GroupAgg::SumI32(Col(2))],
+            having: vec![(0, HavingCmp::Ge(0))],
+        })
+        .expect("lowers");
+        let e = GroupFold::SumSymI32(0).seed();
+        let cases = [
+            GroupHavingPlan {
+                programs: vec![],
+                folds: vec![],
+                having: vec![],
+                ..good.clone()
+            },
+            // folds short, no HAVING: only the folds rule can refuse it
+            // (otherwise `folds[0]` panics).
+            GroupHavingPlan {
+                folds: vec![],
+                having: vec![],
+                ..good.clone()
+            },
+            // folds long, no HAVING: only the folds rule can refuse it
+            // (otherwise it silently succeeds with a fold matching no sink).
+            GroupHavingPlan {
+                folds: vec![GroupFold::SumSymI32(2), GroupFold::Count],
+                having: vec![],
+                ..good.clone()
+            },
+            GroupHavingPlan {
+                having: vec![(1, HavingCmp::Ge(0))],
+                ..good.clone()
+            },
+        ];
+        for (n, plan) in cases.iter().enumerate() {
+            let mut sink = [e, 5];
+            let sinks: &mut [&mut [i64]] = if plan.programs.is_empty() {
+                &mut []
+            } else {
+                &mut [&mut sink[..]]
+            };
+            let got = plan.finish(sinks);
+            assert!(
+                matches!(got, Err(HavingFinishError::MalformedPlan { .. })),
+                "case {n}: {got:?}"
+            );
+            assert_eq!(sink, [e, 5], "case {n}: sinks modified before refusal");
+        }
+        // Silence half: the well-formed plan still finishes.
+        let mut sink = [e, 5];
+        assert!(good.finish(&mut [&mut sink[..]]).is_ok());
+        assert_eq!(sink, [0, 5]);
+    }
+
+    #[test]
+    fn normalize_group_sink_maps_every_marker_to_a_presence_bit() {
+        let e = GroupFold::SumSymI32(0).seed();
+        assert_eq!(e, i64::MIN, "the _sym marker");
+        let mut sum = [0, e, 7, e];
+        let p = normalize_group_sink(GroupFold::SumSymI32(0), &mut sum);
+        assert_eq!(p, vec![0b0101]);
+        assert_eq!(sum, [0, 0, 7, 0]);
+
+        let mut min = [i64::MAX, -3];
+        assert_eq!(
+            normalize_group_sink(GroupFold::MinI32(0), &mut min),
+            vec![0b10]
+        );
+        assert_eq!(min, [0, -3]);
+
+        // COUNT: present iff non-zero, value untouched.
+        let mut count = [0, 4];
+        assert_eq!(
+            normalize_group_sink(GroupFold::Count, &mut count),
+            vec![0b10]
+        );
+        assert_eq!(count, [0, 4]);
+
+        // Word boundary: group 64 lands in the second word.
+        let mut wide = vec![e; 65];
+        wide[64] = -1;
+        assert_eq!(
+            normalize_group_sink(GroupFold::SumSymI32(0), &mut wide),
+            vec![0, 1]
+        );
+        assert!(!wide.contains(&e));
+    }
 
     const N: usize = 1000;
 

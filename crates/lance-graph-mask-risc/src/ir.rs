@@ -360,10 +360,14 @@ pub enum Terminal {
     /// identity ([`GroupFold::seed`]): `0` for a count, `i64::MAX` for a
     /// minimum, `i64::MIN` for a maximum. A MIN/MAX slot still holding its
     /// seed afterwards is a group no selected row named — the SQL `NULL` of
-    /// an empty group. No per-group sum is involved, so no row bound applies.
+    /// an empty group. Only [`GroupFold::SumSymI32`] carries a row bound
+    /// ([`GROUP_SUM_SYM_MAX_ROWS`]).
     ///
-    /// `SUM` keeps its own terminals ([`Terminal::GroupSumI32`] /
-    /// [`Terminal::GroupSumViaI32`]); this one does not repeat them.
+    /// The coalescing `SUM` (empty group reads `0`) keeps its own terminals
+    /// ([`Terminal::GroupSumI32`] / [`Terminal::GroupSumViaI32`]). The
+    /// NULL-preserving `SUM` lives here as [`GroupFold::SumSymI32`], because the
+    /// empty-group rule is the same for every seeded fold: a slot still
+    /// holding [`GroupFold::seed`] is empty ([`GroupFold::is_empty_slot`]).
     GroupReduce {
         mask: Operand,
         key: GroupKey,
@@ -391,6 +395,17 @@ pub enum GroupFold {
     MinI32(u16),
     /// `MAX(lanes[val])` over an `I32` lane.
     MaxI32(u16),
+    /// `SUM(lanes[val])` over an `I32` lane in the SYMMETRIC range — the
+    /// `_sym` reading of `ndarray::simd`: real sums live in `±(2^63 − 1)`
+    /// and `ndarray::simd::SYM_EMPTY_I64` (`i64::MIN`) is reserved for "no
+    /// selected row reached this group". The first row a group sees REPLACES
+    /// the marker; later rows add. That keeps a group whose values cancel to
+    /// `0` distinct from an empty one, which the full-range
+    /// [`Terminal::GroupSumI32`] cannot tell apart. The reservation is
+    /// named, never implied: every other sum here is full range. Carries the
+    /// tighter [`GROUP_SUM_SYM_MAX_ROWS`]. The raw sink is internal encoding;
+    /// a consumer maps the marker away before treating slots as integers.
+    SumSymI32(u16),
 }
 
 impl GroupFold {
@@ -402,9 +417,29 @@ impl GroupFold {
             GroupFold::Count => 0,
             GroupFold::MinI32(_) => i64::MAX,
             GroupFold::MaxI32(_) => i64::MIN,
+            GroupFold::SumSymI32(_) => ndarray::simd::SYM_EMPTY_I64,
+        }
+    }
+
+    /// Whether a slot holding `v` after the fold is a group no selected row
+    /// reached — the SQL `NULL` of an empty group. The rule is uniform:
+    /// empty ⇔ the slot still holds [`GroupFold::seed`]. `COUNT` has no
+    /// empty groups: a zero count is a real answer, not a `NULL`.
+    pub const fn is_empty_slot(self, v: i64) -> bool {
+        match self {
+            GroupFold::Count => false,
+            _ => v == self.seed(),
         }
     }
 }
+
+/// The widest plane a NULL-preserving [`GroupFold::SumSymI32`] is defined on:
+/// `2^32 − 1` rows. One less than [`MASKED_SUM_I32_MAX_ROWS`] because the
+/// seed doubles as the empty marker: exactly `2^32` rows of `i32::MIN` sum
+/// to `i64::MIN`, a real value that would read back as `NULL`. Below that
+/// row count every real sum lies strictly above `i64::MIN`, leaving the
+/// symmetric range `±(2^63 − 1)` — closed under negation.
+pub const GROUP_SUM_SYM_MAX_ROWS: usize = (1 << 32) - 1;
 
 /// The widest plane [`Terminal::MaskedSumI32`] is defined on: `2^32` rows.
 /// The binding side is the NEGATIVE one: `2^32 · i32::MIN = −2^63 = i64::MIN`
