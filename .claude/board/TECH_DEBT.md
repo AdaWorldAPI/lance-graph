@@ -1,3 +1,43 @@
+## TD-SYM-SUM-MERGE-IS-NOT-ADDITION-1 (2026-09-23) — OPEN, dormant
+
+**`GroupFold::SumSymI32`'s seed is not an additive identity, so two partial
+sinks must never be combined with `+`.** For MIN/MAX the seed IS the lattice
+identity (`i64::MAX` for min, `i64::MIN` for max), so partial sinks merge with
+plain `min`/`max` and an empty side is absorbed for free. For the `_sym` SUM
+the seed `ndarray::simd::SYM_EMPTY_I64` (`i64::MIN`) marks "no row reached this
+group"; `a + b` on two partials would add −2⁶³ for every group that one side
+never saw, and turn a present group into garbage or a false "empty".
+
+The correct merge is the fold's own rule, lifted:
+
+```text
+merge(a, b) = if a == SYM_EMPTY_I64 { b }
+              else if b == SYM_EMPTY_I64 { a }
+              else { a.wrapping_add(b) }
+```
+
+**Why it is dormant, not live:** nothing merges partial sinks today. The
+mask-risc executor folds every tile sequentially into ONE caller-owned
+`Out::I64` (the `Terminal::GroupReduce` arm of `exec.rs`, seeded once before
+the first tile); `lance-graph-quack` executes one program per sink. There is no
+parallel, per-segment, or per-fragment group reduction in either crate.
+
+**When it goes live:** the first parallel / multi-segment / multi-fragment
+execution of a `GroupReduce { fold: SumSymI32 }` — e.g. a rayon split of the
+tile loop, a Lance-fragment fan-out, or combining sinks across versions. That
+change must use the merge above (or an equivalent `GroupFold::merge`) and must
+carry a test whose partials include a group empty on ONE side only; a fixture
+where every group is present on both sides cannot see the defect.
+
+**Existing guard, and its limit:** `sym_sum_agrees_with_full_range_sum_plus_count`
+(`crates/lance-graph-mask-risc/tests/foreign.rs`) compares the `_sym` SUM with
+full-range SUM + COUNT over the same data and would go red on a wrong merge —
+but only once the merge path runs under it. It does not exist yet, so the test
+cannot fire on it today.
+
+Cross-ref: `.claude/board/entries/2026-09-22-quack-duckdb-parity-t0-keyed-reduction.md`
+(the `_sym` decision and the presence-mask boundary); ndarray #321; lance-graph #1266.
+
 ## TD-JC-CLIPPY-RED-ON-BASE-2 (2026-09-18) — the 1.98 pre-bump lint sweep was WORKSPACE-scoped, and `jc` is workspace-EXCLUDED
 
 **`JC Substrate Proof` is RED on `main`** (run `35335429357`, head `568965e9`):
