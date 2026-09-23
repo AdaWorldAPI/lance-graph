@@ -133,6 +133,15 @@ landed:
   Disable-verified: no zeroing → the leak assertion and unit tests fail;
   normalizing only the first sink → the multi-sink unit test fails.
 
+**Two SUM spellings are a deliberate twin, not debt** (operator, same
+day). Full-range `GroupSumI32` + `COUNT` and `_sym` `SumSymI32` answer the
+same question two independent ways, so either can check the other whenever
+something looks off. `sym_sum_agrees_with_full_range_sum_plus_count` keeps
+that check permanent: presence ⇔ count ≠ 0, equal values where present,
+full-range 0 where absent, on both key addresses. It is also the only check
+that can see a real sum colliding with the reserved code. Disable-verified:
+routing `SumSymI32` through the full-range kernel turns it red.
+
 REVISIT WHEN: a single-pass AVG is wanted — the fused sum+count sink is still
 the route to that, now for speed only, not for NULL.
 

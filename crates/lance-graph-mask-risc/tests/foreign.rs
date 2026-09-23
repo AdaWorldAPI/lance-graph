@@ -1098,7 +1098,7 @@ fn group_reduce_matches_the_oracle_for_every_key_and_fold() {
 /// second half is the whole reason the fold exists: `GroupSumI32` reads both
 /// as `0`.
 #[test]
-fn seeded_sum_agrees_with_the_coalesced_sum_and_keeps_empty_groups_null() {
+fn sym_sum_agrees_with_the_coalesced_sum_and_keeps_empty_groups_null() {
     // Rows: group 0 gets +5 and -5 (cancels to 0), group 1 gets 7, group 2
     // is named by a row the mask drops, group 3 is never named.
     let keys = [0u32, 0, 1, 2];
