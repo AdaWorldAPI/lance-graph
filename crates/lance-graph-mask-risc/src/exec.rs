@@ -28,9 +28,11 @@ use ndarray::simd::{
     le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
     mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_gather_u32, mask_not,
     mask_not_assign, mask_or, mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor,
-    mask_xor_assign, masked_group_count_u32, masked_group_count_u32_via, masked_group_max_i32,
-    masked_group_max_i32_via, masked_group_min_i32, masked_group_min_i32_via, masked_group_sum_i32,
-    masked_group_sum_i32_via, masked_group_sum_sym_i32, masked_group_sum_sym_i32_via,
+    mask_xor_assign, masked_group_count_u32, masked_group_count_u32_pair,
+    masked_group_count_u32_via, masked_group_max_i32, masked_group_max_i32_pair,
+    masked_group_max_i32_via, masked_group_min_i32, masked_group_min_i32_pair,
+    masked_group_min_i32_via, masked_group_sum_i32, masked_group_sum_i32_via,
+    masked_group_sum_sym_i32, masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via,
     masked_key_run_count_u32, masked_max_i32, masked_min_i32, masked_sum_i32, ne_i32_to_mask,
     ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
     ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
@@ -1394,6 +1396,45 @@ pub fn execute_extent(
                                 m,
                                 lane_u32(planes, fk, t),
                                 foreign_lane_u32(foreign, key),
+                                lane_i32(planes, v, t),
+                                o,
+                            )
+                        }
+                        (GroupKey::Pair { hi, lo, stride }, GroupFold::Count) => {
+                            masked_group_count_u32_pair(
+                                m,
+                                lane_u32(planes, hi, t),
+                                lane_u32(planes, lo, t),
+                                stride,
+                                o,
+                            )
+                        }
+                        (GroupKey::Pair { hi, lo, stride }, GroupFold::MinI32(v)) => {
+                            masked_group_min_i32_pair(
+                                m,
+                                lane_u32(planes, hi, t),
+                                lane_u32(planes, lo, t),
+                                stride,
+                                lane_i32(planes, v, t),
+                                o,
+                            )
+                        }
+                        (GroupKey::Pair { hi, lo, stride }, GroupFold::MaxI32(v)) => {
+                            masked_group_max_i32_pair(
+                                m,
+                                lane_u32(planes, hi, t),
+                                lane_u32(planes, lo, t),
+                                stride,
+                                lane_i32(planes, v, t),
+                                o,
+                            )
+                        }
+                        (GroupKey::Pair { hi, lo, stride }, GroupFold::SumSymI32(v)) => {
+                            masked_group_sum_sym_i32_pair(
+                                m,
+                                lane_u32(planes, hi, t),
+                                lane_u32(planes, lo, t),
+                                stride,
                                 lane_i32(planes, v, t),
                                 o,
                             )

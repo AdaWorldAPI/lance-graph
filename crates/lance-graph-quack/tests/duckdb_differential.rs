@@ -772,6 +772,97 @@ fn group_max_cc_sparse() {
     assert_case(&cases, "group_max_cc_sparse", &actual);
 }
 
+/// `COUNT(*) GROUP BY (cost_center, status)` — the two-column `GROUP BY`,
+/// `GroupAddr::Pair { hi: COST_CENTER, lo: STATUS, stride: 3 }` (status is
+/// `0..3`, so `stride=3` is the minor key's real cardinality). The SQL
+/// encodes the SAME composite key the Rust side folds:
+/// `cost_center * 3 + status`.
+#[test]
+fn group2_count_cc_st() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let (actual, m) = run_group_reduce(
+        "group2_count_cc_st",
+        &planes,
+        &Foreign::NONE,
+        Filter::cmp(QTY, Cmp::GtI32(10)),
+        GroupAddr::Pair {
+            hi: COST_CENTER,
+            lo: STATUS,
+            stride: 3,
+        },
+        GroupAgg::Count,
+        24,
+    );
+    print_metric("group2_count_cc_st", &m);
+    assert_case(&cases, "group2_count_cc_st", &actual);
+}
+
+/// `MIN(amount) GROUP BY (cost_center, status)` — same `Pair` key as
+/// [`group2_count_cc_st`], a different fold.
+#[test]
+fn group2_min_cc_st() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let (actual, m) = run_group_reduce(
+        "group2_min_cc_st",
+        &planes,
+        &Foreign::NONE,
+        Filter::cmp(QTY, Cmp::GtI32(10)),
+        GroupAddr::Pair {
+            hi: COST_CENTER,
+            lo: STATUS,
+            stride: 3,
+        },
+        GroupAgg::MinI32(AMOUNT),
+        24,
+    );
+    print_metric("group2_min_cc_st", &m);
+    assert_case(&cases, "group2_min_cc_st", &actual);
+}
+
+/// `MAX(amount) GROUP BY (cost_center, status)` over a filter tight enough
+/// (`qty>45 AND cost_center<3`) that whole `cost_center` bands are empty —
+/// the two-column sibling of [`group_max_cc_sparse`], exercising the SQL
+/// `NULL` encoding of an empty group under the `Pair` key.
+#[test]
+fn group2_max_cc_st_sparse() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let (actual, m) = run_group_reduce(
+        "group2_max_cc_st_sparse",
+        &planes,
+        &Foreign::NONE,
+        Filter::and([
+            Filter::cmp(QTY, Cmp::GtI32(45)),
+            Filter::or([
+                Filter::cmp(COST_CENTER, Cmp::EqU32(0)),
+                Filter::cmp(COST_CENTER, Cmp::EqU32(1)),
+                Filter::cmp(COST_CENTER, Cmp::EqU32(2)),
+            ]),
+        ]),
+        GroupAddr::Pair {
+            hi: COST_CENTER,
+            lo: STATUS,
+            stride: 3,
+        },
+        GroupAgg::MaxI32(AMOUNT),
+        24,
+    );
+    assert!(
+        actual.contains(":NULL"),
+        "fixture must leave some group empty or this case tests nothing: {actual}"
+    );
+    print_metric("group2_max_cc_st_sparse", &m);
+    assert_case(&cases, "group2_max_cc_st_sparse", &actual);
+}
+
 #[test]
 fn group_sum_cc() {
     let cases = load_cases();

@@ -384,6 +384,15 @@ pub enum GroupKey {
     /// `U32` lane of this table, `key` a `U32` lane of the foreign table.
     /// The two hops are fused; no remapped key lane is materialised.
     Via { fk: u16, key: u16 },
+    /// The group of row `i` is `lanes[hi][i] * stride + lanes[lo][i]` — the
+    /// composite address of a two-column `GROUP BY`. `hi` and `lo` are both
+    /// `U32` lanes of this table. Fused: no composite key lane is ever
+    /// materialised. Zero fallback: a minor key `lanes[lo][i] >= stride`
+    /// names no group and drops the row, exactly like a resolved key past
+    /// the group universe — same contract as
+    /// [`ndarray::simd::masked_group_count_u32_pair`] and its
+    /// min/max/sum siblings.
+    Pair { hi: u16, lo: u16, stride: u32 },
 }
 
 /// What a [`Terminal::GroupReduce`] folds into each group's slot.
