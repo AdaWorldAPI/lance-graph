@@ -73,24 +73,57 @@ Eight more cases, 29/29 against DuckDB 1.5.5, existing values unchanged:
 Disable-verified: an off-by-one AVG denominator, a dropped `Not`, a dropped
 validity plane, and NULL written as `0` each turned their cases red.
 
+## W-C HAVING landed — the empty-group decision (2026-09-23)
+
+**DECISION:** an empty group is marked by a SEED THE FOLD CANNOT REACH, not
+by a count carried beside the value. The rule is uniform: **empty ⇔ the slot
+still holds `GroupFold::seed`** (`GroupFold::is_empty_slot`). The
+entry above said "decide the fused sum+count sink's shape before writing
+`HAVING`"; this supersedes that, because the sentinel closes the NULL gap
+with no second sink.
+
+- Seeds: `Count` → 0 (never empty — a zero count is an answer), `MinI32` →
+  `i64::MAX`, `MaxI32` → `i64::MIN`, **new `SumI32` → `i64::MIN`**. MIN
+  cannot share SUM's seed (a min fold must start from its identity), so the
+  rule is "equals its own seed", not "equals `i64::MIN`".
+- **BASIS:** the same move as a 4-bit code read as −7..+7 + NaN rather than
+  −8..+7: give up one representable value to get a NULL code and a
+  range closed under negation. At 4/8 bit that also removes a median bias; at
+  i64 the bias is negligible, and what is bought is closure + NULL.
+- Cost: exactly one row of range, for this fold only.
+  `GROUP_SUM_SEEDED_MAX_ROWS = 2^32 − 1`, because exactly 2^32 rows of
+  `i32::MIN` sum to `i64::MIN`. `MASKED_SUM_I32_MAX_ROWS` stays `2^32`: the
+  coalescing sums may legitimately produce `i64::MIN`.
+- Kernel: ndarray #321 `masked_group_sum_seeded_i32{,_via}`, first row
+  REPLACES the marker, later rows `wrapping_add`. Two named closures over the
+  shared `group_walk`; no new bit loop.
+
+**HAVING is finalization.** `lower_group_having` emits one `GroupReduce` program
+per aggregate over the same filter and key; `GroupHavingPlan::finish` is
+the O(K) pass that yields a K-bit group mask. A group survives iff it was
+REACHED (read off the first sink: count ≠ 0, or slot ≠ seed) and every
+comparison holds. There is no per-predicate NULL check. Every sink shares the
+filter and the key, so a reached group is non-empty in all of them, and a
+guard that cannot fire would be decoration.
+
+Five DuckDB cases, 34 total: HAVING on the selected aggregate, on a different
+aggregate, fk-keyed with a conjunction, and two over a filter that empties
+three groups (`HAVING COUNT(*) >= 0` and `HAVING SUM(amount) < 10000` with
+the SUM sink carrying reachedness). Disable-verified red:
+- reachedness off → both sparse cases;
+- non-count emptiness off → the SUM-first sparse case;
+- the executor routing `SumI32` through the coalescing kernel → both
+  mask-risc differentials.
+
+REVISIT WHEN: a single-pass AVG is wanted — the fused sum+count sink is still
+the route to that, now for speed only, not for NULL.
+
 ## What is still open (not done here)
-- **W-C:**
-  - `HAVING` over the K-sized sink. Correction to the plan above: filtering
-    K result slots is finalization over an O(K) sink, like `avg_finish`, so
-    it needs NO SIMD primitive at realistic K. What it DOES need is **group
-    existence**, and that is OPEN:
-    - A MIN/MAX slot at its seed is an empty group, so `HAVING MIN(x) > c`
-      must skip it. A naive filter on `i64::MAX` would wrongly KEEP it.
-    - A SUM slot cannot tell an empty group from a group summing to 0.
-      SQL gives the empty group `NULL` (excluded by any `HAVING`), not 0.
-    - Both are solved by carrying a count beside the value. That is the
-      same fused sum+count sink AVG wants to become one pass instead of
-      two, so one keyed-reduction member closes two gaps. Decide that sink's
-      shape before writing `HAVING`, not after.
-  - `ORDER BY rid LIMIT n`. This needs a first-n select, a rank/select member.
+- **W-C:** `ORDER BY rid LIMIT n`. This needs a first-n select, a
+  rank/select member.
 - **W-D:** multi-key `GROUP BY` via a fused composite address. This is a
   third `GroupKeyAddr` variant; the walker is unchanged.
 - **Out of scope for T0 parity:** arbitrary-value sort, m:n hash joins,
   window functions, strings.
 - **Downstream:** lance-graph CI resolves ndarray via the local path dep, so
-  this branch goes green only after ndarray #320 merges.
+  the HAVING branch goes green only after ndarray #321 merges.
