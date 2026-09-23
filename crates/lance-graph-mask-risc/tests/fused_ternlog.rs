@@ -415,3 +415,68 @@ fn the_recogniser_admits_exactly_resident_single_op_count_and_any() {
         assert!(p.requires_scratch());
     }
 }
+
+/// A fusable shape whose slot sits past the fused path's validation bitmap
+/// must still RUN — on the tiled path — never be rejected as a read before a
+/// write. Both folds are covered: the ternlog fold and the #1268 range fold
+/// share the same no-scratch validation, and a slot the bitmap cannot mark
+/// once made `Count(Scratch(64))` fail with `ScratchReadBeforeWrite`.
+#[test]
+fn a_fusable_shape_on_a_high_slot_still_executes() {
+    use lance_graph_mask_risc::reference::reference_execute;
+    use lance_graph_mask_risc::Pred;
+    let n = 1000usize;
+    let words = n.div_ceil(64);
+    let mut seed = 0xB16_u64;
+    let mut mk = || -> Vec<u64> {
+        (0..words)
+            .map(|_| {
+                seed = seed
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                seed
+            })
+            .collect()
+    };
+    let (mut pa, mut pb) = (mk(), mk());
+    let tail = !0u64 >> (64 * words - n);
+    pa[words - 1] &= tail;
+    pb[words - 1] &= tail;
+    let masks: [&[u64]; 2] = [&pa, &pb];
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &[],
+    };
+    for dst in [0u16, 31, 32, 63, 64, 65, 1000] {
+        let shapes = [
+            MaskOp::And {
+                a: Operand::Plane(0),
+                b: Operand::Plane(1),
+                dst,
+            },
+            MaskOp::Pred {
+                pred: Pred::Range { lo: 3, hi: 777 },
+                under: Some(Operand::Plane(0)),
+                dst,
+            },
+        ];
+        for op in shapes {
+            for terminal in [
+                Terminal::Count {
+                    mask: Operand::Scratch(dst),
+                },
+                Terminal::Any {
+                    mask: Operand::Scratch(dst),
+                },
+            ] {
+                let p = Program::new(vec![op], terminal);
+                let want = reference_execute(&p, &planes, None).expect("oracle");
+                let mut s = Scratch::for_program(&p, n).expect("scratch");
+                let got = execute_extent(&p, &planes, &Foreign::NONE, &mut s, Out::None, 0..n)
+                    .unwrap_or_else(|e| panic!("dst {dst} {op:?}: {e:?}"));
+                assert_eq!(got, want, "dst {dst} {op:?}");
+            }
+        }
+    }
+}

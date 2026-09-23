@@ -597,6 +597,9 @@ impl Program {
             // it, so the shape is not fusable.
             Some(Operand::Scratch(_)) => return None,
         };
+        if usize::from(*dst) >= FUSED_SLOT_CAP {
+            return None;
+        }
         let fold = match self.terminal {
             Terminal::Count { mask } if mask == Operand::Scratch(*dst) => FusedFold::Count,
             Terminal::Any { mask } if mask == Operand::Scratch(*dst) => FusedFold::Any,
@@ -638,6 +641,9 @@ impl Program {
             }
             _ => return None,
         };
+        if usize::from(dst) >= FUSED_SLOT_CAP {
+            return None;
+        }
         let fold = match self.terminal {
             Terminal::Count { mask } if mask == Operand::Scratch(dst) => FusedFold::Count,
             Terminal::Any { mask } if mask == Operand::Scratch(dst) => FusedFold::Any,
@@ -743,6 +749,15 @@ pub(crate) const TABLE_OR: u8 = 0xFC;
 pub(crate) const TABLE_XOR: u8 = 0x3C;
 /// `a & !b` — true at 4, 5 (`a = 1`, `b = 0`).
 pub(crate) const TABLE_ANDNOT: u8 = 0x30;
+
+/// The highest scratch slot (exclusive) a fused shape may name.
+///
+/// The fused paths validate a program with an on-stack slot bitmap of
+/// `FUSED_SLOT_CAP.div_ceil(64)` words and never touch real scratch, so a
+/// slot the bitmap cannot mark would be rejected as a read before a write.
+/// A shape naming a higher slot is simply not fused and runs on the tiled
+/// path. A bound of the recogniser, never of the semantics.
+pub const FUSED_SLOT_CAP: usize = 32;
 
 /// The scalar folds that may consume membership without materializing it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

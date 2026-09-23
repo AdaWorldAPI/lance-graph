@@ -39,7 +39,8 @@ use ndarray::simd::{
 
 use crate::ir::{
     span_words, touched_words, Foreign, FusedFold, FusedTerminal, FusedTernlog, GroupFold,
-    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
+    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, FUSED_SLOT_CAP,
+    MAX_SCRATCH_SLOTS,
 };
 use crate::reference::{out_shape, validate};
 use crate::ternlog_dispatch::{
@@ -998,7 +999,7 @@ pub fn execute_extent(
     // Validation stays total — the one declared slot is tracked in a local
     // word of read-before-write bookkeeping, never in the caller's arena.
     if let Some(f) = program.fused_terminal() {
-        let mut written = [0u64; 1];
+        let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
         validate(program, planes, foreign, out_shape(&out), &mut written)?;
         // The extent composes with the program's own range by intersection,
         // in absolute rows — the #1268 fold, over a narrower span.
@@ -1017,7 +1018,7 @@ pub fn execute_extent(
     // The Boolean-membership fold: a single 2/3-input op over resident planes,
     // folded by Count/Any — also no slot, no membership bit written.
     if let Some(f) = program.fused_ternlog() {
-        let mut written = [0u64; 1];
+        let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
         validate(program, planes, foreign, out_shape(&out), &mut written)?;
         return Ok(run_fused_ternlog(f, planes, elo, ehi));
     }
