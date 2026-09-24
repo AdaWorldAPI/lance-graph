@@ -43,19 +43,7 @@
 ///
 /// Returns floor(√n). Guaranteed correct for all `u32` inputs.
 pub fn isqrt(n: u32) -> u32 {
-    if n == 0 {
-        return 0;
-    }
-    // Initial guess: must be >= floor(√n) so Newton's method converges
-    // monotonically downward. Round up the bit-shift to guarantee this.
-    let mut x = 1u32 << ((33 - n.leading_zeros()) / 2);
-    loop {
-        let x1 = (x + n / x) / 2;
-        if x1 >= x {
-            return x;
-        }
-        x = x1;
-    }
+    ndarray::hpc::rolling_floor::isqrt_u32(n)
 }
 
 // ---------------------------------------------------------------------------
@@ -97,14 +85,27 @@ pub struct RankedHit {
 }
 
 /// Alert that the observed distance distribution has shifted.
-#[derive(Debug, Clone)]
-pub struct ShiftAlert {
-    pub old_mu: u32,
-    pub new_mu: u32,
-    pub old_sigma: u32,
-    pub new_sigma: u32,
-    pub observations: u64,
-}
+///
+/// The rolling floor's own shift record from
+/// [`ndarray::hpc::rolling_floor`]; same fields as before.
+pub use ndarray::hpc::rolling_floor::FloorShift as ShiftAlert;
+use ndarray::hpc::rolling_floor::{RollingFloor, SigmaLevel};
+
+/// The band cuts on the σ-lattice: 3σ, 2σ, 1σ and μ itself.
+const BAND_LEVELS: [SigmaLevel; 4] = [SigmaLevel(12), SigmaLevel(8), SigmaLevel(4), SigmaLevel(0)];
+
+/// The cascade cuts on the σ-lattice: 1σ, 1.5σ, 1.75σ, 2σ, 2.25σ, 2.5σ,
+/// 2.75σ, 3σ.
+const CASCADE_LEVELS: [SigmaLevel; 8] = [
+    SigmaLevel(4),
+    SigmaLevel(6),
+    SigmaLevel(7),
+    SigmaLevel(8),
+    SigmaLevel(9),
+    SigmaLevel(10),
+    SigmaLevel(11),
+    SigmaLevel(12),
+];
 
 // ---------------------------------------------------------------------------
 // Hamming on &[u64] words — self-contained, no external deps
@@ -168,97 +169,12 @@ fn words_hamming_sampled(a: &[u64], b: &[u64], step: usize) -> u32 {
 
 /// Reservoir sampling for distribution-free quantile estimation.
 ///
-/// Vitter's Algorithm R: maintains a uniform random sample of a stream
-/// of arbitrary length. Every element has equal probability of being
-/// in the reservoir, regardless of arrival order.
-///
-/// Used to derive empirical band and cascade thresholds when the distance
-/// distribution is non-normal (bimodal, skewed, heavy-tailed).
-pub struct ReservoirSample {
-    samples: Vec<u32>,
-    capacity: usize,
-    seen: u64,
-}
-
-impl ReservoirSample {
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            samples: Vec::with_capacity(capacity),
-            capacity,
-            seen: 0,
-        }
-    }
-
-    pub fn observe(&mut self, distance: u32) {
-        self.seen += 1;
-        if self.samples.len() < self.capacity {
-            self.samples.push(distance);
-        } else {
-            // Vitter's Algorithm R: replace element j with probability capacity/seen.
-            let j = Self::fast_rand(self.seen) % self.seen;
-            if (j as usize) < self.capacity {
-                self.samples[j as usize] = distance;
-            }
-        }
-    }
-
-    /// Empirical quantile. O(n log n) but n = capacity, called rarely.
-    pub fn quantile(&self, q: f32) -> u32 {
-        if self.samples.is_empty() {
-            return 0;
-        }
-        let mut sorted = self.samples.clone();
-        sorted.sort_unstable();
-        let idx = ((q * sorted.len() as f32) as usize).min(sorted.len() - 1);
-        sorted[idx]
-    }
-
-    /// Pearson's second skewness: 3(mean - median) / σ.
-    /// Integer-scaled. Positive = right-skewed. Zero = symmetric.
-    pub fn skewness(&self, mu: u32, sigma: u32) -> i32 {
-        if sigma == 0 || self.samples.is_empty() {
-            return 0;
-        }
-        let median = self.quantile(0.5);
-        (3 * (mu as i32 - median as i32)) / sigma as i32
-    }
-
-    /// Excess kurtosis scaled by 100. Normal distribution ≈ 300.
-    /// >300 = heavy-tailed, <300 = light-tailed.
-    pub fn kurtosis(&self, mu: u32, sigma: u32) -> u32 {
-        if sigma == 0 || self.samples.len() < 4 {
-            return 300;
-        }
-        let n = self.samples.len() as u64;
-        let s4 = (sigma as u64).pow(4);
-        let m4: u64 = self
-            .samples
-            .iter()
-            .map(|&d| {
-                let diff = d as i64 - mu as i64;
-                (diff * diff * diff * diff) as u64
-            })
-            .sum::<u64>()
-            / n;
-        ((m4 * 100) / s4.max(1)) as u32
-    }
-
-    pub fn len(&self) -> usize {
-        self.samples.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.samples.is_empty()
-    }
-
-    /// Deterministic hash-based PRNG for reservoir replacement decisions.
-    fn fast_rand(seed: u64) -> u64 {
-        let mut z = seed.wrapping_add(0x9e3779b97f4a7c15);
-        z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
-        z ^ (z >> 31)
-    }
-}
+/// The deterministic Algorithm-R reservoir from
+/// [`ndarray::hpc::rolling_floor`]: every element of the stream has equal
+/// probability of being held, and an identical stream yields an identical
+/// reservoir. Used for the empirical thresholds when the distance distribution
+/// is non-normal (bimodal, skewed, heavy-tailed).
+pub use ndarray::hpc::rolling_floor::ReservoirU32 as ReservoirSample;
 
 // ---------------------------------------------------------------------------
 // Cascade — the exposure meter
@@ -266,13 +182,15 @@ impl ReservoirSample {
 
 /// Self-calibrating exposure meter for Hamming distance queries.
 ///
-/// Dual-mode thresholds:
-/// - **Parametric** (σ-based): fast, assumes normal distribution.
-/// - **Empirical** (quantile-based): distribution-free, from reservoir sample.
+/// Every band and cascade cut is a point on the integer σ-lattice (`k`
+/// quarter-σ below the noise floor), derived on demand from the rolling
+/// floor's current coordinates — nothing is cached:
+/// - **Gaussian shape**: `μ − k·σ/4`.
+/// - **Empirical shape**: the sample value at `k`'s Gaussian-equivalent tail
+///   rank, moved into the current frame.
 ///
-/// Auto-switches to empirical when the reservoir detects non-normality
-/// (skewness or kurtosis outside normal range). The hot-path (`band()`,
-/// cascade lookup) is always integer comparison — no float.
+/// The shape switches to empirical when the reservoir detects non-normality
+/// (skewness or kurtosis outside normal range). Everything is integer.
 ///
 /// # Usage
 ///
@@ -286,14 +204,10 @@ impl ReservoirSample {
 /// }
 /// ```
 pub struct Cascade {
-    // -- Parametric (σ-based, fast) --
-    /// Calibrated mean pairwise Hamming distance.
-    mu: u32,
-    /// Calibrated standard deviation.
-    sigma: u32,
-    /// Precomputed band thresholds: [μ-3σ, μ-2σ, μ-σ, μ].
-    bands: [u32; 4],
-    /// Cascade thresholds at quarter-sigma intervals.
+    /// The rolling floor: exact running moments, reservoir, shape belief
+    /// and the drift anchor. Thresholds are derived from it per call.
+    floor: RollingFloor,
+    /// Which cascade[] index stage 1 uses. Default: 0 (μ-1σ).
     ///
     /// ```text
     /// cascade[0] = μ − 1.00σ   (stage 1 default — 1/16 Stichprobe)
@@ -305,87 +219,19 @@ pub struct Cascade {
     /// cascade[6] = μ − 2.75σ
     /// cascade[7] = μ − 3.00σ
     /// ```
-    cascade: [u32; 8],
-    /// Which cascade[] index stage 1 uses. Default: 0 (μ-1σ).
     stage1_level: usize,
     /// Which cascade[] index stage 2 uses. Default: 3 (μ-2σ).
     stage2_level: usize,
-
-    // -- Non-parametric (empirical, any distribution) --
-    /// Reservoir sample of recent distances for quantile estimation.
-    reservoir: ReservoirSample,
-    /// Band thresholds from empirical quantiles: [0.1%, 2.3%, 15.9%, 50%].
-    empirical_bands: [u32; 4],
-    /// Cascade thresholds from empirical quantiles at σ-equivalent percentiles.
-    empirical_cascade: [u32; 8],
-    /// Whether to use empirical (true) or σ-based (false) thresholds.
-    use_empirical: bool,
-
-    // -- Distribution shape diagnostics --
-    /// Pearson's second skewness, integer-scaled. 0 = symmetric.
-    skewness: i32,
-    /// Excess kurtosis ×100. 300 = normal. >300 heavy-tailed.
-    kurtosis: u32,
-
-    // -- Welford's online statistics for shift detection --
-    running_count: u64,
-    running_sum: u64,
-    running_m2: u64,
 }
 
 impl Cascade {
-    /// Compute cascade thresholds at quarter-sigma intervals.
-    ///
-    /// ```text
-    /// [μ-1σ, μ-1.5σ, μ-1.75σ, μ-2σ, μ-2.25σ, μ-2.5σ, μ-2.75σ, μ-3σ]
-    /// ```
-    ///
-    /// Integer arithmetic: kσ = k*σ/4 with k in quarter-sigma units.
-    fn compute_cascade(mu: u32, sigma: u32) -> [u32; 8] {
-        [
-            mu.saturating_sub(4 * sigma / 4),  // 1.00σ
-            mu.saturating_sub(6 * sigma / 4),  // 1.50σ
-            mu.saturating_sub(7 * sigma / 4),  // 1.75σ
-            mu.saturating_sub(8 * sigma / 4),  // 2.00σ
-            mu.saturating_sub(9 * sigma / 4),  // 2.25σ
-            mu.saturating_sub(10 * sigma / 4), // 2.50σ
-            mu.saturating_sub(11 * sigma / 4), // 2.75σ
-            mu.saturating_sub(12 * sigma / 4), // 3.00σ
-        ]
+    fn with_floor(floor: RollingFloor) -> Self {
+        Self {
+            floor,
+            stage1_level: 0, // μ-1σ
+            stage2_level: 3, // μ-2σ
+        }
     }
-
-    /// Compute empirical cascade thresholds from reservoir quantiles.
-    ///
-    /// Maps σ-level rejection rates to percentile ranks:
-    /// 1σ → 84.13% rejection → 15.87th percentile, etc.
-    fn compute_empirical_cascade(reservoir: &ReservoirSample) -> [u32; 8] {
-        [
-            reservoir.quantile(0.1587), // 1.00σ → 84.13% above
-            reservoir.quantile(0.0668), // 1.50σ → 93.32% above
-            reservoir.quantile(0.0401), // 1.75σ → 95.99% above
-            reservoir.quantile(0.0228), // 2.00σ → 97.72% above
-            reservoir.quantile(0.0122), // 2.25σ → 98.78% above
-            reservoir.quantile(0.0062), // 2.50σ → 99.38% above
-            reservoir.quantile(0.0030), // 2.75σ → 99.70% above
-            reservoir.quantile(0.0013), // 3.00σ → 99.87% above
-        ]
-    }
-
-    /// Compute empirical band thresholds from reservoir quantiles.
-    ///
-    /// Maps to same percentiles as σ-based bands:
-    /// [0.13% (3σ), 2.28% (2σ), 15.87% (1σ), 50% (median)].
-    fn compute_empirical_bands(reservoir: &ReservoirSample) -> [u32; 4] {
-        [
-            reservoir.quantile(0.001), // Foveal: bottom 0.1% (≈ 3σ)
-            reservoir.quantile(0.023), // Near:   bottom 2.3% (≈ 2σ)
-            reservoir.quantile(0.159), // Good:   bottom 15.9% (≈ 1σ)
-            reservoir.quantile(0.500), // Weak:   below median
-        ]
-    }
-
-    /// Default reservoir capacity.
-    const RESERVOIR_CAP: usize = 1000;
 
     /// Create from theoretical parameters for a given bit width.
     ///
@@ -393,32 +239,7 @@ impl Cascade {
     /// Cascade thresholds use theoretical σ — call `calibrate` after
     /// warmup for confidence-backed thresholds.
     pub fn for_width(total_bits: u32) -> Self {
-        let mu = total_bits / 2;
-        let sigma = isqrt(total_bits / 4).max(1);
-        let bands = [
-            mu.saturating_sub(3 * sigma),
-            mu.saturating_sub(2 * sigma),
-            mu.saturating_sub(sigma),
-            mu,
-        ];
-        let cascade = Self::compute_cascade(mu, sigma);
-        Self {
-            mu,
-            sigma,
-            bands,
-            cascade,
-            stage1_level: 0, // μ-1σ
-            stage2_level: 3, // μ-2σ
-            reservoir: ReservoirSample::new(Self::RESERVOIR_CAP),
-            empirical_bands: bands,
-            empirical_cascade: cascade,
-            use_empirical: false,
-            skewness: 0,
-            kurtosis: 300,
-            running_count: 0,
-            running_sum: 0,
-            running_m2: 0,
-        }
+        Self::with_floor(RollingFloor::for_width(total_bits))
     }
 
     /// Calibrate from a sample of actual pairwise distances (warmup).
@@ -427,67 +248,16 @@ impl Cascade {
     /// This is the warmup — after this, cascade thresholds have real
     /// confidence because σ comes from observed data, not theory.
     pub fn calibrate(sample_distances: &[u32]) -> Self {
-        let n = sample_distances.len() as u64;
-        assert!(n > 1, "need at least 2 samples to calibrate");
-
-        let sum: u64 = sample_distances.iter().map(|&d| d as u64).sum();
-        let mu = (sum / n) as u32;
-
-        let var_sum: u64 = sample_distances
-            .iter()
-            .map(|&d| {
-                let diff = d as i64 - mu as i64;
-                (diff * diff) as u64
-            })
-            .sum();
-        let sigma = isqrt((var_sum / n) as u32).max(1);
-
-        let bands = [
-            mu.saturating_sub(3 * sigma),
-            mu.saturating_sub(2 * sigma),
-            mu.saturating_sub(sigma),
-            mu,
-        ];
-        let cascade = Self::compute_cascade(mu, sigma);
-
-        // Seed the reservoir with the calibration sample.
-        let mut reservoir = ReservoirSample::new(Self::RESERVOIR_CAP);
-        for &d in sample_distances {
-            reservoir.observe(d);
-        }
-        let empirical_bands = Self::compute_empirical_bands(&reservoir);
-        let empirical_cascade = Self::compute_empirical_cascade(&reservoir);
-
-        Self {
-            mu,
-            sigma,
-            bands,
-            cascade,
-            stage1_level: 0, // μ-1σ
-            stage2_level: 3, // μ-2σ
-            reservoir,
-            empirical_bands,
-            empirical_cascade,
-            use_empirical: false,
-            skewness: 0,
-            kurtosis: 300,
-            running_count: n,
-            running_sum: sum,
-            running_m2: var_sum,
-        }
+        Self::with_floor(RollingFloor::calibrate(sample_distances))
     }
 
     /// Classify a Hamming distance into a sigma band.
     ///
-    /// Uses empirical quantile thresholds when the distribution is non-normal,
-    /// σ-based thresholds otherwise. Pure integer comparison. Constant time.
+    /// Cuts at 3σ, 2σ, 1σ and μ on the σ-lattice, located by the current
+    /// shape. Pure integer. Constant time.
     #[inline]
     pub fn band(&self, distance: u32) -> Band {
-        let b = if self.use_empirical {
-            &self.empirical_bands
-        } else {
-            &self.bands
-        };
+        let b = self.floor.thresholds(&BAND_LEVELS);
         if distance < b[0] {
             Band::Foveal
         } else if distance < b[1] {
@@ -518,58 +288,57 @@ impl Cascade {
         self.band(distance) <= Band::Good
     }
 
-    /// Current calibrated mean.
+    /// Calibrated mean (the drift anchor; thresholds use the running mean).
     pub fn mu(&self) -> u32 {
-        self.mu
+        self.floor.mu()
     }
 
-    /// Current calibrated sigma.
+    /// Calibrated sigma (the drift anchor; thresholds use the running σ).
     pub fn sigma(&self) -> u32 {
-        self.sigma
+        self.floor.sigma()
     }
 
-    /// Current band thresholds: [μ-3σ, μ-2σ, μ-σ, μ].
+    /// Current band thresholds: the 3σ, 2σ, 1σ and μ lattice points.
     pub fn thresholds(&self) -> [u32; 4] {
-        if self.use_empirical {
-            self.empirical_bands
-        } else {
-            self.bands
-        }
+        self.floor.thresholds(&BAND_LEVELS)
     }
 
-    /// Cascade thresholds at quarter-sigma intervals (or empirical equivalents).
+    /// Current cascade thresholds: the 1σ … 3σ lattice points.
     pub fn cascade_thresholds(&self) -> [u32; 8] {
-        if self.use_empirical {
-            self.empirical_cascade
-        } else {
-            self.cascade
-        }
+        self.floor.thresholds(&CASCADE_LEVELS)
     }
 
     /// Whether empirical (quantile-based) thresholds are active.
     pub fn is_empirical(&self) -> bool {
-        self.use_empirical
+        self.floor.is_empirical()
     }
 
     /// Distribution skewness diagnostic. 0 = symmetric.
     pub fn skewness(&self) -> i32 {
-        self.skewness
+        self.floor.skewness()
     }
 
     /// Distribution kurtosis diagnostic ×100. 300 = normal.
     pub fn kurtosis(&self) -> u32 {
-        self.kurtosis
+        self.floor.kurtosis()
     }
 
-    /// Compute cascade threshold at an arbitrary quarter-sigma level.
+    /// The underlying rolling floor.
+    pub fn floor(&self) -> &RollingFloor {
+        &self.floor
+    }
+
+    /// Threshold at an arbitrary σ-lattice point.
     ///
     /// `quarter_sigmas`: number of quarter-sigmas below μ.
     /// E.g., 4 = 1σ, 6 = 1.5σ, 7 = 1.75σ, 9 = 2.25σ, 11 = 2.75σ.
     ///
-    /// Integer arithmetic: μ − (quarter_sigmas × σ / 4).
+    /// Located by the current shape in the current coordinates; Gaussian is
+    /// `μ − quarter_sigmas·σ/4`.
     #[inline]
     pub fn cascade_at(&self, quarter_sigmas: u32) -> u32 {
-        self.mu.saturating_sub(quarter_sigmas * self.sigma / 4)
+        self.floor
+            .threshold(SigmaLevel(u8::try_from(quarter_sigmas).unwrap_or(u8::MAX)))
     }
 
     /// Set which cascade[] index stage 1 uses (0..8).
@@ -587,14 +356,10 @@ impl Cascade {
         self.stage2_level = level;
     }
 
-    /// Active cascade thresholds (σ-based or empirical depending on mode).
+    /// Cascade thresholds, derived once per query.
     #[inline]
-    fn active_cascade(&self) -> &[u32; 8] {
-        if self.use_empirical {
-            &self.empirical_cascade
-        } else {
-            &self.cascade
-        }
+    fn active_cascade(&self) -> [u32; 8] {
+        self.cascade_thresholds()
     }
 
     // -- Cascade query --
@@ -604,7 +369,7 @@ impl Cascade {
     /// Returns up to `top_k` results bucketed by band (Foveal first),
     /// sorted by `u32` distance within each bucket. No float anywhere.
     ///
-    /// Automatically uses empirical thresholds when `use_empirical` is set.
+    /// Thresholds follow the current shape (Gaussian or empirical).
     pub fn query(&self, query: &[u64], candidates: &[&[u64]], top_k: usize) -> Vec<RankedHit> {
         let nwords = query.len();
         let do_stage1 = nwords >= 16;
@@ -686,107 +451,38 @@ impl Cascade {
         results
     }
 
-    // -- Shift detection (Welford's online) --
+    // -- Shift detection --
 
-    /// Feed an observed distance into the running statistics.
+    /// Feed an observed distance into the rolling floor.
     ///
-    /// Updates Welford's online accumulator AND the reservoir sample.
-    /// Every 1000 observations, checks for distribution shift and
-    /// evaluates distribution shape (skewness/kurtosis).
+    /// Updates the exact running moments AND the reservoir sample. Every
+    /// 1000 observations (after the first 1000), evaluates distribution
+    /// shape (skewness/kurtosis), selects σ-based or empirical thresholds,
+    /// and checks for drift.
     ///
-    /// Returns `Some(ShiftAlert)` if the distribution has drifted
-    /// by more than σ/2 from the calibrated values.
+    /// Returns `Some(ShiftAlert)` if the running mean moved by more than
+    /// σ/2, or the running σ by more than σ/4, from the calibrated values.
     pub fn observe(&mut self, distance: u32) -> Option<ShiftAlert> {
-        let d = distance as u64;
-        self.running_count += 1;
-        self.running_sum += d;
+        self.floor.observe(distance)
+    }
 
-        // Welford's M2 update: delta before/after mean update.
-        let old_mean = if self.running_count > 1 {
-            (self.running_sum - d) / (self.running_count - 1)
-        } else {
-            d
-        };
-        let new_mean = self.running_sum / self.running_count;
-        let delta_old = d as i64 - old_mean as i64;
-        let delta_new = d as i64 - new_mean as i64;
-        self.running_m2 = self.running_m2.wrapping_add((delta_old * delta_new) as u64);
-
-        // Feed reservoir sample.
-        self.reservoir.observe(distance);
-
-        // Check every 1000 observations.
-        if self.running_count.is_multiple_of(1000) && self.running_count > 1000 {
-            let running_mu = new_mean as u32;
-            let running_var = (self.running_m2 / self.running_count) as u32;
-            let running_sigma = isqrt(running_var).max(1);
-
-            // Update distribution shape diagnostics.
-            if self.reservoir.len() >= 100 {
-                self.skewness = self.reservoir.skewness(running_mu, running_sigma);
-                self.kurtosis = self.reservoir.kurtosis(running_mu, running_sigma);
-
-                // Auto-switch: if distribution is non-normal, use empirical thresholds.
-                let is_normal =
-                    self.skewness.abs() < 2 && self.kurtosis > 200 && self.kurtosis < 500;
-
-                if !is_normal {
-                    self.empirical_bands = Self::compute_empirical_bands(&self.reservoir);
-                    self.empirical_cascade = Self::compute_empirical_cascade(&self.reservoir);
-                    self.use_empirical = true;
-                } else {
-                    self.use_empirical = false;
-                }
-            }
-
-            // Shift detection.
-            let mu_drift = running_mu.abs_diff(self.mu);
-            let sigma_drift = running_sigma.abs_diff(self.sigma);
-
-            if mu_drift > self.sigma / 2 || sigma_drift > self.sigma / 4 {
-                return Some(ShiftAlert {
-                    old_mu: self.mu,
-                    new_mu: running_mu,
-                    old_sigma: self.sigma,
-                    new_sigma: running_sigma,
-                    observations: self.running_count,
-                });
-            }
-        }
-
-        None
+    /// Feed a batch of distances, stopping right after the first checkpoint
+    /// that raises a shift. Returns how many were consumed and the shift.
+    /// Recalibrating and feeding the rest reproduces the one-at-a-time loop
+    /// exactly, for any batching.
+    pub fn observe_batch(&mut self, distances: &[u32]) -> (usize, Option<ShiftAlert>) {
+        self.floor.observe_batch(distances)
     }
 
     /// Recalibrate thresholds from a shift alert.
     ///
-    /// Resets everything: Welford counters, reservoir, empirical mode.
+    /// Resets everything: running moments, reservoir, empirical mode.
     /// σ will converge to the **new** distribution's true σ without
     /// contamination from old data.
     ///
     /// Stage level selections (stage1_level, stage2_level) are preserved.
     pub fn recalibrate(&mut self, alert: &ShiftAlert) {
-        self.mu = alert.new_mu;
-        self.sigma = alert.new_sigma.max(1);
-        self.bands = [
-            self.mu.saturating_sub(3 * self.sigma),
-            self.mu.saturating_sub(2 * self.sigma),
-            self.mu.saturating_sub(self.sigma),
-            self.mu,
-        ];
-        self.cascade = Self::compute_cascade(self.mu, self.sigma);
-
-        // Reset Welford — fresh start from new distribution.
-        self.running_count = 0;
-        self.running_sum = 0;
-        self.running_m2 = 0;
-
-        // Reset reservoir — old samples are from the wrong distribution.
-        self.reservoir = ReservoirSample::new(self.reservoir.capacity);
-        self.empirical_bands = self.bands;
-        self.empirical_cascade = self.cascade;
-        self.use_empirical = false;
-        self.skewness = 0;
-        self.kurtosis = 300;
+        self.floor.recalibrate(alert);
     }
 }
 
@@ -838,32 +534,25 @@ mod tests {
         result.max(0) as u32
     }
 
-    /// Create a Cascade with explicit parametric values (for unit tests).
+    /// Create a Cascade with explicit parametric values (for unit tests):
+    /// 1000 prior observations with mean μ and variance σ², empty reservoir.
     fn meter_with_params(mu: u32, sigma: u32) -> Cascade {
-        let bands = [
-            mu.saturating_sub(3 * sigma),
-            mu.saturating_sub(2 * sigma),
-            mu.saturating_sub(sigma),
-            mu,
-        ];
-        let cascade = Cascade::compute_cascade(mu, sigma);
-        Cascade {
-            mu,
-            sigma,
-            bands,
-            cascade,
-            stage1_level: 0,
-            stage2_level: 3,
-            reservoir: ReservoirSample::new(Cascade::RESERVOIR_CAP),
-            empirical_bands: bands,
-            empirical_cascade: cascade,
-            use_empirical: false,
-            skewness: 0,
-            kurtosis: 300,
-            running_count: 1000,
-            running_sum: mu as u64 * 1000,
-            running_m2: (sigma as u64) * (sigma as u64) * 1000,
-        }
+        let (n, mu128, s128) = (1000u128, u128::from(mu), u128::from(sigma));
+        let moments = ndarray::hpc::statistics::MomentsU32 {
+            n: 1000,
+            sum: mu128 * n,
+            sum_sq: (s128 * s128 + mu128 * mu128) * n,
+        };
+        Cascade::with_floor(RollingFloor::from_params_and_moments(mu, sigma, moments))
+    }
+
+    /// Raw empirical cascade quantiles of a reservoir: the sample value at
+    /// each cascade level's Gaussian-equivalent tail rank.
+    fn empirical_cascade_of(reservoir: &ReservoirSample) -> [u32; 8] {
+        let sorted = reservoir.sorted();
+        CASCADE_LEVELS.map(|l| {
+            ndarray::hpc::rolling_floor::quantile_of_sorted(&sorted, l.gaussian_tail_per_10000())
+        })
     }
 
     // -- Test 1: Calibration from known distances --
@@ -874,31 +563,31 @@ mod tests {
         let meter = Cascade::calibrate(&dists);
 
         assert!(
-            meter.mu > 7800 && meter.mu < 8600,
+            meter.mu() > 7800 && meter.mu() < 8600,
             "Expected μ near 8192, got {}",
-            meter.mu
+            meter.mu()
         );
         assert!(
-            meter.sigma > 20 && meter.sigma < 110,
+            meter.sigma() > 20 && meter.sigma() < 110,
             "Expected σ near 64, got {}",
-            meter.sigma
+            meter.sigma()
         );
-        assert!(meter.bands[0] < meter.bands[1]);
-        assert!(meter.bands[1] < meter.bands[2]);
-        assert!(meter.bands[2] < meter.bands[3]);
+        assert!(meter.thresholds()[0] < meter.thresholds()[1]);
+        assert!(meter.thresholds()[1] < meter.thresholds()[2]);
+        assert!(meter.thresholds()[2] < meter.thresholds()[3]);
 
         // Reservoir should be seeded from calibration data.
         assert!(
-            !meter.reservoir.is_empty(),
+            !meter.floor.reservoir().is_empty(),
             "Reservoir should be seeded from calibration"
         );
 
         println!(
             "Calibrated: μ={}, σ={}, bands={:?}, reservoir={}",
-            meter.mu,
-            meter.sigma,
-            meter.bands,
-            meter.reservoir.len()
+            meter.mu(),
+            meter.sigma(),
+            meter.thresholds(),
+            meter.floor.reservoir().len()
         );
     }
 
@@ -1074,13 +763,14 @@ mod tests {
 
         assert!(alert_fired, "Shift alert must fire when μ changes by >σ/2");
         assert!(
-            meter.mu < 8000,
+            meter.mu() < 8000,
             "After recalibration, μ should reflect new distribution, got {}",
-            meter.mu
+            meter.mu()
         );
         // Welford should be reset after recalibrate.
         assert_eq!(
-            meter.running_count, 0,
+            meter.floor.observations(),
+            0,
             "Welford should be reset after recalibrate"
         );
     }
@@ -1151,7 +841,7 @@ mod tests {
     #[test]
     fn test_cascade_table_structure() {
         let meter = Cascade::for_width(16384);
-        let c = meter.cascade;
+        let c = meter.cascade_thresholds();
 
         assert_eq!(c[0], 8192 - 64); // μ - 1.00σ = 8128
         assert_eq!(c[1], 8192 - 96); // μ - 1.50σ = 8096
@@ -1197,7 +887,7 @@ mod tests {
         assert_eq!(reservoir.len(), 1000);
 
         // Empirical cascade thresholds should be close to theoretical.
-        let cascade = Cascade::compute_empirical_cascade(&reservoir);
+        let cascade = empirical_cascade_of(&reservoir);
         println!("Empirical cascade (from N(8192,64)): {:?}", cascade);
 
         // 1σ threshold should be near 8128 (±25).
@@ -1270,21 +960,21 @@ mod tests {
         println!("=== Phase 1: Warmup ({} samples) ===", dists_2k.len());
         println!(
             "  μ={}, σ={}, reservoir={}",
-            meter.mu,
-            meter.sigma,
-            meter.reservoir.len()
+            meter.mu(),
+            meter.sigma(),
+            meter.floor.reservoir().len()
         );
-        println!("  cascade: {:?}", meter.cascade);
+        println!("  cascade: {:?}", meter.cascade_thresholds());
         println!(
             "  empirical: {:?}",
-            Cascade::compute_empirical_cascade(&meter.reservoir)
+            empirical_cascade_of(meter.floor.reservoir())
         );
-        println!("  use_empirical: {}", meter.use_empirical);
+        println!("  use_empirical: {}", meter.is_empirical());
 
         assert!(
-            meter.sigma > 50 && meter.sigma < 80,
+            meter.sigma() > 50 && meter.sigma() < 80,
             "After 2000 samples, σ should be near 64, got {}",
-            meter.sigma
+            meter.sigma()
         );
 
         // Cascade level sweep.
@@ -1304,7 +994,7 @@ mod tests {
             n_test
         );
         for level in 0..8 {
-            let threshold = meter.cascade[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass: u32 = candidates
                 .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 16) <= threshold)
@@ -1333,32 +1023,32 @@ mod tests {
                 );
                 meter.recalibrate(&alert);
                 shifts += 1;
-                println!("  New cascade: {:?}", meter.cascade);
-                println!("  Welford reset: count={}", meter.running_count);
+                println!("  New cascade: {:?}", meter.cascade_thresholds());
+                println!("  Welford reset: count={}", meter.floor.observations());
             }
         }
 
         assert!(shifts > 0, "Must detect at least one shift");
         assert!(
-            meter.mu < 8000,
+            meter.mu() < 8000,
             "μ should have shifted below 8000, got {}",
-            meter.mu
+            meter.mu()
         );
 
         // After recalibrate: Welford was reset, reservoir was reset.
         println!(
             "\n  After shift: μ={}, σ={}, reservoir={}, empirical={}",
-            meter.mu,
-            meter.sigma,
-            meter.reservoir.len(),
-            meter.use_empirical
+            meter.mu(),
+            meter.sigma(),
+            meter.floor.reservoir().len(),
+            meter.is_empirical()
         );
-        println!("  Cascade: {:?}", meter.cascade);
+        println!("  Cascade: {:?}", meter.cascade_thresholds());
 
         // Re-sweep.
         println!("\n  Post-shift cascade level sweep:");
         for level in 0..8 {
-            let threshold = meter.cascade[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass: u32 = candidates
                 .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 16) <= threshold)
@@ -1406,7 +1096,7 @@ mod tests {
         println!("\n  Full-width Hamming ({} candidates):", n_test);
         let mut max_delta_full = 0.0f64;
         for level in 0..8 {
-            let threshold = meter.cascade[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass = candidates
                 .iter()
                 .filter(|c| words_hamming(&query, c) <= threshold)
@@ -1441,7 +1131,7 @@ mod tests {
 
         println!("\n  1/16 sample:");
         for level in 0..8 {
-            let threshold = meter.cascade[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass = candidates
                 .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 16) <= threshold)
@@ -1463,7 +1153,7 @@ mod tests {
 
         println!("\n  1/4 sample:");
         for level in 0..8 {
-            let threshold = meter.cascade[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass = candidates
                 .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 4) <= threshold)
@@ -1539,26 +1229,26 @@ mod tests {
                         alert.new_mu,
                         alert.old_sigma,
                         alert.new_sigma,
-                        meter.skewness,
-                        meter.kurtosis
+                        meter.skewness(),
+                        meter.kurtosis()
                     );
                     meter.recalibrate(&alert);
                     println!(
                         "    → Recalibrated + reset. reservoir={}, empirical={}",
-                        meter.reservoir.len(),
-                        meter.use_empirical
+                        meter.floor.reservoir().len(),
+                        meter.is_empirical()
                     );
                 }
             }
 
             println!(
                 "\n    State: μ={}, σ={}, empirical={}, reservoir={}, skew={}, kurt={}",
-                meter.mu,
-                meter.sigma,
-                meter.use_empirical,
-                meter.reservoir.len(),
-                meter.skewness,
-                meter.kurtosis
+                meter.mu(),
+                meter.sigma(),
+                meter.is_empirical(),
+                meter.floor.reservoir().len(),
+                meter.skewness(),
+                meter.kurtosis()
             );
 
             // Measure rejection accuracy with test distances from this phase.
@@ -1568,7 +1258,7 @@ mod tests {
                 .map(|_| gen_approx_normal(&mut test_rng, phase.mu, phase.sigma))
                 .collect();
 
-            let active = *meter.active_cascade();
+            let active = meter.active_cascade();
             println!(
                 "\n    Rejection accuracy (active cascade, {} test distances):",
                 n_test_dist
@@ -1599,7 +1289,9 @@ mod tests {
         println!("  Total |Δ|: {:.1}", total_delta);
         println!(
             "  Final state: μ={}, σ={}, empirical={}",
-            meter.mu, meter.sigma, meter.use_empirical
+            meter.mu(),
+            meter.sigma(),
+            meter.is_empirical()
         );
         println!("  Active cascade: {:?}", meter.active_cascade());
 
@@ -1626,7 +1318,9 @@ mod tests {
         }
         println!(
             "After normal phase: empirical={}, skew={}, kurt={}",
-            meter.use_empirical, meter.skewness, meter.kurtosis
+            meter.is_empirical(),
+            meter.skewness(),
+            meter.kurtosis()
         );
 
         // Phase 2: Feed bimodal data — should switch to empirical.
@@ -1641,14 +1335,16 @@ mod tests {
             if let Some(alert) = meter.observe(d) {
                 meter.recalibrate(&alert);
             }
-            if meter.use_empirical {
+            if meter.is_empirical() {
                 switched_to_empirical = true;
             }
         }
 
         println!(
             "After bimodal phase: empirical={}, skew={}, kurt={}",
-            meter.use_empirical, meter.skewness, meter.kurtosis
+            meter.is_empirical(),
+            meter.skewness(),
+            meter.kurtosis()
         );
 
         // The meter should have detected non-normality at some point during
