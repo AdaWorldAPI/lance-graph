@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-156 entries, 2026-08-06 .. 2026-09-23.
+159 entries, 2026-08-06 .. 2026-09-24.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-09-24 | `background-cycle-writer-takes-the-seal-off-the-loop` | D-HWV-1a: one writer task runs `seal_cycle` for queued cycles; loop pays 1.9 µs `try_submit` vs 72.2 ms inline seal at 64k × 512 B; failure poisons and hands every cast back | [2026-09-24-background-cycle-writer-takes-the-seal-off-the-loop.md](2026-09-24-background-cycle-writer-takes-the-seal-off-the-loop.md) |
 | 2026-09-23 | `ternlog-count-any-fold` |  | [2026-09-23-ternlog-count-any-fold.md](2026-09-23-ternlog-count-any-fold.md) |
 | 2026-09-23 | `terminal-elects-materialization-range-plane` |  | [2026-09-23-terminal-elects-materialization-range-plane.md](2026-09-23-terminal-elects-materialization-range-plane.md) |
 | 2026-09-23 | `stable-row-ids-hold-tombstones-exact-seal-still-owns-cohort` | stable row ids ON: no id moved (compaction, both updates, 4 concurrent writers, BTree); tombstones exact; direct commits mint 1 version each and race the contended row — cohort + fold stay with the seal | [2026-09-23-stable-row-ids-hold-tombstones-exact-seal-still-owns-cohort.md](2026-09-23-stable-row-ids-hold-tombstones-exact-seal-still-owns-cohort.md) |
