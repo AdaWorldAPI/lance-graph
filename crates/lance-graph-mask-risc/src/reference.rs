@@ -531,6 +531,10 @@ pub(crate) fn validate(
                     check_lane(planes, fk, LaneKind::U32)?;
                     check_foreign_lane(foreign, key, LaneKind::U32)?;
                 }
+                GroupKey::Pair { hi, lo, .. } => {
+                    check_lane(planes, hi, LaneKind::U32)?;
+                    check_lane(planes, lo, LaneKind::U32)?;
+                }
             }
             match fold {
                 GroupFold::Count => {}
@@ -921,7 +925,7 @@ pub fn reference_execute_into(
                         Some(LaneRef::U32(v)) => &v[..],
                         _ => &[][..],
                     },
-                    GroupKey::Lane(_) => &[][..],
+                    GroupKey::Lane(_) | GroupKey::Pair { .. } => &[][..],
                 };
                 for r in survivors(mask) {
                     let k = match key {
@@ -932,6 +936,21 @@ pub fn reference_execute_into(
                                 continue;
                             }
                             remap[idx] as usize
+                        }
+                        GroupKey::Pair { hi, lo, stride } => {
+                            let lo_v = u32_at(planes, lo, r);
+                            if lo_v >= stride {
+                                continue;
+                            }
+                            // hi and lo are both u32, stride is u32: widen to
+                            // u64 first so the multiply-add cannot overflow,
+                            // matching ndarray::simd's GroupKeyAddr::Pair.
+                            let hi_v = u32_at(planes, hi, r);
+                            let composite = u64::from(hi_v) * u64::from(stride) + u64::from(lo_v);
+                            match usize::try_from(composite) {
+                                Ok(k) => k,
+                                Err(_) => continue,
+                            }
                         }
                     };
                     if k >= o.len() {

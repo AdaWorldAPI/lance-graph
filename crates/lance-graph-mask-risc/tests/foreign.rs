@@ -1223,6 +1223,9 @@ fn sym_sum_agrees_with_full_range_sum_plus_count() {
                     key,
                     val: 2,
                 }),
+                // The loop iterates Lane and Via only: a Pair key has no
+                // full-range group-sum terminal to compare the sym sum against.
+                GroupKey::Pair { .. } => unreachable!("loop yields Lane and Via only"),
             };
             let count = run(Terminal::GroupReduce {
                 mask: S0,
@@ -1336,4 +1339,227 @@ fn group_reduce_refuses_wrong_lanes_and_a_missing_sink() {
             what: "GroupReduce"
         })
     ));
+}
+
+/// FAILS IF: `GroupKey::Pair { hi, lo, stride }` (the fused two-column
+/// `GROUP BY` address, `group = hi[i] * stride + lo[i]`) disagrees with an
+/// EQUIVALENT `GroupKey::Lane` run over a precomputed composite lane, for
+/// any of the four folds, OR either disagrees with the independent
+/// row-at-a-time oracle. Multi-tile (`n` past `64 * TILE_WORDS`) so the
+/// tiled `_pair` kernels are actually exercised, not just their single-tile
+/// remainder.
+#[test]
+fn pair_key_group_reduce_matches_a_precomputed_composite_lane() {
+    const STRIDE: u32 = 3;
+    const HI_RANGE: u32 = 5;
+    const GROUPS: usize = (HI_RANGE * STRIDE) as usize; // 15
+                                                        // 64 * TILE_WORDS (8) = 512; this must exceed it to force multiple tiles.
+    const N: usize = 1000;
+
+    let mut s = 0xF00D_BEEFu64;
+    let hi: Vec<u32> = (0..N)
+        .map(|_| (lcg(&mut s) % u64::from(HI_RANGE)) as u32)
+        .collect();
+    let lo: Vec<u32> = (0..N)
+        .map(|_| (lcg(&mut s) % u64::from(STRIDE)) as u32)
+        .collect();
+    // Precomputed composite lane, independently reproducing the pair
+    // formula so it can stand in for `GroupKey::Lane`.
+    let comp: Vec<u32> = hi.iter().zip(&lo).map(|(&h, &l)| h * STRIDE + l).collect();
+    let value: Vec<i32> = (0..N).map(|_| (lcg(&mut s) % 4000) as i32 - 2000).collect();
+    // A third lane purely to drive the filter predicate below.
+    let flag: Vec<u32> = (0..N).map(|_| (lcg(&mut s) % 3) as u32).collect();
+
+    let lanes = [
+        LaneRef::U32(&hi),    // 0
+        LaneRef::U32(&lo),    // 1
+        LaneRef::U32(&comp),  // 2
+        LaneRef::I32(&value), // 3
+        LaneRef::U32(&flag),  // 4
+    ];
+    let masks: [&[u64]; 0] = [];
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let words = tile_words_for(N);
+    const {
+        assert!(
+            N > 64 * lance_graph_mask_risc::exec::TILE_WORDS,
+            "must span >1 tile"
+        )
+    };
+
+    for fold in [
+        GroupFold::Count,
+        GroupFold::MinI32(3),
+        GroupFold::MaxI32(3),
+        GroupFold::SumSymI32(3),
+    ] {
+        let mk_program = |key: GroupKey| {
+            Program::new(
+                vec![MaskOp::Pred {
+                    pred: Pred::NeU32 { lane: 4, v: 1 },
+                    under: None,
+                    dst: 0,
+                }],
+                Terminal::GroupReduce {
+                    mask: S0,
+                    key,
+                    fold,
+                },
+            )
+        };
+        let run = |key: GroupKey| {
+            let p = mk_program(key);
+            let slots = p.scratch_slots as usize;
+            let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+            let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+            let mut out = vec![7i64; GROUPS];
+            let got = execute_into(
+                &p,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                Out::I64(&mut out),
+            )
+            .expect("runs");
+            (got, out)
+        };
+
+        let (pair_val, pair_out) = run(GroupKey::Pair {
+            hi: 0,
+            lo: 1,
+            stride: STRIDE,
+        });
+        let (lane_val, lane_out) = run(GroupKey::Lane(2));
+        assert_eq!(pair_val, Value::GroupReduced, "{fold:?}");
+        assert_eq!(pair_val, lane_val, "{fold:?}: value");
+        assert_eq!(
+            pair_out, lane_out,
+            "{fold:?}: Pair must match the composite Lane exactly"
+        );
+
+        // Both must also agree with the independent oracle, for the Pair key.
+        let p_pair = mk_program(GroupKey::Pair {
+            hi: 0,
+            lo: 1,
+            stride: STRIDE,
+        });
+        let mut want_out = vec![-7i64; GROUPS];
+        let want =
+            reference_execute_into(&p_pair, &planes, &Foreign::NONE, Out::I64(&mut want_out))
+                .expect("oracle runs");
+        assert_eq!(pair_val, want, "{fold:?}: oracle value");
+        assert_eq!(pair_out, want_out, "{fold:?}: oracle sink");
+    }
+
+    // Anti-vacuity, computed independently of the executor/oracle under
+    // test (straight from the raw fixture lanes): at least 8 of the 15
+    // composite groups must actually be reached by a selected row, or this
+    // test would pass just as well against an implementation that filled
+    // every slot identically.
+    let non_empty = pair_group_non_empty_count(&hi, &lo, &flag, STRIDE, GROUPS);
+    assert!(
+        non_empty >= 8,
+        "need >= 8 non-empty groups, got {non_empty}"
+    );
+}
+
+/// Independent count (NOT the executor or the oracle) of how many of the
+/// `groups` composite slots see at least one row that both clears the
+/// `flag != 1` filter and has an in-range minor key — the anti-vacuity
+/// guard above, computed without depending on the code under test.
+fn pair_group_non_empty_count(
+    hi: &[u32],
+    lo: &[u32],
+    flag: &[u32],
+    stride: u32,
+    groups: usize,
+) -> usize {
+    let mut seen = vec![false; groups];
+    for i in 0..hi.len() {
+        if flag[i] == 1 {
+            continue;
+        }
+        if lo[i] >= stride {
+            continue;
+        }
+        let g = (hi[i] * stride + lo[i]) as usize;
+        if g < groups {
+            seen[g] = true;
+        }
+    }
+    seen.iter().filter(|&&b| b).count()
+}
+
+/// FAILS IF: a row whose minor key equals `stride` (or exceeds it) is
+/// silently counted into the group its bits would alias to, instead of
+/// being dropped — the `GroupKey::Pair` zero-fallback contract
+/// (`lo[i] >= stride` names no group).
+#[test]
+fn pair_key_drops_a_minor_key_at_stride() {
+    const STRIDE: u32 = 3;
+    const GROUPS: usize = 8;
+    // row: hi, lo, and whether its minor key is in-range
+    //   0: (0, 0) -> comp 0, valid
+    //   1: (0, 3) -> lo == stride, DROPPED (would alias comp 3 if not guarded)
+    //   2: (1, 0) -> comp 3, valid -- the genuine occupant of group 3
+    //   3: (1, 1) -> comp 4, valid
+    //   4: (2, 5) -> lo > stride, DROPPED
+    let hi: Vec<u32> = vec![0, 0, 1, 1, 2];
+    let lo: Vec<u32> = vec![0, 3, 0, 1, 5];
+    let n = hi.len();
+    let lanes = [LaneRef::U32(&hi), LaneRef::U32(&lo)];
+    let all_bits = [0b1_1111u64];
+    let masks: [&[u64]; 1] = [&all_bits];
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let p = Program::new(
+        vec![],
+        Terminal::GroupReduce {
+            mask: Operand::Plane(0),
+            key: GroupKey::Pair {
+                hi: 0,
+                lo: 1,
+                stride: STRIDE,
+            },
+            fold: GroupFold::Count,
+        },
+    );
+    let words = tile_words_for(n);
+    let slots = p.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let mut got_out = vec![9i64; GROUPS];
+    let got = execute_into(
+        &p,
+        &planes,
+        &Foreign::NONE,
+        &mut scratch,
+        Out::I64(&mut got_out),
+    )
+    .expect("runs");
+    let mut want_out = vec![-9i64; GROUPS];
+    let want = reference_execute_into(&p, &planes, &Foreign::NONE, Out::I64(&mut want_out))
+        .expect("oracle runs");
+    assert_eq!(got, Value::GroupReduced);
+    assert_eq!(got, want);
+    assert_eq!(got_out, want_out);
+    // Only the genuine (1, 0) row (row 2) lands in group 3; the aliased,
+    // out-of-range row 1 must not also be counted there.
+    assert_eq!(
+        got_out[3], 1,
+        "group (1,0)=3 must count only the genuine row, not the row whose lo==stride"
+    );
+    // Exactly 3 of the 5 rows have an in-range minor key (rows 0, 2, 3).
+    assert_eq!(
+        got_out.iter().sum::<i64>(),
+        3,
+        "rows with lo >= stride must never be counted anywhere"
+    );
 }

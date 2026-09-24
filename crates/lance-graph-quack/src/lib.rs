@@ -768,6 +768,12 @@ pub enum LowerError {
     /// the executor refuses a zero-length sink — so the plan would be
     /// unexecutable. Refused here, where the caller can see why.
     EmptyGroupUniverse,
+    /// `GROUP BY (hi, lo) AVG(val)`: an AVG over a two-column key. There is
+    /// no full-range pair `GROUP SUM` terminal yet — the count half
+    /// ([`GroupAgg::Count`] over [`GroupAddr::Pair`]) would lower, the sum
+    /// half has nowhere to go — so [`lower_group_avg`] refuses rather than
+    /// answer with only half the fraction.
+    GroupAvgPairKey,
 }
 
 impl core::fmt::Display for LowerError {
@@ -787,6 +793,12 @@ impl core::fmt::Display for LowerError {
             }
             LowerError::EmptyGroupUniverse => {
                 write!(f, "a grouped plan needs at least one group (groups == 0)")
+            }
+            LowerError::GroupAvgPairKey => {
+                write!(
+                    f,
+                    "AVG over a two-column (Pair) group key has no SUM terminal yet"
+                )
             }
         }
     }
@@ -919,6 +931,19 @@ pub enum GroupAddr {
         fk: Col,
         /// The group key column on the FOREIGN table.
         key: ForeignLane,
+    },
+    /// `hi[row] * stride + lo[row]` — a two-column `GROUP BY` over a
+    /// composite address, both `hi` and `lo` `u32` columns of this table.
+    /// Fused: no composite key column is ever materialised. Same
+    /// zero-fallback as [`GroupKey::Pair`]: a minor key `lo[row] >= stride`
+    /// names no group and drops the row.
+    Pair {
+        /// The major key column (`u32`).
+        hi: Col,
+        /// The minor key column (`u32`), valid only in `0..stride`.
+        lo: Col,
+        /// The minor key's cardinality: `group = hi * stride + lo`.
+        stride: u32,
     },
 }
 
@@ -1225,6 +1250,7 @@ pub fn lower_group_avg(
     let sum_agg = match key {
         GroupAddr::Local(k) => Agg::GroupSumI32 { key: k, val },
         GroupAddr::Via { fk, key } => Agg::GroupSumViaI32 { fk, key, val },
+        GroupAddr::Pair { .. } => return Err(LowerError::GroupAvgPairKey),
     };
     Ok(GroupAvgPlan {
         sum: lower(&Query {
@@ -2017,6 +2043,11 @@ fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
                 GroupAddr::Via { fk, key } => GroupKey::Via {
                     fk: fk.0,
                     key: key.0,
+                },
+                GroupAddr::Pair { hi, lo, stride } => GroupKey::Pair {
+                    hi: hi.0,
+                    lo: lo.0,
+                    stride,
                 },
             },
             fold: agg.fold(),

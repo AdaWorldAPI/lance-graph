@@ -47,6 +47,9 @@ GROUPED = {
     "having_sparse_count_cc",
     "having_sparse_sum_lt_cc",
     "join_having_count_country",
+    "group2_count_cc_st",
+    "group2_min_cc_st",
+    "group2_max_cc_st_sparse",
 }
 BOOLEAN = {"exists_neg"}
 ROWS = {"rows_proj"}
