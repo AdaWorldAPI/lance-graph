@@ -89,7 +89,23 @@ pub struct RankedHit {
 /// The rolling floor's own shift record from
 /// [`ndarray::hpc::rolling_floor`]; same fields as before.
 pub use ndarray::hpc::rolling_floor::FloorShift as ShiftAlert;
-use ndarray::hpc::rolling_floor::RollingFloor;
+use ndarray::hpc::rolling_floor::{RollingFloor, SigmaLevel};
+
+/// The band cuts on the σ-lattice: 3σ, 2σ, 1σ and μ itself.
+const BAND_LEVELS: [SigmaLevel; 4] = [SigmaLevel(12), SigmaLevel(8), SigmaLevel(4), SigmaLevel(0)];
+
+/// The cascade cuts on the σ-lattice: 1σ, 1.5σ, 1.75σ, 2σ, 2.25σ, 2.5σ,
+/// 2.75σ, 3σ.
+const CASCADE_LEVELS: [SigmaLevel; 8] = [
+    SigmaLevel(4),
+    SigmaLevel(6),
+    SigmaLevel(7),
+    SigmaLevel(8),
+    SigmaLevel(9),
+    SigmaLevel(10),
+    SigmaLevel(11),
+    SigmaLevel(12),
+];
 
 // ---------------------------------------------------------------------------
 // Hamming on &[u64] words — self-contained, no external deps
@@ -166,13 +182,15 @@ pub use ndarray::hpc::rolling_floor::ReservoirU32 as ReservoirSample;
 
 /// Self-calibrating exposure meter for Hamming distance queries.
 ///
-/// Dual-mode thresholds:
-/// - **Parametric** (σ-based): fast, assumes normal distribution.
-/// - **Empirical** (quantile-based): distribution-free, from reservoir sample.
+/// Every band and cascade cut is a point on the integer σ-lattice (`k`
+/// quarter-σ below the noise floor), derived on demand from the rolling
+/// floor's current coordinates — nothing is cached:
+/// - **Gaussian shape**: `μ − k·σ/4`.
+/// - **Empirical shape**: the sample value at `k`'s Gaussian-equivalent tail
+///   rank, moved into the current frame.
 ///
-/// Auto-switches to empirical when the reservoir detects non-normality
-/// (skewness or kurtosis outside normal range). The hot-path (`band()`,
-/// cascade lookup) is always integer comparison — no float.
+/// The shape switches to empirical when the reservoir detects non-normality
+/// (skewness or kurtosis outside normal range). Everything is integer.
 ///
 /// # Usage
 ///
@@ -186,8 +204,8 @@ pub use ndarray::hpc::rolling_floor::ReservoirU32 as ReservoirSample;
 /// }
 /// ```
 pub struct Cascade {
-    /// The rolling floor: calibrated μ/σ, sigma and empirical thresholds,
-    /// exact running moments, reservoir and shape diagnostics.
+    /// The rolling floor: exact running moments, reservoir, shape belief
+    /// and the drift anchor. Thresholds are derived from it per call.
     floor: RollingFloor,
     /// Which cascade[] index stage 1 uses. Default: 0 (μ-1σ).
     ///
@@ -235,11 +253,11 @@ impl Cascade {
 
     /// Classify a Hamming distance into a sigma band.
     ///
-    /// Uses empirical quantile thresholds when the distribution is non-normal,
-    /// σ-based thresholds otherwise. Pure integer comparison. Constant time.
+    /// Cuts at 3σ, 2σ, 1σ and μ on the σ-lattice, located by the current
+    /// shape. Pure integer. Constant time.
     #[inline]
     pub fn band(&self, distance: u32) -> Band {
-        let b = self.floor.active_floors();
+        let b = self.floor.thresholds(&BAND_LEVELS);
         if distance < b[0] {
             Band::Foveal
         } else if distance < b[1] {
@@ -270,24 +288,24 @@ impl Cascade {
         self.band(distance) <= Band::Good
     }
 
-    /// Current calibrated mean.
+    /// Calibrated mean (the drift anchor; thresholds use the running mean).
     pub fn mu(&self) -> u32 {
         self.floor.mu()
     }
 
-    /// Current calibrated sigma.
+    /// Calibrated sigma (the drift anchor; thresholds use the running σ).
     pub fn sigma(&self) -> u32 {
         self.floor.sigma()
     }
 
-    /// Current band thresholds: [μ-3σ, μ-2σ, μ-σ, μ].
+    /// Current band thresholds: the 3σ, 2σ, 1σ and μ lattice points.
     pub fn thresholds(&self) -> [u32; 4] {
-        self.floor.active_floors()
+        self.floor.thresholds(&BAND_LEVELS)
     }
 
-    /// Cascade thresholds at quarter-sigma intervals (or empirical equivalents).
+    /// Current cascade thresholds: the 1σ … 3σ lattice points.
     pub fn cascade_thresholds(&self) -> [u32; 8] {
-        self.floor.active_cascade()
+        self.floor.thresholds(&CASCADE_LEVELS)
     }
 
     /// Whether empirical (quantile-based) thresholds are active.
@@ -310,15 +328,17 @@ impl Cascade {
         &self.floor
     }
 
-    /// Compute cascade threshold at an arbitrary quarter-sigma level.
+    /// Threshold at an arbitrary σ-lattice point.
     ///
     /// `quarter_sigmas`: number of quarter-sigmas below μ.
     /// E.g., 4 = 1σ, 6 = 1.5σ, 7 = 1.75σ, 9 = 2.25σ, 11 = 2.75σ.
     ///
-    /// Integer arithmetic: μ − (quarter_sigmas × σ / 4).
+    /// Located by the current shape in the current coordinates; Gaussian is
+    /// `μ − quarter_sigmas·σ/4`.
     #[inline]
     pub fn cascade_at(&self, quarter_sigmas: u32) -> u32 {
-        self.mu().saturating_sub(quarter_sigmas * self.sigma() / 4)
+        self.floor
+            .threshold(SigmaLevel(u8::try_from(quarter_sigmas).unwrap_or(u8::MAX)))
     }
 
     /// Set which cascade[] index stage 1 uses (0..8).
@@ -336,10 +356,10 @@ impl Cascade {
         self.stage2_level = level;
     }
 
-    /// Active cascade thresholds (σ-based or empirical depending on mode).
+    /// Cascade thresholds, derived once per query.
     #[inline]
     fn active_cascade(&self) -> [u32; 8] {
-        self.floor.active_cascade()
+        self.cascade_thresholds()
     }
 
     // -- Cascade query --
@@ -349,7 +369,7 @@ impl Cascade {
     /// Returns up to `top_k` results bucketed by band (Foveal first),
     /// sorted by `u32` distance within each bucket. No float anywhere.
     ///
-    /// Automatically uses empirical thresholds when `use_empirical` is set.
+    /// Thresholds follow the current shape (Gaussian or empirical).
     pub fn query(&self, query: &[u64], candidates: &[&[u64]], top_k: usize) -> Vec<RankedHit> {
         let nwords = query.len();
         let do_stage1 = nwords >= 16;
@@ -526,12 +546,13 @@ mod tests {
         Cascade::with_floor(RollingFloor::from_params_and_moments(mu, sigma, moments))
     }
 
-    /// Empirical cascade thresholds of a reservoir, as the rolling floor
-    /// computes them.
+    /// Raw empirical cascade quantiles of a reservoir: the sample value at
+    /// each cascade level's Gaussian-equivalent tail rank.
     fn empirical_cascade_of(reservoir: &ReservoirSample) -> [u32; 8] {
         let sorted = reservoir.sorted();
-        RollingFloor::CASCADE_PERCENTILES
-            .map(|p| ndarray::hpc::rolling_floor::quantile_of_sorted(&sorted, p))
+        CASCADE_LEVELS.map(|l| {
+            ndarray::hpc::rolling_floor::quantile_of_sorted(&sorted, l.gaussian_tail_per_10000())
+        })
     }
 
     // -- Test 1: Calibration from known distances --
@@ -551,9 +572,9 @@ mod tests {
             "Expected σ near 64, got {}",
             meter.sigma()
         );
-        assert!(meter.floor.sigma_floors()[0] < meter.floor.sigma_floors()[1]);
-        assert!(meter.floor.sigma_floors()[1] < meter.floor.sigma_floors()[2]);
-        assert!(meter.floor.sigma_floors()[2] < meter.floor.sigma_floors()[3]);
+        assert!(meter.thresholds()[0] < meter.thresholds()[1]);
+        assert!(meter.thresholds()[1] < meter.thresholds()[2]);
+        assert!(meter.thresholds()[2] < meter.thresholds()[3]);
 
         // Reservoir should be seeded from calibration data.
         assert!(
@@ -565,7 +586,7 @@ mod tests {
             "Calibrated: μ={}, σ={}, bands={:?}, reservoir={}",
             meter.mu(),
             meter.sigma(),
-            meter.floor.sigma_floors(),
+            meter.thresholds(),
             meter.floor.reservoir().len()
         );
     }
@@ -820,7 +841,7 @@ mod tests {
     #[test]
     fn test_cascade_table_structure() {
         let meter = Cascade::for_width(16384);
-        let c = meter.floor.sigma_cascade();
+        let c = meter.cascade_thresholds();
 
         assert_eq!(c[0], 8192 - 64); // μ - 1.00σ = 8128
         assert_eq!(c[1], 8192 - 96); // μ - 1.50σ = 8096
@@ -943,7 +964,7 @@ mod tests {
             meter.sigma(),
             meter.floor.reservoir().len()
         );
-        println!("  cascade: {:?}", meter.floor.sigma_cascade());
+        println!("  cascade: {:?}", meter.cascade_thresholds());
         println!(
             "  empirical: {:?}",
             empirical_cascade_of(meter.floor.reservoir())
@@ -973,7 +994,7 @@ mod tests {
             n_test
         );
         for level in 0..8 {
-            let threshold = meter.floor.sigma_cascade()[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass: u32 = candidates
                 .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 16) <= threshold)
@@ -1002,7 +1023,7 @@ mod tests {
                 );
                 meter.recalibrate(&alert);
                 shifts += 1;
-                println!("  New cascade: {:?}", meter.floor.sigma_cascade());
+                println!("  New cascade: {:?}", meter.cascade_thresholds());
                 println!("  Welford reset: count={}", meter.floor.observations());
             }
         }
@@ -1022,12 +1043,12 @@ mod tests {
             meter.floor.reservoir().len(),
             meter.is_empirical()
         );
-        println!("  Cascade: {:?}", meter.floor.sigma_cascade());
+        println!("  Cascade: {:?}", meter.cascade_thresholds());
 
         // Re-sweep.
         println!("\n  Post-shift cascade level sweep:");
         for level in 0..8 {
-            let threshold = meter.floor.sigma_cascade()[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass: u32 = candidates
                 .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 16) <= threshold)
@@ -1075,7 +1096,7 @@ mod tests {
         println!("\n  Full-width Hamming ({} candidates):", n_test);
         let mut max_delta_full = 0.0f64;
         for level in 0..8 {
-            let threshold = meter.floor.sigma_cascade()[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass = candidates
                 .iter()
                 .filter(|c| words_hamming(&query, c) <= threshold)
@@ -1110,7 +1131,7 @@ mod tests {
 
         println!("\n  1/16 sample:");
         for level in 0..8 {
-            let threshold = meter.floor.sigma_cascade()[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass = candidates
                 .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 16) <= threshold)
@@ -1132,7 +1153,7 @@ mod tests {
 
         println!("\n  1/4 sample:");
         for level in 0..8 {
-            let threshold = meter.floor.sigma_cascade()[level];
+            let threshold = meter.cascade_thresholds()[level];
             let pass = candidates
                 .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 4) <= threshold)
