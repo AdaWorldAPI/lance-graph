@@ -150,7 +150,7 @@ tempfile = "3"
 # uuid 1.26 is already in the graph via lance; this makes it nameable, it does
 # not add a crate.
 uuid = "1"
-tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread", "sync"] }
 causal-edge = { path = "../causal-edge" }
 lance-graph-planner = { path = "../lance-graph-planner" }
 # Same 0.13.2 already resolved transitively via lance/lance-io/lancedb — this

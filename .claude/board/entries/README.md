@@ -31,10 +31,12 @@ exactly one of them, never both.
 |---|---|---|---|
 | 2026-09-23 | `ternlog-count-any-fold` |  | [2026-09-23-ternlog-count-any-fold.md](2026-09-23-ternlog-count-any-fold.md) |
 | 2026-09-23 | `terminal-elects-materialization-range-plane` |  | [2026-09-23-terminal-elects-materialization-range-plane.md](2026-09-23-terminal-elects-materialization-range-plane.md) |
+| 2026-09-23 | `stable-row-ids-hold-tombstones-exact-seal-still-owns-cohort` | stable row ids ON: no id moved (compaction, both updates, 4 concurrent writers, BTree); tombstones exact; direct commits mint 1 version each and race the contended row — cohort + fold stay with the seal | [2026-09-23-stable-row-ids-hold-tombstones-exact-seal-still-owns-cohort.md](2026-09-23-stable-row-ids-hold-tombstones-exact-seal-still-owns-cohort.md) |
 | 2026-09-23 | `report-plan-zero-copy-pivot-docir-convergence` | ReportPlan lowers into Quack; pivot = view over shared Arc<CellSpace>; reports become OGAR ObjectSlot sources via grid_of (OGAR #307) | [2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md](2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md) |
 | 2026-09-23 | `quack-w-d-multi-key-group-by` |  | [2026-09-23-quack-w-d-multi-key-group-by.md](2026-09-23-quack-w-d-multi-key-group-by.md) |
 | 2026-09-23 | `quack-having-sym-sum-presence-mask` |  | [2026-09-23-quack-having-sym-sum-presence-mask.md](2026-09-23-quack-having-sym-sum-presence-mask.md) |
 | 2026-09-23 | `program-collapse-boolean-chains` |  | [2026-09-23-program-collapse-boolean-chains.md](2026-09-23-program-collapse-boolean-chains.md) |
+| 2026-09-23 | `freeze-at-64k-is-hash-and-copy-not-order` | freeze@64k×512B: hash 44–61 ms (~55–65 %), clone-fold 13–26 ms, sort 0.4–6 ms; contended rows 0 by construction (row_of(owner)) — hash and copy can leave the thought loop | [2026-09-23-freeze-at-64k-is-hash-and-copy-not-order.md](2026-09-23-freeze-at-64k-is-hash-and-copy-not-order.md) |
 | 2026-09-23 | `cubecl-llvm-boundary-and-audit-regrade` |  | [2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md](2026-09-23-cubecl-llvm-boundary-and-audit-regrade.md) |
 | 2026-09-23 | `collapse-probe-v4-and-dispatch-split` |  | [2026-09-23-collapse-probe-v4-and-dispatch-split.md](2026-09-23-collapse-probe-v4-and-dispatch-split.md) |
 | 2026-09-23 | `absolute-execution-extent` |  | [2026-09-23-absolute-execution-extent.md](2026-09-23-absolute-execution-extent.md) |
