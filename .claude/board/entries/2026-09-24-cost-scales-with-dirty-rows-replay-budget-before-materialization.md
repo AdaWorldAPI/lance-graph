@@ -1,7 +1,7 @@
 # 2026-09-24 — cycle cost scales with dirty rows; the replay budget before a materialization
 
-**Status:** MEASURED (dirty-row sweep) · WORKING-MODEL (replay budget; per-fold cost UNMEASURED) · OPEN (see below)
-**D-ids:** none new — evidence for D-HWV-1 / D-HWV-1a and the seal audits of 2026-09-23/24.
+**Status:** MEASURED (dirty-row sweep; commit floor) · MEASURED elsewhere (fold cost, #1245 / #1250) · OPEN (see below)
+**D-ids:** none new — supplies the measured `C_materialize` term for D-WFL-ECON; evidence for D-HWV-1 / D-HWV-1a.
 
 ## The invariant (DECISION, operator 2026-09-24)
 
@@ -32,24 +32,27 @@ Clone, fold and hash run only over submitted casts. Above a fixed floor of ~1.7 
 one manifest per non-empty cycle, cost scales with dirty rows. An all-NOOP cycle is free:
 `NoChange`, no sink call, no version.
 
-## Working model — the replay budget (operator, 2026-09-24)
+## The replay budget (operator, 2026-09-24) — D-WFL-ECON with both terms measured
 
-If replay is deterministic and one fold costs ~1.7 ns, then ~1,000,000 folds cost ~1.7 ms — the
-same as the measured per-commit floor. So up to ~1M folds can be replayed from history for the
-price of one materialization; materializing more often than that buys nothing.
+D-WFL-ECON already rules: *if thinking again is cheaper than remembering the answer, think
+again* (`C_retain` vs `C_replay = ΣC_fold + …`). This entry supplies the materialization side.
 
-- The ~1.7 ms commit floor is MEASURED (table above).
-- The ~1.7 ns per fold is NOT measured. The only per-row fold figure on record is freeze at 64k,
-  ~1.1–1.6 µs/row, and that includes the payload clone, the sort and a byte-wise FNV hash over
-  512 B — not a pure fold. A pure fold (e.g. per-row max over stream coordinates, or an alpha
-  stamp update) must be measured before this budget is used for a decision.
-- "Deterministic replay" rests on the repo's regeneration doctrine (`cycle_driver.rs:180-196`)
-  and coordinate-ordered recovery (`persist_sink.rs:656-664`); neither is a measurement of
-  replay cost.
+- **One fold ≈ 1.7 ns** — MEASURED in #1245 (six-tier axis chain); #1250 measured 1.7–4.2 ns
+  for a whole-facet cell (`waben-fold-execution-loop-v1.md:416-424`).
+- **One materialization ≈ 1.7 ms** — MEASURED here: the fixed floor of a non-empty cycle commit
+  (table above).
+- **So one materialization buys ≈ 1,000,000 folds** (1.7 ms / 1.7 ns), or ≈ 400,000 at the
+  whole-facet 4.2 ns. With deterministic replay, up to that many folds can be replayed from
+  history before a materialization pays for itself — and every dirty row adds to the
+  materialization side (≈ 4–9 µs per dirty row above the floor, from the 1k/64k rows).
+
+Deterministic replay rests on the regeneration doctrine (`cycle_driver.rs:180-196`) and
+coordinate-ordered recovery (`persist_sink.rs:656-664`).
 
 ## OPEN
 
-- Measure a pure fold per row at 64k (no clone, no hash) to confirm or correct ~1.7 ns.
+- Which fold a cycle replays (axis chain vs whole-facet cell vs an alpha-stamp update) decides
+  whether the budget is ~1M or ~400k; D-WFL-ECON's W6 owns that measurement.
 - The per-commit floor grows with history, not population: one fragment per non-empty cycle;
   whether the manifest still carries the full fragment list (E2 recorded this for lance 9) is
   unverified for lance 11/12.
