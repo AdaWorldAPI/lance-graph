@@ -52,6 +52,12 @@ pub mod lifecycle_audit;
 #[cfg(feature = "cycle-driver")]
 pub mod cycle_driver;
 
+/// The background cycle writer: one task owns the WAL sink and seals submitted
+/// cycles in order, so sorting, copying, hashing and the Lance commit run off
+/// the thought loop. Same `cycle-driver` feature.
+#[cfg(feature = "cycle-driver")]
+pub mod cycle_writer;
+
 pub use consumer_msg::{
     CalibrateRequest, CalibrateResponse, ConsumerEnvelope, ConsumerReply, CrystalResponse,
     DispatchRequest, HealthStatus, IngestAck, IngestRequest, ProbeRequest, ProbeResponse,
