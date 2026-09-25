@@ -246,6 +246,23 @@ pub enum Cmp {
         /// Which bits participate; zero means "don't care".
         care: u64,
     },
+    /// `u32_le(field_i) == v` over a strided field view — the classid of a
+    /// `NodeRow` read where it sits, no extracted column
+    /// (`Pred::EqU32Strided`). The `Col` must name a `LaneRef::Strided` lane.
+    EqU32Strided(u32),
+    /// `u32_le(field_i) != v` over a strided field view (`Pred::NeU32Strided`).
+    NeU32Strided(u32),
+    /// `((field_i[k] ^ pattern[k]) & care[k]) == 0` for every `k < 12` over a
+    /// strided view of the 12 facet tier bytes, in their stored order
+    /// (`[t0.lo, t0.hi, …, t5.lo, t5.hi]`), in place
+    /// (`Pred::MatchFacetStrided`). The `Col` must name a `LaneRef::Strided`
+    /// lane.
+    MatchFacetStrided {
+        /// The byte values to compare.
+        pattern: [u8; 12],
+        /// Which bits of each byte participate; zero means "don't care".
+        care: [u8; 12],
+    },
     /// `lo <= row < hi` — a predicate on the ROW ORDINAL, reading no lane
     /// (`Pred::Range`, `mask_set_range`). The `Col` it is attached to is the
     /// ORDERED lane the range was bound on, kept for provenance so the leaf
@@ -771,6 +788,68 @@ impl Filter {
                 (true, true) => Filter::And(vec![leg(hi_col, p_hi, c_hi), leg(lo_col, p_lo, c_lo)]),
             }
         };
+        Self::aperture_with(witnessed, lane_col, aperture, sweep)
+    }
+
+    /// [`Filter::aperture_facet`] with the sweep read IN PLACE from the stored
+    /// facet bytes, so a caller that holds only `NodeRow` bytes (or any record
+    /// carrying a facet at a fixed offset) never extracts the semantic planes.
+    ///
+    /// `classid_col` must name a `LaneRef::Strided` view at the facet's first
+    /// byte (the little-endian `facet_classid`), and `tiers_col` one four bytes
+    /// later (the 12 tier bytes, `[t0.lo, t0.hi, …]`). Two views over the same
+    /// buffer. The sweep is `EqU32Strided` on the classid plus
+    /// `MatchFacetStrided` on the tiers, each included only when the aperture
+    /// cares about that part.
+    ///
+    /// Returns `None` when the aperture cares about only PART of the classid:
+    /// the strided classid reader is an equality, and there is no strided u32
+    /// ternary match to express the rest. Such an aperture lowers through
+    /// [`Filter::aperture_facet`] instead. The bound path and its report are
+    /// the same as there.
+    #[must_use]
+    pub fn aperture_facet_strided(
+        witnessed: Option<(&SealedFacetLane, &OrderedLaneWitness)>,
+        lane_col: Col,
+        classid_col: Col,
+        tiers_col: Col,
+        aperture: &SemanticAperture,
+    ) -> Option<(Self, ApertureLowering)> {
+        let p = aperture.pattern().to_bytes();
+        let c = aperture.care().to_bytes();
+        let class_care = u32::from_le_bytes([c[0], c[1], c[2], c[3]]);
+        let class_leg = match class_care {
+            0 => None,
+            u32::MAX => Some(Filter::Cmp(
+                classid_col,
+                Cmp::EqU32Strided(u32::from_le_bytes([p[0], p[1], p[2], p[3]])),
+            )),
+            _ => return None,
+        };
+        let mut pattern = [0u8; 12];
+        let mut care = [0u8; 12];
+        pattern.copy_from_slice(&p[4..16]);
+        care.copy_from_slice(&c[4..16]);
+        let tier_leg = Filter::Cmp(tiers_col, Cmp::MatchFacetStrided { pattern, care });
+        let sweep = || match (&class_leg, care.iter().any(|&b| b != 0)) {
+            (Some(cl), true) => Filter::And(vec![cl.clone(), tier_leg.clone()]),
+            (Some(cl), false) => cl.clone(),
+            // An empty care matches every row: the tier match with no cared
+            // byte is that predicate.
+            (None, _) => tier_leg.clone(),
+        };
+        Some(Self::aperture_with(witnessed, lane_col, aperture, sweep))
+    }
+
+    /// The bound-or-sweep decision shared by the aperture lowerings: a prefix
+    /// aperture under a validated witness becomes one `Cmp::Range`; anything
+    /// else takes `sweep()`, and the report says why.
+    fn aperture_with(
+        witnessed: Option<(&SealedFacetLane, &OrderedLaneWitness)>,
+        lane_col: Col,
+        aperture: &SemanticAperture,
+        sweep: impl Fn() -> Filter,
+    ) -> (Self, ApertureLowering) {
         if aperture.prefix_bits().is_none() {
             return (sweep(), ApertureLowering::SweepNotAPrefix);
         }
@@ -2164,6 +2243,13 @@ fn pred_of(col: Col, cmp: Cmp) -> Pred {
             pattern,
             care,
         },
+        Cmp::EqU32Strided(v) => Pred::EqU32Strided { lane, v },
+        Cmp::NeU32Strided(v) => Pred::NeU32Strided { lane, v },
+        Cmp::MatchFacetStrided { pattern, care } => Pred::MatchFacetStrided {
+            lane,
+            pattern,
+            care,
+        },
         // Reads no lane: `lane` is provenance only (see `Cmp::Range`).
         Cmp::Range { lo, hi } => Pred::Range { lo, hi },
     }
@@ -2484,6 +2570,9 @@ mod tests {
                         (self.u64_at(*col, row) ^ pattern) & care == 0
                     }
                     Cmp::Range { lo, hi } => (lo as usize) <= row && row < (hi as usize),
+                    Cmp::EqU32Strided(_) | Cmp::NeU32Strided(_) | Cmp::MatchFacetStrided { .. } => {
+                        panic!("this fixture has no strided lane (see strided_leaf_tests)")
+                    }
                 },
                 Filter::Plane(m) => self.bit(*m, row),
                 Filter::EqU32Via { fk, key, v } => {
@@ -4387,5 +4476,284 @@ mod diamond_lowering_tests {
             assert_eq!(fa, fp, "depth {depth}");
             assert_eq!(ha, ApertureLowering::Prefix(hp), "depth {depth}");
         }
+    }
+}
+
+/// The strided leaves (`EqU32Strided`, `NeU32Strided`, `MatchFacetStrided`)
+/// and the in-place aperture sweep, over facets stored inside wider records.
+#[cfg(test)]
+mod strided_leaf_tests {
+    use super::*;
+    use lance_graph_contract::facet::FacetCascade;
+    use lance_graph_mask_risc::{
+        execute_into, materialize_rows, words_for, Foreign, LaneRef, Out, Planes, Scratch,
+        StridedRef, Value,
+    };
+
+    const RANGE_COL: Col = Col(0); // provenance only
+    const HI: Col = Col(0);
+    const LO: Col = Col(1);
+    const CLASSID: Col = Col(2);
+    const TIERS: Col = Col(3);
+    const AT: usize = 8; // the facet's offset inside each record
+
+    struct Rng(u64);
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        }
+    }
+
+    /// Small alphabets at the coarse tiles, so apertures at every depth cut
+    /// the population into non-trivial parts, and several classids.
+    fn skewed(n: usize, seed: u64) -> Vec<FacetCascade> {
+        let mut r = Rng(seed);
+        (0..n)
+            .map(|_| {
+                let t = [
+                    (r.next() % 3) as u16,
+                    (r.next() % 2) as u16,
+                    (r.next() % 4) as u16,
+                    (r.next() % 3) as u16,
+                    (r.next() % 300) as u16,
+                    (r.next() % 3) as u16,
+                    (r.next() % 7) as u16,
+                    (r.next() % 2) as u16,
+                ];
+                FacetCascade::from_semantic_tiles(t)
+            })
+            .collect()
+    }
+
+    /// Records of `stride` bytes, each carrying its facet at `AT` and junk
+    /// everywhere else, plus the two semantic planes, all in sealed order.
+    struct Fx {
+        lane: SealedFacetLane,
+        records: Vec<u8>,
+        stride: usize,
+        hi: Vec<u64>,
+        lo: Vec<u64>,
+        alpha: Vec<u64>,
+    }
+
+    impl Fx {
+        fn new(n: usize, seed: u64, stride: usize) -> Self {
+            let lane = SealedFacetLane::seal(skewed(n, seed), 1).expect("seals");
+            let mut r = Rng(seed ^ 0xA5A5);
+            let mut records: Vec<u8> = (0..n * stride).map(|_| r.next() as u8).collect();
+            for (i, k) in lane.keys().iter().enumerate() {
+                records[i * stride + AT..i * stride + AT + 16].copy_from_slice(&k.to_bytes());
+            }
+            let (hi, lo) = lane.keys().iter().map(|k| k.semantic_u64_halves()).unzip();
+            let mut alpha = vec![0u64; words_for(n)];
+            for i in 0..n {
+                alpha[i / 64] |= 1u64 << (i % 64);
+            }
+            Fx {
+                lane,
+                records,
+                stride,
+                hi,
+                lo,
+                alpha,
+            }
+        }
+
+        fn n(&self) -> usize {
+            self.lane.keys().len()
+        }
+
+        fn rows_of(&self, f: &Filter) -> Vec<usize> {
+            let q = Query {
+                filter: Filter::And(vec![Filter::Plane(Mask(0)), f.clone()]),
+                agg: Agg::Rows,
+            };
+            let program = lower(&q).expect("lowers");
+            let view = |off| {
+                LaneRef::Strided(StridedRef {
+                    bytes: &self.records,
+                    first_offset: off,
+                    stride: self.stride,
+                    records: self.n(),
+                })
+            };
+            let lanes = [
+                LaneRef::U64(&self.hi),
+                LaneRef::U64(&self.lo),
+                view(AT),
+                view(AT + 4),
+            ];
+            let masks: Vec<&[u64]> = vec![&self.alpha];
+            let planes = Planes {
+                n_rows: self.n(),
+                masks: &masks,
+                lanes: &lanes,
+            };
+            let mut scratch = Scratch::for_program(&program, self.n()).expect("carves");
+            let mut mask = vec![0u64; words_for(self.n())];
+            match execute_into(
+                &program,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                Out::Mask(&mut mask),
+            )
+            .expect("runs")
+            {
+                Value::Mask(_) => {}
+                other => panic!("not a mask: {other:?}"),
+            }
+            materialize_rows(&mask, self.n())
+        }
+
+        fn oracle(&self, keep: impl Fn(FacetCascade) -> bool) -> Vec<usize> {
+            (0..self.n())
+                .filter(|&i| keep(self.lane.keys()[i]))
+                .collect()
+        }
+    }
+
+    /// Random care over the tiers (whole bytes, empty bytes, and bytes with
+    /// holes) and a classid care that is either empty or full.
+    fn random_aperture(fx: &Fx, r: &mut Rng) -> SemanticAperture {
+        let key = fx.lane.keys()[(r.next() as usize) % fx.n()];
+        let mut care = [0u8; 16];
+        if r.next() % 2 == 0 {
+            care[..4].fill(0xFF);
+        }
+        for b in care[4..].iter_mut() {
+            *b = match r.next() % 4 {
+                0 => 0,
+                1 => 0xFF,
+                _ => r.next() as u8,
+            };
+        }
+        SemanticAperture::new(key, FacetCascade::from_bytes(&care))
+    }
+
+    /// The three leaves select exactly the rows a plain reading of the stored
+    /// bytes selects, at a 40-byte and at the real 512-byte stride.
+    #[test]
+    fn strided_leaves_agree_with_a_plain_reading() {
+        for stride in [40usize, 512] {
+            let fx = Fx::new(1500, 41, stride);
+            let mut r = Rng(42);
+            let mut nontrivial = 0;
+            for _ in 0..60 {
+                let key = fx.lane.keys()[(r.next() as usize) % fx.n()];
+                let class = key.facet_classid;
+                assert_eq!(
+                    fx.rows_of(&Filter::Cmp(CLASSID, Cmp::EqU32Strided(class))),
+                    fx.oracle(|k| k.facet_classid == class),
+                    "eq, stride {stride}"
+                );
+                assert_eq!(
+                    fx.rows_of(&Filter::Cmp(CLASSID, Cmp::NeU32Strided(class))),
+                    fx.oracle(|k| k.facet_classid != class),
+                    "ne, stride {stride}"
+                );
+                let mut care = [0u8; 12];
+                for b in &mut care {
+                    *b = r.next() as u8 & r.next() as u8;
+                }
+                let kb = key.to_bytes();
+                let mut pattern = [0u8; 12];
+                pattern.copy_from_slice(&kb[4..16]);
+                let truth = fx.oracle(|k| {
+                    let b = k.to_bytes();
+                    (0..12).all(|i| (b[4 + i] ^ pattern[i]) & care[i] == 0)
+                });
+                assert_eq!(
+                    fx.rows_of(&Filter::Cmp(
+                        TIERS,
+                        Cmp::MatchFacetStrided { pattern, care }
+                    )),
+                    truth,
+                    "match, stride {stride}"
+                );
+                if !truth.is_empty() && truth.len() < fx.n() {
+                    nontrivial += 1;
+                }
+            }
+            assert!(nontrivial > 20, "anti-vacuity: {nontrivial}");
+        }
+    }
+
+    /// The in-place aperture sweep selects the same rows as the semantic-plane
+    /// sweep and as the aperture itself, for apertures with and without holes.
+    #[test]
+    fn the_in_place_aperture_sweep_equals_the_plane_sweep() {
+        for stride in [40usize, 512] {
+            let fx = Fx::new(1500, 43, stride);
+            let mut r = Rng(44);
+            let (mut holes, mut nontrivial) = (0, 0);
+            for _ in 0..80 {
+                let a = random_aperture(&fx, &mut r);
+                let (strided, how_s) =
+                    Filter::aperture_facet_strided(None, RANGE_COL, CLASSID, TIERS, &a)
+                        .expect("classid care is empty or full");
+                let (planes, how_p) = Filter::aperture_facet(None, RANGE_COL, HI, LO, &a);
+                assert_eq!(how_s, how_p);
+                assert!(!matches!(strided, Filter::Cmp(_, Cmp::Range { .. })));
+                let truth = fx.oracle(|k| a.matches(k));
+                assert_eq!(fx.rows_of(&strided), truth, "strided, stride {stride}");
+                assert_eq!(fx.rows_of(&planes), truth, "planes, stride {stride}");
+                holes += usize::from(how_s == ApertureLowering::SweepNotAPrefix);
+                nontrivial += usize::from(!truth.is_empty() && truth.len() < fx.n());
+            }
+            assert!(holes > 40 && nontrivial > 20, "{holes} {nontrivial}");
+        }
+    }
+
+    /// Under a witness, a prefix aperture still becomes the same `Range`
+    /// whichever sweep the caller would otherwise have taken.
+    #[test]
+    fn a_witnessed_prefix_is_a_range_on_either_sweep() {
+        let fx = Fx::new(1500, 45, 512);
+        let w = fx.lane.witness();
+        let key = fx.lane.keys()[700];
+        for bits in [32u32, 36, 40, 48, 64, 100] {
+            let care: u128 = u128::MAX << (128 - bits);
+            let (h, l) = ((care >> 64) as u64, care as u64);
+            let care = FacetCascade::from_semantic_tiles([
+                (h >> 48) as u16,
+                (h >> 32) as u16,
+                (h >> 16) as u16,
+                h as u16,
+                (l >> 48) as u16,
+                (l >> 32) as u16,
+                (l >> 16) as u16,
+                l as u16,
+            ]);
+            let a = SemanticAperture::new(key, care);
+            let strided =
+                Filter::aperture_facet_strided(Some((&fx.lane, &w)), RANGE_COL, CLASSID, TIERS, &a)
+                    .expect("classid care is full");
+            let planes = Filter::aperture_facet(Some((&fx.lane, &w)), RANGE_COL, HI, LO, &a);
+            assert_eq!(strided, planes, "bits {bits}");
+            assert!(matches!(strided.0, Filter::Cmp(_, Cmp::Range { .. })));
+            assert_eq!(fx.rows_of(&strided.0), fx.oracle(|k| a.matches(k)));
+        }
+    }
+
+    /// Caring about part of the classid has no strided spelling: refused, and
+    /// the plane lowering still answers it.
+    #[test]
+    fn a_partial_classid_care_is_refused_in_place() {
+        let fx = Fx::new(800, 46, 40);
+        let key = fx.lane.keys()[100];
+        // canon half cared, app half free: 16 of the classid's 32 bits.
+        let care = FacetCascade::from_semantic_tiles([0xFFFF, 0, 0, 0, 0, 0, 0, 0]);
+        let a = SemanticAperture::new(key, care);
+        assert_eq!(
+            Filter::aperture_facet_strided(None, RANGE_COL, CLASSID, TIERS, &a),
+            None
+        );
+        let (f, _) = Filter::aperture_facet(None, RANGE_COL, HI, LO, &a);
+        assert_eq!(fx.rows_of(&f), fx.oracle(|k| a.matches(k)));
     }
 }
