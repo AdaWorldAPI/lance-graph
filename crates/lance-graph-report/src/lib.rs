@@ -102,6 +102,8 @@ pub enum ReportError {
     NotACoordinate(FieldId),
     /// A bucket coordinate over a non-`I32` field or with width <= 0.
     BadBucket(FieldId),
+    /// A mask-set coordinate with no members.
+    EmptyMaskSet(MaskId),
     /// A measure over a non-`I32` field.
     NotAMeasure(FieldId),
     /// The plan was minted against another source or generation.

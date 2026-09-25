@@ -13,11 +13,13 @@
 //! Names and labels are not stored here at all — they live in the catalog and
 //! the CAM label store at the boundary.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use lance_graph_mask_risc::{words_for, LaneRef};
 
 use crate::ids::{FieldId, MaskId, SourceId};
+use crate::ReportError;
 
 /// One resident fixed-width lane.
 #[derive(Debug, Clone)]
@@ -209,12 +211,34 @@ impl AbiBatch {
             .map(|(i, c)| (i as u16, c))
     }
 
-    /// Plane index of a resident mask.
+    /// Plane index of a resident mask, or `None` when no resident mask has
+    /// `id`. A mask past plane `u16::MAX` has no plane index and also reads
+    /// as `None`; [`Self::resolve_plane`] tells the two apart.
     pub fn plane_of(&self, id: MaskId) -> Option<u16> {
-        self.masks
+        self.resolve_plane(id).ok()
+    }
+
+    /// Plane index of a resident mask. Refuses an unknown id, and refuses a
+    /// mask whose position does not fit a plane index rather than wrapping
+    /// onto another plane.
+    pub(crate) fn resolve_plane(&self, id: MaskId) -> Result<u16, ReportError> {
+        let i = self
+            .masks
             .iter()
             .position(|(m, _)| *m == id)
-            .map(|i| i as u16)
+            .ok_or(ReportError::UnknownMask(id))?;
+        u16::try_from(i).map_err(|_| ReportError::TooManyPlanes)
+    }
+
+    /// Every resident mask's position, built in one pass, for resolving many
+    /// ids at once without a scan per id. Positions are unchecked; convert
+    /// with `u16::try_from` at the point of use.
+    pub(crate) fn mask_positions(&self) -> HashMap<MaskId, usize> {
+        self.masks
+            .iter()
+            .enumerate()
+            .map(|(i, (m, _))| (*m, i))
+            .collect()
     }
 
     /// Borrowed plane views for the evaluator: O(columns + masks) pointers.
@@ -237,5 +261,76 @@ impl AbiBatch {
             Some(LaneData::U64(v)) => Some(v),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{AxisRole, CoordSpec, Measure, PlannerPolicy, ReportPlan, SourceRef};
+
+    /// A one-row batch holding validity plus `n` masks `M1..=Mn`. The masks
+    /// are pushed directly: `with_mask`'s duplicate check is a scan per call,
+    /// which would make building 65,536 of them quadratic.
+    fn wide(n: u32) -> AbiBatch {
+        let mut b = AbiBatch::new(SourceId(1), 1, 1);
+        let words: Arc<[u64]> = vec![0u64].into();
+        b.masks
+            .extend((1..=n).map(|i| (MaskId(i), Arc::clone(&words))));
+        b
+    }
+
+    #[test]
+    fn a_mask_past_plane_u16_max_is_refused_not_wrapped() {
+        let b = wide(65_536);
+        // Position 65_535 is the last addressable plane.
+        assert_eq!(b.resolve_plane(MaskId(65_535)), Ok(65_535));
+        // Position 65_536 would wrap to plane 0, the validity plane.
+        assert_eq!(
+            b.resolve_plane(MaskId(65_536)),
+            Err(ReportError::TooManyPlanes)
+        );
+        assert_eq!(b.plane_of(MaskId(65_536)), None);
+        assert_eq!(
+            b.resolve_plane(MaskId(70_000)),
+            Err(ReportError::UnknownMask(MaskId(70_000)))
+        );
+    }
+
+    /// The set coordinate resolves every member, so its last member is the
+    /// one that would have landed on the validity plane.
+    #[test]
+    fn a_mask_set_reaching_past_plane_u16_max_is_refused() {
+        let b = wide(65_536);
+        let plan = ReportPlan::over(SourceRef {
+            id: SourceId(1),
+            generation: 1,
+        })
+        .axis(
+            CoordSpec::MaskSet {
+                base: MaskId(1),
+                count: 65_536,
+            },
+            AxisRole::Row,
+        )
+        .measure(Measure::count());
+        assert_eq!(
+            plan.explain(&b, &PlannerPolicy::default()).unwrap_err(),
+            ReportError::TooManyPlanes
+        );
+        // One member fewer stays inside the addressable planes.
+        let ok = ReportPlan::over(SourceRef {
+            id: SourceId(1),
+            generation: 1,
+        })
+        .axis(
+            CoordSpec::MaskSet {
+                base: MaskId(1),
+                count: 65_535,
+            },
+            AxisRole::Row,
+        )
+        .measure(Measure::count());
+        assert!(ok.explain(&b, &PlannerPolicy::default()).is_ok());
     }
 }

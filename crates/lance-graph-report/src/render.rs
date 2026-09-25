@@ -138,6 +138,9 @@ impl Terminal<'_> {
                 let lo = origin + width * i64::from(m);
                 format!("[{lo},{})", lo + width)
             }
+            CoordSpec::MaskSet { .. } => c
+                .member_mask(m)
+                .map_or_else(|| m.to_string(), |id| id.to_string()),
         }
     }
 
