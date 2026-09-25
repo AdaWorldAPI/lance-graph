@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-169 entries, 2026-08-06 .. 2026-09-25.
+170 entries, 2026-08-06 .. 2026-09-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-09-25 | `window-scheduling-and-two-level-ternlog` |  | [2026-09-25-window-scheduling-and-two-level-ternlog.md](2026-09-25-window-scheduling-and-two-level-ternlog.md) |
 | 2026-09-25 | `tile-knee-and-compiled-lowering` |  | [2026-09-25-tile-knee-and-compiled-lowering.md](2026-09-25-tile-knee-and-compiled-lowering.md) |
+| 2026-09-25 | `tern3-six-view-window` |  | [2026-09-25-tern3-six-view-window.md](2026-09-25-tern3-six-view-window.md) |
 | 2026-09-25 | `tern2-two-level-lowering` |  | [2026-09-25-tern2-two-level-lowering.md](2026-09-25-tern2-two-level-lowering.md) |
 | 2026-09-25 | `strided-field-views-close-the-mask-risc-ir-gap` |  | [2026-09-25-strided-field-views-close-the-mask-risc-ir-gap.md](2026-09-25-strided-field-views-close-the-mask-risc-ir-gap.md) |
 | 2026-09-25 | `llvm-whole-stack-fold-ceiling` |  | [2026-09-25-llvm-whole-stack-fold-ceiling.md](2026-09-25-llvm-whole-stack-fold-ceiling.md) |
