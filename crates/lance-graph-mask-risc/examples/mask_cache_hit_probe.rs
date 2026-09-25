@@ -29,22 +29,24 @@
 //! | cached mask, slot + peek (latency, incl. ~3.1 ns mix) | 5.6-5.8 ns | 135-156 ns |
 //! | cached mask, HashMap + peek (throughput) | 15.3-15.8 ns | 99-109 ns |
 //!
-//! HHTL half partial mask, per node, 16-byte records:
+//! HHTL half partial mask, per node, 16-byte records (4 runs; throughput
+//! queries are drawn before the clock starts):
 //!
 //! | members | latency (pointer chase) | throughput |
 //! |---|---|---|
-//! | <= 2k rows (<= 32 KB, L1d) | 3.4-3.6 ns | 2.0-2.5 ns |
-//! | 4k-8k rows (64-128 KB) | 5.3-6.1 ns | 2.6-2.7 ns |
-//! | 32k rows, packed (512 KB) | 8.1-8.9 ns | 3.3-3.4 ns |
-//! | 32k members scattered over a 64k tile | 11.4-11.9 ns | 4.1-4.3 ns |
-//! | 64k rows (1 MB, one tile) | 12.9 ns | 5.2-5.5 ns |
-//! | 256k rows (4 MB) | 28-30 ns | 8.2-8.9 ns |
-//! | 4M rows (64 MB) | 160-162 ns | 50 ns |
+//! | <= 2k rows (<= 32 KB, L1d) | 3.4-3.5 ns | 1.1-1.2 ns |
+//! | 4k-8k rows (64-128 KB) | 5.2-6.1 ns | 1.3-1.4 ns |
+//! | 32k rows, packed (512 KB) | 7.9-10.0 ns | 1.6-1.7 ns |
+//! | 32k members scattered over a 64k tile | 12.2-12.7 ns | 2.7 ns |
+//! | 64k rows (1 MB, one tile) | 12.3-13.6 ns | 3.1-3.7 ns |
+//! | 256k rows (4 MB) | 25-33 ns (one run 98) | 3.7-5.8 ns |
+//! | 4M rows (64 MB) | 167-206 ns | 21-23 ns |
 //!
 //! At the real 512-byte `NodeRow` stride, read in place through a strided view
-//! (#1284: no second SoA copy), each row costs its own cache line (latency):
-//! 64 rows 3.4 ns, 512 rows 6.6-7.4 ns, 4k-8k rows 26-27 ns, 32k rows 43-55 ns,
-//! 64k rows 138-139 ns.
+//! (#1284: no second SoA copy), each row touched costs its own 64-byte line
+//! (latency): 64 rows 3.4 ns, 512 rows 6.5-6.7 ns (32 KB of lines over a
+//! 256 KB span), 4k-8k rows 25-30 ns, 32k rows 74-116 ns (near L3 capacity,
+//! noisy), 64k rows 143-147 ns.
 //!
 //! Queries hit uniformly random members; HHTL-ordered access would be kinder.
 //!
@@ -154,11 +156,13 @@ fn half_hit(store: &[u8], o: usize, care: u64, pat: u64) -> u64 {
 /// HHTL partial mask, vertically: one node's 6-byte tier path (HEEL/HIP/TWIG,
 /// 3 x u8:u8 = half of the 12-byte facet) compared under a per-byte care mask.
 /// Latency: follow the cycle `link_cycle` wrote (each next row comes from the
-/// loaded record). Throughput: independent queries over the same members.
+/// loaded record). Throughput: independent queries over the same members,
+/// drawn before the clock starts ([`queries_over`]).
 fn hhtl_half(
     store: &[u8],
     rec: usize,
     members: &[u32],
+    queries: &[u32],
     care: u64,
     pat: u64,
     dependent: bool,
@@ -173,10 +177,8 @@ fn hhtl_half(
             r = u32::from_le_bytes(store[o + 12..o + 16].try_into().unwrap()) as usize;
         }
     } else {
-        assert!(members.len().is_power_of_two());
-        for q in 0..Q as u64 {
-            let r = members[(mix(q) as usize) & (members.len() - 1)] as usize;
-            acc = acc.wrapping_add(half_hit(store, r * rec, care, pat));
+        for &r in queries {
+            acc = acc.wrapping_add(half_hit(store, r as usize * rec, care, pat));
         }
     }
     black_box(acc);
@@ -193,6 +195,13 @@ fn mix_chain_ns() -> f64 {
     }
     black_box(x);
     t.elapsed().as_nanos() as f64 / Q as f64
+}
+
+/// `Q` rows drawn uniformly from `members`, generated before any timed loop.
+fn queries_over(members: &[u32]) -> Vec<u32> {
+    (0..Q as u64)
+        .map(|q| members[(mix(q) as usize) % members.len()])
+        .collect()
 }
 
 /// `n` distinct rows drawn uniformly from `0..domain`, sorted.
@@ -280,16 +289,18 @@ fn main() {
     ] {
         let members: Vec<u32> = (0..rows as u32).collect();
         link_cycle(&mut store, 16, &members, 0x5A77);
-        let l = r(&|| hhtl_half(&store, 16, &members, care, pat, true));
-        let t = r(&|| hhtl_half(&store, 16, &members, care, pat, false));
+        let qs = queries_over(&members);
+        let l = r(&|| hhtl_half(&store, 16, &members, &qs, care, pat, true));
+        let t = r(&|| hhtl_half(&store, 16, &members, &qs, care, pat, false));
         println!("{name:>34} {l:>9.2}ns {t:>9.2}ns");
     }
     // Positive/negative selection caps a tile at 32k MEMBERS, but the members
     // keep their rows: scattered over the tile they still span its 1 MB.
     let members = scattered(1 << 15, 1 << 16, 0xC0DE);
     link_cycle(&mut store, 16, &members, 0x5A78);
-    let l = r(&|| hhtl_half(&store, 16, &members, care, pat, true));
-    let t = r(&|| hhtl_half(&store, 16, &members, care, pat, false));
+    let qs = queries_over(&members);
+    let l = r(&|| hhtl_half(&store, 16, &members, &qs, care, pat, true));
+    let t = r(&|| hhtl_half(&store, 16, &members, &qs, care, pat, false));
     println!(
         "{:>34} {l:>9.2}ns {t:>9.2}ns",
         "32k members scattered in 64k tile"
@@ -314,8 +325,9 @@ fn main() {
     ] {
         let members: Vec<u32> = (0..rows as u32).collect();
         link_cycle(&mut big, 512, &members, 0x5A79);
-        let l = r(&|| hhtl_half(&big, 512, &members, care, pat, true));
-        let t = r(&|| hhtl_half(&big, 512, &members, care, pat, false));
+        let qs = queries_over(&members);
+        let l = r(&|| hhtl_half(&big, 512, &members, &qs, care, pat, true));
+        let t = r(&|| hhtl_half(&big, 512, &members, &qs, care, pat, false));
         println!("{name:>34} {l:>9.2}ns {t:>9.2}ns");
     }
 }
