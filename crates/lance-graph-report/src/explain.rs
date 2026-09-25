@@ -48,6 +48,12 @@ impl fmt::Display for PhysicalPlan {
                     format!("derived bucket (origin {origin}, width {width}; not materialized)")
                 }
                 (Provider::DerivedBucket { .. }, _) => "derived".to_string(),
+                (Provider::MaskPlanes { planes }, _) => {
+                    format!(
+                        "mask set ({} resident masks; a row may sit in several)",
+                        planes.len()
+                    )
+                }
             };
             let role = if self.fold_key == Some(i) {
                 "fold key"
@@ -57,7 +63,7 @@ impl fmt::Display for PhysicalPlan {
             writeln!(
                 f,
                 "  {}  {prov} · domain {} · {role}",
-                d.coord.field(),
+                coord_name(&d.coord),
                 d.domain
             )?;
         }
@@ -83,5 +89,14 @@ impl fmt::Display for PhysicalPlan {
         };
         writeln!(f, "Physical: {} pass(es) · {acc}", self.passes)?;
         write!(f, "Materialization: terminal only")
+    }
+}
+
+fn coord_name(c: &CoordSpec) -> String {
+    match c {
+        CoordSpec::MaskSet { base, count } => {
+            format!("{base}..M{}", u64::from(base.0) + u64::from(*count))
+        }
+        _ => c.field().map_or_else(String::new, |f| f.to_string()),
     }
 }
