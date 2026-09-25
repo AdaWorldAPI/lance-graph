@@ -11,6 +11,7 @@
 //!   rows in address order inside each block — a frontier that finishes one
 //!   subtree before it jumps.
 //!
+//! Every case visits max(Q, members) nodes, so the whole cycle is walked.
 //! Latency is a pointer chase: bytes 12..16 of each member's record hold the
 //! next row in the chosen order, so nothing but the load is on the chain.
 //! Throughput walks the same order from a list drawn before the clock starts.
@@ -23,8 +24,8 @@
 //! | 32k scattered over a 64k tile | 12.3-16.5 | 4.2-4.6 | 4.3-4.5 |
 //! | one tile (64k, 1 MB) | 13.1-14.6 | 3.2-3.3 | 3.3-3.5 |
 //! | four tiles (256k, 4 MB) | 28.5-30.5 (one run 84) | 3.2-3.4 | 3.4 |
-//! | 64 tiles (4M, 64 MB) | 144-172 | 3.8-4.0 | 4.4-4.9 |
-//! | 256k scattered over 4M (1/16) | 133-161 | 94-99 | 114-121 |
+//! | 64 tiles (4M, 64 MB), walked end to end | 157-163 | 3.8-3.9 | 4.4-4.6 |
+//! | 256k scattered over 4M (1/16) | 138-151 | 77-91 | 99-105 |
 //!
 //! | members (512-byte `NodeRow`, in place) | random lat | ordered lat | clustered lat |
 //! |---|---|---|---|
@@ -37,7 +38,7 @@
 //! working-set size up to 64 MB: the hardware prefetcher streams it. Walking
 //! 256-row subtrees in random order costs almost nothing extra. What defeats
 //! the prefetcher is sparsity: at 1 member per 16 rows (4 cache lines apart)
-//! the ordered walk is still ~95 ns, and on the 512-byte stride a row is 8
+//! the ordered walk is still ~80-90 ns, and on the 512-byte stride a row is 8
 //! lines from the next, so ordered access only roughly halves the cost.
 //!
 //! `RUSTFLAGS="-C target-cpu=native" cargo run --release -p lance-graph-mask-risc --example hhtl_order_probe`
@@ -100,16 +101,16 @@ fn half_hit(store: &[u8], o: usize) -> u64 {
     u64::from((u64::from_le_bytes(b) ^ PAT) & CARE == 0)
 }
 
-fn latency(store: &[u8], rec: usize, start: u32) -> f64 {
+fn latency(store: &[u8], rec: usize, start: u32, visits: usize) -> f64 {
     let (mut r, mut acc) = (start as usize, 0u64);
     let t = Instant::now();
-    for _ in 0..Q {
+    for _ in 0..visits {
         let o = r * rec;
         acc = acc.wrapping_add(half_hit(store, o));
         r = u32::from_le_bytes(store[o + 12..o + 16].try_into().unwrap()) as usize;
     }
     black_box(acc);
-    t.elapsed().as_nanos() as f64 / Q as f64
+    t.elapsed().as_nanos() as f64 / visits as f64
 }
 
 fn throughput(store: &[u8], rec: usize, queries: &[u32]) -> f64 {
@@ -144,9 +145,12 @@ fn run(store: &mut [u8], rec: usize, label: &str, m: &[u32]) {
     for order in [Order::Random, Order::Ordered, Order::Clustered] {
         let o = visit_order(m, order, 0x5A77);
         link(store, rec, &o);
-        // Q queries walking the order, wrapping around the cycle.
-        let qs: Vec<u32> = (0..Q).map(|i| o[i % o.len()]).collect();
-        let l = median((0..5).map(|_| latency(store, rec, o[0])).collect());
+        // At least Q visits, and never fewer than the whole cycle: a case with
+        // more members than Q must be walked end to end, or a big working set
+        // is measured by its first Q members only.
+        let visits = Q.max(o.len());
+        let qs: Vec<u32> = (0..visits).map(|i| o[i % o.len()]).collect();
+        let l = median((0..5).map(|_| latency(store, rec, o[0], visits)).collect());
         let t = median((0..5).map(|_| throughput(store, rec, &qs)).collect());
         row += &format!(" {:>7.2} {:>6.2}", l, t);
     }
