@@ -7,8 +7,9 @@
 //! nothing is inferred from reading the code.
 //!
 //! Before the fix: 23 KB / 44 allocations at 16 rows, 5.3 MB / 530 at 256,
-//! for an answer of at most 8 hits. Now: a constant 5 allocations, and bytes
-//! grow only by the prefilter's 4-byte-per-row list.
+//! for an answer of at most 8 hits. Now: a constant allocation count, and bytes
+//! grow only per surviving row (its prefilter entry and its SPOFC candidate
+//! record), never per pair.
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -126,9 +127,10 @@ fn trace_dispatch_materialization() {
             allocs, a0,
             "{n} rows: {allocs} allocations vs {a0} at {n0} rows"
         );
-        // The only per-row growth left is the prefilter's row list: one u32
-        // per surviving row.
-        let per_row_limit = 4 * (n - n0) as usize;
+        // Per surviving row: the prefilter's row list (4 bytes) and one SPOFC
+        // candidate record carrying that row's aggregated support (24 bytes).
+        // Nothing grows with the number of PAIRS.
+        let per_row_limit = 28 * (n - n0) as usize;
         assert!(
             bytes - b0 <= per_row_limit,
             "{n} rows: {bytes} bytes, {} more than at {n0} rows (limit {per_row_limit})",
