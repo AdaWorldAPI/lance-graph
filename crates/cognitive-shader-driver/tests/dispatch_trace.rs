@@ -5,6 +5,10 @@
 //! counting global allocator measures one dispatch (after a warm-up) at
 //! several population sizes. Everything the cycle materializes shows up here;
 //! nothing is inferred from reading the code.
+//!
+//! Before the fix: 23 KB / 44 allocations at 16 rows, 5.3 MB / 530 at 256,
+//! for an answer of at most 8 hits. Now: a constant 5 allocations, and bytes
+//! grow only by the prefilter's 4-byte-per-row list.
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -100,9 +104,35 @@ fn measure(n: u32) -> (usize, usize, u16) {
 
 #[test]
 fn trace_dispatch_materialization() {
-    println!("{:>6} {:>12} {:>12} {:>10}", "rows", "bytes", "allocs", "hit_count");
-    for n in [16u32, 32, 64, 128, 256] {
-        let (bytes, allocs, hits) = measure(n);
-        println!("{n:>6} {bytes:>12} {allocs:>12} {hits:>10}");
+    println!(
+        "{:>6} {:>12} {:>12} {:>10}",
+        "rows", "bytes", "allocs", "hit_count"
+    );
+    let sizes = [16u32, 32, 64, 128, 256];
+    let rows: Vec<(u32, usize, usize, u16)> = sizes
+        .iter()
+        .map(|&n| {
+            let (bytes, allocs, hits) = measure(n);
+            println!("{n:>6} {bytes:>12} {allocs:>12} {hits:>10}");
+            (n, bytes, allocs, hits)
+        })
+        .collect();
+    let (n0, b0, a0, _) = rows[0];
+    for &(n, bytes, allocs, hits) in &rows {
+        assert!(hits > 0, "fixture must produce hits at {n} rows");
+        // The cycle keeps at most 8 hits and 4 cascade results per row, so the
+        // number of allocations must not depend on how many rows it looks at.
+        assert_eq!(
+            allocs, a0,
+            "{n} rows: {allocs} allocations vs {a0} at {n0} rows"
+        );
+        // The only per-row growth left is the prefilter's row list: one u32
+        // per surviving row.
+        let per_row_limit = 4 * (n - n0) as usize;
+        assert!(
+            bytes - b0 <= per_row_limit,
+            "{n} rows: {bytes} bytes, {} more than at {n0} rows (limit {per_row_limit})",
+            bytes - b0
+        );
     }
 }

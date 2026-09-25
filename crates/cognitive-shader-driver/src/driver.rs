@@ -266,7 +266,10 @@ impl ShaderDriver {
         let planes_snapshot: [[u64; 64]; 8] = **self.planes.read().expect("planes RwLock poisoned");
         let shader = CognitiveShader::new(planes_snapshot, &self.semiring);
         let max_dist = (self.semiring.k as f32) * (self.semiring.k as f32);
-        let mut hits = Vec::<ShaderHit>::with_capacity(passed_rows.len().min(64));
+        // Only the best 8 hits are ever read, so they are kept as they arrive
+        // instead of collecting every candidate (the content pre-pass alone
+        // produces two per resonant pair — O(rows²)) and cutting afterwards.
+        let mut top = TopHits::new();
 
         // TD-INT-10: optional NARS truth-table lookups per hit.
         let nars_tables = self.nars_tables.as_deref();
@@ -293,7 +296,7 @@ impl ShaderDriver {
                         ndarray::hpc::bitwise::hamming_distance_raw(fp_i_bytes, fp_j_bytes) as u32;
                     let resonance = 1.0 - (hamming as f32 / FP_BITS);
                     if resonance >= min_resonance {
-                        hits.push(ShaderHit {
+                        top.offer(ShaderHit {
                             row: row_i,
                             distance: hamming.min(u16::MAX as u32) as u16,
                             predicates: CONTENT_MATCH_PREDICATE,
@@ -301,7 +304,7 @@ impl ShaderDriver {
                             resonance,
                             cycle_index: i as u32,
                         });
-                        hits.push(ShaderHit {
+                        top.offer(ShaderHit {
                             row: row_j,
                             distance: hamming.min(u16::MAX as u32) as u16,
                             predicates: CONTENT_MATCH_PREDICATE,
@@ -322,8 +325,11 @@ impl ShaderDriver {
             // Rows with edge=0 default to palette 0 (identity probe).
             let edge = backing.edge(row as usize);
             let query = edge.s_idx();
-            let raw = shader.cascade(query, req.radius, effective_layer_mask);
-            for hit in raw.into_iter().take(4) {
+            // The 4 nearest, kept as they arrive: the full candidate list
+            // (up to 256 per row) was sorted and then cut to 4.
+            let (nearest, n_nearest) =
+                shader.cascade_nearest::<4>(query, req.radius, effective_layer_mask);
+            for hit in &nearest[..n_nearest] {
                 let resonance = 1.0 / (1.0 + (hit.distance as f32 / max_dist));
 
                 // TD-INT-10: NARS truth lookup against precomputed tables.
@@ -340,7 +346,7 @@ impl ShaderDriver {
                     let _revised_truth = (unpack_f(packed), unpack_c(packed));
                 }
 
-                hits.push(ShaderHit {
+                top.offer(ShaderHit {
                     row,
                     distance: hit.distance,
                     predicates: hit.predicates,
@@ -351,13 +357,8 @@ impl ShaderDriver {
             }
         }
 
-        // Sort by resonance descending, keep top-8.
-        hits.sort_by(|a, b| {
-            b.resonance
-                .partial_cmp(&a.resonance)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        hits.truncate(8);
+        // Top-8 by resonance, descending; ties keep arrival order.
+        let hits: &[ShaderHit] = top.as_slice();
 
         // [4] Build the cycle_fingerprint with positional Markov braiding.
         //     Each row is rotated by its cycle_index before XOR — preserves
@@ -365,7 +366,7 @@ impl ShaderDriver {
         //     Per I-SUBSTRATE-MARKOV: this activates the Markov ±5 property
         //     even in binary space; full f32 VSA bundle is the next step.
         let mut cycle_fp = [0u64; WORDS_PER_FP];
-        for h in &hits {
+        for h in hits {
             let row_words = backing.content_row(h.row as usize);
             let pos = (h.cycle_index as usize) % WORDS_PER_FP;
             for (i, w) in row_words.iter().enumerate() {
@@ -374,7 +375,7 @@ impl ShaderDriver {
         }
 
         // [5] Entropy + std-dev of top-k resonances.
-        let (entropy, std_dev) = entropy_std(&hits);
+        let (entropy, std_dev) = entropy_std(hits);
 
         // [6] FreeEnergy gate (principled F from resonance + KL surrogate).
         let top_resonance = hits.first().map(|h| h.resonance).unwrap_or(0.0);
@@ -537,7 +538,7 @@ impl ShaderDriver {
                 .alpha_saturation_override
                 .unwrap_or(ALPHA_SATURATION_THRESHOLD);
             Some(alpha_front_to_back_composite(
-                &hits,
+                hits,
                 |row| {
                     hit_qualia_f32
                         .iter()
@@ -918,6 +919,99 @@ impl Default for CognitiveShaderBuilder {
 // ═══════════════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════════════
+
+/// The best 8 hits by resonance, kept as they arrive.
+///
+/// Equivalent to collecting every hit, stable-sorting by resonance descending
+/// and truncating to 8: a new hit goes after every kept hit whose resonance is
+/// not lower, so equal resonances keep arrival order, and a hit that would land
+/// ninth is dropped. Holds exactly for finite resonances.
+struct TopHits {
+    buf: [ShaderHit; 8],
+    len: usize,
+}
+
+impl TopHits {
+    fn new() -> Self {
+        Self {
+            buf: [ShaderHit::default(); 8],
+            len: 0,
+        }
+    }
+
+    #[inline]
+    fn offer(&mut self, hit: ShaderHit) {
+        let pos = self.buf[..self.len]
+            .iter()
+            .position(|kept| kept.resonance < hit.resonance)
+            .unwrap_or(self.len);
+        if pos >= self.buf.len() {
+            return;
+        }
+        let last = self.len.min(self.buf.len() - 1);
+        self.buf.copy_within(pos..last, pos + 1);
+        self.buf[pos] = hit;
+        self.len = (self.len + 1).min(self.buf.len());
+    }
+
+    fn as_slice(&self) -> &[ShaderHit] {
+        &self.buf[..self.len]
+    }
+}
+
+#[cfg(test)]
+mod top_hits_tests {
+    use super::*;
+
+    /// The replaced implementation: collect everything, stable-sort by
+    /// resonance descending, cut to 8.
+    fn collect_sort_truncate(stream: &[ShaderHit]) -> Vec<ShaderHit> {
+        let mut v = stream.to_vec();
+        v.sort_by(|a, b| {
+            b.resonance
+                .partial_cmp(&a.resonance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        v.truncate(8);
+        v
+    }
+
+    fn key(h: &ShaderHit) -> (u32, u32, u32) {
+        (h.row, h.resonance.to_bits(), h.cycle_index)
+    }
+
+    #[test]
+    fn top_hits_matches_collect_sort_truncate_including_ties() {
+        let mut state = 0x9E37_79B9_7F4A_7C15u64;
+        let mut next = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state
+        };
+        for len in [0usize, 1, 7, 8, 9, 20, 300] {
+            for _ in 0..200 {
+                // Few distinct resonance values, so ties are common and the
+                // arrival-order rule is actually exercised.
+                let stream: Vec<ShaderHit> = (0..len)
+                    .map(|i| ShaderHit {
+                        row: i as u32,
+                        resonance: (next() % 6) as f32 / 5.0,
+                        cycle_index: (next() % 1000) as u32,
+                        ..Default::default()
+                    })
+                    .collect();
+                let mut top = TopHits::new();
+                for h in &stream {
+                    top.offer(*h);
+                }
+                let want: Vec<_> = collect_sort_truncate(&stream).iter().map(key).collect();
+                let got: Vec<_> = top.as_slice().iter().map(key).collect();
+                assert_eq!(got, want, "len {len}");
+            }
+        }
+    }
+}
 
 fn entropy_std(hits: &[ShaderHit]) -> (f32, f32) {
     if hits.is_empty() {
