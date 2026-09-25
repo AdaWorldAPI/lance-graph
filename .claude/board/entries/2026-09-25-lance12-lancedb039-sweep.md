@@ -5,7 +5,7 @@
 ## What moved
 - `lance*` `11.*` → `12.*` and `lancedb` `0.38.*` → `0.39.*`, measured against crates.io. lancedb 0.39.0 pins `lance = "=12.0.0"`. arrow ^58 and datafusion ^54 are unmoved.
 - **`object_store` 0.13 → 0.14 for our direct dependency.** lance 12 requires ^0.14.1, while datafusion 54 stays on ^0.13.2, so both majors are in the graph (upstream's split). Every direct call site here hands the store or a `Path` to lance or to lance-graph-hydrate. On 0.13, `memwal_atomicity_probe` and `hydration_probe` failed with E0308 ("multiple different versions of crate `object_store`").
-- **lancedb `remote` on the consumers behind `lancedb-sdk`** (lance-graph, surreal_container). 0.39.0 does not compile without it: `pub mod job;` is ungated while `job.rs` uses the `remote`-gated `Error::Http`. It is set at crate level, so it is active only with the optional dependency.
+- **lancedb `remote` on the consumers behind `lancedb-sdk`** (lance-graph, surreal_container). 0.39.0 does not compile without it: `pub mod job;` is ungated while `job.rs` uses the `remote`-gated `Error::Http`. It is set at crate level, so it is active only with the optional dependency. Measured cost: +10 crates (630 vs 620). reqwest, tonic, prost and http were already present via lance; the delta is arrow-flight, axum 0.7 and 0.8 (two majors), axum-core ×2, matchit ×2, tower-http, serde_path_to_error and httpdate.
 - Sub-crate toolchains (`reader-lm`, `bge-m3`, `python`) 1.95.0 → 1.98.1, matching the root. Builder images for `cognitive-stack`, `symbiont` and `thinking-engine` (was 1.82) → `rust:1.98`.
 
 ## Gates

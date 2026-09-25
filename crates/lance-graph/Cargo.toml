@@ -57,6 +57,11 @@ lance-namespace = "12.*"
 # (E0599). Same upstream defect as 0.38.0; no 0.39 patch release fixes it.
 # Declared here, not in the workspace entry, so it is active only when
 # `lancedb-sdk` turns the optional dep on. Drop it once upstream gates `job`.
+# Cost, measured with `cargo tree -p lance-graph --features lancedb-sdk`
+# (2026-09-25): +10 crates (630 vs 620). reqwest / tonic / prost / http are
+# already in the graph via lance; the delta is arrow-flight, axum 0.7 + 0.8
+# (two majors), axum-core x2, matchit x2, tower-http, serde_path_to_error,
+# httpdate.
 lancedb = { workspace = true, optional = true, features = ["remote"] }
 nom = "7.1"
 serde = { version = "1", features = ["derive"] }

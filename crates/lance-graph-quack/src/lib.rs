@@ -1244,13 +1244,18 @@ pub struct GroupAvgPlan {
 ///
 /// # Errors
 ///
-/// As [`lower`].
+/// [`LowerError::EmptyGroupUniverse`] when `groups == 0`, for every key kind:
+/// the count half is a `GroupReduce`, whose sink must be a non-empty
+/// `Out::I64`, so a K = 0 plan could never execute. Otherwise as [`lower`].
 pub fn lower_group_avg(
     filter: &Filter,
     key: GroupAddr,
     val: Col,
     groups: u32,
 ) -> Result<GroupAvgPlan, LowerError> {
+    if groups == 0 {
+        return Err(LowerError::EmptyGroupUniverse);
+    }
     let sum_agg = match key {
         GroupAddr::Local(k) => Agg::GroupSumI32 { key: k, val },
         GroupAddr::Via { fk, key } => Agg::GroupSumViaI32 { fk, key, val },
@@ -2131,6 +2136,30 @@ mod tests {
 
     /// FAILS IF a zero-group HAVING lowers to programs the executor would
     /// refuse, instead of being refused at lowering with a named error.
+    #[test]
+    fn lower_group_avg_refuses_an_empty_group_universe_for_every_key_kind() {
+        // The count half is `GroupReduce Count` for every key kind, and that
+        // terminal needs a non-empty `Out::I64`: a K = 0 plan could never run.
+        let filter = Filter::cmp(Col(0), Cmp::EqU32(1));
+        let keys = [
+            GroupAddr::Local(Col(1)),
+            GroupAddr::Pair {
+                hi: Col(1),
+                lo: Col(2),
+                stride: 3,
+            },
+        ];
+        for key in keys {
+            assert_eq!(
+                lower_group_avg(&filter, key, Col(3), 0).map(|_| ()),
+                Err(LowerError::EmptyGroupUniverse),
+                "{key:?}"
+            );
+            // One group lowers: the refusal is about K alone.
+            assert!(lower_group_avg(&filter, key, Col(3), 1).is_ok(), "{key:?}");
+        }
+    }
+
     #[test]
     fn lower_group_having_refuses_an_empty_group_universe() {
         let q = GroupHaving {
