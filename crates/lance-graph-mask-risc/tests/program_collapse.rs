@@ -18,10 +18,11 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
-use lance_graph_mask_risc::exec::{execute_extent, Scratch};
+use lance_graph_mask_risc::exec::{execute_compiled, execute_extent, Scratch};
 use lance_graph_mask_risc::fuse::{fuse_program, BoolExpr};
 use lance_graph_mask_risc::{
-    reference_execute, Foreign, MaskOp, Operand, Out, Planes, Program, Terminal, Value,
+    reference_execute, Foreign, Lowering, MaskOp, Operand, Out, Planes, Pred, Program, Terminal,
+    Value,
 };
 
 struct Counting;
@@ -119,12 +120,21 @@ fn check(p_count: &Program, planes: &Planes<'_>, what: &str) {
     let p_any = Program::new(p_count.ops.clone(), Terminal::Any { mask });
     assert!(p_count.fused_ternlog().is_some(), "{what}: must collapse");
     assert!(p_any.fused_ternlog().is_some(), "{what}: Any must collapse");
+    // Recognised once, reused for every extent below.
+    let compiled = p_count.compile();
+    assert!(
+        matches!(compiled.lowering(), Lowering::Ternlog(_)),
+        "{what}"
+    );
     for (lo, hi) in extents(planes.n_rows) {
         let kept = keep_count(p_count, planes, lo, hi);
         let mut s = Scratch::new(0, 0);
         let folded = execute_extent(p_count, planes, &Foreign::NONE, &mut s, Out::None, lo..hi)
             .expect("fold count");
         assert_eq!(folded, Value::Count(kept), "{what} count [{lo},{hi})");
+        let reused = execute_compiled(&compiled, planes, &Foreign::NONE, &mut s, Out::None, lo..hi)
+            .expect("compiled fold count");
+        assert_eq!(reused, folded, "{what} compiled count [{lo},{hi})");
         let any = execute_extent(&p_any, planes, &Foreign::NONE, &mut s, Out::None, lo..hi)
             .expect("fold any");
         assert_eq!(any, Value::Bool(kept > 0), "{what} any [{lo},{hi})");
@@ -500,4 +510,64 @@ fn a_collapsed_chain_writes_nothing_and_allocates_nothing() {
         poison.iter().any(|&w| w != u64::MAX),
         "probe must see a carve"
     );
+}
+
+/// FAILS IF: `Program::compile` records a lowering other than the one the
+/// executor takes, or `execute_compiled` answers differently from
+/// `execute_extent` for the same program, on any of the three lowerings.
+///
+/// Can-fire / can-stay-silent: the three programs are chosen so each lowering
+/// is taken by exactly one of them, so a `compile` that always answered
+/// `Tiled` (or always a fold) fails here.
+#[test]
+fn compile_records_the_lowering_the_executor_takes() {
+    let n = 1000;
+    let mut seed = 0x0C0_FFEE_u64;
+    let m = [
+        random_plane(n, &mut seed, false),
+        random_plane(n, &mut seed, true),
+    ];
+    let masks: [&[u64]; 2] = [&m[0], &m[1]];
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &[],
+    };
+    let (a, b) = (Operand::Plane(0), Operand::Plane(1));
+    let s0 = Operand::Scratch(0);
+    let range = Program::new(
+        vec![MaskOp::Pred {
+            pred: Pred::Range { lo: 70, hi: 900 },
+            under: Some(a),
+            dst: 0,
+        }],
+        Terminal::Count { mask: s0 },
+    );
+    let chain = Program::new(
+        vec![MaskOp::And { a, b, dst: 0 }],
+        Terminal::Count { mask: s0 },
+    );
+    // `All` is never fused, so this one takes the tiled path.
+    let tiled = Program::new(
+        vec![MaskOp::Or { a, b, dst: 0 }],
+        Terminal::All { mask: s0 },
+    );
+    let cases: [(&str, &Program, fn(&Lowering) -> bool); 3] = [
+        ("range", &range, |l| matches!(l, Lowering::Range(_))),
+        ("chain", &chain, |l| matches!(l, Lowering::Ternlog(_))),
+        ("tiled", &tiled, |l| matches!(l, Lowering::Tiled)),
+    ];
+    for (what, p, is) in cases {
+        let c = p.compile();
+        assert!(is(&c.lowering()), "{what}: {:?}", c.lowering());
+        assert_eq!(c.lowering(), p.lowering(), "{what}");
+        assert_eq!(c.requires_scratch(), p.requires_scratch(), "{what}");
+        for (lo, hi) in extents(n) {
+            let mut s1 = Scratch::for_program(p, n).expect("scratch");
+            let mut s2 = Scratch::for_program(p, n).expect("scratch");
+            let want = execute_extent(p, &planes, &Foreign::NONE, &mut s1, Out::None, lo..hi);
+            let got = execute_compiled(&c, &planes, &Foreign::NONE, &mut s2, Out::None, lo..hi);
+            assert_eq!(got, want, "{what} [{lo},{hi})");
+        }
+    }
 }

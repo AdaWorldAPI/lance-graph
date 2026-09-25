@@ -40,9 +40,9 @@ use ndarray::simd::{
 };
 
 use crate::ir::{
-    span_words, touched_words, Foreign, FusedFold, FusedTerminal, FusedTernlog, GroupFold,
-    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, FUSED_SLOT_CAP,
-    MAX_SCRATCH_SLOTS,
+    span_words, touched_words, Compiled, Foreign, FusedFold, FusedTerminal, FusedTernlog,
+    GroupFold, GroupKey, LaneRef, Lowering, MaskOp, Operand, Planes, Pred, Program, Terminal,
+    FUSED_SLOT_CAP, MAX_SCRATCH_SLOTS,
 };
 use crate::reference::{out_shape, validate};
 use crate::ternlog_dispatch::{
@@ -93,7 +93,7 @@ impl Store<'_> {
 /// program one tile at a time (see [`execute_into`]), so execution state is
 /// `slots × TILE_WORDS` words however many rows the planes hold — 8 words =
 /// 512 rows = one full-width vector per facade call.
-pub const TILE_WORDS: usize = 8;
+pub const TILE_WORDS: usize = 256;
 
 /// The slot width [`Scratch::for_program`] / [`Scratch::over_for_program`]
 /// carve for `n_rows`: one tile, or the whole (shorter) population.
@@ -951,9 +951,25 @@ pub fn execute_extent(
     planes: &Planes<'_>,
     foreign: &Foreign<'_>,
     scratch: &mut Scratch<'_>,
+    out: Out<'_>,
+    extent: Range<usize>,
+) -> Result<Value, ExecError> {
+    execute_compiled(&program.compile(), planes, foreign, scratch, out, extent)
+}
+
+/// [`execute_extent`] over a program whose lowering was recognised once
+/// ([`Program::compile`]). Identical results; the only difference is that
+/// this call does not re-derive the fold from the program text. Validation
+/// still runs, against this call's planes, foreign tables and `out`.
+pub fn execute_compiled(
+    compiled: &Compiled<'_>,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    scratch: &mut Scratch<'_>,
     mut out: Out<'_>,
     extent: Range<usize>,
 ) -> Result<Value, ExecError> {
+    let program = compiled.program();
     // BEFORE the capacity check, not after: an over-declared count is a lie
     // about the PROGRAM, and the caller's buffer is irrelevant to it. Checked
     // second, every such program reports `ScratchTooSmall` instead — which the
@@ -1000,7 +1016,7 @@ pub fn execute_extent(
     // membership bit, so the scratch capacity checks below do not apply to it.
     // Validation stays total — the one declared slot is tracked in a local
     // word of read-before-write bookkeeping, never in the caller's arena.
-    if let Some(f) = program.fused_terminal() {
+    if let Lowering::Range(f) = compiled.lowering() {
         let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
         validate(program, planes, foreign, out_shape(&out), &mut written)?;
         // The extent composes with the program's own range by intersection,
@@ -1020,7 +1036,7 @@ pub fn execute_extent(
     // The Boolean-membership fold: a chain of Boolean ops over at most three
     // resident planes, collapsed symbolically to one ternlog table (#1272) and
     // folded by Count/Any — also no slot, no membership bit written.
-    if let Some(f) = program.fused_ternlog() {
+    if let Lowering::Ternlog(f) = compiled.lowering() {
         let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
         validate(program, planes, foreign, out_shape(&out), &mut written)?;
         return Ok(run_fused_ternlog(f, planes, elo, ehi));

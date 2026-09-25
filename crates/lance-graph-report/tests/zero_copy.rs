@@ -53,8 +53,12 @@ fn pivot() -> ReportPlan {
 
 #[test]
 fn execution_memory_is_independent_of_population_size() {
-    let small = synthetic(4_096, &[6, 9], 31).batch();
-    let big = synthetic(4_096 * 64, &[6, 9], 31).batch();
+    // The small population must already fill one scheduling tile: scratch is
+    // `slots × min(words, TILE_WORDS)`, so below one tile it legitimately
+    // grows with the rows, and the claim is only about populations past it.
+    const SMALL: usize = 64 * lance_graph_mask_risc::TILE_WORDS;
+    let small = synthetic(SMALL, &[6, 9], 31).batch();
+    let big = synthetic(SMALL * 64, &[6, 9], 31).batch();
     let pol = PlannerPolicy {
         reuse_mask_min_programs: u64::MAX,
         ..PlannerPolicy::default()
@@ -68,8 +72,11 @@ fn execution_memory_is_independent_of_population_size() {
     );
     assert_eq!(big.lane_addr(V).unwrap(), addr, "source lane never moved");
     assert_eq!(sb.mask_materializations, 0);
+    // Tile-sized: a few slots of at most `TILE_WORDS` words, bytes. Stated
+    // against the constant so a change of the default tile does not have to
+    // re-derive a literal here.
     assert!(
-        sb.scratch_bytes_peak <= 8 * 8 * 8,
+        sb.scratch_bytes_peak <= (8 * lance_graph_mask_risc::TILE_WORDS * 8) as u64,
         "scratch is tile-sized: {}",
         sb.scratch_bytes_peak
     );
@@ -81,7 +88,7 @@ fn execution_memory_is_independent_of_population_size() {
     let (_, r_big) = allocated(|| pivot().execute(&big, &reuse).unwrap());
     assert_eq!(
         r_big - r_small,
-        ((4_096 * 64 - 4_096) / 64 * 8) as u64,
+        ((SMALL * 64 - SMALL) / 64 * 8) as u64,
         "exactly the mask's growth"
     );
 }

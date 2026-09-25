@@ -1464,9 +1464,11 @@ fn logical_calls_fold_to_the_same_physical_pass_count_as_quack() {
 
 /// FAILS IF: anything the dialect side allocates scales with rows. The
 /// bytes spent building AND RUNNING the fold program must be IDENTICAL at
-/// 1,000 and 65,536 rows — `tile_words_for` saturates at `TILE_WORDS` for
-/// any `n_rows` past 512, so the dialect's own scratch buffer, and every
-/// `MaskOp` it builds, is sized by the BODY, never by the row count.
+/// one full tile (`64 × TILE_WORDS` rows) and 64 tiles — `tile_words_for`
+/// saturates at `TILE_WORDS` for any `n_rows` past one tile, so the
+/// dialect's own scratch buffer, and every `MaskOp` it builds, is sized by
+/// the BODY, never by the row count. Both populations are stated against
+/// the constant: below one tile the scratch legitimately grows with rows.
 #[test]
 fn the_dialect_side_allocates_nothing_proportional_to_rows() {
     // The counter is THREAD-LOCAL (see the module-level note above `BYTES`),
@@ -1476,7 +1478,8 @@ fn the_dialect_side_allocates_nothing_proportional_to_rows() {
     // single thread's own allocator bookkeeping can introduce run to run.
     let a = frontend_a();
     let mut per_n = Vec::new();
-    for &n in &[1_000usize, 65_536] {
+    let one_tile = 64 * TILE_WORDS;
+    for &n in &[one_tile, 64 * one_tile] {
         let t = Tables::seeded(n, 40, 5);
         let lanes = t.lanes();
         let flanes = t.foreign_lanes();
@@ -1506,7 +1509,7 @@ fn the_dialect_side_allocates_nothing_proportional_to_rows() {
     );
     assert!(per_n[0] > 0, "the counter is live");
     assert!(
-        per_n[1] < 65_536 / 8,
+        per_n[1] < 64 * one_tile / 8,
         "not a population-sized mask: {} bytes",
         per_n[1]
     );
@@ -1518,11 +1521,14 @@ fn the_dialect_side_allocates_nothing_proportional_to_rows() {
 /// [`FoldDialect::new`] sizes it with a closed formula.
 #[test]
 fn the_executor_scratch_stays_tile_local_at_a_large_row_count() {
-    let t = Tables::seeded(65_536, 40, 9);
+    // 64 tiles: large enough that one population mask (`n / 64` words)
+    // outweighs the whole tile-local buffer across every slot.
+    let n = 64 * 64 * TILE_WORDS;
+    let t = Tables::seeded(n, 40, 9);
     let lanes = t.lanes();
     let flanes = t.foreign_lanes();
     let planes = Planes {
-        n_rows: 65_536,
+        n_rows: n,
         masks: &[],
         lanes: &lanes,
     };
@@ -1542,10 +1548,10 @@ fn the_executor_scratch_stays_tile_local_at_a_large_row_count() {
         "scratch stays tile-local: {} <= {tile_cap_words}",
         dialect.scratch.len()
     );
-    // A population mask at 65,536 rows would need `65_536 / 64 = 1024`
-    // words for ONE slot alone — comfortably more than the whole tile-local
-    // buffer this dialect ever allocates, across every slot.
-    assert!(dialect.scratch.len() < 65_536 / 64);
+    // A population mask at `n` rows needs `n / 64` words for ONE slot
+    // alone — more than the whole tile-local buffer this dialect ever
+    // allocates, across every slot.
+    assert!(dialect.scratch.len() < n / 64);
 }
 
 /// FAILS IF: a body whose stack discipline is broken is silently accepted.

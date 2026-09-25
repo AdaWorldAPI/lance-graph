@@ -746,6 +746,29 @@ impl Program {
         })
     }
 
+    /// How this program executes, decided from its text alone: the range
+    /// fold ([`Program::fused_terminal`]), the Boolean-membership fold
+    /// ([`Program::fused_ternlog`]), or the tiled path. Tried in that order,
+    /// the same order the executor has always tried them.
+    pub fn lowering(&self) -> Lowering {
+        if let Some(f) = self.fused_terminal() {
+            Lowering::Range(f)
+        } else if let Some(f) = self.fused_ternlog() {
+            Lowering::Ternlog(f)
+        } else {
+            Lowering::Tiled
+        }
+    }
+
+    /// Recognise this program's lowering ONCE, for a caller that executes it
+    /// repeatedly. See [`Compiled`].
+    pub fn compile(&self) -> Compiled<'_> {
+        Compiled {
+            program: self,
+            lowering: self.lowering(),
+        }
+    }
+
     /// Whether executing this program needs any scratch slot at all.
     ///
     /// DERIVED, not declared: a flag is a claim, a derived predicate is a
@@ -798,6 +821,56 @@ impl Program {
             }
         }
         h
+    }
+}
+
+/// How a [`Program`] executes, as [`Program::lowering`] decides it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lowering {
+    /// A range over at most one resident plane, folded straight to
+    /// `Count`/`Any` ([`Program::fused_terminal`]).
+    Range(FusedTerminal),
+    /// A Boolean chain over at most three resident planes, collapsed to one
+    /// ternlog table and folded straight to `Count`/`Any`
+    /// ([`Program::fused_ternlog`]).
+    Ternlog(FusedTernlog),
+    /// Neither fold applies: the ops run tile by tile through scratch.
+    Tiled,
+}
+
+/// A [`Program`] whose lowering was recognised once, at construction.
+///
+/// Recognising a fold is compilation, not execution: the answer depends only
+/// on the program's text, so it is the same on every call. `execute_extent`
+/// recognises on each call, which is right for a one-shot program; a caller
+/// that runs the same program many times (per request, per extent, per tile
+/// of a larger scan) builds a `Compiled` once and hands it to
+/// [`crate::exec::execute_compiled`], which skips recognition entirely.
+///
+/// It BORROWS the program, so the program cannot change while the recognised
+/// lowering is held: the cache cannot go stale by construction. What stays
+/// per call is validation, because it checks the program against the
+/// `Planes`, `Foreign` and `Out` of that call.
+#[derive(Debug, Clone, Copy)]
+pub struct Compiled<'p> {
+    program: &'p Program,
+    lowering: Lowering,
+}
+
+impl<'p> Compiled<'p> {
+    /// The program this lowering was recognised from.
+    pub fn program(&self) -> &'p Program {
+        self.program
+    }
+
+    /// The recognised lowering.
+    pub fn lowering(&self) -> Lowering {
+        self.lowering
+    }
+
+    /// [`Program::requires_scratch`], answered from the cached lowering.
+    pub fn requires_scratch(&self) -> bool {
+        self.program.scratch_slots > 0 && matches!(self.lowering, Lowering::Tiled)
     }
 }
 

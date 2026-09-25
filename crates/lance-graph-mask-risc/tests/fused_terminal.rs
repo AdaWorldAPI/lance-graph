@@ -282,7 +282,14 @@ fn the_fold_arm_writes_no_derived_membership_word() {
         },
     );
     assert!(keep_prog.requires_scratch());
-    let mut buf = vec![u64::MAX; 64];
+    // Sized by the public sizing function, never a literal: the default
+    // tile width is a performance setting and may grow.
+    let need = lance_graph_mask_risc::scratch_words_for(
+        lance_graph_mask_risc::tile_words_for(n),
+        keep_prog.scratch_slots as usize,
+    )
+    .expect("sized");
+    let mut buf = vec![u64::MAX; need];
     {
         let mut s = Scratch::over_for_program(&mut buf, &keep_prog, n).expect("carve");
         let mut out = vec![0u64; words_for(n)];
