@@ -424,11 +424,16 @@ fn random_chains_collapse_and_agree_with_the_tiled_path() {
     );
 }
 
-/// FAILS IF: a chain over FOUR planes is collapsed (it cannot fit one 3-input
-/// table) or runs to a wrong answer on the path it falls back to. This is the
-/// boundary where the compact algebra stops, pinned rather than papered over.
+/// FAILS IF: a chain over FOUR planes is collapsed into ONE 3-input table
+/// (it cannot fit one), or is not split two-level by `fused_tern2`, or the
+/// split writes scratch, allocates, or runs to a wrong answer.
+///
+/// Re-pinned with the two-level lowering: this test used to pin the chain on
+/// the tiled path, as the boundary where the compact algebra stopped. The
+/// boundary moved; where it now sits (a chain no simple disjoint
+/// decomposition exists for, 5-input majority) is pinned in `tests/tern2.rs`.
 #[test]
-fn a_four_plane_chain_stays_on_the_tiled_path_and_is_correct() {
+fn a_four_plane_chain_splits_two_level_and_is_correct() {
     let n = 1000;
     let mut seed = 0x4_u64;
     let m: Vec<Vec<u64>> = (0..4).map(|_| random_plane(n, &mut seed, false)).collect();
@@ -459,9 +464,21 @@ fn a_four_plane_chain_stays_on_the_tiled_path_and_is_correct() {
         },
     );
     assert!(p.fused_ternlog().is_none());
-    assert!(p.requires_scratch());
-    let mut sc = Scratch::for_program(&p, n).expect("scratch");
-    let got = execute_extent(&p, &planes, &Foreign::NONE, &mut sc, Out::None, 0..n).expect("tiled");
+    assert!(matches!(
+        p.lowering(),
+        lance_graph_mask_risc::Lowering::Tern2(_)
+    ));
+    assert!(!p.requires_scratch());
+    let mut poison = vec![u64::MAX; 8 * words_for(n)];
+    let got = {
+        let mut sc = Scratch::over_for_program(&mut poison, &p, n).expect("arena");
+        let before = bytes();
+        let v = execute_extent(&p, &planes, &Foreign::NONE, &mut sc, Out::None, 0..n)
+            .expect("two-level");
+        assert_eq!(bytes(), before, "the two-level split allocated");
+        v
+    };
+    assert!(poison.iter().all(|&w| w == u64::MAX), "wrote scratch");
     assert_eq!(got, reference_execute(&p, &planes, None).expect("oracle"));
 }
 

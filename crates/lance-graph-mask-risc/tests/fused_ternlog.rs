@@ -424,7 +424,16 @@ fn the_recogniser_admits_exactly_collapsible_chains_to_count_and_any() {
         count(2),
     );
     assert!(four.fused_ternlog().is_none(), "four distinct planes");
-    assert!(four.requires_scratch());
+    // Re-pinned with the two-level lowering: the ONE-level fold still refuses
+    // a fourth plane, but `fused_tern2` now splits this chain as
+    // `h(a & b, c, d)`, so it no longer needs scratch. (Before `Tern2` this
+    // asserted `four.requires_scratch()`.) A chain no split exists for keeps
+    // requiring scratch: `tests/tern2.rs` pins 5-input majority.
+    assert!(matches!(
+        four.lowering(),
+        lance_graph_mask_risc::Lowering::Tern2(_)
+    ));
+    assert!(!four.requires_scratch());
 
     // Refuse: a predicate in the chain.
     let pred = Program::new(

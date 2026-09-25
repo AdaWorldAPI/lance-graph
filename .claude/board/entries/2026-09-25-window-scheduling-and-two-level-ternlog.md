@@ -1,6 +1,6 @@
 # 2026-09-25 — Mississippi-Queen windows lose; a two-level ternlog fold wins 1.7–1.8× for 4–5 planes
 
-**Status:** MEASURED · OPEN (a production `Tern2` lowering)
+**Status:** MEASURED · DONE — the `Tern2` lowering landed, see `entries/2026-09-25-tern2-two-level-lowering.md`
 **Probe:** `crates/lance-graph-mask-risc/examples/window_sched_probe.rs` (n = 2^20, `target-cpu=native`, median of 41, three runs within about 5 %). Every arm is asserted equal to the tiled result: Count by value, Keep word for word.
 
 ## The question
