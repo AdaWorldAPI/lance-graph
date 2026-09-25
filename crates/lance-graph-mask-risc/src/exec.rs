@@ -42,8 +42,8 @@ use ndarray::simd::{
 
 use crate::ir::{
     span_words, touched_words, Compiled, Foreign, FusedFold, FusedKeep, FusedTerminal, FusedTern2,
-    FusedTernlog, GroupFold, GroupKey, LaneRef, Lowering, MaskOp, Operand, Planes, Pred, Program,
-    StridedRef, Terminal, Tern2Fold, FUSED_SLOT_CAP, MAX_SCRATCH_SLOTS,
+    FusedTern3, FusedTernlog, GroupFold, GroupKey, LaneRef, Lowering, MaskOp, Operand, Planes,
+    Pred, Program, StridedRef, Terminal, Tern2Fold, Tern3In, FUSED_SLOT_CAP, MAX_SCRATCH_SLOTS,
 };
 use crate::reference::{out_shape, validate, OutShape};
 use crate::ternlog_dispatch::{
@@ -1040,6 +1040,165 @@ fn run_fused_tern2(
     }
 }
 
+/// Evaluate a [`FusedTern3`] — the six-view window — over the absolute
+/// extent `[lo, hi)`.
+///
+/// Three ternlog passes per chunk of at most [`TILE_WORDS`] whole words:
+/// `t0`, then `t1`, each into an on-stack chunk, then the root folded by
+/// `Count`/`Any` or written straight into `out`. Each resident plane is read
+/// once per chunk and no scratch slot is touched; the two chunks are the only
+/// state, and they are `TILE_WORDS` words whatever the extent.
+///
+/// Cut words follow exactly [`run_fused_tern2`]'s rules.
+fn run_fused_tern3(
+    f: FusedTern3,
+    planes: &Planes<'_>,
+    out: Option<&mut [u64]>,
+    lo: usize,
+    hi: usize,
+) -> Value {
+    let empty = match f.fold {
+        Tern2Fold::Count => Value::Count(0),
+        Tern2Fold::Any => Value::Bool(false),
+        Tern2Fold::Keep { slot } => Value::Mask(Operand::Scratch(slot)),
+    };
+    let span = span_words(lo, hi);
+    if span.is_empty() {
+        return empty;
+    }
+    let (first, last) = (span.start, span.end - 1);
+    let is_keep = matches!(f.fold, Tern2Fold::Keep { .. });
+    let head_cut = !lo.is_multiple_of(64);
+    let tail_cut = !hi.is_multiple_of(64) && (!is_keep || hi < planes.n_rows);
+    // An input's words over `[c, d)`: a plane, or one of the two chunks.
+    fn pick<'a>(
+        i: Tern3In,
+        planes: &Planes<'a>,
+        t0: &'a [u64],
+        t1: &'a [u64],
+        c: usize,
+        d: usize,
+    ) -> &'a [u64] {
+        match i {
+            Tern3In::Plane(p) => &planes.masks[usize::from(p)][c..d],
+            Tern3In::T0 => &t0[..d - c],
+            Tern3In::T1 => &t1[..d - c],
+        }
+    }
+    let [s0, s1, s2] = f.steps;
+    // One word through all three tables, in registers.
+    let word = |w: usize| -> u64 {
+        let (mut t0, mut t1, mut r) = ([0u64; 1], [0u64; 1], [0u64; 1]);
+        ternlog_dispatch(
+            s0.imm,
+            pick(s0.a, planes, &[], &[], w, w + 1),
+            pick(s0.b, planes, &[], &[], w, w + 1),
+            pick(s0.c, planes, &[], &[], w, w + 1),
+            &mut t0,
+        );
+        ternlog_dispatch(
+            s1.imm,
+            pick(s1.a, planes, &t0, &[], w, w + 1),
+            pick(s1.b, planes, &t0, &[], w, w + 1),
+            pick(s1.c, planes, &t0, &[], w, w + 1),
+            &mut t1,
+        );
+        ternlog_dispatch(
+            s2.imm,
+            pick(s2.a, planes, &t0, &t1, w, w + 1),
+            pick(s2.b, planes, &t0, &t1, w, w + 1),
+            pick(s2.c, planes, &t0, &t1, w, w + 1),
+            &mut r,
+        );
+        r[0]
+    };
+    let mut edges = [None, None];
+    if head_cut {
+        edges[0] = Some(first);
+    }
+    if tail_cut && (last != first || !head_cut) {
+        edges[1] = Some(last);
+    }
+    let from = first + usize::from(head_cut);
+    let to = (last + 1).saturating_sub(usize::from(tail_cut)).max(from);
+    let mut t0 = [0u64; TILE_WORDS];
+    let mut t1 = [0u64; TILE_WORDS];
+    // The two inner passes of one chunk, into the on-stack chunks.
+    let inner = |c: usize, d: usize, t0: &mut [u64; TILE_WORDS], t1: &mut [u64; TILE_WORDS]| {
+        ternlog_dispatch(
+            s0.imm,
+            pick(s0.a, planes, &[], &[], c, d),
+            pick(s0.b, planes, &[], &[], c, d),
+            pick(s0.c, planes, &[], &[], c, d),
+            &mut t0[..d - c],
+        );
+        ternlog_dispatch(
+            s1.imm,
+            pick(s1.a, planes, &t0[..], &[], c, d),
+            pick(s1.b, planes, &t0[..], &[], c, d),
+            pick(s1.c, planes, &t0[..], &[], c, d),
+            &mut t1[..d - c],
+        );
+    };
+    match (f.fold, out) {
+        (Tern2Fold::Keep { slot }, Some(out)) => {
+            for w in edges.into_iter().flatten() {
+                let e = edge_mask(w, lo, hi);
+                out[w] = (out[w] & !e) | (word(w) & e);
+            }
+            let mut c = from;
+            while c < to {
+                let d = (c + TILE_WORDS).min(to);
+                inner(c, d, &mut t0, &mut t1);
+                ternlog_dispatch(
+                    s2.imm,
+                    pick(s2.a, planes, &t0, &t1, c, d),
+                    pick(s2.b, planes, &t0, &t1, c, d),
+                    pick(s2.c, planes, &t0, &t1, c, d),
+                    &mut out[c..d],
+                );
+                c = d;
+            }
+            let rem = planes.n_rows % 64;
+            if from < to && to == words_for(planes.n_rows) && rem != 0 {
+                out[to - 1] &= (1u64 << rem) - 1;
+            }
+            Value::Mask(Operand::Scratch(slot))
+        }
+        (Tern2Fold::Keep { .. }, None) => empty,
+        (fold, _) => {
+            let mut n = 0u64;
+            let mut any = false;
+            for w in edges.into_iter().flatten() {
+                let bits = word(w) & edge_mask(w, lo, hi);
+                n += u64::from(bits.count_ones());
+                any |= bits != 0;
+            }
+            let mut c = from;
+            while c < to && !(any && fold == Tern2Fold::Any) {
+                let d = (c + TILE_WORDS).min(to);
+                inner(c, d, &mut t0, &mut t1);
+                let (a, b, cc) = (
+                    pick(s2.a, planes, &t0, &t1, c, d),
+                    pick(s2.b, planes, &t0, &t1, c, d),
+                    pick(s2.c, planes, &t0, &t1, c, d),
+                );
+                if fold == Tern2Fold::Count {
+                    n += ternlog_popcount_dispatch(s2.imm, a, b, cc);
+                } else {
+                    any = ternlog_any_dispatch(s2.imm, a, b, cc);
+                }
+                c = d;
+            }
+            if fold == Tern2Fold::Count {
+                Value::Count(n as usize)
+            } else {
+                Value::Bool(any)
+            }
+        }
+    }
+}
+
 /// The tiles an execution over the ABSOLUTE row extent `[lo, hi)` visits,
 /// each as `(word range, edge)`.
 ///
@@ -1347,6 +1506,29 @@ pub fn execute_compiled(
                 let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
                 validate(program, planes, foreign, out_shape(&out), &mut written)?;
                 return Ok(run_fused_tern2(f, planes, None, elo, ehi));
+            }
+        }
+    }
+    // The six-view window: three ternlog passes per chunk, no slot. `Keep`
+    // takes it only with `Out::Mask`.
+    if let Lowering::Tern3(f) = compiled.lowering() {
+        match (f.fold, &mut out) {
+            (Tern2Fold::Keep { .. }, Out::Mask(o)) => {
+                let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
+                validate(
+                    program,
+                    planes,
+                    foreign,
+                    OutShape::Mask(o.len()),
+                    &mut written,
+                )?;
+                return Ok(run_fused_tern3(f, planes, Some(o), elo, ehi));
+            }
+            (Tern2Fold::Keep { .. }, _) => {}
+            _ => {
+                let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
+                validate(program, planes, foreign, out_shape(&out), &mut written)?;
+                return Ok(run_fused_tern3(f, planes, None, elo, ehi));
             }
         }
     }

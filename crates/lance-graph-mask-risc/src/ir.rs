@@ -872,30 +872,51 @@ impl Program {
     /// Interpret the op sequence symbolically as ONE 32-bit truth table over
     /// at most five distinct resident planes, read from `slot`. Bit `k` of a
     /// table is the function's value when leaf `i` equals `(k >> i) & 1`.
+    ///
+    /// A view of [`Program::chain_table6`]: with at most five leaves, leaf 5
+    /// is never read, so the 64-bit table does not depend on index bit 5 and
+    /// its low half IS the 32-bit table. One interpreter, not two.
     fn chain_table5(&self, slot: u16) -> Option<(u32, [u16; 5], usize)> {
+        let (f, leaves, n_leaves) = self.chain_table6(slot)?;
+        if n_leaves > 5 {
+            return None;
+        }
+        let mut five = [0u16; 5];
+        five.copy_from_slice(&leaves[..5]);
+        Some((f as u32, five, n_leaves))
+    }
+
+    /// Interpret the op sequence symbolically as ONE 64-bit truth table over
+    /// at most SIX distinct resident planes, read from `slot`. Bit `k` of a
+    /// table is the function's value when leaf `i` equals `(k >> i) & 1`.
+    ///
+    /// Declines (`None`) on a predicate or a gather (they are not Boolean
+    /// functions of resident planes), on a seventh distinct plane, on a slot
+    /// past [`FUSED_SLOT_CAP`], and on a read of a slot nothing wrote.
+    fn chain_table6(&self, slot: u16) -> Option<(u64, [u16; 6], usize)> {
         if self.ops.is_empty() {
             return None;
         }
-        let mut leaves: [u16; 5] = [0; 5];
+        let mut leaves: [u16; 6] = [0; 6];
         let mut n_leaves = 0usize;
-        let mut slots: [Option<u32>; FUSED_SLOT_CAP] = [None; FUSED_SLOT_CAP];
+        let mut slots: [Option<u64>; FUSED_SLOT_CAP] = [None; FUSED_SLOT_CAP];
         let read = |o: &Operand,
-                    leaves: &mut [u16; 5],
+                    leaves: &mut [u16; 6],
                     n_leaves: &mut usize,
-                    slots: &[Option<u32>; FUSED_SLOT_CAP]|
-         -> Option<u32> {
+                    slots: &[Option<u64>; FUSED_SLOT_CAP]|
+         -> Option<u64> {
             match *o {
                 Operand::Plane(p) => {
                     let i = match leaves[..*n_leaves].iter().position(|&q| q == p) {
                         Some(i) => i,
-                        None if *n_leaves < 5 => {
+                        None if *n_leaves < 6 => {
                             leaves[*n_leaves] = p;
                             *n_leaves += 1;
                             *n_leaves - 1
                         }
                         None => return None,
                     };
-                    Some(LEAF_TABLES5[i])
+                    Some(LEAF_TABLES6[i])
                 }
                 Operand::Scratch(s) => *slots.get(usize::from(s))?,
             }
@@ -929,7 +950,7 @@ impl Program {
                         read(b, &mut leaves, &mut n_leaves, &slots)?,
                         read(c, &mut leaves, &mut n_leaves, &slots)?,
                     );
-                    (apply_table32(*imm, ta, tb, tc), *dst)
+                    (apply_table64(*imm, ta, tb, tc), *dst)
                 }
                 MaskOp::Pred { .. } | MaskOp::Gather { .. } => return None,
             };
@@ -942,11 +963,73 @@ impl Program {
         Some((f, leaves, n_leaves))
     }
 
+    /// The held-view window: a Boolean chain over exactly SIX distinct
+    /// resident planes, materialised in ONE pass as a tree of three ternlog
+    /// tables — the `ceil((6 - 1) / 2)` floor for six inputs, since each
+    /// three-input table absorbs exactly two binary combinations.
+    ///
+    /// The six masked views are HELD: the chain is read as one 64-bit truth
+    /// table over its leaves and never evaluated op by op. Per chunk the
+    /// executor then reads each plane once and computes `t0`, `t1` and the
+    /// root in registers-or-stack, folding the root straight into
+    /// `Count`/`Any` or writing it into the demanded `Out::Mask` — no scratch
+    /// slot, no intermediate population ([`crate::exec`]'s tiled path spends
+    /// one pass per op instead).
+    ///
+    /// Three split shapes are tried, in this order ([`decompose6`]):
+    ///
+    /// 1. **balanced** `h(g1(a, b, c), g2(d, e, f))` — the two inner tables
+    ///    are independent of each other;
+    /// 2. `H(t, p, q)` with `t` a [`Program::fused_tern2`]-style split of the
+    ///    other four planes;
+    /// 3. `H(t, w)` with `t` a two-level split of the other five planes.
+    ///
+    /// Declines (`None`) on everything [`Program::fused_tern2`] declines
+    /// except the plane count, on fewer or more than six distinct planes
+    /// (fewer are claimed by the narrower folds, which [`Program::lowering`]
+    /// tries first), and on a function none of the three shapes expresses —
+    /// 6-input parity-of-majorities style tables keep the tiled path.
+    pub fn fused_tern3(&self) -> Option<FusedTern3> {
+        let (fold, slot) = match self.terminal {
+            Terminal::Count {
+                mask: Operand::Scratch(s),
+            } => (Tern2Fold::Count, s),
+            Terminal::Any {
+                mask: Operand::Scratch(s),
+            } => (Tern2Fold::Any, s),
+            Terminal::Keep {
+                mask: Operand::Scratch(s),
+            } => (Tern2Fold::Keep { slot: s }, s),
+            _ => return None,
+        };
+        let (f, leaves, n_leaves) = self.chain_table6(slot)?;
+        if n_leaves != 6 {
+            return None;
+        }
+        let plan = decompose6(f)?;
+        let map = |i: Tern3Leaf| match i {
+            Tern3Leaf::Leaf(k) => Tern3In::Plane(leaves[k]),
+            Tern3Leaf::T0 => Tern3In::T0,
+            Tern3Leaf::T1 => Tern3In::T1,
+        };
+        let step = |(imm, [a, b, c]): (u8, [Tern3Leaf; 3])| Tern3Step {
+            imm,
+            a: map(a),
+            b: map(b),
+            c: map(c),
+        };
+        Some(FusedTern3 {
+            steps: [step(plan[0]), step(plan[1]), step(plan[2])],
+            fold,
+        })
+    }
+
     /// How this program executes, decided from its text alone: the range
     /// fold ([`Program::fused_terminal`]), the Boolean-membership fold
     /// ([`Program::fused_ternlog`]), its `Keep` twin ([`Program::fused_keep`]),
-    /// the two-level split for 4-5 planes ([`Program::fused_tern2`]), or the
-    /// tiled path. Tried in that order.
+    /// the two-level split for 4-5 planes ([`Program::fused_tern2`]), the
+    /// six-view window ([`Program::fused_tern3`]), or the tiled path. Tried in
+    /// that order.
     pub fn lowering(&self) -> Lowering {
         if let Some(f) = self.fused_terminal() {
             Lowering::Range(f)
@@ -956,6 +1039,8 @@ impl Program {
             Lowering::TernlogKeep(f)
         } else if let Some(f) = self.fused_tern2() {
             Lowering::Tern2(f)
+        } else if let Some(f) = self.fused_tern3() {
+            Lowering::Tern3(f)
         } else {
             Lowering::Tiled
         }
@@ -1073,6 +1158,11 @@ pub enum Lowering {
     /// tables ([`Program::fused_tern2`]). A `Keep` terminal takes this path
     /// only when the caller passes `Out::Mask`; otherwise it runs tiled.
     Tern2(FusedTern2),
+    /// A chain over exactly six resident planes, held as one truth table and
+    /// materialised as a tree of three ternlog tables ([`Program::fused_tern3`]).
+    /// A `Keep` terminal takes this path only when the caller passes
+    /// `Out::Mask`; otherwise it runs tiled.
+    Tern3(FusedTern3),
     /// Neither fold applies: the ops run tile by tile through scratch.
     Tiled,
 }
@@ -1116,6 +1206,7 @@ impl<'p> Compiled<'p> {
             && match self.lowering {
                 Lowering::Tiled | Lowering::TernlogKeep(_) => true,
                 Lowering::Tern2(f) => matches!(f.fold, Tern2Fold::Keep { .. }),
+                Lowering::Tern3(f) => matches!(f.fold, Tern2Fold::Keep { .. }),
                 Lowering::Range(_) | Lowering::Ternlog(_) => false,
             }
     }
@@ -1207,26 +1298,247 @@ pub enum Tern2Fold {
     Keep { slot: u16 },
 }
 
-/// The five leaf truth tables: bit `k` is set exactly when `(k >> i) & 1`.
-const LEAF_TABLES5: [u32; 5] = [
-    0xAAAA_AAAA,
-    0xCCCC_CCCC,
-    0xF0F0_F0F0,
-    0xFF00_FF00,
-    0xFFFF_0000,
+/// A [`Program::fused_tern3`] lowering: three ternlog tables evaluated in
+/// order. `steps[0]` reads resident planes only and yields `t0`; `steps[1]`
+/// may also read `t0` and yields `t1`; `steps[2]` may read either and yields
+/// the relation. All three tables are in the VPTERNLOG index convention.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FusedTern3 {
+    /// The three tables, in evaluation order.
+    pub steps: [Tern3Step; 3],
+    /// What the terminal demands.
+    pub fold: Tern2Fold,
+}
+
+/// One table of a [`FusedTern3`]: `imm(a, b, c)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Tern3Step {
+    /// The 8-bit truth table.
+    pub imm: u8,
+    /// Read as the table's `a`.
+    pub a: Tern3In,
+    /// Read as the table's `b`.
+    pub b: Tern3In,
+    /// Read as the table's `c`.
+    pub c: Tern3In,
+}
+
+/// An input of a [`Tern3Step`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tern3In {
+    /// A resident plane.
+    Plane(u16),
+    /// The value of `steps[0]`.
+    T0,
+    /// The value of `steps[1]`.
+    T1,
+}
+
+/// [`Tern3In`] before leaf positions are bound to planes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Tern3Leaf {
+    Leaf(usize),
+    T0,
+    T1,
+}
+
+/// The six leaf truth tables: bit `k` is set exactly when `(k >> i) & 1`.
+/// Their low 32 bits are the five-leaf tables, which is what lets
+/// [`Program::chain_table5`] be a view of [`Program::chain_table6`].
+const LEAF_TABLES6: [u64; 6] = [
+    0xAAAA_AAAA_AAAA_AAAA,
+    0xCCCC_CCCC_CCCC_CCCC,
+    0xF0F0_F0F0_F0F0_F0F0,
+    0xFF00_FF00_FF00_FF00,
+    0xFFFF_0000_FFFF_0000,
+    0xFFFF_FFFF_0000_0000,
 ];
 
-/// [`apply_table`] over 32-bit tables: output bit `i` is
+/// [`apply_table`] over 64-bit tables: output bit `i` is
 /// `imm[(ta_i << 2) | (tb_i << 1) | tc_i]`.
-fn apply_table32(imm: u8, ta: u32, tb: u32, tc: u32) -> u32 {
-    let mut out = 0u32;
+fn apply_table64(imm: u8, ta: u64, tb: u64, tc: u64) -> u64 {
+    let mut out = 0u64;
     for idx in 0..8u8 {
         if imm >> idx & 1 == 1 {
-            let pick = |bit: u8, t: u32| if idx & bit != 0 { t } else { !t };
+            let pick = |bit: u8, t: u64| if idx & bit != 0 { t } else { !t };
             out |= pick(4, ta) & pick(2, tb) & pick(1, tc);
         }
     }
     out
+}
+
+/// A three-table plan over leaf positions: `(imm, [a, b, c])` per step.
+type Plan6 = [(u8, [Tern3Leaf; 3]); 3];
+
+/// Find a three-ternlog tree for a six-leaf table, trying the shapes of
+/// [`Program::fused_tern3`] in order. Deterministic: the first split that
+/// works, in a fixed enumeration order, so the answer is a function of `f`.
+fn decompose6(f: u64) -> Option<Plan6> {
+    decompose6_balanced(f)
+        .or_else(|| decompose6_outer(f, 2))
+        .or_else(|| decompose6_outer(f, 1))
+}
+
+/// `f = h(g1(A), g2(B))` for a partition of the six leaves into two triples.
+///
+/// Laid out as an 8x8 chart (rows = the assignments of `A`, columns = those
+/// of `B`), `f` has this form exactly when the chart has at most two distinct
+/// rows AND at most two distinct columns: `g1` names the row class, `g2` the
+/// column class, and `h` reads the chart at the two classes. Leaf 0 is kept
+/// in `A`, so each of the ten unordered partitions is tried once.
+fn decompose6_balanced(f: u64) -> Option<Plan6> {
+    for p in 1..6 {
+        for q in p + 1..6 {
+            let a = [0, p, q];
+            let mut rest = (1..6).filter(|&i| i != p && i != q);
+            let b = [rest.next()?, rest.next()?, rest.next()?];
+            // chart[i] bit j = f at A = i, B = j, both in the ternlog index
+            // convention: leaf a[0] is bit 2 of i, a[2] is bit 0.
+            let index = |i: usize, j: usize| {
+                ((i >> 2) & 1) << a[0]
+                    | ((i >> 1) & 1) << a[1]
+                    | (i & 1) << a[2]
+                    | ((j >> 2) & 1) << b[0]
+                    | ((j >> 1) & 1) << b[1]
+                    | (j & 1) << b[2]
+            };
+            let mut chart = [0u8; 8];
+            for (i, row) in chart.iter_mut().enumerate() {
+                for j in 0..8 {
+                    *row |= (((f >> index(i, j)) & 1) as u8) << j;
+                }
+            }
+            let r0 = chart[0];
+            let r1 = chart.iter().copied().find(|&r| r != r0).unwrap_or(r0);
+            if chart.iter().any(|&r| r != r0 && r != r1) {
+                continue;
+            }
+            // A column's class is its pair of values under the two row classes.
+            let col = |j: usize| ((r0 >> j) & 1, (r1 >> j) & 1);
+            let c0 = col(0);
+            let c1 = (0..8).map(col).find(|&c| c != c0).unwrap_or(c0);
+            if (0..8).any(|j| col(j) != c0 && col(j) != c1) {
+                continue;
+            }
+            let mut g1 = 0u8;
+            for (i, &r) in chart.iter().enumerate() {
+                g1 |= u8::from(r != r0) << i;
+            }
+            let mut g2 = 0u8;
+            for j in 0..8 {
+                g2 |= u8::from(col(j) != c0) << j;
+            }
+            // Root table over (t0 = g1, t1 = g2, t1): c is a don't-care.
+            let mut h = 0u8;
+            for idx in 0..8usize {
+                let (ga, gb) = ((idx >> 2) & 1, (idx >> 1) & 1);
+                let class = if gb == 1 { c1 } else { c0 };
+                let v = if ga == 1 { class.1 } else { class.0 };
+                h |= v << idx;
+            }
+            return Some([
+                (g1, a.map(Tern3Leaf::Leaf)),
+                (g2, b.map(Tern3Leaf::Leaf)),
+                (h, [Tern3Leaf::T0, Tern3Leaf::T1, Tern3Leaf::T1]),
+            ]);
+        }
+    }
+    None
+}
+
+/// `f = H(t(I), O)` with `|O| = k` outer leaves (`k` is 1 or 2) and `t` over
+/// the other `6 - k` leaves admitting the two-level split of [`decompose5`].
+///
+/// Every restriction of `f` to an assignment of `O` must be one of
+/// `{0, t, !t, 1}` for a single common `t` (Ashenhurst). A four-leaf `t` is
+/// embedded in five positions with a dummy fifth leaf; the dummy is a
+/// don't-care of `t`, so whichever role `decompose5` gives it, binding it to
+/// a real leaf changes nothing.
+fn decompose6_outer(f: u64, k: usize) -> Option<Plan6> {
+    let outers: &[[usize; 2]] = if k == 2 {
+        &[
+            [0, 1],
+            [0, 2],
+            [0, 3],
+            [0, 4],
+            [0, 5],
+            [1, 2],
+            [1, 3],
+            [1, 4],
+            [1, 5],
+            [2, 3],
+            [2, 4],
+            [2, 5],
+            [3, 4],
+            [3, 5],
+            [4, 5],
+        ]
+    } else {
+        &[[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5]]
+    };
+    for o in outers {
+        let outer = &o[..k];
+        let inner: Vec<usize> = (0..6).filter(|i| !outer.contains(i)).collect();
+        // Restriction for each assignment of the outer leaves, as a 32-bit
+        // table over `inner` (padded with a don't-care fifth leaf when k = 2).
+        let mut r = [0u32; 4];
+        for (asg, ru) in r.iter_mut().enumerate().take(1 << k) {
+            for kk in 0..32usize {
+                let mut idx = 0usize;
+                for (pos, &leaf) in inner.iter().enumerate() {
+                    idx |= ((kk >> pos) & 1) << leaf;
+                }
+                for (bit, &leaf) in outer.iter().enumerate() {
+                    idx |= ((asg >> bit) & 1) << leaf;
+                }
+                *ru |= (((f >> idx) & 1) as u32) << kk;
+            }
+        }
+        let rs = &r[..1 << k];
+        let Some(t) = rs.iter().copied().find(|&x| x != 0 && x != u32::MAX) else {
+            continue;
+        };
+        if !rs
+            .iter()
+            .all(|&x| x == 0 || x == u32::MAX || x == t || x == !t)
+        {
+            continue;
+        }
+        let Some((ixyz, g, iuv, h2)) = decompose5(t) else {
+            continue;
+        };
+        // Position 4 exists only as the k = 2 dummy; bind it to inner[0].
+        let leaf = |pos: usize| Tern3Leaf::Leaf(*inner.get(pos).unwrap_or(&inner[0]));
+        // Root table over (t1, o_0, o_1): index (t << 2) | (o_0 << 1) | o_1.
+        let mut root = 0u8;
+        for idx in 0..8usize {
+            let tv = (idx >> 2) & 1;
+            let asg = if k == 2 {
+                ((idx >> 1) & 1) | ((idx & 1) << 1)
+            } else {
+                (idx >> 1) & 1
+            };
+            let x = rs[asg];
+            let v = if x == 0 {
+                0
+            } else if x == u32::MAX {
+                1
+            } else if x == t {
+                tv
+            } else {
+                1 - tv
+            };
+            root |= (v as u8) << idx;
+        }
+        let o0 = Tern3Leaf::Leaf(outer[0]);
+        let o1 = Tern3Leaf::Leaf(outer[k - 1]);
+        return Some([
+            (g, ixyz.map(leaf)),
+            (h2, [Tern3Leaf::T0, leaf(iuv[0]), leaf(iuv[1])]),
+            (root, [Tern3Leaf::T1, o0, o1]),
+        ]);
+    }
+    None
 }
 
 /// Find a simple disjoint decomposition `f = h(g(x, y, z), u, v)` of a
@@ -1626,5 +1938,110 @@ mod tests {
         for p in [eq, ne, facet] {
             assert_eq!(pred(p, gate).predicates, 1, "{p:?} is still one predicate");
         }
+    }
+}
+
+#[cfg(test)]
+mod tern3_tests {
+    use super::*;
+
+    /// Rebuild a plan's function over the six leaf tables.
+    fn rebuild(plan: &Plan6) -> u64 {
+        let (mut t0, mut t1) = (0u64, 0u64);
+        let val = |i: Tern3Leaf, t0: u64, t1: u64| match i {
+            Tern3Leaf::Leaf(k) => LEAF_TABLES6[k],
+            Tern3Leaf::T0 => t0,
+            Tern3Leaf::T1 => t1,
+        };
+        let mut out = 0u64;
+        for (n, &(imm, [a, b, c])) in plan.iter().enumerate() {
+            let v = apply_table64(imm, val(a, t0, t1), val(b, t0, t1), val(c, t0, t1));
+            match n {
+                0 => t0 = v,
+                1 => t1 = v,
+                _ => out = v,
+            }
+        }
+        out
+    }
+
+    fn leaf(i: usize) -> u64 {
+        LEAF_TABLES6[i]
+    }
+
+    /// FAILS IF: a shape claims a function its three tables do not compute.
+    /// Every plan any shape returns is rebuilt from its own tables and
+    /// compared bit for bit, over tables built to exercise all three shapes.
+    #[test]
+    fn every_plan_rebuilds_its_function() {
+        let (a, b, c, d, e, f) = (leaf(0), leaf(1), leaf(2), leaf(3), leaf(4), leaf(5));
+        let fns = [
+            a & b & c & d & e & f,
+            a | b | c | d | e | f,
+            a ^ b ^ c ^ d ^ e ^ f,
+            (a & b & c) ^ (d | e | f),
+            (((a & b) | c) ^ d) & e | f,
+            ((a ^ d) & (b | e)) ^ (c & f),
+            ((a & b) | (c & d)) ^ (e & !f),
+        ];
+        for (i, &t) in fns.iter().enumerate() {
+            let plan = decompose6(t).unwrap_or_else(|| panic!("fn {i} did not decompose"));
+            assert_eq!(rebuild(&plan), t, "fn {i}");
+        }
+        // Random tables: most do not decompose; every one that does must
+        // rebuild exactly.
+        let mut s = 0x5EED_u64;
+        let mut hits = 0;
+        for _ in 0..20_000 {
+            s = s
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            // Bias towards structured tables: combine random 3-leaf tables.
+            let g1 = apply_table64((s >> 8) as u8, a, b, c);
+            let g2 = apply_table64((s >> 16) as u8, d, e, f);
+            let t = apply_table64((s >> 24) as u8, g1, g2, (s >> 32 & 1).wrapping_neg() & a);
+            if let Some(plan) = decompose6(t) {
+                assert_eq!(rebuild(&plan), t);
+                hits += 1;
+            }
+        }
+        assert!(hits > 1000, "too few random tables decomposed: {hits}");
+    }
+
+    /// FAILS IF: any one of the three shapes is unreachable — each has a
+    /// table only it (among the three, in `decompose6`'s order) claims.
+    #[test]
+    fn each_shape_is_reachable_on_its_own() {
+        let (a, b, c, d, e, f) = (leaf(0), leaf(1), leaf(2), leaf(3), leaf(4), leaf(5));
+        let balanced = (a & b & c) ^ (d | e | f);
+        assert!(decompose6_balanced(balanced).is_some());
+        // Not a 3|3 split, but an H(t(4), p, q): the outer pair mixes into
+        // the root and t's four leaves straddle every triple partition.
+        let outer2 = ((((a & b) | c) ^ d) & e) | f;
+        assert!(decompose6_balanced(outer2).is_none(), "must not be 3|3");
+        assert!(decompose6_outer(outer2, 2).is_some());
+        // A two-level function of five leaves, gated by the sixth: no 3|3
+        // chart has two column classes (the gate splits every column set into
+        // three), and no outer pair leaves a common `t` (every other leaf is
+        // essential to `t`), so only the k = 1 shape can express it.
+        let outer1 = (((a | b) & c) ^ (d & !e)) & f;
+        assert!(decompose6_balanced(outer1).is_none(), "must not be 3|3");
+        assert!(decompose6_outer(outer1, 2).is_none(), "must not be k = 2");
+        assert!(decompose6_outer(outer1, 1).is_some(), "k = 1 shape");
+    }
+
+    /// FAILS IF: the recogniser claims a function no three-table tree
+    /// computes. Six-input majority (at least 4 of 6) is symmetric and has
+    /// no disjoint decomposition of any of the three shapes — the
+    /// can-stay-silent case.
+    #[test]
+    fn six_input_majority_declines() {
+        let mut maj = 0u64;
+        for k in 0..64u32 {
+            if k.count_ones() >= 4 {
+                maj |= 1 << k;
+            }
+        }
+        assert!(decompose6(maj).is_none());
     }
 }
