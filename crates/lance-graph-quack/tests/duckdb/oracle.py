@@ -50,6 +50,7 @@ GROUPED = {
     "group2_count_cc_st",
     "group2_min_cc_st",
     "group2_max_cc_st_sparse",
+    "group2_avg_cc_st",
 }
 BOOLEAN = {"exists_neg"}
 ROWS = {"rows_proj"}
