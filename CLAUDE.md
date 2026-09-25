@@ -1412,13 +1412,16 @@ cd crates/lance-graph-python && maturin develop
 # (Rust crate line is 0.33.0 -> 0.37.1 -> 0.38.0; 0.34/0.35/0.36 do not exist as
 # Rust crates -- those numbers are the independently-versioned PyPI package.)
 #
-# The lance family moves in EXACT lockstep -- currently the 11 line. Line of state:
+# The lance family moves in EXACT lockstep -- currently the 12 line. Line of state:
 # lance 7 (2026-06-14) -> 9 (the lance-9 sweep, b2b08b07 / PR #896 arc) -> 10
 # (#1187, D-LNC-1) -> 11 (#1190, D-LNC-3, probe-gated on the D-LNC-2 fragment-id
-# probe #1189). arrow/datafusion did NOT move with any of them.
+# probe #1189) -> 12 (2026-09-25, lancedb 0.39). arrow/datafusion did NOT move
+# with any of them. lance 12 DID move `object_store` 0.13 -> 0.14 while
+# datafusion 54 stays on 0.13, so both are in the graph; our direct
+# `object_store` follows lance (every call site hands it to lance).
 # ⊘ The "=9.0.0 / lancedb =0.33.0" ruling recorded below as
 # E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1 is SUPERSEDED on its lance
-# and lancedb coordinates ONLY (now 11 / 0.38.0); its datafusion half stands
+# and lancedb coordinates ONLY (now 12 / 0.39.0); its datafusion half stands
 # verbatim -- DF 54.1, never DF 53, and the `delta` feature stays removed.
 # (A duplicated copy of this sentence stood here since the lance-9 sweep; both
 # copies carried the stale number, so both are replaced by this one.)
@@ -1447,13 +1450,15 @@ datafusion = "54"     # OUR direct pin, in every crate that DEPENDS on it
                       # 2026-08-18; crates.io releases still DF 53) — as its
                       # own deliberate PR if a consumer needs Delta.
                       # Probe: .claude/plans/lance9-datafusion54-upgrade-probe-v1.md
-lance = "11.*"            # lancedb 0.38 requires `=11.0.0`; we float the patch
-lance-linalg = "11.*"     # and resolve to whatever it demands (today 11.0.0)
-lance-index = "11.*"
-lancedb = "0.38.*"        # the lance-11 pairing (`default-features = false` in
-                          # the workspace table). NOTE: the Rust crate line is
-                          # 0.33.0 -> 0.37.1 -> 0.38.0; 0.34/0.35/0.36 exist only
-                          # as the independently-versioned PyPI package.
+lance = "12.*"            # lancedb 0.39 requires `=12.0.0`; we float the patch
+lance-linalg = "12.*"     # and resolve to whatever it demands (today 12.0.0)
+lance-index = "12.*"
+lancedb = "0.39.*"        # the lance-12 pairing (`default-features = false` in
+                          # the workspace table; consumers behind `lancedb-sdk`
+                          # add `remote`, which 0.39.0 needs to compile at all).
+                          # NOTE: the Rust crate line is 0.33.0 -> 0.37.1 ->
+                          # 0.38.0 -> 0.39.0; 0.34/0.35/0.36 exist only as the
+                          # independently-versioned PyPI package.
 rust = "1.98.1"           # rust-toolchain.toml is authoritative; see its bump log
 ndarray = { path = "../../../ndarray" }  # AdaWorldAPI fork, default, optional fallback
 nom = "7.1"

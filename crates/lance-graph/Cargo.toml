@@ -23,7 +23,7 @@ categories = ["database", "data-structures", "science"]
 # E-A-CRATE-WITH-ZERO-CONSUMERS-IS-BUILT-BY-NOTHING-AND-CAN-BE-MERGED-BROKEN-1,
 # ISSUES ISS-HYDRATE-CRATE-HAS-NO-BUILD-GATE).
 lance-graph-hydrate = { path = "../lance-graph-hydrate" }
-object_store = { version = "0.13", features = ["aws"] }
+object_store = { version = "0.14", features = ["aws"] }  # follows lance, see workspace Cargo.toml
 # arrow + datafusion bumped to 58 + 53 to align with lance 6.0's transitive versions.
 # TODO(lance-bump): downstream crates may need follow-up to align.
 arrow = { workspace = true, features = ["prettyprint"] }
@@ -50,8 +50,14 @@ lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.4" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 lance = { workspace = true }
 lance-linalg = { workspace = true }
-lance-namespace = "11.*"
-lancedb = { workspace = true, optional = true }
+lance-namespace = "12.*"
+# `remote` is NOT a capability we asked for: lancedb 0.39.0 does not compile
+# without it. `src/lib.rs` leaves `pub mod job;` ungated while `src/job.rs`
+# builds `Error::Http`, which `src/error.rs` gates on `cfg(feature = "remote")`
+# (E0599). Same upstream defect as 0.38.0; no 0.39 patch release fixes it.
+# Declared here, not in the workspace entry, so it is active only when
+# `lancedb-sdk` turns the optional dep on. Drop it once upstream gates `job`.
+lancedb = { workspace = true, optional = true, features = ["remote"] }
 nom = "7.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -142,7 +148,7 @@ lite-unified = []
 deepnsm = { path = "../deepnsm" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 futures = "0.3"
-lance-arrow = "11.*"
+lance-arrow = "12.*"
 lance-index = { workspace = true }
 tempfile = "3"
 # D-MW-P2 probe only: `ShardWriterConfig::shard_id` is a `Uuid`, so the probe
@@ -153,8 +159,9 @@ uuid = "1"
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread", "sync"] }
 causal-edge = { path = "../causal-edge" }
 lance-graph-planner = { path = "../lance-graph-planner" }
-# Same 0.13.2 already resolved transitively via lance/lance-io/lancedb — this
-# adds a direct edge to an already-locked version, not a new resolution. Only
+# The same major lance resolves transitively (0.14 since lance 12; see the
+# workspace `object_store` entry) — this adds a direct edge to an
+# already-locked version, not a new resolution. Only
 # `object_store::path::Path` is named directly (hydration_probe's byte-mirror
 # upload needs to build a multi-segment relative path; `Path::from` parses one,
 # `ObjectStore::put`'s single-segment `.join` does not).

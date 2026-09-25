@@ -1,6 +1,6 @@
 # 2026-09-23 — W-D: two-column GROUP BY as one composite-addressed GroupReduce
 
-**Status:** MEASURED (DuckDB differential green; disable-verified) · OPEN (AVG / full-range SUM over a Pair key; >2 key columns)
+**Status:** MEASURED (DuckDB differential green; disable-verified) · AVG over a Pair key CLOSED 2026-09-25 (sum half lowered as the NULL-preserving `GroupReduce SumI32`; DuckDB case `group2_avg_cc_st`) · OPEN (full-range coalescing SUM over a Pair key; >2 key columns)
 **Supersedes:** the W-D line under "What is still open" in `entries/2026-09-22-quack-duckdb-parity-t0-keyed-reduction.md` and `entries/2026-09-23-quack-having-sym-sum-presence-mask.md`.
 
 ## What landed

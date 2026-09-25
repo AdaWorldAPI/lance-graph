@@ -651,10 +651,10 @@ impl Program {
     /// sequence has not yet written, a slot at or above
     /// [`FUSED_SLOT_CAP`] (the interpreter keeps its tables in a fixed
     /// on-stack array so that recognition never allocates), or any terminal
-    /// other than `Count`/`Any`. `Keep` is NEVER fused: it is the explicit
-    /// election of a bitmap.
+    /// other than `Count`/`Any`. `Keep` is not a scalar fold; its bitmap
+    /// lowering is [`Program::fused_keep`].
     pub fn fused_ternlog(&self) -> Option<FusedTernlog> {
-        let fold = match self.terminal {
+        let (fold, slot) = match self.terminal {
             Terminal::Count {
                 mask: Operand::Scratch(s),
             } => (FusedFold::Count, s),
@@ -663,6 +663,39 @@ impl Program {
             } => (FusedFold::Any, s),
             _ => return None,
         };
+        let (imm, a, b, c) = self.ternlog_table(slot)?;
+        Some(FusedTernlog { imm, a, b, c, fold })
+    }
+
+    /// The bitmap-producing twin of [`Program::fused_ternlog`]: the same
+    /// Boolean chain over at most three resident planes, but consumed by
+    /// [`Terminal::Keep`] of the slot it wrote. The chain collapses to ONE
+    /// ternlog table exactly as for `Count`/`Any`; the executor then writes
+    /// that table's result straight into the caller's [`crate::Out::Mask`] in
+    /// a single pass, instead of writing every intermediate op into scratch
+    /// and copying the last slot out.
+    ///
+    /// `Keep` stays the explicit election of a bitmap: this lowering still
+    /// writes one — the demanded one, and only it. It applies only when the
+    /// caller passes `Out::Mask`; a whole-width scratch caller that reads the
+    /// result from its slot (`Out::None`) keeps the tiled path, so
+    /// [`Program::requires_scratch`] stays `true` for these programs.
+    pub fn fused_keep(&self) -> Option<FusedKeep> {
+        let Terminal::Keep {
+            mask: Operand::Scratch(slot),
+        } = self.terminal
+        else {
+            return None;
+        };
+        let (imm, a, b, c) = self.ternlog_table(slot)?;
+        Some(FusedKeep { imm, a, b, c, slot })
+    }
+
+    /// Interpret the op sequence symbolically as ONE 8-bit ternlog table over
+    /// at most three distinct resident planes, read from `slot` once the
+    /// sequence has run. The shared core of [`Program::fused_ternlog`] and
+    /// [`Program::fused_keep`]; see the former for the declines.
+    fn ternlog_table(&self, slot: u16) -> Option<(u8, u16, u16, u16)> {
         if self.ops.is_empty() {
             return None;
         }
@@ -728,7 +761,7 @@ impl Program {
             };
             *slots.get_mut(usize::from(dst))? = Some(t);
         }
-        let imm = (*slots.get(usize::from(fold.1))?)?;
+        let imm = (*slots.get(usize::from(slot))?)?;
         if n_leaves == 0 {
             return None;
         }
@@ -737,13 +770,7 @@ impl Program {
         let a = leaves[0];
         let b = if n_leaves > 1 { leaves[1] } else { a };
         let c = if n_leaves > 2 { leaves[2] } else { a };
-        Some(FusedTernlog {
-            imm,
-            a,
-            b,
-            c,
-            fold: fold.0,
-        })
+        Some((imm, a, b, c))
     }
 
     /// How this program executes, decided from its text alone: the range
@@ -755,6 +782,8 @@ impl Program {
             Lowering::Range(f)
         } else if let Some(f) = self.fused_ternlog() {
             Lowering::Ternlog(f)
+        } else if let Some(f) = self.fused_keep() {
+            Lowering::TernlogKeep(f)
         } else {
             Lowering::Tiled
         }
@@ -834,6 +863,10 @@ pub enum Lowering {
     /// ternlog table and folded straight to `Count`/`Any`
     /// ([`Program::fused_ternlog`]).
     Ternlog(FusedTernlog),
+    /// The same collapsed chain, consumed by `Keep`: written in one pass into
+    /// the demanded `Out::Mask` ([`Program::fused_keep`]). Taken only when the
+    /// caller passes `Out::Mask`; otherwise the executor runs it tiled.
+    TernlogKeep(FusedKeep),
     /// Neither fold applies: the ops run tile by tile through scratch.
     Tiled,
 }
@@ -870,7 +903,11 @@ impl<'p> Compiled<'p> {
 
     /// [`Program::requires_scratch`], answered from the cached lowering.
     pub fn requires_scratch(&self) -> bool {
-        self.program.scratch_slots > 0 && matches!(self.lowering, Lowering::Tiled)
+        // `TernlogKeep` needs no scratch when the caller demands `Out::Mask`,
+        // but a caller reading the result from its slot (`Out::None`) runs
+        // tiled, so the program still requires scratch in general.
+        self.program.scratch_slots > 0
+            && matches!(self.lowering, Lowering::Tiled | Lowering::TernlogKeep(_))
     }
 }
 
@@ -907,6 +944,23 @@ pub struct FusedTernlog {
     pub c: u16,
     /// The scalar the terminal demands.
     pub fold: FusedFold,
+}
+
+/// A [`Program::fused_keep`] lowering: one ternlog table over three resident
+/// planes, written straight into the demanded `Out::Mask`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FusedKeep {
+    /// The 8-bit truth table.
+    pub imm: u8,
+    /// Resident plane read as the table's `a`.
+    pub a: u16,
+    /// Resident plane read as the table's `b`.
+    pub b: u16,
+    /// Resident plane read as the table's `c`.
+    pub c: u16,
+    /// The scratch slot the program's `Keep` names — what `Value::Mask`
+    /// reports, exactly as the tiled path reports it.
+    pub slot: u16,
 }
 
 /// Apply the VPTERNLOG table `imm` bitwise to three input tables: output bit

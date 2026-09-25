@@ -768,12 +768,6 @@ pub enum LowerError {
     /// the executor refuses a zero-length sink — so the plan would be
     /// unexecutable. Refused here, where the caller can see why.
     EmptyGroupUniverse,
-    /// `GROUP BY (hi, lo) AVG(val)`: an AVG over a two-column key. There is
-    /// no full-range pair `GROUP SUM` terminal yet — the count half
-    /// ([`GroupAgg::Count`] over [`GroupAddr::Pair`]) would lower, the sum
-    /// half has nowhere to go — so [`lower_group_avg`] refuses rather than
-    /// answer with only half the fraction.
-    GroupAvgPairKey,
 }
 
 impl core::fmt::Display for LowerError {
@@ -793,12 +787,6 @@ impl core::fmt::Display for LowerError {
             }
             LowerError::EmptyGroupUniverse => {
                 write!(f, "a grouped plan needs at least one group (groups == 0)")
-            }
-            LowerError::GroupAvgPairKey => {
-                write!(
-                    f,
-                    "AVG over a two-column (Pair) group key has no SUM terminal yet"
-                )
             }
         }
     }
@@ -1227,7 +1215,15 @@ pub fn lower_avg(filter: &Filter, val: Col) -> Result<AvgPlan, LowerError> {
 /// [`avg_finish`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GroupAvgPlan {
-    /// `GROUP BY key SUM(val)` — `GroupSumI32` / `GroupSumViaI32`.
+    /// `GROUP BY key SUM(val)`. For [`GroupAddr::Local`] / [`GroupAddr::Via`]
+    /// this is `GroupSumI32` / `GroupSumViaI32`. For [`GroupAddr::Pair`]
+    /// there is no dedicated pair-key SUM terminal, so this is instead
+    /// `GroupReduce { agg: GroupAgg::SumI32(val) }` — the NULL-preserving
+    /// grouped sum, which already lowers for a Pair key via `GroupKey::Pair`.
+    /// Consequence: for a Pair key, a group NO selected row reached holds the
+    /// NULL marker (the fold's empty-slot seed) in this sink rather than `0`.
+    /// [`avg_finish`] never observes it, because that group's `count` half is
+    /// `0` too.
     pub sum: Program,
     /// `GROUP BY key COUNT(*)` — `GroupReduce { fold: Count }`.
     pub count: Program,
@@ -1236,7 +1232,15 @@ pub struct GroupAvgPlan {
 }
 
 /// Lower `GROUP BY key AVG(val) WHERE filter` to its [`GroupAvgPlan`].
-/// `key` may be a column of this table or reached through an fk.
+/// `key` may be a column of this table, reached through an fk, or a
+/// two-column [`GroupAddr::Pair`].
+///
+/// For [`GroupAddr::Local`] / [`GroupAddr::Via`] the sum half lowers to the
+/// dedicated `GroupSumI32` / `GroupSumViaI32` terminal, unchanged. For
+/// [`GroupAddr::Pair`] there is no such terminal, so the sum half instead
+/// lowers as `Agg::GroupReduce { key, agg: GroupAgg::SumI32(val) }` — see the
+/// [`GroupAvgPlan::sum`] doc for the NULL-vs-empty-group consequence that
+/// falls out of it.
 ///
 /// # Errors
 ///
@@ -1250,7 +1254,10 @@ pub fn lower_group_avg(
     let sum_agg = match key {
         GroupAddr::Local(k) => Agg::GroupSumI32 { key: k, val },
         GroupAddr::Via { fk, key } => Agg::GroupSumViaI32 { fk, key, val },
-        GroupAddr::Pair { .. } => return Err(LowerError::GroupAvgPairKey),
+        GroupAddr::Pair { .. } => Agg::GroupReduce {
+            key,
+            agg: GroupAgg::SumI32(val),
+        },
     };
     Ok(GroupAvgPlan {
         sum: lower(&Query {
