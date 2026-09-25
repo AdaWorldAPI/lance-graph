@@ -261,6 +261,9 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
         Value::GroupReduced => {
             panic!("case {id}: run_query doesn't handle GroupReduce — see run_group_reduce")
         }
+        Value::StridedSum(_) => {
+            panic!("case {id}: no MaskedStridedGroupSum case in this suite")
+        }
     };
     let out_bytes = encoded.len();
     (

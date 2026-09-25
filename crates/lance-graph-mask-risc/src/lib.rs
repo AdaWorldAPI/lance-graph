@@ -28,12 +28,15 @@
 //! `GROUP BY … SUM`, and [`Terminal::GroupSumViaI32`] is its fk-keyed
 //! sibling ([`ndarray::simd::masked_group_sum_i32_via`],
 //! `SUM(...) GROUP BY partner.country`) — [`ir::Foreign::lanes`] is the
-//! foreign VALUE-lane twin of `Foreign::planes`. Still absent, named: a
-//! strided `Operand` — the gap is in THIS IR, not in T1: `ndarray::simd`
-//! already ships `ternary_match_strided_to_mask`, `eq_u32_strided_to_mask`
-//! and `masked_strided_group_sum`, and nothing here can name a `(base,
-//! stride, group)` source; and the Cypher `mask_lower` seam (the Cypher
-//! plan's Wave 1 consumes this crate).
+//! foreign VALUE-lane twin of `Foreign::planes`. A strided source is
+//! [`ir::LaneRef::Strided`]: a `(bytes, first_offset, stride, records)` field
+//! view over unchanged record bytes, read in place by
+//! [`Pred::EqU32Strided`] / [`Pred::NeU32Strided`] /
+//! [`Pred::MatchFacetStrided`] and [`Terminal::MaskedStridedGroupSum`] over
+//! `ndarray::simd`'s `eq_u32_strided_to_mask`,
+//! `ternary_match_strided_to_mask` and `masked_strided_group_sum`. Still
+//! absent, named: the Cypher `mask_lower` seam (the Cypher plan's Wave 1
+//! consumes this crate).
 //!
 //! One duplication is filed rather than resolved here: `lgj-abi` already
 //! carries its own runtime-immediate → const-generic ternlog bridge
@@ -126,7 +129,8 @@ pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
 pub use ir::{
     touched_words, Compiled, Foreign, ForeignPlane, FusedFold, FusedKeep, FusedTerminal,
     FusedTernlog, GroupFold, GroupKey, LaneRef, Lowering, MaskOp, Operand, Planes, Pred, Program,
-    Terminal, FUSED_SLOT_CAP, GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
+    StridedRef, Terminal, FUSED_SLOT_CAP, GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
+    MAX_SCRATCH_SLOTS,
 };
 pub use reference::{
     reference_execute, reference_execute_into, reference_scratch, reference_scratch_with_foreign,
