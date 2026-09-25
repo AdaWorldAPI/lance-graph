@@ -1,6 +1,6 @@
 # 2026-09-25 — Whole-stack compilation ceiling: the ≤3-plane fold is already there; Keep and >3 planes are ~3× away
 
-**Status:** MEASURED · OPEN (fold `Keep`; a register-resident two-ternlog primitive for 4–5 planes)
+**Status:** MEASURED · ≤3-plane `Keep` fold LANDED 2026-09-25 (see `entries/2026-09-25-keep-fold.md`) · OPEN (a register-resident two-ternlog primitive for 4–5 planes)
 **D-ids:** D-WFL-FUSE follow-up.
 
 ## What was asked
