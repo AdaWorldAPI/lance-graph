@@ -164,7 +164,7 @@
 
 use std::cmp::Reverse;
 
-use lance_graph_contract::facet::SemanticPrefix;
+use lance_graph_contract::facet::{SemanticAperture, SemanticPrefix};
 use lance_graph_contract::ordered_lane::{OrderedLaneWitness, SealedFacetLane};
 use lance_graph_mask_risc::{
     fuse, BoolExpr, FuseError, GroupFold, GroupKey, MaskOp, Operand, Pred, Program, Terminal,
@@ -735,6 +735,81 @@ impl Filter {
             },
         }
     }
+
+    /// **The aperture → bound lowering.** A [`SemanticAperture`] is the
+    /// byte- or bit-granular form of a facet prefix: a HHTL partial mask
+    /// ("HEEL + HIP, TWIG free", "rail 0's coarse byte") that a whole-tile
+    /// [`SemanticPrefix`] cannot state.
+    ///
+    /// - a **prefix** aperture (care is a run of ones from the coarse end, in
+    ///   semantic order) selects a closed key interval. Under a witness the
+    ///   sealed lane validates, it lowers to a single [`Cmp::Range`] — no row is
+    ///   compared; otherwise to the sweep, with the reason
+    ///   ([`ApertureLowering::Prefix`]);
+    /// - an aperture **with a hole** is a predicate, not an interval, and
+    ///   always sweeps ([`ApertureLowering::SweepNotAPrefix`]).
+    ///
+    /// The sweep is the [`Cmp::MatchU64`] ternary match over the two semantic
+    /// `u64` planes (`hi_col`, `lo_col`), one per half the care touches; an
+    /// empty care matches every row. The precondition on
+    /// [`Filter::prefix_facet`] applies unchanged: a `Range` is ordinals in the
+    /// sealed lane's order, and the planes must be in that order.
+    #[must_use]
+    pub fn aperture_facet(
+        witnessed: Option<(&SealedFacetLane, &OrderedLaneWitness)>,
+        lane_col: Col,
+        hi_col: Col,
+        lo_col: Col,
+        aperture: &SemanticAperture,
+    ) -> (Self, ApertureLowering) {
+        let sweep = || {
+            let ((p_hi, p_lo), (c_hi, c_lo)) = aperture.semantic_halves();
+            let leg = |col, pattern, care| Filter::Cmp(col, Cmp::MatchU64 { pattern, care });
+            match (c_hi != 0, c_lo != 0) {
+                (_, false) => leg(hi_col, p_hi, c_hi),
+                (false, true) => leg(lo_col, p_lo, c_lo),
+                (true, true) => Filter::And(vec![leg(hi_col, p_hi, c_hi), leg(lo_col, p_lo, c_lo)]),
+            }
+        };
+        if aperture.prefix_bits().is_none() {
+            return (sweep(), ApertureLowering::SweepNotAPrefix);
+        }
+        let how = match witnessed {
+            None => PrefixLowering::SweepNoWitness,
+            Some((lane, w)) => match lane.bound_aperture(w, aperture) {
+                Ok(Some((lo, hi))) => {
+                    return (
+                        Filter::Cmp(lane_col, Cmp::Range { lo, hi }),
+                        ApertureLowering::Prefix(PrefixLowering::Bound {
+                            lo,
+                            hi,
+                            lane_version: w.version(),
+                            lane_digest: w.digest(),
+                        }),
+                    );
+                }
+                // `prefix_bits` was checked above, so a prefix always has an
+                // interval; kept total rather than unreachable.
+                Ok(None) => return (sweep(), ApertureLowering::SweepNotAPrefix),
+                Err(e) => PrefixLowering::SweepInvalidWitness(e),
+            },
+        };
+        (sweep(), ApertureLowering::Prefix(how))
+    }
+}
+
+/// How [`Filter::aperture_facet`] lowered a facet aperture.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApertureLowering {
+    /// The aperture's care is a prefix run in semantic order, so it is the
+    /// same question as a facet prefix: bound to a [`Cmp::Range`] under a
+    /// validated witness, otherwise swept. The inner value says which, exactly
+    /// as [`Filter::prefix_facet`] reports it.
+    Prefix(PrefixLowering),
+    /// The care has a hole (e.g. a content byte without the address bytes
+    /// above it): the matches are not an interval of any order, so the
+    /// aperture is swept whatever witness is offered.
+    SweepNotAPrefix,
 }
 
 /// Why a query could not be lowered.
@@ -4186,5 +4261,131 @@ mod diamond_lowering_tests {
         assert_eq!(fx.rows_of(&f), (100..300).collect::<Vec<_>>());
         let empty = Filter::Cmp(LANE, Cmp::Range { lo: 42, hi: 42 });
         assert!(fx.rows_of(&empty).is_empty());
+    }
+
+    fn care_bits(bits: u32) -> FacetCascade {
+        let care: u128 = if bits == 0 {
+            0
+        } else {
+            u128::MAX << (128 - bits)
+        };
+        let (hi, lo) = ((care >> 64) as u64, care as u64);
+        FacetCascade::from_semantic_tiles([
+            (hi >> 48) as u16,
+            (hi >> 32) as u16,
+            (hi >> 16) as u16,
+            hi as u16,
+            (lo >> 48) as u16,
+            (lo >> 32) as u16,
+            (lo >> 16) as u16,
+            lo as u16,
+        ])
+    }
+
+    fn aperture_oracle(fx: &Fx, a: &SemanticAperture) -> Vec<usize> {
+        (0..fx.n())
+            .filter(|&i| a.matches(fx.lane.keys()[i]))
+            .collect()
+    }
+
+    /// Every bit-prefix aperture — including ones that end inside a tile —
+    /// lowers to ONE `Range` under a witness, and the Range, the sweep and the
+    /// row oracle select the same rows.
+    #[test]
+    fn a_prefix_aperture_lowers_to_a_range_and_agrees_with_the_sweep() {
+        let fx = Fx::new(2000, 31);
+        let w = fx.lane.witness();
+        let mut sub_tile_cuts = 0;
+        for &pick in &[0usize, 777, 1999] {
+            let probe = fx.lane.keys()[pick];
+            for bits in (0..=128u32).step_by(3).chain([16, 32, 40, 48, 128]) {
+                let a = SemanticAperture::new(probe, care_bits(bits));
+                let (bound, how_b) = Filter::aperture_facet(Some((&fx.lane, &w)), LANE, HI, LO, &a);
+                let (sweep, how_s) = Filter::aperture_facet(None, LANE, HI, LO, &a);
+                assert!(
+                    matches!(
+                        how_b,
+                        ApertureLowering::Prefix(PrefixLowering::Bound { .. })
+                    ),
+                    "bits {bits}: {how_b:?}"
+                );
+                assert_eq!(
+                    how_s,
+                    ApertureLowering::Prefix(PrefixLowering::SweepNoWitness)
+                );
+                assert!(
+                    matches!(bound, Filter::Cmp(_, Cmp::Range { .. })),
+                    "bits {bits}"
+                );
+                let truth = aperture_oracle(&fx, &a);
+                assert_eq!(fx.rows_of(&bound), truth, "bound, bits {bits}");
+                assert_eq!(fx.rows_of(&sweep), truth, "sweep, bits {bits}");
+                if bits % 16 != 0 && !truth.is_empty() && truth.len() < fx.n() {
+                    sub_tile_cuts += 1;
+                }
+            }
+        }
+        assert!(sub_tile_cuts > 10, "anti-vacuity: {sub_tile_cuts}");
+    }
+
+    /// An aperture with a hole never becomes a `Range`, even with a valid
+    /// witness: its matches are not an interval.
+    #[test]
+    fn an_aperture_with_a_hole_sweeps_even_under_a_witness() {
+        let fx = Fx::new(2000, 32);
+        let w = fx.lane.witness();
+        for care in [
+            [0, 0xFFFF, 0, 0, 0, 0, 0, 0],
+            [0xFFFF, 0, 0xFFFF, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0x00FF],
+        ] {
+            let a =
+                SemanticAperture::new(fx.lane.keys()[300], FacetCascade::from_semantic_tiles(care));
+            let (f, how) = Filter::aperture_facet(Some((&fx.lane, &w)), LANE, HI, LO, &a);
+            assert_eq!(how, ApertureLowering::SweepNotAPrefix);
+            assert!(!matches!(f, Filter::Cmp(_, Cmp::Range { .. })));
+            let truth = aperture_oracle(&fx, &a);
+            assert_eq!(fx.rows_of(&f), truth);
+            // anti-vacuity: the hole matters — its rows are not one run.
+            assert!(truth.windows(2).any(|p| p[1] != p[0] + 1), "{care:?}");
+        }
+    }
+
+    /// A rejected witness never yields a `Range` from an aperture.
+    #[test]
+    fn a_prefix_aperture_under_a_stale_witness_sweeps_and_says_why() {
+        let fx = Fx::new(500, 33);
+        let w = fx.lane.witness();
+        let forged = OrderedLaneWitness::forged(w.version() + 5, w.n_rows(), w.digest());
+        let a = SemanticAperture::new(fx.lane.keys()[250], care_bits(40));
+        let (f, how) = Filter::aperture_facet(Some((&fx.lane, &forged)), LANE, HI, LO, &a);
+        assert!(matches!(
+            how,
+            ApertureLowering::Prefix(PrefixLowering::SweepInvalidWitness(
+                WitnessError::VersionMismatch { .. }
+            ))
+        ));
+        assert!(!matches!(f, Filter::Cmp(_, Cmp::Range { .. })));
+        assert_eq!(fx.rows_of(&f), aperture_oracle(&fx, &a));
+    }
+
+    /// A tile-aligned aperture is the prefix: it lowers to the same bound.
+    #[test]
+    fn a_tile_aligned_aperture_lowers_like_the_prefix() {
+        let fx = Fx::new(1500, 34);
+        let w = fx.lane.witness();
+        for depth in 0..=8u8 {
+            let p = SemanticPrefix::of(fx.lane.keys()[900], depth);
+            let (fp, hp) = Filter::prefix_facet(Some((&fx.lane, &w)), LANE, HI, LO, &p);
+            let (fa, ha) = Filter::aperture_facet(
+                Some((&fx.lane, &w)),
+                LANE,
+                HI,
+                LO,
+                &SemanticAperture::of_prefix(p),
+            );
+            assert_eq!(fa, fp, "depth {depth}");
+            assert_eq!(ha, ApertureLowering::Prefix(hp), "depth {depth}");
+        }
     }
 }
