@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-167 entries, 2026-08-06 .. 2026-09-25.
+168 entries, 2026-08-06 .. 2026-09-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-09-25 | `window-scheduling-and-two-level-ternlog` |  | [2026-09-25-window-scheduling-and-two-level-ternlog.md](2026-09-25-window-scheduling-and-two-level-ternlog.md) |
 | 2026-09-25 | `tile-knee-and-compiled-lowering` |  | [2026-09-25-tile-knee-and-compiled-lowering.md](2026-09-25-tile-knee-and-compiled-lowering.md) |
+| 2026-09-25 | `strided-field-views-close-the-mask-risc-ir-gap` |  | [2026-09-25-strided-field-views-close-the-mask-risc-ir-gap.md](2026-09-25-strided-field-views-close-the-mask-risc-ir-gap.md) |
 | 2026-09-25 | `llvm-whole-stack-fold-ceiling` |  | [2026-09-25-llvm-whole-stack-fold-ceiling.md](2026-09-25-llvm-whole-stack-fold-ceiling.md) |
 | 2026-09-25 | `lance12-lancedb039-sweep` |  | [2026-09-25-lance12-lancedb039-sweep.md](2026-09-25-lance12-lancedb039-sweep.md) |
 | 2026-09-25 | `keep-fold` |  | [2026-09-25-keep-fold.md](2026-09-25-keep-fold.md) |

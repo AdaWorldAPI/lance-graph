@@ -32,6 +32,9 @@ pub enum Value {
     /// written, one slot per group; see [`crate::GroupFold::seed`] for what
     /// an empty group holds.
     GroupReduced,
+    /// [`crate::Terminal::MaskedStridedGroupSum`]: the widened sum, or `None`
+    /// when it does not fit an `i64` (never a wrapped value).
+    StridedSum(Option<i64>),
 }
 
 /// The caller's terminal-result destination — one variant per shape a
@@ -60,6 +63,8 @@ pub enum LaneKind {
     U32,
     /// `LaneRef::U64`.
     U64,
+    /// `LaneRef::Strided`.
+    Strided,
 }
 
 /// Why a program could not run. Validation is total and happens BEFORE any
@@ -127,6 +132,16 @@ pub enum ExecError {
     /// whole words and would read them; the oracle reads rows and would not —
     /// so a dirty tail is refused rather than let the two diverge.
     PlaneTail(u16),
+    /// A [`crate::LaneRef::Strided`] view whose LAST record's field — of the
+    /// width the reading predicate or terminal needs — would end past
+    /// `bytes.len()`. `need` is that end (`usize::MAX` when the offset
+    /// arithmetic itself overflows); `have` is `bytes.len()`. Refused by the
+    /// shared validator, so the executor's kernels never reach their own
+    /// bounds asserts and the oracle never indexes past the buffer.
+    StridedOutOfBounds { lane: u16, need: usize, have: usize },
+    /// [`crate::Terminal::MaskedStridedGroupSum`] with `group_bytes` outside
+    /// `1..=4`.
+    StridedGroupWidth { group_bytes: u8 },
     /// A gated predicate whose gate IS its destination: the facade cannot
     /// read the gate while overwriting it, so the program is refused.
     GateAliasesDst { dst: u16 },
@@ -179,7 +194,8 @@ pub enum ExecError {
     /// have no shipped merge law here (or whose sink is not a disjoint
     /// write). The whole-population extent `[0, n_rows)` accepts every
     /// terminal; a partial one accepts `Count`, `Any`, `All`,
-    /// `MaskedSumI32`, `MaskedMinI32`, `MaskedMaxI32` and `Keep`. `what`
+    /// `MaskedSumI32`, `MaskedMinI32`, `MaskedMaxI32`, `MaskedStridedGroupSum`
+    /// (a sum merges by addition) and `Keep`. `what`
     /// names the refused terminal.
     ExtentUnsupported { what: &'static str },
 }
