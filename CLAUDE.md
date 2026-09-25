@@ -1534,6 +1534,7 @@ SIBLING REPOS:
 .claude/knowledge/two-basin-routing.md           — Two-basin doctrine, representation routing, pairwise rule, attribution
 .claude/knowledge/encoding-ecosystem.md          — MANDATORY: full encoding map, synergies, read-before-write checklist
 .claude/knowledge/membrane-tiers.md              — DOCTRINE: the 3+ tier abstraction law (T0..T3+R2IL), the compile-through/entropy rule, the agent→membrane map, and the T2→T3 leak ledger
+.claude/knowledge/folding-doctrine.md            — WORKING-MODEL: the map is not the city — fold coordinates by default, materialize only when total cost (routing + control + interpretation + access, per tier) is lower; compile-time maps; crypto folds must be public; READ BEFORE any shuffle/transpose/layout/canonicalize step
 .claude/knowledge/frankenstein-checklist.md       — Composition failure modes (VibeTensor §7), boundary test matrix
 .claude/knowledge/lab-vs-canonical-surface.md     — MANDATORY before touching REST/gRPC/Wire DTO/endpoint/shader-lab (prevents "add another REST endpoint" hallucination)
 .claude/knowledge/autoattended-multiagent-pattern.md — MANDATORY before planning a wave with ≥4 parallel workers; 4-savant taxonomy (PP-13/14/15/16), worker iron rules, atomic-consolidation pass
