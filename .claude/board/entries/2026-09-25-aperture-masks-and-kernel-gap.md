@@ -31,38 +31,40 @@ This measures `D-WFL-CACHE`'s `C_lookup`, which the plan recorded only as the pr
 
 | cached-mask query (throughput, random) | hot | cold (4096 masks, 32 MB) |
 |---|---|---|
-| by slot + bit/word peek | 1.8–2.3 ns | 18.6–22.4 ns |
-| by `HashMap` key + peek | 13.6 ns | 85–104 ns |
+| by slot + bit/word peek | 1.9–2.3 ns | 17–21 ns |
+| by `HashMap` key + peek | 15.3–15.8 ns | 99–109 ns |
 
-HHTL partial mask applied vertically to one node's 6-byte tier path (half the facet), by working set of 16-byte records:
+The dependent (latency) form of the slot hit is 5.6–5.8 ns hot, but its chain runs through a ~3.1 ns hash (`mix()`, measured alone), so the lookup's own latency is about 2.5 ns.
 
-| working set | latency (dependent) | throughput |
+HHTL partial mask applied vertically to one node's 6-byte tier path (half the facet), 16-byte records. Latency is a pointer chase: each member's record holds the next row of one random cycle, so nothing but the load is on the chain.
+
+| members | latency (pointer chase) | throughput |
 |---|---|---|
-| ≤ 2k rows (≤ 32 KB, L1d) | 6.8 ns | 1.6 ns |
-| 4k–8k rows (64–128 KB) | 9.0–10.4 ns | 1.9–2.0 ns |
-| **32k rows (512 KB)** | **12.5–13.4 ns** | 2.2 ns |
-| 64k rows (1 MB, one tile) | 16.5–18.8 ns | 3.0–3.2 ns |
-| **256k rows (4 MB)** | **27–34 ns** | 3.9–4.2 ns |
-| 4M rows (64 MB) | 134–145 ns | 23 ns |
+| ≤ 2k rows (≤ 32 KB, L1d) | 3.4–3.6 ns | 2.0–2.5 ns |
+| 4k–8k rows (64–128 KB) | 5.3–6.1 ns | 2.6–2.7 ns |
+| 32k rows, packed (512 KB) | 8.1–8.9 ns | 3.3–3.4 ns |
+| 32k members scattered over a 64k tile | 11.4–11.9 ns | 4.1–4.3 ns |
+| **64k rows (1 MB, one tile)** | **12.9 ns** | 5.2–5.5 ns |
+| **256k rows (4 MB)** | **28–30 ns** | 8.2–8.9 ns |
+| 4M rows (64 MB) | 160–162 ns | 50 ns |
 
-- **The recalled 12 / 25 ns is the latency of a vertical HHTL partial mask.** About 12 ns is a working set of ≤ 32k rows; about 25 ns is one that has spilled past a tile.
-- **This is why positive vs negative selection pays off.** Store whichever of the selection or its complement is smaller, and a 64k tile never holds more than 32k members (half length), which keeps a partial mask in the ~13 ns regime.
-- **Precision on "32k":** with 16-byte records L1d holds 2k rows, so at 32k rows the records are already L2-resident. The 32k cap is a member count. As a bitplane, 32k rows is 4 KB and fits L1.
-- **The "~11 ns per cached-mask hit" premise:** it holds for a keyed (`HashMap`) hot hit. A direct slot hit is about 2 ns (throughput) and 5.5–6 ns (latency). A cold dependent hit costs DRAM latency (~150 ns).
-- **Probe correction:** a first run used `%` by the row count, and the integer division inflated latency (17 ns in L1). The row index is now a power-of-two bit-mask.
-- **Caveat:** queries hit uniformly random nodes. HHTL-ordered access is the realistic case.
+- **The recalled 12 / 25 ns is the latency of a vertical HHTL partial mask**, at a working set of one tile (1 MB, ~13 ns) and of a few tiles (4 MB, ~28 ns).
+- **Positive/negative selection halves the member count, not the footprint.** 32k members scattered over a 64k tile still span its 1 MB and cost 11.4–11.9 ns, close to the full tile, not the 8–9 ns of 32k packed rows. Staying under 32k helps the cache only if the members are also compacted, or if the probe reads the selection bitplane (32k rows = 4 KB, L1) rather than the records.
+- **The "~11 ns per cached-mask hit" premise** is between a hot slot hit (~2 ns throughput, ~2.5 ns own latency) and a hot keyed `HashMap` hit (~15 ns throughput). A cold dependent hit costs DRAM latency (~150 ns).
+- **Probe corrections (the last two caught in review):** a first version used `%` by the row count, and the integer division inflated latency. A second one drove the dependent chain through `mix()`, adding ~3.1 ns to every latency figure and making "32k rows" look like the 12 ns regime (12.5–13.4 ns reported; 8.1–8.9 ns measured). A third conflated member count with footprint (above).
+- **Caveat:** queries hit uniformly random members. HHTL-ordered access is the realistic case.
 
 ### At the real `NodeRow` stride: in place (#1284) vs a packed copy
 #1284's strided views read a `NodeRow` field where it sits. A MemWAL memtable's rows can therefore be filtered with no second SoA copy for reading. The cost is cache footprint: every row touched pulls its own 64-byte line, versus four 16-byte records per line when packed.
 
 | rows touched | packed 16 B records (latency) | in place, 512 B `NodeRow` (latency) |
 |---|---|---|
-| 512 | 6.8 ns | 11.4 ns (32 KB of lines, L1) |
-| 4k–8k | 9.0–10.4 ns | 22–27 ns |
-| **32k** | **12.5–13.4 ns** | **50–55 ns** |
-| 64k (one tile) | 16.5–18.8 ns | 95–100 ns |
+| 512 | ≈ 3.5 ns | 6.6–7.4 ns (256 KB of lines) |
+| 4k–8k | 5.3–6.1 ns | 26–27 ns |
+| **32k** | **8.1–8.9 ns** | **43–55 ns** |
+| 64k (one tile) | 12.9 ns | 138–139 ns |
 
-- **In place, the ~12 / ~25 ns regimes shift down by about 64×.** They sit at roughly 512 and 4k–8k rows touched, not 32k and 256k. Positive/negative selection still halves the member count, but at 32k members an in-place random probe costs about 50 ns.
-- **Traversal takes the packed column, not the rows.** Traversal selects only the NodeGuid lane over the 64k tile: 64k × 16 B = 1 MB of keys. That is the packed 16-byte column above (about 13 ns at 32k members, 17 ns for a full tile). In a columnar SoA the key lane is a column, not a second copy. The 512-byte in-place column applies only when a probe must reach past the key into the row's value.
+- **In place, the regimes arrive far sooner in rows.** ~26–28 ns arrives at 4k rows touched instead of 256k (64×); ~13 ns falls between 512 and 4k rows instead of 64k. At 32k members an in-place random probe costs 43–55 ns.
+- **Traversal takes the packed column, not the rows.** Traversal selects only the NodeGuid lane over the 64k tile: 64k × 16 B = 1 MB of keys. That is the packed 16-byte column above (about 13 ns for a full tile). In a columnar SoA the key lane is a column, not a second copy. The 512-byte in-place column applies only when a probe must reach past the key into the row's value.
 - **Measured under random access only.** HHTL-ordered access touches rows in address order, which the hardware prefetcher streams. Measuring that before choosing is the open item.
 
