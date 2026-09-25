@@ -888,6 +888,34 @@ impl Program {
                         h.two_input += 1;
                     }
                 }
+                // The strided predicates have no `*_under` kernel either, so a
+                // gated one is the strided kernel followed by `mask_and_assign`
+                // — one extra `and`, charged to `two_input` like the gated
+                // range above. `NeU32Strided` is also `!(==)`: the eq kernel
+                // and then `mask_not_assign`, a `not` pass on every call,
+                // gated or not. (Codex P2, PR #1284.)
+                MaskOp::Pred {
+                    pred:
+                        Pred::EqU32Strided { .. }
+                        | Pred::NeU32Strided { .. }
+                        | Pred::MatchFacetStrided { .. },
+                    under,
+                    ..
+                } => {
+                    h.predicates += 1;
+                    if matches!(
+                        op,
+                        MaskOp::Pred {
+                            pred: Pred::NeU32Strided { .. },
+                            ..
+                        }
+                    ) {
+                        h.not += 1;
+                    }
+                    if under.is_some() {
+                        h.two_input += 1;
+                    }
+                }
                 MaskOp::Pred { .. } => h.predicates += 1,
                 MaskOp::And { .. }
                 | MaskOp::Or { .. }
@@ -1313,5 +1341,48 @@ mod tests {
         );
         assert_eq!(h.mask_passes(), 3);
         assert_eq!(p.scratch_slots, 4);
+    }
+
+    /// FAILS IF: the histogram forgets the passes the executor really spends
+    /// on a strided predicate — the `and` a gate costs (no `*_under` strided
+    /// kernel exists) and the `not` that turns `NeU32Strided`'s eq kernel into
+    /// `!=`. Silence twin: an UNGATED Eq or Match is one predicate and nothing
+    /// else, exactly like a lane predicate.
+    #[test]
+    fn op_histogram_charges_the_strided_predicates_extra_passes() {
+        let pred = |pred, under| {
+            Program::new(
+                vec![MaskOp::Pred {
+                    pred,
+                    under,
+                    dst: 0,
+                }],
+                Terminal::Count {
+                    mask: Operand::Scratch(0),
+                },
+            )
+            .op_histogram()
+        };
+        let gate = Some(Operand::Plane(0));
+        let eq = Pred::EqU32Strided { lane: 0, v: 7 };
+        let ne = Pred::NeU32Strided { lane: 0, v: 7 };
+        let facet = Pred::MatchFacetStrided {
+            lane: 0,
+            pattern: [0; 12],
+            care: [0xFF; 12],
+        };
+        // Silence twin: ungated Eq / Match spend no mask pass.
+        assert_eq!(pred(eq, None).mask_passes(), 0);
+        assert_eq!(pred(facet, None).mask_passes(), 0);
+        // A gate is one `and`.
+        assert_eq!(pred(eq, gate).two_input, 1);
+        assert_eq!(pred(facet, gate).mask_passes(), 1);
+        // `!=` is always one `not`, plus the gate's `and` when gated.
+        assert_eq!(pred(ne, None).not, 1);
+        assert_eq!(pred(ne, None).mask_passes(), 1);
+        assert_eq!(pred(ne, gate).mask_passes(), 2);
+        for p in [eq, ne, facet] {
+            assert_eq!(pred(p, gate).predicates, 1, "{p:?} is still one predicate");
+        }
     }
 }
