@@ -3,6 +3,8 @@
 **Status:** MEASURED · SHIPPED (this PR) · OPEN (per-call validation is now the largest small-extent cost)
 **D-ids:** D-WFL-FUSE follow-up. Closes the two Open lines of `entries/2026-09-23-collapse-probe-v4-and-dispatch-split.md` (the per-tile gap; the fold's fixed per-call cost).
 
+Classification follows `.claude/knowledge/folding-doctrine.md` (§ cost classes): both bills turned out to be class 2 (control: per-pass overhead) and class 3 (interpretation: re-recognising the fold, re-validating), not class 1 routing. The doctrine's §6.1 reading of the 2026-09-23 probe ("control cost dominates") is confirmed and now resolved for the tiled path.
+
 ## What the probe asked
 `examples/tile_sweep_probe.rs` classifies two bills before any architecture changed.
 
