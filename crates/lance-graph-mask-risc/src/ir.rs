@@ -944,8 +944,9 @@ impl Program {
 
     /// How this program executes, decided from its text alone: the range
     /// fold ([`Program::fused_terminal`]), the Boolean-membership fold
-    /// ([`Program::fused_ternlog`]), or the tiled path. Tried in that order,
-    /// the same order the executor has always tried them.
+    /// ([`Program::fused_ternlog`]), its `Keep` twin ([`Program::fused_keep`]),
+    /// the two-level split for 4-5 planes ([`Program::fused_tern2`]), or the
+    /// tiled path. Tried in that order.
     pub fn lowering(&self) -> Lowering {
         if let Some(f) = self.fused_terminal() {
             Lowering::Range(f)
@@ -972,10 +973,12 @@ impl Program {
     /// Whether executing this program needs any scratch slot at all.
     ///
     /// DERIVED, not declared: a flag is a claim, a derived predicate is a
-    /// proof. `false` exactly when [`Program::fused_terminal`] or
-    /// [`Program::fused_ternlog`] lowers the program (or it names no slot),
-    /// and [`crate::Scratch::for_program`] carves zero slots for such a
-    /// program.
+    /// proof. `false` exactly when [`Program::fused_terminal`],
+    /// [`Program::fused_ternlog`], or a `Count`/`Any` [`Program::fused_tern2`]
+    /// lowers the program (or it names no slot), and
+    /// [`crate::Scratch::for_program`] carves zero slots for such a program.
+    /// A `Keep` lowered by [`Program::fused_keep`] or `fused_tern2` still
+    /// requires scratch: a caller may read it from its slot (`Out::None`).
     pub fn requires_scratch(&self) -> bool {
         self.compile().requires_scratch()
     }
