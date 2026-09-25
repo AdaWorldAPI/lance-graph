@@ -18,7 +18,7 @@
 //! projection directly — allocation is irrelevant, a caller-owned bitmap is
 //! still materialisation): [`exec::execute_into`] runs a program one
 //! [`exec::TILE_WORDS`]-word tile at a time, so execution state is
-//! `slots × 8` words whatever `n_rows` is, and the only population-sized
+//! `slots × TILE_WORDS` words whatever `n_rows` is, and the only population-sized
 //! writes are the DEMANDED sinks ([`Out`]). A [`Terminal::Keep`] therefore
 //! takes its mask through [`Out::Mask`]; `tests/differential.rs` proves every
 //! program shape answers identically tiled and single-tile. `hop` (PR5)

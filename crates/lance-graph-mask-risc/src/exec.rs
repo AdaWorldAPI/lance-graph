@@ -91,8 +91,18 @@ impl Store<'_> {
 /// overflow, never a wrapped answer that would silently under-allocate.
 /// Words per scratch slot the default constructors carve. The executor runs a
 /// program one tile at a time (see [`execute_into`]), so execution state is
-/// `slots × TILE_WORDS` words however many rows the planes hold — 8 words =
-/// 512 rows = one full-width vector per facade call.
+/// `slots × TILE_WORDS` words however many rows the planes hold.
+///
+/// This is the SCHEDULING tile — how many words one pass of the op loop
+/// covers — not the SIMD width. Each facade call inside a pass still walks
+/// its slice in full-width vectors. 256 words = 16,384 rows per pass.
+///
+/// Measured, not chosen: `examples/tile_sweep_probe.rs` sweeps 1..16,384
+/// words over a 1M-row chain. At 8 words (one 512-bit vector per pass, the
+/// earlier default) per-pass overhead dominated; 256 words ran the same
+/// chains ~6-10x faster, and wider tiles gained nothing further. A caller
+/// that wants a different width passes its own `Scratch`; the executor walks
+/// whatever width it is given.
 pub const TILE_WORDS: usize = 256;
 
 /// The slot width [`Scratch::for_program`] / [`Scratch::over_for_program`]

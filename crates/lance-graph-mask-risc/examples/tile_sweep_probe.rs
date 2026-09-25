@@ -9,7 +9,7 @@
 //! can be swept without touching the executor. For each scheduling tile `T`
 //! (in words) the probe reports median ns, ns per population word, tiles per
 //! op (the number of times the op loop runs), and the scratch footprint
-//! `slots × T × 8` bytes. `T = 8` is today's default (`TILE_WORDS`).
+//! `slots × T × 8` bytes. `T = 8` was the default before this probe; `TILE_WORDS` is now 256.
 //!
 //! **B — at small extents, is the fold paying for folding, or for
 //! re-recognising the fold?** `execute_extent` calls
@@ -21,6 +21,8 @@
 //! asks on every call), the fold kernel alone over the same span
 //! (`ternlog_popcount_dispatch`), and the remainder (validation and call
 //! plumbing). Extents are word-aligned so the kernel arm is the whole fold.
+//! `comp_ns` is the same call through `execute_compiled` with the lowering
+//! recognised once (`Program::compile`), outside the timed loop.
 //!
 //! Every result is checked against a bit-serial oracle.
 //!
@@ -28,7 +30,7 @@
 
 use std::time::Instant;
 
-use lance_graph_mask_risc::exec::{execute_extent, Scratch};
+use lance_graph_mask_risc::exec::{execute_compiled, execute_extent, Scratch};
 use lance_graph_mask_risc::{
     ternlog_popcount_dispatch, Foreign, MaskOp, Operand, Out, Planes, Program, Terminal, Value,
     FUSED_SLOT_CAP,
@@ -210,8 +212,8 @@ fn main() {
     println!();
     println!("== B: fold recognition vs the whole fused call, by extent (Count)");
     println!(
-        "{:>17} {:>8} {:>9} {:>9} {:>9} {:>9} {:>9} {:>7}",
-        "chain", "rows", "call_ns", "rec_tern", "rec_rng", "kernel", "rest_ns", "recog%"
+        "{:>17} {:>8} {:>9} {:>9} {:>9} {:>9} {:>9} {:>7} {:>9}",
+        "chain", "rows", "call_ns", "rec_tern", "rec_rng", "kernel", "rest_ns", "recog%", "comp_ns"
     );
     for (name, ops, last, oracle) in &chains {
         let prog = Program::new(ops.clone(), Terminal::Count { mask: s(*last) });
@@ -244,15 +246,31 @@ fn main() {
                     .expect("fold")
             });
             assert_eq!(v, Value::Count(want), "{name} len={len}");
+            // The same call with the lowering recognised once, outside the
+            // timed loop (`Program::compile`).
+            let compiled = prog.compile();
+            let (pns, pv) = median_k(reps, k, || {
+                let mut s0 = Scratch::new(0, 0);
+                execute_compiled(
+                    &compiled,
+                    &planes,
+                    &Foreign::NONE,
+                    &mut s0,
+                    Out::None,
+                    lo..hi,
+                )
+                .expect("compiled fold")
+            });
+            assert_eq!(pv, v, "{name} len={len} compiled");
             println!(
-                "{name:>17} {len:>8} {cns:>9.0} {rns:>9.0} {tns:>9.0} {kns:>9.0} {:>9.0} {:>6.1}%",
+                "{name:>17} {len:>8} {cns:>9.0} {rns:>9.0} {tns:>9.0} {kns:>9.0} {:>9.0} {:>6.1}% {pns:>9.0}",
                 cns - rns - tns - kns,
                 100.0 * (rns + tns) / cns
             );
         }
     }
     println!(
-        "(n = {n}, {words} words; T_w = scheduling tile in u64 words, today's default is 8; \
+        "(n = {n}, {words} words; T_w = scheduling tile in u64 words, the default is TILE_WORDS = 256 (8 before this probe); \
          tiles = op-loop iterations per op; scratch_B = slots × T × 8; median ns. \
          Part B small extents average 1000 back-to-back calls per sample, so the timer's own cost is amortised; a residual within ~±10 ns of zero is noise.)"
     );

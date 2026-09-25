@@ -552,7 +552,8 @@ fn compile_records_the_lowering_the_executor_takes() {
         vec![MaskOp::Or { a, b, dst: 0 }],
         Terminal::All { mask: s0 },
     );
-    let cases: [(&str, &Program, fn(&Lowering) -> bool); 3] = [
+    type IsLowering = fn(&Lowering) -> bool;
+    let cases: [(&str, &Program, IsLowering); 3] = [
         ("range", &range, |l| matches!(l, Lowering::Range(_))),
         ("chain", &chain, |l| matches!(l, Lowering::Ternlog(_))),
         ("tiled", &tiled, |l| matches!(l, Lowering::Tiled)),
