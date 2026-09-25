@@ -311,7 +311,7 @@ fn fused_keep_matches_reference_execute() {
 #[test]
 fn fused_keep_needs_no_scratch_with_out_mask() {
     let n = 400usize;
-    let mut seed = 0xC0FF_EE_u64;
+    let mut seed = 0x00C0_FFEE_u64;
     let (m0, m1, m2) = (
         random_plane(n, &mut seed, 2),
         random_plane(n, &mut seed, 3),
