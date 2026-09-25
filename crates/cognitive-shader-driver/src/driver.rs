@@ -1421,6 +1421,25 @@ mod tests {
     /// F-ARW-TARGET-1's fixture: one source row whose cascade returns four
     /// distinct targets at equal distance. They were four candidate slots and
     /// four identical CE64s; now they are one candidate carrying all four.
+    /// A row supported by several relationship kinds keeps all of them: the
+    /// predicate bits are the union, while ranking and object follow the best
+    /// resonance. Taking only the best relationship's bits would silently drop
+    /// the weaker kinds from the emitted `CausalMask`.
+    #[test]
+    fn spofc_predicates_are_the_union_of_supporting_relationships() {
+        let mut t = CandidateTable::new(1);
+        t.support(0, 0.5, 10, 0b001, SupportPartner::Palette(1));
+        t.support(0, 0.9, 5, 0b010, SupportPartner::Palette(2));
+        t.support(0, 0.3, 20, 0b100, SupportPartner::Row(7));
+        let s = t.spofc(0, 0).expect("row 0 was supported");
+        assert_eq!(s.predicates, 0b111, "every relationship kind kept");
+        assert_eq!(s.support, 3);
+        // The best (0.9) relationship ranks it and names the object; the
+        // union does not come from simply keeping the last or first bits.
+        assert!(matches!(s.object, SupportPartner::Palette(2)));
+        assert_eq!(s.truth.frequency, (0.9f32 * 255.0) as u8);
+    }
+
     #[test]
     fn p64_targets_survive_as_spofc_support() {
         let q = lance_graph_contract::qualia::QualiaI4_16D::ZERO;
