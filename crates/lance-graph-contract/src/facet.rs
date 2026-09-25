@@ -617,6 +617,124 @@ impl SemanticPrefix {
     }
 }
 
+/// A **semantic aperture** over a [`FacetCascade`]: the bits a query consults
+/// (`care`) and the value they must hold (`pattern`), both stated as facet
+/// images so the aperture is byte- or even bit-granular — a HHTL partial mask
+/// such as "HEEL + HIP, TWIG free" or "rail 0's coarse byte only", which a
+/// whole-tile [`SemanticPrefix`] cannot name.
+///
+/// `matches(f)` is `((f ^ pattern) & care) == 0` over the whole image. The
+/// aperture is a **prefix** when its care, read in semantic order
+/// ([`FacetCascade::semantic_u64_halves`], coarse bit first), is a run of ones
+/// from the top: then its matches are the closed interval
+/// `[lo_key, hi_key]` of numeric projection order, contiguous on an ordered
+/// lane ([`interval`](Self::interval)). Any other aperture is a predicate with
+/// holes and has no interval.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SemanticAperture {
+    pattern: FacetCascade,
+    care: FacetCascade,
+}
+
+impl SemanticAperture {
+    /// An aperture from a pattern and a care mask. `pattern` bits outside
+    /// `care` are cleared, so two apertures that select the same facets are
+    /// equal.
+    #[must_use]
+    pub const fn new(pattern: FacetCascade, care: FacetCascade) -> Self {
+        let (ph, pl) = pattern.semantic_u64_halves();
+        let (ch, cl) = care.semantic_u64_halves();
+        SemanticAperture {
+            pattern: Self::from_halves(ph & ch, pl & cl),
+            care,
+        }
+    }
+
+    const fn from_halves(hi: u64, lo: u64) -> FacetCascade {
+        FacetCascade::from_semantic_tiles([
+            (hi >> 48) as u16,
+            (hi >> 32) as u16,
+            (hi >> 16) as u16,
+            hi as u16,
+            (lo >> 48) as u16,
+            (lo >> 32) as u16,
+            (lo >> 16) as u16,
+            lo as u16,
+        ])
+    }
+
+    /// The aperture a [`SemanticPrefix`] of depth `d` states: its first `d`
+    /// tiles cared, the rest free. Selects exactly the same facets.
+    #[must_use]
+    pub const fn of_prefix(p: SemanticPrefix) -> Self {
+        let mut care = [0u16; 8];
+        let mut i = 0;
+        while i < p.depth() as usize {
+            care[i] = 0xFFFF;
+            i += 1;
+        }
+        Self::new(p.lo_key(), FacetCascade::from_semantic_tiles(care))
+    }
+
+    /// The lens the aperture is stated under (same as [`SemanticPrefix`]).
+    #[must_use]
+    pub const fn lens(self) -> SemanticLens {
+        SemanticLens::CanonHighTiles8
+    }
+
+    /// `(pattern_hi, pattern_lo)` and `(care_hi, care_lo)` in semantic order —
+    /// the two `MatchU64` planes a sweep compares.
+    #[must_use]
+    pub const fn semantic_halves(self) -> ((u64, u64), (u64, u64)) {
+        (
+            self.pattern.semantic_u64_halves(),
+            self.care.semantic_u64_halves(),
+        )
+    }
+
+    /// Does `f` carry this aperture?
+    #[must_use]
+    pub const fn matches(self, f: FacetCascade) -> bool {
+        let (fh, fl) = f.semantic_u64_halves();
+        let ((ph, pl), (ch, cl)) = self.semantic_halves();
+        (fh ^ ph) & ch == 0 && (fl ^ pl) & cl == 0
+    }
+
+    /// Number of leading semantic bits cared, if the care is a prefix run
+    /// (`0..=128`); `None` if it has a hole.
+    #[must_use]
+    pub const fn prefix_bits(self) -> Option<u8> {
+        let (ch, cl) = self.care.semantic_u64_halves();
+        let care = ((ch as u128) << 64) | cl as u128;
+        let bits = care.leading_ones();
+        let expect = if bits == 0 {
+            0
+        } else {
+            u128::MAX << (128 - bits)
+        };
+        if care == expect {
+            Some(bits as u8)
+        } else {
+            None
+        }
+    }
+
+    /// The closed key interval `[lo_key, hi_key]` in numeric projection order
+    /// whose members are exactly this aperture's matches — `Some` only when the
+    /// care is a prefix ([`prefix_bits`](Self::prefix_bits)).
+    #[must_use]
+    pub const fn interval(self) -> Option<(FacetCascade, FacetCascade)> {
+        if self.prefix_bits().is_none() {
+            return None;
+        }
+        let ((ph, pl), (ch, cl)) = self.semantic_halves();
+        Some((
+            Self::from_halves(ph, pl),
+            Self::from_halves(ph | !ch, pl | !cl),
+        ))
+    }
+}
+
 /// **One cascade algebra; carvings are VIEW rotations, not function layouts.**
 /// The 12 cascade units (the facet's [`tier_bytes`](FacetCascade::tier_bytes),
 /// or a 12-field class's fields) are read as `G groups × D levels` with

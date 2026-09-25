@@ -32,7 +32,7 @@
 //!
 //! [`attest_sorted`]: SealedFacetLane::attest_sorted
 
-use crate::facet::{FacetCascade, SemanticLens, SemanticPrefix};
+use crate::facet::{FacetCascade, SemanticAperture, SemanticLens, SemanticPrefix};
 use crate::temporal_pov::LanceVersion;
 use core::cmp::Ordering;
 use std::vec::Vec;
@@ -330,6 +330,39 @@ impl SealedFacetLane {
         }
         Ok(bound_unwitnessed(&self.keys, prefix))
     }
+
+    /// **The witnessed bound for an aperture.** A prefix aperture
+    /// ([`SemanticAperture::interval`]) selects a closed key interval, so on a
+    /// validated lane its matches are the row range `[lo, hi)` located by two
+    /// `partition_point`s. `Ok(None)` when the aperture has a hole: it is a
+    /// predicate, not an interval, and the caller sweeps.
+    ///
+    /// # Errors
+    ///
+    /// Any [`validate`](Self::validate) error, or a lens mismatch — the bound
+    /// does not run.
+    pub fn bound_aperture(
+        &self,
+        w: &OrderedLaneWitness,
+        aperture: &SemanticAperture,
+    ) -> Result<Option<(u32, u32)>, WitnessError> {
+        self.validate(w)?;
+        if w.lens() != aperture.lens() {
+            return Err(WitnessError::LensMismatch {
+                witnessed: w.lens(),
+                asked: aperture.lens(),
+            });
+        }
+        Ok(aperture.interval().map(|(lo_k, hi_k)| {
+            let lo = self
+                .keys
+                .partition_point(|k| k.cmp_numeric_projection(&lo_k) == Ordering::Less);
+            let hi = self
+                .keys
+                .partition_point(|k| k.cmp_numeric_projection(&hi_k) != Ordering::Greater);
+            (lo as u32, hi as u32)
+        }))
+    }
 }
 
 /// The raw bound with NO ordering gate: two `partition_point`s over `keys`.
@@ -569,5 +602,109 @@ mod tests {
         assert_eq!(prefix.lens(), SemanticLens::CanonHighTiles8);
 
         assert!(lane.bound(&lane.witness(), &prefix).is_ok());
+    }
+
+    fn care_bits(bits: u32) -> FacetCascade {
+        let care: u128 = if bits == 0 {
+            0
+        } else {
+            u128::MAX << (128 - bits)
+        };
+        let (hi, lo) = ((care >> 64) as u64, care as u64);
+        FacetCascade::from_semantic_tiles([
+            (hi >> 48) as u16,
+            (hi >> 32) as u16,
+            (hi >> 16) as u16,
+            hi as u16,
+            (lo >> 48) as u16,
+            (lo >> 32) as u16,
+            (lo >> 16) as u16,
+            lo as u16,
+        ])
+    }
+
+    /// Every bit-prefix aperture, 0..=128 bits, bounds to exactly the rows it
+    /// matches — including prefixes that end inside a tile (a byte or a
+    /// single bit), which no `SemanticPrefix` can state.
+    #[test]
+    fn a_bit_prefix_aperture_bounds_to_exactly_its_matches() {
+        let lane = SealedFacetLane::seal(skewed_keys(3000, 21), 3).unwrap();
+        let w = lane.witness();
+        let mut split_inside_a_tile = 0;
+        for &pick in &[0usize, 999, 2000, 2999] {
+            let probe = lane.keys()[pick];
+            for bits in 0..=128u32 {
+                let a = SemanticAperture::new(probe, care_bits(bits));
+                assert_eq!(a.prefix_bits(), Some(bits as u8));
+                let truth: Vec<usize> = (0..lane.keys().len())
+                    .filter(|&i| a.matches(lane.keys()[i]))
+                    .collect();
+                let (lo, hi) = lane.bound_aperture(&w, &a).unwrap().expect("a prefix");
+                assert_eq!(
+                    (lo as usize..hi as usize).collect::<Vec<_>>(),
+                    truth,
+                    "bits {bits}"
+                );
+                if bits % 16 != 0 && truth.len() < lane.keys().len() && !truth.is_empty() {
+                    split_inside_a_tile += 1;
+                }
+            }
+        }
+        // anti-vacuity: some sub-tile prefixes really do cut the population.
+        assert!(split_inside_a_tile > 10, "{split_inside_a_tile}");
+    }
+
+    /// An aperture with a hole has no interval, and the bound says so instead
+    /// of returning a range.
+    #[test]
+    fn an_aperture_with_a_hole_has_no_bound() {
+        let lane = SealedFacetLane::seal(skewed_keys(500, 22), 3).unwrap();
+        let w = lane.witness();
+        // tile 0 free, tile 1 cared: the classic content aperture.
+        let care = FacetCascade::from_semantic_tiles([0, 0xFFFF, 0, 0, 0, 0, 0, 0]);
+        let a = SemanticAperture::new(lane.keys()[7], care);
+        assert_eq!(a.prefix_bits(), None);
+        assert_eq!(a.interval(), None);
+        assert_eq!(lane.bound_aperture(&w, &a), Ok(None));
+        // ...and the predicate itself still holds for the key it came from.
+        assert!(a.matches(lane.keys()[7]));
+    }
+
+    /// A tile-aligned aperture is the same predicate as the `SemanticPrefix`
+    /// of that depth, and bounds to the same range.
+    #[test]
+    fn a_tile_aligned_aperture_equals_the_semantic_prefix() {
+        let lane = SealedFacetLane::seal(skewed_keys(2000, 23), 3).unwrap();
+        let w = lane.witness();
+        for &pick in &[0usize, 1000, 1999] {
+            for depth in 0..=8u8 {
+                let p = SemanticPrefix::of(lane.keys()[pick], depth);
+                let a = SemanticAperture::of_prefix(p);
+                assert_eq!(a.prefix_bits(), Some(16 * depth));
+                assert_eq!(
+                    lane.bound_aperture(&w, &a).unwrap(),
+                    Some(lane.bound(&w, &p).unwrap())
+                );
+                assert_eq!(
+                    oracle_rows(lane.keys(), &p),
+                    (0..lane.keys().len())
+                        .filter(|&i| a.matches(lane.keys()[i]))
+                        .collect::<Vec<_>>()
+                );
+            }
+        }
+    }
+
+    /// A rejected witness never yields an aperture bound.
+    #[test]
+    fn a_stale_witness_refuses_the_aperture_bound() {
+        let lane = SealedFacetLane::seal(skewed_keys(200, 24), 3).unwrap();
+        let w = lane.witness();
+        let stale = OrderedLaneWitness::forged(w.version() + 1, w.n_rows(), w.digest());
+        let a = SemanticAperture::new(lane.keys()[0], care_bits(20));
+        assert!(matches!(
+            lane.bound_aperture(&stale, &a),
+            Err(WitnessError::VersionMismatch { .. })
+        ));
     }
 }

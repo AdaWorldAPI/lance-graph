@@ -38,6 +38,7 @@ exactly one of them, never both.
 | 2026-09-25 | `lance12-lancedb039-sweep` |  | [2026-09-25-lance12-lancedb039-sweep.md](2026-09-25-lance12-lancedb039-sweep.md) |
 | 2026-09-25 | `keep-fold` |  | [2026-09-25-keep-fold.md](2026-09-25-keep-fold.md) |
 | 2026-09-25 | `argon2-in-register-compress-per-tier` |  | [2026-09-25-argon2-in-register-compress-per-tier.md](2026-09-25-argon2-in-register-compress-per-tier.md) |
+| 2026-09-25 | `aperture-prefix-lowers-to-range` |  | [2026-09-25-aperture-prefix-lowers-to-range.md](2026-09-25-aperture-prefix-lowers-to-range.md) |
 | 2026-09-25 | `aperture-masks-and-kernel-gap` |  | [2026-09-25-aperture-masks-and-kernel-gap.md](2026-09-25-aperture-masks-and-kernel-gap.md) |
 | 2026-09-24 | `three-clocks-never-meet-implicitly` |  | [2026-09-24-three-clocks-never-meet-implicitly.md](2026-09-24-three-clocks-never-meet-implicitly.md) |
 | 2026-09-24 | `cost-scales-with-dirty-rows-replay-budget-before-materialization` | 64k reserved always; seal cost ∝ dirty rows (1 dirty ≈ 2 ms / 6 KB, 0 dirty = free, floor ~1.7 ms/commit); one materialization ≈ 1M folds (1.7 ms commit / 1.7 ns fold, #1245) — D-WFL-ECON's materialize term | [2026-09-24-cost-scales-with-dirty-rows-replay-budget-before-materialization.md](2026-09-24-cost-scales-with-dirty-rows-replay-budget-before-materialization.md) |
