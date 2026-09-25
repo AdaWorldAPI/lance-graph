@@ -21,7 +21,7 @@
 ARG ADA_BRANCH=claude/jirak-math-theorems-harvest-rfii13
 
 # ── builder ──────────────────────────────────────────────────────────────────
-FROM rust:1.98-bookworm AS builder
+FROM rust:1.98.1-bookworm AS builder
 ARG ADA_BRANCH
 # Make cargo fetch git deps via the system `git` CLI so it uses Railway's
 # ambient credentials for the private AdaWorldAPI forks.
