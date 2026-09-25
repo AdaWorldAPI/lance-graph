@@ -21,7 +21,7 @@
 ARG ADA_BRANCH=claude/jirak-math-theorems-harvest-rfii13
 
 # ── builder ──────────────────────────────────────────────────────────────────
-FROM rust:1.95-bookworm AS builder
+FROM rust:1.98-bookworm AS builder
 ARG ADA_BRANCH
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 # Native build deps for the closure: aws-lc-sys (C++), zstd/lz4 (C), and protoc
