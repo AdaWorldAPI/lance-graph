@@ -238,9 +238,9 @@ resolver = "2"
 # Crate-level pins (canonical source of truth — workspace.dependencies is not
 # used; each consumer crate declares its own pin with exact-equals so the
 # whole graph resolves to the same semver):
-#   lance           = "11.*"     (lance-arrow / lance-index / lance-linalg /
+#   lance           = "12.*"     (lance-arrow / lance-index / lance-linalg /
 #                                 lance-namespace bump in lock-step)
-#   lancedb         = "0.38.*"
+#   lancedb         = "0.39.*"
 #   datafusion      = "54"       (+ datafusion-common / -expr / -sql /
 #                                 -functions-aggregate)
 #   arrow-array     = "58"       (+ arrow-schema / -buffer / -ipc / arrow)
@@ -311,7 +311,7 @@ resolver = "2"
 # fork of `aws-smithy-json` fixed against `aws-smithy-types 1.7` -- the two
 # call sites need `.into()` and one wildcard arm; upstream's own compiler
 # hints spell both out.
-lance = { version = "11.*", default-features = false, features = [
+lance = { version = "12.*", default-features = false, features = [
     "azure",
     "gcp",
     "oss",
@@ -321,9 +321,9 @@ lance = { version = "11.*", default-features = false, features = [
     "goosefs",
     "geo",
 ] }
-lance-linalg = "11.*"
-lance-index = "11.*"
-lancedb = { version = "0.38.*", default-features = false }
+lance-linalg = "12.*"
+lance-index = "12.*"
+lancedb = { version = "0.39.*", default-features = false }
 # ⊘ OPERATOR RULING 2026-09-18 — NEVER PIN TO `.0.0`; FLOAT THE PATCH.
 # *"never pin to x.00, always float x.*"* / *"so no decimal .0.0"*. The
 # `=X.Y.0` exact-equals these replaced are RETIRED. Floating the patch is
@@ -347,7 +347,13 @@ datafusion-common = "54"
 datafusion-expr = "54"
 datafusion-sql = "54"
 datafusion-functions-aggregate = "54"
-object_store = { version = "0.13", features = ["aws"] }
+# `object_store` follows LANCE, not DataFusion: lance 12 moved to ^0.14.1 while
+# datafusion 54 stays on ^0.13.2, so both are in the graph whatever this says
+# (upstream's split, not ours). Every direct use in this workspace hands the
+# store or a `Path` to lance or to lance-graph-hydrate, so it must be lance's
+# major; on 0.13 those call sites fail with "multiple different versions of
+# crate `object_store`" (measured on the lance 12 bump, 2026-09-25).
+object_store = { version = "0.14", features = ["aws"] }
 
 [patch.crates-io]
 # Redirects the REAL crates.io `ndarray` -- the upstream numeric crate this is
