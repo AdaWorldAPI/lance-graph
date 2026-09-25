@@ -676,6 +676,18 @@ impl SemanticAperture {
         Self::new(p.lo_key(), FacetCascade::from_semantic_tiles(care))
     }
 
+    /// The pattern, with every bit outside the care cleared.
+    #[must_use]
+    pub const fn pattern(self) -> FacetCascade {
+        self.pattern
+    }
+
+    /// The care mask: set bits are the ones the aperture consults.
+    #[must_use]
+    pub const fn care(self) -> FacetCascade {
+        self.care
+    }
+
     /// The lens the aperture is stated under (same as [`SemanticPrefix`]).
     #[must_use]
     pub const fn lens(self) -> SemanticLens {

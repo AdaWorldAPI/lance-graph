@@ -16,6 +16,26 @@
   - `ApertureLowering` reports which fold was used, and why.
 - A tile-aligned aperture lowers to exactly the same `Filter` as `prefix_facet`.
 
+## The in-place sweep
+- New quack leaves `Cmp::{EqU32Strided, NeU32Strided, MatchFacetStrided}` lower one-to-one to the mask-risc strided predicates. A facet stored inside a wider record (a `NodeRow`) is queried where it sits.
+- `Filter::aperture_facet_strided` sweeps an aperture over two views of the same bytes:
+  - the classid at +0, compared with `EqU32Strided`;
+  - the 12 tier bytes at +4, compared with `MatchFacetStrided`.
+- A caller holding only record bytes therefore never extracts the semantic planes.
+- The bound decision is shared with `aperture_facet`: a witnessed prefix becomes the same `Range` on either sweep.
+- Tests at a 40-byte and at the 512-byte stride, with junk around every facet:
+  - the three leaves match a plain reading of the stored bytes;
+  - the in-place sweep, the plane sweep and the aperture agree on random apertures, with and without holes;
+  - a partial classid care is refused.
+- Disable runs, each red then green:
+
+| disable | tests that went red |
+|---|---|
+| leaf pattern/care swapped | 2 tests |
+| tier bytes read at +0 | 1 test |
+| classid leg dropped | 2 tests |
+| partial classid accepted | 1 test |
+
 ## Evidence
 - Every bit-prefix aperture from 0 to 128 bits bounds to exactly its matches, over 3000 sealed keys at four probe keys. Prefixes that end inside a tile are included; an anti-vacuity count requires such sub-tile cuts to actually split the population.
 - At the lowering, the Range, the sweep and the row oracle agree for bit prefixes. A hole aperture never becomes a Range, even under a valid witness. A stale witness sweeps and reports `VersionMismatch`.
@@ -30,5 +50,5 @@
 
 ## OPEN
 - The `Range` is ordinals in the sealed lane's order. The precondition on `prefix_facet` (`ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER`) applies unchanged.
-- The sweep reads the two semantic `u64` planes. The strided in-place form (`Pred::MatchFacetStrided` over the 12-byte payload) is not yet a quack leaf, so a caller that has only the `NodeRow` bytes cannot sweep an aperture without extracting the planes.
+- An aperture that cares about only PART of the classid has no in-place spelling: the strided classid reader is an equality, and no strided u32 ternary match exists. `aperture_facet_strided` refuses it (`None`), and it lowers through the plane sweep.
 - No caller mints apertures yet. The HHTL cascade and the traversal frontier are the intended producers.
