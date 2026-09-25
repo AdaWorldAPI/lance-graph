@@ -112,37 +112,57 @@ impl Fixture {
                 );
             }
         }
-        // The DEFAULT scratch — tiled — must answer identically: the same
-        // `Value`, the same blend output, and for a `Keep` the demanded
-        // `Out::Mask` equal to the single-tile slot (or plane) it names.
-        let mut tiled = Scratch::for_program(p, self.n).expect("addressable");
-        let mut out_tiled = vec![0i32; self.n];
-        let mut kept = vec![0u64; words_for(self.n)];
-        let got_tiled = if let Terminal::Keep { .. } = p.terminal {
-            execute_into(p, &planes, &Foreign::NONE, &mut tiled, Out::Mask(&mut kept))
-        } else {
-            execute_into(
-                p,
-                &planes,
-                &Foreign::NONE,
-                &mut tiled,
-                Out::I32(&mut out_tiled),
-            )
-        };
-        assert_eq!(got_tiled, want, "{name} @ n={}: tiled value", self.n);
-        if let Ok(Value::Blended) = want {
+        // Every TILED scratch must answer identically: the same `Value`, the
+        // same blend output, and for a `Keep` the demanded `Out::Mask` equal
+        // to the single-tile slot (or plane) it names. The default width
+        // (`Scratch::for_program`) is a performance setting and covers a
+        // fixture of these sizes in ONE tile, so the narrow widths are what
+        // exercise the cross-tile paths: 1 and 3 words (odd, so tiles end
+        // mid-vector) and 8.
+        let widths = [0usize, 1, 3, 8];
+        for tw in widths {
+            let mut tiled = if tw == 0 {
+                Scratch::for_program(p, self.n).expect("addressable")
+            } else {
+                Scratch::new(words_for(self.n).min(tw), p.scratch_slots as usize)
+            };
+            let mut out_tiled = vec![0i32; self.n];
+            let mut kept = vec![0u64; words_for(self.n)];
+            let got_tiled = if let Terminal::Keep { .. } = p.terminal {
+                execute_into(p, &planes, &Foreign::NONE, &mut tiled, Out::Mask(&mut kept))
+            } else {
+                execute_into(
+                    p,
+                    &planes,
+                    &Foreign::NONE,
+                    &mut tiled,
+                    Out::I32(&mut out_tiled),
+                )
+            };
             assert_eq!(
-                out_tiled, out_ref,
-                "{name} @ n={}: tiled blend output",
+                got_tiled, want,
+                "{name} @ n={} tile={tw}: tiled value",
                 self.n
             );
-        }
-        if let Ok(Value::Mask(op)) = want {
-            let full: &[u64] = match op {
-                Operand::Scratch(i) => scratch.slot(i).expect("kept slot"),
-                Operand::Plane(i) => planes.masks[usize::from(i)],
-            };
-            assert_eq!(kept.as_slice(), full, "{name} @ n={}: tiled Keep", self.n);
+            if let Ok(Value::Blended) = want {
+                assert_eq!(
+                    out_tiled, out_ref,
+                    "{name} @ n={} tile={tw}: tiled blend output",
+                    self.n
+                );
+            }
+            if let Ok(Value::Mask(op)) = want {
+                let full: &[u64] = match op {
+                    Operand::Scratch(i) => scratch.slot(i).expect("kept slot"),
+                    Operand::Plane(i) => planes.masks[usize::from(i)],
+                };
+                assert_eq!(
+                    kept.as_slice(),
+                    full,
+                    "{name} @ n={} tile={tw}: tiled Keep",
+                    self.n
+                );
+            }
         }
     }
 

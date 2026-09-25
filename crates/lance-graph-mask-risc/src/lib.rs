@@ -18,7 +18,7 @@
 //! projection directly — allocation is irrelevant, a caller-owned bitmap is
 //! still materialisation): [`exec::execute_into`] runs a program one
 //! [`exec::TILE_WORDS`]-word tile at a time, so execution state is
-//! `slots × 8` words whatever `n_rows` is, and the only population-sized
+//! `slots × TILE_WORDS` words whatever `n_rows` is, and the only population-sized
 //! writes are the DEMANDED sinks ([`Out`]). A [`Terminal::Keep`] therefore
 //! takes its mask through [`Out::Mask`]; `tests/differential.rs` proves every
 //! program shape answers identically tiled and single-tile. `hop` (PR5)
@@ -119,14 +119,14 @@ pub mod ternlog_dispatch;
 pub mod value;
 
 pub use exec::{
-    execute, execute_extent, execute_into, materialize_rows, scratch_words_for, tile_words_for,
-    Scratch, TILE_WORDS,
+    execute, execute_compiled, execute_extent, execute_into, materialize_rows, scratch_words_for,
+    tile_words_for, Scratch, TILE_WORDS,
 };
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
 pub use ir::{
-    touched_words, Foreign, ForeignPlane, FusedFold, FusedTerminal, FusedTernlog, GroupFold,
-    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, FUSED_SLOT_CAP,
-    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
+    touched_words, Compiled, Foreign, ForeignPlane, FusedFold, FusedTerminal, FusedTernlog,
+    GroupFold, GroupKey, LaneRef, Lowering, MaskOp, Operand, Planes, Pred, Program, Terminal,
+    FUSED_SLOT_CAP, GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
 pub use reference::{
     reference_execute, reference_execute_into, reference_scratch, reference_scratch_with_foreign,
