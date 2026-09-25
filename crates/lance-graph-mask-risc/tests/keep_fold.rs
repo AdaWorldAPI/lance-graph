@@ -467,10 +467,10 @@ fn fused_keep_writes_the_whole_last_word_and_clears_its_tail() {
 
 /// FAILS IF: a chain that reads a FOURTH distinct resident plane is admitted
 /// by `fused_keep` (it cannot fit one 3-input table), or if its lowering is
-/// anything but `Tiled`, or if the tiled path it falls back to computes the
-/// wrong `Keep` result.
+/// anything but `Tern2`, or if the path it takes computes the wrong `Keep`
+/// result.
 #[test]
-fn a_fourth_plane_declines_to_tiled() {
+fn a_fourth_plane_declines_the_one_level_keep_fold() {
     let n = 500usize;
     let mut seed = 0x4EAF_u64;
     let plane_vecs: Vec<Vec<u64>> = (0..4)
@@ -519,7 +519,12 @@ fn a_fourth_plane_declines_to_tiled() {
         p.fused_keep().is_none(),
         "a fourth distinct plane must never fuse"
     );
-    assert!(matches!(p.compile().lowering(), Lowering::Tiled));
+    // Re-pinned with the two-level lowering: the one-level Keep fold still
+    // refuses the fourth plane, and `fused_tern2` now splits the chain as
+    // `h(a & b, c, d)` (it was `Tiled` before). `Keep` may still be read from
+    // its slot, so scratch stays required. The oracle check below now covers
+    // the `Tern2` write into `Out::Mask`.
+    assert!(matches!(p.compile().lowering(), Lowering::Tern2(_)));
     assert!(p.requires_scratch());
 
     let words = words_for(n);

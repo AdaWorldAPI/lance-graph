@@ -822,6 +822,126 @@ impl Program {
         Some((imm, a, b, c))
     }
 
+    /// The two-level twin of [`Program::fused_ternlog`] / [`Program::fused_keep`]
+    /// for chains over FOUR or FIVE distinct resident planes.
+    ///
+    /// The chain is interpreted symbolically as one 32-bit truth table over
+    /// its leaves, then split as a simple disjoint decomposition
+    /// `f = h(g(x, y, z), u, v)` (Ashenhurst): for some choice of three inner
+    /// leaves, every one of the four `(u, v)` restrictions of `f` is one of
+    /// `{0, g, !g, 1}` for a single common `g`. When such a split exists the
+    /// executor runs the chain as two ternlog passes per chunk — `t = g(x,y,z)`
+    /// into an on-stack chunk, then `h(t, u, v)` folded by `Count`/`Any` or
+    /// written into the demanded `Out::Mask` — instead of one tile pass per op.
+    ///
+    /// Declines (returns `None`) on everything [`Program::fused_ternlog`]
+    /// declines except the three-plane limit, on a sixth distinct plane, and
+    /// on a chain with no such decomposition, which keeps the tiled path. A
+    /// chain over three or fewer planes is claimed by the one-level folds
+    /// first ([`Program::lowering`] tries them in that order).
+    pub fn fused_tern2(&self) -> Option<FusedTern2> {
+        let (fold, slot) = match self.terminal {
+            Terminal::Count {
+                mask: Operand::Scratch(s),
+            } => (Tern2Fold::Count, s),
+            Terminal::Any {
+                mask: Operand::Scratch(s),
+            } => (Tern2Fold::Any, s),
+            Terminal::Keep {
+                mask: Operand::Scratch(s),
+            } => (Tern2Fold::Keep { slot: s }, s),
+            _ => return None,
+        };
+        let (f, leaves, n_leaves) = self.chain_table5(slot)?;
+        let (inner, imm1, outer, imm2) = decompose5(f)?;
+        // Leaf positions the chain never read are don't-cares of `f`, hence of
+        // both tables; bind them to a real plane so every operand is one.
+        let plane = |i: usize| if i < n_leaves { leaves[i] } else { leaves[0] };
+        Some(FusedTern2 {
+            imm1,
+            x: plane(inner[0]),
+            y: plane(inner[1]),
+            z: plane(inner[2]),
+            imm2,
+            u: plane(outer[0]),
+            v: plane(outer[1]),
+            fold,
+        })
+    }
+
+    /// Interpret the op sequence symbolically as ONE 32-bit truth table over
+    /// at most five distinct resident planes, read from `slot`. Bit `k` of a
+    /// table is the function's value when leaf `i` equals `(k >> i) & 1`.
+    fn chain_table5(&self, slot: u16) -> Option<(u32, [u16; 5], usize)> {
+        if self.ops.is_empty() {
+            return None;
+        }
+        let mut leaves: [u16; 5] = [0; 5];
+        let mut n_leaves = 0usize;
+        let mut slots: [Option<u32>; FUSED_SLOT_CAP] = [None; FUSED_SLOT_CAP];
+        let read = |o: &Operand,
+                    leaves: &mut [u16; 5],
+                    n_leaves: &mut usize,
+                    slots: &[Option<u32>; FUSED_SLOT_CAP]|
+         -> Option<u32> {
+            match *o {
+                Operand::Plane(p) => {
+                    let i = match leaves[..*n_leaves].iter().position(|&q| q == p) {
+                        Some(i) => i,
+                        None if *n_leaves < 5 => {
+                            leaves[*n_leaves] = p;
+                            *n_leaves += 1;
+                            *n_leaves - 1
+                        }
+                        None => return None,
+                    };
+                    Some(LEAF_TABLES5[i])
+                }
+                Operand::Scratch(s) => *slots.get(usize::from(s))?,
+            }
+        };
+        for op in &self.ops {
+            let (t, dst) = match op {
+                MaskOp::And { a, b, dst } => (
+                    read(a, &mut leaves, &mut n_leaves, &slots)?
+                        & read(b, &mut leaves, &mut n_leaves, &slots)?,
+                    *dst,
+                ),
+                MaskOp::Or { a, b, dst } => (
+                    read(a, &mut leaves, &mut n_leaves, &slots)?
+                        | read(b, &mut leaves, &mut n_leaves, &slots)?,
+                    *dst,
+                ),
+                MaskOp::Xor { a, b, dst } => (
+                    read(a, &mut leaves, &mut n_leaves, &slots)?
+                        ^ read(b, &mut leaves, &mut n_leaves, &slots)?,
+                    *dst,
+                ),
+                MaskOp::AndNot { a, b, dst } => (
+                    read(a, &mut leaves, &mut n_leaves, &slots)?
+                        & !read(b, &mut leaves, &mut n_leaves, &slots)?,
+                    *dst,
+                ),
+                MaskOp::Not { a, dst } => (!read(a, &mut leaves, &mut n_leaves, &slots)?, *dst),
+                MaskOp::Ternlog { imm, a, b, c, dst } => {
+                    let (ta, tb, tc) = (
+                        read(a, &mut leaves, &mut n_leaves, &slots)?,
+                        read(b, &mut leaves, &mut n_leaves, &slots)?,
+                        read(c, &mut leaves, &mut n_leaves, &slots)?,
+                    );
+                    (apply_table32(*imm, ta, tb, tc), *dst)
+                }
+                MaskOp::Pred { .. } | MaskOp::Gather { .. } => return None,
+            };
+            *slots.get_mut(usize::from(dst))? = Some(t);
+        }
+        let f = (*slots.get(usize::from(slot))?)?;
+        if n_leaves == 0 {
+            return None;
+        }
+        Some((f, leaves, n_leaves))
+    }
+
     /// How this program executes, decided from its text alone: the range
     /// fold ([`Program::fused_terminal`]), the Boolean-membership fold
     /// ([`Program::fused_ternlog`]), or the tiled path. Tried in that order,
@@ -833,6 +953,8 @@ impl Program {
             Lowering::Ternlog(f)
         } else if let Some(f) = self.fused_keep() {
             Lowering::TernlogKeep(f)
+        } else if let Some(f) = self.fused_tern2() {
+            Lowering::Tern2(f)
         } else {
             Lowering::Tiled
         }
@@ -855,7 +977,7 @@ impl Program {
     /// and [`crate::Scratch::for_program`] carves zero slots for such a
     /// program.
     pub fn requires_scratch(&self) -> bool {
-        self.scratch_slots > 0 && self.fused_terminal().is_none() && self.fused_ternlog().is_none()
+        self.compile().requires_scratch()
     }
 
     /// Count of ops of each physical kind — the "logical ops vs physical
@@ -944,6 +1066,10 @@ pub enum Lowering {
     /// the demanded `Out::Mask` ([`Program::fused_keep`]). Taken only when the
     /// caller passes `Out::Mask`; otherwise the executor runs it tiled.
     TernlogKeep(FusedKeep),
+    /// A chain over four or five resident planes, split into two ternlog
+    /// tables ([`Program::fused_tern2`]). A `Keep` terminal takes this path
+    /// only when the caller passes `Out::Mask`; otherwise it runs tiled.
+    Tern2(FusedTern2),
     /// Neither fold applies: the ops run tile by tile through scratch.
     Tiled,
 }
@@ -984,7 +1110,11 @@ impl<'p> Compiled<'p> {
         // but a caller reading the result from its slot (`Out::None`) runs
         // tiled, so the program still requires scratch in general.
         self.program.scratch_slots > 0
-            && matches!(self.lowering, Lowering::Tiled | Lowering::TernlogKeep(_))
+            && match self.lowering {
+                Lowering::Tiled | Lowering::TernlogKeep(_) => true,
+                Lowering::Tern2(f) => matches!(f.fold, Tern2Fold::Keep { .. }),
+                Lowering::Range(_) | Lowering::Ternlog(_) => false,
+            }
     }
 }
 
@@ -1038,6 +1168,115 @@ pub struct FusedKeep {
     /// The scratch slot the program's `Keep` names — what `Value::Mask`
     /// reports, exactly as the tiled path reports it.
     pub slot: u16,
+}
+
+/// A [`Program::fused_tern2`] lowering: `h(g(x, y, z), u, v)` with `g` =
+/// `imm1` and `h` = `imm2`, both in the VPTERNLOG index convention.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FusedTern2 {
+    /// The inner table `g`.
+    pub imm1: u8,
+    /// Resident plane read as `g`'s `a`.
+    pub x: u16,
+    /// Resident plane read as `g`'s `b`.
+    pub y: u16,
+    /// Resident plane read as `g`'s `c`.
+    pub z: u16,
+    /// The outer table `h`, read as `h(g, u, v)`.
+    pub imm2: u8,
+    /// Resident plane read as `h`'s `b`.
+    pub u: u16,
+    /// Resident plane read as `h`'s `c`.
+    pub v: u16,
+    /// What the terminal demands.
+    pub fold: Tern2Fold,
+}
+
+/// The terminal a [`FusedTern2`] feeds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tern2Fold {
+    /// Population of the relation.
+    Count,
+    /// Whether the relation is non-empty.
+    Any,
+    /// The bitmap itself, written into the demanded `Out::Mask`; `slot` is
+    /// what `Value::Mask` reports, exactly as the tiled path reports it.
+    Keep { slot: u16 },
+}
+
+/// The five leaf truth tables: bit `k` is set exactly when `(k >> i) & 1`.
+const LEAF_TABLES5: [u32; 5] = [
+    0xAAAA_AAAA,
+    0xCCCC_CCCC,
+    0xF0F0_F0F0,
+    0xFF00_FF00,
+    0xFFFF_0000,
+];
+
+/// [`apply_table`] over 32-bit tables: output bit `i` is
+/// `imm[(ta_i << 2) | (tb_i << 1) | tc_i]`.
+fn apply_table32(imm: u8, ta: u32, tb: u32, tc: u32) -> u32 {
+    let mut out = 0u32;
+    for idx in 0..8u8 {
+        if imm >> idx & 1 == 1 {
+            let pick = |bit: u8, t: u32| if idx & bit != 0 { t } else { !t };
+            out |= pick(4, ta) & pick(2, tb) & pick(1, tc);
+        }
+    }
+    out
+}
+
+/// Find a simple disjoint decomposition `f = h(g(x, y, z), u, v)` of a
+/// five-leaf table. Returns `([x, y, z], g, [u, v], h)` with `g` in the
+/// ternlog convention over `(x, y, z)` and `h` over `(g, u, v)`.
+///
+/// Tries the ten inner triples in lexicographic order and takes the first
+/// that works, so the answer is a function of `f` alone.
+fn decompose5(f: u32) -> Option<([usize; 3], u8, [usize; 2], u8)> {
+    for x in 0..5 {
+        for y in x + 1..5 {
+            for z in y + 1..5 {
+                let mut rest = (0..5).filter(|&i| i != x && i != y && i != z);
+                let (u, v) = (rest.next()?, rest.next()?);
+                // The four restrictions r[(U << 1) | V] as 8-bit ternlog tables
+                // over (x, y, z).
+                let mut r = [0u8; 4];
+                for (uv, ru) in r.iter_mut().enumerate() {
+                    let (bu, bv) = ((uv >> 1) & 1, uv & 1);
+                    for j in 0..8usize {
+                        let k = ((j >> 2) & 1) << x
+                            | ((j >> 1) & 1) << y
+                            | (j & 1) << z
+                            | bu << u
+                            | bv << v;
+                        *ru |= (((f >> k) & 1) as u8) << j;
+                    }
+                }
+                let g = r
+                    .iter()
+                    .copied()
+                    .find(|&t| t != 0 && t != 0xFF)
+                    .unwrap_or(0xF0);
+                let mut h = 0u8;
+                let ok = r.iter().enumerate().all(|(uv, &t)| {
+                    // h index = (G << 2) | uv; set h for G = 0 and G = 1.
+                    let (h0, h1) = match t {
+                        0 => (0, 0),
+                        0xFF => (1, 1),
+                        t if t == g => (0, 1),
+                        t if t == !g => (1, 0),
+                        _ => return false,
+                    };
+                    h |= h0 << uv | h1 << (4 | uv);
+                    true
+                });
+                if ok {
+                    return Some(([x, y, z], g, [u, v], h));
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Apply the VPTERNLOG table `imm` bitwise to three input tables: output bit
