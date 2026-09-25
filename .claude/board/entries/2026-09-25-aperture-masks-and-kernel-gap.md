@@ -1,6 +1,6 @@
 # 2026-09-25 — Aperture masks are Self-derived, not random; the ternlog kernel is not the gap
 
-**Status:** MEASURED · OPEN (the 5-plane scalar-loop lead; the aperture→Range lowering in the planner)
+**Status:** MEASURED · OPEN (the 5-plane scalar-loop lead) · the aperture→Range lowering landed (`2026-09-25-aperture-prefix-lowers-to-range.md`)
 
 ## Correction to the probe method
 - Every mask-risc probe so far fed uniformly random bit planes. That measures kernel throughput. It models nothing about where a membership mask comes from.
