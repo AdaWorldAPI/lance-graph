@@ -37,6 +37,11 @@
 //! | 256k rows (4 MB) | 27-34 ns | 3.9-4.2 ns |
 //! | 4M rows (64 MB) | 134-145 ns | 23 ns |
 //!
+//! At the real 512-byte `NodeRow` stride, read in place through a strided view
+//! (#1284: no second SoA copy), each row costs its own cache line:
+//! 512 rows 11.4 ns, 4k-8k rows 22-27 ns, 32k rows 50-55 ns, 64k rows 95-100 ns
+//! (latency).
+//!
 //! Queries hit uniformly random nodes; HHTL-ordered access would be kinder.
 //!
 //! `RUSTFLAGS="-C target-cpu=native" cargo run --release -p lance-graph-mask-risc --example mask_cache_hit_probe`
@@ -119,16 +124,15 @@ fn throughput(c: &Cache, lookup: Lookup, peek: Peek, hot: bool, qs: &[(usize, us
 /// HHTL partial mask, vertically: one node's 6-byte tier path (HEEL/HIP/TWIG,
 /// 3 x u8:u8 = half of the 12-byte facet) compared under a per-byte care mask.
 /// `rows` bounds the working set: a small one stays hot, a large one is cold.
-fn hhtl_half(store: &[u8], rows: usize, care: u64, pat: u64, dependent: bool) -> f64 {
+fn hhtl_half(store: &[u8], rows: usize, rec: usize, care: u64, pat: u64, dependent: bool) -> f64 {
     assert!(rows.is_power_of_two());
-    const REC: usize = 16;
     let mut x = 0x9E37_79B9u64;
     let mut acc = 0u64;
     let t = Instant::now();
     for q in 0..Q as u64 {
         let seed = if dependent { x } else { mix(q) };
         let r = (seed as usize) & (rows - 1); // rows is a power of two: no division
-        let o = r * REC + 4;
+        let o = r * rec + 4;
         let mut b = [0u8; 8];
         b[..6].copy_from_slice(&store[o..o + 6]);
         let hit = u64::from((u64::from_le_bytes(b) ^ pat) & care == 0);
@@ -206,8 +210,33 @@ fn main() {
         let care = 0x0000_FFFF_FFFFu64;
         let pat = 0x0000_1234_5678u64;
         let r = |f: &dyn Fn() -> f64| median((0..5).map(|_| f()).collect());
-        let l = r(&|| hhtl_half(&store, rows, care, pat, true));
-        let t = r(&|| hhtl_half(&store, rows, care, pat, false));
+        let l = r(&|| hhtl_half(&store, rows, 16, care, pat, true));
+        let t = r(&|| hhtl_half(&store, rows, 16, care, pat, false));
+        println!("{name:>28} {l:>9.2}ns {t:>9.2}ns");
+    }
+
+    // The same partial mask at the real NodeRow stride (512 B), read in place
+    // through a strided view (#1284): no second SoA copy, but one cache line
+    // per row touched.
+    drop(store);
+    let rows_max = 1usize << 18;
+    let big: Vec<u8> = (0..rows_max * 512).map(|i| mix(i as u64) as u8).collect();
+    println!("\nsame, 512-byte NodeRow stride (in place, one 64-byte line per row)");
+    println!("{:>28} {:>11} {:>11}", "working set", "latency", "thru");
+    for (name, rows) in [
+        ("64 rows (32 KB)", 1usize << 6),
+        ("512 rows (256 KB)", 1 << 9),
+        ("4k rows (2 MB)", 1 << 12),
+        ("8k rows (4 MB)", 1 << 13),
+        ("32k rows (16 MB)", 1 << 15),
+        ("64k rows (32 MB)", 1 << 16),
+        ("256k rows (128 MB)", 1 << 18),
+    ] {
+        let care = 0x0000_FFFF_FFFFu64;
+        let pat = 0x0000_1234_5678u64;
+        let r = |f: &dyn Fn() -> f64| median((0..5).map(|_| f()).collect());
+        let l = r(&|| hhtl_half(&big, rows, 512, care, pat, true));
+        let t = r(&|| hhtl_half(&big, rows, 512, care, pat, false));
         println!("{name:>28} {l:>9.2}ns {t:>9.2}ns");
     }
 }

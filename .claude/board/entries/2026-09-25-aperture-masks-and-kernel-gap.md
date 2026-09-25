@@ -51,3 +51,18 @@ HHTL partial mask applied vertically to one node's 6-byte tier path (half the fa
 - **The "~11 ns per cached-mask hit" premise:** it holds for a keyed (`HashMap`) hot hit. A direct slot hit is about 2 ns (throughput) and 5.5–6 ns (latency). A cold dependent hit costs DRAM latency (~150 ns).
 - **Probe correction:** a first run used `%` by the row count, and the integer division inflated latency (17 ns in L1). The row index is now a power-of-two bit-mask.
 - **Caveat:** queries hit uniformly random nodes. HHTL-ordered access is the realistic case.
+
+### At the real `NodeRow` stride: in place (#1284) vs a packed copy
+#1284's strided views read a `NodeRow` field where it sits. A MemWAL memtable's rows can therefore be filtered with no second SoA copy for reading. The cost is cache footprint: every row touched pulls its own 64-byte line, versus four 16-byte records per line when packed.
+
+| rows touched | packed 16 B records (latency) | in place, 512 B `NodeRow` (latency) |
+|---|---|---|
+| 512 | 6.8 ns | 11.4 ns (32 KB of lines, L1) |
+| 4k–8k | 9.0–10.4 ns | 22–27 ns |
+| **32k** | **12.5–13.4 ns** | **50–55 ns** |
+| 64k (one tile) | 16.5–18.8 ns | 95–100 ns |
+
+- **In place, the ~12 / ~25 ns regimes shift down by about 64×.** They sit at roughly 512 and 4k–8k rows touched, not 32k and 256k. Positive/negative selection still halves the member count, but at 32k members an in-place random probe costs about 50 ns.
+- **This is a copy-vs-footprint trade, not a verdict.** A packed key lane (16 B/row) is a second copy of the key bytes. In-place reads keep one copy and pay a line per row.
+- **Measured under random access only.** HHTL-ordered access touches rows in address order, which the hardware prefetcher streams. Measuring that before choosing is the open item.
+
