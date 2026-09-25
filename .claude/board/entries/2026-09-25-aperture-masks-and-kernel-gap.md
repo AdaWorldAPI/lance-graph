@@ -29,14 +29,25 @@ One 64k-row tile, 16-byte records (classid 4 B + facet 12 B), with rail 0 = the 
 ## Cached-mask hits and HHTL partial masks (`examples/mask_cache_hit_probe.rs`)
 This measures `D-WFL-CACHE`'s `C_lookup`, which the plan recorded only as the premise "cached mask → zero-copy peek → ~11 ns". Before this, the fold figure (1.7 ns hot, 1.7–4.2 ns cold; #1245/#1250) was the only measured side of the ratio.
 
-| query (throughput, random nodes) | hot | cold |
+| cached-mask query (throughput, random) | hot | cold (4096 masks, 32 MB) |
 |---|---|---|
-| cached mask by slot + bit/word peek | 1.8–2.3 ns | 18.6–22.4 ns (4096 masks, 32 MB) |
-| cached mask by `HashMap` key + peek | 13.6 ns | 85–104 ns |
-| HHTL partial mask, vertical, 6-byte half path | 9.9–10.3 ns (1 tile) | 11.6–19.3 ns (4 tiles) · 48.6 ns (64 tiles) |
+| by slot + bit/word peek | 1.8–2.3 ns | 18.6–22.4 ns |
+| by `HashMap` key + peek | 13.6 ns | 85–104 ns |
 
-- The recalled 12 / 25 ns for HHTL partial masks (vertical, half length) fits: the hot figure is ~10 ns, and 25 ns sits between the L2-edge and DRAM working sets.
-- Measured with each query waiting on the previous one (latency), the same operations cost 30 / 55 / 160 ns. A cached mask read by slot costs 5.5–6 ns hot.
-- The premise "~11 ns per cached-mask hit" holds only for hot throughput with a keyed lookup (a `HashMap` costs 13.6 ns). A direct slot is about 2 ns. A cold dependent hit costs DRAM latency (~150 ns), not 11 ns.
-- Caveat: queries hit uniformly random nodes. HHTL-ordered access is the realistic case and would sit closer to the hot column.
+HHTL partial mask applied vertically to one node's 6-byte tier path (half the facet), by working set of 16-byte records:
 
+| working set | latency (dependent) | throughput |
+|---|---|---|
+| ≤ 2k rows (≤ 32 KB, L1d) | 6.8 ns | 1.6 ns |
+| 4k–8k rows (64–128 KB) | 9.0–10.4 ns | 1.9–2.0 ns |
+| **32k rows (512 KB)** | **12.5–13.4 ns** | 2.2 ns |
+| 64k rows (1 MB, one tile) | 16.5–18.8 ns | 3.0–3.2 ns |
+| **256k rows (4 MB)** | **27–34 ns** | 3.9–4.2 ns |
+| 4M rows (64 MB) | 134–145 ns | 23 ns |
+
+- **The recalled 12 / 25 ns is the latency of a vertical HHTL partial mask.** About 12 ns is a working set of ≤ 32k rows; about 25 ns is one that has spilled past a tile.
+- **This is why positive vs negative selection pays off.** Store whichever of the selection or its complement is smaller, and a 64k tile never holds more than 32k members (half length), which keeps a partial mask in the ~13 ns regime.
+- **Precision on "32k":** with 16-byte records L1d holds 2k rows, so at 32k rows the records are already L2-resident. The 32k cap is a member count. As a bitplane, 32k rows is 4 KB and fits L1.
+- **The "~11 ns per cached-mask hit" premise:** it holds for a keyed (`HashMap`) hot hit. A direct slot hit is about 2 ns (throughput) and 5.5–6 ns (latency). A cold dependent hit costs DRAM latency (~150 ns).
+- **Probe correction:** a first run used `%` by the row count, and the integer division inflated latency (17 ns in L1). The row index is now a power-of-two bit-mask.
+- **Caveat:** queries hit uniformly random nodes. HHTL-ordered access is the realistic case.

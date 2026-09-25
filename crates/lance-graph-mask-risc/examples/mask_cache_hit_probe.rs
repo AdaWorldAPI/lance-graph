@@ -24,10 +24,19 @@
 //! | cached mask, slot + peek (throughput) | 1.8-2.3 ns | 18.6-22.4 ns |
 //! | cached mask, slot + peek (latency) | 5.5-6.0 ns | 142-157 ns |
 //! | cached mask, HashMap + peek (throughput) | 13.6 ns | 85-104 ns |
-//! | HHTL half partial mask (throughput): 1 / 4 / 64 tiles | 9.9-10.3 ns | 11.6-19.3 / 48.6 ns |
-//! | HHTL half partial mask (latency): 1 / 4 / 64 tiles | 30 ns | 55 / 160 ns |
 //!
-//! The throughput figures include the query generator (one `mix`, a few ns).
+//! HHTL half partial mask, per node (the row index is a power-of-two bit-mask;
+//! a first version used `%` and measured the integer division instead):
+//!
+//! | working set (16-byte records) | latency | throughput |
+//! |---|---|---|
+//! | <= 2k rows (<= 32 KB, L1d) | 6.8 ns | 1.6 ns |
+//! | 4k-8k rows (64-128 KB) | 9.0-10.4 ns | 1.9-2.0 ns |
+//! | 32k rows (512 KB) | 12.5-13.4 ns | 2.2 ns |
+//! | 64k rows (1 MB, one tile) | 16.5-18.8 ns | 3.0-3.2 ns |
+//! | 256k rows (4 MB) | 27-34 ns | 3.9-4.2 ns |
+//! | 4M rows (64 MB) | 134-145 ns | 23 ns |
+//!
 //! Queries hit uniformly random nodes; HHTL-ordered access would be kinder.
 //!
 //! `RUSTFLAGS="-C target-cpu=native" cargo run --release -p lance-graph-mask-risc --example mask_cache_hit_probe`
@@ -111,13 +120,14 @@ fn throughput(c: &Cache, lookup: Lookup, peek: Peek, hot: bool, qs: &[(usize, us
 /// 3 x u8:u8 = half of the 12-byte facet) compared under a per-byte care mask.
 /// `rows` bounds the working set: a small one stays hot, a large one is cold.
 fn hhtl_half(store: &[u8], rows: usize, care: u64, pat: u64, dependent: bool) -> f64 {
+    assert!(rows.is_power_of_two());
     const REC: usize = 16;
     let mut x = 0x9E37_79B9u64;
     let mut acc = 0u64;
     let t = Instant::now();
     for q in 0..Q as u64 {
         let seed = if dependent { x } else { mix(q) };
-        let r = (seed as usize) % rows;
+        let r = (seed as usize) & (rows - 1); // rows is a power of two: no division
         let o = r * REC + 4;
         let mut b = [0u8; 8];
         b[..6].copy_from_slice(&store[o..o + 6]);
@@ -183,7 +193,12 @@ fn main() {
     println!("\nHHTL partial mask, 6-byte half path, per node");
     println!("{:>28} {:>11} {:>11}", "working set", "latency", "thru");
     for (name, rows) in [
-        ("1 tile (64k rows, 1 MB)", 1usize << 16),
+        ("1k rows (16 KB)", 1usize << 10),
+        ("2k rows (32 KB = L1d)", 1 << 11),
+        ("4k rows (64 KB)", 1 << 12),
+        ("8k rows (128 KB)", 1 << 13),
+        ("32k rows (512 KB)", 1 << 15),
+        ("1 tile (64k rows, 1 MB)", 1 << 16),
         ("4 tiles (256k rows, 4 MB)", 1 << 18),
         ("64 tiles (4M rows, 64 MB)", 1 << 22),
     ] {
