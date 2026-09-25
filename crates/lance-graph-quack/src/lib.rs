@@ -4622,7 +4622,7 @@ mod strided_leaf_tests {
     fn random_aperture(fx: &Fx, r: &mut Rng) -> SemanticAperture {
         let key = fx.lane.keys()[(r.next() as usize) % fx.n()];
         let mut care = [0u8; 16];
-        if r.next() % 2 == 0 {
+        if r.next().is_multiple_of(2) {
             care[..4].fill(0xFF);
         }
         for b in care[4..].iter_mut() {
