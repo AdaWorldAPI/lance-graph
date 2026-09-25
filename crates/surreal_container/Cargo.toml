@@ -2,7 +2,7 @@
 name = "surreal_container"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.98.1"
 license = "Apache-2.0"
 publish = false
 description = """
@@ -51,7 +51,13 @@ Depends on task 01 (deps_substrate) being resolved before compiling.
 lance-graph-contract = { path = "../lance-graph-contract" }
 
 lance    = { workspace = true }
-lancedb  = { workspace = true, optional = true }
+# `remote` is NOT a capability we asked for: lancedb 0.39.0 does not compile
+# without it. `src/lib.rs` leaves `pub mod job;` ungated while `src/job.rs`
+# builds `Error::Http`, which `src/error.rs` gates on `cfg(feature = "remote")`
+# (E0599). Same upstream defect as 0.38.0; no 0.39 patch release fixes it.
+# Declared here, not in the workspace entry, so it is active only when
+# `lancedb-sdk` turns the optional dep on. Drop it once upstream gates `job`.
+lancedb  = { workspace = true, optional = true, features = ["remote"] }
 
 # Runtime support (not blocked — these are well-known, confirmed versions)
 tokio    = { version = "1", features = ["rt-multi-thread", "macros"] }

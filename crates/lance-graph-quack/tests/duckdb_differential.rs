@@ -1320,7 +1320,14 @@ fn run_group_avg(
         assert_eq!(v, expect, "case {id}");
         out
     };
-    let sums = sink(&plan.sum, Value::GroupSummed);
+    // The sum half is `GroupSumI32` / `GroupSumViaI32` for a Local / Via key
+    // and a NULL-preserving `GroupReduce` for a Pair key; each reports its own
+    // `Value`, so expect the one its terminal names.
+    let sum_expect = match plan.sum.terminal {
+        lance_graph_mask_risc::Terminal::GroupReduce { .. } => Value::GroupReduced,
+        _ => Value::GroupSummed,
+    };
+    let sums = sink(&plan.sum, sum_expect);
     let counts = sink(&plan.count, Value::GroupReduced);
     sums.iter()
         .zip(&counts)
@@ -1384,6 +1391,44 @@ fn group_avg_cc() {
         8,
     );
     assert_case(&cases, "group_avg_cc", &actual);
+}
+
+/// `AVG(amount) GROUP BY (cost_center, status)` over the SPARSE filter of
+/// [`group2_max_cc_st_sparse`] — the two-column `GroupAddr::Pair` key through
+/// [`lower_group_avg`]'s `GroupReduce`-backed sum half. Sparse on purpose: an
+/// empty group's sum slot holds the NULL marker under a Pair key, and only an
+/// empty group shows that `avg_finish` never reads it.
+#[test]
+fn group2_avg_cc_st() {
+    let cases = load_cases();
+    let fx = fixture::generate();
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let actual = run_group_avg(
+        "group2_avg_cc_st",
+        &planes,
+        &Foreign::NONE,
+        &Filter::and([
+            Filter::cmp(QTY, Cmp::GtI32(45)),
+            Filter::or([
+                Filter::cmp(COST_CENTER, Cmp::EqU32(0)),
+                Filter::cmp(COST_CENTER, Cmp::EqU32(1)),
+                Filter::cmp(COST_CENTER, Cmp::EqU32(2)),
+            ]),
+        ]),
+        GroupAddr::Pair {
+            hi: COST_CENTER,
+            lo: STATUS,
+            stride: 3,
+        },
+        AMOUNT,
+        24,
+    );
+    assert!(
+        actual.contains(":NULL"),
+        "fixture must leave some group empty or this case tests nothing: {actual}"
+    );
+    assert_case(&cases, "group2_avg_cc_st", &actual);
 }
 
 /// `AVG(l.amount) GROUP BY p.country WHERE l.status=1` — the key through

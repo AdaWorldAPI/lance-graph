@@ -41,11 +41,11 @@ use ndarray::simd::{
 };
 
 use crate::ir::{
-    span_words, touched_words, Foreign, FusedFold, FusedTerminal, FusedTernlog, GroupFold,
-    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, StridedRef, Terminal,
-    FUSED_SLOT_CAP, MAX_SCRATCH_SLOTS,
+    span_words, touched_words, Compiled, Foreign, FusedFold, FusedKeep, FusedTerminal,
+    FusedTernlog, GroupFold, GroupKey, LaneRef, Lowering, MaskOp, Operand, Planes, Pred, Program,
+    StridedRef, Terminal, FUSED_SLOT_CAP, MAX_SCRATCH_SLOTS,
 };
-use crate::reference::{out_shape, validate};
+use crate::reference::{out_shape, validate, OutShape};
 use crate::ternlog_dispatch::{
     ternlog_any_dispatch, ternlog_dispatch, ternlog_dispatch_assign, ternlog_popcount_dispatch,
 };
@@ -92,9 +92,19 @@ impl Store<'_> {
 /// overflow, never a wrapped answer that would silently under-allocate.
 /// Words per scratch slot the default constructors carve. The executor runs a
 /// program one tile at a time (see [`execute_into`]), so execution state is
-/// `slots × TILE_WORDS` words however many rows the planes hold — 8 words =
-/// 512 rows = one full-width vector per facade call.
-pub const TILE_WORDS: usize = 8;
+/// `slots × TILE_WORDS` words however many rows the planes hold.
+///
+/// This is the SCHEDULING tile — how many words one pass of the op loop
+/// covers — not the SIMD width. Each facade call inside a pass still walks
+/// its slice in full-width vectors. 256 words = 16,384 rows per pass.
+///
+/// Measured, not chosen: `examples/tile_sweep_probe.rs` sweeps 1..16,384
+/// words over a 1M-row chain. At 8 words (one 512-bit vector per pass, the
+/// earlier default) per-pass overhead dominated; 256 words ran the same
+/// chains ~6-10x faster, and wider tiles gained nothing further. A caller
+/// that wants a different width passes its own `Scratch`; the executor walks
+/// whatever width it is given.
+pub const TILE_WORDS: usize = 256;
 
 /// The slot width [`Scratch::for_program`] / [`Scratch::over_for_program`]
 /// carve for `n_rows`: one tile, or the whole (shorter) population.
@@ -803,6 +813,60 @@ fn run_fused(f: FusedTerminal, planes: &Planes<'_>) -> Value {
     }
 }
 
+/// Write a [`FusedKeep`] into `out` over the absolute extent `[lo, hi)`,
+/// with exactly the tiled `Keep` path's write rules.
+///
+/// Words the extent covers whole go through ONE
+/// `ndarray::simd::mask_ternlog` call straight from the borrowed planes into
+/// `out`. A word the extent cuts at an unaligned `lo`, or at an unaligned
+/// `hi < n_rows`, is combined in a one-word register and merged under
+/// [`edge_mask`], so the neighbour extent's bits in that word survive. The
+/// population's own last word when `hi == n_rows` is written whole, with its
+/// dead tail bits cleared — the value the tiled path leaves there, since its
+/// ternlog arm clears the same tail against `n_rows` for an odd table.
+fn run_fused_keep(f: FusedKeep, planes: &Planes<'_>, out: &mut [u64], lo: usize, hi: usize) {
+    let span = span_words(lo, hi);
+    if span.is_empty() {
+        return;
+    }
+    let (a, b, c) = (
+        planes.masks[usize::from(f.a)],
+        planes.masks[usize::from(f.b)],
+        planes.masks[usize::from(f.c)],
+    );
+    let (first, last) = (span.start, span.end - 1);
+    let head_cut = !lo.is_multiple_of(64);
+    let tail_cut = !hi.is_multiple_of(64) && hi < planes.n_rows;
+    let mut merge = |w: usize| {
+        let mut reg = [0u64; 1];
+        ternlog_dispatch(f.imm, &a[w..=w], &b[w..=w], &c[w..=w], &mut reg);
+        let m = edge_mask(w, lo, hi);
+        out[w] = (out[w] & !m) | (reg[0] & m);
+    };
+    if head_cut {
+        merge(first);
+    }
+    if tail_cut && (last != first || !head_cut) {
+        merge(last);
+    }
+    let from = first + usize::from(head_cut);
+    let to = (last + 1).saturating_sub(usize::from(tail_cut)).max(from);
+    if from < to {
+        ternlog_dispatch(
+            f.imm,
+            &a[from..to],
+            &b[from..to],
+            &c[from..to],
+            &mut out[from..to],
+        );
+        // The population's last word, reached whole: clear its dead tail.
+        let rem = planes.n_rows % 64;
+        if to == words_for(planes.n_rows) && rem != 0 {
+            out[to - 1] &= (1u64 << rem) - 1;
+        }
+    }
+}
+
 /// Evaluate a [`FusedTernlog`] over the absolute extent `[lo, hi)`.
 ///
 /// Nothing is written. Whole words inside the extent go straight to
@@ -1037,9 +1101,25 @@ pub fn execute_extent(
     planes: &Planes<'_>,
     foreign: &Foreign<'_>,
     scratch: &mut Scratch<'_>,
-    mut out: Out<'_>,
+    out: Out<'_>,
     extent: Range<usize>,
 ) -> Result<Value, ExecError> {
+    // The constant-time refusals run BEFORE recognition: `compile` walks the
+    // whole op list, and a call that is going to be rejected anyway must not
+    // pay for that walk (the same reason `validate` checks the slot ceiling
+    // first). `execute_compiled` repeats them; they are cheap.
+    precheck(program, planes, &extent)?;
+    execute_compiled(&program.compile(), planes, foreign, scratch, out, extent)
+}
+
+/// The refusals that depend only on the program's declared slot count, its
+/// terminal and the extent — constant time, no walk over the ops. Returns
+/// whether the extent is the whole population.
+fn precheck(
+    program: &Program,
+    planes: &Planes<'_>,
+    extent: &Range<usize>,
+) -> Result<bool, ExecError> {
     // BEFORE the capacity check, not after: an over-declared count is a lie
     // about the PROGRAM, and the caller's buffer is irrelevant to it. Checked
     // second, every such program reports `ScratchTooSmall` instead — which the
@@ -1083,11 +1163,29 @@ pub fn execute_extent(
             return Err(ExecError::ExtentUnsupported { what });
         }
     }
+    Ok(whole)
+}
+
+/// [`execute_extent`] over a program whose lowering was recognised once
+/// ([`Program::compile`]). Identical results; the only difference is that
+/// this call does not re-derive the fold from the program text. Validation
+/// still runs, against this call's planes, foreign tables and `out`.
+pub fn execute_compiled(
+    compiled: &Compiled<'_>,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    scratch: &mut Scratch<'_>,
+    mut out: Out<'_>,
+    extent: Range<usize>,
+) -> Result<Value, ExecError> {
+    let program = compiled.program();
+    let whole = precheck(program, planes, &extent)?;
+    let (elo, ehi) = (extent.start, extent.end);
     // A fused program folds from its operands: it reads no slot and writes no
     // membership bit, so the scratch capacity checks below do not apply to it.
     // Validation stays total — the one declared slot is tracked in a local
     // word of read-before-write bookkeeping, never in the caller's arena.
-    if let Some(f) = program.fused_terminal() {
+    if let Lowering::Range(f) = compiled.lowering() {
         let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
         validate(program, planes, foreign, out_shape(&out), &mut written)?;
         // The extent composes with the program's own range by intersection,
@@ -1107,10 +1205,25 @@ pub fn execute_extent(
     // The Boolean-membership fold: a chain of Boolean ops over at most three
     // resident planes, collapsed symbolically to one ternlog table (#1272) and
     // folded by Count/Any — also no slot, no membership bit written.
-    if let Some(f) = program.fused_ternlog() {
+    if let Lowering::Ternlog(f) = compiled.lowering() {
         let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
         validate(program, planes, foreign, out_shape(&out), &mut written)?;
         return Ok(run_fused_ternlog(f, planes, elo, ehi));
+    }
+    // The same chain consumed by `Keep`: one ternlog pass into the demanded
+    // `Out::Mask`, no slot written. Without `Out::Mask` the caller reads the
+    // result from its scratch slot, so the tiled path below runs instead.
+    if let (Lowering::TernlogKeep(f), Out::Mask(o)) = (compiled.lowering(), &mut out) {
+        let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
+        validate(
+            program,
+            planes,
+            foreign,
+            OutShape::Mask(o.len()),
+            &mut written,
+        )?;
+        run_fused_keep(f, planes, o, elo, ehi);
+        return Ok(Value::Mask(Operand::Scratch(f.slot)));
     }
     if scratch.slots() < program.scratch_slots as usize {
         return Err(ExecError::ScratchTooSmall {

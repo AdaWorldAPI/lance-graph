@@ -5,9 +5,9 @@
 use lance_graph_mask_risc::exec::{execute_into, Scratch};
 use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch_with_foreign};
 use lance_graph_mask_risc::{
-    scratch_words_for, tile_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupFold,
-    GroupKey, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
-    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
+    scratch_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupFold, GroupKey, LaneKind,
+    LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value, GROUP_SUM_SYM_MAX_ROWS,
+    MASKED_SUM_I32_MAX_ROWS,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -19,6 +19,16 @@ fn lcg(seed: &mut u64) -> u64 {
 
 const S0: Operand = Operand::Scratch(0);
 const S1: Operand = Operand::Scratch(1);
+
+/// The scheduling tile these tests run under: 8 words, NARROW on purpose, so
+/// fixtures of a few thousand rows span several tiles. The executor's
+/// default (`TILE_WORDS`) is a performance setting and must not decide
+/// whether the cross-tile paths are covered.
+const TEST_TILE_WORDS: usize = 8;
+
+fn test_tile_words(n: usize) -> usize {
+    words_for(n).min(TEST_TILE_WORDS)
+}
 
 /// A primary ("line") table of `n` rows and a foreign ("partner") table of
 /// `foreign_rows` rows, deliberately SHORTER than `n` so `Gather`'s
@@ -1034,7 +1044,7 @@ fn group_reduce_matches_the_oracle_for_every_key_and_fold() {
             planes: &[],
             lanes: &foreign_lanes,
         };
-        let words = tile_words_for(n);
+        let words = test_tile_words(n);
         multi_tile |= words < words_for(n);
 
         for key in [GroupKey::Lane(3), GroupKey::Via { fk: 0, key: 0 }] {
@@ -1120,7 +1130,7 @@ fn sym_sum_agrees_with_the_coalesced_sum_and_keeps_empty_groups_null() {
         let mut out = vec![99i64; 4];
         reference_execute_into(&p, &planes, &foreign, Out::I64(&mut out)).expect("oracle runs");
         let mut got = vec![-99i64; 4];
-        let words = tile_words_for(4);
+        let words = test_tile_words(4);
         let slots = p.scratch_slots as usize;
         let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
         let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
@@ -1202,7 +1212,7 @@ fn sym_sum_agrees_with_full_range_sum_plus_count() {
         }];
         let run = |terminal: Terminal| {
             let p = Program::new(filter.clone(), terminal);
-            let words = tile_words_for(n);
+            let words = test_tile_words(n);
             let slots = p.scratch_slots as usize;
             let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
             let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
@@ -1281,7 +1291,7 @@ fn group_reduce_refuses_wrong_lanes_and_a_missing_sink() {
             }],
             terminal,
         );
-        let words = tile_words_for(64);
+        let words = test_tile_words(64);
         let slots = p.scratch_slots as usize;
         let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
         let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
@@ -1345,7 +1355,7 @@ fn group_reduce_refuses_wrong_lanes_and_a_missing_sink() {
 /// `GROUP BY` address, `group = hi[i] * stride + lo[i]`) disagrees with an
 /// EQUIVALENT `GroupKey::Lane` run over a precomputed composite lane, for
 /// any of the four folds, OR either disagrees with the independent
-/// row-at-a-time oracle. Multi-tile (`n` past `64 * TILE_WORDS`) so the
+/// row-at-a-time oracle. Multi-tile (`n` past `64 * TEST_TILE_WORDS`) so the
 /// tiled `_pair` kernels are actually exercised, not just their single-tile
 /// remainder.
 #[test]
@@ -1353,7 +1363,7 @@ fn pair_key_group_reduce_matches_a_precomputed_composite_lane() {
     const STRIDE: u32 = 3;
     const HI_RANGE: u32 = 5;
     const GROUPS: usize = (HI_RANGE * STRIDE) as usize; // 15
-                                                        // 64 * TILE_WORDS (8) = 512; this must exceed it to force multiple tiles.
+                                                        // 64 * TEST_TILE_WORDS (8) = 512; this must exceed it to force multiple tiles.
     const N: usize = 1000;
 
     let mut s = 0xF00D_BEEFu64;
@@ -1383,13 +1393,8 @@ fn pair_key_group_reduce_matches_a_precomputed_composite_lane() {
         masks: &masks,
         lanes: &lanes,
     };
-    let words = tile_words_for(N);
-    const {
-        assert!(
-            N > 64 * lance_graph_mask_risc::exec::TILE_WORDS,
-            "must span >1 tile"
-        )
-    };
+    let words = test_tile_words(N);
+    const { assert!(N > 64 * TEST_TILE_WORDS, "must span >1 tile") };
 
     for fold in [
         GroupFold::Count,
@@ -1531,7 +1536,7 @@ fn pair_key_drops_a_minor_key_at_stride() {
             fold: GroupFold::Count,
         },
     );
-    let words = tile_words_for(n);
+    let words = test_tile_words(n);
     let slots = p.scratch_slots as usize;
     let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
     let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
