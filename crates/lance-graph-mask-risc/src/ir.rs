@@ -1478,7 +1478,17 @@ fn decompose6_outer(f: u64, k: usize) -> Option<Plan6> {
     };
     for o in outers {
         let outer = &o[..k];
-        let inner: Vec<usize> = (0..6).filter(|i| !outer.contains(i)).collect();
+        // The complement of `outer`, on the stack: recognition runs inside
+        // every `compile()`, so it must not allocate (see `ternlog_table`).
+        let mut inner_buf = [0usize; 5];
+        let mut n_inner = 0usize;
+        for i in 0..6 {
+            if !outer.contains(&i) {
+                inner_buf[n_inner] = i;
+                n_inner += 1;
+            }
+        }
+        let inner = &inner_buf[..n_inner];
         // Restriction for each assignment of the outer leaves, as a 32-bit
         // table over `inner` (padded with a don't-care fifth leaf when k = 2).
         let mut r = [0u32; 4];

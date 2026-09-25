@@ -28,6 +28,11 @@ unsafe impl GlobalAlloc for Counting {
 #[global_allocator]
 static A: Counting = Counting;
 
+/// The byte counter is process-global and the test harness runs tests on
+/// parallel threads, so every test that reads it holds this lock: otherwise
+/// one test's setup is counted against another's measured window.
+static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn lcg(seed: &mut u64) -> u64 {
     *seed = seed
         .wrapping_mul(6364136223846793005)
@@ -39,6 +44,7 @@ fn lcg(seed: &mut u64) -> u64 {
 /// allocator counter is inert (the second assertion).
 #[test]
 fn a_thousand_executes_allocate_nothing() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let n = 65_536;
     let words = n / 64;
     let mut seed = 7u64;
@@ -113,4 +119,69 @@ fn a_thousand_executes_allocate_nothing() {
     // can-it-fire: the counter must see a real allocation
     let probe = vec![0u8; 4096];
     assert!(BYTES.load(Ordering::Relaxed) - after >= probe.len());
+}
+
+fn plane(i: u16) -> Operand {
+    Operand::Plane(i)
+}
+fn slot(i: u16) -> Operand {
+    Operand::Scratch(i)
+}
+
+/// Six-input majority over six distinct planes. It reads six planes, so the
+/// Tern3 recognizer runs in full — every balanced split and all 21 outer-set
+/// candidates — before declining to Tiled. That is the worst case for
+/// recognition cost, and it runs inside every `compile()`.
+fn six_input_majority() -> Program {
+    let t = |imm, a, b, c, dst| MaskOp::Ternlog { imm, a, b, c, dst };
+    Program::new(
+        vec![
+            t(0x96, plane(0), plane(1), plane(2), 0),
+            t(0xE8, plane(0), plane(1), plane(2), 1),
+            t(0x96, plane(3), plane(4), plane(5), 2),
+            t(0xE8, plane(3), plane(4), plane(5), 3),
+            MaskOp::And {
+                a: slot(1),
+                b: slot(3),
+                dst: 4,
+            },
+            MaskOp::Or {
+                a: slot(1),
+                b: slot(3),
+                dst: 5,
+            },
+            t(0x80, slot(5), slot(0), slot(2), 5),
+            MaskOp::Or {
+                a: slot(4),
+                b: slot(5),
+                dst: 6,
+            },
+        ],
+        Terminal::Count { mask: slot(6) },
+    )
+}
+
+/// FAILS IF: six-plane recognition allocates (it runs on every `compile()`,
+/// so an allocation there is an allocation per execute) — or the program
+/// silently stops reaching the Tern3 recognizer (the first assertion).
+#[test]
+fn six_plane_recognition_allocates_nothing() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let p = six_input_majority();
+    assert!(
+        p.fused_tern3().is_none(),
+        "the fixture must reach Tern3 recognition and decline"
+    );
+    let before = BYTES.load(Ordering::Relaxed);
+    for _ in 0..100 {
+        assert!(p.fused_tern3().is_none());
+        let _ = p.lowering();
+    }
+    let after = BYTES.load(Ordering::Relaxed);
+    assert_eq!(
+        after - before,
+        0,
+        "six-plane recognition allocated {} bytes over 100 runs",
+        after - before
+    );
 }
