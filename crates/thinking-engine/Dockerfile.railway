@@ -6,7 +6,7 @@
 # For ReaderLM-v2 HTML→markdown: download BF16 safetensors (3 GB) separately
 # The codebooks run standalone for reasoning at 5,676 queries/sec
 
-FROM rust:1.98-bookworm AS builder
+FROM rust:1.98.1-bookworm AS builder
 WORKDIR /app
 
 # Copy workspace

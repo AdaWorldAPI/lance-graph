@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-166 entries, 2026-08-06 .. 2026-09-25.
+167 entries, 2026-08-06 .. 2026-09-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-09-25 | `llvm-whole-stack-fold-ceiling` |  | [2026-09-25-llvm-whole-stack-fold-ceiling.md](2026-09-25-llvm-whole-stack-fold-ceiling.md) |
 | 2026-09-25 | `lance12-lancedb039-sweep` |  | [2026-09-25-lance12-lancedb039-sweep.md](2026-09-25-lance12-lancedb039-sweep.md) |
 | 2026-09-25 | `keep-fold` |  | [2026-09-25-keep-fold.md](2026-09-25-keep-fold.md) |
+| 2026-09-25 | `argon2-in-register-compress-per-tier` |  | [2026-09-25-argon2-in-register-compress-per-tier.md](2026-09-25-argon2-in-register-compress-per-tier.md) |
 | 2026-09-24 | `three-clocks-never-meet-implicitly` |  | [2026-09-24-three-clocks-never-meet-implicitly.md](2026-09-24-three-clocks-never-meet-implicitly.md) |
 | 2026-09-24 | `cost-scales-with-dirty-rows-replay-budget-before-materialization` | 64k reserved always; seal cost ∝ dirty rows (1 dirty ≈ 2 ms / 6 KB, 0 dirty = free, floor ~1.7 ms/commit); one materialization ≈ 1M folds (1.7 ms commit / 1.7 ns fold, #1245) — D-WFL-ECON's materialize term | [2026-09-24-cost-scales-with-dirty-rows-replay-budget-before-materialization.md](2026-09-24-cost-scales-with-dirty-rows-replay-budget-before-materialization.md) |
 | 2026-09-24 | `background-cycle-writer-takes-the-seal-off-the-loop` | D-HWV-1a: one writer task runs `seal_cycle` for queued cycles; loop pays 1.9 µs `try_submit` vs 72.2 ms inline seal at 64k × 512 B; failure poisons and hands every cast back | [2026-09-24-background-cycle-writer-takes-the-seal-off-the-loop.md](2026-09-24-background-cycle-writer-takes-the-seal-off-the-loop.md) |

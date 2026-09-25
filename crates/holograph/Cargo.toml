@@ -2,7 +2,7 @@
 name = "holograph"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.98.1"
 description = "Holographic HDR Hamming — 10K/16K/32K bitpacked vector search with 3D XYZ superposition"
 license = "AGPL-3.0"
 authors = ["Holograph Contributors"]
