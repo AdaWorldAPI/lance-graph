@@ -128,8 +128,8 @@ pub use exec::{
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
 pub use ir::{
     touched_words, Foreign, ForeignPlane, FusedFold, FusedTerminal, FusedTernlog, GroupFold,
-    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, StridedRef, Terminal, FUSED_SLOT_CAP,
-    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
+    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, StridedRef, Terminal,
+    FUSED_SLOT_CAP, GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
 pub use reference::{
     reference_execute, reference_execute_into, reference_scratch, reference_scratch_with_foreign,
