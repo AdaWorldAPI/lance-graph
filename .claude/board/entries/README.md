@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-174 entries, 2026-08-06 .. 2026-09-25.
+175 entries, 2026-08-06 .. 2026-09-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -39,6 +39,7 @@ exactly one of them, never both.
 | 2026-09-25 | `lance12-lancedb039-sweep` |  | [2026-09-25-lance12-lancedb039-sweep.md](2026-09-25-lance12-lancedb039-sweep.md) |
 | 2026-09-25 | `keep-fold` |  | [2026-09-25-keep-fold.md](2026-09-25-keep-fold.md) |
 | 2026-09-25 | `hhtl-ordered-access` |  | [2026-09-25-hhtl-ordered-access.md](2026-09-25-hhtl-ordered-access.md) |
+| 2026-09-25 | `dispatch-materialization-trace` |  | [2026-09-25-dispatch-materialization-trace.md](2026-09-25-dispatch-materialization-trace.md) |
 | 2026-09-25 | `argon2-in-register-compress-per-tier` |  | [2026-09-25-argon2-in-register-compress-per-tier.md](2026-09-25-argon2-in-register-compress-per-tier.md) |
 | 2026-09-25 | `aperture-prefix-lowers-to-range` |  | [2026-09-25-aperture-prefix-lowers-to-range.md](2026-09-25-aperture-prefix-lowers-to-range.md) |
 | 2026-09-25 | `aperture-masks-and-kernel-gap` |  | [2026-09-25-aperture-masks-and-kernel-gap.md](2026-09-25-aperture-masks-and-kernel-gap.md) |
