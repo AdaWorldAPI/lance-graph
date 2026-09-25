@@ -15,20 +15,20 @@ without recounting evidence the store already holds.
 
 ## Checklist
 
-- [x] **A. Emit CE64 from SPOFC** (this PR): palette-space S/O, SPOFC truth,
+- [x] **D-CSL-A. Emit CE64 from SPOFC** (this PR): palette-space S/O, SPOFC truth,
       Pearl mask as the inverse of `edge_to_layer_mask`, topology by how the
       relation was found. Disable-verified tests.
-- [x] **A'. Characterise `learn`** (this PR, `tests/ce64_recount_probe.rs`): it
+- [x] **D-CSL-A2. Characterise `learn`** (this PR, `tests/ce64_recount_probe.rs`): it
       pools a repeated observation as fresh evidence; the driver's emission
       plasticity (`ALL_FROZEN`) stops it moving S/P/O.
-- [ ] **B. Evidence identity.** Decide what tells "same evidence again" from "a
+- [ ] **D-CSL-B. Evidence identity.** Decide what tells "same evidence again" from "a
       new witness" when a stored edge is revised. Blocked: see § Missing, item 2.
-- [ ] **C. Write-back through the owner path.** Blocked on W4a (item 1).
-- [ ] **D. Cross-cycle revision.** After B and C: revise the stored edge with the
+- [ ] **D-CSL-C. Write-back through the owner path.** Blocked on W4a (item 1).
+- [ ] **D-CSL-D. Cross-cycle revision.** After B and C: revise the stored edge with the
       cycle's SPOFC observation; the probe in A' flips deliberately.
-- [ ] **E. Completions ("Sudoku autocomplete").** One-way probe only, per
+- [ ] **D-CSL-E. Completions ("Sudoku autocomplete").** One-way probe only, per
       `mul-ewa-trust-propagation-v1.md` §0b; inferred edges marked by topology.
-- [ ] **F. Support entropy.** Shannon entropy over a candidate's support
+- [ ] **D-CSL-F. Support entropy.** Shannon entropy over a candidate's support
       distribution, as a spread signal beside `m`. New code; nothing like it exists.
 
 ## Verified facts this rests on
