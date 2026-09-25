@@ -35,8 +35,11 @@ fn employee_date_activity_sum_matches_independent_oracle_across_word_tails() {
             query.plan().terminal,
             Terminal::GroupSumI32 { .. }
         ));
+        // At most 8 slots of one tile each, stated against the constant: the
+        // default tile is a performance setting (256 words since #1281), not
+        // a literal this test should have to re-derive.
         assert!(
-            query.scratch_words() <= 64,
+            query.scratch_words() <= 8 * lance_graph_mask_risc::TILE_WORDS,
             "scratch must stay tile-bounded"
         );
         for (i, &sum) in sums.iter().enumerate() {
