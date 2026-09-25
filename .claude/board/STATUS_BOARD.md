@@ -1,3 +1,17 @@
+## D-CSL — CE64 as the mantissa that carries SPOFC evidence between cycles (2026-09-25)
+
+Plan: `plans/ce64-spofc-learning-v1.md`. Predecessor: #1293 (SPOFC candidate aggregation).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-CSL-A** | emit CE64 from the SPOFC record: palette-space S/O, SPOFC truth, Pearl mask as the inverse of `edge_to_layer_mask`, topology bits 59–60 by relation kind | In PR (#1294) | `driver::tests::{emitted_edge_carries_the_p64_target_and_its_evidence, content_partner_edges_do_not_claim_a_direct_topology, causal_mask_round_trips_through_p64_layers}` |
+| **D-CSL-A2** | characterise `learn`: repeat observation recounted; `ALL_FROZEN` emission plasticity | In PR (#1294) | `tests/ce64_recount_probe.rs` — flips deliberately with D-CSL-D |
+| **D-CSL-B** | per-edge evidence identity (stamp) so a repeat or shared root is not fresh support | Queued — blocked (no carrier; W-slot is a corpus root, CE64 bits closed to new semantics) | a revision with the same observation must not raise confidence |
+| **D-CSL-C** | write emitted edges back through the owner path | Queued — blocked on W4a | `persist_cycle` BLOCKED→W4a (`COMPONENT-MAP.md` §6) |
+| **D-CSL-D** | cross-cycle revision of the stored edge with the cycle's SPOFC observation | Queued — after B, C | `ce64_recount_probe` flips |
+| **D-CSL-E** | completions ("Sudoku autocomplete"): inferred edges marked `Indirect*`, one-way probe only | Queued | per `mul-ewa-trust-propagation-v1.md` §0b: trust must not inflate from thinking longer |
+| **D-CSL-F** | Shannon entropy over a candidate's support distribution | Queued | new code; none exists |
+
 ## D-RPT — ReportPlan / zero-copy pivot / report-as-OGAR-projection (2026-09-23)
 
 Entry: `entries/2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md`.
