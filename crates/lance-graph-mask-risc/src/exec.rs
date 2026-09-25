@@ -23,26 +23,27 @@
 //! - **L5** exactly one materialiser: [`materialize_rows`].
 
 use ndarray::simd::{
-    blend_i32, eq_i32_to_mask, eq_i32_to_mask_under, eq_u32_to_mask, eq_u32_to_mask_under,
-    eq_u32_via_to_mask, ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask, gt_i32_to_mask_under,
-    le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
-    mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_gather_u32, mask_not,
-    mask_not_assign, mask_or, mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor,
-    mask_xor_assign, masked_group_count_u32, masked_group_count_u32_pair,
-    masked_group_count_u32_via, masked_group_max_i32, masked_group_max_i32_pair,
-    masked_group_max_i32_via, masked_group_min_i32, masked_group_min_i32_pair,
-    masked_group_min_i32_via, masked_group_sum_i32, masked_group_sum_i32_via,
-    masked_group_sum_sym_i32, masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via,
-    masked_key_run_count_u32, masked_max_i32, masked_min_i32, masked_sum_i32, ne_i32_to_mask,
-    ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
+    blend_i32, eq_i32_to_mask, eq_i32_to_mask_under, eq_u32_strided_to_mask, eq_u32_to_mask,
+    eq_u32_to_mask_under, eq_u32_via_to_mask, ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask,
+    gt_i32_to_mask_under, le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask,
+    lt_i32_to_mask_under, mask_all, mask_and, mask_and_assign, mask_andnot, mask_andnot_assign,
+    mask_any, mask_gather_u32, mask_not, mask_not_assign, mask_or, mask_or_assign,
+    mask_scatter_or_u32, mask_set_range, mask_xor, mask_xor_assign, masked_group_count_u32,
+    masked_group_count_u32_pair, masked_group_count_u32_via, masked_group_max_i32,
+    masked_group_max_i32_pair, masked_group_max_i32_via, masked_group_min_i32,
+    masked_group_min_i32_pair, masked_group_min_i32_via, masked_group_sum_i32,
+    masked_group_sum_i32_via, masked_group_sum_sym_i32, masked_group_sum_sym_i32_pair,
+    masked_group_sum_sym_i32_via, masked_key_run_count_u32, masked_max_i32, masked_min_i32,
+    masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask,
+    ne_u32_to_mask_under, popcount_batch_u64, ternary_match_strided_to_mask,
     ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
     ternary_match_u64_to_mask_under, KeyRunCarry,
 };
 
 use crate::ir::{
     span_words, touched_words, Foreign, FusedFold, FusedTerminal, FusedTernlog, GroupFold,
-    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, FUSED_SLOT_CAP,
-    MAX_SCRATCH_SLOTS,
+    GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, StridedRef, Terminal,
+    FUSED_SLOT_CAP, MAX_SCRATCH_SLOTS,
 };
 use crate::reference::{out_shape, validate};
 use crate::ternlog_dispatch::{
@@ -499,6 +500,30 @@ fn lane_u64<'a>(planes: &Planes<'a>, lane: u16, t: Tile) -> &'a [u64] {
     }
 }
 
+/// Borrow a [`LaneRef::Strided`] view for reading — `None` when the lane is a
+/// different kind. Unreachable after `validate` on a well-typed program
+/// (which guarantees the lane is `Strided`, `records == n_rows`, and the
+/// last record's needed field lies inside `bytes`), same fallback discipline
+/// as [`lane_i32`] / [`lane_u32`] / [`lane_u64`]: a caller reaching this with
+/// the wrong kind gets `None` rather than a panic, and every site below
+/// treats `None` as contributing nothing (an empty read), never a crash.
+fn lane_strided<'a>(planes: &Planes<'a>, lane: u16) -> Option<StridedRef<'a>> {
+    match planes.lanes[usize::from(lane)] {
+        LaneRef::Strided(v) => Some(v),
+        _ => None,
+    }
+}
+
+/// The byte offset of tile `t`'s first record within a [`StridedRef`] — record
+/// `t.r0`'s field, in the SAME absolute row coordinates every other lane
+/// helper here restricts to. `validate` bounds the view against its LAST
+/// record (`v.records - 1`, i.e. `n_rows - 1`), and `t.r0 <= n_rows`, so this
+/// offset is always within the already-validated span; no arithmetic here can
+/// overflow or reach past `v.bytes` on a program `validate` accepted.
+fn strided_tile_offset(v: &StridedRef<'_>, t: Tile) -> usize {
+    v.first_offset + t.r0 * v.stride
+}
+
 /// Borrow a foreign `U32` lane for reading — [`lane_u32`]'s twin over
 /// [`Foreign::lanes`], a SEPARATE address space from `planes.lanes` (see
 /// [`Foreign`]'s own doc). WHOLE, never tiled: it is addressed through a
@@ -622,6 +647,67 @@ fn run_pred<'a>(
         (Pred::Range { lo, hi }, under) => {
             let clip = |r: u32| (r as usize).clamp(t.r0, t.r0 + t.rows) - t.r0;
             mask_set_range(dst, clip(lo), clip(hi));
+            if let Some(u) = under {
+                mask_and_assign(dst, read(planes, s, u, t));
+            }
+        }
+        // No `_under` twin exists for any strided kernel — gated exactly like
+        // `EqU32Via` and `Range` above: the ungated read first, then one AND
+        // over the tile.
+        (Pred::EqU32Strided { lane, v }, under) => {
+            if let Some(sv) = lane_strided(planes, lane) {
+                eq_u32_strided_to_mask(
+                    sv.bytes,
+                    strided_tile_offset(&sv, t),
+                    sv.stride,
+                    t.rows,
+                    v,
+                    dst,
+                );
+            }
+            if let Some(u) = under {
+                mask_and_assign(dst, read(planes, s, u, t));
+            }
+        }
+        // `!=` is `!(==)`: the eq kernel first, then the facade's own
+        // complement-with-tail-clear ([`mask_not_assign`]) — the same
+        // primitive [`MaskOp::Not`]'s in-place arm uses, so the tail obligation
+        // is spelled once, not reinvented here.
+        (Pred::NeU32Strided { lane, v }, under) => {
+            if let Some(sv) = lane_strided(planes, lane) {
+                eq_u32_strided_to_mask(
+                    sv.bytes,
+                    strided_tile_offset(&sv, t),
+                    sv.stride,
+                    t.rows,
+                    v,
+                    dst,
+                );
+            }
+            mask_not_assign(dst, t.rows);
+            if let Some(u) = under {
+                mask_and_assign(dst, read(planes, s, u, t));
+            }
+        }
+        (
+            Pred::MatchFacetStrided {
+                lane,
+                pattern,
+                care,
+            },
+            under,
+        ) => {
+            if let Some(sv) = lane_strided(planes, lane) {
+                ternary_match_strided_to_mask(
+                    sv.bytes,
+                    strided_tile_offset(&sv, t),
+                    sv.stride,
+                    t.rows,
+                    &pattern,
+                    &care,
+                    dst,
+                );
+            }
             if let Some(u) = under {
                 mask_and_assign(dst, read(planes, s, u, t));
             }
@@ -983,6 +1069,7 @@ pub fn execute_extent(
             | Terminal::MaskedSumI32 { .. }
             | Terminal::MaskedMinI32 { .. }
             | Terminal::MaskedMaxI32 { .. }
+            | Terminal::MaskedStridedGroupSum { .. }
             | Terminal::Keep { .. } => None,
             Terminal::BlendI32 { .. } => Some("BlendI32"),
             Terminal::ScatterOrU32 { .. } => Some("ScatterOrU32"),
@@ -1074,6 +1161,11 @@ pub fn execute_extent(
     let mut sum = 0i64;
     let mut min: Option<i32> = None;
     let mut max: Option<i32> = None;
+    // `Some(0)` until a tile's own sum doesn't fit an `i64` (the kernel's
+    // `None`) or the running `checked_add` overflows — either way the whole
+    // reduction becomes `None` and stays there, mirroring `sum`'s carry-bound
+    // contract but without a wrap.
+    let mut strided_sum: Option<i64> = Some(0);
     // The whole state of a key-ORDERED distinct count: the open run's key
     // and whether it was hit. Two words, however many rows.
     let mut run_carry = KeyRunCarry::default();
@@ -1262,6 +1354,35 @@ pub fn execute_extent(
                     ),
                     i32::max,
                 );
+            }
+            Terminal::MaskedStridedGroupSum {
+                mask,
+                lane,
+                groups,
+                group_bytes,
+            } => {
+                // Once the running total is `None` (a prior tile's own sum
+                // overflowed, or the running `checked_add` did), every later
+                // tile is skipped: the result cannot un-overflow.
+                if let Some(acc) = strided_sum {
+                    strided_sum = match lane_strided(planes, lane) {
+                        // Unreachable after `validate` on a well-typed
+                        // program; a wrong-kind lane contributes nothing,
+                        // same as the empty-slice fallback the other lane
+                        // helpers use.
+                        None => Some(acc),
+                        Some(sv) => masked_strided_group_sum(
+                            sv.bytes,
+                            strided_tile_offset(&sv, t),
+                            sv.stride,
+                            t.rows,
+                            usize::from(groups),
+                            usize::from(group_bytes),
+                            clip(read(planes, &slots, mask, t), edge, &mut eb, false),
+                        )
+                        .and_then(|partial| acc.checked_add(partial)),
+                    };
+                }
             }
             Terminal::BlendI32 { mask, then, els } => {
                 // `validate` already refused a missing or mis-shaped `out`.
@@ -1466,6 +1587,7 @@ pub fn execute_extent(
         Terminal::MaskedSumI32 { .. } => Value::SumI64(sum),
         Terminal::MaskedMinI32 { .. } => Value::OptI32(min),
         Terminal::MaskedMaxI32 { .. } => Value::OptI32(max),
+        Terminal::MaskedStridedGroupSum { .. } => Value::StridedSum(strided_sum),
         Terminal::BlendI32 { .. } => Value::Blended,
         Terminal::ScatterOrU32 { .. } => Value::Scattered,
         Terminal::ScatterCountU32 { .. } => Value::Count(match &out {

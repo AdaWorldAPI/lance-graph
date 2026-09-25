@@ -52,6 +52,7 @@ fn kind_of(lane: &LaneRef<'_>) -> LaneKind {
         LaneRef::I32(_) => LaneKind::I32,
         LaneRef::U32(_) => LaneKind::U32,
         LaneRef::U64(_) => LaneKind::U64,
+        LaneRef::Strided(_) => LaneKind::Strided,
     }
 }
 
@@ -78,6 +79,9 @@ fn pred_lane_and_kind(pred: Pred) -> Option<(u16, LaneKind)> {
         // The fk is this table's lane; the foreign lane is checked separately
         // (`validate`'s `Pred` arm), against the OTHER address space.
         Pred::EqU32Via { fk, .. } => (fk, LaneKind::U32),
+        Pred::EqU32Strided { lane, .. }
+        | Pred::NeU32Strided { lane, .. }
+        | Pred::MatchFacetStrided { lane, .. } => (lane, LaneKind::Strided),
         Pred::Range { .. } => return None,
     })
 }
@@ -147,6 +151,42 @@ fn check_foreign_lane(
         }),
         Some(_) => Ok(()),
     }
+}
+
+/// Bounds-check a [`LaneRef::Strided`] view for a field `width` bytes wide,
+/// after confirming `lane` exists and has [`LaneKind::Strided`] (via
+/// [`check_lane`], so the two errors it can produce stay identical to every
+/// other lane check). Shared by all three strided predicates and
+/// [`Terminal::MaskedStridedGroupSum`] — one spelling of the offset
+/// arithmetic, so the executor's kernel bounds and the oracle's row loop
+/// cannot disagree about which programs are in range.
+///
+/// `records == 0` is vacuously in bounds — there is no last record to read
+/// past the end of. Otherwise the LAST record's field end is
+/// `first_offset + (records - 1) * stride + width`; any overflow in that
+/// arithmetic saturates to `usize::MAX`, which always exceeds `bytes.len()`
+/// and so is refused, never silently wrapped.
+fn check_strided(planes: &Planes<'_>, lane: u16, width: usize) -> Result<(), ExecError> {
+    check_lane(planes, lane, LaneKind::Strided)?;
+    let LaneRef::Strided(v) = planes.lanes[usize::from(lane)] else {
+        unreachable!("check_lane just proved this lane is LaneKind::Strided");
+    };
+    if v.records == 0 {
+        return Ok(());
+    }
+    let need = (v.records - 1)
+        .checked_mul(v.stride)
+        .and_then(|x| x.checked_add(v.first_offset))
+        .and_then(|x| x.checked_add(width))
+        .unwrap_or(usize::MAX);
+    if need > v.bytes.len() {
+        return Err(ExecError::StridedOutOfBounds {
+            lane,
+            need,
+            have: v.bytes.len(),
+        });
+    }
+    Ok(())
 }
 
 /// A scratch slot is readable only after some EARLIER op has written it.
@@ -340,6 +380,15 @@ pub(crate) fn validate(
                 if let Pred::EqU32Via { key, .. } = pred {
                     check_foreign_lane(foreign, key, LaneKind::U32)?;
                 }
+                match pred {
+                    Pred::EqU32Strided { lane, .. } | Pred::NeU32Strided { lane, .. } => {
+                        check_strided(planes, lane, 4)?;
+                    }
+                    Pred::MatchFacetStrided { lane, .. } => {
+                        check_strided(planes, lane, 12)?;
+                    }
+                    _ => {}
+                }
                 if let Pred::Range { lo, hi } = pred {
                     let hi_fits = usize::try_from(hi).is_ok_and(|h| h <= planes.n_rows);
                     if lo > hi || !hi_fits {
@@ -440,6 +489,19 @@ pub(crate) fn validate(
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)?;
             check_lane(planes, lane, LaneKind::I32)
+        }
+        Terminal::MaskedStridedGroupSum {
+            mask,
+            lane,
+            groups,
+            group_bytes,
+        } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            if !(1..=4).contains(&group_bytes) {
+                return Err(ExecError::StridedGroupWidth { group_bytes });
+            }
+            check_strided(planes, lane, usize::from(groups) * usize::from(group_bytes))
         }
         Terminal::BlendI32 { mask, then, els } => {
             check_operand(p, planes, mask)?;
@@ -604,6 +666,26 @@ fn eval_pred(planes: &Planes<'_>, foreign: &Foreign<'_>, pred: Pred, row: usize)
         LaneRef::U64(v) => v[row],
         _ => 0,
     };
+    // Both strided readers are the zero-fallback `validate` already licenses
+    // for every other lane closure here: `check_strided` (via `check_lane`)
+    // has already proven `lane` is `LaneKind::Strided` and in bounds for the
+    // width it reads before this row is ever evaluated.
+    let strided_u32_at = |lane: u16| match planes.lanes[usize::from(lane)] {
+        LaneRef::Strided(v) => {
+            let off = v.first_offset + row * v.stride;
+            u32::from_le_bytes(v.bytes[off..off + 4].try_into().unwrap())
+        }
+        _ => 0,
+    };
+    let strided_facet_at = |lane: u16| -> [u8; 12] {
+        match planes.lanes[usize::from(lane)] {
+            LaneRef::Strided(v) => {
+                let off = v.first_offset + row * v.stride;
+                v.bytes[off..off + 12].try_into().unwrap()
+            }
+            _ => [0u8; 12],
+        }
+    };
     match pred {
         Pred::GtI32 { lane, t } => i32_at(planes, lane, row) > t,
         Pred::LtI32 { lane, t } => i32_at(planes, lane, row) < t,
@@ -634,6 +716,16 @@ fn eval_pred(planes: &Planes<'_>, foreign: &Foreign<'_>, pred: Pred, row: usize)
         }
         // `hi <= n_rows` and `lo <= hi` were validated, so both fit a usize.
         Pred::Range { lo, hi } => (lo as usize..hi as usize).contains(&row),
+        Pred::EqU32Strided { lane, v } => strided_u32_at(lane) == v,
+        Pred::NeU32Strided { lane, v } => strided_u32_at(lane) != v,
+        Pred::MatchFacetStrided {
+            lane,
+            pattern,
+            care,
+        } => {
+            let field = strided_facet_at(lane);
+            (0..12).all(|k| (field[k] ^ pattern[k]) & care[k] == 0)
+        }
     }
 }
 
@@ -817,6 +909,29 @@ pub fn reference_execute_into(
         }
         Terminal::MaskedMaxI32 { mask, lane } => {
             Value::OptI32(survivors(mask).map(|r| i32_at(planes, lane, r)).max())
+        }
+        Terminal::MaskedStridedGroupSum {
+            mask,
+            lane,
+            groups,
+            group_bytes,
+        } => {
+            let gb = usize::from(group_bytes);
+            let mut acc: i128 = 0;
+            for r in survivors(mask) {
+                if let LaneRef::Strided(v) = planes.lanes[usize::from(lane)] {
+                    let off = v.first_offset + r * v.stride;
+                    for g in 0..usize::from(groups) {
+                        let start = off + g * gb;
+                        let mut val: u64 = 0;
+                        for (k, &b) in v.bytes[start..start + gb].iter().enumerate() {
+                            val |= u64::from(b) << (8 * k);
+                        }
+                        acc += i128::from(val);
+                    }
+                }
+            }
+            Value::StridedSum(i64::try_from(acc).ok())
         }
         Terminal::BlendI32 { mask, then, els } => {
             if let Out::I32(o) = out {
