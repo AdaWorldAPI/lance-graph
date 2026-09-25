@@ -187,8 +187,25 @@ register choice free):
 - Load and store moves exist only because blocks are kept in canonical order.
   Keeping Argon2's blocks transposed carries the map across calls (224 left).
   That is a proposal, not shipped: it changes what `Block::as_ref()` exposes.
-- These counts are class 1 only. Instruction counts per tier (class 2 and 4)
-  are still to be measured.
+- Shipped as password-hashes #3: the block stays in registers from load to
+  store, with 8 `transpose8` calls (2 load, 2 row→col, 4 store).
+
+MEASURED (password-hashes #3, Argon2id 64 MiB t=3 p=1, best of 9, three runs;
+instruction counts from `objdump` of the one function holding `vpmuludq`,
+`Argon2::compress`, into which `compress_simd` is inlined):
+
+| tier | scalar | old SIMD (gather/scatter) | in-register | insns | `vpmuludq` | stack ops |
+|---|---|---|---|---|---|---|
+| v3 (AVX2) | 121–130 ms | 118–124 ms | 121–128 ms | 2683 | 128 | 478 |
+| v4 (AVX-512) | 138–148 ms | 111–115 ms | 91–95 ms | 709 | 64 | 64 |
+
+- The same logical routing is a win on one tier and a wash on another (§5).
+  On v3 `U64x8` is two `ymm` halves, so 16 live vectors need 32 registers
+  against 16: about 480 of 2683 instructions are spill traffic (class 4).
+  On v4 the 16 vectors fit the 32 `zmm` registers, and `vprolq`/`vpternlog`
+  also fold rotates and 3-way XORs (class 2).
+- Routing (class 1) was not the v3 bottleneck; register pressure was. A
+  "fewer teleports" count alone would have predicted a win on both tiers.
 
 ## 7. Checklist
 
