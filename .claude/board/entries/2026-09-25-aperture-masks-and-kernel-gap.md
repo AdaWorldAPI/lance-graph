@@ -63,6 +63,6 @@ HHTL partial mask applied vertically to one node's 6-byte tier path (half the fa
 | 64k (one tile) | 16.5–18.8 ns | 95–100 ns |
 
 - **In place, the ~12 / ~25 ns regimes shift down by about 64×.** They sit at roughly 512 and 4k–8k rows touched, not 32k and 256k. Positive/negative selection still halves the member count, but at 32k members an in-place random probe costs about 50 ns.
-- **This is a copy-vs-footprint trade, not a verdict.** A packed key lane (16 B/row) is a second copy of the key bytes. In-place reads keep one copy and pay a line per row.
+- **Traversal takes the packed column, not the rows.** Traversal selects only the NodeGuid lane over the 64k tile: 64k × 16 B = 1 MB of keys. That is the packed 16-byte column above (about 13 ns at 32k members, 17 ns for a full tile). In a columnar SoA the key lane is a column, not a second copy. The 512-byte in-place column applies only when a probe must reach past the key into the row's value.
 - **Measured under random access only.** HHTL-ordered access touches rows in address order, which the hardware prefetcher streams. Measuring that before choosing is the open item.
 
