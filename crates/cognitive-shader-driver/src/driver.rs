@@ -1568,9 +1568,10 @@ mod tests {
         });
         let mut planes = [[0u64; 64]; 8];
         // Planes are indexed by palette block (`s / 4`): archetype 2 lives in
-        // block 0, whose CAUSES edge to block 0 makes the four equidistant
-        // entries 0..4 its candidate targets.
-        planes[0][0] = 1;
+        // block 0, whose SUPPORTS edge to block 0 makes the four equidistant
+        // entries 0..4 its candidate targets. SUPPORTS has no Pearl bit, so
+        // it also tells the fixed mask from the old `predicates & 0b111`.
+        planes[p64_bridge::SUPPORTS][0] = 1;
         let driver = CognitiveShaderBuilder::new()
             .bindspace(Arc::new(bs))
             .semiring(Arc::new(semiring))
@@ -1579,7 +1580,7 @@ mod tests {
         let req = ShaderDispatch {
             rows: ColumnWindow::new(0, 1),
             meta_prefilter: MetaFilter::ALL,
-            layer_mask: 0b0000_0001,
+            layer_mask: 1 << p64_bridge::SUPPORTS,
             radius: u16::MAX,
             style: StyleSelector::Ordinal(1),
             ..ShaderDispatch::default()
@@ -1599,6 +1600,11 @@ mod tests {
         assert_eq!(e.o_idx(), target, "O is the P64 target");
         assert_eq!(e.p_idx(), 0, "no predicate palette to index yet");
         assert_eq!(e.topology(), CausalTopology::Direct);
+        assert_eq!(
+            e.causal_mask() as u8,
+            0,
+            "a SUPPORTS relation sets no Pearl bit (it used to set CONTRADICTS)"
+        );
         assert_eq!(e.confidence_u8(), spofc.truth.confidence);
         assert_eq!(e.frequency_u8(), spofc.truth.frequency);
         // Four supporting relations, so more confident than any one of them.
