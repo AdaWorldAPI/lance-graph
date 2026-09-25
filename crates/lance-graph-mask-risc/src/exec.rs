@@ -964,22 +964,22 @@ pub fn execute_extent(
     out: Out<'_>,
     extent: Range<usize>,
 ) -> Result<Value, ExecError> {
+    // The constant-time refusals run BEFORE recognition: `compile` walks the
+    // whole op list, and a call that is going to be rejected anyway must not
+    // pay for that walk (the same reason `validate` checks the slot ceiling
+    // first). `execute_compiled` repeats them; they are cheap.
+    precheck(program, planes, &extent)?;
     execute_compiled(&program.compile(), planes, foreign, scratch, out, extent)
 }
 
-/// [`execute_extent`] over a program whose lowering was recognised once
-/// ([`Program::compile`]). Identical results; the only difference is that
-/// this call does not re-derive the fold from the program text. Validation
-/// still runs, against this call's planes, foreign tables and `out`.
-pub fn execute_compiled(
-    compiled: &Compiled<'_>,
+/// The refusals that depend only on the program's declared slot count, its
+/// terminal and the extent — constant time, no walk over the ops. Returns
+/// whether the extent is the whole population.
+fn precheck(
+    program: &Program,
     planes: &Planes<'_>,
-    foreign: &Foreign<'_>,
-    scratch: &mut Scratch<'_>,
-    mut out: Out<'_>,
-    extent: Range<usize>,
-) -> Result<Value, ExecError> {
-    let program = compiled.program();
+    extent: &Range<usize>,
+) -> Result<bool, ExecError> {
     // BEFORE the capacity check, not after: an over-declared count is a lie
     // about the PROGRAM, and the caller's buffer is irrelevant to it. Checked
     // second, every such program reports `ScratchTooSmall` instead — which the
@@ -1022,6 +1022,24 @@ pub fn execute_compiled(
             return Err(ExecError::ExtentUnsupported { what });
         }
     }
+    Ok(whole)
+}
+
+/// [`execute_extent`] over a program whose lowering was recognised once
+/// ([`Program::compile`]). Identical results; the only difference is that
+/// this call does not re-derive the fold from the program text. Validation
+/// still runs, against this call's planes, foreign tables and `out`.
+pub fn execute_compiled(
+    compiled: &Compiled<'_>,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    scratch: &mut Scratch<'_>,
+    mut out: Out<'_>,
+    extent: Range<usize>,
+) -> Result<Value, ExecError> {
+    let program = compiled.program();
+    let whole = precheck(program, planes, &extent)?;
+    let (elo, ehi) = (extent.start, extent.end);
     // A fused program folds from its operands: it reads no slot and writes no
     // membership bit, so the scratch capacity checks below do not apply to it.
     // Validation stays total — the one declared slot is tracked in a local
