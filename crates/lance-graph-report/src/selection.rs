@@ -178,9 +178,7 @@ impl Selection {
                 }
                 Filter::Cmp(Col(0), Cmp::Range { lo: r.lo, hi: r.hi })
             }
-            Selection::Mask(id) => Filter::Plane(Mask(
-                batch.plane_of(*id).ok_or(ReportError::UnknownMask(*id))?,
-            )),
+            Selection::Mask(id) => Filter::Plane(Mask(batch.resolve_plane(*id)?)),
             Selection::Predicate(p) => lower_predicate(p, batch)?,
             Selection::And(a, b) => Filter::and([a.lower(batch)?, b.lower(batch)?]),
             Selection::Or(a, b) => Filter::or([a.lower(batch)?, b.lower(batch)?]),

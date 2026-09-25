@@ -13,7 +13,7 @@
 //! computed for one is reinterpreted for the other without a rescan
 //! (falsifiers F13 / F14).
 
-use crate::ids::{FieldId, SourceId};
+use crate::ids::{FieldId, MaskId, SourceId};
 use crate::selection::Selection;
 
 /// The role an axis plays in the presented coordinate system.
@@ -29,7 +29,7 @@ pub enum AxisRole {
 
 /// A coordinate provider — WHERE in the aggregate space a row lands.
 ///
-/// Two providers, and neither knows what it measures:
+/// Three providers, and none knows what it measures:
 ///
 /// * [`CoordSpec::Field`] — a resident `U32` code lane with a declared domain.
 ///   It can serve as the fold KEY (the one dimension a single substrate pass
@@ -39,6 +39,12 @@ pub enum AxisRole {
 ///   a population lane: each member is a pair of tile-evaluated range
 ///   predicates (`origin + b·width <= v < origin + (b+1)·width`) applied
 ///   during the fold. A value outside every bucket lies outside the domain.
+/// * [`CoordSpec::MaskSet`] — a SET coordinate: member `m` is the resident
+///   mask `base + m`. It is the coordinate of a many-to-many axis (a document
+///   carries several tags). A row lands in EVERY member whose mask holds it,
+///   so the cells of this dimension do not sum to the selected population —
+///   a row in two tags counts once in each, and a row in none lands nowhere.
+///   Each member is one mask plane read in place; it is never the fold key.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum CoordSpec {
     /// A resident ordinal field.
@@ -54,13 +60,31 @@ pub enum CoordSpec {
         /// Number of buckets.
         count: u32,
     },
+    /// A set coordinate over `count` resident masks `base .. base + count`.
+    MaskSet {
+        /// The mask of member 0.
+        base: MaskId,
+        /// Number of members.
+        count: u32,
+    },
 }
 
 impl CoordSpec {
-    /// The field this coordinate reads.
-    pub fn field(&self) -> FieldId {
+    /// The field this coordinate reads, or `None` for a [`CoordSpec::MaskSet`],
+    /// which reads masks rather than a lane.
+    pub fn field(&self) -> Option<FieldId> {
         match self {
-            CoordSpec::Field(f) | CoordSpec::Bucket { field: f, .. } => *f,
+            CoordSpec::Field(f) | CoordSpec::Bucket { field: f, .. } => Some(*f),
+            CoordSpec::MaskSet { .. } => None,
+        }
+    }
+
+    /// The mask of member `m` of a [`CoordSpec::MaskSet`], or `None` for a
+    /// lane coordinate or a member past the set.
+    pub fn member_mask(&self, m: u32) -> Option<MaskId> {
+        match self {
+            CoordSpec::MaskSet { base, count } if m < *count => base.0.checked_add(m).map(MaskId),
+            _ => None,
         }
     }
 }

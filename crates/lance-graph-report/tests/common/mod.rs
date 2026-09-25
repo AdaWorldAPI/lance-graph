@@ -122,8 +122,42 @@ impl Fixture {
                     let b = (v - origin).div_euclid(*width);
                     (0..i64::from(*count)).contains(&b).then_some(b as u32)
                 }
+                CoordSpec::MaskSet { .. } => {
+                    panic!("a mask set places a row in several cells; use `cells`")
+                }
             })
             .collect()
+    }
+
+    fn in_mask(&self, m: MaskId, i: usize) -> bool {
+        let w = &self.masks.iter().find(|(x, _)| *x == m).unwrap().1;
+        w[i / 64] >> (i % 64) & 1 == 1
+    }
+
+    /// Every canonical coordinate row `i` lands on: one per lane dimension,
+    /// and one per member of each mask set holding the row (so zero or
+    /// several). The cartesian product of the per-dimension choices.
+    pub fn cells(&self, coords: &[CoordSpec], i: usize) -> Vec<Vec<u32>> {
+        let mut out: Vec<Vec<u32>> = vec![Vec::new()];
+        for c in coords {
+            let members: Vec<u32> = match c {
+                CoordSpec::MaskSet { count, .. } => (0..*count)
+                    .filter(|&m| self.in_mask(c.member_mask(m).unwrap(), i))
+                    .collect(),
+                _ => self.coord(std::slice::from_ref(c), i).unwrap_or_default(),
+            };
+            out = out
+                .into_iter()
+                .flat_map(|prefix| {
+                    members.iter().map(move |&m| {
+                        let mut p = prefix.clone();
+                        p.push(m);
+                        p
+                    })
+                })
+                .collect();
+        }
+        out
     }
 
     /// Oracle cells: canonical coordinate → (count, sum, min, max) of `m`.
@@ -138,15 +172,14 @@ impl Fixture {
             if !self.selected(&plan.selection, i) {
                 continue;
             }
-            let Some(c) = self.coord(&coords, i) else {
-                continue;
-            };
             let v = m.map_or(0, |f| i64::from(self.val(f).unwrap()[i]));
-            let e = out.entry(c).or_insert((0, 0, i64::MAX, i64::MIN));
-            e.0 += 1;
-            e.1 += v;
-            e.2 = e.2.min(v);
-            e.3 = e.3.max(v);
+            for c in self.cells(&coords, i) {
+                let e = out.entry(c).or_insert((0, 0, i64::MAX, i64::MIN));
+                e.0 += 1;
+                e.1 += v;
+                e.2 = e.2.min(v);
+                e.3 = e.3.max(v);
+            }
         }
         out
     }

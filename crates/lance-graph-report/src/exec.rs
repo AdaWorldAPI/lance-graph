@@ -101,6 +101,12 @@ pub enum Provider {
         /// Lane index of the bucketed field.
         lane: u16,
     },
+    /// A set coordinate: member `m` is the resident mask plane `planes[m]`,
+    /// read in place. Never the fold key — a row may sit in several members.
+    MaskPlanes {
+        /// Plane index of each member's mask.
+        planes: Vec<u16>,
+    },
 }
 
 /// One canonical dimension as planned.
@@ -232,8 +238,19 @@ fn member_filter(d: &DimPlan, m: u32) -> Filter {
                 _ => Filter::And(parts),
             }
         }
-        (Provider::DerivedBucket { .. }, CoordSpec::Field(_)) => {
-            unreachable!("bucket provider on a field")
+        (Provider::MaskPlanes { planes }, _) => Filter::Plane(Mask(planes[m as usize])),
+        (Provider::DerivedBucket { .. }, _) => {
+            unreachable!("bucket provider on a non-bucket coordinate")
+        }
+    }
+}
+
+/// The lane of the fold key. Only an ordinal lane is ever chosen as the key.
+fn fold_key_lane(d: &DimPlan) -> u16 {
+    match d.provider {
+        Provider::OrdinalLane { lane } => lane,
+        Provider::DerivedBucket { .. } | Provider::MaskPlanes { .. } => {
+            unreachable!("the fold key is always an ordinal lane")
         }
     }
 }
@@ -245,7 +262,28 @@ fn resolve(
 ) -> Result<Resolved, ReportError> {
     let mut dims = Vec::with_capacity(key.coords.len());
     for c in &key.coords {
-        let f = c.field();
+        if let CoordSpec::MaskSet { base, count } = c {
+            if *count == 0 {
+                return Err(ReportError::EmptyMaskSet(*base));
+            }
+            // One lookup table for the whole set: a scan per member would make
+            // resolution quadratic in the set size.
+            let positions = batch.mask_positions();
+            let planes = (0..*count)
+                .map(|m| {
+                    let id = c.member_mask(m).ok_or(ReportError::TooManyPlanes)?;
+                    let i = *positions.get(&id).ok_or(ReportError::UnknownMask(id))?;
+                    u16::try_from(i).map_err(|_| ReportError::TooManyPlanes)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            dims.push(DimPlan {
+                coord: c.clone(),
+                domain: *count,
+                provider: Provider::MaskPlanes { planes },
+            });
+            continue;
+        }
+        let f = c.field().expect("a lane coordinate names a field");
         let (lane, col) = batch.column(f).ok_or(ReportError::UnknownField(f))?;
         let dim = match c {
             CoordSpec::Field(_) => DimPlan {
@@ -263,6 +301,7 @@ fn resolve(
                     provider: Provider::DerivedBucket { lane },
                 }
             }
+            CoordSpec::MaskSet { .. } => unreachable!("handled above"),
         };
         dims.push(dim);
     }
@@ -462,10 +501,7 @@ impl ReportPlan {
         } else {
             base
         };
-        let key_lane = r.fold_key.map(|i| match r.dims[i].provider {
-            Provider::OrdinalLane { lane } => lane,
-            Provider::DerivedBucket { lane } => lane,
-        });
+        let key_lane = r.fold_key.map(|i| fold_key_lane(&r.dims[i]));
         let first_pass = r
             .states
             .iter()
@@ -555,9 +591,7 @@ impl ReportPlan {
             lanes: &lanes,
         };
 
-        let key_lane = r.fold_key.map(|i| match r.dims[i].provider {
-            Provider::OrdinalLane { lane } | Provider::DerivedBucket { lane } => lane,
-        });
+        let key_lane = r.fold_key.map(|i| fold_key_lane(&r.dims[i]));
         let key_domain = r.fold_key.map_or(1, |i| r.dims[i].domain as usize);
 
         // One program run: lowers, sizes branch-private scratch, executes.
@@ -717,7 +751,9 @@ impl ReportPlan {
                             stats.tile_mask_ops += prog.ops.len() as u64;
                             radices.push((0..d.domain).filter(|&m| buf[m as usize] > 0).collect());
                         }
-                        Provider::DerivedBucket { .. } => radices.push((0..d.domain).collect()),
+                        Provider::DerivedBucket { .. } | Provider::MaskPlanes { .. } => {
+                            radices.push((0..d.domain).collect());
+                        }
                     }
                 }
                 let passes: u128 = radices.iter().map(|r| r.len() as u128).product();
