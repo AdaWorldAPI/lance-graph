@@ -40,11 +40,11 @@ use ndarray::simd::{
 };
 
 use crate::ir::{
-    span_words, touched_words, Compiled, Foreign, FusedFold, FusedTerminal, FusedTernlog,
-    GroupFold, GroupKey, LaneRef, Lowering, MaskOp, Operand, Planes, Pred, Program, Terminal,
-    FUSED_SLOT_CAP, MAX_SCRATCH_SLOTS,
+    span_words, touched_words, Compiled, Foreign, FusedFold, FusedKeep, FusedTerminal,
+    FusedTernlog, GroupFold, GroupKey, LaneRef, Lowering, MaskOp, Operand, Planes, Pred, Program,
+    Terminal, FUSED_SLOT_CAP, MAX_SCRATCH_SLOTS,
 };
-use crate::reference::{out_shape, validate};
+use crate::reference::{out_shape, validate, OutShape};
 use crate::ternlog_dispatch::{
     ternlog_any_dispatch, ternlog_dispatch, ternlog_dispatch_assign, ternlog_popcount_dispatch,
 };
@@ -727,6 +727,60 @@ fn run_fused(f: FusedTerminal, planes: &Planes<'_>) -> Value {
     }
 }
 
+/// Write a [`FusedKeep`] into `out` over the absolute extent `[lo, hi)`,
+/// with exactly the tiled `Keep` path's write rules.
+///
+/// Words the extent covers whole go through ONE
+/// `ndarray::simd::mask_ternlog` call straight from the borrowed planes into
+/// `out`. A word the extent cuts at an unaligned `lo`, or at an unaligned
+/// `hi < n_rows`, is combined in a one-word register and merged under
+/// [`edge_mask`], so the neighbour extent's bits in that word survive. The
+/// population's own last word when `hi == n_rows` is written whole, with its
+/// dead tail bits cleared — the value the tiled path leaves there, since its
+/// ternlog arm clears the same tail against `n_rows` for an odd table.
+fn run_fused_keep(f: FusedKeep, planes: &Planes<'_>, out: &mut [u64], lo: usize, hi: usize) {
+    let span = span_words(lo, hi);
+    if span.is_empty() {
+        return;
+    }
+    let (a, b, c) = (
+        planes.masks[usize::from(f.a)],
+        planes.masks[usize::from(f.b)],
+        planes.masks[usize::from(f.c)],
+    );
+    let (first, last) = (span.start, span.end - 1);
+    let head_cut = !lo.is_multiple_of(64);
+    let tail_cut = !hi.is_multiple_of(64) && hi < planes.n_rows;
+    let mut merge = |w: usize| {
+        let mut reg = [0u64; 1];
+        ternlog_dispatch(f.imm, &a[w..=w], &b[w..=w], &c[w..=w], &mut reg);
+        let m = edge_mask(w, lo, hi);
+        out[w] = (out[w] & !m) | (reg[0] & m);
+    };
+    if head_cut {
+        merge(first);
+    }
+    if tail_cut && (last != first || !head_cut) {
+        merge(last);
+    }
+    let from = first + usize::from(head_cut);
+    let to = (last + 1).saturating_sub(usize::from(tail_cut)).max(from);
+    if from < to {
+        ternlog_dispatch(
+            f.imm,
+            &a[from..to],
+            &b[from..to],
+            &c[from..to],
+            &mut out[from..to],
+        );
+        // The population's last word, reached whole: clear its dead tail.
+        let rem = planes.n_rows % 64;
+        if to == words_for(planes.n_rows) && rem != 0 {
+            out[to - 1] &= (1u64 << rem) - 1;
+        }
+    }
+}
+
 /// Evaluate a [`FusedTernlog`] over the absolute extent `[lo, hi)`.
 ///
 /// Nothing is written. Whole words inside the extent go straight to
@@ -1068,6 +1122,21 @@ pub fn execute_compiled(
         let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
         validate(program, planes, foreign, out_shape(&out), &mut written)?;
         return Ok(run_fused_ternlog(f, planes, elo, ehi));
+    }
+    // The same chain consumed by `Keep`: one ternlog pass into the demanded
+    // `Out::Mask`, no slot written. Without `Out::Mask` the caller reads the
+    // result from its scratch slot, so the tiled path below runs instead.
+    if let (Lowering::TernlogKeep(f), Out::Mask(o)) = (compiled.lowering(), &mut out) {
+        let mut written = [0u64; FUSED_SLOT_CAP.div_ceil(64)];
+        validate(
+            program,
+            planes,
+            foreign,
+            OutShape::Mask(o.len()),
+            &mut written,
+        )?;
+        run_fused_keep(f, planes, o, elo, ehi);
+        return Ok(Value::Mask(Operand::Scratch(f.slot)));
     }
     if scratch.slots() < program.scratch_slots as usize {
         return Err(ExecError::ScratchTooSmall {

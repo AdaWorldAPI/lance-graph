@@ -148,7 +148,10 @@ fn main() {
     type Word = fn(u64, u64, u64, u64, u64) -> u64;
     type Bitf = fn(bool, bool, bool, bool, bool) -> bool;
     // (name, ops, result slot, word function, bit oracle, literal imm if 3-plane)
-    let chains: Vec<(&str, Vec<MaskOp>, u16, Word, Bitf, Option<u8>)> = vec![
+    /// One probe row: name, ops, the slot the chain leaves its result in, the
+    /// literal word function, the per-bit oracle, and the collapsed immediate.
+    type Chain = (&'static str, Vec<MaskOp>, u16, Word, Bitf, Option<u8>);
+    let chains: Vec<Chain> = vec![
         (
             "(a&b)|!c",
             vec![
@@ -226,7 +229,7 @@ fn main() {
     ];
     let cap = FUSED_SLOT_CAP as u16;
     println!(
-        "{:>22} {:>10} {:>10} {:>10} {:>10} {:>7} | {:>10} {:>10} {:>7}",
+        "{:>22} {:>10} {:>10} {:>10} {:>10} {:>7} | {:>10} {:>10} {:>10} {:>7}",
         "chain",
         "tiled",
         "compiled",
@@ -234,8 +237,9 @@ fn main() {
         "inlined",
         "t/inl",
         "keep_tile",
+        "keep_fused",
         "keep_inl",
-        "k/inl"
+        "kf/inl"
     );
     for (name, ops, last, word, oracle, imm) in chains {
         let want = (0..n)
@@ -304,16 +308,18 @@ fn main() {
             "{name}: fn table vs literal"
         );
         assert_eq!(lv as usize, want, "{name} inlined");
-        // Keep: tiled vs inlined single-pass write
-        let kp = Program::new(ops.clone(), Terminal::Keep { mask: s(last) });
-        let mut ks = Scratch::for_program(&kp, n).expect("scratch");
+        // Keep: tiled (forced past the fold) vs fused (the recognised
+        // lowering, when the chain has at most three planes) vs inlined.
+        let ktp = Program::new(retarget(&ops, last, cap), Terminal::Keep { mask: s(cap) });
+        assert!(ktp.fused_keep().is_none());
+        let mut kts = Scratch::for_program(&ktp, n).expect("scratch");
         let mut out = vec![0u64; words];
         let (kns, _) = median(reps, || {
             execute_extent(
-                &kp,
+                &ktp,
                 &planes,
                 &Foreign::NONE,
-                &mut ks,
+                &mut kts,
                 Out::Mask(&mut out),
                 0..n,
             )
@@ -321,6 +327,26 @@ fn main() {
         });
         let kept: usize = out.iter().map(|w| w.count_ones() as usize).sum();
         assert_eq!(kept, want, "{name} keep tiled");
+        let kp = Program::new(ops.clone(), Terminal::Keep { mask: s(last) });
+        let kfns = if kp.fused_keep().is_some() {
+            let mut ks = Scratch::new(0, 0);
+            let mut outf = vec![0u64; words];
+            let (t, _) = median(reps, || {
+                execute_extent(
+                    &kp,
+                    &planes,
+                    &Foreign::NONE,
+                    &mut ks,
+                    Out::Mask(&mut outf),
+                    0..n,
+                )
+                .expect("keep fused")
+            });
+            assert_eq!(outf, out, "{name} keep fused == tiled");
+            t
+        } else {
+            f64::NAN
+        };
         let mut out2 = vec![0u64; words];
         let (kins, _) = median(reps, || match name {
             "(a&b)|!c" => inlined_keep(&masks, &mut out2, |a, b, c, _, _| (a & b) | !c),
@@ -332,13 +358,13 @@ fn main() {
         });
         assert_eq!(out2, out, "{name} keep inlined == tiled");
         println!(
-            "{name:>22} {tns:>10.0} {cns:>10.0} {ins:>10.0} {lns:>10.0} {:>7.2} | {kns:>10.0} {kins:>10.0} {:>7.2}",
+            "{name:>22} {tns:>10.0} {cns:>10.0} {ins:>10.0} {lns:>10.0} {:>7.2} | {kns:>10.0} {kfns:>10.0} {kins:>10.0} {:>7.2}",
             tns / lns,
-            kns / kins
+            kfns / kins
         );
     }
     println!(
         "(n = {n}, {words} words, median ns over 41 runs; NaN = chain has more than 3 planes, \
-         so no single ternlog exists; t/inl and k/inl = tiled time over the inlined lab loop)"
+         so no single ternlog exists; t/inl = tiled Count over the inlined lab loop, kf/inl = fused Keep over the inlined lab loop)"
     );
 }
