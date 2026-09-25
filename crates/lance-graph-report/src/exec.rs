@@ -266,10 +266,14 @@ fn resolve(
             if *count == 0 {
                 return Err(ReportError::EmptyMaskSet(*base));
             }
+            // One lookup table for the whole set: a scan per member would make
+            // resolution quadratic in the set size.
+            let positions = batch.mask_positions();
             let planes = (0..*count)
                 .map(|m| {
                     let id = c.member_mask(m).ok_or(ReportError::TooManyPlanes)?;
-                    batch.plane_of(id).ok_or(ReportError::UnknownMask(id))
+                    let i = *positions.get(&id).ok_or(ReportError::UnknownMask(id))?;
+                    u16::try_from(i).map_err(|_| ReportError::TooManyPlanes)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             dims.push(DimPlan {
