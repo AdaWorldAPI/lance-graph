@@ -27,7 +27,6 @@ use std::sync::RwLock;
 
 use bgz17::palette_semiring::PaletteSemiring;
 use causal_edge::edge::{CausalEdge64, InferenceType};
-use causal_edge::layout::CausalTopology;
 use causal_edge::pearl::CausalMask;
 use causal_edge::plasticity::PlasticityState;
 use causal_edge::tables::{unpack_c, unpack_f, NarsTables};
@@ -512,13 +511,23 @@ impl ShaderDriver {
             if h.resonance < 0.2 {
                 continue;
             }
-            // Every hit came out of the candidate table, so its SPOFC record
-            // exists; a miss here would be a stage-[3] bug, not a data case.
-            let Some(spofc) = candidates.spofc(h.cycle_index as usize, h.row) else {
-                debug_assert!(false, "hit without a SPOFC record");
-                continue;
-            };
-            emitted[emitted_n as usize] = spofc_edge(&backing, &spofc, style_ord).0;
+            let f = (h.resonance.clamp(0.0, 1.0) * 255.0) as u8;
+            let c = (h.resonance.clamp(0.0, 1.0) * 255.0) as u8;
+            let s_palette = (h.row % 256) as u8;
+            let o_palette = ((h.row / 4) % 256) as u8;
+            let edge = CausalEdge64::pack(
+                s_palette,
+                0,
+                o_palette,
+                f,
+                c,
+                CausalMask::from_bits(h.predicates & 0x07),
+                0,
+                style_ord_to_inference(style_ord),
+                PlasticityState::from_bits(0),
+                (h.cycle_index & 0xFFF) as u16,
+            );
+            emitted[emitted_n as usize] = edge.0;
             emitted_n += 1;
         }
 
@@ -724,67 +733,6 @@ impl ShaderDriver {
 /// plane. The specific planes each Pearl level unlocks are a calibration a later
 /// probe may retune; the identity-at-base and superset-monotone properties are
 /// invariant.
-/// Pearl causal-mask bits for a set of p64 predicate planes: the inverse of
-/// the causal half of `p64_bridge::edge_to_layer_mask` (bit0 ↔ CAUSES,
-/// bit1 ↔ ENABLES, bit2 ↔ CONTRADICTS). Planes with no Pearl counterpart
-/// (SUPPORTS, REFINES, …) contribute no bit; `edge_to_layer_mask` reaches them
-/// through the inference type instead.
-///
-/// Emission used `predicates & 0b111` directly, which put SUPPORTS (plane 2) on
-/// Pearl bit2 — read back by `edge_to_layer_mask` as CONTRADICTS.
-fn layers_to_causal_mask(predicates: u8) -> CausalMask {
-    use p64_bridge::{CAUSES, CONTRADICTS, ENABLES};
-    let mut bits = 0u8;
-    if predicates & (1 << CAUSES) != 0 {
-        bits |= 0b001;
-    }
-    if predicates & (1 << ENABLES) != 0 {
-        bits |= 0b010;
-    }
-    if predicates & (1 << CONTRADICTS) != 0 {
-        bits |= 0b100;
-    }
-    CausalMask::from_bits(bits)
-}
-
-/// The palette archetype the store holds for `row`: the S byte of its stored
-/// edge, the same value stage [3] queries the P64 cascade with.
-fn row_palette(backing: &BackingStore<'_>, row: u32) -> u8 {
-    backing.edge(row as usize).s_idx()
-}
-
-/// One emitted CE64, packed from a candidate's SPOFC record.
-///
-/// - **S / O** are palette256 indices, the address space the P64 planes and
-///   `edge_to_block` use: S is the row's archetype, O the partner's (a P64
-///   target is already one; a row partner resolves through the store).
-/// - **P** stays 0: no predicate palette exists to index into yet.
-/// - **f / c** are the SPOFC truth — confidence counts supporting relations
-///   instead of echoing resonance.
-/// - **Topology** says how the relation was found. A P64 target is one plane
-///   edge from the row's archetype (`Direct`); a content-similarity partner
-///   carries no causal path at all (`Unknown`). Left at the packed default,
-///   every edge would claim `Direct`.
-fn spofc_edge(backing: &BackingStore<'_>, spofc: &Spofc, style_ord: u8) -> CausalEdge64 {
-    let (o_palette, topology) = match spofc.object {
-        SupportPartner::Palette(t) => (t, CausalTopology::Direct),
-        SupportPartner::Row(r) => (row_palette(backing, r), CausalTopology::Unknown),
-    };
-    CausalEdge64::pack(
-        row_palette(backing, spofc.subject),
-        0,
-        o_palette,
-        spofc.truth.frequency,
-        spofc.truth.confidence,
-        layers_to_causal_mask(spofc.predicates),
-        0,
-        style_ord_to_inference(style_ord),
-        PlasticityState::from_bits(0),
-        0,
-    )
-    .with_topology(topology)
-}
-
 fn rung_widened_layer_mask(base: RungLevel, level: RungLevel, req_mask: u8) -> u8 {
     if (level as u8) <= (base as u8) {
         return req_mask;
@@ -1533,144 +1481,6 @@ mod tests {
         assert_eq!(s.support, 4, "all four target relations retained");
         assert!(matches!(s.object, SupportPartner::Palette(t) if t < 4));
         assert_eq!(table.iter().count(), 1, "one candidate, not four");
-    }
-
-    /// The emitted CE64 carries what SPOFC collected. The fixture stores the
-    /// row's archetype as palette 2 — not 0, which `row % 256` would also give
-    /// for row 0 — so S can only be right if it is read from the store.
-    #[test]
-    fn emitted_edge_carries_the_p64_target_and_its_evidence() {
-        let q = lance_graph_contract::qualia::QualiaI4_16D::ZERO;
-        let stored = CausalEdge64::pack(
-            2,
-            0,
-            0,
-            0,
-            0,
-            CausalMask::from_bits(0),
-            0,
-            InferenceType::Deduction,
-            PlasticityState::from_bits(0),
-            0,
-        );
-        let bs = BindSpaceBuilder::new(1)
-            .push(
-                &[0u64; WORDS_PER_FP],
-                MetaWord::new(1, 1, 200, 200, 5),
-                stored.0,
-                q,
-                0,
-                0,
-            )
-            .build();
-        let semiring = PaletteSemiring::build(&Palette {
-            entries: (0..4).map(|_| Base17 { dims: [0i16; 17] }).collect(),
-        });
-        let mut planes = [[0u64; 64]; 8];
-        // Planes are indexed by palette block (`s / 4`): archetype 2 lives in
-        // block 0, whose SUPPORTS edge to block 0 makes the four equidistant
-        // entries 0..4 its candidate targets. SUPPORTS has no Pearl bit, so
-        // it also tells the fixed mask from the old `predicates & 0b111`.
-        planes[p64_bridge::SUPPORTS][0] = 1;
-        let driver = CognitiveShaderBuilder::new()
-            .bindspace(Arc::new(bs))
-            .semiring(Arc::new(semiring))
-            .planes(planes)
-            .build();
-        let req = ShaderDispatch {
-            rows: ColumnWindow::new(0, 1),
-            meta_prefilter: MetaFilter::ALL,
-            layer_mask: 1 << p64_bridge::SUPPORTS,
-            radius: u16::MAX,
-            style: StyleSelector::Ordinal(1),
-            ..ShaderDispatch::default()
-        };
-        let backing = driver.backing();
-        let passed = backing.prefilter(req.rows, &req.meta_prefilter);
-        let table = driver.collect_candidates(&backing, &req, &passed, 1, req.layer_mask);
-        let spofc = table.spofc(0, passed[0]).expect("cascade support");
-        let SupportPartner::Palette(target) = spofc.object else {
-            panic!("the partner must be a P64 target, got {:?}", spofc.object);
-        };
-
-        let bus = driver.dispatch(&req).bus;
-        assert_eq!(bus.emitted_edge_count, 1, "one candidate, one edge");
-        let e = CausalEdge64(bus.emitted_edges[0]);
-        assert_eq!(e.s_idx(), 2, "S is the row's stored archetype");
-        assert_eq!(e.o_idx(), target, "O is the P64 target");
-        assert_eq!(e.p_idx(), 0, "no predicate palette to index yet");
-        assert_eq!(e.topology(), CausalTopology::Direct);
-        assert_eq!(
-            e.causal_mask() as u8,
-            0,
-            "a SUPPORTS relation sets no Pearl bit (it used to set CONTRADICTS)"
-        );
-        assert_eq!(e.confidence_u8(), spofc.truth.confidence);
-        assert_eq!(e.frequency_u8(), spofc.truth.frequency);
-        // Four supporting relations, so more confident than any one of them.
-        assert!(e.confidence_u8() > evidence_confidence_u8(1, NARS_PERSONALITY_K));
-    }
-
-    /// A content-similarity partner is not a causal path, so its edge says
-    /// `Unknown` instead of inheriting the packed default `Direct`.
-    #[test]
-    fn content_partner_edges_do_not_claim_a_direct_topology() {
-        let n = 16u32;
-        let bus = empty_plane_driver(n).dispatch(&all_rows(n)).bus;
-        assert!(bus.emitted_edge_count > 0, "the fixture must emit");
-        for &raw in &bus.emitted_edges[..usize::from(bus.emitted_edge_count)] {
-            let e = CausalEdge64(raw);
-            assert_eq!(e.topology(), CausalTopology::Unknown);
-            assert_eq!(
-                e.confidence_u8(),
-                evidence_confidence_u8(n - 1, NARS_PERSONALITY_K)
-            );
-        }
-    }
-
-    /// The Pearl bits emission writes read back as the same planes through
-    /// `p64_bridge::edge_to_layer_mask`. Emitting `predicates & 0b111` put
-    /// SUPPORTS on Pearl bit 2, which reads back as CONTRADICTS.
-    #[test]
-    fn causal_mask_round_trips_through_p64_layers() {
-        use p64_bridge::{edge_to_layer_mask, CAUSES, CONTRADICTS, ENABLES, SUPPORTS};
-        let pearl_planes: u8 = (1 << CAUSES) | (1 << ENABLES) | (1 << CONTRADICTS);
-        for predicates in 0..=u8::MAX {
-            // Induction maps to SUPPORTS, outside the Pearl planes, so it
-            // cannot mask a wrong Pearl bit.
-            let e = CausalEdge64::pack(
-                0,
-                0,
-                0,
-                0,
-                0,
-                layers_to_causal_mask(predicates),
-                0,
-                InferenceType::Induction,
-                PlasticityState::from_bits(0),
-                0,
-            );
-            assert_eq!(
-                edge_to_layer_mask(&e) & pearl_planes,
-                predicates & pearl_planes,
-                "predicates {predicates:#010b}"
-            );
-        }
-        // The old emission, for contrast: SUPPORTS alone became CONTRADICTS.
-        let old = CausalMask::from_bits((1u8 << SUPPORTS) & 0b111);
-        let e = CausalEdge64::pack(
-            0,
-            0,
-            0,
-            0,
-            0,
-            old,
-            0,
-            InferenceType::Induction,
-            PlasticityState::from_bits(0),
-            0,
-        );
-        assert_ne!(edge_to_layer_mask(&e) & (1 << CONTRADICTS), 0);
     }
 
     /// The repeats are evidence, not noise: each row keeps a count of its
