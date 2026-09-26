@@ -15,3 +15,12 @@ curl -L -o bible_vocab.txt    "$BASE/bible_vocab.txt"      # frequency-ranked vo
 Provenance + held-out metrics: `../probes/README.md` §4 (producer scripts:
 `../probes/{embed_bible_vocab,train_codebook}.py`). Loaded by
 `deepnsm_v2::codebook::{load_cam96_space, load_cam96_codes}`.
+
+## Lexical evidence (counts + PoS) — not in the Cam96 release
+
+`bible_vocab.txt` carries surface forms only, in rank order: no counts, no
+part of speech. Counted evidence is read separately by
+`deepnsm_v2::lexical::load_word_forms_csv`, whose input is COCA
+`word_forms.csv` (`lemRank,lemma,PoS,lemFreq,wordFreq,word`, committed at
+`crates/deepnsm/word_frequency/`). It is stored beside the routing
+`PaletteVocab`, never inside it and never inside the Cam96 codes.

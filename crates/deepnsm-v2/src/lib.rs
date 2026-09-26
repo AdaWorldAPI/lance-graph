@@ -42,6 +42,7 @@ pub mod corpus;
 pub mod evidence;
 pub mod fsm;
 pub mod introspect;
+pub mod lexical;
 pub mod reason;
 pub mod shape;
 pub mod space;
@@ -66,6 +67,10 @@ pub use fsm::{parse_to_spo, Pos, Tagged};
 pub use introspect::{
     confidence_delta_recount, confidence_delta_self, most_frequent_belief, provenance_check,
     ConfidenceAnswer, ProvenanceReport,
+};
+pub use lexical::{
+    load_word_forms_csv, EvidenceError, LemmaEntry, LemmaRef, LexicalEvidence,
+    LexicalEvidenceBuilder, LexicalReading, PosCode, WordFormsReport,
 };
 pub use shape::{
     detect, detect_all, detect_all_measured, detect_measured, MeasuredShape, Representation,
