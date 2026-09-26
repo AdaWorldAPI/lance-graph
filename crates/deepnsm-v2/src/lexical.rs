@@ -144,6 +144,12 @@ pub enum EvidenceError {
     BadPos { line: usize, value: String },
     /// A count aggregate exceeded `u64`.
     CountOverflow,
+    /// A [`LemmaRef`] this builder never issued.
+    UnknownLemma { lemma: LemmaRef },
+    /// A row contains a `"` — the loader reads unquoted CSV only, so a quoted
+    /// field is refused rather than routed with its quotes or split at an
+    /// embedded comma.
+    QuotedField { line: usize },
 }
 
 impl std::fmt::Display for EvidenceError {
@@ -221,7 +227,11 @@ impl LexicalEvidenceBuilder {
             });
         }
         if let Some(l) = reading.lemma {
-            let lemma_pos = self.lemmas[l as usize].pos;
+            let lemma_pos = self
+                .lemmas
+                .get(l as usize)
+                .ok_or(EvidenceError::UnknownLemma { lemma: l })?
+                .pos;
             if lemma_pos != reading.pos {
                 return Err(EvidenceError::PosMismatch {
                     id,
@@ -281,18 +291,18 @@ pub struct LexicalEvidence {
 }
 
 /// Sum a set of optional counts: `None` if any is unknown or the set is empty.
+/// Unknown takes precedence over overflow, so the answer never depends on
+/// where in the set an unknown count sits.
 fn sum_known(counts: impl Iterator<Item = Option<u64>>) -> Result<Option<u64>, EvidenceError> {
-    let mut total: Option<u64> = None;
-    for c in counts {
-        let Some(c) = c else { return Ok(None) };
-        total = Some(
-            total
-                .unwrap_or(0)
-                .checked_add(c)
-                .ok_or(EvidenceError::CountOverflow)?,
-        );
-    }
-    Ok(total)
+    let counts: Option<Vec<u64>> = counts.collect();
+    let Some(counts) = counts.filter(|c| !c.is_empty()) else {
+        return Ok(None);
+    };
+    counts
+        .into_iter()
+        .try_fold(0u64, u64::checked_add)
+        .map(Some)
+        .ok_or(EvidenceError::CountOverflow)
 }
 
 impl LexicalEvidence {
@@ -402,7 +412,8 @@ fn parse_count(line: usize, field: &'static str, v: &str) -> Result<Option<u64>,
         })
 }
 
-/// Load `lemRank,lemma,PoS,lemFreq,wordFreq,word` rows against `vocab`.
+/// Load unquoted `lemRank,lemma,PoS,lemFreq,wordFreq,word` rows against `vocab`
+/// (the committed COCA file has no quoting; a `"` is refused, not guessed at).
 ///
 /// Each row becomes one reading of the surface `word` (looked up exactly — the
 /// caller normalises the vocabulary), attached to the lemma entry `lemRank`.
@@ -425,6 +436,9 @@ pub fn load_word_forms_csv(
         let raw = raw.trim_end_matches('\r');
         if raw.is_empty() {
             continue;
+        }
+        if raw.contains('"') {
+            return Err(EvidenceError::QuotedField { line });
         }
         let f: Vec<&str> = raw.split(',').collect();
         if f.len() != 6 {
@@ -610,6 +624,61 @@ mod tests {
         assert_eq!(e.lemma_count("absent"), Ok(None));
         // Two noun form rows named lemma 518; one entry exists for it.
         assert_eq!(e.lemma_entries("record").count(), 2);
+    }
+
+    /// A LemmaRef the builder never issued is an error, not a panic.
+    #[test]
+    fn unknown_lemma_ref_is_refused() {
+        let v = vocab();
+        let mut b = LexicalEvidenceBuilder::new(&v);
+        assert_eq!(
+            b.add_reading(
+                1,
+                LexicalReading {
+                    pos: N,
+                    lemma: Some(7),
+                    form_count: None
+                }
+            ),
+            Err(EvidenceError::UnknownLemma { lemma: 7 })
+        );
+    }
+
+    /// Unknown wins over overflow wherever the unknown count sits.
+    #[test]
+    fn unknown_count_takes_precedence_over_overflow() {
+        let v = vocab();
+        let mut b = LexicalEvidenceBuilder::new(&v);
+        b.lemma_entry(1, Some("big"), N, Some(u64::MAX)).unwrap();
+        b.lemma_entry(2, Some("big"), V, Some(1)).unwrap();
+        b.lemma_entry(3, Some("big"), PosCode(b'j'), None).unwrap();
+        let e = b.finish();
+        assert_eq!(e.lemma_count("big"), Ok(None));
+        // Fully known and too large is still an overflow.
+        let mut b = LexicalEvidenceBuilder::new(&v);
+        b.lemma_entry(1, Some("big"), N, Some(u64::MAX)).unwrap();
+        b.lemma_entry(2, Some("big"), V, Some(1)).unwrap();
+        assert_eq!(
+            b.finish().lemma_count("big"),
+            Err(EvidenceError::CountOverflow)
+        );
+    }
+
+    /// The loader reads unquoted CSV only; a quoted field is refused rather
+    /// than routed with its quotes or split at an embedded comma.
+    #[test]
+    fn quoted_fields_are_refused() {
+        let v = vocab();
+        let q = format!("{WORD_FORMS_HEADER}\n518,record,n,187057,120048,\"record\"\n");
+        assert_eq!(
+            load_word_forms_csv(&q, &v).unwrap_err(),
+            EvidenceError::QuotedField { line: 2 }
+        );
+        let c = format!("{WORD_FORMS_HEADER}\n518,\"re,cord\",n,187057,120048,record\n");
+        assert_eq!(
+            load_word_forms_csv(&c, &v).unwrap_err(),
+            EvidenceError::QuotedField { line: 2 }
+        );
     }
 
     /// Refuse instead of picking a winner.
