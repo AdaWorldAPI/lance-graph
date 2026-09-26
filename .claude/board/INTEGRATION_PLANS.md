@@ -1,14 +1,3 @@
-## 2026-09-25 (1) — ce64-spofc-learning-v1 — CE64 as the mantissa that carries SPOFC evidence between cycles → `.claude/plans/ce64-spofc-learning-v1.md`
-
-**Status:** PROPOSAL; leg A shipped (draft PR stacked on #1293). The driver now
-packs each emitted CE64 from its candidate's SPOFC record: palette-space S/O
-instead of a row id, SPOFC truth, the Pearl mask as the inverse of
-`edge_to_layer_mask` (the raw `predicates & 7` turned SUPPORTS into
-CONTRADICTS), and topology bits 59–60 written for the first time in the live
-path. Legs B–E (evidence identity, owner write-back, cross-cycle revision,
-completions) are blocked on named dependencies — the W4a writer, a per-edge
-evidence-identity carrier, a predicate palette — and are not substituted.
-
 ## 2026-09-19 (1) — waben-fold-execution-loop-v1 — from the merged folds to one addressed execution loop → `.claude/plans/waben-fold-execution-loop-v1.md`
 
 **Status:** PROPOSAL. No code authorized; this is the grounded implementation
