@@ -14,7 +14,7 @@
 ## What this table says
 
 **`BindSpace` is the shape of the problem.** Marked RETIRE, and simultaneously the
-most-referenced symbol here: **69 crate files, 49 plans, 43 of them blind.**
+most-referenced symbol here: **69 crate files, 48 plans, 42 of them blind.**
 That is a programme, not a cleanup.
 
 **`GateState` is the sharpest case: 1 plan names it and *every one* is blind.**
@@ -52,19 +52,19 @@ coverage instead.
 | `A2AMessage` | BLOCKED | — | 2 | 1 | 0 |
 | `StepMask` | BLOCKED | — | 3 | 10 | 4 |
 | `commit_to_l4` | BLOCKED | — | 2 | 2 | 0 |
-| `dispatch_busdto` | BLOCKED | — | 3 | 9 | 6 |
-| `persist_cycle` | BLOCKED | — | 11 | 9 | 6 |
+| `dispatch_busdto` | BLOCKED | — | 3 | 8 | 5 |
+| `persist_cycle` | BLOCKED | — | 11 | 8 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 1 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 7 | 1 | 0 |
 | `GateDecision` | REPURPOSE | — | 25 | 28 | 25 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 14 | 13 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
-| `BindSpace` | RETIRE | — | 69 | 49 | 43 |
+| `BindSpace` | RETIRE | — | 69 | 48 | 42 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 14 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 52 | 28 | 24 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (77)
+## Table 2 — plans naming a ruled symbol without citing the ruling (76)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -112,7 +112,6 @@ a licence to act on it.
 | **RESCOPE** | `alpha-reason-witness-shader-field-archaeology-pass-1` | `BindSpace`, `MergeMode`, `ResonanceDto` | SOURCE AUDIT / PLAN ONLY. No production wiri | 0/1 |
 | **RESCOPE** | `bindspace-mailbox-soa-dependency-map-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | MAP / preflight. No source wired yet. Read-b | 0/2 |
 | **RESCOPE** | `bindspace-mailbox-soa-w3-w4a-impl-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | v2 — 5-consolidation + 3-brutal-critic pass  | 0/1 |
-| **RESCOPE** | `ce64-spofc-learning-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | PROPOSAL + first leg shipped (draft PR, stac | 0/7 |
 | **RESCOPE** | `cognitive-substrate-convergence-v3` | `BindSpace`, `CollapseGateEmission`, `MergeMode` | ACTIVE — sprint-12 Wave F + Wave G complete  | 4/16 |
 | **RESCOPE** | `mailbox-cycle-aware-write-contract-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | CONJECTURE / design. 5+3-gated before code. | 0/1 |
 | **RESCOPE** | `unified-integration-v1` | `BindSpace`, `MergeMode`, `ThinkingStyle` | Active — brainstorm phase complete; delivera | 0/0 |
@@ -158,6 +157,6 @@ a licence to act on it.
 | **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | — | 0/8 |
 
 - **ARCHIVE?**: 0
-- **RESCOPE**: 57
+- **RESCOPE**: 56
 - **READ**: 20
 - ruled symbols tracked: 14
