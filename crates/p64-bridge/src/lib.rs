@@ -350,7 +350,7 @@ pub mod cognitive_shader {
     }
 
     /// Result of a cascade query.
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone)]
     pub struct CascadeHit {
         /// Target archetype index (0..255).
         pub target: u8,
@@ -381,59 +381,9 @@ pub mod cognitive_shader {
         ///
         /// Returns hits sorted by distance ascending.
         pub fn cascade(&self, query: u8, radius: u16, layer_mask: u8) -> Vec<CascadeHit> {
-            let mut hits = Vec::new();
-            self.for_each_candidate(query, radius, layer_mask, |h| hits.push(h));
-            hits.sort_by_key(|h| h.distance);
-            hits
-        }
-
-        /// The `K` nearest hits of [`Self::cascade`], without allocating.
-        ///
-        /// Returns the same hits, in the same order, as
-        /// `cascade(..).into_iter().take(K)`: nearest first, and equal
-        /// distances keep candidate order (the order a stable sort keeps).
-        /// The second value is how many of the `K` slots are filled.
-        pub fn cascade_nearest<const K: usize>(
-            &self,
-            query: u8,
-            radius: u16,
-            layer_mask: u8,
-        ) -> ([CascadeHit; K], usize) {
-            let empty = CascadeHit {
-                target: 0,
-                distance: 0,
-                predicates: 0,
-            };
-            let mut buf = [empty; K];
-            let mut len = 0usize;
-            self.for_each_candidate(query, radius, layer_mask, |h| {
-                let pos = buf[..len]
-                    .iter()
-                    .position(|kept| kept.distance > h.distance)
-                    .unwrap_or(len);
-                if pos >= K {
-                    return;
-                }
-                let last = len.min(K - 1);
-                buf.copy_within(pos..last, pos + 1);
-                buf[pos] = h;
-                len = (len + 1).min(K);
-            });
-            (buf, len)
-        }
-
-        /// Visit every candidate within `radius`, in candidate order (block
-        /// column ascending, then the 4 archetypes of each block).
-        fn for_each_candidate(
-            &self,
-            query: u8,
-            radius: u16,
-            layer_mask: u8,
-            mut visit: impl FnMut(CascadeHit),
-        ) {
             let block_row = query as usize / 4;
             if block_row >= 64 {
-                return;
+                return Vec::new();
             }
 
             // Collect which block-columns are active across selected layers
@@ -455,6 +405,7 @@ pub mod cognitive_shader {
             }
 
             // Expand active block-columns to archetype indices, lookup distance
+            let mut hits = Vec::new();
             let mut bits = active_cols;
             while bits != 0 {
                 let block_col = bits.trailing_zeros() as usize;
@@ -468,7 +419,7 @@ pub mod cognitive_shader {
                     }
                     let dist = self.semiring.distance(query, target);
                     if dist <= radius {
-                        visit(CascadeHit {
+                        hits.push(CascadeHit {
                             target,
                             distance: dist,
                             predicates: per_col_predicates[block_col],
@@ -476,6 +427,9 @@ pub mod cognitive_shader {
                     }
                 }
             }
+
+            hits.sort_by_key(|h| h.distance);
+            hits
         }
 
         /// Transitive deduction: A→B→C via compose.
@@ -695,64 +649,6 @@ mod tests {
         let (comb, ctr) = semiring_to_modes("XOR_BUNDLE");
         assert_eq!(comb, combine::UNION);
         assert_eq!(ctr, contra::INVERT);
-    }
-
-    #[test]
-    fn cascade_nearest_equals_cascade_take_k() {
-        use super::cognitive_shader::CognitiveShader;
-        use bgz17::base17::Base17;
-        use bgz17::palette::Palette;
-        use bgz17::palette_semiring::PaletteSemiring;
-
-        // Coarse palette values so equal distances are common: the tie rule
-        // (candidate order, as the stable sort keeps it) must be exercised.
-        let entries: Vec<Base17> = (0..256)
-            .map(|i| {
-                let mut dims = [0i16; 17];
-                dims[0] = ((i % 7) * 100) as i16;
-                dims[1] = ((i % 3) * 50) as i16;
-                Base17 { dims }
-            })
-            .collect();
-        let semiring = PaletteSemiring::build(&Palette { entries });
-        let mut state = 0x2545_F491_4F6C_DD1Du64;
-        let mut planes = [[0u64; 64]; 8];
-        for plane in planes.iter_mut() {
-            for row in plane.iter_mut() {
-                state ^= state << 13;
-                state ^= state >> 7;
-                state ^= state << 17;
-                *row = state;
-            }
-        }
-        let shader = CognitiveShader::new(planes, &semiring);
-
-        fn key(h: &super::cognitive_shader::CascadeHit) -> (u8, u16, u8) {
-            (h.target, h.distance, h.predicates)
-        }
-        let mut compared = 0usize;
-        for query in 0..=255u8 {
-            for radius in [0u16, 40, 400, u16::MAX] {
-                for mask in [0x01u8, 0x0F, 0xFF] {
-                    let all = shader.cascade(query, radius, mask);
-                    let (b4, n4) = shader.cascade_nearest::<4>(query, radius, mask);
-                    let want: Vec<_> = all.iter().take(4).map(key).collect();
-                    let got: Vec<_> = b4[..n4].iter().map(key).collect();
-                    assert_eq!(got, want, "query {query} radius {radius} mask {mask:#x}");
-                    let (b1, n1) = shader.cascade_nearest::<1>(query, radius, mask);
-                    assert_eq!(
-                        b1[..n1].iter().map(key).collect::<Vec<_>>(),
-                        all.iter().take(1).map(key).collect::<Vec<_>>()
-                    );
-                    compared += usize::from(all.len() > 4);
-                }
-            }
-        }
-        // The case that matters: more candidates than kept slots.
-        assert!(
-            compared > 100,
-            "fixture too sparse: only {compared} overflowing queries"
-        );
     }
 
     #[test]

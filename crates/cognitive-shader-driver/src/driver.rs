@@ -30,7 +30,6 @@ use causal_edge::edge::{CausalEdge64, InferenceType};
 use causal_edge::pearl::CausalMask;
 use causal_edge::plasticity::PlasticityState;
 use causal_edge::tables::{unpack_c, unpack_f, NarsTables};
-use lance_graph_arm_discovery::translator::{evidence_confidence_u8, TruthU8, NARS_PERSONALITY_K};
 use lance_graph_contract::cognitive_shader::{
     AlphaComposite, CognitiveShaderDriver, EmitMode, MaterializeProvenance, MetaSummary, NullSink,
     RungElevator, RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit, ShaderResonance,
@@ -223,117 +222,6 @@ impl ShaderDriver {
         }
     }
 
-    /// Stage [3]: every supporting relationship for every prefilter row — the
-    /// content pre-pass partners and the cascade targets — aggregated per row
-    /// into one SPOFC candidate (`CandidateTable`).
-    fn collect_candidates(
-        &self,
-        backing: &BackingStore<'_>,
-        req: &ShaderDispatch,
-        passed_rows: &[u32],
-        style_ord: u8,
-        effective_layer_mask: u8,
-    ) -> CandidateTable {
-        // [3] Shader cascade — bgz17 O(1) per probed block.
-        // Snapshot the planes under the read lock so the cascade sees a
-        // consistent topology even if `update_planes` fires mid-dispatch.
-        let planes_snapshot: [[u64; 64]; 8] = **self.planes.read().expect("planes RwLock poisoned");
-        let shader = CognitiveShader::new(planes_snapshot, &self.semiring);
-        let max_dist = (self.semiring.k as f32) * (self.semiring.k as f32);
-        // Every supporting relationship found for a row — a pre-pass partner
-        // or a cascade target — is recorded against that row's position, so a
-        // row with many partners is ONE candidate carrying all of its support
-        // (SPOFC), not many candidates. Duplicate candidates would share one
-        // rotation basis and cancel each other in the XOR braid below.
-        let mut candidates = CandidateTable::new(passed_rows.len());
-
-        // TD-INT-10: optional NARS truth-table lookups per hit.
-        let nars_tables = self.nars_tables.as_deref();
-
-        // Content-plane Hamming pre-pass (PR #259).
-        const CONTENT_MATCH_PREDICATE: u8 = 0x01;
-        const MAX_CONTENT_PREPASS_ROWS: usize = 256;
-        const FP_BITS: f32 = (WORDS_PER_FP * 64) as f32;
-        if passed_rows.len() <= MAX_CONTENT_PREPASS_ROWS {
-            let style_cfg = &crate::engine_bridge::UNIFIED_STYLES[(style_ord % 12) as usize];
-            let min_resonance = style_cfg.resonance_threshold;
-
-            for (i, &row_i) in passed_rows.iter().enumerate() {
-                let fp_i = backing.content_row(row_i as usize);
-                for (j_off, &row_j) in passed_rows.iter().enumerate().skip(i + 1) {
-                    let fp_j = backing.content_row(row_j as usize);
-                    let fp_i_bytes = unsafe {
-                        std::slice::from_raw_parts(fp_i.as_ptr() as *const u8, WORDS_PER_FP * 8)
-                    };
-                    let fp_j_bytes = unsafe {
-                        std::slice::from_raw_parts(fp_j.as_ptr() as *const u8, WORDS_PER_FP * 8)
-                    };
-                    let hamming =
-                        ndarray::hpc::bitwise::hamming_distance_raw(fp_i_bytes, fp_j_bytes) as u32;
-                    let resonance = 1.0 - (hamming as f32 / FP_BITS);
-                    if resonance >= min_resonance {
-                        let distance = hamming.min(u16::MAX as u32) as u16;
-                        candidates.support(
-                            i,
-                            resonance,
-                            distance,
-                            CONTENT_MATCH_PREDICATE,
-                            SupportPartner::Row(row_j),
-                        );
-                        candidates.support(
-                            j_off,
-                            resonance,
-                            distance,
-                            CONTENT_MATCH_PREDICATE,
-                            SupportPartner::Row(row_i),
-                        );
-                    }
-                }
-            }
-        }
-
-        for (cycle_idx, &row) in passed_rows.iter().enumerate() {
-            if cycle_idx as u16 >= req.max_cycles.saturating_mul(4) {
-                break;
-            }
-            // Use the SPO `s_idx` of the row's edge as the query palette index.
-            // Rows with edge=0 default to palette 0 (identity probe).
-            let edge = backing.edge(row as usize);
-            let query = edge.s_idx();
-            // The 4 nearest, kept as they arrive: the full candidate list
-            // (up to 256 per row) was sorted and then cut to 4.
-            let (nearest, n_nearest) =
-                shader.cascade_nearest::<4>(query, req.radius, effective_layer_mask);
-            for hit in &nearest[..n_nearest] {
-                let resonance = 1.0 / (1.0 + (hit.distance as f32 / max_dist));
-
-                // TD-INT-10: NARS truth lookup against precomputed tables.
-                // The row's edge already carries a (frequency, confidence)
-                // pair; we revise it against a hit-derived surrogate truth
-                // (resonance as frequency, conservative half-confidence).
-                // The result is currently observed only — see comment above.
-                if let Some(tables) = nars_tables {
-                    let f1 = edge.frequency_u8();
-                    let c1 = edge.confidence_u8();
-                    let f2 = (resonance.clamp(0.0, 1.0) * 255.0) as u8;
-                    let c2 = 128u8;
-                    let packed = tables.revise(f1, c1, f2, c2);
-                    let _revised_truth = (unpack_f(packed), unpack_c(packed));
-                }
-
-                candidates.support(
-                    cycle_idx,
-                    resonance,
-                    hit.distance,
-                    hit.predicates,
-                    SupportPartner::Palette(hit.target),
-                );
-            }
-        }
-
-        candidates
-    }
-
     /// Run one dispatch, feeding a sink. This is the single hot path.
     fn run<S: ShaderSink>(&self, req: &ShaderDispatch, sink: &mut S) -> ShaderCrystal {
         // W3 read-shim: select the substrate (singleton BindSpace by default;
@@ -372,27 +260,104 @@ impl ShaderDriver {
         };
         let style_ord = auto_style::resolve(req.style, &qualia_f32_arr[..]);
 
-        // [3] Collect every supporting relationship per candidate row.
-        let candidates =
-            self.collect_candidates(&backing, req, &passed_rows, style_ord, effective_layer_mask);
+        // [3] Shader cascade — bgz17 O(1) per probed block.
+        // Snapshot the planes under the read lock so the cascade sees a
+        // consistent topology even if `update_planes` fires mid-dispatch.
+        let planes_snapshot: [[u64; 64]; 8] = **self.planes.read().expect("planes RwLock poisoned");
+        let shader = CognitiveShader::new(planes_snapshot, &self.semiring);
+        let max_dist = (self.semiring.k as f32) * (self.semiring.k as f32);
+        let mut hits = Vec::<ShaderHit>::with_capacity(passed_rows.len().min(64));
 
-        // Each candidate row once, ranked by its best partner resonance; its
-        // position in the prefilter list stays its rotation basis. Ties keep
-        // row-position order.
-        let mut top = TopHits::new();
-        for (pos, cand) in candidates.iter() {
-            top.offer(cand.hit(passed_rows[pos], pos));
+        // TD-INT-10: optional NARS truth-table lookups per hit.
+        let nars_tables = self.nars_tables.as_deref();
+
+        // Content-plane Hamming pre-pass (PR #259).
+        const CONTENT_MATCH_PREDICATE: u8 = 0x01;
+        const MAX_CONTENT_PREPASS_ROWS: usize = 256;
+        const FP_BITS: f32 = (WORDS_PER_FP * 64) as f32;
+        if passed_rows.len() <= MAX_CONTENT_PREPASS_ROWS {
+            let style_cfg = &crate::engine_bridge::UNIFIED_STYLES[(style_ord % 12) as usize];
+            let min_resonance = style_cfg.resonance_threshold;
+
+            for (i, &row_i) in passed_rows.iter().enumerate() {
+                let fp_i = backing.content_row(row_i as usize);
+                for (j_off, &row_j) in passed_rows.iter().enumerate().skip(i + 1) {
+                    let fp_j = backing.content_row(row_j as usize);
+                    let fp_i_bytes = unsafe {
+                        std::slice::from_raw_parts(fp_i.as_ptr() as *const u8, WORDS_PER_FP * 8)
+                    };
+                    let fp_j_bytes = unsafe {
+                        std::slice::from_raw_parts(fp_j.as_ptr() as *const u8, WORDS_PER_FP * 8)
+                    };
+                    let hamming =
+                        ndarray::hpc::bitwise::hamming_distance_raw(fp_i_bytes, fp_j_bytes) as u32;
+                    let resonance = 1.0 - (hamming as f32 / FP_BITS);
+                    if resonance >= min_resonance {
+                        hits.push(ShaderHit {
+                            row: row_i,
+                            distance: hamming.min(u16::MAX as u32) as u16,
+                            predicates: CONTENT_MATCH_PREDICATE,
+                            _pad: 0,
+                            resonance,
+                            cycle_index: i as u32,
+                        });
+                        hits.push(ShaderHit {
+                            row: row_j,
+                            distance: hamming.min(u16::MAX as u32) as u16,
+                            predicates: CONTENT_MATCH_PREDICATE,
+                            _pad: 0,
+                            resonance,
+                            cycle_index: j_off as u32,
+                        });
+                    }
+                }
+            }
         }
-        let hits: &[ShaderHit] = top.as_slice();
-        // A selected candidate always carries its evidence: at least one
-        // supporting relationship, hence a non-zero evidence confidence. The
-        // support is retained here (SPOFC); writing it into the emitted
-        // CausalEdge64 is the follow-up, so this change leaves edges as-is.
-        debug_assert!(hits.iter().all(|h| {
-            candidates
-                .spofc(h.cycle_index as usize, h.row)
-                .is_some_and(|s| s.truth.confidence > 0)
-        }));
+
+        for (cycle_idx, &row) in passed_rows.iter().enumerate() {
+            if cycle_idx as u16 >= req.max_cycles.saturating_mul(4) {
+                break;
+            }
+            // Use the SPO `s_idx` of the row's edge as the query palette index.
+            // Rows with edge=0 default to palette 0 (identity probe).
+            let edge = backing.edge(row as usize);
+            let query = edge.s_idx();
+            let raw = shader.cascade(query, req.radius, effective_layer_mask);
+            for hit in raw.into_iter().take(4) {
+                let resonance = 1.0 / (1.0 + (hit.distance as f32 / max_dist));
+
+                // TD-INT-10: NARS truth lookup against precomputed tables.
+                // The row's edge already carries a (frequency, confidence)
+                // pair; we revise it against a hit-derived surrogate truth
+                // (resonance as frequency, conservative half-confidence).
+                // The result is currently observed only — see comment above.
+                if let Some(tables) = nars_tables {
+                    let f1 = edge.frequency_u8();
+                    let c1 = edge.confidence_u8();
+                    let f2 = (resonance.clamp(0.0, 1.0) * 255.0) as u8;
+                    let c2 = 128u8;
+                    let packed = tables.revise(f1, c1, f2, c2);
+                    let _revised_truth = (unpack_f(packed), unpack_c(packed));
+                }
+
+                hits.push(ShaderHit {
+                    row,
+                    distance: hit.distance,
+                    predicates: hit.predicates,
+                    _pad: 0,
+                    resonance,
+                    cycle_index: cycle_idx as u32,
+                });
+            }
+        }
+
+        // Sort by resonance descending, keep top-8.
+        hits.sort_by(|a, b| {
+            b.resonance
+                .partial_cmp(&a.resonance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        hits.truncate(8);
 
         // [4] Build the cycle_fingerprint with positional Markov braiding.
         //     Each row is rotated by its cycle_index before XOR — preserves
@@ -400,7 +365,7 @@ impl ShaderDriver {
         //     Per I-SUBSTRATE-MARKOV: this activates the Markov ±5 property
         //     even in binary space; full f32 VSA bundle is the next step.
         let mut cycle_fp = [0u64; WORDS_PER_FP];
-        for h in hits {
+        for h in &hits {
             let row_words = backing.content_row(h.row as usize);
             let pos = (h.cycle_index as usize) % WORDS_PER_FP;
             for (i, w) in row_words.iter().enumerate() {
@@ -409,7 +374,7 @@ impl ShaderDriver {
         }
 
         // [5] Entropy + std-dev of top-k resonances.
-        let (entropy, std_dev) = entropy_std(hits);
+        let (entropy, std_dev) = entropy_std(&hits);
 
         // [6] FreeEnergy gate (principled F from resonance + KL surrogate).
         let top_resonance = hits.first().map(|h| h.resonance).unwrap_or(0.0);
@@ -572,7 +537,7 @@ impl ShaderDriver {
                 .alpha_saturation_override
                 .unwrap_or(ALPHA_SATURATION_THRESHOLD);
             Some(alpha_front_to_back_composite(
-                hits,
+                &hits,
                 |row| {
                     hit_qualia_f32
                         .iter()
@@ -954,218 +919,6 @@ impl Default for CognitiveShaderBuilder {
 // Helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// The other end of one supporting relationship: a content pre-pass partner
-/// (another row) or a cascade target (a palette archetype). Two different
-/// id spaces, so they stay two variants rather than one number.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum SupportPartner {
-    Row(u32),
-    Palette(u8),
-}
-
-/// One candidate row's support, in the SPOFC shape used by
-/// `lance-graph-arm-discovery` (`{s, p, o, f, c}` with a [`TruthU8`]):
-/// subject = the row, predicates = the union of its relationships' kinds,
-/// object = its best supporting relationship, frequency = that
-/// relationship's resonance, confidence = the
-/// NARS evidence confidence of how many supporting relationships were found
-/// (`m / (m + k)`, `evidence_confidence_u8`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Spofc {
-    pub subject: u32,
-    pub predicates: u8,
-    pub object: SupportPartner,
-    pub truth: TruthU8,
-    /// `m`: supporting relationships found for the subject.
-    pub support: u16,
-}
-
-#[derive(Clone, Copy)]
-struct Candidate {
-    resonance: f32,
-    distance: u16,
-    predicates: u8,
-    partner: SupportPartner,
-    support: u16,
-}
-
-impl Candidate {
-    fn hit(&self, row: u32, pos: usize) -> ShaderHit {
-        ShaderHit {
-            row,
-            distance: self.distance,
-            predicates: self.predicates,
-            _pad: 0,
-            resonance: self.resonance,
-            cycle_index: pos as u32,
-        }
-    }
-}
-
-/// Per prefilter position: the best supporting relationship found for that
-/// row and how many were found. One record per surviving row, not per pair.
-pub(crate) struct CandidateTable {
-    slots: Vec<Option<Candidate>>,
-}
-
-impl CandidateTable {
-    pub(crate) fn new(rows: usize) -> Self {
-        Self {
-            slots: vec![None; rows],
-        }
-    }
-
-    /// Record one supporting relationship for the row at `pos`. The best
-    /// relationship (highest resonance; on a tie the first) sets the ranking,
-    /// distance and object; the predicate bits are the union over all of them.
-    fn support(
-        &mut self,
-        pos: usize,
-        resonance: f32,
-        distance: u16,
-        predicates: u8,
-        partner: SupportPartner,
-    ) {
-        let slot = &mut self.slots[pos];
-        match slot {
-            Some(c) => {
-                c.support = c.support.saturating_add(1);
-                // Every relationship's kind stays on the candidate, whichever
-                // one ranks it.
-                c.predicates |= predicates;
-                if resonance > c.resonance {
-                    c.resonance = resonance;
-                    c.distance = distance;
-                    c.partner = partner;
-                }
-            }
-            None => {
-                *slot = Some(Candidate {
-                    resonance,
-                    distance,
-                    predicates,
-                    partner,
-                    support: 1,
-                });
-            }
-        }
-    }
-
-    fn iter(&self) -> impl Iterator<Item = (usize, &Candidate)> {
-        self.slots
-            .iter()
-            .enumerate()
-            .filter_map(|(pos, c)| c.as_ref().map(|c| (pos, c)))
-    }
-
-    /// The SPOFC record of the row at `pos`, if it has any support.
-    pub(crate) fn spofc(&self, pos: usize, row: u32) -> Option<Spofc> {
-        self.slots.get(pos).copied().flatten().map(|c| Spofc {
-            subject: row,
-            predicates: c.predicates,
-            object: c.partner,
-            truth: TruthU8 {
-                frequency: (c.resonance.clamp(0.0, 1.0) * 255.0) as u8,
-                confidence: evidence_confidence_u8(u32::from(c.support), NARS_PERSONALITY_K),
-            },
-            support: c.support,
-        })
-    }
-}
-
-/// The best 8 hits by resonance, kept as they arrive.
-///
-/// Equivalent to collecting every hit, stable-sorting by resonance descending
-/// and truncating to 8: a new hit goes after every kept hit whose resonance is
-/// not lower, so equal resonances keep arrival order, and a hit that would land
-/// ninth is dropped. Holds exactly for finite resonances.
-struct TopHits {
-    buf: [ShaderHit; 8],
-    len: usize,
-}
-
-impl TopHits {
-    fn new() -> Self {
-        Self {
-            buf: [ShaderHit::default(); 8],
-            len: 0,
-        }
-    }
-
-    #[inline]
-    fn offer(&mut self, hit: ShaderHit) {
-        let pos = self.buf[..self.len]
-            .iter()
-            .position(|kept| kept.resonance < hit.resonance)
-            .unwrap_or(self.len);
-        if pos >= self.buf.len() {
-            return;
-        }
-        let last = self.len.min(self.buf.len() - 1);
-        self.buf.copy_within(pos..last, pos + 1);
-        self.buf[pos] = hit;
-        self.len = (self.len + 1).min(self.buf.len());
-    }
-
-    fn as_slice(&self) -> &[ShaderHit] {
-        &self.buf[..self.len]
-    }
-}
-
-#[cfg(test)]
-mod top_hits_tests {
-    use super::*;
-
-    /// The replaced implementation: collect everything, stable-sort by
-    /// resonance descending, cut to 8.
-    fn collect_sort_truncate(stream: &[ShaderHit]) -> Vec<ShaderHit> {
-        let mut v = stream.to_vec();
-        v.sort_by(|a, b| {
-            b.resonance
-                .partial_cmp(&a.resonance)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        v.truncate(8);
-        v
-    }
-
-    fn key(h: &ShaderHit) -> (u32, u32, u32) {
-        (h.row, h.resonance.to_bits(), h.cycle_index)
-    }
-
-    #[test]
-    fn top_hits_matches_collect_sort_truncate_including_ties() {
-        let mut state = 0x9E37_79B9_7F4A_7C15u64;
-        let mut next = || {
-            state ^= state << 13;
-            state ^= state >> 7;
-            state ^= state << 17;
-            state
-        };
-        for len in [0usize, 1, 7, 8, 9, 20, 300] {
-            for _ in 0..200 {
-                // Few distinct resonance values, so ties are common and the
-                // arrival-order rule is actually exercised.
-                let stream: Vec<ShaderHit> = (0..len)
-                    .map(|i| ShaderHit {
-                        row: i as u32,
-                        resonance: (next() % 6) as f32 / 5.0,
-                        cycle_index: (next() % 1000) as u32,
-                        ..Default::default()
-                    })
-                    .collect();
-                let mut top = TopHits::new();
-                for h in &stream {
-                    top.offer(*h);
-                }
-                let want: Vec<_> = collect_sort_truncate(&stream).iter().map(key).collect();
-                let got: Vec<_> = top.as_slice().iter().map(key).collect();
-                assert_eq!(got, want, "len {len}");
-            }
-        }
-    }
-}
-
 fn entropy_std(hits: &[ShaderHit]) -> (f32, f32) {
     if hits.is_empty() {
         return (0.0, 0.0);
@@ -1328,190 +1081,6 @@ mod tests {
     use lance_graph_contract::cognitive_shader::{
         ColumnWindow, MetaFilter, ShaderDispatch, StyleSelector,
     };
-
-    /// `n` rows, each with one distinct content bit, so every pair resonates
-    /// equally in the content pre-pass; empty predicate planes, so the cascade
-    /// returns nothing and the pre-pass alone fills the top 8.
-    fn empty_plane_driver(n: u32) -> ShaderDriver {
-        let mut bs = BindSpace::zeros(n as usize);
-        let indices: Vec<u16> = (0..n as u16).collect();
-        crate::engine_bridge::ingest_codebook_indices(&mut bs, &indices, 1, 1000, 0);
-        CognitiveShaderBuilder::new()
-            .bindspace(Arc::new(bs))
-            .semiring(Arc::new(demo_semiring()))
-            .planes([[0u64; 64]; 8])
-            .build()
-    }
-
-    fn all_rows(n: u32) -> ShaderDispatch {
-        ShaderDispatch {
-            rows: ColumnWindow::new(0, n),
-            meta_prefilter: MetaFilter::ALL,
-            layer_mask: 0xFF,
-            radius: u16::MAX,
-            style: StyleSelector::Auto,
-            max_cycles: u16::MAX / 4,
-            ..Default::default()
-        }
-    }
-
-    /// Regression: with the cascade empty, the pre-pass emitted row i once per
-    /// resonating partner. Row 0 took four of the eight slots with one basis,
-    /// and its four rotated contributions XOR-cancelled out of cycle_fp.
-    #[test]
-    fn repeated_support_is_one_candidate_and_survives_the_braid() {
-        let n = 16u32;
-        let driver = empty_plane_driver(n);
-        let req = all_rows(n);
-        let crystal = driver.dispatch(&req);
-        let k = crystal.bus.resonance.hit_count as usize;
-        let top = &crystal.bus.resonance.top_k[..k];
-        assert_eq!(k, 8, "sixteen rows with support must fill all eight slots");
-
-        // Distinct candidate rows: none takes two slots.
-        let mut rows: Vec<u32> = top.iter().map(|h| h.row).collect();
-        rows.sort_unstable();
-        rows.dedup();
-        assert_eq!(rows.len(), k, "a row occupied more than one slot: {top:?}");
-
-        // The basis is the row's prefilter position (here, its row id).
-        assert!(top.iter().all(|h| h.cycle_index == h.row));
-
-        // The braid is exactly one rotated contribution per selected row, and
-        // the strongest candidate is in it.
-        let bs = driver.bindspace();
-        let mut expected = [0u64; WORDS_PER_FP];
-        for h in top {
-            let words = bs.fingerprints.content_row(h.row as usize);
-            let pos = h.cycle_index as usize % WORDS_PER_FP;
-            for (i, w) in words.iter().enumerate() {
-                expected[(i + pos) % WORDS_PER_FP] ^= *w;
-            }
-        }
-        assert_eq!(crystal.bus.cycle_fingerprint, expected);
-        let strongest = top[0];
-        let mut alone = [0u64; WORDS_PER_FP];
-        for (i, w) in bs
-            .fingerprints
-            .content_row(strongest.row as usize)
-            .iter()
-            .enumerate()
-        {
-            alone[(i + strongest.cycle_index as usize) % WORDS_PER_FP] ^= *w;
-        }
-        assert!(
-            alone
-                .iter()
-                .zip(crystal.bus.cycle_fingerprint.iter())
-                .all(|(a, f)| a & f == *a),
-            "the strongest row's contribution is missing from cycle_fp"
-        );
-        assert_eq!(
-            crystal
-                .bus
-                .cycle_fingerprint
-                .iter()
-                .map(|w| w.count_ones())
-                .sum::<u32>(),
-            k as u32,
-            "one bit per selected row: nothing cancelled"
-        );
-    }
-
-    /// F-ARW-TARGET-1's fixture: one source row whose cascade returns four
-    /// distinct targets at equal distance. They were four candidate slots and
-    /// four identical CE64s; now they are one candidate carrying all four.
-    /// A row supported by several relationship kinds keeps all of them: the
-    /// predicate bits are the union, while ranking and object follow the best
-    /// resonance. Taking only the best relationship's bits would silently drop
-    /// the weaker kinds from the emitted `CausalMask`.
-    #[test]
-    fn spofc_predicates_are_the_union_of_supporting_relationships() {
-        let mut t = CandidateTable::new(1);
-        t.support(0, 0.5, 10, 0b001, SupportPartner::Palette(1));
-        t.support(0, 0.9, 5, 0b010, SupportPartner::Palette(2));
-        t.support(0, 0.3, 20, 0b100, SupportPartner::Row(7));
-        let s = t.spofc(0, 0).expect("row 0 was supported");
-        assert_eq!(s.predicates, 0b111, "every relationship kind kept");
-        assert_eq!(s.support, 3);
-        // The best (0.9) relationship ranks it and names the object; the
-        // union does not come from simply keeping the last or first bits.
-        assert!(matches!(s.object, SupportPartner::Palette(2)));
-        assert_eq!(s.truth.frequency, (0.9f32 * 255.0) as u8);
-    }
-
-    #[test]
-    fn p64_targets_survive_as_spofc_support() {
-        let q = lance_graph_contract::qualia::QualiaI4_16D::ZERO;
-        let bs = BindSpaceBuilder::new(1)
-            .push(
-                &[0u64; WORDS_PER_FP],
-                MetaWord::new(1, 1, 200, 200, 5),
-                0,
-                q,
-                0,
-                0,
-            )
-            .build();
-        let semiring = PaletteSemiring::build(&Palette {
-            entries: (0..4).map(|_| Base17 { dims: [0i16; 17] }).collect(),
-        });
-        let mut planes = [[0u64; 64]; 8];
-        planes[0][0] = 1;
-        let driver = CognitiveShaderBuilder::new()
-            .bindspace(Arc::new(bs))
-            .semiring(Arc::new(semiring))
-            .planes(planes)
-            .build();
-        let req = ShaderDispatch {
-            rows: ColumnWindow::new(0, 1),
-            meta_prefilter: MetaFilter::ALL,
-            layer_mask: 0b0000_0001,
-            radius: u16::MAX,
-            style: StyleSelector::Ordinal(1),
-            ..ShaderDispatch::default()
-        };
-        let backing = driver.backing();
-        let passed = backing.prefilter(req.rows, &req.meta_prefilter);
-        assert_eq!(passed.len(), 1);
-        let table = driver.collect_candidates(&backing, &req, &passed, 1, req.layer_mask);
-        let s = table
-            .spofc(0, passed[0])
-            .expect("the row has cascade support");
-        assert_eq!(s.support, 4, "all four target relations retained");
-        assert!(matches!(s.object, SupportPartner::Palette(t) if t < 4));
-        assert_eq!(table.iter().count(), 1, "one candidate, not four");
-    }
-
-    /// The repeats are evidence, not noise: each row keeps a count of its
-    /// supporting relationships and the best one, in SPOFC form.
-    #[test]
-    fn repeated_support_is_retained_as_spofc_evidence() {
-        let n = 16u32;
-        let driver = empty_plane_driver(n);
-        let req = all_rows(n);
-        let backing = driver.backing();
-        let passed = backing.prefilter(req.rows, &req.meta_prefilter);
-        let style = auto_style::resolve(req.style, &backing.qualia_17d(passed[0] as usize)[..]);
-        let table = driver.collect_candidates(&backing, &req, &passed, style, req.layer_mask);
-        for (pos, &row) in passed.iter().enumerate() {
-            let s = table.spofc(pos, row).expect("every row has partners");
-            // Every other row resonates with this one: n - 1 relationships.
-            assert_eq!(s.support, (n - 1) as u16, "row {row}");
-            assert_eq!(s.subject, row);
-            assert_eq!(
-                s.truth.confidence,
-                evidence_confidence_u8(n - 1, NARS_PERSONALITY_K)
-            );
-            // The best partner is another row, never the subject itself.
-            assert!(matches!(s.object, SupportPartner::Row(p) if p != row));
-        }
-        // More evidence, more confidence: fifteen partners beat one.
-        assert!(
-            evidence_confidence_u8(n - 1, NARS_PERSONALITY_K)
-                > evidence_confidence_u8(1, NARS_PERSONALITY_K)
-        );
-    }
 
     fn demo_bindspace() -> BindSpace {
         use lance_graph_contract::qualia::QualiaI4_16D;

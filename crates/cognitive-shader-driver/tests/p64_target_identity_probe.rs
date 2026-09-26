@@ -12,18 +12,6 @@
 //! source BindSpace row but not `CascadeHit.target`. CE64 emission then derives
 //! S/P/O from that source row. If all emitted CE64 words are identical, target
 //! identity is proven lost at this seam.
-//!
-//! Re-pinned 2026-09-25 (#1293). The four targets used to become four
-//! candidate slots and four byte-identical CE64s — repeated emissions of one
-//! relation. Stage [3] now aggregates every supporting relationship per source
-//! row (SPOFC): the four targets are ONE candidate with support 4, whose best
-//! target is kept as its object (`driver::tests`,
-//! `p64_targets_survive_as_spofc_support`). What stands is narrower than
-//! "CE64 cannot carry the target": its 24-bit S/P/O can hold three palette256
-//! indices, so a target has a place to go. The driver just never writes it
-//! there — it packs S/O from the source row id and P = 0. So exactly one edge
-//! now represents the four relations, with the target left in the SPOFC record.
-//! Writing the aggregated support and target into CE64 is the follow-up.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -107,16 +95,19 @@ fn distinct_p64_targets_collapse_to_one_emitted_ce64_identity() {
 
     let crystal = driver.dispatch(&req);
     let n = crystal.bus.emitted_edge_count as usize;
-    // One source row with four relations is one candidate, so one CE64 — not
-    // four identical copies of it.
-    assert_eq!(
-        n,
-        1,
-        "the four targets of one source row must be one candidate: {:?}",
-        &crystal.bus.emitted_edges[..n]
+    assert!(
+        n > 1,
+        "probe is vacuous: the live driver emitted fewer than two CE64s (n={n})"
     );
 
-    let decoded = CausalEdge64(crystal.bus.emitted_edges[0]);
+    let emitted = &crystal.bus.emitted_edges[..n];
+    let first = emitted[0];
+    assert!(
+        emitted.iter().all(|&edge| edge == first),
+        "F-ARW-TARGET-1 falsified: distinct P64 targets remain distinguishable in emitted CE64s: {emitted:?}"
+    );
+
+    let decoded = CausalEdge64(first);
     assert_eq!(decoded.s_idx(), 0, "source row 0 is projected to S=0");
     assert_eq!(decoded.p_idx(), 0, "current emission writes P=0");
     assert_eq!(decoded.o_idx(), 0, "source row 0 is projected to O=0");

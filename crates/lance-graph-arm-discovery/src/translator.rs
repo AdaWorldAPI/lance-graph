@@ -76,36 +76,13 @@ pub fn arm_to_truth_u8(rule: &CandidateRule, k: u32) -> TruthU8 {
     } else {
         ((rule.cooccur as u64 * 255) / rule.antecedent_count as u64).min(255) as u8
     };
-    let confidence = evidence_confidence_u8(rule.cooccur, k);
+    // confidence = m / (m + k), m = cooccur (integer evidential mass); k>0 ⇒ denom>0
+    let m = rule.cooccur as u64;
+    let confidence = ((m * 255) / (m + k as u64)) as u8;
     TruthU8 {
         frequency,
         confidence,
     }
-}
-
-/// NARS confidence of `m` units of evidence, `c = m / (m + k)`, quantised so
-/// that `255` = 1.0. The confidence half of [`arm_to_truth_u8`], for callers
-/// whose evidence is a count of supporting relationships rather than a rule.
-///
-/// ```
-/// use lance_graph_arm_discovery::translator::{evidence_confidence_u8, NARS_PERSONALITY_K};
-/// assert_eq!(evidence_confidence_u8(0, NARS_PERSONALITY_K), 0);
-/// assert_eq!(evidence_confidence_u8(1, NARS_PERSONALITY_K), 127);
-/// assert_eq!(evidence_confidence_u8(8, NARS_PERSONALITY_K), 226);
-/// ```
-///
-/// # Panics
-///
-/// If `k == 0`: any positive evidence would then be dogmatic (confidence 1.0).
-#[must_use]
-pub fn evidence_confidence_u8(m: u32, k: u32) -> u8 {
-    assert!(
-        k > 0,
-        "NARS personality constant k must be > 0; k=0 makes any evidence dogmatic (confidence=1.0)"
-    );
-    // m / (m + k) on integers; k > 0 so the denominator is positive.
-    let m = m as u64;
-    ((m * 255) / (m + k as u64)) as u8
 }
 
 /// An `f32` NARS truth — **edge convenience only** (see module docs). Derived
@@ -280,11 +257,7 @@ mod tests {
 
     #[test]
     fn triple_projection() {
-        let t = CandidateTriple::from_rule(
-            &rule(90, 100, 400),
-            &DebugProjector::default(),
-            NARS_PERSONALITY_K,
-        );
+        let t = CandidateTriple::from_rule(&rule(90, 100, 400), &DebugProjector::default(), NARS_PERSONALITY_K);
         assert_eq!(t.s, "arm:feat0=cat1");
         assert_eq!(t.p, "implies");
         assert_eq!(t.o, "arm:feat1=cat0");
