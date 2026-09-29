@@ -12,8 +12,9 @@
 //! cargo run --example bible_wave -- /path/to/pg10.txt
 //! ```
 //!
-//! Pipeline: verses → PoS-tag (COCA lemma lexicon + documented archaic
-//! fallback) → FSM → SPO stream (verse index = version) → `TemporalStream` +
+//! Pipeline: verses → PoS-tag (COCA lemma table, then the counted
+//! `word_forms.csv` evidence, then a documented archaic fallback) → FSM → SPO
+//! stream (verse index = version) → `TemporalStream` +
 //! the TRAINED Cam96 codebook (`data/`, real Jina-v3 embeddings).
 //!
 //! Gates (panic on KILL):
@@ -27,8 +28,9 @@
 //! horizon → the Escalate zone).
 
 use deepnsm_v2::{
-    load_cam96_codes, load_cam96_space, parse_to_spo, Nsm, PaletteVocab, Pos, Spo, Tagged,
-    TemporalStream,
+    load_cam96_codes, load_cam96_space, load_word_forms_csv, parse_to_spo, EvidenceError,
+    LexicalEvidence, LexicalReading, Nsm, PaletteVocab, Pos, Spo, Tagged, TemporalStream, WordId,
+    WordFormsReport,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -135,7 +137,34 @@ fn main() {
         "/../deepnsm/word_frequency/word_forms.csv"
     ))
     .expect("word_forms.csv (sibling deepnsm crate)");
-    let pos_of = load_pos(&lemmas_csv, &forms_csv);
+    let tagger = Tagger::load(&lemmas_csv, &forms_csv, &nsm.vocab).expect("word_forms.csv evidence");
+    let r = &tagger.report;
+    println!(
+        "LEXICON  word_forms: {} rows, {} readings stored, {} empty surface, {} not in vocab",
+        r.rows, r.stored, r.empty_surface, r.unrouted
+    );
+    // G6 (D-LXC-1) — how many in-vocabulary tags the counted pick moves away
+    // from the old first-wins rule. Pinned against the released
+    // `bible_vocab.txt`: any other number means the tables or the rule changed.
+    let first_wins = load_pos_first_wins(&lemmas_csv, &forms_csv);
+    let mut moved = 0usize;
+    for id in 0..nsm.vocab.len() {
+        let id = WordId::try_from(id).expect("vocab fits u16");
+        let Some(w) = nsm.vocab.word(id) else { continue };
+        let old = first_wins
+            .get(w)
+            .copied()
+            .or_else(|| archaic_pos(w))
+            .unwrap_or(Pos::Other);
+        if tagger.pos(w, id).expect("count sum") != old {
+            moved += 1;
+        }
+    }
+    assert_eq!(
+        moved, 25,
+        "KILL G6: the counted pick moved {moved} in-vocabulary tags, pinned 25"
+    );
+    println!("G6 PASS  counted pick moves {moved} in-vocabulary tags from first-wins (pinned 25)");
 
     // ── stream: verse index = version; FSM → SPO ──
     let mut stream = TemporalStream::new();
@@ -146,11 +175,7 @@ fn main() {
         for tok in verse.split_whitespace() {
             let Some(w) = normalise(tok) else { continue };
             let Some(id) = nsm.vocab.id(&w) else { continue };
-            let pos = pos_of
-                .get(&w)
-                .copied()
-                .or_else(|| archaic_pos(&w))
-                .unwrap_or(Pos::Other);
+            let pos = tagger.pos(&w, id).expect("count sum");
             tagged_buf.push(Tagged::new(id, pos));
         }
         tagged_buf.push(Tagged::new(0, Pos::Stop)); // verse boundary flushes
@@ -1017,10 +1042,116 @@ fn normalise(tok: &str) -> Option<String> {
     (w.len() >= 2).then_some(w)
 }
 
-/// `word -> Pos` from the COCA lemma table, with `word_forms.csv` layered UNDER
-/// it so inflected forms (`created`, `made`) are not lost to `Pos::Other`.
-/// Lemma-first, so no word that already had a tag gets a different one.
-fn load_pos(lemmas_csv: &str, forms_csv: &str) -> HashMap<String, Pos> {
+/// The fold's states in tie-break order: a tie between two known sums goes to
+/// the state listed first.
+const PICK_ORDER: [Pos; 5] = [Pos::Noun, Pos::Verb, Pos::Adj, Pos::Det, Pos::Other];
+
+/// The counted reading of one word (D-LXC-1).
+///
+/// Folds each reading's source tag with [`coca_pos`] and sums the known
+/// `wordFreq` per parser state. A state with any unknown count is unknown and
+/// does not compete; overflow is an error, never a wrap. The highest known sum
+/// wins, ties go to [`PICK_ORDER`], and no known count at all is `None` — the
+/// caller's fallback decides, nothing is invented here.
+///
+/// This replaces taking the FIRST `word_forms.csv` row: that file is ordered by
+/// lemma rank, not by surface frequency, so for 259 surfaces the first row is
+/// not the dominant reading (`changes`: verb row 13,624 first, noun 113,085).
+fn counted_pos(readings: &[LexicalReading]) -> Result<Option<Pos>, EvidenceError> {
+    let mut best: Option<(u64, Pos)> = None;
+    for state in PICK_ORDER {
+        let mut sum = Some(0u64);
+        let mut seen = false;
+        for r in readings {
+            if coca_pos(&r.pos.as_char().to_string()) != state {
+                continue;
+            }
+            seen = true;
+            sum = match (sum, r.form_count) {
+                (Some(s), Some(c)) => Some(s.checked_add(c).ok_or(EvidenceError::CountOverflow)?),
+                _ => None,
+            };
+        }
+        let (true, Some(sum)) = (seen, sum) else {
+            continue;
+        };
+        // Strictly greater: an equal sum keeps the earlier state in PICK_ORDER.
+        if best.is_none_or(|(b, _)| sum > b) {
+            best = Some((sum, state));
+        }
+    }
+    Ok(best.map(|(_, p)| p))
+}
+
+/// Lowercase the `word` column of `word_forms.csv`, leaving the header and the
+/// other fields as they are. `load_word_forms_csv` matches surfaces exactly and
+/// the corpus tokens are lowercased; three COCA surfaces (`True`, `False`,
+/// `reElection`) would otherwise never route.
+fn lowercase_word_column(forms_csv: &str) -> String {
+    let mut out = String::with_capacity(forms_csv.len());
+    for (i, line) in forms_csv.lines().enumerate() {
+        if i > 0 {
+            if let Some((head, word)) = line.rsplit_once(',') {
+                out.push_str(head);
+                out.push(',');
+                out.push_str(&word.to_lowercase());
+                out.push('\n');
+                continue;
+            }
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
+}
+
+/// The corpus tagger: lemma table → counted `word_forms.csv` evidence →
+/// [`archaic_pos`] → [`Pos::Other`].
+///
+/// Lemma-first is deliberate and pinned (commit `ec50f07b`): the forms layer
+/// only fills silence, never overrules a word the lemma table knew.
+struct Tagger {
+    lemmas: HashMap<String, Pos>,
+    evidence: LexicalEvidence,
+    report: WordFormsReport,
+}
+
+impl Tagger {
+    fn load(lemmas_csv: &str, forms_csv: &str, vocab: &PaletteVocab) -> Result<Self, EvidenceError> {
+        let mut lemmas = HashMap::new();
+        for line in lemmas_csv.lines().skip(1) {
+            let f: Vec<&str> = line.split(',').collect();
+            let (Some(lemma), Some(pos)) = (f.get(1), f.get(2)) else {
+                continue;
+            };
+            lemmas
+                .entry(lemma.to_lowercase())
+                .or_insert_with(|| coca_pos(pos));
+        }
+        let (evidence, report) = load_word_forms_csv(&lowercase_word_column(forms_csv), vocab)?;
+        Ok(Self {
+            lemmas,
+            evidence,
+            report,
+        })
+    }
+
+    /// The tag for word `w` whose routing id is `id`.
+    fn pos(&self, w: &str, id: WordId) -> Result<Pos, EvidenceError> {
+        if let Some(&p) = self.lemmas.get(w) {
+            return Ok(p);
+        }
+        if let Some(p) = counted_pos(self.evidence.readings(id))? {
+            return Ok(p);
+        }
+        Ok(archaic_pos(w).unwrap_or(Pos::Other))
+    }
+}
+
+/// The tagging `bible_wave` used before D-LXC-1: the lemma table, then the
+/// FIRST `word_forms.csv` row per surface. Kept only so gate G6 can count how
+/// many tags the counted pick moves.
+fn load_pos_first_wins(lemmas_csv: &str, forms_csv: &str) -> HashMap<String, Pos> {
     let mut m: HashMap<String, Pos> = HashMap::new();
     for line in lemmas_csv.lines().skip(1) {
         let f: Vec<&str> = line.split(',').collect();
@@ -1039,4 +1170,142 @@ fn load_pos(lemmas_csv: &str, forms_csv: &str) -> HashMap<String, Pos> {
             .or_insert_with(|| coca_pos(pos));
     }
     m
+}
+
+// D-LXC-1 tests. They run under `cargo test` because `Cargo.toml` declares this
+// example with `test = true`; cargo never runs an example's `main()`, so the
+// KJV itself is not needed here.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use deepnsm_v2::PosCode;
+
+    fn reading(tag: u8, count: Option<u64>) -> LexicalReading {
+        LexicalReading {
+            pos: PosCode(tag),
+            lemma: None,
+            form_count: count,
+        }
+    }
+
+    fn vocab(words: &[&str]) -> PaletteVocab {
+        let mut v = PaletteVocab::new();
+        v.from_frequency_ranked(words.iter().copied());
+        v
+    }
+
+    fn committed(name: &str) -> String {
+        std::fs::read_to_string(format!(
+            "{}/../deepnsm/word_frequency/{name}",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .expect("committed COCA table")
+    }
+
+    // (a) a homograph keeps every reading
+    #[test]
+    fn record_keeps_its_noun_and_verb_readings() {
+        let v = vocab(&["record"]);
+        let t = Tagger::load("rank,lemma,PoS\n", &committed("word_forms.csv"), &v).unwrap();
+        let tags: Vec<char> = t
+            .evidence
+            .readings(v.id("record").unwrap())
+            .iter()
+            .map(|r| r.pos.as_char())
+            .collect();
+        assert!(tags.contains(&'n') && tags.contains(&'v'), "{tags:?}");
+    }
+
+    // (b) tags that fold into one state are summed; overflow is an error
+    #[test]
+    fn folded_tags_sum_and_overflow_is_refused() {
+        // n 60 + p 50 = Noun 110 beats v 100; either alone would lose.
+        let r = [reading(b'n', Some(60)), reading(b'p', Some(50)), reading(b'v', Some(100))];
+        assert_eq!(counted_pos(&r).unwrap(), Some(Pos::Noun));
+        let big = [reading(b'n', Some(u64::MAX)), reading(b'p', Some(1))];
+        assert_eq!(counted_pos(&big), Err(EvidenceError::CountOverflow));
+    }
+
+    // (c) one unknown count makes that whole state unknown
+    #[test]
+    fn an_unknown_count_takes_its_state_out() {
+        let r = [reading(b'n', Some(500)), reading(b'n', None), reading(b'v', Some(1))];
+        assert_eq!(counted_pos(&r).unwrap(), Some(Pos::Verb));
+    }
+
+    // (d) `changes`: first row is the verb, the counts say noun
+    #[test]
+    fn changes_is_a_noun_by_count_and_a_verb_by_first_row() {
+        let forms = committed("word_forms.csv");
+        let v = vocab(&["changes"]);
+        let t = Tagger::load("rank,lemma,PoS\n", &forms, &v).unwrap();
+        assert!(!t.lemmas.contains_key("changes"), "must not be a lemma-table key");
+        assert_eq!(t.pos("changes", v.id("changes").unwrap()).unwrap(), Pos::Noun);
+        // Anti-vacuity: the old first-wins rule tags it Verb, so the line
+        // above distinguishes the two rules.
+        assert_eq!(
+            load_pos_first_wins("rank,lemma,PoS\n", &forms).get("changes"),
+            Some(&Pos::Verb)
+        );
+    }
+
+    // (e) the tie order is fixed
+    #[test]
+    fn ties_go_to_the_earlier_state() {
+        let nv = [reading(b'v', Some(10)), reading(b'n', Some(10))];
+        assert_eq!(counted_pos(&nv).unwrap(), Some(Pos::Noun));
+        let vj = [reading(b'j', Some(10)), reading(b'v', Some(10))];
+        assert_eq!(counted_pos(&vj).unwrap(), Some(Pos::Verb));
+    }
+
+    // (f) no known count gives None, and the tagger falls through
+    #[test]
+    fn no_known_count_falls_through_to_archaic_then_other() {
+        assert_eq!(counted_pos(&[reading(b'n', None)]).unwrap(), None);
+        assert_eq!(counted_pos(&[]).unwrap(), None);
+        let forms = "lemRank,lemma,PoS,lemFreq,wordFreq,word\n1,hath,n,5,,hath\n2,zz,n,5,,zz\n";
+        let v = vocab(&["hath", "zz"]);
+        let t = Tagger::load("rank,lemma,PoS\n", forms, &v).unwrap();
+        assert_eq!(t.pos("hath", v.id("hath").unwrap()).unwrap(), Pos::Verb);
+        assert_eq!(t.pos("zz", v.id("zz").unwrap()).unwrap(), Pos::Other);
+    }
+
+    // (g) stay-silent: one reading keeps its tag
+    #[test]
+    fn a_single_reading_keeps_its_tag() {
+        assert_eq!(counted_pos(&[reading(b'j', Some(3))]).unwrap(), Some(Pos::Adj));
+        assert_eq!(counted_pos(&[reading(b'r', Some(3))]).unwrap(), Some(Pos::Other));
+    }
+
+    // (h) + G7: the lemma table is never overruled by the forms layer
+    #[test]
+    fn the_forms_layer_never_retags_a_lemma_table_word() {
+        let v = vocab(&["work"]);
+        let t = Tagger::load(&committed("lemmas_5k.csv"), &committed("word_forms.csv"), &v).unwrap();
+        let id = v.id("work").unwrap();
+        // The counts alone would say Noun (n 456,169 vs v 356,692) ...
+        assert_eq!(counted_pos(t.evidence.readings(id)).unwrap(), Some(Pos::Noun));
+        // ... and the lemma table still wins.
+        assert_eq!(t.pos("work", id).unwrap(), Pos::Verb);
+
+        // The same property on a conflicting row, with the row proven loaded.
+        let conflicting = "lemRank,lemma,PoS,lemFreq,wordFreq,word\n1,x,n,9,4,create\n";
+        let v = vocab(&["create"]);
+        let t = Tagger::load("rank,lemma,PoS\n1,create,v\n", conflicting, &v).unwrap();
+        assert_eq!(t.evidence.reading_count(), 1);
+        assert_eq!(t.pos("create", v.id("create").unwrap()).unwrap(), Pos::Verb);
+    }
+
+    // (i) a capitalised COCA surface still routes
+    #[test]
+    fn a_capitalised_surface_routes_after_lowercasing() {
+        let forms = "lemRank,lemma,PoS,lemFreq,wordFreq,word\n7,true,j,9,4,True\n";
+        let v = vocab(&["true"]);
+        let t = Tagger::load("rank,lemma,PoS\n", forms, &v).unwrap();
+        assert_eq!(t.report.unrouted, 0);
+        assert_eq!(t.pos("true", v.id("true").unwrap()).unwrap(), Pos::Adj);
+        // Without the lowercasing the same row is not routed.
+        let (_, raw) = load_word_forms_csv(forms, &v).unwrap();
+        assert_eq!(raw.unrouted, 1);
+    }
 }
