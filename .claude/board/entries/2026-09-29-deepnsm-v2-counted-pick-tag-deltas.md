@@ -34,4 +34,9 @@ Pre-existing observations filed with the plan:
 - No in-crate tagger produces `Pos::Rel`; external callers can still pass it
   (D-LXC-10).
 
+**Amended (same day).** The summed pick was replaced by the register:
+`LexicalEvidence` stores readings most frequent first with a cumulative
+percentile coverage, and the tagger reads position 0. The KJV run is identical
+to "after (B)" above (25 moved, 70,396 triples); the summing moved nothing.
+
 Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`.

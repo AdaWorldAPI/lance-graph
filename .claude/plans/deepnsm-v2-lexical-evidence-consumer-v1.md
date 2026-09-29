@@ -231,6 +231,23 @@ runs.
   `the_forms_layer_never_retags_a_lemma_table_word`. That is the falsifier
   `TD-DEEPNSM-V2-SESSION-RESIDUE` item 3 asked for.
 
+### Amendment: frequency is the register (2026-09-29, operator-directed)
+
+The counted pick summed counts at tag time. Frequency is a dimension, so it
+belongs in the storage order, expressed as percentile coverage:
+- `LexicalEvidenceBuilder::finish` stores each word's readings most frequent
+  first (unknown last, ties in file order). `LexicalEvidence::coverage(id)`
+  gives each reading's cumulative percentile coverage (integer `0..=100`,
+  `None` when any count of the word is unknown). `changes`: noun first, 89.
+- `bible_wave`'s `dominant_pos` reads position 0 when coverage is known.
+  `counted_pos`, `PICK_ORDER` and per-state summing are removed.
+- Behaviour dropped with the summing: folded tags no longer add (n 60 + p 50
+  loses to v 100), and ties keep file order instead of Noun > Verb.
+- KJV: identical to the summed run — 25 moved tags, 70,396 triples, same
+  shares. The summing moved nothing on this corpus.
+- This supersedes the "no library change" non-goal (F1): the change is storage
+  order plus a derived integer, not interpretation.
+
 ## Pre-registered gates
 
 - G1 `cargo test --manifest-path crates/deepnsm-v2/Cargo.toml` green; a

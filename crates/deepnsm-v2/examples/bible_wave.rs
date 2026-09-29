@@ -29,8 +29,7 @@
 
 use deepnsm_v2::{
     load_cam96_codes, load_cam96_space, load_word_forms_csv, parse_to_spo, EvidenceError,
-    LexicalEvidence, LexicalReading, Nsm, PaletteVocab, Pos, Spo, Tagged, TemporalStream,
-    WordFormsReport, WordId,
+    LexicalEvidence, Nsm, PaletteVocab, Pos, Spo, Tagged, TemporalStream, WordFormsReport, WordId,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -144,7 +143,7 @@ fn main() {
         "LEXICON  word_forms: {} rows, {} readings stored, {} empty surface, {} not in vocab",
         r.rows, r.stored, r.empty_surface, r.unrouted
     );
-    // G6 (D-LXC-1) — how many in-vocabulary tags the counted pick moves away
+    // G6 (D-LXC-1) — how many in-vocabulary tags the register pick moves away
     // from the old first-wins rule. Pinned against the released
     // `bible_vocab.txt`: any other number means the tables or the rule changed.
     let first_wins = load_pos_first_wins(&lemmas_csv, &forms_csv);
@@ -159,15 +158,15 @@ fn main() {
             .copied()
             .or_else(|| archaic_pos(w))
             .unwrap_or(Pos::Other);
-        if tagger.pos(w, id).expect("count sum") != old {
+        if tagger.pos(w, id) != old {
             moved += 1;
         }
     }
     assert_eq!(
         moved, 25,
-        "KILL G6: the counted pick moved {moved} in-vocabulary tags, pinned 25"
+        "KILL G6: the register pick moved {moved} in-vocabulary tags, pinned 25"
     );
-    println!("G6 PASS  counted pick moves {moved} in-vocabulary tags from first-wins (pinned 25)");
+    println!("G6 PASS  register pick moves {moved} in-vocabulary tags from first-wins (pinned 25)");
 
     // ── stream: verse index = version; FSM → SPO ──
     let mut stream = TemporalStream::new();
@@ -178,7 +177,7 @@ fn main() {
         for tok in verse.split_whitespace() {
             let Some(w) = normalise(tok) else { continue };
             let Some(id) = nsm.vocab.id(&w) else { continue };
-            let pos = tagger.pos(&w, id).expect("count sum");
+            let pos = tagger.pos(&w, id);
             tagged_buf.push(Tagged::new(id, pos));
         }
         tagged_buf.push(Tagged::new(0, Pos::Stop)); // verse boundary flushes
@@ -1045,45 +1044,21 @@ fn normalise(tok: &str) -> Option<String> {
     (w.len() >= 2).then_some(w)
 }
 
-/// The fold's states in tie-break order: a tie between two known sums goes to
-/// the state listed first.
-const PICK_ORDER: [Pos; 5] = [Pos::Noun, Pos::Verb, Pos::Adj, Pos::Det, Pos::Other];
-
-/// The counted reading of one word (D-LXC-1).
+/// The dominant reading of one word (D-LXC-1): position 0 of the
+/// frequency-ordered register, folded with [`coca_pos`].
 ///
-/// Folds each reading's source tag with [`coca_pos`] and sums the known
-/// `wordFreq` per parser state. A state with any unknown count is unknown and
-/// does not compete; overflow is an error, never a wrap. The highest known sum
-/// wins, ties go to [`PICK_ORDER`], and no known count at all is `None` — the
-/// caller's fallback decides, nothing is invented here.
+/// `LexicalEvidence` stores readings most frequent first, so nothing is summed
+/// here. The register is read only when its coverage is known; with any
+/// unknown count the dominant reading is unknown and this returns `None`, so
+/// the caller's fallback decides.
 ///
 /// This replaces taking the FIRST `word_forms.csv` row: that file is ordered by
 /// lemma rank, not by surface frequency, so for 259 surfaces the first row is
 /// not the dominant reading (`changes`: verb row 13,624 first, noun 113,085).
-fn counted_pos(readings: &[LexicalReading]) -> Result<Option<Pos>, EvidenceError> {
-    let mut best: Option<(u64, Pos)> = None;
-    for state in PICK_ORDER {
-        let mut sum = Some(0u64);
-        let mut seen = false;
-        for r in readings {
-            if coca_pos(&r.pos.as_char().to_string()) != state {
-                continue;
-            }
-            seen = true;
-            sum = match (sum, r.form_count) {
-                (Some(s), Some(c)) => Some(s.checked_add(c).ok_or(EvidenceError::CountOverflow)?),
-                _ => None,
-            };
-        }
-        let (true, Some(sum)) = (seen, sum) else {
-            continue;
-        };
-        // Strictly greater: an equal sum keeps the earlier state in PICK_ORDER.
-        if best.is_none_or(|(b, _)| sum > b) {
-            best = Some((sum, state));
-        }
-    }
-    Ok(best.map(|(_, p)| p))
+fn dominant_pos(evidence: &LexicalEvidence, id: WordId) -> Option<Pos> {
+    evidence.coverage(id).first().copied().flatten()?;
+    let r = evidence.readings(id).first()?;
+    Some(coca_pos(&r.pos.as_char().to_string()))
 }
 
 /// Lowercase the `word` column of `word_forms.csv`, leaving the header and the
@@ -1108,7 +1083,7 @@ fn lowercase_word_column(forms_csv: &str) -> String {
     out
 }
 
-/// The corpus tagger: lemma table → counted `word_forms.csv` evidence →
+/// The corpus tagger: lemma table → dominant `word_forms.csv` reading →
 /// [`archaic_pos`] → [`Pos::Other`].
 ///
 /// Lemma-first is deliberate and pinned (commit `ec50f07b`): the forms layer
@@ -1144,14 +1119,13 @@ impl Tagger {
     }
 
     /// The tag for word `w` whose routing id is `id`.
-    fn pos(&self, w: &str, id: WordId) -> Result<Pos, EvidenceError> {
+    fn pos(&self, w: &str, id: WordId) -> Pos {
         if let Some(&p) = self.lemmas.get(w) {
-            return Ok(p);
+            return p;
         }
-        if let Some(p) = counted_pos(self.evidence.readings(id))? {
-            return Ok(p);
-        }
-        Ok(archaic_pos(w).unwrap_or(Pos::Other))
+        dominant_pos(&self.evidence, id)
+            .or_else(|| archaic_pos(w))
+            .unwrap_or(Pos::Other)
     }
 }
 
@@ -1185,15 +1159,6 @@ fn load_pos_first_wins(lemmas_csv: &str, forms_csv: &str) -> HashMap<String, Pos
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deepnsm_v2::PosCode;
-
-    fn reading(tag: u8, count: Option<u64>) -> LexicalReading {
-        LexicalReading {
-            pos: PosCode(tag),
-            lemma: None,
-            form_count: count,
-        }
-    }
 
     fn vocab(words: &[&str]) -> PaletteVocab {
         let mut v = PaletteVocab::new();
@@ -1209,11 +1174,23 @@ mod tests {
         .expect("committed COCA table")
     }
 
+    const NO_LEMMAS: &str = "rank,lemma,PoS\n";
+
+    fn forms(rows: &str) -> String {
+        format!("lemRank,lemma,PoS,lemFreq,wordFreq,word\n{rows}")
+    }
+
+    fn tag(forms_csv: &str, w: &str) -> Pos {
+        let v = vocab(&[w]);
+        let t = Tagger::load(NO_LEMMAS, forms_csv, &v).unwrap();
+        t.pos(w, v.id(w).unwrap())
+    }
+
     // (a) a homograph keeps every reading
     #[test]
     fn record_keeps_its_noun_and_verb_readings() {
         let v = vocab(&["record"]);
-        let t = Tagger::load("rank,lemma,PoS\n", &committed("word_forms.csv"), &v).unwrap();
+        let t = Tagger::load(NO_LEMMAS, &committed("word_forms.csv"), &v).unwrap();
         let tags: Vec<char> = t
             .evidence
             .readings(v.id("record").unwrap())
@@ -1223,85 +1200,64 @@ mod tests {
         assert!(tags.contains(&'n') && tags.contains(&'v'), "{tags:?}");
     }
 
-    // (b) tags that fold into one state are summed; overflow is an error
+    // (b) the pick is position 0 of the register: folded tags are NOT summed
     #[test]
-    fn folded_tags_sum_and_overflow_is_refused() {
-        // n 60 + p 50 = Noun 110 beats v 100; either alone would lose.
-        let r = [
-            reading(b'n', Some(60)),
-            reading(b'p', Some(50)),
-            reading(b'v', Some(100)),
-        ];
-        assert_eq!(counted_pos(&r).unwrap(), Some(Pos::Noun));
-        let big = [reading(b'n', Some(u64::MAX)), reading(b'p', Some(1))];
-        assert_eq!(counted_pos(&big), Err(EvidenceError::CountOverflow));
+    fn the_dominant_reading_wins_without_summing() {
+        // n 60 + p 50 would be Noun 110 if summed; the register says v 100.
+        assert_eq!(
+            tag(&forms("1,x,n,9,60,w\n2,y,p,9,50,w\n3,z,v,9,100,w\n"), "w"),
+            Pos::Verb
+        );
     }
 
-    // (c) one unknown count makes that whole state unknown
+    // (c) an unknown count makes the register unreadable, so the fallback decides
     #[test]
-    fn an_unknown_count_takes_its_state_out() {
-        let r = [
-            reading(b'n', Some(500)),
-            reading(b'n', None),
-            reading(b'v', Some(1)),
-        ];
-        assert_eq!(counted_pos(&r).unwrap(), Some(Pos::Verb));
+    fn an_unknown_count_falls_through() {
+        assert_eq!(tag(&forms("1,x,n,9,500,w\n2,y,v,9,,w\n"), "w"), Pos::Other);
     }
 
-    // (d) `changes`: first row is the verb, the counts say noun
+    // (d) `changes`: first row is the verb, the register says noun (89%)
     #[test]
-    fn changes_is_a_noun_by_count_and_a_verb_by_first_row() {
+    fn changes_is_a_noun_by_frequency_and_a_verb_by_first_row() {
         let forms = committed("word_forms.csv");
         let v = vocab(&["changes"]);
-        let t = Tagger::load("rank,lemma,PoS\n", &forms, &v).unwrap();
+        let t = Tagger::load(NO_LEMMAS, &forms, &v).unwrap();
+        let id = v.id("changes").unwrap();
         assert!(
             !t.lemmas.contains_key("changes"),
             "must not be a lemma-table key"
         );
+        assert_eq!(t.pos("changes", id), Pos::Noun);
+        assert_eq!(t.evidence.coverage(id).first().copied().flatten(), Some(89));
+        // Anti-vacuity: the old first-wins rule tags it Verb.
         assert_eq!(
-            t.pos("changes", v.id("changes").unwrap()).unwrap(),
-            Pos::Noun
-        );
-        // Anti-vacuity: the old first-wins rule tags it Verb, so the line
-        // above distinguishes the two rules.
-        assert_eq!(
-            load_pos_first_wins("rank,lemma,PoS\n", &forms).get("changes"),
+            load_pos_first_wins(NO_LEMMAS, &forms).get("changes"),
             Some(&Pos::Verb)
         );
     }
 
-    // (e) the tie order is fixed
+    // (e) equal counts keep file order
     #[test]
-    fn ties_go_to_the_earlier_state() {
-        let nv = [reading(b'v', Some(10)), reading(b'n', Some(10))];
-        assert_eq!(counted_pos(&nv).unwrap(), Some(Pos::Noun));
-        let vj = [reading(b'j', Some(10)), reading(b'v', Some(10))];
-        assert_eq!(counted_pos(&vj).unwrap(), Some(Pos::Verb));
+    fn ties_keep_file_order() {
+        assert_eq!(tag(&forms("1,x,v,9,10,w\n2,y,n,9,10,w\n"), "w"), Pos::Verb);
+        assert_eq!(tag(&forms("1,x,n,9,10,w\n2,y,v,9,10,w\n"), "w"), Pos::Noun);
     }
 
-    // (f) no known count gives None, and the tagger falls through
+    // (f) no known count falls through to archaic, then Other
     #[test]
     fn no_known_count_falls_through_to_archaic_then_other() {
-        assert_eq!(counted_pos(&[reading(b'n', None)]).unwrap(), None);
-        assert_eq!(counted_pos(&[]).unwrap(), None);
-        let forms = "lemRank,lemma,PoS,lemFreq,wordFreq,word\n1,hath,n,5,,hath\n2,zz,n,5,,zz\n";
+        let f = forms("1,hath,n,5,,hath\n2,zz,n,5,,zz\n");
         let v = vocab(&["hath", "zz"]);
-        let t = Tagger::load("rank,lemma,PoS\n", forms, &v).unwrap();
-        assert_eq!(t.pos("hath", v.id("hath").unwrap()).unwrap(), Pos::Verb);
-        assert_eq!(t.pos("zz", v.id("zz").unwrap()).unwrap(), Pos::Other);
+        let t = Tagger::load(NO_LEMMAS, &f, &v).unwrap();
+        assert_eq!(t.pos("hath", v.id("hath").unwrap()), Pos::Verb);
+        assert_eq!(t.pos("zz", v.id("zz").unwrap()), Pos::Other);
     }
 
-    // (g) stay-silent: one reading keeps its tag
+    // (g) stay-silent: one reading keeps its tag and covers 100%
     #[test]
     fn a_single_reading_keeps_its_tag() {
-        assert_eq!(
-            counted_pos(&[reading(b'j', Some(3))]).unwrap(),
-            Some(Pos::Adj)
-        );
-        assert_eq!(
-            counted_pos(&[reading(b'r', Some(3))]).unwrap(),
-            Some(Pos::Other)
-        );
+        assert_eq!(tag(&forms("1,x,j,9,3,w\n"), "w"), Pos::Adj);
+        assert_eq!(tag(&forms("1,x,r,9,3,w\n"), "w"), Pos::Other);
     }
 
     // (h) + G7: the lemma table is never overruled by the forms layer
@@ -1315,32 +1271,29 @@ mod tests {
         )
         .unwrap();
         let id = v.id("work").unwrap();
-        // The counts alone would say Noun (n 456,169 vs v 356,692) ...
-        assert_eq!(
-            counted_pos(t.evidence.readings(id)).unwrap(),
-            Some(Pos::Noun)
-        );
+        // The register alone says Noun ...
+        assert_eq!(dominant_pos(&t.evidence, id), Some(Pos::Noun));
         // ... and the lemma table still wins.
-        assert_eq!(t.pos("work", id).unwrap(), Pos::Verb);
+        assert_eq!(t.pos("work", id), Pos::Verb);
 
         // The same property on a conflicting row, with the row proven loaded.
-        let conflicting = "lemRank,lemma,PoS,lemFreq,wordFreq,word\n1,x,n,9,4,create\n";
+        let conflicting = forms("1,x,n,9,4,create\n");
         let v = vocab(&["create"]);
-        let t = Tagger::load("rank,lemma,PoS\n1,create,v\n", conflicting, &v).unwrap();
+        let t = Tagger::load("rank,lemma,PoS\n1,create,v\n", &conflicting, &v).unwrap();
         assert_eq!(t.evidence.reading_count(), 1);
-        assert_eq!(t.pos("create", v.id("create").unwrap()).unwrap(), Pos::Verb);
+        assert_eq!(t.pos("create", v.id("create").unwrap()), Pos::Verb);
     }
 
     // (i) a capitalised COCA surface still routes
     #[test]
     fn a_capitalised_surface_routes_after_lowercasing() {
-        let forms = "lemRank,lemma,PoS,lemFreq,wordFreq,word\n7,true,j,9,4,True\n";
+        let f = forms("7,true,j,9,4,True\n");
         let v = vocab(&["true"]);
-        let t = Tagger::load("rank,lemma,PoS\n", forms, &v).unwrap();
+        let t = Tagger::load(NO_LEMMAS, &f, &v).unwrap();
         assert_eq!(t.report.unrouted, 0);
-        assert_eq!(t.pos("true", v.id("true").unwrap()).unwrap(), Pos::Adj);
+        assert_eq!(t.pos("true", v.id("true").unwrap()), Pos::Adj);
         // Without the lowercasing the same row is not routed.
-        let (_, raw) = load_word_forms_csv(forms, &v).unwrap();
+        let (_, raw) = load_word_forms_csv(&f, &v).unwrap();
         assert_eq!(raw.unrouted, 1);
     }
 }
