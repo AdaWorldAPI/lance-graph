@@ -73,6 +73,34 @@ authorized. Partly supersedes
 - **Open:** DataFusion stays in the build graph through the `lance-graph` dependency
   (OQ-CML-1); where the relationship declaration lives long-term (OQ-CML-2); self-hop
   vs `Foreign` planes (OQ-CML-4). The witness-loci relative hop is deferred (D-CML-6).
+## 2026-09-29 (3) — deepnsm-v2-cam96-pairwise-v1 — Cam96 from twelve independent axes to six pairwise rails → `.claude/plans/deepnsm-v2-cam96-pairwise-v1.md`
+
+**Status:** SPEC v1, PROPOSAL. No code authorized; `/5plus3` before any wave.
+
+**The problem:** the shipped Cam96 quantizes 12 unrelated 8-d halves and sums
+12 distances (`space.rs:195-272`). That is twelve indices, not the
+`6 × (u8:u8)` relations the facet plan and the needle/pair entry specify.
+
+**The change:**
+- **Rail:** each of 6 subspaces gets ONE 256-centroid codebook, and a rail
+  becomes `(nearest : second-nearest)` in that codebook. Byte 0 alone is the
+  48-bit point code. The colon's value is the per-subspace Fisher-z table
+  cell, i.e. the neighbourhood's spread.
+- **Distance:** in z-space, choosing between three candidates by held-out
+  measurement.
+- **Consequences:**
+  - The Fisher-z codec moves into the contract.
+  - New artifact magics and a newtype code gate old from new.
+  - The persisted `EpisodicBasin` self-code needs a read-mode marker first.
+
+**Blocked:** the 96-d embeddings the retrain needs are not in the release.
+
+**Open:**
+- where the frequency/PoS header lives, given the classid canon;
+- the rail order;
+- the reconstruct choice for `basin.rs`.
+
+D-ids `D-C96P-1..8`.
 
 ## 2026-09-29 (2) — deepnsm-v2-lexical-evidence-consumer-v1 rewritten against the DeepNSM → DeepNSM-v2 migration → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
 
@@ -97,7 +125,6 @@ first version rested on shell searches and missed the migration documents.
 first-wins today) switched to a counted, named selection rule. FSM input stays
 one `Pos` per token. Convergence brief for a second session:
 `.claude/prompts/deepnsm-v2-lexical-consumer-converge.md`.
-
 ## 2026-09-19 (1) — waben-fold-execution-loop-v1 — from the merged folds to one addressed execution loop → `.claude/plans/waben-fold-execution-loop-v1.md`
 
 **Status:** PROPOSAL. No code authorized; this is the grounded implementation
