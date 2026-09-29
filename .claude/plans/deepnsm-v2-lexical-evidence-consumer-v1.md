@@ -152,29 +152,84 @@ Other facts read for this plan:
 
 ## Checklist (D-LXC-1; D-LXC-7 rides with it)
 
-- [ ] Tests first (G3), each seen red before the change.
-- [ ] In `bible_wave` only: build `LexicalEvidence` with `load_word_forms_csv`
+- [x] Tests first (G3). Each was shown red by a disable run (see Results).
+- [x] In `bible_wave` only: build `LexicalEvidence` with `load_word_forms_csv`
       against `nsm.vocab`, after lowercasing the `word` column.
-- [ ] Per `WordId`: read `readings`, fold each `PosCode` with the example's
+- [x] Per `WordId`: read `readings`, fold each `PosCode` with the example's
       `coca_pos`, sum known `form_count` per state with `checked_add` (a state
       with any unknown count is unknown), take the highest known sum with the
       fixed tie order; no known count gives `None`.
-- [ ] Resolution order, variant B (F9): lemma table → counted pick →
+- [x] Resolution order, variant B (F9): lemma table → counted pick →
       `archaic_pos` → `Pos::Other`. The lemma layer is unchanged.
-- [ ] Give the pick a test home that CI runs: `Cargo.toml` has no
-      `[[example]]` section today, so either add one for `bible_wave` with
-      `test = true`, or include the functions in a `tests/` file via
-      `#[path]`. G1 decides which.
-- [ ] Measure on the KJV (Gutenberg #10 `pg10.txt`, input only, not
+- [x] Give the pick a test home that CI runs: `[[example]] name = "bible_wave"`
+      with `test = true`.
+- [x] Measure on the KJV (Gutenberg #10 `pg10.txt`, input only, not
       committed): before and after for B, and A as a reported alternative.
-      Triples, subjects, same-subject links, % beyond ±5 and ±8, tokens whose
-      `Pos` changed, and `WordFormsReport` (rows, stored, empty_surface,
-      unrouted).
-- [ ] Record the tag-fold duplication: two copies of `coca_pos` remain
-      (`bible_wave.rs:980`, `genre_shapes.rs:204`) under F7; a change to one
-      is a change to both.
-- [ ] `.claude/settings.json` `"attribution": {"commit": "", "pr": ""}`.
-- [ ] Not touched: `lexical.rs`, `lib.rs`, `fsm.rs`, `genre_shapes.rs`.
+- [x] Record the tag-fold duplication: two copies of `coca_pos` remain
+      (`bible_wave.rs`, `genre_shapes.rs`) under F7; a change to one is a change
+      to both.
+- [x] `.claude/settings.json` `"attribution": {"commit": "", "pr": ""}`.
+- [x] Not touched: `lexical.rs`, `lib.rs`, `fsm.rs`, `genre_shapes.rs`.
+
+## Results (2026-09-29)
+
+**Code.** `crates/deepnsm-v2/examples/bible_wave.rs`:
+- `counted_pos` implements the fold and pick.
+- `Tagger` is lemma table → counted pick → `archaic_pos` → Other.
+- `lowercase_word_column` fixes the capitalised COCA surfaces.
+- `load_pos_first_wins` is the old rule, kept only for G6.
+- Nine tests.
+
+`crates/deepnsm-v2/Cargo.toml` adds `[[example]] name = "bible_wave"`
+`test = true`.
+
+**G1.** `cargo test --manifest-path crates/deepnsm-v2/Cargo.toml` runs 124 lib
+tests plus the 9 new example tests; all pass. Each disable run below turned at
+least one of them red under the example's tests:
+
+| disable | red |
+|---|---|
+| first reading wins (the old rule) | 6 tests, including (d) |
+| no sum across folded tags | (b) |
+| unknown count treated as zero | (c) and (f) |
+| ties go to the later state | (e) |
+| no known count becomes Noun | (f) |
+| counted pick before the lemma table | (h)/G7 |
+| no lowercasing | (i) |
+| overflow wraps | (b) |
+
+A first attempt at the first-wins disable (take the first state in tie order)
+stayed green. It was not the old rule, so it was replaced.
+
+**G2.** clippy `--all-targets -D warnings` and `fmt --check` are clean.
+
+**G4.** The #1299 invariance tests are unchanged and green.
+
+**G5/G6: KJV.** The `v0.1.0-cam96-data` release artifacts were used. Before is
+`main` `5282dfa3`; after is this branch. Every in-code gate passes in all three
+runs.
+
+| | before (first-wins) | **after (B)** | A (counts first) |
+|---|---|---|---|
+| verses | 31,102 | 31,102 | 31,102 |
+| triples | 70,393 | **70,396** | 71,088 |
+| distinct subjects | 1,227 | **1,237** | 1,243 |
+| distinct predicates | 1,941 | **1,931** | 1,944 |
+| same-subject links | 60,947 | **60,944** | 61,554 |
+| beyond ±5 / ±8 | 60.3% / 52.7% | **60.3% / 52.7%** | 60.3% / 52.6% |
+| in-vocab tags moved (G6) | — | **25** | 141 |
+
+- **Token scope.** Of 771,176 in-vocabulary tokens, 107 change tag under B.
+  The largest are bases 16, locks 15, promises 13 and flies 10.
+- **`WordFormsReport`:** 11,460 rows, 4,284 readings stored, 4 empty
+  surface, 7,172 not in the KJV vocabulary.
+- **Reading.** B is a small correction. It moves 25 words' tags, adds 3
+  triples, and leaves the long-range shares unchanged. Whether the moved tags
+  are more correct is still not measured. A moves 5.6× more tags and adds 695
+  triples.
+- **G7.** The lemma-first property is pinned again by
+  `the_forms_layer_never_retags_a_lemma_table_word`. That is the falsifier
+  `TD-DEEPNSM-V2-SESSION-RESIDUE` item 3 asked for.
 
 ## Pre-registered gates
 

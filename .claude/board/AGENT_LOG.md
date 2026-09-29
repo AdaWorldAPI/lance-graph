@@ -1,3 +1,16 @@
+## 2026-09-29 — D-LXC-1 implemented (orchestrator, no agents)
+
+- `crates/deepnsm-v2/examples/bible_wave.rs`: counted PoS pick replaces the
+  `word_forms.csv` first-wins; lemma table still first. `Cargo.toml`:
+  `[[example]] bible_wave test = true`. 9 new tests; 124 lib tests unchanged.
+- Disable runs: 8 guards, each turned its named test red. One first attempt at
+  the first-wins disable was not the old rule and stayed green; replaced.
+- clippy `-D warnings` and fmt are clean.
+- KJV before/after: 70,393 → 70,396 triples; 25 tags moved (G6 exact); 107 of
+  771,176 tokens changed; long-range shares unchanged. Counts-first
+  alternative: 71,088 triples, 141 tags.
+- `.claude/settings.json` gains `attribution` (D-LXC-7).
+
 ## 2026-09-29 — D-LXC-1 plan rewritten with Read (orchestrator, no agents, no code)
 
 - Operator-directed. The council run below read source with shell
