@@ -5,7 +5,7 @@ Plan: `.claude/plans/perturbationsfeld-probe-v1.md`.
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-PFP-0** | pre-registration file: metrics (n+1 top-k overlap, L1), numeric thresholds, aperture threshold, corpus, seeds — committed BEFORE any run | Queued | thresholds unchanged after results are read |
-| **D-PFP-1** | standalone probe crate (deps: thinking-engine + lance-graph-mask-risc, workspace-excluded): control / experiment / sabotage over a 1-D 4096-row population, two cycles | Queued | FAIL if sabotage ≈ experiment; mandatory stay-silent twin (two unpermuted runs identical) + can-it-fire check (permutation changes the aperture mask) |
+| **D-PFP-1** | standalone probe crate (deps: thinking-engine + lance-graph-mask-risc, workspace-excluded): control / experiment / sabotage over a 1-D 4096-row population, two cycles | Queued | exhaustive outcomes (plan §4.4): PASS / FAIL (sabotage ≈ experiment) / ADDRESS-WITHOUT-GAIN (≠ sabotage, ≈ control); INVALID if the stay-silent twin, the can-it-fire check or the f32→i32 lowering oracle (§4.3) fails |
 | **D-PFP-2** | 2-D addressing variant: row-major vs Morton 12→6+6 vs permuted over 64×64 cells | Deferred until D-PFP-1 PASSES | answers Q1 of ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN by measurement; no p64 wiring |
 
 ## D-RPT — ReportPlan / zero-copy pivot / report-as-OGAR-projection (2026-09-23)

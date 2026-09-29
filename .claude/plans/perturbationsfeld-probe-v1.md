@@ -285,7 +285,7 @@ is proven. So the first executable step is a probe, not wiring.
 | arm | cycle-n field → cycle-n+1 input |
 |---|---|
 | **Control** | today's path: `top_k` → `min..max` window (`dispatch_from_top_k`) → `Pred::Range` / `execute_extent` |
-| **Experiment** | dense `energy` → threshold mask over 4096 rows (mask-risc `Pred` on an energy lane) → fold → selected ids → `perturb` for n+1 |
+| **Experiment** | dense `energy` → order-preserving i32 key lane (§4.3) → `Pred::GtI32` threshold mask over 4096 rows → fold → selected ids → `perturb` for n+1 |
 | **Sabotage** | Experiment with the `energy[i] ↔ row` addressing permuted by a fixed seed |
 
 ### 4.3 Pre-registration (D-PFP-0, written and committed BEFORE any run)
@@ -293,22 +293,53 @@ is proven. So the first executable step is a probe, not wiring.
 - metrics on the n+1 energy: top-k overlap (|A∩B|/k) and L1 distance;
 - numeric thresholds for "measurably different" fixed in the pre-registration
   file, never adjusted after reading results;
-- energy threshold for the aperture, corpus, seeds, codebook table fixed;
+- energy threshold for the aperture, corpus, seeds, codebook table and the
+  ENGINE VARIANT (which of u8 / BF16 / i8 / f32 produced `energy`) fixed;
+- **the f32 → i32 lowering, fixed and exact.** mask-risc has no f32
+  predicate: `LaneRef` is `I32 | U32 | U64 | Strided` and the ordered
+  predicates are `GtI32` / `LtI32` (`crates/lance-graph-mask-risc/src/ir.rs:129,131`).
+  `PerturbationDto.energy` is `Vec<f32>` and `from_energy_f32` does not
+  guarantee `e ≥ 0` (the signed engine exists), so the lowering is the
+  standard total-order key, not a quantization:
+  `k(e) = { b = e.to_bits() as i32; if b < 0 { b ^ 0x7FFF_FFFF } else { b } }`.
+  It is strictly monotone over all finite f32 (no result-affecting rounding),
+  so `e > θ ⇔ k(e) > k(θ)` except that `-0.0` and `+0.0` receive distinct
+  keys — θ must therefore be pre-registered as a nonzero value. NaN in
+  `energy` ⇒ INVALID run. The key lane is a probe-local derived copy
+  (4096 × i32 = 16 KB), stated here as a materialization the probe accepts;
+  it is not a production pattern and adds no new `Pred` or `LaneRef`;
+- **lowering oracle:** each run also computes the aperture with a scalar f32
+  comparison (`e > θ`) and asserts it equals the mask-risc mask bit-for-bit
+  (§4.4 can-it-fire);
 - any significance claim cites Jirak 2016 (I-NOISE-FLOOR-JIRAK), never
   classical Berry–Esseen; hand-set thresholds are labelled hand-set.
 
-### 4.4 Pass / fail
+### 4.4 Outcomes — exhaustive (every run lands in exactly one row)
 
-- **PASS:** Experiment ≠ Sabotage on the n+1 field **and** Experiment ≠
-  Control, by the pre-registered thresholds.
-- **FAIL:** Sabotage indistinguishable from Experiment ⇒ the field is not an
-  address; the lithography/Perturbationsfeld framing has no mechanical content
-  here; stop before wiring any seam.
+Validity checks run FIRST; a run that fails either is INVALID and no
+outcome row is read from it:
+
 - **Can-it-stay-silent twin (mandatory):** two unpermuted runs of the same
-  arm must read identical (the metric must not fire on everything). Both
-  twins use non-trivial inputs.
-- **Can-it-fire check:** the sabotage permutation must be shown to change the
-  aperture mask itself (else the disable did not apply).
+  arm must read identical under the metric (the metric must not fire on
+  everything). Both twins use non-trivial inputs. Fails ⇒ **INVALID**
+  (nondeterminism or a metric that fires on noise) — fix, re-pre-register,
+  re-run; never read the arms.
+- **Can-it-fire check:** the sabotage permutation must change the aperture
+  mask itself, and the lowering oracle (§4.3) must agree bit-for-bit.
+  Fails ⇒ **INVALID** (the disable did not apply / the lowering lies).
+
+Then, with "≠" meaning "differs by the pre-registered thresholds" and "≈"
+meaning "does not":
+
+| E vs S | E vs C | outcome | disposition |
+|---|---|---|---|
+| ≠ | ≠ | **PASS** | the field is an address AND the dense aperture changes the next cycle beyond today's window. Unlocks D-PFP-2; a consequence may be proposed for D-WFL-W5 / D-V3-W4b |
+| ≈ | any | **FAIL** | the field is not an address under this lowering; the lithography/Perturbationsfeld framing has no mechanical content here; stop before wiring any seam. D-PFP-2 stays deferred |
+| ≠ | ≈ | **ADDRESS-WITHOUT-GAIN** | the addressing carries information, but the dense aperture buys nothing over the existing `top_k` → window path. Recorded as a finding; does NOT unlock wiring (today's path already delivers the same consequence) and does NOT unlock D-PFP-2. The only licensed follow-up is re-examining the aperture choice (§6 OPEN), as a new pre-registration |
+
+No other combination exists; an outcome not in this table is a defect in
+the harness, not a result.
+
 - Read the true exit status and the full result lines of every run, never a
   grep of assertions.
 
