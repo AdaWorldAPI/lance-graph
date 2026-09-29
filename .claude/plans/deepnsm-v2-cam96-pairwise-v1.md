@@ -215,13 +215,13 @@ guard below gets a disable run: red with the guard removed, green with it back.
 | gate | criterion | what fails it |
 |---|---|---|
 | **G1 fidelity** | best of R1/R2 has held-out ρ ≥ **0.774** (the 12-axis) | < 0.774 and ≥ 0.617 means PARTIAL: report it; the operator decides. < 0.617 (the 48-bit point) means KILL |
-| G1 report | also report R3, the RQ point (0.786), and recon MSE | — |
+| G1 report | four separate rows, never merged: R3 (first byte only), beside the **48-bit point 0.617** it should approach; the **96-bit RQ point 0.786** as its own equal-budget baseline, measured as `train_codebook.py`'s `rq_fit` arm; the 12-axis 0.774; and recon MSE for each | — (R3 is the 48-bit point, not the RQ control) |
 | **G2 needle** | with the same seeds and split, every word's `c₁` bytes equal its 48-bit PQ code byte for byte; R3's ρ is reported beside the 48-bit ρ | `c₁` is not the point code (R3 scores through `T_s` cosines, not full-vector L2, so its ρ is reported, not gated) |
 | **G3 spread is load-bearing** | shuffling every word's `c₂` across words (keeping `c₁`) **lowers** R1/R2 ρ | if ρ does not drop, the second byte is decoration and the change is only a relabel |
 | G3b diagonal variant | report ρ with the far-second-pole → `(c₁:c₁)` rule at 3 pre-set thresholds | report only |
 | **G4 header orthogonality** | word similarity is bit-identical under a permutation of `WordId` routing and of `LexicalEvidence` counts | frequency or PoS leaking into meaning |
 | **G5 diagonal by address** | `sim(a, a) == 1.0` for every code, and no `T_s` diagonal read occurs | a lookup answering a needle question |
-| **G6 version gate** | the new loader refuses `CAM96CB1`, the old loader refuses `CAM96P01`, and a `compile_fail` doctest shows the two code types do not mix | silent cross-reading |
+| **G6 version gate** | all four loader rejections: the pair-codebook loader refuses `CAM96CB1` and the axis-codebook loader refuses `CAM96P01`; the pair-code loader refuses `CAM96WD1` and the axis-code loader refuses `CAM96PW1`. Also a `compile_fail` doctest showing the two code types do not mix | silent cross-reading. The code files matter most: both carry 12 bytes per word with incompatible meanings, and the type test cannot protect deserialized bytes |
 | G7 basin | re-run the D-SRS-3 held-out gates (`basin.rs`) on pair codes | report only; the July negative is not re-litigated |
 | G8 downstream | re-measure `tesseract-paperless::consistency`'s four recorded pair similarities and `ABSOLUTE_ENDORSE_THRESHOLD` | report, then re-pin; never defend the old number |
 
