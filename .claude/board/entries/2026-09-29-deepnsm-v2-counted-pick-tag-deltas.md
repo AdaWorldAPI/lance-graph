@@ -29,6 +29,14 @@ and `bible_vocab.txt` (release `v0.1.0-cam96-data`); `bible_wave` run on
 Gutenberg #10 with the same release artifacts, `main` `5282dfa3` against this
 branch. The KJV text is input only and is not committed.
 
+Reproduce: fetch the release assets per `crates/deepnsm-v2/data/README.md`,
+then `DEEPNSM_V2_DATA=<dir> cargo run --release --example bible_wave --
+<pg10.txt>`. The in-code G6 count recomputes the 25 and asserts it. The 141
+(variant A) was measured once in Python and is not re-run by any gate. The
+`bible_vocab.txt` used had SHA-256
+`8dc3a65dcd3af38a2f53308fb96ef5fb5b34336c14587f6971b75ac966c3e212` (recorded
+as provenance, not a gate).
+
 Pre-existing observations filed with the plan:
 - `archaic_pos` never fires for COCA-known words such as `art` (D-LXC-9).
 - No in-crate tagger produces `Pos::Rel`; external callers can still pass it
