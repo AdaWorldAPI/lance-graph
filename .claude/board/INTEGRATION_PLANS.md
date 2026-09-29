@@ -1,3 +1,18 @@
+## 2026-09-29 (2) — perturbationsfeld-probe-v1 §9 — ratified v3 of D-PFP-0/1 (5+3 council) → `.claude/plans/perturbationsfeld-probe-v1.md` §9
+
+**Status:** RATIFIED; D-PFP-0 (pre-registration) shipped with this entry,
+D-PFP-1 run pending. Corrects the 2026-09-29 (1) entry: the population is
+**N = 256** (only 256² tables are git-tracked), not 4096. The council (5
+savants → draft v2 → 3 reviewers; 0 BLOCK, 7 P1 + 17 P2 applied) demoted the
+sabotage arm from the PASS leg to a relabel-sanity control (it passes almost
+by construction in 1-D), moved the decision to RETENTION of the cycle-n top
+set (E-set vs C-set, self-consistency, not fidelity), removed `top_k`
+zero-energy padding from the metric, added an empirical cross-stimulus null
+and a reported-only cardinality-matched arm E_m, and made the outcomes
+INVALID / INPUT-INSENSITIVE / RELABEL-INSENSITIVE / HIGHER-, LOWER-,
+NO-RETENTION-DIFFERENCE. Probe crate `crates/perturbationsfeld-probe`
+(workspace-excluded); constants in its `PREREG.md`.
+
 ## 2026-09-29 (1) — perturbationsfeld-probe-v1 — does the perturbation field's address carry into the next cycle through mask-risc → `.claude/plans/perturbationsfeld-probe-v1.md`
 
 **Status:** PROPOSAL. No code authorized. Forensic basis (RISC-mask, scales +

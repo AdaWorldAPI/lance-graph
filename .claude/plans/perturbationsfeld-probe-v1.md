@@ -426,3 +426,215 @@ Rules:
 Deliver the rows plus at most one paragraph of synthesis. The orchestrating
 session merges accepted rows into the plan as an append-only v1 addendum.
 ```
+
+---
+
+## 9. Addendum 2026-09-29 — ratified v3 of D-PFP-0/1 (5+3 council)
+
+> Append-only. This section SUPERSEDES §4.2–§4.6 where they differ; §1–§3
+> and §5–§7 stand. Council run: 5 savants (prior-art, iron-rule, code-truth,
+> cascade-impact, different-views) → draft v2 → 3 reviewers
+> (overclaim-auditor, dilution-collapse-sentinel, firewall-warden) → this v3.
+> Verdicts: 0 BLOCK; 7 P1 and 17 P2 fixes, all applied (ledger §9.8).
+
+### 9.0 What the probe can and cannot decide
+
+In a 1-D population where row index == codebook id, relabelling the injected
+ids changes the engine's input, so a relabelled (sabotage) arm is EXPECTED to
+differ from the experiment arm for any input-sensitive engine — expected, not
+proven (a symmetric table or a shared attractor could still coincide). The
+probe therefore decides only:
+
+1. **Is the engine's output sensitive to its input on the tracked tables at
+   the δ level?** (INPUT-INSENSITIVE vs not.) No probe measuring this was
+   found by the prior-art search (it is an absence of a search hit, not a
+   proof of absence).
+2. **Given it is, does the E-set (dense-energy selection) retain the cycle-n
+   top set into cycle n+1 more, less, or no differently than the C-set
+   (today's `top_k` window)?** Retention is a SELF-CONSISTENCY measure, not
+   fidelity or information gain. Because E is the exact active set and C is
+   a hull that may include inactive rows, E ≥ C is the EXPECTED direction;
+   the informative parts are the magnitude, a reversal, and the
+   cardinality-matched arm E_m, which separates "more ids" from "which ids".
+
+The sabotage arm is a SANITY control with its own outcome. The 2-D
+address-identity question (ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN)
+is NOT decided here (D-PFP-2), nor is D-WFL-W5.
+
+### 9.1 Correction to §4 (R1): N = 256, not 4096
+
+Only 256² tables are git-tracked (`crates/thinking-engine/data/*/distance_table_256x256.u8`);
+`ThinkingEngine::new` infers size from table length (`engine.rs:204-231`).
+The population is therefore N = 256 rows; the key lane is 256 × i32 = 1 KiB.
+Every "4096 rows / 16 KB" in §4 and in the 2026-09-29 INTEGRATION_PLANS entry
+reads as N = 256. D-PFP-2 must choose its own table size.
+
+### 9.2 Frozen decisions
+
+F1 probe only, no production crate gains a dependency · F2 no p64 lowering
+(`engine_bridge.rs:113-119`) · F3 no new `Pred`/`LaneRef`/carrier/lane/DTO ·
+F4 falsifiability rule; a check implied by the code it tests is labelled
+TRIPWIRE and never counted as discriminating · F5 no σ / significance claim;
+thresholds hand-set, single seed, descriptive; results never say
+"significant" · F6 real tables and lens indices · F7 exhaustive outcomes ·
+F8 exact f32→i32 total-order key, θ nonzero, NaN ⇒ INVALID, scalar oracle ·
+F9 top-set overlap primary, L1 reported only · F10 control path = `top_k`
+active rows → window → `Pred::Range` → `Keep` · F11 no model identifier in
+any artifact; AGENT_LOG written by the orchestrating thread only · F12
+PREREG.md committed strictly before results; the results entry quotes the
+PREREG branch-commit SHA AND the sha256 of PREREG.md (survives a squash
+merge; local ordering is evidence, not tamper-proofing).
+
+### 9.3 Inputs (verified at 155909a5; line numbers may drift)
+
+thinking-engine (built with `default-features = false`): `engine.rs:204`
+`new`; `:427` `think` (loops `cycle()`; its doc at :425-426 says `cycle_auto`
+— doc defect, not fixed here); `:517` `perturb` (+1 per id < size,
+renormalize if total > 1e-10); `:533` `reset`; energy after `think` on a u8
+table is ≥ 0 and finite and CAN be all-zero; `dto.rs:89` `from_energy_f32`
+always fills 8 `top_k` slots — on a sparse field the tail is padded with
+zero-energy entries. `codebook_index.rs:28` `CodebookIndex::new` (public;
+asserts idx < table_size). Data: Jina v5 table + index (151,936 LE u16, max
+255); BGE-M3 table + index (250,002, max 255). Prior art cited, not
+duplicated: `examples/chunker_falsifier.rs`.
+mask-risc (public API): `Planes`, `LaneRef::I32`, `MaskOp::Pred{pred, under:
+None, dst}`, `Pred::{GtI32, Range}`, `Terminal::Keep`, `Program`,
+`Scratch::for_program`, `execute(.., None)` → `Value::Mask(Scratch(0))`,
+`Scratch::slot(0)` (single tile at N = 256), `materialize_rows`.
+cognitive-shader-driver (reproduced, not depended on):
+`SCAN_WORTHY_ENERGY = 0.01`, window + empty fallback `[0, min(N,64))`.
+
+### 9.4 Procedure
+
+- Lenses: PRIMARY Jina v5, REPLICATION BGE-M3, via `include_bytes!` from the
+  probe crate. PRIMARY decides. Disagreement ⇒ "<PRIMARY outcome>,
+  LENS-SPECIFIC". REPLICATION INVALID with PRIMARY valid ⇒ "<PRIMARY
+  outcome>, REPLICATION INVALID".
+- Stimuli: Q = 32 stimuli, each m = 8 token ids, SplitMix64 seed
+  `0x9E3779B97F4A7C15`, uniform in [0, vocab), mapped by
+  `CodebookIndex::lookup_many`.
+- Cycle n: `reset(); perturb(stim); P_n = think(10)`.
+- Arms (θ = 0.01, hand-set = `SCAN_WORTHY_ENERGY`):
+  - **C** window over `{id ∈ P_n.top_k : e > θ}` (empty ⇒ `[0, min(N,64))`)
+    via mask-risc `Pred::Range` + `Keep`.
+  - **C'** the same window as a scalar id list (TRIPWIRE for the C lowering).
+  - **E** key lane `K[i] = k(e_n[i])` (probe-local, "probe only — not a lane
+    pattern") via `Pred::GtI32{t: k(θ)}` + `Keep`.
+  - **E_m** (reported only) the top-|ids_C| rows of `e_n` by energy among
+    `e > 0` (ties by lower id) — cardinality-matched to C.
+  - **S** `π(ids_E)`, π a fixed Fisher–Yates permutation of 0..N, SplitMix64
+    seed `0x5EED_0000_0000_0001`.
+- Cycle n+1 per arm X: `reset(); perturb(ids_X); P_{n+1}^X = think(10)`.
+  RESET: only the id set carries across; CONTINUE is named and unrun.
+
+### 9.5 Metrics (integer units)
+
+- `act(P)` = ids in `P.top_k` with `e > 0` (padding removed); padding rate
+  reported.
+- `I(a,b) = |act(a) ∩ act(b)|` (0..8); `O = I/8` (fixed denominator).
+- Retention of arm X: `R_X = Σ_s I(P_n, P_{n+1}^X)` over the stimuli valid
+  for X, reported also as a mean in [0,1].
+- Difference `D(X,Y) = Σ_s (8 − I(P_{n+1}^X, P_{n+1}^Y))`.
+- Empirical null (anchor): `N0 = mean over stimulus pairs s≠t of
+  I(P_n^s, P_n^t)/8` (the cross-stimulus overlap); 8/256 ≈ 0.031 printed
+  for reference only.
+- δ = 0.25 (= 2 of 8 ids per stimulus), hand-set. A mean-difference test
+  `ΔR ≥ δ` is evaluated exactly as `Σ ΔI ≥ 2·Q_valid` in integers.
+- L1 means reported only.
+
+### 9.6 Validity, degeneracy, outcomes (evaluated in this order; exhaustive)
+
+Degenerate: a stimulus with `e_n` all-zero, OR `ids_E` empty; and per arm X,
+`e_{n+1}^X` all-zero excludes that stimulus from every comparison involving
+X. > 25% of stimuli excluded in any required comparison ⇒ INVALID.
+
+1. **INVALID** — any of: NaN in any energy (near-vacuous for u8 tables; kept);
+   V3 lowering oracle fails (scalar `e > θ` ≠ mask-risc E mask, or scalar
+   window ≠ mask-risc C mask, any stimulus); θ inertness fails for E (the E
+   set must shrink at 2θ on ≥ 1 stimulus AND grow at θ/2 on ≥ 1 stimulus);
+   TRIPWIRES fail (V1 determinism: each arm run twice identical; C vs C'
+   `D = 0`); degeneracy ceiling exceeded.
+2. **INPUT-INSENSITIVE** — non-collapse fails: (a) positive control — the two
+   single-id stimuli {a},{b} of minimal table similarity give
+   `I(P^a, P^b) > 8 − 2` (overlap above 1 − δ), OR (b) `1 − N0 < δ`.
+   Worded "output insensitive to input at the δ level on these tables".
+3. **RELABEL-INSENSITIVE** — sanity fails: over stimuli with
+   `|ids_E| ≤ N/2`, `D(E,S) < 2·Q_eligible` (fewer than 2 of 8 ids differ on
+   average). Not a collapse verdict. If fewer than 8 stimuli are eligible the
+   sanity is reported "not evaluable" and step 4 proceeds.
+4. On `ΔR = R_E − R_C` (integers, per valid stimulus):
+   - **HIGHER-RETENTION** if `ΔR ≥ 2·Q_valid`,
+   - **LOWER-RETENTION** if `ΔR ≤ −2·Q_valid`,
+   - **NO-RETENTION-DIFFERENCE** otherwise.
+   Always printed beside it: `R_S`, `R_{E_m}`, mean |ids_C|, |ids_E|,
+   padding rate, N0. Reading aid (not a verdict): `R_{E_m} ≈ R_C` suggests a
+   count effect; `R_{E_m} > R_C` suggests membership matters.
+   θ inertness for C is REPORTED ("θ is decoration in the control path" if
+   inert), never INVALID — it reproduces production.
+
+Mapping to §4.4 (155909a5): PASS → HIGHER-RETENTION; FAIL →
+INPUT-INSENSITIVE; ADDRESS-WITHOUT-GAIN → NO-RETENTION-DIFFERENCE; new:
+RELABEL-INSENSITIVE, LOWER-RETENTION. Discriminating checks are the
+non-collapse pair, the sanity, the oracle and θ inertness; V1 and C' are
+TRIPWIRES.
+
+Harness-bug clause: if a run is INVALID because of a probe defect (not the
+data), the defect is fixed, constants stay unchanged, and BOTH runs are
+quoted in the result entry.
+
+### 9.7 Scope statements (pre-registered wording)
+
+- INPUT-INSENSITIVE is scoped to the tracked 256² Jina v5 / BGE-M3 tables
+  with the p75 floor and 10 cycles under RESET. It would cast DOUBT (not a
+  verdict) on thinking-engine "unwired gems" that assume input-dependent
+  energy (`.claude/v3/FUTURE-DESIGN.md`).
+- No outcome decides D-WFL-W5, CONTINUE, or the 2-D address identity.
+- No outcome is attributed to "address" alone; E_m is the only attribution
+  aid, and it is reported, not decisive.
+
+### 9.8 Gates
+
+G1 (local, not CI-gated — CI builds only explicit manifest paths):
+probe `cargo build --release`, `cargo test`, `cargo clippy --all-targets --
+-D warnings` green. G2 root `cargo metadata --no-deps` succeeds after the
+`exclude` edit. G3 exactly one outcome per lens from 9.6. G4 PREREG commit
+precedes the results commit; entry quotes SHA + sha256. G5 board: commit 1
+(PREREG + crate + exclude + this addendum + INTEGRATION_PLANS correction line
++ STATUS rows) and commit 2 (entry + `entries_index.py --write` + STATUS flip
++ AGENT_LOG) each regenerate SUPERSESSION-INDEX LAST; every ledger prepend
+uses read-then-write (never open-for-write while reading) and a `wc -l`
+post-check. G6 constants never change after the first run.
+
+### 9.9 Change ledger v1 → v2 → v3
+
+v1→v2 (savants): sabotage demoted from PASS leg (S5-Q1, S2-Q1 ×2) · δ
+anchoring + descriptive wording (S2-Q2) · broader collapse check (S2-Q1,
+S5-Q5) · V1 relabelled tripwire (S2-Q1) · θ inertness reported for C (S2-Q1)
+· all-zero energy degenerate (S3-Q2) · public `CodebookIndex` (S3-Q1) ·
+explicit `under: None` / lanes (S3-Q3) · RESET scope (S5-Q3) · LENS-SPECIFIC
+(S5-Q4) · COLLAPSED scope (S5-Q5) · PREREG constant test + SHA (S2-Q5) · mod
+registration (S2-Q5) · N=256 correction (S4-Q4) · local-only G1 (S4-Q2) ·
+prior art cited (S1) · probe-local helpers (S1-Q2..Q4).
+
+v2→v3 (reviewers; stricter verdict won everywhere):
+- P1 `top_k` padding makes 0.03 a wrong null → `act()` drops zero-energy
+  padding; empirical cross-stimulus null N0 (overclaim R7).
+- P1 "GAIN / re-evokes better" overclaims; E ≥ C expected → retention
+  relabelled HIGHER/LOWER/NO-RETENTION-DIFFERENCE, self-consistency wording,
+  cardinality-matched E_m reported (overclaim R9; dilution R5).
+- P1 NC(a) `O < 1` near-vacuous → threshold `> 8 − 2` (overclaim R10).
+- P1 NC(c) conflated relabel-sensitivity with collapse, false on large E →
+  separate RELABEL-INSENSITIVE outcome, eligibility `|ids_E| ≤ N/2`
+  (dilution R9/R10; §6 wording follows).
+- P1 per-arm all-zero `e_{n+1}` → per-arm pair exclusion counted in the
+  ceiling (dilution R8).
+- P2: "by construction" → "expected, not proven"; absence = "not found by
+  search" (overclaim §0) · "aperture" → E-set/C-set (dilution §0) · S
+  notation → Q stimuli (both R3) · R_S reported, integer comparisons
+  (dilution R7) · V2(C') relabelled TRIPWIRE (all three) · squash-safe
+  SHA + sha256 (overclaim §5, firewall §1) · harness-bug clause (dilution
+  §5) · INTEGRATION_PLANS correction moved into commit 1, supersession LAST
+  per commit, `wc -l`, AGENT_LOG orchestrator-only (firewall R12/§5/§8) ·
+  L1 rejection narrowed: "same-size relabel of E" rejected; the
+  independent different-stimulus baseline is adopted as N0 (overclaim §8,
+  dilution §8).

@@ -4,9 +4,9 @@ Plan: `.claude/plans/perturbationsfeld-probe-v1.md`.
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-PFP-0** | pre-registration file: metrics (n+1 top-k overlap, L1), numeric thresholds, aperture threshold, corpus, seeds — committed BEFORE any run | Queued | thresholds unchanged after results are read |
-| **D-PFP-1** | standalone probe crate (deps: thinking-engine + lance-graph-mask-risc, workspace-excluded): control / experiment / sabotage over a 1-D 4096-row population, two cycles | Queued | exhaustive outcomes (plan §4.4): PASS / FAIL (sabotage ≈ experiment) / ADDRESS-WITHOUT-GAIN (≠ sabotage, ≈ control); INVALID if the stay-silent twin, the can-it-fire check or the f32→i32 lowering oracle (§4.3) fails |
-| **D-PFP-2** | 2-D addressing variant: row-major vs Morton 12→6+6 vs permuted over 64×64 cells | Deferred until D-PFP-1 PASSES | answers Q1 of ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN by measurement; no p64 wiring |
+| **D-PFP-0** | pre-registration `crates/perturbationsfeld-probe/PREREG.md` (constants, arms, metrics, exhaustive outcomes, scope wording) — ratified v3 of the 5+3 council, plan §9 | Shipped (2026-09-29, committed before any run) | `tests/prereg_constants.rs` asserts every code constant appears verbatim (disable-verified: red on an edited THETA) |
+| **D-PFP-1** | ⊘ corrected by plan §9: standalone probe crate `crates/perturbationsfeld-probe` over N = 256 (not 4096): arms C / C' / E / E_m / S, two cycles under RESET, PRIMARY Jina v5 + REPLICATION BGE-M3 | In progress (crate + tests green; run pending) | outcomes (plan §9.6): INVALID / INPUT-INSENSITIVE / RELABEL-INSENSITIVE / HIGHER- / LOWER- / NO-RETENTION-DIFFERENCE |
+| **D-PFP-2** | 2-D addressing variant: row-major vs Morton 12→6+6 vs permuted over 64×64 cells | Deferred until D-PFP-1 reports HIGHER-RETENTION (the §4.4 PASS, renamed in §9.6) | answers Q1 of ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN by measurement; no p64 wiring; must choose its own table size (§9.1) |
 
 ## D-RPT — ReportPlan / zero-copy pivot / report-as-OGAR-projection (2026-09-23)
 

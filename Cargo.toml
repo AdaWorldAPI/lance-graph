@@ -143,6 +143,11 @@ exclude = [
     # Plan: .claude/plans/weather-soa-bake-v1.md.
     "crates/weather-poc",
     "crates/d-diamond-1-probe",
+    # D-PFP-1 Perturbationsfeld probe — thinking-engine field lowered through
+    # lance-graph-mask-risc as a 1-D aperture; measurement only. Verify via
+    # `cargo test --manifest-path crates/perturbationsfeld-probe/Cargo.toml`.
+    # Plan: .claude/plans/perturbationsfeld-probe-v1.md §9.
+    "crates/perturbationsfeld-probe",
 ]
 resolver = "2"
 
