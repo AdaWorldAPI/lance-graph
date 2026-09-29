@@ -1,3 +1,47 @@
+## 2026-09-29 — D-LXC-1 plan rewritten with Read (orchestrator, no agents, no code)
+
+- Operator-directed. The council run below read source with shell
+  `grep`/`sed`/`head`/`tail` and never opened the DeepNSM → DeepNSM-v2
+  migration documents.
+- Re-read in full with the Read tool:
+  - the plan's cited source (`lexical.rs`, `fsm.rs`, `bible_wave.rs`,
+    `genre_shapes.rs`, `Cargo.toml`, `data/README.md`);
+  - the deleted `lexicon.rs` (`68955ecb^`) and commits `ec50f07b` / `68955ecb`;
+  - `deepnsm-v3-convergence-v1`, `deepnsm-morton-comma-facet-v1`, the
+    inbound-leg and v2-rebuild entries in LATEST_STATE, and `TECH_DEBT`
+    items 593-620 and 1344;
+  - v1 `vocabulary.rs` and `homograph_collapse.rs`, and the planner
+    `insight_coca_read.rs`;
+  - every downstream citation of the KJV numbers.
+- Changes:
+  - F9 (lemma-first, pinned by `ec50f07b`), F10 (PoS/frequency are header
+    signals) and F11 (inbound leg) added.
+  - The deleted module's "first row is dominant" premise shown false for
+    `word_forms.csv` (259 surfaces).
+  - Counts re-measured within `bible_vocab.txt`: 25 (B), 141 (A).
+  - The canon's 31,327 shown to predate the forms layering.
+  - Gates G3(i) and G7 added.
+  - The private-bucket reference removed; D-LXC-8 corrected to 120 commits.
+- Correction to the entry below: the P1 counts were 2 from overclaim, 1 from
+  firewall and 1 from dilution/collapse, not "2 each from overclaim and
+  firewall".
+
+## 2026-09-29 — 5+3 council on D-LXC-1 (proposal only, no code)
+
+- Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md` (ratified v3).
+- The 5: prior-art-savant, iron-rule-savant, code-truth (general-purpose,
+  runtime-archaeologist charter), cascade-impact-savant, creative-explorer-savant.
+  Findings: 1 VIOLATES from S3 (v1's "only `stair` lost"), 3 VIOLATES from S2/S5
+  (library mapping and pick vs F1/F7/F8), plus GAP/RISK/PRIOR-ART findings.
+- The 3: overclaim-auditor, dilution-collapse-sentinel, firewall-warden.
+  0 BLOCK, 9 FIX (2 P1 each from the overclaim and firewall reviewers, 1 P1 from
+  dilution/collapse), rest PASS.
+- v1 → v2: fold and pick moved from the library to `bible_wave`; tag-change
+  count corrected (288, 183 lemma-derived); KJV before/after made blocking.
+- v2 → v3: lemma table kept first (variant B, 105 changes), counted-first
+  reported as alternative; append-only handling corrected.
+- New rows: D-LXC-9 (archaic override), D-LXC-10 (`Pos::Rel` unreachable).
+
 ## 2026-09-23 — W0 recon: OGAR DocIR projection seam (read-only, one Opus general-purpose run)
 
 - D-ids: D-RPT-3, D-RPT-4. No edits, no cargo.

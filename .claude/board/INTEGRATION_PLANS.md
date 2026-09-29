@@ -1,3 +1,27 @@
+## 2026-09-29 (2) — deepnsm-v2-lexical-evidence-consumer-v1 rewritten against the DeepNSM → DeepNSM-v2 migration → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
+
+**Status:** PROPOSAL (D-LXC-1..10). No code authorized. Supersedes entry (1)
+below. The plan was rewritten after every claim was re-read in source; the
+first version rested on shell searches and missed the migration documents.
+
+- **Library:** unchanged.
+- **The one change:** `bible_wave` replaces the forms layer's first-wins with
+  a counted pick, keeping the lemma-first rule pinned by `ec50f07b` (F9).
+- **Migration context:** the v2 rebuild, the inbound-leg ruling, the V3
+  convergence plan, the Morton-comma facet design (PoS and frequency are
+  classid-header signals), and the deleted `lexicon.rs` and its
+  "first row is dominant" premise, which is false for `word_forms.csv`.
+- **Measured:** 25 tag changes within `bible_vocab.txt` under B, 141 if the
+  counted pick goes first.
+
+## 2026-09-29 (1) — deepnsm-v2-lexical-evidence-consumer-v1 — first reader of the #1299 lexical evidence → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
+
+**Status:** SUPERSEDED by entry (2) above (2026-09-29). No code authorized. One read method
+(`LexicalEvidence::fsm_readings`) plus one caller (`bible_wave::load_pos`,
+first-wins today) switched to a counted, named selection rule. FSM input stays
+one `Pos` per token. Convergence brief for a second session:
+`.claude/prompts/deepnsm-v2-lexical-consumer-converge.md`.
+
 ## 2026-09-19 (1) — waben-fold-execution-loop-v1 — from the merged folds to one addressed execution loop → `.claude/plans/waben-fold-execution-loop-v1.md`
 
 **Status:** PROPOSAL. No code authorized; this is the grounded implementation
