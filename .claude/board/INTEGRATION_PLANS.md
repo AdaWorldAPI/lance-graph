@@ -1,3 +1,20 @@
+## 2026-09-29 (1) — perturbationsfeld-probe-v1 — does the perturbation field's address carry into the next cycle through mask-risc → `.claude/plans/perturbationsfeld-probe-v1.md`
+
+**Status:** PROPOSAL. No code authorized. Forensic basis (RISC-mask, scales +
+materialization, engine_bridge + cycle trace, DTOs, lithography archaeology,
+`.claude/v3` delta) recorded in §1-§3. Finding: mask/program, fold and
+perturbation all exist but are disjoint; a non-materialized Perturbationsfeld
+is absent as a path; nothing crosses the cycle boundary between the shader
+world and the mask/fold world. Deliverable: ONE three-arm falsification probe
+(control `top_k`→window / experiment dense energy→mask-risc aperture→fold→
+`perturb` n+1 / sabotage permuted addressing) over a 1-D 4096-row population
+where row = codebook id, which makes `energy[i] ↔ row i` an identity by
+construction and moves the 2-D (row-major vs Morton) question of
+`ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN` into an optional variant.
+Sibling of `waben-fold-execution-loop-v1` (a PASS feeds D-WFL-W5's
+focus-producer slot). D-ids `D-PFP-0..2`. Includes a convergence prompt for
+the parallel session (§7).
+
 ## 2026-09-19 (1) — waben-fold-execution-loop-v1 — from the merged folds to one addressed execution loop → `.claude/plans/waben-fold-execution-loop-v1.md`
 
 **Status:** PROPOSAL. No code authorized; this is the grounded implementation

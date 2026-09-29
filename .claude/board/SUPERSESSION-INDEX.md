@@ -14,14 +14,14 @@
 ## What this table says
 
 **`BindSpace` is the shape of the problem.** Marked RETIRE, and simultaneously the
-most-referenced symbol here: **68 crate files, 48 plans, 42 of them blind.**
+most-referenced symbol here: **68 crate files, 49 plans, 42 of them blind.**
 That is a programme, not a cleanup.
 
 **`GateState` is the sharpest case: 1 plan names it and *every one* is blind.**
 Its COMPONENT-MAP note reads: intra-cascade SD gate — fine IF intra-mailbox; warden sign-off queued, not assumed
 
 **`ResonanceDto` → `PerturbationDto` gives the rule that needs no map at all:**
-2 crate files against 12 plans. The code moved; the plans did not.
+2 crate files against 13 plans. The code moved; the plans did not.
 **Plan-mentions exceeding crate-mentions is a staleness signal on its own.**
 
 ### The limit of the mechanical route
@@ -51,16 +51,16 @@ coverage instead.
 |---|---|---|---|---|---|
 | `A2AMessage` | BLOCKED | — | 2 | 1 | 0 |
 | `StepMask` | BLOCKED | — | 3 | 10 | 4 |
-| `commit_to_l4` | BLOCKED | — | 2 | 2 | 0 |
-| `dispatch_busdto` | BLOCKED | — | 3 | 8 | 5 |
-| `persist_cycle` | BLOCKED | — | 11 | 8 | 5 |
+| `commit_to_l4` | BLOCKED | — | 2 | 3 | 0 |
+| `dispatch_busdto` | BLOCKED | — | 3 | 9 | 5 |
+| `persist_cycle` | BLOCKED | — | 11 | 9 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 1 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 7 | 1 | 0 |
 | `GateDecision` | REPURPOSE | — | 25 | 28 | 25 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 14 | 13 |
-| `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
-| `BindSpace` | RETIRE | — | 68 | 48 | 42 |
+| `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 13 | 7 |
+| `BindSpace` | RETIRE | — | 68 | 49 | 42 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 14 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 52 | 28 | 24 |
 
