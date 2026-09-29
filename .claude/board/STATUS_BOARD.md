@@ -1,3 +1,18 @@
+## D-C96P — deepnsm-v2 Cam96 → 6 × pairwise distribution (2026-09-29)
+
+Plan: `.claude/plans/deepnsm-v2-cam96-pairwise-v1.md`. Entry: `entries/2026-09-29-cam96-is-twelve-axes-not-six-pairs.md`. Council (`/5plus3`) before any wave.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-C96P-1** | analytic Fisher-z codec moves into `lance-graph-contract`; `bgz-tensor` consumes it | Queued | byte parity with `bgz-tensor::fisher_z` |
+| **D-C96P-2** | `Cam96Pair` + `Cam96PairSpace`: 2-NN rail encode, R1/R2/R3 similarity, diagonal by address | Queued | G2, G5 |
+| **D-C96P-3** | `CAM96P01`/`CAM96PW1` loaders, version gate, `Cam96AxisSpace` rename | Queued | G6 |
+| **D-C96P-4** | Rust trainer + held-out harness (same seed/split as `train_codebook.py`) | Queued | G1, G3, G3b |
+| **D-C96P-5** | the pair-code artifact + release | Blocked (96-d embeddings not in the release) | G1 PASS |
+| **D-C96P-6** | retire `SemanticSpace` from the meaning path | Queued | G4 |
+| **D-C96P-7** | `EpisodicBasin` read-mode marker for the 12 persisted bytes | Queued | `v3-envelope-auditor` |
+| **D-C96P-8** | consumer migration (basin, examples; then tesseract-rs `consistency.rs`) | Queued | G7, G8 |
+
 ## D-LXC — DeepNSM-v2 lexical-evidence consumer + candidate next parts (2026-09-29)
 
 Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`. Convergence brief: `.claude/prompts/deepnsm-v2-lexical-consumer-converge.md`.

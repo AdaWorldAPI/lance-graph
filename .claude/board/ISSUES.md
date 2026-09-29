@@ -1,3 +1,17 @@
+## ISS-PAIRPALETTE-IS-TWO-AXES-NOT-A-PAIR — the contract's palette256² is two independent axes (2026-09-29)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE. `recipe_substrate::PairPalette`:
+- holds two codebooks, `basin` and `identity`;
+- its `distance` is "the sum of the per-axis squared-L2s" (`recipe_substrate.rs:125-147`).
+
+A `(u8, u8)` is therefore a 2-D point on two unrelated axes. It is not a relation
+between two centroids of one codebook, which is the needle/pair split of
+`E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1`. This is the same
+shape as the shipped Cam96 (`entries/2026-09-29-cam96-is-twelve-axes-not-six-pairs.md`).
+
+- **Not in scope of** `deepnsm-v2-cam96-pairwise-v1`. That plan fixes Cam96 only.
+- **What closes it:** decide whether `PairPalette` is meant as a 2-axis point (then rename it, since "pair" misleads) or as the L4 pairwise relation (then rebuild it on the per-codebook Fisher-z table, after D-C96P-1).
+
 ## ISS-REPORT-NO-COMPOSITE-KEY-GROUP-FOLD — a 2-D fold costs one pass per partition member (2026-09-23)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE. mask-risc's `GroupKey` is one
