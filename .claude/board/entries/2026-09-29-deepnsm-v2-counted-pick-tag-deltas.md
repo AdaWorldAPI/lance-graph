@@ -15,7 +15,7 @@ Whether either variant tags the KJV better is not measured. The KJV
 before/after is gate G5 of D-LXC-1.
 
 Two pre-existing observations from the same council: `archaic_pos` never fires
-for COCA-known words such as `art` (D-LXC-9), and no tagger in deepnsm-v2
-produces `Pos::Rel` (D-LXC-10).
+for COCA-known words such as `art` (D-LXC-9), and no in-crate tagger in
+deepnsm-v2 produces `Pos::Rel` (D-LXC-10); external callers can still pass it.
 
 Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`.

@@ -13,7 +13,7 @@ Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`. Convergence br
 | **D-LXC-7** | repo `.claude/settings.json` attribution off | Queued | rides with D-LXC-1 |
 | **D-LXC-8** | scrub `Opus 5.5` trailers from history | Deferred | operator: no force push |
 | **D-LXC-9** | `archaic_pos` cannot override COCA-known KJV words (`art` is Noun, `word_forms.csv:1047`) | Queued | pre-existing; found by the council |
-| **D-LXC-10** | `Pos::Rel` produced by no tagger in deepnsm-v2 (only FSM match arms + one unit test) | Queued | pre-existing; the relative-clause machine is unreachable from real input |
+| **D-LXC-10** | `Pos::Rel` produced by no in-crate tagger in deepnsm-v2 (only FSM match arms + one unit test) | Queued | pre-existing; external callers can still pass `Pos::Rel` through the public `Tagged`/`parse_to_spo` |
 
 ## D-RPT — ReportPlan / zero-copy pivot / report-as-OGAR-projection (2026-09-23)
 

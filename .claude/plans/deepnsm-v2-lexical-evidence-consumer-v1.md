@@ -66,9 +66,10 @@ Also found, both pre-existing and out of scope:
 - `art` is already Noun today (`word_forms.csv:1047`), so `archaic_pos`
   (`bible_wave.rs:993`) never fires for COCA-known words → **D-LXC-9**.
 - `Pos::Rel` appears only as match arms in `src/fsm.rs` and one FSM unit test
-  (`fsm.rs:272`); no tagger in the crate's source (search space: `*.rs` under
-  `crates/deepnsm-v2`, excluding `target/`; no other crate depends on
-  deepnsm-v2) produces it → **D-LXC-10**.
+  (`fsm.rs:272`); no in-crate tagger produces it (search space: `*.rs` under
+  `crates/deepnsm-v2`, excluding `target/`) → **D-LXC-10**. `Pos`, `Tagged`
+  and `parse_to_spo` are public, so an external caller can still feed
+  `Pos::Rel`; the finding is about this crate's taggers only.
 
 ## Checklist (D-LXC-1; D-LXC-7 rides with it)
 
@@ -88,6 +89,9 @@ Also found, both pre-existing and out of scope:
       tokens whose `Pos` changed, `WordFormsReport` (rows, stored,
       empty_surface, unrouted).
 - [ ] `.claude/settings.json` `"attribution": {"commit": "", "pr": ""}`.
+- [ ] Two copies of the tag fold remain on purpose: `bible_wave.rs:980` and
+      `genre_shapes.rs:204` (F7 keeps taggers in the examples). A change to
+      one must be made to the other; the duplicate is tracked with D-LXC-4.
 - [ ] Not touched: `lexical.rs` / `lib.rs` (library), `genre_shapes.rs`
       (deferred with its academic_20k layering, retained as D-LXC-4).
 
@@ -98,7 +102,10 @@ Also found, both pre-existing and out of scope:
 - G2 clippy `--all-targets -D warnings` and `fmt --check` clean.
 - G3 (a) `record` has n and v readings; (b) n+p fold sums, overflow errors;
   (c) an unknown count makes that state unknown; (d) the pick gives Noun for
-  `record`, and a first-wins disable turns (d) red; (e) tie order pinned;
+  `changes`, whose FIRST row in `word_forms.csv` is the verb (v 13,624 vs
+  n 113,085) and which is not a lemma-table key, so first-wins gives Verb and
+  a first-wins disable turns (d) red (`record` cannot do this: its noun row
+  comes first, so both rules pick Noun); (e) tie order pinned;
   (f) no known count → `None` → `archaic_pos`/Other; (g) stay-silent: a
   single-reading word keeps its tag; (h) a lemma-table word keeps its
   lemma-table tag under B (e.g. `work` stays Verb), and a lemma-only word
