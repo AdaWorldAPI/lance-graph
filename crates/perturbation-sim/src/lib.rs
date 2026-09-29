@@ -32,6 +32,9 @@
 //! - `jc::ewa_sandwich` is a genuine covariance Σ-push-forward along multi-hop
 //!   edge paths — the *uncertainty-propagation* sibling of the deterministic
 //!   flow cascade here.
+//! - `angle_cov` (feature `pillar`) is the nodal version of that sibling:
+//!   `Σθ = L⁺ Σp L⁺`, exact for a fixed topology, computed by ndarray's
+//!   Pillar-9 `CovHighD::sandwich` rather than a local kernel.
 //!
 //! ## Statistical hand-off
 //!
@@ -50,6 +53,8 @@
 //! buses) — exactly the regime of a regional transmission graph.
 
 pub mod acflow;
+#[cfg(feature = "pillar")]
+pub mod angle_cov;
 pub mod basin;
 pub mod buffer;
 pub mod cascade;

@@ -18,6 +18,10 @@ description = "Spectral + edge-propagation outage simulator: models the perturba
 # (or target-cpu=native locally). All SIMD comes from `ndarray::simd` per the
 # workspace rule — never raw intrinsics here.
 ndarray-simd = ["dep:ndarray"]
+# Push a nodal injection covariance through the DC model: Σθ = L⁺ Σp L⁺,
+# computed by ndarray's Pillar-9 `CovHighD::sandwich` (f32, dense O(N³),
+# const-generic N). Default OFF. Pulls ndarray's `pillar` (= linalg + splat3d).
+pillar = ["dep:ndarray", "ndarray/pillar"]
 
 [dependencies]
 # The AdaWorldAPI fork ("The Foundation"), optional + behind `ndarray-simd`,
