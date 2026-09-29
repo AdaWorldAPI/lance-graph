@@ -20,6 +20,7 @@ use crate::ir::{
     Foreign, GroupFold, GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
     GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
+use crate::value::GroupMoments;
 use crate::value::{ExecError, LaneKind, Out, Value};
 use crate::words_for;
 
@@ -34,6 +35,7 @@ pub(crate) enum OutShape {
     I32(usize),
     I64(usize),
     Mask(usize),
+    Moments(usize),
 }
 
 /// [`OutShape`] of a borrowed `out` — the caller keeps `out` itself to write
@@ -44,6 +46,7 @@ pub(crate) fn out_shape(out: &Out<'_>) -> OutShape {
         Out::I32(v) => OutShape::I32(v.len()),
         Out::I64(v) => OutShape::I64(v.len()),
         Out::Mask(v) => OutShape::Mask(v.len()),
+        Out::Moments(v) => OutShape::Moments(v.len()),
     }
 }
 
@@ -516,7 +519,9 @@ pub(crate) fn validate(
                     found: len,
                 }),
                 OutShape::I32(_) => Ok(()),
-                OutShape::I64(_) | OutShape::Mask(_) => Err(ExecError::BlendNeedsOut),
+                OutShape::I64(_) | OutShape::Mask(_) | OutShape::Moments(_) => {
+                    Err(ExecError::BlendNeedsOut)
+                }
             }
         }
         Terminal::ScatterOrU32 {
@@ -544,7 +549,7 @@ pub(crate) fn validate(
                     expected: want,
                     found: len,
                 }),
-                OutShape::None | OutShape::I32(_) | OutShape::I64(_) => {
+                OutShape::None | OutShape::I32(_) | OutShape::I64(_) | OutShape::Moments(_) => {
                     Err(ExecError::TerminalNeedsOut { what })
                 }
             }
@@ -559,11 +564,13 @@ pub(crate) fn validate(
             }
             match out {
                 OutShape::I64(len) if len >= 1 => Ok(()),
-                OutShape::None | OutShape::I32(_) | OutShape::I64(_) | OutShape::Mask(_) => {
-                    Err(ExecError::TerminalNeedsOut {
-                        what: "GroupSumI32",
-                    })
-                }
+                OutShape::None
+                | OutShape::I32(_)
+                | OutShape::I64(_)
+                | OutShape::Mask(_)
+                | OutShape::Moments(_) => Err(ExecError::TerminalNeedsOut {
+                    what: "GroupSumI32",
+                }),
             }
         }
         Terminal::GroupSumViaI32 { mask, fk, key, val } => {
@@ -577,27 +584,19 @@ pub(crate) fn validate(
             }
             match out {
                 OutShape::I64(len) if len >= 1 => Ok(()),
-                OutShape::None | OutShape::I32(_) | OutShape::I64(_) | OutShape::Mask(_) => {
-                    Err(ExecError::TerminalNeedsOut {
-                        what: "GroupSumViaI32",
-                    })
-                }
+                OutShape::None
+                | OutShape::I32(_)
+                | OutShape::I64(_)
+                | OutShape::Mask(_)
+                | OutShape::Moments(_) => Err(ExecError::TerminalNeedsOut {
+                    what: "GroupSumViaI32",
+                }),
             }
         }
         Terminal::GroupReduce { mask, key, fold } => {
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)?;
-            match key {
-                GroupKey::Lane(k) => check_lane(planes, k, LaneKind::U32)?,
-                GroupKey::Via { fk, key } => {
-                    check_lane(planes, fk, LaneKind::U32)?;
-                    check_foreign_lane(foreign, key, LaneKind::U32)?;
-                }
-                GroupKey::Pair { hi, lo, .. } => {
-                    check_lane(planes, hi, LaneKind::U32)?;
-                    check_lane(planes, lo, LaneKind::U32)?;
-                }
-            }
+            check_group_key(planes, foreign, key)?;
             match fold {
                 GroupFold::Count => {}
                 GroupFold::MinI32(v) | GroupFold::MaxI32(v) => {
@@ -612,12 +611,52 @@ pub(crate) fn validate(
             }
             match out {
                 OutShape::I64(len) if len >= 1 => Ok(()),
-                OutShape::None | OutShape::I32(_) | OutShape::I64(_) | OutShape::Mask(_) => {
-                    Err(ExecError::TerminalNeedsOut {
-                        what: "GroupReduce",
-                    })
-                }
+                OutShape::None
+                | OutShape::I32(_)
+                | OutShape::I64(_)
+                | OutShape::Mask(_)
+                | OutShape::Moments(_) => Err(ExecError::TerminalNeedsOut {
+                    what: "GroupReduce",
+                }),
             }
+        }
+        Terminal::GroupMomentsI32 { mask, key, val } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            check_group_key(planes, foreign, key)?;
+            check_lane(planes, val, LaneKind::I32)?;
+            // `Σx` is an `i64`: exact for any group of at most 2^32 rows, and
+            // no group can hold more rows than the plane.
+            if n > MASKED_SUM_I32_MAX_ROWS {
+                return Err(ExecError::SumRowBound { n_rows: n });
+            }
+            match out {
+                OutShape::Moments(len) if len >= 1 => Ok(()),
+                _ => Err(ExecError::TerminalNeedsOut {
+                    what: "GroupMomentsI32",
+                }),
+            }
+        }
+    }
+}
+
+/// The lane checks every [`GroupKey`] needs: resident and pair keys are
+/// `U32` lanes of this table; a VIA key is a `U32` fk here and a `U32` key
+/// lane on the foreign table.
+fn check_group_key(
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    key: GroupKey,
+) -> Result<(), ExecError> {
+    match key {
+        GroupKey::Lane(k) => check_lane(planes, k, LaneKind::U32),
+        GroupKey::Via { fk, key } => {
+            check_lane(planes, fk, LaneKind::U32)?;
+            check_foreign_lane(foreign, key, LaneKind::U32)
+        }
+        GroupKey::Pair { hi, lo, .. } => {
+            check_lane(planes, hi, LaneKind::U32)?;
+            check_lane(planes, lo, LaneKind::U32)
         }
     }
 }
@@ -638,6 +677,41 @@ fn u32_at(planes: &Planes<'_>, lane: u16, row: usize) -> u32 {
         LaneRef::U32(v) => v[row],
         _ => 0,
     }
+}
+
+/// The group of row `r` under `key` in a universe of `groups`, or `None` for
+/// every zero-fallback drop: a VIA fk naming no foreign row, a pair minor key
+/// at or past its stride, or a resolved key past the universe. Written out
+/// longhand for the oracle — never through `ndarray::simd`'s walker.
+fn row_group(
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    key: GroupKey,
+    r: usize,
+    groups: usize,
+) -> Option<usize> {
+    let k = match key {
+        GroupKey::Lane(lane) => u32_at(planes, lane, r) as usize,
+        GroupKey::Via { fk, key } => {
+            let remap = match foreign.lanes.get(usize::from(key)) {
+                Some(LaneRef::U32(v)) => &v[..],
+                _ => &[][..],
+            };
+            *remap.get(u32_at(planes, fk, r) as usize)? as usize
+        }
+        GroupKey::Pair { hi, lo, stride } => {
+            let lo_v = u32_at(planes, lo, r);
+            if lo_v >= stride {
+                return None;
+            }
+            // hi and lo are both u32, stride is u32: widen to u64 first so the
+            // multiply-add cannot overflow, matching ndarray::simd's
+            // GroupKeyAddr::Pair.
+            let hi_v = u32_at(planes, hi, r);
+            usize::try_from(u64::from(hi_v) * u64::from(stride) + u64::from(lo_v)).ok()?
+        }
+    };
+    (k < groups).then_some(k)
 }
 
 /// One predicate, one row — the scalar SPEC of what each `Pred` means.
@@ -1035,42 +1109,10 @@ pub fn reference_execute_into(
                 for x in o.iter_mut() {
                     *x = seed;
                 }
-                let remap = match key {
-                    GroupKey::Via { key, .. } => match foreign.lanes.get(usize::from(key)) {
-                        Some(LaneRef::U32(v)) => &v[..],
-                        _ => &[][..],
-                    },
-                    GroupKey::Lane(_) | GroupKey::Pair { .. } => &[][..],
-                };
                 for r in survivors(mask) {
-                    let k = match key {
-                        GroupKey::Lane(lane) => u32_at(planes, lane, r) as usize,
-                        GroupKey::Via { fk, .. } => {
-                            let idx = u32_at(planes, fk, r) as usize;
-                            if idx >= remap.len() {
-                                continue;
-                            }
-                            remap[idx] as usize
-                        }
-                        GroupKey::Pair { hi, lo, stride } => {
-                            let lo_v = u32_at(planes, lo, r);
-                            if lo_v >= stride {
-                                continue;
-                            }
-                            // hi and lo are both u32, stride is u32: widen to
-                            // u64 first so the multiply-add cannot overflow,
-                            // matching ndarray::simd's GroupKeyAddr::Pair.
-                            let hi_v = u32_at(planes, hi, r);
-                            let composite = u64::from(hi_v) * u64::from(stride) + u64::from(lo_v);
-                            match usize::try_from(composite) {
-                                Ok(k) => k,
-                                Err(_) => continue,
-                            }
-                        }
-                    };
-                    if k >= o.len() {
+                    let Some(k) = row_group(planes, foreign, key, r, o.len()) else {
                         continue;
-                    }
+                    };
                     o[k] = match fold {
                         GroupFold::Count => o[k] + 1,
                         GroupFold::MinI32(v) => o[k].min(i64::from(i32_at(planes, v, r))),
@@ -1088,6 +1130,32 @@ pub fn reference_execute_into(
                 }
             }
             Value::GroupReduced
+        }
+        Terminal::GroupMomentsI32 { mask, key, val } => {
+            if let Out::Moments(o) = out {
+                // Independent formulation: seed every slot, then walk the
+                // survivors one row at a time, widening straight to i128 —
+                // no ndarray kernel and no `GroupMoments::observe` involved.
+                for x in o.iter_mut() {
+                    *x = GroupMoments::EMPTY;
+                }
+                let mut sum = vec![0i128; o.len()];
+                for r in survivors(mask) {
+                    let Some(k) = row_group(planes, foreign, key, r, o.len()) else {
+                        continue;
+                    };
+                    let x = i128::from(i32_at(planes, val, r));
+                    o[k].n += 1;
+                    sum[k] += x;
+                    o[k].sum_sq += x * x;
+                }
+                for (slot, s) in o.iter_mut().zip(sum) {
+                    // In range by the validated row bound; a failure here is
+                    // an oracle bug, never a data condition.
+                    slot.sum = i64::try_from(s).expect("validated 2^32-row bound keeps Σx in i64");
+                }
+            }
+            Value::GroupMoments
         }
         Terminal::Keep { mask } => {
             if let Out::Mask(o) = out {

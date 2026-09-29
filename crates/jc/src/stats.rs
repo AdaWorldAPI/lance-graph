@@ -74,6 +74,7 @@
 //! front by the same `all_finite` guard.
 
 use crate::reliability::{all_finite, mean, pearson};
+use ndarray::simd::GroupMoments;
 use std::collections::BTreeSet;
 
 // ─────────────────────────── local helpers ───────────────────────────
@@ -947,6 +948,12 @@ fn one_way_ss(groups: &[Vec<f64>]) -> Option<(f64, f64, usize, usize)> {
 /// ```
 pub fn eta_squared(groups: &[Vec<f64>]) -> Option<f64> {
     let (ss_b, ss_t, _, _) = one_way_ss(groups)?;
+    eta_from_ss(ss_b, ss_t)
+}
+
+/// η² from the two sums of squares — the ONE place its degeneracy policy
+/// lives, shared by [`eta_squared`] and [`eta_squared_from_moments`].
+fn eta_from_ss(ss_b: f64, ss_t: f64) -> Option<f64> {
     if ss_t == 0.0 || !ss_t.is_finite() {
         return None;
     }
@@ -1134,12 +1141,19 @@ pub fn t_test_student(a: &[f64], b: &[f64]) -> Option<TTest> {
 /// ```
 pub fn anova_one_way(groups: &[Vec<f64>]) -> Option<Anova> {
     let (ss_b, ss_t, k, n_total) = one_way_ss(groups)?;
+    anova_from_ss(ss_b, ss_t - ss_b, ss_t, k, n_total)
+}
+
+/// The F test from the three sums of squares — the ONE place the one-way
+/// ANOVA's degeneracy policy lives, shared by [`anova_one_way`] (which
+/// passes `ss_w = ss_t − ss_b`) and [`anova_from_moments`] (which forms
+/// `ss_w` exactly and `ss_t = ss_b + ss_w`).
+fn anova_from_ss(ss_b: f64, ss_w: f64, ss_t: f64, k: usize, n_total: usize) -> Option<Anova> {
     if n_total <= k {
         return None; // no within-group df
     }
     let df_b = (k - 1) as f64;
     let df_w = (n_total - k) as f64;
-    let ss_w = ss_t - ss_b;
     if ss_w <= 0.0 || !ss_w.is_finite() {
         // ≤ 0 → no within-group variance (F undefined / degenerate).
         return None;
@@ -1164,6 +1178,108 @@ pub fn anova_one_way(groups: &[Vec<f64>]) -> Option<Anova> {
         p,
         eta_squared: (ss_b / ss_t).clamp(0.0, 1.0),
     })
+}
+
+// ──────────── one-way ANOVA from grouped sufficient statistics ────────────
+//
+// The same statistics as `anova_one_way` / `eta_squared`, projected from
+// per-group `(n, Σx, Σx²)` instead of from materialized group vectors — the
+// shape `ndarray::simd::masked_group_moments_i32` folds out of a population
+// mask in one pass. The statistical policy (every `None` case, the F / p /
+// η² formulas) is shared with the slice path through `anova_from_ss` and
+// `eta_from_ss`; only the sums of squares are formed differently.
+
+/// Between- and within-group sums of squares from grouped moments, as
+/// `(ss_b, ss_w, ss_t, k, n_total)`.
+///
+/// Formed in exact integer arithmetic as far as the division allows, so no
+/// two large floats are ever subtracted:
+///
+/// - per group, `W_g = n_g·Σx² − (Σx)² = n_g · Σ(x − x̄_g)²` is an exact `i128`
+///   (never negative), and `ss_w = Σ W_g / n_g`;
+/// - per group, `D_g = N·S_g − n_g·S` is an exact `i128`, and
+///   `ss_b = Σ D_g² / (n_g·N²)` — the textbook `Σ n_g (x̄_g − x̄)²` with the
+///   means cleared of their denominators;
+/// - `ss_t = ss_b + ss_w`, a sum of two non-negative terms.
+///
+/// So `ss_w == 0.0` exactly when every group is constant, rather than
+/// whenever rounding happens to cancel.
+///
+/// `None` on fewer than 2 groups, any empty group (`n == 0`, matching
+/// [`anova_one_way`]'s empty-group rule), or moments too large for the exact
+/// `i128` forms — i.e. outside the `2^32`-rows-per-group bound
+/// `GroupMoments` is exact under.
+fn one_way_ss_from_moments(groups: &[GroupMoments]) -> Option<(f64, f64, f64, usize, usize)> {
+    if groups.len() < 2 || groups.iter().any(|g| g.n == 0) {
+        return None;
+    }
+    let mut n_total: u64 = 0;
+    let mut s_total: i128 = 0;
+    for g in groups {
+        n_total = n_total.checked_add(g.n)?;
+        s_total = s_total.checked_add(i128::from(g.sum))?;
+    }
+    let big_n = i128::from(n_total);
+    let n_total_f = n_total as f64;
+    let mut ss_w = 0.0f64;
+    let mut ss_b = 0.0f64;
+    for g in groups {
+        let n_g = i128::from(g.n);
+        let s_g = i128::from(g.sum);
+        let w_g = n_g
+            .checked_mul(g.sum_sq)?
+            .checked_sub(s_g.checked_mul(s_g)?)?;
+        if w_g < 0 {
+            return None; // impossible for moments of real data: inconsistent input
+        }
+        let d_g = big_n
+            .checked_mul(s_g)?
+            .checked_sub(n_g.checked_mul(s_total)?)?;
+        let n_g_f = g.n as f64;
+        ss_w += w_g as f64 / n_g_f;
+        let d = d_g as f64;
+        ss_b += d * d / (n_g_f * n_total_f * n_total_f);
+    }
+    let n_total = usize::try_from(n_total).ok()?;
+    Some((ss_b, ss_w, ss_b + ss_w, groups.len(), n_total))
+}
+
+/// One-way ANOVA from grouped sufficient statistics — the same result as
+/// [`anova_one_way`] on the materialized groups, without the groups.
+///
+/// `groups[g]` holds group `g`'s `(n, Σx, Σx²)`, e.g. as folded out of a
+/// population mask by `ndarray::simd::masked_group_moments_i32` (or
+/// `lance-graph-mask-risc`'s `Terminal::GroupMomentsI32`). Every degenerate
+/// case is [`anova_one_way`]'s: fewer than 2 groups, an empty group,
+/// `N ≤ k`, and zero within-group variance are all `None`. The sums of
+/// squares are formed exactly (see `one_way_ss_from_moments`), so on data
+/// where the slice path's two-pass floats cancel badly this is the more
+/// accurate of the two, not merely an approximation of it.
+///
+/// ```
+/// use jc::stats::{anova_from_moments, anova_one_way};
+/// use ndarray::simd::GroupMoments;
+///
+/// let groups = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
+/// let moments = [
+///     GroupMoments { n: 3, sum: 6, sum_sq: 14 },
+///     GroupMoments { n: 3, sum: 15, sum_sq: 77 },
+/// ];
+/// let (a, b) = (anova_one_way(&groups).unwrap(), anova_from_moments(&moments).unwrap());
+/// assert!((a.f - b.f).abs() < 1e-12 && (a.p - b.p).abs() < 1e-12);
+/// ```
+pub fn anova_from_moments(groups: &[GroupMoments]) -> Option<Anova> {
+    let (ss_b, ss_w, ss_t, k, n_total) = one_way_ss_from_moments(groups)?;
+    anova_from_ss(ss_b, ss_w, ss_t, k, n_total)
+}
+
+/// η² from grouped sufficient statistics — [`eta_squared`]'s value and
+/// degeneracy policy (`None` only on fewer than 2 groups, an empty group, or
+/// zero total variance; a perfectly separated layout with zero within-group
+/// variance is a real `1.0`, unlike the F test).
+pub fn eta_squared_from_moments(groups: &[GroupMoments]) -> Option<f64> {
+    let (ss_b, _, ss_t, _, _) = one_way_ss_from_moments(groups)?;
+    eta_from_ss(ss_b, ss_t)
 }
 
 // ── Fisher 2z (D-BLW-5 payload space) ──
@@ -2244,6 +2360,291 @@ mod tests {
                 (got - expect).abs() < 1e-15,
                 "fisher_2z({r})={got} vs 2*helix_fisher_z={expect}"
             );
+        }
+    }
+
+    // ─────────── one-way ANOVA: mask fold → moments vs materialized ───────────
+    //
+    // The claim under test: a statistic computed from grouped sufficient
+    // statistics folded straight off a population mask equals the same
+    // statistic computed from the materialized groups. The fold is
+    // `ndarray::simd::masked_group_moments_i32` — the kernel
+    // `lance-graph-mask-risc`'s `Terminal::GroupMomentsI32` delegates to.
+    //
+    // Tolerances. Both paths form the same sums of squares by different
+    // float orderings (two-pass deviations vs exact integers then one
+    // division). Each is a sum of at most a few thousand terms, so each is
+    // within ~n·ε ≈ 1e-12 relative of the true value on well-conditioned
+    // data; F is a ratio of two such sums (≤ 2× that), p goes through the
+    // regularised incomplete beta whose sensitivity near the observed F is
+    // bounded here by keeping F moderate. 1e-9 relative on F and η² and
+    // 1e-9 absolute on p leave three orders of margin and still fail on any
+    // real algebraic difference (a dropped row, a wrong df, a wrong group).
+
+    mod moments_equivalence {
+        use super::super::*;
+        use ndarray::simd::masked_group_moments_i32;
+
+        fn lcg(s: &mut u64) -> u64 {
+            *s = s
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            *s >> 11
+        }
+
+        /// A population: `n` rows, a key lane over `0..k`, an `i32` value
+        /// lane, and a population mask of the given density (in 1/256ths).
+        struct Pop {
+            mask: Vec<u64>,
+            keys: Vec<u32>,
+            values: Vec<i32>,
+        }
+
+        fn population(
+            n: usize,
+            k: u32,
+            density: u64,
+            seed: u64,
+            value: impl Fn(&mut u64, u32) -> i32,
+        ) -> Pop {
+            let mut s = seed;
+            let mut mask = vec![0u64; n.div_ceil(64)];
+            let mut keys = Vec::with_capacity(n);
+            let mut values = Vec::with_capacity(n);
+            for i in 0..n {
+                // Skewed keys: group g is drawn with weight g+1, so group
+                // sizes are unequal by construction.
+                let total = u64::from(k * (k + 1) / 2);
+                let mut r = lcg(&mut s) % total;
+                let mut g = 0u32;
+                while r >= u64::from(g + 1) {
+                    r -= u64::from(g + 1);
+                    g += 1;
+                }
+                keys.push(g);
+                values.push(value(&mut s, g));
+                if lcg(&mut s) % 256 < density {
+                    mask[i / 64] |= 1 << (i % 64);
+                }
+            }
+            Pop { mask, keys, values }
+        }
+
+        /// The conventional path: copy the selected observations out into
+        /// one vector per group.
+        fn materialize(p: &Pop, k: u32) -> Vec<Vec<f64>> {
+            let mut groups = vec![Vec::new(); k as usize];
+            for i in 0..p.values.len() {
+                if p.mask[i / 64] >> (i % 64) & 1 == 1 {
+                    groups[p.keys[i] as usize].push(f64::from(p.values[i]));
+                }
+            }
+            groups
+        }
+
+        /// The substrate path: one masked fold, no observation copied out.
+        fn fold(p: &Pop, k: u32) -> Vec<GroupMoments> {
+            let mut out = vec![GroupMoments::EMPTY; k as usize];
+            masked_group_moments_i32(&p.mask, &p.keys, &p.values, &mut out);
+            out
+        }
+
+        fn rel(a: f64, b: f64) -> f64 {
+            (a - b).abs() / a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
+        }
+
+        fn assert_same(slice: Option<Anova>, moments: Option<Anova>, what: &str) {
+            match (slice, moments) {
+                (None, None) => {}
+                (Some(a), Some(b)) => {
+                    assert_eq!(a.df_between, b.df_between, "{what}: df_between");
+                    assert_eq!(a.df_within, b.df_within, "{what}: df_within");
+                    assert!(rel(a.f, b.f) < 1e-9, "{what}: F {} vs {}", a.f, b.f);
+                    assert!((a.p - b.p).abs() < 1e-9, "{what}: p {} vs {}", a.p, b.p);
+                    assert!(
+                        (a.eta_squared - b.eta_squared).abs() < 1e-9,
+                        "{what}: eta² {} vs {}",
+                        a.eta_squared,
+                        b.eta_squared
+                    );
+                }
+                (a, b) => panic!("{what}: slice {a:?} vs moments {b:?}"),
+            }
+        }
+
+        /// FAILS IF: the mask fold + moments projection disagrees with the
+        /// materialized path anywhere on ordinary data — arbitrary masks
+        /// (sparse to full), unequal group sizes, negative values, 2..6
+        /// groups, several population sizes.
+        #[test]
+        fn anova_from_mask_fold_equals_anova_on_materialized_groups() {
+            let mut checked = 0;
+            for &n in &[40usize, 130, 1000, 5000] {
+                for &k in &[2u32, 3, 6] {
+                    for &density in &[20u64, 128, 256] {
+                        let seed = 0xA0A ^ (n as u64) << 8 ^ u64::from(k) << 32 ^ density;
+                        // Group g is centred at 3·g with spread ±40, negatives included.
+                        let p = population(n, k, density, seed, |s, g| {
+                            (lcg(s) % 81) as i32 - 40 + 3 * g as i32
+                        });
+                        let groups = materialize(&p, k);
+                        let moments = fold(&p, k);
+                        let what = format!("n={n} k={k} density={density}");
+                        let a = anova_one_way(&groups);
+                        assert_same(a, anova_from_moments(&moments), &what);
+                        let (ea, eb) = (eta_squared(&groups), eta_squared_from_moments(&moments));
+                        match (ea, eb) {
+                            (Some(x), Some(y)) => assert!((x - y).abs() < 1e-9, "{what}: η²"),
+                            (x, y) => assert_eq!(x, y, "{what}: η² degeneracy"),
+                        }
+                        checked += usize::from(a.is_some());
+                    }
+                }
+            }
+            // Anti-vacuity: most configurations must be non-degenerate, or
+            // the comparison would be `None == None` everywhere.
+            assert!(checked >= 30, "only {checked} non-degenerate comparisons");
+        }
+
+        /// FAILS IF: the moments of the whole population differ from the
+        /// merged moments of any chunking of it — the fold must be a
+        /// monoid, so the ANOVA of chunked-then-merged moments is not just
+        /// close to the one-pass ANOVA but IDENTICAL.
+        #[test]
+        fn chunked_folds_merge_to_the_identical_anova() {
+            let n = 3000;
+            let k = 4;
+            let p = population(n, k, 180, 0xC4C4, |s, g| {
+                (lcg(s) % 1001) as i32 - 500 + 50 * g as i32
+            });
+            let whole = fold(&p, k);
+            for chunks in [2usize, 3, 7, 47] {
+                let mut merged = vec![GroupMoments::EMPTY; k as usize];
+                let step = n.div_ceil(chunks);
+                for c in 0..chunks {
+                    let (lo, hi) = (c * step, ((c + 1) * step).min(n));
+                    let mut m = vec![0u64; n.div_ceil(64)];
+                    for i in lo..hi {
+                        m[i / 64] |= p.mask[i / 64] & (1 << (i % 64));
+                    }
+                    let mut part = vec![GroupMoments::EMPTY; k as usize];
+                    masked_group_moments_i32(&m, &p.keys, &p.values, &mut part);
+                    for (acc, x) in merged.iter_mut().zip(part) {
+                        *acc = acc.checked_merge(x).expect("in bound");
+                    }
+                }
+                assert_eq!(merged, whole, "chunks={chunks}");
+                assert_eq!(anova_from_moments(&merged), anova_from_moments(&whole));
+            }
+            assert!(anova_from_moments(&whole).is_some());
+        }
+
+        /// FAILS IF: values near the i32 bound lose precision on the
+        /// moments path (an i64 square, an f64 accumulation of Σx²).
+        #[test]
+        fn values_near_the_i32_bound_agree() {
+            for (k, base) in [(3u32, i32::MAX - 5000), (3, i32::MIN + 5000)] {
+                let p = population(2000, k, 200, 0xB0B ^ u64::from(k), move |s, g| {
+                    base + (lcg(s) % 2001) as i32 - 1000 + 400 * g as i32 * base.signum()
+                });
+                let groups = materialize(&p, k);
+                let a = anova_one_way(&groups);
+                assert!(a.is_some(), "fixture must be non-degenerate");
+                assert_same(a, anova_from_moments(&fold(&p, k)), &format!("base={base}"));
+            }
+        }
+
+        /// FAILS IF: any degenerate layout is treated differently from
+        /// `anova_one_way` — one group, an empty/absent group, `N ≤ k`, or
+        /// zero within-group variance.
+        #[test]
+        fn degenerate_layouts_match_the_slice_contract() {
+            let m = |n: u64, xs: &[i64]| GroupMoments {
+                n,
+                sum: xs.iter().sum(),
+                sum_sq: xs.iter().map(|&x| i128::from(x * x)).sum(),
+            };
+            let f = |xs: &[i64]| xs.iter().map(|&x| x as f64).collect::<Vec<_>>();
+            type Case = (&'static str, Vec<Vec<f64>>, Vec<GroupMoments>);
+            let cases: Vec<Case> = vec![
+                ("one group", vec![f(&[1, 2, 3])], vec![m(3, &[1, 2, 3])]),
+                (
+                    "absent group",
+                    vec![f(&[1, 2, 3]), vec![], f(&[4, 5])],
+                    vec![m(3, &[1, 2, 3]), GroupMoments::EMPTY, m(2, &[4, 5])],
+                ),
+                (
+                    "N <= k",
+                    vec![f(&[1]), f(&[2])],
+                    vec![m(1, &[1]), m(1, &[2])],
+                ),
+                (
+                    "zero within-group variance",
+                    vec![f(&[7, 7, 7]), f(&[9, 9])],
+                    vec![m(3, &[7, 7, 7]), m(2, &[9, 9])],
+                ),
+                (
+                    "zero total variance",
+                    vec![f(&[5, 5]), f(&[5, 5, 5])],
+                    vec![m(2, &[5, 5]), m(3, &[5, 5, 5])],
+                ),
+            ];
+            for (what, groups, moments) in cases {
+                assert_eq!(anova_one_way(&groups), None, "{what}: slice");
+                assert_eq!(anova_from_moments(&moments), None, "{what}: moments");
+                assert_eq!(
+                    eta_squared(&groups),
+                    eta_squared_from_moments(&moments),
+                    "{what}: η²"
+                );
+            }
+            // The one degenerate case where η² is NOT None: perfect separation.
+            let sep = [m(3, &[7, 7, 7]), m(2, &[9, 9])];
+            assert_eq!(eta_squared_from_moments(&sep), Some(1.0));
+        }
+
+        /// FAILS IF: the moments path loses the within-group variance to
+        /// float cancellation. Group means ±2·10⁹ apart with a within-group
+        /// spread of 1: SS_between ≈ 4.8·10¹⁹, whose f64 ulp (8192) dwarfs
+        /// SS_within = 12. The expected F is computed independently in
+        /// exact integers (integer group means, integer grand mean).
+        #[test]
+        fn adversarial_large_nearly_equal_values_are_exact() {
+            let bases = [-2_000_000_000i64, 0, 2_000_000_000];
+            let offsets = [-1i64, 0, 1, -1, 0, 1];
+            let mut moments = Vec::new();
+            let mut groups = Vec::new();
+            for b in bases {
+                let xs: Vec<i64> = offsets.iter().map(|o| b + o).collect();
+                moments.push(GroupMoments {
+                    n: xs.len() as u64,
+                    sum: xs.iter().sum(),
+                    sum_sq: xs.iter().map(|&x| i128::from(x) * i128::from(x)).sum(),
+                });
+                groups.push(xs.iter().map(|&x| x as f64).collect::<Vec<_>>());
+            }
+            // Independent exact oracle: SS_w = Σ offset² per group, SS_b =
+            // Σ n·(base − 0)², df = (2, 15).
+            let ss_w: i128 = 3 * offsets.iter().map(|&o| i128::from(o * o)).sum::<i128>();
+            let ss_b: i128 = bases
+                .iter()
+                .map(|&b| 6 * i128::from(b) * i128::from(b))
+                .sum();
+            let f_exact = (ss_b as f64 / 2.0) / (ss_w as f64 / 15.0);
+            let got = anova_from_moments(&moments).expect("non-degenerate");
+            assert_eq!((got.df_between, got.df_within), (2.0, 15.0));
+            assert!(
+                rel(got.f, f_exact) < 1e-12,
+                "moments F {} vs exact {f_exact}",
+                got.f
+            );
+            // Anti-vacuity: the fixture really is adversarial for two-pass
+            // floats — the slice path either refuses or misses by far more
+            // than the tolerance used everywhere else.
+            match anova_one_way(&groups) {
+                None => {}
+                Some(a) => assert!(rel(a.f, f_exact) > 1e-6, "fixture not adversarial: {}", a.f),
+            }
         }
     }
 }

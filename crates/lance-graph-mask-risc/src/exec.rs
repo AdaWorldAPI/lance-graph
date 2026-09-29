@@ -31,13 +31,14 @@ use ndarray::simd::{
     mask_scatter_or_u32, mask_set_range, mask_xor, mask_xor_assign, masked_group_count_u32,
     masked_group_count_u32_pair, masked_group_count_u32_via, masked_group_max_i32,
     masked_group_max_i32_pair, masked_group_max_i32_via, masked_group_min_i32,
-    masked_group_min_i32_pair, masked_group_min_i32_via, masked_group_sum_i32,
+    masked_group_min_i32_pair, masked_group_min_i32_via, masked_group_moments_i32,
+    masked_group_moments_i32_pair, masked_group_moments_i32_via, masked_group_sum_i32,
     masked_group_sum_i32_via, masked_group_sum_sym_i32, masked_group_sum_sym_i32_pair,
     masked_group_sum_sym_i32_via, masked_key_run_count_u32, masked_max_i32, masked_min_i32,
     masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask,
     ne_u32_to_mask_under, popcount_batch_u64, ternary_match_strided_to_mask,
     ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
-    ternary_match_u64_to_mask_under, KeyRunCarry,
+    ternary_match_u64_to_mask_under, GroupMoments, KeyRunCarry,
 };
 
 use crate::ir::{
@@ -1419,6 +1420,7 @@ fn precheck(
             Terminal::GroupSumI32 { .. } => Some("GroupSumI32"),
             Terminal::GroupSumViaI32 { .. } => Some("GroupSumViaI32"),
             Terminal::GroupReduce { .. } => Some("GroupReduce"),
+            Terminal::GroupMomentsI32 { .. } => Some("GroupMomentsI32"),
         };
         if let Some(what) = refused {
             return Err(ExecError::ExtentUnsupported { what });
@@ -1572,6 +1574,7 @@ pub fn execute_compiled(
         }
         (Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. }, Out::I64(o)) => o.fill(0),
         (Terminal::GroupReduce { fold, .. }, Out::I64(o)) => o.fill(fold.seed()),
+        (Terminal::GroupMomentsI32 { .. }, Out::Moments(o)) => o.fill(GroupMoments::EMPTY),
         _ => {}
     }
     let n_rows = planes.n_rows;
@@ -1983,6 +1986,36 @@ pub fn execute_compiled(
                     }
                 }
             }
+            Terminal::GroupMomentsI32 { mask, key, val } => {
+                // `validate` already refused a missing/too-small `out`, every
+                // wrong-width lane and a plane past the 2^32-row exactness
+                // bound; one delegation per tile (law L3) into the sink
+                // seeded above with `GroupMoments::EMPTY`.
+                if let Out::Moments(o) = &mut out {
+                    let m = read(planes, &slots, mask, t);
+                    let v = lane_i32(planes, val, t);
+                    match key {
+                        GroupKey::Lane(k) => {
+                            masked_group_moments_i32(m, lane_u32(planes, k, t), v, o)
+                        }
+                        GroupKey::Via { fk, key } => masked_group_moments_i32_via(
+                            m,
+                            lane_u32(planes, fk, t),
+                            foreign_lane_u32(foreign, key),
+                            v,
+                            o,
+                        ),
+                        GroupKey::Pair { hi, lo, stride } => masked_group_moments_i32_pair(
+                            m,
+                            lane_u32(planes, hi, t),
+                            lane_u32(planes, lo, t),
+                            stride,
+                            v,
+                            o,
+                        ),
+                    }
+                }
+            }
             Terminal::Keep { mask } => {
                 // The demanded mask, one tile at a time. With `Out::None` the
                 // scratch is single-tile (checked above) and the slot IS the
@@ -2017,6 +2050,7 @@ pub fn execute_compiled(
         Terminal::CountKeyRunsU32 { .. } => Value::Count(runs + run_carry.finish()),
         Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. } => Value::GroupSummed,
         Terminal::GroupReduce { .. } => Value::GroupReduced,
+        Terminal::GroupMomentsI32 { .. } => Value::GroupMoments,
         Terminal::Keep { mask } => Value::Mask(mask),
     })
 }
