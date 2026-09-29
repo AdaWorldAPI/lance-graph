@@ -8,6 +8,7 @@ use perturbationsfeld_probe::prereg::*;
 use perturbationsfeld_probe::{fire, JINA_V5};
 use thinking_engine::codebook_index::CodebookIndex;
 use thinking_engine::engine::ThinkingEngine;
+/// Print the per-stimulus energy diagnostics for the PRIMARY lens.
 fn main() {
     let lens = JINA_V5;
     let mut eng = ThinkingEngine::new(lens.table.to_vec());

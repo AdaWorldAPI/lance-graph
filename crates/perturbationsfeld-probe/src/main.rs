@@ -3,6 +3,7 @@
 
 use perturbationsfeld_probe::{run_lens, verdict, Outcome, Report, BGE_M3, JINA_V5};
 
+/// Print one lens's results block.
 fn print(r: &Report) {
     println!("── {} ── N = {}", r.lens, r.n);
     println!(
@@ -47,15 +48,11 @@ fn print(r: &Report) {
     }
 }
 
+/// Run both lenses and print the combined verdict.
 fn main() {
     let sha = std::process::Command::new("git")
-        .args([
-            "log",
-            "-1",
-            "--format=%h",
-            "--",
-            "crates/perturbationsfeld-probe/PREREG.md",
-        ])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .args(["log", "-1", "--format=%h", "--", "PREREG.md"])
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())

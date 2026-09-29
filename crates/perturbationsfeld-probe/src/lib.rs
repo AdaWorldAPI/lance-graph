@@ -146,14 +146,17 @@ pub fn padding(p: &PerturbationDto) -> u32 {
     TOP - act(p).len() as u32
 }
 
+/// True when the field carries no energy (sum < 1e-10) — a degenerate stimulus.
 fn all_zero(e: &[f32]) -> bool {
     e.iter().map(|&x| x as f64).sum::<f64>() < 1e-10
 }
 
+/// True when any energy value is NaN (the run is then INVALID).
 fn has_nan(e: &[f32]) -> bool {
     e.iter().any(|x| x.is_nan())
 }
 
+/// L1 distance between two energy fields (reported only, never decides).
 fn l1(a: &[f32], b: &[f32]) -> f64 {
     a.iter().zip(b).map(|(x, y)| (x - y).abs() as f64).sum()
 }
@@ -183,6 +186,7 @@ pub fn window(p: &PerturbationDto, theta: f32, n: usize) -> (u32, u32) {
     }
 }
 
+/// A one-predicate program whose `Keep` terminal leaves the mask in scratch slot 0.
 fn keep_program(pred: Pred) -> Program {
     Program {
         ops: vec![MaskOp::Pred {
@@ -268,11 +272,17 @@ pub fn e_m_ids(energy: &[f32], k: usize) -> Vec<u16> {
 /// The per-lens outcome (spec §9.6), in evaluation order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
+    /// A validity check failed; the reasons are listed.
     Invalid(Vec<String>),
+    /// Output insensitive to input at the δ level on these tables.
     InputInsensitive,
+    /// The relabel sanity failed (not a collapse verdict).
     RelabelInsensitive,
+    /// E retains the cycle-n top set by ≥ δ more than C.
     HigherRetention,
+    /// E retains the cycle-n top set by ≥ δ less than C.
     LowerRetention,
+    /// |R_E − R_C| < δ.
     NoRetentionDifference,
 }
 
@@ -293,25 +303,45 @@ impl Outcome {
 /// Everything one lens run measured.
 #[derive(Debug)]
 pub struct Report {
+    /// Lens name.
     pub lens: &'static str,
+    /// Population size N.
     pub n: usize,
+    /// Stimuli not degenerate at cycle n.
     pub base_valid: usize,
+    /// Stimuli valid for the E-vs-C comparison.
     pub q_valid: usize,
+    /// Stimuli eligible for the relabel sanity.
     pub sanity_eligible: usize,
+    /// Least-similar centroid pair used as the positive control.
     pub positive_pair: (u16, u16),
+    /// Top-set overlap of the positive-control pair (0..=8).
     pub positive_inter: u32,
+    /// Empirical cross-stimulus top-set overlap of `P_n`.
     pub n0: f64,
+    /// Retention of E (Σ ids kept).
     pub r_e: u32,
+    /// Retention of C.
     pub r_c: u32,
+    /// Retention of S.
     pub r_s: u32,
+    /// Retention of E_m.
     pub r_em: u32,
+    /// R_E − R_C over comparison-valid stimuli.
     pub delta_r: i64,
+    /// D(E,S) over sanity-eligible stimuli.
     pub d_es: u32,
+    /// Mean |ids_C|.
     pub mean_c: f64,
+    /// Mean |ids_E|.
     pub mean_e: f64,
+    /// Fraction of `top_k` slots that were zero-energy padding.
     pub padding_rate: f64,
+    /// Mean L1 between E and C at cycle n+1 (reported only).
     pub l1_ec: f64,
+    /// True when θ does not move the C window (reported, not INVALID).
     pub theta_c_inert: bool,
+    /// The pre-registered outcome.
     pub outcome: Outcome,
 }
 
