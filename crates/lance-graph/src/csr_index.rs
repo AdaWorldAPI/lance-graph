@@ -17,7 +17,7 @@
 //!
 //! For vertex `v`, its neighbors are `neighbors[offsets[v]..offsets[v+1]]`.
 
-use arrow_array::{RecordBatch, UInt64Array};
+use arrow_array::{Array, RecordBatch, UInt64Array};
 use arrow_schema::{DataType, Field, Schema};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -163,13 +163,15 @@ impl CsrIndex {
     /// Returns `None` if no path exists, or `Some(path)` where path is the
     /// sequence of vertex IDs from `start` to `end` (inclusive).
     pub fn shortest_path(&self, start: u64, end: u64) -> Option<Vec<u64>> {
-        if start == end {
-            return Some(vec![start]);
-        }
-
+        // Range check first: a vertex outside the index has no path, not even
+        // the trivial one to itself.
         let n = self.num_vertices as usize;
         if start as usize >= n || end as usize >= n {
             return None;
+        }
+
+        if start == end {
+            return Some(vec![start]);
         }
 
         let mut visited = vec![false; n];
@@ -223,8 +225,10 @@ impl CsrIndexBuilder {
         }
     }
 
-    /// Set the total number of vertices explicitly. If not set, it is inferred
-    /// from the maximum vertex ID seen in the edges.
+    /// Set the number of vertices explicitly (a lower bound). If not set, it is
+    /// inferred from the maximum vertex ID seen in the edges. An edge whose
+    /// endpoint is `>= n` grows the vertex range at [`Self::build`] rather
+    /// than being stored where no offset can reach it.
     pub fn with_num_vertices(mut self, n: u64) -> Self {
         self.num_vertices = Some(n);
         self
@@ -237,6 +241,9 @@ impl CsrIndexBuilder {
     }
 
     /// Add edges from an Arrow RecordBatch with `src_id` and `dst_id` columns.
+    ///
+    /// A row whose `src_id` or `dst_id` is null contributes no edge, the same
+    /// way a null key joins nothing on the relational expand path.
     pub fn add_edges_from_batch(mut self, batch: &RecordBatch) -> Result<Self> {
         let src_col = batch
             .column_by_name("src_id")
@@ -267,6 +274,11 @@ impl CsrIndexBuilder {
             })?;
 
         for i in 0..batch.num_rows() {
+            // `value(i)` ignores the validity bitmap, so a null slot would
+            // otherwise become a fabricated edge (usually to vertex 0).
+            if src_array.is_null(i) || dst_array.is_null(i) {
+                continue;
+            }
             self.edges.push((src_array.value(i), dst_array.value(i)));
         }
 
@@ -277,14 +289,17 @@ impl CsrIndexBuilder {
     ///
     /// Sorts edges by source vertex, then builds offset and neighbor arrays.
     pub fn build(mut self) -> CsrIndex {
-        let num_vertices = self.num_vertices.unwrap_or_else(|| {
-            self.edges
-                .iter()
-                .flat_map(|&(s, d)| [s, d])
-                .max()
-                .map(|m| m + 1)
-                .unwrap_or(0)
-        });
+        // Every endpoint must be addressable: otherwise an edge from a source
+        // past the range is stored after the last offset (counted, never
+        // reachable) and a destination past it names a nonexistent vertex.
+        let needed = self
+            .edges
+            .iter()
+            .flat_map(|&(s, d)| [s, d])
+            .max()
+            .map(|m| m + 1)
+            .unwrap_or(0);
+        let num_vertices = self.num_vertices.map_or(needed, |n| n.max(needed));
 
         // Sort by source vertex for CSR construction
         self.edges.sort_unstable_by_key(|&(src, _)| src);
@@ -650,5 +665,63 @@ mod tests {
         // CSR preserves multi-edges
         assert_eq!(idx.neighbors(0), &[1, 1, 1]);
         assert_eq!(idx.degree(0), 3);
+    }
+    /// FAILS IF: a null `src_id`/`dst_id` slot is read through `value(i)`
+    /// (which ignores validity) and becomes an edge — here it would be an
+    /// edge from or to vertex 0, which the valid rows never touch.
+    #[test]
+    fn test_null_endpoints_contribute_no_edge() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("src_id", DataType::UInt64, true),
+            Field::new("dst_id", DataType::UInt64, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(UInt64Array::from(vec![Some(1), None, Some(2)])),
+                Arc::new(UInt64Array::from(vec![Some(2), Some(1), None])),
+            ],
+        )
+        .unwrap();
+
+        let idx = CsrIndexBuilder::new()
+            .add_edges_from_batch(&batch)
+            .unwrap()
+            .build();
+
+        assert_eq!(idx.num_edges(), 1);
+        assert_eq!(idx.neighbors(1), &[2]);
+        assert_eq!(idx.neighbors(0), &[] as &[u64]);
+        assert_eq!(idx.neighbors(2), &[] as &[u64]);
+    }
+
+    /// FAILS IF: a declared vertex count below an endpoint truncates the
+    /// offsets while the edge is still stored — the edge from vertex 5 would
+    /// be counted in `num_edges` but unreachable through `neighbors(5)`.
+    #[test]
+    fn test_endpoints_past_declared_range_stay_reachable() {
+        let idx = CsrIndexBuilder::new()
+            .with_num_vertices(2)
+            .add_edge(0, 1)
+            .add_edge(5, 3)
+            .build();
+
+        assert_eq!(idx.num_vertices(), 6);
+        assert_eq!(idx.neighbors(5), &[3]);
+        assert_eq!(idx.neighbors(0), &[1]);
+        let reachable: u64 = (0..idx.num_vertices()).map(|v| idx.degree(v) as u64).sum();
+        assert_eq!(reachable, idx.num_edges());
+
+        let (out, inc) = build_bidirectional_index(&[(0, 1), (5, 3)], 2);
+        assert_eq!(out.neighbors(5), &[3]);
+        assert_eq!(inc.neighbors(3), &[5]);
+    }
+
+    /// FAILS IF: the `start == end` shortcut runs before the range check.
+    #[test]
+    fn test_shortest_path_equal_endpoints_out_of_range() {
+        let idx = sample_index();
+        assert!(idx.shortest_path(99, 99).is_none());
+        assert_eq!(idx.shortest_path(2, 2), Some(vec![2]));
     }
 }
