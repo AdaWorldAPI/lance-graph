@@ -97,8 +97,9 @@ authorized. Partly supersedes
 
 **Open:**
 - where the frequency/PoS header lives, given the classid canon;
-- the rail order;
 - the reconstruct choice for `basin.rs`.
+
+Rail order is settled as nearest-first, because G2 and R3 depend on it.
 
 D-ids `D-C96P-1..8`.
 
