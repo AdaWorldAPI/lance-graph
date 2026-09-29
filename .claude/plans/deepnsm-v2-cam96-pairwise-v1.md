@@ -268,9 +268,12 @@ guard below gets a disable run: red with the guard removed, green with it back.
 
 ## 11. Open points
 
-- Is the rail ordered (`c₁` nearest first, as specified) or canonicalized
-  (`min:max`)? Ordered keeps the needle in byte 0; canonical halves the key
-  space. Not measured.
+- **Rail order is SETTLED: nearest-first.** `c₁` is always byte 0, so byte 0
+  of every rail is the 48-bit point code. G2's byte-for-byte check and R3's
+  `c₁`-only scoring both depend on that. A canonical `min:max` order would halve
+  the key space, but it can put `c₂` in byte 0. It is therefore not an open
+  alternative here. If it is ever proposed, it must change §3.1, G2 and R3 in
+  the same edit.
 - Which of R1/R2 wins, and whether the L4 wording changes (§3.2).
 - Where the header lives (§4).
 - The embedding source for the artifact (§5).
