@@ -444,6 +444,22 @@ pub enum Terminal {
         key: GroupKey,
         val: u16,
     },
+    /// Grouped cross moments of TWO `I32` lanes: for every row `i` where
+    /// `mask` holds, folds `(lanes[x][i], lanes[y][i])` into the caller's
+    /// `Out::CrossMoments` buffer as `n, Σx, Σy, Σx², Σy², Σxy`
+    /// ([`ndarray::simd::GroupCrossMoments`]). The bivariate member of the
+    /// [`Terminal::GroupMomentsI32`] family: same key addresses, same drops,
+    /// same one pass with both lanes read in place, same `2^32`-row
+    /// exactness bound ([`MASKED_SUM_I32_MAX_ROWS`] — the `Σx`/`Σy` fields
+    /// are `i64`). A physical fold: covariance, correlation and simple
+    /// regression are consumer projections. `x == y` is legal (it folds the
+    /// univariate moments twice over).
+    GroupCrossMomentsI32 {
+        mask: Operand,
+        key: GroupKey,
+        x: u16,
+        y: u16,
+    },
 }
 
 /// Where a [`Terminal::GroupReduce`] reads each row's group.
@@ -636,6 +652,7 @@ impl Program {
             | Terminal::GroupSumViaI32 { mask, .. }
             | Terminal::GroupReduce { mask, .. }
             | Terminal::GroupMomentsI32 { mask, .. }
+            | Terminal::GroupCrossMomentsI32 { mask, .. }
             | Terminal::Keep { mask } => touch(mask),
         }
         Self {

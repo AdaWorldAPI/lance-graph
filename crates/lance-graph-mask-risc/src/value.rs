@@ -5,6 +5,9 @@
 //! rejects, or reject with a different reason.
 
 use crate::ir::Operand;
+/// The per-group `(n, Σx, Σy, Σx², Σy², Σxy)` accumulator
+/// [`Out::CrossMoments`] carries — re-exported for the same reason.
+pub use ndarray::simd::GroupCrossMoments;
 /// The per-group `(n, Σx, Σx²)` accumulator [`Out::Moments`] carries. Re-exported
 /// here as shared result vocabulary so the independent oracle names the data
 /// type through this crate, never through the SIMD facade it falsifies.
@@ -40,6 +43,10 @@ pub enum Value {
     /// buffer was written, one [`GroupMoments`] per group; an empty group
     /// holds [`GroupMoments::EMPTY`] (`n == 0`).
     GroupMoments,
+    /// [`crate::Terminal::GroupCrossMomentsI32`]: the caller's
+    /// `Out::CrossMoments` buffer was written, one [`GroupCrossMoments`] per
+    /// group; an empty group holds [`GroupCrossMoments::EMPTY`].
+    GroupCrossMoments,
     /// [`crate::Terminal::MaskedStridedGroupSum`]: the widened sum, or `None`
     /// when it does not fit an `i64` (never a wrapped value).
     StridedSum(Option<i64>),
@@ -63,6 +70,9 @@ pub enum Out<'a> {
     /// [`crate::Terminal::GroupMomentsI32`]'s destination — one
     /// [`GroupMoments`] per group, its length IS the group universe `K`.
     Moments(&'a mut [GroupMoments]),
+    /// [`crate::Terminal::GroupCrossMomentsI32`]'s destination — one
+    /// [`GroupCrossMoments`] per group, its length IS the group universe `K`.
+    CrossMoments(&'a mut [GroupCrossMoments]),
 }
 
 /// The lane width a predicate or terminal expects, for [`ExecError::LaneKind`].

@@ -5,9 +5,9 @@
 use lance_graph_mask_risc::exec::{execute_extent, execute_into, Scratch};
 use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch_with_foreign};
 use lance_graph_mask_risc::{
-    scratch_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupFold, GroupKey,
-    GroupMoments, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
-    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
+    scratch_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupCrossMoments, GroupFold,
+    GroupKey, GroupMoments, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program,
+    Terminal, Value, GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -1762,4 +1762,190 @@ fn group_moments_refuses_malformed_programs() {
         vec![GroupMoments::EMPTY; 4],
         "a refusal writes nothing"
     );
+}
+
+/// A second `I32` lane for the cross terminal (lane 4), independent of
+/// `amount`, with `i32::MIN`/`i32::MAX` planted so extreme products occur.
+fn y_lane(n: usize, seed: u64) -> Vec<i32> {
+    let mut s = seed;
+    (0..n)
+        .map(|i| match i % 11 {
+            3 => i32::MIN,
+            4 => i32::MAX,
+            _ => (lcg(&mut s) % 6000) as i32 - 3000,
+        })
+        .collect()
+}
+
+/// FAILS IF: `Terminal::GroupCrossMomentsI32` disagrees with the
+/// row-at-a-time oracle for any key address, across tile boundaries, or
+/// pairs `x[i]` with a `y` from another row (the oracle reads both at `r`).
+/// Anti-vacuity: multi-tile, an empty group, a multi-row group.
+#[test]
+fn group_cross_moments_match_the_oracle_for_every_key_address() {
+    let mut multi_tile = false;
+    let mut empty_group = false;
+    let mut multi_row_group = false;
+    for &n in &[1usize, 63, 64, 130, 1000, 5000] {
+        let fx = Fixture::new(n, 10, 4, 0xC055 ^ n as u64);
+        let ys = y_lane(n, 0x7777 ^ n as u64);
+        let (mut lanes, masks) = fx.planes();
+        lanes.push(LaneRef::I32(&ys));
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let mut s = 0xA11Du64 ^ n as u64;
+        let remap: Vec<u32> = (0..fx.foreign_rows)
+            .map(|_| match lcg(&mut s) % 5 {
+                3 => 9,
+                k => k as u32 % 3,
+            })
+            .collect();
+        let foreign_lanes = [LaneRef::U32(&remap)];
+        let foreign = Foreign {
+            planes: &[],
+            lanes: &foreign_lanes,
+        };
+        let words = test_tile_words(n);
+        multi_tile |= words < words_for(n);
+        for (key, groups) in [
+            (GroupKey::Lane(3), 4usize),
+            (GroupKey::Via { fk: 0, key: 0 }, 4),
+            (
+                GroupKey::Pair {
+                    hi: 3,
+                    lo: 1,
+                    stride: 2,
+                },
+                12,
+            ),
+        ] {
+            let p = Program::new(
+                vec![MaskOp::Pred {
+                    pred: Pred::NeU32 { lane: 1, v: 0 },
+                    under: None,
+                    dst: 0,
+                }],
+                Terminal::GroupCrossMomentsI32 {
+                    mask: S0,
+                    key,
+                    x: 2,
+                    y: 4,
+                },
+            );
+            let slots = p.scratch_slots as usize;
+            let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+            let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+            let dirty = GroupCrossMoments {
+                n: 3,
+                sum_xy: -3,
+                ..GroupCrossMoments::EMPTY
+            };
+            let mut got_out = vec![dirty; groups];
+            let got = execute_into(
+                &p,
+                &planes,
+                &foreign,
+                &mut scratch,
+                Out::CrossMoments(&mut got_out),
+            )
+            .expect("runs");
+            let mut want_out = vec![dirty; groups];
+            let want =
+                reference_execute_into(&p, &planes, &foreign, Out::CrossMoments(&mut want_out))
+                    .expect("oracle runs");
+            assert_eq!(got, Value::GroupCrossMoments, "n={n} {key:?}");
+            assert_eq!(got, want, "n={n} {key:?}: value");
+            assert_eq!(got_out, want_out, "n={n} {key:?}: sink");
+            empty_group |= got_out.iter().any(|g| g.n == 0);
+            multi_row_group |= got_out.iter().any(|g| g.n > 1);
+        }
+    }
+    assert!(multi_tile && empty_group && multi_row_group);
+}
+
+/// FAILS IF: the cross terminal accepts a wrong-width `x` or `y` lane, a
+/// missing or wrong-shaped sink (an `Out::Moments` is the WRONG shape), or
+/// runs under a partial extent.
+#[test]
+fn group_cross_moments_refuses_malformed_programs() {
+    let n = 130;
+    let fx = Fixture::new(n, 10, 4, 0x5F0);
+    let ys = y_lane(n, 1);
+    let (mut lanes, _) = fx.planes();
+    lanes.push(LaneRef::I32(&ys));
+    // Every row selected, tail bits past `n` clear (a dirty tail is refused
+    // as `PlaneTail` before any terminal check runs).
+    let mut pl = vec![u64::MAX; words_for(n)];
+    pl[words_for(n) - 1] = (1u64 << (n % 64)) - 1;
+    let masks: [&[u64]; 1] = [&pl];
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let none = Foreign {
+        planes: &[],
+        lanes: &[],
+    };
+    let term = |x: u16, y: u16| Terminal::GroupCrossMomentsI32 {
+        mask: Operand::Plane(0),
+        key: GroupKey::Lane(3),
+        x,
+        y,
+    };
+    let run = |t: Terminal, out: Out<'_>| {
+        reference_execute_into(&Program::new(vec![], t), &planes, &none, out)
+    };
+    let mut sink = vec![GroupCrossMoments::EMPTY; 4];
+    for (x, y) in [(1u16, 4u16), (2, 1)] {
+        assert!(
+            matches!(
+                run(term(x, y), Out::CrossMoments(&mut sink)),
+                Err(ExecError::LaneKind { .. })
+            ),
+            "x={x} y={y}"
+        );
+    }
+    let mut univariate = vec![GroupMoments::EMPTY; 4];
+    for out in [
+        Out::None,
+        Out::Moments(&mut univariate),
+        Out::CrossMoments(&mut []),
+    ] {
+        assert_eq!(
+            run(term(2, 4), out),
+            Err(ExecError::TerminalNeedsOut {
+                what: "GroupCrossMomentsI32"
+            })
+        );
+    }
+    let p = Program::new(vec![], term(2, 4));
+    let mut s = Scratch::for_program(&p, n).expect("scratch");
+    assert_eq!(
+        execute_extent(
+            &p,
+            &planes,
+            &none,
+            &mut s,
+            Out::CrossMoments(&mut sink),
+            10..20
+        ),
+        Err(ExecError::ExtentUnsupported {
+            what: "GroupCrossMomentsI32"
+        })
+    );
+    assert_eq!(
+        sink,
+        vec![GroupCrossMoments::EMPTY; 4],
+        "a refusal writes nothing"
+    );
+    // x == y is legal and folds the univariate moments.
+    let mut same = vec![GroupCrossMoments::EMPTY; 4];
+    run(term(2, 2), Out::CrossMoments(&mut same)).expect("x == y is legal");
+    assert!(same
+        .iter()
+        .all(|g| g.sum_x == g.sum_y && g.sum_xy == g.sum_x2));
 }

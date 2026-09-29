@@ -29,7 +29,8 @@ use ndarray::simd::{
     lt_i32_to_mask_under, mask_all, mask_and, mask_and_assign, mask_andnot, mask_andnot_assign,
     mask_any, mask_gather_u32, mask_not, mask_not_assign, mask_or, mask_or_assign,
     mask_scatter_or_u32, mask_set_range, mask_xor, mask_xor_assign, masked_group_count_u32,
-    masked_group_count_u32_pair, masked_group_count_u32_via, masked_group_max_i32,
+    masked_group_count_u32_pair, masked_group_count_u32_via, masked_group_cross_moments_i32,
+    masked_group_cross_moments_i32_pair, masked_group_cross_moments_i32_via, masked_group_max_i32,
     masked_group_max_i32_pair, masked_group_max_i32_via, masked_group_min_i32,
     masked_group_min_i32_pair, masked_group_min_i32_via, masked_group_moments_i32,
     masked_group_moments_i32_pair, masked_group_moments_i32_via, masked_group_sum_i32,
@@ -38,7 +39,7 @@ use ndarray::simd::{
     masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask,
     ne_u32_to_mask_under, popcount_batch_u64, ternary_match_strided_to_mask,
     ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
-    ternary_match_u64_to_mask_under, GroupMoments, KeyRunCarry,
+    ternary_match_u64_to_mask_under, GroupCrossMoments, GroupMoments, KeyRunCarry,
 };
 
 use crate::ir::{
@@ -1421,6 +1422,7 @@ fn precheck(
             Terminal::GroupSumViaI32 { .. } => Some("GroupSumViaI32"),
             Terminal::GroupReduce { .. } => Some("GroupReduce"),
             Terminal::GroupMomentsI32 { .. } => Some("GroupMomentsI32"),
+            Terminal::GroupCrossMomentsI32 { .. } => Some("GroupCrossMomentsI32"),
         };
         if let Some(what) = refused {
             return Err(ExecError::ExtentUnsupported { what });
@@ -1575,6 +1577,9 @@ pub fn execute_compiled(
         (Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. }, Out::I64(o)) => o.fill(0),
         (Terminal::GroupReduce { fold, .. }, Out::I64(o)) => o.fill(fold.seed()),
         (Terminal::GroupMomentsI32 { .. }, Out::Moments(o)) => o.fill(GroupMoments::EMPTY),
+        (Terminal::GroupCrossMomentsI32 { .. }, Out::CrossMoments(o)) => {
+            o.fill(GroupCrossMoments::EMPTY)
+        }
         _ => {}
     }
     let n_rows = planes.n_rows;
@@ -2016,6 +2021,36 @@ pub fn execute_compiled(
                     }
                 }
             }
+            Terminal::GroupCrossMomentsI32 { mask, key, x, y } => {
+                // Same contract as GroupMomentsI32, both lanes read in place:
+                // one delegation per tile into the sink seeded above.
+                if let Out::CrossMoments(o) = &mut out {
+                    let m = read(planes, &slots, mask, t);
+                    let (xs, ys) = (lane_i32(planes, x, t), lane_i32(planes, y, t));
+                    match key {
+                        GroupKey::Lane(k) => {
+                            masked_group_cross_moments_i32(m, lane_u32(planes, k, t), xs, ys, o)
+                        }
+                        GroupKey::Via { fk, key } => masked_group_cross_moments_i32_via(
+                            m,
+                            lane_u32(planes, fk, t),
+                            foreign_lane_u32(foreign, key),
+                            xs,
+                            ys,
+                            o,
+                        ),
+                        GroupKey::Pair { hi, lo, stride } => masked_group_cross_moments_i32_pair(
+                            m,
+                            lane_u32(planes, hi, t),
+                            lane_u32(planes, lo, t),
+                            stride,
+                            xs,
+                            ys,
+                            o,
+                        ),
+                    }
+                }
+            }
             Terminal::Keep { mask } => {
                 // The demanded mask, one tile at a time. With `Out::None` the
                 // scratch is single-tile (checked above) and the slot IS the
@@ -2051,6 +2086,7 @@ pub fn execute_compiled(
         Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. } => Value::GroupSummed,
         Terminal::GroupReduce { .. } => Value::GroupReduced,
         Terminal::GroupMomentsI32 { .. } => Value::GroupMoments,
+        Terminal::GroupCrossMomentsI32 { .. } => Value::GroupCrossMoments,
         Terminal::Keep { mask } => Value::Mask(mask),
     })
 }
