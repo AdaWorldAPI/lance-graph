@@ -264,6 +264,7 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
         Value::StridedSum(_) => {
             panic!("case {id}: no MaskedStridedGroupSum case in this suite")
         }
+        Value::GroupMoments => panic!("case {id}: no GroupMomentsI32 case in this suite"),
     };
     let out_bytes = encoded.len();
     (

@@ -2,12 +2,12 @@
 //! against the row-at-a-time oracle — the same differential shape
 //! `tests/differential.rs` uses, extended over a SECOND, foreign row space.
 
-use lance_graph_mask_risc::exec::{execute_into, Scratch};
+use lance_graph_mask_risc::exec::{execute_extent, execute_into, Scratch};
 use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch_with_foreign};
 use lance_graph_mask_risc::{
-    scratch_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupFold, GroupKey, LaneKind,
-    LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value, GROUP_SUM_SYM_MAX_ROWS,
-    MASKED_SUM_I32_MAX_ROWS,
+    scratch_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupFold, GroupKey,
+    GroupMoments, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
+    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -1566,5 +1566,200 @@ fn pair_key_drops_a_minor_key_at_stride() {
         got_out.iter().sum::<i64>(),
         3,
         "rows with lo >= stride must never be counted anywhere"
+    );
+}
+
+/// FAILS IF: `Terminal::GroupMomentsI32` disagrees with the row-at-a-time
+/// oracle for any key address (resident, VIA, pair) — including across TILE
+/// boundaries, where a sink re-seeded per tile, or a tile that re-counted a
+/// row, would change `n`, `Σx` or `Σx²`.
+///
+/// Anti-vacuity: the fixture must run more than one tile, drop rows at every
+/// key hop, leave some group empty (`n == 0`) and fill some group with more
+/// than one row.
+#[test]
+fn group_moments_match_the_oracle_for_every_key_address() {
+    let mut multi_tile = false;
+    let mut empty_group = false;
+    let mut multi_row_group = false;
+    for &n in &[1usize, 63, 64, 130, 1000, 5000] {
+        let fx = Fixture::new(n, 10, 4, 0x3033 ^ n as u64);
+        let (lanes, masks) = fx.planes();
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let mut s = 0xA11Cu64 ^ n as u64;
+        let remap: Vec<u32> = (0..fx.foreign_rows)
+            .map(|_| match lcg(&mut s) % 5 {
+                3 => 9, // past every universe below: a second-hop drop
+                k => k as u32 % 3,
+            })
+            .collect();
+        let foreign_lanes = [LaneRef::U32(&remap)];
+        let foreign = Foreign {
+            planes: &[],
+            lanes: &foreign_lanes,
+        };
+        let words = test_tile_words(n);
+        multi_tile |= words < words_for(n);
+        for (key, groups) in [
+            (GroupKey::Lane(3), 4usize),
+            (GroupKey::Via { fk: 0, key: 0 }, 4),
+            // status (0..3) × key (0..9): minor keys >= stride 2 drop.
+            (
+                GroupKey::Pair {
+                    hi: 3,
+                    lo: 1,
+                    stride: 2,
+                },
+                12,
+            ),
+        ] {
+            let p = Program::new(
+                vec![MaskOp::Pred {
+                    pred: Pred::NeU32 { lane: 1, v: 0 },
+                    under: None,
+                    dst: 0,
+                }],
+                Terminal::GroupMomentsI32 {
+                    mask: S0,
+                    key,
+                    val: 2,
+                },
+            );
+            let slots = p.scratch_slots as usize;
+            let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+            let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+            // Dirty sinks on purpose: the terminal must seed them itself.
+            let dirty = GroupMoments {
+                n: 7,
+                sum: -7,
+                sum_sq: 7,
+            };
+            let mut got_out = vec![dirty; groups];
+            let got = execute_into(
+                &p,
+                &planes,
+                &foreign,
+                &mut scratch,
+                Out::Moments(&mut got_out),
+            )
+            .expect("runs");
+            let mut want_out = vec![dirty; groups];
+            let want = reference_execute_into(&p, &planes, &foreign, Out::Moments(&mut want_out))
+                .expect("oracle runs");
+            assert_eq!(got, Value::GroupMoments, "n={n} {key:?}");
+            assert_eq!(got, want, "n={n} {key:?}: value");
+            assert_eq!(got_out, want_out, "n={n} {key:?}: sink");
+            empty_group |= got_out.iter().any(|g| g.n == 0);
+            multi_row_group |= got_out.iter().any(|g| g.n > 1);
+        }
+    }
+    assert!(multi_tile, "must exercise more than one tile");
+    assert!(empty_group, "must leave some group empty");
+    assert!(multi_row_group, "must fold several rows into one group");
+}
+
+/// FAILS IF: `GroupMomentsI32` accepts a wrong-width value or key lane, a
+/// missing or wrong-shaped sink, or runs under an extent (a partial
+/// population would silently report partial moments as whole).
+#[test]
+fn group_moments_refuses_malformed_programs() {
+    let n = 130;
+    let fx = Fixture::new(n, 10, 4, 0x5EF);
+    let (lanes, masks) = fx.planes();
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let none = Foreign {
+        planes: &[],
+        lanes: &[],
+    };
+    let run = |t: Terminal, out: Out<'_>| {
+        let p = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::NeU32 { lane: 1, v: 0 },
+                under: None,
+                dst: 0,
+            }],
+            t,
+        );
+        reference_execute_into(&p, &planes, &none, out)
+    };
+    let mut sink = vec![GroupMoments::EMPTY; 4];
+    // `val` must be an I32 lane (lane 1 is U32).
+    assert!(matches!(
+        run(
+            Terminal::GroupMomentsI32 {
+                mask: S0,
+                key: GroupKey::Lane(3),
+                val: 1
+            },
+            Out::Moments(&mut sink)
+        ),
+        Err(ExecError::LaneKind { .. })
+    ));
+    // The key must be a U32 lane (lane 2 is I32).
+    assert!(matches!(
+        run(
+            Terminal::GroupMomentsI32 {
+                mask: S0,
+                key: GroupKey::Lane(2),
+                val: 2
+            },
+            Out::Moments(&mut sink)
+        ),
+        Err(ExecError::LaneKind { .. })
+    ));
+    // A moments sink is required; an i64 sink is the wrong shape.
+    let mut i64_sink = vec![0i64; 4];
+    for out in [Out::None, Out::I64(&mut i64_sink), Out::Moments(&mut [])] {
+        assert_eq!(
+            run(
+                Terminal::GroupMomentsI32 {
+                    mask: S0,
+                    key: GroupKey::Lane(3),
+                    val: 2
+                },
+                out
+            ),
+            Err(ExecError::TerminalNeedsOut {
+                what: "GroupMomentsI32"
+            })
+        );
+    }
+    // A partial extent is refused before anything is written: moments over
+    // part of the population must never be reported as moments of the whole.
+    let p = Program::new(
+        vec![],
+        Terminal::GroupMomentsI32 {
+            mask: Operand::Plane(0),
+            key: GroupKey::Lane(3),
+            val: 2,
+        },
+    );
+    let pl = vec![u64::MAX; words_for(n)];
+    let masks: [&[u64]; 1] = [&pl];
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let mut s = Scratch::for_program(&p, n).expect("scratch");
+    let mut sink = vec![GroupMoments::EMPTY; 4];
+    assert_eq!(
+        execute_extent(&p, &planes, &none, &mut s, Out::Moments(&mut sink), 10..20),
+        Err(ExecError::ExtentUnsupported {
+            what: "GroupMomentsI32"
+        })
+    );
+    assert_eq!(
+        sink,
+        vec![GroupMoments::EMPTY; 4],
+        "a refusal writes nothing"
     );
 }

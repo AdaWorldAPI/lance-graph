@@ -138,7 +138,7 @@ pub use reference::{
 pub use ternlog_dispatch::{
     ternlog_any_dispatch, ternlog_dispatch, ternlog_dispatch_assign, ternlog_popcount_dispatch,
 };
-pub use value::{ExecError, LaneKind, Out, Value};
+pub use value::{ExecError, GroupMoments, LaneKind, Out, Value};
 
 /// Number of `u64` words a mask over `n_rows` occupies.
 #[inline]

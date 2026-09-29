@@ -5,6 +5,10 @@
 //! rejects, or reject with a different reason.
 
 use crate::ir::Operand;
+/// The per-group `(n, Σx, Σx²)` accumulator [`Out::Moments`] carries. Re-exported
+/// here as shared result vocabulary so the independent oracle names the data
+/// type through this crate, never through the SIMD facade it falsifies.
+pub use ndarray::simd::GroupMoments;
 
 /// What a [`crate::Program`] produced.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,6 +36,10 @@ pub enum Value {
     /// written, one slot per group; see [`crate::GroupFold::seed`] for what
     /// an empty group holds.
     GroupReduced,
+    /// [`crate::Terminal::GroupMomentsI32`]: the caller's `Out::Moments`
+    /// buffer was written, one [`GroupMoments`] per group; an empty group
+    /// holds [`GroupMoments::EMPTY`] (`n == 0`).
+    GroupMoments,
     /// [`crate::Terminal::MaskedStridedGroupSum`]: the widened sum, or `None`
     /// when it does not fit an `i64` (never a wrapped value).
     StridedSum(Option<i64>),
@@ -52,6 +60,9 @@ pub enum Out<'a> {
     /// [`crate::Terminal::ScatterOrU32`]'s destination, `words_for(out_rows)`
     /// long.
     Mask(&'a mut [u64]),
+    /// [`crate::Terminal::GroupMomentsI32`]'s destination — one
+    /// [`GroupMoments`] per group, its length IS the group universe `K`.
+    Moments(&'a mut [GroupMoments]),
 }
 
 /// The lane width a predicate or terminal expects, for [`ExecError::LaneKind`].
