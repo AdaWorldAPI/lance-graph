@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Literal, Optional
 
 import pyarrow as pa
@@ -12,6 +13,8 @@ from pydantic import BaseModel, Field
 from .config import KnowledgeGraphConfig
 from .service import LanceKnowledgeGraph
 from .store import LanceGraphStore
+
+LOGGER = logging.getLogger(__name__)
 
 
 class QueryRequest(BaseModel):
@@ -39,7 +42,9 @@ class VectorQueryRequest(BaseModel):
         description="Query vector (float list). Mutually exclusive with query_text.",
     )
     query_text: Optional[str] = Field(
-        None, description="Text to embed as query vector. Requires OpenAI API key."
+        None,
+        min_length=1,
+        description="Text to embed as query vector. Requires OpenAI API key.",
     )
 
     metric: Literal["cosine", "l2", "dot"] = Field(
@@ -190,7 +195,12 @@ class KnowledgeGraphComponent:
                     result = service.run_with_vector_rerank(request.query, vs)
 
             except RuntimeError as exc:
-                raise HTTPException(status_code=500, detail=str(exc)) from exc
+                # The message can carry embedding-client and engine internals
+                # (and the caller's query text): log it, return a generic one.
+                LOGGER.exception("Vector query failed")
+                raise HTTPException(
+                    status_code=500, detail="Vector query execution failed."
+                ) from exc
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
 

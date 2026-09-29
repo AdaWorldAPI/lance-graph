@@ -60,7 +60,13 @@ def client(tmp_path):
     component._service = LanceKnowledgeGraph(graph_config, storage=store)
     app = FastAPI()
     app.include_router(component.router)
-    return TestClient(app)
+    test_client = TestClient(app)
+    test_client.kg_service = component._service
+    return test_client
+
+
+def _service_of(client):
+    return client.kg_service
 
 
 def _names(response):
@@ -203,7 +209,10 @@ def test_query_text_is_embedded_then_reranked(client, monkeypatch):
     assert seen == {"model": "text-embedding-3-large", "text": "science"}
 
 
-def test_failed_embedding_is_a_server_error(client, monkeypatch):
+def test_failed_embedding_is_a_generic_server_error(client, monkeypatch):
+    """A failure inside the service is a 500 whose body names no internals:
+    the raw message quotes the caller's text and the embedding client."""
+
     class NoEmbedding:
         def __init__(self, model):
             pass
@@ -217,10 +226,43 @@ def test_failed_embedding_is_a_server_error(client, monkeypatch):
 
     response = client.post(
         "/query/vector",
-        json={"query": QUERY, "column": "d.embedding", "query_text": "x"},
+        json={"query": QUERY, "column": "d.embedding", "query_text": "secret text"},
     )
     assert response.status_code == 500
-    assert "Failed to generate embedding" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert detail == "Vector query execution failed."
+    assert "secret text" not in detail
+
+
+def test_empty_query_text_is_a_client_error(client):
+    response = client.post(
+        "/query/vector",
+        json={"query": QUERY, "column": "d.embedding", "query_text": ""},
+    )
+    assert response.status_code == 422
+
+
+def test_query_by_text_rejects_an_unknown_metric(client, monkeypatch):
+    """The service must refuse a metric it cannot honour rather than rank by
+    cosine without saying so."""
+
+    class ReachedEmbedding(Exception):
+        pass
+
+    class Unused:
+        def __init__(self, model):
+            raise ReachedEmbedding
+
+    import knowledge_graph.embeddings as embeddings
+
+    monkeypatch.setattr(embeddings, "EmbeddingGenerator", Unused)
+    kg = _service_of(client)
+    with pytest.raises(ValueError, match="Unsupported metric 'euclidean'"):
+        kg.query_by_text(QUERY, "text", "d.embedding", metric="euclidean")
+    # The three documented names are accepted case-insensitively: "L2" gets
+    # past the metric check and on to the embedding step.
+    with pytest.raises(ReachedEmbedding):
+        kg.query_by_text(QUERY, "text", "d.embedding", metric="L2")
 
 
 def test_service_module_exposes_the_rerank_entry_points():

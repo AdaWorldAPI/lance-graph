@@ -209,7 +209,12 @@ class LanceKnowledgeGraph:
             "l2": DistanceMetric.L2,
             "dot": DistanceMetric.Dot,
         }
-        rust_metric = _metric_map.get(metric.lower(), DistanceMetric.Cosine)
+        try:
+            rust_metric = _metric_map[metric.lower()]
+        except KeyError as exc:
+            raise ValueError(
+                f"Unsupported metric {metric!r}; expected one of {sorted(_metric_map)}"
+            ) from exc
 
         vector = EmbeddingGenerator(model=embedding_model).embed_one(query_text)
         if vector is None:

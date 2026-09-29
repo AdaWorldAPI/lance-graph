@@ -301,8 +301,10 @@ impl CsrIndexBuilder {
             .unwrap_or(0);
         let num_vertices = self.num_vertices.map_or(needed, |n| n.max(needed));
 
-        // Sort by source vertex for CSR construction
-        self.edges.sort_unstable_by_key(|&(src, _)| src);
+        // Sort by source vertex for CSR construction. Stable, so a source's
+        // neighbors keep insertion order and BFS / shortest_path tie-breaks
+        // are deterministic.
+        self.edges.sort_by_key(|&(src, _)| src);
 
         // Build offset and neighbor arrays
         let mut offsets = vec![0u64; num_vertices as usize + 1];
@@ -715,6 +717,29 @@ mod tests {
         let (out, inc) = build_bidirectional_index(&[(0, 1), (5, 3)], 2);
         assert_eq!(out.neighbors(5), &[3]);
         assert_eq!(inc.neighbors(3), &[5]);
+    }
+
+    /// FAILS IF: the source sort is unstable — a source's neighbors then come
+    /// back in an arbitrary order instead of insertion order. The input is
+    /// large and interleaved on purpose: a short slice is insertion-sorted
+    /// (stable by accident) and would pass either way.
+    #[test]
+    fn test_neighbors_keep_insertion_order_per_source() {
+        let mut b = CsrIndexBuilder::new();
+        for i in 0..600u64 {
+            // Sources cycle 2, 1, 0 so every source's edges are scattered
+            // across the input; destinations descend so insertion order is
+            // not the sorted order either.
+            b = b.add_edge(2 - (i % 3), 10_000 - i);
+        }
+        let idx = b.build();
+        for src in 0..3u64 {
+            let expected: Vec<u64> = (0..600u64)
+                .filter(|i| 2 - (i % 3) == src)
+                .map(|i| 10_000 - i)
+                .collect();
+            assert_eq!(idx.neighbors(src), expected.as_slice(), "source {src}");
+        }
     }
 
     /// FAILS IF: the `start == end` shortcut runs before the range check.
