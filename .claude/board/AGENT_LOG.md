@@ -1,26 +1,3 @@
-## 2026-09-29 — 5+3 council on D-PFP-0/1 (Perturbationsfeld probe) + run
-
-- D-ids: D-PFP-0 (Shipped), D-PFP-1 (Shipped, verdict INVALID). Commits:
-  `3e1d0b22` (pre-registration, pushed before the run) and the results commit.
-- Council: 5 savants — prior-art, iron-rule, code-truth (general-purpose),
-  cascade-impact, different-views; 3 reviewers (general-purpose) —
-  overclaim-auditor, dilution-collapse-sentinel, firewall-warden.
-  Savant findings: 44 (CONFIRMS/GAP/RISK/PRIOR-ART-AT; 0 VIOLATES).
-  Review verdicts: 0 BLOCK, 7 P1, 17 P2 — all applied.
-- v1→v2: sabotage demoted from the PASS leg (near-vacuous in 1-D); decision
-  moved to retention E-set vs C-set; public `CodebookIndex`; all-zero
-  degeneracy; RESET / lens / scope sentences. v2→v3: `top_k` padding removed
-  from the metric; empirical null N0; outcome rename (HIGHER/LOWER/NO-
-  RETENTION-DIFFERENCE, INPUT-INSENSITIVE, RELABEL-INSENSITIVE); thresholded
-  positive control; cardinality-matched E_m; per-arm degeneracy; squash-safe
-  SHA + sha256.
-- Tests: probe `cargo test` 7/7, clippy `--all-targets -D warnings` clean,
-  PREREG constant test disable-verified.
-- Outcome: INVALID on both lenses — every stimulus degenerate (energy spread
-  over all 256 rows, max ≈ 0.0096 < θ = 0.01). Classified as data, not
-  harness (`examples/diag.rs`). Observed beside the verdict: all stimuli
-  converge to one top set (N0 = 1.0, positive control 8/8).
-
 ## 2026-09-23 — W0 recon: OGAR DocIR projection seam (read-only, one Opus general-purpose run)
 
 - D-ids: D-RPT-3, D-RPT-4. No edits, no cargo.
