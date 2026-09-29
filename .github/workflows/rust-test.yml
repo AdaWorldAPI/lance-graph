@@ -92,6 +92,10 @@ jobs:
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --no-run
       - name: Run unit tests
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --lib
+      - name: Run integration tests
+        # `--test '*'` selects only integration-test targets; `--tests` would
+        # re-run the lib unit tests the step above already ran.
+        run: cargo test --manifest-path crates/lance-graph/Cargo.toml --test '*'
       - name: Run doc tests
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --doc
       # lance-graph-contract is the zero-dep trait crate every workspace
@@ -526,8 +530,10 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Run tests with coverage
+        env:
+          CARGO_BUILD_JOBS: "2"
         run: |
-          cargo llvm-cov --manifest-path crates/lance-graph/Cargo.toml --lcov --output-path lcov.info
+          cargo llvm-cov --manifest-path crates/lance-graph/Cargo.toml --lib --lcov --output-path lcov.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
