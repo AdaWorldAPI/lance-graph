@@ -288,18 +288,39 @@ impl CsrIndexBuilder {
     /// Build the CSR index.
     ///
     /// Sorts edges by source vertex, then builds offset and neighbor arrays.
-    pub fn build(mut self) -> CsrIndex {
+    ///
+    /// # Panics
+    ///
+    /// If a vertex ID or the declared vertex count is too large for the
+    /// offset table to address; [`Self::try_build`] reports that as an error.
+    pub fn build(self) -> CsrIndex {
+        match self.try_build() {
+            Ok(index) => index,
+            Err(e) => panic!("{e}"),
+        }
+    }
+
+    /// Build the CSR index, failing instead of overflowing when a vertex ID
+    /// (or the declared vertex count) is too large for the offset table —
+    /// `num_vertices + 1` offsets must fit in both `u64` and `usize`.
+    pub fn try_build(mut self) -> Result<CsrIndex> {
+        let unaddressable = || GraphError::PlanError {
+            message: "CSR vertex id too large: the offset table cannot address it".to_string(),
+            location: snafu::Location::new(file!(), line!(), column!()),
+        };
+
         // Every endpoint must be addressable: otherwise an edge from a source
         // past the range is stored after the last offset (counted, never
         // reachable) and a destination past it names a nonexistent vertex.
-        let needed = self
-            .edges
-            .iter()
-            .flat_map(|&(s, d)| [s, d])
-            .max()
-            .map(|m| m + 1)
-            .unwrap_or(0);
+        let needed = match self.edges.iter().flat_map(|&(s, d)| [s, d]).max() {
+            Some(m) => m.checked_add(1).ok_or_else(unaddressable)?,
+            None => 0,
+        };
         let num_vertices = self.num_vertices.map_or(needed, |n| n.max(needed));
+        let offsets_len = num_vertices
+            .checked_add(1)
+            .and_then(|len| usize::try_from(len).ok())
+            .ok_or_else(unaddressable)?;
 
         // Sort by source vertex for CSR construction. Stable, so a source's
         // neighbors keep insertion order and BFS / shortest_path tie-breaks
@@ -307,7 +328,7 @@ impl CsrIndexBuilder {
         self.edges.sort_by_key(|&(src, _)| src);
 
         // Build offset and neighbor arrays
-        let mut offsets = vec![0u64; num_vertices as usize + 1];
+        let mut offsets = vec![0u64; offsets_len];
         let mut neighbors = Vec::with_capacity(self.edges.len());
 
         // Count degrees
@@ -329,11 +350,11 @@ impl CsrIndexBuilder {
             neighbors.push(dst);
         }
 
-        CsrIndex {
+        Ok(CsrIndex {
             offsets,
             neighbors,
             num_vertices,
-        }
+        })
     }
 }
 
@@ -740,6 +761,23 @@ mod tests {
                 .collect();
             assert_eq!(idx.neighbors(src), expected.as_slice(), "source {src}");
         }
+    }
+
+    /// FAILS IF: `max endpoint + 1` (or `num_vertices + 1`) is computed
+    /// unchecked — it wraps in release and panics in debug instead of being
+    /// reported. Only checks that the error is returned, never allocates.
+    #[test]
+    fn test_unaddressable_vertex_ids_are_an_error() {
+        let max_endpoint = CsrIndexBuilder::new().add_edge(0, u64::MAX).try_build();
+        assert!(max_endpoint.is_err());
+        let max_source = CsrIndexBuilder::new().add_edge(u64::MAX, 0).try_build();
+        assert!(max_source.is_err());
+        // A declared count of u64::MAX fits, but its `count + 1` offsets do
+        // not.
+        let declared = CsrIndexBuilder::new()
+            .with_num_vertices(u64::MAX)
+            .try_build();
+        assert!(declared.is_err());
     }
 
     /// FAILS IF: the `start == end` shortcut runs before the range check.

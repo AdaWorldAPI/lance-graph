@@ -93,7 +93,9 @@ jobs:
       - name: Run unit tests
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --lib
       - name: Run integration tests
-        run: cargo test --manifest-path crates/lance-graph/Cargo.toml --tests
+        # `--test '*'` selects only integration-test targets; `--tests` would
+        # re-run the lib unit tests the step above already ran.
+        run: cargo test --manifest-path crates/lance-graph/Cargo.toml --test '*'
       - name: Run doc tests
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --doc
       # lance-graph-contract is the zero-dep trait crate every workspace
