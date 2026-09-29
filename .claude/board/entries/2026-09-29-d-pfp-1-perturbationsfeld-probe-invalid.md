@@ -14,7 +14,7 @@
 
 ## Measured beside the verdict (observations, not an outcome)
 
-- **Every stimulus converges to the same top set.** N0 (cross-stimulus top-set overlap of `P_n`) = **1.0000** on both lenses; the positive control (the least-similar centroid pair as single-id stimuli) overlaps **8 / 8** on both lenses. Four PRIMARY stimuli with disjoint-looking inputs end at top ids 184, 234, 246 with energies equal to ~1e-6. Both INPUT-INSENSITIVE conditions are met by the numbers, but the pre-registered order evaluates INVALID first, so INPUT-INSENSITIVE is **not** the verdict.
+- **Every stimulus converges to the same top set.** N0 (cross-stimulus top-set overlap of `P_n`) = **1.0000** on both lenses; the positive control (the least-similar centroid pair as single-id stimuli) overlaps **8 / 8** on both lenses. Four PRIMARY stimuli with disjoint-looking inputs end at top ids 184, 234, 246 with energies (≈ 0.0096 / 0.0087 / 0.0085) equal across stimuli to within ~1e-6. Both INPUT-INSENSITIVE conditions are met by the numbers, but the pre-registered order evaluates INVALID first, so INPUT-INSENSITIVE is **not** the verdict.
 - **Scope of that observation:** the two tracked 256² tables, the p75 floor, `think(10)` (loops `cycle()`), RESET. Other engines (`sparsify`, `think_with_temperature`, signed / BF16 engines) were not run.
 - **Production-adjacent consequence (same scope):** with max energy ≈ 0.0096 < `SCAN_WORTHY_ENERGY` = 0.01, the `dispatch_from_top_k` active filter (`engine_bridge.rs:130-133`) would be empty and fall back to the `[0, 64)` window for every stimulus. Not tested on the production call path (which has no production caller of `dispatch_from_top_k`).
 
