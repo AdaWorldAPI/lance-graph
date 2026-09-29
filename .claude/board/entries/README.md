@@ -61,6 +61,7 @@ exactly one of them, never both.
 | 2026-09-30 | `three-reference-sets-are-not-ordinal-aligned` |  | [2026-09-30-three-reference-sets-are-not-ordinal-aligned.md](2026-09-30-three-reference-sets-are-not-ordinal-aligned.md) |
 | 2026-09-30 | `deepnsm-v2-coverage-bands` |  | [2026-09-30-deepnsm-v2-coverage-bands.md](2026-09-30-deepnsm-v2-coverage-bands.md) |
 | 2026-09-30 | `cypher-mask-v2-is-a-replacement-not-a-phase` |  | [2026-09-30-cypher-mask-v2-is-a-replacement-not-a-phase.md](2026-09-30-cypher-mask-v2-is-a-replacement-not-a-phase.md) |
+| 2026-09-29 | `grouped-moments-fold-anova-over-masks` |  | [2026-09-29-grouped-moments-fold-anova-over-masks.md](2026-09-29-grouped-moments-fold-anova-over-masks.md) |
 | 2026-09-29 | `deepnsm-v2-counted-pick-tag-deltas` |  | [2026-09-29-deepnsm-v2-counted-pick-tag-deltas.md](2026-09-29-deepnsm-v2-counted-pick-tag-deltas.md) |
 | 2026-09-26 | `deepnsm-v2-lexical-evidence-survives-routing` |  | [2026-09-26-deepnsm-v2-lexical-evidence-survives-routing.md](2026-09-26-deepnsm-v2-lexical-evidence-survives-routing.md) |
 | 2026-09-25 | `window-scheduling-and-two-level-ternlog` |  | [2026-09-25-window-scheduling-and-two-level-ternlog.md](2026-09-25-window-scheduling-and-two-level-ternlog.md) |
