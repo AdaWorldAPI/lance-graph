@@ -29,8 +29,8 @@
 
 use deepnsm_v2::{
     load_cam96_codes, load_cam96_space, load_word_forms_csv, parse_to_spo, EvidenceError,
-    LexicalEvidence, LexicalReading, Nsm, PaletteVocab, Pos, Spo, Tagged, TemporalStream, WordId,
-    WordFormsReport,
+    LexicalEvidence, LexicalReading, Nsm, PaletteVocab, Pos, Spo, Tagged, TemporalStream,
+    WordFormsReport, WordId,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -137,7 +137,8 @@ fn main() {
         "/../deepnsm/word_frequency/word_forms.csv"
     ))
     .expect("word_forms.csv (sibling deepnsm crate)");
-    let tagger = Tagger::load(&lemmas_csv, &forms_csv, &nsm.vocab).expect("word_forms.csv evidence");
+    let tagger =
+        Tagger::load(&lemmas_csv, &forms_csv, &nsm.vocab).expect("word_forms.csv evidence");
     let r = &tagger.report;
     println!(
         "LEXICON  word_forms: {} rows, {} readings stored, {} empty surface, {} not in vocab",
@@ -150,7 +151,9 @@ fn main() {
     let mut moved = 0usize;
     for id in 0..nsm.vocab.len() {
         let id = WordId::try_from(id).expect("vocab fits u16");
-        let Some(w) = nsm.vocab.word(id) else { continue };
+        let Some(w) = nsm.vocab.word(id) else {
+            continue;
+        };
         let old = first_wins
             .get(w)
             .copied()
@@ -1117,7 +1120,11 @@ struct Tagger {
 }
 
 impl Tagger {
-    fn load(lemmas_csv: &str, forms_csv: &str, vocab: &PaletteVocab) -> Result<Self, EvidenceError> {
+    fn load(
+        lemmas_csv: &str,
+        forms_csv: &str,
+        vocab: &PaletteVocab,
+    ) -> Result<Self, EvidenceError> {
         let mut lemmas = HashMap::new();
         for line in lemmas_csv.lines().skip(1) {
             let f: Vec<&str> = line.split(',').collect();
@@ -1220,7 +1227,11 @@ mod tests {
     #[test]
     fn folded_tags_sum_and_overflow_is_refused() {
         // n 60 + p 50 = Noun 110 beats v 100; either alone would lose.
-        let r = [reading(b'n', Some(60)), reading(b'p', Some(50)), reading(b'v', Some(100))];
+        let r = [
+            reading(b'n', Some(60)),
+            reading(b'p', Some(50)),
+            reading(b'v', Some(100)),
+        ];
         assert_eq!(counted_pos(&r).unwrap(), Some(Pos::Noun));
         let big = [reading(b'n', Some(u64::MAX)), reading(b'p', Some(1))];
         assert_eq!(counted_pos(&big), Err(EvidenceError::CountOverflow));
@@ -1229,7 +1240,11 @@ mod tests {
     // (c) one unknown count makes that whole state unknown
     #[test]
     fn an_unknown_count_takes_its_state_out() {
-        let r = [reading(b'n', Some(500)), reading(b'n', None), reading(b'v', Some(1))];
+        let r = [
+            reading(b'n', Some(500)),
+            reading(b'n', None),
+            reading(b'v', Some(1)),
+        ];
         assert_eq!(counted_pos(&r).unwrap(), Some(Pos::Verb));
     }
 
@@ -1239,8 +1254,14 @@ mod tests {
         let forms = committed("word_forms.csv");
         let v = vocab(&["changes"]);
         let t = Tagger::load("rank,lemma,PoS\n", &forms, &v).unwrap();
-        assert!(!t.lemmas.contains_key("changes"), "must not be a lemma-table key");
-        assert_eq!(t.pos("changes", v.id("changes").unwrap()).unwrap(), Pos::Noun);
+        assert!(
+            !t.lemmas.contains_key("changes"),
+            "must not be a lemma-table key"
+        );
+        assert_eq!(
+            t.pos("changes", v.id("changes").unwrap()).unwrap(),
+            Pos::Noun
+        );
         // Anti-vacuity: the old first-wins rule tags it Verb, so the line
         // above distinguishes the two rules.
         assert_eq!(
@@ -1273,18 +1294,32 @@ mod tests {
     // (g) stay-silent: one reading keeps its tag
     #[test]
     fn a_single_reading_keeps_its_tag() {
-        assert_eq!(counted_pos(&[reading(b'j', Some(3))]).unwrap(), Some(Pos::Adj));
-        assert_eq!(counted_pos(&[reading(b'r', Some(3))]).unwrap(), Some(Pos::Other));
+        assert_eq!(
+            counted_pos(&[reading(b'j', Some(3))]).unwrap(),
+            Some(Pos::Adj)
+        );
+        assert_eq!(
+            counted_pos(&[reading(b'r', Some(3))]).unwrap(),
+            Some(Pos::Other)
+        );
     }
 
     // (h) + G7: the lemma table is never overruled by the forms layer
     #[test]
     fn the_forms_layer_never_retags_a_lemma_table_word() {
         let v = vocab(&["work"]);
-        let t = Tagger::load(&committed("lemmas_5k.csv"), &committed("word_forms.csv"), &v).unwrap();
+        let t = Tagger::load(
+            &committed("lemmas_5k.csv"),
+            &committed("word_forms.csv"),
+            &v,
+        )
+        .unwrap();
         let id = v.id("work").unwrap();
         // The counts alone would say Noun (n 456,169 vs v 356,692) ...
-        assert_eq!(counted_pos(t.evidence.readings(id)).unwrap(), Some(Pos::Noun));
+        assert_eq!(
+            counted_pos(t.evidence.readings(id)).unwrap(),
+            Some(Pos::Noun)
+        );
         // ... and the lemma table still wins.
         assert_eq!(t.pos("work", id).unwrap(), Pos::Verb);
 
