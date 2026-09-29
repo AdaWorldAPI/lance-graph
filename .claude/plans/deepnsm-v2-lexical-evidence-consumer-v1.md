@@ -18,6 +18,8 @@ perform the CausalEdge64 epistemic transition.
 
 ## Checklist
 
+This checklist is **D-LXC-1** (and D-LXC-7, which rides with it).
+
 - [ ] Tests first (below), each seen red before the change.
 - [ ] `LexicalEvidence::fsm_readings(id)` — the source PoS byte mapped to the
       six-state FSM `Pos`, every reading kept, counts of tags that fold into
@@ -65,32 +67,32 @@ perform the CausalEdge64 epistemic transition.
 Ranked. Item 1 is the checklist above; the rest are recorded so the
 convergence session and the operator see the whole set.
 
-1. **Lexical-evidence consumer** (this plan). Smallest; closes the first-wins
+1. **D-LXC-1** · **Lexical-evidence consumer** (this plan). Smallest; closes the first-wins
    loss at its only caller; gives any later hydration step a real counted
    input.
-2. **FSM takes several readings per token.** The honest end state of item 1:
+2. **D-LXC-2** · **FSM takes several readings per token.** The honest end state of item 1:
    `Tagged` carries candidates, `parse_to_spo` resolves ambiguity with
    context instead of a counted guess. Needs an FSM change; separate PR.
-3. **`lemmas_5k.csv` loader.** Lemma-level file (25 columns: freq, range,
+3. **D-LXC-3** · **`lemmas_5k.csv` loader.** Lemma-level file (25 columns: freq, range,
    dispersion, genre splits). Either a second loader in `lexical.rs` or drop
    it from the consumer because `word_forms.csv` already carries `lemFreq`.
    Operator decision.
-4. **`academic_20k.csv` loader.** Blocked on a ruling: 3 pairs of rows share
+4. **D-LXC-4** · **`academic_20k.csv` loader.** Blocked on a ruling: 3 pairs of rows share
    (word, PoS) with different counts. Disjoint and summable, or duplicates?
    Until ruled, the builder refuses the second as `DuplicateReading`.
-5. **Counts for the Cam96 vocabulary.** `bible_vocab.txt` is surface-only (no
+5. **D-LXC-5** · **Counts for the Cam96 vocabulary.** `bible_vocab.txt` is surface-only (no
    counts, no PoS). The Tigris bucket (checked 2026-09-26 via the `AWS_*`
    credentials) holds only `academic_20k.csv` (identical to the committed
    copy) and a first-wins codebook TSV — no lemma-level or per-form counts.
    KJV-own counts would have to be computed from the corpus, not fetched.
-6. **Mask-risc fold → next cycle.** From the 2026-09-26 `.claude/v3` review:
+6. **D-LXC-6** · **Mask-risc fold → next cycle.** From the 2026-09-26 `.claude/v3` review:
    the smallest missing executable seam across the cycle boundary is a
    mask-risc fold result at Lance version v entering cycle v+1 as a staged
    cast. Most value, not small, and it touches the CausalEdge64 area whose
    PRs #1293–#1295 were reverted. Needs its own plan.
-7. **Repo attribution setting.** `.claude/settings.json`
+7. **D-LXC-7** · **Repo attribution setting.** `.claude/settings.json`
    `"attribution": {"commit": "", "pr": ""}`; rides with item 1.
-8. **History scrub of the `Opus 5.5` trailers.** Deferred by the operator:
+8. **D-LXC-8** · **History scrub of the `Opus 5.5` trailers.** Deferred by the operator:
    no force push. The two #1299 commits (`31f7d26f`, `eee1b17a`) and seven
    older ones keep the trailer; new commits carry none.
 

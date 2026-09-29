@@ -1,3 +1,18 @@
+## D-LXC — DeepNSM-v2 lexical-evidence consumer + candidate next parts (2026-09-29)
+
+Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`. Convergence brief: `.claude/prompts/deepnsm-v2-lexical-consumer-converge.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-LXC-1** | `LexicalEvidence::fsm_readings` + `bible_wave` load_pos switched from first-wins to a counted selection rule | Queued | homograph/fold/unknown/selection tests; disable run (first-wins) turns the selection test red |
+| **D-LXC-2** | FSM (`Tagged`/`parse_to_spo`) takes several readings per token | Queued | separate PR; needs an FSM change |
+| **D-LXC-3** | `lemmas_5k.csv`: second loader or drop from the consumer | Queued | operator decision |
+| **D-LXC-4** | `academic_20k.csv` loader | Blocked | ruling on 3 duplicate (word, PoS) row pairs |
+| **D-LXC-5** | KJV-own counts for the Cam96 vocabulary (`bible_vocab.txt` is surface-only; not in the Tigris bucket) | Queued | computed from corpus, not fetched |
+| **D-LXC-6** | mask-risc fold result at version v into cycle v+1 as a staged cast | Queued | own plan; touches the reverted CE64 area |
+| **D-LXC-7** | repo `.claude/settings.json` attribution off | Queued | rides with D-LXC-1 |
+| **D-LXC-8** | scrub `Opus 5.5` trailers from history | Deferred | operator: no force push |
+
 ## D-RPT — ReportPlan / zero-copy pivot / report-as-OGAR-projection (2026-09-23)
 
 Entry: `entries/2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md`.

@@ -1,6 +1,6 @@
 ## 2026-09-29 (1) — deepnsm-v2-lexical-evidence-consumer-v1 — first reader of the #1299 lexical evidence → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
 
-**Status:** PROPOSAL. No code authorized. One read method
+**Status:** PROPOSAL (D-LXC-1..8). No code authorized. One read method
 (`LexicalEvidence::fsm_readings`) plus one caller (`bible_wave::load_pos`,
 first-wins today) switched to a counted, named selection rule. FSM input stays
 one `Pos` per token. Convergence brief for a second session:
