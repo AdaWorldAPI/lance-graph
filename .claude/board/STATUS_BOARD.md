@@ -4,14 +4,16 @@ Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`. Convergence br
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-LXC-1** | `LexicalEvidence::fsm_readings` + `bible_wave` load_pos switched from first-wins to a counted selection rule | Queued | homograph/fold/unknown/selection tests; disable run (first-wins) turns the selection test red |
+| **D-LXC-1** | `bible_wave` only: counted pick (fold in the example) replaces word_forms first-wins; lemma layer kept first (variant B); library unchanged. Council-ratified 2026-09-29 | Queued | G1–G6 in the plan; G5 KJV before/after blocking; G6 exactly 105 offline tag changes |
 | **D-LXC-2** | FSM (`Tagged`/`parse_to_spo`) takes several readings per token | Queued | separate PR; needs an FSM change |
-| **D-LXC-3** | `lemmas_5k.csv`: second loader or drop from the consumer | Queued | operator decision |
+| **D-LXC-3** | lemma-table order: keep first (B, 105 changes) or counted-first (A, 288) | Queued | operator decision on D-LXC-1's KJV numbers |
 | **D-LXC-4** | `academic_20k.csv` loader | Blocked | ruling on 3 duplicate (word, PoS) row pairs |
 | **D-LXC-5** | KJV-own counts for the Cam96 vocabulary (`bible_vocab.txt` is surface-only; not in the Tigris bucket) | Queued | computed from corpus, not fetched |
 | **D-LXC-6** | mask-risc fold result at version v into cycle v+1 as a staged cast | Queued | own plan; touches the reverted CE64 area |
 | **D-LXC-7** | repo `.claude/settings.json` attribution off | Queued | rides with D-LXC-1 |
 | **D-LXC-8** | scrub `Opus 5.5` trailers from history | Deferred | operator: no force push |
+| **D-LXC-9** | `archaic_pos` cannot override COCA-known KJV words (`art` is Noun, `word_forms.csv:1047`) | Queued | pre-existing; found by the council |
+| **D-LXC-10** | `Pos::Rel` produced by no tagger in deepnsm-v2 (only FSM match arms + one unit test) | Queued | pre-existing; the relative-clause machine is unreachable from real input |
 
 ## D-RPT — ReportPlan / zero-copy pivot / report-as-OGAR-projection (2026-09-23)
 

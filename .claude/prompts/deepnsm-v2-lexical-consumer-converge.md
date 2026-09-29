@@ -5,7 +5,10 @@ proposal. Fold them into it; do not start a parallel design.
 
 ## Read first
 
-1. `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md` — the proposal.
+1. `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md` — the proposal,
+   already ratified by a 5+3 council (2026-09-29). Its inherited rulings, the
+   variant-B decision and the gates are the baseline; argue against them only
+   with file:line evidence or a measurement.
 2. `crates/deepnsm-v2/src/lexical.rs` — what #1299 shipped.
 3. `crates/deepnsm-v2/examples/bible_wave.rs` `load_pos` (`:1023`) and
    `coca_pos` (`:980`) — the one consumer and its first-wins loss.
@@ -33,12 +36,12 @@ For each of your ideas, one entry:
 
 Then write `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v2.md`: v1 with
 your accepted items merged in and a short section listing what was deferred
-or dropped and why. Keep the PR small: one read method, one caller. Anything
+or dropped and why. Keep the PR small: the library stays unchanged; one caller changes. Anything
 that needs an FSM change or a second loader is its own PR unless you show it
 cannot be separated.
 
-Answer the two open decisions in v1 if your ideas bear on them:
-`lemmas_5k.csv` (drop from the consumer or add a loader) and the selection
-rule (highest known count, tie-break).
+Answer the open decisions if your ideas bear on them: D-LXC-3 (lemma table
+first, variant B, or counted-first, variant A) and the selection rule
+(highest known count, fixed tie order, no known count → None).
 
 Do not implement. Commit only the v2 plan and its board entries.

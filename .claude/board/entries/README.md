@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-175 entries, 2026-08-06 .. 2026-09-26.
+176 entries, 2026-08-06 .. 2026-09-29.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-09-29 | `deepnsm-v2-counted-pick-tag-deltas` |  | [2026-09-29-deepnsm-v2-counted-pick-tag-deltas.md](2026-09-29-deepnsm-v2-counted-pick-tag-deltas.md) |
 | 2026-09-26 | `deepnsm-v2-lexical-evidence-survives-routing` |  | [2026-09-26-deepnsm-v2-lexical-evidence-survives-routing.md](2026-09-26-deepnsm-v2-lexical-evidence-survives-routing.md) |
 | 2026-09-25 | `window-scheduling-and-two-level-ternlog` |  | [2026-09-25-window-scheduling-and-two-level-ternlog.md](2026-09-25-window-scheduling-and-two-level-ternlog.md) |
 | 2026-09-25 | `tile-knee-and-compiled-lowering` |  | [2026-09-25-tile-knee-and-compiled-lowering.md](2026-09-25-tile-knee-and-compiled-lowering.md) |

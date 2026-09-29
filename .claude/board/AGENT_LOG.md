@@ -1,3 +1,19 @@
+## 2026-09-29 — 5+3 council on D-LXC-1 (proposal only, no code)
+
+- Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md` (ratified v3).
+- The 5: prior-art-savant, iron-rule-savant, code-truth (general-purpose,
+  runtime-archaeologist charter), cascade-impact-savant, creative-explorer-savant.
+  Findings: 1 VIOLATES from S3 (v1's "only `stair` lost"), 3 VIOLATES from S2/S5
+  (library mapping and pick vs F1/F7/F8), plus GAP/RISK/PRIOR-ART findings.
+- The 3: overclaim-auditor, dilution-collapse-sentinel, firewall-warden.
+  0 BLOCK, 9 FIX (2 P1 each from the overclaim and firewall reviewers, 1 P1 from
+  dilution/collapse), rest PASS.
+- v1 → v2: fold and pick moved from the library to `bible_wave`; tag-change
+  count corrected (288, 183 lemma-derived); KJV before/after made blocking.
+- v2 → v3: lemma table kept first (variant B, 105 changes), counted-first
+  reported as alternative; append-only handling corrected.
+- New rows: D-LXC-9 (archaic override), D-LXC-10 (`Pos::Rel` unreachable).
+
 ## 2026-09-23 — W0 recon: OGAR DocIR projection seam (read-only, one Opus general-purpose run)
 
 - D-ids: D-RPT-3, D-RPT-4. No edits, no cargo.
