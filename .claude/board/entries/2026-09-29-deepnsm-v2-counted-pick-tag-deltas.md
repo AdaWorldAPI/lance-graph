@@ -1,21 +1,32 @@
-# DeepNSM-v2 counted PoS pick: offline tag-change counts (2026-09-29)
+# DeepNSM-v2 counted PoS pick: tag-change counts (2026-09-29)
 
-**Status:** MEASURED (offline, over the committed CSVs). No code changed.
+**Status:** MEASURED (offline, over committed CSVs plus the released KJV
+vocabulary). No code changed.
 
-Replacing `bible_wave::load_pos`'s first-wins tagging with a counted pick
+The removed `deepnsm-v2/src/lexicon.rs` (`68955ecb^`) assumed "the first row
+[of a frequency-ranked table] is the dominant reading". For `word_forms.csv`
+that is false: the file is ordered by lemma rank, and 259 surfaces have a
+first row that is not their most frequent reading (e.g. `changes`: first row
+v 13,624 at `:707`, noun n 113,085 at `:853`).
+
+Replacing that first-wins layer in `bible_wave::load_pos` with a counted pick
 (highest summed `wordFreq` per folded parser state, tie order Noun > Verb >
 Adj > Det > Other) changes:
 
-- **105 tags** when the `lemmas_5k.csv` layer stays first (variant B, the plan's choice);
-- **288 tags**, 183 of them lemma-derived, when the counted pick goes first (variant A).
+| variant | over both tables | within `bible_vocab.txt` (12,543) |
+|---|---|---|
+| B: lemma table first, as pinned by `ec50f07b` (the plan's choice) | 105 | **25** |
+| A: counted pick first, lemma table as fallback | 288 (183 lemma-derived) | 141 |
 
-Method: Python over `crates/deepnsm/word_frequency/{lemmas_5k,word_forms}.csv`,
-fold `n|p→Noun, v→Verb, j→Adj, a|d→Det, else Other`, union of both tables.
-Whether either variant tags the KJV better is not measured. The KJV
-before/after is gate G5 of D-LXC-1.
+Method: Python over `crates/deepnsm/word_frequency/{lemmas_5k,word_forms}.csv`
+and `bible_vocab.txt` from release `v0.1.0-cam96-data`. Surfaces are
+lowercased as `load_pos` does. Fold: `n|p→Noun, v→Verb, j→Adj, a|d→Det,
+else Other`. Whether either variant tags the KJV better is not measured; the
+KJV before/after is gate G5 of D-LXC-1.
 
-Two pre-existing observations from the same council: `archaic_pos` never fires
-for COCA-known words such as `art` (D-LXC-9), and no in-crate tagger in
-deepnsm-v2 produces `Pos::Rel` (D-LXC-10); external callers can still pass it.
+Pre-existing observations filed with the plan:
+- `archaic_pos` never fires for COCA-known words such as `art` (D-LXC-9).
+- No in-crate tagger in deepnsm-v2 produces `Pos::Rel`; external callers can
+  still pass it (D-LXC-10).
 
 Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`.

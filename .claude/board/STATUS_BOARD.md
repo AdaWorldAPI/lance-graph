@@ -4,15 +4,15 @@ Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`. Convergence br
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-LXC-1** | `bible_wave` only: counted pick (fold in the example) replaces word_forms first-wins; lemma layer kept first (variant B); library unchanged. Council-ratified 2026-09-29 | Queued | G1–G6 in the plan; G5 KJV before/after blocking; G6 exactly 105 offline tag changes |
-| **D-LXC-2** | FSM (`Tagged`/`parse_to_spo`) takes several readings per token | Queued | separate PR; needs an FSM change |
-| **D-LXC-3** | lemma-table order: keep first (B, 105 changes) or counted-first (A, 288) | Queued | operator decision on D-LXC-1's KJV numbers |
-| **D-LXC-4** | `academic_20k.csv` loader | Blocked | ruling on 3 duplicate (word, PoS) row pairs |
-| **D-LXC-5** | KJV-own counts for the Cam96 vocabulary (`bible_vocab.txt` is surface-only; not in the Tigris bucket) | Queued | computed from corpus, not fetched |
-| **D-LXC-6** | mask-risc fold result at version v into cycle v+1 as a staged cast | Queued | own plan; touches the reverted CE64 area |
+| **D-LXC-1** | `bible_wave` only: counted pick (fold in the example) replaces the word_forms layer's first-wins; lemma table stays first (variant B, pinned rule F9 from `ec50f07b`); library unchanged. Rewritten 2026-09-29 against the migration documents, every claim re-read | Queued | G1–G7 in the plan; G5 KJV before/after blocking; G6 exactly 25 tag changes within `bible_vocab.txt`; G7 restores the deleted lemma-first test (closes `TD-DEEPNSM-V2-SESSION-RESIDUE` item 3) |
+| **D-LXC-2** | FSM (`Tagged`/`parse_to_spo`) takes several readings per token, resolved by role (`E-SURFACE-FORM-COLLAPSE-1`) | Queued | separate PR; needs an FSM change |
+| **D-LXC-3** | lemma-table order: keep first (B, 25 in-vocab changes) or counted-first (A, 141; overrides F9) | Queued | operator decision on D-LXC-1's KJV numbers |
+| **D-LXC-4** | `academic_20k.csv` loader + the duplicate `coca_pos` in `genre_shapes.rs` | Blocked | ruling on 3 duplicate (word, PoS) pairs: wastewater/n, disproportionately/r, instill/v |
+| **D-LXC-5** | KJV-own counts for the Cam96 vocabulary (`bible_vocab.txt` is surface-only) | Queued | computed from the corpus |
+| **D-LXC-6** | mask-risc fold result at version v into cycle v+1 as a staged cast | Queued | own plan; touches the reverted CE64 area; not re-verified in the 2026-09-29 rewrite |
 | **D-LXC-7** | repo `.claude/settings.json` attribution off | Queued | rides with D-LXC-1 |
-| **D-LXC-8** | scrub `Opus 5.5` trailers from history | Deferred | operator: no force push |
-| **D-LXC-9** | `archaic_pos` cannot override COCA-known KJV words (`art` is Noun, `word_forms.csv:1047`) | Queued | pre-existing; found by the council |
+| **D-LXC-8** | scrub the model-naming `Co-Authored-By` trailer from history (120 commits on `main`) | Deferred | operator: no force push |
+| **D-LXC-9** | `archaic_pos` cannot override COCA-known KJV words (`art` is Noun, `word_forms.csv:1047`) | Queued | pre-existing |
 | **D-LXC-10** | `Pos::Rel` produced by no in-crate tagger in deepnsm-v2 (only FSM match arms + one unit test) | Queued | pre-existing; external callers can still pass `Pos::Rel` through the public `Tagged`/`parse_to_spo` |
 
 ## D-RPT — ReportPlan / zero-copy pivot / report-as-OGAR-projection (2026-09-23)

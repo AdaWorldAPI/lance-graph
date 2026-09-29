@@ -1,3 +1,31 @@
+## 2026-09-29 — D-LXC-1 plan rewritten with Read (orchestrator, no agents, no code)
+
+- Operator-directed. The council run below read source with shell
+  `grep`/`sed`/`head`/`tail` and never opened the DeepNSM → DeepNSM-v2
+  migration documents.
+- Re-read in full with the Read tool:
+  - the plan's cited source (`lexical.rs`, `fsm.rs`, `bible_wave.rs`,
+    `genre_shapes.rs`, `Cargo.toml`, `data/README.md`);
+  - the deleted `lexicon.rs` (`68955ecb^`) and commits `ec50f07b` / `68955ecb`;
+  - `deepnsm-v3-convergence-v1`, `deepnsm-morton-comma-facet-v1`, the
+    inbound-leg and v2-rebuild entries in LATEST_STATE, and `TECH_DEBT`
+    items 593-620 and 1344;
+  - v1 `vocabulary.rs` and `homograph_collapse.rs`, and the planner
+    `insight_coca_read.rs`;
+  - every downstream citation of the KJV numbers.
+- Changes:
+  - F9 (lemma-first, pinned by `ec50f07b`), F10 (PoS/frequency are header
+    signals) and F11 (inbound leg) added.
+  - The deleted module's "first row is dominant" premise shown false for
+    `word_forms.csv` (259 surfaces).
+  - Counts re-measured within `bible_vocab.txt`: 25 (B), 141 (A).
+  - The canon's 31,327 shown to predate the forms layering.
+  - Gates G3(i) and G7 added.
+  - The private-bucket reference removed; D-LXC-8 corrected to 120 commits.
+- Correction to the entry below: the P1 counts were 2 from overclaim, 1 from
+  firewall and 1 from dilution/collapse, not "2 each from overclaim and
+  firewall".
+
 ## 2026-09-29 — 5+3 council on D-LXC-1 (proposal only, no code)
 
 - Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md` (ratified v3).
