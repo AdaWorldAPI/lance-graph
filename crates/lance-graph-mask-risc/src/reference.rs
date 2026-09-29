@@ -20,8 +20,8 @@ use crate::ir::{
     Foreign, GroupFold, GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
     GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
-use crate::value::GroupMoments;
 use crate::value::{ExecError, LaneKind, Out, Value};
+use crate::value::{GroupCrossMoments, GroupMoments};
 use crate::words_for;
 
 /// The caller's terminal-out, described by SHAPE rather than borrowed — what
@@ -36,6 +36,7 @@ pub(crate) enum OutShape {
     I64(usize),
     Mask(usize),
     Moments(usize),
+    CrossMoments(usize),
 }
 
 /// [`OutShape`] of a borrowed `out` — the caller keeps `out` itself to write
@@ -47,6 +48,7 @@ pub(crate) fn out_shape(out: &Out<'_>) -> OutShape {
         Out::I64(v) => OutShape::I64(v.len()),
         Out::Mask(v) => OutShape::Mask(v.len()),
         Out::Moments(v) => OutShape::Moments(v.len()),
+        Out::CrossMoments(v) => OutShape::CrossMoments(v.len()),
     }
 }
 
@@ -519,9 +521,10 @@ pub(crate) fn validate(
                     found: len,
                 }),
                 OutShape::I32(_) => Ok(()),
-                OutShape::I64(_) | OutShape::Mask(_) | OutShape::Moments(_) => {
-                    Err(ExecError::BlendNeedsOut)
-                }
+                OutShape::I64(_)
+                | OutShape::Mask(_)
+                | OutShape::Moments(_)
+                | OutShape::CrossMoments(_) => Err(ExecError::BlendNeedsOut),
             }
         }
         Terminal::ScatterOrU32 {
@@ -549,9 +552,11 @@ pub(crate) fn validate(
                     expected: want,
                     found: len,
                 }),
-                OutShape::None | OutShape::I32(_) | OutShape::I64(_) | OutShape::Moments(_) => {
-                    Err(ExecError::TerminalNeedsOut { what })
-                }
+                OutShape::None
+                | OutShape::I32(_)
+                | OutShape::I64(_)
+                | OutShape::Moments(_)
+                | OutShape::CrossMoments(_) => Err(ExecError::TerminalNeedsOut { what }),
             }
         }
         Terminal::GroupSumI32 { mask, key, val } => {
@@ -568,7 +573,8 @@ pub(crate) fn validate(
                 | OutShape::I32(_)
                 | OutShape::I64(_)
                 | OutShape::Mask(_)
-                | OutShape::Moments(_) => Err(ExecError::TerminalNeedsOut {
+                | OutShape::Moments(_)
+                | OutShape::CrossMoments(_) => Err(ExecError::TerminalNeedsOut {
                     what: "GroupSumI32",
                 }),
             }
@@ -588,7 +594,8 @@ pub(crate) fn validate(
                 | OutShape::I32(_)
                 | OutShape::I64(_)
                 | OutShape::Mask(_)
-                | OutShape::Moments(_) => Err(ExecError::TerminalNeedsOut {
+                | OutShape::Moments(_)
+                | OutShape::CrossMoments(_) => Err(ExecError::TerminalNeedsOut {
                     what: "GroupSumViaI32",
                 }),
             }
@@ -615,7 +622,8 @@ pub(crate) fn validate(
                 | OutShape::I32(_)
                 | OutShape::I64(_)
                 | OutShape::Mask(_)
-                | OutShape::Moments(_) => Err(ExecError::TerminalNeedsOut {
+                | OutShape::Moments(_)
+                | OutShape::CrossMoments(_) => Err(ExecError::TerminalNeedsOut {
                     what: "GroupReduce",
                 }),
             }
@@ -634,6 +642,24 @@ pub(crate) fn validate(
                 OutShape::Moments(len) if len >= 1 => Ok(()),
                 _ => Err(ExecError::TerminalNeedsOut {
                     what: "GroupMomentsI32",
+                }),
+            }
+        }
+        Terminal::GroupCrossMomentsI32 { mask, key, x, y } => {
+            check_operand(p, planes, mask)?;
+            written_slots.readable(mask)?;
+            check_group_key(planes, foreign, key)?;
+            check_lane(planes, x, LaneKind::I32)?;
+            check_lane(planes, y, LaneKind::I32)?;
+            // `Σx` and `Σy` are `i64`: exact for any group of at most 2^32
+            // rows. The i128 fields cannot overflow at any row count.
+            if n > MASKED_SUM_I32_MAX_ROWS {
+                return Err(ExecError::SumRowBound { n_rows: n });
+            }
+            match out {
+                OutShape::CrossMoments(len) if len >= 1 => Ok(()),
+                _ => Err(ExecError::TerminalNeedsOut {
+                    what: "GroupCrossMomentsI32",
                 }),
             }
         }
@@ -1156,6 +1182,41 @@ pub fn reference_execute_into(
                 }
             }
             Value::GroupMoments
+        }
+        Terminal::GroupCrossMomentsI32 { mask, key, x, y } => {
+            if let Out::CrossMoments(o) = out {
+                // Independent formulation, as for GroupMomentsI32: every
+                // field accumulated in i128 row by row, no kernel involved.
+                let mut acc = vec![[0i128; 6]; o.len()];
+                for r in survivors(mask) {
+                    let Some(k) = row_group(planes, foreign, key, r, o.len()) else {
+                        continue;
+                    };
+                    let xv = i128::from(i32_at(planes, x, r));
+                    let yv = i128::from(i32_at(planes, y, r));
+                    let a = &mut acc[k];
+                    a[0] += 1;
+                    a[1] += xv;
+                    a[2] += yv;
+                    a[3] += xv * xv;
+                    a[4] += yv * yv;
+                    a[5] += xv * yv;
+                }
+                for (slot, a) in o.iter_mut().zip(acc) {
+                    let narrow = |v: i128| {
+                        i64::try_from(v).expect("validated 2^32-row bound keeps a sum in i64")
+                    };
+                    *slot = GroupCrossMoments {
+                        n: u64::try_from(a[0]).expect("a count is non-negative"),
+                        sum_x: narrow(a[1]),
+                        sum_y: narrow(a[2]),
+                        sum_x2: a[3],
+                        sum_y2: a[4],
+                        sum_xy: a[5],
+                    };
+                }
+            }
+            Value::GroupCrossMoments
         }
         Terminal::Keep { mask } => {
             if let Out::Mask(o) = out {
