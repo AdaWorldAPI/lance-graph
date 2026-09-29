@@ -1,3 +1,11 @@
+## 2026-09-29 (1) — deepnsm-v2-lexical-evidence-consumer-v1 — first reader of the #1299 lexical evidence → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
+
+**Status:** PROPOSAL. No code authorized. One read method
+(`LexicalEvidence::fsm_readings`) plus one caller (`bible_wave::load_pos`,
+first-wins today) switched to a counted, named selection rule. FSM input stays
+one `Pos` per token. Convergence brief for a second session:
+`.claude/prompts/deepnsm-v2-lexical-consumer-converge.md`.
+
 ## 2026-09-19 (1) — waben-fold-execution-loop-v1 — from the merged folds to one addressed execution loop → `.claude/plans/waben-fold-execution-loop-v1.md`
 
 **Status:** PROPOSAL. No code authorized; this is the grounded implementation
