@@ -3137,15 +3137,25 @@ mod tests {
 
         /// FAILS IF: moments past the exactness bound are projected instead
         /// of refused — `centered_cross`'s checked products must say `None`.
+        ///
+        /// The fixture is chosen so that WRAPPING arithmetic would produce a
+        /// plausible answer rather than an obviously broken one:
+        /// `n = 2^33`, `Σx² = Σy² = Σxy = 2^95 + 1`, so `n·Σx² = 2^128 + 2^33`
+        /// wraps to the small positive `2^33` and a wrapping implementation
+        /// reports a confident `r = 1`. (A first version used `i128::MAX / 2`,
+        /// which wraps to NEGATIVE centred squares — refused by the `≥ 0`
+        /// check for the wrong reason, so the test passed with every checked
+        /// operation disabled. Measured by a disable run.)
         #[test]
         fn moments_past_the_bound_are_refused() {
+            let v = (1i128 << 95) + 1;
             let huge = GroupCrossMoments {
-                n: u64::MAX,
-                sum_x: 1,
-                sum_y: 1,
-                sum_x2: i128::MAX / 2,
-                sum_y2: i128::MAX / 2,
-                sum_xy: i128::MAX / 2,
+                n: 1 << 33,
+                sum_x: 0,
+                sum_y: 0,
+                sum_x2: v,
+                sum_y2: v,
+                sum_xy: v,
             };
             assert_eq!(pearson_from_cross_moments(&huge), None);
             assert_eq!(sample_covariance_from_cross_moments(&huge), None);
