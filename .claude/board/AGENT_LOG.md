@@ -1,3 +1,26 @@
+## 2026-09-30 — 5+3 council: cypher-mask multiplicity contract (D-CMM-0..3)
+
+- Plan: `.claude/plans/cypher-mask-multiplicity-contract-v1.md` (v1 → v2 → ratified v3).
+- The 5: prior-art-savant, iron-rule-savant, runtime-archaeologist, cascade-impact-savant, creative-explorer-savant.
+  Key findings:
+  - `Frontier` name collision (`nars/tactics.rs:151`).
+  - Rule 5 needs girth / directed-only.
+  - The DAG fixture cannot tell walks from trails.
+  - A fourth consumer kind (grouped) was missing.
+  - The census already over-counts Full.
+- The 3: overclaim-auditor, dilution-collapse-sentinel, firewall-warden.
+  - BLOCKs:
+    - `Grouped` conflated two carriers;
+    - `SetOnly` over-claimed for earlier variables (`count(DISTINCT b)` 3 vs 4);
+    - unguarded `Serialize`;
+    - gate gaps.
+  - All resolved in v3: five carrier kinds, `!Serialize` guard test, strict G1b.
+- Measured:
+  - G1a 4/3, 4/3; G1b DataFusion = 5 (walks), as pre-registered.
+  - G2: 4 disables red-then-green.
+  - Census Full 117 → 70.
+- Also: the Phase-0 commit's model-naming trailer was removed (own branch, pre-PR).
+
 ## 2026-09-29 — D-LXC-1 plan rewritten with Read (orchestrator, no agents, no code)
 
 - Operator-directed. The council run below read source with shell

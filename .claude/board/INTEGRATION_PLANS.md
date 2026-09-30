@@ -1,3 +1,17 @@
+## 2026-09-30 — cypher-mask-multiplicity-contract-v1 — a mask is the support of a frontier, never its bag → `.claude/plans/cypher-mask-multiplicity-contract-v1.md`
+
+**Status:** RATIFIED v3 (5+3 council) + PR A shipped (classifier + tests +
+census consumer). Corrects `cypher-mask-lowering-v1` (below): `count(*)`,
+`sum`, `avg`, `RETURN <var>` after a hop are bag-sensitive, and a forward hop
+chain is the exact support of the TERMINAL variable only. Five carrier kinds
+(`ConsumerSemantics`); only `TerminalSet` lowers in v1. DataFusion counts
+walks, not trails (measured 5 vs 4 on a cycle) — recorded OPEN.
+
+**Correction to the 2026-09-14 entry below:** its tally "35 [G] · 9 [H] ·
+9 [GRACE]" was already superseded by the council regrade to **31 [G] · 13 [H] ·
+9 [GRACE]** (stated in the PR2 entry further down). Both are grades over a
+single population; nine rows now carry a post-hop multiplicity qualifier.
+
 ## 2026-09-29 (2) — deepnsm-v2-lexical-evidence-consumer-v1 rewritten against the DeepNSM → DeepNSM-v2 migration → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
 
 **Status:** PROPOSAL (D-LXC-1..10). No code authorized. Supersedes entry (1)

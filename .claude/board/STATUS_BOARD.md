@@ -1,3 +1,17 @@
+## D-CMM — Cypher-mask multiplicity contract (2026-09-30)
+
+Plan: `.claude/plans/cypher-mask-multiplicity-contract-v1.md`. Entry: `entries/2026-09-30-cypher-mask-is-support-not-bag.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-CMM-0** | correct `cypher-mask-lowering-v1` rows T-1..T-7, T-11, R-6..R-8, §4.1, §4.6, §7 oracles, tally qualifier | In PR | contract §5 G6 |
+| **D-CMM-1** | `LogicalOperator::consumer_semantics` + `ConsumerSemantics` (5 kinds, not `Serialize`) | In PR | `logical_plan.rs` unit tests; 4 disables red-then-green |
+| **D-CMM-2** | DataFusion bag pins: DAG 4/3, 4/3; cycle walk count 5 | In PR | `tests/test_datafusion_varlength_complex.rs` |
+| **D-CMM-3** | W0-b census consumes the classifier | In PR | Full 117 → 70 on 310 |
+| **D-CMM-4** | count-lane (plus-times) hop for `TerminalCount`/`EarlierCount` | Queued | gated on a consumer + contract §3.2 R4 exactness |
+| **D-CMM-5** | DataFusion walk-vs-trail divergence on cycles | Open | grace ruling: not fixed |
+| **D-CMM-6** | footnote `lance-graph-as-the-modelgraph-v1.md` §15 Full fraction | Queued | — |
+
 ## D-LXC — DeepNSM-v2 lexical-evidence consumer + candidate next parts (2026-09-29)
 
 Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`. Convergence brief: `.claude/prompts/deepnsm-v2-lexical-consumer-converge.md`.

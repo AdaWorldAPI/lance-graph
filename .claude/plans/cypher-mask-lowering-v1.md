@@ -336,9 +336,9 @@ only because the destination index is **decoded** from the selected row, making 
 | **R-3** | `(a)-[:R]-(b)` undirected | R-1 ∪ R-2: two hops, `mask_or`. **Not** one hop over a "both" flag | `[G]` shape · `[H]` in-repo (inherits R-1/R-2) |
 | **R-4** | `-[:R1\|R2]->` multi-type | one hop per type, `mask_or`-accumulated into `dst`. Mirrors `lgj_hop`'s own per-facet `⋁_f` | `[G]` shape · `[H]` in-repo (inherits R-1/R-2) |
 | **R-5** | `-[r {k: v}]->` relationship property filter | an extra leaf in the per-facet conjunction: `ternlog::<AND3>(class_f, src, prop_f)` and then AND `struct_f` — the SAME two-predicate pattern `lgj_hop` already runs (`class_f` at facet base +0, `struct_f` at base +12) with one leaf substituted | `[G]` |
-| **R-6** | `(a)-[:R]->(b)-[:S]->(c)` — fixed 2-hop | chain: `dst₁` becomes `src₂`. Target-label masks AND in **between** hops, never after, so hop 2's frontier is already narrowed | `[G]` shape · `[H]` in-repo (inherits R-1/R-2) |
-| **R-7** | `-[:R*1..k]->` bounded variable length | iterate R-1 `k` times over a **DELTA frontier**, not the accumulated state: `frontier ← mask_andnot(dst, state)`, `state ← mask_or(state, dst)`, stop when `!mask_any(frontier)`. `blackboard.md:33-36` measures exactly this — *"the **NNUE reading** — spread from the DELTA frontier (`scratch & !state`), never from the accumulated state — gives the identical closure (gate green) at **8.8 µs (−48 %)**"* | `[G]` mechanism · `[H]` on graph shape |
-| **R-8** | `-[:R*]->` unbounded | R-7 to fixpoint. Termination is `mask_any(frontier) == false` (`mask_any:1215`) — a **bit test over a 8 KiB plane**, not a visited-set lookup. Today's DF path unrolls and unions (`builder/expand_ops.rs`, `logical_plan.rs:72-91`: *"implemented by unrolling into multiple fixed-length paths and unioning them"*); a mask fixpoint has no unroll bound at all | `[G]` mechanism · `[H]` |
+| **R-6** | `(a)-[:R]->(b)-[:S]->(c)` — fixed 2-hop | chain: `dst₁` becomes `src₂`. Target-label masks AND in **between** hops, never after, so hop 2's frontier is already narrowed | `[G]` shape · `[H]` in-repo (inherits R-1/R-2) **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** exact SUPPORT of the terminal variable; carries no path count and no earlier-variable support |
+| **R-7** | `-[:R*1..k]->` bounded variable length | iterate R-1 `k` times over a **DELTA frontier**, not the accumulated state: `frontier ← mask_andnot(dst, state)`, `state ← mask_or(state, dst)`, stop when `!mask_any(frontier)`. `blackboard.md:33-36` measures exactly this — *"the **NNUE reading** — spread from the DELTA frontier (`scratch & !state`), never from the accumulated state — gives the identical closure (gate green) at **8.8 µs (−48 %)**"* | `[G]` mechanism · `[H]` on graph shape **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** mechanism stands for terminal support / reachability; carries no multiplicity. DataFusion counts WALKS here (measured 5 vs Cypher's 4 on a cycle) |
+| **R-8** | `-[:R*]->` unbounded | R-7 to fixpoint. Termination is `mask_any(frontier) == false` (`mask_any:1215`) — a **bit test over a 8 KiB plane**, not a visited-set lookup. Today's DF path unrolls and unions (`builder/expand_ops.rs`, `logical_plan.rs:72-91`: *"implemented by unrolling into multiple fixed-length paths and unioning them"*); a mask fixpoint has no unroll bound at all | `[G]` mechanism · `[H]` **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** reachability only; a path-count consumer is `[GRACE]` |
 | **R-9** | `WHERE` applied to a hop result | the survivor mask is just another leaf: `mask_ternlog::<AND3>(dst, pred_a, pred_b)`. **This is the crosswalk's own shape** — `spog-alpha-channel-v1.md:182-184`: *"`mask_ternlog::<AND3>(&sweep, &tenant_mask[n], &rung_gate, &mut survivors)` — the survivors' key set is the needle set of hop n+1"* | `[G]` shape · `[H]` in-repo (inherits R-1/R-2) |
 
 **The forbidden move, quoted because it is one line away from every one of these
@@ -356,17 +356,17 @@ are aggregates). `Terminal` is `mask-risc/src/ir.rs:108-128`.
 
 | # | Cypher | lowers to | status |
 |---|---|---|---|
-| **T-1** | `RETURN count(*)` | `popcount_batch_u64` (`ndarray/src/bitwise.rs:274`) over the final mask. `Terminal::Count` (`ir.rs:110`) | `[G]` |
-| **T-2** | `RETURN count(n)` | identical to T-1. **Because there is no NULL**: `mask-risc/src/lib.rs:44-47` — *"absence in the V3 substrate is a zero-fallback, never a validity bit, so DuckDB's three-valued AND/OR collapses to Boolean algebra"*. `count(n)` and `count(*)` cannot differ | `[G]` |
-| **T-3** | `RETURN n` | **the mask itself** — `Terminal::Keep` (`ir.rs:127`). Not a row list. The caller reads the plane | `[G]` |
-| **T-4** | `RETURN n.prop` | **a masked projection that stays `(mask, lane_ref)`** — the pair, never an index list. `Planes::lanes` (`ir.rs:50`) + `LaneRef` (`ir.rs:16-23`) is the carrier. Materialisation exists but is **named**: exactly one symbol whose name starts with `materialize`, O(n) stated in its doc (`lance-graph-java/CLAUDE.md`'s Materialisation exception) | `[G]` shape · the named materializer is **new code**, §7 W1 |
-| **T-5** | `RETURN sum(n.p)` on an `i32` lane | `masked_sum_i32:692` — widened to `i64`, *"carry-safe for every `i32` input"* (`mask-risc/src/lib.rs:49-50`) | `[G]` |
-| **T-6** | `RETURN min(n.p)` / `max(n.p)` on `i32` | `masked_min_i32:1502` / `masked_max_i32:1523` — `Option`, `None` on an empty mask | `[G]` |
-| **T-7** | `RETURN avg(n.p)` on `i32` | `masked_sum_i32` + `popcount_batch_u64`, divide at the terminal. Two reductions, one pass each, no intermediate | `[H]` — the result type is float; whether the caller wants exact rational or `f64` is **OQ-7** |
+| **T-1** | `RETURN count(*)` | `popcount_batch_u64` (`ndarray/src/bitwise.rs:274`) over the final mask. `Terminal::Count` (`ir.rs:110`) | `[G]` **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** exact over a single population · after a hop `[GRACE]` in v1 (bag semantics count one row per binding; a mask counts distinct nodes) |
+| **T-2** | `RETURN count(n)` | identical to T-1. **Because there is no NULL**: `mask-risc/src/lib.rs:44-47` — *"absence in the V3 substrate is a zero-fallback, never a validity bit, so DuckDB's three-valued AND/OR collapses to Boolean algebra"*. `count(n)` and `count(*)` cannot differ | `[G]` **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** the no-NULL argument stands; the hop defect of T-1 is inherited · after a hop `[GRACE]` in v1 (bag semantics count one row per binding; a mask counts distinct nodes) |
+| **T-3** | `RETURN n` | **the mask itself** — `Terminal::Keep` (`ir.rs:127`). Not a row list. The caller reads the plane | `[G]` **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** single population only; after a hop a node repeats once per binding · after a hop `[GRACE]` in v1 (bag semantics count one row per binding; a mask counts distinct nodes). `RETURN DISTINCT n` stays T-11 |
+| **T-4** | `RETURN n.prop` | **a masked projection that stays `(mask, lane_ref)`** — the pair, never an index list. `Planes::lanes` (`ir.rs:50`) + `LaneRef` (`ir.rs:16-23`) is the carrier. Materialisation exists but is **named**: exactly one symbol whose name starts with `materialize`, O(n) stated in its doc (`lance-graph-java/CLAUDE.md`'s Materialisation exception) | `[G]` shape · the named materializer is **new code**, §7 W1 **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** single population only · after a hop `[GRACE]` in v1 (bag semantics count one row per binding; a mask counts distinct nodes). `RETURN DISTINCT n.p` is T-12 |
+| **T-5** | `RETURN sum(n.p)` on an `i32` lane | `masked_sum_i32:692` — widened to `i64`, *"carry-safe for every `i32` input"* (`mask-risc/src/lib.rs:49-50`) | `[G]` **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** single population only; after a hop the sum is path-weighted · after a hop `[GRACE]` in v1 (bag semantics count one row per binding; a mask counts distinct nodes) |
+| **T-6** | `RETURN min(n.p)` / `max(n.p)` on `i32` | `masked_min_i32:1502` / `masked_max_i32:1523` — `Option`, `None` on an empty mask | `[G]` **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** after a hop exact for the TERMINAL variable only; an earlier variable needs a backward (semi-join) pass |
+| **T-7** | `RETURN avg(n.p)` on `i32` | `masked_sum_i32` + `popcount_batch_u64`, divide at the terminal. Two reductions, one pass each, no intermediate | `[H]` — the result type is float; whether the caller wants exact rational or `f64` is **OQ-7** **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** single population only; after a hop both numerator and denominator are path-weighted · after a hop `[GRACE]` in v1 (bag semantics count one row per binding; a mask counts distinct nodes) |
 | **T-8** | `RETURN sum(…)` over a **grouped** lane inside the 12-byte register | `masked_strided_group_sum:779` (`group_bytes` 1..=4, asserted at `:783`) | `[G]` |
 | **T-9** | `EXISTS { MATCH … }` / any existence test | `mask_any:1215` — one early-exiting word scan, no count | `[G]` |
 | **T-10** | `CASE WHEN <pred> THEN a ELSE b` | `blend_i32:1582` — **no compaction**; `Terminal::BlendI32` (`ir.rs:124`) writes into a caller buffer | `[G]` |
-| **T-11** | `RETURN DISTINCT n` (a node variable) | **free — the identity.** A mask IS a set: a row is in it or it is not, and there is no multiplicity to collapse. `DISTINCT` over a node variable lowers to nothing at all | `[G]` |
+| **T-11** | `RETURN DISTINCT n` (a node variable) | **free — the identity.** A mask IS a set: a row is in it or it is not, and there is no multiplicity to collapse. `DISTINCT` over a node variable lowers to nothing at all | `[G]` **⊘ multiplicity (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** free for the TERMINAL variable only. `count(DISTINCT b)` over `(a)->(b)->(c)` is 3 on the contract's §0 fixture while the forward `dst₁` has 4 — an earlier variable's support needs a backward pass |
 | **T-12** | `RETURN DISTINCT n.p` / `count(DISTINCT n.p)` / `collect(…)` | **[GRACE]** — §4.1. Distinct over VALUES needs value identity, which a population mask does not carry | `[GRACE]` |
 
 ### §3.6 — Constructs that do not lower (7 rows, pointer only — reasons in §4)
@@ -385,6 +385,12 @@ are aggregates). `Terminal` is `mask-risc/src/ir.rs:108-128`.
 each row's own cell: **31 `[G]`**, **13 `[H]`** (⊘ PR2 council: R-3/R-4/R-6/R-9 are compositions of the `[H]` rows R-1/R-2 and N-2's precondition is stated ABSENT by §1.4, so five rows regrade down; nine of the thirteen name a measurement in §8 — R-1, R-7, R-8, R-9 and N-7's bake precondition are answered by OQ-12),
 **9 `[GRACE]`** (the 7 rows of §3.6 plus P-9 and T-12, which reach the same fence
 from inside the predicate and terminal groups).
+
+**⊘ Multiplicity qualifier (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** the grade counts above are
+unchanged — each is the grade over a single population. Nine rows now carry a
+post-hop qualifier: T-1, T-2, T-3, T-4, T-5, T-7 are `[GRACE]` after a hop in v1;
+T-6 and T-11 hold for the terminal variable only; R-6, R-7, R-8 carry support,
+not multiplicity.
 
 ---
 
@@ -410,9 +416,15 @@ implicitly. `LIMIT` **with** `ORDER BY` is `[GRACE]`, full stop: the k that surv
 depends on the order, so the walk would return a different answer than DataFusion
 and §7's differential would — correctly — go red.
 
-`count(DISTINCT x)` is the sharp case: `count(*)` is a popcount, and the two differ
-by exactly the multiplicity a mask threw away. Do not let the first tempt anyone
-into the second.
+`count(DISTINCT x)` is the sharp case: `count(*)` over a single population is a
+popcount, and the two differ by exactly the multiplicity a mask threw away. Do not
+let the first tempt anyone into the second.
+
+**⊘ Narrowed (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** after a hop, `count(*)` is **not** a
+popcount — it counts bindings (paths). On KNOWS = {1→2, 1→3, 2→3, 3→4, 4→5},
+`(a)->(b)->(c) RETURN count(*)` is 4 while the terminal mask holds 3 nodes. The
+consumer classes are `ConsumerSemantics` (`logical_plan.rs`); only `TerminalSet`
+lowers in v1.
 
 ### §4.2 — Strings and variable-width values
 
@@ -486,7 +498,8 @@ the binding which store each side indexes, never by whether the operator is spel
 | the question the construct asks | mask can answer | example |
 |---|---|---|
 | which rows? | **yes** | `MATCH`, `WHERE`, hops |
-| how many rows? | **yes** (popcount) | `count(*)` |
+| how many distinct nodes of the TERMINAL variable? (⊘ was "how many rows?", narrowed 2026-09-30) | **yes** (popcount) | `count(*)` over a single population; `count(DISTINCT c)` |
+| how many BINDINGS (paths)? | **no in v1** — needs a count lane (contract §3.2) | `count(*)`, `sum`, `RETURN c` after a hop |
 | is there any row? | **yes** (`mask_any`) | `EXISTS` |
 | what is the total / min / max of a lane over those rows? | **yes** (masked reduction) | `sum`, `min`, `max` |
 | in what ORDER? | no | `ORDER BY` |
@@ -758,6 +771,11 @@ Five properties, each of which a weaker harness would drop:
    consistent with a bijection and proves none, so the pass condition stays the set
    equality against the scalar reference … the count is the cheap early filter in
    front of it, never a substitute."* Count first (20 ns), set second (the proof).
+   **⊘ Multiplicity arm (2026-09-30):** set equality cannot see bag multiplicity —
+   the contract's §0 fixture passes it while `count(*)` returns 3 instead of 4. The
+   harness therefore also records DataFusion's `count(*)` against the mask popcount
+   on that fixture; a mismatch routes the query to GRACE. It is a record, never a
+   pass condition on the mask path.
 2. **The DataFusion side is the REFERENCE, and it is the one that already works.**
    This is the only window in which that is true — after the grace period ends there
    is no second implementation to diff against. Wave 0 is therefore not merely first;
@@ -827,7 +845,7 @@ Scope: §3.4 R-7, R-8.
 | id | assertion | its DISABLE |
 |---|---|---|
 | **F-F1** | the delta-frontier closure equals the accumulated-state closure, exactly | — (this is `blackboard.md:33-36`'s own gate, re-run here) |
-| **F-F2** | `*1..k` equals the DataFusion unroll-and-union for every `k` in the fixture | — |
+| **F-F2** | `*1..k` equals the DataFusion unroll-and-union for every `k` in the fixture — **as a SET** (⊘ 2026-09-30: DataFusion's unroll counts walks and repeats endpoints per path; its row count is a multiplicity record, not the pass condition) | — |
 | **F-F3** (termination) | an unbounded `*` over a **cyclic** fixture terminates, and the step count equals the graph's eccentricity from the seed | remove the `mask_any(frontier)` test; it must hang or over-count |
 | **F-F4** (can-stay-silent) | `*1..k` on a fixture with no R edges returns the seed set unchanged for `min=0`, empty for `min=1` | — |
 
@@ -838,7 +856,7 @@ Scope: Phase 2.5 in `query.rs:920-952`, the `Split` outcome, and the router.
 | id | assertion | its DISABLE |
 |---|---|---|
 | **F-S1** | with the lowering DISABLED, every existing test is byte-identical to today | — (the additive-seam gate; this is the one that must be run before any merge) |
-| **F-S2** | a `Split` query returns the same rows as the pure-DataFusion path | — |
+| **F-S2** | a `Split` query returns the same rows as the pure-DataFusion path — the same BAG, not only the same set (⊘ 2026-09-30: only a `TerminalSet` consumer may take the mask path; the contract's §0 fixture is in the fixture set) | — |
 | **F-S3** (the grace list is real) | every §4 construct in the fixture set is classified `[GRACE]` and takes the DataFusion path — asserted by the classifier's own output, not by the result being right | force the classifier to accept `ORDER BY`; the differential must go red |
 | **F-S4** (N-9) | the same lowering, reached from a Gremlin or SPARQL query that produces the same `LogicalOperator`, produces the same mask | — |
 
@@ -958,7 +976,7 @@ PRs generates none of these obligations.
 
 1. **The lowering table (§3): 53 rows** — 7 node/label, 9 property predicate, 9
    Boolean-fusion, 9 relationship/hop, 12 return/terminal, 7 explicit non-lowering.
-   **31 `[G]`, 13 `[H]`** (regraded by the PR2 council — compositions inherit their components' grade; nine name a measurement in §8), **9 `[GRACE]`**.
+   **31 `[G]`, 13 `[H]`** (regraded by the PR2 council — compositions inherit their components' grade; nine name a measurement in §8), **9 `[GRACE]`**. ⊘ 2026-09-30: grades are over a single population; nine rows carry a post-hop multiplicity qualifier (`cypher-mask-multiplicity-contract-v1.md`).
 2. **The placement ruling (§5): three parts.** Consume the already-minted, so-far
    unconsumed `TERNLOG = 0x86` (`ogar-loco/src/lib.rs:607`) for all Boolean
    combination — do not mint. Keep `Pred` / hop / terminals as a **lowering target
