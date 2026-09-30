@@ -1,7 +1,36 @@
 # deepnsm-v2 Cam96 pairwise — v5 RATIFIED: the L4 identity facet, its readings, the COCA fixed points, three reference sets
 
-**Status:** RATIFIED by the second 5+3 council (2026-09-30). Supersedes `-v4.md` (Phase-0 spec) and `-v3.md` §3, §6.3, §7 decision table. Everything in v3 not named in §9 stands. Council record: `AGENT_LOG.md` 2026-09-30 (2).
-**Deliverables:** §10 (`D-CPW-*`).
+**Status:** RETRACTED-IN-PART (operator, 2026-09-30, same day) — see § ⊘ RETRACTION directly below; it overrides §3.1–3.3, the word-register half of §3.2, and the gates and D-ids it names. What it does not name stands. Was: RATIFIED by the second 5+3 council (2026-09-30). Supersedes `-v4.md` and `-v3.md` §3, §6.3, §7. Council record: `AGENT_LOG.md` 2026-09-30 (2).
+**Deliverables:** §10 (`D-CPW-*`), read through the retraction.
+
+## ⊘ RETRACTION (operator ruling, 2026-09-30) — the word is a cell of the spatial-perturbation LUT; nothing is sliced from an embedding
+
+The operator's statement, in order, verbatim where quoted:
+- *"We don't want fuzzy embedding of 6 different readings of SPO."*
+- *"I don't want any witness."* — *"I want the sentence's deterministic words."*
+- *"No basin identity — superposition of 2 needles."* — *"Not rails."* — *"6 words each represented as LUT."*
+- *"A word is spatial perturbation LUT"* — which is why the reading belongs to `cognitive-shader-driver`.
+
+**The design, and all of it:**
+- One calibrated COCA `palette256` codebook. Deterministic.
+- **A word is one pair `(a:b)`: two `palette256` needles superposed — its cell in the 256×256 LUT.** The LUT is the word's representation. The colon is not a split of anything; it is the superposition.
+- **A facet's 12 bytes are six words of the sentence.** Six words, deterministic from the text. Not six readings of one word; not S/P/O roles with witness pairs; not rails.
+- Relations between words are LUT reads between cells. This is the machine `cognitive-shader-driver` already is: the p64 `CognitiveShader` over the bgz17 `palette256` semiring (`semiring.distance(query, target)`), the perturbation field `M[addr@coarse]·P(phase)` rendered around the cell. A sentence is six cells; the shader reads their field.
+- Meaning is in the ClassView. The bytes stay content-blind.
+
+**Struck by this ruling (append-only; the text below is kept as the record of the error):**
+- §3.1 entirely: the 96-d embedding cut into six 16-d subspaces; per-subspace codebooks; `[a,b]` as nearest/second-nearest of an embedding slice; the retrain; the "home" argument built on that code.
+- §3.2's word-register half: the "lens per subspace", the O/S/P plane assignment of `a`/`b`/spread, the "two registers" split. The 2³ mask stays what it always was in this workspace — Pearl over a triple — and is not re-derived here.
+- §3.3 entirely (per-subspace sums, shared gamma across subspaces, `Z_SELF`, `M+`).
+- Gates G-D, G-A, G-P, G-PO, G-M, G-T, G-ROT, G-UNIQ, G-CASC, G-ε, G1, G3, G3v, G5b as written (they measure the struck code).
+- Deliverables D-CPW-0 (harness of the struck arms), D-CPW-3, D-CPW-4 (the retrain), D-CPW-12 (cascade wiring of the struck lens): **WITHDRAWN**. D-CPW-2 re-scoped: the pair type is the word-cell `(a:b)` over the one COCA codebook, with `ReferenceSet`; nothing about subspaces. D-CPW-10 re-scoped: the driver reads a sentence as six cells; its edges carry cells, not "subspace-0 needles".
+- The v3/v4 measurements (0.617 / 0.774 / 0.786 on KJV) were measurements of the struck code and are not evidence about this design.
+
+**Kept (independent of the struck half):** F23 three references and `ReferenceSet` (§3.7, D-CPW-14, G-REF); `self_code` as the basin's own identity (F25, D-CPW-7, G-SELF); the COCA prior `<f,c>` (L-1, D-CPW-9, G-FC); register-F (L-3, D-CPW-13, G-F); lemma routing (L-4, D-CPW-11); the Fisher-z LUT move into the contract (D-CPW-1) — which gains weight, since the LUT IS the representation.
+
+**Open, stated plainly, not decided here:** how the calibrated codebook assigns a word its two needles. The canon entry `E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` fixes what the pair IS; the assignment lives in the codebook artifact and is read from it, not designed in a plan.
+
+Closeout: `STATUS: retracted-in-part | OUTCOME: the embedding-slice half of v5 struck; word = LUT cell, six words per facet; references/self_code/COCA prior stand | OPEN: needle assignment per word (codebook artifact)`.
 
 ## 0. The rulings this version records
 

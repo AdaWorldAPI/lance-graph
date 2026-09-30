@@ -131,7 +131,11 @@ Plan: `.claude/plans/frontend-parity-witness-v1.md`. Entry: `entries/2026-10-03-
 
 ## D-CPW — v5 RATIFIED (2026-09-30, second council): the D-C96P rows below are aliases read through this block
 
-Plan: `.claude/plans/deepnsm-v2-cam96-pairwise-v5.md`. The `D-C96P-*` ids never matched the D-id pattern (`D-[A-Z]{2,}…`); tooling joins on `D-CPW-*`. Gates are v5 §5.
+## D-CPW — v5 RETRACTED-IN-PART (2026-09-30, operator, same day): read every row below through `-v5.md` § ⊘ RETRACTION
+
+**WITHDRAWN:** D-CPW-0, D-CPW-3, D-CPW-4, D-CPW-12 (they built or measured the struck embedding-slice code). **RE-SCOPED:** D-CPW-2 = the word-cell pair type `(a:b)` over the one COCA codebook + `ReferenceSet`; D-CPW-10 = the driver reads a sentence as six LUT cells. **UNCHANGED:** D-CPW-1 (the LUT into the contract — now the representation), -5, -6, -7, -8, -9, -11, -13, -14. Gates G-D/G-A/G-P/G-PO/G-M/G-T/G-ROT/G-UNIQ/G-CASC/G-ε/G1/G3/G3v/G5b are struck with the code they measured.
+
+Plan: `.claude/plans/deepnsm-v2-cam96-pairwise-v5.md`. The `D-C96P-*` ids never matched the D-id pattern (`D-[A-Z]{2,}…`); tooling joins on `D-CPW-*`. The table below is the ratification-time record.
 
 | D-id | alias | scope (v5) | status | gate / falsifier |
 |---|---|---|---|---|
