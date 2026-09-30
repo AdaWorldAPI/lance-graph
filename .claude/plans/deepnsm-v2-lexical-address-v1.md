@@ -67,17 +67,21 @@ are neither nested nor aligned, measured over the committed CSVs and the Tigris 
 
 | reference | source | rows | distinct keys | key |
 |---|---|---|---|---|
-| `COCA4096` | `crates/deepnsm/word_frequency/word_rank_lookup.csv`, ranks ≤ 4096 | 4,096 ranks | 3,559 words | rank (homographs share a rank) |
+| `COCA4096` | `crates/deepnsm/word_frequency/word_rank_lookup.csv`, ranks ≤ 4096 | 4,096 ranks | 3,559 words | rank: one row per (word, PoS), every rank unique, so a homograph occupies **several** ranks (`to/t` = 6, `to/i` = 12) |
 | `COCA5K_LEMMA` | `lemmas_5k.csv` | 5,050 | 4,380 lemmas / 5,050 (lemma, PoS) | (lemma, PoS) |
 | `COCA20K_ACAD` | `academic_20k.csv`; Tigris `lance-graph/codebooks/deepnsm-v2-academic-coca-v1/` | 20,845 | 18,559 words / 20,842 (word, Pos) | `word_id` = admission order |
 
 - 5k ∩ 20k = 4,895 of 5,050 (lemma, PoS) and 4,264 words. **116 of the 5k lemmas are
   absent from the 20k.**
 - 4096 ∩ 20k = 3,462 of 3,559 words.
-- **Only 3 of the 4,264 shared words carry the same ordinal in the 5k and the 20k.**
+- **Only 4 of the 4,264 shared words carry the same ordinal in the 5k and the 20k**:
+  `the`, `there`, `care` and `wage`. Ordinals are 0-based first-occurrence order, and
+  words are matched exactly. ⊘ #1303 reported "3": that count dropped ordinal 0 (`the`),
+  a falsy-zero error; `PaletteVocab` treats id 0 as valid. Lower-casing the 20k words
+  moves the shared count to 4,318 and leaves the aligned count at 4.
 - Each set handles homographs differently:
   - the 20k collapses 2,286 same-word-different-Pos duplicates into one id;
-  - the 4096 shares a rank across homographs;
+  - the 4096 gives each (word, PoS) its own rank, so a homograph spans several ranks;
   - the 5k keeps each (lemma, PoS) distinct.
 - The Tigris "academic codebook" is a vocabulary carve (`PaletteVocab::from_frequency_ranked`),
   not a trained centroid codebook. Its CSV's sha256 equals the committed file's.
@@ -94,21 +98,31 @@ are neither nested nor aligned, measured over the committed CSVs and the Tigris 
 
 ## §3 — The COCA bake (frequency, PoS and lemma built in; nothing counted at runtime)
 
-Each codebook row is one `(lemma, PoS)` identity. Its fields are computed **once,
-offline**, when the artifact is built. Float arithmetic is allowed at build time, which
-is the derived side of the no-float rule. The results are stored quantized as `u8`:
+There are **two baked tables**, because the two parts of the prior are keyed
+differently:
+- the **identity table**, one row per `(lemma, PoS)`, which the address resolves to;
+- the **surface-form table**, one row per `(surface form, reading)`. The reading share
+  `f` belongs here, because it is a property of a *surface form*, not of a lemma. The
+  same `record/v` lemma row has a different share for `record`, `recorded` and
+  `recording`, so baking `f` onto the lemma row would make it depend on which form was
+  picked at build time.
+
+Every field is computed **once, offline**, when the artifact is built. Float arithmetic
+is allowed at build time, which is the derived side of the no-float rule. The results
+are stored quantized as `u8`:
 
 | field | how it is computed | why |
 |---|---|---|
-| `lemma`, `PoS` | from `lemmas_5k.csv` (or the reference's own key) | the declared reading the address resolves to |
-| **`f`** (u8) | the reading's share among its surface form's readings: `form_count(this) / surface_count(surface)` (from `LexicalEvidence`). `f = 1` for an unambiguous form | an ambiguous form (`record`) gets `f < 1` without anyone counting at query time |
-| **`c`** (u8) | `c = w / (w+1)`, `w = ln(1+freq) / ln(1+freq_max) · K` (`K` is a labelled, hand-tuned pin) | the amount of evidence behind the reading |
+| identity: `lemma`, `PoS` | from `lemmas_5k.csv` (or the reference's own key) | the declared reading the address resolves to |
+| identity: **`c`** (u8) | `c = w / (w+1)`, `w = ln(1+freq) / ln(1+freq_max) · K` (`K` is a labelled, hand-tuned pin) | the amount of evidence behind the reading |
+| surface form: **`f`** (u8) | the reading's share among that surface form's readings, from `word_forms.csv` (`wordFreq`): e.g. surface `record` → `record/n` 120,048 vs `record/v` 13,014, so `f` ≈ 0.90 and ≈ 0.10. `f = 1` for an unambiguous form (`the`) | an ambiguous form gets `f < 1` without anyone counting at query time |
 | unknown | a missing count stays **unknown** (a flag), never `0` | zero would assert "no evidence"; unknown asserts "not measured" |
 
 `range` and `disp` are left out. They are collinear with frequency, and `disp` measures
 evenness across genres, not evidence.
 
-At runtime the prior `<f, c>` is **a read of the resolved row**, never a computation.
+At runtime the prior `<f, c>` is **two reads**, never a computation: `f` from the
+surface-form row that routed the token, `c` from the identity row it resolved to.
 Frequency rank stays a routing signal, not meaning (ρ ≈ −0.07, archive F11).
 
 ---
@@ -118,8 +132,8 @@ Frequency rank stays a routing signal, not meaning (ρ ≈ −0.07, archive F11)
 | D-id | what | gate (can fire / can stay silent) |
 |---|---|---|
 | **D-LXA-1** | `LexicalAddress` newtype over `u16` plus `ReferenceSet { id ∈ {COCA4096, COCA5K_LEMMA, COCA20K_ACAD}, version, sha256 }`, in `deepnsm-v2`. Resolving through the wrong reference is a refusal. No bare `[u8; 12]` or `u16` enters the path | **G-LEX:** every declared entry of a reference resolves to exactly its declared (lemma, PoS). A cross-reference read is refused. A `compile_fail` test proves a bare `u16` is not accepted |
-| **D-LXA-2** | Generator for `lexical_correspondence.tsv`: one row per (lemma, PoS) with `id4096 \| id5k \| id20k \| status ∈ {Exact, Ambiguous{n}, Missing}`, the three digests in its header. Generated, never hand-edited | **G-REF:** re-deriving the file must reproduce §2's numbers exactly, including "3 of 4,264". Hand-editing one ordinal must turn the check red |
-| **D-LXA-3** | The COCA bake of §3: one artifact per reference, `f`/`c` baked as `u8`, unknown flagged | Re-deriving must reproduce the bake byte for byte. Pinned rows: `the` must have `f = 1` and `record` must have `f < 1`. An all-unambiguous fixture must give `f = 1` everywhere (stays silent) |
+| **D-LXA-2** | Generator for `lexical_correspondence.tsv`: one row per (lemma, PoS) with `id4096 \| id5k \| id20k \| status ∈ {Exact, Ambiguous{n}, Missing}`, the three digests in its header. Generated, never hand-edited | **G-REF:** re-deriving the file must reproduce §2's numbers exactly, including "4 of 4,264" **with ordinal 0 counted** (a falsy-zero generator must fail it). Hand-editing one ordinal must turn the check red |
+| **D-LXA-3** | The COCA bake of §3: per reference, an identity table (`lemma`, `PoS`, `c`) and a surface-form table (`form`, reading, `f`), all `u8`, unknown flagged | Re-deriving must reproduce the bake byte for byte. Pinned rows: surface `the` → `the/a` with `f = 1`; surface `record` → `record/n` with `f < 1` and `record/v` with `f > 0`, the two summing to 1 within quantization. An all-unambiguous fixture must give `f = 1` everywhere (stays silent) |
 | **D-LXA-4** | The six-slot reading: a ClassView-selected reading of a 12-byte facet as six `LexicalAddress`es under one named `ReferenceSet`. A register in any other shape is refused, never reinterpreted | A facet written under reference X and read under Y is refused. Rotating the six slots changes the resolved words (this proves the six positions are ordered, not a bag) |
 
 **Collision:** D-LXA-3 reads `academic_20k.csv`, which `D-LXC-4` (the academic loader,

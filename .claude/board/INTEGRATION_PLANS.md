@@ -8,7 +8,7 @@ carried; they remain on branch `claude/brave-mayer-65y3cy`.
   versioned lexical codebook. It is not two poles and not an embedding slice.
 - **Relations are driver-supplied** through the Fisher-z LUT.
 - **Three COCA references** (4096 / 5k lemma / 20k academic) are measured as neither
-  nested nor aligned: only 3 of 4,264 shared words keep their ordinal. Reading across
+  nested nor aligned: only 4 of 4,264 shared words keep their ordinal (ordinal 0 counted). Reading across
   references is refused.
 - **The COCA bake** stores frequency, PoS and lemma in the row as a u8 `<f, c>` prior.
   Nothing is counted at runtime.
