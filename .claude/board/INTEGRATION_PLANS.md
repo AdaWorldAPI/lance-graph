@@ -1,3 +1,18 @@
+## 2026-09-30 (2) — deepnsm-v2-cam96-pairwise-v5 — RATIFIED by the second 5+3 council → `.claude/plans/deepnsm-v2-cam96-pairwise-v5.md`
+
+**Status:** RATIFIED v5. Supersedes `-v4.md` (Phase-0 spec) and v3 §3 / §6.3 / §7 decision table. D-ids re-minted as `D-CPW-*` (the `D-C96P` family never matched the D-id pattern).
+
+**Why a second council:** three operator rulings after v3 — no materialized point and no cosine; the readings are `CausalMask` 2³ projections selected by the rung ladder; the `6×[a,b]` code is a content-blind facet of the 512-byte row — plus the COCA-fixed-points mandate and the three-reference-set ruling.
+
+**What v5 settles.**
+- The identity is `[a,b]` = (nearest, second-nearest), two full palette bytes per subspace, in the row's **second facet** (bytes 16..32), read as `NeedlePair` by ClassView election. Not the key (uniqueness), not `self_code` (the basin's own identity, F25).
+- Similarity = Fisher-z table reads over the active planes (O, S, and the spread `P` as a similarity of spreads), one shared gamma, `Z_SELF = 127` by address. No slerp, no cosine.
+- The masks are an escalation cascade `O → PO → SPO` (a PROPOSAL, D-CPW-12 — `causal_mask_bits` reaches no distance call today). v3's B rejected (a coordinate, not an address); M/M−j carried `t` and survive only as the G-T lane arm.
+- COCA levers: `f` = a reading's share among its surface form's readings, `c` from `ln(1+freq)`; triple edges carry the parsed words' subspace-0 needles with the p64 semiring = `T_0`; register-F is routing, not meaning; lemma routing Blocked (no text→loci producer).
+- **F23 three references** (COCA4096 / COCA5K_LEMMA / COCA20K_ACAD), `ReferenceSet` in every reading contract, an explicit `(lemma, PoS)` correspondence artifact, gate G-REF. Measured: 3 of 4,264 shared words keep the same ordinal across the 5k and the 20k; 116 5k lemmas are absent from the 20k. The Tigris academic artifact is a vocabulary carve, not a trained codebook.
+
+**Authorized:** D-CPW-1 (codec move). Queued: D-CPW-2, -6, -7, -9, -14. Everything else Blocked on the embeddings (Q3) or on those.
+
 ## 2026-09-30 (1) — deepnsm-v2-cam96-pairwise-v3 — RATIFIED by the 5+3 council → `.claude/plans/deepnsm-v2-cam96-pairwise-v3.md`
 
 **Status:** RATIFIED v3. Supersedes `-v1.md` and the council draft `-v2.md`, which are kept as the record.

@@ -1,4 +1,26 @@
-## D-C96P — v3 RATIFIED (2026-09-30): scope and gates updated; the rows below are read through this block
+## D-CPW — v5 RATIFIED (2026-09-30, second council): the D-C96P rows below are aliases read through this block
+
+Plan: `.claude/plans/deepnsm-v2-cam96-pairwise-v5.md`. The `D-C96P-*` ids never matched the D-id pattern (`D-[A-Z]{2,}…`); tooling joins on `D-CPW-*`. Gates are v5 §5.
+
+| D-id | alias | scope (v5) | status | gate / falsifier |
+|---|---|---|---|---|
+| **D-CPW-0** | D-C96P-0 | harness: the mask projections + `M+` + `t`-lane arms; in-harness 12-axis / 48-bit / RQ controls; split file | Blocked (embeddings, Q3) | G-D, G-A, G-P, G-PO, G-M, G-T, G-ROT, G0, G-ε, G1, G3, G3v, G5b |
+| **D-CPW-1** | D-C96P-1 | Fisher-z codec into the contract; one shared gamma | Queued (authorized) | golden-bytes parity |
+| **D-CPW-2** | D-C96P-2 | pair NEWTYPE + `PairReading` + `ReferenceSet` + refusal | Queued (after Q5) | G-L4, G-REF, G-UNIQ, G2, G5, G6 |
+| **D-CPW-3** | D-C96P-3 | loaders, digest, view + `ReferenceSet` header | Blocked (on D-0) | G6 |
+| **D-CPW-4** | D-C96P-4 | trainer: 6×16-d retrain, second-nearest encoder, `T_s` builder (ndarray fork) | Blocked (on D-0) | G1 |
+| **D-CPW-5** | D-C96P-5 | `Cam96AxisSpace` alias; legacy kept; refusal | Blocked (on D-2) | G4, G6 |
+| **D-CPW-6** | D-C96P-6 | `SemanticSpace` routing-only | Queued | G4 |
+| **D-CPW-7** | D-C96P-7 | `self_code` per-class reading + refusal + paired legacy-nonzero test | Queued (envelope-auditor) | G-SELF, field-isolation matrix |
+| **D-CPW-8** | D-C96P-8 | consumer migration, in tree then tesseract-rs | Blocked (on D-5, D-7) | G7, G8 |
+| **D-CPW-9** | — | COCA prior reader (`freq`; PM via `freq_is_cosine.rs`) + reading share from `LexicalEvidence` + rank-alignment test | Queued (collides with D-LXC-4) | G-FC |
+| **D-CPW-10** | — | driver L-2: triple edges, `T_0` semiring, `pack_v2`, revision wired, test storno | Blocked (on D-2, D-9; BackingStore precondition) | G-EDGE, G-PoS |
+| **D-CPW-11** | — | L-4 lemma routing + `Antecedent` → row | Blocked (no text→loci producer) | G-LEM |
+| **D-CPW-12** | — | rung → mask → similarity wiring (the cascade) | Blocked (on D-0, D-2) | G-CASC, G-PO |
+| **D-CPW-13** | — | driver L-3 register F (`kl_from_prior`) | Blocked (on D-9) | G-F |
+| **D-CPW-14** | — | `lexical_correspondence.tsv` generator + `ReferenceSet` digests | Queued | G-REF |
+
+## D-C96P — v3 RATIFIED (2026-09-30): SUPERSEDED-IN-PART by the D-CPW block above (v5); kept as the alias record
 
 Plan: `.claude/plans/deepnsm-v2-cam96-pairwise-v3.md`. The reading is the merge M; A/B/D are its ablations.
 

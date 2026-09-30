@@ -1,3 +1,14 @@
+## ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE — the driver packs p64 plane bits as a CausalMask; the inverse reads bit 2 differently (2026-09-30)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (council S3, R2). `driver.rs:489` packs `CausalMask::from_bits(h.predicates & 0x07)` where `predicates` is the p64 predicate-plane byte (bit0 CAUSES, bit1 ENABLES, **bit2 SUPPORTS**; `p64-bridge/src/lib.rs:121-128`). `edge_to_layer_mask` (`p64-bridge/src/lib.rs:74-76`) maps mask bit 2 (the S plane) to **CONTRADICTS**. Emit and its inverse disagree on bit 2; three mask vocabularies (rung, Pearl, p64) meet at one byte.
+- **Not in scope of** `deepnsm-v2-cam96-pairwise-v5` (recorded there, §3.2).
+- **What closes it:** one named mapping in `p64-bridge` used by both directions, with a round-trip test that can fail on bit 2.
+
+## ISS-DID-PATTERN-EXCLUDED-D-C96P — the `D-C96P` family never matched the D-id regex (2026-09-30)
+
+**Status:** OPEN. **Basis:** MEASURED (`added-plans-have-dids` on #1303, `plan_dids.py`). The pattern `D-[A-Z]{2,}[A-Z0-9]*(-[A-Z0-9]+)*` requires two letters after `D-`; `C96P` has a digit second, so every `D-C96P-*` row (v1–v3, STATUS_BOARD) was invisible to `plan_dids` and to the supersession coverage column. v5 re-mints them as `D-CPW-*` with an alias column.
+- **What closes it:** either the pattern admits a digit after one letter, or the v1–v3 rows are re-labelled; the alias column keeps the history either way.
+
 ## ISS-PAIRPALETTE-IS-TWO-AXES-NOT-A-PAIR — the contract's palette256² is two independent axes (2026-09-29)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE. `recipe_substrate::PairPalette`:

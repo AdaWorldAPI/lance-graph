@@ -1,3 +1,20 @@
+## 2026-09-30 (2) — second 5+3 council on D-CPW (Cam96 v4 → v5; spec only, no code)
+
+- Operator-invoked (`go ahead with the v4 Phase-0 spec and run the 5+3`). Phases in order: Phase 0 `-v4.md` (committed `cff27034`, D-ids re-minted `95464b74` after `added-plans-have-dids` failed — the `D-C96P` family never matched the pattern); Phase 1 the five; Phase 2 draft v5 (scratchpad); Phase 3 the three on draft v5 only; Phase 4 fixes; Phase 5 ratified `-v5.md` + this board.
+- **The 5 (Read-tool discipline, no cargo/git, own tag-files; S3 wrote its own):**
+  - prior-art (Opus): 10 — 1 VIOLATES (`TailVariant::V3` is the L1 6-byte tail, "there is no tail"); main prior art `causal-rung-standing-wave-v1` (mask → rails, escalation cascade); `E-PARTOF-ISA-vs-PALETTE256-1`; `palette_lookup` gap = pre-NARS strength.
+  - iron-rules: 10 — YIELDS-WITH-AP; the `FacetSchema` refusal needs a gate at every read; thresholds unlabelled; L-2 must use `pack_v2` and be gated.
+  - code-truth: every §2 citation graded (3 CLAIMED nuances); `FacetSchema`'s 2-bit field aliases the domain byte and has no reader; `causal_mask_bits` reaches no distance call; `range`/`disp` loaded nowhere; `Antecedent` resolves to an offset only; `_revised_truth` computed and discarded; emit/inverse disagree on mask bit 2.
+  - cascade: 8 — `PalettePair=3` contained but the field is unratified; `p64_target_identity_probe.rs:103-113` and `edge_v3_compare.rs:81-108` pin `row%256`; `Cam96` alias needs a newtype; 4-PR split.
+  - different-views: 10 — G-P vacuous by monotonicity; `P` deterministic from `(a,b)`; `M+` is the Gram sum in z; word-shuffle preserves the unigram histogram; named entities alias rank 0; identity is `(lemma, PoS)`.
+- **The 3, on draft v5:**
+  - overclaim-auditor (Opus): **1 BLOCK** (the L4 code cannot be the instance key: lossy, `(x,n)`/`(x,v)` collide, HHTL routes on key bytes 4..12), 7 P1 (§3.2 is a proposal; six gammas; `Z_SELF` ties at 127; `f = range/range_max` is evidence amount; L-2 revises with a different metric; G-FC vacuous; F7/F8 disagree on Level 1), 6 P2.
+  - dilution-collapse-sentinel: 0 BLOCK, 5 P1 (`SPO ≡ SO`, `PO ≡ O` in geometry; "spread feeds c" a label; `self_code` is the basin's own higher-rung identity, not a copy; B collapsed; L-2's PoS→subspace map does not exist), 5 P2.
+  - firewall-warden: **1 BLOCK** (`self_code` meaning change with no refusal gate), 3 P1 (L-3 float representation and gating; G2/G3 rows; TECH_DEBT + plan-file rows), 2 P2.
+- **v4 → v5 (ratified):** home = the row's second facet (bytes 16..32), key untouched; `self_code` stays as the basin's identity with a per-class reading + refusal + paired test; `P` back in the score as a similarity of spreads; one shared gamma, `Z_SELF = 127`; L-1 `f` = reading share, `c` from `ln(1+freq)`; L-2 on the triple register with the p64 semiring = `T_0`; §3.2 graded PROPOSAL (D-CPW-12); B rejected; G-FC/G-EDGE re-specified; L-3 split (D-CPW-13); F23 three references + `ReferenceSet` + G-REF + D-CPW-14, measured (3 of 4,264 shared words ordinal-aligned; 116 5k lemmas absent from the 20k; the Tigris academic artifact is a vocabulary carve).
+- Operator input mid-council: the three-reference-set ruling; the Tigris bucket checked via the `AWS_*` environment (names only, never values): `lance-graph/codebooks/deepnsm-v2-academic-coca-v1/` fetched to the scratchpad, never into the repo.
+- Authorized: D-CPW-1. Queued: D-CPW-2, -6, -7, -9, -14. Rest Blocked.
+
 ## 2026-09-30 — 5+3 council on D-C96P (Cam96 → 6 × pairwise; spec only, no code)
 
 - Operator-invoked `/5plus3` on `deepnsm-v2-cam96-pairwise-v1.md`. The phases ran in order:
