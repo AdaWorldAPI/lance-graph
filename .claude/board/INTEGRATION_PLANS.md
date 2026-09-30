@@ -1,3 +1,7 @@
+## 2026-09-30 (4) — deepnsm-v2-cam96-pairwise-v5 — CORRECTION 2: `[a,b]` is a word's 16-bit lexical address, not two poles → `-v5.md` § ⊘ CORRECTION 2
+
+**Status:** the unit of representation is pinned. Six lexical slots per 96-bit payload; each two-byte address resolves to a word's declared reading (lemma + PoS) in an immutable, versioned lexical codebook (`ReferenceSet`); the driver supplies the relational reading, Fisher-z calibrated. Embeddings are an optional comparison instrument, never the runtime intermediary; embedding reconstruction is not an acceptance criterion. The artifact check that forced this: nothing assigns a word two needles (COCA CAM-PQ gives six, bgz17 `nearest` gives one; "(nearest : second-nearest)" was v1's invention). **First regression = G-LEX:** exact lexical address resolution, lemma/PoS survive, no cross-read across codebooks.
+
 ## 2026-09-30 (3) — deepnsm-v2-cam96-pairwise-v5 — RETRACTED-IN-PART by operator ruling, same day → `-v5.md` § ⊘ RETRACTION
 
 **Status:** the embedding-slice half of v5 (§3.1–3.3, the word-register half of §3.2, D-CPW-0/3/4/12) is STRUCK. *"We don't want fuzzy embedding of 6 different readings of SPO … no witness … the sentence's deterministic words … no basin identity, superposition of 2 needles … not rails … 6 words each represented as LUT … a word is spatial perturbation LUT."*

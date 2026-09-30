@@ -1,6 +1,7 @@
 ## D-CPW — v5 RETRACTED-IN-PART (2026-09-30, operator, same day): read every row below through `-v5.md` § ⊘ RETRACTION
 
-**WITHDRAWN:** D-CPW-0, D-CPW-3, D-CPW-4, D-CPW-12 (they built or measured the struck embedding-slice code). **RE-SCOPED:** D-CPW-2 = the word-cell pair type `(a:b)` over the one COCA codebook + `ReferenceSet`; D-CPW-10 = the driver reads a sentence as six LUT cells. **UNCHANGED:** D-CPW-1 (the LUT into the contract — now the representation), -5, -6, -7, -8, -9, -11, -13, -14. Gates G-D/G-A/G-P/G-PO/G-M/G-T/G-ROT/G-UNIQ/G-CASC/G-ε/G1/G3/G3v/G5b are struck with the code they measured.
+**CORRECTION 2 (same day):** `[a,b]` = a word's 16-bit lexical address in a versioned codebook, not two poles. **D-CPW-2** = the 16-bit lexical-address slot type + `ReferenceSet` + exact resolution, gate **G-LEX** (every declared entry resolves to its declared lemma+PoS reading; no cross-read across codebooks) — the FIRST gate; every Jina-fidelity gate is struck as a criterion. **D-CPW-14** (correspondence artifact) is G-LEX's fixture.
+**WITHDRAWN:** D-CPW-0, D-CPW-3, D-CPW-4, D-CPW-12 (they built or measured the struck embedding-slice code). **RE-SCOPED:** D-CPW-10 = the driver reads a sentence as six resolved words and supplies the relational reading. **UNCHANGED:** D-CPW-1 (the LUT into the contract — now the representation), -5, -6, -7, -8, -9, -11, -13, -14. Gates G-D/G-A/G-P/G-PO/G-M/G-T/G-ROT/G-UNIQ/G-CASC/G-ε/G1/G3/G3v/G5b are struck with the code they measured.
 
 Plan: `.claude/plans/deepnsm-v2-cam96-pairwise-v5.md`. The `D-C96P-*` ids never matched the D-id pattern (`D-[A-Z]{2,}…`); tooling joins on `D-CPW-*`. The table below is the ratification-time record.
 
