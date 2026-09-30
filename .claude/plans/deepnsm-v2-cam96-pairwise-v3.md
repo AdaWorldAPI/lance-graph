@@ -1,6 +1,6 @@
 # deepnsm-v2 Cam96 → 6 × pairwise distribution — spec (v3, RATIFIED)
 
-> **Status:** RATIFIED v3 of the 5+3 council.
+> **Status:** SUPERSEDED-IN-PART (2026-09-30) by `-v5.md` — §3 (reading), §6.3 (home), §7 decision table; D-ids re-minted `D-CPW-*`. Everything else stands. Was: RATIFIED v3 of the 5+3 council.
 > - v1 was the proposal and v2 the council draft; both are kept as the record. Ledger in §13.
 > - **Implementation is authorized only for D-C96P-0 (the measurement harness) and D-C96P-1 (the codec move).** Both run on data that can be produced in-tree.
 > - Every other deliverable waits on G0/G1, which wait on the embeddings (§5, Q4).
