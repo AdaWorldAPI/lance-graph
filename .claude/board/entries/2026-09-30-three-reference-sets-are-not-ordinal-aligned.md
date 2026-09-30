@@ -3,6 +3,7 @@
 **Status:** MEASURED · OPEN — plan `.claude/plans/deepnsm-v2-lexical-address-v1.md` §2 (D-LXA-2, G-REF). Measured on PR #1303 (closed unmerged); carried here.
 
 ## Measured (python over the committed CSVs and the Tigris artifact)
+
 | reference | rows | distinct keys | key |
 |---|---|---|---|
 | COCA4096 — `crates/deepnsm/word_frequency/word_rank_lookup.csv`, ranks ≤ 4096 | 4,096 ranks | 3,559 words | rank: one row per (word, PoS), each rank unique; a homograph spans several ranks |
