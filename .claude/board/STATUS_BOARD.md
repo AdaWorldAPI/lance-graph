@@ -138,6 +138,7 @@ Plan: `.claude/plans/deepnsm-v2-cam96-pairwise-v3.md`. The reading is the merge 
 | **D-C96P-2..5** | the arm the decision table picks; loaders with a `Cam96PairCodes` view; `Cam96AxisSpace` alias; trainer separate from the harness | Blocked (on D-0) | G1, G2 unit gate, G3, G4, G5, G6 |
 | **D-C96P-6** | `SemanticSpace` documented as routing-only; kept exported; no deprecation | Queued | G4 |
 | **D-C96P-7** | per-class `self_code` shape reading (`ValueSchema` variant or new ReadMode axis) | Queued | v3-envelope-auditor |
+| **D-C96P-8** | consumer migration, in tree then tesseract-rs (ordered after D-7) | Blocked (on D-5, D-7) | G7, G8 |
 
 ## D-C96P — deepnsm-v2 Cam96 → 6 × pairwise distribution (2026-09-29)
 
