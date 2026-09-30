@@ -1,3 +1,12 @@
+## 2026-09-30 — correction to the two D-LXC-1 / D-LXC-11 entries below
+
+- Their "70,396 triples", "G6 = 25" and "25 tags moved (G6 exact)" record
+  frequency changing tags: unintended semantic interference, not a passing
+  gate. The #1304 repair removed the counted pick; the tag is `main`'s legacy
+  tagging again. KJV: 70,393 triples, 1,227 subjects, 1,941 predicates,
+  identical to `main`. G6 is now the invariant
+  `counts_change_evidence_never_the_readings_or_the_tag`.
+
 ## 2026-09-30 — D-LXC-11 coverage bands (5+3 council, orchestrator implements)
 
 - The 5 (Sonnet): prior-art, iron-rule, code truth (general-purpose,

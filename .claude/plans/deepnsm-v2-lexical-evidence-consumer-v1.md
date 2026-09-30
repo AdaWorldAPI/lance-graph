@@ -158,6 +158,10 @@ Other facts read for this plan:
 
 ## Checklist (D-LXC-1; D-LXC-7 rides with it)
 
+⊘ 2026-09-30: the counted-pick items below (per-`WordId` pick, resolution
+order) record what was built and then removed; they are not the current
+state. The current state is the Correction below.
+
 - [x] Tests first (G3). Each was shown red by a disable run (see Results).
 - [x] In `bible_wave` only: build `LexicalEvidence` with `load_word_forms_csv`
       against `nsm.vocab`, after lowercasing the `word` column.
@@ -178,6 +182,10 @@ Other facts read for this plan:
 - [x] Not touched: `lexical.rs`, `lib.rs`, `fsm.rs`, `genre_shapes.rs`.
 
 ## Results (2026-09-29)
+
+⊘ 2026-09-30: this Code block and the "after (B)" column describe the
+removed counted pick; kept as the historical measurement. Current code and
+numbers: the Correction below.
 
 **Code.** `crates/deepnsm-v2/examples/bible_wave.rs`:
 - `counted_pos` implements the fold and pick.
