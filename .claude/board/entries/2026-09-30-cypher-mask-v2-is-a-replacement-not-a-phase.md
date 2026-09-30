@@ -3,8 +3,8 @@
 **Status:** VERIFIED-IN-CODE · OPEN. Plan `.claude/plans/cypher-mask-lowering-v2.md` (D-CML-0..9).
 
 ## Read (2026-09-30, `main` `0d31c54f`)
-- `crates/lance-graph/Cargo.toml:34`: `datafusion` is a **non-optional** dependency of `lance-graph`.
-- `error.rs:45,77`: `DataFusionError` is inside `GraphError`.
+- `crates/lance-graph/Cargo.toml` `[dependencies]`: `datafusion` is a **non-optional** dependency of `lance-graph`.
+- `error.rs` `GraphError`: `DataFusionError` is inside it (a variant source and a `From` impl).
 - Consequence: any crate that reuses the parser has DataFusion in its build graph, even if it never calls it. Removing DataFusion from our surface is possible; removing it from the build is not possible without an upstream edit (OQ-CML-1).
 - `parser.rs`, `ast.rs`, `semantic.rs` and `logical_plan.rs` do not import DataFusion themselves.
 - `examples/w0b_corpus_census.rs` already drives parse → plan from outside the planner, using only the public API.

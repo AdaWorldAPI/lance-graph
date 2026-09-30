@@ -93,8 +93,8 @@ pub enum Refusal { /* one variant per row of §5, each carrying the offending co
   walks is refused (§5 row R-BAG).
 
 **OQ-CML-1 — DataFusion is still linked.** `lance-graph` depends on `datafusion`
-unconditionally (`crates/lance-graph/Cargo.toml:34`, not `optional`), and
-`error.rs:45,77` puts `DataFusionError` inside `GraphError`. So depending on the
+unconditionally (in `crates/lance-graph/Cargo.toml` the `datafusion` entry under
+`[dependencies]` carries no optional flag), and `error.rs` (`GraphError`) puts `DataFusionError` inside `GraphError`. So depending on the
 parser pulls DataFusion into the **build graph**, even though the new crate calls none
 of it. This is "off the surface", not "out of the binary". Making DataFusion optional
 upstream would be an upstream edit, and that is ruled out. The two options, to be
