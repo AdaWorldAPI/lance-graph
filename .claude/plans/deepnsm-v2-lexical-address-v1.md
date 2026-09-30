@@ -129,13 +129,14 @@ are stored quantized as `u8`:
 | identity: `lemma`, `PoS` | from `lemmas_5k.csv` (or the reference's own key) | the declared reading the address resolves to |
 | identity: **`c`** (u8) | `c = w / (w+1)`, `w = ln(1+freq) / ln(1+freq_max) · K` (`K` is a labelled, hand-tuned pin) | the amount of evidence behind the reading |
 | surface form: **`f`** (u8) | the reading's share among that surface form's readings, from `word_forms.csv` (`wordFreq`): e.g. surface `record` → `record/n` 120,048 vs `record/v` 13,014, so `f` ≈ 0.90 and ≈ 0.10. `f = 1` for an unambiguous form (`the`) | an ambiguous form gets `f < 1` without anyone counting at query time |
-| unknown | a missing count stays **unknown**, never `0` | zero would assert "no evidence"; unknown asserts "not measured" |
+| unknown | a missing count produces **no row**. Unknown is absence, never a value, and never `0` | zero would assert "no evidence"; a missing row asserts "not measured" |
 
 **The canonical `u8` encoding**, so the byte-for-byte gate is reproducible:
-- `f` and `c` are in `[0, 1]`. Each is stored as `q = round_half_even(x × 254)`, computed
-  in `f64`, which gives `0..=254`.
-- **`255` is the UNKNOWN sentinel.** No computed value can produce it, so unknown needs
-  no separate flag byte and can never be confused with `x = 1` (`254`).
+- `f` and `c` are in `[0, 1]`. Each is stored as `q = round_half_even(x × 255)`, computed
+  in `f64`. That uses the full unsigned range `0..=255`, and every byte value is a number.
+- **There is no sentinel.** An unsigned byte carries no NaN-like "unknown" value. A
+  reading with no measured count simply has no row in the table, and a lookup that
+  finds no row is unknown.
 - `ln` is `f64::ln` and `freq_max` is the maximum over the reference being baked. `K`
   is written into the artifact header next to the three digests, so it is part of what
   is reproduced.
