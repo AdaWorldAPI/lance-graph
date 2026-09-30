@@ -15,3 +15,5 @@
 
 ## Open
 - Multi-membership in one pass: `lance-graph-report` lowers `CoordSpec::MaskSet` to one `Filter::Plane` pass per member tuple and per fold state. The single-group limit is in `GroupKeyAddr::group_of` (one `Option<usize>` per row), in the IR's `GroupKey`, and in report lowering. Seam: a word-level walker `for each 64-row word: sel & plane_m → fold hits into out[m]` over existing planes — same plane traffic as K passes, value-lane traffic of the union instead of the sum.
+
+**Renamed 2026-09-30 (rebase onto ndarray master):** upstream shipped `PowerSums { n, sum, sum_sq: u128 }` — the same record as `GroupMoments`. The duplicate was dropped: consumers use `PowerSums` / `CrossPowerSums` and `masked_group_(cross_)power_sums_i32*`; `checked_merge` moved onto the upstream types. Square sums are now `u128`; jc converts with `i128::try_from`, and a value past `i128::MAX` is refused as past the bound.

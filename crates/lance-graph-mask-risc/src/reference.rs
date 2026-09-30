@@ -20,8 +20,8 @@ use crate::ir::{
     Foreign, GroupFold, GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
     GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
+use crate::value::{CrossPowerSums, PowerSums};
 use crate::value::{ExecError, LaneKind, Out, Value};
-use crate::value::{GroupCrossMoments, GroupMoments};
 use crate::words_for;
 
 /// The caller's terminal-out, described by SHAPE rather than borrowed — what
@@ -1161,9 +1161,9 @@ pub fn reference_execute_into(
             if let Out::Moments(o) = out {
                 // Independent formulation: seed every slot, then walk the
                 // survivors one row at a time, widening straight to i128 —
-                // no ndarray kernel and no `GroupMoments::observe` involved.
+                // no ndarray kernel involved.
                 for x in o.iter_mut() {
-                    *x = GroupMoments::EMPTY;
+                    *x = PowerSums::default();
                 }
                 let mut sum = vec![0i128; o.len()];
                 for r in survivors(mask) {
@@ -1173,7 +1173,7 @@ pub fn reference_execute_into(
                     let x = i128::from(i32_at(planes, val, r));
                     o[k].n += 1;
                     sum[k] += x;
-                    o[k].sum_sq += x * x;
+                    o[k].sum_sq += (x * x) as u128; // a square is never negative
                 }
                 for (slot, s) in o.iter_mut().zip(sum) {
                     // In range by the validated row bound; a failure here is
@@ -1206,12 +1206,12 @@ pub fn reference_execute_into(
                     let narrow = |v: i128| {
                         i64::try_from(v).expect("validated 2^32-row bound keeps a sum in i64")
                     };
-                    *slot = GroupCrossMoments {
+                    *slot = CrossPowerSums {
                         n: u64::try_from(a[0]).expect("a count is non-negative"),
                         sum_x: narrow(a[1]),
                         sum_y: narrow(a[2]),
-                        sum_x2: a[3],
-                        sum_y2: a[4],
+                        sum_x_sq: u128::try_from(a[3]).expect("a square sum is non-negative"),
+                        sum_y_sq: u128::try_from(a[4]).expect("a square sum is non-negative"),
                         sum_xy: a[5],
                     };
                 }
