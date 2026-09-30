@@ -1,3 +1,19 @@
+## 2026-09-30 (1) — deepnsm-v2-lexical-address-v1 — a word is a 16-bit address into a versioned, baked COCA codebook → `.claude/plans/deepnsm-v2-lexical-address-v1.md`
+
+**Status:** PROPOSAL (D-LXA-1..4). No code authorized. Harvested from PR #1303
+(`deepnsm-v2-cam96-pairwise` v1–v5, closed unmerged). The v1–v5 plan files are not
+carried; they remain on branch `claude/brave-mayer-65y3cy`.
+
+- **Six words per facet.** Each `[a,b]` is one 16-bit address into an immutable,
+  versioned lexical codebook. It is not two poles and not an embedding slice.
+- **Relations are driver-supplied** through the Fisher-z LUT.
+- **Three COCA references** (4096 / 5k lemma / 20k academic) are measured as neither
+  nested nor aligned: only 3 of 4,264 shared words keep their ordinal. Reading across
+  references is refused.
+- **The COCA bake** stores frequency, PoS and lemma in the row as a u8 `<f, c>` prior.
+  Nothing is counted at runtime.
+- Carries `ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE`.
+
 ## 2026-09-29 (2) — deepnsm-v2-lexical-evidence-consumer-v1 rewritten against the DeepNSM → DeepNSM-v2 migration → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
 
 **Status:** PROPOSAL (D-LXC-1..10). No code authorized. Supersedes entry (1)

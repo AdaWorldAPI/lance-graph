@@ -1,3 +1,9 @@
+## ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE — the driver packs p64 plane bits as a CausalMask; the inverse reads bit 2 differently (2026-09-30)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE on `main` `0d31c54f`. `cognitive-shader-driver` `driver.rs` (emission stage) packs `CausalMask::from_bits(h.predicates & 0x07)`, where `predicates` is the p64 predicate-plane byte: bit0 CAUSES, bit1 ENABLES, **bit2 SUPPORTS** (`p64-bridge` `SUPPORTS = 2`). `p64-bridge::edge_to_layer_mask` maps mask bit 2 (confounding) to **CONTRADICTS**. Emit and its inverse disagree on bit 2; three mask vocabularies (rung, Pearl, p64) meet at one byte.
+- Found during PR #1303 (closed unmerged); recorded with `deepnsm-v2-lexical-address-v1.md` §6, which does not depend on it.
+- **What closes it:** one named mapping in `p64-bridge` used by both directions, with a round-trip test that can fail on bit 2.
+
 ## ISS-REPORT-NO-COMPOSITE-KEY-GROUP-FOLD — a 2-D fold costs one pass per partition member (2026-09-23)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE. mask-risc's `GroupKey` is one
