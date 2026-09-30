@@ -9,8 +9,9 @@ Plan: `.claude/plans/cypher-mask-multiplicity-contract-v1.md`. Entry: `entries/2
 | **D-CMM-2** | DataFusion bag pins: DAG 4/3, 4/3; cycle walk count 5 | In PR | `tests/test_datafusion_varlength_complex.rs` |
 | **D-CMM-3** | W0-b census consumes the classifier | In PR | Full 117 → 70 on 310 |
 | **D-CMM-4** | count-lane (plus-times) hop for `TerminalCount`/`EarlierCount` | Queued | gated on a consumer + contract §3.2 R4 exactness |
-| **D-CMM-5** | DataFusion walk-vs-trail divergence on cycles | Open | grace ruling: not fixed |
+| **D-CMM-5** | DataFusion walk-vs-trail divergence on cycles | Reclassified: DataFusion, Ladybug and SQL joins all compute WALK, which v1 adopts; TRAIL is a separate mode (contract §7.1-§7.2) | grace ruling: not fixed |
 | **D-CMM-6** | footnote `lance-graph-as-the-modelgraph-v1.md` §15 Full fraction | Queued | — |
+| **D-CMM-7** | carrier-sufficiency table + exhaustive enumerator (`.claude/tools/carrier_sufficiency.py`) | In PR | contract §7.3; every "no" prints a witness |
 
 ## D-LXC — DeepNSM-v2 lexical-evidence consumer + candidate next parts (2026-09-29)
 

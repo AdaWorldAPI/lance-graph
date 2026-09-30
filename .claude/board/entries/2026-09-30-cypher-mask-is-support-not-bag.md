@@ -46,3 +46,10 @@ After the chain-linearity fix (Codex P2 on #1305), the census reads 313 queries.
 **OPEN.**
 - `lance-graph-as-the-modelgraph-v1.md` §15 still quotes the pre-contract Full fraction (37.3 %). It needs a footnote.
 - No count-lane operator exists. `Weighted` lowering is gated on the exactness conditions in contract §3.2 R4.
+
+**Amendment (same day, before merge).** Contract §7.
+- v1 semantics is WALK: DataFusion, Ladybug (`PathSemantic::WALK` default, no `r1 <> r2` in `rewriteMatchPattern`) and SQL joins all compute it. D-CMM-5 is reclassified from "DataFusion divergence" to "TRAIL is a separate mode".
+- Walks and trails also diverge on an acyclic graph when the pattern changes direction: `(a)->(b)<-(c)` on {1→2} gives `count(DISTINCT c)` 1 as a walk, 0 as a trail.
+- MEASURED carrier sufficiency (`python3 .claude/tools/carrier_sufficiency.py`): node support answers only Exists/Support under WALK; per-node counts add Count/CountBy of the current and later nodes; the last hop's edge population adds the previous node; nothing per-node or per-edge answers a TRAIL question two hops on (two parallel self-loops plus 1→0: 3-hop trail count 0 vs 2 with equal per-edge trail counts).
+- The mask-RISC survival rule stays; §7.4 states the condition under which a later PR may relax it.
+

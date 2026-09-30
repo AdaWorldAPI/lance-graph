@@ -1,10 +1,10 @@
 # cypher-mask-multiplicity-contract-v1 — a mask is the SUPPORT of a frontier, never its multiplicity
 
-> **Status:** RATIFIED v3 (5+3 council, Phase 5). Corrects `cypher-mask-lowering-v1.md`.
+> **Status:** RATIFIED v3 (5+3 council, Phase 5), amended by §7 (2026-09-30: walk semantics, carrier sufficiency). Corrects `cypher-mask-lowering-v1.md`.
 > No mint. No DataFusion extension. Debug-0 builds only.
 > **D-ids:** D-CMM-0 (plan corrections), D-CMM-1 (classifier), D-CMM-2 (DataFusion pins),
 > D-CMM-3 (census consumer), D-CMM-4 (count lane, queued), D-CMM-5 (walk/trail divergence, open),
-> D-CMM-6 (modelgraph footnote, queued) — rows in `STATUS_BOARD.md` under `D-CMM`.
+> D-CMM-6 (modelgraph footnote, queued), D-CMM-7 (§7 carrier-sufficiency table + enumerator) — rows in `STATUS_BOARD.md` under `D-CMM`.
 
 ## §0 The defect, in one fixture
 
@@ -18,6 +18,8 @@ KNOWS = {1→2, 1→3, 2→3, 3→4, 4→5} — the edges of `create_knows_datas
 - `RETURN count(DISTINCT b)` ⇒ **3** ({2,3,4}), but R-6's forward `dst₁` = {2,3,4,5} ⇒ 4. A forward mask is the exact support of the TERMINAL variable only.
 
 On this acyclic fixture, walk count = trail count. The two diverge only on cycles (G1b).
+
+> ⊘ **Struck by §7:** walks and trails diverge whenever two positions of one pattern can match the same edge. A cycle is one way; a direction change is another, and needs no cycle: on the single edge {1→2}, `(a)-[:KNOWS]->(b)<-[:KNOWS]-(c) RETURN count(DISTINCT c)` is 1 as a walk and 0 as a trail.
 
 `-[:KNOWS*1..2]->` from `a.id = 1`: DataFusion returns 4 rows, targets Bob, Charlie, Charlie, David
 (`test_datafusion_pipeline.rs:2226-2258`); distinct endpoints = 3.
@@ -117,6 +119,7 @@ Rules for a future lowering (none is built here):
 - **R2.** `binding` reuses CSR slices (`AdjacencyBatch`, `planner/src/adjacency/batch.rs:37-57`, `!Clone`). It never becomes an owned per-binding vector, and it never crosses to Java.
 - **R3.** Unfold, when coded, is `materialize_bindings`, O(output) in its doc. `mask-risc/src/exec.rs:329` "the ONE materialiser" then gets a scope note.
 - **R4.** "Exact" means mult equals the Cypher trail count:
+  - ⊘ **Superseded by §7.2:** exactness is relative to an explicit path semantics. v1 is WALK, which is what DataFusion, Ladybug and SQL joins compute. TRAIL is a separate mode with its own carrier requirement. The sub-bullets below state conditions under which WALK = TRAIL; they remain true as such, but "fixed k-hop over one directed type" must also exclude direction changes (§0 strike note).
   - fixed k-hop over one directed type is exact iff no closed walk of length ≤ k−1 exists;
   - any undirected hop is `[GRACE]`;
   - var-length is exact only on a proven-acyclic relation, or within girth;
@@ -186,3 +189,64 @@ PR A ships:
   - R-1 to R-5 and R-9;
   - T-8, T-9 and T-10;
   - the §5 placement ruling and §5.3 laws.
+
+## §7 Amendment (2026-09-30): walk semantics and carrier sufficiency
+
+Added after the council, from counterexamples, before merge. Nothing in §1-§6 is deleted; the struck lines carry pointers here.
+
+### §7.1 Which semantics the executable references compute
+
+- **DataFusion:** no edge-inequality predicate between hops (`datafusion_planner/builder/expand_ops.rs`, read in §2); measured 5 on G1b.
+- **Ladybug** (AdaWorldAPI fork, C++): the recursive-pattern default is `PathSemantic::WALK` (`src/include/main/client_config.h`, `RECURSIVE_PATTERN_SEMANTIC`), and `rewriteMatchPattern` in `src/binder/bind_match.cpp` adds no `r1 <> r2` for fixed-length patterns.
+- **SQL joins** (DuckDB, the Quack oracle) join edge rows independently, so the same edge row can appear at two positions.
+
+All three compute WALK. D-CMM-5 is therefore not a DataFusion defect: DataFusion agrees with v1. The trail count 4 in G1b stays as the TRAIL-mode record.
+
+### §7.2 The semantics boundary
+
+- `step(…, Walk)` is exact with the Markov carriers below.
+- `step(…, Trail)` is exact only when no two positions of the pattern can match the same edge (disjoint relationship types, or same-direction hops over a relation with no closed walk shorter than the pattern). Otherwise it needs the carrier named in §7.3, or answers `Insufficient`.
+
+### §7.3 Carrier sufficiency (MEASURED)
+
+Command: `python3 .claude/tools/carrier_sufficiency.py` (stdlib, about 2 s). Every directed multigraph on 3 nodes with up to 4 edges (parallel edges and self-loops included), every FROM population. A carrier is sufficient for an observation iff no two FROM populations on the same graph give the same carrier and a different observation; every "no" prints its witness.
+
+Carriers after hop k, each computed from the matches up to hop k only: S = node support of the last node; K = per-node match count; E = edge population of hop k; W = per-edge walk count; B = bindings.
+
+| after hop k (k ≥ 2), later question | S | K | E | W | B |
+|---|---|---|---|---|---|
+| Walk: Exists | yes | yes | yes | yes | yes |
+| Walk: Support of node k and of any later node | yes | yes | yes | yes | yes |
+| Walk: Count, CountBy of node k or any later node | no | yes | no | yes | yes |
+| Walk: Support of node k−1 | no | no | yes | yes | yes |
+| Walk: CountBy of node k−1 | no | no | no | yes | yes |
+| Walk: anything about node k−2 or earlier | no | no | no | no | yes |
+| Trail at hop k (carriers built from walks) | no | no | no | no | yes |
+| Trail at hop k+1 | no | no | no | no | yes |
+
+After hop 1 the edge population also identifies the origin, so E1 answers every question about 1- and 2-hop matches, walk or trail.
+
+Smallest witnesses (edges; FROM populations; the two answers):
+
+- S cannot count: {0→0, 1→0}; FROM {0} vs {0,1}; walk `count(*)` 1 vs 2.
+- K cannot name the previous node: {0→0, 1→0, 2→1}; FROM {0} vs {2}; 2-hop Support(n1) {0} vs {1}.
+- S cannot decide a trail: {0→0, 1→0}; FROM {0} vs {1}; 2-hop trail Exists false vs true (the self-loop is reused).
+- Per-edge trail counts cannot extend a trail: {0→0, 0→0, 1→0} (two parallel self-loops); FROM {0} vs {1}; 3-hop trail count 0 vs 2.
+- The opposite-ends case: {0→0, 1→0}; FROM {0} vs {1}; the trail Support of c in `(a)->(b)<-(c)` is {1} vs {0} while K is equal.
+
+Rules that follow:
+
+1. Under WALK, folding forward to per-node counts loses nothing about the current or any later node. It loses the previous node, which the edge population of the last hop still has, and everything further back, which only the retained input population (by a backward pass) or the bindings have.
+2. Under TRAIL, each hop must know which edges the match has already used. Per-edge trail counts suffice for one more hop; beyond that no per-node or per-edge carrier suffices, and the answer is `Insufficient` unless the pattern cannot reuse an edge.
+3. A node-support mask is sufficient only for Exists and Support under WALK.
+
+### §7.4 The mask-RISC survival rule
+
+`Terminal::ScatterOrU32`'s survival condition forbids feeding a scattered mask into another program, and `Filter::Semijoin` accepts only a resident plane. That prohibition implements rule 3 conservatively and stays. A future PR may relax it only when all of these hold:
+
+- the semantics is WALK;
+- every remaining observation is Exists or the Support of the scattered node or a later node;
+- the scattered mask covers the next step's whole node space: same space and epoch, and no out-of-range key was dropped.
+
+Anything else needs a count or edge carrier, or the retained input population.
+
