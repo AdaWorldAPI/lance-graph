@@ -225,7 +225,25 @@ Every guard: red with it removed, green with it back.
 - Q4 whether the `t` LANE (G-T) is wanted at all if the pair alone clears G-M.
 
 ## 8. Board hygiene (same commit as ratification)
-`INTEGRATION_PLANS.md` PREPEND; `STATUS_BOARD.md` v4 block (D-C96P-0 re-scoped arms, D-7 re-scoped, new D-C96P-9 COCA loader, D-C96P-10 driver levers L-2/L-3); `AGENT_LOG.md` council entry; `entries/2026-09-30-*.md` for the L4-identity finding + `entries_index.py --write`; `SUPERSESSION-INDEX.md` regenerated LAST; v3 status line → SUPERSEDED-IN-PART (§3, §6.3, §7 decision table).
+`INTEGRATION_PLANS.md` PREPEND; `STATUS_BOARD.md` v4 block (the §10 table: D-CPW-0 re-scoped arms, D-CPW-7 re-scoped, new D-CPW-9 COCA loader, D-CPW-10 driver levers); `AGENT_LOG.md` council entry; `entries/2026-09-30-*.md` for the L4-identity finding + `entries_index.py --write`; `SUPERSESSION-INDEX.md` regenerated LAST; v3 status line → SUPERSEDED-IN-PART (§3, §6.3, §7 decision table).
+
+## 10. Deliverables (D-ids)
+
+The `D-C96P-*` family used by v1–v3 does not match the workspace D-id pattern (`D-[A-Z]{2,}…`, `plan_dids.py`; the digit in `C96P` breaks it), so those rows were never counted by the supersession coverage column. v4 mints conformant ids and keeps the old names as aliases on the STATUS_BOARD rows; the numbering is preserved 1:1.
+
+| D-id | alias | scope (v4) | gates | status |
+|---|---|---|---|---|
+| D-CPW-0 | D-C96P-0 | the harness: eight `CausalMask` projections + `M+`, in-harness 12-axis / 48-bit / RQ controls, split file | G-D, G-A, G-P, G-M, G-T, G-ROT, G-ε, G1, G3, G5b | Blocked (embeddings, Q3) |
+| D-CPW-1 | D-C96P-1 | Fisher-z codec into the contract (v3 §6 unchanged) | golden-bytes parity | Queued (authorized) |
+| D-CPW-2 | D-C96P-2 | `FacetSchema::PalettePair = 3` + the L4 pair NEWTYPE in `lance-graph-contract`; `[a,b]` encode; reading selected by `facet_classid` | G-L4, G2, G5, G6 | Queued |
+| D-CPW-3 | D-C96P-3 | `CAM96P01` / `CAM96PW1` loaders, digest gate, `Cam96PairCodes<'a>` view (v3 §6) | G6 | Blocked (on D-CPW-0) |
+| D-CPW-4 | D-C96P-4 | trainer (separate from the harness) | G1 | Blocked (on D-CPW-0) |
+| D-CPW-5 | D-C96P-5 | `Cam96AxisSpace` alias; legacy 12-axis reading kept, L4 read of 12-axis bytes refused | G4, G6 | Blocked (on D-CPW-2) |
+| D-CPW-6 | D-C96P-6 | `SemanticSpace` documented routing-only, kept exported | G4 | Queued |
+| D-CPW-7 | D-C96P-7 | `self_code` ⇒ key reference or removal (`v3-envelope-auditor` decides the mechanism) | field-isolation matrix, version gate | Queued |
+| D-CPW-8 | D-C96P-8 | consumer migration, in tree then tesseract-rs | G7, G8 | Blocked (on D-CPW-5, D-CPW-7) |
+| D-CPW-9 | — | COCA prior loader (`freq`, `range`; `disp` + genre PM follow-up) beside `Vocabulary::load`, reusing `freq_is_cosine.rs`'s column parsing | G-FC, rank-alignment test | Queued |
+| D-CPW-10 | — | driver levers L-2 (edge emission carries identity, versioned) + L-3 (KL from prior) + L-4 (lemma routing) | G-EDGE, G-F, G-PoS, G-LEM | Blocked (on D-CPW-2, D-CPW-9) |
 
 ## 9. Change ledger v3 → v4 (Phase 0)
 | # | change | source |
