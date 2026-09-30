@@ -166,7 +166,7 @@ Every guard gets a disable run: red with the guard removed, green with it back. 
 - `examples/pop_readout.rs:84`, `:168-169`, `:279-280`, `:322`, `:404-417`, `:743` (these include a direct `Cam96` × `self_code` distance)
 - `data/README.md`, `probes/README.md` §4
 
-In `lance-graph-contract`: `episodic_basin.rs`, `canonical_node.rs:1062`, `:1078`, `:1235`, `:1351`, `:2653-2698`, `band_reading.rs:151`, `lib.rs:98-99`. Also `lance-graph/src/graph/arigraph/episodic.rs:215-233`, `:959`, and `.claude/v3/soa_layout/tenants.md:58`.
+In `lance-graph-contract`: `episodic_basin.rs`, `canonical_node.rs:1062`, `:1078`, `:1235`, `:1351`, `:2653-2698`, `band_reading.rs:151`, `lib.rs:98-99`. Also `lance-graph/src/graph/arigraph/episodic.rs:215-233`, `:959`, and `.claude/v3/soa_layout/tenants.md` (the tenant-table row `EpisodicBasin`, D-ACR-6 rail).
 
 **Codec move.**
 - `bgz-tensor/Cargo.toml:27` (the contract dependency goes from optional to required);
