@@ -1811,6 +1811,15 @@ mod tests {
             ),
             ConsumerSemantics::Bindings
         );
+        // Rebinding mid-chain: only the per-hop check sees it (the scan's
+        // variable `a` is fresh here).
+        assert_eq!(
+            semantics(
+                "MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(c:Person)-[:KNOWS]->(b) \
+                 RETURN count(DISTINCT c) AS n"
+            ),
+            ConsumerSemantics::Bindings
+        );
         // Silence twin: a genuine chain still classifies.
         assert_eq!(
             two_hop("RETURN count(DISTINCT c) AS n"),
