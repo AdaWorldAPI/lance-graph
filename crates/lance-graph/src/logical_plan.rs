@@ -625,6 +625,256 @@ impl<'a> LogicalPlanner<'a> {
     }
 }
 
+/// Which carrier a query's consumer needs from the frontier the pattern
+/// produces — the multiplicity contract of
+/// `.claude/plans/cypher-mask-multiplicity-contract-v1.md` §3.2.
+///
+/// A Boolean mask is the SUPPORT of a frontier: which distinct nodes a
+/// variable can take. After a hop, Cypher's bag semantics count one row per
+/// BINDING (path), so `count(*)` over `(a)->(b)->(c)` is the path count, not
+/// the popcount of `c`'s mask, and a forward hop chain gives the exact support
+/// of the TERMINAL variable only — an earlier variable needs a backward pass.
+///
+/// This says what the consumer NEEDS. It does not say the query lowers:
+/// ordering, `SKIP`/`LIMIT`, value-`DISTINCT` and strings are judged
+/// separately (lowering plan §4).
+///
+/// Deliberately not `Serialize`: it is consumed once, in process. A byte of it
+/// surviving the query would trip the lowering plan's §5.2 mint condition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConsumerSemantics {
+    /// The support of the terminal variable suffices. Every single-population
+    /// query is this: one row is one node.
+    TerminalSet,
+    /// The support of ONE earlier variable — Boolean, but it needs a backward
+    /// (semi-join) pass; the forward chain over-approximates it.
+    EarlierSet,
+    /// Support plus a per-node path count keyed on the terminal variable.
+    TerminalCount,
+    /// Support plus a path count keyed on ONE earlier variable.
+    EarlierCount,
+    /// The identity of two or more variables: rows must be enumerated.
+    Bindings,
+}
+
+impl LogicalOperator {
+    /// Classify the carrier this plan's consumer needs. Pure; fails closed to
+    /// [`ConsumerSemantics::Bindings`] on any shape it does not recognise.
+    pub fn consumer_semantics(&self) -> ConsumerSemantics {
+        // Peel the wrappers that sit above the RETURN projection.
+        let mut op = self;
+        let mut distinct = false;
+        loop {
+            match op {
+                LogicalOperator::Sort { input, .. }
+                | LogicalOperator::Offset { input, .. }
+                | LogicalOperator::Limit { input, .. } => op = input,
+                LogicalOperator::Distinct { input } => {
+                    distinct = true;
+                    op = input;
+                }
+                _ => break,
+            }
+        }
+        let (input, projections) = match op {
+            LogicalOperator::Project { input, projections } => (input, projections),
+            _ => return ConsumerSemantics::Bindings,
+        };
+
+        let pattern = match PatternShape::of(input) {
+            Some(p) => p,
+            None => return ConsumerSemantics::Bindings,
+        };
+        if pattern.hops == 0 {
+            return ConsumerSemantics::TerminalSet;
+        }
+        if pattern.cross_variable_filter {
+            return ConsumerSemantics::Bindings;
+        }
+
+        let mut vars: Vec<&str> = Vec::new();
+        let mut has_aggregate = false;
+        let mut sensitive_aggregate = false;
+        for p in projections {
+            collect_value_vars(&p.expression, &mut vars);
+            aggregate_flags(&p.expression, &mut has_aggregate, &mut sensitive_aggregate);
+        }
+        vars.sort_unstable();
+        vars.dedup();
+
+        let focus = match vars.as_slice() {
+            [] => pattern.terminal.as_str(),
+            [one] => one,
+            _ => return ConsumerSemantics::Bindings,
+        };
+        if pattern.relationship_vars.iter().any(|r| r == focus) {
+            return ConsumerSemantics::Bindings;
+        }
+        let terminal = focus == pattern.terminal;
+        let sensitive = sensitive_aggregate || (!has_aggregate && !distinct);
+        match (terminal, sensitive) {
+            (true, false) => ConsumerSemantics::TerminalSet,
+            (false, false) => ConsumerSemantics::EarlierSet,
+            (true, true) => ConsumerSemantics::TerminalCount,
+            (false, true) => ConsumerSemantics::EarlierCount,
+        }
+    }
+}
+
+/// The pattern under a RETURN projection, as the classifier needs it.
+struct PatternShape {
+    hops: usize,
+    terminal: String,
+    relationship_vars: Vec<String>,
+    cross_variable_filter: bool,
+}
+
+impl PatternShape {
+    /// `None` for anything that is not one linear pattern: a `Join`, an
+    /// `Unwind`, a nested projection (`WITH`) or an unknown operator.
+    fn of(op: &LogicalOperator) -> Option<Self> {
+        let mut shape = PatternShape {
+            hops: 0,
+            terminal: String::new(),
+            relationship_vars: Vec::new(),
+            cross_variable_filter: false,
+        };
+        let mut op = op;
+        loop {
+            match op {
+                LogicalOperator::Filter { input, predicate } => {
+                    let mut vars = Vec::new();
+                    collect_bool_vars(predicate, &mut vars);
+                    vars.sort_unstable();
+                    vars.dedup();
+                    if vars.len() >= 2 {
+                        shape.cross_variable_filter = true;
+                    }
+                    op = input;
+                }
+                LogicalOperator::Expand {
+                    input,
+                    target_variable,
+                    relationship_variable,
+                    ..
+                }
+                | LogicalOperator::VariableLengthExpand {
+                    input,
+                    target_variable,
+                    relationship_variable,
+                    ..
+                } => {
+                    // The outermost hop is the last one: its target is terminal.
+                    if shape.hops == 0 {
+                        shape.terminal = target_variable.clone();
+                    }
+                    shape.hops += 1;
+                    if let Some(r) = relationship_variable {
+                        shape.relationship_vars.push(r.clone());
+                    }
+                    op = input;
+                }
+                LogicalOperator::ScanByLabel { variable, .. } => {
+                    if shape.hops == 0 {
+                        shape.terminal = variable.clone();
+                    }
+                    return Some(shape);
+                }
+                _ => return None,
+            }
+        }
+    }
+}
+
+fn collect_value_vars<'a>(v: &'a ValueExpression, out: &mut Vec<&'a str>) {
+    match v {
+        ValueExpression::Variable(name) => {
+            if name != "*" {
+                out.push(name);
+            }
+        }
+        ValueExpression::Property(p) => out.push(&p.variable),
+        ValueExpression::Literal(_)
+        | ValueExpression::Parameter(_)
+        | ValueExpression::VectorLiteral(_) => {}
+        ValueExpression::ScalarFunction { args, .. }
+        | ValueExpression::AggregateFunction { args, .. } => {
+            for a in args {
+                collect_value_vars(a, out);
+            }
+        }
+        ValueExpression::Arithmetic { left, right, .. }
+        | ValueExpression::VectorDistance { left, right, .. }
+        | ValueExpression::VectorSimilarity { left, right, .. } => {
+            collect_value_vars(left, out);
+            collect_value_vars(right, out);
+        }
+    }
+}
+
+fn collect_bool_vars<'a>(e: &'a BooleanExpression, out: &mut Vec<&'a str>) {
+    match e {
+        BooleanExpression::Comparison { left, right, .. } => {
+            collect_value_vars(left, out);
+            collect_value_vars(right, out);
+        }
+        BooleanExpression::And(l, r) | BooleanExpression::Or(l, r) => {
+            collect_bool_vars(l, out);
+            collect_bool_vars(r, out);
+        }
+        BooleanExpression::Not(inner) => collect_bool_vars(inner, out),
+        BooleanExpression::Exists(p) => out.push(&p.variable),
+        BooleanExpression::In { expression, list } => {
+            collect_value_vars(expression, out);
+            for v in list {
+                collect_value_vars(v, out);
+            }
+        }
+        BooleanExpression::Like { expression, .. }
+        | BooleanExpression::ILike { expression, .. }
+        | BooleanExpression::Contains { expression, .. }
+        | BooleanExpression::StartsWith { expression, .. }
+        | BooleanExpression::EndsWith { expression, .. }
+        | BooleanExpression::IsNull(expression)
+        | BooleanExpression::IsNotNull(expression) => collect_value_vars(expression, out),
+    }
+}
+
+/// `has` — any aggregate at all. `sensitive` — an aggregate whose answer
+/// moves with the path count: a non-DISTINCT `count`/`sum`/`avg`/`collect`.
+/// `min`/`max` and every DISTINCT aggregate see only the support.
+fn aggregate_flags(v: &ValueExpression, has: &mut bool, sensitive: &mut bool) {
+    match v {
+        ValueExpression::AggregateFunction {
+            name,
+            args,
+            distinct,
+        } => {
+            *has = true;
+            let lower = name.to_lowercase();
+            let bag = matches!(lower.as_str(), "count" | "sum" | "avg" | "collect");
+            if bag && !*distinct {
+                *sensitive = true;
+            }
+            for a in args {
+                aggregate_flags(a, has, sensitive);
+            }
+        }
+        ValueExpression::ScalarFunction { args, .. } => {
+            for a in args {
+                aggregate_flags(a, has, sensitive);
+            }
+        }
+        ValueExpression::Arithmetic { left, right, .. }
+        | ValueExpression::VectorDistance { left, right, .. }
+        | ValueExpression::VectorSimilarity { left, right, .. } => {
+            aggregate_flags(left, has, sensitive);
+            aggregate_flags(right, has, sensitive);
+        }
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1413,5 +1663,144 @@ mod tests {
             "Expected error about missing label 'Person', got: {}",
             err_msg
         );
+    }
+
+    // --- multiplicity contract (cypher-mask-multiplicity-contract-v1 §5 G2/G3) ---
+
+    fn semantics(query: &str) -> ConsumerSemantics {
+        let ast = parse_cypher_query(query).unwrap();
+        let config = GraphConfig::default();
+        let mut planner = LogicalPlanner::new(&config);
+        planner.plan(&ast).unwrap().consumer_semantics()
+    }
+
+    const TWO_HOP: &str = "MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(c:Person)";
+
+    fn two_hop(tail: &str) -> ConsumerSemantics {
+        semantics(&format!("{TWO_HOP} {tail}"))
+    }
+
+    #[test]
+    fn terminal_set_consumers_need_only_the_terminal_support() {
+        assert_eq!(
+            two_hop("RETURN DISTINCT c.name"),
+            ConsumerSemantics::TerminalSet
+        );
+        assert_eq!(
+            two_hop("RETURN count(DISTINCT c) AS n"),
+            ConsumerSemantics::TerminalSet
+        );
+        assert_eq!(
+            two_hop("RETURN min(c.age) AS m"),
+            ConsumerSemantics::TerminalSet
+        );
+    }
+
+    #[test]
+    fn an_earlier_variable_is_not_the_forward_frontier() {
+        // count(DISTINCT b) = 3 on the §0 fixture while the forward dst₁ is 4.
+        assert_eq!(
+            two_hop("RETURN count(DISTINCT b) AS n"),
+            ConsumerSemantics::EarlierSet
+        );
+        assert_eq!(
+            two_hop("RETURN min(a.age) AS m"),
+            ConsumerSemantics::EarlierSet
+        );
+    }
+
+    #[test]
+    fn path_counting_consumers_need_a_count_lane() {
+        assert_eq!(
+            two_hop("RETURN count(*) AS n"),
+            ConsumerSemantics::TerminalCount
+        );
+        assert_eq!(
+            two_hop("RETURN sum(c.age) AS s"),
+            ConsumerSemantics::TerminalCount
+        );
+        // The pair that keeps T-11 honest: the same variable, with and without DISTINCT.
+        assert_eq!(two_hop("RETURN c.name"), ConsumerSemantics::TerminalCount);
+        assert_eq!(
+            two_hop("RETURN DISTINCT c.name"),
+            ConsumerSemantics::TerminalSet
+        );
+        assert_eq!(
+            two_hop("RETURN c.name, count(*) AS n"),
+            ConsumerSemantics::TerminalCount
+        );
+        assert_eq!(
+            two_hop("RETURN a.name, count(*) AS n"),
+            ConsumerSemantics::EarlierCount
+        );
+        assert_eq!(
+            two_hop("RETURN sum(a.age) AS s"),
+            ConsumerSemantics::EarlierCount
+        );
+    }
+
+    #[test]
+    fn two_variables_need_the_bindings() {
+        assert_eq!(
+            two_hop("RETURN a.name, c.name"),
+            ConsumerSemantics::Bindings
+        );
+        assert_eq!(
+            two_hop("WHERE a.age = c.age RETURN count(DISTINCT c) AS n"),
+            ConsumerSemantics::Bindings
+        );
+        assert_eq!(
+            semantics("MATCH (a:Person)-[:KNOWS]->(b:Person) WITH b RETURN count(*) AS n"),
+            ConsumerSemantics::Bindings
+        );
+    }
+
+    #[test]
+    fn a_single_population_is_one_row_per_node() {
+        // G3 — the can-stay-silent half: no hop, so a popcount is exact.
+        assert_eq!(
+            semantics("MATCH (n:Person) WHERE n.age > 30 RETURN count(*) AS n"),
+            ConsumerSemantics::TerminalSet
+        );
+        assert_eq!(
+            semantics("MATCH (n:Person) RETURN n.name"),
+            ConsumerSemantics::TerminalSet
+        );
+        // A single-variable WHERE after a hop is not a cross-variable filter.
+        assert_eq!(
+            two_hop("WHERE c.age > 30 RETURN count(DISTINCT c) AS n"),
+            ConsumerSemantics::TerminalSet
+        );
+    }
+
+    #[test]
+    fn two_disconnected_patterns_are_not_a_single_population() {
+        // G3's paired arm: no hop, but a Join — a cross product, not a popcount.
+        assert_eq!(
+            semantics("MATCH (a:Person), (b:Person) RETURN count(*) AS n"),
+            ConsumerSemantics::Bindings
+        );
+    }
+
+    /// `ConsumerSemantics` must never become persistable (§5.2 mint trip-wire).
+    /// Inherent methods whose impl bound fails are skipped, so the call falls
+    /// back to the trait method only when the type is NOT `Serialize`.
+    #[test]
+    fn consumer_semantics_is_not_serialize() {
+        struct Probe<T>(std::marker::PhantomData<T>);
+        trait NotSerialize {
+            fn is_serialize(&self) -> bool {
+                false
+            }
+        }
+        impl<T> NotSerialize for Probe<T> {}
+        impl<T: Serialize> Probe<T> {
+            fn is_serialize(&self) -> bool {
+                true
+            }
+        }
+        assert!(!Probe::<ConsumerSemantics>(std::marker::PhantomData).is_serialize());
+        // Can-fire: the probe does detect a Serialize type.
+        assert!(Probe::<LogicalOperator>(std::marker::PhantomData).is_serialize());
     }
 }

@@ -834,3 +834,119 @@ async fn test_varlength_all_pairs_reachability() {
         "Should find at least 15 connected pairs"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Multiplicity: a mask is the SUPPORT of a frontier, never its path count.
+//
+// These pin DataFusion's bag answers — the reference any mask lowering is
+// diffed against (`.claude/plans/cypher-mask-multiplicity-contract-v1.md`
+// §5 G1). Each query is paired with its DISTINCT twin, so a lowering that
+// returns the distinct count for `count(*)` fails here, which a set-equality
+// oracle cannot see.
+// ---------------------------------------------------------------------------
+
+fn multiplicity_people(ids: &[i64]) -> RecordBatch {
+    let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
+    RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(ids.to_vec()))]).unwrap()
+}
+
+fn multiplicity_knows(edges: &[(i64, i64)]) -> RecordBatch {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("src_person_id", DataType::Int64, false),
+        Field::new("dst_person_id", DataType::Int64, false),
+    ]));
+    let src: Vec<i64> = edges.iter().map(|e| e.0).collect();
+    let dst: Vec<i64> = edges.iter().map(|e| e.1).collect();
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(src)),
+            Arc::new(Int64Array::from(dst)),
+        ],
+    )
+    .unwrap()
+}
+
+/// Run `query` (which must alias its single result `n`) and return it.
+async fn multiplicity_count(query: &str, ids: &[i64], edges: &[(i64, i64)]) -> i64 {
+    let mut datasets = HashMap::new();
+    datasets.insert("Person".to_string(), multiplicity_people(ids));
+    datasets.insert("KNOWS".to_string(), multiplicity_knows(edges));
+    let out = CypherQuery::new(query)
+        .unwrap()
+        .with_config(create_complex_graph_config())
+        .execute(datasets, Some(ExecutionStrategy::DataFusion))
+        .await
+        .unwrap();
+    assert_eq!(out.num_rows(), 1, "{query}");
+    out.column_by_name("n")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .unwrap()
+        .value(0)
+}
+
+/// A DAG: 1→2, 1→3, 2→3, 3→4, 4→5.
+const DAG: &[(i64, i64)] = &[(1, 2), (1, 3), (2, 3), (3, 4), (4, 5)];
+
+#[tokio::test]
+async fn two_hop_count_star_counts_paths_not_endpoints() {
+    let ids = [1, 2, 3, 4, 5];
+    let paths = multiplicity_count(
+        "MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(c:Person) RETURN count(*) AS n",
+        &ids,
+        DAG,
+    )
+    .await;
+    let endpoints = multiplicity_count(
+        "MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(c:Person) \
+         RETURN count(DISTINCT c.id) AS n",
+        &ids,
+        DAG,
+    )
+    .await;
+    // 1→2→3, 1→3→4, 2→3→4, 3→4→5 — but only {3, 4, 5} as endpoints.
+    assert_eq!(paths, 4);
+    assert_eq!(endpoints, 3);
+}
+
+#[tokio::test]
+async fn var_length_count_star_counts_paths_not_endpoints() {
+    let ids = [1, 2, 3, 4, 5];
+    let paths = multiplicity_count(
+        "MATCH (a:Person)-[:KNOWS*1..2]->(b:Person) WHERE a.id = 1 RETURN count(*) AS n",
+        &ids,
+        DAG,
+    )
+    .await;
+    let endpoints = multiplicity_count(
+        "MATCH (a:Person)-[:KNOWS*1..2]->(b:Person) WHERE a.id = 1 \
+         RETURN count(DISTINCT b.id) AS n",
+        &ids,
+        DAG,
+    )
+    .await;
+    // 1→2, 1→3, 1→2→3, 1→3→4 — endpoints {2, 3, 4}.
+    assert_eq!(paths, 4);
+    assert_eq!(endpoints, 3);
+}
+
+/// On a cycle, walks and trails differ. Cypher's relationship uniqueness
+/// forbids 2→2→2 (it reuses the self-loop), so Cypher answers 4. This pins
+/// what DataFusion actually returns — an OPEN divergence, not a fix.
+#[tokio::test]
+async fn two_hop_on_a_cycle_counts_walks() {
+    let cyclic: &[(i64, i64)] = &[(1, 2), (2, 1), (2, 2)];
+    let paths = multiplicity_count(
+        "MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(c:Person) RETURN count(*) AS n",
+        &[1, 2],
+        cyclic,
+    )
+    .await;
+    // Walks: 1→2→1, 1→2→2, 2→1→2, 2→2→1, 2→2→2 = 5. Trails drop 2→2→2 = 4.
+    assert_eq!(
+        paths, 5,
+        "DataFusion counts walks; Cypher's trail count is 4"
+    );
+}
