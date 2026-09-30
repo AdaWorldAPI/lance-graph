@@ -80,7 +80,8 @@ reviewer. The README ρ values are recorded Python outputs, not code facts.
 ```
 byte 0 = a                 = argmin_c ‖x − C_s[c]‖          (needle; = the 48-bit PQ code by F7)
 byte 1 = (j : 4 bits | t : 4 bits)
-         b = N_a[j]        N_a = a's 16 nearest centroids by T_s, fixed once C_s is trained
+         b = N_a[j]        N_a = the 16 highest-T_s(a,c) centroids with c ≠ a, fixed once C_s is trained
+                           (a is excluded: a self-pair has φ = 0 and the slerp weights divide by sin 0)
          t ∈ {0..15}/15    position along the arc a→b, uniform in ANGLE (F11: a level read)
          (j, t) chosen to minimize the angle between x and x̂(a, b, t)
          byte 1 = 0        means "needle only, no second pole" (t = 0 ⇒ x̂ = u_a)
@@ -121,7 +122,7 @@ x̂ = slerp(u_a, u_b, t) · n̄   where u_c = C_s[c]/n_c, φ = arccos T_s(a,b),
 
 - The v2 reading "D = a jointly trained 256×256 tile per word" is **not supported by its cited source** (R1-§3). It would also be a 65,536-cell address the canon never writes (R2-§3). It is dropped as a reading and recorded here.
 
-**Decision table (pre-registered).** Each rule is measured on eval, with the noise floor from G3:
+**Decision table (pre-registered).** Each rule is applied on **validation** (§5: choices are made on validation), with the noise floor from G3 computed on validation. Eval is report-only: the arm selected on validation is the one reported on eval, and no eval number changes the selection.
 - M beats every arm → M ships.
 - An ablation ties M (within the floor) → the removed component carries nothing. The **simpler** arm ships and M's extra field is dropped.
 - A, B or D beats M (outside the floor) → return to Phase 0 with the numbers; the operator decides (Q5).
@@ -134,7 +135,7 @@ Per subspace, `C_s` also carries:
 - `T_s` as Fisher-z i8 + `FamilyGamma`, gamma fitted on off-diagonals;
 - `N_a` (16 u8 per centroid).
 
-`N_a` is derived from `T_s` at load time. It is never stored twice.
+`N_a` is derived from `T_s` at load time by ranking only `c ≠ a`, so a self-pair can never be selected. It is never stored twice.
 
 Diagonal reads `T(p,p)` return 1.0 by address, and `T_s`'s diagonal is never consulted. That is new code: `FisherZTable::lookup_*` has no guard (`fisher_z.rs:158-172`).
 
@@ -203,7 +204,7 @@ Every guard gets a disable run: red with the guard removed, green with it back. 
 | gate | criterion | fails / outcome |
 |---|---|---|
 | **G0 information** | Per subspace, report: (i) how often the word's true second-nearest centroid is in `N_a`; (ii) the entropy of `j` given `a`; (iii) the distribution of `t`; (iv) the distribution of the triangle excess `ε` | If (i) is < 0.9 in 4 of 6 subspaces, M's neighbour window is too small: G0 reports it, and window 32 (5 bits j, 3 bits t) is added as an arm. Thresholds are policy pins, labelled as such |
-| **G1 fidelity** | The shipping arm's eval ρ ≥ the **in-harness 12-axis** ρ, on the baseline metric | Between the in-harness 48-bit and 12-axis ρ = PARTIAL (operator). Below the 48-bit = KILL |
+| **G1 fidelity** | The shipping arm's eval ρ ≥ the **in-harness 12-axis** ρ, on the baseline metric. **Precondition:** the in-harness 48-bit ρ ≤ the in-harness 12-axis ρ; if the retrained controls invert (48-bit above 12-axis), G1 is not evaluated and the harness itself is reported as suspect (an 8-bit-per-subspace code beating the 16-bit one is a training defect, not a result) | Between the in-harness 48-bit and 12-axis ρ = PARTIAL (operator). Below the 48-bit = KILL. Precondition violated = HARNESS-SUSPECT, no verdict |
 | G1 report | One row per arm (M, M−t, M−j, A, B, D) plus each in-harness control and the pinned reference figures, each with recon MSE | — |
 | **G2 needle** | Unit gate: for every eval word, byte 0 == argmin over `C_s`, and (j, t) == the encoder's minimizer. Report: agreement of byte 0 with an **independently seeded** 48-bit PQ | The unit gate falsifies F7. Swapping the byte order fails it |
 | **G3 each field carries information** | Each ablation's ρ gap to M exceeds a **word-blocked bootstrap noise floor** (hand-tuned block size, labelled). The full shuffle of byte 1 across words is kept **report-only** as a ceiling | No gap beyond the floor = that field carries nothing, and the decision table's tie rule applies. G0 is its anti-vacuity partner: it shows the fields vary, so a tie means "uninformative", not "no power" |
@@ -337,6 +338,7 @@ D-C96P-1 in detail:
 | 22 | Compose wording: "the analytic codec does not provide compose", not "undefined" | R1-§4 |
 | 23 | Q5 added | R2-§11 |
 | 24 | Basin gate line numbers corrected to `:186`, `:225`, `:263` | R1-§8 |
+| 25 | Post-ratification review (#1303, CodeRabbit): `N_a` excludes `a` (a self-pair has φ = 0, so the slerp weights divide by sin 0); the decision table is applied on validation and eval is report-only (§5 already said so, §3 contradicted it); G1 gains the precondition 48-bit ρ ≤ 12-axis ρ, else HARNESS-SUSPECT and no verdict | review |
 | — | **Not adopted:** R2's G7/G8 wording ("report-only yet gates D-8") is answered by the legacy-read-mode fallback, not by making them hard gates. Nothing measures a threshold for them yet, and a hard gate without a measured bar would be a policy pin posing as a finding | R2-§7 |
 
 ### v1 → v2
