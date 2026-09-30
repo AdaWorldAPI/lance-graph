@@ -191,7 +191,7 @@ The bake is a **separate, derived artifact** that crosses that line on purpose, 
 `lexical.rs` itself is unchanged.
 
 **The canonical `u8` encoding**, so the byte-for-byte gate is reproducible:
-- `f` and `c` are in `[0, 1]`. Each is stored as `q = round_half_even(x × 255)`, computed
+- `f` and `lemma_evidence` are in `[0, 1]`. Each is stored as `q = round_half_even(x × 255)`, computed
   in `f64`. That uses the full unsigned range `0..=255`, and every byte value is a number.
 - **There is no sentinel, and no row is left out.** An unsigned byte carries no
   NaN-like "unknown" value. A row whose value is unknown still holds a canonical fill
@@ -275,8 +275,19 @@ meaning.
 evenness across genres, not evidence.
 
 At runtime the prior is **two reads**, never a computation: `f` from the surface-form row
-that routed the token (keyed by `WordId`), and `lemma_evidence` from the identity row it
-resolved to (keyed by `LexicalAddress`).
+that routed the token (keyed by `WordId`), and `lemma_evidence` from the identity row of
+each candidate reading.
+
+**Where the identity rows come from depends on the reference's key kind:**
+- **Identity-keyed reference** (`COCA4096`, `COCA5K_LEMMA`). An address resolves to one
+  `(word|lemma, PoS)` row, and that row holds `lemma_evidence`. It is one read.
+- **Surface-keyed reference** (`COCA20K_ACAD`). An address resolves to
+  `(word, Ambiguous{PoS set})`, so it selects **no single identity row**, and the
+  reference has no identity table of its own. Each candidate `(lemma, PoS)` in the set is
+  looked up through the correspondence map (D-LXA-2) in an identity-keyed reference. That
+  gives one `lemma_evidence` per candidate reading, or unknown for a `Missing` candidate.
+  The values are **never aggregated** into one number for the word; picking among them is
+  the driver's job, not the bake's (f is a prior, never a selector).
 Frequency rank stays a routing signal, not meaning (ρ ≈ −0.07, archive F11).
 
 ---
@@ -287,7 +298,7 @@ Frequency rank stays a routing signal, not meaning (ρ ≈ −0.07, archive F11)
 |---|---|---|
 | **D-LXA-1** | `LexicalAddress` newtype over `u16` (a **new** identity key beside the surface-form `WordId`, joined by `readings(WordId) → [LexicalAddress]`, §1) plus `ReferenceSet { id ∈ {COCA4096, COCA5K_LEMMA, COCA20K_ACAD}, version, sha256 }`, in `deepnsm-v2`. Resolving through the wrong reference is a refusal. No bare `[u8; 12]` or `u16` enters the path | **G-LEX** (over typed `LexicalAddress` values; nothing binds raw facet bytes to a reference before D-LXA-4): every declared entry of a reference resolves to exactly its declared reading **under that reference's own key** (§2 table): `(word, PoS)`, `(lemma, PoS)`, or `(word, Ambiguous{PoS set})`. A cross-reference read is refused. A `compile_fail` test proves a bare `u16` is not accepted |
 | **D-LXA-2** | Generator for `lexical_correspondence.tsv`: one row per (lemma, PoS) with `id4096 \| id5k \| id20k \| status ∈ {Exact, Ambiguous{n}, Missing}`, the three digests in its header. Generated, never hand-edited | **G-REF:** re-deriving the file must reproduce §2's numbers exactly, including "4 of 4,264" **with ordinal 0 counted** (a falsy-zero generator must fail it). Hand-editing one ordinal must turn the check red |
-| **D-LXA-3** | The COCA bake of §3: per reference, an identity table (`lemma`, `PoS`, `c`) and a surface-form table (`form`, reading, `f`), all `u8`, with the known bit carried as ruled in §3.1. `c` is baked, never derived from a runtime rung (a rung is not reproducible). **Blocked on §3.1 and on D-LXC-4** | Re-deriving must reproduce the bake byte for byte. Unknown rows hold fill byte `0` with the known bit unset. A form with one `form_count = None` reading must come out unknown (fires); the all-listed fixture must not (stays silent). Pinned rows: surface `the` → `the/a` with `f = 1`; surface `record` → `record/n` with `f < 1` and `record/v` with `f > 0`, the two summing to 1 within quantization. An all-unambiguous fixture must give `f = 1` everywhere (stays silent) |
+| **D-LXA-3** | The COCA bake of §3: per reference, an identity table (`lemma`, `PoS`, `lemma_evidence`) for each identity-keyed reference and a surface-form table (`form`, reading, `f`), all `u8`, with the known bit carried as ruled in §3.1. A surface-keyed reference reaches `lemma_evidence` per candidate reading through the D-LXA-2 correspondence map, never as one aggregated value (§3). `lemma_evidence` is baked, never derived from a runtime rung (a rung is not reproducible). **Blocked on §3.1 and on D-LXC-4** | Re-deriving must reproduce the bake byte for byte. Unknown rows hold fill byte `0` with the known bit unset. A form with one `form_count = None` reading must come out unknown (fires); the all-listed fixture must not (stays silent). Pinned rows: surface `the` → `the/a` with `f = 1`; surface `record` → `record/n` with `f < 1` and `record/v` with `f > 0`, the two summing to 1 within quantization. An all-unambiguous fixture must give `f = 1` everywhere (stays silent) |
 | **D-LXA-4** | The six-slot reading: a ClassView-selected reading of a 12-byte facet as six `LexicalAddress`es under one named `ReferenceSet`, carried by the classid. A register in any other shape is refused, never reinterpreted. **This is a contract change, gated on its own contract plan (not yet written).** Today no reader can refuse: `SpoFacet::from_register` takes a bare `[u8; 12]` (`awareness_facet.rs:106`), and `Cam96 = [u8; 12]` (`space.rs:163`) appears 68 times in 12 files (grep, counting doc comments). `ReadMode` / `ValueSchema` must first gain a lexical reading. **Existing `Cam96` / `SpoFacet` classids keep their current reading unchanged. The lexical reading exists only under a newly minted classid / reading mode, and nothing re-reads existing rows** (I-LEGACY-API-FEATURE-GATED). D-LXA-1..3 ship without it | A facet written under reference X and read under Y is refused. A facet written under `(X, v1)` and read under `(X, v2)` is refused. Rotating the six slots changes the resolved words (this proves the six positions are ordered, not a bag). These three gates move verbatim into the contract plan; the STATUS_BOARD row carries them until it exists |
 
 **Collision:** D-LXA-3 reads `academic_20k.csv`, which `D-LXC-4` (the academic loader,
