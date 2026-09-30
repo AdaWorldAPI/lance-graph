@@ -216,6 +216,9 @@ agent. The entry carries a ready-to-paste STATUS_BOARD row for the operator:
 
 - G8a: 126 lib + 17 example tests pass; clippy `-D warnings` and fmt clean.
 - G8b: KJV unchanged — 70,396 triples, 1,237 subjects, G6 = 25.
+  ⊘ 2026-09-30: stale. After the #1304 repair the KJV run is 70,393
+  triples, 1,227 subjects and 1,941 predicates, identical to `main`; G6 is
+  the count-change non-interference invariant.
 - G8c: population 141, cuts (72, 97), shares 50..99, bands 34/71/36; equal
   to the receipt.
 - Disable runs, each after the commit, each restored with `git checkout`:
