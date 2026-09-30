@@ -217,10 +217,10 @@ impl NormalizedEntity<Reported> {
     ///
     /// Per E-CASCADE-AS-EDGECOLUMN-1: cascade traversal goes through
     /// the `EdgeColumn` walker, not through Odoo-style string-evaluated
-    /// `@api.depends`. (⊘ The earlier "the Baton `(u16, CausalEdge64)`
-    /// carries the causal edge to each dependent mailbox" is superseded: the
-    /// baton was tombstoned in PR #477, and a `CausalEdge64` is the ALU
-    /// register itself, not a carrier.)
+    /// `@api.depends`. The "Baton" is the `CausalEdge64` ALU register as it
+    /// passes from one cycle into the next. (⊘ The inter-mailbox emission wire
+    /// the older wording implied was tombstoned in PR #477; the register
+    /// persisting across cycles was not.)
     ///
     // TODO(Stage 2): wire to Baton emission + [`super::cascade::CascadeWalker`]
     // traversal per the active transaction context. Stage 2 detail:

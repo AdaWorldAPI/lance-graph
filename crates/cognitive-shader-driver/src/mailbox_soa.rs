@@ -89,8 +89,9 @@ pub struct MailboxSoA<const N: usize> {
     // ── NEW: migrated thoughtspace columns (per-mailbox owned, D-MBX-A1) ──
     /// Per-row `CausalEdge64` (8 B/row) — the ALU register itself: the NARS
     /// truth, Pearl 2³ mask and inference operations run on this `u64`
-    /// directly. It is not a reference to anything and not a carrier between
-    /// mailboxes. Migrated from `BindSpace.edges` (EdgeColumn).
+    /// directly, and it is what carries the row's causal state from one cycle
+    /// into the next (the "baton" metaphor). It is not a reference to anything.
+    /// Migrated from `BindSpace.edges` (EdgeColumn).
     pub edges: [CausalEdge64; N],
 
     /// Per-row affective role vector (`QualiaI4_16D`, 8 B/row).

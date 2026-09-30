@@ -51,7 +51,7 @@ reduce to one of:
 | **FingerprintColumns** | identity (model_name, OGIT URI, codebook entries) | NEVER (read-only) | `Vsa16kF32` identities, `Binary16K`, codebook URIs |
 | **QualiaColumn** | `[f32; 18]` per-row qualia (whose perspective) | per-row writes via CollapseGate | persona qualia, archetype dimensions |
 | **MetaColumn** | `MetaWord` bits (which style dispatches) | per-row writes | `MetaWord`, thinking-style bits |
-| **EdgeColumn** | `CausalEdge64` (why/how, causal composition) — the ALU register itself, never a reference or carrier | per-row writes of the register (⊘ "via the Baton handoff" struck: the baton is tombstoned) | `CausalEdge64` v2 layout |
+| **EdgeColumn** | `CausalEdge64` (why/how, causal composition) — the ALU register itself, never a reference | per-row writes of the register; the "Baton" is this register passing from one cycle into the next (the inter-mailbox emission wire is tombstoned) | `CausalEdge64` v2 layout |
 
 If the proposed epiphany **cannot** be reduced to one of these four (or
 to an EXISTING type that already operates over one of them), it is
