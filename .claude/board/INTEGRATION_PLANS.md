@@ -1,3 +1,13 @@
+## 2026-09-30 (3) — deepnsm-v2-cam96-pairwise-v5 — RETRACTED-IN-PART by operator ruling, same day → `-v5.md` § ⊘ RETRACTION
+
+**Status:** the embedding-slice half of v5 (§3.1–3.3, the word-register half of §3.2, D-CPW-0/3/4/12) is STRUCK. *"We don't want fuzzy embedding of 6 different readings of SPO … no witness … the sentence's deterministic words … no basin identity, superposition of 2 needles … not rails … 6 words each represented as LUT … a word is spatial perturbation LUT."*
+
+**The design:** one calibrated COCA `palette256` codebook; a word = one pair `(a:b)` = two needles superposed = its cell in the 256×256 LUT; a facet's 12 bytes = six words of the sentence; relations = LUT reads between cells (the p64 `CognitiveShader` over the bgz17 semiring, the perturbation field around the cell — `cognitive-shader-driver` is the machine); meaning in the ClassView.
+
+**Kept:** F23 three references + `ReferenceSet` (D-CPW-14), `self_code` as the basin's own identity (D-CPW-7), the COCA prior (D-CPW-9), register-F (D-CPW-13), lemma routing (D-CPW-11), the Fisher-z LUT into the contract (D-CPW-1 — now the representation itself). D-CPW-2 and -10 re-scoped to the word-cell.
+
+**Open:** how the codebook assigns a word its two needles — read from the artifact, not designed in a plan.
+
 ## 2026-09-30 (2) — deepnsm-v2-cam96-pairwise-v5 — RATIFIED by the second 5+3 council → `.claude/plans/deepnsm-v2-cam96-pairwise-v5.md`
 
 **Status:** RATIFIED v5. Supersedes `-v4.md` (Phase-0 spec) and v3 §3 / §6.3 / §7 decision table. D-ids re-minted as `D-CPW-*` (the `D-C96P` family never matched the D-id pattern).
