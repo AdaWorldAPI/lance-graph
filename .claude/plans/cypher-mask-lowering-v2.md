@@ -155,7 +155,8 @@ substrate-first, in mask-risc or `ndarray::simd`, with its own parity test.
 | a join on equal keys across two populations | `EqU32Via` / `GroupKey::Via` through an index lane | yes |
 | `count(DISTINCT n)`, `exists` | `Terminal::Count` / `Any` on the final mask | yes |
 | `min/max(n.p)` over the final mask | `MaskedMin/MaxI32` | yes (i32). Correct after a hop too: repeating a value does not change a min or a max |
-| `sum(n.p)` / `avg(n.p)` | `MaskedSumI32` | **before any hop only.** After a hop, Cypher sums once per path, so repeated values add up. That is refused (R-BAG) |
+| `sum(n.p)` | `MaskedSumI32` | **before any hop only.** After a hop, Cypher sums once per path, so repeated values add up. That is refused (R-BAG) |
+| `avg(n.p)` | — | **refused everywhere (R-VALUE).** An average can be fractional, and `Item::Scalar(i64)` cannot hold it. An exact `(sum, count)` rational item is v1 OQ-7's question and needs its own D-id |
 | `RETURN n` | `Terminal::Keep` → `Answer::Mask` | yes |
 | `*1..k`, `*` | delta-frontier fixpoint over the hop (§4.2) | **only over pull hops.** Each step is one `Program`, and each step's output mask is a resident plane for the next. Over push hops it is a STOP (§4.1) |
 
@@ -255,14 +256,14 @@ classifier.
 | variant | construct | why it has no mask form |
 |---|---|---|
 | **R-ORDER** | `ORDER BY`, and **any** `SKIP` / `LIMIT`, with or without an order (the planner emits standalone `Offset` / `Limit`) | a mask has no order and no position; truncating a mask is not defined |
-| **R-BAG** | **any non-`DISTINCT` count or sum after one or more hops** (`count(*)`, `count(expr)`, `sum`, `avg`), plus `collect`, returning paths, and `length(p)` | a mask is support, not a bag (#1305). Even ONE hop has bag semantics: two sources, or two parallel relationships, reaching one target give `count(*) = 2` over one mask bit |
+| **R-BAG** | **any non-`DISTINCT` count or sum after one or more hops** (`count(*)`, `count(expr)`, `sum`), plus `collect`, returning paths, and `length(p)` | a mask is support, not a bag (#1305). Even ONE hop has bag semantics: two sources, or two parallel relationships, reaching one target give `count(*) = 2` over one mask bit |
 | **R-CHAIN** | anything that consumes a push hop's result (§4.1): another hop, a fixpoint, a `WHERE` on the target, or any aggregate over it except `count(DISTINCT)` over a key-ordered lane | mask-risc forbids a scattered mask as an intermediate, and the push hop is already the program's one terminal |
 | **R-SHAPE** | a pattern that is not one chain: hops that do not connect end to end, a variable bound twice (at a hop or at the pattern's start), or two disconnected patterns | a mask chain carries one frontier; these were real bugs caught on #1305 (§12 H-4) |
 | **R-DEPTH** | a variable-length pattern with a lower bound above 1 | walk ≠ trail at `min > 1` (§4.2) |
 | **R-DISTINCT-VALUE** | `DISTINCT` over a projected value (not a node) | a value set is not a row set |
 | **R-STRING** | string predicates beyond equality through a dictionary lane (`CONTAINS`, `STARTS WITH`, regex) | variable-width values; v1 §4.2 |
 | **R-UNWIND / R-WITH-AGG** | `UNWIND`, aggregation inside `WITH` | bag re-entry |
-| **R-VALUE** | vector distance / similarity, NARS truth, floats | values, not Boolean; v1 N-7. mask-risc is integer-only |
+| **R-VALUE** | vector distance / similarity, NARS truth, floats, and `avg` (fractional) | values, not Boolean; v1 N-7. mask-risc is integer-only |
 | **R-CROSS-SPACE** | a join whose two sides index different row spaces with no index lane between them | the one-population law |
 | **R-TRANSPOSE** | an incoming hop with no reverse lane | the transpose law |
 | **R-UNBOUND-LABEL** | a label with no `LabelBinding` entry | no classid to test; guessing one is the confident-and-wrong quadrant (v1 OQ-1) |
