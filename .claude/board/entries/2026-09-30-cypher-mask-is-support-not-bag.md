@@ -41,6 +41,8 @@ New reasons, by query count:
 
 The value-DISTINCT T-12 reason moved 7 → 6.
 
+After the chain-linearity fix (Codex P2 on #1305), the census reads 313 queries. The three new classifier-test queries join the corpus as `Bindings`. Full is unchanged at 70, so no existing query was reclassified.
+
 **OPEN.**
 - `lance-graph-as-the-modelgraph-v1.md` §15 still quotes the pre-contract Full fraction (37.3 %). It needs a footnote.
 - No count-lane operator exists. `Weighted` lowering is gated on the exactness conditions in contract §3.2 R4.
