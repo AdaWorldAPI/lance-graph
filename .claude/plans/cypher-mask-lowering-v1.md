@@ -387,7 +387,7 @@ each row's own cell: **31 `[G]`**, **13 `[H]`** (⊘ PR2 council: R-3/R-4/R-6/R-
 from inside the predicate and terminal groups).
 
 **⊘ Multiplicity qualifier (2026-09-30, `cypher-mask-multiplicity-contract-v1.md`):** the grade counts above are
-unchanged — each is the grade over a single population. Nine rows now carry a
+unchanged — each is the grade over a single population. Eleven rows now carry a
 post-hop qualifier: T-1, T-2, T-3, T-4, T-5, T-7 are `[GRACE]` after a hop in v1;
 T-6 and T-11 hold for the terminal variable only; R-6, R-7, R-8 carry support,
 not multiplicity.
@@ -504,7 +504,7 @@ the binding which store each side indexes, never by whether the operator is spel
 | what is the total / min / max of a lane over those rows? | **yes** (masked reduction) | `sum`, `min`, `max` |
 | in what ORDER? | no | `ORDER BY` |
 | which POSITION in that order? | no | `SKIP`/`LIMIT` after `ORDER BY` |
-| how many TIMES (multiplicity)? | no | `collect`, `count(DISTINCT)` |
+| how many TIMES (value, binding or path multiplicity)? | no | `collect`, `count(DISTINCT <value>)`, `count(*)` after a hop — distinct counting over the TERMINAL node variable (`count(DISTINCT c)`) is supported, row above |
 | what VALUE, as a new relation? | no | `UNWIND`, `WITH`-aggregation |
 | how CLOSE / how MUCH? | no — that is a different mechanism | vector distance, NARS truth |
 | across which ADDRESS SPACES? | no | cross-store `Join` |
@@ -976,7 +976,7 @@ PRs generates none of these obligations.
 
 1. **The lowering table (§3): 53 rows** — 7 node/label, 9 property predicate, 9
    Boolean-fusion, 9 relationship/hop, 12 return/terminal, 7 explicit non-lowering.
-   **31 `[G]`, 13 `[H]`** (regraded by the PR2 council — compositions inherit their components' grade; nine name a measurement in §8), **9 `[GRACE]`**. ⊘ 2026-09-30: grades are over a single population; nine rows carry a post-hop multiplicity qualifier (`cypher-mask-multiplicity-contract-v1.md`).
+   **31 `[G]`, 13 `[H]`** (regraded by the PR2 council — compositions inherit their components' grade; nine name a measurement in §8), **9 `[GRACE]`**. ⊘ 2026-09-30: grades are over a single population; eleven rows carry a post-hop multiplicity qualifier (`cypher-mask-multiplicity-contract-v1.md`).
 2. **The placement ruling (§5): three parts.** Consume the already-minted, so-far
    unconsumed `TERNLOG = 0x86` (`ogar-loco/src/lib.rs:607`) for all Boolean
    combination — do not mint. Keep `Pred` / hop / terminals as a **lowering target

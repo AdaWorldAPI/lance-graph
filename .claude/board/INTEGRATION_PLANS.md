@@ -10,7 +10,7 @@ walks, not trails (measured 5 vs 4 on a cycle) — recorded OPEN.
 **Correction to the 2026-09-14 entry below:** its tally "35 [G] · 9 [H] ·
 9 [GRACE]" was already superseded by the council regrade to **31 [G] · 13 [H] ·
 9 [GRACE]** (stated in the PR2 entry further down). Both are grades over a
-single population; nine rows now carry a post-hop multiplicity qualifier.
+single population; eleven rows now carry a post-hop multiplicity qualifier.
 
 ## 2026-09-29 (2) — deepnsm-v2-lexical-evidence-consumer-v1 rewritten against the DeepNSM → DeepNSM-v2 migration → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
 
