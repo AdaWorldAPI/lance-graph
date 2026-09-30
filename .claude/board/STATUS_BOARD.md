@@ -313,12 +313,12 @@ evaluates one; `execute` stays the consumer's call on a scratch it owns.
 | D-CML-1 | `Route {Mask, Upstream}` + `run` stub refusing everything | Queued | under `Mask` a counting shim on the upstream entry reads 0 (F-CML-NOMIX) |
 | D-CML-2 | classifier over the public `LogicalOperator` → lowerable or a §5 `Refusal`; ⊘ 2026-09-30: #1305's `consumer_semantics()` NOT ported (plan §12) — only its three pattern-shape refusals and fixtures; W0-b census re-run per refusal variant | Queued | F-CML-REFUSE (every variant fired by a committed query) + F-CML-QUIET |
 | D-CML-3 | `LabelBinding` label → `LabelDTO` → classid, outside `GraphConfig`; classid width read from a real bake | Queued | an unbound label refuses (`R-UNBOUND-LABEL`), never guesses |
-| D-CML-4 | node + predicate + Boolean lowering through `mask_risc::execute`; class scan as a `Pred`, `match_nodes_by_class` unused | Queued | F-CML-SUPPORT set equality vs DataFusion `DISTINCT`; wrong-immediate reddens |
-| D-CML-5 | hop over an in-row absolute-target lane (`ScatterOrU32`); no external edge table | Queued | asymmetric fixture; one-population refusal |
+| D-CML-4 | node + predicate + Boolean lowering through `mask_risc::execute`; class scan = `EqU32Strided` over the rows' u32 classid, `match_nodes_by_class` unused | Queued — a `u16`-only classid lane is a substrate-first STOP (v1 OQ-3) | F-CML-SUPPORT set equality vs DataFusion `DISTINCT`; wrong-immediate reddens |
+| D-CML-5 | hop over an in-row lane: pull (`Gather`/`EqU32Via`, chainable) first; push (`ScatterOrU32`) only as the last hop (mask-risc survival condition); no external edge table | Queued | asymmetric fixture; one-population refusal |
 | D-CML-6 | relative-target hop (witness loci) via a mask `Shift` | Queued — blocked on OQ-CML-2 and a substrate `Shift` op | — |
-| D-CML-7 | variable length as reachability; path-valued queries refused | Queued | F-CML-BAG: 2-hop `count(*)` refused, not popcounted |
+| D-CML-7 | variable length as reachability, lower bound 0/1, pull hops only, `visited` starts empty; `min > 1` refused (R-DEPTH) | Queued | F-CML-BAG: `count(*)` after ONE hop refused; `A→B→A` `*1..2` returns A |
 | D-CML-8 | the differential: DataFusion (dev-dependency only) on support + quack's DuckDB fixtures | Queued | F-CML-SUPPORT across D-CML-4..7 |
-| D-CML-9 | reroute `cognitive-shader-driver` to `Route::Mask` after its own query census passes the flip gate | Queued | its census count recorded either way |
+| D-CML-9 | first consumer able to take the switch: `cognitive-shader-driver`'s bridge first gets a view, a `LabelBinding` and a legacy route (it has neither route today), then flips after its own census | Queued | its census count recorded either way |
 
 ## mask-risc-executor (PR3 — D-ids minted 2026-09-14, `.claude/plans/mask-risc-executor-v1.md`)
 
