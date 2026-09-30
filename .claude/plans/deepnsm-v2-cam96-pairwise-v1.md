@@ -1,6 +1,6 @@
 # deepnsm-v2 Cam96 → 6 × pairwise distribution — spec (v1)
 
-> **Status:** SPEC v1, PROPOSAL. No code authorized. The change alters the
+> **Status:** SUPERSEDED by `deepnsm-v2-cam96-pairwise-v3.md` (ratified 2026-09-30); kept as the record. Was: SPEC v1, PROPOSAL. No code authorized. The change alters the
 > meaning of 12 bytes that a contract layout already persists (§6.3), retrains
 > an artifact, and moves a codec into the contract, so it is council-grade:
 > run `/5plus3` on this spec before any implementation wave.
