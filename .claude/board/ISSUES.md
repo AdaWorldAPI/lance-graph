@@ -83,6 +83,18 @@ compares only `edge.w_slot()` with the mailbox's slot and reads no classid.
 - **What closes it:** one named mapping in `p64-bridge` used by both directions, with a round-trip test that can fail on bit 2.
 - **Also (5+3 council, 2026-09-30):** sites `driver.rs:489`, `p64-bridge/src/lib.rs:74-75, 123-124`. Inference type 1 also sets SUPPORTS (`lib.rs:81`), and `driver.rs:706-720` keeps its own local predicate-bit table; the one mapping must cover both.
 
+## ISS-MASK-RISC-ZERO-FALLBACK-IS-NOT-EVALUATED-FALSE — out-of-range and wrong-table inputs answer FALSE silently (2026-09-30)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`lance-graph-mask-risc` `ir.rs`).
+- `MaskOp::Gather` out of range is "the zero-fallback … never an error".
+- `Pred::EqU32Via`: an fk naming no foreign row "does not match".
+- `GroupKey`: a key past the universe drops the row.
+- A `ForeignPlane` is checked only by its `rows`, so a same-length mask over the wrong or a stale table is accepted.
+
+Inside a declared, fully evaluated domain with validated index lanes these answers are right; outside it they turn not-evaluated into false.
+- **Not in scope of** `deepnsm-v2-cam96-pairwise-v5` §11R (D-CPW-15), which freezes the law (§11R.2 rule 5, §11R.6) and builds nothing.
+- **What closes it:** `(space, epoch)` identity on populations and index lanes with equality at every join point, a domain declaration, and index-lane validation per epoch. Falsifier: one out-of-range index value and one epoch mismatch each REFUSE, where today they answer.
+
 ## ISS-MASK-RISC-HAS-NO-SEGMENT-VIEW — an Arrow `ListArray` cannot enter the socket without materializing a parent-index lane (2026-09-30)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`lance-graph-mask-risc` `ir.rs`: `LaneRef = {I32, U32, U64, Strided}`, no offsets view; no `Arrow`/`ListArray` token in mask-risc, quack or report). The IR's factorized adjacency is a per-child index lane (`Gather`, `EqU32Via`, `GroupKey::Via`, `ScatterOrU32`) or a key-ordered lane (`CountKeyRunsU32`). A `ListArray` carries `offsets[parents + 1]`; turning that into a per-child parent-index lane is O(children), a derived-lane materialization.
