@@ -86,6 +86,19 @@ are neither nested nor aligned, measured over the committed CSVs and the Tigris 
 - The Tigris "academic codebook" is a vocabulary carve (`PaletteVocab::from_frequency_ranked`),
   not a trained centroid codebook. Its CSV's sha256 equals the committed file's.
 
+**What an address resolves to depends on the reference's own key:**
+
+| reference | an address resolves to | exactly one (lemma, PoS)? |
+|---|---|---|
+| `COCA4096` | one rank = one `(word, PoS)` row | yes; ranks are unique per `(word, PoS)` |
+| `COCA5K_LEMMA` | one `(lemma, PoS)` row | yes |
+| `COCA20K_ACAD` (Tigris carve v1) | one `word_id` = one **word**; the carve merged 2,286 same-word-different-PoS rows | **no.** It resolves to `(word, Ambiguous{PoS set})` |
+
+G-LEX checks each reference against **its own** declared key. It never demands a
+(lemma, PoS) from a reference that does not carry one. A PoS-exact academic reference
+is possible: its 20,842 distinct `(word, Pos)` rows fit in 16 bits. It would be minted
+as a **new reference version**, not by reinterpreting the carve (§5).
+
 **The rule:**
 - A reading contract names `ReferenceSet { id, version, sha256 }`.
 - An ordinal is stable **within** one reference, never across references.
@@ -116,7 +129,16 @@ are stored quantized as `u8`:
 | identity: `lemma`, `PoS` | from `lemmas_5k.csv` (or the reference's own key) | the declared reading the address resolves to |
 | identity: **`c`** (u8) | `c = w / (w+1)`, `w = ln(1+freq) / ln(1+freq_max) · K` (`K` is a labelled, hand-tuned pin) | the amount of evidence behind the reading |
 | surface form: **`f`** (u8) | the reading's share among that surface form's readings, from `word_forms.csv` (`wordFreq`): e.g. surface `record` → `record/n` 120,048 vs `record/v` 13,014, so `f` ≈ 0.90 and ≈ 0.10. `f = 1` for an unambiguous form (`the`) | an ambiguous form gets `f < 1` without anyone counting at query time |
-| unknown | a missing count stays **unknown** (a flag), never `0` | zero would assert "no evidence"; unknown asserts "not measured" |
+| unknown | a missing count stays **unknown**, never `0` | zero would assert "no evidence"; unknown asserts "not measured" |
+
+**The canonical `u8` encoding**, so the byte-for-byte gate is reproducible:
+- `f` and `c` are in `[0, 1]`. Each is stored as `q = round_half_even(x × 254)`, computed
+  in `f64`, which gives `0..=254`.
+- **`255` is the UNKNOWN sentinel.** No computed value can produce it, so unknown needs
+  no separate flag byte and can never be confused with `x = 1` (`254`).
+- `ln` is `f64::ln` and `freq_max` is the maximum over the reference being baked. `K`
+  is written into the artifact header next to the three digests, so it is part of what
+  is reproduced.
 
 `range` and `disp` are left out. They are collinear with frequency, and `disp` measures
 evenness across genres, not evidence.
@@ -131,7 +153,7 @@ Frequency rank stays a routing signal, not meaning (ρ ≈ −0.07, archive F11)
 
 | D-id | what | gate (can fire / can stay silent) |
 |---|---|---|
-| **D-LXA-1** | `LexicalAddress` newtype over `u16` plus `ReferenceSet { id ∈ {COCA4096, COCA5K_LEMMA, COCA20K_ACAD}, version, sha256 }`, in `deepnsm-v2`. Resolving through the wrong reference is a refusal. No bare `[u8; 12]` or `u16` enters the path | **G-LEX:** every declared entry of a reference resolves to exactly its declared (lemma, PoS). A cross-reference read is refused. A `compile_fail` test proves a bare `u16` is not accepted |
+| **D-LXA-1** | `LexicalAddress` newtype over `u16` plus `ReferenceSet { id ∈ {COCA4096, COCA5K_LEMMA, COCA20K_ACAD}, version, sha256 }`, in `deepnsm-v2`. Resolving through the wrong reference is a refusal. No bare `[u8; 12]` or `u16` enters the path | **G-LEX:** every declared entry of a reference resolves to exactly its declared reading **under that reference's own key** (§2 table): `(word, PoS)`, `(lemma, PoS)`, or `(word, Ambiguous{PoS set})`. A cross-reference read is refused. A `compile_fail` test proves a bare `u16` is not accepted |
 | **D-LXA-2** | Generator for `lexical_correspondence.tsv`: one row per (lemma, PoS) with `id4096 \| id5k \| id20k \| status ∈ {Exact, Ambiguous{n}, Missing}`, the three digests in its header. Generated, never hand-edited | **G-REF:** re-deriving the file must reproduce §2's numbers exactly, including "4 of 4,264" **with ordinal 0 counted** (a falsy-zero generator must fail it). Hand-editing one ordinal must turn the check red |
 | **D-LXA-3** | The COCA bake of §3: per reference, an identity table (`lemma`, `PoS`, `c`) and a surface-form table (`form`, reading, `f`), all `u8`, unknown flagged | Re-deriving must reproduce the bake byte for byte. Pinned rows: surface `the` → `the/a` with `f = 1`; surface `record` → `record/n` with `f < 1` and `record/v` with `f > 0`, the two summing to 1 within quantization. An all-unambiguous fixture must give `f = 1` everywhere (stays silent) |
 | **D-LXA-4** | The six-slot reading: a ClassView-selected reading of a 12-byte facet as six `LexicalAddress`es under one named `ReferenceSet`. A register in any other shape is refused, never reinterpreted | A facet written under reference X and read under Y is refused. Rotating the six slots changes the resolved words (this proves the six positions are ordered, not a bag) |
@@ -151,7 +173,8 @@ loader.
 - **Which relational reading(s) the driver selects** between two resolved words, and the
   LUT that carries them. That belongs to the ClassView and is not decided here.
 - **Does `COCA20K_ACAD` get its own codebook**, or does it share `COCA4096`'s through the
-  correspondence map?
+  correspondence map? And is a PoS-exact academic reference (20,842 `(word, Pos)`
+  rows) minted as a new version beside the carve?
 
 ---
 
