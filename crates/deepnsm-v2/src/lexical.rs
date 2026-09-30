@@ -356,6 +356,8 @@ fn sum_known(counts: impl Iterator<Item = Option<u64>>) -> Result<Option<u64>, E
 }
 
 impl LexicalEvidence {
+    /// The shared index range for word `id`'s readings and coverage entries.
+    /// Returns `0..0` when `id` is outside the stored offsets.
     fn span(&self, id: WordId) -> std::ops::Range<usize> {
         let i = id as usize;
         match (self.offsets.get(i), self.offsets.get(i + 1)) {
