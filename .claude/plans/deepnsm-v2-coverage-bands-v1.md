@@ -27,7 +27,7 @@ floor; the streaming form exists as ndarray `hpc::rolling_floor::RollingFloor`.
 
 - [x] Spec v1, 5 research savants, draft v2, 3 reviewers, v3 (this file)
 - [x] `CoverageBand`, `BandCuts`, `calibrate` in `bible_wave.rs`
-- [ ] Tests T1-T8, each disable-verified red before landing
+- [x] Tests T1-T8, each disable-verified red before landing
 - [x] Gates G8a-G8c
 - [x] Board entry + indexes in the same commit
 
@@ -190,6 +190,27 @@ STATUS_BOARD, INTEGRATION_PLANS and PR_ARC_INVENTORY are deny-listed for the
 agent. The entry carries a ready-to-paste STATUS_BOARD row for the operator:
 
 `| D-LXC-11 | coverage bands (population quartiles) in bible_wave | In PR | deepnsm-v2-coverage-bands-v1 |`
+
+## Results (2026-09-30)
+
+- G8a: 126 lib + 17 example tests pass; clippy `-D warnings` and fmt clean.
+- G8b: KJV unchanged — 70,396 triples, 1,237 subjects, G6 = 25.
+- G8c: population 141, cuts (72, 97), shares 50..99, bands 34/71/36; equal
+  to the receipt.
+- Disable runs, each after the commit, each restored with `git checkout`:
+
+| disable | red |
+|---|---|
+| constant cuts (72, 97) | T1, T4, T6 |
+| no empty-population guard | T4 and 5 older tests (index panic on n = 0) |
+| no lemma-table exclusion | T3 |
+| unknown coverage read as 100 | T3 |
+| no two-state requirement | T3, T4 |
+| `share <= lo` is Contested | T5, T4, T6 |
+| `share > hi` is Decisive | T5, T4, T6 |
+| key = summed state share | T7 |
+| nearest-rank instead of `rank_per_10000` | T8 |
+| every word Leaning | T2, T4, T5, T6 |
 
 ## Open for the operator
 
