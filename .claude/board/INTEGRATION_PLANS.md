@@ -73,6 +73,10 @@ authorized. Partly supersedes
 - **Open:** DataFusion stays in the build graph through the `lance-graph` dependency
   (OQ-CML-1); where the relationship declaration lives long-term (OQ-CML-2); self-hop
   vs `Foreign` planes (OQ-CML-4). The witness-loci relative hop is deferred (D-CML-6).
+## 2026-09-30 (6) — deepnsm-v2-cam96-pairwise-v5 — §11: the execution socket under the lexical substrate (D-CPW-15) → `-v5.md` §11
+
+**Status:** ruled, spec only. The socket the lexical/cognitive stack lowers into already exists: `lance-graph-mask-risc`'s IR (`Program`, `Planes`/`LaneRef`/`Foreign`, `Value`/`Out`). `lance-graph-quack` is the DuckDB-shaped surface ABOVE it, not the ABI. The proposed six verbs reduce to three families already in the IR: MASK, TRANSPORT (`Gather` / `ScatterOrU32` / `EqU32Via` / `GroupKey::Via`) and REDUCE (one terminal). SELECT would be the forbidden `SelectionVector`; multi-hop traversal is OPEN. `CausalEdge64` crosses as a borrowed `u64` lane (`edges_raw()`), bit-preserving; its feature-gated layout stays above the line. Firewall: mask-risc depends on `ndarray` only, through `ndarray::simd`. Falsifiers G-SOCK-1..5: exact equality holds because the IR is integer-only. Measured gap: `MatchU64` is exercised only at bits 12–15. Open: Arrow `ListArray` needs a segment view (`ISS-MASK-RISC-HAS-NO-SEGMENT-VIEW`).
+
 ## 2026-09-30 (5) — deepnsm-v2-cam96-pairwise-v5 — CORRECTION 3: `CausalEdge64` IS the ALU register → `-v5.md` § ⊘ CORRECTION 3
 
 **Status:** not a reference, lens, record, carrier, or word container. v5's §3.2 lens framing and §3.4 L-2 "triple edge carries needles" wording struck. Same commit: the live doc comments that called it a "baton edge" (`mailbox_soa.rs`, `backing.rs`, contract `cognition/{cascade,advance}.rs`), `dto-soa-savant.md`'s "via the Baton handoff", `docs/GENETIC_RESEARCH_VIA_STACK.md`, a `CausalEdge64` row in the worker-guardrails vocabulary, and a ⊘ note on `deepnsm-v3-convergence-v1.md`'s "1-byte refs" row. Residue left in code: `TD-CE64-REGISTER-FRAMING-RESIDUE-1`.

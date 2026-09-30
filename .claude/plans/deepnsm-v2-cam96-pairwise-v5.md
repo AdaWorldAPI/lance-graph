@@ -1,7 +1,7 @@
 # deepnsm-v2 Cam96 pairwise — v5 RATIFIED: the L4 identity facet, its readings, the COCA fixed points, three reference sets
 
 **Status:** RETRACTED-IN-PART (operator, 2026-09-30, same day) — see § ⊘ RETRACTION directly below; it overrides §3.1–3.3, the word-register half of §3.2, and the gates and D-ids it names. What it does not name stands. Was: RATIFIED by the second 5+3 council (2026-09-30). Supersedes `-v4.md` and `-v3.md` §3, §6.3, §7. Council record: `AGENT_LOG.md` 2026-09-30 (2).
-**Deliverables:** §10 (`D-CPW-*`), read through the retraction.
+**Deliverables:** §10 (`D-CPW-*`), read through the retraction. **§11 (added 2026-09-30):** the execution socket beneath the lexical substrate — D-CPW-15, spec only.
 
 ## ⊘ RETRACTION (operator ruling, 2026-09-30) — the word is a cell of the spatial-perturbation LUT; nothing is sliced from an embedding
 
@@ -274,3 +274,73 @@ The `D-C96P-*` aliases (v1–v3) do not match the D-id pattern and are cited her
 | D-CPW-12 | — | rung → mask → similarity wiring (the cascade) | G-CASC, G-PO | Blocked (on D-0, D-2) |
 | D-CPW-13 | — | driver L-3 register F (`kl_from_prior`) | G-F | Blocked (on D-9) |
 | D-CPW-14 | — | `lexical_correspondence.tsv` generator + `ReferenceSet` digests | G-REF | Queued |
+| D-CPW-15 | — | the execution socket (§11): enforce the firewall + integer-only law on `lance-graph-mask-risc`, and pin the full-width `u64` register lane | G-SOCK-1..5 | Queued (spec only in #1303; next PR per §11.8) |
+
+## 11. The execution socket under the lexical substrate (D-CPW-15, 2026-09-30)
+
+**Scope:** a ruling, not an implementation. It names the narrow seam everything in §1–§10 eventually lowers into, so that the semantics above can keep evolving without an ABI revision below. No code lands with it.
+
+### 11.1 The socket already exists — it is `lance-graph-mask-risc`'s IR, not a new "Quack ABI"
+Inspection (2026-09-30) found the proposed socket shipped under other names. **`lance-graph-quack` is the DuckDB-shaped SURFACE** (D-QCK-0..10): it builds programs and never evaluates one. The socket is the IR it lowers to:
+- **Program:** `Program { ops: Vec<MaskOp>, terminal: Terminal, scratch_slots }` — straight-line, one terminal.
+- **Structural views (borrowed, never owned):** `Planes { n_rows, masks: &[&[u64]], lanes: &[LaneRef] }` with `LaneRef::{I32, U32, U64, Strided}`, plus `Foreign { planes, lanes }` for another table's row space.
+- **Results:** `Value` + caller-owned `Out::{None, I32, I64, Mask}`; `ExecError` is shared by executor and oracle.
+- **Guarantees already enforced:** a row-at-a-time `reference` oracle that never touches ndarray; the executor-vs-oracle differential; tiled == single-tile; zero allocation (`tests/no_alloc.rs`); `the_crate_names_no_isa`.
+
+The stack in this repo therefore reads, top to bottom: DuckDB-shaped `quack` / Java `lgj-abi` (`plan_eval`) / cognitive consumers → **mask-risc IR (the socket)** → `ndarray::simd` (the only backend layer: scalar, AVX2, AVX-512, NEON, WASM). DuckDB and Java sit ABOVE the socket as lowerings; Arrow is an input VIEW, not a backend.
+
+### 11.2 The invariant (authoritative)
+> **The socket operates on borrowed masks, borrowed integer lanes and caller-owned sinks. It knows no COCA, lemma, PoS, `ReferenceSet`, Fisher-z, NARS, Pearl, EWA, JC/Jirak, HHTL, classid meaning, or `cognitive-shader-driver`. Every meaning is decided above it, by the lowering that builds the `Program`; semantic change above never requires an IR change below.**
+
+Evidence it already holds: mask-risc's only dependency is `ndarray` (facade features); it reaches ndarray only through `ndarray::simd`; its `src/` has zero hits for the cognitive terms above (NARS, Pearl, COCA, Fisher, lemma, `ReferenceSet`, EWA, Jirak, HHTL, shader, thinking, `CausalEdge`). It does name V3 **storage geometry** (26 hits: `facet`, `classid`, `ClassView`, `NodeRow`), almost all in doc comments that explain why a lane width or stride exists. It names that geometry once in an op: `Pred::MatchFacetStrided`, a content-blind 12-byte ternary match whose name records a layout, not a meaning. Geometry is allowed below the line; meaning is not. Whether that op should carry a geometry-neutral name is **OPEN** and out of scope.
+
+### 11.3 Primitive vocabulary after inspection — three families, not six verbs
+| proposed verb | what the IR already has | verdict |
+|---|---|---|
+| MASK | `MaskOp::{Pred, And, Or, Xor, AndNot, Not, Ternlog}`, `Pred::Range`, gated evaluation via `under` | **primitive** (family 1) |
+| SELECT | a selection IS a mask; `Terminal::Keep` returns it, `Terminal::BlendI32` is the CASE shape | **not a primitive.** An index-compacting select is the `SelectionVector` the IR forbids by law (A1; matrix R1 ELIMINATE). The one row-id exit is the named `materialize_rows`. |
+| JOIN | `MaskOp::Gather` (pull a foreign mask through an index lane), `Pred::EqU32Via` (predicate through an fk), `GroupKey::Via` (group key through an fk) | **primitive** (family 2, TRANSPORT) — mask transport through an index lane; no bag-semantics join exists or is wanted |
+| TRAVERSE | one step: `Gather` (pull) and `Terminal::ScatterOrU32` (push, the one-to-many hop) | **one step = TRANSPORT.** Multi-hop iteration is NOT in the IR (a scattered mask may not feed another program — its survival condition) — **OPEN**, see §11.8 |
+| FOLD / REDUCE | ONE terminal per program: `Count/Any/All`, `MaskedSum/Min/MaxI32`, `MaskedStridedGroupSum`, `GroupSumI32`, `GroupSumViaI32`, `GroupReduce{GroupKey, GroupFold}`, `CountKeyRunsU32`, `ScatterCountU32` (held) | **one primitive** (family 3, REDUCE). "Fold" is also the name of the write-side per-row fold in `persist_sink`; do not reuse it here. |
+
+So: **MASK · TRANSPORT · REDUCE**, over the structural views of §11.1. No primitive is added by this ruling. A new one earns its place only when a named workload cannot lower without it (the missing-capability STOP rule).
+
+### 11.4 Where `CausalEdge64` sits — above the line; it crosses as a `u64` lane
+- The register crosses as **`LaneRef::U64`**, borrowed through the existing `MailboxSoaView::edges_raw() -> &[u64]`. `CausalEdge64` is `#[repr(transparent)]` over `u64`, so the borrow copies nothing. No wrapper type is minted.
+- **`CausalEdge64` itself is not an IR type.** Its field layout is feature-gated (`causal-edge-v2-layout`, default; v1 under `--no-default-features`). Naming it in the socket would couple the IR to that layout. Instead the consumer computes `Pred::MatchU64 { pattern, care }` from the register's own accessors above the line, and the IR compares bits it does not interpret.
+- **Bit preservation is the requirement, not an option.** The IR never decodes or re-encodes a lane, so every bit survives, including the defining topology/band bits 59–63 that F-BBB-NARS-2 protects against aliasing.
+- **NARS arithmetic does not enter this IR.** `membrane-tiers.md` rules two sibling T1 algebras: the population algebra (this socket) and the epistemic one (`TruthU8`, revision, …, D-BBB-NARS-1..4). A future `Truth(…)` plan operation is the epistemic sibling's, named by T2 `plan_eval`; it is not a mask-risc op.
+
+### 11.5 The factorized adjacency at the boundary, and Arrow `ListArray`
+- **Today's factorized form is an index lane over the child population:** a `U32` lane naming, per child row, its row in the other table (`Gather`, `EqU32Via`, `GroupKey::Via`, `ScatterOrU32`). A key-ordered lane is also a segmentation: `CountKeyRunsU32` counts runs with O(1) state and refuses an unordered lane (`LaneNotOrdered`).
+- **Arrow `ListArray` does not map today without materialization.** A `ListArray` carries `offsets[parents + 1]` + child values; the IR has no offsets view. The child values borrow fine as a lane; the SEGMENTATION would have to be expanded into a per-child parent-index lane (O(children) — a derived-lane materialization). **OPEN:** the zero-copy route is one structural view (a segment/offsets view) plus a parent-mask → child-mask expansion (a union of `mask_set_range` writes) and its reverse. Filed as `ISS-MASK-RISC-HAS-NO-SEGMENT-VIEW`; not built here.
+- **Arrow bitmaps meet the tail law.** An Arrow validity bitmap reinterpreted as `&[u64]` must have zero bits past `n_rows`, or the program is refused (`ExecError::PlaneTail`) rather than read. Arrow validity is a NULL role, which the socket eliminates (matrix R6); a bitmap enters only as a plane.
+
+### 11.6 The dependency firewall (named crates)
+- **`lance-graph-mask-risc` `[dependencies]` is exactly `{ ndarray }`**, and `src/` reaches it only as `ndarray::simd` — never `ndarray::hpc` (which carries `nars`, `causal_diff`, `styles`, `cascade`).
+- **Forbidden in `[dependencies]` and `[dev-dependencies]`** (all real crates in this workspace): `lance-graph-contract`, `causal-edge`, `cognitive-shader-driver`, `thinking-engine`, `deepnsm`, `deepnsm-v2`, `lance-graph-planner`, `lance-graph-cognitive`, `lance-graph`, `p64-bridge`, `bgz17`, `bgz-tensor`, `highheelbgz`, `holograph`, `jc`, `perturbation-sim`. `lance-graph-quack` and `lance-graph-report` too: they are consumers ABOVE the socket.
+- **Direction:** consumers depend on the socket, never the reverse — `quack` → mask-risc; `lgj-abi` → mask-risc (it already does); a cognitive consumer that lowers into it → mask-risc. The contract dependency is forbidden on purpose: `lance-graph-contract` carries the cognitive vocabulary (`cognitive_shader`, `nars`, `thinking`).
+
+### 11.7 Falsifiers (G-SOCK-*) and what "identical" may honestly claim
+- **G-SOCK-1 exact equivalence.** For every program in the differential corpus, executor `Value` and every `Out` buffer `==` the reference oracle, and tiled `==` single-tile. **Shipped** (`tests/differential.rs`). Backend realizations are ndarray's to prove (its masking-parity matrix: native / nightly / wasm / wasm-scalar / neon-qemu); mask-risc is backend-independent by construction, but its own suite runs in CI on `x86-64-v3` only (D-MRX-5: NEON/WASM/scalar arms unexercised for this crate), so "identical on every backend" is ndarray's measured claim plus mask-risc's by-construction one — not a mask-risc measurement on each arm.
+- **G-SOCK-2 integer-only law.** `==` is honest only because the IR carries no floating point (`i32`/`u32`/`u64` lanes, `i64` sums with stated row bounds that refuse rather than wrap). A float reduction may never join the `==` suite; if one is ever admitted it gets its own declared tolerance class. Fisher-z values, NARS `(f, c)` in f32 and `PerturbationDto` energy therefore stay above the socket.
+- **G-SOCK-3 firewall.** `[dependencies]` keys `== ["ndarray"]`; no `ndarray::hpc` in `src/`; zero COGNITIVE vocabulary in `src/` code AND comments (the §11.2 term list — storage-geometry words are allowed). Disable-runs: adding any forbidden crate, and adding one listed term to a `src/` line, each turn it red.
+- **G-SOCK-4 full-width register lane.** `Pred::MatchU64` with `care` over high fields (for example bits 40–42 and 59–63), not only low bits: executor `==` oracle `==` an independent per-row `(x ^ pattern) & care == 0` count, two-sided anti-vacuity (`0 < selected < n`). Disable-run: truncating the lane to 32 bits must redden. **Gap measured:** today's differential exercises `MatchU64` only at `care: 0xF000` (bits 12–15), so a 32-bit truncation would pass it.
+- **G-SOCK-5 no materialization.** Already enforced (`no_alloc.rs`; tiled state is `slots × TILE_WORDS` words, independent of `n_rows`; only demanded `Out` sinks are population-sized).
+- **Later, with the segment view:** the same program over a lane borrowed from an Arrow buffer and over one borrowed from a `Vec` answers `==`; an Arrow bitmap with a dirty tail is refused.
+
+### 11.8 The smallest next PR (not in #1303)
+**Title:** `mask-risc: D-CPW-15 socket guards`. **One crate, no cognitive vocabulary, no new primitive.**
+1. `crates/lance-graph-mask-risc/tests/firewall.rs`: `dependencies_are_exactly_ndarray` (reads its own `Cargo.toml` via `include_str!`), `src_reaches_ndarray_only_through_simd`, `src_names_no_cognitive_vocabulary`, `ir_is_integer_only` (production text of `ir.rs` + `value.rs`). Each disable-verified.
+2. `crates/lance-graph-mask-risc/tests/u64_register_lane.rs`: G-SOCK-4 on a synthetic `u64` lane (seeded values, several `pattern/care` fields up to bit 63, gated and ungated, tiled and single-tile).
+3. Board: D-CPW-15 → Shipped; AGENT_LOG only if workers ran.
+
+**It demonstrates value with no cognitive vocabulary at all:** "factorized graph operations over compact registers and borrowed structural views, without materialization" is exactly what the existing suite plus these two files prove.
+
+**Second PR (after):** the cognitive consumer binding. It is a dev-dependency test in `cognitive-shader-driver`, the only side allowed to know both. It borrows `MailboxSoaView::edges_raw()` as `LaneRef::U64`, builds `pattern/care` from `CausalEdge64` accessors, and diffs the count against a per-row decode. It also checks that the borrowed slice's pointer equals the column's (no copy).
+
+**Deliberately NOT implemented, here or next:** the segment/offsets view and any Arrow adapter; multi-hop traversal; an epistemic (NARS) op; any float reduction; GPU; renaming `quack` or `mask-risc`; moving `CausalEdge64` fields; any change to lexical representation or Fisher-z calibration; #1304's multi-reading problem.
+
+**Open for the operator:** whether "Quack" should become the umbrella name for the socket. In the repo today it names only the DuckDB-shaped surface above it; this ruling does not rename anything.
+
+Closeout: `STATUS: ruled (spec only) | OUTCOME: the execution socket is lance-graph-mask-risc's existing IR; three primitive families (MASK · TRANSPORT · REDUCE); CausalEdge64 crosses as a borrowed u64 lane and stays an above-the-line type | OPEN: segment view for Arrow ListArray; multi-hop traversal; umbrella naming`.
