@@ -168,11 +168,11 @@ pub enum TraversalMode {
 // cognitive_shader_driver::EdgeColumn`. The walker output (the set
 // of `MailboxRow`s that must be re-evaluated) is fed back into
 // the Op chain as a new `NormalizedEntity<Raw>` per dependent row,
-// forming the dependency fan-out. ⊘ The E-BATON-1 sentence that stood here
-// ("the Baton `(u16, CausalEdge64)` carries the causal edge across mailbox
-// boundaries") is superseded: the baton was tombstoned (PR #477), and a
-// `CausalEdge64` is the ALU register itself, never a carrier. How dependents
-// receive work is Stage-2 design.
+// forming the dependency fan-out. The "Baton" is the `CausalEdge64` ALU
+// register as it passes from one cycle into the next. ⊘ What E-BATON-1's
+// "across mailbox boundaries" wording implied — an inter-mailbox emission wire
+// type — was tombstoned in PR #477; the register persisting across cycles was
+// not. How dependents receive work is Stage-2 design.
 pub trait CascadeWalker {
     /// Walk all downstream dependents of `from` in the `EdgeColumn`.
     ///
