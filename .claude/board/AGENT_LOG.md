@@ -1,3 +1,38 @@
+## 2026-09-30 — 5+3 council on D-C96P (Cam96 → 6 × pairwise; spec only, no code)
+
+- Operator-invoked `/5plus3` on `deepnsm-v2-cam96-pairwise-v1.md`. The phases ran in order:
+  - Phase 0: orchestrator brief with frozen decisions F1–F9 and per-savant question sets.
+  - Phase 1: the five savants.
+  - Phase 2: draft v2.
+  - Phase 3: the three reviewers, on v2 only.
+  - Phase 4/5: ratified `-v3.md`.
+- **The 5 (read-only, Read-tool discipline):**
+  - prior-art (opus): 10 findings, e.g. the contract's atanh already exists; FamilyGamma only in bgz-tensor; the 08-11 level-vs-rank entry; ndarray k-means to reuse.
+  - iron-rules: I-LEGACY VIOLATES on the persisted `self_code` until D-C96P-7; the others YIELD or NA.
+  - code-truth (general-purpose): every citation CODED; the §8 consumer list incomplete; G2 vacuous by construction; a metric mismatch in G1.
+  - cascade-impact: about 30 mandatory + 12 follow-up files; a rename breaks tesseract-rs; ordering D-7 before D-8.
+  - different-views: c₂ likely carries 2–3 bits; the full-shuffle null cannot stay silent; no Voronoi gate.
+  - Three savants had no write tool; the orchestrator banked their outputs in the scratchpad.
+- **The 3, on v2:**
+  - overclaim-auditor (opus): 2 BLOCK — the loader's raw arrays alias `Cam96`; G1 compared against pinned figures from absent embeddings. Plus 5 P1 and 5 P2.
+  - dilution-collapse-sentinel: 0 BLOCK, 4 P1, 7 P2 — no decision rule for B/D; spread and relation conflated; F7 had no falsifier; G4 vacuous.
+  - firewall-warden: 1 BLOCK — no same-commit board-hygiene clause. Plus 2 P2.
+- **Operator input mid-council (2026-09-30):** the resonance reading and the segment reading of `[a,b]`, and whether a merge is correct. The orchestrator checked it against `E-PERTURBATION-CONVERGENCE-1`:
+  - The merge is exact via the triangle identity `t = θ_a/φ`, with excess `ε`.
+  - A static position must be stored (invariant 1).
+  - A, B and D are projections of one object.
+- **v1 → v2 → v3:**
+  - The reading was contested (A/B/D) and is resolved as the merge M, with A/B/D as its ablations and a decision table (Q1 confirmation pending).
+  - Similarity is the exact Gram reconstruction cosine, which equals the baseline metric.
+  - G1's bar is an in-harness retrained control.
+  - The loader returns a view, never raw arrays.
+  - The board-hygiene clause is added.
+  - The byte-0 unit gate is restored.
+  - G3 is an ablation against a noise floor; G4 is structural.
+  - The §6.3 ClassView key is the owning NodeRow classid (verified); the mechanism goes to the envelope auditor.
+  - Codec-move defects fixed (module-path re-export, E0116).
+- Authorized: D-C96P-0 and D-C96P-1 only. Blocked: everything else, on the embeddings (Q4).
+
 ## 2026-09-29 — D-LXC-1 plan rewritten with Read (orchestrator, no agents, no code)
 
 - Operator-directed. The council run below read source with shell
