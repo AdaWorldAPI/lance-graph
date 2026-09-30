@@ -9,7 +9,7 @@
 - `parser.rs`, `ast.rs`, `semantic.rs` and `logical_plan.rs` do not import DataFusion themselves.
 - `examples/w0b_corpus_census.rs` already drives parse → plan from outside the planner, using only the public API.
 - v1's seam (inside `query.rs`) and the modelgraph plan's `NodeMapping` field (inside `config.rs`) are both edits to upstream files. v2 moves both into the new crate.
-- W0-b: 113 of the 303 classified queries lower fully (37.3 %). Under v2, the rest are refusals.
+- W0-b: 113 of the 303 classified queries lower fully (37.3 %). This counts before path multiplicity is classified, so it is an **upper bound**. #1305 reports **70 of 313 (≈ 22 %)** once multiplicity is classified; that has not been re-run here (plan §5, §12 H-5). Under v2 the rest are refusals.
 
 - #1305 closed unmerged; its six must-have facts are in plan §12 (branch `ccr-2fcc2bd3-8o7m2l` @ `67abd29` keeps the rest). Its `consumer_semantics()` is not ported: per-path carriers are refused, not carried.
 

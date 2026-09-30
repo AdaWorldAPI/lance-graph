@@ -77,15 +77,34 @@ from outside the planner. It is the proof that the chain is reachable without ed
 | `lance-graph-mask-risc` | `Program`, `MaskOp`, `Pred`, `Terminal`, `execute`, `Planes` | — |
 | `lance-graph-contract` | `LabelDTO`, `soa_view::MailboxSoaView`, `canonical_node`, `facet` | cognitive modules (same import fence as quack: named modules only) |
 
-**Public surface: one function and two types.**
+**Public surface: one function, an answer, and a refusal.**
 
 ```rust
 pub fn run(text: &str, bind: &LabelBinding, view: &MailboxSoaView<'_>) -> Result<Answer, Refusal>;
 // `LabelBinding::graph_config()` builds the upstream `GraphConfig` the planner needs,
 // through the public `GraphConfig::builder()` (`with_node_label` / `with_relationship`)
-pub enum Answer  { Mask(/* the final population, a mask handle */), Scalar(i64), Bool(bool) }
+pub struct Answer { pub items: Vec<Item> }  // one per RETURN item, in RETURN order
+pub enum Item    { Mask(/* a mask handle */), Scalar(i64), Bool(bool) }
 pub enum Refusal { /* one variant per row of §5, each carrying the offending construct */ }
 ```
+
+`Answer.items` is sized by the query's `RETURN` clause (a handful), never by rows. If
+any single item cannot be lowered, the whole query is refused. There are no partial
+answers.
+
+**The pipeline inside `run`, in order.** Every failure along it is a `Refusal`, so no
+failure can produce an `Answer`:
+1. **Parse.** A parser error becomes R-UNPARSED, carrying the upstream `GraphError`.
+2. **Label check against `LabelBinding`**, by walking the parsed AST. This happens
+   **before** planning: the planner rejects an unmapped label itself, so the check has
+   to run first for R-UNBOUND-LABEL to be reachable.
+3. **Semantic analysis.** A non-empty `SemanticResult.errors` becomes R-UNPLANNED,
+   carrying the errors.
+4. **Logical planning.** A planner error becomes R-UNPLANNED.
+5. **Classification** (D-CML-2) over `(LogicalOperator, &LabelBinding, the view's lane
+   catalogue)`. R-TRANSPOSE and R-CROSS-SPACE need to know which lanes exist, and the
+   plan alone cannot say.
+6. **Lowering and execution.**
 
 - **The upstream planner needs a `GraphConfig`.** `LogicalPlanner::plan_return_clause`
   looks up each label's `NodeMapping` and fails with "Node label … doesn't exist" when
@@ -100,7 +119,8 @@ pub enum Refusal { /* one variant per row of §5, each carrying the offending co
   is O(n), stated in its doc comment. This is v1 §7.1's one-materialiser rule, kept.
 - **Traversal counts nothing.** Hops and fixpoints move masks. The only popcount is a
   terminal on the *final* mask (`count(DISTINCT n)`, `exists`). A count of paths or
-  walks is refused (§5 row R-BAG).
+  walks is refused (§5 row R-BAG). After a push hop there is no terminal at all, only
+  the mask itself (§4.1).
 
 **OQ-CML-1 — DataFusion is still linked.** `lance-graph` depends on `datafusion`
 unconditionally (in `crates/lance-graph/Cargo.toml` the `datafusion` entry under
@@ -134,7 +154,8 @@ substrate-first, in mask-risc or `ndarray::simd`, with its own parity test.
 | `(a)-[:R]->(b)` — **the mask join** | depends on which row holds the pointer (§4.1): a **pull** (`Gather` / `EqU32Via`) when the target row points back at its source, a **push** (`ScatterOrU32`) when the source row points at its target | pull: yes, and it can be chained. Push: yes, but **only as the final hop** (§4.1) |
 | a join on equal keys across two populations | `EqU32Via` / `GroupKey::Via` through an index lane | yes |
 | `count(DISTINCT n)`, `exists` | `Terminal::Count` / `Any` on the final mask | yes |
-| `sum/min/max(n.p)` over the final mask | `MaskedSum/Min/MaxI32` | yes (i32) |
+| `min/max(n.p)` over the final mask | `MaskedMin/MaxI32` | yes (i32). Correct after a hop too: repeating a value does not change a min or a max |
+| `sum(n.p)` / `avg(n.p)` | `MaskedSumI32` | **before any hop only.** After a hop, Cypher sums once per path, so repeated values add up. That is refused (R-BAG) |
 | `RETURN n` | `Terminal::Keep` → `Answer::Mask` | yes |
 | `*1..k`, `*` | delta-frontier fixpoint over the hop (§4.2) | **only over pull hops.** Each step is one `Program`, and each step's output mask is a resident plane for the next. Over push hops it is a STOP (§4.1) |
 
@@ -161,14 +182,29 @@ applies depends on whose row holds the pointer:
   `Terminal::ScatterOrU32`. mask-risc's survival condition (`ir.rs`, on `ScatterOrU32`)
   allows the scattered mask **only as the externally demanded result**: *"never an
   intermediate: a follow-on program or fold that consumes it is the forbidden
-  projection → population → projection shape."* So a push hop can only be the **last**
-  hop of a query. A chain of two push hops, or a fixpoint over push hops, is a
+  projection → population → projection shape."* A push hop is itself the program's one
+  terminal. So it answers **only `RETURN b`**, the target mask itself:
+  - no `count`, `exists`, `sum` or `min`/`max` over `b`;
+  - no `WHERE` on `b`;
+  - no further hop.
+
+  Each of those would consume the scattered mask. The one exception is
+  `count(DISTINCT b)`, which could become `Terminal::CountKeyRunsU32`, but only over a
+  key-ordered lane; any other lane is refused. A chain of two push hops, a fixpoint over
+  push hops, or anything computed on a push hop's result is a
   **STOP → substrate-first**. It needs either a mask-risc ruling that admits a scattered
   mask as a resident plane, with its own law and falsifier, or a pull lane on the
   target rows. Until then such a query is refused (R-CHAIN).
 
-**Relative targets** (the witness loci: offsets of ±8) → a **shift of the mask by the
-offset**, one shift per locus value, OR-ed together.
+**Relative targets** (the witness loci: offsets within ±8). Each row stores its **own**
+offset, so a row's offset is applied only to that row. The source mask is split into
+one part per offset value `d`:
+1. `part_d = src AND (locus == d)`, one predicate per non-zero value `d` in −8..=8;
+2. each `part_d` is shifted by `d`;
+3. the shifted parts are OR-ed together.
+
+The all-zero locus means **unbound** and is excluded, never read as "offset 0". Shifting
+`src` as a whole would apply one row's offset to every other row.
 
 **OQ-CML-2 — which carrier holds absolute and which relative targets, per relationship
 type; and whether mask-risc needs a `Shift` op.** mask-risc has no shift op today. If
@@ -211,15 +247,17 @@ It does not approximate one with the other.
 
 ## §5 — The refusal list (replaces v1 §4's `[GRACE]` list)
 
-Each row is a `Refusal` variant. The classifier (D-CML-2) must name the variant
-**before** any program runs: from the `LogicalOperator` for every row, except
-R-UNPARSED, which comes from the parse result.
+Each row is a `Refusal` variant. Each is named **before** any program runs, at one of
+the pipeline steps in §3: R-UNPARSED at parse, R-UNBOUND-LABEL at the label check,
+R-UNPLANNED at semantic analysis and planning, and every other variant in the
+classifier.
 
 | variant | construct | why it has no mask form |
 |---|---|---|
 | **R-ORDER** | `ORDER BY`, and **any** `SKIP` / `LIMIT`, with or without an order (the planner emits standalone `Offset` / `Limit`) | a mask has no order and no position; truncating a mask is not defined |
-| **R-BAG** | **any non-`DISTINCT` count after one or more hops** (`count(*)`, `count(expr)`), plus `collect`, returning paths, and `length(p)` | a mask is support, not a bag (#1305). Even ONE hop has bag semantics: two sources, or two parallel relationships, reaching one target give `count(*) = 2` over one mask bit |
-| **R-CHAIN** | a push hop (§4.1) that is not the last hop, or a fixpoint over push hops | mask-risc forbids a scattered mask as an intermediate |
+| **R-BAG** | **any non-`DISTINCT` count or sum after one or more hops** (`count(*)`, `count(expr)`, `sum`, `avg`), plus `collect`, returning paths, and `length(p)` | a mask is support, not a bag (#1305). Even ONE hop has bag semantics: two sources, or two parallel relationships, reaching one target give `count(*) = 2` over one mask bit |
+| **R-CHAIN** | anything that consumes a push hop's result (§4.1): another hop, a fixpoint, a `WHERE` on the target, or any aggregate over it except `count(DISTINCT)` over a key-ordered lane | mask-risc forbids a scattered mask as an intermediate, and the push hop is already the program's one terminal |
+| **R-SHAPE** | a pattern that is not one chain: hops that do not connect end to end, a variable bound twice (at a hop or at the pattern's start), or two disconnected patterns | a mask chain carries one frontier; these were real bugs caught on #1305 (§12 H-4) |
 | **R-DEPTH** | a variable-length pattern with a lower bound above 1 | walk ≠ trail at `min > 1` (§4.2) |
 | **R-DISTINCT-VALUE** | `DISTINCT` over a projected value (not a node) | a value set is not a row set |
 | **R-STRING** | string predicates beyond equality through a dictionary lane (`CONTAINS`, `STARTS WITH`, regex) | variable-width values; v1 §4.2 |
@@ -228,6 +266,7 @@ R-UNPARSED, which comes from the parse result.
 | **R-CROSS-SPACE** | a join whose two sides index different row spaces with no index lane between them | the one-population law |
 | **R-TRANSPOSE** | an incoming hop with no reverse lane | the transpose law |
 | **R-UNBOUND-LABEL** | a label with no `LabelBinding` entry | no classid to test; guessing one is the confident-and-wrong quadrant (v1 OQ-1) |
+| **R-UNPLANNED** | a non-empty `SemanticResult.errors`, or an error from the upstream logical planner | the refusal carries the upstream errors; nothing is lowered from a plan that does not exist |
 | **R-UNPARSED** | anything the upstream parser rejects, **including `CREATE` / `SET` / `DELETE` / `MERGE`**: the reused parser accepts only reading clauses followed by `RETURN`, so mutations never reach a `LogicalOperator` | the refusal carries the parse error. Mutations stay out of scope (v1 N-8: writes go through the commit gate) |
 
 **Refusing is the correct answer here, not a missing feature.** A refused row becomes
