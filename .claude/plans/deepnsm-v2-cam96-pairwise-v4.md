@@ -1,6 +1,6 @@
 # deepnsm-v2 Cam96 pairwise — v4: the L4 identity facet, its 2³ readings, and the COCA fixed points
 
-**Status:** PHASE-0 SPEC (council input). Supersedes `-v3.md` §3 (reading), §6.3 (home), §7 decision table. Everything in v3 not named in §9 below stands.
+**Status:** SUPERSEDED (2026-09-30) by the ratified `-v5.md`; kept as the Phase-0 record. Was: PHASE-0 SPEC (council input). Supersedes `-v3.md` §3 (reading), §6.3 (home), §7 decision table. Everything in v3 not named in §9 below stands.
 **Date:** 2026-09-30. **Council:** `/5plus3`, second invocation on D-C96P (deliberate re-invocation per the harness base case: v3 was ratified, then three operator rulings changed its premises).
 **Panel:** default five (prior-art on Opus, the rest Sonnet); default three.
 

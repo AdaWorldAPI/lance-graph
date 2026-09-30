@@ -46,6 +46,17 @@ added for this alone would be a second, partial identity carrier.
 > What remains open is not the algebra but the identity/preconditions of a
 > bare-slice merge: `TD-KEYED-SINK-MERGE-IDENTITY-1` above.
 
+## TD-CPW-COUNCIL-RESIDUE-1 (2026-09-30) — OPEN, four items from the second Cam96 council
+
+Recorded by `deepnsm-v2-cam96-pairwise-v5.md` §8; none is a deliverable there.
+
+1. **Adjective / adverb role gap.** F12's role→PoS map covers S/O→nominal and P→verbal; `left·j` is selected by no S/P/O mask (archive `:21805`). Triple edges (D-CPW-10) fall back to the legacy path for modifiers; no plane exists for them.
+2. **`RungLevel::causal_mask_bits` reaches no distance call.** Defined (`cognitive_shader.rs:244, :333`), exercised only by unit tests, `doc_graph.rs`, and a driver comment; `causal_distance` lives once in the planner (`nars_engine.rs:135`) with fixed masks. The rung→mask chain is a pure function until D-CPW-12.
+3. **`FacetSchema`'s 2-bit field is provisional and aliases the domain byte.** `facet_schema.rs:48-54` reads `(facet_classid >> 24) & 0b11`; under canon-high those are the domain's low bits (OSINT `0x07` → 3); no `.schema()` caller exists. A reader landing on it would relabel domains. The v4 `PalettePair = 3` proposal was withdrawn for this reason.
+4. **Six per-table `FamilyGamma`s make summed Fisher-z codes incommensurable.** `fisher_z.rs:28-33, 63-67`: each table has its own gamma; v5 §3.1 pins ONE shared gamma across the six subspaces and reports per-table fit loss (D-CPW-1).
+
+## TD-SYM-SUM-MERGE-IS-NOT-ADDITION-1 (2026-09-23) — OPEN, dormant
+
 **`GroupFold::SumSymI32`'s seed is not an additive identity, so two partial
 sinks must never be combined with `+`.** For MIN/MAX the seed IS the lattice
 identity (`i64::MAX` for min, `i64::MIN` for max), so partial sinks merge with
