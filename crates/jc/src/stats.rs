@@ -74,7 +74,7 @@
 //! front by the same `all_finite` guard.
 
 use crate::reliability::{all_finite, mean, pearson, pearson_from_centered};
-use ndarray::simd::{GroupCrossMoments, GroupMoments};
+use ndarray::simd::{CrossPowerSums, PowerSums};
 use std::collections::BTreeSet;
 
 // ─────────────────────────── local helpers ───────────────────────────
@@ -1195,7 +1195,7 @@ fn anova_from_ss(ss_b: f64, ss_w: f64, ss_t: f64, k: usize, n_total: usize) -> O
 //
 // The same statistics as `anova_one_way` / `eta_squared`, projected from
 // per-group `(n, Σx, Σx²)` instead of from materialized group vectors — the
-// shape `ndarray::simd::masked_group_moments_i32` folds out of a population
+// shape `ndarray::simd::masked_group_power_sums_i32` folds out of a population
 // mask in one pass. The statistical policy (every `None` case, the F / p /
 // η² formulas) is shared with the slice path through `anova_from_ss` and
 // `eta_from_ss`; only the sums of squares are formed differently.
@@ -1219,8 +1219,8 @@ fn anova_from_ss(ss_b: f64, ss_w: f64, ss_t: f64, k: usize, n_total: usize) -> O
 /// `None` on fewer than 2 groups, any empty group (`n == 0`, matching
 /// [`anova_one_way`]'s empty-group rule), or moments too large for the exact
 /// `i128` forms — i.e. outside the `2^32`-rows-per-group bound
-/// `GroupMoments` is exact under.
-fn one_way_ss_from_moments(groups: &[GroupMoments]) -> Option<(f64, f64, f64, usize, usize)> {
+/// `PowerSums` is exact under.
+fn one_way_ss_from_moments(groups: &[PowerSums]) -> Option<(f64, f64, f64, usize, usize)> {
     if groups.len() < 2 || groups.iter().any(|g| g.n == 0) {
         return None;
     }
@@ -1238,7 +1238,7 @@ fn one_way_ss_from_moments(groups: &[GroupMoments]) -> Option<(f64, f64, f64, us
         let n_g = i128::from(g.n);
         let s_g = i128::from(g.sum);
         let w_g = n_g
-            .checked_mul(g.sum_sq)?
+            .checked_mul(i128::try_from(g.sum_sq).ok()?)?
             .checked_sub(s_g.checked_mul(s_g)?)?;
         if w_g < 0 {
             return None; // impossible for moments of real data: inconsistent input
@@ -1259,7 +1259,7 @@ fn one_way_ss_from_moments(groups: &[GroupMoments]) -> Option<(f64, f64, f64, us
 /// [`anova_one_way`] on the materialized groups, without the groups.
 ///
 /// `groups[g]` holds group `g`'s `(n, Σx, Σx²)`, e.g. as folded out of a
-/// population mask by `ndarray::simd::masked_group_moments_i32` (or
+/// population mask by `ndarray::simd::masked_group_power_sums_i32` (or
 /// `lance-graph-mask-risc`'s `Terminal::GroupMomentsI32`). Every degenerate
 /// case is [`anova_one_way`]'s: fewer than 2 groups, an empty group,
 /// `N ≤ k`, and zero within-group variance are all `None`. The sums of
@@ -1269,17 +1269,17 @@ fn one_way_ss_from_moments(groups: &[GroupMoments]) -> Option<(f64, f64, f64, us
 ///
 /// ```
 /// use jc::stats::{anova_from_moments, anova_one_way};
-/// use ndarray::simd::GroupMoments;
+/// use ndarray::simd::PowerSums;
 ///
 /// let groups = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
 /// let moments = [
-///     GroupMoments { n: 3, sum: 6, sum_sq: 14 },
-///     GroupMoments { n: 3, sum: 15, sum_sq: 77 },
+///     PowerSums { n: 3, sum: 6, sum_sq: 14 },
+///     PowerSums { n: 3, sum: 15, sum_sq: 77 },
 /// ];
 /// let (a, b) = (anova_one_way(&groups).unwrap(), anova_from_moments(&moments).unwrap());
 /// assert!((a.f - b.f).abs() < 1e-12 && (a.p - b.p).abs() < 1e-12);
 /// ```
-pub fn anova_from_moments(groups: &[GroupMoments]) -> Option<Anova> {
+pub fn anova_from_moments(groups: &[PowerSums]) -> Option<Anova> {
     let (ss_b, ss_w, ss_t, k, n_total) = one_way_ss_from_moments(groups)?;
     anova_from_ss(ss_b, ss_w, ss_t, k, n_total)
 }
@@ -1288,7 +1288,7 @@ pub fn anova_from_moments(groups: &[GroupMoments]) -> Option<Anova> {
 /// degeneracy policy (`None` only on fewer than 2 groups, an empty group, or
 /// zero total variance; a perfectly separated layout with zero within-group
 /// variance is a real `1.0`, unlike the F test).
-pub fn eta_squared_from_moments(groups: &[GroupMoments]) -> Option<f64> {
+pub fn eta_squared_from_moments(groups: &[PowerSums]) -> Option<f64> {
     let (ss_b, _, ss_t, _, _) = one_way_ss_from_moments(groups)?;
     eta_from_ss(ss_b, ss_t)
 }
@@ -1297,7 +1297,7 @@ pub fn eta_squared_from_moments(groups: &[GroupMoments]) -> Option<f64> {
 //
 // Pearson, the sample covariance, the simple least-squares line and its R²,
 // projected from one group's `(n, Σx, Σy, Σx², Σy², Σxy)` — the shape
-// `ndarray::simd::masked_group_cross_moments_i32` folds off a population
+// `ndarray::simd::masked_group_cross_power_sums_i32` folds off a population
 // mask. Each shares its acceptance policy with the slice implementation it
 // mirrors (`pearson_from_centered`, `sample_cov_tail`, `r_squared_tail`); only
 // the centred sums are formed differently.
@@ -1308,16 +1308,23 @@ pub fn eta_squared_from_moments(groups: &[GroupMoments]) -> Option<f64> {
 /// denominators. No two large floats are ever subtracted, so a huge common
 /// offset with a tiny spread loses nothing.
 ///
-/// Every product fits: within `GroupCrossMoments`' `2^32`-row bound each of
+/// The square sums arrive as `u128` (ndarray folds them unsigned); one past
+/// `i128::MAX` is already outside the bound below and yields `None`.
+///
+/// Every product fits: within `CrossPowerSums`' `2^32`-row bound each of
 /// `n·Σx²`, `(Σx)²`, `n·Σxy`, `Σx·Σy` is at most `2^126` in magnitude, and by
 /// Cauchy–Schwarz so is each difference. Past the bound the checked
 /// arithmetic returns `None` rather than wrap.
-fn centered_cross(m: &GroupCrossMoments) -> Option<(i128, i128, i128)> {
+fn centered_cross(m: &CrossPowerSums) -> Option<(i128, i128, i128)> {
     let n = i128::from(m.n);
     let (sx, sy) = (i128::from(m.sum_x), i128::from(m.sum_y));
     let cxy = n.checked_mul(m.sum_xy)?.checked_sub(sx.checked_mul(sy)?)?;
-    let cxx = n.checked_mul(m.sum_x2)?.checked_sub(sx.checked_mul(sx)?)?;
-    let cyy = n.checked_mul(m.sum_y2)?.checked_sub(sy.checked_mul(sy)?)?;
+    let cxx = n
+        .checked_mul(i128::try_from(m.sum_x_sq).ok()?)?
+        .checked_sub(sx.checked_mul(sx)?)?;
+    let cyy = n
+        .checked_mul(i128::try_from(m.sum_y_sq).ok()?)?
+        .checked_sub(sy.checked_mul(sy)?)?;
     // A negative centred square is impossible for moments of real data.
     (cxx >= 0 && cyy >= 0).then_some((cxy, cxx, cyy))
 }
@@ -1327,12 +1334,12 @@ fn centered_cross(m: &GroupCrossMoments) -> Option<(i128, i128, i128)> {
 ///
 /// ```
 /// use jc::stats::pearson_from_cross_moments;
-/// use ndarray::simd::GroupCrossMoments;
+/// use ndarray::simd::CrossPowerSums;
 /// // x = [1,2,3], y = [2,4,6]: perfectly correlated.
-/// let m = GroupCrossMoments { n: 3, sum_x: 6, sum_y: 12, sum_x2: 14, sum_y2: 56, sum_xy: 28 };
+/// let m = CrossPowerSums { n: 3, sum_x: 6, sum_y: 12, sum_x_sq: 14, sum_y_sq: 56, sum_xy: 28 };
 /// assert!((pearson_from_cross_moments(&m).unwrap() - 1.0).abs() < 1e-12);
 /// ```
-pub fn pearson_from_cross_moments(m: &GroupCrossMoments) -> Option<f64> {
+pub fn pearson_from_cross_moments(m: &CrossPowerSums) -> Option<f64> {
     if m.n < 2 {
         return None;
     }
@@ -1342,7 +1349,7 @@ pub fn pearson_from_cross_moments(m: &GroupCrossMoments) -> Option<f64> {
 
 /// The unbiased (divisor `n−1`) sample covariance from grouped cross moments
 /// — the convention this module already uses (`None` for `n < 2`).
-pub fn sample_covariance_from_cross_moments(m: &GroupCrossMoments) -> Option<f64> {
+pub fn sample_covariance_from_cross_moments(m: &CrossPowerSums) -> Option<f64> {
     let (cxy, _, _) = centered_cross(m)?;
     // `C_xy = n·Σ(x−x̄)(y−ȳ)`: divide the `n` back out before the tail.
     let sxy = cxy as f64 / m.n.max(1) as f64;
@@ -1370,7 +1377,7 @@ pub struct SimpleRegression {
 /// `|β·x̄|` is large and `α` is small its ABSOLUTE error is on the order of
 /// `ε·(|β|·|x̄| + |ȳ|)`. That is the conditioning of the quantity itself, not
 /// of the fold; centre `x` before regressing when `α` itself matters.
-pub fn simple_regression_from_cross_moments(m: &GroupCrossMoments) -> Option<SimpleRegression> {
+pub fn simple_regression_from_cross_moments(m: &CrossPowerSums) -> Option<SimpleRegression> {
     if m.n < 2 {
         return None;
     }
@@ -1388,7 +1395,7 @@ pub fn simple_regression_from_cross_moments(m: &GroupCrossMoments) -> Option<Sim
 /// [`multiple_r_squared`]'s one-predictor contract: `None` for `n < 3` (one
 /// residual degree of freedom beyond the two coefficients), a constant `x` or
 /// a constant `y`; otherwise `r²`, through the same acceptance rule.
-pub fn r_squared_from_cross_moments(m: &GroupCrossMoments) -> Option<f64> {
+pub fn r_squared_from_cross_moments(m: &CrossPowerSums) -> Option<f64> {
     if m.n < 3 {
         return None;
     }
@@ -2486,7 +2493,7 @@ mod tests {
     // The claim under test: a statistic computed from grouped sufficient
     // statistics folded straight off a population mask equals the same
     // statistic computed from the materialized groups. The fold is
-    // `ndarray::simd::masked_group_moments_i32` — the kernel
+    // `ndarray::simd::masked_group_power_sums_i32` — the kernel
     // `lance-graph-mask-risc`'s `Terminal::GroupMomentsI32` delegates to.
     //
     // Tolerances. Both paths form the same sums of squares by different
@@ -2501,7 +2508,7 @@ mod tests {
 
     mod moments_equivalence {
         use super::super::*;
-        use ndarray::simd::masked_group_moments_i32;
+        use ndarray::simd::masked_group_power_sums_i32;
 
         fn lcg(s: &mut u64) -> u64 {
             *s = s
@@ -2561,9 +2568,9 @@ mod tests {
         }
 
         /// The substrate path: one masked fold, no observation copied out.
-        fn fold(p: &Pop, k: u32) -> Vec<GroupMoments> {
-            let mut out = vec![GroupMoments::EMPTY; k as usize];
-            masked_group_moments_i32(&p.mask, &p.keys, &p.values, &mut out);
+        fn fold(p: &Pop, k: u32) -> Vec<PowerSums> {
+            let mut out = vec![PowerSums::default(); k as usize];
+            masked_group_power_sums_i32(&p.mask, &p.keys, &p.values, &mut out);
             out
         }
 
@@ -2637,7 +2644,7 @@ mod tests {
             });
             let whole = fold(&p, k);
             for chunks in [2usize, 3, 7, 47] {
-                let mut merged = vec![GroupMoments::EMPTY; k as usize];
+                let mut merged = vec![PowerSums::default(); k as usize];
                 let step = n.div_ceil(chunks);
                 for c in 0..chunks {
                     let (lo, hi) = (c * step, ((c + 1) * step).min(n));
@@ -2645,8 +2652,8 @@ mod tests {
                     for i in lo..hi {
                         m[i / 64] |= p.mask[i / 64] & (1 << (i % 64));
                     }
-                    let mut part = vec![GroupMoments::EMPTY; k as usize];
-                    masked_group_moments_i32(&m, &p.keys, &p.values, &mut part);
+                    let mut part = vec![PowerSums::default(); k as usize];
+                    masked_group_power_sums_i32(&m, &p.keys, &p.values, &mut part);
                     for (acc, x) in merged.iter_mut().zip(part) {
                         *acc = acc.checked_merge(x).expect("in bound");
                     }
@@ -2677,19 +2684,19 @@ mod tests {
         /// zero within-group variance.
         #[test]
         fn degenerate_layouts_match_the_slice_contract() {
-            let m = |n: u64, xs: &[i64]| GroupMoments {
+            let m = |n: u64, xs: &[i64]| PowerSums {
                 n,
                 sum: xs.iter().sum(),
-                sum_sq: xs.iter().map(|&x| i128::from(x * x)).sum(),
+                sum_sq: xs.iter().map(|&x| (x * x) as u128).sum(),
             };
             let f = |xs: &[i64]| xs.iter().map(|&x| x as f64).collect::<Vec<_>>();
-            type Case = (&'static str, Vec<Vec<f64>>, Vec<GroupMoments>);
+            type Case = (&'static str, Vec<Vec<f64>>, Vec<PowerSums>);
             let cases: Vec<Case> = vec![
                 ("one group", vec![f(&[1, 2, 3])], vec![m(3, &[1, 2, 3])]),
                 (
                     "absent group",
                     vec![f(&[1, 2, 3]), vec![], f(&[4, 5])],
-                    vec![m(3, &[1, 2, 3]), GroupMoments::EMPTY, m(2, &[4, 5])],
+                    vec![m(3, &[1, 2, 3]), PowerSums::default(), m(2, &[4, 5])],
                 ),
                 (
                     "N <= k",
@@ -2734,10 +2741,13 @@ mod tests {
             let mut groups = Vec::new();
             for b in bases {
                 let xs: Vec<i64> = offsets.iter().map(|o| b + o).collect();
-                moments.push(GroupMoments {
+                moments.push(PowerSums {
                     n: xs.len() as u64,
                     sum: xs.iter().sum(),
-                    sum_sq: xs.iter().map(|&x| i128::from(x) * i128::from(x)).sum(),
+                    sum_sq: xs
+                        .iter()
+                        .map(|&x| (i128::from(x) * i128::from(x)) as u128)
+                        .sum(),
                 });
                 groups.push(xs.iter().map(|&x| x as f64).collect::<Vec<_>>());
             }
@@ -2779,7 +2789,7 @@ mod tests {
     mod cross_moments_equivalence {
         use super::super::*;
         use crate::reliability::pearson;
-        use ndarray::simd::masked_group_cross_moments_i32;
+        use ndarray::simd::masked_group_cross_power_sums_i32;
 
         fn lcg(s: &mut u64) -> u64 {
             *s = s
@@ -2830,9 +2840,9 @@ mod tests {
             p
         }
 
-        fn fold(p: &Pop, k: u32) -> Vec<GroupCrossMoments> {
-            let mut out = vec![GroupCrossMoments::EMPTY; k as usize];
-            masked_group_cross_moments_i32(&p.mask, &p.keys, &p.xs, &p.ys, &mut out);
+        fn fold(p: &Pop, k: u32) -> Vec<CrossPowerSums> {
+            let mut out = vec![CrossPowerSums::default(); k as usize];
+            masked_group_cross_power_sums_i32(&p.mask, &p.keys, &p.xs, &p.ys, &mut out);
             out
         }
 
@@ -2871,7 +2881,7 @@ mod tests {
 
         /// Compare every projection of one group against its slice
         /// counterpart; both `None` or both within tolerance.
-        fn assert_group_agrees(x: &[f64], y: &[f64], m: &GroupCrossMoments, what: &str) {
+        fn assert_group_agrees(x: &[f64], y: &[f64], m: &CrossPowerSums, what: &str) {
             match (pearson(x, y), pearson_from_cross_moments(m)) {
                 (Some(a), Some(b)) => assert!(rel(a, b) < 1e-9, "{what}: r {a} vs {b}"),
                 (a, b) => assert_eq!(a, b, "{what}: r degeneracy"),
@@ -2958,20 +2968,20 @@ mod tests {
             let whole = fold(&p, k);
             for chunks in [2usize, 5, 47] {
                 let step = n.div_ceil(chunks);
-                let parts: Vec<Vec<GroupCrossMoments>> = (0..chunks)
+                let parts: Vec<Vec<CrossPowerSums>> = (0..chunks)
                     .map(|c| {
                         let mut m = vec![0u64; n.div_ceil(64)];
                         for i in c * step..((c + 1) * step).min(n) {
                             m[i / 64] |= p.mask[i / 64] & (1 << (i % 64));
                         }
-                        let mut part = vec![GroupCrossMoments::EMPTY; k as usize];
-                        masked_group_cross_moments_i32(&m, &p.keys, &p.xs, &p.ys, &mut part);
+                        let mut part = vec![CrossPowerSums::default(); k as usize];
+                        masked_group_cross_power_sums_i32(&m, &p.keys, &p.xs, &p.ys, &mut part);
                         part
                     })
                     .collect();
                 for order in [false, true] {
-                    let mut merged = vec![GroupCrossMoments::EMPTY; k as usize];
-                    let seq: Vec<&Vec<GroupCrossMoments>> = if order {
+                    let mut merged = vec![CrossPowerSums::default(); k as usize];
+                    let seq: Vec<&Vec<CrossPowerSums>> = if order {
                         parts.iter().rev().collect()
                     } else {
                         parts.iter().collect()
@@ -2993,12 +3003,20 @@ mod tests {
             }
         }
 
-        fn moments_of(xs: &[i64], ys: &[i64]) -> GroupCrossMoments {
-            let mut m = GroupCrossMoments::EMPTY;
-            for (&x, &y) in xs.iter().zip(ys) {
-                m.observe(x as i32, y as i32);
-            }
-            m
+        fn moments_of(xs: &[i64], ys: &[i64]) -> CrossPowerSums {
+            // Through the real fold: one group, every row selected.
+            let xs: Vec<i32> = xs.iter().map(|&x| x as i32).collect();
+            let ys: Vec<i32> = ys.iter().map(|&y| y as i32).collect();
+            let mut m = [CrossPowerSums::default()];
+            let mask = vec![u64::MAX; xs.len().div_ceil(64)];
+            ndarray::simd::masked_group_cross_power_sums_i32(
+                &mask,
+                &vec![0; xs.len()],
+                &xs,
+                &ys,
+                &mut m,
+            );
+            m[0]
         }
 
         /// FAILS IF: a degenerate or boundary layout is treated differently
@@ -3126,8 +3144,8 @@ mod tests {
                 // Anti-vacuity: the naive float projection of the SAME moments fails.
                 let n = m.n as f64;
                 let naive = (n * m.sum_xy as f64 - m.sum_x as f64 * m.sum_y as f64)
-                    / ((n * m.sum_x2 as f64 - (m.sum_x as f64).powi(2)).sqrt()
-                        * (n * m.sum_y2 as f64 - (m.sum_y as f64).powi(2)).sqrt());
+                    / ((n * m.sum_x_sq as f64 - (m.sum_x as f64).powi(2)).sqrt()
+                        * (n * m.sum_y_sq as f64 - (m.sum_y as f64).powi(2)).sqrt());
                 assert!(
                     !naive.is_finite() || rel(naive, r_exact) > 1e-3,
                     "fixture not adversarial: {naive}"
@@ -3149,12 +3167,12 @@ mod tests {
         #[test]
         fn moments_past_the_bound_are_refused() {
             let v = (1i128 << 95) + 1;
-            let huge = GroupCrossMoments {
+            let huge = CrossPowerSums {
                 n: 1 << 33,
                 sum_x: 0,
                 sum_y: 0,
-                sum_x2: v,
-                sum_y2: v,
+                sum_x_sq: v as u128,
+                sum_y_sq: v as u128,
                 sum_xy: v,
             };
             assert_eq!(pearson_from_cross_moments(&huge), None);

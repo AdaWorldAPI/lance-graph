@@ -14,3 +14,5 @@ Mask → fold → `anova_from_moments` vs materialized → `anova_one_way`, 42 n
 - Multi-membership is NOT one pass: `GroupKey` resolves one group per row, and `lance-graph-report`'s `CoordSpec::MaskSet` executes one `Filter::Plane` program per member. Seam: a key address that walks the selected rows once and folds each row into every member plane that holds it.
 - Bivariate `(n, Σx, Σy, Σx², Σy², Σxy)`: same walk, a second value lane in the closure, a wider slot type; not built.
 - No early exit, and no `CausalEdge64` commit. ANOVA is non-monotone under future rows.
+
+**Renamed 2026-09-30 (rebase onto ndarray master):** upstream shipped `PowerSums { n, sum, sum_sq: u128 }` — the same record as `GroupMoments`. The duplicate was dropped: consumers use `PowerSums` / `CrossPowerSums` and `masked_group_(cross_)power_sums_i32*`; `checked_merge` moved onto the upstream types. Square sums are now `u128`; jc converts with `i128::try_from`, and a value past `i128::MAX` is refused as past the bound.

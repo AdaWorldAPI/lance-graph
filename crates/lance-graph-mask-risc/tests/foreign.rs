@@ -5,9 +5,9 @@
 use lance_graph_mask_risc::exec::{execute_extent, execute_into, Scratch};
 use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch_with_foreign};
 use lance_graph_mask_risc::{
-    scratch_words_for, words_for, ExecError, Foreign, ForeignPlane, GroupCrossMoments, GroupFold,
-    GroupKey, GroupMoments, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program,
-    Terminal, Value, GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
+    scratch_words_for, words_for, CrossPowerSums, ExecError, Foreign, ForeignPlane, GroupFold,
+    GroupKey, LaneKind, LaneRef, MaskOp, Operand, Out, Planes, PowerSums, Pred, Program, Terminal,
+    Value, GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -1633,7 +1633,7 @@ fn group_moments_match_the_oracle_for_every_key_address() {
             let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
             let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
             // Dirty sinks on purpose: the terminal must seed them itself.
-            let dirty = GroupMoments {
+            let dirty = PowerSums {
                 n: 7,
                 sum: -7,
                 sum_sq: 7,
@@ -1690,7 +1690,7 @@ fn group_moments_refuses_malformed_programs() {
         );
         reference_execute_into(&p, &planes, &none, out)
     };
-    let mut sink = vec![GroupMoments::EMPTY; 4];
+    let mut sink = vec![PowerSums::default(); 4];
     // `val` must be an I32 lane (lane 1 is U32).
     assert!(matches!(
         run(
@@ -1750,7 +1750,7 @@ fn group_moments_refuses_malformed_programs() {
         lanes: &lanes,
     };
     let mut s = Scratch::for_program(&p, n).expect("scratch");
-    let mut sink = vec![GroupMoments::EMPTY; 4];
+    let mut sink = vec![PowerSums::default(); 4];
     assert_eq!(
         execute_extent(&p, &planes, &none, &mut s, Out::Moments(&mut sink), 10..20),
         Err(ExecError::ExtentUnsupported {
@@ -1759,7 +1759,7 @@ fn group_moments_refuses_malformed_programs() {
     );
     assert_eq!(
         sink,
-        vec![GroupMoments::EMPTY; 4],
+        vec![PowerSums::default(); 4],
         "a refusal writes nothing"
     );
 }
@@ -1838,10 +1838,10 @@ fn group_cross_moments_match_the_oracle_for_every_key_address() {
             let slots = p.scratch_slots as usize;
             let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
             let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
-            let dirty = GroupCrossMoments {
+            let dirty = CrossPowerSums {
                 n: 3,
                 sum_xy: -3,
-                ..GroupCrossMoments::EMPTY
+                ..CrossPowerSums::default()
             };
             let mut got_out = vec![dirty; groups];
             let got = execute_into(
@@ -1899,7 +1899,7 @@ fn group_cross_moments_refuses_malformed_programs() {
     let run = |t: Terminal, out: Out<'_>| {
         reference_execute_into(&Program::new(vec![], t), &planes, &none, out)
     };
-    let mut sink = vec![GroupCrossMoments::EMPTY; 4];
+    let mut sink = vec![CrossPowerSums::default(); 4];
     for (x, y) in [(1u16, 4u16), (2, 1)] {
         assert!(
             matches!(
@@ -1909,7 +1909,7 @@ fn group_cross_moments_refuses_malformed_programs() {
             "x={x} y={y}"
         );
     }
-    let mut univariate = vec![GroupMoments::EMPTY; 4];
+    let mut univariate = vec![PowerSums::default(); 4];
     for out in [
         Out::None,
         Out::Moments(&mut univariate),
@@ -1939,13 +1939,13 @@ fn group_cross_moments_refuses_malformed_programs() {
     );
     assert_eq!(
         sink,
-        vec![GroupCrossMoments::EMPTY; 4],
+        vec![CrossPowerSums::default(); 4],
         "a refusal writes nothing"
     );
     // x == y is legal and folds the univariate moments.
-    let mut same = vec![GroupCrossMoments::EMPTY; 4];
+    let mut same = vec![CrossPowerSums::default(); 4];
     run(term(2, 2), Out::CrossMoments(&mut same)).expect("x == y is legal");
     assert!(same
         .iter()
-        .all(|g| g.sum_x == g.sum_y && g.sum_xy == g.sum_x2));
+        .all(|g| g.sum_x == g.sum_y && u128::try_from(g.sum_xy) == Ok(g.sum_x_sq)));
 }
