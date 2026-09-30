@@ -62,8 +62,8 @@ pub struct MailboxSoA<const N: usize> {
 
     /// Per-row spatial-temporal energy accumulator.
     /// Energy integrates signed-mantissa × confidence contributions from
-    /// the `CausalEdge64` registers applied to the row (`apply_edges`) until
-    /// threshold crossing.
+    /// incoming `CausalEdge64` batons — the ALU registers handed to the row
+    /// for the next cycle (`apply_edges`) — until threshold crossing.
     pub energy: [f32; N],
 
     /// Per-row Hebbian integration counter (saturating u8 per W6 §4.4).
@@ -87,10 +87,10 @@ pub struct MailboxSoA<const N: usize> {
     pub last_write_cycle: [u32; N],
 
     // ── NEW: migrated thoughtspace columns (per-mailbox owned, D-MBX-A1) ──
-    /// Per-row `CausalEdge64` (8 B/row) — the ALU register itself: the NARS
-    /// truth, Pearl 2³ mask and inference operations run on this `u64`
-    /// directly, and it is what carries the row's causal state from one cycle
-    /// into the next (the "baton" metaphor). It is not a reference to anything.
+    /// Per-row `CausalEdge64` baton (8 B/row) — the ALU register itself: the
+    /// NARS truth, Pearl 2³ mask and inference operations run on this `u64`
+    /// directly, and the baton is how the row's causal state reaches the next
+    /// cycle — the same register, handed on. It is not a reference to anything.
     /// Migrated from `BindSpace.edges` (EdgeColumn).
     pub edges: [CausalEdge64; N],
 
@@ -269,7 +269,7 @@ pub struct WriteCell<'a> {
     pub topic: Option<&'a [u64]>,
     /// Angle identity plane (`WORDS_PER_FP` u64) — borrowed.
     pub angle: Option<&'a [u64]>,
-    /// The row's `CausalEdge64` register.
+    /// The row's `CausalEdge64` baton (the ALU register handed to the next cycle).
     pub edge: Option<CausalEdge64>,
     /// Affective i4-16D vector.
     pub qualia: Option<QualiaI4_16D>,
@@ -580,7 +580,7 @@ impl<const N: usize> MailboxSoA<N> {
 
     // ── Thoughtspace column accessors (D-MBX-A1) ─────────────────────────────
 
-    /// Return the `CausalEdge64` register for `row`.
+    /// Return the `CausalEdge64` baton (the row's ALU register) for `row`.
     ///
     /// Panics (debug) / wraps (release) on out-of-bounds; callers
     /// should stay within `[0, N)`.
@@ -589,7 +589,7 @@ impl<const N: usize> MailboxSoA<N> {
         self.edges[row]
     }
 
-    /// Set the `CausalEdge64` register for `row`.
+    /// Set the `CausalEdge64` baton (the row's ALU register) for `row`.
     ///
     /// Panics (debug) / wraps (release) on out-of-bounds; callers
     /// should stay within `[0, N)`.
