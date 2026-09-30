@@ -731,7 +731,11 @@ struct PatternShape {
 
 impl PatternShape {
     /// `None` for anything that is not one linear pattern: a `Join`, an
-    /// `Unwind`, a nested projection (`WITH`) or an unknown operator.
+    /// `Unwind`, a nested projection (`WITH`), an unknown operator, hops that
+    /// do not chain (each hop's source must be the next inner hop's target,
+    /// or the scanned variable), or a variable bound twice. The last two are
+    /// what the planner emits for `MATCH (a)->(b), (a)->(c)` and
+    /// `(a)->(b)->(a)`: both need binding identity a forward mask chain lacks.
     fn of(op: &LogicalOperator) -> Option<Self> {
         let mut shape = PatternShape {
             hops: 0,
@@ -739,6 +743,9 @@ impl PatternShape {
             relationship_vars: Vec::new(),
             cross_variable_filter: false,
         };
+        // The source the next inner hop (or the scan) must produce.
+        let mut expect: Option<&str> = None;
+        let mut bound: Vec<&str> = Vec::new();
         let mut op = op;
         loop {
             match op {
@@ -754,16 +761,25 @@ impl PatternShape {
                 }
                 LogicalOperator::Expand {
                     input,
+                    source_variable,
                     target_variable,
                     relationship_variable,
                     ..
                 }
                 | LogicalOperator::VariableLengthExpand {
                     input,
+                    source_variable,
                     target_variable,
                     relationship_variable,
                     ..
                 } => {
+                    if expect.is_some_and(|e| e != target_variable)
+                        || bound.contains(&target_variable.as_str())
+                    {
+                        return None;
+                    }
+                    bound.push(target_variable);
+                    expect = Some(source_variable);
                     // The outermost hop is the last one: its target is terminal.
                     if shape.hops == 0 {
                         shape.terminal = target_variable.clone();
@@ -775,6 +791,9 @@ impl PatternShape {
                     op = input;
                 }
                 LogicalOperator::ScanByLabel { variable, .. } => {
+                    if expect.is_some_and(|e| e != variable) || bound.contains(&variable.as_str()) {
+                        return None;
+                    }
                     if shape.hops == 0 {
                         shape.terminal = variable.clone();
                     }
@@ -1769,6 +1788,32 @@ mod tests {
         // A single-variable WHERE after a hop is not a cross-variable filter.
         assert_eq!(
             two_hop("WHERE c.age > 30 RETURN count(DISTINCT c) AS n"),
+            ConsumerSemantics::TerminalSet
+        );
+    }
+
+    #[test]
+    fn hops_that_do_not_chain_are_not_a_forward_mask_chain() {
+        // Two arms sharing `a`: the planner nests the Expands, but the outer
+        // hop's source is `a`, not the inner hop's target `b`.
+        assert_eq!(
+            semantics(
+                "MATCH (a:Person)-[:KNOWS]->(b:Person), (a)-[:KNOWS]->(c:Person) \
+                 RETURN count(DISTINCT c) AS n"
+            ),
+            ConsumerSemantics::Bindings
+        );
+        // A variable bound twice closes a cycle: binding identity again.
+        assert_eq!(
+            semantics(
+                "MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(a) \
+                 RETURN count(DISTINCT b) AS n"
+            ),
+            ConsumerSemantics::Bindings
+        );
+        // Silence twin: a genuine chain still classifies.
+        assert_eq!(
+            two_hop("RETURN count(DISTINCT c) AS n"),
             ConsumerSemantics::TerminalSet
         );
     }
