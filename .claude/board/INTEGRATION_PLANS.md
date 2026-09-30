@@ -1,3 +1,17 @@
+## 2026-09-30 (7) — deepnsm-v2-cam96-pairwise-v5 — §11R: the socket is an observation contract, not an instruction set (revises (6), after #1305) → `-v5.md` §11R
+
+**Status:** revised, spec only. #1305's committed findings decide it:
+- a mask is support, not bag (2-hop `count(*)` 4 vs popcount 3);
+- a forward chain is the exact support of the terminal only;
+- DataFusion counts walks (5 vs trail 4);
+- `consumer_semantics()` names five carrier kinds.
+
+The stable socket is therefore population · relation (a population with two index lanes, not a fourth primitive) · step(observation) → answer or `Insufficient`. mask-risc's MASK · TRANSPORT · REDUCE become lowering vocabulary below it. One directed hop lowers to ONE existing mask-risc `Program`, and the five #1305 kinds map onto its five observations exactly at k = 1.
+
+Frozen as law: a carrier crosses a boundary only if sufficient for every promised observation; path semantics is explicit; zero means false only inside a declared `(space, epoch)` domain; rendering is outside computation. Measured violation of the last-but-one: mask-risc's zero fallback plus length-only foreign checks (`ISS-MASK-RISC-ZERO-FALLBACK-IS-NOT-EVALUATED-FALSE`).
+
+The `ScatterOrU32` prohibition is not relaxed; the condition for a future relaxation is recorded. `CausalEdge64` stays above: a value lane, not a relation. Next PR: quack observation types + the existing doc⋈line⋈partner DuckDB oracle.
+
 ## 2026-09-30 (6) — deepnsm-v2-cam96-pairwise-v5 — §11: the execution socket under the lexical substrate (D-CPW-15) → `-v5.md` §11
 
 **Status:** ruled, spec only. The socket the lexical/cognitive stack lowers into already exists: `lance-graph-mask-risc`'s IR (`Program`, `Planes`/`LaneRef`/`Foreign`, `Value`/`Out`). `lance-graph-quack` is the DuckDB-shaped surface ABOVE it, not the ABI. The proposed six verbs reduce to three families already in the IR: MASK, TRANSPORT (`Gather` / `ScatterOrU32` / `EqU32Via` / `GroupKey::Via`) and REDUCE (one terminal). SELECT would be the forbidden `SelectionVector`; multi-hop traversal is OPEN. `CausalEdge64` crosses as a borrowed `u64` lane (`edges_raw()`), bit-preserving; its feature-gated layout stays above the line. Firewall: mask-risc depends on `ndarray` only, through `ndarray::simd`. Falsifiers G-SOCK-1..5: exact equality holds because the IR is integer-only. Measured gap: `MatchU64` is exercised only at bits 12–15. Open: Arrow `ListArray` needs a segment view (`ISS-MASK-RISC-HAS-NO-SEGMENT-VIEW`).

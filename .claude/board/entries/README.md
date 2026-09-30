@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-179 entries, 2026-08-06 .. 2026-09-30.
+180 entries, 2026-08-06 .. 2026-09-30.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-09-30 | `three-reference-sets-are-not-ordinal-aligned` |  | [2026-09-30-three-reference-sets-are-not-ordinal-aligned.md](2026-09-30-three-reference-sets-are-not-ordinal-aligned.md) |
+| 2026-09-30 | `the-socket-is-an-observation-contract` |  | [2026-09-30-the-socket-is-an-observation-contract.md](2026-09-30-the-socket-is-an-observation-contract.md) |
 | 2026-09-30 | `the-execution-socket-is-mask-risc-ir` |  | [2026-09-30-the-execution-socket-is-mask-risc-ir.md](2026-09-30-the-execution-socket-is-mask-risc-ir.md) |
 | 2026-09-29 | `deepnsm-v2-counted-pick-tag-deltas` |  | [2026-09-29-deepnsm-v2-counted-pick-tag-deltas.md](2026-09-29-deepnsm-v2-counted-pick-tag-deltas.md) |
 | 2026-09-29 | `cam96-is-twelve-axes-not-six-pairs` |  | [2026-09-29-cam96-is-twelve-axes-not-six-pairs.md](2026-09-29-cam96-is-twelve-axes-not-six-pairs.md) |
