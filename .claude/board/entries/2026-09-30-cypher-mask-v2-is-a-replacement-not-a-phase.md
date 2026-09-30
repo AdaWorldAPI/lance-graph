@@ -11,6 +11,8 @@
 - v1's seam (inside `query.rs`) and the modelgraph plan's `NodeMapping` field (inside `config.rs`) are both edits to upstream files. v2 moves both into the new crate.
 - W0-b: 113 of the 303 classified queries lower fully (37.3 %). Under v2, the rest are refusals.
 
+- #1305 closed unmerged; its six must-have facts are in plan §12 (branch `ccr-2fcc2bd3-8o7m2l` @ `67abd29` keeps the rest). Its `consumer_semantics()` is not ported: per-path carriers are refused, not carried.
+
 ## Open
 - Whether the assumed upstream/fork split of files holds (D-CML-0).
 - Which in-row carriers hold absolute vs relative targets, and whether mask-risc needs a `Shift` op (OQ-CML-2).

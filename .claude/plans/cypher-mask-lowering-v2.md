@@ -5,7 +5,8 @@
 > **Supersedes:** `cypher-mask-lowering-v1.md` on three points, listed in §1.
 > Everything else in v1 still stands: the lowering table (§3), the placement ruling
 > (§5.2), the substrate laws (§5.3), the non-goals N-2..N-12 and the falsifier discipline
-> (§7.5). v1 is cited here, not restated.
+> (§7.5). v1 is cited here, not restated. **One caveat on that table, from #1305
+> (§12 H-6):** its count, terminal and fixpoint rows hold only BEFORE the first hop.
 > **Board:** `STATUS_BOARD.md` § cypher-mask-lowering-v2 · entry
 > `entries/2026-09-30-cypher-mask-v2-is-a-replacement-not-a-phase.md`.
 
@@ -200,7 +201,9 @@ queries from a walk of the tree) found 113 **Full** (37.3 %). Everything else wa
 `Split` or `Grace`. Under v2 those become **refusals**, so the mask engine answers
 **37.3 % of the committed corpus** on day one. The number is a property of the
 corpus's test queries, most of which exercise DataFusion features on purpose. It is
-not a property of the queries a consumer actually sends. D-CML-2 re-runs the census
+not a property of the queries a consumer actually sends. **The 37.3 % is an upper
+bound (§12 H-5):** once path multiplicity is classified, #1305 reports 70 Full of 313
+(≈ 22 %) — reported there, not re-run here. D-CML-2 re-runs the census
 under the v2 classifier and reports the count for each refusal variant.
 
 ---
@@ -248,7 +251,7 @@ with a number attached.
 |---|---|---|---|
 | **D-CML-0** | Verify the §2 upstream/fork split against upstream history. Create the crate skeleton (workspace member, three deps, import fence test). Measure OQ-CML-1(a): DataFusion symbols in a release build of the skeleton | — | a §2 file is fork-owned (the split is redrawn, not the design) |
 | **D-CML-1** | `Route` + `run` stub that refuses everything with `R-UNBOUND-LABEL`. The switch compiles and is honest from day one | 0 | — |
-| **D-CML-2** | **The classifier.** Walk the public `LogicalOperator` and return `Lowerable` or the §5 variant. Reimplement #1305's carrier-kind logic (`consumer_semantics()`: TerminalSet / EarlierSet / TerminalCount / EarlierCount / Bindings) **here**, over the public enum, because #1305 put it inside `logical_plan.rs`, an upstream file. Re-run the W0-b census under v2 and report per-variant counts | 0 | — |
+| **D-CML-2** | **The classifier.** Walk the public `LogicalOperator` and return `Lowerable { variables whose node sets are asked for }` or a §5 `Refusal`. Two answers only. **#1305's `consumer_semantics()` is NOT ported:** its count and binding kinds describe per-path state to be carried through a hop, and v2 refuses those queries instead (§12). Ported from #1305: the three pattern-shape refusals (§12 H-4) and the fixtures (§12 H-1..H-3). Re-run the W0-b census under v2 and report per-variant counts | 0 | — |
 | **D-CML-3** | `LabelBinding` — label → `LabelDTO` → classid, built from `LabelDTO::from_canonical`. First consumer of `LabelDTO`. Settle the classid width (v1 OQ-1: `u16` in `class_view.rs`, `u32` facet prefix) by reading a real bake | 0 | the bake's labels are not in the codebook (modelgraph §16.3 already measured this caveat), in which case the binding is supplied explicitly by the consumer, never guessed |
 | **D-CML-4** | Node + predicate + Boolean lowering (v1 Wave 1 scope) through `mask_risc::execute`. The class scan is a `Pred` over `MailboxSoaView`. **`mailbox_scan::match_nodes_by_class` (which returns a `Vec`) is not used and not edited** | 2, 3 | — |
 | **D-CML-5** | The hop over an in-row lane (§4.1), absolute targets first | 4, OQ-CML-2 | the relationship's targets are only relative and no `Shift` exists → substrate-first PR in mask-risc/ndarray, then resume |
@@ -271,7 +274,7 @@ is the first step that executes anything.
 | **F-CML-REFUSE** (can-fire) | every §5 variant is produced by at least one committed query | delete a variant's arm; its query must now either lower (and fail the differential) or panic |
 | **F-CML-QUIET** (can-stay-silent) | a lowerable query produces no refusal, on a corpus where the refusals are a minority of queries that are not trivial | force the classifier to refuse `WHERE`; the Full count must drop |
 | **F-CML-SUPPORT** | for every lowerable query, the mask equals the DataFusion `DISTINCT` node set of the returned variable, as a set | the v1 wrong-immediate test (`AND2 0xC0` for `AND3 0x80`) must go red on at least one fixture |
-| **F-CML-BAG** | a 2-hop `count(*)` is **refused**, not answered with a popcount (#1305's 4 vs 3) | remove R-BAG; the differential must disagree |
+| **F-CML-BAG** | a 2-hop `count(*)` is **refused**, not answered with a popcount (§12 H-1: 4 paths vs 3 nodes) | remove R-BAG; the differential must disagree |
 | **F-CML-NOMIX** | under `Route::Mask`, a refused query never reaches `CypherQuery::execute` | a counting shim on the upstream entry must read 0 |
 
 ---
@@ -306,3 +309,25 @@ Neither PR is closed or changed by this plan. That decision is the operator's.
 - INTEGRATION_PLANS prepend.
 - The board entry named in the header.
 - `entries_index.py --write`, then `SUPERSESSION-INDEX` regenerated **last**.
+
+---
+
+## §12 — Harvested from #1305 (not merged; evidence stays on its branch)
+
+#1305 (`cypher-mask-multiplicity-contract-v1`) is **closed unmerged**: its code put a
+per-path carrier classifier (`consumer_semantics()`) into the upstream
+`logical_plan.rs`, which v2 rules out twice (upstream edit; counting in traversal).
+Its **measurements** are correct and v2 depends on them. These six are the must-haves.
+Everything else — the classifier's five kinds, the count lanes (D-CMM-4/5/6),
+`carrier_sufficiency.py`, the edits to v1 and to the DataFusion test file — stays on
+branch `ccr-2fcc2bd3-8o7m2l` at `67abd29` and is not needed by v2.
+
+| id | fact | where v2 uses it |
+|---|---|---|
+| **H-1** | **A mask is support, not bag.** Cypher `count(*)` after a hop counts PATHS; a popcount counts NODES. Fixture: KNOWS = {1→2, 1→3, 2→3, 3→4, 4→5}; 2-hop `count(*)` = **4** (paths), mask = **3** (end nodes). Same 4 vs 3 for the var-length form | §5 R-BAG; F-CML-BAG |
+| **H-2** | **A forward chain gives the exact node set of the LAST variable only.** An earlier variable's set is not the forward frontier (`count(DISTINCT b)`: 3 vs 4); it needs a backward hop over the reverse lane, or R-TRANSPOSE | D-CML-4/5 lowering; the classifier's `Lowerable` must name WHICH variables are asked for |
+| **H-3** | **DataFusion counts walks, and walks ≠ trails.** On {1→2, 2→1, 2→2} DataFusion returns **5** walks; trails are **4**. They diverge without a cycle too: `(a)->(b)<-(c)` on {1→2} = 1 walk, 0 trails. "Path count" is therefore not one notion | D-CML-8 compares on `DISTINCT` node sets ONLY, never counts; §4.2 refuses path questions |
+| **H-4** | **Three pattern shapes are not a chain** and must be refused, not lowered as one (each was a real bug caught in review on #1305): hops that do not connect end to end; a variable bound twice (at a hop or at the pattern start); two disconnected patterns | D-CML-2 refusals |
+| **H-5** | **The census drops once multiplicity is classified:** Full 117 → **70** of **313** (≈ 22 %), against the 37.3 % (113/303) quoted in §5 | §5 cost; §6 flip gate |
+| **H-6** | **v1's terminal rows are pre-hop only.** T-1..T-7, T-11 and R-6..R-8 hold before the first hop; after a hop they hold only as `DISTINCT` node sets | §0 header caveat; D-CML-4..7 |
+

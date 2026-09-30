@@ -11,8 +11,11 @@
   one query at a time.
 - **Hops** read relations stored in the row (second facet, witness loci, rails),
   never an external edge table. Traversal counts nothing.
-- **Measured cost:** 37.3 % of the committed corpus lowers today. Everything else is
+- **Measured cost:** at most 37.3 % of the committed corpus lowers today; #1305
+  reports ≈ 22 % (70/313) once path multiplicity is classified. Everything else is
   refused.
+- **Harvested from #1305** (closed unmerged): six facts in plan §12; its classifier is
+  not ported.
 - **Open:** DataFusion stays in the build graph through the `lance-graph` dependency
   (OQ-CML-1); absolute vs relative in-row targets and a mask `Shift` op (OQ-CML-2).
 

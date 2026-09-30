@@ -311,7 +311,7 @@ evaluates one; `execute` stays the consumer's call on a scratch it owns.
 |---|---|---|---|
 | D-CML-0 | verify the upstream/fork file split; crate skeleton `lance-graph-cypher-mask` + import fence; measure DataFusion symbols in a release build (OQ-CML-1) | Queued | F-CML-UP (one byte in `parser.rs` reddens); F-CML-FENCE |
 | D-CML-1 | `Route {Mask, Upstream}` + `run` stub refusing everything | Queued | under `Mask` a counting shim on the upstream entry reads 0 (F-CML-NOMIX) |
-| D-CML-2 | classifier over the public `LogicalOperator` → lowerable or a §5 `Refusal`; #1305's five carrier kinds reimplemented here; W0-b census re-run per refusal variant | Queued | F-CML-REFUSE (every variant fired by a committed query) + F-CML-QUIET |
+| D-CML-2 | classifier over the public `LogicalOperator` → lowerable or a §5 `Refusal`; ⊘ 2026-09-30: #1305's `consumer_semantics()` NOT ported (plan §12) — only its three pattern-shape refusals and fixtures; W0-b census re-run per refusal variant | Queued | F-CML-REFUSE (every variant fired by a committed query) + F-CML-QUIET |
 | D-CML-3 | `LabelBinding` label → `LabelDTO` → classid, outside `GraphConfig`; classid width read from a real bake | Queued | an unbound label refuses (`R-UNBOUND-LABEL`), never guesses |
 | D-CML-4 | node + predicate + Boolean lowering through `mask_risc::execute`; class scan as a `Pred`, `match_nodes_by_class` unused | Queued | F-CML-SUPPORT set equality vs DataFusion `DISTINCT`; wrong-immediate reddens |
 | D-CML-5 | hop over an in-row absolute-target lane (`ScatterOrU32`); no external edge table | Queued | asymmetric fixture; one-population refusal |
