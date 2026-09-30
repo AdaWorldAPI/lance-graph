@@ -13,6 +13,17 @@
   census regraded.
 - No frozen decision overridden; F3's carrier list narrowed by declaration.
   Plan only, plus the D-CML-10 storno note.
+## 2026-09-30 — 5+3 council on `deepnsm-v2-lexical-address-v1` (PR #1307)
+
+- The 5: prior-art, iron-rule, code truth, cascade-impact, creative-explorer.
+  0 VIOLATES; every §2 number reproduced from the CSVs. Draft v2: 11 changes.
+- The 3: overclaim-auditor, dilution-collapse-sentinel, firewall-warden.
+  1 BLOCK (§3.1: option (a) called an alpha bit), 22 FIX. v3: 11 more changes —
+  two keys (`WordId` surface, `LexicalAddress` reading), `c` renamed
+  `lemma_evidence` (not a truth pair, no `TruthU8`), per-table known mask with
+  `Option<Prior>`, §3.1 rewritten with option (d), D-LXA-4 gated on a contract plan.
+- One conflict with a frozen decision (F4 vs the alpha channel's definition) is
+  escalated as `ISS-LXA-ALPHA-FIT`, not overridden. Plan only; no code.
 
 ## 2026-09-30 — correction to the two D-LXC-1 / D-LXC-11 entries below
 

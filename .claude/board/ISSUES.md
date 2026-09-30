@@ -1,8 +1,24 @@
+## ISS-LXA-ALPHA-FIT — known/unknown for the COCA bake vs the alpha channel's own definition (2026-09-30)
+
+**Status:** OPEN — operator escalation. **Basis:** VERIFIED-IN-CODE (5+3 council on
+`deepnsm-v2-lexical-address-v1`, §3.1).
+- The ruling says known/unknown uses the alpha channel split tunnel. The alpha channel
+  is defined as not a bake (no digest, discardable whole, `alpha.rs:11-16, 857-861`);
+  `claim` writes only a stamp (`alpha.rs:683-716`); the overlay sits only over
+  `&[NodeRow]` (`alpha.rs:531`); its bit means "attended". "Known" is a baked, digested
+  fact, and F3 (nothing counted at runtime) leaves the write side nothing to carry.
+- Options (plan §3.1): (a) baked coverage mask shaped like `AlphaMask`; (b) codebook
+  entries as `NodeRow`s; (c) a non-`NodeRow` alpha overlay meaning "measured";
+  (d) = (a) plus the unchanged overlay as the attention recorder over the codebook.
+  Council recommendation: (d).
+- **What closes it:** the operator's choice. D-LXA-3 is blocked until then.
+
 ## ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE — the driver packs p64 plane bits as a CausalMask; the inverse reads bit 2 differently (2026-09-30)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE on `main` `0d31c54f`. `cognitive-shader-driver` `driver.rs` (emission stage) packs `CausalMask::from_bits(h.predicates & 0x07)`, where `predicates` is the p64 predicate-plane byte: bit0 CAUSES, bit1 ENABLES, **bit2 SUPPORTS** (`p64-bridge` `SUPPORTS = 2`). `p64-bridge::edge_to_layer_mask` maps mask bit 2 (confounding) to **CONTRADICTS**. Emit and its inverse disagree on bit 2; three mask vocabularies (rung, Pearl, p64) meet at one byte.
 - Found during PR #1303 (closed unmerged); recorded with `deepnsm-v2-lexical-address-v1.md` §6, which does not depend on it.
 - **What closes it:** one named mapping in `p64-bridge` used by both directions, with a round-trip test that can fail on bit 2.
+- **Also (5+3 council, 2026-09-30):** sites `driver.rs:489`, `p64-bridge/src/lib.rs:74-75, 123-124`. Inference type 1 also sets SUPPORTS (`lib.rs:81`), and `driver.rs:706-720` keeps its own local predicate-bit table; the one mapping must cover both.
 
 ## ISS-REPORT-NO-COMPOSITE-KEY-GROUP-FOLD — a 2-D fold costs one pass per partition member (2026-09-23)
 
