@@ -28,9 +28,18 @@ The operator's statement, in order, verbatim where quoted:
 
 **Kept (independent of the struck half):** F23 three references and `ReferenceSet` (§3.7, D-CPW-14, G-REF); `self_code` as the basin's own identity (F25, D-CPW-7, G-SELF); the COCA prior `<f,c>` (L-1, D-CPW-9, G-FC); register-F (L-3, D-CPW-13, G-F); lemma routing (L-4, D-CPW-11); the Fisher-z LUT move into the contract (D-CPW-1) — which gains weight, since the LUT IS the representation.
 
-**Open, stated plainly, not decided here:** how the calibrated codebook assigns a word its two needles. The canon entry `E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` fixes what the pair IS; the assignment lives in the codebook artifact and is read from it, not designed in a plan.
+**⊘ CORRECTION 2 (operator, 2026-09-30, after the artifact check) — `[a,b]` identifies a WORD, not two poles.** The artifact check found that nothing shipped, released, or in Tigris assigns a word two needles: the COCA CAM-PQ gives six (one per subspace), bgz17/bgz-tensor `nearest`/`assign` give one, and "(nearest : second-nearest)" originated in v1 with no source. The operator then pinned the unit of representation:
 
-Closeout: `STATUS: retracted-in-part | OUTCOME: the embedding-slice half of v5 struck; word = LUT cell, six words per facet; references/self_code/COCA prior stand | OPEN: needle assignment per word (codebook artifact)`.
+> *Six lexical slots, not six embedding subspaces. Each slot's two-byte address resolves through an immutable, versioned lexical codebook; the driver supplies the selected relational reading.*
+
+- **The 96-bit payload is `[a_0,b_0] [a_1,b_1] … [a_5,b_5]`: six word slots.** Each pair is a 16-bit lexical address — 65,536 addressable cells, enough for either vocabulary — resolving to a word's **declared reading** (lemma + PoS) in an immutable, versioned lexical codebook (`ReferenceSet`, F23). The split into two bytes carries no semantics of its own.
+- **Two interpretations were being silently conflated and are now separated:** (1) `[a,b]` identifies a word (unique identity, exact, this spec); (2) `[a,b]` identifies two lexical poles whose cell is a relation (not automatically a word identity). v4/v5's "nearest and second-nearest centroid" substituted (2) for (1). **(1) is the representation.** (2) is not a unit of identity anywhere in this spec.
+- **Relations are the driver's job, not the bytes'.** The cognitive shader driver supplies the selected relational reading between two resolved words, calibrated by Fisher-z through the LUT. Fisher-z governs relation values; it never makes word identity fuzzy.
+- **Embeddings are an optional comparison instrument, never the runtime intermediary and never what the bytes mean.** Embedding reconstruction is NOT an acceptance criterion (it would force the representation to imitate a different architecture). Every fidelity gate against Jina reconstructions is struck as a criterion; it may remain as a comparison report.
+- **The first regression (G-LEX, replaces every fidelity gate as the first gate):** exact lexical address resolution — every declared vocabulary entry of a `ReferenceSet` resolves to exactly its declared reading; lemma/PoS distinctions survive round-trip; identical ordinals from different codebooks never cross-read (a resolution against the wrong `ReferenceSet` is refused, never a different word). This is G-REF's first half made concrete; D-CPW-14's correspondence artifact is its fixture.
+- D-CPW-2 re-scoped: the slot type is a 16-bit lexical address with its `ReferenceSet`, resolved through the versioned codebook — no centroids, no nearest-anything.
+
+Closeout: `STATUS: corrected | OUTCOME: [a,b] = a word's 16-bit lexical address in a versioned codebook; six word slots per facet; relations driver-supplied, Fisher-z calibrated; embeddings optional comparison only | OPEN: which relational reading(s) the driver selects between two resolved words (ClassView), and the LUT that carries them — not decided here`.
 
 ## 0. The rulings this version records
 
