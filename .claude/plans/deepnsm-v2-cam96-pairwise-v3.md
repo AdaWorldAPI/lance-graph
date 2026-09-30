@@ -227,7 +227,7 @@ Every guard gets a disable run: red with the guard removed, green with it back. 
 - deepnsm-v2 docs: `data/README.md` and `probes/README.md` §4.
 - The contract's `episodic_basin.rs`, `canonical_node.rs`, `band_reading.rs:151` and `lib.rs:98-99`.
 - `arigraph/episodic.rs:215-233`, `:959`.
-- `.claude/v3/soa_layout/tenants.md:58`.
+- `.claude/v3/soa_layout/tenants.md`, the tenant-table row `EpisodicBasin` (D-ACR-6 rail).
 
 **The codec move (D-C96P-1).**
 - `bgz-tensor/Cargo.toml:27`: the contract dependency becomes required.
