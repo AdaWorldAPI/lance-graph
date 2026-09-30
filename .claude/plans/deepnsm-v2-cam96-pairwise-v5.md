@@ -1,7 +1,7 @@
 # deepnsm-v2 Cam96 pairwise — v5 RATIFIED: the L4 identity facet, its readings, the COCA fixed points, three reference sets
 
 **Status:** RETRACTED-IN-PART (operator, 2026-09-30, same day) — see § ⊘ RETRACTION directly below; it overrides §3.1–3.3, the word-register half of §3.2, and the gates and D-ids it names. What it does not name stands. Was: RATIFIED by the second 5+3 council (2026-09-30). Supersedes `-v4.md` and `-v3.md` §3, §6.3, §7. Council record: `AGENT_LOG.md` 2026-09-30 (2).
-**Deliverables:** §10 (`D-CPW-*`), read through the retraction. **§11 (added 2026-09-30):** the execution socket beneath the lexical substrate — D-CPW-15, spec only.
+**Deliverables:** §10 (`D-CPW-*`), read through the retraction. **§11 (added 2026-09-30):** the execution socket beneath the lexical substrate — D-CPW-15, spec only; **read through §11R** (same day, after #1305), which moves the socket from instruction families to an observation contract.
 
 ## ⊘ RETRACTION (operator ruling, 2026-09-30) — the word is a cell of the spatial-perturbation LUT; nothing is sliced from an embedding
 
@@ -344,3 +344,109 @@ So: **MASK · TRANSPORT · REDUCE**, over the structural views of §11.1. No pri
 **Open for the operator:** whether "Quack" should become the umbrella name for the socket. In the repo today it names only the DuckDB-shaped surface above it; this ruling does not rename anything.
 
 Closeout: `STATUS: ruled (spec only) | OUTCOME: the execution socket is lance-graph-mask-risc's existing IR; three primitive families (MASK · TRANSPORT · REDUCE); CausalEdge64 crosses as a borrowed u64 lane and stays an above-the-line type | OPEN: segment view for Arrow ListArray; multi-hop traversal; umbrella naming`.
+
+## 11R. ⊘ REVISION of §11 (2026-09-30, same day, after reading #1305) — the socket is an OBSERVATION boundary; the mask-RISC families move below it
+
+**What changed.** §11 put the socket at mask-risc's instruction families (MASK · TRANSPORT · REDUCE). #1305 (`cypher-mask-multiplicity-contract-v1`, D-CMM-0..3, committed and test-pinned) shows that is the wrong level. Which information survives an operation decides correctness; which instruction computes it does not. §11 is kept as the record. This section overrides §11.3's framing of the three families as the socket, and §11.8's next PR. §11.2's invariant, §11.4 (`CausalEdge64` crosses as a `u64` lane), §11.5, §11.6 and §11.7's G-SOCK-1..5 stand, re-scoped to the whole stack below the firewall.
+
+**Provenance, stated plainly.** What #1305 **committed** (read 2026-09-30, branch `ccr-2fcc2bd3-8o7m2l`):
+- a mask is the SUPPORT of a frontier, never its bag: 2-hop `count(*)` is 4 under DataFusion and 3 as a mask popcount;
+- a forward chain is the exact support of the TERMINAL variable only: `count(DISTINCT b)` is 3 against the forward mask's 4;
+- DataFusion counts WALKS: 5 against Cypher's trail count of 4 on {1→2, 2→1, 2→2}, recorded OPEN;
+- `LogicalOperator::consumer_semantics()`, which classifies the carrier a consumer needs into five kinds and fails closed;
+- a `BindingFrontier { support, mult, binding }` shape in spec only;
+- a count lane queued as D-CMM-4.
+
+The `Population / Relation / step(observe) → Answer` candidate is **not in any pushed ref** (it appears in none of #1305's ten files). It is evaluated below on its merits against code; its Rust shapes are not adopted.
+
+### 11R.1 The layering the code supports
+| layer | contents | stability |
+|---|---|---|
+| **domain semantics** (above the firewall) | `ReferenceSet` / lexical readings, Fisher-z, `cognitive-shader-driver`, NARS / Pearl / EWA / HHTL, `CausalEdge64` bit meaning, Cypher/SQL surface semantics | free to evolve |
+| **═ firewall: the observation contract ═** | population · relation · step(observation) → answer or refusal; carrier sufficiency; declared path semantics; evaluated domain | the stable socket |
+| **lowering vocabulary** (internal) | mask-risc's MASK · TRANSPORT · REDUCE: `Pred`/`And`/`Ternlog`, `Gather`/`ScatterOrU32`/`EqU32Via`, `Count`/`Any`/`GroupReduce`/`CountKeyRunsU32` | may grow; never public |
+| **backends** | mask-risc over `ndarray::simd`; CSR/CSC (`planner/src/adjacency`); a future BLASgraph route | replaceable |
+| **adapters (rendering)** | DuckDB table function, Arrow, Java/Panama (`lgj-abi`), WASM | outside graph computation |
+
+The six earlier verbs belong to the lowering row, not the public one.
+
+### 11R.2 The eight rulings #1303 freezes (spec only; basis per line)
+1. **Domain machinery does not leak downward.** Nothing under the firewall names lexical, calibration, epistemic or cognitive-register concepts. *Basis:* §11.2 evidence (mask-risc `src/` has zero cognitive terms) plus the §11.6 dependency direction.
+2. **Population / relation / observation is the candidate mechanical boundary.** *Basis:* one directed hop lowers to ONE mask-risc `Program` over the edge table today (11R.3). *Status:* CANDIDATE until the 11R.8 differential is green.
+3. **A carrier may cross an operation boundary only if it is sufficient for every observation that boundary promises; otherwise the step answers `Insufficient` — never an approximation.** *Basis:* #1305 §0 (same terminal support, different `count(*)`).
+4. **Path semantics is an explicit input** (walk or trail), never an executor default. *Basis:* #1305 G1b (walk 5 vs trail 4); DataFusion counts walks and is in grace.
+5. **Unknown is not FALSE.** A zero means FALSE only inside a declared, fully evaluated domain of a named `(space, epoch)`. Outside it — not evaluated, out of range, stale epoch — the step refuses. *Basis:* 11R.6, which shows today's IR violates this silently.
+6. **Rendering and materialization are outside graph computation.** An answer is a scalar, a support mask, per-key counts or an edge mask in caller-owned memory; tables, Arrow arrays, Java segments and row ids are adapter work. *Basis:* mask-risc law A1 and the single named `materialize_rows`.
+7. **Backends are replaceable** behind the observation contract; equality is tested per observation (G-SOCK-1 re-scoped). A backend may be faster, never differently-answering.
+8. **#1303 implements none of this.**
+
+### 11R.3 Falsifying the candidate against code
+- **One hop, one program — VERIFIED from the IR.** Over the edge table as the executing population:
+  - `MaskOp::Gather { lane: src, foreign: from_support }` pulls the FROM population onto its edges;
+  - edge predicates filter the edges themselves;
+  - `Gather { lane: dst, foreign: to_support }` pulls the TO population onto its edges;
+  - `And` leaves the edge population E.
+
+  From E: `Exists` = `Any`; `Count` = `Count`; `Support(to)` = `ScatterOrU32` over `dst`; `CountBy(to)` = `GroupReduce { key: Lane(dst), fold: Count }`; `Edges` = `Keep`. The `from` side is symmetric. No binding row is built, and the edge mask carries relationship identity.
+- **Relation is not a fourth primitive — simplified.** A relation is a population (the edge address space) whose rows carry two functional index lanes into other spaces. The public contract needs population, index lane and observation; "relation" is the name of a population with two index lanes.
+- **The five #1305 consumer kinds map onto one hop's observations:** `TerminalSet` ↔ `Support(to)`; `EarlierSet` ↔ `Support(from)`; `TerminalCount` ↔ `Count` / `CountBy(to)`; `EarlierCount` ↔ `CountBy(from)`; `Bindings` ↔ `Edges` — exact at k = 1, because one binding IS one edge row. So #1305's classifier is the consumer-side twin of this contract: it names what a query needs, the step names what a carrier can answer.
+- **What the candidate cannot do today (named, not papered over):**
+  - A 2-hop `count(*)` needs the per-middle-node multiplicity folded into the next hop — a plus-times count lane (#1305's D-CMM-4). The IR has no such terminal, and feeding a `GroupReduce` sink into a second program is the forbidden intermediate.
+  - Trail semantics beyond one hop needs relationship identity across hops (the `Bindings` carrier).
+  - Both are `Insufficient` today, by rule 3.
+
+### 11R.4 Carrier sufficiency, and the `ScatterOrU32` prohibition
+| carrier leaving a step | Exists | Count | CountBy(side) | Support(side) | Edges | next step: Support | next step: Count |
+|---|---|---|---|---|---|---|---|
+| edge population E | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ only with a count lane (D-CMM-4) |
+| node support (after `ScatterOrU32`) | ✓ | ✗ | ✗ | own side only | ✗ | ✓ (walk reachability) | ✗ — multiplicity is gone |
+| node count lane (per-key counts) | ✓ | ✓ (Σ) | own side | own side | ✗ | ✓ | ✓ under WALK semantics only |
+
+mask-risc forbids a scattered mask from feeding another program (`Terminal::ScatterOrU32`'s survival condition). **#1303 does not relax that.** It records the condition under which a future PR may: a sink may feed a later step only if
+- (a) it is sufficient, per this table, for every observation the later step promises; and
+- (b) no direct projection could serve that later step without the intermediate (the tiled-execution ruling: an intermediate population is forbidden when the next fold can consume the projection directly).
+
+Both must hold; either alone is not enough.
+
+### 11R.5 Path semantics
+- **One directed hop:** walk ≡ trail by construction (one edge cannot repeat).
+- **More than one hop:** the caller declares `walk` or `trail`.
+  - A WALK count may compose count lanes.
+  - A TRAIL count needs edge identity across hops.
+  - Where the carrier cannot prove the declared semantics, the step answers `Insufficient`.
+- Neither default is baked in. DataFusion's walk count is a recorded divergence (#1305 D-CMM-5), not a reference semantics.
+
+### 11R.6 Unknown is not FALSE — what today's IR does, and the minimum machinery
+- **Measured in code:** mask-risc collapses unknown to false in three places.
+  - `Gather` out of range: `ir.rs` calls it the "zero-fallback … never an error".
+  - `Pred::EqU32Via`: an fk naming no foreign row "does not match".
+  - `GroupKey`: a key past the universe is dropped.
+- **Also measured:** a `ForeignPlane` is checked only by `rows`. A mask over the right-sized but wrong or stale table is accepted silently.
+- Inside a declared, fully evaluated domain with validated index lanes these are correct. The socket needs exactly three mechanical distinctions — **evaluated-true, evaluated-false, not-evaluated/insufficient** — and nothing epistemic:
+  - a `(space, epoch)` identity on every population and index lane, with equality required at every join point;
+  - a domain declaration: the population's zeros are evaluated falses;
+  - index-lane validation against the target space (in range, checked once per epoch).
+- NARS, HHTL and every graded-truth reading stay above; they receive `Insufficient` and decide what it means. Filed: `ISS-MASK-RISC-ZERO-FALLBACK-IS-NOT-EVALUATED-FALSE`.
+
+### 11R.7 `CausalEdge64` against this boundary
+- **Above the firewall.** In population/relation terms `CausalEdge64` is a value lane on a population, not a relation: its S/P/O bytes are 8-bit palette codes, not row addresses of any space, so they cannot serve as index lanes.
+- It enters only to produce a population (a support mask) through the lowering vocabulary, e.g. `Pred::MatchU64` over `edges_raw()` (§11.4), and leaves no trace in the observation contract.
+- Direct exposure buys no zero-copy that the generic `u64` lane lacks: the borrow is already copy-free. So the register stays a domain type.
+
+### 11R.8 The smallest next PR (supersedes §11.8's; not in #1303)
+**One crate (`lance-graph-quack`), the existing DuckDB oracle, no cognitive vocabulary.**
+- **Why quack:** quack is already the lowering surface that builds programs and never evaluates them.
+- **The data is already there:** the fixture in `tests/duckdb/data/` is a FROM–VIA–TO relation — `doc` ← `line.doc_id` · `line` · `line.partner_id` → `partner`.
+
+What the PR adds:
+1. **The observation contract as quack types.** Populations with `(space, epoch)`, rows and a domain declaration; a relation as an edge population with two index lanes; one directed hop; five observations; path semantics as a parameter, with `trail` beyond one hop answering `Insufficient`; a `Refusal` of `Insufficient` / `SpaceMismatch` / `EpochMismatch` / `NotEvaluated`. It lowers to ONE mask-risc `Program` or refuses. The Rust shapes are that PR's decision.
+2. **Cases in `cases.tsv`, regenerated by `oracle.py`, never hand-edited.** SQL joins over `doc ⋈ line ⋈ partner` as the oracle for `Exists`, `Count`, `Support(to)` (sorted rid list — the existing encoding), `CountBy(to)` / `CountBy(from)` (the existing grouped encoding) and `Edges`.
+3. **The #1305 counterexample on real data.** Two edge filters with the SAME `Support(to)` and different `Count`, asserted both ways (anti-vacuity: `Count > |Support|` on at least one). A `Count` requested from a node-support carrier must refuse `Insufficient`.
+4. **The unknown arm.** An index lane with one out-of-range value must refuse `NotEvaluated` rather than answer through the zero fallback. Mismatched `(space, epoch)` must refuse.
+5. **The two §11.8 guard files ride along:** `tests/firewall.rs` in mask-risc (deps == `{ndarray}`, integer-only) and full-width `MatchU64`. Plus one guard in quack: its `lance-graph-contract` imports stay within `{facet, ordered_lane}` — the lgj G11-fence pattern.
+
+**External story, no cognition in it:** graph observations over populations and relationship lanes, without first materializing one binding row per neighbour. The oracle is ordinary SQL.
+
+**Deliberately NOT in that PR:** multi-hop, the count lane (D-CMM-4), trail enforcement, Arrow/DuckDB/Java adapters, the segment view, any cognitive consumer. The cognitive substrate arrives later as one more consumer that lowers into populations.
+
+Closeout: `STATUS: revised (spec only) | OUTCOME: the stable socket is an observation contract (population · relation-as-population-with-index-lanes · step(observation) → answer | Insufficient); mask-RISC families are lowering vocabulary below it; carrier sufficiency, explicit path semantics and unknown ≠ false are frozen as law | OPEN: count lane for k>1; trail identity; (space, epoch) identity and the domain declaration in code; umbrella naming`.
