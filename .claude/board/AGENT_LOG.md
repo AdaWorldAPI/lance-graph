@@ -1,3 +1,19 @@
+## 2026-09-30 — 5+3 council on `cypher-mask-lowering-v2` (PR #1306)
+
+- The 5: prior-art, iron-rule, code truth, cascade-impact, creative-explorer.
+  0 VIOLATES; 38 findings. Draft v2: 21 changes (`run` over `&[NodeRow]`,
+  declared relationship carriers, `RF-*` refusals, D-CML-5a named).
+- The 3: overclaim-auditor, dilution-collapse-sentinel, firewall-warden.
+  1 BLOCK (§4: ordered compares and value aggregates marked "yes" over row
+  bytes), 27 FIX. v3: 14 more changes — D-CML-4 narrowed to equality/facet
+  predicates; D-CML-5a rescoped (ndarray first, field widths, all
+  contiguous-only ops); new D-CML-3b (no contract reading is a row pointer
+  yet); witness-loci hop Deferred, not withdrawn; pull hops via `Gather`
+  only; undirected variable length refused; RF-EXEC / RF-NOT-LOWERED;
+  census regraded.
+- No frozen decision overridden; F3's carrier list narrowed by declaration.
+  Plan only, plus the D-CML-10 storno note.
+
 ## 2026-09-30 — correction to the two D-LXC-1 / D-LXC-11 entries below
 
 - Their "70,396 triples", "G6 = 25" and "25 tags moved (G6 exact)" record
