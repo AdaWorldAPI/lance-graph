@@ -310,8 +310,8 @@ evaluates one; `execute` stays the consumer's call on a scratch it owns.
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | D-LXA-1 | `LexicalAddress(u16)` newtype + `ReferenceSet {id, version, sha256}`; cross-reference read refused | Queued | G-LEX: every declared entry resolves to its (lemma, PoS); wrong reference refused; bare `u16` is `compile_fail` |
-| D-LXA-2 | `lexical_correspondence.tsv` generator (id4096 / id5k / id20k / Exact·Ambiguous·Missing, three digests) | Queued | G-REF: re-derivation reproduces the measured table incl. "3 of 4,264"; one hand-edited ordinal reddens |
-| D-LXA-3 | the COCA bake: (lemma, PoS) rows with `f` (reading share) and `c` (log-frequency evidence) baked as u8 offline; unknown flagged, never 0 | Queued — shares `academic_20k.csv` with D-LXC-4 (Blocked); must not duplicate that loader | byte-identical re-derivation; `the` f = 1, `record` f < 1; all-unambiguous fixture stays f = 1 |
+| D-LXA-2 | `lexical_correspondence.tsv` generator (id4096 / id5k / id20k / Exact·Ambiguous·Missing, three digests) | Queued | G-REF: re-derivation reproduces the measured table incl. "4 of 4,264" with ordinal 0 counted; one hand-edited ordinal reddens |
+| D-LXA-3 | the COCA bake: identity table (lemma, PoS, `c` log-frequency evidence) + surface-form table (form, reading, `f` reading share), u8, offline; unknown flagged, never 0 | Queued — shares `academic_20k.csv` with D-LXC-4 (Blocked); must not duplicate that loader | byte-identical re-derivation; surface `the` f = 1, surface `record` → n/v both 0 < f < 1; all-unambiguous fixture stays f = 1 |
 | D-LXA-4 | six-slot ClassView reading of a 12-byte facet as six `LexicalAddress`es under one `ReferenceSet` | Queued — home (second facet vs `Identity` tenant) OPEN | X-written / Y-read refused; slot rotation changes the resolved words |
 
 ## cypher-mask-lowering-v2 (D-ids minted 2026-09-30, `.claude/plans/cypher-mask-lowering-v2.md`)
