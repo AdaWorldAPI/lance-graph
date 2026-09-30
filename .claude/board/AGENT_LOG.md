@@ -1,3 +1,41 @@
+## 2026-09-30 — correction to the two D-LXC-1 / D-LXC-11 entries below
+
+- Their "70,396 triples", "G6 = 25" and "25 tags moved (G6 exact)" record
+  frequency changing tags: unintended semantic interference, not a passing
+  gate. The #1304 repair removed the counted pick; the tag is `main`'s legacy
+  tagging again. KJV: 70,393 triples, 1,227 subjects, 1,941 predicates,
+  identical to `main`. G6 is now the invariant
+  `counts_change_evidence_never_the_readings_or_the_tag`.
+
+## 2026-09-30 — D-LXC-11 coverage bands (5+3 council, orchestrator implements)
+
+- The 5 (Sonnet): prior-art, iron-rule, code truth (general-purpose,
+  runtime-archaeologist charter), cascade-impact, creative-explorer.
+  0 VIOLATES; findings drove 17 v1→v2 changes (rank rule from ndarray
+  `rank_per_10000`, D-LXC-12 dropped for D-LXC-5, `CoverageBand` naming,
+  T3 split, reading-share key F8).
+- The 3 (Sonnet): overclaim-auditor, dilution-collapse-sentinel,
+  firewall-warden. 0 BLOCK, 3 P1, 9 P2; v2→v3 fixed one rank rule named
+  everywhere, receipts for every number, gate renames G8a-c, commit contents.
+- Code: `bible_wave.rs` gains `CoverageBand`, `BandCuts`, `calibrate`, G8c;
+  8 new tests (T1-T8). No tag changes.
+- Gates: 126 lib + 17 example tests, clippy `-D warnings`, fmt clean. KJV:
+  70,396 triples, G6 = 25, G8c = population 141, cuts (72, 97), bands
+  34/71/36 — equal to the Python receipt in the plan.
+
+## 2026-09-29 — D-LXC-1 implemented (orchestrator, no agents)
+
+- `crates/deepnsm-v2/examples/bible_wave.rs`: counted PoS pick replaces the
+  `word_forms.csv` first-wins; lemma table still first. `Cargo.toml`:
+  `[[example]] bible_wave test = true`. 9 new tests; 124 lib tests unchanged.
+- Disable runs: 8 guards, each turned its named test red. One first attempt at
+  the first-wins disable was not the old rule and stayed green; replaced.
+- clippy `-D warnings` and fmt are clean.
+- KJV before/after: 70,393 → 70,396 triples; 25 tags moved (G6 exact); 107 of
+  771,176 tokens changed; long-range shares unchanged. Counts-first
+  alternative: 71,088 triples, 141 tags.
+- `.claude/settings.json` gains `attribution` (D-LXC-7).
+
 ## 2026-09-29 — D-LXC-1 plan rewritten with Read (orchestrator, no agents, no code)
 
 - Operator-directed. The council run below read source with shell

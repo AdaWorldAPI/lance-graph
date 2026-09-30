@@ -27,3 +27,10 @@ crate is untouched; this is the parallel v2.
 # `identity_v2()` (bytes 14..16) cannot read them back. Every key this crate
 # minted before 2026-08-22 was a V1 key for that reason.
 lance-graph-contract = { path = "../lance-graph-contract", features = ["guid-v3-tail"] }
+
+# `test = true` makes `cargo test` run the example's own `#[cfg(test)]` tests
+# (the D-LXC-1 tagger). Cargo only compiles an example by default; its `main()`
+# never runs under test, so the KJV text is not needed.
+[[example]]
+name = "bible_wave"
+test = true
