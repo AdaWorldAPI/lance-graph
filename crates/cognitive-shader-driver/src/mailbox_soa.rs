@@ -62,7 +62,8 @@ pub struct MailboxSoA<const N: usize> {
 
     /// Per-row spatial-temporal energy accumulator.
     /// Energy integrates signed-mantissa × confidence contributions from
-    /// incoming `CausalEdge64` batons until threshold crossing.
+    /// the `CausalEdge64` registers applied to the row (`apply_edges`) until
+    /// threshold crossing.
     pub energy: [f32; N],
 
     /// Per-row Hebbian integration counter (saturating u8 per W6 §4.4).
@@ -86,9 +87,10 @@ pub struct MailboxSoA<const N: usize> {
     pub last_write_cycle: [u32; N],
 
     // ── NEW: migrated thoughtspace columns (per-mailbox owned, D-MBX-A1) ──
-    /// Per-row LE baton edge (`CausalEdge64`, 8 B/row).
-    /// Migrated from `BindSpace.edges` (EdgeColumn).
-    /// This IS the LE contract / baton edge for this mailbox row.
+    /// Per-row `CausalEdge64` (8 B/row) — the ALU register itself: the NARS
+    /// truth, Pearl 2³ mask and inference operations run on this `u64`
+    /// directly. It is not a reference to anything and not a carrier between
+    /// mailboxes. Migrated from `BindSpace.edges` (EdgeColumn).
     pub edges: [CausalEdge64; N],
 
     /// Per-row affective role vector (`QualiaI4_16D`, 8 B/row).
@@ -266,7 +268,7 @@ pub struct WriteCell<'a> {
     pub topic: Option<&'a [u64]>,
     /// Angle identity plane (`WORDS_PER_FP` u64) — borrowed.
     pub angle: Option<&'a [u64]>,
-    /// LE baton edge.
+    /// The row's `CausalEdge64` register.
     pub edge: Option<CausalEdge64>,
     /// Affective i4-16D vector.
     pub qualia: Option<QualiaI4_16D>,
@@ -584,7 +586,7 @@ impl<const N: usize> MailboxSoA<N> {
 
     // ── Thoughtspace column accessors (D-MBX-A1) ─────────────────────────────
 
-    /// Return the `CausalEdge64` baton edge for `row`.
+    /// Return the `CausalEdge64` register for `row`.
     ///
     /// Panics (debug) / wraps (release) on out-of-bounds; callers
     /// should stay within `[0, N)`.
@@ -593,7 +595,7 @@ impl<const N: usize> MailboxSoA<N> {
         self.edges[row]
     }
 
-    /// Set the `CausalEdge64` baton edge for `row`.
+    /// Set the `CausalEdge64` register for `row`.
     ///
     /// Panics (debug) / wraps (release) on out-of-bounds; callers
     /// should stay within `[0, N)`.

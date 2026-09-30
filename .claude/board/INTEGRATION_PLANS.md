@@ -73,6 +73,10 @@ authorized. Partly supersedes
 - **Open:** DataFusion stays in the build graph through the `lance-graph` dependency
   (OQ-CML-1); where the relationship declaration lives long-term (OQ-CML-2); self-hop
   vs `Foreign` planes (OQ-CML-4). The witness-loci relative hop is deferred (D-CML-6).
+## 2026-09-30 (5) — deepnsm-v2-cam96-pairwise-v5 — CORRECTION 3: `CausalEdge64` IS the ALU register → `-v5.md` § ⊘ CORRECTION 3
+
+**Status:** not a reference, lens, record, carrier, or word container. v5's §3.2 lens framing and §3.4 L-2 "triple edge carries needles" wording struck. Same commit: the live doc comments that called it a "baton edge" (`mailbox_soa.rs`, `backing.rs`, contract `cognition/{cascade,advance}.rs`), `dto-soa-savant.md`'s "via the Baton handoff", `docs/GENETIC_RESEARCH_VIA_STACK.md`, a `CausalEdge64` row in the worker-guardrails vocabulary, and a ⊘ note on `deepnsm-v3-convergence-v1.md`'s "1-byte refs" row. Residue left in code: `TD-CE64-REGISTER-FRAMING-RESIDUE-1`.
+
 ## 2026-09-30 (4) — deepnsm-v2-cam96-pairwise-v5 — CORRECTION 2: `[a,b]` is a word's 16-bit lexical address, not two poles → `-v5.md` § ⊘ CORRECTION 2
 
 **Status:** the unit of representation is pinned. Six lexical slots per 96-bit payload; each two-byte address resolves to a word's declared reading (lemma + PoS) in an immutable, versioned lexical codebook (`ReferenceSet`); the driver supplies the relational reading, Fisher-z calibrated. Embeddings are an optional comparison instrument, never the runtime intermediary; embedding reconstruction is not an acceptance criterion. The artifact check that forced this: nothing assigns a word two needles (COCA CAM-PQ gives six, bgz17 `nearest` gives one; "(nearest : second-nearest)" was v1's invention). **First regression = G-LEX:** exact lexical address resolution, lemma/PoS survive, no cross-read across codebooks.
