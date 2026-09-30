@@ -1,6 +1,11 @@
 # DeepNSM-v2 coverage bands at population-calibrated thresholds (D-LXC-11)
 
 **Status:** RATIFIED v3 (5+3 council, 2026-09-30). Implementation in this PR.
+**Reframed 2026-09-30 (operator):** the bands are a MEASUREMENT, not a
+decision. Keep the number; be suspicious of the adjective. The labels
+Decisive / Leaning / Contested are report vocabulary for `bible_wave` only —
+nothing reads a band to select, rank or eliminate a reading, and no
+downstream consumer exists. See "Reframe" below.
 **Parent:** `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md` (D-LXC-1,
 the frequency-ordered register this reads).
 
@@ -17,7 +22,7 @@ percentile coverage with thresholds at prevalence boundaries:
 > Akin to using Gini palette when looking at poor countries. Or IQ buckets in
 > gaussian distribution."
 
-This plan turns the dominant reading's share into a three-level
+This plan turns the most frequent reading's share into a three-level
 `CoverageBand` whose cut points are quartiles of the measured population, so
 each band holds a known share of it. The cuts are calibrated once at load from
 the evidence present. That is a load-time snapshot, not a streaming rolling
@@ -46,7 +51,7 @@ floor; the streaming form exists as ndarray `hpc::rolling_floor::RollingFloor`.
 - F6 No model identifiers or advertising; Read for source inspection; the
   board files denied in `.claude/settings.json` are not edited by the agent.
 - F7 Search is navigation, never evidence.
-- F8 The band key is the dominant READING's share, `coverage(id)[0]`. The
+- F8 The band key is the most frequent READING's share, `coverage(id)[0]`. The
   operator rejected summing at tag time ("why are you counting … it should
   simply be percentile coverage"), so no parser-state sum is formed.
 - F9 Bands are relative by design: the operator asked for cuts at prevalence
@@ -141,8 +146,10 @@ In `bible_wave.rs` only:
 ## Non-goals
 
 - Any change to `lexical.rs` (F1).
-- Changing any tag, including an early exit on Decisive: role resolution
-  (D-LXC-2) is the reader that acts on bands.
+- Changing any tag, including an early exit on Decisive. ⊘ 2026-09-30:
+  "role resolution (D-LXC-2) is the reader that acts on bands" is struck. A
+  band describes how concentrated a word's evidence is; it is never a licence
+  to drop a reading. Only structural/contextual evidence eliminates one.
 - A word-frequency axis: blocked by D-LXC-5 (`bible_vocab.txt` has no counts).
 - A streaming rolling floor: the evidence is loaded once.
 - Landing bands in a V3 facet header (parent plan F10). The cuts would have
@@ -158,6 +165,9 @@ Numbering continues the parent plan's G1-G7.
 - G8a `cargo test` (deepnsm-v2) green; clippy `--all-targets -D warnings` and
   `fmt --check` clean.
 - G8b KJV run unchanged from D-LXC-1: 70,396 triples, 1,237 subjects, G6 = 25.
+  ⊘ 2026-09-30: stale — those numbers were frequency changing tags. After the
+  repair: 70,393 triples, 1,227 subjects (identical to `main`), and G6 is the
+  non-interference invariant (parent plan, Correction).
 - G8c In `main`: population 141, cuts (72, 97), bands 34 / 71 / 36. This is a
   regression pin for the release KJV vocabulary only.
 - Unit tests. Each must be disable-verified red before landing.
@@ -176,6 +186,17 @@ Numbering continues the parent plan's G1-G7.
     state sum is banded on 40.
   - T8 The rank rule is `rank_per_10000`, not nearest-rank: at n = 4 the lo
     index is 1.
+
+## Reframe (2026-09-30)
+
+- Kept verbatim: the population definition, `rank_per_10000`, the cuts,
+  G8c (141, (72, 97), 34 / 71 / 36) and T1-T8.
+- The labels stay as report vocabulary. No rename, no new type: renaming
+  would be an abstraction for its own sake, and nothing consumes them.
+- `CoverageBand`'s doc says so: the statistic is `coverage(id)[0]`, and a
+  band selects nothing.
+- A future consumer that wants to act on a band must first show a
+  structural reason; the band alone is never one.
 
 ## Commit contents (one commit, in this order)
 

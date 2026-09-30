@@ -31,3 +31,10 @@ Ready-to-paste STATUS_BOARD row (the file is deny-listed for the agent):
 `| D-LXC-11 | coverage bands (population quartiles) in bible_wave | In PR | deepnsm-v2-coverage-bands-v1 |`
 
 Plan: `.claude/plans/deepnsm-v2-coverage-bands-v1.md`.
+
+**Correction (2026-09-30).** The bands are a measurement, not a decision: the
+labels are report vocabulary in `bible_wave`, nothing reads a band to select
+or drop a reading, and no downstream consumer exists. The numbers (141,
+(72, 97), 34 / 71 / 36) stand. "70,396 triples, G6 = 25" above is stale: after
+the #1304 repair the KJV run is 70,393 triples, identical to `main`, and G6 is
+the non-interference invariant (see the 2026-09-29 entry's correction).

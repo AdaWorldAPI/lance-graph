@@ -48,3 +48,15 @@ percentile coverage, and the tagger reads position 0. The KJV run is identical
 to "after (B)" above (25 moved, 70,396 triples); the summing moved nothing.
 
 Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`.
+
+**Correction (2026-09-30, operator ruling on #1304).** Frequency is evidence,
+not a lexical decision. The 25 moved tags and the 70,396 triples above record
+frequency changing the tag: unintended semantic interference, not a
+correction. The counted pick and `dominant_pos` are removed. The tag is
+`main`'s tagging again, named `load_pos_legacy_first_wins`; its dependence on
+source-row order is inherited debt pending D-LXC-2/D-LXC-3, not an authorized
+resolver. KJV after the repair: 70,393 triples, 1,227 subjects, 1,941
+predicates — identical to `main`. G6 is now a paired invariant pinned by
+`counts_change_evidence_never_the_readings_or_the_tag`: count changes may move
+the order and the coverage, never the reading set or the tag. The table above
+is kept as the historical measurement.

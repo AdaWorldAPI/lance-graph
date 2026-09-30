@@ -1,6 +1,8 @@
 # deepnsm-v2-lexical-evidence-consumer-v1
 
-**Status:** PROPOSAL. No code authorized. Written against `main` `5282dfa3`
+**Status:** CORRECTED 2026-09-30 — see "Correction: frequency is evidence,
+not a lexical decision" below; it supersedes the counted pick, G3(b)-(f) and
+G6. Originally: PROPOSAL. No code authorized. Written against `main` `5282dfa3`
 (the #1299 merge). Rewritten 2026-09-29 after every claim was re-read in
 source with the Read tool; the earlier council version relied on shell
 searches and on files it never opened (change ledger at the end).
@@ -64,6 +66,9 @@ Read in full before this rewrite:
   false. The file is ordered by lemma rank, not by `wordFreq`, and 259 surfaces
   have a first row that is not their most frequent reading (measured below).
   D-LXC-1 fixes exactly that premise and keeps the lemma-first rule.
+  ⊘ 2026-09-30: struck. The premise is false, but replacing it with "the most
+  frequent row wins" is the same kind of resolver. D-LXC-1 now measures the
+  reading order and does not tag from it (see the Correction).
 - **v1 prior art:** `deepnsm/src/vocabulary.rs:131-135,158-184` keeps the
   first occurrence for lemmas and adds forms only when absent (first-wins, no
   counts). `deepnsm/examples/homograph_collapse.rs:3-15,84-92` selects a
@@ -101,7 +106,8 @@ Read in full before this rewrite:
 - **Surface-keyed, counted:** `word_forms.csv` through `LexicalEvidence`,
   every reading of a surface with its `wordFreq`.
 
-Neither is a role-based reading. The counted pick is an interim leg. The
+Neither is a role-based reading. ⊘ 2026-09-30: "The counted pick is an
+interim leg" is struck — frequency may not pick a reading, interim or not. The
 role-based route (`E-SURFACE-FORM-COLLAPSE-1`) needs several readings per token
 in the FSM, which is D-LXC-2.
 
@@ -223,6 +229,8 @@ runs.
   The largest are bases 16, locks 15, promises 13 and flies 10.
 - **`WordFormsReport`:** 11,460 rows, 4,284 readings stored, 4 empty
   surface, 7,172 not in the KJV vocabulary.
+- ⊘ 2026-09-30: the reading below is struck. The 25 moved tags and 3 added
+  triples were frequency changing semantics, which the Correction forbids.
 - **Reading.** B is a small correction. It moves 25 words' tags, adds 3
   triples, and leaves the long-range shares unchanged. Whether the moved tags
   are more correct is still not measured. A moves 5.6× more tags and adds 695
@@ -232,6 +240,9 @@ runs.
   `TD-DEEPNSM-V2-SESSION-RESIDUE` item 3 asked for.
 
 ### Amendment: frequency is the register (2026-09-29, operator-directed)
+
+⊘ 2026-09-30: the storage order and coverage below stand; "frequency is the
+register's preference" and `dominant_pos` are struck (see the Correction).
 
 The counted pick summed counts at tag time. Frequency is a dimension, so it
 belongs in the storage order, expressed as percentile coverage:
@@ -248,7 +259,64 @@ belongs in the storage order, expressed as percentile coverage:
 - This supersedes the "no library change" non-goal (F1): the change is storage
   order plus a derived integer, not interpretation.
 
+## Correction: frequency is evidence, not a lexical decision (2026-09-30)
+
+Operator ruling on #1304. Frequency calibrates ambiguity; it never chooses,
+ranks for selection, or eliminates a reading. Neither count magnitude nor
+source-row order may choose meaning or PoS.
+
+**Kept (measurement):** the count-ordered storage, unknown-last and stable
+ties; cumulative percentile coverage with `u128` arithmetic; the D-LXC-11
+band population, rank rule and cuts; lowercasing; the `test = true` home.
+
+**Removed (selection):** `dominant_pos` and every path where
+`readings()[0]` becomes the tag. `Tagger::pos` now reads
+`load_pos_legacy_first_wins` → `archaic_pos` → `Pos::Other` — `main`'s
+`load_pos` verbatim, renamed so the boundary is visible. It reads no count.
+
+**Inherited debt, not precedent:** the legacy map still depends on
+source-row order (the first lemma row, the first form row). That is not an
+authorized resolver; it stays until D-LXC-2 (several readings into the
+parser) and D-LXC-3 (the lemma-table migration). F9 is unchanged in #1304
+and is documented as this same inherited exception.
+
+**G6 replaced.** The historical G6 = 25 (and 70,396 triples) measured
+frequency changing tags — unintended semantic interference, not a
+correction. The new G6 is a paired non-interference invariant, pinned by
+`counts_change_evidence_never_the_readings_or_the_tag`:
+- count changes MUST NOT change the reading set or the tag;
+- count changes MAY change the ordering, coverage and statistics.
+A disable run that re-derives the tag from `readings()[0]` turns exactly
+that test red. KJV after the repair: 70,393 triples, 1,227 subjects,
+1,941 predicates — identical to `main`.
+
+**Gates now:** G3(a), (g), (h), (i) stand. G3(b)-(f) tested the counted
+pick and are retired with it; their tests were deleted, and (f) became
+`legacy_tagging_falls_through_to_archaic_then_other`. G6 is the invariant
+above. G5 stands with the numbers above.
+
+**Multiplicity.** #1304 stops at exact readings plus calibrated evidence.
+No parser fold, `PosSet`, reading mask, Det/Adj licensing, or ambiguity
+marking in the `Spo` high bits — the reading-set ABI boundary is specified
+first.
+
+### Sizing evidence for D-LXC-2 / D-LXC-3 (not a design)
+
+Python simulation of a reading-set fold over the parser's three control
+states, run on the KJV verse stream with the same vocabulary; not committed.
+- F9 kept: 3,363 tokens carry more than one folded reading; at most 4 live
+  parser configurations at once; 4,304 alternative triples.
+- A Det/Adj licensing probe resolves 1,895 of those tokens (56%), giving
+  71,400 triples.
+- F9 lifted: 91,054 multi-reading tokens; peak 17 live configurations.
+- At most 6 readings per surface, so a `u8` reading mask over a word's span
+  fits.
+- Configurations are bounded per clause (polynomial), not one register
+  tuple per state.
+
 ## Pre-registered gates
+
+⊘ 2026-09-30: G3(b)-(f) and G6 below are superseded by the Correction above.
 
 - G1 `cargo test --manifest-path crates/deepnsm-v2/Cargo.toml` green; a
   disable run under exactly that command turns the new tests red.
@@ -313,7 +381,8 @@ belongs in the storage order, expressed as percentile coverage:
 1. **D-LXC-1** · Lexical-evidence consumer (this plan).
 2. **D-LXC-2** · The FSM takes several readings per token and resolves them by
    role (`E-SURFACE-FORM-COLLAPSE-1`). Needs an FSM change; separate PR.
-3. **D-LXC-3** · Lemma-table order. B keeps F9 (25 in-vocabulary changes);
+3. **D-LXC-3** · Lemma-table order (⊘ 2026-09-30: neither A nor B may pick
+   by count; the migration target is a reading set, not a new order). B keeps F9 (25 in-vocabulary changes);
    A drops it (141). Switching to A overrides F9 and is the operator's call,
    taken on the D-LXC-1 KJV numbers.
 4. **D-LXC-4** · `academic_20k.csv` loader, plus the duplicate `coca_pos` in

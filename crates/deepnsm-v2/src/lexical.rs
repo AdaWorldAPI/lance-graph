@@ -30,14 +30,18 @@
 //! - **Not truth.** Counts are observed population evidence, stored as exact
 //!   integers. No normalisation to `f32`, no probability, no NARS truth.
 //!
-//! ## Frequency is the register's order
+//! ## Frequency is evidence, not a lexical decision
 //!
 //! A word's readings are stored most frequent first, and each carries an
-//! integer cumulative percentile coverage ([`LexicalEvidence::coverage`]). The
-//! dominant reading is position 0 and its share is `coverage[0]` — a reader
-//! never sums counts to find it. Source file order is not kept: COCA orders
-//! `word_forms.csv` by lemma rank, so its first row is not the dominant reading
-//! for 259 surfaces (`changes`: verb 13,624 first, noun 113,085 second).
+//! integer cumulative percentile coverage ([`LexicalEvidence::coverage`]).
+//! Position 0 is the most frequent observed reading and its share is
+//! `coverage[0]` — a reader never re-sums counts to measure it. The order is a
+//! presentation of the evidence, never a preference: every reading stays, and
+//! nothing here chooses, ranks or eliminates one. Count changes may change the
+//! order and the coverage; they never change which readings exist. Source file
+//! order is not kept: COCA orders `word_forms.csv` by lemma rank, so its first
+//! row is not the most frequent reading for 259 surfaces (`changes`: verb
+//! 13,624 first, noun 113,085 second).
 //!
 //! ## Unknown is not zero
 //!
@@ -264,8 +268,8 @@ impl LexicalEvidenceBuilder {
     /// Each word's readings are stored in FREQUENCY ORDER — highest known
     /// `form_count` first, unknown counts last, equal counts in insertion
     /// order — and each carries its cumulative percentile coverage (see
-    /// [`LexicalEvidence::coverage`]). Frequency is the register's order, so a
-    /// reader takes position 0 for the dominant reading and never re-sums.
+    /// [`LexicalEvidence::coverage`]). The order presents evidence; it selects
+    /// nothing, and every reading is kept.
     #[must_use]
     pub fn finish(mut self) -> LexicalEvidence {
         // Stable: equal keys keep insertion order.
@@ -361,8 +365,8 @@ impl LexicalEvidence {
     }
 
     /// Every counted reading of word `id`, most frequent first (empty if none
-    /// survived, or `id` is out of range). Position 0 is the dominant reading
-    /// when [`coverage`](Self::coverage) is known.
+    /// survived, or `id` is out of range). Position 0 is the most frequent
+    /// observed reading; the slice is the reading set, not a ranked choice.
     #[must_use]
     pub fn readings(&self, id: WordId) -> &[LexicalReading] {
         &self.readings[self.span(id)]
@@ -371,7 +375,7 @@ impl LexicalEvidence {
     /// Cumulative percentile coverage, aligned with [`readings`](Self::readings):
     /// entry `k` is the percent (`0..=100`, floored) of word `id`'s known
     /// occurrences covered by readings `0..=k`. The last entry is `100`, and
-    /// entry 0 is the dominant reading's own share.
+    /// entry 0 is the most frequent observed reading's own share.
     ///
     /// All `None` when any reading's count is unknown or every count is zero —
     /// a share of an unknown total is itself unknown.

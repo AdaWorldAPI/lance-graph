@@ -12,8 +12,10 @@
 //! cargo run --example bible_wave -- /path/to/pg10.txt
 //! ```
 //!
-//! Pipeline: verses → PoS-tag (COCA lemma table, then the counted
-//! `word_forms.csv` evidence, then a documented archaic fallback) → FSM → SPO
+//! Pipeline: verses → PoS-tag (legacy single-`Pos` tagging: COCA lemma table,
+//! then the first `word_forms.csv` row, then a documented archaic fallback;
+//! the counted `word_forms.csv` evidence is loaded beside it for measurement
+//! only and chooses no tag) → FSM → SPO
 //! stream (verse index = version) → `TemporalStream` +
 //! the TRAINED Cam96 codebook (`data/`, real Jina-v3 embeddings).
 //!
@@ -143,33 +145,15 @@ fn main() {
         "LEXICON  word_forms: {} rows, {} readings stored, {} empty surface, {} not in vocab",
         r.rows, r.stored, r.empty_surface, r.unrouted
     );
-    // G6 (D-LXC-1) — how many in-vocabulary tags the register pick moves away
-    // from the old first-wins rule. Pinned against the released
-    // `bible_vocab.txt`: any other number means the tables or the rule changed.
-    let first_wins = load_pos_first_wins(&lemmas_csv, &forms_csv);
-    let mut moved = 0usize;
-    for id in 0..nsm.vocab.len() {
-        let id = WordId::try_from(id).expect("vocab fits u16");
-        let Some(w) = nsm.vocab.word(id) else {
-            continue;
-        };
-        let old = first_wins
-            .get(w)
-            .copied()
-            .or_else(|| archaic_pos(w))
-            .unwrap_or(Pos::Other);
-        if tagger.pos(w, id) != old {
-            moved += 1;
-        }
-    }
-    assert_eq!(
-        moved, 25,
-        "KILL G6: the register pick moved {moved} in-vocabulary tags, pinned 25"
-    );
-    println!("G6 PASS  register pick moves {moved} in-vocabulary tags from first-wins (pinned 25)");
+    // G6 (D-LXC-1) is the non-interference invariant, proven by the focused
+    // test `counts_change_evidence_never_the_readings_or_the_tag`: counts move
+    // the evidence order and coverage, never the reading set or the tag. The
+    // historical "25 moved tags" measured count leaking into the tag; see the
+    // board entry of 2026-09-29.
 
-    // G8c (D-LXC-11) — coverage bands. The cuts are quartiles of the band
-    // population, calibrated at load. Reported only: no tag reads a band.
+    // G8c (D-LXC-11) — coverage bands, a MEASUREMENT of reading concentration.
+    // The cuts are quartiles of the band population, calibrated at load.
+    // Reported only: no tag reads a band.
     // The pinned numbers hold for the released `bible_vocab.txt` only.
     let cuts = tagger.cuts.expect("KILL G8c: empty band population");
     let count = |b: CoverageBand| tagger.bands.iter().filter(|x| **x == Some(b)).count();
@@ -214,7 +198,7 @@ fn main() {
         for tok in verse.split_whitespace() {
             let Some(w) = normalise(tok) else { continue };
             let Some(id) = nsm.vocab.id(&w) else { continue };
-            let pos = tagger.pos(&w, id);
+            let pos = tagger.pos(&w);
             tagged_buf.push(Tagged::new(id, pos));
         }
         tagged_buf.push(Tagged::new(0, Pos::Stop)); // verse boundary flushes
@@ -1081,30 +1065,16 @@ fn normalise(tok: &str) -> Option<String> {
     (w.len() >= 2).then_some(w)
 }
 
-/// The dominant reading of one word (D-LXC-1): position 0 of the
-/// frequency-ordered register, folded with [`coca_pos`].
+/// Where a word's reading concentration sits in the population (D-LXC-11).
 ///
-/// `LexicalEvidence` stores readings most frequent first, so nothing is summed
-/// here. The register is read only when its coverage is known; with any
-/// unknown count the dominant reading is unknown and this returns `None`, so
-/// the caller's fallback decides.
-///
-/// This replaces taking the FIRST `word_forms.csv` row: that file is ordered by
-/// lemma rank, not by surface frequency, so for 259 surfaces the first row is
-/// not the dominant reading (`changes`: verb row 13,624 first, noun 113,085).
-fn dominant_pos(evidence: &LexicalEvidence, id: WordId) -> Option<Pos> {
-    evidence.coverage(id).first().copied().flatten()?;
-    let r = evidence.readings(id).first()?;
-    Some(coca_pos(&r.pos.as_char().to_string()))
-}
-
-/// Where a word's dominant reading share sits in the population (D-LXC-11).
-///
-/// The share is the dominant READING's cumulative coverage, `coverage(id)[0]`,
-/// never a summed parser-state share. The cut points are quartiles of the
-/// population, so each band holds a known part of it; a band is therefore
-/// relative to the loaded vocabulary. Shares of rare and common words weigh
-/// the same, so a band says where a word sits, not how much to trust it.
+/// A MEASUREMENT, not a decision. The statistic is the share of the most
+/// frequent observed reading, `coverage(id)[0]`, never a summed parser-state
+/// share. The cut points are quartiles of the population, so each band holds a
+/// known part of it; a band is therefore relative to the loaded vocabulary.
+/// Shares of rare and common words weigh the same, so a band says where a
+/// word's concentration sits, not how much to trust it and not which reading
+/// holds. The labels are report vocabulary for this example only: nothing
+/// reads a band to select, rank or eliminate a reading.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CoverageBand {
     /// Share at or above the upper cut.
@@ -1223,13 +1193,19 @@ fn lowercase_word_column(forms_csv: &str) -> String {
     out
 }
 
-/// The corpus tagger: lemma table → dominant `word_forms.csv` reading →
-/// [`archaic_pos`] → [`Pos::Other`].
+/// The corpus tagger, plus the lexical evidence and its calibration.
 ///
-/// Lemma-first is deliberate and pinned (commit `ec50f07b`): the forms layer
-/// only fills silence, never overrules a word the lemma table knew.
+/// The tag ([`Tagger::pos`]) is the LEGACY single-`Pos` tagging `main` had
+/// before D-LXC-1, unchanged ([`load_pos_legacy_first_wins`]). The parser takes
+/// one `Pos` per token, so a word with several readings cannot reach it
+/// intact; this boundary is inherited debt kept for compatibility, not a
+/// semantic resolution. The evidence and the bands are measurements beside it:
+/// no count, order or band is read to produce a tag.
 struct Tagger {
     lemmas: HashMap<String, Pos>,
+    /// `main`'s tagging, kept verbatim: lemma table, then first
+    /// `word_forms.csv` row. See [`load_pos_legacy_first_wins`].
+    legacy: HashMap<String, Pos>,
     evidence: LexicalEvidence,
     report: WordFormsReport,
     /// D-LXC-11 cuts, `None` when the band population is empty.
@@ -1258,6 +1234,7 @@ impl Tagger {
         let (cuts, bands) = calibrate(&lemmas, &evidence, vocab);
         Ok(Self {
             lemmas,
+            legacy: load_pos_legacy_first_wins(lemmas_csv, forms_csv),
             evidence,
             report,
             cuts,
@@ -1265,21 +1242,29 @@ impl Tagger {
         })
     }
 
-    /// The tag for word `w` whose routing id is `id`.
-    fn pos(&self, w: &str, id: WordId) -> Pos {
-        if let Some(&p) = self.lemmas.get(w) {
-            return p;
-        }
-        dominant_pos(&self.evidence, id)
+    /// The LEGACY tag for word `w`: [`load_pos_legacy_first_wins`], then
+    /// [`archaic_pos`], then [`Pos::Other`] — exactly `main`'s tagging.
+    ///
+    /// Compatibility boundary, not semantic resolution. It reads no count and
+    /// no [`LexicalEvidence`], so frequency cannot change a tag. It does
+    /// depend on source-row order (the first lemma row, the first form row);
+    /// that is inherited debt, not an authorized resolver, pending a
+    /// multi-reading parser input (D-LXC-2) and the lemma-table migration
+    /// (D-LXC-3).
+    fn pos(&self, w: &str) -> Pos {
+        self.legacy
+            .get(w)
+            .copied()
             .or_else(|| archaic_pos(w))
             .unwrap_or(Pos::Other)
     }
 }
 
-/// The tagging `bible_wave` used before D-LXC-1: the lemma table, then the
-/// FIRST `word_forms.csv` row per surface. Kept only so gate G6 can count how
-/// many tags the counted pick moves.
-fn load_pos_first_wins(lemmas_csv: &str, forms_csv: &str) -> HashMap<String, Pos> {
+/// LEGACY tagging, verbatim from `main`'s `load_pos`: the lemma table, then the
+/// FIRST `word_forms.csv` row per surface, both first row wins. Row order is
+/// not an authorized lexical decision; this is kept only because the parser
+/// takes one `Pos` per token (see [`Tagger::pos`]).
+fn load_pos_legacy_first_wins(lemmas_csv: &str, forms_csv: &str) -> HashMap<String, Pos> {
     let mut m: HashMap<String, Pos> = HashMap::new();
     for line in lemmas_csv.lines().skip(1) {
         let f: Vec<&str> = line.split(',').collect();
@@ -1330,7 +1315,7 @@ mod tests {
     fn tag(forms_csv: &str, w: &str) -> Pos {
         let v = vocab(&[w]);
         let t = Tagger::load(NO_LEMMAS, forms_csv, &v).unwrap();
-        t.pos(w, v.id(w).unwrap())
+        t.pos(w)
     }
 
     // (a) a homograph keeps every reading
@@ -1347,57 +1332,16 @@ mod tests {
         assert!(tags.contains(&'n') && tags.contains(&'v'), "{tags:?}");
     }
 
-    // (b) the pick is position 0 of the register: folded tags are NOT summed
+    // (f) the LEGACY fallback order, pinned as inherited debt, not endorsed:
+    // legacy map (a form row beats archaic, D-LXC-9), then archaic, then Other.
     #[test]
-    fn the_dominant_reading_wins_without_summing() {
-        // n 60 + p 50 would be Noun 110 if summed; the register says v 100.
-        assert_eq!(
-            tag(&forms("1,x,n,9,60,w\n2,y,p,9,50,w\n3,z,v,9,100,w\n"), "w"),
-            Pos::Verb
-        );
-    }
-
-    // (c) an unknown count makes the register unreadable, so the fallback decides
-    #[test]
-    fn an_unknown_count_falls_through() {
-        assert_eq!(tag(&forms("1,x,n,9,500,w\n2,y,v,9,,w\n"), "w"), Pos::Other);
-    }
-
-    // (d) `changes`: first row is the verb, the register says noun (89%)
-    #[test]
-    fn changes_is_a_noun_by_frequency_and_a_verb_by_first_row() {
-        let forms = committed("word_forms.csv");
-        let v = vocab(&["changes"]);
-        let t = Tagger::load(NO_LEMMAS, &forms, &v).unwrap();
-        let id = v.id("changes").unwrap();
-        assert!(
-            !t.lemmas.contains_key("changes"),
-            "must not be a lemma-table key"
-        );
-        assert_eq!(t.pos("changes", id), Pos::Noun);
-        assert_eq!(t.evidence.coverage(id).first().copied().flatten(), Some(89));
-        // Anti-vacuity: the old first-wins rule tags it Verb.
-        assert_eq!(
-            load_pos_first_wins(NO_LEMMAS, &forms).get("changes"),
-            Some(&Pos::Verb)
-        );
-    }
-
-    // (e) equal counts keep file order
-    #[test]
-    fn ties_keep_file_order() {
-        assert_eq!(tag(&forms("1,x,v,9,10,w\n2,y,n,9,10,w\n"), "w"), Pos::Verb);
-        assert_eq!(tag(&forms("1,x,n,9,10,w\n2,y,v,9,10,w\n"), "w"), Pos::Noun);
-    }
-
-    // (f) no known count falls through to archaic, then Other
-    #[test]
-    fn no_known_count_falls_through_to_archaic_then_other() {
-        let f = forms("1,hath,n,5,,hath\n2,zz,n,5,,zz\n");
-        let v = vocab(&["hath", "zz"]);
+    fn legacy_tagging_falls_through_to_archaic_then_other() {
+        let f = forms("1,art,n,5,,art\n");
+        let v = vocab(&["art", "hath", "zz"]);
         let t = Tagger::load(NO_LEMMAS, &f, &v).unwrap();
-        assert_eq!(t.pos("hath", v.id("hath").unwrap()), Pos::Verb);
-        assert_eq!(t.pos("zz", v.id("zz").unwrap()), Pos::Other);
+        assert_eq!(t.pos("art"), Pos::Noun);
+        assert_eq!(t.pos("hath"), Pos::Verb);
+        assert_eq!(t.pos("zz"), Pos::Other);
     }
 
     // (g) stay-silent: one reading keeps its tag and covers 100%
@@ -1418,17 +1362,17 @@ mod tests {
         )
         .unwrap();
         let id = v.id("work").unwrap();
-        // The register alone says Noun ...
-        assert_eq!(dominant_pos(&t.evidence, id), Some(Pos::Noun));
-        // ... and the lemma table still wins.
-        assert_eq!(t.pos("work", id), Pos::Verb);
+        // The most frequent observed reading is the noun ...
+        assert_eq!(t.evidence.readings(id)[0].pos.as_char(), 'n');
+        // ... and the tag is still the lemma table's.
+        assert_eq!(t.pos("work"), Pos::Verb);
 
         // The same property on a conflicting row, with the row proven loaded.
         let conflicting = forms("1,x,n,9,4,create\n");
         let v = vocab(&["create"]);
         let t = Tagger::load("rank,lemma,PoS\n1,create,v\n", &conflicting, &v).unwrap();
         assert_eq!(t.evidence.reading_count(), 1);
-        assert_eq!(t.pos("create", v.id("create").unwrap()), Pos::Verb);
+        assert_eq!(t.pos("create"), Pos::Verb);
     }
 
     // (i) a capitalised COCA surface still routes
@@ -1438,10 +1382,46 @@ mod tests {
         let v = vocab(&["true"]);
         let t = Tagger::load(NO_LEMMAS, &f, &v).unwrap();
         assert_eq!(t.report.unrouted, 0);
-        assert_eq!(t.pos("true", v.id("true").unwrap()), Pos::Adj);
+        assert_eq!(t.pos("true"), Pos::Adj);
         // Without the lowercasing the same row is not routed.
         let (_, raw) = load_word_forms_csv(&f, &v).unwrap();
         assert_eq!(raw.unrouted, 1);
+    }
+
+    // Frequency is evidence, not a lexical decision. Changing only the counts,
+    // with the same rows in the same order, MAY change the evidence order and
+    // coverage; it MUST NOT change the reading set or the tag.
+    #[test]
+    fn counts_change_evidence_never_the_readings_or_the_tag() {
+        let v = vocab(&["w"]);
+        let id = v.id("w").unwrap();
+        let load = |rows: &str| Tagger::load(NO_LEMMAS, &forms(rows), &v).unwrap();
+        // `changes`' real counts (verb row first), then swapped, then even.
+        let real = load("1,x,v,9,13624,w\n2,y,n,9,113085,w\n");
+        let swapped = load("1,x,v,9,113085,w\n2,y,n,9,13624,w\n");
+        let even = load("1,x,v,9,50,w\n2,y,n,9,50,w\n");
+        let set = |t: &Tagger| {
+            let mut s: Vec<_> = t
+                .evidence
+                .readings(id)
+                .iter()
+                .map(|r| (r.pos, r.lemma))
+                .collect();
+            s.sort();
+            s
+        };
+        // MAY change: the evidence order and the coverage.
+        assert_ne!(
+            real.evidence.readings(id)[0].pos,
+            swapped.evidence.readings(id)[0].pos
+        );
+        assert_eq!(real.evidence.coverage(id), &[Some(89), Some(100)]);
+        assert_eq!(even.evidence.coverage(id), &[Some(50), Some(100)]);
+        // MUST NOT change: the reading set and the tag.
+        for t in [&swapped, &even] {
+            assert_eq!(set(t), set(&real));
+            assert_eq!(t.pos("w"), real.pos("w"));
+        }
     }
 
     // ── D-LXC-11 coverage bands ──
@@ -1560,7 +1540,7 @@ mod tests {
         assert_eq!(band_of(70, c), CoverageBand::Decisive);
     }
 
-    // T7 the key is the dominant READING's share, never a state sum
+    // T7 the key is the most frequent READING's share, never a state sum
     #[test]
     fn the_key_is_reading_share() {
         let f = forms("1,x,n,9,40,w\n2,y,p,9,35,w\n3,z,v,9,25,w\n");
