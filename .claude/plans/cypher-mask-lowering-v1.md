@@ -2,6 +2,10 @@
 
 > **Status:** PLAN (pre-5+3-council). No code. No mint. No cargo run in this repo
 > during authoring.
+> ⊘ **Partly SUPERSEDED 2026-09-30 by `cypher-mask-lowering-v2.md`** on three points:
+> there is no seam inside the upstream `query.rs`; `Split`/`Grace` become `Refusal`;
+> the label binding lives outside `GraphConfig`. The lowering table, §5.2, §5.3 and
+> the falsifier discipline stand.
 > **Register discipline:** every "exists" claim carries `file:line`. Anything
 > argued rather than read is marked **[claimed, unverified]**. Measured numbers
 > are quoted with their source; nothing here is a performance claim.

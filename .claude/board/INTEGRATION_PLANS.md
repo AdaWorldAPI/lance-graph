@@ -1,3 +1,21 @@
+## 2026-09-30 (1) — cypher-mask-lowering-v2 — Cypher on masks as a fork-owned replacement behind one switch → `.claude/plans/cypher-mask-lowering-v2.md`
+
+**Status:** PROPOSAL (D-CML-0..9). No code authorized. Partly supersedes
+`cypher-mask-lowering-v1.md`.
+
+- **New crate** `lance-graph-cypher-mask` reuses the upstream parser, semantic
+  analysis and logical plan through their public API. Zero edits to upstream files.
+- **Outcomes** are `Answer` or `Refusal(reason)`. v1's `Split`/`Grace` are removed:
+  there is no DataFusion fallback on our surface.
+- **One switch** `Route {Mask, Upstream}` chooses a whole engine per consumer, never
+  one query at a time.
+- **Hops** read relations stored in the row (second facet, witness loci, rails),
+  never an external edge table. Traversal counts nothing.
+- **Measured cost:** 37.3 % of the committed corpus lowers today. Everything else is
+  refused.
+- **Open:** DataFusion stays in the build graph through the `lance-graph` dependency
+  (OQ-CML-1); absolute vs relative in-row targets and a mask `Shift` op (OQ-CML-2).
+
 ## 2026-09-29 (2) — deepnsm-v2-lexical-evidence-consumer-v1 rewritten against the DeepNSM → DeepNSM-v2 migration → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
 
 **Status:** PROPOSAL (D-LXC-1..10). No code authorized. Supersedes entry (1)
