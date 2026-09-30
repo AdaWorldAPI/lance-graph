@@ -1,3 +1,19 @@
+## 2026-09-30 — D-LXC-11 coverage bands (5+3 council, orchestrator implements)
+
+- The 5 (Sonnet): prior-art, iron-rule, code truth (general-purpose,
+  runtime-archaeologist charter), cascade-impact, creative-explorer.
+  0 VIOLATES; findings drove 17 v1→v2 changes (rank rule from ndarray
+  `rank_per_10000`, D-LXC-12 dropped for D-LXC-5, `CoverageBand` naming,
+  T3 split, reading-share key F8).
+- The 3 (Sonnet): overclaim-auditor, dilution-collapse-sentinel,
+  firewall-warden. 0 BLOCK, 3 P1, 9 P2; v2→v3 fixed one rank rule named
+  everywhere, receipts for every number, gate renames G8a-c, commit contents.
+- Code: `bible_wave.rs` gains `CoverageBand`, `BandCuts`, `calibrate`, G8c;
+  8 new tests (T1-T8). No tag changes.
+- Gates: 126 lib + 17 example tests, clippy `-D warnings`, fmt clean. KJV:
+  70,396 triples, G6 = 25, G8c = population 141, cuts (72, 97), bands
+  34/71/36 — equal to the Python receipt in the plan.
+
 ## 2026-09-29 — D-LXC-1 implemented (orchestrator, no agents)
 
 - `crates/deepnsm-v2/examples/bible_wave.rs`: counted PoS pick replaces the
