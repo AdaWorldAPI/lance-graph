@@ -46,6 +46,15 @@ added for this alone would be a second, partial identity carrier.
 > What remains open is not the algebra but the identity/preconditions of a
 > bare-slice merge: `TD-KEYED-SINK-MERGE-IDENTITY-1` above.
 
+## TD-CE64-REGISTER-FRAMING-RESIDUE-1 (2026-09-30) — OPEN, `CausalEdge64` framed as a carrier in live code
+
+`CausalEdge64` IS the ALU register (`edge.rs:1-3`; operator 2026-09-30). The doc comments that called it a "baton edge" were corrected (INTEGRATION_PLANS 2026-09-30 (5)). What remains is not wording and was not touched:
+1. **`MailboxSoA::apply_edges(&[(u16, CausalEdge64)])`** (`cognitive-shader-driver/src/mailbox_soa.rs:348`) still takes the tombstoned baton tuple shape as its live API, and its tests name the tuples `batons`.
+2. **`lance-graph-contract::transaction::{mod,interactive,bulk,periodisch}`** and `cognition/op.rs` carry Stage-1 placeholders for "Baton emission" queues.
+3. Historical plans and the frozen archive keep "(u16, CausalEdge64) baton" wording by the append-only rule; `sonnet-worker-guardrails.md` now carries the vocabulary row that overrides them for workers.
+
+Closing any of 1–2 is an API/design change with its own owner, not a doc edit.
+
 ## TD-CPW-COUNCIL-RESIDUE-1 (2026-09-30) — OPEN, four items from the second Cam96 council
 
 Recorded by `deepnsm-v2-cam96-pairwise-v5.md` §8; none is a deliverable there.

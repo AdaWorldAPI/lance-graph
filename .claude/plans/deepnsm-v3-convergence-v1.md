@@ -46,6 +46,14 @@ The representations named as "vs" are one composed stack, bottom to top:
 | truth | SPO-NARS 2³ (8 Pearl masks over `SpoDistances` 3×256²) | 3-bit mask in `CausalEdge64` bits 40-42; freq/conf; `Meta` tenant | mask **stored**, projections **computed** (P3) |
 | memory | episodic witness + AriGraph basin | `family` field (basin); `episodic_edges.rs` EW64; `witness_tombstone.rs` | **doc-only / scaffold `todo!()`** |
 
+> ⊘ **Correction (2026-09-30, operator):** the `edge` row's V3-home cell
+> ("`EdgeBlock`(16B, 1-byte refs) → `MaterializedEdges`") reads as though a
+> `CausalEdge64` were a stored reference record. It is not: **`CausalEdge64` IS
+> the ALU register** the NARS / Pearl 2³ operations run on (`edge.rs:1-3`). The
+> `MaterializedEdges` tenant is where rows of registers rest; `EdgeBlock` is a
+> retired type name (the second facet is a content-blind `FacetCascade`). Row
+> kept as written; read it through this note.
+
 **Collision guards** (from the mapper sweep — pin before any code):
 - "6×256" names **three** objects: CAM-PQ per-query ADC table `[[f32;256];6]`;
   `SpoDistances` 3×256² pairwise; OGAR key-tier 256×256 centroid tile. Not

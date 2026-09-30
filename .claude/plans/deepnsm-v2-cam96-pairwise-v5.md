@@ -41,6 +41,8 @@ The operator's statement, in order, verbatim where quoted:
 
 Closeout: `STATUS: corrected | OUTCOME: [a,b] = a word's 16-bit lexical address in a versioned codebook; six word slots per facet; relations driver-supplied, Fisher-z calibrated; embeddings optional comparison only | OPEN: which relational reading(s) the driver selects between two resolved words (ClassView), and the LUT that carries them — not decided here`.
 
+**⊘ CORRECTION 3 (operator, 2026-09-30) — `CausalEdge64` IS the ALU register.** One `u64`; the NARS truth, Pearl 2³ mask and inference operations run on it directly (`causal-edge/src/edge.rs:1-3`: *"One u64. One register. One read."*). It is not a reference, not a lens over something else, not a record in a store, not a carrier between mailboxes, and not a container for one word's bytes. Struck from this document wherever it says otherwise: §3.2's "a `CausalEdge64` lens per subspace" and its O/S/P plane table over a word's bytes; §3.4 L-2's "the driver's emitted `CausalEdge64` is a TRIPLE edge … S/P/O = the parsed words' subspace-0 needles"; and this session's chat framings of S/P/O as "register references" or of packing one word's `[a,b]` into S and O. The six word slots are the facet's stored identity; the register is where reasoning happens.
+
 ## 0. The rulings this version records
 
 1. *No materialized point, no cosine* → similarity is Fisher-z table reads (§3.3).
