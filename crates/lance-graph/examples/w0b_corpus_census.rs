@@ -39,7 +39,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use lance_graph::ast::{BooleanExpression, PropertyValue, ValueExpression};
-use lance_graph::logical_plan::{LogicalOperator, LogicalPlanner};
+use lance_graph::logical_plan::{ConsumerSemantics, LogicalOperator, LogicalPlanner};
 use lance_graph::parser::parse_cypher_query;
 use lance_graph::GraphConfig;
 
@@ -220,9 +220,13 @@ fn classify_value(v: &ValueExpression, grace: &mut Vec<GraceReason>) {
             args,
             distinct,
         } => {
-            // T-12: DISTINCT over VALUES needs value identity a mask has not.
-            if *distinct {
-                grace.push("§4.1 T-12 count(DISTINCT …)");
+            // T-12 splits (multiplicity contract §3.1): DISTINCT over a NODE
+            // variable is support — whether it is the terminal variable's
+            // support is `consumer_semantics`'s call, in `main`. DISTINCT over
+            // a VALUE needs value identity a mask has not.
+            let over_node = matches!(args.as_slice(), [ValueExpression::Variable(_)]);
+            if *distinct && !over_node {
+                grace.push("§4.1 T-12 count(DISTINCT <value>)");
             }
             match name.to_lowercase().as_str() {
                 // T-1/T-2 count · T-5 sum · T-6 min/max · T-7 avg (`[H]`, OQ-7).
@@ -494,6 +498,24 @@ fn main() -> io::Result<()> {
         let mut grace = Vec::new();
         let mut lowered = 0usize;
         classify_plan(&plan, &mut grace, &mut lowered);
+        // The multiplicity contract (cypher-mask-multiplicity-contract-v1
+        // §3.2): a mask is the support of the TERMINAL variable. Any other
+        // consumer needs a carrier the lowering plan's v1 does not build.
+        match plan.consumer_semantics() {
+            ConsumerSemantics::TerminalSet => {}
+            ConsumerSemantics::EarlierSet => {
+                grace.push("contract EarlierSet — earlier-variable support (backward pass)")
+            }
+            ConsumerSemantics::TerminalCount => {
+                grace.push("contract TerminalCount — path count after a hop")
+            }
+            ConsumerSemantics::EarlierCount => {
+                grace.push("contract EarlierCount — path count keyed on an earlier variable")
+            }
+            ConsumerSemantics::Bindings => {
+                grace.push("contract Bindings — identity of two or more variables")
+            }
+        }
         for r in &grace {
             *reason_hist.entry(r).or_insert(0) += 1;
         }
