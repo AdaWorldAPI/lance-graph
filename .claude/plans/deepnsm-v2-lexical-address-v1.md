@@ -129,14 +129,24 @@ are stored quantized as `u8`:
 | identity: `lemma`, `PoS` | from `lemmas_5k.csv` (or the reference's own key) | the declared reading the address resolves to |
 | identity: **`c`** (u8) | `c = w / (w+1)`, `w = ln(1+freq) / ln(1+freq_max) · K` (`K` is a labelled, hand-tuned pin) | the amount of evidence behind the reading |
 | surface form: **`f`** (u8) | the reading's share among that surface form's readings, from `word_forms.csv` (`wordFreq`): e.g. surface `record` → `record/n` 120,048 vs `record/v` 13,014, so `f` ≈ 0.90 and ≈ 0.10. `f = 1` for an unambiguous form (`the`) | an ambiguous form gets `f < 1` without anyone counting at query time |
-| unknown | a missing count produces **no row**. Unknown is absence, never a value, and never `0` | zero would assert "no evidence"; a missing row asserts "not measured" |
+| known / unknown | **one bit in the alpha mask** over the table (see below). Never a byte value and never `0` | zero would assert "no evidence"; an unset alpha bit asserts "not measured" |
 
 **The canonical `u8` encoding**, so the byte-for-byte gate is reproducible:
 - `f` and `c` are in `[0, 1]`. Each is stored as `q = round_half_even(x × 255)`, computed
   in `f64`. That uses the full unsigned range `0..=255`, and every byte value is a number.
-- **There is no sentinel.** An unsigned byte carries no NaN-like "unknown" value. A
-  reading with no measured count simply has no row in the table, and a lookup that
-  finds no row is unknown.
+- **There is no sentinel, and no row is left out.** An unsigned byte carries no
+  NaN-like "unknown" value.
+- **"Measured or not" uses the alpha channel's split tunnel** (`contract::alpha`,
+  `alpha_tunnel`):
+  - The baked table is the **spine**. It is complete, with one row per reference
+    entry, it is read-only, and it is read by every reader without a lock.
+  - Writing a measured `f` / `c` is an **overlay write at the same address**. The
+    spine never changes.
+  - Whether a row is measured is its bit in the overlay's **`AlphaMask`**. A reader
+    tests "known" as a mask operation, alongside every other mask it combines.
+- Unknown is therefore an **unset alpha bit**. It is not a byte value, not a missing
+  row, and not a second table. The table keeps its shape, so addresses stay dense and
+  no reader ever handles a hole.
 - `ln` is `f64::ln` and `freq_max` is the maximum over the reference being baked. `K`
   is written into the artifact header next to the three digests, so it is part of what
   is reproduced.
