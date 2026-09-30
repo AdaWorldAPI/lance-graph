@@ -2,10 +2,13 @@
 
 > **Status:** RATIFIED v3 (5+3 council, Phase 5). Corrects `cypher-mask-lowering-v1.md`.
 > No mint. No DataFusion extension. Debug-0 builds only.
+> **D-ids:** D-CMM-0 (plan corrections), D-CMM-1 (classifier), D-CMM-2 (DataFusion pins),
+> D-CMM-3 (census consumer), D-CMM-4 (count lane, queued), D-CMM-5 (walk/trail divergence, open),
+> D-CMM-6 (modelgraph footnote, queued) — rows in `STATUS_BOARD.md` under `D-CMM`.
 
 ## §0 The defect, in one fixture
 
-`crates/lance-graph/tests/test_explain_output.rs:32-47` KNOWS = {1→2, 1→3, 2→3, 3→4, 4→5}.
+KNOWS = {1→2, 1→3, 2→3, 3→4, 4→5} — the edges of `create_knows_dataset` in `crates/lance-graph/tests/test_explain_output.rs`.
 
 `MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(c:Person) RETURN count(*)`
 
