@@ -127,6 +127,18 @@ Plan: `.claude/plans/frontend-parity-witness-v1.md`. Entry: `entries/2026-10-03-
 | **D-FPW-3** | SurrealQL fork-side lowering hook (`sql::Lookup` → `Query`) | Queued | operator: BSL 1.1 licensing first |
 | **D-FPW-4** | gap G4 (sum of a foreign value) checked against `GroupReduce` before being called a primitive | Queued | — |
 
+## D-C96P — v3 RATIFIED (2026-09-30): scope and gates updated; the rows below are read through this block
+
+Plan: `.claude/plans/deepnsm-v2-cam96-pairwise-v3.md`. The reading is the merge M; A/B/D are its ablations.
+
+| D-id | scope (v3) | status | gate / falsifier |
+|---|---|---|---|
+| **D-C96P-0** | the measurement harness: arms M, M−t, M−j, A, B, D; in-harness 12-axis / 48-bit / RQ controls; train/val/eval split file | Blocked (embeddings, Q4) | G0, G1 report, G3, G3v, G5b |
+| **D-C96P-1** | Fisher-z codec into the contract; `fisher_z.rs` module-path re-export; atanh clamp factored out; `build_from_palette` becomes a free fn | Queued (authorized) | golden-bytes parity |
+| **D-C96P-2..5** | the arm the decision table picks; loaders with a `Cam96PairCodes` view; `Cam96AxisSpace` alias; trainer separate from the harness | Blocked (on D-0) | G1, G2 unit gate, G3, G4, G5, G6 |
+| **D-C96P-6** | `SemanticSpace` documented as routing-only; kept exported; no deprecation | Queued | G4 |
+| **D-C96P-7** | per-class `self_code` shape reading (`ValueSchema` variant or new ReadMode axis) | Queued | v3-envelope-auditor |
+
 ## D-C96P — deepnsm-v2 Cam96 → 6 × pairwise distribution (2026-09-29)
 
 Plan: `.claude/plans/deepnsm-v2-cam96-pairwise-v1.md`. Entry: `entries/2026-09-29-cam96-is-twelve-axes-not-six-pairs.md`. Council (`/5plus3`) before any wave.

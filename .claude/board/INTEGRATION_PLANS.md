@@ -73,6 +73,23 @@ authorized. Partly supersedes
 - **Open:** DataFusion stays in the build graph through the `lance-graph` dependency
   (OQ-CML-1); where the relationship declaration lives long-term (OQ-CML-2); self-hop
   vs `Foreign` planes (OQ-CML-4). The witness-loci relative hop is deferred (D-CML-6).
+## 2026-09-30 (1) — deepnsm-v2-cam96-pairwise-v3 — RATIFIED by the 5+3 council → `.claude/plans/deepnsm-v2-cam96-pairwise-v3.md`
+
+**Status:** RATIFIED v3. Supersedes `-v1.md` and the council draft `-v2.md`, which are kept as the record.
+
+**The reading.** It is the operator's merge **M**:
+- byte 0 = the needle `a`;
+- byte 1 = `(j : t)`: the `j`-th fixed neighbour `b` of `a`, and the position `t` along the arc a→b.
+
+It unifies the resonance reading (`r_a`, `r_b`) and the segment reading (`φ = arccos T(a,b)`) through `t = θ_a/φ`. The earlier readings A (2-NN pair), B (Fisher-z values) and D (the table dual) are measured as M's ablations, under a pre-registered decision table.
+
+**Similarity** is the exact reconstruction cosine from Gram cells and norms, which is the baseline metric itself.
+
+**Gating.**
+- G1's bar is an in-harness retrained 12-axis control.
+- Only D-C96P-0 (the harness) and D-C96P-1 (the codec move) are authorized.
+- The rest waits on the embeddings (Q4) and on operator Q1–Q5.
+
 ## 2026-09-29 (3) — deepnsm-v2-cam96-pairwise-v1 — Cam96 from twelve independent axes to six pairwise rails → `.claude/plans/deepnsm-v2-cam96-pairwise-v1.md`
 
 **Status:** SPEC v1, PROPOSAL. No code authorized; `/5plus3` before any wave.
