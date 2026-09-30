@@ -1,3 +1,9 @@
+## ISS-MASK-RISC-HAS-NO-SEGMENT-VIEW — an Arrow `ListArray` cannot enter the socket without materializing a parent-index lane (2026-09-30)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`lance-graph-mask-risc` `ir.rs`: `LaneRef = {I32, U32, U64, Strided}`, no offsets view; no `Arrow`/`ListArray` token in mask-risc, quack or report). The IR's factorized adjacency is a per-child index lane (`Gather`, `EqU32Via`, `GroupKey::Via`, `ScatterOrU32`) or a key-ordered lane (`CountKeyRunsU32`). A `ListArray` carries `offsets[parents + 1]`; turning that into a per-child parent-index lane is O(children), a derived-lane materialization.
+- **Not in scope of** `deepnsm-v2-cam96-pairwise-v5` §11 (D-CPW-15), which names the gap and builds nothing.
+- **What closes it:** a workload that needs it, then one structural view (segments/offsets) plus a parent-mask → child-mask expansion (a union of `mask_set_range` writes) and its reverse. The falsifier is `==` against the same program over the equivalent index lane, with no O(children) allocation.
+
 ## ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE — the driver packs p64 plane bits as a CausalMask; the inverse reads bit 2 differently (2026-09-30)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (council S3, R2). `driver.rs:489` packs `CausalMask::from_bits(h.predicates & 0x07)` where `predicates` is the p64 predicate-plane byte (bit0 CAUSES, bit1 ENABLES, **bit2 SUPPORTS**; `p64-bridge/src/lib.rs:121-128`). `edge_to_layer_mask` (`p64-bridge/src/lib.rs:74-76`) maps mask bit 2 (the S plane) to **CONTRADICTS**. Emit and its inverse disagree on bit 2; three mask vocabularies (rung, Pearl, p64) meet at one byte.
