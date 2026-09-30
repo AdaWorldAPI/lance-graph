@@ -28,8 +28,20 @@
 //!   `codes[word_id]` table. Semantic distance comes from Cam96; counts come
 //!   from here; the two are never mixed.
 //! - **Not truth.** Counts are observed population evidence, stored as exact
-//!   integers. No normalisation to `f32`, no probability, no NARS truth — a
-//!   consumer that wants a ratio computes it from the integers it asked for.
+//!   integers. No normalisation to `f32`, no probability, no NARS truth.
+//!
+//! ## Frequency is evidence, not a lexical decision
+//!
+//! A word's readings are stored most frequent first, and each carries an
+//! integer cumulative percentile coverage ([`LexicalEvidence::coverage`]).
+//! Position 0 is the most frequent observed reading and its share is
+//! `coverage[0]` — a reader never re-sums counts to measure it. The order is a
+//! presentation of the evidence, never a preference: every reading stays, and
+//! nothing here chooses, ranks or eliminates one. Count changes may change the
+//! order and the coverage; they never change which readings exist. Source file
+//! order is not kept: COCA orders `word_forms.csv` by lemma rank, so its first
+//! row is not the most frequent reading for 259 surfaces (`changes`: verb
+//! 13,624 first, noun 113,085 second).
 //!
 //! ## Unknown is not zero
 //!
@@ -251,16 +263,50 @@ impl LexicalEvidenceBuilder {
         Ok(())
     }
 
-    /// Freeze into id-indexed storage. Readings of one word keep insertion order.
+    /// Freeze into id-indexed storage.
+    ///
+    /// Each word's readings are stored in FREQUENCY ORDER — highest known
+    /// `form_count` first, unknown counts last, equal counts in insertion
+    /// order — and each carries its cumulative percentile coverage (see
+    /// [`LexicalEvidence::coverage`]). The order presents evidence; it selects
+    /// nothing, and every reading is kept.
     #[must_use]
     pub fn finish(mut self) -> LexicalEvidence {
-        self.readings.sort_by_key(|(id, _)| *id);
+        // Stable: equal keys keep insertion order.
+        self.readings.sort_by_key(|(id, r)| {
+            (
+                *id,
+                match r.form_count {
+                    Some(c) => (0u8, std::cmp::Reverse(c)),
+                    None => (1u8, std::cmp::Reverse(0)),
+                },
+            )
+        });
         let mut offsets = vec![0u32; self.vocab_len + 1];
         for (id, _) in &self.readings {
             offsets[*id as usize + 1] += 1;
         }
         for i in 1..offsets.len() {
             offsets[i] += offsets[i - 1];
+        }
+        let mut coverage = vec![None; self.readings.len()];
+        for w in offsets.windows(2) {
+            let (a, b) = (w[0] as usize, w[1] as usize);
+            let counts: Option<Vec<u64>> = self.readings[a..b]
+                .iter()
+                .map(|(_, r)| r.form_count)
+                .collect();
+            let Some(counts) = counts else { continue };
+            let total: u128 = counts.iter().map(|&c| u128::from(c)).sum();
+            if total == 0 {
+                continue;
+            }
+            let mut cum = 0u128;
+            for (slot, c) in coverage[a..b].iter_mut().zip(counts) {
+                cum += u128::from(c);
+                // cum <= total, so the quotient is 0..=100.
+                *slot = Some((cum * 100 / total) as u8);
+            }
         }
         let mut lemmas_by_name: HashMap<String, Vec<LemmaRef>> = HashMap::new();
         for (i, e) in self.lemmas.iter().enumerate() {
@@ -274,6 +320,7 @@ impl LexicalEvidenceBuilder {
         LexicalEvidence {
             offsets,
             readings: self.readings.into_iter().map(|(_, r)| r).collect(),
+            coverage,
             lemmas: self.lemmas,
             lemmas_by_name,
         }
@@ -285,7 +332,10 @@ impl LexicalEvidenceBuilder {
 pub struct LexicalEvidence {
     /// `offsets[id]..offsets[id + 1]` are word `id`'s readings.
     offsets: Vec<u32>,
+    /// Frequency-ordered within each word (see [`LexicalEvidenceBuilder::finish`]).
     readings: Vec<LexicalReading>,
+    /// Parallel to `readings`: cumulative percentile coverage.
+    coverage: Vec<Option<u8>>,
     lemmas: Vec<LemmaEntry>,
     lemmas_by_name: HashMap<String, Vec<LemmaRef>>,
 }
@@ -306,15 +356,34 @@ fn sum_known(counts: impl Iterator<Item = Option<u64>>) -> Result<Option<u64>, E
 }
 
 impl LexicalEvidence {
-    /// Every counted reading of word `id` (empty if none survived, or `id` is
-    /// out of range).
-    #[must_use]
-    pub fn readings(&self, id: WordId) -> &[LexicalReading] {
+    /// The shared index range for word `id`'s readings and coverage entries.
+    /// Returns `0..0` when `id` is outside the stored offsets.
+    fn span(&self, id: WordId) -> std::ops::Range<usize> {
         let i = id as usize;
         match (self.offsets.get(i), self.offsets.get(i + 1)) {
-            (Some(&a), Some(&b)) => &self.readings[a as usize..b as usize],
-            _ => &[],
+            (Some(&a), Some(&b)) => a as usize..b as usize,
+            _ => 0..0,
         }
+    }
+
+    /// Every counted reading of word `id`, most frequent first (empty if none
+    /// survived, or `id` is out of range). Position 0 is the most frequent
+    /// observed reading; the slice is the reading set, not a ranked choice.
+    #[must_use]
+    pub fn readings(&self, id: WordId) -> &[LexicalReading] {
+        &self.readings[self.span(id)]
+    }
+
+    /// Cumulative percentile coverage, aligned with [`readings`](Self::readings):
+    /// entry `k` is the percent (`0..=100`, floored) of word `id`'s known
+    /// occurrences covered by readings `0..=k`. The last entry is `100`, and
+    /// entry 0 is the most frequent observed reading's own share.
+    ///
+    /// All `None` when any reading's count is unknown or every count is zero —
+    /// a share of an unknown total is itself unknown.
+    #[must_use]
+    pub fn coverage(&self, id: WordId) -> &[Option<u8>] {
+        &self.coverage[self.span(id)]
     }
 
     /// The lemma entry behind a reading.
@@ -534,6 +603,56 @@ mod tests {
         assert_eq!(e.surface_pos_count(id, N), Ok(Some(120_048)));
         assert_eq!(e.surface_pos_count(id, V), Ok(Some(13_014)));
         assert_eq!(e.surface_count(id), Ok(Some(133_062)));
+    }
+
+    /// The register is frequency-ordered, not file-ordered, and carries its
+    /// cumulative percentile coverage. The counts are COCA's for `changes`
+    /// (verb row first in the file), placed on the fixture surface `record`.
+    /// Falsified by dropping the count sort.
+    #[test]
+    fn readings_are_frequency_ordered_with_percentile_coverage() {
+        let v = vocab();
+        let text = format!(
+            "{WORD_FORMS_HEADER}\n\
+             700,change,v,200000,13624,record\n\
+             850,change,n,300000,113085,record\n"
+        );
+        let (e, _) = load_word_forms_csv(&text, &v).unwrap();
+        let id = v.id("record").unwrap();
+        let rs = e.readings(id);
+        assert_eq!(rs[0].pos, N, "the noun row counts more and must come first");
+        assert_eq!(rs[0].form_count, Some(113_085));
+        assert_eq!(rs[1].pos, V);
+        // 113,085 / 126,709 = 89.2% -> 89; the last entry covers everything.
+        assert_eq!(e.coverage(id), &[Some(89), Some(100)]);
+    }
+
+    /// Equal counts keep file order; unknown counts sort last and make the
+    /// whole word's coverage unknown; an all-zero word has no coverage.
+    #[test]
+    fn ties_unknowns_and_zeros_in_the_register() {
+        let v = vocab();
+        let text = format!(
+            "{WORD_FORMS_HEADER}\n\
+             1,a,v,9,10,record\n\
+             2,a,n,9,10,record\n\
+             3,b,v,9,,records\n\
+             4,b,n,9,4,records\n\
+             5,c,n,9,0,may\n"
+        );
+        let (e, _) = load_word_forms_csv(&text, &v).unwrap();
+        let rec = v.id("record").unwrap();
+        assert_eq!(e.readings(rec)[0].pos, V, "tie keeps file order");
+        assert_eq!(e.coverage(rec), &[Some(50), Some(100)]);
+        let recs = v.id("records").unwrap();
+        assert_eq!(
+            e.readings(recs)[0].form_count,
+            Some(4),
+            "unknown sorts last"
+        );
+        assert_eq!(e.coverage(recs), &[None, None]);
+        assert_eq!(e.coverage(v.id("may").unwrap()), &[None]);
+        assert!(e.coverage(v.id("the").unwrap()).is_empty());
     }
 
     /// Test 2: counts are exact integers, including one no `f32` can hold.
