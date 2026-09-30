@@ -113,7 +113,7 @@ impl<'a> BackingStore<'a> {
         }
     }
 
-    /// `row`'s `CausalEdge64` register — typed on BOTH arms.
+    /// `row`'s `CausalEdge64` baton (its ALU register) — typed on BOTH arms.
     ///
     /// The Singleton arm wraps the raw `u64` (`EdgeColumn` stores `u64`); the
     /// Mailbox arm returns the natively-typed `CausalEdge64` (zero raw bounce).
@@ -190,7 +190,7 @@ impl BackingStoreWrite<'_> {
         }
     }
 
-    /// Write `row`'s `CausalEdge64` register.
+    /// Write `row`'s `CausalEdge64` baton (its ALU register).
     ///
     /// The Singleton arm unwraps to the raw `u64` that `EdgeColumn::set` stores;
     /// the Mailbox arm stores the typed edge directly.
