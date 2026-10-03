@@ -1,6 +1,8 @@
 # population-law-crosscheck-v1 — which execution law survives two independent witnesses
 
 > **Status:** ANALYSIS + source verification. No code changed. D-PLX-0..1.
+> **⊘ Revised 2026-10-03 (#1313):** read §N first. §D, §E, §F, §G, §H, §I, §L and §M
+> carry dated ⊘ notes. D-PLX-1 is withdrawn.
 > **Inputs:** merged #1311 (`2f2b67c`, `crates/lance-graph-quack/tests/gremlin_parity.rs`,
 > `.claude/plans/frontend-parity-witness-v1.md`) and an independent population-fold
 > experiment over a real 20,845-row source file (reported to this session, not run here;
@@ -75,6 +77,10 @@ rule. They only decide which of 2, 3 and 4 applies.
   a produced result becomes an operand (G2). The only exception is a resident
   population whose rows already are the composed paths, and that is rule 1 again.
 
+> **⊘ Corrected 2026-10-03 (§N).** "Either way a produced result becomes an operand" is
+> withdrawn. It was not checked whether a register orientation over the resident data
+> reaches this case, so no write is shown to be required. The re-anchor bullets stand.
+
 ## E. I → S root cause (the 1.19 MB key column)
 
 - The question ("how many (spelling, PoS) identities per spelling") is a **presence
@@ -100,6 +106,13 @@ rule. They only decide which of 2, 3 and 4 applies.
 
 **Classification: CURRENT API ARTIFACT** for the key column; the phase dependency itself
 is **SEMANTICALLY NECESSARY** without an ordered projection.
+
+> **⊘ Corrected 2026-10-03 (§N).** Pair → spelling is **not** a phase boundary. Resident:
+> the O rows. Register: pointed at spelling. PoS has a small fixed domain, so presence
+> per spelling fits in 16 bits of fold state. One fold over O yields the spelling
+> projection, and no (spelling, PoS) population is ever written. The current IR has no
+> such fold state (`GroupFold` is `Count / MinI32 / MaxI32 / SumSymI32`); that gap is
+> not a write. The key-column verdict and the layout note stand.
 
 ## F. Result-as-operand root cause
 
@@ -130,6 +143,11 @@ an edge row reading the per-vertex count from the previous hop (§D). No host
 finalization can serve that without either a host loop over N rows (the duplicate
 evaluator) or a population-sized copy.
 
+> **⊘ Withdrawn 2026-10-03 (§N).** The table stays as an inventory of what each terminal
+> writes. The paragraphs that name a missing capability are withdrawn: a fold over
+> resident data is already the projection, so another projection is another fold under a
+> rotated register, not a read of the previous output. No mechanism is proposed.
+
 ## G. G1 vs G2 — PARTIALLY SHARED
 
 - **Shared:** a completed keyed result is a population over its own coordinate space
@@ -145,6 +163,11 @@ evaluator) or a population-sized copy.
   §D). G2 confined to the K-space (HAVING, I→S's present-cell count) is served today
   by host finalization. G1 is needed only by refolds along a key component.
 
+> **⊘ Corrected 2026-10-03 (§N).** Struck: "a completed keyed result is a population over
+> its own coordinate space". Grouped output is a projection of the resident data, not a
+> new population. A refold along a key component is a fold of the same resident data
+> with the register pointed at the coarser key.
+
 ## H. Multi-terminal vs multi-phase
 
 | shape | workloads | needs |
@@ -155,6 +178,9 @@ evaluator) or a population-sized copy.
 Adding terminals to one `Program` removes none of the multi-phase dependencies: each
 phase-B input is a *completed* fold.
 
+> **⊘ Corrected 2026-10-03 (§N).** I→S leaves the multi-phase row (§E note). No remaining
+> row is shown to require a write; none was checked against a rotated register.
+
 ## I. The five #1311 gaps, reclassified
 
 | # | gap | old | new | evidence | smallest missing operation |
@@ -164,6 +190,9 @@ phase-B input is a *completed* fold.
 | 3 | ordered compare through an fk | general gap | **SIMPLE MISSING OPERATOR** | only `eq_u32_via_to_mask` exists; ordered `*_to_mask` kernels exist for `i32`/`u8`/`u64` | an ordered via predicate (ndarray kernel + `Pred` variant) |
 | 4 | sum of a foreign value | general gap | **MIS-SPECIFIED WITNESS**; by source a **SIMPLE MISSING OPERATOR**, not measured | witness used `u32` `Country`; the local `i32` sum exists (`Terminal::MaskedSumI32`) and no terminal or ndarray kernel sums `table[fk[i]]` (Terminal enum read in full; ndarray `masked_sum_*` list) | `masked_sum_i32_via`. Its composition route (Count by fk, then a dot product) would itself need G2 |
 | 5 | ordered compare on `u32` | general gap | **SIMPLE MISSING OPERATOR** | ndarray has `gt/lt/ge/le` for `i32`, `u8`, `u64` but not `u32`; `Pred` has none for `u32` | `{gt,lt,ge,le}_u32_to_mask` + `Pred` variants |
+
+> **⊘ Corrected 2026-10-03 (§N).** Gap 2's fan-in half and gap 4's composition route both
+> pointed at §F's withdrawn capability. Their classification is open.
 
 ## J. Existing production precedent
 
@@ -219,6 +248,9 @@ fixture): *"lines whose partner has exactly v posted lines"*.
 The same shape is the experiment's F→I read and the frontend side's A → R1 → R2 weight
 read, which is why it is the one probe that tests both witnesses.
 
+> **⊘ Withdrawn 2026-10-03 (§N).** The probe assumed a fold is followed by a separate
+> projection step. D-PLX-1 is withdrawn; nothing from it is kept.
+
 ## M. Downstream handover (domain-neutral)
 
 ```text
@@ -249,3 +281,45 @@ EXECUTION FACTS SURVIVING BOTH INDEPENDENT WITNESSES
 10. Open, pending one probe: whether feeding typed results onward needs only
     a wider lane kind, or a handle that also carries key metadata.
 ```
+
+> **⊘ Corrected 2026-10-03 (§N).** Fact 5 is struck: grouped output is a projection, not a
+> population. Fact 6's second sentence is struck: presence over a small domain is fold
+> state, not a write. Facts 7 and 10 are withdrawn with §F and §L.
+
+## N. Physical model (2026-10-03, #1313)
+
+```text
+resident data
+     +
+reference register
+     |
+    FOLD
+     |
+zero-copy projection
+
+PIVOT = rotate the reference register
+WRITE = materialization boundary
+```
+
+- Resident data does not move. A fold reads it through the reference register and
+  copies nothing.
+- A pivot rotates the register. No byte of the data plane moves; nothing is transposed.
+- A new projection is another fold under another register orientation, not a new
+  population.
+- Only a write materializes. Write only when a byte must move.
+
+Cost: about 1,000,000 folds cost less than one write. So: rotate the register, fold,
+project again. Not: fold, write, re-import, fold again.
+
+**Corrections that follow.**
+
+1. **Fan-out.** If a resident relation or path population already carries the required
+   multiplicity, the register re-anchors onto it and folding continues. Nothing is
+   written (§C rules 1 and 3, §D; measured in #1311).
+2. **Pair → spelling.** The spelling projection folds directly from the resident O rows.
+   No intermediate (spelling, PoS) population is written (§E note).
+3. **Grouped output** is a projection of the resident data, not automatically a new
+   population.
+4. **Equal row count** does not align two resident populations row for row. A per-row
+   read reaches the other population through a reference lane (an fk).
+5. **No new semantic identity concepts.**
