@@ -255,7 +255,7 @@ read, which is why it is the one probe that tests both witnesses.
 
 ## N. Measured: the result-as-operand probe (D-PLX-1, 2026-10-03)
 
-File: `crates/lance-graph-quack/tests/result_operand_probe.rs` (test-only, 4 tests),
+File: `crates/lance-graph-quack/tests/result_operand_probe.rs` (test-only, 6 tests),
 over the DuckDB fixture on `main` `2f2b67c`.
 
 **Path.**
@@ -273,11 +273,22 @@ over the DuckDB fixture on `main` `2f2b67c`.
 - Both phase-2 consumers match the oracle on every bucket.
 - An absent count matches 0 lines.
 - The per-`v` totals add up to every posted line.
+- **Line by line** (`every_line_reads_its_own_partners_count`): for every `v`, the
+  substrate's kept mask (`Agg::Rows` → `Terminal::Keep` → `Out::Mask`) equals the
+  oracle's set bit for bit. The masks for different `v` are disjoint and together cover
+  exactly the posted lines, so each line's read value is checked individually.
+- **Empty slots:** a `Count` sink has no seed marker (seed `0`;
+  `GroupFold::Count::is_empty_slot` is always false), so the copy maps every slot as a
+  real count. Pinned by `count_sink_has_no_seed_marker`. The fixture has no partner with
+  zero posted lines, so this rule is pinned but not exercised by the data.
 
 **Load-bearing, each turned the test red:**
 - the phase-2 predicate with the via read removed;
 - the phase-2 key read locally instead of through the lane;
-- the oracle's count for one partner altered.
+- the oracle's count for one partner altered;
+- in the line-by-line test: the via read removed, and the oracle off by one for one
+  partner;
+- an allocation injected into phase 2 (the zero assertion fires).
 
 **Also asserted in-suite:**
 - a rotated lane (each partner given its neighbour's count) is caught;
@@ -285,8 +296,11 @@ over the DuckDB fixture on `main` `2f2b67c`.
 - the same lane reached through a different local column (`cost_center`) gives a different histogram.
 
 **Allocation / materialization.**
-- Phase 2 execution allocated **0 bytes** (counting allocator).
-- Storage beyond the inputs: the sink (512 B = K × 8), the narrowed lane (256 B = K × 4) and the histogram sink (496 B).
+- Phase 2 execution allocated **0 bytes**, asserted. The first measurement used a
+  process-wide counter, which the parallel test harness contaminated (one run read
+  1,866 B). The counter is now per thread and checked to be live before the zero is
+  trusted.
+- Storage beyond the inputs: the sink (512 B = K × 8), the narrowed lane (256 B = K × 4, test workspace) and the histogram sink (496 B). The per-`v` kept masks in the line-by-line test are demanded verification outputs (N/64 words each), produced after phase B, not an intermediate between phases.
 - All of it is O(K); nothing is O(N).
 - Removing the copy leaves only the sink the fold already produces.
 - No host per-line lookup exists in the path. Phase 2b is one `execute_into`; phase 2a loops in host code over the 26 values only, as verification.
