@@ -27,8 +27,8 @@ Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`. Convergence br
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-LXC-1** | `bible_wave` only: counted pick (fold in the example) replaces the word_forms layer's first-wins; lemma table stays first (variant B, pinned rule F9 from `ec50f07b`); library unchanged. Rewritten 2026-09-29 against the migration documents, every claim re-read | Queued | G1–G7 in the plan; G5 KJV before/after blocking; G6 exactly 25 tag changes within `bible_vocab.txt`; G7 restores the deleted lemma-first test (closes `TD-DEEPNSM-V2-SESSION-RESIDUE` item 3) |
-| **D-LXC-2** | FSM (`Tagged`/`parse_to_spo`) takes several readings per token, resolved by role (`E-SURFACE-FORM-COLLAPSE-1`) | Queued | separate PR; needs an FSM change |
-| **D-LXC-3** | lemma-table order: keep first (B, 25 in-vocab changes) or counted-first (A, 141; overrides F9) | Queued | operator decision on D-LXC-1's KJV numbers |
+| **D-LXC-2** | FSM (`Tagged`/`parse_to_spo`) takes several readings per token, resolved by role (`E-SURFACE-FORM-COLLAPSE-1`) | In PR | `fsm::parse_readings` + `PosSet` + `coca` fold; T1-T7 disable-verified; KJV accounting pinned in `bible_wave` (3,363 ambiguous tokens / 141 words, 1,908 narrowed, 0 unexplained). Entry `2026-10-03-deepnsm-v2-multi-reading-fsm.md` |
+| **D-LXC-3** | lemma-table order: keep first (B, 25 in-vocab changes) or counted-first (A, 141; overrides F9) | Shipped | DECISION 2026-10-03: B — the lemma table order is kept (F9 stands); D-LXC-2 runs on it |
 | **D-LXC-4** | `academic_20k.csv` loader + the duplicate `coca_pos` in `genre_shapes.rs` | Blocked | ruling on 3 duplicate (word, PoS) pairs: wastewater/n, disproportionately/r, instill/v |
 | **D-LXC-5** | KJV-own counts for the Cam96 vocabulary (`bible_vocab.txt` is surface-only) | Queued | computed from the corpus |
 | **D-LXC-6** | mask-risc fold result at version v into cycle v+1 as a staged cast | Queued | own plan; touches the reverted CE64 area; not re-verified in the 2026-09-29 rewrite |

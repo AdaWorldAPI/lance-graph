@@ -197,18 +197,10 @@ fn main() {
     );
 }
 
-/// COCA PoS letter → [`Pos`]. Inline here: `deepnsm_v2::lexicon` was deleted
-/// after an audit found the planner's `insight_coca_read` already grounds this
-/// in the master COCA `lexicon.tsv` (with lemmatisation). This example keeps a
-/// minimal local tagger rather than re-adding a v2 module that duplicates it.
+/// COCA PoS letter → [`Pos`], through the crate's one canonical fold
+/// ([`deepnsm_v2::coca`]). The local copy that lived here is gone.
 fn coca_pos(letter: &str) -> Pos {
-    match letter {
-        "n" | "p" => Pos::Noun,
-        "v" => Pos::Verb,
-        "j" => Pos::Adj,
-        "a" | "d" => Pos::Det,
-        _ => Pos::Other,
-    }
+    deepnsm_v2::coca::fsm_pos_tag(letter)
 }
 
 /// Early-modern forms COCA does not carry. The explicit list is load-bearing:

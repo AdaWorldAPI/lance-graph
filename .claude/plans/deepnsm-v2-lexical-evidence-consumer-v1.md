@@ -447,3 +447,19 @@ documents. Corrections:
 A second session holds additional ideas for this area. Its brief is
 `.claude/prompts/deepnsm-v2-lexical-consumer-converge.md`. Its answer lands as
 a v2 of this plan, never as parallel code.
+
+## D-LXC-2 landed in PR (2026-10-03)
+
+DECISION 2026-10-03 (operator): D-LXC-3 = B, the lemma table order is kept;
+English data first, with the FSM reading-set ABI language-neutral.
+
+- `fsm::parse_readings` takes a `PosSet` per token and keeps what structure
+  cannot separate (certain vs alternative triples, per-token survivors).
+  The one elimination is relative Det/Adj → Verb licensing.
+- `coca` holds the single COCA letter fold. ⊘ F7 and F8 are narrowed, not
+  struck: the per-corpus tagger stays in the example, `lexical` still stores
+  raw `PosCode`, and the fold moved to a boundary module so the copies in
+  `bible_wave`, `genre_shapes` and tesseract-rs's `probe_token_seam` can
+  converge on it.
+- KJV numbers and the OPEN points: board entry
+  `2026-10-03-deepnsm-v2-multi-reading-fsm.md`.

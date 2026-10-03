@@ -24,14 +24,20 @@
 //! - G2 the trained codebook loads and codes align with the vocab
 //! - G3 KG is non-trivial (≥ 1,000 triples)
 //! - G4 meaning sanity on the trained codebook: sim(god, lord) > sim(god, fish)
+//! - D-LXC-2 the multi-reading FSM against the legacy one-tag parse of the
+//!   same tokens: every difference traces to an ambiguous token, and the
+//!   reading and triple accounting match the pinned KJV layout. Downstream
+//!   gates read the CERTAIN triples; alternatives are counted, not streamed.
 //!
 //! Reported (not gated): the long-range share — % of same-subject recurrence
 //! links farther than ±5 (v1's ring forfeits them) and ±8 (the local reference
 //! horizon → the Escalate zone).
 
+use deepnsm_v2::coca::{fsm_pos, fsm_pos_tag, reading_set};
 use deepnsm_v2::{
-    load_cam96_codes, load_cam96_space, load_word_forms_csv, parse_to_spo, EvidenceError,
-    LexicalEvidence, Nsm, PaletteVocab, Pos, Spo, Tagged, TemporalStream, WordFormsReport, WordId,
+    load_cam96_codes, load_cam96_space, load_word_forms_csv, parse_readings, parse_to_spo,
+    EvidenceError, LexicalEvidence, Nsm, PaletteVocab, Pos, PosSet, Reading, ReadingParse, Spo,
+    Tagged, TemporalStream, WordFormsReport, WordId,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -51,6 +57,242 @@ fn data_file(name: &str) -> Vec<u8> {
             path.display()
         )
     })
+}
+
+/// D-LXC-2 accounting: the multi-reading parse against the legacy one-tag
+/// parse of the same tokens. Every difference must trace to an ambiguous
+/// token; anything else is a KILL.
+#[derive(Default)]
+struct LexicalDecodeReport {
+    tokens: usize,
+    unknown: usize,
+    single: usize,
+    ambiguous: usize,
+    /// Ambiguous tokens the structure narrowed (fewer readings survived).
+    narrowed: usize,
+    /// Ambiguous tokens still carrying ≥ 2 readings at their verse's end.
+    still_ambiguous: usize,
+    /// Ambiguous tokens whose LEGACY tag did not survive — the structure
+    /// overruled the first-row-wins tag.
+    legacy_eliminated: usize,
+    legacy_triples: usize,
+    certain: usize,
+    alternative: usize,
+    /// Legacy triples that are neither certain nor alternative.
+    legacy_lost: usize,
+    /// Legacy triples that became alternatives.
+    legacy_to_alternative: usize,
+    /// Certain triples the legacy parse did not produce.
+    new_certain: usize,
+    verses_changed: usize,
+    peak_configs: usize,
+    overflow_flushes: usize,
+    ambiguous_words: HashMap<String, usize>,
+    eliminated_words: HashMap<String, usize>,
+}
+
+impl LexicalDecodeReport {
+    fn verse(
+        &mut self,
+        readings: &[Reading],
+        legacy_tags: &[Tagged],
+        words: &[String],
+        parse: &ReadingParse,
+        legacy: &[Spo],
+    ) {
+        let mut any_ambiguous = false;
+        for (k, (r, t)) in readings.iter().zip(legacy_tags).enumerate() {
+            if r.pos.contains(Pos::Stop) {
+                continue;
+            }
+            self.tokens += 1;
+            match r.pos.len() {
+                0 => {
+                    self.unknown += 1;
+                    assert_eq!(
+                        t.pos,
+                        Pos::Other,
+                        "KILL D-LXC-2: unknown word {:?} had a legacy tag",
+                        words[k]
+                    );
+                }
+                1 => {
+                    self.single += 1;
+                    assert!(
+                        r.pos.contains(t.pos),
+                        "KILL D-LXC-2 unexplained: {:?} has one reading {:?} but legacy tag {:?}",
+                        words[k],
+                        r.pos,
+                        t.pos
+                    );
+                }
+                _ => {
+                    any_ambiguous = true;
+                    assert!(
+                        r.pos.contains(t.pos),
+                        "KILL D-LXC-2 unexplained: legacy tag {:?} of {:?} is not among its readings {:?}",
+                        t.pos,
+                        words[k],
+                        r.pos
+                    );
+                    *self.ambiguous_words.entry(words[k].clone()).or_default() += 1;
+                }
+            }
+        }
+        for sv in &parse.ambiguous {
+            self.ambiguous += 1;
+            if sv.survived != sv.entered {
+                self.narrowed += 1;
+            }
+            if sv.survived.len() >= 2 {
+                self.still_ambiguous += 1;
+            }
+            if !sv.survived.contains(legacy_tags[sv.index].pos) {
+                self.legacy_eliminated += 1;
+                *self
+                    .eliminated_words
+                    .entry(words[sv.index].clone())
+                    .or_default() += 1;
+            }
+        }
+        self.legacy_triples += legacy.len();
+        self.certain += parse.certain.len();
+        self.alternative += parse.alternative.len();
+        self.peak_configs = self.peak_configs.max(parse.peak_configs);
+        self.overflow_flushes += parse.overflow_flushes;
+        let lost = legacy
+            .iter()
+            .filter(|t| !parse.certain.contains(t) && !parse.alternative.contains(t))
+            .count();
+        let to_alt = legacy
+            .iter()
+            .filter(|t| parse.alternative.contains(t))
+            .count();
+        let new_certain = parse.certain.iter().filter(|t| !legacy.contains(t)).count();
+        self.legacy_lost += lost;
+        self.legacy_to_alternative += to_alt;
+        self.new_certain += new_certain;
+        let changed = lost + to_alt + new_certain > 0 || !parse.alternative.is_empty();
+        if changed {
+            self.verses_changed += 1;
+            assert!(
+                any_ambiguous,
+                "KILL D-LXC-2 unexplained: a verse with no ambiguous token changed its triples"
+            );
+        }
+        if lost + new_certain > 0 {
+            assert!(
+                parse.ambiguous.iter().any(|sv| sv.survived != sv.entered),
+                "KILL D-LXC-2 unexplained: triples changed but no reading was eliminated"
+            );
+        }
+    }
+
+    fn top(m: &HashMap<String, usize>, n: usize) -> String {
+        let mut v: Vec<(&String, &usize)> = m.iter().collect();
+        v.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+        v.iter()
+            .take(n)
+            .map(|(w, c)| format!("{w} {c}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    fn print_and_gate(&self) {
+        println!(
+            "D-LXC-2  tokens {}: single {}, ambiguous {} ({} words), unknown {}",
+            self.tokens,
+            self.single,
+            self.ambiguous,
+            self.ambiguous_words.len(),
+            self.unknown
+        );
+        println!(
+            "D-LXC-2  ambiguous tokens: narrowed {}, still ambiguous {}, legacy tag eliminated {}",
+            self.narrowed, self.still_ambiguous, self.legacy_eliminated
+        );
+        println!(
+            "D-LXC-2  triples: legacy {} → certain {} + alternative {}; legacy→alternative {}, \
+             legacy lost {}, new certain {}; verses changed {}",
+            self.legacy_triples,
+            self.certain,
+            self.alternative,
+            self.legacy_to_alternative,
+            self.legacy_lost,
+            self.new_certain,
+            self.verses_changed
+        );
+        println!(
+            "D-LXC-2  configurations: peak {}, overflow flushes {}",
+            self.peak_configs, self.overflow_flushes
+        );
+        println!(
+            "D-LXC-2  most ambiguous words: {}",
+            Self::top(&self.ambiguous_words, 12)
+        );
+        println!(
+            "D-LXC-2  legacy tag eliminated most for: {}",
+            Self::top(&self.eliminated_words, 12)
+        );
+        assert_eq!(
+            self.single + self.ambiguous + self.unknown,
+            self.tokens,
+            "KILL D-LXC-2: token accounting does not add up"
+        );
+        assert_eq!(self.overflow_flushes, 0, "KILL D-LXC-2: a verse overflowed");
+        println!("D-LXC-2 PASS every difference traces to an ambiguous token");
+        // Pinned for the released `bible_vocab.txt` + Gutenberg `pg10.txt`,
+        // lemma table order kept (D-LXC-3). A deliberate decoder change
+        // re-pins these with the difference reported.
+        assert_eq!(
+            (
+                self.tokens,
+                self.single,
+                self.ambiguous,
+                self.ambiguous_words.len(),
+                self.unknown,
+                self.narrowed,
+                self.still_ambiguous,
+                self.legacy_eliminated,
+                self.eliminated_words.len(),
+            ),
+            (771_176, 683_805, 3_363, 141, 84_008, 1_908, 1_455, 179, 35),
+            "KILL D-LXC-2: reading accounting moved from the pinned KJV layout"
+        );
+        assert_eq!(
+            (
+                self.legacy_triples,
+                self.certain,
+                self.alternative,
+                self.legacy_to_alternative,
+                self.legacy_lost,
+                self.new_certain,
+                self.verses_changed,
+                self.peak_configs,
+            ),
+            (70_393, 69_670, 1_716, 732, 113, 122, 1_131, 16),
+            "KILL D-LXC-2: triple accounting moved from the pinned KJV layout"
+        );
+        println!("D-LXC-2 PASS accounting matches the pinned KJV layout");
+    }
+}
+
+/// One COCA lexicon table, read as text.
+///
+/// The tables are committed under `crates/deepnsm/word_frequency/` — a
+/// location, not an ownership claim: v2 reads them as its own lexical source
+/// and never links v1 code. `DEEPNSM_V2_LEXICON` points at another copy with
+/// the same bytes (e.g. one fetched from the Tigris bake
+/// `lance-graph/codebooks/deepnsm-v2-academic-coca-v1/`, see `data/README.md`).
+/// The bytes and row order are the contract; the path is not.
+fn lexicon_file(name: &str) -> String {
+    let dir = std::env::var("DEEPNSM_V2_LEXICON").map_or_else(
+        |_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../deepnsm/word_frequency"),
+        PathBuf::from,
+    );
+    let path = dir.join(name);
+    std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("missing lexicon table {} ({e})", path.display()))
 }
 
 fn main() {
@@ -128,16 +370,8 @@ fn main() {
     );
 
     // ── PoS: COCA lemmas + FORMS + archaic fallback ──
-    let lemmas_csv = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../deepnsm/word_frequency/lemmas_5k.csv"
-    ))
-    .expect("lemmas_5k.csv (sibling deepnsm crate)");
-    let forms_csv = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../deepnsm/word_frequency/word_forms.csv"
-    ))
-    .expect("word_forms.csv (sibling deepnsm crate)");
+    let lemmas_csv = lexicon_file("lemmas_5k.csv");
+    let forms_csv = lexicon_file("word_forms.csv");
     let tagger =
         Tagger::load(&lemmas_csv, &forms_csv, &nsm.vocab).expect("word_forms.csv evidence");
     let r = &tagger.report;
@@ -189,24 +423,38 @@ fn main() {
     );
     println!("G8c PASS coverage bands match the pinned KJV-vocabulary layout");
 
-    // ── stream: verse index = version; FSM → SPO ──
+    // ── stream: verse index = version; multi-reading FSM → SPO (D-LXC-2) ──
+    // Each token enters with every reading it has; the parser keeps what the
+    // structure cannot separate. The LEGACY one-tag parse runs beside it on
+    // the same tokens, only to account for every difference.
     let mut stream = TemporalStream::new();
     let mut all: Vec<(u64, Spo)> = Vec::new();
-    let mut tagged_buf: Vec<Tagged> = Vec::new();
+    let mut lx = LexicalDecodeReport::default();
+    let mut readings_buf: Vec<Reading> = Vec::new();
+    let mut legacy_buf: Vec<Tagged> = Vec::new();
+    let mut words_buf: Vec<String> = Vec::new();
     for (vi, verse) in verses.iter().enumerate() {
-        tagged_buf.clear();
+        readings_buf.clear();
+        legacy_buf.clear();
+        words_buf.clear();
         for tok in verse.split_whitespace() {
             let Some(w) = normalise(tok) else { continue };
             let Some(id) = nsm.vocab.id(&w) else { continue };
-            let pos = tagger.pos(&w);
-            tagged_buf.push(Tagged::new(id, pos));
+            readings_buf.push(Reading::new(id, tagger.readings(&w, id)));
+            legacy_buf.push(Tagged::new(id, tagger.pos(&w)));
+            words_buf.push(w);
         }
-        tagged_buf.push(Tagged::new(0, Pos::Stop)); // verse boundary flushes
-        for t in parse_to_spo(&tagged_buf) {
+        readings_buf.push(Reading::stop()); // verse boundary flushes
+        legacy_buf.push(Tagged::new(0, Pos::Stop));
+        let parse = parse_readings(&readings_buf);
+        let legacy = parse_to_spo(&legacy_buf);
+        lx.verse(&readings_buf, &legacy_buf, &words_buf, &parse, &legacy);
+        for &t in &parse.certain {
             stream.push(vi as u64, t);
             all.push((vi as u64, t));
         }
     }
+    lx.print_and_gate();
 
     // ── SoC seam (text): emit labelled verse text for the reasoning layer ──
     if let Some(out) = &export_verses {
@@ -1021,18 +1269,10 @@ fn shuffle_null(groups: &[(u16, Vec<deepnsm_v2::Cam96>)]) -> Vec<(u16, Vec<deepn
         .collect()
 }
 
-/// COCA PoS letter → [`Pos`]. Inline here: `deepnsm_v2::lexicon` was deleted
-/// after an audit found the planner's `insight_coca_read` already grounds this
-/// in the master COCA `lexicon.tsv` (with lemmatisation). This example keeps a
-/// minimal local tagger rather than re-adding a v2 module that duplicates it.
+/// COCA PoS letter → [`Pos`], through the crate's one canonical fold
+/// ([`deepnsm_v2::coca`]). The local copy that lived here is gone.
 fn coca_pos(letter: &str) -> Pos {
-    match letter {
-        "n" | "p" => Pos::Noun,
-        "v" => Pos::Verb,
-        "j" => Pos::Adj,
-        "a" | "d" => Pos::Det,
-        _ => Pos::Other,
-    }
+    fsm_pos_tag(letter)
 }
 
 /// Early-modern forms COCA does not carry. The explicit list is load-bearing:
@@ -1143,10 +1383,7 @@ fn band_share(
         return None;
     }
     let share = evidence.coverage(id).first().copied().flatten()?;
-    let mut states = evidence
-        .readings(id)
-        .iter()
-        .map(|r| coca_pos(&r.pos.as_char().to_string()));
+    let mut states = evidence.readings(id).iter().map(|r| fsm_pos(r.pos));
     let first = states.next()?;
     states.any(|s| s != first).then_some(share)
 }
@@ -1258,6 +1495,28 @@ impl Tagger {
             .or_else(|| archaic_pos(w))
             .unwrap_or(Pos::Other)
     }
+
+    /// Every reading word `w` (routing id `id`) enters the parser with
+    /// (D-LXC-2). Same sources and order as [`Self::pos`], but the forms
+    /// layer hands over its whole reading set instead of its first row:
+    ///
+    /// 1. the lemma table (F9, kept: D-LXC-3 is decided as "keep the lemma
+    ///    table order"), one reading;
+    /// 2. every [`LexicalEvidence`] reading, folded by [`deepnsm_v2::coca`];
+    /// 3. the archaic list, one reading;
+    /// 4. otherwise [`PosSet::EMPTY`]: unknown, never a guessed reading.
+    ///
+    /// No count is read. Where the forms layer has one folded reading, the
+    /// set is exactly the legacy tag; where it has several, the legacy tag is
+    /// one of them.
+    fn readings(&self, w: &str, id: WordId) -> PosSet {
+        if let Some(&p) = self.lemmas.get(w) {
+            return PosSet::single(p);
+        }
+        reading_set(&self.evidence, id)
+            .or_else(|| archaic_pos(w).map(PosSet::single))
+            .unwrap_or(PosSet::EMPTY)
+    }
 }
 
 /// LEGACY tagging, verbatim from `main`'s `load_pos`: the lemma table, then the
@@ -1299,11 +1558,7 @@ mod tests {
     }
 
     fn committed(name: &str) -> String {
-        std::fs::read_to_string(format!(
-            "{}/../deepnsm/word_frequency/{name}",
-            env!("CARGO_MANIFEST_DIR")
-        ))
-        .expect("committed COCA table")
+        lexicon_file(name)
     }
 
     const NO_LEMMAS: &str = "rank,lemma,PoS\n";
