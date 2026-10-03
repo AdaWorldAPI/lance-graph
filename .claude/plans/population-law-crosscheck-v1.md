@@ -371,19 +371,28 @@ never changed by any version of #1313. It is byte-identical on `main`,
 engines stay separate implementations. They meet only at the evidence a rule needs:
 
 ```text
-  |X|      rows matching the antecedent
-  |X ∧ Y|  rows matching antecedent and consequent
-  n        rows in the window
-     -> CandidateRule / ARM evidence
-     -> arm_to_truth_u8   (f = |X∧Y| / |X|,  c = |X∧Y| / (|X∧Y| + k))
-     -> {s,p,o,f,c}
+CandidateRule evidence:
+    |X|      rows matching the antecedent
+    |X ∧ Y|  rows matching antecedent and consequent
+    n        rows in the window
+
+ARM support gate:
+    support = |X∧Y| / n
+
+Truth projection:
+    arm_to_truth_u8:
+        f = |X∧Y| / |X|
+        c = |X∧Y| / (|X∧Y| + k)
+
+    -> {s,p,o,f,c}
 ```
 
 **Engine 1, resident / hot.** Resident population + reference geometry → Quack
-`Agg::Count` over `Filter::X` or `Filter::And([X, Y])` → mask-risc `Terminal::Count`
-(`popcount_batch_u64`, `mask-risc/src/exec.rs:1738`) → scalar `|X|` / `|X∧Y|` → ARM /
-SPOFC truth. One program per count, no intermediate population, no histogram, no
-K-slot sink.
+`Agg::Count` → mask-risc `Terminal::Count` (`popcount_batch_u64`,
+`mask-risc/src/exec.rs:1738`) → scalar → ARM / SPOFC truth. For one ARM candidate:
+`Filter::X` → scalar Count → `|X|`; `Filter::And([X, Y])` → scalar Count → `|X∧Y|`.
+One program per count, no intermediate population, no histogram, no K-slot sink. ARM
+does not need a `Pair`-grouped K-slot result.
 
 **Engine 2, tabular / external.** `Dataset` → `RowMasks` → `support_count` /
 `and_count` (`lance-graph-arm-discovery/src/bitset.rs:276-298`) → `|X|` / `|X∧Y|` →
@@ -392,10 +401,11 @@ resident population. Its users (`tesseract-paperless` `auto-match`, `lance-graph
 tests) rely on that.
 
 **The real-data witness (§B) on the same boundary.** O = 20,845 resident observations,
-I = 20,842 (spelling, PoS) identities, S = 18,559 spellings. Every count it needs is a
-fold of O under a rotated register:
-- marginals (`|X|`): `Count` with the register on one lane;
-- co-occurrence (`|X ∧ Y|`): `Pair{hi, lo}` grouping, with no composite key column;
+I = 20,842 (spelling, PoS) identities, S = 18,559 spellings. Every statistic/projection
+used by the witness is obtained from O under a rotated register:
+- marginals: `Count` with the register on one lane;
+- population-wide pair/co-occurrence projection: `Pair{hi, lo}` grouping, with no
+  composite key column (this is the witness's shape, not the per-candidate ARM count);
 - presence over the bounded PoS domain: 16-bit OR state per spelling (§E note, §O);
 - moments: `PowerSums` (n, Σx, Σx²).
 
