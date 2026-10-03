@@ -132,7 +132,7 @@ not), and a field view over record sinks.
 **Where the boundary actually bites.** Quack rules HAVING deliberately: *"HAVING is not
 a new primitive and not a population operation… the O(K) finalization over those sinks…
 No O(N) mask crosses a program boundary"* (`quack/src/lib.rs`, `GroupHaving` doc). So
-a phase B whose output stays in the K-space (HAVING, AVG's `avg_finish`, a scalar
+a phase B whose output stays in the K-sized result domain (HAVING, AVG's `avg_finish`, a scalar
 statistical finish over sufficient statistics) is **already handled by design, as
 K-sized host finalization**. (It sits in tension with the crate's "never evaluate a
 `Program`" rule, but the crate states it as a choice, not a gap.)
@@ -160,7 +160,7 @@ evaluator) or a population-sized copy.
   as lanes and compare them.
 - G2 that crosses back into an N-row pass is independently needed by a per-row read
   of an I value from F (experiment) and by the A → R1 → R2 traversal (frontend side,
-  §D). G2 confined to the K-space (HAVING, I→S's present-cell count) is served today
+  §D). G2 confined to the K-sized result domain (HAVING, I→S's present-cell count) is served today
   by host finalization. G1 is needed only by refolds along a key component.
 
 > **⊘ Corrected 2026-10-03 (§N).** Struck: "a completed keyed result is a population over
@@ -323,3 +323,43 @@ project again. Not: fold, write, re-import, fold again.
 4. **Equal row count** does not align two resident populations row for row. A per-row
    read reaches the other population through a reference lane (an fk).
 5. **No new semantic identity concepts.**
+
+## O. Recovered from the pre-reset branch (2026-10-03)
+
+The pre-reset head of #1313 is preserved as `recovery/1313-pre-reset` (`dba70c16`). The
+text below is restored verbatim from it, because it does not depend on the deleted Count
+probe. Sentences that did depend on the probe are left out and marked `[…]`.
+
+**From `55bf7cde`, §E (review thread on #1312):**
+
+> The presence fold does NOT need a completed I. PoS has a bounded 16-value domain, so
+> one pass over O grouped by spelling can OR a 16-bit presence bitmap per group (bit
+> `pos`) and popcount it when finishing. A generic per-group distinct state is the same
+> counterexample. The current IR lacks that fold state (`GroupFold` has `Count / MinI32 /
+> MaxI32 / SumSymI32` only), so I→S is an **AGGREGATE-STATE LIMITATION, not a phase
+> dependency.** The key-column verdict (API artifact) stands. […]
+
+**From `55bf7cde` / `ef1e9397`, §H:**
+
+> Remove "I→S presence fold" from the multi-phase row: it is a missing fold state (§E
+> note). HAVING phase B stays multi-phase but is K-sized result domain finalization by
+> design (§F), not the N-row consumer. […]
+
+**From `55bf7cde`, §M fact 6:**
+
+> Re-rolling a mergeable fold along its key needs no phase boundary (fold the source with
+> the coarser key, or merge cells). Presence over a bounded domain needs no phase
+> boundary either: it is a per-group OR state.
+
+**From `55bf7cde`, CellSpace cross-check** (`lance-graph-report/src/result.rs`):
+
+> - It preserves: per-dimension `CoordSpec` and domain; the physical layout
+>   (`Dense{strides}`, or `Sparse{coords, index}`); the fold states; one `i64` value
+>   column per state.
+> - […] re-rolls by merging, in host code.
+> - It does not offer its values as a lane to a mask-risc program. […]
+
+The experiment evidence in §B (O = 20,845, I = 20,842, S = 18,559, the three n = 2 keys,
+the PoS-per-spelling histogram, `Pair` grouping, sink sizes, `PowerSums` / moments) was
+never changed by any version of #1313. It is byte-identical on `main`,
+`recovery/1313-pre-reset` and `recovery/1313-current`.

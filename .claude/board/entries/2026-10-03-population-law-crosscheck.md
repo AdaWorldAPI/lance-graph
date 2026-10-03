@@ -28,3 +28,5 @@ re-derived from `crates/deepnsm/word_frequency/academic_20k.csv` (20,845 / 20,84
   Pair → spelling folds directly from O (no phase boundary). Grouped output is a
   projection, not a population. Equal row count does not align rows. The falsifier
   above (D-PLX-1) is withdrawn.
+- **Recovered from `55bf7cde` (`recovery/1313-pre-reset`):** I→S presence over a bounded
+  domain is a missing per-group OR fold state, not a phase dependency.
