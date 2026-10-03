@@ -1,3 +1,12 @@
+## 2026-10-03 — frontend-parity-witness-v1 — SQL, Cypher, Gremlin, SurrealQL on one population algebra → `.claude/plans/frontend-parity-witness-v1.md`
+
+**Status:** MEASURED for SQL ↔ Gremlin (test-only witness in `lance-graph-quack/tests/gremlin_parity.rs`); analysis for Cypher (#1306 plan) and SurrealQL (AST). D-FPW-0..4. No production code.
+
+- Gremlin and SQL meet at the same `Query` value; execution equals DuckDB and a bulk oracle.
+- Anchor rule: functional hop keeps the anchor; one fan-out re-anchors on the path population.
+- Five gaps pass the two-witness rule; the two that decide traversal are #1308 (a) and (b)/(d).
+- Input for #1306 D-CML-2: RF-BAG is broader than the semantics require.
+
 ## 2026-09-30 (2) — deepnsm-v2-lexical-address-v1 — a word is a 16-bit address into a versioned, baked COCA codebook → `.claude/plans/deepnsm-v2-lexical-address-v1.md`
 
 **Status:** PROPOSAL (D-LXA-1..4), ratified v3 by a 5+3 council. No code authorized.

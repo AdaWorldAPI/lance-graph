@@ -1,3 +1,15 @@
+## D-FPW — Frontend parity witness (2026-10-03)
+
+Plan: `.claude/plans/frontend-parity-witness-v1.md`. Entry: `entries/2026-10-03-frontend-parity-witness.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-FPW-0** | inventory + parity matrix (SQL/Quack, Cypher #1306, Gremlin, SurrealQL) | Shipped | plan §1, §4 |
+| **D-FPW-1** | Gremlin witness: typed steps → `quack::Query`, 13 tests | Shipped | `Query ==` SQL shape; DuckDB answers; bulk oracle; 5 disable runs red |
+| **D-FPW-2** | feed the anchor rule (functional hop ⇒ exact bag count) into #1306 D-CML-2 | Queued | a Cypher `count(*)` after a functional hop matches the oracle |
+| **D-FPW-3** | SurrealQL fork-side lowering hook (`sql::Lookup` → `Query`) | Queued | operator: BSL 1.1 licensing first |
+| **D-FPW-4** | gap G4 (sum of a foreign value) checked against `GroupReduce` before being called a primitive | Queued | — |
+
 ## D-LXC — DeepNSM-v2 lexical-evidence consumer + candidate next parts (2026-09-29)
 
 Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`. Convergence brief: `.claude/prompts/deepnsm-v2-lexical-consumer-converge.md`.
