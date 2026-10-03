@@ -33,6 +33,7 @@ pub use rule::{member_counts, GrantGroup, ImplyGroup, Rule, SetPrimarySmtp};
 pub use snapshot::{
     pack_ou, BuildError, Dict, Dicts, NodeKind, Observation, ObservedNode, Snapshot, NONE,
 };
+pub use exec::Kept;
 pub use store::{Rejection, SimError, VersionStore};
 pub use view::{ApplyError, View};
 
@@ -47,7 +48,7 @@ pub struct SubtreeTooDeep(pub usize);
 /// Nodes located in the OU subtree `prefix` (ancestor-or-self), as a node
 /// bitmap — one ternary match on the packed OU lane (`Cmp::MatchU64`), no DN
 /// strings. Prefixes up to depth 4 are exact; deeper ones are refused.
-pub fn subtree(v: &View<'_>, prefix: &OuHhtl) -> Result<Vec<u64>, SubtreeTooDeep> {
+pub fn subtree(v: &View<'_>, prefix: &OuHhtl) -> Result<exec::Kept, SubtreeTooDeep> {
     let d = prefix.depth();
     if d > 4 {
         return Err(SubtreeTooDeep(d));

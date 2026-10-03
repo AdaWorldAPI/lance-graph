@@ -18,7 +18,7 @@ use crate::exec::{group_count_into, keep, program};
 use crate::snapshot::bit;
 use crate::view::View;
 use lance_graph_mask_risc::{
-    materialize_rows, Foreign, ForeignPlane as FPlane, LaneRef, Planes, Program,
+    Foreign, ForeignPlane as FPlane, LaneRef, Planes, Program,
 };
 use lance_graph_quack::{Agg, Cmp, Col, Filter, ForeignPlane, Mask};
 use ogar_dir_core::Guid128;
@@ -76,7 +76,7 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
         masks: &masks,
         lanes: &lanes,
     };
-    for r in materialize_rows(&keep(&p, &planes, &foreign), planes.n_rows) {
+    for r in keep(&p, &planes, &foreign).rows() {
         let (user, group) = s.member_guids(r as u32);
         out.push(Violation::DanglingMembership {
             user,
@@ -96,7 +96,7 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
         masks: &masks,
         lanes: &lanes,
     };
-    for r in materialize_rows(&keep(&p, &planes, &foreign), planes.n_rows) {
+    for r in keep(&p, &planes, &foreign).rows() {
         let (user, group) = ids[r];
         out.push(Violation::DanglingMembership {
             user,
@@ -181,7 +181,7 @@ pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
             Filter::and([Filter::plane(Mask(0)), Filter::cmp(Col(0), Cmp::EqU32(key))]),
             Agg::Rows,
         );
-        let mut owners: Vec<Guid128> = materialize_rows(&keep(&p, &base, &Foreign::NONE), s.len())
+        let mut owners: Vec<Guid128> = keep(&p, &base, &Foreign::NONE).rows()
             .into_iter()
             .map(|o| s.ids[o])
             .collect();

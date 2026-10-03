@@ -2,7 +2,7 @@
 
 use lance_graph_dir_sim::validate::{dangling, dangling_program, validate};
 use lance_graph_dir_sim::*;
-use lance_graph_mask_risc::{materialize_rows, MaskOp};
+use lance_graph_mask_risc::MaskOp;
 use ogar_dir_core::{Guid128, OuHhtl};
 use ogar_dir_sim::*;
 use std::sync::Arc;
@@ -580,7 +580,7 @@ fn ou_subtree_is_a_prefix_match() {
     let v = st.observe("lab", 0, obs).unwrap();
     let view = st.view(v).unwrap();
     let pick = |p: &OuHhtl| -> Vec<Guid128> {
-        materialize_rows(&subtree(&view, p).unwrap(), view.len())
+        subtree(&view, p).unwrap().rows()
             .into_iter()
             .map(|o| view.guid(o as u32).unwrap())
             .collect()

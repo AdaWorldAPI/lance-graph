@@ -8,7 +8,7 @@
 //! `words_for(n_rows)` bitmap, a `GroupReduce` in a `K`-slot sink.
 
 use lance_graph_mask_risc::{
-    execute_into, words_for, Foreign, Out, Planes, Program, Scratch, Terminal, Value,
+    execute_into, materialize_rows, words_for, Foreign, Out, Planes, Program, Scratch, Terminal, Value,
 };
 use lance_graph_quack::{lower, Agg, Col, Filter, GroupAddr, GroupAgg, Query};
 
@@ -23,14 +23,52 @@ fn run(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>, out: Out<'_>) ->
     execute_into(p, planes, foreign, &mut scratch, out).expect("directory program runs")
 }
 
-/// Surviving rows as a `words_for(n_rows)` bitmap (`Agg::Rows` → `Keep`).
-pub(crate) fn keep(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>) -> Vec<u64> {
+/// The rows one program kept. Its only exit is [`Kept::rows`], the evidence
+/// boundary: it has no `&[u64]` view, so it cannot become another program's
+/// `ForeignPlane`. A `Semijoin` gathers only from resident planes (node kinds,
+/// the active-user plane), never from a population a program produced.
+///
+/// ```compile_fail
+/// use lance_graph_dir_sim::Kept;
+/// use lance_graph_mask_risc::ForeignPlane;
+/// fn feed(k: &Kept) -> ForeignPlane<'_> {
+///     ForeignPlane { words: k, rows: 0 }
+/// }
+/// ```
+///
+/// The same imports and shape compile against a resident plane:
+///
+/// ```
+/// use lance_graph_dir_sim::Kept;
+/// use lance_graph_mask_risc::ForeignPlane;
+/// fn feed<'a>(_k: &Kept, resident: &'a [u64]) -> ForeignPlane<'a> {
+///     ForeignPlane { words: resident, rows: 0 }
+/// }
+/// ```
+#[derive(Debug, PartialEq, Eq)]
+pub struct Kept {
+    bits: Vec<u64>,
+    n_rows: usize,
+}
+
+impl Kept {
+    /// Kept row indices, ascending. Bounded by the number of survivors.
+    pub fn rows(&self) -> Vec<usize> {
+        materialize_rows(&self.bits, self.n_rows)
+    }
+}
+
+/// Surviving rows (`Agg::Rows` → `Keep`), sealed in a [`Kept`].
+pub(crate) fn keep(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>) -> Kept {
     debug_assert!(matches!(p.terminal, Terminal::Keep { .. }));
     let mut bits = vec![0u64; words_for(planes.n_rows)];
     if planes.n_rows > 0 {
         run(p, planes, foreign, Out::Mask(&mut bits));
     }
-    bits
+    Kept {
+        bits,
+        n_rows: planes.n_rows,
+    }
 }
 
 /// `GROUP BY key COUNT(*)` over the rows `filter` keeps, ADDED into `sink`
