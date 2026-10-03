@@ -1,7 +1,8 @@
 # population-law-crosscheck-v1 — which execution law survives two independent witnesses
 
 > **Status:** ANALYSIS + source verification. No code changed. D-PLX-0..1.
-> **⊘ Revised 2026-10-03 (#1313):** read §N first. §D, §E, §F, §G, §H, §I, §L and §M
+> **⊘ Revised 2026-10-03 (#1313):** two payloads: the #1312 rollover (§N, §O) and the
+> ANOVA real-data → ARM / SPOFC convergence (§P, D-PLX-3). Read §N first. §D, §E, §F, §G, §H, §I, §L and §M
 > carry dated ⊘ notes. D-PLX-1 is withdrawn.
 > **Inputs:** merged #1311 (`2f2b67c`, `crates/lance-graph-quack/tests/gremlin_parity.rs`,
 > `.claude/plans/frontend-parity-witness-v1.md`) and an independent population-fold
@@ -363,3 +364,56 @@ The experiment evidence in §B (O = 20,845, I = 20,842, S = 18,559, the three n 
 the PoS-per-spelling histogram, `Pair` grouping, sink sizes, `PowerSums` / moments) was
 never changed by any version of #1313. It is byte-identical on `main`,
 `recovery/1313-pre-reset` and `recovery/1313-current`.
+
+## P. ANOVA real-data → ARM / SPOFC convergence (D-PLX-3, 2026-10-03)
+
+**Result: TWO physical population-count engines, ONE evidence semantics.** The two
+engines stay separate implementations. They meet only at the evidence a rule needs:
+
+```text
+  |X|      rows matching the antecedent
+  |X ∧ Y|  rows matching antecedent and consequent
+  n        rows in the window
+     -> CandidateRule / ARM evidence
+     -> arm_to_truth_u8   (f = |X∧Y| / |X|,  c = |X∧Y| / (|X∧Y| + k))
+     -> {s,p,o,f,c}
+```
+
+**Engine 1, resident / hot.** Resident population + reference geometry → Quack
+`Agg::Count` over `Filter::X` or `Filter::And([X, Y])` → mask-risc `Terminal::Count`
+(`popcount_batch_u64`, `mask-risc/src/exec.rs:1738`) → scalar `|X|` / `|X∧Y|` → ARM /
+SPOFC truth. One program per count, no intermediate population, no histogram, no
+K-slot sink.
+
+**Engine 2, tabular / external.** `Dataset` → `RowMasks` → `support_count` /
+`and_count` (`lance-graph-arm-discovery/src/bitset.rs:276-298`) → `|X|` / `|X∧Y|` →
+ARM / SPOFC truth. It has no lance-graph engine dependency and stays usable without a
+resident population. Its users (`tesseract-paperless` `auto-match`, `lance-graph-osint`
+tests) rely on that.
+
+**The real-data witness (§B) on the same boundary.** O = 20,845 resident observations,
+I = 20,842 (spelling, PoS) identities, S = 18,559 spellings. Every count it needs is a
+fold of O under a rotated register:
+- marginals (`|X|`): `Count` with the register on one lane;
+- co-occurrence (`|X ∧ Y|`): `Pair{hi, lo}` grouping, with no composite key column;
+- presence over the bounded PoS domain: 16-bit OR state per spelling (§E note, §O);
+- moments: `PowerSums` (n, Σx, Σx²).
+
+Pair → spelling projects directly from O (§N). No intermediate analytics population is
+needed between that evidence and ARM / SPOFC.
+
+**Not count engines.**
+- Witness-register counts (`bound_count`, `agreement_count`, `quorum_mantissa`) are
+  fixed-register reductions.
+- Planner `BeliefArena` counts are control and ranking counts.
+- Confidence histograms are telemetry.
+- `nsm_bridge::compare_models` is test-only.
+- CausalEdge64 holds f/c and semantic bits, no raw counts.
+
+**Open semantic note (not solved here).** ARM / SPOFC → `arm_to_truth_u8` → CausalEdge64
+f/c is the evidence-derived path. `cognitive-shader-driver` (`driver.rs:479-489`) also
+writes CausalEdge64 f/c, derived from resonance (similarity).
+
+<sub>Fine print: DeepNSM-v2's recounts (`bible_wave`, the confidence-delta oracle in
+`introspect.rs`) are an independent scientific / oracle path that checks the execution
+semantics. They are not a production count engine.</sub>

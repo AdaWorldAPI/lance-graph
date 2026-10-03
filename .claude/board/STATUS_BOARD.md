@@ -6,6 +6,7 @@ Plan: `.claude/plans/population-law-crosscheck-v1.md`. Entry: `entries/2026-10-0
 |---|---|---|---|
 | **D-PLX-0** | cross-check of #1311 against the real-data fold experiment; reclassify the five gaps | Shipped | plan §A–§M |
 | **D-PLX-1** | test-only falsifier: a K-space fold sink read back per row through an fk (lane kind vs result handle) | Withdrawn | a fold is already the projection (plan §N); no probe kept |
+| **D-PLX-3** | ANOVA real-data → ARM / SPOFC convergence: two physical population-count engines, one evidence semantics | Shipped (ANALYSIS) | plan §P |
 
 ## D-FPW — Frontend parity witness (2026-10-03)
 

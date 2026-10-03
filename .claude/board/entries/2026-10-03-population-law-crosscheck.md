@@ -30,3 +30,6 @@ re-derived from `crates/deepnsm/word_frequency/academic_20k.csv` (20,845 / 20,84
   above (D-PLX-1) is withdrawn.
 - **Recovered from `55bf7cde` (`recovery/1313-pre-reset`):** I→S presence over a bounded
   domain is a missing per-group OR fold state, not a phase dependency.
+- **ARM / SPOFC convergence (D-PLX-3, plan §P):** two physical population-count engines
+  (Quack / mask-risc scalar Count; arm-discovery `Dataset` / `RowMasks`), one evidence
+  semantics (`|X|`, `|X∧Y|`, n → `arm_to_truth_u8` → {s,p,o,f,c}).
