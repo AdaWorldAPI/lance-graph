@@ -251,6 +251,16 @@ pub struct SupportReceipt {
     /// Which kind of support this is.
     pub basis: SupportBasis,
     /// Who supplied it — a stable external identity.
+    ///
+    /// **Name the observation, not the reader.** Distinct-source counting
+    /// only means "independent" if every interpretation of ONE observation
+    /// records the same `source`: two parsers reading one sentence, or two
+    /// lexical readings of one token, are one source. Keying `source` by the
+    /// producer instead turns a single observation into several apparent
+    /// witnesses. A source that *quotes* another (a review citing a primary
+    /// study) still records its own id here, so it counts as distinct: this
+    /// ledger has no derived-from link and no polarity slot, which is why
+    /// `independent_strength` stays `None`. Pinned by the `indra_*` tests.
     pub source: EvidenceSourceId,
     /// When it was recorded.
     ///
@@ -672,5 +682,114 @@ mod tests {
             scope,
         };
         assert_ne!(at(CausalScope::Type), at(CausalScope::Token));
+    }
+    // ── The INDRA falsifier cases (`.claude/harvest/indra-reference-wiring.md`) ──
+    //
+    // `RelationId` + `AuditedRelation` is the truth-free proposition, and a
+    // `SupportReceipt` keyed by the observation it came from is the witness.
+    // These pin what that pairing already guarantees and what it cannot say.
+
+    /// Case 1: one proposition attested by two different papers keeps one
+    /// identity and gains a second distinct source.
+    #[test]
+    fn indra_two_papers_one_relation_two_sources() {
+        let mut r = AuditedRelation::unclassified(RelationId(42));
+        r.support
+            .record(receipt(SupportBasis::TextAttested, 100, 10));
+        r.support
+            .record(receipt(SupportBasis::TextAttested, 200, 10));
+        assert_eq!(
+            r.classification,
+            RelationClassification::Unclassified {
+                raw_relation: RelationId(42)
+            },
+            "adding witnesses does not change the proposition"
+        );
+        let p = r.support.profile();
+        assert_eq!(p.basis(SupportBasis::TextAttested).distinct_source_count, 2);
+    }
+
+    /// Cases 2 and 6: two interpretations of ONE observation (two readers of
+    /// one sentence, two lexical readings of one token) are one source when
+    /// `source` names the observation. The twin shows the convention is
+    /// load-bearing: keyed by producer, the same sentence reads as two.
+    #[test]
+    fn indra_two_readings_of_one_observation_are_one_source() {
+        const SENTENCE: u64 = 7;
+        const READER_A: u64 = 1001;
+        const READER_B: u64 = 1002;
+
+        let mut by_observation = SupportLedger::new();
+        by_observation.record(receipt(SupportBasis::LinguisticallyAsserted, SENTENCE, 10));
+        by_observation.record(receipt(SupportBasis::LinguisticallyAsserted, SENTENCE, 10));
+        let b = by_observation.profile();
+        let b = b.basis(SupportBasis::LinguisticallyAsserted);
+        assert_eq!(b.receipt_count, 2, "both readings stay on record");
+        assert_eq!(b.distinct_source_count, 1, "…as one observation");
+
+        let mut by_producer = SupportLedger::new();
+        by_producer.record(receipt(SupportBasis::LinguisticallyAsserted, READER_A, 10));
+        by_producer.record(receipt(SupportBasis::LinguisticallyAsserted, READER_B, 10));
+        assert_eq!(
+            by_producer
+                .profile()
+                .basis(SupportBasis::LinguisticallyAsserted)
+                .distinct_source_count,
+            2,
+            "keyed by producer, one sentence masquerades as two witnesses"
+        );
+    }
+
+    /// Case 3, a pinned GAP: a review quoting a primary study is a distinct
+    /// source here, because receipts carry no derived-from link. What keeps
+    /// this from inflating anything is that no strength is claimed as
+    /// independent. When a dependence link lands this test must be re-pinned.
+    #[test]
+    fn indra_review_quoting_primary_is_not_yet_recognised_as_an_echo() {
+        const PRIMARY: u64 = 10;
+        const REVIEW: u64 = 11;
+        let mut led = SupportLedger::new();
+        led.record(receipt(SupportBasis::TextAttested, PRIMARY, 10));
+        led.record(receipt(SupportBasis::TextAttested, REVIEW, 10));
+        let p = led.profile();
+        let t = p.basis(SupportBasis::TextAttested);
+        assert_eq!(t.distinct_source_count, 2, "the echo is not detected");
+        assert_eq!(
+            t.independent_strength, None,
+            "and is not converted into independent strength"
+        );
+    }
+
+    /// Case 5: a specific and a general proposition are distinct identities,
+    /// and support recorded on one does not reach the other implicitly.
+    #[test]
+    fn indra_refinement_does_not_propagate_support_implicitly() {
+        let mut specific = AuditedRelation::unclassified(RelationId(1));
+        let general = AuditedRelation::unclassified(RelationId(2));
+        specific
+            .support
+            .record(receipt(SupportBasis::TextAttested, 100, 10));
+        assert_ne!(specific.classification, general.classification);
+        assert!(
+            general.support.is_empty(),
+            "no hierarchy pooling by default"
+        );
+    }
+
+    /// No truth is minted by building a proposition and its witnesses: the
+    /// only aggregate that could read as belief is `independent_strength`,
+    /// and it stays unset however much support accumulates.
+    #[test]
+    fn indra_witnesses_mint_no_truth() {
+        let mut r = AuditedRelation::unclassified(RelationId(5));
+        for src in 0..20 {
+            r.support
+                .record(receipt(SupportBasis::DirectlyObserved, src, 255));
+        }
+        let p = r.support.profile();
+        for b in SupportBasis::ALL {
+            assert_eq!(p.basis(b).independent_strength, None);
+        }
+        assert!(!r.is_intervention_established());
     }
 }
