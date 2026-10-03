@@ -1,0 +1,29 @@
+# lance-graph-dir-sim — simulate a directory's desired state over the SoA
+# substrate. EXCLUDED from the lance-graph workspace (own [workspace] root)
+# because it path-deps the OGAR sibling — the same shape as
+# lance-graph-report-ogar / lance-graph-ogar.
+#
+# Direction: this crate depends on BOTH sides; neither depends on it. OGAR
+# owns the semantic vocabulary (ogar-dir-sim: Change, provenance, Violation,
+# ExecutionPlan) and the observation records (ogar-dir-core / ogar-ad);
+# lance-graph owns execution: every population query lowers through
+# lance-graph-quack onto lance-graph-mask-risc's one evaluator.
+#
+# Build/verify:  cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml
+
+[package]
+name = "lance-graph-dir-sim"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+description = "Versioned directory graph over SoA lanes: observed snapshots shared structurally across simulated versions (parent + delta), pure population rules, invariants as Quack semijoin / GroupReduce programs, semantic diff and a side-effect-free ExecutionPlan. No AD / Graph / Exchange / LDAP / PowerShell I/O."
+
+[workspace]
+
+[dependencies]
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
+ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
+ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
