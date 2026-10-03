@@ -26,8 +26,9 @@ re-derived from `crates/deepnsm/word_frequency/academic_20k.csv` (20,845 / 20,84
 - **Probe (MEASURED, `quack/tests/result_operand_probe.rs`):** a Count-by-partner sink,
   copied (checked) into a `u32` lane, is read per line through `partner_id` by the
   existing `EqU32Via` and `GroupKey::Via`; matches a host oracle; 0 bytes allocated in
-  phase 2; extra state O(K). OUTCOME A: no result handle is indicated. The remaining
-  gap is a width mismatch (`i64` Count sink vs `u32` via readers).
+  phase 2; extra state O(K). OUTCOME A: no result handle is indicated for this
+  consumer. Removing the copy is open; the visible cause is a width mismatch (`i64`
+  Count sink vs `u32` via readers).
 - **Corrected after review:** I→S presence over a bounded domain is a missing per-group
   OR fold state, not a phase dependency. Value reuse needs no key metadata; refolding by
   a component of the result's own key does.

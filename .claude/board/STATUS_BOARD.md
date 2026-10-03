@@ -6,7 +6,7 @@ Plan: `.claude/plans/population-law-crosscheck-v1.md`. Entry: `entries/2026-10-0
 |---|---|---|---|
 | **D-PLX-0** | cross-check of #1311 against the real-data fold experiment; reclassify the five gaps | Shipped | plan §A–§M |
 | **D-PLX-1** | test-only falsifier: a K-space fold sink read back per row through an fk (lane kind vs result handle) | Shipped | `quack/tests/result_operand_probe.rs` passes with only a checked u32 copy; OUTCOME A (plan §N); 3 disables red |
-| **D-PLX-2** | `GroupFold::Count` writes a `u32` sink (`Out::U32`, row bound checked) so the sink is directly a lane | Queued | the probe without the narrowing; >u32::MAX rows refused |
+| **D-PLX-2** | choose how to remove the probe's copy (candidates: a `u32` Count sink, a checked narrow view, wider `*_via` readers, a small result descriptor) | Queued | the probe passes with the narrowing removed |
 
 ## D-FPW — Frontend parity witness (2026-10-03)
 

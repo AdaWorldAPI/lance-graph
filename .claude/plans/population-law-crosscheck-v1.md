@@ -122,20 +122,22 @@ is **SEMANTICALLY NECESSARY** without an ordered projection.
 | `PowerSums` | `[PowerSums]`, 32 B records | `u64, i64, u128` fields | yes, as a slice | **no** lane view of a record field without `unsafe`; not reachable through mask-risc at all on main |
 | report `CellSpace` | `values: Vec<Box<[i64]>>` + dims/strides | fold states with key metadata | yes | re-roll and present only, in host code; not an input to a mask-risc program |
 
-The smallest missing piece is not a new phase concept. It is the ability to present a
-produced K-slot result as `Planes { n_rows: K, lanes: [typed views] }`: an `i64` lane
-kind with comparisons (`gt_u64_to_mask` and friends exist in ndarray; `i64` ones do
-not), and a field view over record sinks.
+The smallest demonstrated missing seam is: **make a completed K-sized result consumable
+by a later pass.** Whether that means typed lane exposure, a checked narrow view, the
+existing foreign/Via plumbing, or a small result descriptor is not established by
+source reading alone. (For reference: ndarray has `gt_u64_to_mask` and friends but no
+`i64` compares, and no lane views record fields such as `PowerSums`.) §N measures one
+consumer.
 
 **Where the boundary actually bites.** Quack rules HAVING deliberately: *"HAVING is not
 a new primitive and not a population operation… the O(K) finalization over those sinks…
 No O(N) mask crosses a program boundary"* (`quack/src/lib.rs`, `GroupHaving` doc). So
-a phase B whose output stays in the K-space (HAVING, AVG's `avg_finish`, a scalar
+a phase B whose output stays in the K-sized result domain (HAVING, AVG's `avg_finish`, a scalar
 statistical finish over sufficient statistics) is **already handled by design, as
 K-sized host finalization**. (It sits in tension with the crate's "never evaluate a
 `Program`" rule, but the crate states it as a choice, not a gap.)
 
-The capability is missing only when **a produced K-space result must be read per row
+The capability is missing only when **a produced K-sized result domain result must be read per row
 by a later N-row pass**: an observation row reading its identity's folded value, or
 an edge row reading the per-vertex count from the previous hop (§D). No host
 finalization can serve that without either a host loop over N rows (the duplicate
@@ -143,9 +145,9 @@ evaluator) or a population-sized copy.
 
 ## G. G1 vs G2 — PARTIALLY SHARED
 
-- **Shared:** a completed keyed result is a population over its own coordinate space
-  (the group universe K). Both gaps disappear once that space can be handed to the next
-  program as `Planes`.
+- **Shared:** a completed keyed result occupies a K-sized group (result) domain and may
+  need to become an operand of a later pass. Both gaps sit behind that phase order. What
+  mechanism exposes it is open (§F).
 - **G1 (distinct): key metadata.** The next fold needs a key that is a function of the
   coordinate (the inverse of the producing `GroupKey`). This needs the producing key to
   travel with the result, and a coordinate-derived key form in the walker.
@@ -162,7 +164,7 @@ evaluator) or a population-sized copy.
 
 - G2 that crosses back into an N-row pass is independently needed by a per-row read
   of an I value from F (experiment) and by the A → R1 → R2 traversal (frontend side,
-  §D). G2 confined to the K-space (HAVING, I→S's present-cell count) is served today
+  §D). G2 confined to the K-sized result domain (HAVING, I→S's present-cell count) is served today
   by host finalization. G1 is needed only by refolds along a key component.
 
 ## H. Multi-terminal vs multi-phase
@@ -176,7 +178,7 @@ Adding terminals to one `Program` removes none of the multi-phase dependencies: 
 phase-B input is a *completed* fold.
 
 > **⊘ Corrected 2026-10-03.** Remove "I→S presence fold" from the multi-phase row: it is
-> a missing fold state (§E note). HAVING phase B stays multi-phase but is K-space
+> a missing fold state (§E note). HAVING phase B stays multi-phase but is K-sized result domain
 > finalization by design (§F), not the N-row consumer. The multi-phase case that
 > remains is a completed result read per row by a later pass (F reading I; an edge row
 > reading the per-vertex count of the previous hop; §N's probe).
@@ -234,10 +236,9 @@ fixture): *"lines whose partner has exactly v posted lines"*.
 3. Phase B: a `line` query with `EqU32Via(partner_id, <that lane>, v)` → `Count`,
    compared with a host oracle for every v that occurs, plus one v that does not.
 
-- **Passes with only the narrowing** → the missing piece is a typed foreign lane over a
-  produced K-space result (an `i64` lane kind, plus a provenance rule that it is
-  computation-private workspace, the lane twin of #1310's resident-only planes). No
-  result-handle architecture is justified.
+- **Passes with only the narrowing** → existing per-row reads suffice once the values are
+  in a supported lane type; no result-handle architecture is indicated for that
+  consumer. Which mechanism should remove the copy stays open.
 - **Needs more** (seed-marked empties need the producing fold's identity, or the
   caller cannot express the phase order) → a typed result handle is justified, sized by
   exactly what was missing.
@@ -319,11 +320,13 @@ The width can be met on either side:
 
 Which side is a design choice not settled here. An `i64` lane is not implied.
 
-**Verdict: OUTCOME A — a typed lane is enough.** No result-handle architecture is
-justified by this consumer. The production seam is: expose a completed `Count` sink as
-a `u32` operand lane for a later phase.
+**Verdict: OUTCOME A — a typed lane is enough for this consumer.** No result-handle
+architecture is indicated. Measured: once the values sit in a supported lane type, the
+existing foreign/Via plumbing composes. Not measured: which mechanism should remove the
+copy (typed lane exposure, a checked narrow view, a different sink width, or a small
+result descriptor).
 
-**Smallest next change (not implemented).**
+**One candidate for removing the copy (not implemented, not chosen).**
 - **Where:** `lance-graph-mask-risc` (`value.rs` `Out`, `exec.rs` `Terminal::GroupReduce`) and the ndarray count kernel.
 - **What:** let `GroupFold::Count` write a `u32` sink (`Out::U32`), with the row bound checked the way `MASKED_SUM_I32_MAX_ROWS` is.
 - **Result:** the sink is then directly a `LaneRef::U32` for the next phase.
@@ -351,9 +354,9 @@ EXECUTION FACTS SURVIVING BOTH INDEPENDENT WITNESSES
 4. A phase boundary is real only when a later computation needs, per row,
    a fold over several rows of an earlier computation, and no resident
    population (or ordered projection) already carries it.
-5. A completed keyed result is a population over its own coordinate space
-   (the group universe K). It is computation-private workspace, never a new
-   identity or an authoritative population.
+5. A completed keyed result occupies a K-sized group domain and may need
+   to become an operand of a later pass. It is computation-private
+   workspace, never a new identity or an authoritative population.
 6. Re-rolling a mergeable fold along its key needs no phase boundary (fold
    the source with the coarser key, or merge cells). Presence over a bounded
    domain needs no phase boundary either: it is a per-group OR state.
