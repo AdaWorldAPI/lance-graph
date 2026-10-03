@@ -94,7 +94,7 @@ population:
 
 Division of labour between external references:
 
-- **ORKG** = scholarly contribution / comparison reference (no harvest yet).
+- **ORKG** = scholarly contribution / comparison reference (`.claude/harvest/orkg-reference-wiring.md`).
 - **INDRA** = causal knowledge assembly / model construction reference.
 
 External terminology (Statement, Evidence, belief, preassembly) is cited, not
@@ -102,3 +102,32 @@ canonized. INDRA's `belief` is a source-reliability probability and is **not**
 NARS truth.
 
 Reference: `.claude/harvest/indra-reference-wiring.md`
+
+## Scholarly evidence reference: ORKG (added 2026-10-03)
+
+**REFERENCE / COMPARATOR — NOT DEPENDENCY, NOT AUTHORITY.** ORKG terms describe ORKG
+only; they are not internal vocabulary. New concepts are still minted as OGAR classes.
+
+ORKG (Open Research Knowledge Graph) is the external reference shape for structured
+scholarly contributions, property-path comparisons, faceted exploration and
+publication. It answers:
+
+> *"What does normalized scholarly knowledge look like once it has been recorded?"*
+
+The AdaWorldAPI mission extends below that boundary:
+
+> *"Can text and observations be normalized into ontology-grounded,
+> provenance-preserving evidence populations that can be statistically and
+> epistemically revised before being projected into comparison views?"*
+
+Placement against this README's doctrine: imported scholarly claims sit on the
+**propose** side of the firewall. They are sourced evidence to be NARS-revised, never
+addressed facts. A comparison is a projection out of the versioned store, not a
+second store.
+
+Current state, measured 2026-10-03: the evidence-computing components exist on both
+legs (text and cohort observations), but the joins that would put literature claims
+and observations in one reasoning space are not built. The three missing joins are a
+publication source type, text → ontology-address normalization, and effect pooling.
+
+Reference: [`.claude/harvest/orkg-reference-wiring.md`](../harvest/orkg-reference-wiring.md)
