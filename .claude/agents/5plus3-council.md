@@ -82,8 +82,11 @@ verify the options; none of them checks whether the question files a
 concept under the wrong mechanism. That is how a council of fourteen
 answered "which kind of alpha is *known*?" when *known* was not alpha at
 all (`ISS-LXA-ALPHA-FIT`). PREMISE-SPLIT or PREMISE-WRONG re-asks the
-question before Phase 1; at escalation, a category-error option is struck
-or the question is re-asked before it reaches the operator.
+question before Phase 1. At escalation, a SPLIT or WRONG question is
+re-asked; when premise-auditor tests 1 or 2 fire, the final option set must
+include "the property belongs elsewhere" (`premise-auditor.md`, Step 2).
+The final question and option set are audited once more before they reach
+the operator.
 
 ## Phase 1 — the 5 (research savants, parallel, single lens each)
 
