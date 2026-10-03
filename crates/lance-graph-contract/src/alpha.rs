@@ -45,6 +45,23 @@
 //! therefore a **compile-time** property of this type, not a runtime check —
 //! and deliberately not a test, because a test of it could not fail.
 //!
+//! # What the alpha channel is NOT — calibrated reference data
+//!
+//! Alpha is **motion over a fixed frame**: same coordinate geometry as the
+//! spine, session-, time- or rung-local, sparse, discardable. It records
+//! where a train of thought went. It is never the home of a value that a bake
+//! measured — coverage ("is this coordinate defined in the reference?"),
+//! frequency, evidence, part of speech, calibration tables. Those belong to
+//! the reference set: calibrated, immutable for one reference version,
+//! derived from corpus measurement, digested. A changed reference value is a
+//! new reference version from a new bake, never an overlay write.
+//!
+//! The two may share a bitmap layout; they must not share a type, a name or a
+//! conversion. In particular [`AlphaMask`] is a population bitset over this
+//! overlay's addresses; a reference set's coverage plane is a separate type
+//! even when its bits look the same. Rationale and the decision record:
+//! `.claude/knowledge/reference-frame-vs-motion.md` (`ISS-LXA-ALPHA-FIT`).
+//!
 //! # What this PoC does NOT do
 //!
 //! The saccade *direction* is carried as the claim order ([`AlphaStamp::seq`]),
@@ -214,6 +231,14 @@ pub struct AlphaClaim {
 /// the hot side via [`AlphaOverlay::attended_mask`]. The decorator boundary
 /// survives untouched: the walk still never reads alpha — the diff happens
 /// HERE, above both planes, on two masks that each side produced blind.
+///
+/// # Not a reference coverage plane
+///
+/// Both operands above are populations over THIS overlay's addresses, computed
+/// for a question. A bake's "is this coordinate defined / measured" plane is
+/// calibrated reference data, immutable per reference version — a different
+/// category with its own type, even when its bits look the same. Never build
+/// one from the other (see the module doc, "What the alpha channel is NOT").
 ///
 /// # The one named materializer
 ///

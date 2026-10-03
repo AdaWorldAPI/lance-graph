@@ -119,7 +119,11 @@ contract-first (D-CML-0 checks it).
 
 **The pipeline inside `run`, in order.** Every failure along it is a `Refusal`, so no
 failure can produce an `Answer`:
-1. **Parse.** A parser error becomes RF-UNPARSED, carrying the upstream `GraphError`.
+1. **Parse.** A parser error becomes RF-UNPARSED, carrying an **owned reason** (message
+   and source position) that the front-end adapter extracts from the upstream
+   `GraphError`. The `GraphError` itself never crosses the crate's public surface: it
+   wraps `DataFusionError`, `lance::Error` and `ArrowError` (`error.rs:43-74`). The same
+   conversion applies to every upstream error in steps 3 and 4.
 2. **Label check against `LabelBinding`**, by walking the parsed AST, before
    planning. The upstream check is **partial**: the planner rejects an unmapped label
    only when a node variable is returned (`logical_plan.rs:517-526`), and semantic
@@ -164,25 +168,17 @@ failure can produce an `Answer`:
   walks is refused (§5 row RF-BAG). After a push hop there is no terminal at all, only
   the mask itself (§4.1).
 
-**OQ-CML-1 — DataFusion (and more) is still linked.** `lance-graph` depends on `datafusion`
-unconditionally (in `crates/lance-graph/Cargo.toml` the `datafusion` entry under
-`[dependencies]` carries no optional flag), and `error.rs` (`GraphError`) puts `DataFusionError` inside `GraphError`. So depending on the
-parser pulls DataFusion into the **build graph**, even though the new crate calls none
-of it. This is "off the surface", not "out of the binary". Making DataFusion optional
-upstream would be an upstream edit, and that is ruled out. The two options, to be
-decided by **measurement in D-CML-0**:
+**OQ-CML-1 — what "DataFusion is linked" means, split into four questions.**
+⊘ The earlier wording asked one question, "is DataFusion linked?", and answered it with
+an `nm` scan. The premise gate (`.claude/agents/premise-auditor.md`, 2026-10-03) showed
+that "linked" covered four concepts with different answers and different deciders:
 
-- **(a)** accept it as a link-time dependency. Measure whether any DataFusion symbol
-  survives into a release binary of the new crate. No existing CI step can measure
-  this, because none builds `lance-graph` without DataFusion (it is not optional). So
-  D-CML-0 adds one release-build step that runs `nm` on the binary.
-  The crate is a library, so the measured artifact is a `--release` `[[example]]` that
-  calls `run`. The step's disable: an example that references `datafusion_planner`
-  must show DataFusion symbols, and the step must go red on it.
-- **If (a) measures DataFusion in the binary, that is a STOP**, decided as its own
-  D-id. It is not a pre-authorised fallback. A pinned copy of `parser.rs` / `ast.rs` /
-  `semantic.rs` / `logical_plan.rs` inside the new crate would be a second authority
-  for the AST, so it is not the default remedy.
+| | question | status | how it is decided |
+|---|---|---|---|
+| **C2 build graph** | does compiling the new crate compile DataFusion? | **certain, yes**: `datafusion`, `lance`, `arrow`, `object_store` and `lance-graph-hydrate` are non-optional (the `[dependencies]` block of `crates/lance-graph/Cargo.toml`), and `pub mod datafusion_planner` is ungated (`crates/lance-graph/src/lib.rs`) | not measured. **Accepted as a stated build cost.** Removing it needs an upstream edit (ruled out) or a pinned copy of the front end (8 files, 6,845 lines including `error.rs`, `config.rs`, `case_insensitive.rs`, `parameter_substitution.rs`; and the copied `error.rs` still names `DataFusionError`) — a second AST authority, so a STOP, not a remedy |
+| **C4 call path** | does `run` execute any DataFusion code? | must be **no** | the import fence F-CML-FENCE (§8), with its disable per path; not `nm` |
+| **C5 public types** | does any public type of the new crate name an upstream type? | must be **no** | a fork-owned design rule, decided here: upstream errors become owned reasons in the adapter (§3 step 1). F-CML-SURFACE (§8) checks it |
+| **C3 binary residue** | does a release artifact still contain `datafusion*` symbols? | an observation | the `nm` step over a `--release` `[[example]]`. It is **recorded, not a gate**: a hit does not by itself trigger a STOP, because C3 can be non-empty for reasons that are not C4 (e.g. a `Display` impl reached through a formatted error) |
 
 ---
 
@@ -485,7 +481,7 @@ are reachability or support questions.
 
 | D-id | what | depends on | STOP if |
 |---|---|---|---|
-| **D-CML-0** | Verify the §2 upstream/fork split against upstream history. Create the crate skeleton: a workspace `members` entry (not `exclude`, no own `[workspace]`), three deps with `lance-graph` at `default-features = false`, and an import-fence test. Add CI lines: a test step in `rust-test.yml`, clippy and rustfmt lines in `style.yml`, one release `nm` step over a `[[example]]` binary for OQ-CML-1(a) (with its disable), and one `cargo tree -e features -i lance-graph` check that fails if `planner` is active in the new crate's feature set (feature unification can turn it back on). Confirm that `NodeRow` has a sound zero-copy byte view. Update `lance-graph-mask-risc/src/lib.rs:38,115`, which still names v1's in-`query.rs` `mask_lower` seam. Add a `LATEST_STATE` new-member row | — | a §2 file is fork-owned (the split is redrawn, not the design); or `NodeRow` has no sound byte view (STOP → contract-first) |
+| **D-CML-0** | Verify the §2 upstream/fork split against upstream history. Create the crate skeleton: a workspace `members` entry (not `exclude`, no own `[workspace]`), three deps with `lance-graph` at `default-features = false`, and an import-fence test. Add CI lines: a test step in `rust-test.yml`, clippy and rustfmt lines in `style.yml`, one release `nm` step over a `[[example]]` binary recording OQ-CML-1's C3 residue (an observation, not a gate), and one `cargo tree -e features -i lance-graph` check that fails if `planner` is active in the new crate's feature set (feature unification can turn it back on). Confirm that `NodeRow` has a sound zero-copy byte view. Update `lance-graph-mask-risc/src/lib.rs:38,115`, which still names v1's in-`query.rs` `mask_lower` seam. Add a `LATEST_STATE` new-member row | — | a §2 file is fork-owned (the split is redrawn, not the design); or `NodeRow` has no sound byte view (STOP → contract-first) |
 | **D-CML-1** | `Route` + `run` stub that refuses everything with `RF-NOT-LOWERED`. The switch compiles, and its refusal reason is true | 0 | — |
 | **D-CML-2** | **The classifier.** Walk the public `LogicalOperator` and return `Lowerable { variables whose node sets are asked for }` or a §5 `Refusal`. Two answers only. **#1305's `consumer_semantics()` is NOT ported:** its count and binding kinds describe per-path state to be carried through a hop, and v2 refuses those queries instead (§12). Ported from #1305: the three pattern-shape refusals (§12 H-4) and the fixtures (§12 H-1..H-3). Re-run the W0-b census under v2 and report per-variant counts | 0 | — |
 | **D-CML-3** | `LabelBinding` — label → `LabelDTO` → `u32` classid; per property a layout declaration `(field offset, width, kind)`; per relationship type its carrier/direction declaration (§4.1), checked against the class's `ClassView`. Built from `LabelDTO::from_canonical` where the codebook covers the label, and otherwise **supplied explicitly** by the consumer, never guessed. It is the first consumer of `LabelDTO`. The corpus labels are not in the codebook (modelgraph §16.3), so the explicit path is the common one | 0 | — |
@@ -512,6 +508,7 @@ first step that executes anything. D-CML-5 waits on 3b and 5a.
 | **F-CML-FENCE** | outside `#[cfg(test)]`, the new crate references no path under `lance_graph::query`, `lance_graph::datafusion_planner`, `lance_graph::sql_*`, or `datafusion*` | add one reference per path; the gate must go red for each |
 | **F-CML-CARRIER** | a relationship declared on an ordinal carrier over a class whose `edge_codec_flavor` is `Pq32x4` is refused | drop the `ClassView` check; the query must now lower |
 | **F-CML-UNDIRECTED** | `a-[*1..2]-a` over one undirected edge is refused (RF-DEPTH) | drop the check; the answer must now wrongly contain `a` |
+| **F-CML-SURFACE** | no public item of the new crate (including every `Refusal` payload) names a `lance_graph`, `datafusion*`, `lance*` or `arrow*` type; upstream errors cross only as owned reasons (OQ-CML-1 C5) | add a `GraphError` field to one `Refusal` variant; the gate must go red |
 | **F-CML-PLACEHOLDER** | the lowering reads none of the `GraphConfig` placeholder fields (`id_field`, `property_fields`, `source_id_field`, `target_id_field`) | make the lowering read one; the gate must go red |
 | **F-CML-UNDECLARED** | a relationship type with no declaration is refused (RF-UNDECLARED-REL), and the same query with a declaration lowers | drop the check; the undeclared query must now lower or panic |
 | **F-CML-REFUSE** (can-fire) | every §5 variant is produced by at least one committed query | delete a variant's arm; its query must now either lower (and fail the differential) or panic |

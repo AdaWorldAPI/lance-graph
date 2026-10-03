@@ -1,6 +1,6 @@
 ## ISS-LXA-ALPHA-FIT — known/unknown for the COCA bake vs the alpha channel's own definition (2026-09-30)
 
-**Status:** OPEN — operator escalation. **Basis:** VERIFIED-IN-CODE (5+3 council on
+**Status:** RESOLVED 2026-10-03 — known is NOT alpha: it is the reference set's baked coverage plane (`ReferenceCoverage`, no conversion to/from `AlphaMask`); the attention-recorder half of option (d) is a separate §5 open question. Plan §3.1 DECISION; `.claude/knowledge/reference-frame-vs-motion.md`. **Basis:** VERIFIED-IN-CODE (5+3 council on
 `deepnsm-v2-lexical-address-v1`, §3.1).
 - The ruling says known/unknown uses the alpha channel split tunnel. The alpha channel
   is defined as not a bake (no digest, discardable whole, `alpha.rs:11-16, 857-861`);
