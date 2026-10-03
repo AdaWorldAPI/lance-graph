@@ -1,3 +1,22 @@
+## 2026-09-30 (2) — deepnsm-v2-lexical-address-v1 — a word is a 16-bit address into a versioned, baked COCA codebook → `.claude/plans/deepnsm-v2-lexical-address-v1.md`
+
+**Status:** PROPOSAL (D-LXA-1..4), ratified v3 by a 5+3 council. No code authorized.
+D-LXA-3 is blocked on the operator escalation `ISS-LXA-ALPHA-FIT`. Harvested from PR #1303
+(`deepnsm-v2-cam96-pairwise` v1–v5, closed unmerged). The v1–v5 plan files are not
+carried; they remain on branch `claude/brave-mayer-65y3cy`.
+
+- **Six words per facet.** Each `[a,b]` is one 16-bit address into an immutable,
+  versioned lexical codebook. It is not two poles and not an embedding slice.
+- **Relations are driver-supplied** through the Fisher-z LUT.
+- **Three COCA references** (4096 / 5k lemma / 20k academic) are measured as neither
+  nested nor aligned: only 4 of 4,264 shared words keep their ordinal (ordinal 0 counted). Reading across
+  references is refused.
+- **The COCA bake** has two tables: an identity table `(lemma, PoS, lemma_evidence)`
+  and a surface-form table `(form, reading, f)`, all u8, built offline. Nothing is
+  counted at runtime. `f` and `lemma_evidence` are two statements, not a truth pair.
+- **Two keys:** `WordId` (surface form, existing) and `LexicalAddress` (reading, new),
+  joined by `readings(WordId)`.
+- Carries `ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE`.
 ## 2026-09-30 (1) — cypher-mask-lowering-v2 — Cypher on masks as a fork-owned replacement behind one switch → `.claude/plans/cypher-mask-lowering-v2.md`
 
 **Status:** PROPOSAL (D-CML-0..10, 3b, 5a), ratified v3 by a 5+3 council. No code
