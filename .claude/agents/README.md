@@ -56,6 +56,17 @@ chain terrain. **Mandatory reviewer** when any proposal adds layers
 without numbers, γ+φ placement is discussed, HHTL cascade is
 touched, or any unification is proposed without a falsifying probe.
 
+### Councils (harnesses, not single agents)
+
+- **`5plus3-council`** (`/5plus3`): hardens one committed spec. 5 savants
+  verify, consolidate, then 3 reviewers attack draft v2. Converges and
+  ratifies.
+- **`coresearch-council`** (`/coresearch`): explores an open question
+  across the code and the outside world (arXiv, known systems such as
+  DuckDB / Odoo, ontologies). 5 scouts in two rings, a crosswalk, then 3
+  co-architects (bridge, firewall/fit, falsifier) and an exploration map.
+  Ratifies nothing; a chosen design goes to a plan or `/5plus3`.
+
 ---
 
 ## Codec / Compression
