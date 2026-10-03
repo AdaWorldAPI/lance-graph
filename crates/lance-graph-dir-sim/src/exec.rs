@@ -8,7 +8,8 @@
 //! `words_for(n_rows)` bitmap, a `GroupReduce` in a `K`-slot sink.
 
 use lance_graph_mask_risc::{
-    execute_into, materialize_rows, words_for, Foreign, Out, Planes, Program, Scratch, Terminal, Value,
+    execute_into, materialize_rows, words_for, Foreign, Out, Planes, Program, Scratch, Terminal,
+    Value,
 };
 use lance_graph_quack::{lower, Agg, Col, Filter, GroupAddr, GroupAgg, Query};
 

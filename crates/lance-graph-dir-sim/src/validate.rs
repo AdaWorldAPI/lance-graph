@@ -17,9 +17,7 @@
 use crate::exec::{group_count_into, keep, program};
 use crate::snapshot::bit;
 use crate::view::View;
-use lance_graph_mask_risc::{
-    Foreign, ForeignPlane as FPlane, LaneRef, Planes, Program,
-};
+use lance_graph_mask_risc::{Foreign, ForeignPlane as FPlane, LaneRef, Planes, Program};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, ForeignPlane, Mask};
 use ogar_dir_core::Guid128;
 use ogar_dir_sim::{normalize, Attribute, Endpoint, Violation};
@@ -181,7 +179,8 @@ pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
             Filter::and([Filter::plane(Mask(0)), Filter::cmp(Col(0), Cmp::EqU32(key))]),
             Agg::Rows,
         );
-        let mut owners: Vec<Guid128> = keep(&p, &base, &Foreign::NONE).rows()
+        let mut owners: Vec<Guid128> = keep(&p, &base, &Foreign::NONE)
+            .rows()
             .into_iter()
             .map(|o| s.ids[o])
             .collect();

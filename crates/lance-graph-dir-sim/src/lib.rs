@@ -29,11 +29,11 @@ pub mod store;
 pub mod validate;
 pub mod view;
 
+pub use exec::Kept;
 pub use rule::{member_counts, GrantGroup, ImplyGroup, Rule, SetPrimarySmtp};
 pub use snapshot::{
     pack_ou, BuildError, Dict, Dicts, NodeKind, Observation, ObservedNode, Snapshot, NONE,
 };
-pub use exec::Kept;
 pub use store::{Rejection, SimError, VersionStore};
 pub use view::{ApplyError, View};
 

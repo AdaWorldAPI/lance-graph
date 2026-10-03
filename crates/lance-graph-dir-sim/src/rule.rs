@@ -87,6 +87,20 @@ impl Rule for GrantGroup {
 /// Population rule: every active member of `source` is a member of `target`.
 /// `active ∧ count(source) > 0 ∧ count(target) = 0`, from two folded
 /// `GROUP BY` sinks and the resident active-user plane — no per-user workflow.
+///
+/// Why two programs and not one: "member of A and not member of B" is a
+/// per-user fact over the membership relation, so a single program would
+/// have to `Semijoin` users against a population another program produced.
+/// That is the forbidden shape ([`crate::Kept`] makes it a compile error).
+/// The two sinks are keyed by user ordinal and sized by the node universe,
+/// never by membership rows, and are combined here at the consumer.
+///
+/// Not an `ogar-loco` program, for now. The only loco dialect that lowers to
+/// mask-risc (`FoldDialect`) lives inside a test file in
+/// `r2il-mask-abi-probe`, not in a library. It also combines only scalar
+/// folds; its `GROUP_SUM` sink is zero-filled per fold and keeps just the
+/// last one, so it cannot hold both counts. Copying it here would make a
+/// second arity table. That dialect has to become a library first.
 pub struct ImplyGroup {
     /// Rule identity.
     pub rule: RuleId,

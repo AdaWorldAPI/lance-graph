@@ -32,3 +32,21 @@ Open for the operator:
   use a dedicated directory dataset.
 - **Row-population masks.** There is still no shared row-population mask type
   in the contract; this crate uses mask-risc bitmaps directly.
+
+## Addendum (same day): no produced mask into a Semijoin, now a compile error
+
+- Kept rows from a program are sealed in `Kept`, which only exits through
+  `rows()`. Nothing can build a `ForeignPlane` from it. A `compile_fail`
+  doctest pins this, with a passing twin. Disable-run: giving `Kept` a slice
+  `Deref` turns the doctest red.
+- Audit by reading: every `ForeignPlane` in the crate is resident (the user
+  plane, the group plane, the active-user plane).
+- ndarray is mandatory. It comes in through `lance-graph-mask-risc`, a
+  non-optional path dependency (`cargo tree -i ndarray`).
+- All builds and tests ran with `CARGO_PROFILE_DEV_DEBUG=0` and
+  `CARGO_INCREMENTAL=0`.
+- `ogar-loco` was not adopted. The only loco→mask-risc dialect is a test-local
+  `FoldDialect` in `r2il-mask-abi-probe`. Its `GROUP_SUM` sink keeps only the
+  last fold, so it cannot express ImplyGroup's two keyed counts.
+- OPEN: promote a fold dialect to a library, with a multi-sink `GROUP_SUM`.
+  Then rules can be loco program data.

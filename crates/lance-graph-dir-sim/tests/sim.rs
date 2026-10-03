@@ -580,7 +580,9 @@ fn ou_subtree_is_a_prefix_match() {
     let v = st.observe("lab", 0, obs).unwrap();
     let view = st.view(v).unwrap();
     let pick = |p: &OuHhtl| -> Vec<Guid128> {
-        subtree(&view, p).unwrap().rows()
+        subtree(&view, p)
+            .unwrap()
+            .rows()
             .into_iter()
             .map(|o| view.guid(o as u32).unwrap())
             .collect()
