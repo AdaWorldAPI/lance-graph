@@ -509,6 +509,25 @@ fn plan_is_based_on_the_latest_observation() {
 }
 
 #[test]
+fn plan_reports_a_changed_node_set() {
+    let (mut st, _, _, g2) = chain();
+    st.promote_desired(g2).unwrap();
+    let mut grown = observed();
+    grown.nodes.push((
+        g(99),
+        ObservedNode::user("new@example.test", "new@example.test"),
+    ));
+    let o = st.observe("lab", 2_000, grown).unwrap();
+    assert_eq!(
+        st.plan(g2),
+        Err(PlanError::NodeSetChanged {
+            basis: o,
+            target: g2
+        })
+    );
+}
+
+#[test]
 fn converged_observation_diffs_empty() {
     let (mut st, _, _, g2) = chain();
     st.promote_desired(g2).unwrap();

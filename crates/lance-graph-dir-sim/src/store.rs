@@ -219,9 +219,12 @@ impl VersionStore {
             .lineage(target)
             .map_err(|_| PlanError::UnknownVersion(target))?[0];
         let basis = self.tag(TAG_OBSERVED).unwrap_or(root);
-        let diff = self
-            .diff(basis, target)
-            .map_err(|_| PlanError::UnknownVersion(target))?;
+        let diff = self.diff(basis, target).map_err(|e| match e {
+            SimError::NodeSetChanged => PlanError::NodeSetChanged { basis, target },
+            SimError::UnknownVersion(v) => PlanError::UnknownVersion(v),
+            // `diff` raises nothing else.
+            _ => PlanError::UnknownVersion(target),
+        })?;
         Ok(ExecutionPlan::from_diff(basis, target, diff))
     }
 
