@@ -38,9 +38,11 @@
 mod fixture;
 
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::cell::Cell;
 
-use lance_graph_mask_risc::{execute_into, Foreign, LaneRef, Out, Scratch, Value};
+use lance_graph_mask_risc::{
+    execute_into, words_for, Foreign, GroupFold, LaneRef, Out, Scratch, Value,
+};
 use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, ForeignLane, GroupAddr, GroupAgg, Query};
 
 use fixture::col::{PARTNER_ID, STATUS};
@@ -51,12 +53,21 @@ use fixture::{LINE_ROWS, PARTNER_ROWS};
 // ---------------------------------------------------------------------
 
 struct Counting;
-static BYTES: AtomicUsize = AtomicUsize::new(0);
+
+thread_local! {
+    // Per thread: the test harness runs tests in parallel, and a process-wide
+    // counter would charge one test with another's allocations.
+    static BYTES: Cell<usize> = const { Cell::new(0) };
+}
+
+fn thread_bytes() -> usize {
+    BYTES.with(Cell::get)
+}
 
 // SAFETY: a pure pass-through to `System`; the counter is the only addition.
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        BYTES.fetch_add(layout.size(), Ordering::Relaxed);
+        let _ = BYTES.try_with(|b| b.set(b.get() + layout.size()));
         // SAFETY: same layout, same contract as the caller's.
         unsafe { System.alloc(layout) }
     }
@@ -110,6 +121,13 @@ fn phase1(fx: &fixture::Fixture) -> [i64; PARTNER_ROWS] {
 
 /// THE KNIFE: a checked, test-only narrowing of the sink into a `u32` lane.
 /// K-sized. Panics rather than truncates if a count does not fit.
+///
+/// Empty slots: a `Count` sink has no seed marker. Its seed is `0` and
+/// `GroupFold::Count::is_empty_slot` is false for every value, so a partner no
+/// posted line names holds a real count of `0` and is copied as `0` — no slot
+/// needs special handling. (A MIN/MAX/SUM-sym sink would: its empty slots hold
+/// a seed outside the `u32` range and the conversion would panic.)
+/// `count_sink_has_no_seed_marker` pins this.
 fn narrow(sink: &[i64; PARTNER_ROWS]) -> [u32; PARTNER_ROWS] {
     sink.map(|c| u32::try_from(c).expect("a count fits u32 on this fixture"))
 }
@@ -160,9 +178,9 @@ fn phase2_hist(fx: &fixture::Fixture, count_lane: &[u32], out: &mut [i64]) -> us
     })
     .expect("lowers");
     let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
-    let before = BYTES.load(Ordering::Relaxed);
+    let before = thread_bytes();
     let v = execute_into(&program, &planes, &foreign, &mut scratch, Out::I64(out)).expect("runs");
-    let alloc = BYTES.load(Ordering::Relaxed) - before;
+    let alloc = thread_bytes() - before;
     assert_eq!(v, Value::GroupReduced);
     alloc
 }
@@ -258,6 +276,15 @@ fn a_completed_group_result_composes_into_a_later_pass_over_the_source() {
     for (c, (&got, &want)) in hist.iter().zip(&o.lines_with).enumerate() {
         assert_eq!(got as u64, want, "histogram bucket {c}");
     }
+    // The counter must be live, or a zero below would mean nothing.
+    let probe_before = thread_bytes();
+    let probe = std::hint::black_box(vec![0u8; 64]);
+    assert!(
+        thread_bytes() >= probe_before + probe.len(),
+        "allocation counter is dead"
+    );
+    drop(probe);
+    assert_eq!(alloc, 0, "phase 2 execution must allocate nothing");
     eprintln!(
         "METRIC result_operand_probe N={LINE_ROWS} K={PARTNER_ROWS} distinct_counts={} \
          sink_bytes={} lane_bytes={} hist_bytes={} phase2_exec_alloc_bytes={alloc}",
@@ -354,4 +381,79 @@ fn the_route_is_the_partner_fk() {
         .filter(|(&g, &w)| g as u64 != w)
         .count();
     assert!(mismatched > 0, "a wrong fk reproduced the right histogram");
+}
+
+/// The empty-slot handling `narrow` relies on: a Count sink's seed is a real
+/// count. FAILS IF the Count fold ever grows a seed marker, which would make
+/// the plain copy silently treat "no rows" as a count.
+#[test]
+fn count_sink_has_no_seed_marker() {
+    assert_eq!(GroupFold::Count.seed(), 0);
+    assert!(!GroupFold::Count.is_empty_slot(0));
+    // And the fixture really has partners with no posted line? Not required:
+    // either way every slot is a count. Report how many there are.
+    let fx = fixture::generate();
+    let zero = phase1(&fx).iter().filter(|&&c| c == 0).count();
+    eprintln!("METRIC result_operand_probe zero_count_partners={zero}");
+}
+
+/// Line by line: for every count `v`, the substrate's kept mask of
+/// "posted lines whose partner has count `v`" (phase 2 with `Agg::Rows`,
+/// i.e. `Terminal::Keep` into a caller-owned `Out::Mask`) must equal the
+/// oracle's set bit for bit. The masks for all `v` must be disjoint and cover
+/// exactly the posted lines, so every line's read value is checked, not only
+/// totals. The only host loop is over the distinct values and over the
+/// demanded masks for comparison; the per-line read is the program's.
+#[test]
+fn every_line_reads_its_own_partners_count() {
+    let fx = fixture::generate();
+    let o = oracle(&fx);
+    let lane = narrow(&phase1(&fx));
+    let lanes = fx.line.lanes();
+    let planes = lanes.planes();
+    let flanes = [LaneRef::U32(&lane)];
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    let mut distinct: Vec<u32> = lane.to_vec();
+    distinct.sort_unstable();
+    distinct.dedup();
+
+    let words = words_for(LINE_ROWS);
+    let mut union = vec![0u64; words];
+    for &v in &distinct {
+        let program = lower(&Query {
+            filter: Filter::and([posted(), Filter::eq_u32_via(PARTNER_ID, COUNT_LANE, v)]),
+            agg: Agg::Rows,
+        })
+        .expect("lowers");
+        let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
+        let mut mask = vec![0u64; words];
+        execute_into(
+            &program,
+            &planes,
+            &foreign,
+            &mut scratch,
+            Out::Mask(&mut mask),
+        )
+        .expect("runs");
+        for i in 0..LINE_ROWS {
+            let got = mask[i / 64] >> (i % 64) & 1 == 1;
+            let want = fx.line.status[i] == 1
+                && o.per_partner[fx.line.partner_id[i] as usize] == u64::from(v);
+            assert_eq!(got, want, "line {i}, count {v}");
+        }
+        for (u, m) in union.iter_mut().zip(&mask) {
+            assert_eq!(*u & m, 0, "count {v}: a line matched two counts");
+            *u |= m;
+        }
+    }
+    for i in 0..LINE_ROWS {
+        assert_eq!(
+            union[i / 64] >> (i % 64) & 1 == 1,
+            fx.line.status[i] == 1,
+            "line {i}: covered iff posted"
+        );
+    }
 }
