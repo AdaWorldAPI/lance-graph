@@ -314,6 +314,24 @@ evaluates one; `execute` stays the consumer's call on a scratch it owns.
 | D-LXA-3 | the COCA bake: identity table (lemma, PoS, `lemma_evidence`) + surface-form table (form, reading, `f` listed-reading share), u8, offline; unknown = unset known bit, fill byte 0 | Blocked — on operator escalation `ISS-LXA-ALPHA-FIT`, and shares `academic_20k.csv` with D-LXC-4 (Blocked); must not duplicate that loader | byte-identical re-derivation; surface `the` f = 1, surface `record` → n/v both 0 < f < 1; all-unambiguous fixture stays f = 1 |
 | D-LXA-4 | six-slot ClassView reading of a 12-byte facet as six `LexicalAddress`es under one `ReferenceSet`, carried by a new classid / reading mode; existing `Cam96` / `SpoFacet` readings unchanged | Blocked — a contract change needing its own contract plan (not yet written); home (second facet vs `Identity` tenant) OPEN | X-written / Y-read refused; (X, v1)-written / (X, v2)-read refused; slot rotation changes the resolved words |
 
+## cypher-mask-lowering-v2 (D-ids minted 2026-09-30, `.claude/plans/cypher-mask-lowering-v2.md`)
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-CML-0 | verify the upstream/fork file split; crate skeleton `lance-graph-cypher-mask` (member, `lance-graph` at `default-features = false`) + import fence; CI lines; `nm` over a release `[[example]]` (OQ-CML-1) + `cargo tree` features check | Queued | F-CML-UP (one byte in `parser.rs` reddens); F-CML-FENCE (per module path) |
+| D-CML-1 | `Route {Mask, Upstream}` + `run` stub refusing everything with `RF-NOT-LOWERED` | Queued | under `Mask` a counting shim on the upstream entry reads 0 (F-CML-NOMIX) |
+| D-CML-2 | classifier over the public `LogicalOperator` → lowerable or a §5 `Refusal`; ⊘ 2026-09-30: #1305's `consumer_semantics()` NOT ported (plan §12) — only its three pattern-shape refusals and fixtures; W0-b census re-run per refusal variant | Queued | F-CML-REFUSE (every variant fired by a committed query) + F-CML-QUIET |
+| D-CML-3 | `LabelBinding` label → `LabelDTO` → `u32` classid; property layout `(offset, width, kind)`; relationship carrier/direction declarations checked against `ClassView::edge_codec_flavor` | Queued | an unbound label refuses (`RF-UNBOUND-LABEL`); F-CML-UNDECLARED; F-CML-CARRIER |
+| D-CML-3b | contract-first: a row-pointer reading of an in-row field (`ClassView` / flavor variant, declared width; a `u8:u8` rail never widened) | Queued — its own contract PR | a class without the reading refuses every relationship declaration |
+| D-CML-4 | node + equality/facet predicate + Boolean lowering through `mask_risc::execute` over `&[NodeRow]` (`EqU32Strided`, `NeU32Strided`, `MatchFacetStrided`, `Ternlog`); ordered compares / value aggregates refuse `RF-NOT-LOWERED` until 5a; `match_nodes_by_class` unused | Queued | F-CML-SUPPORT set equality vs DataFusion `DISTINCT`; wrong-immediate reddens |
+| D-CML-5a | substrate-first: strided lanes with a declared field width for ordered `I32` compares, `MaskedSum/Min/MaxI32`, `Gather`, `ScatterOrU32`, `CountKeyRunsU32`, `EqU32Via` — `ndarray::simd` first, then mask-risc; proposed as scope for mask-risc PR5; decides OQ-CML-4 | Queued — its own PRs | differential against each contiguous form |
+| D-CML-5 | hop over a declared in-row carrier: pull (`Gather`, one program per hop, source as a `Foreign` plane) first; push (`ScatterOrU32`) only as the last hop; no external edge table | Queued — waits on 3b and 5a | asymmetric fixture; one-population refusal |
+| D-CML-6 | relative hop over the witness loci (`Relative{locus}` carrier, row order = stream order) | Deferred — needs a linear mask-shift primitive in `ndarray::simd` | — |
+| D-CML-7 | variable length as reachability, lower bound 0/1, directed pull hops only, `visited` starts empty; `min > 1` and undirected refused (RF-DEPTH) | Queued | F-CML-BAG: `count(*)` after ONE hop refused; `A→B→A` `*1..2` returns A |
+| D-CML-8 | the differential: DataFusion (dev-dependency only) on support + quack's DuckDB fixtures | Queued | F-CML-SUPPORT across D-CML-4..7 |
+| D-CML-9 | enumerate every Cypher-executing call site; then the first consumer able to take the switch: `cognitive-shader-driver`'s bridge first gets the rows, a `LabelBinding` and a legacy route (it has neither route today), then flips after its own non-trivial census | Queued | its census count recorded either way |
+| D-CML-10 | storno note on `lance-graph-as-the-modelgraph-v1.md` §16.2 (`NodeMapping` field route superseded by `LabelBinding`) | In PR #1306 | — |
+
 ## mask-risc-executor (PR3 — D-ids minted 2026-09-14, `.claude/plans/mask-risc-executor-v1.md`)
 
 | D-id | scope | status | gate / falsifier |
