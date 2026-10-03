@@ -23,5 +23,14 @@ re-derived from `crates/deepnsm/word_frequency/academic_20k.csv` (20,845 / 20,84
 - **#1311 gaps:** G1 confirmed general; G2 split (re-anchor vs phase boundary); G3 and
   G5 simple missing operators; G4 mis-specified witness (by source, a missing
   `masked_sum_i32_via`).
-- **Next:** one test-only falsifier (a fold sink read back per row through an fk) to
-  decide lane kind vs typed result handle.
+- **⊘ Corrected 2026-10-03 (#1313):** resident data + reference register → fold →
+  zero-copy projection. A pivot rotates the register; only a write materializes.
+  Pair → spelling folds directly from O (no phase boundary). Grouped output is a
+  projection, not a population. Equal row count does not align rows. The falsifier
+  above (D-PLX-1) is withdrawn.
+- **Recovered from `55bf7cde` (`recovery/1313-pre-reset`):** I→S presence over a bounded
+  domain is a missing per-group OR fold state, not a phase dependency.
+- **ARM / SPOFC convergence (D-PLX-3, plan §P):** two physical population-count engines
+  (Quack / mask-risc scalar Count; arm-discovery `Dataset` / `RowMasks`), one evidence
+  semantics: CandidateRule evidence `|X|`, `|X∧Y|`, n; support gate `|X∧Y|/n`;
+  `arm_to_truth_u8` f = `|X∧Y|/|X|`, c = `|X∧Y|/(|X∧Y|+k)` → {s,p,o,f,c}.
