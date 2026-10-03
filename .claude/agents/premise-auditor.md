@@ -19,7 +19,7 @@ tools: Read, Glob, Grep
 
 **READ BY:** the main thread before writing a 5+3 spec, a coresearch brief,
 or an escalation with options; both council harnesses call this card as a
-gate.
+gate. Loads `.claude/knowledge/reference-frame-vs-motion.md` first.
 
 ## Why this card exists
 
@@ -60,6 +60,7 @@ For each, fill the signature **from the code or the ruling**, citing
 | **persistence** | digested and reproducible, or discardable whole? |
 | **writer** | who writes it, and when (offline bake, owner mailbox, runtime)? |
 | **cardinality** | one value per what? |
+| **epistemic category** | **reference frame** (calibrated from measurement, immutable per reference version: coverage, frequency, evidence, PoS, LUTs) or **motion** (session-, time- or rung-local state over the frame: alpha, attention, per-rung lanes)? See `.claude/knowledge/reference-frame-vs-motion.md` |
 | **representation** | its physical form (bitmap, `u8` lane, `NodeRow`, …) |
 
 **Representation is recorded but never used to decide identity.** Two
@@ -69,7 +70,10 @@ concepts can share a bitmap and still be different things.
 
 1. **Same name, same signature.** If one name (or one type used as a
    name) covers two concepts whose signatures differ on any of *answers,
-   coordinates, lifetime, persistence or writer*, that is a conflation.
+   coordinates, lifetime, persistence, writer or epistemic category*, that
+   is a conflation. A frame/motion mismatch alone is enough: the measured
+   world and a thought moving over it are never one thing, however alike
+   their bits are.
    Reusing a **representation** is allowed; reusing the **name and
    semantics** is not.
 2. **The carrier fits the property.** For every option of the form "carry
