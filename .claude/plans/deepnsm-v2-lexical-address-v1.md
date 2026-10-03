@@ -1,8 +1,9 @@
 # deepnsm-v2-lexical-address-v1 — a word is a 16-bit address into a versioned, baked COCA codebook
 
 > **Status:** PROPOSAL (D-LXA-1..4). Plan only; no code is authorized by this file.
-> **Council:** 5+3, ratified v3 (2026-09-30). The change ledger is §7. §3.1 carries one
-> **operator escalation** (the alpha-channel fit). D-LXA-3 does not start before it is ruled.
+> **Council:** 5+3, ratified v3 (2026-09-30). The change ledger is §7. §3.1's operator
+> escalation (the alpha-channel fit) is **resolved** (2026-10-03): known is the reference
+> set's `ReferenceCoverage` plane, not alpha. D-LXA-3 is blocked only on D-LXC-4.
 > **Written against:** `main` `0d31c54f` (2026-09-30).
 > **Harvested from:** PR #1303 (`deepnsm-v2-cam96-pairwise-v5`), which was **closed without
 > merging**. Only four things from it are kept here:
@@ -16,7 +17,7 @@
 > itself), the §11/§11R execution socket, and the "baton" doc-comment edits.
 > **Board:** `STATUS_BOARD.md` § deepnsm-v2-lexical-address · entry
 > `entries/2026-09-30-three-reference-sets-are-not-ordinal-aligned.md` · `ISSUES.md`
-> `ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE`, `ISS-LXA-ALPHA-FIT` (the §3.1 escalation).
+> `ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE`, `ISS-LXA-ALPHA-FIT` (the §3.1 escalation, resolved 2026-10-03).
 
 ---
 

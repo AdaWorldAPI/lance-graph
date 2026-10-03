@@ -112,8 +112,8 @@ haiku.
 
 Merge the scout output into one table, one row per idea:
 
-| idea | outside source (grade) | nearest inside surface (grade) | relation |
-|---|---|---|---|
+| idea | mechanism and evidence (1–2 sentences, from the scout) | outside source (grade) | nearest inside surface (grade) | relation |
+|---|---|---|---|---|
 
 `relation` is one of:
 
@@ -123,7 +123,9 @@ Merge the scout output into one table, one row per idea:
 - `CONFLICTS-ANCHOR` (contradicts a frozen decision; kept for the record).
 
 Duplicates are merged. Raw scout output is banked in the scratchpad and
-never forwarded.
+never forwarded, so the crosswalk must be self-contained: each row carries
+the mechanism and the evidence that supports it, enough for a co-architect
+to design an adoption shape or a kill probe without the raw output.
 
 ## Phase 3 — the 3 co-architects (parallel, on the crosswalk only)
 
