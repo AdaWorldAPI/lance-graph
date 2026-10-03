@@ -110,6 +110,12 @@ exclude = [
     # reason as lance-graph-ogar: path-deps the OGAR sibling. Verify via
     # `cargo test --manifest-path crates/lance-graph-report-ogar/Cargo.toml`.
     "crates/lance-graph-report-ogar",
+    # Directory desired-state simulation over SoA lanes + Quack (versions as
+    # shared snapshot + delta overlay; invariants as Semijoin / GroupReduce
+    # programs). EXCLUDED for the same reason: path-deps the OGAR sibling
+    # (ogar-dir-core / ogar-ad / ogar-dir-sim). Verify via
+    # `cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml`.
+    "crates/lance-graph-dir-sim",
     # Cognitive Compilation loop (claude/cognitive-compilation-lance-graph-h8sgym).
     # The NEW piece is the Elixir-shaped template — thinking styles, JITson, and
     # i4-32D thinking-style vectors already exist; the template was the gap. Four
