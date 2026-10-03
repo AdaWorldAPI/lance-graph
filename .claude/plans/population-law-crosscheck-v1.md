@@ -1,6 +1,8 @@
 # population-law-crosscheck-v1 — which execution law survives two independent witnesses
 
-> **Status:** ANALYSIS + source verification. No code changed. D-PLX-0..1.
+> **Status:** ANALYSIS + source verification, plus one MEASURED test-only probe (D-PLX-1,
+> §N, `crates/lance-graph-quack/tests/result_operand_probe.rs`). D-PLX-0..1.
+> **Revised 2026-10-03 after review:** §E, §G, §H, §L and §M carry dated ⊘ notes; §N is new.
 > **Inputs:** merged #1311 (`2f2b67c`, `crates/lance-graph-quack/tests/gremlin_parity.rs`,
 > `.claude/plans/frontend-parity-witness-v1.md`) and an independent population-fold
 > experiment over a real 20,845-row source file (reported to this session, not run here;
@@ -101,6 +103,15 @@ rule. They only decide which of 2, 3 and 4 applies.
 **Classification: CURRENT API ARTIFACT** for the key column; the phase dependency itself
 is **SEMANTICALLY NECESSARY** without an ordered projection.
 
+> **⊘ Corrected 2026-10-03 (review thread on #1312).** The presence fold does NOT need a
+> completed I. PoS has a bounded 16-value domain, so one pass over O grouped by spelling
+> can OR a 16-bit presence bitmap per group (bit `pos`) and popcount it when finishing.
+> A generic per-group distinct state is the same counterexample. The current IR lacks
+> that fold state (`GroupFold` has `Count / MinI32 / MaxI32 / SumSymI32` only), so I→S
+> is an **AGGREGATE-STATE LIMITATION, not a phase dependency.** The key-column verdict
+> (API artifact) stands. Consequence: I→S is no longer a witness for the value seam; it
+> witnesses only the key seam, and only when one insists on refolding I itself.
+
 ## F. Result-as-operand root cause
 
 | result | physical form | typed form | readable without copy | operand / group key / predicate input today |
@@ -140,6 +151,15 @@ evaluator) or a population-sized copy.
   travel with the result, and a coordinate-derived key form in the walker.
 - **G2 (distinct): value typing.** The next program needs to read `i64` / record values
   as lanes and compare them.
+> **⊘ Refined 2026-10-03 by the probe (§N): VALUE SEAM vs KEY SEAM.** The split is
+> better named by what metadata each needs. **Value seam:** a later row already carries
+> the key (an fk) and only needs the produced values addressable by it. §N shows that
+> needs nothing beyond a lane of a supported type, *provided the result's coordinate
+> space equals the fk's target space* (true for a `GroupKey::Lane` fold over that fk).
+> **Key seam:** a later fold needs a component of the result's own coordinates (e.g.
+> `Pair.hi`), which needs the producing key's geometry. Both sit behind the same phase
+> order (the result must be complete); they need different, non-overlapping metadata.
+
 - G2 that crosses back into an N-row pass is independently needed by a per-row read
   of an I value from F (experiment) and by the A → R1 → R2 traversal (frontend side,
   §D). G2 confined to the K-space (HAVING, I→S's present-cell count) is served today
@@ -154,6 +174,12 @@ evaluator) or a population-sized copy.
 
 Adding terminals to one `Program` removes none of the multi-phase dependencies: each
 phase-B input is a *completed* fold.
+
+> **⊘ Corrected 2026-10-03.** Remove "I→S presence fold" from the multi-phase row: it is
+> a missing fold state (§E note). HAVING phase B stays multi-phase but is K-space
+> finalization by design (§F), not the N-row consumer. The multi-phase case that
+> remains is a completed result read per row by a later pass (F reading I; an edge row
+> reading the per-vertex count of the previous hop; §N's probe).
 
 ## I. The five #1311 gaps, reclassified
 
@@ -219,6 +245,98 @@ fixture): *"lines whose partner has exactly v posted lines"*.
 The same shape is the experiment's F→I read and the frontend side's A → R1 → R2 weight
 read, which is why it is the one probe that tests both witnesses.
 
+> **⊘ Resolved 2026-10-03: run as specified; OUTCOME A (§N).** It passed with only the
+> narrowing. A review note on #1312 is correct that the copy discards the `i64` type and
+> any provenance, so the probe cannot distinguish an `i64` lane from a result handle;
+> it shows instead that *this consumer needs neither*: once the values are in a
+> supported lane, existing machinery composes. Scalar width is classified separately
+> (§N, H).
+
+## N. Measured: the result-as-operand probe (D-PLX-1, 2026-10-03)
+
+File: `crates/lance-graph-quack/tests/result_operand_probe.rs` (test-only, 4 tests),
+over the DuckDB fixture on `main` `2f2b67c`.
+
+**Path.**
+
+| step | what | machinery |
+|---|---|---|
+| phase 1 | `COUNT(*) GROUP BY partner_id` over posted lines | `Agg::GroupReduce{Local(partner_id), Count}` → `Terminal::GroupReduce` → `Out::I64`, K = 64 |
+| knife | checked `i64 → u32` copy of the sink, panics if a value does not fit | test-only, K-sized |
+| phase 2a | lines whose partner has exactly `v` posted lines, for every `v` that occurs and one that does not | `Filter::EqU32Via{fk: partner_id, key: ForeignLane(0), v}` → `Pred::EqU32Via` → `eq_u32_via_to_mask` |
+| phase 2b | histogram of lines by their partner's count, ONE program | `GroupAddr::Via{fk: partner_id, key: ForeignLane(0)}` + `Count` → `masked_group_count_u32_via` |
+| oracle | plain loops over the fixture vectors | no Quack, no mask-risc |
+
+**Result: PASS.**
+- N = 4,096 lines, K = 64 partners, 26 distinct partner counts.
+- Both phase-2 consumers match the oracle on every bucket.
+- An absent count matches 0 lines.
+- The per-`v` totals add up to every posted line.
+
+**Load-bearing, each turned the test red:**
+- the phase-2 predicate with the via read removed;
+- the phase-2 key read locally instead of through the lane;
+- the oracle's count for one partner altered.
+
+**Also asserted in-suite:**
+- a rotated lane (each partner given its neighbour's count) is caught;
+- a corrupted single count is caught;
+- the same lane reached through a different local column (`cost_center`) gives a different histogram.
+
+**Allocation / materialization.**
+- Phase 2 execution allocated **0 bytes** (counting allocator).
+- Storage beyond the inputs: the sink (512 B = K × 8), the narrowed lane (256 B = K × 4) and the histogram sink (496 B).
+- All of it is O(K); nothing is O(N).
+- Removing the copy leaves only the sink the fold already produces.
+- No host per-line lookup exists in the path. Phase 2b is one `execute_into`; phase 2a loops in host code over the 26 values only, as verification.
+
+**Value vs key seam.**
+- The consumer needed no key metadata. Its only requirement is that slot `j` of the
+  result means partner row `j`, which holds by construction for a `GroupKey::Lane`
+  fold over the same fk.
+- A result keyed by `Via` or `Pair` would not satisfy that. Reading it per row needs
+  the producing key, which is the key seam.
+
+**CellSpace cross-check** (`lance-graph-report/src/result.rs`).
+- It preserves:
+  - per-dimension `CoordSpec` and domain;
+  - the physical layout (`Dense{strides}`, or `Sparse{coords, index}`);
+  - the fold states;
+  - one `i64` value column per state.
+- That covers the key seam for re-rolls by merging, in host code.
+- It does not offer its values as a lane to a mask-risc program, so it does not cover
+  the value seam.
+
+**Scalar width: B.** The existing `u32` lane was sufficient after a checked conversion.
+A first-class wider type would remove only the copy, and the copy exists because the two
+sides use different widths:
+- the Count fold writes `&mut [i64]` (ndarray `masked_group_count_u32`);
+- the readers take `table: &[u32]` (`eq_u32_via_to_mask`, `masked_group_count_u32_via`).
+
+The width can be met on either side:
+- a `u32` (or `u64`) Count sink, since a count is non-negative and bounded by the row count;
+- `i64` tables in the `*_via` readers.
+
+Which side is a design choice not settled here. An `i64` lane is not implied.
+
+**Verdict: OUTCOME A — a typed lane is enough.** No result-handle architecture is
+justified by this consumer. The production seam is: expose a completed `Count` sink as
+a `u32` operand lane for a later phase.
+
+**Smallest next change (not implemented).**
+- **Where:** `lance-graph-mask-risc` (`value.rs` `Out`, `exec.rs` `Terminal::GroupReduce`) and the ndarray count kernel.
+- **What:** let `GroupFold::Count` write a `u32` sink (`Out::U32`), with the row bound checked the way `MASKED_SUM_I32_MAX_ROWS` is.
+- **Result:** the sink is then directly a `LaneRef::U32` for the next phase.
+- **Test:** this probe with the narrowing removed.
+- **Negative test:** a Count over more than `u32::MAX` rows is refused, not wrapped.
+
+Provenance (a produced lane passed through `Foreign`) needs the same ruling #1310 gives
+planes: computation-private workspace, never resident authority. That is a rule, not a
+type.
+
+**Not done:** the optional three-population witness (A → R1 → R2 via fks). The
+fixture has no table that references `line`, and it was not worth building one here.
+
 ## M. Downstream handover (domain-neutral)
 
 ```text
@@ -237,15 +355,18 @@ EXECUTION FACTS SURVIVING BOTH INDEPENDENT WITNESSES
    (the group universe K). It is computation-private workspace, never a new
    identity or an authoritative population.
 6. Re-rolling a mergeable fold along its key needs no phase boundary (fold
-   the source with the coarser key, or merge cells). Folding a predicate
-   over completed cells (presence, thresholds) does.
-7. Today a produced mask can feed a later phase over the SAME rows. Produced
-   integer/record results are finalized in host code over the K-space by design;
-   what is missing is reading them per row from a later N-row pass.
+   the source with the coarser key, or merge cells). Presence over a bounded
+   domain needs no phase boundary either: it is a per-group OR state.
+7. A completed K-slot result read per row by a later N-row pass composes
+   with existing reads once its values sit in a supported lane type
+   (measured: 0 bytes allocated in the later pass; extra state O(K)). This
+   requires slot j of the result to mean target row j of the reading
+   reference.
 8. A key computed from a result's own coordinate needs no stored column;
    materialising one is an API artifact.
 9. Open, small: ordered compares on u32, ordered compares through a
    reference, and summing a value through a reference.
-10. Open, pending one probe: whether feeding typed results onward needs only
-    a wider lane kind, or a handle that also carries key metadata.
+10. Value reuse needs no key metadata; refolding a result by a component of
+    its own key does (key geometry). Open: the producer/reader width mismatch
+    (integer sink vs 32-bit reader); no result handle is indicated.
 ```
