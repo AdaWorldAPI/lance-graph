@@ -108,7 +108,68 @@ The premise gate was re-run on the final option set; it includes the "belongs el
 
 - **(a) Tile-local gather chain** — substrate-first, needs no amendment. Covers Q1 and bounded functional `*1..k`.
 - **(b) A1 amendment naming LOOP-STATE** as the one non-demanded population class (bracketed, single owner, never escapes before ∫). Covers multi-valued hops and unbounded `*`.
-- **(c) `ForeignPlane` provenance type** — independent of (a) and (b), and closes a live gap.
+- **(c) `ForeignPlane` provenance type** — ⊘ REVISED in Round 2 below: `resident(..)` only, no loop-state variant.
 - **(d) Recursion belongs elsewhere:** mask-risc stays non-recursive, and `*` stays refused (RF-*) or lives in a consumer-side driver.
 
 (a) and (c) do not need (b).
+
+## Round 2 (after operator review, same day)
+
+The operator asked for two challenges before anything is chosen: make the falsifier try to break **(a)+(d)**, and audit (c) against the Foreign contract's own history, not Rust type compatibility.
+
+### (c) — premise audit, PREMISE-WRONG on "a computed `Out::Mask` is a `ForeignPlane`"
+
+**The history** (commit text quoted):
+- `663b8792` (2026-09-21) sanctioned the identification: `ScatterOrU32` output "a follow-on program then reads it back as a [`ForeignPlane`]".
+- `a9a3e9d4` withdrew it the same day: "`foreign` must name a RESIDENT plane the caller holds … never a mask another program produced". That commit also deleted the Keep → foreign plane → Gather pipeline in favour of the factored `EqU32Via`.
+
+**Signatures.** Foreign is caller-held standing state (frame-like). A computed mask and a loop iterate are motion: the writer is the executor or a loop, and they live for one run or one step. Tests 1–4 all fire.
+
+**Mechanical vs semantic.** Physical compatibility (`&[u64]`, pub fields, `ir.rs:86-92`) is a found contract smell, not an established equivalence.
+
+**Repair, correctly named:**
+- **R1:** `ForeignPlane::resident(..)` is the ONLY constructor, and the fields become private. Precedent: dir-sim's `Kept` `compile_fail`.
+- **R2:** a computed same-query plane gets no type and stays refused; chains are lowered in factored form.
+- **R3:** only on measured need, a separate motion type that never converts to `ForeignPlane`.
+
+⊘ The earlier "loop-state variant ON `ForeignPlane`" would have re-sealed the withdrawn claim. It is struck.
+
+**Live use, checked:** the only `ForeignPlane {` literals are in `mask-risc/tests/{foreign,extent}.rs`, quack's test module and dir-sim doctests. All of them wrap resident fixture planes. So the gap is open, but no production caller uses it.
+
+### (a)+(d) — falsifier round 2: nothing requires mask-risc to OWN loop state
+
+| case | verdict | reason |
+|---|---|---|
+| bounded `*1..k`, multi-valued / reverse lane | SURVIVES via (d) | (a) costs L^k per row; a double-buffered kernel loop is deterministic. Push-only relations stay refused (A2 / RF-CHAIN) under every option, (b) included. |
+| reachability, then `AND pred` and `GROUP BY` | **breaks (d) as worded; SURVIVES as d′** | If the kernel returns `v_k`, the next fold could have consumed that population tile by tile: A1 by its letter. d′: for bounded k the kernel returns `v_{k-1}` (a true pipeline breaker), and mask-risc fuses the last step with pred and the fold. For unbounded `*`, returning the converged iterate is legitimate (convergence is a global test). |
+| cycle-sensitive `*1..` lower bound | SURVIVES | Seed `v_0 = ∅`, `v_1 = G(start)`. Already in the P-REUSE fixture. |
+| §4.2, D-CML-5/5a, OQ-CML-4 | SURVIVES | §4.2 is a (d) driver. 5a and OQ-CML-4 are prerequisites for both. |
+| **node-filtered reachability** (`ALL(n IN nodes(p) WHERE P(n))`), not in v2's table | **breaks (a)+(d)** | Under (d), Quack must sink P as a whole plane that the step could consume tile-locally: A1. Calling the kernel "demanding" P would make A1 a guard that never fires. |
+
+**What (b) would still buy:** nothing measurable predicted; only A1 conformance at the seam. The two breaking cases need **b-lite**: a kernel-owned iterate READ by mask-risc through a named type that is neither `ForeignPlane` nor `Kept`. That is exactly the auditor's **R3**, and a type that names provenance cannot prove it.
+
+**New probes** (pre-registered):
+- **P-SEAM:**
+  - n = 65,536, functional fk plus a 4-lane variant, predicate plus group key, k = 8.
+  - Arms: S1 (kernel returns `v_k`, then fold) vs S2 (d′).
+  - Exact against scalar BFS plus scalar group sum.
+  - S1 holds exactly one more population buffer.
+  - Kill d′ if S2 needs a raw `ForeignPlane` literal.
+  - Kill the claim that (b) or b-lite buys cost if S1 − S2 < 2 %.
+- **P-FILTERED:**
+  - A 4-lane pull carrier, P at 50 % on a row field.
+  - Arms: F1 (sink P whole) vs F2 (P recomputed per tile per step).
+  - Exact against BFS on the P-induced subgraph.
+  - Prediction: F1 is faster. So b-lite buys conformance, not speed.
+
+**Open:**
+- Whether Quack can express node-filtered variable length at all. If it cannot, that case is hypothetical.
+- Whether a kernel-owned whole iterate passed into mask-risc is itself A1-clean. The falsifier calls it a pipeline breaker, but A1 says "a caller-owned bitmap is still materialisation". That is the operator's ruling, and it is the same question as (b) at smaller scope.
+
+### Option set after Round 2 (premise gate: includes "belongs elsewhere")
+
+- **(a) GatherChain** — strong candidate. Substrate-first, no A1 change. Covers fixed k and bounded `*1..k` over functional hops.
+- **(c′) `ForeignPlane::resident` only** (R1, plus R2 refusal) — independent, closes the gap without naming a false equivalence.
+- **(d′) recursion in an external kernel** — complements (a); not an alternative to it. Bounded k hands `v_{k-1}`; mask-risc fuses the last step.
+- **b-lite (= R3)** — a typed, kernel-owned iterate readable by mask-risc. Only if P-SEAM or P-FILTERED shows need. It is a smaller decision than (b), but still a contract decision.
+- **(b) full loop state inside mask-risc** — no case found that needs it. Held.
