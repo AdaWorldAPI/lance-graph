@@ -1,8 +1,9 @@
 # deepnsm-v2-lexical-address-v1 — a word is a 16-bit address into a versioned, baked COCA codebook
 
 > **Status:** PROPOSAL (D-LXA-1..4). Plan only; no code is authorized by this file.
-> **Council:** 5+3, ratified v3 (2026-09-30). The change ledger is §7. §3.1 carries one
-> **operator escalation** (the alpha-channel fit). D-LXA-3 does not start before it is ruled.
+> **Council:** 5+3, ratified v3 (2026-09-30). The change ledger is §7. §3.1's operator
+> escalation (the alpha-channel fit) is **resolved** (2026-10-03): known is the reference
+> set's `ReferenceCoverage` plane, not alpha. D-LXA-3 is blocked only on D-LXC-4.
 > **Written against:** `main` `0d31c54f` (2026-09-30).
 > **Harvested from:** PR #1303 (`deepnsm-v2-cam96-pairwise-v5`), which was **closed without
 > merging**. Only four things from it are kept here:
@@ -16,7 +17,7 @@
 > itself), the §11/§11R execution socket, and the "baton" doc-comment edits.
 > **Board:** `STATUS_BOARD.md` § deepnsm-v2-lexical-address · entry
 > `entries/2026-09-30-three-reference-sets-are-not-ordinal-aligned.md` · `ISSUES.md`
-> `ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE`, `ISS-LXA-ALPHA-FIT` (the §3.1 escalation).
+> `ISS-CE64-EMIT-INVERSE-BIT2-DISAGREE`, `ISS-LXA-ALPHA-FIT` (the §3.1 escalation, resolved 2026-10-03).
 
 ---
 
@@ -197,8 +198,8 @@ The bake is a **separate, derived artifact** that crosses that line on purpose, 
   NaN-like "unknown" value. A row whose value is unknown still holds a canonical fill
   byte, `0`, so the byte-for-byte gate is reproducible. The fill means nothing on its
   own: only the known bit says whether the byte is a value.
-- **Measured or not is a bit outside the bytes** (operator ruling F4; the mechanism is
-  subject to §3.1). The baked table is the **spine**: complete, one row per reference
+- **Measured or not is a bit outside the bytes**: the reference set's **coverage
+  plane**, baked with it (§3.1, resolved). The baked table is the **spine**: complete, one row per reference
   entry, read-only, read by every reader without a lock. Unknown is an **unset bit**. It
   is not a byte value and not a missing row. The table keeps its shape, so addresses
   stay dense and no reader ever handles a hole.
@@ -207,13 +208,49 @@ The bake is a **separate, derived artifact** that crosses that line on purpose, 
 - The known bit is forced in the type, like `Exact` / `Ambiguous`. The prior accessor
   returns `Option<Prior>` (the same rule as `lexical.rs:46-52`: unknown is not zero). A
   reader cannot use `f` or `lemma_evidence` without having handled the unknown case.
-- **How** the bit is carried is escalated (§3.1). The council found that the shipped
-  alpha API does not fit the first wording of this section.
+- The coverage plane is typed `ReferenceCoverage`, not `AlphaMask` (§3.1). It may use the
+  same bitmap layout; it is a different thing.
 - `ln` is `f64::ln` and `freq_max` is the maximum over the reference being baked. `K`
   is written into the artifact header next to the three digests, so it is part of what
   is reproduced.
 
-### §3.1 — Alpha-channel fit: ESCALATED to the operator (`ISS-LXA-ALPHA-FIT`)
+### §3.1 — Known is not alpha (`ISS-LXA-ALPHA-FIT`, RESOLVED 2026-10-03)
+
+**DECISION.** "Known / measured" is a property of the **calibrated reference set**, not
+of the alpha channel. Each baked table carries a **coverage plane** (1 bit per row,
+digested with the bake, written by nothing at runtime). It may reuse `AlphaMask`'s bitmap
+layout, but it is a separate type, `ReferenceCoverage`, and is never called alpha.
+Alpha stays exclusively a same-coordinate overlay across time and cognitive rung.
+
+**BASIS.** The two answer different questions over the same coordinates:
+
+| | coverage (reference frame) | alpha (motion) |
+|---|---|---|
+| answers | is this coordinate defined / measured in this reference? | what is active or different at this coordinate, now, at this rung? |
+| source | corpus measurement (up to ~10⁹ tokens), compressed offline | one session / thought |
+| lifetime | immutable for one `ReferenceSet` version | per cycle / rung, sparse |
+| persistence | digested, reproduced byte for byte | discardable whole (`alpha.rs:11-16`) |
+| writer | the bake | runtime `claim` (`alpha.rs:682-716`) |
+
+Physically both can be the same bits; epistemically one is the measured world and the
+other is a train of thought moving over it. Filing the first under the second would
+recalibrate the metre at every measurement. Frequency, `lemma_evidence` and coverage all
+sit on the reference side. Doctrine: `.claude/knowledge/reference-frame-vs-motion.md`.
+
+**How the earlier options resolve** (kept for the record; the premise of the question,
+"which kind of alpha carries known?", was wrong — found blind by the premise gate,
+`.claude/agents/premise-auditor.md`):
+- (a) is the answer, renamed: a baked coverage plane, typed `ReferenceCoverage`.
+- (b) is a category error and an architecture tax (20,845 × 512 B ≈ 10.2 MiB to give
+  1-bit coverage a `NodeRow` home). Dropped.
+- (c) is a category error: "measured" is not an alpha meaning. Dropped.
+- (d) was (a) plus a second, unrelated question — an attention recorder over lexical
+  addresses. That question is now §5 open, and does not block D-LXA-3.
+
+**REVISIT WHEN** a lexical coordinate's definedness must change *within* one reference
+version. By this decision it cannot; that would be a new version.
+
+#### The council's original escalation (superseded; kept for the record)
 
 **The ruling, verbatim** (operator, 2026-09-30, on known versus unknown): *"we already have
 alpha channel split tunnel trick for that"*.
@@ -267,9 +304,9 @@ for this question.
 with the meaning its code gives it. It never stores a value in the overlay. The
 refinement of `f` / `lemma_evidence` is never an overlay write (F3; `claim` is stamp-only).
 
-**The question to the operator:** confirm that "known" is a baked coverage mask shaped
-like `AlphaMask` (options a or d), and that the alpha overlay keeps its "attended"
-meaning.
+**The question to the operator** (answered above): confirm that "known" is a baked
+coverage mask shaped like `AlphaMask` (options a or d), and that the alpha overlay keeps
+its "attended" meaning.
 
 `range` and `disp` are left out. They are collinear with frequency, and `disp` measures
 evenness across genres, not evidence.
@@ -296,9 +333,9 @@ Frequency rank stays a routing signal, not meaning (ρ ≈ −0.07, archive F11)
 
 | D-id | what | gate (can fire / can stay silent) |
 |---|---|---|
-| **D-LXA-1** | `LexicalAddress` newtype over `u16` (a **new** identity key beside the surface-form `WordId`, joined by `readings(WordId) → [LexicalAddress]`, §1) plus `ReferenceSet { id ∈ {COCA4096, COCA5K_LEMMA, COCA20K_ACAD}, version, sha256 }`, in `deepnsm-v2`. Resolving through the wrong reference is a refusal. No bare `[u8; 12]` or `u16` enters the path | **G-LEX** (over typed `LexicalAddress` values; nothing binds raw facet bytes to a reference before D-LXA-4): every declared entry of a reference resolves to exactly its declared reading **under that reference's own key** (§2 table): `(word, PoS)`, `(lemma, PoS)`, or `(word, Ambiguous{PoS set})`. A cross-reference read is refused. A `compile_fail` test proves a bare `u16` is not accepted |
+| **D-LXA-1** | `LexicalAddress` newtype over `u16` (a **new** identity key beside the surface-form `WordId`, joined by `readings(WordId) → [LexicalAddress]`, §1) plus `ReferenceSet { id ∈ {COCA4096, COCA5K_LEMMA, COCA20K_ACAD}, version, sha256 }`, in `deepnsm-v2`. Resolving through the wrong reference is a refusal. No bare `[u8; 12]` or `u16` enters the path. Also `ReferenceCoverage` (§3.1): a coverage plane owned by one `ReferenceSet` version, with **no** `From` / `Into` / `AsRef` to or from `AlphaMask` and no setter after the bake | **G-LEX** (over typed `LexicalAddress` values; nothing binds raw facet bytes to a reference before D-LXA-4): every declared entry of a reference resolves to exactly its declared reading **under that reference's own key** (§2 table): `(word, PoS)`, `(lemma, PoS)`, or `(word, Ambiguous{PoS set})`. A cross-reference read is refused. A `compile_fail` test proves a bare `u16` is not accepted. A second `compile_fail` test proves a `ReferenceCoverage` cannot be passed where an `AlphaMask` is expected, nor built from one (with a passing twin that builds it from the bake's words) |
 | **D-LXA-2** | Generator for `lexical_correspondence.tsv`: one row per (lemma, PoS) with `id4096 \| id5k \| id20k \| status ∈ {Exact, Ambiguous{n}, Missing}`, the three digests in its header. Generated, never hand-edited | **G-REF:** re-deriving the file must reproduce §2's numbers exactly, including "4 of 4,264" **with ordinal 0 counted** (a falsy-zero generator must fail it). Hand-editing one ordinal must turn the check red |
-| **D-LXA-3** | The COCA bake of §3: per reference, an identity table (`lemma`, `PoS`, `lemma_evidence`) for each identity-keyed reference and a surface-form table (`form`, reading, `f`), all `u8`, with the known bit carried as ruled in §3.1. A surface-keyed reference reaches `lemma_evidence` per candidate reading through the D-LXA-2 correspondence map, never as one aggregated value (§3). `lemma_evidence` is baked, never derived from a runtime rung (a rung is not reproducible). **Blocked on §3.1 and on D-LXC-4** | Re-deriving must reproduce the bake byte for byte. Unknown rows hold fill byte `0` with the known bit unset. A form with one `form_count = None` reading must come out unknown (fires); the all-listed fixture must not (stays silent). Pinned rows: surface `the` → `the/a` with `f = 1`; surface `record` → `record/n` with `f < 1` and `record/v` with `f > 0`, the two summing to 1 within quantization. An all-unambiguous fixture must give `f = 1` everywhere (stays silent) |
+| **D-LXA-3** | The COCA bake of §3: per reference, an identity table (`lemma`, `PoS`, `lemma_evidence`) for each identity-keyed reference and a surface-form table (`form`, reading, `f`), all `u8`, with the known bit in each table's `ReferenceCoverage` plane (§3.1). A surface-keyed reference reaches `lemma_evidence` per candidate reading through the D-LXA-2 correspondence map, never as one aggregated value (§3). `lemma_evidence` is baked, never derived from a runtime rung (a rung is not reproducible). **Blocked on D-LXC-4** | Re-deriving must reproduce the bake byte for byte. Unknown rows hold fill byte `0` with the known bit unset. A form with one `form_count = None` reading must come out unknown (fires); the all-listed fixture must not (stays silent). Pinned rows: surface `the` → `the/a` with `f = 1`; surface `record` → `record/n` with `f < 1` and `record/v` with `f > 0`, the two summing to 1 within quantization. An all-unambiguous fixture must give `f = 1` everywhere (stays silent) |
 | **D-LXA-4** | The six-slot reading: a ClassView-selected reading of a 12-byte facet as six `LexicalAddress`es under one named `ReferenceSet`, carried by the classid. A register in any other shape is refused, never reinterpreted. **This is a contract change, gated on its own contract plan (not yet written).** Today no reader can refuse: `SpoFacet::from_register` takes a bare `[u8; 12]` (`awareness_facet.rs:106`), and `Cam96 = [u8; 12]` (`space.rs:163`) appears 68 times in 12 files (grep, counting doc comments). `ReadMode` / `ValueSchema` must first gain a lexical reading. **Existing `Cam96` / `SpoFacet` classids keep their current reading unchanged. The lexical reading exists only under a newly minted classid / reading mode, and nothing re-reads existing rows** (I-LEGACY-API-FEATURE-GATED). D-LXA-1..3 ship without it | A facet written under reference X and read under Y is refused. A facet written under `(X, v1)` and read under `(X, v2)` is refused. Rotating the six slots changes the resolved words (this proves the six positions are ordered, not a bag). These three gates move verbatim into the contract plan; the STATUS_BOARD row carries them until it exists |
 
 **Collision:** D-LXA-3 reads `academic_20k.csv`, which `D-LXC-4` (the academic loader,
@@ -306,14 +343,20 @@ currently Blocked on a ruling about three duplicate (word, PoS) pairs) also owns
 waits for that ruling, or takes it as its own first question. It must not duplicate the
 loader.
 
-**Ownership:** the baked tables and coverage masks are read-only artifacts with no
-mailbox. Nothing writes them at runtime. If §3.1 rules an alpha overlay over the codebook
-(options b, c or d), the overlay's writer is the owning mailbox
+**Ownership:** the baked tables and their coverage planes are read-only artifacts with
+no mailbox. Nothing writes them at runtime. If an attention recorder over lexical
+addresses is ever built (§5), its overlay's writer is the owning mailbox
 (`SoaEnvelope::mailbox_owner`); a consumer never writes as itself.
 
 ---
 
 ## §5 — Open
+
+- **An attention recorder over lexical addresses** (split out of §3.1 option (d)): does the
+  driver need an alpha overlay recording which lexical addresses a thought visited, per
+  cycle and rung? If so, its address space costs either a `NodeRow` projection of the
+  codebook (512 B per entry) or an `AlphaAllocation` contract change. Its own plan; it
+  never carries coverage, frequency or evidence.
 
 - **Where the six slots live:** the row's second facet (bytes 16..32) or a new 16-byte
   `Identity` value tenant. Not decided. Either choice is additive and leaves

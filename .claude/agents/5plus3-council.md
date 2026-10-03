@@ -73,6 +73,21 @@ design decision:
    answerable YES/NO/VIOLATES-with-evidence. This is what makes Sonnet
    sufficient for the savants: bounded input, fixed output shape.
 
+**Premise gate (added 2026-10-03).** Run
+`.claude/agents/premise-auditor.md` twice: before the spec is frozen, on
+the question; and before any option set is escalated to the operator, on
+the question **together with every option** in it — a sound question can
+still carry an option that files the property under the wrong mechanism. The savants
+verify the options; none of them checks whether the question files a
+concept under the wrong mechanism. That is how a council of fourteen
+answered "which kind of alpha is *known*?" when *known* was not alpha at
+all (`ISS-LXA-ALPHA-FIT`). PREMISE-SPLIT or PREMISE-WRONG re-asks the
+question before Phase 1. At escalation, a SPLIT or WRONG question is
+re-asked; when premise-auditor tests 1 or 2 fire, the final option set must
+include "the property belongs elsewhere" (`premise-auditor.md`, Step 2).
+The final question and option set are audited once more before they reach
+the operator.
+
 ## Phase 1 — the 5 (research savants, parallel, single lens each)
 
 Default panel (swap lenses per domain; declare swaps in the spec header):
