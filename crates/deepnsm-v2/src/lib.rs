@@ -15,7 +15,7 @@
 //! | (no whole-work code) | `6×256` CAM ADC POINT (the 48-bit reference, ρ 0.711) ([`space::AdcSpace`]) | [`cam::ScalarAdc`] |
 //! | 512-bit VSA XOR bind + majority bundle | palette `(basin, identity)` addressing ([`spo::Spo`]) | — |
 //! | ±5 sentence ring buffer | version-range read ([`TemporalStream`]) | [`temporal_pov::TemporalPov`] |
-//! | 6-state PoS FSM → SPO | 6-state PoS FSM → SPO (preserved) ([`fsm`]) | — |
+//! | 6-state PoS FSM → SPO, one tag per token | 3-state S-V-O FSM + one-level relative clause; takes several readings per token ([`fsm::parse_readings`], folded from COCA by [`coca`]) | — |
 //!
 //! [`recipe_substrate::PairPalette`]: lance_graph_contract::recipe_substrate::PairPalette
 //! [`cam::ScalarAdc`]: lance_graph_contract::cam::ScalarAdc
@@ -37,6 +37,7 @@
 pub mod ancestry;
 pub mod basin;
 pub mod belief;
+pub mod coca;
 pub mod codebook;
 pub mod corpus;
 pub mod evidence;
@@ -63,7 +64,7 @@ pub use evidence::{
     evidence_basin, forward_gate, novelty_rate, open_question_yield, partial_spearman,
     shuffle_beliefs_null, shuffle_rungs_null, EvidenceBasin, ForwardGateReport,
 };
-pub use fsm::{parse_to_spo, Pos, Tagged};
+pub use fsm::{parse_readings, parse_to_spo, Pos, PosSet, Reading, ReadingParse, Survivor, Tagged};
 pub use introspect::{
     confidence_delta_recount, confidence_delta_self, most_frequent_belief, provenance_check,
     ConfidenceAnswer, ProvenanceReport,
