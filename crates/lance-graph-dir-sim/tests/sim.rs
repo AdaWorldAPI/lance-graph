@@ -490,6 +490,25 @@ fn audit_chain() {
 
 // Convergence: re-observing the desired state diffs empty (full-merge path).
 #[test]
+fn plan_is_based_on_the_latest_observation() {
+    let (mut st, g0, _, g2) = chain();
+    st.promote_desired(g2).unwrap();
+    assert_eq!(st.plan(g2).unwrap().basis, g0);
+    let mut partly = observed();
+    partly.members.push((g(ALICE), g(EXCHANGE)));
+    let o = st.observe("lab", 2_000, partly).unwrap();
+    let plan = st.plan(g2).unwrap();
+    assert_eq!(plan.basis, o);
+    assert_eq!(
+        plan.ops,
+        vec![PlannedOp::from(Change::AddMembership {
+            user: g(BOB),
+            group: g(EXCHANGE)
+        })]
+    );
+}
+
+#[test]
 fn converged_observation_diffs_empty() {
     let (mut st, _, _, g2) = chain();
     st.promote_desired(g2).unwrap();

@@ -204,14 +204,21 @@ impl VersionStore {
         Ok(out)
     }
 
-    /// Plan for the current desired version, from its observed basis.
+    /// Plan for the current desired version, from the LATEST observation.
+    ///
+    /// The basis is the version tagged observed, not the desired version's
+    /// own lineage root: after a re-observation the directory may already
+    /// carry part of the desired state, and the plan must cover only what is
+    /// still missing, or its `NotMember` preconditions fail on execution.
+    /// Before any observation is tagged, the lineage root is the basis.
     pub fn plan(&self, target: VersionId) -> Result<ExecutionPlan, PlanError> {
         if self.tag(TAG_DESIRED) != Some(target) {
             return Err(PlanError::NotDesired(target));
         }
-        let basis = self
+        let root = self
             .lineage(target)
             .map_err(|_| PlanError::UnknownVersion(target))?[0];
+        let basis = self.tag(TAG_OBSERVED).unwrap_or(root);
         let diff = self
             .diff(basis, target)
             .map_err(|_| PlanError::UnknownVersion(target))?;
