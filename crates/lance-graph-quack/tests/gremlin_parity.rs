@@ -1285,6 +1285,24 @@ fn functional_two_hop_is_refused_one_hop_is_not() {
     let l = lower_traversal(&one).expect("one fk deep lowers");
     assert_eq!(w.count(&l), oracle::count(&w, &one));
 
+    // A predicate already read through one fk, carried across a fan-out, ends
+    // up two fks deep: lines of documents whose company is in region 1.
+    let carried = [
+        V(Table::Doc),
+        Where(vec![Out(Rel::OwnedBy), Has(Field::Region, P::Eq(1))]),
+        In(Rel::PartOf),
+        Count,
+    ];
+    assert_eq!(
+        lower_traversal(&carried),
+        Err(Refusal::ComposedFunctionalHop)
+    );
+    assert_eq!(
+        oracle::count(&w, &carried),
+        truth,
+        "same question, other route"
+    );
+
     // A fan-out after a functional read (documents sharing a company) is a
     // second population, not a deeper read.
     let doc_side = [
