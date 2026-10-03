@@ -1,3 +1,30 @@
+## 2026-09-30 (1) — cypher-mask-lowering-v2 — Cypher on masks as a fork-owned replacement behind one switch → `.claude/plans/cypher-mask-lowering-v2.md`
+
+**Status:** PROPOSAL (D-CML-0..10, 3b, 5a), ratified v3 by a 5+3 council. No code
+authorized. Partly supersedes
+`cypher-mask-lowering-v1.md`.
+
+- **New crate** `lance-graph-cypher-mask` reuses the upstream parser, semantic
+  analysis and logical plan through their public API. Zero edits to upstream files.
+- **Outcomes** are `Answer` or `Refusal(reason)`. v1's `Split`/`Grace` are removed:
+  there is no DataFusion fallback on our surface.
+- **One switch** `Route {Mask, Upstream}` chooses a whole engine per consumer, never
+  one query at a time.
+- **Hops** read relations stored in the row through a **declared** carrier, never an
+  external edge table. Traversal counts nothing.
+- **Two STOPs before any hop runs:** no contract reading of an in-row field is a row
+  pointer yet (D-CML-3b, contract-first), and mask-risc/ndarray read row bytes only
+  through four strided ops (D-CML-5a, substrate-first). The same gap blocks ordered
+  compares and value aggregates, so D-CML-4 starts with equality/facet predicates.
+- **Census:** 113 of 303 Full under an empty config (37.3 %); #1305 reports 70 of 313
+  once path multiplicity is classified. Neither is a bound on v2. Everything else is
+  refused.
+- **Harvested from #1305** (closed unmerged): six facts in plan §12; its classifier is
+  not ported.
+- **Open:** DataFusion stays in the build graph through the `lance-graph` dependency
+  (OQ-CML-1); where the relationship declaration lives long-term (OQ-CML-2); self-hop
+  vs `Foreign` planes (OQ-CML-4). The witness-loci relative hop is deferred (D-CML-6).
+
 ## 2026-09-29 (2) — deepnsm-v2-lexical-evidence-consumer-v1 rewritten against the DeepNSM → DeepNSM-v2 migration → `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`
 
 **Status:** PROPOSAL (D-LXC-1..10). No code authorized. Supersedes entry (1)

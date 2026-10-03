@@ -1379,6 +1379,13 @@ finding.
 
 ### §16.2 — What is actually missing: a field, not a mechanism
 
+> ⊘ **SUPERSEDED IN PART (2026-09-30, `cypher-mask-lowering-v2.md` D-CML-3/D-CML-10).**
+> The route below — adding a canonical-concept field to `GraphConfig`'s `NodeMapping` —
+> would edit an upstream file (`config.rs`), which the v2 plan rules out. The
+> label → classid binding lives instead in the fork-owned `LabelBinding`, which uses the
+> public `GraphConfig` builder only for placeholders. The measurement in this section
+> stands.
+
 `GraphConfig`'s `NodeMapping` (`crates/lance-graph/src/config.rs:60-71`) is
 `{ label, id_field, property_fields, filter_conditions }`. There is nowhere to
 put a canonical concept or an id. So the missing hop is:
