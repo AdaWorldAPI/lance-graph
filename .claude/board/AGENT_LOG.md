@@ -1,3 +1,9 @@
+## 2026-10-03 — Explore agent: SurrealQL AST harvest (D-FPW-0)
+
+- Read-only map of `/home/user/surrealdb` parser/AST: `Part::Graph(Lookup)` per hop, `Dir::{In,Out,Both}`, edge tables with `in`/`out`, bag flatten at `val/value/get.rs:499`, `Recurse`/`RecurseInstruction`.
+- Constraints: `sql::*` is `pub(crate)`; public arena AST unpublished; BSL 1.1.
+- Three claims re-read by the orchestrator. Folded into plan §5. No commit of its own.
+
 ## 2026-09-30 — 5+3 council on `deepnsm-v2-lexical-address-v1` (PR #1307)
 
 - The 5: prior-art, iron-rule, code truth, cascade-impact, creative-explorer.
