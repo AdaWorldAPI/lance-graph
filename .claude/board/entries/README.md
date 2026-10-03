@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-177 entries, 2026-08-06 .. 2026-09-30.
+178 entries, 2026-08-06 .. 2026-10-03.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-03 | `dir-sim-soa-quack` | Directory simulation on SoA + Quack: one-edge mutation 853 B at 1k and 100k users | [2026-10-03-dir-sim-soa-quack.md](2026-10-03-dir-sim-soa-quack.md) |
 | 2026-09-30 | `deepnsm-v2-coverage-bands` |  | [2026-09-30-deepnsm-v2-coverage-bands.md](2026-09-30-deepnsm-v2-coverage-bands.md) |
 | 2026-09-29 | `deepnsm-v2-counted-pick-tag-deltas` |  | [2026-09-29-deepnsm-v2-counted-pick-tag-deltas.md](2026-09-29-deepnsm-v2-counted-pick-tag-deltas.md) |
 | 2026-09-26 | `deepnsm-v2-lexical-evidence-survives-routing` |  | [2026-09-26-deepnsm-v2-lexical-evidence-survives-routing.md](2026-09-26-deepnsm-v2-lexical-evidence-survives-routing.md) |
