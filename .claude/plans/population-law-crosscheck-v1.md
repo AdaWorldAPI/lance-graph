@@ -148,6 +148,10 @@ evaluator) or a population-sized copy.
 > writes. The paragraphs that name a missing capability are withdrawn: a fold over
 > resident data is already the projection, so another projection is another fold under a
 > rotated register, not a read of the previous output. No mechanism is proposed.
+> Open, not classified here: a later pass whose per-row predicate reads a completed fold
+> over other rows (e.g. lines whose partner has exactly v posted lines). Neither a
+> register rotation nor a write is shown for it; withdrawing D-PLX-1 withdraws the
+> probe, not the question.
 
 ## G. G1 vs G2 — PARTIALLY SHARED
 
@@ -327,7 +331,9 @@ project again. Not: fold, write, re-import, fold again.
 
 ## O. Recovered from the pre-reset branch (2026-10-03)
 
-The pre-reset head of #1313 is preserved as `recovery/1313-pre-reset` (`dba70c16`). The
+The pre-reset head of #1313 is preserved as the branch `recovery/1313-pre-reset` on
+`origin` (`dba70c16`; `git fetch origin recovery/1313-pre-reset`), which also holds
+`55bf7cde` and `ef1e9397`. The
 text below is restored verbatim from it, because it does not depend on the deleted Count
 probe. Sentences that did depend on the probe are left out and marked `[…]`.
 
@@ -395,7 +401,7 @@ One program per count, no intermediate population, no histogram, no K-slot sink.
 does not need a `Pair`-grouped K-slot result.
 
 **Engine 2, tabular / external.** `Dataset` → `RowMasks` → `support_count` /
-`and_count` (`lance-graph-arm-discovery/src/bitset.rs:276-298`) → `|X|` / `|X∧Y|` →
+`and_count` (`lance-graph-arm-discovery/src/bitset.rs:78-101`) → `|X|` / `|X∧Y|` →
 ARM / SPOFC truth. It has no lance-graph engine dependency and stays usable without a
 resident population. Its users (`tesseract-paperless` `auto-match`, `lance-graph-osint`
 tests) rely on that.
