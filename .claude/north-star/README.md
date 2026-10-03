@@ -70,3 +70,35 @@ NOTES (from the diagram): *vart versions = clock (immutable total order); every 
 - **§3 `rule`** = A1 `InferenceType::{to,from}_mantissa` + `From<grammar::NarsInference>` — merged #450.
 - **§4 entry arrow** = A6 `PlanResult.emitted_edges` (the LE edge → vart) — branch.
 - **TARGET (the run):** §2 resolver = A3 (I4x32D carrier) + A4 (OGIT resolver); §3 moods = A5; §4 store/§5 kanban = C7 (vart/surreal); §5 actors = C6 (ractor). Plus the business layer (OGIT classes, GoBD audit, Elixir/Rust split).
+
+## Scientific knowledge-assembly reference: INDRA
+
+**REFERENCE / COMPARATOR — NOT DEPENDENCY, NOT AUTHORITY.**
+
+INDRA is the external reference architecture for normalized,
+evidence-bearing causal/mechanistic statements, ontology-aware preassembly,
+belief scoring, causal graph assembly and executable model construction.
+
+It asks:
+
+> "Given machine-read and database-derived assertions, how can they be
+> normalized, assembled and projected into coherent causal or dynamical models?"
+
+The AdaWorldAPI mission extends the comparison downward to the observation
+population:
+
+> "Can language-derived claims and directly measured observations inhabit the
+> same ontology-grounded, provenance-preserving evidence substrate, so that
+> statements, causal graphs, studies, meta-studies and executable models become
+> loss-aware projections of one revision-capable population?"
+
+Division of labour between external references:
+
+- **ORKG** = scholarly contribution / comparison reference (no harvest yet).
+- **INDRA** = causal knowledge assembly / model construction reference.
+
+External terminology (Statement, Evidence, belief, preassembly) is cited, not
+canonized. INDRA's `belief` is a source-reliability probability and is **not**
+NARS truth.
+
+Reference: `.claude/harvest/indra-reference-wiring.md`
