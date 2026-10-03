@@ -1,3 +1,12 @@
+## D-PLX — Population-law cross-check (2026-10-03)
+
+Plan: `.claude/plans/population-law-crosscheck-v1.md`. Entry: `entries/2026-10-03-population-law-crosscheck.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-PLX-0** | cross-check of #1311 against the real-data fold experiment; reclassify the five gaps | Shipped | plan §A–§M |
+| **D-PLX-1** | test-only falsifier: a K-space fold sink read back per row through an fk (lane kind vs result handle) | Queued | plan §L |
+
 ## D-FPW — Frontend parity witness (2026-10-03)
 
 Plan: `.claude/plans/frontend-parity-witness-v1.md`. Entry: `entries/2026-10-03-frontend-parity-witness.md`.

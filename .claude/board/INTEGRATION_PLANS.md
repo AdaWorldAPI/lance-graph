@@ -1,3 +1,7 @@
+## 2026-10-03 (2) — population-law-crosscheck-v1 — which execution law survives two independent witnesses → `.claude/plans/population-law-crosscheck-v1.md`
+
+**Status:** ANALYSIS (D-PLX-0..1). No code. Revises three #1311 conclusions (second fan-out, G4, `values()` modelling).
+
 ## 2026-10-03 — frontend-parity-witness-v1 — SQL, Cypher, Gremlin, SurrealQL on one population algebra → `.claude/plans/frontend-parity-witness-v1.md`
 
 **Status:** MEASURED for SQL ↔ Gremlin (test-only witness in `lance-graph-quack/tests/gremlin_parity.rs`); analysis for Cypher (#1306 plan) and SurrealQL (AST). D-FPW-0..4. No production code.

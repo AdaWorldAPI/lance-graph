@@ -19,6 +19,19 @@ Every traversal that does not lower is refused with a named reason. Two of the
 refusals are real substrate gaps, and both were already named independently by
 #1306 (Cypher) and #1308/#1310 (chained hops). No new primitive is proposed here.
 
+> **⊘ Corrections (2026-10-03, `population-law-crosscheck-v1.md`).** Three conclusions
+> below are revised, not deleted:
+> - **§2 / §6 G2 / §8:** "a second fan-out cannot keep the invariant" is wrong as a rule.
+>   A fan-out onto a population that holds an fk to the current anchor re-anchors again
+>   (at the cost of read depth, G1). The barrier is carrying a fan-in aggregate to the
+>   next population, not the hop count.
+> - **§6 G4:** the witness used `Country` (`u32`), so even the local sum cannot lower.
+>   It does not isolate a foreign-value sum. By source no such operator exists, but it
+>   is not measured here.
+> - **§3:** the adapter and the oracle both leave the cursor on the vertex after
+>   `values(f)`, so `values(f)` followed by a non-reducing step returns vertices in both.
+>   No test exercises that shape; adapter/oracle agreement there would prove nothing.
+
 ## §1 — What exists (A)
 
 | layer | in code? | where |
