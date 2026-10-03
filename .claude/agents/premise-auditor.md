@@ -69,17 +69,18 @@ concepts can share a bitmap and still be different things.
 ## Step 2 — the four tests
 
 1. **Same name, same signature.** If one name (or one type used as a
-   name) covers two concepts whose signatures differ on any of *answers,
-   coordinates, lifetime, persistence, writer or epistemic category*, that
-   is a conflation. A frame/motion mismatch alone is enough: the measured
+   name) covers two concepts whose signatures differ on any field except
+   *representation* (answers, coordinates, lifetime, persistence, writer,
+   cardinality, epistemic category), that is a conflation. A frame/motion mismatch alone is enough: the measured
    world and a thought moving over it are never one thing, however alike
    their bits are.
    Reusing a **representation** is allowed; reusing the **name and
    semantics** is not.
 2. **The carrier fits the property.** For every option of the form "carry
-   X in mechanism M", compare X's signature with M's. A mismatch on
-   *answers, lifetime or persistence* makes the option a **category
-   error**, however feasible it is technically.
+   X in mechanism M", compare X's signature with M's on every field except
+   *representation*. A mismatch on any of them (answers, coordinates,
+   lifetime, persistence, writer, cardinality, epistemic category) makes
+   the option a **category error**, however feasible it is technically.
 3. **No architecture tax.** Does an option reshape the data to fit a
    mechanism (more bytes per entry, a new tenant, a wider type) rather than
    choose the mechanism that fits the data? If so, flag it, with the cost

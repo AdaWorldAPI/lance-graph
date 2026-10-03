@@ -69,7 +69,8 @@ Written before any agent is cast. It replaces the 5+3's spec, and it holds
 **Premise gate.** Run `.claude/agents/premise-auditor.md` on the question
 before casting the scouts. Exploring a question that files a concept under
 the wrong mechanism only maps the wrong territory in more detail. Run it
-again on the exploration map's option set before it goes to the operator.
+again on the question together with every option in the exploration map
+before it goes to the operator.
 
 ## Phase 1 — the 5 scouts (parallel; two rings)
 

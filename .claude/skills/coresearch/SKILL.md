@@ -27,8 +27,10 @@ Checklist (each step gates the next):
    what would count as an answer, and the budget.
 3. **Phase 1 — cast the 5 scouts** in ONE parallel spawn: code
    cartographer, internal prior art, literature, systems, concepts and
-   ontology. Each item carries a source id and a read grade
-   (`READ-IN-FULL` / `SECTION-READ` / `ABSTRACT-ONLY` / `SECONDHAND`).
+   ontology. Each item carries a source id and a grade: outside sources
+   use `READ-IN-FULL` / `SECTION-READ` / `ABSTRACT-ONLY` / `SECONDHAND`;
+   the code cartographer uses `VERIFIED-IN-CODE` / `CLAIMED` / `ABSENT`
+   (closed search space only).
 4. **Phase 2 — CROSSWALK** (main thread): one row per idea, with the
    relation `ALREADY-HAVE` / `PARTIAL` / `NEW` / `CONFLICTS-ANCHOR`. Raw
    scout output is banked, never forwarded.
