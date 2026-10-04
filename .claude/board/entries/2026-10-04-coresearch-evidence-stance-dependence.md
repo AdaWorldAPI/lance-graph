@@ -277,3 +277,95 @@ probe-local Tarski reading both use fixed slot lists.
   mined rows.
 - **Silent twin:** with only asserted slots mined, adding the same number of
   independently asserted children must raise support.
+
+## Addendum 2: write-free rounds, promotion gate, execution layer
+
+Provenance:
+- Operator working model, 2026-10-04.
+- Timing figures marked *operator* below are not yet recorded in the repo.
+
+**Parent-node read-through.** The shared properties of a set of children live on
+the parent's HHTL node, in its value slab, never copied into the children. This
+is already planned in `lance-graph-contract/src/episodic_basin.rs`:
+
+> "HHTL positions … BE SoA rows whose value slab carries a self-organizing
+> summary of the position's children (upstream/downstream inheritance, basin
+> agreement, disagreement, missing links)"
+
+- A child row holds only what was stated about that child, either asserted or
+  derived.
+- An unwritten child slot reads through to the parent.
+- The miner reads child rows only, so an inherited value can never confirm its
+  own parent. This replaces the earlier "per-slot provenance" gap.
+- **Precondition, still OPEN:** a nibble must be able to tell EMPTY (not
+  stated, inherit) from 0 (observed neutral). That is the deferred EMPTY-vs-0
+  question from the six-semantic-families ruling.
+- The node-level hydrate step that `episodic_basin.rs` names (a position implied
+  by the rails but not yet hydrated) does not exist. `graph/hydrate.rs` hydrates
+  weight vectors and is unrelated.
+
+**Write-free rounds.** All 64 thoughts × 64k lanes run in parallel. Every lane
+reads the same a-priori snapshot (version v), so no lane depends on another.
+
+- No write happens during the round, not even a sparse alpha write. Folds are
+  recomputed rather than stored (board `D-WFL-ECON`: "If thinking again is
+  cheaper than remembering the answer, think again").
+- The alpha overlay is the in-flight mask state, not storage.
+- Order inside one lane (for example a front-to-back EWA composite,
+  `cognitive-shader-driver` `alpha_front_to_back_composite`) is allowed.
+  Dependence between lanes is not.
+
+**Promotion gate: the only write.** A state is promoted to snapshot v+1 only
+when it crosses the Rubicon: it has to become history, evidence or state
+(`D-WFL-ECON` semantic retention; `D-WFL-CACHE`). It is promoted only after
+these conditions are tested:
+- every lane agrees on the resolution (an order-free AND and popcount across
+  lanes);
+- the agreement holds across every leave-one-source-out and
+  leave-one-sibling-out fill (the crossword rule: one consistent fill is not
+  enough, every fill must agree);
+- no lane hit its search cap. An overflow means unknown, not unique.
+
+All states validated in a round go out as ONE Lance version.
+
+**Finding dissenters with masks.** Split the 24 signed nibbles into a positive
+plane P and a negative plane N.
+
+| measure | formula |
+|---|---|
+| agree | `popcount(Pa&Pb \| Na&Nb)` |
+| conflict | `popcount(Pa&Nb \| Na&Pb)` |
+| unknown | the remainder |
+
+Elephant vs whale: agree 1 (placental), conflict 1 (terrestrial).
+
+- Parent value: AND, or popcount majority, across the children.
+- A child's exceptions: `N_child & P_parent`.
+- Dissenters with identical exception masks become missing-link candidates.
+
+Masks only PROPOSE. With two slots, possum and platypus share a mask and would
+suggest a single "non-placental" intermediate, which is not a real group. Adding
+a slot such as egg-laying separates them, and the leave-one-out gate decides.
+
+Execution runs on the shipped stack:
+- `lance-graph-quack` lowers the cohort and group operators to a `Program`.
+- `lance-graph-mask-risc` executes it: Boolean trees are fused to ternlog, and
+  execution is tiled, with no population-sized intermediates.
+
+**Costs.**
+
+| operation | cost | source |
+|---|---|---|
+| fold | 1.7 ns hot / 4.3 ns cold | MEASURED: #1245 (1.7) and #1250 (1.7–4.2) |
+| mask op | 4–12 ns hot / 12–40 ns cold | *operator* |
+| write (old path, no masking) | 233 ms, plus 125 ms compute | *operator* |
+
+At one op per lane-thought, a full round of 4.2M lane-thoughts on one core costs:
+- folds: about 7 ms hot / 18 ms cold;
+- masks: about 17–50 ms hot, and at most about 168 ms cold.
+
+Even the worst cold case is below one write. One write buys about 33 hot fold
+rounds, so leave-one-out rounds cost almost nothing next to a write. A real
+lane-thought costs k ops; the ternlog fuser keeps k small. `D-WFL-ECON`'s W6
+measures the real ratio. That measurement confirms the constant; the design
+does not depend on it.
