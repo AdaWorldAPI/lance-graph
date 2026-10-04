@@ -421,6 +421,45 @@ pub enum Terminal {
         key: GroupKey,
         fold: GroupFold,
     },
+    /// Grouped sufficient statistics of an `I32` lane: for every row `i`
+    /// where `mask` holds, resolves the row's group through [`GroupKey`] and
+    /// folds `lanes[val][i]` into the caller's `Out::PowerSums` buffer as
+    /// `n += 1, Σx += x, Σx² += x²` ([`ndarray::simd::PowerSums`]). One
+    /// pass over the selected rows; no selected value is copied out. The
+    /// buffer's length IS the group universe `K`, and the same zero-fallback
+    /// drops as [`Terminal::GroupReduce`] apply.
+    ///
+    /// A physical fold, not a statistic: consumers project means, variances,
+    /// F ratios or t statistics from the three sums. It is its own terminal
+    /// rather than a [`GroupFold`] member because a `GroupFold` slot is one
+    /// seeded `i64`, and three exact sums are not.
+    ///
+    /// Exact under the same row bound as [`Terminal::MaskedSumI32`]
+    /// ([`MASKED_SUM_I32_MAX_ROWS`], `2^32` rows): the `Σx` field is an `i64`,
+    /// and no group can exceed the plane. The executor refuses a wider plane
+    /// rather than wrap. The sink is seeded with `PowerSums::default()` before
+    /// the first tile, so an empty group reads `n == 0`.
+    GroupPowerSumsI32 {
+        mask: Operand,
+        key: GroupKey,
+        val: u16,
+    },
+    /// Grouped cross moments of TWO `I32` lanes: for every row `i` where
+    /// `mask` holds, folds `(lanes[x][i], lanes[y][i])` into the caller's
+    /// `Out::CrossPowerSums` buffer as `n, Σx, Σy, Σx², Σy², Σxy`
+    /// ([`ndarray::simd::CrossPowerSums`]). The bivariate member of the
+    /// [`Terminal::GroupPowerSumsI32`] family: same key addresses, same drops,
+    /// same one pass with both lanes read in place, same `2^32`-row
+    /// exactness bound ([`MASKED_SUM_I32_MAX_ROWS`] — the `Σx`/`Σy` fields
+    /// are `i64`). A physical fold: covariance, correlation and simple
+    /// regression are consumer projections. `x == y` is legal (it folds the
+    /// univariate moments twice over).
+    GroupCrossPowerSumsI32 {
+        mask: Operand,
+        key: GroupKey,
+        x: u16,
+        y: u16,
+    },
 }
 
 /// Where a [`Terminal::GroupReduce`] reads each row's group.
@@ -612,6 +651,8 @@ impl Program {
             | Terminal::GroupSumI32 { mask, .. }
             | Terminal::GroupSumViaI32 { mask, .. }
             | Terminal::GroupReduce { mask, .. }
+            | Terminal::GroupPowerSumsI32 { mask, .. }
+            | Terminal::GroupCrossPowerSumsI32 { mask, .. }
             | Terminal::Keep { mask } => touch(mask),
         }
         Self {

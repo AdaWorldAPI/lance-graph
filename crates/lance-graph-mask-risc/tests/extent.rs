@@ -9,7 +9,9 @@
 //! The gates:
 //! - the edge matrix: every result equals a scalar oracle that knows nothing
 //!   about tiles, words or edges;
-//! - split composition: whole == the merge of any partition, in any order;
+//! - split composition: whole == the merge of any partition, in any order —
+//!   including the grouped power-sums sinks, merged group-by-group with
+//!   `checked_merge`;
 //! - the non-rebasing falsifier: an extent that does not start at row 0 must
 //!   read the absolute rows, and the rebased reading is shown to differ;
 //! - the structural gate (tiles visited scale with the extent, not with
@@ -19,8 +21,8 @@
 
 use lance_graph_mask_risc::exec::{execute_extent, execute_into, Scratch};
 use lance_graph_mask_risc::{
-    ExecError, Foreign, ForeignPlane, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program,
-    Terminal, Value,
+    scratch_words_for, CrossPowerSums, ExecError, Foreign, ForeignPlane, GroupKey, LaneRef, MaskOp,
+    Operand, Out, Planes, PowerSums, Pred, Program, Terminal, Value,
 };
 
 fn lcg(seed: &mut u64) -> u64 {
@@ -583,4 +585,221 @@ fn the_extent_never_slices_a_foreign_plane() {
     let mut s = Scratch::for_program(&p, n).expect("scratch");
     let v = execute_extent(&p, &planes, &foreign, &mut s, Out::None, lo..hi).expect("gather");
     assert_eq!(v, Value::Count(want));
+}
+
+/// The grouped power-sums terminals over one extent, into a FRESH sink the
+/// caller owns. The sink starts dirty on purpose: the terminal must seed it.
+fn power_sums_part(
+    p: &Program,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    tile_words: usize,
+    groups: usize,
+    ext: std::ops::Range<usize>,
+) -> Vec<PowerSums> {
+    let slots = p.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(tile_words, slots).expect("sized")];
+    let mut s = Scratch::over(&mut buf, tile_words, slots).expect("carves");
+    let dirty = PowerSums {
+        n: 7,
+        sum: -7,
+        sum_sq: 7,
+    };
+    let mut sink = vec![dirty; groups];
+    let v = execute_extent(p, planes, foreign, &mut s, Out::PowerSums(&mut sink), ext)
+        .expect("a partial extent is admitted");
+    assert_eq!(v, Value::GroupPowerSums);
+    sink
+}
+
+fn cross_part(
+    p: &Program,
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    tile_words: usize,
+    groups: usize,
+    ext: std::ops::Range<usize>,
+) -> Vec<CrossPowerSums> {
+    let slots = p.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(tile_words, slots).expect("sized")];
+    let mut s = Scratch::over(&mut buf, tile_words, slots).expect("carves");
+    let dirty = CrossPowerSums {
+        n: 7,
+        sum_x: -7,
+        sum_y: 7,
+        sum_x_sq: 7,
+        sum_y_sq: 7,
+        sum_xy: -7,
+    };
+    let mut sink = vec![dirty; groups];
+    let v = execute_extent(
+        p,
+        planes,
+        foreign,
+        &mut s,
+        Out::CrossPowerSums(&mut sink),
+        ext,
+    )
+    .expect("a partial extent is admitted");
+    assert_eq!(v, Value::GroupCrossPowerSums);
+    sink
+}
+
+/// FAILS IF: a grouped power-sums terminal over a partial extent counts a
+/// row outside it (an unclipped edge word), re-counts a row two extents both
+/// claim, or its sink is not re-seeded per call — i.e. whole-population
+/// execution must equal the group-by-group `checked_merge` of ANY partition,
+/// in any order, for every key address (resident, VIA, pair).
+///
+/// Anti-vacuity: some partition must put rows of ONE group in two different
+/// extents (else the merge never adds), and some cut must split a 64-row
+/// word with selected rows on both sides of it (else edge clipping is never
+/// exercised).
+#[test]
+fn grouped_power_sums_partials_merge_to_the_whole() {
+    let mut merged_nontrivially = false;
+    let mut split_a_live_word = false;
+    for n in [1317usize, 4096 + 37] {
+        let mut seed = 0x9_0E5 ^ n as u64;
+        let sel: Vec<bool> = (0..n).map(|_| !lcg(&mut seed).is_multiple_of(3)).collect();
+        let pl = plane(n, |r| sel[r]);
+        let key: Vec<u32> = (0..n).map(|_| (lcg(&mut seed) % 6) as u32).collect(); // 5 = drop
+        let x: Vec<i32> = (0..n)
+            .map(|i| match i % 17 {
+                3 => i32::MIN,
+                9 => i32::MAX,
+                _ => (lcg(&mut seed) % 200_001) as i32 - 100_000,
+            })
+            .collect();
+        let y: Vec<i32> = (0..n)
+            .map(|i| match i % 13 {
+                5 => i32::MAX,
+                _ => (lcg(&mut seed) % 2001) as i32 - 1000,
+            })
+            .collect();
+        let fk: Vec<u32> = (0..n).map(|_| (lcg(&mut seed) % 8) as u32).collect(); // 7 = past table
+        let hi: Vec<u32> = (0..n).map(|_| (lcg(&mut seed) % 3) as u32).collect();
+        let lo: Vec<u32> = (0..n).map(|_| (lcg(&mut seed) % 5) as u32).collect(); // 4 = >= stride
+        let table: Vec<u32> = vec![0, 4, 2, 9, 1, 3, 4]; // 9 = second-hop drop
+        let masks: [&[u64]; 1] = [&pl];
+        let lanes = [
+            LaneRef::U32(&key),
+            LaneRef::I32(&x),
+            LaneRef::I32(&y),
+            LaneRef::U32(&fk),
+            LaneRef::U32(&hi),
+            LaneRef::U32(&lo),
+        ];
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let flanes = [LaneRef::U32(&table)];
+        let foreign = Foreign {
+            planes: &[],
+            lanes: &flanes,
+        };
+        let mut partitions: Vec<Vec<usize>> = [0, 1, 63, 64, 65, 127, 129, n / 2, n - 1, n]
+            .into_iter()
+            .map(|k| vec![0, k, n])
+            .collect();
+        for _ in 0..20 {
+            let a = (lcg(&mut seed) as usize) % (n + 1);
+            let b = (lcg(&mut seed) as usize) % (n + 1);
+            partitions.push(vec![0, a.min(b), a.max(b), n]);
+        }
+        for cuts in &partitions {
+            split_a_live_word |= cuts[1..cuts.len() - 1].iter().any(|&c| {
+                c % 64 != 0
+                    && (c - c % 64..c).any(|r| bit(&pl, r))
+                    && (c..(c - c % 64 + 64).min(n)).any(|r| bit(&pl, r))
+            });
+        }
+        let keys = [
+            (GroupKey::Lane(0), 5usize),
+            (GroupKey::Via { fk: 3, key: 0 }, 5),
+            (
+                GroupKey::Pair {
+                    hi: 4,
+                    lo: 5,
+                    stride: 4,
+                },
+                12,
+            ),
+        ];
+        let words = words(n);
+        for (gk, groups) in keys {
+            for tile_words in [2usize, words] {
+                let ps = Program::new(
+                    vec![],
+                    Terminal::GroupPowerSumsI32 {
+                        mask: Operand::Plane(0),
+                        key: gk,
+                        val: 1,
+                    },
+                );
+                let cs = Program::new(
+                    vec![],
+                    Terminal::GroupCrossPowerSumsI32 {
+                        mask: Operand::Plane(0),
+                        key: gk,
+                        x: 1,
+                        y: 2,
+                    },
+                );
+                let whole_ps = power_sums_part(&ps, &planes, &foreign, tile_words, groups, 0..n);
+                let whole_cs = cross_part(&cs, &planes, &foreign, tile_words, groups, 0..n);
+                for cuts in &partitions {
+                    let spans: Vec<_> = cuts.windows(2).map(|w| w[0]..w[1]).collect();
+                    let ps_parts: Vec<Vec<PowerSums>> = spans
+                        .iter()
+                        .map(|e| {
+                            power_sums_part(&ps, &planes, &foreign, tile_words, groups, e.clone())
+                        })
+                        .collect();
+                    let cs_parts: Vec<Vec<CrossPowerSums>> = spans
+                        .iter()
+                        .map(|e| cross_part(&cs, &planes, &foreign, tile_words, groups, e.clone()))
+                        .collect();
+                    merged_nontrivially |=
+                        (0..groups).any(|g| ps_parts.iter().filter(|p| p[g].n > 0).count() > 1);
+                    let k = spans.len();
+                    for order in [
+                        (0..k).collect::<Vec<_>>(),
+                        (0..k).rev().collect(),
+                        (0..k).map(|i| (i + 1) % k).collect(),
+                    ] {
+                        let ps_merged: Vec<PowerSums> = (0..groups)
+                            .map(|g| {
+                                order
+                                    .iter()
+                                    .map(|&i| ps_parts[i][g])
+                                    .try_fold(PowerSums::default(), PowerSums::checked_merge)
+                                    .expect("in-width merge")
+                            })
+                            .collect();
+                        let cs_merged: Vec<CrossPowerSums> = (0..groups)
+                            .map(|g| {
+                                order
+                                    .iter()
+                                    .map(|&i| cs_parts[i][g])
+                                    .try_fold(
+                                        CrossPowerSums::default(),
+                                        CrossPowerSums::checked_merge,
+                                    )
+                                    .expect("in-width merge")
+                            })
+                            .collect();
+                        let at =
+                            format!("n={n} {gk:?} tile={tile_words} cuts={cuts:?} order={order:?}");
+                        assert_eq!(ps_merged, whole_ps, "power sums {at}");
+                        assert_eq!(cs_merged, whole_cs, "cross power sums {at}");
+                    }
+                }
+            }
+        }
+    }
+    assert!(merged_nontrivially, "some group must span two extents");
+    assert!(split_a_live_word, "some cut must split a live 64-row word");
 }

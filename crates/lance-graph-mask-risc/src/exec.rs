@@ -29,15 +29,18 @@ use ndarray::simd::{
     lt_i32_to_mask_under, mask_all, mask_and, mask_and_assign, mask_andnot, mask_andnot_assign,
     mask_any, mask_gather_u32, mask_not, mask_not_assign, mask_or, mask_or_assign,
     mask_scatter_or_u32, mask_set_range, mask_xor, mask_xor_assign, masked_group_count_u32,
-    masked_group_count_u32_pair, masked_group_count_u32_via, masked_group_max_i32,
-    masked_group_max_i32_pair, masked_group_max_i32_via, masked_group_min_i32,
-    masked_group_min_i32_pair, masked_group_min_i32_via, masked_group_sum_i32,
-    masked_group_sum_i32_via, masked_group_sum_sym_i32, masked_group_sum_sym_i32_pair,
-    masked_group_sum_sym_i32_via, masked_key_run_count_u32, masked_max_i32, masked_min_i32,
-    masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask,
-    ne_u32_to_mask_under, popcount_batch_u64, ternary_match_strided_to_mask,
-    ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
-    ternary_match_u64_to_mask_under, KeyRunCarry,
+    masked_group_count_u32_pair, masked_group_count_u32_via, masked_group_cross_power_sums_i32,
+    masked_group_cross_power_sums_i32_pair, masked_group_cross_power_sums_i32_via,
+    masked_group_max_i32, masked_group_max_i32_pair, masked_group_max_i32_via,
+    masked_group_min_i32, masked_group_min_i32_pair, masked_group_min_i32_via,
+    masked_group_power_sums_i32, masked_group_power_sums_i32_pair, masked_group_power_sums_i32_via,
+    masked_group_sum_i32, masked_group_sum_i32_via, masked_group_sum_sym_i32,
+    masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via, masked_key_run_count_u32,
+    masked_max_i32, masked_min_i32, masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask,
+    ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
+    ternary_match_strided_to_mask, ternary_match_u32_to_mask, ternary_match_u32_to_mask_under,
+    ternary_match_u64_to_mask, ternary_match_u64_to_mask_under, CrossPowerSums, KeyRunCarry,
+    PowerSums,
 };
 
 use crate::ir::{
@@ -1339,7 +1342,10 @@ pub fn execute_into(
 /// `execute_into` is this call with `0..n_rows`, which accepts every
 /// terminal. A partial extent accepts the terminals whose per-extent results
 /// merge by a shipped law — `Count` (sum), `Any` (or), `All` (and),
-/// `MaskedSumI32` (sum), `MaskedMinI32` / `MaskedMaxI32` (min / max) — plus
+/// `MaskedSumI32` (sum), `MaskedMinI32` / `MaskedMaxI32` (min / max),
+/// `GroupPowerSumsI32` / `GroupCrossPowerSumsI32` (each extent gets its own
+/// sink, seeded fresh; partial sinks combine group-by-group with
+/// `PowerSums::checked_merge` / `CrossPowerSums::checked_merge`) — plus
 /// `Keep`, which writes only the in-extent bits of its population-addressed
 /// [`Out::Mask`] and leaves every other bit as the caller holds it (so
 /// disjoint extents compose into one buffer in any SEQUENTIAL order). Anything else is
@@ -1411,6 +1417,8 @@ fn precheck(
             | Terminal::MaskedMinI32 { .. }
             | Terminal::MaskedMaxI32 { .. }
             | Terminal::MaskedStridedGroupSum { .. }
+            | Terminal::GroupPowerSumsI32 { .. }
+            | Terminal::GroupCrossPowerSumsI32 { .. }
             | Terminal::Keep { .. } => None,
             Terminal::BlendI32 { .. } => Some("BlendI32"),
             Terminal::ScatterOrU32 { .. } => Some("ScatterOrU32"),
@@ -1572,6 +1580,10 @@ pub fn execute_compiled(
         }
         (Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. }, Out::I64(o)) => o.fill(0),
         (Terminal::GroupReduce { fold, .. }, Out::I64(o)) => o.fill(fold.seed()),
+        (Terminal::GroupPowerSumsI32 { .. }, Out::PowerSums(o)) => o.fill(PowerSums::default()),
+        (Terminal::GroupCrossPowerSumsI32 { .. }, Out::CrossPowerSums(o)) => {
+            o.fill(CrossPowerSums::default())
+        }
         _ => {}
     }
     let n_rows = planes.n_rows;
@@ -1983,6 +1995,68 @@ pub fn execute_compiled(
                     }
                 }
             }
+            Terminal::GroupPowerSumsI32 { mask, key, val } => {
+                // `validate` already refused a missing/too-small `out`, every
+                // wrong-width lane and a plane past the 2^32-row exactness
+                // bound; one delegation per tile (law L3) into the sink
+                // seeded above with `PowerSums::default()`.
+                if let Out::PowerSums(o) = &mut out {
+                    let m = clip(read(planes, &slots, mask, t), edge, &mut eb, false);
+                    let v = lane_i32(planes, val, t);
+                    match key {
+                        GroupKey::Lane(k) => {
+                            masked_group_power_sums_i32(m, lane_u32(planes, k, t), v, o)
+                        }
+                        GroupKey::Via { fk, key } => masked_group_power_sums_i32_via(
+                            m,
+                            lane_u32(planes, fk, t),
+                            foreign_lane_u32(foreign, key),
+                            v,
+                            o,
+                        ),
+                        GroupKey::Pair { hi, lo, stride } => masked_group_power_sums_i32_pair(
+                            m,
+                            lane_u32(planes, hi, t),
+                            lane_u32(planes, lo, t),
+                            stride,
+                            v,
+                            o,
+                        ),
+                    }
+                }
+            }
+            Terminal::GroupCrossPowerSumsI32 { mask, key, x, y } => {
+                // Same contract as GroupPowerSumsI32, both lanes read in place:
+                // one delegation per tile into the sink seeded above.
+                if let Out::CrossPowerSums(o) = &mut out {
+                    let m = clip(read(planes, &slots, mask, t), edge, &mut eb, false);
+                    let (xs, ys) = (lane_i32(planes, x, t), lane_i32(planes, y, t));
+                    match key {
+                        GroupKey::Lane(k) => {
+                            masked_group_cross_power_sums_i32(m, lane_u32(planes, k, t), xs, ys, o)
+                        }
+                        GroupKey::Via { fk, key } => masked_group_cross_power_sums_i32_via(
+                            m,
+                            lane_u32(planes, fk, t),
+                            foreign_lane_u32(foreign, key),
+                            xs,
+                            ys,
+                            o,
+                        ),
+                        GroupKey::Pair { hi, lo, stride } => {
+                            masked_group_cross_power_sums_i32_pair(
+                                m,
+                                lane_u32(planes, hi, t),
+                                lane_u32(planes, lo, t),
+                                stride,
+                                xs,
+                                ys,
+                                o,
+                            )
+                        }
+                    }
+                }
+            }
             Terminal::Keep { mask } => {
                 // The demanded mask, one tile at a time. With `Out::None` the
                 // scratch is single-tile (checked above) and the slot IS the
@@ -2017,6 +2091,8 @@ pub fn execute_compiled(
         Terminal::CountKeyRunsU32 { .. } => Value::Count(runs + run_carry.finish()),
         Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. } => Value::GroupSummed,
         Terminal::GroupReduce { .. } => Value::GroupReduced,
+        Terminal::GroupPowerSumsI32 { .. } => Value::GroupPowerSums,
+        Terminal::GroupCrossPowerSumsI32 { .. } => Value::GroupCrossPowerSums,
         Terminal::Keep { mask } => Value::Mask(mask),
     })
 }

@@ -264,6 +264,10 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
         Value::StridedSum(_) => {
             panic!("case {id}: no MaskedStridedGroupSum case in this suite")
         }
+        Value::GroupPowerSums => panic!("case {id}: no GroupPowerSumsI32 case in this suite"),
+        Value::GroupCrossPowerSums => {
+            panic!("case {id}: no GroupCrossPowerSumsI32 case in this suite")
+        }
     };
     let out_bytes = encoded.len();
     (
