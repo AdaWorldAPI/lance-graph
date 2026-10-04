@@ -1683,12 +1683,36 @@ static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
     m
 });
 
+#[cfg(test)]
+thread_local! {
+    /// Test-only count of [`classid_read_mode`] calls on this thread. Lets a
+    /// test assert that a population path resolves its reading a constant
+    /// number of times, not once per row. Thread-local, so parallel tests do
+    /// not see each other's lookups.
+    pub(crate) static READ_MODE_LOOKUPS: core::cell::Cell<usize> =
+        const { core::cell::Cell::new(0) };
+}
+
+/// Number of [`classid_read_mode`] calls on this thread since the last reset.
+#[cfg(test)]
+pub(crate) fn read_mode_lookups() -> usize {
+    READ_MODE_LOOKUPS.with(core::cell::Cell::get)
+}
+
+/// Reset this thread's [`classid_read_mode`] call count.
+#[cfg(test)]
+pub(crate) fn reset_read_mode_lookups() {
+    READ_MODE_LOOKUPS.with(|c| c.set(0));
+}
+
 /// Resolve a `classid` to its [`ReadMode`] — the single source both consumers
 /// and OGAR inherit. Reads the [`BUILTIN_READ_MODES`] registry, falling through
 /// to [`ReadMode::DEFAULT`] for any unconfigured classid (the key's own
 /// zero-fallback ladder). [`NodeGuid::read_mode`] is the carrier-method form.
 #[inline]
 pub fn classid_read_mode(classid: u32) -> ReadMode {
+    #[cfg(test)]
+    READ_MODE_LOOKUPS.with(|c| c.set(c.get() + 1));
     BUILTIN_READ_MODES
         .get(&classid)
         .copied()
