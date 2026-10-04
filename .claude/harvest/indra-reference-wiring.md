@@ -36,6 +36,27 @@ AdaWorldAPI side read at: lance-graph `06061fe`, MedCare-rs `29116c5`, OGAR
 `ndarray::*` capability mentioned below is cited only from lance-graph
 comments and is **UNVERIFIED** here.
 
+> **⊘ Current-state refresh (2026-10-03, after lance-graph #1314 and
+> tesseract-rs #104).** The first version of this harvest was written against
+> lance-graph `06061fe`, before #1314 (`a49f703`) reached the checkout it read.
+> Six claims about the lexical/parse layer were stale on arrival and are
+> corrected in place below (§1, §5.3, §13, §14, §20, §22, §24, §25). Verified
+> on lance-graph `a7ce59b` and tesseract-rs `420f46d`:
+> `deepnsm-v2/src/fsm.rs` ships `PosSet` (`:291`), `Reading` (`:364`),
+> `Survivor`, `ReadingParse { certain, alternative, ambiguous, unknown,
+> peak_configs, overflow_flushes }` (`:396-427`) and `parse_readings` (`:471`);
+> `deepnsm-v2/src/coca.rs` is the one COCA→FSM fold (`fsm_pos :24`,
+> `reading_set :49`); one-reading parity is pinned by
+> `one_reading_per_token_parses_exactly_as_before` (`fsm.rs:789`). In
+> tesseract-rs, `tesseract-paperless/src/consistency.rs` `seam_readings`
+> (`:506-528`) feeds `parse_readings` (`analyze`, `:620`) one reading set per
+> in-vocabulary token: out-of-vocabulary tokens are skipped (original positions
+> kept), relativizer surfaces become `Rel`, a lemma-table tag wins when present,
+> and only otherwise does the folded `LexicalEvidence` set from `reading_set`
+> reach the parser (`PosSet::EMPTY` when it has none). So not every stored
+> lexical alternative reaches production parsing; `GraphSentence::triples` are the certain triples and
+> `alternative_triples` is a count only. Nothing else in this file changed.
+
 Status vocabulary for AdaWorldAPI claims: **SHIPPED** (in source on the
 checkout above), **PLANNED** (in plans/docs only), **ABSENT** (searched, with
 the search space named).
@@ -50,8 +71,8 @@ ORKG is primarily useful as a reference for structured scholarly
 contributions and comparison views; INDRA is the closer comparator for the
 reasoning/assembly layer beneath those views.
 
-*(No ORKG harvest exists yet in `.claude/harvest/`; that line states the
-intended division of labour, not a completed comparison.)*
+*(The ORKG side is harvested separately in
+`.claude/harvest/orkg-reference-wiring.md`, lance-graph #1316.)*
 
 The comparison is made at the seam
 **"observation/text → normalized evidence-bearing causal assertion →
@@ -280,8 +301,8 @@ The workspace keeps these apart.
 
 | INDRA | AdaWorldAPI | relation | status |
 |---|---|---|---|
-| `db_refs['TEXT']` + Gilda candidate list | `deepnsm-v2` `LexicalEvidence` / `LexicalReading` — every COCA reading kept with integer counts (`lexical.rs:34-41, 111, 332`) | ANALOGOUS, ours keeps all readings structurally | SHIPPED (lexicon); the FSM does **not** consume it yet |
-| winner-takes-all write into `db_refs` | — (planned `PosSet` / reading mask) | ours STRICTLY RICHER *if built* | `PosSet` **PLANNED/deferred** (`.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md:306-308`) |
+| `db_refs['TEXT']` + Gilda candidate list | `deepnsm-v2` `LexicalEvidence` / `LexicalReading` — every COCA reading kept with integer counts (`lexical.rs:34-41, 111, 332`), folded to a `PosSet` by `coca::reading_set` (`coca.rs:49`) | ANALOGOUS, ours keeps all readings structurally | SHIPPED (lexicon **and** parser consumer, #1314) |
+| winner-takes-all write into `db_refs` | `fsm::parse_readings` (`fsm.rs:471`): every *distinct FSM reading* enters — `coca::fsm_pos` folds several COCA letters onto one FSM tag (`n`/`p` → `Noun`, `a`/`d` → `Det`, all others → `Other`, `coca.rs:24-30`) and `reading_set` deduplicates them into a `PosSet` (`coca.rs:49-54`), so the parser sees the folded set while the raw readings stay in `LexicalEvidence`; the licensing rule (`licensed`) closes a reading only where structure forbids it and never removes a token's last reading; output is `certain` triples (on every surviving configuration) + `alternative` triples + per-token `Survivor { entered, survived }` | DIFFERENT DESIGN: closure by structural warrant, unresolved alternatives reported, frequency never consulted; coarser than the lexicon it reads (folded tags, not raw readings) | SHIPPED (#1314); consumed in production by tesseract-rs `consistency.rs` (#104) |
 | `(ns, id)` preferred grounding | OGAR classid / `ogar-obo::Namespace` (`OGAR/crates/ogar-obo/src/lib.rs:95-178`) | ANALOGOUS | SHIPPED |
 | `IndraOntology.isa_or_partof` | `ogar-obo/src/reason.rs` EL saturation: is_a transitivity, transitive part_of, existential filler subsumption (`saturate :171`, `ancestors :369`); `ogar-ro` IS_A / PART_OF (`lib.rs:153-154`) | SAME role (refinement anchor); ours is a saturating reasoner | SHIPPED |
 | `is_opposite` | — no opposite relation found in `ogar-obo` / `ogar-ro` | NO MATCH | ABSENT in those two crates |
@@ -631,7 +652,7 @@ naming one.
 | Agent **state** as identity (mods, activity, location) | — (state would be facet payload or a refined classid) | NO MATCH yet | — | ABSENT (no state-in-identity scheme found in `ogar-obo`, `ogar-ro`) |
 | `Statement` | SPO / `CausalEdge64` (S/P/O palette indices, f/c u8, Pearl mask, inference type) | ANALOGOUS; ours has truth + causal rung in-edge, INDRA has class-as-predicate + rich agent state | `causal-edge/src/edge.rs:140-161` | SHIPPED |
 | `Evidence` | `CausalWitnessFacet` (experimental), `witness_fabric.rs` (`WitnessLens :146`, `RevisionTrajectory :1424`), W slot (6-bit), MedCare `ProvenanceWitness` | ANALOGOUS, **weaker in practice**: no shipped per-evidence text/source/epistemics record attached to an edge | `lance-graph-contract/src/causal_witness.rs:201`; MedCare `medcare-cohorts/src/provenance.rs:270` (no consumer) | SHIPPED types, unwired |
-| grounding pipeline | `deepnsm-v2` lexicon + OGAR | partial | §5.3 | lexicon SHIPPED, consumer PLANNED |
+| grounding pipeline | `deepnsm-v2` lexicon → `PosSet` → `parse_readings`, + OGAR | partial (lexical side complete; no lexical→OGAR grounding step) | §5.3 | lexical consumer SHIPPED (#1314, #104); OGAR grounding of parse output ABSENT |
 | `combine_duplicates` | population fold over identity key | **ANALOGOUS** — both group by an identity key and keep all members; INDRA keeps them as a list on the survivor | — | fold/mask machinery SHIPPED in contract; no evidence fold over SPO rows found |
 | refinement DAG | ontology rail + mask (`ogar-obo` saturation) | ANALOGOUS on the entity side; no statement-level refinement found | `ogar-obo/src/reason.rs:171` | entity SHIPPED; statement-level ABSENT (searched `lance-graph/crates`, `OGAR/crates` for `refinement_of` / statement subsumption) |
 | contradiction pairs | `revision.rs` / fusion candidates / contradiction depth | ANALOGOUS in intent; neither changes truth from a contradiction today | `revision.rs:31`; `fusion.rs:199` (candidates only, "carries no confidence scalar", test `:404`) | SHIPPED policy, no truth write |
@@ -674,7 +695,9 @@ thesis must not miss:
    not of an observation layer.
 
 The workspace side is, today, **partly aspirational**: `LexicalEvidence`
-retains all readings but the FSM still commits to one; NARS revision is
+alternatives now reach the parser as their distinct FSM folds (`parse_readings`, #1314) and production
+(tesseract-rs #104, for tokens without a lemma-table tag), but downstream only the certain triples are asserted and
+the alternatives are counted, not carried as evidence; NARS revision is
 evidence-weight based but no shipped path writes evidence-weighted truth onto
 an edge (MedCare `reinforcement.rs:42-46` defers it); the witness facet is
 experimental.
@@ -826,8 +849,10 @@ only.
 | capability | status | source |
 |---|---|---|
 | COCA lexicon with every reading retained + counts | SHIPPED | `deepnsm-v2/src/lexical.rs:34-41, 111, 332, 490` |
-| `Reading` / `PosSet` / configuration-set FSM / certain-vs-alternative SPO | **PLANNED** | plan `deepnsm-v2-lexical-evidence-consumer-v1.md:306-308`; ABSENT in `lance-graph/crates/**/*.rs` |
-| relative-pronoun handling (one level) | SHIPPED | `deepnsm-v2/src/fsm.rs:96, 142-205` |
+| `Reading` / `PosSet` / configuration-set FSM / certain-vs-alternative SPO / ambiguity survivors | SHIPPED (#1314) | `deepnsm-v2/src/fsm.rs:291, 364, 396-427, 471`; COCA fold `coca.rs:24, 49`; parity `fsm.rs:789` |
+| production consumer of the multi-reading path | SHIPPED (tesseract-rs #104) | `tesseract-paperless/src/consistency.rs:506-528, 620`; v1 contributes only the surface split; the lemma-table tag takes precedence, so the multi-reading set reaches the parser only for tokens without one; known `record`/`deeds` regression pinned (`:1112-1116`) |
+| relative-pronoun handling (one level) | SHIPPED | `deepnsm-v2/src/fsm.rs:99, 158-230` |
+| shared evidence population / witness socket; production truth revision + write-back; morphology; right-corner; 24×i4 syntax/anaphora | **not shipped** | — |
 | temporal stream / version-range reads | SHIPPED (query policy) | `lance-graph-planner/src/temporal.rs:188`; `graph/versioned.rs:501` |
 | OGAR / OBO / RO saturation | SHIPPED | `ogar-obo/src/reason.rs:171`; `ogar-ro/src/lib.rs:153` |
 | DOLCE / OGIT | not verified in this pass | — |
@@ -917,10 +942,11 @@ source-reliability axis as if it were evidence mass.
 6. **Project back** via §21.1 and diff against the INDRA statements.
 
 Report: exact agreement, representational differences, information lost in
-each direction, wall-clock cost per stage, unresolved ambiguity. Blocked on:
-the FSM does not yet consume `LexicalEvidence`, and no shipped path writes
-revised truth to an edge, so step 3 would measure the current
-single-reading parser.
+each direction, wall-clock cost per stage, unresolved ambiguity. Step 3 can
+now use the multi-reading path (`parse_readings`, as tesseract-rs #104 does),
+so lexical ambiguity is measurable as certain vs alternative triples. Still
+blocked on: no shipped path writes revised truth to an edge, and alternatives
+are counted, not exported as evidence.
 
 ## 23. Particular questions
 
@@ -981,8 +1007,9 @@ single-reading parser.
          literature                observations
             │                            │
    deepnsm-v2 / MarkovNSM          JC / (ndarray)
-   (lexicon keeps all readings;    (StatMatrix, Fisher-z, α, ICC)
-    parser still commits to one)         │
+   (LexicalEvidence → PosSet →     (StatMatrix, Fisher-z, α, ICC)
+    parse_readings: certain +            │
+    unresolved alternatives)             │
             │                            │
             └─────────────┬──────────────┘
                           ▼
@@ -999,7 +1026,11 @@ single-reading parser.
 
 Correction from the harvest: INDRA's own pipeline places its commitment
 point (single grounding, single statement class) **above** the box labelled
-"evidence population", in the literature lane. An INDRA view is therefore a
+"evidence population", in the literature lane. Ours now sits lower but is
+not "no commitment": the grammar closes a reading early where a structural
+constraint warrants it and leaves only what it cannot separate as
+alternatives. The contrast is *winner by score* (Gilda → `db_refs`) versus
+*closure by structural warrant* (`PosSet` → `parse_readings`). An INDRA view is therefore a
 projection that can be produced from the population, but INDRA's *ingest*
 cannot feed the population without the §21.2 explosion back to evidence
 rows. The diagram holds as a target; the "evidence population" box is not yet
@@ -1017,10 +1048,13 @@ a shipped object.
 **First sentence: confirmed** by code (§3, §6, §9, §14).
 
 **Second sentence: partly true, and must be stated as direction, not state.**
-Shipped: all-readings lexicon, NARS evidence-weight revision, `jc`
-statistics, OGAR saturation, Lance versions, Pearl rungs. Not shipped: the
-parser consuming alternatives, a single evidence population joining text and
-observation lanes, truth written onto edges, epistemic basins.
+Shipped: all-readings lexicon, the parser consuming those readings with
+certain-vs-alternative output (#1314) and its production use (tesseract-rs
+#104), NARS evidence-weight revision, `jc` statistics, OGAR saturation, Lance
+versions, Pearl rungs. Not shipped: a single evidence population joining text
+and observation lanes, a witness socket that keeps alternatives and their
+provenance operable after parsing, truth written onto edges, epistemic basins,
+morphology / right-corner / 24×i4 syntax and anaphora.
 
 **What INDRA retains that the characterization misses:**
 
