@@ -57,6 +57,29 @@ impl Kept {
     pub fn rows(&self) -> Vec<usize> {
         materialize_rows(&self.bits, self.n_rows)
     }
+
+    /// `self`'s rows followed by `tail`'s rows offset by `self`'s width —
+    /// one result over a base relation and its delta rows.
+    pub(crate) fn concat(mut self, tail: &Kept) -> Kept {
+        let n = self.n_rows;
+        self.n_rows += tail.n_rows;
+        self.bits.resize(words_for(self.n_rows), 0);
+        for r in materialize_rows(&tail.bits, tail.n_rows) {
+            self.bits[(n + r) / 64] |= 1 << ((n + r) % 64);
+        }
+        self
+    }
+}
+
+/// How many rows `filter` keeps — a scalar, never a population.
+pub(crate) fn count(filter: Filter, planes: &Planes<'_>, foreign: &Foreign<'_>) -> usize {
+    if planes.n_rows == 0 {
+        return 0;
+    }
+    match run(&program(filter, Agg::Count), planes, foreign, Out::None) {
+        Value::Count(c) => c,
+        v => unreachable!("Count terminal returned {v:?}"),
+    }
 }
 
 /// Surviving rows (`Agg::Rows` → `Keep`), sealed in a [`Kept`].

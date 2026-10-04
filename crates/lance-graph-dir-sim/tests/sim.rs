@@ -508,23 +508,29 @@ fn plan_is_based_on_the_latest_observation() {
     );
 }
 
+// A node created in reality outside the simulation is neither planned nor
+// reverted: the plan is the outstanding intent, not a mirror of the diff.
 #[test]
-fn plan_reports_a_changed_node_set() {
-    let (mut st, _, _, g2) = chain();
+fn plan_ignores_a_node_created_independently() {
+    let (mut st, g0, _, g2) = chain();
     st.promote_desired(g2).unwrap();
+    let before = st.plan(g2).unwrap().ops;
     let mut grown = observed();
     grown.nodes.push((
         g(99),
         ObservedNode::user("new@example.test", "new@example.test"),
     ));
     let o = st.observe("lab", 2_000, grown).unwrap();
-    assert_eq!(
-        st.plan(g2),
-        Err(PlanError::NodeSetChanged {
-            basis: o,
-            target: g2
-        })
-    );
+    let plan = st.plan(g2).unwrap();
+    assert_eq!(plan.basis, o);
+    assert_ne!(plan.basis, g0);
+    assert_eq!(plan.ops, before);
+    // The raw diff still reports the difference: nothing is hidden there.
+    assert!(st
+        .diff(o, g2)
+        .unwrap()
+        .iter()
+        .any(|c| matches!(c, Change::DeleteNode { node, .. } if *node == g(99))));
 }
 
 #[test]
