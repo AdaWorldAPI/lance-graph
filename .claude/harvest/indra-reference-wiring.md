@@ -49,8 +49,12 @@ comments and is **UNVERIFIED** here.
 > `reading_set :49`); one-reading parity is pinned by
 > `one_reading_per_token_parses_exactly_as_before` (`fsm.rs:789`). In
 > tesseract-rs, `tesseract-paperless/src/consistency.rs` `seam_readings`
-> (`:506`) feeds every v2 lexical reading to `parse_readings` (`analyze`,
-> `:620`); `GraphSentence::triples` are the certain triples and
+> (`:506-528`) feeds `parse_readings` (`analyze`, `:620`) one reading set per
+> in-vocabulary token: out-of-vocabulary tokens are skipped (original positions
+> kept), relativizer surfaces become `Rel`, a lemma-table tag wins when present,
+> and only otherwise does the folded `LexicalEvidence` set from `reading_set`
+> reach the parser (`PosSet::EMPTY` when it has none). So not every stored
+> lexical alternative reaches production parsing; `GraphSentence::triples` are the certain triples and
 > `alternative_triples` is a count only. Nothing else in this file changed.
 
 Status vocabulary for AdaWorldAPI claims: **SHIPPED** (in source on the
@@ -692,7 +696,7 @@ thesis must not miss:
 
 The workspace side is, today, **partly aspirational**: `LexicalEvidence`
 alternatives now reach the parser as their distinct FSM folds (`parse_readings`, #1314) and production
-(tesseract-rs #104), but downstream only the certain triples are asserted and
+(tesseract-rs #104, for tokens without a lemma-table tag), but downstream only the certain triples are asserted and
 the alternatives are counted, not carried as evidence; NARS revision is
 evidence-weight based but no shipped path writes evidence-weighted truth onto
 an edge (MedCare `reinforcement.rs:42-46` defers it); the witness facet is
@@ -846,7 +850,7 @@ only.
 |---|---|---|
 | COCA lexicon with every reading retained + counts | SHIPPED | `deepnsm-v2/src/lexical.rs:34-41, 111, 332, 490` |
 | `Reading` / `PosSet` / configuration-set FSM / certain-vs-alternative SPO / ambiguity survivors | SHIPPED (#1314) | `deepnsm-v2/src/fsm.rs:291, 364, 396-427, 471`; COCA fold `coca.rs:24, 49`; parity `fsm.rs:789` |
-| production consumer of the multi-reading path | SHIPPED (tesseract-rs #104) | `tesseract-paperless/src/consistency.rs:506, 620`; v1 contributes only the surface split; known `record`/`deeds` regression pinned (`:1112-1116`) |
+| production consumer of the multi-reading path | SHIPPED (tesseract-rs #104) | `tesseract-paperless/src/consistency.rs:506-528, 620`; v1 contributes only the surface split; the lemma-table tag takes precedence, so the multi-reading set reaches the parser only for tokens without one; known `record`/`deeds` regression pinned (`:1112-1116`) |
 | relative-pronoun handling (one level) | SHIPPED | `deepnsm-v2/src/fsm.rs:99, 158-230` |
 | shared evidence population / witness socket; production truth revision + write-back; morphology; right-corner; 24×i4 syntax/anaphora | **not shipped** | — |
 | temporal stream / version-range reads | SHIPPED (query policy) | `lance-graph-planner/src/temporal.rs:188`; `graph/versioned.rs:501` |
