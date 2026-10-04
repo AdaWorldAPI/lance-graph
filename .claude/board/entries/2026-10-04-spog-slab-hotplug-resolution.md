@@ -2,29 +2,31 @@
 
 **Follows:** the D-LXC-29 tenant-rails entry.
 
-**Status:** VERIFIED-IN-CODE + TEST-PINNED (`crates/lance-graph-contract/src/hotplug.rs`, 7 tests for the 8 requested invariants; 6 guards disable-verified red-then-green; `lance-graph-ogar` 84/84 unchanged).
+**Status:** VERIFIED-IN-CODE + TEST-PINNED (`crates/lance-graph-contract/src/hotplug.rs`, 8 tests; 7 guards disable-verified red-then-green; `lance-graph-ogar` 84/84 unchanged).
 
-## What landed
+## The four authorities, kept separate
 
-The resolution seam asked for in `2026-10-04-deepnsm-v2-tenant-rails-6-vs-8.md` ("a `ValueSchema` entry that the hot-plug `ReadMode` resolves to"). No layout, kernel, fold or slab change.
+| authority | carrier | decides |
+|---|---|---|
+| SPOG | `spog_tenants::graph_of(key)` | which concept the data belongs to |
+| OGAR | `Activation::read_mode_for(concept)` | that the concept exists, and its CURRENT reading (dispatch for new writes) |
+| slab metadata | `SlabDeclaration {reading, value_schema, layout_version}` | the physical truth about bytes already written |
+| this build | `SlabReading::from_tag`, `ENVELOPE_LAYOUT_VERSION` | whether the binary implements that physical reading |
 
-- **SPOG** gives the concept: `spog_tenants::graph_of(key)`.
-- **OGAR registry** gives the class reading: `Activation::read_mode_for(concept)`. If the concept is unplugged the call returns `NoReadingFor`; a slab declaration cannot stand in for it.
-- **Slab metadata** is `SlabDeclaration {reading: SlabReading, value_schema, layout_version}`. It holds physical facts only:
-  - no concept, because SPOG supplies semantic identity;
-  - no tail or edge codec, because those read the key and the edge block, which the class owns.
-- **Checks:**
-  - an unknown tag returns `UnknownSlabReading`; it is never assumed to be Facet96;
-  - a layout mismatch returns `SlabLayoutVersion`;
-  - a value schema wider than the class's returns `SlabWidens`; a narrower one is allowed.
-- `Activation::resolve_tenant_reading(key, Option<&SlabDeclaration>) -> ResolvedReading`:
-  - with no declaration it returns exactly today's reading plus `Facet96`;
-  - `ResolvedReading` is `Copy + Eq + Hash`, the future cache entry for a fold that resolves once per `(concept, declaration)`.
+## Rules (`Activation::resolve_for_context`)
 
-`SlabReading` has one variant, `Facet96` (the existing 4+12), at tag 0. No migration.
+- Unknown concept → `NoReadingFor`, with or without a declaration.
+- No declaration → the current OGAR reading, `slab: None`. Absence is inherited behaviour, never a Facet96 claim.
+- Declaration with an unsupported tag or layout → `UnknownSlabReading` / `SlabLayoutVersion`.
+- Otherwise the declaration wins for its own bytes: the declared value schema and reading are returned, whatever OGAR registers today. A class migration (e.g. yesterday G6D2, today G8D2) leaves old slabs readable; new writes use the new registration and record it.
+- Tail and edge codec always come from OGAR (the key and edge block are not the slab's).
+- There is no per-concept table of allowed readings.
+
+`resolve_tenant_reading(key, …)` is the key wrapper (`graph_of` + the above). A caller holding one population resolves once with `resolve_for_context`; the population test shows that call shape only, not a fold or branch-freeness.
 
 ## OPEN
 
-- Where a declaration is physically stored in the metadata envelope. Nothing writes one yet.
-- New readings (a classid-free 128-bit register and its carvings), and authority validation of which concepts may opt into them.
-- No caller is wired, and there is no cache yet.
+- Where a declaration is physically stored in the metadata envelope.
+- A writer persisting the current reading into slab metadata.
+- New readings (a classid-free 128-bit register and its carvings) as `SlabReading` variants.
+- No caller and no cache are wired.
