@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-203 entries, 2026-08-06 .. 2026-10-04.
+204 entries, 2026-08-06 .. 2026-10-04.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -40,6 +40,7 @@ exactly one of them, never both.
 | 2026-10-04 | `D-LXC-16` |  | [2026-10-04-deepnsm-v2-learned-position-table.md](2026-10-04-deepnsm-v2-learned-position-table.md) |
 | 2026-10-04 | `D-LXC-15` |  | [2026-10-04-deepnsm-v2-kjv-silver-labels-from-luther.md](2026-10-04-deepnsm-v2-kjv-silver-labels-from-luther.md) |
 | 2026-10-04 | `D-LXC-17` |  | [2026-10-04-deepnsm-v2-german-tekamolo-verb-position.md](2026-10-04-deepnsm-v2-german-tekamolo-verb-position.md) |
+| 2026-10-04 | `D-LXC-26` |  | [2026-10-04-deepnsm-v2-gender-number-case.md](2026-10-04-deepnsm-v2-gender-number-case.md) |
 | 2026-10-04 | `D-LXC-23` |  | [2026-10-04-deepnsm-v2-first-probes-from-the-grammar-map.md](2026-10-04-deepnsm-v2-first-probes-from-the-grammar-map.md) |
 | 2026-10-04 | `D-LXC-21` |  | [2026-10-04-deepnsm-deleted-grammar-restored.md](2026-10-04-deepnsm-deleted-grammar-restored.md) |
 | 2026-10-04 | `coresearch-orkg-architecture` |  | [2026-10-04-coresearch-orkg-architecture.md](2026-10-04-coresearch-orkg-architecture.md) |

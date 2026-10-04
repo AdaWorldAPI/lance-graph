@@ -31,6 +31,12 @@
 //!   the SAME surface condition (a relativizer form right after a comma), plus
 //!   any token marked `PronType=Rel`. Mining on `PronType=Rel` alone fires
 //!   nothing on German GSD, which carries no `PronType=Rel` at all.
+//! - **R6** gender and number: an article's case read from (article form,
+//!   head-noun gender, head-noun number). Gender and number come from a
+//!   train-mined noun lexicon; an unseen noun falls back to its German
+//!   Snowball stem (`frostem`, the stemmer tesseract-paperless search uses).
+//!   Also reported: how much case ambiguity the cell removes compared with the
+//!   article form alone (train purity).
 //! - **R5** combined, first rule that fires in the order R3-contraction, R1, R3,
 //!   R4, R2; coverage, precision, baseline and the Nom/Acc/Dat/Gen confusion.
 //!
@@ -50,6 +56,8 @@
 //! - R3t, R3a (each): precision <= prep-majority on the same tokens, or fires on < 5 % of
 //!   the article-undecided Wechsel tokens.
 //! - R4: precision <= the plain form baseline.
+//! - R6: precision < the article-form majority + 5 points on the same tokens;
+//!   stem-fallback precision < seen-noun precision - 10 points.
 //!
 //! ```text
 //! cargo run --release --example ud_case_eval -- de_gsd-ud-train.conllu de_gsd-ud-test.conllu
@@ -123,6 +131,16 @@ struct Tok {
     case: Option<usize>,
     /// `PronType=Rel` in feats.
     rel: bool,
+    /// `Gender=` (0 Masc, 1 Fem, 2 Neut) and `Number=` (0 Sing, 1 Plur).
+    gender: Option<usize>,
+    number: Option<usize>,
+}
+
+fn feat(feats: &str, key: &str, values: &[&str]) -> Option<usize> {
+    feats
+        .split('|')
+        .find_map(|f| f.strip_prefix(key))
+        .and_then(|v| values.iter().position(|x| *x == v))
 }
 
 fn case_of(feats: &str) -> Option<usize> {
@@ -155,6 +173,8 @@ fn read(path: &str) -> Vec<Vec<Tok>> {
             upos: c[3].to_string(),
             case: case_of(c[5]),
             rel: c[5].split('|').any(|f| f == "PronType=Rel"),
+            gender: feat(c[5], "Gender=", &["Masc", "Fem", "Neut"]),
+            number: feat(c[5], "Number=", &["Sing", "Plur"]),
         });
     }
     if !cur.is_empty() {
@@ -706,4 +726,153 @@ fn main() {
             CASES[g], row[0], row[1], row[2], row[3]
         );
     }
+
+    r6_report(&train, &test);
+}
+
+/// (gender, number) → index into a 6-cell table.
+fn gn(g: usize, n: usize) -> usize {
+    g * 2 + n
+}
+
+/// The head noun after the article at `i`: the first NOUN-shaped
+/// (capitalised) token within three tokens, through words only.
+fn article_head(s: &[Tok], i: usize) -> Option<usize> {
+    (i + 1..s.len().min(i + 4))
+        .take_while(|&j| s[j].word)
+        .find(|&j| s[j].upper)
+}
+
+/// R6: case from (article form, head gender, head number).
+fn r6_report(train: &[Vec<Tok>], test: &[Vec<Tok>]) {
+    let stemmer = frostem::Stemmer::new(frostem::Algorithm::German);
+    let majority6 = |c: &[usize; 6]| (0..6).max_by_key(|&k| (c[k], std::cmp::Reverse(k)));
+    // Noun lexicon: form → (gender, number) counts; stem → counts.
+    let mut by_form: HashMap<String, [usize; 6]> = HashMap::new();
+    let mut by_stem: HashMap<String, [usize; 6]> = HashMap::new();
+    // (article form, gn cell) → case counts; article form → case counts.
+    let mut cell: HashMap<(String, usize), [usize; 4]> = HashMap::new();
+    let mut form_only: HashMap<String, [usize; 4]> = HashMap::new();
+    // (article form, gender) → case counts: the stem keeps gender but erases
+    // number (*Firma* / *Firmen*), so the exploratory fallback reads gender only.
+    let mut cell_g: HashMap<(String, usize), [usize; 4]> = HashMap::new();
+    let is_article = |t: &Tok| t.upos == "DET" && t.case.is_some();
+    for s in train {
+        for t in s {
+            if let (true, Some(g), Some(n)) = (t.upos == "NOUN", t.gender, t.number) {
+                by_form.entry(t.form.clone()).or_default()[gn(g, n)] += 1;
+                by_stem
+                    .entry(stemmer.stem(&t.form).into_owned())
+                    .or_default()[gn(g, n)] += 1;
+            }
+        }
+        for (i, t) in s.iter().enumerate() {
+            if !is_article(t) {
+                continue;
+            }
+            let c = t.case.expect("article has a case");
+            form_only.entry(t.form.clone()).or_default()[c] += 1;
+            let Some(j) = article_head(s, i) else {
+                continue;
+            };
+            if let (Some(g), Some(n)) = (s[j].gender, s[j].number) {
+                cell.entry((t.form.clone(), gn(g, n))).or_default()[c] += 1;
+            }
+            if let Some(g) = s[j].gender {
+                cell_g.entry((t.form.clone(), g)).or_default()[c] += 1;
+            }
+        }
+    }
+    // Ambiguity: train purity (majority share), weighted by count.
+    let purity = |m: &mut dyn Iterator<Item = &[usize; 4]>| {
+        let (mut top, mut all) = (0usize, 0usize);
+        for c in m {
+            top += c.iter().max().copied().unwrap_or(0);
+            all += c.iter().sum::<usize>();
+        }
+        100.0 * top as f64 / all.max(1) as f64
+    };
+    println!("\nR6 gender and number (KILL: precision < form majority + 5 pts; stem fallback < seen - 10 pts)");
+    println!(
+        "  noun lexicon: {} forms, {} stems; train case purity: article form alone {:.1}%, form + gender + number {:.1}%",
+        by_form.len(),
+        by_stem.len(),
+        purity(&mut form_only.values()),
+        purity(&mut cell.values())
+    );
+    // [seen form, stem fallback] → (fires, R6 right, form-majority right).
+    let mut tally = [[0usize; 3]; 2];
+    let mut no_gn = 0usize;
+    // Exploratory (after the first run): stem fallback with gender only.
+    let mut stem_g = [0usize; 3];
+    let mut arts = 0usize;
+    for s in test {
+        for (i, t) in s.iter().enumerate() {
+            let (true, Some(gold)) = (t.upos == "DET", t.case) else {
+                continue;
+            };
+            arts += 1;
+            let Some(j) = article_head(s, i) else {
+                no_gn += 1;
+                continue;
+            };
+            if !by_form.contains_key(&s[j].form) {
+                let st = stemmer.stem(&s[j].form);
+                let g = by_stem.get(st.as_ref()).and_then(|c| {
+                    (0..3).max_by_key(|&g| (c[gn(g, 0)] + c[gn(g, 1)], std::cmp::Reverse(g)))
+                });
+                if let Some(pred) = g
+                    .and_then(|g| cell_g.get(&(t.form.clone(), g)))
+                    .and_then(majority)
+                {
+                    let base = form_only.get(&t.form).and_then(majority);
+                    stem_g[0] += 1;
+                    stem_g[1] += usize::from(pred == gold);
+                    stem_g[2] += usize::from(base == Some(gold));
+                }
+            }
+            let (src, counts) = match by_form.get(&s[j].form) {
+                Some(c) => (0, Some(c)),
+                None => (1, by_stem.get(stemmer.stem(&s[j].form).as_ref())),
+            };
+            let Some(k) = counts.and_then(majority6) else {
+                no_gn += 1;
+                continue;
+            };
+            let Some(pred) = cell.get(&(t.form.clone(), k)).and_then(majority) else {
+                no_gn += 1;
+                continue;
+            };
+            let base = form_only.get(&t.form).and_then(majority);
+            tally[src][0] += 1;
+            tally[src][1] += usize::from(pred == gold);
+            tally[src][2] += usize::from(base == Some(gold));
+        }
+    }
+    let p = |a: usize, b: usize| 100.0 * a as f64 / b.max(1) as f64;
+    let mut pass = true;
+    for (k, name) in ["seen noun", "stem fallback"].iter().enumerate() {
+        let [f, r, b] = tally[k];
+        println!(
+            "  {name:13}: fires {f:6}  R6 {:5.1}%  article-form majority {:5.1}%",
+            p(r, f),
+            p(b, f)
+        );
+    }
+    println!(
+        "  stem fallback, gender only (exploratory): fires {:6}  R6 {:5.1}%  article-form majority {:5.1}%",
+        stem_g[0],
+        p(stem_g[1], stem_g[0]),
+        p(stem_g[2], stem_g[0])
+    );
+    let [f, r, b] = [0, 1, 2].map(|x| tally[0][x] + tally[1][x]);
+    pass &= p(r, f) >= p(b, f) + 5.0;
+    pass &= p(tally[1][1], tally[1][0]) >= p(tally[0][1], tally[0][0]) - 10.0;
+    println!(
+        "  all          : fires {f:6} of {arts} articles ({:.1}%)  R6 {:5.1}%  article-form majority {:5.1}%  no gender/number {no_gn}",
+        p(f, arts),
+        p(r, f),
+        p(b, f)
+    );
+    println!("  R6 {}", verdict(pass));
 }
