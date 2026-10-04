@@ -34,6 +34,18 @@
 //! can be scored the same way after silver tagging, e.g. Animal Farm through
 //! spaCy `en_core_web_sm` (lab step, not committed).
 //!
+//! **Rules, priorities and a quorum.** Every pair is also decided by a set of
+//! literal rules (three learned position tables, frequency, determiner /
+//! slot / infinitive / copula / attribute-clause rules, English `-ly`, German
+//! capitalisation). Tables learn on 90 % of train; each rule is weighted on the
+//! other 10 %, and test is scored three ways: the highest-precision rule that
+//! fires (priority), Σ ±logit(precision) (summed quorum) and a logistic
+//! regression over all votes fitted on the held-out 10 % (joint quorum).
+//! `UD_RULES=1` prints every rule's held-out and test precision and joint
+//! weight. `UD_DE_INVENTORY=DIR` adds the German literal inventories
+//! (`build_de_codebook.py` output: inflection against the lemma, TEKAMOLO
+//! adverbial cues); build them from TRAIN only, never from the test file.
+//!
 //! `UD_CLAUSE=1` switches on the clause rule
 //! ([`Typology::predicate_required`]). The typology is measured from train;
 //! `UD_TYPOLOGY=english` uses
@@ -45,7 +57,7 @@ use std::collections::HashMap;
 use deepnsm_v2::coca::fsm_pos_tag;
 use deepnsm_v2::fsm::{
     answered_questions, attribute_rule, parse_readings_with, AdjectiveOrder, AttributeRule, Pos,
-    PosSet, Reading, Tagged, Typology,
+    PosSet, Reading, Tagged, Typology, ANSWERED_S,
 };
 
 /// One syntactic word of a UD sentence.
@@ -353,10 +365,25 @@ fn bits(p: PosSet) -> u8 {
         .fold(0u8, |a, (i, _)| a | (1 << i))
 }
 
+/// `ctx` with the fields `mode` does not read zeroed.
+fn project(ctx: Context, mode: &str) -> Context {
+    let neigh = mode != "q";
+    let q = mode != "neigh";
+    (
+        if neigh { ctx.0 } else { 0 },
+        neigh && ctx.1,
+        ctx.2,
+        neigh && ctx.3,
+        if q { ctx.4 } else { 0 },
+    )
+}
+
 /// P(first | context) for one reading pair, learned from gold train tags
 /// with the evaluation lexicon's readings. Backs off from the full context
 /// to its next-only and previous-only halves when support is thin.
 struct PositionTable {
+    /// Which context fields this table keys on (see [`ctx_mode`]).
+    mode: &'static str,
     full: HashMap<Context, [usize; 2]>,
     next: HashMap<u8, [usize; 2]>,
     prev: HashMap<(u8, bool), [usize; 2]>,
@@ -376,8 +403,10 @@ impl PositionTable {
         copulas: &std::collections::HashSet<String>,
         cased: bool,
         pair: (Pos, Pos),
+        mode: &'static str,
     ) -> Self {
         let mut t = Self {
+            mode,
             full: HashMap::new(),
             next: HashMap::new(),
             prev: HashMap::new(),
@@ -395,7 +424,7 @@ impl PositionTable {
                 {
                     continue;
                 }
-                let ctx = Self::context(s, k, &set, copulas, &masks);
+                let ctx = project(Self::context(s, k, &set, copulas, &masks), mode);
                 let slot = usize::from(w.gold == pair.1);
                 t.full.entry(ctx).or_default()[slot] += 1;
                 t.next.entry(ctx.2).or_default()[slot] += 1;
@@ -425,23 +454,18 @@ impl PositionTable {
             && (lo..hi)
                 .filter(|&j| j != k)
                 .any(|j| copulas.contains(&s[j].form.to_lowercase()));
-        let next = if k + 1 < s.len() { bits(set(k + 1)) } else { 0 };
-        let neigh = ctx_mode() != "q";
         (
-            if neigh {
-                prev.map_or(0, |j| bits(set(j)))
-            } else {
-                0
-            },
-            neigh && prev.is_some_and(|j| copulas.contains(&s[j].form.to_lowercase())),
-            next,
-            neigh && clause_copula,
-            if ctx_mode() == "neigh" { 0 } else { masks[k] },
+            prev.map_or(0, |j| bits(set(j))),
+            prev.is_some_and(|j| copulas.contains(&s[j].form.to_lowercase())),
+            if k + 1 < s.len() { bits(set(k + 1)) } else { 0 },
+            clause_copula,
+            masks[k],
         )
     }
 
     /// P(first member | context), with the support it rests on.
     fn p_first(&self, ctx: Context) -> Option<(f64, usize)> {
+        let ctx = project(ctx, self.mode);
         let pick = |c: [usize; 2]| {
             let n = c[0] + c[1];
             (n >= MIN_SUPPORT).then(|| ((c[0] as f64 + 0.5) / (n as f64 + 1.0), n))
@@ -450,14 +474,25 @@ impl PositionTable {
             return Some(r);
         }
         // Back off: whichever partial context is most decisive.
+        // Each mode backs off only to its own partial contexts, so a field it
+        // does not read can never collapse into a constant key (the class
+        // prior posing as a position).
+        let neigh = self.mode != "q";
+        let q = self.mode != "neigh";
         [
-            self.clause.get(&(ctx.2, ctx.3)).copied().and_then(pick),
-            self.question.get(&(ctx.4, ctx.2)).copied().and_then(pick),
-            self.next.get(&ctx.2).copied().and_then(pick),
-            self.prev.get(&(ctx.0, ctx.1)).copied().and_then(pick),
+            neigh
+                .then(|| self.clause.get(&(ctx.2, ctx.3)).copied())
+                .flatten(),
+            q.then(|| self.question.get(&(ctx.4, ctx.2)).copied())
+                .flatten(),
+            self.next.get(&ctx.2).copied(),
+            neigh
+                .then(|| self.prev.get(&(ctx.0, ctx.1)).copied())
+                .flatten(),
         ]
         .into_iter()
         .flatten()
+        .filter_map(pick)
         .max_by(|x, y| (x.0 - 0.5).abs().total_cmp(&(y.0 - 0.5).abs()))
     }
 }
@@ -473,7 +508,7 @@ fn position_table_report(
     pair: (Pos, Pos),
     name: &str,
 ) {
-    let table = PositionTable::learn(train, lex, copulas, cased, pair);
+    let table = PositionTable::learn(train, lex, copulas, cased, pair, ctx_mode());
     let (a, b) = pair;
     let prior = {
         let (x, y) = table
@@ -539,6 +574,538 @@ fn position_table_report(
         pct(freq_all, n),
         pct(comb_all, n)
     );
+}
+
+/// What one rule sees of a token: its readings, its neighbours' readings and
+/// forms, the positional context, and the word's counts for the pair.
+struct Tok<'a> {
+    this: PosSet,
+    prev: PosSet,
+    next: PosSet,
+    prev_form: Option<&'a str>,
+    surface: &'a str,
+    form: &'a str,
+    initial: bool,
+    ctx: Context,
+    /// Lexicon counts of the pair's first and second reading for the word.
+    counts: (usize, usize),
+}
+
+type Vote = Box<dyn Fn(&Tok) -> Option<Pos>>;
+
+/// A literal grammar rule: votes for one reading of the pair, or abstains.
+struct Rule {
+    name: &'static str,
+    vote: Vote,
+}
+
+fn only(p: PosSet, x: Pos) -> bool {
+    p == PosSet::single(x)
+}
+
+/// Every rule for `pair`: three learned position tables (vote when
+/// decisive), frequency split by how lopsided the word is, and literal
+/// grammar rules. Each is weighted later by its held-out precision, so a
+/// weak or language-specific rule costs nothing.
+/// German literal inventories (`build_de_codebook.py` output, built from
+/// train only), read when `UD_DE_INVENTORY` names their directory.
+#[derive(Default)]
+struct Inventory {
+    /// Adjective/adverb form → its lemma (`lexicon.tsv`, rows tagged j or r).
+    lemma: HashMap<String, String>,
+    /// TEKAMOLO cue lemmas attested as `advmod` (`tekamolo.tsv`).
+    adverbial_cue: std::collections::HashSet<String>,
+}
+
+impl Inventory {
+    fn load() -> Option<Self> {
+        let dir = std::env::var("UD_DE_INVENTORY")
+            .ok()
+            .filter(|d| !d.is_empty())?;
+        let read = |name: &str| {
+            std::fs::read_to_string(format!("{dir}/{name}"))
+                .unwrap_or_else(|e| panic!("{dir}/{name}: {e}"))
+        };
+        let mut inv = Self::default();
+        for line in read("lexicon.tsv").lines().filter(|l| !l.starts_with('#')) {
+            let c: Vec<&str> = line.split('\t').collect();
+            if c.len() > 2 && matches!(c[2], "j" | "r") {
+                inv.lemma
+                    .entry(c[0].to_string())
+                    .or_insert_with(|| c[1].to_string());
+            }
+        }
+        for line in read("tekamolo.tsv").lines().filter(|l| !l.starts_with('#')) {
+            let c: Vec<&str> = line.split('\t').collect();
+            if c.len() > 2 && c[2] == "advmod" {
+                inv.adverbial_cue.insert(c[1].to_string());
+            }
+        }
+        Some(inv)
+    }
+}
+
+fn rules(
+    inventory: Option<std::rc::Rc<Inventory>>,
+    pair: (Pos, Pos),
+    tables: [std::rc::Rc<PositionTable>; 3],
+    copulas: std::rc::Rc<std::collections::HashSet<String>>,
+    typology: Typology,
+    cased: bool,
+) -> Vec<Rule> {
+    let (a, b) = pair;
+    let mut out: Vec<Rule> = Vec::new();
+    for (name, t) in [
+        "table: neighbours",
+        "table: answered questions",
+        "table: both",
+    ]
+    .into_iter()
+    .zip(tables)
+    {
+        out.push(Rule {
+            name,
+            vote: Box::new(move |x| {
+                t.p_first(x.ctx).and_then(|(p, _)| {
+                    if p >= 0.75 {
+                        Some(a)
+                    } else if p <= 0.25 {
+                        Some(b)
+                    } else {
+                        None
+                    }
+                })
+            }),
+        });
+    }
+    let lopsided = |(ca, cb): (usize, usize)| {
+        let n = ca + cb;
+        n > 0 && (ca * 10 >= n * 9 || cb * 10 >= n * 9)
+    };
+    out.push(Rule {
+        name: "frequency, share >= 0.9",
+        vote: Box::new(move |x| {
+            lopsided(x.counts).then_some(if x.counts.0 >= x.counts.1 { a } else { b })
+        }),
+    });
+    out.push(Rule {
+        name: "frequency, share < 0.9",
+        vote: Box::new(move |x| {
+            (x.counts.0 + x.counts.1 > 0 && !lopsided(x.counts))
+                .then_some(if x.counts.0 >= x.counts.1 { a } else { b })
+        }),
+    });
+    let cop = move |f: Option<&str>| f.is_some_and(|f| copulas.contains(&f.to_lowercase()));
+    let mut fixed: Vec<(&'static str, Vote)> = Vec::new();
+    if pair == (Pos::Noun, Pos::Verb) {
+        fixed.push((
+            "after a determiner -> noun",
+            Box::new(|x: &Tok| only(x.prev, Pos::Det).then_some(Pos::Noun)),
+        ));
+        fixed.push((
+            "after an adjective -> noun",
+            Box::new(move |x: &Tok| {
+                (only(x.prev, Pos::Adj) && typology.adjective_opens_nominal).then_some(Pos::Noun)
+            }),
+        ));
+        fixed.push((
+            "slot: subject answered, prev a noun -> verb",
+            Box::new(|x: &Tok| {
+                (x.ctx.4 == ANSWERED_S && only(x.prev, Pos::Noun)).then_some(Pos::Verb)
+            }),
+        ));
+        fixed.push((
+            "before a determiner -> verb",
+            Box::new(|x: &Tok| only(x.next, Pos::Det).then_some(Pos::Verb)),
+        ));
+        fixed.push((
+            "before a verb-only word -> noun",
+            Box::new(|x: &Tok| only(x.next, Pos::Verb).then_some(Pos::Noun)),
+        ));
+        fixed.push((
+            "after an infinitive marker -> verb",
+            Box::new(|x: &Tok| {
+                x.prev_form
+                    .is_some_and(|f| f.eq_ignore_ascii_case("to") || f.eq_ignore_ascii_case("zu"))
+                    .then_some(Pos::Verb)
+            }),
+        ));
+        let c = cop.clone();
+        fixed.push((
+            "after a non-copula verb-only word -> verb",
+            Box::new(move |x: &Tok| {
+                (only(x.prev, Pos::Verb) && !c(x.prev_form)).then_some(Pos::Verb)
+            }),
+        ));
+        fixed.push((
+            "capitalised, not initial -> noun",
+            Box::new(move |x: &Tok| {
+                (cased && !x.initial && x.surface.starts_with(char::is_uppercase))
+                    .then_some(Pos::Noun)
+            }),
+        ));
+        fixed.push((
+            "lowercase where nouns are capitalised -> verb",
+            Box::new(move |x: &Tok| {
+                (cased && x.surface.starts_with(char::is_lowercase)).then_some(Pos::Verb)
+            }),
+        ));
+    } else {
+        for (name, rule) in [
+            (
+                "clause: after a determiner -> adj",
+                AttributeRule::AfterDeterminer,
+            ),
+            (
+                "clause: before an adjective -> adv",
+                AttributeRule::BeforeAdjective,
+            ),
+            (
+                "clause: between subject and verb -> adv",
+                AttributeRule::BetweenSubjectAndVerb,
+            ),
+            ("clause: next to a noun -> adj", AttributeRule::NextToNoun),
+        ] {
+            fixed.push((
+                name,
+                Box::new(move |x: &Tok| {
+                    (attribute_rule(x.prev, x.this, x.next, typology) == Some(rule))
+                        .then(|| rule.keeps())
+                }),
+            ));
+        }
+        let c = cop.clone();
+        fixed.push((
+            "after a copula -> adj",
+            Box::new(move |x: &Tok| c(x.prev_form).then_some(Pos::Adj)),
+        ));
+        let c = cop.clone();
+        fixed.push((
+            "after a non-copula verb, no noun next -> adv",
+            Box::new(move |x: &Tok| {
+                (x.prev.contains(Pos::Verb) && !c(x.prev_form) && !x.next.contains(Pos::Noun))
+                    .then_some(Pos::Adv)
+            }),
+        ));
+        fixed.push((
+            "before a determiner -> adv",
+            Box::new(|x: &Tok| only(x.next, Pos::Det).then_some(Pos::Adv)),
+        ));
+        fixed.push((
+            "before a verb-only word -> adv",
+            Box::new(|x: &Tok| only(x.next, Pos::Verb).then_some(Pos::Adv)),
+        ));
+        fixed.push((
+            "-ly ending -> adv",
+            Box::new(|x: &Tok| x.form.ends_with("ly").then_some(Pos::Adv)),
+        ));
+        fixed.push((
+            "inflected ending before a noun -> adj",
+            Box::new(move |x: &Tok| {
+                (cased
+                    && ["e", "en", "em", "er", "es"]
+                        .iter()
+                        .any(|e| x.form.ends_with(e))
+                    && x.next.contains(Pos::Noun))
+                .then_some(Pos::Adj)
+            }),
+        ));
+        if let Some(inv) = inventory {
+            let i = inv.clone();
+            fixed.push((
+                "uninflected (form is its lemma) -> adv",
+                Box::new(move |x: &Tok| {
+                    (i.lemma.get(x.form).map(String::as_str) == Some(x.form)).then_some(Pos::Adv)
+                }),
+            ));
+            let i = inv.clone();
+            fixed.push((
+                "inflected (lemma + ending) -> adj",
+                Box::new(move |x: &Tok| {
+                    i.lemma
+                        .get(x.form)
+                        .and_then(|l| x.form.strip_prefix(l.as_str()))
+                        .and_then(|e| {
+                            ["e", "en", "em", "er", "es"]
+                                .contains(&e)
+                                .then_some(Pos::Adj)
+                        })
+                }),
+            ));
+            let i = inv.clone();
+            fixed.push((
+                "uninflected right before a noun -> adv",
+                Box::new(move |x: &Tok| {
+                    (i.lemma.get(x.form).map(String::as_str) == Some(x.form)
+                        && x.next.contains(Pos::Noun))
+                    .then_some(Pos::Adv)
+                }),
+            ));
+            let i = inv;
+            fixed.push((
+                "TEKAMOLO adverbial cue lemma -> adv",
+                Box::new(move |x: &Tok| {
+                    let l = i.lemma.get(x.form).map_or(x.form, String::as_str);
+                    i.adverbial_cue.contains(l).then_some(Pos::Adv)
+                }),
+            ));
+        }
+        let c = cop.clone();
+        fixed.push((
+            "clause-final, no copula before -> adv",
+            Box::new(move |x: &Tok| {
+                (x.next.is_empty() && !x.prev.is_empty() && !c(x.prev_form)).then_some(Pos::Adv)
+            }),
+        ));
+    }
+    out.extend(fixed.into_iter().map(|(name, vote)| Rule { name, vote }));
+    out
+}
+
+/// Every token of the pair in `sentences`, as rules see it, with its gold.
+fn pair_tokens<'a>(
+    sentences: &'a [Vec<Word>],
+    lex: &Lexicon,
+    copulas: &std::collections::HashSet<String>,
+    cased: bool,
+    pair: (Pos, Pos),
+) -> Vec<(Tok<'a>, Pos)> {
+    let mut out = Vec::new();
+    for s in sentences {
+        let set = |k: usize| readings_of(lex, s, k, cased);
+        let masks = answered_masks(lex, s, cased);
+        for k in 0..s.len() {
+            let w = &s[k];
+            let this = set(k);
+            if !(this.contains(pair.0) && this.contains(pair.1))
+                || (w.gold != pair.0 && w.gold != pair.1)
+            {
+                continue;
+            }
+            let c = |p: Pos| {
+                lex.counts
+                    .get(&(w.form.clone(), p as u8))
+                    .copied()
+                    .unwrap_or(0)
+            };
+            out.push((
+                Tok {
+                    this,
+                    prev: k.checked_sub(1).map_or(PosSet::EMPTY, &set),
+                    next: if k + 1 < s.len() {
+                        set(k + 1)
+                    } else {
+                        PosSet::EMPTY
+                    },
+                    prev_form: k.checked_sub(1).map(|j| s[j].form.as_str()),
+                    surface: &w.surface,
+                    form: &w.form,
+                    initial: k == 0,
+                    ctx: PositionTable::context(s, k, &set, copulas, &masks),
+                    counts: (c(pair.0), c(pair.1)),
+                },
+                w.gold,
+            ));
+        }
+    }
+    out
+}
+
+/// Rules, priorities and a quorum. The position tables learn on 90 % of
+/// train; each rule's weight is its precision when it fires on the other
+/// 10 %. Test is scored by (a) the highest-weight rule that fires
+/// (priority) and (b) the weighted vote Σ ±logit(precision) of every rule
+/// that fires (quorum); both fall back to frequency when nothing fires.
+/// The lexicon is the run's own (from all of train, or COCA).
+#[allow(clippy::too_many_arguments)]
+fn quorum_report(
+    train: &[Vec<Word>],
+    test: &[Vec<Word>],
+    lex: &Lexicon,
+    coca: bool,
+    copulas: &std::collections::HashSet<String>,
+    cased: bool,
+    typology: Typology,
+    pair: (Pos, Pos),
+    name: &str,
+) {
+    let fit: Vec<&Vec<Word>> = train
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| i % 10 != 0)
+        .map(|(_, s)| s)
+        .collect();
+    let held: Vec<&Vec<Word>> = train
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| i % 10 == 0)
+        .map(|(_, s)| s)
+        .collect();
+    let fit: Vec<Vec<Word>> = fit.into_iter().map(|s| clone_sentence(s)).collect();
+    let held: Vec<Vec<Word>> = held.into_iter().map(|s| clone_sentence(s)).collect();
+    // A train-built lexicon must not have seen the held-out sentences, or
+    // held-out words carry only the readings they were seen with and every
+    // weight is fitted on an easier set than test.
+    let own;
+    let lex = if coca {
+        lex
+    } else {
+        own = Lexicon::from_train(&fit);
+        &own
+    };
+    let tables = ["neigh", "q", "both"]
+        .map(|m| std::rc::Rc::new(PositionTable::learn(&fit, lex, copulas, cased, pair, m)));
+    let rules = rules(
+        Inventory::load().map(std::rc::Rc::new),
+        pair,
+        tables,
+        std::rc::Rc::new(copulas.clone()),
+        typology,
+        cased,
+    );
+
+    let held = pair_tokens(&held, lex, copulas, cased, pair);
+    let weights: Vec<(usize, f64)> = rules
+        .iter()
+        .map(|r| {
+            let (mut n, mut right) = (0usize, 0usize);
+            for (t, g) in &held {
+                if let Some(v) = (r.vote)(t) {
+                    n += 1;
+                    right += usize::from(v == *g);
+                }
+            }
+            (n, (right as f64 + 0.5) / (n as f64 + 1.0))
+        })
+        .collect();
+    // A rule votes only with held-out support and better than chance.
+    let mut order: Vec<usize> = (0..rules.len())
+        .filter(|&i| weights[i].0 >= 5 && weights[i].1 > 0.5)
+        .collect();
+    order.sort_by(|&x, &y| weights[y].1.total_cmp(&weights[x].1));
+    let logit = |p: f64| {
+        let p = p.min(0.99);
+        (p / (1.0 - p)).ln()
+    };
+
+    // The joint quorum: a logistic regression over every rule's vote (+1
+    // first reading, -1 second, 0 abstain) and the word's frequency log-odds,
+    // fitted on held-out. Correlated rules (the three tables agree almost
+    // always) share one weight between them instead of each counting in full.
+    let (a, b) = pair;
+    let features = |t: &Tok| -> Vec<f64> {
+        let mut f: Vec<f64> = rules
+            .iter()
+            .map(|r| match (r.vote)(t) {
+                Some(v) if v == a => 1.0,
+                Some(_) => -1.0,
+                None => 0.0,
+            })
+            .collect();
+        let lo = ((t.counts.0 as f64 + 0.5) / (t.counts.1 as f64 + 0.5)).ln();
+        f.push(lo.clamp(-5.0, 5.0) / 5.0);
+        f.push(1.0);
+        f
+    };
+    let xs: Vec<(Vec<f64>, f64)> = held
+        .iter()
+        .map(|(t, g)| (features(t), f64::from(u8::from(*g == a))))
+        .collect();
+    let dim = rules.len() + 2;
+    let mut w = vec![0.0f64; dim];
+    let lambda = 1e-3;
+    for _ in 0..3000 {
+        let mut grad = vec![0.0f64; dim];
+        for (x, y) in &xs {
+            let z: f64 = x.iter().zip(&w).map(|(xi, wi)| xi * wi).sum();
+            let e = 1.0 / (1.0 + (-z).exp()) - y;
+            for (gi, xi) in grad.iter_mut().zip(x) {
+                *gi += e * xi;
+            }
+        }
+        let n = xs.len().max(1) as f64;
+        for (wi, gi) in w.iter_mut().zip(&grad) {
+            *wi -= 0.5 * (gi / n + lambda * *wi);
+        }
+    }
+
+    let toks = pair_tokens(test, lex, copulas, cased, pair);
+    let mut joint_ok = 0usize;
+    let (mut freq_ok, mut prio_ok, mut quorum_ok, mut silent) = (0usize, 0usize, 0usize, 0usize);
+    let mut fired = vec![(0usize, 0usize); rules.len()];
+    for (t, g) in &toks {
+        let freq = if t.counts.1 > t.counts.0 { b } else { a };
+        freq_ok += usize::from(freq == *g);
+        let votes: Vec<Option<Pos>> = rules.iter().map(|r| (r.vote)(t)).collect();
+        for (i, v) in votes.iter().enumerate() {
+            if let Some(v) = v {
+                fired[i].0 += 1;
+                fired[i].1 += usize::from(v == g);
+            }
+        }
+        let prio = order.iter().find_map(|&i| votes[i]);
+        silent += usize::from(prio.is_none());
+        prio_ok += usize::from(prio.unwrap_or(freq) == *g);
+        let score: f64 = order
+            .iter()
+            .filter_map(|&i| {
+                votes[i].map(|v| if v == a { 1.0 } else { -1.0 } * logit(weights[i].1))
+            })
+            .sum();
+        let quorum = match score.partial_cmp(&0.0) {
+            Some(std::cmp::Ordering::Greater) => a,
+            Some(std::cmp::Ordering::Less) => b,
+            _ => freq,
+        };
+        quorum_ok += usize::from(quorum == *g);
+        let z: f64 = features(t).iter().zip(&w).map(|(xi, wi)| xi * wi).sum();
+        joint_ok += usize::from(if z > 0.0 { a } else { b } == *g);
+    }
+    let pct = |x: usize, d: usize| {
+        if d == 0 {
+            0.0
+        } else {
+            100.0 * x as f64 / d as f64
+        }
+    };
+    let n = toks.len();
+    println!(
+        "  {name} quorum: {} rules, {} voting; {n} test tokens ({silent} with no vote) — \
+         frequency {:.1}%, priority {:.1}%, summed quorum {:.1}%, joint quorum {:.1}%",
+        rules.len(),
+        order.len(),
+        pct(freq_ok, n),
+        pct(prio_ok, n),
+        pct(quorum_ok, n),
+        pct(joint_ok, n)
+    );
+    if std::env::var_os("UD_RULES").is_some() {
+        for i in 0..rules.len() {
+            let voting = if order.contains(&i) { ' ' } else { 'x' };
+            println!(
+                "   {voting} {:46} held-out {:5} at {:5.1}% | test {:5} at {:5.1}% | joint w {:+.2}",
+                rules[i].name,
+                weights[i].0,
+                100.0 * weights[i].1,
+                fired[i].0,
+                pct(fired[i].1, fired[i].0),
+                w[i]
+            );
+        }
+    }
+}
+
+fn clone_sentence(s: &[Word]) -> Vec<Word> {
+    s.iter()
+        .map(|w| Word {
+            form: w.form.clone(),
+            surface: w.surface.clone(),
+            upos_noun: w.upos_noun,
+            copula: w.copula,
+            gold: w.gold,
+            amod_head_after: w.amod_head_after,
+        })
+        .collect()
 }
 
 /// Score for one pair of readings.
@@ -811,6 +1378,17 @@ fn main() {
     );
     nv_score.print("noun/verb", nv);
     position_table_report(&train, &test, &lex, &copulas, cased, nv, "noun/verb");
+    quorum_report(
+        &train,
+        &test,
+        &lex,
+        coca.is_some(),
+        &copulas,
+        cased,
+        typology,
+        nv,
+        "noun/verb",
+    );
     // A parallel coordinate: WordNet's own noun/verb sense counts as the
     // prior, scored on the same tokens (COCA mode supplies the lemmas).
     if let Some(path) = std::env::var("UD_WORDNET").ok().filter(|p| !p.is_empty()) {
@@ -851,6 +1429,17 @@ fn main() {
     }
     aa_score.print("adjective/adverb", aa);
     position_table_report(&train, &test, &lex, &copulas, cased, aa, "adjective/adverb");
+    quorum_report(
+        &train,
+        &test,
+        &lex,
+        coca.is_some(),
+        &copulas,
+        cased,
+        typology,
+        aa,
+        "adjective/adverb",
+    );
 
     // Each attribute clause on its own: every adjective/adverb token whose
     // gold is one of the two, the clause that fires, and whether the clause

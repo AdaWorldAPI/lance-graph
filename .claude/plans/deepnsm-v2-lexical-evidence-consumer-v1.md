@@ -494,3 +494,13 @@ switch, below the slot rule in every language. WordNet helps neither as a
 chooser nor as a reading filter for this question. Board entry
 `2026-10-04-deepnsm-v2-kjv-silver-labels-from-luther.md`.
 
+
+## D-LXC-19: rules, priorities and a quorum (2026-10-04)
+
+`ud_pos_eval` decides each pair with 14–20 literal rules, each weighted by its
+precision on a held-out 10 % of train. A logistic regression over all votes
+(joint quorum) is best or tied in 7 of 10 language × pair rows. Summing the
+weights instead fails, because the position tables are correlated voters.
+German inflection against the lemma replaces the English noun-adjacency rule
+as the German attribute signal. Board entry
+`2026-10-04-deepnsm-v2-rule-quorum.md`.
