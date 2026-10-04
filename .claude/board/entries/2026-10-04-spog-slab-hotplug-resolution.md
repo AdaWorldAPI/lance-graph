@@ -1,4 +1,6 @@
-# 2026-10-04 — SPOG × slab declaration resolves through the existing hot-plug (D-LXC-29 follow-up)
+# 2026-10-04 — SPOG × slab declaration resolves through the existing hot-plug (D-HPS-1)
+
+**Follows:** the D-LXC-29 tenant-rails entry.
 
 **Status:** VERIFIED-IN-CODE + TEST-PINNED (`crates/lance-graph-contract/src/hotplug.rs`, 7 tests for the 8 requested invariants; 6 guards disable-verified red-then-green; `lance-graph-ogar` 84/84 unchanged).
 
