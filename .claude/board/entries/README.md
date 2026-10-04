@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-201 entries, 2026-08-06 .. 2026-10-04.
+203 entries, 2026-08-06 .. 2026-10-04.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -42,7 +42,9 @@ exactly one of them, never both.
 | 2026-10-04 | `D-LXC-17` |  | [2026-10-04-deepnsm-v2-german-tekamolo-verb-position.md](2026-10-04-deepnsm-v2-german-tekamolo-verb-position.md) |
 | 2026-10-04 | `D-LXC-23` |  | [2026-10-04-deepnsm-v2-first-probes-from-the-grammar-map.md](2026-10-04-deepnsm-v2-first-probes-from-the-grammar-map.md) |
 | 2026-10-04 | `D-LXC-21` |  | [2026-10-04-deepnsm-deleted-grammar-restored.md](2026-10-04-deepnsm-deleted-grammar-restored.md) |
+| 2026-10-04 | `coresearch-orkg-architecture` |  | [2026-10-04-coresearch-orkg-architecture.md](2026-10-04-coresearch-orkg-architecture.md) |
 | 2026-10-04 | `coresearch-german-grammar-evidence` |  | [2026-10-04-coresearch-german-grammar-evidence.md](2026-10-04-coresearch-german-grammar-evidence.md) |
+| 2026-10-04 | `coresearch-evidence-stance-dependence` |  | [2026-10-04-coresearch-evidence-stance-dependence.md](2026-10-04-coresearch-evidence-stance-dependence.md) |
 | 2026-10-03 | `population-law-crosscheck` |  | [2026-10-03-population-law-crosscheck.md](2026-10-03-population-law-crosscheck.md) |
 | 2026-10-03 | `orkg-reference-harvest` |  | [2026-10-03-orkg-reference-harvest.md](2026-10-03-orkg-reference-harvest.md) |
 | 2026-10-03 | `known-is-not-alpha-premise-gate` |  | [2026-10-03-known-is-not-alpha-premise-gate.md](2026-10-03-known-is-not-alpha-premise-gate.md) |
