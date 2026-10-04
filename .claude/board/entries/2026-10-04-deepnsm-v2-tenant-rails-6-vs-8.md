@@ -95,3 +95,33 @@ The operator points out that a classid-free 16-byte register can be read three w
 One 16-byte tenant per clause therefore carries a per-token u8 tag for about 98 % of literary and biblical clauses (91 % of news), and a per-token nibble for essentially all clauses.
 
 **OPEN.** This is the same contract decision as above. It needs `CascadeShape` variants for 16 bytes (G8D2, G16D1, nibble×32), the envelope auditor's field-isolation matrix, and an operator ruling.
+
+## Proposed design: 128-bit classid-free tenants, classid inherited (operator direction, precedents verified)
+
+Operator: *"for uniform shaped substrate we can define 128 bits instead of 96 by inheritance of the classid of the consumer via hotplug.rs in plug and play and its adjacent ogar-vocab plug and play registry, and/or via metadata envelope which already carries the 6 or 8 byte gamma metadata of palette256 … AD IAM already uses it."*
+
+Each precedent was read in code (VERIFIED-IN-CODE):
+
+| precedent | location | what it shows |
+|---|---|---|
+| hot-plug inheritance | `lance-graph-contract/src/hotplug.rs` (`Activation`), `canonical_node.rs:1454` (`ReadMode`) | The authority hands each hot-plugged classid a `ReadMode {tail_variant, value_schema, edge_codec}`: *"which value tenants materialise"*. The reading is resolved from the plug, never stored in the bytes. |
+| metadata envelope | `bgz-tensor/src/shared_palette.rs:73` (`FisherZTable`: k×k i8 + **8 bytes family gamma**, once per palette group); `hhtl_cache.rs:251` (16 B); `gamma_phi.rs:67` (36 B) | Cells hold pure payload; calibration lives once in the group header. No 6-byte variant was found. |
+| AD / IAM | `lance-graph-contract/src/rbac.rs:262` (`ClassGrant {target_classid: u16, op_mask}`), membership → member_role → role folding | Each grant stores only the 16-bit concept half (a `u8:u8` rail); the app prefix is inherited. Group membership folding is the group-node shape. |
+
+**DECISION (proposed, not yet landed).**
+- A value-slab tenant may be a 128-bit classid-free register.
+- Its classid comes from the row key / the consumer's hot-plug `ReadMode` (`value_schema`), or from a group-level metadata envelope.
+- Readings: 8 × (u8:u8), 16 × u8, 32 × u4.
+
+**SCOPE.**
+- Value-slab tenants only. The 16-byte KEY stays the V3 4 + 12 facet: classid canon-high plus payload; the classid must live somewhere.
+
+**BASIS.** Measured: 8 rails fit 99.41 % vs 6 rails 95.66 % of KJV verses' basin sets; one 16 × u8 tenant per clause fits 98 % of literary/biblical clauses; 32 × u4 fits about 100 %. Three precedents above.
+
+**Remaining work before it lands:**
+1. 16-byte `CascadeShape` readings: G8D2, G16D1, nibble×32.
+2. A `ValueSchema` entry that the hot-plug `ReadMode` resolves to.
+3. The `v3-envelope-auditor` field-isolation matrix.
+4. `le-contract.md` §3 extended beside the 12-byte carvings, without replacing them.
+
+**REVISIT WHEN:** the envelope audit, or a consumer whose rows cannot resolve a `ReadMode` through hot-plug (it would have nowhere to inherit a classid from).
