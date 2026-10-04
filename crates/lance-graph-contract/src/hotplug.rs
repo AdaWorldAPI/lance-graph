@@ -588,6 +588,7 @@ mod tests {
             edge_codec: EdgeCodecFlavor::CoarseResidue,
         };
 
+        /// An activation that plugs 0x0901 (reading `A`) and 0x0902 (reading `B`).
         fn act() -> Activation {
             Activation::new(Vec::new(), Vec::new(), vec![(0x0901, A), (0x0902, B)])
         }
@@ -597,6 +598,7 @@ mod tests {
             NodeGuid::new(u32::from(concept) << 16, 1, 2, 3, 0x66, identity)
         }
 
+        /// A Facet96 declaration at the current layout with the given value schema.
         fn decl(value_schema: ValueSchema) -> SlabDeclaration {
             SlabDeclaration {
                 reading: SlabReading::Facet96,
@@ -778,6 +780,7 @@ mod tests {
         /// and it does not show anything is branch-free: no kernel exists yet.
         #[test]
         fn one_resolution_serves_a_whole_population() {
+            /// Compiles only for types usable as a cache key or value.
             fn cacheable<T: Copy + Eq + core::hash::Hash>() {}
             cacheable::<ResolvedReading>();
             cacheable::<SlabDeclaration>();
