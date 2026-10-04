@@ -64,3 +64,34 @@ Finding 2 above ("exact-set group nodes do not deduplicate") measured storage sh
   - nested membership as group → group edges;
   - a collective mention → one group rail in the verse tenant.
 - Then measure how many verse rails collective mentions replace.
+
+## Addendum: the same 16 classid-free bytes, read as 16 × u8 or 32 × u4
+
+The operator points out that a classid-free 16-byte register can be read three ways (the content-blind register idea, one size up from the 12-byte facet):
+- 8 × (u8:u8) rails;
+- 16 × u8 tags;
+- 32 × u4 sparse tags.
+
+**Current contract.**
+- `CascadeShape` defines only 12-byte carvings (G6D2 / G4D3 / G3D4, G·D = 12).
+- `CausalWitnessFacet` (the 24 × i4 tenant flavours) is exactly 12 bytes.
+- A 16-byte register as 32 × u4 holds the 24 witness loci plus 8 spare nibbles.
+- None of the 16-byte readings exist yet; adding them is a contract change.
+
+**Natural fits:**
+- 16 × u8: verb atom (144), STTS (54) or UPOS (17), DeReKo frequency class, per token;
+- 32 × u4: case + number, lane, or sparse flags, per token. Zero means unbound.
+
+**Measured: clause length (tokens between punctuation; lab scan, uncommitted).**
+
+| corpus | median | p95 | ≤ 16 tokens | ≤ 32 tokens |
+|---|---|---|---|---|
+| KJV | 6 | 13 | 98.5 % | 100.0 % |
+| Luther 1545 | 5 | 13 | 98.1 % | 100.0 % |
+| Buddenbrooks | 5 | 13 | 98.2 % | 100.0 % |
+| Effi Briest | 5 | 12 | 98.4 % | 99.9 % |
+| UD HDT (news) | 7 | 19 | 91.4 % | 99.9 % |
+
+One 16-byte tenant per clause therefore carries a per-token u8 tag for about 98 % of literary and biblical clauses (91 % of news), and a per-token nibble for essentially all clauses.
+
+**OPEN.** This is the same contract decision as above. It needs `CascadeShape` variants for 16 bytes (G8D2, G16D1, nibble×32), the envelope auditor's field-isolation matrix, and an operator ruling.
