@@ -41,3 +41,14 @@ The Tigris bake `lance-graph/codebooks/deepnsm-v2-academic-coca-v1/` carries
 bake yet; it is the published copy a future loader can verify against.
 
 The COCA letter → FSM tag fold lives in one place, `deepnsm_v2::coca`.
+
+## German frequency lists: DeReWo / DeReKo-2014 (object store, not committed)
+
+The German counterpart of COCA. Stored unchanged with its documentation under `$AWS_S3_BUCKET_NAME/corpora/de/derewo/` (the deployment's S3 environment; `crates/lance-graph/src/dev_s3_env.rs`).
+- Source: https://www.ids-mannheim.de/digspra/kl/projekte/methoden/derewo/
+- `DeReKo-2014-II-MainArchive-STT.100000.freq.zip`: 100k (word form, lemma, STTS POS, frequency) over about 7 billion tokens.
+  - STTS separates ADJA (attributive) from ADJD (predicative/adverbial), the German adj/adv question.
+  - No gender column.
+- `derewo-v-ww-bll-320000g-2012-12-31-1.0.zip`: 320k lemma list with frequency classes.
+
+**Licence: non-commercial research only.** DeReWo lists may not be passed on without their documentation. The DeReKo-2014 list is CC BY-NC 3.0, and its attribution is in the bucket README. Never commit these lists, data derived from them, or a product binary that bakes them in.

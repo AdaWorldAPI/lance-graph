@@ -63,6 +63,7 @@ pub mod vocabulary;
 
 pub mod markov_bundle;
 pub mod nsm_primes;
+pub mod ontology_vocab;
 pub mod trajectory;
 
 // E-ENGLISH-BIFURCATES — two SEPARATE faculties (don't fuse them):

@@ -80,6 +80,12 @@ Read in full before this rewrite:
 
 - F1 #1299 boundary: evidence, not transition; no dependency on causal-edge,
   cognitive-shader-driver, arm-discovery or the deprecated `deepnsm` crate.
+  - ⊘ **Narrowed 2026-10-04 (D-LXC-20).**
+    - DECISION: `deepnsm-v2` depends on `causal-edge` for ONE type, `pearl::CausalMask`. `fsm::answered_questions` returns the Pearl 2³ mask (operator: *"2³ ladder is in causaledge64"*).
+    - SCOPE: the mask type only. No transition, no `CausalEdge64` packing, no inference code is used; "evidence, not transition" stands.
+    - BASIS: `causal-edge` is zero-dependency, and one 2³ ladder beats a second copy.
+    - REVISIT WHEN: anything beyond the mask type is imported.
+    - The other three exclusions are unchanged.
 - F2 Routing `WordId`s and Cam96 `codes[word_id]` do not move.
 - F3 Integer counts; unknown = `None`; aggregates checked; unknown beats
   overflow (`lexical.rs:293-306`).
@@ -463,3 +469,52 @@ English data first, with the FSM reading-set ABI language-neutral.
   converge on it.
 - KJV numbers and the OPEN points: board entry
   `2026-10-03-deepnsm-v2-multi-reading-fsm.md`.
+
+## D-LXC-13: position decides noun/verb homographs (2026-10-04)
+
+Direction (operator, 2026-10-04): a word between subject and object must not
+become a noun because COCA counts it as a noun more often. D-LXC-3's B stands
+for row order, but the first row no longer settles a noun/verb homograph:
+`coca::predicate_alternatives` widens it, and `fsm`'s slot rule (after a fresh
+subject) and licensing (after a determiner) pick by position. A sentence-level
+"needs a predicate" rule was measured and rejected (KJV fragments). Numbers
+and OPEN points: board entry `2026-10-04-deepnsm-v2-predicate-by-position.md`.
+
+## D-LXC-14: the position rules on gold tags (2026-10-04)
+
+`examples/ud_pos_eval.rs` scores every rule against Universal Dependencies
+gold tags (English, German, French), with the typology measured from each
+train split rather than written per language. Noun/verb position rules beat
+COCA's frequency pick (96.7 % vs 85.1 % on decided tokens); the adjective/adverb
+clauses do not beat frequency in any language consistently and ship disabled.
+Adjective licensing is gated on the measured typology. Numbers: board entry
+`2026-10-04-deepnsm-v2-position-rules-on-ud-gold.md`.
+
+## D-LXC-15: the KJV checked against German casing (2026-10-04)
+
+The codebook release's Luther 1545 lane and en→de alignment give silver
+noun/verb labels for KJV homographs (German capitalises nouns). On those,
+slot + licensing beat the COCA lemma tag (85.8 % vs 74.9 % on the same
+tokens); the clause rule ("no verb yet, which could it be") stays an off
+switch, below the slot rule in every language. WordNet helps neither as a
+chooser nor as a reading filter for this question. Board entry
+`2026-10-04-deepnsm-v2-kjv-silver-labels-from-luther.md`.
+
+
+## D-LXC-19: rules, priorities and a quorum (2026-10-04)
+
+`ud_pos_eval` decides each pair with 14–20 literal rules, each weighted by its
+precision on a held-out 10 % of train. A logistic regression over all votes
+(joint quorum) is best or tied in 7 of 10 language × pair rows. Summing the
+weights instead fails, because the position tables are correlated voters.
+German inflection against the lemma replaces the English noun-adjacency rule
+as the German attribute signal. Board entry
+`2026-10-04-deepnsm-v2-rule-quorum.md`.
+
+## D-LXC-20: the Frageprobe through the Satzklammer (2026-10-04)
+
+The question mask is `causal_edge::CausalMask`, the ladder CausalEdge64 packs.
+The German adjective/adverb question is answered by where the word sits
+against the Satzklammer: a predicative at the right edge of a copula clause,
+a manner adverb before the right bracket of a full-verb clause. German joint
+quorum 85.1 %. Board entry `2026-10-04-deepnsm-v2-satzklammer-frageprobe.md`.

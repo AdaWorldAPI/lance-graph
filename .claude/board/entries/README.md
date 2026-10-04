@@ -25,11 +25,29 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-189 entries, 2026-08-06 .. 2026-10-04.
+207 entries, 2026-08-06 .. 2026-10-04.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-04 | `D-LXC-22` |  | [2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md](2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md) |
+| 2026-10-04 | `D-LXC-25` |  | [2026-10-04-deepnsm-v2-wechsel-lane-quorum.md](2026-10-04-deepnsm-v2-wechsel-lane-quorum.md) |
+| 2026-10-04 | `D-LXC-27` |  | [2026-10-04-deepnsm-v2-unseen-noun-gender.md](2026-10-04-deepnsm-v2-unseen-noun-gender.md) |
+| 2026-10-04 | `D-LXC-29` |  | [2026-10-04-deepnsm-v2-tenant-rails-6-vs-8.md](2026-10-04-deepnsm-v2-tenant-rails-6-vs-8.md) |
+| 2026-10-04 | `D-LXC-20` |  | [2026-10-04-deepnsm-v2-satzklammer-frageprobe.md](2026-10-04-deepnsm-v2-satzklammer-frageprobe.md) |
+| 2026-10-04 | `D-LXC-19` |  | [2026-10-04-deepnsm-v2-rule-quorum.md](2026-10-04-deepnsm-v2-rule-quorum.md) |
+| 2026-10-04 | `D-LXC-18` |  | [2026-10-04-deepnsm-v2-question-test-2cube-and-blast-radius.md](2026-10-04-deepnsm-v2-question-test-2cube-and-blast-radius.md) |
+| 2026-10-04 | `D-LXC-24` |  | [2026-10-04-deepnsm-v2-prepositional-object-detector.md](2026-10-04-deepnsm-v2-prepositional-object-detector.md) |
+| 2026-10-04 | `D-LXC-13` |  | [2026-10-04-deepnsm-v2-predicate-by-position.md](2026-10-04-deepnsm-v2-predicate-by-position.md) |
+| 2026-10-04 | `D-LXC-14` |  | [2026-10-04-deepnsm-v2-position-rules-on-ud-gold.md](2026-10-04-deepnsm-v2-position-rules-on-ud-gold.md) |
+| 2026-10-04 | `D-LXC-16` |  | [2026-10-04-deepnsm-v2-learned-position-table.md](2026-10-04-deepnsm-v2-learned-position-table.md) |
+| 2026-10-04 | `D-LXC-15` |  | [2026-10-04-deepnsm-v2-kjv-silver-labels-from-luther.md](2026-10-04-deepnsm-v2-kjv-silver-labels-from-luther.md) |
+| 2026-10-04 | `D-LXC-17` |  | [2026-10-04-deepnsm-v2-german-tekamolo-verb-position.md](2026-10-04-deepnsm-v2-german-tekamolo-verb-position.md) |
+| 2026-10-04 | `D-LXC-26` |  | [2026-10-04-deepnsm-v2-gender-number-case.md](2026-10-04-deepnsm-v2-gender-number-case.md) |
+| 2026-10-04 | `D-LXC-23` |  | [2026-10-04-deepnsm-v2-first-probes-from-the-grammar-map.md](2026-10-04-deepnsm-v2-first-probes-from-the-grammar-map.md) |
+| 2026-10-04 | `D-LXC-28` |  | [2026-10-04-deepnsm-v2-dereko-and-tekamolo-order-across-genres.md](2026-10-04-deepnsm-v2-dereko-and-tekamolo-order-across-genres.md) |
+| 2026-10-04 | `D-LXC-21` |  | [2026-10-04-deepnsm-deleted-grammar-restored.md](2026-10-04-deepnsm-deleted-grammar-restored.md) |
 | 2026-10-04 | `coresearch-orkg-architecture` |  | [2026-10-04-coresearch-orkg-architecture.md](2026-10-04-coresearch-orkg-architecture.md) |
+| 2026-10-04 | `coresearch-german-grammar-evidence` |  | [2026-10-04-coresearch-german-grammar-evidence.md](2026-10-04-coresearch-german-grammar-evidence.md) |
 | 2026-10-04 | `coresearch-evidence-stance-dependence` |  | [2026-10-04-coresearch-evidence-stance-dependence.md](2026-10-04-coresearch-evidence-stance-dependence.md) |
 | 2026-10-03 | `population-law-crosscheck` |  | [2026-10-03-population-law-crosscheck.md](2026-10-03-population-law-crosscheck.md) |
 | 2026-10-03 | `orkg-reference-harvest` |  | [2026-10-03-orkg-reference-harvest.md](2026-10-03-orkg-reference-harvest.md) |

@@ -42,12 +42,18 @@ pub mod codebook;
 pub mod corpus;
 pub mod evidence;
 pub mod fsm;
+pub mod hydrate;
 pub mod introspect;
 pub mod lexical;
+pub mod lexicon;
+pub mod loci;
+pub mod promote;
 pub mod reason;
 pub mod shape;
 pub mod space;
 pub mod spo;
+pub mod tekamolo;
+pub mod toc;
 pub mod vocab;
 pub mod wave;
 
@@ -59,12 +65,17 @@ pub use basin::{
     HeldOutGate,
 };
 pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
+pub use causal_edge::pearl::CausalMask;
 pub use codebook::{load_cam96_codes, load_cam96_space, CodebookError};
 pub use evidence::{
     evidence_basin, forward_gate, novelty_rate, open_question_yield, partial_spearman,
     shuffle_beliefs_null, shuffle_rungs_null, EvidenceBasin, ForwardGateReport,
 };
-pub use fsm::{parse_readings, parse_to_spo, Pos, PosSet, Reading, ReadingParse, Survivor, Tagged};
+pub use fsm::{
+    answered_questions, attribute_readings, attribute_rule, parse_readings, parse_readings_with,
+    parse_to_spo, AdjectiveOrder, AttributeRule, Pos, PosSet, Reading, ReadingParse, Survivor,
+    Tagged, Typology,
+};
 pub use introspect::{
     confidence_delta_recount, confidence_delta_self, most_frequent_belief, provenance_check,
     ConfidenceAnswer, ProvenanceReport,
@@ -73,6 +84,7 @@ pub use lexical::{
     load_word_forms_csv, EvidenceError, LemmaEntry, LemmaRef, LexicalEvidence,
     LexicalEvidenceBuilder, LexicalReading, PosCode, WordFormsReport,
 };
+pub use loci::{loci_from_triples, AnteRule, LociReport};
 pub use shape::{
     detect, detect_all, detect_all_measured, detect_measured, MeasuredShape, Representation,
     ShapeClass, ShapeReport,
