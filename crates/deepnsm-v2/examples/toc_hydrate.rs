@@ -255,6 +255,78 @@ fn main() {
         promoted += 1;
     }
 
+    // ── TENANT CAPACITY: 6 vs 8 rails of u8:u8 per 16-byte tenant ──
+    // A 16-byte tenant is either the V3 facet (classid 4 + 12 bytes = 6 rails)
+    // or, when the row's own key already carries the classid, the full 16
+    // bytes (8 rails). One rail holds one 16-bit reference (a basin id or a
+    // target verse). Measured here: how many verses fit their references in
+    // one tenant, and how many many-to-many group nodes the overflow needs
+    // when identical reference sets share one group node.
+    let basin_ids: HashSet<u16> = rows.iter().map(|r| r.key.identity_v2()).collect();
+    let mut basins_at: HashMap<NiblePath, HashSet<u16>> = HashMap::new();
+    for t in &h.triples {
+        let set = basins_at.entry(t.path).or_default();
+        for x in [t.spo.subject, t.spo.object] {
+            if basin_ids.contains(&x) {
+                set.insert(x);
+            }
+        }
+    }
+    let mut links_at: HashMap<NiblePath, HashSet<NiblePath>> = HashMap::new();
+    for (a, b) in &chain {
+        if a.path != b.path {
+            links_at.entry(a.path).or_default().insert(b.path);
+        }
+    }
+    let report = |name: &str, sets: Vec<Vec<u64>>| {
+        let n = sets.len().max(1);
+        let mut sizes: Vec<usize> = sets.iter().map(Vec::len).collect();
+        sizes.sort_unstable();
+        let pct = |q: usize| {
+            sizes
+                .get((sizes.len() * q / 100).min(sizes.len().saturating_sub(1)))
+                .copied()
+                .unwrap_or(0)
+        };
+        print!(
+            "tenant      {name:<17} {} verses  median {}  p95 {}  max {}",
+            sets.len(),
+            pct(50),
+            pct(95),
+            sizes.last().copied().unwrap_or(0)
+        );
+        for k in [6usize, 8] {
+            let over: Vec<&Vec<u64>> = sets.iter().filter(|s| s.len() > k).collect();
+            let groups: HashSet<&Vec<u64>> = over.iter().copied().collect();
+            print!(
+                "  | {k} rails: fit {:.2}%  overflow {}  group nodes {}",
+                100.0 * (sets.len() - over.len()) as f64 / n as f64,
+                over.len(),
+                groups.len()
+            );
+        }
+        println!();
+    };
+    let sorted = |it: &mut dyn Iterator<Item = u64>| {
+        let mut v: Vec<u64> = it.collect();
+        v.sort_unstable();
+        v
+    };
+    report(
+        "basins per verse",
+        basins_at
+            .values()
+            .map(|s| sorted(&mut s.iter().map(|&x| u64::from(x))))
+            .collect(),
+    );
+    report(
+        "verse links out",
+        links_at
+            .values()
+            .map(|s| sorted(&mut s.iter().map(|p| p.packed().0)))
+            .collect(),
+    );
+
     // Every promoted basin must occupy its OWN address. Basins that first
     // appear in the same verse share a path, so the identity half is what
     // separates them — this is the assertion that proves it does.
