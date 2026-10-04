@@ -193,13 +193,13 @@ fn delete_user_and_group() {
         vec![
             PlannedOp {
                 op: Operation::DeleteObject { object: g(CAROL) },
-                precondition: Precondition::ObjectEquals(carol),
+                precondition: Precondition::ObjectRemovable(carol),
             },
             PlannedOp {
                 op: Operation::DeleteObject {
                     object: g(EXCHANGE)
                 },
-                precondition: Precondition::ObjectEquals(group_state()),
+                precondition: Precondition::ObjectRemovable(group_state()),
             },
         ]
     );
@@ -524,13 +524,6 @@ fn reconcile_a_partial_observation_plans_only_the_rest() {
         plan.ops,
         vec![
             PlannedOp {
-                op: Operation::AddGroupMember {
-                    group: g(EXCHANGE),
-                    member: g(NEW_USER)
-                },
-                precondition: Precondition::NotMember,
-            },
-            PlannedOp {
                 op: Operation::RemoveGroupMember {
                     group: g(EMPLOYEES),
                     member: g(BOB)
@@ -547,6 +540,13 @@ fn reconcile_a_partial_observation_plans_only_the_rest() {
                     value: Some("new@example.test".into()),
                 },
                 precondition: Precondition::AttributeEquals(Some("typo@example.test".into())),
+            },
+            PlannedOp {
+                op: Operation::AddGroupMember {
+                    group: g(EXCHANGE),
+                    member: g(NEW_USER)
+                },
+                precondition: Precondition::NotMember,
             },
         ]
     );
@@ -567,7 +567,7 @@ fn reconcile_a_delete_reads_its_precondition_from_the_latest_observation() {
         .unwrap();
     assert_eq!(
         del.precondition,
-        Precondition::ObjectEquals(NodeState {
+        Precondition::ObjectRemovable(NodeState {
             upn: Some("carol.renamed@example.test".into()),
             ..user_state("carol")
         })
@@ -592,4 +592,24 @@ fn a_group_has_no_enabled_flag() {
         apply_err(sim(&mut st, g0, vec![create(NEW_GROUP, inactive)])),
         ApplyError::InactiveGroup(g(NEW_GROUP))
     );
+}
+
+#[test]
+fn a_freed_address_is_released_before_it_is_claimed() {
+    // Carol leaves; a new user takes her address. Both versions are valid,
+    // so execution must delete before it creates.
+    let (mut st, g0) = store();
+    let carol = st.view(g0).unwrap().node_state(&g(CAROL)).unwrap();
+    let mut heir = user_state("heir");
+    heir.primary_smtp = carol.primary_smtp.clone();
+    let v = sim(
+        &mut st,
+        g0,
+        vec![create(NEW_USER, heir), delete(CAROL, carol)],
+    )
+    .unwrap();
+    st.promote_desired(v).unwrap();
+    let ops: Vec<Operation> = st.plan(v).unwrap().ops.into_iter().map(|p| p.op).collect();
+    assert_eq!(ops[0], Operation::DeleteObject { object: g(CAROL) });
+    assert!(matches!(ops[1], Operation::CreateObject { object, .. } if object == g(NEW_USER)));
 }

@@ -131,7 +131,7 @@ impl VersionStore {
     ) -> Result<VersionId, SimError> {
         let mut delta = rule.propose(&self.view(parent)?, evidence);
         // Canonical order is also a safe application order (`Change`'s
-        // variant order: creates first, deletes last), so the version does
+        // variant order: removals, deletes, sets, creates, adds), so the version does
         // not depend on the order a rule emitted its changes in.
         delta.sort();
         delta.dedup();
