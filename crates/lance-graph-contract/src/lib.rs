@@ -142,6 +142,7 @@ pub mod proprioception;
 pub mod qualia;
 pub mod rail_geometry;
 pub mod rbac;
+pub mod register128;
 pub mod tekamolo_facet;
 pub use qualia::{
     axis_index, axis_label, qualia_to_state, QualiaI4_16D, QualiaVector, AXIS_LABELS, MIDPOINT,

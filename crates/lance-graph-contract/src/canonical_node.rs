@@ -1076,6 +1076,26 @@ pub enum ValueTenant {
     /// Zero-fallback: an all-zero lane reads as *no basin promoted* (subject 0
     /// with an empty `[0,0)` range), never as a basin over nothing.
     EpisodicBasin = 15,
+    /// **Register128 rail 0** (`D-LXC-29`) — a 128-bit working register with
+    /// NO classid inside it.
+    ///
+    /// The register is content-blind: 16 raw bytes, read as
+    /// [`Register128`](crate::register128::Register128). Its semantic identity
+    /// is the SPOG context the population was resolved under
+    /// ([`ResolvedReading`](crate::hotplug::ResolvedReading)), never a classid in
+    /// the payload — the difference from the Facet96 lanes (`Tekamolo`,
+    /// `CausalWitness`), whose first 4 bytes ARE a classid. The bytes are only
+    /// read as a register when the slab declares
+    /// [`SlabReading::Register128`](crate::hotplug::SlabReading::Register128);
+    /// [`ResolvedReading::bind_register128`](crate::hotplug::ResolvedReading::bind_register128)
+    /// refuses any other slab.
+    ///
+    /// Zero-fallback: an all-zero register is an empty accumulator.
+    Register0 = 16,
+    /// **Register128 rail 1** — the second, independent 128-bit working
+    /// register, for readings that need more than 128 bits (e.g. bivariate
+    /// statistics). Same contract as [`Register0`](Self::Register0).
+    Register1 = 17,
 }
 
 impl ValueTenant {
@@ -1237,6 +1257,25 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
         elems_per_row: 32,
         row_offset: 220,
     },
+    // ── Register128 rails (D-LXC-29): two classid-free 16 B working registers
+    //    appended after EpisodicBasin at [252,268) and [268,284) (value-slab
+    //    [220,236) and [236,252)); additive, reserve-don't-reclaim,
+    //    layout-preserving (Full now ends 284 ≤ 512, NODE_ROW_STRIDE unchanged →
+    //    no ENVELOPE_LAYOUT_VERSION bump). These mints take discriminants 16 and
+    //    17, so the BoardAggregates reservation RE-BASES to 18 by the same
+    //    ordinal rule as above; its offset stays derived, never a literal.
+    ColumnDescriptor {
+        name_id: ValueTenant::Register0 as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 252,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::Register1 as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 268,
+    },
 ];
 
 // Compile-time canon: VALUE_TENANTS is discriminant-ordered, contiguous within the
@@ -1349,6 +1388,8 @@ impl ValueSchema {
                 // the `Full covers every tenant` compile assert requires it —
                 // that assert is what caught this mint before any test ran.
                 ValueTenant::EpisodicBasin as u8,
+                ValueTenant::Register0 as u8,
+                ValueTenant::Register1 as u8,
             ]),
         }
     }
@@ -2608,8 +2649,8 @@ mod tests {
         assert!(prev_end <= NODE_ROW_STRIDE);
         assert_eq!(
             prev_end - VALUE_SLAB_ROW_OFFSET,
-            220,
-            "current Full carve uses 220 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36 + TEKAMOLO facet 16 + CausalWitness facet 16 + episodic-basin rail 32)"
+            252,
+            "current Full carve uses 252 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36 + TEKAMOLO facet 16 + CausalWitness facet 16 + episodic-basin rail 32 + Register128 rails 2×16)"
         );
         assert!(prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN);
     }
@@ -2691,11 +2732,11 @@ mod tests {
         // Cognitive 58 + Kanban 8 = 66 (triangle + TEKAMOLO + CausalWitness +
         // episodic basin NOT in Cognitive — entity classes keep their carve);
         // Full 120 + 3×12 triangle + 16 TEKAMOLO facet + 16 CausalWitness facet
-        // + 32 episodic-basin rail = 220 (all additive — reserve-don't-reclaim,
-        // still ≤ 480, stride unchanged).
+        // + 32 episodic-basin rail + 2×16 Register128 rails = 252 (all additive —
+        // reserve-don't-reclaim, still ≤ 480, stride unchanged).
         assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 66);
         assert_eq!(ValueSchema::Compressed.tenant_bytes(), 56);
-        assert_eq!(ValueSchema::Full.tenant_bytes(), 220);
+        assert_eq!(ValueSchema::Full.tenant_bytes(), 252);
         for s in [
             ValueSchema::Bootstrap,
             ValueSchema::Cognitive,
@@ -2812,8 +2853,8 @@ mod tests {
             VALUE_TENANTS.len(),
             "Full read-mode materialises every value tenant"
         );
-        assert_eq!(rm.value_schema.tenant_bytes(), 220);
-        // The slab has room (220 ≤ 480) and the choice never grows the stride.
+        assert_eq!(rm.value_schema.tenant_bytes(), 252);
+        // The slab has room (252 ≤ 480) and the choice never grows the stride.
         assert!(rm.value_schema.tenant_bytes() <= VALUE_SLAB_LEN);
         assert!(rm.is_layout_preserving());
     }

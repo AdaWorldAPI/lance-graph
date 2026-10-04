@@ -201,6 +201,16 @@ pub enum SlabReading {
     /// ([`crate::facet::FacetCascade`]). Declared only by a slab whose bytes
     /// really are that facet.
     Facet96 = 0,
+    /// The 128-bit working register with NO classid in the payload
+    /// (`D-LXC-29`, [`crate::register128::Register128`]), held in the
+    /// [`ValueTenant::Register0`](crate::canonical_node::ValueTenant::Register0) /
+    /// [`ValueTenant::Register1`](crate::canonical_node::ValueTenant::Register1)
+    /// rails. The register's semantic identity is the SPOG context this
+    /// declaration is resolved under, not its bytes. Declaring it does not
+    /// change how Facet96 lanes are read; it is what
+    /// [`ResolvedReading::bind_register128`] requires before granting the
+    /// register rails.
+    Register128 = 1,
 }
 
 impl SlabReading {
@@ -213,6 +223,7 @@ impl SlabReading {
     pub const fn from_tag(tag: u8) -> Result<Self, ActivationDrift> {
         match tag {
             0 => Ok(SlabReading::Facet96),
+            1 => Ok(SlabReading::Register128),
             other => Err(ActivationDrift::UnknownSlabReading(other)),
         }
     }
@@ -320,6 +331,46 @@ impl Activation {
     }
 }
 
+impl ResolvedReading {
+    /// Bind the register rails of this population — the one place a
+    /// Register128 reading is checked, done ONCE per population, never per
+    /// row.
+    ///
+    /// Grants `rails` only when the slab declared
+    /// [`SlabReading::Register128`] AND its value schema materialises every
+    /// rail requested. The returned [`RegisterLanes`](crate::register128::RegisterLanes)
+    /// carry the concept this reading was resolved under; that concept, not
+    /// anything in the register bytes, is the registers' semantic identity.
+    ///
+    /// # Errors
+    ///
+    /// - [`ActivationDrift::NotRegister128`] when the slab declared another
+    ///   reading (e.g. Facet96) or nothing: an undeclared slab is never
+    ///   assumed to hold registers.
+    /// - [`ActivationDrift::RegisterRailAbsent`] when the value schema does not
+    ///   materialise a requested rail.
+    pub fn bind_register128(
+        &self,
+        rails: crate::register128::RegisterRails,
+    ) -> Result<crate::register128::RegisterLanes, ActivationDrift> {
+        if self.slab != Some(SlabReading::Register128) {
+            return Err(ActivationDrift::NotRegister128 {
+                concept: self.concept,
+                slab: self.slab,
+            });
+        }
+        for &tenant in rails.tenants() {
+            if !self.read_mode.value_schema.has(tenant) {
+                return Err(ActivationDrift::RegisterRailAbsent {
+                    concept: self.concept,
+                    tenant: tenant as u8,
+                });
+            }
+        }
+        Ok(crate::register128::RegisterLanes::new(self.concept, rails))
+    }
+}
+
 /// Why an activation failed — each arm is one named bang.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivationDrift {
@@ -348,6 +399,23 @@ pub enum ActivationDrift {
     /// A slab's metadata envelope carries a reading tag this build does not
     /// implement. Never assumed to be [`SlabReading::Facet96`].
     UnknownSlabReading(u8),
+    /// [`ResolvedReading::bind_register128`] was asked for register rails of
+    /// a population whose slab did not declare [`SlabReading::Register128`].
+    NotRegister128 {
+        /// The concept the reading was resolved under.
+        concept: u16,
+        /// What the slab declared instead (`None`: nothing).
+        slab: Option<SlabReading>,
+    },
+    /// The resolved value schema does not materialise a requested register
+    /// rail.
+    RegisterRailAbsent {
+        /// The concept the reading was resolved under.
+        concept: u16,
+        /// The missing [`ValueTenant`](crate::canonical_node::ValueTenant)
+        /// discriminant.
+        tenant: u8,
+    },
     /// A slab was written under an envelope layout version this build does
     /// not implement.
     SlabLayoutVersion {
@@ -425,6 +493,15 @@ impl core::fmt::Display for ActivationDrift {
             Self::UnknownSlabReading(tag) => write!(
                 f,
                 "slab declares reading tag {tag}, which this build does not implement"
+            ),
+            Self::NotRegister128 { concept, slab } => write!(
+                f,
+                "concept 0x{concept:04X}: slab declares {slab:?}, not Register128; \
+                 no register rails are granted"
+            ),
+            Self::RegisterRailAbsent { concept, tenant } => write!(
+                f,
+                "concept 0x{concept:04X}: value schema does not materialise register tenant {tenant}"
             ),
             Self::SlabLayoutVersion { slab, expected } => write!(
                 f,
@@ -671,7 +748,8 @@ mod tests {
         #[test]
         fn an_unsupported_physical_reading_fails_closed() {
             assert_eq!(SlabReading::from_tag(0), Ok(SlabReading::Facet96));
-            for tag in [1u8, 2, 0x80, 0xFF] {
+            assert_eq!(SlabReading::from_tag(1), Ok(SlabReading::Register128));
+            for tag in [2u8, 3, 0x80, 0xFF] {
                 assert_eq!(
                     SlabReading::from_tag(tag),
                     Err(ActivationDrift::UnknownSlabReading(tag))
@@ -805,6 +883,96 @@ mod tests {
             assert!(population
                 .iter()
                 .all(|k| crate::spog_tenants::graph_of(*k) == resolved.concept));
+        }
+
+        /// A Register128 declaration at the current layout.
+        fn reg_decl(value_schema: ValueSchema) -> SlabDeclaration {
+            SlabDeclaration {
+                reading: SlabReading::Register128,
+                value_schema,
+                layout_version: ENVELOPE_LAYOUT_VERSION,
+            }
+        }
+
+        /// FAILS IF: the register rails are granted without a Register128
+        /// declaration (Facet96, or no declaration at all), or for a schema
+        /// that does not materialise them. Silence twin: Register128 + Full
+        /// grants both rails.
+        #[test]
+        fn register_rails_are_granted_only_to_a_register128_slab() {
+            use crate::canonical_node::ValueTenant;
+            use crate::register128::RegisterRails;
+            let a = act();
+            let granted = a
+                .resolve_for_context(0x0901, Some(&reg_decl(ValueSchema::Full)))
+                .unwrap();
+            assert_eq!(granted.slab, Some(SlabReading::Register128));
+            let lanes = granted.bind_register128(RegisterRails::Two).unwrap();
+            assert_eq!(lanes.rails(), RegisterRails::Two);
+            assert!(lanes.rail_range(1).is_some());
+
+            let facet = a
+                .resolve_for_context(0x0901, Some(&decl(ValueSchema::Full)))
+                .unwrap();
+            let undeclared = a.resolve_for_context(0x0901, None).unwrap();
+            for (r, slab) in [(facet, Some(SlabReading::Facet96)), (undeclared, None)] {
+                assert_eq!(
+                    r.bind_register128(RegisterRails::One),
+                    Err(ActivationDrift::NotRegister128 {
+                        concept: 0x0901,
+                        slab
+                    })
+                );
+            }
+
+            let narrow = a
+                .resolve_for_context(0x0901, Some(&reg_decl(ValueSchema::Cognitive)))
+                .unwrap();
+            assert_eq!(
+                narrow.bind_register128(RegisterRails::One),
+                Err(ActivationDrift::RegisterRailAbsent {
+                    concept: 0x0901,
+                    tenant: ValueTenant::Register0 as u8,
+                })
+            );
+        }
+
+        /// FAILS IF: a register's semantic identity is read from its bytes.
+        ///
+        /// The same register payload — here deliberately holding the OTHER
+        /// concept's id in its first word, the shape a Facet96 classid would
+        /// take — is bound under two contexts. The concept follows the
+        /// context both times, and the bytes come back unchanged: nothing in
+        /// the binding or the resolution reads the payload.
+        #[test]
+        fn a_register_takes_its_concept_from_the_context_never_the_payload() {
+            use crate::register128::{Register128, RegisterRails};
+            let a = act();
+            let d = reg_decl(ValueSchema::Full);
+            let payload = Register128::from_words([0x0902_0000, 7, 8, 9]);
+            for (concept, other) in [(0x0901u16, 0x0902u16), (0x0902, 0x0901)] {
+                let mut row = NodeRow {
+                    key: key(concept, 1),
+                    edges: Default::default(),
+                    value: [0; 480],
+                };
+                let lanes = a
+                    .resolve_tenant_reading(row.key, Some(&d))
+                    .unwrap()
+                    .bind_register128(RegisterRails::One)
+                    .unwrap();
+                assert!(lanes.set(&mut row, 0, payload));
+                assert_eq!(lanes.concept(), concept);
+                assert_ne!(lanes.concept(), other);
+                assert_eq!(lanes.get(&row, 0), Some(payload));
+                // Resolving again after the write is unchanged.
+                let again = a
+                    .resolve_tenant_reading(row.key, Some(&d))
+                    .unwrap()
+                    .bind_register128(RegisterRails::One)
+                    .unwrap();
+                assert_eq!(again, lanes);
+            }
         }
     }
 
