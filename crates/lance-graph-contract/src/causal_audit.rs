@@ -251,6 +251,24 @@ pub struct SupportReceipt {
     /// Which kind of support this is.
     pub basis: SupportBasis,
     /// Who supplied it — a stable external identity.
+    ///
+    /// **Name who attested, not who read it.** `source` is attribution: the
+    /// paper, sensor or submitter that made the claim, never the parser or
+    /// reader that extracted it. Two parsers reading one sentence, two lexical
+    /// readings of one token, and two sentences of one paper are all ONE
+    /// source, so distinct-source counting means corroboration across
+    /// attestors. Keying `source` by the reader instead turns one attestation
+    /// into several apparent witnesses.
+    ///
+    /// This is not an evidence-EVENT id: telling "one sensor observed the fact
+    /// twice" from "one observation was read twice" needs a separate
+    /// admission-event receipt that does not exist yet
+    /// (`.claude/knowledge/parked-designs-841-856.md` §(a)).
+    ///
+    /// A source that *quotes* another (a review citing a primary study) still
+    /// records its own id here, so it counts as distinct: this ledger has no
+    /// derived-from link and no stance slot, which is why
+    /// `independent_strength` stays `None`. Pinned by the `indra_*` tests.
     pub source: EvidenceSourceId,
     /// When it was recorded.
     ///
@@ -448,6 +466,11 @@ impl SupportProfile {
 /// A relation with its classification and its evidence, held separately.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuditedRelation {
+    /// Which relation this is. Held outside `classification` so it survives
+    /// [`reclassify`](Self::reclassify): only the `Unclassified` variant
+    /// carries a `RelationId`, so without this field two classified relations
+    /// with equal classification and support would be indistinguishable.
+    pub id: RelationId,
     /// What kind of relation this is.
     pub classification: RelationClassification,
     /// What backs it.
@@ -459,17 +482,25 @@ impl AuditedRelation {
     #[must_use]
     pub fn unclassified(raw: RelationId) -> Self {
         Self {
+            id: raw,
             classification: RelationClassification::Unclassified { raw_relation: raw },
             support: SupportLedger::new(),
         }
     }
 
-    /// Revise the classification, leaving the receipt ledger untouched.
+    /// Revise the classification, leaving the identity and the receipt ledger
+    /// untouched.
     ///
     /// The whole point of keeping the two apart: re-reading an edge as
     /// `Derivational` rather than `World` must not disturb the record of who
     /// attested it.
-    pub fn reclassify(&mut self, classification: RelationClassification) {
+    ///
+    /// Reclassifying back to `Unclassified` keeps `self.id`: a supplied
+    /// `raw_relation` is overwritten so the relation never carries two ids.
+    pub fn reclassify(&mut self, mut classification: RelationClassification) {
+        if let RelationClassification::Unclassified { raw_relation } = &mut classification {
+            *raw_relation = self.id;
+        }
         self.classification = classification;
     }
 
@@ -672,5 +703,146 @@ mod tests {
             scope,
         };
         assert_ne!(at(CausalScope::Type), at(CausalScope::Token));
+    }
+    // ── The INDRA falsifier cases (`.claude/harvest/indra-reference-wiring.md`) ──
+    //
+    // `RelationId` + `AuditedRelation` is the truth-free proposition, and a
+    // `SupportReceipt` keyed by the observation it came from is the witness.
+    // These pin what that pairing already guarantees and what it cannot say.
+
+    /// Case 1: one proposition attested by two different papers keeps one
+    /// identity and gains a second distinct source.
+    #[test]
+    fn indra_two_papers_one_relation_two_sources() {
+        let mut r = AuditedRelation::unclassified(RelationId(42));
+        r.support
+            .record(receipt(SupportBasis::TextAttested, 100, 10));
+        r.support
+            .record(receipt(SupportBasis::TextAttested, 200, 10));
+        assert_eq!(
+            r.classification,
+            RelationClassification::Unclassified {
+                raw_relation: RelationId(42)
+            },
+            "adding witnesses does not change the proposition"
+        );
+        let p = r.support.profile();
+        assert_eq!(p.basis(SupportBasis::TextAttested).distinct_source_count, 2);
+
+        // Identity must survive classification: the `Unclassified` variant is
+        // the only one that names a `RelationId`.
+        let causal = RelationClassification::Causal {
+            locus: CausalLocus::World,
+            world_domain: None,
+            scope: CausalScope::Type,
+        };
+        r.reclassify(causal);
+        assert_eq!(r.id, RelationId(42), "reclassify keeps the identity");
+        let mut twin = AuditedRelation::unclassified(RelationId(43));
+        twin.support = r.support.clone();
+        twin.reclassify(causal);
+        assert_eq!(twin.classification, r.classification);
+        assert_eq!(twin.support, r.support);
+        assert_ne!(
+            twin, r,
+            "equal classification and support, different relation"
+        );
+
+        // Back to Unclassified with a mismatched id: the relation's own id wins.
+        r.reclassify(RelationClassification::Unclassified {
+            raw_relation: RelationId(99),
+        });
+        assert_eq!(
+            r.classification,
+            RelationClassification::Unclassified {
+                raw_relation: RelationId(42)
+            },
+            "reclassify never gives a relation a second id"
+        );
+    }
+
+    /// Cases 2 and 6: two interpretations of ONE attestation (two readers of
+    /// one paper's sentence, two lexical readings of one token) are one
+    /// source when `source` names the attesting source. The twin shows the
+    /// convention is load-bearing: keyed by reader, one paper reads as two.
+    #[test]
+    fn indra_two_readings_of_one_attestation_are_one_source() {
+        const PAPER: u64 = 7;
+        const READER_A: u64 = 1001;
+        const READER_B: u64 = 1002;
+
+        let mut by_attestor = SupportLedger::new();
+        by_attestor.record(receipt(SupportBasis::LinguisticallyAsserted, PAPER, 10));
+        by_attestor.record(receipt(SupportBasis::LinguisticallyAsserted, PAPER, 10));
+        let b = by_attestor.profile();
+        let b = b.basis(SupportBasis::LinguisticallyAsserted);
+        assert_eq!(b.receipt_count, 2, "both readings stay on record");
+        assert_eq!(b.distinct_source_count, 1, "…as one attesting source");
+
+        let mut by_reader = SupportLedger::new();
+        by_reader.record(receipt(SupportBasis::LinguisticallyAsserted, READER_A, 10));
+        by_reader.record(receipt(SupportBasis::LinguisticallyAsserted, READER_B, 10));
+        assert_eq!(
+            by_reader
+                .profile()
+                .basis(SupportBasis::LinguisticallyAsserted)
+                .distinct_source_count,
+            2,
+            "keyed by reader, one paper masquerades as two witnesses"
+        );
+    }
+
+    /// Case 3, a pinned GAP: a review quoting a primary study is a distinct
+    /// source here, because receipts carry no derived-from link. The profile
+    /// still increments `distinct_source_count` and sums both receipts into
+    /// `total_strength`; only `independent_strength` remains unset. When a
+    /// dependence link lands this test must be re-pinned.
+    #[test]
+    fn indra_review_quoting_primary_is_not_yet_recognised_as_an_echo() {
+        const PRIMARY: u64 = 10;
+        const REVIEW: u64 = 11;
+        let mut led = SupportLedger::new();
+        led.record(receipt(SupportBasis::TextAttested, PRIMARY, 10));
+        led.record(receipt(SupportBasis::TextAttested, REVIEW, 10));
+        let p = led.profile();
+        let t = p.basis(SupportBasis::TextAttested);
+        assert_eq!(t.distinct_source_count, 2, "the echo is not detected");
+        assert_eq!(
+            t.independent_strength, None,
+            "and is not converted into independent strength"
+        );
+    }
+
+    /// Case 5: a specific and a general proposition are distinct identities,
+    /// and support recorded on one does not reach the other implicitly.
+    #[test]
+    fn indra_refinement_does_not_propagate_support_implicitly() {
+        let mut specific = AuditedRelation::unclassified(RelationId(1));
+        let general = AuditedRelation::unclassified(RelationId(2));
+        specific
+            .support
+            .record(receipt(SupportBasis::TextAttested, 100, 10));
+        assert_ne!(specific.classification, general.classification);
+        assert!(
+            general.support.is_empty(),
+            "no hierarchy pooling by default"
+        );
+    }
+
+    /// No truth is minted by building a proposition and its witnesses: the
+    /// only aggregate that could read as belief is `independent_strength`,
+    /// and it stays unset however much support accumulates.
+    #[test]
+    fn indra_witnesses_mint_no_truth() {
+        let mut r = AuditedRelation::unclassified(RelationId(5));
+        for src in 0..20 {
+            r.support
+                .record(receipt(SupportBasis::DirectlyObserved, src, 255));
+        }
+        let p = r.support.profile();
+        for b in SupportBasis::ALL {
+            assert_eq!(p.basis(b).independent_strength, None);
+        }
+        assert!(!r.is_intervention_established());
     }
 }
