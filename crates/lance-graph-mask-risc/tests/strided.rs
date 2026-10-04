@@ -971,3 +971,201 @@ fn ternlog_combines_three_strided_views_into_one_count() {
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// MatchFacet16Strided: the 16-byte ternary match over a strided view.
+// ─────────────────────────────────────────────────────────────────────────
+
+fn field16_at(f: &Fixture, row: usize) -> [u8; 16] {
+    let base = row * RECORD_STRIDE + 4;
+    f.bytes[base..base + 16].try_into().unwrap()
+}
+
+fn expected_facet16_count(
+    f: &Fixture,
+    pattern: [u8; 16],
+    care: [u8; 16],
+    selected: impl Fn(usize) -> bool,
+) -> usize {
+    (0..f.n)
+        .filter(|&r| selected(r))
+        .filter(|&r| {
+            let b = field16_at(f, r);
+            (0..16).all(|k| (b[k] ^ pattern[k]) & care[k] == 0)
+        })
+        .count()
+}
+
+fn facet16_count_program(pattern: [u8; 16], care: [u8; 16]) -> Program {
+    Program::new(
+        vec![MaskOp::Pred {
+            pred: Pred::MatchFacet16Strided {
+                lane: 0,
+                pattern,
+                care,
+            },
+            under: None,
+            dst: 0,
+        }],
+        Terminal::Count {
+            mask: Operand::Scratch(0),
+        },
+    )
+}
+
+/// FAILS IF: the executor disagrees with the oracle or with an independent
+/// byte count, or bytes 12..16 do not take part in the match.
+#[test]
+fn match_facet16_strided_matches_oracle_and_reads_bytes_past_twelve() {
+    for n in ROWS {
+        let f = Fixture::new(n, 211);
+        let lanes = [LaneRef::Strided(f.facet_view())];
+        let planes = Planes {
+            n_rows: n,
+            masks: &[],
+            lanes: &lanes,
+        };
+        let pattern = if n == 0 { [0u8; 16] } else { field16_at(&f, 0) };
+
+        // Partial care across both halves of the 16 bytes.
+        let mut care = [0u8; 16];
+        care[0] = 0x0F;
+        care[5] = 0xF0;
+        care[13] = 0x0F;
+        let want = expected_facet16_count(&f, pattern, care, |_| true);
+        let v = run_none(
+            &f,
+            &planes,
+            &facet16_count_program(pattern, care),
+            "facet16 partial",
+        );
+        assert_eq!(v, Value::Count(want), "n={n}: partial care");
+
+        // Only byte 15 is inspected. The 12-byte predicate cannot see it.
+        let mut care15 = [0u8; 16];
+        care15[15] = 0xFF;
+        let want15 = expected_facet16_count(&f, pattern, care15, |_| true);
+        let v15 = run_none(
+            &f,
+            &planes,
+            &facet16_count_program(pattern, care15),
+            "facet16 byte15",
+        );
+        assert_eq!(v15, Value::Count(want15), "n={n}: byte 15 only");
+        if n >= 70 {
+            assert!(want15 >= 1, "row 0 matches its own byte 15");
+            assert!(want15 < n, "n={n}: byte 15 must actually filter rows");
+        }
+
+        // Silence twin: care == 0 matches every row.
+        let v_all = run_none(
+            &f,
+            &planes,
+            &facet16_count_program(pattern, [0u8; 16]),
+            "facet16 all-wild",
+        );
+        assert_eq!(
+            v_all,
+            Value::Count(n),
+            "n={n}: care==0 must match every row"
+        );
+    }
+}
+
+/// FAILS IF: a gated 16-byte match is not `match & gate`.
+#[test]
+fn match_facet16_strided_under_a_gate() {
+    for n in ROWS {
+        let f = Fixture::new(n, 307);
+        let lanes = [LaneRef::Strided(f.facet_view())];
+        let planes = Planes {
+            n_rows: n,
+            masks: &[],
+            lanes: &lanes,
+        };
+        let pattern = if n == 0 { [0u8; 16] } else { field16_at(&f, 0) };
+        let mut care = [0u8; 16];
+        care[14] = 0x03;
+        let hi = (n / 2) as u32;
+        let p = Program::new(
+            vec![
+                MaskOp::Pred {
+                    pred: Pred::Range { lo: 0, hi },
+                    under: None,
+                    dst: 0,
+                },
+                MaskOp::Pred {
+                    pred: Pred::MatchFacet16Strided {
+                        lane: 0,
+                        pattern,
+                        care,
+                    },
+                    under: Some(Operand::Scratch(0)),
+                    dst: 1,
+                },
+            ],
+            Terminal::Count {
+                mask: Operand::Scratch(1),
+            },
+        );
+        let want = expected_facet16_count(&f, pattern, care, |r| r < n / 2);
+        let ungated = expected_facet16_count(&f, pattern, care, |_| true);
+        if n >= 70 {
+            assert!(want < ungated, "n={n}: the gate must remove some matches");
+        }
+        let v = run_none(&f, &planes, &p, "facet16 gated");
+        assert_eq!(v, Value::Count(want), "n={n}: gated count");
+    }
+}
+
+/// FAILS IF: a view wide enough for 12 bytes but not 16 is accepted by the
+/// 16-byte predicate (or refused by the 12-byte one).
+#[test]
+fn match_facet16_strided_rejects_a_view_four_bytes_short() {
+    let n = 70;
+    let f = Fixture::new(n, 401);
+    let len = (n - 1) * RECORD_STRIDE + 4 + 12;
+    let short = &f.bytes[..len];
+    let view = StridedRef {
+        bytes: short,
+        first_offset: 4,
+        stride: RECORD_STRIDE,
+        records: n,
+    };
+    let lanes = [LaneRef::Strided(view)];
+    let planes = Planes {
+        n_rows: n,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let p16 = facet16_count_program([0u8; 16], [0xFF; 16]);
+    let want = Err(ExecError::StridedOutOfBounds {
+        lane: 0,
+        need: len + 4,
+        have: len,
+    });
+    let mut s = scratch(&p16, &f);
+    let got = execute_into(&p16, &planes, &Foreign::NONE, &mut s, Out::None);
+    let oracle = reference_execute_into(&p16, &planes, &Foreign::NONE, Out::None);
+    assert_eq!(got, want, "executor: 16-byte read past the view");
+    assert_eq!(oracle, want, "oracle: 16-byte read past the view");
+
+    // Twin: the same view is long enough for the 12-byte predicate.
+    let p12 = Program::new(
+        vec![MaskOp::Pred {
+            pred: Pred::MatchFacetStrided {
+                lane: 0,
+                pattern: [0u8; 12],
+                care: [0u8; 12],
+            },
+            under: None,
+            dst: 0,
+        }],
+        Terminal::Count {
+            mask: Operand::Scratch(0),
+        },
+    );
+    let mut s = scratch(&p12, &f);
+    let got12 = execute_into(&p12, &planes, &Foreign::NONE, &mut s, Out::None);
+    assert_eq!(got12, Ok(Value::Count(n)));
+}

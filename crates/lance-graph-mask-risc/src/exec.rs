@@ -38,9 +38,9 @@ use ndarray::simd::{
     masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via, masked_key_run_count_u32,
     masked_max_i32, masked_min_i32, masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask,
     ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
-    ternary_match_strided_to_mask, ternary_match_u32_to_mask, ternary_match_u32_to_mask_under,
-    ternary_match_u64_to_mask, ternary_match_u64_to_mask_under, CrossPowerSums, KeyRunCarry,
-    PowerSums,
+    ternary_match_strided16_to_mask, ternary_match_strided_to_mask, ternary_match_u32_to_mask,
+    ternary_match_u32_to_mask_under, ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
+    CrossPowerSums, KeyRunCarry, PowerSums,
 };
 
 use crate::ir::{
@@ -712,6 +712,29 @@ fn run_pred<'a>(
         ) => {
             if let Some(sv) = lane_strided(planes, lane) {
                 ternary_match_strided_to_mask(
+                    sv.bytes,
+                    strided_tile_offset(&sv, t),
+                    sv.stride,
+                    t.rows,
+                    &pattern,
+                    &care,
+                    dst,
+                );
+            }
+            if let Some(u) = under {
+                mask_and_assign(dst, read(planes, s, u, t));
+            }
+        }
+        (
+            Pred::MatchFacet16Strided {
+                lane,
+                pattern,
+                care,
+            },
+            under,
+        ) => {
+            if let Some(sv) = lane_strided(planes, lane) {
+                ternary_match_strided16_to_mask(
                     sv.bytes,
                     strided_tile_offset(&sv, t),
                     sv.stride,

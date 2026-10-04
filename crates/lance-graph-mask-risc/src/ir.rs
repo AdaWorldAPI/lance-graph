@@ -192,6 +192,16 @@ pub enum Pred {
         pattern: [u8; 12],
         care: [u8; 12],
     },
+    /// `((field_i[k] ^ pattern[k]) & care[k]) == 0` for every `k < 16` over a
+    /// [`LaneRef::Strided`] view: the same ternary match as
+    /// [`Pred::MatchFacetStrided`], over all 16 bytes of the field
+    /// (`ndarray::simd::ternary_match_strided16_to_mask`). Bytes `12..16`
+    /// participate; a zero `care` byte is don't-care, as above.
+    MatchFacet16Strided {
+        lane: u16,
+        pattern: [u8; 16],
+        care: [u8; 16],
+    },
 }
 
 /// One instruction. Destinations are always [`Operand::Scratch`]; input planes
@@ -1149,7 +1159,8 @@ impl Program {
                     pred:
                         Pred::EqU32Strided { .. }
                         | Pred::NeU32Strided { .. }
-                        | Pred::MatchFacetStrided { .. },
+                        | Pred::MatchFacetStrided { .. }
+                        | Pred::MatchFacet16Strided { .. },
                     under,
                     ..
                 } => {

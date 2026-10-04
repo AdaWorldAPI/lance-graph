@@ -86,7 +86,8 @@ fn pred_lane_and_kind(pred: Pred) -> Option<(u16, LaneKind)> {
         Pred::EqU32Via { fk, .. } => (fk, LaneKind::U32),
         Pred::EqU32Strided { lane, .. }
         | Pred::NeU32Strided { lane, .. }
-        | Pred::MatchFacetStrided { lane, .. } => (lane, LaneKind::Strided),
+        | Pred::MatchFacetStrided { lane, .. }
+        | Pred::MatchFacet16Strided { lane, .. } => (lane, LaneKind::Strided),
         Pred::Range { .. } => return None,
     })
 }
@@ -391,6 +392,9 @@ pub(crate) fn validate(
                     }
                     Pred::MatchFacetStrided { lane, .. } => {
                         check_strided(planes, lane, 12)?;
+                    }
+                    Pred::MatchFacet16Strided { lane, .. } => {
+                        check_strided(planes, lane, 16)?;
                     }
                     _ => {}
                 }
@@ -825,6 +829,20 @@ fn eval_pred(planes: &Planes<'_>, foreign: &Foreign<'_>, pred: Pred, row: usize)
         } => {
             let field = strided_facet_at(lane);
             (0..12).all(|k| (field[k] ^ pattern[k]) & care[k] == 0)
+        }
+        Pred::MatchFacet16Strided {
+            lane,
+            pattern,
+            care,
+        } => {
+            let field: [u8; 16] = match planes.lanes[usize::from(lane)] {
+                LaneRef::Strided(v) => {
+                    let off = v.first_offset + row * v.stride;
+                    v.bytes[off..off + 16].try_into().unwrap()
+                }
+                _ => [0u8; 16],
+            };
+            (0..16).all(|k| (field[k] ^ pattern[k]) & care[k] == 0)
         }
     }
 }
