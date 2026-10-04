@@ -1,4 +1,4 @@
-# 2026-10-04 — Register128: classid-free 128-bit register + bounded power sums as its first consumer (D-LXC-29)
+# 2026-10-04 — Register128: classid-free 128-bit register + bounded power sums as its first consumer (D-LXC-29-R)
 
 ## DECISION (operator ruling, 2026-10-04)
 

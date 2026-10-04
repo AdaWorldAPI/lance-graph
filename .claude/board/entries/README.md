@@ -31,7 +31,7 @@ exactly one of them, never both.
 |---|---|---|---|
 | 2026-10-04 | `D-LXC-22` |  | [2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md](2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md) |
 | 2026-10-04 | `D-HPS-1` |  | [2026-10-04-spog-slab-hotplug-resolution.md](2026-10-04-spog-slab-hotplug-resolution.md) |
-| 2026-10-04 | `D-LXC-29` |  | [2026-10-04-register128-bounded-power-sums.md](2026-10-04-register128-bounded-power-sums.md) |
+| 2026-10-04 | `D-LXC-29-R` |  | [2026-10-04-register128-bounded-power-sums.md](2026-10-04-register128-bounded-power-sums.md) |
 | 2026-10-04 | `D-LXC-25` |  | [2026-10-04-deepnsm-v2-wechsel-lane-quorum.md](2026-10-04-deepnsm-v2-wechsel-lane-quorum.md) |
 | 2026-10-04 | `D-LXC-27` |  | [2026-10-04-deepnsm-v2-unseen-noun-gender.md](2026-10-04-deepnsm-v2-unseen-noun-gender.md) |
 | 2026-10-04 | `D-LXC-29` |  | [2026-10-04-deepnsm-v2-tenant-rails-6-vs-8.md](2026-10-04-deepnsm-v2-tenant-rails-6-vs-8.md) |
