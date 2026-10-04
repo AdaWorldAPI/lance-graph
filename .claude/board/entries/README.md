@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-211 entries, 2026-08-06 .. 2026-10-04.
+212 entries, 2026-08-06 .. 2026-10-04.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-04 | `D-LXC-22` |  | [2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md](2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md) |
 | 2026-10-04 | `D-HPS-1` |  | [2026-10-04-spog-slab-hotplug-resolution.md](2026-10-04-spog-slab-hotplug-resolution.md) |
+| 2026-10-04 | `D-HPS-2` |  | [2026-10-04-resolve-once-population-execution.md](2026-10-04-resolve-once-population-execution.md) |
 | 2026-10-04 | `D-LXC-25` |  | [2026-10-04-deepnsm-v2-wechsel-lane-quorum.md](2026-10-04-deepnsm-v2-wechsel-lane-quorum.md) |
 | 2026-10-04 | `D-LXC-27` |  | [2026-10-04-deepnsm-v2-unseen-noun-gender.md](2026-10-04-deepnsm-v2-unseen-noun-gender.md) |
 | 2026-10-04 | `D-LXC-29` |  | [2026-10-04-deepnsm-v2-tenant-rails-6-vs-8.md](2026-10-04-deepnsm-v2-tenant-rails-6-vs-8.md) |

@@ -1,3 +1,11 @@
+## 2026-10-04 — read-mode resolved once per population (branch `ccr-f6094d67-h6ulb3`, unmerged)
+
+### Current Contract Inventory — net delta (`nan_projection.rs`, `soa_graph.rs`)
+- `project_energy_nonfinite_resolved(rows, ValueSchema)` and
+  `energy_all_finite_resolved(rows, ValueSchema)`: no per-row lookup. The
+  mixed-batch API resolves once per classid run. Entry `D-HPS-2`.
+- `soa_graph` helpers take the domain's resolved `TailVariant`.
+
 ## 2026-10-04 — SPOG × slab declaration resolves through hotplug (branch `ccr-f6094d67-h6ulb3`, unmerged)
 
 ### Current Contract Inventory — net delta (`hotplug.rs`, no new registry)
