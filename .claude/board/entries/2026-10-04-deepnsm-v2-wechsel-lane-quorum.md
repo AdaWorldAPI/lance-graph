@@ -66,3 +66,25 @@ The suffix class mixes event and abstract nouns with object nouns (*Wohnung*, *Z
 **OPEN.**
 - A PLACE signal beyond names: object nouns, a physical-artifact lexicon, gender or semantic class.
 - The German lexicon (`build_de_codebook.py`, UD-derived, COCA shape) has no gender column, although UD carries `Gender=`.
+
+## Addendum: adverbs of time (operator: *früh*) — exploratory, both samples already seen
+
+**Coverage.** *früh* was **not** covered.
+- HDT tags it ADJ + `advmod` (an uninflected adjective used adverbially, the same German adj/adv split as D-LXC-20), and the first miner took UPOS ADV only.
+- It occurs about 17 times in HDT train (formal IT news).
+- The first "temporal adverb" list was mined as "the word right before *seit/während/bis*". It was mostly focus particles and other lanes: *auch*, *nur*, *sogar*, *aber*, *hier*, *unten*, *daher*.
+
+| adverb source | test quorum | confirm quorum | confirm, without the adverb voter |
+|---|---|---|---|
+| word before *seit/während/bis* (first version) | 88.0 % | 85.3 % | 84.8 % |
+| lift-mined (ADV, or ADJ-`advmod`, ≥ 2× in clauses with a time-only preposition) | 88.0 % | 85.8 % | 86.3 % |
+| codebook `TEMPORAL` list (`build_de_codebook.py`: *früh, spät, heute, damals, …*; `LANE_ADVERBS=codebook`) | 88.3 % | 85.3 % | 86.3 % |
+
+**Direction (all 1,586 agreed labels).** Testing the operator's Sudoku idea that a filled Te slot pushes the PP to another lane:
+- a clause with a time adverb has **more** TIME phrases (32.8 % vs 21.0 %), not fewer;
+- time adverbs mostly modify the time PP itself (*erst in 12 Monaten*, *schon vor der Fahrt*) rather than fill a separate Te slot;
+- the signal is real but largely redundant with the time-noun voter, so the adverb voter adds nothing.
+
+**OPEN.**
+- A stand-alone temporal adverb (*früh*, *heute*) as a TEKAMOLO Te element is a word-class question, the adj/adv quorum of D-LXC-20, not a PP-lane question.
+- The lane reader does not yet place bare adverbs into Te.

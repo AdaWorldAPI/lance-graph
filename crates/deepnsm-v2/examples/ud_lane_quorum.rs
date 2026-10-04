@@ -21,8 +21,10 @@
 //!   adverbials, or a compound ending in one), an abstract noun (suffix), a
 //!   name (train majority PROPN), or other;
 //! - **number**: the phrase holds a digit;
-//! - **adverb**: the token before the preposition is a temporal adverb
-//!   (adverbs right before *seit* / *während* / *bis* in train);
+//! - **adverb**: a temporal adverb within two tokens before the preposition
+//!   or right after the phrase (*früh am Morgen*). Temporal adverbs are mined
+//!   by lift: ADV, or ADJ used as `advmod` (*früh*, *spät*), occurring at
+//!   least 2x more often in clauses with a time-only preposition;
 //! - **verb**: the (verb lemma, preposition) object rate from HDT `obj` + ADP,
 //!   checked against every verb in the clause (`ud_pp_arg_eval`);
 //! - **position** (TEKAMOLO): Vorfeld (clause-initial), and whether another
@@ -60,6 +62,37 @@ const ABSTRACT_SUFFIXES: [&str; 18] = [
     "ung", "ungen", "heit", "heiten", "keit", "keiten", "schaft", "schaften", "tion", "tionen",
     "nis", "nisse", "nissen", "ität", "itäten", "ismus", "ismen", "tum",
 ];
+/// The temporal cue adverbs of the German codebook builder
+/// (`lance-graph-planner/examples/data/de/build_de_codebook.py`, `TEMPORAL`),
+/// minus its prepositions and conjunctions: a fixed list, not tuned here.
+const CODEBOOK_TEMPORAL: [&str; 25] = [
+    "anschließend",
+    "bald",
+    "damals",
+    "danach",
+    "dann",
+    "früh",
+    "gestern",
+    "heute",
+    "immer",
+    "jetzt",
+    "jährlich",
+    "manchmal",
+    "monatlich",
+    "morgen",
+    "nie",
+    "noch",
+    "oft",
+    "schließlich",
+    "schon",
+    "spät",
+    "täglich",
+    "wieder",
+    "wöchentlich",
+    "zunächst",
+    "zuvor",
+];
+
 const MIN_PAIR: usize = 3;
 
 struct Tok {
@@ -192,9 +225,6 @@ impl Tables {
                         .or_default() += 1;
                 }
                 if TEMPORAL_ONLY.contains(&tok.form.as_str()) {
-                    if i > 0 && s[i - 1].upos == "ADV" {
-                        t.time_adverbs.insert(s[i - 1].form.clone());
-                    }
                     let np = |j: usize| {
                         s[j].upos == "NOUN"
                             && s[i + 1..j]
@@ -232,6 +262,45 @@ impl Tables {
                 if tok.upos == "NOUN" && tok.deprel == "obl" && !child("case") && !child("nummod") {
                     t.time_nouns.insert(tok.form.clone());
                 }
+            }
+        }
+        // Temporal adverbs by lift: an adverbial word (ADV, or an uninflected
+        // ADJ used as `advmod` such as *früh*, *spät*) that occurs far more
+        // often in clauses holding a time-only preposition than in clauses
+        // overall. Mining "the word right before seit/während" caught focus
+        // particles (*auch seit*, *nur bis*) instead.
+        let mut in_time = HashMap::<String, usize>::new();
+        let mut overall = HashMap::<String, usize>::new();
+        let (mut time_clauses, mut clauses) = (0usize, 0usize);
+        for sent in train {
+            let s = &sent.toks;
+            let mut lo = 0;
+            while lo < s.len() {
+                let (_, hi) = clause(s, lo);
+                let span = &s[lo..hi];
+                let timed = span
+                    .iter()
+                    .any(|x| TEMPORAL_ONLY.contains(&x.form.as_str()));
+                clauses += 1;
+                time_clauses += usize::from(timed);
+                for x in span {
+                    let adverbial = x.upos == "ADV" || (x.upos == "ADJ" && x.deprel == "advmod");
+                    if adverbial {
+                        *overall.entry(x.form.clone()).or_default() += 1;
+                        if timed {
+                            *in_time.entry(x.form.clone()).or_default() += 1;
+                        }
+                    }
+                }
+                lo = hi + 1;
+            }
+        }
+        for (form, &k) in &in_time {
+            let all = overall[form];
+            let lift =
+                (k as f64 / time_clauses.max(1) as f64) / (all as f64 / clauses.max(1) as f64);
+            if k >= 3 && lift >= 2.0 {
+                t.time_adverbs.insert(form.clone());
             }
         }
         t.names = propn
@@ -294,7 +363,18 @@ impl Tables {
         };
         let ph = phrase(s, i);
         let number = ph.iter().any(|&j| s[j].digit);
-        let adverb = i > 0 && self.time_adverbs.contains(&s[i - 1].form);
+        let after = ph.last().map_or(i + 1, |&j| j + 1);
+        let adverb = [i.wrapping_sub(2), i.wrapping_sub(1), after]
+            .into_iter()
+            .filter(|&k| k < s.len())
+            .any(|k| {
+                let f = s[k].form.as_str();
+                if std::env::var("LANE_ADVERBS").is_ok_and(|v| v == "codebook") {
+                    CODEBOOK_TEMPORAL.contains(&f)
+                } else {
+                    self.time_adverbs.contains(&s[k].form)
+                }
+            });
         let verb = self.verb_governed(s, i);
         let (lo, hi) = clause(s, i);
         let vorfeld = i == lo;
@@ -532,6 +612,12 @@ fn main() {
         tables.time_adverbs.len(),
         tables.pair.len()
     );
+
+    if std::env::var("LANE_DUMP").is_ok() {
+        let mut adv: Vec<&String> = tables.time_adverbs.iter().collect();
+        adv.sort();
+        eprintln!("temporal adverbs: {adv:?}");
+    }
 
     // Operator hypothesis: an abstract head is never PLACE.
     let abs: Vec<&Item> = fit_items
