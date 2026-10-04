@@ -69,6 +69,16 @@ Naming trap: `contract/grammar/wechsel.rs` means dual-role TOKENS. The Dat/Akk W
 | 19 | planner / belief (re-filed by the second premise gate) | **Belief-state transitions (Admitted / Revised / Chosen, `belief::ReviseOutcome`) as a revision-history evaluator in the planner's belief arena.** Counts and \|f₁−f₂\| are magnitudes ordered across revisions, not ±8 position offsets, so they are not 24×i4 loci. Only a peer pointer within ±8 (supported_by / contradiction) may be written as a locus on the CausalWitness tenant | revision events | does the transition record predict later contradiction/revision beyond the final TruthValue? | none | NEW (operator 2026-10-04) | CONFLICT S4: the transition rule lives in the planner; loci are offsets only; no support/refute mask layer returns (removed 2026-09-02); one extra 24×i4 register per node is allowed, the 8 reserved loci need a decision | KJV arena revised in book order: prefix books 1–33, suffix 34–66. Baseline = final (f,c); treatment adds Admitted/Revised/Chosen counts, max \|f₁−f₂\| and loci peers. Target: a later contradicting revision or a side flip in the suffix. KILL if: AUC gain < 0.02; or gain ≤ the 95th percentile of a null that shuffles transition features within (f,c) bins. Silence: single-Admitted statements predict identically. Coverage: < 500 multi-event statements → UNTESTED. Kill too if i4 quantisation (±8 reach) loses > 25 % of the gain. M |
 | — | ceiling | Higher-order CRF on TIGER: POS 97.44 %, POS+MORPH 88.58 % (91.65 % with an analyser); case needs long context | — | — | Mueller/Schmid/Schütze EMNLP 2013 (SECTION-READ) | DROP as a design | PASS as a citation | none |
 
+## 2a. Measured (2026-10-04, D-LXC-23 — entry `2026-10-04-deepnsm-v2-first-probes-from-the-grammar-map.md`)
+
+| rank | result | verdict |
+|---|---|---|
+| 1 DET vs PRON | German 92.3 → 96.0 %, pronoun P 90.0 % / R 54.1 % | PASS |
+| 5 fixed-case prepositions | HDT Acc 90.0 %, Dat 92.5 %, Gen 68.4 % (< baseline 70.9 %) | Acc/Dat PASS, Gen KILL |
+| 6 relative pronoun | HDT 80.1 % vs 63.8 % | PASS |
+| 8 Wechselpräposition | article decides 99.7 % on HDT; verb prior 63.0 % vs prep majority 63.9 % | verb prior KILL |
+| 15 right corner on the Bible | Luther overturns 7.1 % vs GSD 12.3 % (matched arm the same) | KILL |
+
 ## 3. Shared precondition (bridge 0)
 
 Most of ranks 1–9 need the same two changes:

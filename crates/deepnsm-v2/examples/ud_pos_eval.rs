@@ -763,6 +763,30 @@ fn rules(
                 (cased && x.surface.starts_with(char::is_lowercase)).then_some(Pos::Verb)
             }),
         ));
+    } else if pair.0 == Pos::Det {
+        // der/die/das (and English "that"): an article opens a nominal group;
+        // the pronoun reading (`Rel` where the treebank marks relativizers,
+        // `Noun` where it folds a relative/demonstrative PRON, as German GSD
+        // does) opens a clause after a comma or stands without a noun.
+        let pron = pair.1;
+        fixed.push((
+            "followed by a noun or adjective -> det",
+            Box::new(|x: &Tok| {
+                (x.next.contains(Pos::Noun) || x.next.contains(Pos::Adj)).then_some(Pos::Det)
+            }),
+        ));
+        fixed.push((
+            "after a comma -> pronoun",
+            Box::new(move |x: &Tok| (x.prev_form == Some(",")).then_some(pron)),
+        ));
+        fixed.push((
+            "followed by a determiner -> pronoun",
+            Box::new(move |x: &Tok| only(x.next, Pos::Det).then_some(pron)),
+        ));
+        fixed.push((
+            "followed by a verb-only word -> pronoun",
+            Box::new(move |x: &Tok| only(x.next, Pos::Verb).then_some(pron)),
+        ));
     } else {
         for (name, rule) in [
             (
@@ -1073,6 +1097,9 @@ fn quorum_report(
 
     let toks = pair_tokens(test, lex, copulas, cased, pair);
     let mut joint_ok = 0usize;
+    // Second-reading precision/recall of the joint quorum: (predicted b,
+    // predicted b and gold b, gold b).
+    let (mut pred_b, mut hit_b, mut gold_b) = (0usize, 0usize, 0usize);
     let (mut freq_ok, mut prio_ok, mut quorum_ok, mut silent) = (0usize, 0usize, 0usize, 0usize);
     let mut fired = vec![(0usize, 0usize); rules.len()];
     for (t, g) in &toks {
@@ -1101,7 +1128,11 @@ fn quorum_report(
         };
         quorum_ok += usize::from(quorum == *g);
         let z: f64 = features(t).iter().zip(&w).map(|(xi, wi)| xi * wi).sum();
-        joint_ok += usize::from(if z > 0.0 { a } else { b } == *g);
+        let joint = if z > 0.0 { a } else { b };
+        joint_ok += usize::from(joint == *g);
+        pred_b += usize::from(joint == b);
+        hit_b += usize::from(joint == b && *g == b);
+        gold_b += usize::from(*g == b);
     }
     let pct = |x: usize, d: usize| {
         if d == 0 {
@@ -1120,6 +1151,12 @@ fn quorum_report(
         pct(prio_ok, n),
         pct(quorum_ok, n),
         pct(joint_ok, n)
+    );
+    println!(
+        "    joint quorum on {:?}: precision {:.1}% ({hit_b}/{pred_b}), recall {:.1}% ({hit_b}/{gold_b})",
+        b,
+        pct(hit_b, pred_b),
+        pct(hit_b, gold_b)
     );
     if std::env::var_os("UD_RULES").is_some() {
         for i in 0..rules.len() {
@@ -1482,6 +1519,26 @@ fn main() {
         aa,
         "adjective/adverb",
     );
+    // Article vs pronoun (der/die/das, "that"): the pronoun reading is `Rel`
+    // where the treebank marks relativizers, `Noun` where it folds PRON
+    // (German GSD carries no PronType=Rel).
+    for (pair, name) in [
+        ((Pos::Det, Pos::Rel), "determiner/relativizer"),
+        ((Pos::Det, Pos::Noun), "determiner/pronoun"),
+    ] {
+        position_table_report(&train, &test, &lex, &copulas, cased, pair, name);
+        quorum_report(
+            &train,
+            &test,
+            &lex,
+            coca.is_some(),
+            &copulas,
+            cased,
+            typology,
+            pair,
+            name,
+        );
+    }
 
     // Each attribute clause on its own: every adjective/adverb token whose
     // gold is one of the two, the clause that fires, and whether the clause
