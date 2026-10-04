@@ -24,6 +24,16 @@
 //! cargo run --release --example ud_pos_eval -- TRAIN TEST --coca ../deepnsm/word_frequency
 //! ```
 //!
+//! Beside the parser's rules it learns a **position table** from train: for
+//! each ambiguous pair, P(first reading | previous readings, previous word is
+//! a copula, next readings) — the neighbours only, never the word — and scores
+//! it alone and combined with the frequency pick (log-odds). Whether the
+//! language capitalises nouns is measured from train; where it does (German)
+//! lexicon keys keep their case, and a sentence-initial word adds its
+//! lowercase readings. The copula set is train's `cop` forms. A plain text
+//! can be scored the same way after silver tagging, e.g. Animal Farm through
+//! spaCy `en_core_web_sm` (lab step, not committed).
+//!
 //! `UD_CLAUSE=1` switches on the clause rule
 //! ([`Typology::predicate_required`]). The typology is measured from train;
 //! `UD_TYPOLOGY=english` uses
@@ -40,7 +50,15 @@ use deepnsm_v2::fsm::{
 
 /// One syntactic word of a UD sentence.
 struct Word {
+    /// Lexicon key: lowercased, or the surface where the language
+    /// capitalises nouns (see [`capitalises_nouns`]).
     form: String,
+    /// The form as written.
+    surface: String,
+    /// UPOS is NOUN (not PROPN/PRON) — for the capitalisation measurement.
+    upos_noun: bool,
+    /// The word is a copula (UD relation `cop`).
+    copula: bool,
     gold: Pos,
     /// The adjective modifies a noun (`amod`) that stands after it
     /// (`Some(true)`) or before it (`Some(false)`); `None` otherwise.
@@ -96,6 +114,9 @@ fn read_conllu(path: &str) -> Vec<Vec<Word>> {
         };
         cur.push(Word {
             form,
+            surface: cols[1].to_string(),
+            upos_noun: cols[3] == "NOUN",
+            copula: cols.get(7).is_some_and(|r| *r == "cop"),
             gold,
             amod_head_after,
         });
@@ -240,6 +261,220 @@ fn wordnet_pick(lex: &Lexicon, wn: &HashMap<String, (usize, usize)>, form: &str)
     }
 }
 
+/// Whether the language capitalises nouns, measured from gold: of
+/// non-initial words, the share of NOUN capitalised and the share of every
+/// other non-PROPN word capitalised. Nouns above 90 % and the rest below 10 %
+/// → true (policy pins). Returns (decision, noun share, other share).
+fn capitalises_nouns(train: &[Vec<Word>]) -> (bool, f64, f64) {
+    let (mut n, mut nc, mut o, mut oc) = (0usize, 0usize, 0usize, 0usize);
+    for s in train {
+        for w in s.iter().skip(1) {
+            let cap = w.surface.starts_with(char::is_uppercase);
+            if w.upos_noun {
+                n += 1;
+                nc += usize::from(cap);
+            } else if w.gold != Pos::Noun && w.surface.chars().any(char::is_alphabetic) {
+                o += 1;
+                oc += usize::from(cap);
+            }
+        }
+    }
+    let ns = nc as f64 / n.max(1) as f64;
+    let os = oc as f64 / o.max(1) as f64;
+    (ns > 0.9 && os < 0.1, ns, os)
+}
+
+/// Re-key every word on its surface (case kept).
+fn keep_case(sentences: &mut [Vec<Word>]) {
+    for w in sentences.iter_mut().flatten() {
+        w.form = w.surface.clone();
+    }
+}
+
+/// The readings of word `k` of a sentence: its own key, and — for the first
+/// word when case is kept — also its lowercase form (sentence-initial
+/// capitals say nothing about the word class).
+fn readings_of(lex: &Lexicon, s: &[Word], k: usize, cased: bool) -> PosSet {
+    let own = lex.get(&s[k].form);
+    if cased && k == 0 {
+        own.union(lex.get(&s[k].form.to_lowercase()))
+    } else {
+        own
+    }
+}
+
+/// Positional context of a token: the neighbours' reading sets and whether
+/// the previous word is a copula. Never the word itself.
+type Context = (u8, bool, u8);
+
+fn bits(p: PosSet) -> u8 {
+    Pos::ALL
+        .iter()
+        .enumerate()
+        .filter(|(_, x)| p.contains(**x))
+        .fold(0u8, |a, (i, _)| a | (1 << i))
+}
+
+/// P(first | context) for one reading pair, learned from gold train tags
+/// with the evaluation lexicon's readings. Backs off from the full context
+/// to its next-only and previous-only halves when support is thin.
+struct PositionTable {
+    full: HashMap<Context, [usize; 2]>,
+    next: HashMap<u8, [usize; 2]>,
+    prev: HashMap<(u8, bool), [usize; 2]>,
+}
+
+/// Minimum train tokens behind a context before it may decide (policy pin).
+const MIN_SUPPORT: usize = 10;
+
+impl PositionTable {
+    fn learn(
+        train: &[Vec<Word>],
+        lex: &Lexicon,
+        copulas: &std::collections::HashSet<String>,
+        cased: bool,
+        pair: (Pos, Pos),
+    ) -> Self {
+        let mut t = Self {
+            full: HashMap::new(),
+            next: HashMap::new(),
+            prev: HashMap::new(),
+        };
+        for s in train {
+            let set = |k: usize| readings_of(lex, s, k, cased);
+            for k in 0..s.len() {
+                let this = set(k);
+                let w = &s[k];
+                if !(this.contains(pair.0) && this.contains(pair.1))
+                    || (w.gold != pair.0 && w.gold != pair.1)
+                {
+                    continue;
+                }
+                let ctx = Self::context(s, k, &set, copulas);
+                let slot = usize::from(w.gold == pair.1);
+                t.full.entry(ctx).or_default()[slot] += 1;
+                t.next.entry(ctx.2).or_default()[slot] += 1;
+                t.prev.entry((ctx.0, ctx.1)).or_default()[slot] += 1;
+            }
+        }
+        t
+    }
+
+    fn context(
+        s: &[Word],
+        k: usize,
+        set: &dyn Fn(usize) -> PosSet,
+        copulas: &std::collections::HashSet<String>,
+    ) -> Context {
+        let prev = k.checked_sub(1);
+        (
+            prev.map_or(0, |j| bits(set(j))),
+            prev.is_some_and(|j| copulas.contains(&s[j].form.to_lowercase())),
+            if k + 1 < s.len() { bits(set(k + 1)) } else { 0 },
+        )
+    }
+
+    /// P(first member | context), with the support it rests on.
+    fn p_first(&self, ctx: Context) -> Option<(f64, usize)> {
+        let pick = |c: [usize; 2]| {
+            let n = c[0] + c[1];
+            (n >= MIN_SUPPORT).then(|| ((c[0] as f64 + 0.5) / (n as f64 + 1.0), n))
+        };
+        if let Some(r) = self.full.get(&ctx).copied().and_then(pick) {
+            return Some(r);
+        }
+        // Back off: whichever half is more decisive.
+        let a = self.next.get(&ctx.2).copied().and_then(pick);
+        let b = self.prev.get(&(ctx.0, ctx.1)).copied().and_then(pick);
+        match (a, b) {
+            (Some(x), Some(y)) => Some(if (x.0 - 0.5).abs() >= (y.0 - 0.5).abs() {
+                x
+            } else {
+                y
+            }),
+            (x, y) => x.or(y),
+        }
+    }
+}
+
+/// Learn a [`PositionTable`] on train and score it on test, against the
+/// frequency pick and their log-odds combination, on the same tokens.
+fn position_table_report(
+    train: &[Vec<Word>],
+    test: &[Vec<Word>],
+    lex: &Lexicon,
+    copulas: &std::collections::HashSet<String>,
+    cased: bool,
+    pair: (Pos, Pos),
+    name: &str,
+) {
+    let table = PositionTable::learn(train, lex, copulas, cased, pair);
+    let (a, b) = pair;
+    let prior = {
+        let (x, y) = table
+            .full
+            .values()
+            .fold((0, 0), |s, c| (s.0 + c[0], s.1 + c[1]));
+        (x as f64 + 0.5) / ((x + y) as f64 + 1.0)
+    };
+    let logit = |p: f64| (p / (1.0 - p)).ln();
+    let (mut n, mut dec, mut dec_right, mut freq_on_dec, mut freq_all, mut comb_all) =
+        (0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
+    for s in test {
+        let set = |k: usize| readings_of(lex, s, k, cased);
+        for k in 0..s.len() {
+            let w = &s[k];
+            let this = set(k);
+            if !(this.contains(a) && this.contains(b)) || (w.gold != a && w.gold != b) {
+                continue;
+            }
+            n += 1;
+            let ca = lex
+                .counts
+                .get(&(w.form.clone(), a as u8))
+                .copied()
+                .unwrap_or(0);
+            let cb = lex
+                .counts
+                .get(&(w.form.clone(), b as u8))
+                .copied()
+                .unwrap_or(0);
+            let p_word = (ca as f64 + 0.5) / ((ca + cb) as f64 + 1.0);
+            let freq = if cb > ca { b } else { a };
+            freq_all += usize::from(freq == w.gold);
+            let ctx = PositionTable::context(s, k, &set, copulas);
+            let p_ctx = table.p_first(ctx);
+            if let Some((p, _)) = p_ctx {
+                if !(0.25..0.75).contains(&p) {
+                    let pick = if p >= 0.75 { a } else { b };
+                    dec += 1;
+                    dec_right += usize::from(pick == w.gold);
+                    freq_on_dec += usize::from(freq == w.gold);
+                }
+            }
+            let score = logit(p_word) + p_ctx.map_or(0.0, |(p, _)| logit(p) - logit(prior));
+            let comb = if score >= 0.0 { a } else { b };
+            comb_all += usize::from(comb == w.gold);
+        }
+    }
+    let pct = |x: usize, d: usize| {
+        if d == 0 {
+            0.0
+        } else {
+            100.0 * x as f64 / d as f64
+        }
+    };
+    println!(
+        "  {name} position table ({} contexts): decides {dec} of {n} at {:.1}% (frequency \
+         {:.1}% on them); all tokens: frequency {:.1}%, position × frequency {:.1}%",
+        table.full.len(),
+        pct(dec_right, dec),
+        pct(freq_on_dec, dec),
+        pct(freq_all, n),
+        pct(comb_all, n)
+    );
+}
+
 /// Score for one pair of readings.
 #[derive(Default)]
 struct PairScore {
@@ -374,7 +609,26 @@ fn main() {
             std::process::exit(2);
         }
     };
-    let train = read_conllu(train);
+    let mut train = read_conllu(train);
+    // German capitalises nouns: case is morphology there, so keys keep it.
+    // Measured per language; COCA (English) stays lowercase.
+    let (caps, noun_share, other_share) = capitalises_nouns(&train);
+    let cased = caps && coca.is_none();
+    println!(
+        "capitalisation: non-initial nouns {:.1}% capitalised, other words {:.1}% → case {}",
+        100.0 * noun_share,
+        100.0 * other_share,
+        if cased { "kept" } else { "folded" }
+    );
+    if cased {
+        keep_case(&mut train);
+    }
+    let copulas: std::collections::HashSet<String> = train
+        .iter()
+        .flatten()
+        .filter(|w| w.copula)
+        .map(|w| w.form.to_lowercase())
+        .collect();
     let (typology, share_before, verb_after) = match std::env::var("UD_TYPOLOGY").as_deref() {
         Ok("english") => (Typology::ENGLISH, f64::NAN, f64::NAN),
         _ => measure_typology(&train),
@@ -425,20 +679,23 @@ fn main() {
         }
         println!("WordNet filter: {narrowed} COCA noun/verb forms lost a reading WordNet lacks");
     }
-    let test = read_conllu(test);
+    let mut test = read_conllu(test);
+    if cased {
+        keep_case(&mut test);
+    }
 
     // One stream: every sentence ends in a stop, whatever its own punctuation.
     let mut ids: HashMap<&str, u16> = HashMap::new();
     let mut readings = Vec::new();
     let mut words: Vec<Option<&Word>> = Vec::new();
     for s in &test {
-        for w in s {
+        for (k, w) in s.iter().enumerate() {
             if w.gold == Pos::Stop {
                 continue;
             }
             let next = u16::try_from(ids.len() + 1).unwrap_or(u16::MAX);
             let id = *ids.entry(w.form.as_str()).or_insert(next);
-            readings.push(Reading::new(id, lex.get(&w.form)));
+            readings.push(Reading::new(id, readings_of(&lex, s, k, cased)));
             words.push(Some(w));
         }
         readings.push(Reading::stop());
@@ -487,6 +744,7 @@ fn main() {
         parse.unpredicated_dropped
     );
     nv_score.print("noun/verb", nv);
+    position_table_report(&train, &test, &lex, &copulas, cased, nv, "noun/verb");
     // A parallel coordinate: WordNet's own noun/verb sense counts as the
     // prior, scored on the same tokens (COCA mode supplies the lemmas).
     if let Some(path) = std::env::var("UD_WORDNET").ok().filter(|p| !p.is_empty()) {
@@ -526,6 +784,7 @@ fn main() {
         );
     }
     aa_score.print("adjective/adverb", aa);
+    position_table_report(&train, &test, &lex, &copulas, cased, aa, "adjective/adverb");
 
     // Each attribute clause on its own: every adjective/adverb token whose
     // gold is one of the two, the clause that fires, and whether the clause
@@ -546,6 +805,21 @@ fn main() {
         }
         let rule = attribute_rule(edge(i.checked_sub(1)), this, edge(Some(i + 1)), typology);
         let freq = lex.more_frequent(&w.form, Pos::Adj, Pos::Adv);
+        if std::env::var_os("UD_CLAUSE_DUMP").is_some() {
+            let word = |j: Option<usize>| {
+                j.and_then(|j| words.get(j).copied().flatten())
+                    .map_or("|".to_string(), |x| format!("{}/{:?}", x.form, x.gold))
+            };
+            eprintln!(
+                "CLAUSE {:?} gold {:?} freq {:?} | {} [{}] {}",
+                rule,
+                w.gold,
+                freq,
+                word(i.checked_sub(1)),
+                w.form,
+                word(Some(i + 1))
+            );
+        }
         let e = per_rule.entry(rule).or_default();
         e.0 += 1;
         e.1 += usize::from(rule.is_some_and(|r| r.keeps() == w.gold));
