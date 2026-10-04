@@ -252,14 +252,22 @@ pub struct SupportReceipt {
     pub basis: SupportBasis,
     /// Who supplied it — a stable external identity.
     ///
-    /// **Name the observation, not the reader.** Distinct-source counting
-    /// only means "independent" if every interpretation of ONE observation
-    /// records the same `source`: two parsers reading one sentence, or two
-    /// lexical readings of one token, are one source. Keying `source` by the
-    /// producer instead turns a single observation into several apparent
-    /// witnesses. A source that *quotes* another (a review citing a primary
-    /// study) still records its own id here, so it counts as distinct: this
-    /// ledger has no derived-from link and no polarity slot, which is why
+    /// **Name who attested, not who read it.** `source` is attribution: the
+    /// paper, sensor or submitter that made the claim, never the parser or
+    /// reader that extracted it. Two parsers reading one sentence, two lexical
+    /// readings of one token, and two sentences of one paper are all ONE
+    /// source, so distinct-source counting means corroboration across
+    /// attestors. Keying `source` by the reader instead turns one attestation
+    /// into several apparent witnesses.
+    ///
+    /// This is not an evidence-EVENT id: telling "one sensor observed the fact
+    /// twice" from "one observation was read twice" needs a separate
+    /// admission-event receipt that does not exist yet
+    /// (`.claude/knowledge/parked-designs-841-856.md` §(a)).
+    ///
+    /// A source that *quotes* another (a review citing a primary study) still
+    /// records its own id here, so it counts as distinct: this ledger has no
+    /// derived-from link and no stance slot, which is why
     /// `independent_strength` stays `None`. Pinned by the `indra_*` tests.
     pub source: EvidenceSourceId,
     /// When it was recorded.
@@ -753,34 +761,34 @@ mod tests {
         );
     }
 
-    /// Cases 2 and 6: two interpretations of ONE observation (two readers of
-    /// one sentence, two lexical readings of one token) are one source when
-    /// `source` names the observation. The twin shows the convention is
-    /// load-bearing: keyed by producer, the same sentence reads as two.
+    /// Cases 2 and 6: two interpretations of ONE attestation (two readers of
+    /// one paper's sentence, two lexical readings of one token) are one
+    /// source when `source` names the attesting source. The twin shows the
+    /// convention is load-bearing: keyed by reader, one paper reads as two.
     #[test]
-    fn indra_two_readings_of_one_observation_are_one_source() {
-        const SENTENCE: u64 = 7;
+    fn indra_two_readings_of_one_attestation_are_one_source() {
+        const PAPER: u64 = 7;
         const READER_A: u64 = 1001;
         const READER_B: u64 = 1002;
 
-        let mut by_observation = SupportLedger::new();
-        by_observation.record(receipt(SupportBasis::LinguisticallyAsserted, SENTENCE, 10));
-        by_observation.record(receipt(SupportBasis::LinguisticallyAsserted, SENTENCE, 10));
-        let b = by_observation.profile();
+        let mut by_attestor = SupportLedger::new();
+        by_attestor.record(receipt(SupportBasis::LinguisticallyAsserted, PAPER, 10));
+        by_attestor.record(receipt(SupportBasis::LinguisticallyAsserted, PAPER, 10));
+        let b = by_attestor.profile();
         let b = b.basis(SupportBasis::LinguisticallyAsserted);
         assert_eq!(b.receipt_count, 2, "both readings stay on record");
-        assert_eq!(b.distinct_source_count, 1, "…as one observation");
+        assert_eq!(b.distinct_source_count, 1, "…as one attesting source");
 
-        let mut by_producer = SupportLedger::new();
-        by_producer.record(receipt(SupportBasis::LinguisticallyAsserted, READER_A, 10));
-        by_producer.record(receipt(SupportBasis::LinguisticallyAsserted, READER_B, 10));
+        let mut by_reader = SupportLedger::new();
+        by_reader.record(receipt(SupportBasis::LinguisticallyAsserted, READER_A, 10));
+        by_reader.record(receipt(SupportBasis::LinguisticallyAsserted, READER_B, 10));
         assert_eq!(
-            by_producer
+            by_reader
                 .profile()
                 .basis(SupportBasis::LinguisticallyAsserted)
                 .distinct_source_count,
             2,
-            "keyed by producer, one sentence masquerades as two witnesses"
+            "keyed by reader, one paper masquerades as two witnesses"
         );
     }
 
