@@ -151,6 +151,15 @@ struct Core {
     /// The open nominal group was opened by an adjective, not a determiner.
     /// Licensing reads it only where [`Typology::adjective_opens_nominal`].
     adjective_open: bool,
+    /// The previous token was a determiner that came straight after the
+    /// subject's head noun while the clause still waited for its verb: a
+    /// quantifier floating off the subject ("the men **all** eat"), not an
+    /// object's start. A determiner after any other word ("when **the** land")
+    /// opens a group as usual. Read only by licensing.
+    floating_quantifier: bool,
+    /// The previous token was a noun. Read only to recognise a floating
+    /// quantifier, which follows the subject's head directly.
+    after_noun: bool,
     /// The previous token opened the clause as its subject — a noun taken in
     /// [`State::Start`] with no determiner or adjective in front ("they",
     /// "men", "God"). An object carried into the subject slot ("gave him …")
@@ -173,6 +182,8 @@ impl Core {
         antecedent: 0,
         nominal_open: false,
         adjective_open: false,
+        floating_quantifier: false,
+        after_noun: false,
         fresh_subject: false,
         predicated: false,
     };
@@ -185,6 +196,9 @@ impl Core {
         self.fresh_subject = false;
         self.nominal_open = matches!(t.pos, Pos::Det | Pos::Adj);
         self.adjective_open = t.pos == Pos::Adj;
+        self.floating_quantifier =
+            t.pos == Pos::Det && self.after_noun && matches!(self.state, State::HaveSubject);
+        self.after_noun = t.pos == Pos::Noun;
 
         // While a relative clause is open, its own tiny machine consumes the
         // embedded S-V-O; the matrix subject stays parked in `matrix`.
@@ -581,8 +595,16 @@ impl Default for Typology {
 /// [`Typology`] says an adjective always opens one. [`parse_readings`]
 /// applies it relatively: it never removes a token's last admissible
 /// reading.
+///
+/// Except a determiner that arrived while the clause held a subject and still
+/// waited for its verb ([`Core::floating_quantifier`]): it is a quantifier
+/// floating off the subject ("the men **all** eat"), not the start of an
+/// object, so the verb slot is still open. An adjective there still opens a
+/// group.
 const fn licensed(core: &Core, pos: Pos, typology: Typology) -> bool {
-    let open = core.nominal_open && (!core.adjective_open || typology.adjective_opens_nominal);
+    let open = core.nominal_open
+        && (!core.adjective_open || typology.adjective_opens_nominal)
+        && !core.floating_quantifier;
     !(open && matches!(pos, Pos::Verb))
 }
 
@@ -1105,6 +1127,40 @@ mod tests {
         // A determiner still licenses away the verb in every typology.
         let toks = [one(9, Pos::Det), noun_or_verb(2)];
         let p = parse_readings_with(&toks, verb_after_adjective);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Noun));
+    }
+
+    /// Bugbot (#1321): a quantifier floating after the subject ("the men
+    /// **all** eat", "they **both** agree") opens no object group: the clause
+    /// still waits for its verb, so licensing keeps the homograph's verb
+    /// reading. A determiner after the verb ("men saw the record") or at the
+    /// clause start ("the record") still drops it.
+    #[test]
+    fn a_floating_quantifier_keeps_the_verb_slot_open() {
+        let p = parse_readings(&[
+            one(9, Pos::Det),
+            one(1, Pos::Noun),
+            one(8, Pos::Det),
+            noun_or_verb(2),
+        ]);
+        assert!(p.ambiguous[0].survived.contains(Pos::Verb));
+        assert_eq!(p.unlicensed_dropped, 0);
+        let p = parse_readings(&[
+            one(1, Pos::Noun),
+            one(4, Pos::Verb),
+            one(9, Pos::Det),
+            noun_or_verb(2),
+        ]);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Noun));
+        let p = parse_readings(&[one(9, Pos::Det), noun_or_verb(2)]);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Noun));
+        // "man when the land": a determiner after a non-noun opens a group.
+        let p = parse_readings(&[
+            one(1, Pos::Noun),
+            one(7, Pos::Other),
+            one(9, Pos::Det),
+            noun_or_verb(2),
+        ]);
         assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Noun));
     }
 
