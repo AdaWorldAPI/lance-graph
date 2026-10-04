@@ -57,7 +57,7 @@
 //! [`NodeGuid::CLASSID_FMA`]). New domains are just another `DomainSpec` —
 //! the projector is domain-agnostic.
 
-use crate::canonical_node::{NodeGuid, NodeRow};
+use crate::canonical_node::{NodeGuid, NodeRow, TailVariant};
 use crate::graph_render::{GraphSnapshot, RenderEdge, RenderNode};
 use crate::hhtl::NiblePath;
 use std::collections::HashMap;
@@ -183,16 +183,25 @@ fn family_node_id(family: u32) -> String {
 /// never collapses to [`NiblePath::EMPTY`]. Every other classid uses the canonical
 /// v1 lowering (`classid_lo·HEEL·HIP·TWIG`), which falls back to
 /// [`NiblePath::EMPTY`] only for the v1-fold case of a non-zero high `classid` u16.
+///
+/// `tail` is the domain's `tail_variant`, resolved ONCE by the caller
+/// ([`domain_tail`]) — never looked up per row.
 #[inline]
-fn hhtl_path(guid: &NodeGuid) -> NiblePath {
+fn hhtl_path(guid: &NodeGuid, tail: TailVariant) -> NiblePath {
     #[cfg(feature = "guid-v3-tail")]
-    {
-        use crate::canonical_node::{classid_read_mode, TailVariant};
-        if classid_read_mode(guid.classid()).tail_variant == TailVariant::V3 {
-            return NiblePath::from_guid_prefix_v3(guid);
-        }
+    if tail == TailVariant::V3 {
+        return NiblePath::from_guid_prefix_v3(guid);
     }
+    let _ = tail;
     NiblePath::from_guid_prefix(guid).unwrap_or(NiblePath::EMPTY)
+}
+
+/// The domain's `tail_variant`, resolved once per projection. Every row the
+/// projectors read has already been filtered to `domain.classid`, so one
+/// registry lookup serves the whole population.
+#[inline]
+fn domain_tail(domain: &DomainSpec) -> TailVariant {
+    crate::canonical_node::classid_read_mode(domain.classid).tail_variant
 }
 
 /// The node's basin-`family` id, decoded per its `tail_variant` — the
@@ -204,17 +213,12 @@ fn hhtl_path(guid: &NodeGuid) -> NiblePath {
 /// mapping exactly like the path is. Under no tail feature every classid is V1, so
 /// this is just `family()`.
 #[inline]
-fn family_of(guid: &NodeGuid) -> u32 {
+fn family_of(guid: &NodeGuid, tail: TailVariant) -> u32 {
     #[cfg(feature = "guid-v2-tail")]
-    {
-        use crate::canonical_node::{classid_read_mode, TailVariant};
-        if matches!(
-            classid_read_mode(guid.classid()).tail_variant,
-            TailVariant::V2 | TailVariant::V3
-        ) {
-            return guid.family_v2() as u32;
-        }
+    if matches!(tail, TailVariant::V2 | TailVariant::V3) {
+        return guid.family_v2() as u32;
     }
+    let _ = tail;
     guid.family()
 }
 
@@ -222,17 +226,12 @@ fn family_of(guid: &NodeGuid) -> u32 {
 /// [`family_of`]): V2/V3 read [`NodeGuid::identity_v2`] (bytes 14..16), V1 reads
 /// [`NodeGuid::identity`] (bytes 13..16).
 #[inline]
-fn identity_of(guid: &NodeGuid) -> u32 {
+fn identity_of(guid: &NodeGuid, tail: TailVariant) -> u32 {
     #[cfg(feature = "guid-v2-tail")]
-    {
-        use crate::canonical_node::{classid_read_mode, TailVariant};
-        if matches!(
-            classid_read_mode(guid.classid()).tail_variant,
-            TailVariant::V2 | TailVariant::V3
-        ) {
-            return guid.identity_v2() as u32;
-        }
+    if matches!(tail, TailVariant::V2 | TailVariant::V3) {
+        return guid.identity_v2() as u32;
     }
+    let _ = tail;
     guid.identity()
 }
 
@@ -247,6 +246,7 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
         .iter()
         .filter(|r| r.key.classid() == domain.classid)
         .collect();
+    let tail = domain_tail(domain);
 
     // family → member count, and a COLLISION-AWARE family-low-byte → family map.
     // codex P1: with >256 families two ids can share a low byte; a duplicate
@@ -255,7 +255,7 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
     let mut by_family: HashMap<u32, usize> = HashMap::new();
     let mut family_by_low: HashMap<u8, Option<u32>> = HashMap::new();
     for row in &domain_rows {
-        let fam = family_of(&row.key);
+        let fam = family_of(&row.key, tail);
         *by_family.entry(fam).or_insert(0) += 1;
         family_by_low
             .entry((fam & 0xFF) as u8)
@@ -300,16 +300,19 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
     // Member nodes + their edges (all head-only, family-adapter resolution).
     for row in &domain_rows {
         let g = row.key;
-        let fam = family_of(&g);
+        let fam = family_of(&g, tail);
         nodes.push(RenderNode {
             id: g.to_string(),
-            label: format!("{:06x}", identity_of(&g)),
+            label: format!("{:06x}", identity_of(&g, tail)),
             kind: domain.name.to_string(),
             confidence: 1.0,
             props: vec![
                 ("classid".to_string(), format!("{:08x}", g.classid())),
                 ("family".to_string(), format!("{fam:06x}")),
-                ("hhtl_depth".to_string(), hhtl_path(&g).depth().to_string()),
+                (
+                    "hhtl_depth".to_string(),
+                    hhtl_path(&g, tail).depth().to_string(),
+                ),
             ],
         });
         // member → own family containment
@@ -389,19 +392,20 @@ pub fn nearest_anchor(rows: &[NodeRow], domain: &DomainSpec) -> Vec<AnchorHop> {
         .iter()
         .filter(|r| r.key.classid() == domain.classid)
         .collect();
+    let tail = domain_tail(domain);
     // Representative HHTL path per anchor family (first member encountered).
     let mut anchor_paths: Vec<(u32, NiblePath)> = Vec::new();
     for row in &domain_rows {
-        let fam = family_of(&row.key);
+        let fam = family_of(&row.key, tail);
         if domain.anchor_families.contains(&fam) && !anchor_paths.iter().any(|(f, _)| *f == fam) {
-            anchor_paths.push((fam, hhtl_path(&row.key)));
+            anchor_paths.push((fam, hhtl_path(&row.key, tail)));
         }
     }
     domain_rows
         .iter()
         .map(|row| {
             let g = row.key;
-            let p = hhtl_path(&g);
+            let p = hhtl_path(&g, tail);
             let mut anchor_family = u32::MAX;
             let mut hops = u8::MAX;
             for &(fam, ap) in &anchor_paths {
@@ -464,6 +468,55 @@ mod tests {
         }
     }
 
+    /// The projectors resolve the domain's reading once per call, never once
+    /// per row. Two-sided on the population size: 1 row and 1000 rows must
+    /// cost the same number of registry lookups. Instrumented at the registry
+    /// itself (`classid_read_mode`), so a lookup hidden behind any helper is
+    /// counted.
+    #[test]
+    fn domain_projection_resolves_its_reading_once_not_per_row() {
+        use crate::canonical_node::{read_mode_lookups, reset_read_mode_lookups};
+        let dom = DomainSpec {
+            classid: NodeGuid::CLASSID_FMA,
+            name: "fma",
+            anchor_families: &[0x0001, 0x0002],
+            in_family_edge: "adjacent-to",
+            out_family_edge: "part-of",
+            member_edge: "part-of",
+        };
+        let mut counts = Vec::new();
+        for n in [1u32, 1000] {
+            let rows: Vec<NodeRow> = (0..n)
+                .map(|i| {
+                    node(
+                        &dom,
+                        (1, (i % 7) as u16, (i % 3) as u16),
+                        1 + i % 4,
+                        i + 1,
+                        &[2],
+                        &[1],
+                    )
+                })
+                .collect();
+            reset_read_mode_lookups();
+            let snap = project_snapshot(&rows, &dom);
+            let after_snapshot = read_mode_lookups();
+            let hops = nearest_anchor(&rows, &dom);
+            let after_anchor = read_mode_lookups();
+            assert!(
+                snap.nodes.len() as u32 > n,
+                "anti-vacuity: rows were projected"
+            );
+            assert_eq!(hops.len() as u32, n, "anti-vacuity: every row was ranked");
+            counts.push((after_snapshot, after_anchor - after_snapshot));
+        }
+        assert_eq!(counts[0], (1, 1), "one lookup per projection call");
+        assert_eq!(
+            counts[0], counts[1],
+            "lookup count must not scale with rows"
+        );
+    }
+
     #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn v3_rows_decode_family_and_identity_via_tail_variant() {
@@ -485,9 +538,9 @@ mod tests {
         );
 
         // The tail-aware helpers read the V3 basin (family_v2 / identity_v2)…
-        assert_eq!(family_of(&g), 0xBBBB, "V3 family = family_v2 (12..14)");
+        assert_eq!(family_of(&g, tv), 0xBBBB, "V3 family = family_v2 (12..14)");
         assert_eq!(
-            identity_of(&g),
+            identity_of(&g, tv),
             0xCCCC,
             "V3 identity = identity_v2 (14..16)"
         );

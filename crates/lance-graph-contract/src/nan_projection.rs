@@ -24,17 +24,20 @@
 //! happened to zero out. Each row is therefore gated on its OWN resolved
 //! `[ValueSchema::has]` before its `Energy` bytes are read at all.
 //!
-//! **What "branchless" still means after the gate, precisely (codex review,
-//! 2026-07-30).** The FINITENESS TEST — the exponent-mask compare on the
-//! four already-loaded bytes — is unchanged: still zero branches on the
-//! value. That is not the same claim as "the sweep costs what it did
-//! before." [`row_has_energy`] calls [`NodeGuid::read_mode`], which resolves
-//! through [`classid_read_mode`] — a `HashMap` lookup behind a `LazyLock`,
-//! not a bitmask. That lookup is real per-row work, added on top of the old
-//! four-byte load, and can plausibly dominate it for an in-cache homogeneous
-//! batch. Not benchmarked; do not read "branchless" below as "free" — if
-//! this projection lands on a genuinely hot path, that lookup is the first
-//! place to look before assuming the schema gate is costless.
+//! **Where the schema is resolved.** The finiteness test — the exponent-mask
+//! compare on four loaded bytes — has no branch on the value. The schema
+//! lookup ([`classid_read_mode`], a `HashMap` behind a `LazyLock`) is kept
+//! out of the per-row loop:
+//!
+//! - [`project_energy_nonfinite_resolved`] / [`energy_all_finite_resolved`]
+//!   take the population's already-resolved [`ValueSchema`] (e.g.
+//!   `ResolvedReading::read_mode.value_schema`). One schema check per call;
+//!   no registry lookup at all.
+//! - [`project_energy_nonfinite`] / [`energy_all_finite`] accept a mixed
+//!   batch. They resolve once per RUN of equal classid and hand each run to
+//!   the resolved path, so a homogeneous batch costs one lookup, and a batch
+//!   alternating classids costs one per change. The only per-row metadata
+//!   work left there is comparing the row's classid with the run's.
 //!
 //! [`NanReport::skipped`] makes the gate's effect observable rather than a
 //! silent no-op, per the workspace's can-it-fire testing rule.
@@ -48,7 +51,7 @@
 //! [`NodeGuid::read_mode`]: crate::canonical_node::NodeGuid::read_mode
 //! [`classid_read_mode`]: crate::canonical_node::classid_read_mode
 
-use crate::canonical_node::{NodeRow, ValueTenant};
+use crate::canonical_node::{classid_read_mode, NodeRow, ValueSchema, ValueTenant};
 
 /// `true` iff an `f32` bit pattern is non-finite (Inf or NaN): the exponent
 /// field is all-ones. No float materialised.
@@ -92,8 +95,8 @@ impl NanReport {
 }
 
 /// Read one board's `Energy` tenant as a raw `f32` bit pattern (no float load).
-/// Caller MUST have already confirmed the row's schema materialises `Energy`
-/// ([`row_has_energy`]) — this function does not gate.
+/// Caller MUST have already confirmed the population's schema materialises
+/// `Energy` — this function does not gate.
 #[inline]
 fn energy_bits(row: &NodeRow) -> u32 {
     let off = ValueTenant::Energy.value_offset();
@@ -105,45 +108,93 @@ fn energy_bits(row: &NodeRow) -> u32 {
     ])
 }
 
-/// Does this row's OWN resolved schema materialise `Energy`? The one branch
-/// this module adds — on schema presence, never on the float value.
-#[inline]
-fn row_has_energy(row: &NodeRow) -> bool {
-    row.key.read_mode().value_schema.has(ValueTenant::Energy)
+/// Project a population whose reading is ALREADY RESOLVED onto the
+/// NaN-detection surface. `schema` is the population's value schema (for a
+/// [`crate::hotplug::ResolvedReading`], its `read_mode.value_schema`); every
+/// row is read under it. No registry or read-mode lookup happens here.
+///
+/// If `schema` does not materialise `Energy`, no `Energy` bytes are read: every
+/// row is `skipped` and the report is clean. Otherwise each row's `Energy` is
+/// tested with the integer exponent mask.
+///
+/// The caller owns the homogeneity claim. For a batch that may mix classids,
+/// use [`project_energy_nonfinite`].
+pub fn project_energy_nonfinite_resolved(rows: &[NodeRow], schema: ValueSchema) -> NanReport {
+    if !schema.has(ValueTenant::Energy) {
+        return NanReport {
+            total: 0,
+            nonfinite: Vec::new(),
+            skipped: rows.len(),
+        };
+    }
+    let mut nonfinite = Vec::new();
+    for (i, row) in rows.iter().enumerate() {
+        if f32_bits_nonfinite(energy_bits(row)) {
+            nonfinite.push(i as u32);
+        }
+    }
+    NanReport {
+        total: rows.len(),
+        nonfinite,
+        skipped: 0,
+    }
+}
+
+/// Clean/dirty answer for a population whose reading is already resolved —
+/// the sibling of [`project_energy_nonfinite_resolved`]. Early-outs on the
+/// first non-finite board; `true` without reading anything when `schema` has
+/// no `Energy`.
+pub fn energy_all_finite_resolved(rows: &[NodeRow], schema: ValueSchema) -> bool {
+    !schema.has(ValueTenant::Energy) || rows.iter().all(|row| !f32_bits_nonfinite(energy_bits(row)))
+}
+
+/// Split `rows` into maximal runs of equal classid, resolving each run's
+/// value schema once. Yields `(start index, run, schema)`.
+fn schema_runs(rows: &[NodeRow]) -> impl Iterator<Item = (usize, &[NodeRow], ValueSchema)> {
+    let mut start = 0usize;
+    core::iter::from_fn(move || {
+        if start >= rows.len() {
+            return None;
+        }
+        let classid = rows[start].key.classid();
+        let len = rows[start..]
+            .iter()
+            .take_while(|r| r.key.classid() == classid)
+            .count();
+        let run = &rows[start..start + len];
+        let at = start;
+        start += len;
+        Some((at, run, classid_read_mode(classid).value_schema))
+    })
 }
 
 /// Project a batch of canonical boards onto the NaN-detection surface by reading
 /// each one's `Energy` tenant — schema-gated per row (see module docs). Read-only;
 /// returns the indices of non-finite boards among those actually inspected.
 /// This is the demoted singleton BindSpace — a projection, never a carrier.
+///
+/// Accepts a batch mixing classids. Each run of equal classid is resolved once
+/// and handed to [`project_energy_nonfinite_resolved`]; a caller that already
+/// knows its population's reading should call that directly.
 pub fn project_energy_nonfinite(rows: &[NodeRow]) -> NanReport {
-    let mut total = 0usize;
-    let mut skipped = 0usize;
-    let mut nonfinite = Vec::new();
-    for (i, row) in rows.iter().enumerate() {
-        if !row_has_energy(row) {
-            skipped += 1;
-            continue;
-        }
-        total += 1;
-        if f32_bits_nonfinite(energy_bits(row)) {
-            nonfinite.push(i as u32);
-        }
+    let mut report = NanReport::default();
+    for (at, run, schema) in schema_runs(rows) {
+        let r = project_energy_nonfinite_resolved(run, schema);
+        report.total += r.total;
+        report.skipped += r.skipped;
+        report
+            .nonfinite
+            .extend(r.nonfinite.into_iter().map(|i| i + at as u32));
     }
-    NanReport {
-        total,
-        nonfinite,
-        skipped,
-    }
+    report
 }
 
 /// Fast clean/dirty answer without materialising the index list — the cheapest
 /// projection (early-outs on the first non-finite board). Rows whose schema
-/// omits `Energy` are skipped, not treated as a violation.
+/// omits `Energy` are skipped, not treated as a violation. Mixed batches are
+/// resolved once per run of equal classid.
 pub fn energy_all_finite(rows: &[NodeRow]) -> bool {
-    rows.iter()
-        .filter(|row| row_has_energy(row))
-        .all(|row| !f32_bits_nonfinite(energy_bits(row)))
+    schema_runs(rows).all(|(_, run, schema)| energy_all_finite_resolved(run, schema))
 }
 
 #[cfg(test)]
@@ -255,5 +306,74 @@ mod tests {
             energy_all_finite(&rows),
             "energy_all_finite must agree with project_energy_nonfinite"
         );
+    }
+
+    // ── Resolved path: schema resolved once by the caller ─────────────────────
+
+    #[test]
+    fn resolved_path_does_no_read_mode_lookup() {
+        use crate::canonical_node::{read_mode_lookups, reset_read_mode_lookups};
+        let cognitive = classid_read_mode(NodeGuid::CLASSID_OSINT).value_schema;
+        assert!(cognitive.has(ValueTenant::Energy));
+        for n in [1usize, 1000] {
+            let mut rows: Vec<NodeRow> = (0..n).map(|i| board_with(i as f32)).collect();
+            rows[n - 1] = board_with(f32::NAN);
+            reset_read_mode_lookups();
+            let r = project_energy_nonfinite_resolved(&rows, cognitive);
+            let clean = energy_all_finite_resolved(&rows, cognitive);
+            assert_eq!(read_mode_lookups(), 0, "n = {n}");
+            // anti-vacuity: the rows were actually read
+            assert_eq!(r.total, n);
+            assert_eq!(r.nonfinite, vec![(n - 1) as u32]);
+            assert!(!clean);
+        }
+    }
+
+    #[test]
+    fn resolved_path_keeps_the_schema_gate() {
+        let compressed = classid_read_mode(NodeGuid::CLASSID_FMA).value_schema;
+        assert!(!compressed.has(ValueTenant::Energy));
+        let rows = vec![
+            board_with_classid(NodeGuid::CLASSID_FMA, f32::NAN),
+            board_with_classid(NodeGuid::CLASSID_FMA, f32::INFINITY),
+        ];
+        // the bytes really are poisoned, so a missing gate would report them
+        assert!(f32_bits_nonfinite(energy_bits(&rows[0])));
+        let r = project_energy_nonfinite_resolved(&rows, compressed);
+        assert_eq!((r.total, r.skipped), (0, 2));
+        assert!(r.nonfinite.is_empty());
+        assert!(energy_all_finite_resolved(&rows, compressed));
+    }
+
+    #[test]
+    fn mixed_wrapper_resolves_once_per_classid_run() {
+        use crate::canonical_node::{read_mode_lookups, reset_read_mode_lookups};
+        for n in [1usize, 1000] {
+            let rows: Vec<NodeRow> = (0..n).map(|i| board_with(i as f32)).collect();
+            reset_read_mode_lookups();
+            let r = project_energy_nonfinite(&rows);
+            assert_eq!(read_mode_lookups(), 1, "homogeneous batch, n = {n}");
+            assert_eq!(r.total, n);
+            reset_read_mode_lookups();
+            assert!(energy_all_finite(&rows));
+            assert_eq!(read_mode_lookups(), 1, "homogeneous batch, n = {n}");
+        }
+    }
+
+    #[test]
+    fn mixed_wrapper_reports_indices_into_the_whole_batch() {
+        let rows = vec![
+            board_with_classid(NodeGuid::CLASSID_FMA, f32::NAN),
+            board_with_classid(NodeGuid::CLASSID_OSINT, f32::NAN),
+            board_with_classid(NodeGuid::CLASSID_FMA, f32::NAN),
+            board_with_classid(NodeGuid::CLASSID_OSINT, 1.0),
+            board_with_classid(NodeGuid::CLASSID_OSINT, f32::INFINITY),
+        ];
+        let r = project_energy_nonfinite(&rows);
+        assert_eq!(r.nonfinite, vec![1, 4]);
+        assert_eq!((r.total, r.skipped), (3, 2));
+        assert!(!energy_all_finite(&rows));
+        // the FMA rows alone are skipped, not read
+        assert!(energy_all_finite(&[rows[0], rows[2]]));
     }
 }

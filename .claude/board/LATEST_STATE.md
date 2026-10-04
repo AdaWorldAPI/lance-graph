@@ -1,3 +1,13 @@
+## 2026-10-04 — read-mode resolved once per population (branch `ccr-f6094d67-h6ulb3`, unmerged)
+
+### Current Contract Inventory — net delta (`nan_projection.rs`, `soa_graph.rs`)
+- `project_energy_nonfinite_resolved(rows, ValueSchema)` and
+  `energy_all_finite_resolved(rows, ValueSchema)`: no per-row lookup. The
+  mixed-batch API resolves once per classid run. Entry `D-HPS-2`.
+- `soa_graph` helpers take the domain's resolved `TailVariant`.
+- `lance-graph-mask-risc`: `Pred::MatchFacet16Strided` (16-byte strided
+  ternary match, over `ndarray::simd::ternary_match_strided16_to_mask`).
+
 ## 2026-10-04 — Register128 slab reading + bounded power sums (branch `ccr-1d39fce9-gdgy6k`, unmerged, D-LXC-29)
 
 ### Current Contract Inventory — net delta (`register128.rs`, `hotplug.rs`, `canonical_node.rs`)
