@@ -39,3 +39,30 @@ Operator:
 - The quorum misses its "+2 points over the best single voter" bar: noun context carries almost all the signal.
 - TEKAMOLO position, adverb and verb add little on this sample.
 
+**Round 3 (pre-registered before its labels existed; design frozen).** Data: a fresh sample of 400 HDT test phrases. fresh_0 used labelers A + C, fresh_1 used A + B. κ = 0.969, subject to the same-model caveat above.
+
+| bar | result | verdict |
+|---|---|---|
+| κ ≥ 0.6 | 0.969 | — |
+| noun voter TIME F1 ≥ 0.80 | **0.831** | PASS |
+| noun voter PLACE F1 ≥ 0.55 | 0.476 | **KILL** |
+| quorum ≥ noun + 2 points | 85.3 % vs 84.8 % (+0.5) | **KILL** |
+| abstract head never PLACE (≤ 5 %) | 3 of 94 (3.2 %) | PASS (replicated) |
+
+**Verdict.**
+- Noun context detects TIME reliably, and the abstract-head rule replicates.
+- PLACE is not solved.
+- On HDT, TEKAMOLO position, adverb, verb and article add nothing measurable over the noun voter.
+
+**Exceptions to the abstract rule.** The abstract-head PLACE items across all labelled samples:
+- concrete *-ung* artifacts: *Verpackung*, *Packung*;
+- a direction: *in Richtung*;
+- an institution: *an der Bauhaus-Universität*.
+
+The suffix class mixes event and abstract nouns with object nouns (*Wohnung*, *Zeitung*, *Leitung*, *Heizung*).
+
+**Register.** Operator: colloquial *auf der Arbeit* reads as PLACE. HDT is formal IT-news text (heise/c't), so colloquial place readings are under-sampled here. A colloquial frequency source is a prerequisite for that axis.
+
+**OPEN.**
+- A PLACE signal beyond names: object nouns, a physical-artifact lexicon, gender or semantic class.
+- The German lexicon (`build_de_codebook.py`, UD-derived, COCA shape) has no gender column, although UD carries `Gender=`.
