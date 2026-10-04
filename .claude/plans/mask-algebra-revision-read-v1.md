@@ -123,7 +123,7 @@ permitted surface" assertion. 156 `WideFieldMask` call sites across 17 files.
 
 The brief framed `AssumptionExposed`'s input as a *"withdrawal mask"*. **The
 contract already ships this, as a receipt ledger, and explicitly rules a mask
-insufficient.** `crates/lance-graph-contract/src/causal_audit.rs:306-315`:
+insufficient.** `crates/lance-graph-contract/src/causal_audit.rs:324-333`:
 
 > *"Withdraw every receipt from `source`, returning how many were removed. **This
 > is why receipts are canonical and a mask is not: withdrawal requires knowing
