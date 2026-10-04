@@ -486,7 +486,13 @@ impl AuditedRelation {
     /// The whole point of keeping the two apart: re-reading an edge as
     /// `Derivational` rather than `World` must not disturb the record of who
     /// attested it.
-    pub fn reclassify(&mut self, classification: RelationClassification) {
+    ///
+    /// Reclassifying back to `Unclassified` keeps `self.id`: a supplied
+    /// `raw_relation` is overwritten so the relation never carries two ids.
+    pub fn reclassify(&mut self, mut classification: RelationClassification) {
+        if let RelationClassification::Unclassified { raw_relation } = &mut classification {
+            *raw_relation = self.id;
+        }
         self.classification = classification;
     }
 
@@ -733,6 +739,18 @@ mod tests {
             twin, r,
             "equal classification and support, different relation"
         );
+
+        // Back to Unclassified with a mismatched id: the relation's own id wins.
+        r.reclassify(RelationClassification::Unclassified {
+            raw_relation: RelationId(99),
+        });
+        assert_eq!(
+            r.classification,
+            RelationClassification::Unclassified {
+                raw_relation: RelationId(42)
+            },
+            "reclassify never gives a relation a second id"
+        );
     }
 
     /// Cases 2 and 6: two interpretations of ONE observation (two readers of
@@ -767,9 +785,10 @@ mod tests {
     }
 
     /// Case 3, a pinned GAP: a review quoting a primary study is a distinct
-    /// source here, because receipts carry no derived-from link. What keeps
-    /// this from inflating anything is that no strength is claimed as
-    /// independent. When a dependence link lands this test must be re-pinned.
+    /// source here, because receipts carry no derived-from link. The profile
+    /// still increments `distinct_source_count` and sums both receipts into
+    /// `total_strength`; only `independent_strength` remains unset. When a
+    /// dependence link lands this test must be re-pinned.
     #[test]
     fn indra_review_quoting_primary_is_not_yet_recognised_as_an_echo() {
         const PRIMARY: u64 = 10;
