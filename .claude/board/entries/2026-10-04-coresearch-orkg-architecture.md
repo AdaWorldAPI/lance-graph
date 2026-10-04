@@ -46,6 +46,7 @@ support, PROV-O the lineage, and GRADE only a derived view.
 | X15 | GRADE certainty | DROP as stored | CONFLICT | **SKIP** (projection only, never stored) | D-BBB-NARS-4 |
 | X11 | content hash as claim identity | DROP | TRAP | **SKIP** | GUID is the key (OGAR P0); no internal pins. Allowed only: transient dedup proposal, or an external Trusty-URI as an external id |
 | X16 | imported worlds do not permeate the core | ALREADY-HAVE | PASS | **SKIP** (already the firewall) | — |
+| X19 | known unknowns on the causal path: direct / indirect with KNOWN intermediates / indirect with UNKNOWN intermediates / topology not established | (added after the council, from an operator pointer) | — | **PROBE** | CE64 bits 59-60 `CausalTopology` (`causal-edge/src/layout.rs:173-250`); source twin `DismechTopology` (`lance-graph-contract/src/dismech_evidence.rs:56-69`, measured: 9,073 / 3,978 / 4,539 / 408 on 2,100 DisMech files). P-X19: (a) a literature or cohort edge must not be written without an explicit topology — `CausalEdge64::ZERO` reads `Direct` by default, so an import that omits the field silently claims a direct path; (b) a parse failure must fail closed, never mint `Unknown`, because `Unknown` is an asserted value |
 
 ## Productive disagreements (named, not resolved)
 1. **X9 document witness.** Firewall: fold into `Oracle` ("bewusst kein viertes"). Bridge: a document witness source. Falsifier: `OracleModule(u32)` would need a registry. Second premise pass: these are different axes. Origin (Q9a) and source (Q9b) are separate questions, and the code's own doc comments disagree on the origin (a guideline is Oracle; a confirmed document extract is Observed). → operator, as Q9a and Q9b.
@@ -71,14 +72,50 @@ support, PROV-O the lineage, and GRADE only a derived view.
 ## First probe
 **P-X3 with P-X5's recompute on the same rows.** Offline, synthetic data, existing functions, small. It is the only probe that can expose a live defect, and its output (address-keyed (yi, vi, measure) rows) feeds P-X7, P-X13 and P-X14.
 
+## Correction after the council (operator pointer, 2026-10-04)
+
+The operator pointed at CE64 bits 59-60. Reading them exposed a module the council's closed
+searches never covered: `lance-graph-contract/src/dismech_evidence.rs`, a source-side evidence
+vocabulary measured on 2,100 real DisMech files. Scout 1's search for publication / claim /
+evidence concepts covered `ogar-vocab` constants only. Three rows change:
+
+- **X8 → ALREADY-HAVE (source side).** `Supports {Support, Partial, Refute, NoEvidence}` and
+  `EvidenceSource {HumanClinical, ModelOrganism, InVitro, Computational, Other}` already exist
+  with measured cardinalities. P-X8's kill question ("does any input separate inconclusive from
+  silent?") is answered: the source asserts `NO_EVIDENCE` explicitly. Open: `Partial` has no
+  `Quorum` counterpart, and the hydration map from `Supports` onto `Quorum` counts is not written.
+- **X9 → PARTIAL, smaller than stated.** `CitationKey {Identified{namespace: Pmid | Doi | Orpha |
+  ClinicalTrials | Cggv | Url, id}, ContentAddressed}` already exists in the zero-dep contract.
+  It never derives identity from a title, and blank input is unrepresentable. Q9b shrinks to:
+  carry a `CitationKey` on the witness (a MedCare `WitnessSource` variant). Q9a, the origin, is
+  unchanged.
+- **X11 stays SKIP as identity.** `CitationKey::ContentAddressed` is the in-repo precedent for
+  the only allowed use: a content hash as an explicitly marked fallback when no stable id exists.
+
+New row **X19** (`CausalTopology` known unknowns) is added to the table. It matters for the
+three kinds:
+- an ORKG R0 cell is a property of one population, not an edge, so topology does not apply;
+- a cohort `Correlation` is an association and must never be hydrated as `Direct`;
+- a mechanistic literature claim carries its topology from the source, as DisMech does.
+
+Hazards stated in code:
+- one 2-bit register is read through two lenses (`TrustTexture` / `CausalTopology`), so the
+  last writer wins (`edge.rs:1001-1013`);
+- topology on old rows is not authoritative;
+- under `default-features = false` the accessor always returns `Direct`
+  (`arm-discovery/src/translator.rs:28-33`).
+
+Lesson for the next council: the code cartographer's search space must include the contract's
+domain modules, not only the vocabulary constants.
+
 **Operator questions this map raises:**
 1. **Q9a:** which existing epistemic universe holds a literature-reported finding, Oracle or
    Observed?
-2. **Q9b:** add a `WitnessSource` variant keyed (namespace, id)? It must not be named
-   "Publication".
+2. **Q9b:** carry the existing `CitationKey` on a `WitnessSource` variant? It must not be
+   named "Publication".
 3. **X3 key:** loinc_id or OboAddr for cohort statistics, carried in the adapter.
 4. **Which probes to run.** P-X3 + P-X5 is the recommended first probe.
 
 CLOSEOUT | STATUS: open | OUTCOME: exploration map; 1 ADOPT-NOW candidate (X3 adapter key, gated
-by its probe), 10 probes, 4 park, 3 skip | OPEN: Q9a, Q9b, X3 key choice, probe
+by its probe), 10 probes + P-X19, 3 park, 3 skip, X8 corrected to already-have | OPEN: Q9a, Q9b, X3 key choice, probe
 selection
