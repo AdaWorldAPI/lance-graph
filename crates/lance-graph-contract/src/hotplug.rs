@@ -635,6 +635,16 @@ mod tests {
             assert_ne!(ra, rb, "anti-vacuity: the context changed the answer");
             assert_eq!(ra.read_mode.value_schema, rb.read_mode.value_schema);
             assert_eq!(ra.slab, rb.slab);
+            // The key wrapper derives the context from the key (graph_of),
+            // so a 0x0902 row resolves as 0x0902, not as any fixed concept.
+            assert_eq!(
+                act().resolve_tenant_reading(key(0x0902, 3), Some(&d)),
+                Ok(rb)
+            );
+            assert_eq!(
+                act().resolve_tenant_reading(key(0x0901, 3), Some(&d)),
+                Ok(ra)
+            );
         }
 
         /// An unknown SPOG/OGAR context fails closed, with or without a
