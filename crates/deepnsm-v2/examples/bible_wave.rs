@@ -33,7 +33,7 @@
 //! links farther than ±5 (v1's ring forfeits them) and ±8 (the local reference
 //! horizon → the Escalate zone).
 
-use deepnsm_v2::coca::{fsm_pos, fsm_pos_tag, reading_set};
+use deepnsm_v2::coca::{fsm_pos, fsm_pos_tag, predicate_alternatives, reading_set};
 use deepnsm_v2::{
     load_cam96_codes, load_cam96_space, load_word_forms_csv, parse_readings, parse_to_spo,
     EvidenceError, LexicalEvidence, Nsm, PaletteVocab, Pos, PosSet, Reading, ReadingParse, Spo,
@@ -87,6 +87,13 @@ struct LexicalDecodeReport {
     verses_changed: usize,
     peak_configs: usize,
     overflow_flushes: usize,
+    /// (configuration, reading) pairs the slot rule dropped (D-LXC-13).
+    slot_dropped: usize,
+    /// (configuration, reading) pairs the licensing rule dropped.
+    unlicensed_dropped: usize,
+    /// Verses whose triples changed although no token's reading set
+    /// narrowed: a rule dropped a reading on one path only.
+    combination_only: usize,
     ambiguous_words: HashMap<String, usize>,
     eliminated_words: HashMap<String, usize>,
 }
@@ -160,6 +167,8 @@ impl LexicalDecodeReport {
         self.alternative += parse.alternative.len();
         self.peak_configs = self.peak_configs.max(parse.peak_configs);
         self.overflow_flushes += parse.overflow_flushes;
+        self.slot_dropped += parse.slot_dropped;
+        self.unlicensed_dropped += parse.unlicensed_dropped;
         let lost = legacy
             .iter()
             .filter(|t| !parse.certain.contains(t) && !parse.alternative.contains(t))
@@ -181,10 +190,15 @@ impl LexicalDecodeReport {
             );
         }
         if lost + new_certain > 0 {
+            let narrowed = parse.ambiguous.iter().any(|sv| sv.survived != sv.entered);
             assert!(
-                parse.ambiguous.iter().any(|sv| sv.survived != sv.entered),
-                "KILL D-LXC-2 unexplained: triples changed but no reading was eliminated"
+                narrowed || parse.unlicensed_dropped > 0 || parse.slot_dropped > 0,
+                "KILL D-LXC-2 unexplained: triples changed but no reading or reading \
+                 combination was eliminated"
             );
+            if !narrowed {
+                self.combination_only += 1;
+            }
         }
     }
 
@@ -223,8 +237,13 @@ impl LexicalDecodeReport {
             self.verses_changed
         );
         println!(
-            "D-LXC-2  configurations: peak {}, overflow flushes {}",
-            self.peak_configs, self.overflow_flushes
+            "D-LXC-2  configurations: peak {}, overflow flushes {}; dropped by slot rule {}, \
+             by licensing {} (verses changed with no token narrowed: {})",
+            self.peak_configs,
+            self.overflow_flushes,
+            self.slot_dropped,
+            self.unlicensed_dropped,
+            self.combination_only
         );
         println!(
             "D-LXC-2  most ambiguous words: {}",
@@ -242,8 +261,12 @@ impl LexicalDecodeReport {
         assert_eq!(self.overflow_flushes, 0, "KILL D-LXC-2: a verse overflowed");
         println!("D-LXC-2 PASS every difference traces to an ambiguous token");
         // Pinned for the released `bible_vocab.txt` + Gutenberg `pg10.txt`,
-        // lemma table order kept (D-LXC-3). A deliberate decoder change
-        // re-pins these with the difference reported.
+        // lemma noun/verb tags widened to their predicate alternative and
+        // decided by position (D-LXC-13, reopens D-LXC-3). Before D-LXC-13:
+        // reading (771_176, 683_805, 3_363, 141, 84_008, 1_908, 1_455, 179,
+        // 35), triples (70_393, 69_670, 1_716, 732, 113, 122, 1_131, 16).
+        // A deliberate decoder change re-pins these with the difference
+        // reported.
         assert_eq!(
             (
                 self.tokens,
@@ -256,7 +279,7 @@ impl LexicalDecodeReport {
                 self.legacy_eliminated,
                 self.eliminated_words.len(),
             ),
-            (771_176, 683_805, 3_363, 141, 84_008, 1_908, 1_455, 179, 35),
+            (771_176, 652_344, 34_824, 451, 84_008, 14_383, 20_441, 1_943, 162),
             "KILL D-LXC-2: reading accounting moved from the pinned KJV layout"
         );
         assert_eq!(
@@ -270,7 +293,7 @@ impl LexicalDecodeReport {
                 self.verses_changed,
                 self.peak_configs,
             ),
-            (70_393, 69_670, 1_716, 732, 113, 122, 1_131, 16),
+            (70_393, 57_350, 29_001, 12_984, 1_231, 1_190, 12_437, 256),
             "KILL D-LXC-2: triple accounting moved from the pinned KJV layout"
         );
         println!("D-LXC-2 PASS accounting matches the pinned KJV layout");
@@ -1440,6 +1463,9 @@ fn lowercase_word_column(forms_csv: &str) -> String {
 /// no count, order or band is read to produce a tag.
 struct Tagger {
     lemmas: HashMap<String, Pos>,
+    /// Every lemma-table row per lemma, folded: the table's readings, not
+    /// only its first row.
+    lemma_readings: HashMap<String, PosSet>,
     /// `main`'s tagging, kept verbatim: lemma table, then first
     /// `word_forms.csv` row. See [`load_pos_legacy_first_wins`].
     legacy: HashMap<String, Pos>,
@@ -1458,6 +1484,7 @@ impl Tagger {
         vocab: &PaletteVocab,
     ) -> Result<Self, EvidenceError> {
         let mut lemmas = HashMap::new();
+        let mut lemma_readings: HashMap<String, PosSet> = HashMap::new();
         for line in lemmas_csv.lines().skip(1) {
             let f: Vec<&str> = line.split(',').collect();
             let (Some(lemma), Some(pos)) = (f.get(1), f.get(2)) else {
@@ -1466,11 +1493,14 @@ impl Tagger {
             lemmas
                 .entry(lemma.to_lowercase())
                 .or_insert_with(|| coca_pos(pos));
+            let set = lemma_readings.entry(lemma.to_lowercase()).or_default();
+            *set = set.with(coca_pos(pos));
         }
         let (evidence, report) = load_word_forms_csv(&lowercase_word_column(forms_csv), vocab)?;
         let (cuts, bands) = calibrate(&lemmas, &evidence, vocab);
         Ok(Self {
             lemmas,
+            lemma_readings,
             legacy: load_pos_legacy_first_wins(lemmas_csv, forms_csv),
             evidence,
             report,
@@ -1485,9 +1515,8 @@ impl Tagger {
     /// Compatibility boundary, not semantic resolution. It reads no count and
     /// no [`LexicalEvidence`], so frequency cannot change a tag. It does
     /// depend on source-row order (the first lemma row, the first form row);
-    /// that is inherited debt, not an authorized resolver, pending a
-    /// multi-reading parser input (D-LXC-2) and the lemma-table migration
-    /// (D-LXC-3).
+    /// that is inherited debt, not an authorized resolver. [`Self::readings`]
+    /// is the resolver (D-LXC-2, D-LXC-13).
     fn pos(&self, w: &str) -> Pos {
         self.legacy
             .get(w)
@@ -1500,18 +1529,27 @@ impl Tagger {
     /// (D-LXC-2). Same sources and order as [`Self::pos`], but the forms
     /// layer hands over its whole reading set instead of its first row:
     ///
-    /// 1. the lemma table (F9, kept: D-LXC-3 is decided as "keep the lemma
-    ///    table order"), one reading;
-    /// 2. every [`LexicalEvidence`] reading, folded by [`deepnsm_v2::coca`];
+    /// 1. the lemma table's first row (F9). If that tag is a noun or a verb,
+    ///    the word also gets its OTHER noun/verb reading when any lemma row
+    ///    or [`LexicalEvidence`] reading has it (D-LXC-13): the predicate
+    ///    alternative is kept, and the parser's slot rule picks it by
+    ///    position. Function words keep their one tag;
+    /// 2. otherwise every [`LexicalEvidence`] reading, folded by
+    ///    [`deepnsm_v2::coca`];
     /// 3. the archaic list, one reading;
     /// 4. otherwise [`PosSet::EMPTY`]: unknown, never a guessed reading.
     ///
-    /// No count is read. Where the forms layer has one folded reading, the
-    /// set is exactly the legacy tag; where it has several, the legacy tag is
-    /// one of them.
+    /// No count is read. The legacy tag is always one of the readings.
     fn readings(&self, w: &str, id: WordId) -> PosSet {
         if let Some(&p) = self.lemmas.get(w) {
-            return PosSet::single(p);
+            return predicate_alternatives(
+                p,
+                self.lemma_readings
+                    .get(w)
+                    .copied()
+                    .unwrap_or_default()
+                    .union(reading_set(&self.evidence, id).unwrap_or_default()),
+            );
         }
         reading_set(&self.evidence, id)
             .or_else(|| archaic_pos(w).map(PosSet::single))

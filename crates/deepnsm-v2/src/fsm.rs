@@ -140,6 +140,12 @@ struct Core {
     /// open and waiting for its head. Read only by [`parse_readings`]'s
     /// licensing rule; [`parse_to_spo`] never consults it.
     nominal_open: bool,
+    /// The previous token opened the clause as its subject — a noun taken in
+    /// [`State::Start`] with no determiner or adjective in front ("they",
+    /// "men", "God"). An object carried into the subject slot ("gave him …")
+    /// or a re-anchored noun ("mothers house") is not fresh. Read only by
+    /// the slot rule.
+    fresh_subject: bool,
 }
 
 impl Core {
@@ -151,12 +157,15 @@ impl Core {
         matrix: 0,
         antecedent: 0,
         nominal_open: false,
+        fresh_subject: false,
     };
 
     /// Consume one non-`Stop` token; returns the triple it closes, if any.
     /// This is the whole single-reading transition table, unchanged.
     fn step(&mut self, t: Tagged) -> Option<Spo> {
         debug_assert!(t.pos != Pos::Stop, "Stop is handled by the caller");
+        let nominal_was_open = self.nominal_open;
+        self.fresh_subject = false;
         self.nominal_open = matches!(t.pos, Pos::Det | Pos::Adj);
 
         // While a relative clause is open, its own tiny machine consumes the
@@ -231,6 +240,7 @@ impl Core {
             (State::Start, Pos::Noun) => {
                 self.subject = t.id;
                 self.state = State::HaveSubject;
+                self.fresh_subject = !nominal_was_open;
             }
             (State::HaveSubject, Pos::Verb) => {
                 self.predicate = t.id;
@@ -424,12 +434,16 @@ pub struct ReadingParse {
     /// Times a sentence was force-flushed because it exceeded
     /// [`MAX_CONFIGS`]. Each flush is a reported clause break, never a pick.
     pub overflow_flushes: usize,
+    /// (configuration, reading) pairs the licensing rule dropped.
+    pub unlicensed_dropped: usize,
+    /// (configuration, reading) pairs the slot rule dropped.
+    pub slot_dropped: usize,
 }
 
 /// Bound on live configurations per sentence. Exceeding it flushes the
 /// sentence at that token (a reported clause break, see
 /// [`ReadingParse::overflow_flushes`]) instead of choosing a reading.
-pub const MAX_CONFIGS: usize = 64;
+pub const MAX_CONFIGS: usize = 256;
 
 /// One live configuration: the parser registers, the triples this path has
 /// emitted in the current sentence, and — for each ambiguous token so far —
@@ -449,6 +463,22 @@ const fn licensed(core: &Core, pos: Pos) -> bool {
     !(core.nominal_open && matches!(pos, Pos::Verb))
 }
 
+/// The slot rule: directly after a fresh subject noun (one that opened the
+/// clause with no determiner or adjective in front of it), a word that can be
+/// a verb fills the predicate slot — "they record", "he rose", "men sleep".
+/// Its noun reading would make a compound with the subject instead, so it is
+/// dropped, however much more often the corpus counts the word as a noun.
+/// After a determined noun ("a sin offering"), a carried object ("gave him
+/// charge") or a re-anchored noun ("mothers house") both readings stay.
+/// Applied relatively, like licensing, and only when the token offers a verb.
+fn slot_allows(core: &Core, pos: Pos, set: PosSet) -> bool {
+    !(core.rel == Rel::None
+        && core.state == State::HaveSubject
+        && core.fresh_subject
+        && pos == Pos::Noun
+        && set.contains(Pos::Verb))
+}
+
 /// Parse a multi-reading token stream.
 ///
 /// Each token enters with every reading in its [`PosSet`]. The parser keeps
@@ -463,6 +493,15 @@ const fn licensed(core: &Core, pos: Pos) -> bool {
 /// pair is forbidden the rule stands aside for that token, so a word with a
 /// single reading is never rejected, and input with one reading per token
 /// parses exactly as [`parse_to_spo`]. Frequency is never consulted.
+///
+/// **Slot rule.** Directly after a fresh subject noun, a token that can be a
+/// verb loses its noun reading (see [`slot_allows`]): the position between
+/// subject and object is the predicate, however often COCA counts the word
+/// as a noun. Relative like licensing, so it never empties a token.
+///
+/// There is deliberately no "a sentence needs a predicate" rule: KJV verses
+/// are often verbless fragments ("the goats for sin offering"), and on the
+/// KJV such a rule turned nouns into verbs about three times in four.
 ///
 /// **Output.** At each `Stop` (and at the end of input) the sentence's
 /// configurations are compared: triples found on all of them are
@@ -490,13 +529,17 @@ pub fn parse_readings(tokens: &[Reading]) -> ReadingParse {
             pending.push((index, set));
         }
 
-        let any_licensed = configs
-            .iter()
-            .any(|c| set.iter().any(|p| licensed(&c.core, p)));
+        let allowed = |c: &Config, p: Pos| licensed(&c.core, p) && slot_allows(&c.core, p, set);
+        let any_allowed = configs.iter().any(|c| set.iter().any(|p| allowed(c, p)));
         let mut next: Vec<Config> = Vec::with_capacity(configs.len() * set.len());
         for c in &configs {
             for pos in set.iter() {
-                if any_licensed && !licensed(&c.core, pos) {
+                if any_allowed && !allowed(c, pos) {
+                    if licensed(&c.core, pos) {
+                        out.slot_dropped += 1;
+                    } else {
+                        out.unlicensed_dropped += 1;
+                    }
                     continue;
                 }
                 let mut n = c.clone();
@@ -705,12 +748,95 @@ mod tests {
     /// or none.
     #[test]
     fn ambiguity_remains_when_structure_cannot_decide() {
-        // "men record deeds": verb path → (men, record, deeds); noun path →
-        // a run of nouns, no triple.
-        let p = parse_readings(&[one(1, Pos::Noun), noun_or_verb(2), one(3, Pos::Noun)]);
+        // "the men record deeds rot": verb path → (men, record, deeds) then
+        // `rot`; noun path → `rot` is the predicate of "the men record
+        // deeds". The subject is determined, so the slot rule does not apply.
+        let p = parse_readings(&[
+            one(9, Pos::Det),
+            one(1, Pos::Noun),
+            noun_or_verb(2),
+            one(3, Pos::Noun),
+            one(6, Pos::Verb),
+        ]);
         assert_eq!(p.ambiguous[0].survived, NV);
         assert!(p.certain.is_empty());
         assert_eq!(p.alternative, vec![Spo::new(1, 2, 3)]);
+        assert_eq!(p.slot_dropped, 0);
+    }
+
+    /// No "a sentence needs a predicate" rule: a verbless fragment keeps
+    /// its noun reading. "the goats for sin offering" — `offering` follows a
+    /// re-anchored noun, not a fresh subject, so neither rule touches it.
+    #[test]
+    fn a_verbless_fragment_keeps_its_noun_reading() {
+        let p = parse_readings(&[
+            one(9, Pos::Det),
+            one(1, Pos::Noun),
+            one(7, Pos::Other),
+            one(3, Pos::Noun),
+            noun_or_verb(2),
+        ]);
+        assert_eq!(p.ambiguous[0].survived, NV);
+        assert_eq!(p.slot_dropped, 0);
+    }
+
+    /// The slot rule: right after a fresh subject noun, a homograph is the
+    /// predicate, even where a later verb would give the sentence another
+    /// one ("men record deeds rot").
+    #[test]
+    fn a_homograph_after_a_fresh_subject_is_the_predicate() {
+        let p = parse_readings(&[
+            one(1, Pos::Noun),
+            noun_or_verb(2),
+            one(3, Pos::Noun),
+            one(6, Pos::Verb),
+        ]);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Verb));
+        assert_eq!(p.certain, vec![Spo::new(1, 2, 3)]);
+        assert!(p.alternative.is_empty());
+        assert_eq!(p.slot_dropped, 1);
+        // Intransitive: "men sleep" — no triple, but the verb reading survives.
+        let p = parse_readings(&[one(1, Pos::Noun), noun_or_verb(2)]);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Verb));
+        assert!(p.certain.is_empty() && p.alternative.is_empty());
+    }
+
+    /// Silence twins of the slot rule: it does not fire on a word with no
+    /// verb reading, after a determined subject, after an object carried
+    /// into the subject slot, or after a re-anchored noun.
+    #[test]
+    fn the_slot_rule_needs_a_fresh_subject_and_a_verb_reading() {
+        // "men stones rot": `stones` has no verb reading, so it stays.
+        let p = parse_readings(&[one(1, Pos::Noun), one(3, Pos::Noun), one(6, Pos::Verb)]);
+        assert_eq!(p.slot_dropped, 0);
+        // "the men record deeds rot" keeps both readings (no slot drop).
+        let p = parse_readings(&[
+            one(9, Pos::Det),
+            one(1, Pos::Noun),
+            noun_or_verb(2),
+            one(3, Pos::Noun),
+            one(6, Pos::Verb),
+        ]);
+        assert_eq!(p.ambiguous[0].survived, NV);
+        assert_eq!(p.slot_dropped, 0);
+        // A homograph after a verb is an object, not a predicate:
+        // "men saw record" keeps both readings for `record`.
+        let p = parse_readings(&[one(1, Pos::Noun), one(4, Pos::Verb), noun_or_verb(2)]);
+        assert_eq!(p.slot_dropped, 0);
+        // "he gave him charge": `him` closes (he, gave, him) and is carried
+        // into the subject slot; `charge` keeps both readings.
+        let p = parse_readings(&[
+            one(1, Pos::Noun),
+            one(4, Pos::Verb),
+            one(3, Pos::Noun),
+            noun_or_verb(2),
+        ]);
+        assert_eq!(p.ambiguous[0].survived, NV);
+        assert_eq!(p.slot_dropped, 0);
+        // "mothers house": `house` follows a re-anchored noun.
+        let p = parse_readings(&[one(1, Pos::Noun), one(3, Pos::Noun), noun_or_verb(2)]);
+        assert_eq!(p.ambiguous[0].survived, NV);
+        assert_eq!(p.slot_dropped, 0);
     }
 
     /// T4: a single-reading word is never rejected, even where the licensing
@@ -766,9 +892,11 @@ mod tests {
     #[test]
     fn sentences_are_independent() {
         let toks = [
+            one(9, Pos::Det),
             one(1, Pos::Noun),
             noun_or_verb(2),
             one(3, Pos::Noun),
+            one(6, Pos::Verb),
             Reading::stop(),
             one(9, Pos::Det),
             noun_or_verb(2),

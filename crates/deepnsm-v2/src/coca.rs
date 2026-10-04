@@ -54,8 +54,57 @@ pub fn reading_set(evidence: &LexicalEvidence, id: WordId) -> Option<PosSet> {
     Some(readings.iter().map(|r| fsm_pos(r.pos)).collect())
 }
 
+/// The tag `tag` (a corpus's first-row lemma tag, say), widened by the other
+/// of noun/verb when `tag` is one of them and `known` — every reading the
+/// lexicon has for the word — contains the other. Anything else is `tag`
+/// alone, so function words keep their one tag (D-LXC-13).
+///
+/// The widened word enters [`crate::fsm::parse_readings`] with both
+/// readings, and position picks: the slot rule makes it the predicate right
+/// after a fresh subject ("they record"), licensing makes it a noun right
+/// after a determiner ("the record"), and anything else stays ambiguous. A
+/// lemma tag is never allowed to settle a noun/verb homograph on its own.
+#[must_use]
+pub fn predicate_alternatives(tag: Pos, known: PosSet) -> PosSet {
+    let nv = PosSet::single(Pos::Noun).with(Pos::Verb);
+    let mut set = PosSet::single(tag);
+    if nv.contains(tag) {
+        for p in nv.iter() {
+            if known.contains(p) {
+                set = set.with(p);
+            }
+        }
+    }
+    set
+}
+
 #[cfg(test)]
 mod tests {
+    /// D-LXC-13: a noun or verb tag gains the other reading only when the
+    /// lexicon has it; a function word never widens, even when the lexicon
+    /// knows a noun or verb reading for it.
+    #[test]
+    fn only_noun_and_verb_tags_widen() {
+        let nv = PosSet::single(Pos::Noun).with(Pos::Verb);
+        assert_eq!(predicate_alternatives(Pos::Noun, nv), nv);
+        assert_eq!(predicate_alternatives(Pos::Verb, nv), nv);
+        // No verb reading known: the noun stays a noun.
+        assert_eq!(
+            predicate_alternatives(Pos::Noun, PosSet::single(Pos::Adj)),
+            PosSet::single(Pos::Noun)
+        );
+        // A determiner with a known noun reading stays a determiner.
+        assert_eq!(
+            predicate_alternatives(Pos::Det, nv),
+            PosSet::single(Pos::Det)
+        );
+        // The tag itself is always kept, even if `known` omits it.
+        assert_eq!(
+            predicate_alternatives(Pos::Verb, PosSet::EMPTY),
+            PosSet::single(Pos::Verb)
+        );
+    }
+
     use super::*;
     use crate::lexical::{LexicalEvidenceBuilder, LexicalReading};
     use crate::vocab::PaletteVocab;

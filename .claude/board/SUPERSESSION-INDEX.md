@@ -83,7 +83,7 @@ a licence to act on it.
 | **READ** | `archetype-scaffold-v1` | `GateDecision` | In progress (2026-04-24) | 0/0 |
 | **READ** | `capstone-cognitive-loop-wiring-nan-census-v1` | `GateDecision` | PROPOSED (2026-06-20). The measurement compa | 0/0 |
 | **READ** | `deepnsm-v3-convergence-v1` | `StepMask` | PROPOSED (doc-only). Extends `v3-convergence | 0/5 |
-| **READ** | `epistemic-quadrant-materialization-v1` | `MergeMode` | PROPOSED.** Operator direction 2026-07-29: * | 1/4 |
+| **READ** | `epistemic-quadrant-materialization-v1` | `MergeMode` | PROPOSED.** Operator direction 2026-07-29: * | 2/4 |
 | **READ** | `graphrag-doc-retrieval-soa-integration-v1` | `GateDecision` | DESIGN + FIRST CODE. **v1.2 (2026-07-17):**  | 3/10 |
 | **READ** | `hexagon-plasticity-v1` | `MergeMode` | ACTIVE — landed 2026-09-14 on operator go. * | 2/10 |
 | **READ** | `integration-actionhandler-rbac-orchestration-v1` | `GateDecision` | HARDENING (5+3 in progress). | 0/0 |
@@ -96,8 +96,8 @@ a licence to act on it.
 | **READ** | `persistence-artifact-backed-commit-v1` | `persist_cycle` | RATIFIED (operator ruling 2026-08-09). Phase | 0/0 |
 | **READ** | `post-teardown-buildup-survey-v1` | `StepMask` | SURVEY, read-only, plan-only (no code, no te | 1/5 |
 | **READ** | `r2il-bpe-typed-genetic-recombination-v1` | `GateDecision` | PROPOSAL, §7's three falsifiers now RUN (see | 1/1 |
-| **READ** | `scientific-kg-substrate-v1` | `GateDecision` | PROPOSED — **scoping doc**, no code. Records | 0/9 |
-| **READ** | `self-reasoning-substrate-v1` | `GateDecision` | PROPOSED — doc-only. No code, no contract ch | 0/5 |
+| **READ** | `scientific-kg-substrate-v1` | `GateDecision` | PROPOSED — **scoping doc**, no code. Records | 3/9 |
+| **READ** | `self-reasoning-substrate-v1` | `GateDecision` | PROPOSED — doc-only. No code, no contract ch | 4/5 |
 | **READ** | `v3-convergence-wiring-v1` | `GateDecision` | ACTIVE (2026-07-01). Operator: "I'm all in f | 0/0 |
 | **RESCOPE** | `soa-migration-diff-resolution-2026-06-13` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | — | 1/5 |
 | **RESCOPE** | `cognitive-substrate-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | PROPOSAL (sprint-10 architectural decisions  | 3/13 |

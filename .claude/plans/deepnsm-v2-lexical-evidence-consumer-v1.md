@@ -463,3 +463,14 @@ English data first, with the FSM reading-set ABI language-neutral.
   converge on it.
 - KJV numbers and the OPEN points: board entry
   `2026-10-03-deepnsm-v2-multi-reading-fsm.md`.
+
+## D-LXC-13: position decides noun/verb homographs (2026-10-04)
+
+Direction (operator, 2026-10-04): a word between subject and object must not
+become a noun because COCA counts it as a noun more often. D-LXC-3's B stands
+for row order, but the first row no longer settles a noun/verb homograph:
+`coca::predicate_alternatives` widens it, and `fsm`'s slot rule (after a fresh
+subject) and licensing (after a determiner) pick by position. A sentence-level
+"needs a predicate" rule was measured and rejected (KJV fragments). Numbers
+and OPEN points: board entry `2026-10-04-deepnsm-v2-predicate-by-position.md`.
+
