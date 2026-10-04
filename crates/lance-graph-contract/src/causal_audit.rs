@@ -458,6 +458,11 @@ impl SupportProfile {
 /// A relation with its classification and its evidence, held separately.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuditedRelation {
+    /// Which relation this is. Held outside `classification` so it survives
+    /// [`reclassify`](Self::reclassify): only the `Unclassified` variant
+    /// carries a `RelationId`, so without this field two classified relations
+    /// with equal classification and support would be indistinguishable.
+    pub id: RelationId,
     /// What kind of relation this is.
     pub classification: RelationClassification,
     /// What backs it.
@@ -469,12 +474,14 @@ impl AuditedRelation {
     #[must_use]
     pub fn unclassified(raw: RelationId) -> Self {
         Self {
+            id: raw,
             classification: RelationClassification::Unclassified { raw_relation: raw },
             support: SupportLedger::new(),
         }
     }
 
-    /// Revise the classification, leaving the receipt ledger untouched.
+    /// Revise the classification, leaving the identity and the receipt ledger
+    /// untouched.
     ///
     /// The whole point of keeping the two apart: re-reading an edge as
     /// `Derivational` rather than `World` must not disturb the record of who
@@ -707,6 +714,25 @@ mod tests {
         );
         let p = r.support.profile();
         assert_eq!(p.basis(SupportBasis::TextAttested).distinct_source_count, 2);
+
+        // Identity must survive classification: the `Unclassified` variant is
+        // the only one that names a `RelationId`.
+        let causal = RelationClassification::Causal {
+            locus: CausalLocus::World,
+            world_domain: None,
+            scope: CausalScope::Type,
+        };
+        r.reclassify(causal);
+        assert_eq!(r.id, RelationId(42), "reclassify keeps the identity");
+        let mut twin = AuditedRelation::unclassified(RelationId(43));
+        twin.support = r.support.clone();
+        twin.reclassify(causal);
+        assert_eq!(twin.classification, r.classification);
+        assert_eq!(twin.support, r.support);
+        assert_ne!(
+            twin, r,
+            "equal classification and support, different relation"
+        );
     }
 
     /// Cases 2 and 6: two interpretations of ONE observation (two readers of
