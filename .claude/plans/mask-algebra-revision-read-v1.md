@@ -129,8 +129,8 @@ insufficient.** `crates/lance-graph-contract/src/causal_audit.rs:324-333`:
 > is why receipts are canonical and a mask is not: withdrawal requires knowing
 > *which* evidence came from whom, and a bitmask cannot answer that.**"*
 
-Surfaces: `SupportLedger:272` · `record:288` · `receipts:295` · `withdraw_source:311`
-(→ `usize` removed) · `distinct_sources_for:323` · `EvidenceSourceId(pub u64):240`
+Surfaces: `SupportLedger:290` · `record:306` · `receipts:313` · `withdraw_source:329`
+(→ `usize` removed) · `distinct_sources_for:341` · `EvidenceSourceId(pub u64):240`
 · `SupportReceipt:250` · `SupportBasis:186`.
 
 **Consequence, binding on D-MAR-2:** `AssumptionExposed` takes its
