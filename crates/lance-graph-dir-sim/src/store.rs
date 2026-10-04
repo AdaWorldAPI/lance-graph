@@ -242,11 +242,12 @@ impl VersionStore {
         let view = |v| self.view(v).map_err(|_| PlanError::UnknownVersion(v));
         let (vr, vt, vb) = (view(root)?, view(target)?, view(basis)?);
         let intent = diff_shared(&vr, &vt);
-        Ok(ExecutionPlan::from_diff(
+        let ops = outstanding(&vb, intent).map_err(|node| PlanError::Unconvergeable {
             basis,
             target,
-            outstanding(&vb, intent),
-        ))
+            node,
+        })?;
+        Ok(ExecutionPlan::from_diff(basis, target, ops))
     }
 
     /// Why does `v` contain membership `(user, group)`? The lineage from
@@ -419,7 +420,11 @@ fn diff_full(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
 /// The part of `intent` the observation `basis` does not already show, with
 /// compare-and-set expectations read from `basis`. Each check is one
 /// identity lookup, so the work is proportional to the intent.
-fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Vec<Change> {
+///
+/// `Err(node)`: a node the intent creates already exists in `basis` with a
+/// kind, enabled flag or OU that no change can converge (the algebra sets
+/// only UPN and primary SMTP), so the create is neither done nor doable.
+fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Result<Vec<Change>, Guid128> {
     let mut out = Vec::new();
     for c in intent {
         match c {
@@ -451,8 +456,15 @@ fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Vec<Change> {
             }
             Change::CreateNode { node, state } => match basis.node_state(&node) {
                 None => out.push(Change::CreateNode { node, state }),
-                // Already exists: only its attributes may still differ.
-                Some(actual) => attr_changes(node, &actual, &state, &mut out),
+                // Already exists: only its settable attributes may differ.
+                Some(actual) => {
+                    if (actual.kind, actual.active, actual.ou)
+                        != (state.kind, state.active, state.ou)
+                    {
+                        return Err(node);
+                    }
+                    attr_changes(node, &actual, &state, &mut out);
+                }
             },
             Change::DeleteNode { node, .. } => {
                 if let Some(actual) = basis.node_state(&node) {
@@ -464,5 +476,5 @@ fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Vec<Change> {
             }
         }
     }
-    out
+    Ok(out)
 }

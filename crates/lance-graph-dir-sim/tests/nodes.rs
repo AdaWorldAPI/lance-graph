@@ -613,3 +613,24 @@ fn a_freed_address_is_released_before_it_is_claimed() {
     assert_eq!(ops[0], Operation::DeleteObject { object: g(CAROL) });
     assert!(matches!(ops[1], Operation::CreateObject { object, .. } if object == g(NEW_USER)));
 }
+
+#[test]
+fn reconcile_refuses_a_create_it_cannot_converge() {
+    let (mut st, g0) = store();
+    let d = desired(&mut st, g0);
+    // The requested user exists in reality, but disabled: no change can
+    // enable it, so the create is neither done nor doable.
+    let mut disabled = ObservedNode::user("new@example.test", "new@example.test");
+    disabled.active = false;
+    let mut obs = observed();
+    obs.nodes.push((g(NEW_USER), disabled));
+    let o = st.observe("lab", 2_000, obs).unwrap();
+    assert_eq!(
+        st.plan(d),
+        Err(PlanError::Unconvergeable {
+            basis: o,
+            target: d,
+            node: g(NEW_USER)
+        })
+    );
+}
