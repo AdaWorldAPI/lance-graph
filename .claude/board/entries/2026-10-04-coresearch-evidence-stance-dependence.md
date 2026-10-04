@@ -267,12 +267,15 @@ today. No ClassView gives the 24 nibbles class-chosen slot names either: A9 and 
 probe-local Tarski reading both use fixed slot lists.
 
 **Probe (PROBE).**
-- **Fixture:** the six animals above.
+- **Fixture:** the five animals above plus kangaroo and koala (Marsupialia: terrestrial
+  +, placental −) and echidna (Monotremata: terrestrial +, placental −). Every proposed
+  sub-cohort needs at least two independently asserted members, or the
+  leave-one-sibling-out gate in Addendum 2 removes its only evidence.
 - **Mine:** "Mammal → terrestrial" and "Mammal → placental".
 - **Expect:**
-  - exceptions are exactly {whale} and {possum, platypus};
+  - exceptions are exactly {whale} and {possum, kangaroo, koala, platypus, echidna};
   - after inserting Marsupialia and Monotremata, confidence within each sub-cohort is
-    1.0.
+    1.0, and stays 1.0 with any single member left out.
 - **Kill condition:** confidence rises when inherited slots are included in the
   mined rows.
 - **Silent twin:** with only asserted slots mined, adding the same number of
@@ -340,7 +343,10 @@ plane P and a negative plane N.
 Elephant vs whale: agree 1 (placental), conflict 1 (terrestrial).
 
 - Parent value: AND, or popcount majority, across the children.
-- A child's exceptions: `N_child & P_parent`.
+- A child's exceptions: `(N_child & P_parent) | (P_child & N_parent)`. Both
+  directions count: a negative child under a positive default (whale, terrestrial)
+  and a positive child under a negative default (an egg-laying child under a
+  non-egg-laying parent).
 - Dissenters with identical exception masks become missing-link candidates.
 
 Masks only PROPOSE. With two slots, possum and platypus share a mask and would
