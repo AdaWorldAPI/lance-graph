@@ -66,10 +66,14 @@ struct Word {
 }
 
 /// The one UPOS → FSM fold. Language-neutral: it reads only UD's universal
-/// tags and the universal `PronType=Rel` feature.
-fn fold(upos: &str, feats: &str, form: &str) -> Pos {
+/// tags, the universal `PronType=Rel` feature and the universal `advmod`
+/// relation — an adjective used as an adverbial modifier (German "er läuft
+/// **schnell**") is folded to [`Pos::Adv`]: it fills an adverbial (TEKAMOLO)
+/// slot, which is the distinction the Adj/Adv pair stands for.
+fn fold(upos: &str, feats: &str, form: &str, deprel: &str) -> Pos {
     let rel = feats.split('|').any(|f| f == "PronType=Rel");
     match upos {
+        "ADJ" if deprel.starts_with("advmod") => Pos::Adv,
         "PRON" | "DET" if rel => Pos::Rel,
         "NOUN" | "PROPN" | "PRON" => Pos::Noun,
         "VERB" | "AUX" => Pos::Verb,
@@ -102,7 +106,7 @@ fn read_conllu(path: &str) -> Vec<Vec<Word>> {
             continue;
         }
         let form = cols[1].to_lowercase();
-        let gold = fold(cols[3], cols[5], &form);
+        let gold = fold(cols[3], cols[5], &form, cols.get(7).copied().unwrap_or("_"));
         let amod_head_after = match (cols.get(6), cols.get(7)) {
             (Some(head), Some(rel)) if rel.starts_with("amod") => {
                 match (head.parse::<usize>(), cols[0].parse::<usize>()) {
@@ -305,7 +309,7 @@ fn readings_of(lex: &Lexicon, s: &[Word], k: usize, cased: bool) -> PosSet {
 
 /// Positional context of a token: the neighbours' reading sets and whether
 /// the previous word is a copula. Never the word itself.
-type Context = (u8, bool, u8);
+type Context = (u8, bool, u8, bool);
 
 fn bits(p: PosSet) -> u8 {
     Pos::ALL
@@ -322,6 +326,8 @@ struct PositionTable {
     full: HashMap<Context, [usize; 2]>,
     next: HashMap<u8, [usize; 2]>,
     prev: HashMap<(u8, bool), [usize; 2]>,
+    /// Next readings + copula anywhere in the clause.
+    clause: HashMap<(u8, bool), [usize; 2]>,
 }
 
 /// Minimum train tokens behind a context before it may decide (policy pin).
@@ -339,6 +345,7 @@ impl PositionTable {
             full: HashMap::new(),
             next: HashMap::new(),
             prev: HashMap::new(),
+            clause: HashMap::new(),
         };
         for s in train {
             let set = |k: usize| readings_of(lex, s, k, cased);
@@ -355,6 +362,7 @@ impl PositionTable {
                 t.full.entry(ctx).or_default()[slot] += 1;
                 t.next.entry(ctx.2).or_default()[slot] += 1;
                 t.prev.entry((ctx.0, ctx.1)).or_default()[slot] += 1;
+                t.clause.entry((ctx.2, ctx.3)).or_default()[slot] += 1;
             }
         }
         t
@@ -367,10 +375,21 @@ impl PositionTable {
         copulas: &std::collections::HashSet<String>,
     ) -> Context {
         let prev = k.checked_sub(1);
+        // The clause: the words between punctuation marks around `k`.
+        let is_break = |w: &Word| !w.surface.chars().any(char::is_alphanumeric);
+        let lo = (0..k).rev().find(|&j| is_break(&s[j])).map_or(0, |j| j + 1);
+        let hi = (k + 1..s.len())
+            .find(|&j| is_break(&s[j]))
+            .unwrap_or(s.len());
+        let clause_copula = std::env::var_os("UD_NO_CLAUSE_CTX").is_none()
+            && (lo..hi)
+                .filter(|&j| j != k)
+                .any(|j| copulas.contains(&s[j].form.to_lowercase()));
         (
             prev.map_or(0, |j| bits(set(j))),
             prev.is_some_and(|j| copulas.contains(&s[j].form.to_lowercase())),
             if k + 1 < s.len() { bits(set(k + 1)) } else { 0 },
+            clause_copula,
         )
     }
 
@@ -383,17 +402,15 @@ impl PositionTable {
         if let Some(r) = self.full.get(&ctx).copied().and_then(pick) {
             return Some(r);
         }
-        // Back off: whichever half is more decisive.
-        let a = self.next.get(&ctx.2).copied().and_then(pick);
-        let b = self.prev.get(&(ctx.0, ctx.1)).copied().and_then(pick);
-        match (a, b) {
-            (Some(x), Some(y)) => Some(if (x.0 - 0.5).abs() >= (y.0 - 0.5).abs() {
-                x
-            } else {
-                y
-            }),
-            (x, y) => x.or(y),
-        }
+        // Back off: whichever partial context is most decisive.
+        [
+            self.clause.get(&(ctx.2, ctx.3)).copied().and_then(pick),
+            self.next.get(&ctx.2).copied().and_then(pick),
+            self.prev.get(&(ctx.0, ctx.1)).copied().and_then(pick),
+        ]
+        .into_iter()
+        .flatten()
+        .max_by(|x, y| (x.0 - 0.5).abs().total_cmp(&(y.0 - 0.5).abs()))
     }
 }
 
