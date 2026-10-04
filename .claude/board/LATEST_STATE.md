@@ -1,3 +1,15 @@
+## 2026-10-04 — SPOG × slab declaration resolves through hotplug (branch `ccr-f6094d67-h6ulb3`, unmerged)
+
+### Current Contract Inventory — net delta (`hotplug.rs`, no new registry)
+- `SlabDeclaration {concept, read_mode, layout_version}` — what a slab claims
+  about how it was written; metadata beside the slab, never decoded from bytes.
+- `Activation::resolve_tenant_reading(key, Option<&SlabDeclaration>)` — the
+  one path: `graph_of(key)` → authority reading (`NoReadingFor` if unplugged)
+  → slab may narrow the value schema, never change tail/edge or widen.
+- `ActivationDrift::{SlabConceptMismatch, SlabLayoutVersion, SlabReadingConflict}`.
+- Not done: no physical home for the declaration, no Raw128/16-byte carvings,
+  no NodeRow/FacetCascade change, no caller wired.
+
 ## 2026-09-23 — lance-graph #1271 MERGED (`d90600d`); OGAR #307 and z8run #1 merged
 
 The "unmerged" section below is now on `main`: `lance-graph-report` (workspace
