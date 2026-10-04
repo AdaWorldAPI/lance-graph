@@ -298,7 +298,7 @@ The workspace keeps these apart.
 | INDRA | AdaWorldAPI | relation | status |
 |---|---|---|---|
 | `db_refs['TEXT']` + Gilda candidate list | `deepnsm-v2` `LexicalEvidence` / `LexicalReading` — every COCA reading kept with integer counts (`lexical.rs:34-41, 111, 332`), folded to a `PosSet` by `coca::reading_set` (`coca.rs:49`) | ANALOGOUS, ours keeps all readings structurally | SHIPPED (lexicon **and** parser consumer, #1314) |
-| winner-takes-all write into `db_refs` | `fsm::parse_readings` (`fsm.rs:471`): every reading enters; the licensing rule (`licensed`) closes a reading only where structure forbids it and never removes a token's last reading; output is `certain` triples (on every surviving configuration) + `alternative` triples + per-token `Survivor { entered, survived }` | ours STRICTLY RICHER: closure by structural warrant, unresolved alternatives reported, frequency never consulted | SHIPPED (#1314); consumed in production by tesseract-rs `consistency.rs` (#104) |
+| winner-takes-all write into `db_refs` | `fsm::parse_readings` (`fsm.rs:471`): every *distinct FSM reading* enters — `coca::fsm_pos` folds several COCA letters onto one FSM tag (`n`/`p` → `Noun`, `a`/`d` → `Det`, all others → `Other`, `coca.rs:24-30`) and `reading_set` deduplicates them into a `PosSet` (`coca.rs:49-54`), so the parser sees the folded set while the raw readings stay in `LexicalEvidence`; the licensing rule (`licensed`) closes a reading only where structure forbids it and never removes a token's last reading; output is `certain` triples (on every surviving configuration) + `alternative` triples + per-token `Survivor { entered, survived }` | DIFFERENT DESIGN: closure by structural warrant, unresolved alternatives reported, frequency never consulted; coarser than the lexicon it reads (folded tags, not raw readings) | SHIPPED (#1314); consumed in production by tesseract-rs `consistency.rs` (#104) |
 | `(ns, id)` preferred grounding | OGAR classid / `ogar-obo::Namespace` (`OGAR/crates/ogar-obo/src/lib.rs:95-178`) | ANALOGOUS | SHIPPED |
 | `IndraOntology.isa_or_partof` | `ogar-obo/src/reason.rs` EL saturation: is_a transitivity, transitive part_of, existential filler subsumption (`saturate :171`, `ancestors :369`); `ogar-ro` IS_A / PART_OF (`lib.rs:153-154`) | SAME role (refinement anchor); ours is a saturating reasoner | SHIPPED |
 | `is_opposite` | — no opposite relation found in `ogar-obo` / `ogar-ro` | NO MATCH | ABSENT in those two crates |
@@ -691,7 +691,7 @@ thesis must not miss:
    not of an observation layer.
 
 The workspace side is, today, **partly aspirational**: `LexicalEvidence`
-alternatives now reach the parser (`parse_readings`, #1314) and production
+alternatives now reach the parser as their distinct FSM folds (`parse_readings`, #1314) and production
 (tesseract-rs #104), but downstream only the certain triples are asserted and
 the alternatives are counted, not carried as evidence; NARS revision is
 evidence-weight based but no shipped path writes evidence-weighted truth onto
