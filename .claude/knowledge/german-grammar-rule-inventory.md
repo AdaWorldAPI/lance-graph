@@ -94,6 +94,14 @@ Ranks 5–9 are one case-constraint intersection, i.e. one Q2 evaluator rather t
 2. **TEKAMOLO is tested on edited text only.** Semitic parataxis and verb-early clauses carry into Luther and the KJV, so the edited-text order law is not expected there. Edited text (UD GSD, Animal Farm) tests the tendency; the Bible is the control.
 3. **Rank 15 sharpens.** The prediction is that Luther's deviation from the tendency is source-shaped (Semitic order), not noise. The probe should compare Luther with a non-biblical German text of the same period, not only with modern edited German.
 
+**Why the reader is right-corner, even for German (operator, 2026-10-04; built in `7bae6c84`).**
+- In Luther's *"Da sprach er, weil …"* the ambiguous *da* (Kausal and Lokal, 437 each) opens first and the deciding *weil* arrives two words later. A left-corner reader locks *da* and never sees *weil*.
+- The restored `tekamolo.rs` therefore opens hypotheses and adjudicates them at the clause's right corner, with `ReadParams::LEFT_CORNER` kept as the baseline.
+- German needs this even outside the Bible: the Satzklammer puts the deciding verb at the right edge. Today's measurements agree:
+  - the strongest German adj/adv rules are right-edge rules (88.5 % / 90.0 %, D-LXC-20);
+  - the cue reader decides by the segment-final finite verb (88.5 %, `da` 87.5 % vs 37.5 %, D-LXC-17).
+- Semitic parataxis in biblical text adds a further reason not to commit early.
+
 ## 5. Not searched / OPEN
 
 - adverbial vs predicative ADJD accuracy in the literature;
