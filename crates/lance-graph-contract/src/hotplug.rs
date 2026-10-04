@@ -19,6 +19,33 @@
 //! The classid is the join key on BOTH sides: the consumer says "0x0805,
 //! 0x0808, 0x0809 are hot", the authority hands back the concepts and every
 //! action whose subject is one of those ids.
+//!
+//! # SPOG × slab metadata → tenant reading (the ONE resolution path)
+//!
+//! A row is read under three separate concerns, composed here and nowhere
+//! else — there is no second registry:
+//!
+//! | authority | carrier | answers |
+//! |---|---|---|
+//! | SPOG context | the row key, via [`crate::spog_tenants::graph_of`] | which concept (graph) the row belongs to |
+//! | OGAR registry | [`Activation`] (from [`CapabilityAuthority::activate`]) | does that concept exist here, and its CURRENT canonical reading |
+//! | slab metadata | [`SlabDeclaration`] (beside the slab, never inside it) | the physical truth about bytes ALREADY written |
+//! | this build | [`SlabReading::from_tag`], [`ENVELOPE_LAYOUT_VERSION`](crate::soa_envelope::ENVELOPE_LAYOUT_VERSION) | whether this binary implements that physical reading |
+//!
+//! [`Activation::resolve_for_context`] composes them into one
+//! [`ResolvedReading`] or a named [`ActivationDrift`].
+//!
+//! - **An explicit declaration wins for reading existing data.** The OGAR
+//!   reading is the current dispatch for new writes; it never makes an
+//!   already persisted slab unreadable because the class has since migrated.
+//! - **No declaration means inherited behaviour**, not "this is Facet96": the
+//!   OGAR reading applies and [`ResolvedReading::slab`] is `None`.
+//! - **No per-concept permission table.** A slab chooses its own physical
+//!   reading; OGAR validates only that the semantic context exists, and this
+//!   build only that it knows the reading.
+//!
+//! The declaration carries NO semantic identity: SPOG supplies it. Tenant
+//! bytes stay content-blind: no resolution method takes a payload.
 
 /// A consumer's hot-plug declaration: which classids it activates and which
 /// capability names its executor covers. One `const` per consumer — the
@@ -159,6 +186,140 @@ impl Activation {
     }
 }
 
+/// A physical reading a slab declares for itself.
+///
+/// The variants are exactly the readings THIS build implements. A future
+/// reading (a classid-free 128-bit register and its carvings) lands as a new
+/// variant; which slabs use it is decided by the slab's own declaration, never
+/// by a per-concept table. The on-wire tag is a `u8` in the slab's metadata
+/// envelope, decoded by [`SlabReading::from_tag`], which refuses any tag this
+/// build does not implement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum SlabReading {
+    /// The canon self-describing `classid(4) + payload(12)` facet
+    /// ([`crate::facet::FacetCascade`]). Declared only by a slab whose bytes
+    /// really are that facet.
+    Facet96 = 0,
+}
+
+impl SlabReading {
+    /// Decode the envelope tag.
+    ///
+    /// # Errors
+    ///
+    /// [`ActivationDrift::UnknownSlabReading`] for any tag this build does not
+    /// implement.
+    pub const fn from_tag(tag: u8) -> Result<Self, ActivationDrift> {
+        match tag {
+            0 => Ok(SlabReading::Facet96),
+            other => Err(ActivationDrift::UnknownSlabReading(other)),
+        }
+    }
+}
+
+/// What a slab's metadata envelope DECLARES about its own, already written
+/// bytes. Physical facts only — no concept, no classid, no ontology: the SPOG
+/// context supplies those.
+///
+/// For reading existing data the declaration is the authority on the physical
+/// side; the OGAR reading does not override it. A writer records the reading
+/// it actually used here, so the slab stays readable after its class migrates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SlabDeclaration {
+    /// The physical reading the slab was written with.
+    pub reading: SlabReading,
+    /// Which value tenants the slab materialised.
+    pub value_schema: crate::canonical_node::ValueSchema,
+    /// The envelope layout the slab was written under —
+    /// [`SoaEnvelope::LAYOUT_VERSION`](crate::soa_envelope::SoaEnvelope::LAYOUT_VERSION)
+    /// of its writer. A layout this build does not implement is refused,
+    /// never reinterpreted.
+    pub layout_version: u8,
+}
+
+/// The output of the one resolution path. `Copy + Eq + Hash`, so a caller can
+/// resolve once per `(concept, declaration)` and hand the value to whatever
+/// processes the population.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ResolvedReading {
+    /// The SPOG concept the reading was resolved under.
+    pub concept: u16,
+    /// The runtime reading. Tail and edge codec come from OGAR (they read the
+    /// key and the edge block, which a slab does not own); the value schema
+    /// comes from the slab declaration when there is one.
+    pub read_mode: crate::canonical_node::ReadMode,
+    /// The declared physical reading, or `None` when the slab declared
+    /// nothing and is read with today's inherited behaviour.
+    pub slab: Option<SlabReading>,
+}
+
+impl Activation {
+    /// SPOG context × slab declaration → [`ResolvedReading`]. The single
+    /// resolution path, taking the concept directly so a caller holding one
+    /// population (e.g. one [`crate::spog_tenants::SpogTenants`] tenant)
+    /// resolves once and never per row.
+    ///
+    /// 1. **OGAR** — the concept must exist in this activation
+    ///    ([`read_mode_for`](Activation::read_mode_for)), else
+    ///    [`ActivationDrift::NoReadingFor`].
+    /// 2. **No declaration** — the OGAR reading, `slab: None`.
+    /// 3. **Declaration** — its layout version must be one this build
+    ///    implements, else [`ActivationDrift::SlabLayoutVersion`] (the reading
+    ///    tag was already checked by [`SlabReading::from_tag`]). Then the
+    ///    declared value schema and reading win: the OGAR reading is today's
+    ///    dispatch for new writes and does not invalidate bytes written under
+    ///    an earlier one.
+    ///
+    /// # Errors
+    ///
+    /// The named [`ActivationDrift`] arms above. No fallback on any path.
+    pub fn resolve_for_context(
+        &self,
+        concept: u16,
+        slab: Option<&SlabDeclaration>,
+    ) -> Result<ResolvedReading, ActivationDrift> {
+        let current = self.read_mode_for(concept)?;
+        let Some(slab) = slab else {
+            return Ok(ResolvedReading {
+                concept,
+                read_mode: current,
+                slab: None,
+            });
+        };
+        if slab.layout_version != crate::soa_envelope::ENVELOPE_LAYOUT_VERSION {
+            return Err(ActivationDrift::SlabLayoutVersion {
+                slab: slab.layout_version,
+                expected: crate::soa_envelope::ENVELOPE_LAYOUT_VERSION,
+            });
+        }
+        Ok(ResolvedReading {
+            concept,
+            read_mode: crate::canonical_node::ReadMode {
+                value_schema: slab.value_schema,
+                ..current
+            },
+            slab: Some(slab.reading),
+        })
+    }
+
+    /// Convenience wrapper: the SPOG concept is
+    /// [`crate::spog_tenants::graph_of`] of `key`, then
+    /// [`resolve_for_context`](Activation::resolve_for_context). Takes a key,
+    /// never a row or payload.
+    ///
+    /// # Errors
+    ///
+    /// As [`resolve_for_context`](Activation::resolve_for_context).
+    pub fn resolve_tenant_reading(
+        &self,
+        key: crate::canonical_node::NodeGuid,
+        slab: Option<&SlabDeclaration>,
+    ) -> Result<ResolvedReading, ActivationDrift> {
+        self.resolve_for_context(crate::spog_tenants::graph_of(key), slab)
+    }
+}
+
 /// Why an activation failed — each arm is one named bang.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivationDrift {
@@ -184,6 +345,17 @@ pub enum ActivationDrift {
     ///
     /// [`ReadMode::DEFAULT`]: crate::canonical_node::ReadMode::DEFAULT
     NoReadingFor(u16),
+    /// A slab's metadata envelope carries a reading tag this build does not
+    /// implement. Never assumed to be [`SlabReading::Facet96`].
+    UnknownSlabReading(u8),
+    /// A slab was written under an envelope layout version this build does
+    /// not implement.
+    SlabLayoutVersion {
+        /// The version the slab declared.
+        slab: u8,
+        /// [`crate::soa_envelope::ENVELOPE_LAYOUT_VERSION`].
+        expected: u8,
+    },
     /// The authority resolved a concept that this crate's zero-dep wire
     /// mirror ([`crate::ogar_codebook`]) does not carry at the same id.
     ///
@@ -249,6 +421,14 @@ impl core::fmt::Display for ActivationDrift {
                 f,
                 "no storage reading declared for concept 0x{id:04X} \
                  (a V1 default is never substituted)"
+            ),
+            Self::UnknownSlabReading(tag) => write!(
+                f,
+                "slab declares reading tag {tag}, which this build does not implement"
+            ),
+            Self::SlabLayoutVersion { slab, expected } => write!(
+                f,
+                "slab written under envelope layout v{slab}, this build reads v{expected}"
             ),
             Self::MirrorDrift {
                 concept,
@@ -389,6 +569,243 @@ mod tests {
             Err(ActivationDrift::NoReadingFor(0x0805)),
             "an empty table is not 'assume the default'"
         );
+    }
+
+    /// SPOG × slab resolution. Fixture: two plugged concepts with different
+    /// current readings — 0x0901 (plug-and-play V3 / Full) and 0x0902 (a V1 /
+    /// Cognitive / CoarseResidue class).
+    mod slab_resolution {
+        use super::super::*;
+        use crate::canonical_node::{
+            EdgeCodecFlavor, NodeGuid, NodeRow, ReadMode, TailVariant, ValueSchema,
+        };
+        use crate::soa_envelope::ENVELOPE_LAYOUT_VERSION;
+
+        const A: ReadMode = ReadMode::PLUG_AND_PLAY_V3;
+        const B: ReadMode = ReadMode {
+            tail_variant: TailVariant::V1,
+            value_schema: ValueSchema::Cognitive,
+            edge_codec: EdgeCodecFlavor::CoarseResidue,
+        };
+
+        /// An activation that plugs 0x0901 (reading `A`) and 0x0902 (reading `B`).
+        fn act() -> Activation {
+            Activation::new(Vec::new(), Vec::new(), vec![(0x0901, A), (0x0902, B)])
+        }
+
+        /// A row whose SPOG graph (canon-high half of the classid) is `concept`.
+        fn key(concept: u16, identity: u32) -> NodeGuid {
+            NodeGuid::new(u32::from(concept) << 16, 1, 2, 3, 0x66, identity)
+        }
+
+        /// A Facet96 declaration at the current layout with the given value schema.
+        fn decl(value_schema: ValueSchema) -> SlabDeclaration {
+            SlabDeclaration {
+                reading: SlabReading::Facet96,
+                value_schema,
+                layout_version: ENVELOPE_LAYOUT_VERSION,
+            }
+        }
+
+        /// Same declaration + same SPOG context → same reading, and the key
+        /// wrapper agrees with the context form.
+        #[test]
+        fn resolution_is_deterministic() {
+            let d = decl(ValueSchema::Bootstrap);
+            let first = act().resolve_for_context(0x0901, Some(&d));
+            assert!(first.is_ok());
+            for i in 1..9 {
+                assert_eq!(act().resolve_for_context(0x0901, Some(&d)), first);
+                assert_eq!(
+                    act().resolve_tenant_reading(key(0x0901, i), Some(&d)),
+                    first
+                );
+            }
+        }
+
+        /// One declaration under two registered SPOG contexts resolves
+        /// differently: tail and edge codec come from each context's OGAR
+        /// reading; the slab's own part is shared.
+        #[test]
+        fn one_slab_under_two_contexts_resolves_per_context() {
+            let d = decl(ValueSchema::Bootstrap);
+            let ra = act().resolve_for_context(0x0901, Some(&d)).unwrap();
+            let rb = act().resolve_for_context(0x0902, Some(&d)).unwrap();
+            assert_eq!(ra.read_mode.tail_variant, TailVariant::V3);
+            assert_eq!(rb.read_mode.tail_variant, TailVariant::V1);
+            assert_eq!(rb.read_mode.edge_codec, EdgeCodecFlavor::CoarseResidue);
+            assert_ne!(ra, rb, "anti-vacuity: the context changed the answer");
+            assert_eq!(ra.read_mode.value_schema, rb.read_mode.value_schema);
+            assert_eq!(ra.slab, rb.slab);
+            // The key wrapper derives the context from the key (graph_of),
+            // so a 0x0902 row resolves as 0x0902, not as any fixed concept.
+            assert_eq!(
+                act().resolve_tenant_reading(key(0x0902, 3), Some(&d)),
+                Ok(rb)
+            );
+            assert_eq!(
+                act().resolve_tenant_reading(key(0x0901, 3), Some(&d)),
+                Ok(ra)
+            );
+        }
+
+        /// An unknown SPOG/OGAR context fails closed, with or without a
+        /// declaration, including the default class 0.
+        #[test]
+        fn an_unknown_context_fails_closed() {
+            let d = decl(ValueSchema::Bootstrap);
+            for concept in [0x0903u16, 0x0000] {
+                assert_eq!(
+                    act().resolve_for_context(concept, None),
+                    Err(ActivationDrift::NoReadingFor(concept))
+                );
+                assert_eq!(
+                    act().resolve_for_context(concept, Some(&d)),
+                    Err(ActivationDrift::NoReadingFor(concept))
+                );
+            }
+        }
+
+        /// A reading or layout this build does not implement fails closed;
+        /// the implemented ones pass (silence twin).
+        #[test]
+        fn an_unsupported_physical_reading_fails_closed() {
+            assert_eq!(SlabReading::from_tag(0), Ok(SlabReading::Facet96));
+            for tag in [1u8, 2, 0x80, 0xFF] {
+                assert_eq!(
+                    SlabReading::from_tag(tag),
+                    Err(ActivationDrift::UnknownSlabReading(tag))
+                );
+            }
+            let stale = SlabDeclaration {
+                layout_version: ENVELOPE_LAYOUT_VERSION.wrapping_sub(1),
+                ..decl(ValueSchema::Full)
+            };
+            assert_eq!(
+                act().resolve_for_context(0x0901, Some(&stale)),
+                Err(ActivationDrift::SlabLayoutVersion {
+                    slab: ENVELOPE_LAYOUT_VERSION.wrapping_sub(1),
+                    expected: ENVELOPE_LAYOUT_VERSION,
+                })
+            );
+            assert!(act()
+                .resolve_for_context(0x0901, Some(&decl(ValueSchema::Full)))
+                .is_ok());
+        }
+
+        /// No declaration: today's inherited behaviour — exactly the current
+        /// OGAR reading, and NO claim about the physical reading (`slab` is
+        /// `None`, not `Facet96`). No migration and no layout change.
+        #[test]
+        fn an_undeclared_slab_keeps_inherited_behaviour() {
+            let a = act();
+            for (concept, mode) in [(0x0901u16, A), (0x0902, B)] {
+                let r = a.resolve_for_context(concept, None).unwrap();
+                assert_eq!(Ok(r.read_mode), a.read_mode_for(concept));
+                assert_eq!(r.read_mode, mode);
+                assert_eq!(r.slab, None, "absence is not a Facet96 claim");
+            }
+            assert_eq!(core::mem::size_of::<crate::facet::FacetCascade>(), 16);
+        }
+
+        /// The class migrated; its historical slabs still read as written.
+        ///
+        /// Yesterday the class was registered Full; a slab was written Full and
+        /// recorded that. Today OGAR registers Bootstrap. The old slab resolves
+        /// to Full, a new undeclared one to Bootstrap. Both directions, so the
+        /// rule is "the declaration wins", not "the wider one wins".
+        #[test]
+        fn a_historical_slab_survives_a_class_migration() {
+            let migrated = |schema| {
+                Activation::new(
+                    Vec::new(),
+                    Vec::new(),
+                    vec![(
+                        0x0901,
+                        ReadMode {
+                            value_schema: schema,
+                            ..A
+                        },
+                    )],
+                )
+            };
+            for (today, written) in [
+                (ValueSchema::Bootstrap, ValueSchema::Full),
+                (ValueSchema::Full, ValueSchema::Compressed),
+            ] {
+                let act = migrated(today);
+                let old = act
+                    .resolve_for_context(0x0901, Some(&decl(written)))
+                    .unwrap();
+                assert_eq!(
+                    old.read_mode.value_schema, written,
+                    "the slab's own record wins"
+                );
+                assert_eq!(old.slab, Some(SlabReading::Facet96));
+                let new = act.resolve_for_context(0x0901, None).unwrap();
+                assert_eq!(
+                    new.read_mode.value_schema, today,
+                    "new data reads as registered today"
+                );
+                assert_ne!(old, new);
+            }
+        }
+
+        /// Payload does not participate: two rows with the same key and
+        /// different value bytes resolve identically, and no resolution method
+        /// accepts a row or payload at all.
+        #[test]
+        fn payload_bytes_do_not_participate() {
+            let mut r1 = NodeRow {
+                key: key(0x0901, 7),
+                edges: crate::canonical_node::EdgeBlock::default(),
+                value: [0u8; 480],
+            };
+            let mut r2 = r1;
+            r1.value[0] = 0xAA;
+            r2.value[479] = 0x55;
+            let d = decl(ValueSchema::Cognitive);
+            assert_ne!(r1.value, r2.value);
+            assert_eq!(
+                act().resolve_tenant_reading(r1.key, Some(&d)),
+                act().resolve_tenant_reading(r2.key, Some(&d))
+            );
+        }
+
+        /// The intended call shape: resolve ONCE for a population whose SPOG
+        /// context is already known, then process the rows with no SPOG
+        /// resolution, registry lookup or map lookup inside the loop.
+        ///
+        /// This shows the API supports that shape. It does not measure a fold,
+        /// and it does not show anything is branch-free: no kernel exists yet.
+        #[test]
+        fn one_resolution_serves_a_whole_population() {
+            /// Compiles only for types usable as a cache key or value.
+            fn cacheable<T: Copy + Eq + core::hash::Hash>() {}
+            cacheable::<ResolvedReading>();
+            cacheable::<SlabDeclaration>();
+
+            let population: Vec<NodeGuid> = (1..=1000).map(|i| key(0x0901, i)).collect();
+            let d = decl(ValueSchema::Compressed);
+
+            let resolved = act().resolve_for_context(0x0901, Some(&d)).unwrap();
+            // Conceptual stand-in for `future_dispatch(resolved)`: a value
+            // chosen once from the resolved reading, then reused.
+            let tenant_bytes = resolved.read_mode.value_schema.tenant_bytes();
+
+            let mut visited = 0usize;
+            for row in &population {
+                // Only the precomputed value is used here.
+                let _ = (row, tenant_bytes);
+                visited += 1;
+            }
+            assert_eq!(visited, population.len());
+            assert_eq!(tenant_bytes, ValueSchema::Compressed.tenant_bytes());
+            // The population really is that context (checked outside the loop).
+            assert!(population
+                .iter()
+                .all(|k| crate::spog_tenants::graph_of(*k) == resolved.concept));
+        }
     }
 
     /// The drift class the retired `COUNT_FUSE` guarded: a concept the

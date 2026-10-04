@@ -1,3 +1,22 @@
+## 2026-10-04 — SPOG × slab declaration resolves through hotplug (branch `ccr-f6094d67-h6ulb3`, unmerged)
+
+### Current Contract Inventory — net delta (`hotplug.rs`, no new registry)
+- `SlabReading { Facet96 = 0 }` + `from_tag(u8)`: the readings this build
+  implements; an unknown tag → `UnknownSlabReading`.
+- `SlabDeclaration {reading, value_schema, layout_version}`: the physical truth
+  about bytes already written. No concept (SPOG supplies it), no tail/edge
+  (OGAR owns them).
+- `ResolvedReading {concept, read_mode, slab: Option<SlabReading>}`
+  (`Copy+Eq+Hash`). `slab: None` = no declaration, inherited behaviour.
+- `Activation::resolve_for_context(concept, Option<&SlabDeclaration>)`: the one
+  path. Unknown concept → `NoReadingFor`; unsupported layout →
+  `SlabLayoutVersion`; a declaration otherwise wins over the current OGAR
+  reading, so a class migration never makes an old slab unreadable.
+  `resolve_tenant_reading(key, …)` = `graph_of(key)` + the above.
+- No per-concept permission table for readings. Not done: no Raw128, no
+  kernels, no fold change, no slab rebuild, no physical home for the
+  declaration, no writer persisting it, no caller wired.
+
 ## 2026-09-23 — lance-graph #1271 MERGED (`d90600d`); OGAR #307 and z8run #1 merged
 
 The "unmerged" section below is now on `main`: `lance-graph-report` (workspace
