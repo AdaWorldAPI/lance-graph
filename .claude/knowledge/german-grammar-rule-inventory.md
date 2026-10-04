@@ -83,6 +83,17 @@ Ranks 5–9 are one case-constraint intersection, i.e. one Q2 evaluator rather t
 - **May be built and fetched:** UD German GSD + HDT (CC BY-SA), the de-codebook TSVs (CC BY-SA, derived), Wiktionary / DEMorphy paradigms (CC BY-SA), Wino-X (MIT), WordNet 3.1 (BSD-style).
 - **Measure against only, never bake:** TüBa-D/Z, TIGER, GermaNet, E-VALBU (licence unconfirmed), the Batinić particle list. Check WOGLI and PEP-3k before use.
 
+## 4a. Bible lanes are not independent witnesses (operator, 2026-10-04)
+
+**The operator's point:** for the Bible context it was established that Greek and Aramaic, and Koine Greek itself, carry Aramaic-derived properties.
+
+**It agrees with the measured record.** PROBE-BABEL-STANCES (`E-TWO-ROSETTA-STONES-AND-THE-FOUR-CHANNEL-SPLIT-1`) found the pragmatic channel in coherent antiphase across every verified lane (en-kjv, de-luther1545, la-vulgate, el-lxx). It read that as inherited calque, not independent convergence; the Aramaic and Czech rows read the same way but are reconstructions, so they are reported, not claimed.
+
+**Consequences:**
+1. **Agreement among Bible lanes is not independent evidence.** The Semitic source shows through Greek into Latin, Luther and the KJV. Bible-based cross-language checks, including D-LXC-15's KJV↔Luther silver labels, carry this caveat.
+2. **TEKAMOLO is tested on edited text only.** Semitic parataxis and verb-early clauses carry into Luther and the KJV, so the edited-text order law is not expected there. Edited text (UD GSD, Animal Farm) tests the tendency; the Bible is the control.
+3. **Rank 15 sharpens.** The prediction is that Luther's deviation from the tendency is source-shaped (Semitic order), not noise. The probe should compare Luther with a non-biblical German text of the same period, not only with modern edited German.
+
 ## 5. Not searched / OPEN
 
 - adverbial vs predicative ADJD accuracy in the literature;
