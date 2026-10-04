@@ -41,12 +41,12 @@ support, PROV-O the lineage, and GRADE only a derived view.
 | X12 | duplicate-cohort exclusion by bit-vector AND + popcount | WORTH-EXPLORING | PASS (registered partition) | **PROBE** | P-X12: 3 seeded cohorts with overlapping ids + R44930 place×period; kill if period needs unbounded bits or the overlap-free set disagrees with true overlap |
 | X4 | text SPO → address resolver (proposal side) | WORTH-EXPLORING | CONFLICT — seam: PROPOSE side, consumer crate | **PARK** until P-X2 | P-X4 after P-X2: kill "lookup join" if <50% of S/O slots map |
 | X13 | gated pooling with NOT_POOLED as a valid outcome | WORTH-EXPLORING (later) | CONFLICT — seam: consumer-side float projection | **PARK** until P-X5 | P-X13: kill the pooler if <2 groups share a measure address; kill "unweighted is fine" if it differs from inverse-variance by > pooled SE |
-| X8 | evidence kind (manual/automatic) + direction labels | WORTH-EXPLORING | CONFLICT — seam: minted kind on witness edge | **PARK** | P-X8: build only if some input separates "inconclusive" from "silent" |
+| X8 | evidence kind (manual/automatic) + direction labels | WORTH-EXPLORING | CONFLICT — seam: minted kind on witness edge | **SPLIT** (see corrections) | direction half: already-have; extraction-method half: P-X8b |
 | X17 | register STATO / bake META_STUDY_SPINE | DROP (blocked) | CONFLICT — operator mint decision | **PARK** | operator: numeric-0 pad fix + 0x03 occupancy |
 | X15 | GRADE certainty | DROP as stored | CONFLICT | **SKIP** (projection only, never stored) | D-BBB-NARS-4 |
 | X11 | content hash as claim identity | DROP | TRAP | **SKIP** | GUID is the key (OGAR P0); no internal pins. Allowed only: transient dedup proposal, or an external Trusty-URI as an external id |
 | X16 | imported worlds do not permeate the core | ALREADY-HAVE | PASS | **SKIP** (already the firewall) | — |
-| X19 | two orthogonal claim axes already on the edge: KIND of claim (CE64 bits 61-63 `ReasoningBand`: Association 1 / Relation 2 / Causal 3 / Counterfactual 4 — correlation vs causation, Pearl's ladder) × PATH shape (bits 59-60 `CausalTopology`: direct / indirect with KNOWN intermediates / indirect with UNKNOWN intermediates / topology not established) | (added after the council, from an operator pointer) | — | **PROBE** | CE64 bits 59-60 `CausalTopology` (`causal-edge/src/layout.rs:173-250`); source twin `DismechTopology` (`lance-graph-contract/src/dismech_evidence.rs:56-69`, measured: 9,073 / 3,978 / 4,539 / 408 on 2,100 DisMech files). P-X19: (a) a literature or cohort edge must not be written without an explicit topology — `CausalEdge64::ZERO` reads `Direct` by default, so an import that omits the field silently claims a direct path; (b) a parse failure must fail closed, never mint `Unknown`, because `Unknown` is an asserted value; (c) an association source (cohort `Correlation`, arm-discovery rule) must be stamped `ReasoningBand::Association`, never `Causal` — today NO producer writes `Association` (only `dismech_counterfactual.rs:547` writes a band, and it writes `Causal`), so correlations read `Surface`; (d) silence twin: a source-asserted causal claim (DisMech) stays `Causal` |
+| X19 | two orthogonal claim axes already on the edge: KIND of claim (CE64 bits 61-63 `ReasoningBand`: Association 1 / Relation 2 / Causal 3 / Counterfactual 4 — correlation vs causation, Pearl's ladder) × PATH shape (bits 59-60 `CausalTopology`: direct / indirect with KNOWN intermediates / indirect with UNKNOWN intermediates / topology not established) | (added after the council, from an operator pointer) | — | **PROBE** | CE64 bits 59-60 `CausalTopology` (`causal-edge/src/layout.rs:173-250`); source twin `DismechTopology` (`lance-graph-contract/src/dismech_evidence.rs:56-69`, measured: 9,073 / 3,978 / 4,539 / 408 on 2,100 DisMech files). P-X19: (a) a literature or cohort edge must not be written without an explicit topology — `CausalEdge64::ZERO` reads `Direct` by default, so an import that omits the field silently claims a direct path; (b) a parse failure must fail closed, never mint `Unknown`, because `Unknown` is an asserted value; (c) an association source (cohort `Correlation`, arm-discovery rule) must be stamped `ReasoningBand::Association`, never `Causal` — today NO producer writes `Association` (only `dismech_counterfactual.rs:547` writes a band, and it writes `Causal`), so correlations read `Surface`; (d) silence twin: a source-asserted causal claim (DisMech) stays `Causal`; (e)-(f) the class must declare its band reading (`band_reading.rs`), see below |
 
 ## Productive disagreements (named, not resolved)
 1. **X9 document witness.** Firewall: fold into `Oracle` ("bewusst kein viertes"). Bridge: a document witness source. Falsifier: `OracleModule(u32)` would need a registry. Second premise pass: these are different axes. Origin (Q9a) and source (Q9b) are separate questions, and the code's own doc comments disagree on the origin (a guideline is Oracle; a confirmed document extract is Observed). → operator, as Q9a and Q9b.
@@ -79,11 +79,18 @@ searches never covered: `lance-graph-contract/src/dismech_evidence.rs`, a source
 vocabulary measured on 2,100 real DisMech files. Scout 1's search for publication / claim /
 evidence concepts covered `ogar-vocab` constants only. Three rows change:
 
-- **X8 → ALREADY-HAVE (source side).** `Supports {Support, Partial, Refute, NoEvidence}` and
-  `EvidenceSource {HumanClinical, ModelOrganism, InVitro, Computational, Other}` already exist
-  with measured cardinalities. P-X8's kill question ("does any input separate inconclusive from
-  silent?") is answered: the source asserts `NO_EVIDENCE` explicitly. Open: `Partial` has no
-  `Quorum` counterpart, and the hydration map from `Supports` onto `Quorum` counts is not written.
+- **X8 → SPLIT.** Its two halves have different answers.
+  - *Direction half: ALREADY-HAVE (source side).* `Supports {Support, Partial, Refute,
+    NoEvidence}` exists with measured cardinalities, and P-X8's kill question ("does any input
+    separate inconclusive from silent?") is answered: the source asserts `NO_EVIDENCE`
+    explicitly. Open: `Partial` has no `Quorum` counterpart, and the hydration map from
+    `Supports` onto `Quorum` counts is not written.
+  - *Extraction-method half (manual vs automatic): still PROBE.* `EvidenceSource {HumanClinical,
+    ModelOrganism, InVitro, Computational, Other}` (`dismech_evidence.rs:267-280`) classifies the
+    kind of underlying evidence, not who produced the claim; a curator-entered and a
+    machine-extracted claim are indistinguishable in it. P-X8b: before the evidence carrier is
+    planned, decide where extraction provenance lives (the witness, beside `WitnessSource`),
+    because nothing in the contract can represent it today.
 - **X9 → PARTIAL, smaller than stated.** `CitationKey {Identified{namespace: Pmid | Doi | Orpha |
   ClinicalTrials | Cggv | Url, id}, ContentAddressed}` already exists in the zero-dep contract.
   It never derives identity from a title, and blank input is unrepresentable. Q9b shrinks to:
@@ -120,6 +127,16 @@ stores `Surface` rather than declaring itself an `Association`. The three kinds 
 - a MedCare `Correlation` is `Association`, with topology not established;
 - a DisMech mechanism is `Causal`, with its topology taken from the source.
 
+Calling `with_reasoning_band()` / `with_topology()` is not sufficient on its own. The 59-63
+reading contract (`lance-graph-contract/src/band_reading.rs:7-14, 50-58, 230-234`) says the
+lens a producer wrote through is not recoverable from the bits and must be declared per
+`(classid, rail)`. An undeclared class resolves to `ZERO_FALLBACK` (`Trust` lens, band
+`Absent`), so the sanctioned projection rejects a stamped topology or band. P-X19 therefore
+also includes (e) a `ClassView` / `BandDeclarations` entry for every new cohort or literature
+class, declaring the `CausalTopology` lens and a present band, with asserted provenance; and
+(f) a falsifier that the stamped values project through the declared reading, plus a twin that
+an undeclared class refuses.
+
 Lesson for the next council: the code cartographer's search space must include the contract's
 domain modules, not only the vocabulary constants.
 
@@ -132,5 +149,5 @@ domain modules, not only the vocabulary constants.
 4. **Which probes to run.** P-X3 + P-X5 is the recommended first probe.
 
 CLOSEOUT | STATUS: open | OUTCOME: exploration map; 1 ADOPT-NOW candidate (X3 adapter key, gated
-by its probe), 10 probes + P-X19, 3 park, 3 skip, X8 corrected to already-have | OPEN: Q9a, Q9b, X3 key choice, probe
+by its probe), 10 probes + P-X19, 3 park, 3 skip, X8 split (direction already-have, extraction method still a probe) | OPEN: Q9a, Q9b, X3 key choice, probe
 selection
