@@ -164,12 +164,16 @@ impl RegisterLanes {
     }
 
     /// Write `rail` of `row`. Returns `false`, writing nothing, if this
-    /// binding did not grant the rail.
+    /// binding did not grant the rail. A successful write is counted against
+    /// the rail's tenant, like every other tenant setter
+    /// ([`crate::tenant_counter::tenant_update`], a no-op unless the
+    /// `tenant-counters` feature is on).
     #[must_use]
     pub fn set(&self, row: &mut NodeRow, rail: usize, reg: Register128) -> bool {
         match self.rail_range(rail) {
             Some(r) => {
                 row.value[r].copy_from_slice(&reg.0);
+                crate::tenant_counter::tenant_update(self.rails.tenants()[rail]);
                 true
             }
             None => false,
@@ -269,5 +273,25 @@ mod tests {
             Some(reg),
             "a refused write wrote nothing"
         );
+    }
+
+    /// FAILS IF: a successful register write is not counted against its
+    /// tenant, or a refused one is. Only this test writes rail 0, so the
+    /// delta is exact even with tests running in parallel.
+    #[cfg(feature = "tenant-counters")]
+    #[test]
+    fn register_writes_are_counted_per_tenant() {
+        use crate::tenant_counter::tenant_count;
+        let mut row = NodeRow {
+            key: crate::canonical_node::NodeGuid::new(0x0901_0000, 1, 2, 3, 0x66, 9),
+            edges: Default::default(),
+            value: [0; 480],
+        };
+        let before = tenant_count(ValueTenant::Register0);
+        let one = RegisterLanes::new(0x0901, RegisterRails::One);
+        assert!(one.set(&mut row, 0, Register128::from_words([1, 2, 3, 0])));
+        assert!(one.set(&mut row, 0, Register128::ZERO));
+        assert!(!one.set(&mut row, 1, Register128::ZERO), "refused");
+        assert_eq!(tenant_count(ValueTenant::Register0), before + 2);
     }
 }
