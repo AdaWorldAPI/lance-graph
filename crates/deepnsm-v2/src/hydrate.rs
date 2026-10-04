@@ -45,6 +45,7 @@
 use crate::spo::Spo;
 use crate::toc::{spawn, CorpusToc, TocEntry, TocLevel};
 use lance_graph_contract::hhtl::NiblePath;
+use std::collections::HashMap;
 
 /// One triple, addressed at the verse node it was read in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,12 +134,30 @@ pub fn hydrate(markers: &[(u16, u16)], per_verse: &[Vec<Spo>], basin: u8) -> Hyd
     let toc = CorpusToc::from_markers(markers);
     let entries = spawn(&toc, basin);
 
-    // Verse nodes in the order the spawn emitted them, which is the order the
-    // markers were read — so the i-th verse marker is the i-th verse node.
-    let verse_paths: Vec<NiblePath> = entries
+    // Each marker's OWN node, looked up by its (book, chapter, verse). The
+    // spawn skips any node past the level capacity, so the dense list of
+    // spawned verse nodes is NOT aligned with the markers: indexing it by
+    // marker position would shift every later triple onto the wrong verse
+    // once one verse is skipped (PR #1321 review). A marker with no node is
+    // unaddressed. The book counter follows `CorpusToc::from_markers`: a book
+    // opens at `1:1`, and markers before the first `1:1` belong to book 0.
+    let node: HashMap<(u16, u16, u16), NiblePath> = entries
         .iter()
         .filter(|e| e.level == TocLevel::Verse)
-        .map(|e| e.path)
+        .map(|e| ((e.book, e.chapter, e.verse), e.path))
+        .collect();
+    let mut book: Option<u16> = None;
+    let verse_paths: Vec<Option<NiblePath>> = markers
+        .iter()
+        .map(|&(ch, vs)| {
+            let b = match book {
+                Some(b) if (ch, vs) == (1, 1) => b.saturating_add(1),
+                Some(b) => b,
+                None => 0,
+            };
+            book = Some(b);
+            node.get(&(b, ch, vs)).copied()
+        })
         .collect();
 
     let mut triples = Vec::new();
@@ -151,8 +170,8 @@ pub fn hydrate(markers: &[(u16, u16)], per_verse: &[Vec<Spo>], basin: u8) -> Hyd
             barren_verses += 1;
             continue;
         }
-        match verse_paths.get(i) {
-            Some(&path) => {
+        match verse_paths.get(i).copied().flatten() {
+            Some(path) => {
                 for spo in spos {
                     triples.push(AddressedTriple {
                         path,
@@ -187,6 +206,35 @@ mod tests {
 
     fn spo(n: u16) -> Spo {
         Spo::new(n, n + 100, n + 200)
+    }
+
+    /// **A skipped verse does not shift later triples.** Book 0 has a chapter
+    /// with 256 verses; verse 256 is past the level capacity and gets no node.
+    /// Book 1's first triple must land on book 1's verse 1:1, not be consumed
+    /// by book 0's missing verse (PR #1321 review: indexing the dense list of
+    /// spawned verses by marker position did exactly that).
+    #[test]
+    fn a_skipped_verse_does_not_shift_later_triples() {
+        let mut marks: Vec<(u16, u16)> = (1..=256).map(|v| (1, v)).collect();
+        marks.push((1, 1));
+        marks.push((1, 2));
+        let mut per_verse: Vec<Vec<Spo>> = vec![Vec::new(); marks.len()];
+        per_verse[255] = vec![spo(1)]; // book 0, verse 256: no node
+        per_verse[256] = vec![spo(2)]; // book 1, verse 1:1
+        let h = hydrate(&marks, &per_verse, 1);
+        assert_eq!(h.unaddressed, 1, "verse 256 is past capacity");
+        assert_eq!(h.triples.len(), 1);
+        let landed = h
+            .entries
+            .iter()
+            .find(|e| e.path == h.triples[0].path)
+            .expect("an addressed triple sits on a spawned node");
+        assert_eq!(
+            (landed.book, landed.chapter, landed.verse),
+            (1, 1, 1),
+            "book 1's triple must land on book 1, verse 1:1"
+        );
+        assert_eq!(h.triples[0].spo, spo(2));
     }
 
     /// **Every triple lands on a real minted verse node.** The join is the whole

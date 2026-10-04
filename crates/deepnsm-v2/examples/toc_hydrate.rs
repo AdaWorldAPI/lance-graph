@@ -10,11 +10,13 @@
 //! silently disagree with the pipeline that already runs.
 
 use deepnsm_v2::basin::basin_self_code;
+use deepnsm_v2::coca::{predicate_alternatives, reading_set};
 use deepnsm_v2::codebook::{load_cam96_codes, load_cam96_space};
 use deepnsm_v2::corpus::split_verses_detailed;
-use deepnsm_v2::fsm::{parse_to_spo, Pos, Tagged};
+use deepnsm_v2::fsm::{parse_readings, Pos, PosSet, Reading};
 use deepnsm_v2::hydrate::hydrate;
-use deepnsm_v2::lexicon::{normalise, Lexicon};
+use deepnsm_v2::lexical::{load_word_forms_csv, LexicalEvidence};
+use deepnsm_v2::lexicon::{archaic_pos, coca_pos, normalise, Lexicon};
 use deepnsm_v2::loci::{loci_from_triples, AnteRule};
 use deepnsm_v2::promote::{key_at, promote, read_lane, row_of};
 use deepnsm_v2::spo::Spo;
@@ -99,18 +101,23 @@ fn main() {
         lexicon.sizes().1
     );
 
-    // ── per-verse SPO, same tagging as bible_wave ──
+    // ── per-verse SPO, parsed exactly as bible_wave does ──
+    // Every reading the lexicon admits goes to the multi-reading parser
+    // (D-LXC-2 / D-LXC-13); only its `certain` triples are kept. A
+    // single-reading `parse_to_spo` here would build the tree and its basins
+    // from a different triple stream than the main pipeline (PR #1321 review).
+    let readings = ReadingSource::load(&vocab);
     let mut per_verse: Vec<Vec<Spo>> = Vec::with_capacity(verses.len());
-    let mut tagged: Vec<Tagged> = Vec::new();
+    let mut buf: Vec<Reading> = Vec::new();
     for verse in &verses {
-        tagged.clear();
+        buf.clear();
         for tok in verse.split_whitespace() {
             let Some(w) = normalise(tok) else { continue };
             let Some(id) = vocab.id(&w) else { continue };
-            tagged.push(Tagged::new(id, lexicon.pos(&w)));
+            buf.push(Reading::new(id, readings.of(&w, id)));
         }
-        tagged.push(Tagged::new(0, Pos::Stop));
-        per_verse.push(parse_to_spo(&tagged));
+        buf.push(Reading::stop());
+        per_verse.push(parse_readings(&buf).certain);
     }
     let total: usize = per_verse.iter().map(Vec::len).sum();
     println!("triples     {total} from {} verses", verses.len());
@@ -312,4 +319,75 @@ fn main() {
     }
 
     println!("\nEND-TO-END GREEN over the real corpus.");
+}
+
+/// The reading set per word, the same as `bible_wave`'s `Tagger::readings`.
+/// Order: the lemma table's first row, widened by its noun/verb alternative
+/// when any lemma row or the word-forms evidence has one; otherwise every
+/// word-forms reading; otherwise the archaic list; otherwise unknown.
+/// Merging this with `bible_wave`'s copy onto `deepnsm_v2::lexicon` is a
+/// deliberate KJV re-pin (merge queue #3,
+/// `.claude/knowledge/deleted-grammar-heuristics-ledger.md`).
+struct ReadingSource {
+    first: HashMap<String, Pos>,
+    all: HashMap<String, PosSet>,
+    evidence: LexicalEvidence,
+}
+
+impl ReadingSource {
+    fn load(vocab: &PaletteVocab) -> Self {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../deepnsm/word_frequency/");
+        let lemmas = std::fs::read_to_string(format!("{dir}lemmas_5k.csv")).expect("lemmas_5k.csv");
+        let forms =
+            std::fs::read_to_string(format!("{dir}word_forms.csv")).expect("word_forms.csv");
+        let mut first = HashMap::new();
+        let mut all: HashMap<String, PosSet> = HashMap::new();
+        for line in lemmas.lines().skip(1) {
+            let f: Vec<&str> = line.split(',').collect();
+            let (Some(lemma), Some(pos)) = (f.get(1), f.get(2)) else {
+                continue;
+            };
+            first
+                .entry(lemma.to_lowercase())
+                .or_insert_with(|| coca_pos(pos));
+            let set = all.entry(lemma.to_lowercase()).or_default();
+            *set = set.with(coca_pos(pos));
+        }
+        // Lowercase the `word` column: the corpus tokens are lowercased and
+        // `load_word_forms_csv` matches surfaces exactly.
+        let mut lowered = String::with_capacity(forms.len());
+        for (i, line) in forms.lines().enumerate() {
+            match line.rsplit_once(',') {
+                Some((head, word)) if i > 0 => {
+                    lowered.push_str(head);
+                    lowered.push(',');
+                    lowered.push_str(&word.to_lowercase());
+                }
+                _ => lowered.push_str(line),
+            }
+            lowered.push('\n');
+        }
+        let (evidence, _) = load_word_forms_csv(&lowered, vocab).expect("word_forms.csv");
+        Self {
+            first,
+            all,
+            evidence,
+        }
+    }
+
+    fn of(&self, w: &str, id: deepnsm_v2::vocab::WordId) -> PosSet {
+        if let Some(&p) = self.first.get(w) {
+            return predicate_alternatives(
+                p,
+                self.all
+                    .get(w)
+                    .copied()
+                    .unwrap_or_default()
+                    .union(reading_set(&self.evidence, id).unwrap_or_default()),
+            );
+        }
+        reading_set(&self.evidence, id)
+            .or_else(|| archaic_pos(w).map(PosSet::single))
+            .unwrap_or(PosSet::EMPTY)
+    }
 }
