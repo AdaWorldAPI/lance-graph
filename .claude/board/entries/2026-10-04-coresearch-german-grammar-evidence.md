@@ -36,8 +36,8 @@ Map: `.claude/knowledge/german-grammar-rule-inventory.md`.
 - Auxiliary selection.
 
 **Operator additions (2026-10-04).**
-- **Belief transitions on the AriGraph tenant as 24×i4 loci:** CONFLICT S4. The rule lives in the planner and the tenant holds offsets only. Probe: the transition record must predict later contradiction beyond the final TruthValue.
-- **WordNet → ndarray CLAM/CHAODA:** outside the letter of `48405aa2`, inside its spirit. Clean only offline, under a recorded DECISION; the draft wording is in the map, §6.
+- **Belief transitions:** re-filed by the second premise gate. Revision history is a planner belief-arena record (magnitudes ordered across books), not 24×i4 loci; only a peer pointer within ±8 may be a locus. Probe: the history must predict later contradiction beyond the final TruthValue.
+- **WordNet → ndarray CLAM/CHAODA:** outside the letter of `48405aa2`, inside its spirit. Clean only offline, under a recorded DECISION (draft wording in the map, §6). Second premise gate: a path distance is symmetric, so S↔O swaps are invisible; points must be role-indexed `(verb, role, synset)`, or the items restricted to verb swaps.
 - **hydrate = node creation:** ALREADY-HAVE (restored, green on the KJV).
 
 ## Not searched
