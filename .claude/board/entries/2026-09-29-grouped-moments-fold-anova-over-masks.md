@@ -4,7 +4,7 @@
 
 ## What landed
 - ndarray: `GroupPowerSums { n: u64, sum: i64, sum_sq: i128 }` and `masked_group_moments_i32{,_via,_pair}` — `(n, Σx, Σx²)` per group in one pass over the rows a mask selects, over the existing `group_walk` (now generic over its slot type). `checked_merge` is exact integer addition; exact up to `GROUP_MOMENTS_MAX_ROWS = 2^32` rows per group (the `i64` sum is the binding field).
-- mask-risc: `Terminal::GroupPowerSumsI32 { mask, key: GroupKey, val }` → `Out::PowerSums`. Own terminal, not a `GroupFold` member (a `GroupFold` slot is one seeded `i64`). Refuses planes past `MASKED_SUM_I32_MAX_ROWS` and partial extents.
+- mask-risc: `Terminal::GroupPowerSumsI32 { mask, key: GroupKey, val }` → `Out::PowerSums`. Own terminal, not a `GroupFold` member (a `GroupFold` slot is one seeded `i64`). Refuses planes past `MASKED_SUM_I32_MAX_ROWS`. Partial extents: admitted since #1323's extent wiring — per-extent sinks merge by `checked_merge` (pinned in `tests/extent.rs`).
 - jc: `anova_from_power_sums` / `eta_squared_from_power_sums`. F/p/η² policy is shared with `anova_one_way` / `eta_squared` via `anova_from_ss` / `eta_from_ss`. Sums of squares come from exact `i128` quantities; no two large floats are subtracted.
 
 ## Measured

@@ -2,7 +2,7 @@
 //! against the row-at-a-time oracle — the same differential shape
 //! `tests/differential.rs` uses, extended over a SECOND, foreign row space.
 
-use lance_graph_mask_risc::exec::{execute_extent, execute_into, Scratch};
+use lance_graph_mask_risc::exec::{execute_into, Scratch};
 use lance_graph_mask_risc::reference::{reference_execute_into, reference_scratch_with_foreign};
 use lance_graph_mask_risc::{
     scratch_words_for, words_for, CrossPowerSums, ExecError, Foreign, ForeignPlane, GroupFold,
@@ -1662,9 +1662,9 @@ fn group_power_sums_match_the_oracle_for_every_key_address() {
     assert!(multi_row_group, "must fold several rows into one group");
 }
 
-/// FAILS IF: `GroupPowerSumsI32` accepts a wrong-width value or key lane, a
-/// missing or wrong-shaped sink, or runs under an extent (a partial
-/// population would silently report partial moments as whole).
+/// FAILS IF: `GroupPowerSumsI32` accepts a wrong-width value or key lane, or
+/// a missing or wrong-shaped sink. (Partial extents are admitted; their merge
+/// law is pinned in `tests/extent.rs`.)
 #[test]
 fn group_power_sums_refuses_malformed_programs() {
     let n = 130;
@@ -1732,43 +1732,6 @@ fn group_power_sums_refuses_malformed_programs() {
             })
         );
     }
-    // A partial extent is refused before anything is written: moments over
-    // part of the population must never be reported as moments of the whole.
-    let p = Program::new(
-        vec![],
-        Terminal::GroupPowerSumsI32 {
-            mask: Operand::Plane(0),
-            key: GroupKey::Lane(3),
-            val: 2,
-        },
-    );
-    let pl = vec![u64::MAX; words_for(n)];
-    let masks: [&[u64]; 1] = [&pl];
-    let planes = Planes {
-        n_rows: n,
-        masks: &masks,
-        lanes: &lanes,
-    };
-    let mut s = Scratch::for_program(&p, n).expect("scratch");
-    let mut sink = vec![PowerSums::default(); 4];
-    assert_eq!(
-        execute_extent(
-            &p,
-            &planes,
-            &none,
-            &mut s,
-            Out::PowerSums(&mut sink),
-            10..20
-        ),
-        Err(ExecError::ExtentUnsupported {
-            what: "GroupPowerSumsI32"
-        })
-    );
-    assert_eq!(
-        sink,
-        vec![PowerSums::default(); 4],
-        "a refusal writes nothing"
-    );
 }
 
 /// A second `I32` lane for the cross terminal (lane 4), independent of
@@ -1874,8 +1837,8 @@ fn group_cross_power_sums_match_the_oracle_for_every_key_address() {
 }
 
 /// FAILS IF: the cross terminal accepts a wrong-width `x` or `y` lane, a
-/// missing or wrong-shaped sink (an `Out::PowerSums` is the WRONG shape), or
-/// runs under a partial extent.
+/// missing or wrong-shaped sink (an `Out::PowerSums` is the WRONG shape).
+/// (Partial extents are admitted; see `tests/extent.rs`.)
 #[test]
 fn group_cross_power_sums_refuses_malformed_programs() {
     let n = 130;
@@ -1929,26 +1892,6 @@ fn group_cross_power_sums_refuses_malformed_programs() {
             })
         );
     }
-    let p = Program::new(vec![], term(2, 4));
-    let mut s = Scratch::for_program(&p, n).expect("scratch");
-    assert_eq!(
-        execute_extent(
-            &p,
-            &planes,
-            &none,
-            &mut s,
-            Out::CrossPowerSums(&mut sink),
-            10..20
-        ),
-        Err(ExecError::ExtentUnsupported {
-            what: "GroupCrossPowerSumsI32"
-        })
-    );
-    assert_eq!(
-        sink,
-        vec![CrossPowerSums::default(); 4],
-        "a refusal writes nothing"
-    );
     // x == y is legal and folds the univariate moments.
     let mut same = vec![CrossPowerSums::default(); 4];
     run(term(2, 2), Out::CrossPowerSums(&mut same)).expect("x == y is legal");

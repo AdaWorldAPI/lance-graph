@@ -1342,7 +1342,10 @@ pub fn execute_into(
 /// `execute_into` is this call with `0..n_rows`, which accepts every
 /// terminal. A partial extent accepts the terminals whose per-extent results
 /// merge by a shipped law — `Count` (sum), `Any` (or), `All` (and),
-/// `MaskedSumI32` (sum), `MaskedMinI32` / `MaskedMaxI32` (min / max) — plus
+/// `MaskedSumI32` (sum), `MaskedMinI32` / `MaskedMaxI32` (min / max),
+/// `GroupPowerSumsI32` / `GroupCrossPowerSumsI32` (each extent gets its own
+/// sink, seeded fresh; partial sinks combine group-by-group with
+/// `PowerSums::checked_merge` / `CrossPowerSums::checked_merge`) — plus
 /// `Keep`, which writes only the in-extent bits of its population-addressed
 /// [`Out::Mask`] and leaves every other bit as the caller holds it (so
 /// disjoint extents compose into one buffer in any SEQUENTIAL order). Anything else is
@@ -1414,6 +1417,8 @@ fn precheck(
             | Terminal::MaskedMinI32 { .. }
             | Terminal::MaskedMaxI32 { .. }
             | Terminal::MaskedStridedGroupSum { .. }
+            | Terminal::GroupPowerSumsI32 { .. }
+            | Terminal::GroupCrossPowerSumsI32 { .. }
             | Terminal::Keep { .. } => None,
             Terminal::BlendI32 { .. } => Some("BlendI32"),
             Terminal::ScatterOrU32 { .. } => Some("ScatterOrU32"),
@@ -1422,8 +1427,6 @@ fn precheck(
             Terminal::GroupSumI32 { .. } => Some("GroupSumI32"),
             Terminal::GroupSumViaI32 { .. } => Some("GroupSumViaI32"),
             Terminal::GroupReduce { .. } => Some("GroupReduce"),
-            Terminal::GroupPowerSumsI32 { .. } => Some("GroupPowerSumsI32"),
-            Terminal::GroupCrossPowerSumsI32 { .. } => Some("GroupCrossPowerSumsI32"),
         };
         if let Some(what) = refused {
             return Err(ExecError::ExtentUnsupported { what });
@@ -1998,7 +2001,7 @@ pub fn execute_compiled(
                 // bound; one delegation per tile (law L3) into the sink
                 // seeded above with `PowerSums::default()`.
                 if let Out::PowerSums(o) = &mut out {
-                    let m = read(planes, &slots, mask, t);
+                    let m = clip(read(planes, &slots, mask, t), edge, &mut eb, false);
                     let v = lane_i32(planes, val, t);
                     match key {
                         GroupKey::Lane(k) => {
@@ -2026,7 +2029,7 @@ pub fn execute_compiled(
                 // Same contract as GroupPowerSumsI32, both lanes read in place:
                 // one delegation per tile into the sink seeded above.
                 if let Out::CrossPowerSums(o) = &mut out {
-                    let m = read(planes, &slots, mask, t);
+                    let m = clip(read(planes, &slots, mask, t), edge, &mut eb, false);
                     let (xs, ys) = (lane_i32(planes, x, t), lane_i32(planes, y, t));
                     match key {
                         GroupKey::Lane(k) => {
