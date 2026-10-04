@@ -216,7 +216,8 @@ pub enum ExecError {
     /// write). The whole-population extent `[0, n_rows)` accepts every
     /// terminal; a partial one accepts `Count`, `Any`, `All`,
     /// `MaskedSumI32`, `MaskedMinI32`, `MaskedMaxI32`, `MaskedStridedGroupSum`
-    /// (a sum merges by addition) and `Keep`. `what`
-    /// names the refused terminal.
+    /// (a sum merges by addition), `GroupPowerSumsI32` /
+    /// `GroupCrossPowerSumsI32` (fresh per-extent sinks, merged group-by-group
+    /// with `checked_merge`) and `Keep`. `what` names the refused terminal.
     ExtentUnsupported { what: &'static str },
 }
