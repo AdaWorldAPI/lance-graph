@@ -18,9 +18,13 @@
 //!
 //! # Precision and size
 //!
-//! `CovHighD` is `f32` and dense `O(N³)`; this crate is `f64`. Values are
-//! narrowed to `f32` once on the way in and widened on the way out, so expect
-//! roughly `1e-6` relative error against an `f64` triple product. `N` is a
+//! `CovHighD` is `f32` and dense `O(N³)`; this crate is `f64`. Each input is
+//! divided by its largest absolute entry before it is narrowed to `f32`, and
+//! the result is multiplied back in `f64` (the sandwich is bilinear, so this
+//! is exact up to rounding). Magnitude therefore never decides whether an
+//! entry survives the narrowing: a `Σp` past `f32::MAX` or below its smallest
+//! normal is as accurate as one near `1`. Expect roughly `1e-6` error relative
+//! to the largest output entry. `N` is a
 //! compile-time constant in `CovHighD`, while a [`crate::graph::Grid`]'s bus
 //! count is a runtime value: the caller picks `N` and the call panics when the
 //! decomposition disagrees with it. A runtime-sized sandwich would be a change
@@ -45,8 +49,9 @@ pub const SYMMETRY_TOL: f64 = 1e-9;
 /// uses. `sigma_p` and the result are row-major `N×N`.
 ///
 /// # Panics
-/// If `eig.n != N`, if `sigma_p.len() != N*N`, or if `sigma_p` is not
-/// symmetric within [`SYMMETRY_TOL`] (relative to its largest entry).
+/// If `eig.n != N`, if `sigma_p.len() != N*N`, if any entry of `sigma_p` is
+/// not finite, or if `sigma_p` is not symmetric within [`SYMMETRY_TOL`]
+/// (relative to its largest entry).
 pub fn angle_covariance<const N: usize>(eig: &Eigen, sigma_p: &[f64], rel_tol: f64) -> Vec<f64> {
     assert_eq!(
         eig.n, N,
@@ -54,6 +59,10 @@ pub fn angle_covariance<const N: usize>(eig: &Eigen, sigma_p: &[f64], rel_tol: f
         eig.n
     );
     assert_eq!(sigma_p.len(), N * N, "sigma_p must be N*N");
+    assert!(
+        sigma_p.iter().all(|v| v.is_finite()),
+        "sigma_p has a non-finite entry"
+    );
     let scale = sigma_p
         .iter()
         .fold(0.0_f64, |m, v| m.max(v.abs()))
@@ -69,14 +78,22 @@ pub fn angle_covariance<const N: usize>(eig: &Eigen, sigma_p: &[f64], rel_tol: f
     }
 
     let l_plus = eig.pseudo_inverse(rel_tol);
-    let m = CovHighD::<N>::from_symmetric_fn(|i, j| l_plus[i * N + j] as f32);
-    let s = CovHighD::<N>::from_symmetric_fn(|i, j| sigma_p[i * N + j] as f32);
+    let l_scale = l_plus
+        .iter()
+        .fold(0.0_f64, |m, v| m.max(v.abs()))
+        .max(f64::MIN_POSITIVE);
+    // Both inputs land in [-1, 1] before narrowing, so no entry overflows to
+    // infinity or flushes to zero merely because of its magnitude; the f32
+    // sandwich then sums at most N² products bounded by 1.
+    let m = CovHighD::<N>::from_symmetric_fn(|i, j| (l_plus[i * N + j] / l_scale) as f32);
+    let s = CovHighD::<N>::from_symmetric_fn(|i, j| (sigma_p[i * N + j] / scale) as f32);
     let out = s.sandwich(&m);
+    let back = scale * l_scale * l_scale;
 
     let mut dense = vec![0.0_f64; N * N];
     for i in 0..N {
         for j in 0..N {
-            dense[i * N + j] = out.get(i, j) as f64;
+            dense[i * N + j] = out.get(i, j) as f64 * back;
         }
     }
     dense
@@ -150,10 +167,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn matches_f64_dense_triple_product() {
-        let eig = symmetric_eigen(&grid().laplacian(), N);
-        let sp = sigma_p();
+    /// `L⁺ Σp L⁺` in plain `f64`, the reference every test compares against.
+    fn triple_product(eig: &Eigen, sp: &[f64]) -> Vec<f64> {
         let l = eig.pseudo_inverse(TOL);
         let mut want = vec![0.0; N * N];
         for i in 0..N {
@@ -167,6 +182,14 @@ mod tests {
                 want[i * N + m] = acc;
             }
         }
+        want
+    }
+
+    #[test]
+    fn matches_f64_dense_triple_product() {
+        let eig = symmetric_eigen(&grid().laplacian(), N);
+        let sp = sigma_p();
+        let want = triple_product(&eig, &sp);
         let got = angle_covariance::<N>(&eig, &sp, TOL);
         let e = rel_err(&got, &want);
         eprintln!("sandwich vs f64 triple product rel err {e:e}");
@@ -221,6 +244,38 @@ mod tests {
         // Sampling error of a second moment at n = 40k is ~1/√n·√2 ≈ 0.7%.
         eprintln!("Monte-Carlo vs sandwich rel err {e:.4}");
         assert!(e < 0.03, "Monte-Carlo vs sandwich rel err {e:.4}");
+    }
+
+    /// FAILS IF: an input is narrowed to `f32` at its raw magnitude, so a
+    /// `Σp` past `f32::MAX` becomes infinity (or one below the smallest
+    /// normal flushes to zero) although the `f64` product is finite.
+    #[test]
+    fn magnitude_outside_f32_range_is_exact_up_to_rounding() {
+        let eig = symmetric_eigen(&grid().laplacian(), N);
+        for k in [1e45_f64, 1e-45] {
+            let sp: Vec<f64> = sigma_p().iter().map(|v| v * k).collect();
+            assert!(
+                sp.iter().any(|v| (*v as f32).is_infinite())
+                    || sp
+                        .iter()
+                        .all(|v| *v == 0.0 || (*v as f32).abs() < f32::MIN_POSITIVE),
+                "fixture must leave f32's normal range at k = {k:e}"
+            );
+            let want = triple_product(&eig, &sp);
+            let got = angle_covariance::<N>(&eig, &sp, TOL);
+            assert!(got.iter().all(|v| v.is_finite()), "k = {k:e}: non-finite");
+            let e = rel_err(&got, &want);
+            assert!(e < 1e-5, "k = {k:e}: rel err {e:e}");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "non-finite")]
+    fn refuses_a_non_finite_injection_covariance() {
+        let eig = symmetric_eigen(&grid().laplacian(), N);
+        let mut sp = sigma_p();
+        sp[0] = f64::INFINITY;
+        let _ = angle_covariance::<N>(&eig, &sp, TOL);
     }
 
     #[test]
