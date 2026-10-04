@@ -39,7 +39,7 @@ name = "bible_wave"
 test = true
 
 # Examples only: `bible_wave`'s optional Rosetta arm reads the release's
-# verse-keyed Bible JSON. The library stays dependency-free.
+# verse-keyed Bible JSON. The library's dependencies are the path crates above.
 [dev-dependencies]
 serde_json = "1"
 # German Snowball stemmer, as used by tesseract-paperless search (via tantivy).

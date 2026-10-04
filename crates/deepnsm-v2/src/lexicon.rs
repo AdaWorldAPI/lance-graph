@@ -36,32 +36,27 @@
 use crate::fsm::Pos;
 use std::collections::HashMap;
 
-/// Map a COCA part-of-speech letter to a [`Pos`].
-///
-/// `n`/`p` are noun-ish, `v` verbal, `j` adjectival, `a`/`d` determiners.
-/// Everything else is [`Pos::Other`] — the FSM skips it.
+/// Map a COCA part-of-speech letter to a [`Pos`], through the crate's one
+/// fold ([`crate::coca::fsm_pos_tag`]): `n`/`p` noun, `v` verb, `j`
+/// adjective, `a`/`d` determiner, `r` adverb, everything else
+/// [`Pos::Other`]. A separate mapping here had drifted (it read `r` as
+/// `Other`; PR #1321 review).
 #[must_use]
 pub fn coca_pos(letter: &str) -> Pos {
-    match letter {
-        "n" | "p" => Pos::Noun,
-        "v" => Pos::Verb,
-        "j" => Pos::Adj,
-        "a" | "d" => Pos::Det,
-        _ => Pos::Other,
-    }
+    crate::coca::fsm_pos_tag(letter)
 }
 
-/// Early-modern English forms COCA does not carry.
-///
-/// The explicit word list is load-bearing and must not be paraphrased down to
-/// the `-eth`/`-est` rule: `thou`/`hath`/`shall`/`saith` are among the most
-/// frequent tokens in the corpus and none of them matches that suffix.
 /// Early-modern personal pronouns. COCA tags pronouns `p` but carries none of
 /// these, so they are named ONCE here and read by both [`archaic_pos`] (which
 /// gives them a noun slot) and [`Lexicon::is_pronoun`] (which remembers the
 /// slot holds a POINTER, not a referent).
 pub const ARCHAIC_PRONOUNS: [&str; 3] = ["thou", "thee", "ye"];
 
+/// Early-modern English forms COCA does not carry.
+///
+/// The explicit word list is load-bearing and must not be paraphrased down to
+/// the `-eth`/`-est` rule: `thou`/`hath`/`shall`/`saith` are among the most
+/// frequent tokens in the corpus and none of them matches that suffix.
 #[must_use]
 pub fn archaic_pos(w: &str) -> Option<Pos> {
     if ARCHAIC_PRONOUNS.contains(&w) {

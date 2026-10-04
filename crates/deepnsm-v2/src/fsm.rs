@@ -160,6 +160,10 @@ struct Core {
     /// The previous token was a noun. Read only to recognise a floating
     /// quantifier, which follows the subject's head directly.
     after_noun: bool,
+    /// The subject slot holds an object carried over from the previous
+    /// triple ("gave **him** the charge"). A determiner after it opens the
+    /// next object's group, so it is never a floating quantifier.
+    subject_carried: bool,
     /// The previous token opened the clause as its subject — a noun taken in
     /// [`State::Start`] with no determiner or adjective in front ("they",
     /// "men", "God"). An object carried into the subject slot ("gave him …")
@@ -184,6 +188,7 @@ impl Core {
         adjective_open: false,
         floating_quantifier: false,
         after_noun: false,
+        subject_carried: false,
         fresh_subject: false,
         predicated: false,
     };
@@ -196,8 +201,10 @@ impl Core {
         self.fresh_subject = false;
         self.nominal_open = matches!(t.pos, Pos::Det | Pos::Adj);
         self.adjective_open = t.pos == Pos::Adj;
-        self.floating_quantifier =
-            t.pos == Pos::Det && self.after_noun && matches!(self.state, State::HaveSubject);
+        self.floating_quantifier = t.pos == Pos::Det
+            && self.after_noun
+            && !self.subject_carried
+            && matches!(self.state, State::HaveSubject);
         self.after_noun = t.pos == Pos::Noun;
 
         // While a relative clause is open, its own tiny machine consumes the
@@ -276,6 +283,7 @@ impl Core {
                 self.subject = t.id;
                 self.state = State::HaveSubject;
                 self.fresh_subject = !nominal_was_open;
+                self.subject_carried = false;
             }
             (State::HaveSubject, Pos::Verb) => {
                 self.predicated = true;
@@ -287,12 +295,17 @@ impl Core {
                 // Serial-verb chain: the object seeds the next subject.
                 self.subject = t.id;
                 self.state = State::HaveSubject;
+                self.subject_carried = true;
                 return Some(out);
             }
             // A verb before a subject, or a second verb, restarts cleanly.
             (State::Start, Pos::Verb) => {}
-            (State::HaveSubject, Pos::Noun) => self.subject = t.id, // re-anchor subject
-            (State::HaveVerb, Pos::Verb) => self.predicate = t.id,  // last verb wins
+            (State::HaveSubject, Pos::Noun) => {
+                // Re-anchor the subject; it is no longer a carried object.
+                self.subject = t.id;
+                self.subject_carried = false;
+            }
+            (State::HaveVerb, Pos::Verb) => self.predicate = t.id, // last verb wins
         }
         None
     }
@@ -734,9 +747,10 @@ fn slot_allows(core: &Core, pos: Pos, set: PosSet) -> bool {
 /// subject and object is the predicate, however often COCA counts the word
 /// as a noun. Relative like licensing, so it never empties a token.
 ///
-/// There is deliberately no "a sentence needs a predicate" rule: KJV verses
-/// are often verbless fragments ("the goats for sin offering"), and on the
-/// KJV such a rule turned nouns into verbs about three times in four.
+/// The "a sentence needs a predicate" clause rule
+/// ([`Typology::predicate_required`]) exists but is off here: KJV verses are
+/// often verbless fragments ("the goats for sin offering"), and on the KJV
+/// that rule turned nouns into verbs about three times in four.
 ///
 /// **Output.** At each `Stop` (and at the end of input) the sentence's
 /// configurations are compared: triples found on all of them are
@@ -1153,6 +1167,17 @@ mod tests {
         ]);
         assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Noun));
         let p = parse_readings(&[one(9, Pos::Det), noun_or_verb(2)]);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Noun));
+        // CodeRabbit (#1321): "he gave him the charge". "him" is an object
+        // carried into the subject slot, so "the" opens the next object's
+        // group and "charge" loses its verb reading.
+        let p = parse_readings(&[
+            one(1, Pos::Noun),
+            one(4, Pos::Verb),
+            one(3, Pos::Noun),
+            one(9, Pos::Det),
+            noun_or_verb(2),
+        ]);
         assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Noun));
         // "man when the land": a determiner after a non-noun opens a group.
         let p = parse_readings(&[

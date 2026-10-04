@@ -43,3 +43,11 @@ Operator (2026-10-04): restore the deleted grammar heuristics, repurpose or merg
 
 - `tekamolo.rs` still carries `V2StyleProvider`. §3o refused thinking styles in deepnsm-v2; the operator decides whether to keep it here or move it to the planner.
 - `loci.rs` is agreement-blind. The shipped agreement resolver scores 0.727 against 0.273 for the agreement-blind rule. Merge queue in the ledger.
+
+> **⊘ Updated 2026-10-04 (PR #1321 review, same day).**
+> - `toc_hydrate` now parses with every reading (`parse_readings(...).certain`, the same stream as `bible_wave`).
+> - The FSM no longer treats an object carried into the subject slot as a subject head.
+> - Current KJV numbers: **57,325 triples** (= `bible_wave`'s `certain` pin), 0 unaddressed, 1,187 basins.
+> - `persona_chain_replay` candidates are now nouns only (the resolver's own lexicon): 2 replays run, both escalate, and the margin gate is **617×** too coarse (spread 0.000162 vs 0.1).
+> - deepnsm-v2 lib tests: 196.
+> - The figures above are the first run's.

@@ -80,6 +80,12 @@ Read in full before this rewrite:
 
 - F1 #1299 boundary: evidence, not transition; no dependency on causal-edge,
   cognitive-shader-driver, arm-discovery or the deprecated `deepnsm` crate.
+  - ⊘ **Narrowed 2026-10-04 (D-LXC-20).**
+    - DECISION: `deepnsm-v2` depends on `causal-edge` for ONE type, `pearl::CausalMask`. `fsm::answered_questions` returns the Pearl 2³ mask (operator: *"2³ ladder is in causaledge64"*).
+    - SCOPE: the mask type only. No transition, no `CausalEdge64` packing, no inference code is used; "evidence, not transition" stands.
+    - BASIS: `causal-edge` is zero-dependency, and one 2³ ladder beats a second copy.
+    - REVISIT WHEN: anything beyond the mask type is imported.
+    - The other three exclusions are unchanged.
 - F2 Routing `WordId`s and Cam96 `codes[word_id]` do not move.
 - F3 Integer counts; unknown = `None`; aggregates checked; unknown beats
   overflow (`lexical.rs:293-306`).

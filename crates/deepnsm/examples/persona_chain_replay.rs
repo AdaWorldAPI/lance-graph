@@ -140,9 +140,21 @@ fn candidates_at(stream: &[&str], pos: usize, ranks: &HashMap<String, u32>) -> V
     let lo = pos.saturating_sub(WINDOW);
     (lo..pos)
         .rev()
-        .filter(|&k| !is_pronoun(stream[k]))
+        .filter(|&k| !is_pronoun(stream[k]) && is_noun(stream[k]))
         .filter_map(|k| ranks.get(stream[k]).map(|&r| (k, r)))
         .collect()
+}
+
+/// The shipped resolver's noun lexicon: exactly the forms
+/// `spo_anaphora_nibble::noun_features` recognises (examples cannot import
+/// each other, so the list is mirrored here). Both doors then rank the same
+/// candidates, and a determiner or a verb can never be picked as an
+/// antecedent (PR #1321 review).
+fn is_noun(tok: &str) -> bool {
+    matches!(
+        tok,
+        "man" | "dog" | "girl" | "bird" | "girls" | "men" | "dogs" | "book" | "car" | "house"
+    )
 }
 
 /// Fill an 11-slot `ContextChain` centred on `pos`: slot `focal + delta` carries
@@ -201,6 +213,9 @@ fn main() {
     let mut scored = 0usize;
     let mut out_of_catalogue: Vec<usize> = Vec::new();
     let mut min_candidates = usize::MAX;
+    // Replays that actually ran, and how many of them committed.
+    let mut replays = 0usize;
+    let mut commits = 0usize;
     let mut widest_spread = 0.0f32;
 
     for &(pos, want) in gold {
@@ -222,6 +237,7 @@ fn main() {
         }
 
         min_candidates = min_candidates.min(cands.len());
+        replays += 1;
         let chain = chain_around(&stream, pos, &ranks);
         let res = chain.disambiguate_with(
             ContextChain::focal_index(),
@@ -268,6 +284,14 @@ fn main() {
             None => CausalWitnessFacet::ZERO,
         };
 
+        // G2, checked rather than asserted in prose: an Ambiguous pronoun
+        // never commits.
+        if case_blocked && committed.is_some() {
+            fail.push(format!("@{pos} G2: an Ambiguous pronoun committed"));
+        }
+        if committed.is_some() {
+            commits += 1;
+        }
         let picked = committed.map(|(k, _)| stream[k]);
         let reason = if case_blocked {
             "case=Ambiguous -> withheld"
@@ -337,9 +361,18 @@ fn main() {
         ));
     }
 
+    // G1 needs at least one real replay: with none, `min_candidates` stays at
+    // its sentinel and the gate would pass on nothing.
+    if replays == 0 {
+        fail.push("G1: no pronoun had >= 2 candidates; no replay ran".to_string());
+    }
+
     // ── report ──
     println!();
-    println!("G1 REAL-CANDIDATES  min candidates per replay = {min_candidates} (sentinel path never taken)");
+    println!(
+        "G1 REAL-CANDIDATES  {replays} replay(s) ran, min candidates per replay = {}",
+        if replays == 0 { 0 } else { min_candidates }
+    );
     println!("G2 CASE-GATE        Ambiguous pronouns withheld, never committed on case");
     println!("G3 METRIC-EXACT     {g3_pairs} pairs, {g3_nonzero} with non-zero distance, hamming == |dRank|/{RANK_SCALE}");
     println!(
@@ -353,13 +386,16 @@ fn main() {
     }
     println!("                    escalation threshold = {DISAMBIGUATION_MARGIN_THRESHOLD} (contract constant, untouched)");
     println!(
-        "G5 SCALE            widest coherence spread across candidates = {widest_spread:.6}; \n\
-         \x20                   threshold = {DISAMBIGUATION_MARGIN_THRESHOLD} -> ratio {:.0}x too small. The rank metric\n\
-         \x20                   and the margin gate are on INCOMPATIBLE SCALES: common-word\n\
-         \x20                   ranks differ by ~15 bits out of 16,384, so every replay\n\
-         \x20                   escalates regardless of input. Reported, not tuned.",
+        "G5 SCALE            widest coherence spread across candidates = {widest_spread:.6}; \
+         threshold = {DISAMBIGUATION_MARGIN_THRESHOLD} -> ratio {:.0}x too small; {commits} of {replays} replay(s) committed.",
         f64::from(DISAMBIGUATION_MARGIN_THRESHOLD) / f64::from(widest_spread.max(1e-9))
     );
+    if replays > 0 && commits == 0 {
+        println!(
+            "                    The rank metric and the margin gate are on INCOMPATIBLE SCALES:\n\
+             \x20                   every replay escalated. Reported, not tuned."
+        );
+    }
 
     if fail.is_empty() {
         println!("\nGATES PASS — the real-candidate replay path runs end to end: candidates from");

@@ -88,3 +88,17 @@ The suffix class mixes event and abstract nouns with object nouns (*Wohnung*, *Z
 **OPEN.**
 - A stand-alone temporal adverb (*früh*, *heute*) as a TEKAMOLO Te element is a word-class question, the adj/adv quorum of D-LXC-20, not a PP-lane question.
 - The lane reader does not yet place bare adverbs into Te.
+
+> **⊘ Corrected 2026-10-04 (PR #1321 review): the abstract-head counts included the shared train labels.**
+> Both rounds counted the 800 train items, so the two rounds were not independent. On held-out items only:
+> - exploratory test: 1 of 35 abstract heads is PLACE (2.9 %), PASS;
+> - fresh confirmation: 0 of 24 (0 %), PASS.
+>
+> Both are small samples.
+>
+> `LANE_SPLIT=confirm` now prints the Round 3 bars it registered:
+> - noun-voter TIME F1 0.831: PASS;
+> - PLACE F1 0.476: KILL;
+> - quorum ≥ noun + 2 points: KILL.
+>
+> The verdicts are unchanged.

@@ -269,6 +269,11 @@ impl LexicalDecodeReport {
         // the subject's head no longer licenses away the next verb reading.
         // Before it: reading (…, 14_383, 20_441, 1_943, 162), triples
         // (70_393, 57_350, 29_001, 12_984, 1_231, 1_190, 12_437, 256).
+        // Carried subject (CodeRabbit on #1321): after "gave him", the object
+        // carried into the subject slot is not a subject head, so "the"
+        // opens the next object group again. Before it: reading (…, 13_732,
+        // 21_092, 1_805, 155), triples (70_393, 57_277, 29_684, 13_151,
+        // 1_130, 1_183, 12_581, 256).
         // A deliberate decoder change re-pins these with the difference
         // reported.
         assert_eq!(
@@ -283,7 +288,7 @@ impl LexicalDecodeReport {
                 self.legacy_eliminated,
                 self.eliminated_words.len(),
             ),
-            (771_176, 652_344, 34_824, 451, 84_008, 13_732, 21_092, 1_805, 155),
+            (771_176, 652_344, 34_824, 451, 84_008, 14_111, 20_713, 1_898, 161),
             "KILL D-LXC-2: reading accounting moved from the pinned KJV layout"
         );
         assert_eq!(
@@ -297,7 +302,7 @@ impl LexicalDecodeReport {
                 self.verses_changed,
                 self.peak_configs,
             ),
-            (70_393, 57_277, 29_684, 13_151, 1_130, 1_183, 12_581, 256),
+            (70_393, 57_325, 29_287, 13_040, 1_202, 1_192, 12_496, 256),
             "KILL D-LXC-2: triple accounting moved from the pinned KJV layout"
         );
         println!("D-LXC-2 PASS accounting matches the pinned KJV layout");

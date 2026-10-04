@@ -125,3 +125,8 @@ Each precedent was read in code (VERIFIED-IN-CODE):
 4. `le-contract.md` §3 extended beside the 12-byte carvings, without replacing them.
 
 **REVISIT WHEN:** the envelope audit, or a consumer whose rows cannot resolve a `ReadMode` through hot-plug (it would have nowhere to inherit a classid from).
+
+> **⊘ Re-measured 2026-10-04 after the carried-subject FSM fix (KJV certain 57,325).**
+> - 6 rails fit 95.62 %, 8 rails fit 99.40 %.
+> - Overflow: 1,114 vs 152 verses; group nodes 1,107 vs 149.
+> - The conclusions are unchanged.

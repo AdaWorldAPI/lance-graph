@@ -67,3 +67,12 @@ in the reading set.
   tag ("They record the deeds" → `record:Noun`); it adopts
   `coca::predicate_alternatives` after this merges.
 - Downstream `--export` still carries certain triples only.
+
+> **⊘ Re-pinned 2026-10-04 (PR #1321 reviews). The table above is the D-LXC-13 run.**
+>
+> | | narrowed | still ambiguous | eliminated | words | certain | alternative |
+> |---|---|---|---|---|---|---|
+> | floating quantifier (Bugbot) | 13,732 | 21,092 | 1,805 | 155 | 57,277 | 29,684 |
+> | carried subject (CodeRabbit: "gave him **the** charge") | **14,111** | **20,713** | **1,898** | **161** | **57,325** | **29,287** |
+>
+> Both are pinned in `bible_wave::print_and_gate`, with the previous values kept in its comment.

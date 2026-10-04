@@ -98,8 +98,17 @@ pub fn concept_at(concept_id: u16) -> Option<&'static str> {
 // WordNet — an identity register over synset offsets
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// A WordNet synset offset: an identity, never a coordinate in a metric space.
-pub type Synset = u32;
+/// A WordNet synset: its offset AND its part of speech. An offset is unique
+/// only inside one part-of-speech data file, so a noun and a verb can share
+/// one (PR #1321 review); the pair is the identity. Never a coordinate in a
+/// metric space.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Synset {
+    /// The part of speech (`'n'`, `'v'`, `'a'`, `'r'`, …).
+    pub pos: char,
+    /// The offset inside that part of speech's data file.
+    pub offset: u32,
+}
 
 /// One sense of a word: its synset and WordNet's own sense rank (1-based).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -159,7 +168,10 @@ impl WordNetRail {
                 .ok_or(RailError::Number { line: line_no })?;
             let sense_num =
                 u16::try_from(num(c[2])?).map_err(|_| RailError::Number { line: line_no })?;
-            let synset = num(c[3])?;
+            let synset = Synset {
+                pos,
+                offset: num(c[3])?,
+            };
             let senses = rail.senses.entry((c[0].to_string(), pos)).or_default();
             if !senses.iter().any(|s| s.synset == synset) {
                 senses.push(Sense { synset, sense_num });
@@ -167,7 +179,12 @@ impl WordNetRail {
             }
             rail.names.entry(synset).or_insert_with(|| c[0].to_string());
             if !c[6].is_empty() {
-                let parent = num(c[6])?;
+                // Hypernym edges never cross parts of speech, so the parent
+                // shares the row's part of speech.
+                let parent = Synset {
+                    pos,
+                    offset: num(c[6])?,
+                };
                 // The hypernym column carries the parent's canonical name.
                 rail.names.insert(parent, c[5].to_string());
                 let ps = rail.parents.entry(synset).or_default();
@@ -370,6 +387,30 @@ mod tests {
     }
 
     /// Exact arity: a 6-column line is refused, never skipped.
+    #[test]
+    fn a_noun_and_a_verb_with_the_same_offset_stay_distinct() {
+        // Same offset 00000123 in the noun file and the verb file: the verb
+        // must not inherit the noun's ancestors.
+        let text = "dog\tn\t1\t00000123\tisa\tanimal\t00000999\n\
+                    run\tv\t1\t00000123\tisa\tmove\t00000555\n";
+        let r = WordNetRail::parse(text).expect("parses");
+        let dog = r.synset("dog", 'n', 1).expect("dog");
+        let run = r.synset("run", 'v', 1).expect("run");
+        assert_ne!(dog, run);
+        assert_eq!(dog.offset, run.offset);
+        let animal = Synset {
+            pos: 'n',
+            offset: 999,
+        };
+        assert!(r.is_a(dog, animal));
+        assert!(
+            !r.is_a(run, animal),
+            "the verb inherited the noun's ancestor"
+        );
+        assert!(!ConceptMask::new([animal]).covers(&r, run));
+        assert_eq!(r.ancestors(run).len(), 1);
+    }
+
     #[test]
     fn a_line_with_the_wrong_arity_is_refused() {
         let bad = "whale\tn\t2\t02065397\tisa\tcetacean";

@@ -41,7 +41,12 @@
 //!   such;
 //! - quorum accuracy < best single voter + 2 points;
 //! - TIME F1 < 0.80, or PLACE F1 < 0.60;
-//! - hypothesis: more than 5 % of abstract-head items are labelled PLACE.
+//! - hypothesis: more than 5 % of the held-out abstract-head items are
+//!   labelled PLACE (train labels are not counted).
+//!
+//! Confirmation round (`LANE_SPLIT=confirm`, bars registered before its
+//! labels existed): noun-voter TIME F1 < 0.80, noun-voter PLACE F1 < 0.55,
+//! or quorum accuracy < noun-voter accuracy + 2 points.
 //!
 //! `LANE_SPLIT=confirm` scores the fresh confirmation sample instead of the
 //! exploratory `test` sample; `LANE_LAMBDA` overrides the L2 strength.
@@ -620,11 +625,10 @@ fn main() {
     }
 
     // Operator hypothesis: an abstract head is never PLACE.
-    let abs: Vec<&Item> = fit_items
-        .iter()
-        .chain(&test_items)
-        .filter(|x| x.abstract_head)
-        .collect();
+    // Held-out split only: the train labels are shared by every round, so
+    // counting them would make two rounds look independent when they are not
+    // (PR #1321 review).
+    let abs: Vec<&Item> = test_items.iter().filter(|x| x.abstract_head).collect();
     let abs_place = abs.iter().filter(|x| x.lane == 1).count();
     let rate = 100.0 * abs_place as f64 / abs.len().max(1) as f64;
     println!(
@@ -642,6 +646,7 @@ fn main() {
     ];
     println!("\nsingle voters (each with the preposition prior):");
     let mut best = 0.0f64;
+    let mut noun = (0.0f64, [0.0f64; 3]);
     for g in [
         "prep", "noun", "number", "adverb", "verb", "position", "article",
     ] {
@@ -653,6 +658,9 @@ fn main() {
         let m = Model::fit(&fit_items, &groups);
         let (acc, f1) = score(&m, &test_items, &groups);
         best = best.max(acc);
+        if g == "noun" {
+            noun = (acc, f1);
+        }
         println!(
             "  {g:9} accuracy {:5.1}%  F1 TIME {:.3} PLACE {:.3} FIG {:.3}",
             100.0 * acc,
@@ -687,10 +695,22 @@ fn main() {
         let (a, _) = score(&m, &test_items, &groups);
         println!("  without {drop:9}: accuracy {:5.1}%", 100.0 * a);
     }
-    let pass = acc >= best + 0.02 && f1[0] >= 0.80 && f1[1] >= 0.60;
-    println!(
-        "  quorum {} (bars: >= best single + 2 pts ({:.1}%), TIME F1 >= 0.80, PLACE F1 >= 0.60)",
-        if pass { "PASS" } else { "KILL" },
-        100.0 * (best + 0.02)
-    );
+    if eval_split == "confirm" {
+        // Round 3 bars, registered before the confirmation labels existed.
+        let checks = [
+            ("noun voter TIME F1 >= 0.80", noun.1[0] >= 0.80),
+            ("noun voter PLACE F1 >= 0.55", noun.1[1] >= 0.55),
+            ("quorum >= noun voter + 2 pts", acc >= noun.0 + 0.02),
+        ];
+        for (bar, ok) in checks {
+            println!("  confirm {}: {bar}", if ok { "PASS" } else { "KILL" });
+        }
+    } else {
+        let pass = acc >= best + 0.02 && f1[0] >= 0.80 && f1[1] >= 0.60;
+        println!(
+            "  quorum {} (bars: >= best single + 2 pts ({:.1}%), TIME F1 >= 0.80, PLACE F1 >= 0.60)",
+            if pass { "PASS" } else { "KILL" },
+            100.0 * (best + 0.02)
+        );
+    }
 }
