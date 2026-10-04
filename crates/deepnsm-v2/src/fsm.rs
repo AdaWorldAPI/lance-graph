@@ -41,6 +41,7 @@
 
 use crate::spo::Spo;
 use crate::vocab::WordId;
+use causal_edge::pearl::CausalMask;
 
 /// A coarse part-of-speech tag — the eight the FSM distinguishes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -307,37 +308,31 @@ pub fn parse_to_spo(tokens: &[Tagged]) -> Vec<Spo> {
     out
 }
 
-/// Question-test bits of [`answered_questions`]: which of the SPO questions
-/// the clause has already answered — *who/what?* (subject), *does what?*
-/// (predicate), *whom/what?* (object). The 8 values are the Pearl 2³ masks.
-pub const ANSWERED_S: u8 = 1;
-/// See [`ANSWERED_S`].
-pub const ANSWERED_P: u8 = 2;
-/// See [`ANSWERED_S`].
-pub const ANSWERED_O: u8 = 4;
-
-/// For each token, the 2³ mask of SPO questions its clause has answered
+/// For each token, the Pearl 2³ mask of SPO questions its clause has answered
 /// BEFORE it arrives — the school question test (*Frageprobe*) as a position:
-/// a word arriving after "who?" is answered and before "does what?" is, is
-/// asked "does what?". Steps the same transition table as [`parse_to_spo`];
-/// a `Stop` starts a new clause (mask 0).
+/// a word arriving after *who/what?* (subject) is answered and before *does
+/// what?* (predicate) is, is asked *does what?*; *whom/what?* is the object.
+/// The mask is [`CausalMask`], the same eight values `CausalEdge64` packs, so
+/// the ladder has one bit order (S = `0b100`, P = `0b010`, O = `0b001`). Steps
+/// the same transition table as [`parse_to_spo`]; a `Stop` starts a new
+/// clause ([`CausalMask::None`]).
 #[must_use]
-pub fn answered_questions(tokens: &[Tagged]) -> Vec<u8> {
+pub fn answered_questions(tokens: &[Tagged]) -> Vec<CausalMask> {
     let mut out = Vec::with_capacity(tokens.len());
     let mut core = Core::START;
     let mut emitted = false;
     for &t in tokens {
         let mut mask = 0;
         if matches!(core.state, State::HaveSubject | State::HaveVerb) {
-            mask |= ANSWERED_S;
+            mask |= CausalMask::S as u8;
         }
         if core.state == State::HaveVerb || emitted {
-            mask |= ANSWERED_P;
+            mask |= CausalMask::P as u8;
         }
         if emitted {
-            mask |= ANSWERED_O;
+            mask |= CausalMask::O as u8;
         }
-        out.push(mask);
+        out.push(CausalMask::from_bits(mask));
         if t.pos == Pos::Stop {
             core.state = State::Start;
             core.rel = Rel::None;
@@ -1252,8 +1247,8 @@ mod tests {
     fn answered_questions_follow_the_clause() {
         let toks = [n(1), v(2), n(3), Tagged::new(0, Pos::Stop), n(4)];
         let m = answered_questions(&toks);
-        let spo = ANSWERED_S | ANSWERED_P | ANSWERED_O;
-        assert_eq!(m, vec![0, ANSWERED_S, ANSWERED_S | ANSWERED_P, spo, 0]);
+        use CausalMask::{None as No, S, SP, SPO};
+        assert_eq!(m, vec![No, S, SP, SPO, No]);
     }
 
     /// T4: a single-reading word is never rejected, even where the licensing

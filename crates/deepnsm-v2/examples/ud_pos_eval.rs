@@ -57,8 +57,9 @@ use std::collections::HashMap;
 use deepnsm_v2::coca::fsm_pos_tag;
 use deepnsm_v2::fsm::{
     answered_questions, attribute_rule, parse_readings_with, AdjectiveOrder, AttributeRule, Pos,
-    PosSet, Reading, Tagged, Typology, ANSWERED_S,
+    PosSet, Reading, Tagged, Typology,
 };
+use deepnsm_v2::CausalMask;
 
 /// One syntactic word of a UD sentence.
 struct Word {
@@ -355,6 +356,9 @@ fn answered_masks(lex: &Lexicon, s: &[Word], cased: bool) -> Vec<u8> {
         })
         .collect();
     answered_questions(&tags)
+        .into_iter()
+        .map(|m| m as u8)
+        .collect()
 }
 
 fn bits(p: PosSet) -> u8 {
@@ -589,6 +593,15 @@ struct Tok<'a> {
     ctx: Context,
     /// Lexicon counts of the pair's first and second reading for the word.
     counts: (usize, usize),
+    /// A copula stands elsewhere in the clause (between punctuation marks).
+    copula_clause: bool,
+    /// The clause has a word that can only be a verb, other than this one.
+    verb_clause: bool,
+    /// Nothing follows in the clause.
+    clause_final: bool,
+    /// Something follows in the clause, and all of it can only be a verb: the
+    /// word stands right before the Satzklammer's right bracket.
+    before_bracket: bool,
 }
 
 type Vote = Box<dyn Fn(&Tok) -> Option<Pos>>;
@@ -711,7 +724,7 @@ fn rules(
         fixed.push((
             "slot: subject answered, prev a noun -> verb",
             Box::new(|x: &Tok| {
-                (x.ctx.4 == ANSWERED_S && only(x.prev, Pos::Noun)).then_some(Pos::Verb)
+                (x.ctx.4 == CausalMask::S as u8 && only(x.prev, Pos::Noun)).then_some(Pos::Verb)
             }),
         ));
         fixed.push((
@@ -850,6 +863,24 @@ fn rules(
                 }),
             ));
         }
+        fixed.push((
+            "Frageprobe: copula clause, right edge -> adj",
+            Box::new(|x: &Tok| {
+                (x.copula_clause && (x.clause_final || x.before_bracket)).then_some(Pos::Adj)
+            }),
+        ));
+        fixed.push((
+            "Frageprobe: full-verb clause, before the bracket -> adv",
+            Box::new(|x: &Tok| {
+                (!x.copula_clause && x.verb_clause && x.before_bracket).then_some(Pos::Adv)
+            }),
+        ));
+        fixed.push((
+            "Frageprobe: full-verb clause, clause-final -> adv",
+            Box::new(|x: &Tok| {
+                (!x.copula_clause && x.verb_clause && x.clause_final).then_some(Pos::Adv)
+            }),
+        ));
         let c = cop.clone();
         fixed.push((
             "clause-final, no copula before -> adv",
@@ -888,8 +919,19 @@ fn pair_tokens<'a>(
                     .copied()
                     .unwrap_or(0)
             };
+            let is_break = |w: &Word| !w.surface.chars().any(char::is_alphanumeric);
+            let lo = (0..k).rev().find(|&j| is_break(&s[j])).map_or(0, |j| j + 1);
+            let hi = (k + 1..s.len())
+                .find(|&j| is_break(&s[j]))
+                .unwrap_or(s.len());
+            let others = || (lo..hi).filter(|&j| j != k);
+            let verb_only = |j: usize| set(j) == PosSet::single(Pos::Verb);
             out.push((
                 Tok {
+                    copula_clause: others().any(|j| copulas.contains(&s[j].form.to_lowercase())),
+                    verb_clause: others().any(verb_only),
+                    clause_final: k + 1 == hi,
+                    before_bracket: k + 1 < hi && (k + 1..hi).all(verb_only),
                     this,
                     prev: k.checked_sub(1).map_or(PosSet::EMPTY, &set),
                     next: if k + 1 < s.len() {

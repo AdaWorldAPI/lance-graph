@@ -27,6 +27,9 @@ crate is untouched; this is the parallel v2.
 # `identity_v2()` (bytes 14..16) cannot read them back. Every key this crate
 # minted before 2026-08-22 was a V1 key for that reason.
 lance-graph-contract = { path = "../lance-graph-contract", features = ["guid-v3-tail"] }
+# The Pearl 2³ ladder: `fsm::answered_questions` returns its `CausalMask`, the
+# same eight masks CausalEdge64 packs at bits [40:42]. Zero-dependency crate.
+causal-edge = { path = "../causal-edge" }
 
 # `test = true` makes `cargo test` run the example's own `#[cfg(test)]` tests
 # (the D-LXC-1 tagger). Cargo only compiles an example by default; its `main()`

@@ -59,6 +59,7 @@ pub use basin::{
     HeldOutGate,
 };
 pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
+pub use causal_edge::pearl::CausalMask;
 pub use codebook::{load_cam96_codes, load_cam96_space, CodebookError};
 pub use evidence::{
     evidence_basin, forward_gate, novelty_rate, open_question_yield, partial_spearman,

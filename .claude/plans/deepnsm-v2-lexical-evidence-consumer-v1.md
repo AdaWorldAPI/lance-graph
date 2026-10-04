@@ -504,3 +504,11 @@ weights instead fails, because the position tables are correlated voters.
 German inflection against the lemma replaces the English noun-adjacency rule
 as the German attribute signal. Board entry
 `2026-10-04-deepnsm-v2-rule-quorum.md`.
+
+## D-LXC-20: the Frageprobe through the Satzklammer (2026-10-04)
+
+The question mask is `causal_edge::CausalMask`, the ladder CausalEdge64 packs.
+The German adjective/adverb question is answered by where the word sits
+against the Satzklammer: a predicative at the right edge of a copula clause,
+a manner adverb before the right bracket of a full-verb clause. German joint
+quorum 85.1 %. Board entry `2026-10-04-deepnsm-v2-satzklammer-frageprobe.md`.
