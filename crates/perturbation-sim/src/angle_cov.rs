@@ -21,10 +21,17 @@
 //! `CovHighD` is `f32` and dense `O(N³)`; this crate is `f64`. Each input is
 //! divided by its largest absolute entry before it is narrowed to `f32`, and
 //! the result is multiplied back in `f64` (the sandwich is bilinear, so this
-//! is exact up to rounding). Magnitude therefore never decides whether an
-//! entry survives the narrowing: a `Σp` past `f32::MAX` or below its smallest
-//! normal is as accurate as one near `1`. Expect roughly `1e-6` error relative
-//! to the largest output entry. `N` is a
+//! is exact up to rounding). A uniformly huge or tiny `Σp` is therefore as
+//! accurate as one near `1`.
+//!
+//! The error bound is relative to the INPUT magnitude `max|Σp| · max|L⁺|²`,
+//! not to the output: expect roughly `1e-6` of that. When most of `Σp`'s mass
+//! lies in `L⁺`'s null space (e.g. a large variance on an isolated bus), the
+//! output is small next to that bound and its relative error is large. A
+//! `Σp` whose dynamic range exceeds `f32`'s — a nonzero entry that would
+//! flush below `f32`'s smallest normal after the division — is refused rather
+//! than silently zeroed. Both limits are `f32` limits of `CovHighD`; lifting
+//! them is an `f64` sandwich in ndarray, not a second kernel here. `N` is a
 //! compile-time constant in `CovHighD`, while a [`crate::graph::Grid`]'s bus
 //! count is a runtime value: the caller picks `N` and the call panics when the
 //! decomposition disagrees with it. A runtime-sized sandwich would be a change
@@ -50,8 +57,10 @@ pub const SYMMETRY_TOL: f64 = 1e-9;
 ///
 /// # Panics
 /// If `eig.n != N`, if `sigma_p.len() != N*N`, if any entry of `sigma_p` is
-/// not finite, or if `sigma_p` is not symmetric within [`SYMMETRY_TOL`]
-/// (relative to its largest entry).
+/// not finite, if `sigma_p` is not symmetric within [`SYMMETRY_TOL`]
+/// (relative to its largest entry), or if a nonzero entry of `sigma_p` is
+/// below `f32::MIN_POSITIVE` relative to its largest entry (its dynamic range
+/// does not fit `f32`, so that entry would silently become zero).
 pub fn angle_covariance<const N: usize>(eig: &Eigen, sigma_p: &[f64], rel_tol: f64) -> Vec<f64> {
     assert_eq!(
         eig.n, N,
@@ -67,6 +76,15 @@ pub fn angle_covariance<const N: usize>(eig: &Eigen, sigma_p: &[f64], rel_tol: f
         .iter()
         .fold(0.0_f64, |m, v| m.max(v.abs()))
         .max(f64::MIN_POSITIVE);
+    if let Some(v) = sigma_p
+        .iter()
+        .find(|v| **v != 0.0 && (*v / scale).abs() < f64::from(f32::MIN_POSITIVE))
+    {
+        panic!(
+            "sigma_p dynamic range exceeds f32: entry {v:e} next to max {scale:e} \
+             would be zeroed by the f32 sandwich"
+        );
+    }
     for i in 0..N {
         for j in 0..i {
             let d = (sigma_p[i * N + j] - sigma_p[j * N + i]).abs();
@@ -88,15 +106,23 @@ pub fn angle_covariance<const N: usize>(eig: &Eigen, sigma_p: &[f64], rel_tol: f
     let m = CovHighD::<N>::from_symmetric_fn(|i, j| (l_plus[i * N + j] / l_scale) as f32);
     let s = CovHighD::<N>::from_symmetric_fn(|i, j| (sigma_p[i * N + j] / scale) as f32);
     let out = s.sandwich(&m);
-    let back = scale * l_scale * l_scale;
 
     let mut dense = vec![0.0_f64; N * N];
     for i in 0..N {
         for j in 0..N {
-            dense[i * N + j] = out.get(i, j) as f64 * back;
+            dense[i * N + j] = unscale(out.get(i, j), scale, l_scale);
         }
     }
     dense
+}
+
+/// One sandwich entry back to `f64` units: `o · scale · l_scale²`.
+///
+/// Applied factor by factor on the entry, never through a precomputed
+/// `scale · l_scale²`: that product can overflow to infinity while the entry
+/// itself does not, and an exact-zero entry would then become `0 · ∞ = NaN`.
+fn unscale(o: f32, scale: f64, l_scale: f64) -> f64 {
+    f64::from(o) * scale * l_scale * l_scale
 }
 
 #[cfg(test)]
@@ -267,6 +293,41 @@ mod tests {
             let e = rel_err(&got, &want);
             assert!(e < 1e-5, "k = {k:e}: rel err {e:e}");
         }
+    }
+
+    /// FAILS IF: the result is rescaled through the combined factor
+    /// `scale · l_scale²`, which overflows here and turns an exact zero into
+    /// NaN.
+    #[test]
+    fn an_exact_zero_stays_zero_when_the_combined_factor_overflows() {
+        let (scale, l_scale) = (1e300_f64, 1e10_f64);
+        assert!(
+            (scale * l_scale * l_scale).is_infinite(),
+            "fixture must overflow"
+        );
+        assert_eq!(unscale(0.0, scale, l_scale), 0.0);
+        // A nonzero entry whose true value is finite stays finite.
+        let v = unscale(1e-20, scale, l_scale);
+        let want = f64::from(1e-20_f32) * 1e300 * 1e20;
+        assert!(
+            v.is_finite() && (v - want).abs() <= 1e-12 * want.abs(),
+            "{v:e} vs {want:e}"
+        );
+    }
+
+    /// FAILS IF: an entry too small to survive the f32 narrowing is silently
+    /// zeroed instead of refused (a huge variance elsewhere, e.g. on a bus in
+    /// `L⁺`'s null space, sets the scale).
+    #[test]
+    #[should_panic(expected = "dynamic range exceeds f32")]
+    fn refuses_a_dynamic_range_wider_than_f32() {
+        let eig = symmetric_eigen(&grid().laplacian(), N);
+        let mut sp = vec![0.0; N * N];
+        sp[0] = 1e100;
+        for k in 1..N {
+            sp[k * N + k] = 1.0;
+        }
+        let _ = angle_covariance::<N>(&eig, &sp, TOL);
     }
 
     #[test]
