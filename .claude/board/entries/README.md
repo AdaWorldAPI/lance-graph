@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-191 entries, 2026-08-06 .. 2026-10-04.
+192 entries, 2026-08-06 .. 2026-10-04.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-04 | `D-LXC-18` |  | [2026-10-04-deepnsm-v2-question-test-2cube-and-blast-radius.md](2026-10-04-deepnsm-v2-question-test-2cube-and-blast-radius.md) |
 | 2026-10-04 | `D-LXC-13` |  | [2026-10-04-deepnsm-v2-predicate-by-position.md](2026-10-04-deepnsm-v2-predicate-by-position.md) |
 | 2026-10-04 | `D-LXC-14` |  | [2026-10-04-deepnsm-v2-position-rules-on-ud-gold.md](2026-10-04-deepnsm-v2-position-rules-on-ud-gold.md) |
 | 2026-10-04 | `D-LXC-16` |  | [2026-10-04-deepnsm-v2-learned-position-table.md](2026-10-04-deepnsm-v2-learned-position-table.md) |

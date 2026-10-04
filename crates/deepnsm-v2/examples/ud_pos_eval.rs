@@ -44,8 +44,8 @@ use std::collections::HashMap;
 
 use deepnsm_v2::coca::fsm_pos_tag;
 use deepnsm_v2::fsm::{
-    attribute_rule, parse_readings_with, AdjectiveOrder, AttributeRule, Pos, PosSet, Reading,
-    Typology,
+    answered_questions, attribute_rule, parse_readings_with, AdjectiveOrder, AttributeRule, Pos,
+    PosSet, Reading, Tagged, Typology,
 };
 
 /// One syntactic word of a UD sentence.
@@ -309,7 +309,41 @@ fn readings_of(lex: &Lexicon, s: &[Word], k: usize, cased: bool) -> PosSet {
 
 /// Positional context of a token: the neighbours' reading sets and whether
 /// the previous word is a copula. Never the word itself.
-type Context = (u8, bool, u8, bool);
+type Context = (u8, bool, u8, bool, u8);
+
+/// Which positional evidence the table keys on (`UD_CTX`): the neighbours
+/// (`neigh`, default), the question test — the 2³ mask of SPO questions the
+/// clause has answered before the word, plus the next readings (`q`) — or
+/// both (`both`).
+fn ctx_mode() -> &'static str {
+    match std::env::var("UD_CTX").as_deref() {
+        Ok("q") => "q",
+        Ok("both") => "both",
+        _ => "neigh",
+    }
+}
+
+/// The 2³ answered-question mask before every word of a sentence. The left
+/// context is tagged by the frequency pick of each word's readings — never
+/// gold.
+fn answered_masks(lex: &Lexicon, s: &[Word], cased: bool) -> Vec<u8> {
+    let tags: Vec<Tagged> = (0..s.len())
+        .map(|k| {
+            let set = readings_of(lex, s, k, cased);
+            let pos = set
+                .iter()
+                .max_by_key(|p| {
+                    lex.counts
+                        .get(&(s[k].form.clone(), *p as u8))
+                        .copied()
+                        .unwrap_or(0)
+                })
+                .unwrap_or(Pos::Other);
+            Tagged::new(0, pos)
+        })
+        .collect();
+    answered_questions(&tags)
+}
 
 fn bits(p: PosSet) -> u8 {
     Pos::ALL
@@ -328,6 +362,8 @@ struct PositionTable {
     prev: HashMap<(u8, bool), [usize; 2]>,
     /// Next readings + copula anywhere in the clause.
     clause: HashMap<(u8, bool), [usize; 2]>,
+    /// Answered-question mask + next readings.
+    question: HashMap<(u8, u8), [usize; 2]>,
 }
 
 /// Minimum train tokens behind a context before it may decide (policy pin).
@@ -346,9 +382,11 @@ impl PositionTable {
             next: HashMap::new(),
             prev: HashMap::new(),
             clause: HashMap::new(),
+            question: HashMap::new(),
         };
         for s in train {
             let set = |k: usize| readings_of(lex, s, k, cased);
+            let masks = answered_masks(lex, s, cased);
             for k in 0..s.len() {
                 let this = set(k);
                 let w = &s[k];
@@ -357,12 +395,13 @@ impl PositionTable {
                 {
                     continue;
                 }
-                let ctx = Self::context(s, k, &set, copulas);
+                let ctx = Self::context(s, k, &set, copulas, &masks);
                 let slot = usize::from(w.gold == pair.1);
                 t.full.entry(ctx).or_default()[slot] += 1;
                 t.next.entry(ctx.2).or_default()[slot] += 1;
                 t.prev.entry((ctx.0, ctx.1)).or_default()[slot] += 1;
                 t.clause.entry((ctx.2, ctx.3)).or_default()[slot] += 1;
+                t.question.entry((ctx.4, ctx.2)).or_default()[slot] += 1;
             }
         }
         t
@@ -373,6 +412,7 @@ impl PositionTable {
         k: usize,
         set: &dyn Fn(usize) -> PosSet,
         copulas: &std::collections::HashSet<String>,
+        masks: &[u8],
     ) -> Context {
         let prev = k.checked_sub(1);
         // The clause: the words between punctuation marks around `k`.
@@ -385,11 +425,18 @@ impl PositionTable {
             && (lo..hi)
                 .filter(|&j| j != k)
                 .any(|j| copulas.contains(&s[j].form.to_lowercase()));
+        let next = if k + 1 < s.len() { bits(set(k + 1)) } else { 0 };
+        let neigh = ctx_mode() != "q";
         (
-            prev.map_or(0, |j| bits(set(j))),
-            prev.is_some_and(|j| copulas.contains(&s[j].form.to_lowercase())),
-            if k + 1 < s.len() { bits(set(k + 1)) } else { 0 },
-            clause_copula,
+            if neigh {
+                prev.map_or(0, |j| bits(set(j)))
+            } else {
+                0
+            },
+            neigh && prev.is_some_and(|j| copulas.contains(&s[j].form.to_lowercase())),
+            next,
+            neigh && clause_copula,
+            if ctx_mode() == "neigh" { 0 } else { masks[k] },
         )
     }
 
@@ -405,6 +452,7 @@ impl PositionTable {
         // Back off: whichever partial context is most decisive.
         [
             self.clause.get(&(ctx.2, ctx.3)).copied().and_then(pick),
+            self.question.get(&(ctx.4, ctx.2)).copied().and_then(pick),
             self.next.get(&ctx.2).copied().and_then(pick),
             self.prev.get(&(ctx.0, ctx.1)).copied().and_then(pick),
         ]
@@ -439,6 +487,7 @@ fn position_table_report(
         (0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
     for s in test {
         let set = |k: usize| readings_of(lex, s, k, cased);
+        let masks = answered_masks(lex, s, cased);
         for k in 0..s.len() {
             let w = &s[k];
             let this = set(k);
@@ -459,7 +508,7 @@ fn position_table_report(
             let p_word = (ca as f64 + 0.5) / ((ca + cb) as f64 + 1.0);
             let freq = if cb > ca { b } else { a };
             freq_all += usize::from(freq == w.gold);
-            let ctx = PositionTable::context(s, k, &set, copulas);
+            let ctx = PositionTable::context(s, k, &set, copulas, &masks);
             let p_ctx = table.p_first(ctx);
             if let Some((p, _)) = p_ctx {
                 if !(0.25..0.75).contains(&p) {
