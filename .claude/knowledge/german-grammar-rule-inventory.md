@@ -94,7 +94,11 @@ Ranks 5–9 are one case-constraint intersection, i.e. one Q2 evaluator rather t
 - left-corner parsing for German (leads only: arXiv 2109.04939, 2311.16258);
 - whether the 85.1 % adj/adv figure used lexicons mined only on train. `UD_DE_INVENTORY` was built from GSD train, so yes, but the D-LXC-19 `Inventory` lemma map is mined from all of train, not the fit split.
 
-## 6. Recorded for the operator, not decided
+## 6. Operator answers
+
+**Recorded 2026-10-04 (D-LXC-22): the WordNet scope below is DECIDED as worded** (operator: *"Yes Wordnet would allow also clam Chaoda"*). See `.claude/board/entries/2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md`.
+
+### The questions as they were put
 
 - **A1 scope for rank 18.** The firewall critic's draft wording:
 

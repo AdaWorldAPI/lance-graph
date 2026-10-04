@@ -44,10 +44,25 @@
 //! declared BASELINE, because a right-corner claim with no left-corner control
 //! measures nothing.
 //!
-//! ## The thinking style drives the read
+//! ## The read is parameterized by [`ReadParams`] — grammar's own knobs
 //!
-//! The knobs are not constants. `ThinkingStyle → FieldModulation → ScanParams`
-//! is the shipped read-parameterization, and this module consumes it:
+//! Grammar is rung 2 of the content ladder (the 144 universal-grammar verbs and
+//! `verb_table`'s TEKAMOLO slot priors), NOT a thinking style: neither the 36
+//! `ThinkingStyle` adjectives (the separate, unwired persona storyline) nor the
+//! 12 `StyleFamily` macros (rung 4) contain one
+//! (`.claude/v3/knowledge/persona-vs-rung-ladder.md`). So [`read_clause`] takes
+//! [`ReadParams`] directly, with [`ReadParams::LEFT_CORNER`] and
+//! [`ReadParams::RIGHT_CORNER`] as the two named readings.
+//!
+//! The older path — `ThinkingStyle → FieldModulation` through
+//! [`V2StyleProvider`] — is kept, not dropped, as the adapter
+//! [`ReadParams::from_style`]. It sits outside the grammar path because §3o of
+//! `alpha-channel-rung-overlay-v1` keeps style selection out of deepnsm-v2; its
+//! destination is the planner, and long term a thinking dialect on the
+//! `ogar-loco` IR (the operator names `ogar-loco` / `ogar-r2il` as the
+//! long-term IR substrate), which would hand this reader a `ReadParams`.
+//!
+//! What each knob sets (the adapter maps a style cluster onto the same four):
 //!
 //! | knob | what it sets here |
 //! |---|---|
@@ -377,9 +392,9 @@ impl ThinkingStyleProvider for V2StyleProvider {
     }
 }
 
-/// A style-parameterized read of one clause.
-#[derive(Debug, Clone, Copy)]
-pub struct StyleRead {
+/// How one clause is read: grammar's own (rung-2) parameters.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReadParams {
     /// Where the lanes commit — derived from `depth_bias`.
     pub commit: Commit,
     /// Hypotheses a lane carries — `fan_out`.
@@ -389,15 +404,35 @@ pub struct StyleRead {
     pub margin: f64,
     /// May an ambiguous form (`da`) win a lane — `noise_tolerance`.
     pub admit_ambiguous: bool,
-    /// The SIMD scan params the same modulation yields, carried so a caller
-    /// reads ONE object rather than re-deriving them.
-    pub scan: ScanParams,
 }
 
-impl StyleRead {
-    /// Derive the read from a style through the provider — never hand-set.
+impl ReadParams {
+    /// The left-corner baseline: each lane locks on its first hypothesis,
+    /// carries at most two, needs a 0.6 margin and admits no ambiguous form.
+    /// (Equal to the adapter's Analytical cluster row.)
+    pub const LEFT_CORNER: Self = Self {
+        commit: Commit::LeftCorner,
+        fan_out: 2,
+        margin: 0.6,
+        admit_ambiguous: false,
+    };
+
+    /// The right-corner reading: carry up to eight hypotheses per lane to the
+    /// clause's right corner, commit on a 0.15 margin, admit ambiguous forms.
+    /// (Equal to the adapter's Exploratory cluster row.)
+    pub const RIGHT_CORNER: Self = Self {
+        commit: Commit::RightCorner,
+        fan_out: 8,
+        margin: 0.15,
+        admit_ambiguous: true,
+    };
+
+    /// Adapter, kept from the style-driven version: a thinking style's
+    /// cluster row through [`V2StyleProvider`]. Not on the grammar path; its
+    /// destination is the planner / an `ogar-loco` thinking dialect (see the
+    /// module doc).
     #[must_use]
-    pub fn of(style: ThinkingStyle) -> Self {
+    pub fn from_style(style: ThinkingStyle) -> Self {
         let m = V2StyleProvider.default_modulation(style);
         Self {
             commit: if m.depth_bias >= LEFT_CORNER_AT {
@@ -408,8 +443,13 @@ impl StyleRead {
             fan_out: m.fan_out.max(1),
             margin: m.resonance_threshold,
             admit_ambiguous: m.noise_tolerance >= AMBIGUOUS_OK_AT,
-            scan: m.to_scan_params(),
         }
+    }
+
+    /// The scan parameters the adapter's modulation yields for `style`.
+    #[must_use]
+    pub fn scan_for_style(style: ThinkingStyle) -> ScanParams {
+        V2StyleProvider.default_modulation(style).to_scan_params()
     }
 }
 
@@ -429,7 +469,7 @@ pub struct ClauseRead {
     pub ambiguous_wins: usize,
 }
 
-/// Read ONE clause's tokens under `style`.
+/// Read ONE clause's tokens under `params`.
 ///
 /// Every matching form opens a [`LaneHypothesis`]. Under
 /// [`Commit::RightCorner`] the hypotheses are carried to the end of the token
@@ -437,8 +477,8 @@ pub struct ClauseRead {
 /// [`Commit::LeftCorner`] each lane locks on its first hypothesis, which is the
 /// premature reading kept as the baseline.
 #[must_use]
-pub fn read_clause(h: &GrammarHeuristics, tokens: &[&str], style: ThinkingStyle) -> ClauseRead {
-    let sr = StyleRead::of(style);
+pub fn read_clause(h: &GrammarHeuristics, tokens: &[&str], params: ReadParams) -> ClauseRead {
+    let sr = params;
     let mut carried: [Vec<LaneHypothesis>; 4] = [vec![], vec![], vec![], vec![]];
     let mut out = ClauseRead::default();
 
@@ -561,17 +601,21 @@ mod tests {
         let toks = ["Da", "sprach", "er", "weil", "Gott", "rief"];
 
         // Direct: depth_bias 0.9 → LeftCorner. Only `da` was ever opened.
-        let left = read_clause(&g, &toks, ThinkingStyle::Direct);
+        let left = read_clause(&g, &toks, ReadParams::from_style(ThinkingStyle::Direct));
         assert_eq!(
-            StyleRead::of(ThinkingStyle::Direct).commit,
+            ReadParams::from_style(ThinkingStyle::Direct).commit,
             Commit::LeftCorner
         );
         assert_eq!(left.opened, 2, "da opened Kausal AND Lokal, then locked");
 
         // Exploratory: depth_bias 0.2 → RightCorner, fan_out 8.
-        let right = read_clause(&g, &toks, ThinkingStyle::Exploratory);
+        let right = read_clause(
+            &g,
+            &toks,
+            ReadParams::from_style(ThinkingStyle::Exploratory),
+        );
         assert_eq!(
-            StyleRead::of(ThinkingStyle::Exploratory).commit,
+            ReadParams::from_style(ThinkingStyle::Exploratory).commit,
             Commit::RightCorner
         );
         assert_eq!(right.opened, 3, "da x2 + weil — weil was SEEN");
@@ -591,8 +635,12 @@ mod tests {
         // `weil` first (273), then `damit` (986) — the LATER form has the
         // stronger corpus evidence, so left-corner and right-corner must differ.
         let toks = ["weil", "er", "rief", "damit", "es", "geschah"];
-        let left = read_clause(&g, &toks, ThinkingStyle::Direct);
-        let right = read_clause(&g, &toks, ThinkingStyle::Exploratory);
+        let left = read_clause(&g, &toks, ReadParams::from_style(ThinkingStyle::Direct));
+        let right = read_clause(
+            &g,
+            &toks,
+            ReadParams::from_style(ThinkingStyle::Exploratory),
+        );
         let k = TekamoloRole::Kausal as usize;
         assert_eq!(
             left.lanes[k].map(|a| a.rank),
@@ -614,8 +662,8 @@ mod tests {
         let g = h();
         let toks = ["Da", "stand", "er"]; // only `da` — ambiguous, both lanes
                                           // Analytical: noise_tolerance 0.15 → refuses ambiguous forms.
-        let strict = read_clause(&g, &toks, ThinkingStyle::Analytical);
-        assert!(!StyleRead::of(ThinkingStyle::Analytical).admit_ambiguous);
+        let strict = read_clause(&g, &toks, ReadParams::from_style(ThinkingStyle::Analytical));
+        assert!(!ReadParams::from_style(ThinkingStyle::Analytical).admit_ambiguous);
         assert_eq!(strict.lanes[TekamoloRole::Kausal as usize], None);
         assert_eq!(strict.lanes[TekamoloRole::Lokal as usize], None);
         assert_eq!(strict.abstained, 2, "both lanes abstained, and said so");
@@ -623,8 +671,12 @@ mod tests {
 
         // Exploratory: noise_tolerance 0.75 → admits it, in BOTH lanes, and the
         // tie is never broken by fiat.
-        let open = read_clause(&g, &toks, ThinkingStyle::Exploratory);
-        assert!(StyleRead::of(ThinkingStyle::Exploratory).admit_ambiguous);
+        let open = read_clause(
+            &g,
+            &toks,
+            ReadParams::from_style(ThinkingStyle::Exploratory),
+        );
+        assert!(ReadParams::from_style(ThinkingStyle::Exploratory).admit_ambiguous);
         assert!(open.lanes[TekamoloRole::Kausal as usize].is_some());
         assert!(open.lanes[TekamoloRole::Lokal as usize].is_some());
         assert_eq!(open.ambiguous_wins, 2);
@@ -637,7 +689,7 @@ mod tests {
         let g = h();
         let toks = ["Gott", "sprach", "und", "es", "ward", "Licht"];
         for style in [ThinkingStyle::Direct, ThinkingStyle::Exploratory] {
-            let r = read_clause(&g, &toks, style);
+            let r = read_clause(&g, &toks, ReadParams::from_style(style));
             assert_eq!(r.opened, 0);
             assert_eq!(r.abstained, 0);
             assert!(r.lanes.iter().all(Option::is_none), "{style:?}");
@@ -651,11 +703,15 @@ mod tests {
         let g = h();
         // Four Kausal forms in one clause.
         let toks = ["damit", "da", "weil", "damit", "x", "y"];
-        let creative = read_clause(&g, &toks, ThinkingStyle::Creative); // fan_out 6
-        let meta = read_clause(&g, &toks, ThinkingStyle::Metacognitive); // fan_out 8
+        let creative = read_clause(&g, &toks, ReadParams::from_style(ThinkingStyle::Creative)); // fan_out 6
+        let meta = read_clause(
+            &g,
+            &toks,
+            ReadParams::from_style(ThinkingStyle::Metacognitive),
+        ); // fan_out 8
         assert!(
-            StyleRead::of(ThinkingStyle::Creative).fan_out
-                < StyleRead::of(ThinkingStyle::Metacognitive).fan_out
+            ReadParams::from_style(ThinkingStyle::Creative).fan_out
+                < ReadParams::from_style(ThinkingStyle::Metacognitive).fan_out
         );
         assert!(
             meta.opened >= creative.opened,
@@ -672,7 +728,7 @@ mod tests {
         let mut corners = std::collections::HashSet::new();
         let mut fingerprints = std::collections::HashSet::new();
         for s in ThinkingStyle::ALL {
-            let sr = StyleRead::of(s);
+            let sr = ReadParams::from_style(s);
             corners.insert(sr.commit);
             fingerprints.insert(V2StyleProvider.default_modulation(s).to_fingerprint());
         }
@@ -706,13 +762,29 @@ mod tests {
         };
         let overconfident = V2StyleProvider.select_from_assessment(&mk(DkPosition::MountStupid));
         assert_eq!(
-            StyleRead::of(overconfident).commit,
+            ReadParams::from_style(overconfident).commit,
             Commit::RightCorner,
             "Mount Stupid must NOT be handed the early-commit reader"
         );
         // …and the expert in flow IS allowed to decide fast, so the mapping is
         // discriminating rather than always-RightCorner.
         let expert = V2StyleProvider.select_from_assessment(&mk(DkPosition::Plateau));
-        assert_eq!(StyleRead::of(expert).commit, Commit::LeftCorner);
+        assert_eq!(ReadParams::from_style(expert).commit, Commit::LeftCorner);
+    }
+
+    /// The grammar presets are the adapter's Analytical and Exploratory rows,
+    /// so taking the style out of the grammar path changed no reading. If the
+    /// adapter's table moves, this fails instead of the two drifting apart.
+    #[test]
+    fn the_presets_equal_the_adapter_rows() {
+        assert_eq!(
+            ReadParams::from_style(ThinkingStyle::Analytical),
+            ReadParams::LEFT_CORNER
+        );
+        assert_eq!(
+            ReadParams::from_style(ThinkingStyle::Exploratory),
+            ReadParams::RIGHT_CORNER
+        );
+        assert_ne!(ReadParams::LEFT_CORNER, ReadParams::RIGHT_CORNER);
     }
 }
