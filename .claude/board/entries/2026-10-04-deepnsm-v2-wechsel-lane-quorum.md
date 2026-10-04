@@ -39,9 +39,3 @@ Operator:
 - The quorum misses its "+2 points over the best single voter" bar: noun context carries almost all the signal.
 - TEKAMOLO position, adverb and verb add little on this sample.
 
-**Round 3 (pre-registered before its labels existed): pending.**
-- Data: a fresh sample of 400 HDT test phrases, two labelers each.
-- Bars:
-  - κ ≥ 0.6;
-  - noun voter TIME F1 ≥ 0.80 and PLACE F1 ≥ 0.55;
-  - quorum ≥ noun + 2 points.
