@@ -46,22 +46,17 @@ use ogar_dir_core::OuHhtl;
 pub struct SubtreeTooDeep(pub usize);
 
 /// Nodes located in the OU subtree `prefix` (ancestor-or-self), as a node
-/// bitmap — one ternary match on the packed OU lane (`Cmp::MatchU64`), no DN
-/// strings. Prefixes up to depth 4 are exact; deeper ones are refused.
+/// bitmap over the version's ordinals — one ternary match on the packed OU
+/// lane (`Cmp::MatchU64`), no DN strings. The same program runs over the
+/// base lane (deleted nodes gated out) and over the created nodes' lane
+/// (delta-sized); the two kept sets are concatenated, never fed onward.
+/// Prefixes up to depth 4 are exact; deeper ones are refused.
 pub fn subtree(v: &View<'_>, prefix: &OuHhtl) -> Result<exec::Kept, SubtreeTooDeep> {
     let d = prefix.depth();
     if d > 4 {
         return Err(SubtreeTooDeep(d));
     }
     let care = if d == 0 { 0 } else { u64::MAX << (64 - 16 * d) };
-    let s = v.snap;
-    let lanes = [LaneRef::U64(&s.ou_hi)];
-    let masks: [&[u64]; 1] = [&s.ou_present];
-    let planes = Planes {
-        n_rows: s.len(),
-        masks: &masks,
-        lanes: &lanes,
-    };
     let p = exec::program(
         Filter::and([
             Filter::plane(Mask(0)),
@@ -75,5 +70,41 @@ pub fn subtree(v: &View<'_>, prefix: &OuHhtl) -> Result<exec::Kept, SubtreeTooDe
         ]),
         lance_graph_quack::Agg::Rows,
     );
-    Ok(exec::keep(&p, &planes, &Foreign::NONE))
+    let s = v.snap;
+    let present = v.base_live(&s.ou_present);
+    let lanes = [LaneRef::U64(&s.ou_hi)];
+    let masks: [&[u64]; 1] = [&present];
+    let base = exec::keep(
+        &p,
+        &Planes {
+            n_rows: s.len(),
+            masks: &masks,
+            lanes: &lanes,
+        },
+        &Foreign::NONE,
+    );
+    let cr = &v.ov.created;
+    let packed: Vec<u64> = cr
+        .ou
+        .iter()
+        .map(|o| o.as_ref().map_or(0, pack_ou))
+        .collect();
+    let mut located = vec![0u64; lance_graph_mask_risc::words_for(cr.ou.len())];
+    for (i, o) in cr.ou.iter().enumerate() {
+        if o.is_some() {
+            located[i / 64] |= 1 << (i % 64);
+        }
+    }
+    let lanes = [LaneRef::U64(&packed)];
+    let masks: [&[u64]; 1] = [&located];
+    let created = exec::keep(
+        &p,
+        &Planes {
+            n_rows: cr.ou.len(),
+            masks: &masks,
+            lanes: &lanes,
+        },
+        &Foreign::NONE,
+    );
+    Ok(base.concat(&created))
 }

@@ -7,6 +7,7 @@
 //! | `active_user`           | bit plane   | user ∧ enabled — the recipient population   |
 //! | `upn_val` / `smtp_val`  | `[u32]`     | raw value id in [`Dicts::values`]           |
 //! | `upn_key` / `smtp_key`  | `[u32]`     | normalized key id in [`Dicts::keys`]        |
+//! | `ou`                    | `[OuHhtl]`  | exact OU location (node state, compare-and-set) |
 //! | `ou_hi`, `ou_present`   | `[u64]`, plane | OU-HHTL levels 0..4 packed (subtree = prefix match) |
 //! | `m_user`, `m_group`     | `[u32]`     | membership relation, sorted by (user, group) |
 //!
@@ -29,14 +30,7 @@ use std::collections::BTreeMap;
 /// lane, so mask-risc's zero-fallback treats it as matching nothing.
 pub const NONE: u32 = u32::MAX;
 
-/// Kind of a directory node.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum NodeKind {
-    /// User (a recipient when active with a primary SMTP).
-    User,
-    /// Group.
-    Group,
-}
+pub use ogar_dir_sim::NodeKind;
 
 /// Append-only string dictionary. Ids are assignment order; nothing is
 /// iterated in hash order.
@@ -106,7 +100,8 @@ impl Dicts {
 pub struct ObservedNode {
     /// Kind.
     pub kind: NodeKind,
-    /// Enabled.
+    /// Enabled (users only; a group's flag is not stored and reads back
+    /// as `true`).
     pub active: bool,
     /// Raw UPN.
     pub upn: Option<String>,
@@ -135,6 +130,18 @@ impl ObservedNode {
             upn: None,
             primary_smtp: None,
             ou: None,
+        }
+    }
+}
+
+impl From<ObservedNode> for ogar_dir_sim::NodeState {
+    fn from(n: ObservedNode) -> Self {
+        Self {
+            kind: n.kind,
+            active: n.active,
+            upn: n.upn,
+            primary_smtp: n.primary_smtp,
+            ou: n.ou,
         }
     }
 }
@@ -201,6 +208,7 @@ pub struct Snapshot {
     pub(crate) upn_key: Vec<u32>,
     pub(crate) smtp_val: Vec<u32>,
     pub(crate) smtp_key: Vec<u32>,
+    pub(crate) ou: Vec<OuHhtl>,
     pub(crate) ou_hi: Vec<u64>,
     pub(crate) ou_present: Vec<u64>,
     pub(crate) m_user: Vec<u32>,
@@ -231,6 +239,7 @@ impl Snapshot {
             upn_key: Vec::with_capacity(n),
             smtp_val: Vec::with_capacity(n),
             smtp_key: Vec::with_capacity(n),
+            ou: Vec::with_capacity(n),
             ou_hi: Vec::with_capacity(n),
             ou_present: vec![0; words_for(n)],
             m_user: Vec::new(),
@@ -255,6 +264,7 @@ impl Snapshot {
             s.upn_key.push(uk);
             s.smtp_val.push(sv);
             s.smtp_key.push(sk);
+            s.ou.push(node.ou.unwrap_or(OuHhtl::ROOT));
             s.ou_hi.push(node.ou.as_ref().map_or(0, pack_ou));
             if node.ou.is_some() {
                 set_bit(&mut s.ou_present, i);

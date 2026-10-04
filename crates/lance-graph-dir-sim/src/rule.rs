@@ -27,8 +27,8 @@ pub trait Rule {
 /// joined rows.
 pub fn member_counts(v: &View<'_>, group: &Guid128) -> Vec<i64> {
     let s = v.snap;
-    let mut counts = vec![0i64; s.len()];
-    let Some(g) = s.ordinal(group) else {
+    let mut counts = vec![0i64; v.len()];
+    let Some(g) = v.ordinal(group) else {
         return counts;
     };
     let live = v.live_rows();
@@ -46,7 +46,8 @@ pub fn member_counts(v: &View<'_>, group: &Guid128) -> Vec<i64> {
         &Foreign::NONE,
         &mut counts,
     );
-    for &(uo, go) in v.ov.added.values() {
+    let (au, ag, _) = v.added_rows();
+    for (uo, go) in au.into_iter().zip(ag) {
         if go == g && (uo as usize) < counts.len() {
             counts[uo as usize] += 1;
         }

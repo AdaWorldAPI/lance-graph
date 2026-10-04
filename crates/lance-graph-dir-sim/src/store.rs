@@ -14,8 +14,8 @@ use crate::validate::validate;
 use crate::view::{ApplyError, Overlay, View};
 use ogar_dir_core::Guid128;
 use ogar_dir_sim::{
-    Attribute, Change, EvidenceRef, ExecutionPlan, Origin, PlanError, Version, VersionId,
-    Violation, TAG_DESIRED, TAG_OBSERVED,
+    Attribute, Change, EvidenceRef, ExecutionPlan, NodeState, Origin, PlanError, Version,
+    VersionId, Violation, TAG_DESIRED, TAG_OBSERVED,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -29,8 +29,6 @@ pub enum SimError {
     EmptyProposal(ogar_dir_sim::RuleId),
     /// The proposal does not apply to the parent.
     Apply(ApplyError),
-    /// The two versions do not share a node set (diff unsupported in this slice).
-    NodeSetChanged,
 }
 
 /// Refusal to make a version desired. The version stays as evidence.
@@ -131,13 +129,25 @@ impl VersionStore {
         rule: &dyn Rule,
         evidence: &[EvidenceRef],
     ) -> Result<VersionId, SimError> {
-        let delta = rule.propose(&self.view(parent)?, evidence);
+        let mut delta = rule.propose(&self.view(parent)?, evidence);
+        // Canonical order is also a safe application order (`Change`'s
+        // variant order: removals, deletes, sets, creates, adds), so the version does
+        // not depend on the order a rule emitted its changes in.
+        delta.sort();
+        delta.dedup();
         if delta.is_empty() {
             return Err(SimError::EmptyProposal(rule.id()));
         }
         for c in &delta {
-            if let Change::SetAttribute { to, .. } = c {
-                self.dicts.intern_attr(to.as_deref());
+            match c {
+                Change::SetAttribute { to, .. } => {
+                    self.dicts.intern_attr(to.as_deref());
+                }
+                Change::CreateNode { state, .. } => {
+                    self.dicts.intern_attr(state.upn.as_deref());
+                    self.dicts.intern_attr(state.primary_smtp.as_deref());
+                }
+                _ => {}
             }
         }
         let mut view = self.view(parent)?;
@@ -192,25 +202,33 @@ impl VersionStore {
 
     /// Semantic difference `a → b`, sorted. Versions over the same snapshot
     /// compare only their overlays' touched keys (delta-sized); versions over
-    /// different snapshots (reconciliation) merge the two sorted relations.
+    /// different snapshots (reconciliation) merge the two sorted node lanes
+    /// and the two membership relations. Node sets may differ: a node only
+    /// in `b` is a [`Change::CreateNode`], one only in `a` a
+    /// [`Change::DeleteNode`].
     pub fn diff(&self, a: VersionId, b: VersionId) -> Result<Vec<Change>, SimError> {
         let (va, vb) = (self.view(a)?, self.view(b)?);
         let mut out = if std::ptr::eq(va.snap, vb.snap) {
             diff_shared(&va, &vb)
         } else {
-            diff_full(&va, &vb)?
+            diff_full(&va, &vb)
         };
         out.sort();
         Ok(out)
     }
 
-    /// Plan for the current desired version, from the LATEST observation.
+    /// Plan for the current desired version: the work still outstanding
+    /// against the LATEST observation.
     ///
-    /// The basis is the version tagged observed, not the desired version's
-    /// own lineage root: after a re-observation the directory may already
-    /// carry part of the desired state, and the plan must cover only what is
-    /// still missing, or its `NotMember` preconditions fail on execution.
-    /// Before any observation is tagged, the lineage root is the basis.
+    /// The intent is the desired version's own net delta over its lineage
+    /// root (delta-sized, same snapshot). Each intended change is then
+    /// checked against the latest observation (the version tagged observed;
+    /// before any, the lineage root) and kept only if reality does not
+    /// already show its effect, with the precondition read from that
+    /// observation. So after a re-observation the plan holds no repeated
+    /// operation and no stale precondition, and a change of reality outside
+    /// the intent (a node or membership someone else created) is neither
+    /// planned nor reverted.
     pub fn plan(&self, target: VersionId) -> Result<ExecutionPlan, PlanError> {
         if self.tag(TAG_DESIRED) != Some(target) {
             return Err(PlanError::NotDesired(target));
@@ -219,13 +237,17 @@ impl VersionStore {
             .lineage(target)
             .map_err(|_| PlanError::UnknownVersion(target))?[0];
         let basis = self.tag(TAG_OBSERVED).unwrap_or(root);
-        let diff = self.diff(basis, target).map_err(|e| match e {
-            SimError::NodeSetChanged => PlanError::NodeSetChanged { basis, target },
-            SimError::UnknownVersion(v) => PlanError::UnknownVersion(v),
-            // `diff` raises nothing else.
-            _ => PlanError::UnknownVersion(target),
+        // Stored versions re-fold by construction (every delta applied when
+        // it was recorded), so the only failure here is an unknown id.
+        let view = |v| self.view(v).map_err(|_| PlanError::UnknownVersion(v));
+        let (vr, vt, vb) = (view(root)?, view(target)?, view(basis)?);
+        let intent = diff_shared(&vr, &vt);
+        let ops = outstanding(&vb, intent).map_err(|node| PlanError::Unconvergeable {
+            basis,
+            target,
+            node,
         })?;
-        Ok(ExecutionPlan::from_diff(basis, target, diff))
+        Ok(ExecutionPlan::from_diff(basis, target, ops))
     }
 
     /// Why does `v` contain membership `(user, group)`? The lineage from
@@ -272,22 +294,53 @@ fn set_change(
     })
 }
 
+/// Upn and primary-SMTP changes between two present nodes.
+fn attr_changes(node: Guid128, a: &NodeState, b: &NodeState, out: &mut Vec<Change>) {
+    out.extend(set_change(
+        node,
+        Attribute::Upn,
+        a.upn.as_deref(),
+        b.upn.as_deref(),
+    ));
+    out.extend(set_change(
+        node,
+        Attribute::PrimarySmtp,
+        a.primary_smtp.as_deref(),
+        b.primary_smtp.as_deref(),
+    ));
+}
+
+/// The change that takes node `g` from its state in `a` to its state in `b`.
+fn node_changes(g: Guid128, a: Option<NodeState>, b: Option<NodeState>, out: &mut Vec<Change>) {
+    match (a, b) {
+        (None, Some(state)) => out.push(Change::CreateNode { node: g, state }),
+        (Some(state), None) => out.push(Change::DeleteNode { node: g, state }),
+        (Some(sa), Some(sb)) => attr_changes(g, &sa, &sb, out),
+        (None, None) => {}
+    }
+}
+
 /// Same snapshot: only keys either overlay touched can differ.
 fn diff_shared(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
-    let mut pairs: BTreeSet<(Guid128, Guid128)> =
-        a.ov.added
-            .keys()
-            .chain(b.ov.added.keys())
-            .copied()
-            .collect();
-    for v in [a, b] {
-        if let Some(rm) = &v.ov.removed {
-            for r in lance_graph_mask_risc::materialize_rows(rm, v.snap.membership_rows()) {
-                pairs.insert(v.snap.member_guids(r as u32));
-            }
-        }
-    }
     let mut out = Vec::new();
+    let s = a.snap;
+
+    // Node presence: created or deleted in either overlay.
+    let mut nodes: BTreeSet<Guid128> = BTreeSet::new();
+    for v in [a, b] {
+        nodes.extend(v.ov.created.ids.iter().copied());
+        nodes.extend(v.ov.deleted.iter().map(|&o| s.ids[o as usize]));
+    }
+    for g in &nodes {
+        node_changes(*g, a.node_state(g), b.node_state(g), &mut out);
+    }
+
+    // Memberships either overlay touched.
+    let mut pairs: BTreeSet<(Guid128, Guid128)> =
+        a.ov.added.iter().chain(&b.ov.added).copied().collect();
+    for v in [a, b] {
+        pairs.extend(v.ov.removed.iter().map(|&r| s.member_guids(r)));
+    }
     for (u, g) in pairs {
         match (a.is_member(&u, &g), b.is_member(&u, &g)) {
             (false, true) => out.push(Change::AddMembership { user: u, group: g }),
@@ -295,57 +348,132 @@ fn diff_shared(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
             _ => {}
         }
     }
+
+    // Attribute overrides of base nodes present in both versions (a node
+    // created or deleted between them is covered above).
     for attr in [Attribute::Upn, Attribute::PrimarySmtp] {
-        let touched: BTreeSet<u32> = match attr {
-            Attribute::Upn => a.ov.upn.keys().chain(b.ov.upn.keys()).copied().collect(),
-            Attribute::PrimarySmtp => a.ov.smtp.keys().chain(b.ov.smtp.keys()).copied().collect(),
-        };
+        let touched: BTreeSet<u32> =
+            a.ov.overrides(attr)
+                .keys()
+                .chain(b.ov.overrides(attr).keys())
+                .copied()
+                .collect();
         for o in touched {
-            out.extend(set_change(
-                a.snap.ids[o as usize],
-                attr,
-                a.attr(o, attr),
-                b.attr(o, attr),
-            ));
+            let g = s.ids[o as usize];
+            if nodes.contains(&g) {
+                continue;
+            }
+            out.extend(set_change(g, attr, a.attr(o, attr), b.attr(o, attr)));
         }
     }
     out
 }
 
-/// Different snapshots (actual vs desired): a merge of two sorted relations,
-/// O(n + m) — the reconciliation path, not the simulation hot path.
-fn diff_full(a: &View<'_>, b: &View<'_>) -> Result<Vec<Change>, SimError> {
-    if a.snap.ids != b.snap.ids {
-        return Err(SimError::NodeSetChanged);
+/// Existing nodes of a view, ascending by identity.
+fn live_ids(v: &View<'_>) -> Vec<Guid128> {
+    let mut ids: Vec<Guid128> = (0..v.snap.len() as u32)
+        .filter_map(|o| v.guid(o))
+        .chain(v.ov.created.ids.iter().copied())
+        .collect();
+    ids.sort();
+    ids
+}
+
+/// Different snapshots (actual vs desired): a merge of the two sorted node
+/// lanes and the two membership relations, O(n + m) — the reconciliation
+/// path, not the simulation hot path.
+fn diff_full(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
+    let mut out = Vec::new();
+    let (ia, ib) = (live_ids(a), live_ids(b));
+    let (mut i, mut j) = (0, 0);
+    while i < ia.len() || j < ib.len() {
+        let g = match (ia.get(i), ib.get(j)) {
+            (Some(x), Some(y)) => *x.min(y),
+            (Some(x), None) => *x,
+            (None, Some(y)) => *y,
+            (None, None) => break,
+        };
+        i += usize::from(ia.get(i) == Some(&g));
+        j += usize::from(ib.get(j) == Some(&g));
+        node_changes(g, a.node_state(&g), b.node_state(&g), &mut out);
     }
     let effective = |v: &View<'_>| -> BTreeSet<(Guid128, Guid128)> {
         let live = v.live_rows();
         lance_graph_mask_risc::materialize_rows(&live, v.snap.membership_rows())
             .into_iter()
             .map(|r| v.snap.member_guids(r as u32))
-            .chain(v.ov.added.keys().copied())
+            .chain(v.ov.added.iter().copied())
             .collect()
     };
     let (ea, eb) = (effective(a), effective(b));
-    let mut out: Vec<Change> = eb
-        .difference(&ea)
-        .map(|(u, g)| Change::AddMembership {
-            user: *u,
-            group: *g,
-        })
-        .collect();
+    out.extend(eb.difference(&ea).map(|(u, g)| Change::AddMembership {
+        user: *u,
+        group: *g,
+    }));
     out.extend(ea.difference(&eb).map(|(u, g)| Change::RemoveMembership {
         user: *u,
         group: *g,
     }));
-    for o in 0..a.snap.len() as u32 {
-        for attr in [Attribute::Upn, Attribute::PrimarySmtp] {
-            out.extend(set_change(
-                a.snap.ids[o as usize],
-                attr,
-                a.attr(o, attr),
-                b.attr(o, attr),
-            ));
+    out
+}
+
+/// The part of `intent` the observation `basis` does not already show, with
+/// compare-and-set expectations read from `basis`. Each check is one
+/// identity lookup, so the work is proportional to the intent.
+///
+/// `Err(node)`: a node the intent creates already exists in `basis` with a
+/// kind, enabled flag or OU that no change can converge (the algebra sets
+/// only UPN and primary SMTP), so the create is neither done nor doable.
+fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Result<Vec<Change>, Guid128> {
+    let mut out = Vec::new();
+    for c in intent {
+        match c {
+            Change::AddMembership { user, group } => {
+                if !basis.is_member(&user, &group) {
+                    out.push(Change::AddMembership { user, group });
+                }
+            }
+            Change::RemoveMembership { user, group } => {
+                if basis.is_member(&user, &group) {
+                    out.push(Change::RemoveMembership { user, group });
+                }
+            }
+            Change::SetAttribute {
+                node,
+                attribute,
+                to,
+                ..
+            } => {
+                // A node gone from reality has nothing left to set.
+                if let Some(o) = basis.ordinal(&node) {
+                    out.extend(set_change(
+                        node,
+                        attribute,
+                        basis.attr(o, attribute),
+                        to.as_deref(),
+                    ));
+                }
+            }
+            Change::CreateNode { node, state } => match basis.node_state(&node) {
+                None => out.push(Change::CreateNode { node, state }),
+                // Already exists: only its settable attributes may differ.
+                Some(actual) => {
+                    if (actual.kind, actual.active, actual.ou)
+                        != (state.kind, state.active, state.ou)
+                    {
+                        return Err(node);
+                    }
+                    attr_changes(node, &actual, &state, &mut out);
+                }
+            },
+            Change::DeleteNode { node, .. } => {
+                if let Some(actual) = basis.node_state(&node) {
+                    out.push(Change::DeleteNode {
+                        node,
+                        state: actual,
+                    });
+                }
+            }
         }
     }
     Ok(out)

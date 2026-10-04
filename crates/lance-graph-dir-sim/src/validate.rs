@@ -20,7 +20,7 @@ use crate::view::View;
 use lance_graph_mask_risc::{Foreign, ForeignPlane as FPlane, LaneRef, Planes, Program};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, ForeignPlane, Mask};
 use ogar_dir_core::Guid128;
-use ogar_dir_sim::{normalize, Attribute, Endpoint, Violation};
+use ogar_dir_sim::{normalize, Attribute, Endpoint, NodeKind, Violation};
 
 /// The edge-integrity program over a membership relation: lane 0 = user
 /// ordinal, lane 1 = group ordinal, plane 0 = live rows; foreign plane 0 =
@@ -40,16 +40,22 @@ pub fn dangling_program() -> Program {
 }
 
 /// Dangling memberships of a version (base rows still live + added rows).
+///
+/// The foreign planes are the version's node-kind planes: the snapshot's,
+/// minus deleted nodes, plus created ones. They are composed from resident
+/// planes and the overlay, never taken from a program's output.
 pub fn dangling(v: &View<'_>) -> Vec<Violation> {
     let s = v.snap;
+    let (users, groups) = (v.kind_plane(NodeKind::User), v.kind_plane(NodeKind::Group));
+    let width = v.len();
     let fps = [
         FPlane {
-            words: &s.user,
-            rows: s.len(),
+            words: &users,
+            rows: width,
         },
         FPlane {
-            words: &s.group,
-            rows: s.len(),
+            words: &groups,
+            rows: width,
         },
     ];
     let foreign = Foreign {
@@ -58,7 +64,7 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
     };
     let p = dangling_program();
     let side = |uo: u32| {
-        if bit(&s.user, uo) {
+        if bit(&users, uo) {
             Endpoint::Group
         } else {
             Endpoint::User
@@ -84,8 +90,7 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
     }
 
     // The overlay relation: delta-sized lanes, same program.
-    let (au, ag): (Vec<u32>, Vec<u32>) = v.ov.added.values().copied().unzip();
-    let ids: Vec<(Guid128, Guid128)> = v.ov.added.keys().copied().collect();
+    let (au, ag, ids) = v.added_rows();
     let all = crate::snapshot::ones(au.len());
     let lanes = [LaneRef::U32(&au), LaneRef::U32(&ag)];
     let masks: [&[u64]; 1] = [&all];
@@ -118,10 +123,6 @@ pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
         Attribute::Upn => &s.upn_key,
         Attribute::PrimarySmtp => &s.smtp_key,
     };
-    let over = match a {
-        Attribute::Upn => &v.ov.upn,
-        Attribute::PrimarySmtp => &v.ov.smtp,
-    };
     let owners_plane = v.live_owners(a);
     let mut counts = vec![0i64; k];
 
@@ -141,13 +142,27 @@ pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
         &mut counts,
     );
 
-    // Overrides: the same GROUP BY over the delta rows, admitted by a
-    // semijoin of the overridden ordinal against the active-user plane.
-    let (oo, ok): (Vec<u32>, Vec<u32>) = over.iter().map(|(o, (_, key))| (*o, *key)).unzip();
+    // Delta rows — overrides of base nodes and created nodes, as one small
+    // relation (ordinal, key) — through the same GROUP BY, admitted by a
+    // semijoin of the ordinal against the version's active-user plane.
+    let n = s.len() as u32;
+    let created = v.ov.created.key(a);
+    let (oo, ok): (Vec<u32>, Vec<u32>) =
+        v.ov.overrides(a)
+            .iter()
+            .map(|(o, (_, key))| (*o, *key))
+            .chain(
+                created
+                    .iter()
+                    .enumerate()
+                    .map(|(i, key)| (n + i as u32, *key)),
+            )
+            .unzip();
+    let active = v.active_users();
     let all = crate::snapshot::ones(oo.len());
     let fps = [FPlane {
-        words: &s.active_user,
-        rows: s.len(),
+        words: &active,
+        rows: v.len(),
     }];
     let foreign = Foreign {
         planes: &fps,
@@ -185,9 +200,10 @@ pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
             .map(|o| s.ids[o])
             .collect();
         owners.extend(
-            over.iter()
-                .filter(|(o, (_, kk))| *kk == key && bit(&s.active_user, **o))
-                .map(|(o, _)| s.ids[*o as usize]),
+            oo.iter()
+                .zip(&ok)
+                .filter(|(o, kk)| **kk == key && bit(&active, **o))
+                .filter_map(|(o, _)| v.guid(*o)),
         );
         owners.sort();
         let value = keys.resolve(key).map(normalize).unwrap_or_default();
