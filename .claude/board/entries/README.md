@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-187 entries, 2026-08-06 .. 2026-10-04.
+188 entries, 2026-08-06 .. 2026-10-04.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-10-03 | `population-law-crosscheck` |  | [2026-10-03-population-law-crosscheck.md](2026-10-03-population-law-crosscheck.md) |
 | 2026-10-03 | `orkg-reference-harvest` |  | [2026-10-03-orkg-reference-harvest.md](2026-10-03-orkg-reference-harvest.md) |
 | 2026-10-03 | `known-is-not-alpha-premise-gate` |  | [2026-10-03-known-is-not-alpha-premise-gate.md](2026-10-03-known-is-not-alpha-premise-gate.md) |
+| 2026-10-03 | `indra-evidence-socket` |  | [2026-10-03-indra-evidence-socket.md](2026-10-03-indra-evidence-socket.md) |
 | 2026-10-03 | `frontend-parity-witness` |  | [2026-10-03-frontend-parity-witness.md](2026-10-03-frontend-parity-witness.md) |
 | 2026-10-03 | `dir-sim-soa-quack` | Directory simulation on SoA + Quack: one-edge mutation 853 B at 1k and 100k users | [2026-10-03-dir-sim-soa-quack.md](2026-10-03-dir-sim-soa-quack.md) |
 | 2026-10-03 | `D-LXC-2` |  | [2026-10-03-deepnsm-v2-multi-reading-fsm.md](2026-10-03-deepnsm-v2-multi-reading-fsm.md) |
