@@ -950,6 +950,8 @@ mod tests {
             let a = act();
             let d = reg_decl(ValueSchema::Full);
             let payload = Register128::from_words([0x0902_0000, 7, 8, 9]);
+            // Rail 1, never rail 0: `register128::tests::register_writes_are_counted_per_tenant`
+            // pins an exact Register0 count under `tenant-counters`, and tests run in parallel.
             for (concept, other) in [(0x0901u16, 0x0902u16), (0x0902, 0x0901)] {
                 let mut row = NodeRow {
                     key: key(concept, 1),
@@ -959,17 +961,17 @@ mod tests {
                 let lanes = a
                     .resolve_tenant_reading(row.key, Some(&d))
                     .unwrap()
-                    .bind_register128(RegisterRails::One)
+                    .bind_register128(RegisterRails::Two)
                     .unwrap();
-                assert!(lanes.set(&mut row, 0, payload));
+                assert!(lanes.set(&mut row, 1, payload));
                 assert_eq!(lanes.concept(), concept);
                 assert_ne!(lanes.concept(), other);
-                assert_eq!(lanes.get(&row, 0), Some(payload));
+                assert_eq!(lanes.get(&row, 1), Some(payload));
                 // Resolving again after the write is unchanged.
                 let again = a
                     .resolve_tenant_reading(row.key, Some(&d))
                     .unwrap()
-                    .bind_register128(RegisterRails::One)
+                    .bind_register128(RegisterRails::Two)
                     .unwrap();
                 assert_eq!(again, lanes);
             }

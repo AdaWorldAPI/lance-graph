@@ -276,8 +276,9 @@ mod tests {
     }
 
     /// FAILS IF: a successful register write is not counted against its
-    /// tenant, or a refused one is. Only this test writes rail 0, so the
-    /// delta is exact even with tests running in parallel.
+    /// tenant, or a refused one is. This is the only test in the crate that
+    /// writes `Register0` (every other register test writes rail 1), so the
+    /// delta is exact even with tests running in parallel. Keep it that way.
     #[cfg(feature = "tenant-counters")]
     #[test]
     fn register_writes_are_counted_per_tenant() {
