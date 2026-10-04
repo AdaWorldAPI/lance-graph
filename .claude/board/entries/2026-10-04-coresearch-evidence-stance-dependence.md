@@ -219,3 +219,61 @@ which fix a live path.
    `independent_strength` path stay parked.
 
 coresearch evidence-stance | STATUS: measured | OUTCOME: map landed; X17 double count measured in deepnsm-v2; source convention corrected to attribution (#1318) | OPEN: items 1–3 above
+
+## Addendum: operator working model for the 24×i4 register
+
+Provenance: the operator stated this on 2026-10-04. It is a WORKING-MODEL, not yet
+in code.
+
+A **class-scoped signed property register**. The class's ClassView names the 24
+slots. Each nibble is a signed, graded verdict on "entity has property P".
+
+Example, class Mammal, with slots `terrestrial` and `placental`:
+
+| | terrestrial | placental |
+|---|---|---|
+| fox | + | + |
+| elephant | + | + |
+| whale | − | + |
+| possum | + | − |
+| platypus | weak | − |
+
+This is claim-level polarity with degree. It sits beside per-evidence stance on
+receipts (X1) and the A9 pointer reading over the same bytes; it does not replace
+either.
+
+**Who writes it.** About 80% asserted from the ontology. The rest is derived by
+`lance-graph-arm-discovery` at ingest, through tesseract-rs `tesseract-paperless`
+`auto_match` (rows from the paperless and tantivy pipeline).
+
+**Purpose.** Lift the children's shared properties into the parent as inheritable
+defaults. The siblings that disagree with an inherited sign are the test set:
+- whale (terrestrial −);
+- possum and platypus (placental −).
+
+A disagreement marks a missing intermediate. Its edge carries CE64
+`CausalTopology::IndirectUnknownIntermediates` (bits 59–60, `causal-edge/src/layout.rs`).
+The hypothesis is a candidate intermediate (Marsupialia, Monotremata). It resolves to
+`IndirectKnownIntermediates` when the dissenters agree within the new sub-cohort.
+
+Mined rules stay at `ReasoningBand::Association` (bits 61–63). Promotion to `Causal`
+needs intervention-grade receipts, which `causal_audit::is_intervention_established`
+already requires.
+
+**Gap (OPEN).** A slot filled by inheritance must never be mined back as evidence for
+the parent rule. That is circular confirmation, the same shape as X17 and internal
+probe G3. The register has no per-slot provenance (asserted / inherited / derived)
+today. No ClassView gives the 24 nibbles class-chosen slot names either: A9 and the
+probe-local Tarski reading both use fixed slot lists.
+
+**Probe (PROBE).**
+- **Fixture:** the six animals above.
+- **Mine:** "Mammal → terrestrial" and "Mammal → placental".
+- **Expect:**
+  - exceptions are exactly {whale} and {possum, platypus};
+  - after inserting Marsupialia and Monotremata, confidence within each sub-cohort is
+    1.0.
+- **Kill condition:** confidence rises when inherited slots are included in the
+  mined rows.
+- **Silent twin:** with only asserted slots mined, adding the same number of
+  independently asserted children must raise support.
