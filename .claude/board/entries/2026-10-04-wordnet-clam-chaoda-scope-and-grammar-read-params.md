@@ -30,3 +30,20 @@ operator gave this answer to the scope question put in
 **Test:** `the_presets_equal_the_adapter_rows` pins the presets to the adapter's Analytical and Exploratory rows. Disable-verified (a changed preset fails it). deepnsm-v2 has 195 lib tests; clippy is clean.
 
 **OPEN:** `V2StyleProvider` still lives in deepnsm-v2. Moving it out is its own change, once the planner side or a loco dialect exists to receive it.
+
+## WordNet gives the address, COCA + tokens give the torque (operator, 2026-10-04)
+
+*"The 'negative' about WordNet is that it doesn't contain linguistic torque. It
+needs COCA and tokens to have a qualia about the text. In return it offers a
+Cartesian address."*
+
+| source | gives | does not give |
+|---|---|---|
+| WordNet | the Cartesian address: parent/child, the HHTL DN path, masks across branches | torque: frequency, collocation, position, how a word moves in a sentence |
+| COCA + tokens | the torque: frequency, word forms, position, context, i.e. the qualia of the text | a stable concept address |
+
+**Consistent with the measured record.** D-LXC-15: WordNet helped noun/verb neither as a chooser nor as a reading filter, while COCA frequency × position did.
+
+**Consequence for the probes.** WordNet never judges alone.
+- Rank 17's animacy mask is the coordinate. The plausibility signal comes from COCA/token counts and the slot position.
+- Rank 18's CHAODA points combine both: (WordNet address of S/O, verb, COCA frequency band, slot position). Density over addresses alone would measure an unusual concept location, not an implausible sentence.

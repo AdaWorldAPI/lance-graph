@@ -98,6 +98,13 @@ Ranks 5–9 are one case-constraint intersection, i.e. one Q2 evaluator rather t
 
 **Recorded 2026-10-04 (D-LXC-22): the WordNet scope below is DECIDED as worded** (operator: *"Yes Wordnet would allow also clam Chaoda"*). See `.claude/board/entries/2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md`.
 
+**WordNet gives the address, COCA + tokens give the torque (operator, 2026-10-04).**
+- WordNet supplies a Cartesian address but no linguistic torque (frequency, collocation, position).
+- COCA and the tokens supply the qualia of the text.
+- So rank 17's mask is only a coordinate, and the plausibility signal comes from COCA/token counts and the slot position.
+- Rank 18's CHAODA points must combine both: (WordNet address of S/O, verb, COCA frequency band, slot position).
+- This agrees with D-LXC-15: WordNet did not help noun/verb as a chooser or a filter.
+
 ### The questions as they were put
 
 - **A1 scope for rank 18.** The firewall critic's draft wording:
