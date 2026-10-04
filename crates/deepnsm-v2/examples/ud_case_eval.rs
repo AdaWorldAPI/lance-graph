@@ -18,6 +18,12 @@
 //!   ans/ins/aufs = Acc); otherwise the article decides when the first following
 //!   token has exactly one of Acc/Dat in train, else a (preposition, verb lemma)
 //!   prior, else the preposition's own majority.
+//! - **R3t** time vs place: a Wechsel preposition whose head noun is a time
+//!   noun reads temporally (*in der Nacht*, *vor dem Essen*, *über das
+//!   Wochenende*), and the case comes from a (preposition, temporal) table
+//!   instead of the verb. Time nouns are mined from train as the head nouns
+//!   after *seit* / *während*, the prepositions with only a time reading; no
+//!   hand list. Scored on the Wechsel tokens the article leaves undecided.
 //! - **R4** relative pronoun after a comma, case taken from train tokens under
 //!   the SAME surface condition (a relativizer form right after a comma), plus
 //!   any token marked `PronType=Rel`. Mining on `PronType=Rel` alone fires
@@ -38,6 +44,8 @@
 //! - R3: verb-prior precision <= prep-majority on the same tokens, or verb-prior
 //!   fires on < 5 % of the Wechsel-governed scored tokens (the first following
 //!   token of a non-contraction Wechsel preposition).
+//! - R3t: precision <= prep-majority on the same tokens, or fires on < 5 % of
+//!   the article-undecided Wechsel tokens.
 //! - R4: precision <= the plain form baseline.
 //!
 //! ```text
@@ -82,6 +90,9 @@ const REL: [&str; 13] = [
     "der", "die", "das", "dem", "den", "dessen", "deren", "denen", "welcher", "welche", "welches",
     "welchem", "welchen",
 ];
+
+/// Prepositions with only a time reading; their head nouns seed the time-noun set.
+const TEMPORAL_ONLY: [&str; 2] = ["seit", "während"];
 
 const TIERS: [&str; 3] = ["Decisive", "Dominant", "Ambiguous"];
 const KINDS: [&str; 3] = ["article-decided", "verb-prior", "prep-majority"];
@@ -179,6 +190,15 @@ struct Tables {
     wechsel_key: HashMap<(String, String), [usize; 4]>,
     /// Preposition → case counts of the Wechsel-governed token.
     wechsel_prep: HashMap<String, [usize; 4]>,
+    /// Lowercased head-noun forms seen after a time-only preposition.
+    time_nouns: std::collections::HashSet<String>,
+    /// (preposition, head is a time noun) → case counts of the governed token.
+    wechsel_time: HashMap<(String, bool), [usize; 4]>,
+}
+
+/// The head noun of the window after `i`: its last token when capitalised.
+fn head(s: &[Tok], i: usize) -> Option<usize> {
+    window(s, i).last().copied().filter(|&j| s[j].upper)
 }
 
 impl Tables {
@@ -243,7 +263,26 @@ impl Tables {
             verb_lemma,
             wechsel_key: HashMap::new(),
             wechsel_prep: HashMap::new(),
+            time_nouns: Default::default(),
+            wechsel_time: HashMap::new(),
         };
+        for s in train {
+            for (i, tok) in s.iter().enumerate() {
+                if in_list(&TEMPORAL_ONLY, &tok.form) {
+                    // Only a noun reached through DET/ADJ, so a number or a
+                    // verb never leaks a noun from outside the phrase.
+                    let np = |j: usize| {
+                        s[j].upos == "NOUN"
+                            && s[i + 1..j]
+                                .iter()
+                                .all(|x| x.upos == "DET" || x.upos == "ADJ")
+                    };
+                    if let Some(j) = head(s, i).filter(|&j| np(j)) {
+                        t.time_nouns.insert(s[j].form.clone());
+                    }
+                }
+            }
+        }
         t.mine_wechsel(train);
         t
     }
@@ -263,12 +302,29 @@ impl Tables {
                     continue;
                 };
                 self.wechsel_prep.entry(t.form.clone()).or_default()[c] += 1;
+                let time = self.is_time(s, i);
+                self.wechsel_time.entry((t.form.clone(), time)).or_default()[c] += 1;
                 if let Some(lemma) = self.nearest_verb(s, i) {
                     let key = (t.form.clone(), lemma.clone());
                     self.wechsel_key.entry(key).or_default()[c] += 1;
                 }
             }
         }
+    }
+
+    /// The Wechsel preposition at `i` heads a time noun.
+    fn is_time(&self, s: &[Tok], i: usize) -> bool {
+        head(s, i).is_some_and(|j| self.time_nouns.contains(&s[j].form))
+    }
+
+    /// R3t: the (preposition, time reading) majority, only for a time head.
+    fn wechsel_temporal(&self, s: &[Tok], i: usize) -> Option<usize> {
+        if !self.is_time(s, i) {
+            return None;
+        }
+        self.wechsel_time
+            .get(&(s[i].form.clone(), true))
+            .and_then(majority)
     }
 
     /// The lemma of the nearest preceding token that is a known verb form.
@@ -344,6 +400,8 @@ impl Tables {
                     preds[j].wech = true;
                     if preds[j].r3.is_none() {
                         preds[j].r3 = self.wechsel(s, i, j);
+                        preds[j].r3t = self.wechsel_temporal(s, i);
+                        preds[j].time = self.is_time(s, i);
                     }
                 }
             }
@@ -363,6 +421,10 @@ struct Pred {
     r3: Option<(usize, usize, Option<usize>)>,
     r4: Option<usize>,
     r2: Option<(usize, usize)>,
+    /// R3t prediction (time head only).
+    r3t: Option<usize>,
+    /// The Wechsel preposition heads a time noun.
+    time: bool,
     /// First following token of a non-contraction Wechsel preposition.
     wech: bool,
 }
@@ -432,6 +494,14 @@ fn main() {
     let mut r3c = Tally::default();
     let mut r3 = [Tally::default(); 3];
     let mut verb_prep_major = 0usize;
+    // Article-undecided Wechsel tokens (R3 kind 1 or 2).
+    let mut undecided = 0usize;
+    let mut r3t = Tally::default();
+    let mut r3t_prep_major = 0usize;
+    // Verb-prior split by reading: [place, time].
+    let mut verb_by_reading = [Tally::default(); 2];
+    // R3t on the time-head tokens where the verb prior fired.
+    let mut r3t_on_verb = Tally::default();
     let mut r4 = Tally::default();
     let mut r5 = Tally::default();
     let mut confusion = [[0usize; 4]; 4];
@@ -457,6 +527,21 @@ fn main() {
                 r3[kind].add(c == gold, base);
                 if kind == 1 && prep_major == Some(gold) {
                     verb_prep_major += 1;
+                }
+                if kind == 1 {
+                    verb_by_reading[usize::from(p.time)].add(c == gold, base);
+                    if let Some(t) = p.r3t {
+                        r3t_on_verb.add(t == gold, base);
+                    }
+                }
+                if kind != 0 {
+                    undecided += 1;
+                    if let Some(t) = p.r3t {
+                        r3t.add(t == gold, base);
+                        if prep_major == Some(gold) {
+                            r3t_prep_major += 1;
+                        }
+                    }
                 }
             }
             if let Some(c) = p.r4 {
@@ -523,6 +608,39 @@ fn main() {
     let r3_pass =
         verb.fires > 0 && verb.precision() > prep_major_precision && verb.fires * 20 >= wech_scored;
     println!("  R3 {}", verdict(r3_pass));
+
+    println!(
+        "\nR3t time vs place (KILL: precision <= prep-majority on the same tokens, or fires < 5% of {undecided} article-undecided Wechsel tokens)"
+    );
+    println!("  time nouns mined from train: {}", tables.time_nouns.len());
+    let mut keys: Vec<_> = tables.wechsel_time.iter().collect();
+    keys.sort();
+    for ((prep, time), c) in keys {
+        println!(
+            "    {prep:9} {:5}  Acc {:6}  Dat {:6}",
+            if *time { "time" } else { "place" },
+            c[1],
+            c[2]
+        );
+    }
+    println!("  verb-prior, place head: {}", verb_by_reading[0].line());
+    println!("  verb-prior, time head : {}", verb_by_reading[1].line());
+    println!("  R3t on those time heads: {}", r3t_on_verb.line());
+    let mut sample: Vec<&String> = tables.time_nouns.iter().collect();
+    sample.sort();
+    let step = (sample.len() / 15).max(1);
+    let shown: Vec<&str> = sample.iter().step_by(step).map(|w| w.as_str()).collect();
+    println!("  time-noun sample: {}", shown.join(" "));
+    let r3t_major = pct(r3t_prep_major, r3t.fires);
+    println!(
+        "  R3t: {}  prep-majority on the same tokens {r3t_major:5.1}%  share {:5.1}%",
+        r3t.line(),
+        pct(r3t.fires, undecided)
+    );
+    println!(
+        "  R3t {}",
+        verdict(r3t.fires > 0 && r3t.precision() > r3t_major && r3t.fires * 20 >= undecided)
+    );
 
     println!("\nR4 relative pronoun after a comma (KILL: precision <= form baseline)");
     println!("  {}", r4.line());

@@ -51,3 +51,24 @@ Pre-registered prediction: right-corner reading overturns left-corner commitment
 **Verdict: KILL.** The prediction is falsified. The matched arm, post hoc, rules out the confound between commit point and ambiguity admission. On the Bible, the right reader's extra lanes come from admitting the ambiguous *da* (10,296 ambiguous wins on Luther), not from where it commits.
 
 **OPEN.** Why does edited German overturn more? Candidate: GSD clauses are longer and carry more competing cues per clause. This is not measured, and the reason is left unexplained.
+
+## Addendum — time vs place reading of the Wechsel prepositions (R3t)
+
+Operator: the Wechsel ambiguity is often a time-vs-place ambiguity (*vor dem Haus* / *vor dem Essen*).
+
+**Method.** R3t marks a Wechsel phrase as temporal when its head noun is a time noun. Time nouns are mined from train as the heads after *seit* / *während*, the two prepositions that only read temporally. The head counts only when reached through DET/ADJ alone; the first mining run let numbers leak nouns from outside the phrase, e.g. *seit 1998 Mitbegründer*. The case then comes from a (preposition, temporal) table.
+
+| HDT train → time / place | % Dat, place head | % Dat, time head |
+|---|---|---|
+| *an* | 76 % | 91.5 % |
+| *in* | 88 % | 95.4 % |
+| *auf* | 50 % | 44 % (Acc leads: *auf Jahre*) |
+| *über* | 11 % | 7 % (Acc: *über das Wochenende*) |
+
+**Results.**
+- A time reading makes the case **more predictable but never changes which case wins**. R3t therefore equals prep-majority on HDT: 81.8 % vs 81.8 %, 302 fires, **KILL**. On GSD it is 88.2 % vs 82.4 % on 17 tokens, also KILL (the fire share is below 5 %).
+- **The verb should not decide a temporal phrase.** On the time heads where the verb prior fires (HDT, 116 tokens), it scores 72.4 % and R3t scores 80.2 %. On place heads the verb prior is 62.3 %, so its HDT failure is mostly on place, and the time split recovers only about 9 of 1,760 tokens.
+
+**OPEN.**
+- German UD has no time/place gold: GSD has 30 `obl:tmod`, HDT has 0. The time/place reading itself is therefore a TEKAMOLO-lane question (Q4) with no scorer here.
+- The mined list still admits event nouns (*Fahrt*, *Hauptversammlung*). That reading is legitimately temporal, but it is not a pure time-noun list.
