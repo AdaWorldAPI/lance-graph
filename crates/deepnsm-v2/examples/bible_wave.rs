@@ -1641,7 +1641,7 @@ mod tests {
     #[test]
     fn a_single_reading_keeps_its_tag() {
         assert_eq!(tag(&forms("1,x,j,9,3,w\n"), "w"), Pos::Adj);
-        assert_eq!(tag(&forms("1,x,r,9,3,w\n"), "w"), Pos::Other);
+        assert_eq!(tag(&forms("1,x,r,9,3,w\n"), "w"), Pos::Adv);
     }
 
     // (h) + G7: the lemma table is never overruled by the forms layer

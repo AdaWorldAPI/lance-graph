@@ -42,7 +42,7 @@
 use crate::spo::Spo;
 use crate::vocab::WordId;
 
-/// A coarse part-of-speech tag — the six the FSM distinguishes.
+/// A coarse part-of-speech tag — the eight the FSM distinguishes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pos {
     /// Determiner / article (`the`, `a`) — skipped.
@@ -62,10 +62,17 @@ pub enum Pos {
     /// antecedent pointer in [`crate::wave`] — a cheap positional tag, not the
     /// full gap→filler resolution.
     Rel,
-    /// Adverb / other — skipped for the core triple.
+    /// Other (preposition, conjunction, numeral, …) — skipped for the core
+    /// triple.
     Other,
     /// End-of-sentence punctuation — flushes any partial clause.
     Stop,
+    /// Adverb — skipped for the core triple like [`Pos::Other`], but kept
+    /// apart so an adjective/adverb homograph can be decided by position
+    /// (D-LXC-14) and an adverbial reading can feed the TEKAMOLO tenant.
+    /// Unlike [`Pos::Adj`] it opens no nominal group. Last in bit order so
+    /// the earlier tags keep their bits.
+    Adv,
 }
 
 /// One tagged token: its palette [`WordId`] plus its [`Pos`].
@@ -138,8 +145,11 @@ struct Core {
     antecedent: WordId,
     /// The previous token was a determiner or adjective: a nominal group is
     /// open and waiting for its head. Read only by [`parse_readings`]'s
-    /// licensing rule; [`parse_to_spo`] never consults it.
+    /// licensing and slot rules; [`parse_to_spo`] never consults it.
     nominal_open: bool,
+    /// The open nominal group was opened by an adjective, not a determiner.
+    /// Licensing reads it only where [`Typology::adjective_opens_nominal`].
+    adjective_open: bool,
     /// The previous token opened the clause as its subject — a noun taken in
     /// [`State::Start`] with no determiner or adjective in front ("they",
     /// "men", "God"). An object carried into the subject slot ("gave him …")
@@ -157,6 +167,7 @@ impl Core {
         matrix: 0,
         antecedent: 0,
         nominal_open: false,
+        adjective_open: false,
         fresh_subject: false,
     };
 
@@ -167,13 +178,14 @@ impl Core {
         let nominal_was_open = self.nominal_open;
         self.fresh_subject = false;
         self.nominal_open = matches!(t.pos, Pos::Det | Pos::Adj);
+        self.adjective_open = t.pos == Pos::Adj;
 
         // While a relative clause is open, its own tiny machine consumes the
         // embedded S-V-O; the matrix subject stays parked in `matrix`.
         if self.rel != Rel::None {
             match (self.rel, t.pos) {
                 (_, Pos::Stop) => unreachable!("Stop handled by the caller"),
-                (_, Pos::Det | Pos::Adj | Pos::Other) => {}
+                (_, Pos::Det | Pos::Adj | Pos::Adv | Pos::Other) => {}
                 // Object-relative: a noun after the relativizer is the embedded
                 // subject ("rat that [cat] bit …"); the antecedent is its object.
                 (Rel::Open, Pos::Noun) => self.rel = Rel::ObjSubject(t.id),
@@ -224,7 +236,7 @@ impl Core {
 
         match (self.state, t.pos) {
             // Skip determiners, modifiers, adverbs — they are not core slots.
-            (_, Pos::Det | Pos::Adj | Pos::Other) => {}
+            (_, Pos::Det | Pos::Adj | Pos::Adv | Pos::Other) => {}
             (_, Pos::Stop) => unreachable!("Stop handled by the caller"),
 
             // A relativizer only opens a relative clause when we already have a
@@ -302,7 +314,7 @@ pub struct PosSet(u8);
 
 impl Pos {
     /// Every tag, in bit order.
-    pub const ALL: [Pos; 7] = [
+    pub const ALL: [Pos; 8] = [
         Pos::Det,
         Pos::Adj,
         Pos::Noun,
@@ -310,6 +322,7 @@ impl Pos {
         Pos::Rel,
         Pos::Other,
         Pos::Stop,
+        Pos::Adv,
     ];
 
     const fn bit(self) -> u8 {
@@ -343,6 +356,12 @@ impl PosSet {
     #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
+    }
+
+    /// This set with `pos` removed.
+    #[must_use]
+    pub const fn without(self, pos: Pos) -> Self {
+        Self(self.0 & !pos.bit())
     }
 
     /// Number of readings.
@@ -438,6 +457,8 @@ pub struct ReadingParse {
     pub unlicensed_dropped: usize,
     /// (configuration, reading) pairs the slot rule dropped.
     pub slot_dropped: usize,
+    /// Tokens whose adjective/adverb readings the attribute rule narrowed.
+    pub attribute_narrowed: usize,
 }
 
 /// Bound on live configurations per sentence. Exceeding it flushes the
@@ -455,12 +476,149 @@ struct Config {
     support: Vec<PosSet>,
 }
 
-/// The licensing rule: a verb cannot follow a determiner or adjective, whose
-/// nominal group is still waiting for its head. This is the only
-/// elimination this layer makes, and [`parse_readings`] applies it
-/// relatively: it never removes a token's last admissible reading.
-const fn licensed(core: &Core, pos: Pos) -> bool {
-    !(core.nominal_open && matches!(pos, Pos::Verb))
+/// Word order of an attributive adjective relative to its noun (WALS 87A).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdjectiveOrder {
+    /// "the old man", "der alte Mann".
+    Before,
+    /// "l'homme âgé".
+    After,
+    /// Both orders are common ("un bon homme", "un homme bon").
+    Both,
+}
+
+/// The word-order facts the position rules read. A language is described by
+/// these, never by rules of its own; [`Typology::ENGLISH`] is the default,
+/// and a treebank's train split can measure them (see the `ud_pos_eval`
+/// example).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Typology {
+    /// Where an attributive adjective stands.
+    pub adjective: AdjectiveOrder,
+    /// An adjective is always followed by the rest of its nominal group, so a
+    /// verb never comes straight after it. True for English; false where a
+    /// predicative adjective precedes its verb ("weil es möglich ist") or an
+    /// adjective follows its noun ("un projet important est").
+    pub adjective_opens_nominal: bool,
+    /// The [`AttributeRule`] clauses allowed to narrow a token. Empty means
+    /// the attribute rule only reports ([`attribute_rule`]) and never drops
+    /// a reading.
+    pub attribute_rules: &'static [AttributeRule],
+}
+
+impl Typology {
+    /// English: adjectives before the noun, predicatives after the verb.
+    pub const ENGLISH: Self = Self {
+        adjective: AdjectiveOrder::Before,
+        adjective_opens_nominal: true,
+        attribute_rules: &[],
+    };
+}
+
+impl Default for Typology {
+    fn default() -> Self {
+        Self::ENGLISH
+    }
+}
+
+/// The licensing rule: a verb cannot follow a determiner, whose nominal
+/// group is still waiting for its head — nor an adjective, where the
+/// [`Typology`] says an adjective always opens one. [`parse_readings`]
+/// applies it relatively: it never removes a token's last admissible
+/// reading.
+const fn licensed(core: &Core, pos: Pos, typology: Typology) -> bool {
+    let open = core.nominal_open && (!core.adjective_open || typology.adjective_opens_nominal);
+    !(open && matches!(pos, Pos::Verb))
+}
+
+/// One clause of the attribute rule (D-LXC-14). Each names the position it
+/// reads and the reading it keeps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AttributeRule {
+    /// Right after a determiner-only word → adjective ("the **only** son").
+    AfterDeterminer,
+    /// Right before a word that can be an adjective → adverb, a degree
+    /// modifier ("**very** good", "**pretty** high", "**sehr** gut").
+    BeforeAdjective,
+    /// Between a word that can be a subject and a word that can be a verb →
+    /// adverb ("I **just** need", "airfare **alone** will").
+    BetweenSubjectAndVerb,
+    /// Next to a noun on the side [`Typology::adjective`] allows → adjective
+    /// ("a **high** rate", "un homme **bon**").
+    NextToNoun,
+}
+
+impl AttributeRule {
+    /// Every clause, in the order [`attribute_rule`] tries them.
+    pub const ALL: [AttributeRule; 4] = [
+        AttributeRule::AfterDeterminer,
+        AttributeRule::BeforeAdjective,
+        AttributeRule::BetweenSubjectAndVerb,
+        AttributeRule::NextToNoun,
+    ];
+
+    /// The reading this clause keeps (the other of Adj/Adv is dropped).
+    #[must_use]
+    pub const fn keeps(self) -> Pos {
+        match self {
+            AttributeRule::AfterDeterminer | AttributeRule::NextToNoun => Pos::Adj,
+            AttributeRule::BeforeAdjective | AttributeRule::BetweenSubjectAndVerb => Pos::Adv,
+        }
+    }
+}
+
+/// The clause of the attribute rule that decides an adjective/adverb
+/// homograph from its neighbours, never from which reading a corpus counts
+/// more often — or `None` (the token lacks one of Adj/Adv, or no clause
+/// matches: after a verb, "was **good**" and "ran **fast**" look the same).
+/// Clauses are tried in [`AttributeRule::ALL`] order; `prev` / `next` are the
+/// neighbours' readings within the sentence ([`PosSet::EMPTY`] at an edge).
+#[must_use]
+pub fn attribute_rule(
+    prev: PosSet,
+    this: PosSet,
+    next: PosSet,
+    typology: Typology,
+) -> Option<AttributeRule> {
+    if !(this.contains(Pos::Adj) && this.contains(Pos::Adv)) {
+        return None;
+    }
+    let noun_after = next.contains(Pos::Noun)
+        && matches!(
+            typology.adjective,
+            AdjectiveOrder::Before | AdjectiveOrder::Both
+        );
+    let noun_before = prev.contains(Pos::Noun)
+        && matches!(
+            typology.adjective,
+            AdjectiveOrder::After | AdjectiveOrder::Both
+        );
+    AttributeRule::ALL.into_iter().find(|rule| match rule {
+        AttributeRule::AfterDeterminer => prev == PosSet::single(Pos::Det),
+        AttributeRule::BeforeAdjective => next.contains(Pos::Adj),
+        AttributeRule::BetweenSubjectAndVerb => {
+            prev.contains(Pos::Noun) && next.contains(Pos::Verb)
+        }
+        AttributeRule::NextToNoun => noun_after || noun_before,
+    })
+}
+
+/// `this` narrowed by [`attribute_rule`]'s clause, if one is enabled in
+/// `typology` and matches; otherwise `this` unchanged. Only one of Adj/Adv is
+/// ever removed; every other reading stays.
+#[must_use]
+pub fn attribute_readings(prev: PosSet, this: PosSet, next: PosSet, typology: Typology) -> PosSet {
+    match attribute_rule(prev, this, next, typology) {
+        Some(rule) if typology.attribute_rules.contains(&rule) => {
+            let drop = if rule.keeps() == Pos::Adj {
+                Pos::Adv
+            } else {
+                Pos::Adj
+            };
+            this.without(drop)
+        }
+        _ => this,
+    }
 }
 
 /// The slot rule: directly after a fresh subject noun (one that opened the
@@ -508,6 +666,12 @@ fn slot_allows(core: &Core, pos: Pos, set: PosSet) -> bool {
 /// [`ReadingParse::certain`], the rest [`ReadingParse::alternative`].
 #[must_use]
 pub fn parse_readings(tokens: &[Reading]) -> ReadingParse {
+    parse_readings_with(tokens, Typology::ENGLISH)
+}
+
+/// [`parse_readings`] for a language described by `typology`.
+#[must_use]
+pub fn parse_readings_with(tokens: &[Reading], typology: Typology) -> ReadingParse {
     let mut out = ReadingParse::default();
     let mut configs = vec![fresh()];
     // (input index, entered set) for each ambiguous token of this sentence.
@@ -522,20 +686,33 @@ pub fn parse_readings(tokens: &[Reading]) -> ReadingParse {
             out.unknown += 1;
             PosSet::single(Pos::Other)
         } else {
-            tok.pos
+            // Neighbours are read in place from the borrowed input; a stop
+            // is a sentence edge.
+            let edge = |t: Option<&Reading>| match t {
+                Some(t) if !t.pos.contains(Pos::Stop) => t.pos,
+                _ => PosSet::EMPTY,
+            };
+            let prev = edge(index.checked_sub(1).and_then(|i| tokens.get(i)));
+            let next = edge(tokens.get(index + 1));
+            let narrowed = attribute_readings(prev, tok.pos, next, typology);
+            if narrowed != tok.pos {
+                out.attribute_narrowed += 1;
+            }
+            narrowed
         };
-        let ambiguous = set.len() > 1;
+        let ambiguous = tok.pos.len() > 1;
         if ambiguous {
-            pending.push((index, set));
+            pending.push((index, tok.pos));
         }
 
-        let allowed = |c: &Config, p: Pos| licensed(&c.core, p) && slot_allows(&c.core, p, set);
+        let allowed =
+            |c: &Config, p: Pos| licensed(&c.core, p, typology) && slot_allows(&c.core, p, set);
         let any_allowed = configs.iter().any(|c| set.iter().any(|p| allowed(c, p)));
         let mut next: Vec<Config> = Vec::with_capacity(configs.len() * set.len());
         for c in &configs {
             for pos in set.iter() {
                 if any_allowed && !allowed(c, pos) {
-                    if licensed(&c.core, pos) {
+                    if licensed(&c.core, pos, typology) {
                         out.slot_dropped += 1;
                     } else {
                         out.unlicensed_dropped += 1;
@@ -544,6 +721,11 @@ pub fn parse_readings(tokens: &[Reading]) -> ReadingParse {
                 }
                 let mut n = c.clone();
                 n.emitted.extend(n.core.step(Tagged::new(tok.id, pos)));
+                if typology.adjective_opens_nominal {
+                    // Determiner and adjective open the same group here, so
+                    // keep their paths mergeable.
+                    n.core.adjective_open = false;
+                }
                 if ambiguous {
                     n.support.push(PosSet::single(pos));
                 }
@@ -837,6 +1019,135 @@ mod tests {
         let p = parse_readings(&[one(1, Pos::Noun), one(3, Pos::Noun), noun_or_verb(2)]);
         assert_eq!(p.ambiguous[0].survived, NV);
         assert_eq!(p.slot_dropped, 0);
+    }
+
+    /// D-LXC-14: an adjective that may precede its verb ("weil es möglich
+    /// ist", "un projet important est") does not license away a verb
+    /// reading; in English word order it does.
+    #[test]
+    fn adjective_licensing_follows_the_typology() {
+        // "the old ist N|V": verb reading after an adjective.
+        let toks = [
+            one(9, Pos::Det),
+            one(1, Pos::Noun),
+            one(5, Pos::Adj),
+            noun_or_verb(2),
+        ];
+        let english = parse_readings_with(&toks, Typology::ENGLISH);
+        assert_eq!(english.ambiguous[0].survived, PosSet::single(Pos::Noun));
+        let verb_after_adjective = Typology {
+            adjective_opens_nominal: false,
+            ..Typology::ENGLISH
+        };
+        let german = parse_readings_with(&toks, verb_after_adjective);
+        assert_eq!(german.ambiguous[0].survived, NV);
+        // A determiner still licenses away the verb in every typology.
+        let toks = [one(9, Pos::Det), noun_or_verb(2)];
+        let p = parse_readings_with(&toks, verb_after_adjective);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Noun));
+    }
+
+    const ADJ_ADV: PosSet = PosSet::single(Pos::Adj).with(Pos::Adv);
+
+    /// D-LXC-14: each attribute clause matches its own position, and none
+    /// matches after a verb.
+    #[test]
+    fn each_attribute_clause_reads_its_position() {
+        let t = Typology::ENGLISH;
+        let det = PosSet::single(Pos::Det);
+        let noun = PosSet::single(Pos::Noun);
+        let verb = PosSet::single(Pos::Verb);
+        let adj = PosSet::single(Pos::Adj);
+        let e = PosSet::EMPTY;
+        // "the [only] son"
+        assert_eq!(
+            attribute_rule(det, ADJ_ADV, noun, t),
+            Some(AttributeRule::AfterDeterminer)
+        );
+        // "was [very] good"
+        assert_eq!(
+            attribute_rule(verb, ADJ_ADV, adj, t),
+            Some(AttributeRule::BeforeAdjective)
+        );
+        // "I [just] need"
+        assert_eq!(
+            attribute_rule(noun, ADJ_ADV, verb, t),
+            Some(AttributeRule::BetweenSubjectAndVerb)
+        );
+        // "of [high] rate" (`of` is Other)
+        let other = PosSet::single(Pos::Other);
+        assert_eq!(
+            attribute_rule(other, ADJ_ADV, noun, t),
+            Some(AttributeRule::NextToNoun)
+        );
+        // Silence: "was [good] ." and "ran [fast] ." — after a verb, nothing.
+        assert_eq!(attribute_rule(verb, ADJ_ADV, e, t), None);
+        // A token without both readings is never touched.
+        assert_eq!(attribute_rule(det, adj, noun, t), None);
+        // Post-nominal order: "homme [bon] ." is attributive only where the
+        // typology allows an adjective after its noun.
+        let both = Typology {
+            adjective: AdjectiveOrder::Both,
+            ..t
+        };
+        assert_eq!(
+            attribute_rule(noun, ADJ_ADV, e, both),
+            Some(AttributeRule::NextToNoun)
+        );
+        assert_eq!(attribute_rule(noun, ADJ_ADV, e, t), None);
+    }
+
+    /// D-LXC-14: as shipped no clause narrows (each was measured below
+    /// frequency on gold tags); an enabled clause narrows exactly its token.
+    #[test]
+    fn attribute_clauses_narrow_only_when_enabled() {
+        let toks = [
+            one(9, Pos::Det),
+            Reading::new(5, ADJ_ADV),
+            one(1, Pos::Noun),
+        ];
+        let p = parse_readings(&toks);
+        assert_eq!(p.ambiguous[0].survived, ADJ_ADV);
+        assert_eq!(p.attribute_narrowed, 0);
+        let enabled = Typology {
+            attribute_rules: &[AttributeRule::AfterDeterminer],
+            ..Typology::ENGLISH
+        };
+        let p = parse_readings_with(&toks, enabled);
+        assert_eq!(p.ambiguous[0].entered, ADJ_ADV);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Adj));
+        assert_eq!(p.attribute_narrowed, 1);
+        // A clause that is not enabled does not fire: "was [very] good".
+        let toks = [
+            one(4, Pos::Verb),
+            Reading::new(5, ADJ_ADV),
+            one(6, Pos::Adj),
+        ];
+        let p = parse_readings_with(&toks, enabled);
+        assert_eq!(p.ambiguous[0].survived, ADJ_ADV);
+        // A stop is a sentence edge: "homme . [bon] ," does not read
+        // `homme`, so the post-nominal clause cannot fire across it — while
+        // without the stop it does.
+        let both = Typology {
+            adjective: AdjectiveOrder::Both,
+            attribute_rules: &AttributeRule::ALL,
+            ..Typology::ENGLISH
+        };
+        let across = [
+            one(1, Pos::Noun),
+            Reading::stop(),
+            Reading::new(5, ADJ_ADV),
+            one(7, Pos::Other),
+        ];
+        let p = parse_readings_with(&across, both);
+        assert_eq!(p.ambiguous[0].survived, ADJ_ADV);
+        let within = [
+            one(1, Pos::Noun),
+            Reading::new(5, ADJ_ADV),
+            one(7, Pos::Other),
+        ];
+        let p = parse_readings_with(&within, both);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Adj));
     }
 
     /// T4: a single-reading word is never rejected, even where the licensing

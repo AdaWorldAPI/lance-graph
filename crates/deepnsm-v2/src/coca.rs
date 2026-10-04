@@ -12,8 +12,8 @@
 //!
 //! COCA letters, as used in `lemmas_5k.csv` / `word_forms.csv`: `a` article,
 //! `d` determiner (`this`, `which`, `all`, `some`; modals are `v`), `n`
-//! noun, `p` pronoun, `v` verb, `j` adjective, anything else (`r` adverb,
-//! `i` preposition, `c` conjunction, …) is outside the FSM's core slots.
+//! noun, `p` pronoun, `v` verb, `j` adjective, `r` adverb; anything else
+//! (`i` preposition, `c` conjunction, …) is outside the FSM's core slots.
 
 use crate::fsm::{Pos, PosSet};
 use crate::lexical::{LexicalEvidence, PosCode};
@@ -27,6 +27,7 @@ pub const fn fsm_pos(code: PosCode) -> Pos {
         b'v' => Pos::Verb,
         b'j' => Pos::Adj,
         b'a' | b'd' => Pos::Det,
+        b'r' => Pos::Adv,
         _ => Pos::Other,
     }
 }
@@ -118,7 +119,7 @@ mod tests {
             ("j", Pos::Adj),
             ("a", Pos::Det),
             ("d", Pos::Det),
-            ("r", Pos::Other),
+            ("r", Pos::Adv),
             ("i", Pos::Other),
             ("c", Pos::Other),
             ("", Pos::Other),

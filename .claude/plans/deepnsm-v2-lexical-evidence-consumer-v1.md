@@ -474,3 +474,13 @@ subject) and licensing (after a determiner) pick by position. A sentence-level
 "needs a predicate" rule was measured and rejected (KJV fragments). Numbers
 and OPEN points: board entry `2026-10-04-deepnsm-v2-predicate-by-position.md`.
 
+## D-LXC-14: the position rules on gold tags (2026-10-04)
+
+`examples/ud_pos_eval.rs` scores every rule against Universal Dependencies
+gold tags (English, German, French), with the typology measured from each
+train split rather than written per language. Noun/verb position rules beat
+COCA's frequency pick (96.7 % vs 85.1 % on decided tokens); the adjective/adverb
+clauses do not beat frequency in any language consistently and ship disabled.
+Adjective licensing is gated on the measured typology. Numbers: board entry
+`2026-10-04-deepnsm-v2-position-rules-on-ud-gold.md`.
+

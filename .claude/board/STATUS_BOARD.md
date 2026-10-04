@@ -37,6 +37,7 @@ Plan: `.claude/plans/deepnsm-v2-lexical-evidence-consumer-v1.md`. Convergence br
 | **D-LXC-9** | `archaic_pos` cannot override COCA-known KJV words (`art` is Noun, `word_forms.csv:1047`) | Queued | pre-existing |
 | **D-LXC-10** | `Pos::Rel` produced by no in-crate tagger in deepnsm-v2 (only FSM match arms + one unit test) | Queued | pre-existing; external callers can still pass `Pos::Rel` through the public `Tagged`/`parse_to_spo` |
 | **D-LXC-13** | noun/verb homograph decided by position: lemma N/V tag widened to its other reading (`coca::predicate_alternatives`), slot rule after a fresh subject | In PR | slot rule + widening disable-verified; KJV re-pinned (34,824 ambiguous / 451 words, certain 57,350 + alternative 29,001, 0 unexplained). Entry `2026-10-04-deepnsm-v2-predicate-by-position.md` |
+| **D-LXC-14** | `Pos::Adv`; `Typology` (measured, gates adjective licensing); `AttributeRule` adjective/adverb clauses (off: below frequency); `ud_pos_eval` gold harness (en/de/fr) | In PR | noun/verb with COCA: position 96.7 % vs frequency 85.1 % on 457 decided UD-EWT tokens; adjective/adverb: no clause beats frequency in every language. Entry `2026-10-04-deepnsm-v2-position-rules-on-ud-gold.md` |
 
 ## D-RPT — ReportPlan / zero-copy pivot / report-as-OGAR-projection (2026-09-23)
 

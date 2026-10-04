@@ -64,7 +64,10 @@ pub use evidence::{
     evidence_basin, forward_gate, novelty_rate, open_question_yield, partial_spearman,
     shuffle_beliefs_null, shuffle_rungs_null, EvidenceBasin, ForwardGateReport,
 };
-pub use fsm::{parse_readings, parse_to_spo, Pos, PosSet, Reading, ReadingParse, Survivor, Tagged};
+pub use fsm::{
+    attribute_readings, attribute_rule, parse_readings, parse_readings_with, parse_to_spo,
+    AdjectiveOrder, AttributeRule, Pos, PosSet, Reading, ReadingParse, Survivor, Tagged, Typology,
+};
 pub use introspect::{
     confidence_delta_recount, confidence_delta_self, most_frequent_belief, provenance_check,
     ConfidenceAnswer, ProvenanceReport,
