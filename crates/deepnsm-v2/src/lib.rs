@@ -42,12 +42,18 @@ pub mod codebook;
 pub mod corpus;
 pub mod evidence;
 pub mod fsm;
+pub mod hydrate;
 pub mod introspect;
 pub mod lexical;
+pub mod lexicon;
+pub mod loci;
+pub mod promote;
 pub mod reason;
 pub mod shape;
 pub mod space;
 pub mod spo;
+pub mod tekamolo;
+pub mod toc;
 pub mod vocab;
 pub mod wave;
 
@@ -78,6 +84,7 @@ pub use lexical::{
     load_word_forms_csv, EvidenceError, LemmaEntry, LemmaRef, LexicalEvidence,
     LexicalEvidenceBuilder, LexicalReading, PosCode, WordFormsReport,
 };
+pub use loci::{loci_from_triples, AnteRule, LociReport};
 pub use shape::{
     detect, detect_all, detect_all_measured, detect_measured, MeasuredShape, Representation,
     ShapeClass, ShapeReport,

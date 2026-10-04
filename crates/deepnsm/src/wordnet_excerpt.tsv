@@ -1,0 +1,41 @@
+# Excerpt of wordnet31_isa_v2.tsv (codebook release v0.1.0-codebooks-2026-07-26): the hypernym chains of whale, dolphin, shark, manta, octopus.
+# Derived from Princeton WordNet 3.1. WordNet License (BSD-style, attribution): Princeton University WordNet.
+# columns: word pos sense_num synset_offset kind hypernym_word hypernym_offset
+animal	n	1	00015568	isa	organism	00004475
+aquatic_mammal	n	1	02064670	isa	placental	01889397
+aquatic_vertebrate	n	1	01476447	isa	vertebrate	01474323
+bony_fish	n	1	02517456	isa	fish	02514684
+cartilaginous_fish	n	1	01483157	isa	fish	02514684
+cephalopod	n	1	01970956	isa	mollusk	01943377
+cetacean	n	1	02065083	isa	aquatic_mammal	02064670
+chordate	n	1	01468898	isa	animal	00015568
+dolphin	n	1	02584588	isa	percoid_fish	02557361
+dolphin	n	2	02071627	isa	toothed_whale	02069360
+dolphinfish	n	2	02584588	isa	percoid_fish	02557361
+elasmobranch	n	1	01484712	isa	cartilaginous_fish	01483157
+fish	n	1	02514684	isa	aquatic_vertebrate	01476447
+food	n	2	07571428	isa	solid	15071467
+invertebrate	n	1	01908302	isa	animal	00015568
+living_thing	n	1	00004258	isa	whole	00003553
+mammal	n	1	01864419	isa	vertebrate	01474323
+manta	n	2	01502732	isa	ray	01498342
+matter	n	3	00021007	isa	physical_entity	00001930
+mollusk	n	1	01943377	isa	invertebrate	01908302
+object	n	1	00002684	isa	physical_entity	00001930
+octopod	n	1	01972367	isa	cephalopod	01970956
+octopus	n	1	07798341	isa	seafood	07792842
+octopus	n	2	01972805	isa	octopod	01972367
+organism	n	1	00004475	isa	living_thing	00004258
+percoid_fish	n	1	02557361	isa	spiny-finned_fish	02554802
+physical_entity	n	1	00001930	isa	entity	00001740
+placental	n	1	01889397	isa	mammal	01864419
+ray	n	7	01498342	isa	elasmobranch	01484712
+seafood	n	1	07792842	isa	food	07571428
+shark	n	1	01484971	isa	elasmobranch	01484712
+solid	n	1	15071467	isa	matter	00021007
+spiny-finned_fish	n	1	02554802	isa	teleost_fish	02530794
+teleost_fish	n	1	02530794	isa	bony_fish	02517456
+toothed_whale	n	1	02069360	isa	whale	02065397
+vertebrate	n	1	01474323	isa	chordate	01468898
+whale	n	2	02065397	isa	cetacean	02065083
+whole	n	2	00003553	isa	object	00002684
