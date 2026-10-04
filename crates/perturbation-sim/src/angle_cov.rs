@@ -121,8 +121,38 @@ pub fn angle_covariance<const N: usize>(eig: &Eigen, sigma_p: &[f64], rel_tol: f
 /// Applied factor by factor on the entry, never through a precomputed
 /// `scale · l_scale²`: that product can overflow to infinity while the entry
 /// itself does not, and an exact-zero entry would then become `0 · ∞ = NaN`.
+///
+/// No FIXED order is safe either: multiplying by a tiny `scale` first can
+/// underflow to zero before a large `l_scale²` would have brought the value
+/// back, and the reverse order overflows in the mirrored case. So each step
+/// takes the factor that moves the running value toward 1 — the smallest
+/// remaining factor while it is at least 1, the largest while it is below —
+/// and only the final product can leave the representable range, which it
+/// does only when the true result does.
 fn unscale(o: f32, scale: f64, l_scale: f64) -> f64 {
-    f64::from(o) * scale * l_scale * l_scale
+    let mut acc = f64::from(o);
+    let mut rest = [scale, l_scale, l_scale];
+    let mut left = rest.len();
+    while left > 0 {
+        let pick = (0..left)
+            .reduce(|a, b| {
+                let take_b = if acc.abs() >= 1.0 {
+                    rest[b].abs() < rest[a].abs()
+                } else {
+                    rest[b].abs() > rest[a].abs()
+                };
+                if take_b {
+                    b
+                } else {
+                    a
+                }
+            })
+            .unwrap_or(0);
+        acc *= rest[pick];
+        rest.swap(pick, left - 1);
+        left -= 1;
+    }
+    acc
 }
 
 #[cfg(test)]
@@ -313,6 +343,28 @@ mod tests {
             v.is_finite() && (v - want).abs() <= 1e-12 * want.abs(),
             "{v:e} vs {want:e}"
         );
+    }
+
+    /// FAILS IF: `unscale` multiplies by a tiny `scale` before the large
+    /// `l_scale²`, so the intermediate underflows to zero although the final
+    /// value (~1e-30) is representable. The reverse case (huge `scale`, small
+    /// `l_scale`) must not overflow either.
+    #[test]
+    fn unscale_keeps_a_representable_result_when_one_factor_order_would_not() {
+        // L⁺ entries up to 1e150, sigma_p max 1e-310: entry (1e140/1e150)² = 1e-20.
+        let v = unscale(1e-20, 1e-310, 1e150);
+        assert!(
+            f64::from(1e-20_f32) * 1e-310 == 0.0,
+            "fixture must underflow scale-first"
+        );
+        assert!(v != 0.0 && (v - 1e-30).abs() <= 1e-6 * 1e-30, "{v:e}");
+        // Mirror: scale-first overflows (1e10 * 1e305), the true value is 1e-5.
+        assert!(
+            (1e10_f64 * 1e305).is_infinite(),
+            "fixture must overflow scale-first"
+        );
+        let v = unscale(1e10, 1e305, 1e-160);
+        assert!(v.is_finite() && (v - 1e-5).abs() <= 1e-6 * 1e-5, "{v:e}");
     }
 
     /// FAILS IF: an entry too small to survive the f32 narrowing is silently
