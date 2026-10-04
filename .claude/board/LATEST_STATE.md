@@ -1,3 +1,12 @@
+## 2026-10-04 — Register128 slab reading + bounded power sums (branch `ccr-1d39fce9-gdgy6k`, unmerged, D-LXC-29)
+
+### Current Contract Inventory — net delta (`register128.rs`, `hotplug.rs`, `canonical_node.rs`)
+
+- `register128::{Register128, REGISTER_BYTES, RegisterRails, RegisterLanes}` — 16 raw bytes, no classid; lanes produced only by binding.
+- `hotplug::SlabReading::Register128 = 1`; `ResolvedReading::bind_register128`; `ActivationDrift::{NotRegister128, RegisterRailAbsent}`.
+- `canonical_node::ValueTenant::{Register0, Register1}` — 16 B each at row [252,268) / [268,284), in `ValueSchema::Full` only; `BoardAggregates` reservation re-based 16 → 18. No `ENVELOPE_LAYOUT_VERSION` bump.
+- Kernels live in ndarray (`masked_group_bounded_*_u8*`, `widen_bounded_*`, `fold_bounded_*_tiles`). Entry `entries/2026-10-04-register128-bounded-power-sums.md`.
+
 ## 2026-10-04 — SPOG × slab declaration resolves through hotplug (branch `ccr-f6094d67-h6ulb3`, unmerged)
 
 ### Current Contract Inventory — net delta (`hotplug.rs`, no new registry)
