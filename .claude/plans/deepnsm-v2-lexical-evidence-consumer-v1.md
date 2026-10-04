@@ -484,3 +484,13 @@ clauses do not beat frequency in any language consistently and ship disabled.
 Adjective licensing is gated on the measured typology. Numbers: board entry
 `2026-10-04-deepnsm-v2-position-rules-on-ud-gold.md`.
 
+## D-LXC-15: the KJV checked against German casing (2026-10-04)
+
+The codebook release's Luther 1545 lane and en→de alignment give silver
+noun/verb labels for KJV homographs (German capitalises nouns). On those,
+slot + licensing beat the COCA lemma tag (85.8 % vs 74.9 % on the same
+tokens); the clause rule ("no verb yet, which could it be") stays an off
+switch, below the slot rule in every language. WordNet helps neither as a
+chooser nor as a reading filter for this question. Board entry
+`2026-10-04-deepnsm-v2-kjv-silver-labels-from-luther.md`.
+

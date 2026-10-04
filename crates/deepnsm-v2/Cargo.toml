@@ -34,3 +34,8 @@ lance-graph-contract = { path = "../lance-graph-contract", features = ["guid-v3-
 [[example]]
 name = "bible_wave"
 test = true
+
+# Examples only: `bible_wave`'s optional Rosetta arm reads the release's
+# verse-keyed Bible JSON. The library stays dependency-free.
+[dev-dependencies]
+serde_json = "1"

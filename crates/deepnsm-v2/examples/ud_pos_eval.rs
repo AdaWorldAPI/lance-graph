@@ -24,7 +24,9 @@
 //! cargo run --release --example ud_pos_eval -- TRAIN TEST --coca ../deepnsm/word_frequency
 //! ```
 //!
-//! The typology is measured from train; `UD_TYPOLOGY=english` uses
+//! `UD_CLAUSE=1` switches on the clause rule
+//! ([`Typology::predicate_required`]). The typology is measured from train;
+//! `UD_TYPOLOGY=english` uses
 //! [`Typology::ENGLISH`] instead. `UD_DUMP=1` prints every token a rule
 //! narrowed away from its gold tag, with context, to stderr.
 
@@ -108,6 +110,8 @@ fn read_conllu(path: &str) -> Vec<Vec<Word>> {
 struct Lexicon {
     readings: HashMap<String, PosSet>,
     counts: HashMap<(String, u8), usize>,
+    /// Form → its COCA lemmas (COCA mode only), for the WordNet lookup.
+    lemmas: HashMap<String, Vec<String>>,
 }
 
 impl Lexicon {
@@ -122,7 +126,11 @@ impl Lexicon {
             *set = set.with(w.gold);
             *counts.entry((w.form.clone(), w.gold as u8)).or_default() += 1;
         }
-        Self { readings, counts }
+        Self {
+            readings,
+            counts,
+            lemmas: HashMap::new(),
+        }
     }
 
     /// Readings and counts from COCA (`lemmas_5k.csv` + `word_forms.csv` in
@@ -132,6 +140,7 @@ impl Lexicon {
     fn from_coca(dir: &str) -> Self {
         let mut readings: HashMap<String, PosSet> = HashMap::new();
         let mut counts: HashMap<(String, u8), usize> = HashMap::new();
+        let mut lemmas: HashMap<String, Vec<String>> = HashMap::new();
         let read = |name: &str| {
             std::fs::read_to_string(format!("{dir}/{name}"))
                 .unwrap_or_else(|e| panic!("{dir}/{name}: {e}"))
@@ -148,12 +157,21 @@ impl Lexicon {
             if c.len() > 5 {
                 let word = c[5].to_lowercase();
                 let pos = fsm_pos_tag(c[2]);
+                let lemma = c[1].to_lowercase();
+                let ls = lemmas.entry(word.clone()).or_default();
+                if !ls.contains(&lemma) {
+                    ls.push(lemma);
+                }
                 let set = readings.entry(word.clone()).or_default();
                 *set = set.with(pos);
                 *counts.entry((word, pos as u8)).or_default() += c[4].parse::<usize>().unwrap_or(0);
             }
         }
-        Self { readings, counts }
+        Self {
+            readings,
+            counts,
+            lemmas,
+        }
     }
 
     fn get(&self, form: &str) -> PosSet {
@@ -174,6 +192,51 @@ impl Lexicon {
         } else {
             a
         }
+    }
+}
+
+/// WordNet noun and verb sense counts per lemma, from the release's
+/// `wordnet31_isa_v2.tsv` (7 columns: word, pos, sense_num, …).
+fn load_wordnet(path: &str) -> HashMap<String, (usize, usize)> {
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path}: {e}"));
+    let mut senses: HashMap<(String, bool), std::collections::HashSet<String>> = HashMap::new();
+    for line in text.lines().filter(|l| !l.starts_with('#')) {
+        let c: Vec<&str> = line.split('\t').collect();
+        if c.len() != 7 || !matches!(c[1], "n" | "v") {
+            continue;
+        }
+        let word = c[0].to_lowercase().replace('_', " ");
+        senses
+            .entry((word, c[1] == "v"))
+            .or_default()
+            .insert(c[2].to_string());
+    }
+    let mut out: HashMap<String, (usize, usize)> = HashMap::new();
+    for ((word, verb), s) in senses {
+        let e = out.entry(word).or_default();
+        if verb {
+            e.1 = s.len();
+        } else {
+            e.0 = s.len();
+        }
+    }
+    out
+}
+
+/// The WordNet pick for `form`: the reading with more senses over its COCA
+/// lemmas, or `None` when WordNet has neither.
+fn wordnet_pick(lex: &Lexicon, wn: &HashMap<String, (usize, usize)>, form: &str) -> Option<Pos> {
+    let (mut n, mut v) = (0, 0);
+    for lemma in lex.lemmas.get(form)? {
+        if let Some(&(a, b)) = wn.get(lemma) {
+            n += a;
+            v += b;
+        }
+    }
+    match (n, v) {
+        (0, 0) => None,
+        _ if n >= v => Some(Pos::Noun),
+        _ => Some(Pos::Verb),
     }
 }
 
@@ -296,6 +359,7 @@ fn measure_typology(train: &[Vec<Word>]) -> (Typology, f64, f64) {
         // As shipped: no clause narrows (D-LXC-14 measured them below
         // frequency). The per-clause table scores them regardless.
         attribute_rules: Typology::ENGLISH.attribute_rules,
+        predicate_required: false,
     };
     (typology, share_before, verb_after)
 }
@@ -321,10 +385,46 @@ fn main() {
         100.0 * share_before,
         100.0 * verb_after
     );
-    let lex = match coca {
+    let typology = Typology {
+        predicate_required: std::env::var("UD_CLAUSE").is_ok_and(|v| !v.is_empty()),
+        ..typology
+    };
+    let mut lex = match coca {
         Some(dir) => Lexicon::from_coca(dir),
         None => Lexicon::from_train(&train),
     };
+    // WordNet as a second lexicon on which readings EXIST: with
+    // `UD_WORDNET_FILTER=1`, a COCA noun/verb homograph keeps a reading only
+    // if one of its lemmas has that sense in WordNet. Reports what it costs.
+    if std::env::var("UD_WORDNET_FILTER").is_ok_and(|v| !v.is_empty()) {
+        let path = std::env::var("UD_WORDNET").expect("UD_WORDNET_FILTER needs UD_WORDNET");
+        let wn = load_wordnet(&path);
+        let mut narrowed = 0;
+        let forms: Vec<String> = lex.readings.keys().cloned().collect();
+        for form in forms {
+            let set = lex.readings[&form];
+            if !(set.contains(Pos::Noun) && set.contains(Pos::Verb)) {
+                continue;
+            }
+            let (mut n, mut v) = (0, 0);
+            for lemma in lex.lemmas.get(&form).into_iter().flatten() {
+                if let Some(&(a, b)) = wn.get(lemma) {
+                    n += a;
+                    v += b;
+                }
+            }
+            let kept = match (n > 0, v > 0) {
+                (true, false) => set.without(Pos::Verb),
+                (false, true) => set.without(Pos::Noun),
+                _ => set,
+            };
+            if kept != set {
+                narrowed += 1;
+                lex.readings.insert(form, kept);
+            }
+        }
+        println!("WordNet filter: {narrowed} COCA noun/verb forms lost a reading WordNet lacks");
+    }
     let test = read_conllu(test);
 
     // One stream: every sentence ends in a stop, whatever its own punctuation.
@@ -378,14 +478,53 @@ fn main() {
     let tokens = words.iter().filter(|w| w.is_some()).count();
     println!(
         "{tokens} test words, {} ambiguous, {} unknown; slot rule dropped {}, licensing {}, \
-         attribute rule {}",
+         attribute rule {}, clause rule {}",
         parse.ambiguous.len(),
         parse.unknown,
         parse.slot_dropped,
         parse.unlicensed_dropped,
-        parse.attribute_narrowed
+        parse.attribute_narrowed,
+        parse.unpredicated_dropped
     );
     nv_score.print("noun/verb", nv);
+    // A parallel coordinate: WordNet's own noun/verb sense counts as the
+    // prior, scored on the same tokens (COCA mode supplies the lemmas).
+    if let Some(path) = std::env::var("UD_WORDNET").ok().filter(|p| !p.is_empty()) {
+        let wn = load_wordnet(&path);
+        let (mut all, mut all_right, mut on_dec, mut on_dec_right, mut covered) =
+            (0usize, 0usize, 0usize, 0usize, 0usize);
+        for sv in &parse.ambiguous {
+            let w = words[sv.index].expect("ambiguous tokens are words");
+            if !(sv.entered.contains(Pos::Noun) && sv.entered.contains(Pos::Verb))
+                || !matches!(w.gold, Pos::Noun | Pos::Verb)
+            {
+                continue;
+            }
+            all += 1;
+            let Some(pick) = wordnet_pick(&lex, &wn, &w.form) else {
+                continue;
+            };
+            covered += 1;
+            all_right += usize::from(pick == w.gold);
+            if sv.survived.contains(Pos::Noun) != sv.survived.contains(Pos::Verb) {
+                on_dec += 1;
+                on_dec_right += usize::from(pick == w.gold);
+            }
+        }
+        let pct = |n: usize, d: usize| {
+            if d == 0 {
+                0.0
+            } else {
+                100.0 * n as f64 / d as f64
+            }
+        };
+        println!(
+            "  WordNet sense-count pick: covers {covered} of {all}, {:.1}% right on those; \
+             on position-decided tokens {:.1}% right ({on_dec})",
+            pct(all_right, covered),
+            pct(on_dec_right, on_dec)
+        );
+    }
     aa_score.print("adjective/adverb", aa);
 
     // Each attribute clause on its own: every adjective/adverb token whose

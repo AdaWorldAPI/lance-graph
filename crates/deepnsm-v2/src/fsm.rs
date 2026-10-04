@@ -156,6 +156,10 @@ struct Core {
     /// or a re-anchored noun ("mothers house") is not fresh. Read only by
     /// the slot rule.
     fresh_subject: bool,
+    /// A verb has taken a predicate slot in this sentence (matrix or
+    /// relative clause). Read only by the clause rule
+    /// ([`Typology::predicate_required`]).
+    predicated: bool,
 }
 
 impl Core {
@@ -169,6 +173,7 @@ impl Core {
         nominal_open: false,
         adjective_open: false,
         fresh_subject: false,
+        predicated: false,
     };
 
     /// Consume one non-`Stop` token; returns the triple it closes, if any.
@@ -192,6 +197,7 @@ impl Core {
                 // Subject-relative: a verb right after the relativizer means the
                 // antecedent is the embedded subject ("dog that [chased] …").
                 (Rel::Open, Pos::Verb) => {
+                    self.predicated = true;
                     self.rel = Rel::HaveVerb {
                         subj: self.antecedent,
                         verb: t.id,
@@ -200,6 +206,7 @@ impl Core {
                 // Object-relative embedded verb: emit (embedded_subj, verb,
                 // antecedent) and close — the antecedent IS the object.
                 (Rel::ObjSubject(es), Pos::Verb) => {
+                    self.predicated = true;
                     let out = Spo::new(es, t.id, self.antecedent);
                     self.subject = self.matrix;
                     self.state = State::HaveSubject;
@@ -223,6 +230,7 @@ impl Core {
                 // close the (intransitive → no triple) embedded clause and let
                 // the matrix subject take this verb as its predicate.
                 (Rel::HaveVerb { .. }, Pos::Verb) => {
+                    self.predicated = true;
                     self.subject = self.matrix;
                     self.predicate = t.id;
                     self.state = State::HaveVerb;
@@ -255,6 +263,7 @@ impl Core {
                 self.fresh_subject = !nominal_was_open;
             }
             (State::HaveSubject, Pos::Verb) => {
+                self.predicated = true;
                 self.predicate = t.id;
                 self.state = State::HaveVerb;
             }
@@ -459,6 +468,8 @@ pub struct ReadingParse {
     pub slot_dropped: usize,
     /// Tokens whose adjective/adverb readings the attribute rule narrowed.
     pub attribute_narrowed: usize,
+    /// Configurations the clause rule dropped at a sentence end.
+    pub unpredicated_dropped: usize,
 }
 
 /// Bound on live configurations per sentence. Exceeding it flushes the
@@ -504,6 +515,12 @@ pub struct Typology {
     /// the attribute rule only reports ([`attribute_rule`]) and never drops
     /// a reading.
     pub attribute_rules: &'static [AttributeRule],
+    /// The clause rule — "this sentence has no verb yet; which word could it
+    /// be": at a sentence end, drop the reading combinations on which no verb
+    /// took a predicate slot, if some combination's verb did. A rule switch,
+    /// not a word-order fact; off in [`Typology::ENGLISH`] (KJV verses are
+    /// often verbless fragments).
+    pub predicate_required: bool,
 }
 
 impl Typology {
@@ -512,6 +529,7 @@ impl Typology {
         adjective: AdjectiveOrder::Before,
         adjective_opens_nominal: true,
         attribute_rules: &[],
+        predicate_required: false,
     };
 }
 
@@ -679,7 +697,7 @@ pub fn parse_readings_with(tokens: &[Reading], typology: Typology) -> ReadingPar
 
     for (index, tok) in tokens.iter().enumerate() {
         if tok.pos.contains(Pos::Stop) {
-            finish_sentence(&mut out, &mut configs, &mut pending);
+            finish_sentence(&mut out, &mut configs, &mut pending, typology);
             continue;
         }
         let set = if tok.pos.is_empty() {
@@ -736,10 +754,10 @@ pub fn parse_readings_with(tokens: &[Reading], typology: Typology) -> ReadingPar
         out.peak_configs = out.peak_configs.max(configs.len());
         if configs.len() > MAX_CONFIGS {
             out.overflow_flushes += 1;
-            finish_sentence(&mut out, &mut configs, &mut pending);
+            finish_sentence(&mut out, &mut configs, &mut pending, typology);
         }
     }
-    finish_sentence(&mut out, &mut configs, &mut pending);
+    finish_sentence(&mut out, &mut configs, &mut pending, typology);
     out
 }
 
@@ -772,7 +790,13 @@ fn finish_sentence(
     out: &mut ReadingParse,
     configs: &mut Vec<Config>,
     pending: &mut Vec<(usize, PosSet)>,
+    typology: Typology,
 ) {
+    if typology.predicate_required && configs.iter().any(|c| c.core.predicated) {
+        let before = configs.len();
+        configs.retain(|c| c.core.predicated);
+        out.unpredicated_dropped += before - configs.len();
+    }
     if let Some((first, rest)) = configs.split_first() {
         for t in &first.emitted {
             if rest.iter().all(|c| c.emitted.contains(t)) {
@@ -1148,6 +1172,35 @@ mod tests {
         ];
         let p = parse_readings_with(&within, both);
         assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Adj));
+    }
+
+    /// The clause rule, when switched on: "the men record deeds" has no
+    /// verb unless `record` is one, so its noun reading goes. Off (the
+    /// default) both stay. With no path predicated it drops nothing.
+    #[test]
+    fn the_clause_rule_finds_the_only_possible_verb_when_enabled() {
+        let toks = [
+            one(9, Pos::Det),
+            one(1, Pos::Noun),
+            noun_or_verb(2),
+            one(3, Pos::Noun),
+        ];
+        let off = parse_readings(&toks);
+        assert_eq!(off.ambiguous[0].survived, NV);
+        assert_eq!(off.unpredicated_dropped, 0);
+        let on = Typology {
+            predicate_required: true,
+            ..Typology::ENGLISH
+        };
+        let p = parse_readings_with(&toks, on);
+        assert_eq!(p.ambiguous[0].survived, PosSet::single(Pos::Verb));
+        assert_eq!(p.certain, vec![Spo::new(1, 2, 3)]);
+        assert_eq!(p.unpredicated_dropped, 1);
+        // No path has a predicate: a sentence-initial homograph takes no
+        // slot either way, so nothing is dropped.
+        let p = parse_readings_with(&[noun_or_verb(2), one(3, Pos::Det)], on);
+        assert_eq!(p.ambiguous[0].survived, NV);
+        assert_eq!(p.unpredicated_dropped, 0);
     }
 
     /// T4: a single-reading word is never rejected, even where the licensing

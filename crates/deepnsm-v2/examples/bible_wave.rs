@@ -35,9 +35,9 @@
 
 use deepnsm_v2::coca::{fsm_pos, fsm_pos_tag, predicate_alternatives, reading_set};
 use deepnsm_v2::{
-    load_cam96_codes, load_cam96_space, load_word_forms_csv, parse_readings, parse_to_spo,
-    EvidenceError, LexicalEvidence, Nsm, PaletteVocab, Pos, PosSet, Reading, ReadingParse, Spo,
-    Tagged, TemporalStream, WordFormsReport, WordId,
+    load_cam96_codes, load_cam96_space, load_word_forms_csv, parse_readings, parse_readings_with,
+    parse_to_spo, EvidenceError, LexicalEvidence, Nsm, PaletteVocab, Pos, PosSet, Reading,
+    ReadingParse, Spo, Tagged, TemporalStream, Typology, WordFormsReport, WordId,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -318,6 +318,247 @@ fn lexicon_file(name: &str) -> String {
         .unwrap_or_else(|e| panic!("missing lexicon table {} ({e})", path.display()))
 }
 
+/// D-LXC-15: German casing as a silver noun/verb label for KJV tokens.
+///
+/// For a KJV noun/verb homograph, its German associates come from the
+/// release's corpus-derived `alignment_en-de.tsv` (KJV → Luther 1545, Dice /
+/// PMI, cooc ≥ 5). Luther 1545 capitalises nouns, so an associate found in
+/// the same verse labels the token: capitalised, not sentence-initial and a
+/// noun in the German lexicon → noun; lowercase and a verb there → verb.
+/// The label is contrastive: a word is used only when its associates attest
+/// BOTH readings (one-sided associates — collocates like `rose` → `Morgens`
+/// — could only ever say one thing). A token is labelled only when every
+/// associate found agrees. Psalms are excluded: Luther 1545 numbers them
+/// differently (the release's documented versification offset). Inputs: the
+/// `v0.1.0-codebooks-2026-07-26` release (`pd-texts`, `rosetta-gpl`, `de`),
+/// extracted under `ROSETTA_DIR`.
+struct RosettaSilver {
+    verses: HashMap<(u16, u16, u16), String>,
+    align: HashMap<String, Vec<String>>,
+    /// German word form → its lexicon readings (noun, verb).
+    de_pos: HashMap<String, (bool, bool)>,
+    /// Per policy: (labelled tokens decided, decided right).
+    legacy: (usize, usize),
+    shipped: (usize, usize),
+    clause: (usize, usize),
+    /// The shipped rules' decisions by kept reading: (Noun n, right, Verb n, right).
+    shipped_by_kept: [(usize, usize); 2],
+    clause_by_kept: [(usize, usize); 2],
+    /// Legacy right on the tokens each policy decided: (shipped, clause).
+    legacy_on_shipped: usize,
+    legacy_on_clause: usize,
+    labelled: usize,
+    candidates: usize,
+}
+
+impl RosettaSilver {
+    fn load(dir: &str) -> Self {
+        let read = |p: &str| {
+            std::fs::read_to_string(format!("{dir}/{p}"))
+                .unwrap_or_else(|e| panic!("{dir}/{p}: {e}"))
+        };
+        let json: serde_json::Value =
+            serde_json::from_str(&read("pd-texts/bible_luther1545.json")).expect("luther1545 json");
+        let mut verses = HashMap::new();
+        for book in json["books"].as_array().expect("books") {
+            let nr = book["nr"].as_u64().expect("book nr") as u16;
+            for ch in book["chapters"].as_array().expect("chapters") {
+                for v in ch["verses"].as_array().expect("verses") {
+                    let c = v["chapter"].as_u64().expect("chapter") as u16;
+                    let n = v["verse"].as_u64().expect("verse") as u16;
+                    let t = v["text"].as_str().expect("text").to_string();
+                    verses.insert((nr, c, n), t);
+                }
+            }
+        }
+        let mut align: HashMap<String, Vec<String>> = HashMap::new();
+        for line in read("rosetta-gpl/alignment_en-de.tsv").lines().skip(1) {
+            let c: Vec<&str> = line.split('\t').collect();
+            if c.len() >= 2 {
+                align
+                    .entry(c[0].to_string())
+                    .or_default()
+                    .push(c[1].to_string());
+            }
+        }
+        let mut de_pos: HashMap<String, (bool, bool)> = HashMap::new();
+        for l in read("de/lexicon.tsv")
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+        {
+            let c: Vec<&str> = l.split('\t').collect();
+            if c.len() >= 3 {
+                let e = de_pos.entry(c[0].to_lowercase()).or_default();
+                e.0 |= c[2] == "n";
+                e.1 |= c[2] == "v";
+            }
+        }
+        Self {
+            verses,
+            align,
+            de_pos,
+            legacy: (0, 0),
+            shipped: (0, 0),
+            clause: (0, 0),
+            shipped_by_kept: [(0, 0); 2],
+            clause_by_kept: [(0, 0); 2],
+            legacy_on_shipped: 0,
+            legacy_on_clause: 0,
+            labelled: 0,
+            candidates: 0,
+        }
+    }
+
+    /// The silver label for English `word` in verse `key`, or `None`.
+    fn label(&self, key: (u16, u16, u16), word: &str) -> Option<Pos> {
+        const PSALMS: u16 = 19;
+        if key.0 == PSALMS {
+            return None;
+        }
+        let text = self.verses.get(&key)?;
+        let assoc = self.align.get(word)?;
+        let pos_of = |a: &String| self.de_pos.get(a).copied().unwrap_or_default();
+        if !(assoc.iter().any(|a| pos_of(a).0) && assoc.iter().any(|a| pos_of(a).1)) {
+            return None;
+        }
+        let mut found: Option<Pos> = None;
+        let mut initial = true;
+        for raw in text.split_whitespace() {
+            let tok: String = raw.chars().filter(|c| c.is_alphabetic()).collect();
+            let this_initial = initial;
+            initial = raw.ends_with(['.', '!', '?', ':']);
+            if tok.is_empty() || this_initial {
+                continue;
+            }
+            let lower = tok.to_lowercase();
+            if !assoc.contains(&lower) {
+                continue;
+            }
+            let (noun, verb) = pos_of(&lower);
+            let pos = if tok.starts_with(char::is_uppercase) && noun {
+                Pos::Noun
+            } else if !tok.starts_with(char::is_uppercase) && verb {
+                Pos::Verb
+            } else {
+                continue;
+            };
+            match found {
+                None => found = Some(pos),
+                Some(p) if p == pos => {}
+                Some(_) => return None,
+            }
+        }
+        found
+    }
+
+    fn kept(set: PosSet) -> Option<Pos> {
+        match (set.contains(Pos::Noun), set.contains(Pos::Verb)) {
+            (true, false) => Some(Pos::Noun),
+            (false, true) => Some(Pos::Verb),
+            _ => None,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn verse(
+        &mut self,
+        key: (u16, u16, u16),
+        readings: &[Reading],
+        legacy_tags: &[Tagged],
+        words: &[String],
+        shipped: &ReadingParse,
+        clause: &ReadingParse,
+    ) {
+        let clause_by_index: HashMap<usize, PosSet> = clause
+            .ambiguous
+            .iter()
+            .map(|sv| (sv.index, sv.survived))
+            .collect();
+        for sv in &shipped.ambiguous {
+            let entered = readings[sv.index].pos;
+            if !(entered.contains(Pos::Noun) && entered.contains(Pos::Verb)) {
+                continue;
+            }
+            self.candidates += 1;
+            let Some(gold) = self.label(key, &words[sv.index]) else {
+                continue;
+            };
+            self.labelled += 1;
+            let legacy_ok = legacy_tags[sv.index].pos == gold;
+            self.legacy.0 += 1;
+            self.legacy.1 += usize::from(legacy_ok);
+            let slot = |p: Pos| usize::from(p == Pos::Verb);
+            if let Some(k) = Self::kept(sv.survived) {
+                if k != gold && std::env::var_os("ROSETTA_DUMP").is_some() {
+                    eprintln!(
+                        "SILVER kept {k:?} german {gold:?} [{}] | {} | {}",
+                        words[sv.index],
+                        words.join(" "),
+                        self.verses.get(&key).map_or("", String::as_str)
+                    );
+                }
+                self.shipped.0 += 1;
+                self.shipped.1 += usize::from(k == gold);
+                self.legacy_on_shipped += usize::from(legacy_ok);
+                let e = &mut self.shipped_by_kept[slot(k)];
+                e.0 += 1;
+                e.1 += usize::from(k == gold);
+            }
+            if let Some(k) = clause_by_index.get(&sv.index).copied().and_then(Self::kept) {
+                self.clause.0 += 1;
+                self.clause.1 += usize::from(k == gold);
+                self.legacy_on_clause += usize::from(legacy_ok);
+                let e = &mut self.clause_by_kept[slot(k)];
+                e.0 += 1;
+                e.1 += usize::from(k == gold);
+            }
+        }
+    }
+
+    fn print(&self) {
+        let pct = |n: usize, d: usize| {
+            if d == 0 {
+                0.0
+            } else {
+                100.0 * n as f64 / d as f64
+            }
+        };
+        println!(
+            "D-LXC-15  KJV noun/verb homographs: {} ({} with a German-casing label)",
+            self.candidates, self.labelled
+        );
+        println!(
+            "D-LXC-15  legacy lemma tag: {:.1}% right on all labelled",
+            pct(self.legacy.1, self.legacy.0)
+        );
+        for (name, (n, r), legacy_r, by_kept) in [
+            (
+                "slot + licensing",
+                self.shipped,
+                self.legacy_on_shipped,
+                self.shipped_by_kept,
+            ),
+            (
+                "+ clause rule",
+                self.clause,
+                self.legacy_on_clause,
+                self.clause_by_kept,
+            ),
+        ] {
+            println!(
+                "D-LXC-15  {name}: decided {n}, {:.1}% right (legacy tag on the same tokens \
+                 {:.1}%); kept Noun {} at {:.1}%, kept Verb {} at {:.1}%",
+                pct(r, n),
+                pct(legacy_r, n),
+                by_kept[0].0,
+                pct(by_kept[0].1, by_kept[0].0),
+                by_kept[1].0,
+                pct(by_kept[1].1, by_kept[1].0)
+            );
+        }
+    }
+}
+
 fn main() {
     let path = std::env::args()
         .nth(1)
@@ -456,6 +697,28 @@ fn main() {
     let mut readings_buf: Vec<Reading> = Vec::new();
     let mut legacy_buf: Vec<Tagged> = Vec::new();
     let mut words_buf: Vec<String> = Vec::new();
+    // D-LXC-15: optional Rosetta silver labels. The verse key is
+    // (book, chapter, verse); a book starts where the markers restart at 1:1.
+    let mut rosetta = std::env::var("ROSETTA_DIR")
+        .ok()
+        .filter(|d| !d.is_empty())
+        .map(|d| RosettaSilver::load(&d));
+    let mut book = 0u16;
+    let keys: Vec<(u16, u16, u16)> = split
+        .markers
+        .iter()
+        .map(|&(c, v)| {
+            if (c, v) == (1, 1) {
+                book += 1;
+            }
+            (book, c, v)
+        })
+        .collect();
+    assert_eq!(keys.len(), verses.len(), "KILL: one marker per verse");
+    let with_clause = Typology {
+        predicate_required: true,
+        ..Typology::ENGLISH
+    };
     for (vi, verse) in verses.iter().enumerate() {
         readings_buf.clear();
         legacy_buf.clear();
@@ -472,12 +735,27 @@ fn main() {
         let parse = parse_readings(&readings_buf);
         let legacy = parse_to_spo(&legacy_buf);
         lx.verse(&readings_buf, &legacy_buf, &words_buf, &parse, &legacy);
+        if let Some(r) = rosetta.as_mut() {
+            let clause = parse_readings_with(&readings_buf, with_clause);
+            r.verse(
+                keys[vi],
+                &readings_buf,
+                &legacy_buf,
+                &words_buf,
+                &parse,
+                &clause,
+            );
+        }
         for &t in &parse.certain {
             stream.push(vi as u64, t);
             all.push((vi as u64, t));
         }
     }
     lx.print_and_gate();
+    if let Some(r) = &rosetta {
+        assert_eq!(book, 66, "KILL D-LXC-15: the KJV must split into 66 books");
+        r.print();
+    }
 
     // ── SoC seam (text): emit labelled verse text for the reasoning layer ──
     if let Some(out) = &export_verses {
