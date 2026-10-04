@@ -1569,7 +1569,7 @@ fn pair_key_drops_a_minor_key_at_stride() {
     );
 }
 
-/// FAILS IF: `Terminal::GroupMomentsI32` disagrees with the row-at-a-time
+/// FAILS IF: `Terminal::GroupPowerSumsI32` disagrees with the row-at-a-time
 /// oracle for any key address (resident, VIA, pair) — including across TILE
 /// boundaries, where a sink re-seeded per tile, or a tile that re-counted a
 /// row, would change `n`, `Σx` or `Σx²`.
@@ -1578,7 +1578,7 @@ fn pair_key_drops_a_minor_key_at_stride() {
 /// key hop, leave some group empty (`n == 0`) and fill some group with more
 /// than one row.
 #[test]
-fn group_moments_match_the_oracle_for_every_key_address() {
+fn group_power_sums_match_the_oracle_for_every_key_address() {
     let mut multi_tile = false;
     let mut empty_group = false;
     let mut multi_row_group = false;
@@ -1623,7 +1623,7 @@ fn group_moments_match_the_oracle_for_every_key_address() {
                     under: None,
                     dst: 0,
                 }],
-                Terminal::GroupMomentsI32 {
+                Terminal::GroupPowerSumsI32 {
                     mask: S0,
                     key,
                     val: 2,
@@ -1644,13 +1644,13 @@ fn group_moments_match_the_oracle_for_every_key_address() {
                 &planes,
                 &foreign,
                 &mut scratch,
-                Out::Moments(&mut got_out),
+                Out::PowerSums(&mut got_out),
             )
             .expect("runs");
             let mut want_out = vec![dirty; groups];
-            let want = reference_execute_into(&p, &planes, &foreign, Out::Moments(&mut want_out))
+            let want = reference_execute_into(&p, &planes, &foreign, Out::PowerSums(&mut want_out))
                 .expect("oracle runs");
-            assert_eq!(got, Value::GroupMoments, "n={n} {key:?}");
+            assert_eq!(got, Value::GroupPowerSums, "n={n} {key:?}");
             assert_eq!(got, want, "n={n} {key:?}: value");
             assert_eq!(got_out, want_out, "n={n} {key:?}: sink");
             empty_group |= got_out.iter().any(|g| g.n == 0);
@@ -1662,11 +1662,11 @@ fn group_moments_match_the_oracle_for_every_key_address() {
     assert!(multi_row_group, "must fold several rows into one group");
 }
 
-/// FAILS IF: `GroupMomentsI32` accepts a wrong-width value or key lane, a
+/// FAILS IF: `GroupPowerSumsI32` accepts a wrong-width value or key lane, a
 /// missing or wrong-shaped sink, or runs under an extent (a partial
 /// population would silently report partial moments as whole).
 #[test]
-fn group_moments_refuses_malformed_programs() {
+fn group_power_sums_refuses_malformed_programs() {
     let n = 130;
     let fx = Fixture::new(n, 10, 4, 0x5EF);
     let (lanes, masks) = fx.planes();
@@ -1694,33 +1694,33 @@ fn group_moments_refuses_malformed_programs() {
     // `val` must be an I32 lane (lane 1 is U32).
     assert!(matches!(
         run(
-            Terminal::GroupMomentsI32 {
+            Terminal::GroupPowerSumsI32 {
                 mask: S0,
                 key: GroupKey::Lane(3),
                 val: 1
             },
-            Out::Moments(&mut sink)
+            Out::PowerSums(&mut sink)
         ),
         Err(ExecError::LaneKind { .. })
     ));
     // The key must be a U32 lane (lane 2 is I32).
     assert!(matches!(
         run(
-            Terminal::GroupMomentsI32 {
+            Terminal::GroupPowerSumsI32 {
                 mask: S0,
                 key: GroupKey::Lane(2),
                 val: 2
             },
-            Out::Moments(&mut sink)
+            Out::PowerSums(&mut sink)
         ),
         Err(ExecError::LaneKind { .. })
     ));
     // A moments sink is required; an i64 sink is the wrong shape.
     let mut i64_sink = vec![0i64; 4];
-    for out in [Out::None, Out::I64(&mut i64_sink), Out::Moments(&mut [])] {
+    for out in [Out::None, Out::I64(&mut i64_sink), Out::PowerSums(&mut [])] {
         assert_eq!(
             run(
-                Terminal::GroupMomentsI32 {
+                Terminal::GroupPowerSumsI32 {
                     mask: S0,
                     key: GroupKey::Lane(3),
                     val: 2
@@ -1728,7 +1728,7 @@ fn group_moments_refuses_malformed_programs() {
                 out
             ),
             Err(ExecError::TerminalNeedsOut {
-                what: "GroupMomentsI32"
+                what: "GroupPowerSumsI32"
             })
         );
     }
@@ -1736,7 +1736,7 @@ fn group_moments_refuses_malformed_programs() {
     // part of the population must never be reported as moments of the whole.
     let p = Program::new(
         vec![],
-        Terminal::GroupMomentsI32 {
+        Terminal::GroupPowerSumsI32 {
             mask: Operand::Plane(0),
             key: GroupKey::Lane(3),
             val: 2,
@@ -1752,9 +1752,16 @@ fn group_moments_refuses_malformed_programs() {
     let mut s = Scratch::for_program(&p, n).expect("scratch");
     let mut sink = vec![PowerSums::default(); 4];
     assert_eq!(
-        execute_extent(&p, &planes, &none, &mut s, Out::Moments(&mut sink), 10..20),
+        execute_extent(
+            &p,
+            &planes,
+            &none,
+            &mut s,
+            Out::PowerSums(&mut sink),
+            10..20
+        ),
         Err(ExecError::ExtentUnsupported {
-            what: "GroupMomentsI32"
+            what: "GroupPowerSumsI32"
         })
     );
     assert_eq!(
@@ -1777,12 +1784,12 @@ fn y_lane(n: usize, seed: u64) -> Vec<i32> {
         .collect()
 }
 
-/// FAILS IF: `Terminal::GroupCrossMomentsI32` disagrees with the
+/// FAILS IF: `Terminal::GroupCrossPowerSumsI32` disagrees with the
 /// row-at-a-time oracle for any key address, across tile boundaries, or
 /// pairs `x[i]` with a `y` from another row (the oracle reads both at `r`).
 /// Anti-vacuity: multi-tile, an empty group, a multi-row group.
 #[test]
-fn group_cross_moments_match_the_oracle_for_every_key_address() {
+fn group_cross_power_sums_match_the_oracle_for_every_key_address() {
     let mut multi_tile = false;
     let mut empty_group = false;
     let mut multi_row_group = false;
@@ -1828,7 +1835,7 @@ fn group_cross_moments_match_the_oracle_for_every_key_address() {
                     under: None,
                     dst: 0,
                 }],
-                Terminal::GroupCrossMomentsI32 {
+                Terminal::GroupCrossPowerSumsI32 {
                     mask: S0,
                     key,
                     x: 2,
@@ -1849,14 +1856,14 @@ fn group_cross_moments_match_the_oracle_for_every_key_address() {
                 &planes,
                 &foreign,
                 &mut scratch,
-                Out::CrossMoments(&mut got_out),
+                Out::CrossPowerSums(&mut got_out),
             )
             .expect("runs");
             let mut want_out = vec![dirty; groups];
             let want =
-                reference_execute_into(&p, &planes, &foreign, Out::CrossMoments(&mut want_out))
+                reference_execute_into(&p, &planes, &foreign, Out::CrossPowerSums(&mut want_out))
                     .expect("oracle runs");
-            assert_eq!(got, Value::GroupCrossMoments, "n={n} {key:?}");
+            assert_eq!(got, Value::GroupCrossPowerSums, "n={n} {key:?}");
             assert_eq!(got, want, "n={n} {key:?}: value");
             assert_eq!(got_out, want_out, "n={n} {key:?}: sink");
             empty_group |= got_out.iter().any(|g| g.n == 0);
@@ -1867,10 +1874,10 @@ fn group_cross_moments_match_the_oracle_for_every_key_address() {
 }
 
 /// FAILS IF: the cross terminal accepts a wrong-width `x` or `y` lane, a
-/// missing or wrong-shaped sink (an `Out::Moments` is the WRONG shape), or
+/// missing or wrong-shaped sink (an `Out::PowerSums` is the WRONG shape), or
 /// runs under a partial extent.
 #[test]
-fn group_cross_moments_refuses_malformed_programs() {
+fn group_cross_power_sums_refuses_malformed_programs() {
     let n = 130;
     let fx = Fixture::new(n, 10, 4, 0x5F0);
     let ys = y_lane(n, 1);
@@ -1890,7 +1897,7 @@ fn group_cross_moments_refuses_malformed_programs() {
         planes: &[],
         lanes: &[],
     };
-    let term = |x: u16, y: u16| Terminal::GroupCrossMomentsI32 {
+    let term = |x: u16, y: u16| Terminal::GroupCrossPowerSumsI32 {
         mask: Operand::Plane(0),
         key: GroupKey::Lane(3),
         x,
@@ -1903,7 +1910,7 @@ fn group_cross_moments_refuses_malformed_programs() {
     for (x, y) in [(1u16, 4u16), (2, 1)] {
         assert!(
             matches!(
-                run(term(x, y), Out::CrossMoments(&mut sink)),
+                run(term(x, y), Out::CrossPowerSums(&mut sink)),
                 Err(ExecError::LaneKind { .. })
             ),
             "x={x} y={y}"
@@ -1912,13 +1919,13 @@ fn group_cross_moments_refuses_malformed_programs() {
     let mut univariate = vec![PowerSums::default(); 4];
     for out in [
         Out::None,
-        Out::Moments(&mut univariate),
-        Out::CrossMoments(&mut []),
+        Out::PowerSums(&mut univariate),
+        Out::CrossPowerSums(&mut []),
     ] {
         assert_eq!(
             run(term(2, 4), out),
             Err(ExecError::TerminalNeedsOut {
-                what: "GroupCrossMomentsI32"
+                what: "GroupCrossPowerSumsI32"
             })
         );
     }
@@ -1930,11 +1937,11 @@ fn group_cross_moments_refuses_malformed_programs() {
             &planes,
             &none,
             &mut s,
-            Out::CrossMoments(&mut sink),
+            Out::CrossPowerSums(&mut sink),
             10..20
         ),
         Err(ExecError::ExtentUnsupported {
-            what: "GroupCrossMomentsI32"
+            what: "GroupCrossPowerSumsI32"
         })
     );
     assert_eq!(
@@ -1944,7 +1951,7 @@ fn group_cross_moments_refuses_malformed_programs() {
     );
     // x == y is legal and folds the univariate moments.
     let mut same = vec![CrossPowerSums::default(); 4];
-    run(term(2, 2), Out::CrossMoments(&mut same)).expect("x == y is legal");
+    run(term(2, 2), Out::CrossPowerSums(&mut same)).expect("x == y is legal");
     assert!(same
         .iter()
         .all(|g| g.sum_x == g.sum_y && u128::try_from(g.sum_xy) == Ok(g.sum_x_sq)));

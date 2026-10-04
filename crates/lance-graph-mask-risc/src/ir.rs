@@ -423,7 +423,7 @@ pub enum Terminal {
     },
     /// Grouped sufficient statistics of an `I32` lane: for every row `i`
     /// where `mask` holds, resolves the row's group through [`GroupKey`] and
-    /// folds `lanes[val][i]` into the caller's `Out::Moments` buffer as
+    /// folds `lanes[val][i]` into the caller's `Out::PowerSums` buffer as
     /// `n += 1, Σx += x, Σx² += x²` ([`ndarray::simd::PowerSums`]). One
     /// pass over the selected rows; no selected value is copied out. The
     /// buffer's length IS the group universe `K`, and the same zero-fallback
@@ -439,22 +439,22 @@ pub enum Terminal {
     /// and no group can exceed the plane. The executor refuses a wider plane
     /// rather than wrap. The sink is seeded with `PowerSums::default()` before
     /// the first tile, so an empty group reads `n == 0`.
-    GroupMomentsI32 {
+    GroupPowerSumsI32 {
         mask: Operand,
         key: GroupKey,
         val: u16,
     },
     /// Grouped cross moments of TWO `I32` lanes: for every row `i` where
     /// `mask` holds, folds `(lanes[x][i], lanes[y][i])` into the caller's
-    /// `Out::CrossMoments` buffer as `n, Σx, Σy, Σx², Σy², Σxy`
+    /// `Out::CrossPowerSums` buffer as `n, Σx, Σy, Σx², Σy², Σxy`
     /// ([`ndarray::simd::CrossPowerSums`]). The bivariate member of the
-    /// [`Terminal::GroupMomentsI32`] family: same key addresses, same drops,
+    /// [`Terminal::GroupPowerSumsI32`] family: same key addresses, same drops,
     /// same one pass with both lanes read in place, same `2^32`-row
     /// exactness bound ([`MASKED_SUM_I32_MAX_ROWS`] — the `Σx`/`Σy` fields
     /// are `i64`). A physical fold: covariance, correlation and simple
     /// regression are consumer projections. `x == y` is legal (it folds the
     /// univariate moments twice over).
-    GroupCrossMomentsI32 {
+    GroupCrossPowerSumsI32 {
         mask: Operand,
         key: GroupKey,
         x: u16,
@@ -651,8 +651,8 @@ impl Program {
             | Terminal::GroupSumI32 { mask, .. }
             | Terminal::GroupSumViaI32 { mask, .. }
             | Terminal::GroupReduce { mask, .. }
-            | Terminal::GroupMomentsI32 { mask, .. }
-            | Terminal::GroupCrossMomentsI32 { mask, .. }
+            | Terminal::GroupPowerSumsI32 { mask, .. }
+            | Terminal::GroupCrossPowerSumsI32 { mask, .. }
             | Terminal::Keep { mask } => touch(mask),
         }
         Self {

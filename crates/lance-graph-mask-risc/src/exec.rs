@@ -1422,8 +1422,8 @@ fn precheck(
             Terminal::GroupSumI32 { .. } => Some("GroupSumI32"),
             Terminal::GroupSumViaI32 { .. } => Some("GroupSumViaI32"),
             Terminal::GroupReduce { .. } => Some("GroupReduce"),
-            Terminal::GroupMomentsI32 { .. } => Some("GroupMomentsI32"),
-            Terminal::GroupCrossMomentsI32 { .. } => Some("GroupCrossMomentsI32"),
+            Terminal::GroupPowerSumsI32 { .. } => Some("GroupPowerSumsI32"),
+            Terminal::GroupCrossPowerSumsI32 { .. } => Some("GroupCrossPowerSumsI32"),
         };
         if let Some(what) = refused {
             return Err(ExecError::ExtentUnsupported { what });
@@ -1577,8 +1577,8 @@ pub fn execute_compiled(
         }
         (Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. }, Out::I64(o)) => o.fill(0),
         (Terminal::GroupReduce { fold, .. }, Out::I64(o)) => o.fill(fold.seed()),
-        (Terminal::GroupMomentsI32 { .. }, Out::Moments(o)) => o.fill(PowerSums::default()),
-        (Terminal::GroupCrossMomentsI32 { .. }, Out::CrossMoments(o)) => {
+        (Terminal::GroupPowerSumsI32 { .. }, Out::PowerSums(o)) => o.fill(PowerSums::default()),
+        (Terminal::GroupCrossPowerSumsI32 { .. }, Out::CrossPowerSums(o)) => {
             o.fill(CrossPowerSums::default())
         }
         _ => {}
@@ -1992,12 +1992,12 @@ pub fn execute_compiled(
                     }
                 }
             }
-            Terminal::GroupMomentsI32 { mask, key, val } => {
+            Terminal::GroupPowerSumsI32 { mask, key, val } => {
                 // `validate` already refused a missing/too-small `out`, every
                 // wrong-width lane and a plane past the 2^32-row exactness
                 // bound; one delegation per tile (law L3) into the sink
                 // seeded above with `PowerSums::default()`.
-                if let Out::Moments(o) = &mut out {
+                if let Out::PowerSums(o) = &mut out {
                     let m = read(planes, &slots, mask, t);
                     let v = lane_i32(planes, val, t);
                     match key {
@@ -2022,10 +2022,10 @@ pub fn execute_compiled(
                     }
                 }
             }
-            Terminal::GroupCrossMomentsI32 { mask, key, x, y } => {
-                // Same contract as GroupMomentsI32, both lanes read in place:
+            Terminal::GroupCrossPowerSumsI32 { mask, key, x, y } => {
+                // Same contract as GroupPowerSumsI32, both lanes read in place:
                 // one delegation per tile into the sink seeded above.
-                if let Out::CrossMoments(o) = &mut out {
+                if let Out::CrossPowerSums(o) = &mut out {
                     let m = read(planes, &slots, mask, t);
                     let (xs, ys) = (lane_i32(planes, x, t), lane_i32(planes, y, t));
                     match key {
@@ -2088,8 +2088,8 @@ pub fn execute_compiled(
         Terminal::CountKeyRunsU32 { .. } => Value::Count(runs + run_carry.finish()),
         Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. } => Value::GroupSummed,
         Terminal::GroupReduce { .. } => Value::GroupReduced,
-        Terminal::GroupMomentsI32 { .. } => Value::GroupMoments,
-        Terminal::GroupCrossMomentsI32 { .. } => Value::GroupCrossMoments,
+        Terminal::GroupPowerSumsI32 { .. } => Value::GroupPowerSums,
+        Terminal::GroupCrossPowerSumsI32 { .. } => Value::GroupCrossPowerSums,
         Terminal::Keep { mask } => Value::Mask(mask),
     })
 }

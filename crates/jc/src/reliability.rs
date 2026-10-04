@@ -115,7 +115,7 @@ pub fn pearson(x: &[f64], y: &[f64]) -> Option<f64> {
 
 /// Pearson's `r` from the centred co-moment and the two centred
 /// second moments — the ONE place its degeneracy policy lives, shared by
-/// [`pearson`] and `stats::pearson_from_cross_moments`. Any common positive
+/// [`pearson`] and `stats::pearson_from_cross_power_sums`. Any common positive
 /// scale on all three (e.g. `n·S` instead of `S`) cancels.
 pub(crate) fn pearson_from_centered(sxy: f64, sxx: f64, syy: f64) -> Option<f64> {
     let denom = (sxx * syy).sqrt();

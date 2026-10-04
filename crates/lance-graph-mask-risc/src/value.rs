@@ -6,9 +6,9 @@
 
 use crate::ir::Operand;
 /// The per-group `(n, Σx, Σy, Σx², Σy², Σxy)` accumulator
-/// [`Out::CrossMoments`] carries — re-exported for the same reason.
+/// [`Out::CrossPowerSums`] carries — re-exported for the same reason.
 pub use ndarray::simd::CrossPowerSums;
-/// The per-group `(n, Σx, Σx²)` accumulator [`Out::Moments`] carries. Re-exported
+/// The per-group `(n, Σx, Σx²)` accumulator [`Out::PowerSums`] carries. Re-exported
 /// here as shared result vocabulary so the independent oracle names the data
 /// type through this crate, never through the SIMD facade it falsifies.
 pub use ndarray::simd::PowerSums;
@@ -39,14 +39,14 @@ pub enum Value {
     /// written, one slot per group; see [`crate::GroupFold::seed`] for what
     /// an empty group holds.
     GroupReduced,
-    /// [`crate::Terminal::GroupMomentsI32`]: the caller's `Out::Moments`
+    /// [`crate::Terminal::GroupPowerSumsI32`]: the caller's `Out::PowerSums`
     /// buffer was written, one [`PowerSums`] per group; an empty group
     /// holds [`PowerSums::default()`] (`n == 0`).
-    GroupMoments,
-    /// [`crate::Terminal::GroupCrossMomentsI32`]: the caller's
-    /// `Out::CrossMoments` buffer was written, one [`CrossPowerSums`] per
+    GroupPowerSums,
+    /// [`crate::Terminal::GroupCrossPowerSumsI32`]: the caller's
+    /// `Out::CrossPowerSums` buffer was written, one [`CrossPowerSums`] per
     /// group; an empty group holds [`CrossPowerSums::default()`].
-    GroupCrossMoments,
+    GroupCrossPowerSums,
     /// [`crate::Terminal::MaskedStridedGroupSum`]: the widened sum, or `None`
     /// when it does not fit an `i64` (never a wrapped value).
     StridedSum(Option<i64>),
@@ -67,12 +67,12 @@ pub enum Out<'a> {
     /// [`crate::Terminal::ScatterOrU32`]'s destination, `words_for(out_rows)`
     /// long.
     Mask(&'a mut [u64]),
-    /// [`crate::Terminal::GroupMomentsI32`]'s destination — one
+    /// [`crate::Terminal::GroupPowerSumsI32`]'s destination — one
     /// [`PowerSums`] per group, its length IS the group universe `K`.
-    Moments(&'a mut [PowerSums]),
-    /// [`crate::Terminal::GroupCrossMomentsI32`]'s destination — one
+    PowerSums(&'a mut [PowerSums]),
+    /// [`crate::Terminal::GroupCrossPowerSumsI32`]'s destination — one
     /// [`CrossPowerSums`] per group, its length IS the group universe `K`.
-    CrossMoments(&'a mut [CrossPowerSums]),
+    CrossPowerSums(&'a mut [CrossPowerSums]),
 }
 
 /// The lane width a predicate or terminal expects, for [`ExecError::LaneKind`].

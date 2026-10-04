@@ -35,8 +35,8 @@ pub(crate) enum OutShape {
     I32(usize),
     I64(usize),
     Mask(usize),
-    Moments(usize),
-    CrossMoments(usize),
+    PowerSums(usize),
+    CrossPowerSums(usize),
 }
 
 /// [`OutShape`] of a borrowed `out` — the caller keeps `out` itself to write
@@ -47,8 +47,8 @@ pub(crate) fn out_shape(out: &Out<'_>) -> OutShape {
         Out::I32(v) => OutShape::I32(v.len()),
         Out::I64(v) => OutShape::I64(v.len()),
         Out::Mask(v) => OutShape::Mask(v.len()),
-        Out::Moments(v) => OutShape::Moments(v.len()),
-        Out::CrossMoments(v) => OutShape::CrossMoments(v.len()),
+        Out::PowerSums(v) => OutShape::PowerSums(v.len()),
+        Out::CrossPowerSums(v) => OutShape::CrossPowerSums(v.len()),
     }
 }
 
@@ -523,8 +523,8 @@ pub(crate) fn validate(
                 OutShape::I32(_) => Ok(()),
                 OutShape::I64(_)
                 | OutShape::Mask(_)
-                | OutShape::Moments(_)
-                | OutShape::CrossMoments(_) => Err(ExecError::BlendNeedsOut),
+                | OutShape::PowerSums(_)
+                | OutShape::CrossPowerSums(_) => Err(ExecError::BlendNeedsOut),
             }
         }
         Terminal::ScatterOrU32 {
@@ -555,8 +555,8 @@ pub(crate) fn validate(
                 OutShape::None
                 | OutShape::I32(_)
                 | OutShape::I64(_)
-                | OutShape::Moments(_)
-                | OutShape::CrossMoments(_) => Err(ExecError::TerminalNeedsOut { what }),
+                | OutShape::PowerSums(_)
+                | OutShape::CrossPowerSums(_) => Err(ExecError::TerminalNeedsOut { what }),
             }
         }
         Terminal::GroupSumI32 { mask, key, val } => {
@@ -573,8 +573,8 @@ pub(crate) fn validate(
                 | OutShape::I32(_)
                 | OutShape::I64(_)
                 | OutShape::Mask(_)
-                | OutShape::Moments(_)
-                | OutShape::CrossMoments(_) => Err(ExecError::TerminalNeedsOut {
+                | OutShape::PowerSums(_)
+                | OutShape::CrossPowerSums(_) => Err(ExecError::TerminalNeedsOut {
                     what: "GroupSumI32",
                 }),
             }
@@ -594,8 +594,8 @@ pub(crate) fn validate(
                 | OutShape::I32(_)
                 | OutShape::I64(_)
                 | OutShape::Mask(_)
-                | OutShape::Moments(_)
-                | OutShape::CrossMoments(_) => Err(ExecError::TerminalNeedsOut {
+                | OutShape::PowerSums(_)
+                | OutShape::CrossPowerSums(_) => Err(ExecError::TerminalNeedsOut {
                     what: "GroupSumViaI32",
                 }),
             }
@@ -622,13 +622,13 @@ pub(crate) fn validate(
                 | OutShape::I32(_)
                 | OutShape::I64(_)
                 | OutShape::Mask(_)
-                | OutShape::Moments(_)
-                | OutShape::CrossMoments(_) => Err(ExecError::TerminalNeedsOut {
+                | OutShape::PowerSums(_)
+                | OutShape::CrossPowerSums(_) => Err(ExecError::TerminalNeedsOut {
                     what: "GroupReduce",
                 }),
             }
         }
-        Terminal::GroupMomentsI32 { mask, key, val } => {
+        Terminal::GroupPowerSumsI32 { mask, key, val } => {
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)?;
             check_group_key(planes, foreign, key)?;
@@ -639,13 +639,13 @@ pub(crate) fn validate(
                 return Err(ExecError::SumRowBound { n_rows: n });
             }
             match out {
-                OutShape::Moments(len) if len >= 1 => Ok(()),
+                OutShape::PowerSums(len) if len >= 1 => Ok(()),
                 _ => Err(ExecError::TerminalNeedsOut {
-                    what: "GroupMomentsI32",
+                    what: "GroupPowerSumsI32",
                 }),
             }
         }
-        Terminal::GroupCrossMomentsI32 { mask, key, x, y } => {
+        Terminal::GroupCrossPowerSumsI32 { mask, key, x, y } => {
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)?;
             check_group_key(planes, foreign, key)?;
@@ -657,9 +657,9 @@ pub(crate) fn validate(
                 return Err(ExecError::SumRowBound { n_rows: n });
             }
             match out {
-                OutShape::CrossMoments(len) if len >= 1 => Ok(()),
+                OutShape::CrossPowerSums(len) if len >= 1 => Ok(()),
                 _ => Err(ExecError::TerminalNeedsOut {
-                    what: "GroupCrossMomentsI32",
+                    what: "GroupCrossPowerSumsI32",
                 }),
             }
         }
@@ -1157,8 +1157,8 @@ pub fn reference_execute_into(
             }
             Value::GroupReduced
         }
-        Terminal::GroupMomentsI32 { mask, key, val } => {
-            if let Out::Moments(o) = out {
+        Terminal::GroupPowerSumsI32 { mask, key, val } => {
+            if let Out::PowerSums(o) = out {
                 // Independent formulation: seed every slot, then walk the
                 // survivors one row at a time, widening straight to i128 —
                 // no ndarray kernel involved.
@@ -1181,11 +1181,11 @@ pub fn reference_execute_into(
                     slot.sum = i64::try_from(s).expect("validated 2^32-row bound keeps Σx in i64");
                 }
             }
-            Value::GroupMoments
+            Value::GroupPowerSums
         }
-        Terminal::GroupCrossMomentsI32 { mask, key, x, y } => {
-            if let Out::CrossMoments(o) = out {
-                // Independent formulation, as for GroupMomentsI32: every
+        Terminal::GroupCrossPowerSumsI32 { mask, key, x, y } => {
+            if let Out::CrossPowerSums(o) = out {
+                // Independent formulation, as for GroupPowerSumsI32: every
                 // field accumulated in i128 row by row, no kernel involved.
                 let mut acc = vec![[0i128; 6]; o.len()];
                 for r in survivors(mask) {
@@ -1216,7 +1216,7 @@ pub fn reference_execute_into(
                     };
                 }
             }
-            Value::GroupCrossMoments
+            Value::GroupCrossPowerSums
         }
         Terminal::Keep { mask } => {
             if let Out::Mask(o) = out {

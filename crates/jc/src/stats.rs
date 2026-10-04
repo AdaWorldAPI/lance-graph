@@ -114,7 +114,7 @@ fn sample_cov(x: &[f64], y: &[f64]) -> Option<f64> {
 
 /// The unbiased (divisor `n−1`) covariance from the centred co-moment
 /// `Σ(x−x̄)(y−ȳ)` — the ONE place the convention lives, shared by
-/// `sample_cov` and [`sample_covariance_from_cross_moments`].
+/// `sample_cov` and [`sample_covariance_from_cross_power_sums`].
 #[inline]
 fn sample_cov_tail(sxy: f64, n: usize) -> Option<f64> {
     (n >= 2).then(|| sxy / (n as f64 - 1.0))
@@ -888,7 +888,7 @@ pub fn multiple_r_squared(y: &[f64], predictors: &[Vec<f64>]) -> Option<f64> {
 }
 
 /// The acceptance rule for a computed `R²` — the ONE place it lives, shared
-/// by [`multiple_r_squared`] and [`r_squared_from_cross_moments`].
+/// by [`multiple_r_squared`] and [`r_squared_from_cross_power_sums`].
 ///
 /// The only legitimate excursions are rounding-scale: `ss_res` marginally
 /// exceeding `ss_tot` (R² slightly below 0) or cancellation pushing it a few
@@ -963,7 +963,7 @@ pub fn eta_squared(groups: &[Vec<f64>]) -> Option<f64> {
 }
 
 /// η² from the two sums of squares — the ONE place its degeneracy policy
-/// lives, shared by [`eta_squared`] and [`eta_squared_from_moments`].
+/// lives, shared by [`eta_squared`] and [`eta_squared_from_power_sums`].
 fn eta_from_ss(ss_b: f64, ss_t: f64) -> Option<f64> {
     if ss_t == 0.0 || !ss_t.is_finite() {
         return None;
@@ -1157,7 +1157,7 @@ pub fn anova_one_way(groups: &[Vec<f64>]) -> Option<Anova> {
 
 /// The F test from the three sums of squares — the ONE place the one-way
 /// ANOVA's degeneracy policy lives, shared by [`anova_one_way`] (which
-/// passes `ss_w = ss_t − ss_b`) and [`anova_from_moments`] (which forms
+/// passes `ss_w = ss_t − ss_b`) and [`anova_from_power_sums`] (which forms
 /// `ss_w` exactly and `ss_t = ss_b + ss_w`).
 fn anova_from_ss(ss_b: f64, ss_w: f64, ss_t: f64, k: usize, n_total: usize) -> Option<Anova> {
     if n_total <= k {
@@ -1220,7 +1220,7 @@ fn anova_from_ss(ss_b: f64, ss_w: f64, ss_t: f64, k: usize, n_total: usize) -> O
 /// [`anova_one_way`]'s empty-group rule), or moments too large for the exact
 /// `i128` forms — i.e. outside the `2^32`-rows-per-group bound
 /// `PowerSums` is exact under.
-fn one_way_ss_from_moments(groups: &[PowerSums]) -> Option<(f64, f64, f64, usize, usize)> {
+fn one_way_ss_from_power_sums(groups: &[PowerSums]) -> Option<(f64, f64, f64, usize, usize)> {
     if groups.len() < 2 || groups.iter().any(|g| g.n == 0) {
         return None;
     }
@@ -1260,15 +1260,15 @@ fn one_way_ss_from_moments(groups: &[PowerSums]) -> Option<(f64, f64, f64, usize
 ///
 /// `groups[g]` holds group `g`'s `(n, Σx, Σx²)`, e.g. as folded out of a
 /// population mask by `ndarray::simd::masked_group_power_sums_i32` (or
-/// `lance-graph-mask-risc`'s `Terminal::GroupMomentsI32`). Every degenerate
+/// `lance-graph-mask-risc`'s `Terminal::GroupPowerSumsI32`). Every degenerate
 /// case is [`anova_one_way`]'s: fewer than 2 groups, an empty group,
 /// `N ≤ k`, and zero within-group variance are all `None`. The sums of
-/// squares are formed exactly (see `one_way_ss_from_moments`), so on data
+/// squares are formed exactly (see `one_way_ss_from_power_sums`), so on data
 /// where the slice path's two-pass floats cancel badly this is the more
 /// accurate of the two, not merely an approximation of it.
 ///
 /// ```
-/// use jc::stats::{anova_from_moments, anova_one_way};
+/// use jc::stats::{anova_from_power_sums, anova_one_way};
 /// use ndarray::simd::PowerSums;
 ///
 /// let groups = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
@@ -1276,11 +1276,11 @@ fn one_way_ss_from_moments(groups: &[PowerSums]) -> Option<(f64, f64, f64, usize
 ///     PowerSums { n: 3, sum: 6, sum_sq: 14 },
 ///     PowerSums { n: 3, sum: 15, sum_sq: 77 },
 /// ];
-/// let (a, b) = (anova_one_way(&groups).unwrap(), anova_from_moments(&moments).unwrap());
+/// let (a, b) = (anova_one_way(&groups).unwrap(), anova_from_power_sums(&moments).unwrap());
 /// assert!((a.f - b.f).abs() < 1e-12 && (a.p - b.p).abs() < 1e-12);
 /// ```
-pub fn anova_from_moments(groups: &[PowerSums]) -> Option<Anova> {
-    let (ss_b, ss_w, ss_t, k, n_total) = one_way_ss_from_moments(groups)?;
+pub fn anova_from_power_sums(groups: &[PowerSums]) -> Option<Anova> {
+    let (ss_b, ss_w, ss_t, k, n_total) = one_way_ss_from_power_sums(groups)?;
     anova_from_ss(ss_b, ss_w, ss_t, k, n_total)
 }
 
@@ -1288,8 +1288,8 @@ pub fn anova_from_moments(groups: &[PowerSums]) -> Option<Anova> {
 /// degeneracy policy (`None` only on fewer than 2 groups, an empty group, or
 /// zero total variance; a perfectly separated layout with zero within-group
 /// variance is a real `1.0`, unlike the F test).
-pub fn eta_squared_from_moments(groups: &[PowerSums]) -> Option<f64> {
-    let (ss_b, _, ss_t, _, _) = one_way_ss_from_moments(groups)?;
+pub fn eta_squared_from_power_sums(groups: &[PowerSums]) -> Option<f64> {
+    let (ss_b, _, ss_t, _, _) = one_way_ss_from_power_sums(groups)?;
     eta_from_ss(ss_b, ss_t)
 }
 
@@ -1333,13 +1333,13 @@ fn centered_cross(m: &CrossPowerSums) -> Option<(i128, i128, i128)> {
 /// degeneracy policy (`None` for `n < 2` or a constant `x` or `y`).
 ///
 /// ```
-/// use jc::stats::pearson_from_cross_moments;
+/// use jc::stats::pearson_from_cross_power_sums;
 /// use ndarray::simd::CrossPowerSums;
 /// // x = [1,2,3], y = [2,4,6]: perfectly correlated.
 /// let m = CrossPowerSums { n: 3, sum_x: 6, sum_y: 12, sum_x_sq: 14, sum_y_sq: 56, sum_xy: 28 };
-/// assert!((pearson_from_cross_moments(&m).unwrap() - 1.0).abs() < 1e-12);
+/// assert!((pearson_from_cross_power_sums(&m).unwrap() - 1.0).abs() < 1e-12);
 /// ```
-pub fn pearson_from_cross_moments(m: &CrossPowerSums) -> Option<f64> {
+pub fn pearson_from_cross_power_sums(m: &CrossPowerSums) -> Option<f64> {
     if m.n < 2 {
         return None;
     }
@@ -1349,7 +1349,7 @@ pub fn pearson_from_cross_moments(m: &CrossPowerSums) -> Option<f64> {
 
 /// The unbiased (divisor `n−1`) sample covariance from grouped cross moments
 /// — the convention this module already uses (`None` for `n < 2`).
-pub fn sample_covariance_from_cross_moments(m: &CrossPowerSums) -> Option<f64> {
+pub fn sample_covariance_from_cross_power_sums(m: &CrossPowerSums) -> Option<f64> {
     let (cxy, _, _) = centered_cross(m)?;
     // `C_xy = n·Σ(x−x̄)(y−ȳ)`: divide the `n` back out before the tail.
     let sxy = cxy as f64 / m.n.max(1) as f64;
@@ -1377,7 +1377,7 @@ pub struct SimpleRegression {
 /// `|β·x̄|` is large and `α` is small its ABSOLUTE error is on the order of
 /// `ε·(|β|·|x̄| + |ȳ|)`. That is the conditioning of the quantity itself, not
 /// of the fold; centre `x` before regressing when `α` itself matters.
-pub fn simple_regression_from_cross_moments(m: &CrossPowerSums) -> Option<SimpleRegression> {
+pub fn simple_regression_from_cross_power_sums(m: &CrossPowerSums) -> Option<SimpleRegression> {
     if m.n < 2 {
         return None;
     }
@@ -1395,7 +1395,7 @@ pub fn simple_regression_from_cross_moments(m: &CrossPowerSums) -> Option<Simple
 /// [`multiple_r_squared`]'s one-predictor contract: `None` for `n < 3` (one
 /// residual degree of freedom beyond the two coefficients), a constant `x` or
 /// a constant `y`; otherwise `r²`, through the same acceptance rule.
-pub fn r_squared_from_cross_moments(m: &CrossPowerSums) -> Option<f64> {
+pub fn r_squared_from_cross_power_sums(m: &CrossPowerSums) -> Option<f64> {
     if m.n < 3 {
         return None;
     }
@@ -2494,7 +2494,7 @@ mod tests {
     // statistics folded straight off a population mask equals the same
     // statistic computed from the materialized groups. The fold is
     // `ndarray::simd::masked_group_power_sums_i32` — the kernel
-    // `lance-graph-mask-risc`'s `Terminal::GroupMomentsI32` delegates to.
+    // `lance-graph-mask-risc`'s `Terminal::GroupPowerSumsI32` delegates to.
     //
     // Tolerances. Both paths form the same sums of squares by different
     // float orderings (two-pass deviations vs exact integers then one
@@ -2506,7 +2506,7 @@ mod tests {
     // 1e-9 absolute on p leave three orders of margin and still fail on any
     // real algebraic difference (a dropped row, a wrong df, a wrong group).
 
-    mod moments_equivalence {
+    mod power_sums_equivalence {
         use super::super::*;
         use ndarray::simd::masked_group_power_sums_i32;
 
@@ -2616,8 +2616,9 @@ mod tests {
                         let moments = fold(&p, k);
                         let what = format!("n={n} k={k} density={density}");
                         let a = anova_one_way(&groups);
-                        assert_same(a, anova_from_moments(&moments), &what);
-                        let (ea, eb) = (eta_squared(&groups), eta_squared_from_moments(&moments));
+                        assert_same(a, anova_from_power_sums(&moments), &what);
+                        let (ea, eb) =
+                            (eta_squared(&groups), eta_squared_from_power_sums(&moments));
                         match (ea, eb) {
                             (Some(x), Some(y)) => assert!((x - y).abs() < 1e-9, "{what}: η²"),
                             (x, y) => assert_eq!(x, y, "{what}: η² degeneracy"),
@@ -2659,9 +2660,12 @@ mod tests {
                     }
                 }
                 assert_eq!(merged, whole, "chunks={chunks}");
-                assert_eq!(anova_from_moments(&merged), anova_from_moments(&whole));
+                assert_eq!(
+                    anova_from_power_sums(&merged),
+                    anova_from_power_sums(&whole)
+                );
             }
-            assert!(anova_from_moments(&whole).is_some());
+            assert!(anova_from_power_sums(&whole).is_some());
         }
 
         /// FAILS IF: values near the i32 bound lose precision on the
@@ -2675,7 +2679,11 @@ mod tests {
                 let groups = materialize(&p, k);
                 let a = anova_one_way(&groups);
                 assert!(a.is_some(), "fixture must be non-degenerate");
-                assert_same(a, anova_from_moments(&fold(&p, k)), &format!("base={base}"));
+                assert_same(
+                    a,
+                    anova_from_power_sums(&fold(&p, k)),
+                    &format!("base={base}"),
+                );
             }
         }
 
@@ -2716,16 +2724,16 @@ mod tests {
             ];
             for (what, groups, moments) in cases {
                 assert_eq!(anova_one_way(&groups), None, "{what}: slice");
-                assert_eq!(anova_from_moments(&moments), None, "{what}: moments");
+                assert_eq!(anova_from_power_sums(&moments), None, "{what}: moments");
                 assert_eq!(
                     eta_squared(&groups),
-                    eta_squared_from_moments(&moments),
+                    eta_squared_from_power_sums(&moments),
                     "{what}: η²"
                 );
             }
             // The one degenerate case where η² is NOT None: perfect separation.
             let sep = [m(3, &[7, 7, 7]), m(2, &[9, 9])];
-            assert_eq!(eta_squared_from_moments(&sep), Some(1.0));
+            assert_eq!(eta_squared_from_power_sums(&sep), Some(1.0));
         }
 
         /// FAILS IF: the moments path loses the within-group variance to
@@ -2759,7 +2767,7 @@ mod tests {
                 .map(|&b| 6 * i128::from(b) * i128::from(b))
                 .sum();
             let f_exact = (ss_b as f64 / 2.0) / (ss_w as f64 / 15.0);
-            let got = anova_from_moments(&moments).expect("non-degenerate");
+            let got = anova_from_power_sums(&moments).expect("non-degenerate");
             assert_eq!((got.df_between, got.df_within), (2.0, 15.0));
             assert!(
                 rel(got.f, f_exact) < 1e-12,
@@ -2784,9 +2792,9 @@ mod tests {
     // covariance, R² and slope leaves wide margin while still catching any
     // real algebraic error. The intercept is compared with the ABSOLUTE
     // bound its own conditioning allows (see
-    // `simple_regression_from_cross_moments`).
+    // `simple_regression_from_cross_power_sums`).
 
-    mod cross_moments_equivalence {
+    mod cross_power_sums_equivalence {
         use super::super::*;
         use crate::reliability::pearson;
         use ndarray::simd::masked_group_cross_power_sums_i32;
@@ -2882,11 +2890,11 @@ mod tests {
         /// Compare every projection of one group against its slice
         /// counterpart; both `None` or both within tolerance.
         fn assert_group_agrees(x: &[f64], y: &[f64], m: &CrossPowerSums, what: &str) {
-            match (pearson(x, y), pearson_from_cross_moments(m)) {
+            match (pearson(x, y), pearson_from_cross_power_sums(m)) {
                 (Some(a), Some(b)) => assert!(rel(a, b) < 1e-9, "{what}: r {a} vs {b}"),
                 (a, b) => assert_eq!(a, b, "{what}: r degeneracy"),
             }
-            match (sample_cov(x, y), sample_covariance_from_cross_moments(m)) {
+            match (sample_cov(x, y), sample_covariance_from_cross_power_sums(m)) {
                 (Some(a), Some(b)) => {
                     assert!(
                         (a - b).abs() <= 1e-9 * a.abs().max(1.0),
@@ -2897,12 +2905,12 @@ mod tests {
             }
             match (
                 multiple_r_squared(y, &[x.to_vec()]),
-                r_squared_from_cross_moments(m),
+                r_squared_from_cross_power_sums(m),
             ) {
                 (Some(a), Some(b)) => assert!((a - b).abs() < 1e-9, "{what}: R² {a} vs {b}"),
                 (a, b) => assert_eq!(a, b, "{what}: R² degeneracy"),
             }
-            match (ols(x, y), simple_regression_from_cross_moments(m)) {
+            match (ols(x, y), simple_regression_from_cross_power_sums(m)) {
                 (Some((sl, ic)), Some(r)) => {
                     assert!(rel(sl, r.slope) < 1e-9, "{what}: slope {sl} vs {}", r.slope);
                     let mx = mean(x).unwrap().abs();
@@ -2993,17 +3001,20 @@ mod tests {
                     }
                     assert_eq!(merged, whole, "chunks={chunks} reversed={order}");
                     for (a, b) in merged.iter().zip(&whole) {
-                        assert_eq!(pearson_from_cross_moments(a), pearson_from_cross_moments(b));
                         assert_eq!(
-                            simple_regression_from_cross_moments(a),
-                            simple_regression_from_cross_moments(b)
+                            pearson_from_cross_power_sums(a),
+                            pearson_from_cross_power_sums(b)
+                        );
+                        assert_eq!(
+                            simple_regression_from_cross_power_sums(a),
+                            simple_regression_from_cross_power_sums(b)
                         );
                     }
                 }
             }
         }
 
-        fn moments_of(xs: &[i64], ys: &[i64]) -> CrossPowerSums {
+        fn power_sums_of(xs: &[i64], ys: &[i64]) -> CrossPowerSums {
             // Through the real fold: one group, every row selected.
             let xs: Vec<i32> = xs.iter().map(|&x| x as i32).collect();
             let ys: Vec<i32> = ys.iter().map(|&y| y as i32).collect();
@@ -3034,28 +3045,35 @@ mod tests {
                 ("perfect -1", &[-3, 1, 4, 10], &[7, -1, -7, -19]),
             ];
             for (what, xs, ys) in cases {
-                let m = moments_of(xs, ys);
+                let m = power_sums_of(xs, ys);
                 let xf: Vec<f64> = xs.iter().map(|&v| v as f64).collect();
                 let yf: Vec<f64> = ys.iter().map(|&v| v as f64).collect();
                 assert_group_agrees(&xf, &yf, &m, what);
             }
             // The contract, stated positively rather than only as agreement.
-            let m = |x: &[i64], y: &[i64]| moments_of(x, y);
-            assert_eq!(pearson_from_cross_moments(&m(&[], &[])), None);
-            assert_eq!(sample_covariance_from_cross_moments(&m(&[4], &[9])), None);
-            assert_eq!(r_squared_from_cross_moments(&m(&[1, 3], &[2, 7])), None);
-            assert!(pearson_from_cross_moments(&m(&[1, 3], &[2, 7])).is_some());
-            assert_eq!(pearson_from_cross_moments(&m(&[5, 5, 5], &[1, 2, 3])), None);
+            let m = |x: &[i64], y: &[i64]| power_sums_of(x, y);
+            assert_eq!(pearson_from_cross_power_sums(&m(&[], &[])), None);
             assert_eq!(
-                simple_regression_from_cross_moments(&m(&[5, 5, 5], &[1, 2, 3])),
+                sample_covariance_from_cross_power_sums(&m(&[4], &[9])),
                 None
             );
-            let flat = simple_regression_from_cross_moments(&m(&[1, 2, 3], &[5, 5, 5])).unwrap();
+            assert_eq!(r_squared_from_cross_power_sums(&m(&[1, 3], &[2, 7])), None);
+            assert!(pearson_from_cross_power_sums(&m(&[1, 3], &[2, 7])).is_some());
+            assert_eq!(
+                pearson_from_cross_power_sums(&m(&[5, 5, 5], &[1, 2, 3])),
+                None
+            );
+            assert_eq!(
+                simple_regression_from_cross_power_sums(&m(&[5, 5, 5], &[1, 2, 3])),
+                None
+            );
+            let flat = simple_regression_from_cross_power_sums(&m(&[1, 2, 3], &[5, 5, 5])).unwrap();
             assert_eq!((flat.slope, flat.intercept), (0.0, 5.0));
-            let r = pearson_from_cross_moments(&m(&[-3, 1, 4, 10], &[7, -1, -7, -19])).unwrap();
+            let r = pearson_from_cross_power_sums(&m(&[-3, 1, 4, 10], &[7, -1, -7, -19])).unwrap();
             assert!((r + 1.0).abs() < 1e-15, "perfect -1: {r}");
             let line =
-                simple_regression_from_cross_moments(&m(&[-3, 1, 4, 10], &[-5, 3, 9, 21])).unwrap();
+                simple_regression_from_cross_power_sums(&m(&[-3, 1, 4, 10], &[-5, 3, 9, 21]))
+                    .unwrap();
             assert_eq!((line.slope, line.intercept), (2.0, 1.0));
         }
 
@@ -3104,7 +3122,7 @@ mod tests {
             ] {
                 let xs: Vec<i64> = d.iter().map(|v| b + v).collect();
                 let ys: Vec<i64> = d.iter().zip(e).map(|(v, w)| c + v + w).collect();
-                let m = moments_of(&xs, &ys);
+                let m = power_sums_of(&xs, &ys);
                 let sxy: i64 = d.iter().zip(e).map(|(v, w)| v * (v + w)).sum();
                 let sxx: i64 = d.iter().map(|v| v * v).sum();
                 let syy: i64 = d.iter().zip(e).map(|(v, w)| (v + w) * (v + w)).sum();
@@ -3116,16 +3134,16 @@ mod tests {
                     / sxx as f64;
                 let cov_exact = sxy as f64 / 9.0;
 
-                let r = pearson_from_cross_moments(&m).unwrap();
+                let r = pearson_from_cross_power_sums(&m).unwrap();
                 assert!(rel(r, r_exact) < 1e-15, "B={b}: r {r} vs exact {r_exact}");
-                let r2 = r_squared_from_cross_moments(&m).unwrap();
+                let r2 = r_squared_from_cross_power_sums(&m).unwrap();
                 assert!(rel(r2, r_exact * r_exact) < 1e-15, "B={b}: R²");
-                let cov = sample_covariance_from_cross_moments(&m).unwrap();
+                let cov = sample_covariance_from_cross_power_sums(&m).unwrap();
                 assert!(
                     rel(cov, cov_exact) < 1e-15,
                     "B={b}: cov {cov} vs {cov_exact}"
                 );
-                let line = simple_regression_from_cross_moments(&m).unwrap();
+                let line = simple_regression_from_cross_power_sums(&m).unwrap();
                 assert!(rel(line.slope, slope_exact) < 1e-15, "B={b}: slope");
                 // The documented intercept bound: ε·(|β|·|x̄| + |ȳ|).
                 let bound =
@@ -3165,7 +3183,7 @@ mod tests {
         /// check for the wrong reason, so the test passed with every checked
         /// operation disabled. Measured by a disable run.)
         #[test]
-        fn moments_past_the_bound_are_refused() {
+        fn power_sums_past_the_bound_are_refused() {
             let v = (1i128 << 95) + 1;
             let huge = CrossPowerSums {
                 n: 1 << 33,
@@ -3175,10 +3193,10 @@ mod tests {
                 sum_y_sq: v as u128,
                 sum_xy: v,
             };
-            assert_eq!(pearson_from_cross_moments(&huge), None);
-            assert_eq!(sample_covariance_from_cross_moments(&huge), None);
-            assert_eq!(simple_regression_from_cross_moments(&huge), None);
-            assert_eq!(r_squared_from_cross_moments(&huge), None);
+            assert_eq!(pearson_from_cross_power_sums(&huge), None);
+            assert_eq!(sample_covariance_from_cross_power_sums(&huge), None);
+            assert_eq!(simple_regression_from_cross_power_sums(&huge), None);
+            assert_eq!(r_squared_from_cross_power_sums(&huge), None);
         }
     }
 }
