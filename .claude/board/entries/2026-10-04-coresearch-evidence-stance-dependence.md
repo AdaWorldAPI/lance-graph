@@ -218,7 +218,7 @@ which fix a live path.
 3. Is there a first consumer of `SupportProfile` in sight? If not, X5, X12 and the
    `independent_strength` path stay parked.
 
-coresearch evidence-stance | STATUS: measured | OUTCOME: map landed; X17 double count measured in deepnsm-v2; source convention corrected to attribution (#1318) | OPEN: items 1–3 above
+coresearch evidence-stance | STATUS: measured | OUTCOME: map landed; X17 measured in deepnsm-v2 (a derived belief pools an observation from a source its derivation already used); source convention corrected to attribution (#1318) | OPEN: items 1–3 above
 
 ## Addendum: operator working model for the 24×i4 register
 
