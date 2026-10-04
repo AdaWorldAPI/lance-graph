@@ -5,6 +5,8 @@
   `energy_all_finite_resolved(rows, ValueSchema)`: no per-row lookup. The
   mixed-batch API resolves once per classid run. Entry `D-HPS-2`.
 - `soa_graph` helpers take the domain's resolved `TailVariant`.
+- `lance-graph-mask-risc`: `Pred::MatchFacet16Strided` (16-byte strided
+  ternary match, over `ndarray::simd::ternary_match_strided16_to_mask`).
 
 ## 2026-10-04 — SPOG × slab declaration resolves through hotplug (branch `ccr-f6094d67-h6ulb3`, unmerged)
 

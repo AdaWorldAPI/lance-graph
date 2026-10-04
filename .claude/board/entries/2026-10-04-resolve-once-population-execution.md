@@ -25,8 +25,13 @@ loops do no registry / ClassView / read-mode lookup.
   ndarray #340). 12 B vs 16 B at stride 512, 65,536 rows: 5.1–5.3 ns/row for
   both; no measurable cost.
 
+- mask-risc: `Pred::MatchFacet16Strided {lane, pattern: [u8; 16], care: [u8; 16]}`
+  lowers to `ternary_match_strided16_to_mask` (ndarray #340, merged). The view
+  is validated 16 bytes wide; the oracle compares all 16 bytes. Disable runs,
+  all red: executor on the 12 B kernel; oracle on 12 bytes; width check at 12.
+  No new IR shape; Quack unchanged (no caller needs a spelling yet).
+
 **OPEN:**
-- mask-risc does not expose the 16 B matcher until ndarray #340 merges.
 - The bake paths were not changed: q2 `osint-bake/src/bin/fma.rs` does a
   homogeneous per-node `classid_read_mode(CLASSID_FMA)` (another repo), and
   deepnsm-v2 `promote.rs` `key_at` does one per call.
