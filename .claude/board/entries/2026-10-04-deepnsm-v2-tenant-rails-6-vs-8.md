@@ -36,3 +36,31 @@ Suggested tenants:
 - A classid-free 8-rail register as a value-slab tenant is a new reading.
 - It needs the envelope auditor (`v3-envelope-auditor`: field-isolation matrix, read-mode alias) and an operator ruling before any lane changes.
 - BASIS: this table. REVISIT WHEN: the ruling lands, or edge/coreference degree is measured.
+
+## Correction: group nodes are explicit membership, not storage sharing
+
+Operator: *"Group nodes wasn't about saving, it was about active directory like group memberships for explicit members as opposed to 24xi4 abstract qualities."*
+
+Finding 2 above ("exact-set group nodes do not deduplicate") measured storage sharing, which is the wrong question.
+
+- **A group node is an enumerated, crisp membership**, like an AD group: *the sons of Levi* = {Gershon, Kohath, Merari}.
+- Groups nest: a member is itself a group.
+- A verse refers to the group with one rail; members resolve through the group node's own member tenant, transitively through nested groups.
+- Contrast: the 24×i4 tenant flavours hold graded, abstract qualities that are inferred, not enumerated.
+
+**Exploratory scan.** A regex over the KJV for "the sons/children/… of X; A, B, and C" (uncommitted lab script, noisy):
+- **74 explicit groups**, 380 members, median 5 members, maximum 14.
+- **29 nested groups**: a member heads its own group. Example chain: sons of Israel → Levi → sons of Levi → Kohath → sons of Kohath → Amram, four levels.
+- **Groups are named collectively far more often than they are enumerated.** Collective mentions: *sons of Aaron* 28, *sons of Levi* 21, *children of Israel* 647, *the twelve* 38, *twelve tribes* 10.
+
+**Known noise:**
+- Dinah (a daughter) is captured under the sons of Jacob.
+- The variant spellings Gershom/Gershon are not merged.
+- *Children of Israel* is never enumerated by this pattern.
+
+**OPEN.**
+- A group-node reader:
+  - enumerations → member tenant (8 × u8:u8 per 16 B, chained for larger groups);
+  - nested membership as group → group edges;
+  - a collective mention → one group rail in the verse tenant.
+- Then measure how many verse rails collective mentions replace.
