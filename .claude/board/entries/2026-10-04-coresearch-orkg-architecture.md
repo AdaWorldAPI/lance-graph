@@ -46,7 +46,7 @@ support, PROV-O the lineage, and GRADE only a derived view.
 | X15 | GRADE certainty | DROP as stored | CONFLICT | **SKIP** (projection only, never stored) | D-BBB-NARS-4 |
 | X11 | content hash as claim identity | DROP | TRAP | **SKIP** | GUID is the key (OGAR P0); no internal pins. Allowed only: transient dedup proposal, or an external Trusty-URI as an external id |
 | X16 | imported worlds do not permeate the core | ALREADY-HAVE | PASS | **SKIP** (already the firewall) | — |
-| X19 | known unknowns on the causal path: direct / indirect with KNOWN intermediates / indirect with UNKNOWN intermediates / topology not established | (added after the council, from an operator pointer) | — | **PROBE** | CE64 bits 59-60 `CausalTopology` (`causal-edge/src/layout.rs:173-250`); source twin `DismechTopology` (`lance-graph-contract/src/dismech_evidence.rs:56-69`, measured: 9,073 / 3,978 / 4,539 / 408 on 2,100 DisMech files). P-X19: (a) a literature or cohort edge must not be written without an explicit topology — `CausalEdge64::ZERO` reads `Direct` by default, so an import that omits the field silently claims a direct path; (b) a parse failure must fail closed, never mint `Unknown`, because `Unknown` is an asserted value |
+| X19 | two orthogonal claim axes already on the edge: KIND of claim (CE64 bits 61-63 `ReasoningBand`: Association 1 / Relation 2 / Causal 3 / Counterfactual 4 — correlation vs causation, Pearl's ladder) × PATH shape (bits 59-60 `CausalTopology`: direct / indirect with KNOWN intermediates / indirect with UNKNOWN intermediates / topology not established) | (added after the council, from an operator pointer) | — | **PROBE** | CE64 bits 59-60 `CausalTopology` (`causal-edge/src/layout.rs:173-250`); source twin `DismechTopology` (`lance-graph-contract/src/dismech_evidence.rs:56-69`, measured: 9,073 / 3,978 / 4,539 / 408 on 2,100 DisMech files). P-X19: (a) a literature or cohort edge must not be written without an explicit topology — `CausalEdge64::ZERO` reads `Direct` by default, so an import that omits the field silently claims a direct path; (b) a parse failure must fail closed, never mint `Unknown`, because `Unknown` is an asserted value; (c) an association source (cohort `Correlation`, arm-discovery rule) must be stamped `ReasoningBand::Association`, never `Causal` — today NO producer writes `Association` (only `dismech_counterfactual.rs:547` writes a band, and it writes `Causal`), so correlations read `Surface`; (d) silence twin: a source-asserted causal claim (DisMech) stays `Causal` |
 
 ## Productive disagreements (named, not resolved)
 1. **X9 document witness.** Firewall: fold into `Oracle` ("bewusst kein viertes"). Bridge: a document witness source. Falsifier: `OracleModule(u32)` would need a registry. Second premise pass: these are different axes. Origin (Q9a) and source (Q9b) are separate questions, and the code's own doc comments disagree on the origin (a guideline is Oracle; a confirmed document extract is Observed). → operator, as Q9a and Q9b.
@@ -104,6 +104,21 @@ Hazards stated in code:
 - topology on old rows is not authoritative;
 - under `default-features = false` the accessor always returns `Direct`
   (`arm-discovery/src/translator.rs:28-33`).
+
+**Bits 61-63 (second operator pointer).** `ReasoningBand` (`causal-edge/src/layout.rs:280-400`)
+records the KIND of a claim: Association (1), Relation (2), Causal (3), Counterfactual (4). That
+is the correlation-versus-causation axis, and it is orthogonal to `CausalTopology`, the PATH
+shape. Together the two answer what ORKG and SciFact leave as free text: whether a finding is
+an association or a causal claim, and whether its mechanism is known. Nothing derives the band
+automatically: it is set only by `with_reasoning_band()`, and `ZERO` reads `Surface`. The gap
+is on the producer side. Of the band's non-default values, only `Causal` is written anywhere in
+the workspace, and only by `lance-graph-planner/src/dismech_counterfactual.rs:547` (plus probe
+examples); the closed search was `with_reasoning_band` / `ReasoningBand::` over all `crates/`.
+So every association source in the stack (cohort correlations, arm-discovery rules) currently
+stores `Surface` rather than declaring itself an `Association`. The three kinds map as follows:
+- an ORKG R0 cell describes one population and is not an edge, so neither axis applies;
+- a MedCare `Correlation` is `Association`, with topology not established;
+- a DisMech mechanism is `Causal`, with its topology taken from the source.
 
 Lesson for the next council: the code cartographer's search space must include the contract's
 domain modules, not only the vocabulary constants.
