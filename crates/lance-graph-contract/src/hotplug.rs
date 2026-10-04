@@ -19,6 +19,22 @@
 //! The classid is the join key on BOTH sides: the consumer says "0x0805,
 //! 0x0808, 0x0809 are hot", the authority hands back the concepts and every
 //! action whose subject is one of those ids.
+//!
+//! # SPOG × slab metadata → tenant reading (the ONE resolution path)
+//!
+//! A row is read under three separate concerns, and this module is where they
+//! meet — never a second registry beside it:
+//!
+//! | concern | carrier | answers |
+//! |---|---|---|
+//! | SPOG context | the row key, via [`crate::spog_tenants::graph_of`] | which concept/graph this row belongs to |
+//! | OGAR registry | [`Activation`] (from [`CapabilityAuthority::activate`]) | is that concept plugged, and how its class reads |
+//! | slab metadata | [`SlabDeclaration`] (beside the slab, never inside it) | how THIS physical slab was written |
+//!
+//! [`Activation::resolve_tenant_reading`] combines them into one
+//! [`ReadMode`](crate::canonical_node::ReadMode) or a named
+//! [`ActivationDrift`]. Tenant bytes stay content-blind: nothing on this path
+//! decodes a payload to decide how to read it.
 
 /// A consumer's hot-plug declaration: which classids it activates and which
 /// capability names its executor covers. One `const` per consumer — the
@@ -159,6 +175,100 @@ impl Activation {
     }
 }
 
+/// What a physical slab DECLARES about how it was written — the slab half of
+/// the SPOG × slab resolution.
+///
+/// It is metadata that lives BESIDE the slab (a group header, the way a
+/// palette group carries its gamma once rather than per cell), never a field
+/// decoded from tenant bytes: the payload stays content-blind. Where the
+/// declaration is physically stored is not this type's concern; the type
+/// fixes only what a declaration may say and how it is checked.
+///
+/// A declaration is a CLAIM, not an authority. It is checked against the
+/// reading the OGAR authority resolved for the same concept, and it may only
+/// NARROW that reading — see [`Activation::resolve_tenant_reading`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlabDeclaration {
+    /// The concept (canon-high half of the classid) the slab was written
+    /// under. Must equal the SPOG graph of the row being read.
+    pub concept: u16,
+    /// How the slab was written.
+    pub read_mode: crate::canonical_node::ReadMode,
+    /// [`crate::soa_envelope::ENVELOPE_LAYOUT_VERSION`] at write time. A slab
+    /// written under another layout is refused, never reinterpreted.
+    pub layout_version: u8,
+}
+
+impl Activation {
+    /// Resolve the reading for one row: SPOG context × slab declaration,
+    /// validated by this activation. The single resolution path.
+    ///
+    /// 1. **SPOG** — the row's concept is [`crate::spog_tenants::graph_of`]
+    ///    of its key. Read from the key, never from the payload.
+    /// 2. **Registry** — that concept must have a reading in this activation
+    ///    ([`read_mode_for`](Activation::read_mode_for)); otherwise
+    ///    [`ActivationDrift::NoReadingFor`]. No slab declaration can stand in
+    ///    for a missing authority reading.
+    /// 3. **Slab** — with no declaration, the authority's reading is the
+    ///    answer. With one:
+    ///    - it must name the same concept
+    ///      ([`ActivationDrift::SlabConceptMismatch`]);
+    ///    - it must carry the current envelope layout
+    ///      ([`ActivationDrift::SlabLayoutVersion`]);
+    ///    - its tail and edge codec must EQUAL the authority's — they read the
+    ///      key and edge block, which are class semantics, not slab choices;
+    ///    - its value schema may be NARROWER (a subset of tenants: the slab
+    ///      wrote fewer than the class allows), never wider.
+    ///
+    ///    Any other difference is [`ActivationDrift::SlabReadingConflict`].
+    ///    The declared reading is returned when it passes, because it is the
+    ///    one that matches the bytes actually written.
+    ///
+    /// # Errors
+    ///
+    /// The named [`ActivationDrift`] arms above. There is no fallback reading
+    /// on any path.
+    pub fn resolve_tenant_reading(
+        &self,
+        key: crate::canonical_node::NodeGuid,
+        slab: Option<&SlabDeclaration>,
+    ) -> Result<crate::canonical_node::ReadMode, ActivationDrift> {
+        let concept = crate::spog_tenants::graph_of(key);
+        let authority = self.read_mode_for(concept)?;
+        let Some(slab) = slab else {
+            return Ok(authority);
+        };
+        if slab.concept != concept {
+            return Err(ActivationDrift::SlabConceptMismatch {
+                spog: concept,
+                slab: slab.concept,
+            });
+        }
+        if slab.layout_version != crate::soa_envelope::ENVELOPE_LAYOUT_VERSION {
+            return Err(ActivationDrift::SlabLayoutVersion {
+                slab: slab.layout_version,
+                expected: crate::soa_envelope::ENVELOPE_LAYOUT_VERSION,
+            });
+        }
+        let declared = slab.read_mode;
+        let narrows = declared
+            .value_schema
+            .field_mask()
+            .is_subset_of(authority.value_schema.field_mask());
+        if declared.tail_variant != authority.tail_variant
+            || declared.edge_codec != authority.edge_codec
+            || !narrows
+        {
+            return Err(ActivationDrift::SlabReadingConflict {
+                concept,
+                authority,
+                declared,
+            });
+        }
+        Ok(declared)
+    }
+}
+
 /// Why an activation failed — each arm is one named bang.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivationDrift {
@@ -184,6 +294,30 @@ pub enum ActivationDrift {
     ///
     /// [`ReadMode::DEFAULT`]: crate::canonical_node::ReadMode::DEFAULT
     NoReadingFor(u16),
+    /// A slab declaration names a different concept than the row's SPOG
+    /// graph ([`crate::spog_tenants::graph_of`] of its key).
+    SlabConceptMismatch {
+        /// The concept read from the row key.
+        spog: u16,
+        /// The concept the slab declared.
+        slab: u16,
+    },
+    /// A slab was written under another envelope layout version.
+    SlabLayoutVersion {
+        /// The version the slab declared.
+        slab: u8,
+        /// [`crate::soa_envelope::ENVELOPE_LAYOUT_VERSION`].
+        expected: u8,
+    },
+    /// A slab declaration contradicts or widens the authority's reading.
+    SlabReadingConflict {
+        /// The concept both readings are for.
+        concept: u16,
+        /// What the authority resolved.
+        authority: crate::canonical_node::ReadMode,
+        /// What the slab declared.
+        declared: crate::canonical_node::ReadMode,
+    },
     /// The authority resolved a concept that this crate's zero-dep wire
     /// mirror ([`crate::ogar_codebook`]) does not carry at the same id.
     ///
@@ -249,6 +383,23 @@ impl core::fmt::Display for ActivationDrift {
                 f,
                 "no storage reading declared for concept 0x{id:04X} \
                  (a V1 default is never substituted)"
+            ),
+            Self::SlabConceptMismatch { spog, slab } => write!(
+                f,
+                "slab declares concept 0x{slab:04X} but the row's SPOG graph is 0x{spog:04X}"
+            ),
+            Self::SlabLayoutVersion { slab, expected } => write!(
+                f,
+                "slab written under envelope layout v{slab}, this build reads v{expected}"
+            ),
+            Self::SlabReadingConflict {
+                concept,
+                authority,
+                declared,
+            } => write!(
+                f,
+                "slab reading {declared:?} for concept 0x{concept:04X} contradicts or \
+                 widens the authority's {authority:?}"
             ),
             Self::MirrorDrift {
                 concept,
@@ -389,6 +540,119 @@ mod tests {
             Err(ActivationDrift::NoReadingFor(0x0805)),
             "an empty table is not 'assume the default'"
         );
+    }
+
+    /// SPOG × slab resolution fixture: one plugged concept (0x0901) whose
+    /// authority reading is V3 / Full / CoarseOnly.
+    mod slab_resolution {
+        use super::super::*;
+        use crate::canonical_node::{
+            EdgeCodecFlavor, NodeGuid, ReadMode, TailVariant, ValueSchema,
+        };
+        use crate::soa_envelope::ENVELOPE_LAYOUT_VERSION;
+
+        const AUTH: ReadMode = ReadMode::PLUG_AND_PLAY_V3;
+
+        fn act() -> Activation {
+            Activation::new(Vec::new(), Vec::new(), vec![(0x0901, AUTH)])
+        }
+
+        /// A row whose SPOG graph (canon-high half of the classid) is `concept`.
+        fn row(concept: u16) -> NodeGuid {
+            NodeGuid::new(u32::from(concept) << 16, 1, 2, 3, 0x66, 7)
+        }
+
+        fn slab(concept: u16, read_mode: ReadMode) -> SlabDeclaration {
+            SlabDeclaration {
+                concept,
+                read_mode,
+                layout_version: ENVELOPE_LAYOUT_VERSION,
+            }
+        }
+
+        /// No declaration: the authority's reading. An unplugged concept bangs
+        /// even WITH a declaration — a slab cannot stand in for the registry.
+        #[test]
+        fn the_authority_answers_and_a_slab_cannot_replace_it() {
+            assert_eq!(act().resolve_tenant_reading(row(0x0901), None), Ok(AUTH));
+            assert_eq!(
+                act().resolve_tenant_reading(row(0x0902), Some(&slab(0x0902, AUTH))),
+                Err(ActivationDrift::NoReadingFor(0x0902))
+            );
+        }
+
+        /// The slab may NARROW the value schema, and the narrower reading is
+        /// what comes back (it matches the bytes written). Two-sided: the same
+        /// difference in the other direction (widening) is refused.
+        #[test]
+        fn a_slab_narrows_the_value_schema_but_never_widens_it() {
+            let narrow = ReadMode {
+                value_schema: ValueSchema::Bootstrap,
+                ..AUTH
+            };
+            let got = act().resolve_tenant_reading(row(0x0901), Some(&slab(0x0901, narrow)));
+            assert_eq!(got, Ok(narrow));
+            assert_ne!(got, Ok(AUTH), "anti-vacuity: the declaration was used");
+
+            let bootstrap_auth = Activation::new(Vec::new(), Vec::new(), vec![(0x0901, narrow)]);
+            assert_eq!(
+                bootstrap_auth.resolve_tenant_reading(row(0x0901), Some(&slab(0x0901, AUTH))),
+                Err(ActivationDrift::SlabReadingConflict {
+                    concept: 0x0901,
+                    authority: narrow,
+                    declared: AUTH,
+                })
+            );
+        }
+
+        /// Tail and edge codec read the key and edge block: class semantics, so
+        /// a slab that disagrees on either is refused, not obeyed.
+        #[test]
+        fn tail_and_edge_codec_must_match_the_authority() {
+            for declared in [
+                ReadMode {
+                    tail_variant: TailVariant::V1,
+                    ..AUTH
+                },
+                ReadMode {
+                    edge_codec: EdgeCodecFlavor::Pq32x4,
+                    ..AUTH
+                },
+            ] {
+                assert!(matches!(
+                    act().resolve_tenant_reading(row(0x0901), Some(&slab(0x0901, declared))),
+                    Err(ActivationDrift::SlabReadingConflict { .. })
+                ));
+            }
+        }
+
+        /// The declaration must be about THIS row's SPOG graph and THIS layout.
+        #[test]
+        fn concept_and_layout_version_are_checked() {
+            assert_eq!(
+                act().resolve_tenant_reading(row(0x0901), Some(&slab(0x0902, AUTH))),
+                Err(ActivationDrift::SlabConceptMismatch {
+                    spog: 0x0901,
+                    slab: 0x0902,
+                })
+            );
+            let stale = SlabDeclaration {
+                layout_version: ENVELOPE_LAYOUT_VERSION.wrapping_sub(1),
+                ..slab(0x0901, AUTH)
+            };
+            assert_eq!(
+                act().resolve_tenant_reading(row(0x0901), Some(&stale)),
+                Err(ActivationDrift::SlabLayoutVersion {
+                    slab: ENVELOPE_LAYOUT_VERSION.wrapping_sub(1),
+                    expected: ENVELOPE_LAYOUT_VERSION,
+                })
+            );
+            // Silence twin: a matching declaration passes unchanged.
+            assert_eq!(
+                act().resolve_tenant_reading(row(0x0901), Some(&slab(0x0901, AUTH))),
+                Ok(AUTH)
+            );
+        }
     }
 
     /// The drift class the retired `COUNT_FUSE` guarded: a concept the
