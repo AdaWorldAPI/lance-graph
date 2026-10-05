@@ -1,6 +1,6 @@
 # Corrected harvest — bound computation
 
-Supersedes the five-PR sequence in `CLAUDE_LANE_FOLD_CAPSTONE.md` for this thread. The harvest stood. The proposed form did not.
+Supersedes the five-PR sequence in `CLAUDE_LANE_FOLD_CAPSTONE.md` for this thread. The harvest stood. The proposed form did not. The pipeline rule is `IMMATERIAL_HANDOVER.md`.
 
 ## The germ
 
