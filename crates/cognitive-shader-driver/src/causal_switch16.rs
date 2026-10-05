@@ -165,9 +165,9 @@ impl CausalSwitch16 {
 /// Both outputs depend on both inputs:
 ///
 /// ```text
-//! x' = x + rotl(y, r1) + tweak          (mod 256)
-//! y' = y XOR rotl(x', r2)
-//! ```
+/// x' = x + rotl(y, r1) + tweak          (mod 256)
+/// y' = y XOR rotl(x', r2)
+/// ```
 //!
 //! The inverse undoes the XOR lift first, then the modular-add lift.
 //! Stage/edge-derived constants are deterministic routing metadata, not keys.
