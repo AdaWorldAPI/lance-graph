@@ -1,8 +1,14 @@
 //! Law L1: `execute` never allocates. A counting global allocator measures
 //! 1000 executes of a six-op program; the delta must be zero bytes. The
 //! can-it-fire half proves the counter itself moves.
+//!
+//! The allocator counts only allocations made by a thread inside `measure`.
+//! libtest's own threads (result reporting, output capture) run outside the
+//! `SERIAL` lock and can allocate during a measured window — a sibling test
+//! finishing and printing its result was observed to add 790 bytes once.
 
 use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use lance_graph_mask_risc::exec::{execute, Scratch};
@@ -12,10 +18,20 @@ struct Counting;
 
 static BYTES: AtomicUsize = AtomicUsize::new(0);
 
+thread_local! {
+    // `const` init and a `Drop`-free type: access never allocates and never
+    // registers a destructor, so it is safe to read from inside `alloc`.
+    static MEASURING: Cell<bool> = const { Cell::new(false) };
+}
+
 // SAFETY: a pure pass-through to `System`; the counter is the only addition.
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        BYTES.fetch_add(layout.size(), Ordering::Relaxed);
+        // `try_with`: during thread teardown the slot may be gone; such
+        // allocations are by definition not on a measuring thread.
+        if MEASURING.try_with(Cell::get).unwrap_or(false) {
+            BYTES.fetch_add(layout.size(), Ordering::Relaxed);
+        }
         // SAFETY: same layout, same contract as the caller's.
         unsafe { System.alloc(layout) }
     }
@@ -28,10 +44,19 @@ unsafe impl GlobalAlloc for Counting {
 #[global_allocator]
 static A: Counting = Counting;
 
-/// The byte counter is process-global and the test harness runs tests on
-/// parallel threads, so every test that reads it holds this lock: otherwise
-/// one test's setup is counted against another's measured window.
+/// Tests in this file each run one measured window and must not overlap
+/// windows on the shared `BYTES` counter, so every test holds this lock.
 static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Runs `f` with the current thread marked as measuring and returns the
+/// bytes it allocated. Allocations on any other thread are not counted.
+fn measure(f: impl FnOnce()) -> usize {
+    let before = BYTES.load(Ordering::Relaxed);
+    MEASURING.with(|m| m.set(true));
+    f();
+    MEASURING.with(|m| m.set(false));
+    BYTES.load(Ordering::Relaxed) - before
+}
 
 fn lcg(seed: &mut u64) -> u64 {
     *seed = seed
@@ -103,22 +128,42 @@ fn a_thousand_executes_allocate_nothing() {
     let warm = execute(&p, &planes, &mut scratch, None);
     assert!(matches!(warm, Ok(Value::Count(_))));
 
-    let before = BYTES.load(Ordering::Relaxed);
-    for _ in 0..1000 {
-        let v = execute(&p, &planes, &mut scratch, None);
-        assert_eq!(v, warm);
-    }
-    let after = BYTES.load(Ordering::Relaxed);
-    assert_eq!(
-        after - before,
-        0,
-        "execute allocated {} bytes over 1000 runs",
-        after - before
-    );
+    let bytes = measure(|| {
+        for _ in 0..1000 {
+            let v = execute(&p, &planes, &mut scratch, None);
+            assert_eq!(v, warm);
+        }
+    });
+    assert_eq!(bytes, 0, "execute allocated {bytes} bytes over 1000 runs");
 
     // can-it-fire: the counter must see a real allocation
-    let probe = vec![0u8; 4096];
-    assert!(BYTES.load(Ordering::Relaxed) - after >= probe.len());
+    let mut probe = Vec::new();
+    let fired = measure(|| probe = vec![0u8; 4096]);
+    assert!(fired >= probe.len());
+}
+
+/// FAILS IF: an allocation on another thread is counted against the
+/// measuring thread's window — the libtest-noise this filter exists to
+/// exclude. The foreign allocation runs strictly inside the window (two
+/// barrier rendezvous), and its own `Vec` proves it really happened.
+#[test]
+fn allocations_on_other_threads_are_not_counted() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let barrier = std::sync::Barrier::new(2);
+    std::thread::scope(|s| {
+        let foreign = s.spawn(|| {
+            barrier.wait();
+            let v = vec![0u8; 4096];
+            barrier.wait();
+            v.len()
+        });
+        let bytes = measure(|| {
+            barrier.wait();
+            barrier.wait();
+        });
+        assert_eq!(foreign.join().unwrap(), 4096);
+        assert_eq!(bytes, 0, "a foreign thread's {bytes} bytes were counted");
+    });
 }
 
 fn plane(i: u16) -> Operand {
@@ -172,16 +217,14 @@ fn six_plane_recognition_allocates_nothing() {
         p.fused_tern3().is_none(),
         "the fixture must reach Tern3 recognition and decline"
     );
-    let before = BYTES.load(Ordering::Relaxed);
-    for _ in 0..100 {
-        assert!(p.fused_tern3().is_none());
-        let _ = p.lowering();
-    }
-    let after = BYTES.load(Ordering::Relaxed);
+    let bytes = measure(|| {
+        for _ in 0..100 {
+            assert!(p.fused_tern3().is_none());
+            let _ = p.lowering();
+        }
+    });
     assert_eq!(
-        after - before,
-        0,
-        "six-plane recognition allocated {} bytes over 100 runs",
-        after - before
+        bytes, 0,
+        "six-plane recognition allocated {bytes} bytes over 100 runs"
     );
 }
