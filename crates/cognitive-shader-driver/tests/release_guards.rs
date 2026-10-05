@@ -9,12 +9,17 @@
 //! This test scans the crate's sources and fails on any `debug_assert!` inside
 //! a `pub fn` body. An assertion that checks the crate's own invariant rather
 //! than caller input belongs in `ALLOWED`, with the reason written next to it.
-//! The scan is a plain text pass, not a parser: it finds `pub fn` signatures,
-//! follows braces to the end of the body, and stops at `#[cfg(test)]`.
+//! The scan is a line-based text pass, not a parser. It blanks out comments,
+//! string literals and brace char literals, finds `pub fn` signatures, follows
+//! braces to the end of the body, stops at a `#[cfg(test)] mod`, and skips a
+//! single `#[cfg(test)]` function. `debug_assert_eq!` and `debug_assert_ne!`
+//! are matched too. Raw strings and const-generic brace expressions in a
+//! signature are not handled; neither occurs in this crate.
 
 use std::path::Path;
 
 /// `(file, function, why the assertion is not input validation)`.
+/// The file is the path relative to `src`.
 const ALLOWED: &[(&str, &str, &str)] = &[(
     "wire.rs",
     "decode",
@@ -28,31 +33,94 @@ struct Hit {
     line: usize,
 }
 
+/// `line` with comments, string literals and `'{'`/`'}'` char literals
+/// replaced by spaces, so neither braces nor `debug_assert` inside them count.
+/// `in_block` carries an open `/* */` comment across lines.
+fn code_only(line: &str, in_block: &mut bool) -> String {
+    let c: Vec<char> = line.chars().collect();
+    let mut out = String::with_capacity(line.len());
+    let mut i = 0;
+    let mut in_str = false;
+    while i < c.len() {
+        if *in_block {
+            if c[i] == '*' && c.get(i + 1) == Some(&'/') {
+                *in_block = false;
+                out.push_str("  ");
+                i += 2;
+            } else {
+                out.push(' ');
+                i += 1;
+            }
+        } else if in_str {
+            if c[i] == '\\' {
+                out.push_str("  ");
+                i += 2;
+                continue;
+            }
+            if c[i] == '"' {
+                in_str = false;
+            }
+            out.push(' ');
+            i += 1;
+        } else if c[i] == '/' && c.get(i + 1) == Some(&'/') {
+            break;
+        } else if c[i] == '/' && c.get(i + 1) == Some(&'*') {
+            *in_block = true;
+            out.push_str("  ");
+            i += 2;
+        } else if c[i] == '"' {
+            in_str = true;
+            out.push(' ');
+            i += 1;
+        } else if c[i] == '\'' && c.get(i + 2) == Some(&'\'') {
+            out.push_str("   ");
+            i += 3;
+        } else {
+            out.push(c[i]);
+            i += 1;
+        }
+    }
+    out
+}
+
 /// Find every `debug_assert!` inside a `pub fn` body of `src`.
 fn scan(src: &str) -> Vec<Hit> {
     let mut hits = Vec::new();
-    let lines: Vec<&str> = src.lines().collect();
+    let mut in_block = false;
+    let lines: Vec<String> = src.lines().map(|l| code_only(l, &mut in_block)).collect();
+    let mut skip_next_fn = false;
     let mut i = 0;
     while i < lines.len() {
         let line = lines[i].trim_start();
         if line.starts_with("#[cfg(test)]") {
-            break;
+            // A test module ends the scan; a single test-only item is skipped.
+            let next = lines[i + 1..]
+                .iter()
+                .map(|l| l.trim_start())
+                .find(|l| !l.is_empty() && !l.starts_with("#["));
+            match next {
+                Some(n) if n.starts_with("mod ") || n.starts_with("pub mod ") => break,
+                _ => skip_next_fn = true,
+            }
+            i += 1;
+            continue;
         }
         if let Some(name) = pub_fn_name(line) {
+            let skip = std::mem::take(&mut skip_next_fn);
             // Walk to the end of the body by brace depth, starting at the
             // signature line (the opening brace may be on a later line).
             let mut depth = 0i32;
             let mut opened = false;
             let mut j = i;
             while j < lines.len() {
-                let l = lines[j];
+                let l = lines[j].as_str();
                 // Inside the body, or after the opening brace on this line.
                 let in_body = match (l.find('{'), l.find("debug_assert")) {
                     (_, None) => false,
                     (Some(b), Some(d)) => opened || b < d,
                     (None, Some(_)) => opened,
                 };
-                if in_body {
+                if in_body && !skip {
                     hits.push(Hit {
                         function: name.clone(),
                         line: j + 1,
@@ -123,7 +191,11 @@ fn no_public_function_validates_input_with_debug_assert_alone() {
     let mut violations = Vec::new();
     let mut allowed_seen = Vec::new();
     for path in &files {
-        let file = path.file_name().unwrap().to_string_lossy().into_owned();
+        let file = path
+            .strip_prefix(&src)
+            .expect("file under src")
+            .to_string_lossy()
+            .replace('\\', "/");
         let text = std::fs::read_to_string(path).expect("readable source");
         for hit in scan(&text) {
             match ALLOWED
@@ -192,4 +264,45 @@ mod tests {
 }
 ";
     assert_eq!(scan(src), vec![]);
+}
+
+/// A `#[cfg(test)]` item before the test module must not end the scan.
+#[test]
+fn a_cfg_test_item_does_not_hide_later_public_functions() {
+    let src = "\
+#[cfg(test)]
+use std::fmt;
+#[cfg(test)]
+pub fn test_only(a: u8) { debug_assert!(a < 8); }
+pub fn later(a: u8) { debug_assert!(a < 8); }
+";
+    assert_eq!(
+        scan(src),
+        vec![Hit {
+            function: "later".into(),
+            line: 5
+        }]
+    );
+}
+
+/// Comments and string literals neither trigger the guard nor move the brace
+/// depth; `debug_assert_eq!` is caught.
+#[test]
+fn comments_and_strings_are_not_code() {
+    let src = "\
+pub fn f(a: u8) -> &'static str {
+    // debug_assert!(a < 8) in a comment
+    let _ = \"}\";
+    let _ = '}';
+    debug_assert_eq!(a, 1);
+    \"debug_assert!\"
+}
+";
+    assert_eq!(
+        scan(src),
+        vec![Hit {
+            function: "f".into(),
+            line: 5
+        }]
+    );
 }
