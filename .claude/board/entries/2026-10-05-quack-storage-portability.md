@@ -6,7 +6,7 @@ Follow-up to `2026-10-05-quack-two-world-frontend.md` (#1328, merged). It applie
 
 ```
 QUACK                  makes reads portable:  stable numeric query semantics across backends
-DURABLE COMMIT         makes writes amortizable: many transient operations -> one durable transition
+CYCLE SEAL             makes writes amortizable: many transient operations -> one durable transition
 BACKEND                supplies capabilities: physical read and write capabilities, at both boundaries
 ```
 
@@ -35,13 +35,26 @@ BACKEND                supplies capabilities: physical read and write capabiliti
    Quack numeric execution
             |
             v
-   transient working state                 never a storage requirement
-     + Alpha overlay   (current: transient, discardable, row-level attention)
-     + Kanban / folds  (Rubicon = Planning -> CognitiveWork crossing, pre-execution)
-            |
-            | 0..many casts
+   Planning
+            |  Rubicon: intent becomes action (Planning -> CognitiveWork)
             v
-   durable commit boundary   (current: persist_sink cycle seal, one WAL write per cycle)
+   CognitiveWork / Action
+            |
+            v
+   transient execution                     never a storage requirement
+     folds + Alpha overlay (transient, discardable, row-level attention)
+            |
+            v
+   Evaluation / revision.rs                epistemic judgment; performs no write
+     |-- NoIncrease, or IncreaseEligible with docket incomplete
+     |      -> Plan -> Planning (re-deliberate, carrying the witness)
+     |-- Suspend -> held in Evaluation (tension open, pending grounding)
+     `-- IncreaseEligible + counterfactual Necessary -> Commit (accepted)
+            |
+            | 0..many casts (BatchWriter::cast)
+            v
+   cycle seal: DetachedCycleBatch::freeze -> one WAL write per cycle
+            |   performs no epistemic evaluation
             |
             v
    durable net change        (current: full 512-byte image per dirty row;
@@ -53,6 +66,32 @@ BACKEND                supplies capabilities: physical read and write capabiliti
 ```
 
 Not every backend takes part in every layer, and not in the same way.
+
+**Rubicon commits intent. Revision judges the result. The cycle seal commits state.** These are three distinct boundaries; none absorbs another.
+
+## MEASURED — the lifecycle as wired today (audit 2026-10-05)
+
+| step | code | status |
+|---|---|---|
+| Rubicon: intent becomes action | `KanbanColumn` Planning → CognitiveWork (`contract/src/kanban.rs`), read by `rubicon_witness` | implemented; not redefined here |
+| revision: judge the result | `revision.rs` `GadamerRevision::revise` → `RevisionDelta { kind, evidential_effect, … }`; `RevisionVerdict { effect, counterfactual }`; `is_acceptable()` = `IncreaseEligible ∧ Necessary` | pure policy. Its output types "deliberately stop before actual-world mutation" (`revision.rs:450`). **No production caller**: only tests and `examples/probe_revision_attention_view.rs` |
+| route on the verdict | `KanbanColumn::advance_on_revision` (`kanban.rs:262`) | contract only; **no production caller** |
+| the seal | `persist_cycle` / `DetachedCycleBatch::freeze` → `WalSink::commit_cycle` | implemented and driven by `supervisor/cycle_driver.rs` |
+
+How the verdict feeds back, per `advance_on_revision`:
+- **`IncreaseEligible` and counterfactual `Necessary`** → `advance()` → `Commit`. The cycle settles.
+- **`IncreaseEligible` with the docket incomplete** → `revise()` → `Plan`. Eligible is not accepted.
+- **`NoIncrease`** (including `Echo` and `ClosedCycle`) → `Plan`. Understanding rose and evidence did not, so the cycle re-deliberates carrying the witness.
+- **`Suspend`** → `None`. The mailbox stays in Evaluation; the tension stays open pending grounding.
+- **Revision never prunes.** `Prune` is the MUL gate's `Block`, a different act on a different arm.
+
+Feedback therefore goes `Plan → Planning` and re-crosses the Rubicon. It does not jump straight back into CognitiveWork (`next_phases`: `Evaluation → {Commit, Plan, Prune}`, `Plan → {Planning}`).
+
+**Gap between this chain and today's wiring (recorded, not fixed):**
+- The seal is **not gated on revision acceptance.** A cycle seals whatever artifact casts it holds. Kanban moves, including `Evaluation → Commit`, ride in `SweepSlot::paired_move` and are applied after the seal (`recover_and_apply` → `try_advance_phase`). A pure Kanban step writes nothing (`cycle_sink.rs:34-40`).
+- The `Commit` column's "calcify" step is itself **declared, not implemented** (`kanban.rs:47-54`).
+
+So "accepted → `BatchWriter::cast`" is the intended ordering, not a wired one. Making the seal wait for acceptance would be a deliberate change to the caster/driver, not something this entry does.
 
 ## DECISION — Quack ↔ backend: the read boundary
 
@@ -93,7 +132,7 @@ Rubicon exists in code (category A), but **not as the durable commit boundary**:
 
 So in current code Rubicon is the Heckhausen commitment point **before** execution (deliberation → implementation). It is not the point where transient work becomes durable.
 
-### The actual durable write boundary (category B for the brief's "Rubicon")
+### The actual durable write boundary: the cycle seal, not Rubicon
 
 The amortizing write membrane exists, under different names:
 
