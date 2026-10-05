@@ -1368,7 +1368,11 @@ pub fn execute_into(
 /// `MaskedSumI32` (sum), `MaskedMinI32` / `MaskedMaxI32` (min / max),
 /// `GroupPowerSumsI32` / `GroupCrossPowerSumsI32` (each extent gets its own
 /// sink, seeded fresh; partial sinks combine group-by-group with
-/// `PowerSums::checked_merge` / `CrossPowerSums::checked_merge`) — plus
+/// `PowerSums::checked_merge` / `CrossPowerSums::checked_merge`),
+/// `GroupSumI32` / `GroupSumViaI32` / `GroupReduce` (same: a fresh,
+/// re-seeded `Out::I64` per extent; partial sinks combine with
+/// [`Terminal::merge_group_sink`], which applies each fold's own law —
+/// never plain `+` for the `_sym` SUM) — plus
 /// `Keep`, which writes only the in-extent bits of its population-addressed
 /// [`Out::Mask`] and leaves every other bit as the caller holds it (so
 /// disjoint extents compose into one buffer in any SEQUENTIAL order). Anything else is
@@ -1442,14 +1446,14 @@ fn precheck(
             | Terminal::MaskedStridedGroupSum { .. }
             | Terminal::GroupPowerSumsI32 { .. }
             | Terminal::GroupCrossPowerSumsI32 { .. }
+            | Terminal::GroupSumI32 { .. }
+            | Terminal::GroupSumViaI32 { .. }
+            | Terminal::GroupReduce { .. }
             | Terminal::Keep { .. } => None,
             Terminal::BlendI32 { .. } => Some("BlendI32"),
             Terminal::ScatterOrU32 { .. } => Some("ScatterOrU32"),
             Terminal::ScatterCountU32 { .. } => Some("ScatterCountU32"),
             Terminal::CountKeyRunsU32 { .. } => Some("CountKeyRunsU32"),
-            Terminal::GroupSumI32 { .. } => Some("GroupSumI32"),
-            Terminal::GroupSumViaI32 { .. } => Some("GroupSumViaI32"),
-            Terminal::GroupReduce { .. } => Some("GroupReduce"),
         };
         if let Some(what) = refused {
             return Err(ExecError::ExtentUnsupported { what });
@@ -1892,7 +1896,7 @@ pub fn execute_compiled(
                 // the kernel adds into it, tile after tile.
                 if let Out::I64(o) = &mut out {
                     masked_group_sum_i32(
-                        read(planes, &slots, mask, t),
+                        clip(read(planes, &slots, mask, t), edge, &mut eb, false),
                         lane_u32(planes, key, t),
                         lane_i32(planes, val, t),
                         o,
@@ -1905,7 +1909,7 @@ pub fn execute_compiled(
                 // foreign `key` — one delegation per tile (law L3).
                 if let Out::I64(o) = &mut out {
                     masked_group_sum_i32_via(
-                        read(planes, &slots, mask, t),
+                        clip(read(planes, &slots, mask, t), edge, &mut eb, false),
                         lane_u32(planes, fk, t),
                         foreign_lane_u32(foreign, key),
                         lane_i32(planes, val, t),
@@ -1916,9 +1920,10 @@ pub fn execute_compiled(
             Terminal::GroupReduce { mask, key, fold } => {
                 // `validate` already refused a missing/too-small `out` and
                 // every wrong-width lane; one delegation per tile (law L3),
-                // the sink seeded above with the fold's identity.
+                // the sink seeded above with the fold's identity. An edge
+                // tile's mask is restricted to the extent in a register.
                 if let Out::I64(o) = &mut out {
-                    let m = read(planes, &slots, mask, t);
+                    let m = clip(read(planes, &slots, mask, t), edge, &mut eb, false);
                     match (key, fold) {
                         (GroupKey::Lane(k), GroupFold::Count) => {
                             masked_group_count_u32(m, lane_u32(planes, k, t), o)

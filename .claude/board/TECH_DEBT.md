@@ -1,4 +1,50 @@
-## TD-SYM-SUM-MERGE-IS-NOT-ADDITION-1 (2026-09-23) — OPEN, dormant
+## TD-KEYED-SINK-MERGE-IDENTITY-1 (2026-10-05) — OPEN
+
+**Equal length is not semantic compatibility.** `Terminal::merge_group_sink`
+merges two bare `&[i64]` sinks. It checks exactly two things: that the
+terminal is a supported keyed `i64` terminal, and that the two sinks have
+equal length. A bare slice proves none of the following:
+
+- raw vs finalized state (a finalized slot is outside the merge law, and
+  merging it gives a wrong answer, not an error — pinned by
+  `finalize_once_after_merge_never_merge_finalized`);
+- fold/state identity (which terminal and fold produced it);
+- coordinate space / version;
+- source / filter identity;
+- same destination universe (same K, but K of what) — **a destination ordinal
+  is not a semantic identity by itself; an ordinal has meaning only inside its
+  destination-space / codebook identity** (WORKING-MODEL, operator 2026-10-05);
+- binding identity (which binding produced the ordinals);
+- contribution-population identity, and disjoint / legal contribution sets
+  (Count and the sums re-count overlapped rows);
+- combined row-bound legality (`MASKED_SUM_I32_MAX_ROWS` /
+  `GROUP_SUM_SYM_MAX_ROWS` bound the TOTAL over all merged partials).
+
+Today these are documented caller preconditions on `merge_group_sink`.
+
+**Close it with** the retained FoldState identity contract (fold-contract
+correction 2, `entries/2026-10-05-fold-contract-and-keyed-sink-merge.md`).
+Do **not** close it by bolting metadata onto the Step E merge. A wrapper type
+added for this alone would be a second, partial identity carrier.
+
+## TD-SYM-SUM-MERGE-IS-NOT-ADDITION-1 (2026-09-23) — RESOLVED 2026-10-05: `GroupFold::merge` / `Terminal::merge_group_sink` ship the law below; partial-extent `GroupReduce` admitted; test `tests/keyed_merge.rs` (one-side-empty groups included); see `entries/2026-10-05-fold-contract-and-keyed-sink-merge.md`
+
+> **RESOLUTION NOTE (2026-10-05, Step E).** The merge path is LIVE. It went
+> live through:
+> - `GroupFold::merge`, the per-slot law, including the `_sym` ⊥ law exactly
+>   as pinned below;
+> - `Terminal::merge_group_sink`;
+> - partial-extent keyed execution: `GroupSumI32` / `GroupSumViaI32` /
+>   `GroupReduce`, each on a fresh, re-seeded sink per extent;
+> - `tests/keyed_merge.rs`, which covers groups empty on one side only, the
+>   empty-marker cases, and disable runs where plain `+` and "empty read as
+>   0" both go red.
+>
+> Everything below — "nothing merges partial sinks today", "when it goes
+> live", "no merge function and no test" — is now **historical**. It is the
+> rationale for pinning the law BEFORE implementation, kept as written.
+> What remains open is not the algebra but the identity/preconditions of a
+> bare-slice merge: `TD-KEYED-SINK-MERGE-IDENTITY-1` above.
 
 **`GroupFold::SumSymI32`'s seed is not an additive identity, so two partial
 sinks must never be combined with `+`.** For MIN/MAX the seed IS the lattice

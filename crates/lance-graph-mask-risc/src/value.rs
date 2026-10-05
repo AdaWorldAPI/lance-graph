@@ -218,6 +218,10 @@ pub enum ExecError {
     /// `MaskedSumI32`, `MaskedMinI32`, `MaskedMaxI32`, `MaskedStridedGroupSum`
     /// (a sum merges by addition), `GroupPowerSumsI32` /
     /// `GroupCrossPowerSumsI32` (fresh per-extent sinks, merged group-by-group
-    /// with `checked_merge`) and `Keep`. `what` names the refused terminal.
+    /// with `checked_merge`), `GroupSumI32` / `GroupSumViaI32` /
+    /// `GroupReduce` (fresh per-extent sinks, merged with
+    /// `Terminal::merge_group_sink`) and `Keep`. `what` names the refused
+    /// terminal — or `"merge_group_sink"` when that merge is asked of a
+    /// terminal with no keyed `i64` sink.
     ExtentUnsupported { what: &'static str },
 }

@@ -498,41 +498,42 @@ fn bad_extents_and_unmergeable_terminals_are_refused_before_execution() {
         let r = execute_extent(&count, &planes, &Foreign::NONE, &mut s, Out::None, lo..hi);
         assert_eq!(r, Err(ExecError::ExtentOutOfRange { lo, hi, n_rows: n }));
     }
-    let group = Program::new(
+    // `BlendI32` writes a population-addressed lane with no merge law, so a
+    // partial extent is refused. (The keyed i64 folds used to be the example
+    // here; they are admitted now — see `keyed_i64_partials_merge_to_the_whole`.)
+    let blend = Program::new(
         vec![],
-        Terminal::GroupSumI32 {
+        Terminal::BlendI32 {
             mask: Operand::Plane(0),
-            key: 0,
-            val: 1,
+            then: 1,
+            els: 1,
         },
     );
-    let mut sink = vec![0i64; 4];
-    let mut s = Scratch::for_program(&group, n).expect("scratch");
+    let mut sink = vec![-1i32; n];
+    let mut s = Scratch::for_program(&blend, n).expect("scratch");
     assert_eq!(
         execute_extent(
-            &group,
+            &blend,
             &planes,
             &Foreign::NONE,
             &mut s,
-            Out::I64(&mut sink),
+            Out::I32(&mut sink),
             10..20
         ),
-        Err(ExecError::ExtentUnsupported {
-            what: "GroupSumI32"
-        })
+        Err(ExecError::ExtentUnsupported { what: "BlendI32" })
     );
-    assert_eq!(sink, vec![0; 4], "a refusal writes nothing");
+    assert_eq!(sink, vec![-1; n], "a refusal writes nothing");
     // The whole extent accepts every terminal: it IS `execute_into`.
     assert_eq!(
         execute_extent(
-            &group,
+            &blend,
             &planes,
             &Foreign::NONE,
             &mut s,
-            Out::I64(&mut sink),
+            Out::I32(&mut sink),
             0..n
         ),
-        Ok(Value::GroupSummed)
+        Ok(Value::Blended)
     );
     // A partial Keep needs its population-addressed sink.
     let keep = program(Shape::Tiled, 0, n as u32, Term::Keep);
