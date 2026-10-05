@@ -2,7 +2,7 @@
 
 Plans for the notes already in this folder. A claim with no failing test is not a plan. Do not add a crate for any of these until the named test exists.
 
-Related: `IMMATERIAL_HANDOVER.md`, `BOUND_COMPUTATION.md`, `HANDOVER_READING.md`.
+Related: `IMMATERIAL_HANDOVER.md`, `BOUND_COMPUTATION.md`, `HANDOVER_READING.md`. Stencil synergies: `SUBSTRATE_SYNERGIES.md`.
 
 ## Handover
 
