@@ -164,10 +164,7 @@ mod tests {
         let mut v = vec![0u8; PALETTE_LUT_LEN];
         for left in 0u16..=255 {
             for right in 0u16..=255 {
-                let addr = PairAddress::new(
-                    PaletteState(left as u8),
-                    PaletteState(right as u8),
-                );
+                let addr = PairAddress::new(PaletteState(left as u8), PaletteState(right as u8));
                 v[addr.index()] = f(left as u8, right as u8);
             }
         }
@@ -178,10 +175,7 @@ mod tests {
 
     #[test]
     fn pair_address_spans_the_full_u16_space() {
-        assert_eq!(
-            PairAddress::new(PaletteState(0), PaletteState(0)).0,
-            0
-        );
+        assert_eq!(PairAddress::new(PaletteState(0), PaletteState(0)).0, 0);
         assert_eq!(
             PairAddress::new(PaletteState(255), PaletteState(255)).0,
             u16::MAX
@@ -244,13 +238,10 @@ mod tests {
             (PaletteState(12), PaletteState(24)),
         ];
 
-        let expected = path.iter().fold(0u8, |state, &(a, b)| {
-            state.wrapping_add(a.0 ^ b.0)
-        });
+        let expected = path
+            .iter()
+            .fold(0u8, |state, &(a, b)| state.wrapping_add(a.0 ^ b.0));
 
-        assert_eq!(
-            kernel.hops(PaletteState(0), &path),
-            PaletteState(expected)
-        );
+        assert_eq!(kernel.hops(PaletteState(0), &path), PaletteState(expected));
     }
 }
