@@ -536,6 +536,11 @@ jobs:
           cargo llvm-cov --manifest-path crates/lance-graph/Cargo.toml --lib --lcov --output-path lcov.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
+        # `fail_ci_if_error: false` only covers errors the uploader reports. A
+        # TLS failure inside the action itself (seen as `EPROTO … SSL alert
+        # number 40` on #1327 and #1328) throws before the uploader runs and
+        # failed the job anyway. Test failures surface in the step above.
+        continue-on-error: true
         with:
           files: lcov.info
           flags: rust-unittests
