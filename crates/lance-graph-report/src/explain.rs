@@ -57,8 +57,6 @@ impl fmt::Display for PhysicalPlan {
             };
             let role = if self.fold_key == Some(i) {
                 "fold key"
-            } else if self.fold_major == Some(i) {
-                "fold major (pair key, same pass)"
             } else {
                 "partition"
             };

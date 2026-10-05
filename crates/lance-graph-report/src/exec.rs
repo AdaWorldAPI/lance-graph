@@ -25,11 +25,6 @@
 //! * **Fold key** — one ordinal coordinate the substrate scatters into
 //!   directly (`GroupSumI32` / `GroupReduce`). Chosen as the widest
 //!   field-backed coordinate whose domain fits the domain-buffer budget.
-//! * **Fold major** — a second ordinal coordinate folded in the SAME pass
-//!   through Quack's composite key [`GroupAddr::Pair`]
-//!   (`major × minor_domain + minor`): the widest remaining ordinal whose
-//!   product with the fold key's domain still fits the domain-buffer budget.
-//!   No composite key lane is materialized; the fused key is the substrate's.
 //! * **Partitions** — every other coordinate. A partition member is a
 //!   selection conjunct (`field = m`, or a derived bucket's two range
 //!   compares) evaluated tile by tile during the pass; nothing is
@@ -47,11 +42,16 @@
 //! The honest limit: a partition costs one pass per member tuple, so a plan
 //! whose partition side is high-cardinality AND densely observed exceeds the
 //! pass budget and is REFUSED with [`ReportError::PassBudget`] rather than
-//! run slowly or allocated densely. Two ordinal coordinates no longer pay it:
-//! the composite-key fold this note used to name as a substrate gap now
-//! exists ([`GroupAddr::Pair`]) and is used as the fold major. What still
-//! costs a pass per member is a third ordinal, a derived bucket, and a mask
-//! set — Quack has no value-derived or multi-plane group key.
+//! run slowly or allocated densely. The primitive that would lift it is a
+//! named substrate gap, not something to hand-roll here: a
+//! **destination-resolving keyed fold** — a keyed-reduction address in
+//! `ndarray::simd` / mask-risc that maps a row's resolved key tuple to a
+//! COMPACT accumulator slot in the same pass, so accumulator state scales with
+//! the observed destinations, never with the product of the dimension domains.
+//! (A composite mixed-radix key — Quack's `GroupAddr::Pair`, `hi · stride +
+//! lo` — exists, but it addresses the dense product and is therefore NOT that
+//! primitive; this planner does not lower to it. It belongs only to a
+//! problem that explicitly demands the dense cube.)
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -60,9 +60,7 @@ use lance_graph_mask_risc::{
     execute_extent, scratch_words_for, tile_words_for, words_for, Foreign, Out, Planes, Program,
     Scratch, Value,
 };
-use lance_graph_quack::{
-    lower, normalize_group_sink, Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, Mask, Query,
-};
+use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, Mask, Query};
 
 use crate::batch::{AbiBatch, LaneData};
 use crate::plan::{CoordSpec, FoldState, PhysicalKey, ReportPlan, SourceRef};
@@ -76,10 +74,7 @@ use crate::ReportError;
 pub struct PlannerPolicy {
     /// Largest coordinate product stored densely.
     pub dense_cell_budget: u64,
-    /// Largest fold/group universe or discovery buffer the planner may
-    /// allocate: one fold key's domain, the PRODUCT of the fold key's and the
-    /// fold major's domains when they fold through [`GroupAddr::Pair`], or one
-    /// partition's discovery domain.
+    /// Largest single-coordinate domain a fold-key / discovery buffer may span.
     pub domain_buffer_budget: u32,
     /// Most passes over the population one report may make.
     pub pass_budget: u64,
@@ -174,13 +169,8 @@ pub struct PhysicalPlan {
     pub extent: Option<RowRange>,
     /// Canonical dimensions.
     pub dims: Vec<DimPlan>,
-    /// Canonical index of the fold-key dimension (the minor, innermost key),
-    /// if any.
+    /// Canonical index of the fold-key dimension, if any.
     pub fold_key: Option<usize>,
-    /// Canonical index of the fold-major dimension: a second ordinal folded
-    /// in the same pass through [`GroupAddr::Pair`] with the fold key as its
-    /// minor. `None` when no second ordinal fits the domain-buffer budget.
-    pub fold_major: Option<usize>,
     /// Canonical indices of the partition dimensions, in pass order.
     pub partitions: Vec<usize>,
     /// Fold states (index 0 is COUNT).
@@ -221,7 +211,6 @@ pub struct ExecStats {
 struct Resolved {
     dims: Vec<DimPlan>,
     fold_key: Option<usize>,
-    fold_major: Option<usize>,
     partitions: Vec<usize>,
     states: Vec<FoldState>,
     state_lanes: Vec<Option<u16>>,
@@ -332,26 +321,7 @@ fn resolve(
         })
         .max_by_key(|(i, d)| (d.domain, std::cmp::Reverse(*i)))
         .map(|(i, _)| i);
-    // The fold major: the widest other ordinal whose composite universe with
-    // the fold key still fits the same domain-buffer budget. An empty
-    // universe is never paired (a GroupReduce sink must be non-empty).
-    let fold_major = fold_key.and_then(|k| {
-        let minor = u64::from(dims[k].domain);
-        dims.iter()
-            .enumerate()
-            .filter(|&(i, d)| {
-                let product = minor * u64::from(d.domain);
-                i != k
-                    && matches!(d.provider, Provider::OrdinalLane { .. })
-                    && product > 0
-                    && product <= u64::from(policy.domain_buffer_budget)
-            })
-            .max_by_key(|(i, d)| (d.domain, std::cmp::Reverse(*i)))
-            .map(|(i, _)| i)
-    });
-    let partitions = (0..dims.len())
-        .filter(|&i| Some(i) != fold_key && Some(i) != fold_major)
-        .collect();
+    let partitions = (0..dims.len()).filter(|&i| Some(i) != fold_key).collect();
 
     let mut states = vec![FoldState::Count];
     for m in &key.measures {
@@ -377,75 +347,36 @@ fn resolve(
     Ok(Resolved {
         dims,
         fold_key,
-        fold_major,
         partitions,
         states,
         state_lanes,
     })
 }
 
-/// The group address of the fold: the fold key alone, or the fold major and
-/// the fold key fused into Quack's composite [`GroupAddr::Pair`].
-fn fold_addr(r: &Resolved) -> Option<GroupAddr> {
-    let k = r.fold_key?;
-    let lo = Col(fold_key_lane(&r.dims[k]));
-    Some(match r.fold_major {
-        None => GroupAddr::Local(lo),
-        Some(m) => GroupAddr::Pair {
-            hi: Col(fold_key_lane(&r.dims[m])),
-            lo,
-            stride: r.dims[k].domain,
-        },
-    })
-}
-
 /// The aggregate a fold state lowers to, keyed or scalar.
-///
-/// A SUM keyed by a single lane is the coalescing `GroupSumI32`. Quack has no
-/// pair-keyed SUM terminal, so a pair-keyed SUM is the NULL-preserving
-/// `GroupReduce { SumI32 }` — whose sink must be normalized (see
-/// [`needs_normalize`]) before its slots are this crate's fold states.
-fn agg_for(state: &FoldState, lane: Option<u16>, key: Option<GroupAddr>) -> Agg {
+fn agg_for(state: &FoldState, lane: Option<u16>, key: Option<u16>) -> Agg {
     let v = lane.map(Col);
-    match (key, state) {
-        (Some(key), FoldState::Count) => Agg::GroupReduce {
-            key,
+    match (key.map(Col), state) {
+        (Some(k), FoldState::Count) => Agg::GroupReduce {
+            key: GroupAddr::Local(k),
             agg: GroupAgg::Count,
         },
-        (Some(GroupAddr::Local(k)), FoldState::Sum(_)) => Agg::GroupSumI32 {
+        (Some(k), FoldState::Sum(_)) => Agg::GroupSumI32 {
             key: k,
             val: v.expect("lane"),
         },
-        (Some(key), FoldState::Sum(_)) => Agg::GroupReduce {
-            key,
-            agg: GroupAgg::SumI32(v.expect("lane")),
-        },
-        (Some(key), FoldState::Min(_)) => Agg::GroupReduce {
-            key,
+        (Some(k), FoldState::Min(_)) => Agg::GroupReduce {
+            key: GroupAddr::Local(k),
             agg: GroupAgg::MinI32(v.expect("lane")),
         },
-        (Some(key), FoldState::Max(_)) => Agg::GroupReduce {
-            key,
+        (Some(k), FoldState::Max(_)) => Agg::GroupReduce {
+            key: GroupAddr::Local(k),
             agg: GroupAgg::MaxI32(v.expect("lane")),
         },
         (None, FoldState::Count) => Agg::Count,
         (None, FoldState::Sum(_)) => Agg::SumI32(v.expect("lane")),
         (None, FoldState::Min(_)) => Agg::MinI32(v.expect("lane")),
         (None, FoldState::Max(_)) => Agg::MaxI32(v.expect("lane")),
-    }
-}
-
-/// The grouped fold whose raw sink is NOT already a fold state of this
-/// crate: the NULL-preserving SUM leaves a group no row reached at the
-/// substrate's empty marker. Every other keyed fold seeds exactly
-/// [`FoldState::identity`] (0 / `i64::MAX` / `i64::MIN`).
-fn needs_normalize(agg: &Agg) -> Option<GroupAgg> {
-    match agg {
-        Agg::GroupReduce {
-            agg: g @ GroupAgg::SumI32(_),
-            ..
-        } => Some(*g),
-        _ => None,
     }
 }
 
@@ -577,7 +508,7 @@ impl ReportPlan {
         } else {
             base
         };
-        let key_addr = fold_addr(&r);
+        let key_lane = r.fold_key.map(|i| fold_key_lane(&r.dims[i]));
         let first_pass = r
             .states
             .iter()
@@ -585,7 +516,7 @@ impl ReportPlan {
             .map(|(s, &l)| {
                 lower(&Query {
                     filter: conj(&fbase, &first_members),
-                    agg: agg_for(s, l, key_addr),
+                    agg: agg_for(s, l, key_lane),
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -596,7 +527,6 @@ impl ReportPlan {
             extent,
             dims: r.dims,
             fold_key: r.fold_key,
-            fold_major: r.fold_major,
             partitions: r.partitions,
             states: r.states,
             accumulator,
@@ -668,11 +598,8 @@ impl ReportPlan {
             lanes: &lanes,
         };
 
-        let key_addr = fold_addr(&r);
-        // The fold's group universe: the fold key's domain, times the fold
-        // major's when the pair key is in use (bounded by the domain budget).
-        let minor_domain = r.fold_key.map_or(1, |i| r.dims[i].domain as usize);
-        let key_domain = minor_domain * r.fold_major.map_or(1, |i| r.dims[i].domain as usize);
+        let key_lane = r.fold_key.map(|i| fold_key_lane(&r.dims[i]));
+        let key_domain = r.fold_key.map_or(1, |i| r.dims[i].domain as usize);
 
         // One program run: lowers, sizes branch-private scratch, executes.
         let run = |filter: Filter,
@@ -680,9 +607,10 @@ impl ReportPlan {
                    out: Option<&mut [i64]>,
                    stats: &mut ExecStats|
          -> Result<Value, ReportError> {
-            let agg = agg_for(&r.states[s], r.state_lanes[s], key_addr);
-            let normalize = needs_normalize(&agg);
-            let prog = lower(&Query { filter, agg })?;
+            let prog = lower(&Query {
+                filter,
+                agg: agg_for(&r.states[s], r.state_lanes[s], key_lane),
+            })?;
             let mut scratch = Scratch::for_program(&prog, n)?;
             if prog.requires_scratch() {
                 let b = scratch_words_for(tile_words_for(n), prog.scratch_slots as usize)
@@ -692,32 +620,18 @@ impl ReportPlan {
             }
             stats.population_scans += 1;
             stats.tile_mask_ops += prog.ops.len() as u64;
-            match out {
-                Some(o) => {
-                    let v = execute_extent(
-                        &prog,
-                        &planes,
-                        &Foreign::NONE,
-                        &mut scratch,
-                        Out::I64(&mut *o),
-                        extent.clone(),
-                    )?;
-                    if let Some(g) = normalize {
-                        // Empty group -> 0, the SUM identity; the presence
-                        // mask is not needed — COUNT already defines EMPTY.
-                        normalize_group_sink(g.fold(), o);
-                    }
-                    Ok(v)
-                }
-                None => Ok(execute_extent(
-                    &prog,
-                    &planes,
-                    &Foreign::NONE,
-                    &mut scratch,
-                    Out::None,
-                    extent.clone(),
-                )?),
-            }
+            let out = match out {
+                Some(o) => Out::I64(o),
+                None => Out::None,
+            };
+            Ok(execute_extent(
+                &prog,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                out,
+                extent.clone(),
+            )?)
         };
 
         let dims_meta: Vec<DimMeta> = pp
@@ -752,17 +666,12 @@ impl ReportPlan {
                         budget: policy.pass_budget,
                     });
                 }
-                // Storage order: partitions (pass order), then the fold major,
-                // then the fold key innermost, so each pass writes one
-                // contiguous run — `major × minor_domain + minor` is exactly
-                // the pair key's group index.
+                // Storage order: partitions (pass order), then the fold key
+                // innermost so each pass writes one contiguous run.
                 let mut strides = vec![0usize; r.dims.len()];
                 let mut stride = 1usize;
                 if let Some(k) = r.fold_key {
                     strides[k] = 1;
-                    if let Some(m) = r.fold_major {
-                        strides[m] = minor_domain;
-                    }
                     stride = key_domain;
                 }
                 for &p in r.partitions.iter().rev() {
@@ -888,14 +797,7 @@ impl ReportPlan {
                             coords[p].push(m);
                         }
                         if let (Some(kd), Some(k)) = (r.fold_key, k) {
-                            match r.fold_major {
-                                None => coords[kd].push(k),
-                                Some(md) => {
-                                    let minor = minor_domain as u32;
-                                    coords[md].push(k / minor);
-                                    coords[kd].push(k % minor);
-                                }
-                            }
+                            coords[kd].push(k);
                         }
                         for (s, v) in vals.iter_mut().enumerate() {
                             v.push(st(s));

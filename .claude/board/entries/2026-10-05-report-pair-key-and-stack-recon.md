@@ -1,8 +1,21 @@
 # Report folds two ordinals in one pass; stack-convergence recon (2026-10-05)
 
-**Status:** MEASURED — the code change and its tests are in this PR. The recon findings are VERIFIED-IN-CODE against z8run `3a8a758`, lance-graph `97a3610d`, OGAR `e5de84e`, rs-graph-llm `e824977` and rig `d165343`. It ratifies the five decisions below and nothing more.
+**Status:** ⊘ SUPERSEDED IN PART (2026-10-05, same PR, before merge) — the Pair execution path described under "The cut" was REVERTED; this PR now ships only the corrected gap doc in `exec.rs` and this record. See "Correction" below. Recon findings and decisions 2–5 stand. ~~MEASURED — the code change and its tests are in this PR.~~ The recon findings are VERIFIED-IN-CODE against z8run `3a8a758`, lance-graph `97a3610d`, OGAR `e5de84e`, rs-graph-llm `e824977` and rig `d165343`. It ratifies the five decisions below and nothing more.
 
-## The cut
+## Correction (2026-10-05) — why the cut below was superseded
+
+`GroupAddr::Pair` addresses `hi · stride + lo`: the **dense product** of two dimension domains. Lowering every two-ordinal report to it made the Cartesian product the execution geometry because the primitive existed, not because any consumer demanded a dense cube. The intended fold model is the PowerShell-Hashtable / Excel-Pivot one: a row resolves its accumulator **destination** directly, and accumulator state scales with **observed/demanded destinations**. For IAM-sized dimensions (64k × 64k) a Pair sink is 4·10⁹ slots; a destination-resolving fold touches only the observed pairs.
+
+- **What stays true:** Pair was useful *evidence* that Report re-implemented what Quack can fold, and the old doc's "substrate gap" claim was stale.
+- **What was wrong:** Pair is not the general Pivot/Join execution model. A destination-resolving keyed fold is.
+- **What the source shows (VERIFIED-IN-CODE):**
+  - no compact tuple → slot resolver exists on any fold path. ndarray/mask-risc/Quack have ONE keyed-reduction walker with three addresses — `Lane`, `Via` (`table[fk[i]]`), `Pair` — all writing a dense K-slot sink (ndarray `simd_masking_ops.rs` `masked_group_*`, mask-risc `ir.rs` `GroupKey`, Quack `GroupAddr`, lgj `plan_lower.rs` Local/Via).
+  - The only compact structure is Report's `Layout::Sparse` RESULT index, reached by rescanning once per observed partition member.
+- **Reverted:** `fold_major`, `fold_addr`, the Pair SUM normalization, the product budget, the Pair strides and decode, the Pair-pinning tests. Report is back to main's planner.
+- **Kept:** `GroupAddr::Pair` in Quack/mask-risc/ndarray (correct for an explicitly dense mixed-radix problem; untouched here).
+- **Shipped:** `exec.rs`'s gap doc now names the real gap: a destination-resolving keyed fold, substrate-first in ndarray's keyed-reduction family.
+
+## The cut (⊘ SUPERSEDED — reverted before merge; kept as the record of what was tried)
 
 `lance-graph-report` planned two-dimensional reports as **one population pass per partition member**. Its module doc called the composite-key group fold "a named substrate gap". That gap had already closed: Quack has `GroupAddr::Pair { hi, lo, stride }`.
 
@@ -42,7 +55,7 @@ The physical planner now picks a **fold major**: the widest remaining ordinal wh
 
 ## DECISION (operator, 2026-10-05) — the provenance of these five rows is that choice; the evidence is the recon above
 
-1. **First PR** = the two-ordinal partition → `GroupAddr::Pair`, one pass. *(This PR.)*
+1. ~~**First PR** = the two-ordinal partition → `GroupAddr::Pair`, one pass.~~ ⊘ SUPERSEDED (operator, same day): Pair is not the fold model; this PR is reduced to revert + corrected record. See "Correction".
 2. **The numeric Quack `Query` is the canonical boundary.** `bind::Draft` and `ReportPlan` are SIBLING frontends; so are a SQL frontend, an IAM frontend, a z8run island compiler and a Rig tool frontend. `Draft` stays small. A maximal pure z8run island lowers to one bound Query/program, not to "one Draft".
 3. **Retire the graph-flow → KanbanColumn inference.** Keep generic session replay and resume. graph-flow emits facts and results (task completed, waiting for input, result ref, action receipt); the canonical Kanban + Revision owns lifecycle. graph-flow is not wired to the cycle-seal driver either.
 4. **Enforce coordinate space × version at the population execution and result boundaries** (execute(Program, World), ResultRef, workspace). Do not put the dataset version into the `Query` IR to satisfy the invariant. Binder provenance (version-dependent CAM ordinals) is a separate question.
@@ -52,8 +65,10 @@ The physical planner now picks a **fold major**: the widest remaining ordinal wh
 
 ## OPEN
 
-- **Pair choice is greedy, not pass-minimal** (found in review). Today the planner takes the widest ordinal as the fold key, then the widest ordinal that fits with it. With domains 100 × 60 × 60 and a 3600 budget, 100 × 60 does not fit, so there is no pair, and 60 × 60 = 3600 partition passes run. Folding 60 × 60 and partitioning over 100 would need only 100 passes. **REVISIT WHEN** the planner is next touched: choose `(fold key, fold major)` jointly to minimise passes. That is "the best exact fold universe" — still Quack's Pair, no new abstraction. Kept out of #1331 on purpose, so the fold key stays exactly as it was.
+- ⊘ SUPERSEDED with the Pair path — **Pair choice is greedy, not pass-minimal** (found in review). Today the planner takes the widest ordinal as the fold key, then the widest ordinal that fits with it. With domains 100 × 60 × 60 and a 3600 budget, 100 × 60 does not fit, so there is no pair, and 60 × 60 = 3600 partition passes run. Folding 60 × 60 and partitioning over 100 would need only 100 passes. **REVISIT WHEN** the planner is next touched: choose `(fold key, fold major)` jointly to minimise passes. That is "the best exact fold universe" — still Quack's Pair, no new abstraction. Kept out of #1331 on purpose, so the fold key stays exactly as it was.
 
+- **The missing primitive:** a destination-resolving keyed fold (resolved key tuple → compact slot in the same pass; keys SoA + value columns ∝ observed destinations). Layer order: ndarray keyed-reduction family → mask-risc `GroupKey` + an `Out` carrying keys and values → Quack `GroupAddr`; Report and lgj consume it. Contract first — see the fold-contract recon.
+- **`CoordSpec` has no functional-reference coordinate:** Report cannot group by `user → department` although `GroupAddr::Via` / `Filter::EqU32Via` already exist. A separable small step.
 - Owner of the execution membrane (Program + World → ResultRef). It is needed by both z8run and graph-flow.
 - Whether the merge-law re-roll of totals is a Quack fold or presentation.
 - Whether `with_roles` may hide dimensions, since it merges over them: a GROUP BY done in the view.
