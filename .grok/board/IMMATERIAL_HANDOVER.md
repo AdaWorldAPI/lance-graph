@@ -2,6 +2,15 @@
 
 A note, not a paper. The germ is in `BOUND_COMPUTATION.md`. This states the pipeline rule those PRs must not violate.
 
+Repo: https://github.com/AdaWorldAPI/lance-graph
+
+Proofs, not the root:
+
+- Quack bind: https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-quack/src/bind.rs
+- Report boundary: https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-report/src/boundary.rs
+- Report plan, `SourceRef { id, generation }`: https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-report/src/plan.rs
+- Lane-fold: https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-lane-fold/src/query.rs
+
 ## Claim
 
 After bind, a stage hands the next stage an address, not a population. The lane stays in the caller's scope. The terminal is the only observation.
