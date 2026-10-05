@@ -76,7 +76,10 @@ use crate::ReportError;
 pub struct PlannerPolicy {
     /// Largest coordinate product stored densely.
     pub dense_cell_budget: u64,
-    /// Largest single-coordinate domain a fold-key / discovery buffer may span.
+    /// Largest fold/group universe or discovery buffer the planner may
+    /// allocate: one fold key's domain, the PRODUCT of the fold key's and the
+    /// fold major's domains when they fold through [`GroupAddr::Pair`], or one
+    /// partition's discovery domain.
     pub domain_buffer_budget: u32,
     /// Most passes over the population one report may make.
     pub pass_budget: u64,

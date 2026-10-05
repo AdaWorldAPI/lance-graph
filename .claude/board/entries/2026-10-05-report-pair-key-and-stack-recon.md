@@ -52,6 +52,8 @@ The physical planner now picks a **fold major**: the widest remaining ordinal wh
 
 ## OPEN
 
+- **Pair choice is greedy, not pass-minimal** (found in review). Today the planner takes the widest ordinal as the fold key, then the widest ordinal that fits with it. With domains 100 × 60 × 60 and a 3600 budget, 100 × 60 does not fit, so there is no pair, and 60 × 60 = 3600 partition passes run. Folding 60 × 60 and partitioning over 100 would need only 100 passes. **REVISIT WHEN** the planner is next touched: choose `(fold key, fold major)` jointly to minimise passes. That is "the best exact fold universe" — still Quack's Pair, no new abstraction. Kept out of #1331 on purpose, so the fold key stays exactly as it was.
+
 - Owner of the execution membrane (Program + World → ResultRef). It is needed by both z8run and graph-flow.
 - Whether the merge-law re-roll of totals is a Quack fold or presentation.
 - Whether `with_roles` may hide dimensions, since it merges over them: a GROUP BY done in the view.
