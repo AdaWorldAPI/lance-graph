@@ -3,11 +3,16 @@
 //! proportional to the delta, not to the directory. Detects an accidentally
 //! population-copying or row-exploding version path.
 //!
+//! Scales: 1,000, 16,384 and 65,536 users — the last is the population
+//! bound ([`MAX_USERS`]). Larger directories are no longer representable.
+//!
 //! Own test binary (the counting allocator is process-global).
 
 use lance_graph_dir_sim::*;
 use ogar_dir_core::Guid128;
-use ogar_dir_sim::{Attribute, Change, EvidenceRef, NodeKind, NodeState, RuleId, VersionId};
+use ogar_dir_sim::{
+    Attribute, Change, EvidenceRef, NodeKind, NodeState, RuleId, ValueId, VersionId,
+};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -36,12 +41,12 @@ fn guid(i: u32) -> Guid128 {
 
 const LONER: u32 = u32::MAX - 2;
 
-/// A directory of `n` users, each in `employees`, plus a user in no group
-/// and an empty `exchange` group.
-fn directory(n: u32) -> (VersionStore, VersionId) {
+/// A directory of `users` users — all but one in `employees`, plus a user
+/// in no group — and an empty `exchange` group.
+fn directory(users: usize) -> (VersionStore, VersionId) {
     let (employees, exchange) = (guid(u32::MAX - 1), guid(u32::MAX));
     let mut obs = Observation::default();
-    for i in 0..n {
+    for i in 0..(users - 1) as u32 {
         obs.nodes.push((
             guid(i),
             ObservedNode::user(&format!("u{i}@example.test"), &format!("u{i}@example.test")),
@@ -81,8 +86,16 @@ enum Op {
     DeleteNode,
 }
 
-fn change(op: Op, st: &VersionStore, g0: VersionId) -> Change {
+/// The change for `op`. Its values are interned here, at ingress, outside
+/// the measured window — as a real caller would before simulating.
+fn change(op: Op, st: &mut VersionStore, g0: VersionId) -> Change {
     let (employees, exchange) = (guid(u32::MAX - 1), guid(u32::MAX));
+    let mut v = |s: &str| -> Option<ValueId> { Some(st.intern(s)) };
+    let (u7, renamed, new) = (
+        v("u7@example.test"),
+        v("renamed@example.test"),
+        v("new@example.test"),
+    );
     match op {
         Op::AddMembership => Change::AddMembership {
             user: guid(7),
@@ -95,17 +108,17 @@ fn change(op: Op, st: &VersionStore, g0: VersionId) -> Change {
         Op::SetAttribute => Change::SetAttribute {
             node: guid(7),
             attribute: Attribute::PrimarySmtp,
-            from: Some("u7@example.test".into()),
-            to: Some("renamed@example.test".into()),
+            from: u7,
+            to: renamed,
         },
         Op::CreateNode => Change::CreateNode {
             node: guid(u32::MAX - 3),
             state: NodeState {
                 kind: NodeKind::User,
                 active: true,
-                upn: Some("new@example.test".into()),
-                primary_smtp: Some("new@example.test".into()),
-                ou: None,
+                upn: new,
+                primary_smtp: new,
+                dn: None,
             },
         },
         Op::DeleteNode => Change::DeleteNode {
@@ -116,11 +129,17 @@ fn change(op: Op, st: &VersionStore, g0: VersionId) -> Change {
 }
 
 /// Bytes allocated by `simulate` and by `diff` for one change of kind `op`
-/// in a directory of `n` users. The change itself is built outside the
+/// in a directory of `n` users (a create starts one below, so the version
+/// it makes holds exactly `n`). The change itself is built outside the
 /// measured window.
-fn measure(op: Op, n: u32) -> (usize, usize) {
-    let (mut st, g0) = directory(n);
-    let rule = Propose(vec![change(op, &st, g0)]);
+fn measure(op: Op, n: usize) -> (usize, usize) {
+    let users = if matches!(op, Op::CreateNode) {
+        n - 1
+    } else {
+        n
+    };
+    let (mut st, g0) = directory(users);
+    let rule = Propose(vec![change(op, &mut st, g0)]);
     let ev = vec![EvidenceRef("REQ-1".into())];
 
     let before = BYTES.load(Ordering::Relaxed);
@@ -144,24 +163,25 @@ fn one_mutation_of_each_kind_is_delta_sized_not_population_sized() {
         Op::DeleteNode,
     ] {
         let (s1, d1) = measure(op, 1_000);
-        let (s100, d100) = measure(op, 100_000);
-        let (s200, d200) = measure(op, 200_000);
+        let (s16, d16) = measure(op, 16_384);
+        let (s64, d64) = measure(op, MAX_USERS);
         eprintln!(
-            "{op:?}: simulate {s1} / {s100} / {s200} B, diff {d1} / {d100} / {d200} B \
-             @ 1k / 100k / 200k users"
+            "{op:?}: simulate {s1} / {s16} / {s64} B, diff {d1} / {d16} / {d64} B \
+             @ 1k / 16,384 / 65,536 users"
         );
-        // A copy of even one u32 lane at 100k users is 400 KB; a node or
-        // membership bitmap is 12.5 KB. Delta-sized work stays far below both.
+        // A copy of one u32 lane at 65,536 users is 256 KB, a node bitmap
+        // 8 KB, the u16 ordinal space itself 128 KB. Delta-sized work stays
+        // below all of them.
         assert!(
-            s200 < 8_192 && d200 < 8_192,
-            "{op:?}: {s200} / {d200} B @200k"
+            s64 < 8_192 && d64 < 8_192,
+            "{op:?}: {s64} / {d64} B @65,536"
         );
-        // Doubling a directory that is already large changes nothing.
+        // Quadrupling a directory that is already a full tile changes nothing.
         assert!(
-            s200 <= s100 + 256 && d200 <= d100 + 256,
-            "{op:?}: allocation grew with population past 100k"
+            s64 <= s16 + 256 && d64 <= d16 + 256,
+            "{op:?}: allocation grew with population past 16,384"
         );
-        // From 1k to 100k only the delete guard may grow, and only by its
+        // From 1k to 16,384 only the delete guard may grow, and only by its
         // `Count` program's scratch: one tile per slot, a tile capped at
         // `TILE_WORDS` (16,384 rows), so constant above that size.
         let tile_growth = if matches!(op, Op::DeleteNode) {
@@ -170,8 +190,8 @@ fn one_mutation_of_each_kind_is_delta_sized_not_population_sized() {
             256
         };
         assert!(
-            s100 <= s1 + tile_growth && d100 <= d1 + tile_growth,
-            "{op:?}: allocation grew with population from 1k to 100k"
+            s16 <= s1 + tile_growth && d16 <= d1 + tile_growth,
+            "{op:?}: allocation grew with population from 1k to 16,384"
         );
     }
 }

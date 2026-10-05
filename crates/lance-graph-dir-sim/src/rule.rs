@@ -3,15 +3,17 @@
 //! A rule receives a [`View`] — borrowed lanes of one version — and returns
 //! the [`Change`]s it proposes. It has no I/O handle and no way to mutate the
 //! view. Rules select **populations**: a population is a bitmap over the
-//! version's node ordinals, produced by Quack programs, never a loop that
-//! runs a workflow per user.
+//! version's user ordinals, produced by Quack programs, never a loop that
+//! runs a workflow per user. Values are [`ValueId`]s: a rule never compares
+//! or builds a string.
 
 use crate::exec::group_count_into;
 use crate::view::View;
 use lance_graph_mask_risc::{Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::Guid128;
-use ogar_dir_sim::{Attribute, Change, EvidenceRef, RuleId};
+use ogar_dir_sim::NodeKind;
+use ogar_dir_sim::{Attribute, Change, EvidenceRef, RuleId, ValueId};
 
 /// A pure graph transformation.
 pub trait Rule {
@@ -21,16 +23,27 @@ pub trait Rule {
     fn propose(&self, v: &View<'_>, evidence: &[EvidenceRef]) -> Vec<Change>;
 }
 
-/// Per-node membership count in `group` for one version:
-/// `GROUP BY member COUNT(*) WHERE group = g` over the live base relation,
-/// plus the overlay's added rows (delta-sized). One `K = |nodes|` sink; no
-/// joined rows.
+/// Per-user membership count in `group` for one version:
+/// `GROUP BY user COUNT(*) WHERE group = g` over the live base relation,
+/// plus the overlay's added rows (delta-sized). One `K = |users|` sink,
+/// indexed by user ordinal; no joined rows.
 pub fn member_counts(v: &View<'_>, group: &Guid128) -> Vec<i64> {
     let s = v.snap;
-    let mut counts = vec![0i64; v.len()];
-    let Some(g) = v.ordinal(group) else {
+    let mut counts = vec![0i64; v.users_len()];
+    let Some(g) = v.group_ordinal(group) else {
         return counts;
     };
+    let g = u32::from(g.0);
+    let added = v.added_rows();
+    for (uo, go) in added.users.iter().zip(&added.groups) {
+        if *go == g {
+            counts[*uo as usize] += 1;
+        }
+    }
+    // A created group has no base rows.
+    if g as usize >= s.groups.len() {
+        return counts;
+    }
     let live = v.live_rows();
     let lanes = [LaneRef::U32(&s.m_user), LaneRef::U32(&s.m_group)];
     let masks: [&[u64]; 1] = [&live];
@@ -46,12 +59,6 @@ pub fn member_counts(v: &View<'_>, group: &Guid128) -> Vec<i64> {
         &Foreign::NONE,
         &mut counts,
     );
-    let (au, ag, _) = v.added_rows();
-    for (uo, go) in au.into_iter().zip(ag) {
-        if go == g && (uo as usize) < counts.len() {
-            counts[uo as usize] += 1;
-        }
-    }
     counts
 }
 
@@ -121,9 +128,9 @@ impl Rule for ImplyGroup {
             member_counts(v, &self.target),
         );
         let active = v.active_users();
-        (0..v.len())
-            .filter(|&o| active[o / 64] >> (o % 64) & 1 == 1 && cs[o] > 0 && ct[o] == 0)
-            .filter_map(|o| v.guid(o as u32))
+        (0..v.users_len())
+            .filter(|&o| crate::snapshot::bit(&active, o) && cs[o] > 0 && ct[o] == 0)
+            .filter_map(|o| v.guid_in(NodeKind::User, o))
             .map(|user| Change::AddMembership {
                 user,
                 group: self.target,
@@ -138,8 +145,9 @@ pub struct SetPrimarySmtp {
     pub rule: RuleId,
     /// User.
     pub user: Guid128,
-    /// New address (raw).
-    pub to: String,
+    /// New address, interned by the caller at ingress
+    /// ([`VersionStore::intern`](crate::VersionStore::intern)).
+    pub to: ValueId,
 }
 
 impl Rule for SetPrimarySmtp {
@@ -147,18 +155,18 @@ impl Rule for SetPrimarySmtp {
         self.rule
     }
     fn propose(&self, v: &View<'_>, _: &[EvidenceRef]) -> Vec<Change> {
-        let Some(o) = v.ordinal(&self.user) else {
+        if v.user_ordinal(&self.user).is_none() {
             return Vec::new();
-        };
-        let from = v.attr(o, Attribute::PrimarySmtp);
-        if from == Some(self.to.as_str()) {
+        }
+        let from = v.attr(&self.user, Attribute::PrimarySmtp);
+        if from == Some(self.to) {
             return Vec::new();
         }
         vec![Change::SetAttribute {
             node: self.user,
             attribute: Attribute::PrimarySmtp,
-            from: from.map(str::to_string),
-            to: Some(self.to.clone()),
+            from,
+            to: Some(self.to),
         }]
     }
 }

@@ -2,30 +2,34 @@
 //!
 //! | invariant            | relational form                                         | lowering                               |
 //! |----------------------|---------------------------------------------------------|----------------------------------------|
-//! | edge integrity       | `members ANTI JOIN users ∪ members ANTI JOIN groups`    | `Rows(¬Semijoin(user,·) ∨ ¬Semijoin(group,·))` — `MaskOp::Gather` over the node kind planes |
-//! | unique SMTP / UPN    | `GROUP BY key HAVING count > 1` over active users        | `GroupReduce Count` keyed on the normalized-key dictionary id |
+//! | edge integrity       | `members ANTI JOIN users ∪ members ANTI JOIN groups`    | `Rows(¬Semijoin(user,·) ∨ ¬Semijoin(group,·))` — `MaskOp::Gather` over the live user and group planes |
+//! | unique SMTP / UPN    | `GROUP BY key HAVING count > 1` over active users        | `GroupReduce Count` keyed on [`KeyId`]  |
 //!
-//! No user objects are built. The integrity check reads the two membership
-//! lanes and two kind planes — it cannot see a string. Uniqueness reads one
-//! key lane and one plane; strings are resolved only for the (few) keys that
-//! actually collide, to report them.
+//! No user objects are built and no string is read: the integrity check
+//! reads the two membership lanes and the two live-node planes, uniqueness
+//! one key lane and one plane. A violation carries identities and the
+//! [`KeyId`]; resolving a key to text is the reporter's job.
+//!
+//! Memberships whose endpoint never resolved to an ordinal are not in the
+//! lanes (no sentinel ordinal exists); they are dangling by construction and
+//! reported from the snapshot's unresolved table and the overlay, both
+//! evidence-sized.
 //!
 //! Materialisations, all at the evidence boundary and bounded by the number
 //! of violations: the offending membership rows (`materialize_rows` of the
 //! kept mask) and each duplicate key's owner rows.
 
 use crate::exec::{group_count_into, keep, program};
-use crate::snapshot::bit;
+use crate::snapshot::{bit, ones};
 use crate::view::View;
 use lance_graph_mask_risc::{Foreign, ForeignPlane as FPlane, LaneRef, Planes, Program};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, ForeignPlane, Mask};
 use ogar_dir_core::Guid128;
-use ogar_dir_sim::{normalize, Attribute, Endpoint, NodeKind, Violation};
+use ogar_dir_sim::{Attribute, Endpoint, KeyId, NodeKind, Violation};
 
 /// The edge-integrity program over a membership relation: lane 0 = user
 /// ordinal, lane 1 = group ordinal, plane 0 = live rows; foreign plane 0 =
-/// the node table's user plane, 1 = its group plane. An anti-join on each
-/// side; an unresolved endpoint (`NONE`) is out of range and gathers 0.
+/// the live user plane, 1 = the live group plane. An anti-join on each side.
 pub fn dangling_program() -> Program {
     program(
         Filter::and([
@@ -39,23 +43,24 @@ pub fn dangling_program() -> Program {
     )
 }
 
-/// Dangling memberships of a version (base rows still live + added rows).
+/// Dangling memberships of a version.
 ///
-/// The foreign planes are the version's node-kind planes: the snapshot's,
-/// minus deleted nodes, plus created ones. They are composed from resident
-/// planes and the overlay, never taken from a program's output.
+/// Resolved rows (base still live, overlay added): one anti-join program
+/// against the version's live user and group planes — the snapshot's, minus
+/// deleted nodes, plus created ones, composed from resident planes and the
+/// overlay, never taken from a program's output. Unresolved rows: reported
+/// directly.
 pub fn dangling(v: &View<'_>) -> Vec<Violation> {
     let s = v.snap;
-    let (users, groups) = (v.kind_plane(NodeKind::User), v.kind_plane(NodeKind::Group));
-    let width = v.len();
+    let (users, groups) = (v.existing(NodeKind::User), v.existing(NodeKind::Group));
     let fps = [
         FPlane {
             words: &users,
-            rows: width,
+            rows: v.users_len(),
         },
         FPlane {
             words: &groups,
-            rows: width,
+            rows: v.groups_len(),
         },
     ];
     let foreign = Foreign {
@@ -64,7 +69,7 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
     };
     let p = dangling_program();
     let side = |uo: u32| {
-        if bit(&users, uo) {
+        if bit(&users, uo as usize) {
             Endpoint::Group
         } else {
             Endpoint::User
@@ -89,39 +94,61 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
         });
     }
 
-    // The overlay relation: delta-sized lanes, same program.
-    let (au, ag, ids) = v.added_rows();
-    let all = crate::snapshot::ones(au.len());
-    let lanes = [LaneRef::U32(&au), LaneRef::U32(&ag)];
+    // The overlay's resolved rows: delta-sized lanes, same program.
+    let added = v.added_rows();
+    let all = ones(added.users.len());
+    let lanes = [LaneRef::U32(&added.users), LaneRef::U32(&added.groups)];
     let masks: [&[u64]; 1] = [&all];
     let planes = Planes {
-        n_rows: au.len(),
+        n_rows: added.users.len(),
         masks: &masks,
         lanes: &lanes,
     };
     for r in keep(&p, &planes, &foreign).rows() {
-        let (user, group) = ids[r];
+        let user = v.guid_in(NodeKind::User, added.users[r] as usize);
+        let group = v.guid_in(NodeKind::Group, added.groups[r] as usize);
+        if let (Some(user), Some(group)) = (user, group) {
+            out.push(Violation::DanglingMembership {
+                user,
+                group,
+                missing: side(added.users[r]),
+            });
+        }
+    }
+
+    // Unresolved rows, observed (still live) and added.
+    let unresolved = s
+        .m_unresolved
+        .iter()
+        .filter(|p| !v.ov.removed_unresolved.contains(p))
+        .chain(&added.unresolved);
+    for &(user, group) in unresolved {
+        let missing = if v.user_ordinal(&user).is_some() {
+            Endpoint::Group
+        } else {
+            Endpoint::User
+        };
         out.push(Violation::DanglingMembership {
             user,
             group,
-            missing: side(au[r]),
+            missing,
         });
     }
     out.sort();
     out
 }
 
-/// Active users sharing a normalized value of `a`.
+/// Active users sharing a comparison key of `a`.
 pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
     let s = v.snap;
-    let keys = &v.dicts.keys;
-    let k = keys.len();
+    let u = &s.users;
+    let k = v.dicts.key_count();
     if k == 0 {
         return Vec::new();
     }
     let base_key = match a {
-        Attribute::Upn => &s.upn_key,
-        Attribute::PrimarySmtp => &s.smtp_key,
+        Attribute::Upn => &u.upn_key,
+        Attribute::PrimarySmtp => &u.smtp_key,
     };
     let owners_plane = v.live_owners(a);
     let mut counts = vec![0i64; k];
@@ -130,7 +157,7 @@ pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
     let lanes = [LaneRef::U32(base_key)];
     let masks: [&[u64]; 1] = [&owners_plane];
     let base = Planes {
-        n_rows: s.len(),
+        n_rows: u.len(),
         masks: &masks,
         lanes: &lanes,
     };
@@ -142,27 +169,28 @@ pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
         &mut counts,
     );
 
-    // Delta rows — overrides of base nodes and created nodes, as one small
+    // Delta rows — overrides of base users and created users, as one small
     // relation (ordinal, key) — through the same GROUP BY, admitted by a
     // semijoin of the ordinal against the version's active-user plane.
-    let n = s.len() as u32;
-    let created = v.ov.created.key(a);
-    let (oo, ok): (Vec<u32>, Vec<u32>) =
-        v.ov.overrides(a)
-            .iter()
-            .map(|(o, (_, key))| (*o, *key))
-            .chain(
-                created
-                    .iter()
-                    .enumerate()
-                    .map(|(i, key)| (n + i as u32, *key)),
-            )
-            .unzip();
+    let n = u.len() as u32;
+    let ou = &v.ov.users;
+    let (oo, ok): (Vec<u32>, Vec<u32>) = ou
+        .overrides(a)
+        .iter()
+        .map(|(o, (_, key))| (u32::from(*o), *key))
+        .chain(
+            ou.created
+                .key(a)
+                .iter()
+                .enumerate()
+                .map(|(i, key)| (n + i as u32, *key)),
+        )
+        .unzip();
     let active = v.active_users();
-    let all = crate::snapshot::ones(oo.len());
+    let all = ones(oo.len());
     let fps = [FPlane {
         words: &active,
-        rows: v.len(),
+        rows: v.users_len(),
     }];
     let foreign = Foreign {
         planes: &fps,
@@ -197,22 +225,19 @@ pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
         let mut owners: Vec<Guid128> = keep(&p, &base, &Foreign::NONE)
             .rows()
             .into_iter()
-            .map(|o| s.ids[o])
+            .map(|o| u.ids[o])
             .collect();
         owners.extend(
             oo.iter()
                 .zip(&ok)
-                .filter(|(o, kk)| **kk == key && bit(&active, **o))
-                .filter_map(|(o, _)| v.guid(*o)),
+                .filter(|(o, kk)| **kk == key && bit(&active, **o as usize))
+                .filter_map(|(o, _)| v.guid_in(NodeKind::User, *o as usize)),
         );
         owners.sort();
-        let value = keys.resolve(key).map(normalize).unwrap_or_default();
+        let key = KeyId(key);
         out.push(match a {
-            Attribute::Upn => Violation::DuplicateUpn { upn: value, owners },
-            Attribute::PrimarySmtp => Violation::DuplicateSmtp {
-                address: value,
-                owners,
-            },
+            Attribute::Upn => Violation::DuplicateUpn { key, owners },
+            Attribute::PrimarySmtp => Violation::DuplicateSmtp { key, owners },
         });
     }
     out

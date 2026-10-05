@@ -5,10 +5,10 @@
 //! an [`Overlay`] whose size is proportional to its accumulated delta:
 //!
 //! * added membership identity pairs,
-//! * removed base membership rows (sorted row ids),
-//! * per-attribute override maps `ordinal → (value id, key id)`,
-//! * created nodes as their own small SoA lanes ([`Created`]),
-//! * deleted base nodes (sorted ordinals).
+//! * removed membership rows (sorted row ids; unresolved rows by identity),
+//! * per population: attribute overrides `ordinal → (value, key)`, created
+//!   nodes as their own small SoA lanes ([`Created`]), and deleted base
+//!   ordinals.
 //!
 //! Nothing in the overlay is allocated in proportion to the directory: one
 //! mutation adds one entry. Queries build their "still live" planes when
@@ -16,18 +16,21 @@
 //! over the overlay's delta rows, and fold the two results. The base is
 //! never copied.
 //!
-//! **Ordinal space of a view.** Base nodes keep their snapshot ordinals
-//! `0..n`; created nodes take `n..n + c` in `Guid128` order. A deleted base
-//! node keeps its slot but has no ordinal ([`View::ordinal`] returns `None`)
-//! and is cleared from every live plane. Ordinals are valid only inside one
-//! view and are never stored: the overlay keeps identities wherever an
-//! ordinal could shift (added memberships, created nodes).
+//! **Ordinal spaces of a view.** Users and groups are numbered separately.
+//! Base nodes keep their snapshot ordinals `0..n`; created nodes take
+//! `n..n + c` in `Guid128` order; a population never exceeds 65,536. A
+//! deleted base node keeps its slot but has no ordinal and is cleared from
+//! every live plane. Ordinals are valid only inside one view; the overlay
+//! keeps identities wherever an ordinal could shift.
 
-use crate::snapshot::{bit, clear_bit, set_bit, Dicts, Snapshot, NONE};
+use crate::snapshot::{
+    bit, clear_bit, set_bit, Dicts, GroupOrdinal, Population, Snapshot, UserOrdinal, MAX_GROUPS,
+    MAX_USERS, NONE,
+};
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
-use ogar_dir_core::{Guid128, OuHhtl};
-use ogar_dir_sim::{Attribute, Change, NodeKind, NodeState};
+use ogar_dir_core::{Dn128, Guid128};
+use ogar_dir_sim::{Attribute, Change, NodeKind, NodeState, ValueId};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -43,14 +46,14 @@ pub enum ApplyError {
         /// Attribute.
         attribute: Attribute,
         /// What the change expected.
-        expected: Option<String>,
+        expected: Option<ValueId>,
         /// What the version holds.
-        actual: Option<String>,
+        actual: Option<ValueId>,
     },
     /// The membership already holds (add) / does not hold (remove).
     NoOp(Change),
-    /// A value in the change was never interned (store bug, not input).
-    Uninterned,
+    /// A value id the store never issued (caller bug, not input).
+    Uninterned(ValueId),
     /// `CreateNode` of an identity that already exists.
     NodeExists(Guid128),
     /// `CreateNode` of an observed identity this lineage deleted, with a
@@ -72,19 +75,22 @@ pub enum ApplyError {
     /// `CreateNode` of a group with `active = false`. Groups have no
     /// enabled flag; their canonical state carries `active = true`.
     InactiveGroup(Guid128),
+    /// `CreateNode` into a population already at its bound
+    /// ([`MAX_USERS`] / [`MAX_GROUPS`]).
+    PopulationFull(NodeKind),
 }
 
-/// Nodes a version created, as SoA lanes sorted by identity. Delta-sized.
+/// Nodes a version created in one population, as SoA lanes sorted by
+/// identity. Delta-sized.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Created {
     pub(crate) ids: Vec<Guid128>,
-    pub(crate) kind: Vec<NodeKind>,
     pub(crate) active: Vec<bool>,
     pub(crate) upn_val: Vec<u32>,
     pub(crate) upn_key: Vec<u32>,
     pub(crate) smtp_val: Vec<u32>,
     pub(crate) smtp_key: Vec<u32>,
-    pub(crate) ou: Vec<Option<OuHhtl>>,
+    pub(crate) dn: Vec<Option<Dn128>>,
 }
 
 impl Created {
@@ -93,25 +99,23 @@ impl Created {
     }
     fn insert(&mut self, at: usize, g: Guid128, s: &NodeState, upn: (u32, u32), smtp: (u32, u32)) {
         self.ids.insert(at, g);
-        self.kind.insert(at, s.kind);
         self.active.insert(at, s.active);
         self.upn_val.insert(at, upn.0);
         self.upn_key.insert(at, upn.1);
         self.smtp_val.insert(at, smtp.0);
         self.smtp_key.insert(at, smtp.1);
-        self.ou.insert(at, s.ou);
+        self.dn.insert(at, s.dn);
     }
     fn remove(&mut self, at: usize) {
         self.ids.remove(at);
-        self.kind.remove(at);
         self.active.remove(at);
         self.upn_val.remove(at);
         self.upn_key.remove(at);
         self.smtp_val.remove(at);
         self.smtp_key.remove(at);
-        self.ou.remove(at);
+        self.dn.remove(at);
     }
-    fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.ids.len()
     }
     fn lanes(&mut self, a: Attribute) -> (&mut Vec<u32>, &mut Vec<u32>) {
@@ -128,21 +132,44 @@ impl Created {
     }
 }
 
+/// One population's share of a version's delta.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct PopOverlay {
+    /// UPN overrides of base nodes: ordinal → (value id, key id), `NONE` = cleared.
+    pub(crate) upn: BTreeMap<u16, (u32, u32)>,
+    /// Primary-SMTP overrides of base nodes.
+    pub(crate) smtp: BTreeMap<u16, (u32, u32)>,
+    /// Created nodes.
+    pub(crate) created: Created,
+    /// Deleted base nodes (ordinals).
+    pub(crate) deleted: BTreeSet<u16>,
+}
+
+impl PopOverlay {
+    fn len(&self) -> usize {
+        self.upn.len() + self.smtp.len() + self.created.len() + self.deleted.len()
+    }
+    pub(crate) fn overrides(&self, a: Attribute) -> &BTreeMap<u16, (u32, u32)> {
+        match a {
+            Attribute::Upn => &self.upn,
+            Attribute::PrimarySmtp => &self.smtp,
+        }
+    }
+}
+
 /// The delta-sized part of a version.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Overlay {
     /// Added memberships, by identity (resolved to ordinals per query).
     pub(crate) added: BTreeSet<(Guid128, Guid128)>,
-    /// Removed base membership rows.
+    /// Removed resolved membership rows.
     pub(crate) removed: BTreeSet<u32>,
-    /// UPN overrides of base nodes: ordinal → (value id, key id), `NONE` = cleared.
-    pub(crate) upn: BTreeMap<u32, (u32, u32)>,
-    /// Primary-SMTP overrides of base nodes.
-    pub(crate) smtp: BTreeMap<u32, (u32, u32)>,
-    /// Created nodes.
-    pub(crate) created: Created,
-    /// Deleted base nodes (ordinals).
-    pub(crate) deleted: BTreeSet<u32>,
+    /// Removed unresolved (observed, dangling) memberships.
+    pub(crate) removed_unresolved: BTreeSet<(Guid128, Guid128)>,
+    /// User population delta.
+    pub(crate) users: PopOverlay,
+    /// Group population delta.
+    pub(crate) groups: PopOverlay,
 }
 
 impl Overlay {
@@ -150,18 +177,14 @@ impl Overlay {
     pub(crate) fn delta_len(&self) -> usize {
         self.added.len()
             + self.removed.len()
-            + self.upn.len()
-            + self.smtp.len()
-            + self.created.len()
-            + self.deleted.len()
-    }
-    pub(crate) fn overrides(&self, a: Attribute) -> &BTreeMap<u32, (u32, u32)> {
-        match a {
-            Attribute::Upn => &self.upn,
-            Attribute::PrimarySmtp => &self.smtp,
-        }
+            + self.removed_unresolved.len()
+            + self.users.len()
+            + self.groups.len()
     }
 }
+
+/// A node position inside a view: its population and its index there.
+pub(crate) type Slot = (NodeKind, usize);
 
 /// A coherent read of one version: shared snapshot + overlay.
 #[derive(Debug)]
@@ -180,160 +203,197 @@ impl<'s> View<'s> {
     pub fn snapshot(&self) -> &'s Snapshot {
         self.snap
     }
+    /// The store's label/value table (egress formatting only).
+    pub fn dicts(&self) -> &'s Dicts {
+        self.dicts
+    }
     /// Delta entries this version holds over its snapshot.
     pub fn delta_len(&self) -> usize {
         self.ov.delta_len()
     }
-    /// Dense execution ordinal of an existing node. `O(log n + log c)`.
-    pub fn ordinal(&self, g: &Guid128) -> Option<u32> {
-        match self.snap.ordinal(g) {
-            Some(o) if !self.ov.deleted.contains(&o) => Some(o),
+
+    pub(crate) fn pop(&self, kind: NodeKind) -> (&'s Population, &PopOverlay) {
+        match kind {
+            NodeKind::User => (&self.snap.users, &self.ov.users),
+            NodeKind::Group => (&self.snap.groups, &self.ov.groups),
+        }
+    }
+    fn pop_mut(&mut self, kind: NodeKind) -> &mut PopOverlay {
+        match kind {
+            NodeKind::User => &mut self.ov.users,
+            NodeKind::Group => &mut self.ov.groups,
+        }
+    }
+    /// Slot count of a population: base slots plus created nodes. A deleted
+    /// base node keeps its slot (cleared in every live plane).
+    pub(crate) fn len_in(&self, kind: NodeKind) -> usize {
+        let (p, o) = self.pop(kind);
+        p.len() + o.created.len()
+    }
+    /// Index of an existing node within a population.
+    pub(crate) fn index_in(&self, kind: NodeKind, g: &Guid128) -> Option<usize> {
+        let (p, o) = self.pop(kind);
+        match p.ordinal(g) {
+            Some(i) if !o.deleted.contains(&i) => Some(usize::from(i)),
             Some(_) => None,
-            None => self
-                .ov
-                .created
-                .find(g)
-                .ok()
-                .map(|i| (self.snap.len() + i) as u32),
+            None => o.created.find(g).ok().map(|i| p.len() + i),
         }
     }
-    /// Identity of an existing node's ordinal.
-    pub fn guid(&self, o: u32) -> Option<Guid128> {
-        let n = self.snap.len();
-        if (o as usize) < n {
-            (!self.ov.deleted.contains(&o)).then(|| self.snap.ids[o as usize])
+    /// Identity of an existing node's index.
+    pub(crate) fn guid_in(&self, kind: NodeKind, i: usize) -> Option<Guid128> {
+        let (p, o) = self.pop(kind);
+        if i < p.len() {
+            (!o.deleted.contains(&(i as u16))).then(|| p.ids[i])
         } else {
-            self.ov.created.ids.get(o as usize - n).copied()
+            o.created.ids.get(i - p.len()).copied()
         }
     }
-    /// Population width: base slots plus created nodes. A deleted base node
-    /// keeps its slot (cleared in every live plane).
-    pub fn len(&self) -> usize {
-        self.snap.len() + self.ov.created.len()
+    /// Where an existing node lives.
+    pub(crate) fn locate(&self, g: &Guid128) -> Option<Slot> {
+        [NodeKind::User, NodeKind::Group]
+            .into_iter()
+            .find_map(|k| self.index_in(k, g).map(|i| (k, i)))
     }
-    /// True if the version has no node slots.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
+
+    /// User count, including created users (the user ordinal universe).
+    pub fn users_len(&self) -> usize {
+        self.len_in(NodeKind::User)
+    }
+    /// Group count, including created groups.
+    pub fn groups_len(&self) -> usize {
+        self.len_in(NodeKind::Group)
+    }
+    /// Ordinal of an existing user. `O(log n + log c)`.
+    pub fn user_ordinal(&self, g: &Guid128) -> Option<UserOrdinal> {
+        self.index_in(NodeKind::User, g)
+            .map(|i| UserOrdinal(i as u16))
+    }
+    /// Ordinal of an existing group.
+    pub fn group_ordinal(&self, g: &Guid128) -> Option<GroupOrdinal> {
+        self.index_in(NodeKind::Group, g)
+            .map(|i| GroupOrdinal(i as u16))
+    }
+    /// Identity of a user ordinal.
+    pub fn user_guid(&self, o: UserOrdinal) -> Option<Guid128> {
+        self.guid_in(NodeKind::User, usize::from(o.0))
+    }
+    /// Identity of a group ordinal.
+    pub fn group_guid(&self, o: GroupOrdinal) -> Option<Guid128> {
+        self.guid_in(NodeKind::Group, usize::from(o.0))
     }
     /// True if the node exists in this version.
     pub fn exists(&self, g: &Guid128) -> bool {
-        self.ordinal(g).is_some()
+        self.locate(g).is_some()
     }
 
-    /// A base plane widened to [`Self::len`]: deleted base nodes cleared,
-    /// created rows set where `created` says so. Borrowed when the overlay
-    /// has neither (the common simulation case).
-    fn live_plane(&self, base: &'s [u64], created: impl Fn(usize) -> bool) -> Cow<'s, [u64]> {
-        let (n, c) = (self.snap.len(), self.ov.created.len());
-        if c == 0 && self.ov.deleted.is_empty() {
+    /// A base plane widened to the population's slot count: deleted base
+    /// nodes cleared, created rows set where `created` says so. Borrowed
+    /// when the overlay touches neither (the common simulation case).
+    fn live_plane(
+        &self,
+        kind: NodeKind,
+        base: &'s [u64],
+        created: impl Fn(usize) -> bool,
+    ) -> Cow<'s, [u64]> {
+        let (p, o) = self.pop(kind);
+        let (n, c) = (p.len(), o.created.len());
+        if c == 0 && o.deleted.is_empty() {
             return Cow::Borrowed(base);
         }
-        let mut p = base.to_vec();
-        p.resize(words_for(n + c), 0);
-        for &o in &self.ov.deleted {
-            clear_bit(&mut p, o as usize);
+        let mut plane = base.to_vec();
+        plane.resize(words_for(n + c), 0);
+        for &d in &o.deleted {
+            clear_bit(&mut plane, usize::from(d));
         }
         for i in (0..c).filter(|&i| created(i)) {
-            set_bit(&mut p, n + i);
+            set_bit(&mut plane, n + i);
         }
-        Cow::Owned(p)
+        Cow::Owned(plane)
+    }
+    /// Active users as a bit plane over the user ordinals.
+    pub fn active_users(&self) -> Cow<'s, [u64]> {
+        let cr = &self.ov.users.created;
+        self.live_plane(NodeKind::User, &self.snap.users.active, |i| cr.active[i])
+    }
+    /// Existing nodes of a population as a bit plane over its ordinals.
+    pub(crate) fn existing(&self, kind: NodeKind) -> Cow<'s, [u64]> {
+        let (p, _) = self.pop(kind);
+        self.live_plane(kind, &p.all, |_| true)
     }
     /// A base-width plane with deleted base nodes cleared.
-    pub(crate) fn base_live(&self, base: &'s [u64]) -> Cow<'s, [u64]> {
-        if self.ov.deleted.is_empty() {
+    pub(crate) fn base_live(&self, kind: NodeKind, base: &'s [u64]) -> Cow<'s, [u64]> {
+        let (_, o) = self.pop(kind);
+        if o.deleted.is_empty() {
             return Cow::Borrowed(base);
         }
-        let mut p = base.to_vec();
-        for &o in &self.ov.deleted {
-            clear_bit(&mut p, o as usize);
+        let mut plane = base.to_vec();
+        for &d in &o.deleted {
+            clear_bit(&mut plane, usize::from(d));
         }
-        Cow::Owned(p)
+        Cow::Owned(plane)
     }
-    /// Active users as a bit plane over [`Self::len`].
-    pub fn active_users(&self) -> Cow<'s, [u64]> {
-        let cr = &self.ov.created;
-        self.live_plane(&self.snap.active_user, |i| {
-            cr.kind[i] == NodeKind::User && cr.active[i]
-        })
-    }
-    /// Existing nodes of `kind` as a bit plane over [`Self::len`].
-    pub(crate) fn kind_plane(&self, kind: NodeKind) -> Cow<'s, [u64]> {
-        let base = match kind {
-            NodeKind::User => &self.snap.user,
-            NodeKind::Group => &self.snap.group,
-        };
-        let cr = &self.ov.created;
-        self.live_plane(base, |i| cr.kind[i] == kind)
-    }
+
     /// Effective membership, by identity. `O(log m)` + overlay lookup.
     pub fn is_member(&self, user: &Guid128, group: &Guid128) -> bool {
         if self.ov.added.contains(&(*user, *group)) {
             return true;
         }
-        self.snap
-            .member_row(user, group)
-            .is_some_and(|r| !self.ov.removed.contains(&r))
+        if let Some(r) = self.snap.member_row(user, group) {
+            return !self.ov.removed.contains(&r);
+        }
+        self.snap.is_unresolved_member(user, group)
+            && !self.ov.removed_unresolved.contains(&(*user, *group))
     }
 
-    fn attr_ids(&self, o: u32, a: Attribute) -> Option<(u32, u32)> {
-        let n = self.snap.len();
-        if (o as usize) >= n {
-            let i = o as usize - n;
-            let cr = &self.ov.created;
+    fn attr_ids(&self, (kind, i): Slot, a: Attribute) -> Option<(u32, u32)> {
+        let (p, o) = self.pop(kind);
+        if i >= p.len() {
+            let c = &o.created;
+            let j = i - p.len();
             return Some(match a {
-                Attribute::Upn => (*cr.upn_val.get(i)?, cr.upn_key[i]),
-                Attribute::PrimarySmtp => (*cr.smtp_val.get(i)?, cr.smtp_key[i]),
+                Attribute::Upn => (*c.upn_val.get(j)?, c.upn_key[j]),
+                Attribute::PrimarySmtp => (*c.smtp_val.get(j)?, c.smtp_key[j]),
             });
         }
-        if let Some(ids) = self.ov.overrides(a).get(&o) {
+        if let Some(ids) = o.overrides(a).get(&(i as u16)) {
             return Some(*ids);
         }
-        let s = self.snap;
         Some(match a {
-            Attribute::Upn => (*s.upn_val.get(o as usize)?, s.upn_key[o as usize]),
-            Attribute::PrimarySmtp => (*s.smtp_val.get(o as usize)?, s.smtp_key[o as usize]),
+            Attribute::Upn => (*p.upn_val.get(i)?, p.upn_key[i]),
+            Attribute::PrimarySmtp => (*p.smtp_val.get(i)?, p.smtp_key[i]),
         })
     }
 
-    /// Effective raw value of an attribute — the one place a value is
-    /// resolved to a string (compare-and-set, evidence, plan).
-    pub fn attr(&self, node: u32, a: Attribute) -> Option<&'s str> {
-        let (val, _) = self.attr_ids(node, a)?;
-        (val != NONE)
-            .then(|| self.dicts.values.resolve(val))
-            .flatten()
+    /// Effective value of an attribute of an existing node.
+    pub fn attr(&self, node: &Guid128, a: Attribute) -> Option<ValueId> {
+        self.slot_attr(self.locate(node)?, a)
+    }
+    pub(crate) fn slot_attr(&self, slot: Slot, a: Attribute) -> Option<ValueId> {
+        let (v, _) = self.attr_ids(slot, a)?;
+        (v != NONE).then_some(ValueId(v))
     }
 
-    /// The canonical semantic state of an existing node (evidence /
-    /// compare-and-set boundary: resolves strings).
+    /// The canonical semantic state of an existing node — ids only.
     pub fn node_state(&self, g: &Guid128) -> Option<NodeState> {
-        let o = self.ordinal(g)?;
-        let n = self.snap.len();
-        let (kind, active, ou) = if (o as usize) < n {
-            let s = self.snap;
-            let ou = bit(&s.ou_present, o).then(|| s.ou[o as usize]);
-            if bit(&s.user, o) {
-                (NodeKind::User, bit(&s.active_user, o), ou)
-            } else {
-                // Groups have no enabled flag (see `ApplyError::InactiveGroup`).
-                (NodeKind::Group, true, ou)
-            }
+        let (kind, i) = self.locate(g)?;
+        let (p, o) = self.pop(kind);
+        let (active, dn) = if i < p.len() {
+            let active = kind == NodeKind::Group || bit(&p.active, i);
+            (active, p.dn_of(i))
         } else {
-            let cr = &self.ov.created;
-            let i = o as usize - n;
-            (cr.kind[i], cr.active[i], cr.ou[i])
+            let j = i - p.len();
+            (o.created.active[j], o.created.dn[j])
         };
-        let text = |a| self.attr(o, a).map(str::to_string);
         Some(NodeState {
             kind,
             active,
-            upn: text(Attribute::Upn),
-            primary_smtp: text(Attribute::PrimarySmtp),
-            ou,
+            upn: self.slot_attr((kind, i), Attribute::Upn),
+            primary_smtp: self.slot_attr((kind, i), Attribute::PrimarySmtp),
+            dn,
         })
     }
 
-    /// The base membership rows still live in this version.
+    /// The resolved membership rows still live in this version.
     pub(crate) fn live_rows(&self) -> Cow<'s, [u64]> {
         if self.ov.removed.is_empty() {
             return Cow::Borrowed(&self.snap.m_all);
@@ -345,49 +405,66 @@ impl<'s> View<'s> {
         Cow::Owned(p)
     }
 
-    /// Base active users (base width) minus deleted nodes and the nodes
+    /// Base active users (base width) minus deleted users and the users
     /// whose attribute `a` is overridden — the base rows that still own
     /// their observed value.
     pub(crate) fn live_owners(&self, a: Attribute) -> Cow<'s, [u64]> {
-        let ov = self.ov.overrides(a);
-        if ov.is_empty() && self.ov.deleted.is_empty() {
-            return Cow::Borrowed(&self.snap.active_user);
+        let o = &self.ov.users;
+        let ov = o.overrides(a);
+        if ov.is_empty() && o.deleted.is_empty() {
+            return Cow::Borrowed(&self.snap.users.active);
         }
-        let mut p = self.snap.active_user.clone();
-        for o in ov.keys().chain(&self.ov.deleted) {
-            clear_bit(&mut p, *o as usize);
+        let mut p = self.snap.users.active.clone();
+        for d in ov.keys().chain(&o.deleted) {
+            clear_bit(&mut p, usize::from(*d));
         }
         Cow::Owned(p)
     }
 
-    /// Added memberships as delta-sized ordinal lanes (`NONE` = endpoint
-    /// does not exist in this version) plus their identities.
-    pub(crate) fn added_rows(&self) -> (Vec<u32>, Vec<u32>, Vec<(Guid128, Guid128)>) {
-        let mut u = Vec::with_capacity(self.ov.added.len());
-        let mut g = Vec::with_capacity(self.ov.added.len());
-        for (a, b) in &self.ov.added {
-            u.push(self.ordinal(a).unwrap_or(NONE));
-            g.push(self.ordinal(b).unwrap_or(NONE));
+    /// Added memberships split by resolution: delta-sized `(user, group)`
+    /// ordinal lanes for the rows whose endpoints both exist, and the
+    /// identities of the rest (dangling by construction).
+    pub(crate) fn added_rows(&self) -> AddedRows {
+        let mut out = AddedRows::default();
+        for &(u, g) in &self.ov.added {
+            match (self.user_ordinal(&u), self.group_ordinal(&g)) {
+                (Some(uo), Some(go)) => {
+                    out.users.push(u32::from(uo.0));
+                    out.groups.push(u32::from(go.0));
+                }
+                _ => out.unresolved.push((u, g)),
+            }
         }
-        (u, g, self.ov.added.iter().copied().collect())
+        out
     }
 
     /// Whether `node` still takes part in a live membership, on either side.
     ///
-    /// Base relation: one `Count` program over the two membership lanes
-    /// gated by the observed rows (borrowed, no plane built), minus the
-    /// removed rows touching the node (delta-sized). The relation is sorted
-    /// by user, not by group, so the group side has no index: the work is a
-    /// scan of the membership lanes, the allocation is one scratch tile.
+    /// Resolved base rows: one `Count` program over the membership lane of
+    /// the node's side, gated by the observed rows (borrowed, no plane
+    /// built), minus the removed rows touching the node (delta-sized). The
+    /// relation is sorted by user, not by group, so the group side has no
+    /// index: the work is a scan of one lane, the allocation one scratch
+    /// tile. Unresolved and added rows are delta- or evidence-sized.
     pub(crate) fn has_membership(&self, node: &Guid128) -> bool {
         if self.ov.added.iter().any(|(u, g)| u == node || g == node) {
             return true;
         }
+        if self
+            .snap
+            .m_unresolved
+            .iter()
+            .any(|p| (p.0 == *node || p.1 == *node) && !self.ov.removed_unresolved.contains(p))
+        {
+            return true;
+        }
         let s = self.snap;
-        let Some(o) = s.ordinal(node) else {
-            return false;
+        let (lane, o) = match (s.users.ordinal(node), s.groups.ordinal(node)) {
+            (Some(o), _) => (&s.m_user, o),
+            (None, Some(o)) => (&s.m_group, o),
+            (None, None) => return false,
         };
-        let lanes = [LaneRef::U32(&s.m_user), LaneRef::U32(&s.m_group)];
+        let lanes = [LaneRef::U32(lane)];
         let masks: [&[u64]; 1] = [&s.m_all];
         let planes = Planes {
             n_rows: s.membership_rows(),
@@ -397,10 +474,7 @@ impl<'s> View<'s> {
         let observed = crate::exec::count(
             Filter::and([
                 Filter::plane(Mask(0)),
-                Filter::or([
-                    Filter::cmp(Col(0), Cmp::EqU32(o)),
-                    Filter::cmp(Col(1), Cmp::EqU32(o)),
-                ]),
+                Filter::cmp(Col(0), Cmp::EqU32(u32::from(o))),
             ]),
             &planes,
             &Foreign::NONE,
@@ -409,9 +483,15 @@ impl<'s> View<'s> {
             .ov
             .removed
             .iter()
-            .filter(|&&r| s.m_user[r as usize] == o || s.m_group[r as usize] == o)
+            .filter(|&&r| lane[r as usize] == u32::from(o))
             .count();
         observed > removed
+    }
+
+    fn lane_ids(&self, v: Option<ValueId>) -> Result<(u32, u32), ApplyError> {
+        self.dicts
+            .lane_ids(v)
+            .ok_or_else(|| ApplyError::Uninterned(v.expect("None always resolves")))
     }
 
     /// Apply one change to the overlay. Pure with respect to everything but
@@ -422,24 +502,26 @@ impl<'s> View<'s> {
                 if self.is_member(user, group) {
                     return Err(ApplyError::NoOp(c.clone()));
                 }
-                match self.snap.member_row(user, group) {
-                    Some(r) => {
-                        self.ov.removed.remove(&r);
-                    }
-                    None => {
-                        self.ov.added.insert((*user, *group));
-                    }
+                if let Some(r) = self.snap.member_row(user, group) {
+                    self.ov.removed.remove(&r);
+                } else if !self.ov.removed_unresolved.remove(&(*user, *group)) {
+                    self.ov.added.insert((*user, *group));
                 }
             }
             Change::RemoveMembership { user, group } => {
+                if !self.is_member(user, group) {
+                    return Err(ApplyError::NoOp(c.clone()));
+                }
                 if self.ov.added.remove(&(*user, *group)) {
                     return Ok(());
                 }
                 match self.snap.member_row(user, group) {
-                    Some(r) if self.is_member(user, group) => {
+                    Some(r) => {
                         self.ov.removed.insert(r);
                     }
-                    _ => return Err(ApplyError::NoOp(c.clone())),
+                    None => {
+                        self.ov.removed_unresolved.insert((*user, *group));
+                    }
                 }
             }
             Change::SetAttribute {
@@ -448,71 +530,80 @@ impl<'s> View<'s> {
                 from,
                 to,
             } => {
-                let o = self.ordinal(node).ok_or(ApplyError::UnknownNode(*node))?;
-                let actual = self.attr(o, *attribute);
-                if actual != from.as_deref() {
+                let slot = self.locate(node).ok_or(ApplyError::UnknownNode(*node))?;
+                let actual = self.slot_attr(slot, *attribute);
+                if actual != *from {
                     return Err(ApplyError::Stale {
                         node: *node,
                         attribute: *attribute,
-                        expected: from.clone(),
-                        actual: actual.map(str::to_string),
+                        expected: *from,
+                        actual,
                     });
                 }
-                let ids = self
-                    .dicts
-                    .lookup_attr(to.as_deref())
-                    .ok_or(ApplyError::Uninterned)?;
-                let n = self.snap.len();
-                if (o as usize) >= n {
-                    let (val, key) = self.ov.created.lanes(*attribute);
-                    val[o as usize - n] = ids.0;
-                    key[o as usize - n] = ids.1;
+                let ids = self.lane_ids(*to)?;
+                let (kind, i) = slot;
+                let base_len = self.pop(kind).0.len();
+                let base_val = {
+                    let p = self.pop(kind).0;
+                    match attribute {
+                        Attribute::Upn => p.upn_val.get(i).copied(),
+                        Attribute::PrimarySmtp => p.smtp_val.get(i).copied(),
+                    }
+                };
+                let o = self.pop_mut(kind);
+                if i >= base_len {
+                    let (val, key) = o.created.lanes(*attribute);
+                    val[i - base_len] = ids.0;
+                    key[i - base_len] = ids.1;
                     return Ok(());
                 }
-                let base = match attribute {
-                    Attribute::Upn => self.snap.upn_val[o as usize],
-                    Attribute::PrimarySmtp => self.snap.smtp_val[o as usize],
-                };
                 let map = match attribute {
-                    Attribute::Upn => &mut self.ov.upn,
-                    Attribute::PrimarySmtp => &mut self.ov.smtp,
+                    Attribute::Upn => &mut o.upn,
+                    Attribute::PrimarySmtp => &mut o.smtp,
                 };
                 // Net effect only: setting a value back to the observed one
                 // removes the override instead of recording a no-op change.
-                if ids.0 == base {
-                    map.remove(&o);
+                if Some(ids.0) == base_val {
+                    map.remove(&(i as u16));
                 } else {
-                    map.insert(o, ids);
+                    map.insert(i as u16, ids);
                 }
             }
             Change::CreateNode { node, state } => {
                 if state.kind == NodeKind::Group && !state.active {
                     return Err(ApplyError::InactiveGroup(*node));
                 }
-                // Identity uniqueness: one node per Guid128 in a version.
+                // Identity uniqueness: one node per Guid128 in a version,
+                // across both populations.
                 if self.exists(node) {
                     return Err(ApplyError::NodeExists(*node));
                 }
-                if let Some(o) = self.snap.ordinal(node) {
+                let kind = state.kind;
+                if let Some(o) = self.snap.population(kind).ordinal(node) {
                     // Deleted in this lineage: recreating the observed node
                     // unchanged is an undo; anything else reuses an identity.
-                    self.ov.deleted.remove(&o);
+                    self.pop_mut(kind).deleted.remove(&o);
                     if self.node_state(node).as_ref() != Some(state) {
-                        self.ov.deleted.insert(o);
+                        self.pop_mut(kind).deleted.insert(o);
                         return Err(ApplyError::IdentityReused(*node));
                     }
                     return Ok(());
                 }
-                let upn = self
-                    .dicts
-                    .lookup_attr(state.upn.as_deref())
-                    .ok_or(ApplyError::Uninterned)?;
-                let smtp = self
-                    .dicts
-                    .lookup_attr(state.primary_smtp.as_deref())
-                    .ok_or(ApplyError::Uninterned)?;
-                let at = self.ov.created.find(node).unwrap_err();
-                self.ov.created.insert(at, *node, state, upn, smtp);
+                if self.snap.population(other(kind)).ordinal(node).is_some() {
+                    return Err(ApplyError::IdentityReused(*node));
+                }
+                let max = match kind {
+                    NodeKind::User => MAX_USERS,
+                    NodeKind::Group => MAX_GROUPS,
+                };
+                if self.len_in(kind) >= max {
+                    return Err(ApplyError::PopulationFull(kind));
+                }
+                let upn = self.lane_ids(state.upn)?;
+                let smtp = self.lane_ids(state.primary_smtp)?;
+                let o = self.pop_mut(kind);
+                let at = o.created.find(node).unwrap_err();
+                o.created.insert(at, *node, state, upn, smtp);
             }
             Change::DeleteNode { node, state } => {
                 let actual = self
@@ -529,20 +620,36 @@ impl<'s> View<'s> {
                 if self.has_membership(node) {
                     return Err(ApplyError::NodeHasMemberships(*node));
                 }
-                match self.ov.created.find(node) {
+                let kind = actual.kind;
+                let base = self.snap.population(kind).ordinal(node);
+                let o = self.pop_mut(kind);
+                match (o.created.find(node), base) {
                     // Create-then-delete nets out to nothing.
-                    Ok(i) => self.ov.created.remove(i),
-                    Err(_) => {
-                        let Some(o) = self.snap.ordinal(node) else {
-                            return Err(ApplyError::UnknownNode(*node));
-                        };
-                        self.ov.upn.remove(&o);
-                        self.ov.smtp.remove(&o);
-                        self.ov.deleted.insert(o);
+                    (Ok(i), _) => o.created.remove(i),
+                    (Err(_), Some(b)) => {
+                        o.upn.remove(&b);
+                        o.smtp.remove(&b);
+                        o.deleted.insert(b);
                     }
+                    (Err(_), None) => return Err(ApplyError::UnknownNode(*node)),
                 }
             }
         }
         Ok(())
+    }
+}
+
+/// [`View::added_rows`]: resolved delta rows as lanes, unresolved as ids.
+#[derive(Debug, Default)]
+pub(crate) struct AddedRows {
+    pub(crate) users: Vec<u32>,
+    pub(crate) groups: Vec<u32>,
+    pub(crate) unresolved: Vec<(Guid128, Guid128)>,
+}
+
+fn other(kind: NodeKind) -> NodeKind {
+    match kind {
+        NodeKind::User => NodeKind::Group,
+        NodeKind::Group => NodeKind::User,
     }
 }
