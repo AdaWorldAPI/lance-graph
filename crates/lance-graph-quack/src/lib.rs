@@ -162,6 +162,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod bind;
+
 use std::cmp::Reverse;
 
 use lance_graph_contract::facet::{SemanticAperture, SemanticPrefix};
