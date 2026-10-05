@@ -9,7 +9,7 @@ Wire the deforestation into the crates that already exist. Do not open a new zon
 | mask executor, tile loop, `under` gate | `lance-graph-mask-risc` | landed |
 | lowering, `and_by_skip`, fk forms | `lance-graph-quack` | landed |
 | DuckDB oracle | `lance-graph-quack/tests/duckdb_differential.rs` | landed, semantic only |
-| refusal check | `.grok/board/lane-fold/lane_guard.rs` | sketch, not on the build |
+| refusal check | `crates/lance-graph-lane-fold` | on the build, not yet called by quack |
 | aperture as a borrowed plan value | neither crate | missing |
 | associative collapse | neither crate | missing |
 | tile-level zone skip | `exec.rs` tile loop | missing |

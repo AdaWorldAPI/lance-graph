@@ -7,6 +7,7 @@ members = [
     "crates/lance-graph-contract",
     "crates/lance-graph-mask-risc",
     "crates/lance-graph-quack",
+    "crates/lance-graph-lane-fold",
     # Z8RUN capstone: the ReportPlan / zero-copy pivot layer Quack and z8run
     # both lower into (no second evaluator; lowers INTO lance-graph-quack).
     "crates/lance-graph-report",
