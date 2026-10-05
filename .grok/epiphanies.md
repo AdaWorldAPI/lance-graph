@@ -25,6 +25,16 @@ The L1–4 closed loop + continuous resonance is deliberately designed as an alw
 
 ---
 
+
+## 2026-10-05 — Lane fold
+
+The address of a 64k ordered lane is a `u16`. The mask is 8 KB. See `board/LANE_FOLD.md`.
+
+1. Selectivity is a popcount of a mask the plan already holds. `popcount / 65536` is the static reorder. No catalog.
+2. A million linear folds of one aperture are one fold. Sum of sums collapses before execution. A million word-folds at 0.6 ns is 0.6 ms.
+3. Left, anti, and mark are the same mask. Three joins have left the lane.
+
+
 ## Open High-Potential Directions
 
 - 2D superposition over `CausalEdge64` using Pearl masks as dimensions (L1 64×64, L2 256×256 palette attention)
