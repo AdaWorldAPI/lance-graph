@@ -1,6 +1,6 @@
 # Immaterial handover
 
-A note, not a paper. The germ is in `BOUND_COMPUTATION.md`. Reading and prompts: `HANDOVER_READING.md`. This states the pipeline rule those PRs must not violate.
+A note, not a paper. The germ is in `BOUND_COMPUTATION.md`. Reading and prompts: `HANDOVER_READING.md`. Falsifiers: `HANDOVER_FALSIFICATION.md`. This states the pipeline rule those PRs must not violate.
 
 Repo: https://github.com/AdaWorldAPI/lance-graph
 
