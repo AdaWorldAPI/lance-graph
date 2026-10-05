@@ -16,7 +16,8 @@
 //!   real zero sum that must stay distinct from `⊥`;
 //! - finalize once, after the merge: merging FINALIZED slots is shown to
 //!   give a wrong answer, so the raw-only domain is load-bearing;
-//! - refusals: no keyed `i64` sink, or two different group universes.
+//! - refusals: no keyed `i64` sink, or two different sink lengths (a length
+//!   check only — same length is not the same destination universe).
 
 use lance_graph_mask_risc::exec::{execute_extent, Scratch};
 use lance_graph_mask_risc::{
@@ -417,9 +418,11 @@ fn finalize_once_after_merge_never_merge_finalized() {
 }
 
 /// FAILS IF: the merge accepts a terminal with no keyed i64 sink, or two
-/// sinks of different group universes — or writes before refusing.
+/// sinks of different LENGTHS — or writes before refusing. This is a length
+/// check only: same length != same destination universe, and nothing here
+/// can tell (TD-KEYED-SINK-MERGE-IDENTITY-1).
 #[test]
-fn merge_refuses_unmergeable_terminals_and_mismatched_universes() {
+fn merge_refuses_unmergeable_terminals_and_mismatched_sink_lengths() {
     let mut acc = vec![1i64, 2, 3];
     let count = Terminal::Count {
         mask: Operand::Plane(0),

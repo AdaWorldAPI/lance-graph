@@ -637,8 +637,11 @@ impl Terminal {
     ///
     /// Refused, with nothing written: a terminal with no keyed `i64` sink
     /// ([`ExecError::ExtentUnsupported`] — its partials have no merge law
-    /// here), and sinks of different lengths, i.e. different group
-    /// universes ([`ExecError::LenMismatch`]).
+    /// here), and sinks of different LENGTHS ([`ExecError::LenMismatch`]).
+    /// The length check is the only universe check there is: same length is
+    /// not the same destination universe (precondition 5 above), and two
+    /// sinks of equal length over different groups merge without complaint.
+    /// Semantic-universe identity stays with `TD-KEYED-SINK-MERGE-IDENTITY-1`.
     ///
     /// [`ExecError::ExtentUnsupported`]: crate::ExecError::ExtentUnsupported
     /// [`ExecError::LenMismatch`]: crate::ExecError::LenMismatch
