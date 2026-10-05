@@ -601,3 +601,166 @@ fn null_is_not_the_empty_string_or_false() {
         "TRUE / FALSE / NULL partition the rows"
     );
 }
+
+// ── Nullable foreign key: Semijoin is FALSE, EqU32Via is UNKNOWN ──────────
+
+mod fk {
+    use lance_graph_mask_risc::{
+        execute_into, materialize_rows, words_for, Foreign, ForeignPlane as FPlane, LaneRef, Out,
+        Planes, Scratch,
+    };
+    use lance_graph_quack::{
+        lower, lower_fused, Agg, Col, Filter, ForeignLane, ForeignPlane, Mask, Query,
+    };
+
+    const FK: Col = Col(0);
+    const VFK: Mask = Mask(0);
+    /// The foreign table: 4 rows, kept plane `{0, 2}`, value lane `[9, 1, 9, 1]`.
+    const KEPT: [u64; 1] = [0b0101];
+    const FVAL: [u32; 4] = [9, 1, 9, 1];
+    const N: usize = 130;
+
+    /// Every row's fk payload is `r % 4`, so NULL rows (every third row) point
+    /// at live, MATCHING foreign rows as often as valid rows do.
+    fn table() -> (Vec<u32>, Vec<u64>) {
+        let mut fk = Vec::with_capacity(N);
+        let mut valid = vec![0u64; words_for(N)];
+        for r in 0..N {
+            fk.push((r % 4) as u32);
+            if !r.is_multiple_of(3) {
+                valid[r / 64] |= 1 << (r % 64);
+            }
+        }
+        (fk, valid)
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum Tv {
+        T,
+        F,
+        U,
+    }
+
+    /// Independent SQL semantics, row at a time.
+    fn eval(f: &Filter, fk: &[u32], r: usize) -> Tv {
+        let is_null = r.is_multiple_of(3);
+        let b = |x: bool| if x { Tv::T } else { Tv::F };
+        match f {
+            // EXISTS(… WHERE f.rid = NULL …) is FALSE.
+            Filter::Semijoin { .. } if is_null => Tv::F,
+            Filter::Semijoin { .. } => b(KEPT[0] >> fk[r] & 1 == 1),
+            // f.v = 9 through a NULL fk is UNKNOWN.
+            Filter::EqU32Via { .. } if is_null => Tv::U,
+            Filter::EqU32Via { v, .. } => b(FVAL[fk[r] as usize] == *v),
+            Filter::Not(i) => match eval(i, fk, r) {
+                Tv::T => Tv::F,
+                Tv::F => Tv::T,
+                Tv::U => Tv::U,
+            },
+            Filter::And(ps) => ps.iter().fold(Tv::T, |a, p| match (a, eval(p, fk, r)) {
+                (Tv::F, _) | (_, Tv::F) => Tv::F,
+                (Tv::U, _) | (_, Tv::U) => Tv::U,
+                _ => Tv::T,
+            }),
+            Filter::Or(ps) => ps.iter().fold(Tv::F, |a, p| match (a, eval(p, fk, r)) {
+                (Tv::T, _) | (_, Tv::T) => Tv::T,
+                (Tv::U, _) | (_, Tv::U) => Tv::U,
+                _ => Tv::F,
+            }),
+            other => panic!("oracle: unsupported {other:?}"),
+        }
+    }
+
+    fn kept(f: &Filter, fused: bool) -> Vec<usize> {
+        let (fk, valid) = table();
+        let masks = [&valid[..]];
+        let lanes = [LaneRef::U32(&fk)];
+        let pl = Planes {
+            n_rows: N,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let fplanes = [FPlane {
+            words: &KEPT,
+            rows: 4,
+        }];
+        let flanes = [LaneRef::U32(&FVAL)];
+        let foreign = Foreign {
+            planes: &fplanes,
+            lanes: &flanes,
+        };
+        let lower_fn = if fused { lower_fused } else { lower };
+        let p = lower_fn(&Query {
+            filter: f.clone(),
+            agg: Agg::Rows,
+        })
+        .expect("lowers");
+        let mut s = Scratch::for_program(&p, N).expect("carves");
+        let mut out = vec![0u64; words_for(N)];
+        execute_into(&p, &pl, &foreign, &mut s, Out::Mask(&mut out)).expect("runs");
+        materialize_rows(&out, N)
+    }
+
+    fn sj() -> Filter {
+        Filter::semijoin(FK, ForeignPlane(0))
+    }
+    fn via() -> Filter {
+        Filter::eq_u32_via(FK, ForeignLane(0), 9)
+    }
+    fn not(f: Filter) -> Filter {
+        Filter::negate(f)
+    }
+
+    /// The nullable-fk falsifier: a NULL fk whose stale payload points at a
+    /// kept, matching foreign row. `Semijoin` must answer FALSE there (so its
+    /// negation KEEPS the row) and `EqU32Via` UNKNOWN (so neither it nor its
+    /// negation keeps it). Treating `Semijoin` as UNKNOWN drops the row from
+    /// `NOT semijoin`; reading the payload keeps it in `semijoin`.
+    #[test]
+    fn semijoin_over_a_null_fk_is_false_and_eq_via_is_unknown() {
+        let (fk, _) = table();
+        let nullable = [(FK, VFK)];
+        // Anti-vacuity: NULL rows whose payload points at a kept, matching row.
+        let traps = (0..N)
+            .filter(|&r| r.is_multiple_of(3) && KEPT[0] >> fk[r] & 1 == 1)
+            .count();
+        assert!(traps >= 10, "fixture lost its traps ({traps})");
+
+        let cases = [
+            ("semijoin", sj()),
+            ("NOT semijoin", not(sj())),
+            ("eq_via", via()),
+            ("NOT eq_via", not(via())),
+            ("semijoin OR NOT semijoin", Filter::or([sj(), not(sj())])),
+            ("eq_via OR NOT eq_via", Filter::or([via(), not(via())])),
+            ("NOT (semijoin AND eq_via)", not(Filter::and([sj(), via()]))),
+            (
+                "NOT semijoin AND NOT eq_via",
+                Filter::and([not(sj()), not(via())]),
+            ),
+            (
+                "NOT (NOT semijoin OR eq_via)",
+                not(Filter::or([not(sj()), via()])),
+            ),
+        ];
+        for (name, f) in &cases {
+            let want: Vec<usize> = (0..N).filter(|&r| eval(f, &fk, r) == Tv::T).collect();
+            let w = f.sql_where(&nullable);
+            for fused in [false, true] {
+                assert_eq!(kept(&w, fused), want, "{name}: fused={fused}");
+            }
+        }
+
+        // Can-fire, both directions: NULL rows ARE kept by `NOT semijoin` (it
+        // is FALSE there, a known answer), and are NOT kept by `NOT eq_via`.
+        let nulls: Vec<usize> = (0..N).filter(|r| r.is_multiple_of(3)).collect();
+        let not_sj = kept(&not(sj()).sql_where(&nullable), false);
+        assert!(nulls.iter().all(|r| not_sj.contains(r)));
+        let not_via = kept(&not(via()).sql_where(&nullable), false);
+        assert!(nulls.iter().all(|r| !not_via.contains(r)));
+        // And the unrewritten semijoin reads the stale payload: it is wrong.
+        let raw = kept(&sj(), false);
+        assert!(nulls.iter().any(|r| raw.contains(r)));
+        assert_ne!(raw, kept(&sj().sql_where(&nullable), false));
+    }
+}

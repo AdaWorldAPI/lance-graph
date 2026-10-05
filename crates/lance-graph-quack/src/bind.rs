@@ -79,6 +79,12 @@ pub struct BoundField {
     pub col: Col,
     /// What it compares against.
     pub kind: FieldKind,
+    /// The field's resident validity plane when it is NULLABLE, `None` when
+    /// every live row has a value. NULL is that plane's clear bit; the value
+    /// lane's payload there is never read as an answer. The binder owns this
+    /// because it owns the schema: a frontend cannot know it, and
+    /// [`Draft::bind`] needs it to make the bound `WHERE` three-valued.
+    pub validity: Option<Mask>,
 }
 
 /// A consumer's resolution membrane: catalog plus codebook. Called only by
@@ -270,6 +276,12 @@ impl Draft {
     /// [`Query`]. Calls the binder once per table, field and textual
     /// literal; the result holds none of them.
     ///
+    /// The bound filter is SQL three-valued over every nullable field a
+    /// predicate reads ([`BoundField::validity`]): it is passed through
+    /// [`Filter::sql_where`], so a NULL row is never kept by `=` or `<>`. A
+    /// query over non-nullable fields binds to exactly the filter it bound to
+    /// before.
+    ///
     /// # Errors
     ///
     /// The first [`BindError`]; nothing is minted or registered on failure.
@@ -278,6 +290,7 @@ impl Draft {
             .table(&self.table)
             .ok_or_else(|| BindError::UnknownTable(self.table.clone()))?;
         let mut parts = vec![Filter::plane(b.live(t))];
+        let mut nullable = Vec::new();
         for p in &self.preds {
             if let Some(owner) = &p.table {
                 if owner != &self.table {
@@ -287,19 +300,28 @@ impl Draft {
                     });
                 }
             }
-            parts.push(self.bind_pred(b, t, p)?);
+            let (leaf, f) = self.bind_pred(b, t, p)?;
+            if let Some(valid) = f.validity {
+                nullable.push((f.col, valid));
+            }
+            parts.push(leaf);
         }
         let agg = match self.want {
             Want::Count => Agg::Count,
             Want::Rows => Agg::Rows,
         };
         Ok(Query {
-            filter: Filter::and(parts),
+            filter: Filter::and(parts).sql_where(&nullable),
             agg,
         })
     }
 
-    fn bind_pred(&self, b: &dyn Binder, t: TableId, p: &Predicate) -> Result<Filter, BindError> {
+    fn bind_pred(
+        &self,
+        b: &dyn Binder,
+        t: TableId,
+        p: &Predicate,
+    ) -> Result<(Filter, BoundField), BindError> {
         let f = b
             .field(t, &p.field)
             .ok_or_else(|| BindError::UnknownField {
@@ -331,7 +353,7 @@ impl Draft {
             }
             _ => return Err(mismatch()),
         };
-        Ok(Filter::cmp(f.col, cmp))
+        Ok((Filter::cmp(f.col, cmp), f))
     }
 }
 
@@ -452,10 +474,18 @@ mod tests {
                 "smtp" => Some(BoundField {
                     col: Col(0),
                     kind: FieldKind::Code,
+                    validity: None,
                 }),
                 "age" => Some(BoundField {
                     col: Col(1),
                     kind: FieldKind::I32,
+                    validity: None,
+                }),
+                // The same lane, declared nullable: plane 1 is its validity.
+                "nage" => Some(BoundField {
+                    col: Col(1),
+                    kind: FieldKind::I32,
+                    validity: Some(Mask(1)),
                 }),
                 _ => None,
             }
@@ -470,6 +500,8 @@ mod tests {
     }
 
     /// 200 rows: smtp code = i % 3, age = 20 + i % 50, row 13 not live.
+    /// Plane 1 is `nage`'s validity: rows `i % 7 == 0` are NULL there, and
+    /// keep their age payload (so row 63 is NULL with payload 33).
     fn run(q: &Query) -> (Value, Vec<usize>) {
         let n = 200;
         let codes: Vec<u32> = (0..n).map(|i| (i % 3) as u32).collect();
@@ -477,8 +509,12 @@ mod tests {
         let mut live = vec![u64::MAX; words_for(n)];
         live[3] &= (1u64 << (n % 64)) - 1;
         live[0] &= !(1 << 13);
+        let mut valid = vec![0u64; words_for(n)];
+        for i in (0..n).filter(|i| !i.is_multiple_of(7)) {
+            valid[i / 64] |= 1 << (i % 64);
+        }
         let lanes = [LaneRef::U32(&codes), LaneRef::I32(&ages)];
-        let masks: [&[u64]; 1] = [&live];
+        let masks: [&[u64]; 2] = [&live, &valid];
         let planes = Planes {
             n_rows: n,
             masks: &masks,
@@ -546,6 +582,37 @@ mod tests {
             .bind(&users)
             .unwrap();
         assert_eq!(run(&row13).1, vec![63, 113, 163]);
+    }
+
+    /// A nullable field binds three-valued: a NULL row is kept by neither
+    /// `=` nor `<>`, even when its stale payload would match. Without the
+    /// binder's validity, `<>` keeps every NULL row whose payload differs.
+    #[test]
+    fn a_nullable_field_binds_three_valued() {
+        let users = Users::new();
+        let live = |i: usize| i != 13;
+        let valid = |i: usize| !i.is_multiple_of(7);
+        let age = |i: usize| 20 + (i % 50) as i32;
+        let eq = table("users").where_eq("nage", 33).bind(&users).unwrap();
+        // Row 63 has payload 33 but is NULL: SQL drops it.
+        assert_eq!(run(&eq).1, vec![113, 163]);
+        let ne = table("users")
+            .where_(FieldRef::new("users", "nage").ne(33))
+            .bind(&users)
+            .unwrap();
+        let want: Vec<usize> = (0..200)
+            .filter(|&i| live(i) && valid(i) && age(i) != 33)
+            .collect();
+        assert_eq!(run(&ne).1, want);
+        // Can-fire: the same predicate on the non-nullable twin of the lane
+        // reads the payload of NULL rows and keeps them.
+        let raw = table("users")
+            .where_(FieldRef::new("users", "age").ne(33))
+            .bind(&users)
+            .unwrap();
+        let raw_rows = run(&raw).1;
+        assert!(raw_rows.iter().any(|&i| !valid(i)));
+        assert_ne!(raw_rows, want);
     }
 
     #[test]

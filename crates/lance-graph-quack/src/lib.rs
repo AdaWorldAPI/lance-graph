@@ -503,6 +503,7 @@ impl Filter {
     /// | `φ` | `T(φ)` | `F(φ)` |
     /// |---|---|---|
     /// | leaf on nullable `x` | `valid(x) ∧ leaf` | `valid(x) ∧ ¬leaf` |
+    /// | `Semijoin` on nullable `fk` | `valid(fk) ∧ leaf` | `¬(valid(fk) ∧ leaf)` |
     /// | leaf on no nullable column, or a plane | `leaf` | `¬leaf` |
     /// | `NOT ψ` | `F(ψ)` | `T(ψ)` |
     /// | `ψ₁ AND … AND ψₙ` | `⋀ T(ψᵢ)` | `⋁ F(ψᵢ)` |
@@ -519,10 +520,18 @@ impl Filter {
     ///
     /// - [`Filter::Cmp`]: nullable when its column is listed.
     ///   [`Cmp::Range`] reads the row ordinal, not the column, so it never is.
-    /// - [`Filter::EqU32Via`] and [`Filter::Semijoin`]: nullable when their
-    ///   `fk` is listed. A NULL foreign key reaches no foreign row, so the
-    ///   joined predicate is UNKNOWN there. A NULL in the FOREIGN value lane is
-    ///   not modelled here.
+    /// - [`Filter::EqU32Via`]: nullable when its `fk` is listed. It is the
+    ///   comparison `f.v = c` through the fk, and a NULL fk reaches no foreign
+    ///   row, so the comparison is UNKNOWN there: `T = valid(fk) ∧ leaf`,
+    ///   `F = valid(fk) ∧ ¬leaf`.
+    /// - [`Filter::Semijoin`]: NOT three-valued. It is
+    ///   `EXISTS(SELECT 1 FROM foreign f WHERE f.rid = this.fk AND …)`, and with
+    ///   a NULL fk the inner `f.rid = NULL` matches no row, so `EXISTS` is
+    ///   FALSE — known, never UNKNOWN. Its `Gather` would still read the
+    ///   foreign plane at the NULL row's stale payload, so a listed `fk` is
+    ///   gated without becoming UNKNOWN: `T = valid(fk) ∧ leaf`,
+    ///   `F = ¬(valid(fk) ∧ leaf)`.
+    /// - A NULL in the FOREIGN value lane is not modelled here.
     /// - [`Filter::Plane`]: never nullable. A plane is a known Boolean, which
     ///   is what makes [`Filter::is_null`] / [`Filter::is_not_null`] exact.
     ///
@@ -566,6 +575,16 @@ impl Filter {
                 let valid = leaf
                     .leaf_validity(nullable)
                     .expect("reads_any found a nullable leaf");
+                // `EXISTS` over a NULL fk is FALSE, not UNKNOWN: gate the
+                // leaf, then complement the gated leaf for `F`.
+                if let Filter::Semijoin { .. } = leaf {
+                    let gated = Filter::And(vec![Filter::Plane(valid), leaf.clone()]);
+                    return if want_true {
+                        gated
+                    } else {
+                        Filter::Not(Box::new(gated))
+                    };
+                }
                 let polar = if want_true {
                     leaf.clone()
                 } else {
