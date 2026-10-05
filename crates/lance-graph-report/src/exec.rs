@@ -42,27 +42,31 @@
 //! The honest limit: a partition costs one pass per member tuple, so a plan
 //! whose partition side is high-cardinality AND densely observed exceeds the
 //! pass budget and is REFUSED with [`ReportError::PassBudget`] rather than
-//! run slowly or allocated densely. What would lift it is a named gap, not
-//! something to hand-roll here: a **destination-resolving keyed fold**. A
-//! row's semantic coordinates and functional references are bound and
-//! resolved to its aggregate DESTINATION, and the row folds directly into it.
-//! The ACCUMULATE half already exists: `GroupAddr::Local` / `GroupAddr::Via`
-//! fold into a caller-sized K-slot sink, and K can be the compact destination
-//! count. The missing half is BIND / RESOLVE — this planner's `CoordSpec` /
-//! binder cannot derive or represent ONE destination from several coordinates
-//! (nor intern a tuple during a query), so it partitions instead. A join or
-//! pivot used only to determine an aggregate destination must
-//! compile to destination resolution + fold — never to an intermediate
-//! relation, and never automatically to a dense product — so accumulator
-//! state scales with the demanded / resolved destination universe, not with
-//! an accidental Cartesian product of the dimension domains. The normal path
-//! binds destinations beforehand (a resident ordinal, a CAM / codebook
-//! binding, a `Via` or composed functional reference); a query-local compact
-//! resolver is only for a destination universe that genuinely cannot be bound
-//! beforehand. (Quack's `GroupAddr::Pair`, `hi · stride + lo`, addresses the
-//! dense product and is therefore NOT this primitive; this planner does not
-//! lower to it. It belongs only to a problem that explicitly demands a dense
-//! mixed-radix destination universe.)
+//! run slowly or allocated densely. The missing capability is **destination
+//! binding / coordinate resolution for Report** — not a fold primitive. Once
+//! a compact destination ordinal or a functional reference is bound, the
+//! existing keyed fold IS the execution primitive: a resident destination
+//! ordinal folds through `GroupAddr::Local`, and `fk[row]` resolves to a
+//! foreign destination ordinal through `GroupAddr::Via`, each into a
+//! caller-sized K-slot sink where K is the destination count. What Report
+//! lacks is the binding step: `CoordSpec` has only `Field`, `Bucket` and
+//! `MaskSet`, so it cannot express a functional-reference coordinate
+//! (`user → department`), a composed functional route, or several semantic
+//! coordinates bound to ONE compact destination ordinal — and so it
+//! partitions instead.
+//!
+//! The law: a join or pivot used only to determine an aggregate destination
+//! must compile to destination binding / resolution + fold — never to an
+//! intermediate relation, and never automatically to a dense product — so
+//! accumulator state scales with the demanded / resolved destination universe,
+//! not with an accidental Cartesian product of the dimension domains. The
+//! normal path binds destinations beforehand (a resident ordinal, a CAM /
+//! codebook binding, a `Via` or composed functional reference). A query-local
+//! compact interner is only a possible fallback for a destination universe
+//! that genuinely cannot be bound beforehand, not the canonical path. (Quack's
+//! `GroupAddr::Pair`, `hi · stride + lo`, addresses the dense product; it is
+//! valid only for a consumer that explicitly demands a dense mixed-radix
+//! destination universe, and this planner does not lower to it.)
 
 use std::collections::HashMap;
 use std::sync::Arc;
