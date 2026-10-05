@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-215 entries, 2026-08-06 .. 2026-10-05.
+216 entries, 2026-08-06 .. 2026-10-05.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-05 | `text-to-numeric-boundary-inventory` |  | [2026-10-05-text-to-numeric-boundary-inventory.md](2026-10-05-text-to-numeric-boundary-inventory.md) |
 | 2026-10-05 | `quack-two-world-frontend` |  | [2026-10-05-quack-two-world-frontend.md](2026-10-05-quack-two-world-frontend.md) |
+| 2026-10-05 | `quack-storage-portability` |  | [2026-10-05-quack-storage-portability.md](2026-10-05-quack-storage-portability.md) |
 | 2026-10-04 | `D-LXC-22` |  | [2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md](2026-10-04-wordnet-clam-chaoda-scope-and-grammar-read-params.md) |
 | 2026-10-04 | `D-HPS-1` |  | [2026-10-04-spog-slab-hotplug-resolution.md](2026-10-04-spog-slab-hotplug-resolution.md) |
 | 2026-10-04 | `D-HPS-2` |  | [2026-10-04-resolve-once-population-execution.md](2026-10-04-resolve-once-population-execution.md) |
