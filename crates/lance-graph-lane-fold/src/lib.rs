@@ -8,6 +8,7 @@
 
 mod query;
 mod stars;
+mod optics;
 
 pub use query::{
     Aperture, ApertureId, BestQuery, Hom, LaneId, Query, Refuse, Request, Row, Terminal, N,
