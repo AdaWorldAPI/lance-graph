@@ -89,7 +89,7 @@ impl Quad8 {
                     while d_mask != 0 {
                         let d = d_mask.trailing_zeros() as u8;
                         d_mask &= d_mask - 1;
-                        visit(CartesianAddress12::new(a, b, c, d));
+                        visit(CartesianAddress12::pack(a, b, c, d));
                     }
                 }
             }
@@ -126,9 +126,23 @@ impl Quad8 {
 pub struct CartesianAddress12(u16);
 
 impl CartesianAddress12 {
+    /// Construct from four 3-bit ordinals.
+    ///
+    /// Returns `None` if any ordinal is outside 0..=7, so invalid public
+    /// input cannot spill into a neighbouring field in release builds.
     #[inline(always)]
-    pub const fn new(a: u8, b: u8, c: u8, d: u8) -> Self {
-        debug_assert!(a < 8 && b < 8 && c < 8 && d < 8);
+    pub const fn try_new(a: u8, b: u8, c: u8, d: u8) -> Option<Self> {
+        if a < 8 && b < 8 && c < 8 && d < 8 {
+            Some(Self::pack(a, b, c, d))
+        } else {
+            None
+        }
+    }
+
+    /// Hot-path constructor for ordinals already proven to be bit positions
+    /// of a `u8` and therefore in 0..=7.
+    #[inline(always)]
+    const fn pack(a: u8, b: u8, c: u8, d: u8) -> Self {
         Self(((a as u16) << 9) | ((b as u16) << 6) | ((c as u16) << 3) | d as u16)
     }
 
@@ -153,6 +167,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn cartesian_address_checks_all_four_ordinals() {
+        assert_eq!(CartesianAddress12::try_new(8, 0, 0, 0), None);
+        assert_eq!(CartesianAddress12::try_new(0, 8, 0, 0), None);
+        assert_eq!(CartesianAddress12::try_new(0, 0, 8, 0), None);
+        assert_eq!(CartesianAddress12::try_new(0, 0, 0, 8), None);
+        assert_eq!(CartesianAddress12::try_new(7, 7, 7, 7).unwrap().raw(), 0x0fff);
+    }
+
+    #[test]
     fn quad8_is_exactly_four_bytes() {
         assert_eq!(core::mem::size_of::<Quad8>(), 4);
     }
@@ -168,7 +191,7 @@ mod tests {
 
     #[test]
     fn structural_address_is_four_three_bit_ordinals() {
-        let address = CartesianAddress12::new(1, 2, 3, 4);
+        let address = CartesianAddress12::try_new(1, 2, 3, 4).unwrap();
         assert_eq!(address.raw(), 0x29c);
         assert_eq!(address.ordinals(), [1, 2, 3, 4]);
     }
@@ -225,10 +248,10 @@ mod tests {
         let q = Quad8::new(0b0000_0011, 0b0000_0001, 0b0000_0001, 0b0000_0011);
         let sum = q.fold_cartesian(0u32, |acc, address| acc + address.raw() as u32);
 
-        let expected = CartesianAddress12::new(0, 0, 0, 0).raw() as u32
-            + CartesianAddress12::new(0, 0, 0, 1).raw() as u32
-            + CartesianAddress12::new(1, 0, 0, 0).raw() as u32
-            + CartesianAddress12::new(1, 0, 0, 1).raw() as u32;
+        let expected = CartesianAddress12::try_new(0, 0, 0, 0).unwrap().raw() as u32
+            + CartesianAddress12::try_new(0, 0, 0, 1).unwrap().raw() as u32
+            + CartesianAddress12::try_new(1, 0, 0, 0).unwrap().raw() as u32
+            + CartesianAddress12::try_new(1, 0, 0, 1).unwrap().raw() as u32;
 
         assert_eq!(sum, expected);
     }
