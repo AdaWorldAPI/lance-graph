@@ -1,19 +1,19 @@
-# Report folds two ordinals in one pass; stack-convergence recon (2026-10-05)
+# Report Pair experiment superseded; destination-resolving fold gap and stack recon (2026-10-05)
 
 **Status:** ⊘ SUPERSEDED IN PART (2026-10-05, same PR, before merge) — the Pair execution path described under "The cut" was REVERTED; this PR now ships only the corrected gap doc in `exec.rs` and this record. See "Correction" below. Recon findings and decisions 2–5 stand. ~~MEASURED — the code change and its tests are in this PR.~~ The recon findings are VERIFIED-IN-CODE against z8run `3a8a758`, lance-graph `97a3610d`, OGAR `e5de84e`, rs-graph-llm `e824977` and rig `d165343`. It ratifies the five decisions below and nothing more.
 
 ## Correction (2026-10-05) — why the cut below was superseded
 
-`GroupAddr::Pair` addresses `hi · stride + lo`: the **dense product** of two dimension domains. Lowering every two-ordinal report to it made the Cartesian product the execution geometry because the primitive existed, not because any consumer demanded a dense cube. The intended fold model is the PowerShell-Hashtable / Excel-Pivot one: a row resolves its accumulator **destination** directly, and accumulator state scales with **observed/demanded destinations**. For IAM-sized dimensions (64k × 64k) a Pair sink is 4·10⁹ slots; a destination-resolving fold touches only the observed pairs.
+`GroupAddr::Pair` addresses `hi · stride + lo`: the **dense product** of two dimension domains. Lowering every two-ordinal report to it made the Cartesian product the execution geometry because the primitive existed, not because any consumer demanded a dense cube. The intended fold model is the PowerShell-Hashtable / Excel-Pivot one: a row resolves its accumulator **destination** directly, and accumulator state scales with the **demanded / resolved destination universe**, not with an accidental Cartesian product. For IAM-sized dimensions (64k × 64k) a Pair sink is 4·10⁹ slots whatever the data demands.
 
 - **What stays true:** Pair was useful *evidence* that Report re-implemented what Quack can fold, and the old doc's "substrate gap" claim was stale.
 - **What was wrong:** Pair is not the general Pivot/Join execution model. A destination-resolving keyed fold is.
 - **What the source shows (VERIFIED-IN-CODE):**
-  - no compact tuple → slot resolver exists on any fold path. ndarray/mask-risc/Quack have ONE keyed-reduction walker with three addresses — `Lane`, `Via` (`table[fk[i]]`), `Pair` — all writing a dense K-slot sink (ndarray `simd_masking_ops.rs` `masked_group_*`, mask-risc `ir.rs` `GroupKey`, Quack `GroupAddr`, lgj `plan_lower.rs` Local/Via).
+  - no fold path resolves a row to a destination outside a dense K-slot universe. ndarray/mask-risc/Quack have ONE keyed-reduction walker with three addresses — `Lane`, `Via` (`table[fk[i]]`), `Pair` — all writing a dense K-slot sink (ndarray `simd_masking_ops.rs` `masked_group_*`, mask-risc `ir.rs` `GroupKey`, Quack `GroupAddr`, lgj `plan_lower.rs` Local/Via).
   - The only compact structure is Report's `Layout::Sparse` RESULT index, reached by rescanning once per observed partition member.
 - **Reverted:** `fold_major`, `fold_addr`, the Pair SUM normalization, the product budget, the Pair strides and decode, the Pair-pinning tests. Report is back to main's planner.
 - **Kept:** `GroupAddr::Pair` in Quack/mask-risc/ndarray (correct for an explicitly dense mixed-radix problem; untouched here).
-- **Shipped:** `exec.rs`'s gap doc now names the real gap: a destination-resolving keyed fold, substrate-first in ndarray's keyed-reduction family.
+- **Shipped:** `exec.rs`'s gap doc now names the real gap: a destination-resolving keyed fold, stated semantically (bind/resolve → destination → fold), substrate-first.
 
 ## The cut (⊘ SUPERSEDED — reverted before merge; kept as the record of what was tried)
 
@@ -35,6 +35,8 @@ The physical planner now picks a **fold major**: the widest remaining ordinal wh
   - **Disable run:** with the normalization removed, it goes red (`agnostic.rs:564`), then green when restored.
 - `t9` now pins the pair programs, plus a per-member twin under a tight budget.
 - The pass-budget test moved to three ordinals so it still fires at 20.
+
+**Historical observation from review (not active work):** the Pair choice was greedy, not pass-minimal — with domains 100 × 60 × 60 and a 3600 budget it ran 3600 partition passes where folding 60 × 60 and partitioning over 100 would need 100. This is NOT an open optimization for Report: optimizing which dense product to fold is the superseded model. `GroupAddr::Pair` remains valid only where a consumer explicitly demands a dense mixed-radix destination universe; it is not the future implementation of sparse Pivot/Join/grouping.
 
 **Other runs:**
 - z8run-lance (`pivot_flow`, handle size under 128 bytes, `z8run_plan_is_the_native_plan`, zero-refold pivot): 10/10.
@@ -65,9 +67,7 @@ The physical planner now picks a **fold major**: the widest remaining ordinal wh
 
 ## OPEN
 
-- ⊘ SUPERSEDED with the Pair path — **Pair choice is greedy, not pass-minimal** (found in review). Today the planner takes the widest ordinal as the fold key, then the widest ordinal that fits with it. With domains 100 × 60 × 60 and a 3600 budget, 100 × 60 does not fit, so there is no pair, and 60 × 60 = 3600 partition passes run. Folding 60 × 60 and partitioning over 100 would need only 100 passes. **REVISIT WHEN** the planner is next touched: choose `(fold key, fold major)` jointly to minimise passes. That is "the best exact fold universe" — still Quack's Pair, no new abstraction. Kept out of #1331 on purpose, so the fold key stays exactly as it was.
-
-- **The missing primitive:** a destination-resolving keyed fold (resolved key tuple → compact slot in the same pass; keys SoA + value columns ∝ observed destinations). Layer order: ndarray keyed-reduction family → mask-risc `GroupKey` + an `Out` carrying keys and values → Quack `GroupAddr`; Report and lgj consume it. Contract first — see the fold-contract recon.
+- **The missing primitive:** a destination-resolving keyed fold, stated semantically: BIND / RESOLVE (semantic coordinates, functional references) → a destination → ACCUMULATE directly into it. **Law:** a join/pivot used only to determine an aggregate destination must compile to destination resolution + fold — not to an intermediate relation, and not automatically to a dense product; accumulator state scales with the demanded / resolved destination universe. The normal fast path binds destinations beforehand (resident ordinal, CAM / codebook binding, `Via` or composed functional reference, or another pre-bound destination representation); only a destination universe that genuinely cannot be bound beforehand may use a query-local compact resolver. No physical representation is chosen here. Substrate-first; contract first — see the fold-contract recon.
 - **`CoordSpec` has no functional-reference coordinate:** Report cannot group by `user → department` although `GroupAddr::Via` / `Filter::EqU32Via` already exist. A separable small step.
 - Owner of the execution membrane (Program + World → ResultRef). It is needed by both z8run and graph-flow.
 - Whether the merge-law re-roll of totals is a Quack fold or presentation.

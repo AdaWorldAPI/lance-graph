@@ -42,16 +42,22 @@
 //! The honest limit: a partition costs one pass per member tuple, so a plan
 //! whose partition side is high-cardinality AND densely observed exceeds the
 //! pass budget and is REFUSED with [`ReportError::PassBudget`] rather than
-//! run slowly or allocated densely. The primitive that would lift it is a
-//! named substrate gap, not something to hand-roll here: a
-//! **destination-resolving keyed fold** — a keyed-reduction address in
-//! `ndarray::simd` / mask-risc that maps a row's resolved key tuple to a
-//! COMPACT accumulator slot in the same pass, so accumulator state scales with
-//! the observed destinations, never with the product of the dimension domains.
-//! (A composite mixed-radix key — Quack's `GroupAddr::Pair`, `hi · stride +
-//! lo` — exists, but it addresses the dense product and is therefore NOT that
-//! primitive; this planner does not lower to it. It belongs only to a
-//! problem that explicitly demands the dense cube.)
+//! run slowly or allocated densely. What would lift it is a named substrate
+//! gap, not something to hand-roll here: a **destination-resolving keyed
+//! fold**. A row's semantic coordinates and functional references are bound
+//! and resolved to its aggregate DESTINATION, and the row folds directly into
+//! it. A join or pivot used only to determine an aggregate destination must
+//! compile to destination resolution + fold — never to an intermediate
+//! relation, and never automatically to a dense product — so accumulator
+//! state scales with the demanded / resolved destination universe, not with
+//! an accidental Cartesian product of the dimension domains. The normal path
+//! binds destinations beforehand (a resident ordinal, a CAM / codebook
+//! binding, a `Via` or composed functional reference); a query-local compact
+//! resolver is only for a destination universe that genuinely cannot be bound
+//! beforehand. (Quack's `GroupAddr::Pair`, `hi · stride + lo`, addresses the
+//! dense product and is therefore NOT this primitive; this planner does not
+//! lower to it. It belongs only to a problem that explicitly demands a dense
+//! mixed-radix destination universe.)
 
 use std::collections::HashMap;
 use std::sync::Arc;
