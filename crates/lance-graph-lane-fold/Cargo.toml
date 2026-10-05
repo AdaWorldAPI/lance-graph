@@ -5,6 +5,11 @@ edition = "2021"
 description = "Map and teleport for the 64k u16 lane. Lowers a query to one borrowed aperture and one terminal per homomorphism. Does not execute."
 license = "Apache-2.0"
 
+[dev-dependencies]
+# tests/report_agreement.rs only: Hom and report's FoldState must describe the
+# shared folds identically. Never a production dependency.
+lance-graph-report = { path = "../lance-graph-report" }
+
 [dependencies]
 # Zero-dep contract: AlgebraLaw metadata only. Lane-fold still executes nothing.
 lance-graph-contract = { path = "../lance-graph-contract" }

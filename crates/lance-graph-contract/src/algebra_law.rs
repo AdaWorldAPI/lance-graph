@@ -85,6 +85,13 @@ pub struct AlgebraLaw {
 /// representation its state uses; the planner only learns which kind of
 /// "empty" an empty partial contributes. The enum names only the kinds the
 /// currently described algebras need.
+///
+/// **`IdentityKind` is order-theoretic metadata. A planner must never derive
+/// or materialize a concrete accumulator value from it; only the executor
+/// owning the state may do that.** The kind is representation-independent:
+/// MAX over `i64` has identity `i64::MIN` and EXISTS has identity `false`,
+/// and both are [`IdentityKind::Bottom`] because both are the least element
+/// of their state's order. The shared kind says nothing about a shared value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IdentityKind {
     /// The additive zero: an empty partial contributes nothing to a total
