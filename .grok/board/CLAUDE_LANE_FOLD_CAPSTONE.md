@@ -2,7 +2,7 @@
 
 Read this before editing `lance-graph-mask-risc` or `lance-graph-quack`. It is the heads-up. The depth is linked. Do not re-derive it.
 
-Invariant: `board/LANE_FOLD.md`. Collapse: `05_query_languages/associative_collapse.md`. Integration: `board/LANE_FOLD_INTEGRATION.md`. Rooms: `board/LANE_FOLD_SEVENTEEN_ROOMS.md`. Literature: `05_query_languages/lane_fold_deforestation.md`. Sketch check: `board/lane-fold/lane_guard.rs`.
+Invariant: `board/LANE_FOLD.md`. Collapse: `05_query_languages/associative_collapse.md`. Integration: `board/LANE_FOLD_INTEGRATION.md`. Rooms: `board/LANE_FOLD_SEVENTEEN_ROOMS.md`. Literature: `05_query_languages/lane_fold_deforestation.md`. Sketch check: `board/lane-fold/lane_guard.rs`. Best-query scaffold: `board/lane-fold/scaffold/best_query.rs`.
 
 ## Settled, do not reopen
 
