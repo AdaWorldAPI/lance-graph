@@ -34,6 +34,8 @@ impl Binder for ReportBinder<'_> {
         Some(BoundField {
             col: Col(id.0 as u16),
             kind,
+            // The fixture's fields carry no NULLs.
+            validity: None,
         })
     }
     fn code(&self, _: TableId, col: Col, literal: &str) -> Option<u32> {

@@ -15,7 +15,7 @@
 //! | a row iterator / `next()` volcano loop | the unit is a mask over `n_rows`, never a row |
 //! | a per-operator kernel library | every operator is a `MaskOp` composition; a new operator is a new LOWERING, never a new kernel |
 //! | a physical-plan `dyn Operator` chain | a plan is a `Program` — one flat op list, one terminal |
-//! | a validity bitmap beside the data | the table's validity IS a resident mask plane ([`Filter::Plane`]); there is no separate NULL |
+//! | a validity bitmap beside the data | the table's validity IS a resident mask plane ([`Filter::Plane`]); there is no separate NULL. A column's NULLs are ITS validity plane, and [`Filter::sql_where`] makes `WHERE` over them SQL three-valued |
 //! | a hash table for GROUP BY | a group is a mask; K groups are K gated equalities over the kept filter ([`lower_group_by`]) |
 //!
 //! The rule that keeps it honest: **this crate may build a [`Program`] and
@@ -157,8 +157,12 @@
 //! [`Agg::GroupSumI32`] for a key on THIS table, [`Agg::GroupSumViaI32`] for
 //! a key resolved through a foreign table's [`ForeignLane`]
 //! (`SUM(l.amount) GROUP BY p.country`) — the indirect-key group-sum is no
-//! longer a gap. Absent, and everything the IR itself excludes: `ORDER BY`,
-//! strings, three-valued NULL.
+//! longer a gap. `WHERE` over nullable columns is SQL three-valued through
+//! [`Filter::sql_where`]: each column's resident validity plane is the NULL
+//! carrier, and UNKNOWN survives `NOT`/`AND`/`OR` up to the `WHERE`. Absent,
+//! and everything the IR itself excludes: `ORDER BY`, strings, a NULL literal
+//! and NULL-aware value expressions (`COALESCE`, `NULLIF`, nullable
+//! arithmetic).
 
 #![forbid(unsafe_code)]
 
@@ -454,6 +458,159 @@ impl Filter {
                 .map(|v| Filter::Cmp(col, Cmp::EqI32(v)))
                 .collect(),
         )
+    }
+
+    /// `x IS NOT NULL`, where `valid` is `x`'s resident validity plane.
+    ///
+    /// The validity plane IS the NULL carrier: a row is NULL in `x` exactly
+    /// when its bit in `valid` is clear, whatever its value lane holds there.
+    /// This test is never UNKNOWN, so it is an ordinary plane leaf.
+    pub fn is_not_null(valid: Mask) -> Self {
+        Filter::Plane(valid)
+    }
+
+    /// `x IS NULL`, where `valid` is `x`'s resident validity plane. Never
+    /// UNKNOWN. A table whose rows can be deleted still conjoins its liveness
+    /// plane as for any other filter: a deleted row has no `x` at all.
+    pub fn is_null(valid: Mask) -> Self {
+        Filter::Not(Box::new(Filter::Plane(valid)))
+    }
+
+    /// This filter read as a SQL `WHERE` clause over nullable columns,
+    /// returned as an ordinary two-valued filter that keeps exactly the rows
+    /// for which SQL three-valued logic yields TRUE.
+    ///
+    /// `nullable` names each nullable column together with its resident
+    /// validity plane. Nothing else carries NULL: the value lane keeps
+    /// whatever payload it has at a NULL row (`0`, garbage, a stale value),
+    /// and that payload never takes part in the answer. `value 0, valid 1` is
+    /// a real zero; `value 0, valid 0` is NULL. There is no NULL value, no
+    /// tagged representation and no second bitmap.
+    ///
+    /// # Why a rewrite, and why both polarities
+    ///
+    /// Plain lowering is two-valued: [`Filter::Not`] complements its operand.
+    /// Gating a comparison on its validity plane is not enough on its own:
+    /// `NOT (valid(x) AND x = 5)` holds on every NULL row, but SQL's
+    /// `NOT (x = 5)` is UNKNOWN there and `WHERE` rejects it. UNKNOWN must
+    /// survive composition up to the `WHERE`.
+    ///
+    /// Each subformula `φ` is therefore lowered to one of two masks:
+    /// `T(φ)`, the rows where `φ` is TRUE, or `F(φ)`, the rows where it is
+    /// FALSE. A row in neither is UNKNOWN, so `known = T ∪ F`, and the result
+    /// is `T(self)`. The laws are the SQL ones:
+    ///
+    /// | `φ` | `T(φ)` | `F(φ)` |
+    /// |---|---|---|
+    /// | leaf on nullable `x` | `valid(x) ∧ leaf` | `valid(x) ∧ ¬leaf` |
+    /// | `Semijoin` on nullable `fk` | `valid(fk) ∧ leaf` | `¬(valid(fk) ∧ leaf)` |
+    /// | leaf on no nullable column, or a plane | `leaf` | `¬leaf` |
+    /// | `NOT ψ` | `F(ψ)` | `T(ψ)` |
+    /// | `ψ₁ AND … AND ψₙ` | `⋀ T(ψᵢ)` | `⋁ F(ψᵢ)` |
+    /// | `ψ₁ OR … OR ψₙ` | `⋁ T(ψᵢ)` | `⋀ F(ψᵢ)` |
+    ///
+    /// Each node is visited once, and `NOT` only flips polarity, so the
+    /// rewrite is linear in the size of `self`. The
+    /// output is built from the same `Cmp` / `Plane` / `And` / `Or` / `Not`
+    /// leaves the input uses, so [`lower`] and [`lower_fused`] run it with no
+    /// new op, and a `valid(x)` conjunct is an ordinary resident-plane gate
+    /// that the survivor skip uses.
+    ///
+    /// # Which leaves are nullable
+    ///
+    /// - [`Filter::Cmp`]: nullable when its column is listed. That includes
+    ///   [`Cmp::Range`]: the executor reads only the row ordinal, but the
+    ///   range stands for a comparison on its provenance lane, so a NULL in
+    ///   that lane is UNKNOWN there too and the range is gated on its
+    ///   validity.
+    /// - [`Filter::EqU32Via`]: nullable when its `fk` is listed. It is the
+    ///   comparison `f.v = c` through the fk, and a NULL fk reaches no foreign
+    ///   row, so the comparison is UNKNOWN there: `T = valid(fk) ∧ leaf`,
+    ///   `F = valid(fk) ∧ ¬leaf`.
+    /// - [`Filter::Semijoin`]: NOT three-valued. It is
+    ///   `EXISTS(SELECT 1 FROM foreign f WHERE f.rid = this.fk AND …)`, and with
+    ///   a NULL fk the inner `f.rid = NULL` matches no row, so `EXISTS` is
+    ///   FALSE — known, never UNKNOWN. Its `Gather` would still read the
+    ///   foreign plane at the NULL row's stale payload, so a listed `fk` is
+    ///   gated without becoming UNKNOWN: `T = valid(fk) ∧ leaf`,
+    ///   `F = ¬(valid(fk) ∧ leaf)`.
+    /// - A NULL in the FOREIGN value lane is not modelled here.
+    /// - [`Filter::Plane`]: never nullable. A plane is a known Boolean, which
+    ///   is what makes [`Filter::is_null`] / [`Filter::is_not_null`] exact.
+    ///
+    /// A filter that reads no listed column comes back unchanged, so a
+    /// non-nullable query lowers to exactly the program it lowered to
+    /// before. A subtree that reads no listed column is reused as written.
+    ///
+    /// Out of scope here: a NULL literal (`x = NULL`, `x NOT IN (1, NULL)`),
+    /// `COALESCE`/`NULLIF`, and nullable arithmetic. Aggregates are
+    /// unchanged: `COUNT(x)`, `SUM(x)` and the rest still take `valid(x)` in
+    /// their filter, as before.
+    pub fn sql_where(&self, nullable: &[(Col, Mask)]) -> Filter {
+        self.rewrite(nullable, true).unwrap_or_else(|| self.clone())
+    }
+
+    /// `Some(T(self))` when `want_true`, else `Some(F(self))`; `None` when
+    /// this subtree reads no nullable column, so it is two-valued and the
+    /// caller reuses it as written. Each node is visited once, so the
+    /// rewrite is linear even down a long `NOT` chain. See
+    /// [`Filter::sql_where`].
+    fn rewrite(&self, nullable: &[(Col, Mask)], want_true: bool) -> Option<Filter> {
+        match self {
+            Filter::Not(inner) => inner.rewrite(nullable, !want_true),
+            Filter::And(parts) | Filter::Or(parts) => {
+                let mapped: Vec<Option<Filter>> = parts
+                    .iter()
+                    .map(|p| p.rewrite(nullable, want_true))
+                    .collect();
+                if mapped.iter().all(Option::is_none) {
+                    return None;
+                }
+                let mapped = mapped
+                    .into_iter()
+                    .zip(parts)
+                    .map(|(m, p)| m.unwrap_or_else(|| p.polar(want_true)))
+                    .collect();
+                // `T` keeps the connective and `F` takes its De Morgan dual.
+                Some(match (self, want_true) {
+                    (Filter::And(_), true) | (Filter::Or(_), false) => Filter::And(mapped),
+                    _ => Filter::Or(mapped),
+                })
+            }
+            leaf => {
+                let valid = leaf.leaf_validity(nullable)?;
+                // `EXISTS` over a NULL fk is FALSE, not UNKNOWN: gate the
+                // leaf, then complement the gated leaf for `F`.
+                if let Filter::Semijoin { .. } = leaf {
+                    let gated = Filter::And(vec![Filter::Plane(valid), leaf.clone()]);
+                    return Some(gated.polar(want_true));
+                }
+                Some(Filter::And(vec![
+                    Filter::Plane(valid),
+                    leaf.polar(want_true),
+                ]))
+            }
+        }
+    }
+
+    /// `self` when `want_true`, else `NOT self` — a two-valued subtree's `T`/`F`.
+    fn polar(&self, want_true: bool) -> Filter {
+        if want_true {
+            self.clone()
+        } else {
+            Filter::Not(Box::new(self.clone()))
+        }
+    }
+
+    /// The validity plane of the nullable column this LEAF reads, if any.
+    fn leaf_validity(&self, nullable: &[(Col, Mask)]) -> Option<Mask> {
+        let col = match *self {
+            Filter::Plane(_) => return None,
+            Filter::Cmp(col, _) => col,
+            Filter::EqU32Via { fk, .. } | Filter::Semijoin { fk, .. } => fk,
+            Filter::And(_) | Filter::Or(_) | Filter::Not(_) => return None,
+        };
+        nullable.iter().find(|(c, _)| *c == col).map(|&(_, m)| m)
     }
 
     /// An `AND` whose children are ordered by how much of the gate each one

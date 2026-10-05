@@ -28,6 +28,8 @@ impl Binder for IamBinder<'_> {
         Some(BoundField {
             col,
             kind: FieldKind::Code,
+            // IAM's dictionary ids are never NULL here.
+            validity: None,
         })
     }
     fn code(&self, _: TableId, col: Col, literal: &str) -> Option<u32> {
