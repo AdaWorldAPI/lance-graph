@@ -431,3 +431,71 @@ fn a_value_id_the_store_never_issued_is_refused() {
         ApplyError::Uninterned(bogus)
     );
 }
+
+/// An observed membership whose group was missing resolves once a version
+/// creates that group: it is no longer dangling, it is counted, and a
+/// population rule sees it.
+#[test]
+fn an_unresolved_membership_resolves_when_its_endpoint_is_created() {
+    let mut obs = population(2, 1);
+    obs.members.push((user(0), group(7))); // group 7 not observed yet
+    let mut st = VersionStore::new();
+    let g0 = st.observe("lab", 0, obs).unwrap();
+    assert_eq!(st.validate(g0).unwrap().len(), 1, "dangling while missing");
+    let create = Propose(vec![Change::CreateNode {
+        node: group(7),
+        state: NodeState {
+            kind: NodeKind::Group,
+            active: true,
+            upn: None,
+            primary_smtp: None,
+            dn: None,
+        },
+    }]);
+    let g1 = st.simulate(g0, &create, &[]).unwrap();
+    assert!(
+        st.validate(g1).unwrap().is_empty(),
+        "resolved by the create"
+    );
+    let view = st.view(g1).unwrap();
+    let counts = member_counts(&view, &group(7));
+    assert_eq!(counts, vec![1, 0], "counted like any membership");
+    // A rule over the now-resolved edge: members of 7 should be in 0.
+    let imply = ImplyGroup {
+        rule: RuleId {
+            name: "Imply",
+            version: 1,
+        },
+        source: group(7),
+        target: group(0),
+    };
+    assert_eq!(
+        imply.propose(&view, &[]),
+        vec![Change::AddMembership {
+            user: user(0),
+            group: group(0)
+        }]
+    );
+    drop(view);
+    // Removing and re-adding the edge round-trips.
+    let edge = |add| {
+        let c = if add {
+            Change::AddMembership {
+                user: user(0),
+                group: group(7),
+            }
+        } else {
+            Change::RemoveMembership {
+                user: user(0),
+                group: group(7),
+            }
+        };
+        Propose(vec![c])
+    };
+    let g2 = st.simulate(g1, &edge(false), &[]).unwrap();
+    assert!(!st.view(g2).unwrap().is_member(&user(0), &group(7)));
+    assert_eq!(member_counts(&st.view(g2).unwrap(), &group(7)), vec![0, 0]);
+    let g3 = st.simulate(g2, &edge(true), &[]).unwrap();
+    assert_eq!(member_counts(&st.view(g3).unwrap(), &group(7)), vec![1, 0]);
+    assert!(st.diff(g1, g3).unwrap().is_empty());
+}

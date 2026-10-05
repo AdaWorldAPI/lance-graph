@@ -94,7 +94,8 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
         });
     }
 
-    // The overlay's resolved rows: delta-sized lanes, same program.
+    // Identity-held rows (overlay adds, observed unresolved pairs) that
+    // resolve in this version: delta-sized lanes, same program.
     let added = v.added_rows();
     let all = ones(added.users.len());
     let lanes = [LaneRef::U32(&added.users), LaneRef::U32(&added.groups)];
@@ -116,13 +117,8 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
         }
     }
 
-    // Unresolved rows, observed (still live) and added.
-    let unresolved = s
-        .m_unresolved
-        .iter()
-        .filter(|p| !v.ov.removed_unresolved.contains(p))
-        .chain(&added.unresolved);
-    for &(user, group) in unresolved {
+    // Identity-held rows that still do not resolve in this version.
+    for &(user, group) in &added.unresolved {
         let missing = if v.user_ordinal(&user).is_some() {
             Endpoint::Group
         } else {

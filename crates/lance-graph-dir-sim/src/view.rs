@@ -421,12 +421,21 @@ impl<'s> View<'s> {
         Cow::Owned(p)
     }
 
-    /// Added memberships split by resolution: delta-sized `(user, group)`
-    /// ordinal lanes for the rows whose endpoints both exist, and the
-    /// identities of the rest (dangling by construction).
+    /// The live memberships held by identity — added in the overlay, or
+    /// observed with an endpoint the snapshot lacked — split by resolution
+    /// against THIS view: delta-sized `(user, group)` ordinal lanes for the
+    /// pairs whose endpoints both exist now (an observed pair resolves once
+    /// a version creates its missing endpoint), and the identities of the
+    /// rest (dangling). Evidence-sized: the snapshot's unresolved table
+    /// plus the overlay.
     pub(crate) fn added_rows(&self) -> AddedRows {
         let mut out = AddedRows::default();
-        for &(u, g) in &self.ov.added {
+        let observed = self
+            .snap
+            .m_unresolved
+            .iter()
+            .filter(|p| !self.ov.removed_unresolved.contains(p));
+        for &(u, g) in self.ov.added.iter().chain(observed) {
             match (self.user_ordinal(&u), self.group_ordinal(&g)) {
                 (Some(uo), Some(go)) => {
                     out.users.push(u32::from(uo.0));
