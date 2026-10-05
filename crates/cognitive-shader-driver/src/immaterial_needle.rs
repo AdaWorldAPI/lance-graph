@@ -1,11 +1,15 @@
 //! Immaterial needle. Two `(8:8)` pairs, folded in register, never a cross table.
 //!
 //! `[a, b][c, d]` is two indexes. Each index is the interleave of a palette
-//! pair. The fold combines the two reads with a law and drops them. Writing
-//! the two bins back as the address of a third LUT is a refusal: that table
-//! is the materialization this kernel exists not to build.
+//! pair. The fold combines the two reads with a law and drops them.
 //!
-//! Not wired into the cycle. `CausalEdge64` is not touched.
+//! Important distinction: a four-code cross table is refused, but a closed
+//! Palette256 law `P × P -> P` is legal. Two relation reads may therefore feed
+//! one 256 × 256 perturbation LUT as long as both relation results collapse
+//! back to native `u8` ordinals. That is three 64-KiB LUT reads, not a 256^4
+//! materialization.
+//!
+//! Not wired into the dispatch cycle. `CausalEdge64` is not touched.
 
 /// A palette code. One byte of a `(8:8)` pair.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,8 +52,10 @@ impl ImmaterialNeedle {
     }
 }
 
-/// A cross table would be `256^4` slots if the four codes were the address,
-/// or `256^2` if the two bins were. Either is the materialization.
+/// A four-code cross table would be `256^4` slots and is the materialization
+/// this type refuses. A 256 × 256 binary Palette256 law is *not* refused; see
+/// `crate::palette_perturbation`, where each pair collapses back to one byte
+/// before the next law is addressed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CrossRefused;
 
