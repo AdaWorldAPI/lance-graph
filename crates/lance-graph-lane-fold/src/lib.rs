@@ -9,6 +9,7 @@
 mod query;
 mod stars;
 mod optics;
+mod clifford_fold;
 
 pub use query::{
     Aperture, ApertureId, BestQuery, Hom, LaneId, Query, Refuse, Request, Row, Terminal, N,
