@@ -403,8 +403,10 @@ fn t8_json_and_csv_differ_only_at_the_terminal() {
 fn t9_native_plan_lowers_to_exactly_the_programs_quack_would_write() {
     let fx = synthetic(2_000, &[6, 9], 19);
     let batch = fx.batch();
-    // "WHERE V >= 0 GROUP BY A, B  SUM(V)" — A (6) is a partition, B (9)
-    // the fold key (wider). Pass 0 is A = 0.
+    // "WHERE V >= 0 GROUP BY A, B  SUM(V)" — B (9) is the fold key (wider),
+    // A (6) the fold major: ONE pass over Quack's composite key
+    // `A × 9 + B`. Quack has no pair-keyed SUM terminal, so the SUM is the
+    // NULL-preserving `GroupReduce { SumI32 }`.
     let plan = ReportPlan::over(src())
         .filter(Selection::cmp(V, CmpOp::Ge, Scalar::Int(0)))
         .pivot(&[fa()], &[fb()])
@@ -420,15 +422,21 @@ fn t9_native_plan_lowers_to_exactly_the_programs_quack_would_write() {
         .unwrap();
     // Lanes: F0 → 0, F1 → 1, F100 → 2 (fixture order).
     let where_ = Filter::Cmp(Col(2), Cmp::GeI32(0));
-    let pass0 = Filter::And(vec![where_, Filter::Cmp(Col(0), Cmp::EqU32(0))]);
+    let pair = lance_graph_quack::GroupAddr::Pair {
+        hi: Col(0),
+        lo: Col(1),
+        stride: 9,
+    };
+    assert_eq!(pp.passes, 1, "two ordinals fold in one pass");
+    let pass0 = where_.clone();
     let quack: Vec<Program> = [
         Agg::GroupReduce {
-            key: lance_graph_quack::GroupAddr::Local(Col(1)),
+            key: pair,
             agg: lance_graph_quack::GroupAgg::Count,
         },
-        Agg::GroupSumI32 {
-            key: Col(1),
-            val: Col(2),
+        Agg::GroupReduce {
+            key: pair,
+            agg: lance_graph_quack::GroupAgg::SumI32(Col(2)),
         },
     ]
     .into_iter()
@@ -462,15 +470,112 @@ fn t9_native_plan_lowers_to_exactly_the_programs_quack_would_write() {
             .first_pass,
         quack
     );
+
+    // Twin: a budget too small for the 54-group pair universe (but wide
+    // enough for B alone) keeps the per-member shape — A is a partition, B
+    // the single-lane key, and pass 0 is A = 0. Same native == Quack law.
+    let narrow = PlannerPolicy {
+        reuse_mask_min_programs: u64::MAX,
+        domain_buffer_budget: 53,
+        ..PlannerPolicy::default()
+    };
+    let pp = plan.explain(&batch, &narrow).unwrap();
+    assert_eq!(pp.fold_major, None);
+    assert_eq!(pp.passes, 6);
+    let pass0 = Filter::And(vec![where_, Filter::Cmp(Col(0), Cmp::EqU32(0))]);
+    let per_member: Vec<Program> = [
+        Agg::GroupReduce {
+            key: lance_graph_quack::GroupAddr::Local(Col(1)),
+            agg: lance_graph_quack::GroupAgg::Count,
+        },
+        Agg::GroupSumI32 {
+            key: Col(1),
+            val: Col(2),
+        },
+    ]
+    .into_iter()
+    .map(|agg| {
+        lower(&Query {
+            filter: pass0.clone(),
+            agg,
+        })
+        .unwrap()
+    })
+    .collect();
+    assert_eq!(pp.first_pass, per_member);
+}
+
+// ── PAIR KEY ≡ PER-MEMBER PASSES ────────────────────────────────────────
+// Two ordinal coordinates fold in ONE pass through Quack's composite key.
+// Every cell, every total, and every hidden-axis merge must equal the
+// per-member plan's — including empty cells, where the pair-keyed SUM's raw
+// sink holds the substrate's NULL marker until it is normalized to 0.
+#[test]
+fn pair_key_folds_two_ordinals_in_one_pass_and_equals_per_member_passes() {
+    // 300 rows over 20 × 30 = 600 cells: most cells are EMPTY (anti-vacuity
+    // for the SUM normalization), with negative values present.
+    let fx = synthetic(300, &[20, 30], 22);
+    let batch = fx.batch();
+    let plan = with_four(ReportPlan::over(src()).pivot(&[fa()], &[fb()]), V);
+    let pair_policy = PlannerPolicy {
+        domain_buffer_budget: 600,
+        ..PlannerPolicy::default()
+    };
+    let split_policy = PlannerPolicy {
+        domain_buffer_budget: 599,
+        ..PlannerPolicy::default()
+    };
+    // The budget knob decides the shape and nothing else: 600 pairs, 599
+    // does not (can-fire / can-stay-silent at the exact threshold).
+    let pp = plan.explain(&batch, &pair_policy).unwrap();
+    assert_eq!(pp.dims[pp.fold_key.unwrap()].coord, fb());
+    assert_eq!(pp.dims[pp.fold_major.unwrap()].coord, fa());
+    assert!(pp.partitions.is_empty());
+    assert_eq!(pp.passes, 1);
+    assert!(pp.to_string().contains("fold major"));
+    let sp = plan.explain(&batch, &split_policy).unwrap();
+    assert_eq!(sp.fold_major, None);
+    assert_eq!(sp.passes, 20);
+
+    let (pair, ps) = plan.execute(&batch, &pair_policy).unwrap();
+    let (split, ss) = plan.execute(&batch, &split_policy).unwrap();
+    assert_eq!(ps.population_scans, 4, "one pass × four fold states");
+    assert_eq!(ss.population_scans, 20 * 4);
+    assert_matches_oracle(&fx, &plan, &pair, V);
+
+    let empty = fx.n < 600 && fx.oracle(&plan, Some(V)).len() < 600;
+    assert!(empty, "the fixture must leave cells empty");
+    for m in pair.measures() {
+        for a in 0..20 {
+            for b in 0..30 {
+                assert_eq!(
+                    pair.value(m, &[], &[a], &[b]),
+                    split.value(m, &[], &[a], &[b]),
+                    "{m:?} at ({a},{b})"
+                );
+            }
+        }
+        // Totals merge stored slots, so an un-normalized empty SUM slot would
+        // corrupt them even though each empty cell reads NULL.
+        assert_eq!(pair.grand_total(m), split.grand_total(m), "{m:?} total");
+        let pr = pair.with_roles(&[fa()], &[], &[]).unwrap();
+        let sr = split.with_roles(&[fa()], &[], &[]).unwrap();
+        for a in 0..20 {
+            assert_eq!(pr.value(m, &[], &[a], &[]), sr.value(m, &[], &[a], &[]));
+        }
+    }
 }
 
 // ── knob inertness: pass and domain budgets can fire, and stay silent ───
 #[test]
 fn pass_budget_refuses_instead_of_running_slowly_and_is_silent_when_met() {
-    let fx = synthetic(1_000, &[20, 30], 20);
+    // Three ordinals: C (40) keys the fold, B (30) is the fold major, and
+    // A (20) is the one partition left — 20 passes.
+    let fx = synthetic(1_000, &[20, 30, 40], 20);
     let batch = fx.batch();
     let plan = ReportPlan::over(src())
         .pivot(&[fa()], &[fb()])
+        .axis(fc(), AxisRole::Page)
         .measure(Measure::count());
     let tight = PlannerPolicy {
         pass_budget: 19,
