@@ -95,6 +95,7 @@ pub mod attention_mask_actor;
 pub mod auto_style;
 pub(crate) mod backing;
 pub mod bindspace;
+pub mod causal_switch16;
 pub mod driver;
 /// Compare-thinking harness: staged `CausalEdge64` → `CausalEdgeV3` parallel
 /// (additive, read-only; proves the SPO dedup is thinking-preserving on the
@@ -210,6 +211,10 @@ pub use bindspace::{
     BindSpace, BindSpaceBuilder, EdgeColumn, FingerprintColumns, MetaColumn, QualiaColumn,
     QualiaI4Column,
 }; // deprecated — use QualiaI4Column
+pub use causal_switch16::{
+    CausalSwitch16, SwitchEdge, SwitchState16, SWITCH16_EDGES_PER_STAGE, SWITCH16_STAGES,
+    SWITCH16_STRIDES, SWITCH16_WIRES,
+};
 pub use driver::{CognitiveShaderBuilder, ShaderDriver};
 pub use engine_bridge::{
     dispatch_from_top_k, ingest_codebook_indices, persist_cycle, read_qualia_17d, unified_style,
