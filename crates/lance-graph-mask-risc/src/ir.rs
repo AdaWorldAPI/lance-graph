@@ -626,8 +626,10 @@ impl Terminal {
     /// 3. over the same coordinate space and version: the same planes and
     ///    foreign tables;
     /// 4. with the same filter;
-    /// 5. over the same destination universe — the same K, meaning the same
-    ///    groups, not merely the same length;
+    /// 5. over the same destination universe under the same binding — the
+    ///    same K, meaning the same groups, not merely the same length (a
+    ///    destination ordinal means something only inside its destination
+    ///    space);
     /// 6. from DISJOINT extents — `Count` and the sums count a row once per
     ///    extent that holds it, and only MIN/MAX are idempotent;
     /// 7. with the TOTAL rows of all merged partials within the fold's row

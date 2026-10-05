@@ -1,8 +1,9 @@
 ## TD-KEYED-SINK-MERGE-IDENTITY-1 (2026-10-05) — OPEN
 
 **Equal length is not semantic compatibility.** `Terminal::merge_group_sink`
-merges two bare `&[i64]` sinks. The only thing it can check is that their
-lengths match. A bare slice proves none of the following:
+merges two bare `&[i64]` sinks. It checks exactly two things: that the
+terminal is a supported keyed `i64` terminal, and that the two sinks have
+equal length. A bare slice proves none of the following:
 
 - raw vs finalized state (a finalized slot is outside the merge law, and
   merging it gives a wrong answer, not an error — pinned by
@@ -10,8 +11,12 @@ lengths match. A bare slice proves none of the following:
 - fold/state identity (which terminal and fold produced it);
 - coordinate space / version;
 - source / filter identity;
-- same destination universe (same K, but K of what);
-- disjoint extents (Count and the sums re-count overlapped rows);
+- same destination universe (same K, but K of what) — **a destination ordinal
+  is not a semantic identity by itself; an ordinal has meaning only inside its
+  destination-space / codebook identity** (WORKING-MODEL, operator 2026-10-05);
+- binding identity (which binding produced the ordinals);
+- contribution-population identity, and disjoint / legal contribution sets
+  (Count and the sums re-count overlapped rows);
 - combined row-bound legality (`MASKED_SUM_I32_MAX_ROWS` /
   `GROUP_SUM_SYM_MAX_ROWS` bound the TOTAL over all merged partials).
 
