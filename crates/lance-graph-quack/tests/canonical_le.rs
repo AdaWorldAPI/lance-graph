@@ -25,13 +25,15 @@ const V: u32 = 0x1234_5678;
 const LE: [u8; 4] = [0x78, 0x56, 0x34, 0x12];
 const BE: [u8; 4] = [0x12, 0x34, 0x56, 0x78];
 
-/// `n` records of `stride` bytes. Rows `0`, `17` hold the LE spelling, rows
-/// `1`, `18` the BE spelling, everything else zero. `n = 20` puts rows in
+/// `n` records of `stride` bytes. Rows `0`, `17` hold the LE spelling, row
+/// `1` the BE spelling, everything else zero. The two counts differ on
+/// purpose: with equal counts a big-endian reader in the reference
+/// interpreter would still report the same `Count` and slip through. `n = 20` puts rows in
 /// both the 16-lane group path and the scalar tail of the kernel.
 fn fixture(stride: usize) -> Vec<u8> {
     let n = 20;
     let mut b = vec![0u8; n * stride];
-    for (row, word) in [(0, LE), (17, LE), (1, BE), (18, BE)] {
+    for (row, word) in [(0, LE), (17, LE), (1, BE)] {
         b[row * stride..row * stride + 4].copy_from_slice(&word);
     }
     b
@@ -93,15 +95,15 @@ fn eq_u32_strided_reads_canonical_le_bytes() {
     for stride in [4, 16] {
         let b = fixture(stride);
         assert_eq!(rows(&b, stride, Cmp::EqU32Strided(V)), vec![0, 17], "stride {stride}");
-        // Can-fire: a big-endian reader would match rows 1 and 18 instead.
+        // Can-fire: a big-endian reader would match row 1 instead.
         assert_eq!(
             rows(&b, stride, Cmp::EqU32Strided(V.swap_bytes())),
-            vec![1, 18],
+            vec![1],
             "stride {stride}"
         );
         // `!=` is the complement over the same canonical reading.
         let ne = rows(&b, stride, Cmp::NeU32Strided(V));
-        assert_eq!(ne.len(), 18);
+        assert_eq!(ne.len(), 18); // 20 rows minus the two LE matches
         assert!(!ne.contains(&0) && !ne.contains(&17));
     }
 }
