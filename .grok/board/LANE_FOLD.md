@@ -1,6 +1,6 @@
 # Lane fold
 
-Invariant page for the 64k ordered lane. Depth, literature, and the residual: [`../05_query_languages/lane_fold_deforestation.md`](../05_query_languages/lane_fold_deforestation.md). Collapse rewrite: [`../05_query_languages/associative_collapse.md`](../05_query_languages/associative_collapse.md). Integration: [`LANE_FOLD_INTEGRATION.md`](LANE_FOLD_INTEGRATION.md). Seventeen rooms ahead: [`LANE_FOLD_SEVENTEEN_ROOMS.md`](LANE_FOLD_SEVENTEEN_ROOMS.md). Derivations live in [`lane-fold/`](lane-fold/). The check that fails a bad plan is [`lane-fold/lane_guard.rs`](lane-fold/lane_guard.rs). It belongs next to `lance-graph-quack` once it is wired in front of `lower`. This page does not execute anything.
+Invariant page for the 64k ordered lane. Claude heads-up: [`CLAUDE_LANE_FOLD_CAPSTONE.md`](CLAUDE_LANE_FOLD_CAPSTONE.md). Depth, literature, and the residual: [`../05_query_languages/lane_fold_deforestation.md`](../05_query_languages/lane_fold_deforestation.md). Collapse rewrite: [`../05_query_languages/associative_collapse.md`](../05_query_languages/associative_collapse.md). Integration: [`LANE_FOLD_INTEGRATION.md`](LANE_FOLD_INTEGRATION.md). Seventeen rooms ahead: [`LANE_FOLD_SEVENTEEN_ROOMS.md`](LANE_FOLD_SEVENTEEN_ROOMS.md). Derivations live in [`lane-fold/`](lane-fold/). The check that fails a bad plan is [`lane-fold/lane_guard.rs`](lane-fold/lane_guard.rs). It belongs next to `lance-graph-quack` once it is wired in front of `lower`. This page does not execute anything.
 
 ## Address
 

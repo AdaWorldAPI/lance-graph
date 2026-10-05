@@ -1,5 +1,9 @@
 # CLAUDE.md — lance-graph
 
+## P0 — lane fold, read before touching mask-risc or quack
+
+`.grok/board/CLAUDE_LANE_FOLD_CAPSTONE.md`. Settled numbers, the ten open points, the refusal list. Do not re-derive. Do not cite 0.6 ns as a join.
+
 ## P0 — AdaWorldAPI forks ONLY, NEVER crates.io upstream
 
 **Always depend on the AdaWorldAPI fork of any crate that has one. NEVER use the

@@ -7,7 +7,7 @@
 
 **Goal**: Delete the pair list, then delete the mask when the next fold is the same homomorphism. Stay on the 64k `u16` lane.
 
-**Plan**: `LANE_FOLD_INTEGRATION.md`. Depth: `../05_query_languages/lane_fold_deforestation.md`. Collapse: `../05_query_languages/associative_collapse.md`. Rooms: `LANE_FOLD_SEVENTEEN_ROOMS.md`.
+**Plan**: `LANE_FOLD_INTEGRATION.md`. Depth: `../05_query_languages/lane_fold_deforestation.md`. Collapse: `../05_query_languages/associative_collapse.md`. Rooms: `LANE_FOLD_SEVENTEEN_ROOMS.md`. Claude heads-up: `CLAUDE_LANE_FOLD_CAPSTONE.md`.
 
 **Status**: Executor and lowering landed. Next step is the collapse rewriter in quack, no kernel change, with `collapsed_terminals` printed. Refusal check is still a sketch. Tile-level zone skip is not wired. Do not route this through the cognitive layers. Best version: one borrowed aperture, one terminal per homomorphism class, residuals named and refused.
 
