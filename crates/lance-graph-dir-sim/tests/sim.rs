@@ -675,7 +675,7 @@ fn observe_from_ogar_ad() {
         .unwrap()
         .iter()
         .map(|e| {
-            ogar_ad::encode(e, Guid128::NIL, &mut d, &mut p, 0)
+            ogar_ad::encode(e, SCOPE.0, &mut d, &mut p, 0)
                 .unwrap()
                 .record
         })

@@ -255,7 +255,7 @@ fn a_seventeenth_level_and_a_257th_child_are_refused() {
         .unwrap()
         .iter()
         .map(|e| {
-            ogar_ad::encode(e, Guid128::NIL, &mut d, &mut p, 0)
+            ogar_ad::encode(e, SCOPE.0, &mut d, &mut p, 0)
                 .unwrap()
                 .record
         })
@@ -263,14 +263,81 @@ fn a_seventeenth_level_and_a_257th_child_are_refused() {
     // 256 children still convert…
     assert!(observe::from_ad(SCOPE, &recs[..256], &p).is_ok());
     // …the 257th fails closed, naming the record, and nothing is observed.
-    let err = observe::from_ad(SCOPE, &recs, &p).unwrap_err();
-    assert_eq!(err.node, recs[256].node_guid());
     assert_eq!(
-        err.error,
-        Dn128Error::ChildCodeOverflow {
-            level: 0,
-            segment: 257
+        observe::from_ad(SCOPE, &recs, &p).unwrap_err(),
+        observe::ObserveError::Location {
+            node: recs[256].node_guid(),
+            error: Dn128Error::ChildCodeOverflow {
+                level: 0,
+                segment: 257
+            }
         }
+    );
+}
+
+/// A `Dn128` holds no scope, so the scope is enforced at the edges: a record
+/// from another directory is refused at ingress, and two versions from
+/// different directories are neither diffed nor planned against each other.
+#[test]
+fn a_foreign_scope_is_refused_at_ingress_diff_and_plan() {
+    let other = DirectoryScope(Guid128([0x0D; 16]));
+    let ldif = |n: u8| {
+        format!(
+            "dn: CN=U,OU=Same,DC=example,DC=test\nobjectGUID:: {}\nobjectClass: user\n\n",
+            b64(&[n; 16])
+        )
+    };
+    let (mut d, mut p) = (
+        ogar_dir_core::OuDictionary::new(),
+        ogar_dir_core::ValuePool::new(),
+    );
+    let mut rec = |n: u8, scope: DirectoryScope| {
+        let e = &ogar_ad::ldif::parse(&ldif(n)).unwrap()[0];
+        ogar_ad::encode(e, scope.0, &mut d, &mut p, 0)
+            .unwrap()
+            .record
+    };
+    let (local, foreign) = (rec(1, SCOPE), rec(2, other));
+    // Same OU path, so the same Dn128: only the scope tells them apart.
+    assert_eq!(local.ou_hhtl(), foreign.ou_hhtl());
+    assert_eq!(
+        observe::from_ad(SCOPE, &[local, foreign], &p).unwrap_err(),
+        (observe::ObserveError::ForeignScope {
+            node: foreign.node_guid(),
+            scope: other,
+        })
+    );
+
+    let mut st = VersionStore::new();
+    let here = st
+        .observe("ad", 0, observe::from_ad(SCOPE, &[local], &p).unwrap())
+        .unwrap();
+    let there = st
+        .observe("ad", 1, observe::from_ad(other, &[foreign], &p).unwrap())
+        .unwrap();
+    assert_eq!(
+        st.diff(here, there),
+        Err(SimError::ScopeMismatch(here, there))
+    );
+    // Desired lineage in one scope, latest observation in another: no plan.
+    let mut st = VersionStore::new();
+    let mut obs = population(1, 1);
+    let g0 = st.observe("lab", 0, obs.clone()).unwrap();
+    let add = Propose(vec![Change::AddMembership {
+        user: user(0),
+        group: group(0),
+    }]);
+    let g1 = st.simulate(g0, &add, &[]).unwrap();
+    st.promote_desired(g1).unwrap();
+    assert!(st.plan(g1).is_ok());
+    obs.scope = other;
+    let o = st.observe("lab", 1, obs).unwrap();
+    assert_eq!(
+        st.plan(g1),
+        Err(ogar_dir_sim::PlanError::ScopeMismatch {
+            basis: o,
+            target: g1
+        })
     );
 }
 

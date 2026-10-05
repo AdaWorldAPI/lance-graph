@@ -30,22 +30,35 @@ fn slot(name: &str) -> usize {
         .expect("ogar-ad schema v1")
 }
 
-/// Why a record could not be observed.
+/// Why a record could not be observed. Either way the whole observation is
+/// refused: nothing is silently dropped or merged.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct LocationError {
-    /// The record.
-    pub node: Guid128,
-    /// Why its `OuHhtl` is not a `Dn128`.
-    pub error: Dn128Error,
+pub enum ObserveError {
+    /// The record's `OuHhtl` is not a `Dn128` (e.g. a 257th child).
+    Location {
+        /// The record.
+        node: Guid128,
+        /// Why.
+        error: Dn128Error,
+    },
+    /// The record belongs to another directory than the observation. A
+    /// `Dn128` carries no scope (it is external context), so a record from
+    /// another domain or tenant would be indistinguishable from a local one.
+    ForeignScope {
+        /// The record.
+        node: Guid128,
+        /// The record's own scope.
+        scope: DirectoryScope,
+    },
 }
 
 /// Users and groups among `records` (other kinds are skipped), located in
-/// `scope`.
+/// `scope`. Every user or group record must carry that scope.
 pub fn from_ad(
     scope: DirectoryScope,
     records: &[DirRecord],
     pool: &ValuePool,
-) -> Result<Observation, LocationError> {
+) -> Result<Observation, ObserveError> {
     let text = |r: &DirRecord, name: &str| {
         r.str_ref(slot(name))
             .and_then(|s| pool.get(s))
@@ -71,11 +84,17 @@ pub fn from_ad(
                     .find_map(|v| v.strip_prefix("SMTP:").map(str::to_string))
             });
         let node = r.node_guid();
+        if r.scope_guid() != scope.0 {
+            return Err(ObserveError::ForeignScope {
+                node,
+                scope: DirectoryScope(r.scope_guid()),
+            });
+        }
         let dn = r
             .ou_hhtl()
             .map(|h| Dn128::from_ou_hhtl(&h))
             .transpose()
-            .map_err(|error| LocationError { node, error })?;
+            .map_err(|error| ObserveError::Location { node, error })?;
         obs.nodes.push((
             node,
             ObservedNode {

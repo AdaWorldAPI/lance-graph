@@ -29,6 +29,9 @@ pub enum SimError {
     EmptyProposal(ogar_dir_sim::RuleId),
     /// The proposal does not apply to the parent.
     Apply(ApplyError),
+    /// The two versions describe different directories; their hierarchy
+    /// codes are not comparable.
+    ScopeMismatch(VersionId, VersionId),
 }
 
 /// Refusal to make a version desired. The version stays as evidence.
@@ -223,6 +226,9 @@ impl VersionStore {
     /// [`Change::DeleteNode`].
     pub fn diff(&self, a: VersionId, b: VersionId) -> Result<Vec<Change>, SimError> {
         let (va, vb) = (self.view(a)?, self.view(b)?);
+        if va.snap.scope != vb.snap.scope {
+            return Err(SimError::ScopeMismatch(a, b));
+        }
         let mut out = if std::ptr::eq(va.snap, vb.snap) {
             diff_shared(&va, &vb)
         } else {
@@ -256,6 +262,9 @@ impl VersionStore {
         // it was recorded), so the only failure here is an unknown id.
         let view = |v| self.view(v).map_err(|_| PlanError::UnknownVersion(v));
         let (vr, vt, vb) = (view(root)?, view(target)?, view(basis)?);
+        if vb.snap.scope != vt.snap.scope {
+            return Err(PlanError::ScopeMismatch { basis, target });
+        }
         let intent = diff_shared(&vr, &vt);
         let ops = outstanding(&vb, intent).map_err(|node| PlanError::Unconvergeable {
             basis,
