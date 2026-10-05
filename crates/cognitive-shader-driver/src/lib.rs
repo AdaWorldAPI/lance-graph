@@ -141,6 +141,7 @@ pub mod codec_kernel_cache;
 // ndarray::hpc::jitson_cranelift::JitEngine adapter + matrix-blob loader.
 #[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod rotation_kernel;
+pub mod immaterial_needle;
 
 // D1.3 — decode-kernel trait + residual composition.
 // Hydration/calibration path (NOT cascade inference — that uses
