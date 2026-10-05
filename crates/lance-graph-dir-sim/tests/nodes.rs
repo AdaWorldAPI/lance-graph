@@ -1,7 +1,7 @@
 //! Node creation and deletion, and reconciliation against a re-observation.
 
 use lance_graph_dir_sim::*;
-use ogar_dir_core::{Guid128, OuHhtl};
+use ogar_dir_core::{DirectoryScope, Dn128, Guid128};
 use ogar_dir_sim::*;
 
 fn g(n: u8) -> Guid128 {
@@ -32,13 +32,44 @@ impl Rule for Propose {
     }
 }
 
+/// Every raw value these tests use, interned at ingress in this order before
+/// anything is observed. The store is append-only, so `val(s)` — the index
+/// here — is the id the store issues for `s` for its whole lifetime.
+const VOCAB: &[&str] = &[
+    "alice@example.test",
+    "bob@example.test",
+    "carol@example.test",
+    "new@example.test",
+    "other@example.test",
+    "ghost@example.test",
+    "heir@example.test",
+    "ALICE@example.test",
+    "a.smith@example.test",
+    "carol.renamed@example.test",
+    "old@example.test",
+    "typo@example.test",
+];
+fn val(s: &str) -> ValueId {
+    let i = VOCAB.iter().position(|v| *v == s).expect("in VOCAB");
+    ValueId(i as u32)
+}
+fn new_store() -> VersionStore {
+    let mut st = VersionStore::new();
+    for (i, v) in VOCAB.iter().enumerate() {
+        assert_eq!(st.intern(v), ValueId(i as u32));
+    }
+    st
+}
+const SCOPE: DirectoryScope = DirectoryScope(Guid128([0x5C; 16]));
+
 fn user_state(name: &str) -> NodeState {
+    let v = val(&format!("{name}@example.test"));
     NodeState {
         kind: NodeKind::User,
         active: true,
-        upn: Some(format!("{name}@example.test")),
-        primary_smtp: Some(format!("{name}@example.test")),
-        ou: None,
+        upn: Some(v),
+        primary_smtp: Some(v),
+        dn: None,
     }
 }
 fn group_state() -> NodeState {
@@ -47,11 +78,12 @@ fn group_state() -> NodeState {
         active: true,
         upn: None,
         primary_smtp: None,
-        ou: None,
+        dn: None,
     }
 }
 fn observed() -> Observation {
     Observation {
+        scope: SCOPE,
         nodes: vec![
             (
                 g(ALICE),
@@ -73,7 +105,7 @@ fn observed() -> Observation {
     }
 }
 fn store() -> (VersionStore, VersionId) {
-    let mut st = VersionStore::new();
+    let mut st = new_store();
     let g0 = st.observe("lab", 1_000, observed()).unwrap();
     (st, g0)
 }
@@ -115,12 +147,16 @@ fn create_user_grows_the_version_by_one_delta() {
         view.snapshot(),
         st.view(g0).unwrap().snapshot()
     ));
-    assert_eq!(view.len(), 6);
-    let o = view.ordinal(&g(NEW_USER)).unwrap();
-    assert_eq!(o, 5, "created nodes follow the base ordinals");
-    assert_eq!(view.guid(o), Some(g(NEW_USER)));
+    assert_eq!((view.users_len(), view.groups_len()), (4, 2));
+    let o = view.user_ordinal(&g(NEW_USER)).unwrap();
+    assert_eq!(
+        o,
+        UserOrdinal(3),
+        "created users follow the base user ordinals"
+    );
+    assert_eq!(view.user_guid(o), Some(g(NEW_USER)));
     assert_eq!(view.node_state(&g(NEW_USER)), Some(user_state("new")));
-    assert!(view.active_users()[0] >> o & 1 == 1);
+    assert!(view.active_users()[0] >> o.0 & 1 == 1);
     assert!(st.validate(v).unwrap().is_empty());
     assert_eq!(
         st.diff(g0, v).unwrap(),
@@ -181,10 +217,11 @@ fn delete_user_and_group() {
     assert_eq!(view.delta_len(), 2);
     assert!(!view.exists(&g(CAROL)) && !view.exists(&g(EXCHANGE)));
     // The slot remains, cleared from every live plane.
-    assert_eq!(view.len(), 5);
-    let carol_ord = st.view(g0).unwrap().ordinal(&g(CAROL)).unwrap();
-    assert_eq!(view.guid(carol_ord), None);
-    assert!(view.active_users()[0] >> carol_ord & 1 == 0);
+    assert_eq!(view.users_len(), 3, "a deleted user keeps its slot");
+    let carol_ord = st.view(g0).unwrap().user_ordinal(&g(CAROL)).unwrap();
+    assert_eq!(view.user_guid(carol_ord), None);
+    assert_eq!(view.user_ordinal(&g(CAROL)), None);
+    assert!(view.active_users()[0] >> carol_ord.0 & 1 == 0);
     assert!(st.validate(v).unwrap().is_empty());
     st.promote_desired(v).unwrap();
     let plan = st.plan(v).unwrap();
@@ -261,7 +298,7 @@ fn create_is_refused_for_an_existing_identity() {
 fn delete_is_compare_and_set() {
     let (mut st, g0) = store();
     let stale = NodeState {
-        primary_smtp: Some("old@example.test".into()),
+        primary_smtp: Some(val("old@example.test")),
         ..st.view(g0).unwrap().node_state(&g(CAROL)).unwrap()
     };
     assert!(matches!(
@@ -344,12 +381,12 @@ fn created_and_deleted_nodes_take_part_in_uniqueness() {
     let (mut st, g0) = store();
     // A new user taking Alice's address collides…
     let mut clash = user_state("new");
-    clash.primary_smtp = Some("ALICE@example.test".into());
+    clash.primary_smtp = Some(val("ALICE@example.test"));
     let v = sim(&mut st, g0, vec![create(NEW_USER, clash)]).unwrap();
     assert_eq!(
         st.validate(v).unwrap(),
         vec![Violation::DuplicateSmtp {
-            address: "alice@example.test".into(),
+            key: st.key_of(val("alice@example.test")).unwrap(),
             // Sorted by identity: 0x51.. < 0xA1..
             owners: vec![g(NEW_USER), g(ALICE)],
         }]
@@ -357,8 +394,8 @@ fn created_and_deleted_nodes_take_part_in_uniqueness() {
     // …but the address of a deleted user is free.
     let carol = st.view(g0).unwrap().node_state(&g(CAROL)).unwrap();
     let mut reuse = user_state("new");
-    reuse.primary_smtp = carol.primary_smtp.clone();
-    reuse.upn = carol.upn.clone();
+    reuse.primary_smtp = carol.primary_smtp;
+    reuse.upn = carol.upn;
     let w = sim(
         &mut st,
         g0,
@@ -370,18 +407,14 @@ fn created_and_deleted_nodes_take_part_in_uniqueness() {
 
 #[test]
 fn subtree_sees_created_and_not_deleted_nodes() {
-    let ou = |l: &[u16]| {
-        let mut h = OuHhtl::ROOT;
-        h.0[..l.len()].copy_from_slice(l);
-        h
-    };
+    let dn = |l: &[u8]| Dn128::new(l).unwrap();
     let mut obs = observed();
-    obs.nodes[2].1.ou = Some(ou(&[1, 2]));
-    let mut st = VersionStore::new();
+    obs.nodes[2].1.dn = Some(dn(&[0, 1]));
+    let mut st = new_store();
     let g0 = st.observe("lab", 0, obs).unwrap();
     let carol = st.view(g0).unwrap().node_state(&g(CAROL)).unwrap();
     let mut located = user_state("new");
-    located.ou = Some(ou(&[1, 3]));
+    located.dn = Some(dn(&[0, 2]));
     let v = sim(
         &mut st,
         g0,
@@ -389,8 +422,11 @@ fn subtree_sees_created_and_not_deleted_nodes() {
     )
     .unwrap();
     let view = st.view(v).unwrap();
-    let rows = subtree(&view, &ou(&[1])).unwrap().rows();
-    assert_eq!(rows, vec![view.ordinal(&g(NEW_USER)).unwrap() as usize]);
+    let rows = subtree(&view, SCOPE, NodeKind::User, &dn(&[0]))
+        .unwrap()
+        .rows();
+    let new = view.user_ordinal(&g(NEW_USER)).unwrap();
+    assert_eq!(rows, vec![usize::from(new.0)]);
 }
 
 #[test]
@@ -410,7 +446,7 @@ fn input_order_does_not_change_the_output() {
             obs.nodes.reverse();
             obs.members.reverse();
         }
-        let mut st = VersionStore::new();
+        let mut st = new_store();
         let g0 = st.observe("lab", 0, obs).unwrap();
         let v = sim(&mut st, g0, cs).unwrap();
         st.promote_desired(v).unwrap();
@@ -469,8 +505,8 @@ fn desired(st: &mut VersionStore, g0: VersionId) -> VersionId {
             Change::SetAttribute {
                 node: g(ALICE),
                 attribute: Attribute::PrimarySmtp,
-                from: Some("alice@example.test".into()),
-                to: Some("a.smith@example.test".into()),
+                from: Some(val("alice@example.test")),
+                to: Some(val("a.smith@example.test")),
             },
         ],
     )
@@ -537,9 +573,9 @@ fn reconcile_a_partial_observation_plans_only_the_rest() {
                 op: Operation::SetAttribute {
                     object: g(NEW_USER),
                     attribute: Attribute::PrimarySmtp,
-                    value: Some("new@example.test".into()),
+                    value: Some(val("new@example.test")),
                 },
-                precondition: Precondition::AttributeEquals(Some("typo@example.test".into())),
+                precondition: Precondition::AttributeEquals(Some(val("typo@example.test"))),
             },
             PlannedOp {
                 op: Operation::AddGroupMember {
@@ -568,7 +604,7 @@ fn reconcile_a_delete_reads_its_precondition_from_the_latest_observation() {
     assert_eq!(
         del.precondition,
         Precondition::ObjectRemovable(NodeState {
-            upn: Some("carol.renamed@example.test".into()),
+            upn: Some(val("carol.renamed@example.test")),
             ..user_state("carol")
         })
     );
@@ -601,7 +637,7 @@ fn a_freed_address_is_released_before_it_is_claimed() {
     let (mut st, g0) = store();
     let carol = st.view(g0).unwrap().node_state(&g(CAROL)).unwrap();
     let mut heir = user_state("heir");
-    heir.primary_smtp = carol.primary_smtp.clone();
+    heir.primary_smtp = carol.primary_smtp;
     let v = sim(
         &mut st,
         g0,

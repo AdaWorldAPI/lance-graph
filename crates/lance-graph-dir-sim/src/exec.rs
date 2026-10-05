@@ -58,6 +58,12 @@ impl Kept {
         materialize_rows(&self.bits, self.n_rows)
     }
 
+    /// Add one row (a delta-sized correction, e.g. an overridden value).
+    pub(crate) fn set(&mut self, row: usize) {
+        debug_assert!(row < self.n_rows);
+        self.bits[row / 64] |= 1 << (row % 64);
+    }
+
     /// `self`'s rows followed by `tail`'s rows offset by `self`'s width —
     /// one result over a base relation and its delta rows.
     pub(crate) fn concat(mut self, tail: &Kept) -> Kept {

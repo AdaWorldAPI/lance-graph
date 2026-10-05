@@ -3,7 +3,7 @@
 use lance_graph_dir_sim::validate::{dangling, dangling_program, validate};
 use lance_graph_dir_sim::*;
 use lance_graph_mask_risc::MaskOp;
-use ogar_dir_core::{Guid128, OuHhtl};
+use ogar_dir_core::{DirectoryScope, Dn128, Guid128};
 use ogar_dir_sim::*;
 use std::sync::Arc;
 
@@ -28,8 +28,11 @@ const RENAME_MAIL: RuleId = RuleId {
     version: 1,
 };
 
+const SCOPE: DirectoryScope = DirectoryScope(Guid128([0x5C; 16]));
+
 fn observed() -> Observation {
     Observation {
+        scope: SCOPE,
         nodes: vec![
             (
                 g(ALICE),
@@ -68,6 +71,11 @@ fn chain_from(obs: Observation) -> (VersionStore, VersionId, VersionId, VersionI
     let g1 = st.simulate(g0, &grant_alice(), &ev("REQ-1")).unwrap();
     let g2 = st.simulate(g1, &imply(), &ev("POLICY-7")).unwrap();
     (st, g0, g1, g2)
+}
+/// The comparison key of a value — interned at ingress like any value.
+fn key_of(st: &mut VersionStore, s: &str) -> KeyId {
+    let v = st.intern(s);
+    st.key_of(v).unwrap()
 }
 fn chain() -> (VersionStore, VersionId, VersionId, VersionId) {
     chain_from(observed())
@@ -213,7 +221,7 @@ fn t07_duplicate_upn() {
     assert_eq!(
         st.validate(v0).unwrap(),
         vec![Violation::DuplicateUpn {
-            upn: "alice@example.test".into(),
+            key: key_of(&mut st, "alice@example.test"),
             owners: vec![g(0x77), g(ALICE)]
         }]
     );
@@ -234,10 +242,11 @@ fn t08_t09_smtp_collision_rejected() {
         .collect();
     let snap_before = Arc::clone(st.snapshot(g0).unwrap());
 
+    let to = st.intern("Alice@Example.test");
     let rule = SetPrimarySmtp {
         rule: RENAME_MAIL,
         user: g(BOB),
-        to: "Alice@Example.test".into(),
+        to,
     };
     let g3 = st
         .simulate(g2, &rule, &ev("REQ-2"))
@@ -246,7 +255,7 @@ fn t08_t09_smtp_collision_rejected() {
     assert_eq!(
         rej.violations,
         vec![Violation::DuplicateSmtp {
-            address: "alice@example.test".into(),
+            key: key_of(&mut st, "alice@example.test"),
             owners: vec![g(ALICE), g(BOB)]
         }]
     );
@@ -261,17 +270,16 @@ fn t08_t09_smtp_collision_rejected() {
         "the base was never copied"
     );
     assert_eq!(st.verdict(g3), Some(rej.violations.as_slice()));
-    let bob = st.view(g3).unwrap().ordinal(&g(BOB)).unwrap();
-    assert_eq!(
-        st.view(g3).unwrap().attr(bob, Attribute::PrimarySmtp),
-        Some("Alice@Example.test")
-    );
+    let got = st.view(g3).unwrap().attr(&g(BOB), Attribute::PrimarySmtp);
+    assert_eq!(got, Some(to));
+    // Egress formatting is the only place the string comes back.
+    assert_eq!(st.value(to), Some("Alice@Example.test"));
 }
 
 // A stale compare-and-set creates no version.
 #[test]
 fn stale_change_creates_no_version() {
-    struct Stale;
+    struct Stale(ValueId, ValueId);
     impl Rule for Stale {
         fn id(&self) -> RuleId {
             RENAME_MAIL
@@ -280,15 +288,19 @@ fn stale_change_creates_no_version() {
             vec![Change::SetAttribute {
                 node: g(BOB),
                 attribute: Attribute::PrimarySmtp,
-                from: Some("not-it@example.test".into()),
-                to: Some("x@example.test".into()),
+                from: Some(self.0),
+                to: Some(self.1),
             }]
         }
     }
     let mut st = VersionStore::new();
     let g0 = st.observe("lab", 0, observed()).unwrap();
+    let stale = Stale(
+        st.intern("not-it@example.test"),
+        st.intern("x@example.test"),
+    );
     assert!(matches!(
-        st.simulate(g0, &Stale, &[]),
+        st.simulate(g0, &stale, &[]),
         Err(SimError::Apply(ApplyError::Stale { .. }))
     ));
     assert!(st.version(VersionId(1)).is_none());
@@ -323,13 +335,15 @@ fn t11_plan() {
     );
     let mut s2 = VersionStore::new();
     let b0 = s2.observe("lab", 0, observed()).unwrap();
+    let robert = s2.intern("robert@example.test");
+    let bob = s2.intern("bob@example.test");
     let b1 = s2
         .simulate(
             b0,
             &SetPrimarySmtp {
                 rule: RENAME_MAIL,
                 user: g(BOB),
-                to: "robert@example.test".into(),
+                to: robert,
             },
             &[],
         )
@@ -341,9 +355,9 @@ fn t11_plan() {
             op: Operation::SetAttribute {
                 object: g(BOB),
                 attribute: Attribute::PrimarySmtp,
-                value: Some("robert@example.test".into())
+                value: Some(robert)
             },
-            precondition: Precondition::AttributeEquals(Some("bob@example.test".into())),
+            precondition: Precondition::AttributeEquals(Some(bob)),
         }]
     );
 }
@@ -371,12 +385,17 @@ fn t13_guid_ordinal_round_trip() {
     let mut st = VersionStore::new();
     let v = st.observe("lab", 0, obs).unwrap();
     let view = st.view(v).unwrap();
-    for id in [a, b, g(ALICE), g(BOB), g(EMPLOYEES), g(EXCHANGE)] {
-        let o = view.ordinal(&id).unwrap();
-        assert_eq!(view.guid(o), Some(id));
+    for id in [a, b, g(EMPLOYEES), g(EXCHANGE)] {
+        let o = view.group_ordinal(&id).unwrap();
+        assert_eq!(view.group_guid(o), Some(id));
+        assert_eq!(view.user_ordinal(&id), None, "groups are not users");
     }
-    assert_ne!(view.ordinal(&a), view.ordinal(&b));
-    assert_eq!(view.ordinal(&g(0x99)), None);
+    for id in [g(ALICE), g(BOB)] {
+        let o = view.user_ordinal(&id).unwrap();
+        assert_eq!(view.user_guid(o), Some(id));
+    }
+    assert_ne!(view.group_ordinal(&a), view.group_ordinal(&b));
+    assert_eq!(view.user_ordinal(&g(0x99)), None);
 }
 
 // 14. Membership validation reads only membership lanes and kind planes: it
@@ -388,9 +407,10 @@ fn t14_membership_validation_reads_no_attributes() {
         active: true,
         upn: None,
         primary_smtp: None,
-        ou: None,
+        dn: None,
     };
     let obs = Observation {
+        scope: SCOPE,
         nodes: vec![(g(1), node(NodeKind::User)), (g(2), node(NodeKind::Group))],
         members: vec![(g(1), g(2)), (g(1), g(3))],
     };
@@ -442,10 +462,11 @@ fn t17_ordering_invariance() {
     let outputs = |obs| {
         let (mut st, g0, _, g2) = chain_from(obs);
         st.promote_desired(g2).unwrap();
+        let to = st.intern("alice@example.test");
         let rule = SetPrimarySmtp {
             rule: RENAME_MAIL,
             user: g(BOB),
-            to: "alice@example.test".into(),
+            to,
         };
         let g3 = st.simulate(g2, &rule, &[]).unwrap();
         (
@@ -602,43 +623,46 @@ fn removal_round_trip() {
     );
 }
 
-// HHTL as executable geometry: subtree selection is one prefix match.
+// Dn128 as executable geometry: subtree selection is one 16-byte prefix
+// match plus a depth gate.
 #[test]
-fn ou_subtree_is_a_prefix_match() {
-    let ou = |l: &[u16]| {
-        let mut h = OuHhtl::ROOT;
-        h.0[..l.len()].copy_from_slice(l);
-        h
-    };
+fn dn_subtree_is_a_prefix_match() {
+    let dn = |l: &[u8]| Dn128::new(l).unwrap();
     let mut obs = observed();
-    obs.nodes[0].1.ou = Some(ou(&[1, 1, 1])); // Stuttgart/Infrastructure/Exchange
-    obs.nodes[1].1.ou = Some(ou(&[2])); // Berlin
+    obs.nodes[0].1.dn = Some(dn(&[0, 0, 0])); // Stuttgart/Infrastructure/Exchange
+    obs.nodes[1].1.dn = Some(dn(&[1])); // Berlin
+    obs.nodes[2].1.dn = Some(dn(&[0])); // a group in Stuttgart
     obs.nodes.push((
         g(0x55),
         ObservedNode {
-            ou: Some(ou(&[1, 2])),
+            dn: Some(dn(&[0, 1])),
             ..ObservedNode::user("c@x", "c@x")
         },
     ));
     let mut st = VersionStore::new();
     let v = st.observe("lab", 0, obs).unwrap();
     let view = st.view(v).unwrap();
-    let pick = |p: &OuHhtl| -> Vec<Guid128> {
-        subtree(&view, p)
+    let pick = |kind, p: &Dn128| -> Vec<Guid128> {
+        subtree(&view, SCOPE, kind, p)
             .unwrap()
             .rows()
             .into_iter()
-            .map(|o| view.guid(o as u32).unwrap())
+            .map(|o| match kind {
+                NodeKind::User => view.user_guid(UserOrdinal(o as u16)).unwrap(),
+                NodeKind::Group => view.group_guid(GroupOrdinal(o as u16)).unwrap(),
+            })
             .collect()
     };
-    assert_eq!(pick(&ou(&[1])), vec![g(0x55), g(ALICE)]);
-    assert_eq!(pick(&ou(&[1, 1])), vec![g(ALICE)]);
-    assert_eq!(pick(&ou(&[2])), vec![g(BOB)]);
-    assert_eq!(pick(&OuHhtl::ROOT).len(), 3, "root = every located node");
-    assert_eq!(
-        subtree(&view, &ou(&[1, 1, 1, 1, 1])),
-        Err(SubtreeTooDeep(5))
-    );
+    let u = NodeKind::User;
+    assert_eq!(pick(u, &dn(&[0])), vec![g(0x55), g(ALICE)]);
+    assert_eq!(pick(u, &dn(&[0, 0])), vec![g(ALICE)]);
+    assert_eq!(pick(u, &dn(&[1])), vec![g(BOB)]);
+    assert_eq!(pick(u, &Dn128::ROOT).len(), 3, "root = every located user");
+    // The two populations are queried separately.
+    assert_eq!(pick(NodeKind::Group, &dn(&[0])), vec![g(EMPLOYEES)]);
+    // Codes from another directory are refused, not compared.
+    let other = DirectoryScope(Guid128([1; 16]));
+    assert!(subtree(&view, other, u, &dn(&[0])).is_err());
 }
 
 // Observation from OGAR PR #313 records.
@@ -651,18 +675,18 @@ fn observe_from_ogar_ad() {
         .unwrap()
         .iter()
         .map(|e| {
-            ogar_ad::encode(e, Guid128::NIL, &mut d, &mut p, 0)
+            ogar_ad::encode(e, SCOPE.0, &mut d, &mut p, 0)
                 .unwrap()
                 .record
         })
         .collect();
-    let obs = observe::from_ad(&recs, &p);
+    let obs = observe::from_ad(SCOPE, &recs, &p).unwrap();
     assert_eq!(
         obs.nodes[0].1.primary_smtp.as_deref(),
         Some("alice@example.test")
     );
     assert!(!obs.nodes[0].1.active, "UAC 514 = disabled");
-    assert!(obs.nodes[0].1.ou.is_some());
+    assert!(obs.nodes[0].1.dn.is_some());
     assert_eq!(obs.nodes[1].1.kind, NodeKind::Group);
     let mut st = VersionStore::new();
     let v = st.observe("ogar-ad:ldif", 0, obs).unwrap();
@@ -685,14 +709,15 @@ fn renaming_away_resolves_an_observed_collision() {
     assert_eq!(
         st.validate(g0).unwrap(),
         vec![Violation::DuplicateSmtp {
-            address: "bob@example.test".into(),
+            key: key_of(&mut st, "bob@example.test"),
             owners: vec![g(BOB), carol]
         }]
     );
+    let to = st.intern("carol@example.test");
     let fix = SetPrimarySmtp {
         rule: RENAME_MAIL,
         user: carol,
-        to: "carol@example.test".into(),
+        to,
     };
     let g1 = st.simulate(g0, &fix, &[]).unwrap();
     assert!(st.validate(g1).unwrap().is_empty());

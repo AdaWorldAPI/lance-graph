@@ -263,6 +263,16 @@ pub enum Cmp {
         /// Which bits of each byte participate; zero means "don't care".
         care: [u8; 12],
     },
+    /// `((field_i[k] ^ pattern[k]) & care[k]) == 0` for every `k < 16` over a
+    /// 16-byte strided field view (`Pred::MatchFacet16Strided`): the same
+    /// ternary match over all 16 bytes of the field. The `Col` must name a
+    /// `LaneRef::Strided` lane whose field is 16 bytes wide.
+    MatchFacet16Strided {
+        /// The byte values to compare.
+        pattern: [u8; 16],
+        /// Which bits of each byte participate; zero means "don't care".
+        care: [u8; 16],
+    },
     /// `lo <= row < hi` — a predicate on the ROW ORDINAL, reading no lane
     /// (`Pred::Range`, `mask_set_range`). The `Col` it is attached to is the
     /// ORDERED lane the range was bound on, kept for provenance so the leaf
@@ -2250,6 +2260,11 @@ fn pred_of(col: Col, cmp: Cmp) -> Pred {
             pattern,
             care,
         },
+        Cmp::MatchFacet16Strided { pattern, care } => Pred::MatchFacet16Strided {
+            lane,
+            pattern,
+            care,
+        },
         // Reads no lane: `lane` is provenance only (see `Cmp::Range`).
         Cmp::Range { lo, hi } => Pred::Range { lo, hi },
     }
@@ -2570,7 +2585,10 @@ mod tests {
                         (self.u64_at(*col, row) ^ pattern) & care == 0
                     }
                     Cmp::Range { lo, hi } => (lo as usize) <= row && row < (hi as usize),
-                    Cmp::EqU32Strided(_) | Cmp::NeU32Strided(_) | Cmp::MatchFacetStrided { .. } => {
+                    Cmp::EqU32Strided(_)
+                    | Cmp::NeU32Strided(_)
+                    | Cmp::MatchFacetStrided { .. }
+                    | Cmp::MatchFacet16Strided { .. } => {
                         panic!("this fixture has no strided lane (see strided_leaf_tests)")
                     }
                 },
@@ -4755,5 +4773,81 @@ mod strided_leaf_tests {
         );
         let (f, _) = Filter::aperture_facet(None, RANGE_COL, HI, LO, &a);
         assert_eq!(fx.rows_of(&f), fx.oracle(|k| a.matches(k)));
+    }
+}
+
+/// `Cmp::MatchFacet16Strided` lowers to `Pred::MatchFacet16Strided` and runs
+/// over a 16-byte strided view, bytes `12..16` included.
+#[cfg(test)]
+mod facet16_tests {
+    use super::*;
+    use lance_graph_mask_risc::{
+        execute_into, materialize_rows, words_for, Foreign, LaneRef, Out, Planes, Scratch,
+        StridedRef,
+    };
+
+    #[test]
+    fn match_facet16_lowers_and_reads_all_sixteen_bytes() {
+        let n = 300usize;
+        // Record i, byte k: a multiplicative hash mod 5, so bytes vary
+        // independently of one another.
+        let mut bytes = vec![0u8; n * 16];
+        for i in 0..n {
+            for k in 0..16 {
+                // splitmix64 finalizer: no linear relation between bytes.
+                let mut z = ((i * 16 + k) as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
+                z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+                z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+                bytes[i * 16 + k] = ((z ^ (z >> 31)) % 5) as u8;
+            }
+        }
+        let mut pattern = [0u8; 16];
+        let mut care = [0u8; 16];
+        // Constrain one leading byte and one byte past 12, the part a
+        // 12-byte match would never read.
+        pattern[0] = 3;
+        care[0] = 0xFF;
+        pattern[14] = 2;
+        care[14] = 0xFF;
+        let p = lower(&Query {
+            filter: Filter::cmp(Col(0), Cmp::MatchFacet16Strided { pattern, care }),
+            agg: Agg::Rows,
+        })
+        .unwrap();
+        assert!(p.ops.iter().any(|op| matches!(
+            op,
+            MaskOp::Pred {
+                pred: Pred::MatchFacet16Strided { .. },
+                ..
+            }
+        )));
+        let lanes = [LaneRef::Strided(StridedRef {
+            bytes: &bytes,
+            first_offset: 0,
+            stride: 16,
+            records: n,
+        })];
+        let planes = Planes {
+            n_rows: n,
+            masks: &[],
+            lanes: &lanes,
+        };
+        let mut scratch = Scratch::for_program(&p, n).unwrap();
+        let mut out = vec![0u64; words_for(n)];
+        execute_into(
+            &p,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::Mask(&mut out),
+        )
+        .unwrap();
+        let got = materialize_rows(&out, n);
+        let want: Vec<usize> = (0..n)
+            .filter(|&i| bytes[i * 16] == 3 && bytes[i * 16 + 14] == 2)
+            .collect();
+        let only_first: usize = (0..n).filter(|&i| bytes[i * 16] == 3).count();
+        assert!(!want.is_empty() && want.len() < only_first, "anti-vacuity");
+        assert_eq!(got, want);
     }
 }

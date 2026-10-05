@@ -14,8 +14,8 @@ use crate::validate::validate;
 use crate::view::{ApplyError, Overlay, View};
 use ogar_dir_core::Guid128;
 use ogar_dir_sim::{
-    Attribute, Change, EvidenceRef, ExecutionPlan, NodeState, Origin, PlanError, Version,
-    VersionId, Violation, TAG_DESIRED, TAG_OBSERVED,
+    Attribute, Change, EvidenceRef, ExecutionPlan, KeyId, NodeKind, NodeState, Origin, PlanError,
+    ValueId, Version, VersionId, Violation, TAG_DESIRED, TAG_OBSERVED,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -29,6 +29,9 @@ pub enum SimError {
     EmptyProposal(ogar_dir_sim::RuleId),
     /// The proposal does not apply to the parent.
     Apply(ApplyError),
+    /// The two versions describe different directories; their hierarchy
+    /// codes are not comparable.
+    ScopeMismatch(VersionId, VersionId),
 }
 
 /// Refusal to make a version desired. The version stays as evidence.
@@ -54,6 +57,33 @@ impl VersionStore {
     /// Empty store.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Ingress: the stable id of a raw value (interned if new). Every
+    /// snapshot and version of this store resolves the same id to the same
+    /// value, from observation through plan.
+    pub fn intern(&mut self, s: &str) -> ValueId {
+        self.dicts.intern(s)
+    }
+    /// The id of a raw value this store has seen. Never mints.
+    pub fn lookup(&self, s: &str) -> Option<ValueId> {
+        self.dicts.lookup(s)
+    }
+    /// Egress: the raw value behind an id.
+    pub fn value(&self, v: ValueId) -> Option<&str> {
+        self.dicts.value(v)
+    }
+    /// The comparison key of a value.
+    pub fn key_of(&self, v: ValueId) -> Option<KeyId> {
+        self.dicts.key_of(v)
+    }
+    /// Egress: the comparison form behind a key.
+    pub fn key_label(&self, k: KeyId) -> Option<&str> {
+        self.dicts.key_label(k)
+    }
+    /// The cold label/value store.
+    pub fn dicts(&self) -> &Dicts {
+        &self.dicts
     }
 
     fn next_id(&self) -> VersionId {
@@ -138,18 +168,6 @@ impl VersionStore {
         if delta.is_empty() {
             return Err(SimError::EmptyProposal(rule.id()));
         }
-        for c in &delta {
-            match c {
-                Change::SetAttribute { to, .. } => {
-                    self.dicts.intern_attr(to.as_deref());
-                }
-                Change::CreateNode { state, .. } => {
-                    self.dicts.intern_attr(state.upn.as_deref());
-                    self.dicts.intern_attr(state.primary_smtp.as_deref());
-                }
-                _ => {}
-            }
-        }
         let mut view = self.view(parent)?;
         for c in &delta {
             view.apply(c).map_err(SimError::Apply)?;
@@ -208,6 +226,9 @@ impl VersionStore {
     /// [`Change::DeleteNode`].
     pub fn diff(&self, a: VersionId, b: VersionId) -> Result<Vec<Change>, SimError> {
         let (va, vb) = (self.view(a)?, self.view(b)?);
+        if va.snap.scope != vb.snap.scope {
+            return Err(SimError::ScopeMismatch(a, b));
+        }
         let mut out = if std::ptr::eq(va.snap, vb.snap) {
             diff_shared(&va, &vb)
         } else {
@@ -241,13 +262,20 @@ impl VersionStore {
         // it was recorded), so the only failure here is an unknown id.
         let view = |v| self.view(v).map_err(|_| PlanError::UnknownVersion(v));
         let (vr, vt, vb) = (view(root)?, view(target)?, view(basis)?);
+        if vb.snap.scope != vt.snap.scope {
+            return Err(PlanError::ScopeMismatch { basis, target });
+        }
         let intent = diff_shared(&vr, &vt);
         let ops = outstanding(&vb, intent).map_err(|node| PlanError::Unconvergeable {
             basis,
             target,
             node,
         })?;
-        Ok(ExecutionPlan::from_diff(basis, target, ops))
+        // Ordering of value transfers compares comparison keys; every value
+        // in a stored version was issued by this store, so the fallback is
+        // never taken.
+        let key = |v: ValueId| self.dicts.key_of(v).unwrap_or(KeyId(v.0));
+        Ok(ExecutionPlan::from_diff(basis, target, ops, key))
     }
 
     /// Why does `v` contain membership `(user, group)`? The lineage from
@@ -283,30 +311,25 @@ impl VersionStore {
 fn set_change(
     node: Guid128,
     attribute: Attribute,
-    from: Option<&str>,
-    to: Option<&str>,
+    from: Option<ValueId>,
+    to: Option<ValueId>,
 ) -> Option<Change> {
-    (from != to).then(|| Change::SetAttribute {
+    (from != to).then_some(Change::SetAttribute {
         node,
         attribute,
-        from: from.map(str::to_string),
-        to: to.map(str::to_string),
+        from,
+        to,
     })
 }
 
 /// Upn and primary-SMTP changes between two present nodes.
 fn attr_changes(node: Guid128, a: &NodeState, b: &NodeState, out: &mut Vec<Change>) {
-    out.extend(set_change(
-        node,
-        Attribute::Upn,
-        a.upn.as_deref(),
-        b.upn.as_deref(),
-    ));
+    out.extend(set_change(node, Attribute::Upn, a.upn, b.upn));
     out.extend(set_change(
         node,
         Attribute::PrimarySmtp,
-        a.primary_smtp.as_deref(),
-        b.primary_smtp.as_deref(),
+        a.primary_smtp,
+        b.primary_smtp,
     ));
 }
 
@@ -328,8 +351,11 @@ fn diff_shared(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
     // Node presence: created or deleted in either overlay.
     let mut nodes: BTreeSet<Guid128> = BTreeSet::new();
     for v in [a, b] {
-        nodes.extend(v.ov.created.ids.iter().copied());
-        nodes.extend(v.ov.deleted.iter().map(|&o| s.ids[o as usize]));
+        for kind in [NodeKind::User, NodeKind::Group] {
+            let (p, o) = v.pop(kind);
+            nodes.extend(o.created.ids.iter().copied());
+            nodes.extend(o.deleted.iter().map(|&d| p.ids[usize::from(d)]));
+        }
     }
     for g in &nodes {
         node_changes(*g, a.node_state(g), b.node_state(g), &mut out);
@@ -340,6 +366,7 @@ fn diff_shared(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
         a.ov.added.iter().chain(&b.ov.added).copied().collect();
     for v in [a, b] {
         pairs.extend(v.ov.removed.iter().map(|&r| s.member_guids(r)));
+        pairs.extend(v.ov.removed_unresolved.iter().copied());
     }
     for (u, g) in pairs {
         match (a.is_member(&u, &g), b.is_member(&u, &g)) {
@@ -351,19 +378,24 @@ fn diff_shared(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
 
     // Attribute overrides of base nodes present in both versions (a node
     // created or deleted between them is covered above).
-    for attr in [Attribute::Upn, Attribute::PrimarySmtp] {
-        let touched: BTreeSet<u32> =
-            a.ov.overrides(attr)
+    for kind in [NodeKind::User, NodeKind::Group] {
+        let p = s.population(kind);
+        for attr in [Attribute::Upn, Attribute::PrimarySmtp] {
+            let touched: BTreeSet<u16> = a
+                .pop(kind)
+                .1
+                .overrides(attr)
                 .keys()
-                .chain(b.ov.overrides(attr).keys())
+                .chain(b.pop(kind).1.overrides(attr).keys())
                 .copied()
                 .collect();
-        for o in touched {
-            let g = s.ids[o as usize];
-            if nodes.contains(&g) {
-                continue;
+            for o in touched {
+                let g = p.ids[usize::from(o)];
+                if nodes.contains(&g) {
+                    continue;
+                }
+                out.extend(set_change(g, attr, a.attr(&g, attr), b.attr(&g, attr)));
             }
-            out.extend(set_change(g, attr, a.attr(o, attr), b.attr(o, attr)));
         }
     }
     out
@@ -371,9 +403,9 @@ fn diff_shared(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
 
 /// Existing nodes of a view, ascending by identity.
 fn live_ids(v: &View<'_>) -> Vec<Guid128> {
-    let mut ids: Vec<Guid128> = (0..v.snap.len() as u32)
-        .filter_map(|o| v.guid(o))
-        .chain(v.ov.created.ids.iter().copied())
+    let mut ids: Vec<Guid128> = [NodeKind::User, NodeKind::Group]
+        .into_iter()
+        .flat_map(|k| (0..v.len_in(k)).filter_map(move |i| v.guid_in(k, i)))
         .collect();
     ids.sort();
     ids
@@ -402,6 +434,13 @@ fn diff_full(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
         lance_graph_mask_risc::materialize_rows(&live, v.snap.membership_rows())
             .into_iter()
             .map(|r| v.snap.member_guids(r as u32))
+            .chain(
+                v.snap
+                    .m_unresolved
+                    .iter()
+                    .filter(|p| !v.ov.removed_unresolved.contains(p))
+                    .copied(),
+            )
             .chain(v.ov.added.iter().copied())
             .collect()
     };
@@ -422,7 +461,7 @@ fn diff_full(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
 /// identity lookup, so the work is proportional to the intent.
 ///
 /// `Err(node)`: a node the intent creates already exists in `basis` with a
-/// kind, enabled flag or OU that no change can converge (the algebra sets
+/// kind, enabled flag or location that no change can converge (the algebra sets
 /// only UPN and primary SMTP), so the create is neither done nor doable.
 fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Result<Vec<Change>, Guid128> {
     let mut out = Vec::new();
@@ -445,12 +484,12 @@ fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Result<Vec<Change>, Gui
                 ..
             } => {
                 // A node gone from reality has nothing left to set.
-                if let Some(o) = basis.ordinal(&node) {
+                if basis.exists(&node) {
                     out.extend(set_change(
                         node,
                         attribute,
-                        basis.attr(o, attribute),
-                        to.as_deref(),
+                        basis.attr(&node, attribute),
+                        to,
                     ));
                 }
             }
@@ -458,8 +497,8 @@ fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Result<Vec<Change>, Gui
                 None => out.push(Change::CreateNode { node, state }),
                 // Already exists: only its settable attributes may differ.
                 Some(actual) => {
-                    if (actual.kind, actual.active, actual.ou)
-                        != (state.kind, state.active, state.ou)
+                    if (actual.kind, actual.active, actual.dn)
+                        != (state.kind, state.active, state.dn)
                     {
                         return Err(node);
                     }
