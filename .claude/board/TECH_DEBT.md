@@ -27,6 +27,22 @@ correction 2, `entries/2026-10-05-fold-contract-and-keyed-sink-merge.md`).
 Do **not** close it by bolting metadata onto the Step E merge. A wrapper type
 added for this alone would be a second, partial identity carrier.
 
+## TD-CE64-REGISTER-FRAMING-RESIDUE-1 (2026-09-30) — OPEN, `CausalEdge64` framed as a carrier in live code
+
+`CausalEdge64` IS the ALU register (`edge.rs:1-3`; operator 2026-09-30); **"baton" is the same register as it passes from one cycle into the next** (operator, same day). What PR #477 tombstoned was the inter-mailbox emission wire (`CollapseGateEmission`, `emit()`), not the register persisting across cycles.
+- ⊘ This entry's first version listed `MailboxSoA::apply_edges(&[(u16, CausalEdge64)])` as tombstoned residue. Struck: it is the register entering a row for the next cycle — the baton metaphor made literal — and is not residue.
+- Remaining, open: `lance-graph-contract::transaction::{mod,interactive,bulk,periodisch}` and `cognition/op.rs` name "Baton emission" queues; whether they mean the cycle-to-cycle register (fine) or the tombstoned inter-mailbox wire (not) is a Stage-2 design question with its own owner.
+- Historical plans and the frozen archive keep their wording (append-only); the worker-guardrails vocabulary row now states both meanings for workers.
+
+## TD-CPW-COUNCIL-RESIDUE-1 (2026-09-30) — OPEN, four items from the second Cam96 council
+
+Recorded by `deepnsm-v2-cam96-pairwise-v5.md` §8; none is a deliverable there.
+
+1. **Adjective / adverb role gap.** F12's role→PoS map covers S/O→nominal and P→verbal; `left·j` is selected by no S/P/O mask (archive `:21805`). Triple edges (D-CPW-10) fall back to the legacy path for modifiers; no plane exists for them.
+2. **`RungLevel::causal_mask_bits` reaches no distance call.** Defined (`cognitive_shader.rs:244, :333`), exercised only by unit tests, `doc_graph.rs`, and a driver comment; `causal_distance` lives once in the planner (`nars_engine.rs:135`) with fixed masks. The rung→mask chain is a pure function until D-CPW-12.
+3. **`FacetSchema`'s 2-bit field is provisional and aliases the domain byte.** `facet_schema.rs:48-54` reads `(facet_classid >> 24) & 0b11`; under canon-high those are the domain's low bits (OSINT `0x07` → 3); no `.schema()` caller exists. A reader landing on it would relabel domains. The v4 `PalettePair = 3` proposal was withdrawn for this reason.
+4. **Six per-table `FamilyGamma`s make summed Fisher-z codes incommensurable.** `fisher_z.rs:28-33, 63-67`: each table has its own gamma; v5 §3.1 pins ONE shared gamma across the six subspaces and reports per-table fit loss (D-CPW-1).
+
 ## TD-SYM-SUM-MERGE-IS-NOT-ADDITION-1 (2026-09-23) — RESOLVED 2026-10-05: `GroupFold::merge` / `Terminal::merge_group_sink` ship the law below; partial-extent `GroupReduce` admitted; test `tests/keyed_merge.rs` (one-side-empty groups included); see `entries/2026-10-05-fold-contract-and-keyed-sink-merge.md`
 
 > **RESOLUTION NOTE (2026-10-05, Step E).** The merge path is LIVE. It went
@@ -45,24 +61,6 @@ added for this alone would be a second, partial identity carrier.
 > rationale for pinning the law BEFORE implementation, kept as written.
 > What remains open is not the algebra but the identity/preconditions of a
 > bare-slice merge: `TD-KEYED-SINK-MERGE-IDENTITY-1` above.
-
-## TD-CE64-REGISTER-FRAMING-RESIDUE-1 (2026-09-30) — OPEN, `CausalEdge64` framed as a carrier in live code
-
-`CausalEdge64` IS the ALU register (`edge.rs:1-3`; operator 2026-09-30); **"baton" is the same register as it passes from one cycle into the next** (operator, same day). What PR #477 tombstoned was the inter-mailbox emission wire (`CollapseGateEmission`, `emit()`), not the register persisting across cycles.
-- ⊘ This entry's first version listed `MailboxSoA::apply_edges(&[(u16, CausalEdge64)])` as tombstoned residue. Struck: it is the register entering a row for the next cycle — the baton metaphor made literal — and is not residue.
-- Remaining, open: `lance-graph-contract::transaction::{mod,interactive,bulk,periodisch}` and `cognition/op.rs` name "Baton emission" queues; whether they mean the cycle-to-cycle register (fine) or the tombstoned inter-mailbox wire (not) is a Stage-2 design question with its own owner.
-- Historical plans and the frozen archive keep their wording (append-only); the worker-guardrails vocabulary row now states both meanings for workers.
-
-## TD-CPW-COUNCIL-RESIDUE-1 (2026-09-30) — OPEN, four items from the second Cam96 council
-
-Recorded by `deepnsm-v2-cam96-pairwise-v5.md` §8; none is a deliverable there.
-
-1. **Adjective / adverb role gap.** F12's role→PoS map covers S/O→nominal and P→verbal; `left·j` is selected by no S/P/O mask (archive `:21805`). Triple edges (D-CPW-10) fall back to the legacy path for modifiers; no plane exists for them.
-2. **`RungLevel::causal_mask_bits` reaches no distance call.** Defined (`cognitive_shader.rs:244, :333`), exercised only by unit tests, `doc_graph.rs`, and a driver comment; `causal_distance` lives once in the planner (`nars_engine.rs:135`) with fixed masks. The rung→mask chain is a pure function until D-CPW-12.
-3. **`FacetSchema`'s 2-bit field is provisional and aliases the domain byte.** `facet_schema.rs:48-54` reads `(facet_classid >> 24) & 0b11`; under canon-high those are the domain's low bits (OSINT `0x07` → 3); no `.schema()` caller exists. A reader landing on it would relabel domains. The v4 `PalettePair = 3` proposal was withdrawn for this reason.
-4. **Six per-table `FamilyGamma`s make summed Fisher-z codes incommensurable.** `fisher_z.rs:28-33, 63-67`: each table has its own gamma; v5 §3.1 pins ONE shared gamma across the six subspaces and reports per-table fit loss (D-CPW-1).
-
-## TD-SYM-SUM-MERGE-IS-NOT-ADDITION-1 (2026-09-23) — OPEN, dormant
 
 **`GroupFold::SumSymI32`'s seed is not an additive identity, so two partial
 sinks must never be combined with `+`.** For MIN/MAX the seed IS the lattice

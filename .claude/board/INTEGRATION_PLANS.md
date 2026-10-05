@@ -73,6 +73,7 @@ authorized. Partly supersedes
 - **Open:** DataFusion stays in the build graph through the `lance-graph` dependency
   (OQ-CML-1); where the relationship declaration lives long-term (OQ-CML-2); self-hop
   vs `Foreign` planes (OQ-CML-4). The witness-loci relative hop is deferred (D-CML-6).
+
 ## 2026-09-30 (7) — deepnsm-v2-cam96-pairwise-v5 — §11R: the socket is an observation contract, not an instruction set (revises (6), after #1305) → `-v5.md` §11R
 
 **Status:** revised, spec only. #1305's committed findings decide it:
@@ -194,6 +195,7 @@ first version rested on shell searches and missed the migration documents.
 first-wins today) switched to a counted, named selection rule. FSM input stays
 one `Pos` per token. Convergence brief for a second session:
 `.claude/prompts/deepnsm-v2-lexical-consumer-converge.md`.
+
 ## 2026-09-19 (1) — waben-fold-execution-loop-v1 — from the merged folds to one addressed execution loop → `.claude/plans/waben-fold-execution-loop-v1.md`
 
 **Status:** PROPOSAL. No code authorized; this is the grounded implementation

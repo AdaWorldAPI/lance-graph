@@ -68,6 +68,7 @@
   771,176 tokens changed; long-range shares unchanged. Counts-first
   alternative: 71,088 triples, 141 tags.
 - `.claude/settings.json` gains `attribution` (D-LXC-7).
+
 ## 2026-09-30 (2) — second 5+3 council on D-CPW (Cam96 v4 → v5; spec only, no code)
 
 - Operator-invoked (`go ahead with the v4 Phase-0 spec and run the 5+3`). Phases in order: Phase 0 `-v4.md` (committed `cff27034`, D-ids re-minted `95464b74` after `added-plans-have-dids` failed — the `D-C96P` family never matched the pattern); Phase 1 the five; Phase 2 draft v5 (scratchpad); Phase 3 the three on draft v5 only; Phase 4 fixes; Phase 5 ratified `-v5.md` + this board.

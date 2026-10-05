@@ -127,10 +127,6 @@ Plan: `.claude/plans/frontend-parity-witness-v1.md`. Entry: `entries/2026-10-03-
 | **D-FPW-3** | SurrealQL fork-side lowering hook (`sql::Lookup` → `Query`) | Queued | operator: BSL 1.1 licensing first |
 | **D-FPW-4** | gap G4 (sum of a foreign value) checked against `GroupReduce` before being called a primitive | Queued | — |
 
-## D-C96P — v3 RATIFIED (2026-09-30): scope and gates updated; the rows below are read through this block
-
-## D-CPW — v5 RATIFIED (2026-09-30, second council): the D-C96P rows below are aliases read through this block
-
 ## D-CPW — v5 RETRACTED-IN-PART (2026-09-30, operator, same day): read every row below through `-v5.md` § ⊘ RETRACTION
 
 **CORRECTION 2 (same day):** `[a,b]` = a word's 16-bit lexical address in a versioned codebook, not two poles. **D-CPW-2** = the 16-bit lexical-address slot type + `ReferenceSet` + exact resolution, gate **G-LEX** (every declared entry resolves to its declared lemma+PoS reading; no cross-read across codebooks) — the FIRST gate; every Jina-fidelity gate is struck as a criterion. **D-CPW-14** (correspondence artifact) is G-LEX's fixture.
