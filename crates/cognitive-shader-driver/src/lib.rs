@@ -141,6 +141,7 @@ pub mod codec_kernel_cache;
 // ndarray::hpc::jitson_cranelift::JitEngine adapter + matrix-blob loader.
 pub mod immaterial_needle;
 pub mod palette_perturbation;
+pub mod quad8;
 #[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod rotation_kernel;
 
@@ -219,3 +220,4 @@ pub use palette_perturbation::{
     PairAddress, PaletteLut, PalettePerturbation, PaletteState, PALETTE_CARDINALITY,
     PALETTE_LUT_LEN,
 };
+pub use quad8::{CartesianAddress12, Quad8};
