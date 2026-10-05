@@ -537,6 +537,137 @@ impl GroupFold {
             _ => v == self.seed(),
         }
     }
+
+    /// Combine two RAW partial slots of this fold — the per-slot merge law
+    /// a partial-extent run needs; [`Terminal::merge_group_sink`] applies it
+    /// over whole sinks.
+    ///
+    /// [`GroupFold::seed`] is the identity of every law below, and every law
+    /// is associative and commutative:
+    ///
+    /// - `Count`: `a.wrapping_add(b)` — the kernel's own accumulation. Exact:
+    ///   a count never exceeds the rows it counted.
+    /// - `MinI32` / `MaxI32`: `min` / `max`. The seed (`i64::MAX` / `i64::MIN`)
+    ///   is the lattice identity, so an empty side is absorbed by the law
+    ///   itself.
+    /// - `SumSymI32`: NOT `+` (`TD-SYM-SUM-MERGE-IS-NOT-ADDITION-1`). With
+    ///   `⊥ = SYM_EMPTY_I64`: `⊥ ⊕ x = x`, `x ⊕ ⊥ = x`, `⊥ ⊕ ⊥ = ⊥`, otherwise
+    ///   `x.wrapping_add(y)` — the kernel's own rule (the first row replaces
+    ///   the marker, later rows add), lifted from rows to partials. Wrapping
+    ///   keeps the row-first law: merging partials equals folding all their
+    ///   rows in one walk. `⊥` stays distinct from every present sum only
+    ///   while the TOTAL rows across all merged partials stay within
+    ///   [`GROUP_SUM_SYM_MAX_ROWS`] — a bound on the whole, never on one
+    ///   partial. Disjoint extents of one validated plane satisfy it by
+    ///   construction.
+    ///
+    /// The operands are RAW slots, exactly as a run leaves them. A slot a
+    /// consumer has already finalized (a marker mapped to `0`, an empty
+    /// MIN/MAX turned into `NULL` or `0`) is outside this law's domain: `0`
+    /// is not the identity of MIN, MAX or the `_sym` SUM, so merging
+    /// finalized slots gives a wrong answer, not an error. Merge first,
+    /// finalize once.
+    pub const fn merge(self, a: i64, b: i64) -> i64 {
+        match self {
+            GroupFold::Count => a.wrapping_add(b),
+            GroupFold::MinI32(_) => {
+                if a < b {
+                    a
+                } else {
+                    b
+                }
+            }
+            GroupFold::MaxI32(_) => {
+                if a > b {
+                    a
+                } else {
+                    b
+                }
+            }
+            GroupFold::SumSymI32(_) => {
+                if a == ndarray::simd::SYM_EMPTY_I64 {
+                    b
+                } else if b == ndarray::simd::SYM_EMPTY_I64 {
+                    a
+                } else {
+                    a.wrapping_add(b)
+                }
+            }
+        }
+    }
+}
+
+impl Terminal {
+    /// Merge one RAW partial `Out::I64` sink of this terminal into `acc`,
+    /// slot by slot: `acc[g] = law(acc[g], part[g])`.
+    ///
+    /// This is how the per-extent results of the keyed `i64` folds combine
+    /// — [`Terminal::GroupSumI32`] and [`Terminal::GroupSumViaI32`] by
+    /// `wrapping_add` (their kernels' accumulation; exact within
+    /// [`MASKED_SUM_I32_MAX_ROWS`] total rows), and [`Terminal::GroupReduce`]
+    /// by [`GroupFold::merge`]. Seed `acc` with the terminal's identity
+    /// (`0`, or [`GroupFold::seed`]) or start from any one partial; the
+    /// laws are associative and commutative, so partials merge in any order
+    /// and grouping.
+    ///
+    /// The merge is O(K) over the two sinks and never touches the
+    /// population.
+    ///
+    /// # Preconditions — the caller's, NOT checked
+    ///
+    /// A bare `&[i64]` cannot prove any of these, and equal length is not
+    /// semantic compatibility (`TD-KEYED-SINK-MERGE-IDENTITY-1`; to be closed
+    /// by the retained fold-state identity contract, not here):
+    ///
+    /// 1. both sinks are RAW, exactly as a run leaves them — never finalized
+    ///    (see [`GroupFold::merge`] for why a finalized slot gives a wrong
+    ///    answer, not an error);
+    /// 2. both come from THIS terminal (same fold, same key address);
+    /// 3. over the same coordinate space and version: the same planes and
+    ///    foreign tables;
+    /// 4. with the same filter;
+    /// 5. over the same destination universe — the same K, meaning the same
+    ///    groups, not merely the same length;
+    /// 6. from DISJOINT extents — `Count` and the sums count a row once per
+    ///    extent that holds it, and only MIN/MAX are idempotent;
+    /// 7. with the TOTAL rows of all merged partials within the fold's row
+    ///    bound ([`MASKED_SUM_I32_MAX_ROWS`] for the sums,
+    ///    [`GROUP_SUM_SYM_MAX_ROWS`] for the `_sym` SUM). Disjoint extents of
+    ///    one validated plane satisfy this by construction.
+    ///
+    /// Refused, with nothing written: a terminal with no keyed `i64` sink
+    /// ([`ExecError::ExtentUnsupported`] — its partials have no merge law
+    /// here), and sinks of different lengths, i.e. different group
+    /// universes ([`ExecError::LenMismatch`]).
+    ///
+    /// [`ExecError::ExtentUnsupported`]: crate::ExecError::ExtentUnsupported
+    /// [`ExecError::LenMismatch`]: crate::ExecError::LenMismatch
+    pub fn merge_group_sink(&self, acc: &mut [i64], part: &[i64]) -> Result<(), crate::ExecError> {
+        // `None` = the coalescing full-range sum; `Some(fold)` = a seeded fold.
+        let fold = match *self {
+            Terminal::GroupSumI32 { .. } | Terminal::GroupSumViaI32 { .. } => None,
+            Terminal::GroupReduce { fold, .. } => Some(fold),
+            _ => {
+                return Err(crate::ExecError::ExtentUnsupported {
+                    what: "merge_group_sink",
+                })
+            }
+        };
+        if acc.len() != part.len() {
+            return Err(crate::ExecError::LenMismatch {
+                what: "merge_group_sink",
+                expected: acc.len(),
+                found: part.len(),
+            });
+        }
+        for (a, &p) in acc.iter_mut().zip(part) {
+            *a = match fold {
+                None => a.wrapping_add(p),
+                Some(f) => f.merge(*a, p),
+            };
+        }
+        Ok(())
+    }
 }
 
 /// The widest plane a NULL-preserving [`GroupFold::SumSymI32`] is defined on:
