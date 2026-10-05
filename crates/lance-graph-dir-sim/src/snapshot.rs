@@ -37,6 +37,7 @@ use lance_graph_mask_risc::words_for;
 use ogar_dir_core::{DirectoryScope, Dn128, Guid128};
 use ogar_dir_sim::{normalize, KeyId, ValueId};
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub use ogar_dir_sim::NodeKind;
 
@@ -97,11 +98,43 @@ impl Dict {
     }
 }
 
+/// Boundary counters, as in `lance-graph-report`'s boundary: every text
+/// operation is counted, so a test can prove execution did none.
+/// Relaxed atomics: diagnostics, not synchronization.
+#[derive(Debug, Default)]
+pub struct DictCounters {
+    /// Text → id, minting if new (ingress).
+    pub interns: AtomicU64,
+    /// Text → id, never minting (resolving a query literal).
+    pub lookups: AtomicU64,
+    /// Id → text (egress).
+    pub resolutions: AtomicU64,
+}
+
+impl DictCounters {
+    /// `[interns, lookups, resolutions]`.
+    pub fn snapshot(&self) -> [u64; 3] {
+        [&self.interns, &self.lookups, &self.resolutions].map(|c| c.load(Ordering::Relaxed))
+    }
+}
+
+fn bump(c: &AtomicU64) {
+    c.fetch_add(1, Ordering::Relaxed);
+}
+
 /// The cold label/value store shared by every snapshot and version of one
 /// [`VersionStore`](crate::VersionStore): the only place strings live.
 /// Append-only, so a [`ValueId`] / [`KeyId`] keeps its meaning for the
 /// store's lifetime — across observations, simulations, the desired
 /// version, reconciliation and plans.
+///
+/// Identity, compared with the other boundaries in this workspace: a
+/// [`ValueId`] **is** its exact text (a different text is a different
+/// value — changing it is a `SetAttribute`, not a relabel), shared by every
+/// attribute, valid for the store's lifetime. That is not
+/// `lance-graph-report`'s CAM ordinal, which is per field and whose label
+/// can be renamed under a fixed ordinal; and not a batch-local dictionary
+/// code (`lance-graph-sap`), which cannot appear in a plan.
 #[derive(Debug, Default)]
 pub struct Dicts {
     /// Raw values exactly as observed or requested.
@@ -110,20 +143,36 @@ pub struct Dicts {
     keys: Dict,
     /// `key_of[value] = key`, computed once at interning.
     key_of: Vec<u32>,
+    /// Text operations performed.
+    pub counters: DictCounters,
 }
 
 impl Dicts {
     /// Ingress: the id of a raw value, interning it (and its comparison
     /// key) if new.
     pub fn intern(&mut self, s: &str) -> ValueId {
+        bump(&self.counters.interns);
         let v = self.values.intern(s);
         if v as usize == self.key_of.len() {
             self.key_of.push(self.keys.intern(&normalize(s)));
         }
         ValueId(v)
     }
+    /// The id of a raw value, if this store ever saw it. Never mints.
+    pub fn lookup(&self, s: &str) -> Option<ValueId> {
+        bump(&self.counters.lookups);
+        self.values.get(s).map(ValueId)
+    }
+    /// The comparison key of a text (normalized here), if this store ever
+    /// saw a value with that key. Never mints. This is how a query literal
+    /// such as `smtp = 'Alice@X.de'` becomes a number, once, before lowering.
+    pub fn key_lookup(&self, s: &str) -> Option<KeyId> {
+        bump(&self.counters.lookups);
+        self.keys.get(&normalize(s)).map(KeyId)
+    }
     /// Egress: the raw value behind an id.
     pub fn value(&self, v: ValueId) -> Option<&str> {
+        bump(&self.counters.resolutions);
         self.values.resolve(v.0)
     }
     /// The comparison key of a value.
@@ -132,6 +181,7 @@ impl Dicts {
     }
     /// Egress: the comparison form behind a key.
     pub fn key_label(&self, k: KeyId) -> Option<&str> {
+        bump(&self.counters.resolutions);
         self.keys.resolve(k.0)
     }
     /// Number of distinct comparison keys (the universe of a key `GROUP BY`).

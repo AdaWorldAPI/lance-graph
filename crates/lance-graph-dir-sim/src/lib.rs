@@ -36,15 +36,71 @@ pub use exec::Kept;
 pub use ogar_dir_sim::{KeyId, ValueId};
 pub use rule::{member_counts, GrantGroup, ImplyGroup, Rule, SetPrimarySmtp};
 pub use snapshot::{
-    BuildError, Dict, Dicts, GroupOrdinal, NodeKind, Observation, ObservedNode, Population,
-    Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
+    BuildError, Dict, DictCounters, Dicts, GroupOrdinal, NodeKind, Observation, ObservedNode,
+    Population, Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
 pub use store::{Rejection, SimError, VersionStore};
 pub use view::{ApplyError, View};
 
-use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes, StridedRef};
+use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes, Program, StridedRef};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{DirectoryScope, Dn128};
+use ogar_dir_sim::Attribute;
+
+/// The program behind [`users_with_key`]: plane 0 = candidate users,
+/// lane 0 = an attribute's key lane, one `EqU32` on the key. It holds only
+/// numbers: the literal was resolved before it was built.
+pub fn key_eq_program(key: KeyId) -> Program {
+    exec::program(
+        Filter::and([
+            Filter::plane(Mask(0)),
+            Filter::cmp(Col(0), Cmp::EqU32(key.0)),
+        ]),
+        lance_graph_quack::Agg::Rows,
+    )
+}
+
+/// `WHERE <attribute> = <literal>` over the existing users of a version, as
+/// a bitmap over user ordinals. The literal arrives as a [`KeyId`] —
+/// resolved once at the boundary ([`Dicts::key_lookup`]) — so execution is
+/// one [`key_eq_program`] over the base key lane (overridden and deleted
+/// users gated out), the same program over the created users' key lane,
+/// and a delta-sized check of the overrides. No string is read.
+pub fn users_with_key(v: &View<'_>, a: Attribute, key: KeyId) -> Kept {
+    let p = key_eq_program(key);
+    let s = v.snap;
+    let (pop, ov) = v.pop(NodeKind::User);
+    let base_key = match a {
+        Attribute::Upn => &pop.upn_key,
+        Attribute::PrimarySmtp => &pop.smtp_key,
+    };
+    let mut live = v.base_live(NodeKind::User, &pop.all).into_owned();
+    for o in ov.overrides(a).keys() {
+        snapshot::clear_bit(&mut live, usize::from(*o));
+    }
+    let run = |plane: &[u64], lane: &[u32]| {
+        let lanes = [LaneRef::U32(lane)];
+        let masks: [&[u64]; 1] = [plane];
+        exec::keep(
+            &p,
+            &Planes {
+                n_rows: lane.len(),
+                masks: &masks,
+                lanes: &lanes,
+            },
+            &Foreign::NONE,
+        )
+    };
+    let mut base = run(&live, base_key);
+    for (o, (_, k)) in ov.overrides(a) {
+        if *k == key.0 {
+            base.set(usize::from(*o));
+        }
+    }
+    debug_assert_eq!(base_key.len(), s.users.len());
+    let created = ov.created.key(a);
+    base.concat(&run(&snapshot::ones(created.len()), created))
+}
 
 /// A subtree query in a directory the version does not describe. Codes are
 /// only meaningful under their scope, so the query is refused, not run.

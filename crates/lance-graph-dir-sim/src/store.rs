@@ -62,6 +62,10 @@ impl VersionStore {
     pub fn intern(&mut self, s: &str) -> ValueId {
         self.dicts.intern(s)
     }
+    /// The id of a raw value this store has seen. Never mints.
+    pub fn lookup(&self, s: &str) -> Option<ValueId> {
+        self.dicts.lookup(s)
+    }
     /// Egress: the raw value behind an id.
     pub fn value(&self, v: ValueId) -> Option<&str> {
         self.dicts.value(v)
