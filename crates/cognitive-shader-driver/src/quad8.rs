@@ -7,11 +7,11 @@
 //! ----------------               ----------------
 //! [a][b][c][d]                   [a:b][c:d]
 //!  8 × 8 × 8 × 8                 256 × 256 each
-//!  implicit Cartesian space       Palette256 pair addresses
+//!  implicit bit-lane product       Palette256 pair addresses
 //!  deterministic / no LUT         LUT law from palette_perturbation
 //! ```
 //!
-//! The bytes never move and no Cartesian product is materialized.  The
+//! The bytes never move and no bit-lane product is materialized.  The
 //! structural view enumerates only occupied coordinates and feeds them
 //! directly to a consumer/fold.  The calibrated view reuses the exact same
 //! four bytes as the two 8:8 addresses introduced by the Palette256 kernel.
@@ -66,10 +66,10 @@ impl Quad8 {
     /// order (a, then b, then c, then d), with no intermediate matrix.
     ///
     /// Each set bit contributes its ordinal 0..7. A fully dense Quad8 visits
-    /// exactly 4096 addresses; sparse inputs visit only the Cartesian product
+    /// exactly 4096 addresses; sparse inputs visit only the bit-lane product
     /// of their live bits.
     #[inline]
-    pub fn for_each_cartesian(self, mut visit: impl FnMut(CartesianAddress12)) {
+    pub fn for_each_product(self, mut visit: impl FnMut(ProductAddress12)) {
         let mut a_mask = self.0[0];
         while a_mask != 0 {
             let a = a_mask.trailing_zeros() as u8;
@@ -89,7 +89,7 @@ impl Quad8 {
                     while d_mask != 0 {
                         let d = d_mask.trailing_zeros() as u8;
                         d_mask &= d_mask - 1;
-                        visit(CartesianAddress12::pack(a, b, c, d));
+                        visit(ProductAddress12::pack(a, b, c, d));
                     }
                 }
             }
@@ -101,15 +101,15 @@ impl Quad8 {
     /// This is the matrix kernel without materialization: coordinates are
     /// generated and consumed one at a time.
     #[inline]
-    pub fn fold_cartesian<T>(
+    pub fn fold_product<T>(
         self,
         initial: T,
-        mut fold: impl FnMut(T, CartesianAddress12) -> T,
+        mut fold: impl FnMut(T, ProductAddress12) -> T,
     ) -> T {
         // Option is only a stack move slot so T need not be Copy. No heap or
         // coordinate population is created.
         let mut acc = Some(initial);
-        self.for_each_cartesian(|address| {
+        self.for_each_product(|address| {
             let current = acc.take().expect("accumulator is always present");
             acc = Some(fold(current, address));
         });
@@ -123,9 +123,9 @@ impl Quad8 {
 /// `aaaa bbb ccc ddd` conceptually, packed as `a<<9 | b<<6 | c<<3 | d`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct CartesianAddress12(u16);
+pub struct ProductAddress12(u16);
 
-impl CartesianAddress12 {
+impl ProductAddress12 {
     /// Construct from four 3-bit ordinals.
     ///
     /// Returns `None` if any ordinal is outside 0..=7, so invalid public
@@ -167,12 +167,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cartesian_address_checks_all_four_ordinals() {
-        assert_eq!(CartesianAddress12::try_new(8, 0, 0, 0), None);
-        assert_eq!(CartesianAddress12::try_new(0, 8, 0, 0), None);
-        assert_eq!(CartesianAddress12::try_new(0, 0, 8, 0), None);
-        assert_eq!(CartesianAddress12::try_new(0, 0, 0, 8), None);
-        assert_eq!(CartesianAddress12::try_new(7, 7, 7, 7).unwrap().raw(), 0x0fff);
+    fn product_address_checks_all_four_ordinals() {
+        assert_eq!(ProductAddress12::try_new(8, 0, 0, 0), None);
+        assert_eq!(ProductAddress12::try_new(0, 8, 0, 0), None);
+        assert_eq!(ProductAddress12::try_new(0, 0, 8, 0), None);
+        assert_eq!(ProductAddress12::try_new(0, 0, 0, 8), None);
+        assert_eq!(ProductAddress12::try_new(7, 7, 7, 7).unwrap().raw(), 0x0fff);
     }
 
     #[test]
@@ -191,13 +191,13 @@ mod tests {
 
     #[test]
     fn structural_address_is_four_three_bit_ordinals() {
-        let address = CartesianAddress12::try_new(1, 2, 3, 4).unwrap();
+        let address = ProductAddress12::try_new(1, 2, 3, 4).unwrap();
         assert_eq!(address.raw(), 0x29c);
         assert_eq!(address.ordinals(), [1, 2, 3, 4]);
     }
 
     #[test]
-    fn sparse_cartesian_visits_only_live_coordinates_in_order() {
+    fn sparse_product_visits_only_live_coordinates_in_order() {
         let q = Quad8::new(
             0b0000_0101, // a = {0,2}
             0b0000_1010, // b = {1,3}
@@ -207,7 +207,7 @@ mod tests {
         assert_eq!(q.occupied_len(), 8);
 
         let mut seen = Vec::new();
-        q.for_each_cartesian(|address| seen.push(address.ordinals()));
+        q.for_each_product(|address| seen.push(address.ordinals()));
 
         assert_eq!(
             seen,
@@ -225,14 +225,14 @@ mod tests {
     }
 
     #[test]
-    fn dense_cartesian_is_4096_addresses_without_a_4096_cell_object() {
+    fn dense_product_is_4096_addresses_without_a_4096_cell_object() {
         let q = Quad8::new(0xff, 0xff, 0xff, 0xff);
         assert_eq!(q.occupied_len(), 4096);
 
         let mut count = 0usize;
         let mut first = None;
         let mut last = None;
-        q.for_each_cartesian(|address| {
+        q.for_each_product(|address| {
             first.get_or_insert(address);
             last = Some(address);
             count += 1;
@@ -246,12 +246,12 @@ mod tests {
     #[test]
     fn fold_consumes_coordinates_directly() {
         let q = Quad8::new(0b0000_0011, 0b0000_0001, 0b0000_0001, 0b0000_0011);
-        let sum = q.fold_cartesian(0u32, |acc, address| acc + address.raw() as u32);
+        let sum = q.fold_product(0u32, |acc, address| acc + address.raw() as u32);
 
-        let expected = CartesianAddress12::try_new(0, 0, 0, 0).unwrap().raw() as u32
-            + CartesianAddress12::try_new(0, 0, 0, 1).unwrap().raw() as u32
-            + CartesianAddress12::try_new(1, 0, 0, 0).unwrap().raw() as u32
-            + CartesianAddress12::try_new(1, 0, 0, 1).unwrap().raw() as u32;
+        let expected = ProductAddress12::try_new(0, 0, 0, 0).unwrap().raw() as u32
+            + ProductAddress12::try_new(0, 0, 0, 1).unwrap().raw() as u32
+            + ProductAddress12::try_new(1, 0, 0, 0).unwrap().raw() as u32
+            + ProductAddress12::try_new(1, 0, 0, 1).unwrap().raw() as u32;
 
         assert_eq!(sum, expected);
     }
