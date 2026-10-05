@@ -7,6 +7,9 @@
 
 ## Core Architectural Epiphanies (Current)
 
+### 0. Deforestation of the deforestation (2026-10-05)
+The first deletion removes the pair list and leaves an 8 KB mask. That mask is the intermediate Gill's `foldr/build` was willing to keep and Abadi's late materialization measured in both directions. The second deletion removes the mask when every consumer is the same homomorphism. Sum of sums is one sum. The residual that cannot be deleted is a real zip, a non-associative consumer, a string, or a scattered extract the caller asked to see. Seventeen rooms: `LANE_FOLD_SEVENTEEN_ROOMS.md`.
+
 ### 1. CausalEdge64 is the Universal Atomic Register
 One `u64` can carry full causal semantics (Pearl 2³), epistemic state (NARS frequency/confidence), plasticity control, and temporal ordering. This is not "just an edge" — it is the fundamental unit that makes the entire hot path feasible at register speed.
 

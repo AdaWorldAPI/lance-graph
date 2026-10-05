@@ -28,11 +28,12 @@ The L1–4 closed loop + continuous resonance is deliberately designed as an alw
 
 ## 2026-10-05 — Lane fold
 
-The address of a 64k ordered lane is a `u16`. The mask is 8 KB. See `board/LANE_FOLD.md`.
+The address of a 64k ordered lane is a `u16`. The mask is 8 KB. See `board/LANE_FOLD.md`. Depth: `05_query_languages/lane_fold_deforestation.md`. Rooms: `board/LANE_FOLD_SEVENTEEN_ROOMS.md`.
 
 1. Selectivity is a popcount of a mask the plan already holds. `popcount / 65536` is the static reorder. No catalog.
 2. A million linear folds of one aperture are one fold. Sum of sums collapses before execution. A million word-folds at 0.6 ns is 0.6 ms.
 3. Left, anti, and mark are the same mask. Three joins have left the lane.
+4. The second deforestation deletes the mask the first one kept. The residual is a real zip. Shortcut fusion has failed there since 1993.
 
 
 ## Open High-Potential Directions

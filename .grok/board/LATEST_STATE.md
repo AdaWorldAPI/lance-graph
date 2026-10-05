@@ -2,7 +2,7 @@
 
 **Purpose**: Rapid orientation for any session. Pruned and updated from `.claude/board/` version. Focus on current architecture, not historical PR noise.
 
-**Last Major Update**: 2026-05-10 (Grok synthesis pass — clarified multi-zone boundaries + spear as deliberate Zone 2 ↔ Zone 3 bridge for HubSpot/ticket logic that cannot live in lance-graph core).
+**Last Major Update**: 2026-10-05 (lane fold deforestation — 64k `u16` lane, mask as the residual of the first deletion, seventeen rooms ahead).
 
 ---
 
@@ -34,6 +34,7 @@ Multiple (4–6) Cypher implementations exist:
 
 ## Key Open High-Potential Directions
 
+0. **Lane fold deforestation** — 64k ordered 128-bit SoA, index stays `u16`. First deletion removes the pair list. Second deletion removes the mask when the fold is a homomorphism. See `LANE_FOLD.md`, `LANE_FOLD_INTEGRATION.md`, `LANE_FOLD_SEVENTEEN_ROOMS.md`.
 1. **Evolutionary Unification of the SoA DTO Surface** (new highest-signal thread) — Strengthen `BindSpace` + `MetaWord` + `cycle_fingerprint` as the canonical core with thin adapters only. See `.grok/board/UNIFIED_SOA_SURFACE_PLAN.md`. No flattening or deletion without superior replacement.
 2. **8-Mask Superposition over CausalEdge64** (L1 64×64, L2 256×256 palette attention, L4 4096 projection).
 3. Compact 3-byte polyglot query language tag ("OGIT of query languages") built on the unified SoA surface.

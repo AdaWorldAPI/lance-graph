@@ -1,7 +1,17 @@
 # INTEGRATION_PLANS.md — Current High-Priority Integration Plans (Updated Mirror)
 
-**Date**: 2026-05-08  
+**Date**: 2026-10-05  
 **Focus**: Only active, high-signal plans. Historical plans pruned or summarized.
+
+## 0. Lane fold deforestation (active)
+
+**Goal**: Delete the pair list, then delete the mask when the next fold is the same homomorphism. Stay on the 64k `u16` lane.
+
+**Plan**: `LANE_FOLD_INTEGRATION.md`. Depth: `../05_query_languages/lane_fold_deforestation.md`. Rooms: `LANE_FOLD_SEVENTEEN_ROOMS.md`.
+
+**Status**: Executor and lowering landed. Refusal check is a sketch. Aperture type, associative collapse, and tile-level zone skip are not wired. Do not route this through the cognitive layers.
+
+---
 
 ## 1. Hot-Path Cypher Completion (Current Highest Priority)
 
