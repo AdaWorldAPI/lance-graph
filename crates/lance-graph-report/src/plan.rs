@@ -15,6 +15,7 @@
 
 use crate::ids::{FieldId, MaskId, SourceId};
 use crate::selection::Selection;
+use lance_graph_contract::algebra_law::{AlgebraDescriptor, AlgebraLaw, IdentityKind};
 
 /// The role an axis plays in the presented coordinate system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -158,6 +159,30 @@ impl FoldState {
             FoldState::Count | FoldState::Sum(_) => a.wrapping_add(b),
             FoldState::Min(_) => a.min(b),
             FoldState::Max(_) => a.max(b),
+        }
+    }
+}
+
+/// The law [`FoldState::merge`] obeys, as metadata for a planner.
+///
+/// Describes; does not execute. `identity` and `merge` above stay the only
+/// operations. `invertible` is `false` for every state: `wrapping_add` has a
+/// mathematical inverse, but no tested remove-a-contribution path exists, and
+/// the flag claims a capability, not a theorem.
+impl AlgebraDescriptor for FoldState {
+    fn algebra_law(&self) -> AlgebraLaw {
+        let (idempotent, identity_kind) = match self {
+            FoldState::Count | FoldState::Sum(_) => (false, IdentityKind::Zero),
+            FoldState::Min(_) => (true, IdentityKind::Top),
+            FoldState::Max(_) => (true, IdentityKind::Bottom),
+        };
+        AlgebraLaw {
+            associative: true,
+            commutative: true,
+            idempotent,
+            ordered: false,
+            invertible: false,
+            identity_kind,
         }
     }
 }

@@ -1,3 +1,4 @@
+use lance_graph_contract::algebra_law::{AlgebraDescriptor, AlgebraLaw, IdentityKind};
 use std::convert::TryFrom;
 
 pub const N: usize = 1 << 16;
@@ -47,6 +48,30 @@ pub enum Hom {
     Min,
     Max,
     Exists,
+}
+
+/// The law each homomorphism's merge obeys, as metadata for a planner.
+///
+/// Lane-fold keeps `Hom`; this only describes it. `Exists` is OR over
+/// `false < true`: a join with the bottom (`false`) as identity, so it shares
+/// `Max`'s law and needs no numeric identity. It has no report twin.
+/// `invertible` is `false` throughout: no retraction path exists here.
+impl AlgebraDescriptor for Hom {
+    fn algebra_law(&self) -> AlgebraLaw {
+        let (idempotent, identity_kind) = match self {
+            Hom::Count | Hom::Sum => (false, IdentityKind::Zero),
+            Hom::Min => (true, IdentityKind::Top),
+            Hom::Max | Hom::Exists => (true, IdentityKind::Bottom),
+        };
+        AlgebraLaw {
+            associative: true,
+            commutative: true,
+            idempotent,
+            ordered: false,
+            invertible: false,
+            identity_kind,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -199,6 +224,25 @@ mod tests {
     fn avg_is_a_pair() {
         let best = q(vec![Request::Avg { lane: LaneId(2) }]).collapse().unwrap();
         assert_eq!(best.remaining, 2);
+    }
+
+    #[test]
+    fn exists_is_a_join_with_bottom_identity() {
+        let law = Hom::Exists.algebra_law();
+        assert_eq!(law.identity_kind, IdentityKind::Bottom);
+        assert!(law.associative && law.commutative && law.idempotent);
+        assert!(!law.ordered && !law.invertible);
+        // OR over `false < true` is MAX over the same order.
+        assert_eq!(law, Hom::Max.algebra_law());
+    }
+
+    #[test]
+    fn no_hom_claims_retraction_or_order() {
+        for h in [Hom::Count, Hom::Sum, Hom::Min, Hom::Max, Hom::Exists] {
+            let law = h.algebra_law();
+            assert!(!law.invertible, "{h:?}: no remove path exists in lane-fold");
+            assert!(!law.ordered, "{h:?} is order-insensitive");
+        }
     }
 
     #[test]
