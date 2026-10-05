@@ -1,3 +1,14 @@
+## 2026-10-05 — AlgebraLaw: planner-facing fold metadata (branch `ccr-e97e5d58-1bkumg`, unmerged, bound-computation PR 1)
+
+### Current Contract Inventory — net delta (`algebra_law.rs`)
+- `algebra_law::{AlgebraLaw, IdentityKind, AlgebraDescriptor}` — flags only
+  (associative, commutative, idempotent, ordered, invertible, identity kind).
+  No merge, no identity value, no generation. `IdentityKind = {Zero, Top, Bottom}`.
+- `lance-graph-report::FoldState` and `lance-graph-lane-fold::Hom` implement
+  `AlgebraDescriptor`; `merge`/`identity` and `Hom` stay where they were.
+  Lane-fold gains the zero-dep contract as its only dependency.
+- Plan: `.grok/board/BOUND_COMPUTATION.md` (PR 2 `Destination` not started).
+
 ## 2026-10-04 — read-mode resolved once per population (branch `ccr-f6094d67-h6ulb3`, unmerged)
 
 ### Current Contract Inventory — net delta (`nan_projection.rs`, `soa_graph.rs`)

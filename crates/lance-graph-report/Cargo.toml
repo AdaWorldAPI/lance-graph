@@ -17,3 +17,5 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 
 [dev-dependencies]
+# tests/algebra_law.rs: Report and lane-fold must describe shared folds identically.
+lance-graph-lane-fold = { path = "../lance-graph-lane-fold" }

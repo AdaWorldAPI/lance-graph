@@ -6,3 +6,5 @@ description = "Map and teleport for the 64k u16 lane. Lowers a query to one borr
 license = "Apache-2.0"
 
 [dependencies]
+# Zero-dep contract: AlgebraLaw metadata only. Lane-fold still executes nothing.
+lance-graph-contract = { path = "../lance-graph-contract" }

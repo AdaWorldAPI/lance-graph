@@ -48,6 +48,8 @@ pub mod transaction;
 pub mod a2a_blackboard;
 pub mod action;
 pub mod aiwar;
+// Planner-facing algebra metadata (bound-computation PR 1): laws only, never merge.
+pub mod algebra_law;
 pub mod atoms;
 pub mod attention_facet;
 pub mod auth;
