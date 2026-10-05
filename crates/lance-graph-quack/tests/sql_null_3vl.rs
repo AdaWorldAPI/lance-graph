@@ -625,6 +625,47 @@ fn a_range_on_a_nullable_lane_is_gated() {
     assert_ne!(raw, oracle(&range, &t));
 }
 
+/// A deep alternating `NOT` / `AND` / `OR` chain with nullable leaves at
+/// every level still agrees with the oracle through both lowerings, and the
+/// same chain over non-nullable leaves only comes back unchanged. Depth 96
+/// keeps every polarity flip, connective, and De Morgan dual in play without
+/// testing the debug stack.
+#[test]
+fn a_deep_mixed_chain_is_rewritten_correctly_and_a_non_nullable_one_is_untouched() {
+    let t = table();
+    let leaves = [
+        x(Cmp::EqI32(5)),
+        y(Cmp::NeI32(7)),
+        x(Cmp::GtI32(0)),
+        Filter::is_null(VY),
+    ];
+    let mut f = x(Cmp::LtI32(10));
+    for d in 0..96 {
+        let leaf = leaves[d % leaves.len()].clone();
+        f = match d % 3 {
+            0 => not(Filter::and([f, leaf])),
+            1 => Filter::or([not(f), leaf]),
+            _ => not(not(Filter::and([leaf, f]))),
+        };
+    }
+    check("deep mixed chain", &f, &t);
+    assert_ne!(f.sql_where(&NULLABLE), f, "the chain reads nullable leaves");
+    // Anti-vacuity: the raw chain is wrong on this fixture.
+    assert_ne!(kept(&f, &t, false), oracle(&f, &t));
+
+    // The same shape over leaves that read nothing nullable is returned as is.
+    let mut g = Filter::cmp(Col(9), Cmp::EqI32(1));
+    for d in 0..96 {
+        let leaf = Filter::cmp(Col(9), Cmp::NeI32(d));
+        g = if d % 2 == 0 {
+            not(Filter::and([g, leaf]))
+        } else {
+            Filter::or([not(g), leaf])
+        };
+    }
+    assert_eq!(g.sql_where(&NULLABLE), g);
+}
+
 // ── Nullable foreign key: Semijoin is FALSE, EqU32Via is UNKNOWN ──────────
 
 mod fk {
