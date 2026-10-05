@@ -17,6 +17,7 @@ Wire the deforestation into the crates that already exist. Do not open a new zon
 
 ## Steps
 
+0. Land the associative collapse rewriter in quack before `lower` returns. Depth: `../05_query_languages/associative_collapse.md`. A partition is `(aperture, operation, lane)`. One terminal per partition. Distinguish repeat-the-value from scale-the-value. Print `collapsed_terminals`. A test with 1,000 identical sums asserts one terminal. No kernel change in this step.
 1. Move `lane_guard.rs` next to quack as a dev dependency of the lowering, not as a note. `Plan::check` runs before `lower`. `Metrics::fold_ok` runs in the differential. A non-zero `pair_relation_bytes` fails the test.
 2. Give the aperture a type the plan borrows. A shift `d: u16` or a mask of 1,024 words. Cap distinct masks per query at 8. The ninth is `Refuse::ApertureCap`.
 3. Collapse associative terminals before `lower` returns. Sum of sums, count of counts, min of mins. A repeated terminal over the same aperture becomes one terminal. This is the third layer. It is a rewrite, not a kernel.

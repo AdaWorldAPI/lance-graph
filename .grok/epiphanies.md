@@ -34,6 +34,7 @@ The address of a 64k ordered lane is a `u16`. The mask is 8 KB. See `board/LANE_
 2. A million linear folds of one aperture are one fold. Sum of sums collapses before execution. A million word-folds at 0.6 ns is 0.6 ms.
 3. Left, anti, and mark are the same mask. Three joins have left the lane.
 4. The second deforestation deletes the mask the first one kept. The residual is a real zip. Shortcut fusion has failed there since 1993.
+5. `AVG` is not associative. The pair `(sum, count)` is. Dividing per fold is the wrong rewrite. See `05_query_languages/associative_collapse.md`.
 
 
 ## Open High-Potential Directions
