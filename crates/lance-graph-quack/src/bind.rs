@@ -12,7 +12,7 @@
 //!   Program → mask-risc → ndarray
 //! ```
 //!
-//! **Describe once, resolve once, execute numeric.** [`Query`] is already
+//! **Describe once, resolve once, canonicalize once, execute numeric.** [`Query`] is already
 //! the resolved form: every type in it is fixed-width. So there is no
 //! separate "resolved query"; binding produces a `Query`, and a `Query` can
 //! be lowered and executed any number of times without touching a name, a
@@ -27,6 +27,25 @@
 //! form), a batch-local SAP code. All of them arrive here as a `u32` in an
 //! `EqU32`; their meaning, and what survives a rename or a re-observation,
 //! stays with the binder that issued them.
+//!
+//! **Canonicalize once.** The membrane also fixes the physical
+//! representation. A `Cmp::EqU32(v)` is a semantic number, not bytes, and
+//! carries no byte order; `U32`/`I32`/`U64` lanes hand already-bound numbers
+//! to the executor. Byte order exists only where a fixed-width integer is
+//! read from or written to raw bytes, and there it is little-endian:
+//!
+//! - `u8`/`i8` and byte arrays: order-neutral, the sequence is the value
+//!   (`Dn128 = [u8; 16]`, `MatchFacet16Strided` pattern/care bytes);
+//! - `u16`/`u32`/`u64`/`u128` and signed twins: little-endian;
+//! - a byte array's sub-field read as an integer: little-endian;
+//! - `Register128`: four little-endian `u32` words.
+//!
+//! `0x1234_5678` therefore lives on the substrate as `[0x78, 0x56, 0x34,
+//! 0x12]` (`tests/canonical_le.rs`, through `EqU32Strided`). This is
+//! substrate policy, not application vocabulary: no query, table
+//! declaration or `Cmp` names an endianness. Population execution sees no
+//! names, no strings, no catalog or label lookup and no ambiguous byte
+//! order.
 //!
 //! The same lifecycle as `lance_graph_contract::hotplug`'s
 //! `SlabDeclaration → resolve_for_context → ResolvedReading`: an external

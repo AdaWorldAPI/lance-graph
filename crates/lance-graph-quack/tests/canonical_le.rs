@@ -94,7 +94,11 @@ fn rows(bytes: &[u8], stride: usize, cmp: Cmp) -> Vec<usize> {
 fn eq_u32_strided_reads_canonical_le_bytes() {
     for stride in [4, 16] {
         let b = fixture(stride);
-        assert_eq!(rows(&b, stride, Cmp::EqU32Strided(V)), vec![0, 17], "stride {stride}");
+        assert_eq!(
+            rows(&b, stride, Cmp::EqU32Strided(V)),
+            vec![0, 17],
+            "stride {stride}"
+        );
         // Can-fire: a big-endian reader would match row 1 instead.
         assert_eq!(
             rows(&b, stride, Cmp::EqU32Strided(V.swap_bytes())),
