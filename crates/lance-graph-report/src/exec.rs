@@ -42,11 +42,16 @@
 //! The honest limit: a partition costs one pass per member tuple, so a plan
 //! whose partition side is high-cardinality AND densely observed exceeds the
 //! pass budget and is REFUSED with [`ReportError::PassBudget`] rather than
-//! run slowly or allocated densely. What would lift it is a named substrate
-//! gap, not something to hand-roll here: a **destination-resolving keyed
-//! fold**. A row's semantic coordinates and functional references are bound
-//! and resolved to its aggregate DESTINATION, and the row folds directly into
-//! it. A join or pivot used only to determine an aggregate destination must
+//! run slowly or allocated densely. What would lift it is a named gap, not
+//! something to hand-roll here: a **destination-resolving keyed fold**. A
+//! row's semantic coordinates and functional references are bound and
+//! resolved to its aggregate DESTINATION, and the row folds directly into it.
+//! The ACCUMULATE half already exists: `GroupAddr::Local` / `GroupAddr::Via`
+//! fold into a caller-sized K-slot sink, and K can be the compact destination
+//! count. The missing half is BIND / RESOLVE — this planner's `CoordSpec` /
+//! binder cannot derive or represent ONE destination from several coordinates
+//! (nor intern a tuple during a query), so it partitions instead. A join or
+//! pivot used only to determine an aggregate destination must
 //! compile to destination resolution + fold — never to an intermediate
 //! relation, and never automatically to a dense product — so accumulator
 //! state scales with the demanded / resolved destination universe, not with
