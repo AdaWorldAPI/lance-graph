@@ -1,3 +1,13 @@
+## 2026-10-05 — Destination: harvested from CAM (branch `ccr-e97e5d58-1bkumg`, unmerged, bound-computation PR 2)
+
+### Current Contract Inventory — UNCHANGED (type lives in report, not the contract)
+- `lance_graph_report::boundary::Destination { space: FieldId, ordinal: u32 }`,
+  private fields. Built only by `CamLabels::destination(field, ordinal)` and
+  `CamLabels::destination_of(field, label)`; both return `None` unless the
+  ordinal exists and neither mints. A rename does not change it.
+- No generation: CAM ordinals are append-only. Revisit if a codebook becomes
+  rebuildable. Contract placement waits for the PR 4 conformance probe.
+
 ## 2026-10-05 — AlgebraLaw: planner-facing fold metadata (branch `ccr-e97e5d58-1bkumg`, unmerged, bound-computation PR 1)
 
 ### Current Contract Inventory — net delta (`algebra_law.rs`)

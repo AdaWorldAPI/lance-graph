@@ -98,6 +98,51 @@ impl MemKv {
     }
 }
 
+/// Where a bound computation lands: an ordinal that already exists in one
+/// field's CAM codebook.
+///
+/// `space` is the field whose codebook the ordinal belongs to; `ordinal` is the
+/// position in that codebook. Both are fixed-width and the pair carries no
+/// text, so it survives past the boundary the way an ordinal does.
+///
+/// A destination is **harvested, never minted**. The fields are private and
+/// the only constructors are [`CamLabels::destination`] and
+/// [`CamLabels::destination_of`], which return `None` unless the ordinal
+/// already exists. Neither inserts into CAM. Building one by hand does not
+/// compile:
+///
+/// ```compile_fail
+/// use lance_graph_report::boundary::Destination;
+/// use lance_graph_report::ids::FieldId;
+/// let _ = Destination { space: FieldId(0), ordinal: 0 };
+/// ```
+///
+/// Renaming the ordinal's label ([`CamLabels::rename`]) re-points the label at
+/// new bytes and leaves the ordinal, and so the destination, unchanged.
+///
+/// **No generation.** A destination is not stamped with a generation the way
+/// `SourceRef { id, generation }` is: CAM ordinals are append-only (nothing
+/// removes or reorders them) and a rename does not move one, so a destination
+/// stays valid for the life of its codebook. If a codebook ever becomes
+/// rebuildable, the destination space needs the `(id, generation)` pair.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Destination {
+    space: FieldId,
+    ordinal: u32,
+}
+
+impl Destination {
+    /// The field whose codebook the ordinal belongs to.
+    pub fn space(self) -> FieldId {
+        self.space
+    }
+
+    /// The ordinal within that codebook.
+    pub fn ordinal(self) -> u32 {
+        self.ordinal
+    }
+}
+
 /// The CAM label codebook: per field, ordinal ↔ content address of its label.
 #[derive(Debug, Default)]
 pub struct CamLabels {
@@ -150,6 +195,24 @@ impl CamLabels {
             .by_content
             .get(&ContentId::of_str(label))
             .copied()
+    }
+
+    /// The destination for an existing `ordinal` of `field`, or `None` if the
+    /// field has no codebook or the ordinal is outside its domain. Never mints.
+    pub fn destination(&self, field: FieldId, ordinal: u32) -> Option<Destination> {
+        (ordinal < self.domain(field)).then_some(Destination {
+            space: field,
+            ordinal,
+        })
+    }
+
+    /// The destination for an existing `label` of `field` (adapter use), or
+    /// `None` if the label was never interned. Never mints.
+    pub fn destination_of(&self, field: FieldId, label: &str) -> Option<Destination> {
+        self.ordinal(field, label).map(|ordinal| Destination {
+            space: field,
+            ordinal,
+        })
     }
 
     /// The domain size of a field's codebook (ordinals `0..domain`).
