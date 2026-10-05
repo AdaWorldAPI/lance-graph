@@ -103,16 +103,17 @@ impl Quad8 {
     #[inline]
     pub fn fold_cartesian<T>(
         self,
-        mut acc: T,
+        initial: T,
         mut fold: impl FnMut(T, CartesianAddress12) -> T,
     ) -> T {
+        // Option is only a stack move slot so T need not be Copy. No heap or
+        // coordinate population is created.
+        let mut acc = Some(initial);
         self.for_each_cartesian(|address| {
-            // Move the accumulator through the fold without requiring T: Copy.
-            // Option is only a stack control slot; no heap or population exists.
-            let current = unsafe { core::ptr::read(&acc) };
-            acc = fold(current, address);
+            let current = acc.take().expect("accumulator is always present");
+            acc = Some(fold(current, address));
         });
-        acc
+        acc.expect("accumulator is restored after every fold")
     }
 }
 
