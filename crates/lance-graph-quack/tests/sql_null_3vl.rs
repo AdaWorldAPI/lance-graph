@@ -164,6 +164,9 @@ fn eval(f: &Filter, t: &Table, r: usize) -> Tv {
                 Cmp::LeI32(c) => v <= c,
                 Cmp::GtI32(c) => v > c,
                 Cmp::GeI32(c) => v >= c,
+                // A range bound on the ordered lane: membership by row
+                // ordinal, UNKNOWN (above) where that lane is NULL.
+                Cmp::Range { lo, hi } => (lo as usize..hi as usize).contains(&r),
                 other => panic!("oracle: unsupported {other:?}"),
             })
         }
@@ -600,6 +603,26 @@ fn null_is_not_the_empty_string_or_false() {
         n,
         "TRUE / FALSE / NULL partition the rows"
     );
+}
+
+/// A `Cmp::Range` bound on a nullable lane is UNKNOWN where that lane is
+/// NULL, even though the executor reads only the row ordinal: the range
+/// stands for a comparison on its provenance lane. Can-fire: the raw range
+/// keeps NULL rows inside `[lo, hi)`.
+#[test]
+fn a_range_on_a_nullable_lane_is_gated() {
+    let t = table();
+    let range = x(Cmp::Range { lo: 10, hi: 100 });
+    check("range", &range, &t);
+    check("NOT range", &not(range.clone()), &t);
+    check(
+        "range OR y = 7",
+        &Filter::or([range.clone(), y(Cmp::EqI32(7))]),
+        &t,
+    );
+    let raw = kept(&range, &t, false);
+    assert!(raw.iter().any(|&r| t.cells[r].0.v.is_none()));
+    assert_ne!(raw, oracle(&range, &t));
 }
 
 // ── Nullable foreign key: Semijoin is FALSE, EqU32Via is UNKNOWN ──────────

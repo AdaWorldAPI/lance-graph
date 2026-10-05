@@ -509,8 +509,8 @@ impl Filter {
     /// | `ψ₁ AND … AND ψₙ` | `⋀ T(ψᵢ)` | `⋁ F(ψᵢ)` |
     /// | `ψ₁ OR … OR ψₙ` | `⋁ T(ψᵢ)` | `⋀ F(ψᵢ)` |
     ///
-    /// Each node is visited once per polarity asked of it, and `NOT` only
-    /// flips polarity, so the result is linear in the size of `self`. The
+    /// Each node is visited once, and `NOT` only flips polarity, so the
+    /// rewrite is linear in the size of `self`. The
     /// output is built from the same `Cmp` / `Plane` / `And` / `Or` / `Not`
     /// leaves the input uses, so [`lower`] and [`lower_fused`] run it with no
     /// new op, and a `valid(x)` conjunct is an ordinary resident-plane gate
@@ -518,8 +518,11 @@ impl Filter {
     ///
     /// # Which leaves are nullable
     ///
-    /// - [`Filter::Cmp`]: nullable when its column is listed.
-    ///   [`Cmp::Range`] reads the row ordinal, not the column, so it never is.
+    /// - [`Filter::Cmp`]: nullable when its column is listed. That includes
+    ///   [`Cmp::Range`]: the executor reads only the row ordinal, but the
+    ///   range stands for a comparison on its provenance lane, so a NULL in
+    ///   that lane is UNKNOWN there too and the range is gated on its
+    ///   validity.
     /// - [`Filter::EqU32Via`]: nullable when its `fk` is listed. It is the
     ///   comparison `f.v = c` through the fk, and a NULL fk reaches no foreign
     ///   row, so the comparison is UNKNOWN there: `T = valid(fk) ∧ leaf`,
@@ -544,70 +547,65 @@ impl Filter {
     /// unchanged: `COUNT(x)`, `SUM(x)` and the rest still take `valid(x)` in
     /// their filter, as before.
     pub fn sql_where(&self, nullable: &[(Col, Mask)]) -> Filter {
-        if !self.reads_any(nullable) {
-            return self.clone();
-        }
-        self.truth(nullable, true)
+        self.rewrite(nullable, true).unwrap_or_else(|| self.clone())
     }
 
-    /// `T(self)` when `want_true`, else `F(self)`. See [`Filter::sql_where`].
-    fn truth(&self, nullable: &[(Col, Mask)], want_true: bool) -> Filter {
-        // A subtree that reads no nullable column is two-valued: reuse it.
-        if !self.reads_any(nullable) {
-            return if want_true {
-                self.clone()
-            } else {
-                Filter::Not(Box::new(self.clone()))
-            };
-        }
+    /// `Some(T(self))` when `want_true`, else `Some(F(self))`; `None` when
+    /// this subtree reads no nullable column, so it is two-valued and the
+    /// caller reuses it as written. Each node is visited once, so the
+    /// rewrite is linear even down a long `NOT` chain. See
+    /// [`Filter::sql_where`].
+    fn rewrite(&self, nullable: &[(Col, Mask)], want_true: bool) -> Option<Filter> {
         match self {
-            Filter::Not(inner) => inner.truth(nullable, !want_true),
+            Filter::Not(inner) => inner.rewrite(nullable, !want_true),
             Filter::And(parts) | Filter::Or(parts) => {
-                let mapped = parts.iter().map(|p| p.truth(nullable, want_true)).collect();
+                let mapped: Vec<Option<Filter>> = parts
+                    .iter()
+                    .map(|p| p.rewrite(nullable, want_true))
+                    .collect();
+                if mapped.iter().all(Option::is_none) {
+                    return None;
+                }
+                let mapped = mapped
+                    .into_iter()
+                    .zip(parts)
+                    .map(|(m, p)| m.unwrap_or_else(|| p.polar(want_true)))
+                    .collect();
                 // `T` keeps the connective and `F` takes its De Morgan dual.
-                match (self, want_true) {
+                Some(match (self, want_true) {
                     (Filter::And(_), true) | (Filter::Or(_), false) => Filter::And(mapped),
                     _ => Filter::Or(mapped),
-                }
+                })
             }
-            // The only other node that can read a nullable column is a leaf.
             leaf => {
-                let valid = leaf
-                    .leaf_validity(nullable)
-                    .expect("reads_any found a nullable leaf");
+                let valid = leaf.leaf_validity(nullable)?;
                 // `EXISTS` over a NULL fk is FALSE, not UNKNOWN: gate the
                 // leaf, then complement the gated leaf for `F`.
                 if let Filter::Semijoin { .. } = leaf {
                     let gated = Filter::And(vec![Filter::Plane(valid), leaf.clone()]);
-                    return if want_true {
-                        gated
-                    } else {
-                        Filter::Not(Box::new(gated))
-                    };
+                    return Some(gated.polar(want_true));
                 }
-                let polar = if want_true {
-                    leaf.clone()
-                } else {
-                    Filter::Not(Box::new(leaf.clone()))
-                };
-                Filter::And(vec![Filter::Plane(valid), polar])
+                Some(Filter::And(vec![
+                    Filter::Plane(valid),
+                    leaf.polar(want_true),
+                ]))
             }
         }
     }
 
-    /// Whether any leaf of this filter reads a column listed in `nullable`.
-    fn reads_any(&self, nullable: &[(Col, Mask)]) -> bool {
-        match self {
-            Filter::And(parts) | Filter::Or(parts) => parts.iter().any(|p| p.reads_any(nullable)),
-            Filter::Not(inner) => inner.reads_any(nullable),
-            leaf => leaf.leaf_validity(nullable).is_some(),
+    /// `self` when `want_true`, else `NOT self` — a two-valued subtree's `T`/`F`.
+    fn polar(&self, want_true: bool) -> Filter {
+        if want_true {
+            self.clone()
+        } else {
+            Filter::Not(Box::new(self.clone()))
         }
     }
 
     /// The validity plane of the nullable column this LEAF reads, if any.
     fn leaf_validity(&self, nullable: &[(Col, Mask)]) -> Option<Mask> {
         let col = match *self {
-            Filter::Cmp(_, Cmp::Range { .. }) | Filter::Plane(_) => return None,
+            Filter::Plane(_) => return None,
             Filter::Cmp(col, _) => col,
             Filter::EqU32Via { fk, .. } | Filter::Semijoin { fk, .. } => fk,
             Filter::And(_) | Filter::Or(_) | Filter::Not(_) => return None,
