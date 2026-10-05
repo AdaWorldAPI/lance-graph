@@ -168,15 +168,13 @@ impl CausalSwitch16 {
 /// x' = x + rotl(y, r1) + tweak          (mod 256)
 /// y' = y XOR rotl(x', r2)
 /// ```
-//!
-//! The inverse undoes the XOR lift first, then the modular-add lift.
-//! Stage/edge-derived constants are deterministic routing metadata, not keys.
+///
+/// The inverse undoes the XOR lift first, then the modular-add lift.
+/// Stage/edge-derived constants are deterministic routing metadata, not keys.
 #[inline(always)]
 fn pair_forward(left: u8, right: u8, stage: usize, edge: usize) -> (u8, u8) {
     let (r1, r2, tweak) = pair_params(stage, edge);
-    let mixed_left = left
-        .wrapping_add(right.rotate_left(r1))
-        .wrapping_add(tweak);
+    let mixed_left = left.wrapping_add(right.rotate_left(r1)).wrapping_add(tweak);
     let mixed_right = right ^ mixed_left.rotate_left(r2);
     (mixed_left, mixed_right)
 }
@@ -252,8 +250,8 @@ mod tests {
             core::array::from_fn(|i| i as u8),
             core::array::from_fn(|i| (i as u8).wrapping_mul(17)),
             [
-                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-                0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+                0xee, 0xff,
             ],
         ];
 
