@@ -139,9 +139,10 @@ pub mod codec_kernel_cache;
 // D1.2 — rotation primitives (Identity / Hadamard / OPQ-stub). LAB-ONLY.
 // Hadamard is real (in-place butterfly); OPQ is stub pending D1.1b's
 // ndarray::hpc::jitson_cranelift::JitEngine adapter + matrix-blob loader.
+pub mod immaterial_needle;
+pub mod palette_perturbation;
 #[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod rotation_kernel;
-pub mod immaterial_needle;
 
 // D1.3 — decode-kernel trait + residual composition.
 // Hydration/calibration path (NOT cascade inference — that uses
@@ -214,3 +215,7 @@ pub use engine_bridge::{
     write_qualia_17d, EngineBusBridge, UnifiedStyle, UNIFIED_STYLES,
 };
 pub use mailbox_soa::{DefaultMailboxSoA, MailboxSoA};
+pub use palette_perturbation::{
+    PairAddress, PaletteLut, PalettePerturbation, PaletteState, PALETTE_CARDINALITY,
+    PALETTE_LUT_LEN,
+};
