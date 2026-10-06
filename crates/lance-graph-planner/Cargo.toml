@@ -43,6 +43,11 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 axum = { version = "0.8", optional = true }
 
 
+# D-GSO-8 seal boundary probe; tests run under `cargo test`.
+[[example]]
+name = "seal_boundary_probe"
+test = true
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
