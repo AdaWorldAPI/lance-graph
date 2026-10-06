@@ -194,3 +194,16 @@ cargo run -p cognitive-shader-driver --example ewa_anisotropic_probe
 
 `support/ewa.rs` holds the D-CTX-2 isotropic law (window, amplitude, footprint,
 scatter) that both rendering probes use.
+
+## boundary_measure_probe.rs
+
+D-CTX-4. One read-only measurement over the rendered surface: where is it
+steepest? The operator reads the D-CTX-2 field over the inner region whose
+values cannot see the tile edge, and returns a 32-byte witness (location,
+magnitude, gradient) instead of a gradient field. A material boundary is found
+where the palette changes, its contrast follows the Fisher-Z relation of the
+two materials, a uniform tile reads flat, and measuring never changes the field.
+
+```bash
+cargo run -p cognitive-shader-driver --example boundary_measure_probe
+```
