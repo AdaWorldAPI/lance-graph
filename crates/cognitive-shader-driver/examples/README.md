@@ -60,3 +60,16 @@ of settled / local exception / basin conflict / hotspot / unknown.
 ```bash
 cargo run -p cognitive-shader-driver --example ontology_agreement_probe
 ```
+
+## entropy_topology_probe.rs
+
+D-GSO-4 (plan §18 P4) = F-ECG-1..3 of `entropy-closure-causal-ground-v1`. Two
+basins with identical measured field entropy but different `CausalTopology`
+on CausalEdge64 bits 59..60 land in different settlement cells (Crystal vs
+Glass) and take different walker routes. The bits are read only through the
+`band_reading` contract (declared lens, asserted provenance); an unreadable
+register produces no cell.
+
+```bash
+cargo run -p cognitive-shader-driver --example entropy_topology_probe
+```
