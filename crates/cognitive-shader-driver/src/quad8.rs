@@ -101,11 +101,7 @@ impl Quad8 {
     /// This is the matrix kernel without materialization: coordinates are
     /// generated and consumed one at a time.
     #[inline]
-    pub fn fold_product<T>(
-        self,
-        initial: T,
-        mut fold: impl FnMut(T, ProductAddress12) -> T,
-    ) -> T {
+    pub fn fold_product<T>(self, initial: T, mut fold: impl FnMut(T, ProductAddress12) -> T) -> T {
         // Option is only a stack move slot so T need not be Copy. No heap or
         // coordinate population is created.
         let mut acc = Some(initial);
