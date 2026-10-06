@@ -1,3 +1,13 @@
+## 2026-10-06 — Morton8x8: checked 8:8 address arithmetic (branch `claude/morton-0-checked-address`, unmerged, D-MORTON-0)
+
+### Current Contract Inventory — net delta (`morton8x8.rs`)
+- `morton8x8::Morton8x8(u16)`: `from_xy`, `from_code`, `code`, `x`, `y`,
+  `checked_offset(dx: i8, dy: i8) -> Option<Self>` (dilated add/sub on the code,
+  range exit read from carry/borrow, no decode), `nibble_climb(other) -> u8`
+  (from `a XOR b`). Same code as `FacetTier::morton` (`x = lo`, `y = hi`),
+  checked over all 65,536 pairs; `FacetTier` unchanged. No topology, no
+  neighbour list. Entry `entries/2026-10-06-morton8x8-checked-address.md`.
+
 ## 2026-10-05 — Destination: harvested from CAM (branch `ccr-e97e5d58-1bkumg`, unmerged, bound-computation PR 2)
 
 ### Current Contract Inventory — UNCHANGED (type lives in report, not the contract)

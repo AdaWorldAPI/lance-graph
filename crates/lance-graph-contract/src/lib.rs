@@ -122,6 +122,7 @@ pub mod legacy_outliers;
 pub mod literal_graph;
 pub mod mail;
 pub mod manifest;
+pub mod morton8x8;
 pub mod mul;
 pub mod nan_projection;
 pub mod nars;

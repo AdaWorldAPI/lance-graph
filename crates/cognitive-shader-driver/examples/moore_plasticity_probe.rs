@@ -320,4 +320,67 @@ mod tests {
         moore_step(&mut b, law, 0xA5A5);
         assert_eq!(a, b);
     }
+
+    /// The same Moore step on a Morton reading of the register (D-MORTON-0):
+    /// lane = Morton code of `(x, y)`, neighbours from
+    /// `Morton8x8::checked_offset`, on the 4 x 4 grid iff the code is below 16.
+    /// No coordinate is decoded inside the step.
+    fn moore_step_morton(reg: &mut Register128, law: PalettePerturbation<'_>, plastic: u16) {
+        use lance_graph_contract::morton8x8::Morton8x8;
+        let before = reg.0;
+        for code in 0..LANES as u16 {
+            if plastic & (1 << code) == 0 {
+                continue;
+            }
+            let here = Morton8x8::from_code(code);
+            let local = PaletteState(before[code as usize]);
+            let mut state = local;
+            for &(dx, dy) in &DIRS {
+                let next = here.checked_offset(dx as i8, dy as i8);
+                if let Some(n) = next.filter(|n| n.code() < LANES as u16) {
+                    state = law.hop(state, local, PaletteState(before[n.code() as usize]));
+                }
+            }
+            reg.0[code as usize] = state.0;
+        }
+    }
+
+    /// Row-major lane of each Morton lane, for re-binding the two readings.
+    fn morton_to_row_major() -> [usize; LANES] {
+        use lance_graph_contract::morton8x8::Morton8x8;
+        core::array::from_fn(|code| {
+            let m = Morton8x8::from_code(code as u16);
+            SIDE * m.y() as usize + m.x() as usize
+        })
+    }
+
+    /// FAILS IF: the Morton reading, re-bound to row-major lanes, gives a
+    /// different Moore step than the row-major reading, for the same gate.
+    #[test]
+    fn morton_reading_gives_the_same_moore_step() {
+        let relation = table_from(|a, b| a ^ b);
+        let perturb = table_from(|s, r| s.wrapping_add(r).rotate_left(1));
+        let law = xor_add_law(&relation, &perturb);
+        let map = morton_to_row_major();
+        // Anti-vacuity: the two lane orders really differ.
+        assert_ne!(map, core::array::from_fn(|i| i));
+
+        for plastic in [u16::MAX, !0x1111, 0xA5A5] {
+            let start = fixture();
+            let mut row_major = start;
+            moore_step(&mut row_major, law, plastic);
+
+            let mut morton = Register128(core::array::from_fn(|c| start.0[map[c]]));
+            let morton_gate = (0..LANES)
+                .filter(|&c| plastic & (1 << map[c]) != 0)
+                .fold(0u16, |g, c| g | (1 << c));
+            moore_step_morton(&mut morton, law, morton_gate);
+
+            let mut rebound = [0u8; LANES];
+            for c in 0..LANES {
+                rebound[map[c]] = morton.0[c];
+            }
+            assert_eq!(rebound, row_major.0, "gate {plastic:#06x}");
+        }
+    }
 }

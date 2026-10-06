@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-221 entries, 2026-08-06 .. 2026-10-06.
+222 entries, 2026-08-06 .. 2026-10-06.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-06 | `D-MORTON-0` |  | [2026-10-06-morton8x8-checked-address.md](2026-10-06-morton8x8-checked-address.md) |
 | 2026-10-06 | `dav-resident-reading-round2` |  | [2026-10-06-dav-resident-reading-round2.md](2026-10-06-dav-resident-reading-round2.md) |
 | 2026-10-06 | `dav-carrier-invariance-quack` |  | [2026-10-06-dav-carrier-invariance-quack.md](2026-10-06-dav-carrier-invariance-quack.md) |
 | 2026-10-05 | `text-to-numeric-boundary-inventory` |  | [2026-10-05-text-to-numeric-boundary-inventory.md](2026-10-05-text-to-numeric-boundary-inventory.md) |
