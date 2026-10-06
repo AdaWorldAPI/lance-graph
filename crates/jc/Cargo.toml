@@ -37,6 +37,11 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # neural-debug runtime registry. Dev-deps: examples only, not the library.
 p64 = { path = "../../../ndarray/crates/p64" }
 neural-debug = { path = "../neural-debug" }
+# `dav_active_observation_probe` only — the Round-1 carrier differential runs
+# the probe's candidate selection as a Quack filter over a value lane +
+# validity plane, executed by the one mask-risc evaluator.
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 
 [[example]]
 # A0/A1/A2 Goursat probe (TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1).
