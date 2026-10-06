@@ -47,3 +47,16 @@ law. The tests run under the crate's `cargo test` (`test = true`).
 ```bash
 cargo run -p cognitive-shader-driver --example moore_plasticity_probe
 ```
+
+## ontology_agreement_probe.rs
+
+D-GSO-3 (plan §18 P3). Support / silence / opposition for one claim, folded in
+one pass over the observations into three scales of a `NiblePath` hierarchy:
+local (the class and its siblings), up (ancestors) and down (descendants),
+using the existing `ontology_warrant::Quorum`. Tension is the binary entropy of
+the speaking split; the probe shows a synthetic mammal family landing in each
+of settled / local exception / basin conflict / hotspot / unknown.
+
+```bash
+cargo run -p cognitive-shader-driver --example ontology_agreement_probe
+```
