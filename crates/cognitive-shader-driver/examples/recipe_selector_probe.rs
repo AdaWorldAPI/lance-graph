@@ -37,25 +37,39 @@
 //!   digest) is not done here.
 //! - **The state transitions in the replay test are a stand-in.** Each step
 //!   clears the condition its recipe answers; real recipes would produce that
-//!   change from their outputs. `new_encounter` is no longer one: see
-//!   "Revision, wired" below. The other three still are.
+//!   change from their outputs. `new_encounter` and `local_disagreement`
+//!   are no longer stand-ins: see "Revision, wired" below. The other two
+//!   (`observations_pending`, `frontier_bounded`) still are.
 //!
 //! # Revision, wired
 //!
-//! `new_encounter` is read from the world, not supplied: it holds while the
-//! pending encounter carries an independent root the horizon does not yet
-//! have. That is `GadamerRevision`'s own `has_new_root` with the horizon as
-//! ancestry, one mask difference (one fused `Any` fold, Round 6). The
+//! `new_encounter` is read from the world, not supplied: it holds while
+//! revising with the pending encounter would still change the horizon's
+//! masks: the projected claims, a root not yet held, an inherited root not
+//! yet held, or a contradiction not yet in the tension. Those are exactly the
+//! fields `GadamerRevision` writes into `delta.resulting` (with the horizon as
+//! ancestry), each one mask comparison (one fused fold, Round 6). It covers
+//! rootless revisions too (`ContradictionPreserved`, `AssumptionExposed`,
+//! `Reinterpretation`): they change the horizon without minting a root. The
 //! `Revision` recipe runs `GadamerRevision::revise` and its only output that
 //! reaches the next state is `delta.resulting`. So the cycle rests after
-//! revision because revision absorbed the roots, not because a stand-in
-//! cleared a flag. Bypass the write and the selector picks `Revision` again,
-//! forever.
+//! revision because the encounter is absorbed, not because a stand-in cleared
+//! a flag. Bypass the write and the selector picks `Revision` again, forever.
 //!
-//! `local_disagreement` cannot be read off the horizon the same way:
-//! `unresolved_tension` is preserved by revision and never cleared, so a
-//! selector reading it would interrogate forever. Pinned as a test; the
-//! source for that fact stays open.
+//! `local_disagreement` cannot be read off `unresolved_tension` alone:
+//! revision preserves tension and never clears it, so a selector reading it
+//! would interrogate forever. It is read as tension not yet interrogated:
+//! `unresolved_tension \ interrogated`, where `interrogated` is the coverage
+//! the `MooreInterrogation` recipe writes, the tension bits it has examined.
+//! The tension itself is never cleared; only coverage grows. A revision that
+//! adds a new contradiction reopens the fact, so a cycle can run `Revision`
+//! and then interrogate the tension that revision introduced.
+//!
+//! What this does not decide: `interrogated` is a probe-local record. The
+//! horizon carries no such field, and the Moore recipe's actual fold (the
+//! Palette hop over `Register128`, D-GSO-5 R2) is not linked to claim bits
+//! here; only the coverage it leaves is. Where coverage lives durably, and
+//! what the interrogation concludes, stay open.
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example recipe_selector_probe`
 //! Tests: `cargo test -p cognitive-shader-driver --example recipe_selector_probe`
@@ -221,6 +235,9 @@ type Horizon = InterpretiveHorizon<(), u64>;
 struct World {
     horizon: Horizon,
     encounter: EncounterEvidence<u64>,
+    /// Tension bits `MooreInterrogation` has examined. Only that recipe
+    /// writes it, and only by union.
+    interrogated: u64,
 }
 
 /// The horizon as ancestry, as in the Round 6 cycle.
@@ -234,22 +251,43 @@ fn ancestry(h: &Horizon) -> BasisView<u64> {
 }
 
 impl World {
-    /// `new_encounter`, derived: the encounter carries a root the horizon
-    /// does not have. Equal to `revise(...).new_independent_roots != 0`.
+    /// `new_encounter`, derived: revising would still change a mask of the
+    /// horizon. One test per field `delta.resulting` writes.
     fn new_encounter(&self) -> bool {
+        let (h, e) = (&self.horizon, &self.encounter);
+        e.proposed_claims != h.projected_claims
+            || !e
+                .independent_roots
+                .difference(&h.independent_roots)
+                .is_empty()
+            || !e.inherited_roots.difference(&h.inherited_roots).is_empty()
+            || !e
+                .contradictions
+                .difference(&h.unresolved_tension)
+                .is_empty()
+    }
+
+    /// `local_disagreement`, derived: tension not yet interrogated.
+    fn local_disagreement(&self) -> bool {
         !self
-            .encounter
-            .independent_roots
-            .difference(&self.horizon.independent_roots)
+            .horizon
+            .unresolved_tension
+            .difference(&self.interrogated)
             .is_empty()
     }
 
-    /// The declared state: three stand-in facts plus the derived one.
+    /// The declared state: two stand-in facts plus the two derived ones.
     fn state(&self, rest: EpistemicState) -> EpistemicState {
         EpistemicState {
             new_encounter: self.new_encounter(),
+            local_disagreement: self.local_disagreement(),
             ..rest
         }
+    }
+
+    /// The `MooreInterrogation` recipe's write: the tension it examined.
+    fn interrogate(&mut self) {
+        self.interrogated |= self.horizon.unresolved_tension;
     }
 
     /// The `Revision` recipe: revise once; `delta.resulting` is the only
@@ -261,36 +299,40 @@ impl World {
     }
 }
 
-/// Run a cycle whose `new_encounter` is derived from `world` at every step.
-/// The other three facts use the stand-in transition. `write` is false only
-/// in the bypass falsifier: the revision runs but its result is dropped.
+/// The most steps a wired cycle may take: the two stand-in conditions, one
+/// revision, and an interrogation before and after it (revision can reopen
+/// local disagreement).
+const WIRED_MAX_STEPS: usize = 5;
+
+/// Run a cycle whose `new_encounter` and `local_disagreement` are derived from
+/// `world` at every step. The other two facts use the stand-in transition.
+/// `drop` names a recipe whose write is discarded (the bypass falsifiers):
+/// the recipe runs on a copy and nothing lands.
 fn wired_cycle(
     policy: SelectorPolicy,
     rest: EpistemicState,
     world: &mut World,
-    write: bool,
-) -> ([Option<ProbeRecipe>; MAX_STEPS + 1], usize) {
-    let mut trace = [None; MAX_STEPS + 1];
+    drop: Option<ProbeRecipe>,
+) -> ([Option<ProbeRecipe>; WIRED_MAX_STEPS + 1], usize) {
+    let mut trace = [None; WIRED_MAX_STEPS + 1];
     let mut rest = rest;
     for (step, slot) in trace.iter_mut().enumerate() {
-        match policy.select(world.state(rest)) {
-            Some(ProbeRecipe::Revision) => {
-                *slot = Some(ProbeRecipe::Revision);
-                if write {
-                    world.revise();
-                } else {
-                    // Revise a copy and drop it: the work runs, nothing lands.
-                    world.clone().revise();
-                }
-            }
-            Some(recipe) => {
-                *slot = Some(recipe);
-                rest = after(recipe, rest);
-            }
-            None => return (trace, step),
+        let Some(recipe) = policy.select(world.state(rest)) else {
+            return (trace, step);
+        };
+        *slot = Some(recipe);
+        let target = if drop == Some(recipe) {
+            &mut world.clone()
+        } else {
+            &mut *world
+        };
+        match recipe {
+            ProbeRecipe::Revision => target.revise(),
+            ProbeRecipe::MooreInterrogation => target.interrogate(),
+            other => rest = after(other, rest),
         }
     }
-    (trace, MAX_STEPS + 1)
+    (trace, WIRED_MAX_STEPS + 1)
 }
 
 /// A small world: the horizon holds claims {0, 2}; the encounter proposes
@@ -319,6 +361,7 @@ fn fusion_world() -> World {
             contradictions: 0b001,
             affected_parts: 0b111,
         },
+        interrogated: 0,
     }
 }
 
@@ -344,7 +387,7 @@ fn main() {
         SelectorPolicy::CURRENT
     );
     let mut world = fusion_world();
-    let (trace, n) = wired_cycle(SelectorPolicy::CURRENT, start, &mut world, true);
+    let (trace, n) = wired_cycle(SelectorPolicy::CURRENT, start, &mut world, None);
     println!(
         "wired: {:?}, horizon roots {:#b}",
         &trace[..n],
@@ -492,6 +535,46 @@ mod tests {
         state(false, true, false, false)
     }
 
+    /// The masks `delta.resulting` can change.
+    fn masks(h: &Horizon) -> [u64; 4] {
+        [
+            h.projected_claims,
+            h.independent_roots,
+            h.inherited_roots,
+            h.unresolved_tension,
+        ]
+    }
+
+    /// FAILS IF: the derived fact disagrees with whether revising actually
+    /// changes the horizon, on any world of a 2-bit universe.
+    #[test]
+    fn the_derived_fact_is_whether_revision_changes_the_horizon() {
+        let (mut pending, mut settled_worlds) = (0, 0);
+        for x in 0u32..1 << 16 {
+            let f = |i: u32| u64::from(x >> (2 * i) & 3);
+            let mut w = fusion_world();
+            w.horizon.projected_claims = f(0);
+            w.horizon.independent_roots = f(1);
+            w.horizon.inherited_roots = f(2);
+            w.horizon.unresolved_tension = f(3);
+            w.encounter.proposed_claims = f(4);
+            w.encounter.independent_roots = f(5);
+            w.encounter.inherited_roots = f(6);
+            w.encounter.contradictions = f(7);
+            w.encounter.resistance = f(7);
+            let before = masks(&w.horizon);
+            let derived = w.new_encounter();
+            w.revise();
+            assert_eq!(derived, masks(&w.horizon) != before, "{x:#x}");
+            if derived {
+                pending += 1;
+            } else {
+                settled_worlds += 1;
+            }
+        }
+        assert!(pending > 0 && settled_worlds > 0, "both outcomes occur");
+    }
+
     /// FAILS IF: the derived fact disagrees with revision's own new-root test.
     #[test]
     fn the_derived_fact_is_revisions_new_root_test() {
@@ -515,26 +598,29 @@ mod tests {
     fn a_real_revision_makes_the_cycle_rest() {
         let mut world = fusion_world();
         let before = world.horizon.clone();
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, true);
-        assert_eq!(&trace[..n], &[Some(Revision)]);
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        // Revision adds contradiction 0 to the tension, which reopens local
+        // disagreement; one interrogation covers it and the cycle rests.
+        assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
         assert_eq!(world.horizon.independent_roots, 0b111);
         assert_eq!(world.horizon.revision_index, before.revision_index + 1);
 
-        // The full cycle under V1, with the wired fact last.
+        // The full cycle under V1. The supplied `local_disagreement = true`
+        // is ignored: the fact is derived, and there is no tension yet.
         let mut world = fusion_world();
         let (trace, n) = wired_cycle(
             SelectorPolicy::V1,
             state(true, false, true, false),
             &mut world,
-            true,
+            None,
         );
         assert_eq!(
             &trace[..n],
             &[
                 Some(ObserveFold),
                 Some(ProductInterrogation),
-                Some(MooreInterrogation),
-                Some(Revision)
+                Some(Revision),
+                Some(MooreInterrogation)
             ]
         );
     }
@@ -544,8 +630,8 @@ mod tests {
     #[test]
     fn dropping_the_revision_write_never_rests() {
         let mut world = fusion_world();
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, false);
-        assert_eq!(n, MAX_STEPS + 1, "did not rest");
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, Some(Revision));
+        assert_eq!(n, WIRED_MAX_STEPS + 1, "did not rest");
         assert!(trace.iter().all(|r| *r == Some(Revision)));
         assert_eq!(world, fusion_world(), "nothing was written");
     }
@@ -571,24 +657,56 @@ mod tests {
             GadamerRevision.revise(&world.horizon, &world.encounter, &ancestry(&world.horizon));
         assert_eq!(delta.kind, RevisionKind::IndependentConfirmation);
         assert!(world.new_encounter());
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, true);
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
         assert_eq!(&trace[..n], &[Some(Revision)]);
         assert_eq!(world.horizon.independent_roots, 0b011);
     }
 
-    /// FAILS IF: an echo (every root already held) still selects revision.
+    /// An echo: the encounter proposes what the horizon already projects,
+    /// with roots it already holds and no contradiction.
+    fn echo_world() -> World {
+        let mut w = fusion_world();
+        w.encounter = EncounterEvidence {
+            proposed_claims: 0b101,
+            independent_roots: 0b001,
+            inherited_roots: 0,
+            resistance: 0,
+            contradictions: 0,
+            affected_parts: 0b101,
+        };
+        w
+    }
+
+    /// FAILS IF: an echo selects revision.
     #[test]
     fn an_echo_selects_nothing() {
-        let mut world = fusion_world();
-        world.encounter.independent_roots = 0b001;
+        let mut world = echo_world();
+        let delta =
+            GadamerRevision.revise(&world.horizon, &world.encounter, &ancestry(&world.horizon));
+        assert_eq!(delta.kind, RevisionKind::Echo);
         assert!(!world.new_encounter());
-        let (_, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, true);
+        let (_, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
         assert_eq!(n, 0);
-        assert_eq!(world, {
-            let mut w = fusion_world();
-            w.encounter.independent_roots = 0b001;
-            w
-        });
+        assert_eq!(world, echo_world());
+    }
+
+    /// FAILS IF: a revision that mints no root but changes the horizon is
+    /// dropped. The encounter contradicts claim 0 and withdraws it, with no
+    /// new root: `ContradictionPreserved`. It must be applied once, then rest.
+    #[test]
+    fn a_rootless_contradiction_is_still_revised() {
+        let mut world = fusion_world();
+        world.encounter.proposed_claims = 0b100;
+        world.encounter.independent_roots = 0b100;
+        let delta =
+            GadamerRevision.revise(&world.horizon, &world.encounter, &ancestry(&world.horizon));
+        assert_eq!(delta.kind, RevisionKind::ContradictionPreserved);
+        assert_eq!(delta.new_independent_roots, 0);
+        assert!(world.new_encounter());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
+        assert_eq!(world.horizon.projected_claims, 0b100);
+        assert_eq!(world.horizon.unresolved_tension, 0b001);
     }
 
     /// FAILS IF: the same starting world replays to a different path or a
@@ -598,13 +716,72 @@ mod tests {
         for policy in [SelectorPolicy::V1, SelectorPolicy::V2] {
             for rest in EpistemicState::all() {
                 let (mut a, mut b) = (fusion_world(), fusion_world());
-                let ra = wired_cycle(policy, rest, &mut a, true);
-                let rb = wired_cycle(policy, rest, &mut b, true);
+                let ra = wired_cycle(policy, rest, &mut a, None);
+                let rb = wired_cycle(policy, rest, &mut b, None);
                 assert_eq!(ra, rb, "{policy:?} {rest:?}");
                 assert_eq!(a, b, "{policy:?} {rest:?}");
-                assert!(ra.1 <= MAX_STEPS, "{policy:?} {rest:?} did not rest");
+                assert!(ra.1 <= WIRED_MAX_STEPS, "{policy:?} {rest:?} did not rest");
             }
         }
+    }
+
+    /// FAILS IF: interrogation's coverage is not what clears the fact, or
+    /// clearing it touches the tension itself.
+    #[test]
+    fn interrogation_clears_the_fact_and_keeps_the_tension() {
+        let mut world = fusion_world();
+        world.horizon.unresolved_tension = 0b001;
+        world.encounter = echo_world().encounter;
+        assert!(world.local_disagreement());
+        assert!(!world.new_encounter());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert_eq!(&trace[..n], &[Some(MooreInterrogation)]);
+        assert!(!world.local_disagreement());
+        assert_eq!(world.horizon.unresolved_tension, 0b001, "tension kept");
+        assert_eq!(world.interrogated, 0b001);
+    }
+
+    /// FAILS IF: dropping the interrogation's write still lets the cycle
+    /// rest, i.e. the rest does not depend on the interrogation's output.
+    #[test]
+    fn dropping_the_interrogation_write_never_rests() {
+        let mut world = fusion_world();
+        world.horizon.unresolved_tension = 0b001;
+        world.encounter = echo_world().encounter;
+        let before = world.clone();
+        let (trace, n) = wired_cycle(
+            SelectorPolicy::V1,
+            settled(),
+            &mut world,
+            Some(MooreInterrogation),
+        );
+        assert_eq!(n, WIRED_MAX_STEPS + 1, "did not rest");
+        assert!(trace.iter().all(|r| *r == Some(MooreInterrogation)));
+        assert_eq!(world, before, "nothing was written");
+    }
+
+    /// FAILS IF: tension already interrogated reopens the fact, or a new
+    /// contradiction does not.
+    #[test]
+    fn only_new_tension_reopens_local_disagreement() {
+        // Contradiction 0 is already in the tension and already covered: the
+        // revision changes the projection, so it runs, but adds no new
+        // tension, so nothing is interrogated afterwards.
+        let mut world = fusion_world();
+        world.horizon.unresolved_tension = 0b001;
+        world.interrogated = 0b001;
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert_eq!(&trace[..n], &[Some(Revision)]);
+
+        // A contradiction on a new bit reopens it after the revision.
+        let mut world = fusion_world();
+        world.horizon.unresolved_tension = 0b001;
+        world.interrogated = 0b001;
+        world.encounter.contradictions = 0b011;
+        world.encounter.resistance = 0b011;
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
+        assert_eq!(world.interrogated, 0b011);
     }
 
     /// FAILS IF: revision starts clearing tension. Then `local_disagreement`
