@@ -258,6 +258,20 @@ The world comes from the attended key, never from the edge.
 cargo run -p cognitive-shader-driver --example witness_angle_probe
 ```
 
+## ce64_cycle_survival_probe.rs
+
+D-CE64-TIME-0. `CausalEdge64` as the register that survives a cycle. One
+`MailboxSoA` `edges` row is the only cross-cycle state; each cycle folds its
+observations with the shipped `CausalEdge64::learn`, counts distinct sources in
+a per-cycle `SupportLedger`, settles the EpistemicState5 code (probe-declared
+step 3 ↔ 7) and writes the register back. The next cycle measures eligibility
+with the #1370 law (`shared/affordance_law.rs`). Eligibility over four cycles:
+`OBSERVE`, `OBSERVE`, `OBSERVE|STRATIFY`, `OBSERVE`.
+
+```bash
+cargo run -p cognitive-shader-driver --example ce64_cycle_survival_probe
+```
+
 ## ewa_anisotropic_probe.rs
 
 D-CTX-3. Anisotropic EWA: the footprint is each virtual surfel's normalised

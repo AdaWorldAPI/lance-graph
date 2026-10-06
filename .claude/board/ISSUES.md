@@ -1,3 +1,11 @@
+## ISS-NO-EVIDENCE-WRITER-FOR-EPISTEMIC-STATE — accumulated evidence never reaches what the next cycle may do (2026-10-06)
+
+**Status:** OPEN. **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/ce64_cycle_survival_probe.rs` (D-CE64-TIME-0).
+
+- `CausalEdge64::learn` (the shipped fold) revises F/C and plasticity only; it never writes bits 59..63. The #1370 eligibility law reads only bits 59..63 and Pearl. So F/C accumulation, however long it survives, cannot change `EligibleRecipes`. The probe declares the missing step locally (code 3 ↔ 7); no production writer of bits 59..63 from evidence exists (the band writers live in probes only), and `CausalEdge64::learn` itself has no production caller.
+- Cross-cycle source identity is not carried: the `SupportLedger` lives one cycle, and the register holds no source set, so two different sources seen in two different cycles never count as two (`sources_split_across_cycles_do_not_combine`). Carrying it would need state the register does not have.
+- **What closes it:** a declared, versioned transition from evidence to EpistemicState5 in production (and a decision whether cross-cycle corroboration is wanted, and where its state would live). Not decided by the probe.
+
 ## ISS-MAILBOX-ROUTES-WITNESS-WITHOUT-GRAPH — `MailboxSoA` accepts same-slot edges from any graph (2026-10-06)
 
 **Status:** RESOLVED 2026-10-06 as not a `MailboxSoA` defect (D-ALPHA-G-0, `alpha_world_provenance_probe`): the cross-graph delivery is constructed by bypassing the Alpha split tunnel. The world is selected upstream by `SpogTenants` (route to `graph_of(addr)`, `NoTenant` for an undeclared world); `MailboxSoA` works inside an already-selected world and stays graph-blind; `apply_edges` has no production caller. Neither closing option below is taken, and no G check goes into `apply_edges`. The residue moves upstream: the attention-to-edge join does not exist yet, and when it is built it must feed mailboxes from the tunnel's per-world output, as the probe does (OPEN in the D-ALPHA-G-0 entry). The bullets below record the issue as filed. **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/spog_witness_probe.rs`
