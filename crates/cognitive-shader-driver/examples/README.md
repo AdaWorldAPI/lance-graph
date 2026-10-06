@@ -221,3 +221,17 @@ order's trie ascent per step through `Morton8x8::nibble_climb`.
 ```bash
 cargo run -p cognitive-shader-driver --example morton_order_probe
 ```
+
+## observation_revision_probe.rs
+
+D-CTX-6. Closes the loop: render → measurement → observation →
+`GadamerRevision` → replay. The belief state is a revision horizon with one
+bit per pixel. The rendered boundary witness is presented to the revision as
+an inherited interpretation and never changes belief; only an observation of
+the resident palette (a new independent root) is admitted. The render decides
+where to look next, not what is found: two Fisher-Z laws give different fields
+and the same final belief.
+
+```bash
+cargo run -p cognitive-shader-driver --example observation_revision_probe
+```

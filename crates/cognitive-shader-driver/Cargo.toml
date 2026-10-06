@@ -83,6 +83,10 @@ test = true
 name = "morton_order_probe"
 test = true
 
+[[example]]
+name = "observation_revision_probe"
+test = true
+
 # D-GSO-6 recipe selector probe; tests run under `cargo test`.
 [[example]]
 name = "recipe_selector_probe"

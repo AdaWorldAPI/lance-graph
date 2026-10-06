@@ -37,7 +37,6 @@
 //! Tests: `cargo test -p cognitive-shader-driver --example boundary_measure_probe`
 
 use std::mem::size_of;
-use std::ops::RangeInclusive;
 
 use bgz_tensor::fisher_z::FisherZTable;
 use lance_graph_contract::morton8x8::Morton8x8;
@@ -54,50 +53,9 @@ use virtual_surfel::{Tile, PIXELS};
 mod ewa;
 use ewa::{max_abs, render_isotropic, Field};
 
-/// Pixels whose value and central difference do not see the tile edge.
-const INNER: RangeInclusive<u8> = 5..=10;
-
-// ── the operator ───────────────────────────────────────────────────────────
-
-/// What the operator returns: where the surface is steepest, and how.
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct BoundaryWitness {
-    at: Morton8x8,
-    magnitude: f64,
-    gx: f64,
-    gy: f64,
-}
-
-#[inline]
-fn at(f: &Field, p: Morton8x8, dx: i8, dy: i8) -> f64 {
-    let n = p
-        .checked_offset(dx, dy)
-        .expect("inner pixels have all four neighbours");
-    f[n.code() as usize]
-}
-
-/// B: one pass in Morton order, one witness register.
-fn strongest_boundary(f: &Field) -> Option<BoundaryWitness> {
-    let mut best: Option<BoundaryWitness> = None;
-    for code in 0..PIXELS as u16 {
-        let p = Morton8x8::from_code(code);
-        if !INNER.contains(&p.x()) || !INNER.contains(&p.y()) {
-            continue;
-        }
-        let gx = (at(f, p, 1, 0) - at(f, p, -1, 0)) / 2.0;
-        let gy = (at(f, p, 0, 1) - at(f, p, 0, -1)) / 2.0;
-        let magnitude = (gx * gx + gy * gy).sqrt();
-        if best.is_none_or(|b| magnitude > b.magnitude) {
-            best = Some(BoundaryWitness {
-                at: p,
-                magnitude,
-                gx,
-                gy,
-            });
-        }
-    }
-    best
-}
+#[path = "support/boundary.rs"]
+mod boundary;
+use boundary::{strongest_boundary, BoundaryWitness, INNER};
 
 // ── A: materialized ────────────────────────────────────────────────────────
 
@@ -199,6 +157,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ops::RangeInclusive;
 
     fn table() -> FisherZTable {
         FisherZTable::build(&representatives(1), 256)
