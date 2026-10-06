@@ -28,9 +28,9 @@
 //!   with all-zero edges, so no world can have come from the edge.
 //! - Changing every CE64 field leaves the recovered worlds unchanged, while
 //!   the events themselves change.
-//! - Partitioned by recovered world, each `MailboxSoA` receives only its own
-//!   world's deliveries and accepts all of them; `apply_edges` is unchanged and
-//!   reads no G.
+//! - Fed from the tunnel's per-world shadows, each `MailboxSoA` receives only
+//!   its own world's deliveries and accepts all of them; `apply_edges` is
+//!   unchanged and reads no G.
 //! - An address of an undeclared world is refused at the tunnel and never
 //!   becomes a delivery.
 //!
@@ -208,11 +208,18 @@ fn main() {
     // Inside the selected world the mailbox is graph-blind: deliver the
     // observations world W_OBS produced to that world's mailbox.
     let mut mb: MailboxSoA<16> = MailboxSoA::new(1, SLOT, 0.5);
-    let own: Vec<(u16, CausalEdge64)> = obs
-        .iter()
-        .filter(|o| graph_of(o.addr) == W_OBS)
-        .map(|o| (alloc.ordinal(o.addr).unwrap_or(0) as u16 % 16, o.edge))
-        .collect();
+    let own: Vec<(u16, CausalEdge64)> = tunnel
+        .tenant(W_OBS)
+        .map(|shadow| {
+            shadow
+                .scanpath()
+                .filter_map(|a| {
+                    let e = obs.iter().find(|o| o.addr == a)?.edge;
+                    Some((alloc.ordinal(a).unwrap_or(0) as u16 % 16, e))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     println!(
         "  W_OBS mailbox accepted {} of {}",
         mb.apply_edges(&own),
@@ -304,9 +311,9 @@ mod tests {
         }
     }
 
-    /// Inside one already-selected world the mailbox needs no G: partitioned by
-    /// the recovered world, each mailbox receives only its own deliveries and
-    /// accepts all of them, through the unchanged `apply_edges`.
+    /// Inside one already-selected world the mailbox needs no G: fed from the
+    /// tunnel's per-world shadows, each mailbox receives only its own world's
+    /// deliveries and accepts all of them, through the unchanged `apply_edges`.
     #[test]
     fn inside_one_world_the_mailbox_needs_no_g() {
         let rows = spine();
@@ -320,12 +327,19 @@ mod tests {
             [MailboxSoA::new(1, SLOT, 0.5), MailboxSoA::new(2, SLOT, 0.5)];
         let mut received = [0usize; 2];
         let mut accepted = [0usize; 2];
-        for o in &obs {
-            let g = graph_of(o.addr);
-            let k = worlds.iter().position(|w| *w == g).expect("declared world");
-            let row = alloc.ordinal(o.addr).unwrap() as u16 % 16;
-            received[k] += 1;
-            accepted[k] += boxes[k].apply_edges(&[(row, o.edge)]);
+        // Deliveries are built from the tunnel's routed output: each world's
+        // mailbox is fed only the addresses that world's tenant shadow holds,
+        // joined back to the edge observed there. The test never routes by
+        // itself.
+        for (k, &w) in worlds.iter().enumerate() {
+            let shadow = tunnel.tenant(w).expect("declared tenant");
+            for a in shadow.scanpath() {
+                assert_eq!(graph_of(a), w, "the tunnel routed {a:?} to world {w:x}");
+                let e = obs.iter().find(|o| o.addr == a).expect("observed").edge;
+                let row = alloc.ordinal(a).unwrap() as u16 % 16;
+                received[k] += 1;
+                accepted[k] += boxes[k].apply_edges(&[(row, e)]);
+            }
         }
         let expected = |w: u16| obs.iter().filter(|o| graph_of(o.addr) == w).count();
         assert_eq!(received, [expected(W_OBS), expected(W_ERP)]);

@@ -44,20 +44,27 @@
   from the edge, grouped merge instead of the route, all deliveries to one
   mailbox, a mixed received count, `NoTenant` accepted). The first mailbox
   disable came back green; the test now reads each mailbox's own
-  `plasticity_at` counts.
-- `witness_angle_probe.rs`: 7 tests, 7 disable runs red (law ignores class,
+  `plasticity_at` counts. After review (#1372) the mailbox deliveries are built
+  from the tunnel's per-world shadows (`tenant(w).scanpath()`), not routed by
+  the test; feeding both mailboxes from one shadow fails it.
+- `witness_angle_probe.rs`: 7 tests, 8 disable runs red (law ignores class,
   ignores generation, reading check off, generation check off, Witness 0
-  accepted, v1 accepted, Angle read from other bits); 0 allocations.
+  accepted, v1 accepted, Angle read from other bits, law keyed by world instead
+  of class); 0 allocations. The world-keyed disable needed a second
+  source-coordinate class in the same world, added after review (#1372).
 
 ## RESOLVED
 
-`ISS-MAILBOX-ROUTES-WITNESS-WITHOUT-GRAPH`: false positive. `MailboxSoA` stays
-graph-blind; no G check in `apply_edges`.
+`ISS-MAILBOX-ROUTES-WITNESS-WITHOUT-GRAPH`: not a `MailboxSoA` defect.
+`MailboxSoA` stays graph-blind; no G check in `apply_edges`. The residue is the
+unbuilt join below.
 
 ## OPEN
 
 - Where production will join an attended address to the CE64 it produced: no
-  caller does this yet, so the event pairing exists only in the probe.
+  caller does this yet, so the event pairing exists only in the probe. When
+  built, it must feed mailboxes from the tunnel's per-world output (the probe's
+  `tenant(w).scanpath()` shape), never by re-deriving the world itself.
 - Whether `graph_of` is the right WorldG granularity for every consumer.
 - Whether the Witness × Angle declaration (and the D-SPOG-W-0 one) becomes a
   contract declaration beside `band_reading`.

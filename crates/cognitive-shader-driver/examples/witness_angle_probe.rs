@@ -30,7 +30,7 @@
 //! # What it does NOT prove
 //!
 //! - What a source coordinate means: `SourceCoord` is two opaque ordinals of
-//!   a three-row test codebook, not an ontology.
+//!   a six-entry test codebook, not an ontology.
 //! - That the declaration belongs in the contract: it is probe-local, like
 //!   D-SPOG-W-0's.
 //! - Anything about LocalG (a row-local SPOG G): not modelled.
@@ -98,13 +98,16 @@ enum SlotReading {
 /// Probe placeholders, not OGAR mints: two worlds (`0x9101`, `0x9102`).
 const CLASS_OBS: u32 = 0x9101_0001;
 const CLASS_ERP: u32 = 0x9102_0001;
+/// A second source-coordinate class in the same world as `CLASS_OBS`.
+const CLASS_OBS2: u32 = 0x9101_0005;
 const CLASS_PATHOLOGY: u32 = 0x9101_0002;
 const CLASS_COHORT: u32 = 0x9101_0003;
 const CLASS_UNDECLARED: u32 = 0x9101_0004;
 
 /// `(class, reading, declared generations)`.
-const DECLARATIONS: [(u32, SlotReading, &[u8]); 4] = [
+const DECLARATIONS: [(u32, SlotReading, &[u8]); 5] = [
     (CLASS_OBS, SlotReading::SourceCoordinate, &[1, 2]),
+    (CLASS_OBS2, SlotReading::SourceCoordinate, &[1]),
     (CLASS_ERP, SlotReading::SourceCoordinate, &[1]),
     (CLASS_PATHOLOGY, SlotReading::PathologyTriad, &[1]),
     (CLASS_COHORT, SlotReading::CohortWitness, &[1]),
@@ -123,12 +126,14 @@ const fn sc(table: u8, column: u8) -> SourceCoord {
 
 /// The sparse law: `(class, generation, witness, angle) → coordinate`. Every
 /// pair not listed is unmapped. A test codebook, not an ontology.
-const LAW: [(u32, u8, u8, u8, SourceCoord); 5] = [
+const LAW: [(u32, u8, u8, u8, SourceCoord); 6] = [
     (CLASS_OBS, 1, 23, 5, sc(1, 7)),
     (CLASS_OBS, 1, 23, 2, sc(1, 3)),
     (CLASS_OBS, 1, 4, 5, sc(2, 7)),
     // Generation 2 re-reads (23, 5) and drops the other two pairs.
     (CLASS_OBS, 2, 23, 5, sc(1, 8)),
+    // Same world, another class, same raw pair: a different source.
+    (CLASS_OBS2, 1, 23, 5, sc(5, 1)),
     // Another world, same raw pair, a different source.
     (CLASS_ERP, 1, 23, 5, sc(9, 2)),
 ];
@@ -255,13 +260,19 @@ mod tests {
         assert_eq!(a.world, 0x9101);
     }
 
-    /// The same raw pair in two classes (two worlds) is two sources. The world
-    /// comes from the class's key; the edge is identical.
+    /// The same raw pair in two classes is two sources, whether the classes
+    /// share a world or not. The world comes from the class's key; the edge is
+    /// identical.
     #[test]
     fn same_bits_in_another_class_are_another_source() {
         let e = edge(23, 5);
         let obs = stamped(CLASS_OBS, 1, e).unwrap();
+        let obs2 = stamped(CLASS_OBS2, 1, e).unwrap();
         let erp = stamped(CLASS_ERP, 1, e).unwrap();
+        // Same world, different class: class identity alone separates them.
+        assert_eq!(obs.world, obs2.world);
+        assert_ne!(obs.source, obs2.source);
+        // Different world as well.
         assert_ne!(obs.source, erp.source);
         assert_eq!((obs.world, erp.world), (0x9101, 0x9102));
     }
