@@ -48,6 +48,11 @@ test = true
 name = "entropy_topology_probe"
 test = true
 
+# D-CTX-0 fieldless local interaction probe; tests run under `cargo test`.
+[[example]]
+name = "fieldless_local_interaction_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
@@ -115,3 +120,6 @@ grpc = ["_lab-dtos", "dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
 lab = ["serve", "grpc", "with-engine", "with-planner"]
 
 [dev-dependencies]
+# D-CTX-0: the one Fisher-Z calibrator, for the probe only. Production code
+# borrows the calibrated bytes; it never depends on the calibrator.
+bgz-tensor = { path = "../bgz-tensor" }
