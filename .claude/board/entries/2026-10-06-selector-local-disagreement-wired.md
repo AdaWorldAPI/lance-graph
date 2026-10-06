@@ -1,4 +1,6 @@
-# 2026-10-06 — D-GSO-6 follow-up 2: local disagreement wired as uncovered tension
+# 2026-10-06 — Selector follow-up 2: local disagreement wired as uncovered tension
+
+Deliverable line: the D-GSO-6 selector (follow-up to #1362).
 
 ## MEASURED
 
