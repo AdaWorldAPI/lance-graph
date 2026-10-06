@@ -25,7 +25,8 @@ use crate::catalog_provider::{CatalogResult, DataSourceFormat, TableInfo};
 ///
 /// Implement this trait to add support for new data formats:
 /// - Parquet (provided)
-/// - Delta Lake (provided, behind `delta` feature)
+/// - Delta Lake (not provided: the `delta` feature was removed 2026-08-18;
+///   a Delta table fails with `CatalogError::UnsupportedFormat`)
 /// - CSV (future)
 /// - Iceberg (future)
 /// - ORC (future)

@@ -96,6 +96,18 @@ pub enum CatalogError {
     InvalidResponse(String),
     /// Failed to map a catalog type to an Arrow type.
     TypeMappingError(String),
+    /// The table's storage format has no registered [`TableReader`].
+    ///
+    /// Raised instead of registering an empty placeholder: an unsupported
+    /// format must never present itself as a valid, empty dataset.
+    ///
+    /// [`TableReader`]: crate::table_reader::TableReader
+    UnsupportedFormat {
+        /// Fully qualified `catalog.schema.table`.
+        table: String,
+        /// The format the catalog reported.
+        format: DataSourceFormat,
+    },
     /// Other errors.
     Other(String),
 }
@@ -108,6 +120,11 @@ impl std::fmt::Display for CatalogError {
             Self::AuthError(msg) => write!(f, "Auth error: {}", msg),
             Self::InvalidResponse(msg) => write!(f, "Invalid response: {}", msg),
             Self::TypeMappingError(msg) => write!(f, "Type mapping error: {}", msg),
+            Self::UnsupportedFormat { table, format } => write!(
+                f,
+                "Unsupported storage format {:?} for table {}: no table reader is registered for it",
+                format, table
+            ),
             Self::Other(msg) => write!(f, "Catalog error: {}", msg),
         }
     }
