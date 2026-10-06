@@ -1,6 +1,6 @@
 ## ISS-MAILBOX-ROUTES-WITNESS-WITHOUT-GRAPH — `MailboxSoA` accepts same-slot edges from any graph (2026-10-06)
 
-**Status:** OPEN. **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/spog_witness_probe.rs`
+**Status:** RESOLVED 2026-10-06 as a false positive (D-ALPHA-G-0, `alpha_world_provenance_probe`): the cross-graph delivery is constructed by bypassing the Alpha split tunnel. The world is selected upstream by `SpogTenants` (route to `graph_of(addr)`, `NoTenant` for an undeclared world); `MailboxSoA` works inside an already-selected world and stays graph-blind; `apply_edges` has no production caller. Neither closing option below is taken, and no G check goes into `apply_edges`. The bullets below record the issue as filed. **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/spog_witness_probe.rs`
 (`across_graphs_routing_diverges_from_the_spog_reading`). `MailboxSoA::apply_edges`
 compares only `edge.w_slot()` with the mailbox's slot and reads no classid.
 
