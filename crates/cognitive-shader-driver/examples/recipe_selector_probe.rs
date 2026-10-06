@@ -19,7 +19,7 @@
 //! | `observations_pending` | evidence arrival | verdicts not yet folded (D-GSO-3) |
 //! | `frontier_bounded` | a product interrogation | the candidate frontier is known (D-GSO-5 R1) |
 //! | `local_disagreement` | a local fold | neighbourhood tension is present (D-GSO-2/3) |
-//! | `new_encounter` | evidence arrival | an encounter awaits revision (D-GSO-5 R3) |
+//! | `revision_pending` | evidence arrival | revising would change the horizon (D-GSO-5 R3) |
 //!
 //! Policy V1 follows the §11 order DETECT → BOUND → PROPOSE/TEST → REVISE:
 //! fold pending observations first, then bound the frontier, then interrogate
@@ -37,13 +37,13 @@
 //!   digest) is not done here.
 //! - **The state transitions in the replay test are a stand-in.** Each step
 //!   clears the condition its recipe answers; real recipes would produce that
-//!   change from their outputs. `new_encounter` and `local_disagreement`
-//!   are no longer stand-ins: see "Revision, wired" below. The other two
-//!   (`observations_pending`, `frontier_bounded`) still are.
+//!   change from their outputs. `revision_pending`, `local_disagreement` and
+//!   `observations_pending` are no longer stand-ins: see "Revision, wired"
+//!   and "Observation, wired" below. `frontier_bounded` still is.
 //!
 //! # Revision, wired
 //!
-//! `new_encounter` is read from the world, not supplied: it holds while
+//! `revision_pending` is read from the world, not supplied: it holds while
 //! revising with the pending encounter would still change the horizon's
 //! masks: the projected claims, a root not yet held, an inherited root not
 //! yet held, or a contradiction not yet in the tension. Those are exactly the
@@ -65,11 +65,28 @@
 //! adds a new contradiction reopens the fact, so a cycle can run `Revision`
 //! and then interrogate the tension that revision introduced.
 //!
+//! Coverage is per tension bit, not per piece of evidence: new evidence on a
+//! bit that is already covered does not reopen the interrogation. A coverage
+//! that tracks receipts or generations would; it is not built here.
+//!
 //! What this does not decide: `interrogated` is a probe-local record. The
 //! horizon carries no such field, and the Moore recipe's actual fold (the
 //! Palette hop over `Register128`, D-GSO-5 R2) is not linked to claim bits
 //! here; only the coverage it leaves is. Where coverage lives durably, and
 //! what the interrogation concludes, stay open.
+//!
+//! # Observation, wired
+//!
+//! `observations_pending` is read from the world: more verdicts have arrived
+//! than the quorum has counted. The `ObserveFold` recipe folds the unfolded
+//! verdicts with `Quorum::observe` (D-GSO-3), and its only output is the
+//! quorum. The count includes silent verdicts. `Quorum::speaking()` does not,
+//! so a selector reading it would never rest on a silent source; that is
+//! pinned as a test. Arrival itself is the "do": the test writes verdicts
+//! into the world, the selector never creates one.
+//!
+//! What this does not decide: the quorum is not linked to the horizon. A
+//! conflicting verdict does not become an encounter or a contradiction here.
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example recipe_selector_probe`
 //! Tests: `cargo test -p cognitive-shader-driver --example recipe_selector_probe`
@@ -90,7 +107,7 @@ struct EpistemicState {
     observations_pending: bool,
     frontier_bounded: bool,
     local_disagreement: bool,
-    new_encounter: bool,
+    revision_pending: bool,
 }
 
 impl EpistemicState {
@@ -100,7 +117,7 @@ impl EpistemicState {
             observations_pending: b & 1 != 0,
             frontier_bounded: b & 2 != 0,
             local_disagreement: b & 4 != 0,
-            new_encounter: b & 8 != 0,
+            revision_pending: b & 8 != 0,
         })
     }
 }
@@ -143,7 +160,7 @@ impl SelectorPolicy {
                 }
             }
         }
-        if s.new_encounter {
+        if s.revision_pending {
             return Some(ProbeRecipe::Revision);
         }
         None
@@ -190,7 +207,7 @@ const fn after(recipe: ProbeRecipe, s: EpistemicState) -> EpistemicState {
             ..s
         },
         ProbeRecipe::Revision => EpistemicState {
-            new_encounter: false,
+            revision_pending: false,
             ..s
         },
     }
@@ -221,6 +238,7 @@ fn cycle(
 
 // ── revision, wired ─────────────────────────────────────────────────────
 
+use lance_graph_contract::ontology_warrant::{Quorum, SourceVerdict};
 use lance_graph_contract::revision::{
     BasisView, CodebookId, EncounterEvidence, EvidenceMask, GadamerRevision, GrammarId, HorizonId,
     InterpretiveHorizon, LanguageId, LensId, QuestionId, RevisionPolicy,
@@ -238,7 +256,16 @@ struct World {
     /// Tension bits `MooreInterrogation` has examined. Only that recipe
     /// writes it, and only by union.
     interrogated: u64,
+    /// Verdicts that have arrived, in arrival order. Only arrival writes here.
+    verdicts: [SourceVerdict; VERDICTS],
+    /// How many of `verdicts` have arrived.
+    arrived: usize,
+    /// The `ObserveFold` recipe's output: the quorum over folded verdicts.
+    quorum: Quorum,
 }
+
+/// How many verdicts a world can hold.
+const VERDICTS: usize = 8;
 
 /// The horizon as ancestry, as in the Round 6 cycle.
 fn ancestry(h: &Horizon) -> BasisView<u64> {
@@ -251,9 +278,9 @@ fn ancestry(h: &Horizon) -> BasisView<u64> {
 }
 
 impl World {
-    /// `new_encounter`, derived: revising would still change a mask of the
+    /// `revision_pending`, derived: revising would still change a mask of the
     /// horizon. One test per field `delta.resulting` writes.
-    fn new_encounter(&self) -> bool {
+    fn revision_pending(&self) -> bool {
         let (h, e) = (&self.horizon, &self.encounter);
         e.proposed_claims != h.projected_claims
             || !e
@@ -279,10 +306,36 @@ impl World {
     /// The declared state: two stand-in facts plus the two derived ones.
     fn state(&self, rest: EpistemicState) -> EpistemicState {
         EpistemicState {
-            new_encounter: self.new_encounter(),
+            observations_pending: self.observations_pending(),
+            revision_pending: self.revision_pending(),
             local_disagreement: self.local_disagreement(),
             ..rest
         }
+    }
+
+    /// How many verdicts the quorum has counted, silence included.
+    fn folded(&self) -> usize {
+        let q = self.quorum;
+        usize::from(q.corroborating) + usize::from(q.silent) + usize::from(q.conflicting)
+    }
+
+    /// `observations_pending`, derived: verdicts arrived but not yet counted.
+    fn observations_pending(&self) -> bool {
+        self.arrived > self.folded()
+    }
+
+    /// The "do": a verdict arrives. Not a recipe; the selector never calls it.
+    fn arrive(&mut self, v: SourceVerdict) {
+        self.verdicts[self.arrived] = v;
+        self.arrived += 1;
+    }
+
+    /// The `ObserveFold` recipe: fold the verdicts not yet counted.
+    fn fold_observations(&mut self) {
+        let start = self.folded();
+        self.quorum = self.verdicts[start..self.arrived]
+            .iter()
+            .fold(self.quorum, |q, &v| q.observe(v));
     }
 
     /// The `MooreInterrogation` recipe's write: the tension it examined.
@@ -304,7 +357,7 @@ impl World {
 /// local disagreement).
 const WIRED_MAX_STEPS: usize = 5;
 
-/// Run a cycle whose `new_encounter` and `local_disagreement` are derived from
+/// Run a cycle whose `revision_pending` and `local_disagreement` are derived from
 /// `world` at every step. The other two facts use the stand-in transition.
 /// `drop` names a recipe whose write is discarded (the bypass falsifiers):
 /// the recipe runs on a copy and nothing lands.
@@ -329,6 +382,7 @@ fn wired_cycle(
         match recipe {
             ProbeRecipe::Revision => target.revise(),
             ProbeRecipe::MooreInterrogation => target.interrogate(),
+            ProbeRecipe::ObserveFold => target.fold_observations(),
             other => rest = after(other, rest),
         }
     }
@@ -362,6 +416,9 @@ fn fusion_world() -> World {
             affected_parts: 0b111,
         },
         interrogated: 0,
+        verdicts: [SourceVerdict::Silent; VERDICTS],
+        arrived: 0,
+        quorum: Quorum::default(),
     }
 }
 
@@ -370,7 +427,7 @@ fn main() {
         observations_pending: true,
         frontier_bounded: false,
         local_disagreement: true,
-        new_encounter: true,
+        revision_pending: true,
     };
     for policy in [SelectorPolicy::V1, SelectorPolicy::V2] {
         let (trace, n) = cycle(policy, start);
@@ -387,6 +444,7 @@ fn main() {
         SelectorPolicy::CURRENT
     );
     let mut world = fusion_world();
+    world.arrive(SourceVerdict::Corroborates);
     let (trace, n) = wired_cycle(SelectorPolicy::CURRENT, start, &mut world, None);
     println!(
         "wired: {:?}, horizon roots {:#b}",
@@ -406,7 +464,7 @@ mod tests {
             observations_pending: o,
             frontier_bounded: f,
             local_disagreement: l,
-            new_encounter: n,
+            revision_pending: n,
         }
     }
 
@@ -422,7 +480,7 @@ mod tests {
                 Some(ProductInterrogation)
             } else if s.local_disagreement {
                 Some(MooreInterrogation)
-            } else if s.new_encounter {
+            } else if s.revision_pending {
                 Some(Revision)
             } else {
                 None
@@ -503,7 +561,7 @@ mod tests {
                 let conditions = usize::from(s.observations_pending)
                     + usize::from(!s.frontier_bounded)
                     + usize::from(s.local_disagreement)
-                    + usize::from(s.new_encounter);
+                    + usize::from(s.revision_pending);
                 assert_eq!(n, conditions, "{policy:?} {s:?}");
                 assert_eq!(cycle(policy, s), (trace, n), "{policy:?} {s:?}");
             }
@@ -563,7 +621,7 @@ mod tests {
             w.encounter.contradictions = f(7);
             w.encounter.resistance = f(7);
             let before = masks(&w.horizon);
-            let derived = w.new_encounter();
+            let derived = w.revision_pending();
             w.revise();
             assert_eq!(derived, masks(&w.horizon) != before, "{x:#x}");
             if derived {
@@ -580,14 +638,14 @@ mod tests {
     fn the_derived_fact_is_revisions_new_root_test() {
         let w = fusion_world();
         let delta = GadamerRevision.revise(&w.horizon, &w.encounter, &ancestry(&w.horizon));
-        assert!(w.new_encounter());
+        assert!(w.revision_pending());
         assert_ne!(delta.new_independent_roots, 0);
         let after = World {
             horizon: delta.resulting,
             ..w
         };
         assert!(
-            !after.new_encounter(),
+            !after.revision_pending(),
             "the resulting horizon has the roots"
         );
     }
@@ -605,9 +663,11 @@ mod tests {
         assert_eq!(world.horizon.independent_roots, 0b111);
         assert_eq!(world.horizon.revision_index, before.revision_index + 1);
 
-        // The full cycle under V1. The supplied `local_disagreement = true`
-        // is ignored: the fact is derived, and there is no tension yet.
+        // The full cycle under V1. The supplied `observations_pending` and
+        // `local_disagreement` are ignored: both are derived. One verdict has
+        // arrived, and there is no tension yet.
         let mut world = fusion_world();
+        world.arrive(SourceVerdict::Corroborates);
         let (trace, n) = wired_cycle(
             SelectorPolicy::V1,
             state(true, false, true, false),
@@ -656,7 +716,7 @@ mod tests {
         let delta =
             GadamerRevision.revise(&world.horizon, &world.encounter, &ancestry(&world.horizon));
         assert_eq!(delta.kind, RevisionKind::IndependentConfirmation);
-        assert!(world.new_encounter());
+        assert!(world.revision_pending());
         let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
         assert_eq!(&trace[..n], &[Some(Revision)]);
         assert_eq!(world.horizon.independent_roots, 0b011);
@@ -684,7 +744,7 @@ mod tests {
         let delta =
             GadamerRevision.revise(&world.horizon, &world.encounter, &ancestry(&world.horizon));
         assert_eq!(delta.kind, RevisionKind::Echo);
-        assert!(!world.new_encounter());
+        assert!(!world.revision_pending());
         let (_, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
         assert_eq!(n, 0);
         assert_eq!(world, echo_world());
@@ -702,7 +762,7 @@ mod tests {
             GadamerRevision.revise(&world.horizon, &world.encounter, &ancestry(&world.horizon));
         assert_eq!(delta.kind, RevisionKind::ContradictionPreserved);
         assert_eq!(delta.new_independent_roots, 0);
-        assert!(world.new_encounter());
+        assert!(world.revision_pending());
         let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
         assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
         assert_eq!(world.horizon.projected_claims, 0b100);
@@ -716,6 +776,10 @@ mod tests {
         for policy in [SelectorPolicy::V1, SelectorPolicy::V2] {
             for rest in EpistemicState::all() {
                 let (mut a, mut b) = (fusion_world(), fusion_world());
+                for w in [&mut a, &mut b] {
+                    w.arrive(SourceVerdict::Conflicts);
+                    w.arrive(SourceVerdict::Silent);
+                }
                 let ra = wired_cycle(policy, rest, &mut a, None);
                 let rb = wired_cycle(policy, rest, &mut b, None);
                 assert_eq!(ra, rb, "{policy:?} {rest:?}");
@@ -733,7 +797,7 @@ mod tests {
         world.horizon.unresolved_tension = 0b001;
         world.encounter = echo_world().encounter;
         assert!(world.local_disagreement());
-        assert!(!world.new_encounter());
+        assert!(!world.revision_pending());
         let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
         assert_eq!(&trace[..n], &[Some(MooreInterrogation)]);
         assert!(!world.local_disagreement());
@@ -782,6 +846,65 @@ mod tests {
         let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
         assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
         assert_eq!(world.interrogated, 0b011);
+    }
+
+    /// An echo world (no revision pending, no tension) with `verdicts` arrived.
+    fn arrivals(verdicts: &[SourceVerdict]) -> World {
+        let mut w = echo_world();
+        for &v in verdicts {
+            w.arrive(v);
+        }
+        w
+    }
+
+    /// FAILS IF: the fold does not clear the fact, or counts a verdict twice
+    /// or not at all.
+    #[test]
+    fn folding_clears_pending_observations() {
+        use SourceVerdict::*;
+        let mut world = arrivals(&[Corroborates, Silent, Conflicts]);
+        assert!(world.observations_pending());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert_eq!(&trace[..n], &[Some(ObserveFold)]);
+        assert_eq!(world.quorum, Quorum::new(1, 1, 1));
+        assert!(!world.observations_pending());
+    }
+
+    /// FAILS IF: pending is read off the speaking count. A silent verdict is
+    /// folded but never speaks, so that reading would never rest.
+    #[test]
+    fn a_silent_verdict_still_settles() {
+        let mut world = arrivals(&[SourceVerdict::Silent]);
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert_eq!(&trace[..n], &[Some(ObserveFold)]);
+        assert_eq!(world.quorum.speaking(), 0, "silence does not speak");
+        assert!(usize::from(world.quorum.speaking()) < world.arrived);
+    }
+
+    /// FAILS IF: dropping the fold's write still lets the cycle rest.
+    #[test]
+    fn dropping_the_fold_write_never_rests() {
+        let mut world = arrivals(&[SourceVerdict::Corroborates]);
+        let before = world.clone();
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, Some(ObserveFold));
+        assert_eq!(n, WIRED_MAX_STEPS + 1, "did not rest");
+        assert!(trace.iter().all(|r| *r == Some(ObserveFold)));
+        assert_eq!(world, before, "nothing was written");
+    }
+
+    /// FAILS IF: a late verdict does not reopen the fact, or the second fold
+    /// recounts verdicts it already counted.
+    #[test]
+    fn a_late_verdict_is_folded_once() {
+        use SourceVerdict::*;
+        let mut world = arrivals(&[Corroborates]);
+        wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert_eq!(world.quorum, Quorum::new(1, 0, 0));
+        world.arrive(Conflicts);
+        assert!(world.observations_pending());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert_eq!(&trace[..n], &[Some(ObserveFold)]);
+        assert_eq!(world.quorum, Quorum::new(1, 0, 1));
     }
 
     /// FAILS IF: revision starts clearing tension. Then `local_disagreement`
