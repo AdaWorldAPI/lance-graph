@@ -97,7 +97,9 @@ D-GSO-5 (plan §18 P5). Four recipes, each a `match` arm that calls one
 existing primitive directly: observe/fold (`Quorum::observe`), finite-product
 interrogation (`Quad8::fold_product`), Moore interrogation
 (`Morton8x8::checked_offset` + `PalettePerturbation::hop` over `Register128`),
-and counterfactual removal + revision (`GadamerRevision::revise`, run twice).
+and revision (`GadamerRevision::revise`). R3 claims no counterfactual: removing
+an encounter's new roots always defeats eligibility, so that attack tests
+nothing; a real one needs root-to-claim structure (P7).
 A counting allocator shows each recipe runs with zero allocations, so no
 instruction vector is built. The ordinal meanings are a scaffold, not canon,
 and `ProbeRecipe` is not a shipped `recipes::Recipe` ID.

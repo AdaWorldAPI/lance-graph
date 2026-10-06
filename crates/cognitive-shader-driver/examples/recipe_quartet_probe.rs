@@ -13,7 +13,7 @@
 //! | 0 | observe / fold | `ontology_warrant::Quorum::observe` |
 //! | 1 | finite-product interrogation | `Quad8::fold_product` |
 //! | 2 | local Palette / Moore interrogation | `Morton8x8::checked_offset` + `PalettePerturbation::hop` over `Register128` |
-//! | 3 | counterfactual removal + revision | `GadamerRevision::revise`, run twice |
+//! | 3 | revision | `GadamerRevision::revise` |
 //!
 //! # What this probe does not decide
 //!
@@ -22,9 +22,15 @@
 //!   IDs `1..=34` (plan §12). [`ProbeRecipe`] is its own type with no conversion
 //!   into that surface; `the_probe_ordinal_is_not_a_shipped_recipe_id` shows why
 //!   mixing them would be wrong.
-//! - **R3 has no Pearl 2³ projection.** Its causal leg is the counterfactual
-//!   removal of the encounter's new roots. Projection and band permission are
-//!   P7.
+//! - **R3 runs no counterfactual.** Its verdict is always
+//!   `CounterfactualVerdict::NotRun`, so nothing it returns is acceptable. The
+//!   obvious attack, revising again with the encounter's new roots removed,
+//!   proves nothing: `GadamerRevision` grants `IncreaseEligible` only when a new
+//!   root exists, so removing those roots always defeats eligibility, and the
+//!   resulting projection does not depend on the roots at all
+//!   (`removing_new_roots_is_not_a_counterfactual`). A real attack needs
+//!   structure linking roots to claims; that, the Pearl 2³ projection and band
+//!   permission are P7.
 //! - **No selector.** Which recipe runs when is P6.
 //!
 //! # How "no instruction vector" is checked
@@ -47,8 +53,8 @@ use lance_graph_contract::morton8x8::Morton8x8;
 use lance_graph_contract::ontology_warrant::{Quorum, SourceVerdict};
 use lance_graph_contract::register128::Register128;
 use lance_graph_contract::revision::{
-    BasisView, CounterfactualVerdict, EncounterEvidence, EvidenceMask, EvidentialEffect,
-    GadamerRevision, InterpretiveHorizon, RevisionKind, RevisionPolicy, RevisionVerdict,
+    BasisView, EncounterEvidence, GadamerRevision, InterpretiveHorizon, RevisionKind,
+    RevisionPolicy, RevisionVerdict,
 };
 
 // ── allocation counter ─────────────────────────────────────────────────────
@@ -96,7 +102,7 @@ enum ProbeRecipe {
     ObserveFold,
     ProductInterrogation,
     MooreInterrogation,
-    CounterfactualRevision,
+    Revision,
 }
 
 impl ProbeRecipe {
@@ -104,7 +110,7 @@ impl ProbeRecipe {
         Self::ObserveFold,
         Self::ProductInterrogation,
         Self::MooreInterrogation,
-        Self::CounterfactualRevision,
+        Self::Revision,
     ];
 
     /// `0..=3` only. The rest of `0..=63` is unassigned in this probe.
@@ -113,7 +119,7 @@ impl ProbeRecipe {
             0 => Some(Self::ObserveFold),
             1 => Some(Self::ProductInterrogation),
             2 => Some(Self::MooreInterrogation),
-            3 => Some(Self::CounterfactualRevision),
+            3 => Some(Self::Revision),
             _ => None,
         }
     }
@@ -126,11 +132,7 @@ impl ProbeRecipe {
                 Outcome::Frontier(product_frontier(ctx.quad, ctx.target_sum))
             }
             Self::MooreInterrogation => Outcome::Moore(moore_fold(ctx.field, ctx.lane, ctx.law)),
-            Self::CounterfactualRevision => Outcome::Revised(counterfactual_revision(
-                &ctx.prior,
-                &ctx.encounter,
-                &ctx.ancestry,
-            )),
+            Self::Revision => Outcome::Revised(revision(&ctx.prior, &ctx.encounter, &ctx.ancestry)),
         }
     }
 }
@@ -173,13 +175,14 @@ struct Frontier {
     first: Option<u16>,
 }
 
-/// R3: what revision did, whether the counterfactual found the new roots
-/// necessary, and the claims the next replay starts from.
+/// R3: what revision did, its unadjudicated verdict, and the horizon the next
+/// replay starts from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Revised {
     kind: RevisionKind,
     verdict: RevisionVerdict,
     resulting_claims: u64,
+    resulting_roots: u64,
 }
 
 /// R0: fold every verdict into one quorum as it is read.
@@ -240,39 +243,19 @@ fn moore_fold(field: Register128, lane: Morton8x8, law: PalettePerturbation<'_>)
     })
 }
 
-/// R3: revise, then attack: revise again with the encounter's new independent
-/// roots removed. If the effect stops being `IncreaseEligible`, those roots
-/// were necessary. The counterfactual only runs when there is something to
-/// attack.
-fn counterfactual_revision(
+/// R3: revise once. The resulting horizon is the only replay-visible output;
+/// the verdict is left unadjudicated (see the module doc).
+fn revision(
     prior: &InterpretiveHorizon<(), u64>,
     encounter: &EncounterEvidence<u64>,
     ancestry: &BasisView<u64>,
 ) -> Revised {
     let delta = GadamerRevision.revise(prior, encounter, ancestry);
-    let counterfactual = if delta.evidential_effect == EvidentialEffect::IncreaseEligible {
-        let without = EncounterEvidence {
-            independent_roots: encounter
-                .independent_roots
-                .difference(&delta.new_independent_roots),
-            ..encounter.clone()
-        };
-        let attacked = GadamerRevision.revise(prior, &without, ancestry);
-        if attacked.evidential_effect == EvidentialEffect::IncreaseEligible {
-            CounterfactualVerdict::Dispensable
-        } else {
-            CounterfactualVerdict::Necessary
-        }
-    } else {
-        CounterfactualVerdict::NotRun
-    };
     Revised {
         kind: delta.kind,
-        verdict: RevisionVerdict {
-            effect: delta.evidential_effect,
-            counterfactual,
-        },
+        verdict: RevisionVerdict::unadjudicated(delta.evidential_effect),
         resulting_claims: delta.resulting.projected_claims,
+        resulting_roots: delta.resulting.independent_roots,
     }
 }
 
@@ -473,32 +456,74 @@ mod tests {
         });
     }
 
-    /// FAILS IF: R3 reports a counterfactual it did not run, or reports the
-    /// same verdict whether or not the new root carries the evidence.
+    /// FAILS IF: R3 claims a counterfactual it never ran, or the revision
+    /// output does not become the replay-visible horizon (plan §14: bypassing
+    /// revision must change the result).
     #[test]
-    fn the_counterfactual_actually_runs() {
+    fn revision_sets_the_next_horizon_and_claims_no_counterfactual() {
+        use lance_graph_contract::revision::{CounterfactualVerdict, EvidentialEffect};
         with_ctx(|ctx| {
-            let Outcome::Revised(r) = ProbeRecipe::CounterfactualRevision.run(ctx) else {
+            let Outcome::Revised(r) = ProbeRecipe::Revision.run(ctx) else {
                 unreachable!()
             };
             assert_eq!(r.kind, RevisionKind::HorizonExpansion);
-            assert_eq!(r.verdict.counterfactual, CounterfactualVerdict::Necessary);
-            assert!(r.verdict.is_acceptable());
-            assert_eq!(r.resulting_claims, 0b0111);
+            assert_eq!(r.verdict.effect, EvidentialEffect::IncreaseEligible);
+            assert_eq!(r.verdict.counterfactual, CounterfactualVerdict::NotRun);
+            assert!(!r.verdict.is_acceptable(), "eligible is not accepted");
 
-            // An echo: no new root, no resistance, recycled claims. Nothing to
-            // attack, so the counterfactual must not claim to have run.
+            // The next replay starts from the revised horizon, not the prior.
+            assert_ne!(r.resulting_claims, ctx.prior.projected_claims);
+            assert_eq!(r.resulting_claims, 0b0111);
+            assert_eq!(r.resulting_roots, 0b0011);
+
+            // An echo: no new root, no resistance, recycled claims.
             let echo = EncounterEvidence {
                 proposed_claims: 0b0011,
                 independent_roots: 0b0001,
                 affected_parts: 0,
                 ..encounter()
             };
-            let r = counterfactual_revision(&ctx.prior, &echo, &ctx.ancestry);
+            let r = revision(&ctx.prior, &echo, &ctx.ancestry);
             assert_eq!(r.kind, RevisionKind::Echo);
-            assert_eq!(r.verdict.counterfactual, CounterfactualVerdict::NotRun);
-            assert!(!r.verdict.is_acceptable());
+            assert_eq!(r.verdict.effect, EvidentialEffect::NoIncrease);
+            assert_eq!(r.resulting_roots, ctx.prior.independent_roots);
         });
+    }
+
+    /// Why R3 runs no counterfactual. FAILS IF: removing an encounter's new
+    /// roots ever leaves it eligible, or ever changes the resulting projection.
+    /// While both hold, a "counterfactual" built on that removal reports
+    /// `Necessary` for every eligible encounter and tests nothing.
+    #[test]
+    fn removing_new_roots_is_not_a_counterfactual() {
+        use lance_graph_contract::revision::{EvidenceMask, EvidentialEffect};
+        let (prior, ancestry) = (horizon(), ancestry());
+        let mut eligible = 0;
+        for proposed in 0..16u64 {
+            for roots in 0..16u64 {
+                for contradictions in [0, 0b1000] {
+                    let e = EncounterEvidence {
+                        proposed_claims: proposed,
+                        independent_roots: roots,
+                        contradictions,
+                        ..encounter()
+                    };
+                    let d = GadamerRevision.revise(&prior, &e, &ancestry);
+                    if d.evidential_effect != EvidentialEffect::IncreaseEligible {
+                        continue;
+                    }
+                    eligible += 1;
+                    let without = EncounterEvidence {
+                        independent_roots: roots.difference(&d.new_independent_roots),
+                        ..e
+                    };
+                    let a = GadamerRevision.revise(&prior, &without, &ancestry);
+                    assert_ne!(a.evidential_effect, EvidentialEffect::IncreaseEligible);
+                    assert_eq!(a.resulting.projected_claims, d.resulting.projected_claims);
+                }
+            }
+        }
+        assert!(eligible > 0, "the sweep must contain eligible encounters");
     }
 
     /// FAILS IF: one recipe reads another recipe's input. Changing one input
