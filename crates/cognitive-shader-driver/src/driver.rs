@@ -160,6 +160,20 @@ impl ShaderDriver {
         self.mailboxes.get(&id)
     }
 
+    /// The owner's `&mut` to the `MailboxSoA<1024>` registered under `id`.
+    ///
+    /// `run()` is `&self` and writes nothing, so without this a cycle's
+    /// emitted edges had no route back into the row the next cycle reads:
+    /// the driver owns the mailbox and only lent it out read-only. Holding
+    /// `&mut ShaderDriver` is the ownership; this lends it to the owner's own
+    /// write (`MailboxSoA::write_row`, which accepts only the current cycle)
+    /// and commit (`MailboxSoA::tick`). No dispatch can run while the borrow
+    /// is live. D-STREAMDTO-0.
+    #[inline]
+    pub fn mailbox_mut(&mut self, id: MailboxId) -> Option<&mut MailboxSoA<1024>> {
+        self.mailboxes.get_mut(&id)
+    }
+
     /// Borrow the underlying BindSpace (read-only).
     #[inline]
     pub fn bindspace(&self) -> &BindSpace {

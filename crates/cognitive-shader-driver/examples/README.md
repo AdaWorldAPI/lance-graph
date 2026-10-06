@@ -272,6 +272,33 @@ with the #1370 law (`shared/affordance_law.rs`). Eligibility over four cycles:
 cargo run -p cognitive-shader-driver --example ce64_cycle_survival_probe
 ```
 
+## ce64_nextstate_probe.rs
+
+D-CE64-NEXTSTATE-0. EpistemicState5 (bits 59..63) as a sparse next-state
+mutation of the `CausalEdge64` register: only those five bits move, the write
+crosses the real `MailboxSoA` cycle seam and is read in cycle k+1, the word
+survives the canonical little-endian round trip, and a fresh mailbox built
+from the persisted word continues identically. Also pins that the mailbox
+does not double-buffer: next-cycle authority is a read discipline.
+
+```bash
+cargo run -p cognitive-shader-driver --example ce64_nextstate_probe
+```
+
+## streamdto_circuit_probe.rs
+
+D-STREAMDTO-0. A real `StreamDto` through the shipped path: `ingest_codebook_indices`,
+the mailbox read shim, `dispatch` at cycle k, the persisted row's emitted edge
+written through `ShaderDriver::mailbox_mut`, `tick`, and `dispatch` at k+1,
+which reads it. Then the #1370 law on the committed row. Pins that the edge
+steers the next cycle only through `s_idx / 4`, that the shader's code 0
+leaves eligibility where an unwritten word leaves it, and that the
+`StreamDto` timestamp is not the cycle.
+
+```bash
+cargo run -p cognitive-shader-driver --features with-engine,mailbox-thoughtspace --example streamdto_circuit_probe
+```
+
 ## ewa_anisotropic_probe.rs
 
 D-CTX-3. Anisotropic EWA: the footprint is each virtual surfel's normalised

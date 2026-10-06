@@ -438,6 +438,14 @@ jobs:
         run: cargo test --manifest-path crates/neural-debug/Cargo.toml
       - name: Run shader-driver tests (previously ungated)    # 107 + 2 green
         run: cargo test --manifest-path crates/cognitive-shader-driver/Cargo.toml
+      # The default run above skips both targets: `w2_differential` is
+      # `cfg(feature = "mailbox-thoughtspace")` and the StreamDto circuit probe
+      # needs `with-engine` for `thinking_engine::dto::StreamDto`.
+      - name: Run shader-driver mailbox circuit (D-STREAMDTO-0)   # 6 + 6 green
+        run: >-
+          cargo test --manifest-path crates/cognitive-shader-driver/Cargo.toml
+          --features with-engine,mailbox-thoughtspace
+          --example streamdto_circuit_probe --test w2_differential
       # lance-graph-benches carries NO tests — it is a benches-only crate with
       # one `harness = false` target (`graph_execution`). `cargo test` on it
       # runs zero tests and would be a gate that cannot fail; the meaningful

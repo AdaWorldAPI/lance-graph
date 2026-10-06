@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-234 entries, 2026-08-06 .. 2026-10-06.
+236 entries, 2026-08-06 .. 2026-10-06.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-06 | `v3-v4-dual-reading-round3` |  | [2026-10-06-v3-v4-dual-reading-round3.md](2026-10-06-v3-v4-dual-reading-round3.md) |
+| 2026-10-06 | `D-ANCESTRY-K1-0` |  | [2026-10-06-streamdto-circuit-ancestry.md](2026-10-06-streamdto-circuit-ancestry.md) |
 | 2026-10-06 | `D-SPOG-W-0` |  | [2026-10-06-spog-witness-sub-context.md](2026-10-06-spog-witness-sub-context.md) |
 | 2026-10-06 | `spofc-do-learn-as-compile-round6` |  | [2026-10-06-spofc-do-learn-as-compile-round6.md](2026-10-06-spofc-do-learn-as-compile-round6.md) |
 | 2026-10-06 | `D-GSO-6` |  | [2026-10-06-selector-revision-wired.md](2026-10-06-selector-revision-wired.md) |
@@ -41,6 +42,7 @@ exactly one of them, never both.
 | 2026-10-06 | `diff-plateau-as-expression-round5` |  | [2026-10-06-diff-plateau-as-expression-round5.md](2026-10-06-diff-plateau-as-expression-round5.md) |
 | 2026-10-06 | `dav-resident-reading-round2` |  | [2026-10-06-dav-resident-reading-round2.md](2026-10-06-dav-resident-reading-round2.md) |
 | 2026-10-06 | `dav-carrier-invariance-quack` |  | [2026-10-06-dav-carrier-invariance-quack.md](2026-10-06-dav-carrier-invariance-quack.md) |
+| 2026-10-06 | `D-CE64-NEXTSTATE-0` |  | [2026-10-06-ce64-nextstate-register.md](2026-10-06-ce64-nextstate-register.md) |
 | 2026-10-06 | `D-CE64-TIME-0` |  | [2026-10-06-ce64-cycle-survival.md](2026-10-06-ce64-cycle-survival.md) |
 | 2026-10-06 | `D-ALPHA-G-0` |  | [2026-10-06-alpha-world-provenance-and-witness-angle.md](2026-10-06-alpha-world-provenance-and-witness-angle.md) |
 | 2026-10-06 | `D-GSO-AFF-0` |  | [2026-10-06-affordance-measurement.md](2026-10-06-affordance-measurement.md) |
