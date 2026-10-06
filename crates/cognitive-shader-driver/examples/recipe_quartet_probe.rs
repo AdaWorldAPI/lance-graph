@@ -158,8 +158,8 @@ struct Context<'a> {
     ancestry: BasisView<u64>,
 }
 
-/// The result of one recipe. Every variant is `Copy`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The result of one recipe. No variant owns heap memory.
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Outcome {
     Observed(Quorum),
     Frontier(Frontier),
@@ -177,12 +177,11 @@ struct Frontier {
 
 /// R3: what revision did, its unadjudicated verdict, and the horizon the next
 /// replay starts from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Revised {
     kind: RevisionKind,
     verdict: RevisionVerdict,
-    resulting_claims: u64,
-    resulting_roots: u64,
+    resulting: InterpretiveHorizon<(), u64>,
 }
 
 /// R0: fold every verdict into one quorum as it is read.
@@ -254,8 +253,7 @@ fn revision(
     Revised {
         kind: delta.kind,
         verdict: RevisionVerdict::unadjudicated(delta.evidential_effect),
-        resulting_claims: delta.resulting.projected_claims,
-        resulting_roots: delta.resulting.independent_roots,
+        resulting: delta.resulting,
     }
 }
 
@@ -371,10 +369,14 @@ mod tests {
     #[test]
     fn no_recipe_allocates() {
         with_ctx(|ctx| {
-            let (_, warm) = counting(|| Vec::<u8>::with_capacity(1));
+            let (_, warm) = counting(|| std::hint::black_box(Vec::<u8>::with_capacity(1)));
             assert_eq!(warm, 1, "the counter must see a plain allocation");
             for recipe in ProbeRecipe::ALL {
-                let (_, n) = counting(|| recipe.run(ctx));
+                let (_, n) = counting(|| {
+                    std::hint::black_box(
+                        std::hint::black_box(recipe).run(std::hint::black_box(ctx)),
+                    )
+                });
                 assert_eq!(n, 0, "{recipe:?} allocated {n} times");
             }
         });
@@ -472,21 +474,32 @@ mod tests {
             assert!(!r.verdict.is_acceptable(), "eligible is not accepted");
 
             // The next replay starts from the revised horizon, not the prior.
-            assert_ne!(r.resulting_claims, ctx.prior.projected_claims);
-            assert_eq!(r.resulting_claims, 0b0111);
-            assert_eq!(r.resulting_roots, 0b0011);
+            assert_ne!(r.resulting.projected_claims, ctx.prior.projected_claims);
+            assert_eq!(r.resulting.projected_claims, 0b0111);
+            assert_eq!(r.resulting.independent_roots, 0b0011);
+            assert_eq!(r.resulting.revision_index, 1);
 
-            // An echo: no new root, no resistance, recycled claims.
-            let echo = EncounterEvidence {
-                proposed_claims: 0b0011,
-                independent_roots: 0b0001,
-                affected_parts: 0,
-                ..encounter()
+            // Replay: read the same encounter again from the revised horizon,
+            // with the first revision now part of the ancestry. Its root is no
+            // longer new, so the second reading is an echo and mints nothing.
+            let replay_ancestry = BasisView {
+                ancestry_independent_roots: r.resulting.independent_roots,
+                ancestor_claims: r.resulting.projected_claims,
+                ..ancestry()
             };
-            let r = revision(&ctx.prior, &echo, &ctx.ancestry);
-            assert_eq!(r.kind, RevisionKind::Echo);
-            assert_eq!(r.verdict.effect, EvidentialEffect::NoIncrease);
-            assert_eq!(r.resulting_roots, ctx.prior.independent_roots);
+            let again = revision(&r.resulting, &ctx.encounter, &replay_ancestry);
+            assert_eq!(again.kind, RevisionKind::Echo);
+            assert_eq!(again.verdict.effect, EvidentialEffect::NoIncrease);
+            assert_eq!(
+                again.resulting.independent_roots,
+                r.resulting.independent_roots
+            );
+            assert_eq!(again.resulting.revision_index, 2);
+            // Replaying from `ctx.prior` instead loses the root the first
+            // revision earned.
+            let from_prior = revision(&ctx.prior, &ctx.encounter, &replay_ancestry);
+            assert_eq!(from_prior.resulting.independent_roots, 0b0001);
+            assert_ne!(from_prior.resulting, again.resulting);
         });
     }
 
