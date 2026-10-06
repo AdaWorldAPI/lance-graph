@@ -1,3 +1,11 @@
+## 2026-10-06 — global-sudoku-replayable-orchestration-v1 — recipe 0..63 as the deterministic policy over a hydrated 64k field → `.claude/plans/2026-10-06-global-sudoku-replayable-orchestration-v1.md`
+
+**Status:** PROPOSAL / architecture map (D-GSO-0..8). No code, no bit allocation, no write path authorized.
+
+- Layers kept separate: physical, semantic, algebraic, kinematic, epistemic, orchestration, observational, durable.
+- Entropy is search pressure, 59..60 are topology, 61..63 are permission; none is a truth score.
+- Proof sequence P0..P8 = D-GSO-0..8; P1 is #1344.
+
 ## 2026-10-03 (2) — population-law-crosscheck-v1 — which execution law survives two independent witnesses → `.claude/plans/population-law-crosscheck-v1.md`
 
 **Status:** ANALYSIS (D-PLX-0..1). No code. Revises three #1311 conclusions (second fan-out, G4, `values()` modelling).

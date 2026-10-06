@@ -2,6 +2,7 @@
 
 **Status:** architecture map and falsification plan.  
 **Date:** 2026-10-06.  
+**D-ids:** D-GSO-0..8, one per §18 proof step P0..P8 (board: `STATUS_BOARD.md` § D-GSO).  
 **Scope:** cross-layer wiring only. This document does **not** allocate new bits, canonize a 0..63 encoding, create a new VM, or authorize a new write path.
 
 ## North star
@@ -664,11 +665,11 @@ An implementation is wrong if any of these hold:
 
 Do not build the grand abstraction first.
 
-### P0 — document the wiring
+### P0 (D-GSO-0) — document the wiring
 
 This file. No ABI changes.
 
-### P1 — make #1344 causally end-to-end
+### P1 (D-GSO-1) — make #1344 causally end-to-end
 
 Fix only:
 
@@ -677,7 +678,7 @@ Fix only:
 
 No new primitive or write path.
 
-### P2 — one-hop Moore local-plasticity probe
+### P2 (D-GSO-2) — one-hop Moore local-plasticity probe
 
 Use existing resident bytes / existing Palette law where possible.
 
@@ -689,7 +690,7 @@ neighbor mask → ordinal → 8:8 relation → immediate fold/update
 
 No edge list. No recurrent "until stable".
 
-### P3 — global ontology agreement/disagreement probe
+### P3 (D-GSO-3) — global ontology agreement/disagreement probe
 
 Use a small but structurally representative hierarchy (the mammal family is an appropriate synthetic/ontology fixture).
 
@@ -697,7 +698,7 @@ Measure support/opposition/unknown upward and downward without creating a popula
 
 The test should distinguish local agreement from accumulated global agreement.
 
-### P4 — entropy × topology routing probe
+### P4 (D-GSO-4) — entropy × topology routing probe
 
 Construct equal-entropy basins with different causal topology/grounding.
 
@@ -705,7 +706,7 @@ The selector must route them differently.
 
 This is the Glass-versus-earned-closure anti-vacuity test.
 
-### P5 — first recipe quartet, not all 64
+### P5 (D-GSO-5) — first recipe quartet, not all 64
 
 Prove four qualitatively different recipes can orchestrate existing primitives without creating an instruction vector.
 
@@ -720,13 +721,13 @@ R3 causal projection + revision test
 
 Do **not** canonize these ordinal meanings yet.
 
-### P6 — deterministic recipe selector
+### P6 (D-GSO-6) — deterministic recipe selector
 
 Make recipe selection a pure/versioned function of declared epistemic state.
 
 Replay must choose the same recipe for the same input state.
 
-### P7 — reasoning-band earning/downgrade
+### P7 (D-GSO-7) — reasoning-band earning/downgrade
 
 Prove at least:
 
@@ -735,7 +736,7 @@ Prove at least:
 - contradictory independent evidence can lower/suspend it,
 - band changes are replayable.
 
-### P8 — seal boundary
+### P8 (D-GSO-8) — seal boundary
 
 Run many internal operations without durable materialization, then seal only at one declared semantic boundary.
 

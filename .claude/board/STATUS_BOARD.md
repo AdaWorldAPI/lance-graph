@@ -1,3 +1,19 @@
+## D-GSO — Global Sudoku replayable orchestration (2026-10-06)
+
+Plan: `.claude/plans/2026-10-06-global-sudoku-replayable-orchestration-v1.md`. One D-id per §18 proof step; no ABI, bit or write-path change is authorized by the plan.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-GSO-0** | P0: the wiring map itself (layers, exemplars #1336/#1337/#1342/#1343, guardrails, falsifiers) | In PR (#1345) | docs only; no ABI change |
+| **D-GSO-1** | P1: make the #1344 DAV × EWA × revision probe causally end-to-end | In PR (#1344) | bypassing the revision leg must change or fail the replay result (plan §14) |
+| **D-GSO-2** | P2: one-hop Moore local-plasticity probe (neighbour mask → ordinal → 8:8 relation → immediate fold) | Queued | no edge list; no "until stable" loop |
+| **D-GSO-3** | P3: global ontology agreement/disagreement probe (mammal fixture) | Queued | separates local from accumulated global agreement; no path-object population |
+| **D-GSO-4** | P4: entropy × topology routing probe | Queued | equal-entropy basins with different 59..60 topology route differently |
+| **D-GSO-5** | P5: first recipe quartet over existing primitives | Queued | no instruction vector; ordinal meanings not canonized |
+| **D-GSO-6** | P6: deterministic, versioned recipe selector | Queued | same replay identity ⇒ same recipe |
+| **D-GSO-7** | P7: reasoning-band earning and downgrade | Queued | association cannot skip to causal permission; contradicting evidence lowers it; replayable |
+| **D-GSO-8** | P8: seal boundary | Queued | replay from the prior seal reproduces the next seal |
+
 ## D-PLX — Population-law cross-check (2026-10-03)
 
 Plan: `.claude/plans/population-law-crosscheck-v1.md`. Entry: `entries/2026-10-03-population-law-crosscheck.md`.
