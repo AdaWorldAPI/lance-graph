@@ -52,6 +52,22 @@ const fn pair_lanes(stage: usize, pair: usize) -> (usize, usize) {
 }
 
 /// Reversible switch fabric over a 16-byte tenant, applied in place.
+///
+/// # Examples
+///
+/// ```
+/// use cognitive_shader_driver::Switch16;
+/// use lance_graph_contract::register128::Register128;
+///
+/// let original = Register128::from_words([1, 2, 3, 4]);
+/// let mut reg = original;
+///
+/// reg.switch_forward();
+/// assert_ne!(reg, original);
+///
+/// reg.switch_inverse();
+/// assert_eq!(reg, original);
+/// ```
 pub trait Switch16 {
     /// Run the seven stages forward.
     fn switch_forward(&mut self);
