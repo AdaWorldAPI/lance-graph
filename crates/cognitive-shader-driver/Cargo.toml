@@ -68,6 +68,11 @@ test = true
 name = "ewa_render_probe"
 test = true
 
+# D-GSO-6 recipe selector probe; tests run under `cargo test`.
+[[example]]
+name = "recipe_selector_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
