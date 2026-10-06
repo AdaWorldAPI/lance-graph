@@ -19,7 +19,7 @@
 //! | `observations_pending` | evidence arrival | verdicts not yet folded (D-GSO-3) |
 //! | `frontier_bounded` | a product interrogation | the candidate frontier is known (D-GSO-5 R1) |
 //! | `local_disagreement` | a local fold | neighbourhood tension is present (D-GSO-2/3) |
-//! | `new_encounter` | evidence arrival | an encounter awaits revision (D-GSO-5 R3) |
+//! | `revision_pending` | evidence arrival | revising would change the horizon (D-GSO-5 R3) |
 //!
 //! Policy V1 follows the §11 order DETECT → BOUND → PROPOSE/TEST → REVISE:
 //! fold pending observations first, then bound the frontier, then interrogate
@@ -37,13 +37,14 @@
 //!   digest) is not done here.
 //! - **The state transitions in the replay test are a stand-in.** Each step
 //!   clears the condition its recipe answers; real recipes would produce that
-//!   change from their outputs. `new_encounter` and `local_disagreement`
-//!   are no longer stand-ins: see "Revision, wired" below. The other two
-//!   (`observations_pending`, `frontier_bounded`) still are.
+//!   change from their outputs. The wired cycle (`wired_cycle`) has none:
+//!   all four facts are read from the world, see "Revision, wired",
+//!   "Observation, wired" and "Frontier, wired" below. The stand-in `cycle`
+//!   stays as the oracle for the bare selector.
 //!
 //! # Revision, wired
 //!
-//! `new_encounter` is read from the world, not supplied: it holds while
+//! `revision_pending` is read from the world, not supplied: it holds while
 //! revising with the pending encounter would still change the horizon's
 //! masks: the projected claims, a root not yet held, an inherited root not
 //! yet held, or a contradiction not yet in the tension. Those are exactly the
@@ -65,11 +66,41 @@
 //! adds a new contradiction reopens the fact, so a cycle can run `Revision`
 //! and then interrogate the tension that revision introduced.
 //!
+//! Coverage is per tension bit, not per piece of evidence: new evidence on a
+//! bit that is already covered does not reopen the interrogation. A coverage
+//! that tracks receipts or generations would; it is not built here.
+//!
 //! What this does not decide: `interrogated` is a probe-local record. The
 //! horizon carries no such field, and the Moore recipe's actual fold (the
 //! Palette hop over `Register128`, D-GSO-5 R2) is not linked to claim bits
 //! here; only the coverage it leaves is. Where coverage lives durably, and
 //! what the interrogation concludes, stay open.
+//!
+//! # Observation, wired
+//!
+//! `observations_pending` is read from the world: more verdicts have arrived
+//! than the quorum has counted. The `ObserveFold` recipe folds the unfolded
+//! verdicts with `Quorum::observe` (D-GSO-3), and its only output is the
+//! quorum. The count includes silent verdicts. `Quorum::speaking()` does not,
+//! so a selector reading it would never rest on a silent source; that is
+//! pinned as a test. Arrival itself is the "do": the test writes verdicts
+//! into the world, the selector never creates one.
+//!
+//! What this does not decide: the quorum is not linked to the horizon. A
+//! conflicting verdict does not become an encounter or a contradiction here.
+//!
+//! # Frontier, wired
+//!
+//! `frontier_bounded` is read from the world: a frontier has been recorded,
+//! and it was recorded for the current candidate product and target. The
+//! `ProductInterrogation` recipe folds the product with `Quad8::fold_product`
+//! (D-GSO-5 R1) and records the frontier together with the space it bounded.
+//! When the candidate space changes (a "do": the test writes a new product),
+//! the recorded frontier is stale and the fact reopens. An empty frontier is
+//! still a bounded one.
+//!
+//! What this does not decide: the frontier does not feed any other recipe
+//! here, and nothing derives the candidate product from the horizon.
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example recipe_selector_probe`
 //! Tests: `cargo test -p cognitive-shader-driver --example recipe_selector_probe`
@@ -90,7 +121,7 @@ struct EpistemicState {
     observations_pending: bool,
     frontier_bounded: bool,
     local_disagreement: bool,
-    new_encounter: bool,
+    revision_pending: bool,
 }
 
 impl EpistemicState {
@@ -100,7 +131,7 @@ impl EpistemicState {
             observations_pending: b & 1 != 0,
             frontier_bounded: b & 2 != 0,
             local_disagreement: b & 4 != 0,
-            new_encounter: b & 8 != 0,
+            revision_pending: b & 8 != 0,
         })
     }
 }
@@ -143,7 +174,7 @@ impl SelectorPolicy {
                 }
             }
         }
-        if s.new_encounter {
+        if s.revision_pending {
             return Some(ProbeRecipe::Revision);
         }
         None
@@ -190,7 +221,7 @@ const fn after(recipe: ProbeRecipe, s: EpistemicState) -> EpistemicState {
             ..s
         },
         ProbeRecipe::Revision => EpistemicState {
-            new_encounter: false,
+            revision_pending: false,
             ..s
         },
     }
@@ -221,6 +252,8 @@ fn cycle(
 
 // ── revision, wired ─────────────────────────────────────────────────────
 
+use cognitive_shader_driver::quad8::Quad8;
+use lance_graph_contract::ontology_warrant::{Quorum, SourceVerdict};
 use lance_graph_contract::revision::{
     BasisView, CodebookId, EncounterEvidence, EvidenceMask, GadamerRevision, GrammarId, HorizonId,
     InterpretiveHorizon, LanguageId, LensId, QuestionId, RevisionPolicy,
@@ -238,7 +271,32 @@ struct World {
     /// Tension bits `MooreInterrogation` has examined. Only that recipe
     /// writes it, and only by union.
     interrogated: u64,
+    /// Verdicts that have arrived, in arrival order. Only arrival writes here.
+    verdicts: [SourceVerdict; VERDICTS],
+    /// How many of `verdicts` have arrived.
+    arrived: usize,
+    /// The `ObserveFold` recipe's output: the quorum over folded verdicts.
+    quorum: Quorum,
+    /// The candidate space: a finite product and the sum a candidate needs.
+    /// Only the "do" changes it.
+    space: (Quad8, u8),
+    /// The `ProductInterrogation` recipe's output, if it has run.
+    frontier: Option<Frontier>,
 }
+
+/// What `ProductInterrogation` records: the frontier of one candidate space.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Frontier {
+    /// The space this frontier was measured over.
+    of: (Quad8, u8),
+    /// How many candidates meet the target.
+    count: u16,
+    /// The first one, as a raw product address.
+    first: Option<u16>,
+}
+
+/// How many verdicts a world can hold.
+const VERDICTS: usize = 8;
 
 /// The horizon as ancestry, as in the Round 6 cycle.
 fn ancestry(h: &Horizon) -> BasisView<u64> {
@@ -251,9 +309,9 @@ fn ancestry(h: &Horizon) -> BasisView<u64> {
 }
 
 impl World {
-    /// `new_encounter`, derived: revising would still change a mask of the
+    /// `revision_pending`, derived: revising would still change a mask of the
     /// horizon. One test per field `delta.resulting` writes.
-    fn new_encounter(&self) -> bool {
+    fn revision_pending(&self) -> bool {
         let (h, e) = (&self.horizon, &self.encounter);
         e.proposed_claims != h.projected_claims
             || !e
@@ -276,13 +334,74 @@ impl World {
             .is_empty()
     }
 
-    /// The declared state: two stand-in facts plus the two derived ones.
-    fn state(&self, rest: EpistemicState) -> EpistemicState {
+    /// The declared state, every fact read from the world.
+    fn state(&self) -> EpistemicState {
         EpistemicState {
-            new_encounter: self.new_encounter(),
+            observations_pending: self.observations_pending(),
+            frontier_bounded: self.frontier_bounded(),
+            revision_pending: self.revision_pending(),
             local_disagreement: self.local_disagreement(),
-            ..rest
         }
+    }
+
+    /// `frontier_bounded`, derived: a frontier exists for the current space.
+    fn frontier_bounded(&self) -> bool {
+        self.frontier.is_some_and(|f| f.of == self.space)
+    }
+
+    /// The "do": the candidate space changes. Not a recipe.
+    fn change_space(&mut self, quad: Quad8, target_sum: u8) {
+        self.space = (quad, target_sum);
+    }
+
+    /// The `ProductInterrogation` recipe: fold the product, record the
+    /// frontier and the space it covers.
+    fn bound_frontier(&mut self) {
+        let (quad, target) = self.space;
+        self.frontier = Some(quad.fold_product(
+            Frontier {
+                of: self.space,
+                count: 0,
+                first: None,
+            },
+            |acc, addr| {
+                let sum: u8 = addr.ordinals().iter().sum();
+                if sum == target {
+                    Frontier {
+                        count: acc.count + 1,
+                        first: acc.first.or(Some(addr.raw())),
+                        ..acc
+                    }
+                } else {
+                    acc
+                }
+            },
+        ));
+    }
+
+    /// How many verdicts the quorum has counted, silence included.
+    fn folded(&self) -> usize {
+        let q = self.quorum;
+        usize::from(q.corroborating) + usize::from(q.silent) + usize::from(q.conflicting)
+    }
+
+    /// `observations_pending`, derived: verdicts arrived but not yet counted.
+    fn observations_pending(&self) -> bool {
+        self.arrived > self.folded()
+    }
+
+    /// The "do": a verdict arrives. Not a recipe; the selector never calls it.
+    fn arrive(&mut self, v: SourceVerdict) {
+        self.verdicts[self.arrived] = v;
+        self.arrived += 1;
+    }
+
+    /// The `ObserveFold` recipe: fold the verdicts not yet counted.
+    fn fold_observations(&mut self) {
+        let start = self.folded();
+        self.quorum = self.verdicts[start..self.arrived]
+            .iter()
+            .fold(self.quorum, |q, &v| q.observe(v));
     }
 
     /// The `MooreInterrogation` recipe's write: the tension it examined.
@@ -304,20 +423,17 @@ impl World {
 /// local disagreement).
 const WIRED_MAX_STEPS: usize = 5;
 
-/// Run a cycle whose `new_encounter` and `local_disagreement` are derived from
-/// `world` at every step. The other two facts use the stand-in transition.
+/// Run a cycle whose four facts are all read from `world` at every step.
 /// `drop` names a recipe whose write is discarded (the bypass falsifiers):
 /// the recipe runs on a copy and nothing lands.
 fn wired_cycle(
     policy: SelectorPolicy,
-    rest: EpistemicState,
     world: &mut World,
     drop: Option<ProbeRecipe>,
 ) -> ([Option<ProbeRecipe>; WIRED_MAX_STEPS + 1], usize) {
     let mut trace = [None; WIRED_MAX_STEPS + 1];
-    let mut rest = rest;
     for (step, slot) in trace.iter_mut().enumerate() {
-        let Some(recipe) = policy.select(world.state(rest)) else {
+        let Some(recipe) = policy.select(world.state()) else {
             return (trace, step);
         };
         *slot = Some(recipe);
@@ -329,7 +445,8 @@ fn wired_cycle(
         match recipe {
             ProbeRecipe::Revision => target.revise(),
             ProbeRecipe::MooreInterrogation => target.interrogate(),
-            other => rest = after(other, rest),
+            ProbeRecipe::ObserveFold => target.fold_observations(),
+            ProbeRecipe::ProductInterrogation => target.bound_frontier(),
         }
     }
     (trace, WIRED_MAX_STEPS + 1)
@@ -337,7 +454,16 @@ fn wired_cycle(
 
 /// A small world: the horizon holds claims {0, 2}; the encounter proposes
 /// {1, 2}, rooted in {1, 2}, and contradicts claim 0.
+/// The fusion world with its frontier already bounded, so only the facts a
+/// test sets up are open.
+#[cfg(test)]
 fn fusion_world() -> World {
+    let mut w = unbounded_fusion_world();
+    w.bound_frontier();
+    w
+}
+
+fn unbounded_fusion_world() -> World {
     World {
         horizon: InterpretiveHorizon {
             id: HorizonId(0),
@@ -362,6 +488,14 @@ fn fusion_world() -> World {
             affected_parts: 0b111,
         },
         interrogated: 0,
+        verdicts: [SourceVerdict::Silent; VERDICTS],
+        arrived: 0,
+        quorum: Quorum::default(),
+        space: (
+            Quad8::new(0b0000_0111, 0b0000_0110, 0b1000_0001, 0b0000_0011),
+            4,
+        ),
+        frontier: None,
     }
 }
 
@@ -370,7 +504,7 @@ fn main() {
         observations_pending: true,
         frontier_bounded: false,
         local_disagreement: true,
-        new_encounter: true,
+        revision_pending: true,
     };
     for policy in [SelectorPolicy::V1, SelectorPolicy::V2] {
         let (trace, n) = cycle(policy, start);
@@ -386,12 +520,20 @@ fn main() {
         "{replayed} selections recorded under {:?} and replayed",
         SelectorPolicy::CURRENT
     );
-    let mut world = fusion_world();
-    let (trace, n) = wired_cycle(SelectorPolicy::CURRENT, start, &mut world, None);
+    let mut world = unbounded_fusion_world();
+    world.arrive(SourceVerdict::Corroborates);
+    let (trace, n) = wired_cycle(SelectorPolicy::CURRENT, &mut world, None);
     println!(
         "wired: {:?}, horizon roots {:#b}",
         &trace[..n],
         world.horizon.independent_roots
+    );
+    world.change_space(Quad8::new(0b11, 0b11, 0b1, 0b1), 2);
+    let (trace, n) = wired_cycle(SelectorPolicy::CURRENT, &mut world, None);
+    println!(
+        "after a space change: {:?}, frontier {:?}",
+        &trace[..n],
+        world.frontier.map(|f| f.count)
     );
 }
 
@@ -406,7 +548,7 @@ mod tests {
             observations_pending: o,
             frontier_bounded: f,
             local_disagreement: l,
-            new_encounter: n,
+            revision_pending: n,
         }
     }
 
@@ -422,7 +564,7 @@ mod tests {
                 Some(ProductInterrogation)
             } else if s.local_disagreement {
                 Some(MooreInterrogation)
-            } else if s.new_encounter {
+            } else if s.revision_pending {
                 Some(Revision)
             } else {
                 None
@@ -503,7 +645,7 @@ mod tests {
                 let conditions = usize::from(s.observations_pending)
                     + usize::from(!s.frontier_bounded)
                     + usize::from(s.local_disagreement)
-                    + usize::from(s.new_encounter);
+                    + usize::from(s.revision_pending);
                 assert_eq!(n, conditions, "{policy:?} {s:?}");
                 assert_eq!(cycle(policy, s), (trace, n), "{policy:?} {s:?}");
             }
@@ -563,7 +705,7 @@ mod tests {
             w.encounter.contradictions = f(7);
             w.encounter.resistance = f(7);
             let before = masks(&w.horizon);
-            let derived = w.new_encounter();
+            let derived = w.revision_pending();
             w.revise();
             assert_eq!(derived, masks(&w.horizon) != before, "{x:#x}");
             if derived {
@@ -580,14 +722,14 @@ mod tests {
     fn the_derived_fact_is_revisions_new_root_test() {
         let w = fusion_world();
         let delta = GadamerRevision.revise(&w.horizon, &w.encounter, &ancestry(&w.horizon));
-        assert!(w.new_encounter());
+        assert!(w.revision_pending());
         assert_ne!(delta.new_independent_roots, 0);
         let after = World {
             horizon: delta.resulting,
             ..w
         };
         assert!(
-            !after.new_encounter(),
+            !after.revision_pending(),
             "the resulting horizon has the roots"
         );
     }
@@ -598,22 +740,18 @@ mod tests {
     fn a_real_revision_makes_the_cycle_rest() {
         let mut world = fusion_world();
         let before = world.horizon.clone();
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
         // Revision adds contradiction 0 to the tension, which reopens local
         // disagreement; one interrogation covers it and the cycle rests.
         assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
         assert_eq!(world.horizon.independent_roots, 0b111);
         assert_eq!(world.horizon.revision_index, before.revision_index + 1);
 
-        // The full cycle under V1. The supplied `local_disagreement = true`
-        // is ignored: the fact is derived, and there is no tension yet.
-        let mut world = fusion_world();
-        let (trace, n) = wired_cycle(
-            SelectorPolicy::V1,
-            state(true, false, true, false),
-            &mut world,
-            None,
-        );
+        // The full cycle under V1: one verdict has arrived, the frontier is
+        // not yet bounded, and there is no tension yet.
+        let mut world = unbounded_fusion_world();
+        world.arrive(SourceVerdict::Corroborates);
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
         assert_eq!(
             &trace[..n],
             &[
@@ -630,7 +768,7 @@ mod tests {
     #[test]
     fn dropping_the_revision_write_never_rests() {
         let mut world = fusion_world();
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, Some(Revision));
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, Some(Revision));
         assert_eq!(n, WIRED_MAX_STEPS + 1, "did not rest");
         assert!(trace.iter().all(|r| *r == Some(Revision)));
         assert_eq!(world, fusion_world(), "nothing was written");
@@ -656,8 +794,8 @@ mod tests {
         let delta =
             GadamerRevision.revise(&world.horizon, &world.encounter, &ancestry(&world.horizon));
         assert_eq!(delta.kind, RevisionKind::IndependentConfirmation);
-        assert!(world.new_encounter());
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert!(world.revision_pending());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
         assert_eq!(&trace[..n], &[Some(Revision)]);
         assert_eq!(world.horizon.independent_roots, 0b011);
     }
@@ -684,8 +822,8 @@ mod tests {
         let delta =
             GadamerRevision.revise(&world.horizon, &world.encounter, &ancestry(&world.horizon));
         assert_eq!(delta.kind, RevisionKind::Echo);
-        assert!(!world.new_encounter());
-        let (_, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert!(!world.revision_pending());
+        let (_, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
         assert_eq!(n, 0);
         assert_eq!(world, echo_world());
     }
@@ -702,8 +840,8 @@ mod tests {
             GadamerRevision.revise(&world.horizon, &world.encounter, &ancestry(&world.horizon));
         assert_eq!(delta.kind, RevisionKind::ContradictionPreserved);
         assert_eq!(delta.new_independent_roots, 0);
-        assert!(world.new_encounter());
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert!(world.revision_pending());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
         assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
         assert_eq!(world.horizon.projected_claims, 0b100);
         assert_eq!(world.horizon.unresolved_tension, 0b001);
@@ -714,13 +852,18 @@ mod tests {
     #[test]
     fn the_wired_cycle_replays() {
         for policy in [SelectorPolicy::V1, SelectorPolicy::V2] {
-            for rest in EpistemicState::all() {
-                let (mut a, mut b) = (fusion_world(), fusion_world());
-                let ra = wired_cycle(policy, rest, &mut a, None);
-                let rb = wired_cycle(policy, rest, &mut b, None);
-                assert_eq!(ra, rb, "{policy:?} {rest:?}");
-                assert_eq!(a, b, "{policy:?} {rest:?}");
-                assert!(ra.1 <= WIRED_MAX_STEPS, "{policy:?} {rest:?} did not rest");
+            for target in EpistemicState::all() {
+                let (mut a, mut b) = (world_for(target), world_for(target));
+                assert_eq!(a.state(), target, "the world reads as the state");
+                let ra = wired_cycle(policy, &mut a, None);
+                let rb = wired_cycle(policy, &mut b, None);
+                assert_eq!(ra, rb, "{policy:?} {target:?}");
+                assert_eq!(a, b, "{policy:?} {target:?}");
+                assert!(
+                    ra.1 <= WIRED_MAX_STEPS,
+                    "{policy:?} {target:?} did not rest"
+                );
+                assert_eq!(a.state(), settled(), "{policy:?} {target:?}");
             }
         }
     }
@@ -733,8 +876,8 @@ mod tests {
         world.horizon.unresolved_tension = 0b001;
         world.encounter = echo_world().encounter;
         assert!(world.local_disagreement());
-        assert!(!world.new_encounter());
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        assert!(!world.revision_pending());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
         assert_eq!(&trace[..n], &[Some(MooreInterrogation)]);
         assert!(!world.local_disagreement());
         assert_eq!(world.horizon.unresolved_tension, 0b001, "tension kept");
@@ -749,12 +892,7 @@ mod tests {
         world.horizon.unresolved_tension = 0b001;
         world.encounter = echo_world().encounter;
         let before = world.clone();
-        let (trace, n) = wired_cycle(
-            SelectorPolicy::V1,
-            settled(),
-            &mut world,
-            Some(MooreInterrogation),
-        );
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, Some(MooreInterrogation));
         assert_eq!(n, WIRED_MAX_STEPS + 1, "did not rest");
         assert!(trace.iter().all(|r| *r == Some(MooreInterrogation)));
         assert_eq!(world, before, "nothing was written");
@@ -770,7 +908,7 @@ mod tests {
         let mut world = fusion_world();
         world.horizon.unresolved_tension = 0b001;
         world.interrogated = 0b001;
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
         assert_eq!(&trace[..n], &[Some(Revision)]);
 
         // A contradiction on a new bit reopens it after the revision.
@@ -779,9 +917,166 @@ mod tests {
         world.interrogated = 0b001;
         world.encounter.contradictions = 0b011;
         world.encounter.resistance = 0b011;
-        let (trace, n) = wired_cycle(SelectorPolicy::V1, settled(), &mut world, None);
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
         assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
         assert_eq!(world.interrogated, 0b011);
+    }
+
+    /// An echo world (no revision pending, no tension) with `verdicts` arrived.
+    fn arrivals(verdicts: &[SourceVerdict]) -> World {
+        let mut w = echo_world();
+        for &v in verdicts {
+            w.arrive(v);
+        }
+        w
+    }
+
+    /// FAILS IF: the fold does not clear the fact, or counts a verdict twice
+    /// or not at all.
+    #[test]
+    fn folding_clears_pending_observations() {
+        use SourceVerdict::*;
+        let mut world = arrivals(&[Corroborates, Silent, Conflicts]);
+        assert!(world.observations_pending());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert_eq!(&trace[..n], &[Some(ObserveFold)]);
+        assert_eq!(world.quorum, Quorum::new(1, 1, 1));
+        assert!(!world.observations_pending());
+    }
+
+    /// FAILS IF: pending is read off the speaking count. A silent verdict is
+    /// folded but never speaks, so that reading would never rest.
+    #[test]
+    fn a_silent_verdict_still_settles() {
+        let mut world = arrivals(&[SourceVerdict::Silent]);
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert_eq!(&trace[..n], &[Some(ObserveFold)]);
+        assert_eq!(world.quorum.speaking(), 0, "silence does not speak");
+        assert!(usize::from(world.quorum.speaking()) < world.arrived);
+    }
+
+    /// FAILS IF: dropping the fold's write still lets the cycle rest.
+    #[test]
+    fn dropping_the_fold_write_never_rests() {
+        let mut world = arrivals(&[SourceVerdict::Corroborates]);
+        let before = world.clone();
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, Some(ObserveFold));
+        assert_eq!(n, WIRED_MAX_STEPS + 1, "did not rest");
+        assert!(trace.iter().all(|r| *r == Some(ObserveFold)));
+        assert_eq!(world, before, "nothing was written");
+    }
+
+    /// FAILS IF: a late verdict does not reopen the fact, or the second fold
+    /// recounts verdicts it already counted.
+    #[test]
+    fn a_late_verdict_is_folded_once() {
+        use SourceVerdict::*;
+        let mut world = arrivals(&[Corroborates]);
+        wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert_eq!(world.quorum, Quorum::new(1, 0, 0));
+        world.arrive(Conflicts);
+        assert!(world.observations_pending());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert_eq!(&trace[..n], &[Some(ObserveFold)]);
+        assert_eq!(world.quorum, Quorum::new(1, 0, 1));
+    }
+
+    /// A world whose derived state is `target`: start from the settled echo
+    /// world and open each fact with its own "do".
+    fn world_for(target: EpistemicState) -> World {
+        let mut w = echo_world();
+        if target.observations_pending {
+            w.arrive(SourceVerdict::Conflicts);
+        }
+        if !target.frontier_bounded {
+            w.change_space(Quad8::new(0b11, 0b11, 0b1, 0b1), 2);
+        }
+        if target.local_disagreement {
+            w.horizon.unresolved_tension |= 0b100;
+        }
+        if target.revision_pending {
+            w.encounter = fusion_world().encounter;
+        }
+        w
+    }
+
+    /// How many candidates of `(quad, target)` meet the target, by brute
+    /// force over every coordinate.
+    fn frontier_oracle(quad: Quad8, target: u8) -> u16 {
+        let b = quad.bytes();
+        let on = |byte: u8, i: u8| byte >> i & 1 == 1;
+        let mut count = 0;
+        for a in 0..8u8 {
+            for c in 0..8u8 {
+                for e in 0..8u8 {
+                    for d in 0..8u8 {
+                        let occupied = on(b[0], a) && on(b[1], c) && on(b[2], e) && on(b[3], d);
+                        if occupied && a + c + e + d == target {
+                            count += 1;
+                        }
+                    }
+                }
+            }
+        }
+        count
+    }
+
+    /// FAILS IF: bounding does not clear the fact, or records a frontier
+    /// different from a brute-force count over the same space.
+    #[test]
+    fn bounding_records_the_frontier_and_clears_the_fact() {
+        let mut world = echo_world();
+        world.frontier = None;
+        assert!(!world.frontier_bounded());
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert_eq!(&trace[..n], &[Some(ProductInterrogation)]);
+        let f = world.frontier.expect("recorded");
+        let (quad, target) = world.space;
+        assert_eq!(f.of, world.space);
+        assert_eq!(f.count, frontier_oracle(quad, target));
+        assert!(f.count > 0, "the fixture space has candidates");
+        assert!(f.first.is_some());
+        assert!(world.frontier_bounded());
+    }
+
+    /// FAILS IF: a changed candidate space does not reopen the fact, or the
+    /// new frontier is not measured over the new space.
+    #[test]
+    fn changing_the_space_reopens_the_frontier() {
+        let mut world = echo_world();
+        assert!(world.frontier_bounded());
+        let new = (Quad8::new(0b11, 0b11, 0b1, 0b1), 2);
+        world.change_space(new.0, new.1);
+        assert!(!world.frontier_bounded(), "the old frontier is stale");
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert_eq!(&trace[..n], &[Some(ProductInterrogation)]);
+        let f = world.frontier.expect("recorded");
+        assert_eq!(f.of, new);
+        assert_eq!(f.count, frontier_oracle(new.0, new.1));
+    }
+
+    /// FAILS IF: an empty frontier is treated as unbounded. Knowing there are
+    /// no candidates is a bound.
+    #[test]
+    fn an_empty_frontier_is_bounded() {
+        let mut world = echo_world();
+        world.change_space(Quad8::new(0b1, 0b1, 0b1, 0b1), 9);
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert_eq!(&trace[..n], &[Some(ProductInterrogation)]);
+        assert_eq!(world.frontier.map(|f| f.count), Some(0));
+        assert!(world.frontier_bounded());
+    }
+
+    /// FAILS IF: dropping the product interrogation's write still rests.
+    #[test]
+    fn dropping_the_frontier_write_never_rests() {
+        let mut world = echo_world();
+        world.frontier = None;
+        let before = world.clone();
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, Some(ProductInterrogation));
+        assert_eq!(n, WIRED_MAX_STEPS + 1, "did not rest");
+        assert!(trace.iter().all(|r| *r == Some(ProductInterrogation)));
+        assert_eq!(world, before, "nothing was written");
     }
 
     /// FAILS IF: revision starts clearing tension. Then `local_disagreement`
