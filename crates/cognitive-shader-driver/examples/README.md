@@ -158,3 +158,19 @@ version covers selection only, not the recipes' implementations (plan §13).
 ```bash
 cargo run -p cognitive-shader-driver --example recipe_selector_probe
 ```
+
+## reasoning_band_probe.rs
+
+D-GSO-7 (plan §18 P7). The `ReasoningBand` on a `CausalEdge64` (bits 61..63,
+read only through `band_reading::project_band`) is earned one rung per executed,
+passing proof: an `SO` observation a majority corroborates gives `Association`,
+a passed `PO` intervention on top of it gives `Causal`, a passed `SPO`
+counterfactual on top of that gives `Counterfactual`. Observations never lift
+past `Association`, a test that was not run never raises, and no rung is
+skipped. A failed test, contradicting independent evidence (`Quorum`) or
+confounding (`CausalMask::simpsons_paradox_risk`) lowers the band, and the same
+events replay to the same edge bits. The ladder and thresholds are policy pins.
+
+```bash
+cargo run -p cognitive-shader-driver --example reasoning_band_probe
+```
