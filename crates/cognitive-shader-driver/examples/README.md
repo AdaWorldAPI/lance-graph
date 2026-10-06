@@ -126,3 +126,21 @@ cargo run -p cognitive-shader-driver --example virtual_surfel_probe
 `support/fisher_relation.rs` holds what both D-CTX probes share (the borrowed
 Fisher-Z relation, the Moore offsets, the per-thread allocation counter). It is
 included with `#[path]`, not built as an example of its own.
+
+## ewa_render_probe.rs
+
+D-CTX-2. Isotropic Gaussian/EWA rendering with no surfel or Gaussian
+population. Each virtual surfel gives an isotropic scale `s` (the isotropic part
+of its normalised second moment), the contract's `ewa_sandwich(√s·I, I) = s·I`
+gives the footprint, and the footprint is accumulated straight into a 2 KB
+transient field. A materialized `Vec<Surfel> → Vec<Gaussian> → field` pipeline
+must agree bit for bit; an independent closed-form gather must agree within
+`1e-12` of the field's maximum; rendering only redistributes the surfels' mass.
+The footprint evaluator stays probe-local.
+
+```bash
+cargo run -p cognitive-shader-driver --example ewa_render_probe
+```
+
+`support/virtual_surfel.rs` holds the D-CTX-1 surfel reading that the rendering
+rounds read from, so they use exactly what D-CTX-1 tested.

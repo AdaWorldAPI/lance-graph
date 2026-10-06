@@ -52,130 +52,18 @@
 use std::mem::size_of;
 
 use bgz_tensor::fisher_z::{FamilyGamma, FisherZTable};
-use cognitive_shader_driver::palette_perturbation::PaletteState;
 use lance_graph_contract::morton8x8::Morton8x8;
-use lance_graph_contract::sigma_propagation::Spd2;
 
 #[path = "support/fisher_relation.rs"]
 mod fisher_relation;
 use fisher_relation::{allocations_during, representatives, PairwiseFisherZ, Relation, MOORE};
 
-// ── geometry ───────────────────────────────────────────────────────────────
-
-/// Grid side; the tile is the 256-code Morton prefix.
-const SIDE: u8 = 16;
-/// Pixels in the tile.
-const PIXELS: usize = 256;
-
-/// A 16 x 16 tile: one palette byte per pixel, lane = Morton code.
-type Tile = [u8; PIXELS];
-
-/// The neighbour of `center` at `(dx, dy)` inside the tile, or `None`.
-#[inline(always)]
-fn neighbor(center: Morton8x8, dx: i8, dy: i8) -> Option<Morton8x8> {
-    center
-        .checked_offset(dx, dy)
-        .filter(|n| n.code() < PIXELS as u16)
-}
-
-// ── the reading ────────────────────────────────────────────────────────────
-
-/// One virtual surfel, as read. Copy, register-sized, never stored by B.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct SurfelReading {
-    /// The pixel address. Geometry comes from here and nowhere else.
-    center: Morton8x8,
-    /// Activation at the center (the orthogonal reading).
-    amplitude: u8,
-    /// Σ w over the present neighbours.
-    weight: u32,
-    /// Second moment of the neighbour offsets, weighted: Σ w·dx², Σ w·dx·dy, Σ w·dy².
-    sxx: u32,
-    sxy: i32,
-    syy: u32,
-}
-
-impl SurfelReading {
-    /// The weighted second moment as the contract's SPD carrier, for the
-    /// rendering rounds. `None` while it is not strictly positive definite.
-    fn sigma(&self) -> Option<Spd2> {
-        let s = Spd2 {
-            a: f64::from(self.sxx),
-            b: f64::from(self.sxy),
-            c: f64::from(self.syy),
-        };
-        s.is_spd(1e-9).then_some(s)
-    }
-}
-
-/// The weight one relation contributes. `identity_weight` answers the
-/// needle case; the table is never asked for it.
-#[inline(always)]
-fn weight_of(rel: Relation, identity_weight: u16) -> u32 {
-    match rel {
-        Relation::Identity => u32::from(identity_weight),
-        Relation::Pair(r) => (i32::from(r) + 127) as u32,
-    }
-}
-
-/// Read one surfel: eight checked neighbour reads, folded in registers.
-#[inline]
-fn read_surfel(
-    tile: &Tile,
-    center: Morton8x8,
-    amplitude: u8,
-    law: &PairwiseFisherZ<'_>,
-    identity_weight: u16,
-) -> SurfelReading {
-    let c = PaletteState(tile[center.code() as usize]);
-    let mut s = SurfelReading {
-        center,
-        amplitude,
-        weight: 0,
-        sxx: 0,
-        sxy: 0,
-        syy: 0,
-    };
-    for &(dx, dy) in &MOORE {
-        let Some(n) = neighbor(center, dx, dy) else {
-            continue;
-        };
-        let w = weight_of(
-            law.relation(c, PaletteState(tile[n.code() as usize])),
-            identity_weight,
-        );
-        let (dx, dy) = (i32::from(dx), i32::from(dy));
-        s.weight += w;
-        s.sxx += w * (dx * dx) as u32;
-        s.sxy += w as i32 * dx * dy;
-        s.syy += w * (dy * dy) as u32;
-    }
-    s
-}
-
-/// B: hand every activated pixel's surfel to `sink` the moment it is read.
-/// Lanes in Morton code order; activation `0` produces no surfel.
-fn for_each_surfel(
-    tile: &Tile,
-    activation: &Tile,
-    law: &PairwiseFisherZ<'_>,
-    identity_weight: u16,
-    mut sink: impl FnMut(SurfelReading),
-) {
-    for code in 0..PIXELS as u16 {
-        let amp = activation[code as usize];
-        if amp == 0 {
-            continue;
-        }
-        sink(read_surfel(
-            tile,
-            Morton8x8::from_code(code),
-            amp,
-            law,
-            identity_weight,
-        ));
-    }
-}
+#[path = "support/virtual_surfel.rs"]
+mod virtual_surfel;
+use virtual_surfel::{
+    activation_fixture, for_each_surfel, permutation_tile, repeated_tile, SurfelReading, Tile,
+    IDENTITY_WEIGHT, PIXELS, SIDE,
+};
 
 /// A consumer that keeps one register: the amplitude-weighted tile moment.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -301,44 +189,15 @@ fn oracle_moment(tile: &Tile, act: &Tile, table: &FisherZTable, iw: u16) -> Tile
     m
 }
 
-// ── fixtures ───────────────────────────────────────────────────────────────
-
-/// Identity weight at the ceiling of the calibrated range: same material
-/// weighs as much as the most related distinct pair can.
-const IDENTITY_AT_CEILING: u16 = 254;
-
-/// Every palette ordinal exactly once (167 is odd, so `i·167 + 13` is a
-/// permutation of `0..256`). No two pixels share material.
-fn permutation_tile() -> Tile {
-    core::array::from_fn(|i| (i as u32 * 167 + 13) as u8)
-}
-
-/// A few materials, so identity neighbours occur.
-fn repeated_tile() -> Tile {
-    let mut t = [0u8; PIXELS];
-    for y in 0..SIDE {
-        for x in 0..SIDE {
-            t[Morton8x8::from_xy(x, y).code() as usize] =
-                [7, 42, 200, 99][usize::from((x / 3 + y / 5) % 4)];
-        }
-    }
-    t
-}
-
-/// Activation with zeros (one lane in five gated).
-fn activation_fixture() -> Tile {
-    core::array::from_fn(|i| ((i * 29 + 7) % 5) as u8)
-}
-
 fn main() {
     let table = FisherZTable::build(&representatives(1), 256);
     let law = PairwiseFisherZ::borrow(&table);
     let (tile, act) = (repeated_tile(), activation_fixture());
 
     let (b, n_alloc, n_bytes) =
-        allocations_during(|| virtual_moment(&tile, &act, &law, IDENTITY_AT_CEILING));
-    let (a_surfels, inv) = oracle_surfels(&tile, &act, &table, IDENTITY_AT_CEILING);
-    let a = oracle_moment(&tile, &act, &table, IDENTITY_AT_CEILING);
+        allocations_during(|| virtual_moment(&tile, &act, &law, IDENTITY_WEIGHT));
+    let (a_surfels, inv) = oracle_surfels(&tile, &act, &table, IDENTITY_WEIGHT);
+    let a = oracle_moment(&tile, &act, &table, IDENTITY_WEIGHT);
 
     // Every ordinal once: how many virtual surfels already carry a strictly
     // positive definite Σ for the rendering rounds.
@@ -385,7 +244,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use super::virtual_surfel::{neighbor, read_surfel};
     use super::*;
+    use cognitive_shader_driver::palette_perturbation::PaletteState;
 
     fn table() -> FisherZTable {
         FisherZTable::build(&representatives(1), 256)
@@ -411,7 +272,7 @@ mod tests {
         }
         let act = activation_fixture();
         for tile in &tiles {
-            for iw in [0, IDENTITY_AT_CEILING] {
+            for iw in [0, IDENTITY_WEIGHT] {
                 let (oracle, _) = oracle_surfels(tile, &act, &table, iw);
                 let mut i = 0;
                 for_each_surfel(tile, &act, &law, iw, |r| {
@@ -435,10 +296,10 @@ mod tests {
         let law = PairwiseFisherZ::borrow(&table);
         let (tile, act) = (repeated_tile(), activation_fixture());
         let (_, n, bytes) =
-            allocations_during(|| virtual_moment(&tile, &act, &law, IDENTITY_AT_CEILING));
+            allocations_during(|| virtual_moment(&tile, &act, &law, IDENTITY_WEIGHT));
         assert_eq!((n, bytes), (0, 0));
         let (_, n_oracle, _) =
-            allocations_during(|| oracle_surfels(&tile, &act, &table, IDENTITY_AT_CEILING));
+            allocations_during(|| oracle_surfels(&tile, &act, &table, IDENTITY_WEIGHT));
         assert!(n_oracle >= 4, "counter is blind");
     }
 
@@ -616,14 +477,8 @@ mod tests {
         let (s, b) = weak_pair(&law);
         let on_stripe = Morton8x8::from_xy(8, 8);
 
-        let h = read_surfel(&stripe(s, b, true), on_stripe, 1, &law, IDENTITY_AT_CEILING);
-        let v = read_surfel(
-            &stripe(s, b, false),
-            on_stripe,
-            1,
-            &law,
-            IDENTITY_AT_CEILING,
-        );
+        let h = read_surfel(&stripe(s, b, true), on_stripe, 1, &law, IDENTITY_WEIGHT);
+        let v = read_surfel(&stripe(s, b, false), on_stripe, 1, &law, IDENTITY_WEIGHT);
         assert!(h.sxx > h.syy, "horizontal stripe: {h:?}");
         assert!(v.syy > v.sxx, "vertical stripe: {v:?}");
         assert_eq!(
@@ -639,7 +494,7 @@ mod tests {
         );
 
         let uniform = [s; PIXELS];
-        let u = read_surfel(&uniform, on_stripe, 1, &law, IDENTITY_AT_CEILING);
+        let u = read_surfel(&uniform, on_stripe, 1, &law, IDENTITY_WEIGHT);
         assert_eq!((u.sxx, u.sxy), (u.syy, 0), "uniform field is isotropic");
     }
 
@@ -672,7 +527,7 @@ mod tests {
         let law = PairwiseFisherZ::borrow(&table);
         let mut spd = 0;
         for tile in [permutation_tile(), repeated_tile()] {
-            for_each_surfel(&tile, &[1; PIXELS], &law, IDENTITY_AT_CEILING, |r| {
+            for_each_surfel(&tile, &[1; PIXELS], &law, IDENTITY_WEIGHT, |r| {
                 let det = i64::from(r.sxx) * i64::from(r.syy) - i64::from(r.sxy).pow(2);
                 assert!(det >= 0, "{r:?}");
                 if r.sigma().is_some() {
