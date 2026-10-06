@@ -220,4 +220,4 @@ pub use palette_perturbation::{
     PairAddress, PaletteLut, PalettePerturbation, PaletteState, PALETTE_CARDINALITY,
     PALETTE_LUT_LEN,
 };
-pub use quad8::{CartesianAddress12, Quad8};
+pub use quad8::{ProductAddress12, Quad8};
