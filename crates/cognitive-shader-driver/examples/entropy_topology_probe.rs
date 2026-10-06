@@ -1,8 +1,13 @@
 //! D-GSO-4 (P4): entropy × topology routing probe.
 //!
 //! Plan: `.claude/plans/2026-10-06-global-sudoku-replayable-orchestration-v1.md`
-//! §8, §10 and §18 P4; it is falsifier F-ECG-1 (with F-ECG-2 and F-ECG-3) of
+//! §8, §10 and §18 P4; it is falsifier F-ECG-1 (with F-ECG-2) of
 //! `.claude/plans/entropy-closure-causal-ground-v1.md`.
+//!
+//! F-ECG-3 is NOT covered here. It requires the census to discriminate on a
+//! real corpus; no stored corpus carries topology bits on real edges yet, and
+//! the hand-built fixtures below are chosen to cross the midpoint, so a
+//! fixture test cannot show the census avoids collapsing to one class.
 //!
 //! Claim under test: two basins with IDENTICAL low field entropy, one whose
 //! edges are mostly `Direct`, one mostly `Unknown` (CausalEdge64 bits 59..60
@@ -342,11 +347,11 @@ mod tests {
         );
     }
 
-    /// F-ECG-3. FAILS IF: the census fires on everything or nothing. Across
-    /// the fixture both competence sides occur, and with closure varied all
-    /// four routes are reached.
+    /// FAILS IF: one of the four routes is unreachable from the census. The
+    /// fixtures are hand-built to cross the midpoint, so this is reachability
+    /// only, not F-ECG-3's real-corpus anti-vacuity check.
     #[test]
-    fn every_route_is_reachable_and_the_census_discriminates() {
+    fn every_route_is_reachable_from_the_fixtures() {
         let decl = declarations();
         let routes = [
             direct_dominant(0.9),
