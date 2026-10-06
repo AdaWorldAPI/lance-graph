@@ -144,3 +144,17 @@ cargo run -p cognitive-shader-driver --example ewa_render_probe
 
 `support/virtual_surfel.rs` holds the D-CTX-1 surfel reading that the rendering
 rounds read from, so they use exactly what D-CTX-1 tested.
+
+## recipe_selector_probe.rs
+
+D-GSO-6 (plan §18 P6). Recipe selection as a pure function of a declared
+policy version and a declared epistemic state (observations pending, frontier
+bounded, local disagreement, new encounter). V1 follows the §11 loop order
+(fold, bound, local, revise) and rests when nothing is open; V2 swaps two steps
+to show that a policy change is a new version. A recorded `Selection`
+(policy + state) replays to the same recipe from the record alone. The policy
+version covers selection only, not the recipes' implementations (plan §13).
+
+```bash
+cargo run -p cognitive-shader-driver --example recipe_selector_probe
+```
