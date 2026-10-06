@@ -7,6 +7,9 @@ on:
     paths:
       - crates/jc/**
       - crates/lance-graph-contract/src/cam.rs
+      # The DAV probe below runs these two contract modules end to end.
+      - crates/lance-graph-contract/src/revision.rs
+      - crates/lance-graph-contract/src/sigma_propagation.rs
       - .github/workflows/jc-proof.yml
 
 concurrency:
@@ -56,3 +59,9 @@ jobs:
         # execute the comparison here — it exits non-zero if the asymmetry (V3
         # absorbs P64 at 0 new bytes vs P64 replicates V3 at 32) fails to certify.
         run: cargo run --manifest-path crates/jc/Cargo.toml --example substrate_compare
+
+      - name: Run dav_active_observation_probe (EWA -> disagreement -> revision -> replay)
+        # Its falsifiers are runtime asserts in `main`, so they only count if
+        # something runs it. Exits non-zero if revision stops being the only
+        # way an observation enters, or replay stops collapsing the hole.
+        run: cargo run --manifest-path crates/jc/Cargo.toml --example dav_active_observation_probe
