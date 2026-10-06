@@ -147,12 +147,17 @@ async fn ingest_handler(
         )
     })?;
     let cursor = st.write_cursor;
-    let bs = Arc::get_mut(&mut st.driver.bindspace).ok_or_else(|| {
-        (
-            StatusCode::CONFLICT,
-            Json(json!({"error": "bindspace has multiple references"})),
-        )
-    })?;
+    let bs = st
+        .driver
+        .bindspace
+        .as_mut()
+        .and_then(Arc::get_mut)
+        .ok_or_else(|| {
+            (
+                StatusCode::CONFLICT,
+                Json(json!({"error": "no exclusive bindspace (absent or shared)"})),
+            )
+        })?;
     let (start, end) = engine_bridge::ingest_codebook_indices(
         bs,
         &wire.codebook_indices,
@@ -199,7 +204,12 @@ async fn qualia_handler(
             Json(json!({"error": "lock poisoned"})),
         )
     })?;
-    let bs = st.driver.bindspace();
+    let bs = st.driver.bindspace().ok_or_else(|| {
+        (
+            StatusCode::CONFLICT,
+            Json(json!({"error": "driver has no bindspace"})),
+        )
+    })?;
     if row as usize >= bs.len {
         return Err((
             StatusCode::NOT_FOUND,
@@ -595,15 +605,20 @@ async fn encode_handler(
             )
         })?;
         let cursor = st.write_cursor;
-        if cursor >= st.driver.bindspace.len {
+        if cursor >= st.driver.bindspace().map_or(0, |bs| bs.len) {
             None
         } else {
-            let bs = Arc::get_mut(&mut st.driver.bindspace).ok_or_else(|| {
-                (
-                    StatusCode::CONFLICT,
-                    Json(json!({"error": "bindspace has multiple references"})),
-                )
-            })?;
+            let bs = st
+                .driver
+                .bindspace
+                .as_mut()
+                .and_then(Arc::get_mut)
+                .ok_or_else(|| {
+                    (
+                        StatusCode::CONFLICT,
+                        Json(json!({"error": "no exclusive bindspace (absent or shared)"})),
+                    )
+                })?;
             bs.fingerprints.set_content(cursor, &content_fp);
             st.write_cursor = cursor + 1;
             Some(cursor as u32)
@@ -689,8 +704,8 @@ async fn runbook_handler(
                 Err(_) => Err("lock poisoned".to_string()),
                 Ok(mut st) => {
                     let cursor = st.write_cursor;
-                    match Arc::get_mut(&mut st.driver.bindspace) {
-                        None => Err("bindspace has multiple references".to_string()),
+                    match st.driver.bindspace.as_mut().and_then(Arc::get_mut) {
+                        None => Err("no exclusive bindspace (absent or shared)".to_string()),
                         Some(bs) => {
                             let (start, end) = engine_bridge::ingest_codebook_indices(
                                 bs,

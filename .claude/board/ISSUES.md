@@ -1,6 +1,6 @@
 ## ISS-STREAMDTO-INGEST-WRITES-THE-SINGLETON-ONLY — perturbation ingress has no MailboxSoA arm (2026-10-06)
 
-**Status:** RESOLVED 2026-10-06 — `engine_bridge::ingest_codebook_indices_soa` writes a `StreamDto`'s fields into the owner's `MailboxSoA` through `write_row`, sharing the per-index encoding with the singleton arm (BindSpace is superseded by the SoA); the probe no longer mirrors. Residue: `CognitiveShaderBuilder` still requires a BindSpace even on the mailbox arm (W7).
+**Status:** RESOLVED 2026-10-06 — `engine_bridge::ingest_codebook_indices_soa` writes a `StreamDto`'s fields into the owner's `MailboxSoA` through `write_row`, sharing the per-index encoding with the singleton arm (BindSpace is superseded by the SoA); the probe no longer mirrors. Residue resolved by D-MBX-CUTOVER-0: a mailbox driver builds without a BindSpace.
 
 **Was:** OPEN. **Basis:** VERIFIED-IN-CODE + TEST-PINNED in `cognitive-shader-driver/examples/streamdto_circuit_probe.rs` (D-STREAMDTO-0).
 

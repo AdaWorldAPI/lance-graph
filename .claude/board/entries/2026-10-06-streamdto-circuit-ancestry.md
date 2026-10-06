@@ -63,5 +63,5 @@ drift, SoA ingest bypassing `write_row`, SoA ingest not growing
 ## OPEN
 
 - No production writer of bits 59..63 (`ISS-NO-EVIDENCE-WRITER-FOR-EPISTEMIC-STATE`), so the circuit cannot move eligibility.
-- `CognitiveShaderBuilder` still requires a BindSpace on the mailbox arm (W7).
+- ~~`CognitiveShaderBuilder` still requires a BindSpace on the mailbox arm~~ resolved by D-MBX-CUTOVER-0.
 - `run` reads only `s_idx` from the edge; whether F/C/state should steer the cascade is undecided.

@@ -43,6 +43,7 @@ use bgz17::palette_semiring::PaletteSemiring;
 use causal_edge::edge::CausalEdge64;
 #[cfg(test)]
 use causal_edge::layout::{SPARE_MASK, TRUTH_MASK, TRUTH_SHIFT};
+#[cfg(test)]
 use cognitive_shader_driver::bindspace::BindSpace;
 #[cfg(test)]
 use cognitive_shader_driver::engine_bridge::ingest_codebook_indices;
@@ -110,11 +111,9 @@ fn ingest(dto: &StreamDto) -> MailboxSoA<1024> {
     mb
 }
 
-/// The builder still requires a BindSpace even when the mailbox arm is
-/// selected; an empty one stands in and is never read (W7 residue).
+/// A mailbox driver: no BindSpace (D-MBX-CUTOVER-0).
 fn driver(mb: MailboxSoA<1024>) -> ShaderDriver {
     CognitiveShaderBuilder::new()
-        .bindspace(Arc::new(BindSpace::zeros(0)))
         .semiring(Arc::new(semiring()))
         .planes(planes())
         .with_mailbox(MAILBOX, mb)
