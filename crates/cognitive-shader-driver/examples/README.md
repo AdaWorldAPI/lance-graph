@@ -222,10 +222,40 @@ inside G only for classes that declare that reading (slot 0 = no anchor), and
 S/P/O passed through as blind bytes. Undeclared classes, another reading of the
 slot, and v1 / unknown provenance refuse. Compared with the real
 `MailboxSoA::apply_edges` routing: they agree on all 64 × 64 slot pairs within
-one graph and diverge across graphs, because routing reads no classid.
+one graph and diverge across graphs, because routing reads no classid. That
+cross-graph case bypasses the Alpha split tunnel and is not a production path
+(D-ALPHA-G-0 below).
 
 ```bash
 cargo run -p cognitive-shader-driver --example spog_witness_probe
+```
+
+## alpha_world_provenance_probe.rs
+
+D-ALPHA-G-0. WorldG is attention provenance carried by the Alpha route, not a
+CausalEdge64 field. An event is (Alpha-attended address, edge); WorldG is
+`graph_of(addr)` and the order of worlds is the `SpogTenants` route. The same
+edge bits in two worlds are two events; replaying the same claims recovers the
+world sequence with all-zero edges; changing edge fields never moves the world.
+Partitioned by recovered world, each `MailboxSoA` receives only its own
+deliveries through the unchanged `apply_edges`; an undeclared world is refused
+at the tunnel.
+
+```bash
+cargo run -p cognitive-shader-driver --example alpha_world_provenance_probe
+```
+
+## witness_angle_probe.rs
+
+D-WA-0. Witness (`w_slot`) × Angle (bits 43..45) as a declared, sparse local
+source coordinate under a per-class, versioned probe law. The same raw pair
+means different sources in another class and another generation; classes
+reading those bits as the pathology triad or a cohort `WitnessTable` refuse, as
+do undeclared classes and generations, Witness 0 and v1 / unknown provenance.
+The world comes from the attended key, never from the edge.
+
+```bash
+cargo run -p cognitive-shader-driver --example witness_angle_probe
 ```
 
 ## ewa_anisotropic_probe.rs

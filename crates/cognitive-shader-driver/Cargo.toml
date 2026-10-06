@@ -112,6 +112,16 @@ test = true
 name = "spog_witness_probe"
 test = true
 
+# D-ALPHA-G-0 WorldG-as-Alpha-route provenance probe; tests run under `cargo test`.
+[[example]]
+name = "alpha_world_provenance_probe"
+test = true
+
+# D-WA-0 Witness x Angle declared local source coordinate probe; tests run under `cargo test`.
+[[example]]
+name = "witness_angle_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the

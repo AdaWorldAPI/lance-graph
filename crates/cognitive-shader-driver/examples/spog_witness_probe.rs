@@ -25,11 +25,17 @@
 //!
 //! - **Within one G they agree** on all 64 × 64 slot pairs, including slot 0
 //!   (unanchored mailbox accepts unanchored edges).
-//! - **Across graphs they diverge.** `apply_edges` reads no classid, so a
-//!   mailbox accepts an edge from another graph that happens to carry the same
-//!   slot value, while the SPOG reading places it in a different context. The
-//!   agreement therefore holds only for a mailbox scoped to one graph; nothing
-//!   in `MailboxSoA` enforces that today. Pinned as a test, not fixed here.
+//! - **Across graphs they diverge** when a foreign-graph edge is handed to the
+//!   mailbox directly. `apply_edges` reads no classid, so it accepts an edge
+//!   carrying the same slot value that the SPOG reading places elsewhere.
+//!
+//! ⊘ Corrected by D-ALPHA-G-0 (`alpha_world_provenance_probe`): that case is
+//! constructed by bypassing the Alpha split tunnel and is not a production
+//! path. The world is selected upstream (`SpogTenants` routes each attended
+//! address to the tenant `graph_of(addr)` and refuses an undeclared world), and
+//! `MailboxSoA` operates inside an already-selected world and stays graph-blind.
+//! `apply_edges` has no production caller today. The earlier reading here,
+//! that agreement needs a graph check in the mailbox, is withdrawn.
 //!
 //! # Not decided here
 //!
@@ -37,7 +43,8 @@
 //!   `band_reading`-style contract declaration is open.
 //! - What a sub-context ordinal means (corpus, frame, schema) is the
 //!   consumer's binding, not this probe's.
-//! - Making `MailboxSoA` graph-aware is a production change and out of scope.
+//! - Making `MailboxSoA` graph-aware: rejected by D-ALPHA-G-0; G is attention
+//!   provenance, not an edge-local routing field.
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example spog_witness_probe`
 //! Tests: `cargo test -p cognitive-shader-driver --example spog_witness_probe`
@@ -319,8 +326,11 @@ mod tests {
 
     /// Across graphs they diverge: the mailbox reads no classid, so it accepts
     /// an edge from another graph carrying the same slot, which the SPOG
-    /// reading places in a different context. Agreement needs a mailbox scoped
-    /// to one graph.
+    /// reading places in a different context.
+    ///
+    /// A constructed case: the foreign edge is delivered directly, bypassing
+    /// the Alpha split tunnel that selects the world upstream (D-ALPHA-G-0).
+    /// It pins what `apply_edges` does with such input, not a reachable path.
     #[test]
     fn across_graphs_routing_diverges_from_the_spog_reading() {
         let mailbox_ctx = (0x9101u16, sub_context(23));
