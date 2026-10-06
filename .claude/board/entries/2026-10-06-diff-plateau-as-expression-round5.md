@@ -18,7 +18,7 @@ checked against a bit-at-a-time row oracle on eleven cases:
 
 | path | ops | lowering | scratch slots | slot words written | heap | population bytes |
 |---|---|---|---|---|---|---|
-| A materialized `Vec<u64>` diff | — | — | — | — | — | 6152 (769 words) |
+| A materialized `Vec<u64>` diff | — | — | — | — | — | 6160 (770 words) |
 | B mask-risc `Xor` → Count / Any | 1 | `Ternlog` imm `0x3C` | 0 | 0 | 0 | 0 |
 | C quack `lower`, `(a∧¬b)∨(¬a∧b)` | 5 | `Ternlog` imm `0x3C` | 0 | 0 | 0 | 0 |
 | D quack `lower_fused`, same filter | 1 | `Ternlog` imm `0x3C` | 0 | 0 | 0 | 0 |

@@ -288,11 +288,11 @@ fn every_path_agrees_with_the_row_oracle() {
 }
 
 /// FAILS IF: the physical shape drifts. Pinned from measurement on the dense
-/// ragged case (`3 × 16384 + 77` rows, 769 words):
+/// ragged case (`3 × 16384 + 77` rows, 770 words):
 ///
 /// | path | ops | lowering | scratch slots | slot words written | heap | population bytes |
 /// |---|---|---|---|---|---|---|
-/// | A | — | — | — | — | — | 6152 (the diff `Vec<u64>`) |
+/// | A | — | — | — | — | — | 6160 (the diff `Vec<u64>`) |
 /// | B count / any | 1 | `Ternlog` imm `0x3C` | 0 | 0 | 0 | 0 |
 /// | C count / any | 5 | `Ternlog` imm `0x3C` | 0 | 0 | 0 | 0 |
 /// | D count / any | 1 | `Ternlog` imm `0x3C` | 0 | 0 | 0 | 0 |
@@ -308,12 +308,14 @@ fn the_fused_path_writes_no_derived_words() {
     let b = with_flips(&a, &(0..n).filter(|i| i % 3 != 0).collect::<Vec<_>>());
     let words = words_for(n);
 
+    assert_eq!(words, 770, "the ragged case spans 770 words");
     let (_, a_bytes) = materialized(&a, &b);
     assert_eq!(
         a_bytes,
         words * 8,
         "A materializes one word per population word"
     );
+    assert_eq!(a_bytes, 6160, "the documented population size");
 
     let q = |agg| Query {
         filter: diff_filter(),
