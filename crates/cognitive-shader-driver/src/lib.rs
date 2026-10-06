@@ -144,6 +144,7 @@ pub mod palette_perturbation;
 pub mod quad8;
 #[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod rotation_kernel;
+pub mod switch16;
 
 // D1.3 — decode-kernel trait + residual composition.
 // Hydration/calibration path (NOT cascade inference — that uses
@@ -221,3 +222,4 @@ pub use palette_perturbation::{
     PALETTE_LUT_LEN,
 };
 pub use quad8::{ProductAddress12, Quad8};
+pub use switch16::Switch16;
