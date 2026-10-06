@@ -67,10 +67,7 @@ fn initial_observations() -> Vec<Option<bool>> {
 }
 
 fn nearest_left(observed: &[Option<bool>], idx: usize) -> bool {
-    (0..idx)
-        .rev()
-        .find_map(|j| observed[j])
-        .unwrap_or(false)
+    (0..idx).rev().find_map(|j| observed[j]).unwrap_or(false)
 }
 
 fn nearest_right(observed: &[Option<bool>], idx: usize) -> bool {
@@ -107,7 +104,11 @@ fn route_votes(observed: &[Option<bool>], idx: usize) -> [u8; 3] {
     [
         if nearest_left(observed, idx) { 255 } else { 0 },
         if nearest_right(observed, idx) { 255 } else { 0 },
-        if local_majority(observed, idx, 3) { 255 } else { 0 },
+        if local_majority(observed, idx, 3) {
+            255
+        } else {
+            0
+        },
     ]
 }
 
@@ -184,11 +185,7 @@ fn rank_candidates(observed: &[Option<bool>], aperture: f64) -> Vec<Candidate> {
         })
         .collect();
 
-    candidates.sort_by(|a, b| {
-        b.score
-            .total_cmp(&a.score)
-            .then_with(|| a.idx.cmp(&b.idx))
-    });
+    candidates.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.idx.cmp(&b.idx)));
     candidates
 }
 
@@ -284,7 +281,7 @@ fn main() {
     assert!(
         rank_candidates(&observed, 0.45)
             .first()
-            .map_or(true, |c| c.idx != TARGET),
+            .is_none_or(|c| c.idx != TARGET),
         "narrow aperture unexpectedly reached the planted hop-10 target"
     );
 
@@ -340,5 +337,7 @@ fn main() {
         "best synthetic recovered-fact/touched-candidate efficiency in sweep: a={:.2} ({:.3})",
         best_efficiency.0, best_efficiency.1
     );
-    println!("PASS: EWA frontier -> DAV disagreement -> observation -> revision -> replay collapse");
+    println!(
+        "PASS: EWA frontier -> DAV disagreement -> observation -> revision -> replay collapse"
+    );
 }
