@@ -137,7 +137,9 @@ impl CognitiveShaderService for ShaderGrpcService {
             .bindspace
             .as_mut()
             .and_then(Arc::get_mut)
-            .ok_or_else(|| Status::failed_precondition("bindspace has multiple refs"))?;
+            .ok_or_else(|| {
+                Status::failed_precondition("no exclusive bindspace (absent or shared)")
+            })?;
 
         let c = *cursor;
         let (start, end) = engine_bridge::ingest_codebook_indices(

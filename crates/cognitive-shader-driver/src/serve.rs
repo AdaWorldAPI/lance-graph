@@ -605,7 +605,13 @@ async fn encode_handler(
             )
         })?;
         let cursor = st.write_cursor;
-        if cursor >= st.driver.bindspace().map_or(0, |bs| bs.len) {
+        let bindspace_len = st.driver.bindspace().map(|bs| bs.len).ok_or_else(|| {
+            (
+                StatusCode::CONFLICT,
+                Json(json!({"error": "no exclusive bindspace (absent or shared)"})),
+            )
+        })?;
+        if cursor >= bindspace_len {
             None
         } else {
             let bs = st
