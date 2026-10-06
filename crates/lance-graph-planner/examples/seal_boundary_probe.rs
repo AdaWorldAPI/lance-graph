@@ -22,7 +22,9 @@
 //! (`.claude/knowledge/seal-vs-temporal-ordering-information.md` §2). The plan
 //! offers three ways out; this probe takes the first: **the key is the
 //! event's own sequence number, globally unique and persisted with the
-//! event.** `seal` refuses a batch with a tied key instead of sealing it, and
+//! event.** `apply` enforces that by refusing any event whose `seq` is not
+//! greater than the last one (`a_reused_seq_is_refused`). `seal` also refuses
+//! a batch with a tied key instead of sealing it, and
 //! `tied_keys_make_the_seal_depend_on_arrival` shows on the real `freeze`
 //! why that refusal is needed.
 //!
@@ -70,12 +72,16 @@ struct Seal {
     batch: DetachedCycleBatch,
 }
 
-/// Why a boundary did not seal.
+/// Why an event was refused or a boundary did not seal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SealError {
     /// Two casts share a `stream_position`; their order would come from
     /// arrival, which is not durable.
     TiedKey(u64),
+    /// An event's `seq` is not greater than the last accepted one. Row
+    /// coalescing would hide a reused `seq` from `first_tie`, so the key's
+    /// uniqueness is checked here, per event, before anything folds.
+    StaleSeq(u64),
 }
 
 /// The in-memory working state plus the durable ledger.
@@ -91,6 +97,8 @@ struct Engine {
     ledger: Vec<Seal>,
     /// Internal operations applied since start (for the report).
     internal_ops: usize,
+    /// The last accepted `seq`. Sequence numbers must strictly increase.
+    last_seq: Option<u64>,
 }
 
 impl Engine {
@@ -101,6 +109,7 @@ impl Engine {
             last_change: [None; ROWS],
             ledger: Vec::new(),
             internal_ops: 0,
+            last_seq: None,
         }
     }
 
@@ -112,6 +121,13 @@ impl Engine {
     /// Apply one event. Internal events touch only working state; a boundary
     /// seals.
     fn apply(&mut self, event: Event) -> Result<(), SealError> {
+        let seq = match event {
+            Event::Internal { seq, .. } | Event::Boundary { seq } => seq,
+        };
+        if self.last_seq.is_some_and(|last| seq <= last) {
+            return Err(SealError::StaleSeq(seq));
+        }
+        self.last_seq = Some(seq);
         match event {
             Event::Internal { seq, row, value } => {
                 let r = usize::from(row) % ROWS;
@@ -167,13 +183,16 @@ impl Engine {
     }
 
     /// Rebuild the state a seal left behind: the previous sealed rows with the
-    /// seal's coalesced image written over them.
+    /// seal's coalesced image written over them. The highest persisted key
+    /// becomes `last_seq`, so a resumed engine still refuses a reused one.
     fn resume_after(prior: &[Seal]) -> Self {
         let mut e = Self::new();
         for s in prior {
             for (&row, payload) in &s.batch.image {
                 e.sealed_rows[row as usize] = payload[0];
             }
+            let top = s.batch.landings.iter().map(|l| l.stream_position).max();
+            e.last_seq = e.last_seq.max(top);
             e.ledger.push(s.clone());
         }
         e.rows = e.sealed_rows;
@@ -362,17 +381,29 @@ mod tests {
             reference.batch.batch_hash
         );
 
-        // Two events on the same row, swapped (the fold does not commute).
+        // Two operations on the same row, applied in the other order (the
+        // fold does not commute). The values swap and the `seq`s stay put, so
+        // the stream is still strictly increasing and is not refused.
         let mut swapped: Vec<Event> = runs[2].to_vec();
         let row_of = |e: &Event| match e {
             Event::Internal { row, .. } => Some(*row),
             Event::Boundary { .. } => None,
         };
+        let value_of = |e: &Event| match e {
+            Event::Internal { value, .. } => *value,
+            Event::Boundary { .. } => unreachable!("only internal events swap"),
+        };
         let i = 0;
         let j = (1..swapped.len())
             .find(|&j| row_of(&swapped[j]) == row_of(&swapped[i]))
             .unwrap();
-        swapped.swap(i, j);
+        let (vi, vj) = (value_of(&swapped[i]), value_of(&swapped[j]));
+        assert_ne!(vi, vj, "fixture: the two values must differ");
+        for (k, v) in [(i, vj), (j, vi)] {
+            if let Event::Internal { value, .. } = &mut swapped[k] {
+                *value = v;
+            }
+        }
         let mut reordered = Engine::resume_after(&live.ledger[..2]);
         for ev in swapped {
             reordered.apply(ev).unwrap();
@@ -396,6 +427,62 @@ mod tests {
             DetachedCycleBatch::freeze(frame, casts).batch_hash,
             DetachedCycleBatch::freeze(frame, reversed).batch_hash
         );
+    }
+
+    /// FAILS IF: a reused `seq` is accepted. Both cases from review: a reuse
+    /// on the same row (row coalescing hides it from `first_tie`) and a reuse
+    /// across two seals (each batch alone has no tie). Also after a resume.
+    #[test]
+    fn a_reused_seq_is_refused() {
+        // Same row, same seq: the second event folds nothing.
+        let mut e = Engine::new();
+        e.apply(Event::Internal {
+            seq: 5,
+            row: 2,
+            value: 1,
+        })
+        .unwrap();
+        assert_eq!(
+            e.apply(Event::Internal {
+                seq: 5,
+                row: 2,
+                value: 9
+            }),
+            Err(SealError::StaleSeq(5))
+        );
+        assert_eq!(e.rows[2], fold(0, 1), "the refused event did not fold");
+        assert_eq!(e.internal_ops, 1);
+
+        // Across seals: seq 5 is sealed, then reused after the boundary.
+        e.apply(Event::Boundary { seq: 6 }).unwrap();
+        assert_eq!(e.ledger.len(), 1);
+        assert_eq!(
+            e.apply(Event::Internal {
+                seq: 5,
+                row: 3,
+                value: 4
+            }),
+            Err(SealError::StaleSeq(5))
+        );
+
+        // After a resume from that seal, the persisted key is still known.
+        let mut resumed = Engine::resume_after(&e.ledger);
+        assert_eq!(
+            resumed.apply(Event::Internal {
+                seq: 5,
+                row: 3,
+                value: 4
+            }),
+            Err(SealError::StaleSeq(5))
+        );
+        // Silence twin: a fresh, larger seq is accepted.
+        resumed
+            .apply(Event::Internal {
+                seq: 7,
+                row: 3,
+                value: 4,
+            })
+            .unwrap();
     }
 
     /// The known limit, measured on the shipped `freeze`. FAILS IF: tied keys
