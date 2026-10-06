@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-231 entries, 2026-08-06 .. 2026-10-06.
+232 entries, 2026-08-06 .. 2026-10-06.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-06 | `v3-v4-dual-reading-round3` |  | [2026-10-06-v3-v4-dual-reading-round3.md](2026-10-06-v3-v4-dual-reading-round3.md) |
+| 2026-10-06 | `D-SPOG-W-0` |  | [2026-10-06-spog-witness-sub-context.md](2026-10-06-spog-witness-sub-context.md) |
 | 2026-10-06 | `spofc-do-learn-as-compile-round6` |  | [2026-10-06-spofc-do-learn-as-compile-round6.md](2026-10-06-spofc-do-learn-as-compile-round6.md) |
 | 2026-10-06 | `D-GSO-6` |  | [2026-10-06-selector-revision-wired.md](2026-10-06-selector-revision-wired.md) |
 | 2026-10-06 | `selector-observations-wired` |  | [2026-10-06-selector-observations-wired.md](2026-10-06-selector-observations-wired.md) |

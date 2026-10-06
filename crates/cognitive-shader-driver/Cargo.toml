@@ -107,6 +107,11 @@ test = true
 name = "affordance_measurement_probe"
 test = true
 
+# D-SPOG-W-0 Witness-as-SPOG-sub-context probe; tests run under `cargo test`.
+[[example]]
+name = "spog_witness_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the

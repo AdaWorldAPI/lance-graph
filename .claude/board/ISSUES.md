@@ -1,3 +1,16 @@
+## ISS-MAILBOX-ROUTES-WITNESS-WITHOUT-GRAPH — `MailboxSoA` accepts same-slot edges from any graph (2026-10-06)
+
+**Status:** OPEN. **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/spog_witness_probe.rs`
+(`across_graphs_routing_diverges_from_the_spog_reading`). `MailboxSoA::apply_edges`
+compares only `edge.w_slot()` with the mailbox's slot and reads no classid.
+
+- Under the SPOG reading (G = `graph_of(classid)`, Witness = sub-context inside G) a
+  mailbox accepts an edge from another graph that carries the same slot value.
+  Within one graph the routing and the reading agree on all 64 × 64 slot pairs.
+- **What closes it:** either a documented rule that a mailbox serves exactly one graph,
+  enforced where edges are delivered, or a graph check in `apply_edges`. Production
+  change; not made by the probe.
+
 ## ISS-LXA-ALPHA-FIT — known/unknown for the COCA bake vs the alpha channel's own definition (2026-09-30)
 
 **Status:** RESOLVED 2026-10-03 — known is NOT alpha: it is the reference set's baked coverage plane (`ReferenceCoverage`, no conversion to/from `AlphaMask`); the attention-recorder half of option (d) is a separate §5 open question. Plan §3.1 DECISION; `.claude/knowledge/reference-frame-vs-motion.md`. The bullets below record the escalation as it stood on 2026-09-30 and are SUPERSEDED: their "uses the alpha split tunnel" premise and the option-(d) recommendation were rejected (known is not alpha; the attention recorder is plan §5 open), and their "What closes it" condition is SATISFIED. D-LXA-3's only remaining blocker is D-LXC-4 (the shared `academic_20k.csv` loader, STATUS_BOARD). **Basis:** VERIFIED-IN-CODE (5+3 council on
