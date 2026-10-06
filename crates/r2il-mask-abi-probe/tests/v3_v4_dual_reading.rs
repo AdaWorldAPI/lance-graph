@@ -37,7 +37,6 @@
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use lance_graph_contract::canonical_node::{node_rows_from_le_bytes, NodeRow};
 use lance_graph_contract::facet::FacetCascade;
@@ -51,17 +50,19 @@ use ogar_r2il::{project, r2il_mask, R2ILFn, R2IL_BASE};
 
 struct Counting;
 
-static BYTES: AtomicUsize = AtomicUsize::new(0);
-
 thread_local! {
     static MEASURING: Cell<bool> = const { Cell::new(false) };
+    // Per thread, like `MEASURING`: the test harness runs tests on parallel
+    // threads, and a shared counter let one test's allocations land in
+    // another test's measuring window.
+    static BYTES: Cell<usize> = const { Cell::new(0) };
 }
 
 // SAFETY: a pure pass-through to `System`; the counter is the only addition.
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if MEASURING.try_with(Cell::get).unwrap_or(false) {
-            BYTES.fetch_add(layout.size(), Ordering::Relaxed);
+            let _ = BYTES.try_with(|b| b.set(b.get() + layout.size()));
         }
         // SAFETY: same layout, same contract as the caller's.
         unsafe { System.alloc(layout) }
@@ -76,11 +77,11 @@ unsafe impl GlobalAlloc for Counting {
 static A: Counting = Counting;
 
 fn measure<R>(f: impl FnOnce() -> R) -> (R, usize) {
-    let before = BYTES.load(Ordering::Relaxed);
+    let before = BYTES.with(Cell::get);
     MEASURING.with(|m| m.set(true));
     let r = f();
     MEASURING.with(|m| m.set(false));
-    (r, BYTES.load(Ordering::Relaxed) - before)
+    (r, BYTES.with(Cell::get) - before)
 }
 
 // ── the resident object ──────────────────────────────────────────────────
