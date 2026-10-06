@@ -6,7 +6,7 @@ Plan: `.claude/plans/2026-10-06-global-sudoku-replayable-orchestration-v1.md`. O
 |---|---|---|---|
 | **D-GSO-0** | P0: the wiring map itself (layers, exemplars #1336/#1337/#1342/#1343, guardrails, falsifiers) | In PR (#1345) | docs only; no ABI change |
 | **D-GSO-1** | P1: make the #1344 DAV × EWA × revision probe causally end-to-end | In PR (#1344) | bypassing the revision leg must change or fail the replay result (plan §14) |
-| **D-GSO-2** | P2: one-hop Moore local-plasticity probe (neighbour mask → ordinal → 8:8 relation → immediate fold) | Queued | no edge list; no "until stable" loop |
+| **D-GSO-2** | P2: one-hop Moore local-plasticity probe (neighbour mask → ordinal → 8:8 relation → immediate fold) | In PR | `cognitive-shader-driver/examples/moore_plasticity_probe.rs` over `Register128` (4 × 4) with the existing `PalettePerturbation::hop`; 6 tests (mask = geometry, 84 visits; fold = pair-list oracle; synchronous; gate; one hop; replay), 4 disable runs red |
 | **D-GSO-3** | P3: global ontology agreement/disagreement probe (mammal fixture) | Queued | separates local from accumulated global agreement; no path-object population |
 | **D-GSO-4** | P4: entropy × topology routing probe | Queued | equal-entropy basins with different 59..60 topology route differently |
 | **D-GSO-5** | P5: first recipe quartet over existing primitives | Queued | no instruction vector; ordinal meanings not canonized |
