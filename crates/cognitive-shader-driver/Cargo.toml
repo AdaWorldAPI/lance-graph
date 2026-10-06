@@ -97,6 +97,11 @@ test = true
 name = "reasoning_band_probe"
 test = true
 
+# D-GSO-7a relational-certification probe; tests run under `cargo test`.
+[[example]]
+name = "relational_certification_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the

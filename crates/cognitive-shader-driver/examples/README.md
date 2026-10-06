@@ -177,6 +177,27 @@ events replay to the same edge bits. The ladder and thresholds are policy pins.
 cargo run -p cognitive-shader-driver --example reasoning_band_probe
 ```
 
+## relational_certification_probe.rs
+
+D-GSO-7a (P7a). Replaces the meaning of the band rungs from `reasoning_band_probe`
+(#1360, which stays as shipped). Under a reading declared per class, bits 61..63
+hold the strongest relational statement the sealed model may assert:
+`0 Open, 1 Associated, 2 Related, 3 Contributes, 4 CausalCandidate, 5 Causes`;
+6 and 7 are reserved and refuse. Each contract is an integer fold over unit
+masks and a `SupportLedger`: association needs two distinct sources, the
+robustness mask can only refute, `Contributes` is a stable effect in every
+declared stratum, and `Causes` needs two distinct `InterventionBacked` sources
+plus executed randomized arms. No observational effect reaches `Causes`, the
+inference mantissa does not move the band, and the historical `Meta` /
+`Transcendent` codes do not satisfy `Causes`. An exhaustive family of 2,500
+small models shows the chain is monotone when association is scoped to the
+declared populations, and not when it is marginal (Simpson). Names and
+thresholds are policy pins.
+
+```bash
+cargo run -p cognitive-shader-driver --example relational_certification_probe
+```
+
 ## ewa_anisotropic_probe.rs
 
 D-CTX-3. Anisotropic EWA: the footprint is each virtual surfel's normalised

@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-229 entries, 2026-08-06 .. 2026-10-06.
+230 entries, 2026-08-06 .. 2026-10-06.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-10-06 | `D-GSO-6` |  | [2026-10-06-selector-revision-wired.md](2026-10-06-selector-revision-wired.md) |
 | 2026-10-06 | `selector-observations-wired` |  | [2026-10-06-selector-observations-wired.md](2026-10-06-selector-observations-wired.md) |
 | 2026-10-06 | `selector-local-disagreement-wired` |  | [2026-10-06-selector-local-disagreement-wired.md](2026-10-06-selector-local-disagreement-wired.md) |
+| 2026-10-06 | `D-GSO-7a` |  | [2026-10-06-reasoning-band-as-relational-certification.md](2026-10-06-reasoning-band-as-relational-certification.md) |
 | 2026-10-06 | `quack-r2il-one-evaluator-round4` |  | [2026-10-06-quack-r2il-one-evaluator-round4.md](2026-10-06-quack-r2il-one-evaluator-round4.md) |
 | 2026-10-06 | `D-MORTON-0` |  | [2026-10-06-morton8x8-checked-address.md](2026-10-06-morton8x8-checked-address.md) |
 | 2026-10-06 | `diff-plateau-as-expression-round5` |  | [2026-10-06-diff-plateau-as-expression-round5.md](2026-10-06-diff-plateau-as-expression-round5.md) |
