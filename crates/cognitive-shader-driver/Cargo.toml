@@ -68,6 +68,11 @@ test = true
 name = "ewa_render_probe"
 test = true
 
+# D-CTX-3 anisotropic EWA accumulation probe; tests run under `cargo test`.
+[[example]]
+name = "ewa_anisotropic_probe"
+test = true
+
 # D-GSO-6 recipe selector probe; tests run under `cargo test`.
 [[example]]
 name = "recipe_selector_probe"

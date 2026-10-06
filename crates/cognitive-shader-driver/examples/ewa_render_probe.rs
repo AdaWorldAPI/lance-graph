@@ -45,7 +45,13 @@ use std::mem::size_of;
 
 use bgz_tensor::fisher_z::FisherZTable;
 use lance_graph_contract::morton8x8::Morton8x8;
-use lance_graph_contract::sigma_propagation::{ewa_sandwich, Spd2};
+use lance_graph_contract::sigma_propagation::Spd2;
+
+#[path = "support/ewa.rs"]
+mod ewa;
+use ewa::{
+    amplitude, footprint_sigma, isotropic_scale, max_abs, render_isotropic, splat, Field, RADIUS,
+};
 
 #[path = "support/fisher_relation.rs"]
 mod fisher_relation;
@@ -54,73 +60,9 @@ use fisher_relation::{allocations_during, representatives, PairwiseFisherZ};
 #[path = "support/virtual_surfel.rs"]
 mod virtual_surfel;
 use virtual_surfel::{
-    activation_fixture, for_each_surfel, neighbor, permutation_tile, repeated_tile, SurfelReading,
-    Tile, IDENTITY_WEIGHT, PIXELS,
+    activation_fixture, for_each_surfel, permutation_tile, repeated_tile, SurfelReading, Tile,
+    IDENTITY_WEIGHT, PIXELS,
 };
-
-/// Footprint window radius: 7 x 7 offsets around the center.
-const RADIUS: i8 = 3;
-/// Largest relation mass a surfel can have: 8 neighbours at 254.
-const MAX_MASS: f64 = 8.0 * 254.0;
-
-/// The transient rendered surface, one `f64` per pixel, lane = Morton code.
-type Field = [f64; PIXELS];
-
-// ── the law, probe-local ───────────────────────────────────────────────────
-
-/// Isotropic scale of a reading: `(Σxx + Σyy) / 2W`. `None` when `W = 0`.
-#[inline]
-fn isotropic_scale(r: &SurfelReading) -> Option<f64> {
-    (r.weight > 0).then(|| f64::from(r.sxx + r.syy) / (2.0 * f64::from(r.weight)))
-}
-
-/// The footprint covariance through the contract's sandwich: `√s·I · I · √s·I`.
-#[inline]
-fn footprint_sigma(s: f64) -> Spd2 {
-    let m = Spd2 {
-        a: s.sqrt(),
-        b: 0.0,
-        c: s.sqrt(),
-    };
-    ewa_sandwich(&m, &Spd2::I)
-}
-
-/// Splat amplitude: activation times the surfel's relation mass fraction.
-#[inline]
-fn amplitude(r: &SurfelReading) -> f64 {
-    f64::from(r.amplitude) * f64::from(r.weight) / MAX_MASS
-}
-
-/// The normalized 2-D Gaussian density of `Σ` at offset `(dx, dy)`.
-#[inline]
-fn footprint(sigma: &Spd2, dx: f64, dy: f64) -> f64 {
-    let det = sigma.det();
-    let q = (sigma.c * dx * dx - 2.0 * sigma.b * dx * dy + sigma.a * dy * dy) / det;
-    (-0.5 * q).exp() / (2.0 * PI * det.sqrt())
-}
-
-/// Scatter one footprint into the field over the clipped window.
-#[inline]
-fn splat(field: &mut Field, center: Morton8x8, sigma: &Spd2, amp: f64) {
-    for dy in -RADIUS..=RADIUS {
-        for dx in -RADIUS..=RADIUS {
-            if let Some(p) = neighbor(center, dx, dy) {
-                field[p.code() as usize] += amp * footprint(sigma, f64::from(dx), f64::from(dy));
-            }
-        }
-    }
-}
-
-// ── B: fused ───────────────────────────────────────────────────────────────
-
-/// Read every activated surfel and accumulate its footprint at once.
-fn render_fused(tile: &Tile, act: &Tile, law: &PairwiseFisherZ<'_>, field: &mut Field) {
-    for_each_surfel(tile, act, law, IDENTITY_WEIGHT, |r| {
-        if let Some(s) = isotropic_scale(&r) {
-            splat(field, r.center, &footprint_sigma(s), amplitude(&r));
-        }
-    });
-}
 
 // ── A: materialized ────────────────────────────────────────────────────────
 
@@ -199,17 +141,13 @@ fn render_gather(tile: &Tile, act: &Tile, law: &PairwiseFisherZ<'_>) -> Field {
     field
 }
 
-fn max_abs(f: &Field) -> f64 {
-    f.iter().fold(0.0, |m, v| m.max(v.abs()))
-}
-
 fn main() {
     let table = FisherZTable::build(&representatives(1), 256);
     let law = PairwiseFisherZ::borrow(&table);
     let (tile, act) = (repeated_tile(), activation_fixture());
 
     let mut b = [0.0; PIXELS];
-    let ((), n_alloc, n_bytes) = allocations_during(|| render_fused(&tile, &act, &law, &mut b));
+    let ((), n_alloc, n_bytes) = allocations_during(|| render_isotropic(&tile, &act, &law, &mut b));
     let (a, inv) = render_materialized(&tile, &act, &law);
     let c = render_gather(&tile, &act, &law);
     let worst = (0..PIXELS).map(|i| (b[i] - c[i]).abs()).fold(0.0, f64::max);
@@ -254,7 +192,10 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use super::ewa::footprint;
+    use super::virtual_surfel::neighbor;
     use super::*;
+    use lance_graph_contract::sigma_propagation::ewa_sandwich;
 
     fn table() -> FisherZTable {
         FisherZTable::build(&representatives(1), 256)
@@ -262,7 +203,7 @@ mod tests {
 
     fn fused(tile: &Tile, act: &Tile, law: &PairwiseFisherZ<'_>) -> Field {
         let mut f = [0.0; PIXELS];
-        render_fused(tile, act, law, &mut f);
+        render_isotropic(tile, act, law, &mut f);
         f
     }
 
@@ -323,7 +264,7 @@ mod tests {
         let law = PairwiseFisherZ::borrow(&table);
         let (tile, act) = (repeated_tile(), activation_fixture());
         let mut f = [0.0; PIXELS];
-        let ((), n, bytes) = allocations_during(|| render_fused(&tile, &act, &law, &mut f));
+        let ((), n, bytes) = allocations_during(|| render_isotropic(&tile, &act, &law, &mut f));
         assert_eq!((n, bytes), (0, 0));
         let (_, n_a, _) = allocations_during(|| render_materialized(&tile, &act, &law));
         assert!(n_a >= 2, "counter is blind");
