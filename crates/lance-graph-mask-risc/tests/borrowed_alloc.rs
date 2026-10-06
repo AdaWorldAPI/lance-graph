@@ -7,11 +7,11 @@
 //! test and fails here, because allocation would become a function of the
 //! population's history rather than of its maximum.
 //!
-//! Own binary, own counting allocator: the counter is process-global and a
-//! second concurrent `#[test]` pollutes the delta.
+//! Own binary, own counting allocator. The counter is thread-local, so
+//! neither a second `#[test]` nor libtest's own threads can pollute the delta.
 
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::cell::Cell;
 
 use lance_graph_mask_risc::{
     execute, scratch_words_for, words_for, LaneRef, MaskOp, Operand, Planes, Pred, Program,
@@ -19,12 +19,24 @@ use lance_graph_mask_risc::{
 };
 
 struct Counting;
-static BYTES: AtomicUsize = AtomicUsize::new(0);
+// THREAD-LOCAL, not process-global: libtest keeps its own threads alive while
+// the test body runs, and on a loaded runner they allocate inside the
+// measured window. Measured 2026-10-06: the global form failed 1 run in 300
+// under CPU load with 900 stray bytes, the same contamination
+// `no_alloc.rs` recorded at 790. Every measured window here runs on the test
+// thread, so counting only that thread is exact.
+thread_local! {
+    static BYTES: Cell<usize> = const { Cell::new(0) };
+}
+
+fn bytes() -> usize {
+    BYTES.with(Cell::get)
+}
 
 // SAFETY: a pure pass-through to `System`; the counter is the only addition.
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        BYTES.fetch_add(layout.size(), Ordering::Relaxed);
+        let _ = BYTES.try_with(|b| b.set(b.get() + layout.size()));
         // SAFETY: same layout, same contract as the caller's.
         unsafe { System.alloc(layout) }
     }
@@ -143,7 +155,7 @@ fn one_growing_buffer_serves_every_row_count_without_allocating() {
         execute(&p, &planes, &mut s, None).expect("runs");
     }
 
-    let before = BYTES.load(Ordering::Relaxed);
+    let before = bytes();
     // A fixed array, not a `Vec`: the measured region must allocate nothing of
     // its own, or the gate measures the harness instead of the arena.
     let mut results = [Value::Blended; 10];
@@ -158,7 +170,7 @@ fn one_growing_buffer_serves_every_row_count_without_allocating() {
         let mut s = Scratch::over_for_program(&mut buf, &p, f.n).expect("prefix fits");
         results[i] = execute(&p, &planes, &mut s, None).expect("runs");
     }
-    let after = BYTES.load(Ordering::Relaxed);
+    let after = bytes();
 
     assert_eq!(
         after - before,
@@ -176,7 +188,7 @@ fn one_growing_buffer_serves_every_row_count_without_allocating() {
 
     // can-it-fire: the counter must move on a real allocation, or every
     // zero above is an instrument that measures nothing.
-    let mark = BYTES.load(Ordering::Relaxed);
+    let mark = bytes();
     let probe = std::hint::black_box(vec![0u8; 4096]);
-    assert!(BYTES.load(Ordering::Relaxed) - mark >= probe.len());
+    assert!(bytes() - mark >= probe.len());
 }
