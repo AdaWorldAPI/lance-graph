@@ -38,6 +38,11 @@ required-features = ["lab"]
 name = "moore_plasticity_probe"
 test = true
 
+# D-GSO-3 probe; tests run under the crate's `cargo test` like D-GSO-2.
+[[example]]
+name = "ontology_agreement_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
