@@ -119,6 +119,24 @@ impl<'a> PairwiseFisherZ<'a> {
             (f32::from(code) + 127.0) / 254.0 * self.gamma.z_range + self.gamma.z_min
         })
     }
+
+    /// First material pair `(s, b)`, `s != b`, whose Fisher-Z code lies in
+    /// `range`. A fixture helper: it scans the table, so it is never on a hot
+    /// path.
+    pub fn pair_with_code(&self, range: std::ops::RangeInclusive<i8>) -> (u8, u8) {
+        for s in 0..=255u8 {
+            for b in 0..=255u8 {
+                if s != b {
+                    if let Relation::Pair(r) = self.relation(PaletteState(s), PaletteState(b)) {
+                        if range.contains(&r) {
+                            return (s, b);
+                        }
+                    }
+                }
+            }
+        }
+        panic!("no pair with code in {range:?}");
+    }
 }
 
 // ── calibration fixture ─────────────────────────────────────────────────────
