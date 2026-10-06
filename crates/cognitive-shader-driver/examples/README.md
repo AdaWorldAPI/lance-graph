@@ -90,3 +90,18 @@ calibrated bytes.
 ```bash
 cargo run -p cognitive-shader-driver --example fieldless_local_interaction_probe
 ```
+
+## recipe_quartet_probe.rs
+
+D-GSO-5 (plan §18 P5). Four recipes, each a `match` arm that calls one
+existing primitive directly: observe/fold (`Quorum::observe`), finite-product
+interrogation (`Quad8::fold_product`), Moore interrogation
+(`Morton8x8::checked_offset` + `PalettePerturbation::hop` over `Register128`),
+and counterfactual removal + revision (`GadamerRevision::revise`, run twice).
+A counting allocator shows each recipe runs with zero allocations, so no
+instruction vector is built. The ordinal meanings are a scaffold, not canon,
+and `ProbeRecipe` is not a shipped `recipes::Recipe` ID.
+
+```bash
+cargo run -p cognitive-shader-driver --example recipe_quartet_probe
+```

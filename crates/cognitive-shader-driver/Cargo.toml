@@ -43,7 +43,7 @@ test = true
 name = "ontology_agreement_probe"
 test = true
 
-# D-GSO-4 probe (F-ECG-1..3); tests run under the crate's `cargo test`.
+# D-GSO-4 probe (F-ECG-1/2); tests run under the crate's `cargo test`.
 [[example]]
 name = "entropy_topology_probe"
 test = true
@@ -51,6 +51,11 @@ test = true
 # D-CTX-0 fieldless local interaction probe; tests run under `cargo test`.
 [[example]]
 name = "fieldless_local_interaction_probe"
+test = true
+
+# D-GSO-5 recipe quartet probe; tests run under `cargo test`.
+[[example]]
+name = "recipe_quartet_probe"
 test = true
 
 [dependencies]
