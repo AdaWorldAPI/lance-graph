@@ -153,23 +153,23 @@ fn render(tile: &Tile, law: &PairwiseFisherZ<'_>) -> Field {
 fn main() {
     let table = FisherZTable::build(&representatives(1), 256);
     let law = PairwiseFisherZ::borrow(&table);
-    let (weak_s, weak_b) = law.pair_with_code(-100..=-80);
-    let (strong_s, strong_b) = law.pair_with_code(80..=100);
+    let (neg_s, neg_b) = law.pair_with_code(-100..=-80);
+    let (pos_s, pos_b) = law.pair_with_code(80..=100);
 
-    let weak = render(&split(weak_s, weak_b, true), &law);
-    let (w, n_alloc, n_bytes) = allocations_during(|| strongest_boundary(&weak));
+    let negative = render(&split(neg_s, neg_b, true), &law);
+    let (w, n_alloc, n_bytes) = allocations_during(|| strongest_boundary(&negative));
     let w = w.expect("non-empty inner region");
-    let (a, a_bytes) = strongest_boundary_materialized(&weak);
-    let strong = strongest_boundary(&render(&split(strong_s, strong_b, true), &law)).unwrap();
-    let flat = strongest_boundary(&render(&[weak_s; PIXELS], &law)).unwrap();
-    let flat_field = render(&[weak_s; PIXELS], &law);
+    let (a, a_bytes) = strongest_boundary_materialized(&negative);
+    let positive = strongest_boundary(&render(&split(pos_s, pos_b, true), &law)).unwrap();
+    let flat = strongest_boundary(&render(&[neg_s; PIXELS], &law)).unwrap();
+    let flat_field = render(&[neg_s; PIXELS], &law);
 
     println!(
         "D-CTX-4 strongest-boundary measurement over the D-CTX-2 surface, inner region {INNER:?}"
     );
     println!("  law generation             : {:#018x}", law.generation);
     println!(
-        "  weak boundary (code -100..=-80) : at ({}, {})  |g| {:.4}  gx {:+.4}  gy {:+.4}",
+        "  negative-code pair (-100..=-80) : at ({}, {})  |g| {:.4}  gx {:+.4}  gy {:+.4}",
         w.at.x(),
         w.at.y(),
         w.magnitude,
@@ -177,10 +177,10 @@ fn main() {
         w.gy
     );
     println!(
-        "  strong boundary (code 80..=100) : at ({}, {})  |g| {:.4}",
-        strong.at.x(),
-        strong.at.y(),
-        strong.magnitude
+        "  positive-code pair (80..=100)   : at ({}, {})  |g| {:.4}",
+        positive.at.x(),
+        positive.at.y(),
+        positive.magnitude
     );
     println!(
         "  uniform tile                    : |g| {:.3e} against field max {:.3e}",
@@ -278,11 +278,13 @@ mod tests {
         }
     }
 
-    /// FAILS IF: the measured contrast does not follow the law: a weakly
-    /// related pair must read as a stronger boundary than a strongly related
-    /// one, and identical material must read as none.
+    /// FAILS IF: the rendered boundary response does not change
+    /// deterministically with the signed pair-law code. The measured order
+    /// (negative-code pair > mid-negative pair > positive-code pair) is pinned
+    /// as an observation about the rendered surface only; no epistemic or
+    /// semantic strength is read from it. Identical material reads as none.
     #[test]
-    fn the_contrast_follows_the_pair_law() {
+    fn boundary_response_changes_with_the_signed_pair_code() {
         let table = table();
         let law = PairwiseFisherZ::borrow(&table);
         let measure = |range: RangeInclusive<i8>| {
@@ -291,9 +293,13 @@ mod tests {
                 .unwrap()
                 .magnitude
         };
-        let (weak, mid, strong) = (measure(-100..=-80), measure(-40..=-20), measure(80..=100));
-        assert!(weak > mid && mid > strong, "{weak} {mid} {strong}");
-        assert!(strong > 0.0);
+        let (negative, mid_negative, positive) =
+            (measure(-100..=-80), measure(-40..=-20), measure(80..=100));
+        assert!(
+            negative > mid_negative && mid_negative > positive,
+            "{negative} {mid_negative} {positive}"
+        );
+        assert!(positive > 0.0);
     }
 
     /// FAILS IF: the tie-break is not "smaller Morton code wins". Two equal

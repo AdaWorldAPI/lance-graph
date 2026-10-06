@@ -201,9 +201,23 @@ D-CTX-4. One read-only measurement over the rendered surface: where is it
 steepest? The operator reads the D-CTX-2 field over the inner region whose
 values cannot see the tile edge, and returns a 32-byte witness (location,
 magnitude, gradient) instead of a gradient field. A material boundary is found
-where the palette changes, its contrast follows the Fisher-Z relation of the
-two materials, a uniform tile reads flat, and measuring never changes the field.
+where the palette changes, the rendered boundary response changes
+deterministically with the signed pair-law code of the two materials (an
+observation about the surface, not a semantic strength), a uniform tile reads flat, and measuring never changes the field.
 
 ```bash
 cargo run -p cognitive-shader-driver --example boundary_measure_probe
+```
+
+## morton_order_probe.rs
+
+D-CTX-5. Does the order in which surfels are visited change the render? Four
+orders over the same 16 × 16 tile (Morton, the order D-CTX-2 uses; row-major;
+4 × 4 tiled; reversed). The `f64` scatter changes in its last bits with the
+order, so that order is part of its replay identity; an `i64` fixed-point
+accumulator gives the same bits for every order. The probe also measures each
+order's trie ascent per step through `Morton8x8::nibble_climb`.
+
+```bash
+cargo run -p cognitive-shader-driver --example morton_order_probe
 ```
