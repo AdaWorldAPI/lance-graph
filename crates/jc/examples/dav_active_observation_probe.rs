@@ -264,7 +264,7 @@ fn main() {
         let efficiency = if touched == 0 {
             0.0
         } else {
-            f64::from(hit) / touched as f64
+            (if hit { 1.0 } else { 0.0 }) / touched as f64
         };
 
         if efficiency > best_efficiency.1 {
@@ -284,7 +284,7 @@ fn main() {
     assert!(
         rank_candidates(&observed, 0.45)
             .first()
-            .is_none_or(|c| c.idx != TARGET),
+            .map_or(true, |c| c.idx != TARGET),
         "narrow aperture unexpectedly reached the planted hop-10 target"
     );
 
