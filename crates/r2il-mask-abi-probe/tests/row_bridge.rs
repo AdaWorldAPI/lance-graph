@@ -51,19 +51,27 @@
 //!
 //! Of the twelve `0xE2..=0xED` fold-band opcodes: **`VIA`** (the join-key
 //! address constructor), **`SUM`** (the scalar reduction this file's three
-//! frontends need) and **`GROUP_SUM`** (the keyed reduction, one byte whose
-//! physical terminal is chosen by the KEY operand's address kind) are wired.
-//! The other nine — `RANGE`, `MIN`, `MAX`, `KEY_RUNS`, `ANY`, `ALL`, `KEEP`,
-//! `SCATTER_OR`, `BLEND` — are refused as [`FoldError::Unimplemented`], named
-//! individually in the refusal, never silently coerced into one of the three
+//! frontends need), **`GROUP_SUM`** (the keyed reduction, one byte whose
+//! physical terminal is chosen by the KEY operand's address kind),
+//! **`RANGE`** (`Pred::Range`, bounds as the call's two immediates) and
+//! **`KEEP`** (`Terminal::Keep` into a caller-lent mask sink) are wired.
+//! The other seven — `MIN`, `MAX`, `KEY_RUNS`, `ANY`, `ALL`, `SCATTER_OR`,
+//! `BLEND` — are refused as [`FoldError::Unimplemented`], named
+//! individually in the refusal, never silently coerced into one of the ones
 //! that exist.
+//!
+//! `RANGE`, `KEEP`, `IntNot` and `LOAD` space 3 (a RESIDENT mask plane as an
+//! address, read where it stands as `Operand::Plane`) were added in Round 4
+//! with their falsifiers (§ "Round 4" at the end of this file). Each lowers to
+//! a `Pred`/`MaskOp`/`Terminal` mask-risc already had; none adds a kernel.
 //! Landing any of them without its own falsifier would be the same enum-
 //! explosion `ogar_r2il`'s own `ARITY` doc warns against ("a first draft…
 //! invented nine variants from memory").
 //!
 //! Of the R2IL band: `Load`, `IntSub` (scalar/scalar only — `Addr`/`Addr` is
 //! a NAMED refusal, not an omission), `IntAnd` (with the survivor-gating
-//! peephole), `IntEqual`, `IntSLess`, and `PopCount` are wired. `IntAdd` is
+//! peephole, now also for a resident plane against a slot), `IntNot`,
+//! `IntEqual`, `IntSLess`, and `PopCount` are wired. `IntAdd` is
 //! refused as `Unimplemented` (nothing in the three frontend-SHAPED programs
 //! below needs
 //! it — the Mathcad case only ever SUBTRACTS two folds). `IntLess` and
@@ -72,7 +80,7 @@
 //! target machine — has no unsigned lane compare (`ogar_r2il`'s own module
 //! doc states this explicitly; it is the mechanical REASON the refusal
 //! exists, not a gap this file left open). `IntSLessEqual`, `IntNotEqual`,
-//! `IntOr`, `IntXor`, `IntNot` are untested and fall to the generic
+//! `IntOr`, `IntXor` are untested and fall to the generic
 //! `Unimplemented` catch-all — none of the three frontend-shaped programs
 //! needs them, and
 //! landing them ahead of a falsifier would be exactly the anti-pattern this
@@ -237,15 +245,15 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
 use lance_graph_mask_risc::{
-    execute_into, scratch_words_for, tile_words_for, Foreign, LaneKind, LaneRef, MaskOp, Operand,
-    Out, Planes, Pred, Program, Scratch, Terminal, Value, TILE_WORDS,
+    execute_into, scratch_words_for, tile_words_for, Foreign, LaneKind, LaneRef, Lowering, MaskOp,
+    Operand, Out, Planes, Pred, Program, Scratch, Terminal, Value, TILE_WORDS,
 };
 use lance_graph_quack::{Agg, Cmp, Col, Filter, ForeignLane, Query};
 use ogar_loco::vocabulary::conformance::validate;
 use ogar_loco::{
     Call, Dialect, FnIndex, FunctionBody, Interpreter, LaneShape, Program as LocoProgram,
 };
-use ogar_r2il::{R2ILVocabulary, GROUP_SUM, R2IL_BASE, SUM, VIA};
+use ogar_r2il::{R2ILVocabulary, GROUP_SUM, KEEP, R2IL_BASE, RANGE, SUM, VIA};
 
 // ── allocation counter — THREAD-LOCAL, not global ──────────────────────────
 //
@@ -321,6 +329,9 @@ fn bytes_now() -> usize {
 const LOAD: FnIndex = FnIndex(R2IL_BASE + 1);
 const INT_SUB: FnIndex = FnIndex(R2IL_BASE + 10);
 const INT_AND: FnIndex = FnIndex(R2IL_BASE + 20);
+/// `IntNot` = ordinal 23, arity 1 (confirmed against `R2ILFn::MNEMONICS`).
+/// Over a population it lowers to `MaskOp::Not`.
+const INT_NOT: FnIndex = FnIndex(R2IL_BASE + 23);
 const INT_EQUAL: FnIndex = FnIndex(R2IL_BASE + 27);
 const INT_LESS: FnIndex = FnIndex(R2IL_BASE + 29);
 const INT_S_LESS: FnIndex = FnIndex(R2IL_BASE + 30);
@@ -346,6 +357,10 @@ enum Addr {
     /// [`Foreign::lanes`] on the OTHER table — the same two fields
     /// [`Pred::EqU32Via`] carries.
     Via { fk: u16, key: u16 },
+    /// A RESIDENT mask plane, [`Planes::masks`]`[idx]` — read as an operand
+    /// where it stands (`Operand::Plane`), never copied into a slot.
+    /// `LOAD` space 3.
+    Plane(u16),
 }
 
 /// The loco stack's value type. Every variant is either a scalar (a runtime
@@ -395,8 +410,11 @@ enum FoldError {
     /// two lane addresses is not a fold-band operation this dialect knows
     /// how to interpret.
     LaneVersusLane(FnIndex),
-    /// `LOAD`'s own immediate named a space outside `{0=U32, 1=I32, 2=U64}`.
+    /// `LOAD`'s own immediate named a space outside
+    /// `{0=U32, 1=I32, 2=U64, 3=resident mask plane}`.
     UnknownLoadSpace(u8),
+    /// `KEEP` ran on a dialect that was not lent a mask sink.
+    NoKeepSink,
     /// A [`Val::Slot`] whose epoch does not match [`FoldDialect::epoch`] was
     /// fed to a consuming arm (`INT_AND`/`POP_COUNT`/`SUM`/`GROUP_SUM`). The slot names a
     /// scratch position in an `ops` graph a PRIOR fold's `finalize_and_run`
@@ -416,6 +434,14 @@ enum FoldError {
 /// Borrows the planes rather than owning them — legal because
 /// `Interpreter::new` takes its dialect by value with no lifetime bound
 /// tying it to the interpreter's own `'a`.
+/// Which caller buffer a finalized fold writes into.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OutKind {
+    None,
+    Group,
+    Keep,
+}
+
 struct FoldDialect<'p> {
     planes: &'p Planes<'p>,
     foreign: &'p Foreign<'p>,
@@ -447,6 +473,14 @@ struct FoldDialect<'p> {
     /// zero-fills it before each grouped fold, so it always holds the LAST
     /// grouped fold's answer.
     group_sink: &'p mut [i64],
+    /// Caller-owned `KEEP` destination, `words_for(n_rows)` long — the
+    /// demanded result when a body asks for the mask itself. `None` unless
+    /// the dialect was built by [`Self::with_keep`].
+    keep_sink: Option<&'p mut [u64]>,
+    /// The last fold program this dialect finalized and ran, kept so a test
+    /// can compare it physically against `quack::lower`'s. Moved in after
+    /// execution, never cloned.
+    last_program: Option<Program>,
     /// Total `MaskOp`s across every finalized program this dialect has run —
     /// the "physical facade passes" measurement.
     facade_passes: usize,
@@ -475,6 +509,8 @@ impl<'p> FoldDialect<'p> {
             epoch: 0,
             scratch: vec![0u64; cap],
             group_sink: &mut [],
+            keep_sink: None,
+            last_program: None,
             facade_passes: 0,
             programs_run: 0,
             poison: Cell::new(None),
@@ -492,6 +528,12 @@ impl<'p> FoldDialect<'p> {
 
     /// The population-branch poison flag, if [`Dialect::truthy`] ever set
     /// one during the run — read AFTER `Interpreter::run()` returns.
+    fn with_keep(planes: &'p Planes<'p>, foreign: &'p Foreign<'p>, sink: &'p mut [u64]) -> Self {
+        let mut d = Self::new(planes, foreign);
+        d.keep_sink = Some(sink);
+        d
+    }
+
     fn poison(&self) -> Option<FoldError> {
         self.poison.get()
     }
@@ -551,7 +593,7 @@ impl<'p> FoldDialect<'p> {
     /// terminals), `true` → `Out::I64` over [`Self::group_sink`]. It is a
     /// parameter rather than a second finalize function so the slot-epoch
     /// boundary below exists in exactly one place for every terminal.
-    fn finalize_and_run(&mut self, terminal: Terminal, grouped: bool) -> Result<Value, FoldError> {
+    fn finalize_and_run(&mut self, terminal: Terminal, out: OutKind) -> Result<Value, FoldError> {
         let ops = std::mem::take(&mut self.ops);
         self.next_slot = 0;
         self.epoch += 1;
@@ -561,13 +603,15 @@ impl<'p> FoldDialect<'p> {
         let words = tile_words_for(self.planes.n_rows);
         let mut scratch = Scratch::over(&mut self.scratch, words, program.scratch_slots as usize)
             .map_err(FoldError::Exec)?;
-        let out = if grouped {
-            Out::I64(self.group_sink)
-        } else {
-            Out::None
+        let out = match out {
+            OutKind::None => Out::None,
+            OutKind::Group => Out::I64(self.group_sink),
+            OutKind::Keep => Out::Mask(self.keep_sink.as_deref_mut().ok_or(FoldError::NoKeepSink)?),
         };
-        execute_into(&program, self.planes, self.foreign, &mut scratch, out)
-            .map_err(FoldError::Exec)
+        let value = execute_into(&program, self.planes, self.foreign, &mut scratch, out)
+            .map_err(FoldError::Exec);
+        self.last_program = Some(program);
+        value
     }
 
     /// [`Self::finalize_and_run`], asserting the terminal's known result
@@ -576,7 +620,7 @@ impl<'p> FoldDialect<'p> {
     /// every call site below passes a terminal whose `Value` shape is fixed
     /// by construction.
     fn finalize_and_run_scalar(&mut self, terminal: Terminal) -> Result<i64, FoldError> {
-        match self.finalize_and_run(terminal, false)? {
+        match self.finalize_and_run(terminal, OutKind::None)? {
             Value::Count(n) => Ok(i64::try_from(n).unwrap_or(i64::MAX)),
             Value::SumI64(n) => Ok(n),
             other => panic!("terminal shape guarantees Count or SumI64, got {other:?}"),
@@ -627,6 +671,12 @@ impl Dialect for FoldDialect<'_> {
                     0 => LaneKind::U32,
                     1 => LaneKind::I32,
                     2 => LaneKind::U64,
+                    3 => {
+                        stack.push(Val::Address(Addr::Plane(
+                            u16::try_from(idx).unwrap_or(u16::MAX),
+                        )));
+                        return Ok(());
+                    }
                     other => return Err(FoldError::UnknownLoadSpace(other)),
                 };
                 stack.push(Val::Address(Addr::Lane {
@@ -791,6 +841,22 @@ impl Dialect for FoldDialect<'_> {
                         });
                         Ok(())
                     }
+                    // A resident plane ANDed with a slot: the plane is the
+                    // peephole's left operand, so a last ungated pred is gated
+                    // UNDER the plane (the survivor skip) instead of spending
+                    // an `And` pass.
+                    (Val::Address(Addr::Plane(p)), Val::Slot { slot, epoch })
+                    | (Val::Slot { slot, epoch }, Val::Address(Addr::Plane(p))) => {
+                        if epoch != self.epoch {
+                            return Err(FoldError::StaleSlot);
+                        }
+                        let dst = self.and_peephole(Operand::Plane(p), Operand::Scratch(slot));
+                        stack.push(Val::Slot {
+                            slot: dst,
+                            epoch: self.epoch,
+                        });
+                        Ok(())
+                    }
                     (Val::Scalar(x), Val::Scalar(y)) => {
                         stack.push(Val::Scalar(x & y));
                         Ok(())
@@ -892,11 +958,69 @@ impl Dialect for FoldDialect<'_> {
                 if epoch != self.epoch {
                     return Err(FoldError::StaleSlot);
                 }
-                match self.finalize_and_run(terminal, true)? {
+                match self.finalize_and_run(terminal, OutKind::Group)? {
                     Value::GroupSummed => Ok(()),
                     other => {
                         panic!("GROUP_SUM terminal shape guarantees GroupSummed, got {other:?}")
                     }
+                }
+            }
+            INT_NOT => {
+                let a = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let operand = match a {
+                    Val::Scalar(x) => {
+                        stack.push(Val::Scalar(!x));
+                        return Ok(());
+                    }
+                    Val::Address(Addr::Plane(p)) => Operand::Plane(p),
+                    Val::Slot { slot, epoch } => {
+                        if epoch != self.epoch {
+                            return Err(FoldError::StaleSlot);
+                        }
+                        Operand::Scratch(slot)
+                    }
+                    Val::Address(_) => return Err(FoldError::WrongOperandKind(f)),
+                };
+                let dst = self.fresh();
+                self.ops.push(MaskOp::Not { a: operand, dst });
+                stack.push(Val::Slot {
+                    slot: dst,
+                    epoch: self.epoch,
+                });
+                Ok(())
+            }
+            // Arity 0: the population constructor takes its bounds from the
+            // call's immediates (`lo = v[0]`, `hi = v[1]`, so 0..=255 each)
+            // and lowers to `Pred::Range`, which reads no lane. mask-risc
+            // validates `lo <= hi <= n_rows` before executing.
+            RANGE => {
+                self.emit_pred(
+                    Pred::Range {
+                        lo: u32::from(v[0]),
+                        hi: u32::from(v[1]),
+                    },
+                    stack,
+                );
+                Ok(())
+            }
+            // Arity 1, pushes nothing: the mask itself is the demanded result,
+            // written into the caller's `keep_sink` by `Terminal::Keep`.
+            KEEP => {
+                let mask = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let Val::Slot { slot, epoch } = mask else {
+                    return Err(FoldError::WrongOperandKind(f));
+                };
+                if epoch != self.epoch {
+                    return Err(FoldError::StaleSlot);
+                }
+                match self.finalize_and_run(
+                    Terminal::Keep {
+                        mask: Operand::Scratch(slot),
+                    },
+                    OutKind::Keep,
+                )? {
+                    Value::Mask(_) => Ok(()),
+                    other => panic!("KEEP terminal shape guarantees Mask, got {other:?}"),
                 }
             }
             other => Err(FoldError::Unimplemented(other)),
@@ -1935,9 +2059,11 @@ fn a_stale_slot_is_refused_not_silently_folded() {
 /// value per call. Every value-producing arm in `Dialect::call` pops its
 /// arity's worth of operands and pushes exactly one result, so THE DIALECT
 /// never shrinks the stack past a value sitting beneath a fold's own result.
-/// Covers the implemented set — `NUMBER`, `LOAD`, `VIA`, `INT_EQUAL`,
-/// `INT_S_LESS`, `INT_AND`, `INT_SUB`, `POP_COUNT`, `SUM` — driving the
-/// refusal arms too would add nothing: a refusal never reaches a push.
+/// Covers the implemented set — `NUMBER`, `LOAD` (including space 3, the
+/// resident plane), `VIA`, `INT_EQUAL`, `INT_S_LESS`, `INT_AND`, `INT_NOT`,
+/// `INT_SUB`, `RANGE`, `POP_COUNT`, `SUM` — driving the refusal arms too
+/// would add nothing: a refusal never reaches a push. `KEEP`, like
+/// `GROUP_SUM`, is a write terminal and pushes nothing; it is pinned here too.
 ///
 /// `GROUP_SUM` is the one implemented op that does NOT push exactly one: it
 /// is a write terminal, pops three and pushes nothing. That exception is
@@ -2089,6 +2215,49 @@ fn no_implemented_op_can_expose_a_stale_slot() {
             .call(SUM, [0, 0, 0], &mut stack)
             .expect("SUM of a current-epoch slot and a lane address succeeds");
         assert_pushes_exactly_one(SUM, 2, before, stack.len());
+    }
+    // LOAD space 3: arity 1, pushes one plane ADDRESS (never a slot).
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![Val::Scalar(0)];
+        let before = stack.len();
+        dialect
+            .call(LOAD, [3, 0, 0], &mut stack)
+            .expect("LOAD space 3 of a scalar succeeds");
+        assert_pushes_exactly_one(LOAD, 1, before, stack.len());
+        assert_eq!(stack.last(), Some(&Val::Address(Addr::Plane(0))));
+    }
+    // INT_NOT: arity 1, over a plane address -> one slot.
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![Val::Address(Addr::Plane(0))];
+        let before = stack.len();
+        dialect
+            .call(INT_NOT, [0, 0, 0], &mut stack)
+            .expect("INT_NOT of a plane succeeds");
+        assert_pushes_exactly_one(INT_NOT, 1, before, stack.len());
+    }
+    // RANGE: arity 0 (bounds are immediates) -> one slot.
+    {
+        let mut dialect = FoldDialect::new(&planes, &foreign);
+        let mut stack: Vec<Val> = Vec::new();
+        let before = stack.len();
+        dialect
+            .call(RANGE, [1, 5, 0], &mut stack)
+            .expect("RANGE always succeeds at the dialect");
+        assert_pushes_exactly_one(RANGE, 0, before, stack.len());
+    }
+    // KEEP: arity 1, pushes ZERO — a write terminal like GROUP_SUM.
+    {
+        let mut sink = vec![0u64; lance_graph_mask_risc::words_for(16)];
+        let mut dialect = FoldDialect::with_keep(&planes, &foreign, &mut sink);
+        let mut stack: Vec<Val> = Vec::new();
+        dialect.call(RANGE, [1, 5, 0], &mut stack).expect("RANGE");
+        let before = stack.len();
+        dialect
+            .call(KEEP, [0, 0, 0], &mut stack)
+            .expect("KEEP of a live slot succeeds");
+        assert_eq!(stack.len(), before - 1, "KEEP pops one, pushes nothing");
     }
     // GROUP_SUM: arity 3, pushes ZERO — the documented exception. Built with
     // a sink, over the `Tables` fixture's own U32 (`fk`, idx0) and I32
@@ -2692,4 +2861,369 @@ fn group_sum_exposes_what_lay_beneath_it_and_the_epoch_guard_refuses_it() {
         matches!(err, ogar_loco::RunError::Dialect(FoldError::StaleSlot)),
         "expected StaleSlot, got {err:?}"
     );
+}
+
+// ── Round 4: the DAV candidate filter on one evaluator ─────────────────────
+//
+// `is_null(valid) AND lo <= row < hi` — the active-observation probe's
+// candidate selection (`crates/jc/examples/dav_active_observation_probe.rs`)
+// — spelled three ways over ONE resident validity plane:
+//
+// - Quack: `Filter::and([Filter::is_null(Mask(0)), Filter::cmp(_, Range)])`,
+//   lowered by `lance_graph_quack::lower`;
+// - R2IL bytes, NOT first: `LOAD:3`, `INT_NOT`, `RANGE`, `INT_AND`;
+// - R2IL bytes, RANGE first: `RANGE`, `LOAD:3`, `INT_NOT`, `INT_AND`;
+//
+// and checked against a row oracle. Every path ends in mask-risc's
+// `execute_into`; the R2IL side adds only lowering arms, no evaluator.
+
+/// One resident validity plane over `n` rows, tail bits zero.
+fn validity_plane(n: usize, seed: u64) -> Vec<u64> {
+    let mut s = seed;
+    let mut words = vec![0u64; lance_graph_mask_risc::words_for(n)];
+    for i in 0..n {
+        if !lcg(&mut s).is_multiple_of(3) {
+            words[i / 64] |= 1 << (i % 64);
+        }
+    }
+    words
+}
+
+/// The row oracle: unobserved AND inside `[lo, hi)`.
+fn dav_oracle(valid: &[u64], n: usize, lo: usize, hi: usize) -> Vec<u64> {
+    let mut out = vec![0u64; lance_graph_mask_risc::words_for(n)];
+    for i in 0..n {
+        let observed = valid[i / 64] >> (i % 64) & 1 == 1;
+        if !observed && (lo..hi).contains(&i) {
+            out[i / 64] |= 1 << (i % 64);
+        }
+    }
+    out
+}
+
+/// `NOT valid` first, then the range: the range is the LAST ungated pred
+/// when `INT_AND` runs, so the peephole gates it under the complemented
+/// slot.
+fn dav_r2il_not_first(lo: u8, hi: u8, terminal: FnIndex) -> LocoProgram {
+    let calls = [
+        Call::with_value(FnIndex::NUMBER, 0), // plane idx0 (validity)
+        Call::with_value(LOAD, 3),            // space=resident plane
+        Call::new(INT_NOT),                   // unobserved
+        Call::with_values(RANGE, [lo, hi, 0]),
+        Call::new(INT_AND),
+        Call::new(terminal),
+    ];
+    LocoProgram {
+        functions: vec![FunctionBody::from_calls(LaneShape::Quads, &calls).expect("fits")],
+    }
+}
+
+/// The same filter, range first: the last op before `INT_AND` is the `Not`,
+/// which is not a pred, so the peephole cannot fire and a real `And` is spent.
+fn dav_r2il_range_first(lo: u8, hi: u8, terminal: FnIndex) -> LocoProgram {
+    let calls = [
+        Call::with_values(RANGE, [lo, hi, 0]),
+        Call::with_value(FnIndex::NUMBER, 0),
+        Call::with_value(LOAD, 3),
+        Call::new(INT_NOT),
+        Call::new(INT_AND),
+        Call::new(terminal),
+    ];
+    LocoProgram {
+        functions: vec![FunctionBody::from_calls(LaneShape::Quads, &calls).expect("fits")],
+    }
+}
+
+fn dav_quack(lo: u32, hi: u32, agg: Agg) -> Program {
+    lance_graph_quack::lower(&Query {
+        filter: Filter::and([
+            Filter::is_null(lance_graph_quack::Mask(0)),
+            // The site-ordinal axis: `Pred::Range` reads no lane (see the
+            // jc probe's `SITE` constant for why it is not the value column).
+            Filter::cmp(Col(1), Cmp::Range { lo, hi }),
+        ]),
+        agg,
+    })
+    .expect("quack lowers")
+}
+
+/// The kept mask of a KEEP body, plus the last program the dialect ran.
+fn run_keep(body: &LocoProgram, planes: &Planes<'_>) -> (Vec<u64>, Program) {
+    let vocab = validate(R2ILVocabulary).expect("R2ILVocabulary conforms");
+    let mut sink = vec![0u64; lance_graph_mask_risc::words_for(planes.n_rows)];
+    let program = {
+        let dialect = FoldDialect::with_keep(planes, &Foreign::NONE, &mut sink);
+        let mut it = Interpreter::new(&vocab, body, dialect);
+        it.run().expect("KEEP body runs");
+        assert_eq!(it.dialect().poison(), None);
+        assert!(it.stack().is_empty(), "KEEP pushes nothing");
+        it.dialect().last_program.clone().expect("one fold ran")
+    };
+    (sink, program)
+}
+
+fn quack_keep(program: &Program, planes: &Planes<'_>) -> Vec<u64> {
+    let mut scratch = Scratch::for_program(program, planes.n_rows).expect("scratch");
+    let mut kept = vec![0u64; lance_graph_mask_risc::words_for(planes.n_rows)];
+    match execute_into(
+        program,
+        planes,
+        &Foreign::NONE,
+        &mut scratch,
+        Out::Mask(&mut kept),
+    )
+    .expect("quack program runs")
+    {
+        Value::Mask(_) => kept,
+        other => panic!("not a kept mask: {other:?}"),
+    }
+}
+
+const DAV_CASES: [(usize, u8, u8); 6] = [
+    (21, 0, 11),
+    (64, 3, 50),
+    (65, 0, 65),
+    (130, 5, 129),
+    (256, 0, 255),
+    (1000, 17, 200),
+];
+
+/// FAILS IF: the candidate mask (identity, not just its count) differs
+/// between quack, either R2IL byte order, and the row oracle, at any row
+/// boundary — or if any path stops agreeing on the COUNT.
+#[test]
+fn dav_candidate_filter_is_one_program_for_quack_and_r2il() {
+    for (i, &(n, lo, hi)) in DAV_CASES.iter().enumerate() {
+        let valid = validity_plane(n, 41 + i as u64);
+        let masks: [&[u64]; 1] = [&valid];
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &[],
+        };
+        let oracle = dav_oracle(&valid, n, lo.into(), hi.into());
+        let expect: u32 = oracle.iter().map(|w| w.count_ones()).sum();
+        assert!(expect > 0, "anti-vacuity: n={n} has candidates");
+
+        let q = quack_keep(&dav_quack(lo.into(), hi.into(), Agg::Rows), &planes);
+        let (a, _) = run_keep(&dav_r2il_not_first(lo, hi, KEEP), &planes);
+        let (b, _) = run_keep(&dav_r2il_range_first(lo, hi, KEEP), &planes);
+        assert_eq!(q, oracle, "quack, n={n}");
+        assert_eq!(a, oracle, "R2IL not-first, n={n}");
+        assert_eq!(b, oracle, "R2IL range-first, n={n}");
+
+        let count = |body: &LocoProgram| run_frontend(body, &planes, &Foreign::NONE);
+        let want = vec![Val::Scalar(i64::from(expect))];
+        assert_eq!(count(&dav_r2il_not_first(lo, hi, POP_COUNT)), want, "n={n}");
+        assert_eq!(
+            count(&dav_r2il_range_first(lo, hi, POP_COUNT)),
+            want,
+            "n={n}"
+        );
+        let quack_count = {
+            let p = dav_quack(lo.into(), hi.into(), Agg::Count);
+            let mut sc = Scratch::for_program(&p, n).expect("scratch");
+            execute_into(&p, &planes, &Foreign::NONE, &mut sc, Out::None).expect("runs")
+        };
+        assert_eq!(
+            quack_count,
+            Value::Count(expect as usize),
+            "quack count, n={n}"
+        );
+    }
+}
+
+/// FAILS IF: the physical shape drifts. Pinned two-sided from measurement:
+/// passes (`MaskOp`s), derived mask words written per execution
+/// (`passes × words_for(n)`), and mask-risc's own lowering class.
+///
+/// MEASURED (n = 1000, 16 words):
+///
+/// | path | passes | derived words | lowering |
+/// |---|---|---|---|
+/// | `quack::lower` | 3 (`Not`, `Range` gated under it, trailing `And`) | 48 | `Tiled` |
+/// | R2IL, `NOT` first | 2 (`Not`, `Range` gated under it) | 32 | `Tiled` |
+/// | R2IL, `RANGE` first | 3 (`Range`, `Not`, `And`) | 48 | `Tiled` |
+///
+/// The R2IL side keeps W0C's survivor-gating peephole, so in the NOT-first
+/// order it is one pass under quack — quack's trailing `And` is the same
+/// redundancy `logical_calls_fold_to_the_same_physical_pass_count_as_quack`
+/// pins for the join. In the RANGE-first order the last op before `INT_AND`
+/// is a `Not`, not a pred, so the peephole cannot fire: the R2IL pass count
+/// depends on byte order, which quack's does not.
+#[test]
+fn dav_filter_physical_work_quack_vs_r2il() {
+    let (n, lo, hi) = (1000, 17u8, 200u8);
+    let valid = validity_plane(n, 7);
+    let masks: [&[u64]; 1] = [&valid];
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &[],
+    };
+    let words = lance_graph_mask_risc::words_for(n);
+    let quack = dav_quack(lo.into(), hi.into(), Agg::Rows);
+    let (_, a) = run_keep(&dav_r2il_not_first(lo, hi, KEEP), &planes);
+    let (_, b) = run_keep(&dav_r2il_range_first(lo, hi, KEEP), &planes);
+    for (name, p) in [
+        ("quack", &quack),
+        ("r2il not-first", &a),
+        ("r2il range-first", &b),
+    ] {
+        println!(
+            "R4: {name:16} passes={} derived_words={} lowering={:?}",
+            p.ops.len(),
+            p.ops.len() * words,
+            p.lowering()
+        );
+        assert_eq!(p.lowering(), Lowering::Tiled, "{name}: no fused lowering");
+    }
+    assert_eq!(quack.ops.len(), 3, "quack: Not, gated Range, trailing And");
+    assert_eq!(a.ops.len(), 2, "not-first: Not, Range gated under it");
+    assert_eq!(b.ops.len(), 3, "range-first: Range, Not, explicit And");
+    assert!(matches!(
+        a.ops[1],
+        MaskOp::Pred {
+            pred: Pred::Range { .. },
+            under: Some(Operand::Scratch(_)),
+            ..
+        }
+    ));
+
+    // COUNT forms: still no fused lowering — `fused_terminal` folds a
+    // `Range` gated under a RESIDENT plane, and here the gate is the
+    // complement, which only exists once written into a scratch slot.
+    for p in [
+        dav_quack(lo.into(), hi.into(), Agg::Count),
+        count_program(&dav_r2il_not_first(lo, hi, POP_COUNT), &planes),
+        count_program(&dav_r2il_range_first(lo, hi, POP_COUNT), &planes),
+    ] {
+        assert_eq!(p.lowering(), Lowering::Tiled);
+    }
+}
+
+/// FAILS IF: the positive-polarity control stops folding without writes on
+/// either frontend — which would make the negative result above a statement
+/// about the frontends rather than about the complement.
+///
+/// `COUNT(observed AND lo <= row < hi)` — the same plane, un-negated. Both
+/// frontends lower it to ONE `Range` gated under the RESIDENT plane, and
+/// mask-risc folds that straight to the count (`Lowering::Range`): zero
+/// derived words written. The only thing standing between the DAV candidate
+/// count and this zero-write path is the complement on the plane.
+#[test]
+fn positive_polarity_folds_without_writing_and_the_complement_does_not() {
+    let (n, lo, hi) = (1000, 17u8, 200u8);
+    let valid = validity_plane(n, 7);
+    let masks: [&[u64]; 1] = [&valid];
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &[],
+    };
+    let quack = lance_graph_quack::lower(&Query {
+        filter: Filter::and([
+            Filter::plane(lance_graph_quack::Mask(0)),
+            Filter::cmp(
+                Col(1),
+                Cmp::Range {
+                    lo: lo.into(),
+                    hi: hi.into(),
+                },
+            ),
+        ]),
+        agg: Agg::Count,
+    })
+    .expect("quack lowers");
+    let r2il = count_program(
+        &LocoProgram {
+            functions: vec![FunctionBody::from_calls(
+                LaneShape::Quads,
+                &[
+                    Call::with_values(RANGE, [lo, hi, 0]),
+                    Call::with_value(FnIndex::NUMBER, 0),
+                    Call::with_value(LOAD, 3),
+                    Call::new(INT_AND),
+                    Call::new(POP_COUNT),
+                ],
+            )
+            .expect("fits")],
+        },
+        &planes,
+    );
+    for (name, p) in [("quack", &quack), ("r2il", &r2il)] {
+        println!(
+            "R4: positive {name:5} passes={} lowering={:?}",
+            p.ops.len(),
+            p.lowering()
+        );
+        assert!(
+            matches!(p.lowering(), Lowering::Range(_)),
+            "{name}: plane AND range must fold without writing"
+        );
+    }
+    // Same answer as the oracle on the un-negated filter.
+    let mut expect = 0u32;
+    for i in usize::from(lo)..usize::from(hi) {
+        expect += (valid[i / 64] >> (i % 64) & 1) as u32;
+    }
+    let mut sc = Scratch::for_program(&quack, n).expect("scratch");
+    assert_eq!(
+        execute_into(&quack, &planes, &Foreign::NONE, &mut sc, Out::None).expect("runs"),
+        Value::Count(expect as usize)
+    );
+    let mut sc = Scratch::for_program(&r2il, n).expect("scratch");
+    assert_eq!(
+        execute_into(&r2il, &planes, &Foreign::NONE, &mut sc, Out::None).expect("runs"),
+        Value::Count(expect as usize)
+    );
+}
+
+fn count_program(body: &LocoProgram, planes: &Planes<'_>) -> Program {
+    let vocab = validate(R2ILVocabulary).expect("R2ILVocabulary conforms");
+    let dialect = FoldDialect::new(planes, &Foreign::NONE);
+    let mut it = Interpreter::new(&vocab, body, dialect);
+    it.run().expect("runs");
+    it.dialect().last_program.clone().expect("one fold ran")
+}
+
+/// FAILS IF: the KEEP path allocates anything that scales with rows on the
+/// dialect side. The kept mask itself is the caller's demanded result,
+/// allocated OUTSIDE the measured window; inside it, bytes must be equal at
+/// one tile and 64 tiles.
+#[test]
+fn the_keep_path_allocates_nothing_proportional_to_rows() {
+    let vocab = validate(R2ILVocabulary).expect("R2ILVocabulary conforms");
+    let body = dav_r2il_not_first(3, 250, KEEP);
+    let one_tile = 64 * TILE_WORDS;
+    let mut per_n = Vec::new();
+    for &n in &[one_tile, 64 * one_tile] {
+        let valid = validity_plane(n, 9);
+        let masks: [&[u64]; 1] = [&valid];
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &[],
+        };
+        let mut sink = vec![0u64; lance_graph_mask_risc::words_for(n)];
+        let mut bytes = usize::MAX;
+        for _ in 0..8 {
+            let before = bytes_now();
+            {
+                let dialect = FoldDialect::with_keep(&planes, &Foreign::NONE, &mut sink);
+                let mut it = Interpreter::new(&vocab, &body, dialect);
+                it.run().expect("runs");
+            }
+            bytes = bytes.min(bytes_now() - before);
+        }
+        let kept: u32 = sink.iter().map(|w| w.count_ones()).sum();
+        assert!(kept > 0, "anti-vacuity: the KEEP wrote candidates");
+        println!("R4: KEEP n={n} dialect-side bytes={bytes} kept={kept}");
+        per_n.push(bytes);
+    }
+    assert_eq!(
+        per_n[0], per_n[1],
+        "KEEP-side allocation is row-independent"
+    );
+    assert!(per_n[0] > 0, "the counter is live");
 }
