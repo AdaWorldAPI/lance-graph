@@ -26,3 +26,13 @@ lance-graph-quack = { path = "../lance-graph-quack" }
 # here matches `crates/symbiont`'s existing `../../../OGAR/crates/...` deps.
 ogar-r2il = { path = "../../../OGAR/crates/ogar-r2il" }
 ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
+# Round 3 (`tests/v3_v4_dual_reading.rs`): the V3 reading — `NodeRow`,
+# `node_rows_from_le_bytes`, `FacetCascade::ref_from_bytes` — over the same
+# bytes the loco/R2IL reading projects.
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+# `ogar-loco` / `ogar-r2il` take `lance-graph-contract` from git `main`. In
+# THIS workspace that is redirected to the local checkout, so the probe sees
+# one contract identity — the local one — rather than two.
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
