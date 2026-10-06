@@ -3,7 +3,7 @@
 ## MEASURED
 
 `crates/cognitive-shader-driver/examples/affordance_measurement_probe.rs`:
-8 tests, 7 disable runs red.
+9 tests, 8 disable runs red.
 
 - `CausalEdge64 × RecipeLaw → EligibleRecipes: u64` is two const-table
   lookups and one AND, with 0 allocations and no scheduler, task, capability
@@ -17,6 +17,9 @@
   the one recipe that reads it.
 - F4/F5: the compiled tables match an independent re-derivation from the rules
   on every code × projection × recipe, and every refusal names its obligation.
+- Bits 59..63 are read only under asserted v2/V3 provenance (codex review):
+  a v1 row whose old `temporal` is 128 has bit 59 set and would read as code
+  1 (`Causes`); v1 and unknown provenance refuse.
 - Rewriting only bits 59..60 with the shipped `with_topology` turns code 17
   into 18, which refuses.
 

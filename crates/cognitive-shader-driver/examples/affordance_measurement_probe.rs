@@ -19,6 +19,9 @@
 //!   `CAUSES`). Only ten codes are valid; the rest refuse. The codes are
 //!   deliberately not ordered by strength: `raw_a > raw_b` means nothing, and
 //!   "or higher" is written into each code's fact set by the law.
+//!   Bits 59..63 are read only under an asserted v2-stamped or V3-register
+//!   provenance (the `band_reading` rule): on a v1 row they are old
+//!   `temporal` bits, and v1 or unknown provenance refuses.
 //! - **Pearl3.** Bits 40..42 under their shipped reading (which S/P/O planes
 //!   participate). Only one recipe reads it.
 //!
@@ -72,6 +75,7 @@ use std::cell::Cell;
 use causal_edge::edge::CausalEdge64;
 use causal_edge::pearl::CausalMask;
 use causal_edge::PlasticityState;
+use lance_graph_contract::band_reading::EdgeProvenance;
 
 // ── allocation counter (the recipe_quartet_probe pattern) ─────────────────
 
@@ -285,9 +289,25 @@ impl LawGen {
 
 // ── the measurement ─────────────────────────────────────────────────────────
 
-/// The edge's bits 59..63 do not form a code this law declares.
+/// Why an edge cannot be measured under this law.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Unreadable(u8);
+enum Refusal {
+    /// The caller did not assert that bits 59..63 were written under the v2
+    /// layout. On a v1 row they are old `temporal` bits: `temporal = 128`
+    /// sets bit 59 and would read as code 1 (`Causes`). Same rule as
+    /// `band_reading`: v1 and unknown provenance refuse.
+    Provenance(EdgeProvenance),
+    /// Bits 59..63 do not form a code this law declares.
+    Undeclared(u8),
+}
+
+/// Only an asserted v2-stamped edge or a clean V3 register is readable.
+fn admitted(provenance: EdgeProvenance) -> bool {
+    matches!(
+        provenance,
+        EdgeProvenance::V2Stamped | EdgeProvenance::V3Register
+    )
+}
 
 /// Bits 59..63 as one code, through the shipped accessors.
 fn raw5(edge: CausalEdge64) -> u8 {
@@ -295,10 +315,13 @@ fn raw5(edge: CausalEdge64) -> u8 {
 }
 
 /// `CausalEdge64 × RecipeLaw → EligibleRecipes`. Two lookups and one AND.
-fn measure(law: LawGen, edge: CausalEdge64) -> Result<u64, Unreadable> {
+fn measure(law: LawGen, edge: CausalEdge64, provenance: EdgeProvenance) -> Result<u64, Refusal> {
+    if !admitted(provenance) {
+        return Err(Refusal::Provenance(provenance));
+    }
     let code = raw5(edge);
     if EPI_LAW[code as usize].is_none() {
-        return Err(Unreadable(code));
+        return Err(Refusal::Undeclared(code));
     }
     let t = law.tables();
     Ok(t.state[code as usize] & t.pearl[edge.causal_mask() as usize])
@@ -320,6 +343,7 @@ fn select(population: u64) -> Option<u8> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Verdict {
     Eligible,
+    UntrustedProvenance,
     Unreadable,
     NotInLaw,
     MissingFact(u32),
@@ -328,7 +352,10 @@ enum Verdict {
 }
 
 /// Re-derive one recipe's legality from the rules, not from the tables.
-fn explain(law: LawGen, edge: CausalEdge64, recipe: u8) -> Verdict {
+fn explain(law: LawGen, edge: CausalEdge64, provenance: EdgeProvenance, recipe: u8) -> Verdict {
+    if !admitted(provenance) {
+        return Verdict::UntrustedProvenance;
+    }
     let Some(facts) = EPI_LAW[raw5(edge) as usize] else {
         return Verdict::Unreadable;
     };
@@ -352,6 +379,16 @@ fn explain(law: LawGen, edge: CausalEdge64, recipe: u8) -> Verdict {
 }
 
 // ── fixtures ────────────────────────────────────────────────────────────────
+
+/// Measure an edge this probe stamped itself under the v2 layout.
+fn stamped(law: LawGen, edge: CausalEdge64) -> Result<u64, Refusal> {
+    measure(law, edge, EdgeProvenance::V2Stamped)
+}
+
+/// Explain a recipe on an edge this probe stamped itself.
+fn explain_stamped(law: LawGen, edge: CausalEdge64, recipe: u8) -> Verdict {
+    explain(law, edge, EdgeProvenance::V2Stamped, recipe)
+}
 
 /// Stamp an EpistemicState5 code through the shipped writers.
 fn with_code(edge: CausalEdge64, code: u8) -> CausalEdge64 {
@@ -390,7 +427,7 @@ fn main() {
         let Some(facts) = EPI_LAW[code as usize] else {
             continue;
         };
-        let e = measure(LawGen::V1, with_code(busy_edge(CausalMask::SPO), code)).unwrap();
+        let e = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SPO), code)).unwrap();
         let names: Vec<&str> = (0..7)
             .filter(|r| e & (1 << r) != 0)
             .map(|r| RECIPE_NAMES[r])
@@ -405,7 +442,7 @@ fn main() {
     let unreadable = (0u8..32).filter(|c| EPI_LAW[*c as usize].is_none()).count();
     println!("  {unreadable} codes refuse (not declared by the law)");
     let edge = with_code(busy_edge(CausalMask::SO), 25);
-    let (e, allocs) = counting(|| measure(LawGen::V1, edge));
+    let (e, allocs) = counting(|| stamped(LawGen::V1, edge));
     let eligible = e.unwrap_or(0);
     println!(
         "Indirect × IntermediateUnknown × Related under SO: {eligible:#04x}, {allocs} allocations"
@@ -415,7 +452,7 @@ fn main() {
             println!(
                 "  refused {:<22} {:?}",
                 RECIPE_NAMES[r as usize],
-                explain(LawGen::V1, edge, r)
+                explain_stamped(LawGen::V1, edge, r)
             );
         }
     }
@@ -428,8 +465,8 @@ fn main() {
     let causes = with_code(busy_edge(CausalMask::SPO), 17);
     println!(
         "Causes code under V1 {:#04x}, under V2 {:#04x} (V2 forbids STRATIFY once CAUSES holds)",
-        measure(LawGen::V1, causes).unwrap(),
-        measure(LawGen::V2, causes).unwrap()
+        stamped(LawGen::V1, causes).unwrap(),
+        stamped(LawGen::V2, causes).unwrap()
     );
 }
 
@@ -462,10 +499,10 @@ mod tests {
             for code in valid_codes() {
                 for p in ALL_PEARL {
                     let e = with_code(busy_edge(p), code);
-                    let a = measure(law, e);
-                    assert_eq!(a, measure(law, e));
-                    assert_eq!(a, measure(law, CausalEdge64(e.0)), "replay from raw bits");
-                    if law == LawGen::V1 && a != measure(LawGen::V2, e) {
+                    let a = stamped(law, e);
+                    assert_eq!(a, stamped(law, e));
+                    assert_eq!(a, stamped(law, CausalEdge64(e.0)), "replay from raw bits");
+                    if law == LawGen::V1 && a != stamped(LawGen::V2, e) {
                         generations_differ = true;
                     }
                 }
@@ -477,15 +514,15 @@ mod tests {
     /// F2: changing a relevant factor flips the affected bit.
     #[test]
     fn f2_a_relevant_factor_flips_the_affected_bit() {
-        let unknown = measure(LawGen::V1, with_code(busy_edge(CausalMask::SO), 25)).unwrap();
-        let known = measure(LawGen::V1, with_code(busy_edge(CausalMask::SO), 5)).unwrap();
+        let unknown = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SO), 25)).unwrap();
+        let known = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SO), 5)).unwrap();
         assert_ne!(unknown & 1 << HYDRATE_INTERMEDIATE, 0);
         assert_eq!(unknown & 1 << MECHANISM_FOLD, 0);
         assert_eq!(known & 1 << HYDRATE_INTERMEDIATE, 0);
         assert_ne!(known & 1 << MECHANISM_FOLD, 0);
 
-        let causes_so = measure(LawGen::V1, with_code(busy_edge(CausalMask::SO), 17)).unwrap();
-        let causes_spo = measure(LawGen::V1, with_code(busy_edge(CausalMask::SPO), 17)).unwrap();
+        let causes_so = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SO), 17)).unwrap();
+        let causes_spo = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SPO), 17)).unwrap();
         assert_eq!(causes_so & 1 << COUNTERFACTUAL_PROBE, 0);
         assert_ne!(causes_spo & 1 << COUNTERFACTUAL_PROBE, 0);
         assert_eq!(
@@ -501,9 +538,9 @@ mod tests {
     fn f3_irrelevant_fields_change_no_bit() {
         for code in valid_codes() {
             let base = with_code(busy_edge(CausalMask::SPO), code);
-            let want = measure(LawGen::V1, base).unwrap();
+            let want = stamped(LawGen::V1, base).unwrap();
             let same =
-                |e: CausalEdge64| assert_eq!(measure(LawGen::V1, e).unwrap(), want, "code {code}");
+                |e: CausalEdge64| assert_eq!(stamped(LawGen::V1, e).unwrap(), want, "code {code}");
             for v in 0..=255u8 {
                 let (mut s, mut p, mut o) = (base, base, base);
                 s.set_s_idx(v);
@@ -542,7 +579,7 @@ mod tests {
                 same(base.with_w_slot(w));
             }
             for p in ALL_PEARL {
-                let moved = want ^ measure(LawGen::V1, with_code(busy_edge(p), code)).unwrap();
+                let moved = want ^ stamped(LawGen::V1, with_code(busy_edge(p), code)).unwrap();
                 assert_eq!(
                     moved & !(1 << COUNTERFACTUAL_PROBE),
                     0,
@@ -562,9 +599,9 @@ mod tests {
             for code in valid_codes() {
                 for p in ALL_PEARL {
                     let e = with_code(busy_edge(p), code);
-                    let pop = measure(law, e).unwrap();
+                    let pop = stamped(law, e).unwrap();
                     for r in 0..64u8 {
-                        let v = explain(law, e, r);
+                        let v = explain_stamped(law, e, r);
                         if pop & 1 << r != 0 {
                             assert_eq!(v, Verdict::Eligible, "{law:?} code {code} recipe {r}");
                             fired |= 1 << r;
@@ -603,7 +640,7 @@ mod tests {
         let mut lcg: u64 = 0x9E37_79B9_7F4A_7C15;
         for code in valid_codes() {
             for p in ALL_PEARL {
-                let eligible = measure(LawGen::V1, with_code(busy_edge(p), code)).unwrap();
+                let eligible = stamped(LawGen::V1, with_code(busy_edge(p), code)).unwrap();
                 assert_eq!(
                     prefer(eligible, u64::MAX),
                     eligible,
@@ -630,7 +667,7 @@ mod tests {
         assert_ne!(causes, related);
         // `ROBUSTNESS_TEST` is legal at code 1 (Causes) and refused at code 12
         // (Associated only), although 12 > 1.
-        let at = |c: u8| measure(LawGen::V1, with_code(busy_edge(CausalMask::SPO), c)).unwrap();
+        let at = |c: u8| stamped(LawGen::V1, with_code(busy_edge(CausalMask::SPO), c)).unwrap();
         assert_ne!(at(1) & 1 << ROBUSTNESS_TEST, 0);
         assert_eq!(at(12) & 1 << ROBUSTNESS_TEST, 0);
     }
@@ -641,15 +678,46 @@ mod tests {
     fn undeclared_codes_refuse_including_half_field_writes() {
         for code in (0u8..32).filter(|c| EPI_LAW[*c as usize].is_none()) {
             let e = with_code(busy_edge(CausalMask::SPO), code);
-            assert_eq!(measure(LawGen::V1, e), Err(Unreadable(code)));
-            assert_eq!(explain(LawGen::V1, e, OBSERVE_FOLD), Verdict::Unreadable);
+            assert_eq!(stamped(LawGen::V1, e), Err(Refusal::Undeclared(code)));
+            assert_eq!(
+                explain_stamped(LawGen::V1, e, OBSERVE_FOLD),
+                Verdict::Unreadable
+            );
         }
         // 17 = 0b100_01; rewriting only bits 59..60 through the shipped
         // topology writer leaves bits 61..63 alone and yields 0b100_10 = 18.
         let causes = with_code(busy_edge(CausalMask::SPO), 17);
         let half = causes.with_topology(causal_edge::layout::CausalTopology::from_bits_2(0b10));
         assert_eq!(raw5(half), 18);
-        assert_eq!(measure(LawGen::V1, half), Err(Unreadable(18)));
+        assert_eq!(stamped(LawGen::V1, half), Err(Refusal::Undeclared(18)));
+    }
+
+    /// Bits 59..63 are only read under an asserted v2/V3 provenance. A v1 row
+    /// whose old `temporal` was 128 has bit 59 set, which would read as code 1
+    /// (`Causes`) and make `COUNTERFACTUAL_PROBE` eligible; it refuses instead.
+    #[test]
+    fn v1_and_unknown_provenance_refuse() {
+        let v1_row = CausalEdge64((128u64 << 52) | (CausalMask::SPO as u64) << 40);
+        assert_eq!(
+            raw5(v1_row),
+            1,
+            "the old temporal bit lands on a declared code"
+        );
+        for prov in [EdgeProvenance::V1Legacy, EdgeProvenance::Unknown] {
+            assert_eq!(
+                measure(LawGen::V1, v1_row, prov),
+                Err(Refusal::Provenance(prov))
+            );
+            assert_eq!(
+                explain(LawGen::V1, v1_row, prov, COUNTERFACTUAL_PROBE),
+                Verdict::UntrustedProvenance
+            );
+        }
+        // Can fire: the same bits under an asserted v2 stamp do measure.
+        for prov in [EdgeProvenance::V2Stamped, EdgeProvenance::V3Register] {
+            let e = measure(LawGen::V1, v1_row, prov).unwrap();
+            assert_ne!(e & 1 << COUNTERFACTUAL_PROBE, 0);
+        }
     }
 
     /// F9: the measurement allocates nothing, over every valid code and
@@ -670,7 +738,7 @@ mod tests {
         };
         let (acc, allocs) = counting(|| {
             edges.iter().fold(0u64, |acc, e| {
-                acc ^ measure(LawGen::V1, *e)
+                acc ^ stamped(LawGen::V1, *e)
                     .unwrap()
                     .rotate_left(acc as u32 & 63)
             })
