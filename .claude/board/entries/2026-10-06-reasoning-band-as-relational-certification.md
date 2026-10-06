@@ -4,7 +4,7 @@
 
 `crates/cognitive-shader-driver/examples/relational_certification_probe.rs`:
 13 tests, 12 disable runs red. Supersedes the **meaning** of D-GSO-7's rungs;
-#1360's probe and its board row are unchanged.
+`#1360`'s probe and its board row are unchanged.
 
 - **Inventory before the change.** `ReasoningBand` has no production writer
   (`with_reasoning_band` is called only in tests and examples). No class
