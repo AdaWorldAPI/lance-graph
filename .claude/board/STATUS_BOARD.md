@@ -1,3 +1,17 @@
+## D-CTX — Palette texture proof ladder: fieldless first, rendering only if needed (2026-10-06)
+
+Pixel/tile position = geometry; `PaletteState(u8)` = material (needle); `FisherZTable[a,b]` = relation (distribution); activation (SPOFC / energy) is a separate, orthogonal reading. Surfels and fields stay virtual unless a differential forces them. Round order is operator-set; one round per PR.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-CTX-0** | Fieldless local interaction: center Morton code → checked neighbour → resident byte → one Fisher-Z i8 read → immediate fold; `activation × Σ R_local` into a resident strength register | In PR | `cognitive-shader-driver/examples/fieldless_local_interaction_probe.rs`; fieldless = materialized oracle (fixture + 64 random tiles); 0 heap allocations in the step (oracle: pairs 672 B, relations 168 B, field 128 B); Morton neighbours = row-major geometry (84); per-neighbour delta = `table[n,new] − table[n,old]`, non-neighbours unchanged; identity by address (poisoned diagonal changes nothing); gated lanes unchanged; three visit orders equal; i32 register is sufficient for the z sum; 11 tests, 5 disable runs red |
+| **D-CTX-1** | Virtual surfel reading over the same tile: materialized-surfel oracle = immediate reading | Queued | production surfel bytes = 0 |
+| **D-CTX-2** | Gaussian/EWA accumulation, isotropic, footprint evaluator probe-local (not `Spd2`) | Queued | materialized oracle = fused path within stated tolerance |
+| **D-CTX-3** | Anisotropic EWA; collapses to D-CTX-2 when isotropic | Queued | report missing Σ source (no `SigmaCodebook` exists) instead of widening `PaletteState` |
+| **D-CTX-4** | One read-only measurement over the rendered surface | Queued | returns scalar / location / fixed witness; no evidence write |
+| **D-CTX-5** | Morton/HHTL visit order vs row-major, reusing `morton8x8` | Queued | result identical across orders, or order pinned in replay identity |
+| **D-CTX-6** | Measurement → observation → `GadamerRevision` | Queued | rendered surface alone cannot change belief state |
+
 ## D-MORTON — Checked 8:8 Morton address arithmetic (2026-10-06)
 
 Entry: `entries/2026-10-06-morton8x8-checked-address.md`. Own substrate arc, not a GSO proof step; follows D-GSO-2 (#1346).

@@ -74,3 +74,19 @@ corpus) stays open: no stored corpus carries topology bits on real edges yet.
 ```bash
 cargo run -p cognitive-shader-driver --example entropy_topology_probe
 ```
+
+## fieldless_local_interaction_probe.rs
+
+D-CTX-0. Does a cognitive texture have to exist as a field? One synchronous
+Moore step over a 4 × 4 tile whose lane is the `Morton8x8` code: checked
+neighbour, resident palette byte, one read of the calibrated
+`bgz_tensor::FisherZTable` (equal bytes answer identity by address, never by
+the diagonal), folded straight into `activation × Σ R_local` on a resident
+strength register. A materialized oracle (pair list, relation population,
+field) must produce the same register; the fieldless step makes no heap
+allocation. `bgz-tensor` is a dev-dependency only: production borrows the
+calibrated bytes.
+
+```bash
+cargo run -p cognitive-shader-driver --example fieldless_local_interaction_probe
+```
