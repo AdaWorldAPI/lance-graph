@@ -18,3 +18,6 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 
 [dev-dependencies]
+# Round 6 (`tests/spofc_cycle.rs`): the SPOFC truth projection is the shipped
+# `arm_to_truth_u8`, reused rather than restated. Zero-dep, test-only.
+lance-graph-arm-discovery = { path = "../lance-graph-arm-discovery" }
