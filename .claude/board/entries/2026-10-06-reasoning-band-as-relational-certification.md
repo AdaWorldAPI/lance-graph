@@ -3,7 +3,7 @@
 ## MEASURED
 
 `crates/cognitive-shader-driver/examples/relational_certification_probe.rs`:
-12 tests, 11 disable runs red. Supersedes the **meaning** of D-GSO-7's rungs;
+13 tests, 12 disable runs red. Supersedes the **meaning** of D-GSO-7's rungs;
 #1360's probe and its board row are unchanged.
 
 - **Inventory before the change.** `ReasoningBand` has no production writer
@@ -28,6 +28,8 @@
   population. #1360's confounding cap would demote it.
 - Sibling specificity is not a rung: A and an equally effective sibling give
   `Causes` while A is not discriminative against the sibling.
+- Only receipts recorded at or before the model's seal count, so a later
+  receipt cannot change what an earlier seal replays to (codex review).
 - Removal is not the causal test: under Y = A or B, removing A from a unit with
   B leaves Y while the population trial certifies `Causes`.
 

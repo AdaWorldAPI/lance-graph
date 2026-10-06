@@ -274,12 +274,15 @@ fn compare(outcome: u64, a: u64, b: u64, strict: bool) -> Sat {
     Ok(if strict { lhs > rhs } else { lhs >= rhs })
 }
 
-fn distinct_sources(ledger: &SupportLedger, bases: &[SupportBasis]) -> usize {
+/// Distinct sources among `bases`, counting only receipts recorded at or
+/// before `seal`: a sealed model is certified from the evidence it held, so a
+/// later receipt cannot change what an earlier seal replays to.
+fn distinct_sources(ledger: &SupportLedger, bases: &[SupportBasis], seal: DatasetVersion) -> usize {
     let mut seen: Vec<EvidenceSourceId> = Vec::new();
     for r in ledger
         .receipts()
         .iter()
-        .filter(|r| bases.contains(&r.basis))
+        .filter(|r| r.at <= seal && bases.contains(&r.basis))
     {
         if !seen.contains(&r.source) {
             seen.push(r.source);
@@ -309,7 +312,7 @@ fn any(results: impl Iterator<Item = Sat>) -> Sat {
 
 impl Model {
     fn sourced(&self) -> Result<(), NotGrounded> {
-        if distinct_sources(&self.ledger, self.bases) >= MIN_SOURCES {
+        if distinct_sources(&self.ledger, self.bases, self.seal) >= MIN_SOURCES {
             Ok(())
         } else {
             Err(NotGrounded::TooFewSources)
@@ -380,7 +383,7 @@ impl Model {
     }
 
     fn causes(&self) -> Sat {
-        match distinct_sources(&self.ledger, INTERVENTION) {
+        match distinct_sources(&self.ledger, INTERVENTION, self.seal) {
             0 => return Err(NotGrounded::NoIdentificationDesign),
             n if n < MIN_SOURCES => return Err(NotGrounded::TooFewSources),
             _ => {}
@@ -488,11 +491,16 @@ impl Builder {
     }
 
     fn sources(&mut self, basis: SupportBasis, ids: &[u64]) -> &mut Self {
+        let at = self.m.seal;
+        self.sources_at(basis, ids, at)
+    }
+
+    fn sources_at(&mut self, basis: SupportBasis, ids: &[u64], at: DatasetVersion) -> &mut Self {
         for id in ids {
             self.m.ledger.record(SupportReceipt {
                 basis,
                 source: EvidenceSourceId(*id),
-                at: self.m.seal,
+                at,
                 strength: 128,
             });
         }
@@ -952,6 +960,40 @@ mod tests {
         m.trial &= !sib_arm; // the identification design compares A with untreated
         assert_eq!(m.certify(), Contract::Causes);
         assert_eq!(compare(m.outcome, a_arm, sib_arm, true), Ok(false));
+    }
+
+    /// Receipts recorded after the model's seal do not count: certification
+    /// replays from the evidence the seal held, whatever the ledger holds now.
+    #[test]
+    fn receipts_after_the_seal_do_not_count() {
+        let mut b = Builder::new();
+        b.cell(0, true, 5, 4);
+        b.cell(0, false, 5, 1);
+        b.sources(SupportBasis::DirectlyObserved, &[1]);
+        b.sources_at(SupportBasis::DirectlyObserved, &[2], DatasetVersion(2));
+        b.arm(true, 6, 5);
+        b.arm(false, 6, 1);
+        b.sources_at(
+            SupportBasis::InterventionBacked,
+            &[10, 11],
+            DatasetVersion(2),
+        );
+        let sealed = b.build();
+        assert_eq!(sealed.seal, DatasetVersion(1));
+        assert_eq!(sealed.associated(), Err(NotGrounded::TooFewSources));
+        assert_eq!(sealed.causes(), Err(NotGrounded::NoIdentificationDesign));
+        assert_eq!(sealed.certify(), Contract::Open);
+        // The same ledger read at the later seal does count them.
+        let later = Model {
+            seal: DatasetVersion(2),
+            ..sealed.clone()
+        };
+        assert_eq!(later.certify(), Contract::Causes);
+        assert_eq!(
+            sealed.certify(),
+            Contract::Open,
+            "replay of the earlier seal is unchanged"
+        );
     }
 
     /// The same seal certifies to the same bits on replay.
