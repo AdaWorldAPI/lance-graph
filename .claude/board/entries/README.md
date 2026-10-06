@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-230 entries, 2026-08-06 .. 2026-10-06.
+231 entries, 2026-08-06 .. 2026-10-06.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -40,6 +40,7 @@ exactly one of them, never both.
 | 2026-10-06 | `diff-plateau-as-expression-round5` |  | [2026-10-06-diff-plateau-as-expression-round5.md](2026-10-06-diff-plateau-as-expression-round5.md) |
 | 2026-10-06 | `dav-resident-reading-round2` |  | [2026-10-06-dav-resident-reading-round2.md](2026-10-06-dav-resident-reading-round2.md) |
 | 2026-10-06 | `dav-carrier-invariance-quack` |  | [2026-10-06-dav-carrier-invariance-quack.md](2026-10-06-dav-carrier-invariance-quack.md) |
+| 2026-10-06 | `D-GSO-AFF-0` |  | [2026-10-06-affordance-measurement.md](2026-10-06-affordance-measurement.md) |
 | 2026-10-05 | `text-to-numeric-boundary-inventory` |  | [2026-10-05-text-to-numeric-boundary-inventory.md](2026-10-05-text-to-numeric-boundary-inventory.md) |
 | 2026-10-05 | `report-pair-key-and-stack-recon` |  | [2026-10-05-report-pair-key-and-stack-recon.md](2026-10-05-report-pair-key-and-stack-recon.md) |
 | 2026-10-05 | `quack-two-world-frontend` |  | [2026-10-05-quack-two-world-frontend.md](2026-10-05-quack-two-world-frontend.md) |

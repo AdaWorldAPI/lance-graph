@@ -198,6 +198,22 @@ thresholds are policy pins.
 cargo run -p cognitive-shader-driver --example relational_certification_probe
 ```
 
+## affordance_measurement_probe.rs
+
+D-GSO-AFF-0. Recipe eligibility as a measurement: `CausalEdge64 × RecipeLaw →
+EligibleRecipes: u64`. Bits 59..63 are read as one EpistemicState5 code (ten
+declared codes, deliberately not ordered by strength; the rest refuse), and
+bits 40..42 under their Pearl reading. Seven recipes declare `requires` /
+`forbids` facts and Pearl planes; the rules compile at build time into
+`[u64; 32]` and `[u64; 8]`, so a measurement is two lookups and an AND with no
+allocation. Fields no recipe reads (S/P/O, F/C, bits 43..45, mantissa,
+plasticity, witness) are swept and change nothing; preference can only clear
+bits. Two law generations show the generation is part of the reading.
+
+```bash
+cargo run -p cognitive-shader-driver --example affordance_measurement_probe
+```
+
 ## ewa_anisotropic_probe.rs
 
 D-CTX-3. Anisotropic EWA: the footprint is each virtual surfel's normalised
