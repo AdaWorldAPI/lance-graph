@@ -176,3 +176,21 @@ events replay to the same edge bits. The ladder and thresholds are policy pins.
 ```bash
 cargo run -p cognitive-shader-driver --example reasoning_band_probe
 ```
+
+## ewa_anisotropic_probe.rs
+
+D-CTX-3. Anisotropic EWA: the footprint is each virtual surfel's normalised
+second moment `Σ_c / W`, so the orientation the Fisher-Z law gives a surfel
+reaches the rendered surface. Eigenvalues are floored at ½, the smallest
+isotropic scale the law can produce: without the floor a thin footprint,
+sampled on the pixel grid, sums to more than its mass, and the law's bottom code
+gives a singular Σ. Isotropic readings render exactly as in D-CTX-2. The probe
+also measures how much the i8 quantization moves a surfel's orientation and
+eigenvalues against the unquantized cosines.
+
+```bash
+cargo run -p cognitive-shader-driver --example ewa_anisotropic_probe
+```
+
+`support/ewa.rs` holds the D-CTX-2 isotropic law (window, amplitude, footprint,
+scatter) that both rendering probes use.
