@@ -22,21 +22,24 @@ Git archaeology is not available: the clone is shallow and every symbol's
 | substrate | `MailboxSoA<1024>` via the `mailbox-thoughtspace` read shim (`backing.rs`) | RETAIN |
 | commit boundary | `MailboxSoA::write_row` (cycle-gated) + `tick` | RETAIN |
 | emitted edge → mailbox row | none: the driver owned the mailbox read-only (`mailbox(&self)`), `run` is `&self` | MISSING → completed |
-| `StreamDto` → mailbox ingress | none (ingest writes the singleton) | MISSING; bridged in the probe by the W2 mirror pattern through `write_row` |
+| `StreamDto` → SoA ingress | none (ingest wrote the BindSpace singleton, superseded by the SoA) | MISSING → completed: `ingest_codebook_indices_soa` (cycle-gated `write_row`, shared encoding) |
 
 ## DECISION — Path B
 
 The circuit was intended (`EmitMode::Persist`, `persist_cycle`, the read
-shim, W4a cast pairing) and never closed. Smallest completion:
-`ShaderDriver::mailbox_mut(&mut self, id)`. No new DTO, scheduler, or
+shim, W4a cast pairing) and never closed. Smallest completion, both
+ends at the SoA: `ingest_codebook_indices_soa` (ingress) and
+`ShaderDriver::mailbox_mut(&mut self, id)` (write-back). No new DTO, scheduler, or
 temporal type; `StreamDto` untouched; #1370 law untouched.
 REVISIT WHEN: W5 multi-mailbox routing or W7 BindSpace retirement moves
 the persist call site.
 
 ## MEASURED — `streamdto_circuit_probe.rs`
 
-6 tests, 6 disable runs red (no write, no tick, wrong row, BE restore,
-temporal from cycle, eligibility from the uncommitted word).
+6 tests, 9 disable runs red (no write, no tick, wrong row, BE restore,
+temporal from cycle, eligibility from the uncommitted word, SoA encoding
+drift, SoA ingest bypassing `write_row`, SoA ingest not growing
+`populated`); plus a default-feature lib test of the SoA arm.
 
 - Cycle k: 8 hits, 8 emitted, row 4 persisted (`s_idx` 4). Cycle k+1 reads
   it and its output changes; without the write k+1 repeats k.
@@ -60,5 +63,5 @@ temporal from cycle, eligibility from the uncommitted word).
 ## OPEN
 
 - No production writer of bits 59..63 (`ISS-NO-EVIDENCE-WRITER-FOR-EPISTEMIC-STATE`), so the circuit cannot move eligibility.
-- `StreamDto` → `MailboxSoA` ingress has no production arm (`ISS-STREAMDTO-INGEST-WRITES-THE-SINGLETON-ONLY`).
+- `CognitiveShaderBuilder` still requires a BindSpace on the mailbox arm (W7).
 - `run` reads only `s_idx` from the edge; whether F/C/state should steer the cascade is undecided.

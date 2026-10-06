@@ -12,8 +12,7 @@
 //!
 //! | link | status |
 //! |---|---|
-//! | `StreamDto` → `ingest_codebook_indices` | shipped; writes the BindSpace singleton only |
-//! | singleton → `MailboxSoA` ingress | no production arm; bridged here by the W2 mirror pattern, through `write_row` |
+//! | `StreamDto` → SoA | `ingest_codebook_indices` wrote only the BindSpace singleton (superseded by the SoA). **Missing** → completed by `ingest_codebook_indices_soa`, cycle-gated `write_row`, same per-index encoding |
 //! | `dispatch` reads the mailbox | shipped (`mailbox-thoughtspace` read shim) |
 //! | emitted edge → mailbox row | **missing**: the driver owned the mailbox read-only and `run()` is `&self`. Completed by `ShaderDriver::mailbox_mut` |
 //! | commit | `MailboxSoA::tick` (shipped) |
@@ -45,7 +44,9 @@ use causal_edge::edge::CausalEdge64;
 #[cfg(test)]
 use causal_edge::layout::{SPARE_MASK, TRUTH_MASK, TRUTH_SHIFT};
 use cognitive_shader_driver::bindspace::BindSpace;
+#[cfg(test)]
 use cognitive_shader_driver::engine_bridge::ingest_codebook_indices;
+use cognitive_shader_driver::engine_bridge::ingest_codebook_indices_soa;
 use cognitive_shader_driver::mailbox_soa::{MailboxSoA, WriteCell, WriteOutcome};
 use cognitive_shader_driver::{
     auto_style, CognitiveShaderBuilder, CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter,
@@ -94,35 +95,26 @@ fn stream(timestamp: u64) -> StreamDto {
     }
 }
 
-/// Φ ingress: the real `ingest_codebook_indices`, then the owner copies the
-/// ingested rows into its mailbox through the cycle gate. The copy is the W2
-/// differential's mirror pattern; no production function does it.
-fn ingest(dto: &StreamDto) -> (BindSpace, MailboxSoA<1024>) {
-    let mut bs = BindSpace::zeros(ROWS);
-    let (start, end) = ingest_codebook_indices(
-        &mut bs,
+/// Φ ingress into the SoA: the `StreamDto`'s fields go straight into the
+/// owner's mailbox through `ingest_codebook_indices_soa` (cycle-gated
+/// `write_row`). BindSpace is not on the path.
+fn ingest(dto: &StreamDto) -> MailboxSoA<1024> {
+    let mut mb: MailboxSoA<1024> = MailboxSoA::new(MAILBOX, 0, 1.0);
+    ingest_codebook_indices_soa(
+        &mut mb,
         &dto.codebook_indices,
         dto.source as u8,
         dto.timestamp,
         0,
     );
-    let mut mb: MailboxSoA<1024> = MailboxSoA::new(MAILBOX, 0, 1.0);
-    for row in start as usize..end as usize {
-        let cell = WriteCell {
-            content: Some(bs.fingerprints.content_row(row)),
-            meta: Some(bs.meta.get(row)),
-            temporal: Some(bs.temporal[row]),
-            ..Default::default()
-        };
-        assert_eq!(mb.write_row(row, mb.cycle(), &cell), WriteOutcome::Accepted);
-    }
-    mb.set_populated(end as usize);
-    (bs, mb)
+    mb
 }
 
-fn driver(bs: BindSpace, mb: MailboxSoA<1024>) -> ShaderDriver {
+/// The builder still requires a BindSpace even when the mailbox arm is
+/// selected; an empty one stands in and is never read (W7 residue).
+fn driver(mb: MailboxSoA<1024>) -> ShaderDriver {
     CognitiveShaderBuilder::new()
-        .bindspace(Arc::new(bs))
+        .bindspace(Arc::new(BindSpace::zeros(0)))
         .semiring(Arc::new(semiring()))
         .planes(planes())
         .with_mailbox(MAILBOX, mb)
@@ -164,7 +156,9 @@ fn persist(d: &mut ShaderDriver, c: &ShaderCrystal) -> (usize, CausalEdge64) {
 
 /// Commit: the existing cycle boundary.
 fn commit(d: &mut ShaderDriver) {
-    d.mailbox_mut(MAILBOX).expect("the designated mailbox").tick();
+    d.mailbox_mut(MAILBOX)
+        .expect("the designated mailbox")
+        .tick();
 }
 
 /// What a dispatch produced, comparable across runs.
@@ -180,9 +174,16 @@ fn signature(c: &ShaderCrystal) -> (Vec<(u32, u32)>, [u64; 8], u8) {
 }
 
 /// Cycle k then cycle k+1 on one owned driver. `write` disables the persist.
-fn run(write: bool) -> (ShaderDriver, ShaderCrystal, ShaderCrystal, usize, CausalEdge64) {
-    let (bs, mb) = ingest(&stream(1_000));
-    let mut d = driver(bs, mb);
+fn run(
+    write: bool,
+) -> (
+    ShaderDriver,
+    ShaderCrystal,
+    ShaderCrystal,
+    usize,
+    CausalEdge64,
+) {
+    let mut d = driver(ingest(&stream(1_000)));
     let k = d.dispatch(&request());
     let (row, edge) = if write {
         persist(&mut d, &k)
@@ -219,11 +220,17 @@ fn main() {
         "eligibility at k+1: {:?}",
         measure(LawGen::V1, mb.edge(row), EdgeProvenance::V2Stamped)
     );
-    println!("temporal[{row}] = {} (StreamDto.timestamp)", mb.temporal_at(row));
+    println!(
+        "temporal[{row}] = {} (StreamDto.timestamp)",
+        mb.temporal_at(row)
+    );
     let t = LawGen::V1.tables();
     let pearl = t.pearl[edge.causal_mask() as usize];
     for code in [0usize, 1, 3, 5, 7, 12, 17, 20, 25, 30] {
-        println!("  code {code:2} under this Pearl: {:#x}", t.state[code] & pearl);
+        println!(
+            "  code {code:2} under this Pearl: {:#x}",
+            t.state[code] & pearl
+        );
     }
 }
 
@@ -231,20 +238,35 @@ fn main() {
 mod tests {
     use super::*;
 
-    /// S1 — every shipped link produces something: the real ingest writes one
-    /// bit per index, the mailbox holds the same rows, and cycle k hits,
-    /// emits, and names a row.
+    /// S1 — every link produces something. The SoA ingest writes one bit per
+    /// index and encodes each row exactly as the retiring singleton arm does
+    /// (that arm is only the oracle here); cycle k hits, emits, names a row.
     #[test]
     fn every_link_is_live() {
         let dto = stream(1_000);
-        let (bs, mb) = ingest(&dto);
+        let mb = ingest(&dto);
         assert_eq!(mb.populated(), ROWS);
+        let mut oracle = BindSpace::zeros(ROWS);
+        ingest_codebook_indices(
+            &mut oracle,
+            &dto.codebook_indices,
+            dto.source as u8,
+            dto.timestamp,
+            0,
+        );
         for row in 0..ROWS {
-            let ones: u32 = bs.fingerprints.content_row(row).iter().map(|w| w.count_ones()).sum();
+            let ones: u32 = mb.content_row(row).iter().map(|w| w.count_ones()).sum();
             assert_eq!(ones, 1, "row {row}");
-            assert_eq!(mb.content_row(row), bs.fingerprints.content_row(row));
+            assert_eq!(mb.content_row(row), oracle.fingerprints.content_row(row));
+            assert_eq!(mb.meta_at(row), oracle.meta.get(row));
+            assert_eq!(mb.temporal_at(row), oracle.temporal[row]);
+            assert_eq!(
+                mb.last_write_cycle_at(row),
+                mb.cycle(),
+                "ingress went through write_row"
+            );
         }
-        let d = driver(bs, mb);
+        let d = driver(mb);
         let k = d.dispatch(&request());
         assert!(k.bus.resonance.hit_count > 0);
         assert!(k.bus.emitted_edge_count > 0);
@@ -256,26 +278,45 @@ mod tests {
     #[test]
     fn the_next_cycle_reads_what_this_cycle_emitted() {
         let (d, k, k1, row, edge) = run(true);
-        assert_ne!(edge.s_idx(), 0, "fixture: the persisted edge must move the query");
+        assert_ne!(
+            edge.s_idx(),
+            0,
+            "fixture: the persisted edge must move the query"
+        );
         assert_eq!(d.mailbox(MAILBOX).unwrap().edge(row), edge);
-        assert_ne!(signature(&k), signature(&k1), "k+1 ignored the persisted edge");
+        assert_ne!(
+            signature(&k),
+            signature(&k1),
+            "k+1 ignored the persisted edge"
+        );
 
         let (_, k_off, k1_off, _, _) = run(false);
-        assert_eq!(signature(&k_off), signature(&k1_off), "nothing else changes k+1");
-        assert_eq!(signature(&k), signature(&k_off), "cycle k does not depend on the write");
+        assert_eq!(
+            signature(&k_off),
+            signature(&k1_off),
+            "nothing else changes k+1"
+        );
+        assert_eq!(
+            signature(&k),
+            signature(&k_off),
+            "cycle k does not depend on the write"
+        );
     }
 
     /// S3 — the commit boundary is `tick`. Before it the write is this
     /// cycle's; after it a late write for the old cycle is refused.
     #[test]
     fn tick_is_the_commit_and_the_cycle_gate_holds() {
-        let (bs, mb) = ingest(&stream(1_000));
-        let mut d = driver(bs, mb);
+        let mut d = driver(ingest(&stream(1_000)));
         let k = d.dispatch(&request());
         let cycle_k = d.mailbox(MAILBOX).unwrap().cycle();
         let (row, edge) = persist(&mut d, &k);
         let mb = d.mailbox(MAILBOX).unwrap();
-        assert_eq!(mb.last_write_cycle_at(row), mb.cycle(), "uncommitted: written this cycle");
+        assert_eq!(
+            mb.last_write_cycle_at(row),
+            mb.cycle(),
+            "uncommitted: written this cycle"
+        );
 
         commit(&mut d);
         let mb = d.mailbox_mut(MAILBOX).unwrap();
@@ -311,7 +352,8 @@ mod tests {
         // Code 7 (DIRECT | OBSERVED | ASSOCIATED) into the same row, committed
         // by tick. Not code 3: under Pearl S it grants the same 0x20 as code 0
         // (the table `main` prints).
-        let observed = CausalEdge64((committed.0 & !(TRUTH_MASK | SPARE_MASK)) | (7u64 << TRUTH_SHIFT));
+        let observed =
+            CausalEdge64((committed.0 & !(TRUTH_MASK | SPARE_MASK)) | (7u64 << TRUTH_SHIFT));
         let mb = d.mailbox_mut(MAILBOX).unwrap();
         let cell = WriteCell {
             edge: Some(observed),
@@ -320,7 +362,10 @@ mod tests {
         assert_eq!(mb.write_row(row, mb.cycle(), &cell), WriteOutcome::Accepted);
         mb.tick();
         let reread = measure(LawGen::V1, mb.edge(row), EdgeProvenance::V2Stamped);
-        assert_eq!(reread, Ok(t.state[7] & t.pearl[edge.causal_mask() as usize]));
+        assert_eq!(
+            reread,
+            Ok(t.state[7] & t.pearl[edge.causal_mask() as usize])
+        );
         assert_ne!(reread, open, "the measurement does not read the row");
     }
 
@@ -329,14 +374,18 @@ mod tests {
     /// `cycle_index` never reaches the edge (v2 drops `pack`'s temporal).
     #[test]
     fn timestamp_is_not_the_cycle() {
-        let (_, early) = ingest(&stream(5));
-        let (_, late) = ingest(&stream(9_999_999));
+        let early = ingest(&stream(5));
+        let late = ingest(&stream(9_999_999));
         assert_eq!(early.cycle(), late.cycle());
         assert_eq!(early.temporal_at(0), 5);
         assert_eq!(late.temporal_at(0), 9_999_999);
 
         let (d, k, _, row, _) = run(true);
-        assert_eq!(d.mailbox(MAILBOX).unwrap().temporal_at(row), 1_000, "tick left temporal");
+        assert_eq!(
+            d.mailbox(MAILBOX).unwrap().temporal_at(row),
+            1_000,
+            "tick left temporal"
+        );
         for &e in &k.bus.emitted_edges[..k.bus.emitted_edge_count as usize] {
             assert_eq!(e >> 59, 0, "cycle_index leaked into bits 59..63");
         }
@@ -349,7 +398,7 @@ mod tests {
         let (d, _, k1, row, _) = run(true);
         let bytes = d.mailbox(MAILBOX).unwrap().edge(row).to_le_bytes();
 
-        let (bs, mut mb) = ingest(&stream(1_000));
+        let mut mb = ingest(&stream(1_000));
         for _ in 0..7 {
             mb.tick();
         }
@@ -359,7 +408,7 @@ mod tests {
         };
         assert_eq!(mb.write_row(row, mb.cycle(), &cell), WriteOutcome::Accepted);
         mb.tick();
-        let restored = driver(bs, mb).dispatch(&request());
+        let restored = driver(mb).dispatch(&request());
         assert_eq!(signature(&restored), signature(&k1));
     }
 }

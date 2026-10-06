@@ -31,6 +31,7 @@ use lance_graph_contract::cognitive_shader::{
 };
 
 use crate::bindspace::{BindSpace, WORDS_PER_FP};
+use crate::mailbox_soa::{MailboxSoA, WriteCell, WriteOutcome};
 use lance_graph_contract::qualia::QualiaI4_16D;
 // QUALIA_DIMS is referenced only inside `dispatch_busdto` (which is
 // `#[cfg(feature = "with-engine")]`); gate the import so default builds don't
@@ -78,9 +79,7 @@ pub fn ingest_codebook_indices(
         // caller-supplied indices — a hard assert here would let a network
         // client panic the lab server. Documented instead of asserted;
         // canonical inputs are codebook indices < 4096 and never wrap.
-        let mut content = [0u64; WORDS_PER_FP];
-        let bit = idx as usize % (WORDS_PER_FP * 64);
-        content[bit / 64] |= 1u64 << (bit % 64);
+        let content = codebook_index_fingerprint(idx);
         bs.fingerprints.set_content(cursor, &content);
 
         // Meta: source_ordinal as thinking style, no NARS yet.
@@ -92,6 +91,61 @@ pub fn ingest_codebook_indices(
     }
 
     (start as u32, cursor as u32)
+}
+
+/// The content fingerprint one codebook index produces: the bit at `idx`
+/// (mod 16384). Shared by both ingest arms so the singleton and the SoA can
+/// never encode a `StreamDto` differently.
+#[inline]
+fn codebook_index_fingerprint(idx: u16) -> [u64; WORDS_PER_FP] {
+    let mut content = [0u64; WORDS_PER_FP];
+    let bit = idx as usize % (WORDS_PER_FP * 64);
+    content[bit / 64] |= 1u64 << (bit % 64);
+    content
+}
+
+/// Ingest a `StreamDto`'s fields into the owner's `MailboxSoA` — the SoA arm
+/// of [`ingest_codebook_indices`] (BindSpace is superseded by the SoA).
+///
+/// One row per index from `start_row`, written through
+/// [`MailboxSoA::write_row`] at the mailbox's current cycle, so ingress obeys
+/// the same cycle gate as every other write: content = the shared
+/// per-index fingerprint, meta = `source_ordinal` as thinking style, temporal
+/// = the caller's `timestamp` (never the cycle). The populated count grows to
+/// cover the written rows. Rows past `N` are not written; the returned range
+/// says how far ingress got. D-STREAMDTO-0.
+pub fn ingest_codebook_indices_soa<const N: usize>(
+    mb: &mut MailboxSoA<N>,
+    indices: &[u16],
+    source_ordinal: u8,
+    timestamp: u64,
+    start_row: usize,
+) -> (u32, u32) {
+    let start = start_row.min(N);
+    let mut row = start;
+    for &idx in indices {
+        if row >= N {
+            break;
+        }
+        let content = codebook_index_fingerprint(idx);
+        let cell = WriteCell {
+            content: Some(&content),
+            meta: Some(MetaWord::new(source_ordinal, 0, 0, 0, 0)),
+            temporal: Some(timestamp),
+            ..Default::default()
+        };
+        let outcome = mb.write_row(row, mb.cycle(), &cell);
+        debug_assert_eq!(
+            outcome,
+            WriteOutcome::Accepted,
+            "current-cycle write refused"
+        );
+        row += 1;
+    }
+    if row > mb.populated() {
+        mb.set_populated(row);
+    }
+    (start as u32, row as u32)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -826,6 +880,34 @@ mod tests {
             assert_eq!(us.ordinal, i as u8, "ordinal drift at {i}");
             assert_eq!(us.name, f.name(), "name drift at {i}");
         }
+    }
+
+    /// The SoA arm encodes each row exactly as the singleton arm, writes
+    /// through the cycle gate (stamped with the current cycle), grows
+    /// `populated`, and stops at `N`.
+    #[test]
+    fn soa_ingest_matches_the_singleton_encoding_through_the_cycle_gate() {
+        let idx = [42u16, 100, 200];
+        let mut bs = BindSpace::zeros(4);
+        ingest_codebook_indices(&mut bs, &idx, 3, 777, 0);
+        let mut mb: MailboxSoA<4> = MailboxSoA::new(1, 0, 1.0);
+        mb.tick();
+        assert_eq!(
+            ingest_codebook_indices_soa(&mut mb, &idx, 3, 777, 0),
+            (0, 3)
+        );
+        assert_eq!(mb.populated(), 3);
+        for row in 0..3 {
+            assert_eq!(mb.content_row(row), bs.fingerprints.content_row(row));
+            assert_eq!(mb.meta_at(row), bs.meta.get(row));
+            assert_eq!(mb.temporal_at(row), 777);
+            assert_eq!(mb.last_write_cycle_at(row), 1);
+        }
+        assert_eq!(
+            ingest_codebook_indices_soa(&mut mb, &idx, 3, 777, 2),
+            (2, 4)
+        );
+        assert_eq!(mb.populated(), 4);
     }
 
     #[test]

@@ -213,8 +213,9 @@ pub use bindspace::{
 }; // deprecated — use QualiaI4Column
 pub use driver::{CognitiveShaderBuilder, ShaderDriver};
 pub use engine_bridge::{
-    dispatch_from_top_k, ingest_codebook_indices, persist_cycle, read_qualia_17d, unified_style,
-    write_qualia_17d, EngineBusBridge, UnifiedStyle, UNIFIED_STYLES,
+    dispatch_from_top_k, ingest_codebook_indices, ingest_codebook_indices_soa, persist_cycle,
+    read_qualia_17d, unified_style, write_qualia_17d, EngineBusBridge, UnifiedStyle,
+    UNIFIED_STYLES,
 };
 pub use mailbox_soa::{DefaultMailboxSoA, MailboxSoA};
 pub use palette_perturbation::{

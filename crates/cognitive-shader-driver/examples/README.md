@@ -287,7 +287,7 @@ cargo run -p cognitive-shader-driver --example ce64_nextstate_probe
 
 ## streamdto_circuit_probe.rs
 
-D-STREAMDTO-0. A real `StreamDto` through the shipped path: `ingest_codebook_indices`,
+D-STREAMDTO-0. A real `StreamDto` straight into the SoA (`ingest_codebook_indices_soa`),
 the mailbox read shim, `dispatch` at cycle k, the persisted row's emitted edge
 written through `ShaderDriver::mailbox_mut`, `tick`, and `dispatch` at k+1,
 which reads it. Then the #1370 law on the committed row. Pins that the edge
