@@ -32,6 +32,12 @@ name = "shader-lab"
 path = "src/bin/serve.rs"
 required-features = ["lab"]
 
+# D-GSO-2 probe. `test = true` so the crate's `cargo test` CI step runs the
+# probe's falsifiers; examples are otherwise only compiled.
+[[example]]
+name = "moore_plasticity_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the

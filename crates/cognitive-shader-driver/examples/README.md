@@ -35,3 +35,15 @@ Three scenes:
    over several ticks; renderer labels anchor states as villager moods.
 3. **Anchor gallery** — all 7 calibration anchors rendered side-by-side
    as their villager-mood equivalents.
+
+## moore_plasticity_probe.rs
+
+D-GSO-2 (plan `2026-10-06-global-sudoku-replayable-orchestration-v1.md` §18 P2).
+One gated, synchronous Moore hop over the 16 bytes of a `Register128` read as a
+4 × 4 grid. Neighbours come from a closed-form direction mask, not an edge list;
+each relation byte goes straight into the existing `PalettePerturbation::hop`
+law. The tests run under the crate's `cargo test` (`test = true`).
+
+```bash
+cargo run -p cognitive-shader-driver --example moore_plasticity_probe
+```
