@@ -198,24 +198,6 @@ fn stripe(s: u8, b: u8, horizontal: bool) -> Tile {
     t
 }
 
-/// First material pair whose Fisher-Z code lies in `range`.
-fn pair_with_code(law: &PairwiseFisherZ<'_>, range: std::ops::RangeInclusive<i8>) -> (u8, u8) {
-    use cognitive_shader_driver::palette_perturbation::PaletteState;
-    use fisher_relation::Relation;
-    for s in 0..=255u8 {
-        for b in 0..=255u8 {
-            if s != b {
-                if let Relation::Pair(r) = law.relation(PaletteState(s), PaletteState(b)) {
-                    if range.contains(&r) {
-                        return (s, b);
-                    }
-                }
-            }
-        }
-    }
-    panic!("no pair with code in {range:?}");
-}
-
 /// Only pixel `(x, y)` activated.
 fn single(x: u8, y: u8) -> Tile {
     let mut a = [0u8; PIXELS];
@@ -252,7 +234,7 @@ fn main() {
     let c = render_gather(&tile, &act, &law);
     let worst = (0..PIXELS).map(|i| (b[i] - c[i]).abs()).fold(0.0, f64::max);
 
-    let (s, bg) = pair_with_code(&law, -100..=-80);
+    let (s, bg) = law.pair_with_code(-100..=-80);
     let (stripe_h, one) = (stripe(s, bg, true), single(8, 8));
     let (mut iso, mut aniso) = ([0.0; PIXELS], [0.0; PIXELS]);
     render_isotropic(&stripe_h, &one, &law, &mut iso);
@@ -296,7 +278,7 @@ mod tests {
     }
 
     fn tiles(law: &PairwiseFisherZ<'_>) -> Vec<Tile> {
-        let (s, b) = pair_with_code(law, -100..=-80);
+        let (s, b) = law.pair_with_code(-100..=-80);
         let mut t = vec![
             permutation_tile(),
             repeated_tile(),
@@ -417,7 +399,7 @@ mod tests {
     fn orientation_reaches_the_rendered_surface() {
         let table = table();
         let law = PairwiseFisherZ::borrow(&table);
-        let (s, b) = pair_with_code(&law, -100..=-80);
+        let (s, b) = law.pair_with_code(-100..=-80);
         let one = single(8, 8);
         let center = Morton8x8::from_xy(8, 8).code() as usize;
         let (h, v) = (stripe(s, b, true), stripe(s, b, false));
@@ -472,7 +454,7 @@ mod tests {
         let center = Morton8x8::from_xy(8, 8);
 
         // Thin, not degenerate: a weak but non-zero cross relation.
-        let (s, b) = pair_with_code(&law, -126..=-120);
+        let (s, b) = law.pair_with_code(-126..=-120);
         let r = read_surfel(&stripe(s, b, true), center, 255, &law, IDENTITY_WEIGHT);
         let raw = normalized_moment(&r).unwrap();
         assert!(raw.is_spd(1e-12));
@@ -482,7 +464,7 @@ mod tests {
         assert!(floored <= 1.001, "floored mass {floored}");
 
         // Degenerate: the cross relation at the bottom of the family range.
-        let (s, b) = pair_with_code(&law, -127..=-127);
+        let (s, b) = law.pair_with_code(-127..=-127);
         let r = read_surfel(&stripe(s, b, true), center, 255, &law, IDENTITY_WEIGHT);
         assert!(
             !normalized_moment(&r).unwrap().is_spd(1e-12),
