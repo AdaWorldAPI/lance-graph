@@ -56,6 +56,9 @@ name = "sigma_probe"
 name = "probe_p1"
 
 [[example]]
+name = "dav_active_observation_probe"
+
+[[example]]
 name = "osint_edge_traversal"
 
 [[example]]
