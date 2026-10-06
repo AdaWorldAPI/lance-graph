@@ -392,6 +392,13 @@ impl<const N: usize> MailboxSoA<N> {
         true
     }
 
+    /// Bytes this mailbox holds: the inline per-row arrays plus the three
+    /// boxed identity planes. Capacity (`N` rows), not `populated`.
+    pub fn byte_footprint(&self) -> usize {
+        core::mem::size_of::<Self>()
+            + (self.content.len() + self.topic.len() + self.angle.len()) * 8
+    }
+
     /// Advance to the next cycle.
     ///
     /// Wraps at `u32::MAX` (wrapping_add). This makes the

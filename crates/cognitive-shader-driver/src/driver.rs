@@ -1,8 +1,10 @@
 //! `ShaderDriver` — the CognitiveShader IS the driver.
 //!
-//! Holds BindSpace columns (owned), the p64 CognitiveShader topology (8
+//! Holds its substrate (one or more `MailboxSoA`s under `mailbox-thoughtspace`,
+//! otherwise the singleton BindSpace), the p64 CognitiveShader topology (8
 //! predicate planes) plus its bgz17 PaletteSemiring (O(1) distance table),
-//! and an optional sink. `dispatch()` runs one cycle end-to-end.
+//! the cold shared ontology, and an optional sink. `dispatch()` runs one
+//! cycle end-to-end.
 //!
 //! ```text
 //!   ShaderDispatch
@@ -50,27 +52,29 @@ use p64_bridge::cognitive_shader::CognitiveShader;
 use crate::auto_style;
 use crate::backing::BackingStore;
 use crate::bindspace::{BindSpace, WORDS_PER_FP};
-use crate::mailbox_soa::MailboxSoA;
-use lance_graph_contract::collapse_gate::MailboxId;
-
-/// The single designated mailbox the dispatch read-shim selects under the
-/// `mailbox-thoughtspace` feature (OQ-D, Option A — no contract change).
-///
-/// `ShaderDispatch` carries no `MailboxId` today, so a singleton-shaped
-/// dispatch routes to this fixed id. Multi-mailbox routing is W5; until then
-/// the driver `debug_assert!`s exactly one mailbox is registered. `MailboxId`
-/// is a `u32` alias (`collapse_gate.rs`), so this is a free const.
 #[cfg(feature = "mailbox-thoughtspace")]
-const DEFAULT_MAILBOX: MailboxId = 0;
+use crate::mailbox_soa::MailboxSoA;
+#[cfg(feature = "mailbox-thoughtspace")]
+use lance_graph_contract::collapse_gate::MailboxId;
+use lance_graph_ontology::OntologyRegistry;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ShaderDriver — holds everything the shader needs to drive
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// The genius driver: CognitiveShader in the driving seat, BindSpace and
-/// the bgz17 semiring in the back, thinking-engine optional.
+/// The genius driver: CognitiveShader in the driving seat, the substrate
+/// (mailboxes or the singleton BindSpace) and the bgz17 semiring in the
+/// back, thinking-engine optional.
 pub struct ShaderDriver {
-    pub(crate) bindspace: Arc<BindSpace>,
+    /// The singleton substrate. `None` for a driver built on a mailbox
+    /// (`mailbox-thoughtspace`): that driver never reads BindSpace state.
+    /// `Some` in a mailbox driver only when the caller also handed one in for
+    /// the legacy lab bridge; dispatch still never reads it.
+    pub(crate) bindspace: Option<Arc<BindSpace>>,
+    /// Cold shared ontology (D-CASCADE-V1-7 `ctx_id` lookup). Carried by the
+    /// driver, not by the substrate, so a mailbox driver has it without a
+    /// BindSpace. A singleton driver inherits the BindSpace's handle at build.
+    pub(crate) ontology: Option<Arc<OntologyRegistry>>,
     pub(crate) semiring: Arc<PaletteSemiring>,
     /// 8 predicate planes × 64 rows × u64 columns = 4 KB topology.
     /// Boxed to keep the bulk off ShaderDriver's stack frame, and held
@@ -89,14 +93,14 @@ pub struct ShaderDriver {
     /// Lives in `causal-edge` (zero-dep), so attaching it does NOT pull
     /// the planner into shader-driver.
     pub(crate) nars_tables: Option<Arc<NarsTables>>,
-    /// Transitional per-mailbox routing surface (slice A2).
-    ///
-    /// Consumers can opt into per-mailbox routing by inserting
-    /// `MailboxSoA<1024>` instances here via the builder's
-    /// `with_mailbox` method. The singleton `Arc<BindSpace>` (above)
-    /// is unchanged — this field is purely additive and does not alter
-    /// any existing dispatch semantics. Removed at cutover (plan S3).
+    /// The registered mailboxes, each with its own rows and CE64 population.
+    #[cfg(feature = "mailbox-thoughtspace")]
     pub(crate) mailboxes: std::collections::HashMap<MailboxId, MailboxSoA<1024>>,
+    /// The mailbox dispatch reads. `Some` exactly when `mailboxes` is
+    /// non-empty, and always a key of it (mailboxes are never removed), so
+    /// `backing()` has no fallback to take.
+    #[cfg(feature = "mailbox-thoughtspace")]
+    pub(crate) selected: Option<MailboxId>,
     /// Persistent rung-elevation state (`RungElevator`) across dispatch
     /// cycles. Each `run()` call is "one cycle" per this module's own
     /// docstring ("emits one CycleFingerprint per cycle — the unit of
@@ -122,13 +126,17 @@ impl ShaderDriver {
             .map(|ord| GrammarStyleAwareness::bootstrap(ord_to_thinking_style(ord)))
             .collect::<Vec<_>>();
         Self {
-            bindspace,
+            ontology: bindspace.ontology().cloned(),
+            bindspace: Some(bindspace),
             semiring,
             planes: RwLock::new(Box::new(planes)),
             default_style,
             awareness: RwLock::new(awareness),
             nars_tables: None,
+            #[cfg(feature = "mailbox-thoughtspace")]
             mailboxes: std::collections::HashMap::new(),
+            #[cfg(feature = "mailbox-thoughtspace")]
+            selected: None,
             rung_elevator: RwLock::new(RungElevator::new(RungLevel::default())),
         }
     }
@@ -149,12 +157,8 @@ impl ShaderDriver {
         self.nars_tables.as_ref()
     }
 
-    /// Return a read reference to the `MailboxSoA<1024>` registered under
-    /// `id`, or `None` if no mailbox with that id has been inserted via
-    /// the builder's `with_mailbox` method.
-    ///
-    /// The singleton `Arc<BindSpace>` is unchanged by this accessor.
-    /// This is the transitional per-mailbox routing read surface (slice A2).
+    /// The `MailboxSoA<1024>` registered under `id`, if any.
+    #[cfg(feature = "mailbox-thoughtspace")]
     #[inline]
     pub fn mailbox(&self, id: MailboxId) -> Option<&MailboxSoA<1024>> {
         self.mailboxes.get(&id)
@@ -169,15 +173,45 @@ impl ShaderDriver {
     /// write (`MailboxSoA::write_row`, which accepts only the current cycle)
     /// and commit (`MailboxSoA::tick`). No dispatch can run while the borrow
     /// is live. D-STREAMDTO-0.
+    #[cfg(feature = "mailbox-thoughtspace")]
     #[inline]
     pub fn mailbox_mut(&mut self, id: MailboxId) -> Option<&mut MailboxSoA<1024>> {
         self.mailboxes.get_mut(&id)
     }
 
-    /// Borrow the underlying BindSpace (read-only).
+    /// The mailbox dispatch reads, or `None` for a singleton driver.
+    #[cfg(feature = "mailbox-thoughtspace")]
     #[inline]
-    pub fn bindspace(&self) -> &BindSpace {
-        &self.bindspace
+    pub fn selected_mailbox(&self) -> Option<MailboxId> {
+        self.selected
+    }
+
+    /// Point dispatch at another registered mailbox. Each mailbox keeps its
+    /// own rows and CE64 population; nothing is copied. Refused (returns
+    /// `false`, selection unchanged) for an unregistered id, so the selection
+    /// can never name a mailbox `backing()` cannot find.
+    #[cfg(feature = "mailbox-thoughtspace")]
+    pub fn select_mailbox(&mut self, id: MailboxId) -> bool {
+        if self.mailboxes.contains_key(&id) {
+            self.selected = Some(id);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// The singleton BindSpace, if this driver has one. A mailbox driver
+    /// returns `None` unless a BindSpace was handed in for the legacy lab
+    /// bridge, which dispatch never reads.
+    #[inline]
+    pub fn bindspace(&self) -> Option<&BindSpace> {
+        self.bindspace.as_deref()
+    }
+
+    /// The cold shared ontology the `ctx_id` lookup reads.
+    #[inline]
+    pub fn ontology(&self) -> Option<&Arc<OntologyRegistry>> {
+        self.ontology.as_ref()
     }
 
     /// Snapshot the topology planes (8 × 64 u64).
@@ -203,37 +237,29 @@ impl ShaderDriver {
         **guard = new_planes;
     }
 
-    /// Select the dispatch read substrate (W3 read-shim).
+    /// Select the dispatch read substrate.
     ///
-    /// Default (`mailbox-thoughtspace` OFF): the live singleton `BindSpace` —
-    /// byte-identical to the pre-shim reads. Under the feature: the single
-    /// designated `MailboxSoA` ([`DEFAULT_MAILBOX`]). `run()` keeps ONE body
-    /// written against [`BackingStore`]; this method (NOT a `#[cfg]` inside
-    /// `run`) selects which variant is constructed.
+    /// A driver built on a mailbox reads its selected mailbox; there is no
+    /// fallback to the singleton (the builder sets `selected` whenever a
+    /// mailbox is registered, `select_mailbox` only accepts registered ids,
+    /// and mailboxes are never removed). Otherwise the singleton BindSpace,
+    /// which the builder requires in that case. `run()` keeps ONE body written
+    /// against [`BackingStore`].
     #[inline]
     fn backing(&self) -> BackingStore<'_> {
         #[cfg(feature = "mailbox-thoughtspace")]
-        {
-            // OQ-D: multi-mailbox routing is W5. Until then AT MOST one mailbox
-            // is the BindSpace surrogate; a singleton-shaped dispatch selects it.
-            // An unmigrated driver (zero mailboxes) falls back to the singleton,
-            // so the feature build never panics on a driver that hasn't been
-            // populated with the designated mailbox yet.
-            debug_assert!(
-                self.mailboxes.len() <= 1,
-                "mailbox-thoughtspace expects at most one designated mailbox \
-                 (DEFAULT_MAILBOX) until W5 multi-mailbox routing; got {}",
-                self.mailboxes.len()
+        if let Some(id) = self.selected {
+            return BackingStore::Mailbox(
+                self.mailboxes
+                    .get(&id)
+                    .expect("the selected mailbox is registered"),
             );
-            if let Some(mb) = self.mailboxes.get(&DEFAULT_MAILBOX) {
-                return BackingStore::Mailbox(mb);
-            }
-            BackingStore::Singleton(&self.bindspace)
         }
-        #[cfg(not(feature = "mailbox-thoughtspace"))]
-        {
-            BackingStore::Singleton(&self.bindspace)
-        }
+        BackingStore::Singleton(
+            self.bindspace
+                .as_deref()
+                .expect("a driver without a mailbox has a BindSpace"),
+        )
     }
 
     /// Run one dispatch, feeding a sink. This is the single hot path.
@@ -446,13 +472,13 @@ impl ShaderDriver {
             .first()
             .copied()
             .and_then(|r| {
-                // entity_type routes through the shim; ontology() stays on the
-                // singleton (the registry re-home is W4b — see plan §90).
+                // entity_type routes through the shim; the registry is the
+                // driver's own cold handle, never read through the substrate.
                 let etid = backing.entity_type(r as usize);
                 if etid == 0 {
                     return None;
                 }
-                self.bindspace.ontology().and_then(|reg| {
+                self.ontology.as_ref().and_then(|reg| {
                     reg.enumerate_first_with_entity_type_id(etid)
                         .map(|row| row.ontology_context_id())
                 })
@@ -822,12 +848,20 @@ impl CognitiveShaderDriver for ShaderDriver {
         self.run(req, sink)
     }
 
+    /// The selected substrate's declared rows (`MailboxSoA::populated` or
+    /// `BindSpace::len`).
     fn row_count(&self) -> u32 {
-        self.bindspace.len as u32
+        self.backing().len() as u32
     }
 
+    /// The selected substrate's bytes plus the driver's own tables.
     fn byte_footprint(&self) -> usize {
-        self.bindspace.byte_footprint()
+        let substrate = match self.backing() {
+            BackingStore::Singleton(bs) => bs.byte_footprint(),
+            #[cfg(feature = "mailbox-thoughtspace")]
+            BackingStore::Mailbox(mb) => mb.byte_footprint(),
+        };
+        substrate
             + 8 * 64 * 8                           // planes: 4096 bytes
             + self.semiring.compose_table.len()    // k×k u8
             + self.semiring.distance_matrix.byte_size() // k×k u16
@@ -854,9 +888,11 @@ pub struct CognitiveShaderBuilder {
     planes: Option<[[u64; 64]; 8]>,
     default_style: u8,
     nars_tables: Option<Arc<NarsTables>>,
-    /// Transitional per-mailbox routing map populated by `with_mailbox`.
-    /// Forwarded into `ShaderDriver::mailboxes` at `build()` time.
+    ontology: Option<Arc<OntologyRegistry>>,
+    #[cfg(feature = "mailbox-thoughtspace")]
     mailboxes: std::collections::HashMap<MailboxId, MailboxSoA<1024>>,
+    #[cfg(feature = "mailbox-thoughtspace")]
+    selected: Option<MailboxId>,
 }
 
 impl CognitiveShaderBuilder {
@@ -867,7 +903,11 @@ impl CognitiveShaderBuilder {
             planes: None,
             default_style: auto_style::DELIBERATE,
             nars_tables: None,
+            ontology: None,
+            #[cfg(feature = "mailbox-thoughtspace")]
             mailboxes: std::collections::HashMap::new(),
+            #[cfg(feature = "mailbox-thoughtspace")]
+            selected: None,
         }
     }
 
@@ -897,27 +937,96 @@ impl CognitiveShaderBuilder {
         self
     }
 
-    /// Register a `MailboxSoA<1024>` for transitional per-mailbox routing
-    /// (slice A2). The mailbox is keyed by `id`; a second call with the
-    /// same `id` replaces the previous entry. Multiple mailboxes are
-    /// supported. The singleton `Arc<BindSpace>` is not affected.
+    /// Attach the cold shared ontology the `ctx_id` lookup reads. A mailbox
+    /// driver gets one only this way; a singleton driver otherwise inherits
+    /// the BindSpace's handle.
+    pub fn ontology(mut self, registry: Arc<OntologyRegistry>) -> Self {
+        self.ontology = Some(registry);
+        self
+    }
+
+    /// Register a mailbox. A driver with any mailbox reads mailboxes only;
+    /// it needs no BindSpace. The same `id` again replaces the entry.
+    #[cfg(feature = "mailbox-thoughtspace")]
     pub fn with_mailbox(mut self, id: MailboxId, soa: MailboxSoA<1024>) -> Self {
         self.mailboxes.insert(id, soa);
         self
     }
 
+    /// Choose which registered mailbox dispatch reads first. Required when
+    /// more than one is registered.
+    #[cfg(feature = "mailbox-thoughtspace")]
+    pub fn select_mailbox(mut self, id: MailboxId) -> Self {
+        self.selected = Some(id);
+        self
+    }
+
+    /// Build the driver.
+    ///
+    /// # Panics
+    /// - no semiring;
+    /// - no mailbox and no BindSpace;
+    /// - a selected mailbox that is not registered, or several mailboxes with
+    ///   none selected.
     pub fn build(self) -> ShaderDriver {
         let awareness = (0..12)
             .map(|ord| GrammarStyleAwareness::bootstrap(ord_to_thinking_style(ord)))
             .collect::<Vec<_>>();
+
+        #[cfg(feature = "mailbox-thoughtspace")]
+        let selected = if self.mailboxes.is_empty() {
+            assert!(
+                self.selected.is_none(),
+                "selected a mailbox but registered none"
+            );
+            None
+        } else {
+            let id = match self.selected {
+                Some(id) => id,
+                None => {
+                    assert!(
+                        self.mailboxes.len() == 1,
+                        "{} mailboxes registered; select one",
+                        self.mailboxes.len()
+                    );
+                    *self.mailboxes.keys().next().expect("one mailbox")
+                }
+            };
+            assert!(
+                self.mailboxes.contains_key(&id),
+                "selected mailbox {id} is not registered"
+            );
+            Some(id)
+        };
+        #[cfg(feature = "mailbox-thoughtspace")]
+        let on_mailbox = selected.is_some();
+        #[cfg(not(feature = "mailbox-thoughtspace"))]
+        let on_mailbox = false;
+
+        // A mailbox driver takes the ontology only from `ontology()`; a
+        // BindSpace handed in alongside never feeds dispatch state.
+        let ontology = if on_mailbox {
+            self.ontology
+        } else {
+            let bs = self
+                .bindspace
+                .as_ref()
+                .expect("bindspace required (or a mailbox under mailbox-thoughtspace)");
+            self.ontology.or_else(|| bs.ontology().cloned())
+        };
+
         ShaderDriver {
-            bindspace: self.bindspace.expect("bindspace required"),
+            bindspace: self.bindspace,
+            ontology,
             semiring: self.semiring.expect("semiring required"),
             planes: RwLock::new(Box::new(self.planes.unwrap_or([[0u64; 64]; 8]))),
             default_style: self.default_style,
             awareness: RwLock::new(awareness),
             nars_tables: self.nars_tables,
+            #[cfg(feature = "mailbox-thoughtspace")]
             mailboxes: self.mailboxes,
+            #[cfg(feature = "mailbox-thoughtspace")]
+            selected,
             rung_elevator: RwLock::new(RungElevator::new(RungLevel::default())),
         }
     }

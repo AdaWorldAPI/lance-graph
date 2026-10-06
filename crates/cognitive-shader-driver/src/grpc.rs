@@ -133,8 +133,13 @@ impl CognitiveShaderService for ShaderGrpcService {
             .lock()
             .map_err(|_| Status::internal("lock"))?;
         let mut drv = self.driver.lock().map_err(|_| Status::internal("lock"))?;
-        let bs = Arc::get_mut(&mut drv.bindspace)
-            .ok_or_else(|| Status::failed_precondition("bindspace has multiple refs"))?;
+        let bs = drv
+            .bindspace
+            .as_mut()
+            .and_then(Arc::get_mut)
+            .ok_or_else(|| {
+                Status::failed_precondition("no exclusive bindspace (absent or shared)")
+            })?;
 
         let c = *cursor;
         let (start, end) = engine_bridge::ingest_codebook_indices(
@@ -173,7 +178,9 @@ impl CognitiveShaderService for ShaderGrpcService {
     ) -> Result<Response<pb::QualiaResponse>, Status> {
         let row = request.into_inner().row;
         let drv = self.driver.lock().map_err(|_| Status::internal("lock"))?;
-        let bs = drv.bindspace();
+        let bs = drv
+            .bindspace()
+            .ok_or_else(|| Status::failed_precondition("driver has no bindspace"))?;
         if row as usize >= bs.len {
             return Err(Status::not_found("row out of range"));
         }

@@ -138,7 +138,6 @@ impl<'a> BackingStore<'a> {
 
     /// Declared logical row count (`BindSpace::len` / `MailboxSoA::populated`).
     #[inline]
-    #[allow(dead_code)] // mirrors the read surface; row_count routes through bindspace until W4b
     pub(crate) fn len(&self) -> usize {
         match self {
             BackingStore::Singleton(bs) => bs.len,
