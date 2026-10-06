@@ -45,6 +45,18 @@
 //! nullable value column: `sql_where` would gate it by validity and drop every
 //! candidate. The probe asserts both halves of that.
 //!
+//! # Resident reading (Round 2)
+//!
+//! `resident_differential` adds carrier C: the horizon's own
+//! `independent_roots` and `projected_claims` words read as two borrowed
+//! bit-planes, with no value lane built. It requires A == B == C on the same
+//! outputs. C is a physical-carrier test only. A mask plane is never nullable
+//! to Quack, so C has no SQL NULL semantics; B remains that test. For `k = 1`,
+//! top-1 is a streaming fold over the kept mask with one `Option<Candidate>`
+//! of state, no row-id list, no candidate list and no sort. The one derived
+//! population object left on the C path is the kept mask, a caller-owned
+//! stack bitmap. A heap meter pins candidate selection at 0 bytes.
+//!
 //! Run:
 //!
 //! ```text
@@ -58,9 +70,54 @@ use lance_graph_contract::revision::{
 };
 use lance_graph_contract::sigma_propagation::{ewa_sandwich, Spd2};
 use lance_graph_mask_risc::{
-    execute_into, words_for, Foreign, LaneRef, Out, Planes, Scratch, Value,
+    execute_into, words_for, Foreign, LaneRef, Out, Planes, Program, Scratch, Value,
 };
 use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, Mask, Query};
+
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+// ---------------------------------------------------------------------------
+// Heap meter (Round 2, falsifier 6). The pattern of
+// `lance-graph-mask-risc/tests/no_alloc.rs`: count only allocations made
+// while the current thread is inside `measure`.
+// ---------------------------------------------------------------------------
+
+struct Counting;
+
+static HEAP_BYTES: AtomicUsize = AtomicUsize::new(0);
+
+thread_local! {
+    static MEASURING: Cell<bool> = const { Cell::new(false) };
+}
+
+// SAFETY: a pure pass-through to `System`; the counter is the only addition.
+unsafe impl GlobalAlloc for Counting {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        if MEASURING.try_with(Cell::get).unwrap_or(false) {
+            HEAP_BYTES.fetch_add(layout.size(), Ordering::Relaxed);
+        }
+        // SAFETY: same layout, same contract as the caller's.
+        unsafe { System.alloc(layout) }
+    }
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        // SAFETY: `ptr` came from `alloc` above with this `layout`.
+        unsafe { System.dealloc(ptr, layout) }
+    }
+}
+
+#[global_allocator]
+static ALLOC: Counting = Counting;
+
+/// Heap bytes `f` allocated on this thread.
+fn measure<R>(f: impl FnOnce() -> R) -> (R, usize) {
+    let before = HEAP_BYTES.load(Ordering::Relaxed);
+    MEASURING.with(|m| m.set(true));
+    let r = f();
+    MEASURING.with(|m| m.set(false));
+    (r, HEAP_BYTES.load(Ordering::Relaxed) - before)
+}
 
 type Horizon = InterpretiveHorizon<u64, u64>;
 
@@ -427,6 +484,17 @@ enum Carrier {
     /// non-zero payload as observed-true. Exists only to prove the poison
     /// test can fire.
     LeakyQuack(Poison),
+    /// Carrier C: the horizon's two resident words read as bit-planes,
+    /// validity = `independent_roots`, value = `projected_claims`. The
+    /// poison is written into `projected_claims` at UNOBSERVED sites —
+    /// projected but not observed.
+    Resident(Poison),
+    /// C with the NULL gate broken: a projected bit at an unobserved site is
+    /// read as an observed `true` (falsifier R2.5-1).
+    LeakyResident(Poison),
+    /// C with the validity gate removed entirely: every projected bit is read
+    /// as an observation (falsifier R2.5-5).
+    UngatedResident(Poison),
 }
 
 /// A reading of the horizon as value lane + validity plane.
@@ -517,6 +585,9 @@ fn with_reading<R>(carrier: Carrier, h: &Horizon, f: impl FnOnce(&dyn Observed) 
         Carrier::Reference => f(&observations(h)),
         Carrier::Quack(p) => f(&QuackCarrier::read(h, p, false)),
         Carrier::LeakyQuack(p) => f(&QuackCarrier::read(h, p, true)),
+        Carrier::Resident(p) => with_resident(h, p, Gate::Valid, f),
+        Carrier::LeakyResident(p) => with_resident(h, p, Gate::Leaky, f),
+        Carrier::UngatedResident(p) => with_resident(h, p, Gate::None, f),
     }
 }
 
@@ -570,6 +641,405 @@ fn rank_quack(h: &Horizon, aperture: f64, poison: Poison, descending: bool) -> V
     let carrier = QuackCarrier::read(h, poison, false);
     let kept = carrier.select(&candidate_filter(aperture));
     score_and_sort(&carrier, aperture, set_bits(&kept, descending).into_iter())
+}
+
+// ---------------------------------------------------------------------------
+// Carrier C (Round 2): the horizon's own resident words, read as planes.
+// No value lane is built. C has NO SQL NULL semantics: a plane is never
+// nullable to Quack, so B stays the semantic NULL test and C is the
+// physical-carrier test.
+// ---------------------------------------------------------------------------
+
+/// How a resident reading treats the validity plane.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Gate {
+    /// Correct: a value bit is read only where the validity bit is set.
+    Valid,
+    /// Broken: a set value bit at an unobserved site reads as observed-true.
+    Leaky,
+    /// Broken: validity ignored.
+    None,
+}
+
+/// Carrier C: two borrowed `&[u64]` planes over the horizon's words.
+struct ResidentCarrier<'h> {
+    valid: &'h [u64],
+    value: &'h [u64],
+    gate: Gate,
+}
+
+impl<'h> ResidentCarrier<'h> {
+    fn read(h: &'h Horizon, gate: Gate) -> Self {
+        Self {
+            valid: core::slice::from_ref(&h.independent_roots),
+            value: core::slice::from_ref(&h.projected_claims),
+            gate,
+        }
+    }
+}
+
+fn plane_bit(plane: &[u64], idx: usize) -> bool {
+    plane[idx / 64] >> (idx % 64) & 1 == 1
+}
+
+impl Observed for ResidentCarrier<'_> {
+    fn get(&self, idx: usize) -> Option<bool> {
+        let (valid, value) = (plane_bit(self.valid, idx), plane_bit(self.value, idx));
+        match self.gate {
+            Gate::Valid => valid.then_some(value),
+            Gate::Leaky => (valid || value).then_some(value),
+            Gate::None => Some(value),
+        }
+    }
+    fn len(&self) -> usize {
+        N
+    }
+}
+
+/// `h` with `poison` written into `projected_claims` at every UNOBSERVED
+/// site, leaving `independent_roots` alone. This is test fixture
+/// construction — a projection the horizon legally can carry — not part of
+/// any measured path. `Poison::Zero` returns the horizon unchanged.
+fn poisoned(h: &Horizon, poison: Poison) -> Horizon {
+    let unobserved = !h.independent_roots & ((1u64 << N) - 1);
+    let projected: u64 = (0..N)
+        .filter(|&i| match poison {
+            Poison::Zero => false,
+            Poison::Truth => truth(i),
+            Poison::NotTruth => !truth(i),
+            Poison::Garbage => true,
+        })
+        .fold(0, |acc, i| acc | bit(i));
+    let mut out = h.clone();
+    out.projected_claims = (h.projected_claims & !unobserved) | (projected & unobserved);
+    out
+}
+
+fn with_resident<R>(
+    h: &Horizon,
+    poison: Poison,
+    gate: Gate,
+    f: impl FnOnce(&dyn Observed) -> R,
+) -> R {
+    if let Poison::Zero = poison {
+        // The unpoisoned case borrows the live horizon itself.
+        f(&ResidentCarrier::read(h, gate))
+    } else {
+        let p = poisoned(h, poison);
+        f(&ResidentCarrier::read(&p, gate))
+    }
+}
+
+/// Words of the candidate mask — `words_for(N)`, here 1.
+const W: usize = N.div_ceil(64);
+/// Stack scratch for the candidate program (`Scratch::over_for_program`):
+/// tile-local, never heap.
+const SCRATCH_WORDS: usize = 8;
+
+/// Run an already-lowered candidate program over the RESIDENT validity
+/// plane, writing the kept mask into a caller-owned stack array. No lane is
+/// borrowed: `Pred::Range` reads none, and `is_null` reads only the plane.
+///
+/// The `[u64; W]` it returns is the one derived population object on the C
+/// path: a caller-owned bitmap, which per `stay-on-the-lane.md` §6 is still
+/// materialization.
+fn resident_candidates(valid: &[u64], program: &Program) -> [u64; W] {
+    let masks: [&[u64]; 1] = [valid];
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &[],
+    };
+    let mut buf = [0u64; SCRATCH_WORDS];
+    let mut scratch = Scratch::over_for_program(&mut buf, program, N).expect("stack scratch");
+    let mut kept = [0u64; W];
+    match execute_into(
+        program,
+        &planes,
+        &Foreign::NONE,
+        &mut scratch,
+        Out::Mask(&mut kept),
+    )
+    .expect("runs")
+    {
+        Value::Mask(_) => kept,
+        other => panic!("not a kept mask: {other:?}"),
+    }
+}
+
+/// Visit the set bits of `mask` in ascending or descending ordinal, one word
+/// at a time — a visitation, not a row-id list.
+fn for_each_set_bit(mask: &[u64], descending: bool, mut f: impl FnMut(usize)) {
+    let mut visit = |w: usize| {
+        let mut word = mask[w];
+        while word != 0 {
+            let b = if descending {
+                63 - word.leading_zeros() as usize
+            } else {
+                word.trailing_zeros() as usize
+            };
+            word &= !(1u64 << b);
+            f(w * 64 + b);
+        }
+    };
+    if descending {
+        (0..mask.len()).rev().for_each(&mut visit);
+    } else {
+        (0..mask.len()).for_each(&mut visit);
+    }
+}
+
+fn score_one(observed: &dyn Observed, aperture: f64, idx: usize) -> Candidate {
+    let ewa_weight = ewa_aperture_weight(aperture, idx.abs_diff(SEED));
+    let disagreement = route_disagreement(observed, idx);
+    Candidate {
+        idx,
+        disagreement,
+        ewa_weight,
+        score: f64::from(disagreement) / 255.0 * ewa_weight,
+    }
+}
+
+/// Top-1 as a streaming fold over the candidate aperture: state is ONE
+/// `Option<Candidate>`, no row-id list, no candidate list, no sort.
+///
+/// With `tie_break`, the order is the same total order `score_and_sort`
+/// uses (score desc, then ordinal asc), so the result cannot depend on
+/// visitation order. Without it, a strict `>` keeps the FIRST visited of a
+/// tie — falsifier R2.5-7.
+fn top1_fold(
+    observed: &dyn Observed,
+    kept: &[u64],
+    aperture: f64,
+    descending: bool,
+    tie_break: bool,
+) -> Option<Candidate> {
+    let mut best: Option<Candidate> = None;
+    for_each_set_bit(kept, descending, |idx| {
+        let c = score_one(observed, aperture, idx);
+        let wins = match best {
+            None => true,
+            Some(b) => c.score > b.score || (tie_break && c.score == b.score && c.idx < b.idx),
+        };
+        if wins {
+            best = Some(c);
+        }
+    });
+    best
+}
+
+/// The ordinal baseline's pick: the lowest set bit — O(1), no fold at all.
+fn lowest_set_bit(mask: &[u64]) -> Option<usize> {
+    mask.iter()
+        .enumerate()
+        .find(|(_, &w)| w != 0)
+        .map(|(i, w)| i * 64 + w.trailing_zeros() as usize)
+}
+
+/// C's full ranking — only for the ranking differential. The cycle does not
+/// need it (see `resident_differential`).
+fn rank_resident(h: &Horizon, aperture: f64, poison: Poison, descending: bool) -> Vec<Candidate> {
+    let program = lower(&Query {
+        filter: candidate_filter(aperture),
+        agg: Agg::Rows,
+    })
+    .expect("lowers");
+    with_resident(h, poison, Gate::Valid, |o| {
+        let kept = resident_candidates(core::slice::from_ref(&h.independent_roots), &program);
+        let mut ids = Vec::new();
+        for_each_set_bit(&kept, descending, |i| ids.push(i));
+        score_and_sort(o, aperture, ids.into_iter())
+    })
+}
+
+/// Round 2: A == B == C, plus the population-boundary measurements.
+fn resident_differential(prior: &Horizon) {
+    println!();
+    println!("resident differential: C = borrowed independent_roots + projected_claims planes");
+    let reference = observations(prior);
+
+    // Plans are lowered once, outside every measured window: a plan is
+    // query-sized, not population-sized.
+    let programs: Vec<(f64, Program)> = APERTURES
+        .iter()
+        .map(|&a| {
+            let program = lower(&Query {
+                filter: candidate_filter(a),
+                agg: Agg::Rows,
+            })
+            .expect("lowers");
+            (a, program)
+        })
+        .collect();
+
+    for (aperture, program) in &programs {
+        let aperture = *aperture;
+        let a = rank(&reference, aperture);
+        for poison in POISONS {
+            for descending in [false, true] {
+                let b = rank_quack(prior, aperture, poison, descending);
+                let c = rank_resident(prior, aperture, poison, descending);
+                assert_eq!(b, a, "a={aperture} {poison:?}: B != A");
+                assert_eq!(c, a, "a={aperture} {poison:?} desc={descending}: C != A");
+
+                // k=1 needs no candidate list: the streaming fold agrees.
+                let top = with_resident(prior, poison, Gate::Valid, |o| {
+                    let kept = resident_candidates(
+                        core::slice::from_ref(&prior.independent_roots),
+                        program,
+                    );
+                    top1_fold(o, &kept, aperture, descending, true)
+                });
+                assert_eq!(
+                    top,
+                    a.first().copied(),
+                    "a={aperture}: streaming top-1 != A"
+                );
+            }
+        }
+        let kept = resident_candidates(core::slice::from_ref(&prior.independent_roots), program);
+        assert_eq!(
+            lowest_set_bit(&kept),
+            a.iter().map(|c| c.idx).min(),
+            "a={aperture}: ordinal pick"
+        );
+        println!(
+            "a={aperture:.2}  lowering={:?}  A==B==C ranking, streaming top-1 == A[0]",
+            program.lowering()
+        );
+    }
+
+    // Cycles: DAV and ordinal, every poison through C.
+    let aperture = 0.55;
+    let ranked = rank(&reference, aperture);
+    for selected in [
+        ranked[0].idx,
+        ranked.iter().map(|c| c.idx).min().expect("frontier"),
+    ] {
+        let a = run_cycle(Carrier::Reference, prior, selected);
+        for poison in POISONS {
+            assert_eq!(run_cycle(Carrier::Quack(poison), prior, selected), a);
+            let c = run_cycle(Carrier::Resident(poison), prior, selected);
+            assert_eq!(c, a, "site {selected} {poison:?}: C cycle differs");
+            let final_a = observations(&a.resulting);
+            with_resident(&c.resulting, poison, Gate::Valid, |o| {
+                for (i, &want) in final_a.iter().enumerate() {
+                    assert_eq!(o.get(i), want, "final state differs at {i}");
+                }
+            });
+        }
+    }
+    println!("cycles: DAV + ordinal, 4 poisons: A == B == C (delta, resulting, replay, residual)");
+
+    // F4 (court of appeal) through C: its own consensus is refused.
+    for poison in POISONS {
+        let (laundered, delta) =
+            adopt_route_consensus(Carrier::Resident(poison), prior, ranked[0].idx);
+        assert_ne!(delta.evidential_effect, EvidentialEffect::IncreaseEligible);
+        assert_eq!(&laundered, prior);
+    }
+
+    // R2.5-1 can-fire: a projected-but-unobserved bit read as evidence
+    // changes the reasoning once the hidden truth is projected.
+    let routes = |carrier| {
+        with_reading(carrier, prior, |o| {
+            (0..N).map(|i| route_disagreement(o, i)).collect::<Vec<_>>()
+        })
+    };
+    assert_ne!(
+        routes(Carrier::LeakyResident(Poison::Truth)),
+        routes(Carrier::Resident(Poison::Truth)),
+        "R2.5-1 can-fire: the leaky resident reader did not leak"
+    );
+    // R2.5-5 can-fire: without the validity gate, projected truth reaches the
+    // routes — the unobserved hidden truth would close the selected hole.
+    let target_disagreement =
+        |carrier| with_reading(carrier, prior, |o| route_disagreement(o, ranked[0].idx));
+    assert_eq!(target_disagreement(Carrier::Resident(Poison::Truth)), 255);
+    assert_eq!(
+        target_disagreement(Carrier::UngatedResident(Poison::Truth)),
+        0,
+        "R2.5-5 can-fire: ungated reading did not expose projected truth"
+    );
+
+    // R2.5-7 can-fire: after the DAV cycle every remaining candidate scores
+    // 0, so top-1 is a pure tie. With the ordinal tie-break, visitation
+    // order is inert; without it, it decides.
+    let after = run_cycle(Carrier::Reference, prior, ranked[0].idx).resulting;
+    let program = &programs.iter().find(|(a, _)| *a == 0.65).expect("a=0.65").1;
+    let kept = resident_candidates(core::slice::from_ref(&after.independent_roots), program);
+    let pick = |descending, tie_break| {
+        with_resident(&after, Poison::Zero, Gate::Valid, |o| {
+            top1_fold(o, &kept, 0.65, descending, tie_break).map(|c| c.idx)
+        })
+    };
+    let tied = rank(&observations(&after), 0.65);
+    assert!(
+        tied.len() >= 2 && tied[0].score == tied[1].score,
+        "anti-vacuity: top-1 must be a tie for R2.5-7"
+    );
+    assert_eq!(
+        pick(false, true),
+        pick(true, true),
+        "tie-break must make order inert"
+    );
+    assert_eq!(pick(false, true), Some(tied[0].idx));
+    assert_ne!(
+        pick(false, false),
+        pick(true, false),
+        "R2.5-7 can-fire: without the tie-break visitation order must decide"
+    );
+    println!(
+        "R2.5-7: tied top-1 at a=0.65 {:?}; no tie-break: asc {:?} / desc {:?}",
+        tied.iter().map(|c| c.idx).collect::<Vec<_>>(),
+        pick(false, false),
+        pick(true, false)
+    );
+
+    // R2.5-6: the heap meter. Plans are already lowered.
+    let (aperture, program) = (0.55, &programs[2].1);
+    assert_eq!(programs[2].0, aperture);
+    let valid = core::slice::from_ref(&prior.independent_roots);
+    let (count, select_heap) = measure(|| {
+        let kept = resident_candidates(valid, program);
+        let mut n = 0usize;
+        for_each_set_bit(&kept, false, |_| n += 1);
+        n
+    });
+    let (top, top1_heap) = measure(|| {
+        with_resident(prior, Poison::Zero, Gate::Valid, |o| {
+            let kept = resident_candidates(valid, program);
+            top1_fold(o, &kept, aperture, false, true)
+        })
+    });
+    let (_, rank_c_heap) = measure(|| rank_resident(prior, aperture, Poison::Zero, false));
+    let (_, rank_b_heap) = measure(|| rank_quack(prior, aperture, Poison::Zero, false));
+    let (_, one_score_heap) = measure(|| {
+        with_resident(prior, Poison::Zero, Gate::Valid, |o| {
+            route_disagreement(o, 10)
+        })
+    });
+    assert_eq!(top.map(|c| c.idx), Some(ranked[0].idx));
+    assert_eq!(select_heap, 0, "C candidate selection allocated");
+    assert_eq!(
+        top1_heap,
+        count * one_score_heap,
+        "C top-1 heap must be exactly the route scorer's per-candidate allocation"
+    );
+    assert!(
+        rank_b_heap > top1_heap && rank_c_heap > top1_heap,
+        "R2.5-6 can-fire: the meter must see the list-building paths allocate"
+    );
+    println!(
+        "heap bytes @a=0.55 ({count} candidates): C select+visit {select_heap}, \
+         C streaming top-1 {top1_heap} (= {count} x {one_score_heap} route-scorer bytes), \
+         C full rank {rank_c_heap}, B full rank {rank_b_heap}"
+    );
+    println!(
+        "derived population bytes on C: kept mask {} (stack, caller-owned)",
+        W * core::mem::size_of::<u64>()
+    );
+    println!("PASS: A == B == C; k=1 needs no candidate list; revision still the only write");
 }
 
 /// The Round-1 differential: the same deterministic world through the
@@ -799,4 +1269,5 @@ fn main() {
     println!("PASS: EWA frontier -> disagreement -> observation -> revision -> replay collapse");
 
     carrier_differential(&prior);
+    resident_differential(&prior);
 }
