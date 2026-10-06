@@ -748,7 +748,7 @@ Run many internal operations without durable materialization, then seal only at 
 
 Replay from the prior seal must reproduce the next seal.
 
-Known limit: `DetachedCycleBatch::freeze` sorts by `stream_position` with a stable sort, so equal keys keep **arrival** order, and that order is not durable (`.claude/knowledge/seal-vs-temporal-ordering-information.md` §2 and PROBE-SEAL-TIE-DENSITY). With ties, the next seal cannot be reproduced from durable data. P8 must either require a globally unique canonical key, persist the tie-break order (or its digest) in the replay identity, or scope the guarantee to batches shown to have no ties.
+Known limit: `DetachedCycleBatch::freeze` sorts by `stream_position` with a stable sort, so equal keys keep **arrival** order, and that order is not durable (`.claude/knowledge/seal-vs-temporal-ordering-information.md` §2 and PROBE-SEAL-TIE-DENSITY). With ties, the next seal cannot be reproduced from durable data. P8 must either require a globally unique durable key, make the persisted ordered sequence of event identifiers a replay input, or scope the guarantee to batches shown to have no ties. A digest of that order can verify it but cannot reconstruct it, so it is never a substitute for the order.
 
 Only after these probes survive should common 'View/Law/Schedule/Recipe' abstractions be considered.
 
