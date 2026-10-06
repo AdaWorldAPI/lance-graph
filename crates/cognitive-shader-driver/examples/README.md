@@ -107,3 +107,40 @@ and `ProbeRecipe` is not a shipped `recipes::Recipe` ID.
 ```bash
 cargo run -p cognitive-shader-driver --example recipe_quartet_probe
 ```
+
+## virtual_surfel_probe.rs
+
+D-CTX-1. A surfel needs no stored identity. On a 16 × 16 tile (lane = Morton
+code, every palette ordinal present), each activated pixel's surfel is read
+from its eight Moore neighbours through the Fisher-Z law, as a weight `W` and
+a second moment `Σ = Σ w·d dᵀ`, and handed straight to the consumer. A
+materialized `Vec<SurfelReading>` oracle must agree reading for reading, and
+the virtual path allocates nothing. The orientation of `Σ` comes from the law
+alone; what an identity neighbour (same material) weighs is an explicit
+argument, because the probe shows it decides that orientation.
+
+```bash
+cargo run -p cognitive-shader-driver --example virtual_surfel_probe
+```
+
+`support/fisher_relation.rs` holds what both D-CTX probes share (the borrowed
+Fisher-Z relation, the Moore offsets, the per-thread allocation counter). It is
+included with `#[path]`, not built as an example of its own.
+
+## ewa_render_probe.rs
+
+D-CTX-2. Isotropic Gaussian/EWA rendering with no surfel or Gaussian
+population. Each virtual surfel gives an isotropic scale `s` (the isotropic part
+of its normalised second moment), the contract's `ewa_sandwich(√s·I, I) = s·I`
+gives the footprint, and the footprint is accumulated straight into a 2 KB
+transient field. A materialized `Vec<Surfel> → Vec<Gaussian> → field` pipeline
+must agree bit for bit; an independent closed-form gather must agree within
+`1e-12` of the field's maximum; rendering only redistributes the surfels' mass.
+The footprint evaluator stays probe-local.
+
+```bash
+cargo run -p cognitive-shader-driver --example ewa_render_probe
+```
+
+`support/virtual_surfel.rs` holds the D-CTX-1 surfel reading that the rendering
+rounds read from, so they use exactly what D-CTX-1 tested.
