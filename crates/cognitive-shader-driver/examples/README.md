@@ -214,6 +214,20 @@ bits. Two law generations show the generation is part of the reading.
 cargo run -p cognitive-shader-driver --example affordance_measurement_probe
 ```
 
+## spog_witness_probe.rs
+
+D-SPOG-W-0. A SPOG coordinate as a view over resident coordinates: G from
+`graph_of(classid)` (the canonical source), the Witness slot as a sub-context
+inside G only for classes that declare that reading (slot 0 = no anchor), and
+S/P/O passed through as blind bytes. Undeclared classes, another reading of the
+slot, and v1 / unknown provenance refuse. Compared with the real
+`MailboxSoA::apply_edges` routing: they agree on all 64 × 64 slot pairs within
+one graph and diverge across graphs, because routing reads no classid.
+
+```bash
+cargo run -p cognitive-shader-driver --example spog_witness_probe
+```
+
 ## ewa_anisotropic_probe.rs
 
 D-CTX-3. Anisotropic EWA: the footprint is each virtual surfel's normalised
