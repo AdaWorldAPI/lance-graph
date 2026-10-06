@@ -14,7 +14,7 @@
 ## What this table says
 
 **`BindSpace` is the shape of the problem.** Marked RETIRE, and simultaneously the
-most-referenced symbol here: **68 crate files, 48 plans, 42 of them blind.**
+most-referenced symbol here: **69 crate files, 48 plans, 42 of them blind.**
 That is a programme, not a cleanup.
 
 **`GateState` is the sharpest case: 1 plan names it and *every one* is blind.**
@@ -53,14 +53,14 @@ coverage instead.
 | `StepMask` | BLOCKED | — | 3 | 10 | 4 |
 | `commit_to_l4` | BLOCKED | — | 2 | 2 | 0 |
 | `dispatch_busdto` | BLOCKED | — | 3 | 8 | 5 |
-| `persist_cycle` | BLOCKED | — | 11 | 8 | 5 |
+| `persist_cycle` | BLOCKED | — | 12 | 8 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 1 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 7 | 1 | 0 |
 | `GateDecision` | REPURPOSE | — | 25 | 28 | 25 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 14 | 13 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
-| `BindSpace` | RETIRE | — | 68 | 48 | 42 |
+| `BindSpace` | RETIRE | — | 69 | 48 | 42 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 14 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 53 | 28 | 24 |
 
@@ -102,13 +102,13 @@ a licence to act on it.
 | **RESCOPE** | `soa-migration-diff-resolution-2026-06-13` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | — | 1/5 |
 | **RESCOPE** | `cognitive-substrate-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | PROPOSAL (sprint-10 architectural decisions  | 3/13 |
 | **RESCOPE** | `cognitive-substrate-convergence-v2` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | ACTIVE — sprint-11 Phase A/B COMPLETE (pendi | 4/15 |
-| **RESCOPE** | `bindspace-singleton-to-mailbox-soa-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | CONJECTURE / design (migration spec). NOT ye | 3/19 |
+| **RESCOPE** | `bindspace-singleton-to-mailbox-soa-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | CONJECTURE / design (migration spec). NOT ye | 4/19 |
 | **RESCOPE** | `callcenter-membrane-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active | 0/0 |
 | **RESCOPE** | `causaledge64-mailbox-rename-soa-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active (draft, 2026-05-14) | 1/10 |
-| **RESCOPE** | `integrated-cognitive-planner-v1` | `BindSpace`, `GateDecision`, `ResonanceDto`, `dispatch_busdto` | — | 0/3 |
+| **RESCOPE** | `integrated-cognitive-planner-v1` | `BindSpace`, `GateDecision`, `ResonanceDto`, `dispatch_busdto` | — | 1/3 |
 | **RESCOPE** | `palantir-parity-cascade-v2` | `BindSpace`, `MergeMode`, `ResonanceDto`, `ThinkingStyle` | plan, not implementation. | 0/17 |
 | **RESCOPE** | `temporal-markov-and-style-classes-v1` | `BindSpace`, `MergeMode`, `StepMask`, `ThinkingStyle` | ACTIVE (operator-ratified 2026-07-10: "other | 1/19 |
-| **RESCOPE** | `unified-soa-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | PROPOSAL / integration plan. Design-spec onl | 4/25 |
+| **RESCOPE** | `unified-soa-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | PROPOSAL / integration plan. Design-spec onl | 5/25 |
 | **RESCOPE** | `alpha-reason-witness-shader-field-archaeology-pass-1` | `BindSpace`, `MergeMode`, `ResonanceDto` | SOURCE AUDIT / PLAN ONLY. No production wiri | 0/1 |
 | **RESCOPE** | `bindspace-mailbox-soa-dependency-map-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | MAP / preflight. No source wired yet. Read-b | 0/2 |
 | **RESCOPE** | `bindspace-mailbox-soa-w3-w4a-impl-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | v2 — 5-consolidation + 3-brutal-critic pass  | 0/1 |
@@ -146,7 +146,7 @@ a licence to act on it.
 | **RESCOPE** | `lite-unified-surrealql-lance-v1` | `BindSpace` | CONJECTURE / design. **Test via feature gate | 0/0 |
 | **RESCOPE** | `ogit-cascade-supabase-callcenter-v1` | `BindSpace` | plan, not implementation. | 0/16 |
 | **RESCOPE** | `q2-foundry-integration-v1` | `BindSpace` | Proposed (2026-04-24) | 0/0 |
-| **RESCOPE** | `reliability-checklist-arc-v1` | `ThinkingStyle` | PROPOSAL / possibility menu (2026-05-30). NO | 0/3 |
+| **RESCOPE** | `reliability-checklist-arc-v1` | `ThinkingStyle` | PROPOSAL / possibility menu (2026-05-30). NO | 1/3 |
 | **RESCOPE** | `singleton-to-snapshot-nudge-v1` | `BindSpace` | PROPOSAL | 0/12 |
 | **RESCOPE** | `soa-value-tenant-migration-v1` | `BindSpace` | BRIEF (2026-06-24). This is NOT the migratio | 0/0 |
 | **RESCOPE** | `splat-native-ultrasound-v1` | `BindSpace` | PROPOSAL / integration plan. Design-spec onl | 0/17 |
@@ -154,7 +154,7 @@ a licence to act on it.
 | **RESCOPE** | `super-domain-rbac-tenancy-v1` | `BindSpace` | Active | 0/41 |
 | **RESCOPE** | `thought-cycle-soa-awareness-integration-v1` | `BindSpace` | integration plan. No implementation claimed  | 0/0 |
 | **RESCOPE** | `unified-ogit-architecture-v1` | `ThinkingStyle` | — | 0/0 |
-| **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | — | 0/8 |
+| **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | — | 1/8 |
 
 - **ARCHIVE?**: 0
 - **RESCOPE**: 56

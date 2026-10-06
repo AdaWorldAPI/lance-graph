@@ -156,6 +156,24 @@ impl InferenceType {
 /// was already a bare `u64`; this only documents and compiler-enforces it for
 /// the reinterpret (a future second field becomes a compile error). Mirrors
 /// the ndarray twin `ndarray::hpc::causal_diff::CausalEdge64`.
+///
+/// # Register contract (D-CE64-NEXTSTATE-0)
+///
+/// - **Bit numbering:** bit 0 is the least significant bit of the `u64`; the
+///   v2 fields are the `*_SHIFT` / `*_MASK` constants in [`crate::layout`].
+/// - **Byte order:** in memory the word is a native `u64`. Its canonical byte
+///   form is [`CausalEdge64::to_le_bytes`] (bits 59..63 land in byte 7, bits
+///   3..7). Nothing in-tree persists a v2 edge as bytes today; a writer that
+///   does must use this form.
+/// - **Sparse update:** every `with_*` / `set_*` v2 writer is one mask and
+///   insert on the word, and leaves every bit outside its field unchanged.
+///   Writing bits 59..63 with `with_spare` + `with_truth` compiles to
+///   `bzhi; shl; or` on x86-64 (no decode/repack).
+/// - **Cycle semantics:** a write through `MailboxSoA::write_row` lands in
+///   place and is visible at once; the mailbox does not double-buffer. A
+///   state certified in cycle k is authoritative from cycle k+1 only by read
+///   discipline: read the register once at cycle start, and treat a row
+///   whose `last_write_cycle` equals the current cycle as pending.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct CausalEdge64(pub u64);
@@ -180,6 +198,22 @@ const BITS3_MASK: u64 = 0b111;
 const BITS12_MASK: u64 = 0xFFF;
 
 impl CausalEdge64 {
+    /// Canonical little-endian bytes of the word (the form a persisted or
+    /// transported edge uses; see the register contract on the type).
+    /// Mirrors `EpisodicEdges64::to_le_bytes`.
+    #[inline]
+    #[must_use]
+    pub const fn to_le_bytes(self) -> [u8; 8] {
+        self.0.to_le_bytes()
+    }
+
+    /// Reconstruct from canonical little-endian bytes.
+    #[inline]
+    #[must_use]
+    pub const fn from_le_bytes(bytes: [u8; 8]) -> Self {
+        Self(u64::from_le_bytes(bytes))
+    }
+
     /// Zero edge: unknown, no evidence, no time.
     pub const ZERO: Self = Self(0);
 
@@ -1214,6 +1248,27 @@ impl std::fmt::Debug for CausalEdge64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The canonical byte form is little-endian and round-trips every bit,
+    /// including bits 59..63 (byte 7, bits 3..7).
+    #[test]
+    fn le_bytes_round_trip_and_byte_order() {
+        for w in [
+            0x0123_4567_89AB_CDEF_u64,
+            0xF800_0000_0000_0001,
+            0x0800_0000_0000_0000,
+            u64::MAX ^ 1,
+        ] {
+            let b = CausalEdge64(w).to_le_bytes();
+            assert_eq!(CausalEdge64::from_le_bytes(b).0, w);
+            assert_eq!(b[0], (w & 0xFF) as u8, "byte 0 holds bits 0..7");
+            assert_eq!(
+                b[7] >> 3,
+                (w >> 59) as u8,
+                "byte 7 bits 3..7 hold bits 59..63"
+            );
+        }
+    }
 
     #[test]
     #[cfg(not(feature = "causal-edge-v2-layout"))]

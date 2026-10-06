@@ -122,6 +122,21 @@ test = true
 name = "witness_angle_probe"
 test = true
 
+# D-CE64-TIME-0 CausalEdge64 cycle-survival probe; tests run under `cargo test`.
+[[example]]
+name = "ce64_cycle_survival_probe"
+test = true
+
+# D-CE64-NEXTSTATE-0 sparse next-state register probe; tests run under `cargo test`.
+[[example]]
+name = "ce64_nextstate_probe"
+test = true
+
+[[example]]
+name = "streamdto_circuit_probe"
+test = true
+required-features = ["with-engine", "mailbox-thoughtspace"]
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
