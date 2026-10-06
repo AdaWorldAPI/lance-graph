@@ -27,8 +27,24 @@
 //! | target band | obligation | must already hold |
 //! |---|---|---|
 //! | `Association` | an `SO` observation a majority of speaking sources corroborate | — |
-//! | `Causal` | an intervention test under `PO`, run and passed | `Association` |
-//! | `Counterfactual` | a counterfactual test under `SPO`, run and passed | `Causal` |
+//! | `Causal` | an intervention trial under `PO`, executed here and passed | `Association` |
+//! | `Counterfactual` | a removal attack under `SPO`, executed here and passed | `Causal` |
+//!
+//! # A pass is computed, never supplied
+//!
+//! An event carries trial *data*, not a verdict. [`run`] executes the trial and
+//! derives the outcome, so no caller can hand in a `Passed`:
+//!
+//! - **Intervention (`PO`):** treated and control counts from a run under
+//!   do(P). Passed when both arms were measured and the treated rate is
+//!   higher; failed otherwise; not run when an arm is empty.
+//! - **Counterfactual (`SPO`):** a removal attack on premise masks. The
+//!   conclusion is the rule's premise set. Passed when it derives with the
+//!   candidate and stops deriving without it; failed when it does not derive
+//!   at all or still derives without the candidate (dispensable); not run when
+//!   the candidate is empty or not among the premises.
+//!
+//! Replay executes the trials again from the same data.
 //!
 //! One rung per obligation, no skipping: an observation never certifies more
 //! than association, and a passed intervention on an edge that never held
@@ -48,9 +64,12 @@
 //! # What this probe does not decide
 //!
 //! - The thresholds (majority, minority cap) are policy pins.
-//! - A "test" is supplied as an outcome; running the intervention or
-//!   counterfactual itself is the caller's job. What the probe enforces is
-//!   that a `NotRun` outcome can never raise the band.
+//! - The trial data are evidence the caller supplies; the probe does not
+//!   collect them. Whether that evidence is genuine is the evidence layer's
+//!   job; what this probe guarantees is that the band follows from executing
+//!   the trial on it, not from a stated outcome.
+//! - The trial rules (rate comparison, set-based removal) are minimal stand-ins
+//!   for real intervention statistics and derivation.
 //! - No writes to stored rows. The band lives on a local `CausalEdge64`.
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example reasoning_band_probe`
@@ -85,7 +104,7 @@ fn declarations() -> BandDeclarations {
     d
 }
 
-/// How a test ended. `NotRun` is the honest default.
+/// How a trial ended. Computed by [`run`], never supplied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TestOutcome {
     Passed,
@@ -93,16 +112,70 @@ enum TestOutcome {
     NotRun,
 }
 
+/// Counts from an intervention run under do(P): hits and size of each arm.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct InterventionTrial {
+    treated_hits: u16,
+    treated_n: u16,
+    control_hits: u16,
+    control_n: u16,
+}
+
+/// A removal attack: does the conclusion (the `rule`'s premise set) still
+/// derive from `premises` once `candidate` is removed?
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RemovalTrial {
+    premises: u64,
+    rule: u64,
+    candidate: u64,
+}
+
+/// The data of one proof trial. Its projection is fixed by its kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Trial {
+    Intervention(InterventionTrial),
+    Counterfactual(RemovalTrial),
+    /// A test was named under a projection but nothing was executed.
+    NotRun(CausalMask),
+}
+
+/// Execute a trial and derive its projection and outcome from its data.
+fn run(trial: Trial) -> (CausalMask, TestOutcome) {
+    match trial {
+        Trial::Intervention(t) => {
+            let outcome = if t.treated_n == 0 || t.control_n == 0 {
+                TestOutcome::NotRun
+            } else if u32::from(t.treated_hits) * u32::from(t.control_n)
+                > u32::from(t.control_hits) * u32::from(t.treated_n)
+            {
+                TestOutcome::Passed
+            } else {
+                TestOutcome::Failed
+            };
+            (CausalMask::PO, outcome)
+        }
+        Trial::Counterfactual(t) => {
+            let derives = |p: u64| p & t.rule == t.rule;
+            let outcome = if t.candidate == 0 || t.premises & t.candidate != t.candidate {
+                TestOutcome::NotRun
+            } else if derives(t.premises) && !derives(t.premises & !t.candidate) {
+                TestOutcome::Passed
+            } else {
+                TestOutcome::Failed
+            };
+            (CausalMask::SPO, outcome)
+        }
+        Trial::NotRun(mask) => (mask, TestOutcome::NotRun),
+    }
+}
+
 /// One thing that happened to the claim the edge carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Event {
     /// Observational evidence folded under a projection.
     Observed { mask: CausalMask, quorum: Quorum },
-    /// A proof test under a projection, with its outcome.
-    Tested {
-        mask: CausalMask,
-        outcome: TestOutcome,
-    },
+    /// A proof trial, executed when the event is applied.
+    Tested(Trial),
     /// Independent evidence bearing on the claim: corroborating, silent and
     /// conflicting sources.
     Independent { quorum: Quorum },
@@ -133,7 +206,7 @@ fn next_band(band: ReasoningBand, event: Event) -> ReasoningBand {
                 band
             }
         }
-        Event::Tested { mask, outcome } => match (mask, outcome) {
+        Event::Tested(trial) => match run(trial) {
             (CausalMask::PO, TestOutcome::Passed) if band == Association => Causal,
             (CausalMask::SPO, TestOutcome::Passed) if band == Causal => Counterfactual,
             (CausalMask::PO, TestOutcome::Failed) => cap(band, Association),
@@ -187,6 +260,27 @@ fn replay(
         .try_fold(start, |e, &ev| apply(decl, e, provenance, ev))
 }
 
+/// An intervention run whose treated arm beats control (30/40 vs 12/40).
+const INTERVENTION_PASS: Trial = Trial::Intervention(InterventionTrial {
+    treated_hits: 30,
+    treated_n: 40,
+    control_hits: 12,
+    control_n: 40,
+});
+/// A removal attack where the candidate is a required premise.
+const REMOVAL_PASS: Trial = Trial::Counterfactual(RemovalTrial {
+    premises: 0b0111,
+    rule: 0b0011,
+    candidate: 0b0010,
+});
+/// A removal attack where the candidate is not needed: the conclusion still
+/// derives without it.
+const REMOVAL_FAIL: Trial = Trial::Counterfactual(RemovalTrial {
+    premises: 0b0111,
+    rule: 0b0011,
+    candidate: 0b0100,
+});
+
 /// The full earning path: observe, intervene, counterfactual.
 #[cfg(test)]
 fn earning_path() -> [Event; 3] {
@@ -195,14 +289,8 @@ fn earning_path() -> [Event; 3] {
             mask: CausalMask::SO,
             quorum: Quorum::new(3, 1, 1),
         },
-        Event::Tested {
-            mask: CausalMask::PO,
-            outcome: TestOutcome::Passed,
-        },
-        Event::Tested {
-            mask: CausalMask::SPO,
-            outcome: TestOutcome::Passed,
-        },
+        Event::Tested(INTERVENTION_PASS),
+        Event::Tested(REMOVAL_PASS),
     ]
 }
 
@@ -213,26 +301,15 @@ fn main() {
             mask: CausalMask::SO,
             quorum: Quorum::new(3, 1, 1),
         },
-        Event::Tested {
-            mask: CausalMask::PO,
-            outcome: TestOutcome::NotRun,
-        },
-        Event::Tested {
-            mask: CausalMask::PO,
-            outcome: TestOutcome::Passed,
-        },
+        Event::Tested(Trial::NotRun(CausalMask::PO)),
+        Event::Tested(INTERVENTION_PASS),
         Event::ConfounderCheck {
             so_direction: 0b100,
             po_direction: 0b000,
         },
-        Event::Tested {
-            mask: CausalMask::PO,
-            outcome: TestOutcome::Passed,
-        },
-        Event::Tested {
-            mask: CausalMask::SPO,
-            outcome: TestOutcome::Failed,
-        },
+        Event::Tested(INTERVENTION_PASS),
+        Event::Tested(REMOVAL_PASS),
+        Event::Tested(REMOVAL_FAIL),
         Event::Independent {
             quorum: Quorum::new(1, 0, 3),
         },
@@ -283,8 +360,23 @@ mod tests {
     fn obs(mask: CausalMask, q: Quorum) -> Event {
         Event::Observed { mask, quorum: q }
     }
+    /// A trial whose execution gives `(mask, outcome)`. Only `PO` and `SPO`
+    /// trials can pass or fail; any other projection can only be named, so it
+    /// maps to `NotRun`.
     fn test(mask: CausalMask, outcome: TestOutcome) -> Event {
-        Event::Tested { mask, outcome }
+        let trial = match (mask, outcome) {
+            (CausalMask::PO, TestOutcome::Passed) => INTERVENTION_PASS,
+            (CausalMask::PO, TestOutcome::Failed) => Trial::Intervention(InterventionTrial {
+                treated_hits: 10,
+                treated_n: 40,
+                control_hits: 12,
+                control_n: 40,
+            }),
+            (CausalMask::SPO, TestOutcome::Passed) => REMOVAL_PASS,
+            (CausalMask::SPO, TestOutcome::Failed) => REMOVAL_FAIL,
+            (m, _) => Trial::NotRun(m),
+        };
+        Event::Tested(trial)
     }
 
     /// Every event the tests sweep: all masks × a few quorums for
@@ -401,6 +493,89 @@ mod tests {
         }
     }
 
+    /// FAILS IF: a trial passes when its data do not support it, or the band
+    /// follows anything but the executed trial. There is no `Passed` input:
+    /// the outcome is derived from the data every time the event is applied.
+    #[test]
+    fn a_pass_is_derived_from_the_trial_data() {
+        let iv = |th, tn, ch, cn| {
+            Trial::Intervention(InterventionTrial {
+                treated_hits: th,
+                treated_n: tn,
+                control_hits: ch,
+                control_n: cn,
+            })
+        };
+        // Intervention: higher treated rate passes; equal or lower fails;
+        // an unmeasured arm means the trial was not run.
+        assert_eq!(
+            run(iv(30, 40, 12, 40)),
+            (CausalMask::PO, TestOutcome::Passed)
+        );
+        assert_eq!(
+            run(iv(12, 40, 12, 40)),
+            (CausalMask::PO, TestOutcome::Failed)
+        );
+        assert_eq!(run(iv(3, 4, 30, 40)), (CausalMask::PO, TestOutcome::Failed));
+        assert_eq!(run(iv(3, 4, 0, 0)), (CausalMask::PO, TestOutcome::NotRun));
+        // Rates, not counts: 3/4 beats 60/100 although 3 < 60.
+        assert_eq!(
+            run(iv(3, 4, 60, 100)),
+            (CausalMask::PO, TestOutcome::Passed)
+        );
+
+        // Removal: a required premise passes; a dispensable one fails; a
+        // conclusion that never derived fails; a candidate outside the
+        // premises gives nothing to attack.
+        let rm = |premises, rule, candidate| {
+            Trial::Counterfactual(RemovalTrial {
+                premises,
+                rule,
+                candidate,
+            })
+        };
+        assert_eq!(
+            run(rm(0b0111, 0b0011, 0b0010)),
+            (CausalMask::SPO, TestOutcome::Passed)
+        );
+        assert_eq!(
+            run(rm(0b0111, 0b0011, 0b0100)),
+            (CausalMask::SPO, TestOutcome::Failed)
+        );
+        assert_eq!(
+            run(rm(0b0001, 0b0011, 0b0001)),
+            (CausalMask::SPO, TestOutcome::Failed)
+        );
+        assert_eq!(
+            run(rm(0b0011, 0b0011, 0b1000)),
+            (CausalMask::SPO, TestOutcome::NotRun)
+        );
+        assert_eq!(
+            run(rm(0b0011, 0b0011, 0)),
+            (CausalMask::SPO, TestOutcome::NotRun)
+        );
+
+        // The band follows the data: the same event shape with unsupporting
+        // data does not raise, and replay re-executes rather than remembering.
+        let decl = declarations();
+        let assoc = [earning_path()[0]];
+        let start = replay(&decl, CausalEdge64::ZERO, EdgeProvenance::V2Stamped, &assoc).unwrap();
+        let good = apply(
+            &decl,
+            start,
+            EdgeProvenance::V2Stamped,
+            Event::Tested(iv(30, 40, 12, 40)),
+        );
+        let bad = apply(
+            &decl,
+            start,
+            EdgeProvenance::V2Stamped,
+            Event::Tested(iv(12, 40, 30, 40)),
+        );
+        assert_eq!(good.unwrap().reasoning_band(), Causal);
+        assert_eq!(bad.unwrap().reasoning_band(), Association);
+    }
+
     /// FAILS IF: any transition from any band raises it by more than one rung
     /// of the ladder, or raises it without the matching obligation. Sweeps
     /// all 8 bands × every event kind.
@@ -414,31 +589,23 @@ mod tests {
                     continue;
                 }
                 rises += 1;
-                let legal = matches!(
-                    (b, n, ev),
+                let legal = match (b, n, ev) {
                     (
                         Surface,
                         Association,
                         Event::Observed {
                             mask: CausalMask::SO,
                             ..
-                        }
-                    ) | (
-                        Association,
-                        Causal,
-                        Event::Tested {
-                            mask: CausalMask::PO,
-                            outcome: TestOutcome::Passed
-                        }
-                    ) | (
-                        Causal,
-                        Counterfactual,
-                        Event::Tested {
-                            mask: CausalMask::SPO,
-                            outcome: TestOutcome::Passed
-                        }
-                    )
-                );
+                        },
+                    ) => true,
+                    (Association, Causal, Event::Tested(t)) => {
+                        run(t) == (CausalMask::PO, TestOutcome::Passed)
+                    }
+                    (Causal, Counterfactual, Event::Tested(t)) => {
+                        run(t) == (CausalMask::SPO, TestOutcome::Passed)
+                    }
+                    _ => false,
+                };
                 assert!(legal, "{b:?} --{ev:?}--> {n:?}");
             }
         }

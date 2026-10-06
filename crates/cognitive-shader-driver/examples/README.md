@@ -167,7 +167,9 @@ passing proof: an `SO` observation a majority corroborates gives `Association`,
 a passed `PO` intervention on top of it gives `Causal`, a passed `SPO`
 counterfactual on top of that gives `Counterfactual`. Observations never lift
 past `Association`, a test that was not run never raises, and no rung is
-skipped. A failed test, contradicting independent evidence (`Quorum`) or
+skipped. A pass is never supplied: events carry trial data (intervention
+counts, a removal attack on premise masks) and the probe executes the trial to
+derive the outcome. A failed test, contradicting independent evidence (`Quorum`) or
 confounding (`CausalMask::simpsons_paradox_risk`) lowers the band, and the same
 events replay to the same edge bits. The ladder and thresholds are policy pins.
 
