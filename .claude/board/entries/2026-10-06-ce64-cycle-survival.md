@@ -35,11 +35,14 @@
 
 ## MEASURED
 
-`ce64_cycle_survival_probe.rs`: 9 tests, 7 disable runs red (no write-back,
+`ce64_cycle_survival_probe.rs`: 10 tests, 9 disable runs red (no write-back,
 no `learn`, distinct-source condition removed, confidence bar removed,
 downgrade removed, an irrelevant field leaking into revision, a ledger that
-survives the cycle). The first ledger disable came back green because it
-recorded into a clone; redone so the ledger really persists, it fails.
+survives the cycle, no `set_populated`, no `n_rows` guard on the read). The
+first ledger disable came back green because it recorded into a clone; redone
+so the ledger really persists, it fails. After review (#1373) the register row
+is declared (`set_populated`) and read through the production `MailboxSoaView`
+lens, so the survival is of a live mailbox row, not of backing storage.
 Trajectory: `f/c` 128/0 → 230/191 (code 3) → 230/213 (code 7) → 172/223
 (code 3); eligibility `OBS`, `OBS`, `OBS|STRATIFY`, `OBS`.
 

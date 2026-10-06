@@ -12,9 +12,11 @@
 //!
 //! # Existing machinery used (unchanged)
 //!
-//! - **The surviving store:** one row of `MailboxSoA`'s `edges` column,
-//!   written through the cycle-gated `write_row(row, cycle, cell)` and carried
-//!   across `tick()`. Nothing else crosses a cycle boundary.
+//! - **The surviving store:** one declared (`set_populated`) row of
+//!   `MailboxSoA`'s `edges` column, written through the cycle-gated
+//!   `write_row(row, cycle, cell)`, carried across `tick()`, and read back
+//!   through the production `MailboxSoaView` lens (`n_rows` + `edges_raw`).
+//!   Nothing else crosses a cycle boundary.
 //! - **The fold:** `CausalEdge64::learn(observation, t)`, the shipped in-place
 //!   NARS revision: `f`/`c` merge by evidence weight, plasticity follows
 //!   confidence. Under the v2 layout it never touches bits 59..63.
@@ -68,6 +70,7 @@ use lance_graph_contract::causal_audit::{
     EvidenceSourceId, SupportBasis, SupportLedger, SupportReceipt,
 };
 use lance_graph_contract::scheduler::DatasetVersion;
+use lance_graph_contract::soa_view::MailboxSoaView;
 
 /// The row of the mailbox that holds the register.
 const ROW: usize = 0;
@@ -156,19 +159,33 @@ fn eligible(register: CausalEdge64) -> u64 {
     measure(LawGen::V1, register, EdgeProvenance::V2Stamped).expect("declared code")
 }
 
+/// The live register, read through the production `MailboxSoaView` lens.
+/// `None` when the row is not a declared (populated) row of the mailbox, so
+/// an undeclared row can never pass for surviving state.
+fn read_register(view: &dyn MailboxSoaView) -> Option<CausalEdge64> {
+    (ROW < view.n_rows()).then(|| CausalEdge64(view.edges_raw()[ROW]))
+}
+
+/// A mailbox with the register row declared and seeded with `seed`.
+fn mailbox_with(id: u32, seed: CausalEdge64) -> MailboxSoA<4> {
+    let mut mb: MailboxSoA<4> = MailboxSoA::new(id, 0, 0.5);
+    mb.set_populated(ROW + 1);
+    let cell = WriteCell {
+        edge: Some(seed),
+        ..WriteCell::default()
+    };
+    assert_eq!(mb.write_row(ROW, mb.cycle(), &cell), WriteOutcome::Accepted);
+    mb
+}
+
 /// Run a schedule of cycles through the mailbox row. With `persist == false`
 /// the cycle's result is not written back (F1).
 fn run(schedule: &[&[Fold]], persist: bool) -> (Vec<CausalEdge64>, Vec<u64>) {
-    let mut mb: MailboxSoA<4> = MailboxSoA::new(1, 0, 0.5);
-    let seed = WriteCell {
-        edge: Some(initial()),
-        ..WriteCell::default()
-    };
-    assert_eq!(mb.write_row(ROW, mb.cycle(), &seed), WriteOutcome::Accepted);
+    let mut mb = mailbox_with(1, initial());
     let mut registers = Vec::new();
     let mut eligibility = Vec::new();
     for folds in schedule {
-        let now = mb.edge(ROW);
+        let now = read_register(&mb).expect("declared register row");
         registers.push(now);
         eligibility.push(eligible(now));
         let next = cycle(now, folds);
@@ -181,7 +198,7 @@ fn run(schedule: &[&[Fold]], persist: bool) -> (Vec<CausalEdge64>, Vec<u64>) {
         }
         mb.tick();
     }
-    let last = mb.edge(ROW);
+    let last = read_register(&mb).expect("declared register row");
     registers.push(last);
     eligibility.push(eligible(last));
     (registers, eligibility)
@@ -316,17 +333,25 @@ mod tests {
     #[test]
     fn f6_f7_the_register_alone_continues_the_run() {
         let (regs, _) = run(&SCHEDULE, true);
-        let mut fresh: MailboxSoA<4> = MailboxSoA::new(9, 0, 0.5);
+        let mut fresh = mailbox_with(9, regs[2]);
+        fresh.tick();
+        let now = read_register(&fresh).expect("declared register row");
+        assert_eq!(cycle(now, K2), regs[3]);
+    }
+
+    /// The register is only readable as a declared mailbox row: the same
+    /// bytes in an undeclared row are not surviving state.
+    #[test]
+    fn an_undeclared_row_is_not_a_register() {
+        let mut mb: MailboxSoA<4> = MailboxSoA::new(3, 0, 0.5);
         let cell = WriteCell {
-            edge: Some(regs[2]),
+            edge: Some(initial()),
             ..WriteCell::default()
         };
-        assert_eq!(
-            fresh.write_row(ROW, fresh.cycle(), &cell),
-            WriteOutcome::Accepted
-        );
-        fresh.tick();
-        assert_eq!(cycle(fresh.edge(ROW), K2), regs[3]);
+        assert_eq!(mb.write_row(ROW, mb.cycle(), &cell), WriteOutcome::Accepted);
+        assert_eq!(read_register(&mb), None, "written but not declared");
+        mb.set_populated(ROW + 1);
+        assert_eq!(read_register(&mb), Some(initial()));
     }
 
     /// Accumulation is not certification: a thousand folds from one source
