@@ -66,9 +66,18 @@
 //! adds a new contradiction reopens the fact, so a cycle can run `Revision`
 //! and then interrogate the tension that revision introduced.
 //!
-//! Coverage is per tension bit, not per piece of evidence: new evidence on a
-//! bit that is already covered does not reopen the interrogation. A coverage
-//! that tracks receipts or generations would; it is not built here.
+//! Coverage is sequence-aware, with the D-GSO-8 rule for sequence numbers:
+//! an encounter is presented with a `seq` that must be strictly greater than
+//! the last accepted one, or it is refused. Presenting it stamps each of its
+//! contradiction bits with that `seq`. The `MooreInterrogation` recipe
+//! records, per bit, the evidence `seq` it covered. A tension bit is open
+//! when it was never covered, or when newer contradiction evidence arrived
+//! after its coverage. So new evidence on an already-covered bit reopens the
+//! interrogation, while presenting the same encounter again is refused
+//! before it can. There is one encounter slot: a new encounter is also
+//! refused while the current one is unprocessed (`revision_pending`), so an
+//! accepted encounter is never replaced before the cycle revises with it. An encounter written without `present` carries `seq` 0 and
+//! never reopens a covered bit.
 //!
 //! What this does not decide: `interrogated` is a probe-local record. The
 //! horizon carries no such field, and the Moore recipe's actual fold (the
@@ -271,6 +280,14 @@ struct World {
     /// Tension bits `MooreInterrogation` has examined. Only that recipe
     /// writes it, and only by union.
     interrogated: u64,
+    /// The last accepted encounter `seq`. Sequence numbers strictly increase.
+    last_seq: Option<u64>,
+    /// Per claim bit, the `seq` of the newest contradiction evidence on it.
+    /// Only `present` writes it.
+    evidence_seq: [u64; 64],
+    /// Per claim bit, the evidence `seq` the last interrogation covered.
+    /// Only `MooreInterrogation` writes it.
+    covered_seq: [u64; 64],
     /// Verdicts that have arrived, in arrival order. Only arrival writes here.
     verdicts: [SourceVerdict; VERDICTS],
     /// How many of `verdicts` have arrived.
@@ -293,6 +310,27 @@ struct Frontier {
     count: u16,
     /// The first one, as a raw product address.
     first: Option<u16>,
+}
+
+/// Why `present` refused an encounter. Either way the world is unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Refused {
+    /// The `seq` is not greater than the last accepted one.
+    StaleSeq(u64),
+    /// The previous encounter has not been absorbed yet: revising with it
+    /// would still change the horizon. Replacing it would lose it.
+    Unprocessed,
+}
+
+/// The set bits of a mask, lowest first.
+fn bits(mut m: u64) -> impl Iterator<Item = usize> {
+    std::iter::from_fn(move || {
+        (m != 0).then(|| {
+            let b = m.trailing_zeros() as usize;
+            m &= m - 1;
+            b
+        })
+    })
 }
 
 /// How many verdicts a world can hold.
@@ -325,13 +363,36 @@ impl World {
                 .is_empty()
     }
 
-    /// `local_disagreement`, derived: tension not yet interrogated.
+    /// `local_disagreement`, derived: a tension bit never interrogated, or
+    /// one with contradiction evidence newer than its coverage.
     fn local_disagreement(&self) -> bool {
-        !self
-            .horizon
-            .unresolved_tension
-            .difference(&self.interrogated)
-            .is_empty()
+        let tension = self.horizon.unresolved_tension;
+        let never = tension & !self.interrogated;
+        let stale =
+            bits(tension & self.interrogated).any(|b| self.evidence_seq[b] > self.covered_seq[b]);
+        never != 0 || stale
+    }
+
+    /// The "do": an encounter arrives with a durable `seq`. Refused, with the
+    /// world unchanged, unless `seq` is greater than the last accepted one
+    /// and the previously accepted encounter has been absorbed
+    /// (`revision_pending` is false). There is one encounter slot, so an encounter is never
+    /// overwritten before it is processed.
+    fn present(&mut self, encounter: EncounterEvidence<u64>, seq: u64) -> Result<(), Refused> {
+        if self.last_seq.is_some_and(|last| seq <= last) {
+            return Err(Refused::StaleSeq(seq));
+        }
+        // Only an accepted encounter is protected; one written into the slot
+        // without `present` (a fixture) carries no `seq` and may be replaced.
+        if self.last_seq.is_some() && self.revision_pending() {
+            return Err(Refused::Unprocessed);
+        }
+        self.last_seq = Some(seq);
+        for b in bits(encounter.contradictions) {
+            self.evidence_seq[b] = seq;
+        }
+        self.encounter = encounter;
+        Ok(())
     }
 
     /// The declared state, every fact read from the world.
@@ -404,9 +465,14 @@ impl World {
             .fold(self.quorum, |q, &v| q.observe(v));
     }
 
-    /// The `MooreInterrogation` recipe's write: the tension it examined.
+    /// The `MooreInterrogation` recipe's write: the tension it examined, and
+    /// the evidence `seq` it covered on each bit.
     fn interrogate(&mut self) {
-        self.interrogated |= self.horizon.unresolved_tension;
+        let tension = self.horizon.unresolved_tension;
+        for b in bits(tension) {
+            self.covered_seq[b] = self.evidence_seq[b];
+        }
+        self.interrogated |= tension;
     }
 
     /// The `Revision` recipe: revise once; `delta.resulting` is the only
@@ -488,6 +554,9 @@ fn unbounded_fusion_world() -> World {
             affected_parts: 0b111,
         },
         interrogated: 0,
+        last_seq: None,
+        evidence_seq: [0; 64],
+        covered_seq: [0; 64],
         verdicts: [SourceVerdict::Silent; VERDICTS],
         arrived: 0,
         quorum: Quorum::default(),
@@ -521,6 +590,8 @@ fn main() {
         SelectorPolicy::CURRENT
     );
     let mut world = unbounded_fusion_world();
+    let encounter = world.encounter.clone();
+    world.present(encounter.clone(), 1).expect("first seq");
     world.arrive(SourceVerdict::Corroborates);
     let (trace, n) = wired_cycle(SelectorPolicy::CURRENT, &mut world, None);
     println!(
@@ -534,6 +605,20 @@ fn main() {
         "after a space change: {:?}, frontier {:?}",
         &trace[..n],
         world.frontier.map(|f| f.count)
+    );
+    // The same contradiction again as new evidence (seq 2): coverage is
+    // stale, so the interrogation reopens. Re-presenting seq 2 is refused.
+    let again = EncounterEvidence {
+        proposed_claims: world.horizon.projected_claims,
+        independent_roots: world.horizon.independent_roots,
+        ..encounter
+    };
+    world.present(again.clone(), 2).expect("newer seq");
+    let (trace, n) = wired_cycle(SelectorPolicy::CURRENT, &mut world, None);
+    println!(
+        "newer evidence on a covered bit: {:?}; re-presenting seq 2: {:?}",
+        &trace[..n],
+        world.present(again, 2)
     );
 }
 
@@ -920,6 +1005,102 @@ mod tests {
         let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
         assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
         assert_eq!(world.interrogated, 0b011);
+    }
+
+    /// FAILS IF: new contradiction evidence on a bit that is already covered
+    /// does not reopen the interrogation, or the reopened interrogation does
+    /// not record the newer `seq`.
+    #[test]
+    fn newer_evidence_on_a_covered_bit_reopens() {
+        let mut world = fusion_world();
+        let first = world.encounter.clone();
+        world.present(first.clone(), 1).expect("first seq");
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert_eq!(&trace[..n], &[Some(Revision), Some(MooreInterrogation)]);
+        assert_eq!(world.covered_seq[0], 1);
+
+        // The same contradiction again, as new evidence. Nothing else in the
+        // horizon would change, so revision is not pending; only coverage is
+        // stale.
+        let again = EncounterEvidence {
+            proposed_claims: world.horizon.projected_claims,
+            independent_roots: world.horizon.independent_roots,
+            ..first
+        };
+        world.present(again, 2).expect("newer seq");
+        assert!(!world.revision_pending(), "the horizon would not change");
+        assert!(world.local_disagreement(), "newer evidence reopens");
+        let (trace, n) = wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert_eq!(&trace[..n], &[Some(MooreInterrogation)]);
+        assert_eq!(world.covered_seq[0], 2);
+        assert!(!world.local_disagreement());
+    }
+
+    /// FAILS IF: a reused or older `seq` is accepted, or a refusal changes the
+    /// world.
+    #[test]
+    fn a_stale_seq_is_refused_and_changes_nothing() {
+        let mut world = fusion_world();
+        let e = world.encounter.clone();
+        world.present(e.clone(), 5).expect("first seq");
+        let before = world.clone();
+        // A different encounter, so a write that slipped past the refusal
+        // would be visible.
+        let other = EncounterEvidence {
+            contradictions: 0b100,
+            resistance: 0b100,
+            ..echo_world().encounter
+        };
+        assert_ne!(other, e);
+        assert_eq!(world.present(other.clone(), 5), Err(Refused::StaleSeq(5)));
+        assert_eq!(world.present(other, 4), Err(Refused::StaleSeq(4)));
+        assert_eq!(world, before);
+    }
+
+    /// FAILS IF: a second encounter replaces one that has not been revised
+    /// with yet, or the refusal changes the world, or the second encounter
+    /// stays refused after the cycle absorbs the first.
+    #[test]
+    fn an_unprocessed_encounter_is_not_replaced() {
+        let mut world = fusion_world();
+        let first = world.encounter.clone();
+        world.present(first.clone(), 1).expect("first seq");
+        assert!(world.revision_pending());
+        let before = world.clone();
+        let second = EncounterEvidence {
+            contradictions: 0b100,
+            resistance: 0b100,
+            ..echo_world().encounter
+        };
+        assert_ne!(second, first);
+        assert_eq!(world.present(second.clone(), 2), Err(Refused::Unprocessed));
+        assert_eq!(world, before);
+        wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert!(!world.revision_pending());
+        world
+            .present(second.clone(), 2)
+            .expect("first one absorbed");
+        assert_eq!(world.encounter, second);
+        assert_eq!(world.evidence_seq[2], 2);
+    }
+
+    /// FAILS IF: evidence on a different bit reopens a covered bit, or a
+    /// covered bit reopens with no new evidence at all.
+    #[test]
+    fn coverage_reopens_only_where_evidence_is_newer() {
+        let mut world = fusion_world();
+        world.horizon.unresolved_tension = 0b011;
+        world.interrogated = 0b011;
+        let e = EncounterEvidence {
+            contradictions: 0b010,
+            resistance: 0b010,
+            ..echo_world().encounter
+        };
+        world.present(e, 1).expect("first seq");
+        assert!(world.local_disagreement());
+        world.interrogate();
+        assert_eq!((world.covered_seq[0], world.covered_seq[1]), (0, 1));
+        assert!(!world.local_disagreement(), "nothing newer on either bit");
     }
 
     /// An echo world (no revision pending, no tension) with `verdicts` arrived.

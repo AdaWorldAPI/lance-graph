@@ -30,6 +30,7 @@ exactly one of them, never both.
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-07 | `tinker-janus-fold-harvest` | TinkerPop bulk = K (GroupReduce), ONE_BULK = S, GValue pinning = bundle invalidation; JanusGraph slice = OrderedLaneWitness→Range (30–38×); no new V4 op | [2026-10-07-tinker-janus-fold-harvest.md](2026-10-07-tinker-janus-fold-harvest.md) |
+| 2026-10-07 | `selector-seq-aware-coverage` |  | [2026-10-07-selector-seq-aware-coverage.md](2026-10-07-selector-seq-aware-coverage.md) |
 | 2026-10-07 | `gated-gather-bit-schedule` | Production gather is 3.8× slow from a per-row branch; bit-gated visitation wins or ties at every density; ordinal vectors never win (R1 holds) | [2026-10-07-gated-gather-bit-schedule.md](2026-10-07-gated-gather-bit-schedule.md) |
 | 2026-10-07 | `D-CTX-7` |  | [2026-10-07-ctx7-revision-writer-for-epistemic-state.md](2026-10-07-ctx7-revision-writer-for-epistemic-state.md) |
 | 2026-10-07 | `bind-bundle-gated-gather` | One bound query, five routes, identical answers; the semijoin is never gated and dominates; a gated mask gather beats a selection vector (R1 survives) | [2026-10-07-bind-bundle-gated-gather.md](2026-10-07-bind-bundle-gated-gather.md) |
