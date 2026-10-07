@@ -199,3 +199,20 @@ after.
 Legacy APIs still load-bearing: no production path reads or writes 59..63
 through a legacy lens. What remains carries the `v1`-feature stubs, the
 comparison and refusal witnesses, and two historical probes.
+
+## 10. Disable runs (deprojection)
+
+- `EdgeRole` reports a constant code instead of the cut edge's → the
+  `dismech` coordinate test fails.
+- The V3 lift swaps the two halves → 3 `edge_v3` tests fail (joint-code
+  preservation, full field parity, tail placement).
+- The P7a stamp ignores its topology → conflict F3 fails at the coordinate
+  pin.
+
+Gates: `causal-edge` 81 (v2) / 39 (v1); `lance-graph-contract`
+`epistemic_state5` 12; planner `dismech` 24 and `probe_four_plane` builds;
+`cognitive-shader-driver --examples` 26 suites, 0 failures, clippy clean.
+Clippy `-D warnings` still fails on lints this branch does not touch
+(`causal-edge` `edge.rs` / `tables.rs` / `module_inception`, planner
+`nested_bands.rs`, `nars_engine.rs`, `probe_nxg_hist_1`, all `chunks_exact`
+or older).
