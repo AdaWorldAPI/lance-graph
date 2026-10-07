@@ -96,12 +96,27 @@ pub mod api;
 pub mod rung_horizon;
 pub mod temporal;
 
-/// D-DCR-1 (W1) — the causal replay core over recorded dismech chains.
-/// Composes the shipped step kernel + `temporal.rs` trace; adds no carrier.
+/// Counterfactual chain replay (D-DCR-3 W3): one replay path for both arms.
+pub mod chain_counterfactual;
+/// D-DCR-1 (W1) — the causal replay core over recorded chains. Domain-agnostic:
+/// composes the shipped step kernel + `temporal.rs` trace; adds no carrier.
 /// Plan: `.claude/plans/dismech-causal-replay-v1.md` §3 W1.
+pub mod chain_replay;
+/// The DisMech palette admission check for chains entering replay.
+pub mod dismech_admission;
 pub mod dismech_candidates;
-pub mod dismech_counterfactual;
-pub mod dismech_replay;
+/// Former name of [`chain_counterfactual`], kept so existing imports compile.
+#[deprecated(note = "renamed to `chain_counterfactual`")]
+pub mod dismech_counterfactual {
+    pub use crate::chain_counterfactual::*;
+}
+/// Former name of [`chain_replay`] plus the DisMech admission check that now
+/// lives in [`dismech_admission`], kept so existing imports compile.
+#[deprecated(note = "renamed to `chain_replay`; the admission check moved to `dismech_admission`")]
+pub mod dismech_replay {
+    pub use crate::chain_replay::*;
+    pub use crate::dismech_admission::*;
+}
 pub mod pearl;
 
 // === Canonical OrchestrationBridge impl (dedup per contract) ===

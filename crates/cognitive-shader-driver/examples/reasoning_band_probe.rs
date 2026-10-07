@@ -90,7 +90,7 @@
 //! with different obligations (P7a `Causes` needs ≥ 2 intervention-backed
 //! sources; this probe's `Causal` needs one). The `Counterfactual` rung —
 //! survived a removal attack — is counterfactual evidence and belongs to
-//! `lance_graph_planner::dismech_counterfactual`; P7a states that removal is
+//! `lance_graph_planner::chain_counterfactual`; P7a states that removal is
 //! not the causal path. Kept as shipped (#1360).
 #![allow(deprecated)]
 

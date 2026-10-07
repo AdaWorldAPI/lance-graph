@@ -9,14 +9,14 @@
 //!
 //!     SO  ► observational folds   (certification::CertificationModel::observational_certification)
 //!     PO  ► executed trial arms   (CertificationModel::causes)
-//!     SPO ► counterfactual replay (crate::dismech_counterfactual::counterfactual_replay)
+//!     SPO ► counterfactual replay (crate::chain_counterfactual::counterfactual_replay)
 //!     SP  ► SO direction vs PO direction (causal_edge::CausalMask::simpsons_paradox_risk)
 //! ```
 //!
 //! It lives in this crate because this is the crate that depends on both
 //! `lance-graph-contract` (the certification obligations, `EpistemicState5`)
 //! and `causal-edge` (`CausalEdge64`), the same reason
-//! [`crate::dismech_counterfactual`] lives here.
+//! [`crate::chain_counterfactual`] lives here.
 //!
 //! # The write-back rule
 //!
@@ -51,8 +51,8 @@ use lance_graph_contract::epistemic_state5::{
 };
 use lance_graph_contract::rail_geometry::RailAxis;
 
-use crate::dismech_counterfactual::{counterfactual_replay, CutContext};
-use crate::dismech_replay::ChainStep;
+use crate::chain_counterfactual::{counterfactual_replay, CutContext};
+use crate::chain_replay::ChainStep;
 
 /// The operator bits 40..42 select.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -380,8 +380,8 @@ pub fn hydrate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dismech_counterfactual::DEFAULT_FREQUENCY_BAR;
-    use crate::dismech_replay::ComposeTables;
+    use crate::chain_counterfactual::DEFAULT_FREQUENCY_BAR;
+    use crate::chain_replay::ComposeTables;
     use causal_edge::edge::InferenceType;
     use causal_edge::layout::EPISTEMIC_MASK;
     use causal_edge::tables::NarsTables;

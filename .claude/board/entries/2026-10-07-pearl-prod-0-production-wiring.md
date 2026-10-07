@@ -33,3 +33,13 @@ module (P7a 13/13 and the reading-conflict probe 9/9 pass unchanged), and
 - `CertificationModel` is capped at 64 units (one `u64` per mask).
 - The planner carries four older clippy findings in `nested_bands.rs` and
   `cache/nars_engine.rs`; CI does not gate planner clippy. `pearl.rs` is clean.
+
+## Rename (same PR)
+
+`dismech_replay` and `dismech_counterfactual` never read a DisMech predicate:
+the ordinal is an opaque `u8` witness. They are now `chain_replay` and
+`chain_counterfactual`. The one DisMech-specific piece — `chain_step_predicate`,
+`UnmintedOrdinal`, `validate_chain` — moved to `dismech_admission`. The old
+module paths stay as `#[deprecated]` re-export aliases, pinned by
+`the_old_module_paths_still_name_the_same_items`. No behaviour change: planner
+lib 450 passed / 3 ignored, `house_differential` 6/6, `reasoning_band_probe` 7/7.

@@ -37,7 +37,7 @@ as current behaviour and the diagram's name as a proposed interpretation.
   intervention (`PO`) can earn `Causes`; the obligations are
   `lance_graph_contract::certification`.
 - **"Ablation and EWA are interrogation mechanics, not resident meaning."**
-  The counterfactual replay (`lance_graph_planner::dismech_counterfactual`)
+  The counterfactual replay (`lance_graph_planner::chain_counterfactual`)
   tags its arm with the −6 mantissa and never writes it back as observed
   truth. EWA-style propagation lives in `crates/jc/src/ewa_sandwich.rs` and
   writes no edge field.

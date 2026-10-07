@@ -18,7 +18,7 @@
 //!
 //! Every operator is existing code: the P7a sealed model and its folds
 //! (`shared/certification_model.rs`, moved unchanged from
-//! `relational_certification_probe`), `lance_graph_planner::dismech_counterfactual`
+//! `relational_certification_probe`), `lance_graph_planner::chain_counterfactual`
 //! (one replay path for both arms), `CausalMask::simpsons_paradox_risk`, and
 //! the canonical `EpistemicState5` declarations. What this probe adds is the
 //! dispatch (`pearl::reason`), the write-back rule (`pearl::revise`) and the
@@ -69,8 +69,8 @@ use causal_edge::tables::NarsTables;
 use lance_graph_contract::band_reading::EdgeProvenance;
 use lance_graph_contract::causal_audit::SupportBasis;
 use lance_graph_contract::epistemic_state5::{Certification3, Topology2};
-use lance_graph_planner::dismech_counterfactual::{CutContext, DEFAULT_FREQUENCY_BAR};
-use lance_graph_planner::dismech_replay::{ChainStep, ComposeTables};
+use lance_graph_planner::chain_counterfactual::{CutContext, DEFAULT_FREQUENCY_BAR};
+use lance_graph_planner::chain_replay::{ChainStep, ComposeTables};
 use lance_graph_planner::pearl::{hydrate, reason, revise, Chain, Edit, Evidence, Reading};
 
 #[path = "shared/certification_model.rs"]

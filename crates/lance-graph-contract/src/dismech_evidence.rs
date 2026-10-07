@@ -500,7 +500,7 @@ pub const DISMECH_PREDICATE_FLOOR: u8 = 0x90;
 /// # Why a replay core needs this
 ///
 /// A recorded causal chain addresses each step by a `u8` predicate ordinal
-/// (`lance_graph_planner::dismech_replay::ChainStep`). Without a mirror the
+/// (`lance_graph_planner::chain_replay::ChainStep`). Without a mirror the
 /// hot path carries a bare byte with no checkable domain, and the claim *"these
 /// ordinals ARE the dismech palette"* would be asserted only in prose. With it,
 /// a replay can refuse an ordinal outside the band, and the armed tier proves

@@ -487,7 +487,7 @@ impl NarsEngine {
     /// `c_levels = 1` (the 128 KB fast path), and with ONE bucket every
     /// confidence maps to the same table: the weights are equal, so the
     /// frequency is a plain mean and `c_out` is the constant **170**. That is
-    /// the fixed point `dismech_counterfactual::DEFAULT_FREQUENCY_BAR`
+    /// the fixed point `chain_counterfactual::DEFAULT_FREQUENCY_BAR`
     /// already documents — *"measured across a weak 3-chain, a strong
     /// 4-chain, and a mixed one, the terminal confidence was 170 in every
     /// case"* — and it is why a confidence-based threshold there would be

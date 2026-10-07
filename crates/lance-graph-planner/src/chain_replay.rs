@@ -1,4 +1,8 @@
-//! **D-DCR-1 (W1) — the replay core.** `dismech-causal-replay-v1` §3 W1.
+//! **Chain replay — the domain-agnostic core.** Originally D-DCR-1 (W1) of
+//! `dismech-causal-replay-v1` §3, renamed from `dismech_replay` once it was
+//! clear nothing here depends on DisMech: the predicate ordinal is carried as
+//! an opaque `u8` witness and never read by the arithmetic. The DisMech
+//! palette check lives in [`crate::dismech_admission`].
 //!
 //! Replays a RECORDED causal chain against a seed, one packed step at a time,
 //! and emits a trace that `temporal.rs` can deinterlace. Replay, never
@@ -8,24 +12,23 @@
 //!
 //! # What this composes (and what it deliberately does not add)
 //!
-//! Every moving part is already shipped; W1 is the wiring that proves they
-//! compose (`F-RLR-2`: proposing a new carrier before `ogar_loco` is shown
+//! Every moving part is already shipped; this module is the wiring that proves
+//! they compose (`F-RLR-2`: proposing a new carrier before `ogar_loco` is shown
 //! insufficient is an automatic STOP):
 //!
 //! | part | provenance |
 //! |---|---|
 //! | the step kernel | [`NarsTables::revise`] + [`CausalEdge64::forward`] — the kernel W0 measured at ~35 ns |
-//! | the step *address* | a `u8` predicate ordinal — the dismech palette's `FnIndex` (`0x90..=0xA2`) |
+//! | the step *address* | a `u8` predicate ordinal — opaque here; for DisMech chains, the palette's `FnIndex` (`0x90..=0xA2`) |
 //! | the trace | [`crate::temporal::LocalCausalRow`], deinterlaced by the shipped helpers |
 //!
-//! **The palette binds at the membrane, never here** (plan §2 constraint 6).
+//! **A palette binds at the membrane, never here** (plan §2 constraint 6).
 //! `ogar-loco`/`ogar-dismech` are NOT dependencies of this crate and must not
 //! become ones: `lance-graph-planner` is in-workspace, while the OGAR surface
 //! lives in the workspace-EXCLUDED armed tier (`lance-graph-ogar`). A step
-//! therefore carries the ordinal as a plain `u8` on the hot path, and the
-//! claim *"these ordinals ARE the dismech palette"* is pinned by a
-//! conformance test in that armed tier — where the real
-//! `ogar_dismech::CAUSAL_PREDICATES` is reachable — rather than asserted here.
+//! therefore carries the ordinal as a plain `u8` on the hot path. Which
+//! ordinals a chain may carry is an ADMISSION question for the domain that
+//! produced it — for DisMech, [`crate::dismech_admission::validate_chain`].
 //!
 //! # The `cast_seq` precondition is load-bearing, not paperwork
 //!
@@ -70,14 +73,16 @@ pub struct ReplayTraceRow {
     /// Index of the step within its chain — the address a perturbation is
     /// reported AT, so a diff names a position rather than a row.
     pub step: u32,
-    /// The DisMech predicate ordinal this step travelled under.
+    /// The predicate ordinal this step travelled under (for a DisMech chain,
+    /// a palette ordinal).
     ///
     /// **Carried as witness, not as an operand.** W1's arithmetic never reads
     /// it — but a trace that dropped it would not be a witness of the recorded
     /// program: two chains with identical weights and different relations
     /// (`causes` vs `protects_against`) would replay to byte-identical traces,
     /// and no consumer could reconstruct or validate what was actually
-    /// recorded. Resolve it through [`chain_step_predicate`] (or, at the
+    /// recorded. Resolve it in the producing domain — for DisMech through
+    /// [`crate::dismech_admission::chain_step_predicate`] (or, at the
     /// membrane, the real palette).
     ///
     /// Added after review on #1120: the module previously claimed the ordinal
@@ -117,36 +122,18 @@ impl LocalCausalRow for ReplayTraceRow {
 /// substrate already reads every 12-byte payload as — `function` is the
 /// palette ordinal, `value` is the weight.
 ///
-/// The ordinal's DOMAIN is checkable without leaving the workspace:
-/// [`chain_step_predicate`] resolves it through the contract's zero-dep
-/// palette mirror, and the armed tier fuses that mirror against the real
-/// `ogar_dismech::RELATIONS`.
+/// The ordinal's DOMAIN belongs to the producing domain, not to replay. For
+/// DisMech chains [`crate::dismech_admission::chain_step_predicate`] resolves
+/// it through the contract's zero-dep palette mirror, and the armed tier fuses
+/// that mirror against the real `ogar_dismech::RELATIONS`.
 pub type ChainStep = (u8, CausalEdge64);
-
-/// Resolve a step's predicate ordinal to `(ordinal, name, curie)`, or `None`
-/// when the byte names no minted DisMech predicate.
-///
-/// **Why this exists rather than a bare `u8`.** The replay arithmetic does not
-/// read the ordinal in W1 — it is the ADDRESS the step travels under, not an
-/// operand — so nothing in the hot path would ever notice a corrupt one. That
-/// is exactly why the domain needs a name: a chain carrying `0xA3` is not a
-/// causal chain at all (`0xA3` is the palette's SEARCH band), and without this
-/// a replay would trace it to a byte-identical, entirely meaningless result.
-///
-/// The mirror is the contract's; the fuse that proves it IS the palette lives
-/// in `lance_graph_ogar::parity::assert_dismech_palette_parity`, because
-/// `ogar-dismech` is reachable only from that workspace-EXCLUDED armed tier.
-/// Mirror here, authority there — the same split `ogar_codebook` already uses.
-#[must_use]
-pub fn chain_step_predicate(step: ChainStep) -> Option<&'static (u8, &'static str, &'static str)> {
-    lance_graph_contract::dismech_evidence::dismech_predicate(step.0)
-}
 
 /// A replay could not be performed as asked.
 ///
 /// Deliberately small: replay has exactly one way to fail, and it is a
 /// property of the ADDRESS SPACE the caller offered, never of the recorded
-/// chain (see [`validate_chain`] for why a chain's content is not judged here).
+/// chain (see [`crate::dismech_admission::validate_chain`] for why a chain's
+/// content is not judged here).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ReplayError {
@@ -178,70 +165,6 @@ impl fmt::Display for ReplayError {
 }
 
 impl std::error::Error for ReplayError {}
-
-/// A step whose predicate ordinal names no minted DisMech predicate.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UnmintedOrdinal {
-    /// Index of the offending step within the chain.
-    pub step: usize,
-    /// The ordinal that resolved to nothing.
-    pub ordinal: u8,
-}
-
-/// Check that every step of a chain travels under a minted DisMech predicate.
-///
-/// # Why this is an ADMISSION check and NOT part of [`replay_chain`]
-///
-/// Review on #1120 proposed validating inside the replay loop and returning an
-/// error before emitting a trace row. The defect it names is real — a chain
-/// carrying `0xA3` (the palette's SEARCH band) is not a causal chain, and
-/// replaying it produces a byte-identical, meaningless trace. But the remedy
-/// belongs one step earlier, for a reason that goes to the plan's keystone:
-///
-/// **Replay must not refuse history.** A recorded chain is a fact about what
-/// was evaluated; the engine's job is to reproduce it, not to judge it. If the
-/// palette ever drops or renumbers an ordinal, a replay that validated would
-/// start returning `Err` for chains that were perfectly valid when recorded —
-/// and "yesterday's evaluation replays today byte-for-byte" is precisely the
-/// property the whole wave exists to hold.
-///
-/// So the judgement happens once, when a chain is FIRST accepted, and replay
-/// stays total over everything already admitted.
-///
-/// # "Admission" means first acceptance — NOT loading a recording
-///
-/// The previous wording listed *"loading a recording"* as an admission site,
-/// which **contradicted the paragraph above it** — reloading an older durable
-/// recording and validating it against today's palette rejects exactly the
-/// history the split exists to keep replayable. Codex caught this on #1122;
-/// the argument was right and the instruction beneath it was wrong.
-///
-/// The rule, stated so the two cannot drift apart again:
-///
-/// - **A chain arriving from outside** (a producer, a boundary, a new
-///   recording being made) is validated against the CURRENT palette, here.
-/// - **A chain being re-read from the durable log** is already admitted. It is
-///   not re-validated — the fact that it was recorded IS its admission, under
-///   whatever palette was current then. Replay it.
-/// - A caller that genuinely needs to check an old recording must check it
-///   against the palette version it was admitted under, which this function
-///   cannot do: it has one palette, today's. That is a versioned-palette
-///   capability nothing in this wave has, and inventing one here would be
-///   worse than declining.
-///
-/// Fails closed and reports WHICH step, so a rejection is actionable rather
-/// than a boolean.
-pub fn validate_chain(chain: &[ChainStep]) -> Result<(), UnmintedOrdinal> {
-    for (step, &entry) in chain.iter().enumerate() {
-        if chain_step_predicate(entry).is_none() {
-            return Err(UnmintedOrdinal {
-                step,
-                ordinal: entry.0,
-            });
-        }
-    }
-    Ok(())
-}
 
 /// The single step, isolated so the replay and any future accelerator agree on
 /// what a step IS. Composes the two halves W0 measured, in that order:
@@ -413,14 +336,14 @@ pub fn first_divergence(a: &[ReplayTraceRow], b: &[ReplayTraceRow]) -> Option<u3
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use causal_edge::edge::InferenceType;
     use causal_edge::{CausalMask, PlasticityState};
 
     /// Deterministic fixture PRNG — a replay test that seeded from the clock
     /// could not test replay.
-    struct Lcg(u64);
+    pub(crate) struct Lcg(pub(crate) u64);
     impl Lcg {
         fn next(&mut self) -> u64 {
             self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1);
@@ -431,7 +354,7 @@ mod tests {
         }
     }
 
-    fn compose_tables() -> Box<[[u8; 256 * 256]; 3]> {
+    pub(crate) fn compose_tables() -> Box<[[u8; 256 * 256]; 3]> {
         let mut t = Box::new([[0u8; 256 * 256]; 3]);
         for (k, tab) in t.iter_mut().enumerate() {
             for i in 0..256usize {
@@ -443,7 +366,7 @@ mod tests {
         t
     }
 
-    fn edge(rng: &mut Lcg) -> CausalEdge64 {
+    pub(crate) fn edge(rng: &mut Lcg) -> CausalEdge64 {
         CausalEdge64::pack(
             rng.below(256) as u8,
             rng.below(256) as u8,
@@ -458,10 +381,11 @@ mod tests {
         )
     }
 
-    /// A chain whose predicate ordinals sit in the dismech palette's band.
-    /// The BAND is asserted here; that these exact ordinals are the palette's
+    /// A chain whose predicate ordinals sit in the DisMech palette's band (a
+    /// realistic fixture; replay itself never reads the ordinal). The BAND is
+    /// asserted here; that these exact ordinals are the palette's
     /// is the armed tier's conformance test, not this crate's claim.
-    fn chain(rng: &mut Lcg, len: usize) -> Vec<ChainStep> {
+    pub(crate) fn chain(rng: &mut Lcg, len: usize) -> Vec<ChainStep> {
         (0..len)
             .map(|_| ((0x90 + rng.below(0x13)) as u8, edge(rng)))
             .collect()
@@ -601,27 +525,6 @@ mod tests {
         assert_eq!(only_b, b);
         // cast_seq is monotonic per owner — the precondition the trait names.
         assert!(only_a.windows(2).all(|w| w[0].cast_seq() < w[1].cast_seq()));
-    }
-    #[test]
-    fn a_chain_steps_ordinal_names_a_minted_predicate_and_a_search_op_does_not() {
-        // The core cannot reach `ogar_dismech` (workspace boundary), so what
-        // it CAN pin is that a step's ordinal resolves through the contract
-        // mirror to the predicate the plan names — and that the byte one past
-        // the band does not. The mirror-IS-the-palette half is fused in
-        // `lance_graph_ogar::parity::assert_dismech_palette_parity`; neither
-        // half alone is the claim.
-        let mut rng = Lcg(0x51D3_7C4A_9B2E_6F08);
-        let w = edge(&mut rng);
-        assert_eq!(chain_step_predicate((0x90, w)).map(|p| p.1), Some("causes"),);
-        assert_eq!(
-            chain_step_predicate((0xA2, w)).map(|p| p.1),
-            Some("variant_of"),
-        );
-        // Can-stay-silent, on a byte that is a REAL slot elsewhere in the
-        // palette rather than an arbitrary one: 0xA3 is `CANDIDATES`, the
-        // first search op. An empty-input silence case would prove nothing.
-        assert!(chain_step_predicate((0xA3, w)).is_none());
-        assert!(chain_step_predicate((0x8F, w)).is_none());
     }
     #[test]
     fn two_chains_differing_only_in_predicate_do_not_replay_identically() {
@@ -785,50 +688,6 @@ mod tests {
             "this is the duplicate the old saturating helper would have handed out",
         );
     }
-    #[test]
-    fn a_chain_carrying_a_search_op_is_refused_at_admission_and_still_replays() {
-        // CodeRabbit #1120 asked that `replay_chain` itself reject an ordinal
-        // outside the predicate band. Both halves are pinned here, because the
-        // SPLIT is the decision, not either half alone.
-        let mut rng = Lcg(0x5EA2_C401_9D3B_77E6);
-        let mut c = chain(&mut rng, 5);
-        c[2].0 = 0xA3; // CANDIDATES — a real slot, in the SEARCH band
-
-        // (a) admission REFUSES it, and names the step so the rejection is
-        //     actionable rather than a boolean.
-        assert_eq!(
-            validate_chain(&c),
-            Err(UnmintedOrdinal {
-                step: 2,
-                ordinal: 0xA3
-            }),
-        );
-        // Anti-vacuity: the same chain without that step must PASS, or the
-        // check could be rejecting everything.
-        let mut clean = c.clone();
-        clean[2].0 = 0x90;
-        assert_eq!(validate_chain(&clean), Ok(()));
-
-        // (b) replay stays TOTAL over it. Replay must not refuse history: a
-        //     recorded chain is a fact, and a replay that judged content would
-        //     start returning Err for chains that were valid when recorded —
-        //     against the keystone this whole wave exists to hold.
-        let tables = NarsTables::build(1);
-        let c_tabs = compose_tables();
-        let tabs = ComposeTables {
-            s: &c_tabs[0],
-            p: &c_tabs[1],
-            o: &c_tabs[2],
-        };
-        let seed = edge(&mut rng);
-        let t = replay_chain(&c, seed, &tables, tabs, 1, 10).expect("reservation fits");
-        assert_eq!(t.len(), 5);
-        assert_eq!(
-            t[2].predicate, 0xA3,
-            "the witness records what was replayed"
-        );
-    }
-
     #[test]
     fn a_reservation_that_cannot_fit_is_refused_before_a_partial_trace_exists() {
         // CodeRabbit #1120: `base_seq + i` panicked in debug and wrapped in
