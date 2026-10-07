@@ -360,10 +360,15 @@ mod tests {
         };
         assert_eq!(mb.write_row(row, mb.cycle(), &cell), WriteOutcome::Accepted);
         mb.tick();
+        assert_eq!(
+            raw5(mb.edge(row)),
+            4,
+            "the committed code is not Direct × Associated"
+        );
         let reread = measure(LawGen::V1, mb.edge(row), EdgeProvenance::V2Stamped);
         assert_eq!(
             reread,
-            Ok(t.state[7] & t.pearl[edge.causal_mask() as usize])
+            Ok(t.state[4] & t.pearl[edge.causal_mask() as usize])
         );
         assert_ne!(reread, open, "the measurement does not read the row");
     }
