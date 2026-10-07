@@ -58,6 +58,12 @@
 //!   an AoS test object holding the lanes side by side so the gates can
 //!   compare them; it is NOT evidence about the resident SoA layout and must
 //!   never be cited as such.
+//!
+//! D-EPI-MIG-0 (2026-10-07): PROBE-ONLY legacy. Writes the historical
+//! `CausalTopology` / `ReasoningBand` halves of CE64 bits 59..63, which the
+//! canonical `EpistemicState5` reading (`contract::epistemic_state5`) does
+//! not translate. Kept as a record of that reading.
+#![allow(deprecated)]
 
 use causal_edge::layout::{CausalTopology, ReasoningBand};
 use causal_edge::CausalEdge64;

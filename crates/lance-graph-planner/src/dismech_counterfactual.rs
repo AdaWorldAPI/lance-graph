@@ -136,9 +136,18 @@ pub struct EdgeRole {
     pub factual: Verdict,
     /// Verdict with the edge cut.
     pub counterfactual: Verdict,
-    /// The cut edge's causal topology (bits 59-60, `CausalTopology` lens).
+    /// The cut edge's bits 59..63 as ONE raw `EpistemicState5` code
+    /// (D-EPI-CANON-0). Opaque here: its meaning is the declaration of the
+    /// cut edge's `(classid, rail)`, projected through
+    /// `lance_graph_contract::epistemic_state5::Epi5Declarations::project_state5`
+    /// by a caller that knows the class. This is the canonical field.
+    pub epistemic_raw5: u8,
+    /// LEGACY projection of the low half of `epistemic_raw5` through the
+    /// historical `CausalTopology` lens. Kept for compatibility; it is not a
+    /// reading of the field and must not be used to decide anything.
     pub topology: causal_edge::layout::CausalTopology,
-    /// The cut edge's reasoning band (bits 61-63).
+    /// LEGACY projection of the high half through the historical
+    /// `ReasoningBand` lens. Same caveat.
     pub band: causal_edge::layout::ReasoningBand,
 }
 
@@ -248,6 +257,7 @@ pub fn counterfactual_replay(
                 predicate,
                 factual: verdict_at(&factual, bar),
                 counterfactual: verdict_at(&counterfactual, bar),
+                epistemic_raw5: cut_edge.epistemic_raw5(),
                 topology: cut_edge.topology(),
                 band: cut_edge.reasoning_band(),
             },
@@ -542,9 +552,8 @@ mod tests {
 
         // Two chains differing ONLY in the cut edge's lens bits.
         let plain = edge_with(250, 250);
-        let flavoured = plain
-            .with_topology(CausalTopology::IndirectKnownIntermediates)
-            .with_reasoning_band(ReasoningBand::Causal);
+        // Written jointly (D-EPI-CANON-0): topology ordinal 1, band ordinal 3.
+        let flavoured = plain.with_epistemic_raw5((3 << 2) | 1);
 
         for (edge, want_topo, want_band) in [
             (plain, plain.topology(), plain.reasoning_band()),
@@ -573,6 +582,7 @@ mod tests {
             )
             .expect("in range")
             .expect("fits");
+            assert_eq!(cf.role.epistemic_raw5, edge.epistemic_raw5());
             assert_eq!(cf.role.topology, want_topo);
             assert_eq!(cf.role.band, want_band);
             assert_eq!(cf.role.predicate, 0x9D, "perturbs");
@@ -582,6 +592,7 @@ mod tests {
         // above compares a value with itself twice.
         assert_ne!(plain.topology(), CausalTopology::IndirectKnownIntermediates);
         assert_ne!(plain.reasoning_band(), ReasoningBand::Causal);
+        assert_ne!(plain.epistemic_raw5(), flavoured.epistemic_raw5());
     }
 
     /// An out-of-range cut is refused at the top level too, not just in

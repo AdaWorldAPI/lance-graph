@@ -179,6 +179,12 @@ cargo run -p cognitive-shader-driver --example reasoning_band_probe
 
 ## relational_certification_probe.rs
 
+> **D-EPI-MIG-0 (2026-10-07):** P7a no longer owns bits 61..63. A
+> certification is stamped by translating `(MODEL_GROUNDING = Direct,
+> contract)` into the canonical `EpistemicState5` code and writing bits
+> 59..63 jointly; `Contributes` and `CausalCandidate` have no V1 code and
+> refuse (the observational fixtures certify `CausalCandidate`).
+
 D-GSO-7a (P7a). Replaces the meaning of the band rungs from `reasoning_band_probe`
 (#1360, which stays as shipped). Under a reading declared per class, bits 61..63
 hold the strongest relational statement the sealed model may assert:
@@ -300,6 +306,12 @@ cargo run -p cognitive-shader-driver --features with-engine,mailbox-thoughtspace
 ```
 
 ## epistemic_reading_conflict_probe.rs
+
+> **D-EPI-MIG-0 (2026-10-07):** converted to the conformance probe of the
+> canonical `EpistemicState5` reading (`contract::epistemic_state5`): legacy
+> grounding × P7a contract census 11 agree / 0 disagree / 13 refuse (was
+> 3 / 5 / 16), both readings agree on all 32 raw codes, F3/F5–F8/F10 pinned.
+> The text below describes the #1378 state it replaced.
 
 D-EPI-CONFLICT-0. Pins that the affordance law (`shared/affordance_law.rs`)
 reads bits 59..63 as its own 5-bit code without the D-ACR-7 contract

@@ -54,6 +54,11 @@ pub const V1_TEMPORAL_SHIFT: u32 = 52;
 pub const W_SHIFT: u32 = 53;
 
 /// Truth-band lens: 2-bit TrustTexture ordinal (bits 59-60).
+///
+/// ⊘ D-EPI-CANON-0 (2026-10-07): bits 59..63 are ONE field, the 5-bit
+/// `EpistemicState5` code ([`EPISTEMIC_SHIFT`]). This 2-bit lens and the
+/// `TrustTexture` / `CausalTopology` readings below are legacy projections
+/// of its low half, kept for compatibility, never the authority.
 /// 0 = Crystalline. Per cognitive-substrate-convergence-v1.md L-7.
 ///
 /// Same two bits also carry an ADDITIVE factual view, [`CausalTopology`]
@@ -65,6 +70,10 @@ pub const W_SHIFT: u32 = 53;
 pub const TRUTH_SHIFT: u32 = 59;
 
 /// Spare: 3-bit reserved for sprint-12+ (bits 61-63).
+///
+/// ⊘ D-EPI-CANON-0 (2026-10-07): the high half of the joint
+/// `EpistemicState5` field ([`EPISTEMIC_SHIFT`]); the `ReasoningBand` view
+/// below is a legacy projection only.
 /// Candidates: Rubicon-commit marker, Markov-decay quantum, I-NOISE-FLOOR-JIRAK threshold.
 ///
 /// Same three bits also carry an ADDITIVE quantized-projection view,

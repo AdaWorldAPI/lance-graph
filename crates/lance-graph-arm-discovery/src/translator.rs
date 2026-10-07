@@ -39,6 +39,9 @@ pub const NARS_PERSONALITY_K: u32 = 1;
 /// `ReasoningBand` since `9891cca6`, only the `SPARE_SHIFT` name is stale; the other
 /// paired `confidence_u8` with the i4 mantissa — the i4 mantissa at bits 46-49 is the
 /// `InferenceType`, provenance/type grammar, not half of the truth value.)
+/// (⊘ 2026-10-07, D-EPI-CANON-0: bits 59..63 are now ONE field, the 5-bit
+/// `EpistemicState5` code read through `contract::epistemic_state5`; the
+/// `CausalTopology` / `ReasoningBand` halves above are legacy projections.)
 ///
 /// **This is a substrate value, not a wire DTO.** It carries no `repr(C)`, no schema
 /// version, and no little-endian codec, so it binds a DEGREE and not a KIND. Per the
