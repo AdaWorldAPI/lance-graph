@@ -1453,6 +1453,16 @@ fn mode_a6() {
                     None => want = Some(got),
                     Some(w) => assert_eq!(got, w, "a6 {route} {} {d}", t.name()),
                 }
+                // The next-frontier checksum cannot see clearing: a route that
+                // skipped re-zeroing K_next would pass it AND time faster. The
+                // three schedule-driven routes must leave K_next clean.
+                if route != "exact+full-consume" {
+                    assert!(
+                        kn.iter().all(|&x| x == 0),
+                        "a6 {route} left K_next dirty ({} {d})",
+                        t.name()
+                    );
+                }
                 let (extra, consume) = match route {
                     "exact+full-consume" => (0, CELLS),
                     "exact+cell-seen" => (0, touched),
