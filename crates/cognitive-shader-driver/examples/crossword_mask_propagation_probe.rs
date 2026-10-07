@@ -914,6 +914,17 @@ enum Miss {
     Unique,
 }
 
+/// Crossword fills never repeat an entry: no two placed slots hold the same
+/// word. Both creation searches apply this rule, so the generator and the
+/// uniqueness count agree on what a fill is.
+fn no_repeats(placed: &[WordId]) -> bool {
+    let mut seen: Vec<WordId> = placed.iter().copied().filter(|&w| w != UNSET).collect();
+    let n = seen.len();
+    seen.sort_unstable();
+    seen.dedup();
+    seen.len() == n
+}
+
 /// Depth-first fill over arm A's masks, most-constrained slot first, random
 /// order within it. `budget` counts tried words. Creation only.
 fn random_fill(hot: &Hot, puz: &Puzzle, rng: &mut Rng, budget: &mut usize) -> Option<Vec<WordId>> {
@@ -922,9 +933,10 @@ fn random_fill(hot: &Hot, puz: &Puzzle, rng: &mut Rng, budget: &mut usize) -> Op
             .filter(|&s| st.placed[s] == UNSET)
             .min_by_key(|&s| st.count(s))
         else {
-            return Some(st);
+            return no_repeats(&st.placed).then_some(st);
         };
         let mut cs = bits(st.mask(s));
+        cs.retain(|w| !st.placed.contains(w));
         rng.shuffle(&mut cs);
         for w in cs {
             if *budget == 0 {
@@ -934,7 +946,7 @@ fn random_fill(hot: &Hot, puz: &Puzzle, rng: &mut Rng, budget: &mut usize) -> Op
             let mut next = st.clone();
             next.place(s, w);
             let mut q = vec![s as u8];
-            if propagate_token(hot, puz, &mut next, &mut q).is_ok() {
+            if propagate_token(hot, puz, &mut next, &mut q).is_ok() && no_repeats(&next.placed) {
                 if let Some(done) = go(hot, puz, next, rng, budget) {
                     return Some(done);
                 }
@@ -961,10 +973,13 @@ fn count_fills(
             .filter(|&s| st.placed[s] == UNSET)
             .min_by_key(|&s| st.count(s))
         else {
-            return Some(1);
+            return Some(usize::from(no_repeats(&st.placed)));
         };
         let mut n = 0;
-        for w in bits(st.mask(s)) {
+        for w in bits(st.mask(s))
+            .into_iter()
+            .filter(|w| !st.placed.contains(w))
+        {
             if *budget == 0 {
                 return None;
             }
@@ -972,7 +987,7 @@ fn count_fills(
             let mut next = st.clone();
             next.place(s, w);
             let mut q = vec![s as u8];
-            if propagate_token(hot, puz, &mut next, &mut q).is_ok() {
+            if propagate_token(hot, puz, &mut next, &mut q).is_ok() && no_repeats(&next.placed) {
                 n += go(hot, puz, next, cap - n, budget)?;
                 if n >= cap {
                     break;
@@ -1928,6 +1943,29 @@ mod tests {
         assert_eq!(a[1].fills, Some(2));
         assert_eq!(a[1].reaction(), Some(Reaction::Necessary));
         assert_eq!(a[1].popcount_delta, 1);
+    }
+
+    /// A fill may not repeat a word, in the generator and in the uniqueness
+    /// count alike: across `bab` with down `aaa` is the one legal fill;
+    /// `aaa`/`aaa` crosses correctly but repeats the entry.
+    #[test]
+    fn fills_never_repeat_a_word() {
+        let (hot, cold) = build_lexicon(Lang::En, &words(&["aaa", "bab"]));
+        let puz = compile(&plus(), Lang::En);
+        let mut budget = 1_000;
+        assert_eq!(count_fills(&hot, &puz, &[], 3, &mut budget), Some(1));
+        let mut rng = Rng(1);
+        for _ in 0..20 {
+            let mut b = 1_000;
+            let fill = random_fill(&hot, &puz, &mut rng, &mut b).unwrap();
+            assert_eq!(fill, [word(&cold, "bab"), word(&cold, "aaa")]);
+        }
+        // only the repeated fill exists: no fill at all
+        let (hot, _) = build_lexicon(Lang::En, &words(&["aaa"]));
+        let mut budget = 1_000;
+        assert_eq!(count_fills(&hot, &puz, &[], 3, &mut budget), Some(0));
+        let mut b = 1_000;
+        assert!(random_fill(&hot, &puz, &mut Rng(2), &mut b).is_none());
     }
 
     /// On created puzzles the last given added is necessary by construction
