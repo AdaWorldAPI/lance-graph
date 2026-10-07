@@ -32,9 +32,10 @@ as current behaviour and the diagram's name as a proposed interpretation.
 ## What the code already enforces from the diagram
 
 - **"Pearl asks the question; it does not certify the answer."**
-  `cognitive-shader-driver/examples/pearl_ladder_probe.rs` (D-PEARL-IO-0)
-  dispatches on bits 40..42 and lets only the measured result revise bits
-  59..63. Only an executed intervention (`PO`) can earn `Causes`.
+  `lance_graph_planner::pearl` (D-PEARL-PROD-0) dispatches on bits 40..42 and
+  lets only the measured result revise bits 59..63. Only an executed
+  intervention (`PO`) can earn `Causes`; the obligations are
+  `lance_graph_contract::certification`.
 - **"Ablation and EWA are interrogation mechanics, not resident meaning."**
   The counterfactual replay (`lance_graph_planner::dismech_counterfactual`)
   tags its arm with the −6 mantissa and never writes it back as observed
