@@ -426,3 +426,18 @@ fails if domain vocabulary enters the shared half.
 ```bash
 cargo run --release -p cognitive-shader-driver --example crossword_population_fold_probe
 ```
+
+## crossword_real_words_probe.rs
+
+D-PUZZLE-0 step 2b. The step-2 crossword with a real dictionary: the 1000 most
+frequent words per slot length, English from the committed COCA
+`crates/deepnsm/word_frequency/word_forms.csv`, German from DeReKo-2014 only
+when `DEREKO_PATH` names the file (CC BY-NC 3.0; nothing derived is committed).
+Instances are random fills, givens added until the fill is unique. About 1.0M
+edges per language; every count agrees three ways. Board:
+`.claude/board/entries/2026-10-07-puzzle-0-crossword-real-words.md`.
+
+```
+cargo run --release -p cognitive-shader-driver --example crossword_real_words_probe
+DEREKO_PATH=/path/DeReKo-2014-II-MainArchive-STT.100000.freq cargo run --release -p cognitive-shader-driver --example crossword_real_words_probe
+```

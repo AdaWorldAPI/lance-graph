@@ -569,10 +569,10 @@ mod tests {
     }
 
     /// Kept instances are unique, every solution word is a dictionary word,
-    /// and dropping the last given makes the instance ambiguous again (the
-    /// givens are minimal along the drawn order, so uniqueness binds).
+    /// and the givens are doing work: with all of them removed, the
+    /// dictionary admits more than one fill of the same grid.
     #[test]
-    fn instances_are_unique_and_the_last_given_is_needed() {
+    fn instances_are_unique_and_givens_are_needed() {
         let d = coca();
         let slots = slots();
         let mut rng = Rng(11);
@@ -583,18 +583,12 @@ mod tests {
             for (s, w) in inst.solution.iter().enumerate() {
                 assert!(d.bucket(&slots[s]).words.contains(w));
             }
-            let g = inst.given.iter().filter(|&&b| b).count();
-            if g > 0 {
-                // Drop every given: with no givens a real-word grid of this
-                // size always has another fill (its own transpose at least is
-                // checked by the count, not assumed).
-                let open = Instance {
-                    given: vec![false; slots.len()],
-                    solution: inst.solution.clone(),
-                };
-                if count_solutions(&d, &slots, &open, 2) > 1 {
-                    ambiguous_without += 1;
-                }
+            let open = Instance {
+                given: vec![false; slots.len()],
+                solution: inst.solution.clone(),
+            };
+            if count_solutions(&d, &slots, &open, 2) > 1 {
+                ambiguous_without += 1;
             }
         }
         assert!(ambiguous_without > 0, "uniqueness never needed a given");
