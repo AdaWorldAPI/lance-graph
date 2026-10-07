@@ -9,7 +9,7 @@
 //! Own test binary (the counting allocator is process-global).
 
 use lance_graph_dir_sim::*;
-use ogar_dir_core::Guid128;
+use ogar_dir_core::{Dn128, Guid128};
 use ogar_dir_sim::{
     Attribute, Change, EvidenceRef, NodeKind, NodeState, RuleId, ValueId, VersionId,
 };
@@ -84,6 +84,8 @@ enum Op {
     SetAttribute,
     CreateNode,
     DeleteNode,
+    SetActive,
+    SetLocation,
 }
 
 /// The change for `op`. Its values are interned here, at ingress, outside
@@ -120,6 +122,16 @@ fn change(op: Op, st: &mut VersionStore, g0: VersionId) -> Change {
                 primary_smtp: new,
                 dn: None,
             },
+        },
+        Op::SetActive => Change::SetActive {
+            node: guid(7),
+            from: Some(true),
+            to: Some(false),
+        },
+        Op::SetLocation => Change::SetLocation {
+            node: guid(7),
+            from: None,
+            to: Some(Dn128::new(&[2, 5]).unwrap()),
         },
         Op::DeleteNode => Change::DeleteNode {
             node: guid(LONER),
@@ -161,6 +173,8 @@ fn one_mutation_of_each_kind_is_delta_sized_not_population_sized() {
         Op::SetAttribute,
         Op::CreateNode,
         Op::DeleteNode,
+        Op::SetActive,
+        Op::SetLocation,
     ] {
         let (s1, d1) = measure(op, 1_000);
         let (s16, d16) = measure(op, 16_384);

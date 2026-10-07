@@ -273,9 +273,10 @@ impl VersionStore {
         })?;
         // Ordering of value transfers compares comparison keys; every value
         // in a stored version was issued by this store, so the fallback is
-        // never taken.
+        // never taken. A change towards an unknown flag or location is
+        // refused here (`PlanError::NotActuatable`).
         let key = |v: ValueId| self.dicts.key_of(v).unwrap_or(KeyId(v.0));
-        Ok(ExecutionPlan::from_diff(basis, target, ops, key))
+        ExecutionPlan::from_diff(basis, target, ops, key)
     }
 
     /// Why does `v` contain membership `(user, group)`? The lineage from
@@ -322,8 +323,10 @@ fn set_change(
     })
 }
 
-/// Upn and primary-SMTP changes between two present nodes.
-fn attr_changes(node: Guid128, a: &NodeState, b: &NodeState, out: &mut Vec<Change>) {
+/// Every property change between two states of one node of one kind:
+/// UPN, primary SMTP, the enabled flag and the location, each as a
+/// compare-and-set from `a`.
+fn property_changes(node: Guid128, a: &NodeState, b: &NodeState, out: &mut Vec<Change>) {
     out.extend(set_change(node, Attribute::Upn, a.upn, b.upn));
     out.extend(set_change(
         node,
@@ -331,14 +334,35 @@ fn attr_changes(node: Guid128, a: &NodeState, b: &NodeState, out: &mut Vec<Chang
         a.primary_smtp,
         b.primary_smtp,
     ));
+    if a.active != b.active {
+        out.push(Change::SetActive {
+            node,
+            from: a.active,
+            to: b.active,
+        });
+    }
+    if a.dn != b.dn {
+        out.push(Change::SetLocation {
+            node,
+            from: a.dn,
+            to: b.dn,
+        });
+    }
 }
 
 /// The change that takes node `g` from its state in `a` to its state in `b`.
+/// Kind is identity, not a property: an identity whose kind differs between
+/// the two (possible only across observations) is reported as the delete of
+/// one object and the create of another.
 fn node_changes(g: Guid128, a: Option<NodeState>, b: Option<NodeState>, out: &mut Vec<Change>) {
     match (a, b) {
         (None, Some(state)) => out.push(Change::CreateNode { node: g, state }),
         (Some(state), None) => out.push(Change::DeleteNode { node: g, state }),
-        (Some(sa), Some(sb)) => attr_changes(g, &sa, &sb, out),
+        (Some(sa), Some(sb)) if sa.kind != sb.kind => {
+            out.push(Change::DeleteNode { node: g, state: sa });
+            out.push(Change::CreateNode { node: g, state: sb });
+        }
+        (Some(sa), Some(sb)) => property_changes(g, &sa, &sb, out),
         (None, None) => {}
     }
 }
@@ -376,25 +400,24 @@ fn diff_shared(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
         }
     }
 
-    // Attribute overrides of base nodes present in both versions (a node
-    // created or deleted between them is covered above).
+    // Property overrides (UPN, primary SMTP, flag, location) of base nodes
+    // present in both versions (a node created or deleted between them is
+    // covered above): only the base ordinals either overlay touched.
     for kind in [NodeKind::User, NodeKind::Group] {
         let p = s.population(kind);
-        for attr in [Attribute::Upn, Attribute::PrimarySmtp] {
-            let touched: BTreeSet<u16> = a
-                .pop(kind)
-                .1
-                .overrides(attr)
-                .keys()
-                .chain(b.pop(kind).1.overrides(attr).keys())
-                .copied()
-                .collect();
-            for o in touched {
-                let g = p.ids[usize::from(o)];
-                if nodes.contains(&g) {
-                    continue;
-                }
-                out.extend(set_change(g, attr, a.attr(&g, attr), b.attr(&g, attr)));
+        let mut touched: BTreeSet<u16> = BTreeSet::new();
+        for v in [a, b] {
+            let o = v.pop(kind).1;
+            touched.extend(o.upn.keys().chain(o.smtp.keys()));
+            touched.extend(o.active.keys().chain(o.dn.keys()));
+        }
+        for o in touched {
+            let g = p.ids[usize::from(o)];
+            if nodes.contains(&g) {
+                continue;
+            }
+            if let (Some(sa), Some(sb)) = (a.node_state(&g), b.node_state(&g)) {
+                property_changes(g, &sa, &sb, &mut out);
             }
         }
     }
@@ -460,9 +483,9 @@ fn diff_full(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
 /// compare-and-set expectations read from `basis`. Each check is one
 /// identity lookup, so the work is proportional to the intent.
 ///
-/// `Err(node)`: a node the intent creates already exists in `basis` with a
-/// kind, enabled flag or location that no change can converge (the algebra sets
-/// only UPN and primary SMTP), so the create is neither done nor doable.
+/// `Err(node)`: a node the intent creates already exists in `basis` with
+/// another kind. Kind is identity and no change alters it, so the create is
+/// neither done nor doable. Every other field converges by compare-and-set.
 fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Result<Vec<Change>, Guid128> {
     let mut out = Vec::new();
     for c in intent {
@@ -493,16 +516,36 @@ fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Result<Vec<Change>, Gui
                     ));
                 }
             }
+            Change::SetActive { node, to, .. } => {
+                if let Some(actual) = basis.node_state(&node) {
+                    if actual.active != to {
+                        out.push(Change::SetActive {
+                            node,
+                            from: actual.active,
+                            to,
+                        });
+                    }
+                }
+            }
+            Change::SetLocation { node, to, .. } => {
+                if let Some(actual) = basis.node_state(&node) {
+                    if actual.dn != to {
+                        out.push(Change::SetLocation {
+                            node,
+                            from: actual.dn,
+                            to,
+                        });
+                    }
+                }
+            }
             Change::CreateNode { node, state } => match basis.node_state(&node) {
                 None => out.push(Change::CreateNode { node, state }),
-                // Already exists: only its settable attributes may differ.
+                // Already exists: kind is identity; every property converges.
                 Some(actual) => {
-                    if (actual.kind, actual.active, actual.dn)
-                        != (state.kind, state.active, state.dn)
-                    {
+                    if actual.kind != state.kind {
                         return Err(node);
                     }
-                    attr_changes(node, &actual, &state, &mut out);
+                    property_changes(node, &actual, &state, &mut out);
                 }
             },
             Change::DeleteNode { node, .. } => {

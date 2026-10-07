@@ -6,9 +6,10 @@
 //!
 //! * added membership identity pairs,
 //! * removed membership rows (sorted row ids; unresolved rows by identity),
-//! * per population: attribute overrides `ordinal → (value, key)`, created
-//!   nodes as their own small SoA lanes ([`Created`]), and deleted base
-//!   ordinals.
+//! * per population: attribute overrides `ordinal → (value, key)`,
+//!   enabled-flag overrides `ordinal → Option<bool>` (three-valued; users
+//!   only) and location overrides `ordinal → Option<Dn128>`, created nodes as
+//!   their own small SoA lanes ([`Created`]), and deleted base ordinals.
 //!
 //! Nothing in the overlay is allocated in proportion to the directory: one
 //! mutation adds one entry. Queries build their "still live" planes when
@@ -30,7 +31,7 @@ use crate::snapshot::{
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{Dn128, Guid128};
-use ogar_dir_sim::{Attribute, Change, NodeKind, NodeState, ValueId};
+use ogar_dir_sim::{Attribute, Change, NodeKind, NodeState, Refusal, ValueId};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -60,6 +61,15 @@ pub enum ApplyError {
     /// different state. Directory identities are not reused; recreating
     /// the observed node unchanged is an undo and is accepted.
     IdentityReused(Guid128),
+    /// A property change (`SetActive` / `SetLocation`) refused by its
+    /// reference semantics, `NodeState::apply`: a stale `from`, or a flag
+    /// on a group.
+    Refused {
+        /// Node.
+        node: Guid128,
+        /// Why.
+        refusal: Refusal,
+    },
     /// `DeleteNode`'s expected state no longer holds (stale compare-and-set).
     StaleNode {
         /// Node.
@@ -139,6 +149,12 @@ pub(crate) struct PopOverlay {
     pub(crate) upn: BTreeMap<u16, (u32, u32)>,
     /// Primary-SMTP overrides of base nodes.
     pub(crate) smtp: BTreeMap<u16, (u32, u32)>,
+    /// Enabled-flag overrides of base users: ordinal → flag, all three
+    /// values (`None` = unknown is an override too, never "no override").
+    pub(crate) active: BTreeMap<u16, Option<bool>>,
+    /// Location overrides of base nodes: ordinal → location (`None` =
+    /// unknown).
+    pub(crate) dn: BTreeMap<u16, Option<Dn128>>,
     /// Created nodes.
     pub(crate) created: Created,
     /// Deleted base nodes (ordinals).
@@ -147,7 +163,12 @@ pub(crate) struct PopOverlay {
 
 impl PopOverlay {
     fn len(&self) -> usize {
-        self.upn.len() + self.smtp.len() + self.created.len() + self.deleted.len()
+        self.upn.len()
+            + self.smtp.len()
+            + self.active.len()
+            + self.dn.len()
+            + self.created.len()
+            + self.deleted.len()
     }
     pub(crate) fn overrides(&self, a: Attribute) -> &BTreeMap<u16, (u32, u32)> {
         match a {
@@ -292,15 +313,15 @@ impl<'s> View<'s> {
     fn live_plane(
         &self,
         kind: NodeKind,
-        base: &'s [u64],
+        base: Cow<'s, [u64]>,
         created: impl Fn(usize) -> bool,
     ) -> Cow<'s, [u64]> {
         let (p, o) = self.pop(kind);
         let (n, c) = (p.len(), o.created.len());
         if c == 0 && o.deleted.is_empty() {
-            return Cow::Borrowed(base);
+            return base;
         }
-        let mut plane = base.to_vec();
+        let mut plane = base.into_owned();
         plane.resize(words_for(n + c), 0);
         for &d in &o.deleted {
             clear_bit(&mut plane, usize::from(d));
@@ -310,17 +331,36 @@ impl<'s> View<'s> {
         }
         Cow::Owned(plane)
     }
-    /// Active users as a bit plane over the user ordinals.
+    /// Active users as a bit plane over the user ordinals: the version's
+    /// flags (observed, overridden, created), set only where the flag is
+    /// `Some(true)` — an unknown flag is not active.
     pub fn active_users(&self) -> Cow<'s, [u64]> {
         let cr = &self.ov.users.created;
-        self.live_plane(NodeKind::User, &self.snap.users.active, |i| {
+        self.live_plane(NodeKind::User, self.base_active(), |i| {
             cr.active[i] == Some(true)
         })
+    }
+    /// The observed active plane (base width) with the version's flag
+    /// overrides applied. Borrowed when there are none.
+    fn base_active(&self) -> Cow<'s, [u64]> {
+        let ov = &self.ov.users.active;
+        if ov.is_empty() {
+            return Cow::Borrowed(&self.snap.users.active);
+        }
+        let mut p = self.snap.users.active.clone();
+        for (&o, &flag) in ov {
+            if flag == Some(true) {
+                set_bit(&mut p, usize::from(o));
+            } else {
+                clear_bit(&mut p, usize::from(o));
+            }
+        }
+        Cow::Owned(p)
     }
     /// Existing nodes of a population as a bit plane over its ordinals.
     pub(crate) fn existing(&self, kind: NodeKind) -> Cow<'s, [u64]> {
         let (p, _) = self.pop(kind);
-        self.live_plane(kind, &p.all, |_| true)
+        self.live_plane(kind, Cow::Borrowed(&p.all), |_| true)
     }
     /// A base-width plane with deleted base nodes cleared.
     pub(crate) fn base_live(&self, kind: NodeKind, base: &'s [u64]) -> Cow<'s, [u64]> {
@@ -380,12 +420,16 @@ impl<'s> View<'s> {
         let (kind, i) = self.locate(g)?;
         let (p, o) = self.pop(kind);
         let (active, dn) = if i < p.len() {
-            let active = if kind == NodeKind::Group {
-                Some(true)
-            } else {
-                bit(&p.active_known, i).then(|| bit(&p.active, i))
+            let o16 = i as u16;
+            let active = match o.active.get(&o16) {
+                Some(&flag) => flag,
+                None => base_active_of(p, kind, i),
             };
-            (active, p.dn_of(i))
+            let dn = match o.dn.get(&o16) {
+                Some(&dn) => dn,
+                None => p.dn_of(i),
+            };
+            (active, dn)
         } else {
             let j = i - p.len();
             (o.created.active[j], o.created.dn[j])
@@ -417,10 +461,11 @@ impl<'s> View<'s> {
     pub(crate) fn live_owners(&self, a: Attribute) -> Cow<'s, [u64]> {
         let o = &self.ov.users;
         let ov = o.overrides(a);
+        let base = self.base_active();
         if ov.is_empty() && o.deleted.is_empty() {
-            return Cow::Borrowed(&self.snap.users.active);
+            return base;
         }
-        let mut p = self.snap.users.active.clone();
+        let mut p = base.into_owned();
         for d in ov.keys().chain(&o.deleted) {
             clear_bit(&mut p, usize::from(*d));
         }
@@ -584,6 +629,42 @@ impl<'s> View<'s> {
                     map.insert(i as u16, ids);
                 }
             }
+            Change::SetActive { node, .. } | Change::SetLocation { node, .. } => {
+                let (kind, i) = self.locate(node).ok_or(ApplyError::UnknownNode(*node))?;
+                let actual = self
+                    .node_state(node)
+                    .ok_or(ApplyError::UnknownNode(*node))?;
+                // The one reference semantics (compare-and-set, the group
+                // flag refusal) is OGAR's; the overlay only stores its result.
+                let next = actual.apply(c).map_err(|refusal| ApplyError::Refused {
+                    node: *node,
+                    refusal,
+                })?;
+                let p = self.snap.population(kind);
+                let base_len = p.len();
+                if i >= base_len {
+                    let cr = &mut self.pop_mut(kind).created;
+                    cr.active[i - base_len] = next.active;
+                    cr.dn[i - base_len] = next.dn;
+                    return Ok(());
+                }
+                let (base_active, base_dn) = (base_active_of(p, kind, i), p.dn_of(i));
+                let o = self.pop_mut(kind);
+                let o16 = i as u16;
+                // Net effect only: back to the observed value removes the
+                // override.
+                if matches!(c, Change::SetActive { .. }) {
+                    if next.active == base_active {
+                        o.active.remove(&o16);
+                    } else {
+                        o.active.insert(o16, next.active);
+                    }
+                } else if next.dn == base_dn {
+                    o.dn.remove(&o16);
+                } else {
+                    o.dn.insert(o16, next.dn);
+                }
+            }
             Change::CreateNode { node, state } => {
                 if state.kind == NodeKind::Group && state.active != Some(true) {
                     return Err(ApplyError::InactiveGroup(*node));
@@ -644,6 +725,8 @@ impl<'s> View<'s> {
                     (Err(_), Some(b)) => {
                         o.upn.remove(&b);
                         o.smtp.remove(&b);
+                        o.active.remove(&b);
+                        o.dn.remove(&b);
                         o.deleted.insert(b);
                     }
                     (Err(_), None) => return Err(ApplyError::UnknownNode(*node)),
@@ -660,6 +743,15 @@ pub(crate) struct AddedRows {
     pub(crate) users: Vec<u32>,
     pub(crate) groups: Vec<u32>,
     pub(crate) unresolved: Vec<(Guid128, Guid128)>,
+}
+
+/// The observed flag of base node `i`: the validity plane says whether it
+/// is known, the value plane what it is. Groups carry `Some(true)`.
+fn base_active_of(p: &Population, kind: NodeKind, i: usize) -> Option<bool> {
+    if kind == NodeKind::Group {
+        return Some(true);
+    }
+    bit(&p.active_known, i).then(|| bit(&p.active, i))
 }
 
 fn other(kind: NodeKind) -> NodeKind {
