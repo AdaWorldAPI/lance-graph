@@ -51,15 +51,12 @@ mod affordance_law;
 
 use affordance_law::{measure, raw5, LawGen};
 use causal_edge::edge::CausalEdge64;
-use causal_edge::layout::{TrustTexture, SPARE_MASK, TRUTH_MASK, TRUTH_SHIFT};
+use causal_edge::layout::{TrustTexture, EPISTEMIC_MASK, EPISTEMIC_SHIFT};
 use causal_edge::pearl::CausalMask;
 use causal_edge::PlasticityState;
 use cognitive_shader_driver::mailbox_soa::{MailboxSoA, WriteCell, WriteOutcome};
 use lance_graph_contract::band_reading::EdgeProvenance;
 use lance_graph_contract::soa_view::MailboxSoaView;
-
-/// Bits 59..63.
-const EPISTEMIC_MASK: u64 = TRUTH_MASK | SPARE_MASK;
 
 /// The register row.
 const ROW: usize = 0;
@@ -82,7 +79,7 @@ fn via_two_writers(edge: CausalEdge64, code: u8) -> CausalEdge64 {
 /// The minimal sparse update: one mask and one insert on the `u64`.
 #[inline(never)]
 fn via_mask(edge: CausalEdge64, code: u8) -> CausalEdge64 {
-    CausalEdge64((edge.0 & !EPISTEMIC_MASK) | ((u64::from(code) & 0x1F) << TRUTH_SHIFT))
+    CausalEdge64((edge.0 & !EPISTEMIC_MASK) | ((u64::from(code) & 0x1F) << EPISTEMIC_SHIFT))
 }
 
 /// An edge with every field non-zero, including bits 59..63.
@@ -264,7 +261,10 @@ mod tests {
             let bytes = persist(CausalEdge64(w));
             assert_eq!(restore(bytes).0, w, "{w:016x}");
             assert_eq!(bytes[0], (w & 0xFF) as u8, "byte 0 is the low byte");
-            assert_eq!(bytes[7] >> 3, ((w & EPISTEMIC_MASK) >> TRUTH_SHIFT) as u8);
+            assert_eq!(
+                bytes[7] >> 3,
+                ((w & EPISTEMIC_MASK) >> EPISTEMIC_SHIFT) as u8
+            );
         }
     }
 

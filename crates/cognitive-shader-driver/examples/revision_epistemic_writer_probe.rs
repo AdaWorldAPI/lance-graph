@@ -457,7 +457,7 @@ fn main() {
 mod tests {
     use super::affordance_law::{EPI_LAW, OBSERVE_FOLD, STRATIFY};
     use super::*;
-    use causal_edge::layout::{SPARE_MASK, TRUTH_MASK};
+    use causal_edge::layout::EPISTEMIC_MASK;
 
     const OBS: u64 = 1 << OBSERVE_FOLD;
     const STRAT: u64 = 1 << STRATIFY;
@@ -676,7 +676,7 @@ mod tests {
             initial(),
             &[Encounter::Observe(E), Encounter::Observe(NE)],
         );
-        assert_eq!((up.0 ^ initial().0) & !(SPARE_MASK | TRUTH_MASK), 0);
+        assert_eq!((up.0 ^ initial().0) & !EPISTEMIC_MASK, 0);
         assert_ne!(up, initial());
         let kept = settle(
             TransitionGen::V1,

@@ -42,7 +42,6 @@ use bgz17::palette::Palette;
 use bgz17::palette_semiring::PaletteSemiring;
 use causal_edge::edge::CausalEdge64;
 #[cfg(test)]
-use causal_edge::layout::{SPARE_MASK, TRUTH_MASK, TRUTH_SHIFT};
 #[cfg(test)]
 use cognitive_shader_driver::bindspace::BindSpace;
 #[cfg(test)]
@@ -351,8 +350,7 @@ mod tests {
         // Code 4 (Direct × Associated, the Cartesian V1 reading) into the same
         // row, committed by tick. Not code 0: under Pearl S it would grant the
         // same 0x20 as the open register (the table `main` prints).
-        let observed =
-            CausalEdge64((committed.0 & !(TRUTH_MASK | SPARE_MASK)) | (4u64 << TRUTH_SHIFT));
+        let observed = committed.with_epistemic_raw5(4);
         let mb = d.mailbox_mut(MAILBOX).unwrap();
         let cell = WriteCell {
             edge: Some(observed),
