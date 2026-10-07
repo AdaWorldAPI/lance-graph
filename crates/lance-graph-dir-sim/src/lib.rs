@@ -47,6 +47,47 @@ use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{DirectoryScope, Dn128};
 use ogar_dir_sim::Attribute;
 
+/// V4 ("active" across AD and Entra) as one Quack filter over four resident
+/// planes: each source's known (validity) plane and its enabled plane.
+/// Keeps exactly the rows [`ogar_dir_sim::effective_active`] calls
+/// `Some(true)`:
+///
+/// ```text
+/// (ad_known ∨ entra_known) ∧ (¬ad_known ∨ ad_enabled) ∧ (¬entra_known ∨ entra_enabled)
+/// ```
+///
+/// An enabled bit outside its known plane is ignored, so a source's stale
+/// payload cannot vote. Unknown rows are kept by neither this filter nor
+/// [`effectively_inactive`].
+pub fn effectively_active(
+    ad_known: Mask,
+    ad_enabled: Mask,
+    entra_known: Mask,
+    entra_enabled: Mask,
+) -> Filter {
+    let p = Filter::plane;
+    Filter::and([
+        Filter::or([p(ad_known), p(entra_known)]),
+        Filter::or([Filter::negate(p(ad_known)), p(ad_enabled)]),
+        Filter::or([Filter::negate(p(entra_known)), p(entra_enabled)]),
+    ])
+}
+
+/// The rows [`ogar_dir_sim::effective_active`] calls `Some(false)`: some
+/// known source says disabled.
+pub fn effectively_inactive(
+    ad_known: Mask,
+    ad_enabled: Mask,
+    entra_known: Mask,
+    entra_enabled: Mask,
+) -> Filter {
+    let p = Filter::plane;
+    Filter::or([
+        Filter::and([p(ad_known), Filter::negate(p(ad_enabled))]),
+        Filter::and([p(entra_known), Filter::negate(p(entra_enabled))]),
+    ])
+}
+
 /// The program behind [`users_with_key`]: plane 0 = candidate users,
 /// lane 0 = an attribute's key lane, one `EqU32` on the key. It holds only
 /// numbers: the literal was resolved before it was built.

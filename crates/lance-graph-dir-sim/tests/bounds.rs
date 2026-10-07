@@ -24,7 +24,7 @@ fn group(i: u32) -> Guid128 {
 fn bare(kind: NodeKind) -> ObservedNode {
     ObservedNode {
         kind,
-        active: true,
+        active: Some(true),
         upn: None,
         primary_smtp: None,
         dn: None,
@@ -115,7 +115,7 @@ fn a_full_population_refuses_a_create_and_the_other_one_does_not() {
     let g0 = st.observe("lab", 0, population(n, 1)).unwrap();
     let state = |kind| NodeState {
         kind,
-        active: true,
+        active: Some(true),
         upn: None,
         primary_smtp: None,
         dn: None,
@@ -446,7 +446,7 @@ fn an_unresolved_membership_resolves_when_its_endpoint_is_created() {
         node: group(7),
         state: NodeState {
             kind: NodeKind::Group,
-            active: true,
+            active: Some(true),
             upn: None,
             primary_smtp: None,
             dn: None,

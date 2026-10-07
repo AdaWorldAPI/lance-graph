@@ -225,7 +225,7 @@ fn t07_duplicate_upn() {
             owners: vec![g(0x77), g(ALICE)]
         }]
     );
-    obs.nodes.last_mut().unwrap().1.active = false;
+    obs.nodes.last_mut().unwrap().1.active = Some(false);
     let v1 = st.observe("lab", 1, obs).unwrap();
     assert!(st.validate(v1).unwrap().is_empty());
 }
@@ -404,7 +404,7 @@ fn t13_guid_ordinal_round_trip() {
 fn t14_membership_validation_reads_no_attributes() {
     let node = |kind| ObservedNode {
         kind,
-        active: true,
+        active: Some(true),
         upn: None,
         primary_smtp: None,
         dn: None,
@@ -685,12 +685,42 @@ fn observe_from_ogar_ad() {
         obs.nodes[0].1.primary_smtp.as_deref(),
         Some("alice@example.test")
     );
-    assert!(!obs.nodes[0].1.active, "UAC 514 = disabled");
+    assert_eq!(obs.nodes[0].1.active, Some(false), "UAC 514 = disabled");
     assert!(obs.nodes[0].1.dn.is_some());
     assert_eq!(obs.nodes[1].1.kind, NodeKind::Group);
     let mut st = VersionStore::new();
     let v = st.observe("ogar-ad:ldif", 0, obs).unwrap();
     assert!(validate(&st.view(v).unwrap()).is_empty());
+}
+
+// V4: a user record without `userAccountControl` is unknown, never enabled.
+// It keeps that through the snapshot and the version's node state, and it is
+// not in the active-user plane (only known-enabled rows are).
+#[test]
+fn a_missing_user_account_control_is_unknown_not_enabled() {
+    use ogar_dir_core::{OuDictionary, ValuePool};
+    let ldif = "dn: CN=Nobody,OU=Staff,DC=example,DC=test\nobjectGUID:: 4AQlP4lP0xGaDAMF6CwzAQ==\nobjectClass: user\nuserPrincipalName: nobody@example.test\n\ndn: CN=Enabled,OU=Staff,DC=example,DC=test\nobjectGUID:: 1MOyoQAAAECAAAAAAAC+7w==\nobjectClass: user\nuserPrincipalName: enabled@example.test\nuserAccountControl: 512\n";
+    let (mut d, mut p) = (OuDictionary::new(), ValuePool::new());
+    let recs: Vec<_> = ogar_ad::ldif::parse(ldif)
+        .unwrap()
+        .iter()
+        .map(|e| {
+            ogar_ad::encode(e, SCOPE.0, &mut d, &mut p, 0)
+                .unwrap()
+                .record
+        })
+        .collect();
+    let obs = observe::from_ad(SCOPE, &recs, &p).unwrap();
+    assert_eq!(obs.nodes[0].1.active, None, "no UAC = unknown");
+    assert_eq!(obs.nodes[1].1.active, Some(true), "UAC 512 = enabled");
+    let (nobody, enabled) = (obs.nodes[0].0, obs.nodes[1].0);
+    let mut st = VersionStore::new();
+    let v = st.observe("ogar-ad:ldif", 0, obs).unwrap();
+    let view = st.view(v).unwrap();
+    assert_eq!(view.node_state(&nobody).unwrap().active, None);
+    assert_eq!(view.node_state(&enabled).unwrap().active, Some(true));
+    let active: u32 = view.active_users().iter().map(|w| w.count_ones()).sum();
+    assert_eq!(active, 1, "the unknown user is not an active user");
 }
 
 // Overrides REPLACE the observed value: renaming the second owner away from

@@ -62,7 +62,7 @@ fn a_text_literal_is_resolved_once_and_execution_is_numeric() {
                     node: g(5),
                     state: NodeState {
                         kind: NodeKind::User,
-                        active: true,
+                        active: Some(true),
                         upn: None,
                         primary_smtp: Some(alice2),
                         dn: None,

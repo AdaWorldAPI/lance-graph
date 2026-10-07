@@ -66,7 +66,7 @@ fn user_state(name: &str) -> NodeState {
     let v = val(&format!("{name}@example.test"));
     NodeState {
         kind: NodeKind::User,
-        active: true,
+        active: Some(true),
         upn: Some(v),
         primary_smtp: Some(v),
         dn: None,
@@ -75,7 +75,7 @@ fn user_state(name: &str) -> NodeState {
 fn group_state() -> NodeState {
     NodeState {
         kind: NodeKind::Group,
-        active: true,
+        active: Some(true),
         upn: None,
         primary_smtp: None,
         dn: None,
@@ -613,15 +613,16 @@ fn reconcile_a_delete_reads_its_precondition_from_the_latest_observation() {
 #[test]
 fn a_group_has_no_enabled_flag() {
     let (mut st, g0) = store();
-    assert!(
+    assert_eq!(
         st.view(g0)
             .unwrap()
             .node_state(&g(EXCHANGE))
             .unwrap()
-            .active
+            .active,
+        Some(true)
     );
     let inactive = NodeState {
-        active: false,
+        active: Some(false),
         ..group_state()
     };
     assert_eq!(
@@ -657,7 +658,7 @@ fn reconcile_refuses_a_create_it_cannot_converge() {
     // The requested user exists in reality, but disabled: no change can
     // enable it, so the create is neither done nor doable.
     let mut disabled = ObservedNode::user("new@example.test", "new@example.test");
-    disabled.active = false;
+    disabled.active = Some(false);
     let mut obs = observed();
     obs.nodes.push((g(NEW_USER), disabled));
     let o = st.observe("lab", 2_000, obs).unwrap();

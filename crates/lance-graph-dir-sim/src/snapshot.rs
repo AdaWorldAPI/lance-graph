@@ -203,9 +203,9 @@ impl Dicts {
 pub struct ObservedNode {
     /// Kind.
     pub kind: NodeKind,
-    /// Enabled (users only; a group's flag is not stored and reads back
-    /// as `true`).
-    pub active: bool,
+    /// Enabled; `None` = unknown (no flag was reported). Users only: a
+    /// group's flag is not stored and reads back as `Some(true)`.
+    pub active: Option<bool>,
     /// Raw UPN.
     pub upn: Option<String>,
     /// Raw primary SMTP.
@@ -219,7 +219,7 @@ impl ObservedNode {
     pub fn user(upn: &str, smtp: &str) -> Self {
         Self {
             kind: NodeKind::User,
-            active: true,
+            active: Some(true),
             upn: Some(upn.into()),
             primary_smtp: Some(smtp.into()),
             dn: None,
@@ -229,7 +229,7 @@ impl ObservedNode {
     pub fn group() -> Self {
         Self {
             kind: NodeKind::Group,
-            active: true,
+            active: Some(true),
             upn: None,
             primary_smtp: None,
             dn: None,
@@ -287,7 +287,12 @@ pub(crate) fn ones(n: usize) -> Vec<u64> {
 pub struct Population {
     pub(crate) ids: Vec<Guid128>,
     pub(crate) all: Vec<u64>,
+    /// Rows known enabled (`active == Some(true)`), and every group. An
+    /// unknown flag is not in it.
     pub(crate) active: Vec<u64>,
+    /// Rows whose flag is known (the validity plane of `active`), and
+    /// every group.
+    pub(crate) active_known: Vec<u64>,
     pub(crate) upn_val: Vec<u32>,
     pub(crate) upn_key: Vec<u32>,
     pub(crate) smtp_val: Vec<u32>,
@@ -304,6 +309,7 @@ impl Population {
             ids: Vec::with_capacity(n),
             all: ones(n),
             active: vec![0; words_for(n)],
+            active_known: vec![0; words_for(n)],
             upn_val: Vec::with_capacity(n),
             upn_key: Vec::with_capacity(n),
             smtp_val: Vec::with_capacity(n),
@@ -314,7 +320,15 @@ impl Population {
         };
         for (i, (id, node)) in nodes.iter().enumerate() {
             p.ids.push(*id);
-            if node.active || node.kind == NodeKind::Group {
+            let active = if node.kind == NodeKind::Group {
+                Some(true)
+            } else {
+                node.active
+            };
+            if active.is_some() {
+                set_bit(&mut p.active_known, i);
+            }
+            if active == Some(true) {
                 set_bit(&mut p.active, i);
             }
             let ids = |s: &Option<String>, d: &mut Dicts| {

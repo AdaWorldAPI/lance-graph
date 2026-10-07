@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-247 entries, 2026-08-06 .. 2026-10-07.
+248 entries, 2026-08-06 .. 2026-10-07.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -36,6 +36,7 @@ exactly one of them, never both.
 | 2026-10-07 | `D-EPI-MIG-INVENTORY` |  | [2026-10-07-epi-mig-inventory.md](2026-10-07-epi-mig-inventory.md) |
 | 2026-10-07 | `D-EPI-CANON-0` |  | [2026-10-07-epi-mig-0.md](2026-10-07-epi-mig-0.md) |
 | 2026-10-07 | `D-EPI-POP-0` |  | [2026-10-07-epi-legacy-deprojection.md](2026-10-07-epi-legacy-deprojection.md) |
+| 2026-10-07 | `dir-sim-v4-active` |  | [2026-10-07-dir-sim-v4-active.md](2026-10-07-dir-sim-v4-active.md) |
 | 2026-10-07 | `D-CTX-7` |  | [2026-10-07-ctx7-revision-writer-for-epistemic-state.md](2026-10-07-ctx7-revision-writer-for-epistemic-state.md) |
 | 2026-10-07 | `bind-bundle-gated-gather` | One bound query, five routes, identical answers; the semijoin is never gated and dominates; a gated mask gather beats a selection vector (R1 survives) | [2026-10-07-bind-bundle-gated-gather.md](2026-10-07-bind-bundle-gated-gather.md) |
 | 2026-10-07 | `aperture16-u64-word-schedule` | The u16 view of the 64K mask is free but 1.3–2.3× slower per layout as a schedule than u64 words; extent × mask compose; the exact next-frontier mask beats a u16 target histogram; no new carrier or opcode | [2026-10-07-aperture16-u64-word-schedule.md](2026-10-07-aperture16-u64-word-schedule.md) |

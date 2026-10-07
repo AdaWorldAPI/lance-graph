@@ -85,7 +85,7 @@ pub enum ApplyError {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Created {
     pub(crate) ids: Vec<Guid128>,
-    pub(crate) active: Vec<bool>,
+    pub(crate) active: Vec<Option<bool>>,
     pub(crate) upn_val: Vec<u32>,
     pub(crate) upn_key: Vec<u32>,
     pub(crate) smtp_val: Vec<u32>,
@@ -313,7 +313,9 @@ impl<'s> View<'s> {
     /// Active users as a bit plane over the user ordinals.
     pub fn active_users(&self) -> Cow<'s, [u64]> {
         let cr = &self.ov.users.created;
-        self.live_plane(NodeKind::User, &self.snap.users.active, |i| cr.active[i])
+        self.live_plane(NodeKind::User, &self.snap.users.active, |i| {
+            cr.active[i] == Some(true)
+        })
     }
     /// Existing nodes of a population as a bit plane over its ordinals.
     pub(crate) fn existing(&self, kind: NodeKind) -> Cow<'s, [u64]> {
@@ -378,7 +380,11 @@ impl<'s> View<'s> {
         let (kind, i) = self.locate(g)?;
         let (p, o) = self.pop(kind);
         let (active, dn) = if i < p.len() {
-            let active = kind == NodeKind::Group || bit(&p.active, i);
+            let active = if kind == NodeKind::Group {
+                Some(true)
+            } else {
+                bit(&p.active_known, i).then(|| bit(&p.active, i))
+            };
             (active, p.dn_of(i))
         } else {
             let j = i - p.len();
@@ -579,7 +585,7 @@ impl<'s> View<'s> {
                 }
             }
             Change::CreateNode { node, state } => {
-                if state.kind == NodeKind::Group && !state.active {
+                if state.kind == NodeKind::Group && state.active != Some(true) {
                     return Err(ApplyError::InactiveGroup(*node));
                 }
                 // Identity uniqueness: one node per Guid128 in a version,
