@@ -3,7 +3,7 @@
 **Probe:** `cognitive-shader-driver/examples/crossword_mask_propagation_probe.rs`,
 over `examples/shared/population_fold.rs` (unchanged).
 **Status:** MEASURED (one machine, release, `avx2=true avx512f=false`),
-TEST-PINNED (20 tests; 13 disable runs, listed below, all red).
+TEST-PINNED (20 tests; 12 disable runs (D1–D8, D10–D13), listed below, all red).
 
 ## Question
 
