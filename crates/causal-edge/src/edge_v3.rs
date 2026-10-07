@@ -248,6 +248,16 @@ impl CausalEdgeV3 {
         self.payload[9] & 0b111
     }
 
+    /// The preserved CE64 bits 59..63 as ONE 5-bit `EpistemicState5` code —
+    /// `(spare_raw << 2) | truth_raw`, the same value
+    /// [`CausalEdge64::epistemic_raw5`] reads. Raw and opaque: the meaning is
+    /// the declared reading's (`lance_graph_contract::epistemic_state5`), and
+    /// the register's provenance is the caller's assertion (see the module
+    /// doc on `from_v1`).
+    pub fn epistemic_raw5(&self) -> u8 {
+        (self.spare_raw() << 2) | self.truth_raw()
+    }
+
     /// Rebuild a [`CausalEdge64`] for reasoning by supplying the SPO resolved
     /// from the target node's CAM-PQ facet. The conclusion of `syllogize`
     /// depends only on SPO + freq/conf + causal_mask — but this restores the
@@ -277,16 +287,9 @@ impl CausalEdgeV3 {
         );
         edge.set_inference_mantissa(mantissa);
         edge.set_w_slot(self.w_slot());
-        // `set_truth` has no raw-u8 form, so the 2-bit ordinal goes through
-        // `TrustTexture`. That is SAFE where `InferenceType` was not, and the
-        // difference is the whole point: `from_bits_2`/`to_bits_2` is a total
-        // BIJECTION on 0..=3 (four ordinals, four variants, discriminants
-        // 0,1,2,3), whereas `InferenceType` maps 16 mantissa states onto 8
-        // variants and cannot be injective. Pinned by
-        // `trust_texture_bits_2_is_a_bijection_unlike_inference_type` — if a
-        // variant is ever added or reordered, that test fails before this does.
-        edge.set_truth(crate::layout::TrustTexture::from_bits_2(self.truth_raw()));
-        edge.set_spare(self.spare_raw());
+        // Bits 59..63 are one field: restore it jointly (D-EPI-CANON-0), so
+        // the lift can never write half of an EpistemicState5 code.
+        let edge = edge.with_epistemic_raw5(self.epistemic_raw5());
         edge
     }
 
@@ -341,6 +344,9 @@ impl CausalEdgeV3 {
 }
 
 #[cfg(test)]
+// The half-field writers are deprecated (D-EPI-CANON-0); these tests
+// pin their physical layout, so they keep calling them.
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::edge::{CausalEdge64, InferenceType};
@@ -869,5 +875,25 @@ mod tests {
             CausalEdgeV3::from_v1(z, 7).to_le_bytes(),
             CausalEdgeV3::from_v1_tail_unstated(z, 7).to_le_bytes(),
         );
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "causal-edge-v2-layout")]
+mod epistemic_lift_tests {
+    use super::CausalEdgeV3;
+    use crate::edge::CausalEdge64;
+
+    /// The V3 lift carries bits 59..63 as one field, both directions.
+    #[test]
+    fn the_lift_preserves_the_joint_epistemic_code() {
+        for code in 0u8..32 {
+            let e = CausalEdge64::ZERO.with_epistemic_raw5(code);
+            let v3 = CausalEdgeV3::from_v1(e, 7);
+            assert_eq!(v3.epistemic_raw5(), code);
+            let back = v3.rehydrate(e.s_idx(), e.p_idx(), e.o_idx());
+            assert_eq!(back.epistemic_raw5(), code);
+            assert_eq!(back.0, e.0, "rehydrate is bit-identical");
+        }
     }
 }

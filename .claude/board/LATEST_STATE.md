@@ -1,3 +1,21 @@
+## 2026-10-07 — D-EPI-CANON-0 / D-EPI-MIG-0: CE64 bits 59..63 = `EpistemicState5` (branch `claude/epistemicstate5-ce64-bits-3oe0dq`, unmerged)
+
+### Current Contract Inventory — net delta (`epistemic_state5.rs`, `class_view.rs`, `causal-edge`)
+- New zero-dep module `lance_graph_contract::epistemic_state5`: `fact::*`
+  (DIRECT … CAUSES), `Facts`, `CODEBOOK_V1` (the 10 measured #1370 codes),
+  `code_v1::*`, `Epi5Gen::{V1}` (`codebook()`), `EpistemicState5`
+  (`decode`, `raw`, `generation`, `facts`, `asserts`), `Epi5Reading`,
+  `Epi5ReadError`, `Epi5Declarations::{declare, get, project_state5}`, and
+  `legacy::{LegacyTopology, LegacyCertification, LegacyError, translate,
+  project_topology, project_certification, recertify, retopologize}`.
+- `ClassView::epistemic_reading(class, rail) -> Option<Epi5Reading>` (provided,
+  default `None` = refuse).
+- `band_reading` regraded: legacy compatibility surface, no longer owns 59..63.
+- `causal-edge`: `layout::{EPISTEMIC_SHIFT, EPISTEMIC_MASK, BITS5_MASK}`,
+  `CausalEdge64::{epistemic_raw5, with_epistemic_raw5}` (v1: zero / no-op),
+  `CausalEdgeV3::epistemic_raw5`; `with_truth`/`set_truth`/`with_topology`/
+  `with_routing`/`with_spare`/`set_spare`/`with_reasoning_band` `#[deprecated]`.
+
 ## 2026-10-07 — Cypher autopsy + experimental Cypher→Quack seam (branch `ccr-a86d1f2f-015t11`, PR #1376, unmerged)
 
 ### Current Contract Inventory — UNCHANGED (no contract type added; one crate added)

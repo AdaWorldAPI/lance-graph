@@ -87,6 +87,20 @@ pub const W_MASK: u64 = BITS6_MASK << W_SHIFT;
 pub const TRUTH_MASK: u64 = BITS2_MASK << TRUTH_SHIFT;
 pub const SPARE_MASK: u64 = BITS3_MASK << SPARE_SHIFT;
 
+// ── The joint epistemic field (bits 59..63) ──────────────────────────────────
+/// Bits 59..63 are ONE field: the 5-bit `EpistemicState5` code (operator
+/// decision 2026-10-07, `D-EPI-CANON-0`). The 2-bit [`TRUTH_SHIFT`] and 3-bit
+/// [`SPARE_SHIFT`] halves are its low and high parts, never two fields.
+/// What a code MEANS is declared per `(classid, rail, generation)` in
+/// `lance_graph_contract::epistemic_state5`; this crate only carries bits.
+pub const EPISTEMIC_SHIFT: u32 = TRUTH_SHIFT;
+/// 5-bit mask (`0..=31`).
+pub const BITS5_MASK: u64 = 0x1F;
+/// Bits 59..63: exactly `TRUTH_MASK | SPARE_MASK`.
+pub const EPISTEMIC_MASK: u64 = BITS5_MASK << EPISTEMIC_SHIFT;
+const _: () = assert!(EPISTEMIC_MASK == TRUTH_MASK | SPARE_MASK);
+const _: () = assert!(SPARE_SHIFT == EPISTEMIC_SHIFT + 2);
+
 // ── Compile-time layout coverage assertion ────────────────────────────────────
 /// Const-assert: all 64 bits covered exactly once.
 /// 8+8+8+8+8+3+3+4+3+6+2+3 = 64.

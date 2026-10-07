@@ -17,6 +17,9 @@
 
 #[cfg(test)]
 #[cfg(feature = "causal-edge-v2-layout")]
+// The half-field writers are deprecated (D-EPI-CANON-0); these tests
+// pin their physical layout, so they keep calling them.
+#[allow(deprecated)]
 mod v2_layout_tests {
     use crate::edge::{CausalEdge64, InferenceType};
     use crate::layout::{CausalTopology, ReasoningBand, TrustTexture};
@@ -946,6 +949,66 @@ mod v2_layout_tests {
                 conf,
                 "CausalTopology::Direct must not constrain or derive confidence={conf}"
             );
+        }
+    }
+}
+
+/// D-EPI-CANON-0: bits 59..63 are ONE field. The joint accessors are the
+/// canonical physical read and write; the halves are its projections.
+#[cfg(test)]
+#[cfg(feature = "causal-edge-v2-layout")]
+#[allow(deprecated)]
+mod epistemic_field_tests {
+    use crate::edge::CausalEdge64;
+    use crate::layout::{EPISTEMIC_MASK, SPARE_MASK, TRUTH_MASK};
+
+    fn busy() -> CausalEdge64 {
+        // Every bit outside 59..63 set, so a leak in either direction shows.
+        CausalEdge64(!EPISTEMIC_MASK)
+    }
+
+    /// F1 (physical half): every code round-trips through the joint pair.
+    #[test]
+    fn every_code_round_trips_and_touches_only_59_63() {
+        for code in 0u8..32 {
+            let e = busy().with_epistemic_raw5(code);
+            assert_eq!(e.epistemic_raw5(), code);
+            assert_eq!(e.0 & !EPISTEMIC_MASK, busy().0, "code {code} leaked");
+            // The halves are projections of the same field.
+            assert_eq!(e.epistemic_raw5(), (e.spare() << 2) | e.truth_raw());
+        }
+    }
+
+    /// The joint writer overwrites the WHOLE field: writing a code over a
+    /// different one leaves no stale half behind.
+    #[test]
+    fn joint_write_replaces_both_halves() {
+        let e = CausalEdge64(EPISTEMIC_MASK).with_epistemic_raw5(0b00101);
+        assert_eq!(e.0 & TRUTH_MASK, 0b01u64 << 59);
+        assert_eq!(e.0 & SPARE_MASK, 0b001u64 << 61);
+    }
+
+    /// F2 (physical half): a half-field write turns one valid-looking code
+    /// into ANOTHER valid-looking code. Code 1 with topology half set to 3
+    /// becomes code 3; code 12 with band half set to 5 becomes code 20.
+    /// The bits cannot refuse; only a declared reading can (contract crate).
+    #[test]
+    fn a_half_write_silently_produces_a_different_code() {
+        let causes = CausalEdge64::ZERO.with_epistemic_raw5(1);
+        let moved = causes.with_truth(crate::layout::TrustTexture::from_bits_2(3));
+        assert_eq!(moved.epistemic_raw5(), 3);
+        let assoc = CausalEdge64::ZERO.with_epistemic_raw5(12);
+        let moved = assoc.with_reasoning_band(crate::layout::ReasoningBand::from_bits_3(5));
+        assert_eq!(moved.epistemic_raw5(), 20);
+    }
+
+    /// F5 (physical half): the field survives the LE image.
+    #[test]
+    fn the_field_survives_the_le_image() {
+        for code in 0u8..32 {
+            let e = busy().with_epistemic_raw5(code);
+            let back = CausalEdge64::from_le_bytes(e.to_le_bytes());
+            assert_eq!(back.epistemic_raw5(), code);
         }
     }
 }
