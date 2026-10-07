@@ -24,16 +24,20 @@
 
 #![forbid(unsafe_code)]
 
+pub mod bind;
 mod exec;
 pub mod observe;
+pub mod proxy;
 pub mod rule;
 pub mod snapshot;
 pub mod store;
 pub mod validate;
 pub mod view;
 
+pub use bind::{where_eq, UserBinder, WhereEqError};
 pub use exec::Kept;
 pub use ogar_dir_sim::{KeyId, ValueId};
+pub use proxy::{ProxyKind, ProxyRelation, ProxyRow};
 pub use rule::{member_counts, GrantGroup, ImplyGroup, Rule, SetPrimarySmtp};
 pub use snapshot::{
     BuildError, Dict, DictCounters, Dicts, GroupOrdinal, NodeKind, Observation, ObservedNode,
@@ -46,6 +50,47 @@ use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes, Program, Stride
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{DirectoryScope, Dn128};
 use ogar_dir_sim::Attribute;
+
+/// V4 ("active" across AD and Entra) as one Quack filter over four resident
+/// planes: each source's known (validity) plane and its enabled plane.
+/// Keeps exactly the rows [`ogar_dir_sim::effective_active`] calls
+/// `Some(true)`:
+///
+/// ```text
+/// (ad_known ∨ entra_known) ∧ (¬ad_known ∨ ad_enabled) ∧ (¬entra_known ∨ entra_enabled)
+/// ```
+///
+/// An enabled bit outside its known plane is ignored, so a source's stale
+/// payload cannot vote. Unknown rows are kept by neither this filter nor
+/// [`effectively_inactive`].
+pub fn effectively_active(
+    ad_known: Mask,
+    ad_enabled: Mask,
+    entra_known: Mask,
+    entra_enabled: Mask,
+) -> Filter {
+    let p = Filter::plane;
+    Filter::and([
+        Filter::or([p(ad_known), p(entra_known)]),
+        Filter::or([Filter::negate(p(ad_known)), p(ad_enabled)]),
+        Filter::or([Filter::negate(p(entra_known)), p(entra_enabled)]),
+    ])
+}
+
+/// The rows [`ogar_dir_sim::effective_active`] calls `Some(false)`: some
+/// known source says disabled.
+pub fn effectively_inactive(
+    ad_known: Mask,
+    ad_enabled: Mask,
+    entra_known: Mask,
+    entra_enabled: Mask,
+) -> Filter {
+    let p = Filter::plane;
+    Filter::or([
+        Filter::and([p(ad_known), Filter::negate(p(ad_enabled))]),
+        Filter::and([p(entra_known), Filter::negate(p(entra_enabled))]),
+    ])
+}
 
 /// The program behind [`users_with_key`]: plane 0 = candidate users,
 /// lane 0 = an attribute's key lane, one `EqU32` on the key. It holds only
@@ -66,8 +111,17 @@ pub fn key_eq_program(key: KeyId) -> Program {
 /// one [`key_eq_program`] over the base key lane (overridden and deleted
 /// users gated out), the same program over the created users' key lane,
 /// and a delta-sized check of the overrides. No string is read.
+///
+/// The text form is [`where_eq`], which binds a field name and a literal to
+/// this same program.
 pub fn users_with_key(v: &View<'_>, a: Attribute, key: KeyId) -> Kept {
-    let p = key_eq_program(key);
+    users_matching(v, a, key, &key_eq_program(key))
+}
+
+/// The executor behind [`users_with_key`] and [`where_eq`]: run `p` (plane 0
+/// = live users, lane 0 = `a`'s key lane) over the base and the created
+/// users, and merge the overrides of `a` by `key`.
+pub(crate) fn users_matching(v: &View<'_>, a: Attribute, key: KeyId, p: &Program) -> Kept {
     let s = v.snap;
     let (pop, ov) = v.pop(NodeKind::User);
     let base_key = match a {
@@ -82,7 +136,7 @@ pub fn users_with_key(v: &View<'_>, a: Attribute, key: KeyId) -> Kept {
         let lanes = [LaneRef::U32(lane)];
         let masks: [&[u64]; 1] = [plane];
         exec::keep(
-            &p,
+            p,
             &Planes {
                 n_rows: lane.len(),
                 masks: &masks,

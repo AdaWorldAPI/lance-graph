@@ -4,6 +4,8 @@
 
 use lance_graph_dir_sim::*;
 use lance_graph_mask_risc::{MaskOp, Pred};
+use lance_graph_quack::bind::{table, BindError};
+use lance_graph_quack::lower;
 use ogar_dir_core::Guid128;
 use ogar_dir_sim::{Attribute, Change, EvidenceRef, NodeState, RuleId};
 
@@ -62,7 +64,7 @@ fn a_text_literal_is_resolved_once_and_execution_is_numeric() {
                     node: g(5),
                     state: NodeState {
                         kind: NodeKind::User,
-                        active: true,
+                        active: Some(true),
                         upn: None,
                         primary_smtp: Some(alice2),
                         dn: None,
@@ -108,4 +110,38 @@ fn a_text_literal_is_resolved_once_and_execution_is_numeric() {
 
     // An unknown literal is refused at the boundary, before any program.
     assert_eq!(view.dicts().key_lookup("nobody@x.de"), None);
+
+    // 4. The text form: the generic Quack frontend over the store's own
+    // binder lowers to exactly this program, and keeps exactly these rows
+    // (base, override and created), with one lookup at bind.
+    let ub = UserBinder::new(view.dicts());
+    let bound = table("users")
+        .where_eq("smtp", "ALICE@x.de")
+        .bind(&ub)
+        .unwrap();
+    assert_eq!(lower(&bound).unwrap(), key_eq_program(key));
+    assert_eq!(ub.issued(), Some((Attribute::PrimarySmtp, key)));
+    let at = counters.snapshot();
+    let by_text = where_eq(&view, "smtp", "ALICE@x.de").unwrap().rows();
+    assert_eq!(counters.snapshot()[1], at[1] + 1, "one lookup, at bind");
+    assert_eq!(
+        by_text,
+        users_with_key(&view, Attribute::PrimarySmtp, key).rows()
+    );
+    // The other key field binds to its own attribute.
+    let upn = where_eq(&view, "upn", "B@X.DE").unwrap().rows();
+    let upn_owners: Vec<Guid128> = upn
+        .into_iter()
+        .map(|o| view.user_guid(UserOrdinal(o as u16)).unwrap())
+        .collect();
+    assert_eq!(upn_owners, vec![g(2)]);
+    // Refused at the boundary, in the developer's vocabulary.
+    assert!(matches!(
+        where_eq(&view, "mail", "alice@x.de"),
+        Err(WhereEqError::Bind(BindError::UnknownField { .. }))
+    ));
+    assert!(matches!(
+        where_eq(&view, "smtp", "nobody@x.de"),
+        Err(WhereEqError::Bind(BindError::UnknownValue { .. }))
+    ));
 }

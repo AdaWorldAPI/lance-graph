@@ -16,6 +16,9 @@
 //! | `dn`                      | `[[u8; 16]]`  | [`Dn128`] codes, read in place (strided)  |
 //! | `dn_depth`, `dn_present`  | `[i32]`, plane | hierarchy depth; whether a location is known |
 //!
+//! `proxyAddresses` are many per user, so they are a relation of their own
+//! ([`ProxyRelation`]), not a lane.
+//!
 //! Membership is sparse — `UserOrdinal × GroupOrdinal` rows, never a dense
 //! matrix — as two lanes `m_user`, `m_group` sorted by `(user, group)`. The
 //! values are `u16` ordinals; the lanes are 32-bit because the substrate has
@@ -33,6 +36,7 @@
 //! label/value store). After that, execution works on ids, ordinals and
 //! masks; a string is resolved only to report or to actuate.
 
+use crate::proxy::ProxyRelation;
 use lance_graph_mask_risc::words_for;
 use ogar_dir_core::{DirectoryScope, Dn128, Guid128};
 use ogar_dir_sim::{normalize, KeyId, ValueId};
@@ -203,13 +207,18 @@ impl Dicts {
 pub struct ObservedNode {
     /// Kind.
     pub kind: NodeKind,
-    /// Enabled (users only; a group's flag is not stored and reads back
-    /// as `true`).
-    pub active: bool,
+    /// Enabled; `None` = unknown (no flag was reported). Users only: a
+    /// group's flag is not stored and reads back as `Some(true)`.
+    pub active: Option<bool>,
     /// Raw UPN.
     pub upn: Option<String>,
     /// Raw primary SMTP.
     pub primary_smtp: Option<String>,
+    /// Every other `proxyAddresses` value, raw with its prefix
+    /// (`smtp:a@x.de`, `X500:/o=…`). The primary SMTP is `primary_smtp` and
+    /// is not repeated here. Becomes rows of the snapshot's
+    /// [`ProxyRelation`](crate::proxy::ProxyRelation).
+    pub proxies: Vec<String>,
     /// Hierarchy location in the observation's scope, if known.
     pub dn: Option<Dn128>,
 }
@@ -219,9 +228,10 @@ impl ObservedNode {
     pub fn user(upn: &str, smtp: &str) -> Self {
         Self {
             kind: NodeKind::User,
-            active: true,
+            active: Some(true),
             upn: Some(upn.into()),
             primary_smtp: Some(smtp.into()),
+            proxies: Vec::new(),
             dn: None,
         }
     }
@@ -229,9 +239,10 @@ impl ObservedNode {
     pub fn group() -> Self {
         Self {
             kind: NodeKind::Group,
-            active: true,
+            active: Some(true),
             upn: None,
             primary_smtp: None,
+            proxies: Vec::new(),
             dn: None,
         }
     }
@@ -261,6 +272,8 @@ pub enum BuildError {
     TooManyGroups(usize),
     /// More membership rows than a `u32` row id can address.
     TooManyMemberships,
+    /// More proxy-address rows than a `u32` row id can address.
+    TooManyProxies,
 }
 
 pub(crate) fn bit(words: &[u64], i: usize) -> bool {
@@ -287,7 +300,12 @@ pub(crate) fn ones(n: usize) -> Vec<u64> {
 pub struct Population {
     pub(crate) ids: Vec<Guid128>,
     pub(crate) all: Vec<u64>,
+    /// Rows known enabled (`active == Some(true)`), and every group. An
+    /// unknown flag is not in it.
     pub(crate) active: Vec<u64>,
+    /// Rows whose flag is known (the validity plane of `active`), and
+    /// every group.
+    pub(crate) active_known: Vec<u64>,
     pub(crate) upn_val: Vec<u32>,
     pub(crate) upn_key: Vec<u32>,
     pub(crate) smtp_val: Vec<u32>,
@@ -304,6 +322,7 @@ impl Population {
             ids: Vec::with_capacity(n),
             all: ones(n),
             active: vec![0; words_for(n)],
+            active_known: vec![0; words_for(n)],
             upn_val: Vec::with_capacity(n),
             upn_key: Vec::with_capacity(n),
             smtp_val: Vec::with_capacity(n),
@@ -314,7 +333,15 @@ impl Population {
         };
         for (i, (id, node)) in nodes.iter().enumerate() {
             p.ids.push(*id);
-            if node.active || node.kind == NodeKind::Group {
+            let active = if node.kind == NodeKind::Group {
+                Some(true)
+            } else {
+                node.active
+            };
+            if active.is_some() {
+                set_bit(&mut p.active_known, i);
+            }
+            if active == Some(true) {
                 set_bit(&mut p.active, i);
             }
             let ids = |s: &Option<String>, d: &mut Dicts| {
@@ -364,6 +391,8 @@ pub struct Snapshot {
     pub(crate) scope: DirectoryScope,
     pub(crate) users: Population,
     pub(crate) groups: Population,
+    /// `proxyAddresses` of the users, as rows.
+    pub(crate) proxies: ProxyRelation,
     pub(crate) m_user: Vec<u32>,
     pub(crate) m_group: Vec<u32>,
     pub(crate) m_all: Vec<u64>,
@@ -392,7 +421,12 @@ impl Snapshot {
         if obs.members.len() >= u32::MAX as usize {
             return Err(BuildError::TooManyMemberships);
         }
-        let users = Population::build(&users, d);
+        let user_nodes = users;
+        let users = Population::build(&user_nodes, d);
+        let proxies = ProxyRelation::build(&user_nodes, &users, d);
+        if proxies.len() >= u32::MAX as usize {
+            return Err(BuildError::TooManyProxies);
+        }
         let groups = Population::build(&groups, d);
         let mut rows: Vec<(u16, u16)> = Vec::with_capacity(obs.members.len());
         let mut unresolved = Vec::new();
@@ -415,6 +449,7 @@ impl Snapshot {
             scope: obs.scope,
             users,
             groups,
+            proxies,
             m_user,
             m_group,
             m_all,
@@ -433,6 +468,10 @@ impl Snapshot {
     /// The group population.
     pub fn groups(&self) -> &Population {
         &self.groups
+    }
+    /// The users' `proxyAddresses`, as a relation.
+    pub fn proxies(&self) -> &ProxyRelation {
+        &self.proxies
     }
     /// Resolved membership row count (unresolved rows excluded).
     pub fn membership_rows(&self) -> usize {

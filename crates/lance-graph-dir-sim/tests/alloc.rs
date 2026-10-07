@@ -115,7 +115,7 @@ fn change(op: Op, st: &mut VersionStore, g0: VersionId) -> Change {
             node: guid(u32::MAX - 3),
             state: NodeState {
                 kind: NodeKind::User,
-                active: true,
+                active: Some(true),
                 upn: new,
                 primary_smtp: new,
                 dn: None,
