@@ -299,6 +299,21 @@ leaves eligibility where an unwritten word leaves it, and that the
 cargo run -p cognitive-shader-driver --features with-engine,mailbox-thoughtspace --example streamdto_circuit_probe
 ```
 
+## epistemic_reading_conflict_probe.rs
+
+D-EPI-CONFLICT-0. Pins that the affordance law (`shared/affordance_law.rs`)
+reads bits 59..63 as its own 5-bit code without the D-ACR-7 contract
+(`band_reading`), and so contradicts the P7a band a class declares through
+it: a contract-projected `Causes` reads as `Related` or refuses, the codes
+that assert `CAUSES` sit on P7a `Open` and `CausalCandidate`, and the law
+measures classes the contract refuses. The tests pin the current state of
+`ISS-EPISTEMIC-READINGS-DISAGREE-ON-BITS-61-63`; they fail when either
+codebook changes.
+
+```bash
+cargo run -p cognitive-shader-driver --example epistemic_reading_conflict_probe
+```
+
 ## ewa_anisotropic_probe.rs
 
 D-CTX-3. Anisotropic EWA: the footprint is each virtual surfel's normalised
