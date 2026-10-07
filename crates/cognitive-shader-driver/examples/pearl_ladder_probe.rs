@@ -66,7 +66,9 @@ use causal_edge::pearl::CausalMask;
 use causal_edge::plasticity::PlasticityState;
 use causal_edge::tables::NarsTables;
 use lance_graph_contract::causal_audit::SupportBasis;
-use lance_graph_contract::epistemic_state5::{fact, facts_population, Certification3, Topology2};
+use lance_graph_contract::epistemic_state5::{Certification3, Topology2};
+#[cfg(test)]
+use lance_graph_contract::epistemic_state5::{fact, facts_population};
 use lance_graph_planner::dismech_counterfactual::{CutContext, DEFAULT_FREQUENCY_BAR};
 use lance_graph_planner::dismech_replay::{ChainStep, ComposeTables};
 
@@ -551,6 +553,7 @@ fn topology(e: CausalEdge64) -> Topology2 {
 //
 // If these falsifiers survive, a later PR can decide which readings deserve
 // contract names. Until then the production accessors keep their current names.
+#[cfg(test)]
 mod semantic_upper_half {
     use super::*;
     use causal_edge::layout::{PLAST_MASK, PLAST_SHIFT};
@@ -622,6 +625,7 @@ mod semantic_upper_half {
     }
 }
 
+#[cfg(test)]
 use semantic_upper_half::*;
 
 // ── The script ────────────────────────────────────────────────────────────
