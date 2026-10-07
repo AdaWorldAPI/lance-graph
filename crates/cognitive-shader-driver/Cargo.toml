@@ -163,6 +163,10 @@ test = true
 name = "crossword_real_words_probe"
 test = true
 
+[[example]]
+name = "crossword_mask_propagation_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
@@ -233,3 +237,6 @@ lab = ["serve", "grpc", "with-engine", "with-planner"]
 # D-CTX-0: the one Fisher-Z calibrator, for the probe only. Production code
 # borrows the calibrated bytes; it never depends on the calibrator.
 bgz-tensor = { path = "../bgz-tensor" }
+# D-PUZZLE-0 step 3: crossword candidates are DeepNSM-v2 `WordId`s, assigned by
+# its own `PaletteVocab::from_frequency_ranked`. Probe-only.
+deepnsm-v2 = { path = "../deepnsm-v2" }
