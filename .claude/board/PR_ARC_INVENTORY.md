@@ -1,3 +1,16 @@
+## 2026-10-07 — lance-graph PR #1384 (merged `23e8d93`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `94499c3`, 9 commits) — D-PUZZLE-0 steps 2/2b: crosswords on the Sudoku population fold
+
+- **Added:** `examples/shared/population_fold.rs` (the domain-free half: propagation reading, five `facts_population` questions, three folds, declaration gate; a fence test bans domain words); `crossword_population_fold_probe.rs` (synthetic 3-letter alphabet); `crossword_real_words_probe.rs` (DeepNSM v1 4096 + `academic_20k`, DeReKo top 20k from `DEREKO_PATH`; NYT-rule grids; Down-and-Across answers from `XWORD_ANSWERS_DIR`).
+- **Locked (test-pinned):** Sudoku counts unchanged after the refactor (1,000,066 edges); every crossword count equal three ways; disable runs red.
+- **Deferred / open:** the 2b NYT-grid and crossword-answer modes (`94499c3`) were never run end to end; step 3 supersedes the grid generator.
+- **Confidence:** high for the shared-fold claim; the 2b real-word numbers are one run each.
+
+## 2026-10-07 — lance-graph PR #1382 (merged `bccc46e`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `55f2d0f`, 3 commits) — D-PUZZLE-0 step 1: Sudoku at scale on the EpistemicState5 population fold
+
+- **Added:** `sudoku_population_fold_probe.rs`: ~1M claim edges in the propagation reading (GIVEN 20 / FORCED 21 / ENTAILED 22 / CANDIDATE 4); five questions as `facts_population` masks, counted by filter, histogram and per-edge decode.
+- **Locked (test-pinned):** all counts equal three ways and to the generator's counters; the probe is a registered test target (Codex P2).
+- **Confidence:** high; timings one machine.
+
 ## 2026-10-07 — lance-graph PR #1381 (merged `7334ae9`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `0ba5d24`, 17 commits) — CE64 bits 59..63 = `EpistemicState5 = Topology2 × Certification3`; facts populations; legacy deprojection
 
 - **Added:** `lance_graph_contract::epistemic_state5` — `Topology2`, `Certification3`, per-factor facts, `EpistemicState5` (`raw5 = topology | certification << 2`, 24 meaningful / 8 reserved), `Epi5Reading`, `Epi5Declarations::project_state5`, `facts_population` / `Population` / `bit()`; `ClassView::epistemic_reading`; `CausalEdge64::{epistemic_raw5, with_epistemic_raw5}`, `EPISTEMIC_MASK`.

@@ -442,3 +442,19 @@ edges per language; every count agrees three ways. Board:
 cargo run --release -p cognitive-shader-driver --example crossword_real_words_probe
 DEREKO_PATH=/path/DeReKo-2014-II-MainArchive-STT.100000.freq cargo run --release -p cognitive-shader-driver --example crossword_real_words_probe
 ```
+
+## crossword_mask_propagation_probe.rs
+
+D-PUZZLE-0 step 3. Is crossword propagation the Sudoku operation, and which
+representation of it is best? Cells are `Morton8x8` codes, slot positions
+`(slot:offset)` tiles, crossings two compiled u16 lanes, letters a declared
+`MooreSymbol8` byte, candidates DeepNSM-v2 `WordId` bitsets. Four arms (token,
+Cartesian board, literal strings, hybrid) solve the same created puzzles to the
+same fixed point; the run also ablates each given (cui bono) and folds a ~1M
+claim lane the shared three ways. German needs `DEREKO_PATH`. Board:
+`.claude/board/entries/2026-10-07-puzzle-0-crossword-mask-propagation.md`.
+
+```
+cargo run --release -p cognitive-shader-driver --example crossword_mask_propagation_probe
+```
+
