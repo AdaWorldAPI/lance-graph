@@ -87,3 +87,50 @@ declared only under the historical reading, `UndeclaredClass`).
 
 The only legacy translation declared is P7a certification × legacy
 `CausalTopology` grounding, whose obligations were measured in #1369.
+
+## Re-run under the Cartesian V1 layout (operator revision, same day)
+
+The operator replaced the #1370 hand-assigned codebook with the product
+`EpistemicState5 = Topology2 × Certification3`, `raw5 = topology |
+certification << 2` (`CausalTopology` ordinals × P7a certification codes; 24
+meaningful, 8 reserved). Every site above was re-classified against it on
+`6c395c2`:
+
+| site | before (dense #1370) | after (Cartesian) |
+|---|---|---|
+| `edge.rs` `topology()` / `with_topology` | PROJECT / WRAP (deprecated) | **canonical topology coordinate** — `with_topology` un-deprecated (factor update moves only 59..60) |
+| `edge.rs` `spare()` | PROJECT | raw certification coordinate (`epistemic_raw5 >> 2`) |
+| `edge.rs` `truth()` / `with_truth` / `set_truth` / `with_routing` | WRAP | WRAP (deprecated): `TrustTexture` reading of the topology bits, no mapping |
+| `edge.rs` `reasoning_band()` / `with_reasoning_band` | WRAP | WRAP (deprecated): historical reasoning levels on the certification bits, no mapping |
+| `edge.rs` `with_spare` / `set_spare` | WRAP | WRAP (deprecated): untyped |
+| `band_reading` | WRAP | WRAP: a `Topology` lens + P7a band declaration IS the product (identity); `Trust` lens / historical band classes have no canonical declaration and refuse |
+| `shared/certification_reading.rs` (P7a) | MIGRATE via translation table (13 of 24 cells refused) | **MIGRATE by identity packing** — all 6 contracts × 4 topologies stamp |
+| `shared/affordance_law.rs` | MIGRATE | MIGRATE: compiled per factor; per-code table derived |
+| `affordance_measurement` / `ce64_cycle_survival` / `ce64_nextstate` / `revision_epistemic_writer` / `streamdto` | MIGRATE | MIGRATE + fixture remap (3/7 → 0/4; 25/5/17 → 10/9/21; 7 → 4) |
+| `entropy_topology_probe` | PROBE-ONLY | **MIGRATE** — writes only topology over `Open`; reads `state.topology()` through `project_state5` |
+| `dismech_counterfactual::EdgeRole` | MIGRATE (`epistemic_raw5`) | same; `topology` regraded to the raw topology coordinate; `band` stays legacy |
+| `reasoning_band_probe`, `probe_revision_kanban_hinge`, `probe_four_plane_causal_medium` | PROBE-ONLY | **PROBE-ONLY — cannot migrate without semantic invention** (see below) |
+| `temporal()` / `evidence_trail` | REFUSE | unchanged |
+
+### Callsites that cannot be migrated without semantic invention
+
+1. `cognitive-shader-driver/examples/reasoning_band_probe.rs` — earns and
+   lowers the historical `ReasoningBand` ladder (`Surface … Transcendent`) on
+   61..63. Those are reasoning levels; there is no declared mapping onto
+   `Open … Causes`. The first three names look similar (`Surface ~ Open`,
+   `Association ~ Associated`, `Relation ~ Related`), but adopting that would
+   be a mapping nobody declared, and from `Causal` (3) on the two
+   vocabularies diverge.
+2. `cognitive-shader-driver/examples/probe_revision_kanban_hinge.rs` — writes
+   `IndirectUnknown` (canonical as-is) + `ReasoningBand::Causal`. Raw code
+   `2 | 3 << 2 = 14` decodes as `IndirectUnknown × Supports`; reading it so
+   would invent a support claim.
+3. `lance-graph-planner/examples/probe_four_plane_causal_medium.rs` — same
+   shape (`IndirectUnknown`/`IndirectKnown` + `ReasoningBand::Causal`).
+4. `dismech_counterfactual::EdgeRole::band` — the historical lens over the
+   certification bits; kept as a compatibility field beside the canonical
+   `epistemic_raw5`, never mapped.
+
+No `TrustTexture` writer exists in the tree (`with_routing`/`with_truth`/
+`set_truth` have no non-test caller), so the trust-lens case is
+declaration-only.

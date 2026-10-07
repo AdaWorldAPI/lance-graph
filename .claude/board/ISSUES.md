@@ -1,6 +1,6 @@
 ## ISS-EPI5-CODEBOOK-LACKS-P7A-CONJUNCTIONS — P7a certifications with no canonical EpistemicState5 code (2026-10-07)
 
-**Status:** OPEN — operator decision. **Basis:** TEST-PINNED in `contract::epistemic_state5` (`undeclared_legacy_combinations_refuse`), `relational_certification_probe` and `epistemic_reading_conflict_probe` (census 13 refused cells).
+**Status:** RESOLVED 2026-10-07 (same day, before merge) by the operator's Cartesian V1: `EpistemicState5 = Topology2 × Certification3` has a code for every P7a contract under every topology (`CausalCandidate` = 16..19, `Direct × Supports` = 12); validity is only `certification < 6`. The hand-assigned #1370 codebook that lacked these cells is gone. **Was:** OPEN — operator decision. **Basis:** TEST-PINNED in `contract::epistemic_state5` (`undeclared_legacy_combinations_refuse`), `relational_certification_probe` and `epistemic_reading_conflict_probe` (census 13 refused cells).
 
 - Codebook V1 (the ten #1370 codes) has no conjunction for: `CausalCandidate` under any grounding (no fact for "ordered" / "explains"); `Contributes` (= `SUPPORTS`) under `Direct`; `Associated` under an indirect grounding; `Causes` / `Related` under `Unknown` grounding; `Causes` under an unknown intermediate (the last is arguably correct to refuse).
 - Consequence, measured: P7a's two observational fixtures certify `CausalCandidate`, so the certification is computed but cannot be stamped; it refuses instead of writing 61..63 (no code invented).
@@ -10,8 +10,8 @@
 
 **Status:** OPEN (tracking). **Basis:** VERIFIED-IN-CODE; inventory `entries/2026-10-07-epi-mig-inventory.md`.
 
-- PROBE-ONLY legacy writers/readers of the historical `ReasoningBand` / `CausalTopology` / `TrustTexture` halves, kept with `#![allow(deprecated)]` because their readings have no canonical translation: `cognitive-shader-driver/examples/{reasoning_band_probe, probe_revision_kanban_hinge, entropy_topology_probe}.rs`, `lance-graph-planner/examples/probe_four_plane_causal_medium.rs`.
-- Compatibility surfaces kept: `contract::band_reading` (regraded legacy), the deprecated half writers in `causal-edge`, the legacy lens readers (`truth`, `topology`, `spare`, `reasoning_band`), `dismech_counterfactual::EdgeRole::{topology, band}` (now beside the canonical `epistemic_raw5`).
+- PROBE-ONLY legacy writers of the historical `ReasoningBand` on the certification bits, kept with `#![allow(deprecated)]` because no mapping onto `Certification3` exists (mapping `Causal` → `Supports`/`Causes` would be invention): `cognitive-shader-driver/examples/{reasoning_band_probe, probe_revision_kanban_hinge}.rs`, `lance-graph-planner/examples/probe_four_plane_causal_medium.rs`. (2026-10-07 Cartesian revision: `entropy_topology_probe` migrated — it writes only topology; `with_topology` is the canonical topology-factor writer and no longer deprecated.)
+- Compatibility surfaces kept: `contract::band_reading` (regraded legacy), the deprecated `TrustTexture` / historical-band / untyped writers in `causal-edge`, the legacy lens readers (`truth`, `reasoning_band`), `dismech_counterfactual::EdgeRole::band` (beside the canonical `epistemic_raw5`).
 - `CausalEdge64::temporal()` (deprecated) still composes bits 52..63 incl. 59..63 and `Network::evidence_trail` sorts by it — documented meaningless ordering, untouched.
 - **What closes it:** removing each once no caller needs it; the probes are records, so they may stay as legacy indefinitely.
 
