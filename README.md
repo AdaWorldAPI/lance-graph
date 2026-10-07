@@ -2,6 +2,8 @@
 
 [![Rust Tests](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/rust-test.yml/badge.svg)](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/rust-test.yml) [![Style Check](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/style.yml/badge.svg)](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/style.yml) [![Build](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/build.yml/badge.svg)](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/build.yml)
 
+[![CausalEdge64 semantic upper half: Pearl ladder, orientation, activation, entropy, belief-state update, epistemic state](docs/architecture/img/ce64-semantic-upper-half.png)](#the-causal-edge-register)
+
 A Rust workspace for graph and columnar query execution over Arrow and Lance. It has:
 
 - a Cypher and SQL engine on DataFusion;
@@ -68,12 +70,10 @@ What this means:
 S, P, O palette indices, frequency and confidence in bits 0..39, and the
 reasoning fields in bits 40..63.
 
-![CausalEdge64 semantic upper half: Pearl ladder, orientation, activation, entropy, belief-state update, epistemic state](docs/architecture/img/ce64-semantic-upper-half.png)
-
-The diagram is a working model of bits 40..63, not the layout's definition.
-Bits 0..42 and 59..63 match the code. The code reads bits 43..52 differently
-(direction triad, inference mantissa, plasticity), and bits 53..58 hold one
-witness handle. The band-by-band comparison is in
+The diagram at the top of this page is a working model of bits 40..63, not
+the layout's definition. Bits 0..42 and 59..63 match the code. The code reads
+bits 43..52 differently (direction triad, inference mantissa, plasticity), and
+bits 53..58 hold one witness handle. The band-by-band comparison is in
 [`docs/architecture/ce64-semantic-upper-half.md`](docs/architecture/ce64-semantic-upper-half.md).
 
 ## Workspace
