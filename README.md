@@ -62,6 +62,20 @@ What this means:
   and parses Gremlin and SPARQL into its own `Arena<LogicalOp>`. It does not
   execute queries.
 
+## The causal edge register
+
+`CausalEdge64` (`crates/causal-edge`) packs one relation into 64 bits: the
+S, P, O palette indices, frequency and confidence in bits 0..39, and the
+reasoning fields in bits 40..63.
+
+![CausalEdge64 semantic upper half: Pearl ladder, orientation, activation, entropy, belief-state update, epistemic state](docs/architecture/img/ce64-semantic-upper-half.png)
+
+The diagram is a working model of bits 40..63, not the layout's definition.
+Bits 0..42 and 59..63 match the code. The code reads bits 43..52 differently
+(direction triad, inference mantissa, plasticity), and bits 53..58 hold one
+witness handle. The band-by-band comparison is in
+[`docs/architecture/ce64-semantic-upper-half.md`](docs/architecture/ce64-semantic-upper-half.md).
+
 ## Workspace
 
 59 crate directories under `crates/`: 22 are workspace members and 37 are
