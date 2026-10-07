@@ -1,3 +1,8 @@
+## 2026-10-07 — lance-graph #1395 MERGED (`5658c10`); D-CE64-CYCLE-0 on branch
+
+- #1395: D-CE64-LOOP-0 and D-CE64-STAUNEN-0, probes in `lance-graph-planner/examples` (no contract change).
+- D-CE64-CYCLE-0 (branch `claude/epistemicstate5-ce64-bits-3oe0dq`, unmerged): the cross-cycle executor experiments, extending `staunen_scheduler_probe.rs`; no contract change.
+
 ## 2026-10-07 — lance-graph #1391 MERGED; D-PEARL-PROD-0 shipped
 
 - #1391 (`53212db`): Pearl's ladder in production (`lance_graph_planner::pearl::{reason, revise, hydrate}`; `revise(&Measured, Reading)` writes back only to the measured edge). Supersedes the "on branch, unmerged" line in the section below.

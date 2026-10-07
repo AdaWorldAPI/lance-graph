@@ -1,3 +1,10 @@
+## 2026-10-07 — lance-graph PR #1395 (merged `5658c10`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `086189a`, 5 commits) — D-CE64-LOOP-0 + D-CE64-STAUNEN-0: self-orchestrating fold loop, surprisal scheduler, bits 40..63 census
+
+- **Added:** `lance-graph-planner/examples/self_orchestration_probe.rs` (one register, five policies, 15 tests) and `staunen_scheduler_probe.rs` (many basins across windows, surprisal distinct from Shannon H, 18 tests), both `test = true`; the bits 40..63 reader/writer census (board entry).
+- **Locked (test-pinned):** naive raw surprise is captured by noise; habituation + learning progress fix it; bits 50..52 are not written (`learn` gates on plasticity); a re-measured channel replaces its evidence. 24 disable runs red.
+- **Deferred / open:** one world per probe; Moore/EWA/Sudoku folds not wired; the `staunen` name collision with `basin_resonance`.
+- **Confidence (2026-10-07):** the single-seed "wake 4.2 vs 5.1" advantage did not survive pooling three seeds (D-CE64-CYCLE-0).
+
 ## 2026-10-07 — lance-graph PR #1393 (merged `69e661a`, branch `codex/ce64-semantic-upper-half-probe`, head `6c98015`, 6 commits) — D-CE64-SEM-0: a probe-local semantic reading of the CE64 upper half
 
 - **Added:** test-only readings in `pearl_ladder_probe.rs`: bits 46..49 as a signed reaction activation, 50..52 as novelty (`ceil(log2)` of the surviving `EpistemicState5` population; `None` when no state survives), 53..58 as a belief-update breadcrumb. Tests ported onto `planner::pearl` after #1391.
