@@ -27,6 +27,7 @@ fn bare(kind: NodeKind) -> ObservedNode {
         active: Some(true),
         upn: None,
         primary_smtp: None,
+        proxies: Vec::new(),
         dn: None,
     }
 }

@@ -27,6 +27,7 @@
 pub mod bind;
 mod exec;
 pub mod observe;
+pub mod proxy;
 pub mod rule;
 pub mod snapshot;
 pub mod store;
@@ -36,6 +37,7 @@ pub mod view;
 pub use bind::{where_eq, UserBinder, WhereEqError};
 pub use exec::Kept;
 pub use ogar_dir_sim::{KeyId, ValueId};
+pub use proxy::{ProxyKind, ProxyRelation, ProxyRow};
 pub use rule::{member_counts, GrantGroup, ImplyGroup, Rule, SetPrimarySmtp};
 pub use snapshot::{
     BuildError, Dict, DictCounters, Dicts, GroupOrdinal, NodeKind, Observation, ObservedNode,

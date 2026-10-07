@@ -407,6 +407,7 @@ fn t14_membership_validation_reads_no_attributes() {
         active: Some(true),
         upn: None,
         primary_smtp: None,
+        proxies: Vec::new(),
         dn: None,
     };
     let obs = Observation {
