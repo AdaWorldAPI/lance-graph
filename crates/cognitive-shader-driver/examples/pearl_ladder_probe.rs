@@ -598,7 +598,7 @@ mod semantic_upper_half {
         if delta == 0 {
             return 0;
         }
-        let magnitude = if delta < 0 { -delta } else { delta } as u16;
+        let magnitude = (if delta < 0 { -delta } else { delta }) as u16;
         let q = ((magnitude + 31) / 32).clamp(1, 7) as i8;
         if delta > 0 { q } else { -q }
     }
