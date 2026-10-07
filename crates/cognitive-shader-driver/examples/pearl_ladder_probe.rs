@@ -277,7 +277,7 @@ fn main() {
     show("START", start);
 
     let m = reason(start, &ev, Edit::None);
-    let e = revise(start, &m, rd).unwrap();
+    let e = revise(&m, rd).unwrap();
     println!("  {:?} measured: earned {:?}", m.operation(), m.earned());
     show("after OBSERVATION", e);
 
@@ -291,7 +291,7 @@ fn main() {
 
     let e = with_mask(e, CausalMask::PO);
     let m = reason(e, &ev, Edit::None);
-    let e = revise(e, &m, rd).unwrap();
+    let e = revise(&m, rd).unwrap();
     println!(
         "  PO measured: earned {:?}, ungrounded {:?}",
         m.earned(),
@@ -302,7 +302,7 @@ fn main() {
     let e = with_mask(e, CausalMask::SPO);
     for (cut, route) in [(1usize, "B -> Y"), (0, "A -> B")] {
         let m = reason(e, &ev, Edit::CutStep(cut));
-        let after = revise(e, &m, rd).unwrap();
+        let after = revise(&m, rd).unwrap();
         println!(
             "  SPO mask {route}: reaction {:?}, earned {:?}, cf terminal mantissa {:?}",
             m.reaction(),
@@ -333,5 +333,5 @@ fn main() {
         },
         Edit::None,
     );
-    show("  randomized arms, PO", revise(q, &m, rd).unwrap());
+    show("  randomized arms, PO", revise(&m, rd).unwrap());
 }

@@ -153,3 +153,19 @@ eligibility read from the joint 59..63 code).
 OPEN: one demotion policy. `pearl` only raises, P7 lowered on contradiction,
 #1379 lowers on a suspended revision. Which (if any) contradiction lowers a
 certification is undecided.
+
+## Review fixes (codex + CodeRabbit on #1391)
+
+- `revise(&Measured, Reading)` takes no edge: `Measured` binds the edge it
+  measured, so one measurement cannot promote another edge.
+- An SO measurement whose weakest rung cannot compare (`associated()` is
+  `Err`) reports `Ungrounded::Model`, so missing evidence is no longer read as
+  a grounded negative.
+- `hydrate` promotes only when the edge is the `a → y` relation whose path it
+  checked.
+- `Reaction::classify` compares terminal `(frequency, confidence)` only. The
+  old length comparison made `Inert` unreachable, since a cut always removes a
+  step. Measured: no cut on the test chains reaches `Inert` (the quantized
+  revision moves the truth even for a zero-confidence step), so the rule is
+  pinned at the classifier.
+- Each fix has a test, and each fails under a disable run.

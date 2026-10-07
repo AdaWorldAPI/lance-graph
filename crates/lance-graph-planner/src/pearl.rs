@@ -115,6 +115,29 @@ pub enum Reaction {
     Inert { frequency: u8 },
 }
 
+impl Reaction {
+    /// Classify a cut from the two arms' terminal truths `(frequency,
+    /// confidence)`. Inert means both terminal truths are equal; the arms'
+    /// lengths are not compared, because a cut always removes a step.
+    #[must_use]
+    pub fn classify(load_bearing: bool, factual: (u8, u8), counterfactual: (u8, u8)) -> Self {
+        let (f, c) = (factual.0, counterfactual.0);
+        if load_bearing {
+            Reaction::LoadBearing {
+                factual: f,
+                counterfactual: c,
+            }
+        } else if factual != counterfactual {
+            Reaction::TruthOnly {
+                factual: f,
+                counterfactual: c,
+            }
+        } else {
+            Reaction::Inert { frequency: f }
+        }
+    }
+}
+
 /// A counterfactual edit. The base chain is never modified; the operator
 /// replays it with the edit applied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -150,6 +173,7 @@ pub struct Chain<'a> {
 /// The result of running one operator. Only [`reason`] constructs it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Measured {
+    edge: CausalEdge64,
     operation: Operation,
     earned: Option<Certification3>,
     ungrounded: Option<Ungrounded>,
@@ -159,8 +183,9 @@ pub struct Measured {
 }
 
 impl Measured {
-    fn new(operation: Operation) -> Self {
+    fn new(edge: CausalEdge64, operation: Operation) -> Self {
         Measured {
+            edge,
             operation,
             earned: None,
             ungrounded: None,
@@ -170,6 +195,12 @@ impl Measured {
         }
     }
 
+    /// The edge the operator measured. [`revise`] writes back to this edge
+    /// and no other.
+    #[must_use]
+    pub fn edge(&self) -> CausalEdge64 {
+        self.edge
+    }
     /// The operator that ran.
     #[must_use]
     pub fn operation(&self) -> Operation {
@@ -210,7 +241,7 @@ impl Measured {
 #[must_use]
 pub fn reason<M: PopulationMask>(edge: CausalEdge64, ev: &Evidence<'_, M>, edit: Edit) -> Measured {
     let op = Operation::of(edge.causal_mask());
-    let mut out = Measured::new(op);
+    let mut out = Measured::new(edge, op);
     let m = ev.model;
     match op {
         Operation::Association => match m.sourced() {
@@ -219,6 +250,10 @@ pub fn reason<M: PopulationMask>(edge: CausalEdge64, ev: &Evidence<'_, M>, edit:
                 let c = m.observational_certification();
                 if c != Certification3::Open {
                     out.earned = Some(c);
+                } else if let Err(e) = m.associated() {
+                    // No rung earned anything, and the weakest one could not
+                    // even compare: missing evidence, not a negative result.
+                    out.ungrounded = Some(Ungrounded::Model(e));
                 }
             }
         },
@@ -245,19 +280,11 @@ pub fn reason<M: PopulationMask>(edge: CausalEdge64, ev: &Evidence<'_, M>, edit:
                         .counterfactual
                         .last()
                         .map_or(0, |r| r.edge.frequency_u8());
-                    out.reaction = Some(if cf.role.is_load_bearing() {
-                        Reaction::LoadBearing {
-                            factual: f,
-                            counterfactual: c,
-                        }
-                    } else if f != c || cf.factual.len() != cf.counterfactual.len() {
-                        Reaction::TruthOnly {
-                            factual: f,
-                            counterfactual: c,
-                        }
-                    } else {
-                        Reaction::Inert { frequency: f }
-                    });
+                    out.reaction = Some(Reaction::classify(
+                        cf.role.is_load_bearing(),
+                        (f, conf(&cf.factual)),
+                        (c, conf(&cf.counterfactual)),
+                    ));
                     out.counterfactual_terminal = cf.counterfactual.last().map(|r| r.edge);
                 }
             }
@@ -284,6 +311,11 @@ pub fn reason<M: PopulationMask>(edge: CausalEdge64, ev: &Evidence<'_, M>, edit:
         Operation::NoOperator(_) => out.ungrounded = Some(Ungrounded::NoOperator),
     }
     out
+}
+
+/// The terminal confidence of a replay trace.
+fn conf(trace: &[crate::chain_replay::ReplayTraceRow]) -> u8 {
+    trace.last().map_or(0, |r| r.edge.confidence_u8())
 }
 
 /// The direction triad `simpsons_paradox_risk` reads: bit 2 set when the
@@ -328,18 +360,18 @@ fn stamp(edge: CausalEdge64, state: EpistemicState5) -> CausalEdge64 {
     edge.with_epistemic_raw5(state.raw())
 }
 
-/// Write a measurement back. Certification rises to what the operator earned
-/// when that is strictly stronger; nothing else moves, and nothing is ever
-/// lowered.
+/// Write a measurement back to the edge it measured. Certification rises to
+/// what the operator earned when that is strictly stronger; nothing else
+/// moves, and nothing is ever lowered.
+///
+/// Takes no edge: the write goes to [`Measured::edge`], so one measurement
+/// cannot promote a different edge.
 ///
 /// # Errors
 ///
 /// The edge's bits 59..63 do not project under `reading`.
-pub fn revise(
-    edge: CausalEdge64,
-    m: &Measured,
-    reading: Reading<'_>,
-) -> Result<CausalEdge64, Epi5ReadError> {
+pub fn revise(m: &Measured, reading: Reading<'_>) -> Result<CausalEdge64, Epi5ReadError> {
+    let edge = m.edge;
     let state = reading.project(edge)?;
     let current = state.certification();
     let next = match m.earned {
@@ -380,7 +412,9 @@ pub fn hydrate(
         _ => Hydration::Partial,
     };
     let state = reading.project(edge)?;
-    if found == Hydration::Hydrated && state.topology() == Topology2::IndirectUnknown {
+    // The path must be this edge's own: `a → y` is the relation being hydrated.
+    let own_path = edge.s_idx() == a && edge.o_idx() == y;
+    if own_path && found == Hydration::Hydrated && state.topology() == Topology2::IndirectUnknown {
         Ok((
             stamp(edge, state.with_topology(Topology2::IndirectKnown)),
             found,
@@ -567,7 +601,7 @@ mod tests {
     ) -> (CausalEdge64, Measured) {
         let e = with_mask(e, mask);
         let m = reason(e, ev, edit);
-        (revise(e, &m, reading(d)).expect("declared"), m)
+        (revise(&m, reading(d)).expect("declared"), m)
     }
 
     /// Y = A or B per unit; the counterfactual edit is a mask.
@@ -688,7 +722,7 @@ mod tests {
             let q = query(CausalMask::SPO, c, Topology2::IndirectUnknown);
             let m = reason(q, &ev, Edit::CutStep(1));
             assert_eq!(m.ungrounded(), Some(Ungrounded::NoChain));
-            assert_eq!(revise(q, &m, reading(&d)).unwrap(), q);
+            assert_eq!(revise(&m, reading(&d)).unwrap(), q);
         }
     }
 
@@ -708,7 +742,7 @@ mod tests {
             let m = reason(q, &ev, Edit::CutStep(1));
             assert!(matches!(m.reaction(), Some(Reaction::LoadBearing { .. })));
             assert_eq!(m.earned(), None);
-            assert_eq!(state(revise(q, &m, reading(&d)).unwrap()).1, c);
+            assert_eq!(state(revise(&m, reading(&d)).unwrap()).1, c);
         }
     }
 
@@ -730,7 +764,7 @@ mod tests {
             InferenceType::Counterfactual.to_mantissa()
         );
         assert_ne!(t.frequency_u8(), q.frequency_u8(), "anti-vacuity");
-        let out = revise(q, &m, reading(&d)).unwrap();
+        let out = revise(&m, reading(&d)).unwrap();
         assert_eq!(out.frequency_u8(), q.frequency_u8());
         assert_eq!(out.confidence_u8(), q.confidence_u8());
         assert_eq!(out.inference_mantissa(), q.inference_mantissa());
@@ -843,7 +877,7 @@ mod tests {
             for mantissa in [-6i8, 0, 6] {
                 let q = query(mask, Certification3::Open, Topology2::IndirectUnknown)
                     .with_inference_mantissa(mantissa);
-                let out = revise(q, &reason(q, &ev, Edit::CutStep(1)), reading(&d)).unwrap();
+                let out = revise(&reason(q, &ev, Edit::CutStep(1)), reading(&d)).unwrap();
                 assert_eq!((out.0 ^ q.0) & !EPISTEMIC_MASK, 0, "{mask:?} {mantissa}");
                 moved += usize::from(out != q);
             }
@@ -867,7 +901,7 @@ mod tests {
             for edit in [Edit::None, Edit::CutStep(0), Edit::CutStep(1)] {
                 let (m1, m2) = (reason(q, &ev, edit), reason(q, &ev, edit));
                 assert_eq!(m1, m2);
-                assert_eq!(revise(q, &m1, reading(&d)), revise(q, &m2, reading(&d)));
+                assert_eq!(revise(&m1, reading(&d)), revise(&m2, reading(&d)));
             }
         }
     }
@@ -910,6 +944,27 @@ mod tests {
         assert_eq!(state(e).1, Certification3::Related);
     }
 
+    /// What a measurement computed, without the edge it is bound to.
+    type Outcome = (
+        Operation,
+        Option<Certification3>,
+        Option<Ungrounded>,
+        Option<Reaction>,
+        Option<bool>,
+        Option<CausalEdge64>,
+    );
+
+    fn outcome(m: &Measured) -> Outcome {
+        (
+            m.operation(),
+            m.earned(),
+            m.ungrounded(),
+            m.reaction(),
+            m.confounded(),
+            m.counterfactual_terminal(),
+        )
+    }
+
     /// F11. Bits 59..63 do not select the operation.
     #[test]
     fn f11_bits_59_to_63_are_output_not_a_selector() {
@@ -925,7 +980,12 @@ mod tests {
             );
             for c in Certification3::ALL {
                 for t in Topology2::ALL {
-                    assert_eq!(reason(query(mask, c, t), &ev, Edit::CutStep(1)), base);
+                    // Everything the operator computed is identical; only the
+                    // bound input edge differs, by bits 59..63.
+                    assert_eq!(
+                        outcome(&reason(query(mask, c, t), &ev, Edit::CutStep(1))),
+                        outcome(&base)
+                    );
                 }
             }
         }
@@ -949,7 +1009,7 @@ mod tests {
                     .with_inference_mantissa(mantissa);
                 let m = reason(q, &ev, Edit::CutStep(1));
                 assert_eq!(m.operation(), Operation::of(mask));
-                let out = revise(q, &m, reading(&d)).unwrap();
+                let out = revise(&m, reading(&d)).unwrap();
                 assert_eq!(out.causal_mask(), mask);
                 assert_eq!(out.inference_mantissa(), mantissa);
             }
@@ -970,7 +1030,7 @@ mod tests {
             },
             Edit::None,
         );
-        assert!(revise(q, &m, reading(&d)).is_err());
+        assert!(revise(&m, reading(&d)).is_err());
     }
 
     #[test]
@@ -1000,7 +1060,7 @@ mod tests {
         let po = query(CausalMask::PO, Certification3::Open, Topology2::Direct);
         let m = reason(po, &ev, Edit::None);
         assert_eq!(m.earned(), Some(Certification3::Causes));
-        let e = revise(po, &m, reading(&d)).expect("declared reading");
+        let e = revise(&m, reading(&d)).expect("declared reading");
         assert_eq!(state(e).1, Certification3::Causes);
 
         let sp = query(CausalMask::SP, Certification3::Open, Topology2::Direct);
@@ -1022,5 +1082,101 @@ mod tests {
         };
         assert_eq!(reason(so, &ev, Edit::None).earned(), None);
         assert_eq!(reason(po, &ev, Edit::None).earned(), None);
+    }
+
+    #[test]
+    fn a_measurement_writes_back_only_to_the_edge_it_measured() {
+        // Codex #1391: a retained `Measured` must not promote another edge.
+        // `revise` takes no edge, so the write lands on `Measured::edge`.
+        let d = declarations();
+        let rp = Replay::new();
+        let model = with_trial(related_population());
+        let ev = rp.evidence(&model);
+        let q = query(CausalMask::PO, Certification3::Open, Topology2::Direct);
+        let m = reason(q, &ev, Edit::None);
+        assert_eq!(m.edge(), q);
+        assert_eq!(m.earned(), Some(Certification3::Causes));
+        let out = revise(&m, reading(&d)).unwrap();
+        assert_eq!((out.0 ^ q.0) & !EPISTEMIC_MASK, 0);
+        assert_eq!(state(out).1, Certification3::Causes);
+    }
+
+    #[test]
+    fn observation_with_nothing_to_compare_is_ungrounded_not_refuted() {
+        // Codex #1391: two observational sources but no units. Every rung's
+        // comparison has an empty arm, so this is missing evidence, not a
+        // negative result.
+        let rp = Replay::new();
+        let mut b = ModelBuilder::new();
+        b.sources(SupportBasis::DirectlyObserved, &[1, 2]);
+        let empty = b.build();
+        let so = query(CausalMask::SO, Certification3::Open, Topology2::Direct);
+        let m = reason(so, &rp.evidence(&empty), Edit::None);
+        assert_eq!(m.earned(), None);
+        assert_eq!(
+            m.ungrounded(),
+            Some(Ungrounded::Model(NotGrounded::EmptyArm))
+        );
+        // Silence twin: equal rates over real units is a grounded negative.
+        let mut b = ModelBuilder::new();
+        b.cell(0, true, 5, 2);
+        b.cell(0, false, 5, 2);
+        b.sources(SupportBasis::DirectlyObserved, &[1, 2]);
+        let null = b.build();
+        let m = reason(so, &rp.evidence(&null), Edit::None);
+        assert_eq!((m.earned(), m.ungrounded()), (None, None));
+    }
+
+    #[test]
+    fn hydration_only_promotes_the_edge_whose_path_it_is() {
+        // CodeRabbit #1391: the bindings A → B → Y exist, but the edge offered
+        // is X → Z. Its topology must not move.
+        let d = declarations();
+        let rp = Replay::new();
+        let other = stamp(
+            edge(77, 78, 200, 200, CausalMask::SO),
+            EpistemicState5::new(
+                Epi5Gen::V1,
+                Topology2::IndirectUnknown,
+                Certification3::Open,
+            ),
+        );
+        let (out, h) = hydrate(other, (A, B, Y), &rp.steps, reading(&d)).unwrap();
+        assert_eq!(h, Hydration::Hydrated);
+        assert_eq!(out, other);
+        // Silence twin: the edge whose path it is does move.
+        let own = query(
+            CausalMask::SO,
+            Certification3::Open,
+            Topology2::IndirectUnknown,
+        );
+        let (out, _) = hydrate(own, (A, B, Y), &rp.steps, reading(&d)).unwrap();
+        assert_eq!(state(out).0, Topology2::IndirectKnown);
+    }
+
+    #[test]
+    fn a_cut_that_moves_nothing_is_inert() {
+        // CodeRabbit #1391: classification used to compare the arms' lengths,
+        // and a cut always shortens the chain, so `Inert` was unreachable.
+        assert_eq!(
+            Reaction::classify(false, (180, 200), (180, 200)),
+            Reaction::Inert { frequency: 180 }
+        );
+        // Silence twins: confidence alone moving is TruthOnly; a load-bearing
+        // cut stays LoadBearing even with equal truths.
+        assert_eq!(
+            Reaction::classify(false, (180, 200), (180, 190)),
+            Reaction::TruthOnly {
+                factual: 180,
+                counterfactual: 180
+            }
+        );
+        assert_eq!(
+            Reaction::classify(true, (180, 200), (180, 200)),
+            Reaction::LoadBearing {
+                factual: 180,
+                counterfactual: 180
+            }
+        );
     }
 }
