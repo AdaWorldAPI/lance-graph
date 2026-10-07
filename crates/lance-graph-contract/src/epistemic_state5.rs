@@ -714,6 +714,13 @@ mod tests {
         assert_eq!(pop(IND_UNKNOWN | RELATED).count_ones(), 4);
         assert_eq!(pop(IND_KNOWN | SUPPORTS).count_ones(), 3);
         assert_eq!(pop(TOPOLOGY_UNKNOWN | CAUSES), 1 << 23);
+        // The exact sets, not only their sizes: two different populations of
+        // equal size must not pass for each other.
+        let set = |codes: &[u32]| codes.iter().fold(0, |p, c| p | 1 << c);
+        assert_eq!(pop(CAUSES), set(&[20, 21, 22, 23]));
+        assert_eq!(pop(IND_UNKNOWN | RELATED), set(&[10, 14, 18, 22]));
+        assert_eq!(pop(IND_KNOWN | SUPPORTS), set(&[13, 17, 21]));
+        assert_eq!(pop(RELATED), set(&(8..24).collect::<Vec<_>>()));
         assert_eq!(
             pop(CAUSES) & pop(IND_UNKNOWN),
             EpistemicState5::new(Epi5Gen::V1, T::IndirectUnknown, C::Causes).bit()
