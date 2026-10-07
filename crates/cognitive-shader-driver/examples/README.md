@@ -413,3 +413,16 @@ checked once per lane. Every count agrees three ways — population filter,
 ```bash
 cargo run --release -p cognitive-shader-driver --example sudoku_population_fold_probe
 ```
+
+## crossword_population_fold_probe.rs
+
+D-PUZZLE-0, step 2. Crosswords on the same population algebra as the Sudoku
+probe: ten-slot 5×5 grids with generated fills, distractor words, two given
+slots and a forced-single law, each instance checked to have exactly one
+solution. The probe holds only the domain; the reading, questions, folds and
+oracle come unchanged from `shared/population_fold.rs`, whose fence test
+fails if domain vocabulary enters the shared half.
+
+```bash
+cargo run --release -p cognitive-shader-driver --example crossword_population_fold_probe
+```
