@@ -276,12 +276,15 @@ mod semantic_upper_half {
     /// Quantize the maximum entropy of the surviving EpistemicState5
     /// population: ceil(log2(popcount)).  One surviving state is settled (0);
     /// all 24 meaningful V1 states fit in 5.  Integer-only and deterministic.
-    pub fn population_novelty(required: u32) -> u8 {
-        let n = facts_population(required).count_ones();
-        if n <= 1 {
-            0
-        } else {
-            (u32::BITS - (n - 1).leading_zeros()) as u8
+    ///
+    /// `None` when no state survives: the required facts contradict each
+    /// other (for example `DIRECT | INDIRECT`). That is not a settled belief,
+    /// so it never shares the ordinal `0` with one surviving state.
+    pub fn population_novelty(required: u32) -> Option<u8> {
+        match facts_population(required).count_ones() {
+            0 => None,
+            1 => Some(0),
+            n => Some((u32::BITS - (n - 1).leading_zeros()) as u8),
         }
     }
 
@@ -482,7 +485,10 @@ mod tests {
             Topology2::IndirectUnknown,
         )
         .with_w_slot(0);
-        start = with_novelty3(start, population_novelty(fact::IND_UNKNOWN | fact::RELATED));
+        start = with_novelty3(
+            start,
+            population_novelty(fact::IND_UNKNOWN | fact::RELATED).expect("consistent facts"),
+        );
         assert_eq!(novelty3(start), 2, "four certification cells still survive");
 
         // A real A -> B -> Y hydration moves topology, so it earns breadcrumb 1.
@@ -491,7 +497,7 @@ mod tests {
         let mut hydrated = record_belief_update(start, hydrated, 1);
         hydrated = with_novelty3(
             hydrated,
-            population_novelty(fact::IND_KNOWN | fact::RELATED),
+            population_novelty(fact::IND_KNOWN | fact::RELATED).expect("consistent facts"),
         );
         assert_eq!(hydrated.w_slot(), 1);
         assert_eq!(novelty3(hydrated), 2);
@@ -505,7 +511,10 @@ mod tests {
         let (causal, m) = step(hydrated, CausalMask::PO, &ev, Edit::None);
         assert_eq!(m.earned(), Some(Certification3::Causes));
         let mut causal = record_belief_update(hydrated, causal, 2);
-        causal = with_novelty3(causal, population_novelty(fact::IND_KNOWN | fact::CAUSES));
+        causal = with_novelty3(
+            causal,
+            population_novelty(fact::IND_KNOWN | fact::CAUSES).expect("consistent facts"),
+        );
         assert_eq!(causal.w_slot(), 2);
         assert_eq!(novelty3(causal), 0, "one epistemic state survives");
         assert_eq!(
@@ -569,10 +578,18 @@ mod tests {
         assert_eq!(known_related.count_ones(), 4);
         assert_eq!(known_causes.count_ones(), 1);
 
-        assert_eq!(population_novelty(0), 5);
-        assert_eq!(population_novelty(fact::IND_UNKNOWN | fact::RELATED), 2);
-        assert_eq!(population_novelty(fact::IND_KNOWN | fact::RELATED), 2);
-        assert_eq!(population_novelty(fact::IND_KNOWN | fact::CAUSES), 0);
+        assert_eq!(population_novelty(0), Some(5));
+        assert_eq!(
+            population_novelty(fact::IND_UNKNOWN | fact::RELATED),
+            Some(2)
+        );
+        assert_eq!(population_novelty(fact::IND_KNOWN | fact::RELATED), Some(2));
+        assert_eq!(population_novelty(fact::IND_KNOWN | fact::CAUSES), Some(0));
+
+        // Codex #1393: contradictory facts leave no state at all. That is not
+        // the settled single state above, so it must not read as 0.
+        assert_eq!(facts_population(fact::DIRECT | fact::INDIRECT), 0);
+        assert_eq!(population_novelty(fact::DIRECT | fact::INDIRECT), None);
     }
 
     /// Orientation is orthogonal to operator selection and certification in
