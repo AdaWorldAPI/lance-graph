@@ -1,3 +1,8 @@
+## 2026-10-07 — lance-graph #1382 and #1384 MERGED; D-PUZZLE-0 step 3 on branch
+
+- #1382 (`bccc46e`): Sudoku population-fold probe. #1384 (`23e8d93`): shared fold module + crossword probes (steps 2/2b). No contract change in either.
+- Step 3 (branch `claude/epistemicstate5-ce64-bits-3oe0dq`, unmerged): `crossword_mask_propagation_probe.rs`, four representations of one fold; `deepnsm-v2` is now a dev-dependency of `cognitive-shader-driver`. No contract type added: `MooreSymbol8` is probe-local.
+
 ## 2026-10-07 — lance-graph #1381 MERGED (`7334ae9`)
 
 The D-EPI-CANON-0 / D-EPI-MIG-0 section below is now on `main`, together with
