@@ -34,7 +34,8 @@ to compute it now · EXECUTE touches the bytes. No fifth verb was forced.
    gather beats a selection vector at every density below 100 %. The fix is an
    executor gate on an existing op, not a new carrier. [MEASURED]
    Refined by D-GATED-GATHER-0: the gate must work at **bit** granularity
-   inside live words (word granularity loses 47× on scattered survivors), and
+   inside live words (on scattered survivors, word granularity issues 47× the
+   foreign loads and takes 11.6× the time at 1 % density), and
    the ungated kernel is itself 3.8× slow from a per-row branch. **The mask is
    the execution schedule.** [MEASURED, `gated_gather_probe`]
 5. **No selection vector** (quack matrix R1) **survived its falsifier** on that
