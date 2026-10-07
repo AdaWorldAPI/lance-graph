@@ -24,6 +24,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod bind;
 mod exec;
 pub mod observe;
 pub mod rule;
@@ -32,6 +33,7 @@ pub mod store;
 pub mod validate;
 pub mod view;
 
+pub use bind::{where_eq, UserBinder, WhereEqError};
 pub use exec::Kept;
 pub use ogar_dir_sim::{KeyId, ValueId};
 pub use rule::{member_counts, GrantGroup, ImplyGroup, Rule, SetPrimarySmtp};
@@ -107,8 +109,17 @@ pub fn key_eq_program(key: KeyId) -> Program {
 /// one [`key_eq_program`] over the base key lane (overridden and deleted
 /// users gated out), the same program over the created users' key lane,
 /// and a delta-sized check of the overrides. No string is read.
+///
+/// The text form is [`where_eq`], which binds a field name and a literal to
+/// this same program.
 pub fn users_with_key(v: &View<'_>, a: Attribute, key: KeyId) -> Kept {
-    let p = key_eq_program(key);
+    users_matching(v, a, key, &key_eq_program(key))
+}
+
+/// The executor behind [`users_with_key`] and [`where_eq`]: run `p` (plane 0
+/// = live users, lane 0 = `a`'s key lane) over the base and the created
+/// users, and merge the overrides of `a` by `key`.
+pub(crate) fn users_matching(v: &View<'_>, a: Attribute, key: KeyId, p: &Program) -> Kept {
     let s = v.snap;
     let (pop, ov) = v.pop(NodeKind::User);
     let base_key = match a {
@@ -123,7 +134,7 @@ pub fn users_with_key(v: &View<'_>, a: Attribute, key: KeyId) -> Kept {
         let lanes = [LaneRef::U32(lane)];
         let masks: [&[u64]; 1] = [plane];
         exec::keep(
-            &p,
+            p,
             &Planes {
                 n_rows: lane.len(),
                 masks: &masks,
