@@ -79,7 +79,6 @@ use affordance_law::{measure, raw5, LawGen};
 use bgz_tensor::fisher_z::FisherZTable;
 use boundary::strongest_boundary_where;
 use causal_edge::edge::CausalEdge64;
-use causal_edge::layout::TrustTexture;
 use causal_edge::pearl::CausalMask;
 use causal_edge::PlasticityState;
 use cognitive_shader_driver::mailbox_soa::{MailboxSoA, WriteCell, WriteOutcome};
@@ -286,10 +285,11 @@ fn settle(
 
 // ── the register ───────────────────────────────────────────────────────────
 
-/// Stamp an EpistemicState5 code through the shipped writers (bits 59..63).
+/// Write a declared V1 EpistemicState5 code (bits 59..63, jointly). The
+/// transition only ever lands on declared codes, so `write_code` never fires
+/// its expect.
 fn with_code(edge: CausalEdge64, code: u8) -> CausalEdge64 {
-    edge.with_spare(code >> 2)
-        .with_truth(TrustTexture::from_bits_2(code & 0b11))
+    affordance_law::write_code(edge, code)
 }
 
 /// The register before any evidence: every field set, code `OBSERVED`.

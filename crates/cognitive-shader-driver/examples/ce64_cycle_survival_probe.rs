@@ -61,7 +61,6 @@ mod affordance_law;
 
 use affordance_law::{measure, raw5, LawGen};
 use causal_edge::edge::CausalEdge64;
-use causal_edge::layout::TrustTexture;
 use causal_edge::pearl::CausalMask;
 use causal_edge::PlasticityState;
 use cognitive_shader_driver::mailbox_soa::{MailboxSoA, WriteCell, WriteOutcome};
@@ -106,10 +105,9 @@ const fn fold(source: u64, f: u8) -> Fold {
     }
 }
 
-/// Stamp an EpistemicState5 code through the shipped writers (bits 59..63).
+/// Write a declared V1 EpistemicState5 code (bits 59..63, jointly).
 fn with_code(edge: CausalEdge64, code: u8) -> CausalEdge64 {
-    edge.with_spare(code >> 2)
-        .with_truth(TrustTexture::from_bits_2(code & 0b11))
+    affordance_law::write_code(edge, code)
 }
 
 /// The tracked relation as an observation carrying `(f, c)`. S/P/O match the

@@ -74,6 +74,14 @@
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example reasoning_band_probe`
 //! Tests: `cargo test -p cognitive-shader-driver --example reasoning_band_probe`
+//!
+//! D-EPI-MIG-0 (2026-10-07): PROBE-ONLY legacy. This probe writes the
+//! historical `ReasoningBand` / `CausalTopology` half-field readings of
+//! CE64 bits 59..63, which have no translation into the canonical
+//! `EpistemicState5` reading (`contract::epistemic_state5`) and refuse there.
+//! It keeps the deprecated half writers on purpose, as a record of that
+//! reading; no production code may follow it.
+#![allow(deprecated)]
 
 use causal_edge::edge::CausalEdge64;
 use causal_edge::layout::ReasoningBand;

@@ -40,6 +40,12 @@
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example entropy_topology_probe`
 //! Tests: `cargo test -p cognitive-shader-driver --example entropy_topology_probe`
+//!
+//! D-EPI-MIG-0 (2026-10-07): PROBE-ONLY legacy. Reads/writes the
+//! historical `CausalTopology` half of CE64 bits 59..63 through
+//! `band_reading`; that split reading no longer owns the field
+//! (`contract::epistemic_state5` does). Kept as a record of the lens.
+#![allow(deprecated)]
 
 use causal_edge::edge::CausalEdge64;
 use causal_edge::layout::CausalTopology;

@@ -35,7 +35,10 @@
 //! `bzhi rax, rdi, 59; shl rsi, 59; or rax, rsi; ret`, i.e. clear bits
 //! 59..63 and insert. `via_mask` compiled to the identical body and LLVM
 //! folded the two into one symbol. The shipped writers do not force a
-//! decode/repack, so this probe adds no production writer for the 5-bit
+//! decode/repack. ⊘ D-EPI-CANON-0 (2026-10-07) DID add the joint writer
+//! `with_epistemic_raw5` — not for codegen, but so no producer writes half the
+//! field; N6 pins it equal to `via_mask`. Original note: this probe adds no
+//! production writer for the 5-bit
 //! field: it would be a fourth name over bits that already have four lenses
 //! (`truth`, `topology`, `spare`, `reasoning_band`) and would not change the
 //! machine code.
@@ -64,8 +67,10 @@ const ROW: usize = 0;
 const CODE_OBSERVED: u8 = 3;
 const CODE_ASSOCIATED: u8 = 7;
 
-/// The existing field-update path: two shipped writers, one per sub-field.
+/// The historical field-update path: two half writers, one per sub-field.
+/// Deprecated since D-EPI-CANON-0; kept as the measured comparison arm.
 #[inline(never)]
+#[allow(deprecated)]
 fn via_two_writers(edge: CausalEdge64, code: u8) -> CausalEdge64 {
     edge.with_spare(code >> 2)
         .with_truth(TrustTexture::from_bits_2(code & 0b11))
@@ -91,8 +96,7 @@ fn busy() -> CausalEdge64 {
     )
     .with_inference_mantissa(-6)
     .with_w_slot(41)
-    .with_spare(0b101)
-    .with_truth(TrustTexture::from_bits_2(0b10))
+    .with_epistemic_raw5((0b101 << 2) | 0b10)
 }
 
 /// The register read through the production view; `None` outside the
@@ -299,6 +303,9 @@ mod tests {
                     "{:016x} {code}",
                     e.0
                 );
+                // The canonical joint writer (D-EPI-CANON-0) is the same
+                // masked insert.
+                assert_eq!(e.with_epistemic_raw5(code), via_mask(e, code));
             }
         }
         // Every declared code of the #1370 law is reachable this way.

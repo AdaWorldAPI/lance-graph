@@ -201,11 +201,10 @@ fn explain_stamped(law: LawGen, edge: CausalEdge64, recipe: u8) -> Verdict {
     explain(law, edge, EdgeProvenance::V2Stamped, recipe)
 }
 
-/// Stamp an EpistemicState5 code through the shipped writers.
+/// Stamp a raw 5-bit code through the canonical joint writer. Raw on
+/// purpose: fixtures also stamp undeclared codes to prove they refuse.
 fn with_code(edge: CausalEdge64, code: u8) -> CausalEdge64 {
-    use causal_edge::layout::TrustTexture;
-    edge.with_spare(code >> 2)
-        .with_truth(TrustTexture::from_bits_2(code & 0b11))
+    edge.with_epistemic_raw5(code)
 }
 
 /// An edge with every irrelevant field non-zero.
@@ -498,6 +497,7 @@ mod tests {
         // 17 = 0b100_01; rewriting only bits 59..60 through the shipped
         // topology writer leaves bits 61..63 alone and yields 0b100_10 = 18.
         let causes = with_code(busy_edge(CausalMask::SPO), 17);
+        #[allow(deprecated)] // the deprecated half writer IS what is pinned here
         let half = causes.with_topology(causal_edge::layout::CausalTopology::from_bits_2(0b10));
         assert_eq!(raw5(half), 18);
         assert_eq!(stamped(LawGen::V1, half), Err(Refusal::Undeclared(18)));

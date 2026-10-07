@@ -220,6 +220,29 @@ pub struct Epi5Reading {
     pub generation: Epi5Gen,
 }
 
+impl Epi5Reading {
+    /// Project a raw code under THIS declaration (no table lookup, no
+    /// allocation): provenance, then generation, then code. The class lookup
+    /// is the caller's — [`Epi5Declarations::project_state5`] is the usual one.
+    pub const fn project(
+        self,
+        requested: Epi5Gen,
+        raw5: u8,
+        provenance: EdgeProvenance,
+    ) -> Result<EpistemicState5, Epi5ReadError> {
+        if !provenance.trusted() {
+            return Err(Epi5ReadError::UnknownProvenance(provenance));
+        }
+        if !matches!((self.generation, requested), (Epi5Gen::V1, Epi5Gen::V1)) {
+            return Err(Epi5ReadError::GenerationMismatch {
+                declared: self.generation,
+                requested,
+            });
+        }
+        EpistemicState5::decode(requested, raw5)
+    }
+}
+
 /// Why a projection refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Epi5ReadError {
@@ -290,19 +313,9 @@ impl Epi5Declarations {
         raw5: u8,
         provenance: EdgeProvenance,
     ) -> Result<EpistemicState5, Epi5ReadError> {
-        let reading = self
-            .get(class, rail)
-            .ok_or(Epi5ReadError::UndeclaredClass(class))?;
-        if !provenance.trusted() {
-            return Err(Epi5ReadError::UnknownProvenance(provenance));
-        }
-        if reading.generation != requested {
-            return Err(Epi5ReadError::GenerationMismatch {
-                declared: reading.generation,
-                requested,
-            });
-        }
-        EpistemicState5::decode(requested, raw5)
+        self.get(class, rail)
+            .ok_or(Epi5ReadError::UndeclaredClass(class))?
+            .project(requested, raw5, provenance)
     }
 }
 
