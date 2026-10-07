@@ -1,6 +1,6 @@
 ## 2026-10-07 — lance-graph PR #1398 (merged `89694cc`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `ce63247`, 4 commits) — D-PUZZLE-ATTN-0: entropy as the focus of attention on crosswords
 
-- **Added:** the #1387 crossword core moves unchanged to `cognitive-shader-driver/examples/shared/crossword_core.rs`; `crossword_attention_probe.rs` (`test = true`, 9 tests) compares slot policies with puzzles, propagation and value order held fixed.
+- **Added:** the #1387 crossword core moves unchanged to `cognitive-shader-driver/examples/shared/crossword_core.rs`; `crossword_attention_probe.rs` (`test = true`; 8 tests, 7 run by default + `dump_small` ignored; the example binary also runs the 2 shared `population_fold` fence tests) compares slot policies with puzzles, propagation and value order held fixed.
 - **Locked (test-pinned):** popcount (uniform entropy) beats fixed order and widest-first; frequency-weighted Shannon costs more than popcount; dom/wdeg differs from popcount only after a failure; a contradiction has no entropy. 7 disable runs red.
 - **Deferred / open:** Shannon as value ordering; one prior, one vocabulary, sides 5 and 7; no CE64 register in this loop.
 - **Confidence:** medium — 20 created + 20 empty puzzles, one vocabulary.
