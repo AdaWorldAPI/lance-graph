@@ -264,7 +264,7 @@ this arc's code, and a lint sweep in a doctrine + one-module PR would bury the d
 
 ## TD-SPARE-SHIFT-NAME-IS-STALE-1 (2026-09-10) — OPEN, doc-only
 
-**`crates/causal-edge/src/layout.rs:67-77` still names bits 61-63 `SPARE_SHIFT` and
+**`crates/causal-edge/src/layout.rs` (the `SPARE_SHIFT` const) still names bits 61-63 `SPARE_SHIFT` and
 doc-comments them *"Spare: 3-bit reserved for sprint-12+ … Candidates: Rubicon-commit
 marker, Markov-decay quantum, I-NOISE-FLOOR-JIRAK threshold"* — while the same file's
 `ReasoningBand` (`:353-373`) has occupied those bits since `bbab3541` (introduced as

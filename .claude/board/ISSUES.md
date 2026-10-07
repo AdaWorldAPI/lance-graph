@@ -1,6 +1,25 @@
+## ISS-EPI5-CODEBOOK-LACKS-P7A-CONJUNCTIONS — P7a certifications with no canonical EpistemicState5 code (2026-10-07)
+
+**Status:** RESOLVED 2026-10-07 (same day, before merge) by the operator's Cartesian V1: `EpistemicState5 = Topology2 × Certification3` has a code for every P7a contract under every topology (`CausalCandidate` = 16..19, `Direct × Supports` = 12); validity is only `certification < 6`. The hand-assigned #1370 codebook that lacked these cells is gone. **Was:** OPEN — operator decision. **Basis:** TEST-PINNED in `contract::epistemic_state5` (`the_layout_is_the_two_by_three_product`, `causes_is_meaningful_under_every_topology`), `relational_certification_probe` (every contract stamps under every topology) and `epistemic_reading_conflict_probe` (census 24 agree / 0 disagree / 8 reserved). The bullets below are HISTORICAL: they describe the superseded ten-code draft, not the current contract.
+
+- Codebook V1 (the ten #1370 codes) has no conjunction for: `CausalCandidate` under any grounding (no fact for "ordered" / "explains"); `Contributes` (= `SUPPORTS`) under `Direct`; `Associated` under an indirect grounding; `Causes` / `Related` under `Unknown` grounding; `Causes` under an unknown intermediate (the last is arguably correct to refuse).
+- Consequence, measured: P7a's two observational fixtures certify `CausalCandidate`, so the certification is computed but cannot be stamped; it refuses instead of writing 61..63 (no code invented).
+- **What closes it:** a V2 codebook generation that declares the missing conjunctions (which codes, and whether a new fact is minted for `CausalCandidate`) — a codebook design decision, not a migration step. Adding codes is a new generation, never an edit of V1.
+
+## ISS-LEGACY-59-63-READINGS-REMAIN — historical half-field readings still live in probes (2026-10-07)
+
+**Status:** OPEN (tracking), narrowed 2026-10-07 by D-EPI-LEGACY-DEPROJECT-0 (`entries/2026-10-07-epi-legacy-deprojection.md`): the kanban hinge migrated (its band was a non-interference witness, now a canonical coordinate), `EdgeRole::band` removed, the V3 lift reads 59..63 jointly. No production path reads or writes 59..63 through a legacy lens. Remaining: the four-plane and `reasoning_band_probe` records, and the compatibility surfaces. **Basis:** VERIFIED-IN-CODE; inventory `entries/2026-10-07-epi-mig-inventory.md`.
+
+- PROBE-ONLY legacy writers of the historical `ReasoningBand` on the certification bits, kept with `#![allow(deprecated)]` because no mapping onto `Certification3` exists (mapping `Causal` → `Supports`/`Causes` would be invention): `cognitive-shader-driver/examples/{reasoning_band_probe, probe_revision_kanban_hinge}.rs`, `lance-graph-planner/examples/probe_four_plane_causal_medium.rs`. (2026-10-07 Cartesian revision: `entropy_topology_probe` migrated — it writes only topology; `with_topology` is the canonical topology-factor writer and no longer deprecated.)
+- Compatibility surfaces kept: `contract::band_reading` (regraded legacy), the deprecated `TrustTexture` / historical-band / untyped writers in `causal-edge`, the legacy lens readers (`truth`, `reasoning_band`), `dismech_counterfactual::EdgeRole::band` (beside the canonical `epistemic_raw5`).
+- `CausalEdge64::temporal()` (deprecated) still composes bits 52..63 incl. 59..63 and `Network::evidence_trail` sorts by it — documented meaningless ordering, untouched.
+- **What closes it:** removing each once no caller needs it; the probes are records, so they may stay as legacy indefinitely.
+
 ## ISS-EPISTEMIC-READINGS-DISAGREE-ON-BITS-61-63 — the affordance law reads 59..63 without the D-ACR-7 contract and contradicts P7a (2026-10-07)
 
-**Status:** OPEN. **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/epistemic_reading_conflict_probe.rs` (D-EPI-CONFLICT-0).
+**Status:** RESOLVED 2026-10-07 by operator decision + D-EPI-CANON-0 / D-EPI-MIG-0: bits 59..63 are ONE field, `EpistemicState5`, declared in `contract::epistemic_state5` as the Cartesian `Topology2 × Certification3` (`raw5 = topology | certification << 2`, 24 meaningful / 8 reserved; declared per `(classid, rail, generation)`, projection refuses). The affordance law measures only a projected state; P7a stamps by identity packing and reads through the projection. The probe's pins were replaced by agreement tests (census 24 agree / 0 disagree / 8 reserved), not re-pinned. (An earlier same-day draft used the ten #1370 codes and measured 11 / 0 / 13; it was replaced before merge.) No residue: `ISS-EPI5-CODEBOOK-LACKS-P7A-CONJUNCTIONS` is resolved.
+
+**Was:** OPEN. **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/epistemic_reading_conflict_probe.rs` (D-EPI-CONFLICT-0).
 
 - `contract::band_reading` (D-ACR-7) is the unified 59..63 reading contract: per `(classid, rail)` it declares the truth lens (59..60) and band presence (61..63), and projection refuses an undeclared class, an absent band and untrusted provenance. It declares the two fields separately; it has no joint 5-bit lens.
 - P7a (D-GSO-7a) goes through it: class `0x0902` declared `BandPresence::Present`, bits 61..63 read through `project_band` as `0 Open … 5 Causes`, 6..7 refuse.
@@ -23,7 +42,7 @@
 
 ## ISS-NO-EVIDENCE-WRITER-FOR-EPISTEMIC-STATE — accumulated evidence never reaches what the next cycle may do (2026-10-06)
 
-**Status:** OPEN. **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/ce64_cycle_survival_probe.rs` (D-CE64-TIME-0).
+**Status:** OPEN (2026-10-07 note: since D-EPI-MIG-0 a candidate writer must write a DECLARED canonical state jointly — #1379's revision writer and P7a both do; P7a can now feed the law for `Open`/`Associated`/`Related`/`Causes` under `Direct` without the #1378 disagreement. The production decision stays open.) **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/ce64_cycle_survival_probe.rs` (D-CE64-TIME-0).
 
 - `CausalEdge64::learn` (the shipped fold) revises F/C and plasticity only; it never writes bits 59..63. The #1370 eligibility law reads only bits 59..63 and Pearl. So F/C accumulation, however long it survives, cannot change `EligibleRecipes`. The probe declares the missing step locally (code 3 ↔ 7); no production writer of bits 59..63 from evidence exists (the band writers live in probes only), and `CausalEdge64::learn` itself has no production caller.
 - Cross-cycle source identity is not carried: the `SupportLedger` lives one cycle, and the register holds no source set, so two different sources seen in two different cycles never count as two (`sources_split_across_cycles_do_not_combine`). Carrying it would need state the register does not have.

@@ -311,11 +311,21 @@
 //! control) + G17 (membrane monotonicity, vicious).
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example probe_revision_kanban_hinge`
+//!
+//! D-EPI-LEGACY-DEPROJECT-0 (2026-10-07): the CE64 witness asks one thing —
+//! does a nontrivial value in bits 59..63 survive the control loop untouched?
+//! It never reads what the value means. It used to write the historical
+//! `ReasoningBand::Causal`; it now writes a canonical `EpistemicState5`
+//! (`IndirectUnknown × Causes`, raw 22) and pins the coordinate. The state is
+//! a witness, not a claim: any meaningful state with both factors non-zero
+//! would do. (The earlier note that this probe could not migrate answered a
+//! different question — what `Causal` maps to — which the probe never asks.)
 
 use causal_edge::edge::CausalEdge64;
-use causal_edge::layout::{CausalTopology, ReasoningBand};
+use causal_edge::layout::CausalTopology;
 use cognitive_shader_driver::mailbox_soa::MailboxSoA;
 use lance_graph_contract::cognitive_shader::{RungElevator, RungLevel};
+use lance_graph_contract::epistemic_state5::{Certification3, Epi5Gen, EpistemicState5, Topology2};
 use lance_graph_contract::escalation::{
     fanout_width, rung_delta, CollapseHint, CouncilVerdict, InnerCouncil,
 };
@@ -1068,19 +1078,27 @@ fn main() {
     let mut gates: Vec<(&str, bool, String)> = Vec::new();
 
     // The live CE64 non-interference witness: a genuinely nontrivial edge,
-    // both lenses verified to read back BEFORE the run (F7/F8 pre-flight).
-    let edge = CausalEdge64::ZERO
-        .with_topology(CausalTopology::IndirectUnknownIntermediates)
-        .with_reasoning_band(ReasoningBand::Causal);
+    // its coordinate verified to read back BEFORE the run (F7/F8 pre-flight).
+    let witness = EpistemicState5::new(
+        Epi5Gen::V1,
+        Topology2::IndirectUnknown,
+        Certification3::Causes,
+    );
+    let edge = CausalEdge64::ZERO.with_epistemic_raw5(witness.raw());
+    assert_eq!(
+        edge.epistemic_raw5(),
+        22,
+        "pre-flight: the witness coordinate"
+    );
+    assert_eq!(
+        EpistemicState5::decode(Epi5Gen::V1, edge.epistemic_raw5()),
+        Ok(witness),
+        "pre-flight: the coordinate must decode back"
+    );
     assert_eq!(
         edge.topology(),
         CausalTopology::IndirectUnknownIntermediates,
-        "pre-flight: topology lens must read back"
-    );
-    assert_eq!(
-        edge.reasoning_band(),
-        ReasoningBand::Causal,
-        "pre-flight: reasoning-band lens must read back"
+        "pre-flight: topology factor must read back"
     );
     let edge_raw_before = edge.0;
 
@@ -1401,8 +1419,9 @@ fn main() {
         format!("raw 0x{:016X} identical before/after", edge.0),
     ));
     gates.push((
-        "F8 ReasoningBand bits 61..63 untouched by the whole control loop",
-        edge.0 == edge_raw_before && edge.reasoning_band() == ReasoningBand::Causal,
+        "F8 EpistemicState5 bits 59..63 untouched by the whole control loop",
+        edge.0 == edge_raw_before
+            && EpistemicState5::decode(Epi5Gen::V1, edge.epistemic_raw5()) == Ok(witness),
         "a live semantic object passed through and was left alone".into(),
     ));
     let edge_direct = CausalEdge64::ZERO.with_topology(CausalTopology::Direct);

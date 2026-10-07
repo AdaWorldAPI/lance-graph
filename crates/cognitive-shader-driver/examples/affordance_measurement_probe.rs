@@ -12,13 +12,17 @@
 //!
 //! # The readings the law declares (law generation V1 / V2)
 //!
-//! - **EpistemicState5.** Bits 59..63 are read as ONE 5-bit code,
-//!   `raw5 = spare() << 2 | truth_raw()`, through the existing accessors. The
-//!   law maps a code to a set of semantic facts (`DIRECT`, `INDIRECT`,
-//!   `INTERMEDIATE_*`, `OBSERVED`, `ASSOCIATED`, `RELATED`, `SUPPORTS`,
-//!   `CAUSES`). Only ten codes are valid; the rest refuse. The codes are
-//!   deliberately not ordered by strength: `raw_a > raw_b` means nothing, and
-//!   "or higher" is written into each code's fact set by the law.
+//! - **EpistemicState5.** Bits 59..63 are read as ONE 5-bit code. ⊘
+//!   D-EPI-MIG-0: the code is the canonical Cartesian product
+//!   `Topology2 × Certification3`, `raw5 = topology | certification << 2`
+//!   (`contract::epistemic_state5`); its facts are the union of the two
+//!   factors' facts (`DIRECT`, `INDIRECT`, `INTERMEDIATE_*`,
+//!   `TOPOLOGY_UNKNOWN`; `ASSOCIATED`, `RELATED`, `SUPPORTS`,
+//!   `CAUSAL_CANDIDATE`, `CAUSES`). 24 codes are meaningful; 24..31 (reserved
+//!   certifications) refuse. `OBSERVED` is no longer a fact: observation is
+//!   evidence, not a coordinate. (#1370's hand-assigned ten-code codebook is
+//!   gone.) Raw code order is still not epistemic order: topology is not
+//!   ordered, so `raw_a > raw_b` across topologies means nothing.
 //!   Bits 59..63 are read only under an asserted v2-stamped or V3-register
 //!   provenance (the `band_reading` rule): on a v1 row they are old
 //!   `temporal` bits, and v1 or unknown provenance refuses.
@@ -46,8 +50,9 @@
 //! stays the job of the certification obligations (D-GSO-7a); nothing here
 //! writes the edge.
 //!
-//! The rules are compiled at build time into `[u64; 32]` (per code) and
-//! `[u64; 8]` (per Pearl projection). At run time the facts disappear:
+//! The rules are compiled at build time per factor (`[u64; 4]` topology,
+//! `[u64; 6]` certification), the per-code `[u64; 32]` is DERIVED as their AND,
+//! plus `[u64; 8]` per Pearl projection. At run time the facts disappear:
 //! `eligible = STATE[raw5] & PEARL[pearl3]`.
 //!
 //! # Layers kept apart
@@ -59,11 +64,9 @@
 //!
 //! # Not decided here
 //!
-//! - The codebook, the fact vocabulary and the recipe set are probe pins.
-//! - Bits 59..63 have shipped split readings (`truth`/`topology` on 59..60,
-//!   `ReasoningBand` on 61..63, read separately by `band_reading`). A joint
-//!   5-bit reading needs its own declaration there before it can be relied on;
-//!   this probe declares it locally.
+//! - The recipe set is a probe pin. ⊘ D-EPI-MIG-0: the state layout and fact
+//!   vocabulary are now the contract's (`epistemic_state5`), declared per
+//!   class; this probe's edges belong to `AFF_CLASS`.
 //! - Dynamic gates, Shannon preference and executing a recipe are out of scope.
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example affordance_measurement_probe`
@@ -115,17 +118,20 @@ fn counting<T>(f: impl FnOnce() -> T) -> (T, usize) {
 mod affordance_law;
 use affordance_law::*;
 
-const FACT_NAMES: [&str; 10] = [
+/// Fact names by bit position (bit 5, formerly `OBSERVED`, is unused).
+const FACT_NAMES: [&str; 12] = [
     "DIRECT",
     "INDIRECT",
     "INTERMEDIATE_PRESENT",
     "INTERMEDIATE_UNKNOWN",
     "INTERMEDIATE_KNOWN",
-    "OBSERVED",
+    "-",
     "ASSOCIATED",
     "RELATED",
     "SUPPORTS",
     "CAUSES",
+    "TOPOLOGY_UNKNOWN",
+    "CAUSAL_CANDIDATE",
 ];
 
 const RECIPE_NAMES: [&str; 7] = [
@@ -201,11 +207,10 @@ fn explain_stamped(law: LawGen, edge: CausalEdge64, recipe: u8) -> Verdict {
     explain(law, edge, EdgeProvenance::V2Stamped, recipe)
 }
 
-/// Stamp an EpistemicState5 code through the shipped writers.
+/// Stamp a raw 5-bit code through the canonical joint writer. Raw on
+/// purpose: fixtures also stamp undeclared codes to prove they refuse.
 fn with_code(edge: CausalEdge64, code: u8) -> CausalEdge64 {
-    use causal_edge::layout::TrustTexture;
-    edge.with_spare(code >> 2)
-        .with_truth(TrustTexture::from_bits_2(code & 0b11))
+    edge.with_epistemic_raw5(code)
 }
 
 /// An edge with every irrelevant field non-zero.
@@ -225,7 +230,7 @@ fn busy_edge(pearl: CausalMask) -> CausalEdge64 {
 }
 
 fn fact_names(mask: u32) -> String {
-    (0..10)
+    (0..12)
         .filter(|i| mask & (1 << i) != 0)
         .map(|i| FACT_NAMES[i])
         .collect::<Vec<_>>()
@@ -251,8 +256,8 @@ fn main() {
         );
     }
     let unreadable = (0u8..32).filter(|c| EPI_LAW[*c as usize].is_none()).count();
-    println!("  {unreadable} codes refuse (not declared by the law)");
-    let edge = with_code(busy_edge(CausalMask::SO), 25);
+    println!("  {unreadable} codes refuse (reserved certifications 6, 7)");
+    let edge = with_code(busy_edge(CausalMask::SO), 10);
     let (e, allocs) = counting(|| stamped(LawGen::V1, edge));
     let eligible = e.unwrap_or(0);
     println!(
@@ -273,7 +278,7 @@ fn main() {
         "  preference {cheap:#04x} -> {preferred:#04x}, first recipe {:?} (COUNTERFACTUAL_PROBE stays illegal)",
         select(preferred).map(|r| RECIPE_NAMES[r as usize])
     );
-    let causes = with_code(busy_edge(CausalMask::SPO), 17);
+    let causes = with_code(busy_edge(CausalMask::SPO), 21);
     println!(
         "Causes code under V1 {:#04x}, under V2 {:#04x} (V2 forbids STRATIFY once CAUSES holds)",
         stamped(LawGen::V1, causes).unwrap(),
@@ -325,15 +330,15 @@ mod tests {
     /// F2: changing a relevant factor flips the affected bit.
     #[test]
     fn f2_a_relevant_factor_flips_the_affected_bit() {
-        let unknown = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SO), 25)).unwrap();
-        let known = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SO), 5)).unwrap();
+        let unknown = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SO), 10)).unwrap();
+        let known = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SO), 9)).unwrap();
         assert_ne!(unknown & 1 << HYDRATE_INTERMEDIATE, 0);
         assert_eq!(unknown & 1 << MECHANISM_FOLD, 0);
         assert_eq!(known & 1 << HYDRATE_INTERMEDIATE, 0);
         assert_ne!(known & 1 << MECHANISM_FOLD, 0);
 
-        let causes_so = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SO), 17)).unwrap();
-        let causes_spo = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SPO), 17)).unwrap();
+        let causes_so = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SO), 21)).unwrap();
+        let causes_spo = stamped(LawGen::V1, with_code(busy_edge(CausalMask::SPO), 21)).unwrap();
         assert_eq!(causes_so & 1 << COUNTERFACTUAL_PROBE, 0);
         assert_ne!(causes_spo & 1 << COUNTERFACTUAL_PROBE, 0);
         assert_eq!(
@@ -469,25 +474,31 @@ mod tests {
         }
     }
 
-    /// The raw code is not a strength: code 1 (`Causes`) carries strictly more
-    /// facts than code 20 (`Related`), so comparing codes would admit wrongly.
+    /// The raw code is not a strength: topology is not ordered, so a larger
+    /// code can lack what a smaller one licenses. `MECHANISM_FOLD` is legal at
+    /// 5 (`IndirectKnown × Associated`) and refused at 7 (`Unknown ×
+    /// Associated`), although 7 > 5. Within one topology the certification
+    /// chain IS cumulative (20 `Causes` ⊇ 8 `Related`).
     #[test]
     fn raw_code_order_is_not_epistemic_order() {
-        let (causes, related) = (EPI_LAW[1].unwrap(), EPI_LAW[20].unwrap());
+        let (causes, related) = (EPI_LAW[20].unwrap(), EPI_LAW[8].unwrap());
         assert_eq!(causes & related, related);
         assert_ne!(causes, related);
-        // `ROBUSTNESS_TEST` is legal at code 1 (Causes) and refused at code 12
-        // (Associated only), although 12 > 1.
         let at = |c: u8| stamped(LawGen::V1, with_code(busy_edge(CausalMask::SPO), c)).unwrap();
-        assert_ne!(at(1) & 1 << ROBUSTNESS_TEST, 0);
-        assert_eq!(at(12) & 1 << ROBUSTNESS_TEST, 0);
+        assert_ne!(at(5) & 1 << MECHANISM_FOLD, 0);
+        assert_eq!(at(7) & 1 << MECHANISM_FOLD, 0);
     }
 
-    /// Undeclared codes refuse instead of reading as a weak state, including a
-    /// code produced by a writer that touches only half of bits 59..63.
+    /// Reserved codes refuse instead of reading as a weak state. A topology
+    /// write is a FACTOR update under the Cartesian layout: from 21
+    /// (`IndirectKnown × Causes`) it yields 22 (`IndirectUnknown × Causes`), a
+    /// meaningful state, and only the topology recipes move.
     #[test]
-    fn undeclared_codes_refuse_including_half_field_writes() {
-        for code in (0u8..32).filter(|c| EPI_LAW[*c as usize].is_none()) {
+    fn reserved_codes_refuse_and_a_topology_write_is_a_factor_update() {
+        let reserved = !lance_graph_contract::epistemic_state5::facts_population(0);
+        assert_eq!(reserved, 0xFF00_0000, "reserved = certifications 6 and 7");
+        for code in (0u8..32).filter(|c| reserved >> c & 1 == 1) {
+            assert!(EPI_LAW[code as usize].is_none());
             let e = with_code(busy_edge(CausalMask::SPO), code);
             assert_eq!(stamped(LawGen::V1, e), Err(Refusal::Undeclared(code)));
             assert_eq!(
@@ -495,23 +506,26 @@ mod tests {
                 Verdict::Unreadable
             );
         }
-        // 17 = 0b100_01; rewriting only bits 59..60 through the shipped
-        // topology writer leaves bits 61..63 alone and yields 0b100_10 = 18.
-        let causes = with_code(busy_edge(CausalMask::SPO), 17);
-        let half = causes.with_topology(causal_edge::layout::CausalTopology::from_bits_2(0b10));
-        assert_eq!(raw5(half), 18);
-        assert_eq!(stamped(LawGen::V1, half), Err(Refusal::Undeclared(18)));
+        let causes = with_code(busy_edge(CausalMask::SPO), 21);
+        let moved = causes.with_topology(causal_edge::layout::CausalTopology::from_bits_2(0b10));
+        assert_eq!(raw5(moved), 22);
+        let (a, b) = (
+            stamped(LawGen::V1, causes).unwrap(),
+            stamped(LawGen::V1, moved).unwrap(),
+        );
+        assert_eq!(a ^ b, 1 << HYDRATE_INTERMEDIATE | 1 << MECHANISM_FOLD);
     }
 
     /// Bits 59..63 are only read under an asserted v2/V3 provenance. A v1 row
-    /// whose old `temporal` was 128 has bit 59 set, which would read as code 1
-    /// (`Causes`) and make `COUNTERFACTUAL_PROBE` eligible; it refuses instead.
+    /// whose old `temporal` was 2560 has bits 61 and 63 set, which would read
+    /// as code 20 (`Direct × Causes`) and make `COUNTERFACTUAL_PROBE`
+    /// eligible; it refuses instead.
     #[test]
     fn v1_and_unknown_provenance_refuse() {
-        let v1_row = CausalEdge64((128u64 << 52) | (CausalMask::SPO as u64) << 40);
+        let v1_row = CausalEdge64((2560u64 << 52) | (CausalMask::SPO as u64) << 40);
         assert_eq!(
             raw5(v1_row),
-            1,
+            20,
             "the old temporal bit lands on a declared code"
         );
         for prov in [EdgeProvenance::V1Legacy, EdgeProvenance::Unknown] {
@@ -535,8 +549,8 @@ mod tests {
     /// projection. The output is a `u64`; there is no other object.
     #[test]
     fn f9_the_measurement_allocates_nothing() {
-        let edges: [CausalEdge64; 80] = {
-            let mut a = [CausalEdge64::ZERO; 80];
+        let edges: [CausalEdge64; 192] = {
+            let mut a = [CausalEdge64::ZERO; 192];
             let mut i = 0;
             for code in valid_codes() {
                 for p in ALL_PEARL {
@@ -544,7 +558,7 @@ mod tests {
                     i += 1;
                 }
             }
-            assert_eq!(i, 80);
+            assert_eq!(i, 192);
             a
         };
         let (acc, allocs) = counting(|| {

@@ -1,3 +1,31 @@
+## 2026-10-07 — D-EPI-CANON-0 / D-EPI-MIG-0: CE64 bits 59..63 = `EpistemicState5` (branch `claude/epistemicstate5-ce64-bits-3oe0dq`, unmerged)
+
+### Current Contract Inventory — net delta (`epistemic_state5.rs`, `class_view.rs`, `causal-edge`)
+- New zero-dep module `lance_graph_contract::epistemic_state5`: the
+  Cartesian `EpistemicState5 = Topology2 × Certification3`
+  (`raw5 = topology | certification << 2`; 24 meaningful, 8 reserved):
+  `Topology2`, `Certification3` (P7a codes), `fact::*` (no `OBSERVED`;
+  `TOPOLOGY_UNKNOWN`, `CAUSAL_CANDIDATE` added), `TOPOLOGY_FACTS`,
+  `CERTIFICATION_FACTS`, `facts_v1`, derived `COMPILED_FACTS_V1`, `Epi5Gen`,
+  `EpistemicState5` (`new`, `decode`, `raw`, `topology`, `certification`,
+  `facts`, `asserts`, `with_topology`, `with_certification`), `Epi5Reading`
+  (`project`), `Epi5ReadError`, `Epi5Declarations::{declare, get,
+  project_state5}`.
+- D-EPI-POP-0: `Population = u32` (bit `r` = the state whose raw5 is `r`),
+  `facts_population(required) -> Population` (`const fn`; the codes whose
+  facts include every required fact; reserved codes never appear; conjunction
+  is intersection), `EpistemicState5::bit()`. Transient — never stored.
+- D-EPI-LEGACY-DEPROJECT-0: `lance_graph_planner::dismech_counterfactual::EdgeRole::band` (historical `ReasoningBand`) REMOVED — the canonical field is `epistemic_raw5`; `CausalEdgeV3` lifts bits 59..63 through `epistemic_raw5()` (byte layout unchanged).
+- `ClassView::epistemic_reading(class, rail) -> Option<Epi5Reading>` (provided,
+  default `None` = refuse).
+- `band_reading` regraded: legacy compatibility surface, no longer owns 59..63.
+- `causal-edge`: `layout::{EPISTEMIC_SHIFT, EPISTEMIC_MASK, BITS5_MASK}`,
+  `CausalEdge64::{epistemic_raw5, with_epistemic_raw5}` (v1: zero / no-op),
+  `CausalEdgeV3::epistemic_raw5`; `with_topology` is the canonical topology-
+  factor writer; `with_truth`/`set_truth`/`with_routing` (TrustTexture),
+  `with_reasoning_band` (historical band) and `with_spare`/`set_spare`
+  (untyped) are `#[deprecated]`.
+
 ## 2026-10-07 — Cypher autopsy + experimental Cypher→Quack seam (branch `ccr-a86d1f2f-015t11`, PR #1376, unmerged)
 
 ### Current Contract Inventory — UNCHANGED (no contract type added; one crate added)

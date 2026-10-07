@@ -1,61 +1,33 @@
-//! D-EPI-CONFLICT-0: the affordance law reads `CausalEdge64` bits 59..63
-//! without the unified 59..63 contract, and disagrees with the reading a
-//! class declares through it. This probe pins the disagreement; it does not
-//! resolve it.
+//! D-EPI-CONFLICT-0 → D-EPI-MIG-0: the conformance probe of the canonical
+//! Cartesian `EpistemicState5` reading of `CausalEdge64` bits 59..63.
 //!
-//! Issue: `ISS-EPISTEMIC-READINGS-DISAGREE-ON-BITS-61-63` in
-//! `.claude/board/ISSUES.md`.
+//! # What it pinned (#1378, kept as history)
 //!
-//! # The unified contract
+//! P7a (#1369) wrote its certification into bits 61..63 and read it through
+//! `band_reading::project_band`; the affordance law (#1370) read bits 59..63
+//! as one code under a hand-assigned, deliberately unordered codebook. A
+//! P7a-certified `Causes` over topology 0 was raw code 20, which that codebook
+//! read as `Direct × Related`; 3 of 8 shared cells agreed.
 //!
-//! `lance_graph_contract::band_reading` (D-ACR-7) is the one 59..63 reading
-//! contract: per `(classid, rail)` a class declares which lens its producers
-//! wrote into bits 59..60 (`TruthLens`) and whether bits 61..63 carry a band
-//! (`BandPresence`). Projection is fallible: undeclared class, band absent and
-//! untrusted provenance refuse. It declares two split fields; it has no joint
-//! 5-bit lens.
+//! # What holds now (operator decision 2026-10-07)
 //!
-//! # The two readings
-//!
-//! - **P7a** (`relational_certification_probe.rs`, D-GSO-7a, #1369) writes a
-//!   relational contract into bits 61..63 through `with_reasoning_band`:
-//!   `0 Open, 1 Associated, 2 Related, 3 Contributes, 4 CausalCandidate,
-//!   5 Causes`, 6 and 7 refuse. Comparison is ordinal on 0..=5 (`entails`).
-//!   It reads the band through `BandDeclarations::project_band` with the class
-//!   declared `BandPresence::Present`: it goes through the contract.
-//! - **The affordance law** (`shared/affordance_law.rs`, D-GSO-AFF-0, #1370;
-//!   read by four probes) reads bits 59..63 as ONE 5-bit EpistemicState5 code,
-//!   `raw5 = spare() << 2 | truth_raw()`. Bits 61..63 are `spare()`, the same
-//!   three bits P7a writes, so `raw5 >> 2` IS the P7a code. The law's codebook
-//!   is deliberately not ordered and gives those bits other meanings. It takes
-//!   no class and never consults the contract: it checks provenance only.
-//!
-//! The affordance probe says so itself ("a joint 5-bit reading needs its own
-//! declaration there before it can be relied on; this probe declares it
-//! locally"). That declaration does not exist, and
-//! `ISS-NO-EVIDENCE-WRITER-FOR-EPISTEMIC-STATE` cannot be closed with P7a as
-//! the writer until the two agree.
-//!
-//! # What is pinned
+//! `EpistemicState5 = Topology2 × Certification3`, `raw5 = topology |
+//! certification << 2`, with the ordinals already on the wire
+//! (`CausalTopology` and P7a's codes). The #1370 codebook was the only thing
+//! out of place; it is gone. So the canonical projection and the two old
+//! split readings now agree by construction, and this probe proves it:
 //!
 //! | test | pin |
 //! |---|---|
-//! | `the_affordance_law_reads_bits_the_contract_refuses` | an undeclared class and a band-`Absent` class refuse under the contract; the affordance law measures both |
-//! | `a_certified_causes_never_reads_as_causes` | the contract projects `Causes` (5); the affordance law reads `Related` (topology 0) or refuses (1..3); `COUNTERFACTUAL_PROBE` is never eligible |
-//! | `the_affordance_causes_codes_are_not_p7a_causes` | the two codes that assert `CAUSES` sit on P7a `Open` and `CausalCandidate` |
-//! | `affordance_codes_occupy_p7a_reserved_bands` | two declared codes sit on P7a's refused bands 6 and 7 |
-//! | `the_readings_agree_on_three_of_eight_shared_cells` | exhaustive count over every P7a contract × topology |
-//!
-//! Both readings are exercised from shared code, never copied:
-//! `shared/affordance_law.rs` and `shared/certification_reading.rs` (P7a's
-//! classes, declarations, contract table, `entails` and `stamp`). Each test is
-//! a pin of the current state: it FAILS when either codebook changes. A reconciliation should turn these into agreement tests and close
-//! the issue, not edit the numbers to match.
-//!
-//! The agreement test compares only the three facts that share a name with a
-//! P7a contract (`ASSOCIATED`, `RELATED`, `CAUSES`). P7a's `Contributes` and
-//! `CausalCandidate` have no same-named fact, and `SUPPORTS` is not assumed to
-//! mean `Contributes`.
+//! | `the_canonical_reading_is_the_two_old_lenses_read_together` | over every topology × 3-bit certification: canonical == `topology()` lens + P7a decode — 24 agree, 0 disagree, 8 reserved refuse |
+//! | `undeclared_classes_refuse` | the law never measures a class without a canonical declaration |
+//! | `a_certified_causes_reads_as_causes_under_every_topology` | F3: 20..23, `CAUSES` asserted, `COUNTERFACTUAL_PROBE` eligible |
+//! | `the_1378_fixture_now_agrees` | P7a `Causes` over topology 0 is code 20 = `Direct × Causes` to both readers |
+//! | `the_derived_table_equals_the_rules` | the factor-compiled table equals per-code rule evaluation (F6) |
+//! | `one_factor_moves_only_its_recipes` | F7 + the frontier: 10↔9, 9↔13, 22, 23 |
+//! | `a_legacy_reading_class_is_not_consumed_as_canonical` | F2: a historical-band class refuses even though its bits decode |
+//! | `the_state_survives_restart_from_le_bytes` | F5 |
+//! | `projections_never_change_the_edge` | F8 |
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example epistemic_reading_conflict_probe`
 //! Tests: `cargo test -p cognitive-shader-driver --example epistemic_reading_conflict_probe`
@@ -65,36 +37,27 @@ mod affordance_law;
 #[path = "shared/certification_reading.rs"]
 mod certification_reading;
 
-use affordance_law::{raw5, ASSOCIATED, CAUSES, EPI_LAW, RELATED};
+use affordance_law::raw5;
 use causal_edge::edge::CausalEdge64;
-use causal_edge::layout::TrustTexture;
 use causal_edge::pearl::CausalMask;
 use causal_edge::PlasticityState;
-use certification_reading::{declarations, read, Contract, CERT_CLASS, RAIL};
-use lance_graph_contract::band_reading::{BandReadError, BandReading, EdgeProvenance};
-use lance_graph_contract::class_view::ClassId;
+use certification_reading::{Contract, CERT_CLASS, RAIL};
+use lance_graph_contract::band_reading::EdgeProvenance;
+use lance_graph_contract::epistemic_state5::{
+    Epi5Declarations, Epi5Gen, Epi5Reading, EpistemicState5, Topology2,
+};
 
-/// A class declared band-free: its bits 61..63 are spare.
-const SPARE_CLASS: ClassId = 0x0903;
-/// A class never declared.
-const UNDECLARED_CLASS: ClassId = 0x0904;
-
-/// P7a's contract as P7a's own reader returns it.
-fn p7a_reads(edge: CausalEdge64) -> Result<Contract, certification_reading::Refusal> {
-    read(&declarations(), CERT_CLASS, edge, EdgeProvenance::V2Stamped)
-}
-
-/// The band as the unified contract projects it for `class`: P7a's
-/// declarations plus one band-free class.
-fn contract_band(class: ClassId, edge: CausalEdge64) -> Result<u8, BandReadError> {
-    let mut d = declarations();
-    d.declare(SPARE_CLASS, RAIL, BandReading::ZERO_FALLBACK);
-    d.project_band(
-        class,
+/// The declarations both readers share: P7a's class, declared canonical.
+fn decl() -> Epi5Declarations {
+    let mut d = Epi5Declarations::new();
+    d.declare(
+        CERT_CLASS,
         RAIL,
-        edge.reasoning_band().to_bits_3(),
-        EdgeProvenance::V2Stamped,
-    )
+        Epi5Reading {
+            generation: Epi5Gen::V1,
+        },
+    );
+    d
 }
 
 /// An edge with all three Pearl planes, so the plane rule never hides a
@@ -112,44 +75,43 @@ fn base() -> CausalEdge64 {
     )
 }
 
-/// What P7a writes (its own `stamp`) plus a topology in bits 59..60.
-fn stamp(contract: Contract, topology: u8) -> CausalEdge64 {
-    certification_reading::stamp(base(), contract).with_truth(TrustTexture::from_bits_2(topology))
+/// The canonical projection of an edge of P7a's class.
+fn canonical(edge: CausalEdge64) -> Option<EpistemicState5> {
+    decl()
+        .project_state5(
+            CERT_CLASS,
+            RAIL,
+            Epi5Gen::V1,
+            raw5(edge),
+            EdgeProvenance::V2Stamped,
+        )
+        .ok()
 }
 
-/// The facts P7a's contract entails (its own `entails` table), in the
-/// affordance vocabulary, for the three facts that share a name with a
-/// contract.
-fn p7a_entails(contract: Contract) -> u32 {
-    let mut f = 0;
-    if contract.entails(Contract::Associated) {
-        f |= ASSOCIATED;
-    }
-    if contract.entails(Contract::Related) {
-        f |= RELATED;
-    }
-    if contract.entails(Contract::Causes) {
-        f |= CAUSES;
-    }
-    f
+/// The two OLD split readings, independent of the contract: the edge crate's
+/// `CausalTopology` lens on 59..60 and P7a's own decode of 61..63.
+fn split(edge: CausalEdge64) -> Option<(u8, Contract)> {
+    let topology = edge.topology().to_bits_2();
+    Contract::from_code(edge.spare())
+        .ok()
+        .map(|c| (topology, c))
 }
 
-const SHARED: u32 = ASSOCIATED | RELATED | CAUSES;
-
-/// The affordance reading of an edge: its facts, or `None` if it refuses.
-fn affordance_facts(edge: CausalEdge64) -> Option<u32> {
-    EPI_LAW[raw5(edge) as usize]
-}
-
-/// (agree, disagree, refused) over every P7a contract × topology.
+/// (agree, disagree, refused) over every topology × 3-bit certification.
 fn census() -> (usize, usize, usize) {
     let (mut agree, mut disagree, mut refused) = (0, 0, 0);
-    for c in Contract::ALL {
-        for t in 0..4u8 {
-            match affordance_facts(stamp(c, t)) {
-                None => refused += 1,
-                Some(f) if f & SHARED == p7a_entails(c) => agree += 1,
-                Some(_) => disagree += 1,
+    for t in 0..4u8 {
+        for c in 0..8u8 {
+            let e = base().with_epistemic_raw5(t | c << 2);
+            match (canonical(e), split(e)) {
+                (Some(s), Some((ot, oc)))
+                    if s.topology().ordinal() == ot
+                        && Contract::from_certification(s.certification()) == oc =>
+                {
+                    agree += 1
+                }
+                (None, None) => refused += 1,
+                _ => disagree += 1,
             }
         }
     }
@@ -157,130 +119,237 @@ fn census() -> (usize, usize, usize) {
 }
 
 fn main() {
-    println!(
-        "D-EPI-CONFLICT-0: P7a contract (bits 61..63) x topology (59..60) under the affordance law"
-    );
-    for c in Contract::ALL {
-        for t in 0..4u8 {
-            let e = stamp(c, t);
-            let shown = match affordance_facts(e) {
-                None => "refuses".to_string(),
-                Some(f) => format!(
-                    "facts {:#05x}{}",
-                    f,
-                    if f & SHARED == p7a_entails(c) {
-                        ""
-                    } else {
-                        "  <- disagrees"
-                    }
-                ),
-            };
-            let declared = p7a_reads(e).expect("P7a reads its own stamp");
-            println!(
-                "  P7a {:<16} topo {t}  raw5 {:>2}  {shown}",
-                format!("{declared:?}"),
-                raw5(e)
-            );
-        }
+    println!("D-EPI-MIG-0: EpistemicState5 = Topology2 × Certification3 (raw5 = t | c << 2)");
+    for t in Topology2::ALL {
+        let row: Vec<String> = Contract::ALL
+            .iter()
+            .map(|c| format!("{:>2}", t.ordinal() | c.code() << 2))
+            .collect();
+        println!("  {t:<16?} {}", row.join(" "));
     }
     let (a, d, r) = census();
-    println!("agree {a}, disagree {d}, refused {r} of 24 cells");
-    let e = stamp(Contract::Causes, 0);
     println!(
-        "same edge under the contract: spare class {:?}, undeclared class {:?}; the affordance law takes no class",
-        contract_band(SPARE_CLASS, e),
-        contract_band(UNDECLARED_CLASS, e)
+        "agree {a}, disagree {d}, reserved/refused {r} of 32 (was 3 / 5 / 16 shared cells in #1378)"
     );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use affordance_law::{measure, LawGen, Refusal, COUNTERFACTUAL_PROBE};
+    use affordance_law::{
+        measure_declared, LawGen, Refusal, CAUSAL_IDENTIFICATION, COUNTERFACTUAL_PROBE, EPI_LAW,
+        HYDRATE_INTERMEDIATE, MECHANISM_FOLD,
+    };
+    use causal_edge::layout::ReasoningBand;
+    use certification_reading::{read, Refusal as P7aRefusal};
+    use lance_graph_contract::class_view::ClassId;
+    use lance_graph_contract::epistemic_state5::fact::{CAUSES, CERTIFICATION_MASK, TOPOLOGY_MASK};
+    use lance_graph_contract::epistemic_state5::Epi5ReadError;
 
-    /// The affordance measurement. It takes no class: there is nothing to
-    /// look up a declaration with.
-    fn eligible(edge: CausalEdge64) -> Result<u64, Refusal> {
-        measure(LawGen::V1, edge, EdgeProvenance::V2Stamped)
+    /// A class never declared under the canonical reading.
+    const UNDECLARED_CLASS: ClassId = 0x0904;
+
+    fn eligible(class: ClassId, edge: CausalEdge64) -> Result<u64, Refusal> {
+        measure_declared(
+            LawGen::V1,
+            &decl(),
+            class,
+            RAIL,
+            edge,
+            EdgeProvenance::V2Stamped,
+        )
     }
 
-    /// FAILS IF: the affordance law starts refusing what the contract refuses,
-    /// i.e. it begins to consult the declaration.
-    #[test]
-    fn the_affordance_law_reads_bits_the_contract_refuses() {
-        let e = stamp(Contract::Causes, 0);
-        assert_eq!(
-            contract_band(UNDECLARED_CLASS, e),
-            Err(BandReadError::UndeclaredClass(UNDECLARED_CLASS))
-        );
-        assert_eq!(
-            contract_band(SPARE_CLASS, e),
-            Err(BandReadError::BandAbsent)
-        );
-        // Same edge, any class: the affordance law measures it.
-        assert!(eligible(e).is_ok());
-        // Silence twin: the contract does admit the band on P7a's class.
-        assert_eq!(contract_band(CERT_CLASS, e), Ok(Contract::Causes.code()));
+    fn at(code: u8) -> u64 {
+        eligible(CERT_CLASS, base().with_epistemic_raw5(code)).unwrap()
     }
 
-    /// FAILS IF: a P7a-certified `Causes` starts reading as `CAUSES` under the
-    /// affordance law, or `COUNTERFACTUAL_PROBE` becomes eligible on it.
-    #[test]
-    fn a_certified_causes_never_reads_as_causes() {
-        // Topology 0: code 20, read as Related.
-        let e = stamp(Contract::Causes, 0);
-        assert_eq!(raw5(e), 20);
-        assert_eq!(p7a_reads(e), Ok(Contract::Causes), "P7a reads Causes");
-        let facts = affordance_facts(e).expect("code 20 is declared");
-        assert_eq!(facts & CAUSES, 0, "P7a Causes carries no CAUSES fact");
-        assert_eq!(facts & SHARED, ASSOCIATED | RELATED);
-        let ok = eligible(e).expect("code 20 is measurable");
-        assert_eq!(ok & (1 << COUNTERFACTUAL_PROBE), 0);
-        // Anti-vacuity: the plane rule does not hide the recipe; a code that
-        // does carry CAUSES makes it eligible on the same edge.
-        let with_causes = stamp(Contract::Open, 1);
-        assert_ne!(
-            eligible(with_causes).unwrap() & (1 << COUNTERFACTUAL_PROBE),
-            0
-        );
+    fn bits(recipes: &[u8]) -> u64 {
+        recipes.iter().fold(0, |m, r| m | 1 << r)
+    }
 
-        // Topologies 1..3: codes 21..23, not declared by the affordance law.
-        for t in 1..4u8 {
-            let e = stamp(Contract::Causes, t);
-            assert_eq!(p7a_reads(e), Ok(Contract::Causes));
-            assert_eq!(eligible(e), Err(Refusal::Undeclared(20 + t)));
+    /// F10: the canonical reading IS the two old lenses read together.
+    #[test]
+    fn the_canonical_reading_is_the_two_old_lenses_read_together() {
+        assert_eq!(census(), (24, 0, 8));
+    }
+
+    /// FAILS IF: the law measures a class with no canonical declaration.
+    #[test]
+    fn undeclared_classes_refuse() {
+        let e = base().with_epistemic_raw5(20);
+        assert_eq!(
+            eligible(UNDECLARED_CLASS, e),
+            Err(Refusal::Reading(Epi5ReadError::UndeclaredClass(
+                UNDECLARED_CLASS
+            )))
+        );
+        assert!(eligible(CERT_CLASS, e).is_ok());
+    }
+
+    /// F3: a certified `Causes` is `Causes` under every topology.
+    #[test]
+    fn a_certified_causes_reads_as_causes_under_every_topology() {
+        use lance_graph_contract::epistemic_state5::{facts_population, Certification3};
+        let mut stamped = 0u32;
+        for t in Topology2::ALL {
+            let e = certification_reading::stamp(base(), Contract::Causes, t);
+            let want = EpistemicState5::new(Epi5Gen::V1, t, Certification3::Causes);
+            assert_eq!(raw5(e), want.raw());
+            assert_eq!(canonical(e), Some(want));
+            stamped |= 1 << raw5(e);
+            assert_eq!(
+                read(&decl(), CERT_CLASS, e, EdgeProvenance::V2Stamped),
+                Ok(Contract::Causes)
+            );
+            assert!(canonical(e).unwrap().asserts(CAUSES));
+            assert_ne!(at(raw5(e)) & 1 << COUNTERFACTUAL_PROBE, 0);
+        }
+        // The four stamps are exactly the Causes column, not a codebook walk.
+        assert_eq!(stamped, facts_population(CAUSES));
+    }
+
+    /// The #1378 fixture (P7a band 5 over topology 0) now means the same to
+    /// both readers: `Direct × Causes`.
+    #[test]
+    fn the_1378_fixture_now_agrees() {
+        let old = base().with_epistemic_raw5(5 << 2);
+        assert_eq!(raw5(old), 20);
+        let s = canonical(old).unwrap();
+        assert_eq!(s.topology(), Topology2::Direct);
+        assert_eq!(split(old), Some((0, Contract::Causes)));
+        assert_eq!(
+            Contract::from_certification(s.certification()),
+            Contract::Causes
+        );
+    }
+
+    /// F6: the factor-compiled per-code table equals evaluating the rules on
+    /// each code's facts directly, for both law generations.
+    #[test]
+    fn the_derived_table_equals_the_rules() {
+        for law in [LawGen::V1, LawGen::V2] {
+            let rules = law.rules();
+            for code in 0u8..32 {
+                let want = EPI_LAW[code as usize].map(|f| {
+                    (0..64).fold(0u64, |m, r| {
+                        let rl = rules[r];
+                        if rl.active && f & rl.requires == rl.requires && f & rl.forbids == 0 {
+                            m | 1 << r
+                        } else {
+                            m
+                        }
+                    })
+                });
+                match want {
+                    Some(w) => assert_eq!(law.tables().state[code as usize], w, "code {code}"),
+                    None => assert!(code >= 24),
+                }
+            }
         }
     }
 
-    /// FAILS IF: the codes that assert `CAUSES` move off P7a `Open` (code 1)
-    /// and `CausalCandidate` (code 17).
+    /// F7 + the operator's frontier cases: one coordinate moves only the
+    /// recipes that read it.
     #[test]
-    fn the_affordance_causes_codes_are_not_p7a_causes() {
-        let causes: Vec<u8> = (0..32u8)
-            .filter(|&c| EPI_LAW[c as usize].is_some_and(|f| f & CAUSES != 0))
-            .collect();
-        assert_eq!(causes, vec![1, 17]);
-        let contracts: Vec<_> = causes.iter().map(|c| Contract::from_code(c >> 2)).collect();
+    fn one_factor_moves_only_its_recipes() {
+        // IndirectUnknown × Related (10) vs IndirectKnown × Related (9):
+        // exactly hydrate ↔ mechanism fold.
         assert_eq!(
-            contracts,
-            vec![Ok(Contract::Open), Ok(Contract::CausalCandidate)]
+            at(10) ^ at(9),
+            bits(&[HYDRATE_INTERMEDIATE, MECHANISM_FOLD])
+        );
+        // Related → Supports under IndirectKnown (9 → 13): exactly causal
+        // identification.
+        assert_eq!(at(9) ^ at(13), bits(&[CAUSAL_IDENTIFICATION]));
+        // IndirectUnknown × Causes (22): certified, mechanism open — may
+        // hydrate, may not be "identified" again.
+        assert_ne!(at(22) & 1 << HYDRATE_INTERMEDIATE, 0);
+        assert_eq!(at(22) & 1 << CAUSAL_IDENTIFICATION, 0);
+        assert_ne!(at(22) & 1 << COUNTERFACTUAL_PROBE, 0);
+        // Unknown × Causes (23): causality known, topology unresolved.
+        assert_eq!(at(23) & bits(&[HYDRATE_INTERMEDIATE, MECHANISM_FOLD]), 0);
+        assert_ne!(at(23) & 1 << COUNTERFACTUAL_PROBE, 0);
+
+        // Generally: recipes whose rules never mention a topology fact are
+        // unchanged by any topology move, and likewise for certification.
+        let rules = LawGen::V1.rules();
+        let reads = |mask: u32| -> u64 {
+            (0..64).fold(0, |m, r| {
+                let rl = rules[r];
+                if rl.active && (rl.requires | rl.forbids) & mask != 0 {
+                    m | 1 << r
+                } else {
+                    m
+                }
+            })
+        };
+        let (topo_recipes, cert_recipes) = (reads(TOPOLOGY_MASK), reads(CERTIFICATION_MASK));
+        for c in 0..6u8 {
+            for (t1, t2) in [(0u8, 1u8), (1, 2), (2, 3), (0, 3)] {
+                assert_eq!((at(t1 | c << 2) ^ at(t2 | c << 2)) & !topo_recipes, 0);
+            }
+        }
+        for t in 0..4u8 {
+            for c in 0..5u8 {
+                assert_eq!((at(t | c << 2) ^ at(t | (c + 1) << 2)) & !cert_recipes, 0);
+            }
+        }
+    }
+
+    /// F2: what must disappear is consuming legacy-reading bits as canonical.
+    /// The historical `ReasoningBand::Causal` writer puts 3 into 61..63, which
+    /// decodes as `Supports`; a class that declared that historical reading
+    /// has no canonical declaration, so it refuses instead of being read as a
+    /// support claim nobody made.
+    #[test]
+    fn a_legacy_reading_class_is_not_consumed_as_canonical() {
+        #[allow(deprecated)]
+        let e = base().with_reasoning_band(ReasoningBand::Causal);
+        assert_eq!(raw5(e) >> 2, 3, "the bits decode as Supports");
+        const HISTORICAL_CLASS: ClassId = 0x0901; // P7a's LEGACY_CLASS
+        assert_eq!(
+            eligible(HISTORICAL_CLASS, e),
+            Err(Refusal::Reading(Epi5ReadError::UndeclaredClass(
+                HISTORICAL_CLASS
+            )))
+        );
+        assert_eq!(
+            read(&decl(), HISTORICAL_CLASS, e, EdgeProvenance::V2Stamped),
+            Err(P7aRefusal::NotCertificationClass)
         );
     }
 
-    /// FAILS IF: no declared affordance code sits on a band P7a refuses, or a
-    /// different set does.
+    /// F5: same edge + class/rail + generation + provenance → same state
+    /// after a restart from the LE image.
     #[test]
-    fn affordance_codes_occupy_p7a_reserved_bands() {
-        let reserved: Vec<u8> = (0..32u8)
-            .filter(|&c| EPI_LAW[c as usize].is_some() && Contract::from_code(c >> 2).is_err())
-            .collect();
-        assert_eq!(reserved, vec![25, 30]);
+    fn the_state_survives_restart_from_le_bytes() {
+        for code in 0u8..32 {
+            let e = base().with_epistemic_raw5(code);
+            let restarted = CausalEdge64::from_le_bytes(e.to_le_bytes());
+            assert_eq!(canonical(e), canonical(restarted));
+            assert_eq!(canonical(e).is_some(), code < 24);
+        }
     }
 
-    /// FAILS IF: the agreement census over all 24 P7a contract × topology
-    /// cells changes.
+    /// F8: reading and projecting never write the edge; a factor transition
+    /// exists only as a value until written jointly.
     #[test]
-    fn the_readings_agree_on_three_of_eight_shared_cells() {
-        assert_eq!(census(), (3, 5, 16));
+    fn projections_never_change_the_edge() {
+        let e = base().with_epistemic_raw5(9);
+        let before = e.0;
+        let s = canonical(e).unwrap();
+        let _ = (
+            split(e),
+            at(raw5(e)),
+            read(&decl(), CERT_CLASS, e, EdgeProvenance::V2Stamped),
+        );
+        let moved = s.with_topology(Topology2::IndirectUnknown);
+        assert_eq!(e.0, before, "a projection wrote the edge");
+        assert_eq!(moved.raw(), 10);
+        assert_eq!(
+            e.with_epistemic_raw5(moved.raw()).0 ^ before,
+            (9u64 ^ 10) << 59
+        );
     }
 }

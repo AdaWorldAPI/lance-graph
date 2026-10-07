@@ -1346,6 +1346,10 @@ pub trait ClassView {
     /// `(class, rail)`. Selection only: the reading never changes stored bytes
     /// (bits 59-63 on CausalEdge64; bytes [8]/[9] hi-2/lo-3 on CausalEdgeV3) —
     /// it declares how a consumer projects them.
+    ///
+    /// **Legacy (D-EPI-CANON-0):** bits 59..63 are owned by
+    /// [`epistemic_reading`](ClassView::epistemic_reading); this split reading
+    /// is a compatibility projection only.
     #[inline]
     fn band_reading(
         &self,
@@ -1353,6 +1357,21 @@ pub trait ClassView {
         _rail: crate::rail_geometry::RailAxis,
     ) -> crate::band_reading::BandReading {
         crate::band_reading::BandReading::ZERO_FALLBACK
+    }
+
+    /// The canonical declaration of bits 59..63 for `(class, rail)`: which
+    /// `EpistemicState5` codebook generation the class's producers write
+    /// (`D-EPI-CANON-0`). `None` = undeclared, and projection REFUSES — unlike
+    /// the total [`band_reading`](ClassView::band_reading) lookup, there is no
+    /// zero-fallback reading for a 5-bit code whose meaning is the declaration.
+    /// Selection only; never changes stored bytes.
+    #[inline]
+    fn epistemic_reading(
+        &self,
+        _class: ClassId,
+        _rail: crate::rail_geometry::RailAxis,
+    ) -> Option<crate::epistemic_state5::Epi5Reading> {
+        None
     }
 
     /// Which value-slab schema preset this class materialises in

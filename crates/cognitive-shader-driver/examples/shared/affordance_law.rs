@@ -3,47 +3,75 @@
 //! and `ce64_cycle_survival_probe` (which measures eligibility across cycles
 //! with the identical law instead of a copy).
 //!
-//! Moved here unchanged. Each including example uses a subset, hence the
+//! D-EPI-MIG-0: the state is the contract's Cartesian `EpistemicState5`
+//! (`Topology2 × Certification3`, `raw5 = topology | certification << 2`).
+//! The recipe rules are unchanged; they now compile PER FACTOR (topology
+//! table × certification table), and the per-code `state` table is derived
+//! from the two. Measurement projects bits 59..63 through a class
+//! declaration (`measure_declared`; `measure` uses the probes' constant
+//! `AFF_READING`). Each including example uses a subset, hence the
 //! `dead_code` allowance.
 #![allow(dead_code)]
 
 use causal_edge::edge::CausalEdge64;
 use lance_graph_contract::band_reading::EdgeProvenance;
-
-// ── facts (the EpistemicState5 reading) ────────────────────────────────────
-
-pub const DIRECT: u32 = 1 << 0;
-pub const INDIRECT: u32 = 1 << 1;
-pub const INTERMEDIATE_PRESENT: u32 = 1 << 2;
-pub const INTERMEDIATE_UNKNOWN: u32 = 1 << 3;
-pub const INTERMEDIATE_KNOWN: u32 = 1 << 4;
-pub const OBSERVED: u32 = 1 << 5;
-pub const ASSOCIATED: u32 = 1 << 6;
-pub const RELATED: u32 = 1 << 7;
-pub const SUPPORTS: u32 = 1 << 8;
-pub const CAUSES: u32 = 1 << 9;
-
-pub const IND_UNKNOWN: u32 = INDIRECT | INTERMEDIATE_PRESENT | INTERMEDIATE_UNKNOWN;
-pub const IND_KNOWN: u32 = INDIRECT | INTERMEDIATE_PRESENT | INTERMEDIATE_KNOWN;
-pub const UP_TO_RELATED: u32 = ASSOCIATED | RELATED;
-pub const UP_TO_SUPPORTS: u32 = UP_TO_RELATED | SUPPORTS;
-
-/// EpistemicState5 law: code → facts. Ten valid codes, deliberately not ordered
-/// by strength (`Causes` sits at 1, `Open` at 0, `Related` at 20, …).
-pub const EPI_LAW: [Option<u32>; 32] = {
-    let mut t = [None; 32];
-    t[0] = Some(0); // Open
-    t[3] = Some(DIRECT | OBSERVED);
-    t[7] = Some(DIRECT | OBSERVED | ASSOCIATED);
-    t[12] = Some(DIRECT | ASSOCIATED);
-    t[20] = Some(DIRECT | UP_TO_RELATED);
-    t[25] = Some(IND_UNKNOWN | UP_TO_RELATED);
-    t[5] = Some(IND_KNOWN | UP_TO_RELATED);
-    t[30] = Some(IND_KNOWN | UP_TO_SUPPORTS);
-    t[1] = Some(DIRECT | UP_TO_SUPPORTS | CAUSES);
-    t[17] = Some(IND_KNOWN | UP_TO_SUPPORTS | CAUSES);
-    t
+use lance_graph_contract::class_view::ClassId;
+use lance_graph_contract::epistemic_state5::{
+    Epi5Declarations, Epi5Gen, Epi5ReadError, Epi5Reading, EpistemicState5, CERTIFICATION_FACTS,
+    COMPILED_FACTS_V1, TOPOLOGY_FACTS,
 };
+use lance_graph_contract::rail_geometry::RailAxis;
+
+// ── facts (the canonical EpistemicState5 reading) ──────────────────────────
+//
+// D-EPI-CANON-0: the fact vocabulary and the codebook are the contract's
+// (`lance_graph_contract::epistemic_state5`), not this probe's. Re-exported so
+// the probes that name them keep compiling against the ONE source.
+
+#[allow(unused_imports)] // each including probe uses a subset
+pub use lance_graph_contract::epistemic_state5::fact::{
+    ASSOCIATED, CAUSES, DIRECT, INDIRECT, IND_KNOWN, IND_UNKNOWN, INTERMEDIATE_KNOWN,
+    INTERMEDIATE_PRESENT, INTERMEDIATE_UNKNOWN, RELATED, SUPPORTS, UP_TO_RELATED, UP_TO_SUPPORTS,
+};
+
+/// Per-code facts: the contract's DERIVED `COMPILED_FACTS_V1` (the union of
+/// the two factors' facts). Kept under its #1370 name for the probes that
+/// read it; it is no longer a hand-assigned codebook.
+pub const EPI_LAW: [Option<u32>; 32] = COMPILED_FACTS_V1;
+
+/// The class the affordance probes' edges belong to, declared under the
+/// canonical reading. Measurement is per class: an undeclared class refuses.
+pub const AFF_CLASS: ClassId = 0x0905;
+pub const AFF_RAIL: RailAxis = RailAxis::Taxonomy;
+
+/// `AFF_CLASS`'s declaration: bits 59..63 read as `EpistemicState5` V1.
+pub const AFF_READING: Epi5Reading = Epi5Reading {
+    generation: Epi5Gen::V1,
+};
+
+/// The probes' declaration table (a builder for callers that want one).
+pub fn declarations() -> Epi5Declarations {
+    let mut d = Epi5Declarations::new();
+    d.declare(AFF_CLASS, AFF_RAIL, AFF_READING);
+    d
+}
+
+/// Write a declared state onto an edge: all of bits 59..63, nothing else.
+pub fn write_state(edge: CausalEdge64, state: EpistemicState5) -> CausalEdge64 {
+    edge.with_epistemic_raw5(state.raw())
+}
+
+/// `Direct × Open`: the resident state before evidence (#1379's former code 3,
+/// "observed", now Open — observation is evidence, not a coordinate).
+pub const CODE_DIRECT_OPEN: u8 = 0;
+/// `Direct × Associated` (#1379's former code 7).
+pub const CODE_DIRECT_ASSOCIATED: u8 = 4;
+
+/// Write a V1 code that must be meaningful (fixture convenience).
+pub fn write_code(edge: CausalEdge64, code: u8) -> CausalEdge64 {
+    let state = EpistemicState5::decode(Epi5Gen::V1, code).expect("a declared V1 code");
+    write_state(edge, state)
+}
 
 // ── the recipe law ──────────────────────────────────────────────────────────
 
@@ -104,29 +132,55 @@ pub enum LawGen {
 pub const LAW_V1: [Rule; 64] = law(0);
 pub const LAW_V2: [Rule; 64] = law(CAUSES);
 
-/// Compiled static affordances for one law generation.
+/// Compiled static affordances for one law generation, compiled PER FACTOR.
+/// Topology and certification facts are disjoint, so a rule holds on a state
+/// iff its topology part holds on the topology and its certification part
+/// on the certification: `state[t | c << 2] = topology[t] & certification[c]`.
 pub struct Tables {
-    /// Per EpistemicState5 code: recipes whose fact obligations hold. Invalid
-    /// codes have no entry here; they refuse before lookup.
+    /// Per topology ordinal: recipes whose topology obligations hold.
+    pub topology: [u64; 4],
+    /// Per certification code: recipes whose certification obligations hold.
+    pub certification: [u64; 6],
+    /// Per raw code, DERIVED from the two above (hot-path artifact). Reserved
+    /// codes stay 0; they refuse before lookup.
     pub state: [u64; 32],
     /// Per Pearl projection: recipes whose plane obligations hold.
     pub pearl: [u64; 8],
 }
 
+/// Recipes whose obligations, restricted to `mask`, hold on `facts`.
+const fn holds(law: &[Rule; 64], facts: u32, mask: u32) -> u64 {
+    let mut out = 0u64;
+    let mut r = 0;
+    while r < 64 {
+        let rl = law[r];
+        let req = rl.requires & mask;
+        if rl.active && facts & req == req && facts & rl.forbids & mask == 0 {
+            out |= 1 << r;
+        }
+        r += 1;
+    }
+    out
+}
+
 pub const fn compile(law: &[Rule; 64]) -> Tables {
+    use lance_graph_contract::epistemic_state5::fact::{CERTIFICATION_MASK, TOPOLOGY_MASK};
+    let mut topology = [0u64; 4];
+    let mut t = 0;
+    while t < 4 {
+        topology[t] = holds(law, TOPOLOGY_FACTS[t], TOPOLOGY_MASK);
+        t += 1;
+    }
+    let mut certification = [0u64; 6];
+    let mut c = 0;
+    while c < 6 {
+        certification[c] = holds(law, CERTIFICATION_FACTS[c], CERTIFICATION_MASK);
+        c += 1;
+    }
     let mut state = [0u64; 32];
     let mut code = 0;
-    while code < 32 {
-        if let Some(facts) = EPI_LAW[code] {
-            let mut r = 0;
-            while r < 64 {
-                let rl = law[r];
-                if rl.active && facts & rl.requires == rl.requires && facts & rl.forbids == 0 {
-                    state[code] |= 1 << r;
-                }
-                r += 1;
-            }
-        }
+    while code < 24 {
+        state[code] = topology[code & 0b11] & certification[code >> 2];
         code += 1;
     }
     let mut pearl = [0u64; 8];
@@ -142,13 +196,22 @@ pub const fn compile(law: &[Rule; 64]) -> Tables {
         }
         p += 1;
     }
-    Tables { state, pearl }
+    Tables {
+        topology,
+        certification,
+        state,
+        pearl,
+    }
 }
 
 pub static TABLES_V1: Tables = compile(&LAW_V1);
 pub static TABLES_V2: Tables = compile(&LAW_V2);
 
 impl LawGen {
+    /// The codebook generation this law is compiled against.
+    pub fn generation(self) -> Epi5Gen {
+        Epi5Gen::V1
+    }
     pub fn tables(self) -> &'static Tables {
         match self {
             LawGen::V1 => &TABLES_V1,
@@ -170,39 +233,64 @@ impl LawGen {
 pub enum Refusal {
     /// The caller did not assert that bits 59..63 were written under the v2
     /// layout. On a v1 row they are old `temporal` bits: `temporal = 128`
-    /// sets bit 59 and would read as code 1 (`Causes`). Same rule as
-    /// `band_reading`: v1 and unknown provenance refuse.
+    /// sets bit 59 and would read as code 1 (`Causes`).
     Provenance(EdgeProvenance),
-    /// Bits 59..63 do not form a code this law declares.
+    /// Bits 59..63 do not form a code the declared generation declares.
     Undeclared(u8),
+    /// The class has no canonical declaration, or declares another
+    /// generation than the law was compiled against.
+    Reading(Epi5ReadError),
+}
+
+impl From<Epi5ReadError> for Refusal {
+    fn from(e: Epi5ReadError) -> Self {
+        match e {
+            Epi5ReadError::UnknownProvenance(p) => Refusal::Provenance(p),
+            Epi5ReadError::UndeclaredCode(c) => Refusal::Undeclared(c),
+            other => Refusal::Reading(other),
+        }
+    }
 }
 
 /// Only an asserted v2-stamped edge or a clean V3 register is readable.
 pub fn admitted(provenance: EdgeProvenance) -> bool {
-    matches!(
-        provenance,
-        EdgeProvenance::V2Stamped | EdgeProvenance::V3Register
-    )
+    provenance.trusted()
 }
 
-/// Bits 59..63 as one code, through the shipped accessors.
+/// Bits 59..63 as one code, through the canonical joint accessor.
 pub fn raw5(edge: CausalEdge64) -> u8 {
-    (edge.spare() << 2) | edge.truth_raw()
+    edge.epistemic_raw5()
 }
 
-/// `CausalEdge64 × RecipeLaw → EligibleRecipes`. Two lookups and one AND.
+/// The core: a projected state × the edge's Pearl planes → eligible recipes.
+/// Two lookups and one AND.
+pub fn measure_state(law: LawGen, state: EpistemicState5, pearl: u8) -> u64 {
+    let t = law.tables();
+    t.state[state.raw() as usize] & t.pearl[pearl as usize & 0b111]
+}
+
+/// `CausalEdge64 × RecipeLaw → EligibleRecipes` for an edge of `class`:
+/// the canonical projection first (declaration, provenance, generation,
+/// code), then the compiled tables.
+pub fn measure_declared(
+    law: LawGen,
+    decl: &Epi5Declarations,
+    class: ClassId,
+    rail: RailAxis,
+    edge: CausalEdge64,
+    provenance: EdgeProvenance,
+) -> Result<u64, Refusal> {
+    let state = decl.project_state5(class, rail, law.generation(), raw5(edge), provenance)?;
+    Ok(measure_state(law, state, edge.causal_mask() as u8))
+}
+
+/// `measure_declared` for an edge of the probes' declared `AFF_CLASS`.
 pub fn measure(
     law: LawGen,
     edge: CausalEdge64,
     provenance: EdgeProvenance,
 ) -> Result<u64, Refusal> {
-    if !admitted(provenance) {
-        return Err(Refusal::Provenance(provenance));
-    }
-    let code = raw5(edge);
-    if EPI_LAW[code as usize].is_none() {
-        return Err(Refusal::Undeclared(code));
-    }
-    let t = law.tables();
-    Ok(t.state[code as usize] & t.pearl[edge.causal_mask() as usize])
+    // The class's declaration is a constant: no table, no allocation (F9).
+    let state = AFF_READING.project(law.generation(), raw5(edge), provenance)?;
+    Ok(measure_state(law, state, edge.causal_mask() as u8))
 }

@@ -18,9 +18,10 @@
 //! What it reuses, and what it adds:
 //!
 //! - **Bits 59..60:** `CausalEdge64::with_topology` / `truth_raw`, unchanged.
-//! - **Reading contract:** `band_reading::BandDeclarations::project_truth`
-//!   (declared lens per `(classid, rail)`, asserted provenance). Projection is
-//!   fallible; a refusal produces no cell.
+//! - **Reading contract:** `epistemic_state5::Epi5Declarations::project_state5`
+//!   (declared reading per `(classid, rail)`, asserted provenance). Projection
+//!   is fallible; a refusal produces no cell. (Was `band_reading`'s topology
+//!   lens before D-EPI-MIG-0.)
 //! - **Cell:** `settlement::SettlementSignals::cell`. Closure × competence
 //!   decide; entropy and eigenvalue concentration are carried but do not.
 //! - **New (the D-ECG-2 census):** the share of a basin's edges whose
@@ -40,13 +41,21 @@
 //!
 //! Run: `cargo run -p cognitive-shader-driver --example entropy_topology_probe`
 //! Tests: `cargo test -p cognitive-shader-driver --example entropy_topology_probe`
+//!
+//! D-EPI-MIG-0 (2026-10-07): migrated to the canonical Cartesian reading of
+//! bits 59..63. The fixtures write only the topology coordinate (certification
+//! `Open`), so each edge is the state `topology × Open`, projected through
+//! `contract::epistemic_state5::Epi5Declarations::project_state5`; the census
+//! reads `state.topology()`. Nothing is reinterpreted: `CausalTopology` and
+//! `Topology2` are the same ordinals.
 
 use causal_edge::edge::CausalEdge64;
 use causal_edge::layout::CausalTopology;
-use lance_graph_contract::band_reading::{
-    BandDeclarations, BandReadError, BandReading, EdgeProvenance, TruthLens,
-};
+use lance_graph_contract::band_reading::EdgeProvenance;
 use lance_graph_contract::class_view::ClassId;
+use lance_graph_contract::epistemic_state5::{
+    Epi5Declarations, Epi5Gen, Epi5ReadError, Epi5Reading, Topology2,
+};
 use lance_graph_contract::rail_geometry::RailAxis;
 use lance_graph_contract::settlement::{SettlementCell, SettlementScope, SettlementSignals};
 
@@ -88,20 +97,20 @@ impl Census {
 
 /// Count each edge's projected topology. Refuses as a whole if any edge
 /// cannot be projected under the declaration and provenance.
-fn census(decl: &BandDeclarations, basin: &Basin) -> Result<Census, BandReadError> {
+fn census(decl: &Epi5Declarations, basin: &Basin) -> Result<Census, Epi5ReadError> {
     let mut c = Census::default();
     for &(_, edge) in &basin.edges {
-        let raw = decl.project_truth(
+        let state = decl.project_state5(
             CLASS,
             RAIL,
-            TruthLens::Topology,
-            edge.truth_raw(),
+            Epi5Gen::V1,
+            edge.epistemic_raw5(),
             basin.provenance,
         )?;
-        match CausalTopology::from_bits_2(raw) {
-            CausalTopology::Direct | CausalTopology::IndirectKnownIntermediates => c.known += 1,
-            CausalTopology::IndirectUnknownIntermediates => c.projected += 1,
-            CausalTopology::Unknown => c.hole += 1,
+        match state.topology() {
+            Topology2::Direct | Topology2::IndirectKnown => c.known += 1,
+            Topology2::IndirectUnknown => c.projected += 1,
+            Topology2::Unknown => c.hole += 1,
         }
     }
     Ok(c)
@@ -147,7 +156,7 @@ fn route(cell: SettlementCell) -> Route {
 }
 
 /// Census → signals. An error when the census refuses; no cell is produced.
-fn signals(decl: &BandDeclarations, basin: &Basin) -> Result<SettlementSignals, BandReadError> {
+fn signals(decl: &Epi5Declarations, basin: &Basin) -> Result<SettlementSignals, Epi5ReadError> {
     let c = census(decl, basin)?;
     Ok(SettlementSignals {
         scope: SettlementScope {
@@ -164,14 +173,13 @@ fn signals(decl: &BandDeclarations, basin: &Basin) -> Result<SettlementSignals, 
     })
 }
 
-fn declarations() -> BandDeclarations {
-    let mut d = BandDeclarations::new();
+fn declarations() -> Epi5Declarations {
+    let mut d = Epi5Declarations::new();
     d.declare(
         CLASS,
         RAIL,
-        BandReading {
-            truth_lens: TruthLens::Topology,
-            ..BandReading::ZERO_FALLBACK
+        Epi5Reading {
+            generation: Epi5Gen::V1,
         },
     );
     d
@@ -313,8 +321,8 @@ mod tests {
     }
 
     /// F-ECG-2. FAILS IF: a cell emerges from bits that cannot be read: unknown
-    /// or v1 provenance, a class declared under the trust lens, or a class
-    /// that was never declared.
+    /// or v1 provenance, a class with no canonical declaration (one declared
+    /// only under the legacy trust lens has none), or a reserved certification.
     #[test]
     fn unreadable_ground_produces_no_cell() {
         let decl = declarations();
@@ -323,20 +331,21 @@ mod tests {
             b.provenance = p;
             assert_eq!(
                 signals(&decl, &b).unwrap_err(),
-                BandReadError::UnknownProvenance
+                Epi5ReadError::UnknownProvenance(p)
             );
         }
 
-        let mut trust = BandDeclarations::new();
-        trust.declare(CLASS, RAIL, BandReading::ZERO_FALLBACK);
-        assert!(matches!(
-            signals(&trust, &direct_dominant(0.9)),
-            Err(BandReadError::LensMismatch { .. })
-        ));
-
         assert_eq!(
-            signals(&BandDeclarations::new(), &direct_dominant(0.9)).unwrap_err(),
-            BandReadError::UndeclaredClass(CLASS)
+            signals(&Epi5Declarations::new(), &direct_dominant(0.9)).unwrap_err(),
+            Epi5ReadError::UndeclaredClass(CLASS)
+        );
+
+        // A reserved certification over a readable topology refuses.
+        let mut reserved = direct_dominant(0.9);
+        reserved.edges[0].1 = reserved.edges[0].1.with_epistemic_raw5(6 << 2);
+        assert_eq!(
+            signals(&decl, &reserved).unwrap_err(),
+            Epi5ReadError::UndeclaredCode(6 << 2)
         );
 
         let mut asserted = direct_dominant(0.9);

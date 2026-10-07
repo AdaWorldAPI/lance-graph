@@ -31,8 +31,8 @@
 //!
 //! | from | to | when, in this cycle |
 //! |---|---|---|
-//! | 3 `OBSERVED` | 7 `ASSOCIATED` | ≥ 2 `Differs` encounters the revision admitted (`IncreaseEligible`), each a new root |
-//! | 7 | 3 | the revision returned `ContradictionPreserved` on the claim (a complete `Same` check) |
+//! | 0 `Direct × Open` | 4 `Direct × Associated` | ≥ 2 `Differs` encounters the revision admitted (`IncreaseEligible`), each a new root |
+//! | 4 | 0 | the revision returned `ContradictionPreserved` on the claim (a complete `Same` check) |
 //!
 //! # One field, one code
 //!
@@ -79,7 +79,6 @@ use affordance_law::{measure, raw5, LawGen};
 use bgz_tensor::fisher_z::FisherZTable;
 use boundary::strongest_boundary_where;
 use causal_edge::edge::CausalEdge64;
-use causal_edge::layout::TrustTexture;
 use causal_edge::pearl::CausalMask;
 use causal_edge::PlasticityState;
 use cognitive_shader_driver::mailbox_soa::{MailboxSoA, WriteCell, WriteOutcome};
@@ -97,8 +96,11 @@ use virtual_surfel::{neighbor, Tile, PIXELS};
 /// The row of the mailbox that holds the register.
 const ROW: usize = 0;
 /// EpistemicState5 codes of the #1370 law used here.
-const CODE_OBSERVED: u8 = 3;
-const CODE_ASSOCIATED: u8 = 7;
+/// `Direct × Open` (was code 3 `Direct × Observed` under the #1370
+/// probe-local codebook; observation is evidence, not a coordinate).
+const CODE_OPEN: u8 = 0;
+/// `Direct × Associated` (was code 7).
+const CODE_ASSOCIATED: u8 = 4;
 /// The claim "P is a material boundary": bit 0 of the claim mask.
 const CLAIM: u64 = 1;
 
@@ -276,8 +278,8 @@ fn settle(
         }
     }
     let code = match raw5(register) {
-        CODE_OBSERVED if earned_support >= gen.sources_to_promote() => CODE_ASSOCIATED,
-        CODE_ASSOCIATED if contradicted => CODE_OBSERVED,
+        CODE_OPEN if earned_support >= gen.sources_to_promote() => CODE_ASSOCIATED,
+        CODE_ASSOCIATED if contradicted => CODE_OPEN,
         other => other,
     };
     with_code(register, code)
@@ -286,13 +288,14 @@ fn settle(
 
 // ── the register ───────────────────────────────────────────────────────────
 
-/// Stamp an EpistemicState5 code through the shipped writers (bits 59..63).
+/// Write a declared V1 EpistemicState5 code (bits 59..63, jointly). The
+/// transition only ever lands on declared codes, so `write_code` never fires
+/// its expect.
 fn with_code(edge: CausalEdge64, code: u8) -> CausalEdge64 {
-    edge.with_spare(code >> 2)
-        .with_truth(TrustTexture::from_bits_2(code & 0b11))
+    affordance_law::write_code(edge, code)
 }
 
-/// The register before any evidence: every field set, code `OBSERVED`.
+/// The register before any evidence: every field set, code `Direct × Open`.
 fn initial() -> CausalEdge64 {
     with_code(
         CausalEdge64::pack_v2(
@@ -305,7 +308,7 @@ fn initial() -> CausalEdge64 {
             0,
             PlasticityState::ALL_HOT,
         ),
-        CODE_OBSERVED,
+        CODE_OPEN,
     )
 }
 
@@ -452,9 +455,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::affordance_law::{EPI_LAW, OBSERVE_FOLD, STRATIFY};
+    use super::affordance_law::{OBSERVE_FOLD, STRATIFY};
     use super::*;
-    use causal_edge::layout::{SPARE_MASK, TRUTH_MASK};
+    use causal_edge::layout::EPISTEMIC_MASK;
 
     const OBS: u64 = 1 << OBSERVE_FOLD;
     const STRAT: u64 = 1 << STRATIFY;
@@ -498,12 +501,12 @@ mod tests {
             ],
         );
         let codes: Vec<u8> = regs.iter().map(|r| raw5(*r)).collect();
-        assert_eq!(codes, [3, 3, 3, 7, 3]);
+        assert_eq!(codes, [0, 0, 0, 4, 0]);
         assert_eq!(elig, [OBS, OBS, OBS, OBS | STRAT, OBS]);
     }
 
     /// FAILS IF: the rendered surface moves the code. Every inner pixel's
-    /// witness, repeated ten times, is presented while the code is OBSERVED
+    /// witness, repeated ten times, is presented while the code is `Direct × Open`
     /// and again while it is ASSOCIATED: neither promotes nor demotes.
     #[test]
     fn rendered_witnesses_never_move_the_code() {
@@ -513,7 +516,7 @@ mod tests {
         let once = render_encounters(&tile, &law);
         assert_eq!(once.len(), 36);
         let many: Vec<Encounter> = once.iter().cycle().take(360).copied().collect();
-        for start in [CODE_OBSERVED, CODE_ASSOCIATED] {
+        for start in [CODE_OPEN, CODE_ASSOCIATED] {
             let reg = with_code(initial(), start);
             let next = settle(TransitionGen::V1, &tile, tracked(), reg, &many);
             assert_eq!(raw5(next), start);
@@ -562,7 +565,7 @@ mod tests {
         );
         assert_eq!(
             raw5(settle(TransitionGen::V1, &one, p, initial(), &check)),
-            CODE_OBSERVED
+            CODE_OPEN
         );
         let two = island(&[(8, 8), (8, 7)]);
         assert_eq!(
@@ -577,7 +580,7 @@ mod tests {
         );
         assert_eq!(
             raw5(settle(TransitionGen::V2, &two, p, initial(), &check)),
-            CODE_OBSERVED
+            CODE_OPEN
         );
     }
 
@@ -590,7 +593,7 @@ mod tests {
         let tile = split(a, b);
         let same = [Encounter::Observe(E); 50];
         let next = settle(TransitionGen::V1, &tile, tracked(), initial(), &same);
-        assert_eq!(raw5(next), CODE_OBSERVED);
+        assert_eq!(raw5(next), CODE_OPEN);
         let two = [Encounter::Observe(E), Encounter::Observe(SE)];
         let next = settle(TransitionGen::V1, &tile, tracked(), initial(), &two);
         assert_eq!(raw5(next), CODE_ASSOCIATED);
@@ -606,7 +609,7 @@ mod tests {
         assert_eq!(observe(&tile, tracked(), N), Reading::Same);
         let enc = [Encounter::Observe(N), Encounter::Observe(E)];
         let next = settle(TransitionGen::V1, &tile, tracked(), initial(), &enc);
-        assert_eq!(raw5(next), CODE_OBSERVED);
+        assert_eq!(raw5(next), CODE_OPEN);
     }
 
     /// Pins the open half of the issue: the horizon dies with its cycle, so
@@ -629,7 +632,7 @@ mod tests {
                 },
             ],
         );
-        assert!(regs.iter().all(|r| raw5(*r) == CODE_OBSERVED));
+        assert!(regs.iter().all(|r| raw5(*r) == CODE_OPEN));
     }
 
     /// FAILS IF: the transition is not a declared, versioned law. The same
@@ -641,7 +644,7 @@ mod tests {
         let two = [Encounter::Observe(E), Encounter::Observe(NE)];
         let v1 = settle(TransitionGen::V1, &tile, tracked(), initial(), &two);
         let v2 = settle(TransitionGen::V2, &tile, tracked(), initial(), &two);
-        assert_eq!((raw5(v1), raw5(v2)), (CODE_ASSOCIATED, CODE_OBSERVED));
+        assert_eq!((raw5(v1), raw5(v2)), (CODE_ASSOCIATED, CODE_OPEN));
         let three = [
             Encounter::Observe(E),
             Encounter::Observe(NE),
@@ -673,7 +676,7 @@ mod tests {
             initial(),
             &[Encounter::Observe(E), Encounter::Observe(NE)],
         );
-        assert_eq!((up.0 ^ initial().0) & !(SPARE_MASK | TRUTH_MASK), 0);
+        assert_eq!((up.0 ^ initial().0) & !EPISTEMIC_MASK, 0);
         assert_ne!(up, initial());
         let kept = settle(
             TransitionGen::V1,
@@ -733,7 +736,9 @@ mod tests {
             &[Encounter::CompleteCheck],
             &[Encounter::Render(tracked())],
         ];
-        for start in (0..32u8).filter(|c| EPI_LAW[usize::from(*c)].is_some()) {
+        let meaningful = lance_graph_contract::epistemic_state5::facts_population(0);
+        assert_eq!(meaningful.count_ones(), 24);
+        for start in (0..32u8).filter(|c| meaningful >> c & 1 == 1) {
             for t in [&tile, &flat] {
                 for enc in sets {
                     let next = settle(
@@ -744,7 +749,7 @@ mod tests {
                         enc,
                     );
                     assert!(
-                        EPI_LAW[usize::from(raw5(next))].is_some(),
+                        meaningful >> raw5(next) & 1 == 1,
                         "{start} -> {}",
                         raw5(next)
                     );

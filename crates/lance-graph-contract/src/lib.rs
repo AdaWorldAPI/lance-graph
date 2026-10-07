@@ -55,6 +55,7 @@ pub mod attention_facet;
 pub mod auth;
 pub mod awareness_facet;
 pub mod band_reading;
+pub mod epistemic_state5;
 // D-TEH-1: cross-tenant authorization injection point (moved from thinking-engine,
 // seven items, zero-dep). Consumed by lance-graph-callcenter's UnifiedBridgeGate.
 pub mod bridge_gate;

@@ -17,6 +17,9 @@
 
 #[cfg(test)]
 #[cfg(feature = "causal-edge-v2-layout")]
+// The half-field writers are deprecated (D-EPI-CANON-0); these tests
+// pin their physical layout, so they keep calling them.
+#[allow(deprecated)]
 mod v2_layout_tests {
     use crate::edge::{CausalEdge64, InferenceType};
     use crate::layout::{CausalTopology, ReasoningBand, TrustTexture};
@@ -946,6 +949,75 @@ mod v2_layout_tests {
                 conf,
                 "CausalTopology::Direct must not constrain or derive confidence={conf}"
             );
+        }
+    }
+}
+
+/// D-EPI-CANON-0: bits 59..63 are ONE field. The joint accessors are the
+/// canonical physical read and write; the halves are its projections.
+#[cfg(test)]
+#[cfg(feature = "causal-edge-v2-layout")]
+#[allow(deprecated)]
+mod epistemic_field_tests {
+    use crate::edge::CausalEdge64;
+    use crate::layout::{EPISTEMIC_MASK, SPARE_MASK, TRUTH_MASK};
+
+    fn busy() -> CausalEdge64 {
+        // Every bit outside 59..63 set, so a leak in either direction shows.
+        CausalEdge64(!EPISTEMIC_MASK)
+    }
+
+    /// F1 (physical half): every code round-trips through the joint pair.
+    #[test]
+    fn every_code_round_trips_and_touches_only_59_63() {
+        for code in 0u8..32 {
+            let e = busy().with_epistemic_raw5(code);
+            assert_eq!(e.epistemic_raw5(), code);
+            assert_eq!(e.0 & !EPISTEMIC_MASK, busy().0, "code {code} leaked");
+            // The halves are projections of the same field.
+            assert_eq!(e.epistemic_raw5(), (e.spare() << 2) | e.truth_raw());
+        }
+    }
+
+    /// The joint writer overwrites the WHOLE field: writing a code over a
+    /// different one leaves no stale half behind.
+    #[test]
+    fn joint_write_replaces_both_halves() {
+        let e = CausalEdge64(EPISTEMIC_MASK).with_epistemic_raw5(0b00101);
+        assert_eq!(e.0 & TRUTH_MASK, 0b01u64 << 59);
+        assert_eq!(e.0 & SPARE_MASK, 0b001u64 << 61);
+    }
+
+    /// F2 (physical half), Cartesian layout: the topology writer is a FACTOR
+    /// update — it moves bits 59..60 only and holds the certification. The
+    /// historical band writer puts a reasoning level (`Causal` = 3) where the
+    /// canonical reading sees certification 3 (`Supports`): a plausible claim
+    /// nobody made. That is why it is deprecated; the bits cannot refuse it,
+    /// only the class declaration can (contract crate).
+    #[test]
+    fn the_topology_writer_is_a_factor_update_and_the_band_writer_is_not_canonical() {
+        let s = CausalEdge64::ZERO.with_epistemic_raw5(5 << 2); // Direct (topology 0) × Causes
+        let moved = s.with_topology(crate::layout::CausalTopology::IndirectUnknownIntermediates);
+        assert_eq!(
+            moved.epistemic_raw5(),
+            (5 << 2) | 2,
+            "IndirectUnknown × Causes"
+        );
+        assert_eq!(moved.epistemic_raw5() >> 2, s.epistemic_raw5() >> 2);
+        assert_eq!((moved.0 ^ s.0) & !TRUTH_MASK, 0);
+        let historical =
+            CausalEdge64::ZERO.with_reasoning_band(crate::layout::ReasoningBand::Causal);
+        assert_eq!(historical.epistemic_raw5() >> 2, 3, "lands on Supports");
+        assert_eq!((historical.0 ^ CausalEdge64::ZERO.0) & !SPARE_MASK, 0);
+    }
+
+    /// F5 (physical half): the field survives the LE image.
+    #[test]
+    fn the_field_survives_the_le_image() {
+        for code in 0u8..32 {
+            let e = busy().with_epistemic_raw5(code);
+            let back = CausalEdge64::from_le_bytes(e.to_le_bytes());
+            assert_eq!(back.epistemic_raw5(), code);
         }
     }
 }

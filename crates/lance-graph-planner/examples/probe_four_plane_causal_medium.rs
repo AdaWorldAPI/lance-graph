@@ -58,6 +58,24 @@
 //!   an AoS test object holding the lanes side by side so the gates can
 //!   compare them; it is NOT evidence about the resident SoA layout and must
 //!   never be cited as such.
+//!
+//! D-EPI-MIG-0 (2026-10-07): PROBE-ONLY legacy. Under the canonical
+//! Cartesian reading (`EpistemicState5 = Topology2 × Certification3`) the
+//! topology half this probe writes is canonical as-is, but the 61..63 half is
+//! written through the historical `ReasoningBand` names (reasoning levels:
+//! `Surface … Transcendent`), which have no declared mapping onto the
+//! certification coordinate. Mapping `Causal` to `Supports` or `Causes` would
+//! be semantic invention, so the probe is not migrated; it keeps the
+//! deprecated band writer as a record of that reading. No production code may
+//! follow it.
+//!
+//! D-EPI-LEGACY-DEPROJECT-0 (2026-10-07): what the band meant here is a
+//! LENS — "through what reasoning lens is this hypothesis read" — which is
+//! execution context (`RungLevel` / thinking style), not a certification, and
+//! has no CE64 home. Its checks are non-interference of that plane. Moving
+//! them onto `Certification3` would rewrite the probe's four-plane thesis, so
+//! it stays a record (see `entries/2026-10-07-epi-legacy-deprojection.md`).
+#![allow(deprecated)]
 
 use causal_edge::layout::{CausalTopology, ReasoningBand};
 use causal_edge::CausalEdge64;

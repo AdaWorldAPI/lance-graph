@@ -3,28 +3,41 @@
 //! `epistemic_reading_conflict_probe` (which pins its disagreement with the
 //! affordance law against this implementation, not a copy).
 //!
-//! Moved here unchanged. Each including example uses a subset, hence the
+//! D-EPI-MIG-0: P7a's codes ARE the certification coordinate of the
+//! canonical Cartesian `EpistemicState5` (`raw5 = topology | certification
+//! << 2`). Stamping is identity packing of `(declared topology, contract)`
+//! into bits 59..63 — no translation table; reading projects the canonical
+//! state through the class declaration and takes its certification.
+//!
+//! Originally moved here unchanged. Each including example uses a subset, hence the
 //! `dead_code` allowance.
 #![allow(dead_code)]
 
 use causal_edge::edge::CausalEdge64;
-use causal_edge::layout::ReasoningBand;
-use lance_graph_contract::band_reading::{
-    BandDeclarations, BandPresence, BandReadError, BandReading, EdgeProvenance,
-};
+use lance_graph_contract::band_reading::EdgeProvenance;
 use lance_graph_contract::class_view::ClassId;
+use lance_graph_contract::epistemic_state5::{
+    Certification3, Epi5Declarations, Epi5Gen, Epi5ReadError, Epi5Reading, EpistemicState5,
+    Topology2,
+};
 use lance_graph_contract::rail_geometry::RailAxis;
 
 // ── The declared reading ──────────────────────────────────────────────────
 
 /// A class whose edges carry the certification reading.
 pub const CERT_CLASS: ClassId = 0x0902;
-/// A class that declares a band under the historical reading.
+/// A class that declared a band under the historical reading. It has no
+/// canonical declaration.
 pub const LEGACY_CLASS: ClassId = 0x0901;
 pub const RAIL: RailAxis = RailAxis::Taxonomy;
 /// Classes declared under the certification reading. The bits cannot say which
 /// reading wrote them, so the class does.
 pub const CERTIFICATION_CLASSES: &[ClassId] = &[CERT_CLASS];
+/// The grounding P7a's sealed models declare: exposure and outcome are
+/// measured on the same units with no intermediate in the model, so the
+/// certified relation is `Direct`. A producer statement, not an inference
+/// from the bits.
+pub const MODEL_GROUNDING: Topology2 = Topology2::Direct;
 
 /// The certified relational contract. Working names; the obligations in the
 /// module table are the content.
@@ -90,35 +103,47 @@ impl Contract {
     }
 }
 
-/// Why a band could not be read.
+impl Contract {
+    /// The canonical certification coordinate (same code).
+    pub fn certification(self) -> Certification3 {
+        Certification3::ALL[self.code() as usize]
+    }
+
+    pub fn from_certification(c: Certification3) -> Self {
+        Contract::ALL[c.code() as usize]
+    }
+}
+
+/// Why a certification could not be stamped or read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Refusal {
     /// The class is not declared under the certification reading.
     NotCertificationClass,
-    /// A reserved code (6 or 7).
+    /// A reserved legacy code (6 or 7).
     Reserved(u8),
-    /// The contract refused (undeclared, band absent, untrusted provenance).
-    Band(BandReadError),
+    /// The canonical projection refused (undeclared, untrusted provenance,
+    /// undeclared code).
+    Reading(Epi5ReadError),
 }
 
-pub fn declarations() -> BandDeclarations {
-    let mut d = BandDeclarations::new();
-    for class in [CERT_CLASS, LEGACY_CLASS] {
-        d.declare(
-            class,
-            RAIL,
-            BandReading {
-                band: BandPresence::Present,
-                ..BandReading::ZERO_FALLBACK
-            },
-        );
-    }
+/// The canonical declarations: `CERT_CLASS` reads bits 59..63 as
+/// `EpistemicState5` V1. `LEGACY_CLASS` is deliberately absent.
+pub fn declarations() -> Epi5Declarations {
+    let mut d = Epi5Declarations::new();
+    d.declare(
+        CERT_CLASS,
+        RAIL,
+        Epi5Reading {
+            generation: Epi5Gen::V1,
+        },
+    );
     d
 }
 
-/// Read the certified contract off an edge.
+/// Read the certified contract off an edge: canonical projection, then the
+/// legacy certification projection of the state.
 pub fn read(
-    decl: &BandDeclarations,
+    decl: &Epi5Declarations,
     class: ClassId,
     edge: CausalEdge64,
     provenance: EdgeProvenance,
@@ -126,15 +151,15 @@ pub fn read(
     if !CERTIFICATION_CLASSES.contains(&class) {
         return Err(Refusal::NotCertificationClass);
     }
-    let raw = decl
-        .project_band(class, RAIL, edge.reasoning_band().to_bits_3(), provenance)
-        .map_err(Refusal::Band)?;
-    Contract::from_code(raw)
+    let state = decl
+        .project_state5(class, RAIL, Epi5Gen::V1, edge.epistemic_raw5(), provenance)
+        .map_err(Refusal::Reading)?;
+    Ok(Contract::from_certification(state.certification()))
 }
 
-/// Does the band on the edge license `required`? Reserved codes refuse.
+/// Does the edge license `required`?
 pub fn satisfies(
-    decl: &BandDeclarations,
+    decl: &Epi5Declarations,
     class: ClassId,
     edge: CausalEdge64,
     required: Contract,
@@ -142,7 +167,10 @@ pub fn satisfies(
     Ok(read(decl, class, edge, EdgeProvenance::V2Stamped)?.entails(required))
 }
 
-/// Write a contract into bits 61..63. Only those bits move.
-pub fn stamp(edge: CausalEdge64, contract: Contract) -> CausalEdge64 {
-    edge.with_reasoning_band(ReasoningBand::from_bits_3(contract.code()))
+/// Stamp a certification under a declared topology: identity packing into
+/// all of bits 59..63. Nothing else moves. Every contract × topology is a
+/// meaningful V1 state.
+pub fn stamp(edge: CausalEdge64, contract: Contract, topology: Topology2) -> CausalEdge64 {
+    let state = EpistemicState5::new(Epi5Gen::V1, topology, contract.certification());
+    edge.with_epistemic_raw5(state.raw())
 }

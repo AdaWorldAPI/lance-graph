@@ -179,6 +179,11 @@ cargo run -p cognitive-shader-driver --example reasoning_band_probe
 
 ## relational_certification_probe.rs
 
+> **D-EPI-MIG-0 (2026-10-07):** P7a's codes are the certification
+> coordinate of the canonical Cartesian `EpistemicState5`; a certification is
+> stamped by identity packing `(MODEL_GROUNDING = Direct, code)` into bits
+> 59..63. Every contract stamps; 6 and 7 are reserved and refuse.
+
 D-GSO-7a (P7a). Replaces the meaning of the band rungs from `reasoning_band_probe`
 (#1360, which stays as shipped). Under a reading declared per class, bits 61..63
 hold the strongest relational statement the sealed model may assert:
@@ -300,6 +305,13 @@ cargo run -p cognitive-shader-driver --features with-engine,mailbox-thoughtspace
 ```
 
 ## epistemic_reading_conflict_probe.rs
+
+> **D-EPI-MIG-0 (2026-10-07):** converted to the conformance probe of the
+> canonical Cartesian `EpistemicState5 = Topology2 × Certification3`
+> (`raw5 = topology | certification << 2`): canonical == topology lens +
+> P7a decode over all 32 codes (24 agree / 0 disagree / 8 reserved), plus
+> F3/F5–F8 and the IndirectUnknown/Unknown × Causes frontier.
+> The text below describes the #1378 state it replaced.
 
 D-EPI-CONFLICT-0. Pins that the affordance law (`shared/affordance_law.rs`)
 reads bits 59..63 as its own 5-bit code without the D-ACR-7 contract

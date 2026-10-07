@@ -42,7 +42,6 @@ use bgz17::palette::Palette;
 use bgz17::palette_semiring::PaletteSemiring;
 use causal_edge::edge::CausalEdge64;
 #[cfg(test)]
-use causal_edge::layout::{SPARE_MASK, TRUTH_MASK, TRUTH_SHIFT};
 #[cfg(test)]
 use cognitive_shader_driver::bindspace::BindSpace;
 #[cfg(test)]
@@ -54,6 +53,7 @@ use cognitive_shader_driver::{
     ShaderCrystal, ShaderDispatch, ShaderDriver, StyleSelector,
 };
 use lance_graph_contract::band_reading::EdgeProvenance;
+use lance_graph_contract::epistemic_state5::{Certification3, Epi5Gen, EpistemicState5, Topology2};
 use thinking_engine::dto::{SourceType, StreamDto};
 
 const MAILBOX: u32 = 0;
@@ -225,11 +225,16 @@ fn main() {
     );
     let t = LawGen::V1.tables();
     let pearl = t.pearl[edge.causal_mask() as usize];
-    for code in [0usize, 1, 3, 5, 7, 12, 17, 20, 25, 30] {
-        println!(
-            "  code {code:2} under this Pearl: {:#x}",
-            t.state[code] & pearl
-        );
+    // Every meaningful state by its coordinate; reserved certifications (codes
+    // 24..31) refuse and are not a row of this table.
+    for c in Certification3::ALL {
+        for tp in Topology2::ALL {
+            let code = EpistemicState5::new(Epi5Gen::V1, tp, c).raw();
+            println!(
+                "  code {code:2} {tp:?} x {c:?} under this Pearl: {:#x}",
+                t.state[code as usize] & pearl
+            );
+        }
     }
 }
 
@@ -348,11 +353,10 @@ mod tests {
             "the circuit moved eligibility"
         );
 
-        // Code 7 (DIRECT | OBSERVED | ASSOCIATED) into the same row, committed
-        // by tick. Not code 3: under Pearl S it grants the same 0x20 as code 0
-        // (the table `main` prints).
-        let observed =
-            CausalEdge64((committed.0 & !(TRUTH_MASK | SPARE_MASK)) | (7u64 << TRUTH_SHIFT));
+        // Code 4 (Direct × Associated, the Cartesian V1 reading) into the same
+        // row, committed by tick. Not code 0: under Pearl S it would grant the
+        // same 0x20 as the open register (the table `main` prints).
+        let observed = committed.with_epistemic_raw5(4);
         let mb = d.mailbox_mut(MAILBOX).unwrap();
         let cell = WriteCell {
             edge: Some(observed),
@@ -360,10 +364,18 @@ mod tests {
         };
         assert_eq!(mb.write_row(row, mb.cycle(), &cell), WriteOutcome::Accepted);
         mb.tick();
+        assert_eq!(
+            raw5(mb.edge(row)),
+            4,
+            "the committed code is not Direct × Associated"
+        );
+        let reread_state = EpistemicState5::decode(Epi5Gen::V1, raw5(mb.edge(row))).unwrap();
+        assert_eq!(reread_state.topology(), Topology2::Direct);
+        assert_eq!(reread_state.certification(), Certification3::Associated);
         let reread = measure(LawGen::V1, mb.edge(row), EdgeProvenance::V2Stamped);
         assert_eq!(
             reread,
-            Ok(t.state[7] & t.pearl[edge.causal_mask() as usize])
+            Ok(t.state[4] & t.pearl[edge.causal_mask() as usize])
         );
         assert_ne!(reread, open, "the measurement does not read the row");
     }

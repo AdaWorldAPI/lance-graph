@@ -47,12 +47,14 @@
 //!   removing A from a unit with B leaves Y unchanged, while the population
 //!   trial still certifies `Causes`.
 //!
-//! # Reused, unchanged
+//! # Carrier (D-EPI-MIG-0)
 //!
-//! `CausalEdge64` bits 61..63 via `with_reasoning_band` / `reasoning_band`,
-//! read through `band_reading::BandDeclarations::project_band`; the
-//! `ReasoningBand` enum is used only as the 3-bit carrier, its historical names
-//! carry no meaning here. Provenance is `causal_audit::SupportLedger` /
+//! P7a's codes are the certification coordinate of the canonical Cartesian
+//! `EpistemicState5` (`raw5 = topology | certification << 2`, bits 59..63).
+//! A certification is stamped by identity packing `(MODEL_GROUNDING, code)`
+//! with `with_epistemic_raw5` and read back through
+//! `Epi5Declarations::project_state5`. All six contracts are meaningful under
+//! every topology; 6 and 7 are reserved and refuse. Provenance is `causal_audit::SupportLedger` /
 //! `SupportReceipt` / `SupportBasis` / `EvidenceSourceId`. Seals are
 //! `scheduler::DatasetVersion`.
 //!
@@ -431,7 +433,9 @@ fn main() {
             simpson_trial.build(),
         ),
     ];
-    println!("relational certification over bits 61..63 (declared reading)");
+    println!(
+        "relational certification -> canonical EpistemicState5 (bits 59..63), grounding {MODEL_GROUNDING:?}"
+    );
     let codebook: Vec<String> = Contract::ALL
         .iter()
         .map(|c| format!("{}={c:?}", c.code()))
@@ -439,10 +443,13 @@ fn main() {
     println!("  codebook: {} (6, 7 reserved)", codebook.join(", "));
     for (name, m) in &fixtures {
         let c = m.certify();
-        let edge = stamp(CausalEdge64::ZERO, c);
-        let back = read(&decl, CERT_CLASS, edge, EdgeProvenance::V2Stamped);
+        let e = stamp(CausalEdge64::ZERO, c, MODEL_GROUNDING);
+        let back = (
+            e.epistemic_raw5(),
+            read(&decl, CERT_CLASS, e, EdgeProvenance::V2Stamped),
+        );
         println!(
-            "  {name:<40} -> {c:?} (code {}, marginal association {:?}, read back {back:?})",
+            "  {name:<40} -> {c:?} (P7a code {}, marginal association {:?}, canonical {back:?})",
             c.code(),
             m.associated_marginal()
         );
@@ -453,7 +460,8 @@ fn main() {
         t.associated(),
         t.contributes()
     );
-    let meta = CausalEdge64::ZERO.with_reasoning_band(ReasoningBand::Meta);
+    // The historical `Meta` band ordinal in the high half, as a joint code.
+    let meta = CausalEdge64::ZERO.with_epistemic_raw5(ReasoningBand::Meta.to_bits_3() << 2);
     println!(
         "  historical Meta bits asked to satisfy Causes: {:?}",
         satisfies(&decl, CERT_CLASS, meta, Contract::Causes)
@@ -532,7 +540,8 @@ fn monotonicity_census() -> Census {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use causal_edge::layout::SPARE_MASK;
+    use causal_edge::layout::EPISTEMIC_MASK;
+    use lance_graph_contract::epistemic_state5::Epi5ReadError;
 
     /// P7a.1 + P7a.8: the reading is declared per class; reserved codes and
     /// historically-declared classes refuse; the bits alone decide nothing.
@@ -540,29 +549,33 @@ mod tests {
     fn the_reading_is_declared_and_reserved_codes_refuse() {
         let decl = declarations();
         for c in Contract::ALL {
-            let edge = stamp(CausalEdge64::ZERO, c);
+            let edge = stamp(CausalEdge64::ZERO, c, MODEL_GROUNDING);
+            assert_eq!(edge.epistemic_raw5(), c.code() << 2, "identity packing");
             assert_eq!(
                 read(&decl, CERT_CLASS, edge, EdgeProvenance::V2Stamped),
                 Ok(c)
             );
-            // Same bits, historical reading: refused.
+            // Same bits, a class without a canonical declaration: refused.
             assert_eq!(
                 read(&decl, LEGACY_CLASS, edge, EdgeProvenance::V2Stamped),
                 Err(Refusal::NotCertificationClass)
             );
         }
+        // P7a's reserved bands 6, 7 in the high half: not canonical codes.
         for raw in [6u8, 7] {
-            let edge = CausalEdge64::ZERO.with_reasoning_band(ReasoningBand::from_bits_3(raw));
+            let edge = CausalEdge64::ZERO.with_epistemic_raw5(raw << 2);
             assert_eq!(
                 read(&decl, CERT_CLASS, edge, EdgeProvenance::V2Stamped),
-                Err(Refusal::Reserved(raw))
+                Err(Refusal::Reading(Epi5ReadError::UndeclaredCode(raw << 2)))
             );
         }
-        let edge = stamp(CausalEdge64::ZERO, Contract::Causes);
-        assert!(matches!(
+        let edge = stamp(CausalEdge64::ZERO, Contract::Causes, MODEL_GROUNDING);
+        assert_eq!(
             read(&decl, CERT_CLASS, edge, EdgeProvenance::Unknown),
-            Err(Refusal::Band(_))
-        ));
+            Err(Refusal::Reading(Epi5ReadError::UnknownProvenance(
+                EdgeProvenance::Unknown
+            )))
+        );
     }
 
     /// The `>=` reading is legal on the six contracts and only there. The old
@@ -577,7 +590,7 @@ mod tests {
         }
         let decl = declarations();
         for historical in [ReasoningBand::Meta, ReasoningBand::Transcendent] {
-            let edge = CausalEdge64::ZERO.with_reasoning_band(historical);
+            let edge = CausalEdge64::ZERO.with_epistemic_raw5(historical.to_bits_3() << 2);
             assert!(historical.to_bits_3() > Contract::Causes.code());
             assert!(satisfies(&decl, CERT_CLASS, edge, Contract::Causes).is_err());
             assert!(satisfies(&decl, CERT_CLASS, edge, Contract::Open).is_err());
@@ -717,12 +730,12 @@ mod tests {
         let certified = m.certify();
         for mantissa in -8i8..=7 {
             let edge = CausalEdge64::ZERO.with_inference_mantissa(mantissa);
-            let stamped = stamp(edge, certified);
+            let stamped = stamp(edge, certified, MODEL_GROUNDING);
             assert_eq!(stamped.inference_mantissa(), mantissa);
             assert_eq!(
-                (stamped.0 ^ edge.0) & !SPARE_MASK,
+                (stamped.0 ^ edge.0) & !EPISTEMIC_MASK,
                 0,
-                "only bits 61..63 move"
+                "only bits 59..63 move"
             );
             assert_eq!(
                 read(&decl, CERT_CLASS, stamped, EdgeProvenance::V2Stamped),
@@ -881,7 +894,7 @@ mod tests {
         let run = || -> Vec<u64> {
             seals
                 .iter()
-                .map(|m| stamp(CausalEdge64::ZERO, m.certify()).0)
+                .map(|m| stamp(CausalEdge64::ZERO, m.certify(), MODEL_GROUNDING).0)
                 .collect()
         };
         assert_eq!(run(), run());

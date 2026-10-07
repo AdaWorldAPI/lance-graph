@@ -4,6 +4,18 @@
 //! `band_reading` — the **59..63 reading contract** (`D-ACR-7`, council-ratified
 //! spec: `.claude/plans/dacr7-band-reading-contract-v1.md`).
 //!
+//! > **⊘ SUPERSEDED as the owner of bits 59..63 (operator decision 2026-10-07,
+//! > `D-EPI-CANON-0`).** Bits 59..63 are ONE field, `EpistemicState5 =
+//! > Topology2 × Certification3` (`raw5 = topology | certification << 2`),
+//! > read through [`epistemic_state5`](crate::epistemic_state5). The split
+//! > reading below is a **legacy compatibility surface**, not a peer authority.
+//! > A class that declared `TruthLens::Topology` + the P7a certification band
+//! > wrote exactly the canonical product (identity packing); a class that
+//! > declared `TruthLens::Trust` or the historical `ReasoningBand` wrote other
+//! > meanings, has no canonical declaration, and its bits are never
+//! > reinterpreted. [`EdgeProvenance`] stays here unchanged and is shared by
+//! > both readings. Kept, not deleted (append-only).
+//!
 //! Two bits (the truth tail) and three bits (the band tail) of a causal edge
 //! carry FOUR shipped readings between them — `TrustTexture` vs
 //! `CausalTopology` on the 2-bit field, `ReasoningBand`-present vs spare on

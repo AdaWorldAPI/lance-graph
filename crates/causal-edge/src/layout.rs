@@ -54,6 +54,12 @@ pub const V1_TEMPORAL_SHIFT: u32 = 52;
 pub const W_SHIFT: u32 = 53;
 
 /// Truth-band lens: 2-bit TrustTexture ordinal (bits 59-60).
+///
+/// ⊘ D-EPI-CANON-0 (2026-10-07): bits 59..63 are ONE field, the 5-bit
+/// `EpistemicState5` code ([`EPISTEMIC_SHIFT`]), `raw5 = topology |
+/// certification << 2`. These two bits are its TOPOLOGY coordinate, read with
+/// the [`CausalTopology`] ordinals. The `TrustTexture` reading of the same
+/// bits is legacy: no mapping into the canonical state exists for it.
 /// 0 = Crystalline. Per cognitive-substrate-convergence-v1.md L-7.
 ///
 /// Same two bits also carry an ADDITIVE factual view, [`CausalTopology`]
@@ -65,6 +71,12 @@ pub const W_SHIFT: u32 = 53;
 pub const TRUTH_SHIFT: u32 = 59;
 
 /// Spare: 3-bit reserved for sprint-12+ (bits 61-63).
+///
+/// ⊘ D-EPI-CANON-0 (2026-10-07): the CERTIFICATION coordinate of the joint
+/// `EpistemicState5` field ([`EPISTEMIC_SHIFT`]): `0 Open, 1 Associated,
+/// 2 Related, 3 Supports, 4 CausalCandidate, 5 Causes, 6/7 reserved` (the P7a
+/// codes). The historical [`ReasoningBand`] view below names reasoning levels,
+/// not certifications; it is legacy, with no mapping into the canonical state.
 /// Candidates: Rubicon-commit marker, Markov-decay quantum, I-NOISE-FLOOR-JIRAK threshold.
 ///
 /// Same three bits also carry an ADDITIVE quantized-projection view,
@@ -86,6 +98,21 @@ pub const PLAST_MASK: u64 = BITS3_MASK << PLAST_SHIFT;
 pub const W_MASK: u64 = BITS6_MASK << W_SHIFT;
 pub const TRUTH_MASK: u64 = BITS2_MASK << TRUTH_SHIFT;
 pub const SPARE_MASK: u64 = BITS3_MASK << SPARE_SHIFT;
+
+// ── The joint epistemic field (bits 59..63) ──────────────────────────────────
+/// Bits 59..63 are ONE field: the 5-bit `EpistemicState5` code (operator
+/// decision 2026-10-07, `D-EPI-CANON-0`), the product `raw5 = topology |
+/// certification << 2` of the 2-bit [`TRUTH_SHIFT`] topology and the 3-bit
+/// [`SPARE_SHIFT`] certification coordinates.
+/// What a code MEANS is declared per `(classid, rail, generation)` in
+/// `lance_graph_contract::epistemic_state5`; this crate only carries bits.
+pub const EPISTEMIC_SHIFT: u32 = TRUTH_SHIFT;
+/// 5-bit mask (`0..=31`).
+pub const BITS5_MASK: u64 = 0x1F;
+/// Bits 59..63: exactly `TRUTH_MASK | SPARE_MASK`.
+pub const EPISTEMIC_MASK: u64 = BITS5_MASK << EPISTEMIC_SHIFT;
+const _: () = assert!(EPISTEMIC_MASK == TRUTH_MASK | SPARE_MASK);
+const _: () = assert!(SPARE_SHIFT == EPISTEMIC_SHIFT + 2);
 
 // ── Compile-time layout coverage assertion ────────────────────────────────────
 /// Const-assert: all 64 bits covered exactly once.
