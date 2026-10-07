@@ -9,7 +9,7 @@
 - **Routing.** A live remote mailbox's routing address is its own alias at the tenant, and one of its own SMTP addresses.
 - **SCOPE:** directory simulation. **BASIS:** Exchange refuses an address another object holds, under any attribute; `Enable-RemoteMailbox` stamps `{alias}@{tenant}.mail.onmicrosoft.com` as both `targetAddress` and an `smtp:` proxy.
 
-Partly closes the OPEN item "the routing address is not added to the proxy relation" of `2026-10-07-dir-sim-exchange-recipients.md`: a routing address held only in `targetAddress` now conflicts (`AddressConflict`, role `Routing`) and is reported (`RoutingNotInProxies`).
+Partly closes the OPEN item "the routing address is not added to the proxy relation" of `2026-10-07-dir-sim-exchange-recipients.md`: a routing address held only in `targetAddress` now conflicts (`AddressConflict`, role `Routing`) and is reported (`RoutingNotInProxies`). The proxy rule covers only the routing address a node was **observed** with: one a version introduces (an enable, a create, a new routing address) is stamped by the operation, so the pre-actuation version passes; it stays in the address space as `Routing`. Found by Codex review of #1392: the enable path could never pass `promote_desired`, and the recipients fixture hid it by preloading the proxy.
 
 ## What changed
 
