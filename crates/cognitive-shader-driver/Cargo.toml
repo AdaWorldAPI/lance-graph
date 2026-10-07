@@ -171,6 +171,12 @@ test = true
 name = "crossword_real_words_probe"
 test = true
 
+# D-PUZZLE-ATTN-0: entropy as the focus of attention on crosswords (search
+# slot policies over the shared crossword core); tests run under `cargo test`.
+[[example]]
+name = "crossword_attention_probe"
+test = true
+
 [[example]]
 name = "crossword_mask_propagation_probe"
 test = true
