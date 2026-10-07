@@ -533,7 +533,7 @@ fn certification(e: CausalEdge64) -> Certification3 {
 }
 
 fn topology(e: CausalEdge64) -> Topology2 {
-    Topology2::from_ordinal((e.epistemic_raw5() & 0b11) as u8).expect("2-bit ordinal")
+    Topology2::from_ordinal(e.epistemic_raw5() & 0b11).expect("2-bit ordinal")
 }
 
 // ── The script ────────────────────────────────────────────────────────────

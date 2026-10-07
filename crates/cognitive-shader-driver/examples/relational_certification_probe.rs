@@ -76,8 +76,9 @@
 use causal_edge::edge::CausalEdge64;
 use causal_edge::layout::ReasoningBand;
 use lance_graph_contract::band_reading::EdgeProvenance;
-use lance_graph_contract::causal_audit::{EvidenceSourceId, SupportBasis};
-use lance_graph_contract::scheduler::DatasetVersion;
+use lance_graph_contract::causal_audit::SupportBasis;
+#[cfg(test)]
+use lance_graph_contract::{causal_audit::EvidenceSourceId, scheduler::DatasetVersion};
 
 #[path = "shared/certification_reading.rs"]
 mod certification_reading;

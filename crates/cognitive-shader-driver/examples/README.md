@@ -458,3 +458,17 @@ claim lane the shared three ways. German needs `DEREKO_PATH`. Board:
 cargo run --release -p cognitive-shader-driver --example crossword_mask_propagation_probe
 ```
 
+## pearl_ladder_probe.rs
+
+D-PEARL-IO-0. Pearl's ladder executed in and out of `CausalEdge64`. Bits
+40..42 select an existing operator: SO runs the P7a observational folds, PO
+the P7a executed randomized arms, SPO `dismech_counterfactual::counterfactual_replay`
+with one route cut, SP the SO-vs-PO direction check. `revise` raises bits
+59..63 only to what the operator earned; `hydrate` moves `IndirectUnknown`
+to `IndirectKnown` only when both bindings of the path are sealed.
+
+```sh
+cargo run  -p cognitive-shader-driver --features with-planner --example pearl_ladder_probe
+cargo test -p cognitive-shader-driver --features with-planner --example pearl_ladder_probe
+```
+
