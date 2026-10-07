@@ -3,18 +3,19 @@
 //! Step 2 (`crossword_population_fold_probe`) used a synthetic three-letter
 //! alphabet. This probe fills the same 5×5 template from a real word list:
 //!
-//! - **English** (default, always available): COCA word forms from the
-//!   committed `crates/deepnsm/word_frequency/word_forms.csv`, the file
-//!   DeepNSM-v2's lexical layer reads. Alphabetic ASCII surfaces, ranked by
-//!   their largest `wordFreq`.
-//! - **German** (only with `DEREKO_PATH` set): the DeReKo-2014 STTS frequency
-//!   list (`form, lemma, tag, freq`, tab-separated), proper nouns (`NE`)
-//!   excluded, frequencies summed per lowercase form. DeReKo is CC BY-NC 3.0
-//!   (IDS Mannheim); it is read from the given path at run time and nothing
-//!   derived from it is committed. Without the variable the German run is
-//!   skipped, never failed.
+//! - **English** (default, always available): the two vocabularies DeepNSM
+//!   reads. v1's 4096-word table (`word_rank_lookup.csv`, ranks 1..=4096) and
+//!   v2's academic list (`academic_20k.csv`, 18,559 distinct words), both
+//!   committed under `crates/deepnsm/word_frequency/`. Their union, alphabetic
+//!   ASCII only, scored by the larger COCA frequency. No other English source.
+//! - **German** (only with `DEREKO_PATH` set): the 20,000 most frequent forms
+//!   of the DeReKo-2014 STTS list (`form, lemma, tag, freq`, tab-separated),
+//!   after excluding proper nouns (`NE`) and non-alphabetic forms and summing
+//!   frequencies per lowercase form. DeReKo is CC BY-NC 3.0 (IDS Mannheim); it
+//!   is read from the given path at run time and nothing derived from it is
+//!   committed. Without the variable the German run is skipped, never failed.
 //!
-//! The dictionary is the `TOP` most frequent words of each slot length. An
+//! The dictionary is every word of a slot's length in that vocabulary. An
 //! instance is a random fill of the template from that dictionary; given
 //! slots are added in random order until the dictionary admits exactly one
 //! fill consistent with them, so "the true word" is well defined. The law,
@@ -42,12 +43,15 @@ const CROSSWORD_CLASS: ClassId = 0x0907;
 
 const SIDE: usize = 5;
 const TEMPLATE: [&str; SIDE] = ["....#", ".....", ".....", ".....", "#...."];
-/// Words per slot length kept in the dictionary.
-const TOP: usize = 1000;
+/// v1's vocabulary size (`deepnsm::vocabulary::VOCAB_SIZE`).
+const V1_VOCAB: u32 = 4096;
+/// Forms kept from the German frequency list.
+const GERMAN_VOCAB: usize = 20_000;
 /// Search nodes allowed for one random fill before a fresh start.
 const FILL_BUDGET: usize = 20_000;
 
-const COCA: &str = include_str!("../../deepnsm/word_frequency/word_forms.csv");
+const RANK_LOOKUP: &str = include_str!("../../deepnsm/word_frequency/word_rank_lookup.csv");
+const ACADEMIC: &str = include_str!("../../deepnsm/word_frequency/academic_20k.csv");
 
 type Word = Vec<char>;
 type Fill = [Option<char>; SIDE * SIDE];
@@ -74,22 +78,36 @@ fn slots() -> Vec<Vec<usize>> {
     out
 }
 
-/// COCA surfaces: alphabetic ASCII, lowercase, each scored by its largest
-/// `wordFreq` row.
-fn coca_frequencies() -> HashMap<String, f64> {
-    let mut out: HashMap<String, f64> = HashMap::new();
-    for line in COCA.lines().skip(1) {
+/// Insert `word` with `freq`, keeping the larger frequency, if it is
+/// alphabetic ASCII.
+fn keep_max(out: &mut HashMap<String, f64>, word: &str, freq: &str) {
+    let w = word.trim().to_lowercase();
+    if w.is_empty() || !w.chars().all(|c| c.is_ascii_alphabetic()) {
+        return;
+    }
+    let n: f64 = freq.trim().parse().unwrap_or(0.0);
+    let e = out.entry(w).or_insert(0.0);
+    *e = e.max(n);
+}
+
+/// DeepNSM's English vocabulary: v1's 4096 (`rank,word,pos,freq`, rank cut)
+/// united with v2's academic list (`ID,band,status,word,Pos,COCA-All,...`).
+fn english_vocabulary() -> HashMap<String, f64> {
+    let mut out = HashMap::new();
+    for line in RANK_LOOKUP.lines().skip(1) {
         let f: Vec<&str> = line.trim_end_matches('\r').split(',').collect();
-        let [_, _, _, _, freq, word] = f.as_slice() else {
+        let [rank, word, _, freq] = f.as_slice() else {
             continue;
         };
-        let w = word.trim().to_lowercase();
-        if w.is_empty() || !w.chars().all(|c| c.is_ascii_alphabetic()) {
-            continue;
+        if rank.trim().parse::<u32>().is_ok_and(|r| r <= V1_VOCAB) {
+            keep_max(&mut out, word, freq);
         }
-        let n: f64 = freq.trim().parse().unwrap_or(0.0);
-        let e = out.entry(w).or_insert(0.0);
-        *e = e.max(n);
+    }
+    for line in ACADEMIC.lines().skip(1) {
+        let f: Vec<&str> = line.trim_end_matches('\r').split(',').collect();
+        if let (Some(word), Some(freq)) = (f.get(3), f.get(5)) {
+            keep_max(&mut out, word, freq);
+        }
     }
     out
 }
@@ -113,6 +131,15 @@ fn dereko_frequencies(text: &str) -> HashMap<String, f64> {
         *out.entry(w).or_insert(0.0) += freq.trim().parse::<f64>().unwrap_or(0.0);
     }
     out
+}
+
+/// The `GERMAN_VOCAB` most frequent DeReKo forms (ties alphabetical).
+fn german_vocabulary(text: &str) -> HashMap<String, f64> {
+    let f = dereko_frequencies(text);
+    let mut ranked: Vec<(String, f64)> = f.into_iter().collect();
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    ranked.truncate(GERMAN_VOCAB);
+    ranked.into_iter().collect()
 }
 
 /// The `top` most frequent words of one length, ties broken alphabetically
@@ -181,13 +208,13 @@ struct Dictionary {
 }
 
 impl Dictionary {
-    fn new(freq: &HashMap<String, f64>, slots: &[Vec<usize>], top: usize) -> Self {
+    fn new(freq: &HashMap<String, f64>, slots: &[Vec<usize>]) -> Self {
         let mut lens: Vec<usize> = slots.iter().map(Vec::len).collect();
         lens.sort_unstable();
         lens.dedup();
         let by_len = lens
             .into_iter()
-            .map(|l| (l, Bucket::new(top_words(freq, l, top), l)))
+            .map(|l| (l, Bucket::new(top_words(freq, l, usize::MAX), l)))
             .collect();
         Self { by_len }
     }
@@ -454,15 +481,15 @@ fn run(name: &str, dict: &Dictionary) {
 fn main() {
     let slots = slots();
     run(
-        "English COCA (committed word_forms.csv)",
-        &Dictionary::new(&coca_frequencies(), &slots, TOP),
+        "English, DeepNSM v1 4096 + academic 20k (committed)",
+        &Dictionary::new(&english_vocabulary(), &slots),
     );
     match std::env::var("DEREKO_PATH") {
         Ok(path) => {
             let text = std::fs::read_to_string(&path).expect("DEREKO_PATH is readable");
             run(
-                "German DeReKo-2014 (CC BY-NC 3.0, read at run time)",
-                &Dictionary::new(&dereko_frequencies(&text), &slots, TOP),
+                "German, DeReKo-2014 top 20k (CC BY-NC 3.0, read at run time)",
+                &Dictionary::new(&german_vocabulary(&text), &slots),
             );
         }
         Err(_) => println!("German run skipped: set DEREKO_PATH to the DeReKo-2014 .freq file"),
@@ -477,29 +504,36 @@ mod tests {
     use lance_graph_contract::epistemic_state5::facts_population;
 
     fn coca() -> Dictionary {
-        Dictionary::new(&coca_frequencies(), &slots(), TOP)
+        Dictionary::new(&english_vocabulary(), &slots())
     }
 
-    /// The English dictionary is real COCA words, in frequency order.
+    /// The English dictionary is exactly DeepNSM's two vocabularies. Each
+    /// source boundary has a witness: v1 core words, academic-only words,
+    /// words ranked past 4096 in v1's table and absent from the academic list
+    /// (the rank cut), and an inflected form only `word_forms.csv` carries.
     #[test]
-    fn the_coca_dictionary_is_real_words() {
+    fn the_english_dictionary_is_deepnsm_v1_plus_academic() {
         let d = coca();
-        // COCA's word-form list holds only 902 alphabetic four-letter forms,
-        // so that length is the whole list rather than the top `TOP`.
-        for (len, n) in [(4, 902), (5, TOP)] {
+        for (len, n) in [(4, 1250), (5, 1697)] {
             let b = &d.by_len[&len];
             assert_eq!(b.words.len(), n);
             assert!(b.words.iter().all(|w| w.len() == len));
         }
-        let four: Vec<String> = d.by_len[&4]
-            .words
-            .iter()
-            .map(|w| w.iter().collect())
-            .collect();
-        assert_eq!(four[0], "that");
-        for w in ["have", "with", "this", "from"] {
-            assert!(four.iter().any(|x| x == w), "{w} missing");
-        }
+        let has = |w: &str| {
+            let w: Word = w.chars().collect();
+            d.by_len[&w.len()].words.contains(&w)
+        };
+        assert_eq!(d.by_len[&4].words[0], "have".chars().collect::<Word>());
+        assert!(has("that") && has("with"), "v1 core words");
+        assert!(has("abyss") && has("acorn"), "academic-only words");
+        assert!(
+            !has("gosh") && !has("kinda"),
+            "v1 rank cut at 4096 not applied"
+        );
+        assert!(
+            !has("says"),
+            "an inflected form from word_forms.csv leaked in"
+        );
     }
 
     /// The bitset index returns exactly the words a direct scan returns.
@@ -608,6 +642,24 @@ mod tests {
             top_words(&f, 4, 10),
             vec!["haus".chars().collect::<Word>(), "füße".chars().collect()]
         );
+    }
+
+    /// German keeps the 20,000 most frequent forms and drops the rest.
+    #[test]
+    fn german_keeps_the_top_20k_forms() {
+        let mut text = String::new();
+        for i in 0..GERMAN_VOCAB + 5 {
+            // Distinct alphabetic forms, frequency falling with i.
+            let w: String = format!("{i:05}")
+                .bytes()
+                .map(|b| (b'a' + (b - b'0')) as char)
+                .collect();
+            text.push_str(&format!("{w}\t{w}\tNN\t{}\n", 1_000_000 - i));
+        }
+        let v = german_vocabulary(&text);
+        assert_eq!(v.len(), GERMAN_VOCAB);
+        assert!(v.contains_key("aaaaa"), "most frequent form dropped");
+        assert!(!v.contains_key("caaae"), "form ranked past 20k kept"); // i = 20004
     }
 
     #[test]
