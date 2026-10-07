@@ -83,6 +83,12 @@ fn a_well_formed_mailbox_is_clean() {
 fn the_routing_address_must_be_the_nodes_own_alias() {
     for (alias, routing, bad) in [
         ("Alice", format!("alice@{TENANT}"), false),
+        // Addresses compare case-insensitively, the routing domain included.
+        (
+            "alice",
+            "Alice@Contoso.MAIL.onmicrosoft.com".to_string(),
+            false,
+        ),
         ("alice", format!("bob@{TENANT}"), true),
         ("alice", "alice@contoso.onmicrosoft.com".to_string(), true),
         ("alice", "alice@x.test".to_string(), true),
