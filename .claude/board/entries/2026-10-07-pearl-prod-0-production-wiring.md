@@ -30,7 +30,7 @@ module (P7a 13/13 and the reading-conflict probe 9/9 pass unchanged), and
   sealed chain and hands it to `reason`; the API is in place for the first
   producer. (`ISS-NO-EVIDENCE-WRITER-FOR-EPISTEMIC-STATE` describes the same
   gap from the register's side.)
-- `CertificationModel` is capped at 64 units (one `u64` per mask).
+- ~~`CertificationModel` is capped at 64 units (one `u64` per mask).~~ Lifted in the same PR; see "Any population width" below.
 - The planner carries four older clippy findings in `nested_bands.rs` and
   `cache/nars_engine.rs`; CI does not gate planner clippy. `pearl.rs` is clean.
 
@@ -43,3 +43,49 @@ the ordinal is an opaque `u8` witness. They are now `chain_replay` and
 module paths stay as `#[deprecated]` re-export aliases, pinned by
 `the_old_module_paths_still_name_the_same_items`. No behaviour change: planner
 lib 450 passed / 3 ignored, `house_differential` 6/6, `reasoning_band_probe` 7/7.
+
+## Any population width (same PR)
+
+The certification folds use only intersection, difference and a population
+count, so `CertificationModel` / `ModelBuilder` / `compare` / `count` are now
+generic over `PopulationMask` — a sub-trait of the existing
+`revision::EvidenceMask` (the mask `dismech_candidates` already uses) that adds
+`count`, `full` and `unit`. `u64` is the default type parameter, so every
+existing caller is unchanged; `[u64; N]` holds `64 * N` units, and
+`[u64; 1024]` matches the 64k-row cycle `persist_sink` seals. `pearl::Evidence`
+and `pearl::reason` take the same parameter. `ModelBuilder::new()` stays on
+`u64` so it infers without annotation; `default()` builds any width.
+
+Falsifiers (contract `certification::tests`, planner `pearl::tests`):
+- `every_carrier_width_certifies_a_fixture_identically`: four fixtures
+  (CausalCandidate, Open, Related, Causes) give the same six folds in `u64`,
+  `[u64; 2]` and `[u64; 1024]`.
+- `units_past_the_first_word_are_counted` and
+  `a_population_wider_than_64_units_is_decided` (with an equal-rates silence
+  twin). Disable run: counting only word 0 of `[u64; N]` turns both red.
+- `units_stop_at_capacity`, `the_builder_refuses_past_capacity`.
+- `the_operators_read_a_population_wider_than_64_units`: SO earns
+  CausalCandidate, PO earns Causes and writes it back, and SP reports no
+  confounding, over 300 + 200 units past the first word. Null arms earn nothing.
+
+## What else was checked for reuse, and why it is not wired
+
+- **No producer of sealed evidence exists yet.** The shader driver emits edges
+  whose Pearl projection comes from resonance predicates, with no population
+  behind them; `persist_sink` is storage-only; `AuditedRelation` has no
+  callers. The natural first producers are `lance-graph-arm-discovery`
+  (`RowMasks` are row bitsets, so a mined rule A→B is an SO question over
+  exposed = rows with A, outcome = rows with B, capped observationally) and a
+  sealed 64k cycle. Neither is wired: arm-discovery has one source per
+  dataset, and `MIN_SOURCES = 2`, so a rule would be `TooFewSources` until it
+  is decided what counts as a distinct source (basins, environments, datasets).
+- **`cache::nars_engine` "Pearl rung 2/3"** (`Inference::Intervention` /
+  `Counterfactual`) is truth arithmetic over two heads (abduction ×0.85,
+  deduction ×0.70), not executed arms or a replay. It writes truth and the
+  mantissa, never bits 59..63, so it does not bypass the certification rule;
+  it is not routed into `pearl` because it measures nothing `pearl` could
+  certify from.
+- **`AuditedRelation::is_intervention_established`** treats one
+  `InterventionBacked` receipt plus a causal classification as established,
+  without arms and below `MIN_SOURCES`. That is a second, weaker definition of
+  the same question. It has no callers; left as is, recorded here.

@@ -44,7 +44,9 @@
 
 use causal_edge::{CausalEdge64, CausalMask};
 use lance_graph_contract::band_reading::EdgeProvenance;
-use lance_graph_contract::certification::{compare, CertificationModel, NotGrounded};
+use lance_graph_contract::certification::{
+    compare, CertificationModel, NotGrounded, PopulationMask,
+};
 use lance_graph_contract::class_view::ClassId;
 use lance_graph_contract::epistemic_state5::{
     Certification3, Epi5Declarations, Epi5Gen, Epi5ReadError, EpistemicState5, Topology2,
@@ -124,9 +126,12 @@ pub enum Edit {
 }
 
 /// The sealed evidence an operator may read. Read-only.
-pub struct Evidence<'a> {
+///
+/// Generic over the population's mask width: `u64` holds 64 units, `[u64; N]`
+/// holds `64 * N`. The operators do not depend on the width.
+pub struct Evidence<'a, M: PopulationMask = u64> {
     /// The sealed population, with any executed randomized arms.
-    pub model: &'a CertificationModel,
+    pub model: &'a CertificationModel<M>,
     /// The sealed chain, for counterfactual replay.
     pub chain: Option<Chain<'a>>,
 }
@@ -203,7 +208,7 @@ impl Measured {
 /// nothing else of the edge: the epistemic state, mantissa and truth are not
 /// inputs to the choice.
 #[must_use]
-pub fn reason(edge: CausalEdge64, ev: &Evidence<'_>, edit: Edit) -> Measured {
+pub fn reason<M: PopulationMask>(edge: CausalEdge64, ev: &Evidence<'_, M>, edit: Edit) -> Measured {
     let op = Operation::of(edge.causal_mask());
     let mut out = Measured::new(op);
     let m = ev.model;
@@ -258,8 +263,16 @@ pub fn reason(edge: CausalEdge64, ev: &Evidence<'_>, edit: Edit) -> Measured {
             }
         }
         Operation::ConfounderCheck => {
-            let obs = direction(m.outcome, m.universe & m.exposed, m.universe & !m.exposed);
-            let trial = direction(m.outcome, m.trial & m.assigned, m.trial & !m.assigned);
+            let obs = direction(
+                &m.outcome,
+                &m.universe.intersection(&m.exposed),
+                &m.universe.difference(&m.exposed),
+            );
+            let trial = direction(
+                &m.outcome,
+                &m.trial.intersection(&m.assigned),
+                &m.trial.difference(&m.assigned),
+            );
             match (obs, trial) {
                 (Ok(Some(so)), Ok(Some(po))) => {
                     out.confounded = Some(CausalMask::simpsons_paradox_risk(so, po));
@@ -275,7 +288,7 @@ pub fn reason(edge: CausalEdge64, ev: &Evidence<'_>, edit: Edit) -> Measured {
 
 /// The direction triad `simpsons_paradox_risk` reads: bit 2 set when the
 /// outcome is rarer in the exposed group. `None` on a tie.
-fn direction(outcome: u64, a: u64, b: u64) -> Result<Option<u8>, NotGrounded> {
+fn direction<M: PopulationMask>(outcome: &M, a: &M, b: &M) -> Result<Option<u8>, NotGrounded> {
     if compare(outcome, a, b, true)? {
         Ok(Some(0b000))
     } else if compare(outcome, b, a, true)? {
@@ -958,5 +971,56 @@ mod tests {
             Edit::None,
         );
         assert!(revise(q, &m, reading(&d)).is_err());
+    }
+
+    #[test]
+    fn the_operators_read_a_population_wider_than_64_units() {
+        // 300 observational units and 200 executed trial units, placed past the
+        // first 64-unit word. A `u64` model cannot hold this population; the
+        // operators read it unchanged through the wide mask.
+        let d = declarations();
+        let mut b = ModelBuilder::<[u64; 16]>::default();
+        b.skip(64);
+        b.cell(0, true, 150, 120);
+        b.cell(0, false, 150, 30);
+        b.arm(true, 100, 70);
+        b.arm(false, 100, 20);
+        b.sources(SupportBasis::DirectlyObserved, &[1, 2]);
+        b.sources(SupportBasis::InterventionBacked, &[10, 11]);
+        let model = b.build();
+        let ev = Evidence {
+            model: &model,
+            chain: None,
+        };
+
+        let so = query(CausalMask::SO, Certification3::Open, Topology2::Direct);
+        let m = reason(so, &ev, Edit::None);
+        assert_eq!(m.earned(), Some(Certification3::CausalCandidate));
+
+        let po = query(CausalMask::PO, Certification3::Open, Topology2::Direct);
+        let m = reason(po, &ev, Edit::None);
+        assert_eq!(m.earned(), Some(Certification3::Causes));
+        let e = revise(po, &m, reading(&d)).expect("declared reading");
+        assert_eq!(state(e).1, Certification3::Causes);
+
+        let sp = query(CausalMask::SP, Certification3::Open, Topology2::Direct);
+        assert_eq!(reason(sp, &ev, Edit::None).confounded(), Some(false));
+
+        // Silence twin over the same width: null arms earn nothing.
+        let mut b = ModelBuilder::<[u64; 16]>::default();
+        b.skip(64);
+        b.cell(0, true, 150, 75);
+        b.cell(0, false, 150, 75);
+        b.arm(true, 100, 50);
+        b.arm(false, 100, 50);
+        b.sources(SupportBasis::DirectlyObserved, &[1, 2]);
+        b.sources(SupportBasis::InterventionBacked, &[10, 11]);
+        let null = b.build();
+        let ev = Evidence {
+            model: &null,
+            chain: None,
+        };
+        assert_eq!(reason(so, &ev, Edit::None).earned(), None);
+        assert_eq!(reason(po, &ev, Edit::None).earned(), None);
     }
 }

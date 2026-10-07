@@ -335,7 +335,7 @@ mod tests {
         h.sources(SupportBasis::DirectlyObserved, &[1, 2]);
         h.model_mut().clean &= !hidden;
         let hidden = h.build();
-        assert_eq!(hidden.assoc_in(hidden.universe & hidden.clean), Ok(true));
+        assert_eq!(hidden.assoc_in(&(hidden.universe & hidden.clean)), Ok(true));
         assert_eq!(hidden.related(), Ok(false));
         assert_eq!(hidden.certify(), Contract::Open);
     }
@@ -519,7 +519,7 @@ mod tests {
         let mut m = b.build();
         m.trial &= !sib_arm; // the identification design compares A with untreated
         assert_eq!(m.certify(), Contract::Causes);
-        assert_eq!(compare(m.outcome, a_arm, sib_arm, true), Ok(false));
+        assert_eq!(compare(&m.outcome, &a_arm, &sib_arm, true), Ok(false));
     }
 
     /// Receipts recorded after the model's seal do not count: certification
