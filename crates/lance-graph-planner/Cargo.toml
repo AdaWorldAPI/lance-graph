@@ -52,6 +52,10 @@ test = true
 name = "self_orchestration_probe"
 test = true
 
+[[example]]
+name = "staunen_scheduler_probe"
+test = true
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
