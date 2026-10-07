@@ -25,13 +25,13 @@
 //! keeps identities wherever an ordinal could shift.
 
 use crate::snapshot::{
-    bit, clear_bit, set_bit, Dicts, GroupOrdinal, Population, Snapshot, UserOrdinal, MAX_GROUPS,
-    MAX_USERS, NONE,
+    bit, clear_bit, is_owner, set_bit, Dicts, GroupOrdinal, Population, Snapshot, UserOrdinal,
+    MAX_GROUPS, MAX_USERS, NONE,
 };
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{Dn128, Guid128};
-use ogar_dir_sim::{Attribute, Change, NodeKind, NodeState, Refusal, ValueId};
+use ogar_dir_sim::{Attribute, Change, NodeKind, NodeState, Recipient, Refusal, ValueId};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -101,6 +101,7 @@ pub(crate) struct Created {
     pub(crate) smtp_val: Vec<u32>,
     pub(crate) smtp_key: Vec<u32>,
     pub(crate) dn: Vec<Option<Dn128>>,
+    pub(crate) recipient: Vec<Option<Recipient>>,
 }
 
 impl Created {
@@ -115,6 +116,7 @@ impl Created {
         self.smtp_val.insert(at, smtp.0);
         self.smtp_key.insert(at, smtp.1);
         self.dn.insert(at, s.dn);
+        self.recipient.insert(at, s.recipient);
     }
     fn remove(&mut self, at: usize) {
         self.ids.remove(at);
@@ -124,6 +126,7 @@ impl Created {
         self.smtp_val.remove(at);
         self.smtp_key.remove(at);
         self.dn.remove(at);
+        self.recipient.remove(at);
     }
     pub(crate) fn len(&self) -> usize {
         self.ids.len()
@@ -155,6 +158,8 @@ pub(crate) struct PopOverlay {
     /// Location overrides of base nodes: ordinal → location (`None` =
     /// unknown).
     pub(crate) dn: BTreeMap<u16, Option<Dn128>>,
+    /// Exchange recipient overrides of base nodes (`None` = not read).
+    pub(crate) recipient: BTreeMap<u16, Option<Recipient>>,
     /// Created nodes.
     pub(crate) created: Created,
     /// Deleted base nodes (ordinals).
@@ -167,6 +172,7 @@ impl PopOverlay {
             + self.smtp.len()
             + self.active.len()
             + self.dn.len()
+            + self.recipient.len()
             + self.created.len()
             + self.deleted.len()
     }
@@ -340,6 +346,44 @@ impl<'s> View<'s> {
             cr.active[i] == Some(true)
         })
     }
+    /// Address owners as a bit plane over the user ordinals: users that are
+    /// enabled or a live mail recipient, in this version (observed,
+    /// overridden, created). Uniqueness counts these, not the active plane.
+    pub fn owner_users(&self) -> Cow<'s, [u64]> {
+        let cr = &self.ov.users.created;
+        self.live_plane(NodeKind::User, self.base_owner(), |i| {
+            is_owner(cr.active[i], cr.recipient[i])
+        })
+    }
+    /// The observed owner plane (base width) with the version's flag and
+    /// recipient overrides applied. Borrowed when there are none.
+    fn base_owner(&self) -> Cow<'s, [u64]> {
+        let o = &self.ov.users;
+        if o.active.is_empty() && o.recipient.is_empty() {
+            return Cow::Borrowed(&self.snap.users.owner);
+        }
+        let p = &self.snap.users;
+        let mut plane = p.owner.clone();
+        for &k in o.active.keys().chain(o.recipient.keys()) {
+            let i = usize::from(k);
+            let active = o
+                .active
+                .get(&k)
+                .copied()
+                .unwrap_or_else(|| base_active_of(p, NodeKind::User, i));
+            let rcp = o
+                .recipient
+                .get(&k)
+                .copied()
+                .unwrap_or_else(|| p.recipient_of(i));
+            if is_owner(active, rcp) {
+                set_bit(&mut plane, i);
+            } else {
+                clear_bit(&mut plane, i);
+            }
+        }
+        Cow::Owned(plane)
+    }
     /// The observed active plane (base width) with the version's flag
     /// overrides applied. Borrowed when there are none.
     fn base_active(&self) -> Cow<'s, [u64]> {
@@ -419,7 +463,7 @@ impl<'s> View<'s> {
     pub fn node_state(&self, g: &Guid128) -> Option<NodeState> {
         let (kind, i) = self.locate(g)?;
         let (p, o) = self.pop(kind);
-        let (active, dn) = if i < p.len() {
+        let (active, dn, recipient) = if i < p.len() {
             let o16 = i as u16;
             let active = match o.active.get(&o16) {
                 Some(&flag) => flag,
@@ -429,10 +473,14 @@ impl<'s> View<'s> {
                 Some(&dn) => dn,
                 None => p.dn_of(i),
             };
-            (active, dn)
+            let recipient = match o.recipient.get(&o16) {
+                Some(&r) => r,
+                None => p.recipient_of(i),
+            };
+            (active, dn, recipient)
         } else {
             let j = i - p.len();
-            (o.created.active[j], o.created.dn[j])
+            (o.created.active[j], o.created.dn[j], o.created.recipient[j])
         };
         Some(NodeState {
             kind,
@@ -440,6 +488,7 @@ impl<'s> View<'s> {
             upn: self.slot_attr((kind, i), Attribute::Upn),
             primary_smtp: self.slot_attr((kind, i), Attribute::PrimarySmtp),
             dn,
+            recipient,
         })
     }
 
@@ -455,13 +504,13 @@ impl<'s> View<'s> {
         Cow::Owned(p)
     }
 
-    /// Base active users (base width) minus deleted users and the users
+    /// Base address owners (base width) minus deleted users and the users
     /// whose attribute `a` is overridden — the base rows that still own
     /// their observed value.
     pub(crate) fn live_owners(&self, a: Attribute) -> Cow<'s, [u64]> {
         let o = &self.ov.users;
         let ov = o.overrides(a);
-        let base = self.base_active();
+        let base = self.base_owner();
         if ov.is_empty() && o.deleted.is_empty() {
             return base;
         }
@@ -548,6 +597,16 @@ impl<'s> View<'s> {
         observed > removed
     }
 
+    /// A recipient's routing address must be a value this store issued.
+    fn check_interned(&self, r: &Recipient) -> Result<(), ApplyError> {
+        let routing = match r {
+            Recipient::RemoteMailbox(m) => m.routing(),
+            Recipient::Other(a) => a.target_address,
+            Recipient::NotMailEnabled | Recipient::OnPremisesMailbox { .. } => None,
+        };
+        self.lane_ids(routing).map(|_| ())
+    }
+
     fn lane_ids(&self, v: Option<ValueId>) -> Result<(u32, u32), ApplyError> {
         self.dicts
             .lane_ids(v)
@@ -629,7 +688,12 @@ impl<'s> View<'s> {
                     map.insert(i as u16, ids);
                 }
             }
-            Change::SetActive { node, .. } | Change::SetLocation { node, .. } => {
+            Change::SetActive { node, .. }
+            | Change::SetLocation { node, .. }
+            | Change::SetRecipient { node, .. } => {
+                if let Change::SetRecipient { to: Some(r), .. } = c {
+                    self.check_interned(r)?;
+                }
                 let (kind, i) = self.locate(node).ok_or(ApplyError::UnknownNode(*node))?;
                 let actual = self
                     .node_state(node)
@@ -646,23 +710,19 @@ impl<'s> View<'s> {
                     let cr = &mut self.pop_mut(kind).created;
                     cr.active[i - base_len] = next.active;
                     cr.dn[i - base_len] = next.dn;
+                    cr.recipient[i - base_len] = next.recipient;
                     return Ok(());
                 }
-                let (base_active, base_dn) = (base_active_of(p, kind, i), p.dn_of(i));
+                let (base_active, base_dn, base_rcp) =
+                    (base_active_of(p, kind, i), p.dn_of(i), p.recipient_of(i));
                 let o = self.pop_mut(kind);
                 let o16 = i as u16;
                 // Net effect only: back to the observed value removes the
                 // override.
-                if matches!(c, Change::SetActive { .. }) {
-                    if next.active == base_active {
-                        o.active.remove(&o16);
-                    } else {
-                        o.active.insert(o16, next.active);
-                    }
-                } else if next.dn == base_dn {
-                    o.dn.remove(&o16);
-                } else {
-                    o.dn.insert(o16, next.dn);
+                match c {
+                    Change::SetActive { .. } => net(&mut o.active, o16, next.active, base_active),
+                    Change::SetLocation { .. } => net(&mut o.dn, o16, next.dn, base_dn),
+                    _ => net(&mut o.recipient, o16, next.recipient, base_rcp),
                 }
             }
             Change::CreateNode { node, state } => {
@@ -697,6 +757,9 @@ impl<'s> View<'s> {
                 }
                 let upn = self.lane_ids(state.upn)?;
                 let smtp = self.lane_ids(state.primary_smtp)?;
+                if let Some(r) = &state.recipient {
+                    self.check_interned(r)?;
+                }
                 let o = self.pop_mut(kind);
                 let at = o.created.find(node).unwrap_err();
                 o.created.insert(at, *node, state, upn, smtp);
@@ -727,6 +790,7 @@ impl<'s> View<'s> {
                         o.smtp.remove(&b);
                         o.active.remove(&b);
                         o.dn.remove(&b);
+                        o.recipient.remove(&b);
                         o.deleted.insert(b);
                     }
                     (Err(_), None) => return Err(ApplyError::UnknownNode(*node)),
@@ -734,6 +798,16 @@ impl<'s> View<'s> {
             }
         }
         Ok(())
+    }
+}
+
+/// Net effect only: an override equal to the observed value is removed
+/// rather than recorded.
+fn net<T: PartialEq>(map: &mut BTreeMap<u16, T>, o: u16, next: T, base: T) {
+    if next == base {
+        map.remove(&o);
+    } else {
+        map.insert(o, next);
     }
 }
 

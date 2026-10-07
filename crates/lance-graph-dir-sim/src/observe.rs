@@ -12,15 +12,34 @@
 //! Memberships are relations that `ogar-ad` records do not carry; the
 //! caller adds observed ones.
 //!
+//! The Exchange recipient triplet (`msExchRemoteRecipientType`,
+//! `msExchRecipientDisplayType`, `msExchRecipientTypeDetails`) and
+//! `targetAddress` are read raw into an [`ObservedRecipient`]; the `SMTP:`
+//! prefix of `targetAddress` is stripped here (in) and belongs to egress
+//! (out). A record encoded with schema version 2 or later has read them —
+//! absent attributes mean "not mail-enabled"; an older record has not, and
+//! its recipient is unknown.
+//!
 //! How an AD and an Entra observation of the same person combine is
 //! `ogar_dir_sim::effective_active` (V4); no path merges the two sources yet,
 //! so a node carries the flag its one source reported.
 
-use crate::snapshot::{NodeKind, Observation, ObservedNode};
+use crate::snapshot::{NodeKind, Observation, ObservedNode, ObservedRecipient};
 use ogar_ad::{AdKind, SCHEMA_V1};
 use ogar_dir_core::{DirRecord, DirectoryScope, Dn128, Dn128Error, Guid128, ValuePool};
 
 const UAC_ACCOUNTDISABLE: u32 = 0x2;
+/// The first `ogar-ad` schema version that carries the recipient triplet.
+const RECIPIENT_SCHEMA: u16 = 2;
+
+/// `targetAddress` without its `SMTP:` prefix (any case); other address
+/// types are kept whole.
+fn strip_smtp(s: &str) -> &str {
+    match s.split_once(':') {
+        Some((ns, addr)) if ns.eq_ignore_ascii_case("smtp") => addr,
+        _ => s,
+    }
+}
 
 fn slot(name: &str) -> usize {
     SCHEMA_V1
@@ -112,6 +131,13 @@ pub fn from_ad(
                 primary_smtp,
                 proxies,
                 dn,
+                recipient: (r.schema().version >= RECIPIENT_SCHEMA).then(|| ObservedRecipient {
+                    remote_recipient_type: r.num(slot("msExchRemoteRecipientType")),
+                    display_type: r.num(slot("msExchRecipientDisplayType")).map(|n| n as i32),
+                    type_details: text(r, "msExchRecipientTypeDetails")
+                        .and_then(|t| t.trim().parse().ok()),
+                    target_address: text(r, "targetAddress").map(|t| strip_smtp(&t).to_string()),
+                }),
             },
         ));
     }

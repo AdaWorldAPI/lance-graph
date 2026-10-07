@@ -29,6 +29,7 @@ fn bare(kind: NodeKind) -> ObservedNode {
         primary_smtp: None,
         proxies: Vec::new(),
         dn: None,
+        recipient: None,
     }
 }
 fn population(users: u32, groups: u32) -> Observation {
@@ -120,6 +121,7 @@ fn a_full_population_refuses_a_create_and_the_other_one_does_not() {
         upn: None,
         primary_smtp: None,
         dn: None,
+        recipient: None,
     };
     let more_users = Propose(vec![Change::CreateNode {
         node: user(n),
@@ -451,6 +453,7 @@ fn an_unresolved_membership_resolves_when_its_endpoint_is_created() {
             upn: None,
             primary_smtp: None,
             dn: None,
+            recipient: None,
         },
     }]);
     let g1 = st.simulate(g0, &create, &[]).unwrap();

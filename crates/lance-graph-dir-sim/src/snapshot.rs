@@ -15,6 +15,17 @@
 //! | `upn_key` / `smtp_key`    | `[u32]`       | [`KeyId`] (comparison form)               |
 //! | `dn`                      | `[[u8; 16]]`  | [`Dn128`] codes, read in place (strided)  |
 //! | `dn_depth`, `dn_present`  | `[i32]`, plane | hierarchy depth; whether a location is known |
+//! | `rcp_rrt` / `rcp_display` | `[u32]`       | Exchange recipient type flags / display type (bit-cast) |
+//! | `rcp_details`             | `[u64]`       | recipient type details                    |
+//! | `rcp_target`              | `[u32]`       | [`ValueId`] of `targetAddress`            |
+//! | `rcp_present`             | `[u8]`        | which of the four were observed           |
+//! | `rcp_read`                | bit plane     | whether the recipient attributes were read at all |
+//! | `owner`                   | bit plane     | owns its addresses: enabled, or a live mail recipient |
+//!
+//! The recipient lanes are raw; [`Recipient::from_attributes`] decodes them
+//! on read, strictly. An address owner is a user that is enabled **or** a
+//! live mail recipient (OGAR `Recipient::is_recipient`): a shared, room or
+//! equipment mailbox is a disabled account and still owns its addresses.
 //!
 //! `proxyAddresses` are many per user, so they are a relation of their own
 //! ([`ProxyRelation`]), not a lane.
@@ -39,7 +50,7 @@
 use crate::proxy::ProxyRelation;
 use lance_graph_mask_risc::words_for;
 use ogar_dir_core::{DirectoryScope, Dn128, Guid128};
-use ogar_dir_sim::{normalize, KeyId, ValueId};
+use ogar_dir_sim::{normalize, KeyId, Recipient, RecipientAttributes, ValueId};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -221,7 +232,36 @@ pub struct ObservedNode {
     pub proxies: Vec<String>,
     /// Hierarchy location in the observation's scope, if known.
     pub dn: Option<Dn128>,
+    /// The Exchange recipient attributes, raw; `None` = not read (the
+    /// source never reported them), distinct from read and all absent
+    /// (not mail-enabled).
+    pub recipient: Option<ObservedRecipient>,
 }
+
+/// The Exchange recipient attributes as a source reported them (strings
+/// owned; [`Snapshot::build`] interns the target address).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ObservedRecipient {
+    /// `msExchRemoteRecipientType`.
+    pub remote_recipient_type: Option<u32>,
+    /// `msExchRecipientDisplayType` (signed).
+    pub display_type: Option<i32>,
+    /// `msExchRecipientTypeDetails`.
+    pub type_details: Option<u64>,
+    /// `targetAddress`, the address without its `SMTP:` prefix (stripped
+    /// at the ingest boundary, as OGAR's `RecipientAttributes` expects).
+    pub target_address: Option<String>,
+}
+
+/// Whether a user owns its addresses: enabled, or a live mail recipient.
+pub(crate) fn is_owner(active: Option<bool>, recipient: Option<Recipient>) -> bool {
+    active == Some(true) || recipient.is_some_and(|r| r.is_recipient())
+}
+
+const RCP_RRT: u8 = 1;
+const RCP_DISPLAY: u8 = 2;
+const RCP_DETAILS: u8 = 4;
+const RCP_TARGET: u8 = 8;
 
 impl ObservedNode {
     /// Active user with UPN and primary SMTP.
@@ -233,6 +273,7 @@ impl ObservedNode {
             primary_smtp: Some(smtp.into()),
             proxies: Vec::new(),
             dn: None,
+            recipient: None,
         }
     }
     /// Group.
@@ -244,6 +285,7 @@ impl ObservedNode {
             primary_smtp: None,
             proxies: Vec::new(),
             dn: None,
+            recipient: None,
         }
     }
 }
@@ -313,6 +355,14 @@ pub struct Population {
     pub(crate) dn: Vec<[u8; 16]>,
     pub(crate) dn_depth: Vec<i32>,
     pub(crate) dn_present: Vec<u64>,
+    pub(crate) rcp_rrt: Vec<u32>,
+    pub(crate) rcp_display: Vec<u32>,
+    pub(crate) rcp_details: Vec<u64>,
+    pub(crate) rcp_target: Vec<u32>,
+    pub(crate) rcp_present: Vec<u8>,
+    pub(crate) rcp_read: Vec<u64>,
+    /// Owns its addresses ([`is_owner`] of the observed flag and recipient).
+    pub(crate) owner: Vec<u64>,
 }
 
 impl Population {
@@ -330,6 +380,13 @@ impl Population {
             dn: Vec::with_capacity(n),
             dn_depth: Vec::with_capacity(n),
             dn_present: vec![0; words_for(n)],
+            rcp_rrt: Vec::with_capacity(n),
+            rcp_display: Vec::with_capacity(n),
+            rcp_details: Vec::with_capacity(n),
+            rcp_target: Vec::with_capacity(n),
+            rcp_present: Vec::with_capacity(n),
+            rcp_read: vec![0; words_for(n)],
+            owner: vec![0; words_for(n)],
         };
         for (i, (id, node)) in nodes.iter().enumerate() {
             p.ids.push(*id);
@@ -360,8 +417,47 @@ impl Population {
             if node.dn.is_some() {
                 set_bit(&mut p.dn_present, i);
             }
+            let r = node.recipient.clone().unwrap_or_default();
+            let target = r.target_address.as_deref().map(|s| d.intern(s));
+            let mut present = 0;
+            for (bit, on) in [
+                (RCP_RRT, r.remote_recipient_type.is_some()),
+                (RCP_DISPLAY, r.display_type.is_some()),
+                (RCP_DETAILS, r.type_details.is_some()),
+                (RCP_TARGET, target.is_some()),
+            ] {
+                if on {
+                    present |= bit;
+                }
+            }
+            p.rcp_rrt.push(r.remote_recipient_type.unwrap_or(0));
+            p.rcp_display.push(r.display_type.unwrap_or(0) as u32);
+            p.rcp_details.push(r.type_details.unwrap_or(0));
+            p.rcp_target.push(target.map_or(NONE, |v| v.0));
+            p.rcp_present.push(present);
+            if node.recipient.is_some() {
+                set_bit(&mut p.rcp_read, i);
+            }
+            if is_owner(active, p.recipient_of(i)) {
+                set_bit(&mut p.owner, i);
+            }
         }
         p
+    }
+
+    /// The observed recipient of base node `o`, decoded strictly; `None`
+    /// if it was not read.
+    pub(crate) fn recipient_of(&self, o: usize) -> Option<Recipient> {
+        if !bit(&self.rcp_read, o) {
+            return None;
+        }
+        let has = |b: u8| self.rcp_present[o] & b != 0;
+        Some(Recipient::from_attributes(RecipientAttributes {
+            remote_recipient_type: has(RCP_RRT).then_some(self.rcp_rrt[o]),
+            display_type: has(RCP_DISPLAY).then_some(self.rcp_display[o] as i32),
+            type_details: has(RCP_DETAILS).then_some(self.rcp_details[o]),
+            target_address: has(RCP_TARGET).then_some(ValueId(self.rcp_target[o])),
+        }))
     }
 
     /// Node count.
