@@ -45,9 +45,11 @@ ReportPlan ─ Selection::lower ─→ quack Filter ─→ (same as above)
 
 What this means:
 
-- **There is no text frontend into Quack.** Neither Cypher nor SQL lowers to
-  Quack or mask-risc today. Quack is reached only through its Rust builders
-  (and through ReportPlan, SAP and dir-sim, which use them).
+- **No production text frontend reaches Quack.** Quack is reached through its
+  Rust builders (and through ReportPlan, SAP and dir-sim, which use them).
+  The experimental crate `lance-graph-cypher-quack` lowers a small subset of
+  bound Cypher (single-population aggregates, one-hop counts) to Quack and
+  refuses everything else with a typed reason; nothing routes to it.
 - **Cypher runs on DataFusion.** The `BlasGraph` and `LanceNative` execution
   strategies currently return an error rather than results.
 - **No path serializes between parsing and execution.**
@@ -62,8 +64,8 @@ What this means:
 
 ## Workspace
 
-58 crate directories under `crates/`: 21 are workspace members and 37 are
-explicitly excluded (built with `--manifest-path`). The workspace has a 22nd
+59 crate directories under `crates/`: 22 are workspace members and 37 are
+explicitly excluded (built with `--manifest-path`). The workspace has a 23rd
 member outside `crates/`, `tools/dto-class-check`. The parts needed to
 understand the system:
 

@@ -198,6 +198,10 @@ documents listed in its trigger row BEFORE producing output.
 | **AriGraph / episodic memory** | ripple-architect + integration-lead | LATEST_STATE.md (§AriGraph Inventory), PR_ARC_INVENTORY.md #208 |
 | **Story arc / ONNX emergence** | ripple-architect + contradiction-cartographer | crystal-quantum-blueprints.md (§Quantum mode), endgame-holographic-agi.md |
 | **Argmax / codec / PolarQuant** | truth-architect + family-codec-smith | fractal-codec-argmax-regime.md (ORTHOGONAL to grammar work) |
+| **Cypher → Quack lowering / Cypher fast path** | cypher-lowering-warden + query-stage-profiler | cypher-quack-seam.md, research/cypher-engine-autopsy.md |
+| **Query latency / parser / prepared-query claim** | query-stage-profiler | query-stage-measurement.md |
+| **Carrier / survivor gating / push-pull / late materialisation / backend target** | fold-carrier-scientist | fold-execution-laws.md, three-prefix-fold-carriers.md, research/D-V4-FOLD-MATRIX.md |
+| **New R2IL/V4 opcode, planner/fold IR, Bundle type** | isa-anti-lasagne-warden | fold-execution-laws.md, research/D-BIND-BUNDLE-0.md |
 | **Cross-repo harvest** | savant-research | cross-repo-harvest-2026-04-19.md, linguistic-epiphanies-2026-04-19.md |
 | **REST / gRPC / Wire DTO / endpoint / serve / shader-lab / external API** | integration-lead + truth-architect | **lab-vs-canonical-surface.md (MANDATORY — prevents System-1 "add another REST endpoint" hallucination)** |
 | **OrchestrationBridge / UnifiedStep / StepDomain / BridgeSlot** | integration-lead | lab-vs-canonical-surface.md, cam-pq-unified-pipeline.md |

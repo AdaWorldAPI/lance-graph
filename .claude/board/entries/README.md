@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-237 entries, 2026-08-06 .. 2026-10-06.
+238 entries, 2026-08-06 .. 2026-10-07.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-07 | `bind-bundle-gated-gather` | One bound query, five routes, identical answers; the semijoin is never gated and dominates; a gated mask gather beats a selection vector (R1 survives) | [2026-10-07-bind-bundle-gated-gather.md](2026-10-07-bind-bundle-gated-gather.md) |
 | 2026-10-06 | `v3-v4-dual-reading-round3` |  | [2026-10-06-v3-v4-dual-reading-round3.md](2026-10-06-v3-v4-dual-reading-round3.md) |
 | 2026-10-06 | `D-ANCESTRY-K1-0` |  | [2026-10-06-streamdto-circuit-ancestry.md](2026-10-06-streamdto-circuit-ancestry.md) |
 | 2026-10-06 | `D-SPOG-W-0` |  | [2026-10-06-spog-witness-sub-context.md](2026-10-06-spog-witness-sub-context.md) |

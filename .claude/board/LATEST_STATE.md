@@ -1,3 +1,16 @@
+## 2026-10-07 — Cypher autopsy + experimental Cypher→Quack seam (branch `ccr-a86d1f2f-015t11`, PR #1376, unmerged)
+
+### Current Contract Inventory — UNCHANGED (no contract type added; one crate added)
+- New workspace member `crates/lance-graph-cypher-quack` (experimental, routed
+  nowhere): `Binding{NodeTable, EdgeTable, Kind}`, `compile`/`lower_plan` →
+  `Compiled{program, on, result, demand}`, typed `Refusal`, `demand::classify`
+  (#1305's classifier, ported). Differential test vs DataFusion + row oracle.
+- Instruments: `lance-graph-benches/examples/{cypher_stage_probe/, bundle_probe.rs}`,
+  `.claude/tools/carrier_sufficiency.py --min`.
+- Research: `.claude/research/{cypher-engine-autopsy, D-V4-FOLD-LAB, D-V4-FOLD-MATRIX,
+  D-V4-ISA-LAB, D-BIND-BUNDLE-0, D-BIND-BUNDLE-MATRIX}.md`. Entry
+  `entries/2026-10-07-bind-bundle-gated-gather.md`.
+
 ## 2026-10-06 — Morton8x8: checked 8:8 address arithmetic (branch `claude/morton-0-checked-address`, unmerged, D-MORTON-0)
 
 ### Current Contract Inventory — net delta (`morton8x8.rs`)
