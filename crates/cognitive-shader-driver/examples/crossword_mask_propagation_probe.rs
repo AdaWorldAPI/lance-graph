@@ -826,27 +826,43 @@ fn solve_cartesian(hot: &Hot, puz: &Puzzle, givens: &[(u8, WordId)]) -> Result<S
     })
 }
 
+/// Arm C's representation: every crossword word as folded chars, built once
+/// per language (outside any timing), plus each `WordId`'s row in it.
+struct Literal {
+    words: Vec<(WordId, Vec<char>)>,
+    index: Vec<Option<usize>>,
+}
+
+impl Literal {
+    fn new(cold: &Cold) -> Self {
+        let mut words = Vec::new();
+        let mut index = vec![None; cold.vocab.len()];
+        for id in 0..cold.vocab.len() as WordId {
+            let w = cold.word(id);
+            if spelling(w).is_some() {
+                index[id as usize] = Some(words.len());
+                words.push((id, w.chars().map(fold).collect()));
+            }
+        }
+        Self { words, index }
+    }
+}
+
 /// Arm C, steps 2/2b's method: letters on a cell array, every unplaced slot
 /// re-scanned from the vocabulary STRINGS each round, singles placed until
 /// nothing changes. `None` on contradiction. (Slot-indexed on purpose: it
 /// mirrors the loop it stands in for.)
 #[allow(clippy::needless_range_loop)]
-fn solve_literal(cold: &Cold, puz: &Puzzle, givens: &[(u8, WordId)]) -> Option<Vec<WordId>> {
-    let words: Vec<(WordId, Vec<char>)> = (0..cold.vocab.len() as WordId)
-        .filter_map(|id| {
-            let w = cold.word(id);
-            spelling(w)?;
-            Some((id, w.chars().map(fold).collect()))
-        })
-        .collect();
+fn solve_literal(lit: &Literal, puz: &Puzzle, givens: &[(u8, WordId)]) -> Option<Vec<WordId>> {
+    let words = &lit.words;
     let mut board: HashMap<u16, char> = HashMap::new();
     let mut placed = vec![UNSET; puz.slots()];
     let put = |s: usize, w: &[char], board: &mut HashMap<u16, char>| -> bool {
         (0..w.len()).all(|o| *board.entry(puz.cell[s * STRIDE + o]).or_insert(w[o]) == w[o])
     };
     for &(s, w) in givens {
-        let chars: Vec<char> = cold.word(w).chars().map(fold).collect();
-        if !put(s as usize, &chars, &mut board) {
+        let chars = &lit.words[lit.index[w as usize]?].1;
+        if !put(s as usize, chars, &mut board) {
             return None;
         }
         placed[s as usize] = w;
@@ -1235,6 +1251,7 @@ const ROUNDS: usize = 5;
 
 /// Size sweep: what can be created, and every arm's solve on the same puzzles.
 fn sweep(hot: &Hot, cold: &Cold) -> Vec<(usize, Vec<Created>)> {
+    let lit = Literal::new(cold);
     println!("  creation by board size (budget 100,000 tried words per step, 30 s per size):");
     println!(
         "    {:>4} {:>8} {:>9} {:>11} {:>6} {:>6} {:>10}",
@@ -1297,31 +1314,41 @@ fn sweep(hot: &Hot, cold: &Cold) -> Vec<(usize, Vec<Created>)> {
             // One warm-up call per arm, then ROUNDS rounds in rotated order;
             // each arm keeps its best time. A single first-call timing would
             // charge whichever arm runs first for the cold populations.
+            // The literal arm (C) joins the same protocol for boards up to 9x9;
+            // its word list is prebuilt once per language, outside timing.
             let a = solve_token(hot, &c.puz, &c.givens).unwrap();
             let d = solve_hybrid(hot, &c.puz, &c.givens).unwrap();
             let b = solve_cartesian(hot, &c.puz, &c.givens).unwrap();
+            let with_literal = *side <= 9;
+            if with_literal {
+                let l = solve_literal(&lit, &c.puz, &c.givens).unwrap();
+                assert_eq!(l, a.placed, "literal fixed point == mask fixed point");
+            }
             let arms: [Arm; 3] = [solve_token, solve_hybrid, solve_cartesian];
-            let mut best = [f64::INFINITY; 3];
+            let n_arms = if with_literal { 4 } else { 3 };
+            let mut best = [f64::INFINITY; 4];
             for round in 0..ROUNDS {
-                for k in 0..3 {
-                    let i = (k + round) % 3;
-                    let (_, us) = time_us(|| arms[i](hot, &c.puz, &c.givens).unwrap());
+                for k in 0..n_arms {
+                    let i = (k + round) % n_arms;
+                    let (_, us) = if i < 3 {
+                        time_us(|| arms[i](hot, &c.puz, &c.givens).unwrap().placed)
+                    } else {
+                        time_us(|| solve_literal(&lit, &c.puz, &c.givens).unwrap())
+                    };
                     best[i] = best[i].min(us);
                 }
             }
             ta.push(best[0]);
             td.push(best[1]);
             tb.push(best[2]);
+            if with_literal {
+                tc.push(best[3]);
+            }
             assert_eq!(a.placed, d.placed);
             assert_eq!(a.placed, b.placed);
             assert_eq!(a.cand, d.cand);
             assert_eq!(a.cand, b.cand);
             assert!(cell_consistent(hot, &c.puz, &a.placed));
-            if *side <= 9 {
-                let (lit, us) = time_us(|| solve_literal(cold, &c.puz, &c.givens).unwrap());
-                tc.push(us);
-                assert_eq!(lit, a.placed, "literal fixed point == mask fixed point");
-            }
             and_a += a.ands;
             and_b += b.ands;
             writes += d.writes;
@@ -1767,7 +1794,10 @@ mod tests {
             assert_eq!(a.placed, d.placed);
             assert_eq!(a.cand, b.cand);
             assert_eq!(a.cand, d.cand);
-            assert_eq!(solve_literal(&cold, &c.puz, &c.givens).unwrap(), a.placed);
+            assert_eq!(
+                solve_literal(&Literal::new(&cold), &c.puz, &c.givens).unwrap(),
+                a.placed
+            );
             assert!(cell_consistent(&hot, &c.puz, &c.solution));
             let mut budget = 1_000_000;
             assert_eq!(
@@ -1859,7 +1889,7 @@ mod tests {
     fn the_hot_path_needs_no_strings() {
         let (hot, cold) = english();
         let c = created(&hot, 5, 13);
-        let expect = solve_literal(&cold, &c.puz, &c.givens).unwrap();
+        let expect = solve_literal(&Literal::new(&cold), &c.puz, &c.givens).unwrap();
         drop(cold);
         for (name, arm) in ARMS {
             assert_eq!(
