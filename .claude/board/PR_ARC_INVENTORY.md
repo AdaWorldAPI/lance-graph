@@ -1,3 +1,10 @@
+## 2026-10-07 — lance-graph PR #1391 (merged `53212db`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `9289c46`, 6 commits) — D-PEARL-PROD-0: Pearl's ladder in production, generic over population width, admission keyed by classid
+
+- **Added:** `contract::certification` (`CertificationModel`, `ModelBuilder`, `PopulationMask`: generic over `u64` / `[u64; N]`); `planner::pearl` (`reason`, `revise(&Measured, Reading)`, `hydrate`); `planner::chain_replay`, `chain_counterfactual` (renamed from `dismech_*`, deprecated aliases kept) and `chain_admission` (palette resolved by the classid's concept half); `contract::dismech_evidence::{DISMECH_CONCEPT_ID, citation_quorum}`.
+- **Locked (test-pinned):** the 14 Pearl falsifiers now run in CI in the planner suite; width-equivalence and past-the-first-word tests; classid routing; citation dedup / abstention / two-sided; review fixes (measurement bound to its edge, ungrounded SO, hydrate checks its own path, `Inert` reachable). Each with a disable run.
+- **Deferred / open:** no runtime producer of sealed evidence; demotion policy; what counts as a distinct source; the W2b field map.
+- **Confidence:** high for the rules as pinned; the counterfactual fixture is one measured chain and never reaches `Inert`.
+
 ## 2026-10-07 — lance-graph PR #1390 (merged `6368d8c`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `fec0613`, 5 commits) — D-PEARL-IO-0: Pearl's ladder executed in and out of CausalEdge64
 
 - **Added:** `pearl_ladder_probe.rs` (bits 40..42 select an operator; the measurement revises bits 59..63); P7a model moved to `examples/shared/certification_model.rs`; `docs/architecture/ce64-semantic-upper-half.md` + diagram; README picture.
