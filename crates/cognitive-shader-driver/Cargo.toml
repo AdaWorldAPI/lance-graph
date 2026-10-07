@@ -106,6 +106,14 @@ test = true
 name = "relational_certification_probe"
 test = true
 
+# D-PEARL-IO-0: Pearl's ladder executed in and out of CausalEdge64 — bits
+# 40..42 select the operator (P7a folds, P7a trial, dismech counterfactual
+# replay, SO-vs-PO confounder check); the measured result revises bits 59..63.
+[[example]]
+name = "pearl_ladder_probe"
+test = true
+required-features = ["with-planner"]
+
 # D-GSO-AFF-0 affordance-measurement probe; tests run under `cargo test`.
 [[example]]
 name = "affordance_measurement_probe"
