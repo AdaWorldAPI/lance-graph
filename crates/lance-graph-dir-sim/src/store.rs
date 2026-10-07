@@ -324,7 +324,8 @@ fn set_change(
 }
 
 /// Every property change between two states of one node of one kind:
-/// UPN, primary SMTP, the enabled flag and the location, each as a
+/// UPN, primary SMTP, the enabled flag, the location and the Exchange
+/// recipient, each as a
 /// compare-and-set from `a`.
 fn property_changes(node: Guid128, a: &NodeState, b: &NodeState, out: &mut Vec<Change>) {
     out.extend(set_change(node, Attribute::Upn, a.upn, b.upn));
@@ -346,6 +347,13 @@ fn property_changes(node: Guid128, a: &NodeState, b: &NodeState, out: &mut Vec<C
             node,
             from: a.dn,
             to: b.dn,
+        });
+    }
+    if a.recipient != b.recipient {
+        out.push(Change::SetRecipient {
+            node,
+            from: a.recipient,
+            to: b.recipient,
         });
     }
 }
@@ -400,7 +408,7 @@ fn diff_shared(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
         }
     }
 
-    // Property overrides (UPN, primary SMTP, flag, location) of base nodes
+    // Property overrides (UPN, primary SMTP, flag, location, recipient) of base nodes
     // present in both versions (a node created or deleted between them is
     // covered above): only the base ordinals either overlay touched.
     for kind in [NodeKind::User, NodeKind::Group] {
@@ -410,6 +418,7 @@ fn diff_shared(a: &View<'_>, b: &View<'_>) -> Vec<Change> {
             let o = v.pop(kind).1;
             touched.extend(o.upn.keys().chain(o.smtp.keys()));
             touched.extend(o.active.keys().chain(o.dn.keys()));
+            touched.extend(o.recipient.keys());
         }
         for o in touched {
             let g = p.ids[usize::from(o)];
@@ -533,6 +542,17 @@ fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Result<Vec<Change>, Gui
                         out.push(Change::SetLocation {
                             node,
                             from: actual.dn,
+                            to,
+                        });
+                    }
+                }
+            }
+            Change::SetRecipient { node, to, .. } => {
+                if let Some(actual) = basis.node_state(&node) {
+                    if actual.recipient != to {
+                        out.push(Change::SetRecipient {
+                            node,
+                            from: actual.recipient,
                             to,
                         });
                     }

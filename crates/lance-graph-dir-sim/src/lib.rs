@@ -41,7 +41,7 @@ pub use proxy::{ProxyKind, ProxyRelation, ProxyRow};
 pub use rule::{member_counts, GrantGroup, ImplyGroup, Rule, SetPrimarySmtp};
 pub use snapshot::{
     BuildError, Dict, DictCounters, Dicts, GroupOrdinal, NodeKind, Observation, ObservedNode,
-    Population, Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
+    ObservedRecipient, Population, Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
 pub use store::{Rejection, SimError, VersionStore};
 pub use view::{ApplyError, View};

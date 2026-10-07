@@ -68,6 +68,7 @@ fn a_text_literal_is_resolved_once_and_execution_is_numeric() {
                         upn: None,
                         primary_smtp: Some(alice2),
                         dn: None,
+                        recipient: None,
                     },
                 },
             ]),

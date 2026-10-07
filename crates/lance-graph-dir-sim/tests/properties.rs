@@ -354,6 +354,7 @@ fn created_and_deleted_nodes_carry_their_own_properties() {
         upn: None,
         primary_smtp: None,
         dn: None,
+        recipient: None,
     };
     // Two steps: within one change list, property changes sort before
     // creates (OGAR's safe order), so a list cannot set a property of a node

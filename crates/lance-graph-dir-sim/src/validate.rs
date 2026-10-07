@@ -136,7 +136,7 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
     out
 }
 
-/// Active users sharing a comparison key of `a`, read from the attribute's
+/// Address owners (enabled, or a live mail recipient) sharing a comparison key of `a`, read from the attribute's
 /// key lane alone. For [`Attribute::PrimarySmtp`] that is the primary
 /// address only; [`validate`] uses [`smtp_duplicates`], which also covers
 /// the secondary SMTP proxies.
@@ -187,7 +187,8 @@ pub fn duplicates(v: &View<'_>, a: Attribute) -> Vec<Violation> {
                 .map(|(i, key)| (n + i as u32, *key)),
         )
         .unzip();
-    let active = v.active_users();
+    // Address owners: enabled, or a live mail recipient.
+    let active = v.owner_users();
     let all = ones(oo.len());
     let fps = [FPlane {
         words: &active,
@@ -265,7 +266,8 @@ fn smtp_filter() -> Filter {
     ])
 }
 
-/// Active users sharing a normalized SMTP address — primary or secondary,
+/// Address owners — enabled users and live mail recipients, so a disabled
+/// shared, room or equipment mailbox counts — sharing a normalized SMTP address — primary or secondary,
 /// any prefix case. Counts **distinct owners** per [`KeyId`]: one user
 /// holding an address twice is one owner.
 ///
@@ -283,7 +285,8 @@ pub fn smtp_duplicates(v: &View<'_>) -> Vec<Violation> {
     }
     let mut counts = vec![0i64; k];
 
-    let active = v.active_users();
+    // Address owners: enabled, or a live mail recipient.
+    let active = v.owner_users();
     let ou = &v.ov.users;
     let overrides = ou.overrides(Attribute::PrimarySmtp);
     let mut primary_ok = active.to_vec();

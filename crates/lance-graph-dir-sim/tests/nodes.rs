@@ -70,6 +70,7 @@ fn user_state(name: &str) -> NodeState {
         upn: Some(v),
         primary_smtp: Some(v),
         dn: None,
+        recipient: None,
     }
 }
 fn group_state() -> NodeState {
@@ -79,6 +80,7 @@ fn group_state() -> NodeState {
         upn: None,
         primary_smtp: None,
         dn: None,
+        recipient: None,
     }
 }
 fn observed() -> Observation {
