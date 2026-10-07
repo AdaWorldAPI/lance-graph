@@ -140,8 +140,12 @@ impl CausalEdgeV3 {
         // ordinals, no lens interpretation (see the module doc). Under the v1
         // layout every one of these accessors is a documented zero stub, so this
         // writes zeros and the round trip stays exact there too.
-        p[8] = (e.w_slot() & 0x3F) | ((e.truth_raw() & 0b11) << 6);
-        p[9] = e.spare() & 0b111;
+        // Bits 59..63 are read as ONE field (`epistemic_raw5`, D-EPI-CANON-0)
+        // and split only by the V3 byte layout: its low 2 bits (topology)
+        // into [8], its high 3 (certification) into [9].
+        let raw5 = e.epistemic_raw5();
+        p[8] = (e.w_slot() & 0x3F) | ((raw5 & 0b11) << 6);
+        p[9] = (raw5 >> 2) & 0b111;
         Self { payload: p }
     }
 

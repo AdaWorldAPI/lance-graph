@@ -1146,7 +1146,9 @@ impl CausalEdge64 {
 
     /// Set W-slot and truth-band in one mask-and-or operation (hot-path emit).
     ///
-    /// Used by `MailboxSoA::dispatch_cycle()` when stamping routing onto emissions.
+    /// This note used to name `MailboxSoA::dispatch_cycle()` as its caller; no
+    /// such function exists in-tree, and nothing outside this crate's tests
+    /// calls `with_routing`.
     /// NOTE: No `g` parameter — G-slot is absent in v2 layout (L-3: redundant via
     /// palette family-prefix + SoA partition + witness corpus root).
     /// Composable: `edge.with_routing(12, TrustTexture::Solid).with_inference_mantissa(-1)`.

@@ -68,6 +68,13 @@
 //! be semantic invention, so the probe is not migrated; it keeps the
 //! deprecated band writer as a record of that reading. No production code may
 //! follow it.
+//!
+//! D-EPI-LEGACY-DEPROJECT-0 (2026-10-07): what the band meant here is a
+//! LENS — "through what reasoning lens is this hypothesis read" — which is
+//! execution context (`RungLevel` / thinking style), not a certification, and
+//! has no CE64 home. Its checks are non-interference of that plane. Moving
+//! them onto `Certification3` would rewrite the probe's four-plane thesis, so
+//! it stays a record (see `entries/2026-10-07-epi-legacy-deprojection.md`).
 #![allow(deprecated)]
 
 use causal_edge::layout::{CausalTopology, ReasoningBand};

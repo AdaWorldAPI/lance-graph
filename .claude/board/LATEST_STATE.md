@@ -15,6 +15,7 @@
   `facts_population(required) -> Population` (`const fn`; the codes whose
   facts include every required fact; reserved codes never appear; conjunction
   is intersection), `EpistemicState5::bit()`. Transient — never stored.
+- D-EPI-LEGACY-DEPROJECT-0: `lance_graph_planner::dismech_counterfactual::EdgeRole::band` (historical `ReasoningBand`) REMOVED — the canonical field is `epistemic_raw5`; `CausalEdgeV3` lifts bits 59..63 through `epistemic_raw5()` (byte layout unchanged).
 - `ClassView::epistemic_reading(class, rail) -> Option<Epi5Reading>` (provided,
   default `None` = refuse).
 - `band_reading` regraded: legacy compatibility surface, no longer owns 59..63.

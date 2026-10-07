@@ -84,6 +84,14 @@
 //! be semantic invention, so the probe is not migrated; it keeps the
 //! deprecated band writer as a record of that reading. No production code may
 //! follow it.
+//!
+//! D-EPI-LEGACY-DEPROJECT-0 (2026-10-07): superseded by P7a
+//! (`relational_certification_probe`), which owns the certification rungs
+//! with different obligations (P7a `Causes` needs ≥ 2 intervention-backed
+//! sources; this probe's `Causal` needs one). The `Counterfactual` rung —
+//! survived a removal attack — is counterfactual evidence and belongs to
+//! `lance_graph_planner::dismech_counterfactual`; P7a states that removal is
+//! not the causal path. Kept as shipped (#1360).
 #![allow(deprecated)]
 
 use causal_edge::edge::CausalEdge64;

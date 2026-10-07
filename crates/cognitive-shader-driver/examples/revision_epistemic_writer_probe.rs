@@ -455,7 +455,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::affordance_law::{EPI_LAW, OBSERVE_FOLD, STRATIFY};
+    use super::affordance_law::{OBSERVE_FOLD, STRATIFY};
     use super::*;
     use causal_edge::layout::EPISTEMIC_MASK;
 
@@ -736,7 +736,9 @@ mod tests {
             &[Encounter::CompleteCheck],
             &[Encounter::Render(tracked())],
         ];
-        for start in (0..32u8).filter(|c| EPI_LAW[usize::from(*c)].is_some()) {
+        let meaningful = lance_graph_contract::epistemic_state5::facts_population(0);
+        assert_eq!(meaningful.count_ones(), 24);
+        for start in (0..32u8).filter(|c| meaningful >> c & 1 == 1) {
             for t in [&tile, &flat] {
                 for enc in sets {
                     let next = settle(
@@ -747,7 +749,7 @@ mod tests {
                         enc,
                     );
                     assert!(
-                        EPI_LAW[usize::from(raw5(next))].is_some(),
+                        meaningful >> raw5(next) & 1 == 1,
                         "{start} -> {}",
                         raw5(next)
                     );

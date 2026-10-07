@@ -32,11 +32,14 @@
 //! # Precision about the answer, not just its polarity
 //!
 //! A verdict that collapsed to `bool` would throw away what kind of relation
-//! was cut. [`EdgeRole`] carries the cut edge's own `CausalTopology` (bits
-//! 59-60) and `ReasoningBand` (bits 61-63) alongside the verdict, so a
-//! consumer can tell "the edge that EXPLAINS this chain is load-bearing" from
-//! "an edge that merely RELATES TO it is". Same bits, read through their own
-//! lenses; nothing is re-derived.
+//! was cut. [`EdgeRole`] carries the cut edge's bits 59..63 as one raw
+//! `EpistemicState5` code alongside the verdict, so a consumer can tell "the
+//! edge that EXPLAINS this chain is load-bearing" from "an edge that merely
+//! RELATES TO it is". That is a certification question (`Causes` vs
+//! `Related`), and it is answered by projecting the code through the cut
+//! edge's class declaration — e.g. membership in
+//! `epistemic_state5::facts_population(fact::CAUSES)` — never by a
+//! historical lens. Nothing is re-derived here.
 
 use causal_edge::edge::InferenceType;
 use causal_edge::tables::NarsTables;
@@ -147,11 +150,6 @@ pub struct EdgeRole {
     /// `Topology2`. Raw: valid as the canonical topology only once the cut
     /// edge's class is known to declare the canonical reading.
     pub topology: causal_edge::layout::CausalTopology,
-    /// LEGACY: the certification coordinate (bits 61..63) read through the
-    /// historical `ReasoningBand` names, which are reasoning levels, not
-    /// certifications. No mapping exists; kept for compatibility only. The
-    /// canonical certification is `epistemic_raw5 >> 2` under a declaration.
-    pub band: causal_edge::layout::ReasoningBand,
 }
 
 impl EdgeRole {
@@ -262,7 +260,6 @@ pub fn counterfactual_replay(
                 counterfactual: verdict_at(&counterfactual, bar),
                 epistemic_raw5: cut_edge.epistemic_raw5(),
                 topology: cut_edge.topology(),
-                band: cut_edge.reasoning_band(),
             },
             factual,
             counterfactual,
@@ -539,33 +536,29 @@ mod tests {
         assert_eq!(*f.last().unwrap() + 1, c[0]);
     }
 
-    /// The verdict carries the cut edge's own relation flavour, so "the edge
-    /// that EXPLAINS this is load-bearing" stays distinguishable from "an edge
-    /// that merely RELATES TO it is". Read through the lenses, never
-    /// re-derived.
+    /// The verdict carries the cut edge's own epistemic coordinate, so "the
+    /// edge that EXPLAINS this is load-bearing" stays distinguishable from "an
+    /// edge that merely RELATES TO it is". Under the canonical V1 reading that
+    /// is `Causes` vs `Related` at the same topology; the role reports the code
+    /// and the consumer asks the population, never a historical lens.
     #[test]
-    fn the_role_reports_the_cut_edges_own_topology_and_band_not_a_bare_boolean() {
-        use causal_edge::layout::{CausalTopology, ReasoningBand};
+    fn the_role_reports_the_cut_edges_own_coordinate_not_a_bare_boolean() {
+        use causal_edge::layout::CausalTopology;
+        use lance_graph_contract::epistemic_state5::{
+            fact, facts_population, Certification3, Epi5Gen, EpistemicState5, Topology2,
+        };
         let (tables, t) = fixture();
         let tabs = ComposeTables {
             s: &t[0],
             p: &t[1],
             o: &t[2],
         };
+        let at = |c| EpistemicState5::new(Epi5Gen::V1, Topology2::IndirectKnown, c);
+        let (explains, relates) = (at(Certification3::Causes), at(Certification3::Related));
 
-        // Two chains differing ONLY in the cut edge's lens bits.
-        let plain = edge_with(250, 250);
-        // Written jointly (D-EPI-CANON-0): topology ordinal 1, band ordinal 3.
-        let flavoured = plain.with_epistemic_raw5((3 << 2) | 1);
-
-        for (edge, want_topo, want_band) in [
-            (plain, plain.topology(), plain.reasoning_band()),
-            (
-                flavoured,
-                CausalTopology::IndirectKnownIntermediates,
-                ReasoningBand::Causal,
-            ),
-        ] {
+        // Two chains differing ONLY in the cut edge's certification.
+        for (state, raw5, explains_chain) in [(explains, 21, true), (relates, 9, false)] {
+            let edge = edge_with(250, 250).with_epistemic_raw5(state.raw());
             let chain: Vec<ChainStep> = vec![
                 (0x90, edge_with(250, 250)),
                 (0x9D, edge),
@@ -585,17 +578,21 @@ mod tests {
             )
             .expect("in range")
             .expect("fits");
-            assert_eq!(cf.role.epistemic_raw5, edge.epistemic_raw5());
-            assert_eq!(cf.role.topology, want_topo);
-            assert_eq!(cf.role.band, want_band);
+            // The coordinate itself ...
+            assert_eq!(cf.role.epistemic_raw5, raw5);
+            let read = EpistemicState5::decode(Epi5Gen::V1, cf.role.epistemic_raw5).unwrap();
+            assert_eq!(read.topology(), Topology2::IndirectKnown);
+            assert_eq!(read.certification(), state.certification());
+            assert_eq!(cf.role.topology, CausalTopology::IndirectKnownIntermediates);
+            // ... and the question a consumer asks of it.
+            assert_eq!(
+                facts_population(fact::CAUSES) & read.bit() != 0,
+                explains_chain
+            );
             assert_eq!(cf.role.predicate, 0x9D, "perturbs");
         }
-
-        // Anti-vacuity: the two flavours must actually DIFFER, or the loop
-        // above compares a value with itself twice.
-        assert_ne!(plain.topology(), CausalTopology::IndirectKnownIntermediates);
-        assert_ne!(plain.reasoning_band(), ReasoningBand::Causal);
-        assert_ne!(plain.epistemic_raw5(), flavoured.epistemic_raw5());
+        // Anti-vacuity: both share RELATED, so only CAUSES tells them apart.
+        assert!(explains.asserts(fact::RELATED) && relates.asserts(fact::RELATED));
     }
 
     /// An out-of-range cut is refused at the top level too, not just in

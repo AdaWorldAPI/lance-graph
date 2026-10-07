@@ -8,7 +8,7 @@
 
 ## ISS-LEGACY-59-63-READINGS-REMAIN — historical half-field readings still live in probes (2026-10-07)
 
-**Status:** OPEN (tracking). **Basis:** VERIFIED-IN-CODE; inventory `entries/2026-10-07-epi-mig-inventory.md`.
+**Status:** OPEN (tracking), narrowed 2026-10-07 by D-EPI-LEGACY-DEPROJECT-0 (`entries/2026-10-07-epi-legacy-deprojection.md`): the kanban hinge migrated (its band was a non-interference witness, now a canonical coordinate), `EdgeRole::band` removed, the V3 lift reads 59..63 jointly. No production path reads or writes 59..63 through a legacy lens. Remaining: the four-plane and `reasoning_band_probe` records, and the compatibility surfaces. **Basis:** VERIFIED-IN-CODE; inventory `entries/2026-10-07-epi-mig-inventory.md`.
 
 - PROBE-ONLY legacy writers of the historical `ReasoningBand` on the certification bits, kept with `#![allow(deprecated)]` because no mapping onto `Certification3` exists (mapping `Causal` → `Supports`/`Causes` would be invention): `cognitive-shader-driver/examples/{reasoning_band_probe, probe_revision_kanban_hinge}.rs`, `lance-graph-planner/examples/probe_four_plane_causal_medium.rs`. (2026-10-07 Cartesian revision: `entropy_topology_probe` migrated — it writes only topology; `with_topology` is the canonical topology-factor writer and no longer deprecated.)
 - Compatibility surfaces kept: `contract::band_reading` (regraded legacy), the deprecated `TrustTexture` / historical-band / untyped writers in `causal-edge`, the legacy lens readers (`truth`, `reasoning_band`), `dismech_counterfactual::EdgeRole::band` (beside the canonical `epistemic_raw5`).

@@ -41,7 +41,7 @@ use affordance_law::raw5;
 use causal_edge::edge::CausalEdge64;
 use causal_edge::pearl::CausalMask;
 use causal_edge::PlasticityState;
-use certification_reading::{read, Contract, Refusal as P7aRefusal, CERT_CLASS, RAIL};
+use certification_reading::{Contract, CERT_CLASS, RAIL};
 use lance_graph_contract::band_reading::EdgeProvenance;
 use lance_graph_contract::epistemic_state5::{
     Epi5Declarations, Epi5Gen, Epi5Reading, EpistemicState5, Topology2,
@@ -141,6 +141,7 @@ mod tests {
         HYDRATE_INTERMEDIATE, MECHANISM_FOLD,
     };
     use causal_edge::layout::ReasoningBand;
+    use certification_reading::{read, Refusal as P7aRefusal};
     use lance_graph_contract::class_view::ClassId;
     use lance_graph_contract::epistemic_state5::fact::{CAUSES, CERTIFICATION_MASK, TOPOLOGY_MASK};
     use lance_graph_contract::epistemic_state5::Epi5ReadError;
@@ -189,9 +190,14 @@ mod tests {
     /// F3: a certified `Causes` is `Causes` under every topology.
     #[test]
     fn a_certified_causes_reads_as_causes_under_every_topology() {
+        use lance_graph_contract::epistemic_state5::{facts_population, Certification3};
+        let mut stamped = 0u32;
         for t in Topology2::ALL {
             let e = certification_reading::stamp(base(), Contract::Causes, t);
-            assert_eq!(raw5(e), 20 + t.ordinal());
+            let want = EpistemicState5::new(Epi5Gen::V1, t, Certification3::Causes);
+            assert_eq!(raw5(e), want.raw());
+            assert_eq!(canonical(e), Some(want));
+            stamped |= 1 << raw5(e);
             assert_eq!(
                 read(&decl(), CERT_CLASS, e, EdgeProvenance::V2Stamped),
                 Ok(Contract::Causes)
@@ -199,6 +205,8 @@ mod tests {
             assert!(canonical(e).unwrap().asserts(CAUSES));
             assert_ne!(at(raw5(e)) & 1 << COUNTERFACTUAL_PROBE, 0);
         }
+        // The four stamps are exactly the Causes column, not a codebook walk.
+        assert_eq!(stamped, facts_population(CAUSES));
     }
 
     /// The #1378 fixture (P7a band 5 over topology 0) now means the same to

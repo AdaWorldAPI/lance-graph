@@ -495,8 +495,10 @@ mod tests {
     /// meaningful state, and only the topology recipes move.
     #[test]
     fn reserved_codes_refuse_and_a_topology_write_is_a_factor_update() {
-        for code in (0u8..32).filter(|c| EPI_LAW[*c as usize].is_none()) {
-            assert!(code >= 24);
+        let reserved = !lance_graph_contract::epistemic_state5::facts_population(0);
+        assert_eq!(reserved, 0xFF00_0000, "reserved = certifications 6 and 7");
+        for code in (0u8..32).filter(|c| reserved >> c & 1 == 1) {
+            assert!(EPI_LAW[code as usize].is_none());
             let e = with_code(busy_edge(CausalMask::SPO), code);
             assert_eq!(stamped(LawGen::V1, e), Err(Refusal::Undeclared(code)));
             assert_eq!(
