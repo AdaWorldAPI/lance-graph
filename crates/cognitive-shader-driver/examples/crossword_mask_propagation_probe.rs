@@ -530,6 +530,9 @@ struct Solved {
     bytes: usize,
 }
 
+/// One mask arm: puzzle and givens in, fixed point out.
+type Arm = fn(&Hot, &Puzzle, &[(u8, WordId)]) -> Result<Solved, Stop>;
+
 /// Per-slot candidate masks plus the placed word, shared by arms A and D.
 #[derive(Clone)]
 struct State {
@@ -1006,6 +1009,91 @@ fn create(hot: &Hot, side: usize, rng: &mut Rng, budget: usize) -> Result<Create
     unreachable!("every slot given is unique")
 }
 
+// ─────────────────────────────── ablation ───────────────────────────────
+
+/// What removing one given does: the fixed point re-run without it, and
+/// whether the remaining givens still pin one fill.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Ablation {
+    slot: u8,
+    /// Slots placed (given or forced) with every given that are no longer
+    /// placed without this one, the ablated slot itself not counted.
+    lost_placed: usize,
+    /// Change in surviving candidates summed over all slots (a placed slot
+    /// counts one).
+    popcount_delta: i64,
+    /// Fills consistent with the remaining givens, capped at 2; `None` when
+    /// the uniqueness budget runs out.
+    fills: Option<usize>,
+}
+
+/// The four outcomes of one ablation. The readout nominates; it does not
+/// prove cause: a given can be necessary in this set and replaceable by
+/// another set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Reaction {
+    /// The fixed point is unchanged and the fill stays unique.
+    Redundant,
+    /// The fixed point weakens, but search still finds only one fill.
+    ShortcutOnly,
+    /// The fixed point is unchanged, yet the fill is no longer unique:
+    /// propagation never used this given, search did.
+    SilentlyNecessary,
+    /// The fixed point weakens and the fill is no longer unique.
+    Necessary,
+}
+
+impl Ablation {
+    fn reaction(self) -> Option<Reaction> {
+        let moved = self.lost_placed > 0 || self.popcount_delta != 0;
+        let unique = self.fills? == 1;
+        Some(match (moved, unique) {
+            (false, true) => Reaction::Redundant,
+            (true, true) => Reaction::ShortcutOnly,
+            (false, false) => Reaction::SilentlyNecessary,
+            (true, false) => Reaction::Necessary,
+        })
+    }
+}
+
+fn total_popcount(sol: &Solved, blocks: usize) -> i64 {
+    sol.cand
+        .chunks_exact(blocks)
+        .map(|m| popcount_batch_u64(m) as i64)
+        .sum()
+}
+
+/// Remove each given in turn, re-run arm A's fixed point and the uniqueness
+/// count, and report the difference against the full set of givens.
+fn ablate(hot: &Hot, puz: &Puzzle, givens: &[(u8, WordId)], budget: usize) -> Vec<Ablation> {
+    let base = solve_token(hot, puz, givens).expect("the full givens are consistent");
+    let base_pop = total_popcount(&base, hot.blocks);
+    givens
+        .iter()
+        .enumerate()
+        .map(|(i, &(slot, _))| {
+            let rest: Vec<(u8, WordId)> = givens
+                .iter()
+                .enumerate()
+                .filter(|&(k, _)| k != i)
+                .map(|(_, &g)| g)
+                .collect();
+            let sol = solve_token(hot, puz, &rest).expect("a subset of consistent givens");
+            let lost_placed = (0..puz.slots())
+                .filter(|&s| s != slot as usize)
+                .filter(|&s| base.placed[s] != UNSET && sol.placed[s] == UNSET)
+                .count();
+            let mut b = budget;
+            Ablation {
+                slot,
+                lost_placed,
+                popcount_delta: total_popcount(&sol, hot.blocks) - base_pop,
+                fills: count_fills(hot, puz, &rest, 2, &mut b),
+            }
+        })
+        .collect()
+}
+
 // ─────────────────────────────── the lane ───────────────────────────────
 
 /// Content lanes beside the epistemic edges: the claim "slot holds word".
@@ -1142,15 +1230,17 @@ fn filter_bench(hot: &Hot) {
     );
 }
 
+/// Timed rounds per puzzle and arm (after one warm-up call each).
+const ROUNDS: usize = 5;
+
 /// Size sweep: what can be created, and every arm's solve on the same puzzles.
-fn sweep(hot: &Hot, cold: &Cold) -> usize {
+fn sweep(hot: &Hot, cold: &Cold) -> Vec<(usize, Vec<Created>)> {
     println!("  creation by board size (budget 100,000 tried words per step, 30 s per size):");
     println!(
         "    {:>4} {:>8} {:>9} {:>11} {:>6} {:>6} {:>10}",
         "side", "made", "miss f/u", "create ms", "slots", "givens", "compile us"
     );
     let mut rng = Rng(0x5EED);
-    let mut largest = 0;
     let mut per_size: Vec<(usize, Vec<Created>)> = Vec::new();
     for side in [5, 7, 9, 11, 13, 15, 17, 19, 21] {
         let t0 = Instant::now();
@@ -1169,7 +1259,6 @@ fn sweep(hot: &Hot, cold: &Cold) -> usize {
             println!("    {side:>4} {:>8} {:>4}/{:<4}", 0, miss_fill, miss_unique);
             continue;
         }
-        largest = side;
         let n = made.len() as f64;
         println!(
             "    {side:>4} {:>8} {:>4}/{:<4} {:>11.1} {:>6.1} {:>6.1} {:>10.1}",
@@ -1184,7 +1273,7 @@ fn sweep(hot: &Hot, cold: &Cold) -> usize {
         per_size.push((side, made));
     }
     println!(
-        "  solving the same puzzles, four arms (median us; ANDs, symbol writes, bytes per puzzle):"
+        "  solving the same puzzles, four arms (median over puzzles of each arm's best of {ROUNDS} warm runs, us; ANDs, symbol writes, bytes per puzzle):"
     );
     println!(
         "    {:>4} {:>7} {:>9} {:>9} {:>9} {:>9} {:>7} {:>7} {:>7} {:>8} {:>8}",
@@ -1205,12 +1294,24 @@ fn sweep(hot: &Hot, cold: &Cold) -> usize {
         let (mut and_a, mut and_b, mut writes, mut bytes_a, mut bytes_b, mut solved) =
             (0, 0, 0, 0, 0, 0);
         for c in made {
-            let (a, us) = time_us(|| solve_token(hot, &c.puz, &c.givens).unwrap());
-            ta.push(us);
-            let (d, us) = time_us(|| solve_hybrid(hot, &c.puz, &c.givens).unwrap());
-            td.push(us);
-            let (b, us) = time_us(|| solve_cartesian(hot, &c.puz, &c.givens).unwrap());
-            tb.push(us);
+            // One warm-up call per arm, then ROUNDS rounds in rotated order;
+            // each arm keeps its best time. A single first-call timing would
+            // charge whichever arm runs first for the cold populations.
+            let a = solve_token(hot, &c.puz, &c.givens).unwrap();
+            let d = solve_hybrid(hot, &c.puz, &c.givens).unwrap();
+            let b = solve_cartesian(hot, &c.puz, &c.givens).unwrap();
+            let arms: [Arm; 3] = [solve_token, solve_hybrid, solve_cartesian];
+            let mut best = [f64::INFINITY; 3];
+            for round in 0..ROUNDS {
+                for k in 0..3 {
+                    let i = (k + round) % 3;
+                    let (_, us) = time_us(|| arms[i](hot, &c.puz, &c.givens).unwrap());
+                    best[i] = best[i].min(us);
+                }
+            }
+            ta.push(best[0]);
+            td.push(best[1]);
+            tb.push(best[2]);
             assert_eq!(a.placed, d.placed);
             assert_eq!(a.placed, b.placed);
             assert_eq!(a.cand, d.cand);
@@ -1250,7 +1351,54 @@ fn sweep(hot: &Hot, cold: &Cold) -> usize {
             bytes_b / n
         );
     }
-    largest
+    per_size
+}
+
+/// Ablate every given of every created puzzle and tally the reactions.
+fn ablation_report(hot: &Hot, per_size: &[(usize, Vec<Created>)]) {
+    println!("  cui bono: remove each given, re-run the fixed point and the uniqueness count:");
+    println!(
+        "    {:>4} {:>7} {:>10} {:>9} {:>9} {:>9} {:>8} {:>13} {:>10}",
+        "side",
+        "givens",
+        "redundant",
+        "shortcut",
+        "silent",
+        "necessary",
+        "budget",
+        "lost placed",
+        "pop delta"
+    );
+    for (side, made) in per_size {
+        let mut tally = [0usize; 4];
+        let (mut out_of_budget, mut n, mut lost, mut pop) = (0usize, 0usize, 0usize, 0i64);
+        for c in made {
+            for a in ablate(hot, &c.puz, &c.givens, 100_000) {
+                n += 1;
+                lost += a.lost_placed;
+                pop += a.popcount_delta;
+                match a.reaction() {
+                    Some(Reaction::Redundant) => tally[0] += 1,
+                    Some(Reaction::ShortcutOnly) => tally[1] += 1,
+                    Some(Reaction::SilentlyNecessary) => tally[2] += 1,
+                    Some(Reaction::Necessary) => tally[3] += 1,
+                    None => out_of_budget += 1,
+                }
+            }
+        }
+        if n == 0 {
+            continue;
+        }
+        println!(
+            "    {side:>4} {n:>7} {:>10} {:>9} {:>9} {:>9} {out_of_budget:>8} {:>13.2} {:>10.1}",
+            tally[0],
+            tally[1],
+            tally[2],
+            tally[3],
+            lost as f64 / n as f64,
+            pop as f64 / n as f64
+        );
+    }
 }
 
 /// About a million claims at one size, folded the shared three ways.
@@ -1298,7 +1446,8 @@ fn run_language(name: &str, hot: &Hot, cold: &Cold) {
         hot.population_bytes() as f64 / 1e6
     );
     filter_bench(hot);
-    sweep(hot, cold);
+    let per_size = sweep(hot, cold);
+    ablation_report(hot, &per_size);
     lane_run(hot, 5);
 }
 
@@ -1340,7 +1489,6 @@ mod tests {
         cold.vocab.id(w).expect("in the fixture")
     }
 
-    type Arm = fn(&Hot, &Puzzle, &[(u8, WordId)]) -> Result<Solved, Stop>;
     const ARMS: [(&str, Arm); 3] = [
         ("token", solve_token),
         ("hybrid", solve_hybrid),
@@ -1719,6 +1867,54 @@ mod tests {
                 expect,
                 "{name}"
             );
+        }
+    }
+
+    /// Cui bono, on fixtures with known answers: a given the fixed point
+    /// re-derives is redundant; a given whose loss weakens the fixed point
+    /// but leaves one fill is a shortcut; a given whose loss admits a second
+    /// fill is necessary.
+    #[test]
+    fn ablation_separates_redundant_shortcut_and_necessary_givens() {
+        // across cat crossing down ant at across offset 1 / down offset 0
+        let (hot, cold) = build_lexicon(Lang::En, &words(&["cat", "ant", "dog"]));
+        let puz = compile(&plus(), Lang::En);
+        let (cat, ant) = (word(&cold, "cat"), word(&cold, "ant"));
+        let both = [(0u8, cat), (1u8, ant)];
+        let a = ablate(&hot, &puz, &both, 1_000);
+        // dropping ant: cat still forces it back
+        assert_eq!(a[1].reaction(), Some(Reaction::Redundant));
+        assert_eq!((a[1].lost_placed, a[1].popcount_delta), (0, 0));
+        // dropping cat from {cat}: nothing propagates, search still unique
+        let only = ablate(&hot, &puz, &[(0, cat)], 1_000);
+        assert_eq!(only[0].reaction(), Some(Reaction::ShortcutOnly));
+        assert_eq!(only[0].lost_placed, 1);
+        assert!(only[0].popcount_delta > 0);
+
+        // with art as a second a-word, ant is no longer forced by cat
+        let (hot, cold) = build_lexicon(Lang::En, &words(&["cat", "ant", "art", "dog"]));
+        let (cat, ant) = (word(&cold, "cat"), word(&cold, "ant"));
+        let a = ablate(&hot, &puz, &[(0, cat), (1, ant)], 1_000);
+        assert_eq!(a[1].fills, Some(2));
+        assert_eq!(a[1].reaction(), Some(Reaction::Necessary));
+        assert_eq!(a[1].popcount_delta, 1);
+    }
+
+    /// On created puzzles the last given added is necessary by construction
+    /// (the generator stops at the first unique set), so ablation must find
+    /// at least one necessary given per puzzle.
+    #[test]
+    fn every_created_puzzle_has_a_necessary_given() {
+        let (hot, _) = english();
+        for seed in 0..4 {
+            let c = created(&hot, 5, 120 + seed);
+            let a = ablate(&hot, &c.puz, &c.givens, 1_000_000);
+            assert_eq!(a.len(), c.givens.len());
+            let last = a.last().unwrap();
+            assert!(matches!(
+                last.reaction(),
+                Some(Reaction::Necessary | Reaction::SilentlyNecessary)
+            ));
         }
     }
 
