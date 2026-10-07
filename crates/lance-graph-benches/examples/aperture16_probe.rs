@@ -271,7 +271,11 @@ fn geo(m: &[u64]) -> Geo {
 }
 
 /// Distinct 64-byte payload lines that hold at least one live self.
-fn live_lines(m: &[u64], width: usize) -> usize {
+///
+/// `base` is the payload's address modulo 64. A `Vec<P>` is only aligned to
+/// `align_of::<P>()` (≤ 8 here), so a record can straddle one more line than
+/// an aligned layout would; the count uses the real offset.
+fn live_lines(m: &[u64], width: usize, base: usize) -> usize {
     let mut next_free = 0usize; // first line not yet counted
     let mut n = 0;
     for w in 0..WORDS {
@@ -279,8 +283,8 @@ fn live_lines(m: &[u64], width: usize) -> usize {
         while b != 0 {
             let i = w * 64 + b.trailing_zeros() as usize;
             b &= b - 1;
-            let first = (i * width / 64).max(next_free);
-            let last = (i * width + width - 1) / 64;
+            let first = ((base + i * width) / 64).max(next_free);
+            let last = (base + i * width + width - 1) / 64;
             if last >= first {
                 n += last - first + 1;
                 next_free = last + 1;
@@ -726,8 +730,9 @@ fn ladder_one<P: Payload>(name: &str, r: usize, pats: &[(Layout, f64, Vec<u64>)]
     for (l, d, m) in pats {
         let g = geo(m);
         let mut buf: Vec<u16> = Vec::with_capacity(N);
-        let lines = live_lines(m, P::W);
-        let all_lines = (N * P::W).div_ceil(64);
+        let base = p.as_ptr() as usize % 64;
+        let lines = live_lines(m, P::W, base);
+        let all_lines = (base + N * P::W).div_ceil(64);
         let want = scan_branch(m, &p);
         type R<'a, P> = (&'static str, fn(&[u64], &[P]) -> u64);
         let routes: [R<P>; 9] = [
@@ -1055,8 +1060,12 @@ fn mode_a4() {
     for md in [1.0, 0.5, 0.1, 0.01, 0.001] {
         let m = build(Layout::Uniform, md, 0xE7 ^ md.to_bits());
         for ef in [1.0, 0.5, 0.1, 0.01, 0.001] {
-            let a = span / 5;
-            let b = a + ((span as f64 * ef) as i32).max(1);
+            // keep the requested width inside the lane: at ef = 1.0 the
+            // interval is the whole span, not a clipped tail of it. Only
+            // that case moves; every narrower window already fits at span/5.
+            let width = ((span as f64 * ef) as i32).max(1);
+            let a = (span / 5).min(span - width);
+            let b = a + width;
             let want: u64 = (0..N)
                 .filter(|&i| bit(&m, i) == 1 && ts[i] >= a && ts[i] < b)
                 .map(|i| val[i] as u64)
@@ -1312,10 +1321,17 @@ fn mode_a5() {
 
 fn mode_a6() {
     let r = reps();
-    println!("target\tsrc_density\tlive\ttouched_target_cells\tmax_cell_contrib\troute\tns\textra_pass_reads\tconsume_cells");
+    println!("target\tsrc_density\tlive\ttouched_target_cells\tmax_cell_contrib\troute\tns\textra_pass_reads\tconsume_cells\trun_position");
     let k: Vec<u32> = (0..N as u64)
         .map(|i| 1 + (mix(i ^ 0x4B) % 7) as u32)
         .collect();
+    let mut pattern = 0usize;
+    // A6_ROT shifts the rotation; running offsets 0..=3 puts every route in
+    // every run position for every pattern.
+    let rot_offset: usize = std::env::var("A6_ROT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
     for t in Target::ALL {
         let via: Vec<u16> = (0..N).map(|s| t.of(s)).collect();
         for d in [1.0, 0.1, 0.01, 0.001, 0.0001] {
@@ -1336,12 +1352,18 @@ fn mode_a6() {
             let mut seen = vec![0u64; CELLS / 64];
             let mut hist = vec![0u16; CELLS];
             let mut want = None;
-            for route in [
+            // Rotate the route order per pattern so no route always runs
+            // first (cache state and clock drift would otherwise favour a
+            // fixed position); the order that ran is printed per row.
+            let mut order = [
                 "exact+full-consume",
                 "exact+cell-seen",
                 "hist-prepass+exact",
                 "exact+target-mask",
-            ] {
+            ];
+            order.rotate_left((pattern + rot_offset) % 4);
+            pattern += 1;
+            for (pos, route) in order.into_iter().enumerate() {
                 // K_next starts clean for every route; a route that only
                 // zeroes touched cells must leave it clean again.
                 kn.iter_mut().for_each(|x| *x = 0);
@@ -1470,7 +1492,7 @@ fn mode_a6() {
                     _ => (lv, touched),
                 };
                 println!(
-                    "{}\t{d}\t{lv}\t{touched}\t{maxc}\t{route}\t{ns:.0}\t{extra}\t{consume}",
+                    "{}\t{d}\t{lv}\t{touched}\t{maxc}\t{route}\t{ns:.0}\t{extra}\t{consume}\t{pos}",
                     t.name()
                 );
             }

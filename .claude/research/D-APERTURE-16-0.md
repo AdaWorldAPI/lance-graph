@@ -16,7 +16,7 @@ known self-space
 → touch payload bytes last
 ```
 
-Every part of that rule is measured and holds. Its best execution unit is the **u64 mask word, not the u16 cell**. As a scheduling unit, the u16 cell is 1.6–2.8× slower on geometric mean, and slower almost everywhere. It earns its place in exactly one narrow role: finding full 16-runs inside a partial word, on data that contains them.
+Every part of that rule is measured and holds. Its best execution unit is the **u64 mask word, not the u16 cell**. As a scheduling unit, the u16 cell is 1.3–2.3× slower per layout (2.7× over all 464 ladder cases), and slower almost everywhere. It earns its place in exactly one narrow role: finding full 16-runs inside a partial word, on data that contains them.
 
 ## 1. Current mask representation (read before building)
 
@@ -68,7 +68,7 @@ So production already runs the u64-word schedule everywhere except `Gather`. Thi
 
 ## 4. Correctness parity
 
-Every route's answer is asserted against a reference before timing, for every pattern × payload × route in every mode, and the run aborts on a mismatch. All runs completed: 348 + 4 640 + 85 + 288 + 125 + 192 + 120 measured rows. The u16 view also agrees with `align_to::<u16>` on all 4096 cells (§2).
+Every route's answer is asserted against a reference before timing, for every pattern × payload × route in every mode, and the run aborts on a mismatch. All runs completed: 348 + 4 640 + 85 + 288 + 125 + 192 measured rows, plus 4 × 120 for A6. The u16 view also agrees with `align_to::<u16>` on all 4096 cells (§2).
 
 The A6 checksum covers only the next-frontier mask, so it cannot see whether `K_next` was cleared. A route that skipped clearing would pass and time faster. The three schedule-driven A6 routes therefore also assert that `K_next` is all zero afterwards, and all three pass.
 
@@ -121,42 +121,43 @@ Times in µs. Geometric mean over all 464 pattern × payload cases, relative to 
 
 | route | geomean vs u64 visit | best | worst |
 |---|---|---|---|
-| u16-visit | 2.79 | 0.50 | 13.3 |
-| u64→u16-visit | 1.38 | 0.47 | 4.67 |
-| adapt16 | 2.07 | 0.16 | 11.3 |
-| **adapt64** | **0.80** | 0.05 | 3.58 |
-| adapt64>16 | **0.73** | 0.04 | 3.31 |
-| adapt64q | 0.85 | 0.13 | 3.46 |
-| ordinal-list | 1.31 | 0.32 | 3.17 |
-| scan-branch | 14.6 | 0.68 | 181 |
-| full-branchless | 17.8 | 0.96 | 922 |
+| u16-visit | 2.70 | 0.88 | 14.4 |
+| u64→u16-visit | 1.34 | 0.56 | 2.80 |
+| adapt16 | 2.01 | 0.17 | 13.6 |
+| **adapt64** | **0.80** | 0.05 | 2.57 |
+| adapt64>16 | **0.71** | 0.04 | 2.71 |
+| adapt64q | 0.81 | 0.13 | 3.01 |
+| ordinal-list | 1.30 | 0.34 | 4.12 |
+| scan-branch | 14.3 | 0.80 | 218 |
+| full-branchless | 17.5 | 0.77 | 711 |
 
 By layout, for cases where `u64-visit` takes ≥ 2 µs (below that the numbers sit at the timer floor):
 
 | layout | adapt64 | adapt64>16 | adapt64q | u16 visit |
 |---|---|---|---|---|
-| uniform | **0.79** | 0.99 | 1.02 | 1.57 |
-| tiny runs | **0.86** | 0.96 | 1.01 | 1.69 |
-| clustered | 0.39 | **0.36** | 0.46 | 1.59 |
-| single range | **0.32** | 0.33 | 0.39 | 1.52 |
-| islands16 | 0.80 | **0.41** | 0.49 | 1.56 |
-| one-per-16 | **0.90** | 1.21 | 1.60 | 1.56 |
-| one-per-64 | **1.06** | 1.43 | 1.80 | 2.16 |
+| uniform | **0.87** | 0.97 | 1.04 | 1.60 |
+| tiny runs | **0.86** | 0.99 | 1.08 | 1.67 |
+| clustered | 0.41 | **0.35** | 0.41 | 1.55 |
+| single range | 0.34 | **0.32** | 0.40 | 1.53 |
+| islands16 | 0.82 | **0.40** | 0.47 | 1.56 |
+| alternating | **1.11** | 1.25 | 1.18 | 1.30 |
+| one-per-16 | **0.98** | 1.59 | 1.85 | 1.53 |
+| one-per-64 | **1.17** | 1.64 | 2.08 | 2.29 |
 
 What the ladder says:
 
-- **A u16 granule helps only when there are full 16-runs that do not fill 64.** That is islands16 (0.41 vs 0.80) and partly clustered data. Everywhere else it costs.
-- **The branch-free variant (`adapt64q`) does not remove that cost.** Searching for runs is O(live words) of comparisons, and on scattered data, which has no runs, the search is pure overhead: up to 2×, and 3.5× in one case (one-per-64, 128-byte records).
-- `adapt64`, which only adds a dense path for a full word, has the best risk profile. It is never much worse than `u64-visit` (1.06 at worst per layout) and is 3× better on runs.
+- **A u16 granule helps only when there are full 16-runs that do not fill 64.** That is islands16 (0.40 vs 0.82) and partly clustered data. Everywhere else it costs.
+- **The branch-free variant (`adapt64q`) does not remove that cost.** Searching for runs is O(live words) of comparisons, and on scattered data, which has no runs, the search is pure overhead: up to ~2× per layout, 3.0× in the worst single case.
+- `adapt64`, which only adds a dense path for a full word, has the best risk profile. It is never much worse than `u64-visit` (1.17 at worst per layout, on one survivor per word) and is 2.4–2.9× better on runs.
 
 **Does the benefit grow with payload width?** It depends on density. Ratio `full-branchless / u64-visit`, uniform layout:
 
 | density | u8 | u32 | u64 | rec32 | rec128 |
 |---|---|---|---|---|---|
-| 100 % | 1.1 | 1.1 | 1.2 | 1.0 | 1.0 |
-| 10 % | 10.6 | 7.1 | 20.6 | 8.6 | 7.8 |
-| 1 % | 49 | 49 | 38 | 51 | **153** |
-| 0.1 % | 107 | 101 | 101 | 127 | **352** |
+| 100 % | 1.1 | 1.5 | 1.2 | 1.0 | 1.1 |
+| 10 % | 10.7 | 8.8 | 15.4 | 8.6 | 6.3 |
+| 1 % | 45 | 45 | 49 | 53 | **115** |
+| 0.1 % | 75 | 74 | 44 | 154 | **469** |
 
 - **At ≤ 1 % the benefit grows with width:** saved bytes scale with W, while the skip costs a fixed 1024 tests.
 - **At ≥ 10 % it does not.** Uniform survivors leave almost every 64-byte line live for lanes under 64 B (at 10 % density a 16-row u32 line is live with probability 1 − 0.9¹⁶ ≈ 81 %). Few bytes are saved, and the remaining win is compute.
@@ -164,16 +165,16 @@ What the ladder says:
 
   | payload | r with live rows | r with live payload lines |
   |---|---|---|
-  | u8 | 0.96 | 0.71 |
-  | u16 | 0.99 | 0.81 |
-  | u32 | 0.99 | 0.87 |
-  | u64 | 0.98 | 0.92 |
-  | rec16 | 0.92 | 0.94 |
-  | rec32 | 0.97 | **0.99** |
-  | rec64 | 0.96 | 0.96 |
-  | rec128 | 0.95 | 0.95 |
+  | u8 | 0.96 | 0.74 |
+  | u16 | 0.95 | 0.81 |
+  | u32 | 0.95 | 0.82 |
+  | u64 | 0.96 | 0.95 |
+  | rec16 | 0.97 | 0.91 |
+  | rec32 | 0.97 | **0.98** |
+  | rec64 | 0.95 | **0.97** |
+  | rec128 | 0.93 | **0.96** |
 
-  For narrow lanes, rows predict runtime better. From 32-byte records upward, live lines predict it as well or better. That is the refinement "self first, bytes later" needs: **the bytes that matter are the touched lines, and a lane narrower than a line saves rows, not bytes.**
+  Line counts use the payload's real address modulo 64: a `Vec<P>` is only aligned to `align_of::<P>()`, so a record can straddle one more line than an aligned layout would. For narrow lanes, rows predict runtime better. From 32-byte records upward, live lines predict it better. That is the refinement "self first, bytes later" needs: **the bytes that matter are the touched lines, and a lane narrower than a line saves rows, not bytes.**
 
 ## 8. VIA (A3)
 
@@ -190,7 +191,7 @@ Routes: full scan, u64 gate, u16 gate, ordinal. `via[self] → target: u16`. Sup
 
 - **The mask can schedule VIA with no selection vector.** The u64 gate wins or ties every case except one family: support at 100 % source density into concentrated targets. There a branch-free full scan wins: hotspot 112 vs 137 µs, zipf 123 vs 152, many-to-one 136 vs 158. Concentrated scattered writes defeat the visit loop, and at 100 % there is nothing to skip.
 - The u16 gate is never better than the u64 gate.
-- **Support and multiplicity behave differently at the floor.** At low density, support costs ~1.8 µs (clearing 8 KiB), but multiplicity costs ~18.5 µs regardless of the route, because clearing the dense 256 KiB `K_next` dominates. §11 removes that cost.
+- **Support and multiplicity behave differently at the floor.** At low density, support costs ~1.8 µs (clearing 8 KiB), but multiplicity costs ~18.5 µs regardless of the route, because clearing the dense 256 KiB `K_next` dominates. §10 removes that cost.
 
 ## 9. K propagation over CSR (A5)
 
@@ -212,42 +213,52 @@ Routes: full scan, u64 gate, u16 gate, ordinal. `via[self] → target: u16`. Sup
 
 ## 10. Coarse target histogram — the multiplicity aperture (A6)
 
-The question: is a coarse target-side object worth an extra pass? Each route propagates K, clears `K_next` for the next round, and builds the next frontier mask (`K_next > 0`). Times in µs.
+The question: is a coarse target-side object worth an extra pass? Each route propagates K, clears `K_next` for the next round, and builds the next frontier mask (`K_next > 0`).
+
+**Single runs are not stable here.** The same route's time varies by up to 2.4× between runs. Both run position and the host timing drift described in §11 contribute, and this lab did not separate them. So A6 was run four times, rotating the route order (`A6_ROT=0..3`) so that every route took every position for every pattern. The figures below are the median over those four runs (each itself a median of 101). Times in µs; full table §A6.
 
 | target | src density | touched cells | exact + full consume | exact + cell-seen bitmap | u16 histogram pre-pass | **exact + target mask** |
 |---|---|---|---|---|---|---|
-| uniform | 100 % | 4096 | 325 | 386 | 283 | **210** |
-| uniform | 10 % | 3279 | 137 | 65 | 97 | **37** |
-| uniform | 1 % | 610 | 123 | 15.2 | 22.4 | **8.0** |
-| uniform | 0.1 % | 66 | 119 | 6.9 | 14.4 | **6.3** |
-| hotspot | 10 % | 617 | 181 | 54 | 92 | **41** |
-| zipf | 10 % | 36 | 136 | **24** | 59 | 30 |
-| many-to-one | 100 % | 16 | 241 | **156** | 299 | 274 |
-| many-to-one | 10 % | 16 | 185 | **40** | 84 | 42 |
+| uniform | 100 % | 4096 | 244 | **209** | 244 | 216 |
+| uniform | 10 % | 3279 | 138 | 71 | 100 | **36** |
+| uniform | 1 % | 610 | 123 | 15.7 | 22.3 | **8.2** |
+| uniform | 0.1 % | 66 | 121 | 7.0 | 14.7 | **6.3** |
+| clustered | 10 % | 3310 | 162 | 70 | 132 | **37** |
+| hotspot | 100 % | 3265 | 223 | 191 | 242 | **152** |
+| hotspot | 0.1 % | 10 | 137 | **6.8** | 19.5 | 10.1 |
+| zipf | 10 % | 36 | 153 | 31 | 67 | **25** |
+| one-to-one | 100 % | 4096 | 276 | 288 | 275 | **266** |
+| many-to-one | 100 % | 16 | 245 | 154 | 292 | **150** |
 
-- **The u16 histogram pre-pass is KILLED (F3).** It is slower than a cell bitmap built during the same pass in 29 of 30 cases, by up to 2×. The one exception is uniform 100 %. There the histogram beat the cell bitmap (283 vs 386 µs), but the exact target mask beat it (210 µs). A second pass to count contributions cannot be repaid by any work it lets the consumer skip.
-- The coarse target-cell bitmap (`target >> 4`, one OR per contribution) does pay, up to ~17× over "clear and scan everything" at sparse frontiers.
-- **But the smallest object that delivers the saving is the EXACT next-frontier mask, written in the same pass.** Here K(u) ≥ 1 for every live u, so `K_next > 0` iff `v` was touched. That mask is the result the next round needs anyway, and walking its set bits is also the schedule for clearing `K_next`. It wins or ties every case except where the touched targets concentrate in a few cells: many-to-one at 100 % (274 vs 156 µs) and zipf at 10 % and 0.1 %. There the cell bitmap's 512 B walk is cheaper than the exact mask's 8 KiB walk.
+- **The u16 histogram pre-pass is KILLED (F3).** It is the fastest route in 0 of 30 cases, and slower than a cell bitmap built during the same pass in 29 of 30. The exception is one-to-one at 100 % (275 vs 288 µs), where the exact target mask beat both (266 µs). A second pass to count contributions cannot be repaid by any work it lets the consumer skip.
+- The coarse target-cell bitmap (`target >> 4`, one OR per contribution) does pay, up to ~20× over "clear and scan everything" at sparse frontiers.
+- **But the smallest object that delivers the saving is the EXACT next-frontier mask, written in the same pass.** Here K(u) ≥ 1 for every live u, so `K_next > 0` iff `v` was touched. That mask is the result the next round needs anyway, and walking its set bits is also the schedule for clearing `K_next`.
+  - It is fastest in 20 of 30 cases, and about 2× ahead of the cell bitmap at 10 % density.
+  - The cell bitmap's 10 wins are almost all at ≤ 1 % density, by ≤ 1 µs.
+  - The exceptions are uniform 100 % (209 vs 216 µs) and hotspot 0.1 % (6.8 vs 10.1 µs).
 - **Important:** the saving is not a coarse-granularity effect. It comes from not touching dead target ordinals when clearing and consuming, which is the same subtraction law applied on the target side.
 
 ## 11. Bounded extent × mask (A4)
 
-An ordered i32 lane `ts = self / 4`, with a predicate `ts ∈ [a, b)`, `m(self)`, and a u32 payload. Times in µs; full table §A4.
+An ordered i32 lane `ts = self / 4`, with a predicate `ts ∈ [a, b)`, `m(self)`, and a u32 payload. The window starts at `min(span/5, span − width)`, so "100 %" is the whole universe and every narrower window sits where it always did. "Mask only" walks u16 cells and tests `ts` per live self.
+
+Times in µs, each the per-row **minimum over 5 runs** (each run a median of 101). During this re-run the host's timing drifted: the identical full-universe pass ranged from 101.6 to 241 µs, with no CPU steal recorded. Drift only ever adds time, so the minimum is the right estimate. With it, the full-universe baseline is flat at 101.6–101.8 µs in every row. Full table §A4.
 
 | mask density | extent | extent selves | live in extent | full universe | extent only | mask only | extent + u16 | **extent + u64** |
 |---|---|---|---|---|---|---|---|---|
-| 100 % | 50 % | 32768 | 32768 | 104 | 29.2 | 73.4 | 25.5 | 25.4 |
-| 10 % | 100 % | 52432 | 5259 | 100 | 46.5 | 16.8 | 8.1 | **5.5** |
-| 10 % | 50 % | 32768 | 3321 | 101 | 29.1 | 15.7 | 5.1 | **3.0** |
-| 1 % | 100 % | 52432 | 529 | 109 | 46.5 | 5.0 | 5.4 | **1.3** |
-| 1 % | 10 % | 6552 | 65 | 137 | 9.5 | 8.1 | 1.1 | **0.3** |
-| 0.1 % | 100 % | 52432 | 50 | 156 | 76.1 | 7.2 | 8.7 | **1.5** |
+| 100 % | 100 % | 65536 | 65536 | 101.6 | 58.0 | 83.5 | 50.6 | **42.9** |
+| 100 % | 50 % | 32768 | 32768 | 101.7 | 29.1 | 70.2 | 25.4 | **21.9** |
+| 10 % | 100 % | 65536 | 6554 | 101.6 | 58.0 | 12.2 | 10.0 | **5.5** |
+| 10 % | 50 % | 32768 | 3321 | 101.6 | 29.1 | 11.1 | 5.1 | **2.9** |
+| 1 % | 100 % | 65536 | 655 | 101.7 | 58.0 | 4.9 | 6.7 | **1.6** |
+| 1 % | 10 % | 6552 | 65 | 101.8 | 5.9 | 4.7 | 0.7 | **0.2** |
+| 0.1 % | 100 % | 65536 | 66 | 101.7 | 58.0 | 4.5 | 6.5 | **1.1** |
 
-**Extent and mask are complementary, and they compose multiplicatively.** "Extent + u64 words" beats both single schedulers whenever both remove work, for example 3.0 µs vs 29.1 (extent only) and 15.7 (mask only).
+**Extent and mask are complementary, and they compose multiplicatively.** "Extent + u64 words" beats both single schedulers whenever both remove work, for example 2.9 µs vs 29.1 (extent only) and 11.1 (mask only).
 
-- **F6 holds where the mask is dense.** At 100 % mask density the extent does all the work, and the mask adds nothing (25.4 vs 29.2 µs).
-- When the extent is the whole universe, the mask does all the work.
-- Extent + u16 cells is slower than extent + u64 words wherever the mask is sparse (5.4 vs 1.3 µs): the same 4× test count as §5.
+- **F6 holds where the mask is dense.** At 100 % mask density the extent does almost all the work, and the mask adds little (21.9 vs 29.1 µs).
+- At a whole-universe extent, the extent removes nothing (58 µs, a branch-free pass over every row), and the mask does all the work (1.1–5.5 µs).
+- Extent + u16 cells is slower than extent + u64 words wherever the mask is sparse (6.7 vs 1.6 µs): the same 4× test count as §5.
 
 ## 12. "Known work subtraction" accounting
 
@@ -284,11 +295,11 @@ I did not inspect the generated assembly. Whether the dense loops auto-vectorise
 
 | # | falsifier | outcome |
 |---|---|---|
-| F1 | u16 aperture consistently slower than u64 set-bit visitation | **TRIGGERED.** Visitation: 7× at the floor, 2–5× mid-density, ≈1× at 100 %. Ladder geomean 2.79×. Keep the law, execute in u64 words. |
-| F2 | popcount mode switching costs more than it saves | **TRIGGERED for thresholds. NOT triggered for "word or quarter is full".** The `== MAX` dense switch wins 3× on runs at ≤ 6 % cost. The general popcount crossover is a narrow, payload-dependent band (§6). Use one set-bit path plus a full-word dense path. |
-| F3 | coarse target histogram does not amortise | **TRIGGERED. Kill `MultiplicityAperture`.** The exact same-pass target mask beats it, and so does the cell bitmap (§10). |
-| F4 | ordinal lists win materially and reproducibly | **NOT triggered.** Geomean 1.31× slower. Every apparent win failed to reproduce or was sub-µs. No earned exception. |
-| F5 | payload size does not affect the benefit | **PARTLY TRIGGERED.** True at ≥ 10 % density (lines are all live). False at ≤ 1 % (153–352× for 128-byte records). Refinement: count touched lines, not bytes. |
+| F1 | u16 aperture consistently slower than u64 set-bit visitation | **TRIGGERED.** Visitation: 7× at the floor, 2–5× mid-density, ≈1× at 100 %. Ladder geomean 2.70×. Keep the law, execute in u64 words. |
+| F2 | popcount mode switching costs more than it saves | **TRIGGERED for thresholds. NOT triggered for "word or quarter is full".** The `== MAX` dense switch wins 2.4–2.9× on runs, and costs at most 17 % on the worst layout (one survivor per word). The general popcount crossover is a narrow, payload-dependent band (§6). Use one set-bit path plus a full-word dense path. |
+| F3 | coarse target histogram does not amortise | **TRIGGERED. Kill `MultiplicityAperture`.** It is never the fastest route (0 of 30, with run order rotated); the exact same-pass target mask and the cell bitmap both beat it (§10). |
+| F4 | ordinal lists win materially and reproducibly | **NOT triggered.** Geomean 1.30× slower. Every apparent win failed to reproduce or was sub-µs. No earned exception. |
+| F5 | payload size does not affect the benefit | **PARTLY TRIGGERED.** True at ≥ 10 % density (lines are all live). False at ≤ 1 % (115–469× for 128-byte records). Refinement: count touched lines, not bytes. |
 | F6 | bounded extent already removes most of the work | **TRIGGERED only for dense masks.** Otherwise extent and mask compose (§11). |
 
 ## 15. Final ruling
@@ -305,7 +316,7 @@ I did not inspect the generated assembly. Whether the dense loops auto-vectorise
 
 - `mask_gather_u32` gated by a mask, walking u64 words and set bits. This is the D-GATED-GATHER-0 build, now with stronger support: VIA gating wins here too.
 - A full-word dense fast path in the fold kernels' u64 walk (`group_walk`, `masked_sum_*`), to be validated first against the ndarray parity suite.
-- An opt-in full-quarter (16-run) dense check, **only** if a workload with 16-aligned runs is measured to need it. On scattered data it costs 1.2–1.8×.
+- An opt-in full-quarter (16-run) dense check, **only** if a workload with 16-aligned runs is measured to need it. On scattered layouts it costs 1.25–1.64×.
 - For multi-hop K propagation: produce the next frontier mask in the same pass, and clear `K_next` by walking it. Not yet measured through mask-risc; this lab hand-rolled it.
 
 **KILL**
@@ -319,11 +330,11 @@ I did not inspect the generated assembly. Whether the dense loops auto-vectorise
 ## 16. The eight questions
 
 1. **Is `[u16; 4096]` a useful zero-copy aperture view of the 64K support mask?** It is zero-copy: a shift of the same 8 KiB, endianness-proof, and verified. As a *schedule* it is not useful. It is the wrong granularity to iterate, and only full 16-run detection uses it.
-2. **Is 16-self granularity measurably better than 64-bit word scheduling?** No. It is 1.6–2.8× slower on geometric mean. It wins only on data with full 16-runs that do not fill a word (islands16: 0.41 vs 0.80).
-3. **Does the benefit increase with payload width?** Only at low density, ≤ 1 %, up to 352×. At ≥ 10 % nearly every line is live and the ratio stays flat. Runtime tracks rows for lanes up to 16 B and lines from 32 B up.
+2. **Is 16-self granularity measurably better than 64-bit word scheduling?** No. It is 1.3–2.3× slower per layout (2.7× overall geomean). It wins only on data with full 16-runs that do not fill a word (islands16: 0.40 vs 0.82).
+3. **Does the benefit increase with payload width?** Only at low density, ≤ 1 %, up to ~470×. At ≥ 10 % nearly every line is live and the ratio stays flat. Runtime tracks rows for lanes up to 16 B and lines from 32 B up.
 4. **Can `mask(self)` reliably schedule LOAD and VIA without selection vectors?** Yes. The u64 gate wins or ties every reproducible case except one family: support at 100 % source density into concentrated targets (hotspot, zipf, many-to-one), where a branch-free full scan is 15–20 % faster. Nothing there is skippable, so this is not a selection-vector case either.
 5. **Are bounded extent and aperture complementary?** Yes, and they multiply. The exception is a dense mask, where the extent alone suffices.
-6. **Does a coarse target histogram help K / multiplicity propagation?** No; it is killed. What helps is the exact next-frontier mask written in the same pass, which removes the dense clearing and scanning (up to ~20×).
+6. **Does a coarse target histogram help K / multiplicity propagation?** No; it is killed. What helps is the exact next-frontier mask written in the same pass, which removes the dense clearing and scanning (up to ~20×, fastest in 20 of 30 cases).
 7. **Is any new carrier justified?** No.
 8. **Is any new V4 opcode justified?** No. Every route here is a lowering of `LOAD` / `KEEP` / `VIA` / `SUM` / `GROUP_SUM`. The one real gap is executor-level: `Gather` has no `under`. That is a missing operand on an existing op, not a new opcode.
 
@@ -333,4 +344,12 @@ I did not inspect the generated assembly. Whether the dense loops auto-vectorise
 - Only the "native count" in A1 runs through mask-risc. The rest are transcriptions of the production loop shape.
 - N = 65 536 fits a u16 self. Larger universes were not tested, so the 4×-test argument against u16 cells is measured only here, though it can only grow with N.
 - Sub-µs differences sit at the timer floor and are not interpreted.
+- Timing noise:
+  - The host drifted by up to 2.4× on an identical pass during the review re-run, with no CPU steal (§11).
+  - A4 is a per-row minimum over 5 runs, and A6 a median over 4 rotated runs.
+  - A1, A2, A3 and A5 are single runs with a fixed route order. Their rulings rest on margins of 1.3× or more, and on geometric means over hundreds of cases. Individual rows can carry drift.
+- Review corrections (PR #1377):
+  - cache-line counts now use the real allocation offset (§7);
+  - the 100 % extent case now covers the whole universe instead of its last 80 % (§11);
+  - A6 now rotates the route order (§10).
 - No assembly inspection (§13).
