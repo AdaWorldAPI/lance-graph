@@ -51,6 +51,19 @@ to compute it now · EXECUTE touches the bytes. No fifth verb was forced.
 9. **Anti-lasagne.** A new IR must hold information that cannot live in the
    semantic plan, the binding, V4, the bundle choice or the backend program.
    None proposed so far does.
+10. **Subtract from the known universe, in u64 words.** Scheduling is
+    extent → skip zero words → dense full words → walk set bits → touch
+    payload last. The unit is the **u64 mask word**, not a 16-self cell. The
+    u16 view of the same 8 KiB is a free shift, but as a schedule it is 1.3–2.3×
+    slower per layout (2.7× overall geomean), and 7× slower on an empty mask (4096 tests vs 1024). 16-cells earn
+    a role only in detecting full 16-runs inside a partial word, opt-in. Cost
+    tracks live rows for lanes up to 16 B and live cache lines from 32 B up, never N.
+    [MEASURED, `aperture16_probe`, D-APERTURE-16-0]
+11. **The target side subtracts too: the next frontier IS the schedule.** For
+    K propagation, writing the exact next-frontier mask in the same pass and
+    clearing `K_next` by walking it beats clearing and scanning the dense array
+    by up to ~20× at sparse frontiers. A coarse `[u16; 4096]` target histogram
+    pre-pass is never the fastest route. [MEASURED, `aperture16_probe a6`]
 
 ## Measured state of the candidate V4 (R2IL)
 
