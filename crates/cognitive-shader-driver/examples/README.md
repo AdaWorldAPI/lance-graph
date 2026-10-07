@@ -429,10 +429,11 @@ cargo run --release -p cognitive-shader-driver --example crossword_population_fo
 
 ## crossword_real_words_probe.rs
 
-D-PUZZLE-0 step 2b. The step-2 crossword with a real dictionary: the 1000 most
-frequent words per slot length, English from the committed COCA
-`crates/deepnsm/word_frequency/word_forms.csv`, German from DeReKo-2014 only
-when `DEREKO_PATH` names the file (CC BY-NC 3.0; nothing derived is committed).
+D-PUZZLE-0 step 2b. The step-2 crossword with a real dictionary: every 4- and
+5-letter word of DeepNSM's English vocabularies (v1's 4096-word
+`word_rank_lookup.csv` plus v2's `academic_20k.csv`, both committed), and of
+the 20,000 most frequent DeReKo-2014 German forms, read only when
+`DEREKO_PATH` names the file (CC BY-NC 3.0; nothing derived is committed).
 Instances are random fills, givens added until the fill is unique. About 1.0M
 edges per language; every count agrees three ways. Board:
 `.claude/board/entries/2026-10-07-puzzle-0-crossword-real-words.md`.
