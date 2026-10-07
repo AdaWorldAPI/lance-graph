@@ -354,6 +354,28 @@ fn created_and_deleted_nodes_keep_their_own_recipient() {
     .unwrap();
     assert!(!st.view(gone).unwrap().exists(&g(SHARED)));
     assert!(validate(&st.view(gone).unwrap()).is_empty());
+    // The delete took the override with it: only the deletion is left, and
+    // re-creating the node as observed is an undo, not a reused identity.
+    assert_eq!(st.view(gone).unwrap().delta_len(), 1);
+    let observed = st.view(g0).unwrap().node_state(&g(SHARED)).unwrap();
+    let undone = sim(
+        &mut st,
+        gone,
+        vec![Change::CreateNode {
+            node: g(SHARED),
+            state: observed,
+        }],
+    )
+    .unwrap();
+    assert_eq!(st.view(undone).unwrap().delta_len(), 0);
+    assert_eq!(
+        st.view(undone)
+            .unwrap()
+            .node_state(&g(SHARED))
+            .unwrap()
+            .recipient,
+        Some(shared)
+    );
 }
 
 // Ingest: an AD entry's triplet and targetAddress reach node_state through
