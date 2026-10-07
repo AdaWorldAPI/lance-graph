@@ -372,3 +372,16 @@ and the same final belief.
 ```bash
 cargo run -p cognitive-shader-driver --example observation_revision_probe
 ```
+
+## revision_epistemic_writer_probe.rs
+
+D-CTX-7. A candidate for the missing evidence writer of the CE64 epistemic
+code (bits 59..63, read as one joint code). One mailbox row tracks "pixel P is
+a material boundary"; each cycle presents its encounters to `GadamerRevision`
+and a declared, versioned transition settles the code, written in cycle k and
+read in k+1. Observations of the resident tile can promote and demote it;
+rendered witnesses never move it.
+
+```bash
+cargo run -p cognitive-shader-driver --example revision_epistemic_writer_probe
+```
