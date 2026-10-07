@@ -74,7 +74,9 @@
 //! when it was never covered, or when newer contradiction evidence arrived
 //! after its coverage. So new evidence on an already-covered bit reopens the
 //! interrogation, while presenting the same encounter again is refused
-//! before it can. An encounter written without `present` carries `seq` 0 and
+//! before it can. There is one encounter slot: a new encounter is also
+//! refused while the current one is unprocessed (`revision_pending`), so an
+//! accepted encounter is never replaced before the cycle revises with it. An encounter written without `present` carries `seq` 0 and
 //! never reopens a covered bit.
 //!
 //! What this does not decide: `interrogated` is a probe-local record. The
@@ -310,9 +312,15 @@ struct Frontier {
     first: Option<u16>,
 }
 
-/// An encounter `seq` that is not greater than the last accepted one.
+/// Why `present` refused an encounter. Either way the world is unchanged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct StaleSeq(u64);
+enum Refused {
+    /// The `seq` is not greater than the last accepted one.
+    StaleSeq(u64),
+    /// The previous encounter has not been absorbed yet: revising with it
+    /// would still change the horizon. Replacing it would lose it.
+    Unprocessed,
+}
 
 /// The set bits of a mask, lowest first.
 fn bits(mut m: u64) -> impl Iterator<Item = usize> {
@@ -366,10 +374,18 @@ impl World {
     }
 
     /// The "do": an encounter arrives with a durable `seq`. Refused, with the
-    /// world unchanged, unless `seq` is greater than the last accepted one.
-    fn present(&mut self, encounter: EncounterEvidence<u64>, seq: u64) -> Result<(), StaleSeq> {
+    /// world unchanged, unless `seq` is greater than the last accepted one
+    /// and the previously accepted encounter has been absorbed
+    /// (`revision_pending` is false). There is one encounter slot, so an encounter is never
+    /// overwritten before it is processed.
+    fn present(&mut self, encounter: EncounterEvidence<u64>, seq: u64) -> Result<(), Refused> {
         if self.last_seq.is_some_and(|last| seq <= last) {
-            return Err(StaleSeq(seq));
+            return Err(Refused::StaleSeq(seq));
+        }
+        // Only an accepted encounter is protected; one written into the slot
+        // without `present` (a fixture) carries no `seq` and may be replaced.
+        if self.last_seq.is_some() && self.revision_pending() {
+            return Err(Refused::Unprocessed);
         }
         self.last_seq = Some(seq);
         for b in bits(encounter.contradictions) {
@@ -1036,9 +1052,36 @@ mod tests {
             ..echo_world().encounter
         };
         assert_ne!(other, e);
-        assert_eq!(world.present(other.clone(), 5), Err(StaleSeq(5)));
-        assert_eq!(world.present(other, 4), Err(StaleSeq(4)));
+        assert_eq!(world.present(other.clone(), 5), Err(Refused::StaleSeq(5)));
+        assert_eq!(world.present(other, 4), Err(Refused::StaleSeq(4)));
         assert_eq!(world, before);
+    }
+
+    /// FAILS IF: a second encounter replaces one that has not been revised
+    /// with yet, or the refusal changes the world, or the second encounter
+    /// stays refused after the cycle absorbs the first.
+    #[test]
+    fn an_unprocessed_encounter_is_not_replaced() {
+        let mut world = fusion_world();
+        let first = world.encounter.clone();
+        world.present(first.clone(), 1).expect("first seq");
+        assert!(world.revision_pending());
+        let before = world.clone();
+        let second = EncounterEvidence {
+            contradictions: 0b100,
+            resistance: 0b100,
+            ..echo_world().encounter
+        };
+        assert_ne!(second, first);
+        assert_eq!(world.present(second.clone(), 2), Err(Refused::Unprocessed));
+        assert_eq!(world, before);
+        wired_cycle(SelectorPolicy::V1, &mut world, None);
+        assert!(!world.revision_pending());
+        world
+            .present(second.clone(), 2)
+            .expect("first one absorbed");
+        assert_eq!(world.encounter, second);
+        assert_eq!(world.evidence_seq[2], 2);
     }
 
     /// FAILS IF: evidence on a different bit reopens a covered bit, or a
