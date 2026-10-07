@@ -70,6 +70,16 @@ So production already runs the u64-word schedule everywhere except `Gather`. Thi
 
 Every route's answer is asserted against a reference before timing, for every pattern × payload × route in every mode, and the run aborts on a mismatch. All runs completed: 348 + 4 640 + 85 + 288 + 125 + 192 + 120 measured rows. The u16 view also agrees with `align_to::<u16>` on all 4096 cells (§2).
 
+The A6 checksum covers only the next-frontier mask, so it cannot see whether `K_next` was cleared. A route that skipped clearing would pass and time faster. The three schedule-driven A6 routes therefore also assert that `K_next` is all zero afterwards, and all three pass.
+
+Disable runs, each verified red after committing, with the patch anchor asserted:
+
+| disable | fails at |
+|---|---|
+| D1: stop clearing `K_next` in the target-mask route | the clean-`K_next` assert |
+| D2: drop bit 15 of every u16 cell in `visit16` | the A2 parity assert |
+| D3: run the `adapt64` dense path over 63 of 64 rows | the A2 parity assert |
+
 ## 5. Density crossover — visitation only (A1)
 
 Times in µs. Full table: `.claude/research/D-APERTURE-16-tables.md` §A1.
