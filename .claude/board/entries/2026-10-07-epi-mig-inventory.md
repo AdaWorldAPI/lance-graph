@@ -134,3 +134,44 @@ meaningful, 8 reserved). Every site above was re-classified against it on
 No `TrustTexture` writer exists in the tree (`with_routing`/`with_truth`/
 `set_truth` have no non-test caller), so the trust-lens case is
 declaration-only.
+
+## Census after the Codex finding on #1381 (three axes)
+
+Codex found a stale *consumer*: `streamdto_circuit_probe` S4 wrote code 4 but
+expected `t.state[7]`. Codes 4 (`Direct × Associated`) and 7 (`Unknown ×
+Associated`) grant the same recipes there, so the test passed on the wrong
+topology. Fixed: it expects `state[4]` and pins `raw5 == 4`, `Topology2::Direct`
+and `Certification3::Associated`. Disable run (write 7): red.
+
+**A — storage touches (bits 59..63).** Outside `causal-edge`, three probes
+hand-rolled the joint field from `TRUTH_MASK | SPARE_MASK` / `TRUTH_SHIFT`.
+MIGRATED: `streamdto_circuit_probe` → `with_epistemic_raw5`;
+`revision_epistemic_writer_probe` → `EPISTEMIC_MASK`; `ce64_nextstate_probe` →
+`EPISTEMIC_MASK` / `EPISTEMIC_SHIFT` (its masked write stays as the
+independent oracle of the joint writer). KEEP: the split reads in
+`epistemic_reading_conflict_probe` and `revision_epistemic_writer_probe`, plus
+`via_two_writers`, which exist to compare the old reading against the
+canonical one. LEGACY: unchanged from the re-run above.
+
+**B — raw5 semantics.** Every literal code (`state[N]`, `EPI_LAW[N]`,
+`write_code`, `with_epistemic_raw5(N)`, `CODE_*`) was decoded as
+`topology | certification << 2` against its comment; all agree after the S4
+fix. One more stale site: `streamdto_circuit_probe`'s `main` table printed
+the old #1370 sample codes `[0,1,3,5,7,12,17,20,25,30]`. 25 and 30 are now
+reserved, so it printed `0x0` where the law refuses. MIGRATED: it prints the 24
+meaningful states by coordinate.
+
+**C — name collisions.** `TrustTexture` has four definitions: the CE64 lens
+(`causal_edge::layout`), `contract::mul` (Calibrated/Overconfident/…),
+`planner::mul::trust` (Crystalline/Solid/Fuzzy/Murky/Dissonant; it shares four
+names with the CE64 lens) and `arigraph::orchestrator`. No `From`/`TryFrom`
+impl, ordinal cast or `from_bits_2` bridges any of them to the CE64 lens or to
+`Topology2`. MUL's i4 batch writes only into its own `[TrustTexture]` slices.
+FALSE-POSITIVE: MUL stays out of the migration. The CE64 TrustTexture writers
+are deprecated and have no callers outside `causal-edge`'s tests, so nothing
+can re-couple them silently.
+
+**Rule for new tests.** A test that asserts an eligibility derived from a code
+also pins the code itself (`epistemic_raw5`, `topology()`, `certification()`).
+Distinct states can grant identical recipes, so an eligibility match alone
+does not identify the state.

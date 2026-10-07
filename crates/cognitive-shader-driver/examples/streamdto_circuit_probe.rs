@@ -53,6 +53,7 @@ use cognitive_shader_driver::{
     ShaderCrystal, ShaderDispatch, ShaderDriver, StyleSelector,
 };
 use lance_graph_contract::band_reading::EdgeProvenance;
+use lance_graph_contract::epistemic_state5::{Certification3, Epi5Gen, EpistemicState5, Topology2};
 use thinking_engine::dto::{SourceType, StreamDto};
 
 const MAILBOX: u32 = 0;
@@ -224,11 +225,16 @@ fn main() {
     );
     let t = LawGen::V1.tables();
     let pearl = t.pearl[edge.causal_mask() as usize];
-    for code in [0usize, 1, 3, 5, 7, 12, 17, 20, 25, 30] {
-        println!(
-            "  code {code:2} under this Pearl: {:#x}",
-            t.state[code] & pearl
-        );
+    // Every meaningful state by its coordinate; reserved certifications (codes
+    // 24..31) refuse and are not a row of this table.
+    for c in Certification3::ALL {
+        for tp in Topology2::ALL {
+            let code = EpistemicState5::new(Epi5Gen::V1, tp, c).raw();
+            println!(
+                "  code {code:2} {tp:?} x {c:?} under this Pearl: {:#x}",
+                t.state[code as usize] & pearl
+            );
+        }
     }
 }
 
@@ -363,6 +369,9 @@ mod tests {
             4,
             "the committed code is not Direct × Associated"
         );
+        let reread_state = EpistemicState5::decode(Epi5Gen::V1, raw5(mb.edge(row))).unwrap();
+        assert_eq!(reread_state.topology(), Topology2::Direct);
+        assert_eq!(reread_state.certification(), Certification3::Associated);
         let reread = measure(LawGen::V1, mb.edge(row), EdgeProvenance::V2Stamped);
         assert_eq!(
             reread,
