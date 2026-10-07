@@ -16,8 +16,8 @@
 //! - first-batch latency.
 //!
 //! `Throughput::Elements(n)` reports INPUT rows per second. That is honest
-//! only because setup asserts every input batch holds exactly `n` rows
-//! (`processed_rows == requested_rows`, summed over every scanned batch) and
+//! only because setup asserts each input table, concatenated from every
+//! scanned batch, holds exactly `n` rows (`processed_rows == requested_rows`) and
 //! a pre-flight run asserts the output row count each query must produce
 //! from all `n` rows. An earlier version kept only the FIRST scanned
 //! `RecordBatch` for the 10K and 1M sizes while still crediting `n`, so its
