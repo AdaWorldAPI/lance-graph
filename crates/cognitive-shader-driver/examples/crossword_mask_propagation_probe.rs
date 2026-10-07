@@ -1,63 +1,66 @@
 //! D-PUZZLE-0, step 3: is crossword propagation the same substrate operation
-//! as Sudoku's?
+//! as Sudoku's, and which physical representation of it is best?
 //!
 //! The question is not whether a crossword can be solved. It is whether, once a
 //! puzzle is compiled, propagation is `mask → intersect → popcount → promote →
-//! expose → adjacent masks → repeat`, with nothing crossword-shaped left on the
-//! hot path. Steps 2 and 2b (`crossword_population_fold_probe`,
-//! `crossword_real_words_probe`) re-derive candidates from a cell array on every
-//! step; they stay as the oracle here.
+//! expose → adjacent masks → repeat`, with nothing crossword-shaped on the hot
+//! path, and how four representations of that one logic compare on the SAME
+//! puzzles, givens and fixed points.
 //!
-//! # Three coordinate systems, kept apart
+//! # Coordinates, kept apart
 //!
-//! | what | encoding | where it comes from |
+//! | what | encoding | source |
 //! |---|---|---|
 //! | WHERE a letter sits | cell = `Morton8x8::from_xy(col, row)` (u16) | `lance_graph_contract::morton8x8` |
-//! | WHICH slot position | `(slot:offset)` = `FacetTier { hi: slot, lo: offset }.as_u16()` | `facet::FacetTier`, the `(group:member)` reading |
-//! | WHAT word | `WordId` (u16) from DeepNSM-v2 `PaletteVocab::from_frequency_ranked` | `deepnsm_v2::vocab` |
-//! | what is BELIEVED | CE64 bits 59..63, the shared GIVEN 20 / FORCED 21 / ENTAILED 22 / CANDIDATE 4 | `shared/population_fold.rs` |
+//! | WHICH slot position | `(slot:offset)` = `FacetTier { hi: slot, lo: offset }.as_u16()` | `facet::FacetTier` |
+//! | WHAT letter is in a cell | [`MooreSymbol8`] (u8) | declared here (see below) |
+//! | WHAT word | `WordId` (u16), DeepNSM-v2 `PaletteVocab::from_frequency_ranked` | `deepnsm_v2::vocab` |
+//! | what is BELIEVED | CE64 bits 59..63: GIVEN 20 / FORCED 21 / ENTAILED 22 / CANDIDATE 4 | `shared/population_fold.rs` |
 //!
 //! A crossing is equality of two cell codes. The contract stores no topology
 //! (`morton8x8.rs`: "no neighbour list and no stored edge"), so the equality is
-//! evaluated once, at compile time: positions are sorted by cell code and every
-//! equal pair becomes `cross[slot:offset] = (other slot:other offset)`, one u16
-//! per position. The runtime reads that lane; it never sees the grid.
+//! evaluated once, at compile time, into two lanes: `cross[slot:offset]` = the
+//! other `(slot:offset)` on the same cell, and `occupant[cell]` = the (at most
+//! two) positions on a cell. The runtime reads lanes; it never sees the grid.
 //!
-//! # Letters
+//! # `MooreSymbol8`: the letter reading of one byte
 //!
-//! No canonical Moore symbol space exists to borrow: every Moore in the repo is
-//! a direction table, a grid-edge validity byte or a palette-law operand, and
-//! none of them may be read as a letter. So a letter is a probe-local code: the
-//! sorted alphabet of the admitted words, code `k + 1` for the `k`-th letter,
-//! `0` = no letter. The alphabet is read from the vocabulary, never assumed:
-//! English gives 27 (a–z and the é of `sauté`, `cliché`), German its own.
+//! No existing Moore byte may be read as a letter: every Moore in the repo is a
+//! direction table, a grid-edge validity byte or a palette-law operand. So this
+//! probe declares one reading of a Moore-local byte as a symbol codebook:
+//! `0` unknown, `1..=26` a–z, `27` ä, `28` ö, `29` ü, `30` ß, `31..=255`
+//! reserved. Crossword spelling ignores accents: an accented Latin letter folds
+//! to its base (`cliché` is spelled `cliche`); ä ö ü ß are letters of their
+//! own and do not fold. A word with any other character is not a crossword
+//! word; it keeps its `WordId`. Whether this reading becomes a canonical value
+//! tenant is a contract decision, not taken here.
 //!
-//! # Vocabularies (DeepNSM-v2)
+//! # Vocabularies
 //!
 //! - **English** (committed): `crates/deepnsm/word_frequency/academic_20k.csv`,
-//!   column `word`, lowercased, into `PaletteVocab::from_frequency_ranked`:
-//!   exactly the vocabulary DeepNSM-v2 builds (`examples/genre_shapes.rs`),
-//!   18,555 distinct ids (`vocab.rs` quotes 18,559 distinct surfaces; four
-//!   collapse when lowercased). Words with a hyphen or apostrophe keep their id but
-//!   are not crossword words.
+//!   column `word`, lowercased, through `PaletteVocab::from_frequency_ranked`,
+//!   exactly as DeepNSM-v2 builds it (`examples/genre_shapes.rs`): 18,555 ids.
+//!   (`vocab.rs` quotes 18,559 distinct surfaces; four collapse when
+//!   lowercased.)
 //! - **German** (runtime only): DeepNSM-v2 builds no German vocabulary and the
 //!   repository holds none. With `DEREKO_PATH` set, the 20,000 most frequent
-//!   DeReKo-2014 forms (lowercased, proper nouns and non-alphabetic forms
-//!   dropped, frequencies summed) go through the same `from_frequency_ranked`.
-//!   CC BY-NC 3.0; nothing derived is committed. ä ö ü ß stay letters of their
-//!   own (no `ae`/`ss` folding: the vocabulary has none); text is assumed NFC,
-//!   and a form with a combining mark is refused because it is not alphabetic.
+//!   DeReKo-2014 forms (lowercased, `NE` and non-alphabetic forms dropped,
+//!   frequencies summed) go through the same `from_frequency_ranked`. CC BY-NC
+//!   3.0; nothing derived is committed. Text is assumed NFC.
 //!
-//! # The candidate population
+//! # The four arms (identical puzzles, givens and fixed points)
 //!
-//! For a language, a word length `L`, an offset `i` and a letter code `x`,
-//! `P(L, i, x)` is a bitset over that language's `WordId`s. A slot's
-//! candidates start as `P_all(L)` and every exposed crossing letter ANDs one
-//! `P` into them (`ndarray::simd::mask_and_assign`); `popcount_batch_u64`
-//! decides: 0 = contradiction, 1 = forced, more = still candidates. A forced
-//! word exposes its letters to its crossings through the `cross` lane, and the
-//! queue runs to a fixed point. Backtracking is used only to CREATE puzzles and
-//! to check uniqueness; solving is the fixed point alone.
+//! | arm | content | addressing | propagation |
+//! |---|---|---|---|
+//! | A token | `WordId` masks | `cross[slot:offset]` | a placed word's letter at offset `i` ANDs `P(L, j, letter)` into the crossing slot |
+//! | B Cartesian | `MooreSymbol8` board | `occupant[cell]` | a placed word writes its symbols; each affected slot's mask is recomputed from its cells' symbols |
+//! | C literal | strings, chars | cell array | every unplaced slot re-scans the vocabulary strings each round (steps 2/2b) |
+//! | D hybrid | `WordId` masks + `MooreSymbol8` board | `occupant[cell]` | a placed word writes its symbols; each NEW symbol ANDs one `P` into the cell's other slot |
+//!
+//! `P(L, i, x)` is a bitset over a language's `WordId`s: words of length `L`
+//! with symbol `x` at offset `i`. `popcount_batch_u64` decides: 0 =
+//! contradiction, 1 = forced, more = still candidates. Backtracking (arm A's
+//! masks) only CREATES puzzles and checks uniqueness; solving is the fixed point.
 //!
 //! Run: `cargo run --release -p cognitive-shader-driver --example crossword_mask_propagation_probe`
 //! German too: `DEREKO_PATH=/path/DeReKo-2014-II-MainArchive-STT.100000.freq cargo run ...`
@@ -86,10 +89,10 @@ const CROSSWORD_CLASS: ClassId = 0x0907;
 /// NYT rules: shortest word; most black squares (a sixth).
 const MIN_WORD: usize = 3;
 const MAX_BLACK_DIVISOR: usize = 6;
-/// Longest slot (NYT 15×15) and the per-slot stride of every position lane.
-const MAX_LEN: usize = 15;
-const STRIDE: usize = 16;
-/// No crossing at this position.
+/// Longest slot (21×21 Sunday board) and the per-slot stride of position lanes.
+const MAX_LEN: usize = 21;
+const STRIDE: usize = 32;
+/// No crossing / no occupant.
 const NONE: u16 = u16::MAX;
 /// No word placed in this slot.
 const UNSET: WordId = WordId::MAX;
@@ -98,27 +101,82 @@ const GERMAN_VOCAB: usize = 20_000;
 
 const ACADEMIC: &str = include_str!("../../deepnsm/word_frequency/academic_20k.csv");
 
+// ─────────────────────────────── symbols ───────────────────────────────
+
+/// The declared letter reading of one Moore-local byte: `0` unknown, `1..=26`
+/// a–z, `27` ä, `28` ö, `29` ü, `30` ß, `31..=255` reserved.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+struct MooreSymbol8(u8);
+
+impl MooreSymbol8 {
+    const UNKNOWN: Self = Self(0);
+    /// Codes in use, `0..=30`.
+    const COUNT: usize = 31;
+
+    /// The symbol of a lowercase character after accent folding.
+    fn of(c: char) -> Option<Self> {
+        match fold(c) {
+            c @ 'a'..='z' => Some(Self(c as u8 - b'a' + 1)),
+            'ä' => Some(Self(27)),
+            'ö' => Some(Self(28)),
+            'ü' => Some(Self(29)),
+            'ß' => Some(Self(30)),
+            _ => None,
+        }
+    }
+
+    /// The letter of a symbol; `None` for unknown and reserved codes.
+    fn letter(self) -> Option<char> {
+        match self.0 {
+            1..=26 => Some((b'a' + self.0 - 1) as char),
+            27 => Some('ä'),
+            28 => Some('ö'),
+            29 => Some('ü'),
+            30 => Some('ß'),
+            _ => None,
+        }
+    }
+}
+
+/// Crossword spelling ignores accents: an accented Latin letter folds to its
+/// base. ä ö ü ß are letters of their own and do not fold.
+fn fold(c: char) -> char {
+    match c {
+        'à' | 'á' | 'â' | 'ã' | 'å' | 'ā' => 'a',
+        'ç' => 'c',
+        'è' | 'é' | 'ê' | 'ë' | 'ē' => 'e',
+        'ì' | 'í' | 'î' | 'ï' => 'i',
+        'ñ' => 'n',
+        'ò' | 'ó' | 'ô' | 'õ' => 'o',
+        'ù' | 'ú' | 'û' => 'u',
+        'ý' | 'ÿ' => 'y',
+        c => c,
+    }
+}
+
+/// A word's crossword spelling, or `None` if it is not a crossword word
+/// (wrong length, or a character with no symbol).
+fn spelling(w: &str) -> Option<Vec<MooreSymbol8>> {
+    let s: Option<Vec<MooreSymbol8>> = w.chars().map(MooreSymbol8::of).collect();
+    s.filter(|s| (MIN_WORD..=MAX_LEN).contains(&s.len()))
+}
+
 // ─────────────────────────────── vocabulary ───────────────────────────────
 
-/// The language a lexicon and a puzzle belong to. A puzzle is only ever
-/// solved against its own language's populations.
+/// The language a lexicon and a puzzle belong to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Lang {
     En,
     De,
 }
 
-/// Cold side: strings and the letter codebook. Construction and checks only.
+/// Cold side: the strings. Construction, the literal arm and checks only.
 struct Cold {
     vocab: PaletteVocab,
-    letters: Vec<char>,
 }
 
 impl Cold {
-    fn code(&self, c: char) -> Option<u8> {
-        self.letters.binary_search(&c).ok().map(|i| i as u8 + 1)
-    }
-
     fn word(&self, w: WordId) -> &str {
         self.vocab.word(w).expect("word id in range")
     }
@@ -128,82 +186,66 @@ impl Cold {
 struct Hot {
     lang: Lang,
     blocks: usize,
-    /// Alphabet size + 1 (code 0 = no letter).
-    codes: usize,
     /// Per `WordId`: crossword length, 0 = not a crossword word.
     len: Vec<u8>,
-    /// `[id * STRIDE + offset]` = letter code.
-    spell: Vec<u8>,
+    /// `[id * STRIDE + offset]` = the symbol.
+    spell: Vec<MooreSymbol8>,
     /// By length: every crossword word of that length.
     all: Vec<Vec<u64>>,
-    /// By length: `[(offset * codes + code) * blocks ..]` = `P(L, offset, code)`.
+    /// By length: `[(offset * COUNT + symbol) * blocks ..]` = `P(L, offset, symbol)`.
     at: Vec<Vec<u64>>,
 }
 
 impl Hot {
-    fn pop(&self, len: usize, offset: usize, code: u8) -> &[u64] {
-        let i = (offset * self.codes + code as usize) * self.blocks;
+    fn pop(&self, len: usize, offset: usize, x: MooreSymbol8) -> &[u64] {
+        let i = (offset * MooreSymbol8::COUNT + x.0 as usize) * self.blocks;
         &self.at[len][i..i + self.blocks]
     }
 
-    fn letter(&self, w: WordId, offset: usize) -> u8 {
+    fn letter(&self, w: WordId, offset: usize) -> MooreSymbol8 {
         self.spell[w as usize * STRIDE + offset]
+    }
+
+    /// Bytes held by the populations (the fixed per-language cost).
+    fn population_bytes(&self) -> usize {
+        8 * (self.all.iter().map(Vec::len).sum::<usize>()
+            + self.at.iter().map(Vec::len).sum::<usize>())
     }
 }
 
-/// A crossword word: `MIN_WORD..=MAX_LEN` letters, every one alphabetic and
-/// lowercase.
-fn admissible(w: &str) -> bool {
-    let n = w.chars().count();
-    (MIN_WORD..=MAX_LEN).contains(&n) && w.chars().all(|c| c.is_alphabetic() && !c.is_uppercase())
-}
-
-/// Build both sides from a frequency-ranked word list (most frequent first).
+/// Both sides from a frequency-ranked word list (most frequent first).
 fn build_lexicon(lang: Lang, ranked: &[String]) -> (Hot, Cold) {
     let mut vocab = PaletteVocab::new();
     vocab.from_frequency_ranked(ranked.iter().map(String::as_str));
     let n = vocab.len();
     assert!(n < UNSET as usize, "WordId::MAX is the empty marker");
-    let mut letters: Vec<char> = (0..n)
-        .filter_map(|id| vocab.word(id as WordId))
-        .filter(|w| admissible(w))
-        .flat_map(str::chars)
-        .collect();
-    letters.sort_unstable();
-    letters.dedup();
-    assert!(letters.len() < 255, "letter codes are one byte");
-    let cold = Cold { vocab, letters };
-    let codes = cold.letters.len() + 1;
     let blocks = n.div_ceil(64);
     let mut hot = Hot {
         lang,
         blocks,
-        codes,
         len: vec![0; n],
-        spell: vec![0; n * STRIDE],
+        spell: vec![MooreSymbol8::UNKNOWN; n * STRIDE],
         all: vec![Vec::new(); MAX_LEN + 1],
         at: vec![Vec::new(); MAX_LEN + 1],
     };
     for l in MIN_WORD..=MAX_LEN {
         hot.all[l] = vec![0; blocks];
-        hot.at[l] = vec![0; l * codes * blocks];
+        hot.at[l] = vec![0; l * MooreSymbol8::COUNT * blocks];
     }
     for id in 0..n {
-        let w = cold.word(id as WordId);
-        if !admissible(w) {
+        let Some(sp) = spelling(vocab.word(id as WordId).expect("in range")) else {
             continue;
-        }
-        let l = w.chars().count();
+        };
+        let l = sp.len();
         hot.len[id] = l as u8;
         let bit = 1u64 << (id % 64);
         hot.all[l][id / 64] |= bit;
-        for (i, c) in w.chars().enumerate() {
-            let code = cold.code(c).expect("letter in codebook");
-            hot.spell[id * STRIDE + i] = code;
-            hot.at[l][(i * codes + code as usize) * blocks + id / 64] |= bit;
+        for (i, &x) in sp.iter().enumerate() {
+            hot.spell[id * STRIDE + i] = x;
+            hot.at[l][(i * MooreSymbol8::COUNT + x.0 as usize) * blocks + id / 64] |= bit;
         }
     }
-    (hot, cold)
+    (hot, Cold { vocab })
 }
 
 /// English: DeepNSM-v2's academic vocabulary, built as `genre_shapes` builds it.
@@ -247,12 +289,12 @@ fn german_ranked(text: &str) -> Vec<String> {
 #[derive(Clone, Debug, PartialEq)]
 struct Grid {
     side: usize,
-    rows: Vec<u16>,
+    rows: Vec<u32>,
 }
 
-/// Every white bit of a line lies in a run of at least three: OR of the
+/// Every white bit of a line lies in a run of at least three: the OR of the
 /// three-wide windows covers the line.
-fn line_runs_ok(w: u16) -> bool {
+fn line_runs_ok(w: u32) -> bool {
     let t = w & (w >> 1) & (w >> 2);
     (t | (t << 1) | (t << 2)) == w
 }
@@ -260,12 +302,12 @@ fn line_runs_ok(w: u16) -> bool {
 impl Grid {
     #[cfg(test)]
     fn from_rows(rows: &[&str]) -> Self {
-        let rows: Vec<u16> = rows
+        let rows: Vec<u32> = rows
             .iter()
             .map(|r| {
                 r.bytes()
                     .enumerate()
-                    .fold(0u16, |m, (c, b)| m | (u16::from(b == b'.') << c))
+                    .fold(0u32, |m, (c, b)| m | (u32::from(b == b'.') << c))
             })
             .collect();
         Self {
@@ -274,18 +316,14 @@ impl Grid {
         }
     }
 
-    fn full_line(&self) -> u16 {
-        ((1u32 << self.side) - 1) as u16
+    fn full_line(side: usize) -> u32 {
+        ((1u64 << side) - 1) as u32
     }
 
-    fn cols(&self) -> Vec<u16> {
+    fn cols(&self) -> Vec<u32> {
         (0..self.side)
-            .map(|c| (0..self.side).fold(0u16, |m, r| m | (((self.rows[r] >> c) & 1) << r)))
+            .map(|c| (0..self.side).fold(0u32, |m, r| m | (((self.rows[r] >> c) & 1) << r)))
             .collect()
-    }
-
-    fn reverse(&self, w: u16) -> u16 {
-        w.reverse_bits() >> (16 - self.side)
     }
 
     fn blacks(&self) -> usize {
@@ -299,7 +337,8 @@ impl Grid {
 
     /// 180° symmetry: row `r` reversed is row `side - 1 - r`.
     fn symmetric(&self) -> bool {
-        (0..self.side).all(|r| self.reverse(self.rows[r]) == self.rows[self.side - 1 - r])
+        let rev = |w: u32| w.reverse_bits() >> (32 - self.side);
+        (0..self.side).all(|r| rev(self.rows[r]) == self.rows[self.side - 1 - r])
     }
 
     /// Every across and down run is at least `MIN_WORD` long.
@@ -310,14 +349,13 @@ impl Grid {
             .all(|&w| line_runs_ok(w))
     }
 
-    /// One white region: grow from the first white cell by row-mask dilation
-    /// until nothing changes.
+    /// One white region: grow from the first white cell by row-mask dilation.
     fn connected(&self) -> bool {
         let Some(r0) = self.rows.iter().position(|&w| w != 0) else {
             return false;
         };
-        let full = self.full_line();
-        let mut reach = vec![0u16; self.side];
+        let full = Self::full_line(self.side);
+        let mut reach = vec![0u32; self.side];
         reach[r0] = self.rows[r0] & self.rows[r0].wrapping_neg();
         loop {
             let mut changed = false;
@@ -352,7 +390,7 @@ impl Grid {
         loop {
             let mut g = Self {
                 side,
-                rows: vec![((1u32 << side) - 1) as u16; side],
+                rows: vec![Self::full_line(side); side],
             };
             for i in 0..cells.div_ceil(2) {
                 if rng.below(8) == 0 {
@@ -376,15 +414,28 @@ struct Puzzle {
     len: Vec<u8>,
     /// `[slot * STRIDE + offset]`: the crossing `(slot:offset)` tile, or `NONE`.
     cross: Vec<u16>,
-    /// `[slot * STRIDE + offset]`: the Morton cell code. Construction and the
-    /// oracle only; propagation never reads it.
+    /// `[slot * STRIDE + offset]`: the Morton cell code.
     cell: Vec<u16>,
+    /// `[cell]`: the (at most two) `(slot:offset)` tiles on a cell.
+    occupant: Vec<[u16; 2]>,
 }
 
 impl Puzzle {
     fn slots(&self) -> usize {
         self.len.len()
     }
+}
+
+fn tile(s: usize, o: usize) -> u16 {
+    FacetTier {
+        hi: s as u8,
+        lo: o as u8,
+    }
+    .as_u16()
+}
+
+fn untile(t: u16) -> (usize, usize) {
+    ((t >> 8) as usize, (t & 0xFF) as usize)
 }
 
 /// Compile a grid: slots from the row and column masks, each position's cell
@@ -424,19 +475,25 @@ fn compile(grid: &Grid, lang: Lang) -> Puzzle {
         }
     }
     assert!(len.len() < 255, "slot ids are one byte");
-    let mut pos: Vec<(u16, u8, u8)> = len
+    let tiles = cell
         .iter()
-        .enumerate()
-        .flat_map(|(s, &l)| (0..l).map(move |o| (s, o)))
-        .map(|(s, o)| (cell[s * STRIDE + o as usize], s as u8, o))
-        .collect();
-    pos.sort_unstable();
+        .filter(|&&c| c != NONE)
+        .max()
+        .map_or(0, |&m| m as usize + 1);
+    let mut occupant = vec![[NONE; 2]; tiles];
     let mut cross = vec![NONE; len.len() * STRIDE];
-    for w in pos.windows(2) {
-        if w[0].0 == w[1].0 {
-            let tile = |(_, s, o): (u16, u8, u8)| FacetTier { hi: s, lo: o }.as_u16();
-            cross[w[0].1 as usize * STRIDE + w[0].2 as usize] = tile(w[1]);
-            cross[w[1].1 as usize * STRIDE + w[1].2 as usize] = tile(w[0]);
+    for (s, &l) in len.iter().enumerate() {
+        for o in 0..l as usize {
+            let c = cell[s * STRIDE + o] as usize;
+            let slot = if occupant[c][0] == NONE { 0 } else { 1 };
+            assert_eq!(occupant[c][slot], NONE, "at most two positions per cell");
+            occupant[c][slot] = tile(s, o);
+            if slot == 1 {
+                let other = occupant[c][0];
+                cross[s * STRIDE + o] = other;
+                let (t, j) = untile(other);
+                cross[t * STRIDE + j] = tile(s, o);
+            }
         }
     }
     Puzzle {
@@ -444,27 +501,42 @@ fn compile(grid: &Grid, lang: Lang) -> Puzzle {
         len,
         cross,
         cell,
+        occupant,
     }
 }
 
-// ─────────────────────────────── runtime ───────────────────────────────
+// ─────────────────────────────── arms ───────────────────────────────
 
 /// Why a solve did not start or did not finish.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Stop {
     /// The puzzle and the populations are different languages.
     Language,
-    /// A slot was left with no candidate, or two placed words disagree.
+    /// A slot was left with no candidate, or two letters disagree on a cell.
     Contradiction(u8),
 }
 
-/// Per-slot candidate masks over `WordId` and the placed word, if any.
+/// What a solve leaves, and what it cost.
+#[derive(Clone, Default)]
+struct Solved {
+    placed: Vec<WordId>,
+    /// `[slot * blocks ..]`: final candidates (a placed slot holds one bit).
+    cand: Vec<u64>,
+    /// Mask intersections (`P` ANDs) performed.
+    ands: usize,
+    /// Symbols written to the board (arms B and D).
+    writes: usize,
+    /// Bytes of runtime state the arm holds.
+    bytes: usize,
+}
+
+/// Per-slot candidate masks plus the placed word, shared by arms A and D.
 #[derive(Clone)]
 struct State {
     blocks: usize,
     cand: Vec<u64>,
     placed: Vec<WordId>,
-    events: usize,
+    ands: usize,
 }
 
 impl State {
@@ -481,7 +553,7 @@ impl State {
             blocks: b,
             cand,
             placed: vec![UNSET; puz.slots()],
-            events: 0,
+            ands: 0,
         })
     }
 
@@ -500,8 +572,7 @@ impl State {
         self.placed[s] = w;
     }
 
-    /// Promote every unplaced slot already down to one candidate; refuse any
-    /// with none.
+    /// Promote every unplaced slot already down to one candidate.
     fn seed(&mut self, queue: &mut Vec<u8>) -> Result<(), Stop> {
         for s in 0..self.placed.len() {
             if self.placed[s] == UNSET {
@@ -517,6 +588,23 @@ impl State {
             }
         }
         Ok(())
+    }
+
+    /// AND one population into slot `t`; promote at popcount 1.
+    fn narrow(&mut self, t: usize, p: &[u64], queue: &mut Vec<u8>) -> Result<(), Stop> {
+        let b = self.blocks;
+        let m = &mut self.cand[t * b..(t + 1) * b];
+        mask_and_assign(m, p);
+        self.ands += 1;
+        match popcount_batch_u64(m) {
+            0 => Err(Stop::Contradiction(t as u8)),
+            1 => {
+                self.placed[t] = first_bit(m);
+                queue.push(t as u8);
+                Ok(())
+            }
+            _ => Ok(()),
+        }
     }
 }
 
@@ -541,12 +629,14 @@ fn bits(m: &[u64]) -> Vec<WordId> {
     out
 }
 
-/// The fixed point. Each queued slot exposes its word's letters through the
-/// `cross` lane; an unplaced crossing slot ANDs `P(len, offset, letter)` into
-/// its mask and is promoted at popcount 1. Reads only `Hot` and the compiled
-/// `len` / `cross` lanes.
-fn propagate(hot: &Hot, puz: &Puzzle, st: &mut State, queue: &mut Vec<u8>) -> Result<(), Stop> {
-    let b = st.blocks;
+/// Arm A's fixed point: each queued slot hands its letter at every crossed
+/// offset to the crossing `(slot:offset)` read from `cross`.
+fn propagate_token(
+    hot: &Hot,
+    puz: &Puzzle,
+    st: &mut State,
+    queue: &mut Vec<u8>,
+) -> Result<(), Stop> {
     while let Some(s) = queue.pop() {
         let s = s as usize;
         let w = st.placed[s];
@@ -555,7 +645,7 @@ fn propagate(hot: &Hot, puz: &Puzzle, st: &mut State, queue: &mut Vec<u8>) -> Re
             if c == NONE {
                 continue;
             }
-            let (t, j) = ((c >> 8) as usize, (c & 0xFF) as usize);
+            let (t, j) = untile(c);
             let x = hot.letter(w, off);
             if st.placed[t] != UNSET {
                 if hot.letter(st.placed[t], j) != x {
@@ -563,25 +653,13 @@ fn propagate(hot: &Hot, puz: &Puzzle, st: &mut State, queue: &mut Vec<u8>) -> Re
                 }
                 continue;
             }
-            let m = &mut st.cand[t * b..(t + 1) * b];
-            mask_and_assign(m, hot.pop(puz.len[t] as usize, j, x));
-            st.events += 1;
-            match popcount_batch_u64(m) {
-                0 => return Err(Stop::Contradiction(t as u8)),
-                1 => {
-                    let w2 = first_bit(m);
-                    st.placed[t] = w2;
-                    queue.push(t as u8);
-                }
-                _ => {}
-            }
+            st.narrow(t, hot.pop(puz.len[t] as usize, j, x), queue)?;
         }
     }
     Ok(())
 }
 
-/// Solve from the givens: place them, seed singles, run to the fixed point.
-fn solve(hot: &Hot, puz: &Puzzle, givens: &[(u8, WordId)]) -> Result<State, Stop> {
+fn start(hot: &Hot, puz: &Puzzle, givens: &[(u8, WordId)]) -> Result<(State, Vec<u8>), Stop> {
     let mut st = State::new(hot, puz)?;
     let mut queue = Vec::new();
     for &(s, w) in givens {
@@ -589,193 +667,174 @@ fn solve(hot: &Hot, puz: &Puzzle, givens: &[(u8, WordId)]) -> Result<State, Stop
         queue.push(s);
     }
     st.seed(&mut queue)?;
-    propagate(hot, puz, &mut st, &mut queue)?;
-    Ok(st)
+    Ok((st, queue))
 }
 
-// ─────────────────────────────── creation ───────────────────────────────
-
-/// Depth-first fill over the same masks, most-constrained slot first, random
-/// order within it. `budget` counts tried words. Creation only.
-fn random_fill(hot: &Hot, puz: &Puzzle, rng: &mut Rng, budget: &mut usize) -> Option<Vec<WordId>> {
-    fn go(hot: &Hot, puz: &Puzzle, st: State, rng: &mut Rng, budget: &mut usize) -> Option<State> {
-        let Some(s) = (0..puz.slots())
-            .filter(|&s| st.placed[s] == UNSET)
-            .min_by_key(|&s| st.count(s))
-        else {
-            return Some(st);
-        };
-        let mut cs = bits(st.mask(s));
-        rng.shuffle(&mut cs);
-        for w in cs {
-            if *budget == 0 {
-                return None;
-            }
-            *budget -= 1;
-            let mut next = st.clone();
-            next.place(s, w);
-            let mut q = vec![s as u8];
-            if propagate(hot, puz, &mut next, &mut q).is_ok() {
-                if let Some(done) = go(hot, puz, next, rng, budget) {
-                    return Some(done);
-                }
-            }
-        }
-        None
-    }
-    let mut st = State::new(hot, puz).ok()?;
-    let mut q = Vec::new();
-    st.seed(&mut q).ok()?;
-    propagate(hot, puz, &mut st, &mut q).ok()?;
-    go(hot, puz, st, rng, budget).map(|st| st.placed)
+/// Arm A: token masks over the `cross` lane.
+fn solve_token(hot: &Hot, puz: &Puzzle, givens: &[(u8, WordId)]) -> Result<Solved, Stop> {
+    let (mut st, mut queue) = start(hot, puz, givens)?;
+    propagate_token(hot, puz, &mut st, &mut queue)?;
+    let bytes = st.cand.len() * 8 + st.placed.len() * 2;
+    Ok(Solved {
+        placed: st.placed,
+        cand: st.cand,
+        ands: st.ands,
+        writes: 0,
+        bytes,
+    })
 }
 
-/// Complete fills consistent with `givens`, up to `cap`; `None` when the
-/// budget runs out. The uniqueness oracle for creation.
-fn count_fills(
-    hot: &Hot,
-    puz: &Puzzle,
-    givens: &[(u8, WordId)],
-    cap: usize,
-    budget: &mut usize,
-) -> Option<usize> {
-    fn go(hot: &Hot, puz: &Puzzle, st: State, cap: usize, budget: &mut usize) -> Option<usize> {
-        let Some(s) = (0..puz.slots())
-            .filter(|&s| st.placed[s] == UNSET)
-            .min_by_key(|&s| st.count(s))
-        else {
-            return Some(1);
-        };
-        let mut n = 0;
-        for w in bits(st.mask(s)) {
-            if *budget == 0 {
-                return None;
-            }
-            *budget -= 1;
-            let mut next = st.clone();
-            next.place(s, w);
-            let mut q = vec![s as u8];
-            if propagate(hot, puz, &mut next, &mut q).is_ok() {
-                n += go(hot, puz, next, cap - n, budget)?;
-                if n >= cap {
-                    break;
-                }
-            }
-        }
-        Some(n)
-    }
-    match solve(hot, puz, givens) {
-        Ok(st) => go(hot, puz, st, cap, budget),
-        Err(_) => Some(0),
-    }
-}
-
-/// A created puzzle: its compiled layout, its solution and the givens that make
-/// the solution unique.
-struct Created {
-    puz: Puzzle,
-    solution: Vec<WordId>,
-    givens: Vec<(u8, WordId)>,
-}
-
-/// Grid, random fill, then givens in random order until unique. `None` when
-/// the budget runs out; the caller draws again.
-fn create(hot: &Hot, side: usize, rng: &mut Rng, budget: usize) -> Option<Created> {
-    let grid = Grid::random_nyt(side, rng);
-    let puz = compile(&grid, hot.lang);
-    let mut b = budget;
-    let solution = random_fill(hot, &puz, rng, &mut b)?;
-    let mut order: Vec<u8> = (0..puz.slots() as u8).collect();
-    rng.shuffle(&mut order);
-    let mut givens = Vec::new();
-    for s in order {
-        givens.push((s, solution[s as usize]));
-        let mut b = budget;
-        if count_fills(hot, &puz, &givens, 2, &mut b)? == 1 {
-            return Some(Created {
-                puz,
-                solution,
-                givens,
-            });
-        }
-    }
-    unreachable!("every slot given is unique")
-}
-
-// ─────────────────────────────── the lane ───────────────────────────────
-
-/// Content lanes beside the epistemic edges: the claim "slot holds word".
-#[derive(Default)]
-struct Claims {
-    slot: Vec<u8>,
-    word: Vec<WordId>,
-}
-
-/// One instance's claims at the fixed point: given and forced slots one claim
-/// each, an unplaced slot its true word as ENTAILED and every other surviving
-/// word as CANDIDATE.
-fn emit(c: &Created, st: &State, lane: &mut Lane, claims: &mut Claims) {
-    for s in 0..c.puz.slots() {
-        let given = c.givens.iter().any(|g| g.0 as usize == s);
-        let truth = c.solution[s];
-        let mut push = |state, w: WordId, lane: &mut Lane| {
-            lane.push(state);
-            claims.slot.push(s as u8);
-            claims.word.push(w);
-        };
-        if given {
-            assert_eq!(st.placed[s], truth);
-            push(GIVEN, truth, lane);
-            lane.expected[0] += 1;
-        } else if st.placed[s] != UNSET {
-            assert_eq!(st.placed[s], truth, "a forced word is the true word");
-            push(FORCED, truth, lane);
-            lane.expected[1] += 1;
-        } else {
-            let alive = bits(st.mask(s));
-            assert!(alive.contains(&truth), "the law never rules out the truth");
-            push(ENTAILED, truth, lane);
-            lane.expected[2] += 1;
-            for w in alive.into_iter().filter(|&w| w != truth) {
-                push(CANDIDATE, w, lane);
-                lane.expected[3] += 1;
-            }
-        }
-    }
-    lane.close_group();
-}
-
-// ─────────────────────────────── oracles ───────────────────────────────
-
-/// Every cell shared by two placed words carries the same letter, checked
-/// from the Morton cell lanes alone (never from `cross`).
-fn cell_consistent(hot: &Hot, puz: &Puzzle, placed: &[WordId]) -> bool {
-    let mut at: HashMap<u16, u8> = HashMap::new();
-    for (s, &w) in placed.iter().enumerate() {
-        if w == UNSET {
-            continue;
-        }
+/// Arm D: token masks, with the letters routed through a `MooreSymbol8` board
+/// and the `occupant` lane. Each NEW symbol on a cell ANDs one `P` into the
+/// cell's other slot.
+fn solve_hybrid(hot: &Hot, puz: &Puzzle, givens: &[(u8, WordId)]) -> Result<Solved, Stop> {
+    let (mut st, mut queue) = start(hot, puz, givens)?;
+    let mut board = vec![MooreSymbol8::UNKNOWN; puz.occupant.len()];
+    let mut writes = 0;
+    while let Some(s) = queue.pop() {
+        let s = s as usize;
+        let w = st.placed[s];
         for off in 0..puz.len[s] as usize {
+            let c = puz.cell[s * STRIDE + off] as usize;
             let x = hot.letter(w, off);
-            if *at.entry(puz.cell[s * STRIDE + off]).or_insert(x) != x {
-                return false;
+            let cur = board[c];
+            if cur != MooreSymbol8::UNKNOWN {
+                if cur != x {
+                    return Err(Stop::Contradiction(s as u8));
+                }
+                continue;
+            }
+            board[c] = x;
+            writes += 1;
+            for &occ in &puz.occupant[c] {
+                if occ == NONE {
+                    continue;
+                }
+                let (t, j) = untile(occ);
+                if t == s || st.placed[t] != UNSET {
+                    continue;
+                }
+                st.narrow(t, hot.pop(puz.len[t] as usize, j, x), &mut queue)?;
             }
         }
     }
-    true
+    let bytes = st.cand.len() * 8 + st.placed.len() * 2 + board.len();
+    Ok(Solved {
+        placed: st.placed,
+        cand: st.cand,
+        ands: st.ands,
+        writes,
+        bytes,
+    })
 }
 
-/// Steps 2/2b's method, as the reference: letters on a cell array, every
-/// unplaced slot's candidates re-scanned from the vocabulary STRINGS each
-/// round, singles placed until nothing changes. Returns the placed word per
-/// slot, or `None` on contradiction. (Slot-indexed on purpose: it mirrors the
-/// step-2 loop it stands in for.)
+/// Arm B: the board is the state. A placed word writes its symbols; every
+/// unplaced slot on a newly written cell recomputes its mask from ALL of its
+/// cells' symbols. (Slot-indexed: `placed` and the lanes share the index.)
 #[allow(clippy::needless_range_loop)]
-fn cell_scan_solve(cold: &Cold, puz: &Puzzle, givens: &[(u8, WordId)]) -> Option<Vec<WordId>> {
+fn solve_cartesian(hot: &Hot, puz: &Puzzle, givens: &[(u8, WordId)]) -> Result<Solved, Stop> {
+    if hot.lang != puz.lang {
+        return Err(Stop::Language);
+    }
+    let b = hot.blocks;
+    let mut board = vec![MooreSymbol8::UNKNOWN; puz.occupant.len()];
+    let mut placed = vec![UNSET; puz.slots()];
+    let mut scratch = vec![0u64; b];
+    let (mut ands, mut writes) = (0usize, 0usize);
+    let recompute = |t: usize, board: &[MooreSymbol8], scratch: &mut [u64], ands: &mut usize| {
+        let l = puz.len[t] as usize;
+        scratch.copy_from_slice(&hot.all[l]);
+        for j in 0..l {
+            let x = board[puz.cell[t * STRIDE + j] as usize];
+            if x != MooreSymbol8::UNKNOWN {
+                mask_and_assign(scratch, hot.pop(l, j, x));
+                *ands += 1;
+            }
+        }
+        popcount_batch_u64(scratch)
+    };
+    let mut queue: Vec<u8> = Vec::new();
+    for &(s, w) in givens {
+        placed[s as usize] = w;
+        queue.push(s);
+    }
+    for t in 0..puz.slots() {
+        if placed[t] == UNSET {
+            match recompute(t, &board, &mut scratch, &mut ands) {
+                0 => return Err(Stop::Contradiction(t as u8)),
+                1 => {
+                    placed[t] = first_bit(&scratch);
+                    queue.push(t as u8);
+                }
+                _ => {}
+            }
+        }
+    }
+    while let Some(s) = queue.pop() {
+        let s = s as usize;
+        let w = placed[s];
+        for off in 0..puz.len[s] as usize {
+            let c = puz.cell[s * STRIDE + off] as usize;
+            let x = hot.letter(w, off);
+            let cur = board[c];
+            if cur != MooreSymbol8::UNKNOWN {
+                if cur != x {
+                    return Err(Stop::Contradiction(s as u8));
+                }
+                continue;
+            }
+            board[c] = x;
+            writes += 1;
+            for &occ in &puz.occupant[c] {
+                if occ == NONE {
+                    continue;
+                }
+                let (t, _) = untile(occ);
+                if t == s || placed[t] != UNSET {
+                    continue;
+                }
+                match recompute(t, &board, &mut scratch, &mut ands) {
+                    0 => return Err(Stop::Contradiction(t as u8)),
+                    1 => {
+                        placed[t] = first_bit(&scratch);
+                        queue.push(t as u8);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    let bytes = board.len() + placed.len() * 2 + scratch.len() * 8;
+    let mut cand = vec![0u64; puz.slots() * b];
+    for t in 0..puz.slots() {
+        if placed[t] == UNSET {
+            recompute(t, &board, &mut scratch, &mut 0);
+            cand[t * b..(t + 1) * b].copy_from_slice(&scratch);
+        } else {
+            cand[t * b + placed[t] as usize / 64] = 1 << (placed[t] % 64);
+        }
+    }
+    Ok(Solved {
+        placed,
+        cand,
+        ands,
+        writes,
+        bytes,
+    })
+}
+
+/// Arm C, steps 2/2b's method: letters on a cell array, every unplaced slot
+/// re-scanned from the vocabulary STRINGS each round, singles placed until
+/// nothing changes. `None` on contradiction. (Slot-indexed on purpose: it
+/// mirrors the loop it stands in for.)
+#[allow(clippy::needless_range_loop)]
+fn solve_literal(cold: &Cold, puz: &Puzzle, givens: &[(u8, WordId)]) -> Option<Vec<WordId>> {
     let words: Vec<(WordId, Vec<char>)> = (0..cold.vocab.len() as WordId)
-        .map(|id| (id, cold.word(id)))
-        .filter(|(_, w)| admissible(w))
-        .map(|(id, w)| (id, w.chars().collect()))
+        .filter_map(|id| {
+            let w = cold.word(id);
+            spelling(w)?;
+            Some((id, w.chars().map(fold).collect()))
+        })
         .collect();
     let mut board: HashMap<u16, char> = HashMap::new();
     let mut placed = vec![UNSET; puz.slots()];
@@ -783,7 +842,7 @@ fn cell_scan_solve(cold: &Cold, puz: &Puzzle, givens: &[(u8, WordId)]) -> Option
         (0..w.len()).all(|o| *board.entry(puz.cell[s * STRIDE + o]).or_insert(w[o]) == w[o])
     };
     for &(s, w) in givens {
-        let chars: Vec<char> = cold.word(w).chars().collect();
+        let chars: Vec<char> = cold.word(w).chars().map(fold).collect();
         if !put(s as usize, &chars, &mut board) {
             return None;
         }
@@ -825,6 +884,189 @@ fn cell_scan_solve(cold: &Cold, puz: &Puzzle, givens: &[(u8, WordId)]) -> Option
     }
 }
 
+// ─────────────────────────────── creation ───────────────────────────────
+
+/// Why creation gave up on one attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Miss {
+    /// No complete fill found within the budget.
+    Fill,
+    /// A fill was found, but uniqueness could not be decided within the budget.
+    Unique,
+}
+
+/// Depth-first fill over arm A's masks, most-constrained slot first, random
+/// order within it. `budget` counts tried words. Creation only.
+fn random_fill(hot: &Hot, puz: &Puzzle, rng: &mut Rng, budget: &mut usize) -> Option<Vec<WordId>> {
+    fn go(hot: &Hot, puz: &Puzzle, st: State, rng: &mut Rng, budget: &mut usize) -> Option<State> {
+        let Some(s) = (0..puz.slots())
+            .filter(|&s| st.placed[s] == UNSET)
+            .min_by_key(|&s| st.count(s))
+        else {
+            return Some(st);
+        };
+        let mut cs = bits(st.mask(s));
+        rng.shuffle(&mut cs);
+        for w in cs {
+            if *budget == 0 {
+                return None;
+            }
+            *budget -= 1;
+            let mut next = st.clone();
+            next.place(s, w);
+            let mut q = vec![s as u8];
+            if propagate_token(hot, puz, &mut next, &mut q).is_ok() {
+                if let Some(done) = go(hot, puz, next, rng, budget) {
+                    return Some(done);
+                }
+            }
+        }
+        None
+    }
+    let (mut st, mut q) = start(hot, puz, &[]).ok()?;
+    propagate_token(hot, puz, &mut st, &mut q).ok()?;
+    go(hot, puz, st, rng, budget).map(|st| st.placed)
+}
+
+/// Complete fills consistent with `givens`, up to `cap`; `None` when the
+/// budget runs out. The uniqueness oracle for creation.
+fn count_fills(
+    hot: &Hot,
+    puz: &Puzzle,
+    givens: &[(u8, WordId)],
+    cap: usize,
+    budget: &mut usize,
+) -> Option<usize> {
+    fn go(hot: &Hot, puz: &Puzzle, st: State, cap: usize, budget: &mut usize) -> Option<usize> {
+        let Some(s) = (0..puz.slots())
+            .filter(|&s| st.placed[s] == UNSET)
+            .min_by_key(|&s| st.count(s))
+        else {
+            return Some(1);
+        };
+        let mut n = 0;
+        for w in bits(st.mask(s)) {
+            if *budget == 0 {
+                return None;
+            }
+            *budget -= 1;
+            let mut next = st.clone();
+            next.place(s, w);
+            let mut q = vec![s as u8];
+            if propagate_token(hot, puz, &mut next, &mut q).is_ok() {
+                n += go(hot, puz, next, cap - n, budget)?;
+                if n >= cap {
+                    break;
+                }
+            }
+        }
+        Some(n)
+    }
+    let Ok((mut st, mut q)) = start(hot, puz, givens) else {
+        return Some(0);
+    };
+    if propagate_token(hot, puz, &mut st, &mut q).is_err() {
+        return Some(0);
+    }
+    go(hot, puz, st, cap, budget)
+}
+
+/// A created puzzle: its compiled layout, its solution and the givens that
+/// make the solution unique.
+struct Created {
+    puz: Puzzle,
+    solution: Vec<WordId>,
+    givens: Vec<(u8, WordId)>,
+    compile_ns: f64,
+}
+
+/// Grid, compile, random fill, then givens in random order until unique.
+fn create(hot: &Hot, side: usize, rng: &mut Rng, budget: usize) -> Result<Created, Miss> {
+    let grid = Grid::random_nyt(side, rng);
+    let t = Instant::now();
+    let puz = compile(&grid, hot.lang);
+    let compile_ns = t.elapsed().as_nanos() as f64;
+    let mut b = budget;
+    let solution = random_fill(hot, &puz, rng, &mut b).ok_or(Miss::Fill)?;
+    let mut order: Vec<u8> = (0..puz.slots() as u8).collect();
+    rng.shuffle(&mut order);
+    let mut givens = Vec::new();
+    for s in order {
+        givens.push((s, solution[s as usize]));
+        let mut b = budget;
+        if count_fills(hot, &puz, &givens, 2, &mut b).ok_or(Miss::Unique)? == 1 {
+            return Ok(Created {
+                puz,
+                solution,
+                givens,
+                compile_ns,
+            });
+        }
+    }
+    unreachable!("every slot given is unique")
+}
+
+// ─────────────────────────────── the lane ───────────────────────────────
+
+/// Content lanes beside the epistemic edges: the claim "slot holds word".
+#[derive(Default)]
+struct Claims {
+    slot: Vec<u8>,
+    word: Vec<WordId>,
+}
+
+/// One instance's claims at the fixed point: given and forced slots one claim
+/// each, an unplaced slot its true word as ENTAILED and every other surviving
+/// word as CANDIDATE.
+fn emit(c: &Created, sol: &Solved, blocks: usize, lane: &mut Lane, claims: &mut Claims) {
+    for s in 0..c.puz.slots() {
+        let given = c.givens.iter().any(|g| g.0 as usize == s);
+        let truth = c.solution[s];
+        let mut push = |state, w: WordId, lane: &mut Lane| {
+            lane.push(state);
+            claims.slot.push(s as u8);
+            claims.word.push(w);
+        };
+        if given {
+            assert_eq!(sol.placed[s], truth);
+            push(GIVEN, truth, lane);
+            lane.expected[0] += 1;
+        } else if sol.placed[s] != UNSET {
+            assert_eq!(sol.placed[s], truth, "a forced word is the true word");
+            push(FORCED, truth, lane);
+            lane.expected[1] += 1;
+        } else {
+            let alive = bits(&sol.cand[s * blocks..(s + 1) * blocks]);
+            assert!(alive.contains(&truth), "the law never rules out the truth");
+            push(ENTAILED, truth, lane);
+            lane.expected[2] += 1;
+            for w in alive.into_iter().filter(|&w| w != truth) {
+                push(CANDIDATE, w, lane);
+                lane.expected[3] += 1;
+            }
+        }
+    }
+    lane.close_group();
+}
+
+/// Every cell shared by two placed words carries the same symbol, checked from
+/// the Morton cell lanes alone (never from `cross` or `occupant`).
+fn cell_consistent(hot: &Hot, puz: &Puzzle, placed: &[WordId]) -> bool {
+    let mut at: HashMap<u16, MooreSymbol8> = HashMap::new();
+    for (s, &w) in placed.iter().enumerate() {
+        if w == UNSET {
+            continue;
+        }
+        for off in 0..puz.len[s] as usize {
+            let x = hot.letter(w, off);
+            if *at.entry(puz.cell[s * STRIDE + off]).or_insert(x) != x {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 // ─────────────────────────────── benchmark ───────────────────────────────
 
 fn median(mut v: Vec<f64>) -> f64 {
@@ -832,86 +1074,20 @@ fn median(mut v: Vec<f64>) -> f64 {
     v[v.len() / 2]
 }
 
-/// Size sweep: how big can puzzles be created, and how long does solving take.
-fn sweep(name: &str, hot: &Hot, cold: &Cold) {
-    println!("\n{name}: creation and solving by board size (budget 200,000 tried words per attempt, 20 s per size)");
-    println!(
-        "  {:>4} {:>7} {:>6} {:>7} {:>9} {:>11} {:>11} {:>9} {:>11}",
-        "side",
-        "puzzles",
-        "slots",
-        "givens",
-        "solved",
-        "create ms",
-        "solve us",
-        "events",
-        "scan us"
-    );
-    let mut rng = Rng(0x5EED);
-    for side in [5, 7, 9, 11, 13, 15] {
-        let t0 = Instant::now();
-        let (mut made, mut tried) = (Vec::new(), 0usize);
-        let mut create_ms = Vec::new();
-        while t0.elapsed() < Duration::from_secs(20) && made.len() < 40 {
-            tried += 1;
-            let t = Instant::now();
-            if let Some(c) = create(hot, side, &mut rng, 200_000) {
-                create_ms.push(t.elapsed().as_secs_f64() * 1e3);
-                made.push(c);
-            }
-        }
-        if made.is_empty() {
-            println!(
-                "  {side:>4} {:>7} (none created in {tried} attempts within 20 s)",
-                0
-            );
-            continue;
-        }
-        let (mut solve_us, mut scan_us, mut events, mut solved) = (Vec::new(), Vec::new(), 0, 0);
-        for c in &made {
-            let t = Instant::now();
-            let st =
-                black_box(solve(hot, &c.puz, &c.givens)).expect("a created puzzle is consistent");
-            solve_us.push(t.elapsed().as_secs_f64() * 1e6);
-            events += st.events;
-            if st.placed.iter().all(|&w| w != UNSET) {
-                solved += 1;
-            }
-            assert!(cell_consistent(hot, &c.puz, &st.placed));
-            if side <= 9 {
-                let t = Instant::now();
-                let scan = cell_scan_solve(cold, &c.puz, &c.givens).expect("consistent");
-                scan_us.push(t.elapsed().as_secs_f64() * 1e6);
-                assert_eq!(scan, st.placed, "mask fixed point == cell-scan fixed point");
-            }
-        }
-        let n = made.len();
-        let slots = made.iter().map(|c| c.puz.slots()).sum::<usize>() as f64 / n as f64;
-        let givens = made.iter().map(|c| c.givens.len()).sum::<usize>() as f64 / n as f64;
-        let scan = if scan_us.is_empty() {
-            "-".to_string()
-        } else {
-            format!("{:.0}", median(scan_us))
-        };
-        println!(
-            "  {side:>4} {n:>4}/{tried:<3} {slots:>6.1} {givens:>7.1} {:>8.0}% {:>11.1} {:>11.1} {:>9.1} {:>11}",
-            100.0 * solved as f64 / n as f64,
-            median(create_ms),
-            median(solve_us),
-            events as f64 / n as f64,
-            scan
-        );
-    }
+fn time_us<T>(f: impl FnOnce() -> T) -> (T, f64) {
+    let t = Instant::now();
+    let r = black_box(f());
+    (r, t.elapsed().as_secs_f64() * 1e6)
 }
 
-/// Filter micro-benchmark: one slot pattern (length + revealed letters) as a
-/// mask AND chain vs a direct scan over the vocabulary's spell lane.
-fn filter_bench(name: &str, hot: &Hot) {
+/// Filter micro-benchmark: one slot pattern (length + revealed symbols) as a
+/// mask AND chain vs a direct scan of the spell lane.
+fn filter_bench(hot: &Hot) {
     let mut rng = Rng(0xF17);
     let words: Vec<WordId> = (0..hot.len.len() as WordId)
         .filter(|&w| hot.len[w as usize] as usize >= 5)
         .collect();
-    let patterns: Vec<(usize, Vec<(usize, u8)>)> = (0..2000)
+    let patterns: Vec<(usize, Vec<(usize, MooreSymbol8)>)> = (0..2000)
         .map(|_| {
             let w = words[rng.below(words.len() as u64) as usize];
             let l = hot.len[w as usize] as usize;
@@ -950,39 +1126,150 @@ fn filter_bench(name: &str, hot: &Hot) {
     assert_eq!(black_box(claims), scanned, "mask filter == direct scan");
     let p = patterns.len() as f64;
     println!(
-        "  {name}: candidate filter over {} patterns, {:.1} surviving claims each",
+        "  candidate filter, {} patterns, {:.1} surviving claims each:",
         patterns.len(),
         claims as f64 / p
     );
     println!(
-        "    mask AND chain + popcount: {:>9.0} ns/pattern  {:>7.2} ns/claim",
+        "    mask AND chain + popcount  {:>8.0} ns/pattern {:>8.2} ns/claim",
         mask_ns / p,
         mask_ns / claims as f64
     );
     println!(
-        "    direct scan of the spell lane: {:>5.0} ns/pattern  {:>7.2} ns/claim",
+        "    direct spell-lane scan     {:>8.0} ns/pattern {:>8.2} ns/claim",
         scan_ns / p,
         scan_ns / claims as f64
     );
 }
 
+/// Size sweep: what can be created, and every arm's solve on the same puzzles.
+fn sweep(hot: &Hot, cold: &Cold) -> usize {
+    println!("  creation by board size (budget 100,000 tried words per step, 30 s per size):");
+    println!(
+        "    {:>4} {:>8} {:>9} {:>11} {:>6} {:>6} {:>10}",
+        "side", "made", "miss f/u", "create ms", "slots", "givens", "compile us"
+    );
+    let mut rng = Rng(0x5EED);
+    let mut largest = 0;
+    let mut per_size: Vec<(usize, Vec<Created>)> = Vec::new();
+    for side in [5, 7, 9, 11, 13, 15, 17, 19, 21] {
+        let t0 = Instant::now();
+        let (mut made, mut miss_fill, mut miss_unique, mut ms) = (Vec::new(), 0, 0, Vec::new());
+        while t0.elapsed() < Duration::from_secs(30) && made.len() < 30 {
+            match time_us(|| create(hot, side, &mut rng, 100_000)) {
+                (Ok(c), us) => {
+                    ms.push(us / 1e3);
+                    made.push(c);
+                }
+                (Err(Miss::Fill), _) => miss_fill += 1,
+                (Err(Miss::Unique), _) => miss_unique += 1,
+            }
+        }
+        if made.is_empty() {
+            println!("    {side:>4} {:>8} {:>4}/{:<4}", 0, miss_fill, miss_unique);
+            continue;
+        }
+        largest = side;
+        let n = made.len() as f64;
+        println!(
+            "    {side:>4} {:>8} {:>4}/{:<4} {:>11.1} {:>6.1} {:>6.1} {:>10.1}",
+            made.len(),
+            miss_fill,
+            miss_unique,
+            median(ms),
+            made.iter().map(|c| c.puz.slots()).sum::<usize>() as f64 / n,
+            made.iter().map(|c| c.givens.len()).sum::<usize>() as f64 / n,
+            median(made.iter().map(|c| c.compile_ns / 1e3).collect())
+        );
+        per_size.push((side, made));
+    }
+    println!(
+        "  solving the same puzzles, four arms (median us; ANDs, symbol writes, bytes per puzzle):"
+    );
+    println!(
+        "    {:>4} {:>7} {:>9} {:>9} {:>9} {:>9} {:>7} {:>7} {:>7} {:>8} {:>8}",
+        "side",
+        "solved",
+        "A token",
+        "D hybrid",
+        "B cart",
+        "C literal",
+        "ANDs A",
+        "ANDs B",
+        "writes",
+        "bytes A",
+        "bytes B"
+    );
+    for (side, made) in &per_size {
+        let (mut ta, mut td, mut tb, mut tc) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        let (mut and_a, mut and_b, mut writes, mut bytes_a, mut bytes_b, mut solved) =
+            (0, 0, 0, 0, 0, 0);
+        for c in made {
+            let (a, us) = time_us(|| solve_token(hot, &c.puz, &c.givens).unwrap());
+            ta.push(us);
+            let (d, us) = time_us(|| solve_hybrid(hot, &c.puz, &c.givens).unwrap());
+            td.push(us);
+            let (b, us) = time_us(|| solve_cartesian(hot, &c.puz, &c.givens).unwrap());
+            tb.push(us);
+            assert_eq!(a.placed, d.placed);
+            assert_eq!(a.placed, b.placed);
+            assert_eq!(a.cand, d.cand);
+            assert_eq!(a.cand, b.cand);
+            assert!(cell_consistent(hot, &c.puz, &a.placed));
+            if *side <= 9 {
+                let (lit, us) = time_us(|| solve_literal(cold, &c.puz, &c.givens).unwrap());
+                tc.push(us);
+                assert_eq!(lit, a.placed, "literal fixed point == mask fixed point");
+            }
+            and_a += a.ands;
+            and_b += b.ands;
+            writes += d.writes;
+            bytes_a += a.bytes;
+            bytes_b += b.bytes;
+            if a.placed.iter().all(|&w| w != UNSET) {
+                solved += 1;
+            }
+        }
+        let n = made.len();
+        let lit = if tc.is_empty() {
+            "-".to_string()
+        } else {
+            format!("{:.0}", median(tc))
+        };
+        println!(
+            "    {side:>4} {:>6.0}% {:>9.1} {:>9.1} {:>9.1} {:>9} {:>7.1} {:>7.1} {:>7.1} {:>8} {:>8}",
+            100.0 * solved as f64 / n as f64,
+            median(ta),
+            median(td),
+            median(tb),
+            lit,
+            and_a as f64 / n as f64,
+            and_b as f64 / n as f64,
+            writes as f64 / n as f64,
+            bytes_a / n,
+            bytes_b / n
+        );
+    }
+    largest
+}
+
 /// About a million claims at one size, folded the shared three ways.
-fn lane_run(name: &str, hot: &Hot, side: usize) {
+fn lane_run(hot: &Hot, side: usize) {
     let decl = declarations(CROSSWORD_CLASS);
     admit(&decl, CROSSWORD_CLASS).expect("the crossword class declares the canonical reading");
     let mut rng = Rng(0x1A4E);
     let (mut lane, mut claims, mut slots) = (Lane::default(), Claims::default(), Vec::new());
     let t = Instant::now();
     while lane.edges.len() < 1_000_000 {
-        let Some(c) = create(hot, side, &mut rng, 200_000) else {
+        let Ok(c) = create(hot, side, &mut rng, 100_000) else {
             continue;
         };
-        let st = solve(hot, &c.puz, &c.givens).expect("consistent");
+        let sol = solve_token(hot, &c.puz, &c.givens).expect("consistent");
         slots.push(c.puz.slots());
-        emit(&c, &st, &mut lane, &mut claims);
+        emit(&c, &sol, hot.blocks, &mut lane, &mut claims);
     }
     println!(
-        "\n  {name}: {} claims from {} {side}x{side} puzzles, built in {:.2?}",
+        "  lane: {} claims from {} {side}x{side} puzzles, built in {:.2?}",
         lane.edges.len(),
         lane.groups,
         t.elapsed()
@@ -999,20 +1286,24 @@ fn lane_run(name: &str, hot: &Hot, side: usize) {
 
 fn run_language(name: &str, hot: &Hot, cold: &Cold) {
     let words = hot.len.iter().filter(|&&l| l > 0).count();
+    let used: String = (1..MooreSymbol8::COUNT as u8)
+        .map(MooreSymbol8)
+        .filter(|&x| (MIN_WORD..=MAX_LEN).any(|l| hot.pop(l, 0, x).iter().any(|&w| w != 0)))
+        .filter_map(MooreSymbol8::letter)
+        .collect();
     println!(
-        "\n=== {name}: {} WordIds, {} crossword words, {} letters ({})",
+        "\n=== {name}: {} WordIds, {} crossword words, first letters in use [{used}], populations {:.1} MB",
         cold.vocab.len(),
         words,
-        cold.letters.len(),
-        cold.letters.iter().collect::<String>()
+        hot.population_bytes() as f64 / 1e6
     );
-    filter_bench(name, hot);
-    sweep(name, hot, cold);
-    lane_run(name, hot, 7);
+    filter_bench(hot);
+    sweep(hot, cold);
+    lane_run(hot, 5);
 }
 
 fn main() {
-    println!("D-PUZZLE-0 step 3: crossword propagation as Cartesian-addressed population masking");
+    println!("D-PUZZLE-0 step 3: crossword propagation, four representations of one fold");
     let (hot, cold) = build_lexicon(Lang::En, &english_ranked());
     run_language("English, DeepNSM-v2 academic_20k", &hot, &cold);
     match std::env::var("DEREKO_PATH") {
@@ -1049,27 +1340,65 @@ mod tests {
         cold.vocab.id(w).expect("in the fixture")
     }
 
-    /// The English vocabulary is DeepNSM-v2's: 18,555 distinct ids in
-    /// frequency order, and the hyphen/apostrophe rows keep ids but no length.
+    type Arm = fn(&Hot, &Puzzle, &[(u8, WordId)]) -> Result<Solved, Stop>;
+    const ARMS: [(&str, Arm); 3] = [
+        ("token", solve_token),
+        ("hybrid", solve_hybrid),
+        ("cartesian", solve_cartesian),
+    ];
+
+    fn created(hot: &Hot, side: usize, seed: u64) -> Created {
+        let mut rng = Rng(seed);
+        loop {
+            if let Ok(c) = create(hot, side, &mut rng, 100_000) {
+                return c;
+            }
+        }
+    }
+
+    /// The codebook is the declared one: a–z 1..=26, ä ö ü ß 27..=30, 0 for
+    /// unknown; accents fold; anything else has no symbol.
+    #[test]
+    fn moore_symbol8_is_the_declared_codebook() {
+        assert_eq!(MooreSymbol8::of('a'), Some(MooreSymbol8(1)));
+        assert_eq!(MooreSymbol8::of('z'), Some(MooreSymbol8(26)));
+        for (c, n) in [('ä', 27), ('ö', 28), ('ü', 29), ('ß', 30)] {
+            assert_eq!(MooreSymbol8::of(c), Some(MooreSymbol8(n)));
+        }
+        assert_eq!(MooreSymbol8::of('é'), MooreSymbol8::of('e'));
+        assert_eq!(MooreSymbol8::of('ç'), MooreSymbol8::of('c'));
+        for c in ['-', '\'', ' ', 'ø', 'A'] {
+            assert_eq!(MooreSymbol8::of(c), None, "{c}");
+        }
+        for n in 1..=30u8 {
+            let x = MooreSymbol8(n);
+            assert_eq!(MooreSymbol8::of(x.letter().unwrap()), Some(x));
+        }
+        assert_eq!(MooreSymbol8::UNKNOWN.letter(), None);
+        assert_eq!(MooreSymbol8(31).letter(), None);
+    }
+
+    /// The English vocabulary is DeepNSM-v2's, and the crossword projection
+    /// only spells words: `cliché` keeps its id and is spelled `cliche`;
+    /// hyphenated rows keep their id and have no spelling.
     #[test]
     fn english_is_the_deepnsm_v2_academic_vocabulary() {
         let (hot, cold) = english();
         assert_eq!(cold.vocab.len(), 18_555);
         assert_eq!(cold.word(0), "the");
-        let id = word(&cold, "so-called");
-        assert_eq!(hot.len[id as usize], 0);
-        // The letters come from the data: a-z plus the é of `sauté` and
-        // `cliché` (DeepNSM-v2 lowercases and does not fold accents).
-        let mut az: Vec<char> = ('a'..='z').collect();
-        az.push('é');
-        assert_eq!(cold.letters, az);
-        assert_eq!(hot.len[word(&cold, "cliché") as usize], 6);
+        assert_eq!(hot.len[word(&cold, "so-called") as usize], 0);
+        let cliche = word(&cold, "cliché");
+        let spelled: String = (0..6)
+            .map(|o| hot.letter(cliche, o).letter().unwrap())
+            .collect();
+        assert_eq!(spelled, "cliche");
+        // English has no umlaut words, so their populations are empty.
+        assert!(hot.pop(5, 0, MooreSymbol8(27)).iter().all(|&w| w == 0));
     }
 
-    /// The letter codes round-trip: every crossword word decodes from its
-    /// spell lane back to its own string.
+    /// Every crossword word decodes from its symbols to its folded string.
     #[test]
-    fn every_word_decodes_from_its_letter_codes() {
+    fn every_word_decodes_from_its_symbols() {
         let (hot, cold) = english();
         let mut n = 0;
         for id in 0..cold.vocab.len() as WordId {
@@ -1078,40 +1407,36 @@ mod tests {
                 continue;
             }
             let back: String = (0..l)
-                .map(|o| cold.letters[hot.letter(id, o) as usize - 1])
+                .map(|o| hot.letter(id, o).letter().unwrap())
                 .collect();
-            assert_eq!(back, cold.word(id));
+            assert_eq!(back, cold.word(id).chars().map(fold).collect::<String>());
             n += 1;
         }
-        assert!(n > 10_000);
+        assert!(n > 15_000);
     }
 
-    /// Indexed positional populations equal a direct scan over the vocabulary
-    /// strings for random patterns.
+    /// Positional populations equal a direct scan over the vocabulary strings.
     #[test]
     fn positional_populations_equal_a_string_scan() {
         let (hot, cold) = english();
         let mut rng = Rng(2);
         for _ in 0..500 {
-            let l = MIN_WORD + rng.below((MAX_LEN - MIN_WORD + 1) as u64) as usize;
+            let l = MIN_WORD + rng.below(10) as usize;
             let k = rng.below(4) as usize;
             let fixed: Vec<(usize, char)> = (0..k)
                 .map(|_| {
                     let o = rng.below(l as u64) as usize;
-                    (
-                        o,
-                        cold.letters[rng.below(cold.letters.len() as u64) as usize],
-                    )
+                    (o, (b'a' + rng.below(26) as u8) as char)
                 })
                 .collect();
             let mut m = hot.all[l].clone();
             for &(o, c) in &fixed {
-                mask_and_assign(&mut m, hot.pop(l, o, cold.code(c).unwrap()));
+                mask_and_assign(&mut m, hot.pop(l, o, MooreSymbol8::of(c).unwrap()));
             }
             let scan: Vec<WordId> = (0..cold.vocab.len() as WordId)
                 .filter(|&id| {
-                    let w: Vec<char> = cold.word(id).chars().collect();
-                    admissible(cold.word(id))
+                    let w: Vec<char> = cold.word(id).chars().map(fold).collect();
+                    spelling(cold.word(id)).is_some()
                         && w.len() == l
                         && fixed.iter().all(|&(o, c)| w[o] == c)
                 })
@@ -1120,18 +1445,19 @@ mod tests {
         }
     }
 
-    /// A slot narrowed to one candidate is promoted.
+    /// A slot narrowed to one candidate is promoted, in every arm.
     #[test]
     fn a_single_candidate_is_forced() {
         let (hot, cold) = build_lexicon(Lang::En, &words(&["cat", "cow", "dog", "ant"]));
         let puz = compile(&plus(), Lang::En);
-        let (across, down) = (0u8, 1u8);
         assert_eq!(puz.len, [3, 3]);
-        let st = solve(&hot, &puz, &[(across, word(&cold, "cat"))]).unwrap();
-        assert_eq!(st.placed[down as usize], word(&cold, "ant"));
+        for (name, arm) in ARMS {
+            let sol = arm(&hot, &puz, &[(0, word(&cold, "cat"))]).unwrap();
+            assert_eq!(sol.placed[1], word(&cold, "ant"), "{name}");
+        }
     }
 
-    /// A forced word constrains EVERY crossing slot, not just the first.
+    /// A placed word constrains EVERY crossing slot, in every arm.
     #[test]
     fn a_placed_word_masks_every_crossing() {
         let (hot, cold) = build_lexicon(
@@ -1140,85 +1466,96 @@ mod tests {
         );
         let puz = compile(&Grid::from_rows(&["...", ".#.", ".#."]), Lang::En);
         assert_eq!(puz.len, [3, 3, 3]);
-        let st = solve(&hot, &puz, &[(0, word(&cold, "cat"))]).unwrap();
-        let first = |s: usize| -> Vec<char> {
-            bits(st.mask(s))
-                .into_iter()
-                .map(|w| cold.word(w).chars().next().unwrap())
-                .collect()
-        };
-        assert!(first(1).iter().all(|&c| c == 'c') && first(1).len() == 3);
-        assert!(first(2).iter().all(|&c| c == 't') && first(2).len() == 2);
+        for (name, arm) in ARMS {
+            let sol = arm(&hot, &puz, &[(0, word(&cold, "cat"))]).unwrap();
+            let first = |s: usize| -> Vec<char> {
+                bits(&sol.cand[s * hot.blocks..(s + 1) * hot.blocks])
+                    .into_iter()
+                    .map(|w| cold.word(w).chars().next().unwrap())
+                    .collect()
+            };
+            assert_eq!(first(1), ['c', 'c', 'c'], "{name}");
+            assert_eq!(first(2), ['t', 't'], "{name}");
+        }
     }
 
-    /// No candidate left is a contradiction, never a silent empty slot.
+    /// No candidate left is a contradiction, in every arm.
     #[test]
     fn an_empty_slot_is_a_contradiction() {
         let (hot, cold) = build_lexicon(Lang::En, &words(&["cat", "cow", "dog"]));
         let puz = compile(&plus(), Lang::En);
-        assert_eq!(
-            solve(&hot, &puz, &[(0, word(&cold, "cat"))]).err(),
-            Some(Stop::Contradiction(1))
-        );
+        for (name, arm) in ARMS {
+            assert_eq!(
+                arm(&hot, &puz, &[(0, word(&cold, "cat"))]).err(),
+                Some(Stop::Contradiction(1)),
+                "{name}"
+            );
+        }
     }
 
-    /// The crossing comes from the compiled lane. Re-pointing one crossing
-    /// lets an incompatible word survive, and the cell oracle sees it; with
-    /// the lane emptied nothing propagates at all.
+    /// Crossings come from the compiled lanes. Re-pointing one crossing in
+    /// `cross` lets an incompatible word survive in arm A, and the cell oracle
+    /// sees it. Emptying `cross` (A) or `occupant` (B, D) stops propagation.
     #[test]
-    fn crossings_are_read_from_the_compiled_lane() {
+    fn crossings_are_read_from_the_compiled_lanes() {
         let (hot, cold) = build_lexicon(Lang::En, &words(&["cat", "cow", "dog", "ant"]));
         let puz = compile(&plus(), Lang::En);
         let given = [(0u8, word(&cold, "cat"))];
-        let ok = solve(&hot, &puz, &given).unwrap();
-        assert!(cell_consistent(&hot, &puz, &ok.placed));
+        for (_, arm) in ARMS {
+            assert!(cell_consistent(
+                &hot,
+                &puz,
+                &arm(&hot, &puz, &given).unwrap().placed
+            ));
+        }
 
-        // across offset 1 really crosses down offset 0; re-point the pair
-        // (both directions) at down offset 1.
         let mut wrong = puz.clone();
-        assert_eq!(wrong.cross[1], FacetTier { hi: 1, lo: 0 }.as_u16());
-        wrong.cross[1] = FacetTier { hi: 1, lo: 1 }.as_u16();
+        assert_eq!(wrong.cross[1], tile(1, 0));
+        wrong.cross[1] = tile(1, 1);
         wrong.cross[STRIDE] = NONE;
-        wrong.cross[STRIDE + 1] = FacetTier { hi: 0, lo: 1 }.as_u16();
-        let bad = solve(&hot, &wrong, &given).unwrap();
+        wrong.cross[STRIDE + 1] = tile(0, 1);
+        let bad = solve_token(&hot, &wrong, &given).unwrap();
         assert_eq!(bad.placed[1], word(&cold, "cat"));
         assert!(!cell_consistent(&hot, &wrong, &bad.placed));
 
         let mut cut = puz.clone();
         cut.cross.fill(NONE);
-        let none = solve(&hot, &cut, &given).unwrap();
-        assert_eq!(none.placed[1], UNSET);
-        assert_eq!(none.events, 0);
+        let a = solve_token(&hot, &cut, &given).unwrap();
+        assert_eq!((a.placed[1], a.ands), (UNSET, 0));
+
+        let mut cut = puz.clone();
+        cut.occupant.iter_mut().for_each(|o| *o = [NONE; 2]);
+        for arm in [solve_hybrid as Arm, solve_cartesian] {
+            let s = arm(&hot, &cut, &given).unwrap();
+            assert_eq!(s.placed[1], UNSET);
+        }
     }
 
-    /// Crossing tiles are symmetric and land on the same Morton cell.
+    /// Crossing tiles are symmetric, land on one Morton cell, and match the
+    /// occupant lane, up to 21x21.
     #[test]
     fn every_crossing_names_the_same_cell_both_ways() {
         let mut rng = Rng(4);
-        for side in [5, 7, 9, 15] {
+        for side in [5, 7, 15, 21] {
             let puz = compile(&Grid::random_nyt(side, &mut rng), Lang::En);
             for s in 0..puz.slots() {
                 for o in 0..puz.len[s] as usize {
                     let c = puz.cross[s * STRIDE + o];
                     assert_ne!(c, NONE, "an NYT grid checks every square");
-                    let (t, j) = ((c >> 8) as usize, (c & 0xFF) as usize);
-                    assert_eq!(puz.cell[t * STRIDE + j], puz.cell[s * STRIDE + o]);
-                    assert_eq!(
-                        puz.cross[t * STRIDE + j],
-                        FacetTier {
-                            hi: s as u8,
-                            lo: o as u8
-                        }
-                        .as_u16()
-                    );
+                    let (t, j) = untile(c);
+                    let cell = puz.cell[s * STRIDE + o];
+                    assert_eq!(puz.cell[t * STRIDE + j], cell);
+                    assert_eq!(puz.cross[t * STRIDE + j], tile(s, o));
+                    let occ = puz.occupant[cell as usize];
+                    assert!(occ.contains(&tile(s, o)) && occ.contains(&c));
                 }
             }
         }
     }
 
-    /// Languages are separate populations: German keeps ä ö ü ß as letters,
-    /// the same WordId names different words, and a puzzle is refused against
-    /// the other language's populations.
+    /// Languages are separate populations: WordId 0 names different words,
+    /// only German has umlaut populations, and every arm refuses a puzzle
+    /// against the other language's populations.
     #[test]
     fn languages_do_not_share_ordinals_or_populations() {
         let (en, en_cold) = build_lexicon(Lang::En, &words(&["the", "and", "house", "street"]));
@@ -1227,27 +1564,27 @@ mod tests {
             &words(&["der", "und", "haus", "straße", "über", "größe", "mädchen"]),
         );
         assert_ne!(en_cold.word(0), de_cold.word(0));
-        for c in ['ä', 'ö', 'ü', 'ß'] {
-            assert!(de_cold.code(c).is_some() && en_cold.code(c).is_none());
-        }
+        let umlaut_u = MooreSymbol8::of('ü').unwrap();
+        assert!(en.pop(4, 0, umlaut_u).iter().all(|&w| w == 0));
+        assert!(de.pop(4, 0, umlaut_u).iter().any(|&w| w != 0));
         let de_puz = compile(&plus(), Lang::De);
-        assert_eq!(State::new(&en, &de_puz).err(), Some(Stop::Language));
-        assert!(State::new(&de, &de_puz).is_ok());
+        for (name, arm) in ARMS {
+            assert_eq!(arm(&en, &de_puz, &[]).err(), Some(Stop::Language), "{name}");
+            assert!(arm(&de, &de_puz, &[]).is_ok(), "{name}");
+        }
     }
 
     /// Bits 59..63 carry state only: every claim edge is zero outside them,
-    /// its code is one of the four shared states, and two different words in
-    /// the same state have the identical edge.
+    /// its code is one of the four shared states, two different words in one
+    /// state have the identical edge, and reserved codes never appear.
     #[test]
     fn ce64_carries_state_never_content() {
         let (hot, _) = english();
-        let mut rng = Rng(7);
         let (mut lane, mut claims) = (Lane::default(), Claims::default());
-        while lane.groups < 5 {
-            if let Some(c) = create(&hot, 5, &mut rng, 200_000) {
-                let st = solve(&hot, &c.puz, &c.givens).unwrap();
-                emit(&c, &st, &mut lane, &mut claims);
-            }
+        for seed in 0..4 {
+            let c = created(&hot, 5, 70 + seed);
+            let sol = solve_token(&hot, &c.puz, &c.givens).unwrap();
+            emit(&c, &sol, hot.blocks, &mut lane, &mut claims);
         }
         let codes: Vec<u32> = population_fold::STATES
             .iter()
@@ -1263,36 +1600,36 @@ mod tests {
         let (a, b) = (cands[0], cands[1]);
         assert_ne!(claims.word[a], claims.word[b]);
         assert_eq!(lane.edges[a], lane.edges[b]);
-        // reserved codes 24..31 never appear
         assert_eq!(count_in(&lane.edges, !0u32 << 24), 0);
         assert_eq!(count_in(&lane.edges, UNKNOWN_CAUSES.bit()), 0);
     }
 
-    /// The mask fixed point equals steps 2/2b's cell-scan fixed point on
-    /// created puzzles, and every created puzzle is unique and consistent.
+    /// The four arms reach one fixed point on created puzzles: same placed
+    /// words (A, B, C, D) and same surviving masks (A, B, D); every created
+    /// puzzle is unique and consistent.
     #[test]
-    fn mask_propagation_equals_the_cell_scan_oracle() {
+    fn the_four_arms_agree_on_created_puzzles() {
         let (hot, cold) = english();
-        let mut rng = Rng(9);
-        let mut made = 0;
-        while made < 8 {
-            let side = if made % 2 == 0 { 5 } else { 7 };
-            let Some(c) = create(&hot, side, &mut rng, 200_000) else {
-                continue;
-            };
-            made += 1;
-            let st = solve(&hot, &c.puz, &c.givens).unwrap();
-            assert_eq!(
-                cell_scan_solve(&cold, &c.puz, &c.givens).unwrap(),
-                st.placed
-            );
+        for seed in 0..6 {
+            let c = created(&hot, 5, 90 + seed);
+            let a = solve_token(&hot, &c.puz, &c.givens).unwrap();
+            let b = solve_cartesian(&hot, &c.puz, &c.givens).unwrap();
+            let d = solve_hybrid(&hot, &c.puz, &c.givens).unwrap();
+            assert_eq!(a.placed, b.placed);
+            assert_eq!(a.placed, d.placed);
+            assert_eq!(a.cand, b.cand);
+            assert_eq!(a.cand, d.cand);
+            assert_eq!(solve_literal(&cold, &c.puz, &c.givens).unwrap(), a.placed);
             assert!(cell_consistent(&hot, &c.puz, &c.solution));
-            let mut b = 1_000_000;
-            assert_eq!(count_fills(&hot, &c.puz, &c.givens, 3, &mut b), Some(1));
+            let mut budget = 1_000_000;
+            assert_eq!(
+                count_fills(&hot, &c.puz, &c.givens, 3, &mut budget),
+                Some(1)
+            );
         }
     }
 
-    /// The mask grid rules agree with a cell-by-cell check, and refuse.
+    /// The row-mask grid rules agree with a cell-by-cell check, both ways.
     #[test]
     fn mask_grid_rules_equal_a_cell_check() {
         fn cell_valid(g: &Grid) -> bool {
@@ -1341,10 +1678,10 @@ mod tests {
         let mut rng = Rng(11);
         let (mut valid, mut invalid) = (0, 0);
         for _ in 0..3000 {
-            let side = [5, 7, 9][rng.below(3) as usize];
+            let side = [5, 7, 9, 15, 21][rng.below(5) as usize];
             let mut g = Grid {
                 side,
-                rows: vec![((1u32 << side) - 1) as u16; side],
+                rows: vec![Grid::full_line(side); side],
             };
             for i in 0..side * side {
                 if rng.below(9) == 0 {
@@ -1368,20 +1705,21 @@ mod tests {
         );
     }
 
-    /// Solving runs without the strings: `Cold` is dropped before the solve,
-    /// and the result is the same.
+    /// Solving runs without the strings: `Cold` is dropped first, and every
+    /// mask arm still reaches the literal arm's fixed point.
     #[test]
     fn the_hot_path_needs_no_strings() {
         let (hot, cold) = english();
-        let mut rng = Rng(13);
-        let c = loop {
-            if let Some(c) = create(&hot, 7, &mut rng, 200_000) {
-                break c;
-            }
-        };
-        let expect = cell_scan_solve(&cold, &c.puz, &c.givens).unwrap();
+        let c = created(&hot, 5, 13);
+        let expect = solve_literal(&cold, &c.puz, &c.givens).unwrap();
         drop(cold);
-        assert_eq!(solve(&hot, &c.puz, &c.givens).unwrap().placed, expect);
+        for (name, arm) in ARMS {
+            assert_eq!(
+                arm(&hot, &c.puz, &c.givens).unwrap().placed,
+                expect,
+                "{name}"
+            );
+        }
     }
 
     /// Three ways, partition, declaration gate: the shared fold, unchanged.
@@ -1391,9 +1729,9 @@ mod tests {
         let mut rng = Rng(17);
         let (mut lane, mut claims) = (Lane::default(), Claims::default());
         while lane.edges.len() < 20_000 {
-            if let Some(c) = create(&hot, 5, &mut rng, 200_000) {
-                let st = solve(&hot, &c.puz, &c.givens).unwrap();
-                emit(&c, &st, &mut lane, &mut claims);
+            if let Ok(c) = create(&hot, 5, &mut rng, 100_000) {
+                let sol = solve_token(&hot, &c.puz, &c.givens).unwrap();
+                emit(&c, &sol, hot.blocks, &mut lane, &mut claims);
             }
         }
         let decl = declarations(CROSSWORD_CLASS);
