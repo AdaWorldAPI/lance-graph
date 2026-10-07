@@ -410,6 +410,8 @@ fn t14_membership_validation_reads_no_attributes() {
         proxies: Vec::new(),
         dn: None,
         recipient: None,
+        mail: None,
+        alias: None,
     };
     let obs = Observation {
         scope: SCOPE,

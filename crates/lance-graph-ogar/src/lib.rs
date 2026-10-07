@@ -213,7 +213,7 @@ pub mod parity {
     /// of predicates checked. Panics on any divergence.
     ///
     /// **This is the membrane half of D-DCR-1 (W1).** The replay core
-    /// (`lance_graph_planner::dismech_replay`) addresses each recorded step by
+    /// (`lance_graph_planner::chain_replay`) addresses each recorded step by
     /// a plain `u8` ordinal — it is in-workspace and cannot reach OGAR, which
     /// lives in this excluded armed tier. So the claim *"these ordinals ARE
     /// the dismech palette"* is proved HERE, against the real palette, rather
@@ -248,6 +248,11 @@ pub mod parity {
             assert_eq!(row.1, p.name, "{:#04x}: reverse name mismatch", p.index.0);
             assert_eq!(row.2, p.curie, "{:#04x}: reverse CURIE mismatch", p.index.0);
         }
+        assert_eq!(
+            mirror::DISMECH_CONCEPT_ID,
+            ogar_dismech::DISMECH_CONCEPT_ID,
+            "the mirror's concept id (the G a chain's classid routes by) is not the palette's",
+        );
         assert_eq!(
             mirror::DISMECH_PREDICATE_FLOOR,
             ogar_dismech::CAUSES.0,

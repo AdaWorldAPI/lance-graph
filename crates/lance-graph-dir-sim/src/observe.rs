@@ -131,6 +131,8 @@ pub fn from_ad(
                 primary_smtp,
                 proxies,
                 dn,
+                mail: text(r, "mail"),
+                alias: text(r, "mailNickname"),
                 recipient: (r.schema().version >= RECIPIENT_SCHEMA).then(|| ObservedRecipient {
                     remote_recipient_type: r.num(slot("msExchRemoteRecipientType")),
                     display_type: r.num(slot("msExchRecipientDisplayType")).map(|n| n as i32),

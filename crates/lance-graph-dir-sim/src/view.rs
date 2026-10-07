@@ -431,7 +431,7 @@ impl<'s> View<'s> {
             && !self.ov.removed_unresolved.contains(&(*user, *group))
     }
 
-    fn attr_ids(&self, (kind, i): Slot, a: Attribute) -> Option<(u32, u32)> {
+    pub(crate) fn attr_ids(&self, (kind, i): Slot, a: Attribute) -> Option<(u32, u32)> {
         let (p, o) = self.pop(kind);
         if i >= p.len() {
             let c = &o.created;

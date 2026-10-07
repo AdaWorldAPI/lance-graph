@@ -1,3 +1,17 @@
+## 2026-10-07 — lance-graph PR #1390 (merged `6368d8c`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `fec0613`, 5 commits) — D-PEARL-IO-0: Pearl's ladder executed in and out of CausalEdge64
+
+- **Added:** `pearl_ladder_probe.rs` (bits 40..42 select an operator; the measurement revises bits 59..63); P7a model moved to `examples/shared/certification_model.rs`; `docs/architecture/ce64-semantic-upper-half.md` + diagram; README picture.
+- **Locked (test-pinned):** 14 tests, 12 disable runs red; SO stops below `Causes`, only executed arms earn `Causes`, counterfactual reactions and confounding never certify or demote.
+- **Deferred / open:** production placement (D-PEARL-PROD-0); whole-node removal; contingency search beyond one cause; whether bits 43..52 take the diagram's reading (needs a version gate).
+- **Confidence:** high for the dispatch and write-back rules; the counterfactual fixture is one measured chain.
+
+## 2026-10-07 — lance-graph PR #1387 (merged `e6612dc`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `9f8b5e4`, 9 commits) — D-PUZZLE-0 step 3: crossword propagation as Cartesian-addressed masking
+
+- **Added:** `crossword_mask_propagation_probe.rs`: four arms (token, Cartesian, literal, hybrid) on identical puzzles, `MooreSymbol8` (probe-local), creation, cui-bono ablation; `deepnsm-v2` dev-dependency of the driver.
+- **Locked (test-pinned):** 20 tests, 12 disable runs red; the four arms reach the same fixed point.
+- **Deferred / open:** creation beyond 5×5 with no repeated words; `MooreSymbol8` as a canonical tenant.
+- **Confidence:** medium — one machine, release; timings per the rotated best-of-5 protocol.
+
 ## 2026-10-07 — lance-graph PR #1384 (merged `23e8d93`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `94499c3`, 9 commits) — D-PUZZLE-0 steps 2/2b: crosswords on the Sudoku population fold
 
 - **Added:** `examples/shared/population_fold.rs` (the domain-free half: propagation reading, five `facts_population` questions, three folds, declaration gate; a fence test bans domain words); `crossword_population_fold_probe.rs` (synthetic 3-letter alphabet); `crossword_real_words_probe.rs` (DeepNSM v1 4096 + `academic_20k`, DeReKo top 20k from `DEREKO_PATH`; NYT-rule grids; Down-and-Across answers from `XWORD_ANSWERS_DIR`).

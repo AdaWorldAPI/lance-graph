@@ -50,7 +50,7 @@
 use crate::proxy::ProxyRelation;
 use lance_graph_mask_risc::words_for;
 use ogar_dir_core::{DirectoryScope, Dn128, Guid128};
-use ogar_dir_sim::{normalize, KeyId, Recipient, RecipientAttributes, ValueId};
+use ogar_dir_sim::{normalize, routing_parts, KeyId, Recipient, RecipientAttributes, ValueId};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -158,6 +158,11 @@ pub struct Dicts {
     keys: Dict,
     /// `key_of[value] = key`, computed once at interning.
     key_of: Vec<u32>,
+    /// `routing_alias[value]` = the key of the alias if the value's
+    /// comparison form is a routing address (`{alias}@{tenant}.mail.onmicrosoft.com`,
+    /// OGAR `ROUTING`), else `NONE`. Parsed once at interning, so
+    /// validation compares ids and never reads text.
+    routing_alias: Vec<u32>,
     /// Text operations performed.
     pub counters: DictCounters,
 }
@@ -169,7 +174,10 @@ impl Dicts {
         bump(&self.counters.interns);
         let v = self.values.intern(s);
         if v as usize == self.key_of.len() {
-            self.key_of.push(self.keys.intern(&normalize(s)));
+            let n = normalize(s);
+            self.key_of.push(self.keys.intern(&n));
+            let alias = routing_parts(&n).map_or(NONE, |(alias, _)| self.keys.intern(alias));
+            self.routing_alias.push(alias);
         }
         ValueId(v)
     }
@@ -193,6 +201,12 @@ impl Dicts {
     /// The comparison key of a value.
     pub fn key_of(&self, v: ValueId) -> Option<KeyId> {
         self.key_of.get(v.0 as usize).map(|&k| KeyId(k))
+    }
+    /// The alias key of a routing address value; `None` if the value is not
+    /// a routing address.
+    pub(crate) fn routing_alias(&self, v: ValueId) -> Option<KeyId> {
+        let k = *self.routing_alias.get(v.0 as usize)?;
+        (k != NONE).then_some(KeyId(k))
     }
     /// Egress: the comparison form behind a key.
     pub fn key_label(&self, k: KeyId) -> Option<&str> {
@@ -236,6 +250,10 @@ pub struct ObservedNode {
     /// source never reported them), distinct from read and all absent
     /// (not mail-enabled).
     pub recipient: Option<ObservedRecipient>,
+    /// Raw `mail`.
+    pub mail: Option<String>,
+    /// Raw `mailNickname` (the Exchange Online `Alias`).
+    pub alias: Option<String>,
 }
 
 /// The Exchange recipient attributes as a source reported them (strings
@@ -274,6 +292,8 @@ impl ObservedNode {
             proxies: Vec::new(),
             dn: None,
             recipient: None,
+            mail: None,
+            alias: None,
         }
     }
     /// Group.
@@ -286,6 +306,8 @@ impl ObservedNode {
             proxies: Vec::new(),
             dn: None,
             recipient: None,
+            mail: None,
+            alias: None,
         }
     }
 }
@@ -361,6 +383,10 @@ pub struct Population {
     pub(crate) rcp_target: Vec<u32>,
     pub(crate) rcp_present: Vec<u8>,
     pub(crate) rcp_read: Vec<u64>,
+    /// `mail` comparison keys (`NONE` = absent).
+    pub(crate) mail_key: Vec<u32>,
+    /// `mailNickname` comparison keys (`NONE` = absent).
+    pub(crate) alias_key: Vec<u32>,
     /// Owns its addresses ([`is_owner`] of the observed flag and recipient).
     pub(crate) owner: Vec<u64>,
 }
@@ -386,6 +412,8 @@ impl Population {
             rcp_target: Vec::with_capacity(n),
             rcp_present: Vec::with_capacity(n),
             rcp_read: vec![0; words_for(n)],
+            mail_key: Vec::with_capacity(n),
+            alias_key: Vec::with_capacity(n),
             owner: vec![0; words_for(n)],
         };
         for (i, (id, node)) in nodes.iter().enumerate() {
@@ -411,6 +439,8 @@ impl Population {
             p.upn_key.push(uk);
             p.smtp_val.push(sv);
             p.smtp_key.push(sk);
+            p.mail_key.push(ids(&node.mail, d).1);
+            p.alias_key.push(ids(&node.alias, d).1);
             let dn = node.dn.unwrap_or(Dn128::ROOT);
             p.dn.push(dn.bytes());
             p.dn_depth.push(dn.depth() as i32);
