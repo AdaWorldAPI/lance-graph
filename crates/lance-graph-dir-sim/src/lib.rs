@@ -173,9 +173,9 @@ pub struct ScopeMismatch {
 /// last term is a 16-byte ternary match (`Cmp::MatchFacet16Strided`) read
 /// in place over the population's `[[u8; 16]]` lane. The depth gate is what
 /// keeps a shallower node whose zero tail happens to equal the prefix out.
-/// The same program runs over the base lane (deleted nodes gated out) and
-/// over the created nodes' lane (delta-sized); the two kept sets are
-/// concatenated, never fed onward.
+/// The same program runs over the base lane (deleted and moved nodes gated
+/// out), over the moved nodes' new locations and over the created nodes'
+/// lane (both delta-sized); the kept sets are folded, never fed onward.
 pub fn subtree(
     v: &View<'_>,
     scope: DirectoryScope,
@@ -219,8 +219,29 @@ pub fn subtree(
         )
     };
     let (pop, ov) = v.pop(kind);
-    let present = v.base_live(kind, &pop.dn_present);
-    let base = run(&present, &pop.dn_depth, &pop.dn);
+    let mut present = v.base_live(kind, &pop.dn_present);
+    // A moved base node is not where the base lane says: gate it out of
+    // the base run and run its new location as a delta row instead.
+    if !ov.dn.is_empty() {
+        let mut p = present.into_owned();
+        for o in ov.dn.keys() {
+            snapshot::clear_bit(&mut p, usize::from(*o));
+        }
+        present = std::borrow::Cow::Owned(p);
+    }
+    let mut base = run(&present, &pop.dn_depth, &pop.dn);
+    let moved: Vec<(u16, Dn128)> = ov
+        .dn
+        .iter()
+        .filter_map(|(o, d)| d.map(|d| (*o, d)))
+        .collect();
+    if !moved.is_empty() {
+        let depth: Vec<i32> = moved.iter().map(|(_, d)| d.depth() as i32).collect();
+        let dn: Vec<[u8; 16]> = moved.iter().map(|(_, d)| d.bytes()).collect();
+        for r in run(&snapshot::ones(moved.len()), &depth, &dn).rows() {
+            base.set(usize::from(moved[r].0));
+        }
+    }
 
     let cr = &ov.created.dn;
     let mut located = vec![0u64; words_for(cr.len())];

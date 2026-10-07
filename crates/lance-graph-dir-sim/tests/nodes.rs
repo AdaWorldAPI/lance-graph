@@ -651,16 +651,50 @@ fn a_freed_address_is_released_before_it_is_claimed() {
     assert!(matches!(ops[1], Operation::CreateObject { object, .. } if object == g(NEW_USER)));
 }
 
+// Re-pinned with SetActive (OGAR #319): this used to be Unconvergeable,
+// when no change could enable a node. The requested user now exists in
+// reality but disabled, and the plan converges it with one enable whose
+// precondition is the observed flag.
 #[test]
-fn reconcile_refuses_a_create_it_cannot_converge() {
+fn reconcile_converges_a_create_that_exists_disabled() {
     let (mut st, g0) = store();
     let d = desired(&mut st, g0);
-    // The requested user exists in reality, but disabled: no change can
-    // enable it, so the create is neither done nor doable.
     let mut disabled = ObservedNode::user("new@example.test", "new@example.test");
     disabled.active = Some(false);
     let mut obs = observed();
     obs.nodes.push((g(NEW_USER), disabled));
+    st.observe("lab", 2_000, obs).unwrap();
+    let plan = st.plan(d).unwrap();
+    let mine: Vec<_> = plan
+        .ops
+        .iter()
+        .filter(|p| match &p.op {
+            Operation::SetEnabled { object, .. }
+            | Operation::CreateObject { object, .. }
+            | Operation::SetAttribute { object, .. } => *object == g(NEW_USER),
+            _ => false,
+        })
+        .collect();
+    assert_eq!(
+        mine,
+        vec![&PlannedOp {
+            op: Operation::SetEnabled {
+                object: g(NEW_USER),
+                enabled: true
+            },
+            precondition: Precondition::EnabledEquals(Some(false)),
+        }]
+    );
+}
+
+// Kind is identity: the requested user exists in reality as a group, which
+// no change can converge.
+#[test]
+fn reconcile_refuses_a_create_whose_identity_has_another_kind() {
+    let (mut st, g0) = store();
+    let d = desired(&mut st, g0);
+    let mut obs = observed();
+    obs.nodes.push((g(NEW_USER), ObservedNode::group()));
     let o = st.observe("lab", 2_000, obs).unwrap();
     assert_eq!(
         st.plan(d),
