@@ -33,6 +33,10 @@ to compute it now · EXECUTE touches the bytes. No fifth verb was forced.
    always scans everything and conjunct order is inert. A mask-native gated
    gather beats a selection vector at every density below 100 %. The fix is an
    executor gate on an existing op, not a new carrier. [MEASURED]
+   Refined by D-GATED-GATHER-0: the gate must work at **bit** granularity
+   inside live words (word granularity loses 47× on scattered survivors), and
+   the ungated kernel is itself 3.8× slow from a per-row branch. **The mask is
+   the execution schedule.** [MEASURED, `gated_gather_probe`]
 5. **No selection vector** (quack matrix R1) **survived its falsifier** on that
    workload. Re-test only with a workload where survivors cannot be gated.
 6. **No semantic convenience opcode.** A new V4 op needs a proof that existing
