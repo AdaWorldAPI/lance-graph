@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-260 entries, 2026-08-06 .. 2026-10-07.
+262 entries, 2026-08-06 .. 2026-10-07.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-07 | `tinker-janus-fold-harvest` | TinkerPop bulk = K (GroupReduce), ONE_BULK = S, GValue pinning = bundle invalidation; JanusGraph slice = OrderedLaneWitness→Range (30–38×); no new V4 op | [2026-10-07-tinker-janus-fold-harvest.md](2026-10-07-tinker-janus-fold-harvest.md) |
 | 2026-10-07 | `selector-seq-aware-coverage` |  | [2026-10-07-selector-seq-aware-coverage.md](2026-10-07-selector-seq-aware-coverage.md) |
+| 2026-10-07 | `D-PUZZLE-ATTN-0` |  | [2026-10-07-puzzle-attn-0-entropy-attention-crosswords.md](2026-10-07-puzzle-attn-0-entropy-attention-crosswords.md) |
 | 2026-10-07 | `D-PUZZLE-0` |  | [2026-10-07-puzzle-0-sudoku-population-fold.md](2026-10-07-puzzle-0-sudoku-population-fold.md) |
 | 2026-10-07 | `D-PUZZLE-0-XWORD` |  | [2026-10-07-puzzle-0-crossword-same-algebra.md](2026-10-07-puzzle-0-crossword-same-algebra.md) |
 | 2026-10-07 | `D-PUZZLE-0-XWORD-REAL` |  | [2026-10-07-puzzle-0-crossword-real-words.md](2026-10-07-puzzle-0-crossword-real-words.md) |

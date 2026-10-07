@@ -1,3 +1,10 @@
+## 2026-10-07 — lance-graph PR #1397 (merged `4a0a72c`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `ea16f16`, 3 commits) — D-CE64-CYCLE-0: what a CE64 register must carry across cycles
+
+- **Added:** `staunen_scheduler_probe.rs` gains `run_with(opts)`, a lazy-stamp heap scheduler, a FIFO worklist baseline, wall-clock windows with continuation, `Forget` arms, the #1390 Simpson + trial population, attractor and quadrant readings, dense 1k..1M windows; comparative tests pool 3 seeds.
+- **Locked (test-pinned):** the next cycle needs the evidence table, the register (Epi5) and the attention state; H and bits 40..42 are derived / echo; no wake advantage over round-robin when pooled (corrects #1395). 23 tests, 19 disable runs red.
+- **Deferred / open:** the heap scheduler costs ~3.5× FIFO per fold; Moore/EWA/Sudoku folds not in the loop; where cross-cycle state lives in the register.
+- **Confidence:** medium — pooled over 3 seeds, one world model.
+
 ## 2026-10-07 — lance-graph PR #1395 (merged `5658c10`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `086189a`, 5 commits) — D-CE64-LOOP-0 + D-CE64-STAUNEN-0: self-orchestrating fold loop, surprisal scheduler, bits 40..63 census
 
 - **Added:** `lance-graph-planner/examples/self_orchestration_probe.rs` (one register, five policies, 15 tests) and `staunen_scheduler_probe.rs` (many basins across windows, surprisal distinct from Shannon H, 18 tests), both `test = true`; the bits 40..63 reader/writer census (board entry).
