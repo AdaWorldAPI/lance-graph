@@ -206,17 +206,18 @@ impl Connector {
             .catalog
             .get_table(catalog_name, schema_name, table_name)
             .await?;
-        let arrow_schema = self.catalog.table_to_arrow_schema(&table_info)?;
-        let normalized_name = table_info.name.to_lowercase();
-
-        // Find a reader for this format. No reader means the format is
-        // unsupported: fail, never register an empty stand-in.
+        // Find a reader for this format BEFORE the fallible schema mapping.
+        // No reader means the format is unsupported: fail, never register an
+        // empty stand-in. Checking first keeps a type-mapping error on the
+        // same table from masking this as an ordinary per-table warning.
         let reader = self
             .reader_for(&table_info.data_source_format)
             .ok_or_else(|| CatalogError::UnsupportedFormat {
                 table: format!("{catalog_name}.{schema_name}.{}", table_info.name),
                 format: table_info.data_source_format.clone(),
             })?;
+        let arrow_schema = self.catalog.table_to_arrow_schema(&table_info)?;
+        let normalized_name = table_info.name.to_lowercase();
         reader
             .register_table(
                 ctx,

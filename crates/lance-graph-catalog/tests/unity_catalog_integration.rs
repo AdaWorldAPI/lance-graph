@@ -518,3 +518,51 @@ async fn test_register_schema_rejects_format_without_reader() {
     // And nothing named `marksheet` exists to be queried as an empty table.
     assert!(!ctx.table_exist("marksheet").unwrap());
 }
+
+/// A table that has BOTH an unsupported format and an unmappable column type
+/// must still surface as `UnsupportedFormat`. If the schema mapping ran first,
+/// its `TypeMappingError` would be logged as an ordinary per-table warning and
+/// `register_schema` would return `Ok` with the table silently omitted.
+#[tokio::test]
+async fn test_unsupported_format_wins_over_type_mapping_error() {
+    use datafusion::execution::context::SessionContext;
+    use lance_graph_catalog::{CatalogError, Connector};
+    use std::sync::Arc;
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/tables"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "tables": [{
+                "name": "marksheet", "catalog_name": "unity", "schema_name": "default",
+                "table_type": "MANAGED", "data_source_format": "DELTA"
+            }]
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/tables/unity.default.marksheet"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "name": "marksheet", "catalog_name": "unity", "schema_name": "default",
+            "table_type": "MANAGED", "data_source_format": "DELTA",
+            "columns": [{ "name": "span", "type_text": "INTERVAL", "type_name": "INTERVAL",
+                          "position": 0, "nullable": false }],
+            "storage_location": "s3://bucket/marksheet"
+        })))
+        .mount(&server)
+        .await;
+
+    let provider = setup_provider(&server).await;
+    let connector = Connector::new(Arc::new(provider), vec![]);
+    let ctx = SessionContext::new();
+
+    let err = connector
+        .register_schema(&ctx, "unity", "default")
+        .await
+        .expect_err("an unsupported format must fail even when its schema is unmappable");
+    assert!(
+        matches!(err, CatalogError::UnsupportedFormat { .. }),
+        "expected UnsupportedFormat, got {err:?}"
+    );
+    assert!(!ctx.table_exist("marksheet").unwrap());
+}

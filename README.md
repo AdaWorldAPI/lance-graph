@@ -62,9 +62,10 @@ What this means:
 
 ## Workspace
 
-58 crate directories: 22 workspace members, 23 explicitly excluded crates
-(built with `--manifest-path`), and 14 that are in neither list. The parts
-needed to understand the system:
+58 crate directories under `crates/`: 21 are workspace members and 37 are
+explicitly excluded (built with `--manifest-path`). The workspace has a 22nd
+member outside `crates/`, `tools/dto-class-check`. The parts needed to
+understand the system:
 
 | Crate | Role |
 |---|---|
