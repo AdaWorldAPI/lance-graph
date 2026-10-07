@@ -3,7 +3,7 @@
 **Probe:** `cognitive-shader-driver/examples/crossword_mask_propagation_probe.rs`,
 over `examples/shared/population_fold.rs` (unchanged).
 **Status:** MEASURED (one machine, release, `avx2=true avx512f=false`),
-TEST-PINNED (19 tests, 11 disable runs red).
+TEST-PINNED (20 tests; 13 disable runs, listed below, all red).
 
 ## Question
 
@@ -60,57 +60,64 @@ of the driver (its `guid-v3-tail` is already a default contract feature).
 
 ## Measured
 
+Final run at `2bdb50b` (both review fixes in). One machine, release,
+`avx2=true avx512f=false`.
+
 Filter, 2000 patterns (length + 1–3 revealed symbols):
 
 | | EN | DE |
 |---|---|---|
-| mask AND chain + popcount | 670 ns/pattern, 9.7 ns/claim | 683 ns/pattern, 7.6 ns/claim |
-| direct spell-lane scan | 41,769 ns/pattern | 39,585 ns/pattern |
+| mask AND chain + popcount | 775 ns/pattern, 11.2 ns/claim | 543 ns/pattern, 6.0 ns/claim |
+| direct spell-lane scan | 35,755 ns/pattern | 42,124 ns/pattern |
 
-Solve, median over puzzles of each arm's best of 5 warm runs (µs):
+Solve, median over puzzles of each arm's best of 5 warm runs, rotated order,
+one warm-up per arm; the literal arm's word list is built once per language,
+outside the timing (µs):
 
 | | A token | D hybrid | B Cartesian | C literal | ANDs A / B | bytes A / B |
 |---|---|---|---|---|---|---|
-| EN 5×5 (30) | 2.6 | 2.6 | 4.2 | 5,229 | 10.7 / 19.1 | 23,220 / 2,382 |
-| EN 7×7 (5) | 3.0 | 3.1 | 5.0 | 5,753 | 15.6 / 33.6 | 42,724 / 2,417 |
-| DE 5×5 (30) | 2.6 | 2.7 | 4.5 | 6,017 | 10.3 / 17.1 | 25,060 / 2,566 |
-| DE 7×7 (2) | 5.5 | 5.6 | 9.1 | 8,689 | 14.0 / 20.0 | 42,602 / 2,599 |
+| EN 5×5 (30) | 3.0 | 2.9 | 5.1 | 1,045 | 11.3 / 20.4 | 23,220 / 2,381 |
+| DE 5×5 (30) | 2.3 | 2.3 | 3.7 | 986 | 7.6 / 11.4 | 25,060 / 2,568 |
 
 - A and D cost the same: routing letters through the Morton board adds no
   measurable time. B does about twice the ANDs (it recomputes) and is ~1.6×
   slower, but holds ~10× fewer bytes (one board instead of a full WordId
-  mask per slot). C, the string method, is ~2,000× slower than A.
-- The first run timed each arm once, cold, A first, and showed A at 16.6 µs
-  against D at 6.9 µs with an equal AND count. That was cache warm-up, not
-  representation; the table above is the corrected method.
+  mask per slot). C, the string method, is ~350–430× slower than A.
+- Two earlier timing methods were wrong and are superseded by the table
+  above: timing each arm once, cold, A first (A showed 16.6 µs against D's
+  6.9 µs at an equal AND count: cache warm-up), and timing the literal arm
+  once including the rebuild of its word list (~5,200 µs; Codex review).
 - The shared fold on a 5×5 lane (~1.0M claims, EN and DE): every count equal
-  three ways; filter 0.28–0.35 ns/edge, histogram ~2.0, decode oracle ~3.9 —
+  three ways; filter 0.34–0.35 ns/edge, histogram ~2.0, decode oracle ~3.6 —
   the same costs as Sudoku and steps 2/2b.
 
-Creation (budget 100,000 tried words per step, 30 s per size), NYT-rule grids:
+Creation (budget 100,000 tried words per step, 30 s per size), NYT-rule
+grids, **no word used twice in one fill**:
 
-| side | EN made / attempts | DE made / attempts |
+| side | EN made / misses | DE made / misses |
 |---|---|---|
-| 5 | 30 / 30 | 30 / 30 |
-| 7 | 5 / 175 | 2 / 163 |
-| 9–21 | 0 (all misses are fill, none uniqueness) | 0 (same) |
+| 5 | 30 / 1 | 30 / 4 |
+| 7–21 | 0 (all misses are fill, none uniqueness) | 0 (same) |
 
-Solving is not the limit at any size measured; **creation is**. With 18–20k
-general vocabularies a random NYT-dense grid of side ≥ 9 is not filled within
-the budget. The likely cause is vocabulary density (crosswords are built from
-answer lists with many short fill words); not measured here.
+The no-repeat rule (CodeRabbit review) changed the 7×7 result. Before it,
+EN made 5 / 175 and DE 2 / 163 boards at 7×7; with it, none. Those fills
+reused a word across slots, which a crossword does not allow. So with the
+18–20k general vocabularies, creation stops at 5×5. Solving is not the limit
+at any size measured; creation is. The likely cause is vocabulary density
+(crosswords are built from answer lists with many short fill words); not
+measured here.
 
-Cui bono, each given removed in turn (fixed point re-run + uniqueness count):
+Cui bono, each given removed in turn (fixed point re-run + uniqueness count),
+5×5 only (no larger board was created):
 
 | | givens | Redundant | ShortcutOnly | SilentlyNecessary | Necessary | out of budget |
 |---|---|---|---|---|---|---|
-| EN 5×5 | 118 | 32 | 37 | 0 | 49 | 0 |
-| EN 7×7 | 51 | 39 | 6 | 0 | 6 | 0 |
-| DE 5×5 | 98 | 21 | 29 | 0 | 48 | 0 |
-| DE 7×7 | 7 | 0 | 5 | 0 | 1 | 1 |
+| EN 5×5 | 116 | 28 | 40 | 0 | 48 | 0 |
+| DE 5×5 | 74 | 14 | 25 | 0 | 35 | 0 |
 
+Mean slots lost from the fixed point per removed given: EN 1.26, DE 0.20.
 `SilentlyNecessary` (a given propagation never used but search needs) did not
-occur in the 273 ablations that finished within budget. The readout nominates; it does not prove cause: a
+occur in the 190 ablations. The readout nominates; it does not prove cause: a
 given necessary in one set can be replaced by another set.
 
 ## Falsifiers (disable-verified red)
@@ -120,11 +127,13 @@ index drops offset 0 (5, incl. index-vs-scan); no promotion at popcount 1 (2);
 first crossing only (every-crossing test); zero candidates not a contradiction;
 language gate removed; word bits written into the edge (CE64 test); crossings
 rediscovered from the cell lane (compiled-lanes test); ablation ignores
-uniqueness, and ablation removes nothing (both ablation tests).
+uniqueness, and ablation removes nothing (both ablation tests); no-repeat
+rule removed (fills-never-repeat test).
 
 ## Open
 
-- Creation beyond 7×7 with these vocabularies.
+- Creation beyond 5×5 with these vocabularies (try a crossword answer list
+  at runtime).
 - Whether `MooreSymbol8` (and a `MooreLearn8` companion) become canonical
   value tenants: a contract decision.
 - The step-2b NYT-grid + crossword-answer mode (#1384, `94499c3`) was never run
