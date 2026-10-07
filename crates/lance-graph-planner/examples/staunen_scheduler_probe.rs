@@ -2331,15 +2331,18 @@ mod tests {
     }
 
     /// F10 + attractors: the end states are distinguishable. With switches
-    /// and noise, basins end learned, and noise basins end sterile or
-    /// exhausted, never "learned"; a wrongly settled basin is counted apart
-    /// from a learned one.
+    /// and noise, most real basins end learned and some noise basins end in
+    /// a sterile oscillation (folds without net entropy change, alternating
+    /// reactions); a wrongly settled basin is counted apart from a learned
+    /// one.
     #[test]
     fn attractors_are_distinguishable() {
         let r = once(Policy::RoundRobin, Forget::Nothing);
-        let [learned, _wrong, exhausted, _waiting, sterile, _active] = r.attractors;
-        assert!(learned > 0, "{:?}", r.attractors);
-        assert!(sterile + exhausted > 0, "{:?}", r.attractors);
+        let [learned, _wrong, _exhausted, _waiting, sterile, _active] = r.attractors;
+        assert!(2 * learned >= TEST.real as u64, "{:?}", r.attractors);
+        // Measured: 3 of 8 noise basins meet the sterile criterion on this
+        // shape, the rest read "active"; the class is real but weak.
+        assert!(sterile > 0, "noise oscillates: {:?}", r.attractors);
         assert!(learned <= TEST.real as u64);
         // Silence twin: a calm world (no switches, no noise) has no sterile
         // oscillation.
