@@ -233,6 +233,12 @@ fn lowered_queries_agree_with_datafusion_and_the_oracle() {
             |g| Some(g.n() as i64),
             Demand::TerminalSet,
         ),
+        // a bound property: a dense lane, so its count is the row count
+        (
+            "MATCH (n:Person) RETURN count(n.age)",
+            |g| Some(g.n() as i64),
+            Demand::TerminalSet,
+        ),
         (
             "MATCH (n:Person) WHERE n.age > 50 RETURN count(*)",
             |g| Some(ages(g, |a| a > 50).len() as i64),
@@ -438,6 +444,15 @@ fn every_other_shape_is_a_typed_refusal() {
         ("MATCH (n:Person) WHERE n.height > 1 RETURN count(*)", |r| {
             matches!(r, Refusal::Unbound(_))
         }),
+        // a counted property must be bound too, or its count would be a row
+        // count over a lane that does not exist
+        ("MATCH (n:Person) RETURN count(n.height)", |r| {
+            matches!(r, Refusal::Unbound(_))
+        }),
+        (
+            "MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN count(b.height)",
+            |r| matches!(r, Refusal::Unbound(_)),
+        ),
         ("MATCH (n:Ghost) RETURN count(*)", |r| {
             matches!(r, Refusal::Unplanned(_) | Refusal::Unbound(_))
         }),
@@ -451,6 +466,15 @@ fn every_other_shape_is_a_typed_refusal() {
             Ok(a) => panic!("{q}: must be refused, answered {a:?}"),
         }
     }
+}
+
+/// A binding that cannot form a `GraphConfig` is a typed refusal, not a panic.
+#[test]
+fn an_invalid_binding_is_refused_not_a_panic() {
+    let mut b = binding();
+    b.nodes[0].id_property = String::new();
+    let r = compile("MATCH (n:Person) RETURN count(*)", &HashMap::new(), &b);
+    assert!(matches!(r, Err(Refusal::InvalidBinding(_))), "{r:?}");
 }
 
 /// An edge table not declared `dst`-ordered refuses `count(DISTINCT b)`

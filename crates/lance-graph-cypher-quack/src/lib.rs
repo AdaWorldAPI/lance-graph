@@ -121,7 +121,7 @@ impl Binding {
     /// The `GraphConfig` the upstream planner needs: one node label per node
     /// table and one relationship per edge table. Its source/target field
     /// names are placeholders the lowering never reads.
-    pub fn graph_config(&self) -> GraphConfig {
+    pub fn graph_config(&self) -> Result<GraphConfig, Refusal> {
         let mut b = GraphConfig::builder();
         for n in &self.nodes {
             b = b.with_node_label(&n.label, &n.id_property);
@@ -130,7 +130,7 @@ impl Binding {
             b = b.with_relationship(e.rel_type.as_str(), "src", "dst");
         }
         b.build()
-            .expect("a binding's labels form a valid GraphConfig")
+            .map_err(|e| Refusal::InvalidBinding(e.to_string()))
     }
 
     fn node(&self, label: &str) -> Option<&NodeTable> {
@@ -162,6 +162,9 @@ impl NodeTable {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Refusal {
+    /// The [`Binding`] cannot form a valid `GraphConfig` (e.g. an empty id
+    /// property).
+    InvalidBinding(String),
     /// The upstream parser rejected the text.
     Unparsed(String),
     /// Semantic analysis or logical planning failed.
@@ -236,7 +239,7 @@ pub fn compile(
     bind: &Binding,
 ) -> Result<Compiled, Refusal> {
     let ast = parse_cypher_query(text).map_err(|e| Refusal::Unparsed(e.to_string()))?;
-    let cfg = bind.graph_config();
+    let cfg = bind.graph_config()?;
     let sem = SemanticAnalyzer::new(cfg.clone())
         .analyze(&ast, params)
         .map_err(|e| Refusal::Unplanned(e.to_string()))?;
@@ -330,9 +333,12 @@ fn peel(plan: &LogicalOperator) -> Result<(&LogicalOperator, &[ProjectionItem]),
 
 /// A RETURN aggregate, as this crate understands it.
 enum AggItem<'a> {
-    /// `count(*)`, `count(n)`, `count(n.p)`: one per binding (no NULLs here:
-    /// every lane is dense and every live row has a value).
-    Count,
+    /// `count(*)`, `count(n)` (`None`), `count(n.p)` (`Some((n, p))`): one per
+    /// binding. There are no NULLs here — every BOUND lane is dense — so a
+    /// property count is the row count only when `p` has a lane; an unbound
+    /// `p` is refused (it would otherwise answer the row count for a column
+    /// that does not exist, where openCypher counts its non-null values).
+    Count(Option<(&'a str, &'a str)>),
     /// `count(DISTINCT n)` (`None`) or `count(DISTINCT n.p)` (`Some(p)`).
     /// It counts distinct NODES only when `p` is the label's id property;
     /// [`distinct_node`] refuses any other `p` as a value-`DISTINCT`.
@@ -356,7 +362,8 @@ fn aggregate(item: &ProjectionItem) -> Result<AggItem<'_>, Refusal> {
     let name = name.to_ascii_lowercase();
     use ValueExpression::{Property as P, Variable as V};
     match (name.as_str(), args.as_slice(), *distinct) {
-        ("count", [V(_) | P(_)], false) => Ok(AggItem::Count),
+        ("count", [V(_)], false) => Ok(AggItem::Count(None)),
+        ("count", [P(p)], false) => Ok(AggItem::Count(Some((&p.variable, &p.property)))),
         ("count", [V(v)], true) if v != "*" => Ok(AggItem::CountDistinctNode(v, None)),
         ("count", [P(p)], true) => Ok(AggItem::CountDistinctNode(&p.variable, Some(&p.property))),
         ("sum", [P(p)], false) => Ok(AggItem::Sum(&p.variable, &p.property)),
@@ -421,7 +428,19 @@ fn node_agg(agg: &AggItem<'_>, var: &str, t: &NodeTable) -> Result<(Agg, ResultS
         }
     };
     Ok(match *agg {
-        AggItem::Count => (Agg::Count, ResultShape::Int),
+        AggItem::Count(prop) => {
+            if let Some((v, p)) = prop {
+                if v != var {
+                    return Err(Refusal::Shape(format!(
+                        "aggregate over {v}, pattern binds {var}"
+                    )));
+                }
+                if t.property(p).is_none() {
+                    return Err(Refusal::Unbound(format!("property {}.{p}", t.label)));
+                }
+            }
+            (Agg::Count, ResultShape::Int)
+        }
         // one row per node: a distinct-node count is the row count
         AggItem::CountDistinctNode(v, p) => {
             distinct_node(v, p, var, t)?;
@@ -606,7 +625,17 @@ fn one_hop(
     ]);
     let agg = match (demand, agg) {
         // one edge row is one walk: the bag count is exact (#1311)
-        (Demand::TerminalCount, AggItem::Count) | (Demand::EarlierCount, AggItem::Count) => {
+        (Demand::TerminalCount | Demand::EarlierCount, AggItem::Count(prop)) => {
+            if let Some((v, p)) = prop {
+                if *v != src_var && *v != target_variable.as_str() {
+                    return Err(Refusal::Shape(format!(
+                        "count over {v}, not a pattern variable"
+                    )));
+                }
+                if nodes.property(p).is_none() {
+                    return Err(Refusal::Unbound(format!("property {}.{p}", nodes.label)));
+                }
+            }
             Agg::Count
         }
         (Demand::TerminalSet, AggItem::CountDistinctNode(v, p))
