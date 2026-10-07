@@ -1,0 +1,25 @@
+[package]
+name = "lance-graph-cypher-quack"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "EXPERIMENTAL, routed nowhere. Cypher over tabular inputs lowered to lance-graph-quack: the upstream parser, semantic analysis and logical plan read-only through their public API, a demand classifier choosing the carrier, and typed refusals for every other shape. No DataFusion on its call path."
+
+[dependencies]
+# Parser, semantic analysis and logical plan only (public API, read-only).
+# Default features off: planner / cognitive / codecs are not needed here.
+# DataFusion stays in the BUILD graph (non-optional in lance-graph); nothing
+# here calls it (cypher-mask-lowering-v2 §3, OQ-CML-1 C2 vs C4).
+# Default features: `default-features = false` does not build today (lance-graph
+# uses ndarray outside the `ndarray-hpc` gate).
+lance-graph = { path = "../lance-graph" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+serde_json = "1"
+
+[dev-dependencies]
+# The differential tests run the same query through DataFusion as an oracle.
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
