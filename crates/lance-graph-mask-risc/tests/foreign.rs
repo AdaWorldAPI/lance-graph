@@ -152,6 +152,7 @@ fn gather_matches_the_oracle_including_out_of_range_and_a_tail() {
                 vec![MaskOp::Gather {
                     lane: 0,
                     foreign: 0,
+                    under: None,
                     dst: 0,
                 }],
                 Terminal::Keep { mask: S0 },
@@ -372,6 +373,7 @@ fn validation_refusals_match_between_executor_and_oracle() {
         vec![MaskOp::Gather {
             lane: 0,
             foreign: 3,
+            under: None,
             dst: 0,
         }],
         Terminal::Keep { mask: S0 },
@@ -390,6 +392,7 @@ fn validation_refusals_match_between_executor_and_oracle() {
         vec![MaskOp::Gather {
             lane: 2,
             foreign: 0,
+            under: None,
             dst: 0,
         }],
         Terminal::Keep { mask: S0 },
@@ -490,6 +493,7 @@ fn gather_composes_with_and_like_any_other_leaf() {
             MaskOp::Gather {
                 lane: 0,
                 foreign: 0,
+                under: None,
                 dst: 1,
             },
             MaskOp::And {
@@ -1898,4 +1902,196 @@ fn group_cross_power_sums_refuses_malformed_programs() {
     assert!(same
         .iter()
         .all(|g| g.sum_x == g.sum_y && u128::try_from(g.sum_xy) == Ok(g.sum_x_sq)));
+}
+
+/// Runs `p` through the executor (on a narrow, multi-tile scratch) and the
+/// row-at-a-time oracle, asserting both the value and every scratch slot
+/// agree, and returns the executor's slot words.
+fn run_both(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>, label: &str) -> Vec<Vec<u64>> {
+    let words = test_tile_words(planes.n_rows);
+    let slots = p.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let got = execute_into(p, planes, foreign, &mut scratch, Out::None).expect("runs");
+    let want = reference_execute_into(p, planes, foreign, Out::None).expect("oracle runs");
+    assert_eq!(got, want, "{label}: value");
+    let oracle_slots = reference_scratch_with_foreign(p, planes, foreign).expect("oracle scratch");
+    (0..slots)
+        .map(|i| {
+            let s = scratch.slot(i as u16).expect("written").to_vec();
+            assert_eq!(s, oracle_slots[i], "{label}: scratch slot {i}");
+            s
+        })
+        .collect()
+}
+
+/// FAILS IF: a gated `Gather` (`under: Some(..)`) disagrees with the oracle,
+/// or differs from the ungated `Gather` followed by an `And` with the same
+/// gate — for a gate that is a scratch slot AND for one that is a resident
+/// plane, across word tails, several tiles and out-of-range fk values.
+/// Non-vacuous: the gate is neither empty nor full, and on at least one
+/// fixture the gated result differs from the ungated one (so the gate is
+/// actually applied, not ignored).
+#[test]
+fn gated_gather_equals_gather_and_gate_for_scratch_and_plane_gates() {
+    let mut gate_changed_something = false;
+    let mut multi_tile = false;
+    for &n in &ROWS {
+        for &foreign_rows in &[5usize, 64, 70] {
+            let fx = Fixture::new(n, foreign_rows, 8, 0x6A7E ^ n as u64);
+            let (lanes, _) = fx.planes();
+            // A resident gate plane: random bits, tail clean.
+            let mut s = 0x9A7E_0001u64 ^ n as u64;
+            let mut gate_plane: Vec<u64> = (0..words_for(n)).map(|_| lcg(&mut s)).collect();
+            if !n.is_multiple_of(64) {
+                let last = gate_plane.len() - 1;
+                gate_plane[last] &= (1u64 << (n % 64)) - 1;
+            }
+            let masks: Vec<&[u64]> = vec![&gate_plane];
+            let planes = Planes {
+                n_rows: n,
+                masks: &masks,
+                lanes: &lanes,
+            };
+            let fp = fx.foreign_plane();
+            let foreign = Foreign {
+                planes: std::slice::from_ref(&fp),
+                lanes: &[],
+            };
+            multi_tile |= test_tile_words(n) < words_for(n);
+            let label = format!("n={n} foreign_rows={foreign_rows}");
+
+            // Scratch gate: `status != 2` computed in slot 0.
+            let pred = MaskOp::Pred {
+                pred: Pred::NeU32 { lane: 1, v: 2 },
+                under: None,
+                dst: 0,
+            };
+            let gated = Program::new(
+                vec![
+                    pred,
+                    MaskOp::Gather {
+                        lane: 0,
+                        foreign: 0,
+                        under: Some(S0),
+                        dst: 1,
+                    },
+                ],
+                Terminal::Keep { mask: S1 },
+            );
+            let composed = Program::new(
+                vec![
+                    pred,
+                    MaskOp::Gather {
+                        lane: 0,
+                        foreign: 0,
+                        under: None,
+                        dst: 1,
+                    },
+                    MaskOp::And {
+                        a: S1,
+                        b: S0,
+                        dst: 1,
+                    },
+                ],
+                Terminal::Keep { mask: S1 },
+            );
+            let g = run_both(&gated, &planes, &foreign, &format!("{label} scratch gate"));
+            let c = run_both(
+                &composed,
+                &planes,
+                &foreign,
+                &format!("{label} scratch composed"),
+            );
+            assert_eq!(g[1], c[1], "{label}: scratch-gated gather != gather & gate");
+
+            // Plane gate.
+            let gated_p = Program::new(
+                vec![MaskOp::Gather {
+                    lane: 0,
+                    foreign: 0,
+                    under: Some(Operand::Plane(0)),
+                    dst: 0,
+                }],
+                Terminal::Keep { mask: S0 },
+            );
+            let ungated = Program::new(
+                vec![MaskOp::Gather {
+                    lane: 0,
+                    foreign: 0,
+                    under: None,
+                    dst: 0,
+                }],
+                Terminal::Keep { mask: S0 },
+            );
+            let gp = run_both(&gated_p, &planes, &foreign, &format!("{label} plane gate"));
+            let u = run_both(&ungated, &planes, &foreign, &format!("{label} ungated"));
+            let want: Vec<u64> = u[0].iter().zip(&gate_plane).map(|(a, b)| a & b).collect();
+            assert_eq!(gp[0], want, "{label}: plane-gated gather != gather & plane");
+            gate_changed_something |= gp[0] != u[0];
+
+            // The gate must be a real selection, or the comparison is vacuous
+            // (a one-row table cannot be both partly kept and partly dropped).
+            if n > 1 {
+                let ones: u32 = gate_plane.iter().map(|w| w.count_ones()).sum();
+                assert!(
+                    ones > 0 && (ones as usize) < n,
+                    "{label}: gate plane is empty or full"
+                );
+            }
+        }
+    }
+    assert!(
+        gate_changed_something,
+        "no fixture's gate cleared a gathered bit"
+    );
+    assert!(multi_tile, "no fixture spans more than one tile");
+}
+
+/// FAILS IF: a `Gather` gated on its own destination is accepted. Same rule
+/// as `Pred`: the gate is read while `dst` is written, so `under ==
+/// Scratch(dst)` is refused by the executor and the oracle alike.
+#[test]
+fn gather_gated_on_its_own_dst_is_refused() {
+    let fx = Fixture::new(130, 40, 4, 0xD57);
+    let (lanes, masks) = fx.planes();
+    let planes = Planes {
+        n_rows: 130,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let fp = fx.foreign_plane();
+    let foreign = Foreign {
+        planes: std::slice::from_ref(&fp),
+        lanes: &[],
+    };
+    let p = Program::new(
+        vec![
+            MaskOp::Pred {
+                pred: Pred::NeU32 { lane: 1, v: 2 },
+                under: None,
+                dst: 0,
+            },
+            MaskOp::Gather {
+                lane: 0,
+                foreign: 0,
+                under: Some(S0),
+                dst: 0,
+            },
+        ],
+        Terminal::Keep { mask: S0 },
+    );
+    let words = words_for(130);
+    let slots = p.scratch_slots as usize;
+    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+    let want = ExecError::GateAliasesDst { dst: 0 };
+    assert_eq!(
+        execute_into(&p, &planes, &foreign, &mut scratch, Out::None),
+        Err(want)
+    );
+    assert_eq!(
+        reference_execute_into(&p, &planes, &foreign, Out::None),
+        Err(want)
+    );
 }

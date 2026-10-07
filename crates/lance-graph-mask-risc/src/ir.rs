@@ -262,11 +262,24 @@ pub enum MaskOp {
     /// line.partner_id AND <pred on p>` is `Gather{lane: partner_id, foreign:
     /// <mask of p rows satisfying pred>}` — the fk gather.
     ///
-    /// No `under` field: the facade primitive it lowers to
-    /// (`ndarray::simd::mask_gather_u32`) takes no gate. Compose a gate with
-    /// [`MaskOp::And`] instead — the same shape a gated `Ternlog` or a gated
-    /// `Range` write already uses when the fused kernel doesn't exist.
-    Gather { lane: u16, foreign: u16, dst: u16 },
+    /// `under: Some(g)` is the gated semijoin: `dst = gather & g`, and the
+    /// fk lane is read only at rows whose gate bit is set
+    /// (`ndarray::simd::mask_gather_u32_under` — zero gate words cost one
+    /// test, live words visit only their set bits). That is the shape a
+    /// conjunction needs: the gate is the earlier conjuncts' survivors, and
+    /// rows they rejected are never gathered. Measured on 1M rows
+    /// (`D-GATED-GATHER-0`): fastest or within noise of fastest at every gate
+    /// density, and ~20× faster than gather-then-`And` at 1 % survivors.
+    ///
+    /// `under: None` gathers every row (`ndarray::simd::mask_gather_u32`).
+    /// As for [`MaskOp::Pred`], the gate may not be `dst` itself
+    /// ([`ExecError::GateAliasesDst`](crate::ExecError::GateAliasesDst)).
+    Gather {
+        lane: u16,
+        foreign: u16,
+        under: Option<Operand>,
+        dst: u16,
+    },
 }
 
 /// What the program produces. Exactly one per program; the mask it reads is
@@ -777,7 +790,10 @@ impl Program {
                 // `foreign` is not a `Scratch`/`Plane` operand — it indexes
                 // `Foreign::planes`, a wholly separate address space this
                 // touch-based accounting has no business over.
-                MaskOp::Gather { dst, .. } => {
+                MaskOp::Gather { under, dst, .. } => {
+                    if let Some(u) = under {
+                        touch(u);
+                    }
                     touch(Operand::Scratch(dst));
                 }
             }

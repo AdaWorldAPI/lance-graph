@@ -574,6 +574,7 @@ fn the_extent_never_slices_a_foreign_plane() {
         vec![MaskOp::Gather {
             lane: 0,
             foreign: 0,
+            under: None,
             dst: 0,
         }],
         Terminal::Count {

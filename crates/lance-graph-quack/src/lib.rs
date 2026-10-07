@@ -1918,9 +1918,9 @@ enum Node {
     /// A resident plane read as an operand.
     Plane(Mask),
     /// The fk semijoin leaf ([`Filter::Semijoin`]), gated by `under` when
-    /// there is one — same shape as `Pred`, except the gate cannot be baked
-    /// into `MaskOp::Gather` itself (it has no `under` field), so the two
-    /// emitters apply it as an explicit `AND` after the `Gather` write.
+    /// there is one — same shape as `Pred`: both emitters bake the gate into
+    /// `MaskOp::Gather { under }`, so rows the gate rejects are never
+    /// gathered.
     Gather {
         fk: u16,
         foreign: u16,
@@ -1994,10 +1994,9 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
             gate.is_some(),
         ),
         // Same "vanishes with the gate" reasoning as `Cmp` above: both
-        // emitters apply `under` as an explicit `AND` on the `Gather`
-        // result, so the emitted value is literally `gather & gate`
-        // whenever `under` is `Some` — a real subset of the gate, not a
-        // conservative guess.
+        // emitters bake `under` into `MaskOp::Gather { under }`, so the
+        // emitted value is literally `gather & gate` whenever `under` is
+        // `Some` — a real subset of the gate, not a conservative guess.
         Filter::Semijoin { fk, foreign } => (
             Node::Gather {
                 fk: fk.0,
@@ -2196,23 +2195,18 @@ fn emit_gated(
         }
         Node::Plane(m) => Ok(Operand::Plane(m.0)),
         Node::Gather { fk, foreign, under } => {
+            // Same choice as `Pred` above: the plane gate `under` wins over
+            // the accumulator when both are available. The gate is baked
+            // into the op, so the fk lane is read only at rows the earlier
+            // conjuncts kept (`mask_gather_u32_under`), instead of gathering
+            // every row and masking afterwards.
+            let gate = under.map(|m| Operand::Plane(m.0)).or(acc_gate);
             ops.push(MaskOp::Gather {
                 lane: *fk,
                 foreign: *foreign,
+                under: gate,
                 dst,
             });
-            // Same choice as `Pred` above: the plane gate `under` wins over
-            // the accumulator when both are available — `Gather` has no
-            // `under` field of its own, so this is an explicit `AND` rather
-            // than a baked-in gate, but the precedence rule is identical.
-            let gate = under.map(|m| Operand::Plane(m.0)).or(acc_gate);
-            if let Some(g) = gate {
-                ops.push(MaskOp::And {
-                    a: Operand::Scratch(dst),
-                    b: g,
-                    dst,
-                });
-            }
             Ok(Operand::Scratch(dst))
         }
         Node::Not(inner) => {
@@ -2298,24 +2292,16 @@ fn assign_slots(n: &Node, ops: &mut Vec<MaskOp>) -> Result<BoolExpr, LowerError>
             let dst = u16::try_from(ops.len()).map_err(|_| LowerError::TooManySlots {
                 needed: ops.len() + 1,
             })?;
+            // Baked into the op exactly like `Pred` above: the plane gate
+            // decides which rows are gathered at all, so it is not left for
+            // the fuser to AND in afterwards.
             ops.push(MaskOp::Gather {
                 lane: *fk,
                 foreign: *foreign,
+                under: under.map(|m| Operand::Plane(m.0)),
                 dst,
             });
-            let leaf = BoolExpr::Leaf(Operand::Scratch(dst));
-            // `Gather` has no `under` field, so the gate — unlike a `Pred`'s
-            // — cannot be baked into the op. Folding it into the BOOLEAN
-            // EXPRESSION instead lets the fuser absorb the `AND` into a
-            // ternlog along with everything else, rather than paying a
-            // separate mask pass the way `emit_gated`'s in-place form does.
-            Ok(match under {
-                Some(m) => BoolExpr::And(
-                    Box::new(leaf),
-                    Box::new(BoolExpr::Leaf(Operand::Plane(m.0))),
-                ),
-                None => leaf,
-            })
+            Ok(BoolExpr::Leaf(Operand::Scratch(dst)))
         }
         Node::Not(inner) => Ok(BoolExpr::Not(Box::new(assign_slots(inner, ops)?))),
         Node::And(parts) | Node::Or(parts) => {
@@ -3102,11 +3088,13 @@ mod tests {
                 MaskOp::Ternlog { a, b, c, .. } => {
                     read_as_leaf |= a == gate || b == gate || c == gate;
                 }
-                // `Gather` names no `Operand` among its own fields (`lane`
-                // and `foreign` are plain indices, not `a`/`b`/`c`), so it
-                // can never read `gate` as a Boolean operand the way the
-                // other ops can.
-                MaskOp::Gather { .. } => {}
+                // `lane` and `foreign` are plain indices; the only operand a
+                // `Gather` reads is its gate, classified exactly as `Pred`'s.
+                MaskOp::Gather { under, .. } => match under {
+                    Some(Operand::Scratch(_)) => on_accumulator = true,
+                    Some(_) => {}
+                    None => all_gated = false,
+                },
             }
         }
         let terminal_reads_gate = matches!(
