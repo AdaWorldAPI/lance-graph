@@ -1,3 +1,8 @@
+## 2026-10-07 — lance-graph #1397 MERGED (`4a0a72c`); D-PUZZLE-ATTN-0 on branch
+
+- #1397: D-CE64-CYCLE-0, probe-only (no contract change).
+- D-PUZZLE-ATTN-0 (branch `claude/epistemicstate5-ce64-bits-3oe0dq`, unmerged): the crossword core moves to `cognitive-shader-driver/examples/shared/crossword_core.rs`; `crossword_attention_probe.rs` compares slot policies. No contract change.
+
 ## 2026-10-07 — lance-graph #1395 MERGED (`5658c10`); D-CE64-CYCLE-0 on branch
 
 - #1395: D-CE64-LOOP-0 and D-CE64-STAUNEN-0, probes in `lance-graph-planner/examples` (no contract change).
