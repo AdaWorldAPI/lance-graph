@@ -406,12 +406,87 @@ pub fn smtp_duplicates(v: &View<'_>) -> Vec<Violation> {
 /// The rows are collected per user and sorted — `O(n log n)` over the users,
 /// a validation pass rather than the simulation hot path.
 pub fn address_rules(v: &View<'_>) -> Vec<Violation> {
+    let mut out = Vec::new();
+    let rows = address_rows(v, &mut out);
+    for run in rows.chunk_by(|a, b| a.0 == b.0) {
+        // Per holder: does it hold the key as SMTP, as UPN?
+        let holders: Vec<(Guid128, bool, bool)> = run
+            .chunk_by(|a, b| a.1 == b.1)
+            .map(|h| {
+                let has = |f: fn(AddressRole) -> bool| h.iter().any(|r| f(r.2));
+                (
+                    h[0].1,
+                    has(|r| matches!(r, AddressRole::PrimarySmtp | AddressRole::SecondarySmtp)),
+                    has(|r| r == AddressRole::Upn),
+                )
+            })
+            .collect();
+        // Two holders conflict across attributes unless they already
+        // collide as SMTP (DuplicateSmtp) or as UPN (DuplicateUpn).
+        let cross = holders.iter().enumerate().any(|(i, a)| {
+            holders[i + 1..]
+                .iter()
+                .any(|b| !(a.1 && b.1) && !(a.2 && b.2))
+        });
+        if !cross {
+            continue;
+        }
+        out.push(Violation::AddressConflict {
+            key: KeyId(run[0].0),
+            holders: run.iter().map(|r| (r.1, r.2)).collect(),
+        });
+    }
+    out
+}
+
+/// The single directory object that holds `key` in the one address space
+/// [`address_rules`] checks, read from the same rows: `mail` of every user;
+/// UPN, primary and secondary SMTP and the routing address of address
+/// owners.
+///
+/// - `Ok(None)`: no live directory object holds the key.
+/// - `Ok(Some(owner))`: exactly one does, under one or more roles (a user
+///   whose `mail` is its primary SMTP is one owner).
+/// - `Err(Violation::AddressConflict { key, holders })`: two or more do.
+///   Every `(holder, role)` is listed, sorted by holder. No holder is
+///   chosen: not the first, not by attribute, not by observation order.
+///   This is reported for any shared key, including a same-attribute
+///   collision that [`validate`] classes as `DuplicateSmtp`/`DuplicateUpn`
+///   rather than `AddressConflict`, because either way the key does not
+///   name one recipient.
+///
+/// `key` comes from an ingress lookup (`Dicts::key_lookup` of a recipient
+/// address); this function compares ids only. `O(n log n)` over the users,
+/// like [`address_rules`].
+///
+/// # Errors
+///
+/// `Violation::AddressConflict` when more than one object holds `key`.
+pub fn address_owner(v: &View<'_>, key: KeyId) -> Result<Option<Guid128>, Violation> {
+    let mut routing = Vec::new();
+    let rows = address_rows(v, &mut routing);
+    let start = rows.partition_point(|r| r.0 < key.0);
+    let end = rows.partition_point(|r| r.0 <= key.0);
+    let run = &rows[start..end];
+    match run.first() {
+        None => Ok(None),
+        Some(first) if run.iter().all(|r| r.1 == first.1) => Ok(Some(first.1)),
+        Some(_) => Err(Violation::AddressConflict {
+            key,
+            holders: run.iter().map(|r| (r.1, r.2)).collect(),
+        }),
+    }
+}
+
+/// The `(key, holder, role)` rows of the one address space, sorted and
+/// deduplicated, with the routing violations (`RoutingNotInProxies`,
+/// `RoutingMismatch`) pushed to `out` on the way.
+fn address_rows(v: &View<'_>, out: &mut Vec<Violation>) -> Vec<(u32, Guid128, AddressRole)> {
     let p = &v.snap.users;
     let rel = &v.snap.proxies;
     let owners = v.owner_users();
     let n = p.len();
     let mut rows: Vec<(u32, Guid128, AddressRole)> = Vec::new();
-    let mut out = Vec::new();
     for i in 0..v.users_len() {
         let Some(g) = v.guid_in(NodeKind::User, i) else {
             continue;
@@ -471,38 +546,9 @@ pub fn address_rules(v: &View<'_>) -> Vec<Violation> {
             out.push(Violation::RoutingMismatch { node: g });
         }
     }
-
     rows.sort_unstable();
     rows.dedup();
-    for run in rows.chunk_by(|a, b| a.0 == b.0) {
-        // Per holder: does it hold the key as SMTP, as UPN?
-        let holders: Vec<(Guid128, bool, bool)> = run
-            .chunk_by(|a, b| a.1 == b.1)
-            .map(|h| {
-                let has = |f: fn(AddressRole) -> bool| h.iter().any(|r| f(r.2));
-                (
-                    h[0].1,
-                    has(|r| matches!(r, AddressRole::PrimarySmtp | AddressRole::SecondarySmtp)),
-                    has(|r| r == AddressRole::Upn),
-                )
-            })
-            .collect();
-        // Two holders conflict across attributes unless they already
-        // collide as SMTP (DuplicateSmtp) or as UPN (DuplicateUpn).
-        let cross = holders.iter().enumerate().any(|(i, a)| {
-            holders[i + 1..]
-                .iter()
-                .any(|b| !(a.1 && b.1) && !(a.2 && b.2))
-        });
-        if !cross {
-            continue;
-        }
-        out.push(Violation::AddressConflict {
-            key: KeyId(run[0].0),
-            holders: run.iter().map(|r| (r.1, r.2)).collect(),
-        });
-    }
-    out
+    rows
 }
 
 /// Every invariant, sorted. Empty = valid.
