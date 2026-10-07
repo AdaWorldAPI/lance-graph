@@ -87,6 +87,10 @@ test = true
 name = "observation_revision_probe"
 test = true
 
+[[example]]
+name = "revision_epistemic_writer_probe"
+test = true
+
 # D-GSO-6 recipe selector probe; tests run under `cargo test`.
 [[example]]
 name = "recipe_selector_probe"
