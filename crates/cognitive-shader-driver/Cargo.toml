@@ -153,6 +153,16 @@ test = true
 name = "sudoku_population_fold_probe"
 test = true
 
+# D-PUZZLE-0 step 2: crosswords on the same population algebra (shared fold
+# with the Sudoku probe); tests run under `cargo test`.
+[[example]]
+name = "crossword_population_fold_probe"
+test = true
+
+[[example]]
+name = "crossword_real_words_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the

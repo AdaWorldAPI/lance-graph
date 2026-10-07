@@ -413,3 +413,32 @@ checked once per lane. Every count agrees three ways — population filter,
 ```bash
 cargo run --release -p cognitive-shader-driver --example sudoku_population_fold_probe
 ```
+
+## crossword_population_fold_probe.rs
+
+D-PUZZLE-0, step 2. Crosswords on the same population algebra as the Sudoku
+probe: ten-slot 5×5 grids with generated fills, distractor words, two given
+slots and a forced-single law, each instance checked to have exactly one
+solution. The probe holds only the domain; the reading, questions, folds and
+oracle come unchanged from `shared/population_fold.rs`, whose fence test
+fails if domain vocabulary enters the shared half.
+
+```bash
+cargo run --release -p cognitive-shader-driver --example crossword_population_fold_probe
+```
+
+## crossword_real_words_probe.rs
+
+D-PUZZLE-0 step 2b. The step-2 crossword with a real dictionary: every 4- and
+5-letter word of DeepNSM's English vocabularies (v1's 4096-word
+`word_rank_lookup.csv` plus v2's `academic_20k.csv`, both committed), and of
+the 20,000 most frequent DeReKo-2014 German forms, read only when
+`DEREKO_PATH` names the file (CC BY-NC 3.0; nothing derived is committed).
+Instances are random fills, givens added until the fill is unique. About 1.0M
+edges per language; every count agrees three ways. Board:
+`.claude/board/entries/2026-10-07-puzzle-0-crossword-real-words.md`.
+
+```
+cargo run --release -p cognitive-shader-driver --example crossword_real_words_probe
+DEREKO_PATH=/path/DeReKo-2014-II-MainArchive-STT.100000.freq cargo run --release -p cognitive-shader-driver --example crossword_real_words_probe
+```
