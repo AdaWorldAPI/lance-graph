@@ -1,3 +1,10 @@
+## 2026-10-07 — lance-graph #1391 MERGED; D-PEARL-PROD-0 shipped
+
+- #1391 (`53212db`): Pearl's ladder in production (`lance_graph_planner::pearl::{reason, revise, hydrate}`; `revise(&Measured, Reading)` writes back only to the measured edge). Supersedes the "on branch, unmerged" line in the section below.
+- Contract delta, now on main: `certification` (`CertificationModel` / `ModelBuilder` generic over `PopulationMask`) and `dismech_evidence::{DISMECH_CONCEPT_ID, citation_quorum, CitationQuorum}` (listed under the section below).
+- Planner: `chain_replay`, `chain_counterfactual` (renamed from `dismech_*`, deprecated aliases kept) and `chain_admission` (palette resolved by the classid's concept half).
+- Open: no runtime producer of sealed evidence; demotion policy; what counts as a distinct source; the W2b field map.
+
 ## 2026-10-07 — lance-graph #1387 and #1390 MERGED; D-PEARL-PROD-0 on branch
 
 - #1387 (`e6612dc`): D-PUZZLE-0 step 3, crossword mask propagation (four arms, cui-bono ablation). #1390 (`6368d8c`): D-PEARL-IO-0 probe, the CE64 upper-half diagram and its comparison page, README picture. No contract change in either.
