@@ -1,7 +1,9 @@
-//! **D-DCR-3 (W3) — counterfactual replay.** `dismech-causal-replay-v1` §3 W3.
+//! **Counterfactual chain replay — domain-agnostic.** Originally D-DCR-3 (W3)
+//! of `dismech-causal-replay-v1` §3, renamed from `dismech_counterfactual`:
+//! nothing here reads a DisMech predicate.
 //!
 //! The SAME W1 replay with one edge cut — Pearl rung 3. **Never a second
-//! replay path:** [`crate::dismech_replay::replay_chain`] runs both the
+//! replay path:** [`crate::chain_replay::replay_chain`] runs both the
 //! factual and the counterfactual arm, so a divergence can only come from the
 //! cut and never from two implementations drifting apart.
 //!
@@ -47,7 +49,7 @@ use causal_edge::CausalEdge64;
 use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::counterfactual::EpisodicEdge;
 
-use crate::dismech_replay::{replay_chain, ChainStep, ComposeTables, ReplayError, ReplayTraceRow};
+use crate::chain_replay::{replay_chain, ChainStep, ComposeTables, ReplayError, ReplayTraceRow};
 
 /// The bridge `contract::counterfactual` documents as BLOCKED on workspace
 /// structure — `impl EpisodicEdge for CausalEdge64`.
@@ -237,7 +239,7 @@ pub fn counterfactual_replay(
         // The counterfactual arm reserves its OWN durable range, immediately
         // after the factual one — the two traces coexist and must never share
         // a coordinate (`LocalCausalRow::cast_seq` uniqueness).
-        let cf_base = crate::dismech_replay::next_base_seq(base_seq, chain.len()).ok_or(
+        let cf_base = crate::chain_replay::next_base_seq(base_seq, chain.len()).ok_or(
             ReplayError::SequenceExhausted {
                 base_seq,
                 steps: chain.len(),

@@ -186,10 +186,10 @@ fn monotonicity_census() -> Census {
                         b.cell(1, false, b1.0, b1.1);
                         b.sources(SupportBasis::DirectlyObserved, &[1, 2]);
                         if drop && hit != 0 {
-                            b.m.clean &= !(hit.isolate_lowest_one());
+                            b.model_mut().clean &= !(hit.isolate_lowest_one());
                         }
                         if unordered && hit != 0 {
-                            b.m.ordered &= !(hit.isolate_lowest_one());
+                            b.model_mut().ordered &= !(hit.isolate_lowest_one());
                         }
                         let m = b.build();
                         c.models += 1;
@@ -321,7 +321,7 @@ mod tests {
         let (_, hits) = b.cell(0, true, 6, 3);
         b.cell(0, false, 6, 1);
         b.sources(SupportBasis::DirectlyObserved, &[1, 2]);
-        b.m.clean &= !hits;
+        b.model_mut().clean &= !hits;
         let outlier = b.build();
         assert_eq!(outlier.associated(), Ok(true));
         assert_eq!(outlier.related(), Ok(false));
@@ -333,9 +333,9 @@ mod tests {
         h.cell(0, true, 4, 2);
         let (_, hidden) = h.cell(0, false, 4, 3);
         h.sources(SupportBasis::DirectlyObserved, &[1, 2]);
-        h.m.clean &= !hidden;
+        h.model_mut().clean &= !hidden;
         let hidden = h.build();
-        assert_eq!(hidden.assoc_in(hidden.universe & hidden.clean), Ok(true));
+        assert_eq!(hidden.assoc_in(&(hidden.universe & hidden.clean)), Ok(true));
         assert_eq!(hidden.related(), Ok(false));
         assert_eq!(hidden.certify(), Contract::Open);
     }
@@ -519,7 +519,7 @@ mod tests {
         let mut m = b.build();
         m.trial &= !sib_arm; // the identification design compares A with untreated
         assert_eq!(m.certify(), Contract::Causes);
-        assert_eq!(compare(m.outcome, a_arm, sib_arm, true), Ok(false));
+        assert_eq!(compare(&m.outcome, &a_arm, &sib_arm, true), Ok(false));
     }
 
     /// Receipts recorded after the model's seal do not count: certification

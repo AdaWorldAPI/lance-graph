@@ -1,3 +1,13 @@
+## 2026-10-07 — lance-graph #1387 and #1390 MERGED; D-PEARL-PROD-0 on branch
+
+- #1387 (`e6612dc`): D-PUZZLE-0 step 3, crossword mask propagation (four arms, cui-bono ablation). #1390 (`6368d8c`): D-PEARL-IO-0 probe, the CE64 upper-half diagram and its comparison page, README picture. No contract change in either.
+- D-PEARL-PROD-0 (branch `claude/epistemicstate5-ce64-bits-3oe0dq`, unmerged): Pearl's ladder moves into production. `lance_graph_planner::pearl::{reason, revise, hydrate}` dispatch on bits 40..42 and revise bits 59..63 from the measurement.
+
+### Current Contract Inventory — net delta (`certification.rs`)
+
+- `lance_graph_contract::certification::{CertificationModel, ModelBuilder, PopulationMask, NotGrounded, Sat, compare, count, distinct_sources, OBSERVATION, INTERVENTION, MIN_SOURCES}` — the P7a obligations behind each `Certification3` code, as integer folds over unit masks. Generic over `PopulationMask` (a sub-trait of `revision::EvidenceMask` adding count / full / unit): `u64` (64 units, the default) or `[u64; N]` (`64 * N` units; `[u64; 1024]` is one 64k-row cycle). `certification()` returns the strongest code the model satisfies; `observational_certification()` cannot return `Causes`; only the executed randomized arms (`causes()`, at least two distinct `InterventionBacked` sources) can. Receipts after the seal do not count. Moved from `cognitive-shader-driver/examples/shared/certification_model.rs`, behaviour unchanged (the P7a probe's 13 tests pass against it).
+- `lance_graph_contract::dismech_evidence::{DISMECH_CONCEPT_ID, citation_quorum, CitationQuorum}` — the DisMech concept id (`0x0333`, the G a chain's classid routes by; fused in `lance_graph_ogar::parity`) and the fold of `(CitationKey, Supports)` stances on one relation into an `ontology_warrant::Quorum` over distinct citations (`PARTIAL` and `NO_EVIDENCE` abstain; two-sided citations are kept and counted in `both_ways`).
+
 ## 2026-10-07 — lance-graph #1382 and #1384 MERGED; D-PUZZLE-0 step 3 on branch
 
 - #1382 (`bccc46e`): Sudoku population-fold probe. #1384 (`23e8d93`): shared fold module + crossword probes (steps 2/2b). No contract change in either.

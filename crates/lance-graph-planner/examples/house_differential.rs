@@ -161,7 +161,7 @@ use lance_graph_contract::counterfactual::deposit_counterfactual;
 use lance_graph_contract::escalation::InnerCouncil;
 use lance_graph_contract::recipes::recipe;
 
-use lance_graph_planner::dismech_counterfactual::CounterfactualEdge;
+use lance_graph_planner::chain_counterfactual::CounterfactualEdge;
 use lance_graph_planner::nars::tactics::{ASC_ID, CAS_ID, CR_ID, RCR_ID, TR_ID};
 use lance_graph_planner::nars::{
     asc_challenge, cas_abstract, cr_synthesize, rcr_abduce, AscOutcome, BeliefArena, CStmt,
