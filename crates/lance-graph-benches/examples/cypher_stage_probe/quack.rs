@@ -17,7 +17,9 @@ use lance_graph_mask_risc::{
     execute_into, materialize_rows, words_for, Foreign, ForeignPlane, LaneRef, Out, Planes,
     Program, Scratch, Value,
 };
-use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, ForeignPlane as FP, GroupAddr, GroupAgg, Mask, Query};
+use lance_graph_quack::{
+    lower, Agg, Cmp, Col, Filter, ForeignPlane as FP, GroupAddr, GroupAgg, Mask, Query,
+};
 
 use crate::common::{fmt_us, measure, median, Answer, Data, PROBE_ID};
 
@@ -71,8 +73,16 @@ fn both_ends() -> Filter {
 }
 
 fn plan(id: &str) -> Plan {
-    let person = |filter, agg| Step { table: Table::Person, query: Query { filter, agg }, sink: Sink::None };
-    let edges = |filter, agg| Step { table: Table::Edges, query: Query { filter, agg }, sink: Sink::None };
+    let person = |filter, agg| Step {
+        table: Table::Person,
+        query: Query { filter, agg },
+        sink: Sink::None,
+    };
+    let edges = |filter, agg| Step {
+        table: Table::Edges,
+        query: Query { filter, agg },
+        sink: Sink::None,
+    };
     let gt = |k| Filter::and([Filter::plane(ALPHA), Filter::cmp(AGE, Cmp::GtI32(k))]);
     match id {
         "Q0" => Plan::One(person(Filter::plane(ALPHA), Agg::Count)),
@@ -85,7 +95,10 @@ fn plan(id: &str) -> Plan {
                 table: Table::Edges,
                 query: Query {
                     filter: both_ends(),
-                    agg: Agg::GroupReduce { key: GroupAddr::Local(DST), agg: GroupAgg::Count },
+                    agg: Agg::GroupReduce {
+                        key: GroupAddr::Local(DST),
+                        agg: GroupAgg::Count,
+                    },
                 },
                 sink: Sink::PerPerson,
             },
@@ -93,7 +106,10 @@ fn plan(id: &str) -> Plan {
                 table: Table::Edges,
                 query: Query {
                     filter: both_ends(),
-                    agg: Agg::GroupReduce { key: GroupAddr::Local(SRC), agg: GroupAgg::Count },
+                    agg: Agg::GroupReduce {
+                        key: GroupAddr::Local(SRC),
+                        agg: GroupAgg::Count,
+                    },
                 },
                 sink: Sink::PerPerson,
             },
@@ -101,19 +117,27 @@ fn plan(id: &str) -> Plan {
         "Q5" => Plan::One(Step {
             table: Table::Person,
             query: Query {
-                filter: Filter::and([Filter::plane(ALPHA), Filter::cmp(PID, Cmp::EqU32(PROBE_ID as u32))]),
+                filter: Filter::and([
+                    Filter::plane(ALPHA),
+                    Filter::cmp(PID, Cmp::EqU32(PROBE_ID as u32)),
+                ]),
                 agg: Agg::Rows,
             },
             sink: Sink::KeepMask,
         }),
         // edge table is stored in dst order — the ordered-distinct precondition
-        "Q6" | "Q6b" => Plan::One(edges(both_ends(), Agg::CountDistinctOrderedU32 { key: DST })),
+        "Q6" | "Q6b" => Plan::One(edges(
+            both_ends(),
+            Agg::CountDistinctOrderedU32 { key: DST },
+        )),
         "Q7" | "Q8" => Plan::Gap(
             "ordered compare through an fk (a.age > k read via src): only EqU32Via exists; \
              a Person Keep mask fed to the edge Semijoin is the forbidden shape",
         ),
         "Q9" => Plan::One(person(gt(78), Agg::Any)),
-        "QV" => Plan::Gap("sum of a foreign value (hop-2 walks = sum over src=0 edges of out[dst])"),
+        "QV" => {
+            Plan::Gap("sum of a foreign value (hop-2 walks = sum over src=0 edges of out[dst])")
+        }
         "QVd" | "Q10" => Plan::Gap(
             "hop chain over a computed frontier: the hop-1 target mask would be a scattered \
              intermediate (RF-CHAIN)",
@@ -133,7 +157,7 @@ impl<'a> World<'a> {
     fn new(d: &'a Data) -> Self {
         let ones = |n: usize| {
             let mut w = vec![u64::MAX; words_for(n)];
-            if n % 64 != 0 {
+            if !n.is_multiple_of(64) {
                 *w.last_mut().unwrap() = (1u64 << (n % 64)) - 1;
             }
             w
@@ -160,9 +184,19 @@ impl<'a> World<'a> {
             ),
         };
         let masks: [&[u64]; 1] = [alpha];
-        let planes = Planes { n_rows, masks: &masks, lanes: &lanes };
-        let fplanes = [ForeignPlane { words: &self.alpha_p, rows: self.d.n_people }];
-        let foreign = Foreign { planes: &fplanes, lanes: &[] };
+        let planes = Planes {
+            n_rows,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let fplanes = [ForeignPlane {
+            words: &self.alpha_p,
+            rows: self.d.n_people,
+        }];
+        let foreign = Foreign {
+            planes: &fplanes,
+            lanes: &[],
+        };
         let mut scratch = Scratch::for_program(program, n_rows).expect("scratch carves");
         execute_into(program, &planes, &foreign, &mut scratch, out).expect("executes")
     }
@@ -222,7 +256,11 @@ pub fn suite(sizes: &[usize], reps_for: impl Fn(usize) -> usize) {
                         got = Some(a);
                     }
                     let got = got.unwrap();
-                    let verdict = if got == want { "OK".to_string() } else { format!("WRONG(got={got:?},want={want:?})") };
+                    let verdict = if got == want {
+                        "OK".to_string()
+                    } else {
+                        format!("WRONG(got={got:?},want={want:?})")
+                    };
                     let ec: crate::common::Cost = ec;
                     println!(
                         "{n}\t{}\t{verdict}\t{}\t{}\t{}\t{}\tone program",
@@ -234,7 +272,12 @@ pub fn suite(sizes: &[usize], reps_for: impl Fn(usize) -> usize) {
                     );
                 }
                 Plan::TwoFoldsAndDot(a, b) => {
-                    let ((pa, pb), lc) = measure(|| (lower(&a.query).expect("lowers"), lower(&b.query).expect("lowers")));
+                    let ((pa, pb), lc) = measure(|| {
+                        (
+                            lower(&a.query).expect("lowers"),
+                            lower(&b.query).expect("lowers"),
+                        )
+                    });
                     let mut ts = Vec::with_capacity(reps);
                     let mut got = 0i64;
                     let mut ec = crate::common::Cost::default();
@@ -249,7 +292,11 @@ pub fn suite(sizes: &[usize], reps_for: impl Fn(usize) -> usize) {
                         got = v;
                     }
                     let got = Answer::Int(got);
-                    let verdict = if got == want { "OK".to_string() } else { format!("WRONG(got={got:?},want={want:?})") };
+                    let verdict = if got == want {
+                        "OK".to_string()
+                    } else {
+                        format!("WRONG(got={got:?},want={want:?})")
+                    };
                     println!(
                         "{n}\t{}\t{verdict}\t{}\t{}\t{}\t{}\ttwo folds + host dot (potential: needs foreign-value sum)",
                         q.id,
@@ -302,12 +349,20 @@ pub fn prepared_param_probe(n: usize, values: &[u32]) -> (u128, usize) {
     let mut ts = Vec::with_capacity(values.len());
     for &v in values {
         let t = std::time::Instant::now();
-        if let MaskOp::Pred { pred: Pred::EqU32 { v: slot_v, .. }, .. } = &mut program.ops[slot] {
+        if let MaskOp::Pred {
+            pred: Pred::EqU32 { v: slot_v, .. },
+            ..
+        } = &mut program.ops[slot]
+        {
             *slot_v = v;
         }
         let got = w.answer("Q5", &step, &program);
         ts.push(t.elapsed().as_nanos());
-        assert_eq!(program, lower(&q(v)).expect("lowers"), "patched program == fresh lowering for {v}");
+        assert_eq!(
+            program,
+            lower(&q(v)).expect("lowers"),
+            "patched program == fresh lowering for {v}"
+        );
         let want = if (v as usize) < d.n_people {
             Answer::Strings(vec![d.name[v as usize].clone()])
         } else {

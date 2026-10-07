@@ -197,8 +197,12 @@ impl Data {
         let friend = RecordBatch::try_new(
             fs,
             vec![
-                Arc::new(Int32Array::from_iter_values(self.src.iter().map(|&v| v as i32))),
-                Arc::new(Int32Array::from_iter_values(self.dst.iter().map(|&v| v as i32))),
+                Arc::new(Int32Array::from_iter_values(
+                    self.src.iter().map(|&v| v as i32),
+                )),
+                Arc::new(Int32Array::from_iter_values(
+                    self.dst.iter().map(|&v| v as i32),
+                )),
             ],
         )
         .unwrap();
@@ -397,17 +401,23 @@ pub struct Stages {
     pub mat: Cost,
 }
 
+// One value per query per run; the size gap does not matter here.
+#[allow(clippy::large_enum_variant)]
 pub enum Outcome {
     Ok(Answer, Stages),
     Err(&'static str, String),
 }
 
-fn catalog_and_ctx(person: &RecordBatch, friend: &RecordBatch) -> (InMemoryCatalog, SessionContext) {
+fn catalog_and_ctx(
+    person: &RecordBatch,
+    friend: &RecordBatch,
+) -> (InMemoryCatalog, SessionContext) {
     let ctx = SessionContext::new();
     let mut catalog = InMemoryCatalog::new();
     for (name, batch) in [("Person", person), ("FRIEND_OF", friend)] {
         let mem = Arc::new(MemTable::try_new(batch.schema(), vec![vec![batch.clone()]]).unwrap());
-        ctx.register_table(name.to_lowercase(), mem.clone()).unwrap();
+        ctx.register_table(name.to_lowercase(), mem.clone())
+            .unwrap();
         let src = Arc::new(DefaultTableSource::new(mem));
         catalog = catalog
             .with_node_source(name, src.clone())
@@ -419,8 +429,11 @@ fn catalog_and_ctx(person: &RecordBatch, friend: &RecordBatch) -> (InMemoryCatal
 /// One cold run of the whole pipeline, stage by stage.
 pub async fn run_cold(q: &Q, person: &RecordBatch, friend: &RecordBatch) -> Outcome {
     let cfg = config();
-    let params: HashMap<String, serde_json::Value> =
-        q.params.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
+    let params: HashMap<String, serde_json::Value> = q
+        .params
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect();
     let mut st = Stages::default();
 
     let (ast, c) = measure(|| parse_cypher_query(q.text));
@@ -497,20 +510,40 @@ pub async fn run_cold(q: &Q, person: &RecordBatch, friend: &RecordBatch) -> Outc
 /// logical planning run ONCE; each repetition rebuilds only the physical plan
 /// and executes it. Reusing the physical plan itself is not possible: see
 /// [`reexec_probe`].
-pub async fn run_prepared_exec(q: &Q, person: &RecordBatch, friend: &RecordBatch, reps: usize) -> Option<u128> {
+pub async fn run_prepared_exec(
+    q: &Q,
+    person: &RecordBatch,
+    friend: &RecordBatch,
+    reps: usize,
+) -> Option<u128> {
     let cfg = config();
-    let params: HashMap<String, serde_json::Value> =
-        q.params.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
+    let params: HashMap<String, serde_json::Value> = q
+        .params
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect();
     let ast = parse_cypher_query(q.text).ok()?;
-    let sem = SemanticAnalyzer::new(cfg.clone()).analyze(&ast, &params).ok()?;
+    let sem = SemanticAnalyzer::new(cfg.clone())
+        .analyze(&ast, &params)
+        .ok()?;
     let lp = LogicalPlanner::new(&cfg).plan(&sem.ast).ok()?;
     let (catalog, ctx) = catalog_and_ctx(person, friend);
-    let dfp = DataFusionPlanner::with_catalog(cfg, Arc::new(catalog)).plan(&lp).ok()?;
+    let dfp = DataFusionPlanner::with_catalog(cfg, Arc::new(catalog))
+        .plan(&lp)
+        .ok()?;
     let mut ts = Vec::with_capacity(reps);
     for _ in 0..reps {
         let t = Instant::now();
-        let phys = ctx.execute_logical_plan(dfp.clone()).await.ok()?.create_physical_plan().await.ok()?;
-        let b = datafusion::physical_plan::collect(phys, ctx.task_ctx()).await.ok()?;
+        let phys = ctx
+            .execute_logical_plan(dfp.clone())
+            .await
+            .ok()?
+            .create_physical_plan()
+            .await
+            .ok()?;
+        let b = datafusion::physical_plan::collect(phys, ctx.task_ctx())
+            .await
+            .ok()?;
         std::hint::black_box(&b);
         ts.push(t.elapsed().as_nanos());
     }
@@ -526,10 +559,15 @@ pub async fn reexec_probe() {
     println!("# physical-plan re-execution (size 10000)");
     for q in corpus() {
         let cfg = config();
-        let params: HashMap<String, serde_json::Value> =
-            q.params.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
+        let params: HashMap<String, serde_json::Value> = q
+            .params
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect();
         let ast = parse_cypher_query(q.text).unwrap();
-        let sem = SemanticAnalyzer::new(cfg.clone()).analyze(&ast, &params).unwrap();
+        let sem = SemanticAnalyzer::new(cfg.clone())
+            .analyze(&ast, &params)
+            .unwrap();
         let lp = LogicalPlanner::new(&cfg).plan(&sem.ast).unwrap();
         let (catalog, ctx) = catalog_and_ctx(&person, &friend);
         let dfp = match DataFusionPlanner::with_catalog(cfg, Arc::new(catalog)).plan(&lp) {
@@ -539,14 +577,24 @@ pub async fn reexec_probe() {
                 continue;
             }
         };
-        let phys = ctx.execute_logical_plan(dfp).await.unwrap().create_physical_plan().await.unwrap();
+        let phys = ctx
+            .execute_logical_plan(dfp)
+            .await
+            .unwrap()
+            .create_physical_plan()
+            .await
+            .unwrap();
         let mut verdicts = Vec::new();
         for _ in 0..2 {
             let (p, tc) = (phys.clone(), ctx.task_ctx());
-            let r = tokio::spawn(async move { datafusion::physical_plan::collect(p, tc).await }).await;
+            let r =
+                tokio::spawn(async move { datafusion::physical_plan::collect(p, tc).await }).await;
             verdicts.push(match r {
                 Ok(Ok(b)) => format!("ok({} rows)", b.iter().map(|b| b.num_rows()).sum::<usize>()),
-                Ok(Err(e)) => format!("err({})", e.to_string().chars().take(60).collect::<String>()),
+                Ok(Err(e)) => format!(
+                    "err({})",
+                    e.to_string().chars().take(60).collect::<String>()
+                ),
                 Err(_) => "PANIC".to_string(),
             });
         }
@@ -561,8 +609,9 @@ pub fn fmt_us(ns: u128) -> String {
 /// Median of `reps` cold runs per stage, plus allocation counts of the last.
 pub async fn suite(label: &str, sizes: &[usize], reps_for: impl Fn(usize) -> usize) {
     // PROBE_SIZES=1000000 restricts the sizes.
-    let env_sizes: Option<Vec<usize>> =
-        std::env::var("PROBE_SIZES").ok().map(|v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+    let env_sizes: Option<Vec<usize>> = std::env::var("PROBE_SIZES")
+        .ok()
+        .map(|v| v.split(',').filter_map(|x| x.parse().ok()).collect());
     let sizes: &[usize] = env_sizes.as_deref().unwrap_or(sizes);
     println!("# specimen = {label}");
     println!("size\tq\tverdict\tparse_us\tbind_us\tlplan_us\tdfplan_us\treg_us\tphys_us\texec_us\tmat_us\ttotal_us\tprep_exec_us\tparse_allocs\tparse_bytes\tbind_allocs\tlplan_allocs\tdfplan_allocs\tphys_allocs\texec_allocs");
@@ -570,8 +619,13 @@ pub async fn suite(label: &str, sizes: &[usize], reps_for: impl Fn(usize) -> usi
         let d = fixture(n);
         let (person, friend) = d.batches();
         // PROBE_REPS overrides the repetition count; PROBE_Q=Q0,Q7 filters.
-        let reps = std::env::var("PROBE_REPS").ok().and_then(|v| v.parse().ok()).unwrap_or(reps_for(n));
-        let only: Option<Vec<String>> = std::env::var("PROBE_Q").ok().map(|v| v.split(',').map(str::to_string).collect());
+        let reps = std::env::var("PROBE_REPS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(reps_for(n));
+        let only: Option<Vec<String>> = std::env::var("PROBE_Q")
+            .ok()
+            .map(|v| v.split(',').map(str::to_string).collect());
         for q in corpus() {
             if only.as_ref().is_some_and(|o| !o.iter().any(|x| x == q.id)) {
                 continue;
@@ -588,7 +642,11 @@ pub async fn suite(label: &str, sizes: &[usize], reps_for: impl Fn(usize) -> usi
                         per.push(st);
                     }
                     Outcome::Err(stage, e) => {
-                        let e: String = e.chars().filter(|c| *c != '\n' && *c != '\t').take(140).collect();
+                        let e: String = e
+                            .chars()
+                            .filter(|c| *c != '\n' && *c != '\t')
+                            .take(140)
+                            .collect();
                         verdict = format!("FAIL@{stage}: {e}");
                         break;
                     }
@@ -600,10 +658,20 @@ pub async fn suite(label: &str, sizes: &[usize], reps_for: impl Fn(usize) -> usi
             }
             let m = |f: fn(&Stages) -> u128| median(per.iter().map(f).collect());
             let total = m(|s| {
-                s.parse.ns + s.bind.ns + s.lplan.ns + s.dfplan.ns + s.reg.ns + s.phys.ns + s.exec.ns + s.mat.ns
+                s.parse.ns
+                    + s.bind.ns
+                    + s.lplan.ns
+                    + s.dfplan.ns
+                    + s.reg.ns
+                    + s.phys.ns
+                    + s.exec.ns
+                    + s.mat.ns
             });
             let prep = if verdict == "OK" {
-                run_prepared_exec(&q, &person, &friend, reps).await.map(fmt_us).unwrap_or("-".into())
+                run_prepared_exec(&q, &person, &friend, reps)
+                    .await
+                    .map(fmt_us)
+                    .unwrap_or("-".into())
             } else {
                 "-".into()
             };
@@ -643,7 +711,10 @@ pub fn parser_bench() {
     for (name, text) in [
         ("Q0", "MATCH (n:Person) RETURN count(*)"),
         ("Q1", "MATCH (n:Person) WHERE n.age > 50 RETURN count(*)"),
-        ("Q4", "MATCH (a:Person)-[:FRIEND_OF]->(b:Person)-[:FRIEND_OF]->(c:Person) RETURN count(*)"),
+        (
+            "Q4",
+            "MATCH (a:Person)-[:FRIEND_OF]->(b:Person)-[:FRIEND_OF]->(c:Person) RETURN count(*)",
+        ),
         ("LONG", long),
     ] {
         let mut ts = Vec::with_capacity(20000);
@@ -658,7 +729,10 @@ pub fn parser_bench() {
         // Control: the SAME number of allocations of the same mean size,
         // allocated and freed with no parsing. This bounds how much of
         // `parse_ns` the allocator itself can account for.
-        let (k, sz) = (last.allocs as usize, (last.bytes / last.allocs.max(1)) as usize);
+        let (k, sz) = (
+            last.allocs as usize,
+            (last.bytes / last.allocs.max(1)) as usize,
+        );
         let mut cs = Vec::with_capacity(20000);
         for _ in 0..20000 {
             let t = Instant::now();
@@ -692,16 +766,33 @@ pub async fn df_param_rebind(n: usize, values: &[u32]) {
     let catalog = Arc::new(catalog);
     let mut ts = Vec::with_capacity(values.len());
     for &v in values {
-        let params: HashMap<String, serde_json::Value> = [("id".to_string(), serde_json::json!(v))].into();
+        let params: HashMap<String, serde_json::Value> =
+            [("id".to_string(), serde_json::json!(v))].into();
         let t = Instant::now();
-        let sem = SemanticAnalyzer::new(cfg.clone()).analyze(&ast, &params).unwrap();
+        let sem = SemanticAnalyzer::new(cfg.clone())
+            .analyze(&ast, &params)
+            .unwrap();
         let lp = LogicalPlanner::new(&cfg).plan(&sem.ast).unwrap();
-        let dfp = DataFusionPlanner::with_catalog(cfg.clone(), catalog.clone()).plan(&lp).unwrap();
-        let phys = ctx.execute_logical_plan(dfp).await.unwrap().create_physical_plan().await.unwrap();
-        let b = datafusion::physical_plan::collect(phys, ctx.task_ctx()).await.unwrap();
+        let dfp = DataFusionPlanner::with_catalog(cfg.clone(), catalog.clone())
+            .plan(&lp)
+            .unwrap();
+        let phys = ctx
+            .execute_logical_plan(dfp)
+            .await
+            .unwrap()
+            .create_physical_plan()
+            .await
+            .unwrap();
+        let b = datafusion::physical_plan::collect(phys, ctx.task_ctx())
+            .await
+            .unwrap();
         ts.push(t.elapsed().as_nanos());
         let got: usize = b.iter().map(|b| b.num_rows()).sum();
-        assert_eq!(got, usize::from((v as usize) < n), "DataFusion answer for id {v}");
+        assert_eq!(
+            got,
+            usize::from((v as usize) < n),
+            "DataFusion answer for id {v}"
+        );
     }
     println!(
         "datafusion Q5 n={n}: {} values, re-bind+plan+exec per value; median {} us",

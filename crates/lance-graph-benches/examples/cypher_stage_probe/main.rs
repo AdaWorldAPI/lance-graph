@@ -27,11 +27,19 @@ fn main() {
             |n| if n >= 1_000_000 { 3 } else { 15 },
         )),
         "parser" => common::parser_bench(),
-        "quack" => quack::suite(&[2, 5, 100, 10_000, 1_000_000], |n| if n >= 1_000_000 { 20 } else { 200 }),
+        "quack" => quack::suite(&[2, 5, 100, 10_000, 1_000_000], |n| {
+            if n >= 1_000_000 {
+                20
+            } else {
+                200
+            }
+        }),
         "prepared" => {
             for n in [10_000usize, 1_000_000] {
                 // in-range ids, an absent id, and the u32 extremes
-                let mut vals: Vec<u32> = (0..1000u32).map(|i| (i.wrapping_mul(2_654_435_761)) % n as u32).collect();
+                let mut vals: Vec<u32> = (0..1000u32)
+                    .map(|i| (i.wrapping_mul(2_654_435_761)) % n as u32)
+                    .collect();
                 vals.extend([0, n as u32 - 1, n as u32, u32::MAX]);
                 let (ns, k) = quack::prepared_param_probe(n, &vals);
                 println!("quack prepared Q5 n={n}: {k} values, patched == fresh lowering, answers == oracle; median patch+exec {} us", common::fmt_us(ns));
