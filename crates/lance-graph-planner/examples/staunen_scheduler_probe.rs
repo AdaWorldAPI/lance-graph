@@ -51,8 +51,10 @@
 //! Tests (CI): `cargo test -p lance-graph-planner --example staunen_scheduler_probe`
 
 use std::alloc::{GlobalAlloc, Layout, System};
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use causal_edge::edge::InferenceType;
 use causal_edge::{CausalEdge64, CausalMask, PlasticityState};
@@ -134,9 +136,26 @@ fn model(arms: bool) -> CertificationModel {
     b.build()
 }
 
+/// The #1390 P7a Simpson population plus its positive trial: the pooled
+/// table points the other way from the executed arms, so SP reports it
+/// confounded.
+fn simpson() -> CertificationModel {
+    let mut b = ModelBuilder::new();
+    b.cell(0, true, 8, 2);
+    b.cell(0, false, 2, 0);
+    b.cell(1, true, 2, 2);
+    b.cell(1, false, 8, 6);
+    b.sources(SupportBasis::DirectlyObserved, &[1, 2]);
+    b.arm(true, 6, 5);
+    b.arm(false, 6, 1);
+    b.sources(SupportBasis::InterventionBacked, &[10, 11]);
+    b.build()
+}
+
 struct Shared {
     decl: Epi5Declarations,
-    models: [CertificationModel; 2],
+    /// No arms, positive trial, Simpson.
+    models: [CertificationModel; 3],
 }
 
 impl Shared {
@@ -151,7 +170,7 @@ impl Shared {
         );
         Shared {
             decl,
-            models: [model(false), model(true)],
+            models: [model(false), model(true), simpson()],
         }
     }
 
@@ -371,6 +390,8 @@ struct Basin {
     h_prev_end: f64,
     prev_act: i8,
     arms: bool,
+    /// Uses the Simpson population instead.
+    simpson: bool,
     contradictions: u32,
 }
 
@@ -404,6 +425,7 @@ impl Basin {
             h_prev_end: (K as f64).log2(),
             prev_act: 0,
             arms,
+            simpson: false,
             contradictions: 0,
         }
     }
@@ -490,6 +512,10 @@ enum Policy {
     Score(Weights),
     RoundRobin,
     Random(u64),
+    /// A fixed worklist heuristic: basins whose evidence changed, oldest
+    /// first, first fresh fold. Reacts to arrivals; reads no entropy and no
+    /// activation (AC-3 style propagation queue).
+    Fifo,
 }
 
 const FULL: Weights = Weights {
@@ -577,7 +603,7 @@ fn priority(b: &Basin, w: Weights) -> Option<(f64, usize)> {
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Step {
     cycle: u64,
-    basin: u16,
+    basin: u32,
     fold: Fold,
     h_before: Option<f64>,
     h_after: Option<f64>,
@@ -653,7 +679,7 @@ fn fold(
                 _ => CausalMask::SP,
             };
             let ev = Evidence {
-                model: &sh.models[usize::from(b.arms)],
+                model: &sh.models[if b.simpson { 2 } else { usize::from(b.arms) }],
                 chain: None,
             };
             let m = reason(with_mask(b.r, mask), &ev, Edit::None);
@@ -690,7 +716,7 @@ fn fold(
     }
     Step {
         cycle,
-        basin: id as u16,
+        basin: id as u32,
         fold: f,
         h_before,
         h_after: b.belief.entropy(),
@@ -726,6 +752,8 @@ struct Shape {
     /// per window; 0 = never.
     switch_every: u64,
     seed: u64,
+    /// Every n-th real basin uses the Simpson population; 0 = none.
+    simpson_every: usize,
 }
 
 const SHAPE: Shape = Shape {
@@ -735,6 +763,7 @@ const SHAPE: Shape = Shape {
     windows: 2_000,
     switch_every: 300,
     seed: 0xC0FFEE,
+    simpson_every: 0,
 };
 
 struct World {
@@ -753,6 +782,8 @@ impl World {
         for id in 0..n {
             let noise = id >= s.real;
             let mut b = Basin::new(id, id % 2 == 0);
+            b.simpson =
+                !noise && s.simpson_every > 0 && id % s.simpson_every == s.simpson_every - 1;
             let truth = if noise {
                 None
             } else {
@@ -786,6 +817,7 @@ impl World {
         carrier: Carrier,
         wt: Weights,
         cue_surprisal: &mut Vec<f64>,
+        touched: &mut Vec<usize>,
     ) {
         for id in 0..self.basins.len() {
             let b = &mut self.basins[id];
@@ -800,6 +832,7 @@ impl World {
                         b.steps.push(st);
                     }
                     b.touch(c);
+                    touched.push(id);
                     if let Some(x) = b.cue(c, carrier, wt) {
                         cue_surprisal.push(x);
                     }
@@ -812,6 +845,7 @@ impl World {
                 b.steps
                     .retain(|(_, e)| e.s_idx() != c_old && e.o_idx() != c_old);
                 b.touch(old);
+                touched.push(id);
                 o.truth = Some(1 + new);
                 o.switched_at = Some(w);
                 self.pending
@@ -827,6 +861,7 @@ impl World {
                 let b = &mut self.basins[id];
                 b.steps.push(st);
                 b.touch(c);
+                touched.push(id);
                 if let Some(x) = b.cue(c, carrier, wt) {
                     cue_surprisal.push(x);
                 }
@@ -923,9 +958,76 @@ struct Report {
     act_abs: f64,
     dh_act: f64,
     hydrations: u64,
+    // ── D-CE64-CYCLE-0 ──
+    /// Executed folds that moved Epi5 or H either way.
+    productive: u64,
+    /// Folds that raised H (an anomaly revealed).
+    raised: u64,
+    /// Executed, moved nothing, not rejected.
+    redundant: u64,
+    /// Pearl folds the evidence did not ground.
+    rejected: u64,
+    /// Windows cut by the wall-clock budget, and the folds they left unspent.
+    cut_windows: u64,
+    cut_budget: u64,
+    /// Belief moved (posterior or a reaction) while Epi5 stayed: updates a
+    /// W that advanced only on Epi5 changes would not reference.
+    belief_updates_no_epi: u64,
+    /// Folds that changed the register's F/C.
+    fc_changes: u64,
+    /// Fold quadrants, activation sign × ΔH sign (see `QUADRANTS`).
+    quadrants: [u64; 5],
+    /// Per fold kind (hydrate, confound, certify): (negative, zero, positive).
+    polarity: [[u64; 3]; 3],
+    /// Final attractor per basin (see `ATTRACTORS`).
+    attractors: [u64; 6],
+    /// By position within the window (tenths of the budget): (folds, productive).
+    deciles: [(u64, u64); 10],
+    /// Wall time per window.
+    window_ns: Vec<u64>,
+    heap_pushes: u64,
 }
 
 impl Report {
+    /// Pool another run's counts into this one (multi-seed aggregation).
+    #[cfg(test)]
+    fn absorb(&mut self, o: &Report) {
+        self.folds += o.folds;
+        self.slept += o.slept;
+        self.useful += o.useful;
+        self.noise_folds += o.noise_folds;
+        self.settled_folds += o.settled_folds;
+        self.epi_transitions += o.epi_transitions;
+        self.resolved_windows += o.resolved_windows;
+        self.real_windows += o.real_windows;
+        self.switches += o.switches;
+        self.woken += o.woken;
+        self.wake_latency += o.wake_latency;
+        self.productive += o.productive;
+        self.redundant += o.redundant;
+        self.rejected += o.rejected;
+        for k in 0..self.regimes.len() {
+            self.regimes[k] += o.regimes[k];
+        }
+        for k in 0..EPOCHS {
+            self.epochs[k].0 += o.epochs[k].0;
+            self.epochs[k].1 += o.epochs[k].1;
+            self.epochs[k].2 += o.epochs[k].2;
+        }
+        for k in 0..self.attractors.len() {
+            self.attractors[k] += o.attractors[k];
+        }
+    }
+
+    /// Everything except wall time, which is not replayable.
+    #[cfg(test)]
+    fn replayable(&self) -> Report {
+        Report {
+            window_ns: Vec::new(),
+            ..self.clone()
+        }
+    }
+
     fn resolved_fraction(&self) -> f64 {
         self.resolved_windows as f64 / self.real_windows.max(1) as f64
     }
@@ -956,22 +1058,143 @@ impl Trace {
     }
 }
 
+/// What to forget at every window boundary (D-CE64-CYCLE-0 survival test).
+/// Each arm asks one question: does the next cycle need this, or can it be
+/// rebuilt from what survives?
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Forget {
+    Nothing,
+    /// The posterior (and so H): rebuilt from the evidence table.
+    Belief,
+    /// Bits 40..42, the question the last fold asked.
+    Question,
+    /// The whole register (Epi5, F/C, mask), with what was run at which code.
+    Register,
+    /// The evidence table: latest outcome per channel, cue, what was measured.
+    Evidence,
+    /// The learned attention state: habit, progress, coherence, surprise.
+    Attention,
+}
+
+struct Opts<'a> {
+    carrier: Carrier,
+    stop: &'a AtomicBool,
+    /// Wall-clock budget per window; the window is cut when it runs out.
+    deadline: Option<Duration>,
+    forget: Forget,
+}
+
+impl<'a> Opts<'a> {
+    fn new(stop: &'a AtomicBool) -> Self {
+        Opts {
+            carrier: Carrier::Full,
+            stop,
+            deadline: None,
+            forget: Forget::Nothing,
+        }
+    }
+}
+
 /// Run `s.windows` decision windows. `stop` cancels between windows.
 fn run(
     s: Shape,
     p: Policy,
     carrier: Carrier,
     stop: &AtomicBool,
-    mut trace: Option<&mut Trace>,
+    trace: Option<&mut Trace>,
 ) -> (World, Report) {
+    run_with(
+        s,
+        p,
+        &Opts {
+            carrier,
+            ..Opts::new(stop)
+        },
+        trace,
+    )
+}
+
+/// The scheduler's priority queue: (priority bits, lowest id first, stamp).
+/// Priorities are positive, so their bit patterns order like the values.
+type Heap = BinaryHeap<(u64, Reverse<usize>, u32)>;
+
+struct Queue {
+    heap: Heap,
+    stamp: Vec<u32>,
+    pick: Vec<usize>,
+}
+
+impl Queue {
+    fn requeue(&mut self, b: &Basin, id: usize, w: Weights, rep: &mut Report) {
+        self.stamp[id] = self.stamp[id].wrapping_add(1);
+        rep.recomputes += 1;
+        if let Some((pr, i)) = priority(b, w) {
+            self.pick[id] = i;
+            self.heap.push((pr.to_bits(), Reverse(id), self.stamp[id]));
+        }
+    }
+
+    fn pop(&mut self) -> Option<(usize, usize)> {
+        while let Some((_, Reverse(id), st)) = self.heap.pop() {
+            if st == self.stamp[id] {
+                return Some((id, self.pick[id]));
+            }
+        }
+        None
+    }
+}
+
+fn first_fresh(b: &Basin) -> Option<usize> {
+    (0..NF).find(|&i| b.fresh(i))
+}
+
+fn forget(b: &mut Basin, id: usize, what: Forget) {
+    match what {
+        Forget::Nothing => {}
+        Forget::Belief => {
+            b.belief = Belief::uniform();
+            b.belief = b.evidence(None, true);
+        }
+        Forget::Question => b.r.set_causal_mask(CausalMask::SO),
+        Forget::Register => {
+            b.r = Basin::new(id, b.arms).r;
+            b.ran_epi = [0; 3];
+        }
+        Forget::Evidence => {
+            b.last = [None; 4];
+            b.cue_on = None;
+            b.ran_ver = [0; 4];
+            b.belief = Belief::uniform();
+        }
+        Forget::Attention => {
+            b.habit = 0.0;
+            b.progress = PROGRESS_PRIOR;
+            b.coh = 0.0;
+            b.prev_act = 0;
+            b.surprise = 0.0;
+        }
+    }
+}
+
+const ATTRACTORS: [&str; 6] = [
+    "learned",
+    "wrong-settled",
+    "exhausted",
+    "waiting",
+    "sterile",
+    "active",
+];
+
+const QUADRANTS: [&str; 5] = ["dig", "anomaly", "falsify", "leave", "other"];
+
+fn run_with(s: Shape, p: Policy, o: &Opts<'_>, mut trace: Option<&mut Trace>) -> (World, Report) {
     let sh = Shared::new();
     let mut world = World::new(s);
     let n = world.basins.len();
     let mut rep = Report::default();
-    let mut cache: Vec<Option<(f64, usize)>> = vec![None; n];
-    let mut dirty = vec![true; n];
     let mut agg = vec![Agg::default(); n];
     let mut cue_s = Vec::with_capacity(n);
+    let mut touched = Vec::with_capacity(n);
     let mut rr = 0usize;
     let mut rng = match p {
         Policy::Random(seed) => seed,
@@ -983,22 +1206,46 @@ fn run(
         Policy::Score(w) => w,
         _ => FULL,
     };
+    let mut q = Queue {
+        heap: BinaryHeap::with_capacity(2 * n),
+        stamp: vec![0; n],
+        pick: vec![0; n],
+    };
+    let mut fifo: VecDeque<usize> = (0..n).collect();
+    let mut in_fifo = vec![true; n];
+    if matches!(p, Policy::Score(_)) {
+        for id in 0..n {
+            q.requeue(&world.basins[id], id, wt, &mut rep);
+        }
+    }
+    // Report-only trailing statistics for the attractor reading.
+    let mut tail_folds = vec![0u32; n];
+    let mut tail_dh = vec![0f64; n];
+    let mut tail_flips = vec![0u32; n];
+    let mut tail_prev = vec![0i8; n];
+    let eps = 1e-9;
     let mut cycle = 0u64;
     for w in 0..s.windows {
-        if stop.load(Ordering::Relaxed) {
+        if o.stop.load(Ordering::Relaxed) {
             break;
         }
-        let seals: Vec<u32> = world.basins.iter().map(|b| b.seal).collect();
         cue_s.clear();
-        world.events(s, w, carrier, wt, &mut cue_s);
+        touched.clear();
+        world.events(s, w, o.carrier, wt, &mut cue_s, &mut touched);
         rep.cues += cue_s.len() as u64;
         rep.cue_surprisal_sum += cue_s.iter().sum::<f64>();
-        for id in 0..n {
-            let b = &world.basins[id];
-            if b.seal != seals[id] {
-                dirty[id] = true;
+        for &id in &touched {
+            match p {
+                Policy::Score(_) => q.requeue(&world.basins[id], id, wt, &mut rep),
+                Policy::Fifo if !in_fifo[id] => {
+                    in_fifo[id] = true;
+                    fifo.push_back(id);
+                }
+                _ => {}
             }
-            agg[id] = Agg {
+        }
+        for (a, b) in agg.iter_mut().zip(&world.basins) {
+            *a = Agg {
                 folds: 0,
                 h_start: b.belief.entropy().unwrap_or(f64::INFINITY),
                 pos: 0,
@@ -1008,48 +1255,50 @@ fn run(
             };
         }
         let epoch = ((w * EPOCHS as u64) / s.windows.max(1)) as usize;
+        let last_epoch = epoch >= EPOCHS - 1 || s.windows < EPOCHS as u64;
+        let t0 = Instant::now();
         for spent in 0..s.budget {
-            let pick = match p {
-                Policy::Score(wt) => {
-                    let mut best: Option<(f64, usize, usize)> = None;
-                    for id in 0..n {
-                        if dirty[id] {
-                            cache[id] = priority(&world.basins[id], wt);
-                            dirty[id] = false;
-                            rep.recomputes += 1;
-                        }
-                        if let Some((pr, i)) = cache[id] {
-                            if best.is_none_or(|(b, _, _)| pr > b + 1e-12) {
-                                best = Some((pr, id, i));
-                            }
-                        }
-                    }
-                    best.map(|(_, id, i)| (id, i))
+            if let Some(d) = o.deadline {
+                if spent % 64 == 0 && spent > 0 && t0.elapsed() >= d {
+                    rep.cut_windows += 1;
+                    rep.cut_budget += (s.budget - spent) as u64;
+                    break;
                 }
-                Policy::RoundRobin => (0..n).map(|d| (rr + d) % n).find_map(|id| {
-                    (0..NF)
-                        .find(|&i| world.basins[id].fresh(i))
-                        .map(|i| (id, i))
-                }),
+            }
+            let pick = match p {
+                Policy::Score(_) => q.pop(),
+                Policy::RoundRobin => (0..n)
+                    .map(|d| (rr + d) % n)
+                    .find_map(|id| first_fresh(&world.basins[id]).map(|i| (id, i))),
                 Policy::Random(_) => {
-                    let live = world
-                        .basins
-                        .iter()
-                        .filter(|b| (0..NF).any(|i| b.fresh(i)))
-                        .count();
-                    if live == 0 {
-                        None
-                    } else {
-                        let k = (lcg(&mut rng) as usize) % live;
-                        let id = (0..n)
-                            .filter(|&id| (0..NF).any(|i| world.basins[id].fresh(i)))
-                            .nth(k)
-                            .expect("k < live");
+                    let mut got = None;
+                    for _ in 0..64 {
+                        let id = (lcg(&mut rng) as usize) % n;
                         let b = &world.basins[id];
                         let fr = (0..NF).filter(|&i| b.fresh(i)).count();
-                        let m = (lcg(&mut rng) as usize) % fr;
-                        Some((id, (0..NF).filter(|&i| b.fresh(i)).nth(m).expect("m < fr")))
+                        if fr > 0 {
+                            let m = (lcg(&mut rng) as usize) % fr;
+                            got = (0..NF).filter(|&i| b.fresh(i)).nth(m).map(|i| (id, i));
+                            break;
+                        }
                     }
+                    got.or_else(|| {
+                        let start = (lcg(&mut rng) as usize) % n;
+                        (0..n)
+                            .map(|d| (start + d) % n)
+                            .find_map(|id| first_fresh(&world.basins[id]).map(|i| (id, i)))
+                    })
+                }
+                Policy::Fifo => {
+                    let mut got = None;
+                    while let Some(id) = fifo.pop_front() {
+                        in_fifo[id] = false;
+                        if let Some(i) = first_fresh(&world.basins[id]) {
+                            got = Some((id, i));
+                            break;
+                        }
+                    }
+                    got
                 }
             };
             let Some((id, i)) = pick else {
@@ -1059,73 +1308,159 @@ fn run(
             rr = id + 1;
             let settled = resolved(&world.basins[id], &world.oracle[id]);
             let surprised = world.basins[id].surprise >= 2.0;
-            let st = fold(&sh, &mut world.basins[id], id, i, cycle, carrier, wt);
+            let st = fold(&sh, &mut world.basins[id], id, i, cycle, o.carrier, wt);
             cycle += 1;
-            dirty[id] = true;
+            match p {
+                Policy::Score(_) => q.requeue(&world.basins[id], id, wt, &mut rep),
+                Policy::Fifo if first_fresh(&world.basins[id]).is_some() && !in_fifo[id] => {
+                    in_fifo[id] = true;
+                    fifo.push_back(id);
+                }
+                _ => {}
+            }
             rep.folds += 1;
             rep.bytes += 8 + 16 * world.basins[id].steps.len() as u64;
-            let useful = st.epi_before != st.epi_after
-                || matches!((st.h_before, st.h_after), (Some(a), Some(b)) if b < a - 1e-9);
+            let dh = match (st.h_before, st.h_after) {
+                (Some(a), Some(b)) => Some(b - a),
+                _ => None,
+            };
+            let epi_moved = st.epi_before != st.epi_after;
+            let useful = epi_moved || dh.is_some_and(|d| d < -eps);
+            let productive = epi_moved || dh.is_some_and(|d| d.abs() > eps);
+            let rejected = st.result == 4;
             rep.useful += u64::from(useful);
-            rep.epi_transitions += u64::from(st.epi_before != st.epi_after);
+            rep.productive += u64::from(productive);
+            rep.raised += u64::from(dh.is_some_and(|d| d > eps));
+            rep.rejected += u64::from(rejected);
+            rep.redundant += u64::from(!productive && !rejected);
+            rep.epi_transitions += u64::from(epi_moved);
+            rep.belief_updates_no_epi +=
+                u64::from(!epi_moved && (dh.is_some_and(|d| d.abs() > eps) || st.activation != 0));
+            rep.fc_changes += u64::from(st.fc_before != st.fc_after);
             rep.noise_folds += u64::from(world.oracle[id].noise);
             rep.settled_folds += u64::from(settled && !surprised);
             rep.surprised_folds += u64::from(surprised);
+            let a = st.activation;
+            let quad = match dh {
+                Some(d) if a > 0 && d < -eps => 0,
+                Some(d) if a > 0 && d > eps => 1,
+                Some(d) if a < 0 && d < -eps => 2,
+                Some(d) if a <= 0 && d.abs() <= eps => 3,
+                _ => 4,
+            };
+            rep.quadrants[quad] += 1;
+            let kind = match st.fold {
+                Fold::Hydrate(_) => 0,
+                Fold::Confound => 1,
+                _ => 2,
+            };
+            rep.polarity[kind][(a.signum() + 1) as usize] += 1;
+            let dec = (spent * 10 / s.budget.max(1)).min(9);
+            rep.deciles[dec].0 += 1;
+            rep.deciles[dec].1 += u64::from(productive);
             let e = &mut rep.epochs[epoch.min(EPOCHS - 1)];
             e.0 += 1;
             e.1 += u64::from(useful);
             e.2 += u64::from(world.oracle[id].noise);
-            if let (Fold::Hydrate(_), Some(a), Some(b)) = (st.fold, st.h_before, st.h_after) {
-                let dh = (a - b).abs();
-                let ac = f64::from(st.activation.unsigned_abs());
-                rep.dh_abs += dh;
+            if let (Fold::Hydrate(_), Some(d)) = (st.fold, dh) {
+                let ac = f64::from(a.unsigned_abs());
+                rep.dh_abs += d.abs();
                 rep.act_abs += ac;
-                rep.dh_act += dh * ac;
+                rep.dh_act += d.abs() * ac;
                 rep.hydrations += 1;
             }
+            if last_epoch {
+                tail_folds[id] += 1;
+                tail_dh[id] += dh.unwrap_or(0.0);
+                if a != 0 && tail_prev[id] != 0 && a.signum() != tail_prev[id].signum() {
+                    tail_flips[id] += 1;
+                }
+                if a != 0 {
+                    tail_prev[id] = a;
+                }
+            }
             agg[id].folds += 1;
-            agg[id].pos += u32::from(st.activation > 0);
-            agg[id].neg += u32::from(st.activation < 0);
+            agg[id].pos += u32::from(a > 0);
+            agg[id].neg += u32::from(a < 0);
             if let Some(t) = trace.as_deref_mut() {
                 t.push(cycle, st);
             }
         }
+        rep.window_ns.push(t0.elapsed().as_nanos() as u64);
         for id in 0..n {
             let b = &mut world.basins[id];
             let h_end = b.belief.entropy().unwrap_or(f64::INFINITY);
+            let mut changed = false;
             // Learning progress: the entropy removed since the last window's
             // end, per fold spent here. Noise gives it back; a learnable
             // basin keeps it.
             if agg[id].folds > 0 && h_end.is_finite() {
                 let sample = (b.h_prev_end - h_end) / f64::from(agg[id].folds);
                 b.progress = 0.7 * b.progress + 0.3 * sample;
-                dirty[id] = true;
+                changed = true;
             } else if b.progress < PROGRESS_PRIOR {
                 // Unsampled progress relaxes back toward the optimistic
                 // prior: sleep is not permanent. Without this the learned
                 // gate is absorbing (measured: resolution decays over long
                 // runs). **Pin.**
                 b.progress += PROGRESS_RELAX * (PROGRESS_PRIOR - b.progress);
-                dirty[id] = true;
+                changed = true;
             }
             if h_end.is_finite() {
                 b.h_prev_end = h_end;
             }
+            if o.forget != Forget::Nothing {
+                forget(b, id, o.forget);
+                changed = true;
+            }
             let b = &world.basins[id];
             rep.regimes[regime(&agg[id], h_end) as usize] += 1;
-            let o = &mut world.oracle[id];
-            if o.truth.is_some() {
+            let or = &mut world.oracle[id];
+            if or.truth.is_some() {
                 rep.real_windows += 1;
-                let ok = resolved(b, o);
+                let ok = resolved(b, or);
                 rep.resolved_windows += u64::from(ok);
-                if let (true, Some(t0)) = (ok, o.switched_at) {
+                if let (true, Some(t0)) = (ok, or.switched_at) {
                     rep.woken += 1;
                     rep.wake_latency += w - t0;
-                    o.switched_at = None;
+                    or.switched_at = None;
+                }
+            }
+            if changed {
+                match p {
+                    Policy::Score(_) => q.requeue(b, id, wt, &mut rep),
+                    Policy::Fifo if o.forget != Forget::Nothing && !in_fifo[id] => {
+                        in_fifo[id] = true;
+                        fifo.push_back(id);
+                    }
+                    _ => {}
                 }
             }
         }
     }
+    // The attractor each basin ended in, read off afterwards.
+    for id in 0..n {
+        let b = &world.basins[id];
+        let or = &world.oracle[id];
+        let f = tail_folds[id];
+        let h = b.belief.entropy();
+        let k = if f >= 3 && tail_dh[id].abs() < 0.05 * f64::from(f) && 2 * tail_flips[id] + 1 >= f
+        {
+            4
+        } else if resolved(b, or) {
+            0
+        } else if or.truth.is_some() && h.is_some_and(|h| h <= 0.5) {
+            1
+        } else if first_fresh(b).is_none() {
+            2
+        } else if f == 0 {
+            3
+        } else {
+            5
+        };
+        rep.attractors[k] += 1;
+    }
+    rep.heap_pushes = q.heap.len() as u64;
     rep.switches = world
         .oracle
         .iter()
@@ -1140,7 +1475,7 @@ fn run(
     (world, rep)
 }
 
-fn policies() -> [(&'static str, Policy); 11] {
+fn policies() -> [(&'static str, Policy); 12] {
     [
         ("full", Policy::Score(FULL)),
         (
@@ -1190,10 +1525,133 @@ fn policies() -> [(&'static str, Policy); 11] {
         ),
         ("round-robin", Policy::RoundRobin),
         ("random", Policy::Random(0x5EED)),
+        ("fifo", Policy::Fifo),
     ]
 }
 
 // ── Measurement ───────────────────────────────────────────────────────────
+
+/// D-CE64-CYCLE-0: the cross-cycle executor measurements.
+fn cycle_report(stop: &AtomicBool) {
+    println!("\nD-CE64-CYCLE-0");
+    println!(
+        "\nWhat the next cycle needs (forgotten at every window boundary; full, 2000 windows):"
+    );
+    let base = run_with(SHAPE, Policy::Score(FULL), &Opts::new(stop), None).1;
+    for f in [
+        Forget::Nothing,
+        Forget::Belief,
+        Forget::Question,
+        Forget::Register,
+        Forget::Evidence,
+        Forget::Attention,
+    ] {
+        let o = Opts {
+            forget: f,
+            ..Opts::new(stop)
+        };
+        let r = run_with(SHAPE, Policy::Score(FULL), &o, None).1;
+        println!(
+            "  forget {:<10} folds {:>5} resolved {:.3} wake {:>5.1} Epi5 moves {:>4} rejected {:>4}  same as base: {}",
+            format!("{f:?}"),
+            r.folds,
+            r.resolved_fraction(),
+            r.mean_wake(),
+            r.epi_transitions,
+            r.rejected,
+            r.folds == base.folds && r.resolved_windows == base.resolved_windows && r.epochs == base.epochs
+        );
+    }
+    println!(
+        "\nW: belief moved without an Epi5 change on {} folds vs {} Epi5 moves; F/C changed on {} folds",
+        base.belief_updates_no_epi, base.epi_transitions, base.fc_changes
+    );
+    println!("Fold quadrants (activation sign x dH), full:");
+    for (k, q) in QUADRANTS.iter().enumerate() {
+        println!("  {q:<8} {:>6}", base.quadrants[k]);
+    }
+    println!(
+        "Polarity (neg, zero, pos): hydrate {:?}, confound {:?}, certify {:?}",
+        base.polarity[0], base.polarity[1], base.polarity[2]
+    );
+    println!("\nEnd attractors per policy ({}):", ATTRACTORS.join(", "));
+    for (name, p) in policies() {
+        let r = run_with(SHAPE, p, &Opts::new(stop), None).1;
+        println!(
+            "  {name:<18} {:?}  productive {:.3} redundant {:.3} rejected {:.3}",
+            r.attractors,
+            r.productive as f64 / r.folds.max(1) as f64,
+            r.redundant as f64 / r.folds.max(1) as f64,
+            r.rejected as f64 / r.folds.max(1) as f64,
+        );
+    }
+
+    println!("\nDense windows: budget per window, 350 ms wall-clock cap, 3 windows, switch 1/4, Simpson every 3rd");
+    println!(
+        "  {:>8} {:>7} {:<12} {:>8} {:>7} {:>7} {:>7} {:>8} {:>9} {:>9} {:>10} {:>7} {:>13}",
+        "budget",
+        "basins",
+        "policy",
+        "folds",
+        "prod",
+        "redund",
+        "slept",
+        "cut",
+        "ns/fold",
+        "max ms/w",
+        "folds/s",
+        "alloc/f",
+        "prod 1st/last"
+    );
+    for budget in [1_000usize, 10_000, 100_000, 1_000_000] {
+        let real = (budget / 2).clamp(64, 262_144);
+        let s = Shape {
+            real,
+            noise: real / 4,
+            budget,
+            windows: 3,
+            switch_every: 4,
+            seed: 0xC0FFEE,
+            simpson_every: 3,
+        };
+        for (name, p) in [
+            ("full", Policy::Score(FULL)),
+            ("fifo", Policy::Fifo),
+            ("round-robin", Policy::RoundRobin),
+        ] {
+            let o = Opts {
+                deadline: Some(Duration::from_millis(350)),
+                ..Opts::new(stop)
+            };
+            let a0 = ALLOCS.load(Ordering::Relaxed);
+            let t0 = Instant::now();
+            let (_, r) = run_with(s, p, &o, None);
+            let total = t0.elapsed().as_nanos() as f64;
+            let allocs = ALLOCS.load(Ordering::Relaxed) - a0;
+            let fold_ns: u64 = r.window_ns.iter().sum();
+            let max_ms = r.window_ns.iter().copied().max().unwrap_or(0) as f64 / 1e6;
+            let frac = |d: (u64, u64)| d.1 as f64 / d.0.max(1) as f64;
+            println!(
+                "  {:>8} {:>7} {:<12} {:>8} {:>7} {:>7} {:>7} {:>8} {:>9.1} {:>9.1} {:>10.0} {:>7.2} {:>6.3}/{:<6.3}",
+                budget,
+                real + real / 4,
+                name,
+                r.folds,
+                r.productive,
+                r.redundant,
+                r.slept,
+                r.cut_budget,
+                fold_ns as f64 / r.folds.max(1) as f64,
+                max_ms,
+                r.folds as f64 / (fold_ns as f64 / 1e9).max(1e-9),
+                allocs as f64 / r.folds.max(1) as f64,
+                frac(r.deciles[0]),
+                frac(*r.deciles.iter().rev().find(|d| d.0 > 0).unwrap_or(&(0, 0))),
+            );
+            let _ = total;
+        }
+    }
+}
 
 fn row(name: &str, r: &Report, ns: f64) {
     println!(
@@ -1322,6 +1780,8 @@ fn main() {
         );
     }
 
+    cycle_report(&stop);
+
     println!("\nTrace sample (full policy, first 12 folds):");
     let mut t = Trace {
         steps: Vec::new(),
@@ -1377,8 +1837,21 @@ mod tests {
         ..SHAPE
     };
 
+    /// Seeds pooled by every comparative test: one seed's trajectory is
+    /// chaotic enough that tie-breaking alone moved a wake latency by half.
+    const SEEDS: [u64; 3] = [0xC0FFEE, 0x5EED_0001, 0x5EED_0002];
+
+    fn go_with(p: Policy, c: Carrier) -> Report {
+        let mut r = Report::default();
+        for seed in SEEDS {
+            let one = run(Shape { seed, ..TEST }, p, c, &AtomicBool::new(false), None).1;
+            r.absorb(&one);
+        }
+        r
+    }
+
     fn go(p: Policy) -> Report {
-        run(TEST, p, Carrier::Full, &AtomicBool::new(false), None).1
+        go_with(p, Carrier::Full)
     }
 
     /// Measurement helper: prints the TEST-shape table (not an assertion).
@@ -1399,7 +1872,7 @@ mod tests {
             );
         }
         for c in [Carrier::Q3, Carrier::Thermo] {
-            let r = run(TEST, Policy::Score(FULL), c, &AtomicBool::new(false), None).1;
+            let r = go_with(Policy::Score(FULL), c);
             println!(
                 "{c:?} folds {} resolved {:.3} wake {:.1}",
                 r.folds,
@@ -1564,7 +2037,7 @@ mod tests {
                 r.resolved_fraction() < full.resolved_fraction() - 0.03,
                 "{r:?}"
             );
-            assert!(r.mean_wake() > 2.0 * full.mean_wake(), "{r:?}");
+            assert!(r.mean_wake() > 1.4 * full.mean_wake(), "{r:?}");
         }
     }
 
@@ -1658,47 +2131,38 @@ mod tests {
     }
 
     /// F11: better directed, not merely more folds: fewer folds and more
-    /// resolved basin-windows per fold than round-robin, and faster wake.
-    /// The same run pins where it LOSES: round-robin's resolved fraction is
-    /// higher on this shape.
+    /// resolved basin-windows per fold than round-robin and the FIFO
+    /// worklist. The same pooled runs pin where it LOSES: both baselines
+    /// resolve more, and its wake latency is no better (the #1395 single-seed
+    /// "4.2 vs 5.1" did not survive pooling).
     #[test]
-    fn f11_more_information_per_fold_than_round_robin() {
+    fn f11_more_information_per_fold_but_not_more_resolution() {
         let full = go(Policy::Score(FULL));
-        let rr = go(Policy::RoundRobin);
         let per = |r: &Report| r.resolved_windows as f64 / r.folds.max(1) as f64;
-        assert!(full.folds < rr.folds);
-        assert!(per(&full) > per(&rr), "{} vs {}", per(&full), per(&rr));
-        assert!(full.mean_wake() < rr.mean_wake());
-        assert!(
-            rr.resolved_fraction() > full.resolved_fraction(),
-            "the loss is pinned"
-        );
+        for base in [go(Policy::RoundRobin), go(Policy::Fifo)] {
+            assert!(full.folds < base.folds);
+            assert!(per(&full) > per(&base), "{} vs {}", per(&full), per(&base));
+            assert!(
+                base.resolved_fraction() > full.resolved_fraction(),
+                "the loss is pinned"
+            );
+            assert!(
+                full.mean_wake() > 0.9 * base.mean_wake(),
+                "no wake advantage is pinned"
+            );
+        }
     }
 
-    /// A 3-bit carrier is not free: binary 3-bit doubles wake latency, and
+    /// A 3-bit carrier is not free: binary 3-bit slows wake-up, and
     /// the 4-level thermometer (the reading that would keep plasticity's
     /// hot-count monotone) loses the interrupt almost entirely.
     #[test]
     fn a_three_bit_carrier_costs_wake_latency() {
         let full = go(Policy::Score(FULL));
-        let q3 = run(
-            TEST,
-            Policy::Score(FULL),
-            Carrier::Q3,
-            &AtomicBool::new(false),
-            None,
-        )
-        .1;
-        let th = run(
-            TEST,
-            Policy::Score(FULL),
-            Carrier::Thermo,
-            &AtomicBool::new(false),
-            None,
-        )
-        .1;
+        let q3 = go_with(Policy::Score(FULL), Carrier::Q3);
+        let th = go_with(Policy::Score(FULL), Carrier::Thermo);
         assert!(
-            q3.mean_wake() > 1.5 * full.mean_wake(),
+            q3.mean_wake() > 1.2 * full.mean_wake(),
             "{}",
             q3.mean_wake()
         );
@@ -1756,8 +2220,140 @@ mod tests {
     #[test]
     fn replay_is_deterministic() {
         for (_, p) in policies() {
-            assert_eq!(go(p), go(p), "{p:?}");
+            let one = || run(TEST, p, Carrier::Full, &AtomicBool::new(false), None).1;
+            assert_eq!(one().replayable(), one().replayable(), "{p:?}");
         }
+    }
+
+    // ── D-CE64-CYCLE-0 ──────────────────────────────────────────────────
+
+    /// One seed, so arms can be compared report-for-report.
+    fn once(p: Policy, forget: Forget) -> Report {
+        let stop = AtomicBool::new(false);
+        let o = Opts {
+            forget,
+            ..Opts::new(&stop)
+        };
+        let mut r = run_with(TEST, p, &o, None).1.replayable();
+        // Forgetting forces a priority recompute of every basin: bookkeeping
+        // cost, not behaviour.
+        r.recomputes = 0;
+        r.heap_pushes = 0;
+        r
+    }
+
+    /// F1 + F3: which state must cross the cycle boundary. Forgetting the
+    /// posterior (and so H) or the question bits at every window boundary
+    /// changes nothing: both are rebuilt from what survives, so persisting
+    /// them would be an echo. Forgetting the register, the evidence table or
+    /// the attention state changes the run: those are what the next cycle
+    /// needs.
+    #[test]
+    fn f1_f3_the_next_cycle_needs_evidence_register_and_attention_not_h() {
+        let p = Policy::Score(FULL);
+        let base = once(p, Forget::Nothing);
+        assert_eq!(once(p, Forget::Belief), base, "H is derived state");
+        assert_eq!(
+            once(p, Forget::Question),
+            base,
+            "bits 40..42 echo the opcode"
+        );
+        for f in [Forget::Register, Forget::Evidence, Forget::Attention] {
+            assert_ne!(once(p, f), base, "{f:?} is cross-cycle state");
+        }
+    }
+
+    /// F11 (W): belief moves far more often than Epi5 does, and
+    /// `pearl::revise` never moves F/C. A W that advanced only on Epi5
+    /// changes would not reference most belief updates.
+    #[test]
+    fn f11_most_belief_updates_leave_epi5_and_fc_alone() {
+        let r = once(Policy::Score(FULL), Forget::Nothing);
+        assert!(r.epi_transitions > 0);
+        assert!(r.belief_updates_no_epi > 5 * r.epi_transitions, "{r:?}");
+        assert_eq!(r.fc_changes, 0);
+    }
+
+    /// F4: the same operation reacts in all three directions. Hydration is
+    /// excited, inhibited and inert across the run; the SP confounder check
+    /// is excited on the positive-trial population and inhibited on the
+    /// Simpson one.
+    #[test]
+    fn f4_one_operation_reacts_positive_negative_and_neutral() {
+        let stop = AtomicBool::new(false);
+        let s = Shape {
+            simpson_every: 3,
+            ..TEST
+        };
+        let r = run_with(s, Policy::RoundRobin, &Opts::new(&stop), None).1;
+        let [neg, zero, pos] = r.polarity[0];
+        assert!(
+            neg > 0 && zero > 0 && pos > 0,
+            "hydrate {:?}",
+            r.polarity[0]
+        );
+        let [neg, _, pos] = r.polarity[1];
+        assert!(neg > 0 && pos > 0, "confound {:?}", r.polarity[1]);
+        // Silence twin: without Simpson basins the confounder check is
+        // never inhibited.
+        let r = run_with(TEST, Policy::RoundRobin, &Opts::new(&stop), None).1;
+        assert_eq!(r.polarity[1][0], 0, "{:?}", r.polarity[1]);
+    }
+
+    /// F13: a window cut by its wall-clock budget leaves valid state, and
+    /// the run continues from it in the next window.
+    #[test]
+    fn f13_a_cut_window_continues_from_valid_state() {
+        let stop = AtomicBool::new(false);
+        let s = Shape {
+            budget: 4096,
+            ..TEST
+        };
+        let o = Opts {
+            deadline: Some(Duration::from_nanos(1)),
+            ..Opts::new(&stop)
+        };
+        let (w, r) = run_with(s, Policy::Score(FULL), &o, None);
+        assert!(r.cut_windows > 0, "the budget must actually bind");
+        assert!(r.folds >= 64 * r.cut_windows, "each cut window still ran");
+        assert!(r.resolved_fraction() > 0.5, "{}", r.resolved_fraction());
+        for (id, b) in w.basins.iter().enumerate() {
+            assert!(EpistemicState5::decode(Epi5Gen::V1, b.r.epistemic_raw5()).is_ok());
+            assert_eq!(b.r.w_slot(), 1 + (id % 62) as u8);
+        }
+        assert!(
+            w.pending.iter().all(|x| x.0 >= s.windows),
+            "no delivery lost"
+        );
+        // Silence twin: without a deadline nothing is cut.
+        let r = run_with(s, Policy::Score(FULL), &Opts::new(&stop), None).1;
+        assert_eq!(r.cut_windows, 0);
+    }
+
+    /// F10 + attractors: the end states are distinguishable. With switches
+    /// and noise, most real basins end learned and some noise basins end in
+    /// a sterile oscillation (folds without net entropy change, alternating
+    /// reactions); a wrongly settled basin is counted apart from a learned
+    /// one.
+    #[test]
+    fn attractors_are_distinguishable() {
+        let r = once(Policy::RoundRobin, Forget::Nothing);
+        let [learned, _wrong, _exhausted, _waiting, sterile, _active] = r.attractors;
+        assert!(2 * learned >= TEST.real as u64, "{:?}", r.attractors);
+        // Measured: 3 of 8 noise basins meet the sterile criterion on this
+        // shape, the rest read "active"; the class is real but weak.
+        assert!(sterile > 0, "noise oscillates: {:?}", r.attractors);
+        assert!(learned <= TEST.real as u64);
+        // Silence twin: a calm world (no switches, no noise) has no sterile
+        // oscillation.
+        let stop = AtomicBool::new(false);
+        let calm = Shape {
+            switch_every: 0,
+            noise: 0,
+            ..TEST
+        };
+        let c = run_with(calm, Policy::RoundRobin, &Opts::new(&stop), None).1;
+        assert_eq!(c.attractors[4], 0, "{:?}", c.attractors);
     }
 
     /// Cancellation between windows: a raised stop runs nothing.
