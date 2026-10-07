@@ -46,6 +46,7 @@
 //! bibliographic identity is never synthesised from a title.
 
 use crate::content_store::ContentId;
+use crate::ontology_warrant::Quorum;
 
 /// Source `causal_link_type` — the four states, 2 bits.
 ///
@@ -483,6 +484,17 @@ impl BibliographyRecord {
 
 // ── The predicate palette mirror (D-DCR-1, W1 membrane) ────────────────────
 
+/// The DisMech concept id — `ogar_dismech::DISMECH_CONCEPT_ID`, the canon-high
+/// half (G) of every DisMech classid (`0x0333_xxxx`).
+///
+/// A predicate ordinal means nothing without it. `0x90` is `causes` here, but
+/// the loco floor is shared: other vocabularies (the NARS recipes, the r2il
+/// ops) also mint from `0x90`, and OGAR selects the vocabulary from the
+/// node's classid (`VocabularyRegistry::resolve_classid`). Mirrored here for
+/// the same reason [`DISMECH_PREDICATES`] is; the fuse is
+/// `lance_graph_ogar::parity::assert_dismech_palette_parity`.
+pub const DISMECH_CONCEPT_ID: u16 = 0x0333;
+
 /// Floor of the DisMech predicate band — `ogar_dismech::CAUSES`.
 ///
 /// The palette mints contiguously upward from here, so resolving an ordinal is
@@ -550,6 +562,75 @@ pub const fn dismech_predicate(ordinal: u8) -> Option<&'static (u8, &'static str
 #[must_use]
 pub const fn is_dismech_predicate(ordinal: u8) -> bool {
     dismech_predicate(ordinal).is_some()
+}
+
+// ── Evidence into a quorum (palette × evidence) ───────────────────────────
+
+/// The citations behind one relation, folded into a [`Quorum`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CitationQuorum {
+    /// Distinct citations counted by direction. Silent citations are the ones
+    /// that only said `PARTIAL` or `NO_EVIDENCE`.
+    pub quorum: Quorum,
+    /// Citations that both support and refute the relation. They are counted
+    /// on both sides of the quorum, not removed: disagreement is information.
+    pub both_ways: u16,
+}
+
+/// Fold cited stances on one relation into a [`Quorum`] over distinct
+/// citations.
+///
+/// The source is the citation identity ([`CitationKey`]), never the title or
+/// the row: a citation repeated across rows is one source. Per citation:
+///
+/// | the citation said | counts as |
+/// |---|---|
+/// | `SUPPORT` | corroborating |
+/// | `REFUTE` | conflicting |
+/// | both | both, and in [`CitationQuorum::both_ways`] |
+/// | only `PARTIAL` / `NO_EVIDENCE` | silent |
+///
+/// `NO_EVIDENCE` as silence is the quorum's own rule (abstention, never
+/// dissent). **`PARTIAL` as silence is a policy pin**: it is weaker than
+/// support in the source's own vocabulary, and `dismech_candidates` already
+/// keeps it inert, so it is not counted as corroboration here either.
+///
+/// The predicate the relation travels under (its palette ordinal) does not
+/// enter: the fold is per relation, and the relation's identity is the
+/// caller's key.
+#[must_use]
+pub fn citation_quorum<'a>(
+    stances: impl IntoIterator<Item = (&'a CitationKey, Supports)>,
+) -> CitationQuorum {
+    const SUPPORT: u8 = 1;
+    const REFUTE: u8 = 2;
+    let mut seen: Vec<(&CitationKey, u8)> = Vec::new();
+    for (key, stance) in stances {
+        let bit = match stance {
+            Supports::Support => SUPPORT,
+            Supports::Refute => REFUTE,
+            Supports::Partial | Supports::NoEvidence => 0,
+        };
+        match seen.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, flags)) => *flags |= bit,
+            None => seen.push((key, bit)),
+        }
+    }
+    let mut out = CitationQuorum::default();
+    for (_, flags) in seen {
+        let q = &mut out.quorum;
+        match flags {
+            0 => q.silent = q.silent.saturating_add(1),
+            SUPPORT => q.corroborating = q.corroborating.saturating_add(1),
+            REFUTE => q.conflicting = q.conflicting.saturating_add(1),
+            _ => {
+                q.corroborating = q.corroborating.saturating_add(1);
+                q.conflicting = q.conflicting.saturating_add(1);
+                out.both_ways = out.both_ways.saturating_add(1);
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -813,5 +894,64 @@ mod tests {
         for &(_, name, curie) in DISMECH_PREDICATES {
             assert_eq!(curie, format!("dismech:{name}"), "CURIE/name disagree");
         }
+    }
+
+    fn key(raw: &str) -> CitationKey {
+        CitationKey::parse(raw).expect("non-blank")
+    }
+
+    #[test]
+    fn a_citation_repeated_across_rows_is_one_source() {
+        let (a, b) = (key("PMID:1"), key("PMID:2"));
+        let q = citation_quorum([
+            (&a, Supports::Support),
+            (&a, Supports::Support),
+            (&a, Supports::Support),
+            (&b, Supports::Support),
+        ]);
+        assert_eq!(q.quorum, Quorum::new(2, 0, 0));
+        // Two independent sources: confidence 2/3, frequency 1.
+        let w = q.quorum.warrant();
+        assert!((w.confidence - 2.0 / 3.0).abs() < 1e-6);
+        assert!((w.frequency - 1.0).abs() < 1e-6);
+        // Silence twin: the namespace is part of the identity, so PMID:1 and
+        // ORPHA:1 are two sources, not one.
+        let (p, o) = (key("PMID:1"), key("ORPHA:1"));
+        let q = citation_quorum([(&p, Supports::Support), (&o, Supports::Support)]);
+        assert_eq!(q.quorum.corroborating, 2);
+    }
+
+    #[test]
+    fn partial_and_no_evidence_abstain_and_never_count_as_dissent() {
+        let (a, b, c) = (key("PMID:1"), key("PMID:2"), key("PMID:3"));
+        let q = citation_quorum([
+            (&a, Supports::Support),
+            (&b, Supports::Partial),
+            (&c, Supports::NoEvidence),
+        ]);
+        assert_eq!(q.quorum, Quorum::new(1, 2, 0));
+        // Abstention leaves the frequency untouched.
+        assert!((q.quorum.warrant().frequency - 1.0).abs() < 1e-6);
+        // A citation that also spoke is not silent.
+        let q = citation_quorum([(&a, Supports::NoEvidence), (&a, Supports::Refute)]);
+        assert_eq!(q.quorum, Quorum::new(0, 0, 1));
+        // With nobody speaking there is no evidence, not agreement.
+        let q = citation_quorum([(&a, Supports::Partial), (&b, Supports::NoEvidence)]);
+        assert!(!q.quorum.has_evidence());
+    }
+
+    #[test]
+    fn a_citation_on_both_sides_is_kept_on_both_sides() {
+        let (a, b) = (key("PMID:1"), key("PMID:2"));
+        let q = citation_quorum([
+            (&a, Supports::Support),
+            (&a, Supports::Refute),
+            (&b, Supports::Support),
+        ]);
+        assert_eq!(q.quorum, Quorum::new(2, 0, 1));
+        assert_eq!(q.both_ways, 1);
+        // Silence twin: no citation said both, so nothing is reported.
+        let q = citation_quorum([(&a, Supports::Support), (&b, Supports::Refute)]);
+        assert_eq!(q.both_ways, 0);
     }
 }

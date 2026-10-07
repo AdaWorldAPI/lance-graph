@@ -249,6 +249,11 @@ pub mod parity {
             assert_eq!(row.2, p.curie, "{:#04x}: reverse CURIE mismatch", p.index.0);
         }
         assert_eq!(
+            mirror::DISMECH_CONCEPT_ID,
+            ogar_dismech::DISMECH_CONCEPT_ID,
+            "the mirror's concept id (the G a chain's classid routes by) is not the palette's",
+        );
+        assert_eq!(
             mirror::DISMECH_PREDICATE_FLOOR,
             ogar_dismech::CAUSES.0,
             "the mirror's band floor is not the palette's",

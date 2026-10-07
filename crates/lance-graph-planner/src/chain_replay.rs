@@ -2,7 +2,8 @@
 //! `dismech-causal-replay-v1` §3, renamed from `dismech_replay` once it was
 //! clear nothing here depends on DisMech: the predicate ordinal is carried as
 //! an opaque `u8` witness and never read by the arithmetic. The DisMech
-//! palette check lives in [`crate::dismech_admission`].
+//! palette check, keyed by the chain's classid, lives in
+//! [`crate::chain_admission`].
 //!
 //! Replays a RECORDED causal chain against a seed, one packed step at a time,
 //! and emits a trace that `temporal.rs` can deinterlace. Replay, never
@@ -28,7 +29,8 @@
 //! lives in the workspace-EXCLUDED armed tier (`lance-graph-ogar`). A step
 //! therefore carries the ordinal as a plain `u8` on the hot path. Which
 //! ordinals a chain may carry is an ADMISSION question for the domain that
-//! produced it — for DisMech, [`crate::dismech_admission::validate_chain`].
+//! produced it, selected by the chain's classid:
+//! [`crate::chain_admission::validate_chain`].
 //!
 //! # The `cast_seq` precondition is load-bearing, not paperwork
 //!
@@ -81,9 +83,9 @@ pub struct ReplayTraceRow {
     /// program: two chains with identical weights and different relations
     /// (`causes` vs `protects_against`) would replay to byte-identical traces,
     /// and no consumer could reconstruct or validate what was actually
-    /// recorded. Resolve it in the producing domain — for DisMech through
-    /// [`crate::dismech_admission::chain_step_predicate`] (or, at the
-    /// membrane, the real palette).
+    /// recorded. Resolve it under the chain's classid through
+    /// [`crate::chain_admission::chain_step_predicate`] (or, at the membrane,
+    /// the real palette).
     ///
     /// Added after review on #1120: the module previously claimed the ordinal
     /// was "carried into the trace's step index" — it was not carried at all,
@@ -122,17 +124,18 @@ impl LocalCausalRow for ReplayTraceRow {
 /// substrate already reads every 12-byte payload as — `function` is the
 /// palette ordinal, `value` is the weight.
 ///
-/// The ordinal's DOMAIN belongs to the producing domain, not to replay. For
-/// DisMech chains [`crate::dismech_admission::chain_step_predicate`] resolves
-/// it through the contract's zero-dep palette mirror, and the armed tier fuses
-/// that mirror against the real `ogar_dismech::RELATIONS`.
+/// The ordinal's DOMAIN is not replay's: it is the vocabulary the chain's
+/// classid selects (the G of its SPO-G quad). A step does not carry the
+/// classid; a chain has one. [`crate::chain_admission`] resolves it, and for
+/// DisMech the armed tier fuses the contract mirror against the real
+/// `ogar_dismech::RELATIONS`.
 pub type ChainStep = (u8, CausalEdge64);
 
 /// A replay could not be performed as asked.
 ///
 /// Deliberately small: replay has exactly one way to fail, and it is a
 /// property of the ADDRESS SPACE the caller offered, never of the recorded
-/// chain (see [`crate::dismech_admission::validate_chain`] for why a chain's
+/// chain (see [`crate::chain_admission::validate_chain`] for why a chain's
 /// content is not judged here).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]

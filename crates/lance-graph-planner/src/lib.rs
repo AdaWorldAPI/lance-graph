@@ -96,26 +96,52 @@ pub mod api;
 pub mod rung_horizon;
 pub mod temporal;
 
+/// Chain admission: the palette a chain is checked against comes from the
+/// concept half (G) of its classid.
+pub mod chain_admission;
 /// Counterfactual chain replay (D-DCR-3 W3): one replay path for both arms.
 pub mod chain_counterfactual;
 /// D-DCR-1 (W1) — the causal replay core over recorded chains. Domain-agnostic:
 /// composes the shipped step kernel + `temporal.rs` trace; adds no carrier.
 /// Plan: `.claude/plans/dismech-causal-replay-v1.md` §3 W1.
 pub mod chain_replay;
-/// The DisMech palette admission check for chains entering replay.
-pub mod dismech_admission;
 pub mod dismech_candidates;
 /// Former name of [`chain_counterfactual`], kept so existing imports compile.
 #[deprecated(note = "renamed to `chain_counterfactual`")]
 pub mod dismech_counterfactual {
     pub use crate::chain_counterfactual::*;
 }
-/// Former name of [`chain_replay`] plus the DisMech admission check that now
-/// lives in [`dismech_admission`], kept so existing imports compile.
-#[deprecated(note = "renamed to `chain_replay`; the admission check moved to `dismech_admission`")]
+/// Former name of [`chain_replay`], plus the DisMech-bound admission
+/// functions it used to carry, kept so existing imports compile. New code uses
+/// [`chain_admission`] with the chain's classid.
+#[deprecated(
+    note = "renamed to `chain_replay`; admission moved to `chain_admission`, keyed by classid"
+)]
 pub mod dismech_replay {
+    pub use crate::chain_admission::UnmintedOrdinal;
+    use crate::chain_admission::{self, PredicateRow, Unadmitted, DISMECH_CLASSID};
     pub use crate::chain_replay::*;
-    pub use crate::dismech_admission::*;
+
+    /// `chain_admission::chain_step_predicate` under the DisMech classid.
+    #[must_use]
+    pub fn chain_step_predicate(step: ChainStep) -> Option<&'static PredicateRow> {
+        chain_admission::chain_step_predicate(DISMECH_CLASSID, step).ok()
+    }
+
+    /// `chain_admission::validate_chain` under the DisMech classid.
+    ///
+    /// # Errors
+    ///
+    /// The first step whose ordinal is not a minted DisMech predicate.
+    pub fn validate_chain(chain: &[ChainStep]) -> Result<(), UnmintedOrdinal> {
+        match chain_admission::validate_chain(DISMECH_CLASSID, chain) {
+            Ok(()) => Ok(()),
+            Err(Unadmitted::Unminted(u)) => Err(u),
+            Err(Unadmitted::UnknownPalette { .. }) => {
+                unreachable!("DISMECH_CLASSID routes to a mirrored palette")
+            }
+        }
+    }
 }
 pub mod pearl;
 

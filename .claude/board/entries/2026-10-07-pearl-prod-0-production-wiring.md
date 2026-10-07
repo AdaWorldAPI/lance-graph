@@ -39,7 +39,7 @@ module (P7a 13/13 and the reading-conflict probe 9/9 pass unchanged), and
 `dismech_replay` and `dismech_counterfactual` never read a DisMech predicate:
 the ordinal is an opaque `u8` witness. They are now `chain_replay` and
 `chain_counterfactual`. The one DisMech-specific piece — `chain_step_predicate`,
-`UnmintedOrdinal`, `validate_chain` — moved to `dismech_admission`. The old
+`UnmintedOrdinal`, `validate_chain` — moved to `dismech_admission` (later in this PR: `chain_admission`, keyed by classid; see below). The old
 module paths stay as `#[deprecated]` re-export aliases, pinned by
 `the_old_module_paths_still_name_the_same_items`. No behaviour change: planner
 lib 450 passed / 3 ignored, `house_differential` 6/6, `reasoning_band_probe` 7/7.
@@ -89,3 +89,67 @@ Falsifiers (contract `certification::tests`, planner `pearl::tests`):
   `InterventionBacked` receipt plus a causal classification as established,
   without arms and below `MIN_SOURCES`. That is a second, weaker definition of
   the same question. It has no callers; left as is, recorded here.
+
+## Generic, specific via classid as SPO-G (same PR)
+
+A chain step's predicate ordinal only means something inside a vocabulary,
+and the vocabulary is chosen by the chain's classid. The loco floor is
+shared: `0x90` is DisMech `causes`, NARS recipe #1, and the first r2il op.
+OGAR already routes this way (`VocabularyRegistry::resolve_classid`,
+concept = `classid >> 16`, DisMech = `0x0333`); the admission check did not.
+
+- `planner::chain_admission` replaces `dismech_admission`.
+  `validate_chain(classid, chain)` and `chain_step_predicate(classid, step)`
+  route by the concept half (G) through `PALETTES` (today one entry, DisMech)
+  and refuse an unmirrored concept with `Unadmitted::UnknownPalette` instead of
+  reading its bytes as DisMech's.
+- `contract::dismech_evidence::DISMECH_CONCEPT_ID = 0x0333`, fused in
+  `lance_graph_ogar::parity::assert_dismech_palette_parity` (passes against
+  OGAR; disable run with `0x0334` fails with the concept-id message).
+- The deprecated `dismech_replay` alias keeps DisMech-bound wrappers, pinned to
+  answer exactly as admission under `DISMECH_CLASSID`.
+- Tests: `the_same_byte_is_admitted_only_under_the_classid_whose_palette_mints_it`
+  (RO `0x0306` is refused, even for an empty chain) and
+  `only_the_concept_half_routes` (four app prefixes route the same; another
+  concept with the same low half does not). Disable run: `palette_of` ignoring
+  the classid turns both red.
+
+## Palette × evidence: citations into a quorum (same PR)
+
+`contract::dismech_evidence::citation_quorum` folds `(CitationKey, Supports)`
+pairs for one relation into the contract's `ontology_warrant::Quorum`:
+
+- the source is the citation identity, so a citation repeated across rows is
+  one source and `PMID:1` / `ORPHA:1` are two;
+- `SUPPORT` corroborates, `REFUTE` conflicts, a citation saying both counts on
+  both sides and is reported in `both_ways` (kept, not removed);
+- `NO_EVIDENCE` is silence (the quorum's own rule); `PARTIAL` is silence by
+  policy pin, matching `dismech_candidates`, which keeps it inert.
+
+This is the per-relation input the W2b field map needs (`+` agreement, `−`
+disagreement, `0` silence) and the one P7's downgrade rule read. The field
+map itself (global sweep, convergence, node-level hydrate) is not built; W2b
+is still a proposal awaiting scope. Disable runs: no deduplication,
+`PARTIAL` as support, and two-sided citations counted once each turn their
+named tests red.
+
+## reasoning_band_probe (#1360, P7) against the last 25 PRs
+
+| P7 feature | where it lives now | relation |
+|---|---|---|
+| Pearl mask selects the test (SO/PO/SPO/SP) | `planner::pearl::Operation::of` (#1391) | duplicate |
+| a pass is computed, never supplied | `pearl::Measured` private fields (#1391) | duplicate |
+| intervention: one trial, treated rate higher | `CertificationModel::causes` (#1369, ≥ 2 intervention sources) | superseded, stricter |
+| counterfactual: removal attack | `chain_counterfactual` (W3); P7a: removal is not the causal test; SPO earns nothing in `pearl` | superseded |
+| confounding via `simpsons_paradox_risk` | `pearl` SP | same check, different effect: P7 caps the band; `pearl` never demotes an intervention-certified `Causes` (f6) |
+| contradicting `Quorum` caps (minority) or drops (majority) the band | no counterpart in `pearl` (rise-only) | **open**; #1379 demotes on `ContradictionPreserved`; #1368/#1380 fold observations into a quorum; `citation_quorum` now produces the input |
+| band written through `ReasoningBand` names | deprecated (D-EPI-MIG-0) | probe-only legacy |
+
+Also related in the window: #1371 (Witness as an SPO-G sub-context under the
+same `classid >> 16` rule; its open `ISS-MAILBOX-ROUTES-WITNESS-WITHOUT-GRAPH`
+is the routing-ignores-G defect `chain_admission` avoids) and #1370 (recipe
+eligibility read from the joint 59..63 code).
+
+OPEN: one demotion policy. `pearl` only raises, P7 lowered on contradiction,
+#1379 lowers on a suspended revision. Which (if any) contradiction lowers a
+certification is undecided.

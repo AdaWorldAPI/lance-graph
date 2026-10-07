@@ -6,6 +6,7 @@
 ### Current Contract Inventory — net delta (`certification.rs`)
 
 - `lance_graph_contract::certification::{CertificationModel, ModelBuilder, PopulationMask, NotGrounded, Sat, compare, count, distinct_sources, OBSERVATION, INTERVENTION, MIN_SOURCES}` — the P7a obligations behind each `Certification3` code, as integer folds over unit masks. Generic over `PopulationMask` (a sub-trait of `revision::EvidenceMask` adding count / full / unit): `u64` (64 units, the default) or `[u64; N]` (`64 * N` units; `[u64; 1024]` is one 64k-row cycle). `certification()` returns the strongest code the model satisfies; `observational_certification()` cannot return `Causes`; only the executed randomized arms (`causes()`, at least two distinct `InterventionBacked` sources) can. Receipts after the seal do not count. Moved from `cognitive-shader-driver/examples/shared/certification_model.rs`, behaviour unchanged (the P7a probe's 13 tests pass against it).
+- `lance_graph_contract::dismech_evidence::{DISMECH_CONCEPT_ID, citation_quorum, CitationQuorum}` — the DisMech concept id (`0x0333`, the G a chain's classid routes by; fused in `lance_graph_ogar::parity`) and the fold of `(CitationKey, Supports)` stances on one relation into an `ontology_warrant::Quorum` over distinct citations (`PARTIAL` and `NO_EVIDENCE` abstain; two-sided citations are kept and counted in `both_ways`).
 
 ## 2026-10-07 — lance-graph #1382 and #1384 MERGED; D-PUZZLE-0 step 3 on branch
 
