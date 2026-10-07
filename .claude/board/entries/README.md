@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-240 entries, 2026-08-06 .. 2026-10-07.
+241 entries, 2026-08-06 .. 2026-10-07.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-07 | `tinker-janus-fold-harvest` | TinkerPop bulk = K (GroupReduce), ONE_BULK = S, GValue pinning = bundle invalidation; JanusGraph slice = OrderedLaneWitness→Range (30–38×); no new V4 op | [2026-10-07-tinker-janus-fold-harvest.md](2026-10-07-tinker-janus-fold-harvest.md) |
+| 2026-10-07 | `selector-seq-aware-coverage` |  | [2026-10-07-selector-seq-aware-coverage.md](2026-10-07-selector-seq-aware-coverage.md) |
 | 2026-10-07 | `gated-gather-bit-schedule` | Production gather is 3.8× slow from a per-row branch; bit-gated visitation wins or ties at every density; ordinal vectors never win (R1 holds) | [2026-10-07-gated-gather-bit-schedule.md](2026-10-07-gated-gather-bit-schedule.md) |
 | 2026-10-07 | `bind-bundle-gated-gather` | One bound query, five routes, identical answers; the semijoin is never gated and dominates; a gated mask gather beats a selection vector (R1 survives) | [2026-10-07-bind-bundle-gated-gather.md](2026-10-07-bind-bundle-gated-gather.md) |
 | 2026-10-06 | `v3-v4-dual-reading-round3` |  | [2026-10-06-v3-v4-dual-reading-round3.md](2026-10-06-v3-v4-dual-reading-round3.md) |
