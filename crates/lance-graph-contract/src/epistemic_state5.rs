@@ -274,6 +274,34 @@ pub const COMPILED_FACTS_V1: [Option<Facts>; CODES] = {
     t
 };
 
+/// A set of raw5 codes as one machine word: bit `r` stands for the state
+/// whose raw5 is `r`. The 5-bit field says where ONE edge stands; a
+/// population says which part of the whole 32-code space satisfies a
+/// condition. Transient — computed, never stored on an edge.
+pub type Population = u32;
+
+/// The V1 codes whose facts include every fact in `required`.
+///
+/// Conjunction is intersection: `facts_population_v1(a | b) ==
+/// facts_population_v1(a) & facts_population_v1(b)`. Reserved codes (24..31)
+/// never appear — they have no facts, so they satisfy nothing, not even
+/// `required == 0` (whose population is the 24 meaningful states). A
+/// requirement no state meets (e.g. `DIRECT | INDIRECT`) yields `0`.
+#[must_use]
+pub const fn facts_population_v1(required: Facts) -> Population {
+    let mut population = 0;
+    let mut raw = 0;
+    while raw < CODES {
+        if let Some(facts) = COMPILED_FACTS_V1[raw] {
+            if facts & required == required {
+                population |= 1 << raw;
+            }
+        }
+        raw += 1;
+    }
+    population
+}
+
 /// A reading generation. V1 is the 2 × 3 product above.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Epi5Gen {
@@ -351,6 +379,12 @@ impl EpistemicState5 {
     #[must_use]
     pub const fn facts(self) -> Facts {
         self.topology.facts() | self.certification.facts()
+    }
+
+    /// This state's bit in a [`Population`]: `1 << raw()`.
+    #[must_use]
+    pub const fn bit(self) -> Population {
+        1 << self.raw()
     }
 
     /// Does the state assert every fact in `required`?
@@ -650,5 +684,78 @@ mod tests {
             EpistemicState5::decode(Epi5Gen::V1, 32),
             Err(Epi5ReadError::UndeclaredCode(32))
         );
+    }
+
+    /// Population of `required` built the other way: enumerate the 24
+    /// coordinate pairs and ask each state.
+    fn population_by_states(required: Facts) -> Population {
+        let mut p = 0;
+        for c in C::ALL {
+            for t in T::ALL {
+                let s = EpistemicState5::new(Epi5Gen::V1, t, c);
+                if s.asserts(required) {
+                    p |= s.bit();
+                }
+            }
+        }
+        p
+    }
+
+    /// D-EPI-POP-0: the populations of the stated questions.
+    #[test]
+    fn populations_of_the_stated_questions() {
+        let pop = facts_population_v1;
+        assert_eq!(pop(CAUSES).count_ones(), 4, "the Causes column");
+        assert_eq!(
+            pop(RELATED).count_ones(),
+            16,
+            "Related-or-stronger x 4 topologies"
+        );
+        assert_eq!(pop(IND_UNKNOWN | RELATED).count_ones(), 4);
+        assert_eq!(pop(IND_KNOWN | SUPPORTS).count_ones(), 3);
+        assert_eq!(pop(TOPOLOGY_UNKNOWN | CAUSES), 1 << 23);
+        assert_eq!(
+            pop(CAUSES) & pop(IND_UNKNOWN),
+            EpistemicState5::new(Epi5Gen::V1, T::IndirectUnknown, C::Causes).bit()
+        );
+        // The empty requirement selects every meaningful state and no
+        // reserved one; an impossible requirement selects nothing.
+        assert_eq!(pop(0), (1 << MEANINGFUL_STATES) - 1);
+        assert_eq!(pop(DIRECT | INDIRECT), 0);
+    }
+
+    /// Over every requirement made of the declared facts, the operator
+    /// equals the state enumeration and never selects a reserved code.
+    #[test]
+    fn population_equals_the_state_enumeration_for_every_requirement() {
+        let all = TOPOLOGY_MASK | CERTIFICATION_MASK;
+        let mut sub = all;
+        let mut checked = 0;
+        loop {
+            let p = facts_population_v1(sub);
+            assert_eq!(p, population_by_states(sub), "requirement {sub:#x}");
+            assert_eq!(p >> MEANINGFUL_STATES, 0, "a reserved code appeared");
+            checked += 1;
+            if sub == 0 {
+                break;
+            }
+            sub = (sub - 1) & all;
+        }
+        assert_eq!(checked, 1 << all.count_ones());
+    }
+
+    /// Conjunction of requirements is intersection of populations.
+    #[test]
+    fn conjunction_is_intersection() {
+        let all = TOPOLOGY_MASK | CERTIFICATION_MASK;
+        for a in 0..Facts::BITS {
+            for b in 0..Facts::BITS {
+                let (fa, fb) = (1 << a & all, 1 << b & all);
+                assert_eq!(
+                    facts_population_v1(fa | fb),
+                    facts_population_v1(fa) & facts_population_v1(fb)
+                );
+            }
+        }
     }
 }
