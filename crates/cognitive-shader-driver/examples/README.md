@@ -397,3 +397,19 @@ rendered witnesses never move it.
 ```bash
 cargo run -p cognitive-shader-driver --example revision_epistemic_writer_probe
 ```
+
+## sudoku_population_fold_probe.rs
+
+D-PUZZLE-0, step 1. A million claim edges ("cell c holds digit d") from
+symmetry copies of the Sudoku Wikipedia puzzle, snapshotted at random
+naked-single depths, each carrying an `EpistemicState5` coordinate under a
+probe-local declared reading (given = `Direct × Causes`, derived =
+`IndirectKnown × Causes`, entailed but not yet derived =
+`IndirectUnknown × Causes`, live candidate = `Direct × Associated`). One
+question is one `u32` population (`facts_population`); the declaration is
+checked once per lane. Every count agrees three ways — population filter,
+32-bin histogram, per-edge decode — with the solver's own counters.
+
+```bash
+cargo run --release -p cognitive-shader-driver --example sudoku_population_fold_probe
+```

@@ -1,3 +1,9 @@
+## 2026-10-07 — lance-graph #1381 MERGED (`7334ae9`)
+
+The D-EPI-CANON-0 / D-EPI-MIG-0 section below is now on `main`, together with
+D-EPI-POP-0 (`facts_population`) and D-EPI-LEGACY-DEPROJECT-0
+(`EdgeRole::band` removed). `main` is `7334ae9`.
+
 ## 2026-10-07 — D-EPI-CANON-0 / D-EPI-MIG-0: CE64 bits 59..63 = `EpistemicState5` (branch `claude/epistemicstate5-ce64-bits-3oe0dq`, unmerged)
 
 ### Current Contract Inventory — net delta (`epistemic_state5.rs`, `class_view.rs`, `causal-edge`)
