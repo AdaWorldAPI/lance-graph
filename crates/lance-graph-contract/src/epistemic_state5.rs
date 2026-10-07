@@ -282,13 +282,13 @@ pub type Population = u32;
 
 /// The V1 codes whose facts include every fact in `required`.
 ///
-/// Conjunction is intersection: `facts_population_v1(a | b) ==
-/// facts_population_v1(a) & facts_population_v1(b)`. Reserved codes (24..31)
+/// Conjunction is intersection: `facts_population(a | b) ==
+/// facts_population(a) & facts_population(b)`. Reserved codes (24..31)
 /// never appear — they have no facts, so they satisfy nothing, not even
 /// `required == 0` (whose population is the 24 meaningful states). A
 /// requirement no state meets (e.g. `DIRECT | INDIRECT`) yields `0`.
 #[must_use]
-pub const fn facts_population_v1(required: Facts) -> Population {
+pub const fn facts_population(required: Facts) -> Population {
     let mut population = 0;
     let mut raw = 0;
     while raw < CODES {
@@ -704,7 +704,7 @@ mod tests {
     /// D-EPI-POP-0: the populations of the stated questions.
     #[test]
     fn populations_of_the_stated_questions() {
-        let pop = facts_population_v1;
+        let pop = facts_population;
         assert_eq!(pop(CAUSES).count_ones(), 4, "the Causes column");
         assert_eq!(
             pop(RELATED).count_ones(),
@@ -721,6 +721,15 @@ mod tests {
         assert_eq!(pop(IND_UNKNOWN | RELATED), set(&[10, 14, 18, 22]));
         assert_eq!(pop(IND_KNOWN | SUPPORTS), set(&[13, 17, 21]));
         assert_eq!(pop(RELATED), set(&(8..24).collect::<Vec<_>>()));
+        assert_eq!(pop(DIRECT | ASSOCIATED), set(&[4, 8, 12, 16, 20]));
+        assert_eq!(pop(TOPOLOGY_UNKNOWN | CAUSES), set(&[23]));
+        // Two causal claims whose mechanism is not established stay separately
+        // addressable: unknown topology vs a known-to-exist, unidentified
+        // intermediate.
+        let unknown_causes = pop(TOPOLOGY_UNKNOWN | CAUSES);
+        let unresolved_causes = pop(IND_UNKNOWN | CAUSES);
+        assert_eq!(unresolved_causes, set(&[22]));
+        assert_eq!(unknown_causes & unresolved_causes, 0);
         assert_eq!(
             pop(CAUSES) & pop(IND_UNKNOWN),
             EpistemicState5::new(Epi5Gen::V1, T::IndirectUnknown, C::Causes).bit()
@@ -739,9 +748,18 @@ mod tests {
         let mut sub = all;
         let mut checked = 0;
         loop {
-            let p = facts_population_v1(sub);
+            let p = facts_population(sub);
             assert_eq!(p, population_by_states(sub), "requirement {sub:#x}");
             assert_eq!(p >> MEANINGFUL_STATES, 0, "a reserved code appeared");
+            // The defining statement, code by code against `facts_v1`.
+            for raw in 0..CODES as u8 {
+                let member = p >> raw & 1 == 1;
+                let asserts = match facts_v1(raw) {
+                    Some(f) => f & sub == sub,
+                    None => false,
+                };
+                assert_eq!(member, asserts, "raw {raw}, requirement {sub:#x}");
+            }
             checked += 1;
             if sub == 0 {
                 break;
@@ -759,10 +777,83 @@ mod tests {
             for b in 0..Facts::BITS {
                 let (fa, fb) = (1 << a & all, 1 << b & all);
                 assert_eq!(
-                    facts_population_v1(fa | fb),
-                    facts_population_v1(fa) & facts_population_v1(fb)
+                    facts_population(fa | fb),
+                    facts_population(fa) & facts_population(fb)
                 );
             }
         }
+    }
+
+    /// Every requirement made only of facts in `mask` (every submask).
+    fn requirements_within(mask: Facts) -> Vec<Facts> {
+        let mut out = Vec::new();
+        let mut sub = mask;
+        loop {
+            out.push(sub);
+            if sub == 0 {
+                return out;
+            }
+            sub = (sub - 1) & mask;
+        }
+    }
+
+    fn member(s: EpistemicState5, required: Facts) -> bool {
+        facts_population(required) & s.bit() != 0
+    }
+
+    /// A topology update holding the certification never changes membership
+    /// in a certification-only population, and lands exactly where the new
+    /// topology's states are in topology-only populations.
+    #[test]
+    fn a_topology_update_moves_only_topology_conditioned_membership() {
+        let cert_only = requirements_within(CERTIFICATION_MASK);
+        let topo_only = requirements_within(TOPOLOGY_MASK);
+        let mut moved = 0;
+        for c in C::ALL {
+            for t in T::ALL {
+                let s = EpistemicState5::new(Epi5Gen::V1, t, c);
+                for t2 in T::ALL {
+                    let m = s.with_topology(t2);
+                    for &f in &cert_only {
+                        assert_eq!(member(s, f), member(m, f), "{s:?} -> {t2:?}, {f:#x}");
+                    }
+                    for &f in &topo_only {
+                        let want = member(EpistemicState5::new(Epi5Gen::V1, t2, C::Open), f);
+                        assert_eq!(member(m, f), want);
+                        moved += usize::from(member(s, f) != member(m, f));
+                    }
+                }
+            }
+        }
+        assert!(moved > 0, "no topology-conditioned membership ever moved");
+    }
+
+    /// A certification update holding the topology never changes membership
+    /// in a topology-only population.
+    #[test]
+    fn a_certification_update_moves_only_certification_conditioned_membership() {
+        let cert_only = requirements_within(CERTIFICATION_MASK);
+        let topo_only = requirements_within(TOPOLOGY_MASK);
+        let mut moved = 0;
+        for t in T::ALL {
+            for c in C::ALL {
+                let s = EpistemicState5::new(Epi5Gen::V1, t, c);
+                for c2 in C::ALL {
+                    let m = s.with_certification(c2);
+                    for &f in &topo_only {
+                        assert_eq!(member(s, f), member(m, f), "{s:?} -> {c2:?}, {f:#x}");
+                    }
+                    for &f in &cert_only {
+                        let want = member(EpistemicState5::new(Epi5Gen::V1, T::Direct, c2), f);
+                        assert_eq!(member(m, f), want);
+                        moved += usize::from(member(s, f) != member(m, f));
+                    }
+                }
+            }
+        }
+        assert!(
+            moved > 0,
+            "no certification-conditioned membership ever moved"
+        );
     }
 }

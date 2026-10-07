@@ -12,7 +12,7 @@
   (`project`), `Epi5ReadError`, `Epi5Declarations::{declare, get,
   project_state5}`.
 - D-EPI-POP-0: `Population = u32` (bit `r` = the state whose raw5 is `r`),
-  `facts_population_v1(required) -> Population` (`const fn`; the codes whose
+  `facts_population(required) -> Population` (`const fn`; the codes whose
   facts include every required fact; reserved codes never appear; conjunction
   is intersection), `EpistemicState5::bit()`. Transient — never stored.
 - `ClassView::epistemic_reading(class, rail) -> Option<Epi5Reading>` (provided,
