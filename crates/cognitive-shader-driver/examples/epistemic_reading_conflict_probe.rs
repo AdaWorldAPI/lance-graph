@@ -46,8 +46,10 @@
 //! | `affordance_codes_occupy_p7a_reserved_bands` | two declared codes sit on P7a's refused bands 6 and 7 |
 //! | `the_readings_agree_on_three_of_eight_shared_cells` | exhaustive count over every P7a contract × topology |
 //!
-//! Each test is a pin of the current state: it FAILS when either codebook
-//! changes. A reconciliation should turn these into agreement tests and close
+//! Both readings are exercised from shared code, never copied:
+//! `shared/affordance_law.rs` and `shared/certification_reading.rs` (P7a's
+//! classes, declarations, contract table, `entails` and `stamp`). Each test is
+//! a pin of the current state: it FAILS when either codebook changes. A reconciliation should turn these into agreement tests and close
 //! the issue, not edit the numbers to match.
 //!
 //! The agreement test compares only the three facts that share a name with a
@@ -60,55 +62,34 @@
 
 #[path = "shared/affordance_law.rs"]
 mod affordance_law;
+#[path = "shared/certification_reading.rs"]
+mod certification_reading;
 
 use affordance_law::{raw5, ASSOCIATED, CAUSES, EPI_LAW, RELATED};
 use causal_edge::edge::CausalEdge64;
-use causal_edge::layout::{ReasoningBand, TrustTexture};
+use causal_edge::layout::TrustTexture;
 use causal_edge::pearl::CausalMask;
 use causal_edge::PlasticityState;
-use lance_graph_contract::band_reading::{
-    BandDeclarations, BandPresence, BandReadError, BandReading, EdgeProvenance,
-};
+use certification_reading::{declarations, read, Contract, CERT_CLASS, RAIL};
+use lance_graph_contract::band_reading::{BandReadError, BandReading, EdgeProvenance};
 use lance_graph_contract::class_view::ClassId;
-use lance_graph_contract::rail_geometry::RailAxis;
 
-/// P7a's contracts by code (`relational_certification_probe.rs`).
-const P7A: [&str; 6] = [
-    "Open",
-    "Associated",
-    "Related",
-    "Contributes",
-    "CausalCandidate",
-    "Causes",
-];
-const P7A_CAUSES: u8 = 5;
-
-/// P7a's certification class and rail (`relational_certification_probe.rs`).
-const CERT_CLASS: ClassId = 0x0902;
-const RAIL: RailAxis = RailAxis::Taxonomy;
 /// A class declared band-free: its bits 61..63 are spare.
 const SPARE_CLASS: ClassId = 0x0903;
 /// A class never declared.
 const UNDECLARED_CLASS: ClassId = 0x0904;
 
-/// The declarations P7a makes, plus one band-free class.
-fn declarations() -> BandDeclarations {
-    let mut d = BandDeclarations::new();
-    d.declare(
-        CERT_CLASS,
-        RAIL,
-        BandReading {
-            band: BandPresence::Present,
-            ..BandReading::ZERO_FALLBACK
-        },
-    );
-    d.declare(SPARE_CLASS, RAIL, BandReading::ZERO_FALLBACK);
-    d
+/// P7a's contract as P7a's own reader returns it.
+fn p7a_reads(edge: CausalEdge64) -> Result<Contract, certification_reading::Refusal> {
+    read(&declarations(), CERT_CLASS, edge, EdgeProvenance::V2Stamped)
 }
 
-/// The band as the unified contract projects it for `class`.
+/// The band as the unified contract projects it for `class`: P7a's
+/// declarations plus one band-free class.
 fn contract_band(class: ClassId, edge: CausalEdge64) -> Result<u8, BandReadError> {
-    declarations().project_band(
+    let mut d = declarations();
+    d.declare(SPARE_CLASS, RAIL, BandReading::ZERO_FALLBACK);
+    d.project_band(
         class,
         RAIL,
         edge.reasoning_band().to_bits_3(),
@@ -131,25 +112,23 @@ fn base() -> CausalEdge64 {
     )
 }
 
-/// What P7a writes: the contract in bits 61..63 through the shipped band
-/// writer, and a topology in bits 59..60.
-fn stamp(contract: u8, topology: u8) -> CausalEdge64 {
-    base()
-        .with_reasoning_band(ReasoningBand::from_bits_3(contract))
-        .with_truth(TrustTexture::from_bits_2(topology))
+/// What P7a writes (its own `stamp`) plus a topology in bits 59..60.
+fn stamp(contract: Contract, topology: u8) -> CausalEdge64 {
+    certification_reading::stamp(base(), contract).with_truth(TrustTexture::from_bits_2(topology))
 }
 
-/// The facts P7a's contract entails, in the affordance vocabulary, for the
-/// three facts that share a name with a contract.
-fn p7a_entails(contract: u8) -> u32 {
+/// The facts P7a's contract entails (its own `entails` table), in the
+/// affordance vocabulary, for the three facts that share a name with a
+/// contract.
+fn p7a_entails(contract: Contract) -> u32 {
     let mut f = 0;
-    if contract >= 1 {
+    if contract.entails(Contract::Associated) {
         f |= ASSOCIATED;
     }
-    if contract >= 2 {
+    if contract.entails(Contract::Related) {
         f |= RELATED;
     }
-    if contract >= P7A_CAUSES {
+    if contract.entails(Contract::Causes) {
         f |= CAUSES;
     }
     f
@@ -165,7 +144,7 @@ fn affordance_facts(edge: CausalEdge64) -> Option<u32> {
 /// (agree, disagree, refused) over every P7a contract × topology.
 fn census() -> (usize, usize, usize) {
     let (mut agree, mut disagree, mut refused) = (0, 0, 0);
-    for c in 0..6u8 {
+    for c in Contract::ALL {
         for t in 0..4u8 {
             match affordance_facts(stamp(c, t)) {
                 None => refused += 1,
@@ -181,7 +160,7 @@ fn main() {
     println!(
         "D-EPI-CONFLICT-0: P7a contract (bits 61..63) x topology (59..60) under the affordance law"
     );
-    for c in 0..6u8 {
+    for c in Contract::ALL {
         for t in 0..4u8 {
             let e = stamp(c, t);
             let shown = match affordance_facts(e) {
@@ -196,17 +175,17 @@ fn main() {
                     }
                 ),
             };
-            let declared = contract_band(CERT_CLASS, e).expect("CERT_CLASS declares a band");
+            let declared = p7a_reads(e).expect("P7a reads its own stamp");
             println!(
-                "  contract {:<16} topo {t}  raw5 {:>2}  {shown}",
-                P7A[declared as usize],
+                "  P7a {:<16} topo {t}  raw5 {:>2}  {shown}",
+                format!("{declared:?}"),
                 raw5(e)
             );
         }
     }
     let (a, d, r) = census();
     println!("agree {a}, disagree {d}, refused {r} of 24 cells");
-    let e = stamp(P7A_CAUSES, 0);
+    let e = stamp(Contract::Causes, 0);
     println!(
         "same edge under the contract: spare class {:?}, undeclared class {:?}; the affordance law takes no class",
         contract_band(SPARE_CLASS, e),
@@ -229,7 +208,7 @@ mod tests {
     /// i.e. it begins to consult the declaration.
     #[test]
     fn the_affordance_law_reads_bits_the_contract_refuses() {
-        let e = stamp(P7A_CAUSES, 0);
+        let e = stamp(Contract::Causes, 0);
         assert_eq!(
             contract_band(UNDECLARED_CLASS, e),
             Err(BandReadError::UndeclaredClass(UNDECLARED_CLASS))
@@ -240,8 +219,8 @@ mod tests {
         );
         // Same edge, any class: the affordance law measures it.
         assert!(eligible(e).is_ok());
-        // Silence twin: the contract does admit the band on the declared class.
-        assert_eq!(contract_band(CERT_CLASS, e), Ok(P7A_CAUSES));
+        // Silence twin: the contract does admit the band on P7a's class.
+        assert_eq!(contract_band(CERT_CLASS, e), Ok(Contract::Causes.code()));
     }
 
     /// FAILS IF: a P7a-certified `Causes` starts reading as `CAUSES` under the
@@ -249,13 +228,9 @@ mod tests {
     #[test]
     fn a_certified_causes_never_reads_as_causes() {
         // Topology 0: code 20, read as Related.
-        let e = stamp(P7A_CAUSES, 0);
+        let e = stamp(Contract::Causes, 0);
         assert_eq!(raw5(e), 20);
-        assert_eq!(
-            contract_band(CERT_CLASS, e),
-            Ok(P7A_CAUSES),
-            "the contract reads Causes"
-        );
+        assert_eq!(p7a_reads(e), Ok(Contract::Causes), "P7a reads Causes");
         let facts = affordance_facts(e).expect("code 20 is declared");
         assert_eq!(facts & CAUSES, 0, "P7a Causes carries no CAUSES fact");
         assert_eq!(facts & SHARED, ASSOCIATED | RELATED);
@@ -263,9 +238,7 @@ mod tests {
         assert_eq!(ok & (1 << COUNTERFACTUAL_PROBE), 0);
         // Anti-vacuity: the plane rule does not hide the recipe; a code that
         // does carry CAUSES makes it eligible on the same edge.
-        let with_causes = base()
-            .with_reasoning_band(ReasoningBand::from_bits_3(0))
-            .with_truth(TrustTexture::from_bits_2(1));
+        let with_causes = stamp(Contract::Open, 1);
         assert_ne!(
             eligible(with_causes).unwrap() & (1 << COUNTERFACTUAL_PROBE),
             0
@@ -273,8 +246,8 @@ mod tests {
 
         // Topologies 1..3: codes 21..23, not declared by the affordance law.
         for t in 1..4u8 {
-            let e = stamp(P7A_CAUSES, t);
-            assert_eq!(contract_band(CERT_CLASS, e), Ok(P7A_CAUSES));
+            let e = stamp(Contract::Causes, t);
+            assert_eq!(p7a_reads(e), Ok(Contract::Causes));
             assert_eq!(eligible(e), Err(Refusal::Undeclared(20 + t)));
         }
     }
@@ -287,16 +260,19 @@ mod tests {
             .filter(|&c| EPI_LAW[c as usize].is_some_and(|f| f & CAUSES != 0))
             .collect();
         assert_eq!(causes, vec![1, 17]);
-        let bands: Vec<&str> = causes.iter().map(|c| P7A[(c >> 2) as usize]).collect();
-        assert_eq!(bands, vec!["Open", "CausalCandidate"]);
+        let contracts: Vec<_> = causes.iter().map(|c| Contract::from_code(c >> 2)).collect();
+        assert_eq!(
+            contracts,
+            vec![Ok(Contract::Open), Ok(Contract::CausalCandidate)]
+        );
     }
 
-    /// FAILS IF: no declared affordance code sits on P7a's refused bands 6..7,
-    /// or a different set does.
+    /// FAILS IF: no declared affordance code sits on a band P7a refuses, or a
+    /// different set does.
     #[test]
     fn affordance_codes_occupy_p7a_reserved_bands() {
-        let reserved: Vec<u8> = (24..32u8)
-            .filter(|&c| EPI_LAW[c as usize].is_some())
+        let reserved: Vec<u8> = (0..32u8)
+            .filter(|&c| EPI_LAW[c as usize].is_some() && Contract::from_code(c >> 2).is_err())
             .collect();
         assert_eq!(reserved, vec![25, 30]);
     }
