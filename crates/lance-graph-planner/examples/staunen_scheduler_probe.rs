@@ -1728,6 +1728,30 @@ mod tests {
         assert!(s.activation >= 4, "{s:?}");
     }
 
+    /// No pseudo-replication: re-measuring a channel whose steps changed
+    /// but whose outcome did not leaves the belief where it was; a
+    /// retraction that changes the outcome moves it.
+    #[test]
+    fn a_remeasured_channel_replaces_its_evidence() {
+        let sh = Shared::new();
+        let mut b = Basin::new(0, true);
+        b.steps.push(step(A, CANDIDATES[0]));
+        b.steps.push(step(CANDIDATES[0], Y));
+        fold(&sh, &mut b, 0, 0, 0, Carrier::Full, FULL);
+        let once = b.belief;
+        // An unrelated step mentioning candidate 0 arrives: same outcome.
+        b.steps.push(step(CANDIDATES[0], CANDIDATES[1]));
+        b.touch(0);
+        assert!(b.fresh(0));
+        fold(&sh, &mut b, 0, 0, 1, Carrier::Full, FULL);
+        assert_eq!(b.belief, once, "the same evidence was counted twice");
+        // Retraction: the chain is gone, the channel now says so.
+        b.steps.clear();
+        b.touch(0);
+        fold(&sh, &mut b, 0, 0, 2, Carrier::Full, FULL);
+        assert!(b.belief.mass(1) < once.mass(1) / 10.0);
+    }
+
     /// F9 (determinism): same shape, seed, policy and carrier, same report.
     #[test]
     fn replay_is_deterministic() {
