@@ -147,6 +147,12 @@ required-features = ["with-engine", "mailbox-thoughtspace"]
 name = "epistemic_reading_conflict_probe"
 test = true
 
+# D-PUZZLE-0 step 1: Sudoku at scale on the EpistemicState5 population
+# algebra; tests run under `cargo test`.
+[[example]]
+name = "sudoku_population_fold_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the

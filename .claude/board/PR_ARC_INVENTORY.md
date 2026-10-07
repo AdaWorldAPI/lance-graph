@@ -1,3 +1,11 @@
+## 2026-10-07 — lance-graph PR #1381 (merged `7334ae9`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `0ba5d24`, 17 commits) — CE64 bits 59..63 = `EpistemicState5 = Topology2 × Certification3`; facts populations; legacy deprojection
+
+- **Added:** `lance_graph_contract::epistemic_state5` — `Topology2`, `Certification3`, per-factor facts, `EpistemicState5` (`raw5 = topology | certification << 2`, 24 meaningful / 8 reserved), `Epi5Reading`, `Epi5Declarations::project_state5`, `facts_population` / `Population` / `bit()`; `ClassView::epistemic_reading`; `CausalEdge64::{epistemic_raw5, with_epistemic_raw5}`, `EPISTEMIC_MASK`.
+- **Locked (test-pinned):** #1378 conformance 24 agree / 0 disagree / 8 reserved; populations exact sets + code-by-code vs `facts_v1` over 2048 requirements; factor updates move only their factor's membership. Each falsifier disable-verified.
+- **Removed / deprecated:** the #1370 ten-code codebook (replaced, not versioned); `EdgeRole::band`; half-field writers deprecated (`with_truth`, `with_routing`, `with_reasoning_band`, `with_spare`, …).
+- **Deferred / open:** no production class declares the canonical reading (no OGAR mint); `facts_population` has no production caller; four-plane and `reasoning_band_probe` stay as records (`ISS-LEGACY-59-63-READINGS-REMAIN`).
+- **Confidence:** high for the contract (exhaustive tests). Merged before CI on `0ba5d24` and CodeRabbit's review of the last five commits finished; the previous head `47bd36b` was green.
+
 ## 2026-09-23 — lance-graph PR #1271 (merged `d90600d`, branch `claude/brave-mayer-65y3cy`, head `d4dd251`, 1 commit) — ReportPlan fold substrate, zero-copy pivot, reports as OGAR projection sources
 
 - **Added:** `crates/lance-graph-report` (member): `ReportPlan` lowering into
