@@ -13,6 +13,8 @@ const SCOPE: DirectoryScope = DirectoryScope(Guid128([0x5C; 16]));
 const ALICE: u8 = 0xA1;
 const BOB: u8 = 0xB0;
 const ADMIN: u8 = 0xAD;
+const CAROL: u8 = 0xCA;
+const DAVE: u8 = 0xDA;
 const TENANT: &str = "contoso.mail.onmicrosoft.com";
 
 fn g(n: u8) -> Guid128 {
@@ -220,4 +222,107 @@ fn from_ad_reads_mail_and_alias() {
     let obs = observe::from_ad(SCOPE, &[rec], &p).unwrap();
     assert_eq!(obs.nodes[0].1.mail.as_deref(), Some("alice@x.test"));
     assert_eq!(obs.nodes[0].1.alias.as_deref(), Some("alice"));
+}
+
+struct Propose(Vec<Change>);
+impl Rule for Propose {
+    fn id(&self) -> RuleId {
+        RuleId {
+            name: "Propose",
+            version: 1,
+        }
+    }
+    fn propose(&self, _: &View<'_>, _: &[EvidenceRef]) -> Vec<Change> {
+        self.0.clone()
+    }
+}
+
+/// Enable a remote user mailbox routing to `routing` on Carol, an enabled
+/// user with alias `carol` that is observed as not mail-enabled and owns no
+/// routing proxy; `others` are observed beside her. Returns the version's
+/// violations.
+fn enable_carol(routing: &str, others: Vec<(Guid128, ObservedNode)>) -> Vec<Violation> {
+    let mut carol = user("carol");
+    carol.alias = Some("carol".into());
+    carol.recipient = Some(ObservedRecipient {
+        remote_recipient_type: None,
+        display_type: None,
+        type_details: None,
+        target_address: None,
+    });
+    let mut nodes = vec![(g(CAROL), carol)];
+    nodes.extend(others);
+    let mut st = VersionStore::new();
+    let v0 = st
+        .observe(
+            "lab",
+            0,
+            Observation {
+                scope: SCOPE,
+                nodes,
+                members: vec![],
+            },
+        )
+        .unwrap();
+    let out = st.validate(v0).unwrap();
+    assert!(out.is_empty(), "observed state is clean: {out:?}");
+    let routing = st.intern(routing);
+    let enabled = RemoteMailboxOp::Enable {
+        kind: RemoteKind::User,
+        routing,
+    }
+    .apply(&Recipient::NotMailEnabled)
+    .unwrap();
+    let v1 = st
+        .simulate(
+            v0,
+            &Propose(vec![Change::SetRecipient {
+                node: g(CAROL),
+                from: Some(Recipient::NotMailEnabled),
+                to: Some(enabled),
+            }]),
+            &[],
+        )
+        .unwrap();
+    st.validate(v1).unwrap()
+}
+
+// Codex P1 on #1392: Enable-RemoteMailbox stamps the routing address as a
+// proxy itself, so a version that enables a mailbox is valid before AD holds
+// that proxy. Only an observed routing address must already be a proxy
+// (`the_routing_address_must_be_a_proxy`).
+#[test]
+fn enabling_a_mailbox_stamps_its_routing_proxy() {
+    assert_eq!(enable_carol(&format!("carol@{TENANT}"), vec![]), vec![]);
+}
+
+// The introduced routing address is still checked: it must be the template
+// for the node's own alias ...
+#[test]
+fn an_introduced_routing_address_must_match_the_alias() {
+    assert_eq!(
+        enable_carol(&format!("dave@{TENANT}"), vec![]),
+        vec![Violation::RoutingMismatch { node: g(CAROL) }]
+    );
+}
+
+// ... and it is in the address space: an introduced routing address that is
+// another user's SMTP address conflicts, as an observed one would.
+#[test]
+fn an_introduced_routing_address_conflicts_like_an_observed_one() {
+    let routing = format!("carol@{TENANT}");
+    let mut dave = user("dave");
+    dave.proxies.push(format!("smtp:{routing}"));
+    let out = enable_carol(&routing, vec![(g(DAVE), dave)]);
+    assert!(
+        out.iter().any(|v| matches!(v,
+            Violation::AddressConflict { holders, .. }
+                if holders.contains(&(g(CAROL), AddressRole::Routing))
+                    && holders.contains(&(g(DAVE), AddressRole::SecondarySmtp)))),
+        "{out:?}"
+    );
+    assert!(
+        !out.contains(&Violation::RoutingNotInProxies { node: g(CAROL) }),
+        "{out:?}"
+    );
 }

@@ -396,8 +396,12 @@ pub fn smtp_duplicates(v: &View<'_>) -> Vec<Violation> {
 /// A live remote mailbox's routing address must be
 /// `{alias}@{tenant}.mail.onmicrosoft.com` for its own `mailNickname`
 /// (`RoutingMismatch`; not checked while the alias is unknown) and one of its
-/// own SMTP addresses (`RoutingNotInProxies`). Both compare ids: the alias
-/// was parsed out of the address when it was interned.
+/// own SMTP addresses (`RoutingNotInProxies`). The proxy rule applies only to
+/// the routing address the node was observed with: a routing address this
+/// version introduces is stamped as a proxy by the lifecycle operation
+/// (Enable-RemoteMailbox), so the pre-actuation version is not rejected for
+/// lacking it. Both compare ids: the alias was parsed out of the address
+/// when it was interned.
 ///
 /// The rows are collected per user and sorted — `O(n log n)` over the users,
 /// a validation pass rather than the simulation hot path.
@@ -450,7 +454,16 @@ pub fn address_rules(v: &View<'_>) -> Vec<Violation> {
             continue;
         };
         rows.push((rk.0, g, AddressRole::Routing));
-        if !smtp.contains(&rk.0) {
+        // Only a routing address AD was observed with must already be a
+        // proxy. One this version introduces (an enable, a create, a new
+        // routing address) is stamped as a proxy by the operation itself, as
+        // Enable-RemoteMailbox does; it stays in the address space as
+        // `Routing`, so it still conflicts.
+        let observed = match (i < n).then(|| p.recipient_of(i)).flatten() {
+            Some(Recipient::RemoteMailbox(m)) => m.routing(),
+            _ => None,
+        };
+        if observed == Some(routing) && !smtp.contains(&rk.0) {
             out.push(Violation::RoutingNotInProxies { node: g });
         }
         let alias = if i < n { p.alias_key[i] } else { NONE };
