@@ -64,6 +64,7 @@ pub mod cam;
 pub mod canonical_node;
 pub mod causal_audit;
 pub mod causal_witness;
+pub mod certification;
 pub mod class_view;
 /// D-V3-W6a — classid adoption-scan counting logic (`ClassidForm`,
 /// `classify_form`, `AdoptionCounts`, `count_adoption`). See

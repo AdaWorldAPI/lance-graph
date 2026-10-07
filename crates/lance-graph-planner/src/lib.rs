@@ -102,6 +102,7 @@ pub mod temporal;
 pub mod dismech_candidates;
 pub mod dismech_counterfactual;
 pub mod dismech_replay;
+pub mod pearl;
 
 // === Canonical OrchestrationBridge impl (dedup per contract) ===
 // Implements `lance_graph_contract::orchestration::OrchestrationBridge`
