@@ -23,10 +23,11 @@ versioned candidate. Does not close it: the production decision stays open.
 - 360 rendered witnesses (D-CTX-4) proposing the claim never move the code in
   either direction: they carry no independent root, so the revision never
   admits them. One direction repeated 50 times is one root. A `Same` reading
-  is not support. A complete check of a boundary pixel (8 roots, 3 `Differs`)
-  promotes alone. V2 (3 roots) refuses what V1 accepts. Only bits 59..63 move.
+  is not support. A complete check counts only its `Differs` roots: 3 promote
+  alone, 1 does not (codex review on #1379: the first draft counted all 8
+  roots of a check with one `Differs`). V2 (3 roots) refuses what V1 accepts. Only bits 59..63 move.
   Restart from `to_le_bytes` continues identically. 0 allocations per settle.
-- 11 tests, 7 disable runs red. Two disables were green on the first draft and
+- 12 tests, 8 disable runs red. Two disables were green on the first draft and
   exposed vacuous gates: the render was kept out by the probe's own
   `supports = false` flag instead of by the revision (the flag now says the
   render supports the claim, so only the missing root keeps it out), and no

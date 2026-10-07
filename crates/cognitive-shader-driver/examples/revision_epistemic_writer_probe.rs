@@ -183,13 +183,9 @@ fn ancestry(h: &Horizon) -> BasisView<u64> {
     }
 }
 
-/// The evidence an encounter presents, given the horizon so far.
-fn evidence(
-    tile: &Tile,
-    p: Morton8x8,
-    h: &Horizon,
-    e: Encounter,
-) -> (EncounterEvidence<u64>, bool) {
+/// The evidence an encounter presents, given the horizon so far, and the
+/// mask of its roots that support the claim (a `Same` reading never does).
+fn evidence(tile: &Tile, p: Morton8x8, h: &Horizon, e: Encounter) -> (EncounterEvidence<u64>, u64) {
     match e {
         Encounter::Observe(d) => {
             let root = 1u64 << d;
@@ -208,11 +204,14 @@ fn evidence(
                     contradictions: 0,
                     affected_parts: if differs { CLAIM } else { 0 },
                 },
-                differs,
+                if differs { root } else { 0 },
             )
         }
         Encounter::CompleteCheck => {
-            let all_same = (0..8).all(|d| observe(tile, p, d) == Reading::Same);
+            let differing = (0..8u8)
+                .filter(|&d| observe(tile, p, d) == Reading::Differs)
+                .fold(0u64, |m, d| m | 1 << d);
+            let all_same = differing == 0;
             let ev = if all_same {
                 EncounterEvidence {
                     proposed_claims: h.projected_claims & !CLAIM,
@@ -232,10 +231,11 @@ fn evidence(
                     affected_parts: CLAIM,
                 }
             };
-            (ev, !all_same)
+            (ev, differing)
         }
-        // The rendered surface proposes the claim but carries no root of its
-        // own: only the revision gate keeps it out of `earned_support`.
+        // The rendered surface proposes the claim and would count every root
+        // it carried; it carries none, so only the revision gate keeps it out
+        // of `earned_support`.
         Encounter::Render(_) => (
             EncounterEvidence {
                 proposed_claims: h.projected_claims | CLAIM,
@@ -245,7 +245,7 @@ fn evidence(
                 contradictions: 0,
                 affected_parts: CLAIM,
             },
-            true,
+            u64::MAX,
         ),
     }
 }
@@ -264,12 +264,10 @@ fn settle(
     let mut earned_support = 0u32;
     let mut contradicted = false;
     for &e in encounters {
-        let (ev, supports) = evidence(tile, p, &h, e);
+        let (ev, supporting) = evidence(tile, p, &h, e);
         let delta = GadamerRevision.revise(&h, &ev, &ancestry(&h));
         if delta.evidential_effect == EvidentialEffect::IncreaseEligible {
-            if supports {
-                earned_support += delta.new_independent_roots.count_ones();
-            }
+            earned_support += (delta.new_independent_roots & supporting).count_ones();
             h = delta.resulting;
         } else if delta.kind == RevisionKind::ContradictionPreserved
             && delta.contradictions & CLAIM != 0
@@ -537,6 +535,50 @@ mod tests {
             &[Encounter::CompleteCheck],
         );
         assert_eq!(raw5(next), CODE_ASSOCIATED);
+    }
+
+    /// FAILS IF: a complete check counts its `Same` readings as support. A
+    /// pixel with exactly one differing neighbour admits eight new roots and
+    /// one supporting root: no promotion under V1. With two differing
+    /// neighbours it promotes under V1 and not under V2.
+    #[test]
+    fn a_complete_check_counts_only_differing_roots() {
+        let (_, a, b) = fixture();
+        let p = tracked();
+        let island = |cells: &[(u8, u8)]| -> Tile {
+            let mut t = [a; PIXELS];
+            for &(x, y) in cells {
+                t[Morton8x8::from_xy(x, y).code() as usize] = b;
+            }
+            t
+        };
+        let check = [Encounter::CompleteCheck];
+        let one = island(&[(8, 8)]);
+        assert_eq!(
+            (0..8)
+                .filter(|&d| observe(&one, p, d) == Reading::Differs)
+                .count(),
+            1
+        );
+        assert_eq!(
+            raw5(settle(TransitionGen::V1, &one, p, initial(), &check)),
+            CODE_OBSERVED
+        );
+        let two = island(&[(8, 8), (8, 7)]);
+        assert_eq!(
+            (0..8)
+                .filter(|&d| observe(&two, p, d) == Reading::Differs)
+                .count(),
+            2
+        );
+        assert_eq!(
+            raw5(settle(TransitionGen::V1, &two, p, initial(), &check)),
+            CODE_ASSOCIATED
+        );
+        assert_eq!(
+            raw5(settle(TransitionGen::V2, &two, p, initial(), &check)),
+            CODE_OBSERVED
+        );
     }
 
     /// FAILS IF: one source counts more than once. The same direction fifty
