@@ -159,6 +159,10 @@ test = true
 name = "crossword_population_fold_probe"
 test = true
 
+[[example]]
+name = "crossword_real_words_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
