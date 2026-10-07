@@ -27,7 +27,7 @@ use crate::view::View;
 use lance_graph_mask_risc::{Foreign, ForeignPlane as FPlane, LaneRef, Planes, Program};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, ForeignPlane, Mask};
 use ogar_dir_core::Guid128;
-use ogar_dir_sim::{Attribute, Endpoint, KeyId, NodeKind, Violation};
+use ogar_dir_sim::{AddressRole, Attribute, Endpoint, KeyId, NodeKind, Recipient, Violation};
 
 /// The edge-integrity program over a membership relation: lane 0 = user
 /// ordinal, lane 1 = group ordinal, plane 0 = live rows; foreign plane 0 =
@@ -382,6 +382,129 @@ pub fn smtp_duplicates(v: &View<'_>) -> Vec<Violation> {
     out
 }
 
+/// The one-address-space and routing rules (OGAR `AddressConflict`,
+/// `RoutingNotInProxies`, `RoutingMismatch`), over the users of a version.
+///
+/// Rows `(key, holder, role)`: UPN, primary and secondary SMTP and the
+/// routing address of address owners (enabled, or a live mail recipient),
+/// and `mail` of every user — a `mail` on another object conflicts even when
+/// that object is disabled and no recipient. A key is an `AddressConflict`
+/// when two of its holders collide across attributes: a pair that already
+/// collides as SMTP (`DuplicateSmtp`) or as UPN (`DuplicateUpn`) is not
+/// reported twice.
+///
+/// A live remote mailbox's routing address must be
+/// `{alias}@{tenant}.mail.onmicrosoft.com` for its own `mailNickname`
+/// (`RoutingMismatch`; not checked while the alias is unknown) and one of its
+/// own SMTP addresses (`RoutingNotInProxies`). The proxy rule applies only to
+/// the routing address the node was observed with: a routing address this
+/// version introduces is stamped as a proxy by the lifecycle operation
+/// (Enable-RemoteMailbox), so the pre-actuation version is not rejected for
+/// lacking it. Both compare ids: the alias was parsed out of the address
+/// when it was interned.
+///
+/// The rows are collected per user and sorted — `O(n log n)` over the users,
+/// a validation pass rather than the simulation hot path.
+pub fn address_rules(v: &View<'_>) -> Vec<Violation> {
+    let p = &v.snap.users;
+    let rel = &v.snap.proxies;
+    let owners = v.owner_users();
+    let n = p.len();
+    let mut rows: Vec<(u32, Guid128, AddressRole)> = Vec::new();
+    let mut out = Vec::new();
+    for i in 0..v.users_len() {
+        let Some(g) = v.guid_in(NodeKind::User, i) else {
+            continue;
+        };
+        if i < n && p.mail_key[i] != NONE {
+            rows.push((p.mail_key[i], g, AddressRole::Mail));
+        }
+        if !bit(&owners, i) {
+            continue;
+        }
+        let slot = (NodeKind::User, i);
+        let mut smtp: Vec<u32> = Vec::new();
+        for (a, role) in [
+            (Attribute::Upn, AddressRole::Upn),
+            (Attribute::PrimarySmtp, AddressRole::PrimarySmtp),
+        ] {
+            if let Some((_, k)) = v.attr_ids(slot, a).filter(|&(_, k)| k != NONE) {
+                rows.push((k, g, role));
+                if role == AddressRole::PrimarySmtp {
+                    smtp.push(k);
+                }
+            }
+        }
+        if i < n {
+            for r in rel.owner_rows(i as u32) {
+                if rel.meta[r] == meta::SMTP_SECONDARY {
+                    rows.push((rel.key[r], g, AddressRole::SecondarySmtp));
+                    smtp.push(rel.key[r]);
+                }
+            }
+        }
+        let routing = match v.node_state(&g).and_then(|s| s.recipient) {
+            Some(Recipient::RemoteMailbox(m)) => m.routing(),
+            _ => None,
+        };
+        let Some(routing) = routing else {
+            continue;
+        };
+        let Some(rk) = v.dicts.key_of(routing) else {
+            continue;
+        };
+        rows.push((rk.0, g, AddressRole::Routing));
+        // Only a routing address AD was observed with must already be a
+        // proxy. One this version introduces (an enable, a create, a new
+        // routing address) is stamped as a proxy by the operation itself, as
+        // Enable-RemoteMailbox does; it stays in the address space as
+        // `Routing`, so it still conflicts.
+        let observed = match (i < n).then(|| p.recipient_of(i)).flatten() {
+            Some(Recipient::RemoteMailbox(m)) => m.routing(),
+            _ => None,
+        };
+        if observed == Some(routing) && !smtp.contains(&rk.0) {
+            out.push(Violation::RoutingNotInProxies { node: g });
+        }
+        let alias = if i < n { p.alias_key[i] } else { NONE };
+        if alias != NONE && v.dicts.routing_alias(routing) != Some(KeyId(alias)) {
+            out.push(Violation::RoutingMismatch { node: g });
+        }
+    }
+
+    rows.sort_unstable();
+    rows.dedup();
+    for run in rows.chunk_by(|a, b| a.0 == b.0) {
+        // Per holder: does it hold the key as SMTP, as UPN?
+        let holders: Vec<(Guid128, bool, bool)> = run
+            .chunk_by(|a, b| a.1 == b.1)
+            .map(|h| {
+                let has = |f: fn(AddressRole) -> bool| h.iter().any(|r| f(r.2));
+                (
+                    h[0].1,
+                    has(|r| matches!(r, AddressRole::PrimarySmtp | AddressRole::SecondarySmtp)),
+                    has(|r| r == AddressRole::Upn),
+                )
+            })
+            .collect();
+        // Two holders conflict across attributes unless they already
+        // collide as SMTP (DuplicateSmtp) or as UPN (DuplicateUpn).
+        let cross = holders.iter().enumerate().any(|(i, a)| {
+            holders[i + 1..]
+                .iter()
+                .any(|b| !(a.1 && b.1) && !(a.2 && b.2))
+        });
+        if !cross {
+            continue;
+        }
+        out.push(Violation::AddressConflict {
+            key: KeyId(run[0].0),
+            holders: run.iter().map(|r| (r.1, r.2)).collect(),
+        });
+    }
+    out
+}
+
 /// Every invariant, sorted. Empty = valid.
 ///
 /// SMTP uniqueness is [`smtp_duplicates`] (every SMTP proxy); UPN is
@@ -390,6 +513,7 @@ pub fn validate(v: &View<'_>) -> Vec<Violation> {
     let mut out = dangling(v);
     out.extend(smtp_duplicates(v));
     out.extend(duplicates(v, Attribute::Upn));
+    out.extend(address_rules(v));
     out.sort();
     out
 }

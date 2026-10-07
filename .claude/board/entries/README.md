@@ -45,6 +45,7 @@ exactly one of them, never both.
 | 2026-10-07 | `dir-sim-proxy-relation` |  | [2026-10-07-dir-sim-proxy-relation.md](2026-10-07-dir-sim-proxy-relation.md) |
 | 2026-10-07 | `dir-sim-node-properties` |  | [2026-10-07-dir-sim-node-properties.md](2026-10-07-dir-sim-node-properties.md) |
 | 2026-10-07 | `dir-sim-exchange-recipients` |  | [2026-10-07-dir-sim-exchange-recipients.md](2026-10-07-dir-sim-exchange-recipients.md) |
+| 2026-10-07 | `dir-sim-address-space` |  | [2026-10-07-dir-sim-address-space.md](2026-10-07-dir-sim-address-space.md) |
 | 2026-10-07 | `D-CTX-7` |  | [2026-10-07-ctx7-revision-writer-for-epistemic-state.md](2026-10-07-ctx7-revision-writer-for-epistemic-state.md) |
 | 2026-10-07 | `bind-bundle-gated-gather` | One bound query, five routes, identical answers; the semijoin is never gated and dominates; a gated mask gather beats a selection vector (R1 survives) | [2026-10-07-bind-bundle-gated-gather.md](2026-10-07-bind-bundle-gated-gather.md) |
 | 2026-10-07 | `aperture16-u64-word-schedule` | The u16 view of the 64K mask is free but 1.3–2.3× slower per layout as a schedule than u64 words; extent × mask compose; the exact next-frontier mask beats a u16 target histogram; no new carrier or opcode | [2026-10-07-aperture16-u64-word-schedule.md](2026-10-07-aperture16-u64-word-schedule.md) |

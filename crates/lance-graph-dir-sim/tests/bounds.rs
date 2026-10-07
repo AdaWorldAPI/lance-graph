@@ -30,6 +30,8 @@ fn bare(kind: NodeKind) -> ObservedNode {
         proxies: Vec::new(),
         dn: None,
         recipient: None,
+        mail: None,
+        alias: None,
     }
 }
 fn population(users: u32, groups: u32) -> Observation {
