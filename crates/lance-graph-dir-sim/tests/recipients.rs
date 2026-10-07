@@ -45,6 +45,14 @@ fn user(smtp: &str, active: Option<bool>, rcp: Option<ObservedRecipient>) -> Obs
     let mut u = ObservedNode::user(&format!("{smtp}.upn"), smtp);
     u.active = active;
     u.recipient = rcp;
+    // A well-formed remote mailbox owns its routing address as a proxy.
+    // The dormant user (read, not mail-enabled) already carries the one its
+    // enable step will route to.
+    u.proxies = match &u.recipient {
+        Some(r) if r.target_address.is_some() => vec![format!("smtp:{ROUTING}")],
+        Some(_) => vec!["smtp:dormant@tenant.mail.onmicrosoft.com".into()],
+        None => Vec::new(),
+    };
     u
 }
 /// Alice: an enabled user, recipient not read. Shared: a disabled remote
