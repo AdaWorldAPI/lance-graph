@@ -27,20 +27,20 @@ use ndarray::simd::{
     eq_u32_to_mask_under, eq_u32_via_to_mask, ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask,
     gt_i32_to_mask_under, le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask,
     lt_i32_to_mask_under, mask_all, mask_and, mask_and_assign, mask_andnot, mask_andnot_assign,
-    mask_any, mask_gather_u32, mask_not, mask_not_assign, mask_or, mask_or_assign,
-    mask_scatter_or_u32, mask_set_range, mask_xor, mask_xor_assign, masked_group_count_u32,
-    masked_group_count_u32_pair, masked_group_count_u32_via, masked_group_cross_power_sums_i32,
-    masked_group_cross_power_sums_i32_pair, masked_group_cross_power_sums_i32_via,
-    masked_group_max_i32, masked_group_max_i32_pair, masked_group_max_i32_via,
-    masked_group_min_i32, masked_group_min_i32_pair, masked_group_min_i32_via,
-    masked_group_power_sums_i32, masked_group_power_sums_i32_pair, masked_group_power_sums_i32_via,
-    masked_group_sum_i32, masked_group_sum_i32_via, masked_group_sum_sym_i32,
-    masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via, masked_key_run_count_u32,
-    masked_max_i32, masked_min_i32, masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask,
-    ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
-    ternary_match_strided16_to_mask, ternary_match_strided_to_mask, ternary_match_u32_to_mask,
-    ternary_match_u32_to_mask_under, ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
-    CrossPowerSums, KeyRunCarry, PowerSums,
+    mask_any, mask_gather_u32, mask_gather_u32_under, mask_not, mask_not_assign, mask_or,
+    mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor, mask_xor_assign,
+    masked_group_count_u32, masked_group_count_u32_pair, masked_group_count_u32_via,
+    masked_group_cross_power_sums_i32, masked_group_cross_power_sums_i32_pair,
+    masked_group_cross_power_sums_i32_via, masked_group_max_i32, masked_group_max_i32_pair,
+    masked_group_max_i32_via, masked_group_min_i32, masked_group_min_i32_pair,
+    masked_group_min_i32_via, masked_group_power_sums_i32, masked_group_power_sums_i32_pair,
+    masked_group_power_sums_i32_via, masked_group_sum_i32, masked_group_sum_i32_via,
+    masked_group_sum_sym_i32, masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via,
+    masked_key_run_count_u32, masked_max_i32, masked_min_i32, masked_strided_group_sum,
+    masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under,
+    popcount_batch_u64, ternary_match_strided16_to_mask, ternary_match_strided_to_mask,
+    ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
+    ternary_match_u64_to_mask_under, CrossPowerSums, KeyRunCarry, PowerSums,
 };
 
 use crate::ir::{
@@ -1753,21 +1753,32 @@ pub fn execute_compiled(
                 MaskOp::Gather {
                     lane,
                     foreign: fidx,
+                    under,
                     dst,
                 } => {
-                    // No aliasing shape to consider: unlike every other op,
                     // `Gather` never reads `dst` as an input — it only writes
-                    // it — so there is no `dst == a` case to route to an
-                    // in-place facade form. The foreign plane is read WHOLE
-                    // (it is addressed by the key, not by this tile's rows).
-                    let (d, _rest) = scratch.split(dst);
+                    // it — so there is no in-place form to route to. The
+                    // foreign plane is read WHOLE (it is addressed by the
+                    // key, not by this tile's rows).
+                    let (d, rest) = scratch.split(dst);
                     let fp = &foreign.planes[usize::from(fidx)];
-                    mask_gather_u32(
-                        fp.words,
-                        fp.rows,
-                        lane_u32(planes, lane, t),
-                        &mut d[..t.words],
-                    );
+                    match under {
+                        None => mask_gather_u32(
+                            fp.words,
+                            fp.rows,
+                            lane_u32(planes, lane, t),
+                            &mut d[..t.words],
+                        ),
+                        // The gate is this tile's words of `u`; validation
+                        // has refused `u == Scratch(dst)`, so `rest` holds it.
+                        Some(u) => mask_gather_u32_under(
+                            fp.words,
+                            fp.rows,
+                            lane_u32(planes, lane, t),
+                            read(planes, &rest, u, t),
+                            &mut d[..t.words],
+                        ),
+                    }
                 }
             }
         }

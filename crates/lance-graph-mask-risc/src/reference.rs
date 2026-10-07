@@ -437,8 +437,16 @@ pub(crate) fn validate(
             MaskOp::Gather {
                 lane,
                 foreign: fidx,
+                under,
                 dst,
             } => {
+                if let Some(u) = under {
+                    check_operand(p, planes, u)?;
+                    if u == Operand::Scratch(dst) {
+                        return Err(ExecError::GateAliasesDst { dst });
+                    }
+                    written(u)?;
+                }
                 check_lane(planes, lane, LaneKind::U32)?;
                 let fp = foreign
                     .planes
@@ -914,11 +922,14 @@ fn run(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>) -> Rows {
                 MaskOp::Gather {
                     lane,
                     foreign: fidx,
+                    under,
                     ..
                 } => {
                     let idx = u32_at(planes, lane, row) as usize;
                     let fp = &foreign.planes[usize::from(fidx)];
-                    idx < fp.rows && (fp.words[idx / 64] >> (idx % 64)) & 1 == 1
+                    under.is_none_or(|u| rows.bit(planes, u, row))
+                        && idx < fp.rows
+                        && (fp.words[idx / 64] >> (idx % 64)) & 1 == 1
                 }
             };
             let dst = match *op {
