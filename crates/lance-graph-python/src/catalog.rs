@@ -319,7 +319,8 @@ impl PyUnityCatalog {
     /// Create an SqlEngine with all tables from a UC schema auto-registered.
     ///
     /// Discovers all tables in the specified catalog.schema, registers them
-    /// using the appropriate format reader (Parquet, Delta, etc.), and returns
+    /// using the appropriate format reader (Parquet; a format with no reader,
+    /// such as Delta, raises instead of registering an empty table), and returns
     /// an SqlEngine ready for SQL queries.
     ///
     /// Parameters

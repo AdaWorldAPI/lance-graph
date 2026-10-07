@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use arrow_schema::SchemaRef;
-use datafusion::datasource::MemTable;
 use datafusion::execution::context::SessionContext;
 
 use crate::catalog_provider::{
@@ -148,13 +147,17 @@ impl Connector {
     /// 3. Finds an appropriate [`TableReader`] for the table's data format.
     /// 4. Registers the table in the session context with storage options for cloud access.
     ///
-    /// If no reader matches the table's format, falls back to registering an
-    /// empty `MemTable` with the correct schema (schema-only, for planning).
+    /// A table whose format has no matching reader is NOT registered, and the
+    /// call returns [`CatalogError::UnsupportedFormat`] once every other table
+    /// has been attempted. An unsupported format must never present itself as
+    /// a valid empty dataset, and it must never vanish silently either.
     ///
-    /// Individual table failures are logged as warnings but do not abort the
-    /// registration of remaining tables.
+    /// Other per-table failures (fetch, schema mapping, reader errors) are
+    /// logged as warnings and do not abort the registration of the remaining
+    /// tables.
     ///
-    /// Returns a list of `(table_name, schema)` for successfully registered tables.
+    /// Returns a list of `(table_name, schema)` for successfully registered
+    /// tables when every table had a reader.
     pub async fn register_schema(
         &self,
         ctx: &SessionContext,
@@ -163,6 +166,7 @@ impl Connector {
     ) -> CatalogResult<Vec<(String, SchemaRef)>> {
         let tables = self.catalog.list_tables(catalog_name, schema_name).await?;
         let mut registered = Vec::new();
+        let mut unsupported: Option<CatalogError> = None;
 
         for table_summary in &tables {
             match self
@@ -171,6 +175,10 @@ impl Connector {
             {
                 Ok((name, schema)) => {
                     registered.push((name, schema));
+                }
+                Err(e @ CatalogError::UnsupportedFormat { .. }) => {
+                    eprintln!("Error: {e}");
+                    unsupported.get_or_insert(e);
                 }
                 Err(e) => {
                     eprintln!(
@@ -181,7 +189,10 @@ impl Connector {
             }
         }
 
-        Ok(registered)
+        match unsupported {
+            Some(e) => Err(e),
+            None => Ok(registered),
+        }
     }
 
     async fn register_single_table(
@@ -195,40 +206,27 @@ impl Connector {
             .catalog
             .get_table(catalog_name, schema_name, table_name)
             .await?;
+        // Find a reader for this format BEFORE the fallible schema mapping.
+        // No reader means the format is unsupported: fail, never register an
+        // empty stand-in. Checking first keeps a type-mapping error on the
+        // same table from masking this as an ordinary per-table warning.
+        let reader = self
+            .reader_for(&table_info.data_source_format)
+            .ok_or_else(|| CatalogError::UnsupportedFormat {
+                table: format!("{catalog_name}.{schema_name}.{}", table_info.name),
+                format: table_info.data_source_format.clone(),
+            })?;
         let arrow_schema = self.catalog.table_to_arrow_schema(&table_info)?;
         let normalized_name = table_info.name.to_lowercase();
-
-        // Find a reader for this format
-        let reader = self.reader_for(&table_info.data_source_format);
-
-        match reader {
-            Some(r) => {
-                r.register_table(
-                    ctx,
-                    &normalized_name,
-                    &table_info,
-                    arrow_schema.clone(),
-                    &self.storage_options,
-                )
-                .await?;
-            }
-            None => {
-                // No reader — register schema-only (empty MemTable for planning)
-                let mem_table = MemTable::try_new(arrow_schema.clone(), vec![]).map_err(|e| {
-                    CatalogError::Other(format!(
-                        "Failed to create empty table '{}': {}",
-                        normalized_name, e
-                    ))
-                })?;
-                ctx.register_table(&normalized_name, Arc::new(mem_table))
-                    .map_err(|e| {
-                        CatalogError::Other(format!(
-                            "Failed to register table '{}': {}",
-                            normalized_name, e
-                        ))
-                    })?;
-            }
-        }
+        reader
+            .register_table(
+                ctx,
+                &normalized_name,
+                &table_info,
+                arrow_schema.clone(),
+                &self.storage_options,
+            )
+            .await?;
 
         Ok((normalized_name, arrow_schema))
     }

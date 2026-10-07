@@ -1,245 +1,181 @@
-# Lance Graph
+# lance-graph
 
 [![Rust Tests](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/rust-test.yml/badge.svg)](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/rust-test.yml) [![Style Check](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/style.yml/badge.svg)](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/style.yml) [![Build](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/build.yml/badge.svg)](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/build.yml)
 
-Lance Graph is a Cypher-capable graph query engine built in Rust with Python bindings for building high-performance, scalable, and serverless multimodal knowledge graphs.
+A Rust workspace for graph and columnar query execution over Arrow and Lance. It has:
 
-This repository contains:
+- a Cypher and SQL engine on DataFusion;
+- **Quack**, a typed columnar query surface that lowers to a single
+  mask-program (`lance-graph-mask-risc`) over borrowed column lanes;
+- a zero-dependency contract crate of shared types;
+- palette/tensor codecs.
 
-- `crates/lance-graph` – the Cypher-capable query engine implemented in Rust
-- `python/` – PyO3 bindings and Python packages:
-  - `lance_graph` – thin wrapper around the Rust query engine
-  - `knowledge_graph` – Lance-backed knowledge graph CLI, API, and utilities
+SIMD kernels come from the AdaWorldAPI
+[`ndarray`](https://github.com/AdaWorldAPI/ndarray) fork, which is a required
+sibling checkout.
 
-See `docs/project_structure.md` for the proposed workspace-based structure from
-issue #92.
+This repository started as a fork of `lancedb/lance-graph`. The Cypher/SQL
+engine, the Python bindings and the `knowledge_graph` package are that
+inheritance; everything else listed below was built here.
 
-## Prerequisites
+## Query paths
 
-- Rust toolchain (1.82 or newer recommended)
-- Python 3.11
-- [`uv`](https://docs.astral.sh/uv/) available on your `PATH`
+Traced from merged source. These are separate paths with separate
+intermediate representations; they do not share one IR.
 
-## Rust crate quick start
+```text
+Cypher text ─ nom parser ─→ ast::CypherQuery ─ semantic (binds to GraphConfig)
+              (parser.rs)    ─→ logical plan ─→ DataFusion LogicalPlan ─→ RecordBatch
+SQL text ──── DataFusion SQL parser ────────────→ DataFusion plan ─────→ RecordBatch
+Python ────── Arrow C data interface ──→ the two paths above
 
-```bash
-cd crates/lance-graph
-cargo check
-cargo test
+Rust builders: Filter / Agg / GroupAddr::{Local, Via, Pair}
+  └→ quack::Query ─ quack::lower* ─→ mask_risc::Program { ops, terminal }
+       ─ mask_risc::execute_into(program, borrowed lanes) ─→ scalar / group values
+ReportPlan ─ Selection::lower ─→ quack Filter ─→ (same as above)
 ```
 
-## Python package quick start
+| Path | Entry point | Frontend | Intermediate | Executes on | Status |
+|---|---|---|---|---|---|
+| Cypher | `CypherQuery::execute` | `parser::parse_cypher_query` (nom) | owned AST → logical plan → DataFusion plan | DataFusion | default build |
+| SQL | `SqlQuery`, `SqlEngine` | DataFusion SQL | DataFusion plan | DataFusion | default build |
+| Python | `lance_graph.CypherQuery` / `SqlQuery` / `SqlEngine` | as above | as above | DataFusion | opt-in crate `lance-graph-python` |
+| Quack | `quack::lower`, `lower_fused`, `lower_group_by*`; `bind::Draft::bind` for named columns | none (Rust builders) | `quack::Query` → `mask_risc::Program` | `mask_risc::execute_into` | workspace members |
+| ReportPlan | `lance_graph_report::exec` | none | `Selection` → Quack `Filter` → `Program` | `mask_risc::execute_into` | workspace member |
+
+What this means:
+
+- **There is no text frontend into Quack.** Neither Cypher nor SQL lowers to
+  Quack or mask-risc today. Quack is reached only through its Rust builders
+  (and through ReportPlan, SAP and dir-sim, which use them).
+- **Cypher runs on DataFusion.** The `BlasGraph` and `LanceNative` execution
+  strategies currently return an error rather than results.
+- **No path serializes between parsing and execution.**
+  - The Cypher path allocates an owned AST and copies its inputs into a
+    DataFusion `MemTable`.
+  - The Quack path builds a newly allocated `Program` and reads column lanes
+    by borrow (`LaneRef<'a>`). It materializes row ids only when asked to
+    (`materialize_rows`).
+- **`lance-graph-planner` is planning-only.** It detects Cypher/GQL by keyword
+  and parses Gremlin and SPARQL into its own `Arena<LogicalOp>`. It does not
+  execute queries.
+
+## Workspace
+
+58 crate directories under `crates/`: 21 are workspace members and 37 are
+explicitly excluded (built with `--manifest-path`). The workspace has a 22nd
+member outside `crates/`, `tools/dto-class-check`. The parts needed to
+understand the system:
+
+| Crate | Role |
+|---|---|
+| `lance-graph` | Cypher parser, semantic analysis, DataFusion planner; BLASGraph semirings and SPO store as public modules |
+| `lance-graph-catalog` | Catalog connectors (Unity Catalog); Parquet table reader. A table whose format has no reader (e.g. Delta) is rejected with `CatalogError::UnsupportedFormat` |
+| `lance-graph-quack` | Typed filter / aggregate / group-by surface; `GroupAddr::{Local, Via, Pair}` foreign-key grouping |
+| `lance-graph-mask-risc` | The mask-program IR (`Pred`, `MaskOp`, `Terminal`) and its evaluator, built on the `ndarray::simd` masking facade |
+| `lance-graph-report` | `ReportPlan` → Quack lowering and execution |
+| `lance-graph-contract` | Zero-dependency shared types and traits |
+| `lance-graph-planner` | Multi-language planning IR (planning only, see above) |
+| `bgz17`, `bgz-tensor` | Palette and tensor codecs (enabled in core by default features) |
+| `causal-edge`, `deepnsm`, `deepnsm-v2` | Standalone excluded crates |
+
+## Building
+
+The workspace resolves path dependencies on a sibling checkout of the
+AdaWorldAPI `ndarray` fork at `../ndarray`. Without it, `cargo` fails to load
+the workspace. Some excluded crates (the OGAR-integrated ones) additionally
+need `../OGAR`; CI checks out both.
+
+```bash
+git clone https://github.com/AdaWorldAPI/lance-graph
+git clone https://github.com/AdaWorldAPI/ndarray      # sibling, required
+cd lance-graph
+cargo check -p lance-graph
+cargo test  -p lance-graph-contract
+```
+
+- **Toolchain:** pinned by `rust-toolchain.toml`, currently Rust 1.98.1.
+- **protoc:** the Lance dependency tree needs it (`protobuf-compiler`).
+- **Excluded crates** are built through their own manifest, for example
+  `cargo test --manifest-path crates/deepnsm-v2/Cargo.toml`.
+
+## Python
+
+The Python package (`python/`) wraps the Cypher and SQL paths. Build it with:
 
 ```bash
 cd python
-uv venv --python 3.11 .venv      # create the local virtualenv
-source .venv/bin/activate         # activate the virtual environment
-uv pip install 'maturin[patchelf]' # install build tool
-uv pip install -e '.[tests]'     # editable install with test extras
-maturin develop                   # build and install the Rust extension
-pytest python/tests/ -v          # run the test suite
+uv venv --python 3.11 .venv && source .venv/bin/activate
+uv pip install 'maturin[patchelf]'
+uv pip install -e '.[tests]'
+maturin develop
+pytest python/tests/ -v
 ```
-
-> If another virtual environment is already active, run `deactivate` (or
-> `unset VIRTUAL_ENV`) before the `uv run` command so uv binds to `.venv`.
-
-## Python example: Cypher query
 
 ```python
 import pyarrow as pa
-from lance_graph import CypherQuery, GraphConfig
+from lance_graph import CypherQuery, GraphConfig, SqlQuery
 
-people = pa.table({
-    "person_id": [1, 2, 3, 4],
-    "name": ["Alice", "Bob", "Carol", "David"],
-    "age": [28, 34, 29, 42],
-})
+people = pa.table({"person_id": [1, 2, 3, 4],
+                   "name": ["Alice", "Bob", "Carol", "David"],
+                   "age": [28, 34, 29, 42]})
 
-config = (
-    GraphConfig.builder()
-    .with_node_label("Person", "person_id")
-    .build()
-)
+config = GraphConfig.builder().with_node_label("Person", "person_id").build()
+q = CypherQuery("MATCH (p:Person) WHERE p.age > 30 RETURN p.name AS name").with_config(config)
+print(q.execute({"Person": people}).to_pydict())   # {'name': ['Bob', 'David']}
 
-query = (
-    CypherQuery("MATCH (p:Person) WHERE p.age > 30 RETURN p.name AS name, p.age AS age")
-    .with_config(config)
-)
-result = query.execute({"Person": people})
-print(result.to_pydict())  # {'name': ['Bob', 'David'], 'age': [34, 42]}
+print(SqlQuery("SELECT name FROM person WHERE age > 30")
+      .execute({"person": people}).to_pydict())
 ```
 
-## Python example: Direct SQL query
+**Unity Catalog.** `lance_graph.UnityCatalog(url)` browses catalogs, schemas
+and tables. `create_sql_engine(catalog, schema)` registers the schema's
+Parquet tables for SQL. If any table has a format with no reader, such as
+Delta, it raises instead of registering an empty table.
 
-For data analytics workflows where you prefer standard SQL, use `SqlQuery` or `SqlEngine`. No `GraphConfig` is needed:
-
-```python
-import pyarrow as pa
-from lance_graph import SqlQuery, SqlEngine
-
-person = pa.table({
-    "id": [1, 2, 3],
-    "name": ["Alice", "Bob", "Carol"],
-    "age": [28, 34, 29],
-})
-
-# One-off query
-result = SqlQuery(
-    "SELECT name, age FROM person WHERE age > 30"
-).execute({"person": person})
-print(result.to_pydict())  # {'name': ['Bob'], 'age': [34]}
-
-# Multi-query with cached context
-engine = SqlEngine({"person": person})
-r1 = engine.execute("SELECT COUNT(*) AS cnt FROM person")
-r2 = engine.execute("SELECT name FROM person ORDER BY age DESC LIMIT 2")
-```
-
-## Python example: Unity Catalog integration
-
-Connect to [Unity Catalog](https://github.com/unitycatalog/unitycatalog) (OSS) to discover and query Delta Lake or Parquet tables directly:
-
-```python
-from lance_graph import UnityCatalog
-
-# Connect to Unity Catalog
-uc = UnityCatalog("http://localhost:8080/api/2.1/unity-catalog")
-
-# Browse catalog metadata
-catalogs = uc.list_catalogs()
-schemas = uc.list_schemas("unity")
-tables = uc.list_tables("unity", "default")
-table = uc.get_table("unity", "default", "marksheet")
-print(table.columns())  # [{"name": "id", "type_name": "INT", ...}, ...]
-
-# Auto-register tables (Delta + Parquet) and query via SQL
-engine = uc.create_sql_engine("unity", "default")
-result = engine.execute("SELECT * FROM marksheet WHERE mark > 80")
-print(result.to_pandas())
-
-# For cloud storage (S3, Azure, GCS), pass storage options:
-uc = UnityCatalog(
-    "http://localhost:8080/api/2.1/unity-catalog",
-    storage_options={
-        "aws_access_key_id": "...",
-        "aws_secret_access_key": "...",
-        "aws_region": "us-east-1",
-    }
-)
-```
-
-## Knowledge Graph CLI & API
-
-The `knowledge_graph` package layers a simple Lance-backed knowledge graph
-service on top of the `lance_graph` engine. It provides:
-
-- A CLI (`knowledge_graph.main`) for initializing storage, running Cypher
-  queries, and bootstrapping data via heuristic text extraction.
-- A reusable FastAPI component, plus a standalone web service
-  (`knowledge_graph.webservice`) that exposes query and dataset endpoints.
-- Storage helpers that persist node and relationship tables as Lance datasets.
-
-### CLI usage
-
-```bash
-uv run knowledge_graph --init                    # initialize storage and schema stub
-uv run knowledge_graph --list-datasets           # list Lance datasets on disk
-uv run knowledge_graph --extract-preview notes.txt
-uv run knowledge_graph --extract-preview "Alice joined the graph team"
-uv run knowledge_graph --extract-and-add notes.txt
-uv run knowledge_graph "MATCH (n) RETURN n LIMIT 5"
-uv run knowledge_graph --log-level DEBUG --extract-preview "Inline text"
-uv run knowledge_graph --ask "Who is working on the Presto project?"
-
-
-# Configure LLM extraction (default)
-uv sync --extra llm  # install optional LLM dependencies
-uv sync --extra lance-storage  # install Lance dataset support
-export OPENAI_API_KEY=sk-...
-uv run knowledge_graph --llm-model gpt-4o-mini --extract-preview notes.txt
-
-# Supply additional OpenAI client options via YAML (base_url, headers, etc.)
-uv run knowledge_graph --llm-config llm_config.yaml --extract-and-add notes.txt
-
-# Fall back to the heuristic extractor when LLM access is unavailable
-uv run knowledge_graph --extractor heuristic --extract-preview notes.txt
-
-```
-
-The default extractor uses OpenAI. Configure credentials via environment
-variables supported by the SDK (for example `OPENAI_API_BASE` or
-`OPENAI_API_KEY`), or place them in a YAML file passed through `--llm-config`.
-Override the model and temperature with `--llm-model` and `--llm-temperature`.
-```
-
-By default the CLI writes datasets under `./knowledge_graph_data`. Provide
-`--root` and `--schema` to point at alternate storage locations and schema YAML.
-
-### FastAPI service
-
-Run the web service after installing the `knowledge_graph` package (and
-dependencies such as FastAPI):
-
-```bash
-uv run --package knowledge_graph knowledge_graph-webservice
-```
-
-The service exposes endpoints under `/graph`, including `/graph/health`,
-`/graph/query`, `/graph/datasets`, and `/graph/schema`.
-
-### Development workflow
-
-For linting and type checks:
-
-```bash
-# Install dev dependencies and run linters
-uv pip install -e '.[dev]'
-ruff format python/              # format code
-ruff check python/               # lint code
-pyright                          # type check
-
-# Or run individual tests
-pytest python/tests/test_graph.py::test_basic_node_selection -v
-```
-
-The Python README (`python/README.md`) contains additional details if you are
-working solely on the bindings.
+**`knowledge_graph` CLI.**
+- Run it with `uv run knowledge_graph --help`. Inherited from upstream, it
+  initializes Lance-backed storage, runs Cypher, and extracts entities from
+  text: with OpenAI by default, or `--extractor heuristic` offline.
+- The FastAPI service runs with `python -m knowledge_graph.webservice`. It
+  serves `/graph/health`, `/graph/query`, `/graph/datasets` and
+  `/graph/schema`.
+- See `python/README.md` for details.
 
 ## Benchmarks
 
-- Requirements:
-  - protoc: install `protobuf-compiler` (Debian/Ubuntu: `sudo apt-get install -y protobuf-compiler`).
-  - Optional: gnuplot for Criterion's gnuplot backend; otherwise the plotters backend is used.
+`crates/lance-graph-benches/benches/graph_execution.rs` measures
+`CypherQuery::execute` on in-memory input of 100, 10,000 and 1,000,000 rows
+(node filter, one-hop, two-hop). The timed loop covers per-call planning,
+table registration, DataFusion execution and result collection. Storage reads
+happen once, during setup.
 
-- Run (from `crates/lance-graph`):
+The setup asserts that every input holds exactly the requested number of rows,
+and that each query's output row count is the one it must produce from all of
+them. That is what makes the reported input-rows/second throughput
+meaningful.
 
 ```bash
-cargo bench --bench graph_execution
-
-# Quicker local run (shorter warm-up/measurement):
-cargo bench --bench graph_execution -- --warm-up-time 1 --measurement-time 2 --sample-size 10
+cargo bench -p lance-graph-benches --bench graph_execution
 ```
 
-- Reports:
-  - Global index: `crates/lance-graph/target/criterion/report/index.html`
-  - Group index: `crates/lance-graph/target/criterion/cypher_execution/report/index.html`
+No reference numbers are published here yet. The table this README used to
+carry came from a version of the benchmark that executed only the first
+scanned batch at the 10K and 1M sizes, while reporting throughput for all N
+rows.
 
-- Typical results (x86_64, quick run: warm-up 1s, measurement 2s, sample size 10):
+## Relationship to ndarray
 
-| Benchmark                | Size      | Median time | Approx. throughput |
-|--------------------------|-----------|-------------|--------------------|
-| basic_node_filter        | 100       | ~680 µs     | ~147 Kelem/s       |
-| basic_node_filter        | 10,000    | ~715 µs     | ~13.98 Melem/s     |
-| basic_node_filter        | 1,000,000 | ~743 µs     | ~1.35 Gelem/s      |
-| single_hop_expand        | 100       | ~2.79 ms    | ~35.9 Kelem/s      |
-| single_hop_expand        | 10,000    | ~3.77 ms    | ~2.65 Melem/s      |
-| single_hop_expand        | 1,000,000 | ~3.70 ms    | ~270 Melem/s       |
-| two_hop_expand           | 100       | ~4.52 ms    | ~22.1 Kelem/s      |
-| two_hop_expand           | 10,000    | ~6.41 ms    | ~1.56 Melem/s      |
-| two_hop_expand           | 1,000,000 | ~6.16 ms    | ~162 Melem/s       |
+`ndarray` owns the hardware layer: SIMD, numerical kernels, conversion
+exactness and microbenchmarks. Kernel performance figures belong in its
+README, not here.
 
-Numbers are illustrative; your hardware, compiler, and runtime load will affect results.
+lance-graph consumes those kernels. Bit-vector Hamming distance is available
+as the DataFusion UDF `hamming_distance`. It is not wired into Lance's ANN
+search: requesting `DistanceMetric::Hamming` there returns an error.
 
-## External Wiki
+## Upstream
 
-For additional documentation, architecture, and examples, see the DeepWiki page: [DeepWiki — lance-graph](https://deepwiki.com/lancedb/lance-graph)
+DeepWiki's [`lancedb/lance-graph`](https://deepwiki.com/lancedb/lance-graph)
+page documents the upstream project, i.e. the inherited Cypher/SQL engine
+only, not this fork.
