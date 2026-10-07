@@ -1,3 +1,18 @@
+## ISS-EPISTEMIC-READINGS-DISAGREE-ON-BITS-61-63 — the affordance law reads 59..63 without the D-ACR-7 contract and contradicts P7a (2026-10-07)
+
+**Status:** OPEN. **Basis:** TEST-PINNED in `cognitive-shader-driver/examples/epistemic_reading_conflict_probe.rs` (D-EPI-CONFLICT-0).
+
+- `contract::band_reading` (D-ACR-7) is the unified 59..63 reading contract: per `(classid, rail)` it declares the truth lens (59..60) and band presence (61..63), and projection refuses an undeclared class, an absent band and untrusted provenance. It declares the two fields separately; it has no joint 5-bit lens.
+- P7a (D-GSO-7a) goes through it: class `0x0902` declared `BandPresence::Present`, bits 61..63 read through `project_band` as `0 Open … 5 Causes`, 6..7 refuse.
+- The affordance law (`shared/affordance_law.rs`, D-GSO-AFF-0; read by the AFF, CE64-TIME, CE64-NEXTSTATE and STREAMDTO probes) reads `raw5 = spare() << 2 | truth_raw()` with its own unordered codebook, takes no class and checks provenance only. So `raw5 >> 2` is the P7a band, read with a different meaning:
+  - a contract-projected `Causes` (5) reads as code 20 = `Related` with topology 0 and refuses (codes 21..23) with topology 1..3; `COUNTERFACTUAL_PROBE` (requires `CAUSES`) is never eligible on it;
+  - the only two codes asserting `CAUSES` (1 and 17) sit on P7a `Open` and `CausalCandidate`;
+  - two declared codes (25, 30) sit on P7a's refused bands 6 and 7;
+  - over all 24 contract × topology cells: 16 refuse, and on the 8 shared cells the `ASSOCIATED` / `RELATED` / `CAUSES` facts agree with P7a's entailment on 3, disagree on 5;
+  - on a class the contract refuses (undeclared, or band `Absent`) the affordance law still measures.
+- Consequence: `ISS-NO-EVIDENCE-WRITER-FOR-EPISTEMIC-STATE` cannot be closed with P7a as the evidence writer: P7a's certified band would steer eligibility through the wrong codebook.
+- **What closes it:** one declared reading. Either the eligibility facts are derived from the D-ACR-7 projections (declared truth lens + declared band) per class, or a joint 5-bit lens is added to `band_reading` and P7a writes through it. Which reading wins is an operator decision. The probe's pins are then replaced by agreement tests, not re-pinned.
+
 ## ISS-STREAMDTO-INGEST-WRITES-THE-SINGLETON-ONLY — perturbation ingress has no MailboxSoA arm (2026-10-06)
 
 **Status:** RESOLVED 2026-10-06 — `engine_bridge::ingest_codebook_indices_soa` writes a `StreamDto`'s fields into the owner's `MailboxSoA` through `write_row`, sharing the per-index encoding with the singleton arm (BindSpace is superseded by the SoA); the probe no longer mirrors. Residue resolved by D-MBX-CUTOVER-0: a mailbox driver builds without a BindSpace.

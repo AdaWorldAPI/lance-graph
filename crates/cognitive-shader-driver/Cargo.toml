@@ -137,6 +137,12 @@ name = "streamdto_circuit_probe"
 test = true
 required-features = ["with-engine", "mailbox-thoughtspace"]
 
+# D-EPI-CONFLICT-0 pins the disagreement between P7a and the affordance law on
+# CausalEdge64 bits 61..63; tests run under `cargo test`.
+[[example]]
+name = "epistemic_reading_conflict_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
