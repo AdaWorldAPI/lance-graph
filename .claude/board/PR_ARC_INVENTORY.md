@@ -1,3 +1,10 @@
+## 2026-10-07 — lance-graph PR #1393 (merged `69e661a`, branch `codex/ce64-semantic-upper-half-probe`, head `6c98015`, 6 commits) — D-CE64-SEM-0: a probe-local semantic reading of the CE64 upper half
+
+- **Added:** test-only readings in `pearl_ladder_probe.rs`: bits 46..49 as a signed reaction activation, 50..52 as novelty (`ceil(log2)` of the surviving `EpistemicState5` population; `None` when no state survives), 53..58 as a belief-update breadcrumb. Tests ported onto `planner::pearl` after #1391.
+- **Locked (test-pinned):** 4 example tests: breadcrumb advances only on an Epi5 change, opposite activation signs from one operator, novelty widths 5/2/2/0 plus the contradiction case, direction does not select the operator.
+- **Deferred / open (review findings, PR comment):** each reading reuses bits that already mean something in code: 46..49 is the inference type (activation ±6 aliases Intervention/Counterfactual), 50..52 is plasticity (`network.rs` filters on it), 53..58 is the witness handle (#1371). The tests sit in a `with-planner` example, which CI does not run.
+- **Confidence:** the readings are a candidate only; no layout or accessor changed.
+
 ## 2026-10-07 — lance-graph PR #1391 (merged `53212db`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `9289c46`, 6 commits) — D-PEARL-PROD-0: Pearl's ladder in production, generic over population width, admission keyed by classid
 
 - **Added:** `contract::certification` (`CertificationModel`, `ModelBuilder`, `PopulationMask`: generic over `u64` / `[u64; N]`); `planner::pearl` (`reason`, `revise(&Measured, Reading)`, `hydrate`); `planner::chain_replay`, `chain_counterfactual` (renamed from `dismech_*`, deprecated aliases kept) and `chain_admission` (palette resolved by the classid's concept half); `contract::dismech_evidence::{DISMECH_CONCEPT_ID, citation_quorum}`.
