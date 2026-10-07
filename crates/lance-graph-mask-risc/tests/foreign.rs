@@ -1904,25 +1904,18 @@ fn group_cross_power_sums_refuses_malformed_programs() {
         .all(|g| g.sum_x == g.sum_y && u128::try_from(g.sum_xy) == Ok(g.sum_x_sq)));
 }
 
-/// Runs `p` through the executor (on a narrow, multi-tile scratch) and the
-/// row-at-a-time oracle, asserting both the value and every scratch slot
-/// agree, and returns the executor's slot words.
-fn run_both(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>, label: &str) -> Vec<Vec<u64>> {
-    let words = test_tile_words(planes.n_rows);
-    let slots = p.scratch_slots as usize;
-    let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-    let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
-    let got = execute_into(p, planes, foreign, &mut scratch, Out::None).expect("runs");
-    let want = reference_execute_into(p, planes, foreign, Out::None).expect("oracle runs");
-    assert_eq!(got, want, "{label}: value");
-    let oracle_slots = reference_scratch_with_foreign(p, planes, foreign).expect("oracle scratch");
-    (0..slots)
-        .map(|i| {
-            let s = scratch.slot(i as u16).expect("written").to_vec();
-            assert_eq!(s, oracle_slots[i], "{label}: scratch slot {i}");
-            s
-        })
-        .collect()
+/// Runs a `Keep` program through the executor (on a narrow, multi-tile
+/// scratch) and the row-at-a-time oracle, asserting both kept masks agree,
+/// and returns the executor's.
+fn run_both(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>, label: &str) -> Vec<u64> {
+    let n = planes.n_rows;
+    let mut scratch = Scratch::new(test_tile_words(n), p.scratch_slots as usize);
+    let mut got = vec![0u64; words_for(n)];
+    execute_into(p, planes, foreign, &mut scratch, Out::Mask(&mut got)).expect("runs");
+    let mut want = vec![0u64; words_for(n)];
+    reference_execute_into(p, planes, foreign, Out::Mask(&mut want)).expect("oracle runs");
+    assert_eq!(got, want, "{label}: kept mask");
+    got
 }
 
 /// FAILS IF: a gated `Gather` (`under: Some(..)`) disagrees with the oracle,
@@ -2003,7 +1996,7 @@ fn gated_gather_equals_gather_and_gate_for_scratch_and_plane_gates() {
                 &foreign,
                 &format!("{label} scratch composed"),
             );
-            assert_eq!(g[1], c[1], "{label}: scratch-gated gather != gather & gate");
+            assert_eq!(g, c, "{label}: scratch-gated gather != gather & gate");
 
             // Plane gate.
             let gated_p = Program::new(
@@ -2026,9 +2019,9 @@ fn gated_gather_equals_gather_and_gate_for_scratch_and_plane_gates() {
             );
             let gp = run_both(&gated_p, &planes, &foreign, &format!("{label} plane gate"));
             let u = run_both(&ungated, &planes, &foreign, &format!("{label} ungated"));
-            let want: Vec<u64> = u[0].iter().zip(&gate_plane).map(|(a, b)| a & b).collect();
-            assert_eq!(gp[0], want, "{label}: plane-gated gather != gather & plane");
-            gate_changed_something |= gp[0] != u[0];
+            let want: Vec<u64> = u.iter().zip(&gate_plane).map(|(a, b)| a & b).collect();
+            assert_eq!(gp, want, "{label}: plane-gated gather != gather & plane");
+            gate_changed_something |= gp != u;
 
             // The gate must be a real selection, or the comparison is vacuous
             // (a one-row table cannot be both partly kept and partly dropped).
