@@ -66,7 +66,7 @@ use causal_edge::pearl::CausalMask;
 use causal_edge::plasticity::PlasticityState;
 use causal_edge::tables::NarsTables;
 use lance_graph_contract::causal_audit::SupportBasis;
-use lance_graph_contract::epistemic_state5::{Certification3, Topology2};
+use lance_graph_contract::epistemic_state5::{fact, facts_population, Certification3, Topology2};
 use lance_graph_planner::dismech_counterfactual::{CutContext, DEFAULT_FREQUENCY_BAR};
 use lance_graph_planner::dismech_replay::{ChainStep, ComposeTables};
 
@@ -535,6 +535,94 @@ fn certification(e: CausalEdge64) -> Certification3 {
 fn topology(e: CausalEdge64) -> Topology2 {
     Topology2::from_ordinal(e.epistemic_raw5() & 0b11).expect("2-bit ordinal")
 }
+
+// ── Candidate semantic upper-half reading ─────────────────────────────────
+//
+// D-CE64-SEM-0 is deliberately probe-local. It does NOT rename the shipped
+// fields yet. The question is whether the current physical carriers can support
+// one coherent transition loop without inventing another object:
+//
+//   40..42 Pearl question
+//   43..45 orientation / syntax
+//   46..49 signed activation (reaction, not opcode)
+//   50..52 novelty / epistemic entropy proxy
+//   53..58 belief-state update breadcrumb
+//   59..63 canonical EpistemicState5
+//
+// If these falsifiers survive, a later PR can decide which readings deserve
+// contract names. Until then the production accessors keep their current names.
+mod semantic_upper_half {
+    use super::*;
+    use causal_edge::layout::{PLAST_MASK, PLAST_SHIFT};
+
+    /// Read bits 50..52 as one probe-local 3-bit novelty ordinal.
+    pub fn novelty3(edge: CausalEdge64) -> u8 {
+        ((edge.0 & PLAST_MASK) >> PLAST_SHIFT) as u8
+    }
+
+    /// Write the probe-local novelty reading without changing any other bit.
+    pub fn with_novelty3(edge: CausalEdge64, novelty: u8) -> CausalEdge64 {
+        CausalEdge64(
+            (edge.0 & !PLAST_MASK) | ((u64::from(novelty & 0b111)) << PLAST_SHIFT),
+        )
+    }
+
+    /// Quantize the maximum entropy of the surviving EpistemicState5
+    /// population: ceil(log2(popcount)).  One surviving state is settled (0);
+    /// all 24 meaningful V1 states fit in 5.  Integer-only and deterministic.
+    pub fn population_novelty(required: u32) -> u8 {
+        let n = facts_population(required).count_ones();
+        if n <= 1 {
+            0
+        } else {
+            (u32::BITS - (n - 1).leading_zeros()) as u8
+        }
+    }
+
+    /// The signed i4 is a REACTION reading here, not the operation code.
+    /// Positive means the edit raised the terminal frequency; negative means
+    /// it lowered it.  Quantize |delta| in 32-point buckets into 1..=7.
+    pub fn activation(reaction: Reaction) -> i8 {
+        let (factual, counterfactual) = match reaction {
+            Reaction::LoadBearing {
+                factual,
+                counterfactual,
+            }
+            | Reaction::TruthOnly {
+                factual,
+                counterfactual,
+            } => (factual, counterfactual),
+            Reaction::Inert { .. } => return 0,
+        };
+        let delta = i16::from(counterfactual) - i16::from(factual);
+        if delta == 0 {
+            return 0;
+        }
+        let magnitude = if delta < 0 { -delta } else { delta } as u16;
+        let q = ((magnitude + 31) / 32).clamp(1, 7) as i8;
+        if delta > 0 { q } else { -q }
+    }
+
+    pub fn with_activation(edge: CausalEdge64, reaction: Reaction) -> CausalEdge64 {
+        edge.with_inference_mantissa(activation(reaction))
+    }
+
+    /// W records a BELIEF-STATE UPDATE.  A thought that produced no
+    /// EpistemicState5 transition does not steal the breadcrumb.
+    pub fn record_belief_update(
+        before: CausalEdge64,
+        after: CausalEdge64,
+        witness: u8,
+    ) -> CausalEdge64 {
+        if before.epistemic_raw5() == after.epistemic_raw5() {
+            after.with_w_slot(before.w_slot())
+        } else {
+            after.with_w_slot(witness & 0x3f)
+        }
+    }
+}
+
+use semantic_upper_half::*;
 
 // ── The script ────────────────────────────────────────────────────────────
 
@@ -1042,4 +1130,147 @@ mod tests {
             Operation::Association
         );
     }
+
+    /// D-CE64-SEM-0. One real CUI-BONO trajectory crosses the proposed
+    /// upper-half reading without inventing another carrier. Hydration and PO
+    /// move Epi5 and therefore advance W; SPO produces a measured activation
+    /// but no new belief-state breadcrumb because Epi5 does not move.
+    #[test]
+    fn semantic_loop_records_only_real_belief_state_updates() {
+        let rp = Replay::new();
+        let mut b = related_population();
+        add_positive_trial(&mut b);
+        let model = b.build();
+        let ev = evidence(&model, &rp);
+
+        let mut start = query(
+            CausalMask::SO,
+            Contract::Related,
+            Topology2::IndirectUnknown,
+        )
+        .with_w_slot(0);
+        start = with_novelty3(
+            start,
+            population_novelty(fact::IND_UNKNOWN | fact::RELATED),
+        );
+        assert_eq!(novelty3(start), 2, "four certification cells still survive");
+
+        // A real A -> B -> Y hydration moves topology, so it earns breadcrumb 1.
+        let (hydrated, h) = hydrate(start, (A, B, Y), &rp.steps).unwrap();
+        assert_eq!(h, Hydration::Hydrated);
+        let mut hydrated = record_belief_update(start, hydrated, 1);
+        hydrated = with_novelty3(
+            hydrated,
+            population_novelty(fact::IND_KNOWN | fact::RELATED),
+        );
+        assert_eq!(hydrated.w_slot(), 1);
+        assert_eq!(novelty3(hydrated), 2);
+        assert_eq!(
+            (topology(hydrated), certification(hydrated)),
+            (Topology2::IndirectKnown, Certification3::Related)
+        );
+
+        // The randomized PO arms earn Causes. That is another epistemic move,
+        // so W advances and the surviving population collapses to one state.
+        let (causal, m) = step(hydrated, CausalMask::PO, &ev, Edit::None);
+        assert_eq!(m.earned(), Some(Certification3::Causes));
+        let mut causal = record_belief_update(hydrated, causal, 2);
+        causal = with_novelty3(
+            causal,
+            population_novelty(fact::IND_KNOWN | fact::CAUSES),
+        );
+        assert_eq!(causal.w_slot(), 2);
+        assert_eq!(novelty3(causal), 0, "one epistemic state survives");
+        assert_eq!(
+            (topology(causal), certification(causal)),
+            (Topology2::IndirectKnown, Certification3::Causes)
+        );
+
+        // The SPO cut is mechanically real but earns no new Epi5 state.
+        // Its measured reaction becomes activation; the belief-update
+        // breadcrumb stays on the PO transition that actually changed Epi5.
+        let (spo, m) = step(causal, CausalMask::SPO, &ev, Edit::CutStep(1));
+        let reaction = m.reaction().expect("counterfactual replay measured");
+        let spo = record_belief_update(causal, with_activation(spo, reaction), 3);
+        assert_eq!(activation(reaction), -3);
+        assert_eq!(spo.inference_mantissa(), -3);
+        assert_eq!(spo.w_slot(), 2, "no epistemic transition, no new breadcrumb");
+        assert_eq!(spo.epistemic_raw5(), causal.epistemic_raw5());
+    }
+
+    /// The i4 activation is a measured reaction, not a disguised SPO opcode:
+    /// the SAME counterfactual operator yields opposite signs for two cuts.
+    #[test]
+    fn activation_is_reaction_not_operation_echo() {
+        let rp = Replay::new();
+        let model = related_population().build();
+        let ev = evidence(&model, &rp);
+        let q = query(
+            CausalMask::SPO,
+            Contract::Related,
+            Topology2::IndirectKnown,
+        );
+
+        let (_, down) = step(q, CausalMask::SPO, &ev, Edit::CutStep(1));
+        let (_, up) = step(q, CausalMask::SPO, &ev, Edit::CutStep(0));
+        let down = down.reaction().expect("cut 1 measured");
+        let up = up.reaction().expect("cut 0 measured");
+
+        assert_eq!(activation(down), -3, "185 -> 120 inhibits");
+        assert_eq!(activation(up), 2, "185 -> 225 excites");
+        assert_ne!(
+            activation(down),
+            InferenceType::Counterfactual.to_mantissa(),
+            "activation is not the -6 counterfactual opcode"
+        );
+        assert_ne!(activation(down).signum(), activation(up).signum());
+    }
+
+    /// Novelty is the width of the still-legal epistemic population, not a
+    /// synonym for causality.  Hydrating the intermediate changes topology but
+    /// leaves four certification possibilities; the intervention collapses
+    /// those possibilities to one.
+    #[test]
+    fn novelty_measures_remaining_epistemic_population() {
+        let all = facts_population(0);
+        let unknown_related = facts_population(fact::IND_UNKNOWN | fact::RELATED);
+        let known_related = facts_population(fact::IND_KNOWN | fact::RELATED);
+        let known_causes = facts_population(fact::IND_KNOWN | fact::CAUSES);
+
+        assert_eq!(all.count_ones(), 24);
+        assert_eq!(unknown_related.count_ones(), 4);
+        assert_eq!(known_related.count_ones(), 4);
+        assert_eq!(known_causes.count_ones(), 1);
+
+        assert_eq!(population_novelty(0), 5);
+        assert_eq!(population_novelty(fact::IND_UNKNOWN | fact::RELATED), 2);
+        assert_eq!(population_novelty(fact::IND_KNOWN | fact::RELATED), 2);
+        assert_eq!(population_novelty(fact::IND_KNOWN | fact::CAUSES), 0);
+    }
+
+    /// Orientation is orthogonal to operator selection and certification in
+    /// this fixture. Every 3-bit direction reaches the same PO measurement,
+    /// and revision preserves the chosen orientation bit-for-bit.
+    #[test]
+    fn orientation_does_not_secretly_select_the_pearl_operator() {
+        let rp = Replay::new();
+        let mut b = related_population();
+        add_positive_trial(&mut b);
+        let model = b.build();
+        let ev = evidence(&model, &rp);
+
+        let baseline_q = query(CausalMask::PO, Contract::Related, Topology2::IndirectKnown);
+        let baseline = reason(baseline_q, &ev, Edit::None);
+
+        for direction in 0u8..8 {
+            let mut q = baseline_q;
+            q.set_direction(direction);
+            let measured = reason(q, &ev, Edit::None);
+            assert_eq!(measured, baseline, "direction {direction:03b}");
+            let out = revise(q, &measured).unwrap();
+            assert_eq!(out.direction(), direction);
+            assert_eq!(certification(out), Certification3::Causes);
+        }
+    }
+
 }
