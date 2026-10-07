@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-257 entries, 2026-08-06 .. 2026-10-07.
+258 entries, 2026-08-06 .. 2026-10-07.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -44,6 +44,7 @@ exactly one of them, never both.
 | 2026-10-07 | `dir-sim-v4-active` |  | [2026-10-07-dir-sim-v4-active.md](2026-10-07-dir-sim-v4-active.md) |
 | 2026-10-07 | `dir-sim-proxy-relation` |  | [2026-10-07-dir-sim-proxy-relation.md](2026-10-07-dir-sim-proxy-relation.md) |
 | 2026-10-07 | `dir-sim-node-properties` |  | [2026-10-07-dir-sim-node-properties.md](2026-10-07-dir-sim-node-properties.md) |
+| 2026-10-07 | `dir-sim-mail-recipient-owner` |  | [2026-10-07-dir-sim-mail-recipient-owner.md](2026-10-07-dir-sim-mail-recipient-owner.md) |
 | 2026-10-07 | `dir-sim-exchange-recipients` |  | [2026-10-07-dir-sim-exchange-recipients.md](2026-10-07-dir-sim-exchange-recipients.md) |
 | 2026-10-07 | `dir-sim-address-space` |  | [2026-10-07-dir-sim-address-space.md](2026-10-07-dir-sim-address-space.md) |
 | 2026-10-07 | `D-CTX-7` |  | [2026-10-07-ctx7-revision-writer-for-epistemic-state.md](2026-10-07-ctx7-revision-writer-for-epistemic-state.md) |
