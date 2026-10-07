@@ -1,4 +1,4 @@
-# 2026-10-07 — D-PUZZLE-0 step 2b: real-word crosswords (DeepNSM vocabularies, optional DeReKo)
+# 2026-10-07 — D-PUZZLE-0-XWORD-REAL (D-PUZZLE-0 step 2b): real-word crosswords (DeepNSM vocabularies, optional DeReKo)
 
 **Probe:** `cognitive-shader-driver/examples/crossword_real_words_probe.rs`,
 over `examples/shared/population_fold.rs` (unchanged).

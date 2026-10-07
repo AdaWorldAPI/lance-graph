@@ -1,4 +1,4 @@
-# 2026-10-07 — D-PUZZLE-0 step 2: crosswords on the same algebra as Sudoku
+# 2026-10-07 — D-PUZZLE-0-XWORD (D-PUZZLE-0 step 2): crosswords on the same algebra as Sudoku
 
 **Probes:** `cognitive-shader-driver/examples/crossword_population_fold_probe.rs`,
 `sudoku_population_fold_probe.rs`, both over

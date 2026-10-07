@@ -32,8 +32,8 @@ exactly one of them, never both.
 | 2026-10-07 | `tinker-janus-fold-harvest` | TinkerPop bulk = K (GroupReduce), ONE_BULK = S, GValue pinning = bundle invalidation; JanusGraph slice = OrderedLaneWitness→Range (30–38×); no new V4 op | [2026-10-07-tinker-janus-fold-harvest.md](2026-10-07-tinker-janus-fold-harvest.md) |
 | 2026-10-07 | `selector-seq-aware-coverage` |  | [2026-10-07-selector-seq-aware-coverage.md](2026-10-07-selector-seq-aware-coverage.md) |
 | 2026-10-07 | `D-PUZZLE-0` |  | [2026-10-07-puzzle-0-sudoku-population-fold.md](2026-10-07-puzzle-0-sudoku-population-fold.md) |
-| 2026-10-07 | `D-PUZZLE-0` |  | [2026-10-07-puzzle-0-crossword-same-algebra.md](2026-10-07-puzzle-0-crossword-same-algebra.md) |
-| 2026-10-07 | `D-PUZZLE-0` |  | [2026-10-07-puzzle-0-crossword-real-words.md](2026-10-07-puzzle-0-crossword-real-words.md) |
+| 2026-10-07 | `D-PUZZLE-0-XWORD` |  | [2026-10-07-puzzle-0-crossword-same-algebra.md](2026-10-07-puzzle-0-crossword-same-algebra.md) |
+| 2026-10-07 | `D-PUZZLE-0-XWORD-REAL` |  | [2026-10-07-puzzle-0-crossword-real-words.md](2026-10-07-puzzle-0-crossword-real-words.md) |
 | 2026-10-07 | `gated-gather-bit-schedule` | Production gather is 3.8× slow from a per-row branch; bit-gated visitation wins or ties at every density; ordinal vectors never win (R1 holds) | [2026-10-07-gated-gather-bit-schedule.md](2026-10-07-gated-gather-bit-schedule.md) |
 | 2026-10-07 | `D-EPI-MIG-INVENTORY` |  | [2026-10-07-epi-mig-inventory.md](2026-10-07-epi-mig-inventory.md) |
 | 2026-10-07 | `D-EPI-CANON-0` |  | [2026-10-07-epi-mig-0.md](2026-10-07-epi-mig-0.md) |
