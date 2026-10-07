@@ -59,10 +59,15 @@
 //!   compare them; it is NOT evidence about the resident SoA layout and must
 //!   never be cited as such.
 //!
-//! D-EPI-MIG-0 (2026-10-07): PROBE-ONLY legacy. Writes the historical
-//! `CausalTopology` / `ReasoningBand` halves of CE64 bits 59..63, which the
-//! canonical `EpistemicState5` reading (`contract::epistemic_state5`) does
-//! not translate. Kept as a record of that reading.
+//! D-EPI-MIG-0 (2026-10-07): PROBE-ONLY legacy. Under the canonical
+//! Cartesian reading (`EpistemicState5 = Topology2 × Certification3`) the
+//! topology half this probe writes is canonical as-is, but the 61..63 half is
+//! written through the historical `ReasoningBand` names (reasoning levels:
+//! `Surface … Transcendent`), which have no declared mapping onto the
+//! certification coordinate. Mapping `Causal` to `Supports` or `Causes` would
+//! be semantic invention, so the probe is not migrated; it keeps the
+//! deprecated band writer as a record of that reading. No production code may
+//! follow it.
 #![allow(deprecated)]
 
 use causal_edge::layout::{CausalTopology, ReasoningBand};

@@ -142,12 +142,15 @@ pub struct EdgeRole {
     /// `lance_graph_contract::epistemic_state5::Epi5Declarations::project_state5`
     /// by a caller that knows the class. This is the canonical field.
     pub epistemic_raw5: u8,
-    /// LEGACY projection of the low half of `epistemic_raw5` through the
-    /// historical `CausalTopology` lens. Kept for compatibility; it is not a
-    /// reading of the field and must not be used to decide anything.
+    /// The topology coordinate of `epistemic_raw5` (bits 59..60), read with
+    /// the `CausalTopology` ordinals — the same ordinals as the canonical
+    /// `Topology2`. Raw: valid as the canonical topology only once the cut
+    /// edge's class is known to declare the canonical reading.
     pub topology: causal_edge::layout::CausalTopology,
-    /// LEGACY projection of the high half through the historical
-    /// `ReasoningBand` lens. Same caveat.
+    /// LEGACY: the certification coordinate (bits 61..63) read through the
+    /// historical `ReasoningBand` names, which are reasoning levels, not
+    /// certifications. No mapping exists; kept for compatibility only. The
+    /// canonical certification is `epistemic_raw5 >> 2` under a declaration.
     pub band: causal_edge::layout::ReasoningBand,
 }
 

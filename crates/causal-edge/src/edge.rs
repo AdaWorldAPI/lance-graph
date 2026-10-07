@@ -1061,7 +1061,7 @@ impl CausalEdge64 {
     /// Return new edge with truth-band lens set.
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn with_truth(self, t: crate::layout::TrustTexture) -> Self {
@@ -1071,15 +1071,17 @@ impl CausalEdge64 {
 
     /// Return new edge with the causal-topology lens set (bits 59-60).
     ///
+    /// D-EPI-CANON-0: this is the canonical TOPOLOGY-FACTOR writer of
+    /// `EpistemicState5` (`raw5 = topology | certification << 2`); it moves
+    /// only bits 59..60 and holds the certification, a legal product-space
+    /// transition. Not deprecated, unlike `with_truth` (the `TrustTexture`
+    /// reading of the same bits).
+    ///
     /// Consuming builder, register-style (`edge.with_topology(t)`), matching
     /// `with_truth`/`with_spare`. Shares storage with `truth`/`with_truth`
     /// — the last writer of either view wins, by construction, since it is
     /// one 2-bit register read through two lenses. See
     /// [`crate::layout::CausalTopology`] for the compatibility statement.
-    #[deprecated(
-        since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
-    )]
     #[inline]
     pub fn with_topology(self, topo: crate::layout::CausalTopology) -> Self {
         use crate::layout::{BITS2_MASK, TRUTH_MASK, TRUTH_SHIFT};
@@ -1101,7 +1103,7 @@ impl CausalEdge64 {
     /// Return new edge with spare bits set (0..=7, 3-bit field).
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn with_spare(self, s: u8) -> Self {
@@ -1134,7 +1136,7 @@ impl CausalEdge64 {
     /// the orthogonality notes, and the no-auto-derivation guarantee.
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn with_reasoning_band(self, band: crate::layout::ReasoningBand) -> Self {
@@ -1150,7 +1152,7 @@ impl CausalEdge64 {
     /// Composable: `edge.with_routing(12, TrustTexture::Solid).with_inference_mantissa(-1)`.
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn with_routing(self, w: u8, t: crate::layout::TrustTexture) -> Self {
@@ -1174,7 +1176,7 @@ impl CausalEdge64 {
     /// Set truth-band lens in-place.
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn set_truth(&mut self, t: crate::layout::TrustTexture) {
@@ -1194,7 +1196,7 @@ impl CausalEdge64 {
     /// Set spare bits in-place (0..=7, 3-bit field).
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn set_spare(&mut self, s: u8) {
@@ -1267,16 +1269,12 @@ impl CausalEdge64 {
     }
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn with_truth(self, _t: crate::layout::TrustTexture) -> Self {
         self
     }
-    #[deprecated(
-        since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
-    )]
     #[inline]
     pub fn with_topology(self, _topo: crate::layout::CausalTopology) -> Self {
         self
@@ -1287,7 +1285,7 @@ impl CausalEdge64 {
     }
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn with_spare(self, _s: u8) -> Self {
@@ -1295,7 +1293,7 @@ impl CausalEdge64 {
     }
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn with_reasoning_band(self, _band: crate::layout::ReasoningBand) -> Self {
@@ -1303,7 +1301,7 @@ impl CausalEdge64 {
     }
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn with_routing(self, _w: u8, _t: crate::layout::TrustTexture) -> Self {
@@ -1313,7 +1311,7 @@ impl CausalEdge64 {
     pub fn set_w_slot(&mut self, _w: u8) {}
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn set_truth(&mut self, _t: crate::layout::TrustTexture) {}
@@ -1321,7 +1319,7 @@ impl CausalEdge64 {
     pub fn set_inference_mantissa(&mut self, _m: i8) {}
     #[deprecated(
         since = "0.2.0",
-        note = "half-field write of the joint EpistemicState5 field (bits 59..63): it can turn one valid code into another by accident. Use `with_epistemic_raw5` with a code projected through `lance_graph_contract::epistemic_state5`"
+        note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
     )]
     #[inline]
     pub fn set_spare(&mut self, _s: u8) {}

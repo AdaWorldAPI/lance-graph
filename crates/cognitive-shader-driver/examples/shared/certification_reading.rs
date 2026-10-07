@@ -3,13 +3,11 @@
 //! `epistemic_reading_conflict_probe` (which pins its disagreement with the
 //! affordance law against this implementation, not a copy).
 //!
-//! D-EPI-MIG-0: P7a no longer owns bits 61..63. A certification is stamped
-//! by translating `(declared grounding, contract)` into the canonical
-//! `EpistemicState5` code (`contract::epistemic_state5::legacy::translate`)
-//! and writing all of bits 59..63; it is read by projecting the canonical
-//! state and taking its legacy certification projection. A cell without a
-//! canonical code (any `CausalCandidate`; `Contributes` under `Direct`)
-//! REFUSES — no code is invented for it.
+//! D-EPI-MIG-0: P7a's codes ARE the certification coordinate of the
+//! canonical Cartesian `EpistemicState5` (`raw5 = topology | certification
+//! << 2`). Stamping is identity packing of `(declared topology, contract)`
+//! into bits 59..63 — no translation table; reading projects the canonical
+//! state through the class declaration and takes its certification.
 //!
 //! Originally moved here unchanged. Each including example uses a subset, hence the
 //! `dead_code` allowance.
@@ -18,11 +16,9 @@
 use causal_edge::edge::CausalEdge64;
 use lance_graph_contract::band_reading::EdgeProvenance;
 use lance_graph_contract::class_view::ClassId;
-use lance_graph_contract::epistemic_state5::legacy::{
-    project_certification, translate, LegacyCertification, LegacyError, LegacyTopology,
-};
 use lance_graph_contract::epistemic_state5::{
-    Epi5Declarations, Epi5Gen, Epi5ReadError, Epi5Reading,
+    Certification3, Epi5Declarations, Epi5Gen, Epi5ReadError, Epi5Reading, EpistemicState5,
+    Topology2,
 };
 use lance_graph_contract::rail_geometry::RailAxis;
 
@@ -41,7 +37,7 @@ pub const CERTIFICATION_CLASSES: &[ClassId] = &[CERT_CLASS];
 /// measured on the same units with no intermediate in the model, so the
 /// certified relation is `Direct`. A producer statement, not an inference
 /// from the bits.
-pub const MODEL_GROUNDING: LegacyTopology = LegacyTopology::Direct;
+pub const MODEL_GROUNDING: Topology2 = Topology2::Direct;
 
 /// The certified relational contract. Working names; the obligations in the
 /// module table are the content.
@@ -108,12 +104,12 @@ impl Contract {
 }
 
 impl Contract {
-    /// The contract in the contract crate's legacy vocabulary (same order).
-    pub fn legacy(self) -> LegacyCertification {
-        LegacyCertification::ALL[self.code() as usize]
+    /// The canonical certification coordinate (same code).
+    pub fn certification(self) -> Certification3 {
+        Certification3::ALL[self.code() as usize]
     }
 
-    pub fn from_legacy(c: LegacyCertification) -> Self {
+    pub fn from_certification(c: Certification3) -> Self {
         Contract::ALL[c.code() as usize]
     }
 }
@@ -128,8 +124,6 @@ pub enum Refusal {
     /// The canonical projection refused (undeclared, untrusted provenance,
     /// undeclared code).
     Reading(Epi5ReadError),
-    /// `(grounding, contract)` has no canonical code in this generation.
-    NoCanonicalState(LegacyError),
 }
 
 /// The canonical declarations: `CERT_CLASS` reads bits 59..63 as
@@ -160,7 +154,7 @@ pub fn read(
     let state = decl
         .project_state5(class, RAIL, Epi5Gen::V1, edge.epistemic_raw5(), provenance)
         .map_err(Refusal::Reading)?;
-    Ok(Contract::from_legacy(project_certification(state)))
+    Ok(Contract::from_certification(state.certification()))
 }
 
 /// Does the edge license `required`?
@@ -173,14 +167,10 @@ pub fn satisfies(
     Ok(read(decl, class, edge, EdgeProvenance::V2Stamped)?.entails(required))
 }
 
-/// Stamp a certification: translate `(grounding, contract)` to the canonical
-/// code and write all of bits 59..63, or refuse. Nothing else moves.
-pub fn stamp(
-    edge: CausalEdge64,
-    contract: Contract,
-    grounding: LegacyTopology,
-) -> Result<CausalEdge64, Refusal> {
-    let state =
-        translate(Epi5Gen::V1, grounding, contract.legacy()).map_err(Refusal::NoCanonicalState)?;
-    Ok(edge.with_epistemic_raw5(state.raw()))
+/// Stamp a certification under a declared topology: identity packing into
+/// all of bits 59..63. Nothing else moves. Every contract × topology is a
+/// meaningful V1 state.
+pub fn stamp(edge: CausalEdge64, contract: Contract, topology: Topology2) -> CausalEdge64 {
+    let state = EpistemicState5::new(Epi5Gen::V1, topology, contract.certification());
+    edge.with_epistemic_raw5(state.raw())
 }

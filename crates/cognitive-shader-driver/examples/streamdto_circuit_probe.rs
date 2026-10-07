@@ -348,11 +348,11 @@ mod tests {
             "the circuit moved eligibility"
         );
 
-        // Code 7 (DIRECT | OBSERVED | ASSOCIATED) into the same row, committed
-        // by tick. Not code 3: under Pearl S it grants the same 0x20 as code 0
-        // (the table `main` prints).
+        // Code 4 (Direct × Associated, the Cartesian V1 reading) into the same
+        // row, committed by tick. Not code 0: under Pearl S it would grant the
+        // same 0x20 as the open register (the table `main` prints).
         let observed =
-            CausalEdge64((committed.0 & !(TRUTH_MASK | SPARE_MASK)) | (7u64 << TRUTH_SHIFT));
+            CausalEdge64((committed.0 & !(TRUTH_MASK | SPARE_MASK)) | (4u64 << TRUTH_SHIFT));
         let mb = d.mailbox_mut(MAILBOX).unwrap();
         let cell = WriteCell {
             edge: Some(observed),

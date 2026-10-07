@@ -56,9 +56,10 @@ pub const W_SHIFT: u32 = 53;
 /// Truth-band lens: 2-bit TrustTexture ordinal (bits 59-60).
 ///
 /// ⊘ D-EPI-CANON-0 (2026-10-07): bits 59..63 are ONE field, the 5-bit
-/// `EpistemicState5` code ([`EPISTEMIC_SHIFT`]). This 2-bit lens and the
-/// `TrustTexture` / `CausalTopology` readings below are legacy projections
-/// of its low half, kept for compatibility, never the authority.
+/// `EpistemicState5` code ([`EPISTEMIC_SHIFT`]), `raw5 = topology |
+/// certification << 2`. These two bits are its TOPOLOGY coordinate, read with
+/// the [`CausalTopology`] ordinals. The `TrustTexture` reading of the same
+/// bits is legacy: no mapping into the canonical state exists for it.
 /// 0 = Crystalline. Per cognitive-substrate-convergence-v1.md L-7.
 ///
 /// Same two bits also carry an ADDITIVE factual view, [`CausalTopology`]
@@ -71,9 +72,11 @@ pub const TRUTH_SHIFT: u32 = 59;
 
 /// Spare: 3-bit reserved for sprint-12+ (bits 61-63).
 ///
-/// ⊘ D-EPI-CANON-0 (2026-10-07): the high half of the joint
-/// `EpistemicState5` field ([`EPISTEMIC_SHIFT`]); the `ReasoningBand` view
-/// below is a legacy projection only.
+/// ⊘ D-EPI-CANON-0 (2026-10-07): the CERTIFICATION coordinate of the joint
+/// `EpistemicState5` field ([`EPISTEMIC_SHIFT`]): `0 Open, 1 Associated,
+/// 2 Related, 3 Supports, 4 CausalCandidate, 5 Causes, 6/7 reserved` (the P7a
+/// codes). The historical [`ReasoningBand`] view below names reasoning levels,
+/// not certifications; it is legacy, with no mapping into the canonical state.
 /// Candidates: Rubicon-commit marker, Markov-decay quantum, I-NOISE-FLOOR-JIRAK threshold.
 ///
 /// Same three bits also carry an ADDITIVE quantized-projection view,
@@ -98,8 +101,9 @@ pub const SPARE_MASK: u64 = BITS3_MASK << SPARE_SHIFT;
 
 // ── The joint epistemic field (bits 59..63) ──────────────────────────────────
 /// Bits 59..63 are ONE field: the 5-bit `EpistemicState5` code (operator
-/// decision 2026-10-07, `D-EPI-CANON-0`). The 2-bit [`TRUTH_SHIFT`] and 3-bit
-/// [`SPARE_SHIFT`] halves are its low and high parts, never two fields.
+/// decision 2026-10-07, `D-EPI-CANON-0`), the product `raw5 = topology |
+/// certification << 2` of the 2-bit [`TRUTH_SHIFT`] topology and the 3-bit
+/// [`SPARE_SHIFT`] certification coordinates.
 /// What a code MEANS is declared per `(classid, rail, generation)` in
 /// `lance_graph_contract::epistemic_state5`; this crate only carries bits.
 pub const EPISTEMIC_SHIFT: u32 = TRUTH_SHIFT;

@@ -49,17 +49,12 @@
 //!
 //! # Carrier (D-EPI-MIG-0)
 //!
-//! The certification no longer owns bits 61..63. It is stamped by translating
-//! `(MODEL_GROUNDING, contract)` into the canonical `EpistemicState5` code
-//! (`contract::epistemic_state5::legacy::translate`) and writing all of bits
-//! 59..63 with `with_epistemic_raw5`; it is read back through
-//! `Epi5Declarations::project_state5` and the legacy certification projection.
-//! `Open`, `Associated`, `Related` and `Causes` have canonical codes under the
-//! declared `Direct` grounding (0, 12, 20, 1); `Contributes` and
-//! `CausalCandidate` do not, and stamping them REFUSES. The observational
-//! fixtures certify `CausalCandidate`, so their certification is computed but
-//! cannot be stored until the codebook declares that conjunction (open point,
-//! `entries/2026-10-07-epi-mig-0.md`). Provenance is `causal_audit::SupportLedger` /
+//! P7a's codes are the certification coordinate of the canonical Cartesian
+//! `EpistemicState5` (`raw5 = topology | certification << 2`, bits 59..63).
+//! A certification is stamped by identity packing `(MODEL_GROUNDING, code)`
+//! with `with_epistemic_raw5` and read back through
+//! `Epi5Declarations::project_state5`. All six contracts are meaningful under
+//! every topology; 6 and 7 are reserved and refuse. Provenance is `causal_audit::SupportLedger` /
 //! `SupportReceipt` / `SupportBasis` / `EvidenceSourceId`. Seals are
 //! `scheduler::DatasetVersion`.
 //!
@@ -448,13 +443,11 @@ fn main() {
     println!("  codebook: {} (6, 7 reserved)", codebook.join(", "));
     for (name, m) in &fixtures {
         let c = m.certify();
-        let stamped = stamp(CausalEdge64::ZERO, c, MODEL_GROUNDING);
-        let back = stamped.map(|e| {
-            (
-                e.epistemic_raw5(),
-                read(&decl, CERT_CLASS, e, EdgeProvenance::V2Stamped),
-            )
-        });
+        let e = stamp(CausalEdge64::ZERO, c, MODEL_GROUNDING);
+        let back = (
+            e.epistemic_raw5(),
+            read(&decl, CERT_CLASS, e, EdgeProvenance::V2Stamped),
+        );
         println!(
             "  {name:<40} -> {c:?} (P7a code {}, marginal association {:?}, canonical {back:?})",
             c.code(),
@@ -555,31 +548,19 @@ mod tests {
     #[test]
     fn the_reading_is_declared_and_reserved_codes_refuse() {
         let decl = declarations();
-        let mut stamped = 0;
         for c in Contract::ALL {
-            match stamp(CausalEdge64::ZERO, c, MODEL_GROUNDING) {
-                Ok(edge) => {
-                    stamped += 1;
-                    assert_eq!(
-                        read(&decl, CERT_CLASS, edge, EdgeProvenance::V2Stamped),
-                        Ok(c)
-                    );
-                    // Same bits, historical reading: refused.
-                    assert_eq!(
-                        read(&decl, LEGACY_CLASS, edge, EdgeProvenance::V2Stamped),
-                        Err(Refusal::NotCertificationClass)
-                    );
-                }
-                Err(Refusal::NoCanonicalState(_)) => {
-                    assert!(
-                        matches!(c, Contract::Contributes | Contract::CausalCandidate),
-                        "{c:?} must have a canonical code under Direct"
-                    );
-                }
-                Err(other) => panic!("{c:?}: {other:?}"),
-            }
+            let edge = stamp(CausalEdge64::ZERO, c, MODEL_GROUNDING);
+            assert_eq!(edge.epistemic_raw5(), c.code() << 2, "identity packing");
+            assert_eq!(
+                read(&decl, CERT_CLASS, edge, EdgeProvenance::V2Stamped),
+                Ok(c)
+            );
+            // Same bits, a class without a canonical declaration: refused.
+            assert_eq!(
+                read(&decl, LEGACY_CLASS, edge, EdgeProvenance::V2Stamped),
+                Err(Refusal::NotCertificationClass)
+            );
         }
-        assert_eq!(stamped, 4, "Open, Associated, Related, Causes");
         // P7a's reserved bands 6, 7 in the high half: not canonical codes.
         for raw in [6u8, 7] {
             let edge = CausalEdge64::ZERO.with_epistemic_raw5(raw << 2);
@@ -588,7 +569,7 @@ mod tests {
                 Err(Refusal::Reading(Epi5ReadError::UndeclaredCode(raw << 2)))
             );
         }
-        let edge = stamp(CausalEdge64::ZERO, Contract::Causes, MODEL_GROUNDING).unwrap();
+        let edge = stamp(CausalEdge64::ZERO, Contract::Causes, MODEL_GROUNDING);
         assert_eq!(
             read(&decl, CERT_CLASS, edge, EdgeProvenance::Unknown),
             Err(Refusal::Reading(Epi5ReadError::UnknownProvenance(
@@ -749,7 +730,7 @@ mod tests {
         let certified = m.certify();
         for mantissa in -8i8..=7 {
             let edge = CausalEdge64::ZERO.with_inference_mantissa(mantissa);
-            let stamped = stamp(edge, certified, MODEL_GROUNDING).expect("Causes is canonical");
+            let stamped = stamp(edge, certified, MODEL_GROUNDING);
             assert_eq!(stamped.inference_mantissa(), mantissa);
             assert_eq!(
                 (stamped.0 ^ edge.0) & !EPISTEMIC_MASK,
@@ -910,19 +891,14 @@ mod tests {
                 b.build()
             },
         ];
-        let run = || -> Vec<Result<u64, Refusal>> {
+        let run = || -> Vec<u64> {
             seals
                 .iter()
-                .map(|m| stamp(CausalEdge64::ZERO, m.certify(), MODEL_GROUNDING).map(|e| e.0))
+                .map(|m| stamp(CausalEdge64::ZERO, m.certify(), MODEL_GROUNDING).0)
                 .collect()
         };
         assert_eq!(run(), run());
-        // The two observational seals certify CausalCandidate, which has no
-        // canonical code: refused, deterministically. The trial seal stamps.
-        let r = run();
-        assert!(matches!(r[0], Err(Refusal::NoCanonicalState(_))));
-        assert!(matches!(r[1], Err(Refusal::NoCanonicalState(_))));
-        for bits in r.into_iter().flatten() {
+        for bits in run() {
             assert!(read(
                 &decl,
                 CERT_CLASS,

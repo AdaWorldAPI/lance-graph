@@ -36,8 +36,8 @@
 //!
 //! | from | to | when (after the cycle's folds) |
 //! |---|---|---|
-//! | 3 `DIRECT·OBSERVED` | 7 `+ASSOCIATED` | ≥ 2 distinct `DirectlyObserved` sources this cycle, `c ≥ 200`, `f ≥ 200` |
-//! | 7 | 3 | `f < 180` (contradiction revised the carried evidence down) |
+//! | 0 `Direct × Open` | 4 `Direct × Associated` | ≥ 2 distinct `DirectlyObserved` sources this cycle, `c ≥ 200`, `f ≥ 200` |
+//! | 4 | 0 | `f < 180` (contradiction revised the carried evidence down) |
 //!
 //! Accumulation and certification stay separate: any number of folds from
 //! one source moves F/C but never the code. Thresholds are policy pins.
@@ -75,8 +75,11 @@ use lance_graph_contract::soa_view::MailboxSoaView;
 const ROW: usize = 0;
 
 /// EpistemicState5 codes of the AFF-0 law used here.
-const CODE_OBSERVED: u8 = 3;
-const CODE_ASSOCIATED: u8 = 7;
+/// `Direct × Open` (was code 3 `Direct × Observed` under the #1370
+/// probe-local codebook; observation is evidence, not a coordinate).
+const CODE_OPEN: u8 = 0;
+/// `Direct × Associated` (was code 7).
+const CODE_ASSOCIATED: u8 = 4;
 
 /// Policy pins of the probe-declared transition.
 const C_MIN: u8 = 200;
@@ -116,11 +119,11 @@ fn observation(f: u8, c: u8) -> CausalEdge64 {
     CausalEdge64::pack_v2(1, 2, 3, f, c, CausalMask::SO, 0, PlasticityState::ALL_HOT)
 }
 
-/// The register before any evidence: code `OBSERVED`, no confidence.
+/// The register before any evidence: code `Direct × Open`, no confidence.
 fn initial() -> CausalEdge64 {
     with_code(
         CausalEdge64::pack_v2(1, 2, 3, 128, 0, CausalMask::SO, 0, PlasticityState::ALL_HOT),
-        CODE_OBSERVED,
+        CODE_OPEN,
     )
 }
 
@@ -140,12 +143,10 @@ fn cycle(register: CausalEdge64, folds: &[Fold]) -> CausalEdge64 {
     }
     let sources = ledger.distinct_sources_for(SupportBasis::DirectlyObserved);
     let code = match raw5(reg) {
-        CODE_OBSERVED
-            if sources >= 2 && reg.confidence_u8() >= C_MIN && reg.frequency_u8() >= F_HI =>
-        {
+        CODE_OPEN if sources >= 2 && reg.confidence_u8() >= C_MIN && reg.frequency_u8() >= F_HI => {
             CODE_ASSOCIATED
         }
-        CODE_ASSOCIATED if reg.frequency_u8() < F_LO => CODE_OBSERVED,
+        CODE_ASSOCIATED if reg.frequency_u8() < F_LO => CODE_OPEN,
         other => other,
     };
     with_code(reg, code)
@@ -257,10 +258,10 @@ mod tests {
         assert_eq!(elig, vec![OBS, OBS, OBS | STRAT, OBS]);
         // Cycle 0 moved F/C without moving the code.
         assert!(regs[1].confidence_u8() > regs[0].confidence_u8());
-        assert_eq!(raw5(regs[1]), CODE_OBSERVED);
+        assert_eq!(raw5(regs[1]), CODE_OPEN);
         // Cycle 1 certified association; cycle 2 revised it away.
         assert_eq!(raw5(regs[2]), CODE_ASSOCIATED);
-        assert_eq!(raw5(regs[3]), CODE_OBSERVED);
+        assert_eq!(raw5(regs[3]), CODE_OPEN);
         assert!(regs[3].frequency_u8() < regs[2].frequency_u8());
     }
 
@@ -359,7 +360,7 @@ mod tests {
         let many: Vec<Fold> = (0..1000).map(|_| fold(1, 230)).collect();
         let reg = cycle(initial(), &many);
         assert!(reg.confidence_u8() >= C_MIN && reg.frequency_u8() >= F_HI);
-        assert_eq!(raw5(reg), CODE_OBSERVED);
+        assert_eq!(raw5(reg), CODE_OPEN);
         assert_eq!(eligible(reg), OBS);
     }
 

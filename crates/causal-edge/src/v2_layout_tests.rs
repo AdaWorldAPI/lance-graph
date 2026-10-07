@@ -988,18 +988,27 @@ mod epistemic_field_tests {
         assert_eq!(e.0 & SPARE_MASK, 0b001u64 << 61);
     }
 
-    /// F2 (physical half): a half-field write turns one valid-looking code
-    /// into ANOTHER valid-looking code. Code 1 with topology half set to 3
-    /// becomes code 3; code 12 with band half set to 5 becomes code 20.
-    /// The bits cannot refuse; only a declared reading can (contract crate).
+    /// F2 (physical half), Cartesian layout: the topology writer is a FACTOR
+    /// update — it moves bits 59..60 only and holds the certification. The
+    /// historical band writer puts a reasoning level (`Causal` = 3) where the
+    /// canonical reading sees certification 3 (`Supports`): a plausible claim
+    /// nobody made. That is why it is deprecated; the bits cannot refuse it,
+    /// only the class declaration can (contract crate).
     #[test]
-    fn a_half_write_silently_produces_a_different_code() {
-        let causes = CausalEdge64::ZERO.with_epistemic_raw5(1);
-        let moved = causes.with_truth(crate::layout::TrustTexture::from_bits_2(3));
-        assert_eq!(moved.epistemic_raw5(), 3);
-        let assoc = CausalEdge64::ZERO.with_epistemic_raw5(12);
-        let moved = assoc.with_reasoning_band(crate::layout::ReasoningBand::from_bits_3(5));
-        assert_eq!(moved.epistemic_raw5(), 20);
+    fn the_topology_writer_is_a_factor_update_and_the_band_writer_is_not_canonical() {
+        let s = CausalEdge64::ZERO.with_epistemic_raw5((5 << 2) | 0); // Direct × Causes
+        let moved = s.with_topology(crate::layout::CausalTopology::IndirectUnknownIntermediates);
+        assert_eq!(
+            moved.epistemic_raw5(),
+            (5 << 2) | 2,
+            "IndirectUnknown × Causes"
+        );
+        assert_eq!(moved.epistemic_raw5() >> 2, s.epistemic_raw5() >> 2);
+        assert_eq!((moved.0 ^ s.0) & !TRUTH_MASK, 0);
+        let historical =
+            CausalEdge64::ZERO.with_reasoning_band(crate::layout::ReasoningBand::Causal);
+        assert_eq!(historical.epistemic_raw5() >> 2, 3, "lands on Supports");
+        assert_eq!((historical.0 ^ CausalEdge64::ZERO.0) & !SPARE_MASK, 0);
     }
 
     /// F5 (physical half): the field survives the LE image.

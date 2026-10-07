@@ -3,18 +3,22 @@
 //! and `ce64_cycle_survival_probe` (which measures eligibility across cycles
 //! with the identical law instead of a copy).
 //!
-//! D-EPI-MIG-0: the codebook and facts now come from
-//! `lance_graph_contract::epistemic_state5`; measurement projects bits 59..63
-//! through a class declaration (`measure_declared`; `measure` uses the
-//! probes' declared `AFF_CLASS`). Tables and rules are unchanged. Each
-//! including example uses a subset, hence the `dead_code` allowance.
+//! D-EPI-MIG-0: the state is the contract's Cartesian `EpistemicState5`
+//! (`Topology2 × Certification3`, `raw5 = topology | certification << 2`).
+//! The recipe rules are unchanged; they now compile PER FACTOR (topology
+//! table × certification table), and the per-code `state` table is derived
+//! from the two. Measurement projects bits 59..63 through a class
+//! declaration (`measure_declared`; `measure` uses the probes' constant
+//! `AFF_READING`). Each including example uses a subset, hence the
+//! `dead_code` allowance.
 #![allow(dead_code)]
 
 use causal_edge::edge::CausalEdge64;
 use lance_graph_contract::band_reading::EdgeProvenance;
 use lance_graph_contract::class_view::ClassId;
 use lance_graph_contract::epistemic_state5::{
-    Epi5Declarations, Epi5Gen, Epi5ReadError, Epi5Reading, EpistemicState5, CODEBOOK_V1,
+    Epi5Declarations, Epi5Gen, Epi5ReadError, Epi5Reading, EpistemicState5, CERTIFICATION_FACTS,
+    COMPILED_FACTS_V1, TOPOLOGY_FACTS,
 };
 use lance_graph_contract::rail_geometry::RailAxis;
 
@@ -27,14 +31,13 @@ use lance_graph_contract::rail_geometry::RailAxis;
 #[allow(unused_imports)] // each including probe uses a subset
 pub use lance_graph_contract::epistemic_state5::fact::{
     ASSOCIATED, CAUSES, DIRECT, INDIRECT, IND_KNOWN, IND_UNKNOWN, INTERMEDIATE_KNOWN,
-    INTERMEDIATE_PRESENT, INTERMEDIATE_UNKNOWN, OBSERVED, RELATED, SUPPORTS, UP_TO_RELATED,
-    UP_TO_SUPPORTS,
+    INTERMEDIATE_PRESENT, INTERMEDIATE_UNKNOWN, RELATED, SUPPORTS, UP_TO_RELATED, UP_TO_SUPPORTS,
 };
 
-/// The codebook the law compiles against: the contract's `CODEBOOK_V1`,
-/// aliased (was a probe-local table until D-EPI-CANON-0; the values are
-/// identical).
-pub const EPI_LAW: [Option<u32>; 32] = CODEBOOK_V1;
+/// Per-code facts: the contract's DERIVED `COMPILED_FACTS_V1` (the union of
+/// the two factors' facts). Kept under its #1370 name for the probes that
+/// read it; it is no longer a hand-assigned codebook.
+pub const EPI_LAW: [Option<u32>; 32] = COMPILED_FACTS_V1;
 
 /// The class the affordance probes' edges belong to, declared under the
 /// canonical reading. Measurement is per class: an undeclared class refuses.
@@ -58,7 +61,13 @@ pub fn write_state(edge: CausalEdge64, state: EpistemicState5) -> CausalEdge64 {
     edge.with_epistemic_raw5(state.raw())
 }
 
-/// Write a V1 code that must be declared (fixture convenience).
+/// `Direct × Open`: the resident state before evidence (#1379's former code 3,
+/// "observed", now Open — observation is evidence, not a coordinate).
+pub const CODE_DIRECT_OPEN: u8 = 0;
+/// `Direct × Associated` (#1379's former code 7).
+pub const CODE_DIRECT_ASSOCIATED: u8 = 4;
+
+/// Write a V1 code that must be meaningful (fixture convenience).
 pub fn write_code(edge: CausalEdge64, code: u8) -> CausalEdge64 {
     let state = EpistemicState5::decode(Epi5Gen::V1, code).expect("a declared V1 code");
     write_state(edge, state)
@@ -123,29 +132,55 @@ pub enum LawGen {
 pub const LAW_V1: [Rule; 64] = law(0);
 pub const LAW_V2: [Rule; 64] = law(CAUSES);
 
-/// Compiled static affordances for one law generation.
+/// Compiled static affordances for one law generation, compiled PER FACTOR.
+/// Topology and certification facts are disjoint, so a rule holds on a state
+/// iff its topology part holds on the topology and its certification part
+/// on the certification: `state[t | c << 2] = topology[t] & certification[c]`.
 pub struct Tables {
-    /// Per EpistemicState5 code: recipes whose fact obligations hold. Invalid
-    /// codes have no entry here; they refuse before lookup.
+    /// Per topology ordinal: recipes whose topology obligations hold.
+    pub topology: [u64; 4],
+    /// Per certification code: recipes whose certification obligations hold.
+    pub certification: [u64; 6],
+    /// Per raw code, DERIVED from the two above (hot-path artifact). Reserved
+    /// codes stay 0; they refuse before lookup.
     pub state: [u64; 32],
     /// Per Pearl projection: recipes whose plane obligations hold.
     pub pearl: [u64; 8],
 }
 
+/// Recipes whose obligations, restricted to `mask`, hold on `facts`.
+const fn holds(law: &[Rule; 64], facts: u32, mask: u32) -> u64 {
+    let mut out = 0u64;
+    let mut r = 0;
+    while r < 64 {
+        let rl = law[r];
+        let req = rl.requires & mask;
+        if rl.active && facts & req == req && facts & rl.forbids & mask == 0 {
+            out |= 1 << r;
+        }
+        r += 1;
+    }
+    out
+}
+
 pub const fn compile(law: &[Rule; 64]) -> Tables {
+    use lance_graph_contract::epistemic_state5::fact::{CERTIFICATION_MASK, TOPOLOGY_MASK};
+    let mut topology = [0u64; 4];
+    let mut t = 0;
+    while t < 4 {
+        topology[t] = holds(law, TOPOLOGY_FACTS[t], TOPOLOGY_MASK);
+        t += 1;
+    }
+    let mut certification = [0u64; 6];
+    let mut c = 0;
+    while c < 6 {
+        certification[c] = holds(law, CERTIFICATION_FACTS[c], CERTIFICATION_MASK);
+        c += 1;
+    }
     let mut state = [0u64; 32];
     let mut code = 0;
-    while code < 32 {
-        if let Some(facts) = EPI_LAW[code] {
-            let mut r = 0;
-            while r < 64 {
-                let rl = law[r];
-                if rl.active && facts & rl.requires == rl.requires && facts & rl.forbids == 0 {
-                    state[code] |= 1 << r;
-                }
-                r += 1;
-            }
-        }
+    while code < 24 {
+        state[code] = topology[code & 0b11] & certification[code >> 2];
         code += 1;
     }
     let mut pearl = [0u64; 8];
@@ -161,7 +196,12 @@ pub const fn compile(law: &[Rule; 64]) -> Tables {
         }
         p += 1;
     }
-    Tables { state, pearl }
+    Tables {
+        topology,
+        certification,
+        state,
+        pearl,
+    }
 }
 
 pub static TABLES_V1: Tables = compile(&LAW_V1);

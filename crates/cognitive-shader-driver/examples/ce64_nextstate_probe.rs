@@ -64,8 +64,11 @@ const EPISTEMIC_MASK: u64 = TRUTH_MASK | SPARE_MASK;
 /// The register row.
 const ROW: usize = 0;
 
-const CODE_OBSERVED: u8 = 3;
-const CODE_ASSOCIATED: u8 = 7;
+/// `Direct × Open` (was code 3 `Direct × Observed` under the #1370
+/// probe-local codebook; observation is evidence, not a coordinate).
+const CODE_OPEN: u8 = 0;
+/// `Direct × Associated` (was code 7).
+const CODE_ASSOCIATED: u8 = 4;
 
 /// The historical field-update path: two half writers, one per sub-field.
 /// Deprecated since D-EPI-CANON-0; kept as the measured comparison arm.
@@ -146,7 +149,7 @@ fn restore(bytes: [u8; 8]) -> CausalEdge64 {
 }
 
 fn main() {
-    let start = via_mask(busy(), CODE_OBSERVED);
+    let start = via_mask(busy(), CODE_OPEN);
     let mut mb = mailbox(start);
     let now = committed(&mb).expect("seed committed");
     let next = via_mask(now, CODE_ASSOCIATED);
@@ -174,10 +177,7 @@ fn main() {
     assert_eq!(restore(persist(k1)), k1);
     // Both update paths, kept out of the optimiser's reach so their code can
     // be compared (`--emit asm`).
-    let (e, c) = (
-        std::hint::black_box(k1),
-        std::hint::black_box(CODE_OBSERVED),
-    );
+    let (e, c) = (std::hint::black_box(k1), std::hint::black_box(CODE_OPEN));
     println!(
         "  two writers == mask: {}",
         via_two_writers(e, c) == via_mask(e, c)
@@ -212,7 +212,7 @@ mod tests {
     /// N2: written in cycle k through the real seam, read in cycle k+1.
     #[test]
     fn n2_the_next_cycle_reads_the_certified_state() {
-        let mut mb = mailbox(via_mask(busy(), CODE_OBSERVED));
+        let mut mb = mailbox(via_mask(busy(), CODE_OPEN));
         let now = committed(&mb).unwrap();
         assert_eq!(eligible(now), OBS);
         let next = via_mask(now, CODE_ASSOCIATED);
@@ -232,7 +232,7 @@ mod tests {
     /// copy it read at cycle start.
     #[test]
     fn n3_same_cycle_authority_is_a_read_discipline() {
-        let mut mb = mailbox(via_mask(busy(), CODE_OBSERVED));
+        let mut mb = mailbox(via_mask(busy(), CODE_OPEN));
         let at_start = committed(&mb).unwrap();
         let eligible_k = eligible(at_start);
         write(&mut mb, via_mask(at_start, CODE_ASSOCIATED));
@@ -272,7 +272,7 @@ mod tests {
     /// exactly like the original; no evidence is replayed.
     #[test]
     fn n5_restart_from_the_persisted_word() {
-        let mut mb = mailbox(via_mask(busy(), CODE_OBSERVED));
+        let mut mb = mailbox(via_mask(busy(), CODE_OPEN));
         let now = committed(&mb).unwrap();
         write(&mut mb, via_mask(now, CODE_ASSOCIATED));
         mb.tick();
@@ -308,8 +308,9 @@ mod tests {
                 assert_eq!(e.with_epistemic_raw5(code), via_mask(e, code));
             }
         }
-        // Every declared code of the #1370 law is reachable this way.
+        // Every meaningful code of the Cartesian V1 product is reachable
+        // this way (4 topologies × 6 certifications).
         let declared = (0u8..32).filter(|c| EPI_LAW[*c as usize].is_some()).count();
-        assert_eq!(declared, 10);
+        assert_eq!(declared, 24);
     }
 }
