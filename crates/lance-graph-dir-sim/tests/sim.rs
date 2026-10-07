@@ -523,10 +523,11 @@ fn plan_is_based_on_the_latest_observation() {
     assert_eq!(plan.basis, o);
     assert_eq!(
         plan.ops,
-        vec![PlannedOp::from(Change::AddMembership {
+        vec![PlannedOp::lower(Change::AddMembership {
             user: g(BOB),
             group: g(EXCHANGE)
-        })]
+        })
+        .unwrap()]
     );
 }
 
