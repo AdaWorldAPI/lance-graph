@@ -48,6 +48,10 @@ axum = { version = "0.8", optional = true }
 name = "seal_boundary_probe"
 test = true
 
+[[example]]
+name = "self_orchestration_probe"
+test = true
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
