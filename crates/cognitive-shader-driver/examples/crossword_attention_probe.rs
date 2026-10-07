@@ -572,41 +572,58 @@ mod tests {
         }
     }
 
-    /// DomWdeg's weights only grow from contradictions, and a search with
-    /// none behaves exactly like popcount.
+    /// The search itself, without the popcount-only disagreement counters.
+    fn path(s: &Stats) -> (u64, u64, u64, Option<Vec<WordId>>, Vec<bool>) {
+        (
+            s.nodes,
+            s.contradictions,
+            s.fills,
+            s.first.clone(),
+            s.fail_trace.clone(),
+        )
+    }
+
+    /// DomWdeg's weights only grow from contradictions: a search with none
+    /// is exactly the popcount search, and one with contradictions goes
+    /// somewhere else.
     #[test]
     fn dom_wdeg_is_popcount_until_something_fails() {
         let b = bench_small();
-        let c = &b.created[0];
-        // From the full givens propagation finishes the puzzle: no choice,
-        // no contradiction, and the two policies are identical.
-        let pc = search(
-            &b.hot,
-            &c.puz,
-            &b.prior,
-            &c.givens,
-            Policy::Popcount,
-            BUDGET,
-            2,
-        );
-        let dw = search(
-            &b.hot,
-            &c.puz,
-            &b.prior,
-            &c.givens,
-            Policy::DomWdeg,
-            BUDGET,
-            2,
-        );
-        if pc.contradictions == 0 {
-            assert_eq!(pc, dw);
+        let mut silent = 0;
+        for c in &b.created {
+            let pc = search(
+                &b.hot,
+                &c.puz,
+                &b.prior,
+                &c.givens,
+                Policy::Popcount,
+                BUDGET,
+                2,
+            );
+            let dw = search(
+                &b.hot,
+                &c.puz,
+                &b.prior,
+                &c.givens,
+                Policy::DomWdeg,
+                BUDGET,
+                2,
+            );
+            if pc.contradictions == 0 {
+                assert_eq!(path(&pc), path(&dw));
+                silent += 1;
+            }
         }
-        // Can fire: on empty grids contradictions happen and the weights
-        // move the search somewhere else.
+        assert!(
+            silent > 0,
+            "the silent half needs a search without contradictions"
+        );
         let (_, a) = run_work(b, Work::Fill, Policy::Popcount, BUDGET);
         let (_, d) = run_work(b, Work::Fill, Policy::DomWdeg, BUDGET);
         assert!(a.iter().map(|s| s.contradictions).sum::<u64>() > 0);
-        assert_ne!(a, d);
+        let pa: Vec<_> = a.iter().map(path).collect();
+        let pd: Vec<_> = d.iter().map(path).collect();
+        assert_ne!(pa, pd);
     }
 
     /// Same puzzles, same seed, same policy: the same search.
