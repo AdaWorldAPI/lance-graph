@@ -996,7 +996,7 @@ mod epistemic_field_tests {
     /// only the class declaration can (contract crate).
     #[test]
     fn the_topology_writer_is_a_factor_update_and_the_band_writer_is_not_canonical() {
-        let s = CausalEdge64::ZERO.with_epistemic_raw5((5 << 2) | 0); // Direct × Causes
+        let s = CausalEdge64::ZERO.with_epistemic_raw5(5 << 2); // Direct (topology 0) × Causes
         let moved = s.with_topology(crate::layout::CausalTopology::IndirectUnknownIntermediates);
         assert_eq!(
             moved.epistemic_raw5(),

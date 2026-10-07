@@ -293,8 +293,7 @@ impl CausalEdgeV3 {
         edge.set_w_slot(self.w_slot());
         // Bits 59..63 are one field: restore it jointly (D-EPI-CANON-0), so
         // the lift can never write half of an EpistemicState5 code.
-        let edge = edge.with_epistemic_raw5(self.epistemic_raw5());
-        edge
+        edge.with_epistemic_raw5(self.epistemic_raw5())
     }
 
     /// The Lokal target node reference — the node whose 6×256² CAM-PQ facet IS
