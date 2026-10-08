@@ -44,7 +44,7 @@ use crate::access::AccessDecision;
 use crate::permission::PermissionSpec;
 use crate::policy::Operation;
 use lance_graph_contract::class_view::{FieldMask, WideFieldMask};
-use lance_graph_contract::rbac::ScopeSpec;
+use lance_graph_contract::rbac::{ScopeSet, ScopeSpec};
 
 // `ClassId` / `ActorId` / `RoleId` / `ClassRbac` were promoted to
 // `lance_graph_contract::rbac` (keystone §11) so `lance-graph-ogar`'s
@@ -82,6 +82,13 @@ pub fn authorize(
     }
     // Positive set non-empty but no grant permits — the op-specific reason,
     // identical to `Policy::evaluate`'s per-arm deny.
+    op_denied(&op)
+}
+
+/// The op-specific deny for an actor whose roles exist but grant nothing —
+/// `Policy::evaluate`'s per-arm reason. Shared by both kernels so their deny
+/// reasons cannot drift apart.
+fn op_denied(op: &Operation<'_>) -> AccessDecision {
     AccessDecision::Deny {
         reason: match op {
             Operation::Read { .. } => "insufficient read depth",
@@ -222,6 +229,246 @@ pub fn authorize_scoped(
         decision,
         scope,
         field_mask: mask,
+    }
+}
+
+/// The membership-scoped authorization result: the same verdict as
+/// [`authorize`], plus the **union** of the row scopes of every membership that
+/// grants the op, and the union field projection.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MembershipDecision {
+    /// Allow, or the same deny [`authorize`] gives.
+    pub decision: AccessDecision,
+    /// Rows the actor may touch. `None` ⇒ unrestricted: at least one granting
+    /// membership is unscoped. `Some(set)` ⇒ only rows some member admits; an
+    /// empty set admits none. Always `None` on a non-`Allow`.
+    pub scope: Option<ScopeSet>,
+    /// Union of the granting roles' [`ClassRbac::field_mask`]; the lossless
+    /// promotion of `FieldMask::FULL` on a non-`Allow`, as in
+    /// [`ScopedDecision`].
+    pub field_mask: WideFieldMask,
+}
+
+/// Authorize through [`ClassRbac::memberships`], the permissive counterpart of
+/// [`authorize_scoped`].
+///
+/// [`authorize_scoped`] intersects the scopes of all granting roles, so holding
+/// one more role can only narrow what an actor sees: a global role plus a role
+/// scoped to org A yields org A, and roles on two branches yield nothing. Here
+/// each granting membership contributes its own scope and the results are
+/// unioned: any one granting membership is enough for the rows it covers, and
+/// an unscoped granting membership makes access unrestricted. This is the
+/// order a nested scope hierarchy needs (an owner of namespace `a` keeps every
+/// database in `a` whatever other roles they hold).
+///
+/// The verdict matches [`authorize`] whenever `memberships` lists the roles of
+/// `actor_roles`, which the default guarantees. `authorize_scoped` is unchanged.
+#[must_use]
+pub fn authorize_memberships(
+    rbac: &impl ClassRbac,
+    actor: ActorId<'_>,
+    class: ClassId,
+    op: Operation<'_>,
+) -> MembershipDecision {
+    let refused = |decision| MembershipDecision {
+        decision,
+        scope: None,
+        field_mask: WideFieldMask::from(FieldMask::FULL),
+    };
+    let memberships = rbac.memberships(actor, class);
+    if memberships.is_empty() {
+        return refused(AccessDecision::Deny {
+            reason: "unknown role",
+        });
+    }
+    let mut granted = false;
+    let mut unrestricted = false;
+    let mut set = ScopeSet::new();
+    let mut mask = WideFieldMask::EMPTY;
+    for m in &memberships {
+        if !rbac.grant_permits(m.role, class, &op) {
+            continue;
+        }
+        granted = true;
+        match m.scope {
+            None => unrestricted = true,
+            Some(scope) => {
+                set.insert(scope);
+            }
+        }
+        mask = mask.union(&rbac.field_mask(m.role, class));
+    }
+    if !granted {
+        return refused(op_denied(&op));
+    }
+    MembershipDecision {
+        decision: AccessDecision::Allow,
+        scope: (!unrestricted).then_some(set),
+        field_mask: mask,
+    }
+}
+
+#[cfg(test)]
+mod membership_tests {
+    use super::*;
+    use crate::permission::PermissionSpec;
+    use lance_graph_contract::property::PrefetchDepth;
+    use lance_graph_contract::rbac::{Membership, ScopePath};
+
+    const CLS: ClassId = 0x0000_0901;
+
+    fn scope(segs: &[u64]) -> ScopeSpec {
+        ScopeSpec {
+            path: ScopePath::new(segs).expect("depth"),
+            ..ScopeSpec::default()
+        }
+    }
+
+    fn read() -> Operation<'static> {
+        Operation::Read {
+            depth: PrefetchDepth::Full,
+        }
+    }
+
+    /// Roles from `actor_roles`, scopes from `row_scope`: the default path.
+    struct RoleScoped {
+        roles: &'static [RoleId],
+    }
+    impl ClassRbac for RoleScoped {
+        fn actor_roles(&self, _actor: ActorId<'_>) -> &[RoleId] {
+            self.roles
+        }
+        fn grant_permits(&self, role: RoleId, _class: ClassId, _op: &Operation<'_>) -> bool {
+            role != "none"
+        }
+        fn row_scope(&self, role: RoleId, _class: ClassId) -> Option<ScopeSpec> {
+            match role {
+                "org_a" => Some(scope(&[1])),
+                "org_b" => Some(scope(&[2])),
+                "db_a7" => Some(scope(&[1, 7])),
+                _ => None,
+            }
+        }
+    }
+
+    // One more role never removes access — the property authorize_scoped lacks.
+    #[test]
+    fn a_global_role_plus_a_scoped_role_stays_unrestricted() {
+        let rbac = RoleScoped {
+            roles: &["global", "org_a"],
+        };
+        let d = authorize_memberships(&rbac, "u", CLS, read());
+        assert_eq!(d.decision, AccessDecision::Allow);
+        assert_eq!(d.scope, None);
+        // The restrictive fold narrows the same actor to org A.
+        assert_eq!(
+            authorize_scoped(&rbac, "u", CLS, read()).scope,
+            Some(scope(&[1]))
+        );
+    }
+
+    #[test]
+    fn roles_on_two_branches_see_both() {
+        let rbac = RoleScoped {
+            roles: &["org_a", "org_b"],
+        };
+        let d = authorize_memberships(&rbac, "u", CLS, read());
+        let set = d.scope.expect("scoped");
+        assert!(set.admits(&ScopePath::new(&[1, 3]).unwrap()));
+        assert!(set.admits(&ScopePath::new(&[2, 3]).unwrap()));
+        assert!(!set.admits(&ScopePath::new(&[3]).unwrap()));
+        assert_eq!(
+            authorize_scoped(&rbac, "u", CLS, read()).scope,
+            Some(ScopeSpec::DENY)
+        );
+    }
+
+    #[test]
+    fn a_nested_grant_is_absorbed_by_the_broader_one() {
+        let rbac = RoleScoped {
+            roles: &["org_a", "db_a7"],
+        };
+        let set = authorize_memberships(&rbac, "u", CLS, read())
+            .scope
+            .expect("scoped");
+        assert_eq!(set.members(), &[scope(&[1])]);
+    }
+
+    // A role that grants nothing contributes no scope, even an unrestricted one.
+    #[test]
+    fn only_granting_memberships_contribute() {
+        let rbac = RoleScoped {
+            roles: &["none", "org_a"],
+        };
+        let set = authorize_memberships(&rbac, "u", CLS, read())
+            .scope
+            .expect("the ungranting global role must not widen");
+        assert_eq!(set.members(), &[scope(&[1])]);
+    }
+
+    /// One role held in two organisations — what `row_scope(role, class)`
+    /// cannot express and `memberships` can.
+    struct EditorInTwoOrgs;
+    impl ClassRbac for EditorInTwoOrgs {
+        fn actor_roles(&self, _actor: ActorId<'_>) -> &[RoleId] {
+            &["editor"]
+        }
+        fn grant_permits(&self, role: RoleId, _class: ClassId, _op: &Operation<'_>) -> bool {
+            role == "editor"
+        }
+        fn memberships(&self, _actor: ActorId<'_>, _class: ClassId) -> Vec<Membership> {
+            vec![
+                Membership {
+                    role: "editor",
+                    scope: Some(scope(&[1])),
+                },
+                Membership {
+                    role: "editor",
+                    scope: Some(scope(&[2])),
+                },
+            ]
+        }
+    }
+
+    #[test]
+    fn one_role_held_in_two_orgs() {
+        let set = authorize_memberships(&EditorInTwoOrgs, "u", CLS, read())
+            .scope
+            .expect("scoped");
+        assert_eq!(set.members(), &[scope(&[1]), scope(&[2])]);
+    }
+
+    // Same verdict and deny reasons as the role-only kernel on the default path.
+    #[test]
+    fn the_verdict_matches_authorize() {
+        let rbac = ClassGrants::new()
+            .with_grant("reader", CLS, PermissionSpec::full("x", &["name"], &[]))
+            .with_actor("alice", vec!["reader"])
+            .with_actor("nobody", vec![]);
+        for actor in ["alice", "nobody", "ghost"] {
+            for op in [
+                read(),
+                Operation::Read {
+                    depth: PrefetchDepth::Identity,
+                },
+                Operation::Write { predicate: "name" },
+                Operation::Act { action: "close" },
+            ] {
+                assert_eq!(
+                    authorize_memberships(&rbac, actor, CLS, op.clone()).decision,
+                    authorize(&rbac, actor, CLS, op),
+                    "actor {actor}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_refusal_carries_no_scope() {
+        let rbac = RoleScoped { roles: &["none"] };
+        let d = authorize_memberships(&rbac, "u", CLS, read());
+        assert!(matches!(d.decision, AccessDecision::Deny { .. }));
+        assert_eq!(d.scope, None);
     }
 }
 

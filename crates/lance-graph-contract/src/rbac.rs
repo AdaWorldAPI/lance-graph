@@ -192,6 +192,135 @@ impl ScopeSpec {
             (Some(_), Some(_)) => ScopeSpec::DENY,
         }
     }
+
+    /// Whether every row `other` admits is also admitted by `self` — scope
+    /// containment, the order [`ScopeSet`] uses to keep only its broadest
+    /// members. The empty scope is covered by everything and covers nothing
+    /// else. `self` covers `other` when its tenant is global or the same, its
+    /// path contains `other`'s, and it applies no predicate `other` does not
+    /// (a predicate only removes rows, so fewer predicates is broader).
+    #[inline]
+    #[must_use]
+    pub const fn covers(&self, other: &ScopeSpec) -> bool {
+        if other.deny {
+            return true;
+        }
+        if self.deny {
+            return false;
+        }
+        let tenant_ok = match (self.tenant, other.tenant) {
+            (None, _) => true,
+            (Some(a), Some(b)) => a == b,
+            (Some(_), None) => false,
+        };
+        tenant_ok
+            && self.predicate_key & !other.predicate_key == 0
+            && self.path.contains(&other.path)
+    }
+}
+
+/// A **union** of row scopes: a row is visible when ANY member admits it.
+///
+/// [`ScopeSpec::intersect`] answers "rows every granting role allows" (the
+/// restrictive fold `lance_graph_rbac::authorize::authorize_scoped` uses). The permissive answer — "rows
+/// any granting membership allows", which is what an actor who is an editor in
+/// org A *and* in org B should get — is not a single [`ScopeSpec`]: A ∪ B on
+/// two branches has no common path. This is that answer.
+///
+/// Kept minimal: [`insert`](ScopeSet::insert) drops the empty scope and any
+/// member another member already [`covers`](ScopeSpec::covers), so the set
+/// holds only incomparable scopes. An empty set admits nothing. Unrestricted
+/// (global) access is represented by the *absence* of a set, the same `None`
+/// sentinel [`ClassRbac::row_scope`] uses — never by a set member.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ScopeSet {
+    members: Vec<ScopeSpec>,
+}
+
+impl ScopeSet {
+    /// The empty set — admits no row.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            members: Vec::new(),
+        }
+    }
+
+    /// Add `scope` to the union. Returns `true` when the set widened; `false`
+    /// when `scope` is empty or already covered by a member. Members that
+    /// `scope` covers are removed.
+    pub fn insert(&mut self, scope: ScopeSpec) -> bool {
+        if scope.deny || self.members.iter().any(|m| m.covers(&scope)) {
+            return false;
+        }
+        self.members.retain(|m| !scope.covers(m));
+        self.members.push(scope);
+        true
+    }
+
+    /// Whether a row located at `at` lies inside some member. Address
+    /// containment only, like [`ScopeSpec::admits`]: tenants and predicates
+    /// are matched by the store that owns rows.
+    #[must_use]
+    pub fn admits(&self, at: &ScopePath) -> bool {
+        self.members.iter().any(|m| m.admits(at))
+    }
+
+    /// The members, each incomparable with the others, in insertion order.
+    #[must_use]
+    pub fn members(&self) -> &[ScopeSpec] {
+        &self.members
+    }
+
+    /// `true` when no row is admitted.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.members.is_empty()
+    }
+
+    /// Attenuate: the rows of this set that `cap` also allows (each member
+    /// intersected with `cap`; empty results are dropped). Never widens, so
+    /// running work under a narrower authority — a caller limited by a definer,
+    /// a delegation on someone's behalf — composes as repeated `narrow`.
+    #[must_use]
+    pub fn narrow(&self, cap: ScopeSpec) -> ScopeSet {
+        let mut out = ScopeSet::new();
+        for m in &self.members {
+            out.insert(m.intersect(cap));
+        }
+        out
+    }
+}
+
+/// One role an actor holds, with the scope **this holding** is bound to.
+///
+/// Scope belongs to the membership, not to the role: "editor in org A" and
+/// "editor in org B" are two memberships of one role. [`ClassRbac::row_scope`]
+/// keys scope by `(role, class)` and so cannot tell them apart; a policy that
+/// needs it overrides [`ClassRbac::memberships`] instead. `scope: None` means
+/// the holding is unrestricted on the class.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Membership {
+    /// The role held.
+    pub role: RoleId,
+    /// The row scope this holding is bound to. `None` = unrestricted.
+    pub scope: Option<ScopeSpec>,
+}
+
+/// Whether `class` is an access-control class itself — a concept in the
+/// `0x0B` Auth domain (identity providers, grants, the auth store).
+///
+/// Writing such a class changes who may do what, so a policy should require
+/// a stronger grant for it than for ordinary data: a role that can write any
+/// class must not thereby be able to grant itself more. The kernel does not
+/// enforce this; it is the check a policy or a gate consults.
+#[inline]
+#[must_use]
+pub fn is_access_control_class(class: ClassId) -> bool {
+    matches!(
+        crate::ogar_codebook::classid_concept_domain(class),
+        crate::ogar_codebook::ConceptDomain::Auth
+    )
 }
 
 /// The codebook class identity an authorization targets — the
@@ -266,6 +395,26 @@ pub trait ClassRbac {
     /// as an address, never interprets it inline.
     fn row_scope(&self, _role: RoleId, _class: ClassId) -> Option<ScopeSpec> {
         None
+    }
+
+    /// The actor's memberships relevant to `class`: each role held, with the
+    /// scope that holding is bound to.
+    ///
+    /// The default derives one membership per [`actor_roles`](ClassRbac::actor_roles)
+    /// entry, scoped by [`row_scope`](ClassRbac::row_scope), so an impl that
+    /// overrides neither sees the same roles and scopes as before. Override it
+    /// when one role is held at several places (an editor in two
+    /// organisations), which `row_scope(role, class)` cannot express. An
+    /// override should list the same roles `actor_roles` returns, or the
+    /// role-only kernel and the membership kernel will disagree.
+    fn memberships(&self, actor: ActorId<'_>, class: ClassId) -> Vec<Membership> {
+        self.actor_roles(actor)
+            .iter()
+            .map(|&role| Membership {
+                role,
+                scope: self.row_scope(role, class),
+            })
+            .collect()
     }
 
     /// Axis-4 field projection — the column mask permitted for `role` on `class`.
@@ -678,5 +827,122 @@ mod tests {
             ..ns
         };
         assert_eq!(t1.intersect(t2), ScopeSpec::DENY);
+    }
+
+    fn p(segs: &[u64]) -> ScopePath {
+        ScopePath::new(segs).expect("depth")
+    }
+
+    fn scoped_at(segs: &[u64]) -> ScopeSpec {
+        ScopeSpec {
+            path: p(segs),
+            ..ScopeSpec::default()
+        }
+    }
+
+    #[test]
+    fn covers_is_scope_containment() {
+        let ns_a = scoped_at(&[1]);
+        let db_ax = scoped_at(&[1, 7]);
+        assert!(ns_a.covers(&db_ax));
+        assert!(!db_ax.covers(&ns_a));
+        assert!(!scoped_at(&[2]).covers(&db_ax));
+        // A tenant-bound scope does not cover a global one; a global one covers it.
+        let t9 = ScopeSpec {
+            tenant: Some(9),
+            ..ns_a
+        };
+        assert!(ns_a.covers(&t9));
+        assert!(!t9.covers(&ns_a));
+        // An extra predicate narrows, so the scope without it is the broader one.
+        let filtered = ScopeSpec {
+            predicate_key: 0b10,
+            ..ns_a
+        };
+        assert!(ns_a.covers(&filtered));
+        assert!(!filtered.covers(&ns_a));
+        // The empty scope: covered by everything, covers nothing non-empty.
+        assert!(db_ax.covers(&ScopeSpec::DENY));
+        assert!(!ScopeSpec::DENY.covers(&db_ax));
+    }
+
+    // Two branches: intersect has no answer but DENY, the union admits both.
+    #[test]
+    fn a_scope_set_is_the_union_intersect_cannot_express() {
+        assert_eq!(scoped_at(&[1]).intersect(scoped_at(&[2])), ScopeSpec::DENY);
+        let mut set = ScopeSet::new();
+        assert!(set.insert(scoped_at(&[1])));
+        assert!(set.insert(scoped_at(&[2])));
+        assert!(set.admits(&p(&[1, 5])));
+        assert!(set.admits(&p(&[2, 5])));
+        assert!(!set.admits(&p(&[3])));
+        assert!(!set.admits(&ScopePath::ROOT));
+    }
+
+    #[test]
+    fn a_scope_set_keeps_only_its_broadest_members() {
+        let mut set = ScopeSet::new();
+        assert!(set.insert(scoped_at(&[1, 7])));
+        // Already covered: no change.
+        assert!(!set.insert(scoped_at(&[1, 7, 3])));
+        // Broader: replaces the narrower member.
+        assert!(set.insert(scoped_at(&[1])));
+        assert_eq!(set.members(), &[scoped_at(&[1])]);
+        // The empty scope never widens a set.
+        assert!(!set.insert(ScopeSpec::DENY));
+        assert!(!ScopeSet::new().admits(&ScopePath::ROOT));
+        assert!(ScopeSet::new().is_empty());
+    }
+
+    #[test]
+    fn narrow_never_widens() {
+        let mut set = ScopeSet::new();
+        set.insert(scoped_at(&[1]));
+        set.insert(scoped_at(&[2]));
+        let capped = set.narrow(scoped_at(&[1, 7]));
+        assert_eq!(capped.members(), &[scoped_at(&[1, 7])]);
+        assert!(!capped.admits(&p(&[2])));
+        assert!(!capped.admits(&p(&[1, 8])));
+        assert!(set.narrow(scoped_at(&[3])).is_empty());
+    }
+
+    struct ScopedRoles;
+    impl ClassRbac for ScopedRoles {
+        fn actor_roles(&self, _actor: ActorId<'_>) -> &[RoleId] {
+            &["viewer", "editor"]
+        }
+        fn grant_permits(&self, _role: RoleId, _class: ClassId, _op: &Operation<'_>) -> bool {
+            true
+        }
+        fn row_scope(&self, role: RoleId, _class: ClassId) -> Option<ScopeSpec> {
+            (role == "editor").then(|| scoped_at(&[4]))
+        }
+    }
+
+    // The default derives memberships from actor_roles + row_scope, unchanged.
+    #[test]
+    fn default_memberships_mirror_roles_and_row_scope() {
+        assert_eq!(
+            ScopedRoles.memberships("anyone", 1),
+            vec![
+                Membership {
+                    role: "viewer",
+                    scope: None
+                },
+                Membership {
+                    role: "editor",
+                    scope: Some(scoped_at(&[4]))
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn auth_domain_classes_are_access_control_classes() {
+        use crate::ogar_codebook::compose_classid;
+        assert!(is_access_control_class(compose_classid(0x0B02, 0)));
+        assert!(is_access_control_class(compose_classid(0x0B01, 0x0042)));
+        assert!(!is_access_control_class(compose_classid(0x0901, 0)));
+        assert!(!is_access_control_class(compose_classid(0x0C01, 0)));
     }
 }
