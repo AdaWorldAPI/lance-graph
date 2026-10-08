@@ -147,6 +147,9 @@ pub mod proprioception;
 pub mod qualia;
 pub mod rail_geometry;
 pub mod rbac;
+/// RBAC hot-plug: the [`hotplug`] pattern for authorization — a consumer's
+/// `RbacPlug` const, the `RbacAuthority` trait, and the fail-closed `RbacBinding`.
+pub mod rbac_plug;
 pub mod register128;
 pub mod tekamolo_facet;
 pub use qualia::{
