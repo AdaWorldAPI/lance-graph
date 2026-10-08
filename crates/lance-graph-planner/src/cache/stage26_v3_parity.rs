@@ -60,7 +60,7 @@
 
 use std::collections::BTreeMap;
 
-use causal_edge::{CausalEdge64, CausalEdgeV3};
+use causal_edge::{CausalEdge64, CausalEdgeV3, IsaFault};
 
 use super::nars_engine::{NarsEngine, SpoDistances, SpoHead};
 
@@ -90,15 +90,17 @@ struct Leg {
     case: String,
     /// Direct arm.
     direct_edge: CausalEdge64,
-    direct_fwd: CausalEdge64,
+    /// `Err` when the weight's inference code does not execute (the CE64 ISA
+    /// decoder); both arms must then refuse identically.
+    direct_fwd: Result<CausalEdge64, IsaFault>,
     direct_head: SpoHead,
-    direct_fwd_head: SpoHead,
+    direct_fwd_head: Result<SpoHead, IsaFault>,
     direct_syllogism: Option<CausalEdge64>,
     /// V3 arm — same engine, same methods, edge routed through V3.
     v3_edge: CausalEdge64,
-    v3_fwd: CausalEdge64,
+    v3_fwd: Result<CausalEdge64, IsaFault>,
     v3_head: SpoHead,
-    v3_fwd_head: SpoHead,
+    v3_fwd_head: Result<SpoHead, IsaFault>,
     v3_syllogism: Option<CausalEdge64>,
 }
 
@@ -300,10 +302,10 @@ fn run_leg(
     Leg {
         case,
         direct_head: engine.from_causal_edge(direct_edge),
-        direct_fwd_head: engine.from_causal_edge(direct_fwd),
+        direct_fwd_head: direct_fwd.map(|e| engine.from_causal_edge(e)),
         direct_syllogism: syl(direct_edge, direct_w),
         v3_head: engine.from_causal_edge(v3_edge),
-        v3_fwd_head: engine.from_causal_edge(v3_fwd),
+        v3_fwd_head: v3_fwd.map(|e| engine.from_causal_edge(e)),
         v3_syllogism: syl(v3_edge, v3_w),
         direct_edge,
         direct_fwd,
@@ -475,7 +477,7 @@ mod tests {
         // there, which is the property the non-identity tables exist to give.
         let moved = legs
             .iter()
-            .filter(|l| l.direct_fwd != l.direct_edge)
+            .filter(|l| l.direct_fwd.is_ok_and(|f| f != l.direct_edge))
             .count();
         assert!(
             moved > 0,
@@ -483,7 +485,10 @@ mod tests {
         );
         let spo_moved = legs
             .iter()
-            .filter(|l| spo_of(l.direct_fwd) != spo_of(l.direct_edge))
+            .filter(|l| {
+                l.direct_fwd
+                    .is_ok_and(|f| spo_of(f) != spo_of(l.direct_edge))
+            })
             .count();
         assert!(
             spo_moved > 0,

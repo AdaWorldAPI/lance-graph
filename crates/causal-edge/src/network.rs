@@ -7,6 +7,7 @@
 //! and every Pearl level IS a 3-bit mask.
 
 use crate::edge::{CausalEdge64, InferenceType};
+use crate::isa::IsaFault;
 use crate::pearl::CausalMask;
 use crate::plasticity::PlasticityState;
 use crate::tables::NarsTables;
@@ -58,23 +59,31 @@ impl CausalNetwork {
     ///
     /// Input edge is composed with each weight edge in sequence.
     /// Each intermediate IS a CausalEdge64 with full interpretability.
-    pub fn forward_chain(&self, input: CausalEdge64, path: &[usize]) -> CausalPath {
+    ///
+    /// # Errors
+    ///
+    /// The first [`IsaFault`] a hop raises; the chain stops there.
+    pub fn forward_chain(
+        &self,
+        input: CausalEdge64,
+        path: &[usize],
+    ) -> Result<CausalPath, IsaFault> {
         let mut current = input;
         let mut hops = Vec::with_capacity(path.len() + 1);
         hops.push(current);
 
         for &edge_id in path {
             let weight = self.edges[edge_id];
-            current = current.forward(weight, &self.compose_s, &self.compose_p, &self.compose_o);
+            current = current.forward(weight, &self.compose_s, &self.compose_p, &self.compose_o)?;
             hops.push(current);
         }
 
         let causal_level = current.causal_mask();
-        CausalPath {
+        Ok(CausalPath {
             hops,
             conclusion: current,
             causal_level,
-        }
+        })
     }
 
     /// Learn from observation: update all edges on the path with NARS revision.

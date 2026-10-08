@@ -154,6 +154,14 @@ pub enum ReplayError {
         /// How many steps the chain needed.
         steps: usize,
     },
+    /// A step's weight carries an inference code the CE64 ISA does not
+    /// execute ([`causal_edge::isa::IsaFault`]).
+    Isa {
+        /// The step that faulted.
+        step: usize,
+        /// The fault.
+        fault: causal_edge::isa::IsaFault,
+    },
 }
 
 impl fmt::Display for ReplayError {
@@ -163,6 +171,7 @@ impl fmt::Display for ReplayError {
                 f,
                 "durable sequence exhausted: base {base_seq} cannot reserve {steps} steps"
             ),
+            Self::Isa { step, fault } => write!(f, "step {step}: {fault}"),
         }
     }
 }
@@ -180,7 +189,7 @@ pub fn replay_step(
     weight: CausalEdge64,
     tables: &NarsTables,
     compose: ComposeTables<'_>,
-) -> CausalEdge64 {
+) -> Result<CausalEdge64, causal_edge::isa::IsaFault> {
     // 1. fuse this step's evidence into the running truth (the lookup half)
     let revised = tables.revise(
         running.frequency_u8(),
@@ -189,12 +198,12 @@ pub fn replay_step(
         weight.confidence_u8(),
     );
     // 2. propagate palettes + causality (the packed half)
-    let mut out = running.forward(weight, compose.s, compose.p, compose.o);
+    let mut out = running.forward(weight, compose.s, compose.p, compose.o)?;
     // 3. the revised truth is the step's truth — written back into the packed
     //    edge, not carried beside it (there is no second truth register).
     out.set_frequency_u8(unpack_f(revised));
     out.set_confidence_u8(unpack_c(revised));
-    out
+    Ok(out)
 }
 
 /// Replay a recorded chain against `seed`, emitting one trace row per step.
@@ -248,7 +257,8 @@ pub fn replay_chain(
     let mut running = seed;
     let mut trace = Vec::with_capacity(steps);
     for (i, &(predicate, weight)) in chain.iter().enumerate() {
-        running = replay_step(running, weight, tables, compose);
+        running = replay_step(running, weight, tables, compose)
+            .map_err(|fault| ReplayError::Isa { step: i, fault })?;
         trace.push(ReplayTraceRow {
             owner,
             cast_seq: base_seq + i as u64,

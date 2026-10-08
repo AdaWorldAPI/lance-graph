@@ -5,8 +5,9 @@
 //! has to flip an assertion on purpose rather than drift past it:
 //!
 //! 1. `forward` selects its NARS rule from the WEIGHT operand's mantissa
-//!    (bits 46..49). Counterfactual (−6) has no arm of its own, so it runs the
-//!    Synthesis average and is then re-stamped −6.
+//!    (bits 46..49). Counterfactual (−6) has no implementation. It used to run
+//!    the Synthesis average and be re-stamped −6; since the CE64 ISA decoder
+//!    (`isa.rs`) it faults instead.
 //! 2. Which operations keep the W slot (53..58) and `EpistemicState5`
 //!    (59..63), and which silently zero them.
 //!
@@ -46,7 +47,9 @@ fn edge(f: u8, c: u8, rule: InferenceType) -> CausalEdge64 {
 
 fn forward(running: CausalEdge64, weight: CausalEdge64) -> CausalEdge64 {
     let t = keep_left();
-    running.forward(weight, &t, &t, &t)
+    running
+        .forward(weight, &t, &t, &t)
+        .expect("executable weight code")
 }
 
 fn fc(e: CausalEdge64) -> (u8, u8) {
@@ -73,25 +76,23 @@ fn forward_dispatch_on_the_weight_mantissa_is_live() {
     assert_ne!(fc(forward(running, weight)), fc(forward(running, synth)));
 }
 
-/// MEASURED DEFECT (pinned): a weight carrying Counterfactual (−6) computes
-/// exactly the Synthesis average. The mantissa still reads −6 afterwards, so
-/// the edge is labelled counterfactual but holds an average.
+/// FLIPPED by the CE64 ISA decoder. A weight carrying Counterfactual (−6) used
+/// to compute exactly the Synthesis average and be re-stamped −6. It now
+/// faults: no counterfactual rule exists, so nothing runs.
 ///
-/// FAILS IF: `forward` gains a Counterfactual rule (then flip this test and
-/// record the rule) — or stops re-stamping −6.
+/// FAILS IF: `forward` gains a Counterfactual rule (then pin the rule here) or
+/// falls back to another instruction again.
 #[test]
-fn a_counterfactual_weight_runs_the_synthesis_average() {
+fn a_counterfactual_weight_faults_instead_of_running_synthesis() {
+    let t = keep_left();
     let running = edge(255, 255, InferenceType::Deduction);
     let cf = edge(0, 0, InferenceType::Deduction)
         .with_inference_mantissa(InferenceType::Counterfactual.to_mantissa());
-    let synth = edge(0, 0, InferenceType::Synthesis);
     assert_eq!(cf.inference_mantissa(), -6, "fixture must carry −6");
-
-    let out_cf = forward(running, cf);
-    let out_synth = forward(running, synth);
-    assert_eq!(fc(out_cf), fc(out_synth), "−6 runs the Synthesis arm");
-    assert_eq!(fc(out_cf), (128, 128));
-    assert_eq!(out_cf.inference_mantissa(), -6, "and is re-stamped −6");
+    assert_eq!(
+        running.forward(cf, &t, &t, &t),
+        Err(causal_edge::IsaFault::Unsupported { mantissa: -6 })
+    );
 }
 
 /// Silent arm: the same weight twice gives the same answer.
