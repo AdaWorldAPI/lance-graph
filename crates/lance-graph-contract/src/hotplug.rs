@@ -188,9 +188,9 @@ impl Activation {
 
 /// A physical reading a slab declares for itself.
 ///
-/// The variants are exactly the readings THIS build implements. A future
-/// reading (a classid-free 128-bit register and its carvings) lands as a new
-/// variant; which slabs use it is decided by the slab's own declaration, never
+/// The variants are exactly the readings THIS build implements. A new
+/// reading (as the classid-free 128-bit register and its signed carvings
+/// did) lands as a new variant; which slabs use it is decided by the slab's own declaration, never
 /// by a per-concept table. The on-wire tag is a `u8` in the slab's metadata
 /// envelope, decoded by [`SlabReading::from_tag`], which refuses any tag this
 /// build does not implement.
@@ -211,6 +211,15 @@ pub enum SlabReading {
     /// [`ResolvedReading::bind_register128`] requires before granting the
     /// register rails.
     Register128 = 1,
+    /// The same register rails, written as 32 signed `i4` values: dim `2k`
+    /// is the low nibble of byte `k`, dim `2k+1` the high nibble (the
+    /// [`crate::atoms::I4x32`] layout). Bound by
+    /// [`ResolvedReading::bind_signed_register`], never by
+    /// [`ResolvedReading::bind_register128`].
+    RegisterI4x32 = 2,
+    /// The same register rails, written as 16 signed `i8` values, one per
+    /// byte. Bound by [`ResolvedReading::bind_signed_register`].
+    RegisterI8x16 = 3,
 }
 
 impl SlabReading {
@@ -224,6 +233,8 @@ impl SlabReading {
         match tag {
             0 => Ok(SlabReading::Facet96),
             1 => Ok(SlabReading::Register128),
+            2 => Ok(SlabReading::RegisterI4x32),
+            3 => Ok(SlabReading::RegisterI8x16),
             other => Err(ActivationDrift::UnknownSlabReading(other)),
         }
     }
@@ -369,6 +380,56 @@ impl ResolvedReading {
         }
         Ok(crate::register128::RegisterLanes::new(self.concept, rails))
     }
+
+    /// Bind the register rails of this population as SIGNED values under
+    /// one declared law. Checked ONCE per population, like
+    /// [`bind_register128`](Self::bind_register128).
+    ///
+    /// The slab declares the carving (how the bytes were written:
+    /// [`SlabReading::RegisterI4x32`] or [`SlabReading::RegisterI8x16`]).
+    /// The caller declares the `law` (what the signed values mean for this
+    /// concept: a relative offset, a position on an axis, or support). Both
+    /// travel with the returned lanes, and every read and write checks the
+    /// law it is asked for against the bound one, so a consumer of one law
+    /// can never silently read another's values.
+    ///
+    /// # Errors
+    ///
+    /// - [`ActivationDrift::NotSignedRegister`] when the slab declared any
+    ///   other reading, including the unsigned [`SlabReading::Register128`],
+    ///   or nothing.
+    /// - [`ActivationDrift::RegisterRailAbsent`] when the value schema does
+    ///   not materialise a requested rail.
+    pub fn bind_signed_register(
+        &self,
+        rails: crate::register128::RegisterRails,
+        law: crate::register128::RegisterLaw,
+    ) -> Result<crate::register128::SignedRegisterLanes, ActivationDrift> {
+        let carving = match self.slab {
+            Some(SlabReading::RegisterI4x32) => crate::register128::RegisterCarving::I4x32,
+            Some(SlabReading::RegisterI8x16) => crate::register128::RegisterCarving::I8x16,
+            other => {
+                return Err(ActivationDrift::NotSignedRegister {
+                    concept: self.concept,
+                    slab: other,
+                })
+            }
+        };
+        for &tenant in rails.tenants() {
+            if !self.read_mode.value_schema.has(tenant) {
+                return Err(ActivationDrift::RegisterRailAbsent {
+                    concept: self.concept,
+                    tenant: tenant as u8,
+                });
+            }
+        }
+        Ok(crate::register128::SignedRegisterLanes::new(
+            self.concept,
+            rails,
+            carving,
+            law,
+        ))
+    }
 }
 
 /// Why an activation failed — each arm is one named bang.
@@ -402,6 +463,16 @@ pub enum ActivationDrift {
     /// [`ResolvedReading::bind_register128`] was asked for register rails of
     /// a population whose slab did not declare [`SlabReading::Register128`].
     NotRegister128 {
+        /// The concept the reading was resolved under.
+        concept: u16,
+        /// What the slab declared instead (`None`: nothing).
+        slab: Option<SlabReading>,
+    },
+    /// [`ResolvedReading::bind_signed_register`] was asked for signed
+    /// register rails of a population whose slab did not declare a signed
+    /// carving ([`SlabReading::RegisterI4x32`] or
+    /// [`SlabReading::RegisterI8x16`]).
+    NotSignedRegister {
         /// The concept the reading was resolved under.
         concept: u16,
         /// What the slab declared instead (`None`: nothing).
@@ -498,6 +569,11 @@ impl core::fmt::Display for ActivationDrift {
                 f,
                 "concept 0x{concept:04X}: slab declares {slab:?}, not Register128; \
                  no register rails are granted"
+            ),
+            Self::NotSignedRegister { concept, slab } => write!(
+                f,
+                "concept 0x{concept:04X}: slab declares {slab:?}, not a signed register \
+                 carving; no signed register rails are granted"
             ),
             Self::RegisterRailAbsent { concept, tenant } => write!(
                 f,
@@ -749,7 +825,9 @@ mod tests {
         fn an_unsupported_physical_reading_fails_closed() {
             assert_eq!(SlabReading::from_tag(0), Ok(SlabReading::Facet96));
             assert_eq!(SlabReading::from_tag(1), Ok(SlabReading::Register128));
-            for tag in [2u8, 3, 0x80, 0xFF] {
+            assert_eq!(SlabReading::from_tag(2), Ok(SlabReading::RegisterI4x32));
+            assert_eq!(SlabReading::from_tag(3), Ok(SlabReading::RegisterI8x16));
+            for tag in [4u8, 5, 0x80, 0xFF] {
                 assert_eq!(
                     SlabReading::from_tag(tag),
                     Err(ActivationDrift::UnknownSlabReading(tag))
@@ -935,6 +1013,74 @@ mod tests {
                     tenant: ValueTenant::Register0 as u8,
                 })
             );
+        }
+
+        /// FAILS IF: signed rails are granted to a slab without a signed
+        /// carving (including the unsigned Register128 slab), the carving is
+        /// taken from anywhere but the slab, or a rail the schema lacks is
+        /// granted.
+        #[test]
+        fn signed_rails_are_granted_only_to_a_signed_carving() {
+            use crate::canonical_node::ValueTenant;
+            use crate::register128::{RegisterCarving, RegisterLaw, RegisterRails};
+            let a = act();
+            let carved = |reading, value_schema| SlabDeclaration {
+                reading,
+                value_schema,
+                layout_version: ENVELOPE_LAYOUT_VERSION,
+            };
+            for (reading, carving) in [
+                (SlabReading::RegisterI4x32, RegisterCarving::I4x32),
+                (SlabReading::RegisterI8x16, RegisterCarving::I8x16),
+            ] {
+                let r = a
+                    .resolve_for_context(0x0901, Some(&carved(reading, ValueSchema::Full)))
+                    .unwrap();
+                let lanes = r
+                    .bind_signed_register(RegisterRails::Two, RegisterLaw::AxisPosition)
+                    .unwrap();
+                assert_eq!(lanes.carving(), carving);
+                assert_eq!(lanes.law(), RegisterLaw::AxisPosition);
+                assert_eq!(lanes.concept(), 0x0901);
+                assert_eq!(
+                    r.bind_register128(RegisterRails::One),
+                    Err(ActivationDrift::NotRegister128 {
+                        concept: 0x0901,
+                        slab: Some(reading)
+                    }),
+                    "a signed slab is not an unsigned word register"
+                );
+                let narrow = a
+                    .resolve_for_context(0x0901, Some(&carved(reading, ValueSchema::Cognitive)))
+                    .unwrap();
+                assert_eq!(
+                    narrow.bind_signed_register(RegisterRails::One, RegisterLaw::Support),
+                    Err(ActivationDrift::RegisterRailAbsent {
+                        concept: 0x0901,
+                        tenant: ValueTenant::Register0 as u8,
+                    })
+                );
+            }
+            let words = a
+                .resolve_for_context(0x0901, Some(&reg_decl(ValueSchema::Full)))
+                .unwrap();
+            let facet = a
+                .resolve_for_context(0x0901, Some(&decl(ValueSchema::Full)))
+                .unwrap();
+            let undeclared = a.resolve_for_context(0x0901, None).unwrap();
+            for (r, slab) in [
+                (words, Some(SlabReading::Register128)),
+                (facet, Some(SlabReading::Facet96)),
+                (undeclared, None),
+            ] {
+                assert_eq!(
+                    r.bind_signed_register(RegisterRails::One, RegisterLaw::RelativeOffset),
+                    Err(ActivationDrift::NotSignedRegister {
+                        concept: 0x0901,
+                        slab
+                    })
+                );
+            }
         }
 
         /// FAILS IF: a register's semantic identity is read from its bytes.

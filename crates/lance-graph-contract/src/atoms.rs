@@ -79,6 +79,19 @@ impl I4x32 {
     /// The all-zero style vector (every lane neutral).
     pub const ZERO: Self = Self { bytes: [0u8; 16] };
 
+    /// Wrap 16 already-packed bytes. No conversion: dim `2k` is the low
+    /// nibble of byte `k`, dim `2k+1` the high nibble.
+    #[must_use]
+    pub const fn from_bytes(bytes: [u8; 16]) -> Self {
+        Self { bytes }
+    }
+
+    /// The 16 packed bytes, in the layout [`from_bytes`](Self::from_bytes) takes.
+    #[must_use]
+    pub const fn as_bytes(&self) -> &[u8; 16] {
+        &self.bytes
+    }
+
     /// Pack 32 signed dims into the i4 CAM carrier, saturating to `[−8, 7]`.
     ///
     /// The carrier is a **sparse, deterministic 32×CAM address** (128-bit) — the non-zero
