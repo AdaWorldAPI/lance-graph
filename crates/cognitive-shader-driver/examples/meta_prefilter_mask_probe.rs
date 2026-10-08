@@ -103,6 +103,13 @@ pub fn meta_filter_mask(values: &[u32], win: ColumnWindow, f: &MetaFilter) -> Ve
     ];
     for (field, k, at_least) in clauses {
         let full = (1u32 << field.width) - 1;
+        // `MetaFilter` bounds are `u8`; a field can be narrower. A lower bound
+        // above the field's maximum admits nothing, and must not reach the
+        // patterns, whose care mask would drop its high bits.
+        if at_least && k > full {
+            running.iter_mut().for_each(|w| *w = 0);
+            break;
+        }
         let vacuous = if at_least { k == 0 } else { k >= full };
         if !vacuous {
             apply_clause(
@@ -153,10 +160,20 @@ fn filters(seed: u64, count: usize) -> Vec<MetaFilter> {
     (0..count)
         .map(|_| MetaFilter {
             thinking_mask: if r.next() % 3 == 0 { 0 } else { r.next() },
-            awareness_min: (r.next() % 16) as u8,
+            // Full `u8` domain: the field is 4 bits, so bounds >= 16 must
+            // reject every row (Codex review, PR #1405).
+            awareness_min: if r.next() % 4 == 0 {
+                r.next() as u8
+            } else {
+                (r.next() % 16) as u8
+            },
             nars_f_min: (r.next() % 256) as u8,
             nars_c_min: (r.next() % 256) as u8,
-            free_e_max: (r.next() % 64) as u8,
+            free_e_max: if r.next() % 4 == 0 {
+                r.next() as u8
+            } else {
+                (r.next() % 64) as u8
+            },
         })
         .collect()
 }
@@ -200,6 +217,30 @@ mod tests {
         }
         // Anti-vacuity: most filters must actually exclude most rows.
         assert!(selective > 100, "only {selective} selective filters");
+    }
+
+    /// A lower bound above a narrow field's maximum admits nothing, exactly
+    /// as `MetaFilter::accepts` does (awareness is 4 bits; the bound is `u8`).
+    #[test]
+    fn an_out_of_range_lower_bound_admits_nothing() {
+        let bs = space(500, 13);
+        let win = ColumnWindow::new(0, 500);
+        for awareness_min in [16u8, 17, 200, 255] {
+            let f = MetaFilter {
+                awareness_min,
+                ..MetaFilter::ALL
+            };
+            assert!(bs.meta_prefilter(win, &f).is_empty());
+            assert!(set_rows(&meta_filter_mask(&bs.meta.0, win, &f)).is_empty());
+        }
+        // Boundary: 15 is the field maximum and still admits rows.
+        let f = MetaFilter {
+            awareness_min: 15,
+            ..MetaFilter::ALL
+        };
+        let want = bs.meta_prefilter(win, &f);
+        assert!(!want.is_empty());
+        assert_eq!(set_rows(&meta_filter_mask(&bs.meta.0, win, &f)), want);
     }
 
     /// Silent arm: `MetaFilter::ALL` sets every in-range row and no other.
