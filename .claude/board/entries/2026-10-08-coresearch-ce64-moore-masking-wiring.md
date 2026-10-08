@@ -17,8 +17,10 @@ Also MEASURED and TEST-PINNED, each disable-verified red:
   `ternary_match_u32_to_mask_under`, `mask_or_assign` and `mask_set_range`:
   a threshold `x >= k` on an n-bit packed field is a disjoint union of at most
   n + 1 ternary patterns, so no field is extracted. Release run: 400 random
-  filters x 4099 rows identical to `meta_prefilter`; 393 admit under 1/3 of
-  rows. Exhaustive per-field check over every (k, x). Disables: dropping the
+  filters x 4099 rows identical to `meta_prefilter`; 391 admit under 1/3 of
+  rows. Bounds are drawn over the full `u8` domain: a lower bound above a
+  narrow field's maximum (awareness is 4 bits) admits nothing, and an earlier
+  version admitted every row there (Codex review on #1405; fixed and pinned). Exhaustive per-field check over every (k, x). Disables: dropping the
   equality pattern (2 red); ungating the clauses (1 red). The shipped
   `meta_prefilter` is not changed yet.
 - **PROBE-MOORE-PLANES** (2 tests added to `moore_plasticity_probe.rs`). The
