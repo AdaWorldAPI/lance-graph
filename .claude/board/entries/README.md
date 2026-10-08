@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-275 entries, 2026-08-06 .. 2026-10-08.
+277 entries, 2026-08-06 .. 2026-10-08.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -36,12 +36,14 @@ exactly one of them, never both.
 | 2026-10-08 | `D-PHT-1` |  | [2026-10-08-phasor-trig-probe.md](2026-10-08-phasor-trig-probe.md) |
 | 2026-10-08 | `moore-nars16-isa-visible-representation` |  | [2026-10-08-moore-nars16-isa-visible-representation.md](2026-10-08-moore-nars16-isa-visible-representation.md) |
 | 2026-10-08 | `D-MOORE-NARS-0` |  | [2026-10-08-moore-nars-0-recipe-learning-gomoku.md](2026-10-08-moore-nars-0-recipe-learning-gomoku.md) |
+| 2026-10-08 | `D-MHB-2` |  | [2026-10-08-mexhat-df-choice.md](2026-10-08-mexhat-df-choice.md) |
 | 2026-10-08 | `D-MHB-1` |  | [2026-10-08-mexhat-bucket-cascade-probe.md](2026-10-08-mexhat-bucket-cascade-probe.md) |
 | 2026-10-08 | `hhtl-nars-moore-value-tenants` |  | [2026-10-08-hhtl-nars-moore-value-tenants.md](2026-10-08-hhtl-nars-moore-value-tenants.md) |
 | 2026-10-08 | `D-RPF-9` |  | [2026-10-08-fold-join-deforestation-probe.md](2026-10-08-fold-join-deforestation-probe.md) |
 | 2026-10-08 | `D-RPF-0` |  | [2026-10-08-d-rpf-0-resident-ce64-predicate.md](2026-10-08-d-rpf-0-resident-ce64-predicate.md) |
 | 2026-10-08 | `coresearch-ce64-moore-masking-wiring` |  | [2026-10-08-coresearch-ce64-moore-masking-wiring.md](2026-10-08-coresearch-ce64-moore-masking-wiring.md) |
 | 2026-10-08 | `ce64-isa-register-contract` |  | [2026-10-08-ce64-isa-register-contract.md](2026-10-08-ce64-isa-register-contract.md) |
+| 2026-10-08 | `D-ART-1` |  | [2026-10-08-algebraic-recipe-probe.md](2026-10-08-algebraic-recipe-probe.md) |
 | 2026-10-07 | `tinker-janus-fold-harvest` | TinkerPop bulk = K (GroupReduce), ONE_BULK = S, GValue pinning = bundle invalidation; JanusGraph slice = OrderedLaneWitness→Range (30–38×); no new V4 op | [2026-10-07-tinker-janus-fold-harvest.md](2026-10-07-tinker-janus-fold-harvest.md) |
 | 2026-10-07 | `selector-seq-aware-coverage` |  | [2026-10-07-selector-seq-aware-coverage.md](2026-10-07-selector-seq-aware-coverage.md) |
 | 2026-10-07 | `D-PUZZLE-ATTN-0` |  | [2026-10-07-puzzle-attn-0-entropy-attention-crosswords.md](2026-10-07-puzzle-attn-0-entropy-attention-crosswords.md) |
