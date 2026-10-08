@@ -54,6 +54,9 @@ pub enum ConceptDomain {
     Ontology,
     /// `0x04XX` — Weather / Atmosphere. Shared forecast and atmospheric cells.
     Weather,
+    /// `0x05XX` — Mail (mailbox + message). Mirrors
+    /// `ogar_vocab::ConceptDomain::Mail`.
+    Mail,
     /// `0x07XX` — OSINT (open-source intelligence / Palantir-Gotham).
     Osint,
     /// `0x08XX` — OCR (optical character recognition / document extraction).
@@ -123,7 +126,7 @@ pub enum ConceptDomain {
     /// lifted program references. Mirrors `ogar_vocab::ConceptDomain::Mmio`
     /// (OGAR PR #284, 2026-08-25).
     Mmio,
-    /// Any high-byte slot not yet assigned a domain (`0x05XX`–`0x06XX`,
+    /// Any high-byte slot not yet assigned a domain (`0x06XX`,
     /// `0x10XX`–`0x16XX`, `0x18XX`–`0xBFXX`, `0xC2XX`–`0xC3XX` — a
     /// DELIBERATE gap, pinned like OGAR's own `0x10`–`0x16` — and
     /// `0x90XX` — reference (domain reference tree). HIGH byte = compartment, LOW
@@ -187,6 +190,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x98 => ConceptDomain::Procedure,
         0x9A => ConceptDomain::Form,
         0x04 => ConceptDomain::Weather,
+        0x05 => ConceptDomain::Mail,
         0x07 => ConceptDomain::Osint,
         0x08 => ConceptDomain::Ocr,
         0x09 => ConceptDomain::Health,
@@ -631,6 +635,9 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     // remain ClassView-owned payload structure, not promoted concept rows.
     ("weather_cell", 0x0401),
     ("weather_static_cell", 0x0402),
+    // ── 0x05XX — Mail domain (mailbox + message; spear / stalwart) ──
+    ("mailbox", 0x0501),
+    ("mail_message", 0x0502),
     // ── 0x08XX — OCR domain (document extraction; the Tesseract-rs arc) ──
     // Class-level container KINDS only (the 5+3-hardened mint discipline):
     // the concept slots name the container types the OGAR Core resolves —
@@ -870,7 +877,8 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0C09), ConceptDomain::Automation);
         assert_eq!(canonical_concept_domain(0x0D01), ConceptDomain::HR);
         assert_eq!(canonical_concept_domain(0x0D04), ConceptDomain::HR);
-        assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Mail);
+        assert_eq!(canonical_concept_domain(0x0600), ConceptDomain::Unassigned);
         assert_eq!(canonical_concept_domain(0x0E00), ConceptDomain::Genetics);
         assert_eq!(canonical_concept_domain(0x0F00), ConceptDomain::Geo);
         assert_eq!(canonical_concept_domain(0x0300), ConceptDomain::Ontology);
@@ -952,6 +960,8 @@ mod tests {
         assert_eq!(canonical_concept_id("currency_policy"), Some(0x0206));
         assert_eq!(canonical_concept_id("weather_cell"), Some(0x0401));
         assert_eq!(canonical_concept_id("weather_static_cell"), Some(0x0402));
+        assert_eq!(canonical_concept_id("mailbox"), Some(0x0501));
+        assert_eq!(canonical_concept_id("mail_message"), Some(0x0502));
         assert_eq!(canonical_concept_id("unicharset"), Some(0x0801));
         assert_eq!(canonical_concept_id("charset"), Some(0x0803));
         assert_eq!(canonical_concept_id("patient"), Some(0x0901));
