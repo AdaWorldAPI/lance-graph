@@ -5,6 +5,7 @@ Board entry: `entries/2026-10-08-algebraic-recipe-probe.md`. A linear canonicali
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-ART-1** | Recipe table: constants, centre phasor, isotropic invariant, origin norm, sector quantile, vertex phasor, summary affine, materialise; PowerSums affine chains; order statistics by generate/analytic/profile LUT/sector permutation; lookup cost | Shipped (probe; `CrossPowerSums` affine transform proposed for ndarray) | 36,000 cases equal the materialising oracle; summary path bitwise equal in `i128`; dropping the isotropy guard, the half-turn fold, the rank reversal, the half-sector split, the population refusal or the general `‖L‖_F²` each fails |
+| **D-ART-2** | Sector permutation on `ndarray::simd::PhaseLut`; all-order-statistics timing; power-sum fold cost by ingredient; cross-check of the shipped `checked_affine` | Shipped (probe; split-accumulator fold proposed for ndarray) | E-LUT within `(r+e)·lerp_error_bound()` on every rank, and `nearest` instead of `lerp` fails it; the five folds give equal sums; the shipped `checked_affine` equals the probe's transform. Entry: `entries/2026-10-08-recipe-probe-phaselut-foldcost.md` |
 
 ## D-PHT — Phasors without transcendental calls (2026-10-08)
 
@@ -20,7 +21,7 @@ Board entry: `entries/2026-10-08-mexhat-bucket-cascade-probe.md`. Popcount stack
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-MHB-1** | Mexican-hat response: direct geometry (D), ring buckets (E), bit-sliced weight planes (F), per-row choice (G), mask-risc lane (B), exact-bound early exit (H) | Shipped (probe; R-MHB-1 proposed) | D = F = G = B = full scan asserted on every centre; H equals the full decision on every query; one zero crossing, one minimum, symmetry; dropping the unvisited-row bound decides 52 / 512 wrongly |
+| **D-MHB-1** | Mexican-hat response: direct geometry (D), ring buckets (E), bit-sliced weight planes (F), per-row choice (G), mask-risc lane (B), exact-bound early exit (H) | Shipped (probe; R-MHB-1 OPEN: blocked on a 2-D window operand mask-risc's IR lacks, and F alone would bring back the 2.5× worst case Q removes) | D = F = G = B = full scan asserted on every centre; H equals the full decision on every query; one zero crossing, one minimum, symmetry; dropping the unvisited-row bound decides 52 / 512 wrongly |
 | **D-MHB-2** | Per-query D/F choice from the exact window count (Q); early exit over D rows (HD) and after a per-query choice (HQ) | Shipped (probe; Q proposed with R-MHB-1) | Q = D for cuts 0, 100, ∞ on every centre; HD/HQ decide as H after the same rows; a D row dropping one cell fails Q. Entry: `entries/2026-10-08-mexhat-df-choice.md` |
 
 ## D-RPF — Mask × fold over projections of resident bytes (2026-10-08)

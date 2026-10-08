@@ -24,7 +24,7 @@
 //! ```
 
 use ndarray::hpc::rolling_floor::rank_per_10000;
-use ndarray::simd::{masked_group_cross_power_sums_i32, CrossPowerSums};
+use ndarray::simd::{masked_group_cross_power_sums_i32, phase_lut_4096, CrossPowerSums, PhaseLut};
 use std::collections::HashMap;
 use std::f64::consts::TAU;
 use std::hash::{BuildHasher, Hasher};
@@ -514,6 +514,18 @@ impl SectorPerm {
         let f = (phi_t * m).rem_euclid(1.0);
         let j = self.perm[usize::from(f >= 0.5)][rank];
         (TAU * ((f + j as f64) / m)).cos()
+    }
+
+    /// [`value`](Self::value) with the cosine from `ndarray::simd::PhaseLut`:
+    /// the angle `(f + j)/m` turns becomes a `u32` phase and one
+    /// interpolated table lookup.
+    #[inline]
+    fn value_lut(&self, rank: usize, phi_t: f64, lut: &PhaseLut) -> f64 {
+        let m = self.m as f64;
+        let f = (phi_t * m).rem_euclid(1.0);
+        let j = self.perm[usize::from(f >= 0.5)][rank];
+        let p = ((f + j as f64) / m * TURN) as u64 as u32;
+        f64::from(lut.lerp(p).0)
     }
 }
 
@@ -1050,6 +1062,12 @@ impl IAff {
     }
 }
 
+fn fold_cross(xs: &[i32], ys: &[i32], mask: &[u64], keys: &[u32]) -> CrossPowerSums {
+    let mut out = [CrossPowerSums::default(); 1];
+    masked_group_cross_power_sums_i32(mask, keys, xs, ys, &mut out);
+    out[0]
+}
+
 fn fold_ndarray(xs: &[i32], ys: &[i32], mask: &[u64], keys: &[u32]) -> S2 {
     let mut out = [CrossPowerSums::default(); 1];
     masked_group_cross_power_sums_i32(mask, keys, xs, ys, &mut out);
@@ -1156,6 +1174,12 @@ fn population() {
         assert_eq!(a_res, a2);
         assert_eq!(a_res, b_res);
         assert_eq!(a_res, c_res);
+        // The shipped method (ndarray #344) gives the same summary.
+        let shipped: S2 = fold_cross(&xs, &ys, &mask, &keys)
+            .checked_affine(comp.m, [comp.t.0, comp.t.1])
+            .expect("in range")
+            .into();
+        assert_eq!(shipped, c_res, "CrossPowerSums::checked_affine");
         println!(
             "  {n:>9}  {ns_a:>10.2} {ns_a2:>10.2} {ns_b:>10.2} {ns_c:>10.2} {ns_w:>10.2}   all four equal, bitwise (i128)"
         );
@@ -1267,6 +1291,95 @@ fn population() {
     println!(
         "  group key x ≥ 0 under x + 50: pushed-down summaries ≠ truth (group n {} vs {}); key = id parity: pushed-down = truth",
         pushed[1].n, truth[1].n
+    );
+}
+
+/// Where the shipped grouped fold's time goes, against plain scalar folds
+/// that add one ingredient at a time: the `i128` accumulation alone, plus a
+/// mask-bit walk, plus a group key, then the shipped
+/// `masked_group_cross_power_sums_i32` itself.
+fn fold_cost() {
+    println!("\n== 3b. cross-power-sum fold: where the time goes (ns/row, 1M rows, one group) ==");
+    let n = 1_000_000usize;
+    let mut rng = Rng(0xF01D);
+    let xs: Vec<i32> = (0..n).map(|_| rng.below(201) as i32 - 100).collect();
+    let ys: Vec<i32> = (0..n).map(|_| rng.below(201) as i32 - 100).collect();
+    let keys = vec![0u32; n];
+    let mask = full_mask(n);
+    let acc = |s: &mut S2, x: i32, y: i32| {
+        let (x, y) = (i128::from(x), i128::from(y));
+        s.n += 1;
+        s.x += x;
+        s.y += y;
+        s.xx += x * x;
+        s.yy += y * y;
+        s.xy += x * y;
+    };
+    let reps = 9;
+    let mut r = [S2::default(); 5];
+    let ns_plain = median_ns(reps, n, || {
+        let mut s = S2::default();
+        for i in 0..n {
+            acc(&mut s, xs[i], ys[i]);
+        }
+        r[0] = s;
+        s.n as f64
+    });
+    // i64 accumulators where they suffice (|x|·n < 2^63), i128 only for squares.
+    let ns_narrow = median_ns(reps, n, || {
+        let (mut sx, mut sy, mut sxx, mut syy, mut sxy) = (0i64, 0i64, 0i64, 0i64, 0i64);
+        for i in 0..n {
+            let (x, y) = (i64::from(xs[i]), i64::from(ys[i]));
+            sx += x;
+            sy += y;
+            sxx += x * x;
+            syy += y * y;
+            sxy += x * y;
+        }
+        r[1] = S2 {
+            n: n as i128,
+            x: sx.into(),
+            y: sy.into(),
+            xx: sxx.into(),
+            yy: syy.into(),
+            xy: sxy.into(),
+        };
+        r[1].n as f64
+    });
+    let ns_mask = median_ns(reps, n, || {
+        let mut s = S2::default();
+        for (w, &word) in mask.iter().enumerate() {
+            let mut m = word;
+            while m != 0 {
+                let i = w * 64 + m.trailing_zeros() as usize;
+                m &= m - 1;
+                acc(&mut s, xs[i], ys[i]);
+            }
+        }
+        r[2] = s;
+        s.n as f64
+    });
+    let ns_key = median_ns(reps, n, || {
+        let mut out = [S2::default(); 1];
+        for i in 0..n {
+            let k = keys[i] as usize;
+            if k < out.len() {
+                acc(&mut out[k], xs[i], ys[i]);
+            }
+        }
+        r[3] = out[0];
+        out[0].n as f64
+    });
+    let ns_shipped = median_ns(reps, n, || {
+        r[4] = fold_ndarray(&xs, &ys, &mask, &keys);
+        r[4].n as f64
+    });
+    assert!(
+        r.iter().all(|x| *x == r[0]),
+        "every fold must give the same sums"
+    );
+    println!(
+        "  plain i128 {ns_plain:.2}  i64 accumulators {ns_narrow:.2}  + mask-bit walk {ns_mask:.2}  + group key {ns_key:.2}  shipped grouped fold {ns_shipped:.2}   (all equal)"
     );
 }
 
@@ -1391,9 +1504,21 @@ fn quantiles() {
         let arm_c = |p: &Profile, it: &Inst| {
             center(it) + it.r * p.value(it.rank as usize, it.phase as f64 / TURN)
         };
+        // E-LUT: arm E with every cosine from the shipped phase table.
+        let lut = phase_lut_4096();
+        let center_l = |it: &Inst| {
+            if wankel {
+                it.c * f64::from(lut.lerp(it.phase.wrapping_mul(3)).0)
+            } else {
+                it.c
+            }
+        };
+        let arm_el = |it: &Inst| {
+            center_l(it) + it.r * sp.value_lut(it.rank as usize, it.phase as f64 / TURN, lut)
+        };
         // Error over a dense phase sweep, every rank, including every tie.
         let mut buf = [0f64; 256];
-        let (mut eb, mut ec, mut eco, mut ee) = (0f64, 0f64, 0f64, 0f64);
+        let (mut eb, mut ec, mut eco, mut ee, mut eel) = (0f64, 0f64, 0f64, 0f64, 0f64);
         let sweep = 200_003u32;
         for i in 0..sweep {
             let phase = (u64::from(i) * (1u64 << 32) / u64::from(sweep)) as u32;
@@ -1420,14 +1545,22 @@ fn quantiles() {
                 ec = ec.max((arm_c(&prof, &it) - o).abs());
                 eco = eco.max((arm_c(&prof_odd, &it) - o).abs());
                 ee = ee.max((arm_e(&it) - o).abs());
+                eel = eel.max((arm_el(&it) - o).abs());
             }
         }
         assert!(ee < 1e-9, "sector permutation is exact up to rounding");
+        // The table's own per-component bound, scaled by everything it
+        // multiplies: the radius, and the Wankel centre's e = 7.
+        let bound_el = (100.0 + if wankel { 7.0 } else { 0.0 }) * lut.lerp_error_bound() + 1e-6;
+        assert!(
+            eel <= bound_el,
+            "E-LUT error {eel} above its stated bound {bound_el}"
+        );
         if wankel {
             assert!(eb < 1e-9);
         }
         println!(
-            "  m = {m:<3} max |error| on R = 100 ({sweep} phases × all {m} ranks):  B {}  C(64 even) {ec:.1e}  C(63 odd) {eco:.1e}  E {ee:.1e}   C table {} B, E table {} B",
+            "  m = {m:<3} max |error| on R = 100 ({sweep} phases × all {m} ranks):  B {}  C(64 even) {ec:.1e}  C(63 odd) {eco:.1e}  E {ee:.1e}  E-LUT {eel:.1e} (bound {bound_el:.1e})   C table {} B, E table {} B",
             if wankel { format!("{eb:.1e}") } else { "—".into() },
             prof.bytes(),
             2 * m as usize * 4
@@ -1453,6 +1586,7 @@ fn quantiles() {
             };
             let ns_c = median_ns(reps, n, || inst.iter().map(|it| arm_c(&prof, it)).sum());
             let ns_e = median_ns(reps, n, || inst.iter().map(arm_e).sum());
+            let ns_el = median_ns(reps, n, || inst.iter().map(arm_el).sum());
             // D: terminals that need no profile at all.
             let ns_d = median_ns(reps, n, || {
                 inst.iter()
@@ -1460,9 +1594,87 @@ fn quantiles() {
                     .sum()
             });
             println!(
-                "    {n:>9} instances  ns/instance: A gen+select {ns_a:>7.1}  B analytic {ns_b:>6}  C LUT {ns_c:>6.1}  E sector {ns_e:>6.1}   (D Σ|z−c|², no profile: {ns_d:.2})"
+                "    {n:>9} instances  ns/instance: A gen+select {ns_a:>7.1}  B analytic {ns_b:>6}  C LUT {ns_c:>6.1}  E sector {ns_e:>6.1}  E-LUT {ns_el:>5.1}   (D Σ|z−c|², no profile: {ns_d:.2})"
             );
         }
+    }
+}
+
+/// Every order statistic of each instance: generate + sort, against the
+/// sector permutation (m cosines, no sort) with `f64` or table cosines, and
+/// against `m` interpolated profile rows.
+fn all_quantiles() {
+    println!("\n== 4b. all m order statistics per instance (65,536 instances; m = 256: 16,384) ==");
+    let lut = phase_lut_4096();
+    for m in [3u32, 16, 256] {
+        let n = if m == 256 { 16_384 } else { 65_536 };
+        let inst = instances(n, m, 0x2B + u64::from(m));
+        let sp = SectorPerm::new(m);
+        let prof = Profile::new(m, 64);
+        let mu = m as usize;
+        let reps = 5;
+        let ns_a = median_ns(reps, n, || {
+            let mut buf = [0f64; 256];
+            inst.iter()
+                .map(|it| {
+                    let th = rad(it.phase);
+                    let b = &mut buf[..mu];
+                    for (k, v) in b.iter_mut().enumerate() {
+                        *v = it.r * (th + TAU * k as f64 / m as f64).cos();
+                    }
+                    b.sort_unstable_by(f64::total_cmp);
+                    b.iter().sum::<f64>() + b[mu - 1]
+                })
+                .sum()
+        });
+        let ns_e = median_ns(reps, n, || {
+            inst.iter()
+                .map(|it| {
+                    let phi = it.phase as f64 / TURN;
+                    (0..mu).map(|r| it.r * sp.value(r, phi)).sum::<f64>()
+                })
+                .sum()
+        });
+        let ns_el = median_ns(reps, n, || {
+            inst.iter()
+                .map(|it| {
+                    let phi = it.phase as f64 / TURN;
+                    (0..mu)
+                        .map(|r| it.r * sp.value_lut(r, phi, lut))
+                        .sum::<f64>()
+                })
+                .sum()
+        });
+        let ns_c = median_ns(reps, n, || {
+            inst.iter()
+                .map(|it| {
+                    let phi = it.phase as f64 / TURN;
+                    (0..mu).map(|r| it.r * prof.value(r, phi)).sum::<f64>()
+                })
+                .sum()
+        });
+        // Agreement of the three fast arms with the sorted oracle, all ranks.
+        let mut worst = (0f64, 0f64, 0f64);
+        let mut buf = [0f64; 256];
+        for it in inst.iter().take(2048) {
+            let th = rad(it.phase);
+            let b = &mut buf[..mu];
+            for (k, v) in b.iter_mut().enumerate() {
+                *v = it.r * (th + TAU * k as f64 / m as f64).cos();
+            }
+            b.sort_unstable_by(f64::total_cmp);
+            let phi = it.phase as f64 / TURN;
+            for (r, o) in b.iter().enumerate() {
+                worst.0 = worst.0.max((it.r * sp.value(r, phi) - o).abs());
+                worst.1 = worst.1.max((it.r * sp.value_lut(r, phi, lut) - o).abs());
+                worst.2 = worst.2.max((it.r * prof.value(r, phi) - o).abs());
+            }
+        }
+        assert!(worst.0 < 1e-9);
+        println!(
+            "  m = {m:<3} ns/instance: A gen+sort {ns_a:>8.1}  E sector {ns_e:>7.1}  E-LUT {ns_el:>6.1}  C profile {ns_c:>6.1}   max |error| E {:.1e}  E-LUT {:.1e}  C {:.1e}",
+            worst.0, worst.1, worst.2
+        );
     }
 }
 
@@ -1614,7 +1826,9 @@ fn main() {
     wankel_table();
     guards();
     population();
+    fold_cost();
     quantiles();
+    all_quantiles();
     lookup_cost();
     quantile_guard();
     println!("\nall equalities and falsifiers hold");
