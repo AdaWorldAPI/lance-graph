@@ -128,9 +128,21 @@ valid codes"; that predates D-EPI-MIG-0 and is stale — Codex review on #1411.)
 
 **Claim to test.** For each recipe bit `r`, the set of admitted
 `(raw5, pearl3)` pairs is enumerable at build time from the law tables, so
-"rows where recipe `r` is eligible" is an `Or` of at most `24 × 8 = 192`
-ternary patterns over the D-RPF-0 projection — no per-row `u64` eligibility
-word is materialised.
+"rows where recipe `r` is eligible" is a mask over the D-RPF-0 projection,
+with no per-row `u64` eligibility word materialised.
+
+⊘ **Corrected 2026-10-08 (synergy pass, see § Synergies below).** This
+claim first read "an `Or` of at most `24 × 8 = 192` ternary patterns". That is
+the product form, and it is the wrong shape: `measure_state` is
+`t.state[raw5] & t.pearl[pearl3]` (`affordance_law.rs:267-270`), so recipe
+`r`'s mask is SEPARABLE, `Or(S_r) ∧ Or(P_r)`, at most `24 + 8` patterns before
+minimisation. The difference is load-bearing because D-RPF-9 measured that a
+strided predicate costs one full pass over the rows (~1 ms per 64K rows,
+512-byte stride): 192 passes is ~0.2 s, 32 passes ~32 ms, and a minimised
+cover fewer still. The compiler emits a minimised ternary cover of each set
+(the D-RPF-0 threshold union, ≤ `width + 1` patterns, is one such cover), and
+the reserved codes 24..31 are excluded from `S_r`, never treated as
+don't-cares: `decode` refuses them, and a refusal is not "ineligible".
 
 **Admission comes first, and the patterns cannot supply it.**
 `measure_declared` projects the code through
@@ -171,7 +183,7 @@ every recipe, on the probe's fixture.
 classes, do not assume them.
 
 **Measure, on a real resident population (not a synthetic uniform one):**
-1. distinct `(raw5, pearl3)` — the eligibility classes (bounded above by 192, per declared class);
+1. distinct `(raw5, pearl3)` — the eligibility classes (bounded above by 192, per declared class; this bounds the CLASS count only — the pass count of D-RPF-1 is the separable cover size, ≤ 32);
 2. distinct read-set keys per CE64 instruction (D-RPF-3's key);
 3. the multiplicity histogram for each.
 
@@ -317,6 +329,33 @@ R2 strided pattern merge (`(p1 & c1) | (p2 & c2)`, `c1 | c2` only when
 `(p1 ^ p2) & c1 & c2 == 0`, else empty — never an OR of unmasked patterns);
 R3 gate selection from a known dead-word fraction; gaps G1 strided `_under`,
 G2 two-window strided match, G3 tile skip — backend-first in `ndarray::simd`.
+
+## Synergies with the probes merged 2026-10-08 (added after the rebase)
+
+Read from `entries/2026-10-08-{fold-join-deforestation-probe,
+mexhat-bucket-cascade-probe, mexhat-df-choice, algebraic-recipe-probe,
+phasor-trig-probe}.md`. Status of each line: WORKING-MODEL unless marked; none
+is implemented, and none adds a primitive.
+
+| probe finding | D-RPF phase | consequence |
+|---|---|---|
+| D-RPF-9 f4: a strided predicate is one full row pass; merging two field predicates of one 16 B window into one pattern halves the time (R2) | D-RPF-1 | Pass count, not pattern correctness, is the cost. The compiler must (a) use the separable form (VERIFIED-IN-CODE, correction above), (b) minimise each cover, (c) apply R2 to every `Match ∧ Match` on the same window — Epi5 (bits 59..63) and Pearl3 (40..42) sit in the same edge word, disjoint cares, so R2's conflict check always passes for them. |
+| D-RPF-9 f5 + G1: gating a strided predicate skips nothing without `_under` | D-RPF-1 admission plane | The admission plane is correct but buys no time until G1 lands. Order it by cost: the classid `EqU32Strided` reads key bytes 0..4, in the SAME 64 B line as window 0 (row bytes 48..64); a fused row visit (G2's shape, extended to the key) would read both at once. |
+| D-RPF-9 G2 two-window strided match | D-RPF-0, D-RPF-1 | Edges 2,3 (window 1) sit in line 1. A recipe reading edges in both windows pays two lines per row; G2 is the primitive that makes it one visit. |
+| D-RPF-9 f3 / R3 + D-MHB-2 Q: choose fuse-or-gate per QUERY from an EXACT count, not a statistic | D-RPF-6 | Tile skip and gate selection use the gate's exact dead-word / dead-tile popcount, already printed by `fold_join_probe`. `RollingFloor` stays PARKED here, as in D-MHB-1. The crossover is a per-host pin. |
+| D-MHB-1 R-MHB-1: a masked sum over a static integer weight template equals `Σ_b 2^b · (Count(P∧Pos_b) − Count(P∧Neg_b))`, exact, no value lane | D-RPF-4 | HYPOTHESIS: the T1 gap "LUT-weighted strided sum" has an exact formulation without a new primitive. Quantise `w = W(c)` to an integer LUT over the 8-bit confidence byte; each weight bit `b` is a SET of `c` values, i.e. a strided pattern cover on the C byte (bits 32..39). Then `Σw = Σ_b 2^b · Count(Adm ∧ c ∈ C_b)`, and `Σw·f` bit-slices `f` (bits 24..31) too, each `f_j ∧ c ∈ C_b` an R2-merged pattern in one edge word. Exact for the quantised semantics; the quantisation is the declared reading (A2: magnitude is a separate reduction). Cost is `bits(W) × 8 × |cover|` passes, so it is an ORACLE-GRADE route and a correctness unblock, not the fast path — the single-pass kernel stays the gap. The `c = 255` revision defect (`inf/inf`) must be a refused or clamped LUT entry, stated, not inherited. D-MHB-1 arm B (per-query weight lane, 26–150× slower) is the shape this avoids. |
+| D-ART-1 f5: a static array indexed by enum discriminants is 1.2 ns against SipHash 27 ns, and cannot collide | D-RPF-3 | The read-set dedup key is small and enumerable per instruction (`isa::contracts` reads); key lookup is a static array over the packed projection, never a `HashMap`. |
+| D-ART-1 §3: pushing a fold below a transform is wrong when the group key reads a transformed column | D-RPF-3 | Same guard shape as D-RPF-3's handle-context rule: the dedup key must include every input the result's handles resolve through, or equal keys yield unequal results. |
+| D-ART-1 §3: moments are not sufficient; Population × {quantile, vertex, collide} → `Materialize` | D-RPF-4, capstone | Confirms that only folds with a merge law ride the resident path; a revision terminal is `(Σw, Σw·f)`, which has one, and nothing order-statistic shaped joins it. |
+| D-PHT-1 u32-turns phase + LUT | D-RPF-7 | Weak. Both are "table instead of transcendental"; D-RPF-7's palette LUT rank question is unaffected. Recorded only so it is not re-derived. |
+
+**What the probes do NOT license.** None of them executes a CE64 instruction
+inside mask-risc (D-RPF-8 stands); the bit-sliced revision route reads raw
+bits under a declared quantisation and never calls `forward` or `syllogize`.
+
+**Measurement owed before D-RPF-1 ships:** the minimised cover size per
+recipe for the real law tables, and the resulting pass count × 1 ms/64K, so
+the D-RPF-1 PR reports its own cost rather than citing this table.
 
 ## Order
 
