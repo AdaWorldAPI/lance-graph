@@ -51,7 +51,7 @@ between them. Where a hop has no primitive, the phase stops and files the gap.
 
 ## Checklist
 
-- [ ] **D-RPF-0** — Resident CE64 field predicate in place
+- [x] **D-RPF-0** — Resident CE64 field predicate in place (`lance-graph-mask-risc/tests/resident_ce64_predicate.rs`; entry `2026-10-08-d-rpf-0-resident-ce64-predicate.md`)
 - [ ] **D-RPF-1** — Law-table → pattern-set compiler (recipe eligibility as a mask)
 - [ ] **D-RPF-2** — Class census: how many distinct eligibility and read-set classes a real population has
 - [ ] **D-RPF-3** — Read-set dedup for CE64 instructions (hotspot dedup, exact)

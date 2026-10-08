@@ -4,7 +4,7 @@ Plan: `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`. Mask = adm
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-RPF-0** | Pearl3 / Epi5 / mantissa predicate over `MaterializedEdges` via `MatchFacet16Strided`, threshold as ≤ n+1 patterns | Queued | equals CE64 accessors; wrong-bit care disagrees; unnamed fields silent; both windows stay inside the 32 B tenant |
+| **D-RPF-0** | Pearl3 / Epi5 / mantissa predicate over `MaterializedEdges` via `MatchFacet16Strided`, threshold as ≤ n+1 patterns | In PR (test-pinned, `mask-risc/tests/resident_ce64_predicate.rs`) | equals CE64 accessors; wrong-bit care disagrees; unnamed fields silent; both windows stay inside the 32 B tenant |
 | **D-RPF-1** | Law tables → per-recipe ternary pattern set (≤ 24 × 8), run under an admission plane (class, rail, generation, provenance) | Queued | equals `measure_declared`; dropping one code loses exactly its rows; removing the admission plane admits a v1 row |
 | **D-RPF-2** | Census of eligibility and read-set classes on a real population | Queued | classes/rows reported; near 1 drops D-RPF-3; no population-sized seen-set |
 | **D-RPF-3** | Exact read-set dedup per CE64 instruction, key incl. handle context | Queued (after D-RPF-2) | removing cohort from key changes a result; dedup-then-fold equals per-row for Count/Sum/Avg |
