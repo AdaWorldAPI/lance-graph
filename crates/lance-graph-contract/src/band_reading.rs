@@ -147,7 +147,7 @@ pub enum BandPresence {
 /// static-substrate attention lands as an alpha-layer entry, dynamic-substrate
 /// attention as the row's own Lance-version history — the discriminator names
 /// the kind either way. The Hole becomes a target here once `HoleV3` lands
-/// (blocked on the `BoardAggregates = 15` mint).
+/// (blocked on the `BoardAggregates` mint, reserved at discriminant 21).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum WitnessKind {
     /// No witness reference — grading stands alone.

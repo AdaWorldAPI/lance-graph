@@ -124,6 +124,9 @@ pub mod legacy_outliers;
 pub mod literal_graph;
 pub mod mail;
 pub mod manifest;
+/// The HHTL / NARS / Moore value tenants: slot order, byte access, and the
+/// MooreNars16 reading with its direction and witness refusals.
+pub mod moore_tenant;
 pub mod morton8x8;
 pub mod mul;
 pub mod nan_projection;
