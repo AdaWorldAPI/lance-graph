@@ -83,25 +83,46 @@ a literal (tenants.md §refresh note).
   every row must not change the mask;
 - anti-vacuity: the fixture's predicates admit fewer than 1/3 of rows.
 
-**OPEN (decision, not code).** For edges `k = 3` (and any window placed so the
-edge sits in one half), the 16-byte window spans bytes of a neighbouring tenant
-with `care = 0`. Whether a `care = 0` overlap counts as *reading* that tenant —
-for RBAC projection (`WideFieldMask`) and for the zero-copy law — must be
-decided before this lands. The alternative is an 8-byte strided ternary match,
-which does not exist in the IR today (`MatchU64` is contiguous only). If the
-overlap is refused, D-RPF-0 files that primitive as the gap.
+**Windows stay inside the tenant.** `MaterializedEdges` is 32 B, so two
+16-byte windows cover it exactly: edges 0 and 1 in the first, edges 2 and 3 in
+the second. Edge `k` is matched in window `k / 2`, half `k % 2`, with `care`
+zero on the other edge's eight bytes. No window reaches a neighbouring tenant,
+so no RBAC question arises and no 8-byte strided primitive is needed. (An
+earlier draft placed one window per edge and flagged an overlap for `k = 3`;
+that placement was unnecessary — Codex review on #1411.)
 
 ### D-RPF-1 — Recipe eligibility as a mask
 
 **Grounding (VERIFIED-IN-CODE).** `affordance_measurement_probe.rs`: eligibility
 is `STATE[raw5] & PEARL[pearl3]`; every other CE64 field is swept and proven
-irrelevant. Only 10 of 32 Epi5 codes are valid; Pearl3 is read by one recipe.
+irrelevant. Pearl3 is read by one recipe. The contract's
+`EpistemicState5` has **24 meaningful codes** (`MEANINGFUL_STATES`, raw 0..23;
+24..31 reserved and refused by `decode`). (The probe's own doc still says "ten
+valid codes"; that predates D-EPI-MIG-0 and is stale — Codex review on #1411.)
 
 **Claim to test.** For each recipe bit `r`, the set of admitted
 `(raw5, pearl3)` pairs is enumerable at build time from the law tables, so
-"rows where recipe `r` is eligible" is an `Or` of at most `10 × 8` ternary
-patterns over the D-RPF-0 projection — no per-row `u64` eligibility word is
-materialised.
+"rows where recipe `r` is eligible" is an `Or` of at most `24 × 8 = 192`
+ternary patterns over the D-RPF-0 projection — no per-row `u64` eligibility
+word is materialised.
+
+**Admission comes first, and the patterns cannot supply it.**
+`measure_declared` projects the code through
+`Epi5Declarations::project_state5(class, rail, generation, raw5, provenance)`
+before any table is consulted, and refuses on an undeclared class/rail, a
+generation mismatch, or untrusted provenance. None of those facts is in the
+CE64 bits, so a pattern over bits 59..63 alone would admit rows that
+`measure_declared` refuses. The compiled patterns therefore run `under` an
+admission plane:
+
+- the row's classid (key bytes 0..4) equals the declared class — an
+  `EqU32Strided` predicate on the key;
+- rail and generation are per-population constants of that declaration, fixed
+  when the program is compiled, never per row;
+- provenance is not stored in the edge. It is either a caller-supplied
+  resident plane (trusted rows) or a precondition that the population was
+  validated as a whole. If neither exists, the program refuses instead of
+  running the patterns.
 
 **Deliverable.** A pure compiler from the law's compiled tables to
 `Vec<(pattern, care)>` per recipe (a build-time function, not a runtime
@@ -112,8 +133,11 @@ every recipe, on the probe's fixture.
 - can fire: dropping one admitted code from a recipe's pattern set must lose
   exactly the rows carrying that code;
 - can stay silent: `OBSERVE_FOLD` (no requires, no forbids) must compile to
-  "every row whose Epi5 is valid", and a v1-provenance row must refuse
-  (the `band_reading` rule), not match.
+  all 24 meaningful codes across all eight Pearl projections, and nothing
+  else;
+- admission: a v1-provenance row, or a row of an undeclared class, with bits
+  that WOULD match must be excluded by the admission plane, and removing that
+  plane must make it match (the disable run).
 
 ### D-RPF-2 — Class census
 
@@ -121,7 +145,7 @@ every recipe, on the probe's fixture.
 classes, do not assume them.
 
 **Measure, on a real resident population (not a synthetic uniform one):**
-1. distinct `(raw5, pearl3)` — the eligibility classes (bounded above by 80);
+1. distinct `(raw5, pearl3)` — the eligibility classes (bounded above by 192, per declared class);
 2. distinct read-set keys per CE64 instruction (D-RPF-3's key);
 3. the multiplicity histogram for each.
 
