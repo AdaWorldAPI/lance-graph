@@ -183,7 +183,6 @@ impl std::error::Error for ReplayError {}
 /// the table lookup (evidence fusion) then the packed forward (palette
 /// composition + truth propagation).
 #[inline]
-#[must_use]
 pub fn replay_step(
     running: CausalEdge64,
     weight: CausalEdge64,
