@@ -19,7 +19,7 @@
 //! ```
 //!
 //! The [`AuthProvider`] variants ARE the preminted `0x0B` family
-//! (`auth_store` 0x0B01 base + `auth_zitadel`/`auth_zanzibar`/`auth_ory_keto`/`auth_surrealdb`
+//! (`auth_store` 0x0B01 base + `auth_zitadel`/`auth_zanzibar`/`auth_ory_keto`
 //! provider profiles). Selecting a provider = picking its codebook classid; the
 //! classid is resolved through the zero-dep contract mirror
 //! ([`lance_graph_contract::ogar_codebook::canonical_concept_id`]), so this crate
@@ -51,9 +51,6 @@ pub enum AuthProvider {
     Zanzibar,
     /// `auth_ory_keto` (0x0B04) — Ory Keto.
     OryKeto,
-    /// `auth_surrealdb` (0x0B05) — SurrealDB IAM (system users and record
-    /// access; level-scoped Viewer / Editor / Owner roles).
-    SurrealDb,
 }
 
 impl AuthProvider {
@@ -65,7 +62,6 @@ impl AuthProvider {
             Self::Zitadel => "auth_zitadel",
             Self::Zanzibar => "auth_zanzibar",
             Self::OryKeto => "auth_ory_keto",
-            Self::SurrealDb => "auth_surrealdb",
         }
     }
 
@@ -83,15 +79,9 @@ impl AuthProvider {
     /// the `0x0B` AuthStore family. `None` for any non-auth id.
     #[must_use]
     pub fn from_class_id(id: u16) -> Option<Self> {
-        [
-            Self::Store,
-            Self::Zitadel,
-            Self::Zanzibar,
-            Self::OryKeto,
-            Self::SurrealDb,
-        ]
-        .into_iter()
-        .find(|p| p.class_id() == id)
+        [Self::Store, Self::Zitadel, Self::Zanzibar, Self::OryKeto]
+            .into_iter()
+            .find(|p| p.class_id() == id)
     }
 
     /// As a full 32-bit `ClassId` under the core render lens (concept in the
@@ -129,15 +119,6 @@ impl AuthProvider {
                 subject_claim: "user",
                 roles_claim: "relation",
                 tenant_claim: "namespace",
-            },
-            // SurrealDB: the subject is `ID` (a system user's name or a record
-            // id), roles are `RL`, and the namespace `NS` is the outermost scope.
-            // `DB` and `AC` narrow it further; they enter as a scope path, not as
-            // the tenant.
-            Self::SurrealDb => ClaimGrammar {
-                subject_claim: "ID",
-                roles_claim: "RL",
-                tenant_claim: "NS",
             },
         }
     }
@@ -225,7 +206,6 @@ mod tests {
         assert_eq!(AuthProvider::Zitadel.class_id(), 0x0B02);
         assert_eq!(AuthProvider::Zanzibar.class_id(), 0x0B03);
         assert_eq!(AuthProvider::OryKeto.class_id(), 0x0B04);
-        assert_eq!(AuthProvider::SurrealDb.class_id(), 0x0B05);
         // Full classid under the core lens: concept in the CANON high u16
         // (post-flip form), custom prefix 0x0000 — auth is cross-app.
         assert_eq!(AuthProvider::Store.classid(), 0x0B01_0000);
@@ -235,7 +215,6 @@ mod tests {
             AuthProvider::Zitadel,
             AuthProvider::Zanzibar,
             AuthProvider::OryKeto,
-            AuthProvider::SurrealDb,
         ] {
             assert_eq!(AuthProvider::from_class_id(p.class_id()), Some(p));
         }

@@ -696,7 +696,6 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("auth_zitadel", 0x0B02),
     ("auth_zanzibar", 0x0B03),
     ("auth_ory_keto", 0x0B04),
-    ("auth_surrealdb", 0x0B05),
     // ── 0x0DXX — HR domain (employment / org / contracts; OGAR PR #127) ──
     // Closes the final 4-of-11 cross-axis identity gap surfaced by odoo-rs
     // PR #14: hr.employee / hr.department / hr.job / hr.contract.
@@ -959,7 +958,6 @@ mod tests {
         assert_eq!(canonical_concept_id("vital_sign"), Some(0x0907));
         assert_eq!(canonical_concept_id("auth_store"), Some(0x0B01));
         assert_eq!(canonical_concept_id("auth_ory_keto"), Some(0x0B04));
-        assert_eq!(canonical_concept_id("auth_surrealdb"), Some(0x0B05));
         assert_eq!(canonical_concept_id("mars_application"), Some(0x0C01));
         assert_eq!(canonical_concept_id("knowledge_item"), Some(0x0C05));
         assert_eq!(canonical_concept_id("mars_node_template"), Some(0x0C06));
