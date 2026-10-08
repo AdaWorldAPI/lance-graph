@@ -12,3 +12,8 @@ description = "The one mask-RISC evaluator/fuser above ndarray::simd — a plan 
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 
 [dev-dependencies]
+# D-RPF-0 (`tests/resident_ce64_predicate.rs`): the CE64 accessors are the
+# oracle and the contract supplies the tenant offsets. Test-only — the library
+# still names neither.
+causal-edge = { path = "../causal-edge" }
+lance-graph-contract = { path = "../lance-graph-contract" }
