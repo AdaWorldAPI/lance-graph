@@ -40,7 +40,7 @@ goes through `ValueTenant::value_offset()`, no literal offset.
 
 ## Tests (A–L)
 
-`moore_tenant.rs` (12 tests: A, B, C, D, E, G ×2, H, I, K, L);
+`moore_tenant.rs` (11 tests: A, B, C, D, E, G ×2, H, I, K, L);
 `cognitive-shader-driver/tests/moore_palette_pairs_lut.rs` (F);
 `lance-graph-planner/tests/moore_tenant_isa_equivalence.rs` (J, 2 tests:
 256 tenants × 8 lanes × 5 ops, 0 divergences on every field except the sign
@@ -68,5 +68,3 @@ Disable runs, each red then restored:
   cannot yet gate a consumer on them the way `bind_register128` does.
 - No production writer or reader. The production Simpson detector still takes
   bare edges and cannot refuse a Moore direction (pinned in #1406).
-- J uses `forward` as it is on `main`; #1407 (unmerged) changes it to return
-  `Result`, and J follows when that lands.
