@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-270 entries, 2026-08-06 .. 2026-10-08.
+271 entries, 2026-08-06 .. 2026-10-08.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-08 | `register128-signed-readings` |  | [2026-10-08-register128-signed-readings.md](2026-10-08-register128-signed-readings.md) |
 | 2026-10-08 | `rbac-nested-scope-path` |  | [2026-10-08-rbac-nested-scope-path.md](2026-10-08-rbac-nested-scope-path.md) |
 | 2026-10-08 | `rbac-membership-scope` |  | [2026-10-08-rbac-membership-scope.md](2026-10-08-rbac-membership-scope.md) |
 | 2026-10-08 | `rbac-hotplug-socket` |  | [2026-10-08-rbac-hotplug-socket.md](2026-10-08-rbac-hotplug-socket.md) |
