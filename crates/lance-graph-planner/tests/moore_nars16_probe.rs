@@ -41,6 +41,7 @@
 //! operation.
 
 use causal_edge::edge::CausalEdge64;
+use causal_edge::isa::{IsaFault, Opcode};
 use causal_edge::network::CausalNetwork;
 use causal_edge::tables::NarsTables;
 use lance_graph_contract::epistemic_state5::{Epi5Gen, EpistemicState5};
@@ -351,10 +352,17 @@ const OPS: [Op; 5] = [
     Op::Syllogize,
 ];
 
-fn run(op: Op, x: CausalEdge64, y: CausalEdge64, t: &[Box<[u8; 256 * 256]>; 3]) -> CausalEdge64 {
-    match op {
-        Op::ForwardRunning => x.forward(y, &t[0], &t[1], &t[2]),
-        Op::ForwardWeight => y.forward(x, &t[0], &t[1], &t[2]),
+/// `Err` when the weight carries an inference code the CE64 ISA does not
+/// execute (`causal_edge::isa::Opcode::decode`).
+fn run(
+    op: Op,
+    x: CausalEdge64,
+    y: CausalEdge64,
+    t: &[Box<[u8; 256 * 256]>; 3],
+) -> Result<CausalEdge64, IsaFault> {
+    Ok(match op {
+        Op::ForwardRunning => x.forward(y, &t[0], &t[1], &t[2])?,
+        Op::ForwardWeight => y.forward(x, &t[0], &t[1], &t[2])?,
         Op::LearnSelf => {
             let mut e = x;
             e.learn(y, 0);
@@ -370,7 +378,7 @@ fn run(op: Op, x: CausalEdge64, y: CausalEdge64, t: &[Box<[u8; 256 * 256]>; 3]) 
                 .expect("fixture builds a chain figure")
                 .conclusion
         }
-    }
+    })
 }
 
 // ─── Fixtures ───────────────────────────────────────────────────────────
@@ -390,6 +398,9 @@ impl Rng {
 /// the given witness. Direction is a random sign triple.
 fn canonical(r: &mut Rng, witness: u8) -> CausalEdge64 {
     let e = CausalEdge64(r.next());
+    // An executable inference code, so `forward` runs on either side.
+    let op = Opcode::ALL[(r.next() % 5) as usize];
+    let e = Field::Energy.set(e, u64::from(op.encoding() as u8 & 0xF));
     let e = Field::W.set(e, u64::from(witness));
     Field::Epi5.set(e, r.next() % 24)
 }
@@ -425,7 +436,7 @@ fn divergences(mutation: Mutation, rounds: usize) -> usize {
             for op in OPS {
                 let a = run(op, edges[k], partners[k], &t);
                 let b = run(op, moore, partners[k], &t);
-                if observable(a) != observable(b) {
+                if a.map(observable) != b.map(observable) {
                     diff += 1;
                 }
             }
@@ -504,7 +515,7 @@ fn all_sixteen_energy_encodings_drive_forward_identically() {
             assert_eq!(Field::Energy.get(m), nibble);
             let a = run(Op::ForwardWeight, edges[k], partners[k], &t);
             let b = run(Op::ForwardWeight, m, partners[k], &t);
-            assert_eq!(observable(a), observable(b), "nibble {nibble}");
+            assert_eq!(a.map(observable), b.map(observable), "nibble {nibble}");
         }
     }
 }
@@ -524,7 +535,9 @@ fn reads(field: Field) -> Vec<(String, Field)> {
             let (x, y) = (edges[0], partners[0]);
             let bits = (1u64 << field.span().1) - 1;
             let x2 = field.set(x, (field.get(x) + 1 + r.next() % bits) & bits);
-            let (a, b) = (run(op, x, y, &t), run(op, x2, y, &t));
+            let (Ok(a), Ok(b)) = (run(op, x, y, &t), run(op, x2, y, &t)) else {
+                continue;
+            };
             for f in FIELDS {
                 if f != field && f.get(a) != f.get(b) {
                     let key = (format!("{op:?}"), f);
@@ -567,7 +580,10 @@ fn pearl_energy_and_plasticity_are_read() {
     let (edges, _, partners) = tenant_fixture(&mut r);
     let x = Field::Pearl.set(edges[0], 0b111);
     let y = Field::Pearl.set(partners[0], 0b101);
-    assert_eq!(Field::Pearl.get(run(Op::ForwardRunning, x, y, &t)), 0b101);
+    assert_eq!(
+        Field::Pearl.get(run(Op::ForwardRunning, x, y, &t).unwrap()),
+        0b101
+    );
 }
 
 // ─── D: ISA observational equivalence ───────────────────────────────────
@@ -602,8 +618,8 @@ fn the_equivalence_is_observational_not_bitwise() {
         let (edges, polarity, partners) = tenant_fixture(&mut r);
         let tenant = MooreTenant::project(edges, polarity, Mutation::None).unwrap();
         for k in 0..8 {
-            let a = run(Op::ForwardWeight, edges[k], partners[k], &t);
-            let b = run(Op::ForwardWeight, tenant.operand(k).edge, partners[k], &t);
+            let a = run(Op::ForwardWeight, edges[k], partners[k], &t).unwrap();
+            let b = run(Op::ForwardWeight, tenant.operand(k).edge, partners[k], &t).unwrap();
             assert_eq!(observable(a), observable(b));
             raw_differs += usize::from(a.0 != b.0);
         }
@@ -655,8 +671,12 @@ fn polarity_reverses_the_relation_and_leaves_plasticity_alone() {
         let b = MooreTenant::project(edges, polarity, Mutation::None).unwrap();
         for k in 0..8 {
             assert_eq!(
-                run(Op::LearnSelf, a.operand(k).edge, partners[k], &t).0,
-                run(Op::LearnSelf, b.operand(k).edge, partners[k], &t).0
+                run(Op::LearnSelf, a.operand(k).edge, partners[k], &t)
+                    .unwrap()
+                    .0,
+                run(Op::LearnSelf, b.operand(k).edge, partners[k], &t)
+                    .unwrap()
+                    .0
             );
         }
     }

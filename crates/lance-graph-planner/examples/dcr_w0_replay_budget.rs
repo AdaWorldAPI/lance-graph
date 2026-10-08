@@ -123,7 +123,9 @@ fn promised_step(
         weight.confidence_u8(),
     );
     // 2. the packed-edge half
-    let out = running.forward(weight, cs, cp, co);
+    let out = running
+        .forward(weight, cs, cp, co)
+        .expect("executable weight code");
     // fold the lookup back in so neither half can be optimised away
     CausalEdge64(out.0 ^ ((unpack_f(revised) as u64) << 32) ^ (unpack_c(revised) as u64))
 }

@@ -133,10 +133,13 @@ pub type ChainStep = (u8, CausalEdge64);
 
 /// A replay could not be performed as asked.
 ///
-/// Deliberately small: replay has exactly one way to fail, and it is a
-/// property of the ADDRESS SPACE the caller offered, never of the recorded
-/// chain (see [`crate::chain_admission::validate_chain`] for why a chain's
-/// content is not judged here).
+/// Two ways to fail. [`SequenceExhausted`](Self::SequenceExhausted) is a
+/// property of the ADDRESS SPACE the caller offered. [`Isa`](Self::Isa) is a
+/// property of a recorded weight: its inference code is one the CE64 ISA
+/// does not execute, so the step cannot be computed. Replay still does not
+/// judge whether a chain is plausible
+/// ([`crate::chain_admission::validate_chain`] owns that); it only refuses a
+/// step it has no instruction for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ReplayError {
@@ -154,6 +157,14 @@ pub enum ReplayError {
         /// How many steps the chain needed.
         steps: usize,
     },
+    /// A step's weight carries an inference code the CE64 ISA does not
+    /// execute ([`causal_edge::isa::IsaFault`]).
+    Isa {
+        /// The step that faulted.
+        step: usize,
+        /// The fault.
+        fault: causal_edge::isa::IsaFault,
+    },
 }
 
 impl fmt::Display for ReplayError {
@@ -163,6 +174,7 @@ impl fmt::Display for ReplayError {
                 f,
                 "durable sequence exhausted: base {base_seq} cannot reserve {steps} steps"
             ),
+            Self::Isa { step, fault } => write!(f, "step {step}: {fault}"),
         }
     }
 }
@@ -174,13 +186,12 @@ impl std::error::Error for ReplayError {}
 /// the table lookup (evidence fusion) then the packed forward (palette
 /// composition + truth propagation).
 #[inline]
-#[must_use]
 pub fn replay_step(
     running: CausalEdge64,
     weight: CausalEdge64,
     tables: &NarsTables,
     compose: ComposeTables<'_>,
-) -> CausalEdge64 {
+) -> Result<CausalEdge64, causal_edge::isa::IsaFault> {
     // 1. fuse this step's evidence into the running truth (the lookup half)
     let revised = tables.revise(
         running.frequency_u8(),
@@ -189,12 +200,12 @@ pub fn replay_step(
         weight.confidence_u8(),
     );
     // 2. propagate palettes + causality (the packed half)
-    let mut out = running.forward(weight, compose.s, compose.p, compose.o);
+    let mut out = running.forward(weight, compose.s, compose.p, compose.o)?;
     // 3. the revised truth is the step's truth — written back into the packed
     //    edge, not carried beside it (there is no second truth register).
     out.set_frequency_u8(unpack_f(revised));
     out.set_confidence_u8(unpack_c(revised));
-    out
+    Ok(out)
 }
 
 /// Replay a recorded chain against `seed`, emitting one trace row per step.
@@ -228,6 +239,10 @@ pub fn replay_step(
 /// does not fit in `u64`. The reservation is checked ONCE, up front, so the
 /// loop cannot emit a partial trace and then discover it has no coordinate
 /// left — a half-written trace is worse than a refusal.
+///
+/// [`ReplayError::Isa`] when a step's weight carries an inference code the
+/// CE64 ISA does not execute (Counterfactual, Intervention, or a reserved
+/// code).
 pub fn replay_chain(
     chain: &[ChainStep],
     seed: CausalEdge64,
@@ -248,7 +263,8 @@ pub fn replay_chain(
     let mut running = seed;
     let mut trace = Vec::with_capacity(steps);
     for (i, &(predicate, weight)) in chain.iter().enumerate() {
-        running = replay_step(running, weight, tables, compose);
+        running = replay_step(running, weight, tables, compose)
+            .map_err(|fault| ReplayError::Isa { step: i, fault })?;
         trace.push(ReplayTraceRow {
             owner,
             cast_seq: base_seq + i as u64,

@@ -44,6 +44,22 @@ as current behaviour and the diagram's name as a proposed interpretation.
 - **SPO alignment.** The payload, frequency and confidence feed learning
   and calibration; certification is not derived from them.
 
+## Encoding, reading, operation
+
+Three things are kept apart:
+
+- **Physical encoding**: which bits a field occupies (`layout.rs`).
+- **Declared reading**: what those bits mean for a given tenant. The S/P/O
+  sign triad on bits 43..45 is the one reading implemented today. It does
+  not oblige every future tenant to read those bits the same way, and a
+  different reading (for example a Moore slot plus polarity, with the axis
+  fixed by the tenant's HHTL address) does not reconstruct the sign triad.
+  Readings are told apart by a versioned binding, never inferred.
+- **ISA operation**: what an instruction computes on the declared reading
+  (`crates/causal-edge/src/isa.rs`). The decoder executes only the
+  implemented inference codes, and each instruction declares which fields
+  it reads, computes, passes through and overwrites.
+
 ## Open
 
 - Whether bits 43..52 should be re-read as orientation, activation and
