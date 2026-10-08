@@ -457,6 +457,58 @@ fn arm_g(g: &Grid, k: &Kernel, cx: usize, cy: usize, wk: &mut Work) -> i64 {
     s
 }
 
+/// Present-cell crossover between D and F, in cells per window.
+///
+/// A pin for this host (D-MHB-1 finding 3: ρ ≈ 0.1 of a 1,009-cell disk),
+/// not a derived constant. `crossover_sweep` measures how sensitive arm Q is
+/// to it.
+const DF_CROSSOVER_CELLS: u32 = 100;
+
+/// One window row of arm D: the row's present disk cells through the LUT.
+#[inline]
+fn d_row(k: &Kernel, win: u64, yi: usize, wk: &mut Work) -> i64 {
+    let dy = yi as i64 - k.r as i64;
+    let mut m = win & k.disk[yi];
+    let mut s = 0i64;
+    while m != 0 {
+        let dx = m.trailing_zeros() as i64 - k.r as i64;
+        m &= m - 1;
+        wk.geometry += 1;
+        s += i64::from(k.lut[(dx * dx + dy * dy) as usize]);
+    }
+    s
+}
+
+/// The window's words, fetched once, and its exact present-cell count.
+#[inline]
+fn window_words(g: &Grid, k: &Kernel, cx: usize, cy: usize, wk: &mut Work) -> ([u64; 64], u32) {
+    let mut w = [0u64; 64];
+    let mut n = 0u32;
+    for (yi, slot) in w.iter_mut().enumerate().take(k.wd()) {
+        *slot = g.window(cx - k.r, cy + yi - k.r, k.wd());
+        wk.popcounts += 1;
+        n += (*slot & k.disk[yi]).count_ones();
+    }
+    (w, n)
+}
+
+/// Arm Q: one choice per query. The window's exact present-cell count picks
+/// D below the crossover and F above it; the words are fetched once and
+/// shared by the count and the chosen arm.
+fn arm_q(g: &Grid, k: &Kernel, cx: usize, cy: usize, cut: u32, wk: &mut Work) -> i64 {
+    let (w, n) = window_words(g, k, cx, cy, wk);
+    if n <= cut {
+        (0..k.wd()).map(|yi| d_row(k, w[yi], yi, wk)).sum()
+    } else {
+        (0..k.wd())
+            .map(|yi| {
+                wk.rows += 1;
+                f_row(k, w[yi], yi, wk)
+            })
+            .sum()
+    }
+}
+
 /// Rows in the order arm H visits them: largest `|contribution|` bound first.
 fn h_order(k: &Kernel) -> Vec<usize> {
     let mut o: Vec<usize> = (0..k.wd()).collect();
@@ -511,6 +563,62 @@ fn arm_h(
         let yi = order[i];
         wk.rows += 1;
         s += f_row(k, g.window(cx - k.r, cy + yi - k.r, k.wd()), yi, wk);
+    }
+    unreachable!("with no rows left the bounds are [0, 0], so one of the two tests fired");
+}
+
+/// The row evaluator an early exit runs.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum RowEval {
+    /// F's popcounts on every row (arm H).
+    F,
+    /// D's per-point path on every row (arm HD).
+    D,
+    /// One choice per query from the window count (arm HQ).
+    Query(u32),
+}
+
+/// Arms HD and HQ: arm H's exact suffix-bound early exit over any exact row
+/// evaluator. The bounds are the template's, so they hold for every
+/// evaluator; only the cost of a visited row changes. HQ pays the full
+/// window count up front, which the early exit cannot then save.
+#[allow(clippy::too_many_arguments)]
+fn arm_hx(
+    g: &Grid,
+    k: &Kernel,
+    order: &[usize],
+    up: &[i64],
+    lo: &[i64],
+    cx: usize,
+    cy: usize,
+    t: i64,
+    ev: RowEval,
+    wk: &mut Work,
+) -> (Decision, usize) {
+    let use_d = match ev {
+        RowEval::F => false,
+        RowEval::D => true,
+        RowEval::Query(cut) => window_words(g, k, cx, cy, wk).1 <= cut,
+    };
+    let mut s = 0i64;
+    for i in 0..=order.len() {
+        if s + up[i] < t {
+            return (Decision::Reject, i);
+        }
+        if s + lo[i] >= t {
+            return (Decision::Accept, i);
+        }
+        if i == order.len() {
+            break;
+        }
+        let yi = order[i];
+        let win = g.window(cx - k.r, cy + yi - k.r, k.wd());
+        wk.rows += 1;
+        s += if use_d {
+            d_row(k, win, yi, wk)
+        } else {
+            f_row(k, win, yi, wk)
+        };
     }
     unreachable!("with no rows left the bounds are [0, 0], so one of the two tests fired");
 }
@@ -629,6 +737,13 @@ fn agreement(name: &str, g: &Grid, k: &Kernel, qs: &[(usize, usize)]) {
             d,
             "G differs from D at ({cx},{cy})"
         );
+        for cut in [0, DF_CROSSOVER_CELLS, u32::MAX] {
+            assert_eq!(
+                arm_q(g, k, cx, cy, cut, &mut wk),
+                d,
+                "Q (cut {cut}) differs from D at ({cx},{cy})"
+            );
+        }
         let a = arm_a(g, k, cx, cy, &mut wk);
         err_q += (a - d as f64).abs();
         norm += a.abs().max(1.0);
@@ -645,7 +760,7 @@ fn agreement(name: &str, g: &Grid, k: &Kernel, qs: &[(usize, usize)]) {
     }
     let n = qs.len() as f64;
     println!(
-        "  {name}: Ascan = D = F = G on every checked centre; |quantised − continuous| mean {:.2} ({:.3} % of |S|)  |E − D| mean: {}",
+        "  {name}: Ascan = D = F = G = Q on every checked centre; |quantised − continuous| mean {:.2} ({:.3} % of |S|)  |E − D| mean: {}",
         err_q / n,
         100.0 * err_q / norm,
         rgs.iter()
@@ -732,6 +847,11 @@ fn bench(name: &str, g: &Grid, k: &Kernel, qs: &[(usize, usize)], scan_queries: 
     run(
         "G   per-row cheaper of D/F",
         &mut |w, x, y| arm_g(g, k, x, y, w),
+        nq,
+    );
+    run(
+        "Q   per-query D/F choice",
+        &mut |w, x, y| arm_q(g, k, x, y, DF_CROSSOVER_CELLS, w),
         nq,
     );
 
@@ -831,6 +951,14 @@ fn early_exit(name: &str, g: &Grid, k: &Kernel, qs: &[(usize, usize)]) {
                 Decision::Reject
             };
             assert_eq!(d, want, "H decided {d:?} at ({cx},{cy}), S {s}, T {t}");
+            for ev in [RowEval::D, RowEval::Query(DF_CROSSOVER_CELLS)] {
+                let (dx, rx) = arm_hx(g, k, &order, &up, &lo, cx, cy, t, ev, &mut Work::default());
+                assert_eq!(
+                    dx, want,
+                    "{ev:?} decided {dx:?} at ({cx},{cy}), S {s}, T {t}"
+                );
+                assert_eq!(rx, r, "{ev:?} visited a different number of rows");
+            }
             accepted += usize::from(d == Decision::Accept);
             rows.push(r);
         }
@@ -855,11 +983,76 @@ fn early_exit(name: &str, g: &Grid, k: &Kernel, qs: &[(usize, usize)]) {
             .map(|&(x, y)| arm_f(g, k, x, y, &mut Work::default()))
             .sum::<i64>()
     });
+    let mut ns_x = Vec::new();
+    for ev in [RowEval::D, RowEval::Query(DF_CROSSOVER_CELLS)] {
+        let (_, ns) = time(5, || {
+            qs.iter()
+                .map(|&(x, y)| arm_hx(g, k, &order, &up, &lo, x, y, t, ev, &mut Work::default()).1)
+                .sum::<usize>()
+        });
+        ns_x.push(ns / qs.len() as f64);
+    }
+    let (_, ns_d) = time(5, || {
+        qs.iter()
+            .map(|&(x, y)| arm_d(g, k, x, y, &mut Work::default()))
+            .sum::<i64>()
+    });
+    let (_, ns_q) = time(5, || {
+        qs.iter()
+            .map(|&(x, y)| arm_q(g, k, x, y, DF_CROSSOVER_CELLS, &mut Work::default()))
+            .sum::<i64>()
+    });
+    let n = qs.len() as f64;
     println!(
-        "    median T: H {:.0} ns/query against F {:.0} ns/query",
-        ns_h / qs.len() as f64,
-        ns_f / qs.len() as f64
+        "    median T: H {:.0}  HD {:.0}  HQ {:.0}  ns/query  against full F {:.0}  D {:.0}  Q {:.0}",
+        ns_h / n,
+        ns_x[0],
+        ns_x[1],
+        ns_f / n,
+        ns_d / n,
+        ns_q / n
     );
+}
+
+/// Arm Q's sensitivity to its one pin: the cut swept around the crossover on
+/// every density, against the better of D and F measured on the same queries.
+fn crossover_sweep(k: &Kernel) {
+    println!("  cut sweep, 1M grid, 2,048 queries; ns/query (Q / min(D, F))");
+    let cuts = [25u32, 50, 100, 200, 400];
+    print!("    {:<8}", "ρ");
+    for c in cuts {
+        print!(" {:>12}", format!("cut {c}"));
+    }
+    println!("  {:>8} {:>8}", "D", "F");
+    for rho in [0.01, 0.05, 0.1, 0.2, 0.5, 0.9] {
+        let g = random_grid(1024, 1024, rho, 0xC0 + (rho * 100.0) as u64);
+        let qs = centres(&g, k, 2048, 0xC1);
+        let med = |f: &dyn Fn() -> i64| {
+            let mut v: Vec<f64> = (0..5).map(|_| time(1, f).1).collect();
+            v.sort_by(f64::total_cmp);
+            v[2] / qs.len() as f64
+        };
+        let d = med(&|| {
+            qs.iter()
+                .map(|&(x, y)| arm_d(&g, k, x, y, &mut Work::default()))
+                .sum()
+        });
+        let f = med(&|| {
+            qs.iter()
+                .map(|&(x, y)| arm_f(&g, k, x, y, &mut Work::default()))
+                .sum()
+        });
+        print!("    {rho:<8}");
+        for c in cuts {
+            let q = med(&|| {
+                qs.iter()
+                    .map(|&(x, y)| arm_q(&g, k, x, y, c, &mut Work::default()))
+                    .sum()
+            });
+            print!(" {:>12}", format!("{q:.0} / {:.2}", q / d.min(f)));
+        }
+        println!("  {d:>8.0} {f:>8.0}");
+    }
 }
 
 /// Counterexamples the early exit must survive.
@@ -1117,6 +1310,9 @@ fn main() {
     let g = wavefront_grid(1024, 1024, 256.0, 0.01, 0xE0);
     let qs = centres(&g, &k, 4096, 0xB4);
     early_exit("1M wavefront ring + 1 % noise", &g, &k, &qs);
+
+    println!("\n== per-query D/F choice ==");
+    crossover_sweep(&k);
 
     println!();
     counterexamples(&k);
