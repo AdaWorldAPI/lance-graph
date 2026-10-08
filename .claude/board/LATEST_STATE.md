@@ -1,3 +1,7 @@
+## 2026-10-08 — RBAC hot-plug socket on branch `ccr-0455e606-wmtsor` (unmerged)
+
+- Contract delta (additive): new module `contract::rbac_plug::{RbacPlug, RbacAuthority, RbacBinding, RbacDrift, ActorSource, PluggedRbac, verify_concepts_against_mirror}`. Entry: `entries/2026-10-08-rbac-hotplug-socket.md`.
+
 ## 2026-10-08 — rbac membership-scoped authorization on branch `ccr-0455e606-wmtsor` (unmerged)
 
 - Contract delta (additive): `contract::rbac::{ScopeSet, Membership, is_access_control_class}`, `ScopeSpec::covers`, defaulted `ClassRbac::memberships`. `lance-graph-rbac::authorize::{authorize_memberships, MembershipDecision}`; `authorize_scoped` unchanged. Entry: `entries/2026-10-08-rbac-membership-scope.md`.
