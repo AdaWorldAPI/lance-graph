@@ -59,18 +59,19 @@ All equal the oracle.
 
 ### 2. Guards, 36,000 random (concept, chain, terminal) cases
 
-- m ∈ {2, 3, 4, 5, 8, 16, 256}; chains of 0–4 rotations, signed scales, translations and general linear maps.
-- All equal the oracle to a relative 1e-9.
+- m ∈ {2, 3, 4, 5, 8, 16, 256}; chains of 0–4 rotations, signed scales, exact zero scales, translations and general linear maps.
+- All equal the oracle within 1e-9 of the compared values plus an absolute floor of 1e-13 of the case's Σ|p|² (for results that cancel to zero).
+- A translation applied after a zero scale survives it: `S(0) · T(5, −3)` has centroid (5, −3).
 
 | recipe | cases | trig/case | oracle trig/case | exactness |
 |---|---|---|---|---|
-| Const | 4,000 | 0.25 | 56.2 | real identity |
-| CenterPhasor | 8,000 | 1.12 | 56.2 | real identity |
-| IsoInvariant | 7,000 | 0.25 | 63.7 | real identity |
-| OriginNorm | 3,500 | 0.82 | 63.7 | real identity |
-| SectorQuantile | 4,000 | 2.12 | 56.2 | real identity |
-| VertexPhasor | 4,000 | 2.32 | 56.2 | real identity |
-| Materialize | 5,500 | 42.1 | 41.9 | reference |
+| Const | 4,000 | 0.17 | 51.4 | real identity |
+| CenterPhasor | 8,000 | 0.99 | 51.4 | real identity |
+| IsoInvariant | 7,000 | 0.16 | 58.2 | real identity |
+| OriginNorm | 3,500 | 0.64 | 58.2 | real identity |
+| SectorQuantile | 4,000 | 1.99 | 51.4 | real identity |
+| VertexPhasor | 4,000 | 2.19 | 51.4 | real identity |
+| Materialize | 5,500 | 38.5 | 38.4 | reference |
 
 The nonzero trig on Const and IsoInvariant is the canonicaliser leaving the similarity form (a general linear map materialises `L` once).
 
@@ -101,7 +102,7 @@ ns per row. All four are **bitwise equal** (`i128`). A warm composed summary ste
 - Ties between `cos(θ + 2πk/m)` occur only at `θ ≡ 0 mod 1/(2m)` turn. So inside each half-sector the rank → vertex map is **fixed**, and a phase-conditioned percentile profile collapses to two permutations of `m` entries plus one cosine (arm E).
 - 1/3 turn is not representable in `u32` turns (2^32 mod 3 = 1). Threefold symmetry holds in reals, and to one ulp-turn in `u32`.
 
-**Arms.** Error is the max |error| on R = 100 over 200,003 phases × ranks. Timings are ns per instance at 1M instances; 65,536 instances agree within 10 %.
+**Arms.** Error is the max |error| on R = 100 over 200,003 phases × every one of the `m` ranks (the oracle sorts all `m` projections once per phase). Timings are ns per instance at 1M instances; 65,536 instances agree within 10 %.
 
 | m | A generate + select | B analytic (m = 3) | C profile LUT, 64 buckets | E sector permutation + 1 `cos` | C table | E table | C error, 64 buckets | C error, 63 buckets | E error |
 |---|---|---|---|---|---|---|---|---|---|
@@ -117,7 +118,7 @@ ns per row. All four are **bitwise equal** (`i128`). A warm composed summary ste
 
 - **Recipe lookup over 4,096 random keys:** static array 1.2 ns, `match` 2.0 ns, `HashMap` (SipHash) 27 ns.
 - A `HashMap` whose hasher sends every key to one bucket still returns the right recipe (106 ns): structural key equality, not the hash, decides.
-- **8-step chain:** canonicalising costs 49 ns; canonicalise + lookup + evaluate Σ|z − c|² costs 98 ns, against 496 ns for the oracle (3 vertices × 8 raw steps).
+- **8-step chain:** canonicalising costs 49–72 ns; canonicalise + lookup + evaluate Σ|z − c|² costs 62–98 ns, against 301–496 ns for the oracle (3 vertices × 8 raw steps). Ranges are two runs.
 
 ### 6. 1-D affine quantile
 
@@ -135,6 +136,8 @@ Each disable ran after the commit, turned red, and was restored afterwards.
 | sector permutation without the half-sector split | case 3, `m = 4` quantile ≠ oracle |
 | Population × quantile mapped to a summary | the table assertion fires |
 | `‖L‖_F²` of a general map treated as a similarity's | case 2, `m = 3` Σ\|z − c\|² 43,271 vs 136,940 |
+| translation multiplier not updated by later scales | case 11, `T · S(0) · R`: Σ positions ≠ oracle |
+| the first version's `scale / scale_at` translation factor | case 14, `S(0) · T`: Σ positions (0, 0) vs the oracle's translated sum |
 
 ## Findings
 
