@@ -178,6 +178,10 @@ name = "crossword_attention_probe"
 test = true
 
 [[example]]
+name = "moore_nars_gomoku_probe"
+test = true
+
+[[example]]
 name = "crossword_mask_propagation_probe"
 test = true
 
