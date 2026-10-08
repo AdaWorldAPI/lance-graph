@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-274 entries, 2026-08-06 .. 2026-10-08.
+275 entries, 2026-08-06 .. 2026-10-08.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-10-08 | `rbac-nested-scope-path` |  | [2026-10-08-rbac-nested-scope-path.md](2026-10-08-rbac-nested-scope-path.md) |
 | 2026-10-08 | `rbac-membership-scope` |  | [2026-10-08-rbac-membership-scope.md](2026-10-08-rbac-membership-scope.md) |
 | 2026-10-08 | `rbac-hotplug-socket` |  | [2026-10-08-rbac-hotplug-socket.md](2026-10-08-rbac-hotplug-socket.md) |
+| 2026-10-08 | `D-PHT-1` |  | [2026-10-08-phasor-trig-probe.md](2026-10-08-phasor-trig-probe.md) |
 | 2026-10-08 | `moore-nars16-isa-visible-representation` |  | [2026-10-08-moore-nars16-isa-visible-representation.md](2026-10-08-moore-nars16-isa-visible-representation.md) |
 | 2026-10-08 | `D-MOORE-NARS-0` |  | [2026-10-08-moore-nars-0-recipe-learning-gomoku.md](2026-10-08-moore-nars-0-recipe-learning-gomoku.md) |
 | 2026-10-08 | `D-MHB-1` |  | [2026-10-08-mexhat-bucket-cascade-probe.md](2026-10-08-mexhat-bucket-cascade-probe.md) |

@@ -1,3 +1,11 @@
+## D-PHT — Phasors without transcendental calls (2026-10-08)
+
+Board entry: `entries/2026-10-08-phasor-trig-probe.md`. Native `sin_cos`, a `u32`-turns phase LUT, CORDIC and complex recurrence on Wankel apex coordinates and coherent interference, plus an amplitude-bounded exact early exit.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-PHT-1** | Phasor evaluation: f64/f32 `sin_cos`, LUT nearest/interpolated, CORDIC, recurrence, ndarray `vml`; two-wave closed form; amplitude-bounded early exit with LUT error and exact fallback | Shipped (probe; LUT + integer phase proposed for ndarray) | Wankel invariants to 1e-11; early exit equals the full fold on every detector; dropping the remaining amplitude, the LUT error or the signed cast each fails |
+
 ## D-MHB — Centre-surround response without a raster (2026-10-08)
 
 Board entry: `entries/2026-10-08-mexhat-bucket-cascade-probe.md`. Popcount stacking, quantised DoG and exact early exit against direct window geometry; no wavefield, no raster.
