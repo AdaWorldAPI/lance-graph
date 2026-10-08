@@ -1294,6 +1294,95 @@ fn population() {
     );
 }
 
+/// Where the shipped grouped fold's time goes, against plain scalar folds
+/// that add one ingredient at a time: the `i128` accumulation alone, plus a
+/// mask-bit walk, plus a group key, then the shipped
+/// `masked_group_cross_power_sums_i32` itself.
+fn fold_cost() {
+    println!("\n== 3b. cross-power-sum fold: where the time goes (ns/row, 1M rows, one group) ==");
+    let n = 1_000_000usize;
+    let mut rng = Rng(0xF01D);
+    let xs: Vec<i32> = (0..n).map(|_| rng.below(201) as i32 - 100).collect();
+    let ys: Vec<i32> = (0..n).map(|_| rng.below(201) as i32 - 100).collect();
+    let keys = vec![0u32; n];
+    let mask = full_mask(n);
+    let acc = |s: &mut S2, x: i32, y: i32| {
+        let (x, y) = (i128::from(x), i128::from(y));
+        s.n += 1;
+        s.x += x;
+        s.y += y;
+        s.xx += x * x;
+        s.yy += y * y;
+        s.xy += x * y;
+    };
+    let reps = 9;
+    let mut r = [S2::default(); 5];
+    let ns_plain = median_ns(reps, n, || {
+        let mut s = S2::default();
+        for i in 0..n {
+            acc(&mut s, xs[i], ys[i]);
+        }
+        r[0] = s;
+        s.n as f64
+    });
+    // i64 accumulators where they suffice (|x|·n < 2^63), i128 only for squares.
+    let ns_narrow = median_ns(reps, n, || {
+        let (mut sx, mut sy, mut sxx, mut syy, mut sxy) = (0i64, 0i64, 0i64, 0i64, 0i64);
+        for i in 0..n {
+            let (x, y) = (i64::from(xs[i]), i64::from(ys[i]));
+            sx += x;
+            sy += y;
+            sxx += x * x;
+            syy += y * y;
+            sxy += x * y;
+        }
+        r[1] = S2 {
+            n: n as i128,
+            x: sx.into(),
+            y: sy.into(),
+            xx: sxx.into(),
+            yy: syy.into(),
+            xy: sxy.into(),
+        };
+        r[1].n as f64
+    });
+    let ns_mask = median_ns(reps, n, || {
+        let mut s = S2::default();
+        for (w, &word) in mask.iter().enumerate() {
+            let mut m = word;
+            while m != 0 {
+                let i = w * 64 + m.trailing_zeros() as usize;
+                m &= m - 1;
+                acc(&mut s, xs[i], ys[i]);
+            }
+        }
+        r[2] = s;
+        s.n as f64
+    });
+    let ns_key = median_ns(reps, n, || {
+        let mut out = [S2::default(); 1];
+        for i in 0..n {
+            let k = keys[i] as usize;
+            if k < out.len() {
+                acc(&mut out[k], xs[i], ys[i]);
+            }
+        }
+        r[3] = out[0];
+        out[0].n as f64
+    });
+    let ns_shipped = median_ns(reps, n, || {
+        r[4] = fold_ndarray(&xs, &ys, &mask, &keys);
+        r[4].n as f64
+    });
+    assert!(
+        r.iter().all(|x| *x == r[0]),
+        "every fold must give the same sums"
+    );
+    println!(
+        "  plain i128 {ns_plain:.2}  i64 accumulators {ns_narrow:.2}  + mask-bit walk {ns_mask:.2}  + group key {ns_key:.2}  shipped grouped fold {ns_shipped:.2}   (all equal)"
+    );
+}
+
 // ───────────────────────── section 4: projected order statistics ─────────────────────────
 
 #[derive(Clone, Copy)]
@@ -1737,6 +1826,7 @@ fn main() {
     wankel_table();
     guards();
     population();
+    fold_cost();
     quantiles();
     all_quantiles();
     lookup_cost();
