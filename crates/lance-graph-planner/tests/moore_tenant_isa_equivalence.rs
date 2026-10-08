@@ -28,8 +28,15 @@ impl Rng {
     }
 }
 
+const MANTISSA: u64 = 0xF << 46;
+
+/// The codes the CE64 ISA executes (Ded +1, Ind +2, Abd -1, Rev +4, Syn +5)
+/// as raw 4-bit mantissa nibbles; `forward` refuses every other code.
+const EXECUTABLE: [u64; 5] = [0x1, 0x2, 0xF, 0x4, 0x5];
+
 fn canonical(r: &mut Rng, w: u64) -> u64 {
-    (r.next() & !W & !EPI5) | (w << 53) | ((r.next() % 24) << 59)
+    let code = EXECUTABLE[(r.next() % 5) as usize];
+    (r.next() & !W & !EPI5 & !MANTISSA) | (w << 53) | ((r.next() % 24) << 59) | (code << 46)
 }
 
 fn tables() -> [Box<[u8; 256 * 256]>; 3] {
@@ -53,8 +60,12 @@ fn ops(x: u64, y: u64, t: &[Box<[u8; 256 * 256]>; 3]) -> [u64; 5] {
     let mut ly = y;
     ly.learn(x, 0);
     [
-        x.forward(y, &t[0], &t[1], &t[2]).0,
-        y.forward(x, &t[0], &t[1], &t[2]).0,
+        x.forward(y, &t[0], &t[1], &t[2])
+            .expect("executable code")
+            .0,
+        y.forward(x, &t[0], &t[1], &t[2])
+            .expect("executable code")
+            .0,
         lx.0,
         ly.0,
         x.syllogize(y).expect("chain figure").conclusion.0,
