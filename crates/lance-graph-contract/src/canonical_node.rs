@@ -1096,6 +1096,33 @@ pub enum ValueTenant {
     /// register, for readings that need more than 128 bits (e.g. bivariate
     /// statistics). Same contract as [`Register0`](Self::Register0).
     Register1 = 17,
+    /// **Nars16x8** — eight little-endian `u16` lanes (16 B), one per
+    /// [`MooreSlot`](crate::moore_tenant::MooreSlot) in canonical slot order
+    /// `NW,N,NE,W,E,SW,S,SE`. The physical layout is RATIFIED; the reading of
+    /// each `u16` is CANDIDATE and is not declared by this tenant. Kept
+    /// separate from [`MooreNars16`](Self::MooreNars16) by design: the two
+    /// tenants never share bytes or a reading. Accessors:
+    /// [`MooreTenantView`](crate::moore_tenant::MooreTenantView). Zero-fallback:
+    /// all-zero lanes are unasserted.
+    Nars16x8 = 18,
+    /// **MoorePalettePairs** — eight `(u8:u8)` Palette256 pairs (16 B), one per
+    /// Moore slot. Byte `2i` is the pair's FIRST operand and byte `2i + 1` its
+    /// SECOND, so the pair addresses a 256×256 law table as
+    /// `(first << 8) | second` (the #1336 `PairAddress` orientation). Two
+    /// separate bytes, never read as one widened `u16` by this tenant.
+    /// Zero-fallback: `(0, 0)` is the null pair.
+    MoorePalettePairs = 19,
+    /// **MooreNars16** — eight little-endian `u16` lanes (16 B), one per Moore
+    /// slot, each read as
+    /// [`MooreNars16`](crate::moore_tenant::MooreNars16):
+    /// `Pearl3 | Energy4 | Plasticity3 | Polarity1 | Epi5`. A Moore-local
+    /// reading of the ISA-visible subset of CE64 state: direction is
+    /// `(slot, polarity)`, never the canonical S/P/O sign triple, and the
+    /// witness is tenant-scoped (one W for all eight lanes, held by the
+    /// owner, not in these bytes). Physical layout RATIFIED, semantics
+    /// CANDIDATE. Zero-fallback: an all-zero lane decodes to the zero state
+    /// with `Epi5 = 0`.
+    MooreNars16 = 20,
 }
 
 impl ValueTenant {
@@ -1276,6 +1303,33 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
         elems_per_row: 16,
         row_offset: 268,
     },
+    // ── HHTL / NARS / Moore tenants: three 16 B lanes appended after Register1
+    //    at [284,300), [300,316) and [316,332) (value-slab [252,268),
+    //    [268,284), [284,300)); additive, reserve-don't-reclaim,
+    //    layout-preserving (Full now ends 332 ≤ 512, NODE_ROW_STRIDE unchanged
+    //    → no ENVELOPE_LAYOUT_VERSION bump). These mints take discriminants
+    //    18, 19 and 20, so the BoardAggregates reservation RE-BASES to 21 by
+    //    the same ordinal rule as above; its offset stays derived, never a
+    //    literal. The u16 tenants are LE (`ColumnKind::U16`); the pair tenant
+    //    is two separate bytes per slot (`ColumnKind::U8 × 16`).
+    ColumnDescriptor {
+        name_id: ValueTenant::Nars16x8 as u16,
+        kind: ColumnKind::U16,
+        elems_per_row: 8,
+        row_offset: 284,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::MoorePalettePairs as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 300,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::MooreNars16 as u16,
+        kind: ColumnKind::U16,
+        elems_per_row: 8,
+        row_offset: 316,
+    },
 ];
 
 // Compile-time canon: VALUE_TENANTS is discriminant-ordered, contiguous within the
@@ -1390,6 +1444,11 @@ impl ValueSchema {
                 ValueTenant::EpisodicBasin as u8,
                 ValueTenant::Register0 as u8,
                 ValueTenant::Register1 as u8,
+                // HHTL / NARS / Moore tenants. Full only: no narrower preset
+                // has a consumer that materialises them yet.
+                ValueTenant::Nars16x8 as u8,
+                ValueTenant::MoorePalettePairs as u8,
+                ValueTenant::MooreNars16 as u8,
             ]),
         }
     }
@@ -2673,8 +2732,8 @@ mod tests {
         assert!(prev_end <= NODE_ROW_STRIDE);
         assert_eq!(
             prev_end - VALUE_SLAB_ROW_OFFSET,
-            252,
-            "current Full carve uses 252 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36 + TEKAMOLO facet 16 + CausalWitness facet 16 + episodic-basin rail 32 + Register128 rails 2×16)"
+            300,
+            "current Full carve uses 300 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36 + TEKAMOLO facet 16 + CausalWitness facet 16 + episodic-basin rail 32 + Register128 rails 2×16 + HHTL/NARS/Moore tenants 3×16)"
         );
         assert!(prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN);
     }
@@ -2756,11 +2815,12 @@ mod tests {
         // Cognitive 58 + Kanban 8 = 66 (triangle + TEKAMOLO + CausalWitness +
         // episodic basin NOT in Cognitive — entity classes keep their carve);
         // Full 120 + 3×12 triangle + 16 TEKAMOLO facet + 16 CausalWitness facet
-        // + 32 episodic-basin rail + 2×16 Register128 rails = 252 (all additive —
+        // + 32 episodic-basin rail + 2×16 Register128 rails + 3×16 HHTL/NARS/
+        // Moore tenants = 300 (all additive —
         // reserve-don't-reclaim, still ≤ 480, stride unchanged).
         assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 66);
         assert_eq!(ValueSchema::Compressed.tenant_bytes(), 56);
-        assert_eq!(ValueSchema::Full.tenant_bytes(), 252);
+        assert_eq!(ValueSchema::Full.tenant_bytes(), 300);
         for s in [
             ValueSchema::Bootstrap,
             ValueSchema::Cognitive,
@@ -2877,8 +2937,8 @@ mod tests {
             VALUE_TENANTS.len(),
             "Full read-mode materialises every value tenant"
         );
-        assert_eq!(rm.value_schema.tenant_bytes(), 252);
-        // The slab has room (252 ≤ 480) and the choice never grows the stride.
+        assert_eq!(rm.value_schema.tenant_bytes(), 300);
+        // The slab has room (300 ≤ 480) and the choice never grows the stride.
         assert!(rm.value_schema.tenant_bytes() <= VALUE_SLAB_LEN);
         assert!(rm.is_layout_preserving());
     }

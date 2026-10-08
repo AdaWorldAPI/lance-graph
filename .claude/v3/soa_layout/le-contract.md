@@ -319,6 +319,25 @@ reading is trusted in any downstream claim. This is the statistical
 mirror of the field-isolation matrix: layout tests prove bytes don't
 move; jc pillars prove the READING preserves the semantics.
 
+### §3c Non-facet value tenants: Moore lanes (2026-10-08)
+
+Not every value tenant is a 4+12 facet. Register0/1 carry no classid, and
+the three Moore tenants (`Nars16x8`, `MoorePalettePairs`, `MooreNars16`,
+ordinals 18–20) are eight lanes each, one per Moore slot in canonical order
+`NW,N,NE,W,E,SW,S,SE`. Their LE contract is the descriptor itself:
+
+- `Nars16x8` and `MooreNars16` are `ColumnKind::U16 × 8`, little-endian.
+- `MoorePalettePairs` is `ColumnKind::U8 × 16`: byte `2i` is the first
+  Palette256 operand and `2i+1` the second. It is two bytes, not a `u16`.
+- Offsets are only in `VALUE_TENANTS`; consumers use
+  `ValueTenant::value_offset()` (and `moore_tenant::MooreTenantView`), never
+  a literal.
+
+The physical layout is RATIFIED. The MooreNars16 field reading is CANDIDATE
+and is a different reading from the CE64 register it lifts: direction is
+`(slot, polarity)`, not the S/P/O sign triple, and the witness is
+tenant-scoped. See `tenants.md` §2 rows 18–20.
+
 ## §4 Relation to the CANON node and the envelope
 
 - The CANON node (`CLAUDE.md` § Minimal SoA node, locked 2026-06-13)

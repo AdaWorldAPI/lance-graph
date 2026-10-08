@@ -1,4 +1,4 @@
-# Tenant Lanes — the value-slab catalogue (code ground truth 2026-07-02, refreshed 2026-08-22)
+# Tenant Lanes — the value-slab catalogue (code ground truth 2026-07-02, refreshed 2026-10-08)
 
 > READ BY: v3-envelope-auditor (mandatory), anyone reading/writing a tenant
 > lane, adding a ValueSchema, or wiring a consumer. Byte atom + payload
@@ -33,7 +33,7 @@
 every downstream tenant offset. Every tenant below carries its OWN LE
 contract nested in the envelope's (le-contract.md §3b).
 
-## §2 The 16 value tenants (`ValueTenant`, canonical_node.rs:828-943; `VALUE_TENANTS`, canonical_node.rs:935-1105)
+## §2 The 21 value tenants (`ValueTenant` + `VALUE_TENANTS` in canonical_node.rs)
 
 Discriminant = FieldMask bit = VALUE_TENANTS index (compile-asserted).
 Offsets are FULL-ROW; subtract 32 for slab-relative.
@@ -56,9 +56,21 @@ Offsets are FULL-ROW; subtract 32 for slab-relative.
 | 13 | Tekamolo | U8 × 16 | 16 B | [188,204) | TEKAMOLO facet lane — 16 B content-blind V3 4+12 facet (`classid(4) + 6×(u8:u8)`), read G4D3 as `temporal · kausal · modal · lokal` (when/why/how/where circumstance-frame). All-zero = unaddressed |
 | 14 | CausalWitness | U8 × 16 | 16 B | [204,220) | CausalWitness facet lane — 16 B content-blind V3 4+12 facet read as **G24N4** (24 signed i4 loci, a lane shape name, never a `CascadeShape` variant); each nibble is a context pointer (signed ±8 window offset), not a strength. Slots 16..24 reserved-zero. **Status: EXPERIMENTAL — not in the operator-locked §3 catalogue** (per its own doc-comment) |
 | 15 | EpisodicBasin | U8 × 32 | 32 B | [220,252) | **D-ACR-6 rail** — a promoted basin as REFERENCES: `subject` u16 · `member_count` u16 · `self_code` 12 B (Cam96 centroid) · `version_from`/`version_to` u64. Members are reached by following `(subject, [from,to))` into the triple stream, never inlined — the fat-concept guard `§3a` names. Width is NOT stored (recomputable through the references) |
+| 16 | Register0 | U8 × 16 | 16 B | [252,268) | **D-LXC-29** 128-bit working register, NO classid in the payload; read as `Register128` only when the slab declares `SlabReading::Register128` (`ResolvedReading::bind_register128` refuses otherwise). All-zero = empty accumulator |
+| 17 | Register1 | U8 × 16 | 16 B | [268,284) | Second independent `Register128` rail, same contract as Register0 |
+| 18 | Nars16x8 | U16 × 8 (LE) | 16 B | [284,300) | One `u16` per Moore slot (`NW,N,NE,W,E,SW,S,SE`). Layout RATIFIED; the `u16` reading is CANDIDATE and NOT declared by this tenant. Never shares bytes or a reading with MooreNars16 |
+| 19 | MoorePalettePairs | U8 × 16 | 16 B | [300,316) | One Palette256 `(u8:u8)` pair per Moore slot: byte `2i` = first operand, `2i+1` = second, addressing a 256×256 law as `(first << 8) \| second` (the #1336 `PairAddress` orientation). Two separate bytes, never one widened `u16` |
+| 20 | MooreNars16 | U16 × 8 (LE) | 16 B | [316,332) | One `MooreNars16` per Moore slot: `Pearl3 \| Energy4 \| Plasticity3 \| Polarity1 \| Epi5` (bits 0..2, 3..6, 7..9, 10, 11..15). Direction = `(slot, polarity)`, never the S/P/O sign triple (`DirectionReading::require_sign_triple` refuses it); one witness for all eight lanes, held by the owner, not in these bytes (`MooreTenantMut::lift_ce64` refuses mixed W). Epi5 24..31 reserved. Layout RATIFIED, semantics CANDIDATE |
+
+> **2026-10-08 refresh.** Rows 16–20 added. Register0/Register1 (#1336-era,
+> D-LXC-29) had shipped without a row here — the same drift the 2026-07-28
+> note describes. Tenants 18–20 come with `moore_tenant.rs` (slot order,
+> zero-copy lane access through `value_offset()`, the MooreNars16 reading
+> and its refusals). The BoardAggregates reservation re-bases to **21**.
+> Full now spans `[32,332)`: 300 B of 480, 180 B headroom.
 
 `ValueSchema::Full`'s `field_mask()` (canonical_node.rs:1132-1162, as read
-2026-07-28) lists all 15 tenants 0–14 (Meta … `CausalWitness`), spanning row
+2026-07-28) lists all 15 tenants 0–14 (Meta … `CausalWitness`) as of 2026-07-28, spanning row
 range `[32,220)` — 188 B of the 480-byte value slab consumed (`220 − 32`;
 `VALUE_SLAB_ROW_OFFSET = 32`, §1) — **292 B headroom, RESERVE-DON'T-RECLAIM**
 (compile-asserted ≤ 480, canonical_node.rs:1197).
@@ -85,7 +97,7 @@ range `[32,220)` — 188 B of the 480-byte value slab consumed (`220 − 32`;
 | Bootstrap = 0 (default) | none (FieldMask::EMPTY) | zero-fallback ladder |
 | Cognitive = 1 | Meta, Qualia, Fingerprint, Energy, Plasticity, EntityType, Kanban (7) | thinking rows |
 | Compressed = 2 | Fingerprint, HelixResidue, TurbovecResidue, EntityType (4) | baked/search rows (q2 bakes) |
-| Full = 3 | all 15 tenants 0–14 (Meta … `CausalWitness`) | superset; count compile-asserted `== VALUE_TENANTS.len()` |
+| Full = 3 | all 21 tenants 0–20 (Meta … `MooreNars16`) | superset; count compile-asserted `== VALUE_TENANTS.len()`. Tenants 15–20 are in Full only |
 
 ## §4 The classid → tenant resolution (ReadMode registry)
 

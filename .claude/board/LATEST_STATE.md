@@ -1,3 +1,7 @@
+## 2026-10-08 — HHTL / NARS / Moore value tenants on branch `ccr-b2e415d9-4jfvyk-tenants` (unmerged)
+
+- Contract delta (additive): `ValueTenant::{Nars16x8 = 18, MoorePalettePairs = 19, MooreNars16 = 20}` at row [284,332), in `ValueSchema::Full` only; new module `contract::moore_tenant::{MooreSlot, MooreNars16, DirectionReading, DirectionRefusal, MooreRefusal, MooreTenantView, MooreTenantMut}`. BoardAggregates reservation re-based to 21. Entry: `entries/2026-10-08-hhtl-nars-moore-value-tenants.md`.
+
 ## 2026-10-08 — RBAC hot-plug socket on branch `ccr-0455e606-wmtsor` (unmerged)
 
 - Contract delta (additive): new module `contract::rbac_plug::{RbacPlug, RbacAuthority, RbacBinding, RbacDrift, ActorSource, PluggedRbac, verify_concepts_against_mirror}`. Entry: `entries/2026-10-08-rbac-hotplug-socket.md`.
