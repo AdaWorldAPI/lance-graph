@@ -383,15 +383,18 @@ pub fn smtp_duplicates(v: &View<'_>) -> Vec<Violation> {
 }
 
 /// The one-address-space and routing rules (OGAR `AddressConflict`,
-/// `RoutingNotInProxies`, `RoutingMismatch`), over the users of a version.
+/// `RoutingNotInProxies`, `RoutingMismatch`), over the users and groups of a
+/// version.
 ///
 /// Rows `(key, holder, role)`: UPN, primary and secondary SMTP and the
 /// routing address of address owners (enabled, or a live mail recipient),
-/// and `mail` of every user — a `mail` on another object conflicts even when
-/// that object is disabled and no recipient. A key is an `AddressConflict`
-/// when two of its holders collide across attributes: a pair that already
-/// collides as SMTP (`DuplicateSmtp`) or as UPN (`DuplicateUpn`) is not
-/// reported twice.
+/// `mail` of every user — a `mail` on another object conflicts even when
+/// that object is disabled and no recipient — and the primary SMTP address
+/// of every live group. A key is an `AddressConflict` when two of its holders
+/// collide across attributes: a pair of users that already collides as SMTP
+/// (`DuplicateSmtp`) or as UPN (`DuplicateUpn`) is not reported twice. A
+/// collision with a group is always an `AddressConflict`: `DuplicateSmtp`
+/// counts users only.
 ///
 /// A live remote mailbox's routing address must be
 /// `{alias}@{tenant}.mail.onmicrosoft.com` for its own `mailNickname`
@@ -414,9 +417,15 @@ pub fn address_rules(v: &View<'_>) -> Vec<Violation> {
             .chunk_by(|a, b| a.1 == b.1)
             .map(|h| {
                 let has = |f: fn(AddressRole) -> bool| h.iter().any(|r| f(r.2));
+                // `smtp_duplicates` counts users' SMTP proxies only, so a
+                // group's SMTP never counts as "already reported there": a
+                // collision with a group is an AddressConflict here.
+                let user = v.group_ordinal(&h[0].1).is_none();
                 (
                     h[0].1,
-                    has(|r| matches!(r, AddressRole::PrimarySmtp | AddressRole::SecondarySmtp)),
+                    user && has(|r| {
+                        matches!(r, AddressRole::PrimarySmtp | AddressRole::SecondarySmtp)
+                    }),
                     has(|r| r == AddressRole::Upn),
                 )
             })
@@ -442,7 +451,7 @@ pub fn address_rules(v: &View<'_>) -> Vec<Violation> {
 /// The single directory object that holds `key` in the one address space
 /// [`address_rules`] checks, read from the same rows: `mail` of every user;
 /// UPN, primary and secondary SMTP and the routing address of address
-/// owners.
+/// owners; the primary SMTP address of every live group.
 ///
 /// - `Ok(None)`: no live directory object holds the key.
 /// - `Ok(Some(owner))`: exactly one does, under one or more roles (a user
@@ -544,6 +553,20 @@ fn address_rows(v: &View<'_>, out: &mut Vec<Violation>) -> Vec<(u32, Guid128, Ad
         let alias = if i < n { p.alias_key[i] } else { NONE };
         if alias != NONE && v.dicts.routing_alias(routing) != Some(KeyId(alias)) {
             out.push(Violation::RoutingMismatch { node: g });
+        }
+    }
+    // A mail-enabled group's primary SMTP address is in the same space: a
+    // group is a recipient too (a distribution list), and Exchange refuses
+    // an address another object holds, whatever kind that object is.
+    for i in 0..v.groups_len() {
+        let Some(g) = v.guid_in(NodeKind::Group, i) else {
+            continue;
+        };
+        if let Some((_, k)) = v
+            .attr_ids((NodeKind::Group, i), Attribute::PrimarySmtp)
+            .filter(|&(_, k)| k != NONE)
+        {
+            rows.push((k, g, AddressRole::PrimarySmtp));
         }
     }
     rows.sort_unstable();

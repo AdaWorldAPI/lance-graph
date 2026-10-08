@@ -235,3 +235,57 @@ fn a_deleted_holder_no_longer_holds_the_address() {
         "the base version is unchanged"
     );
 }
+
+/// A mail-enabled group with its own primary SMTP address.
+fn group(smtp: &str) -> ObservedNode {
+    let mut g = ObservedNode::group();
+    g.primary_smtp = Some(smtp.into());
+    g
+}
+
+const G: u8 = 0x61;
+
+// 9. A group's primary SMTP address is in the one address space: it names the
+// group, so a recipient can be a group (a distribution list), not only a user.
+#[test]
+fn a_group_address_names_the_group() {
+    let (st, v) = observe(vec![(g(A), user_a()), (g(G), group("sales@example.org"))]);
+    assert_eq!(owner(&st, v, "sales@example.org"), Ok(Some(g(G))));
+    // The user's own address is untouched.
+    assert_eq!(owner(&st, v, MAIL), Ok(Some(g(A))));
+    assert!(validate(&st.view(v).unwrap()).is_empty());
+}
+
+// 10. A group and a user cannot share an address: Exchange refuses it, so the
+// recipient is ambiguous and the version is invalid. Without groups in the
+// address space this collision was silent.
+#[test]
+fn a_group_and_a_user_sharing_an_address_conflict() {
+    let (st, v) = observe(vec![(g(B), user_b()), (g(G), group("b@example.org"))]);
+    let Err(Violation::AddressConflict { holders, .. }) = owner(&st, v, "b@example.org") else {
+        panic!("a shared address must be a conflict");
+    };
+    assert!(holders.contains(&(g(B), AddressRole::PrimarySmtp)));
+    assert!(holders.contains(&(g(G), AddressRole::PrimarySmtp)));
+    let key = recipient_key(&st, "b@example.org").unwrap();
+    assert!(
+        validate(&st.view(v).unwrap())
+            .iter()
+            .any(|x| matches!(x, Violation::AddressConflict { key: k, .. } if *k == key)),
+        "validate must report the user/group collision"
+    );
+}
+
+// 11. Two groups cannot share an address either.
+#[test]
+fn two_groups_sharing_an_address_conflict() {
+    let (st, v) = observe(vec![
+        (g(G), group("team@example.org")),
+        (g(0x62), group("team@example.org")),
+    ]);
+    assert!(matches!(
+        owner(&st, v, "team@example.org"),
+        Err(Violation::AddressConflict { .. })
+    ));
+    assert!(!validate(&st.view(v).unwrap()).is_empty());
+}
