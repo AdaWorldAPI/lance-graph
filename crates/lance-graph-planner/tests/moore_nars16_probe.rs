@@ -19,7 +19,10 @@
 //!   it to compute anything (`forward` copies the weight's, `syllogize` writes
 //!   0, `learn` never reads it). A Moore tenant declares a DIFFERENT reading:
 //!   lane geometry (the slot) x a polarity bit. A consumer of the sign triple
-//!   (Simpson detection, `network.rs`) must refuse the Moore reading.
+//!   must refuse the Moore reading. The production consumer,
+//!   `CausalNetwork::detect_simpsons_paradox`, takes bare edges and CANNOT
+//!   refuse today: it silently reports "no pattern" (pinned below). The
+//!   refusal here is the contract a tagged boundary would have to provide.
 //! - **Witness6** is lifted to the tenant: one W for all eight lanes. That is
 //!   valid only if two lanes of one tenant never need different W at once;
 //!   the projection refuses a tenant whose lanes disagree.
@@ -38,6 +41,8 @@
 //! operation.
 
 use causal_edge::edge::CausalEdge64;
+use causal_edge::network::CausalNetwork;
+use causal_edge::tables::NarsTables;
 use lance_graph_contract::epistemic_state5::{Epi5Gen, EpistemicState5};
 
 // ─── CE64 field geometry (v2 layout) ────────────────────────────────────
@@ -186,9 +191,11 @@ enum Refusal {
     },
 }
 
-/// A sign-triple consumer (Simpson's pattern S and O pathological, P not,
-/// as `CausalNetwork::detect_simpsons_paradox` reads it). It must refuse a
-/// Moore reading: there is no sign triple to read.
+/// The required behaviour of a sign-triple consumer behind a tagged boundary
+/// (Simpson's pattern S and O pathological, P not, as
+/// `CausalNetwork::detect_simpsons_paradox` reads it): refuse a Moore
+/// reading, which has no sign triple. Probe-local; the production detector
+/// does not see the tag (see the test after this one).
 #[derive(Debug, PartialEq, Eq)]
 struct ReadingMismatch;
 
@@ -678,6 +685,47 @@ fn sign_triple_consumers_refuse_the_moore_reading() {
         ..moore
     };
     assert_eq!(simpson_pattern(untagged), Ok(false));
+}
+
+/// MEASURED GAP (pinned): the production sign-triple consumer cannot refuse.
+/// `CausalNetwork::detect_simpsons_paradox` reads bare edges, so a
+/// Moore-reconstructed edge (sign triple zeroed) is reported as "no pattern"
+/// rather than refused. A Moore resident path must not reach this detector
+/// until it takes a tagged operand.
+///
+/// FAILS IF: the detector starts refusing or flagging the Moore edge (then
+/// flip this test and say which boundary does it).
+#[test]
+fn the_production_simpson_detector_cannot_refuse_a_moore_edge() {
+    let mut r = Rng(0x52);
+    let (mut edges, polarity, _) = tenant_fixture(&mut r);
+    edges[2].set_direction(0b101);
+    edges[2].set_confidence_u8(200); // the detector skips c < 0.5
+    let tenant = MooreTenant::project(edges, polarity, Mutation::None).unwrap();
+    let detect = |edge: CausalEdge64| {
+        let zeros = || Box::new([0u8; 256 * 256]);
+        let dz = || Box::new([0u16; 256 * 256]);
+        CausalNetwork {
+            edges: vec![edge],
+            row_ptr: vec![],
+            col_idx: vec![],
+            edge_idx: vec![],
+            compose_s: zeros(),
+            compose_p: zeros(),
+            compose_o: zeros(),
+            dist_s: dz(),
+            dist_p: dz(),
+            dist_o: dz(),
+            nars_tables: NarsTables::build(1),
+            current_time: 0,
+        }
+        .detect_simpsons_paradox()
+        .len()
+    };
+    // Can-fire: the canonical edge is flagged.
+    assert_eq!(detect(edges[2]), 1);
+    // The Moore edge is silently not flagged; nothing refuses it.
+    assert_eq!(detect(tenant.operand(2).edge), 0);
 }
 
 // ─── F: Witness ownership scope ─────────────────────────────────────────

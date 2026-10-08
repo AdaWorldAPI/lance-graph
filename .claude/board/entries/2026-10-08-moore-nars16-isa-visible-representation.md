@@ -1,7 +1,7 @@
 # 2026-10-08 — MooreNars16: a Moore-local representation of ISA-visible CE64 state
 
 **Status:** MEASURED, TEST-PINNED
-(`crates/lance-graph-planner/tests/moore_nars16_probe.rs`, 14 tests;
+(`crates/lance-graph-planner/tests/moore_nars16_probe.rs`, 15 tests;
 `cargo test -p lance-graph-planner --test moore_nars16_probe`). Probe only:
 no CE64 layout, operation or production path changes.
 
@@ -36,9 +36,12 @@ Direction3 sign triple.
   writing polarity over plasticity bit 0 each produces divergence.
 - **Direction, three ways.** The 8 slots denote 8 distinct neighbours and a
   rotated slot table is detected. Polarity swaps from/to without changing the
-  slot or anything `learn` sees. A sign-triple consumer (Simpson's pattern,
-  as `CausalNetwork::detect_simpsons_paradox` reads it) refuses the Moore
-  reading. Untagged, it would have silently reported "no pattern".
+  slot or anything `learn` sees. A probe-local sign-triple consumer refuses
+  the Moore reading. The PRODUCTION consumer,
+  `CausalNetwork::detect_simpsons_paradox`, cannot: it takes bare edges and
+  silently reports "no pattern" for a Moore edge (pinned; Codex review on
+  #1406). A Moore resident path must not reach it until it takes a tagged
+  operand.
 - **Witness scope.** A tenant whose lanes carry different W is refused at
   projection; a uniform W is restored on every lane.
 - **Epi5.** Reserved codes 24..31 are refused at projection, decided by the
