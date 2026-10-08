@@ -21,7 +21,7 @@ Board entry: `entries/2026-10-08-mexhat-bucket-cascade-probe.md`. Popcount stack
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-MHB-1** | Mexican-hat response: direct geometry (D), ring buckets (E), bit-sliced weight planes (F), per-row choice (G), mask-risc lane (B), exact-bound early exit (H) | Shipped (probe; R-MHB-1 proposed) | D = F = G = B = full scan asserted on every centre; H equals the full decision on every query; one zero crossing, one minimum, symmetry; dropping the unvisited-row bound decides 52 / 512 wrongly |
+| **D-MHB-1** | Mexican-hat response: direct geometry (D), ring buckets (E), bit-sliced weight planes (F), per-row choice (G), mask-risc lane (B), exact-bound early exit (H) | Shipped (probe; R-MHB-1 OPEN: blocked on a 2-D window operand mask-risc's IR lacks, and F alone would bring back the 2.5× worst case Q removes) | D = F = G = B = full scan asserted on every centre; H equals the full decision on every query; one zero crossing, one minimum, symmetry; dropping the unvisited-row bound decides 52 / 512 wrongly |
 | **D-MHB-2** | Per-query D/F choice from the exact window count (Q); early exit over D rows (HD) and after a per-query choice (HQ) | Shipped (probe; Q proposed with R-MHB-1) | Q = D for cuts 0, 100, ∞ on every centre; HD/HQ decide as H after the same rows; a D row dropping one cell fails Q. Entry: `entries/2026-10-08-mexhat-df-choice.md` |
 
 ## D-RPF — Mask × fold over projections of resident bytes (2026-10-08)
