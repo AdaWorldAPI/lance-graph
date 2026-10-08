@@ -1,6 +1,6 @@
 # 2026-10-08 — D-MOORE-NARS-0: on Gomoku, reasoning consequences teach recipe choice, through structure, not boards
 
-**Status:** TEST-PINNED (`crates/cognitive-shader-driver/examples/moore_nars_gomoku_probe.rs`, `test = true`, 6 tests: 5 structural + 1 learning falsifier, ~35 s debug). MEASURED (`cargo run --release -p cognitive-shader-driver --example moore_nars_gomoku_probe`, 427 s; 9×9 five-in-a-row, seeded openings, 3 seeds pooled).
+**Status:** TEST-PINNED (`crates/cognitive-shader-driver/examples/moore_nars_gomoku_probe.rs`, `test = true`, 7 tests: 6 structural + 1 learning falsifier, ~35 s debug). MEASURED (`cargo run --release -p cognitive-shader-driver --example moore_nars_gomoku_probe`, 427 s; 9×9 five-in-a-row, seeded openings, 3 seeds pooled). Re-measured after the review fixes (horizon in learner turns, frozen runs leave fold costs alone, immediate credit keeps its own reading at game end): only the h=3 arm moved, 0.495 → 0.496.
 
 ## SCOPE
 
@@ -49,7 +49,7 @@ Each figure is a score: win = 1, draw = 0.5. Unless a window or seeds are named,
 | reset every game | ~0.47 | flat |
 | literal board memory | ~0.49 | memory hits 0.3–3.5% |
 | immediate credit (before the opponent answers) | ~0.50 | stays on HPM 98–99% |
-| credit 3 turns later (W h=3) | 0.495 | |
+| credit 3 turns later (W h=3) | 0.496 | horizon counted in learner turns (review fix) |
 | contradiction only | ~0.47 | |
 | final win/loss only | 0.46 → 0.49 | |
 | cost-blind | 0.534 | 448 folds/step vs 290 |
