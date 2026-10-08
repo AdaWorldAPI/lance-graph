@@ -6,7 +6,8 @@ defines what that operation means.
 Code: `crates/causal-edge/src/isa.rs` (new), `edge.rs`, `syllogism.rs`,
 `network.rs`. Tests: `crates/causal-edge/tests/ce64_isa_contract.rs`,
 `ce64_isa_golden.rs` (+ `ce64_legacy_capture.txt`), `ce64_op_contract.rs`;
-`crates/lance-graph-planner/tests/gadamer_isa_revision.rs`.
+`crates/lance-graph-planner/tests/gadamer_isa_revision.rs`; the MooreNars16
+probe (#1406) now compares `Result`s and draws executable inference codes.
 
 ## What changed
 
@@ -90,5 +91,3 @@ learn clears W (4) · revision clears Epi5 (1) · diverging revision formula
 - `syllogize` chooses the rule from the figure (a choice) and computes it.
 - Planner truth copies outside the CE64 register (`TruthValue`,
   `nars_infer`, `NarsTables`) still differ; out of scope.
-- **#1406 merge**: its probe calls `forward` as infallible and needs a
-  `.unwrap()` once both land.
