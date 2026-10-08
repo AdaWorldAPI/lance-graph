@@ -30,6 +30,7 @@ exactly one of them, never both.
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-08 | `register128-signed-readings` |  | [2026-10-08-register128-signed-readings.md](2026-10-08-register128-signed-readings.md) |
+| 2026-10-08 | `D-ART-2` |  | [2026-10-08-recipe-probe-phaselut-foldcost.md](2026-10-08-recipe-probe-phaselut-foldcost.md) |
 | 2026-10-08 | `rbac-nested-scope-path` |  | [2026-10-08-rbac-nested-scope-path.md](2026-10-08-rbac-nested-scope-path.md) |
 | 2026-10-08 | `rbac-membership-scope` |  | [2026-10-08-rbac-membership-scope.md](2026-10-08-rbac-membership-scope.md) |
 | 2026-10-08 | `rbac-hotplug-socket` |  | [2026-10-08-rbac-hotplug-socket.md](2026-10-08-rbac-hotplug-socket.md) |

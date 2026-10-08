@@ -15,11 +15,13 @@
 #   ogar-adapter-surrealql          = DEPRECATED, feature `surrealql-parser` only
 #
 # Auto-activation = Cargo presence: a build graph that pulls THIS crate gets the
-# real OGAR Class/ClassView/codebook + the parity-guard (lib.rs): a COMPILE-TIME
-# length fuse (`const _` assert that the mirror and `ogar_vocab::class_ids::ALL`
-# have equal count — fires in ANY build, `cargo build` included) plus a runtime
-# `parity::assert_codebook_parity()` for the full id/domain bijection (call it at
-# consumer startup; also asserted by this crate's tests = the CI gate). A build
+# real OGAR Class/ClassView/codebook + the parity-guard (lib.rs):
+# `parity::assert_codebook_parity()`, the full id/domain bijection between the
+# mirror and `ogar_vocab::class_ids::ALL` (call it at consumer startup; also
+# asserted by this crate's tests = the CI gate). The compile-time length fuse
+# (`COUNT_FUSE`) this comment used to describe was removed 2026-08-14: it fired
+# in every CONSUMER's build for concepts the consumer did not use (lib.rs,
+# `parity` module docs); the bijection test checks strictly more. A build
 # WITHOUT this crate uses the contract's zero-dep mirror + the bare ClassView
 # trait. OGAR never depends on the lance-graph ENGINE — only the zero-dep contract.
 #
@@ -80,8 +82,9 @@ serde = ["ogar-vocab/serde", "ogar-adapter-surrealql?/serde"]
 # canonical in-repo source (same as lance-graph / symbiont); the [patch] below
 # folds ogar-class-view's transitive git contract onto it = ONE source.
 # THIS crate is the armed tier (workspace-EXCLUDED, so its ogar-vocab path
-# dep cannot break workspace load in CI): it owns the COUNT_FUSE + per-entry
-# mirror parity + the authoritative-table roundtrip green light. The contract
+# dep cannot break workspace load in CI): it owns the per-entry mirror parity
+# + the authoritative-table roundtrip green light (the COUNT_FUSE it once also
+# owned was removed 2026-08-14). The contract
 # stays strictly zero-dep.
 lance-graph-contract = { path = "../lance-graph-contract" }
 
