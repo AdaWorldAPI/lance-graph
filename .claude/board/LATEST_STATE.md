@@ -1,3 +1,7 @@
+## 2026-10-08 — rbac membership-scoped authorization on branch `ccr-0455e606-wmtsor` (unmerged)
+
+- Contract delta (additive): `contract::rbac::{ScopeSet, Membership, is_access_control_class}`, `ScopeSpec::covers`, defaulted `ClassRbac::memberships`. `lance-graph-rbac::authorize::{authorize_memberships, MembershipDecision}`; `authorize_scoped` unchanged. Entry: `entries/2026-10-08-rbac-membership-scope.md`.
+
 ## 2026-10-08 — rbac nested scope, lance-graph #1401 MERGED (`ecbc396e`)
 
 - Contract delta: `contract::rbac::{ScopePath, SCOPE_PATH_DEPTH}`; `ScopeSpec` gains `path` and `admits`; `intersect` folds paths (narrower wins, branches deny). (#1401 also added an auth provider profile and its mirror row; both removed in the follow-up PR.) Entry: `entries/2026-10-08-rbac-nested-scope-path.md`.
