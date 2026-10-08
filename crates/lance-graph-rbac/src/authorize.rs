@@ -251,12 +251,12 @@ mod scoped_tests {
                 "role_a" => Some(ScopeSpec {
                     tenant: Some(7),
                     predicate_key: 0,
-                    deny: false,
+                    ..ScopeSpec::default()
                 }),
                 "role_b" => Some(ScopeSpec {
                     tenant: None,
                     predicate_key: 2,
-                    deny: false,
+                    ..ScopeSpec::default()
                 }),
                 _ => None,
             }
@@ -279,12 +279,12 @@ mod scoped_tests {
         let expected_scope = ScopeSpec {
             tenant: Some(7),
             predicate_key: 0,
-            deny: false,
+            ..ScopeSpec::default()
         }
         .intersect(ScopeSpec {
             tenant: None,
             predicate_key: 2,
-            deny: false,
+            ..ScopeSpec::default()
         });
         assert_eq!(d.scope, Some(expected_scope));
         assert_eq!(d.scope.unwrap().tenant, Some(7));
