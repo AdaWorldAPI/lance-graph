@@ -60,7 +60,7 @@ All equal the oracle.
 ### 2. Guards, 36,000 random (concept, chain, terminal) cases
 
 - m ∈ {2, 3, 4, 5, 8, 16, 256}; chains of 0–4 rotations, signed scales, exact zero scales, translations and general linear maps.
-- All equal the oracle within 1e-9 of the compared values plus an absolute floor of 1e-13 of the case's Σ|p|² (for results that cancel to zero).
+- All equal the oracle within 1e-9 of the compared values plus an absolute floor of 1e-13 of the case's Σ|p|² + m (for results that cancel to zero).
 - A translation applied after a zero scale survives it: `S(0) · T(5, −3)` has centroid (5, −3).
 
 | recipe | cases | trig/case | oracle trig/case | exactness |

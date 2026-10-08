@@ -878,7 +878,7 @@ fn guards() {
         }
     }
     println!(
-        "  {checked} (concept, chain, terminal) cases equal the oracle (rel. 1e-9 of the values + 1e-13 of Σ|p|²)"
+        "  {checked} (concept, chain, terminal) cases equal the oracle (rel. 1e-9 of the values + 1e-13 of Σ|p|² + m)"
     );
     // A translation applied after a zero scale survives it.
     let z = [Xf::Scale(0.0), Xf::Translate(5.0, -3.0)];
