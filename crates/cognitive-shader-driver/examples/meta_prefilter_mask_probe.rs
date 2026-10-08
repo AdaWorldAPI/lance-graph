@@ -30,9 +30,18 @@ struct Field {
 
 const THINKING: Field = Field { shift: 0, width: 6 };
 const AWARENESS: Field = Field { shift: 6, width: 4 };
-const NARS_F: Field = Field { shift: 10, width: 8 };
-const NARS_C: Field = Field { shift: 18, width: 8 };
-const FREE_E: Field = Field { shift: 26, width: 6 };
+const NARS_F: Field = Field {
+    shift: 10,
+    width: 8,
+};
+const NARS_C: Field = Field {
+    shift: 18,
+    width: 8,
+};
+const FREE_E: Field = Field {
+    shift: 26,
+    width: 6,
+};
 
 impl Field {
     fn care_from(self, bit: u32) -> u32 {
@@ -96,7 +105,11 @@ pub fn meta_filter_mask(values: &[u32], win: ColumnWindow, f: &MetaFilter) -> Ve
         let full = (1u32 << field.width) - 1;
         let vacuous = if at_least { k == 0 } else { k >= full };
         if !vacuous {
-            apply_clause(values, &threshold_patterns(field, k, at_least), &mut running);
+            apply_clause(
+                values,
+                &threshold_patterns(field, k, at_least),
+                &mut running,
+            );
         }
     }
     running
