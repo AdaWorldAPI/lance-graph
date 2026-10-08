@@ -310,7 +310,9 @@ struct Canon {
     scale: f64,
     /// Valid when `class == Affine`.
     lin: [f64; 4],
-    /// `(tx, ty, rot_at, scale_at)` while a similarity.
+    /// `(tx, ty, rot_at, k)` while a similarity: `k` is the product of the
+    /// scales applied after the translation, kept per entry so a zero scale
+    /// zeroes only the translations it follows.
     lazy_t: Vec<(f64, f64, u32, f64)>,
     /// Valid when `class == Affine`.
     t: (f64, f64),
@@ -389,9 +391,12 @@ impl Canon {
                     self.rewrites += 1;
                 }
                 self.scale *= s.abs();
+                for e in &mut self.lazy_t {
+                    e.3 *= s.abs();
+                }
                 self.class = self.class.max(XfK::Similarity);
             }
-            Xf::Translate(a, b) => self.lazy_t.push((a, b, self.rot, self.scale)),
+            Xf::Translate(a, b) => self.lazy_t.push((a, b, self.rot, 1.0)),
             Xf::Linear(m) => {
                 // Leave the similarity form: materialise L and t once.
                 self.lin = rot_mat(self.rot, self.scale);
@@ -420,12 +425,11 @@ impl Canon {
         }
     }
 
-    /// `Σ (s/s_i) R(rot − rot_i) t_i`; a term with no relative rotation costs
+    /// `Σ k_i R(rot − rot_i) t_i`; a term with no relative rotation costs
     /// no trigonometry.
     fn lazy_translation(&self) -> (f64, f64) {
         let mut t = (0.0, 0.0);
-        for &(a, b, r, s) in &self.lazy_t {
-            let k = if s == 0.0 { 0.0 } else { self.scale / s };
+        for &(a, b, r, k) in &self.lazy_t {
             let v = mat_vec(rot_mat(self.rot.wrapping_sub(r), k), (a, b));
             t = (t.0 + v.0, t.1 + v.1);
         }
@@ -550,6 +554,14 @@ fn oracle(s: &Regular, chain: &[Xf], t: &Term) -> Answer {
         })
         .collect();
     eval_points(&pts, t)
+}
+
+/// The case's magnitude for [`close`].
+fn magnitude(s: &Regular, chain: &[Xf]) -> f64 {
+    match oracle(s, chain, &Term::SumSqOrigin) {
+        Answer::Num(v) => v + s.m as f64,
+        _ => unreachable!(),
+    }
 }
 
 fn eval_points(pts: &[(f64, f64)], t: &Term) -> Answer {
@@ -709,13 +721,14 @@ fn plan_eval(
     )
 }
 
-fn close(a: Answer, b: Answer, scale: f64) -> bool {
-    let tol = 1e-9 * scale.max(1.0);
+/// Relative `1e-9` of the compared values, plus an absolute floor of `1e-13`
+/// of the case's magnitude `Σ|p|² + m` so results that cancel to zero are
+/// judged against the size of the terms that cancelled.
+fn close(a: Answer, b: Answer, mag: f64) -> bool {
+    let ok = |x: f64, y: f64| (x - y).abs() <= 1e-9 * x.abs().max(y.abs()) + 1e-13 * mag;
     match (a, b) {
-        (Answer::Num(x), Answer::Num(y)) => (x - y).abs() <= tol,
-        (Answer::Pt(x0, y0), Answer::Pt(x1, y1)) => {
-            (x0 - x1).abs() <= tol && (y0 - y1).abs() <= tol
-        }
+        (Answer::Num(x), Answer::Num(y)) => ok(x, y),
+        (Answer::Pt(x0, y0), Answer::Pt(x1, y1)) => ok(x0, x1) && ok(y0, y1),
         (Answer::Bool(x), Answer::Bool(y)) => x == y,
         _ => false,
     }
@@ -764,7 +777,7 @@ fn wankel_table() {
         let o0 = trig();
         let o = oracle(&w, &chain, &t);
         let ot = trig() - o0;
-        let eq = close(a, o, 1e4);
+        let eq = close(a, o, magnitude(&w, &chain));
         assert!(eq, "{name}: recipe {a:?} vs oracle {o:?}");
         println!(
             "  {:<26} {:<15} {:<15} {:>5} {:>7} {:>6}   {ot} / 3",
@@ -779,7 +792,11 @@ fn wankel_table() {
     // Untranslated: Σ|z|² = 3 s²(R² + e²) needs no phase at all.
     let chain2 = [Xf::Rotate(0x1111_1111), Xf::Scale(-1.5)];
     let (a, p) = plan_eval(&w, &chain2, &Term::SumSqOrigin, &mut perms);
-    assert!(close(a, oracle(&w, &chain2, &Term::SumSqOrigin), 1e4));
+    assert!(close(
+        a,
+        oracle(&w, &chain2, &Term::SumSqOrigin),
+        magnitude(&w, &chain2)
+    ));
     assert_eq!(p.trig, 0, "untranslated Σ|z|² must be phase-free");
     println!(
         "  D' Σ|z|² under R·S(−1.5), no translation: {:?} with {} trig = 3·s²(R²+e²) = {:.3}",
@@ -814,9 +831,10 @@ fn guards() {
         };
         let n = rng.below(5) as usize;
         let chain: Vec<Xf> = (0..n)
-            .map(|_| match rng.below(4) {
+            .map(|_| match rng.below(5) {
                 0 => Xf::Rotate(rng.next() as u32),
                 1 => Xf::Scale(rng.range(-2.0, 2.0)),
+                4 => Xf::Scale(0.0),
                 2 => Xf::Translate(rng.range(-30.0, 30.0), rng.range(-30.0, 30.0)),
                 _ => Xf::Linear([
                     rng.range(-2.0, 2.0),
@@ -841,13 +859,14 @@ fn guards() {
                 rng.range(1.0, 100.0),
             ),
         ];
+        let mag = magnitude(&s, &chain);
         for t in terms {
             let (a, p) = plan_eval(&s, &chain, &t, &mut perms);
             let o0 = trig();
             let o = oracle(&s, &chain, &t);
             let ot = trig() - o0;
             assert!(
-                close(a, o, 1e6),
+                close(a, o, mag),
                 "case {case}: m {m} {chain:?} {t:?}: {:?} gave {a:?}, oracle {o:?}",
                 p.rid
             );
@@ -858,7 +877,21 @@ fn guards() {
             checked += 1;
         }
     }
-    println!("  {checked} (concept, chain, terminal) cases equal the oracle (rel. 1e-9)");
+    println!(
+        "  {checked} (concept, chain, terminal) cases equal the oracle (rel. 1e-9 of the values + 1e-13 of Σ|p|²)"
+    );
+    // A translation applied after a zero scale survives it.
+    let z = [Xf::Scale(0.0), Xf::Translate(5.0, -3.0)];
+    let w0 = Regular {
+        m: 3,
+        r: 100.0,
+        phase: 0x1234_5678,
+        center: Center::Wankel { e: 14.0 },
+    };
+    let (a, _) = plan_eval(&w0, &z, &Term::Centroid, &mut perms);
+    assert_eq!(a, Answer::Pt(5.0, -3.0));
+    assert_eq!(oracle(&w0, &z, &Term::Centroid), Answer::Pt(5.0, -3.0));
+    println!("  S(0) · T(5, −3): centroid (5, −3) by recipe and oracle");
     let mut rows: Vec<_> = by_rid.into_iter().collect();
     rows.sort_by_key(|r| format!("{:?}", r.0));
     for (rid, (n, tr, ot)) in rows {
@@ -1364,14 +1397,23 @@ fn quantiles() {
         let sweep = 200_003u32;
         for i in 0..sweep {
             let phase = (u64::from(i) * (1u64 << 32) / u64::from(sweep)) as u32;
-            for rank in 0..m.min(16) {
-                let it = Inst {
-                    c: 7.0,
-                    r: 100.0,
-                    phase,
-                    rank: rank * (m / m.min(16)),
-                };
-                let o = arm_a(m, wankel, &it, &mut buf);
+            // The oracle sorts all m projections once; every rank is checked.
+            let base = Inst {
+                c: 7.0,
+                r: 100.0,
+                phase,
+                rank: 0,
+            };
+            let th = rad(phase);
+            let cx = center(&base);
+            let sorted = &mut buf[..m as usize];
+            for (k, v) in sorted.iter_mut().enumerate() {
+                *v = cx + base.r * (th + TAU * k as f64 / m as f64).cos();
+            }
+            sorted.sort_by(f64::total_cmp);
+            for rank in 0..m {
+                let it = Inst { rank, ..base };
+                let o = buf[rank as usize];
                 if wankel {
                     eb = eb.max((arm_b3(&it) - o).abs());
                 }
@@ -1385,7 +1427,7 @@ fn quantiles() {
             assert!(eb < 1e-9);
         }
         println!(
-            "  m = {m:<3} max |error| on R = 100 ({sweep} phases × ranks):  B {}  C(64 even) {ec:.1e}  C(63 odd) {eco:.1e}  E {ee:.1e}   C table {} B, E table {} B",
+            "  m = {m:<3} max |error| on R = 100 ({sweep} phases × all {m} ranks):  B {}  C(64 even) {ec:.1e}  C(63 odd) {eco:.1e}  E {ee:.1e}   C table {} B, E table {} B",
             if wankel { format!("{eb:.1e}") } else { "—".into() },
             prof.bytes(),
             2 * m as usize * 4
