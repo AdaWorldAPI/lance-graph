@@ -1219,6 +1219,13 @@ fn run(
     out
 }
 
+/// Pool runs window by window.
+fn pool(per: &[Vec<Stats>]) -> Vec<Stats> {
+    (0..per[0].len())
+        .map(|k| total(&per.iter().map(|p| p[k].clone()).collect::<Vec<_>>()))
+        .collect()
+}
+
 fn total(v: &[Stats]) -> Stats {
     let mut t = Stats::default();
     for s in v {
@@ -1310,12 +1317,19 @@ fn main() {
     let episodes = 2000;
     let window = 400;
     println!("\nStage 2-3: learning vs Threat, {episodes} episodes, windows of {window}, pooled over 3 seeds");
-    let arms: [(&str, Cfg); 9] = [
+    let arms: [(&str, Cfg); 10] = [
         ("learned, persistent (base)", BASE),
         (
             "learned, reset every game",
             Cfg {
                 reset_per_game: true,
+                ..BASE
+            },
+        ),
+        (
+            "retained over 3 turns (W h=3)",
+            Cfg {
+                signal: Signal::Retained(3),
                 ..BASE
             },
         ),
@@ -1363,26 +1377,59 @@ fn main() {
         ),
         ("uniform (no learning)", uni),
     ];
-    let mut results = Vec::new();
     for (name, cfg) in arms {
         let per: Vec<Vec<Stats>> = seeds
             .iter()
             .map(|&sd| run(w9, &cfg, &mut Learner::default(), sd, episodes, window))
             .collect();
-        let windows = per[0].len();
-        let pooled: Vec<Stats> = (0..windows)
-            .map(|k| total(&per.iter().map(|p| p[k].clone()).collect::<Vec<_>>()))
-            .collect();
+        let pooled = pool(&per);
         println!("  {name}");
         for (k, s) in pooled.iter().enumerate() {
             line(&format!("  window {k}"), s);
         }
+        let firsts: Vec<String> = per.iter().map(|p| format!("{:.3}", p[0].score())).collect();
+        let lasts: Vec<String> = per
+            .iter()
+            .map(|p| format!("{:.3}", p.last().unwrap().score()))
+            .collect();
+        println!(
+            "    per seed: first [{}]  last [{}]",
+            firsts.join(" "),
+            lasts.join(" ")
+        );
         println!(
             "    recipes (last window): {}",
             dist(pooled.last().unwrap())
         );
-        results.push((name, pooled));
     }
+
+    println!(
+        "\nWhat the base learner prefers, per structural signature (seed 11, {episodes} episodes):"
+    );
+    let mut l = Learner::default();
+    run(w9, &BASE, &mut l, 11, episodes, episodes);
+    let mut prefer = [0usize; NO];
+    let mut confident = 0;
+    for (key, row) in &l.stats {
+        if key >> 40 == 1 {
+            continue;
+        }
+        let k = (0..NO)
+            .max_by(|&a, &b| row[a].expectation().total_cmp(&row[b].expectation()))
+            .unwrap();
+        prefer[k] += 1;
+        confident += usize::from(row[k].pos + row[k].neg >= 3.0);
+    }
+    let shown: Vec<String> = OPS
+        .iter()
+        .zip(prefer)
+        .map(|(o, n)| format!("{}:{n}", o.code()))
+        .collect();
+    println!(
+        "  {} signatures, {confident} with >= 3 evidence on their favourite; favourite counts: {}",
+        prefer.iter().sum::<usize>(),
+        shown.join(" ")
+    );
 
     println!(
         "\nStage 4: transfer. Train base on seeds A, freeze, evaluate on unseen openings / 11x11"
@@ -1420,66 +1467,63 @@ fn main() {
     line("11x11, trained frozen", &gt);
     line("11x11, untrained frozen", &gu);
 
-    println!("\nStage 5: opponent switch Threat -> Aggressor after {episodes} episodes");
-    let wa = World {
-        opp: Opp::Aggressor,
-        ..w9
-    };
-    for (name, cfg) in [
-        ("no decay", BASE),
-        (
-            "decay 0.98",
-            Cfg {
-                decay: 0.98,
-                ..BASE
-            },
-        ),
-    ] {
-        let mut after = Vec::new();
-        for sd in seeds {
-            let mut l = Learner::default();
-            run(w9, &cfg, &mut l, sd, episodes, episodes);
-            after.push(run(wa, &cfg, &mut l, sd + 7, 1000, 250));
+    for (opp, after_n, win_n) in [(Opp::Lookahead, 600, 150), (Opp::Aggressor, 600, 150)] {
+        println!("\nStage 5: opponent switch Threat -> {opp:?} after {episodes} episodes");
+        let wo = World {
+            opp,
+            oracle: false,
+            ..w9
+        };
+        for (name, cfg) in [
+            ("no decay", BASE),
+            (
+                "decay 0.98",
+                Cfg {
+                    decay: 0.98,
+                    ..BASE
+                },
+            ),
+        ] {
+            let mut after = Vec::new();
+            for sd in seeds {
+                let mut l = Learner::default();
+                run(w9, &cfg, &mut l, sd, episodes, episodes);
+                after.push(run(wo, &cfg, &mut l, sd + 7, after_n, win_n));
+            }
+            let pooled = pool(&after);
+            println!("  pretrained, {name}");
+            for (k, s) in pooled.iter().enumerate() {
+                line(&format!("  window {k}"), s);
+                println!("      recipes: {}", dist(s));
+            }
         }
-        let pooled: Vec<Stats> = (0..after[0].len())
-            .map(|k| total(&after.iter().map(|p| p[k].clone()).collect::<Vec<_>>()))
+        let fresh: Vec<Vec<Stats>> = seeds
+            .iter()
+            .map(|&sd| run(wo, &BASE, &mut Learner::default(), sd + 7, after_n, win_n))
             .collect();
-        println!("  pretrained, {name}");
-        for (k, s) in pooled.iter().enumerate() {
+        println!("  fresh learner");
+        for (k, s) in pool(&fresh).iter().enumerate() {
             line(&format!("  window {k}"), s);
         }
-        println!(
-            "    recipes (last window): {}",
-            dist(pooled.last().unwrap())
-        );
+        for op in [Op::Hpm, Op::Icr] {
+            let f = total(&seeds.map(|sd| {
+                total(&run(
+                    wo,
+                    &Cfg {
+                        chooser: Chooser::Fixed(op),
+                        ..BASE
+                    },
+                    &mut Learner::default(),
+                    sd + 7,
+                    after_n,
+                    after_n,
+                ))
+            }));
+            line(&format!("fixed {}", op.code()), &f);
+        }
     }
-    let fresh: Vec<Vec<Stats>> = seeds
-        .iter()
-        .map(|&sd| run(wa, &BASE, &mut Learner::default(), sd + 7, 1000, 250))
-        .collect();
-    let pooled: Vec<Stats> = (0..fresh[0].len())
-        .map(|k| total(&fresh.iter().map(|p| p[k].clone()).collect::<Vec<_>>()))
-        .collect();
-    println!("  fresh learner vs Aggressor");
-    for (k, s) in pooled.iter().enumerate() {
-        line(&format!("  window {k}"), s);
-    }
-    let fa = total(&seeds.map(|sd| {
-        total(&run(
-            wa,
-            &Cfg {
-                chooser: Chooser::Fixed(Op::Hpm),
-                ..BASE
-            },
-            &mut Learner::default(),
-            sd + 7,
-            1000,
-            1000,
-        ))
-    }));
-    line("fixed HPM vs Aggressor", &fa);
 
-    let _ = (&fixed, &results);
+    let _ = &fixed;
     println!("\nwall time {:.1}s", t0.elapsed().as_secs_f64());
 }
 
