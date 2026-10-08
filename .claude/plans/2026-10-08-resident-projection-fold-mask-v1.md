@@ -51,7 +51,7 @@ between them. Where a hop has no primitive, the phase stops and files the gap.
 
 ## Checklist
 
-- [ ] **D-RPF-0** — Resident CE64 field predicate in place
+- [x] **D-RPF-0** — Resident CE64 field predicate in place (`lance-graph-mask-risc/tests/resident_ce64_predicate.rs`; entry `2026-10-08-d-rpf-0-resident-ce64-predicate.md`)
 - [ ] **D-RPF-1** — Law-table → pattern-set compiler (recipe eligibility as a mask)
 - [ ] **D-RPF-2** — Class census: how many distinct eligibility and read-set classes a real population has
 - [ ] **D-RPF-3** — Read-set dedup for CE64 instructions (hotspot dedup, exact)
@@ -69,7 +69,7 @@ conflated:
 
 | stage | what is never built | state on `main` | phases |
 |---|---|---|---|
-| **1. Projection** | an extracted CE64 lane | predicates read `MaterializedEdges` in place through `MatchFacet16Strided`; equal to the accessors (D-RPF-9) | D-RPF-0, D-RPF-1, D-RPF-5 |
+| **1. Projection** | an extracted CE64 lane | predicates read `MaterializedEdges` in place through `MatchFacet16Strided`; equal to the accessors (D-RPF-0 test-pinned, D-RPF-9 probe) | D-RPF-0, D-RPF-1, D-RPF-5 |
 | **2. Mask** | a population-sized bitmap between a predicate and a terminal that consumes it | already the tiled law: one 2 KB tile per slot, 0 allocations; remaining work is R2 (strided pattern merge), R3 (gate selection), G1 (strided `_under`), G3 (tile skip) | D-RPF-6, D-RPF-9 |
 | **3. Fold-Join** | a pair relation, cross product, join result or intermediate aggregate when aligned resident addresses and the fold's law suffice | shipped for ≤ 6 resident planes (`fused_ternlog` / `tern2` / `tern3`, no slot); G2 (two-window strided match) is the open gap for CE64 pairs | D-RPF-9 |
 
@@ -111,12 +111,11 @@ so no RBAC question arises and no 8-byte strided primitive is needed. (An
 earlier draft placed one window per edge and flagged an overlap for `k = 3`;
 that placement was unnecessary — Codex review on #1411.)
 
-**Status (2026-10-08, D-RPF-9).** The equality half is green: the probe
-matches edge 0's Pearl3 and edge 2's Epi5 in place, equal to the
-`CausalEdge64` accessors; a care shifted by one bit disagrees; rewriting every
-non-care bit leaves the answer unchanged; the windows stay inside the tenant
-(row bytes 48..80, one 64 B line each). The threshold-as-union-of-patterns half
-is not yet exercised.
+**Status (2026-10-08).** Measured and test-pinned by #1413
+(`lance-graph-mask-risc/tests/resident_ce64_predicate.rs`), including the
+threshold-as-union-of-patterns half. D-RPF-9's probe reaches the same equality
+independently, from the quack side (`fold_join_probe`), and adds that the two
+16 B windows sit on separate 64 B lines (row bytes 48..80).
 
 ### D-RPF-1 — Recipe eligibility as a mask
 

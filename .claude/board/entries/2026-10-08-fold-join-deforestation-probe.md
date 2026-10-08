@@ -169,6 +169,6 @@ inside the tenant, so there is no RBAC widening.
 
 - R2, R3 and G1–G3 are proposals; none is implemented.
 - The D-RPF-0 threshold-as-union-of-patterns claim is not exercised by this
-  probe.
+  probe; #1413 pins it (`mask-risc/tests/resident_ce64_predicate.rs`).
 - Timings come from one host class. The crossover in finding 3 must be
   re-measured before it becomes a planner constant.
