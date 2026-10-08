@@ -38,6 +38,12 @@ required-features = ["lab"]
 name = "moore_plasticity_probe"
 test = true
 
+# PROBE-PREFILTER-MASK (coresearch 2026-10-08): MetaFilter as a row mask on
+# ndarray::simd masking ops, checked against meta_prefilter. Runs under `cargo test`.
+[[example]]
+name = "meta_prefilter_mask_probe"
+test = true
+
 # D-GSO-3 probe; tests run under the crate's `cargo test` like D-GSO-2.
 [[example]]
 name = "ontology_agreement_probe"

@@ -383,4 +383,83 @@ mod tests {
             assert_eq!(rebound, row_major.0, "gate {plastic:#06x}");
         }
     }
+
+    // ─── PROBE-MOORE-PLANES (coresearch 2026-10-08) ──────────────────────
+    //
+    // The Moore SCHEDULE is mask-shaped: for each direction, the set of lanes
+    // with an on-grid neighbour that way. On the Morton reading the 4 x 4 grid
+    // is codes 0..16 of one 64-cell word, so that set is
+    // `grid & shift(grid, -d)` with ndarray's `mask_shift_morton` (x on the
+    // even bits = q, y on the odd bits = r; diagonals are two axis moves).
+    // The palette fold is a value plane and stays a LUT fold: a mask bit is
+    // never a weight (mask-risc A2).
+
+    const GRID: u64 = 0xFFFF;
+
+    fn shift(m: u64, dir: ndarray::simd::MortonDir) -> u64 {
+        let mut dst = [0u64];
+        ndarray::simd::mask_shift_morton(&[m], dir, &mut dst);
+        dst[0]
+    }
+
+    /// Lanes whose neighbour at `(dx, dy)` is on the grid. `flip` swaps the
+    /// x axis direction (the can-fire arm's deliberate defect).
+    fn on_grid_toward(dx: isize, dy: isize, flip: bool) -> u64 {
+        use ndarray::simd::MortonDir::{NegQ, NegR, PosQ, PosR};
+        let (to_left, to_right) = if flip { (NegQ, PosQ) } else { (PosQ, NegQ) };
+        // L + d is on the grid  <=>  L lies in grid shifted by -d.
+        let mut m = GRID;
+        m = match dx {
+            1 => shift(m, to_right),
+            -1 => shift(m, to_left),
+            _ => m,
+        };
+        m = match dy {
+            1 => shift(m, NegR),
+            -1 => shift(m, PosR),
+            _ => m,
+        };
+        m & GRID
+    }
+
+    fn schedule_matches_closed_form(flip: bool) -> bool {
+        use lance_graph_contract::morton8x8::Morton8x8;
+        let rm = morton_to_row_major();
+        DIRS.iter().enumerate().all(|(d, &(dx, dy))| {
+            let m = on_grid_toward(dx, dy, flip);
+            (0..LANES).all(|code| {
+                let want = moore_mask(rm[code]) >> d & 1 == 1;
+                let got = m >> code & 1 == 1;
+                // Cross-check the closed form against the Morton offset itself.
+                let here = Morton8x8::from_code(code as u16);
+                let on = here
+                    .checked_offset(dx as i8, dy as i8)
+                    .is_some_and(|n| n.code() < LANES as u16);
+                assert_eq!(
+                    on, want,
+                    "closed form vs Morton offset, code {code} dir {d}"
+                );
+                got == want
+            })
+        })
+    }
+
+    /// FAILS IF: the Moore schedule built from `mask_shift_morton` differs from
+    /// `moore_mask` for any lane and direction.
+    #[test]
+    fn moore_schedule_is_a_morton_mask_shift() {
+        assert!(schedule_matches_closed_form(false));
+        // Anti-vacuity: the 8 direction masks are not all the same set.
+        let sizes: Vec<u32> = DIRS
+            .iter()
+            .map(|&(dx, dy)| on_grid_toward(dx, dy, false).count_ones())
+            .collect();
+        assert_eq!(sizes, [9, 12, 9, 12, 12, 9, 12, 9]);
+    }
+
+    /// Can-fire arm: a swapped x axis is caught.
+    #[test]
+    fn a_swapped_axis_breaks_the_schedule() {
+        assert!(!schedule_matches_closed_form(true));
+    }
 }
