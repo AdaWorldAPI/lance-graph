@@ -21,3 +21,7 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # Round 6 (`tests/spofc_cycle.rs`): the SPOFC truth projection is the shipped
 # `arm_to_truth_u8`, reused rather than restated. Zero-dep, test-only.
 lance-graph-arm-discovery = { path = "../lance-graph-arm-discovery" }
+# D-RPF-9 (`examples/fold_join_probe.rs`): the CE64 arm is diffed against the
+# canonical `CausalEdge64` accessors, never against a re-derived bit layout.
+# Zero-dep, example-only.
+causal-edge = { path = "../causal-edge" }
