@@ -5,6 +5,7 @@ Board entry: `entries/2026-10-08-algebraic-recipe-probe.md`. A linear canonicali
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-ART-1** | Recipe table: constants, centre phasor, isotropic invariant, origin norm, sector quantile, vertex phasor, summary affine, materialise; PowerSums affine chains; order statistics by generate/analytic/profile LUT/sector permutation; lookup cost | Shipped (probe; `CrossPowerSums` affine transform proposed for ndarray) | 36,000 cases equal the materialising oracle; summary path bitwise equal in `i128`; dropping the isotropy guard, the half-turn fold, the rank reversal, the half-sector split, the population refusal or the general `‖L‖_F²` each fails |
+| **D-ART-2** | Sector permutation on `ndarray::simd::PhaseLut`; all-order-statistics timing; power-sum fold cost by ingredient; cross-check of the shipped `checked_affine` | Shipped (probe; split-accumulator fold proposed for ndarray) | E-LUT within `(r+e)·lerp_error_bound()` on every rank, and `nearest` instead of `lerp` fails it; the five folds give equal sums; the shipped `checked_affine` equals the probe's transform. Entry: `entries/2026-10-08-recipe-probe-phaselut-foldcost.md` |
 
 ## D-PHT — Phasors without transcendental calls (2026-10-08)
 
