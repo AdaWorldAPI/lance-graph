@@ -13,6 +13,7 @@ Plan: `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`. Mask = adm
 | **D-RPF-6** | Tile skip on zero gate measured on resident-row predicates (capstone pt 3) | Queued | identical answers; dead-tile beside dead-word fraction |
 | **D-RPF-7** | Rank spectrum of the 256×256 palette distance LUTs | Queued (measurement only) | reported; never a fold |
 | **D-RPF-8** | Boundary: mask-risc never executes CE64 instructions; no VSA on this path | Queued (doc) | review-enforced |
+| **D-RPF-9** | Fold-Join deforestation probe: resident ∧ resident, predicate chains gated/ungated, CE64 in place, strided pattern merge | Shipped (probe; R2/R3/G1–G3 proposed) | every arm equals the oracle; care-shift fires, non-care rewrite silent; merge precondition refuses conflicting cares |
 
 ## D-CTX — Palette texture proof ladder: fieldless first, rendering only if needed (2026-10-06)
 
