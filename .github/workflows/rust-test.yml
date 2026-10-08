@@ -436,8 +436,16 @@ jobs:
         run: cargo test --manifest-path crates/sigma-tier-router/Cargo.toml
       - name: Run neural-debug tests (previously ungated)     # 11 green
         run: cargo test --manifest-path crates/neural-debug/Cargo.toml
+      # opt-level 3 for THIS package only, debug stays 0 (manifest). The
+      # crossword_real_words_probe example tests (D-PUZZLE-0, 2026-10-07) run a
+      # solver search that takes 810 s at opt-level 0 and pushed this job past
+      # its 30-minute limit on main (run 37766947128, cut off in `hydrate`).
+      # Measured locally at opt-level 3: 183 s, 4m08 including the compile.
+      # `--config` keeps every other crate on the shared opt-level-0 cache.
       - name: Run shader-driver tests (previously ungated)    # 107 + 2 green
-        run: cargo test --manifest-path crates/cognitive-shader-driver/Cargo.toml
+        run: >-
+          cargo test --manifest-path crates/cognitive-shader-driver/Cargo.toml
+          --config 'profile.dev.package.cognitive-shader-driver.opt-level=3'
       # The default run above skips these targets: `w2_differential` and
       # `mailbox_cutover` are `cfg(feature = "mailbox-thoughtspace")`, and the
       # StreamDto circuit probe needs `with-engine` for `StreamDto`.
