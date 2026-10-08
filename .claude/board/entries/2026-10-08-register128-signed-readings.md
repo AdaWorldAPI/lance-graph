@@ -1,20 +1,26 @@
 # 2026-10-08 — Register128 signed readings (32×i4, 16×i8) with a per-family law
 
 **Status:** CURRENT-CONTRACT, TEST-PINNED. Branch
-`ccr-b2e415d9-4jfvyk-register-readings`, commit `14831543`.
+`ccr-b2e415d9-4jfvyk-register-readings`, commits `14831543` and `96304b88`
+(law authority, after Codex P2 on #1410).
 
 ## What landed
 
 The carrier is unchanged: the `Register0` / `Register1` rails (16 B each), no
 classid in the payload, no layout change.
 
-- **Carving, declared by the slab.** `SlabReading::RegisterI4x32 = 2` (32 × i4,
-  dim `2k` = low nibble of byte `k`, the `atoms::I4x32` layout) and
-  `SlabReading::RegisterI8x16 = 3` (16 × i8, dim `k` = byte `k`).
-- **Law, declared at binding.** `RegisterLaw::{RelativeOffset, AxisPosition,
-  Support}`, passed to `ResolvedReading::bind_signed_register(rails, law)` once
-  per population. The returned `SignedRegisterLanes` carry concept, rails,
-  carving and law.
+- **Carving and recorded law, declared by the slab.**
+  `SlabReading::RegisterI4x32(law)` (32 × i4, dim `2k` = low nibble of byte
+  `k`, the `atoms::I4x32` layout) and `SlabReading::RegisterI8x16(law)` (16 ×
+  i8, dim `k` = byte `k`). Envelope tags 2..=7 (`to_tag` inverts `from_tag`).
+  The law is the one the writer actually wrote with.
+- **Concept law, declared by the authority.** `Activation::with_register_laws`
+  / `register_law_for` (fail-closed: `NoRegisterLawFor`).
+- **Binding checks agreement.** `ResolvedReading::bind_signed_register(&activation,
+  rails)` takes no law; it refuses `RegisterLawMismatch` when the slab's law and
+  the concept's differ. A writer and a reader of one population therefore hold
+  the same law. The returned `SignedRegisterLanes` carry concept, rails, carving
+  and law. `RegisterLaw::{RelativeOffset, AxisPosition, Support}`.
 - **Checked on every access.** `read_i4x32` / `read_i8x16` / `write_i4x32` /
   `write_i8x16` take the law the caller expects and refuse, in order, an absent
   rail, a different carving, a different law. An i4 outside `-8..=7` is refused,
@@ -40,7 +46,7 @@ lane with its own classid, and re-homing it is a separate decision.
 
 ## Tests and disable runs
 
-Hotplug: `signed_rails_are_granted_only_to_a_signed_carving`; tag test now
+Hotplug: `signed_rails_need_a_signed_carving_and_an_agreeing_law`; tag test now
 accepts 2 and 3. Register128: round trip of every i4 value in every dim with the
 nibble layout pinned; i8 dim-k-is-byte-k; the same bytes differ under the two
 carvings; law mismatch (all 3×3 pairs, both carvings) refused and writes
@@ -53,15 +59,19 @@ before writing; writes stay inside their rail.
 | carving check removed | `a_different_carving_is_refused` |
 | rail check removed | `signed_writes_stay_inside_their_rail` |
 | i4 range check removed | `an_out_of_range_i4_is_refused_before_writing` |
-| binding accepts `Register128` as i4 | `signed_rails_are_granted_only_to_a_signed_carving` |
+| binding accepts `Register128` as i4 | `signed_rails_need_a_signed_carving_and_an_agreeing_law` |
 | binding swaps the carvings | same |
 | binding skips the schema check | same |
+| law mismatch check removed | `signed_rails_need_a_signed_carving_and_an_agreeing_law` |
+| concept law ignored (slab law used) | same |
+| `to_tag` shifts the I8x16 tags | `an_unsupported_physical_reading_fails_closed` |
+| `from_tag` drops the law | same |
 
 ## OPEN
 
-- The law is declared by the binder. There is no OGAR table mapping a concept
-  to its law yet, so a binder can still declare the wrong one; the contract
-  only guarantees readers cannot silently read another law's values.
+- No OGAR authority populates `with_register_laws` yet (`lance-graph-ogar`
+  builds its `Activation` without laws), so in production every concept still
+  refuses to bind signed registers. That is fail-closed, not a gap in the check.
 - Lane or reading per family is undecided until measured: 32×i4 vs 16×i8 on
   KJV anaphora and the mammal fixture. The rule "outside the local window →
   basin edge" is not changed by `RelativeOffset` under `I8x16`.

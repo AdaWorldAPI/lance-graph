@@ -1,6 +1,6 @@
 ## 2026-10-08 — Register128 signed readings on branch `ccr-b2e415d9-4jfvyk-register-readings` (unmerged)
 
-- Contract delta (additive): `hotplug::SlabReading::{RegisterI4x32 = 2, RegisterI8x16 = 3}`, `ResolvedReading::bind_signed_register`, `ActivationDrift::NotSignedRegister`; `register128::{RegisterCarving, RegisterLaw, SignedRegisterLanes, SignedRegisterRefusal}`; `atoms::I4x32::{from_bytes, as_bytes}`. No layout change. Entry: `entries/2026-10-08-register128-signed-readings.md`.
+- Contract delta (additive): `hotplug::SlabReading::{RegisterI4x32(law), RegisterI8x16(law)}` (tags 2..=7, `to_tag`), `Activation::{with_register_laws, register_law_for}`, `ResolvedReading::bind_signed_register(&activation, rails)`, `ActivationDrift::{NotSignedRegister, NoRegisterLawFor, RegisterLawMismatch}`; `register128::{RegisterCarving, RegisterLaw, SignedRegisterLanes, SignedRegisterRefusal}`; `atoms::I4x32::{from_bytes, as_bytes}`. No layout change. Entry: `entries/2026-10-08-register128-signed-readings.md`.
 
 ## 2026-10-08 — HHTL / NARS / Moore value tenants on branch `ccr-b2e415d9-4jfvyk-tenants` (unmerged)
 
