@@ -54,7 +54,7 @@ pub enum ConceptDomain {
     Ontology,
     /// `0x04XX` — Weather / Atmosphere. Shared forecast and atmospheric cells.
     Weather,
-    /// `0x05XX` — Mail (mailbox + message). Mirrors
+    /// `0x05XX` — Mail (OGIT `ogit:Email`). Mirrors
     /// `ogar_vocab::ConceptDomain::Mail`.
     Mail,
     /// `0x07XX` — OSINT (open-source intelligence / Palantir-Gotham).
@@ -635,9 +635,8 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     // remain ClassView-owned payload structure, not promoted concept rows.
     ("weather_cell", 0x0401),
     ("weather_static_cell", 0x0402),
-    // ── 0x05XX — Mail domain (mailbox + message; spear / stalwart) ──
-    ("mailbox", 0x0501),
-    ("mail_message", 0x0502),
+    // ── 0x05XX — Mail domain (OGIT `ogit:Email`; spear) ──
+    ("email", 0x0501),
     // ── 0x08XX — OCR domain (document extraction; the Tesseract-rs arc) ──
     // Class-level container KINDS only (the 5+3-hardened mint discipline):
     // the concept slots name the container types the OGAR Core resolves —
@@ -960,8 +959,7 @@ mod tests {
         assert_eq!(canonical_concept_id("currency_policy"), Some(0x0206));
         assert_eq!(canonical_concept_id("weather_cell"), Some(0x0401));
         assert_eq!(canonical_concept_id("weather_static_cell"), Some(0x0402));
-        assert_eq!(canonical_concept_id("mailbox"), Some(0x0501));
-        assert_eq!(canonical_concept_id("mail_message"), Some(0x0502));
+        assert_eq!(canonical_concept_id("email"), Some(0x0501));
         assert_eq!(canonical_concept_id("unicharset"), Some(0x0801));
         assert_eq!(canonical_concept_id("charset"), Some(0x0803));
         assert_eq!(canonical_concept_id("patient"), Some(0x0901));
