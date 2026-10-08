@@ -951,7 +951,7 @@ fn early_exit(name: &str, g: &Grid, k: &Kernel, qs: &[(usize, usize)]) {
                 Decision::Reject
             };
             assert_eq!(d, want, "H decided {d:?} at ({cx},{cy}), S {s}, T {t}");
-            for ev in [RowEval::D, RowEval::Query(DF_CROSSOVER_CELLS)] {
+            for ev in [RowEval::F, RowEval::D, RowEval::Query(DF_CROSSOVER_CELLS)] {
                 let (dx, rx) = arm_hx(g, k, &order, &up, &lo, cx, cy, t, ev, &mut Work::default());
                 assert_eq!(
                     dx, want,
