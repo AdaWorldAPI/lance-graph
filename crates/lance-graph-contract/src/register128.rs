@@ -205,9 +205,13 @@ impl RegisterCarving {
     }
 }
 
-/// What the signed values of a bound population mean. Declared once, at
-/// binding, for the concept the population was resolved under; checked on
-/// every read and write.
+/// What the signed values of a bound population mean. Two authorities, which
+/// must agree: the concept's law, declared by the
+/// [`Activation`](crate::hotplug::Activation)
+/// ([`register_law_for`](crate::hotplug::Activation::register_law_for)), and the
+/// law the slab recorded when its bytes were written
+/// ([`SlabReading::RegisterI4x32`](crate::hotplug::SlabReading::RegisterI4x32)).
+/// The binder chooses neither. Checked again on every read and write.
 ///
 /// Each law is a different kind of quantity, so a value written under one
 /// is not a value under another even when the bytes are identical. That is
