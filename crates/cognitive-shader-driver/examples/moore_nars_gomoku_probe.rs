@@ -1050,14 +1050,7 @@ fn game(
         // Read the consequences of earlier reasoning steps through W.
         let contradiction = s.cells.iter().filter(|x| x.c_op == FIVE).count() >= 2
             && !s.cells.iter().any(|x| x.c_me == FIVE);
-        if let Some(&(last, _)) = queue.back() {
-            if let Some(p) = ring[last as usize] {
-                st.contradictions += u64::from(contradiction);
-                if activation(p.before, balance(&s), contradiction) > 0 {
-                    st.productive += 1;
-                }
-            }
-        }
+        st.contradictions += u64::from(contradiction);
         // A step is read once `horizon` learner turns have passed, forced
         // moves included.
         while queue
@@ -1068,8 +1061,13 @@ fn game(
             let Some(p) = ring[slot as usize].take() else {
                 continue;
             };
+            // Counted once per step, from the reading it is credited with.
+            let retained = activation(p.before, balance(&s), contradiction);
+            if retained > 0 {
+                st.productive += 1;
+            }
             let act = match cfg.signal {
-                Signal::Retained(_) => Some(activation(p.before, balance(&s), contradiction)),
+                Signal::Retained(_) => Some(retained),
                 Signal::Immediate => Some(p.immediate),
                 Signal::Contradiction => contradiction.then_some(-7),
                 Signal::Final => None,
