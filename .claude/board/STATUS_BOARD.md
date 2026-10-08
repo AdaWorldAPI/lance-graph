@@ -1,3 +1,11 @@
+## D-MHB — Centre-surround response without a raster (2026-10-08)
+
+Board entry: `entries/2026-10-08-mexhat-bucket-cascade-probe.md`. Popcount stacking, quantised DoG and exact early exit against direct window geometry; no wavefield, no raster.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-MHB-1** | Mexican-hat response: direct geometry (D), ring buckets (E), bit-sliced weight planes (F), per-row choice (G), mask-risc lane (B), exact-bound early exit (H) | Shipped (probe; R-MHB-1 proposed) | D = F = G = B = full scan asserted on every centre; H equals the full decision on every query; one zero crossing, one minimum, symmetry; dropping the unvisited-row bound decides 52 / 512 wrongly |
+
 ## D-RPF — Mask × fold over projections of resident bytes (2026-10-08)
 
 Plan: `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`. Mask = admissibility, fold = one terminal, CE64 register = one instruction; no materialised hop between them.
