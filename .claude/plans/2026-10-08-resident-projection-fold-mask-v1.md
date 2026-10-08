@@ -313,8 +313,8 @@ and the full inventory in
   (2.47 → 1.17 ms) with the same answer.
 
 **Proposed rewrite contract (not implemented; each its own focused PR):**
-R2 strided pattern merge (`p1 | p2`, `c1 | c2` only when
-`(p1 ^ p2) & c1 & c2 == 0`, else empty — never an unconditional OR);
+R2 strided pattern merge (`(p1 & c1) | (p2 & c2)`, `c1 | c2` only when
+`(p1 ^ p2) & c1 & c2 == 0`, else empty — never an OR of unmasked patterns);
 R3 gate selection from a known dead-word fraction; gaps G1 strided `_under`,
 G2 two-window strided match, G3 tile skip — backend-first in `ndarray::simd`.
 

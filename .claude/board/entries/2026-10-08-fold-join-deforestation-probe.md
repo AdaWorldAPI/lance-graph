@@ -124,8 +124,11 @@ inside the tenant, so there is no RBAC widening.
      lowering rewrite with no new primitive.
 
    The precondition is load-bearing: two patterns that disagree on a shared
-   care bit have an empty conjunction (0 rows), while an unconditional OR-merge
-   answered 8,273.
+   care bit have an empty conjunction (0 rows), while a union that skipped the
+   conflict check answered 8,273. So is the masking: a pattern may carry bits
+   outside its own care, which the matcher ignores; an OR of unmasked patterns
+   reads them as part of the other field's pattern and answered 275 against the
+   conjunction's 258 (Codex P2 on #1414).
 5. **Gating a strided predicate does not skip anything.** Without an `_under`
    kernel, D costs at least as much as C. The scalar reference that reads B only
    on A's survivors (12.6 % here) is about 20 % faster than reading both fields
@@ -140,9 +143,10 @@ inside the tenant, so there is no RBAC widening.
   - **When:** `MatchFacet16Strided(L, p1, c1) ∧ MatchFacet16Strided(L, p2, c2)`,
     on the SAME lane and the same declared reading, where neither intermediate
     has another consumer.
-  - **Rewrite:** to `MatchFacet16Strided(L, p1 | p2, c1 | c2)` when
-    `(p1 ^ p2) & c1 & c2 == 0`, and to the empty mask otherwise. Never an
-    unconditional OR.
+  - **Rewrite:** to
+    `MatchFacet16Strided(L, (p1 & c1) | (p2 & c2), c1 | c2)` when
+    `(p1 ^ p2) & c1 & c2 == 0`, and to the empty mask otherwise. Never an OR
+    of unmasked patterns, and never a union without the conflict check.
   - **Exact for every terminal**, because it is a mask identity.
 - **R3 gate selection:** gate a conjunct under the accumulator only when the
   gate's dead-word fraction is known and high; otherwise run it ungated. This

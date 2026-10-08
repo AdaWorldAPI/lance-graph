@@ -39,8 +39,8 @@ use causal_edge::CausalEdge64;
 use lance_graph_contract::canonical_node::{ValueTenant, NODE_ROW_STRIDE, VALUE_SLAB_ROW_OFFSET};
 use lance_graph_mask_risc::exec::{execute_extent, execute_into, Scratch};
 use lance_graph_mask_risc::{
-    tile_words_for, words_for, ExecError, Foreign, LaneRef, Lowering, MaskOp, Operand, Out, Planes,
-    Pred, Program, StridedRef, Terminal, Value, TILE_WORDS,
+    words_for, ExecError, Foreign, LaneRef, Lowering, MaskOp, Operand, Out, Planes, Pred, Program,
+    StridedRef, Terminal, Value, TILE_WORDS,
 };
 use lance_graph_quack::{lower, lower_fused, Agg, Cmp, Col, Filter, Query};
 
@@ -179,7 +179,9 @@ fn run_arm(
     population_bytes: usize,
 ) -> (usize, Report) {
     let mut scratch = Scratch::for_program(p, planes.n_rows).expect("scratch");
-    let scratch_bytes = p.scratch_slots as usize * tile_words_for(planes.n_rows) * 8;
+    // What `Scratch::for_program` actually carved, not the program's logical
+    // slot count: a fused lowering declares slots and allocates none.
+    let scratch_bytes = scratch.slots() * scratch.words() * 8;
     let first = count(execute_into(
         p,
         planes,
@@ -375,7 +377,10 @@ fn sweep(n: usize, reps: usize) {
                     lowering: "Keep,Keep,Ternlog".into(),
                     predicates: 2,
                     mask_passes: 1,
-                    scratch_bytes: 2 * tile_words_for(n) * 8,
+                    scratch_bytes: (sa.slots() * sa.words()
+                        + sb.slots() * sb.words()
+                        + sf.slots() * sf.words())
+                        * 8,
                     population_bytes: 2 * words * 8,
                     allocs_per_exec: (a1 - a0) as f64 / reps as f64,
                     ns,
@@ -920,11 +925,18 @@ fn ce64(n: usize, reps: usize) {
     );
 
     // Pattern merge: two field predicates inside ONE 16-byte window are one
-    // ternary match — `match(p1, c1) ∧ match(p2, c2) = match(p1 | p2, c1 | c2)`
-    // when the patterns agree on `c1 & c2` (here the cares are disjoint).
+    // ternary match —
+    // `match(p1, c1) ∧ match(p2, c2) = match((p1 & c1) | (p2 & c2), c1 | c2)`
+    // when `(p1 ^ p2) & c1 & c2 == 0`. Pattern bits outside their own care are
+    // don't-care, so each is masked by its care before the union (Codex P2 on
+    // #1414); here the cares are disjoint.
     let (pe1, ce1) = ce64_pattern(1, EPI5_SHIFT, 5, q); // edge 1, half 1 of window 0
-    let merged_p: [u8; 16] = core::array::from_fn(|k| pa[k] | pe1[k]);
-    let merged_c: [u8; 16] = core::array::from_fn(|k| ca[k] | ce1[k]);
+    let merge = |p1: &[u8; 16], c1: &[u8; 16], p2: &[u8; 16], c2: &[u8; 16]| {
+        let p: [u8; 16] = core::array::from_fn(|k| (p1[k] & c1[k]) | (p2[k] & c2[k]));
+        let c: [u8; 16] = core::array::from_fn(|k| c1[k] | c2[k]);
+        (p, c)
+    };
+    let (merged_p, merged_c) = merge(&pa, &ca, &pe1, &ce1);
     assert!((0..16).all(|k| ca[k] & ce1[k] == 0), "disjoint cares");
     let want_w = (0..n)
         .filter(|&i| {
@@ -976,9 +988,62 @@ fn ce64(n: usize, reps: usize) {
     print(&r2);
     print(&r1m);
 
+    // Unmasked operands: give edge 1's pattern junk bits outside its own care
+    // but inside edge 0's. The matcher ignores them, so the two-predicate
+    // program is unchanged; an OR without masking would read them as part of
+    // edge 0's pattern and answer something else.
+    let junk: [u8; 16] = core::array::from_fn(|k| pe1[k] | (ca[k] & !ce1[k]));
+    assert!(
+        (0..16).any(|k| junk[k] & ca[k] & !pa[k] != 0),
+        "the junk must hit edge 0's care"
+    );
+    let two_junk = Program::new(
+        vec![
+            ma(None, 0),
+            MaskOp::Pred {
+                pred: Pred::MatchFacet16Strided {
+                    lane: 0,
+                    pattern: junk,
+                    care: ce1,
+                },
+                under: None,
+                dst: 1,
+            },
+            MaskOp::And {
+                a: Operand::Scratch(0),
+                b: Operand::Scratch(1),
+                dst: 2,
+            },
+        ],
+        count_of(Operand::Scratch(2)),
+    );
+    let single = |p: [u8; 16], c: [u8; 16]| {
+        Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::MatchFacet16Strided {
+                    lane: 0,
+                    pattern: p,
+                    care: c,
+                },
+                under: None,
+                dst: 0,
+            }],
+            count_of(Operand::Scratch(0)),
+        )
+    };
+    let (mp, mc) = merge(&pa, &ca, &junk, &ce1);
+    let unmasked_p: [u8; 16] = core::array::from_fn(|k| pa[k] | junk[k]);
+    let (cj, _) = run_arm("Cj", &two_junk, &planes, 1, 0);
+    let (cm, _) = run_arm("Mj", &single(mp, mc), &planes, 1, 0);
+    let (cu, _) = run_arm("Uj", &single(unmasked_p, mc), &planes, 1, 0);
+    assert_eq!(cj, want_w, "bits outside care are ignored by the matcher");
+    assert_eq!(cm, want_w, "the masked merge equals the conjunction");
+    assert_ne!(cu, want_w, "an unmasked OR reads junk as pattern");
+    println!("  unmasked operands: two predicates {cj}, masked merge {cm}, unmasked OR {cu}");
+
     // The precondition is load-bearing: two patterns that DISAGREE on a shared
-    // care bit have an empty conjunction, and an unconditional `p1 | p2` merge
-    // would answer something else.
+    // care bit have an empty conjunction, and a union that skips the conflict
+    // check would answer something else.
     let (px, cx) = ce64_pattern(0, PEARL_SHIFT, 3, p ^ 1); // same field, other value
     let conflict = Program::new(
         vec![
@@ -1000,8 +1065,8 @@ fn ce64(n: usize, reps: usize) {
         ],
         count_of(Operand::Scratch(2)),
     );
-    let naive_p: [u8; 16] = core::array::from_fn(|k| pa[k] | px[k]);
-    let naive_c: [u8; 16] = core::array::from_fn(|k| ca[k] | cx[k]);
+    // Both operands are already masked; the conflict alone makes the union wrong.
+    let (naive_p, naive_c) = merge(&pa, &ca, &px, &cx);
     let naive = Program::new(
         vec![MaskOp::Pred {
             pred: Pred::MatchFacet16Strided {
@@ -1019,9 +1084,9 @@ fn ce64(n: usize, reps: usize) {
     assert_eq!(cc0, 0, "conflicting patterns have no common row");
     assert_ne!(
         cn, 0,
-        "an unconditional OR-merge answers a different question"
+        "a union without the conflict check answers a different question"
     );
-    println!("  conflicting cares: two predicates {cc0}, unconditional OR-merge {cn} (refuse or constant-false, never merge)");
+    println!("  conflicting cares: two predicates {cc0}, union without the conflict check {cn} (empty mask, never merge)");
 
     // can fire: the wrong bit range must disagree
     let (pw, cw) = ce64_pattern(0, PEARL_SHIFT + 1, 3, p);
