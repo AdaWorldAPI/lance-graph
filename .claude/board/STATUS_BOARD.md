@@ -1,3 +1,19 @@
+## D-RPF — Mask × fold over projections of resident bytes (2026-10-08)
+
+Plan: `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`. Mask = admissibility, fold = one terminal, CE64 register = one instruction; no materialised hop between them.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-RPF-0** | Pearl3 / Epi5 / mantissa predicate over `MaterializedEdges` via `MatchFacet16Strided`, threshold as ≤ n+1 patterns | Queued | equals CE64 accessors; wrong-bit care disagrees; unnamed fields silent; both windows stay inside the 32 B tenant |
+| **D-RPF-1** | Law tables → per-recipe ternary pattern set (≤ 24 × 8), run under an admission plane (class, rail, generation, provenance) | Queued | equals `measure_declared`; dropping one code loses exactly its rows; removing the admission plane admits a v1 row |
+| **D-RPF-2** | Census of eligibility and read-set classes on a real population | Queued | classes/rows reported; near 1 drops D-RPF-3; no population-sized seen-set |
+| **D-RPF-3** | Exact read-set dedup per CE64 instruction, key incl. handle context | Queued (after D-RPF-2) | removing cohort from key changes a result; dedup-then-fold equals per-row for Count/Sum/Avg |
+| **D-RPF-4** | Population revision as one `(Σw, Σw·f)` fold | Blocked (4 decisions; T1 LUT-weighted strided sum gap) | normative choice vs pairwise chain; c = 255 cap first |
+| **D-RPF-5** | Moore tenants 18..20 under a declared `SlabReading`; per-slot masks | Blocked (`SlabReading` decision) | sign-triple consumer refuses Moore lanes through the declared reading |
+| **D-RPF-6** | Tile skip on zero gate measured on resident-row predicates (capstone pt 3) | Queued | identical answers; dead-tile beside dead-word fraction |
+| **D-RPF-7** | Rank spectrum of the 256×256 palette distance LUTs | Queued (measurement only) | reported; never a fold |
+| **D-RPF-8** | Boundary: mask-risc never executes CE64 instructions; no VSA on this path | Queued (doc) | review-enforced |
+
 ## D-CTX — Palette texture proof ladder: fieldless first, rendering only if needed (2026-10-06)
 
 Pixel/tile position = geometry; `PaletteState(u8)` = material (needle); `FisherZTable[a,b]` = relation (distribution); activation (SPOFC / energy) is a separate, orthogonal reading. Surfels and fields stay virtual unless a differential forces them. Round order is operator-set; one round per PR.

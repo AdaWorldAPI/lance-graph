@@ -1,3 +1,12 @@
+## 2026-10-08 — resident-projection-fold-mask-v1 — mask × fold × CE64 register over projections of resident bytes → `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`
+
+**Status:** PROPOSAL (D-RPF-0..8). No code authorized; probes and measurements first.
+
+- Three readings of one resident `NodeRow`, kept apart: mask (admissibility), fold (one terminal), register (one CE64 instruction).
+- CE64 field predicates and recipe eligibility as ternary-pattern masks over strided projections, no extracted lane.
+- Exact read-set dedup keyed by `isa::contracts` plus handle context (cohort for W, classid for Epi5 and palette).
+- Population revision as one `(Σw, Σw·f)` fold waits on four decisions and files one T1 gap; mask-risc never executes CE64 instructions.
+
 ## 2026-10-06 — global-sudoku-replayable-orchestration-v1 — recipe 0..63 as the deterministic policy over a hydrated 64k field → `.claude/plans/2026-10-06-global-sudoku-replayable-orchestration-v1.md`
 
 **Status:** PROPOSAL / architecture map (D-GSO-0..8). No code, no bit allocation, no write path authorized.
