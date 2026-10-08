@@ -179,7 +179,11 @@ enum Refusal {
     /// An Epi5 code outside the declared codebook (certification 6 or 7).
     ReservedEpi5(u8),
     /// The lanes of one tenant carry different witnesses.
-    WitnessScope { lane: usize, expected: u8, found: u8 },
+    WitnessScope {
+        lane: usize,
+        expected: u8,
+        found: u8,
+    },
 }
 
 /// A sign-triple consumer (Simpson's pattern S and O pathological, P not,
@@ -442,7 +446,13 @@ fn every_pearl_energy_plasticity_and_valid_epi5_survives() {
                     for epi in 0..24u8 {
                         let l = MooreNars16::new(pearl, energy, plast, pol, epi);
                         assert_eq!(
-                            (l.pearl(), l.energy(), l.plasticity3(), l.polarity(), l.epi5()),
+                            (
+                                l.pearl(),
+                                l.energy(),
+                                l.plasticity3(),
+                                l.polarity(),
+                                l.epi5()
+                            ),
                             (pearl, energy, plast, pol, epi)
                         );
                     }
@@ -591,7 +601,10 @@ fn the_equivalence_is_observational_not_bitwise() {
             raw_differs += usize::from(a.0 != b.0);
         }
     }
-    assert!(raw_differs > 600, "only {raw_differs}/800 differ in raw bits");
+    assert!(
+        raw_differs > 600,
+        "only {raw_differs}/800 differ in raw bits"
+    );
 }
 
 // ─── E: Direction, three ways ───────────────────────────────────────────
