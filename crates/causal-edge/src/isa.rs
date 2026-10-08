@@ -85,6 +85,23 @@ pub enum IsaFault {
     },
 }
 
+impl IsaFault {
+    /// The fault for an inference code the ISA does not execute, carrying the
+    /// code as the active layout encodes it: the signed v2 mantissa
+    /// (Counterfactual `-6`, Intervention `+6`) or the unsigned v1 3-bit value
+    /// (Intervention `5`, Counterfactual `6`). `forward` and the direct
+    /// partial methods both build their faults here, so the same instruction
+    /// always reports the same code.
+    #[inline]
+    pub const fn unsupported(code: InferenceType) -> Self {
+        #[cfg(feature = "causal-edge-v2-layout")]
+        let mantissa = code.to_mantissa();
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        let mantissa = code as i8;
+        IsaFault::Unsupported { mantissa }
+    }
+}
+
 impl core::fmt::Display for IsaFault {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -150,9 +167,7 @@ impl Opcode {
             InferenceType::Abduction => Ok(Opcode::Abduction),
             InferenceType::Revision => Ok(Opcode::Revision),
             InferenceType::Synthesis => Ok(Opcode::Synthesis),
-            other => Err(IsaFault::Unsupported {
-                mantissa: other as i8,
-            }),
+            other => Err(IsaFault::unsupported(other)),
         }
     }
 
@@ -455,4 +470,38 @@ pub mod contracts {
 
     /// All declared contracts.
     pub const ALL: [Contract; 4] = [FORWARD, LEARN, SYLLOGIZE, REVISION];
+}
+
+#[cfg(test)]
+mod layout_fault_tests {
+    use super::*;
+    use crate::edge::CausalEdge64;
+
+    /// The direct partial methods and `forward` report the same fault code
+    /// for the same instruction, in whichever layout this build uses.
+    #[test]
+    fn partial_methods_and_forward_agree_in_the_active_layout() {
+        let t = vec![0u8; 256 * 256].into_boxed_slice();
+        let t: Box<[u8; 256 * 256]> = t.try_into().expect("64 KiB");
+        let c = Compose {
+            s: &t,
+            p: &t,
+            o: &t,
+        };
+        let a = CausalEdge64(0x6ab8_2fff_ff03_0201);
+        for (it, direct) in [
+            (InferenceType::Counterfactual, a.counterfactual(a, c)),
+            (InferenceType::Intervention, a.intervention(a, c)),
+        ] {
+            let mut w = CausalEdge64(0xb54c_13fe_0106_0504);
+            w.set_inference(it);
+            let via_forward = a.forward(w, &t, &t, &t).map(|e| e.0);
+            assert_eq!(direct.map(|e| e.0), via_forward, "{it:?}");
+            #[cfg(feature = "causal-edge-v2-layout")]
+            let expect = it.to_mantissa();
+            #[cfg(not(feature = "causal-edge-v2-layout"))]
+            let expect = it as i8;
+            assert_eq!(direct, Err(IsaFault::Unsupported { mantissa: expect }));
+        }
+    }
 }

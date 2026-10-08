@@ -63,7 +63,7 @@ impl InferenceType {
     ///   6=Intervention(+)/Counterfactual(-) [PR-LL-1 absorbed per L-9],
     ///   7=Extension(+)/Intension-negative(-) [future].
     #[inline]
-    pub fn to_mantissa(self) -> i8 {
+    pub const fn to_mantissa(self) -> i8 {
         match self {
             // Forward-chain (positive mantissa)
             Self::Deduction => 1,
@@ -745,12 +745,11 @@ impl CausalEdge64 {
     ///
     /// # Errors
     ///
-    /// Always [`IsaFault::Unsupported`] with the counterfactual code (`-6`).
+    /// Always [`IsaFault::Unsupported`] with the counterfactual code in the
+    /// active layout (`-6` in v2, `6` in v1); see [`IsaFault::unsupported`].
     #[inline]
     pub fn counterfactual(self, _rhs: Self, _compose: Compose<'_>) -> Result<Self, IsaFault> {
-        Err(IsaFault::Unsupported {
-            mantissa: InferenceType::Counterfactual.to_mantissa(),
-        })
+        Err(IsaFault::unsupported(InferenceType::Counterfactual))
     }
 
     /// Intervention. Partial; no implementation exists yet, so it always
@@ -758,12 +757,11 @@ impl CausalEdge64 {
     ///
     /// # Errors
     ///
-    /// Always [`IsaFault::Unsupported`] with the intervention code (`+6`).
+    /// Always [`IsaFault::Unsupported`] with the intervention code in the
+    /// active layout (`+6` in v2, `5` in v1); see [`IsaFault::unsupported`].
     #[inline]
     pub fn intervention(self, _rhs: Self, _compose: Compose<'_>) -> Result<Self, IsaFault> {
-        Err(IsaFault::Unsupported {
-            mantissa: InferenceType::Intervention.to_mantissa(),
-        })
+        Err(IsaFault::unsupported(InferenceType::Intervention))
     }
 
     /// Execute one chain step under `op` on `(self, rhs)`: what `forward`

@@ -173,14 +173,48 @@ fn counterfactual_and_intervention_methods_refuse() {
         CausalEdge64(0x6ab8_2fff_ff03_0201),
         CausalEdge64(0xb54c_13fe_0106_0504),
     );
-    assert_eq!(
-        a.counterfactual(b, c),
-        Err(IsaFault::Unsupported { mantissa: -6 })
-    );
-    assert_eq!(
-        a.intervention(b, c),
-        Err(IsaFault::Unsupported { mantissa: 6 })
-    );
+    #[cfg(feature = "causal-edge-v2-layout")]
+    {
+        assert_eq!(
+            a.counterfactual(b, c),
+            Err(IsaFault::Unsupported { mantissa: -6 })
+        );
+        assert_eq!(
+            a.intervention(b, c),
+            Err(IsaFault::Unsupported { mantissa: 6 })
+        );
+    }
+    #[cfg(not(feature = "causal-edge-v2-layout"))]
+    {
+        assert_eq!(
+            a.counterfactual(b, c),
+            Err(IsaFault::Unsupported { mantissa: 6 })
+        );
+        assert_eq!(
+            a.intervention(b, c),
+            Err(IsaFault::Unsupported { mantissa: 5 })
+        );
+    }
+}
+
+/// The direct partial methods report the same fault `forward` reports for a
+/// weight carrying the same instruction, in whichever layout is built.
+#[test]
+fn partial_methods_and_forward_report_the_same_code() {
+    use causal_edge::edge::InferenceType;
+    let t = tables();
+    let c = compose(&t);
+    let a = CausalEdge64(0x6ab8_2fff_ff03_0201);
+    for (it, direct) in [
+        (InferenceType::Counterfactual, a.counterfactual(a, c)),
+        (InferenceType::Intervention, a.intervention(a, c)),
+    ] {
+        let mut w = CausalEdge64(0xb54c_13fe_0106_0504);
+        w.set_inference(it);
+        let via_forward = a.forward(w, &t[0], &t[1], &t[2]).map(|e| e.0);
+        assert_eq!(direct.map(|e| e.0), via_forward, "{it:?}");
+        assert!(direct.is_err());
+    }
 }
 
 /// `Compose` is operand algebra only: two different payload algebras change

@@ -133,10 +133,13 @@ pub type ChainStep = (u8, CausalEdge64);
 
 /// A replay could not be performed as asked.
 ///
-/// Deliberately small: replay has exactly one way to fail, and it is a
-/// property of the ADDRESS SPACE the caller offered, never of the recorded
-/// chain (see [`crate::chain_admission::validate_chain`] for why a chain's
-/// content is not judged here).
+/// Two ways to fail. [`SequenceExhausted`](Self::SequenceExhausted) is a
+/// property of the ADDRESS SPACE the caller offered. [`Isa`](Self::Isa) is a
+/// property of a recorded weight: its inference code is one the CE64 ISA
+/// does not execute, so the step cannot be computed. Replay still does not
+/// judge whether a chain is plausible
+/// ([`crate::chain_admission::validate_chain`] owns that); it only refuses a
+/// step it has no instruction for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ReplayError {
@@ -236,6 +239,10 @@ pub fn replay_step(
 /// does not fit in `u64`. The reservation is checked ONCE, up front, so the
 /// loop cannot emit a partial trace and then discover it has no coordinate
 /// left — a half-written trace is worse than a refusal.
+///
+/// [`ReplayError::Isa`] when a step's weight carries an inference code the
+/// CE64 ISA does not execute (Counterfactual, Intervention, or a reserved
+/// code).
 pub fn replay_chain(
     chain: &[ChainStep],
     seed: CausalEdge64,
