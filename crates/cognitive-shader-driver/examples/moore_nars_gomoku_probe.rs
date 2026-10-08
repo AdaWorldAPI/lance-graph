@@ -1637,6 +1637,90 @@ mod tests {
         }
     }
 
+    /// The later games of a learning run, pooled over two seeds.
+    fn late(cfg: &Cfg) -> Stats {
+        let w = World {
+            n: 9,
+            win: 5,
+            opp: Opp::Threat,
+            oracle: false,
+        };
+        let per: Vec<Vec<Stats>> = [11u64, 22]
+            .iter()
+            .map(|&sd| run(w, cfg, &mut Learner::default(), sd, 900, 300))
+            .collect();
+        let p = pool(&per);
+        total(&p[1..])
+    }
+
+    #[test]
+    fn persistent_structural_learning_beats_its_controls() {
+        let base = late(&BASE);
+        let reset = late(&Cfg {
+            reset_per_game: true,
+            ..BASE
+        });
+        let hpm = late(&Cfg {
+            chooser: Chooser::Fixed(Op::Hpm),
+            ..BASE
+        });
+        let literal = late(&Cfg {
+            memory: Memory::Literal,
+            ..BASE
+        });
+        let immediate = late(&Cfg {
+            signal: Signal::Immediate,
+            ..BASE
+        });
+        for (n, s) in [
+            ("base", &base),
+            ("reset", &reset),
+            ("hpm", &hpm),
+            ("literal", &literal),
+            ("immediate", &immediate),
+        ] {
+            println!(
+                "{n:<10} score {:.3} hits {:.3} top {:.2} {}",
+                s.score(),
+                s.hit_frac(),
+                s.top_share(),
+                dist(s)
+            );
+        }
+        // Experience improves play over the best single recipe and over a
+        // learner that forgets between games (measured 0.528 / 0.500 / 0.467).
+        assert!(
+            base.score() >= hpm.score() + 0.015,
+            "base {:.3} hpm {:.3}",
+            base.score(),
+            hpm.score()
+        );
+        assert!(
+            base.score() >= reset.score() + 0.03,
+            "base {:.3} reset {:.3}",
+            base.score(),
+            reset.score()
+        );
+        // It reuses structure, and does not collapse onto one recipe.
+        assert!(base.hit_frac() > 0.9);
+        assert!(base.top_share() < 0.7, "top share {:.2}", base.top_share());
+        // Literal boards almost never recur, so they teach nothing.
+        assert!(
+            literal.hit_frac() < 0.05,
+            "literal hits {:.3}",
+            literal.hit_frac()
+        );
+        assert!(base.score() >= literal.score() + 0.015);
+        // Crediting before the opponent answers leaves the learner on HPM:
+        // the delayed consequence read through W is what moves it.
+        assert!(
+            immediate.top_share() > 0.9,
+            "immediate top {:.2}",
+            immediate.top_share()
+        );
+        assert!(base.score() >= immediate.score() + 0.015);
+    }
+
     #[test]
     fn replay_is_deterministic() {
         let w = World {
