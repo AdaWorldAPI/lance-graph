@@ -473,6 +473,85 @@ mod membership_tests {
 }
 
 #[cfg(test)]
+mod plug_tests {
+    use super::*;
+    use lance_graph_contract::ogar_codebook::compose_classid;
+    use lance_graph_contract::property::PrefetchDepth;
+    use lance_graph_contract::rbac::{ClassGrant, Membership, OpMask, ScopePath};
+    use lance_graph_contract::rbac_plug::{ActorSource, RbacBinding};
+
+    const PATIENT: u16 = 0x0901;
+    const LAB: u16 = 0x0903;
+
+    fn read() -> Operation<'static> {
+        Operation::Read {
+            depth: PrefetchDepth::Full,
+        }
+    }
+
+    fn practice(id: u64) -> ScopeSpec {
+        ScopeSpec {
+            path: ScopePath::new(&[id]).expect("depth"),
+            ..ScopeSpec::default()
+        }
+    }
+
+    /// A physician holding the role in two practices.
+    struct TwoPractices;
+    impl ActorSource for TwoPractices {
+        fn roles_of(&self, _actor: ActorId<'_>) -> &[RoleId] {
+            &["physician"]
+        }
+        fn memberships_of(&self, _actor: ActorId<'_>, _class: ClassId) -> Vec<Membership> {
+            vec![
+                Membership {
+                    role: "physician",
+                    scope: Some(practice(1)),
+                },
+                Membership {
+                    role: "physician",
+                    scope: Some(practice(2)),
+                },
+            ]
+        }
+    }
+
+    // The bound grants and the actor's memberships meet in the kernel: allowed
+    // on the plugged class with both practices, refused outside the plug.
+    #[test]
+    fn a_plugged_binding_drives_the_membership_kernel() {
+        let binding = RbacBinding::new(
+            "demo",
+            vec![PATIENT],
+            vec![(
+                "physician",
+                vec![
+                    ClassGrant::new(PATIENT, OpMask::READ),
+                    ClassGrant::new(LAB, OpMask::READ),
+                ],
+            )],
+            Vec::new(),
+        );
+        let rbac = binding.with_actors(TwoPractices);
+
+        let d = authorize_memberships(&rbac, "dr", compose_classid(PATIENT, 0), read());
+        assert_eq!(d.decision, AccessDecision::Allow);
+        let scope = d.scope.expect("scoped");
+        assert!(scope.admits(&ScopePath::new(&[1, 9]).unwrap()));
+        assert!(scope.admits(&ScopePath::new(&[2, 9]).unwrap()));
+        assert!(!scope.admits(&ScopePath::new(&[3]).unwrap()));
+
+        // The authority granted lab, but the plug did not include it.
+        let lab = authorize_memberships(&rbac, "dr", compose_classid(LAB, 0), read());
+        assert!(matches!(lab.decision, AccessDecision::Deny { .. }));
+        assert_eq!(
+            authorize(&rbac, "dr", compose_classid(LAB, 0), read()),
+            lab.decision
+        );
+    }
+}
+
+#[cfg(test)]
 mod scoped_tests {
     use super::*;
     use lance_graph_contract::property::PrefetchDepth;
