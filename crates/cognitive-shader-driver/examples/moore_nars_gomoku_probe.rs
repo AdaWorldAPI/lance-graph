@@ -1020,7 +1020,8 @@ fn game(
         }
     }
     let mut turn = 1 + (k % 2) as u8;
-    let mut queue: std::collections::VecDeque<u8> = std::collections::VecDeque::new();
+    // (W slot, learner turn the step was taken on).
+    let mut queue: std::collections::VecDeque<(u8, u64)> = std::collections::VecDeque::new();
     let horizon = match cfg.signal {
         Signal::Retained(h) => usize::from(h.max(1)),
         _ => 1,
@@ -1049,7 +1050,7 @@ fn game(
         // Read the consequences of earlier reasoning steps through W.
         let contradiction = s.cells.iter().filter(|x| x.c_op == FIVE).count() >= 2
             && !s.cells.iter().any(|x| x.c_me == FIVE);
-        if let Some(&last) = queue.back() {
+        if let Some(&(last, _)) = queue.back() {
             if let Some(p) = ring[last as usize] {
                 st.contradictions += u64::from(contradiction);
                 if activation(p.before, balance(&s), contradiction) > 0 {
@@ -1057,8 +1058,13 @@ fn game(
                 }
             }
         }
-        while queue.len() >= horizon {
-            let slot = queue.pop_front().unwrap();
+        // A step is read once `horizon` learner turns have passed, forced
+        // moves included.
+        while queue
+            .front()
+            .is_some_and(|&(_, t)| st.moves - t >= horizon as u64)
+        {
+            let (slot, _) = queue.pop_front().unwrap();
             let Some(p) = ring[slot as usize].take() else {
                 continue;
             };
@@ -1096,8 +1102,10 @@ fn game(
                 st.folds += f;
                 st.ops[op.index()] += 1;
                 let k = op.index();
-                l.folds[k].0 += 1;
-                l.folds[k].1 += f;
+                if cfg.learn {
+                    l.folds[k].0 += 1;
+                    l.folds[k].1 += f;
+                }
                 if w.oracle {
                     let (reg, opt) = oracle_regret(&b, me, &s, k, w.opp, step_seed);
                     st.regret += i64::from(reg);
@@ -1125,7 +1133,7 @@ fn game(
                     question: question(&s),
                 };
                 ring[wslot as usize] = Some(p);
-                queue.push_back(wslot);
+                queue.push_back((wslot, st.moves));
                 game_steps.push(p);
                 wslot = (wslot + 1) % 64;
                 mv
@@ -1142,7 +1150,7 @@ fn game(
     if result == -1 {
         st.contradictions += 1;
     }
-    while let Some(slot) = queue.pop_front() {
+    while let Some((slot, _)) = queue.pop_front() {
         let Some(p) = ring[slot as usize].take() else {
             continue;
         };
@@ -1152,7 +1160,9 @@ fn game(
             _ => 0,
         };
         let act = match cfg.signal {
-            Signal::Retained(_) | Signal::Immediate => Some(a),
+            Signal::Retained(_) => Some(a),
+            // The pre-reply reading was taken when the step was made.
+            Signal::Immediate => Some(p.immediate),
             Signal::Contradiction => (result == -1).then_some(-7),
             Signal::Final => None,
         };
@@ -1719,6 +1729,41 @@ mod tests {
             immediate.top_share()
         );
         assert!(base.score() >= immediate.score() + 0.015);
+    }
+
+    #[test]
+    fn a_frozen_evaluation_leaves_the_learner_unchanged() {
+        let w = World {
+            n: 9,
+            win: 5,
+            opp: Opp::Threat,
+            oracle: false,
+        };
+        let mut l = Learner::default();
+        run(w, &BASE, &mut l, 3, 40, 40);
+        let snap = |l: &Learner| {
+            let mut v: Vec<_> = l
+                .stats
+                .iter()
+                .map(|(k, r)| (*k, format!("{r:?}")))
+                .collect();
+            v.sort();
+            (v, l.folds)
+        };
+        let before = snap(&l);
+        assert!(l.folds.iter().any(|f| f.0 > 0), "training ran recipes");
+        run(
+            w,
+            &Cfg {
+                learn: false,
+                ..BASE
+            },
+            &mut l,
+            4,
+            40,
+            40,
+        );
+        assert_eq!(snap(&l), before);
     }
 
     #[test]
