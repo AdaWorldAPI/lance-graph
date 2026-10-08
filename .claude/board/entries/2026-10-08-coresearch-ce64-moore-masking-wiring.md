@@ -8,8 +8,41 @@ a −6 weight computes exactly the Synthesis average (128, 128) and is
 re-stamped −6; `forward` returns W = 0 and 59..63 = 0 even when both operands
 carry them. `learn` and the single-field setters preserve both. Each pinned
 defect was disable-verified: adding a Counterfactual arm to `forward`, or
-carrying W/Epi5 through it, turns exactly one test red. The other probes have
-not run.
+carrying W/Epi5 through it, turns exactly one test red.
+
+Also MEASURED and TEST-PINNED, each disable-verified red:
+
+- **PROBE-PREFILTER-MASK** (`cognitive-shader-driver/examples/meta_prefilter_mask_probe.rs`,
+  `test = true`, 3 tests). `MetaFilter` lowers to a row MASK with only
+  `ternary_match_u32_to_mask_under`, `mask_or_assign` and `mask_set_range`:
+  a threshold `x >= k` on an n-bit packed field is a disjoint union of at most
+  n + 1 ternary patterns, so no field is extracted. Release run: 400 random
+  filters x 4099 rows identical to `meta_prefilter`; 393 admit under 1/3 of
+  rows. Exhaustive per-field check over every (k, x). Disables: dropping the
+  equality pattern (2 red); ungating the clauses (1 red). The shipped
+  `meta_prefilter` is not changed yet.
+- **PROBE-MOORE-PLANES** (2 tests added to `moore_plasticity_probe.rs`). The
+  Moore SCHEDULE (which lanes have an on-grid neighbour per direction) equals
+  `grid & shift(grid, -d)` built from `mask_shift_morton` on the D-MORTON-0
+  reading (4 x 4 grid = codes 0..16 of one word), cross-checked against
+  `Morton8x8::checked_offset`. Direction set sizes 9/12/9/12/12/9/12/9. The
+  palette fold stays a LUT fold (value plane, A2). Can-fire arm: a swapped x
+  axis is caught. Disables: swapped y axis (1 red); dropped grid clamp (1 red).
+- **PROBE-CHAIN-CONF / PROBE-STAMP-GATE** (`lance-graph-planner/tests/chain_confidence.rs`,
+  5 tests). The prediction was only partly right:
+  - 5 deduction hops (f = c = 200) through `replay_step`: confidence
+    200 -> 224 -> 237 -> 237 -> 237 -> 237. It rises and then saturates; it
+    does not rise at every hop. `forward`'s own deduction falls at every hop
+    on the same chain (reference arm).
+  - Revising an edge with itself raises confidence (no evidential-base check
+    on this path).
+  - NEW: a weight with ZERO confidence still raises confidence, 128 -> 137.
+    `NarsTables::revise` reads confidence through 16 bins and bin 0 carries
+    evidence. `forward` gives 0 for the same weight (silent arm).
+  - Disable (keep `forward`'s truth instead of the revised one): all 3 pinned
+    tests flip, both reference arms stay green.
+
+PROBE-ARGMAX-TIES has not run (needs a stockfish-rs score dump).
 
 **Source:** stockfish-rs `docs/NARS-RECIPE-LOCO-PALETTE-INVENTORY-V1.md`
 (stockfish-rs PR #21), open items O1–O5, re-asked after a premise audit as
