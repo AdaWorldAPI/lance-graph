@@ -76,7 +76,7 @@ Relation codes: HAVE / PARTIAL / NEW / CONFLICTS-ANCHOR. Firewall codes: PASS / 
 | X1 | narrow storage, wide accumulate, round once | BF16 1905.12322; TPU and VDPBF16PS docs | PARTIAL: one op already does it; chains and `NarsTables` re-quantise | CONFLICT; seam: fold-side or new entry only | **PROBE** P-X1 |
 | X2 | c=255 is a policy cell | FP8 2209.05433; posits; Jøsang 0712.1182; PCRLLM 2511.08392 | PARTIAL | (a) cap or saturate at 254: CONFLICT, seam = I-LEGACY gate. (b) give 255 a stored "dogmatic" meaning: TRAP | **PROBE** P-X2, then a policy decision; (b) **SKIP** |
 | X3 | rounding/saturation/c255 policy declared in the op contract | VDPBF16PS; VNNI wrap vs saturate | PARTIAL: `isa::contracts` lacks these fields | PASS (additive) | **PROBE** P-X3 (tie count; the model already found 2 distinct ties) |
-| X4 | one concept, four quantisers | OCP vs FNUZ name hazard | HAVE (the hazard) | diagnosis PASS; unifying them CONFLICT (I-LEGACY, unknown NarsTables callers) | **ADOPT-NOW as an ISSUE**; **PROBE** P-X4 parity grid |
+| X4 | one concept, four quantisers (lower bound; see ⊘ below) | OCP vs FNUZ name hazard | HAVE (the hazard) | diagnosis PASS; unifying them CONFLICT (I-LEGACY, unknown NarsTables callers) | **ADOPT-NOW as an ISSUE**; **PROBE** P-X4 parity grid |
 | X5 | integer-only truth ALU | Jacob 1712.05877 | NEW | CONFLICT; seam: an A4 oracle or a T1 primitive, never a substitute | **PROBE** P-X5 (folded into P-X2) |
 | X6 | stochastic rounding against stagnation | 2603.24161 | NEW | TRAP as proposed: determinism, I-LEGACY, Jirak | **PARK** until P-X1 shows stagnation |
 | X7 | evidence space as the currency | posit, LNS 2012.03458, SL/NARS | PARTIAL | exact Σw/Σw·f internal: CONFLICT with seam; log-w or Mitchell: TRAP (lossy) | **PROBE** P-X7 (exact fold); log-w **SKIP** |
@@ -94,6 +94,16 @@ Relation codes: HAVE / PARTIAL / NEW / CONFLICTS-ANCHOR. Firewall codes: PASS / 
 | X19 | MSB-first early stop for strided predicates | BitWeaving/V SIGMOD13 | PARTIAL | PASS (an exact stop in ndarray::simd, plus an A4 differential) | **PROBE** P-X19 |
 | X20 | bit-sliced F/C beside the row | SIMDRAM 2012.11890; FastLanes | NEW | persisted: TRAP (a second copy); per-tile transient in scratch: PASS | **PROBE** P-X20, transient only; prefer the strided pattern covers from R-MHB-1 |
 | X21 | infographic readings stored in bits | operator image | CONFLICTS-ANCHOR | TRAP | **SKIP** as stored meaning; "novelty" may be the derived K₂ |
+
+⊘ **Correction to X4 (main thread, after the map, VERIFIED-IN-CODE).** The
+scouts reported `NarsTables` as "not used by the live ISA, callers unchecked".
+It is used: `lance-graph-planner` `NarsEngine::new` builds `NarsTables::build(1)`
+(`cache/nars_engine.rs:451`), and `chain_admission.rs:227` replays chains with
+it. With `c_levels = 1`, `revise` maps every confidence to bucket 0
+(`tables.rs:118-120`), so the planner's default revision is **confidence-blind**
+(its own doc calls this "confidence inert"). "Four quantisers" is a lower bound:
+37 files under `crates/` define a function named `revise` or `revision`; they
+were not read, so the true count is open (gap G4).
 
 ## Epiphany candidates
 
@@ -168,6 +178,68 @@ Size is S, M or L. Every guard probe has a can-fire half and a can-stay-silent h
 - **X20:** a transient bit-sliced weighted Σ vs a strided u8 gather + VNNI vs one pass per pattern, all checked against an i128 oracle.
 
 **Order:** P-X2/X5, then P-X1/X6 and P-X4, then P-X11, then P-X7/X8, then the guards, then the benches.
+
+## TO-DO vs RESEARCH vs GAP (added on operator request)
+
+**Sorting rule.**
+
+| bucket | the facts it rests on | the outcome | its acceptance test |
+|---|---|---|---|
+| **TO-DO** | already VERIFIED-IN-CODE | decided; no measurement needed to know *what* to do | fails if the work is done wrong or later regresses |
+| **RESEARCH** | — | unknown; a measurement must decide between named options | a pre-registered kill condition |
+| **GAP** | — | blocks until something exists that does not: an operator decision, a missing primitive, or missing information (a census) | — |
+
+An item may move bucket when its blocker resolves, but never silently.
+
+### TO-DO (verified facts; each has a test that can fail)
+
+| id | item | why it is a TO-DO, not research | acceptance test (can fail / stays silent) |
+|---|---|---|---|
+| T1 | Exhaustive pin of revision's c-side on all 65,536 `(c1,c2)` pairs, against the exact integer form `255·N/D`, inside `ce64_isa_golden.rs` | The code is fixed; this only records what it does. The numpy model predicts the mismatch set `{(45,45),(85,165),(165,85)}` plus `(255,255) → 0`, and the Rust run either confirms or refutes it. Both outcomes are useful, and no policy is decided. | `assert_eq!` on the exact mismatch set and on the NaN set; any cell that changes later fails. Anti-vacuity: the test asserts that the exact form is defined on 65,535 cells and undefined on exactly one. |
+| T2 | Doc line plus pin: bits 40..42 are a plane subset, not a rung ordinal | VERIFIED: `PO = 0b011` (rung 2) < `SO = 0b101` (rung 1) numerically (`pearl.rs:37-77`). The fact is known; only the guard is missing. | Test `pearl_field_is_not_a_rung_ordinal`: asserts `PO < SO` numerically AND `rung(PO) > rung(SO)`. It fails if anyone renumbers the masks to make the field ordinal, because consumers would then start thresholding it. |
+| T3 | Pin `revise(x, zero_weight)` and the operand-zero table (X16) | The contract is declared (`isa.rs:377-472`). Whether `revise(x, c=0)` returns exactly x after decode→w→encode is an observation, not a design question. | `revise(x, (f, 0)) == x` over all 65,536 `(f,c)`, or an exact list of the codes where it is not. The forward weight-operand-zero table is pinned with `==` over its 8 cells. |
+| T4 | Pin `learn`'s frozen planes as bit-identical (X17) | `isa::contracts::LEARN` declares that frozen planes pass through. This verifies the declaration against the code. | 8 plasticity patterns, with frozen planes bit-identical before and after. It fails if `learn` writes into a frozen plane. |
+| T5 | Declare the rounding mode and saturation in `isa::contracts` as data, without changing behaviour | VERIFIED: encode is `round()` (half away from zero) plus `clamp(0,1)` (`edge.rs:805-806`). Declaring what already happens is additive (firewall PASS). | The declaration is checked against T1's tie cells: a declared `HalfAwayFromZero` must reproduce the observed result at the exact .5 ties. That makes the declaration a test, not decoration; it fails if the code or the declaration drifts. |
+| T6 | File an ISSUE: "multiple truth quantisers/revisions for one concept; the planner default is confidence-blind" | Verified now: `isa` revision, contract `NarsTruth` (0.99 cap), `NarsTables` (16 bins; planner default `c_levels=1` ⇒ confidence-blind), `TruthU8` (floor). Only the diagnosis is filed, not a fix. | The ISSUE cites each `file:line`; R3 below is its measurement. |
+| T7 | Doc line: (F,C) reads as the interval `[fc, fc+1−c]`, and C is the information axis | Vocabulary only. **Not testable:** `fc ≤ f ≤ fc+1−c` is an identity, so per the falsifiability rule no test is written for it. Listed so it is not mistaken for a tested claim. | none (deliberately) |
+
+### RESEARCH (answer unknown; a measurement decides)
+
+| id | question | why it is open (what we do NOT know) | probe | kill condition |
+|---|---|---|---|---|
+| R1 | Which c=255 policy: status quo, cap-before-weight, or saturate-at-254? | We know the defect cell. We do not know whether the cap introduces new monotonicity violations near 253/254, or whether it agrees with the exact integer form everywhere else. | P-X2: the 65,536-pair grid, plus f-side at c ∈ {253, 254, 255}, under three forms | The cap gives 0 NaN, 0 violations, and agreement on all 65,535 cells ⇒ the "reserved dogmatic code" option is closed for good. Otherwise the remaining violations are listed and the operator decides (G1). |
+| R2 | Do chains of weak revisions stagnate (RN absorbs Δ) or saturate (double counting)? | Saturation was measured (200 → 224 → 237); stagnation never was. The remedies differ: round once for stagnation, a stamp gate for saturation. | P-X1/X6: chain grid, per-hop re-encode vs f64 accumulate-once vs hashed SR | stagnation = 0 ⇒ SR is dead; max Δ ≤ 1 code ⇒ "round once" is cosmetic. Anti-vacuity: some cell must move ≥ 2 codes. |
+| R3 | How far apart are the truth quantisers, numerically? | We know there are at least four and that they differ in definition. We do not know by how many codes. | P-X4: a common grid across the four | All pairs within 1 code on non-255 cells ⇒ unification is cosmetic; otherwise counts per pair. A NarsTables-1 row is predicted to diverge strongly (it ignores c). |
+| R4 | Which contradiction measure separates "both" from "balanced"? | DS K is predicted to fail on `x ⊕ x`; `K₂ = c1c2·\|f1−f2\|` is untested. Whether either is useful downstream is also unknown. | P-X11 | `K₂(x,x) ≠ 0` for any x, or `K₂((1,c),(0,c)) ≤ K₂((½,c),(½,c))` ⇒ K₂ is dead. |
+| R5 | Is the self-revision / chain saturation defect exactly "cumulative fusion applied to dependent evidence"? Does the idempotent averaging rule fix it? Is evidence-space revision invertible (fission) at 8 bits? | Jøsang gives the theory (0712.1182, read in full). Nobody has run it on the CE64 grid, and quantisation may break invertibility. | (a) re-run the measured saturating chain with averaging on dependent hops; (b) `fission(revision(a,b), b) == a` within 1 code for c < 254 | (a) no change ⇒ the dependence explanation is wrong; (b) fails ⇒ the fission reading is dropped at u8. |
+| R6 | Can D-RPF-4's weighted sum be "c→w LUT, then group-sum" exactly? Does a sequential pairwise fold agree with the closed form? | Pairwise revision is not obviously associative after per-step u8 rounding. Whether `Σw`, `Σw·f` reproduce it is unmeasured. | P-X7/X8: random populations, 100 permutations each | One distinct code per population AND equal to the closed form ⇒ an evidence terminal is unnecessary. Otherwise the exact Σ terminal is required (and G3 becomes binding). |
+| R7 | How small are D-RPF-1's minimal pattern covers really (FCA extents)? | The separable bound (24+8) is known. The real tables may be much smaller; never counted. | P-X15 plus P-X14 (threshold cover == n+1) | No reduction below 24+8 ⇒ FCA buys nothing; record the number. |
+| R8 | Is the law's PEARL table monotone under ⊆? | It is a property of data (the law tables), not of code. | P-X13 second half | Non-monotone ⇒ any future "≥" lowering over Pearl is a bug by construction (strengthens T2). |
+| R9 | Does an MSB-first early stop or a transient bit-sliced copy beat strided passes? | Literature (BitWeaving, SIMDRAM) says it can; the D-RPF-9 baseline is 1 ms/64K per pattern; no measurement exists. | P-X19, P-X20 | Mean ≥ 6/8 planes or < 1.5× ⇒ X19 is PARKED; the strided gather + VNNI path ≤ the bit-sliced one ⇒ X20 is dropped. |
+
+### GAP (blocked on something that does not exist yet)
+
+| id | gap | kind | what it blocks | what would close it |
+|---|---|---|---|---|
+| G1 | c=255 policy decision, under a version gate | operator decision (I-LEGACY: it changes what `revision` returns) | any fix of the NaN→0 defect | R1 numbers plus an operator ruling; then a gated entry point and the golden flipped from "pins defect" to "pins policy" |
+| G2 | Which truth quantiser is normative | operator / architecture decision | unification, declared readings, T5's scope | R3 numbers plus a ruling naming one reference; others become tested readings |
+| G3 | LUT-mapped strided group-sum (per-byte `c → w` table, then Σ) | missing T1 primitive in `ndarray::simd` (`MaskedStridedGroupSum` sums raw bytes only, `ir.rs:309`) | the D-RPF-4 terminal on resident rows | backend-first primitive plus an A4 differential, only if R6 shows the exact Σ terminal is needed |
+| G4 | Census: callers of `NarsTables` (2 found now), the 37 files defining `revise`/`revision`, users of `MaskedStridedGroupSum`, consumers gating on Epi5, and persisted edges holding c=255 | missing information | G1 and G2 (cannot judge blast radius) | a read pass that closes each search space by name |
+| G5 | Evidential base / stamp for independence | design gap: CE64 has no field for it and the layout is frozen; Witness ownership is open | R5's remedy; the STAMP-GATE fix | a ruling on where the stamp lives (an outside structure such as AriGraph or a tenant, never a CE64 re-read) |
+| G6 | Witness field ownership: three readings (corpus root, mailbox routing, Gomoku credit) | open ruling | G5 and any use of W as evidence identity | operator ruling |
+| G7 | Opcode taken from the operand (`forward` reads B's mantissa) | parked design change (cost M) | X18 | an additive entry point, if a consumer needs it |
+| G8 | The infographic's meanings ("activation", "novelty", "belief update") have no home | semantic gap: CONFLICTS-ANCHOR as stored bits; a new tenant is forbidden by D-RPF-8 within this plan | expressing them at all | an operator decision: derived quantities only (e.g. K₂ as "novelty"), or a separate plan for a tenant |
+| G9 | Unsearched literature and systems (see below) | research debt | confidence that nothing better exists | a follow-up scout pass if any R item hinges on it |
+
+### Order and dependencies
+
+```text
+T1 → T5 (needs T1's tie cells) ; T1 + R1 → G1 ; R3 + G4 → G2
+T2, T3, T4, T6, T7 independent
+R2 → decides X6 (SR) and X1 ; R5 needs G5 for its remedy
+R6 → G3 (only if needed) → D-RPF-4
+R7, R8 → D-RPF-1 compiler ; R9 last (bench rig)
+```
 
 ## What was NOT searched
 
