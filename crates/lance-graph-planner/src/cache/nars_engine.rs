@@ -603,7 +603,7 @@ impl NarsEngine {
         compose_s: &[u8; 256 * 256],
         compose_p: &[u8; 256 * 256],
         compose_o: &[u8; 256 * 256],
-    ) -> CausalEdge64 {
+    ) -> Result<CausalEdge64, causal_edge::isa::IsaFault> {
         input.forward(weight, compose_s, compose_p, compose_o)
     }
 

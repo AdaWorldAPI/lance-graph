@@ -4,6 +4,7 @@
 
 use super::pearl::CausalMask;
 use super::plasticity::PlasticityState;
+use crate::isa::{Compose, IsaFault, Opcode};
 
 /// NARS inference types encoded in 3 bits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,7 +63,7 @@ impl InferenceType {
     ///   6=Intervention(+)/Counterfactual(-) [PR-LL-1 absorbed per L-9],
     ///   7=Extension(+)/Intension-negative(-) [future].
     #[inline]
-    pub fn to_mantissa(self) -> i8 {
+    pub const fn to_mantissa(self) -> i8 {
         match self {
             // Forward-chain (positive mantissa)
             Self::Deduction => 1,
@@ -350,12 +351,7 @@ impl CausalEdge64 {
     /// Evidence weight: c / (1 - c). Returns u16::MAX if c == 255.
     #[inline]
     pub fn evidence_weight(self) -> f32 {
-        let c = self.confidence();
-        if c >= 0.999 {
-            f32::MAX
-        } else {
-            c / (1.0 - c)
-        }
+        crate::isa::truth::evidence_weight(self.confidence())
     }
 
     /// Set frequency (u8).
@@ -657,10 +653,17 @@ impl CausalEdge64 {
 
     // ─── Forward Pass (BNN-style) ───────────────────────────────────
 
-    /// The forward pass: compose palettes + propagate truth + propagate causality.
+    /// The forward pass: decode `weight`'s inference code, then execute
+    /// exactly that instruction (`self.deduction(weight, ..)` and so on).
     ///
-    /// This IS the "neural network inference" — but every intermediate is
-    /// a CausalEdge64 with full interpretability.
+    /// Decoding is strict ([`Opcode::decode`]): a code with no implementation
+    /// (counterfactual, intervention, the reserved values) is an
+    /// [`IsaFault`], never executed as another instruction. The field
+    /// contract is [`contracts::FORWARD`](crate::isa::contracts::FORWARD).
+    ///
+    /// # Errors
+    ///
+    /// [`IsaFault::Unsupported`] when `weight` carries an unexecutable code.
     #[inline]
     pub fn forward(
         self,
@@ -668,72 +671,133 @@ impl CausalEdge64 {
         compose_s: &[u8; 256 * 256],
         compose_p: &[u8; 256 * 256],
         compose_o: &[u8; 256 * 256],
-    ) -> Self {
-        // 1. Palette composition (the "multiply")
-        let s_out = compose_s[self.s_idx() as usize * 256 + weight.s_idx() as usize];
-        let p_out = compose_p[self.p_idx() as usize * 256 + weight.p_idx() as usize];
-        let o_out = compose_o[self.o_idx() as usize * 256 + weight.o_idx() as usize];
-
-        // 2. NARS truth propagation (the "activation function")
-        // Under v2: decode the 4-bit signed mantissa (bits 46-49) and route
-        // through the same InferenceType variants. Without this, v2 edges
-        // built via `with_inference_mantissa()` route as 3-bit unsigned
-        // (e.g. -1 = 0b1111 reads as Reserved7), bypassing Abduction/
-        // Counterfactual semantics entirely.
+    ) -> Result<Self, IsaFault> {
         #[cfg(feature = "causal-edge-v2-layout")]
-        #[allow(deprecated)]
-        // weight.inference_type() is the v1 fallback below; v2 uses mantissa
-        let resolved_infer = InferenceType::from_mantissa(weight.inference_mantissa());
+        let op = Opcode::decode(weight.inference_mantissa())?;
         #[cfg(not(feature = "causal-edge-v2-layout"))]
-        #[allow(deprecated)]
-        // v1 layout: 3-bit unsigned inference type is the canonical read
-        let resolved_infer = weight.inference_type();
-        let (f_out, c_out) = match resolved_infer {
-            InferenceType::Deduction => {
-                let f = self.frequency() * weight.frequency();
-                let c = f * self.confidence() * weight.confidence();
-                (f, c)
-            }
-            InferenceType::Induction => {
-                let f = weight.frequency();
-                let w = self.frequency() * self.confidence() * weight.confidence();
-                (f, w / (w + 1.0))
-            }
-            InferenceType::Abduction => {
-                let f = self.frequency();
-                let w = weight.frequency() * self.confidence() * weight.confidence();
-                (f, w / (w + 1.0))
-            }
-            InferenceType::Revision => {
-                let w1 = self.evidence_weight();
-                let w2 = weight.evidence_weight();
-                let ws = w1 + w2;
-                if ws < f32::EPSILON {
-                    (0.5, 0.0)
-                } else {
-                    let f = (self.frequency() * w1 + weight.frequency() * w2) / ws;
-                    let c = ws / (ws + 1.0);
-                    (f, c)
-                }
-            }
-            InferenceType::Synthesis | _ => {
-                let f = (self.frequency() + weight.frequency()) / 2.0;
-                let c = (self.confidence() + weight.confidence()) / 2.0;
-                (f, c)
-            }
-        };
+        #[allow(deprecated)] // v1 layout: the 3-bit code is the canonical read
+        let op = Opcode::decode_v1(weight.inference_type())?;
+        Ok(self.execute(
+            op,
+            weight,
+            Compose {
+                s: compose_s,
+                p: compose_p,
+                o: compose_o,
+            },
+        ))
+    }
 
-        // 3. Causal mask: AND (only planes active in BOTH survive)
+    /// Deduction with `rhs` as the second premise. See [`execute`](Self::execute).
+    #[inline]
+    #[must_use]
+    pub fn deduction(self, rhs: Self, compose: Compose<'_>) -> Self {
+        self.execute(Opcode::Deduction, rhs, compose)
+    }
+
+    /// Induction with `rhs` as the second premise. See [`execute`](Self::execute).
+    #[inline]
+    #[must_use]
+    pub fn induction(self, rhs: Self, compose: Compose<'_>) -> Self {
+        self.execute(Opcode::Induction, rhs, compose)
+    }
+
+    /// Abduction with `rhs` as the second premise. See [`execute`](Self::execute).
+    #[inline]
+    #[must_use]
+    pub fn abduction(self, rhs: Self, compose: Compose<'_>) -> Self {
+        self.execute(Opcode::Abduction, rhs, compose)
+    }
+
+    /// NARS revision: pool the evidence of `self` and `rhs` for the same
+    /// statement. Truth arithmetic only: writes frequency and confidence,
+    /// keeps every other field of `self`, needs no payload algebra
+    /// ([`contracts::REVISION`](crate::isa::contracts::REVISION)).
+    ///
+    /// With no evidence on either side the result is unknown, `(0.5, 0.0)`.
+    /// Whether two edges are independent enough to pool is the caller's
+    /// decision (a reasoning policy, such as a Gadamer-style revision gate),
+    /// never this method's.
+    #[inline]
+    #[must_use]
+    pub fn revision(self, rhs: Self) -> Self {
+        let (f, c) = Opcode::Revision.truth(
+            self.frequency(),
+            self.confidence(),
+            rhs.frequency(),
+            rhs.confidence(),
+        );
+        let mut out = self;
+        out.set_frequency(f);
+        out.set_confidence(c);
+        out
+    }
+
+    /// Synthesis (component-wise mean) with `rhs`. See [`execute`](Self::execute).
+    #[inline]
+    #[must_use]
+    pub fn synthesis(self, rhs: Self, compose: Compose<'_>) -> Self {
+        self.execute(Opcode::Synthesis, rhs, compose)
+    }
+
+    /// Counterfactual. Partial; no implementation exists yet, so it always
+    /// refuses. It never runs another instruction in its place.
+    ///
+    /// # Errors
+    ///
+    /// Always [`IsaFault::Unsupported`] with the counterfactual code in the
+    /// active layout (`-6` in v2, `6` in v1); see [`IsaFault::unsupported`].
+    #[inline]
+    pub fn counterfactual(self, _rhs: Self, _compose: Compose<'_>) -> Result<Self, IsaFault> {
+        Err(IsaFault::unsupported(InferenceType::Counterfactual))
+    }
+
+    /// Intervention. Partial; no implementation exists yet, so it always
+    /// refuses.
+    ///
+    /// # Errors
+    ///
+    /// Always [`IsaFault::Unsupported`] with the intervention code in the
+    /// active layout (`+6` in v2, `5` in v1); see [`IsaFault::unsupported`].
+    #[inline]
+    pub fn intervention(self, _rhs: Self, _compose: Compose<'_>) -> Result<Self, IsaFault> {
+        Err(IsaFault::unsupported(InferenceType::Intervention))
+    }
+
+    /// Execute one chain step under `op` on `(self, rhs)`: what `forward`
+    /// runs after decoding the weight's code.
+    ///
+    /// - S/P/O: composed per plane through `compose`;
+    /// - truth: `op`'s canonical truth function ([`Opcode::truth`]);
+    /// - Pearl mask: AND of both operands;
+    /// - inference field: `op`'s own encoding;
+    /// - direction and plasticity: passed through from `rhs`;
+    /// - witness and epistemic state: written 0.
+    ///
+    /// No policy: the caller has already chosen the operands and the
+    /// instruction.
+    #[inline]
+    #[must_use]
+    pub fn execute(self, op: Opcode, rhs: Self, compose: Compose<'_>) -> Self {
+        let s_out = compose.s[self.s_idx() as usize * 256 + rhs.s_idx() as usize];
+        let p_out = compose.p[self.p_idx() as usize * 256 + rhs.p_idx() as usize];
+        let o_out = compose.o[self.o_idx() as usize * 256 + rhs.o_idx() as usize];
+
+        let (f_out, c_out) = op.truth(
+            self.frequency(),
+            self.confidence(),
+            rhs.frequency(),
+            rhs.confidence(),
+        );
+
         let mask_out =
-            CausalMask::from_bits((self.causal_mask() as u8) & (weight.causal_mask() as u8));
+            CausalMask::from_bits((self.causal_mask() as u8) & (rhs.causal_mask() as u8));
 
-        // 4. Temporal: latest of the two (v1 read; the pack() below drops it under v2)
+        // Temporal: latest of the two (v1; `pack` ignores it under v2).
         #[allow(deprecated)]
-        let t_out = self.temporal().max(weight.temporal());
+        let t_out = self.temporal().max(rhs.temporal());
 
-        // 5. Inherit plasticity from weight (the "learned" edge)
-        //    and direction will be recomputed from composed palette entries
-        #[allow(deprecated)] // pack() v2 path drops temporal; resolved_infer carries v2 mantissa
+        #[allow(deprecated)] // v2 `pack` ignores temporal
         let result = Self::pack(
             s_out,
             p_out,
@@ -741,17 +805,15 @@ impl CausalEdge64 {
             (f_out.clamp(0.0, 1.0) * 255.0).round() as u8,
             (c_out.clamp(0.0, 1.0) * 255.0).round() as u8,
             mask_out,
-            weight.direction(), // TODO: recompute from composed palette dim0 signs
-            resolved_infer,
-            weight.plasticity(),
+            rhs.direction(), // TODO: recompute from composed palette dim0 signs
+            op.inference_type(),
+            rhs.plasticity(),
             t_out,
         );
-        // Under v2: re-stamp the signed mantissa onto the result. pack() only
-        // writes 3 bits (v1 enum discriminant) into bits 46-48; bit 49 (the
-        // sign bit) stays 0, so negative mantissas (Abduction, Counterfactual)
-        // would lose their sign. Override here with the resolved value.
+        // Under v2 the inference field holds the signed code; `pack` writes the
+        // 3-bit enum discriminant.
         #[cfg(feature = "causal-edge-v2-layout")]
-        let result = result.with_inference_mantissa(resolved_infer.to_mantissa());
+        let result = result.with_inference_mantissa(op.encoding());
         result
     }
 
@@ -785,13 +847,13 @@ impl CausalEdge64 {
             }
         }
 
-        // NARS revision: merge evidence
-        let w1 = self.evidence_weight();
-        let w2 = observation.evidence_weight();
-        let ws = w1 + w2;
-        if ws > f32::EPSILON {
-            let f_new = (self.frequency() * w1 + observation.frequency() * w2) / ws;
-            let c_new = ws / (ws + 1.0);
+        // NARS revision: merge evidence (the canonical truth function).
+        if let Some((f_new, c_new)) = crate::isa::truth::revision(
+            self.frequency(),
+            self.confidence(),
+            observation.frequency(),
+            observation.confidence(),
+        ) {
             self.set_frequency(f_new);
             self.set_confidence(c_new);
 
@@ -1433,7 +1495,9 @@ mod tests {
 
         // Dummy compose tables (identity for test)
         let compose = [0u8; 256 * 256];
-        let result = input.forward(weight, &compose, &compose, &compose);
+        let result = input
+            .forward(weight, &compose, &compose, &compose)
+            .expect("deduction weight");
 
         // Deduction: f_out = f_in * f_w ≈ 0.80 * 0.90 = 0.72
         assert!(

@@ -57,7 +57,7 @@ fn trace(hops: usize, step: impl Fn(CausalEdge64, CausalEdge64) -> CausalEdge64)
 #[test]
 fn forward_deduction_lowers_confidence_along_the_chain() {
     let t = keep_left();
-    let c = trace(5, |r, w| r.forward(w, &t, &t, &t));
+    let c = trace(5, |r, w| r.forward(w, &t, &t, &t).unwrap());
     assert!(c.windows(2).all(|p| p[1] < p[0]), "{c:?}");
 }
 
@@ -77,7 +77,7 @@ fn replay_step_raises_confidence_along_a_deduction_chain() {
         p: &t,
         o: &t,
     };
-    let c = trace(5, |r, w| replay_step(r, w, &tables, compose));
+    let c = trace(5, |r, w| replay_step(r, w, &tables, compose).unwrap());
     assert_eq!(c, [200, 224, 237, 237, 237, 237]);
 }
 
@@ -96,7 +96,7 @@ fn self_revision_raises_confidence_on_the_replay_path() {
         o: &t,
     };
     let e = edge(200, 128);
-    let out = replay_step(e, e, &tables, compose);
+    let out = replay_step(e, e, &tables, compose).unwrap();
     assert!(
         out.confidence_u8() > e.confidence_u8(),
         "{} -> {}",
@@ -120,7 +120,7 @@ fn a_zero_confidence_weight_still_adds_confidence_on_the_replay_path() {
         o: &t,
     };
     let e = edge(200, 128);
-    let out = replay_step(e, edge(200, 0), &tables, compose);
+    let out = replay_step(e, edge(200, 0), &tables, compose).unwrap();
     assert_eq!((e.confidence_u8(), out.confidence_u8()), (128, 137));
 }
 
@@ -129,6 +129,6 @@ fn a_zero_confidence_weight_still_adds_confidence_on_the_replay_path() {
 #[test]
 fn forward_deduction_adds_nothing_for_a_zero_confidence_weight() {
     let t = keep_left();
-    let out = edge(200, 128).forward(edge(200, 0), &t, &t, &t);
+    let out = edge(200, 128).forward(edge(200, 0), &t, &t, &t).unwrap();
     assert_eq!(out.confidence_u8(), 0);
 }

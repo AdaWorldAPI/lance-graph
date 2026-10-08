@@ -200,9 +200,9 @@ impl CausalEdge64 {
         let (f1, c1) = (self.frequency(), self.confidence());
         let (f2, c2) = (other.frequency(), other.confidence());
         let (f, c) = match figure {
-            Figure::Chain | Figure::ChainRev => deduction_truth(f1, c1, f2, c2),
-            Figure::SharedSubject => induction_truth(f1, c1, f2, c2),
-            Figure::SharedObject => abduction_truth(f1, c1, f2, c2),
+            Figure::Chain | Figure::ChainRev => crate::isa::truth::deduction(f1, c1, f2, c2),
+            Figure::SharedSubject => crate::isa::truth::induction(f1, c1, f2, c2),
+            Figure::SharedObject => crate::isa::truth::abduction(f1, c1, f2, c2),
         };
 
         // Pearl mask: AND (only planes active in both survive) — as `forward`.
@@ -233,33 +233,6 @@ impl CausalEdge64 {
 
 // ─── Truth-functions (mirror `ndarray::hpc::nars` + `CausalEdge64::forward`) ──
 //
-// Kept private to this module. The formulas are byte-identical to the canonical
-// `ndarray` hardware functions and to `forward`'s inline arms; the intentional
-// mirror keeps `causal-edge` zero-dep (it cannot import `ndarray`). A later DRY
-// pass may factor `forward`'s arms onto these. The hot-path u8→u8 table form
-// lives in `tables.rs` (deduction shipped; induction/abduction tables follow).
-
-/// Deduction `A->B, B->C ⊢ A->C`: `f = f1·f2`, `c = f1·f2·c1·c2`.
-#[inline]
-fn deduction_truth(f1: f32, c1: f32, f2: f32, c2: f32) -> (f32, f32) {
-    let f = f1 * f2;
-    (f, f * c1 * c2)
-}
-
-/// Induction `A->B, A->C ⊢ B->C`: `f = f2`, `c = w/(w+1)`, `w = f1·c1·c2`.
-#[inline]
-fn induction_truth(f1: f32, c1: f32, f2: f32, c2: f32) -> (f32, f32) {
-    let w = f1 * c1 * c2;
-    (f2, w / (w + 1.0))
-}
-
-/// Abduction `A->B, C->B ⊢ A->C`: `f = f1`, `c = w/(w+1)`, `w = f2·c1·c2`.
-#[inline]
-fn abduction_truth(f1: f32, c1: f32, f2: f32, c2: f32) -> (f32, f32) {
-    let w = f2 * c1 * c2;
-    (f1, w / (w + 1.0))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
