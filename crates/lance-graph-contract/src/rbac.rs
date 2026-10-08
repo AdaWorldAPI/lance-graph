@@ -31,12 +31,86 @@
 use crate::class_view::{FieldMask, WideFieldMask};
 use crate::property::PrefetchDepth;
 
+/// The most segments a [`ScopePath`] holds. Four covers a tenant/org above
+/// SurrealDB's own three (namespace / database / access) and Zitadel's
+/// org / project.
+pub const SCOPE_PATH_DEPTH: usize = 4;
+
+/// A position in a **nested** scope hierarchy — root ⊃ namespace ⊃ database ⊃
+/// record, org ⊃ project, and the like — as a path of interned segment keys.
+///
+/// The empty path ([`ScopePath::ROOT`]) is the top; each segment narrows. A
+/// path **contains** another when it is a prefix of it, so a scope bound at
+/// `[ns]` covers everything under `[ns, db]`. Segments are opaque `u64` keys a
+/// producer interns (a namespace name, a database name, an org id); the kernel
+/// compares them and never decodes them.
+///
+/// `Copy` POD, no heap: unused segments are always zero, so derived equality is
+/// path equality.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct ScopePath {
+    len: u8,
+    seg: [u64; SCOPE_PATH_DEPTH],
+}
+
+impl ScopePath {
+    /// The top of the hierarchy: contains every path.
+    pub const ROOT: ScopePath = ScopePath {
+        len: 0,
+        seg: [0; SCOPE_PATH_DEPTH],
+    };
+
+    /// The path `segments`, outermost first. `None` when deeper than
+    /// [`SCOPE_PATH_DEPTH`].
+    #[must_use]
+    pub const fn new(segments: &[u64]) -> Option<Self> {
+        if segments.len() > SCOPE_PATH_DEPTH {
+            return None;
+        }
+        let mut seg = [0u64; SCOPE_PATH_DEPTH];
+        let mut i = 0;
+        while i < segments.len() {
+            seg[i] = segments[i];
+            i += 1;
+        }
+        Some(Self {
+            len: segments.len() as u8,
+            seg,
+        })
+    }
+
+    /// The segments, outermost first.
+    #[must_use]
+    pub fn segments(&self) -> &[u64] {
+        &self.seg[..self.len as usize]
+    }
+
+    /// Whether `other` lies inside `self`: `self` is a prefix of `other`.
+    /// Every path contains itself; [`ScopePath::ROOT`] contains every path.
+    #[must_use]
+    pub const fn contains(&self, other: &ScopePath) -> bool {
+        if self.len > other.len {
+            return false;
+        }
+        let mut i = 0;
+        while i < self.len as usize {
+            if self.seg[i] != other.seg[i] {
+                return false;
+            }
+            i += 1;
+        }
+        true
+    }
+}
+
 /// §3/§4 compiled scope-and-projection token — the `(tenant, predicate_key)` pair
-/// that constrains a role's row-visibility on a class. `predicate_key = 0` means
-/// tenant-only scope (the common case). Intentionally opaque: NO `evaluate` /
-/// interpret methods — it is a compiled address token, not a runtime policy
-/// engine; the kernel resolves it against the store, never interprets it inline.
-/// `Copy` POD (no heap).
+/// plus a nested [`ScopePath`] that constrain a role's row-visibility on a class.
+/// `predicate_key = 0` means tenant-only scope (the common case); `path =
+/// ScopePath::ROOT` means no nesting constraint. Intentionally opaque: NO
+/// `evaluate` / interpret methods — it is a compiled address token, not a
+/// runtime policy engine; the kernel resolves it against the store, never
+/// interprets it inline. [`ScopeSpec::admits`] is address containment, not
+/// policy. `Copy` POD (no heap).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct ScopeSpec {
     /// The tenant discriminant. `None` = global (cross-tenant) scope.
@@ -44,6 +118,9 @@ pub struct ScopeSpec {
     /// Reserved predicate key (0 = tenant-only; non-zero reserved for future
     /// predicate-scoped row filters — do NOT interpret in this PR).
     pub predicate_key: u32,
+    /// Where in a nested scope hierarchy this scope is bound. Rows at this path
+    /// or below it are visible; [`ScopePath::ROOT`] constrains nothing.
+    pub path: ScopePath,
     /// The **empty** scope — `true` ⇒ no row is visible. This is the sound
     /// representation of an irreconcilable [`intersect`](ScopeSpec::intersect):
     /// when two granting roles bind DIFFERENT tenants, no row can satisfy both,
@@ -60,8 +137,18 @@ impl ScopeSpec {
     pub const DENY: ScopeSpec = ScopeSpec {
         tenant: None,
         predicate_key: 0,
+        path: ScopePath::ROOT,
         deny: true,
     };
+
+    /// Whether a row located at `at` is inside this scope: not the empty scope,
+    /// and `at` lies at or below [`path`](ScopeSpec::path). Address
+    /// containment only; the tenant is matched by the store that owns rows.
+    #[inline]
+    #[must_use]
+    pub const fn admits(&self, at: &ScopePath) -> bool {
+        !self.deny && self.path.contains(at)
+    }
 
     /// Restrictive intersection of two scopes — the AND-fold `authorize_scoped`
     /// uses when a user holds several granting roles (each row must satisfy
@@ -71,22 +158,34 @@ impl ScopeSpec {
     /// "self wins" (that would widen visibility to `self`'s tenant, which the
     /// other granting role never authorized). `deny` is absorbing. `predicate_key`s
     /// are OR-combined (reserved; both keys apply once a consumer interprets them).
+    /// Paths intersect the same way: when one contains the other the narrower one
+    /// is the intersection; two paths on different branches share no row, so the
+    /// result is [`ScopeSpec::DENY`].
     #[inline]
     #[must_use]
     pub const fn intersect(self, other: Self) -> Self {
         if self.deny || other.deny {
             return ScopeSpec::DENY;
         }
+        let path = if self.path.contains(&other.path) {
+            other.path
+        } else if other.path.contains(&self.path) {
+            self.path
+        } else {
+            return ScopeSpec::DENY;
+        };
         let predicate_key = self.predicate_key | other.predicate_key;
         match (self.tenant, other.tenant) {
             (None, t) | (t, None) => Self {
                 tenant: t,
                 predicate_key,
+                path,
                 deny: false,
             },
             (Some(a), Some(b)) if a == b => Self {
                 tenant: Some(a),
                 predicate_key,
+                path,
                 deny: false,
             },
             // Distinct tenants: empty intersection — no row satisfies both.
@@ -461,6 +560,7 @@ mod tests {
             Some(ScopeSpec {
                 tenant: Some(42),
                 predicate_key: 0,
+                path: ScopePath::ROOT,
                 deny: false,
             })
         }
@@ -484,13 +584,11 @@ mod tests {
         let global = ScopeSpec::default(); // tenant None, denies nothing
         let t1 = ScopeSpec {
             tenant: Some(1),
-            predicate_key: 0,
-            deny: false,
+            ..ScopeSpec::default()
         };
         let t2 = ScopeSpec {
             tenant: Some(2),
-            predicate_key: 0,
-            deny: false,
+            ..ScopeSpec::default()
         };
         // global ∩ specific = specific (the specific one restricts)
         assert_eq!(global.intersect(t1).tenant, Some(1));
@@ -506,5 +604,79 @@ mod tests {
         // deny is absorbing
         assert!(ScopeSpec::DENY.intersect(t1).deny);
         assert!(t1.intersect(ScopeSpec::DENY).deny);
+    }
+
+    fn at(segments: &[u64]) -> ScopePath {
+        ScopePath::new(segments).expect("within SCOPE_PATH_DEPTH")
+    }
+
+    fn bound(segments: &[u64]) -> ScopeSpec {
+        ScopeSpec {
+            path: at(segments),
+            ..ScopeSpec::default()
+        }
+    }
+
+    #[test]
+    fn a_scope_path_contains_exactly_its_prefixes() {
+        let (ns, db, other_db, other_ns) = (at(&[1]), at(&[1, 7]), at(&[1, 8]), at(&[2]));
+        assert!(ScopePath::ROOT.contains(&db));
+        assert!(ns.contains(&ns));
+        assert!(ns.contains(&db));
+        assert!(
+            !db.contains(&ns),
+            "a database does not contain its namespace"
+        );
+        assert!(
+            !db.contains(&other_db),
+            "siblings do not contain each other"
+        );
+        assert!(!ns.contains(&other_ns));
+        assert!(!other_ns.contains(&db));
+        assert_eq!(db.segments(), &[1, 7]);
+        assert_eq!(ScopePath::ROOT.segments(), &[] as &[u64]);
+        assert!(ScopePath::new(&[1, 2, 3, 4, 5]).is_none());
+        assert_eq!(ScopePath::new(&[]), Some(ScopePath::ROOT));
+    }
+
+    #[test]
+    fn a_scope_admits_rows_at_or_below_its_path() {
+        let s = bound(&[1]);
+        assert!(s.admits(&at(&[1])));
+        assert!(s.admits(&at(&[1, 7, 3])));
+        assert!(!s.admits(&at(&[2, 7])));
+        assert!(
+            !s.admits(&ScopePath::ROOT),
+            "a namespace scope does not reach the root"
+        );
+        assert!(
+            ScopeSpec::default().admits(&at(&[9, 9])),
+            "the root scope admits everything"
+        );
+        assert!(
+            !ScopeSpec::DENY.admits(&ScopePath::ROOT),
+            "the empty scope admits nothing"
+        );
+    }
+
+    #[test]
+    fn nested_scopes_intersect_to_the_narrower_and_branches_to_deny() {
+        let (ns, db) = (bound(&[1]), bound(&[1, 7]));
+        assert_eq!(ns.intersect(db).path, at(&[1, 7]));
+        assert_eq!(db.intersect(ns).path, at(&[1, 7]));
+        assert_eq!(ScopeSpec::default().intersect(db).path, at(&[1, 7]));
+        // Two databases, or two namespaces: no row lies in both.
+        assert_eq!(db.intersect(bound(&[1, 8])), ScopeSpec::DENY);
+        assert_eq!(ns.intersect(bound(&[2])), ScopeSpec::DENY);
+        // The tenant rule still applies on top of a compatible path.
+        let t1 = ScopeSpec {
+            tenant: Some(1),
+            ..db
+        };
+        let t2 = ScopeSpec {
+            tenant: Some(2),
+            ..ns
+        };
+        assert_eq!(t1.intersect(t2), ScopeSpec::DENY);
     }
 }

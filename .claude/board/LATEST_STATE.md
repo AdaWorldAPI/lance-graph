@@ -1,3 +1,7 @@
+## 2026-10-08 — rbac nested scope on branch `ccr-0455e606-wmtsor` (unmerged)
+
+- Contract delta: `contract::rbac::{ScopePath, SCOPE_PATH_DEPTH}`; `ScopeSpec` gains `path` and `admits`; `intersect` folds paths (narrower wins, branches deny). `lance-graph-rbac::auth::AuthProvider::SurrealDb` (`auth_surrealdb` `0x0B05`) plus its mirror row. Entry: `entries/2026-10-08-rbac-nested-scope-path.md`.
+
 ## 2026-10-07 — lance-graph #1398 MERGED (`89694cc`)
 
 - D-PUZZLE-ATTN-0, probe-only (no contract change): shared crossword core in `cognitive-shader-driver/examples/shared/crossword_core.rs`, slot-policy probe `crossword_attention_probe.rs`.
