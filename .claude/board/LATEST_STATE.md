@@ -1,6 +1,6 @@
-## 2026-10-08 — rbac nested scope on branch `ccr-0455e606-wmtsor` (unmerged)
+## 2026-10-08 — rbac nested scope, lance-graph #1401 MERGED (`ecbc396e`)
 
-- Contract delta: `contract::rbac::{ScopePath, SCOPE_PATH_DEPTH}`; `ScopeSpec` gains `path` and `admits`; `intersect` folds paths (narrower wins, branches deny). `lance-graph-rbac::auth::AuthProvider::SurrealDb` (`auth_surrealdb` `0x0B05`) plus its mirror row. Entry: `entries/2026-10-08-rbac-nested-scope-path.md`.
+- Contract delta: `contract::rbac::{ScopePath, SCOPE_PATH_DEPTH}`; `ScopeSpec` gains `path` and `admits`; `intersect` folds paths (narrower wins, branches deny). (#1401 also added an auth provider profile and its mirror row; both removed in the follow-up PR.) Entry: `entries/2026-10-08-rbac-nested-scope-path.md`.
 
 ## 2026-10-07 — lance-graph #1398 MERGED (`89694cc`)
 

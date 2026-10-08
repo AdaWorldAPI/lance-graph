@@ -31,9 +31,9 @@
 use crate::class_view::{FieldMask, WideFieldMask};
 use crate::property::PrefetchDepth;
 
-/// The most segments a [`ScopePath`] holds. Four covers a tenant/org above
-/// SurrealDB's own three (namespace / database / access) and Zitadel's
-/// org / project.
+/// The most segments a [`ScopePath`] holds. Four covers a tenant above a
+/// three-level resource hierarchy (for example namespace / database / record)
+/// and Zitadel's org / project.
 pub const SCOPE_PATH_DEPTH: usize = 4;
 
 /// A position in a **nested** scope hierarchy — root ⊃ namespace ⊃ database ⊃
