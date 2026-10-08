@@ -32,6 +32,7 @@ exactly one of them, never both.
 | 2026-10-08 | `rbac-nested-scope-path` |  | [2026-10-08-rbac-nested-scope-path.md](2026-10-08-rbac-nested-scope-path.md) |
 | 2026-10-08 | `rbac-membership-scope` |  | [2026-10-08-rbac-membership-scope.md](2026-10-08-rbac-membership-scope.md) |
 | 2026-10-08 | `rbac-hotplug-socket` |  | [2026-10-08-rbac-hotplug-socket.md](2026-10-08-rbac-hotplug-socket.md) |
+| 2026-10-08 | `moore-nars16-isa-visible-representation` |  | [2026-10-08-moore-nars16-isa-visible-representation.md](2026-10-08-moore-nars16-isa-visible-representation.md) |
 | 2026-10-08 | `D-MOORE-NARS-0` |  | [2026-10-08-moore-nars-0-recipe-learning-gomoku.md](2026-10-08-moore-nars-0-recipe-learning-gomoku.md) |
 | 2026-10-08 | `coresearch-ce64-moore-masking-wiring` |  | [2026-10-08-coresearch-ce64-moore-masking-wiring.md](2026-10-08-coresearch-ce64-moore-masking-wiring.md) |
 | 2026-10-08 | `ce64-isa-register-contract` |  | [2026-10-08-ce64-isa-register-contract.md](2026-10-08-ce64-isa-register-contract.md) |
