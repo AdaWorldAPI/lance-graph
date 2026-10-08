@@ -60,6 +60,26 @@ between them. Where a hop has no primitive, the phase stops and files the gap.
 - [ ] **D-RPF-6** — Tile skip on a zero gate (capstone point 3) measured on resident rows
 - [ ] **D-RPF-7** — Rank spectrum of the 256×256 palette distance LUTs (measurement only)
 - [ ] **D-RPF-8** — Boundary declaration: what mask-risc never executes
+- [x] **D-RPF-9** — Fold-Join deforestation probe (measured 2026-10-08; rewrite contract proposed, not implemented)
+
+## Three stages of deforestation (added 2026-10-08, D-RPF-9)
+
+Each stage removes one kind of intermediate. They are distinct and must not be
+conflated:
+
+| stage | what is never built | state on `main` | phases |
+|---|---|---|---|
+| **1. Projection** | an extracted CE64 lane | predicates read `MaterializedEdges` in place through `MatchFacet16Strided`; equal to the accessors (D-RPF-9) | D-RPF-0, D-RPF-1, D-RPF-5 |
+| **2. Mask** | a population-sized bitmap between a predicate and a terminal that consumes it | already the tiled law: one 2 KB tile per slot, 0 allocations; remaining work is R2 (strided pattern merge), R3 (gate selection), G1 (strided `_under`), G3 (tile skip) | D-RPF-6, D-RPF-9 |
+| **3. Fold-Join** | a pair relation, cross product, join result or intermediate aggregate when aligned resident addresses and the fold's law suffice | shipped for ≤ 6 resident planes (`fused_ternlog` / `tern2` / `tern3`, no slot); G2 (two-window strided match) is the open gap for CE64 pairs | D-RPF-9 |
+
+Stage 3 is an intersection at the SAME address. A hop that resolves a
+different address (`Gather`, `ScatterOrU32`, multi-hop graph joins) is not a
+Fold-Join and keeps its own lowering. Two signed-register lanes are only
+combinable when both bind under the same `RegisterLaw`; a mismatch is refused
+by `bind_signed_register` (`RegisterLawMismatch`, #1410) before any mask
+exists, and `RelativeOffset`, `AxisPosition` and `Support` are never
+interchangeable.
 
 ## Details
 
@@ -90,6 +110,13 @@ zero on the other edge's eight bytes. No window reaches a neighbouring tenant,
 so no RBAC question arises and no 8-byte strided primitive is needed. (An
 earlier draft placed one window per edge and flagged an overlap for `k = 3`;
 that placement was unnecessary — Codex review on #1411.)
+
+**Status (2026-10-08, D-RPF-9).** The equality half is green: the probe
+matches edge 0's Pearl3 and edge 2's Epi5 in place, equal to the
+`CausalEdge64` accessors; a care shifted by one bit disagrees; rewriting every
+non-care bit leaves the answer unchanged; the windows stay inside the tenant
+(row bytes 48..80, one 64 B line each). The threshold-as-union-of-patterns half
+is not yet exercised.
 
 ### D-RPF-1 — Recipe eligibility as a mask
 
@@ -270,6 +297,27 @@ To be written down, then enforced by review:
   layers). A VSA tree query is at most a comparison arm outside the crate.
 - No new opcode, field, or tenant is introduced by this plan; D-RPF-4 and
   D-RPF-0 may each file one T1 primitive, backend-first.
+
+### D-RPF-9 — Fold-Join deforestation probe
+
+**Measured.** `crates/lance-graph-quack/examples/fold_join_probe.rs`; numbers
+and the full inventory in
+`entries/2026-10-08-fold-join-deforestation-probe.md`. Summary:
+
+- Resident ∧ resident → fold is already deforested (no slot, ~0.4 µs / 64K).
+- Predicate → fold writes no population mask (tiled); for i32 lanes the two-
+  predicate chain runs at roughly the per-row scalar loop's speed.
+- Gating pays only at a high dead-word fraction (crossover ≈ 0.5 on this host);
+  quack `lower` always gates and `lower_fused` never does.
+- Strided predicates cost one pass over the rows each; merging two field
+  predicates in one 16 B window into one ternary pattern halved the time
+  (2.47 → 1.17 ms) with the same answer.
+
+**Proposed rewrite contract (not implemented; each its own focused PR):**
+R2 strided pattern merge (`p1 | p2`, `c1 | c2` only when
+`(p1 ^ p2) & c1 & c2 == 0`, else empty — never an unconditional OR);
+R3 gate selection from a known dead-word fraction; gaps G1 strided `_under`,
+G2 two-window strided match, G3 tile skip — backend-first in `ndarray::simd`.
 
 ## Order
 

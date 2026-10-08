@@ -4,7 +4,7 @@ Plan: `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`. Mask = adm
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-RPF-0** | Pearl3 / Epi5 / mantissa predicate over `MaterializedEdges` via `MatchFacet16Strided`, threshold as ≤ n+1 patterns | Queued | equals CE64 accessors; wrong-bit care disagrees; unnamed fields silent; both windows stay inside the 32 B tenant |
+| **D-RPF-0** | Pearl3 / Epi5 / mantissa predicate over `MaterializedEdges` via `MatchFacet16Strided`, threshold as ≤ n+1 patterns | In progress (equality green via D-RPF-9; threshold union open) | equals CE64 accessors; wrong-bit care disagrees; unnamed fields silent; both windows stay inside the 32 B tenant |
 | **D-RPF-1** | Law tables → per-recipe ternary pattern set (≤ 24 × 8), run under an admission plane (class, rail, generation, provenance) | Queued | equals `measure_declared`; dropping one code loses exactly its rows; removing the admission plane admits a v1 row |
 | **D-RPF-2** | Census of eligibility and read-set classes on a real population | Queued | classes/rows reported; near 1 drops D-RPF-3; no population-sized seen-set |
 | **D-RPF-3** | Exact read-set dedup per CE64 instruction, key incl. handle context | Queued (after D-RPF-2) | removing cohort from key changes a result; dedup-then-fold equals per-row for Count/Sum/Avg |
@@ -13,6 +13,7 @@ Plan: `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`. Mask = adm
 | **D-RPF-6** | Tile skip on zero gate measured on resident-row predicates (capstone pt 3) | Queued | identical answers; dead-tile beside dead-word fraction |
 | **D-RPF-7** | Rank spectrum of the 256×256 palette distance LUTs | Queued (measurement only) | reported; never a fold |
 | **D-RPF-8** | Boundary: mask-risc never executes CE64 instructions; no VSA on this path | Queued (doc) | review-enforced |
+| **D-RPF-9** | Fold-Join deforestation probe: resident ∧ resident, predicate chains gated/ungated, CE64 in place, strided pattern merge | Shipped (probe; R2/R3/G1–G3 proposed) | every arm equals the oracle; care-shift fires, non-care rewrite silent; merge precondition refuses conflicting cares |
 
 ## D-CTX — Palette texture proof ladder: fieldless first, rendering only if needed (2026-10-06)
 
