@@ -1,3 +1,7 @@
+## 2026-10-07 — lance-graph #1398 MERGED (`89694cc`)
+
+- D-PUZZLE-ATTN-0, probe-only (no contract change): shared crossword core in `cognitive-shader-driver/examples/shared/crossword_core.rs`, slot-policy probe `crossword_attention_probe.rs`.
+
 ## 2026-10-07 — lance-graph #1397 MERGED (`4a0a72c`); D-PUZZLE-ATTN-0 on branch
 
 - #1397: D-CE64-CYCLE-0, probe-only (no contract change).

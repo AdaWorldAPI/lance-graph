@@ -1,6 +1,6 @@
 # 2026-10-07 — D-PUZZLE-ATTN-0: on crosswords, uniform entropy focuses search; frequency-weighted Shannon misdirects it
 
-**Status:** TEST-PINNED (`crates/cognitive-shader-driver/examples/crossword_attention_probe.rs`, `test = true`, 9 tests run by the shader-driver `cargo test` step). MEASURED (`cargo run --release -p cognitive-shader-driver --example crossword_attention_probe`; 20 created puzzles and 20 empty NYT grids, sides 5 and 7; 200,000 nodes per run).
+**Status:** TEST-PINNED (`crates/cognitive-shader-driver/examples/crossword_attention_probe.rs`, `test = true`; 8 tests, 7 run by the shader-driver `cargo test` step plus `dump_small` ignored; the same binary also runs the 2 shared `population_fold` fence tests, which is where the earlier "9" came from). MEASURED (`cargo run --release -p cognitive-shader-driver --example crossword_attention_probe`; 20 created puzzles and 20 empty NYT grids, sides 5 and 7; 200,000 nodes per run).
 
 ## DECISION
 
