@@ -165,13 +165,14 @@ fn t05_valid_passes() {
 }
 
 // 6. Dangling memberships fail — in the base relation (observed) and in the
-// overlay (simulated), on both endpoint sides, with identity preserved.
+// overlay (simulated), on both endpoint sides, with identity preserved. A
+// group nested in a live group is not dangling.
 #[test]
 fn t06_dangling_fails() {
     let ghost = g(0x66);
     let mut obs = observed();
     obs.members.push((ghost, g(EMPLOYEES))); // unknown user
-    obs.members.push((g(EMPLOYEES), g(EXCHANGE))); // a group as member
+    obs.members.push((g(EMPLOYEES), g(EXCHANGE))); // a group nested in a group
     let mut st = VersionStore::new();
     let g0 = st.observe("lab", 0, obs).unwrap();
     let bad = st
@@ -199,12 +200,33 @@ fn t06_dangling_fails() {
                 group: ghost,
                 missing: Endpoint::Group
             },
-            Violation::DanglingMembership {
-                user: g(EMPLOYEES),
-                group: g(EXCHANGE),
-                missing: Endpoint::User
-            },
         ]
+    );
+}
+
+// 6b. A group nested in a group is a membership: valid while both groups
+// exist, readable through `is_member`, dangling once the outer group is gone.
+#[test]
+fn t06b_nested_group_is_valid() {
+    let mut obs = observed();
+    obs.members.push((g(EMPLOYEES), g(EXCHANGE)));
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 0, obs).unwrap();
+    assert!(st.validate(v).unwrap().is_empty());
+    assert!(st.view(v).unwrap().is_member(&g(EMPLOYEES), &g(EXCHANGE)));
+
+    let ghost = g(0x66);
+    let mut obs = observed();
+    obs.members.push((g(EMPLOYEES), ghost));
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 0, obs).unwrap();
+    assert_eq!(
+        st.validate(v).unwrap(),
+        vec![Violation::DanglingMembership {
+            user: g(EMPLOYEES),
+            group: ghost,
+            missing: Endpoint::Group
+        }]
     );
 }
 

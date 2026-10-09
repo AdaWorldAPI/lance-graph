@@ -35,7 +35,9 @@
 //! values are `u16` ordinals; the lanes are 32-bit because the substrate has
 //! no 16-bit lane. A row whose endpoint does not resolve is kept as
 //! identities in `m_unresolved` and never enters the lanes, so no lane value
-//! stands for "missing".
+//! stands for "missing". A group nested in a group has no user ordinal either,
+//! so it is held there by identity too; validation tells it from a dangling
+//! row by checking that both sides are live groups.
 //!
 //! **Ordinal ≠ identity.** An ordinal is valid only inside one snapshot and
 //! never reaches provenance, diffs or plans; those carry [`Guid128`].
