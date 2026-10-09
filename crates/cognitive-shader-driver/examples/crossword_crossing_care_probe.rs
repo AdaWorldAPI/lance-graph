@@ -997,8 +997,15 @@ const H5: &[&str] = &[
     "########.",
 ];
 
-/// The end slots of a chain fixture: the first with one crossing, then the other.
+/// The end slots of a chain fixture: the 3- and 6-letter slots when both
+/// exist (H3's extra slot also has one crossing), else the two one-crossing slots.
 fn ends(puz: &Puzzle) -> (usize, usize) {
+    if puz.len.iter().filter(|&&l| l == 3).count() == 1
+        && puz.len.iter().filter(|&&l| l == 6).count() == 1
+        && puz.len.iter().filter(|&&l| l == 7).count() == 1
+    {
+        return (slot_of_len(puz, 3), slot_of_len(puz, 6));
+    }
     let one: Vec<usize> = (0..puz.slots())
         .filter(|&s| {
             (0..puz.len[s] as usize)
@@ -1010,7 +1017,6 @@ fn ends(puz: &Puzzle) -> (usize, usize) {
     (one[0], one[1])
 }
 
-#[cfg(test)]
 fn slot_of_len(puz: &Puzzle, l: u8) -> usize {
     puz.len.iter().position(|&m| m == l).expect("fixture slot")
 }
