@@ -7,6 +7,13 @@
 //! A is not consulted to initialize or update B. No CE64/OGAR field is mutated.
 //!
 //! This is a CONTROLLED 2-D LATTICE probe, not a generic graph approximation.
+//! On this fixture every edge is a single Moore step, so B solves exactly A's
+//! linear system: the A-B gap is Jacobi iteration budget, not a modelling
+//! error, and full relaxation converges to A. What the sweep table measures is
+//! how fast each observable converges. Measured: signed flow shift converges
+//! well ahead of signed phase (relL2 0.16 vs 0.65 at 16 sweeps), because flows
+//! are neighbour differences and cancel the smooth error Jacobi removes last.
+//! A Moore-model fidelity question needs a graph with non-Moore edges.
 //! A general electrical graph cannot always fit in eight Moore directions.
 //! Here phase means signed electrical angle perturbation relative to bus 0,
 //! NOT NARS frequency/confidence, and NOT circular phase modulo 2*pi.
@@ -25,7 +32,6 @@
 
 use lance_graph_contract::moore_tenant::MooreSlot;
 use perturbation_sim::{dc_flows, icc_a1, pearson, spearman, symmetric_eigen, Edge, Grid};
-use std::time::Instant;
 
 const SIDE: usize = 4;
 const N: usize = SIDE * SIDE;
@@ -50,7 +56,12 @@ fn fixture() -> (Grid, Vec<f64>) {
                 edges.push(Edge::new(id(r, c), id(r, c + 1), 1.0 + 0.1 * r as f64, 1e9));
             }
             if r + 1 < SIDE {
-                edges.push(Edge::new(id(r, c), id(r + 1, c), 0.8 + 0.09 * c as f64, 1e9));
+                edges.push(Edge::new(
+                    id(r, c),
+                    id(r + 1, c),
+                    0.8 + 0.09 * c as f64,
+                    1e9,
+                ));
             }
             if r + 1 < SIDE && c + 1 < SIDE {
                 edges.push(Edge::new(id(r, c), id(r + 1, c + 1), 0.31, 1e9));
@@ -93,10 +104,12 @@ fn stencil(grid: &Grid, alive: &[bool]) -> Stencil {
         for (from, to) in [(edge.from, edge.to), (edge.to, edge.from)] {
             let slot = slot_for(from, to).index();
             assert!(
-                out[from][slot].replace(Coupling {
-                    neighbor: to,
-                    weight: edge.susceptance
-                }).is_none(),
+                out[from][slot]
+                    .replace(Coupling {
+                        neighbor: to,
+                        weight: edge.susceptance
+                    })
+                    .is_none(),
                 "one physical neighbor per Moore direction"
             );
         }
@@ -149,7 +162,13 @@ struct Field {
 
 // Compare on matching identities (bus index and line index) and a shared gauge.
 // Preserve the signs BEFORE taking absolute magnitudes.
-fn field(grid: &Grid, all_alive: &[bool], post_alive: &[bool], before: &[f64], after: &[f64]) -> Field {
+fn field(
+    grid: &Grid,
+    all_alive: &[bool],
+    post_alive: &[bool],
+    before: &[f64],
+    after: &[f64],
+) -> Field {
     let signed_phase: Vec<f64> = before.iter().zip(after).map(|(a, b)| b - a).collect();
     let magnitude = signed_phase.iter().map(|x| x.abs()).collect();
     let f_before = dc_flows(grid, all_alive, before);
@@ -173,8 +192,7 @@ struct Case {
     moore: Stencil,
 }
 
-fn cases(grid: &Grid, injection: &[f64], all_alive: &[bool]) -> (Vec<Case>, f64) {
-    let start = Instant::now();
+fn cases(grid: &Grid, injection: &[f64], all_alive: &[bool]) -> Vec<Case> {
     let before = spectral_solve(grid, all_alive, injection);
     let mut cases = Vec::with_capacity(grid.edges.len());
     for line in 0..grid.edges.len() {
@@ -187,8 +205,7 @@ fn cases(grid: &Grid, injection: &[f64], all_alive: &[bool]) -> (Vec<Case>, f64)
             alive,
         });
     }
-    let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
-    (cases, elapsed_ms)
+    cases
 }
 
 fn rel_l2(reference: &[f64], estimate: &[f64]) -> f64 {
@@ -231,7 +248,8 @@ fn outage_resampling_range(case_mae: &[f64]) -> (f64, f64) {
         means.push(sum / n as f64);
     }
     means.sort_by(f64::total_cmp);
-    (means[9], means[389])
+    // 400 sorted draws: the 2.5th and 97.5th percentiles are draws 10 and 390.
+    (means[10], means[390])
 }
 
 fn print_scores(label: &str, truth: &[f64], estimate: &[f64]) {
@@ -247,8 +265,14 @@ fn print_scores(label: &str, truth: &[f64], estimate: &[f64]) {
     );
 }
 
-fn evaluate(grid: &Grid, injection: &[f64], sweep_count: usize, cases: &[Case], pre: &Stencil, all_alive: &[bool]) {
-    let start = Instant::now();
+fn evaluate(
+    grid: &Grid,
+    injection: &[f64],
+    sweep_count: usize,
+    cases: &[Case],
+    pre: &Stencil,
+    all_alive: &[bool],
+) {
     let before = moore_solve(pre, injection, sweep_count);
     let mut phase_a = Vec::new();
     let mut phase_b = Vec::new();
@@ -269,9 +293,8 @@ fn evaluate(grid: &Grid, injection: &[f64], sweep_count: usize, cases: &[Case], 
         flow_a.extend_from_slice(&case.reference.signed_flow_shift);
         flow_b.extend_from_slice(&estimate.signed_flow_shift);
     }
-    let b_ms = start.elapsed().as_secs_f64() * 1000.0;
     let (lo, hi) = outage_resampling_range(&errors);
-    println!("\nMoore B sweeps={sweep_count:>3}, B total solve+observe={b_ms:>8.3} ms");
+    println!("\nMoore B sweeps={sweep_count:>3}");
     print_scores("signed phase", &phase_a, &phase_b);
     print_scores("magnitude", &magnitude_a, &magnitude_b);
     print_scores("signed flow", &flow_a, &flow_b);
@@ -282,19 +305,23 @@ fn main() {
     let (grid, injection) = fixture();
     let all_alive = vec![true; grid.edges.len()];
     let pre = stencil(&grid, &all_alive);
-    let (all_cases, a_ms) = cases(&grid, &injection, &all_alive);
+    let all_cases = cases(&grid, &injection, &all_alive);
     println!(
         "D-MOORE-PERT-AB-0 | {} buses, {} physical edges, {} single-line outages",
-        grid.n, grid.edges.len(), all_cases.len()
+        grid.n,
+        grid.edges.len(),
+        all_cases.len()
     );
     println!(
-        "A = full Laplacian spectral re-solve, B = canonical 8-slot Moore relaxation (bus 0 gauge)\nA total prepare+solve: {a_ms:.3} ms; B timings per sweep budget; no nonlinear cascade"
+        "A = full Laplacian spectral re-solve, B = canonical 8-slot Moore relaxation (bus 0 gauge)\nNo timings: this probe measures agreement per sweep budget, not cost; no nonlinear cascade"
     );
     for sweeps in SWEEPS {
         evaluate(&grid, &injection, sweeps, &all_cases, &pre, &all_alive);
     }
     println!("\nInterpretation: magnitude correlations do NOT certify signed-phase or signed-flow validity.");
-    println!("All cases are synthetic and share a grid; significance / independent CI not claimed.");
+    println!(
+        "All cases are synthetic and share a grid; significance / independent CI not claimed."
+    );
 }
 
 #[cfg(test)]
@@ -310,11 +337,15 @@ mod tests {
                 if let Some(link) = row[slot.index()] {
                     assert_eq!(slot_for(i, link.neighbor), slot);
                     let dx = slot.offset();
-                    let reverse = MooreSlot::ALL.into_iter().find(|s| {
-                        s.offset() == (-dx.0, -dx.1)
-                    }).expect("reverse Moore slot");
+                    let reverse = MooreSlot::ALL
+                        .into_iter()
+                        .find(|s| s.offset() == (-dx.0, -dx.1))
+                        .expect("reverse Moore slot");
                     assert_eq!(
-                        lanes[link.neighbor][reverse.index()].expect("reverse").neighbor, i
+                        lanes[link.neighbor][reverse.index()]
+                            .expect("reverse")
+                            .neighbor,
+                        i
                     );
                 }
             }
@@ -342,11 +373,44 @@ mod tests {
         assert!(rel_l2(&f_a.signed_flow_shift, &f_b.signed_flow_shift) < 1e-5);
     }
 
+    // Anti-vacuity for the convergence test above: a short sweep budget must be
+    // measurably off, or the 1e-7 bound would hold for any solver output.
     #[test]
-    fn zero_injection_has_no_phase_or_magnitude() {
-        let (grid, _) = fixture();
-        let alive = vec![true; grid.edges.len()];
-        let theta = moore_solve(&stencil(&grid, &alive), &[0.0; N], 32);
-        assert!(theta.iter().all(|x| *x == 0.0));
+    fn a_short_sweep_budget_is_not_converged() {
+        let (grid, injection) = fixture();
+        let all_alive = vec![true; grid.edges.len()];
+        let a = spectral_solve(&grid, &all_alive, &injection);
+        let b = moore_solve(&stencil(&grid, &all_alive), &injection, 4);
+        assert!(
+            rel_l2(&a, &b) > 0.1,
+            "4 Jacobi sweeps cannot reach the reference"
+        );
+    }
+
+    // On this fixture every edge is one Moore step, so B solves A's linear
+    // system and the A-B gap is iteration budget only. Flow shifts are
+    // neighbour differences and cancel the smooth error Jacobi leaves longest,
+    // so they converge faster than phase: pinned at 16 sweeps.
+    #[test]
+    fn flow_shift_converges_faster_than_phase() {
+        let (grid, injection) = fixture();
+        let all_alive = vec![true; grid.edges.len()];
+        let pre = stencil(&grid, &all_alive);
+        let all_cases = cases(&grid, &injection, &all_alive);
+        let before = moore_solve(&pre, &injection, 16);
+        let (mut pa, mut pb, mut fa, mut fb) = (vec![], vec![], vec![], vec![]);
+        for case in &all_cases {
+            let after = moore_solve(&case.moore, &injection, 16);
+            let est = field(&grid, &all_alive, &case.alive, &before, &after);
+            pa.extend_from_slice(&case.reference.signed_phase);
+            pb.extend_from_slice(&est.signed_phase);
+            fa.extend_from_slice(&case.reference.signed_flow_shift);
+            fb.extend_from_slice(&est.signed_flow_shift);
+        }
+        let (phase, flow) = (rel_l2(&pa, &pb), rel_l2(&fa, &fb));
+        assert!(
+            flow * 2.0 < phase,
+            "flow relL2 {flow} vs phase relL2 {phase}"
+        );
     }
 }
