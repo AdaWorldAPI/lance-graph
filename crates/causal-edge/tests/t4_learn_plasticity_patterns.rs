@@ -6,6 +6,11 @@
 //! a HOT plane adopts the observation's when the observation is more
 //! confident. The fixture keeps the revised confidence below 0.7, so the
 //! plasticity field itself is not changed by the confidence transitions.
+//!
+//! The masks below are the v2 bit layout (plasticity 50..52, witness and
+//! Epi5 53..63); v1 puts plasticity at 49..51 and temporal at 52..63, which
+//! `learn` rewrites. Gated like the other layout-specific contract tests.
+#![cfg(feature = "causal-edge-v2-layout")]
 
 use causal_edge::edge::InferenceType;
 use causal_edge::{CausalEdge64, CausalMask, PlasticityState};
