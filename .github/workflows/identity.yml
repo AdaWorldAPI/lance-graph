@@ -1,0 +1,146 @@
+name: Identity
+# Two jobs for two different contracts, kept apart on purpose:
+#
+#   exchange-fidelity  lance-graph-dir-sim simulates hybrid Exchange. Its
+#                      behaviour follows what Exchange and AD actually do:
+#                      recipient types, routing addresses, proxy addresses,
+#                      joins on the object GUID.
+#   iam-immutability   lance-graph-rbac authorizes on an immutable principal.
+#                      Delegation (RFC 8693 `act`) names who acts, never
+#                      whose authority is used.
+#
+# The simulator must not take on IAM's rules (an address is not an identity
+# there; it is an Exchange attribute with Exchange's lifecycle), and IAM must
+# not take on the simulator's (an address never decides who a principal is).
+#
+# Each job runs its whole crate, then checks that the tests pinning the
+# contract still exist by name. A renamed or deleted pinning test fails the
+# job instead of silently dropping out of the run.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - crates/lance-graph-dir-sim/**
+      - crates/lance-graph-rbac/**
+      - crates/lance-graph-contract/**
+      - crates/lance-graph-quack/**
+      - crates/lance-graph-mask-risc/**
+      - .github/workflows/identity.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  exchange-fidelity:
+    name: Exchange dir-sim fidelity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: lance-graph
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+          persist-credentials: false
+      # lance-graph-dir-sim is workspace-excluded: it path-deps OGAR
+      # (ogar-dir-core / ogar-dir-sim / ogar-ad) and, through mask-risc,
+      # ndarray. Both are NO-PIN sibling checkouts, as in rust-test.yml.
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+          persist-credentials: false
+      - name: Checkout AdaWorldAPI/OGAR (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/OGAR
+          path: OGAR
+          persist-credentials: false
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lance-graph/crates/lance-graph-dir-sim
+      - name: Run the simulator's tests
+        run: cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml
+      - name: The tests pinning Exchange behaviour exist
+        run: |
+          cargo test -q --manifest-path crates/lance-graph-dir-sim/Cargo.toml -- --list \
+            > "$RUNNER_TEMP/tests.txt"
+          missing=0
+          while read -r name; do
+            [ -z "$name" ] && continue
+            if ! grep -Fxq "$name: test" "$RUNNER_TEMP/tests.txt"; then
+              echo "::error::missing pinning test: $name"
+              missing=1
+            fi
+          done <<'EOF'
+          enabling_a_mailbox_stamps_its_routing_proxy
+          an_introduced_routing_address_must_match_the_alias
+          the_routing_address_must_be_the_nodes_own_alias
+          the_routing_address_must_be_a_proxy
+          the_prefix_names_the_kind_and_the_case_of_smtp_marks_the_primary
+          from_ad_reads_the_triplet_and_strips_smtp
+          a_disabled_shared_mailbox_still_receives
+          departure_by_conversion_to_shared_keeps_the_mailbox
+          an_unknown_lifecycle_is_not_a_recipient
+          casing_does_not_change_the_identity
+          identity_not_ordinal_reaches_change_diff_plan_and_provenance
+          EOF
+          exit "$missing"
+
+  iam-immutability:
+    name: IAM immutability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: lance-graph
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+          persist-credentials: false
+      # lance-graph-rbac depends only on lance-graph-contract: no siblings.
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lance-graph/crates/lance-graph-rbac
+      - name: Run the IAM tests
+        run: cargo test --manifest-path crates/lance-graph-rbac/Cargo.toml
+      - name: The tests pinning the immutable principal exist
+        run: |
+          cargo test -q --manifest-path crates/lance-graph-rbac/Cargo.toml -- --list \
+            > "$RUNNER_TEMP/tests.txt"
+          missing=0
+          while read -r name; do
+            [ -z "$name" ] && continue
+            if ! grep -Fxq "$name: test" "$RUNNER_TEMP/tests.txt"; then
+              echo "::error::missing pinning test: $name"
+              missing=1
+            fi
+          done <<'EOF'
+          auth::tests::resolved_identity_feeds_authorize
+          auth::tests::a_delegated_identity_authorizes_as_the_principal
+          auth::tests::an_undelegated_identity_acts_as_itself
+          auth::tests::the_outermost_act_is_the_current_actor
+          auth::tests::a_provider_without_tokens_cannot_be_delegated
+          auth::tests::the_acting_party_keeps_its_issuer
+          EOF
+          exit "$missing"

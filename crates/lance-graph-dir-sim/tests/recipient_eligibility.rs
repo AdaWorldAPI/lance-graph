@@ -288,6 +288,11 @@ fn departure_by_conversion_to_shared_keeps_the_mailbox() {
     let state = view.node_state(&g(1)).unwrap();
     assert_eq!(state.active, Some(false), "login disabled");
     assert!(!view.is_member(&g(1), &g(2)), "memberships removed");
+    assert!(
+        matches!(state.recipient, Some(Recipient::RemoteMailbox(m)) if m.kind() == RemoteKind::Shared),
+        "the mailbox is now shared: {:?}",
+        state.recipient
+    );
     assert!(view.is_mail_recipient(&g(1)), "the shared mailbox receives");
     assert_eq!(both(&st, v1, D), (Some(g(1)), Some(g(1))));
 }
