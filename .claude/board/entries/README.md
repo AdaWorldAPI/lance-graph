@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-281 entries, 2026-08-06 .. 2026-10-09.
+282 entries, 2026-08-06 .. 2026-10-09.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-09 | `D-RPF-TABLE-1` |  | [2026-10-09-d-rpf-table-1-fast-path-cost.md](2026-10-09-d-rpf-table-1-fast-path-cost.md) |
 | 2026-10-09 | `D-RPF-CONF-0` |  | [2026-10-09-d-rpf-conf-0-confidence-surface.md](2026-10-09-d-rpf-conf-0-confidence-surface.md) |
+| 2026-10-09 | `D-MOORE-OBSERVABLE-FIRST-0` |  | [2026-10-09-d-moore-observable-first-0.md](2026-10-09-d-moore-observable-first-0.md) |
 | 2026-10-08 | `register128-signed-readings` |  | [2026-10-08-register128-signed-readings.md](2026-10-08-register128-signed-readings.md) |
 | 2026-10-08 | `D-ART-2` |  | [2026-10-08-recipe-probe-phaselut-foldcost.md](2026-10-08-recipe-probe-phaselut-foldcost.md) |
 | 2026-10-08 | `rbac-nested-scope-path` |  | [2026-10-08-rbac-nested-scope-path.md](2026-10-08-rbac-nested-scope-path.md) |

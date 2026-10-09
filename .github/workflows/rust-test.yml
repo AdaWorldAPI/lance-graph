@@ -489,6 +489,10 @@ jobs:
         run: >-
           cargo test --manifest-path crates/perturbation-sim/Cargo.toml
           --features moore-probe --example MoorePertubationsfeld
+      - name: Run Moore observable-first tests (D-MOORE-OBSERVABLE-FIRST-0)  # 8 green
+        run: >-
+          cargo test --manifest-path crates/perturbation-sim/Cargo.toml
+          --features moore-probe --example moore_observable_first
 
   test-with-coverage:
     runs-on: ubuntu-24.04
