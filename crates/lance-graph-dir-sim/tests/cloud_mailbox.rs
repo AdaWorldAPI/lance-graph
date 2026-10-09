@@ -145,6 +145,7 @@ fn a_remote_mailbox_with_its_cloud_mailbox_receives() {
         answers(&st, v, &c),
         (Some(g(USER)), Some(g(USER)), Some(g(USER)))
     );
+    assert!(c.delivers_to(&st.view(v).unwrap(), &g(USER)));
 }
 
 // The AD object says remote mailbox, but Exchange Online has none for its
@@ -156,6 +157,7 @@ fn a_remote_mailbox_without_a_cloud_mailbox_receives_nothing() {
     assert!(!c.contains(&g(USER)));
     let (st, v) = observe(user(true));
     assert_eq!(answers(&st, v, &c), (Some(g(USER)), Some(g(USER)), None));
+    assert!(!c.delivers_to(&st.view(v).unwrap(), &g(USER)));
 }
 
 // The forward anchor alone suffices when there is no backsync to confirm.
@@ -214,4 +216,19 @@ fn an_on_premises_mailbox_needs_no_cloud_mailbox() {
         answers(&st, v, &c),
         (Some(g(USER)), Some(g(USER)), Some(g(USER)))
     );
+    assert!(c.delivers_to(&st.view(v).unwrap(), &g(USER)));
+}
+
+// A cloud mailbox never makes a non-recipient receive: an account that is
+// not mail-enabled on-premises is not delivered to, whatever Exchange
+// Online still holds for its Entra object.
+#[test]
+fn the_cloud_never_revives_a_non_recipient() {
+    let c = cloud(Some(g(ENTRA)), &[(g(ENTRA), g(ANCHOR))], &[g(ENTRA)]);
+    assert!(c.contains(&g(USER)));
+    let mut u = user(true);
+    u.recipient = Some(ObservedRecipient::default());
+    let (st, v) = observe(u);
+    assert!(!c.delivers_to(&st.view(v).unwrap(), &g(USER)));
+    assert_eq!(answers(&st, v, &c), (Some(g(USER)), None, None));
 }
