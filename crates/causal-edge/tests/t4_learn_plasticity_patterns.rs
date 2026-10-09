@@ -29,7 +29,7 @@ fn edge(s: u8, p: u8, o: u8, c: u8, plast: PlasticityState) -> CausalEdge64 {
         0,
     );
     // Non-zero witness and epistemic bits, so pass-through is observable.
-    e.0 |= 0b10_1101_0110_1u64 << 53;
+    e.0 |= 0b101_1010_1101_u64 << 53;
     e
 }
 
