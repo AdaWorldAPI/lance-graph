@@ -459,6 +459,22 @@ impl<'s> View<'s> {
         (v != NONE).then_some(ValueId(v))
     }
 
+    /// Whether mail to this node is delivered to it: a user by
+    /// [`crate::snapshot::is_mail_recipient`], a group when it has a primary
+    /// SMTP address (a distribution list). `false` for a node that does not
+    /// exist in this version.
+    ///
+    /// This is a different question from address ownership
+    /// ([`Self::owner_users`]): an address can stay reserved by an object
+    /// that no longer receives mail at it.
+    pub fn is_mail_recipient(&self, g: &Guid128) -> bool {
+        match self.node_state(g) {
+            Some(s) if s.kind == NodeKind::Group => s.primary_smtp.is_some(),
+            Some(s) => crate::snapshot::is_mail_recipient(s.active, s.recipient),
+            None => false,
+        }
+    }
+
     /// The canonical semantic state of an existing node — ids only.
     pub fn node_state(&self, g: &Guid128) -> Option<NodeState> {
         let (kind, i) = self.locate(g)?;

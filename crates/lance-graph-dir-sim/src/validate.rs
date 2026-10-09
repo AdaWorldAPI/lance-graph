@@ -494,6 +494,24 @@ pub fn address_owner(v: &View<'_>, key: KeyId) -> Result<Option<Guid128>, Violat
     }
 }
 
+/// The directory object mail to `key` is delivered to: the
+/// [`address_owner`] of the key, kept only if it is a mail recipient
+/// ([`View::is_mail_recipient`]).
+///
+/// [`address_owner`] answers who *holds* an address — the claim that keeps
+/// anyone else from taking it, which survives offboarding through a stale
+/// `mail` value. This answers who *receives* at it, so a holder that is no
+/// longer a recipient is `Ok(None)`: the address is reserved and delivers
+/// nowhere. A shared key is still `Err`, since it names no single
+/// recipient either way.
+///
+/// # Errors
+///
+/// `Violation::AddressConflict` when more than one object holds `key`.
+pub fn address_recipient(v: &View<'_>, key: KeyId) -> Result<Option<Guid128>, Violation> {
+    Ok(address_owner(v, key)?.filter(|g| v.is_mail_recipient(g)))
+}
+
 /// The `(key, holder, role)` rows of the one address space, sorted and
 /// deduplicated, with the routing violations (`RoutingNotInProxies`,
 /// `RoutingMismatch`) pushed to `out` on the way.

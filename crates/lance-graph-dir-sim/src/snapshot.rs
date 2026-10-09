@@ -274,8 +274,27 @@ pub struct ObservedRecipient {
 }
 
 /// Whether a user owns its addresses: enabled, or a live mail recipient.
+/// This is the address *claim* (who reserves an address, so no one else may
+/// take it), not whether mail is delivered: see [`is_mail_recipient`].
 pub(crate) fn is_owner(active: Option<bool>, recipient: Option<Recipient>) -> bool {
     active == Some(true) || recipient.is_some_and(|r| r.is_recipient())
+}
+
+/// Whether mail addressed to a user is delivered to it: OGAR's recipient
+/// lifecycle decides (`Recipient::is_recipient`) whenever the source read
+/// the recipient attributes. A disabled shared, room or equipment mailbox
+/// is a recipient; an enabled account that is not mail-enabled is not,
+/// whatever stale `mail` or SMTP values it still carries.
+///
+/// When the source never read the recipient attributes (`None`), only an
+/// enabled account counts, the assumption every snapshot without Exchange
+/// data was built on; an unknown flag with unknown attributes is not a
+/// recipient.
+pub fn is_mail_recipient(active: Option<bool>, recipient: Option<Recipient>) -> bool {
+    match recipient {
+        Some(r) => r.is_recipient(),
+        None => active == Some(true),
+    }
 }
 
 const RCP_RRT: u8 = 1;
