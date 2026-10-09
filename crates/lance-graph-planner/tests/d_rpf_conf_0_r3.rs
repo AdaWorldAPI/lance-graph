@@ -305,10 +305,12 @@ fn r3_matrix_is_pinned() {
 /// that moves a pair across that line is loud.
 #[test]
 fn r3_cosmetic_pairs_are_pinned() {
-    let cosmetic: Vec<(&str, &str)> = MATRIX
-        .iter()
-        .filter(|m| m.4 <= 1 && m.5 <= 1)
-        .map(|m| (NAMES[m.0], NAMES[m.1]))
+    // Read from the measurement, not from `MATRIX`: a check over the pinned
+    // constant could never fail.
+    let cosmetic: Vec<(&str, &str)> = matrix(&all_surfaces())
+        .into_iter()
+        .filter(|(_, _, p)| p.max_df_broad <= 1 && p.max_dc_broad <= 1)
+        .map(|(i, j, _)| (NAMES[i], NAMES[j]))
         .collect();
     assert_eq!(cosmetic, vec![("A", "C"), ("A", "D"), ("C", "D")]);
 }
