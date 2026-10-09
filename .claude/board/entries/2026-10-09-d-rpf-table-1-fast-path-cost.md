@@ -149,7 +149,8 @@ spread across runs is in the transcript and stays within the noted ranges).
 
 Reading:
 
-- **Replay, hot table:** every resolution is 2–4.4× faster than A. The
+- **Replay, hot table:** every resolution is 3.7–4.4× faster than A on the
+  dependent replay and 1.6–2.2× faster on the batch replay. The
   dependent replay is latency-bound and A's float divisions sit on the chain;
   the table is one load. B16 is within ~1.2× of B1 here.
 - **Random access (micro, uniform):** only B1 and B2 beat A (3.5×). B4 ties A;
@@ -182,8 +183,8 @@ Reading:
 | Table approach wounded if A replay ≥ best table / 1.1 | **Not wounded on hot replay** (A is 2–4× slower there). **Wounded off the hot path:** on random access B8/B16 are slower than A, B4 ties, and on a cold cache A beats every table. |
 | B16 "full precision" falsified if material divergence remains | **Falsified.** 96.8% of cells differ, broad max dF 113, decision flips at every length. Comments corrected to "maximum table resolution". |
 
-So the answer to "what did we buy by throwing confidence away": **2–4×
-throughput on a hot, dependent replay, and 3.6× on random lookups — for a law
+So the answer to "what did we buy by throwing confidence away": **4.4×
+throughput on a hot, dependent replay (2.2× batched), and 3.6× on random lookups — for a law
 that flips about 4 in 10 verdicts on spread inputs.** Paying for resolution
 does not rescue it: B16 keeps the hot-replay speed, loses the random-access
 and cold speed, and still flips decisions.
