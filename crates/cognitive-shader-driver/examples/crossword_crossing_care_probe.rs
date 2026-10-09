@@ -957,17 +957,19 @@ const H1: &[&str] = &[
 ];
 /// Held out, walked from the other end: C'(6) - B2(5: 4→0) - B1(4: 3→0) - A'(3).
 const H2: &[&str] = &["##....", "##.##.", "##.##.", "#####.", "......", "######"];
-/// T with a slot crossing B2's middle: the context is constrained.
+/// T with a 7-letter slot crossing B2's middle: the context is constrained,
+/// and no length collides with an internal slot, so only context refuses it.
 const H3: &[&str] = &[
-    "...######",
-    "##.######",
-    "##.######",
-    "##.....##",
-    "####.#.##",
-    "####.#.##",
-    "####.#.##",
-    "######.##",
-    "######.##",
+    "...#######",
+    "##.#######",
+    "##.#######",
+    "##.....###",
+    "####.#.###",
+    "####.#.###",
+    "####.#.###",
+    "####.#.###",
+    "####.#.###",
+    "####.#####",
 ];
 /// Two internal slots of length 4: no-repeat binds.
 const H4: &[&str] = &[
