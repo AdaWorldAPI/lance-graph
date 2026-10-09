@@ -116,7 +116,21 @@ jobs:
         with:
           path: lance-graph
           persist-credentials: false
-      # lance-graph-rbac depends only on lance-graph-contract: no siblings.
+      # lance-graph-rbac itself depends only on lance-graph-contract, but it
+      # is a workspace member, and loading the workspace reads every member's
+      # manifest, including the ones that path-dep ndarray and OGAR.
+      - name: Checkout AdaWorldAPI/ndarray (sibling, needed to load the workspace)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+          persist-credentials: false
+      - name: Checkout AdaWorldAPI/OGAR (sibling, needed to load the workspace)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/OGAR
+          path: OGAR
+          persist-credentials: false
       - name: Setup rust toolchain (pinned by rust-toolchain.toml)
         run: rustup show
       - uses: Swatinem/rust-cache@v2
