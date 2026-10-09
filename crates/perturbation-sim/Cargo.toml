@@ -144,3 +144,8 @@ path = "examples/tictactoe_raumgewinn.rs"
 name = "MoorePertubationsfeld"
 path = "examples/MoorePertubationsfeld.rs"
 required-features = ["moore-probe"]
+
+[[example]]
+name = "moore_observable_first"
+path = "examples/moore_observable_first.rs"
+required-features = ["moore-probe"]
