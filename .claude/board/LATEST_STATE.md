@@ -1,3 +1,7 @@
+## 2026-10-09 — lance-graph #1432 MERGED (`d29d0aa`)
+
+- D-SCF-CARE-PAIR-0, probe-only (no contract change): `cognitive-shader-driver/examples/crossword_crossing_care_probe.rs`. Entry with the cross-repo synergy table and loose ends: `entries/2026-10-09-d-scf-care-pair-0-crossing-counterfactuals.md`.
+
 ## 2026-10-08 — Register128 signed readings on branch `ccr-b2e415d9-4jfvyk-register-readings` (unmerged)
 
 - Contract delta (additive): `hotplug::SlabReading::{RegisterI4x32(law), RegisterI8x16(law)}` (tags 2..=7, `to_tag`), `Activation::{with_register_laws, register_law_for}`, `ResolvedReading::bind_signed_register(&activation, rails)`, `ActivationDrift::{NotSignedRegister, NoRegisterLawFor, RegisterLawMismatch}`; `register128::{RegisterCarving, RegisterLaw, SignedRegisterLanes, SignedRegisterRefusal}`; `atoms::I4x32::{from_bytes, as_bytes}`. No layout change. Entry: `entries/2026-10-08-register128-signed-readings.md`.
