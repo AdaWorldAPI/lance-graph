@@ -109,6 +109,12 @@ not definitions.) Every call site used for a live/not-live claim was read.
   production functions. Every in-tree caller passes `build(1)`, except
   `tests/chain_confidence.rs` (16). So on the replay/counterfactual path the
   emitted truth is **B(1)**.
+
+  > ⊘ Corrected by D-RPF-TABLE-1 (`2026-10-09-d-rpf-table-1-fast-path-cost.md`):
+  > the replay path emits whatever tables its caller passes, and every caller
+  > in the tree is a test, example or probe. No production code constructs a
+  > `CutContext` or reads `NarsEngine::tables`, so B(1) changes no production
+  > decision today.
 - Not in the census, found while verifying it: `contract/high_heel.rs:240`
   `revise_truth` is another LIN copy with a 0.99 cap. The census sweep of
   differently named pooling functions was incidental, not exhaustive, so this
