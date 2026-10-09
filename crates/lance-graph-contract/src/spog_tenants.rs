@@ -39,7 +39,7 @@ use crate::canonical_node::NodeRow;
 /// classid. No fourth column: G is read from the key.
 #[must_use]
 pub const fn graph_of(addr: AlphaAddr) -> u16 {
-    (addr.classid() >> 16) as u16
+    crate::ogar_codebook::classid_canon(addr.classid())
 }
 
 /// The **block** a tenant belongs to — the high byte of its concept id.

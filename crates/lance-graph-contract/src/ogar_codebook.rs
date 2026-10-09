@@ -9,8 +9,10 @@
 //! This module is that home — but **wire-compatible, not a dependency**. The
 //! contract is zero-runtime-dep by design, so it does NOT depend on `ogar-vocab`;
 //! instead both crates agree on the **wire**: a concept's id is one `u16`,
-//! serialized little-endian, and that id IS the low 16 bits of
-//! [`NodeGuid::classid`](crate::NodeGuid). Any encoder/decoder that agrees on
+//! serialized little-endian, and that id IS the CANON half of
+//! [`NodeGuid::classid`](crate::NodeGuid) — the HIGH 16 bits since the
+//! 2026-07-02 half-order flip (pre-flip stored ids carried it in the low 16;
+//! see [`CLASSID_ORDER`]). Any encoder/decoder that agrees on
 //! `u16` LE is compatible regardless of which crate it links. The parity tests
 //! below pin the shared values; if OGAR's `CODEBOOK` ever moves an id, BOTH sides
 //! must update together (the drift guard).
@@ -19,7 +21,7 @@
 //! a `classid` to its domain ([`canonical_concept_domain`], [`classid_concept_domain`])
 //! and to resolve a canonical-concept string to its id ([`canonical_concept_id`],
 //! [`LabelDTO::from_canonical`]). It also carries the **APP / render-prefix
-//! layer** (the hi u16): [`AppPrefix`] (the §2 allocation table as typed data),
+//! layer** (the CUSTOM half, the low u16 since the flip): [`AppPrefix`] (the §2 allocation table as typed data),
 //! [`render_classid`] / [`render_classid_for_concept`] (compose), and
 //! [`classid_app_prefix`] / [`classid_concept`] (decompose) — the membrane
 //! equivalent of OGAR `render_classid_for::<P>()`, so a zero-dep consumer stamps
@@ -413,7 +415,8 @@ pub fn render_classid_for_concept(app: AppPrefix, concept: &str) -> Option<u32> 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ClassidOrder {
     /// Legacy order: canon in the LOW u16, custom in the HIGH (the `0xDDCC`
-    /// low-half convention every wired classid uses today).
+    /// low-half convention every wired classid used before the 2026-07-02
+    /// flip; persisted pre-flip rows still carry it).
     CanonLow,
     /// Target order: canon in the HIGH u16, custom in the LOW — stored
     /// `0x0701_1000`, human-readable `0x07:01::1000` (plan §0).
@@ -772,7 +775,8 @@ pub fn canonical_concept_id(concept: &str) -> Option<u16> {
 pub struct LabelDTO {
     /// Consumer-local label. Not normalized by the contract.
     pub label: String,
-    /// OGAR codebook binary identity (the classid low u16).
+    /// OGAR codebook binary identity (the classid's canon half — the HIGH u16
+    /// since the 2026-07-02 flip).
     pub id: u16,
     /// Canonical-AST label — the portable curator-agnostic symbol.
     pub canonical: String,
@@ -796,7 +800,8 @@ impl LabelDTO {
 
     /// `id` rendered as **2 little-endian bytes** — the wire contract. Roundtrips
     /// via `u16::from_le_bytes`. Byte order matches the [`NodeGuid`](crate::NodeGuid) LE layout, so
-    /// this is exactly the classid low half on the wire.
+    /// this is exactly the classid's canon half on the wire: bytes 2..4 of the
+    /// little-endian classid since the 2026-07-02 flip (bytes 0..2 before it).
     #[inline]
     #[must_use]
     pub fn id_le(&self) -> [u8; 2] {
