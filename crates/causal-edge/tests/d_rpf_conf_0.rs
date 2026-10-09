@@ -60,12 +60,7 @@ fn exact_c(c1: u8, c2: u8) -> Option<(u8, bool)> {
 /// The exact pooled frequency code, and whether it is a `.5` tie. `None`
 /// when neither side carries evidence (`N = 0`), which includes `(255, 255)`.
 fn exact_f(f1: u8, c1: u8, f2: u8, c2: u8) -> Option<(u8, bool)> {
-    let (f1, c1, f2, c2) = (
-        u64::from(f1),
-        u64::from(c1),
-        u64::from(f2),
-        u64::from(c2),
-    );
+    let (f1, c1, f2, c2) = (u64::from(f1), u64::from(c1), u64::from(f2), u64::from(c2));
     let a = c1 * (255 - c2);
     let b = c2 * (255 - c1);
     let n = a + b;
@@ -186,7 +181,10 @@ fn t1_report() {
     eprintln!("T1 deviations: {:?}", s.deviations);
     eprintln!("T1 max delta: {}", s.max_delta);
     eprintln!("T1 ties: {:?}", s.ties);
-    eprintln!("T1 monotonicity violations: {:?}", s.monotonicity_violations);
+    eprintln!(
+        "T1 monotonicity violations: {:?}",
+        s.monotonicity_violations
+    );
     eprintln!("T1 symmetry violations: {}", s.symmetry_violations);
     let (c1, c2) = s.singular;
     eprintln!(
@@ -216,7 +214,11 @@ fn t1_confidence_does_not_depend_on_frequency() {
                 if (c1, c2) == (255, 255) {
                     continue; // NaN path: f and c both collapse; see t1_singular
                 }
-                assert_eq!(prod(f1, c1, f2, c2).1, prod_c(c1, c2), "({f1},{c1},{f2},{c2})");
+                assert_eq!(
+                    prod(f1, c1, f2, c2).1,
+                    prod_c(c1, c2),
+                    "({f1},{c1},{f2},{c2})"
+                );
             }
         }
     }
@@ -239,7 +241,13 @@ fn t1_falsifier_a_perturbed_reference_changes_the_set() {
     // Anti-vacuity: if the comparison were blind (e.g. both sides computed by
     // the same function), corrupting the reference would not move the result.
     let perturbed = |c1: u8, c2: u8| {
-        exact_c(c1, c2).map(|(v, t)| if (c1, c2) == (100, 37) { (v ^ 1, t) } else { (v, t) })
+        exact_c(c1, c2).map(|(v, t)| {
+            if (c1, c2) == (100, 37) {
+                (v ^ 1, t)
+            } else {
+                (v, t)
+            }
+        })
     };
     let s = measure_c(prod_c, perturbed);
     assert_ne!(s.deviations, T1_DEVIATIONS);
@@ -344,7 +352,10 @@ fn t3_zero_weight_identity_is_pinned() {
     // every frequency except 128 moves to 128. For every c > 0 the zero-weight
     // operand is an exact identity (0 off-by-one cells).
     assert_eq!(id.drift.len(), 255);
-    assert!(id.drift.iter().all(|&(f, c, gf, gc)| c == 0 && f != 128 && (gf, gc) == (128, 0)));
+    assert!(id
+        .drift
+        .iter()
+        .all(|&(f, c, gf, gc)| c == 0 && f != 128 && (gf, gc) == (128, 0)));
     assert_eq!(id.max_delta, 128);
 }
 
@@ -494,6 +505,7 @@ fn measure_policy(rev: impl Fn(u8, u8, u8, u8) -> (u8, u8, bool)) -> PolicyRow {
             }
         }
     }
+    #[allow(clippy::needless_range_loop)] // both (c1,c2) and (c2,c1) index the grid
     for c1 in 0..=255usize {
         for c2 in 0..=255usize {
             // Here the singular cell IS included: a policy is judged on the
@@ -592,7 +604,11 @@ fn r1_falsifier_an_invalid_boundary_is_detected() {
     // caught by the monotonicity gate; one that returns NaN must be counted.
     let dip = measure_policy(|f1, c1, f2, c2| {
         let (f, c, n) = revise_with(Policy::CapInputAt254, f1, c1, f2, c2);
-        if c1 == 255 && c2 == 10 { (f, 0, n) } else { (f, c, n) }
+        if c1 == 255 && c2 == 10 {
+            (f, 0, n)
+        } else {
+            (f, c, n)
+        }
     });
     assert!(dip.monotonicity > 0);
     let nan = measure_policy(|f1, c1, f2, c2| {
@@ -615,18 +631,19 @@ fn distinct_over_confidence(rev: impl Fn(u8, u8, u8, u8) -> (u8, u8), f1: u8, f2
     seen.len()
 }
 
+/// The table path as a revision function on codes.
+fn table_rev(t: &NarsTables) -> impl Fn(u8, u8, u8, u8) -> (u8, u8) + '_ {
+    move |f1, c1, f2, c2| {
+        let p = t.revise(f1, c1, f2, c2);
+        (unpack_f(p), unpack_c(p))
+    }
+}
+
 #[test]
 fn nars_tables_report_and_pin() {
     let t1 = NarsTables::build(1);
     let t16 = NarsTables::build(16);
-    let via = |t: &NarsTables| {
-        let t = t as *const NarsTables;
-        move |f1: u8, c1: u8, f2: u8, c2: u8| {
-            // SAFETY: `t` outlives this closure; it borrows a local below.
-            let p = unsafe { &*t }.revise(f1, c1, f2, c2);
-            (unpack_f(p), unpack_c(p))
-        }
-    };
+    let via = table_rev;
     let pairs = [(0u8, 255u8), (64, 192), (200, 30), (128, 128)];
     for &(f1, f2) in &pairs {
         let d1 = distinct_over_confidence(via(&t1), f1, f2);
@@ -649,13 +666,40 @@ fn r1_table_is_pinned() {
     // (NaN c-surface, NaN f-boundary, monotonicity, symmetry, exact mismatch,
     //  exact max err, changed cells, singular (f,c), one-sided f: exact
     //  mismatch, max err, changed). Measured; no policy is chosen by this.
-    type Row = (usize, usize, usize, usize, usize, u8, usize, (u8, u8), usize, u8, usize);
+    type Row = (
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        u8,
+        usize,
+        (u8, u8),
+        usize,
+        u8,
+        usize,
+    );
     let want: [(Policy, Row); 5] = [
-        (Policy::StatusQuo, (1, 65_536, 1, 0, 3, 1, 0, (0, 0), 0, 0, 0)),
-        (Policy::CapBeforeWeight, (0, 0, 0, 0, 3, 1, 1, (128, 255), 101_900, 6, 101_900)),
-        (Policy::CapInputAt254, (0, 0, 0, 0, 513, 1, 511, (128, 254), 194_671, 128, 194_671)),
-        (Policy::Saturate254, (0, 0, 0, 0, 513, 1, 511, (128, 254), 194_671, 128, 194_671)),
-        (Policy::SingularOnly, (0, 0, 0, 0, 3, 1, 1, (128, 255), 0, 0, 0)),
+        (
+            Policy::StatusQuo,
+            (1, 65_536, 1, 0, 3, 1, 0, (0, 0), 0, 0, 0),
+        ),
+        (
+            Policy::CapBeforeWeight,
+            (0, 0, 0, 0, 3, 1, 1, (128, 255), 101_900, 6, 101_900),
+        ),
+        (
+            Policy::CapInputAt254,
+            (0, 0, 0, 0, 513, 1, 511, (128, 254), 194_671, 128, 194_671),
+        ),
+        (
+            Policy::Saturate254,
+            (0, 0, 0, 0, 513, 1, 511, (128, 254), 194_671, 128, 194_671),
+        ),
+        (
+            Policy::SingularOnly,
+            (0, 0, 0, 0, 3, 1, 1, (128, 255), 0, 0, 0),
+        ),
     ];
     for (pol, w) in want {
         let r = measure_policy(|a, b, c, d| revise_with(pol, a, b, c, d));
