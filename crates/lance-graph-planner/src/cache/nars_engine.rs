@@ -431,11 +431,12 @@ pub fn style_score(
 
 /// Closed-loop NARS feedback engine.
 ///
-/// Dual-path: hot path uses NarsTables (u16 lookup, L1 cache),
+/// Dual-path: hot path uses NarsTables (u16 lookup),
 /// cold path uses f32 Truth for configuration and analysis.
 pub struct NarsEngine {
     pub distances: SpoDistances,
-    /// Precomputed NARS lookup tables (128 KB, L1 cache resident).
+    /// Precomputed NARS lookup tables (256 KiB at the default 1 level: one
+    /// 128 KiB revision table plus the 128 KiB deduction table).
     /// Hot path: revision/deduction as single memory read.
     pub tables: NarsTables,
     /// Skepticism: grows with consecutive high-confidence outputs.
@@ -461,7 +462,8 @@ impl NarsEngine {
     /// `(c_levels² + 1) × 128 KB` — the revision tables plus the always-present
     /// 128 KB deduction table: **1 → 256 KB** (the `new` default, confidence
     /// inert — NOT 128 KB; the deduction table is allocated unconditionally),
-    /// **4 → ~2.1 MB**, **16 → ~32.1 MB** (full precision). Pick deliberately;
+    /// **4 → ~2.1 MB**, **16 → ~32.1 MB** (maximum table resolution, still not equal to direct
+    /// revision — D-RPF-TABLE-1). Pick deliberately;
     /// the default is the fast path, not the accurate one.
     pub fn with_c_levels(distances: SpoDistances, c_levels: usize) -> Self {
         Self {

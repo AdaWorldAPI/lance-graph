@@ -3,8 +3,10 @@
 //! At u8 quantization (256 levels for f and c), every NARS operation
 //! can be precomputed as a 256×256 lookup table.
 //!
-//! Size per table: 256 × 256 × 2 bytes (output f,c packed as u16) = 128 KB.
-//! Fits L1 cache. Every NARS inference becomes a single memory read.
+//! Size per table: 256 × 256 × 2 bytes (output f,c packed as u16) = 128 KiB.
+//! Every NARS inference becomes a single memory read. Note that 128 KiB is
+//! larger than a typical L1d (48 KiB on the D-RPF-TABLE-1 bench host); where a
+//! table actually sits is measured there, not assumed here.
 
 /// Packed (frequency_u8, confidence_u8) output as u16.
 /// Low byte = frequency, high byte = confidence.
@@ -34,7 +36,8 @@ pub fn unpack_c(p: PackedTruth) -> u8 {
 /// For the full 4D table (f1, c1, f2, c2), we use a two-level approach:
 /// 1. Quantize c into 16 buckets (4 bits)
 /// 2. Build 16×16 = 256 tables of 256×256 entries each
-/// Total: 256 × 128KB = 32 MB — fits L2 cache.
+/// Total: 256 × 128 KiB = 32 MiB, which on the D-RPF-TABLE-1 bench host is
+/// larger than L2 (2 MiB per core) and lives in L3.
 ///
 /// For the fast path, we use a single table with average c:
 /// revision_fast[f1 * 256 + f2] → packed truth for c = c_mean.
@@ -53,8 +56,13 @@ impl NarsTables {
     ///
     /// `c_levels`: number of confidence quantiles for revision tables.
     /// Total footprint is `(c_levels² + 1) × 128 KB` — the deduction table is
-    /// always allocated, independent of `c_levels`. Use 16 for full precision
-    /// (~32.1 MB), 1 for fast path (256 KB, not 128 KB).
+    /// always allocated, independent of `c_levels`. 16 is the **maximum table
+    /// resolution** (16 confidence buckets per side, ~32.1 MB), NOT numerical
+    /// full precision: each bucket uses its midpoint confidence, and against
+    /// direct revision (`CausalEdge64::revision`) 16 levels still differ on
+    /// ~97% of cells and by up to 113 frequency codes away from the boundary
+    /// (D-RPF-TABLE-1, `lance-graph-planner/tests/d_rpf_table_1.rs`). 1 is the
+    /// fast path (256 KB, not 128 KB) and ignores confidence entirely.
     pub fn build(c_levels: usize) -> Self {
         let c_levels = c_levels.clamp(1, 16);
 
