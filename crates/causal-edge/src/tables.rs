@@ -36,6 +36,7 @@ pub fn unpack_c(p: PackedTruth) -> u8 {
 /// For the full 4D table (f1, c1, f2, c2), we use a two-level approach:
 /// 1. Quantize c into 16 buckets (4 bits)
 /// 2. Build 16×16 = 256 tables of 256×256 entries each
+///
 /// Total: 256 × 128 KiB = 32 MiB, which on the D-RPF-TABLE-1 bench host is
 /// larger than L2 (2 MiB per core) and lives in L3.
 ///
