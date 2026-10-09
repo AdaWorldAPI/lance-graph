@@ -191,6 +191,12 @@ test = true
 name = "crossword_mask_propagation_probe"
 test = true
 
+# D-SCF-CARE-PAIR-0: crossing counterfactuals, pairwise nogoods and folded
+# chain boundary relations over the shared crossword core; tests under `cargo test`.
+[[example]]
+name = "crossword_crossing_care_probe"
+test = true
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
