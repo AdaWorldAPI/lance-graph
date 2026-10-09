@@ -226,3 +226,68 @@ fn groups_receive_by_their_address() {
     assert!(!view.is_mail_recipient(&g(2)));
     assert_eq!(both(&st, v, "team@example.org").1, Some(g(1)));
 }
+
+// 10. The usual departure keeps the mailbox: login disabled, group
+// memberships removed and the mailbox converted to shared (Set-RemoteMailbox
+// -Type Shared) so it needs no license. The account stops; the mailbox
+// keeps receiving at its addresses.
+#[test]
+fn departure_by_conversion_to_shared_keeps_the_mailbox() {
+    let mut st = VersionStore::new();
+    let mut team = ObservedNode::group();
+    team.primary_smtp = Some("team@example.org".into());
+    let v0 = st
+        .observe(
+            "lab",
+            0,
+            Observation {
+                scope: SCOPE,
+                nodes: vec![
+                    (g(1), user(Some(true), Some(remote_user_mailbox()))),
+                    (g(2), team),
+                ],
+                members: vec![(g(1), g(2))],
+            },
+        )
+        .unwrap();
+    let before = st
+        .view(v0)
+        .unwrap()
+        .node_state(&g(1))
+        .unwrap()
+        .recipient
+        .unwrap();
+    let after = RemoteMailboxOp::SetType(RemoteKind::Shared)
+        .apply(&before)
+        .unwrap();
+    assert_eq!(
+        RemoteMailboxOp::between(&before, &after),
+        Some(RemoteMailboxOp::SetType(RemoteKind::Shared)),
+        "an actuatable step"
+    );
+    assert_eq!(after.attributes().remote_recipient_type, Some(100));
+    let plan = Plan(vec![
+        Change::RemoveMembership {
+            user: g(1),
+            group: g(2),
+        },
+        Change::SetActive {
+            node: g(1),
+            from: Some(true),
+            to: Some(false),
+        },
+        Change::SetRecipient {
+            node: g(1),
+            from: Some(before),
+            to: Some(after),
+        },
+    ]);
+    let v1 = st.simulate(v0, &plan, &[]).unwrap();
+    let view = st.view(v1).unwrap();
+    assert!(validate(&view).is_empty());
+    let state = view.node_state(&g(1)).unwrap();
+    assert_eq!(state.active, Some(false), "login disabled");
+    assert!(!view.is_member(&g(1), &g(2)), "memberships removed");
+    assert!(view.is_mail_recipient(&g(1)), "the shared mailbox receives");
+    assert_eq!(both(&st, v1, D), (Some(g(1)), Some(g(1))));
+}

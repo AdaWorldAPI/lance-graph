@@ -34,6 +34,26 @@
 //! strings to the app's own role set is the *consumer's* job (a small fixed
 //! IdP-role → app-role table); see [`ResolvedIdentity`] and the tests for the
 //! handoff into [`authorize`].
+//!
+//! # Delegation (RFC 8693 `act`)
+//!
+//! A token obtained by token exchange may say that one party acts on behalf
+//! of another: `sub` names the principal whose authority the token carries,
+//! and the `act` claim names the party acting with it. A nested `act` inside
+//! `act` names an earlier actor in a chain.
+//!
+//! ```text
+//!   { "sub": "alice", "act": { "sub": "bob", "act": { "sub": "svc" } } }
+//!     alice's authority     bob acts now       svc acted before bob
+//! ```
+//!
+//! [`ResolvedIdentity::acting_through`] records that. Authorization stays on
+//! [`ResolvedIdentity::actor`], the `sub`: the token carries the principal's
+//! authority, and the authorization server already decided the actor may use
+//! it. The current actor is kept for audit and for the decisions that name
+//! the acting party (who sent a message, who read a mailbox). Prior actors are
+//! informational only and never take part in an access decision (RFC 8693
+//! §4.1).
 
 use crate::authorize::ClassId;
 
@@ -108,18 +128,22 @@ impl AuthProvider {
                 subject_claim: "sub",
                 roles_claim: "roles",
                 tenant_claim: "org",
+                act_claim: Some("act"),
             },
             // Zitadel: roles live under the project-roles URN; org is the URN org id.
             Self::Zitadel => ClaimGrammar {
                 subject_claim: "sub",
                 roles_claim: "urn:zitadel:iam:org:project:roles",
                 tenant_claim: "urn:zitadel:iam:org:id",
+                act_claim: Some("act"),
             },
             // Zanzibar/OpenFGA: the subject is the tuple's user; relations are roles.
             Self::Zanzibar => ClaimGrammar {
                 subject_claim: "user",
                 roles_claim: "relation",
                 tenant_claim: "namespace",
+                // A relation tuple is not a token: nothing is exchanged.
+                act_claim: None,
             },
         }
     }
@@ -141,6 +165,8 @@ impl AuthProvider {
             actor: subject.into(),
             roles: role_values.into_iter().collect(),
             tenant,
+            acting: None,
+            prior_actors: Vec::new(),
         }
     }
 }
@@ -154,6 +180,39 @@ pub struct ClaimGrammar {
     pub roles_claim: &'static str,
     /// Claim holding the org / tenant (→ scope axis).
     pub tenant_claim: &'static str,
+    /// Claim naming the acting party of a delegated token (RFC 8693 `act`).
+    /// `None`: the provider issues no exchanged tokens, so its identities
+    /// are never delegated.
+    pub act_claim: Option<&'static str>,
+}
+
+/// One party named by an RFC 8693 `act` claim: its `sub`, and its `iss` when
+/// the claim carries one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Actor {
+    /// The actor's `sub`.
+    pub subject: String,
+    /// The actor's `iss`, when it differs from the token's issuer.
+    pub issuer: Option<String>,
+}
+
+impl Actor {
+    /// An actor by subject, issued by the token's own issuer.
+    #[must_use]
+    pub fn new(subject: impl Into<String>) -> Self {
+        Self {
+            subject: subject.into(),
+            issuer: None,
+        }
+    }
+}
+
+/// Why a delegation could not be recorded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DelegationRefused {
+    /// The provider has no `act` claim ([`ClaimGrammar::act_claim`] is
+    /// `None`), so no token it resolves can be delegated.
+    NotIssuedByProvider,
 }
 
 /// The resolved identity — the ONLY thing that crosses the membrane inward
@@ -173,6 +232,12 @@ pub struct ResolvedIdentity {
     pub roles: Vec<String>,
     /// The org / tenant — the scope axis (§5 stage 2). `None` = unscoped.
     pub tenant: Option<String>,
+    /// The party acting on [`actor`](Self::actor)'s behalf: the outermost
+    /// `act` (RFC 8693). `None` when the token is not delegated.
+    pub acting: Option<Actor>,
+    /// Earlier actors from the nested `act` claims, most recent first.
+    /// Informational only: never part of an access decision.
+    pub prior_actors: Vec<Actor>,
 }
 
 impl ResolvedIdentity {
@@ -181,6 +246,42 @@ impl ResolvedIdentity {
     #[must_use]
     pub fn has_role(&self, role: &str) -> bool {
         self.roles.iter().any(|r| r == role)
+    }
+
+    /// Record a delegation from the token's `act` claim: `current` is the
+    /// outermost `act`, `prior` the nested ones, most recent first. The
+    /// authority stays [`actor`](Self::actor)'s.
+    ///
+    /// # Errors
+    ///
+    /// [`DelegationRefused::NotIssuedByProvider`] when the provider's grammar
+    /// has no `act` claim.
+    pub fn acting_through(
+        mut self,
+        current: Actor,
+        prior: impl IntoIterator<Item = Actor>,
+    ) -> Result<Self, DelegationRefused> {
+        if self.provider.grammar().act_claim.is_none() {
+            return Err(DelegationRefused::NotIssuedByProvider);
+        }
+        self.acting = Some(current);
+        self.prior_actors = prior.into_iter().collect();
+        Ok(self)
+    }
+
+    /// Whether another party acts on the principal's behalf.
+    #[must_use]
+    pub fn is_delegated(&self) -> bool {
+        self.acting.is_some()
+    }
+
+    /// The party acting on the principal's behalf: the current `act`, with
+    /// its issuer when the claim names one. `None` when the principal acts
+    /// itself. The issuer is part of the identity: two actors with the same
+    /// `sub` from different issuers are different parties (RFC 8693 §4.1).
+    #[must_use]
+    pub fn acting_party(&self) -> Option<&Actor> {
+        self.acting.as_ref()
     }
 
     /// The auth-class classid this identity was resolved through — for the audit
@@ -235,6 +336,98 @@ mod tests {
         assert_eq!(zn.roles_claim, "relation");
         // Store is the plain-OIDC base.
         assert_eq!(AuthProvider::Store.grammar().subject_claim, "sub");
+        // Token providers name the acting party in `act`; a tuple store has none.
+        assert_eq!(AuthProvider::Zitadel.grammar().act_claim, Some("act"));
+        assert_eq!(AuthProvider::Store.grammar().act_claim, Some("act"));
+        assert_eq!(AuthProvider::Zanzibar.grammar().act_claim, None);
+    }
+
+    fn mailbox_grants() -> ClassGrants {
+        ClassGrants::new()
+            .with_grant(
+                "owner",
+                0x0000_C003, // probe-local Mailbox classid
+                PermissionSpec::full("Mailbox", &["flags"], &["send"]),
+            )
+            .with_actor("alice", vec!["owner"])
+    }
+
+    // `{ "sub": "alice", "act": { "sub": "bob" } }`: bob acts with alice's
+    // authority. bob holds no grant of his own, and needs none.
+    #[test]
+    fn a_delegated_identity_authorizes_as_the_principal() {
+        let id = AuthProvider::Zitadel
+            .resolve("alice", Vec::new(), None)
+            .acting_through(Actor::new("bob"), [])
+            .unwrap();
+        assert!(id.is_delegated());
+        assert_eq!(id.actor, "alice");
+        assert_eq!(id.acting_party(), Some(&Actor::new("bob")));
+        let grants = mailbox_grants();
+        let op = Operation::Act { action: "send" };
+        assert!(authorize(&grants, &id.actor, 0x0000_C003, op.clone()).is_allowed());
+        // The acting party's own authority is not the token's.
+        assert!(authorize(&grants, "bob", 0x0000_C003, op).is_denied());
+    }
+
+    #[test]
+    fn an_undelegated_identity_acts_as_itself() {
+        let id = AuthProvider::Zitadel.resolve("alice", Vec::new(), None);
+        assert!(!id.is_delegated());
+        assert_eq!(id.acting_party(), None);
+        assert!(id.prior_actors.is_empty());
+    }
+
+    // `{ "sub": "alice", "act": { "sub": "bob", "act": { "sub": "svc" } } }`:
+    // bob is the current actor; svc acted earlier and only rides along.
+    #[test]
+    fn the_outermost_act_is_the_current_actor() {
+        let id = AuthProvider::Store
+            .resolve("alice", Vec::new(), None)
+            .acting_through(
+                Actor::new("bob"),
+                [Actor {
+                    subject: "svc".into(),
+                    issuer: Some("https://other.example".into()),
+                }],
+            )
+            .unwrap();
+        assert_eq!(id.acting_party(), Some(&Actor::new("bob")));
+        assert_eq!(id.prior_actors.len(), 1);
+        assert_eq!(id.prior_actors[0].subject, "svc");
+        assert_eq!(id.actor, "alice", "authority is still the principal's");
+    }
+
+    // The same `sub` from two issuers names two actors.
+    #[test]
+    fn the_acting_party_keeps_its_issuer() {
+        let from = |iss: &str| {
+            AuthProvider::Zitadel
+                .resolve("alice", Vec::new(), None)
+                .acting_through(
+                    Actor {
+                        subject: "service".into(),
+                        issuer: Some(iss.into()),
+                    },
+                    [],
+                )
+                .unwrap()
+        };
+        let (a, b) = (from("https://a.example"), from("https://b.example"));
+        assert_ne!(a.acting_party(), b.acting_party());
+        assert_eq!(
+            a.acting_party().and_then(|x| x.issuer.as_deref()),
+            Some("https://a.example")
+        );
+    }
+
+    #[test]
+    fn a_provider_without_tokens_cannot_be_delegated() {
+        let id = AuthProvider::Zanzibar.resolve("alice", Vec::new(), None);
+        assert_eq!(
+            id.acting_through(Actor::new("bob"), []),
+            Err(DelegationRefused::NotIssuedByProvider)
+        );
     }
 
     #[test]
