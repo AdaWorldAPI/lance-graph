@@ -18,6 +18,8 @@
 //! * [`store`] — append-only versions, tags, diff, plan, audit.
 //! * [`observe`] — `ogar-ad` records → observation (`OuHhtl` → `Dn128`,
 //!   failing closed).
+//! * [`cloud`] — which AD objects have their mailbox in Exchange Online,
+//!   read from OGAR's GUID-keyed hybrid correspondence fold.
 //!
 //! No network, process or file I/O. Nothing writes to AD, Entra, Exchange,
 //! LDAP or PowerShell. `#![forbid(unsafe_code)]`.
@@ -25,6 +27,7 @@
 #![forbid(unsafe_code)]
 
 pub mod bind;
+pub mod cloud;
 mod exec;
 pub mod observe;
 pub mod proxy;
@@ -35,6 +38,7 @@ pub mod validate;
 pub mod view;
 
 pub use bind::{where_eq, UserBinder, WhereEqError};
+pub use cloud::CloudMailboxes;
 pub use exec::Kept;
 pub use ogar_dir_sim::{KeyId, ValueId};
 pub use proxy::{ProxyKind, ProxyRelation, ProxyRow};

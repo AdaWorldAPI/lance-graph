@@ -6,8 +6,9 @@
 //! `to_addrs` column. It crosses into ids exactly once, through
 //! [`Dicts::key_lookup`] (counted, never minting). From there
 //! [`validate::address_owner`] works on `KeyId`s only, over the same
-//! `(key, holder, role)` rows as [`validate::address_rules`]: mail, UPN,
-//! primary and secondary SMTP, and the routing address.
+//! `(key, holder, role)` rows as [`validate::address_rules`]: UPN,
+//! primary and secondary SMTP, and the routing address. `mail` is a label
+//! and holds nothing.
 //!
 //! Several holders are never resolved to one: no first match, no insertion
 //! order, no preferred attribute.
@@ -136,13 +137,13 @@ fn a_known_key_without_a_holder_has_no_owner() {
 }
 
 // 4. + 5. Another object claims the same address through a different
-// surface (B's `mail`). The recipient no longer names one owner: the
+// surface (B's UPN). The recipient no longer names one owner: the
 // resolution reports both holders with their roles, and validation reports
 // the same conflict.
 #[test]
 fn a_cross_attribute_claim_makes_the_recipient_ambiguous() {
     let mut b = user_b();
-    b.mail = Some(MAIL.into());
+    b.upn = Some(MAIL.into());
     let (st, v) = observe(vec![(g(A), user_a()), (g(B), b)]);
     let key = recipient_key(&st, MAIL).unwrap();
     let Err(Violation::AddressConflict { key: k, holders }) = owner(&st, v, MAIL) else {
@@ -150,8 +151,11 @@ fn a_cross_attribute_claim_makes_the_recipient_ambiguous() {
     };
     assert_eq!(k, key);
     assert!(holders.contains(&(g(A), AddressRole::PrimarySmtp)));
-    assert!(holders.contains(&(g(A), AddressRole::Mail)));
-    assert!(holders.contains(&(g(B), AddressRole::Mail)));
+    assert!(holders.contains(&(g(B), AddressRole::Upn)));
+    assert!(
+        !holders.iter().any(|h| h.1 == AddressRole::Mail),
+        "`mail` holds nothing: {holders:?}"
+    );
     let found = validate(&st.view(v).unwrap());
     assert!(
         found.iter().any(|x| matches!(x,
@@ -166,7 +170,7 @@ fn a_cross_attribute_claim_makes_the_recipient_ambiguous() {
 #[test]
 fn ambiguity_never_picks_an_owner() {
     let mut b = user_b();
-    b.mail = Some(MAIL.into());
+    b.upn = Some(MAIL.into());
     let (st1, v1) = observe(vec![(g(A), user_a()), (g(B), b.clone())]);
     let (st2, v2) = observe(vec![(g(B), b), (g(A), user_a())]);
     let e1 = owner(&st1, v1, MAIL).unwrap_err();
@@ -185,7 +189,7 @@ fn ambiguity_never_picks_an_owner() {
 #[test]
 fn resolution_is_string_free_after_ingress() {
     let mut b = user_b();
-    b.mail = Some(MAIL.into());
+    b.upn = Some(MAIL.into());
     for nodes in [vec![(g(A), user_a())], vec![(g(A), user_a()), (g(B), b)]] {
         let (st, v) = observe(nodes);
         let key = recipient_key(&st, "A@Example.org").unwrap();
@@ -198,6 +202,18 @@ fn resolution_is_string_free_after_ingress() {
             "no intern, lookup or resolution during resolution"
         );
     }
+}
+
+// `mail` is a label: B carrying A's address as `mail` claims nothing, and
+// the address still names A alone. In Exchange, uniqueness is enforced on
+// proxy addresses (and the UPN namespace), never on `mail`.
+#[test]
+fn a_mail_label_on_another_object_is_not_a_claim() {
+    let mut b = user_b();
+    b.mail = Some(MAIL.into());
+    let (st, v) = observe(vec![(g(A), user_a()), (g(B), b)]);
+    assert_eq!(owner(&st, v, MAIL), Ok(Some(g(A))));
+    assert!(validate(&st.view(v).unwrap()).is_empty());
 }
 
 // 7. A deleted holder stops holding: deleting B in a simulated version
@@ -218,7 +234,7 @@ fn a_deleted_holder_no_longer_holds_the_address() {
         }
     }
     let mut b = user_b();
-    b.mail = Some(MAIL.into());
+    b.upn = Some(MAIL.into());
     let (mut st, v0) = observe(vec![(g(A), user_a()), (g(B), b)]);
     assert!(owner(&st, v0, MAIL).is_err());
     let state = st.view(v0).unwrap().node_state(&g(B)).unwrap();

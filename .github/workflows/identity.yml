@@ -101,6 +101,15 @@ jobs:
           an_unknown_lifecycle_is_not_a_recipient
           casing_does_not_change_the_identity
           identity_not_ordinal_reaches_change_diff_plan_and_provenance
+          a_mail_on_another_object_is_a_label_not_a_claim
+          a_mail_label_on_another_object_is_not_a_claim
+          a_departed_user_holds_no_address_and_receives_nothing
+          offboarding_by_disable_remote_mailbox_stops_delivery
+          a_remote_mailbox_with_its_cloud_mailbox_receives
+          a_remote_mailbox_without_a_cloud_mailbox_receives_nothing
+          two_cloud_mailboxes_are_not_one
+          contradicting_witnesses_are_not_a_mailbox
+          an_on_premises_mailbox_needs_no_cloud_mailbox
           EOF
           exit "$missing"
 

@@ -151,27 +151,38 @@ fn upn_smtp_and_routing_share_one_space() {
             && holders.contains(&(g(BOB), AddressRole::SecondarySmtp))));
 }
 
-// Rule 5: a `mail` held by another object conflicts — the admin account
-// whose mail points at Alice's mailbox as a password-reset target. It
-// counts even though the admin account is disabled and no recipient.
+// Rule 5: `mail` is a label, not a claim. Exchange enforces address
+// uniqueness on proxy addresses (and the UPN namespace), never on `mail`:
+// the admin account whose `mail` points at Alice's mailbox as a
+// password-reset target holds nothing, enabled or not.
 #[test]
-fn a_mail_on_another_object_conflicts_even_when_disabled() {
-    let mut admin = ObservedNode::user("adm-alice@x.test", "adm-alice@x.test");
-    admin.primary_smtp = None;
-    admin.active = Some(false);
-    admin.mail = Some("alice@x.test".into());
-    let (mut st, out) = validate_nodes(vec![(g(ALICE), user("alice")), (g(ADMIN), admin)]);
-    let k = key(&mut st, "alice@x.test");
-    assert_eq!(
-        conflicts(&out),
-        vec![&Violation::AddressConflict {
-            key: k,
-            holders: vec![
-                (g(ALICE), AddressRole::PrimarySmtp),
-                (g(ADMIN), AddressRole::Mail)
-            ],
-        }]
-    );
+fn a_mail_on_another_object_is_a_label_not_a_claim() {
+    for active in [Some(false), Some(true)] {
+        let mut admin = ObservedNode::user("adm-alice@x.test", "adm-alice@x.test");
+        admin.primary_smtp = None;
+        admin.active = active;
+        admin.mail = Some("alice@x.test".into());
+        let mut st = VersionStore::new();
+        let v = st
+            .observe(
+                "lab",
+                0,
+                Observation {
+                    scope: SCOPE,
+                    nodes: vec![(g(ALICE), user("alice")), (g(ADMIN), admin)],
+                    members: vec![],
+                },
+            )
+            .unwrap();
+        let out = st.validate(v).unwrap();
+        assert!(conflicts(&out).is_empty(), "{active:?}: {out:?}");
+        let k = key(&mut st, "alice@x.test");
+        assert_eq!(
+            lance_graph_dir_sim::validate::address_owner(&st.view(v).unwrap(), k),
+            Ok(Some(g(ALICE))),
+            "{active:?}: Alice alone holds her address"
+        );
+    }
 }
 
 // One object holding an address under several attributes is not a
@@ -193,10 +204,9 @@ fn one_holder_or_one_attribute_is_not_an_address_conflict() {
         .any(|v| matches!(v, Violation::DuplicateSmtp { .. })));
 }
 
-// The owner gate of the other roles is unchanged: a disabled non-recipient
-// user's UPN does not count; its mail does.
+// The owner gate: a disabled non-recipient user's UPN does not count.
 #[test]
-fn only_mail_ignores_the_owner_gate() {
+fn a_disabled_non_recipients_upn_is_not_a_claim() {
     let mut ghost = user("ghost");
     ghost.active = Some(false);
     ghost.upn = Some("alice@x.test".into());
