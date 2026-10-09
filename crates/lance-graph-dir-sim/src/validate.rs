@@ -532,12 +532,7 @@ pub fn address_recipient_in(
     key: KeyId,
     cloud: &CloudMailboxes,
 ) -> Result<Option<Guid128>, Violation> {
-    Ok(
-        address_recipient(v, key)?.filter(|g| match v.node_state(g).and_then(|s| s.recipient) {
-            Some(Recipient::RemoteMailbox(_)) => cloud.contains(g),
-            _ => true,
-        }),
-    )
+    Ok(address_owner(v, key)?.filter(|g| cloud.delivers_to(v, g)))
 }
 
 /// The `(key, holder, role)` rows of the one address space, sorted and

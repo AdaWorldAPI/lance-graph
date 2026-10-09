@@ -20,8 +20,10 @@
 //! anchor, several targets, a split Entra row, several mailboxes), so an
 //! ambiguous match is never read as a mailbox.
 
+use crate::view::View;
 use ogar_dir_core::correspond::{fold_aligned, Index, Lanes, Output, Planes, Ruler};
 use ogar_dir_core::Guid128;
+use ogar_dir_sim::Recipient;
 
 /// The AD objects (by `objectGUID`) with exactly one Exchange Online
 /// mailbox, sorted.
@@ -59,5 +61,22 @@ impl CloudMailboxes {
     /// The AD objects, sorted.
     pub fn owners(&self) -> &[Guid128] {
         &self.owners
+    }
+
+    /// Whether mail to `g` is delivered to it, with the cloud observed: it
+    /// must be a mail recipient ([`View::is_mail_recipient`]), and a remote
+    /// mailbox must also have its mailbox in Exchange Online. An
+    /// on-premises mailbox and a group are decided by the view alone.
+    ///
+    /// This is the rule [`crate::validate::address_recipient_in`] applies
+    /// to the holder of an address; a consumer that also expands groups
+    /// applies it to each member, so a list never reaches a remote mailbox
+    /// that does not exist.
+    pub fn delivers_to(&self, v: &View<'_>, g: &Guid128) -> bool {
+        v.is_mail_recipient(g)
+            && match v.node_state(g).and_then(|s| s.recipient) {
+                Some(Recipient::RemoteMailbox(_)) => self.contains(g),
+                _ => true,
+            }
     }
 }

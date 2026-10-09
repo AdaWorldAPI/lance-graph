@@ -110,6 +110,7 @@ jobs:
           two_cloud_mailboxes_are_not_one
           contradicting_witnesses_are_not_a_mailbox
           an_on_premises_mailbox_needs_no_cloud_mailbox
+          the_cloud_never_revives_a_non_recipient
           EOF
           exit "$missing"
 
