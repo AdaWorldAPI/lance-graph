@@ -275,13 +275,13 @@ impl ResolvedIdentity {
         self.acting.is_some()
     }
 
-    /// The party performing the request: the current `act` when delegated,
-    /// else the principal itself.
+    /// The party acting on the principal's behalf: the current `act`, with
+    /// its issuer when the claim names one. `None` when the principal acts
+    /// itself. The issuer is part of the identity: two actors with the same
+    /// `sub` from different issuers are different parties (RFC 8693 §4.1).
     #[must_use]
-    pub fn acting_party(&self) -> &str {
-        self.acting
-            .as_ref()
-            .map_or(self.actor.as_str(), |a| a.subject.as_str())
+    pub fn acting_party(&self) -> Option<&Actor> {
+        self.acting.as_ref()
     }
 
     /// The auth-class classid this identity was resolved through — for the audit
@@ -362,19 +362,19 @@ mod tests {
             .unwrap();
         assert!(id.is_delegated());
         assert_eq!(id.actor, "alice");
-        assert_eq!(id.acting_party(), "bob");
+        assert_eq!(id.acting_party(), Some(&Actor::new("bob")));
         let grants = mailbox_grants();
         let op = Operation::Act { action: "send" };
         assert!(authorize(&grants, &id.actor, 0x0000_C003, op.clone()).is_allowed());
         // The acting party's own authority is not the token's.
-        assert!(authorize(&grants, id.acting_party(), 0x0000_C003, op).is_denied());
+        assert!(authorize(&grants, "bob", 0x0000_C003, op).is_denied());
     }
 
     #[test]
     fn an_undelegated_identity_acts_as_itself() {
         let id = AuthProvider::Zitadel.resolve("alice", Vec::new(), None);
         assert!(!id.is_delegated());
-        assert_eq!(id.acting_party(), "alice");
+        assert_eq!(id.acting_party(), None);
         assert!(id.prior_actors.is_empty());
     }
 
@@ -392,10 +392,33 @@ mod tests {
                 }],
             )
             .unwrap();
-        assert_eq!(id.acting_party(), "bob");
+        assert_eq!(id.acting_party(), Some(&Actor::new("bob")));
         assert_eq!(id.prior_actors.len(), 1);
         assert_eq!(id.prior_actors[0].subject, "svc");
         assert_eq!(id.actor, "alice", "authority is still the principal's");
+    }
+
+    // The same `sub` from two issuers names two actors.
+    #[test]
+    fn the_acting_party_keeps_its_issuer() {
+        let from = |iss: &str| {
+            AuthProvider::Zitadel
+                .resolve("alice", Vec::new(), None)
+                .acting_through(
+                    Actor {
+                        subject: "service".into(),
+                        issuer: Some(iss.into()),
+                    },
+                    [],
+                )
+                .unwrap()
+        };
+        let (a, b) = (from("https://a.example"), from("https://b.example"));
+        assert_ne!(a.acting_party(), b.acting_party());
+        assert_eq!(
+            a.acting_party().and_then(|x| x.issuer.as_deref()),
+            Some("https://a.example")
+        );
     }
 
     #[test]
