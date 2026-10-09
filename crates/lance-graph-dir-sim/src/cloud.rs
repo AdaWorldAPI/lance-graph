@@ -13,10 +13,12 @@
 //!   Entra id.
 //!
 //! [`CloudMailboxes::from_fold`] keeps an AD object when the cloud witness
-//! holds and at least one of the AD witnesses holds, with no witness
-//! contradicting another. `Ruler::from_fold` already leaves contested rows
-//! empty (a shared anchor, several targets, a split Entra row, several
-//! mailboxes), so an ambiguous match is never read as a mailbox.
+//! holds and neither AD witness contradicts the Entra object it reached.
+//! `Ruler::from_fold` places an Entra id only when the forward anchor or
+//! backsync reached exactly that object, so the cloud witness already
+//! implies an AD witness; and it leaves contested rows empty (a shared
+//! anchor, several targets, a split Entra row, several mailboxes), so an
+//! ambiguous match is never read as a mailbox.
 
 use ogar_dir_core::correspond::{fold_aligned, Index, Lanes, Output, Planes, Ruler};
 use ogar_dir_core::Guid128;
@@ -39,7 +41,6 @@ impl CloudMailboxes {
         let mut owners: Vec<Guid128> = (0..ruler.len())
             .filter(|&i| {
                 bit(&planes.cloud, i)
-                    && (bit(&planes.forward, i) || bit(&planes.backsync, i))
                     && !bit(&planes.forward_conflict, i)
                     && !bit(&planes.backsync_conflict, i)
             })
