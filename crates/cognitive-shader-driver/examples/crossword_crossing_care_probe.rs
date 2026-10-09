@@ -982,6 +982,19 @@ const H4: &[&str] = &[
     "#####.###",
 ];
 
+/// T's links exactly, but A has length 5 like B2: only no-repeat refuses it.
+const H5: &[&str] = &[
+    ".....####",
+    "####.####",
+    "####.####",
+    "####.....",
+    "########.",
+    "########.",
+    "########.",
+    "########.",
+    "########.",
+];
+
 /// The end slots of a chain fixture: the first with one crossing, then the other.
 fn ends(puz: &Puzzle) -> (usize, usize) {
     let one: Vec<usize> = (0..puz.slots())
@@ -1160,7 +1173,7 @@ fn chain_report(hot: &Hot) {
         b.rel.support(),
         construct_ns / 1e3
     );
-    for (name, rows) in [("H1", H1), ("H2", H2), ("H3", H3), ("H4", H4)] {
+    for (name, rows) in [("H1", H1), ("H2", H2), ("H3", H3), ("H4", H4), ("H5", H5)] {
         let puz = compile(&grid(rows), Lang::En);
         let (f, to) = ends(&puz);
         let ok = reuse(&b, hot, &puz, f, to).is_some();
@@ -1383,7 +1396,7 @@ mod tests {
         let (puz, f, to) = open(H2);
         assert!(canonical(&chain(&puz, f, to).unwrap(), Lang::En, 0).1);
         // H3: a third crossing on an internal slot; H4: no-repeat binds.
-        for rows in [H3, H4] {
+        for rows in [H3, H4, H5] {
             let (puz, f, to) = open(rows);
             assert!(reuse(&b, h, &puz, f, to).is_none());
         }
@@ -1431,6 +1444,27 @@ mod tests {
             .find(|&w| h.letter(w, 0) == t)
             .unwrap();
         assert!(lookup(&rel, h, &ch, a, c) > oracle_count(h, &puz, f, a, to, c) as u64);
+        // H5: T's own links, so only the no-repeat field separates it. The
+        // stored relation counts B2 == A; the search does not.
+        let puz = compile(&grid(H5), Lang::En);
+        let (f, to) = ends(&puz);
+        let ch = chain(&puz, f, to).unwrap();
+        assert_eq!(ch.links, b.key.links);
+        assert!(!ch.no_repeat_vacuous);
+        let w4 = words_of(h, 4);
+        let a = words_of(h, 5)
+            .into_iter()
+            .find(|&a| {
+                w4.iter().any(|&b1| {
+                    h.letter(b1, 0) == h.letter(a, 4) && h.letter(b1, 3) == h.letter(a, 0)
+                })
+            })
+            .unwrap();
+        let c = words_of(h, 6)
+            .into_iter()
+            .find(|&c| h.letter(c, 0) == h.letter(a, 4))
+            .unwrap();
+        assert!(lookup(&b.rel, h, &ch, a, c) > oracle_count(h, &puz, f, a, to, c) as u64);
     }
 
     #[test]
