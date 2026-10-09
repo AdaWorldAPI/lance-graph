@@ -54,26 +54,28 @@ independent soundness oracle).
 |---|---|---|---|---|
 | 5 prove | Baseline | 5,658 | 11,095 | **6.5** |
 | | Support | 87 | 122,102 | 14.0 |
-| | Single | 2,149 | 36,666 | 10.1 |
-| | Pair | 1,421 | 163,152 | 38.5 |
-| | PairZ | 239 | 194,544 | 44.3 |
+| | Single | 2,149 | 32,673 | 10.1 |
+| | Pair | 1,421 | 132,198 | 38.5 |
+| | PairZ | 239 | 163,590 | 44.3 |
 | 5 open | Baseline | 686,948 | 1.38 M | **776** |
 | | Support | 11,881 | 13.96 M | 1,619 |
-| | Single | 721,784 | 1.46 M | 952 |
-| | Pair | 720,520 | 2.31 M | 1,107 |
-| | PairZ | 96,961 | 26.17 M | 8,917 |
+| | Single | 721,784 | 1.45 M | 952 |
+| | Pair | 720,520 | 2.18 M | 1,107 |
+| | PairZ | 96,961 | 26.03 M | 8,917 |
 | 7 prove | Baseline | 1,298 | 4,273 | **2.8** |
 | | Support | 35 | 131,366 | 14.7 |
-| | Single | 760 | 30,199 | 14.6 |
-| | Pair | 496 | 195,616 | 96.0 |
+| | Single | 760 | 27,611 | 14.6 |
+| | Pair | 496 | 159,618 | 96.0 |
 | 7 open | Baseline | 31,073 | 110,962 | **70.7** |
 | | Support | 890 | 2.44 M | 311 |
-| | Single | 22,918 | 165,563 | 92.9 |
-| | Pair | 22,513 | 819,864 | 416 |
+| | Single | 22,918 | 157,582 | 92.9 |
+| | Pair | 22,513 | 682,754 | 416 |
 
 (One op is one pass over a 290-word population. Wall time is one machine,
-release, two runs; every count is identical between runs and timings agree
-within about 15 %.)
+release, three runs; every node and exclusion count is identical between runs
+and timings agree within about 15 %. The op column was corrected after review:
+`refuted` had charged `settle`'s propagation twice. Nodes, exclusions, answers
+and every conclusion are unchanged by the fix.)
 
 **Where Single's exclusions come from** (5 prove / 5 open / 7 prove / 7 open):
 - zero population, no counterfactual needed: 882 / 1,030 / 902 / 2,435;
@@ -135,6 +137,10 @@ key check is under 1 µs, and break-even falls to about 24 (H1) and 9 (H2).
 - The one-link fixture: every spurious pair the product admits is refuted by
   the search.
 
+End words are fixed by the query, not folded, so `lookup` refuses one word
+on both ends (equal ids are possible only when the ends share a length). This
+is pinned on H6, which has two 6-letter ends. Found in review.
+
 **Epistemics.** The relation's correctness rests on construction plus the
 oracle equality. Read as CE64, it is a certified domain consequence (a proof
 of each count), not `IndirectKnown × Supports`. No CE64 write was made.
@@ -161,12 +167,13 @@ of each count), not `IndirectKnown × Supports`. No CE64 write was made.
 
 ## Gates
 
-11 tests. Falsifiers in the test file:
+12 tests. Falsifiers in the test file:
 - mask relation = id scan;
 - marginal product invents pairs (synthetic, real, two-link);
 - composition = core search;
 - reuse accepts H1/H2 and refuses H3/H4/H5;
 - forced reuse is wrong on H3, H4, H5;
+- equal end words are not a completion (H6);
 - every arm is sound and agrees;
 - refuted worlds leave the state unchanged;
 - single counterfactuals fire;
@@ -181,7 +188,8 @@ Disable runs, anchors asserted, each red on its named test:
 4. third crossing allowed;
 5. zero-population exclusion over live letters;
 6. nogood bans the wrong letter;
-7. unary exclusion without completeness.
+7. unary exclusion without completeness;
+8. the equal-end-word guard removed.
 
 D3 and D4 were vacuous at first: H3/H4 were refused for other reasons, and
 `ends()` picked the extra slot. H5 and a 7-letter H3 isolate the fields.
