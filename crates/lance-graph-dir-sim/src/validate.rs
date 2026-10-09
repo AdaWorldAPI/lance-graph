@@ -12,9 +12,9 @@
 //! [`KeyId`]; resolving a key to text is the reporter's job.
 //!
 //! Memberships whose endpoint never resolved to an ordinal are not in the
-//! lanes (no sentinel ordinal exists); they are dangling by construction and
-//! reported from the snapshot's unresolved table and the overlay, both
-//! evidence-sized.
+//! lanes (no sentinel ordinal exists); they are reported from the snapshot's
+//! unresolved table and the overlay, both evidence-sized. A group nested in a
+//! live group is held the same way but is a valid membership, not dangling.
 //!
 //! Materialisations, all at the evidence boundary and bounded by the number
 //! of violations: the offending membership rows (`materialize_rows` of the
@@ -119,9 +119,16 @@ pub fn dangling(v: &View<'_>) -> Vec<Violation> {
         }
     }
 
-    // Identity-held rows that still do not resolve in this version.
+    // Identity-held rows that still do not resolve as `(user, group)` in
+    // this version. A group nested in a group is held here too (the lanes are
+    // user × group ordinals) and is not dangling while both groups exist.
     for &(user, group) in &added.unresolved {
-        let missing = if v.user_ordinal(&user).is_some() {
+        let member_is_group = v.group_ordinal(&user).is_some();
+        let group_exists = v.group_ordinal(&group).is_some();
+        if member_is_group && group_exists {
+            continue;
+        }
+        let missing = if v.user_ordinal(&user).is_some() || member_is_group {
             Endpoint::Group
         } else {
             Endpoint::User

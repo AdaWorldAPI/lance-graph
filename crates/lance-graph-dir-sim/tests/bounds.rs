@@ -157,7 +157,7 @@ fn a_full_population_refuses_a_create_and_the_other_one_does_not() {
 fn an_unresolved_membership_is_kept_by_identity_never_as_a_lane_value() {
     let mut obs = population(2, 2);
     obs.members.push((user(0), group(9))); // no such group
-    obs.members.push((group(0), group(1))); // a group as member
+    obs.members.push((group(0), group(1))); // a group nested in a group
     obs.members.push((user(1), group(1)));
     let mut st = VersionStore::new();
     let v = st.observe("lab", 0, obs).unwrap();
@@ -165,7 +165,8 @@ fn an_unresolved_membership_is_kept_by_identity_never_as_a_lane_value() {
     assert_eq!(st.snapshot(v).unwrap().membership_rows(), 1);
     let view = st.view(v).unwrap();
     assert!(view.is_member(&user(0), &group(9)), "still observed");
-    assert_eq!(st.validate(v).unwrap().len(), 2);
+    // Only the missing group is a violation; the nested group is valid.
+    assert_eq!(st.validate(v).unwrap().len(), 1);
     // And it can be removed like any other membership.
     let fix = Propose(vec![
         Change::RemoveMembership {
