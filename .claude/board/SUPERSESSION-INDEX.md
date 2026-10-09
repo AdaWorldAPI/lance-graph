@@ -94,7 +94,7 @@ a licence to act on it.
 | **READ** | `mul-ewa-trust-propagation-v1` | `GateDecision` | PROPOSED — PLAN/BOARD ONLY. Measure-before-c | 1/3 |
 | **READ** | `nan-ci-mode-v1` | `GateDecision` | PROPOSAL — **`D-NCI-1..5` are unbuilt. No Na | 1/8 |
 | **READ** | `persistence-artifact-backed-commit-v1` | `persist_cycle` | RATIFIED (operator ruling 2026-08-09). Phase | 0/0 |
-| **READ** | `post-teardown-buildup-survey-v1` | `StepMask` | SURVEY, read-only, plan-only (no code, no te | 1/5 |
+| **READ** | `post-teardown-buildup-survey-v1` | `StepMask` | SURVEY, read-only, plan-only (no code, no te | 2/5 |
 | **READ** | `r2il-bpe-typed-genetic-recombination-v1` | `GateDecision` | PROPOSAL, §7's three falsifiers now RUN (see | 1/1 |
 | **READ** | `scientific-kg-substrate-v1` | `GateDecision` | PROPOSED — **scoping doc**, no code. Records | 3/9 |
 | **READ** | `self-reasoning-substrate-v1` | `GateDecision` | PROPOSED — doc-only. No code, no contract ch | 4/5 |

@@ -39,7 +39,7 @@
 //! Frequency (u8): f = val / 255.0, 256 quantization levels.
 //! Confidence (u8): c = val / 255.0, 256 quantization levels.
 //! At u8 resolution, revision/deduction/induction/abduction can be
-//! precomputed as 256×256 lookup tables (64 KB each, fits L1 cache).
+//! precomputed as 256×256 lookup tables (128 KiB each, u16 entries).
 //!
 //! ## Plasticity
 //!
