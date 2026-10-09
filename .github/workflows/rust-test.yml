@@ -479,6 +479,16 @@ jobs:
         run: cargo test --manifest-path crates/surreal_container/Cargo.toml
       - name: Run dto-class-check tests (missed by the first sweep)     # 1 green
         run: cargo test --manifest-path tools/dto-class-check/Cargo.toml
+      # perturbation-sim is a member that no step tested: `build --workspace`
+      # compiles its lib only. The second command runs the D-MOORE-PERT-AB-0
+      # example tests, which sit behind `moore-probe` and are otherwise selected
+      # by nothing.
+      - name: Run perturbation-sim tests (previously ungated)        # 108 green
+        run: cargo test --manifest-path crates/perturbation-sim/Cargo.toml
+      - name: Run Moore A/B probe tests (D-MOORE-PERT-AB-0)          # 4 green
+        run: >-
+          cargo test --manifest-path crates/perturbation-sim/Cargo.toml
+          --features moore-probe --example MoorePertubationsfeld
 
   test-with-coverage:
     runs-on: ubuntu-24.04

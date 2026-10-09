@@ -18,12 +18,16 @@ description = "Spectral + edge-propagation outage simulator: models the perturba
 # (or target-cpu=native locally). All SIMD comes from `ndarray::simd` per the
 # workspace rule — never raw intrinsics here.
 ndarray-simd = ["dep:ndarray"]
+# A/B research probe; default builds retain their standalone execution path.
+moore-probe = ["dep:lance-graph-contract"]
 # Push a nodal injection covariance through the DC model: Σθ = L⁺ Σp L⁺,
 # computed by ndarray's Pillar-9 `CovHighD::sandwich` (f32, dense O(N³),
 # const-generic N). Default OFF. Pulls ndarray's `pillar` (= linalg + splat3d).
 pillar = ["dep:ndarray", "ndarray/pillar"]
 
 [dependencies]
+# The canonical eight directions and their fixed lane order, for the optional A/B probe.
+lance-graph-contract = { path = "../lance-graph-contract", optional = true }
 # The AdaWorldAPI fork ("The Foundation"), optional + behind `ndarray-simd`,
 # from the SAME sibling path every other crate in this tree resolves — one
 # Cargo package identity. It was a git source until 2026-09-21 (codex P2 on
@@ -135,3 +139,8 @@ path = "examples/chaoda_surge_epicenter.rs"
 [[example]]
 name = "tictactoe_raumgewinn"
 path = "examples/tictactoe_raumgewinn.rs"
+
+[[example]]
+name = "MoorePertubationsfeld"
+path = "examples/MoorePertubationsfeld.rs"
+required-features = ["moore-probe"]
