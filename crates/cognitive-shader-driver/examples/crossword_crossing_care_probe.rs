@@ -438,11 +438,12 @@ fn refuted(
     let mut w = st.clone();
     let a0 = w.ands;
     let mut q = Vec::new();
-    let r = asg
+    let assumed = asg
         .iter()
-        .try_for_each(|&(c, a)| assume(hot, puz, &mut w, c, a, &mut q))
-        .and_then(|_| settle(hot, puz, &mut w, &mut q, None, None, ops));
+        .try_for_each(|&(c, a)| assume(hot, puz, &mut w, c, a, &mut q));
+    // The assumption's own narrows; `settle` charges its work itself.
     *ops += (w.ands - a0) as u64;
+    let r = assumed.and_then(|_| settle(hot, puz, &mut w, &mut q, None, None, ops));
     if r.is_err() {
         pre.cf_contradictions += 1;
         true
@@ -997,6 +998,21 @@ const H5: &[&str] = &[
     "########.",
 ];
 
+/// T's links between two 6-letter ends: a query may bind both ends to one word.
+#[cfg(test)]
+const H6: &[&str] = &[
+    "......####",
+    "#####.####",
+    "#####.####",
+    "#####.....",
+    "#########.",
+    "#########.",
+    "#########.",
+    "#########.",
+    "#########.",
+    "##########",
+];
+
 /// The end slots of a chain fixture: the 3- and 6-letter slots when both
 /// exist (H3's extra slot also has one crossing), else the two one-crossing slots.
 fn ends(puz: &Puzzle) -> (usize, usize) {
@@ -1039,7 +1055,12 @@ fn oracle_count(hot: &Hot, puz: &Puzzle, from: usize, a: WordId, to: usize, c: W
     .expect("unbounded")
 }
 
+/// The two end words are fixed by the query, not folded: no-repeat between
+/// them is checked here (equal ids only happen when both ends share a length).
 fn lookup(rel: &PairCounts, hot: &Hot, ch: &Chain, a: WordId, c: WordId) -> u64 {
+    if a == c {
+        return 0;
+    }
     rel.get(
         hot.letter(a, ch.x_off).0 as usize,
         hot.letter(c, ch.y_off).0 as usize,
@@ -1473,6 +1494,29 @@ mod tests {
             .find(|&c| h.letter(c, 0) == h.letter(a, 4))
             .unwrap();
         assert!(lookup(&b.rel, h, &ch, a, c) > oracle_count(h, &puz, f, a, to, c) as u64);
+    }
+
+    /// Ends of equal length: one word on both ends has a folded count but no
+    /// fill, so the lookup must refuse it.
+    #[test]
+    fn equal_end_words_are_not_a_completion() {
+        let h = hot();
+        let (b, _) = train(h);
+        let puz = compile(&grid(H6), Lang::En);
+        let (f, to) = ends(&puz);
+        assert_eq!((puz.len[f], puz.len[to]), (6, 6));
+        let (ch, rel) = reuse(&b, h, &puz, f, to).expect("compatible");
+        let w = words_of(h, 6)
+            .into_iter()
+            .find(|&w| {
+                rel.get(
+                    h.letter(w, ch.x_off).0 as usize,
+                    h.letter(w, ch.y_off).0 as usize,
+                ) > 0
+            })
+            .expect("a word whose own letters are supported");
+        assert_eq!(oracle_count(h, &puz, f, w, to, w), 0);
+        assert_eq!(lookup(&rel, h, &ch, w, w), 0);
     }
 
     #[test]
