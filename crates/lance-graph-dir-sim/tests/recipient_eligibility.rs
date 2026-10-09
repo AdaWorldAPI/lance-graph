@@ -1,8 +1,9 @@
 //! Who holds an address and who receives mail at it are two questions.
 //!
 //! [`address_owner`] answers the first: the claim that keeps anyone else
-//! from taking an address. It survives offboarding through a stale `mail`
-//! value, as it should — the address stays reserved. [`address_recipient`]
+//! from taking an address, held through UPN, SMTP proxies and the routing
+//! address. `mail` is a label and holds nothing, as in Exchange, where
+//! uniqueness is enforced on proxy addresses. [`address_recipient`]
 //! answers the second, from OGAR's recipient lifecycle
 //! (`Recipient::is_recipient`) through [`View::is_mail_recipient`].
 //!
@@ -87,24 +88,26 @@ fn both(st: &VersionStore, v: VersionId, addr: &str) -> (Option<Guid128>, Option
     )
 }
 
-// 1. The departed user: disabled, not mail-enabled, stale `mail`.
+// 1. The departed user: disabled, not mail-enabled, no proxy addresses, a
+// stale `mail` label.
 #[test]
-fn a_departed_user_holds_the_address_and_receives_nothing() {
+fn a_departed_user_holds_no_address_and_receives_nothing() {
     let mut d = user(Some(false), Some(ObservedRecipient::default()));
     d.primary_smtp = None;
     d.proxies.clear();
     let (st, v) = observe(vec![(g(1), d)]);
     assert!(validate(&st.view(v).unwrap()).is_empty());
-    // The claim stays (the address may not be reused silently) ...
+    // The stale `mail` is a label: it reserves nothing ...
     let (owner, rcpt) = both(&st, v, D);
-    assert_eq!(owner, Some(g(1)));
+    assert_eq!(owner, None);
     // ... and mail to it is delivered nowhere.
     assert_eq!(rcpt, None);
     assert!(!st.view(v).unwrap().is_mail_recipient(&g(1)));
 }
 
 // 2. The offboarding a simulator can plan: disable the account and run
-// Disable-RemoteMailbox. `mail` cannot be cleared by any change.
+// Disable-RemoteMailbox. No change here clears `mail`, and none needs to:
+// it is a label, and the deprovisioned account claims nothing through it.
 #[test]
 fn offboarding_by_disable_remote_mailbox_stops_delivery() {
     let (mut st, v0) = observe(vec![(g(1), user(Some(true), Some(remote_user_mailbox())))]);
@@ -137,8 +140,11 @@ fn offboarding_by_disable_remote_mailbox_stops_delivery() {
     let v1 = st.simulate(v0, &plan, &[]).unwrap();
     assert!(validate(&st.view(v1).unwrap()).is_empty());
     let (owner, rcpt) = both(&st, v1, D);
-    assert_eq!(owner, Some(g(1)), "the stale mail keeps the claim");
-    assert_eq!(rcpt, None, "but nothing is delivered");
+    assert_eq!(
+        owner, None,
+        "a deprovisioned object holds none of its addresses"
+    );
+    assert_eq!(rcpt, None, "and nothing is delivered");
 }
 
 // 3. A disabled shared mailbox is a recipient: disabled accounts are how
@@ -288,6 +294,11 @@ fn departure_by_conversion_to_shared_keeps_the_mailbox() {
     let state = view.node_state(&g(1)).unwrap();
     assert_eq!(state.active, Some(false), "login disabled");
     assert!(!view.is_member(&g(1), &g(2)), "memberships removed");
+    assert!(
+        matches!(state.recipient, Some(Recipient::RemoteMailbox(m)) if m.kind() == RemoteKind::Shared),
+        "the mailbox is now shared: {:?}",
+        state.recipient
+    );
     assert!(view.is_mail_recipient(&g(1)), "the shared mailbox receives");
     assert_eq!(both(&st, v1, D), (Some(g(1)), Some(g(1))));
 }

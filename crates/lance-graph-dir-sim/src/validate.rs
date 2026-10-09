@@ -20,6 +20,7 @@
 //! of violations: the offending membership rows (`materialize_rows` of the
 //! kept mask) and each duplicate key's owner rows.
 
+use crate::cloud::CloudMailboxes;
 use crate::exec::{group_count_into, keep, program};
 use crate::proxy::meta;
 use crate::snapshot::{bit, clear_bit, ones, NONE};
@@ -395,9 +396,9 @@ pub fn smtp_duplicates(v: &View<'_>) -> Vec<Violation> {
 ///
 /// Rows `(key, holder, role)`: UPN, primary and secondary SMTP and the
 /// routing address of address owners (enabled, or a live mail recipient),
-/// `mail` of every user — a `mail` on another object conflicts even when
-/// that object is disabled and no recipient — and the primary SMTP address
-/// of every live group. A key is an `AddressConflict` when two of its holders
+/// and the primary SMTP address of every live group. `mail` is not a row:
+/// it is a label, and Exchange enforces uniqueness on proxy addresses (and
+/// the UPN namespace), never on `mail`. A key is an `AddressConflict` when two of its holders
 /// collide across attributes: a pair of users that already collides as SMTP
 /// (`DuplicateSmtp`) or as UPN (`DuplicateUpn`) is not reported twice. A
 /// collision with a group is always an `AddressConflict`: `DuplicateSmtp`
@@ -456,13 +457,13 @@ pub fn address_rules(v: &View<'_>) -> Vec<Violation> {
 }
 
 /// The single directory object that holds `key` in the one address space
-/// [`address_rules`] checks, read from the same rows: `mail` of every user;
-/// UPN, primary and secondary SMTP and the routing address of address
-/// owners; the primary SMTP address of every live group.
+/// [`address_rules`] checks, read from the same rows: UPN, primary and
+/// secondary SMTP and the routing address of address owners; the primary
+/// SMTP address of every live group. `mail` holds nothing.
 ///
 /// - `Ok(None)`: no live directory object holds the key.
 /// - `Ok(Some(owner))`: exactly one does, under one or more roles (a user
-///   whose `mail` is its primary SMTP is one owner).
+///   whose UPN is its primary SMTP is one owner).
 /// - `Err(Violation::AddressConflict { key, holders })`: two or more do.
 ///   Every `(holder, role)` is listed, sorted by holder. No holder is
 ///   chosen: not the first, not by attribute, not by observation order.
@@ -499,9 +500,9 @@ pub fn address_owner(v: &View<'_>, key: KeyId) -> Result<Option<Guid128>, Violat
 /// ([`View::is_mail_recipient`]).
 ///
 /// [`address_owner`] answers who *holds* an address — the claim that keeps
-/// anyone else from taking it, which survives offboarding through a stale
-/// `mail` value. This answers who *receives* at it, so a holder that is no
-/// longer a recipient is `Ok(None)`: the address is reserved and delivers
+/// anyone else from taking it. This answers who *receives* at it, so a
+/// holder that is no longer a recipient (an enabled account that is not
+/// mail-enabled, say) is `Ok(None)`: the address is reserved and delivers
 /// nowhere. A shared key is still `Err`, since it names no single
 /// recipient either way.
 ///
@@ -510,6 +511,33 @@ pub fn address_owner(v: &View<'_>, key: KeyId) -> Result<Option<Guid128>, Violat
 /// `Violation::AddressConflict` when more than one object holds `key`.
 pub fn address_recipient(v: &View<'_>, key: KeyId) -> Result<Option<Guid128>, Violation> {
     Ok(address_owner(v, key)?.filter(|g| v.is_mail_recipient(g)))
+}
+
+/// [`address_recipient`] with the cloud side observed: a holder whose
+/// recipient type is a remote mailbox receives only when the hybrid
+/// correspondence fold ties it to exactly one Exchange Online mailbox
+/// ([`CloudMailboxes`]). On-premises mailboxes and groups are decided as in
+/// [`address_recipient`].
+///
+/// Hybrid routing sends mail for a remote mailbox to its routing address in
+/// the tenant; without a mailbox there, Exchange Online rejects it. The
+/// match is on GUIDs only (anchor, backsync and Entra id), never on an
+/// address.
+///
+/// # Errors
+///
+/// `Violation::AddressConflict` when more than one object holds `key`.
+pub fn address_recipient_in(
+    v: &View<'_>,
+    key: KeyId,
+    cloud: &CloudMailboxes,
+) -> Result<Option<Guid128>, Violation> {
+    Ok(
+        address_recipient(v, key)?.filter(|g| match v.node_state(g).and_then(|s| s.recipient) {
+            Some(Recipient::RemoteMailbox(_)) => cloud.contains(g),
+            _ => true,
+        }),
+    )
 }
 
 /// The `(key, holder, role)` rows of the one address space, sorted and
@@ -525,9 +553,6 @@ fn address_rows(v: &View<'_>, out: &mut Vec<Violation>) -> Vec<(u32, Guid128, Ad
         let Some(g) = v.guid_in(NodeKind::User, i) else {
             continue;
         };
-        if i < n && p.mail_key[i] != NONE {
-            rows.push((p.mail_key[i], g, AddressRole::Mail));
-        }
         if !bit(&owners, i) {
             continue;
         }
