@@ -91,7 +91,8 @@
 //!
 //! `lance-graph-ontology` (OGIT) hydrates classes from TTL; OGAR mints the
 //! calcified canonical concepts (`class_ids::ALL`) keyed by the same `ClassId`
-//! space. They meet at the codebook id == `NodeGuid.classid` low u16 — the
+//! space. They meet at the codebook id == the canon half of `NodeGuid.classid`
+//! (the high u16 since the 2026-07-02 half-order flip; `classid_canon`) — the
 //! `0xDDCC` domain layout the [`parity`] guard pins. Reconciling an OGIT-hydrated
 //! TTL class against an OGAR-promoted concept is a `ClassId` lookup, not a parse.
 
@@ -361,11 +362,16 @@ pub mod parity {
         }
 
         #[test]
-        fn classid_low_u16_is_the_codebook_id() {
+        fn classid_canon_half_is_the_codebook_id() {
+            use lance_graph_contract::ogar_codebook::{classid_canon, compose_classid};
             use lance_graph_contract::NodeGuid;
             let project_id = ogar_vocab::canonical_concept_id("project").unwrap();
-            let guid = NodeGuid::new(u32::from(project_id), 0, 0, 0, 0, 0);
-            assert_eq!(guid.classid() as u16, project_id);
+            // Minted at the core lens through the contract's one composition;
+            // the codebook id is the canon half, under every render lens.
+            let guid = NodeGuid::new(compose_classid(project_id, 0x0000), 0, 0, 0, 0, 0);
+            assert_eq!(classid_canon(guid.classid()), project_id);
+            let rendered = NodeGuid::new(compose_classid(project_id, 0x0001), 0, 0, 0, 0, 0);
+            assert_eq!(classid_canon(rendered.classid()), project_id);
             assert!(domains_agree(project_id));
         }
     }

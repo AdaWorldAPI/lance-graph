@@ -37,13 +37,14 @@ pub const PALETTES: &[(u16, Palette)] = &[(DISMECH_CONCEPT_ID, dismech_predicate
 
 /// The DisMech classid under the bare concept, no app prefix. Any app prefix
 /// routes the same way; G is the concept half alone.
-pub const DISMECH_CLASSID: u32 = (DISMECH_CONCEPT_ID as u32) << 16;
+pub const DISMECH_CLASSID: u32 =
+    lance_graph_contract::ogar_codebook::compose_classid(DISMECH_CONCEPT_ID, 0x0000);
 
 /// The graph coordinate of a classid: its canon-high concept half
 /// (`contract::spog_tenants::graph_of`, for a bare classid).
 #[must_use]
 pub const fn graph_of_classid(classid: u32) -> u16 {
-    (classid >> 16) as u16
+    lance_graph_contract::ogar_codebook::classid_canon(classid)
 }
 
 /// The palette a classid routes to, if this crate mirrors it.

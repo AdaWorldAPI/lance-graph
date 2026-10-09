@@ -65,7 +65,8 @@ impl AuthProvider {
         }
     }
 
-    /// The codebook classid (the low-`u16`), resolved through the zero-dep
+    /// The codebook classid (the canon `u16` — the high half of a `NodeGuid`
+    /// classid since the 2026-07-02 flip), resolved through the zero-dep
     /// contract mirror — the single source of truth, no hardcoded `0x0B0N`.
     /// Panics only if the contract mirror and this enum drift, which the
     /// `provider_class_ids_resolve_through_the_contract_mirror` test forbids.
@@ -75,7 +76,7 @@ impl AuthProvider {
             .expect("AuthProvider concept must exist in the contract codebook mirror")
     }
 
-    /// Reverse: a codebook classid (low `u16`) back to its provider, if it is in
+    /// Reverse: a codebook classid (canon `u16`) back to its provider, if it is in
     /// the `0x0B` AuthStore family. `None` for any non-auth id.
     #[must_use]
     pub fn from_class_id(id: u16) -> Option<Self> {

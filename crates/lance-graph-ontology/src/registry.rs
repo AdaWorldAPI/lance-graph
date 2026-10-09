@@ -433,8 +433,9 @@ impl OntologyRegistry {
     /// `classid_lo · HEEL · HIP · TWIG`) and this registry's `NiblePath →
     /// entity_type` bijection ([`Self::entity_type_of`]).
     ///
-    /// Returns `None` when the GUID's high `classid` u16 is nonzero (the fold
-    /// refuses the lossy case — no silent collision) OR when no class is
+    /// Returns `None` when the GUID's classid carries a nonzero CUSTOM half
+    /// (a render lens or the V3 marker — the v1 fold refuses the lossy case,
+    /// no silent collision; a pre-flip canon-low id still folds) OR when no class is
     /// registered at the folded path (zero-fallback: an unbound GUID resolves to
     /// no class, never a panic). The `classid_lo ↔ entity_type` correspondence is
     /// the registrar's invariant: `register_class_path(t,
