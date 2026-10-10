@@ -540,8 +540,17 @@ pub fn address_recipient_in(
 /// Where `g`'s `mail` label resolves: `None` when `g` does not exist or
 /// has no label.
 ///
-/// `mail` is a label, not a claim (it is not among the [`address_owner`]
-/// rows). It is the trigger for one lookup: the label's key is resolved to
+/// Provisioning is decided by the recipient type: which addresses an
+/// object holds comes from its recipient (primary SMTP, proxies, routing
+/// address), never from `mail`. That repurposes `mail` as a free label any
+/// account may carry, pointing at any address, including one another
+/// object holds. This holds as long as AD Connect does not use `mail` as
+/// the sync anchor (the anchor is `mS-DS-ConsistencyGuid`/`objectGUID`); a
+/// `mail`-anchored sync would make it identity, and this model would not
+/// apply.
+///
+/// So `mail` is not among the [`address_owner`] rows. It is the trigger for
+/// one lookup: the label's key is resolved to
 /// the object that holds the address, and that object's
 /// [`ExchangeIdentity`](ogar_dir_sim::ExchangeIdentity) is read by GUID
 /// ([`View::exchange_identity`]). The result says what the label points at;
