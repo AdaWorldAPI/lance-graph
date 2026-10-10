@@ -1,6 +1,6 @@
 ## 2026-10-10 — cross-glove-business-parity-v1 — Odoo × SAP over one Quack algebra → `.claude/plans/cross-glove-business-parity-v1.md`
 
-**Status:** PROPOSAL (D-XGP-0..7). No code authorized. Addendum to `.claude/plans/sap-glove-quack-v1.md` (baseline, committed verbatim; W0–W6 preserved).
+**Status:** PROPOSAL (D-XGP-0..7). No code authorized. Addendum to `.claude/plans/sap-glove-quack-v1.md` (baseline, committed verbatim; W0–W6 preserved). **Corrected same day (plan §C):** the contract bullet below is superseded. The landing is shipped `OntologyRegistry` attribute rows plus a CATS `impl Binder` (missing) behind a registry front; no new contract module.
 
 - Landing contract: a versioned canonical field basis per concept + one graded pivot per glove (`Exact / Converted / Hypothesized / Unsupported`), executed as ONE Quack `Query` over a canonical-order view of borrowed lanes.
 - `Binder` is the seam; `Registrar` is not (name + width only, no production impl).

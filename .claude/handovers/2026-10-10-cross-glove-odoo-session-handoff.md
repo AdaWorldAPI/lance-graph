@@ -7,6 +7,34 @@
 > Status: the contract is PROPOSED. **Do not start until PR-B (contract types)
 > and PR-C (basis v1) have merged.** The contract may still change in review.
 
+> **⊘ CORRECTION (2026-10-10, same day). This supersedes §1, §2, §5 and §8.1–2 below.**
+> There is no `glove.rs` and no `GlovePivot`; see plan §C. The landing contract
+> already exists: `lance-graph-ontology::OntologyRegistry` joins
+> `(bridge_id, public_name)` to one OGIT URI, and the same URI shares one
+> `entity_type_id` across bridges (`registry.rs:585-618`, test `:815`). What
+> you deliver instead:
+>
+> 1. **`MappingProposal::Attribute` rows** under `bridge_id = "odoo"`, one per
+>    `account.analytic.line` field, each with:
+>    - `public_name` = the Odoo field name;
+>    - `ogit_uri` = the canonical attribute URI (from the ruling in plan §C.5;
+>      **STOP** if it is not yet ruled);
+>    - `confidence = 1.0` only for fields you are certain map to that URI, and
+>      below 1.0 for hypothesized ones (`user_id` → worker).
+>
+>    Unsupported fields get no row. Produce the rows ideally as the first
+>    implementation of `lance_graph_ontology::SchemaSource`
+>    (`schema_source.rs`; zero implementations exist today), fed from the ruff
+>    harvest or `odoo_blueprint/extracted/analytic.rs:482`.
+> 2. **The behavior classification** (§6 below), unchanged.
+> 3. **A synthetic rows fixture** (§8.4), unchanged. It is for step 2 of the
+>    probe, which needs an Odoo population binder that does not exist yet.
+>    Do not build that binder.
+>
+> Dependency edge: `od-ontology → lance-graph-ontology`, behind a feature with
+> default features off, so the lance cache stays out. The forbidden list in §3
+> is unchanged.
+
 ## What you are building
 
 You are mapping Odoo `account.analytic.line` onto the canonical field basis of

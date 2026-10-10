@@ -6,6 +6,24 @@
 > D-ids: D-XGP-0..7. Grades: `[G]` read in source at the pins below; `[H]`
 > design hypothesis that needs its probe; `[S]` operator ruling required.
 
+> **⊘ CORRECTION (2026-10-10, same day, operator review): read §C first.**
+> §2, §3.1 and §3.3 proposed a new `lance-graph-contract::glove` module (a
+> canonical basis type plus a pivot type). That module duplicates what is
+> already shipped:
+>
+> - `OntologyRegistry` already joins `(bridge_id, public_name)` to one OGIT URI.
+>   The same URI gets the same `entity_type_id` for every kind, attributes
+>   included (`lance-graph-ontology/src/registry.rs:585-618`; test `:815`).
+> - Quack `Binder` is the executable side, with a shipped production
+>   implementation in `lance-graph-dir-sim/src/bind.rs:58`.
+> - The CATS DTO→SoA→Quack path in `lance-graph-sap` is the reference
+>   implementation. It never goes through `Binder`.
+>
+> The search was for a finished SAP↔Quack DTO registry, when it should have
+> traced the bricks and the binding boundary between them. §C replaces §2,
+> §3.1 and §3.3. The rest stays as it is unless §C says otherwise, and nothing
+> above is deleted.
+
 ## 0. Pins and what changed since the baseline
 
 | repo | sha | read |
@@ -512,3 +530,180 @@ may consume `GlovePivot` once PR-D lands.
    separate unit vocabulary.
 4. **Whether the SIMAF DTO counts as "SAP" for schema parity.** The
    alternative is to block on a CATSDB export (G-X9).
+
+## C. Correction: the DTO → registry → Quack path as it actually runs
+
+> Read at lance-graph `6e40f43b`. Every row below cites a line that was opened
+> in full. This section supersedes §2, §3.1 and §3.3. Three things are kept
+> apart throughout:
+>
+> 1. the shipped CATS-specific DTO → Quack implementation;
+> 2. the shipped generic registry and binder interfaces;
+> 3. the proposed `WireSchema` / `WireBatch<S>` generalisation from the
+>    baseline, which is **not shipped**.
+
+### C.1 The current data path (source-grounded)
+
+```
+SIMAF ABAP/C# DTO (text columns)
+   │  lance-graph-sap::schema   FIELDS[23]: ordinal, abap_group, technical_name,
+   │                            csharp_name, native_type, optional, width, carrier   schema.rs:12-21,23
+   │                            CatsSchema::new(class, category) → FieldRef "urn:simaf:cats:<group>:<name>"  :278-292
+   │                            CatsSchema::resolve(name) → Col   (technical OR C# name)   :294-299
+   │                            impl ClassView for CatsSchema                                :301-315
+   ▼
+   │  lance-graph-sap::bind     CatsBatch::bind(schema, [&[Option<&str>]; 23])               bind.rs:55-170
+   │                            per-field adapters: decimal (batch scale) :85-105, PERNR numc :106-112,
+   │                            ABAP_BOOL :113-123, UTC → U64 :124-131, else first-occurrence dict code :132-154
+   │                            derived WORK_DAY lane (YYYYMMDD) :157-162
+   │                            lanes() → [LaneRef; 24]   (borrowed, zero-copy)                :180-182
+   │                            edge_value(ordinal,row) → text   (sink-only decode)            :194-224
+   ▼
+   │  lance-graph-sap::query    CatsQuery::prepare: Filter built from HARD-CODED Col constants
+   │                            (EMPLOYEE, WORK_DAY) + numc/utc literals; NO Binder             query.rs:21-62
+   │                            lower(Query{filter, Agg::GroupSumI32}) / Agg::Rows              :38-50
+   │                            execute_into(Planes{masks: &[], lanes}) → i64 sums              :76-99
+   ▼
+   │  lance-graph-sap::edge     HASH_ORDINALS / BAPI_ORDINALS (selections of FIELDS)          edge.rs:10,18
+   │                            bapi_sink(batch, kept) → only row materialisation              :171-206
+   ▼
+BAPI_CATIMESHEETMGR_INSERT parameter records (no SAP call)
+
+                ─── the generic interfaces, not used by CATS ───
+
+lance-graph-ontology::OntologyRegistry
+   append_mapping(MappingProposal{bridge_id, public_name, ogit_uri, kind: Attribute{..}})   registry.rs:214
+   URI ⇒ shared entity_type_id across bridges, kind-agnostic                                 :585-618, test :815
+   resolve(bridge, public_name) → SchemaPtr :246;  resolve_uri(uri) :256;  rows_with_entity_type(id) :356
+   SchemaSource trait (producer of proposals)                                                 schema_source.rs
+lance-graph-quack::bind
+   Draft{table, preds(Eq|Ne), Count|Rows} ──bind(&dyn Binder)──► Query                        bind.rs:195-357
+   Binder{table, live, field → BoundField{col, kind: I32|Code, validity}, code}              :92-104
+   TableDeclaration{name,width} ──register(&mut dyn Registrar)──► ResolvedTable{id,width}    :364-434
+```
+
+### C.2 Status, by brick
+
+| brick | status | evidence | note |
+|---|---|---|---|
+| SAP DTO field table + `ClassView` | SHIPPED | `sap/src/schema.rs:12-315`; test `source_order_and_aliases_are_one_basis` :321 | class id is the caller's ("supplied by the caller's registry", :255); tests pass `42` |
+| Native name → `Col` | SHIPPED | `CatsSchema::resolve` :294 | half of `Binder::field`, under another name |
+| DTO → SoA lanes, codes, null sentinels | SHIPPED | `sap/src/bind.rs:55-182`; `tests/binding.rs`, `vocabulary.rs` | nulls are **sentinels** (code 0, `u32::MAX`, U64 0), not validity planes |
+| Forward literal → code | PARTIAL | the forward `HashMap` is discarded after bind (`bind.rs:134-136`); only reverse labels are kept | `Binder::code` needs a forward lookup; a cold linear scan of `dictionaries[ordinal]` is enough |
+| SoA → Quack fold | SHIPPED | `sap/src/query.rs:21-117`; `tests/fold.rs`, `no_alloc.rs` | builds `Filter` directly and **bypasses `Binder`** |
+| SoA → SAP sink | SHIPPED | `sap/src/edge.rs:154-206`; `tests/edges.rs` | |
+| Quack `Binder` (generic, field-level) | SHIPPED | `quack/src/bind.rs:92-104,288-357` | production implementation: `lance-graph-dir-sim/src/bind.rs:58` (`UserBinder`); test implementations: report `tests/quack_bind.rs:20`, quack `bind.rs:462` |
+| `Draft` surface | PARTIAL | `Op{Eq,Ne}` only (`bind.rs:137`); `Want{Count,Rows}` only (:187) | no range predicates, no grouped aggregates, so `CatsQuery`'s `Ge/Le` + `GroupSumI32` **cannot** be expressed as a `Draft` today |
+| Quack `Registrar` / `TableDeclaration` | PARTIAL | name + width only; no production implementation (`bind.rs:53-57,364-434`) | storage allocation, not field binding; it stays out of this seam until a storage contract exists |
+| `OntologyRegistry` cross-bridge identity | SHIPPED | `registry.rs:214,246-262,356,585-618`; test `same_uri_across_bridges_and_namespaces_shares_one_template_id` :815 | this is the semantic registry. It already does what §3.1's "canonical basis" was meant to do |
+| `MappingProposalKind::Attribute{predicate, semantic_type}` | SHIPPED | `ontology/src/proposal.rs:54-65` | field-level rows exist as a kind |
+| `SchemaSource` (producer trait) | PARTIAL | trait at `schema_source.rs`; **zero implementations** (searched `lance-graph/crates`, `odoo-rs`, `OGAR/crates`) | `ogar-proposal` sketches one (`lib.rs:24`) |
+| CATS attributes registered in the registry | MISSING | no `append_mapping` caller in `lance-graph-sap`; sap has no ontology dependency | |
+| Odoo `account.analytic.line` attributes in the registry | MISSING | `data/ontologies/odoo/odoo-core.ttl` has no `analytic` and 0 properties; the Rust blueprint `odoo_blueprint/extracted/analytic.rs:482` is never appended | |
+| Canonical attribute URIs for `0x0103` | MISSING | none registered | operator ruling (§C.5) |
+| Units | PARTIAL | QUDT is hydrated as a ContextBundle (`hydrators/qudt.rs`); `SemanticType` (`contract/src/property.rs:796`) has no quantity/unit variant | corrects §1.2's "MISSING" at registry level |
+| Registry row → `BoundField` translation | **MISSING** | no code joins `SchemaPtr`/`MappingRow` to a `Col` | **the gap** |
+| `WireSchema` / `WireBatch<S>` | PROPOSED | baseline §3.1 | not shipped; not needed for the first probe |
+
+### C.3 The exact missing binding
+
+The semantic side and the executable side meet at **one function**, which does not exist yet:
+
+```
+canonical attribute name (Draft text)
+   │  OntologyRegistry::resolve_uri(canonical_uri) → SchemaPtr.entity_type_id     (shipped)
+   │  rows_with_entity_type(id).find(bridge_id == "sap") → MappingRow.public_name   (shipped)
+   ▼
+native field name ("hours_logged")
+   │  CatsSchema::resolve(name) → Col                                               (shipped)
+   │  FieldDescriptor.carrier → FieldKind (I32 → I32, U32 → Code)                  (one match)
+   │  FieldDescriptor.optional → validity                                            (needs a live/validity plane; see below)
+   ▼
+BoundField{col, kind, validity}        ← this assembly is the missing adapter
+```
+
+Concretely, the missing adapter is two pieces. Neither one is a new registry, ORM, trait or evaluator:
+
+1. **`impl quack::bind::Binder for` a CATS batch view** (in `lance-graph-sap`,
+   which already depends on quack). It has the same shape as dir-sim's
+   `UserBinder`:
+   - `field` = `CatsSchema::resolve`, plus the carrier→kind mapping;
+   - `code` = a cold forward scan of the batch dictionary;
+   - `live` = `Mask(0)`, with the executor supplying an all-live plane 0.
+
+   This is about 60 LOC, and it keeps `lance-graph-sap` OGAR-free and
+   ontology-free.
+2. **A canonical-name front** that turns a canonical attribute name into the
+   glove's native name through the two shipped registry calls above, then
+   delegates to (1). It lives where both the registry and the glove are
+   visible: the probe crate, and later `lance-graph-sap-sim` (baseline W4).
+
+Two shipped facts constrain the adapter. Neither is solved by adding a type:
+
+- **Null representation.** CATS stores nulls as sentinels; `Binder` expects a
+  validity `Mask`. For the first probe, bind only required fields
+  (`validity: None`). An optional field gets a validity plane derived once at
+  bind (cold, one bit per row) when it is needed, and not before.
+- **`Draft` is Eq/Ne + Count/Rows only.** Ranges and grouped folds are a
+  **frontend** gap in `quack/src/bind.rs`, not a lowering gap: `Filter` and
+  `Agg` already have them (`lib.rs:218,1127`). The first probe therefore uses
+  `Binder` for field and literal resolution, and builds the `Agg` from the
+  bound `Col`s, as `CatsQuery` does today.
+
+### C.4 Minimal parity probe (replaces §5.3–5.5 as step 1)
+
+The probe does not need an Odoo batch. The sharpest first falsifier is:
+**does the canonical-name path reproduce the shipped CATS path exactly?**
+
+- **Q1 (identity of the binding).** Take the `CatsQuery::prepare` inputs.
+  Bind the employee field through the registry front + CATS `Binder` using
+  only canonical names. Use the registry fixture with the CATS attributes
+  appended under bridge `"sap"`, with canonical URIs.
+  - The resulting `Col`s equal `EMPLOYEE`/`WORK_DAY`/`HOURS`/`ACTIVITY`.
+  - The lowered `Program` equals `CatsQuery::plan()`.
+  - The sums equal `execute_into`'s.
+- **Q2 (registry join).** Append the Odoo analytic-line attributes under bridge
+  `"odoo"` with the same canonical URIs.
+  - `rows_with_entity_type` returns both rows for each shared field.
+  - A field present on one side only (`activity_type`; `amount`) resolves on
+    that side and returns `None` on the other. It is never defaulted.
+- **Negative controls.**
+  - N-a: pointing the `"sap"` row for `quantity` at `employee_number` changes
+    the `Program`, and the Q1 equality fails.
+  - N-b: a literal absent from the dictionary gives `BindError::UnknownValue`
+    and mints nothing (the same guarantee as `bind.rs:345-348`).
+  - N-c: a canonical name with no `"sap"` row gives `BindError::UnknownField`.
+  - N-d: binding an optional field without a validity plane is refused,
+    rather than reading sentinel `0` as a value.
+- **Home:** a test file in a crate that sees the registry and `lance-graph-sap`.
+  The smallest is a new test-only crate `crates/lance-graph-glove-parity`
+  (own workspace, like sap). It depends on contract, quack, mask-risc, sap
+  and ontology; ontology's default features are light (`Cargo.toml`). It
+  needs no OGAR dependency.
+
+Algebra parity *across* gloves (§5.2) remains step 2. It needs an Odoo
+population binder, which does not exist (odoo-rs has no lanes). Behavior parity
+for SAP stays UNPROVEN, unchanged.
+
+### C.5 What changes elsewhere in this plan
+
+- **§2 / §3.1 / §3.3 are superseded.**
+  - The canonical basis is a set of registry attribute rows sharing one URI per
+    field, not a new contract type.
+  - The "pivot" is the set of `(bridge, public_name) → uri` rows per glove.
+  - Grades: rows with `confidence < 1.0` or `active == false` are never bound
+    (`MappingRow`, `proposal.rs:81-95`). Conversion stays in the glove's bind
+    (CATS already does exact decimals and UTC).
+  - D-XGP-1 is re-scoped from "glove.rs types" to "CATS `Binder` + registry
+    front + probe Q1/Q2".
+- **§3.4 stands.** `Binder`, not `Registrar`. The addition is that `Binder` has
+  a shipped production implementation (dir-sim) to copy.
+- **§3.5 stands as a later step.** It needs Odoo lanes.
+- **Open ruling (replaces §10.2–3).** Who mints the canonical attribute URIs
+  for `0x0103`'s fields (OGIT NTO namespace vs OGAR `vocab/imports/ogit`)?
+  The registry needs URI strings; it does not mint them.
+- **The Odoo handoff is reduced.** The Odoo session emits
+  `MappingProposal::Attribute` rows under bridge `"odoo"` (ideally as the first
+  `SchemaSource` implementation, fed from the ruff harvest / blueprint), and
+  the behavior classification. It does not build a `GlovePivot`. See the
+  handoff's correction block.

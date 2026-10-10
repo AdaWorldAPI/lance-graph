@@ -13,3 +13,5 @@ Findings that change what can be claimed:
 - "4×SPOG" is defined nowhere (searched OGAR crates/docs/board and lance-graph crates/.claude); OGAR docs name 3× SPOG quads. `Register128` is shipped and content-blind.
 
 OPEN: canonical basis v1 for `0x0103` (operator rulings, plan §10).
+
+CORRECTION (same day): `OntologyRegistry` already provides the cross-bridge field identity (same URI ⇒ shared `entity_type_id`, kind-agnostic; `registry.rs:585-618`). The CATS path bypasses Quack `Binder` (`query.rs:21-62`). The missing piece is one adapter: CATS `impl Binder` plus a registry front. The proposed `glove.rs` is superseded (plan §C).
