@@ -146,6 +146,26 @@ fn the_delivery_closure_walks_mail_enabled_groups() {
         .is_empty());
 }
 
+// Membership walks every group: the address-less S2 and the unread group
+// that Delivery or Security stop at are both followed.
+#[test]
+fn the_membership_closure_walks_every_group() {
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 1, observed()).unwrap();
+    let view = st.view(v).unwrap();
+    let all = ids(&[U1, U2, U3, U4, U5]);
+    assert_eq!(view.members_transitive(&g(S1), Closure::Membership), all);
+    // S2 has no address, so Delivery from it is empty; Membership is not.
+    assert!(view
+        .members_transitive(&g(S2), Closure::Delivery)
+        .is_empty());
+    assert_eq!(view.members_transitive(&g(S2), Closure::Membership), all);
+    // A user, or nothing, is still not a group.
+    assert!(view
+        .members_transitive(&g(U1), Closure::Membership)
+        .is_empty());
+}
+
 struct Edit(Vec<Change>);
 impl Rule for Edit {
     fn id(&self) -> RuleId {

@@ -95,11 +95,16 @@ pub enum ApplyError {
 /// Which nested groups [`View::members_transitive`] walks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Closure {
-    /// Mail-enabled groups: how a distribution list expands.
+    /// Mail-enabled groups: how a distribution list expands in Exchange,
+    /// which skips a nested group without an address.
     Delivery,
     /// Groups known to be security-enabled: who holds a permission granted
     /// to the group.
     Security,
+    /// Every group, whatever its kind: the full membership tree as the
+    /// directory records it. For a caller that expands through a nested
+    /// group Exchange would skip (a security-only group in a list).
+    Membership,
 }
 
 /// Nodes a version created in one population, as SoA lanes sorted by
@@ -530,6 +535,7 @@ impl<'s> View<'s> {
     ///   ([`Self::is_security_enabled`]). A distribution group, or a group
     ///   whose flag was not read, breaks the chain, as in an AD token, so a
     ///   permission granted through it fails closed.
+    /// * [`Closure::Membership`]: every group, whatever its kind.
     ///
     /// Membership only: whether a reached user is enabled, or receives mail,
     /// is the caller's question. Empty when `group` is not an existing group
@@ -542,6 +548,7 @@ impl<'s> View<'s> {
         let admits = |g: &Guid128| match closure {
             Closure::Delivery => self.is_mail_recipient(g),
             Closure::Security => self.is_security_enabled(g) == Some(true),
+            Closure::Membership => true,
         };
         let Some(start) = self.group_ordinal(group) else {
             return Vec::new();
