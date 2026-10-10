@@ -221,7 +221,9 @@ fn an_on_premises_mailbox_needs_no_cloud_mailbox() {
 
 // A cloud mailbox never makes a non-recipient receive: an account that is
 // not mail-enabled on-premises is not delivered to, whatever Exchange
-// Online still holds for its Entra object.
+// Online still holds for its Entra object. Nor does it hold the address:
+// its recipient type, not its enabled flag, decides whether its mail
+// addresses are provisioned, and a non-recipient's are not.
 #[test]
 fn the_cloud_never_revives_a_non_recipient() {
     let c = cloud(Some(g(ENTRA)), &[(g(ENTRA), g(ANCHOR))], &[g(ENTRA)]);
@@ -230,5 +232,5 @@ fn the_cloud_never_revives_a_non_recipient() {
     u.recipient = Some(ObservedRecipient::default());
     let (st, v) = observe(u);
     assert!(!c.delivers_to(&st.view(v).unwrap(), &g(USER)));
-    assert_eq!(answers(&st, v, &c), (Some(g(USER)), None, None));
+    assert_eq!(answers(&st, v, &c), (None, None, None));
 }

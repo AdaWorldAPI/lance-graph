@@ -163,7 +163,8 @@ fn a_disabled_shared_mailbox_still_receives() {
 }
 
 // 4. An enabled account that is not mail-enabled is not a mailbox, whatever
-// SMTP values it still carries.
+// SMTP values it still carries, and does not hold them either: its
+// recipient type decides that its mail addresses are not provisioned.
 #[test]
 fn an_enabled_non_mail_enabled_user_is_not_a_recipient() {
     let (st, v) = observe(vec![(
@@ -171,7 +172,7 @@ fn an_enabled_non_mail_enabled_user_is_not_a_recipient() {
         user(Some(true), Some(ObservedRecipient::default())),
     )]);
     let (owner, rcpt) = both(&st, v, D);
-    assert_eq!(owner, Some(g(1)));
+    assert_eq!(owner, None);
     assert_eq!(rcpt, None);
 }
 

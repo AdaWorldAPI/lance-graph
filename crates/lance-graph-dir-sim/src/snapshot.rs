@@ -276,11 +276,32 @@ pub struct ObservedRecipient {
     pub target_address: Option<String>,
 }
 
-/// Whether a user owns its addresses: enabled, or a live mail recipient.
-/// This is the address *claim* (who reserves an address, so no one else may
-/// take it), not whether mail is delivered: see [`is_mail_recipient`].
+/// Whether a user holds its UPN: enabled, or a live mail recipient (a
+/// shared mailbox is a disabled account and keeps its UPN). The UPN is not
+/// an Exchange address, so the recipient type alone does not provision it.
+/// This is the *claim* (who reserves a value, so no one else may take it),
+/// not whether mail is delivered: see [`is_mail_recipient`].
 pub(crate) fn is_owner(active: Option<bool>, recipient: Option<Recipient>) -> bool {
     active == Some(true) || recipient.is_some_and(|r| r.is_recipient())
+}
+
+/// Whether a user's mail addresses are provisioned: its primary SMTP
+/// address, its secondary `smtp:` proxies and a remote mailbox's routing
+/// address. The recipient type decides (`Recipient::is_recipient`): a
+/// mailbox, a mail user or a provisioned or migrated remote mailbox
+/// provisions them, a deprovisioned remote mailbox or an account that is
+/// not mail-enabled provisions none, whether or not the account is enabled.
+/// Leftover `proxyAddresses` on such an account reserve nothing in
+/// Exchange.
+///
+/// When the source never read the recipient attributes (`None`), an enabled
+/// account is assumed to provision them, as every snapshot without Exchange
+/// data was built.
+pub(crate) fn provisions_mail(active: Option<bool>, recipient: Option<Recipient>) -> bool {
+    match recipient {
+        Some(r) => r.is_recipient(),
+        None => active == Some(true),
+    }
 }
 
 /// Whether mail addressed to a user is delivered to it: OGAR's recipient
@@ -415,8 +436,10 @@ pub struct Population {
     pub(crate) alias_key: Vec<u32>,
     /// `msExchMailboxGuid` ([`Guid128::NIL`] = absent).
     pub(crate) exchange_guid: Vec<Guid128>,
-    /// Owns its addresses ([`is_owner`] of the observed flag and recipient).
+    /// Holds its UPN ([`is_owner`] of the observed flag and recipient).
     pub(crate) owner: Vec<u64>,
+    /// Its mail addresses are provisioned ([`provisions_mail`]).
+    pub(crate) mail_owner: Vec<u64>,
 }
 
 impl Population {
@@ -444,6 +467,7 @@ impl Population {
             alias_key: Vec::with_capacity(n),
             exchange_guid: Vec::with_capacity(n),
             owner: vec![0; words_for(n)],
+            mail_owner: vec![0; words_for(n)],
         };
         for (i, (id, node)) in nodes.iter().enumerate() {
             p.ids.push(*id);
@@ -501,6 +525,9 @@ impl Population {
             }
             if is_owner(active, p.recipient_of(i)) {
                 set_bit(&mut p.owner, i);
+            }
+            if provisions_mail(active, p.recipient_of(i)) {
+                set_bit(&mut p.mail_owner, i);
             }
         }
         p

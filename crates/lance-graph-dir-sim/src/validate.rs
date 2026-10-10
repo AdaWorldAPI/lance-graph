@@ -295,8 +295,8 @@ pub fn smtp_duplicates(v: &View<'_>) -> Vec<Violation> {
     }
     let mut counts = vec![0i64; k];
 
-    // Address owners: enabled, or a live mail recipient.
-    let active = v.owner_users();
+    // SMTP addresses are provisioned by the recipient type.
+    let active = v.mail_owner_users();
     let ou = &v.ov.users;
     let overrides = ou.overrides(Attribute::PrimarySmtp);
     let mut primary_ok = active.to_vec();
@@ -570,28 +570,32 @@ pub fn mail_label(v: &View<'_>, g: &Guid128) -> Option<MailLabel> {
 fn address_rows(v: &View<'_>, out: &mut Vec<Violation>) -> Vec<(u32, Guid128, AddressRole)> {
     let p = &v.snap.users;
     let rel = &v.snap.proxies;
+    // The UPN is held by an enabled account or a live recipient; the mail
+    // addresses are provisioned by the recipient type alone.
     let owners = v.owner_users();
+    let mail_owners = v.mail_owner_users();
     let n = p.len();
     let mut rows: Vec<(u32, Guid128, AddressRole)> = Vec::new();
     for i in 0..v.users_len() {
         let Some(g) = v.guid_in(NodeKind::User, i) else {
             continue;
         };
-        if !bit(&owners, i) {
+        let slot = (NodeKind::User, i);
+        if bit(&owners, i) {
+            if let Some((_, k)) = v.attr_ids(slot, Attribute::Upn).filter(|&(_, k)| k != NONE) {
+                rows.push((k, g, AddressRole::Upn));
+            }
+        }
+        if !bit(&mail_owners, i) {
             continue;
         }
-        let slot = (NodeKind::User, i);
         let mut smtp: Vec<u32> = Vec::new();
-        for (a, role) in [
-            (Attribute::Upn, AddressRole::Upn),
-            (Attribute::PrimarySmtp, AddressRole::PrimarySmtp),
-        ] {
-            if let Some((_, k)) = v.attr_ids(slot, a).filter(|&(_, k)| k != NONE) {
-                rows.push((k, g, role));
-                if role == AddressRole::PrimarySmtp {
-                    smtp.push(k);
-                }
-            }
+        if let Some((_, k)) = v
+            .attr_ids(slot, Attribute::PrimarySmtp)
+            .filter(|&(_, k)| k != NONE)
+        {
+            rows.push((k, g, AddressRole::PrimarySmtp));
+            smtp.push(k);
         }
         if i < n {
             for r in rel.owner_rows(i as u32) {

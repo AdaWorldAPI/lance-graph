@@ -336,3 +336,51 @@ fn an_introduced_routing_address_conflicts_like_an_observed_one() {
         "{out:?}"
     );
 }
+
+/// An enabled account that is no longer mail-enabled, still carrying its
+/// old primary SMTP and a secondary proxy.
+fn deprovisioned(name: &str, smtp: &str, proxy: &str) -> ObservedNode {
+    let mut u = ObservedNode::user(&format!("{name}.upn@x.test"), smtp);
+    u.proxies.push(format!("smtp:{proxy}"));
+    u.recipient = Some(ObservedRecipient::default());
+    u
+}
+
+// Provisioning follows the recipient type: a non-mail-enabled account's
+// leftover SMTP and proxies reserve nothing, so a mailbox now holding the
+// same addresses is not in conflict; its UPN is still its own and still
+// collides. The paired half — the same leftovers on a mail-enabled account
+// — must conflict, or the first assertion proves nothing.
+#[test]
+fn leftover_mail_addresses_of_a_non_recipient_claim_nothing_but_its_upn_does() {
+    let mut taken = user("carol");
+    taken.proxies.push("smtp:old@x.test".into());
+    let (_, out) = validate_nodes(vec![
+        (g(CAROL), taken),
+        (g(DAVE), deprovisioned("dave", "carol@x.test", "old@x.test")),
+    ]);
+    assert!(out.is_empty(), "{out:?}");
+
+    // Same UPN: the UPN plane is not gated on the recipient type.
+    let mut upn_clash = deprovisioned("dave", "dave@x.test", "dave2@x.test");
+    upn_clash.upn = Some("carol.upn@x.test".into());
+    let (_, out) = validate_nodes(vec![(g(CAROL), user("carol")), (g(DAVE), upn_clash)]);
+    assert!(
+        out.iter()
+            .any(|v| matches!(v, Violation::DuplicateUpn { .. })),
+        "the UPN is still claimed: {out:?}"
+    );
+
+    // Paired: the same leftovers on a mail-enabled account conflict.
+    let mut live = mailbox("dave", "dave", &format!("dave@{TENANT}"), true);
+    live.primary_smtp = Some("carol@x.test".into());
+    live.proxies.push("smtp:old@x.test".into());
+    let mut taken = user("carol");
+    taken.proxies.push("smtp:old@x.test".into());
+    let (_, out) = validate_nodes(vec![(g(CAROL), taken), (g(DAVE), live)]);
+    let clashes: Vec<_> = out
+        .iter()
+        .filter(|v| matches!(v, Violation::DuplicateSmtp { .. }))
+        .collect();
+    assert_eq!(clashes.len(), 2, "primary and proxy both clash: {out:?}");
+}
