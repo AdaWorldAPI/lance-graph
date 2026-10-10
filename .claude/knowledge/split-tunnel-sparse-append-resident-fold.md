@@ -53,10 +53,23 @@ persistence half. It is **not** a use of the `Alpha*` types.
    implementation, with `op ∈ {BORN, SET, DELETE}`. An insert writes BORN plus one
    SET per lane. An update writes one SET. A delete writes one DELETE. Never a
    full-row image of unchanged lanes.
-2. **One batch = one Lance version.** The writer checks the dataset's latest
-   version before the append (and after it), so a second writer is refused,
-   not merged. Lance appends do not conflict with each other, so this check
-   is what enforces one writer per log. (VERIFIED-IN-CODE: `log.rs` `commit`.)
+2. **One batch = one Lance version, from exactly one writer.** The single
+   writer comes from **ownership**: one writer per mailbox (`mailbox_owner`,
+   write on behalf). The version checks do not enforce it.
+   - The reference implementation checks the dataset's latest version before
+     the append and after it (VERIFIED-IN-CODE: `log.rs` `commit`).
+   - The check before the append refuses a *stale* writer (one that is behind
+     before it writes).
+   - It cannot refuse a *racing* writer. Two writers that both pass the check
+     both append, because Lance rebases an `Append` instead of failing it
+     (`spog-alpha-channel-v1.md` F6: a read-then-append guard is a TOCTOU and
+     cannot "refuse, not renumber").
+   - The check after the append only *detects* that race, once the second batch
+     is already durable. Replay then refuses the log, which stays refused until
+     reconciled.
+   - The durable fix is in-band idempotency, `(cycle, batch_hash)` in the same
+     commit and reconciled first (F6). The reference implementation does not
+     have it yet (OPEN).
 3. **Never update in place, never compact.**
    - DECISION 2026-10-10, BASIS: append order is version order.
    - So "newest wins" is applied by replaying in append order, with no sort.
@@ -124,6 +137,9 @@ A replayed log gives histories identical to the one that wrote them.
 
 - **Shown:** one consumer, one carrier shape (u32 lanes, I32 as bit pattern),
   one writer per log, single-process recovery.
+- **Not shown, and not provided by this pattern:** protection against two
+  concurrent writers (rule 2). Ownership must guarantee one writer. A race is
+  only detected afterwards, and in-band reconciliation is OPEN.
 - **WORKING-MODEL, not shown:**
   - 512-byte `NodeRow` images or V3 facet payloads as the record;
   - field-bitmap `changed_coordinates` (the open `SparseDelta` representation

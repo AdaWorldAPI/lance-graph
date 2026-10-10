@@ -34,6 +34,7 @@ It does not use or change the `Alpha*` types: `AlphaOverlay` carries no payload,
 - BASIS: `2026-09-24-cost-scales-with-dirty-rows-replay-budget-before-materialization.md` (one write ≈ 10⁶ folds).
 
 **OPEN:**
+- one writer per log comes from ownership (one writer per mailbox), not from the version checks. A racing second writer is detected only after its batch is durable (Lance rebases appends; `spog-alpha-channel-v1.md` F6). In-band `(cycle, batch_hash)` reconciliation is not in the reference implementation;
 - the same pattern over 512-byte `NodeRow` images or V3 facet payloads;
 - the `changed_coordinates` representation (still open, unchanged);
 - resident sets larger than memory (a checkpoint becomes the recovery read).
