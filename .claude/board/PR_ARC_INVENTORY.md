@@ -1,3 +1,10 @@
+## 2026-10-09 — lance-graph PR #1432 (merged `d29d0aa`, branch `ccr-edc85bd9-89tiwe`, head `669fc42`, 7 commits) — D-SCF-CARE-PAIR-0: crossing counterfactuals, pairwise nogoods, folded chain relations
+
+- **Added:** `cognitive-shader-driver/examples/crossword_crossing_care_probe.rs` (`test = true`; 10 tests) over the unchanged `shared/crossword_core.rs`: letter support, single- and two-crossing counterfactuals, pairwise nogoods, existential elimination of internal slots into a canonical reusable 31×31 count relation.
+- **Locked (test-pinned):** every arm sound against the planted solution; a pairwise nogood never splits into unary exclusions; composition = the core's search; reuse refused on each key field (context, no-repeat, equal end words). 8 disable runs red.
+- **Deferred / open:** loose ends L1–L8 in the entry (incremental support; tesseract-rs #51 step 2; D-RPF-3 feed; home and certification for a reusable relation).
+- **Confidence:** medium — one dictionary, sides 5 and 7, one machine; counterfactual STOPs are wall-time results on this core.
+
 ## 2026-10-07 — lance-graph PR #1398 (merged `89694cc`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `ce63247`, 4 commits) — D-PUZZLE-ATTN-0: entropy as the focus of attention on crosswords
 
 - **Added:** the #1387 crossword core moves unchanged to `cognitive-shader-driver/examples/shared/crossword_core.rs`; `crossword_attention_probe.rs` (`test = true`; 8 tests, 7 run by default + `dump_small` ignored; the example binary also runs the 2 shared `population_fold` fence tests) compares slot policies with puzzles, propagation and value order held fixed.
