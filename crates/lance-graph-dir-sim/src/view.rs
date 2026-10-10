@@ -499,12 +499,13 @@ impl<'s> View<'s> {
         }
     }
 
-    /// A user's `mail`, as written: the licence plate on the user object,
-    /// shown in the address book and used inside messages. It follows the
-    /// user, not the mailbox or the recipient: deprovisioning or migrating
-    /// the mailbox leaves it in place. A label only: it is not the user's
-    /// identity, not an address anything is received at, and not
-    /// provisioned; it may name any address. It comes from the observed
+    /// A user's `mail`, as written: a property on the user's business card,
+    /// like the telephone number, shown in the address book and used inside
+    /// messages. It follows the user, not the mailbox or the recipient:
+    /// deprovisioning or migrating the mailbox leaves it in place. It is not
+    /// the recipient's identity (that is `PrimarySmtpAddress`), not an
+    /// address anything is received at, and not provisioned; it may name any
+    /// address. It comes from the observed
     /// snapshot: no change edits `mail`, and a node created in this version
     /// has none.
     pub fn mail(&self, g: &Guid128) -> Option<ValueId> {
@@ -524,14 +525,16 @@ impl<'s> View<'s> {
     }
 
     /// What Exchange knows an existing node as, read by its GUID: recipient
-    /// types, `ExchangeGuid` and primary SMTP address. Identity is a GUID,
-    /// never an address: the object's own, and the provisioned mailbox's
-    /// `ExchangeGuid`. Every mail recipient links its mailbox to its user,
+    /// types, `ExchangeGuid` and primary SMTP address. The recipient is
+    /// identified by its `PrimarySmtpAddress`, the provisioned mailbox by
+    /// its `ExchangeGuid`, the object by its own GUID. Every mail recipient
+    /// links its mailbox to its user,
     /// the Entra object (formerly the MsolUser) that carries the internal
     /// `{alias}@{tenant}.onmicrosoft.com`, through
     /// `ExternalDirectoryObjectId` ("external": the directory outside
     /// Exchange). None of these is the routing address
-    /// `{alias}@{tenant}.mail.onmicrosoft.com`, the external EOP target. `mail` in particular is a label and resolves to no
+    /// `{alias}@{tenant}.mail.onmicrosoft.com`, the external EOP target.
+    /// `mail` is a business-card property of the user and resolves to no
     /// identity.
     pub fn exchange_identity(&self, g: &Guid128) -> Option<ExchangeIdentity> {
         let s = self.node_state(g)?;

@@ -147,20 +147,20 @@ fn offboarding_by_disable_remote_mailbox_stops_delivery() {
     assert_eq!(rcpt, None, "and nothing is delivered");
 }
 
-// The licence plate follows the user, not the mailbox: offboarding the
-// remote mailbox (Disable-RemoteMailbox) ends its addresses and delivery,
-// and the user's `mail` stays exactly as it was.
+// `mail` is on the user's business card and follows the user, not the
+// mailbox: offboarding the remote mailbox (Disable-RemoteMailbox) ends its
+// addresses and delivery, and the user's `mail` stays exactly as it was.
 #[test]
-fn the_licence_plate_follows_the_user_through_offboarding() {
+fn mail_follows_the_user_through_offboarding() {
     let mut u = user(Some(true), Some(remote_user_mailbox()));
     u.mail = Some("D.Person@Example.org".into());
     let (mut st, v0) = observe(vec![(g(1), u)]);
-    let plate = |st: &VersionStore, v| {
+    let mail = |st: &VersionStore, v| {
         let view = st.view(v).unwrap();
         view.mail(&g(1))
             .and_then(|m| st.dicts().value(m).map(str::to_string))
     };
-    assert_eq!(plate(&st, v0).as_deref(), Some("D.Person@Example.org"));
+    assert_eq!(mail(&st, v0).as_deref(), Some("D.Person@Example.org"));
     let before = st
         .view(v0)
         .unwrap()
@@ -183,7 +183,7 @@ fn the_licence_plate_follows_the_user_through_offboarding() {
     ]);
     let v1 = st.simulate(v0, &plan, &[]).unwrap();
     assert_eq!(both(&st, v1, D), (None, None), "the mailbox is gone");
-    assert_eq!(plate(&st, v1), plate(&st, v0), "the plate stays");
+    assert_eq!(mail(&st, v1), mail(&st, v0), "the user keeps its mail");
 }
 
 // 3. A disabled shared mailbox is a recipient: disabled accounts are how
