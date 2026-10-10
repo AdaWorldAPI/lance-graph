@@ -35,6 +35,7 @@ pub mod ad;
 pub mod bind;
 pub mod cloud;
 mod exec;
+pub mod groups;
 pub mod ldap;
 pub mod observe;
 pub mod proxy;
@@ -47,6 +48,7 @@ pub mod view;
 pub use bind::{where_eq, UserBinder, WhereEqError};
 pub use cloud::{CloudMailboxes, MailboxGuid};
 pub use exec::Kept;
+pub use groups::{groups_where, GroupProperty, GroupWhere};
 pub use ogar_dir_sim::{KeyId, ValueId};
 pub use proxy::{ProxyKind, ProxyRelation, ProxyRow};
 pub use rule::{member_counts, GrantGroup, ImplyGroup, Rule, SetPrimarySmtp};
@@ -55,7 +57,7 @@ pub use snapshot::{
     ObservedRecipient, Population, Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
 pub use store::{Rejection, SimError, VersionStore};
-pub use view::{ApplyError, Closure, View};
+pub use view::{ApplyError, View};
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes, Program, StridedRef};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
