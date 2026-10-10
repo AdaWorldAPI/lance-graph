@@ -149,6 +149,7 @@ jobs:
           group_properties_are_a_quack_filter
           empty_property_junctions_are_identities
           nesting_and_properties_compose
+          only_a_security_group_passes_on_its_sid
           a_version_s_memberships_are_followed
           ad_group_type_sets_the_flag
           departure_by_conversion_to_shared_keeps_the_mailbox

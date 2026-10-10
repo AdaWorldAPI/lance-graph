@@ -204,6 +204,46 @@ fn group_properties_are_a_quack_filter() {
     }
 }
 
+// Only a security group has a SID, so permission inheritance runs through
+// security groups only. Membership nesting still reaches every group.
+#[test]
+fn only_a_security_group_passes_on_its_sid() {
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 1, observed()).unwrap();
+    let view = st.view(v).unwrap();
+    // u3 is in the distribution group D1, which is nested in S1: a member of
+    // S1 by nesting, but D1 has no SID, so u3 holds none of S1's.
+    assert_eq!(view.groups_transitive(&g(U3)), ids(&[S1, S2, D1]));
+    assert!(view.security_identifiers(&g(U3)).is_empty());
+    // u4 is in S3, which is nested in D1: S3's SID, but not S1's through D1.
+    assert_eq!(view.security_identifiers(&g(U4)), ids(&[S3]));
+    // u1 and u2 reach S1 and S2 through security groups only.
+    assert_eq!(view.security_identifiers(&g(U1)), ids(&[S1, S2]));
+    assert_eq!(view.security_identifiers(&g(U2)), ids(&[S1, S2]));
+    // An unread flag is not a SID.
+    assert!(view.security_identifiers(&g(U5)).is_empty());
+    // Who inherits a permission granted to S1: down through S2 only, not
+    // through D1 or the unread group.
+    let sec = GroupWhere::Is(GroupProperty::SecurityEnabled);
+    assert_eq!(
+        view.members_transitive_through(&g(S1), &sec),
+        ids(&[U1, U2])
+    );
+    // A permission granted to a group without a SID reaches nobody.
+    assert!(view.members_transitive_through(&g(D1), &sec).is_empty());
+    // The two directions agree on every pair.
+    let mut held = 0;
+    for gr in ids(&[S1, S2, S3, D1, UNREAD]) {
+        let down = view.members_transitive_through(&gr, &sec);
+        for u in ids(&[U1, U2, U3, U4, U5]) {
+            let up = view.groups_transitive_through(&u, &sec);
+            assert_eq!(down.contains(&u), up.contains(&gr), "{u:?} {gr:?}");
+            held += usize::from(down.contains(&u));
+        }
+    }
+    assert!(held > 0 && held < 25, "{held}");
+}
+
 // The empty junctions are the identities, not a refused query: an empty And
 // holds for every group, an empty Or for none, also when nested.
 #[test]

@@ -28,6 +28,7 @@ use crate::snapshot::{
     bit, clear_bit, is_mail_recipient, is_owner, set_bit, Dicts, GroupOrdinal, Population,
     Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
+use crate::GroupWhere;
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{Dn128, Guid128};
@@ -523,9 +524,43 @@ impl<'s> View<'s> {
     /// which are evidence-sized (held by identity in the unresolved table
     /// and the overlay).
     pub fn members_transitive(&self, group: &Guid128) -> Vec<Guid128> {
+        self.members_walk(group, None)
+    }
+
+    /// [`Self::members_transitive`] through groups that satisfy `through`
+    /// only: `group` itself and every nested group on the way must pass the
+    /// filter. With [`GroupProperty::SecurityEnabled`] this is who inherits
+    /// a permission granted to `group`: only a security group has a SID, so
+    /// a chain broken by a group without one carries no permission. The
+    /// inverse of [`Self::groups_transitive_through`].
+    ///
+    /// [`GroupProperty::SecurityEnabled`]: crate::GroupProperty::SecurityEnabled
+    pub fn members_transitive_through(
+        &self,
+        group: &Guid128,
+        through: &GroupWhere,
+    ) -> Vec<Guid128> {
+        let allowed = self.groups_bitmap(through);
+        self.members_walk(group, Some(&allowed))
+    }
+
+    /// The groups that satisfy `w`, as a bitmap over group ordinals.
+    fn groups_bitmap(&self, w: &GroupWhere) -> Vec<u64> {
+        let mut bits = vec![0u64; words_for(self.groups_len())];
+        for i in crate::groups_where(self, w).rows() {
+            set_bit(&mut bits, i);
+        }
+        bits
+    }
+
+    fn members_walk(&self, group: &Guid128, allowed: Option<&[u64]>) -> Vec<Guid128> {
+        let admits = |g: usize| allowed.is_none_or(|a| bit(a, g));
         let Some(start) = self.group_ordinal(group) else {
             return Vec::new();
         };
+        if !admits(usize::from(start.0)) {
+            return Vec::new();
+        }
         let added = self.added_rows();
         // Nested pairs (child, parent) whose endpoints are both existing
         // groups, sorted by parent.
@@ -541,7 +576,7 @@ impl<'s> View<'s> {
         while let Some(parent) = queue.pop() {
             let from = nested.partition_point(|n| n.0 < parent);
             for &(_, c) in nested[from..].iter().take_while(|n| n.0 == parent) {
-                if !bit(&reached, usize::from(c)) {
+                if !bit(&reached, usize::from(c)) && admits(usize::from(c)) {
                     set_bit(&mut reached, usize::from(c));
                     queue.push(c);
                 }
@@ -575,6 +610,32 @@ impl<'s> View<'s> {
     /// Empty when `user` is not an existing user. Work: one pass over the
     /// live membership rows plus the nested pairs.
     pub fn groups_transitive(&self, user: &Guid128) -> Vec<Guid128> {
+        self.groups_walk(user, None)
+    }
+
+    /// [`Self::groups_transitive`] through groups that satisfy `through`
+    /// only: the group `user` is directly in and every group above it on the
+    /// chain must pass the filter. With
+    /// [`GroupProperty::SecurityEnabled`] this is [`Self::security_identifiers`].
+    /// The inverse of [`Self::members_transitive_through`].
+    ///
+    /// [`GroupProperty::SecurityEnabled`]: crate::GroupProperty::SecurityEnabled
+    pub fn groups_transitive_through(&self, user: &Guid128, through: &GroupWhere) -> Vec<Guid128> {
+        let allowed = self.groups_bitmap(through);
+        self.groups_walk(user, Some(&allowed))
+    }
+
+    /// The security groups whose SID `user` holds, directly or through
+    /// nesting, and so whose permissions it inherits. Only a security group
+    /// has a SID, so the chain runs through security groups only: a user in
+    /// a distribution group nested in a security group does not hold that
+    /// group's SID. A group whose security flag was not read is not a
+    /// security group here.
+    pub fn security_identifiers(&self, user: &Guid128) -> Vec<Guid128> {
+        self.groups_transitive_through(user, &GroupWhere::Is(crate::GroupProperty::SecurityEnabled))
+    }
+
+    fn groups_walk(&self, user: &Guid128, allowed: Option<&[u64]>) -> Vec<Guid128> {
         let Some(uo) = self.user_ordinal(user) else {
             return Vec::new();
         };
@@ -584,7 +645,7 @@ impl<'s> View<'s> {
         let mut queue = Vec::new();
         let reach = |g: u32, reached: &mut [u64], queue: &mut Vec<u16>| {
             let g = g as usize;
-            if !bit(reached, g) {
+            if !bit(reached, g) && allowed.is_none_or(|a| bit(a, g)) {
                 set_bit(reached, g);
                 queue.push(g as u16);
             }
