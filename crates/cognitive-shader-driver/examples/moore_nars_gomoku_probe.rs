@@ -550,6 +550,57 @@ fn minimax(b: &Board, me: u8, s: &Snap, k1: usize, k2: usize, folds: &mut u64) -
     best.1
 }
 
+/// D-LAB-P1: `minimax` with a deterministic certificate. A candidate's value
+/// is the minimum over its replies, so the running minimum is an upper bound
+/// that only falls. Once it is `<=` the best finished value, the candidate
+/// cannot be chosen (the choice needs a strict `>`), and its remaining
+/// replies are skipped. Values never exceed 7, so a finished 7 ends the
+/// search. Picks the same move as `minimax` by construction; the probe
+/// measures what the skipped replies were worth in folds.
+fn minimax_certified(b: &Board, me: u8, s: &Snap, k1: usize, k2: usize, folds: &mut u64) -> usize {
+    let mut best = (i32::MIN, s.cells[0].i);
+    for m in s.top(k1, hpm) {
+        if best.0 >= 7 {
+            break;
+        }
+        let mut c = b.clone();
+        c.play(m.i, me);
+        let worst = if m.c_me == FIVE {
+            7
+        } else {
+            let s1 = snapshot(&c, 3 - me, folds);
+            let mut worst = i32::MAX;
+            for r in s1.top(k2, hpm) {
+                let v = if r.c_me == FIVE {
+                    -7
+                } else {
+                    let mut cc = c.clone();
+                    cc.play(r.i, 3 - me);
+                    let s2 = snapshot(&cc, me, folds);
+                    if s2.cells.is_empty() {
+                        0
+                    } else {
+                        balance(&s2)
+                    }
+                };
+                worst = worst.min(v);
+                if worst <= best.0 {
+                    break;
+                }
+            }
+            if worst == i32::MAX {
+                0
+            } else {
+                worst
+            }
+        };
+        if worst > best.0 {
+            best = (worst, m.i);
+        }
+    }
+    best.1
+}
+
 struct Rng(u64);
 impl Rng {
     fn next(&mut self) -> u64 {
@@ -1551,6 +1602,82 @@ mod tests {
         let mut c = b.clone();
         c.play(i, p);
         DIRS.iter().any(|&d| c.line(i, p, d).0 >= c.win)
+    }
+
+    /// Positions where reasoning (not propagation) decides: played from the
+    /// empty 9x9 board by a noisy threat player, stopped at a random depth.
+    fn reasoning_corpus(count: usize) -> Vec<(Board, u8)> {
+        let mut out = Vec::new();
+        let mut rng = Rng(0x5EED_0001);
+        while out.len() < count {
+            let mut b = Board::new(9, 5);
+            let depth = 4 + rng.below(30);
+            let mut me = 1u8;
+            let mut ok = true;
+            for _ in 0..depth {
+                let mut f = 0;
+                let s = snapshot(&b, me, &mut f);
+                if s.cells.is_empty() {
+                    ok = false;
+                    break;
+                }
+                let i = if rng.below(10) < 7 {
+                    opp_move(&b, me, Opp::Threat)
+                } else {
+                    s.cells[rng.below(s.cells.len())].i
+                };
+                b.play(i, me);
+                if DIRS.iter().any(|&d| b.line(i, me, d).0 >= b.win) {
+                    ok = false;
+                    break;
+                }
+                me = 3 - me;
+            }
+            if !ok {
+                continue;
+            }
+            let mut f = 0;
+            let s = snapshot(&b, me, &mut f);
+            if s.cells.len() >= 2 && propagate(&s).is_none() {
+                out.push((b, me));
+            }
+        }
+        out
+    }
+
+    /// D-LAB-P1: the certificate never changes the pick, and it saves folds.
+    #[test]
+    fn certified_minimax_picks_what_minimax_picks_with_fewer_folds() {
+        let corpus = reasoning_corpus(400);
+        // Measured, deterministic: (k1, k2, full folds, certified folds).
+        const PINNED: [(usize, usize, u64, u64); 3] = [
+            (4, 4, 442_720, 282_480),
+            (5, 5, 665_076, 367_344),
+            (8, 8, 1_601_258, 624_386),
+        ];
+        for (k1, k2, pin_full, pin_cert) in PINNED {
+            let (mut full, mut cert, mut cut_positions) = (0u64, 0u64, 0usize);
+            for (b, me) in &corpus {
+                let mut f0 = 0;
+                let s = snapshot(b, *me, &mut f0);
+                let (mut ff, mut fc) = (0u64, 0u64);
+                let a = minimax(b, *me, &s, k1, k2, &mut ff);
+                let c = minimax_certified(b, *me, &s, k1, k2, &mut fc);
+                assert_eq!(a, c, "the certificate changed the pick (k {k1}/{k2})");
+                assert!(fc <= ff);
+                if fc < ff {
+                    cut_positions += 1;
+                }
+                full += ff;
+                cert += fc;
+            }
+            eprintln!(
+                "P1 k {k1}/{k2}: folds {full} -> {cert} ({:.1}% saved), cut on {cut_positions}/{} positions",
+                100.0 * (1.0 - cert as f64 / full as f64),
+                corpus.len()
+            );
+            assert_eq!((full, cert), (pin_full, pin_cert), "k {k1}/{k2}");
+        }
     }
 
     #[test]
