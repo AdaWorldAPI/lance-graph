@@ -32,7 +32,7 @@ use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{Dn128, Guid128};
 use ogar_dir_sim::{
-    Attribute, Change, ExchangeIdentity, KeyId, NodeKind, NodeState, Recipient, Refusal, ValueId,
+    Attribute, Change, ExchangeIdentity, NodeKind, NodeState, Recipient, Refusal, ValueId,
 };
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -499,18 +499,9 @@ impl<'s> View<'s> {
         }
     }
 
-    /// The comparison key of a node's `mail` label, if it has one. Labels
-    /// come from the observed snapshot: no change edits `mail`, and a node
-    /// created in this version has none.
-    pub fn mail_label_key(&self, g: &Guid128) -> Option<KeyId> {
-        let (kind, i) = self.locate(g)?;
-        let (p, _) = self.pop(kind);
-        let k = *p.mail_key.get(i)?;
-        (k != NONE).then_some(KeyId(k))
-    }
-
-    /// A node's `msExchMailboxGuid`, if observed. Like the label, it comes
-    /// from the observed snapshot.
+    /// A node's `msExchMailboxGuid`, if observed. It comes from the observed
+    /// snapshot: no change edits it, and a node created in this version has
+    /// none.
     pub fn exchange_guid(&self, g: &Guid128) -> Option<Guid128> {
         let (kind, i) = self.locate(g)?;
         let (p, _) = self.pop(kind);
@@ -518,7 +509,10 @@ impl<'s> View<'s> {
     }
 
     /// What Exchange knows an existing node as, read by its GUID: recipient
-    /// types, `ExchangeGuid` and primary SMTP address.
+    /// types, `ExchangeGuid` and primary SMTP address. Identity is the GUID
+    /// (after provisioning, the mailbox's `ExchangeGuid`; across the cloud
+    /// join, `ExternalDirectoryObjectId`), never an address: `mail` in
+    /// particular is a label and resolves to no identity.
     pub fn exchange_identity(&self, g: &Guid128) -> Option<ExchangeIdentity> {
         let s = self.node_state(g)?;
         Some(ExchangeIdentity {

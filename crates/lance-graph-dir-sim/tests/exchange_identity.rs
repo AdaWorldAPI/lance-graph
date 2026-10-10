@@ -1,9 +1,9 @@
-//! `mail` is a label, not a claim. A label is the trigger for one lookup:
-//! its address is resolved to the object that holds it, and that object's
-//! Exchange identity (recipient types, `ExchangeGuid`, primary SMTP) is read
-//! by GUID. The label never changes who owns or receives at the address.
+//! Identity is read by GUID, never through an address. After provisioning
+//! the mailbox is identified by its `ExchangeGuid`; across the cloud join it
+//! is `ExternalDirectoryObjectId`. `mail` is a label: it hydrates no
+//! identity and changes nobody's claim.
 
-use lance_graph_dir_sim::validate::{address_owner, mail_label};
+use lance_graph_dir_sim::validate::address_owner;
 use lance_graph_dir_sim::*;
 use ogar_dir_core::{DirectoryScope, Guid128};
 use ogar_dir_sim::exchange::{display_type, type_details};
@@ -12,10 +12,6 @@ use ogar_dir_sim::*;
 const SCOPE: DirectoryScope = DirectoryScope(Guid128([0x5C; 16]));
 const A: u8 = 0xA1;
 const ADMIN: u8 = 0xB2;
-const STALE: u8 = 0xC3;
-const D1: u8 = 0xD1;
-const D2: u8 = 0xD2;
-const F: u8 = 0xE6;
 const PLAIN: u8 = 0xF7;
 /// A's mailbox: deliberately not A's objectGUID.
 const A_MAILBOX: Guid128 = Guid128([0x4B; 16]);
@@ -38,7 +34,7 @@ fn mailbox(upn: &str, smtp: &str, exchange_guid: Option<Guid128>) -> ObservedNod
     u
 }
 
-/// An account that is not mail-enabled, carrying `mail` as a label only.
+/// An account that is not mail-enabled, carrying a `mail` label only.
 fn labelled(upn: &str, label: &str) -> ObservedNode {
     let mut u = ObservedNode::user(upn, upn);
     u.primary_smtp = None;
@@ -63,10 +59,6 @@ fn world() -> (VersionStore, VersionId) {
                     // The admin account's `mail` is A's mailbox (a
                     // password-reset target).
                     (g(ADMIN), labelled("admin@example.org", "a@example.org")),
-                    (g(STALE), labelled("stale@example.org", "gone@example.org")),
-                    (g(D1), mailbox("d1@example.org", "dup@example.org", None)),
-                    (g(D2), mailbox("d2@example.org", "dup@example.org", None)),
-                    (g(F), labelled("f@example.org", "dup@example.org")),
                     (
                         g(PLAIN),
                         ObservedNode::user("plain@example.org", "plain@example.org"),
@@ -79,19 +71,13 @@ fn world() -> (VersionStore, VersionId) {
     (st, v)
 }
 
-fn key(st: &VersionStore, s: &str) -> KeyId {
-    st.dicts().key_lookup(s).unwrap()
-}
-
-// The label is A's own primary address: A's identity, including the
-// mailbox's ExchangeGuid, which is not A's objectGUID.
+// A's identity is read by A's GUID: the mailbox's ExchangeGuid, which is
+// not A's objectGUID, with A's recipient types and primary address.
 #[test]
-fn an_own_label_hydrates_the_objects_exchange_identity() {
+fn identity_is_read_by_guid() {
     let (st, v) = world();
     let view = st.view(v).unwrap();
-    let Some(MailLabel::Own(id)) = mail_label(&view, &g(A)) else {
-        panic!("A's label is its own address");
-    };
+    let id = view.exchange_identity(&g(A)).unwrap();
     assert_eq!(id.node, g(A));
     assert_eq!(id.exchange_guid, Some(A_MAILBOX));
     assert_ne!(id.exchange_guid, Some(id.node));
@@ -105,61 +91,30 @@ fn an_own_label_hydrates_the_objects_exchange_identity() {
     );
 }
 
-// The admin's label points at A's mailbox: the identity hydrated is A's,
-// found through the address once and read by A's GUID. A still owns the
-// address; the label claims nothing.
+// The admin's `mail` names A's mailbox (a password-reset target). It hydrates
+// nothing: the admin's identity is its own, without A's ExchangeGuid,
+// recipient type or address, and A still holds the address.
 #[test]
-fn a_label_elsewhere_hydrates_the_holder_not_the_labelled_object() {
+fn mail_hydrates_no_identity() {
     let (st, v) = world();
     let view = st.view(v).unwrap();
-    let k = key(&st, "a@example.org");
-    assert_eq!(
-        mail_label(&view, &g(ADMIN)),
-        Some(MailLabel::Elsewhere {
-            key: k,
-            holder: view.exchange_identity(&g(A)).unwrap(),
-        })
-    );
+    let admin = view.exchange_identity(&g(ADMIN)).unwrap();
+    assert_eq!(admin.node, g(ADMIN));
+    assert_eq!(admin.exchange_guid, None);
+    assert_eq!(admin.primary_smtp, None);
+    assert_eq!(admin.recipient, Some(Recipient::NotMailEnabled));
+    assert_ne!(Some(admin), view.exchange_identity(&g(A)));
+    let k = st.dicts().key_lookup("a@example.org").unwrap();
     assert_eq!(address_owner(&view, k).unwrap(), Some(g(A)));
 }
 
-// Nobody holds the address the label names: a stale label, nothing hydrated.
+// No mailbox, no ExchangeGuid; an object that does not exist has no identity.
 #[test]
-fn a_label_nobody_holds_is_unheld() {
+fn no_mailbox_no_exchange_guid() {
     let (st, v) = world();
     let view = st.view(v).unwrap();
-    assert_eq!(
-        mail_label(&view, &g(STALE)),
-        Some(MailLabel::Unheld {
-            key: key(&st, "gone@example.org")
-        })
-    );
-}
-
-// Two objects hold the address: none is chosen, both are listed, and the
-// labelling object is not among them.
-#[test]
-fn a_contested_label_hydrates_no_one() {
-    let (st, v) = world();
-    let view = st.view(v).unwrap();
-    assert_eq!(
-        mail_label(&view, &g(F)),
-        Some(MailLabel::Contested {
-            key: key(&st, "dup@example.org"),
-            holders: vec![g(D1), g(D2)],
-        })
-    );
-}
-
-// No `mail` value, no label, no lookup; and an object that does not exist
-// has none either.
-#[test]
-fn no_label_no_lookup() {
-    let (st, v) = world();
-    let view = st.view(v).unwrap();
-    assert_eq!(mail_label(&view, &g(PLAIN)), None);
-    assert_eq!(mail_label(&view, &g(0x99)), None);
     assert_eq!(view.exchange_guid(&g(PLAIN)), None);
+    assert_eq!(view.exchange_identity(&g(0x99)), None);
 }
 
 // Ingest: `msExchMailboxGuid` reaches the node as an id from a schema-6

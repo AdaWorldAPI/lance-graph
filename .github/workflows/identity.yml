@@ -113,10 +113,9 @@ jobs:
           contradicting_witnesses_are_not_a_mailbox
           an_on_premises_mailbox_needs_no_cloud_mailbox
           the_cloud_never_revives_a_non_recipient
-          an_own_label_hydrates_the_objects_exchange_identity
-          a_label_elsewhere_hydrates_the_holder_not_the_labelled_object
-          a_label_nobody_holds_is_unheld
-          a_contested_label_hydrates_no_one
+          identity_is_read_by_guid
+          mail_hydrates_no_identity
+          no_mailbox_no_exchange_guid
           from_ad_reads_the_exchange_guid_from_schema_6_only
           EOF
           exit "$missing"

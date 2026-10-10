@@ -28,9 +28,7 @@ use crate::view::View;
 use lance_graph_mask_risc::{Foreign, ForeignPlane as FPlane, LaneRef, Planes, Program};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, ForeignPlane, Mask};
 use ogar_dir_core::Guid128;
-use ogar_dir_sim::{
-    AddressRole, Attribute, Endpoint, KeyId, MailLabel, NodeKind, Recipient, Violation,
-};
+use ogar_dir_sim::{AddressRole, Attribute, Endpoint, KeyId, NodeKind, Recipient, Violation};
 
 /// The edge-integrity program over a membership relation: lane 0 = user
 /// ordinal, lane 1 = group ordinal, plane 0 = live rows; foreign plane 0 =
@@ -535,42 +533,6 @@ pub fn address_recipient_in(
     cloud: &CloudMailboxes,
 ) -> Result<Option<Guid128>, Violation> {
     Ok(address_owner(v, key)?.filter(|g| cloud.delivers_to(v, g)))
-}
-
-/// Where `g`'s `mail` label resolves: `None` when `g` does not exist or
-/// has no label.
-///
-/// Provisioning is decided by the recipient type: which addresses an
-/// object holds comes from its recipient (primary SMTP, proxies, routing
-/// address), never from `mail`. That repurposes `mail` as a free label any
-/// account may carry, pointing at any address, including one another
-/// object holds. This holds as long as AD Connect does not use `mail` as
-/// the sync anchor (the anchor is `mS-DS-ConsistencyGuid`/`objectGUID`); a
-/// `mail`-anchored sync would make it identity, and this model would not
-/// apply.
-///
-/// So `mail` is not among the [`address_owner`] rows. It is the trigger for
-/// one lookup: the label's key is resolved to
-/// the object that holds the address, and that object's
-/// [`ExchangeIdentity`](ogar_dir_sim::ExchangeIdentity) is read by GUID
-/// ([`View::exchange_identity`]). The result says what the label points at;
-/// it never changes who owns or receives at the address.
-pub fn mail_label(v: &View<'_>, g: &Guid128) -> Option<MailLabel> {
-    let key = v.mail_label_key(g)?;
-    Some(match address_owner(v, key) {
-        Ok(None) => MailLabel::Unheld { key },
-        Ok(Some(h)) if h == *g => MailLabel::Own(v.exchange_identity(g)?),
-        Ok(Some(h)) => MailLabel::Elsewhere {
-            key,
-            holder: v.exchange_identity(&h)?,
-        },
-        Err(Violation::AddressConflict { holders, .. }) => {
-            let mut holders: Vec<Guid128> = holders.into_iter().map(|h| h.0).collect();
-            holders.dedup();
-            MailLabel::Contested { key, holders }
-        }
-        Err(_) => return None,
-    })
 }
 
 /// The `(key, holder, role)` rows of the one address space, sorted and
