@@ -1,7 +1,8 @@
 //! D-XGP-2: the hot-plugs and the canonical basis, against the authority.
 use lance_graph_contract::hotplug::{ActivationDrift, CapabilityAuthority};
 use lance_graph_glove_parity::basis::{
-    canonical_fields, Grade, ODOO_FIELDS, ODOO_HOT_PLUG, SAP_FIELDS, SAP_HOT_PLUG,
+    canonical_fields, Grade, ANCHORS, ODOO_FIELDS, ODOO_HOT_PLUG, SAP_FIELDS, SAP_HOT_PLUG,
+    WOA_FIELDS, WOA_HOURS_TABLE, WOA_PINNED_TABLE,
 };
 use lance_graph_ogar::ogar_vocab::class_ids::BILLABLE_WORK_ENTRY;
 use lance_graph_ogar::OgarAuthority;
@@ -73,11 +74,38 @@ fn every_claim_names_a_canonical_field_and_a_real_native_field() {
         );
         assert!(odoo.contains(&m.native), "odoo native {}", m.native);
     }
+    // WoA `TimeSheet`'s own field names (OGAR `.claude/harvest/woa-rs/models.py`).
+    let woa = [
+        "id",
+        "tenant_id",
+        "source",
+        "datum",
+        "minuten",
+        "erfasst_von",
+        "startzeit",
+        "endzeit",
+        "beschreibung",
+        "timer_start",
+        "timer_paused_at",
+        "abgerechnet",
+        "created_at",
+        "updated_at",
+        "customer",
+        "user",
+    ];
+    for m in WOA_FIELDS {
+        assert!(
+            canonical.iter().any(|c| c == m.canonical),
+            "woa {}",
+            m.canonical
+        );
+        assert!(woa.contains(&m.native), "woa native {}", m.native);
+    }
 }
 
 #[test]
 fn only_the_proven_claim_is_converted_and_no_native_field_maps_twice() {
-    for table in [SAP_FIELDS, ODOO_FIELDS] {
+    for table in [SAP_FIELDS, ODOO_FIELDS, WOA_FIELDS] {
         assert!(table
             .iter()
             .all(|m| m.grade != Grade::Exact && !m.note.is_empty()));
@@ -89,6 +117,7 @@ fn only_the_proven_claim_is_converted_and_no_native_field_maps_twice() {
     let converted: Vec<_> = SAP_FIELDS
         .iter()
         .chain(ODOO_FIELDS)
+        .chain(WOA_FIELDS)
         .filter(|m| m.grade == Grade::Converted)
         .map(|m| (m.native, m.canonical))
         .collect();
@@ -167,4 +196,45 @@ fn the_class_has_no_temporal_field_so_dates_stay_unmapped() {
     }
     assert!(!SAP_FIELDS.iter().any(|m| m.native == "work_date_utc"));
     assert!(!ODOO_FIELDS.iter().any(|m| m.native == "date"));
+    assert!(!WOA_FIELDS.iter().any(|m| m.native == "datum"));
+}
+
+/// Each glove claims each anchor exactly once, and claims nothing else.
+#[test]
+fn every_glove_claims_each_anchor_exactly_once() {
+    for (glove, table) in [
+        ("sap", SAP_FIELDS),
+        ("odoo", ODOO_FIELDS),
+        ("woa", WOA_FIELDS),
+    ] {
+        for anchor in ANCHORS {
+            let n = table.iter().filter(|m| m.canonical == *anchor).count();
+            assert_eq!(n, 1, "{glove} claims {anchor} {n} times");
+        }
+    }
+    let woa: Vec<_> = WOA_FIELDS.iter().map(|m| m.canonical).collect();
+    assert_eq!(woa, ANCHORS);
+}
+
+/// `abgerechnet` means "already invoiced", not "billable", so no glove maps
+/// it, and WoA claims no `billable` at all.
+#[test]
+fn woa_invoiced_flag_is_not_billable() {
+    assert!(!WOA_FIELDS.iter().any(|m| m.native == "abgerechnet"));
+    assert!(!WOA_FIELDS.iter().any(|m| m.canonical == "billable"));
+}
+
+/// OGAR's WoA pin sits on the description row, not on the hours row, and the
+/// hours row's targets have no shared id. Two-sided: when OGAR moves the pin
+/// or mints `User` / `Tenant`, this fails and the WoA claims are re-read.
+#[test]
+fn woa_pin_is_on_the_description_row_not_the_hours_row() {
+    use lance_graph_ogar::ogar_vocab::ports::{PortSpec, WoaPort};
+    assert_eq!(
+        WoaPort::class_id(WOA_PINNED_TABLE),
+        Some(BILLABLE_WORK_ENTRY)
+    );
+    for unmapped in [WOA_HOURS_TABLE, "User", "Tenant"] {
+        assert_eq!(WoaPort::class_id(unmapped), None, "{unmapped}");
+    }
 }

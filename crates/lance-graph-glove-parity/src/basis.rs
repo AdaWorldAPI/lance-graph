@@ -6,7 +6,7 @@
 //! authority's `ClassView` of the promoted `BillableWorkEntry` class
 //! ([`canonical_fields`]); nothing here mints a concept, a field or a URI.
 //!
-//! [`SAP_FIELDS`] and [`ODOO_FIELDS`] record each native field's claimed
+//! [`SAP_FIELDS`], [`ODOO_FIELDS`] and [`WOA_FIELDS`] record each native field's claimed
 //! canonical position with a [`Grade`]. One claim is `Converted`: SAP
 //! `billing_indicator` → `billable`, through the derived lens
 //! `lance-graph-sap::bind::BILLABLE` (test-proven on real rows, D-XGP-3). Every
@@ -121,6 +121,50 @@ pub const ODOO_FIELDS: &[FieldMap] = &[
     hyp("unit_amount", "duration", "the product UoM is a time unit"),
     hyp("company_id", "tenant", "a company is the canonical Tenant"),
 ];
+
+/// WoA's table that holds the hours: `TimeSheet` (`datum`, `minuten`, `user`,
+/// `tenant_id`, `abgerechnet`). Source: OGAR `.claude/harvest/woa-rs/models.py`
+/// (generated from WoA's own `models.py` by `ruff_sqlalchemy_spo` →
+/// `ogar-from-ruff`).
+pub const WOA_HOURS_TABLE: &str = "TimeSheet";
+
+/// The WoA table OGAR's `WoaPort` resolves to `BillableWorkEntry` (`0x0103`):
+/// `TimesheetActivity`, a child row of `TimeSheet` that carries only
+/// `beschreibung` and `created_at`. So the convergence pin sits on the
+/// description row, not on [`WOA_HOURS_TABLE`]. Moving it is an OGAR change
+/// (plan §C.9.5).
+pub const WOA_PINNED_TABLE: &str = "TimesheetActivity";
+
+/// WoA `TimeSheet` fields onto `BillableWorkEntry` (plan §C.9.5).
+///
+/// - `datum` has no row, for the same reason as SAP's `work_date_utc` and
+///   Odoo's `date`: the class has no temporal role.
+/// - `abgerechnet` ("already invoiced") has no row. It is an invoicing state,
+///   not `billable` ("may be invoiced"), so mapping it to `billable` would be
+///   wrong in both directions.
+/// - `user` and `tenant_id` point at WoA's `User` / `Tenant`, which have no
+///   classid in the harvest (`0x0000_0000`).
+pub const WOA_FIELDS: &[FieldMap] = &[
+    hyp(
+        "user",
+        "performed_by",
+        "a WoA User is the Worker; User has no classid yet",
+    ),
+    hyp(
+        "minuten",
+        "duration",
+        "an integer minute count; SAP hours_logged and Odoo unit_amount are hours (×60)",
+    ),
+    hyp(
+        "tenant_id",
+        "tenant",
+        "a WoA Tenant is the canonical Tenant; Tenant has no classid yet",
+    ),
+];
+
+/// The three anchors every glove claims: who worked, how long, for which
+/// tenant (plan §C.9.5).
+pub const ANCHORS: &[&str] = &["performed_by", "duration", "tenant"];
 
 /// The authority's field names for `BillableWorkEntry`, in `ClassView` order.
 #[must_use]
