@@ -107,7 +107,7 @@ impl<'a> LayoutBlock<'a> {
     /// caller, resolved from its plug (`Activation::read_mode_for` /
     /// `Activation::resolve_for_context`) rather than looked up by classid.
     /// This is the form new code uses (plan `v3-mandatory-hotplug-reading-v1`,
-    /// D-V3M-1); the classid lookup in `to_node_row` is legacy.
+    /// D-HPR-1); the classid lookup in `to_node_row` is legacy.
     pub fn to_node_row_with(&self, classid: u32, identity: u32, mode: ReadMode) -> NodeRow {
         let schema = mode.value_schema;
         let mut value = [0u8; VALUE_SLAB_LEN];
@@ -297,9 +297,11 @@ mod tests {
         assert!(compressed.is_layout_preserving() && full.is_layout_preserving());
     }
 
-    /// D-V3M-1: `to_node_row_with` mints with the tail and value schema it is
+    /// D-HPR-1: `to_node_row_with` mints with the tail and value schema it is
     /// handed. The classid is unknown to the lookup, which would answer the
-    /// V1 / Full default; the handed reading is V3 / Bootstrap.
+    /// V1 / Full default; the handed reading is V3 / Bootstrap. Gated: minting
+    /// a V3 tail needs the tail feature (`mint_for` refuses it otherwise).
+    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn to_node_row_with_follows_the_handed_reading() {
         use crate::canonical_node::{classid_read_mode, EdgeCodecFlavor, TailVariant};

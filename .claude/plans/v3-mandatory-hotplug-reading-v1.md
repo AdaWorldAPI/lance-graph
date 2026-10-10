@@ -1,6 +1,6 @@
 # v3-mandatory-hotplug-reading-v1 — the reading comes from the plug, never from the classid value
 
-**Status:** ACTIVE (D-V3M-0..6). DECISION by the operator, 2026-10-10. W0 (this plan + the ruling record) lands first; W1 onward are code.
+**Status:** ACTIVE (D-HPR-0..6). DECISION by the operator, 2026-10-10. W0 (this plan + the ruling record) lands first; W1 onward are code.
 
 ## The ruling (operator, 2026-10-10, verbatim)
 
@@ -48,16 +48,16 @@ What it means, in rules:
 
 ## Waves
 
-- [x] **W0 — D-V3M-0: record.** This plan, the ruling (`entries/2026-10-10-v3-mandatory-hotplug-reading.md`), `INTEGRATION_PLANS.md`, `STATUS_BOARD.md`.
-- [x] **W1 — D-V3M-1: contract takes the reading as a parameter.** `ocr`, `aiwar`, `nan_projection`, `soa_graph` get variants that take a `ReadMode` (or a `ResolvedReading`) instead of looking the classid up. `DomainSpec` carries its reading. The classid-lookup forms stay, documented as legacy, until W3. Additive: no consumer breaks.
+- [x] **W0 — D-HPR-0: record.** This plan, the ruling (`entries/2026-10-10-v3-mandatory-hotplug-reading.md`), `INTEGRATION_PLANS.md`, `STATUS_BOARD.md`.
+- [x] **W1 — D-HPR-1: contract takes the reading as a parameter.** `ocr`, `aiwar`, `nan_projection`, `soa_graph` get variants that take a `ReadMode` (or a `ResolvedReading`) instead of looking the classid up. `DomainSpec` carries its reading. The classid-lookup forms stay, documented as legacy, until W3. Additive: no consumer breaks.
   - Falsifier: a test per module that the new form yields the reading it was handed, including one where the handed reading differs from what `classid_read_mode` would return (so a caller that silently re-looks-up fails).
   - **Shipped:** `ocr::LayoutBlock::to_node_row_with`, `aiwar::aiwar_node_rows_with`, `soa_graph::{project_snapshot_with, nearest_anchor_with}`, `nan_projection::project_energy_nonfinite_plugged` (resolves each run through `Activation::resolve_tenant_reading`; an unplugged concept is `NoReadingFor`). Tests use classid `0x1718_0000`, which the lookup reads as V1 / `Full`; each is red when its form is changed to re-look-up (disable runs, 4/4).
-- [ ] **W2 — D-V3M-2: the canon domains get their reading from the authority.** The domain value models (`OSINT`/`PROJECT`/`ERP` Cognitive, `FMA`/`CPIC` Compressed) move into `concept_override`, keyed by concept, all on a V3 tail. `OgarAuthority` then answers for those concepts with no classview involved.
+- [ ] **W2 — D-HPR-2: the canon domains get their reading from the authority.** The domain value models (`OSINT`/`PROJECT`/`ERP` Cognitive, `FMA`/`CPIC` Compressed) move into `concept_override`, keyed by concept, all on a V3 tail. `OgarAuthority` then answers for those concepts with no classview involved.
   - Falsifier: `read_mode_for(concept)` equals today's `classid_read_mode(<V3 classid>)` for each canon domain, so the move changes no reading.
-- [ ] **W3 — D-V3M-3: consumers move.** lance-graph callcenter / deepnsm-v2 / probes, then q2 osint-bake + geo, MedCare cohorts. Each takes its reading from its `Activation`. Then `classid_read_mode` gets `#[deprecated]`.
-- [x] **W4 — D-V3M-4: document the fossils as deprecated.** Done in `lance-graph-contract`: the five `CLASSID_*_V3` constants and `classid_read_mode` carry a "Deprecated, kept" doc note. A doc note, not `#[deprecated]`: the attribute would turn every existing caller red under `-D warnings`, which is the forced migration the ruling rules out. OGAR (`ogar-osm` `CLASSVIEW_V3_SUBSTRATE`, ro, dismech, loco) and q2 `geo` get the same note when next touched; existing mints stay.
-- [ ] **W5 — D-V3M-5: legacy reads stay.** Stored `0x1000` and pre-flip keys keep resolving through `BUILTIN_READ_MODES`; no forced removal. A slab may additionally declare its reading (`SlabDeclaration`), which wins for its own data. Removing a table key is optional and only after nothing reads it.
-- [ ] **W6 — D-V3M-6: V1 cannot be reached by default.** `ReadMode::DEFAULT` stops being the fallback for an unknown classid (it becomes `NoReadingFor`, as on the plug path), and `guid-v3-tail` stops being a feature gate.
+- [ ] **W3 — D-HPR-3: consumers move.** lance-graph callcenter / deepnsm-v2 / probes, then q2 osint-bake + geo, MedCare cohorts. Each takes its reading from its `Activation`. Then `classid_read_mode` gets `#[deprecated]`.
+- [x] **W4 — D-HPR-4: document the fossils as deprecated.** Done in `lance-graph-contract`: the five `CLASSID_*_V3` constants and `classid_read_mode` carry a "Deprecated, kept" doc note. A doc note, not `#[deprecated]`: the attribute would turn every existing caller red under `-D warnings`, which is the forced migration the ruling rules out. OGAR (`ogar-osm` `CLASSVIEW_V3_SUBSTRATE`, ro, dismech, loco) and q2 `geo` get the same note when next touched; existing mints stay.
+- [ ] **W5 — D-HPR-5: legacy reads stay.** Stored `0x1000` and pre-flip keys keep resolving through `BUILTIN_READ_MODES`; no forced removal. A slab may additionally declare its reading (`SlabDeclaration`), which wins for its own data. Removing a table key is optional and only after nothing reads it.
+- [ ] **W6 — D-HPR-6: V1 cannot be reached by default.** `ReadMode::DEFAULT` stops being the fallback for an unknown classid (it becomes `NoReadingFor`, as on the plug path), and `guid-v3-tail` stops being a feature gate.
 
 ## Open questions (operator)
 

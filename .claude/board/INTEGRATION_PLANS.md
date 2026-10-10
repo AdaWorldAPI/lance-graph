@@ -1,6 +1,6 @@
 ## 2026-10-10 (2) — v3-mandatory-hotplug-reading-v1 — the reading comes from the plug, never from the classid value → `.claude/plans/v3-mandatory-hotplug-reading-v1.md`
 
-**Status:** ACTIVE (D-V3M-0..6). Operator DECISION 2026-10-10: V3 mandatory, hotplug.rs + OGAR plug-and-play is the only reading path, lockstep deprecated, concepts are immutable addresses and language names are labels.
+**Status:** ACTIVE (D-HPR-0..6). Operator DECISION 2026-10-10: V3 mandatory, hotplug.rs + OGAR plug-and-play is the only reading path, lockstep deprecated, concepts are immutable addresses and language names are labels.
 
 - Retires `classid_read_mode` / `BUILTIN_READ_MODES` (selects V3 by the `0x1000` marker; V1 fallback for unknown ids) in six waves; stored `0x1000` keys stay readable.
 

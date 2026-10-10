@@ -246,7 +246,7 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
 /// [`project_snapshot`] with the tail supplied by the caller, taken from the
 /// reading its plug resolved (`Activation::read_mode_for(..)?.tail_variant`)
 /// rather than looked up by classid. The form new code uses (plan
-/// `v3-mandatory-hotplug-reading-v1`, D-V3M-1).
+/// `v3-mandatory-hotplug-reading-v1`, D-HPR-1).
 pub fn project_snapshot_with(
     rows: &[NodeRow],
     domain: &DomainSpec,
@@ -780,7 +780,7 @@ mod tests {
         assert_eq!(key(&a), key(&b));
     }
 
-    /// D-V3M-1: the `_with` forms use the tail they are handed, not the classid
+    /// D-HPR-1: the `_with` forms use the tail they are handed, not the classid
     /// lookup. The classid here is unknown to `BUILTIN_READ_MODES`, so the
     /// lookup answers V1; the plug says V3. Only the handed tail decodes the V3
     /// basin family correctly.

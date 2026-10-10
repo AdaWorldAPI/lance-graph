@@ -87,7 +87,7 @@ pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
 /// [`aiwar_node_rows`] with the classid and reading supplied by the caller,
 /// the reading resolved from its plug (`Activation::read_mode_for`) rather
 /// than looked up by classid. The form new code uses (plan
-/// `v3-mandatory-hotplug-reading-v1`, D-V3M-1); the lookup in
+/// `v3-mandatory-hotplug-reading-v1`, D-HPR-1); the lookup in
 /// [`aiwar_node_rows`] is legacy.
 pub fn aiwar_node_rows_with(
     graph: &LiteralGraph,
@@ -226,7 +226,7 @@ mod tests {
         }
     }
 
-    /// D-V3M-1: `aiwar_node_rows_with` reproduces `aiwar_node_rows` when handed
+    /// D-HPR-1: `aiwar_node_rows_with` reproduces `aiwar_node_rows` when handed
     /// the same reading, and follows a different reading when handed one.
     #[cfg(feature = "guid-v3-tail")]
     #[test]

@@ -184,7 +184,7 @@ fn classid_runs(rows: &[NodeRow]) -> impl Iterator<Item = (usize, &[NodeRow])> {
 /// [`project_energy_nonfinite`] with each run's reading resolved through the
 /// plug (`Activation::resolve_tenant_reading`, once per run of equal classid)
 /// instead of the classid lookup. The form new code uses (plan
-/// `v3-mandatory-hotplug-reading-v1`, D-V3M-1).
+/// `v3-mandatory-hotplug-reading-v1`, D-HPR-1).
 ///
 /// # Errors
 ///
@@ -420,7 +420,7 @@ mod tests {
         assert!(energy_all_finite(&[rows[0], rows[2]]));
     }
 
-    /// D-V3M-1: the plugged form reads each run under the plug's reading. The
+    /// D-HPR-1: the plugged form reads each run under the plug's reading. The
     /// classid is unknown to the lookup, which answers `Full` (has `Energy`)
     /// and so flags the NaN; the plug declares `Bootstrap` (no `Energy`), so
     /// the plugged form skips it. An unplugged concept is an error, never a

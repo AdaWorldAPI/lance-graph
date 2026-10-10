@@ -1,4 +1,4 @@
-# D-V3M-0 — V3 mandatory; the reading comes from the plug; concepts are immutable addresses (2026-10-10)
+# D-HPR-0 — V3 mandatory; the reading comes from the plug; concepts are immutable addresses (2026-10-10)
 
 **Status:** DECISION (operator, 2026-10-10). Plan: `.claude/plans/v3-mandatory-hotplug-reading-v1.md`.
 
