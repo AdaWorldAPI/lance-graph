@@ -322,6 +322,9 @@ pub enum AppPrefix {
     Spear,
     /// `0x000B` — HubSPO (CRM render lens).
     HubSpo,
+    /// `0x000C` — HIRO (IT-automation render lens; HIRO's `ogit/_type` wire
+    /// names onto the `0x0CXX` automation concepts).
+    Hiro,
 }
 
 impl AppPrefix {
@@ -345,11 +348,12 @@ impl AppPrefix {
             AppPrefix::WeatherNext => 0x0009,
             AppPrefix::Spear => 0x000A,
             AppPrefix::HubSpo => 0x000B,
+            AppPrefix::Hiro => 0x000C,
         }
     }
 
     /// Resolve an app-prefix value back to its [`AppPrefix`]. `None` for an
-    /// unallocated value (`0x0006`, `0x000C`+ — reserved, costs nothing until
+    /// unallocated value (`0x0006`, `0x000D`+ — reserved, costs nothing until
     /// an app mints its first private class).
     #[inline]
     #[must_use]
@@ -366,6 +370,7 @@ impl AppPrefix {
             0x0009 => Some(AppPrefix::WeatherNext),
             0x000A => Some(AppPrefix::Spear),
             0x000B => Some(AppPrefix::HubSpo),
+            0x000C => Some(AppPrefix::Hiro),
             _ => None,
         }
     }
@@ -1061,6 +1066,7 @@ mod tests {
         assert_eq!(AppPrefix::WeatherNext.prefix(), 0x0009);
         assert_eq!(AppPrefix::Spear.prefix(), 0x000A);
         assert_eq!(AppPrefix::HubSpo.prefix(), 0x000B);
+        assert_eq!(AppPrefix::Hiro.prefix(), 0x000C);
         for app in [
             AppPrefix::Core,
             AppPrefix::OpenProject,
@@ -1073,11 +1079,17 @@ mod tests {
             AppPrefix::WeatherNext,
             AppPrefix::Spear,
             AppPrefix::HubSpo,
+            AppPrefix::Hiro,
         ] {
             assert_eq!(AppPrefix::from_prefix(app.prefix()), Some(app));
         }
         assert_eq!(AppPrefix::from_prefix(0x0006), None);
-        assert_eq!(AppPrefix::from_prefix(0x000C), None);
+        assert_eq!(AppPrefix::from_prefix(0x000D), None);
+        // A HIRO machine renders with the automation concept in the canon half.
+        assert_eq!(
+            render_classid_for_concept(AppPrefix::Hiro, "mars_machine"),
+            Some(0x0C04_000C)
+        );
     }
 
     #[test]
