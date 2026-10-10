@@ -113,6 +113,11 @@ jobs:
           contradicting_witnesses_are_not_a_mailbox
           an_on_premises_mailbox_needs_no_cloud_mailbox
           the_cloud_never_revives_a_non_recipient
+          an_empty_on_premises_exchange_guid_awaits_backsync
+          a_matching_exchange_guid_is_migratable
+          a_mismatched_exchange_guid_blocks_the_cloud_mailbox
+          an_unread_or_ambiguous_cloud_exchange_guid_decides_nothing
+          the_exchange_guid_comparison_needs_a_remote_mailbox_in_the_cloud
           identity_is_read_by_guid
           mail_hydrates_no_identity
           mail_is_a_business_card_property_as_written

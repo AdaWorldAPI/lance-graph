@@ -38,7 +38,7 @@ pub mod validate;
 pub mod view;
 
 pub use bind::{where_eq, UserBinder, WhereEqError};
-pub use cloud::CloudMailboxes;
+pub use cloud::{CloudMailboxes, MailboxGuid};
 pub use exec::Kept;
 pub use ogar_dir_sim::{KeyId, ValueId};
 pub use proxy::{ProxyKind, ProxyRelation, ProxyRow};
