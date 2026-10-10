@@ -1,3 +1,8 @@
+## 2026-10-10 — D-XGP-1 CATS `Binder` + canonical-name front on branch `ccr-f5674497-orfkox` (unmerged)
+
+- `lance-graph-sap` (additive): `binder::{CatsBinder, live_words, TABLE, LIVE, WORK_DAY_FIELD}`, an `impl lance_graph_quack::bind::Binder` over a bound `CatsBatch`; `CatsBatch::dictionary_code` (cold forward lookup). Optional fields and U64 instants are refused (NULL is a sentinel in CATS). `tests/binder.rs`: 6 tests, 6 disable runs red.
+- New standalone crate `lance-graph-glove-parity` (own workspace, root `exclude`, CI `glove-parity.yml`): `native_field(reg, bridge, uri)` + `CanonicalBinder` over `OntologyRegistry`. `tests/canonical_front.rs`: probe Q1 (same `Query`, `Program`, sums as `CatsQuery`), Q2 (one URI = one `entity_type_id` across `sap`/`odoo`), hypothesized rows never bind, N-a, N-c, entity rows never name a field; 5 disable runs red. Canonical URIs are fixtures (`ogit.GloveFixture:*`); the minting ruling is open.
+
 ## 2026-10-10 — HIRO app prefix mirror on branch `claude/hiro-app-prefix` (unmerged; pairs with OGAR #333)
 
 - Contract delta (additive): `ogar_codebook::AppPrefix::Hiro` = `0x000C`, matching OGAR's new `HiroPort`, which maps HIRO's `ogit/_type` wire names onto the nine `0x0CXX` automation concepts. No codebook row changes, so `lance-graph-ogar` codebook parity is unaffected; no cross-repo test pairs the two prefixes, so merge order does not matter. `0x0006` stays unallocated and the next free prefix is `0x000D`. `app_prefixes_match_ogar_allocation_table` pins the value; mapping `Hiro` to `0x000D` turns it red.
