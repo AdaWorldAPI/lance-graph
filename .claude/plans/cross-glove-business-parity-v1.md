@@ -257,6 +257,20 @@ contract exists (the brief's hard constraint).
 
 ### 3.5 One `Query`, two lane views `[H]`
 
+> **⊘ Corrected per review (PR #1441).** A lane view only permutes borrowed
+> `LaneRef`s, and `Binder` never sees row data, so neither one can convert a
+> value. Conversion (instant→date, decimal rescale to the canonical scale, the
+> UoM gate) therefore happens in **each glove's bind**. CATS already does its
+> own conversions there (`sap/src/bind.rs:85-162`). The bind emits
+> **source-side normalized columns**, owned by the batch, that are already in
+> the canonical domain. The lane view then permutes pointers to those columns.
+> Allocation contract: bind-time columns are O(rows), paid once per batch and
+> owned by it, exactly as `CatsBatch` owns its columns today. Per-query state
+> (scratch, lane view) is independent of row count. No conversion runs per
+> query. One shipped fact needs a change for this: CATS currently uses a
+> **batch-local** scale. To meet the canonical domain, the bind must rescale to
+> the basis's fixed scale, or refuse a batch that cannot be represented at it.
+
 ```
 canonical Draft  ──bind via CanonicalBinder(odoo)──►  Query_o ─┐
  (names, text)   ──bind via CanonicalBinder(sap)───►  Query_s ─┤ lower → Program_o / Program_s
@@ -348,8 +362,11 @@ DTO. Nothing here is graded `Exact` until the probe and review agree.
 | 4 | `company` | `Code` | `company_id` — Exact | `tenant_id` (string) — Hypothesized |
 | 5 | `cost_amount` | `Money` | `amount` (Monetary) — Exact | — Unsupported |
 | 6 | `activity` | `Code` | — Unsupported in base (`hr_timesheet`/product fields not harvested) | `activity_type` (LSTAR) — Exact |
-| 7 | `project` / `task` | `Code` | — MISSING (needs `project`/`hr_timesheet` harvest) | `project_code` / `task_code` — Exact |
-| 8 | `description` | `Text` | `name` — Exact | `notes` — Hypothesized |
+| 7 | `project` | `Code` | — MISSING (needs `project`/`hr_timesheet` harvest) | `project_code` (`ps_posid`) — Exact |
+| 8 | `task` | `Code` | — MISSING (needs `project`/`hr_timesheet` harvest) | `task_code` (`aufnr`) — Exact |
+| 9 | `description` | `Text` | `name` — Exact | `notes` — Hypothesized |
+
+(Corrected per review, PR #1441: `project` and `task` were one row. They are independent codes with independent lanes and need separate canonical fields; one ordinal would alias or lose one of them.)
 
 **Honest result:** at these pins the only fields that can be bound on **both**
 sides are `work_date` and `quantity` (both Converted on at least one side), and
@@ -376,7 +393,7 @@ one) is available.
 - P3 On the fixture pair (same N facts, entered once as Odoo rows and once as
   CATS DTO rows), `GroupSum(quantity by work_date)` equals the hand-computed
   oracle, and the two are equal after decoding at the sink.
-- P4 Scratch and lane-view allocation are independent of row count (mirror
+- P4 Per-query scratch and lane-view allocation are independent of row count; bind-time normalized columns are O(rows), owned by the batch, built once (§3.5 correction) (mirror
   `sap/tests/no_alloc.rs`).
 
 ### 5.4 Negative controls (each one must fail, red-then-green)
