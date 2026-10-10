@@ -1311,8 +1311,14 @@ fn arms_report(hot: &Hot, set: &[Created2], open: bool, budget: u64) {
 /// different place depending on the search order; the uncapped tree does not.
 fn uncapped_report(hot: &Hot, set: &[Created2]) {
     println!(" open, no fill cap (L2):");
-    for arm in [Arm::Baseline, Arm::Single, Arm::SupportInc] {
-        let (mut nodes, mut fills, mut done) = (0, 0, 0);
+    for arm in [
+        Arm::Baseline,
+        Arm::Support,
+        Arm::SupportInc,
+        Arm::Single,
+        Arm::Pair,
+    ] {
+        let (mut nodes, mut fills, mut done, mut ops, mut ns) = (0, 0, 0, 0, 0.0);
         for x in set {
             let r = run(
                 hot,
@@ -1320,19 +1326,23 @@ fn uncapped_report(hot: &Hot, set: &[Created2]) {
                 &half(&x.c.givens),
                 arm,
                 Broken::default(),
-                400_000_000,
+                u64::MAX,
                 u64::MAX,
             );
+            assert!(sound(hot, &x.c.puz, &r, &x.c.solution), "{arm:?}");
             if r.solved() {
                 done += 1;
                 nodes += r.nodes;
                 fills += r.fills;
+                ops += r.ops;
+                ns += r.ns;
             }
         }
         println!(
-            "  {:<10} finished {done}/{}  nodes {nodes:>10}  fills {fills}",
+            "  {:<10} finished {done}/{}  nodes {nodes:>10}  fills {fills}  ops {ops:>11}  ms {:>9.1}",
             format!("{arm:?}"),
-            set.len()
+            set.len(),
+            ns / 1e6
         );
     }
 }
@@ -1442,6 +1452,10 @@ fn chain_report(hot: &Hot) {
 fn main() {
     let (hot, _cold) = build_lexicon(Lang::En, &english_ranked());
     println!("D-SCF-CARE-PAIR-0 (English, {} ids)", hot.len.len());
+    if std::env::args().nth(1).as_deref() == Some("l2") {
+        uncapped_report(&hot, &make(&hot, 5, 10, 0xC0FFEE + 5));
+        return;
+    }
     for side in [5usize, 7] {
         let set = make(&hot, side, 10, 0xC0FFEE + side as u64);
         let unchecked: usize = set
