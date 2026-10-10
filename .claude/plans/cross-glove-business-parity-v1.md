@@ -825,3 +825,140 @@ The proof is `lance-graph-sap` `tests/binder.rs::billable_lens_selects_exactly_t
 So `performed_by`, `duration` and `tenant` stay `Hypothesized` until OGAR mints their targets. That is an OGAR authority change, and it is open for the operator alongside the temporal role.
 
 Next: `project` / `about` for Odoo would need `hr_timesheet`'s `project_id` / `task_id`, which are not harvested. SAP `project_code` / `task_code` are optional fields, which `CatsBinder` refuses until a validity plane exists.
+
+#### C.9.3 The classid layout — operator ruling, recorded so it is not misread again (2026-10-10)
+
+> **⊘ This corrects §C.9 point 2 and §C.9.2.** Those sections read "this edge target has no id in the shared codebook" as "this target is unminted, so nothing can be anchored until OGAR mints it". That reading is wrong.
+
+**The ruling, verbatim (operator, 2026-10-10):** *"Domain 8 bit / Appid 8 bit / Concept 16 bit / Together 32 bit classid"*, *"That's the whole purpose of"* it.
+
+**And its correction (same day):**
+- *"Appid/concept are synonymous."*
+- MedCare-rs uses *"91..9E to have the concept id freed up"*, where *"before it was 03:01..0E which was wasting the concept for defining the Ontology."*
+- Domain and concept are easy to conflate. *"One is immutable, the other one is handed out in 64k size."*
+
+```
+classid : u32 = [ domain 8 | appid 8 ] [ concept 16 ]
+                  0xDD       0xAA        0xCCCC
+                  immutable  ≡ the codebook's     handed out in 64k blocks
+                             "concept byte"       per domain:appid
+```
+
+| part | bits | lifecycle |
+|---|---|---|
+| domain | 8 | **immutable**: fixed and shared, never reassigned |
+| appid ≡ concept byte | 8 | the second byte of today's 16-bit codebook id `0xDDCC`. **Appid and concept are the same slot.** |
+| concept space | 16 | **handed out in 64k blocks**, one per `domain:appid` |
+
+**What this means:**
+
+- **Today's 16-bit codebook id `0xDDCC` already *is* `domain:appid`.** The high half of today's `render_classid` (`concept << 16`) therefore already matches the ruling. Reversing `render_classid` is NOT what the ruling asks for; §C.9.4 records what that reversal would break.
+- **Do not spend the appid byte naming a sub-namespace inside a domain.** The worked example, verified in code (`OGAR/crates/ogar-obo/src/lib.rs:208-242`, `examples/rekey_domain.rs`), is the OBO ontologies.
+  - Before, they shared domain `0x03`, and the appid byte only said which ontology: `0x0301` MONDO, `0x0302` HPO, `0x0303` UBERON.
+  - The S3 re-key gave each ontology its own domain byte: `0x9101`, `0x9202`, `0x9303`. That frees the appid byte.
+  - PATO and RO are still on `0x0304` / `0x0305` in that enum.
+- **A missing shared-codebook id is not a blocker.** Each `domain:appid` hands out its own 64k concept space. So `Worker`, `Duration`, `Tenant` and the work date are addressable without a shared mint, e.g. from the OGIT WoA extension:
+  - `ogit.WorkOrder:User` → `performed_by`;
+  - `ogit.WorkOrder:Tenant` → `tenant`;
+  - `TimeSheet.minuten` → `duration`;
+  - `TimeSheet.datum` (type `Date`) → the work date.
+
+  The test `three_edge_targets_have_a_shared_codebook_id` measures shared-codebook coverage only, and says so.
+
+**The 16 bits are named `classview`** (operator spelling `domain : appid : classview`, OGAR `D-CLASSID-HI-U16-SPELLING`; `OGAR/crates/ogar-vocab/src/ports.rs:100` `PortSpec::classview()`). The classid comes in two widths:
+
+- `domain:appid` (8:8) is the application-wide classid;
+- `domain:appid:classview` (8:8:16) is the full classid, used e.g. for `ClassView` / `WideFieldMask`.
+
+The same 16 bits also go by `APP_PREFIX` (older name, kept for existing callers) and the "custom half" (contract flip code). Prefer `classview`.
+
+**Why the low 16 bits are app-owned (operator, 2026-10-10):** *"16 bit for 64k granular app owned so you can do cheap masking, spoG etc."* Each `domain:appid` gets 64k app-owned values in the low half, so selection is plain bit masking with no lookup:
+
+- `classid >> 24` selects a domain;
+- `classid & 0xFFFF_0000` selects one `domain:appid`;
+- any aligned power-of-two sub-block of the low 16 bits selects a group the app defined itself, which is what SPOG graph/tenant masks and cohort masks need.
+
+**Resolved (operator, 2026-10-10):** *"Classview can be used for any compute masking, we explicitly expanded the ERB redmine fieldview pattern for risk mask of everything."*
+
+- Rendering is ONE use of `classview`. Per-app render prefixes (OpenProject `0x0001`, MedCare `0x0005`, … — `PortSpec::APP_PREFIX` / `classview()`) are values in the same 64k compute-mask space as field, RBAC and SPOG masks.
+- The ERB fieldview pattern (pick the fields a view shows) was deliberately generalised into mask-RISC masks over everything.
+- So `render_classid` and today's layout stay as they are. No layout change follows from the ruling.
+
+**Likely fossil (operator, 2026-10-10: "Per app render prefix might be a fossil. Before may-june the domain and appid was on the right side"). The ledger confirms the history:**
+
+- OGAR `DISCOVERY-MAP.md` D-APPCLASS (2026-06-22): `classid = APP(hi u16) ‖ class(lo u16)`. The codebook id (`0xDDCC` = domain:appid) sat on the RIGHT, an app prefix on the left.
+- D-CLASSID-CANON-HIGH-FLIP (2026-07-02) moved domain:appid to the left and says *"APP_PREFIX values are unchanged … only their position moves (hi → lo)"*.
+
+So the per-app render prefixes (`0x0001` OpenProject … `0x000C` Hiro) are the June APP half, carried verbatim into the `classview` bits without being re-derived as classview values.
+
+Today they still occupy `classview` values `0x0000`–`0x000C` and are read by `render_classid` / `PortSpec::classview()`. Whether to retire them, and what replaces them, is the operator's call and NOT decided here. Until then, do not mint new code that depends on `APP_PREFIX` being a classview value.
+
+**odoo-rs dates from that era (operator, 2026-10-10; verified):** first commit 2026-06-17. Its classid code (`od-ontology/src/ogar.rs`, `tests/classid_pins.rs`) landed 2026-07-06/07, right after the flip. Its pinned ids carry the fossil prefix `0x0002` in the classview bits: `0x0202_0002`, `0x0103_0002`, `0x0204_0002`, plus `id & 0xFFFF == 0x0002`. They also appear in generated Python/C#/Rust (`CLASSID = 0x02020002`) and the od-server `/compile` JSON (render_classid audit, §C.9.4). If the prefix is retired, odoo-rs is the first consumer to re-pin.
+
+**`classview = 0x1000` is the V3 migration marker (operator, 2026-10-10: "we used 1000 in classview as a V3 migration marker as opposed to V1/V2"; verified):**
+- Examples: `lance-graph-contract` `canonical_node.rs` `CLASSID_OSINT_V3 = 0x0701_1000`, `FMA_V3 0x0A01_1000`, `CPIC_V3 0x0E01_1000`, `PROJECT_V3 0x0101_1000`, `ERP_V3 0x0202_1000`; `ogar-osm` `CLASSVIEW_V3_SUBSTRATE = 0x1000`; `ogar-ro` `0x0306_1000`; `ogar-dismech` `0x0333_1000`.
+- The code calls it temporary by declaration; its retirement is the plan's P4 operator checkpoint.
+- So the classview bits hold two historical uses today: render prefixes `0x0000`–`0x000C` (the June fossil) and the V3 marker `0x1000`. Only convention keeps them apart (`AppPrefix::from_prefix(0x1000)` is `None`).
+- Neither is the general compute-mask use the ruling describes. Do not mint new meanings at `0x1000` or in `0x0000`–`0x000C`.
+
+**The V3 marker is a fossil too (operator, 2026-10-10: "Since now V3 is mandatory and only the hotplug.rs and Ontology slab metadata envelope define if 32 + 96 is in storage or 128 (+classid classview as spoG implicit through Plug and play/app defined and envelope). 1000 V3 Marker is a fossil too").**
+- V3 is mandatory, so a classid value no longer has to say "this row is V3".
+- How a slab's bytes are read is decided in ONE place: `lance-graph-contract/src/hotplug.rs`. The slab's metadata envelope carries a `SlabDeclaration` (`hotplug.rs:322`) whose `SlabReading` tag (`hotplug.rs:231`) says either:
+  - `Facet96`: `classid(4) + payload(12)`, the 32 + 96 layout; or
+  - `Register128` (and its signed carvings `RegisterI4x32` / `RegisterI8x16`): a 128-bit register with NO classid in the bytes. The classid and classview come from the SPOG context, i.e. from the plug (`HotPlug` → `Activation::resolve_for_context`) and the envelope.
+- So `0x1000` in the classview bits carries no information the plug and envelope do not already carry. It is the V3-era counterpart of the June render-prefix fossil.
+- **Live residue (verified, not changed here):** the marker still selects the reading today. `canonical_node::classid_read_mode(classid)` (`canonical_node.rs:1813`) looks the full classid up in `BUILTIN_READ_MODES` (`:1743`), and the `*_V3` keys (`0x0701_1000`, `0x0A01_1000`, …) map to V3-tail read modes. Callers include `ocr.rs:105/124`, `aiwar.rs:119`, `nan_projection.rs:167`, `soa_graph.rs:204/457`. That table is a second resolution path beside the one `hotplug.rs` says is the only one ("there is no second registry"). Retiring it means routing those callers through `Activation::resolve_for_context`, and keeping the legacy keys readable for slabs already written with them (an explicit `SlabDeclaration` wins for existing data). That is a contract change with its own PR and is NOT done here.
+- Rule until then: new code takes its reading from the plug and the slab envelope, never from `classid_read_mode` and never from a `0x1000` classview.
+
+**Next:**
+1. Anchor `performed_by` / `tenant` / `duration` / the work date on WoA's own concepts, reading every value from code.
+2. Map SAP and Odoo onto those anchors.
+
+#### C.9.4 Audit: what reversing `render_classid` would break — do not do it (2026-10-10)
+
+Read-only audit, run by three parallel agents and spot-checked against source. The full site list is in `.claude/board/entries/2026-10-10-render-classid-reversal-audit.md`.
+
+The hypothesis audited was a reversal to `[domain:appid][concept]` with the codebook's 16-bit concept moved to the low half. §C.9.3's correction shows that is not what the ruling asks. The audit stands as the record of why the order must not be flipped.
+
+**Findings:**
+
+1. **There is no single switch.** The `(concept << 16) | prefix` math is hand-copied about 20 times across 9+ repos. Examples: `ogar-obo` `Namespace::render_classid`, `ogar-loco`, `ogar-ro`, `ogar-dismech`, the Python and C# adapter templates, a2ui `concept_of_key` (server + wasm), MedCare `node_key` / `class_registry`, spear `EMAIL_CLASS`, tesseract `mint_document_root`, ruff `r2il` facets. Changing `render_classid` alone would leave them silently on the old order.
+2. **A flip mis-routes; it does not fail.** Every `>> 16` and `classid_canon` reader still gets a valid-looking 16-bit value, and it is a different class. Affected:
+   - RBAC `ClassGrant::permits` (`rbac.rs:538-540`);
+   - `RbacBinding::plugged`;
+   - `graph_of` tenant routing;
+   - `chain_admission::palette_of`;
+   - `VocabularyRegistry::resolve_classid`;
+   - `Namespace::from_concept_id`;
+   - a2ui ClassView selection.
+3. **Domain routing survives by position.** `classid_concept_domain` and `FacetSchema::of_classid` read the top byte, which stays the domain.
+4. **Persisted data is the hard part.**
+   - OBO `.soa` bakes: re-key plus re-sort, because `SpineLens` binary-searches by classid.
+   - MedCare `obo_slim_edges.tsv` (123 rows), `obo_slim_labels.tsv`, `bakes.tsv` `@0x…` gates, the joinmap.
+   - Constants emitted into consumer repos by `ogar-from-ruff`.
+   - Lance `NodeGuid` key bytes, the tesseract-paperless `document_guid` archive, osm slabs.
+5. **The legacy forms collide.** A reversed id has the same shape as the pre-2026-07-02 `CanonLow` forms, so `classid_canon_compat` / `classify_form` / the `CLASSID_*_LEGACY` aliases could no longer tell old rows from new.
+6. **The ClassView field basis is safe.** `ClassView` keys on a bare `u16` (`class_view.rs:54`) and every production caller passes the concept, so `WideFieldMask` bit positions are stable. The view is the "ERB fieldview as masks" pattern: `rbac ∩ present ∩ view` (op-server `viewfilter.rs:83-95`) or `surface ∩ role` (a2ui). Selecting a skin per app via the low half (`resolve_codebook`) is documented in `OGAR/docs/APP-CLASS-CODEBOOK-LAYOUT.md` §4 and implemented nowhere.
+
+#### C.9.5 WoA anchors: the hours row is `TimeSheet`, not the pinned `TimesheetActivity` (D-XGP-8, 2026-10-10)
+
+Source read: OGAR `.claude/harvest/woa-rs/models.py` + `woa_facet.sql` + `woa_graph.spo` (generated from WoA's own `models.py` by `ruff_sqlalchemy_spo` → `ogar-from-ruff`, 151 classes), and `ogar-vocab/src/ports.rs` `WOA_ALIASES`.
+
+**Finding.** OGAR's `WoaPort` resolves `TimesheetActivity` (and `Stundenzettel` / `TimeEntry` / `Zeiterfassung`) to `BILLABLE_WORK_ENTRY` (`0x0103`). In WoA, `TimesheetActivity` is a child row holding only `beschreibung` and `created_at`. The hours live in its parent `TimeSheet`: `datum` (DATE NOT NULL), `minuten` (INTEGER), `user` (→ `User`), `tenant_id`, `abgerechnet` (BOOLEAN). `TimeSheet`, `User` and `Tenant` all carry classid `0x0000_0000` in the harvest. So the convergence pin is on the description row, not the hours row.
+
+**Shipped (`lance-graph-glove-parity::basis`):** `WOA_FIELDS` claims the three anchors from `TimeSheet`, all `Hypothesized`:
+
+- `user` → `performed_by`;
+- `minuten` → `duration` (an integer minute count; SAP `hours_logged` and Odoo `unit_amount` are hours, so a conversion is ×60);
+- `tenant_id` → `tenant`.
+
+`ANCHORS = [performed_by, duration, tenant]`; each glove (SAP, Odoo, WoA) claims each anchor exactly once (test-pinned). Unmapped on purpose:
+
+- `datum`: the class has no temporal role, same as SAP `work_date_utc` and Odoo `date`;
+- `abgerechnet`: means "already invoiced", an invoicing state, not `billable` ("may be invoiced"). Mapping it to `billable` would be wrong both ways.
+
+**Two-sided pin** (`woa_pin_is_on_the_description_row_not_the_hours_row`): `WoaPort::class_id("TimesheetActivity") == Some(0x0103)` and `TimeSheet` / `User` / `Tenant` resolve to `None`. When OGAR moves the pin or mints those concepts, the test fails and the WoA claims get re-read.
+
+**For the operator (OGAR change, not made here):** should `WoaPort` resolve `TimeSheet` to `0x0103` (and `TimesheetActivity` become a description child of it)? `Stundenzettel` is the German name of `TimeSheet`, not of `TimesheetActivity`, so today's alias table points the German name at the wrong row too.
+
+**Next:** with the three anchors claimed by all three gloves, the remaining step is a `Converted` grade for one anchor: `duration` is the candidate (SAP hours × 60 = WoA minutes, provable on rows once a WoA fixture exists).
