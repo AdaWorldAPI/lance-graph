@@ -95,11 +95,35 @@ pub enum ApplyError {
 /// Which nested groups [`View::members_transitive`] walks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Closure {
-    /// Mail-enabled groups: how a distribution list expands.
+    /// Who receives mail sent to a group: the addressed group must be
+    /// mail-enabled, and nesting is followed through every group whatever
+    /// its kind, a security group without an address included.
     Delivery,
-    /// Groups known to be security-enabled: who holds a permission granted
-    /// to the group.
+    /// Who holds a permission granted to a group: every group on the chain,
+    /// the granting one included, must be known to be security-enabled. A
+    /// distribution group, or a group whose flag was not read, breaks the
+    /// chain, as in an AD token, so the permission fails closed.
     Security,
+}
+
+impl Closure {
+    /// Whether nesting is followed through `g`.
+    fn walks(self, view: &View<'_>, g: &Guid128) -> bool {
+        match self {
+            Closure::Delivery => true,
+            Closure::Security => view.is_security_enabled(g) == Some(true),
+        }
+    }
+
+    /// Whether `g` can be the group addressed or granted (the start of
+    /// [`View::members_transitive`], a result of
+    /// [`View::groups_transitive`]).
+    fn ends(self, view: &View<'_>, g: &Guid128) -> bool {
+        match self {
+            Closure::Delivery => view.is_mail_recipient(g),
+            Closure::Security => view.is_security_enabled(g) == Some(true),
+        }
+    }
 }
 
 /// Nodes a version created in one population, as SoA lanes sorted by
@@ -520,33 +544,23 @@ impl<'s> View<'s> {
     }
 
     /// The users reached from `group` through nesting, each once (a cycle
-    /// is walked once), in user-ordinal order. The start group and every
-    /// nested group are walked only when `closure` admits them:
-    ///
-    /// * [`Closure::Delivery`]: mail-enabled groups
-    ///   ([`Self::is_mail_recipient`]), which is how a distribution list
-    ///   expands.
-    /// * [`Closure::Security`]: groups known to be security-enabled
-    ///   ([`Self::is_security_enabled`]). A distribution group, or a group
-    ///   whose flag was not read, breaks the chain, as in an AD token, so a
-    ///   permission granted through it fails closed.
+    /// is walked once), in user-ordinal order. `group` must qualify for
+    /// `closure` (mail-enabled for [`Closure::Delivery`], security-enabled
+    /// for [`Closure::Security`]); nesting is then followed as `closure`
+    /// says. The inverse of [`Self::groups_transitive`].
     ///
     /// Membership only: whether a reached user is enabled, or receives mail,
     /// is the caller's question. Empty when `group` is not an existing group
-    /// or is not admitted itself.
+    /// or does not qualify.
     ///
     /// Work: one pass over the live membership rows plus the nested pairs,
     /// which are evidence-sized (held by identity in the unresolved table
     /// and the overlay).
     pub fn members_transitive(&self, group: &Guid128, closure: Closure) -> Vec<Guid128> {
-        let admits = |g: &Guid128| match closure {
-            Closure::Delivery => self.is_mail_recipient(g),
-            Closure::Security => self.is_security_enabled(g) == Some(true),
-        };
         let Some(start) = self.group_ordinal(group) else {
             return Vec::new();
         };
-        if !admits(group) {
+        if !closure.ends(self, group) {
             return Vec::new();
         }
         let added = self.added_rows();
@@ -564,7 +578,7 @@ impl<'s> View<'s> {
         while let Some(parent) = queue.pop() {
             let from = nested.partition_point(|n| n.0 < parent);
             for (_, child, c) in nested[from..].iter().take_while(|n| n.0 == parent) {
-                if !bit(&reached, usize::from(*c)) && admits(child) {
+                if !bit(&reached, usize::from(*c)) && closure.walks(self, child) {
                     set_bit(&mut reached, usize::from(*c));
                     queue.push(*c);
                 }
@@ -585,6 +599,74 @@ impl<'s> View<'s> {
         (0..self.users_len())
             .filter(|&i| bit(&users, i))
             .filter_map(|i| self.user_guid(UserOrdinal(i as u16)))
+            .collect()
+    }
+
+    /// The groups `user` belongs to, directly or through nesting, each
+    /// once, in group-ordinal order: the inverse of
+    /// [`Self::members_transitive`], so `user` is in
+    /// `members_transitive(g, closure)` exactly when `g` is in
+    /// `groups_transitive(user, closure)`. A group is reached through a
+    /// chain of groups `closure` walks, and is listed when it qualifies as
+    /// the addressed or granting group.
+    ///
+    /// Empty when `user` is not an existing user. Work: one pass over the
+    /// live membership rows plus the nested pairs.
+    pub fn groups_transitive(&self, user: &Guid128, closure: Closure) -> Vec<Guid128> {
+        let Some(uo) = self.user_ordinal(user) else {
+            return Vec::new();
+        };
+        let u = u32::from(uo.0);
+        let added = self.added_rows();
+        let mut reached = vec![0u64; words_for(self.groups_len())];
+        let mut queue = Vec::new();
+        // A group is recorded when the chain may pass through it or end at
+        // it; only a group the chain passes through is walked further up.
+        let reach = |g: u32, reached: &mut [u64], queue: &mut Vec<u16>| {
+            let g = g as usize;
+            if bit(reached, g) {
+                return;
+            }
+            let Some(id) = self.group_guid(GroupOrdinal(g as u16)) else {
+                return;
+            };
+            let walks = closure.walks(self, &id);
+            if walks || closure.ends(self, &id) {
+                set_bit(reached, g);
+                if walks {
+                    queue.push(g as u16);
+                }
+            }
+        };
+        let s = self.snap;
+        for (r, (&mu, &g)) in s.m_user.iter().zip(&s.m_group).enumerate() {
+            if mu == u && !self.ov.removed.contains(&(r as u32)) {
+                reach(g, &mut reached, &mut queue);
+            }
+        }
+        for (&mu, &g) in added.users.iter().zip(&added.groups) {
+            if mu == u {
+                reach(g, &mut reached, &mut queue);
+            }
+        }
+        // Nested pairs (child, parent) between existing groups, sorted by
+        // child: walk upward.
+        let mut nested: Vec<(u16, u16)> = added
+            .unresolved
+            .iter()
+            .filter_map(|(c, p)| Some((self.group_ordinal(c)?.0, self.group_ordinal(p)?.0)))
+            .collect();
+        nested.sort_unstable();
+        while let Some(child) = queue.pop() {
+            let from = nested.partition_point(|n| n.0 < child);
+            for &(_, parent) in nested[from..].iter().take_while(|n| n.0 == child) {
+                reach(u32::from(parent), &mut reached, &mut queue);
+            }
+        }
+        (0..self.groups_len())
+            .filter(|&i| bit(&reached, i))
+            .filter_map(|i| self.group_guid(GroupOrdinal(i as u16)))
+            .filter(|g| closure.ends(self, g))
             .collect()
     }
 

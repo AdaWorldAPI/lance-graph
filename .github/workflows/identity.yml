@@ -144,7 +144,9 @@ jobs:
           a_disabled_shared_mailbox_still_receives
           the_security_flag_is_kept_as_read
           the_security_closure_walks_only_security_groups
-          the_delivery_closure_walks_mail_enabled_groups
+          the_delivery_closure_follows_every_nested_group
+          a_user_s_groups_follow_nesting_upward
+          members_and_groups_are_inverse
           a_version_s_memberships_are_followed
           ad_group_type_sets_the_flag
           departure_by_conversion_to_shared_keeps_the_mailbox
