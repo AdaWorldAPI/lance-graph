@@ -261,6 +261,13 @@ classid : u32 = [ domain 8 | appid 8 ] [ concept 16 ]
 - **Never decode a classid by hand (`>> 16`, `& 0xFFFF`).** The halves are easy to conflate, and a mixed-up half still yields a *valid* id of a *different* class. Example: `0x0905` is `treatment`. Use the named accessors.
 - **Do not reverse `render_classid`.** An audit (lance-graph `.claude/board/entries/2026-10-10-render-classid-reversal-audit.md`) found ~20 hand-copied bit-math sites, silent RBAC and tenant mis-routing, and persisted bakes that would need re-keying.
 
+**The 16 bits are named `classview`** (operator spelling `domain : appid : classview`, OGAR `D-CLASSID-HI-U16-SPELLING`; `OGAR/crates/ogar-vocab/src/ports.rs:100` `PortSpec::classview()`). The classid comes in two widths:
+
+- `domain:appid` (8:8) is the application-wide classid;
+- `domain:appid:classview` (8:8:16) is the full classid, used e.g. for `ClassView` / `WideFieldMask`.
+
+The same 16 bits also go by `APP_PREFIX` (older name, kept for existing callers) and the "custom half" (contract flip code). Prefer `classview`.
+
 **Why the low 16 bits are app-owned (operator, 2026-10-10):** *"16 bit for 64k granular app owned so you can do cheap masking, spoG etc."* Each `domain:appid` gets 64k app-owned values in the low half, so selection is plain bit masking with no lookup:
 
 - `classid >> 24` selects a domain;
