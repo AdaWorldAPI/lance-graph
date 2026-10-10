@@ -1,6 +1,7 @@
 //! Nested groups expand through two closures (OGAR plan V19): delivery
-//! walks mail-enabled groups, security walks only groups known to be
-//! security-enabled.
+//! follows every nested group from a mail-enabled one, security walks only
+//! groups known to be security-enabled. Both directions: the users a group
+//! reaches, and the groups a user is in.
 
 use lance_graph_dir_sim::*;
 use ogar_dir_core::{DirectoryScope, Guid128};
@@ -119,16 +120,17 @@ fn the_security_closure_walks_only_security_groups() {
         .is_empty());
 }
 
-// Delivery walks every mail-enabled group, security-enabled or not, and
-// skips the one without an address.
+// Delivery follows every nested group, whatever its kind: from S1 it reaches
+// u2 through the address-less S2 and u5 through the unread group. The
+// addressed group itself must be mail-enabled, so S2 delivers nothing.
 #[test]
-fn the_delivery_closure_walks_mail_enabled_groups() {
+fn the_delivery_closure_follows_every_nested_group() {
     let mut st = VersionStore::new();
     let v = st.observe("lab", 1, observed()).unwrap();
     let view = st.view(v).unwrap();
     assert_eq!(
         view.members_transitive(&g(S1), Closure::Delivery),
-        ids(&[U1, U3, U4, U5])
+        ids(&[U1, U2, U3, U4, U5])
     );
     assert_eq!(
         view.members_transitive(&g(D1), Closure::Delivery),
@@ -146,24 +148,64 @@ fn the_delivery_closure_walks_mail_enabled_groups() {
         .is_empty());
 }
 
-// Membership walks every group: the address-less S2 and the unread group
-// that Delivery or Security stop at are both followed.
+// The groups a user is in, directly or through nesting. u4 sits in S3, which
+// is in D1, which is in S1 (and S1 in S2). Delivery lists every mail-enabled
+// group on the way up; security stops at the distribution group D1.
 #[test]
-fn the_membership_closure_walks_every_group() {
+fn a_user_s_groups_follow_nesting_upward() {
     let mut st = VersionStore::new();
     let v = st.observe("lab", 1, observed()).unwrap();
     let view = st.view(v).unwrap();
-    let all = ids(&[U1, U2, U3, U4, U5]);
-    assert_eq!(view.members_transitive(&g(S1), Closure::Membership), all);
-    // S2 has no address, so Delivery from it is empty; Membership is not.
-    assert!(view
-        .members_transitive(&g(S2), Closure::Delivery)
-        .is_empty());
-    assert_eq!(view.members_transitive(&g(S2), Closure::Membership), all);
-    // A user, or nothing, is still not a group.
-    assert!(view
-        .members_transitive(&g(U1), Closure::Membership)
-        .is_empty());
+    assert_eq!(
+        view.groups_transitive(&g(U4), Closure::Delivery),
+        ids(&[S1, S3, D1])
+    );
+    assert_eq!(
+        view.groups_transitive(&g(U4), Closure::Security),
+        ids(&[S3])
+    );
+    // u2 is in S2 directly, and through S2 in S1.
+    assert_eq!(
+        view.groups_transitive(&g(U2), Closure::Security),
+        ids(&[S1, S2])
+    );
+    // Delivery also passes the address-less S2, but lists only S1.
+    assert_eq!(
+        view.groups_transitive(&g(U2), Closure::Delivery),
+        ids(&[S1])
+    );
+    // A group, or nothing, is not a user.
+    assert!(view.groups_transitive(&g(S1), Closure::Delivery).is_empty());
+}
+
+// The two directions agree on every user, group and closure.
+#[test]
+fn members_and_groups_are_inverse() {
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 1, observed()).unwrap();
+    let view = st.view(v).unwrap();
+    let users = ids(&[U1, U2, U3, U4, U5]);
+    let groups = ids(&[S1, S2, S3, D1, UNREAD]);
+    let mut pairs = 0;
+    for closure in [Closure::Delivery, Closure::Security] {
+        for gr in &groups {
+            let members = view.members_transitive(gr, closure);
+            for u in &users {
+                let up = view.groups_transitive(u, closure);
+                assert_eq!(
+                    members.contains(u),
+                    up.contains(gr),
+                    "{closure:?} {u:?} {gr:?}"
+                );
+                pairs += usize::from(members.contains(u));
+            }
+        }
+    }
+    // Not vacuous: some pairs hold and some do not.
+    assert!(
+        pairs > 0 && pairs < 2 * users.len() * groups.len(),
+        "{pairs}"
+    );
 }
 
 struct Edit(Vec<Change>);
