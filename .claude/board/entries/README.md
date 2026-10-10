@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-299 entries, 2026-08-06 .. 2026-10-10.
+300 entries, 2026-08-06 .. 2026-10-10.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -44,6 +44,7 @@ exactly one of them, never both.
 | 2026-10-10 | `D-RPF-P5` |  | [2026-10-10-d-rpf-p5-nars-beta-correspondence.md](2026-10-10-d-rpf-p5-nars-beta-correspondence.md) |
 | 2026-10-10 | `D-RPF-G2` |  | [2026-10-10-d-rpf-g2-law-a-boundary.md](2026-10-10-d-rpf-g2-law-a-boundary.md) |
 | 2026-10-10 | `D-LAB-P1` |  | [2026-10-10-d-lab-p1-certified-argmax-gomoku.md](2026-10-10-d-lab-p1-certified-argmax-gomoku.md) |
+| 2026-10-10 | `coresearch-single-writer-lance-log` | Lance 13 renumbers every racing Append; a public CommitHandler wrapper could refuse instead (CLAIMED, probe P-SLOT-1); today's log mis-names a race and wedges on any non-batch version | [2026-10-10-coresearch-single-writer-lance-log.md](2026-10-10-coresearch-single-writer-lance-log.md) |
 | 2026-10-10 | `classid-layout-ruling` |  | [2026-10-10-classid-layout-ruling.md](2026-10-10-classid-layout-ruling.md) |
 | 2026-10-09 | `D-SCF-CARE-PAIR-0` |  | [2026-10-09-d-scf-care-pair-0-crossing-counterfactuals.md](2026-10-09-d-scf-care-pair-0-crossing-counterfactuals.md) |
 | 2026-10-09 | `D-RPF-TABLE-1` |  | [2026-10-09-d-rpf-table-1-fast-path-cost.md](2026-10-09-d-rpf-table-1-fast-path-cost.md) |
