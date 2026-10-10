@@ -1,3 +1,7 @@
+## 2026-10-10 — CRM codebook mirror on branch `ccr-1d749cc5-q8s5qs` (unmerged; pairs with OGAR #330)
+
+- Contract delta (additive): `ogar_codebook::ConceptDomain::Crm` (high byte `0x05`), 15 `CODEBOOK` rows `crm_contact 0x0501` … `crm_custom_record 0x050F`; `AppPrefix::{Osm 0x0008, WeatherNext 0x0009, Spear 0x000A, HubSpo 0x000B}` (the prefixes OGAR already allocated, now reachable without `ogar-vocab`). `0x0500` re-pinned `Unassigned` → `Crm`; `0x0006` stays unallocated. Parity (`lance-graph-ogar`, 84 + 21 tests) green against the OGAR branch. Order: OGAR #330 first, this straight after. This branch's parity check against OGAR `main` is red until #330 merges, and `main`'s is red from that merge until this one lands.
+
 ## 2026-10-09 — lance-graph #1432 MERGED (`d29d0aa`)
 
 - D-SCF-CARE-PAIR-0, probe-only (no contract change): `cognitive-shader-driver/examples/crossword_crossing_care_probe.rs`. Entry with the cross-repo synergy table and loose ends: `entries/2026-10-09-d-scf-care-pair-0-crossing-counterfactuals.md`.
