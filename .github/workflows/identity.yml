@@ -133,7 +133,7 @@ jobs:
           text_matching_uses_ldap_string_preparation
           substrings_need_a_substrings_rule
           a_wide_filter_is_refused_before_its_children_are_held
-          preparation_uses_full_case_folding
+          ldap::tests::preparation_uses_full_case_folding
           an_entry_found_after_the_deadline_is_not_returned
           every_request_is_shape_checked
           the_entry_cap_is_checked_before_building_the_entry
