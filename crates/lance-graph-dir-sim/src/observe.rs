@@ -31,6 +31,8 @@ use ogar_dir_core::{DirRecord, DirectoryScope, Dn128, Dn128Error, Guid128, Value
 const UAC_ACCOUNTDISABLE: u32 = 0x2;
 /// The first `ogar-ad` schema version that carries the recipient triplet.
 const RECIPIENT_SCHEMA: u16 = 2;
+/// The first `ogar-ad` schema version that carries `msExchMailboxGuid`.
+const EXCHANGE_GUID_SCHEMA: u16 = 6;
 
 /// `targetAddress` without its `SMTP:` prefix (any case); other address
 /// types are kept whole.
@@ -133,6 +135,9 @@ pub fn from_ad(
                 dn,
                 mail: text(r, "mail"),
                 alias: text(r, "mailNickname"),
+                exchange_guid: (r.schema().version >= EXCHANGE_GUID_SCHEMA)
+                    .then(|| r.guid(slot("msExchMailboxGuid")))
+                    .flatten(),
                 recipient: (r.schema().version >= RECIPIENT_SCHEMA).then(|| ObservedRecipient {
                     remote_recipient_type: r.num(slot("msExchRemoteRecipientType")),
                     display_type: r.num(slot("msExchRecipientDisplayType")).map(|n| n as i32),

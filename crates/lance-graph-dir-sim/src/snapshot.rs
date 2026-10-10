@@ -256,6 +256,9 @@ pub struct ObservedNode {
     pub mail: Option<String>,
     /// Raw `mailNickname` (the Exchange Online `Alias`).
     pub alias: Option<String>,
+    /// `msExchMailboxGuid`, the mailbox's own GUID (Exchange Online keeps it
+    /// as the mailbox's `ExchangeGuid`); `None` = no mailbox, or not read.
+    pub exchange_guid: Option<Guid128>,
 }
 
 /// The Exchange recipient attributes as a source reported them (strings
@@ -315,6 +318,7 @@ impl ObservedNode {
             recipient: None,
             mail: None,
             alias: None,
+            exchange_guid: None,
         }
     }
     /// Group.
@@ -329,6 +333,7 @@ impl ObservedNode {
             recipient: None,
             mail: None,
             alias: None,
+            exchange_guid: None,
         }
     }
 }
@@ -408,6 +413,8 @@ pub struct Population {
     pub(crate) mail_key: Vec<u32>,
     /// `mailNickname` comparison keys (`NONE` = absent).
     pub(crate) alias_key: Vec<u32>,
+    /// `msExchMailboxGuid` ([`Guid128::NIL`] = absent).
+    pub(crate) exchange_guid: Vec<Guid128>,
     /// Owns its addresses ([`is_owner`] of the observed flag and recipient).
     pub(crate) owner: Vec<u64>,
 }
@@ -435,6 +442,7 @@ impl Population {
             rcp_read: vec![0; words_for(n)],
             mail_key: Vec::with_capacity(n),
             alias_key: Vec::with_capacity(n),
+            exchange_guid: Vec::with_capacity(n),
             owner: vec![0; words_for(n)],
         };
         for (i, (id, node)) in nodes.iter().enumerate() {
@@ -462,6 +470,8 @@ impl Population {
             p.smtp_key.push(sk);
             p.mail_key.push(ids(&node.mail, d).1);
             p.alias_key.push(ids(&node.alias, d).1);
+            p.exchange_guid
+                .push(node.exchange_guid.unwrap_or(Guid128::NIL));
             let dn = node.dn.unwrap_or(Dn128::ROOT);
             p.dn.push(dn.bytes());
             p.dn_depth.push(dn.depth() as i32);
