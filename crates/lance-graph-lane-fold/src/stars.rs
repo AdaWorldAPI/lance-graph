@@ -58,7 +58,11 @@ impl Map {
             Landing::Checksum => Star::Proof,
             Landing::Refuse => Star::Refusal,
             Landing::Count | Landing::Sum | Landing::Min | Landing::Max | Landing::Exists => {
-                if self.ops.iter().any(|o| matches!(o, MapOp::RangeSpan { .. })) {
+                if self
+                    .ops
+                    .iter()
+                    .any(|o| matches!(o, MapOp::RangeSpan { .. }))
+                {
                     Star::Span
                 } else if self.ops.iter().any(|o| matches!(o, MapOp::Shift { .. })) {
                     Star::Rail

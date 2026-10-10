@@ -64,8 +64,16 @@ impl Tableau {
     pub fn zero() -> Self {
         Self {
             rows: [
-                Row { r: 0, x: 0, z: 0b01 },
-                Row { r: 0, x: 0, z: 0b10 },
+                Row {
+                    r: 0,
+                    x: 0,
+                    z: 0b01,
+                },
+                Row {
+                    r: 0,
+                    x: 0,
+                    z: 0b10,
+                },
             ],
         }
     }
@@ -93,7 +101,10 @@ impl Tableau {
 
     /// Parity of a Pauli that is already a stabilizer row. `None` if it is not.
     pub fn parity(&self, x: u8, z: u8) -> Option<u8> {
-        self.rows.iter().find(|row| row.x == x && row.z == z).map(|row| row.r)
+        self.rows
+            .iter()
+            .find(|row| row.x == x && row.z == z)
+            .map(|row| row.r)
     }
 }
 
@@ -104,8 +115,16 @@ mod tests {
     #[test]
     fn bell_zz_parity_is_even() {
         let bell = Tableau::zero().h(0).cnot(0, 1);
-        assert_eq!(bell.parity(0b00, 0b11), Some(0), "ZZ even on the Bell state");
-        assert_eq!(bell.parity(0b11, 0b00), Some(0), "XX even on the Bell state");
+        assert_eq!(
+            bell.parity(0b00, 0b11),
+            Some(0),
+            "ZZ even on the Bell state"
+        );
+        assert_eq!(
+            bell.parity(0b11, 0b00),
+            Some(0),
+            "XX even on the Bell state"
+        );
     }
 
     #[test]

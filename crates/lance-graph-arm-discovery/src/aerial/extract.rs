@@ -47,7 +47,7 @@ impl Default for ExtractParams {
         Self {
             theta: u32::MAX,
             max_antecedent: 2,
-            min_support_ppm: 10_000,   // 1%
+            min_support_ppm: 10_000,     // 1%
             min_confidence_ppm: 500_000, // 50%
         }
     }
@@ -95,7 +95,15 @@ pub fn extract_rules(
     for size in 1..=params.max_antecedent {
         for feature_combo in feature_combinations(&candidate_features, size) {
             for antecedent in item_product(&feature_combo, &frequent_by_feature) {
-                probe(oracle, data, &masks, &antecedent, &feature_combo, params, &mut rules);
+                probe(
+                    oracle,
+                    data,
+                    &masks,
+                    &antecedent,
+                    &feature_combo,
+                    params,
+                    &mut rules,
+                );
             }
         }
     }
@@ -220,8 +228,8 @@ mod tests {
     /// in codebook space). Data plants f0 == f1 with a little noise; f2 random.
     fn fixture(noise_every: usize) -> (Dataset, MatrixDistance) {
         let spec = FeatureSpec::new(vec![2, 2, 2]); // dim 6
-        // slots: f0c0=0 f0c1=1 | f1c0=2 f1c1=3 | f2c0=4 f2c1=5
-        // near = 1, mid = 5, far = 50.
+                                                    // slots: f0c0=0 f0c1=1 | f1c0=2 f1c1=3 | f2c0=4 f2c1=5
+                                                    // near = 1, mid = 5, far = 50.
         let near = 1u32;
         let mid = 5u32;
         let far = 50u32;
@@ -247,12 +255,19 @@ mod tests {
         let rows: Vec<Vec<u32>> = (0..600)
             .map(|i| {
                 let a = (i % 2) as u32;
-                let b = if noise_every != 0 && i % noise_every == 0 { 1 - a } else { a };
+                let b = if noise_every != 0 && i % noise_every == 0 {
+                    1 - a
+                } else {
+                    a
+                };
                 let c = ((i / 2) % 2) as u32;
                 vec![a, b, c]
             })
             .collect();
-        (Dataset::new(spec.clone(), rows), MatrixDistance::new(&spec, table))
+        (
+            Dataset::new(spec.clone(), rows),
+            MatrixDistance::new(&spec, table),
+        )
     }
 
     #[test]
@@ -261,7 +276,7 @@ mod tests {
         let params = ExtractParams {
             theta: 2, // codebook prune: only "near" (dist ≤ 2) consequents
             max_antecedent: 1,
-            min_support_ppm: 50_000,    // 5%
+            min_support_ppm: 50_000,     // 5%
             min_confidence_ppm: 700_000, // 70%
         };
         let rules = extract_rules(&dist, &data, &params);
@@ -273,14 +288,16 @@ mod tests {
         assert!(has, "planted f0=0 ⇒ f1=0 not recovered: {rules:#?}");
 
         // feature 2 is codebook-far → pruned by theta → never a consequent of f0
-        let spurious = rules.iter().any(|r| {
-            r.antecedent == vec![Item::new(0, 0)] && r.consequent[0].feature == 2
-        });
+        let spurious = rules
+            .iter()
+            .any(|r| r.antecedent == vec![Item::new(0, 0)] && r.consequent[0].feature == 2);
         assert!(!spurious, "independent feature 2 leaked: {rules:#?}");
 
         let rule = rules
             .iter()
-            .find(|r| r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)])
+            .find(|r| {
+                r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)]
+            })
             .unwrap();
         assert!(rule.confidence_ppm() >= 700_000, "confidence below floor");
     }
@@ -288,10 +305,18 @@ mod tests {
     #[test]
     fn fully_deterministic_no_seed() {
         let (data, dist) = fixture(20);
-        let p = ExtractParams { theta: 2, max_antecedent: 1, min_support_ppm: 50_000, min_confidence_ppm: 700_000 };
+        let p = ExtractParams {
+            theta: 2,
+            max_antecedent: 1,
+            min_support_ppm: 50_000,
+            min_confidence_ppm: 700_000,
+        };
         let a = extract_rules(&dist, &data, &p);
         let b = extract_rules(&dist, &data, &p);
-        assert_eq!(a, b, "codebook probe is bitwise-deterministic by construction");
+        assert_eq!(
+            a, b,
+            "codebook probe is bitwise-deterministic by construction"
+        );
     }
 
     #[test]
@@ -299,7 +324,12 @@ mod tests {
         // With a generous theta the far feature is *tested* (then data-gated);
         // with a tight theta it is pruned before the data even sees it.
         let (data, dist) = fixture(0); // no noise: f1==f0 exactly
-        let tight = ExtractParams { theta: 2, max_antecedent: 1, min_support_ppm: 50_000, min_confidence_ppm: 600_000 };
+        let tight = ExtractParams {
+            theta: 2,
+            max_antecedent: 1,
+            min_support_ppm: 50_000,
+            min_confidence_ppm: 600_000,
+        };
         let rules = extract_rules(&dist, &data, &tight);
         assert!(rules.iter().all(|r| r.consequent[0].feature != 2));
     }

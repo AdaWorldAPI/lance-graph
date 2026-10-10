@@ -174,6 +174,9 @@ mod tests {
     fn item_ordering_is_feature_then_category() {
         let mut items = vec![Item::new(1, 0), Item::new(0, 2), Item::new(0, 1)];
         items.sort();
-        assert_eq!(items, vec![Item::new(0, 1), Item::new(0, 2), Item::new(1, 0)]);
+        assert_eq!(
+            items,
+            vec![Item::new(0, 1), Item::new(0, 2), Item::new(1, 0)]
+        );
     }
 }

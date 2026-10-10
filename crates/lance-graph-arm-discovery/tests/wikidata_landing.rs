@@ -46,19 +46,63 @@ struct WClass {
 
 fn corpus() -> Vec<WClass> {
     vec![
-        WClass { id: 1, qid: "Q215627", etype: 0, dolce: 0, path: &[0x1], props: &["P21", "P569", "P570"] }, // person
-        WClass { id: 2, qid: "Q5", etype: 1, dolce: 0, path: &[0x1, 0x2], props: &["P21", "P569", "P570", "P106"] }, // human ⊂ person (+occupation)
-        WClass { id: 3, qid: "Q515", etype: 2, dolce: 0, path: &[0x3], props: &["P1082", "P625", "P17"] }, // city
-        WClass { id: 4, qid: "Q11424", etype: 3, dolce: 1, path: &[0x0], props: &["P57", "P577", "P161"] }, // film
-        WClass { id: 5, qid: "Q5398426", etype: 4, dolce: 1, path: &[0x1], props: &["P57", "P577", "P161"] }, // tv-series ≡ film
-        WClass { id: 6, qid: "Q1656682", etype: 5, dolce: 1, path: &[0x2], props: &["P585", "P276"] }, // event
+        WClass {
+            id: 1,
+            qid: "Q215627",
+            etype: 0,
+            dolce: 0,
+            path: &[0x1],
+            props: &["P21", "P569", "P570"],
+        }, // person
+        WClass {
+            id: 2,
+            qid: "Q5",
+            etype: 1,
+            dolce: 0,
+            path: &[0x1, 0x2],
+            props: &["P21", "P569", "P570", "P106"],
+        }, // human ⊂ person (+occupation)
+        WClass {
+            id: 3,
+            qid: "Q515",
+            etype: 2,
+            dolce: 0,
+            path: &[0x3],
+            props: &["P1082", "P625", "P17"],
+        }, // city
+        WClass {
+            id: 4,
+            qid: "Q11424",
+            etype: 3,
+            dolce: 1,
+            path: &[0x0],
+            props: &["P57", "P577", "P161"],
+        }, // film
+        WClass {
+            id: 5,
+            qid: "Q5398426",
+            etype: 4,
+            dolce: 1,
+            path: &[0x1],
+            props: &["P57", "P577", "P161"],
+        }, // tv-series ≡ film
+        WClass {
+            id: 6,
+            qid: "Q1656682",
+            etype: 5,
+            dolce: 1,
+            path: &[0x2],
+            props: &["P585", "P276"],
+        }, // event
     ]
 }
 
 // ── hub landing primitives (the REAL merged contract types) ──────────────────
 /// The 16ⁿ Abstammung address: basin (DOLCE facet) + P279 descent.
 fn nibble_path(basin: u8, children: &[u8]) -> NiblePath {
-    children.iter().fold(NiblePath::root(basin), |p, &c| p.child(c))
+    children
+        .iter()
+        .fold(NiblePath::root(basin), |p, &c| p.child(c))
 }
 /// Presence bitmask — one bit per present property.
 fn presence(props: &[&str]) -> FieldMask {
@@ -98,7 +142,12 @@ fn discover_dolce_ids(classes: &[WClass]) -> HashMap<u32, u8> {
     let rules = extract_rules(
         &oracle,
         &data,
-        &ExtractParams { theta: 2, max_antecedent: 1, min_support_ppm: 100_000, min_confidence_ppm: 700_000 },
+        &ExtractParams {
+            theta: 2,
+            max_antecedent: 1,
+            min_support_ppm: 100_000,
+            min_confidence_ppm: 700_000,
+        },
     );
 
     // The proposer emits the stable dolce_id (NOT a hardcoded IRI) — Phase-2 fix.
@@ -119,7 +168,10 @@ fn discover_dolce_ids(classes: &[WClass]) -> HashMap<u32, u8> {
 // failure names the invariant that regressed (repo guideline: prefer focused
 // scenarios over broad integration tests). `find_qid` is the shared lookup.
 fn find_qid<'a>(classes: &'a [WClass], qid: &str) -> &'a WClass {
-    classes.iter().find(|c| c.qid == qid).expect("qid in corpus")
+    classes
+        .iter()
+        .find(|c| c.qid == qid)
+        .expect("qid in corpus")
 }
 
 #[test]
@@ -146,10 +198,19 @@ fn landing_preserves_basin_and_mask() {
     for c in &classes {
         let basin = discovered[&c.etype]; // from DISCOVERY, not hardcoded
         let path = nibble_path(basin, c.path); // contract::hhtl::NiblePath
-        let triple: (ClassId, u32, FieldMask) = (c.id, signature(basin, c.props), presence(c.props));
-        assert_eq!(path.basin(), Some(basin), "basin survives down the nibble path");
+        let triple: (ClassId, u32, FieldMask) =
+            (c.id, signature(basin, c.props), presence(c.props));
+        assert_eq!(
+            path.basin(),
+            Some(basin),
+            "basin survives down the nibble path"
+        );
         assert_eq!(triple.0, c.id);
-        assert_eq!(triple.2.count(), c.props.len() as u32, "one present bit per property");
+        assert_eq!(
+            triple.2.count(),
+            c.props.len() as u32,
+            "one present bit per property"
+        );
         eprintln!(
             "  landed {:>9} → basin {basin} path {:#x} (depth {}) sig {:#010x} mask {:#06b}",
             c.qid,
@@ -165,14 +226,29 @@ fn landing_preserves_basin_and_mask() {
 fn shape_family_collapse() {
     // N4 #1: structurally-identical classes collapse to one StructuralSignature.
     let classes = corpus();
-    let sigs: HashSet<u32> = classes.iter().map(|c| signature(c.dolce, c.props)).collect();
-    assert!(sigs.len() < classes.len(), "shapes must collapse (6 → {})", sigs.len());
+    let sigs: HashSet<u32> = classes
+        .iter()
+        .map(|c| signature(c.dolce, c.props))
+        .collect();
+    assert!(
+        sigs.len() < classes.len(),
+        "shapes must collapse (6 → {})",
+        sigs.len()
+    );
     assert_eq!(sigs.len(), 5, "film ≡ tv-series is the one twin");
     let film = find_qid(&classes, "Q11424");
     let tv = find_qid(&classes, "Q5398426");
-    assert_eq!(signature(1, film.props), signature(1, tv.props), "film ≡ tv-series share one signature");
+    assert_eq!(
+        signature(1, film.props),
+        signature(1, tv.props),
+        "film ≡ tv-series share one signature"
+    );
     let person = find_qid(&classes, "Q215627");
-    assert_ne!(signature(0, person.props), signature(1, film.props), "person ≠ film");
+    assert_ne!(
+        signature(0, person.props),
+        signature(1, film.props),
+        "person ≠ film"
+    );
 }
 
 #[test]
@@ -183,8 +259,15 @@ fn subclass_inherits_path_and_mask() {
     let human = find_qid(&classes, "Q5");
     let person_path = nibble_path(0, person.path);
     let human_path = nibble_path(0, human.path);
-    assert!(person_path.is_ancestor_of(human_path), "person ⊃ human in the nibble tree");
-    assert_eq!(person_path.basin(), human_path.basin(), "subclassing preserves the DOLCE basin");
+    assert!(
+        person_path.is_ancestor_of(human_path),
+        "person ⊃ human in the nibble tree"
+    );
+    assert_eq!(
+        person_path.basin(),
+        human_path.basin(),
+        "subclassing preserves the DOLCE basin"
+    );
     let delta = FieldMask::from_positions(&[3]); // human's extra property (P106) bit
     assert_eq!(
         presence(person.props).inherit(delta), // FieldMask::inherit

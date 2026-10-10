@@ -143,11 +143,35 @@ impl<'a> Query<'a> {
         for req in &self.requests {
             match req {
                 Request::Reduce { hom, lane } => {
-                    push_or_merge(&mut terminals, self.aperture.id, *hom, *lane, 1, 1, &mut collapsed);
+                    push_or_merge(
+                        &mut terminals,
+                        self.aperture.id,
+                        *hom,
+                        *lane,
+                        1,
+                        1,
+                        &mut collapsed,
+                    );
                 }
                 Request::Avg { lane } => {
-                    push_or_merge(&mut terminals, self.aperture.id, Hom::Sum, *lane, 1, 1, &mut collapsed);
-                    push_or_merge(&mut terminals, self.aperture.id, Hom::Count, *lane, 1, 1, &mut collapsed);
+                    push_or_merge(
+                        &mut terminals,
+                        self.aperture.id,
+                        Hom::Sum,
+                        *lane,
+                        1,
+                        1,
+                        &mut collapsed,
+                    );
+                    push_or_merge(
+                        &mut terminals,
+                        self.aperture.id,
+                        Hom::Count,
+                        *lane,
+                        1,
+                        1,
+                        &mut collapsed,
+                    );
                 }
                 Request::Repeat { n } => {
                     let last = terminals.last_mut().ok_or(Refuse::ScaleWithoutTerminal)?;
@@ -178,9 +202,10 @@ fn push_or_merge(
     scale: u32,
     collapsed: &mut u32,
 ) {
-    if let Some(found) = terminals.iter_mut().find(|t| {
-        t.aperture == aperture && t.hom == hom && t.lane == lane && t.scale == scale
-    }) {
+    if let Some(found) = terminals
+        .iter_mut()
+        .find(|t| t.aperture == aperture && t.hom == hom && t.lane == lane && t.scale == scale)
+    {
         found.consumers = found.consumers.saturating_add(consumers);
         *collapsed += consumers;
         return;
@@ -212,9 +237,15 @@ mod tests {
 
     #[test]
     fn a_thousand_sums_lower_to_one() {
-        let best = q(vec![Request::Reduce { hom: Hom::Sum, lane: LaneId(1) }; 1000])
-            .collapse()
-            .unwrap();
+        let best = q(vec![
+            Request::Reduce {
+                hom: Hom::Sum,
+                lane: LaneId(1)
+            };
+            1000
+        ])
+        .collapse()
+        .unwrap();
         assert_eq!(best.remaining, 1);
         assert_eq!(best.terminals[0].consumers, 1000);
         assert_eq!(best.collapsed, 999);
@@ -222,7 +253,9 @@ mod tests {
 
     #[test]
     fn avg_is_a_pair() {
-        let best = q(vec![Request::Avg { lane: LaneId(2) }]).collapse().unwrap();
+        let best = q(vec![Request::Avg { lane: LaneId(2) }])
+            .collapse()
+            .unwrap();
         assert_eq!(best.remaining, 2);
     }
 
