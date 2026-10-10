@@ -6,8 +6,12 @@
 //! Supported: simple bind (anonymous, or name + password checked by the
 //! [`Authority`]), search (base, one-level, subtree; `and`, `or`, `not`,
 //! equality, presence, substrings, `>=`, `<=`, approximate as equality;
-//! attribute selection, `*`, `1.1`, types-only, size limit), the rootDSE,
-//! unbind and abandon. Everything that writes — modify, add, delete,
+//! attribute selection, `*`, `1.1`, types-only, size and time limits), the
+//! rootDSE, unbind and abandon. Ordering (`>=`, `<=`) follows the
+//! attribute: integers numerically, text case-insensitively, binary
+//! Undefined. Filters nest at most [`MAX_FILTER_DEPTH`] deep. No control is
+//! supported: a critical one answers `unavailableCriticalExtension`, a
+//! non-critical one is ignored. Everything that writes — modify, add, delete,
 //! modify DN — and compare and extended operations are answered
 //! `unwillingToPerform`: the emulation never changes. A change to the
 //! directory goes through simulate, validate and plan.
@@ -183,8 +187,12 @@ pub enum ResultCode {
     ProtocolError = 2,
     /// sizeLimitExceeded
     SizeLimitExceeded = 4,
+    /// timeLimitExceeded
+    TimeLimitExceeded = 3,
     /// authMethodNotSupported
     AuthMethodNotSupported = 7,
+    /// unavailableCriticalExtension
+    UnavailableCriticalExtension = 12,
     /// noSuchObject
     NoSuchObject = 32,
     /// invalidCredentials
@@ -346,7 +354,20 @@ enum Filter {
     Unsupported,
 }
 
+/// The deepest filter accepted. A deeper one is malformed: parsing and
+/// evaluation recurse, and an unauthenticated client must not be able to
+/// exhaust the stack.
+pub const MAX_FILTER_DEPTH: usize = 32;
+
 fn parse_filter(t: &Tlv<'_>) -> Result<Filter, LdapError> {
+    parse_filter_at(t, 0)
+}
+
+fn parse_filter_at(t: &Tlv<'_>, depth: usize) -> Result<Filter, LdapError> {
+    if depth >= MAX_FILTER_DEPTH {
+        return Err(LdapError::Malformed);
+    }
+    let sub = |t: &Tlv<'_>| parse_filter_at(t, depth + 1);
     let pair = |t: &Tlv<'_>| -> Result<(String, Vec<u8>), LdapError> {
         let c = children(t.value)?;
         if c.len() != 2 {
@@ -358,13 +379,13 @@ fn parse_filter(t: &Tlv<'_>) -> Result<Filter, LdapError> {
         0xa0 => Filter::And(
             children(t.value)?
                 .iter()
-                .map(parse_filter)
+                .map(sub)
                 .collect::<Result<_, _>>()?,
         ),
         0xa1 => Filter::Or(
             children(t.value)?
                 .iter()
-                .map(parse_filter)
+                .map(sub)
                 .collect::<Result<_, _>>()?,
         ),
         0xa2 => {
@@ -372,7 +393,7 @@ fn parse_filter(t: &Tlv<'_>) -> Result<Filter, LdapError> {
             if c.len() != 1 {
                 return Err(LdapError::Malformed);
             }
-            Filter::Not(Box::new(parse_filter(&c[0])?))
+            Filter::Not(Box::new(sub(&c[0])?))
         }
         0xa3 | 0xa8 => {
             let (a, v) = pair(t)?;
@@ -413,6 +434,32 @@ fn parse_filter(t: &Tlv<'_>) -> Result<Filter, LdapError> {
         0xa9 => Filter::Unsupported,
         _ => return Err(LdapError::Malformed),
     })
+}
+
+fn is_integer(attr: &str) -> bool {
+    matches!(attr, "useraccountcontrol" | "supportedldapversion")
+}
+
+/// `>=` / `<=` by the attribute's ordering rule: integers numerically, text
+/// case-insensitively. A binary attribute has no ordering rule, and an
+/// assertion value that is not an integer for an integer attribute is
+/// invalid: both are Undefined.
+fn order(
+    attr: &str,
+    v: &[u8],
+    vals: Vec<Vec<u8>>,
+    keep: impl Fn(std::cmp::Ordering) -> bool,
+) -> Option<bool> {
+    if is_binary(attr) {
+        return None;
+    }
+    if is_integer(attr) {
+        let num = |b: &[u8]| std::str::from_utf8(b).ok()?.parse::<i64>().ok();
+        let v = num(v)?;
+        return Some(vals.iter().filter_map(|x| num(x)).any(|x| keep(x.cmp(&v))));
+    }
+    let v = fold(attr, v);
+    Some(vals.iter().any(|x| keep(x.as_slice().cmp(v.as_slice()))))
 }
 
 fn is_binary(attr: &str) -> bool {
@@ -480,14 +527,8 @@ fn eval(f: &Filter, e: &Entry, readable: &dyn Fn(&str) -> bool) -> Option<bool> 
             let v = fold(a, v);
             Some(vals(a)?.contains(&v))
         }
-        Filter::Ge(a, v) => {
-            let v = fold(a, v);
-            Some(vals(a)?.iter().any(|x| *x >= v))
-        }
-        Filter::Le(a, v) => {
-            let v = fold(a, v);
-            Some(vals(a)?.iter().any(|x| *x <= v))
-        }
+        Filter::Ge(a, v) => order(a, v, vals(a)?, |o| o.is_ge()),
+        Filter::Le(a, v) => order(a, v, vals(a)?, |o| o.is_le()),
         Filter::Sub {
             attr,
             initial,
@@ -516,6 +557,22 @@ fn eval(f: &Filter, e: &Entry, readable: &dyn Fn(&str) -> bool) -> Option<bool> 
         }
         Filter::Unsupported => None,
     }
+}
+
+/// Whether a `controls` element carries a control marked critical.
+fn has_critical(ctrls: &Tlv<'_>) -> Result<bool, LdapError> {
+    for ctrl in children(ctrls.value)? {
+        let f = children(ctrl.value)?;
+        if ctrl.tag != 0x30 || f.is_empty() || f[0].tag != 0x04 {
+            return Err(LdapError::Malformed);
+        }
+        if f.get(1)
+            .is_some_and(|b| b.tag == 0x01 && b.value.first().is_some_and(|&x| x != 0))
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn result(id: i64, op: u8, code: ResultCode, msg: &str) -> Vec<u8> {
@@ -564,7 +621,7 @@ impl<'a, P: Authority> Server<'a, P> {
             return Err(LdapError::Malformed);
         }
         let c = children(m.value)?;
-        if c.len() < 2 || c[0].tag != 0x02 {
+        if !(2..=3).contains(&c.len()) || c[0].tag != 0x02 {
             return Err(LdapError::Malformed);
         }
         let id = int(&c[0])?;
@@ -572,6 +629,41 @@ impl<'a, P: Authority> Server<'a, P> {
             return Err(LdapError::Malformed);
         }
         let op = c[1];
+        // No control is supported: a critical one refuses the operation
+        // (RFC 4511 §4.1.11); a non-critical one is ignored.
+        if let Some(ctrls) = c.get(2) {
+            if ctrls.tag != 0xa0 {
+                return Err(LdapError::Malformed);
+            }
+            if has_critical(ctrls)? {
+                let resp = match op.tag {
+                    0x60 => Some(0x61),
+                    0x63 => Some(0x65),
+                    0x66 => Some(0x67),
+                    0x68 => Some(0x69),
+                    0x4a => Some(0x6b),
+                    0x6c => Some(0x6d),
+                    0x6e => Some(0x6f),
+                    0x77 => Some(0x78),
+                    0x42 | 0x50 => None,
+                    _ => return Err(LdapError::Malformed),
+                };
+                if op.tag == 0x42 {
+                    s.closed = true;
+                }
+                return Ok(resp
+                    .map(|r| {
+                        result(
+                            id,
+                            r,
+                            ResultCode::UnavailableCriticalExtension,
+                            "critical control not supported",
+                        )
+                    })
+                    .into_iter()
+                    .collect());
+            }
+        }
         Ok(match op.tag {
             0x60 => vec![self.bind(s, id, &op)?],
             0x42 => {
@@ -653,6 +745,9 @@ impl<'a, P: Authority> Server<'a, P> {
         let base = text(&c[0])?;
         let scope = int(&c[1])?;
         let size_limit = int(&c[3])?;
+        let time_limit = int(&c[4])?;
+        let deadline = (time_limit > 0)
+            .then(|| std::time::Instant::now() + std::time::Duration::from_secs(time_limit as u64));
         let types_only = c[5].value.first().is_some_and(|&b| b != 0);
         let filter = parse_filter(&c[6])?;
         let requested: Vec<String> = children(c[7].value)?
@@ -687,7 +782,7 @@ impl<'a, P: Authority> Server<'a, P> {
         let base_ok = self
             .dir
             .all()
-            .any(|(k, e)| *k == base_key && (e.node.is_none() || self.authority.visible(actor, e)));
+            .any(|(k, e)| *k == base_key && self.authority.visible(actor, e));
         if !base_ok {
             return Ok(vec![done(ResultCode::NoSuchObject, "")]);
         }
@@ -699,6 +794,10 @@ impl<'a, P: Authority> Server<'a, P> {
         let mut out = Vec::new();
         let mut sent = 0i64;
         for (k, e) in self.dir.all() {
+            if deadline.is_some_and(|d| std::time::Instant::now() >= d) {
+                out.push(done(ResultCode::TimeLimitExceeded, ""));
+                return Ok(out);
+            }
             if !in_scope(k) || !self.authority.visible(actor, e) {
                 continue;
             }

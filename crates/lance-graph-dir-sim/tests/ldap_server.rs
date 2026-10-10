@@ -44,7 +44,8 @@ fn directory() -> Directory {
     Directory::new(p, NC).unwrap()
 }
 
-/// `admin` sees everything; `erika` sees OUs, the domain and her own user,
+/// `admin` sees everything; `erika` sees the domain, the OUs except the
+/// synthetic container, and her own user,
 /// and never reads `proxyAddresses`.
 struct Iam;
 impl Authority for Iam {
@@ -57,7 +58,9 @@ impl Authority for Iam {
         }
     }
     fn visible(&self, a: &&'static str, e: &Entry) -> bool {
-        *a == "admin" || e.node.is_none() || e.node == Some(g(ERIKA))
+        *a == "admin"
+            || (e.node.is_none() && !e.dn.starts_with("OU=Cloud Only"))
+            || e.node == Some(g(ERIKA))
     }
     fn readable(&self, a: &&'static str, _: &Entry, name: &str) -> bool {
         *a == "admin" || !name.eq_ignore_ascii_case("proxyAddresses")
@@ -385,6 +388,16 @@ fn iam_filters_entries_and_attributes() {
         search(4, &hidden, 0, 0, present("objectClass"), &[]),
     );
     assert_eq!((dns(&r).len(), done(&r)), (0, 32));
+    // A hidden container is missing too, as a base of any scope.
+    let ou = format!("OU=Cloud Only (emulated),{NC}");
+    for scope in [0, 2] {
+        let r = run(
+            &srv,
+            &mut s,
+            search(5, &ou, scope, 0, present("objectClass"), &[]),
+        );
+        assert_eq!((dns(&r).len(), done(&r)), (0, 32));
+    }
 }
 
 #[test]
@@ -437,4 +450,114 @@ fn framing_unbind_and_malformed_requests() {
     assert_eq!(out.len(), 1);
     assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
     assert!(s.closed());
+}
+
+fn ge(a: &str, v: &str) -> Vec<u8> {
+    let mut b = tlv(0x04, a.as_bytes());
+    b.extend(tlv(0x04, v.as_bytes()));
+    tlv(0xa5, &b)
+}
+fn le(a: &str, v: &str) -> Vec<u8> {
+    let mut b = tlv(0x04, a.as_bytes());
+    b.extend(tlv(0x04, v.as_bytes()));
+    tlv(0xa6, &b)
+}
+
+// Ordering follows the attribute: integers numerically (512 < 1000, which
+// text order gets wrong), binary values and non-numbers Undefined.
+#[test]
+fn ordering_follows_the_attribute() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    for (f, n) in [
+        (ge("userAccountControl", "1000"), 0),
+        (ge("userAccountControl", "500"), 2),
+        (le("userAccountControl", "1000"), 2),
+        (le("userAccountControl", "99"), 0),
+        (ge("userAccountControl", "abc"), 0),
+        (not(ge("userAccountControl", "abc")), 0),
+        (ge("objectGUID", "\0"), 0),
+        (ge("userPrincipalName", "D"), 1),
+    ] {
+        let r = run(&srv, &mut s, search(2, NC, 2, 0, f, &["1.1"]));
+        assert_eq!((dns(&r).len(), done(&r)), (n, 0));
+    }
+}
+
+#[test]
+fn deep_filters_are_refused_before_they_recurse() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let nest = |n: usize| (0..n).fold(present("objectClass"), |f, _| not(f));
+    // Within the limit: answered normally (anonymous, so operationsError).
+    let mut s = Session::default();
+    let r = run(&srv, &mut s, search(1, NC, 2, 0, nest(31), &[]));
+    assert_eq!(done(&r), 1);
+    assert!(!s.closed());
+    // Beyond it: malformed, notice of disconnection, session closed.
+    let mut s = Session::default();
+    let out = srv.handle(&mut s, &search(1, NC, 2, 0, nest(5000), &[]));
+    assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
+    assert!(s.closed());
+}
+
+fn with_control(pdu: Vec<u8>, critical: bool) -> Vec<u8> {
+    let (_, body, _) = read(&pdu);
+    let mut ctrl = tlv(0x04, b"1.2.840.113556.1.4.319");
+    ctrl.extend(tlv(0x01, &[if critical { 0xff } else { 0 }]));
+    let mut b = body.to_vec();
+    b.extend(tlv(0xa0, &tlv(0x30, &ctrl)));
+    tlv(0x30, &b)
+}
+
+#[test]
+fn critical_controls_are_refused_and_others_ignored() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let q = || search(2, NC, 2, 0, present("objectClass"), &["1.1"]);
+    let r = run(&srv, &mut s, with_control(q(), true));
+    assert_eq!(r, [Resp::Done { op: 0x65, code: 12 }]);
+    let r = run(&srv, &mut s, with_control(q(), false));
+    assert_eq!((dns(&r).len(), done(&r)), (5, 0));
+    let r = run(
+        &srv,
+        &mut s,
+        with_control(bind(3, "admin@example.de", b"pw"), true),
+    );
+    assert_eq!(r, [Resp::Done { op: 0x61, code: 12 }]);
+}
+
+/// Sees everything, slowly.
+struct Slow;
+impl Authority for Slow {
+    type Actor = ();
+    fn bind(&self, _: &str, _: &[u8]) -> Option<()> {
+        Some(())
+    }
+    fn visible(&self, _: &(), _: &Entry) -> bool {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        true
+    }
+}
+
+#[test]
+fn the_time_limit_is_honoured() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Slow);
+    let mut s = Session::default();
+    srv.handle(&mut s, &bind(1, "x", b"y"));
+    let mut q = search(2, NC, 2, 0, present("objectClass"), &["1.1"]);
+    // sizeLimit, timeLimit, typesOnly: set timeLimit (the middle INTEGER) to 1 s.
+    let pos = q
+        .windows(9)
+        .position(|w| w == [0x02, 1, 0, 0x02, 1, 0, 0x01, 1, 0])
+        .unwrap();
+    q[pos + 5] = 1;
+    let r: Vec<Resp> = srv.handle(&mut s, &q).iter().map(|p| decode(p).1).collect();
+    assert_eq!(done(&r), 3);
+    assert!(dns(&r).len() < 5);
 }
