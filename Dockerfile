@@ -1,6 +1,6 @@
 # lance-graph — Railway compile-test image (AVX2 default)
 # Verifies the workspace builds cleanly (core + bgz17 + planner + contract)
-# Requires Rust 1.98.1 (LazyLock, modern std APIs)
+# Requires Rust 1.99.0 (LazyLock, modern std APIs)
 #
 # CPU detection & SIMD dispatch documentation: see Dockerfile.md
 # AVX-512 pinned variant: see Dockerfile.avx512
@@ -16,13 +16,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler cmake \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust 1.98.1 via rustup
+# Install Rust 1.99.0 via rustup
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-    sh -s -- -y --default-toolchain 1.98.1 --profile minimal \
-    && rustc --version | grep -q "1.98.1"
+    sh -s -- -y --default-toolchain 1.99.0 --profile minimal \
+    && rustc --version | grep -q "1.99.0"
 
 WORKDIR /app
 
@@ -69,4 +69,4 @@ RUN cargo test --release \
 # Minimal runtime image
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
-CMD ["echo", "lance-graph build verified — Rust 1.98.1"]
+CMD ["echo", "lance-graph build verified — Rust 1.99.0"]

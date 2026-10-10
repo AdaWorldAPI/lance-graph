@@ -24,7 +24,7 @@
 // that the loops walk ONE source list.
 #![allow(clippy::needless_range_loop)]
 
-use std::f64::consts::TAU;
+use std::f64::consts::{GOLDEN_RATIO, TAU};
 use std::hint::black_box;
 use std::time::Instant;
 
@@ -358,7 +358,7 @@ fn recurrence(steps: usize) {
     println!("\n== Wankel trajectory, {steps} steps of Δθ = 2π/4096·φ (recurrence; error at the last step and max) ==");
     let w = Wankel { r: 100.0, e: 14.0 };
     // An irrational step, so the trajectory never revisits a phase exactly.
-    let dth = TAU / 4096.0 * 1.618_033_988_749_895;
+    let dth = TAU / 4096.0 * GOLDEN_RATIO;
     let reference = |n: usize| w.apex_ref(n as f64 * dth, 0);
 
     // f64 and f32 recurrences, renormalising every `every` steps (0 = never).
