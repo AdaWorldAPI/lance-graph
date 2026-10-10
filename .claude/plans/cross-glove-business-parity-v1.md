@@ -775,3 +775,31 @@ Any entry that fails one of the four points is `Hypothesized` by definition. In 
   - the canonical attribute URIs (§C.5);
   - an Odoo population binder for cross-glove algebra parity (step 2, not built);
   - SAP behavior parity, still UNPROVEN.
+
+### C.9 Lockstep is deprecated: everything plugs through `hotplug.rs` (operator, 2026-10-10)
+
+> **⊘ This supersedes the lockstep framing in §0.1, §6, §10.1, §C.5 and §C.8 ("next free `APP_PREFIX`", "who mints the canonical attribute URIs").**
+> Those questions assumed paired OGAR + contract-mirror allocations made in step. That pattern is deprecated. A consumer declares what it plugs; the authority resolves it.
+
+**The pattern, as read in source** (`lance-graph-contract/src/hotplug.rs:1-48,50-62,700-705`; authority `lance-graph-ogar/src/lib.rs:535`; reference consumer `HubSPO-rs/crates/hubspo-port/src/lib.rs`):
+
+- The consumer declares one `HotPlug { consumer, classids, covered }` const, and an `RbacPlug` when it has roles. Both take canonical concept ids read from `ogar_vocab::class_ids`, never literals.
+- `OgarAuthority::activate` resolves the plug into an `Activation`: concepts, capabilities and a storage reading per plugged id. It fails closed with a named `ActivationDrift`.
+- The app prefix never enters a plug. A consumer composes `concept << 16 | its prefix` itself for rendering, so the prefix is not a gate for parity work.
+- Field identity is the authority's `ClassView` of the concept, by position and `predicate_iri` (`ogar-class-view/src/lib.rs:345-357`). It is not a separately minted URI list.
+
+**What this changes, measured at OGAR `main` `7aaf824`:**
+
+1. **The canonical basis for `0x0103` already exists.** It is OGAR's promoted `BillableWorkEntry` (`ogar-vocab/src/lib.rs:3515`), lifted by `ogar-class-view` (`lib.rs:79,197`). Its fields in `ClassView` order:
+   - field 0 is the attribute `billable` (boolean);
+   - fields 1-12 are the family edges `project → Project`, `about → ProjectWorkItem`, `performed_by → Worker`, `duration → Duration`, `priced_by → RatePolicy`, `cost_center → CostCenter`, `classified_by → TaxPolicy`, `materializes_as → InvoiceLineCandidate`, `approval_state → ApprovalState`, `tenant → Tenant`, `audit_trail → AuditTrail`, `posted_by → PostingAction`.
+
+   D-XGP-2 therefore mints nothing. Each glove maps its native fields onto these 13 positions.
+2. **Gap: the class has no temporal role.** There is no work date and no period. The date-range half of probe Q1 (`work_day`) therefore has no canonical field to bind to. Adding one is an OGAR change to the promoted class, made by the authority. It is not a consumer-side mint, and this plan does not make it.
+3. **Most canonical fields are edges, not scalars.** `performed_by`, `duration`, `tenant` and `approval_state` point to other concepts. Mapping CATS `employee_number` (a PERNR code) onto `performed_by` binds the code lane of an edge. Mapping `hours_logged` onto `duration → Duration` needs the `Duration` concept's own reading of a quantity. Those mappings are `Converted` only under §C.6.2, and `Hypothesized` until then.
+4. **No capability table covers `0x0103`.** The domain tables are OCR, geo, healthcare and document (`ogar-vocab/src/capability_registry.rs:193-209`). A SAP or Odoo `HotPlug` on `BILLABLE_WORK_ENTRY` therefore activates as `NoCapabilitiesFor(0x0103)`. HubSPO pins the same state in a test: capabilities are declared only once the consumer implements them.
+5. **The fixtures in `lance-graph-glove-parity` must follow the authority.** The test basis `ogar.GloveFixture:{worker,workDay,quantity,activity,costAmount}` does not match `BillableWorkEntry`. The next probe step binds through the authority's `ClassView` field names instead, and keeps only the binder mechanics proven so far.
+
+**Revised D-XGP-2:** declare the SAP and Odoo plugs (`HotPlug` consts) in a crate that sees OGAR, pinning today's `NoCapabilitiesFor` the way HubSPO does. Then map CATS and Odoo native fields onto the 13 `BillableWorkEntry` positions, each graded per §C.6.2. `lance-graph-sap` stays OGAR-free.
+
+**Open for the operator:** whether `BillableWorkEntry` gains a temporal role (work date / period), and of which kind. That is an OGAR authority change.
