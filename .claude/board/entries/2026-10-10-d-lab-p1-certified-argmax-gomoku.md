@@ -30,7 +30,8 @@ Savings grow with branching, as expected for cutoffs. Overhead: one
 comparison per evaluated reply. Abstentions: none (an exact search never
 abstains; it only skips).
 
-Disable run: cutting at `U ≤ L + 1` (unsound by one) → the test fails on
+CI: the probe is `test = true` and runs under rust-test.yml's shader-driver
+step. Disable run: cutting at `U ≤ L + 1` (unsound by one) → the test fails on
 k = 4/4 with a changed pick. Pinned fold counts are exact (deterministic
 corpus).
 
@@ -46,6 +47,6 @@ That swap is the first lab arm to measure, not an edit made here.
 ```
 PR (this) | STATUS: measured | OUTCOME: deterministic certified argmax on
 Gomoku minimax: identical picks on 400 positions, 36-61% fewer folds; unsound
-cut changes a pick | OPEN: probe not in CI; recipes still call minimax; no
+cut changes a pick | OPEN: recipes still call minimax by default; no
 certificate yet for statistical (sampled) values
 ```
