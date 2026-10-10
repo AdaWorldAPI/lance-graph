@@ -234,3 +234,106 @@ fn the_cloud_never_revives_a_non_recipient() {
     assert!(!c.delivers_to(&st.view(v).unwrap(), &g(USER)));
     assert_eq!(answers(&st, v, &c), (None, None, None));
 }
+
+// ── ExchangeGuid: the mailbox's immutable identity, on both sides ──────────
+
+/// The Exchange Online mailbox's `ExchangeGuid`.
+const CLOUD_BOX: Guid128 = Guid128([0xC1; 16]);
+/// A different `ExchangeGuid`.
+const OTHER_BOX: Guid128 = Guid128([0xC2; 16]);
+
+/// The remote mailbox with its on-premises `msExchMailboxGuid`.
+fn remote_with(exchange_guid: Option<Guid128>) -> (VersionStore, VersionId) {
+    let mut u = user(true);
+    u.exchange_guid = exchange_guid;
+    observe(u)
+}
+
+/// The full chain, with the cloud mailbox's `ExchangeGuid` read by
+/// `ExternalDirectoryObjectId`.
+fn chained(cloud_guids: &[(Guid128, Guid128)]) -> CloudMailboxes {
+    cloud(Some(g(ENTRA)), &[(g(ENTRA), g(ANCHOR))], &[g(ENTRA)]).with_exchange_guids(cloud_guids)
+}
+
+// `Enable-RemoteMailbox` leaves `msExchMailboxGuid` empty until backsync
+// fills it: mail is delivered, but the mailbox cannot be migrated.
+#[test]
+fn an_empty_on_premises_exchange_guid_awaits_backsync() {
+    let c = chained(&[(g(ENTRA), CLOUD_BOX)]);
+    let (st, v) = remote_with(None);
+    let view = st.view(v).unwrap();
+    let state = c.mailbox_guid(&view, &g(USER));
+    assert_eq!(state, MailboxGuid::AwaitingBacksync { cloud: CLOUD_BOX });
+    assert!(!state.migratable());
+    assert!(c.delivers_to(&view, &g(USER)));
+}
+
+// Both sides carry the same ExchangeGuid: the only migratable state.
+#[test]
+fn a_matching_exchange_guid_is_migratable() {
+    let c = chained(&[(g(ENTRA), CLOUD_BOX)]);
+    let (st, v) = remote_with(Some(CLOUD_BOX));
+    let view = st.view(v).unwrap();
+    let state = c.mailbox_guid(&view, &g(USER));
+    assert_eq!(state, MailboxGuid::Matched(CLOUD_BOX));
+    assert!(state.migratable());
+    assert!(c.delivers_to(&view, &g(USER)));
+}
+
+// A different on-premises value blocks provisioning the cloud mailbox:
+// nothing is delivered and nothing can be migrated, although the chain to
+// the cloud mailbox holds.
+#[test]
+fn a_mismatched_exchange_guid_blocks_the_cloud_mailbox() {
+    let c = chained(&[(g(ENTRA), CLOUD_BOX)]);
+    assert!(c.contains(&g(USER)));
+    let (st, v) = remote_with(Some(OTHER_BOX));
+    let view = st.view(v).unwrap();
+    let state = c.mailbox_guid(&view, &g(USER));
+    assert_eq!(
+        state,
+        MailboxGuid::Mismatch {
+            on_premises: OTHER_BOX,
+            cloud: CLOUD_BOX
+        }
+    );
+    assert!(!state.migratable());
+    assert!(!c.delivers_to(&view, &g(USER)));
+    assert_eq!(answers(&st, v, &c), (Some(g(USER)), Some(g(USER)), None));
+}
+
+// Not read, or read ambiguously (one ExternalDirectoryObjectId, two
+// values), is not a verdict: delivery stays as the fold decides, and no
+// migration is claimed.
+#[test]
+fn an_unread_or_ambiguous_cloud_exchange_guid_decides_nothing() {
+    let (st, v) = remote_with(Some(OTHER_BOX));
+    let view = st.view(v).unwrap();
+    for c in [
+        chained(&[]),
+        chained(&[(g(ENTRA), CLOUD_BOX), (g(ENTRA), OTHER_BOX)]),
+        chained(&[(g(OTHER_ENTRA), CLOUD_BOX)]),
+    ] {
+        assert_eq!(c.mailbox_guid(&view, &g(USER)), MailboxGuid::CloudUnread);
+        assert!(c.delivers_to(&view, &g(USER)));
+    }
+}
+
+// The comparison applies to remote mailboxes only, and needs the cloud
+// mailbox to exist.
+#[test]
+fn the_exchange_guid_comparison_needs_a_remote_mailbox_in_the_cloud() {
+    let c = chained(&[(g(ENTRA), CLOUD_BOX)]);
+    let (st, v) = observe(user(false));
+    assert_eq!(
+        c.mailbox_guid(&st.view(v).unwrap(), &g(USER)),
+        MailboxGuid::NotRemote
+    );
+    let none = cloud(Some(g(ENTRA)), &[(g(ENTRA), g(ANCHOR))], &[])
+        .with_exchange_guids(&[(g(ENTRA), CLOUD_BOX)]);
+    let (st, v) = remote_with(Some(CLOUD_BOX));
+    assert_eq!(
+        none.mailbox_guid(&st.view(v).unwrap(), &g(USER)),
+        MailboxGuid::NoCloudMailbox
+    );
+}
