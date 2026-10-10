@@ -33,6 +33,7 @@ fn bare(kind: NodeKind) -> ObservedNode {
         mail: None,
         alias: None,
         exchange_guid: None,
+        security: None,
     }
 }
 fn population(users: u32, groups: u32) -> Observation {

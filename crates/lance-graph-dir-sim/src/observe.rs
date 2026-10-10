@@ -45,6 +45,8 @@ const UAC_ACCOUNTDISABLE: u32 = 0x2;
 const RECIPIENT_SCHEMA: u16 = 2;
 /// The first `ogar-ad` schema version that carries `msExchMailboxGuid`.
 const EXCHANGE_GUID_SCHEMA: u16 = 6;
+/// The first `ogar-ad` schema version that carries `groupType`.
+const GROUP_TYPE_SCHEMA: u16 = 7;
 
 /// `targetAddress` without its `SMTP:` prefix (any case); other address
 /// types are kept whole.
@@ -166,6 +168,9 @@ pub fn from_ad(
                 exchange_guid: (r.schema().version >= EXCHANGE_GUID_SCHEMA)
                     .then(|| r.guid(slot("msExchMailboxGuid")))
                     .flatten(),
+                security: (kind == NodeKind::Group && r.schema().version >= GROUP_TYPE_SCHEMA)
+                    .then(|| r.num(slot("groupType")).map(ogar_ad::is_security_enabled))
+                    .flatten(),
                 recipient: (r.schema().version >= RECIPIENT_SCHEMA).then(|| ObservedRecipient {
                     remote_recipient_type: r.num(slot("msExchRemoteRecipientType")),
                     display_type: r.num(slot("msExchRecipientDisplayType")).map(|n| n as i32),
@@ -282,6 +287,7 @@ pub fn from_graph(
                 mail: text(r, "mail"),
                 alias: text(r, "mailNickname"),
                 exchange_guid: None,
+                security: None,
             },
         ));
     }

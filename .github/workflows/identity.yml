@@ -142,6 +142,11 @@ jobs:
           framing_unbind_and_malformed_requests
           an_administrator_sees_the_emulated_tree_marked
           a_disabled_shared_mailbox_still_receives
+          the_security_flag_is_kept_as_read
+          the_security_closure_walks_only_security_groups
+          the_delivery_closure_walks_mail_enabled_groups
+          a_version_s_memberships_are_followed
+          ad_group_type_sets_the_flag
           departure_by_conversion_to_shared_keeps_the_mailbox
           an_unknown_lifecycle_is_not_a_recipient
           casing_does_not_change_the_identity

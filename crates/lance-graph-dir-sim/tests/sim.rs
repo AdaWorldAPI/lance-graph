@@ -435,6 +435,7 @@ fn t14_membership_validation_reads_no_attributes() {
         mail: None,
         alias: None,
         exchange_guid: None,
+        security: None,
     };
     let obs = Observation {
         scope: SCOPE,
