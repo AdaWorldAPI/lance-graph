@@ -1,7 +1,7 @@
 //! OCR contract. Zero-dep.
 
 use crate::canonical_node::{
-    classid_read_mode, EdgeBlock, NodeGuid, NodeRow, ValueTenant, VALUE_SLAB_LEN,
+    classid_read_mode, EdgeBlock, NodeGuid, NodeRow, ReadMode, ValueTenant, VALUE_SLAB_LEN,
 };
 use core::future::Future;
 
@@ -99,10 +99,17 @@ impl<'a> LayoutBlock<'a> {
     /// geometry live in an external content store keyed by `identity`). The node
     /// is the *identity that points to* the OCR content, never the content's
     /// register.
-    ///
-    /// [`ReadMode`]: crate::canonical_node::ReadMode
     pub fn to_node_row(&self, classid: u32, identity: u32) -> NodeRow {
-        let schema = classid_read_mode(classid).value_schema;
+        self.to_node_row_with(classid, identity, classid_read_mode(classid))
+    }
+
+    /// [`to_node_row`](Self::to_node_row) with the reading supplied by the
+    /// caller, resolved from its plug (`Activation::read_mode_for` /
+    /// `Activation::resolve_for_context`) rather than looked up by classid.
+    /// This is the form new code uses (plan `v3-mandatory-hotplug-reading-v1`,
+    /// D-HPR-1); the classid lookup in `to_node_row` is legacy.
+    pub fn to_node_row_with(&self, classid: u32, identity: u32, mode: ReadMode) -> NodeRow {
+        let schema = mode.value_schema;
         let mut value = [0u8; VALUE_SLAB_LEN];
 
         if schema.has(ValueTenant::EntityType) {
@@ -121,7 +128,7 @@ impl<'a> LayoutBlock<'a> {
             // drives the key layout — never a hardcoded `new` (ISS-V1-TAIL-RESIDUE).
             // Minting HEEL/HIP/TWIG + family is the OGAR follow-up.
             key: NodeGuid::mint_for(
-                classid_read_mode(classid).tail_variant,
+                mode.tail_variant,
                 classid,
                 0,
                 0,
@@ -288,5 +295,47 @@ mod tests {
         }
         // Both presets are layout-preserving — riding either needs no ENVELOPE_LAYOUT_VERSION bump.
         assert!(compressed.is_layout_preserving() && full.is_layout_preserving());
+    }
+
+    /// D-HPR-1: `to_node_row_with` mints with the tail and value schema it is
+    /// handed. The classid is unknown to the lookup, which would answer the
+    /// V1 / Full default; the handed reading is V3 / Bootstrap. Gated: minting
+    /// a V3 tail needs the tail feature (`mint_for` refuses it otherwise).
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn to_node_row_with_follows_the_handed_reading() {
+        use crate::canonical_node::{classid_read_mode, EdgeCodecFlavor, TailVariant};
+        let classid = 0x1718_0000;
+        let looked_up = classid_read_mode(classid);
+        assert_eq!(looked_up.value_schema, ValueSchema::Full);
+        let mode = ReadMode {
+            tail_variant: TailVariant::V3,
+            value_schema: ValueSchema::Bootstrap,
+            edge_codec: EdgeCodecFlavor::CoarseOnly,
+        };
+        let blk = heading("Invoice", 0.97);
+        let row = blk.to_node_row_with(classid, 0x42, mode);
+        assert_eq!(
+            row.key,
+            NodeGuid::mint_for(
+                TailVariant::V3,
+                classid,
+                0,
+                0,
+                0,
+                0,
+                NodeGuid::FAMILY_DEFAULT,
+                0x42
+            )
+        );
+        assert!(
+            row.value.iter().all(|&b| b == 0),
+            "Bootstrap writes no tenant"
+        );
+        let legacy = blk.to_node_row(classid, 0x42);
+        assert!(
+            legacy.value.iter().any(|&b| b != 0),
+            "the lookup's Full schema writes tenants"
+        );
     }
 }
