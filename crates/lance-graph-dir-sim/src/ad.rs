@@ -141,7 +141,8 @@ pub struct Projection {
     pub dangling_members: usize,
 }
 
-/// Escape one RDN value (RFC 4514 §2.4).
+/// Escape one RDN value (RFC 4514 §2.4): the special characters with a
+/// backslash, every control character as `\HH`.
 pub fn escape_rdn_value(v: &str) -> String {
     let mut out = String::with_capacity(v.len());
     let last = v.chars().count().saturating_sub(1);
@@ -153,7 +154,13 @@ pub fn escape_rdn_value(v: &str) -> String {
             }
             '#' if i == 0 => out.push_str("\\#"),
             ' ' if i == 0 || i == last => out.push_str("\\ "),
-            '\0' => out.push_str("\\00"),
+            // Every control character, NUL and DEL included, as hex pairs.
+            c if c.is_control() => {
+                let mut buf = [0u8; 4];
+                for b in c.encode_utf8(&mut buf).bytes() {
+                    out.push_str(&format!("\\{b:02X}"));
+                }
+            }
             _ => out.push(c),
         }
     }

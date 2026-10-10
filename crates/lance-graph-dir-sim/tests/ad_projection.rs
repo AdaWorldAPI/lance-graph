@@ -222,6 +222,11 @@ fn rdn_values_are_escaped() {
         ("x=y;z", "x\\=y\\;z"),
         ("Cloud Only (emulated)", "Cloud Only (emulated)"),
         ("Müller", "Müller"),
+        ("a\0b", "a\\00b"),
+        ("tab\there", "tab\\09here"),
+        ("line\nbreak\r", "line\\0Abreak\\0D"),
+        ("del\u{7f}", "del\\7F"),
+        ("c1\u{85}", "c1\\C2\\85"),
     ] {
         assert_eq!(escape_rdn_value(raw), want, "{raw}");
     }
