@@ -274,6 +274,7 @@ fn unsafe_values_are_base64_and_long_lines_fold() {
     let h = dict.intern(&[ou.as_str()]).unwrap();
     let mut u = ObservedNode::user("m@x", "m@x");
     u.dn = Some(Dn128::from_ou_hhtl(&h).unwrap());
+    u.active = None;
     let mut st = VersionStore::new();
     let v = st
         .observe(
@@ -287,6 +288,8 @@ fn unsafe_values_are_base64_and_long_lines_fold() {
         )
         .unwrap();
     let p = project(&st.view(v).unwrap(), Source::Ad, NC, &dict).unwrap();
+    // An unknown enabled flag is not guessed.
+    assert!(p.entries[1].text("userAccountControl").is_empty());
     let ldif = to_ldif(&p);
     let ou_dn = format!("OU={ou},{NC}");
     let unfolded = ldif.replace("\n ", "");
