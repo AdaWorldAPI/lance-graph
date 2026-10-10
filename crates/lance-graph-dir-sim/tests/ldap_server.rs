@@ -645,7 +645,9 @@ fn the_time_limit_holds_for_the_last_candidate() {
     let srv = Server::new(&dir, &Slow(600));
     let mut s = Session::default();
     srv.handle(&mut s, &bind(1, "x", b"y"));
-    let q = with_time_limit(search(2, NC, 0, 0, present("objectClass"), &["1.1"]), 1);
+    // The base is the last entry, so no later loop iteration rechecks.
+    let last = format!("CN={CLOUD},OU=Cloud Only (emulated),{NC}");
+    let q = with_time_limit(search(2, &last, 0, 0, present("objectClass"), &["1.1"]), 1);
     let r: Vec<Resp> = srv.handle(&mut s, &q).iter().map(|p| decode(p).1).collect();
     assert_eq!(done(&r), 3);
 }
