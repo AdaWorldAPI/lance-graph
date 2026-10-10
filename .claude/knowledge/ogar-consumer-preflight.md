@@ -275,3 +275,12 @@ The same 16 bits also go by `APP_PREFIX` (older name, kept for existing callers)
 - any aligned power-of-two sub-block of the low 16 bits selects a group the app defined itself, which is what SPOG graph/tenant masks and cohort masks need.
 
 RESOLVED (operator, 2026-10-10): *"Classview can be used for any compute masking, we explicitly expanded the ERB redmine fieldview pattern for risk mask of everything."* Rendering is one use of `classview`: per-app render prefixes are values in the same 64k compute-mask space as field, RBAC and SPOG masks, so `render_classid` stays as it is. Record: lance-graph `.claude/plans/cross-glove-business-parity-v1.md` §C.9.3–§C.9.4.
+
+**Likely fossil (operator, 2026-10-10: "Per app render prefix might be a fossil. Before may-june the domain and appid was on the right side"). The ledger confirms the history:**
+
+- OGAR `DISCOVERY-MAP.md` D-APPCLASS (2026-06-22): `classid = APP(hi u16) ‖ class(lo u16)`. The codebook id (`0xDDCC` = domain:appid) sat on the RIGHT, an app prefix on the left.
+- D-CLASSID-CANON-HIGH-FLIP (2026-07-02) moved domain:appid to the left and says *"APP_PREFIX values are unchanged … only their position moves (hi → lo)"*.
+
+So the per-app render prefixes (`0x0001` OpenProject … `0x000C` Hiro) are the June APP half, carried verbatim into the `classview` bits without being re-derived as classview values.
+
+Today they still occupy `classview` values `0x0000`–`0x000C` and are read by `render_classid` / `PortSpec::classview()`. Whether to retire them, and what replaces them, is the operator's call and NOT decided here. Until then, do not mint new code that depends on `APP_PREFIX` being a classview value.

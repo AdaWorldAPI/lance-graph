@@ -884,6 +884,15 @@ The same 16 bits also go by `APP_PREFIX` (older name, kept for existing callers)
 - The ERB fieldview pattern (pick the fields a view shows) was deliberately generalised into mask-RISC masks over everything.
 - So `render_classid` and today's layout stay as they are. No layout change follows from the ruling.
 
+**Likely fossil (operator, 2026-10-10: "Per app render prefix might be a fossil. Before may-june the domain and appid was on the right side"). The ledger confirms the history:**
+
+- OGAR `DISCOVERY-MAP.md` D-APPCLASS (2026-06-22): `classid = APP(hi u16) ‖ class(lo u16)`. The codebook id (`0xDDCC` = domain:appid) sat on the RIGHT, an app prefix on the left.
+- D-CLASSID-CANON-HIGH-FLIP (2026-07-02) moved domain:appid to the left and says *"APP_PREFIX values are unchanged … only their position moves (hi → lo)"*.
+
+So the per-app render prefixes (`0x0001` OpenProject … `0x000C` Hiro) are the June APP half, carried verbatim into the `classview` bits without being re-derived as classview values.
+
+Today they still occupy `classview` values `0x0000`–`0x000C` and are read by `render_classid` / `PortSpec::classview()`. Whether to retire them, and what replaces them, is the operator's call and NOT decided here. Until then, do not mint new code that depends on `APP_PREFIX` being a classview value.
+
 **Next:**
 1. Anchor `performed_by` / `tenant` / `duration` / the work date on WoA's own concepts, reading every value from code.
 2. Map SAP and Odoo onto those anchors.
