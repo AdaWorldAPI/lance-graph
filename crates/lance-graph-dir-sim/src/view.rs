@@ -25,8 +25,8 @@
 //! keeps identities wherever an ordinal could shift.
 
 use crate::snapshot::{
-    bit, clear_bit, is_owner, provisions_mail, set_bit, Dicts, GroupOrdinal, Population, Snapshot,
-    UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
+    bit, clear_bit, is_mail_recipient, is_owner, set_bit, Dicts, GroupOrdinal, Population,
+    Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
@@ -354,12 +354,12 @@ impl<'s> View<'s> {
     pub fn owner_users(&self) -> Cow<'s, [u64]> {
         self.claim_plane(&self.snap.users.owner, is_owner)
     }
-    /// Users whose mail addresses are provisioned ([`provisions_mail`]: the
+    /// Users whose mail addresses are provisioned ([`is_mail_recipient`]: the
     /// recipient type decides), in this version. SMTP uniqueness and the
     /// address space of [`crate::validate::address_owner`] count these for
     /// the primary SMTP, secondary `smtp:` and routing addresses.
     pub fn mail_owner_users(&self) -> Cow<'s, [u64]> {
-        self.claim_plane(&self.snap.users.mail_owner, provisions_mail)
+        self.claim_plane(&self.snap.users.mail_owner, is_mail_recipient)
     }
     /// An observed claim plane with the version's flag and recipient
     /// overrides applied and created users added, all through `rule`.
@@ -576,7 +576,7 @@ impl<'s> View<'s> {
 
     /// Base claimants of attribute `a` (base width): UPN holders
     /// ([`is_owner`]) for the UPN, users whose mail addresses are provisioned
-    /// ([`provisions_mail`]) for the primary SMTP; minus deleted users and
+    /// ([`is_mail_recipient`]) for the primary SMTP; minus deleted users and
     /// the users whose `a` is overridden — the base rows that still own
     /// their observed value.
     pub(crate) fn live_owners(&self, a: Attribute) -> Cow<'s, [u64]> {
@@ -584,7 +584,9 @@ impl<'s> View<'s> {
         let ov = o.overrides(a);
         let base = match a {
             Attribute::Upn => self.base_claim(&self.snap.users.owner, is_owner),
-            Attribute::PrimarySmtp => self.base_claim(&self.snap.users.mail_owner, provisions_mail),
+            Attribute::PrimarySmtp => {
+                self.base_claim(&self.snap.users.mail_owner, is_mail_recipient)
+            }
         };
         if ov.is_empty() && o.deleted.is_empty() {
             return base;

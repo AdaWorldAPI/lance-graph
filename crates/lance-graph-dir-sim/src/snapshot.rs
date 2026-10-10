@@ -285,25 +285,6 @@ pub(crate) fn is_owner(active: Option<bool>, recipient: Option<Recipient>) -> bo
     active == Some(true) || recipient.is_some_and(|r| r.is_recipient())
 }
 
-/// Whether a user's mail addresses are provisioned: its primary SMTP
-/// address, its secondary `smtp:` proxies and a remote mailbox's routing
-/// address. The recipient type decides (`Recipient::is_recipient`): a
-/// mailbox, a mail user or a provisioned or migrated remote mailbox
-/// provisions them, a deprovisioned remote mailbox or an account that is
-/// not mail-enabled provisions none, whether or not the account is enabled.
-/// Leftover `proxyAddresses` on such an account reserve nothing in
-/// Exchange.
-///
-/// When the source never read the recipient attributes (`None`), an enabled
-/// account is assumed to provision them, as every snapshot without Exchange
-/// data was built.
-pub(crate) fn provisions_mail(active: Option<bool>, recipient: Option<Recipient>) -> bool {
-    match recipient {
-        Some(r) => r.is_recipient(),
-        None => active == Some(true),
-    }
-}
-
 /// Whether mail addressed to a user is delivered to it: OGAR's recipient
 /// lifecycle decides (`Recipient::is_recipient`) whenever the source read
 /// the recipient attributes. A disabled shared, room or equipment mailbox
@@ -314,6 +295,12 @@ pub(crate) fn provisions_mail(active: Option<bool>, recipient: Option<Recipient>
 /// enabled account counts, the assumption every snapshot without Exchange
 /// data was built on; an unknown flag with unknown attributes is not a
 /// recipient.
+///
+/// The same rule provisions a user's mail addresses (its primary SMTP, its
+/// secondary `smtp:` proxies and a remote mailbox's routing address): an
+/// object holds them exactly when it is a mail recipient, whether or not
+/// the account is enabled. Leftover `proxyAddresses` on an account that is
+/// not mail-enabled reserve nothing in Exchange.
 pub fn is_mail_recipient(active: Option<bool>, recipient: Option<Recipient>) -> bool {
     match recipient {
         Some(r) => r.is_recipient(),
@@ -438,7 +425,7 @@ pub struct Population {
     pub(crate) exchange_guid: Vec<Guid128>,
     /// Holds its UPN ([`is_owner`] of the observed flag and recipient).
     pub(crate) owner: Vec<u64>,
-    /// Its mail addresses are provisioned ([`provisions_mail`]).
+    /// Its mail addresses are provisioned ([`is_mail_recipient`]).
     pub(crate) mail_owner: Vec<u64>,
 }
 
@@ -526,7 +513,7 @@ impl Population {
             if is_owner(active, p.recipient_of(i)) {
                 set_bit(&mut p.owner, i);
             }
-            if provisions_mail(active, p.recipient_of(i)) {
+            if is_mail_recipient(active, p.recipient_of(i)) {
                 set_bit(&mut p.mail_owner, i);
             }
         }
