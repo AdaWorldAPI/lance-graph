@@ -23,6 +23,12 @@
 //! The mailbox's immutable identity is its `ExchangeGuid`. On-premises it is
 //! `msExchMailboxGuid`, and for a remote mailbox created with
 //! `Enable-RemoteMailbox` it starts **empty**: only backsync fills it, later.
+//! Backsync here is Entra Connect's *Exchange hybrid deployment* option:
+//! with it checked, Entra Connect writes the cloud mailbox's `ExchangeGuid`
+//! back to `msExchMailboxGuid`; without it the value stays empty until it
+//! is set by hand (`Set-RemoteMailbox -ExchangeGuid`). The option itself is
+//! not observed here, so an empty value reads as awaiting backsync either
+//! way.
 //! The cloud value is read from Exchange Online by `ExternalDirectoryObjectId`
 //! ([`CloudMailboxes::with_exchange_guids`]). [`CloudMailboxes::mailbox_guid`]
 //! compares the two:
@@ -60,7 +66,8 @@ pub enum MailboxGuid {
     /// The Exchange Online mailbox's `ExchangeGuid` was not read.
     CloudUnread,
     /// On-premises `msExchMailboxGuid` is still empty (`Enable-RemoteMailbox`
-    /// leaves it so until backsync fills it). Delivered; not migratable.
+    /// leaves it so until Entra Connect, with the Exchange hybrid option
+    /// checked, writes it back). Delivered; not migratable.
     AwaitingBacksync {
         /// The cloud mailbox's `ExchangeGuid`.
         cloud: Guid128,
