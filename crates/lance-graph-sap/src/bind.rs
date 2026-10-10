@@ -7,8 +7,34 @@ pub const EMPLOYEE: usize = 5;
 pub const WORK_DATE: usize = 9;
 pub const HOURS: usize = 10;
 pub const ACTIVITY: usize = 11;
+pub const BILLING: usize = 12;
 /// Derived date lens of the full UTC timestamp, bound once (YYYYMMDD).
 pub const WORK_DAY: usize = FIELD_COUNT;
+/// Derived boolean lens of `billing_indicator`, bound once: 1 billable, 0 not,
+/// [`BILLABLE_UNKNOWN`] for a value outside [`BILLING_VALUES`].
+pub const BILLABLE: usize = FIELD_COUNT + 1;
+/// Every lane `lanes()` returns: the DTO fields, then the derived lenses.
+pub const LANE_COUNT: usize = FIELD_COUNT + 2;
+/// The billing indicator's documented values and whether each is billable.
+/// Source: the SIMAF DTO, `BillingIndicator` — "Billable", "Non-Billable",
+/// "Internal Cost" (`src/UniversalDtoPoc/TimeTracking/TimeTrackingDtos.cs`).
+pub const BILLING_VALUES: &[(&str, bool)] = &[
+    ("Billable", true),
+    ("Non-Billable", false),
+    ("Internal Cost", false),
+];
+/// A billing indicator the DTO does not document: neither billable nor not.
+/// A filter on either boolean never selects it.
+pub const BILLABLE_UNKNOWN: u32 = u32::MAX;
+
+/// The billable lens of one billing-indicator value.
+#[must_use]
+pub fn billable_code(indicator: &str) -> u32 {
+    BILLING_VALUES
+        .iter()
+        .find(|(v, _)| *v == indicator)
+        .map_or(BILLABLE_UNKNOWN, |(_, b)| u32::from(*b))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BindError(pub String);
@@ -61,7 +87,7 @@ impl CatsBatch {
             return Err(error("ragged input"));
         }
         let mut dictionaries: [Vec<String>; FIELD_COUNT] = std::array::from_fn(|_| Vec::new());
-        let mut columns = Vec::with_capacity(FIELD_COUNT + 1);
+        let mut columns = Vec::with_capacity(LANE_COUNT);
         let mut scale = 0;
         for f in FIELDS {
             let index = usize::from(f.ordinal.0);
@@ -160,6 +186,13 @@ impl CatsBatch {
         columns.push(Column::I32(
             dates.iter().map(|v| (v / 1_000_000) as i32).collect(),
         ));
+        // Required field: every row carries an indicator (checked above).
+        columns.push(Column::U32(
+            input[BILLING]
+                .iter()
+                .map(|v| billable_code(v.unwrap()))
+                .collect(),
+        ));
         Ok(Self {
             schema,
             columns,
@@ -177,7 +210,7 @@ impl CatsBatch {
     pub fn scale(&self) -> u32 {
         self.scale
     }
-    pub fn lanes(&self) -> [LaneRef<'_>; FIELD_COUNT + 1] {
+    pub fn lanes(&self) -> [LaneRef<'_>; LANE_COUNT] {
         std::array::from_fn(|i| self.columns[i].borrow())
     }
     /// Group cardinality includes reserved NULL code 0. Required ActivityType

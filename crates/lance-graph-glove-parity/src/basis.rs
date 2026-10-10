@@ -7,9 +7,12 @@
 //! ([`canonical_fields`]); nothing here mints a concept, a field or a URI.
 //!
 //! [`SAP_FIELDS`] and [`ODOO_FIELDS`] record each native field's claimed
-//! canonical position with a [`Grade`]. Every claim is `Hypothesized` today:
-//! no conversion onto an edge target (`Worker`, `Duration`, `Tenant`, …) is
-//! implemented and tested yet (plan §C.6.2), so none of them may bind.
+//! canonical position with a [`Grade`]. One claim is `Converted`: SAP
+//! `billing_indicator` → `billable`, through the derived lens
+//! `lance-graph-sap::bind::BILLABLE` (test-proven on real rows, D-XGP-3). Every
+//! other claim is `Hypothesized`: 9 of the class's 12 edges point at concepts
+//! OGAR has not minted (`Worker`, `Duration`, `Tenant`, …), so no conversion
+//! onto them can be anchored yet (plan §C.6.2, §C.9.2).
 use lance_graph_contract::hotplug::HotPlug;
 use lance_graph_contract::ClassView;
 use lance_graph_ogar::ogar_vocab::class_ids::BILLABLE_WORK_ENTRY;
@@ -51,16 +54,17 @@ pub struct FieldMap {
     /// A `predicate_iri` of the authority's `ClassView` for `0x0103`.
     pub canonical: &'static str,
     pub grade: Grade,
-    /// What a `Converted` grade would have to prove.
-    pub gap: &'static str,
+    /// `Hypothesized`: what a `Converted` grade would have to prove.
+    /// `Converted`: the test that proves it.
+    pub note: &'static str,
 }
 
-const fn hyp(native: &'static str, canonical: &'static str, gap: &'static str) -> FieldMap {
+const fn hyp(native: &'static str, canonical: &'static str, note: &'static str) -> FieldMap {
     FieldMap {
         native,
         canonical,
         grade: Grade::Hypothesized,
-        gap,
+        note,
     }
 }
 
@@ -88,11 +92,13 @@ pub const SAP_FIELDS: &[FieldMap] = &[
         "duration",
         "the Duration concept reads a decimal hour quantity",
     ),
-    hyp(
-        "billing_indicator",
-        "billable",
-        "the indicator's values map onto true/false",
-    ),
+    FieldMap {
+        native: "billing_indicator",
+        canonical: "billable",
+        grade: Grade::Converted,
+        note: "lance-graph-sap tests/binder.rs \
+               billable_lens_selects_exactly_the_documented_rows_and_never_an_unknown_one",
+    },
     hyp(
         "tenant_id",
         "tenant",
