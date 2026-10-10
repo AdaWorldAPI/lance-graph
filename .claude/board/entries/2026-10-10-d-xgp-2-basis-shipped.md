@@ -1,4 +1,4 @@
-# 2026-10-10 — D-XGP-2: SAP/Odoo hot-plugs and the BillableWorkEntry basis, test-pinned
+# 2026-10-10 — D-XGP-2-SHIPPED: SAP/Odoo hot-plugs and the BillableWorkEntry basis, test-pinned
 
 **Status:** MEASURED. Plan: `.claude/plans/cross-glove-business-parity-v1.md` §C.9.1. Crate: `lance-graph-glove-parity::basis`.
 
