@@ -220,3 +220,79 @@ fn optional_and_instant_fields_are_refused_not_read_through_sentinels() {
         Err(BindError::UnknownField { .. })
     ));
 }
+
+/// The billable lens is a VERIFIED conversion (plan §C.6.2): on real rows with
+/// every documented indicator plus an undocumented one, `billable = true` and
+/// `billable = false` select exactly the rows the DTO's documentation says,
+/// and the undocumented value is in neither set.
+#[test]
+fn billable_lens_selects_exactly_the_documented_rows_and_never_an_unknown_one() {
+    use lance_graph_sap::bind::{billable_code, BILLABLE, BILLABLE_UNKNOWN};
+    const VALUES: [&str; 4] = ["Billable", "Non-Billable", "Internal Cost", "Pro bono"];
+    for n in [4, 65, 4097] {
+        let mut input = fixture(n);
+        for (i, v) in input[12].iter_mut().enumerate() {
+            *v = Some(VALUES[i % 4]);
+        }
+        let batch = bind(&input);
+        let b = CatsBinder::new(&batch);
+        let f = b.field(T, "billable").unwrap();
+        assert_eq!((f.col, f.kind), (Col(BILLABLE as u16), FieldKind::Code));
+        assert_eq!(
+            b.code(T, f.col, "maybe"),
+            None,
+            "only true/false are literals"
+        );
+
+        let live = live_words(n);
+        let lanes = batch.lanes();
+        let planes = Planes {
+            n_rows: n,
+            masks: &[live.as_slice()],
+            lanes: &lanes,
+        };
+        let mut kept = [Vec::new(), Vec::new()];
+        for (k, literal) in ["false", "true"].iter().enumerate() {
+            let q = table(TABLE)
+                .where_eq("billable", *literal)
+                .rows()
+                .bind(&b)
+                .unwrap();
+            let program = lower(&q).unwrap();
+            let mut scratch = Scratch::for_program(&program, n).unwrap();
+            let mut mask = vec![0; words_for(n)];
+            execute_into(
+                &program,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                Out::Mask(&mut mask),
+            )
+            .unwrap();
+            kept[k] = (0..n)
+                .filter(|i| (mask[i / 64] >> (i % 64)) & 1 != 0)
+                .collect();
+        }
+        // Stated from the DTO's documentation, NOT read from `BILLING_VALUES`:
+        // VALUES[0] "Billable" is billable; [1] and [2] are not; [3] is unknown.
+        let expected = |want: bool| -> Vec<usize> {
+            (0..n)
+                .filter(|i| {
+                    if want {
+                        i % 4 == 0
+                    } else {
+                        i % 4 == 1 || i % 4 == 2
+                    }
+                })
+                .collect()
+        };
+        assert_eq!(kept[1], expected(true), "n={n}");
+        assert_eq!(kept[0], expected(false), "n={n}");
+        // Anti-vacuity: both sets are non-empty and the unknown rows are excluded.
+        assert!(!kept[0].is_empty() && !kept[1].is_empty());
+        let unknown = (0..n).filter(|i| i % 4 == 3).count();
+        assert!(unknown > 0);
+        assert_eq!(kept[0].len() + kept[1].len(), n - unknown);
+        assert_eq!(billable_code("Pro bono"), BILLABLE_UNKNOWN);
+    }
+}

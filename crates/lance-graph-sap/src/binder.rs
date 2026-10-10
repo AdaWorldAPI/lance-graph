@@ -8,7 +8,7 @@
 //!
 //! - `field`: [`CatsSchema::resolve`](crate::schema::CatsSchema::resolve)
 //!   (technical or C# name) plus the carrier → [`FieldKind`] mapping, and the
-//!   derived `work_day` lens the bind already produced;
+//!   derived `work_day` and `billable` lenses the bind already produced;
 //! - `code`: the field's own domain: NUMC for PERNR, `X`/`true` for
 //!   ABAP_BOOL, the batch dictionary otherwise. Nothing is minted;
 //! - `live`: plane [`LIVE`], supplied by the executor as [`live_words`].
@@ -16,7 +16,7 @@
 //! Refused, deliberately, as unknown fields: optional fields (CATS stores NULL
 //! as a sentinel, not a validity plane, so `<>` would keep NULL rows) and U64
 //! instants (no `FieldKind`; `work_day` is their bindable lens).
-use crate::bind::{numc, CatsBatch, WORK_DAY};
+use crate::bind::{numc, CatsBatch, BILLABLE, WORK_DAY};
 use crate::schema::FIELDS;
 use lance_graph_mask_risc::LaneKind;
 use lance_graph_quack::bind::{Binder, BoundField, FieldKind, TableId};
@@ -28,6 +28,8 @@ pub const TABLE: &str = "cats";
 pub const LIVE: Mask = Mask(0);
 /// Name of the derived calendar-day lens (`YYYYMMDD`, `I32`).
 pub const WORK_DAY_FIELD: &str = "work_day";
+/// Name of the derived billable lens (`Code`: literals `true` / `false`).
+pub const BILLABLE_FIELD: &str = "billable";
 
 /// The live plane for `n` rows: every row live, tail bits clear. Its words are
 /// `ceil(n / 64)`, the same population-mask size any selection already needs.
@@ -69,6 +71,13 @@ impl Binder for CatsBinder<'_> {
                 validity: None,
             });
         }
+        if name == BILLABLE_FIELD {
+            return Some(BoundField {
+                col: Col(BILLABLE as u16),
+                kind: FieldKind::Code,
+                validity: None,
+            });
+        }
         let col = self.batch.schema.resolve(name)?;
         let field = &FIELDS[usize::from(col.0)];
         if field.optional {
@@ -87,6 +96,13 @@ impl Binder for CatsBinder<'_> {
     }
     fn code(&self, _: TableId, col: Col, literal: &str) -> Option<u32> {
         let ordinal = usize::from(col.0);
+        if ordinal == BILLABLE {
+            return match literal {
+                "true" => Some(1),
+                "false" => Some(0),
+                _ => None,
+            };
+        }
         match FIELDS.get(ordinal)?.native_type {
             "pernr_d" => numc(literal).ok(),
             "abap_bool" => match literal {

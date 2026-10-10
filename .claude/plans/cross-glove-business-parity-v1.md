@@ -813,3 +813,15 @@ Any entry that fails one of the four points is `Hypothesized` by definition. In 
 - The Odoo base model has no project or task field (`hr_timesheet` is not harvested). SAP's `project_code` / `task_code` are optional, and `CatsBinder` refuses optional fields.
 
 Next (D-XGP-3): the first `Converted` grade, i.e. one conversion implemented and proven on real rows, which then binds through `CanonicalBinder`.
+
+#### C.9.2 D-XGP-3, first rung: one `Converted` claim, and why there can only be a few (2026-10-10)
+
+**The first `Converted` claim is SAP `billing_indicator` → `billable`.** `CatsBatch::bind` derives a `billable` lane next to `work_day`, mapping the three values the SIMAF DTO documents: "Billable" → 1, "Non-Billable" and "Internal Cost" → 0, and anything else → `BILLABLE_UNKNOWN`. An unknown value is neither true nor false, so a filter on either boolean never selects it. `CatsBinder` serves the lane under the canonical name `billable`.
+
+The proof is `lance-graph-sap` `tests/binder.rs::billable_lens_selects_exactly_the_documented_rows_and_never_an_unknown_one`. It runs with n = 4, 65 and 4097 rows, and its expected rows come from the DTO's documentation, not from the mapping table. The first version computed them from the table, and the disable run caught that.
+
+**Measured limit:** 9 of `BillableWorkEntry`'s 12 edges point at concepts OGAR has not minted: `Worker`, `Duration`, `RatePolicy`, `CostCenter`, `InvoiceLineCandidate`, `ApprovalState`, `Tenant`, `AuditTrail`, `PostingAction`. Only `project` (0x0101), `about` (0x0102) and `classified_by` (`tax_policy`, 0x0203) can carry a conversion anchored at the authority; `billable` needs none, being a scalar attribute. A test pins this list, so it fails the day OGAR mints a new target.
+
+So `performed_by`, `duration` and `tenant` stay `Hypothesized` until OGAR mints their targets. That is an OGAR authority change, and it is open for the operator alongside the temporal role.
+
+Next: `project` / `about` for Odoo would need `hr_timesheet`'s `project_id` / `task_id`, which are not harvested. SAP `project_code` / `task_code` are optional fields, which `CatsBinder` refuses until a validity plane exists.
