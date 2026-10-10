@@ -1,8 +1,9 @@
 //! D-XGP-1 probe Q1/Q2 (`.claude/plans/cross-glove-business-parity-v1.md` §C.4).
 //!
 //! The canonical attribute URIs below are FIXTURES (`ogit.GloveFixture:*`).
-//! Who mints the real ones for `BILLABLE_WORK_ENTRY` is an open operator
-//! ruling (plan §C.5); nothing here claims them.
+//! They prove the binder mechanics only. The real basis is the authority's
+//! `ClassView` of `BillableWorkEntry` (`basis.rs`, plan §C.9); nothing is
+//! minted here.
 use lance_graph_contract::property::{Marking, SemanticType};
 use lance_graph_glove_parity::{native_field, CanonicalBinder};
 use lance_graph_mask_risc::{execute_into, Foreign, Out, Planes, Scratch};
