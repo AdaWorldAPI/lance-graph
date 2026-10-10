@@ -480,6 +480,16 @@ const fn concept_override(classid: u16) -> Option<ReadMode> {
             value_schema: ValueSchema::Bootstrap,
             edge_codec: EdgeCodecFlavor::CoarseOnly,
         }),
+        // The canon domains' value models, keyed by concept (D-HPR-2, plan
+        // `v3-mandatory-hotplug-reading-v1`). The same readings
+        // `classid_read_mode` gives their `CLASSID_*_V3` keys, so a consumer
+        // plugging one of these concepts reads what the classid table reads,
+        // with no classview involved.
+        0x0701 => Some(ReadMode::OSINT_V3),
+        0x0A01 => Some(ReadMode::FMA_V3),
+        0x0E01 => Some(ReadMode::CPIC_V3),
+        0x0101 => Some(ReadMode::PROJECT_V3),
+        0x0202 => Some(ReadMode::ERP_V3),
         _ => None,
     }
 }
@@ -781,6 +791,44 @@ mod plug_and_play_reading {
         // Two-sided on the same seat: its real owner still activates, so the
         // guard discriminates rather than refusing 0x1717 outright.
         assert!(super::OgarAuthority.activate(&BLOCKLY).is_ok());
+    }
+
+    /// D-HPR-2: the canon domains' readings come from the plug, keyed by
+    /// concept, and equal what `classid_read_mode` gives their `*_V3` keys.
+    #[test]
+    fn canon_domains_read_from_the_plug_as_the_classid_table_reads_them() {
+        use lance_graph_contract::canonical_node::NodeGuid;
+        let domains = [
+            (0x0701u16, NodeGuid::CLASSID_OSINT_V3),
+            (0x0A01, NodeGuid::CLASSID_FMA_V3),
+            (0x0E01, NodeGuid::CLASSID_CPIC_V3),
+            (0x0101, NodeGuid::CLASSID_PROJECT_V3),
+            (0x0202, NodeGuid::CLASSID_ERP_V3),
+        ];
+        let plug = HotPlug {
+            consumer: "canon-domains",
+            classids: &[0x0701, 0x0A01, 0x0E01, 0x0101, 0x0202],
+            covered: &[],
+        };
+        let readings = super::plug_readings(&plug);
+        for (concept, classid) in domains {
+            assert_eq!(
+                classid >> 16,
+                u32::from(concept),
+                "fixture pairs concept and classid"
+            );
+            let from_plug = readings
+                .iter()
+                .find_map(|(c, m)| (*c == concept).then_some(*m))
+                .expect("every plugged concept reads");
+            assert_eq!(from_plug, classid_read_mode(classid), "0x{concept:04X}");
+            assert_eq!(from_plug.tail_variant, TailVariant::V3);
+        }
+        // Anti-vacuity: the domains do not all read the plug-and-play default,
+        // so the overrides are what this test checks.
+        assert!(domains.iter().any(|(c, _)| readings
+            .iter()
+            .any(|(rc, m)| rc == c && *m != ReadMode::PLUG_AND_PLAY_V3)));
     }
 
     /// THE MEDCARE CASE — the one this rewrite exists for.
