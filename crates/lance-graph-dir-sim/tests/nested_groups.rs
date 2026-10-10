@@ -168,7 +168,12 @@ fn a_version_s_memberships_are_followed() {
         .simulate(
             v0,
             &Edit(vec![
-                // u5 joins S2 directly; S2 leaves S1; S3 joins S1.
+                // u5 joins S2 directly; S2 leaves S1; S3 joins S1; u1 leaves
+                // S1 (an observed, resolved row).
+                Change::RemoveMembership {
+                    user: g(U1),
+                    group: g(S1),
+                },
                 Change::AddMembership {
                     user: g(U5),
                     group: g(S2),
@@ -186,15 +191,16 @@ fn a_version_s_memberships_are_followed() {
         )
         .unwrap();
     let view = st.view(v1).unwrap();
-    // S1 no longer contains S2, so u2 and u5 are gone; S3 now reaches u4.
+    // S1 no longer contains u1 or S2 (so u2 and u5 are gone); S3 now
+    // reaches u4.
     assert_eq!(
         view.members_transitive(&g(S1), Closure::Security),
-        ids(&[U1, U4])
+        ids(&[U4])
     );
     // S2 still contains S1, and u5 directly.
     assert_eq!(
         view.members_transitive(&g(S2), Closure::Security),
-        ids(&[U1, U2, U4, U5])
+        ids(&[U2, U4, U5])
     );
     // The observed version is unchanged.
     let view0 = st.view(v0).unwrap();
