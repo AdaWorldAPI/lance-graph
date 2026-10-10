@@ -112,6 +112,7 @@ jobs:
           critical_controls_are_refused_and_others_ignored
           wide_filters_are_refused
           out_of_range_limits_are_refused_without_panicking
+          a_rebind_refused_for_a_control_drops_the_identity
           a_disabled_shared_mailbox_still_receives
           departure_by_conversion_to_shared_keeps_the_mailbox
           an_unknown_lifecycle_is_not_a_recipient
