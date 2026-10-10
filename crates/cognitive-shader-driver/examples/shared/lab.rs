@@ -224,9 +224,75 @@ pub fn report(pr: &Prereg, r: &Paired, rejected: bool) -> String {
     )
 }
 
+/// A standard normal draw from two uniforms in (0, 1] (Box–Muller).
+fn normal(u: &mut impl FnMut() -> f64) -> f64 {
+    let (a, b) = (u().max(f64::MIN_POSITIVE), u());
+    (-2.0 * a.ln()).sqrt() * (std::f64::consts::TAU * b).cos()
+}
+
+/// A Gamma(shape, 1) draw (Marsaglia–Tsang; shape < 1 by the `U^(1/a)`
+/// boost). `u` yields uniforms in [0, 1).
+pub fn gamma_sample(shape: f64, u: &mut impl FnMut() -> f64) -> f64 {
+    assert!(shape > 0.0, "gamma shape must be positive");
+    if shape < 1.0 {
+        let g = gamma_sample(shape + 1.0, u);
+        return g * u().max(f64::MIN_POSITIVE).powf(1.0 / shape);
+    }
+    let d = shape - 1.0 / 3.0;
+    let c = 1.0 / (9.0 * d).sqrt();
+    loop {
+        let x = normal(u);
+        let v = 1.0 + c * x;
+        if v <= 0.0 {
+            continue;
+        }
+        let v = v * v * v;
+        let w = u().max(f64::MIN_POSITIVE);
+        if w.ln() < 0.5 * x * x + d - d * v + d * v.ln() {
+            return d * v;
+        }
+    }
+}
+
+/// A Beta(a, b) draw, the posterior a Thompson-sampling chooser samples.
+pub fn beta_sample(a: f64, b: f64, u: &mut impl FnMut() -> f64) -> f64 {
+    let x = gamma_sample(a, u);
+    let y = gamma_sample(b, u);
+    x / (x + y)
+}
+
 #[cfg(test)]
 mod lab_tests {
     use super::*;
+
+    struct SplitMix(u64);
+    impl SplitMix {
+        fn unit(&mut self) -> f64 {
+            self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            ((z ^ (z >> 31)) >> 11) as f64 / (1u64 << 53) as f64
+        }
+    }
+
+    /// The sampler's moments match Beta(a, b), including the a < 1 boost
+    /// path a Jeffreys prior uses.
+    #[test]
+    fn beta_sample_has_the_beta_moments() {
+        let mut r = SplitMix(7);
+        let mut u = || r.unit();
+        for (a, b) in [(0.5, 0.5), (2.5, 7.5), (30.5, 10.5)] {
+            let n = 200_000;
+            let xs: Vec<f64> = (0..n).map(|_| beta_sample(a, b, &mut u)).collect();
+            let mean = xs.iter().sum::<f64>() / n as f64;
+            let var = xs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n as f64;
+            let (m, v) = (a / (a + b), a * b / ((a + b).powi(2) * (a + b + 1.0)));
+            assert!((mean - m).abs() < 0.005, "Beta({a},{b}) mean {mean} vs {m}");
+            assert!((var - v).abs() / v < 0.03, "Beta({a},{b}) var {var} vs {v}");
+            assert!(xs.iter().all(|&x| (0.0..=1.0).contains(&x)));
+        }
+    }
 
     #[test]
     fn sign_flip_p_is_exact_on_a_small_case() {

@@ -755,6 +755,8 @@ enum Memory {
     Structural,
     /// The literal board.
     Literal,
+    /// One key for every situation: a context-free baseline.
+    Global,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -765,6 +767,16 @@ enum Chooser {
     Uniform,
     /// Learned NARS expectation.
     Learned,
+    /// Thompson sampling: a draw from each recipe's Beta(pos + ½, neg + ½)
+    /// posterior (the Jeffreys prior P5 identified), minus the same cost term.
+    Thompson,
+}
+
+impl Chooser {
+    /// Whether the chooser reads and writes learned evidence.
+    fn learns(self) -> bool {
+        matches!(self, Chooser::Learned | Chooser::Thompson)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -858,7 +870,7 @@ impl Learner {
         match cfg.chooser {
             Chooser::Fixed(op) => (op, false),
             Chooser::Uniform => (OPS[rng.below(NO)], false),
-            Chooser::Learned => {
+            Chooser::Learned | Chooser::Thompson => {
                 let (row, hit) = match self.stats.get(&key) {
                     Some(r) => (*r, true),
                     None => match (cfg.memory, self.stats.get(&back)) {
@@ -870,7 +882,13 @@ impl Learner {
                 for (k, &op) in OPS.iter().enumerate() {
                     let (n, f) = self.folds[k];
                     let mean = if n == 0 { 0.0 } else { f as f64 / n as f64 };
-                    let v = row[k].expectation() - cfg.cost_weight * (1.0 + mean).ln();
+                    let value = if cfg.chooser == Chooser::Thompson {
+                        let mut u = || (rng.next() >> 11) as f64 / (1u64 << 53) as f64;
+                        lab::beta_sample(row[k].pos + 0.5, row[k].neg + 0.5, &mut u)
+                    } else {
+                        row[k].expectation()
+                    };
+                    let v = value - cfg.cost_weight * (1.0 + mean).ln();
                     if v > best.0 {
                         best = (v, op);
                     }
@@ -883,7 +901,7 @@ impl Learner {
         let mut out = Ev::default();
         let keys: &[u64] = match cfg.memory {
             Memory::Structural => &[p.key, p.back],
-            Memory::Literal => &[p.key],
+            Memory::Literal | Memory::Global => &[p.key],
         };
         for &k in keys {
             let row = self.stats.entry(k).or_insert([Ev::default(); NO]);
@@ -1166,7 +1184,7 @@ fn game(
                 Signal::Contradiction => contradiction.then_some(-7),
                 Signal::Final => None,
             };
-            if let (Some(a), true, Chooser::Learned) = (act, cfg.learn, cfg.chooser) {
+            if let (Some(a), true, true) = (act, cfg.learn, cfg.chooser.learns()) {
                 let epi = l.credit(cfg, &p, a);
                 let expect = 2.0 * epi_expectation(l, cfg, &p) - 1.0;
                 let surprise = ((f64::from(a) / 7.0 - expect).abs() * 3.5).round() as u8;
@@ -1182,16 +1200,17 @@ fn game(
                 let key = match cfg.memory {
                     Memory::Structural => signature(&s),
                     Memory::Literal => b.hash(me),
+                    Memory::Global => 0,
                 };
                 let back = coarse(&s);
                 let (op, hit) = l.choose(cfg, key, back, &mut rng);
                 let pred = match cfg.chooser {
-                    Chooser::Learned => l
+                    Chooser::Learned | Chooser::Thompson => l
                         .stats
                         .get(&key)
                         .or_else(|| match cfg.memory {
                             Memory::Structural => l.stats.get(&back),
-                            Memory::Literal => None,
+                            Memory::Literal | Memory::Global => None,
                         })
                         .map_or(0.5, |row| row[op.index()].expectation()),
                     _ => 0.5,
@@ -1270,11 +1289,11 @@ fn game(
             Signal::Contradiction => (result == -1).then_some(-7),
             Signal::Final => None,
         };
-        if let (Some(a), true, Chooser::Learned) = (act, cfg.learn, cfg.chooser) {
+        if let (Some(a), true, true) = (act, cfg.learn, cfg.chooser.learns()) {
             l.credit(cfg, &p, a);
         }
     }
-    if let (Signal::Final, true, Chooser::Learned) = (cfg.signal, cfg.learn, cfg.chooser) {
+    if let (Signal::Final, true, true) = (cfg.signal, cfg.learn, cfg.chooser.learns()) {
         for p in &game_steps {
             l.credit(cfg, p, 7 * result);
         }
@@ -1594,9 +1613,113 @@ fn lab_stage() {
     println!("\nlab wall time {:.1}s", t0.elapsed().as_secs_f64());
 }
 
+/// Lab v1: a second family, pre-registered before its run, on fresh seeds
+/// 4001.. (v0 confirmation used 2001..). Same horizon and endpoint as v0.
+const LAB_V1_SEED0: u64 = 4001;
+const LAB_V1_PREREG: [lab::Prereg; 4] = [
+    lab::Prereg {
+        id: "T1",
+        hypothesis: "Thompson sampling beats expectation argmax",
+        baseline: "learned (argmax e)",
+        treatment: "Thompson",
+        endpoint: "score",
+        higher_is_better: true,
+        min_effect: 0.02,
+        blocks: LAB_BLOCKS,
+    },
+    lab::Prereg {
+        id: "T2",
+        hypothesis: "Thompson adapts faster after Threat -> Aggressor",
+        baseline: "learned (argmax e)",
+        treatment: "Thompson",
+        endpoint: "post-switch score",
+        higher_is_better: true,
+        min_effect: 0.02,
+        blocks: LAB_BLOCKS,
+    },
+    lab::Prereg {
+        id: "T3",
+        hypothesis: "structural context beats one global key",
+        baseline: "global",
+        treatment: "structural",
+        endpoint: "score",
+        higher_is_better: true,
+        min_effect: 0.02,
+        blocks: LAB_BLOCKS,
+    },
+    lab::Prereg {
+        id: "T4",
+        hypothesis: "Thompson reduces folds per step",
+        baseline: "learned (argmax e)",
+        treatment: "Thompson",
+        endpoint: "folds/step",
+        higher_is_better: false,
+        min_effect: 5.0,
+        blocks: LAB_BLOCKS,
+    },
+];
+
+fn lab_v1_stage() {
+    let t0 = std::time::Instant::now();
+    println!("D-SELF-CALIBRATING-LAB-0 v1 — Gomoku (9x9 five vs Threat, oracle off)");
+    println!(
+        "blocks {LAB_BLOCKS} (seeds {LAB_V1_SEED0}..), {LAB_GAMES} games, endpoint = last {LAB_WINDOW}\n"
+    );
+    let seeds: Vec<u64> = (0..LAB_BLOCKS as u64).map(|i| LAB_V1_SEED0 + i).collect();
+    let thompson = Cfg {
+        chooser: Chooser::Thompson,
+        ..BASE
+    };
+    let global = Cfg {
+        memory: Memory::Global,
+        ..BASE
+    };
+    let timed = |cfg: &Cfg, f: fn(&Cfg, u64, usize) -> Stats| {
+        let t = std::time::Instant::now();
+        let v: Vec<Stats> = seeds.iter().map(|&sd| f(cfg, sd, LAB_GAMES)).collect();
+        (v, t.elapsed().as_secs_f64())
+    };
+    let (base, t_base) = timed(&BASE, lab_block);
+    let (thom, t_thom) = timed(&thompson, lab_block);
+    let (glob, t_glob) = timed(&global, lab_block);
+    let (sw_base, _) = timed(&BASE, lab_switch_block);
+    let (sw_thom, _) = timed(&thompson, lab_switch_block);
+    let score = |v: &[Stats]| v.iter().map(Stats::score).collect::<Vec<_>>();
+    let fps = |v: &[Stats]| v.iter().map(Stats::folds_per_step).collect::<Vec<_>>();
+    let results = [
+        lab::paired(&score(&base), &score(&thom), true),
+        lab::paired(&score(&sw_base), &score(&sw_thom), true),
+        lab::paired(&score(&glob), &score(&base), true),
+        lab::paired(&fps(&base), &fps(&thom), false),
+    ];
+    let rejected = lab::holm(&results.map(|r| r.p), 0.05);
+    println!("Family (Holm, alpha 0.05):");
+    for i in 0..LAB_V1_PREREG.len() {
+        println!(
+            "  {}",
+            lab::report(&LAB_V1_PREREG[i], &results[i], rejected[i])
+        );
+    }
+    println!("\nPareto (mean over blocks; empirical; wall = whole arm):");
+    for (name, v, t) in [
+        ("learned", &base, t_base),
+        ("Thompson", &thom, t_thom),
+        ("global", &glob, t_glob),
+    ] {
+        let sc = score(v).iter().sum::<f64>() / LAB_BLOCKS as f64;
+        let f = fps(v).iter().sum::<f64>() / LAB_BLOCKS as f64;
+        println!("  {name:<9} score {sc:.4}  folds/step {f:7.1}  wall {t:6.2}s");
+    }
+    println!("\nlab v1 wall time {:.1}s", t0.elapsed().as_secs_f64());
+}
+
 fn main() {
     if std::env::args().any(|a| a == "--lab") {
         lab_stage();
+        return;
+    }
+    if std::env::args().any(|a| a == "--lab-v1") {
+        lab_v1_stage();
         return;
     }
     let t0 = std::time::Instant::now();
@@ -1955,6 +2078,29 @@ mod tests {
         assert!(
             !pairs(0.02).iter().all(|&x| x),
             "cost 0.02: the chooser reacts to the cheaper ASC"
+        );
+    }
+
+    /// Lab v1: the Thompson arm is deterministic under a seed (the sampler
+    /// draws from the probe's own seeded stream) and it is a different policy
+    /// from expectation argmax, so T1/T2 compare two things, not one.
+    #[test]
+    fn thompson_is_seeded_and_differs_from_argmax() {
+        let thompson = Cfg {
+            chooser: Chooser::Thompson,
+            ..BASE
+        };
+        let a = lab_block(&thompson, 5001, 120);
+        let b = lab_block(&thompson, 5001, 120);
+        assert_eq!(
+            (a.wins, a.losses, a.moves, a.folds),
+            (b.wins, b.losses, b.moves, b.folds)
+        );
+        let c = lab_block(&BASE, 5001, 120);
+        assert_ne!(
+            (a.moves, a.folds, a.ops),
+            (c.moves, c.folds, c.ops),
+            "Thompson must not collapse onto argmax"
         );
     }
 
