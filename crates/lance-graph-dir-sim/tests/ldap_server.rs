@@ -254,7 +254,10 @@ fn binds_are_checked() {
         (bind(2, "admin@example.de", b""), 53),
         (bind(3, "", b"pw"), 49),
         (bind_req(4, 2, "admin@example.de", 0x80, b"pw"), 2),
-        (bind_req(5, 3, "admin@example.de", 0xa3, b""), 7),
+        (
+            bind_req(5, 3, "admin@example.de", 0xa3, &tlv(0x04, b"GSSAPI")),
+            7,
+        ),
         (bind(6, "", b""), 0),
     ] {
         assert_eq!(done(&run(&srv, &mut s, pdu)), code);
@@ -414,7 +417,7 @@ fn writes_are_refused_and_the_directory_does_not_change() {
         (0x6e, 0x6f),
         (0x77, 0x78),
     ] {
-        let r = run(&srv, &mut s, msg(2, tlv(op, &tlv(0x04, NC.as_bytes()))));
+        let r = run(&srv, &mut s, msg(2, tlv(op, &write_body(op))));
         assert_eq!(r, [Resp::Done { op: resp, code: 53 }], "{op:#x}");
     }
     let r = run(&srv, &mut s, msg(3, tlv(0x4a, NC.as_bytes())));
@@ -729,8 +732,24 @@ fn integer_equality_is_numeric_and_undefined_for_non_integers() {
     let mut q = |f| dns(&run(&srv, &mut s, search(2, NC, 2, 0, f, &["1.1"]))).len();
     let plain = q(eq("userAccountControl", "512"));
     assert!(plain > 0, "the fixture must carry an enabled account");
-    assert_eq!(q(eq("userAccountControl", "0512")), plain);
-    assert_eq!(q(not(eq("userAccountControl", "abc"))), 0);
+    // RFC 4517 Integer: no leading zero, no "-0", any magnitude.
+    for invalid in ["abc", "0512", "-0", "+512", ""] {
+        assert_eq!(q(eq("userAccountControl", invalid)), 0, "{invalid}");
+        assert_eq!(q(not(eq("userAccountControl", invalid))), 0, "{invalid}");
+    }
+    let huge = "92233720368547758080000";
+    assert_eq!(q(le("userAccountControl", huge)), plain);
+    // Every entry: those with the attribute differ from `huge`, the others
+    // lack it.
+    assert_eq!(
+        q(not(eq("userAccountControl", huge))),
+        q(present("objectClass"))
+    );
+    assert_eq!(
+        q(ge("userAccountControl", &format!("-{huge}"))),
+        q(present("userAccountControl"))
+    );
+    assert_eq!(q(ge("userAccountControl", huge)), 0);
 }
 
 struct SlowHidden(u64);
@@ -1079,4 +1098,127 @@ fn an_entry_found_after_the_deadline_is_not_returned() {
     let r: Vec<Resp> = srv.handle(&mut s, &q).iter().map(|p| decode(p).1).collect();
     assert_eq!(done(&r), 3);
     assert!(!dns(&r).iter().any(|d| d.contains(CLOUD)), "{r:?}");
+}
+
+fn attr(t: &str, vals: &[&str]) -> Vec<u8> {
+    let v: Vec<u8> = vals.iter().flat_map(|v| tlv(0x04, v.as_bytes())).collect();
+    tlv(0x30, &[tlv(0x04, t.as_bytes()), tlv(0x31, &v)].concat())
+}
+
+// A well-formed body for each refused operation.
+fn write_body(op: u8) -> Vec<u8> {
+    let dn = tlv(0x04, NC.as_bytes());
+    match op {
+        0x66 => [
+            dn,
+            tlv(
+                0x30,
+                &tlv(0x30, &[int(0x0a, 2), attr("cn", &["x"])].concat()),
+            ),
+        ]
+        .concat(),
+        0x68 => [dn, tlv(0x30, &attr("cn", &["x"]))].concat(),
+        0x6c => [dn, tlv(0x04, b"CN=x"), tlv(0x01, &[0xff])].concat(),
+        0x6e => [dn, tlv(0x30, &[tlv(0x04, b"cn"), tlv(0x04, b"x")].concat())].concat(),
+        0x77 => tlv(0x80, b"1.3.6.1.4.1.4203.1.11.3"),
+        _ => unreachable!(),
+    }
+}
+
+// Every request is shape-checked before it is answered: a malformed one
+// disconnects even when the operation would be refused, or carries a
+// critical control.
+#[test]
+fn every_request_is_shape_checked() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let dn = || tlv(0x04, NC.as_bytes());
+    let bad: Vec<Vec<u8>> = vec![
+        msg(2, tlv(0x42, &[0])),                            // unbind with content
+        msg(2, tlv(0x50, &[])),                             // abandon, empty
+        msg(2, tlv(0x50, &[0xff])),                         // abandon, negative
+        msg(2, tlv(0x50, &[0x7f, 0xff, 0xff, 0xff, 0xff])), // abandon, past maxInt
+        msg(2, tlv(0x4a, &[0xff])),                         // delete, not UTF-8
+        msg(2, tlv(0x66, &dn())),                           // modify, no changes
+        msg(
+            2,
+            tlv(
+                0x66,
+                &[
+                    dn(),
+                    tlv(0x30, &tlv(0x30, &[int(0x0a, 9), attr("cn", &[])].concat())),
+                ]
+                .concat(),
+            ),
+        ), // bad op
+        msg(2, tlv(0x68, &[dn(), tlv(0x30, &attr("cn", &[]))].concat())), // add, no values
+        msg(2, tlv(0x6c, &[dn(), tlv(0x04, b"CN=x")].concat())), // modDN, no deleteoldrdn
+        msg(
+            2,
+            tlv(
+                0x6c,
+                &[dn(), tlv(0x04, b"CN=x"), tlv(0x01, &[1]), tlv(0x04, b"x")].concat(),
+            ),
+        ), // bad newSuperior tag
+        msg(2, tlv(0x6e, &[dn(), tlv(0x30, &tlv(0x04, b"cn"))].concat())), // compare, half an ava
+        msg(2, tlv(0x77, &tlv(0x81, b"x"))),                // extended, no name
+        bind_req(2, 3, "a", 0xa3, &[]),                     // SASL, no mechanism
+        with_control(search_attrs(tlv(0x02, b"cn")), true), // bad search, critical control
+        with_control(msg(2, tlv(0x42, &[0])), true),        // bad unbind, critical control
+    ];
+    for (i, pdu) in bad.into_iter().enumerate() {
+        let mut s = Session::default();
+        let out = srv.handle(&mut s, &pdu);
+        assert_eq!(
+            decode(&out[0]),
+            (0, Resp::Done { op: 0x78, code: 2 }),
+            "case {i}"
+        );
+        assert!(s.closed(), "case {i}");
+    }
+    // Well-formed: an unbind closes quietly, an abandon is silent.
+    let mut s = Session::default();
+    assert!(srv.handle(&mut s, &msg(2, tlv(0x50, &[1]))).is_empty());
+    assert!(!s.closed());
+    assert!(srv.handle(&mut s, &msg(3, tlv(0x42, &[]))).is_empty());
+    assert!(s.closed());
+}
+
+/// Sees and reads everything, counting reads of `ou`: only building an OU
+/// entry reads it under a filter on objectClass.
+struct CountOu(std::cell::Cell<usize>);
+impl Authority for CountOu {
+    type Actor = ();
+    fn bind(&self, _: &str, _: &[u8]) -> Option<()> {
+        Some(())
+    }
+    fn visible(&self, _: &(), _: &Entry) -> bool {
+        true
+    }
+    fn readable(&self, _: &(), _: &Entry, name: &str) -> bool {
+        if name == "ou" {
+            self.0.set(self.0.get() + 1);
+        }
+        true
+    }
+}
+
+// The entry cap stops a search before the next entry is built: with a cap
+// of one, the naming context is returned and the OU after it is never
+// projected.
+#[test]
+fn the_entry_cap_is_checked_before_building_the_entry() {
+    let dir = directory();
+    let auth = CountOu(std::cell::Cell::new(0));
+    let srv = Server::new(&dir, &auth).with_limits(1, usize::MAX);
+    let mut s = Session::default();
+    srv.handle(&mut s, &bind(1, "x", b"y"));
+    let out = srv.handle(&mut s, &search(2, NC, 2, 0, present("objectClass"), &["*"]));
+    let r: Vec<Resp> = out.iter().map(|p| decode(p).1).collect();
+    assert_eq!((dns(&r), done(&r)), (vec![NC], 11));
+    assert_eq!(auth.0.get(), 0);
+    // Control: without the cap the OUs are built, and `ou` is read.
+    let srv = Server::new(&dir, &auth);
+    srv.handle(&mut s, &search(3, NC, 2, 0, present("objectClass"), &["*"]));
+    assert!(auth.0.get() > 0);
 }

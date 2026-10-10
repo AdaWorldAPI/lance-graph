@@ -354,6 +354,194 @@ impl Directory {
     }
 }
 
+/// A decoded SearchRequest (RFC 4511 §4.5.1).
+struct SearchRequest {
+    base: String,
+    scope: i64,
+    size_limit: i64,
+    time_limit: i64,
+    types_only: bool,
+    filter: Filter,
+    /// Lower-cased, sorted and deduplicated.
+    requested: Vec<String>,
+}
+
+fn parse_search(op: &Tlv<'_>) -> Result<SearchRequest, LdapError> {
+    let c = children(op.value)?;
+    // RFC 4511 §4.5.1: baseObject OCTET STRING, scope ENUMERATED,
+    // derefAliases ENUMERATED (0..=3), sizeLimit and timeLimit INTEGER,
+    // typesOnly BOOLEAN, filter, attributes SEQUENCE.
+    if c.len() != 8
+        || c[0].tag != 0x04
+        || c[1].tag != 0x0a
+        || c[2].tag != 0x0a
+        || c[3].tag != 0x02
+        || c[4].tag != 0x02
+        || c[7].tag != 0x30
+        || !(0..=3).contains(&int(&c[2])?)
+    {
+        return Err(LdapError::Malformed);
+    }
+    let base = string(&c[0])?;
+    let scope = int(&c[1])?;
+    let size_limit = int(&c[3])?;
+    let time_limit = int(&c[4])?;
+    // sizeLimit and timeLimit are INTEGER (0 .. maxInt).
+    let max_int = 0..=i64::from(i32::MAX);
+    if !max_int.contains(&size_limit) || !max_int.contains(&time_limit) {
+        return Err(LdapError::Malformed);
+    }
+    let types_only = boolean(&c[5])?;
+    let filter = parse_filter(&c[6])?;
+    let mut requested: Vec<String> = children(c[7].value)?
+        .iter()
+        .map(|t| string(t).map(|s| s.to_lowercase()))
+        .collect::<Result<_, _>>()?;
+    // Sorted and deduplicated: looked up by binary search per attribute.
+    requested.sort_unstable();
+    requested.dedup();
+    if !(0..=2).contains(&scope) {
+        return Err(LdapError::Malformed);
+    }
+    Ok(SearchRequest {
+        base,
+        scope,
+        size_limit,
+        time_limit,
+        types_only,
+        filter,
+        requested,
+    })
+}
+
+/// A PartialAttribute: `type` and a SET OF values, non-empty if `values`.
+fn check_partial_attribute(t: &Tlv<'_>, values: bool) -> Result<(), LdapError> {
+    let c = children(t.value)?;
+    if t.tag != 0x30 || c.len() != 2 || c[1].tag != 0x31 {
+        return Err(LdapError::Malformed);
+    }
+    string(&c[0])?;
+    let vals = children(c[1].value)?;
+    if values && vals.is_empty() {
+        return Err(LdapError::Malformed);
+    }
+    vals.iter().try_for_each(|v| octets(v).map(drop))
+}
+
+/// Check a request's shape (RFC 4511 §4.2 - §4.12) before anything is
+/// answered, so a malformed request disconnects even when the operation is
+/// refused. A SearchRequest is checked by [`parse_search`].
+fn check_request(op: &Tlv<'_>) -> Result<(), LdapError> {
+    let bad = Err(LdapError::Malformed);
+    match op.tag {
+        // BindRequest: version, name, authentication.
+        0x60 => {
+            let c = children(op.value)?;
+            if c.len() != 3 || c[0].tag != 0x02 {
+                return bad;
+            }
+            int(&c[0])?;
+            string(&c[1])?;
+            // SaslCredentials ::= SEQUENCE { mechanism, credentials OPTIONAL }
+            if c[2].tag == 0xa3 {
+                let m = children(c[2].value)?;
+                if !(1..=2).contains(&m.len()) {
+                    return bad;
+                }
+                m.iter().try_for_each(|x| octets(x).map(drop))?;
+            }
+        }
+        // UnbindRequest ::= [APPLICATION 2] NULL
+        0x42 if !op.value.is_empty() => return bad,
+        0x42 => {}
+        // AbandonRequest ::= [APPLICATION 16] MessageID
+        0x50 => {
+            if !(0..=i64::from(i32::MAX)).contains(&int(op)?) {
+                return bad;
+            }
+        }
+        // DelRequest ::= [APPLICATION 10] LDAPDN
+        0x4a => {
+            text(op)?;
+        }
+        // ModifyRequest: object, changes SEQUENCE OF { operation, PartialAttribute }
+        0x66 => {
+            let c = children(op.value)?;
+            if c.len() != 2 || c[1].tag != 0x30 {
+                return bad;
+            }
+            string(&c[0])?;
+            for ch in children(c[1].value)? {
+                let m = children(ch.value)?;
+                if ch.tag != 0x30 || m.len() != 2 || m[0].tag != 0x0a {
+                    return bad;
+                }
+                if !(0..=3).contains(&int(&m[0])?) {
+                    return bad;
+                }
+                check_partial_attribute(&m[1], false)?;
+            }
+        }
+        // AddRequest: entry, attributes SEQUENCE OF Attribute (values 1..)
+        0x68 => {
+            let c = children(op.value)?;
+            if c.len() != 2 || c[1].tag != 0x30 {
+                return bad;
+            }
+            string(&c[0])?;
+            for a in children(c[1].value)? {
+                check_partial_attribute(&a, true)?;
+            }
+        }
+        // ModifyDNRequest: entry, newrdn, deleteoldrdn, newSuperior [0] OPTIONAL
+        0x6c => {
+            let c = children(op.value)?;
+            if !(3..=4).contains(&c.len()) {
+                return bad;
+            }
+            string(&c[0])?;
+            string(&c[1])?;
+            boolean(&c[2])?;
+            if let Some(sup) = c.get(3) {
+                if sup.tag != 0x80 {
+                    return bad;
+                }
+                text(sup)?;
+            }
+        }
+        // CompareRequest: entry, ava { attributeDesc, assertionValue }
+        0x6e => {
+            let c = children(op.value)?;
+            if c.len() != 2 || c[1].tag != 0x30 {
+                return bad;
+            }
+            string(&c[0])?;
+            let ava = children(c[1].value)?;
+            if ava.len() != 2 {
+                return bad;
+            }
+            string(&ava[0])?;
+            octets(&ava[1])?;
+        }
+        // ExtendedRequest: requestName [0], requestValue [1] OPTIONAL
+        0x77 => {
+            let c = children(op.value)?;
+            if c.is_empty() || c.len() > 2 || c[0].tag != 0x80 {
+                return bad;
+            }
+            text(&c[0])?;
+            if c.get(1).is_some_and(|v| v.tag != 0x81) {
+                return bad;
+            }
+        }
+        0x63 => {
+            parse_search(op)?;
+        }
+        _ => return bad,
+    }
+    Ok(())
+}
+
 /// The handler: a directory and the authority deciding access.
 pub struct Server<'a, P: Authority> {
     dir: &'a Directory,
@@ -573,12 +761,40 @@ fn order(
         return None;
     }
     if is_integer(attr) {
-        let num = |b: &[u8]| std::str::from_utf8(b).ok()?.parse::<i64>().ok();
-        let v = num(v)?;
-        return Some(vals.iter().filter_map(|x| num(x)).any(|x| keep(x.cmp(&v))));
+        let v = rfc_integer(v)?;
+        return Some(
+            vals.iter()
+                .filter_map(|x| rfc_integer(x))
+                .any(|x| keep(int_cmp(x, v))),
+        );
     }
     let v = fold(attr, v);
     Some(vals.iter().any(|x| keep(x.as_slice().cmp(v.as_slice()))))
+}
+
+/// An RFC 4517 §3.3.16 Integer: `-`? digits, no leading zero, no `-0`;
+/// unbounded in magnitude. Returns (negative, digits).
+fn rfc_integer(b: &[u8]) -> Option<(bool, &[u8])> {
+    let (neg, d) = match b {
+        [b'-', rest @ ..] => (true, rest),
+        _ => (false, b),
+    };
+    let ok = !d.is_empty()
+        && d.iter().all(u8::is_ascii_digit)
+        && (d.len() == 1 || d[0] != b'0')
+        && !(neg && d == b"0");
+    ok.then_some((neg, d))
+}
+
+/// integerOrderingMatch over [`rfc_integer`] values, at any magnitude.
+fn int_cmp(a: (bool, &[u8]), b: (bool, &[u8])) -> std::cmp::Ordering {
+    let mag = |x: &[u8], y: &[u8]| x.len().cmp(&y.len()).then_with(|| x.cmp(y));
+    match (a.0, b.0) {
+        (false, true) => std::cmp::Ordering::Greater,
+        (true, false) => std::cmp::Ordering::Less,
+        (false, false) => mag(a.1, b.1),
+        (true, true) => mag(b.1, a.1),
+    }
 }
 
 fn is_binary(attr: &str) -> bool {
@@ -801,6 +1017,11 @@ impl<'a, P: Authority> Server<'a, P> {
             return Err(LdapError::Malformed);
         }
         let op = c[1];
+        // Search parses itself when it runs; everything else, and a search
+        // refused for a control, is shape-checked first.
+        if op.tag != 0x63 {
+            check_request(&op)?;
+        }
         // No control is supported: a critical one refuses the operation
         // (RFC 4511 §4.1.11); a non-critical one is ignored.
         if let Some(ctrls) = c.get(2) {
@@ -808,6 +1029,9 @@ impl<'a, P: Authority> Server<'a, P> {
                 return Err(LdapError::Malformed);
             }
             if has_critical(ctrls)? {
+                if op.tag == 0x63 {
+                    parse_search(&op)?;
+                }
                 let resp = match op.tag {
                     0x60 => Some(0x61),
                     0x63 => Some(0x65),
@@ -913,30 +1137,15 @@ impl<'a, P: Authority> Server<'a, P> {
         id: i64,
         op: &Tlv<'_>,
     ) -> Result<Vec<Vec<u8>>, LdapError> {
-        let c = children(op.value)?;
-        // RFC 4511 §4.5.1: baseObject OCTET STRING, scope ENUMERATED,
-        // derefAliases ENUMERATED (0..=3), sizeLimit and timeLimit INTEGER,
-        // typesOnly BOOLEAN, filter, attributes SEQUENCE.
-        if c.len() != 8
-            || c[0].tag != 0x04
-            || c[1].tag != 0x0a
-            || c[2].tag != 0x0a
-            || c[3].tag != 0x02
-            || c[4].tag != 0x02
-            || c[7].tag != 0x30
-            || !(0..=3).contains(&int(&c[2])?)
-        {
-            return Err(LdapError::Malformed);
-        }
-        let base = string(&c[0])?;
-        let scope = int(&c[1])?;
-        let size_limit = int(&c[3])?;
-        let time_limit = int(&c[4])?;
-        // sizeLimit and timeLimit are INTEGER (0 .. maxInt).
-        let max_int = 0..=i64::from(i32::MAX);
-        if !max_int.contains(&size_limit) || !max_int.contains(&time_limit) {
-            return Err(LdapError::Malformed);
-        }
+        let SearchRequest {
+            base,
+            scope,
+            size_limit,
+            time_limit,
+            types_only,
+            filter,
+            requested,
+        } = parse_search(op)?;
         // A deadline past what the clock can represent is no deadline.
         let deadline = (time_limit > 0)
             .then(|| {
@@ -944,18 +1153,6 @@ impl<'a, P: Authority> Server<'a, P> {
                     .checked_add(std::time::Duration::from_secs(time_limit as u64))
             })
             .flatten();
-        let types_only = boolean(&c[5])?;
-        let filter = parse_filter(&c[6])?;
-        let mut requested: Vec<String> = children(c[7].value)?
-            .iter()
-            .map(|t| string(t).map(|s| s.to_lowercase()))
-            .collect::<Result<_, _>>()?;
-        // Sorted and deduplicated: looked up by binary search per attribute.
-        requested.sort_unstable();
-        requested.dedup();
-        if !(0..=2).contains(&scope) {
-            return Err(LdapError::Malformed);
-        }
         let done = |code, msg: &str| result(id, 0x65, code, msg);
         if requested.len() > MAX_ATTRIBUTE_SELECTORS {
             return Ok(vec![done(
@@ -1019,6 +1216,11 @@ impl<'a, P: Authority> Server<'a, P> {
                 out.push(done(ResultCode::SizeLimitExceeded, ""));
                 return Ok(out);
             }
+            // The entry cap is checked before the entry is built.
+            if sent as usize >= self.max_entries {
+                out.push(done(ResultCode::AdminLimitExceeded, ""));
+                return Ok(out);
+            }
             let pdu = self.entry(id, e, &requested, types_only, &readable);
             // Checking and projecting this candidate can outlast the limit:
             // nothing found after it is returned.
@@ -1026,7 +1228,7 @@ impl<'a, P: Authority> Server<'a, P> {
                 out.push(done(ResultCode::TimeLimitExceeded, ""));
                 return Ok(out);
             }
-            if sent as usize >= self.max_entries || bytes + pdu.len() > self.max_bytes {
+            if bytes + pdu.len() > self.max_bytes {
                 out.push(done(ResultCode::AdminLimitExceeded, ""));
                 return Ok(out);
             }

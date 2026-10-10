@@ -128,6 +128,9 @@ jobs:
           attribute_selectors_are_bounded
           substring_items_count_against_the_budget
           an_entry_found_after_the_deadline_is_not_returned
+          every_request_is_shape_checked
+          the_entry_cap_is_checked_before_building_the_entry
+          integer_equality_is_numeric_and_undefined_for_non_integers
           ordering_follows_the_attribute
           binds_are_checked
           framing_unbind_and_malformed_requests
