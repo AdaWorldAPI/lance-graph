@@ -11,6 +11,8 @@
 //! glove's own `Binder`, so a `Draft` written in canonical names binds to the
 //! glove's lanes. This is a FIELD MAPPING (bind time, fields → lanes), not a
 //! report `pivot()` (plan §C.6.1).
+pub mod basis;
+
 use lance_graph_ontology::namespace::SchemaKind;
 use lance_graph_ontology::OntologyRegistry;
 use lance_graph_quack::bind::{Binder, BoundField, TableId};

@@ -14,6 +14,9 @@ description = "Cross-glove parity probe (D-XGP): canonical attribute names from 
 lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-ontology = { path = "../lance-graph-ontology" }
 lance-graph-quack = { path = "../lance-graph-quack" }
+# The capability authority (`OgarAuthority`) and OGAR's promoted classes and
+# `ClassView`, for the hot-plugs and the canonical field basis (`basis`).
+lance-graph-ogar = { path = "../lance-graph-ogar" }
 
 [dev-dependencies]
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
@@ -24,3 +27,8 @@ lance-graph-sap = { path = "../lance-graph-sap" }
 # network for it (same patch as the lance-graph root).
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 ndarray = { path = "../../../ndarray" }
+
+# lance-graph-ogar's OGAR crates pull lance-graph-contract from git; fold it onto
+# the path copy so there is one contract crate (same patch as lance-graph-ogar).
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }

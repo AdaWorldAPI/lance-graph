@@ -803,3 +803,13 @@ Any entry that fails one of the four points is `Hypothesized` by definition. In 
 **Revised D-XGP-2:** declare the SAP and Odoo plugs (`HotPlug` consts) in a crate that sees OGAR, pinning today's `NoCapabilitiesFor` the way HubSPO does. Then map CATS and Odoo native fields onto the 13 `BillableWorkEntry` positions, each graded per §C.6.2. `lance-graph-sap` stays OGAR-free.
 
 **Open for the operator:** whether `BillableWorkEntry` gains a temporal role (work date / period), and of which kind. That is an OGAR authority change.
+
+#### C.9.1 D-XGP-2 shipped as `lance-graph-glove-parity::basis` (2026-10-10)
+
+- `SAP_HOT_PLUG` / `ODOO_HOT_PLUG` on `BILLABLE_WORK_ENTRY`, read from `ogar_vocab::class_ids`. `OgarAuthority` refuses both with `NoCapabilitiesFor(0x0103)`; a test pins this, so the day OGAR declares capabilities it fails and forces `covered` to be written.
+- `canonical_fields()` reads the 13 names from `OgarClassView`; a test pins them in `ClassView` order.
+- `SAP_FIELDS` (6) and `ODOO_FIELDS` (3) claim native → canonical positions. Every claim is `Hypothesized` with its unproven conversion named, and tests check that each canonical name is a `ClassView` field and each native name is real.
+- Dates stay unmapped: a test asserts that no canonical field is temporal, so adding one fails the test and forces the date rows to be written.
+- The Odoo base model has no project or task field (`hr_timesheet` is not harvested). SAP's `project_code` / `task_code` are optional, and `CatsBinder` refuses optional fields.
+
+Next (D-XGP-3): the first `Converted` grade, i.e. one conversion implemented and proven on real rows, which then binds through `CanonicalBinder`.
