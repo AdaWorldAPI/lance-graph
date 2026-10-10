@@ -43,7 +43,7 @@ same separation `alpha_tunnel.rs` makes in memory. Reads never go through
 storage, and writes never go through the read structures. The writer appends
 sparse records to Lance; readers fold over the same records held in memory.
 `AlphaOverlay` carries no payload, so it cannot be the persistence half
-(`2026-10-05-quack-storage-portability.md` line 186). This pattern is that
+(`2026-10-05-quack-storage-portability.md` § "OPEN — SparseDelta": "Alpha does not supply that signal (it carries no payload)"). This pattern is that
 persistence half. It is **not** a use of the `Alpha*` types.
 
 ## The rules
