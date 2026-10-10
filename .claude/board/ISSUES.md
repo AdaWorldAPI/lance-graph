@@ -1,3 +1,12 @@
+## ISS-CLASSID-READ-MODE-IS-A-SECOND-RESOLUTION-PATH — the `0x1000` V3 marker still selects the reading (2026-10-10)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE; DECISION by operator 2026-10-10 (the V3 marker is a fossil; only `hotplug.rs` and the slab metadata envelope decide whether a slab is `Facet96` (32 + 96) or `Register128` (128, classid via SPOG/plug)). Record: `entries/2026-10-10-classid-layout-ruling.md`, plan `cross-glove-business-parity-v1.md` §C.9.3.
+
+- `canonical_node::classid_read_mode(classid)` (`canonical_node.rs:1813`) reads `BUILTIN_READ_MODES` (`:1743`), keyed by the full classid, including the `*_V3` keys carrying classview `0x1000`.
+- Callers: `ocr.rs:105/124`, `aiwar.rs:119`, `nan_projection.rs:167`, `soa_graph.rs:204/457`.
+- `hotplug.rs` states it is the ONE resolution path ("there is no second registry"); this table is a second one.
+- **What closes it:** route those callers through `Activation::resolve_for_context`, keep the legacy keys readable for slabs already written with them (an explicit `SlabDeclaration` wins for existing data), then retire the `0x1000` keys on corpus proof that no row needs them.
+
 ## ISS-EPI5-CODEBOOK-LACKS-P7A-CONJUNCTIONS — P7a certifications with no canonical EpistemicState5 code (2026-10-07)
 
 **Status:** RESOLVED 2026-10-07 (same day, before merge) by the operator's Cartesian V1: `EpistemicState5 = Topology2 × Certification3` has a code for every P7a contract under every topology (`CausalCandidate` = 16..19, `Direct × Supports` = 12); validity is only `certification < 6`. The hand-assigned #1370 codebook that lacked these cells is gone. **Was:** OPEN — operator decision. **Basis:** TEST-PINNED in `contract::epistemic_state5` (`the_layout_is_the_two_by_three_product`, `causes_is_meaningful_under_every_topology`), `relational_certification_probe` (every contract stamps under every topology) and `epistemic_reading_conflict_probe` (census 24 agree / 0 disagree / 8 reserved). The bullets below are HISTORICAL: they describe the superseded ten-code draft, not the current contract.

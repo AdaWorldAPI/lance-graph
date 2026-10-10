@@ -901,6 +901,15 @@ Today they still occupy `classview` values `0x0000`–`0x000C` and are read by `
 - So the classview bits hold two historical uses today: render prefixes `0x0000`–`0x000C` (the June fossil) and the V3 marker `0x1000`. Only convention keeps them apart (`AppPrefix::from_prefix(0x1000)` is `None`).
 - Neither is the general compute-mask use the ruling describes. Do not mint new meanings at `0x1000` or in `0x0000`–`0x000C`.
 
+**The V3 marker is a fossil too (operator, 2026-10-10: "Since now V3 is mandatory and only the hotplug.rs and Ontology slab metadata envelope define if 32 + 96 is in storage or 128 (+classid classview as spoG implicit through Plug and play/app defined and envelope). 1000 V3 Marker is a fossil too").**
+- V3 is mandatory, so a classid value no longer has to say "this row is V3".
+- How a slab's bytes are read is decided in ONE place: `lance-graph-contract/src/hotplug.rs`. The slab's metadata envelope carries a `SlabDeclaration` (`hotplug.rs:322`) whose `SlabReading` tag (`hotplug.rs:231`) says either:
+  - `Facet96`: `classid(4) + payload(12)`, the 32 + 96 layout; or
+  - `Register128` (and its signed carvings `RegisterI4x32` / `RegisterI8x16`): a 128-bit register with NO classid in the bytes. The classid and classview come from the SPOG context, i.e. from the plug (`HotPlug` → `Activation::resolve_for_context`) and the envelope.
+- So `0x1000` in the classview bits carries no information the plug and envelope do not already carry. It is the V3-era counterpart of the June render-prefix fossil.
+- **Live residue (verified, not changed here):** the marker still selects the reading today. `canonical_node::classid_read_mode(classid)` (`canonical_node.rs:1813`) looks the full classid up in `BUILTIN_READ_MODES` (`:1743`), and the `*_V3` keys (`0x0701_1000`, `0x0A01_1000`, …) map to V3-tail read modes. Callers include `ocr.rs:105/124`, `aiwar.rs:119`, `nan_projection.rs:167`, `soa_graph.rs:204/457`. That table is a second resolution path beside the one `hotplug.rs` says is the only one ("there is no second registry"). Retiring it means routing those callers through `Activation::resolve_for_context`, and keeping the legacy keys readable for slabs already written with them (an explicit `SlabDeclaration` wins for existing data). That is a contract change with its own PR and is NOT done here.
+- Rule until then: new code takes its reading from the plug and the slab envelope, never from `classid_read_mode` and never from a `0x1000` classview.
+
 **Next:**
 1. Anchor `performed_by` / `tenant` / `duration` / the work date on WoA's own concepts, reading every value from code.
 2. Map SAP and Odoo onto those anchors.
