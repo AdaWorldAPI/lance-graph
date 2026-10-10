@@ -98,6 +98,10 @@ jobs:
           the_routing_address_must_be_a_proxy
           the_prefix_names_the_kind_and_the_case_of_smtp_marks_the_primary
           from_ad_reads_the_triplet_and_strips_smtp
+          a_synchronized_user_is_mirrored_and_a_cloud_only_user_is_synthetic
+          a_mirrored_user_inside_the_synthetic_container_is_refused
+          an_unencoded_on_premises_dn_is_refused_not_made_synthetic
+          mailbox_records_are_not_observed_as_users
           a_disabled_shared_mailbox_still_receives
           departure_by_conversion_to_shared_keeps_the_mailbox
           an_unknown_lifecycle_is_not_a_recipient
