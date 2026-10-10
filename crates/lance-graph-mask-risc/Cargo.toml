@@ -8,8 +8,16 @@ description = "The one mask-RISC evaluator/fuser above ndarray::simd — a plan 
 # `ndarray` is the T1 facade every op delegates to — the SAME coordinates the
 # planner uses (`std` only: `simd_masking_ops` sits behind it). No contract dep:
 # `Planes::masks` is `&[&[u64]]`, so an `AlphaMask` caller passes `words()`.
+#
+# The canonical git coordinate, not a relative path (CARGO-COMPUTE-SUBSTRATE
+# rule 5): a `path = "../../../ndarray"` here leaves the checkout, so a git
+# consumer of this crate (or of `lance-graph-quack`, which depends on it)
+# fails with "no matching package named `ndarray`". Inside this workspace the
+# root `[patch."https://github.com/AdaWorldAPI/ndarray"]` points the same
+# coordinate back at the sibling checkout, so local builds keep one ndarray
+# package identity and need no network for it.
 [dependencies]
-ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 # D-RPF-0 (`tests/resident_ce64_predicate.rs`): the CE64 accessors are the

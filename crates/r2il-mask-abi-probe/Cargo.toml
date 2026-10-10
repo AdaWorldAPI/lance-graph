@@ -6,9 +6,9 @@ publish = false
 description = "W0B: the mask-ABI differential at the R2IL seam. Proves ogar-r2il's CallMask algebra and lance-graph-mask-risc's agree BIT-IDENTICALLY over the same borrowed words — and nothing more. NOT a Quack<->R2IL bridge: CallMask indexes call slots inside ONE body (<=180), mask-risc indexes rows of a projection (~64K). Same algebra, different index spaces; the row bridge is W0C — `tests/row_bridge.rs`, which carries a factored join predicate as loco program data under its own vocabulary, lets loco INTERPRET it into a mask-risc Program, and executes that fused. No population crosses; the result is bit-identical to quack's lowering."
 
 # Its OWN workspace root. Excluded from lance-graph's so no ordinary
-# workspace test pays for the OGAR sibling checkout, and so `ndarray`'s
-# escaping `../../../ndarray` path (reached through mask-risc) still resolves
-# from its own manifest dir. Same shape as `helix` / `symbiont`.
+# workspace test pays for the OGAR sibling checkout. Same shape as `helix` /
+# `symbiont`. (mask-risc now names ndarray by git; the patch at the end of
+# this file points that back at the sibling checkout.)
 [workspace]
 
 [dependencies]
@@ -20,9 +20,9 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # bit-for-bit. Consumed, never delegated to — the probe compares RESULTS.
 lance-graph-quack = { path = "../lance-graph-quack" }
 # The oracle in THIS probe — deliberately not yet the delegating side. Reached
-# by PATH, not git: mask-risc path-deps `ndarray` at `../../../ndarray`, a
-# path that leaves its own workspace and can never resolve through a cargo git
-# checkout, so the differential cannot live on the OGAR side. The direction
+# by PATH, not git. Until 2026-10-10 mask-risc path-depped `ndarray` at
+# `../../../ndarray`, which no cargo git checkout could resolve, so the
+# differential could not live on the OGAR side. The direction
 # here matches `crates/symbiont`'s existing `../../../OGAR/crates/...` deps.
 ogar-r2il = { path = "../../../OGAR/crates/ogar-r2il" }
 ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
@@ -36,3 +36,9 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # one contract identity — the local one — rather than two.
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }
+
+# mask-risc names ndarray by its canonical git coordinate; point it at the
+# sibling checkout so this workspace has one ndarray identity and needs no
+# network for it (same patch as the lance-graph root).
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }

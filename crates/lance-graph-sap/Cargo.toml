@@ -13,3 +13,9 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 lance-graph-quack = { path = "../lance-graph-quack" }
 hmac = "0.12"
 sha2 = "0.10"
+
+# mask-risc names ndarray by its canonical git coordinate; point it at the
+# sibling checkout so this workspace has one ndarray identity and needs no
+# network for it (same patch as the lance-graph root).
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }

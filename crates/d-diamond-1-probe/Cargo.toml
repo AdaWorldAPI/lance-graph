@@ -20,3 +20,9 @@ ndarray = { path = "../../../ndarray", default-features = false, features = ["st
 
 [profile.release]
 debug = 1
+
+# mask-risc names ndarray by its canonical git coordinate; point it at the
+# sibling checkout so this workspace has one ndarray identity and needs no
+# network for it (same patch as the lance-graph root).
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
