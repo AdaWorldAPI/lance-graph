@@ -330,6 +330,13 @@ fn an_administrator_sees_the_emulated_tree_marked() {
         ),
     );
     assert_eq!(dns(&r), [format!("CN={ERIKA},OU=Staff,{NC}")]);
+    // NOT of an Undefined filter is still Undefined: an extensible match
+    // (unsupported) matches nothing, negated or not.
+    let ext = tlv(0xa9, &tlv(0x82, b"cn"));
+    for f in [ext.clone(), not(ext)] {
+        let r = run(&srv, &mut s, search(8, NC, 2, 0, f, &["1.1"]));
+        assert_eq!((dns(&r).len(), done(&r)), (0, 0));
+    }
     // One level under the domain: the two top OUs.
     let r = run(
         &srv,
