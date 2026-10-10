@@ -19,3 +19,5 @@
   - W5: legacy reads go through `SlabDeclaration`.
   - W6: no V1 default.
 - **Open (operator):** O1, the classview of a new canon mint once `0x1000` retires; O2, which WoA row "Stundenzettel" labels.
+
+**Refined (operator, 2026-10-10):** *"1000 isn't hurting, just document and Mark it as deprecated. No need to force evict."* The `0x1000` marker and `classid_read_mode` are documented as deprecated and kept; stored keys and existing callers are not migrated by force. Done as doc notes, not `#[deprecated]`, which would fail every existing caller under `-D warnings`.

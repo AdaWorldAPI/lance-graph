@@ -109,6 +109,12 @@ impl NodeGuid {
     /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
     /// routes [`Osint`](crate::ogar_codebook::ConceptDomain::Osint) off the
     /// canon half. Resolves to [`ReadMode::OSINT_V3`].
+    ///
+    /// **Deprecated, kept (operator, 2026-10-10):** the `0x1000` classview
+    /// marker is a fossil. V3 is mandatory and the reading comes from the plug
+    /// (`Activation::resolve_for_context`), not from this value. Existing keys
+    /// and callers keep working and nothing is evicted; new code should not
+    /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
     #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_OSINT_V3: u32 = 0x0701_1000;
     /// Pre-flip stored form of [`CLASSID_OSINT_V3`] (marker HIGH, canon
@@ -123,6 +129,12 @@ impl NodeGuid {
     /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
     /// routes [`Anatomy`](crate::ogar_codebook::ConceptDomain::Anatomy).
     /// Resolves to [`ReadMode::FMA_V3`] (same cold `Compressed` model as legacy FMA).
+    ///
+    /// **Deprecated, kept (operator, 2026-10-10):** the `0x1000` classview
+    /// marker is a fossil. V3 is mandatory and the reading comes from the plug
+    /// (`Activation::resolve_for_context`), not from this value. Existing keys
+    /// and callers keep working and nothing is evicted; new code should not
+    /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
     #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_FMA_V3: u32 = 0x0A01_1000;
     /// Pre-flip stored form of [`CLASSID_FMA_V3`] — read-only legacy alias.
@@ -149,6 +161,12 @@ impl NodeGuid {
     /// why the value model is [`ValueSchema::Compressed`] (a fixed reference frame,
     /// not a hot lifecycle); Phase 2 shapes the V3 tenants — gene expression as the
     /// coordinate *value* — on top.
+    ///
+    /// **Deprecated, kept (operator, 2026-10-10):** the `0x1000` classview
+    /// marker is a fossil. V3 is mandatory and the reading comes from the plug
+    /// (`Activation::resolve_for_context`), not from this value. Existing keys
+    /// and callers keep working and nothing is evicted; new code should not
+    /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
     #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_CPIC_V3: u32 = 0x0E01_1000;
     /// Pre-flip stored form of [`CLASSID_CPIC_V3`] (marker HIGH, canon
@@ -170,6 +188,12 @@ impl NodeGuid {
     /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
     /// routes [`ProjectMgmt`](crate::ogar_codebook::ConceptDomain::ProjectMgmt).
     /// Resolves to [`ReadMode::PROJECT_V3`] (same hot `Cognitive` model as legacy PROJECT).
+    ///
+    /// **Deprecated, kept (operator, 2026-10-10):** the `0x1000` classview
+    /// marker is a fossil. V3 is mandatory and the reading comes from the plug
+    /// (`Activation::resolve_for_context`), not from this value. Existing keys
+    /// and callers keep working and nothing is evicted; new code should not
+    /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
     #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_PROJECT_V3: u32 = 0x0101_1000;
     /// Pre-flip stored form of [`CLASSID_PROJECT_V3`] (marker HIGH, canon
@@ -185,6 +209,12 @@ impl NodeGuid {
     /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
     /// routes [`Commerce`](crate::ogar_codebook::ConceptDomain::Commerce).
     /// Resolves to [`ReadMode::ERP_V3`] (same hot `Cognitive` model as legacy ERP).
+    ///
+    /// **Deprecated, kept (operator, 2026-10-10):** the `0x1000` classview
+    /// marker is a fossil. V3 is mandatory and the reading comes from the plug
+    /// (`Activation::resolve_for_context`), not from this value. Existing keys
+    /// and callers keep working and nothing is evicted; new code should not
+    /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
     #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_ERP_V3: u32 = 0x0202_1000;
     /// Pre-flip stored form of [`CLASSID_ERP_V3`] (marker HIGH, canon `0x0200`
@@ -1805,6 +1835,13 @@ pub(crate) fn reset_read_mode_lookups() {
     READ_MODE_LOOKUPS.with(|c| c.set(0));
 }
 
+/// **Deprecated, kept (operator, 2026-10-10):** a classid-keyed reading is
+/// the legacy path. New code takes its reading from the plug
+/// (`Activation::read_mode_for` / `Activation::resolve_for_context`), and the
+/// contract's `_with` / `_plugged` forms accept it as a parameter. This lookup
+/// keeps working for existing callers and stored keys; nothing is evicted
+/// (plan `v3-mandatory-hotplug-reading-v1`).
+///
 /// Resolve a `classid` to its [`ReadMode`] — the single source both consumers
 /// and OGAR inherit. Reads the [`BUILTIN_READ_MODES`] registry, falling through
 /// to [`ReadMode::DEFAULT`] for any unconfigured classid (the key's own

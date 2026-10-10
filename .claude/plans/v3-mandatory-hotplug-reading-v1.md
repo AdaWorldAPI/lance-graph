@@ -16,7 +16,7 @@ What it means, in rules:
 2. **One resolution path.** How a row is read (tail, value schema, edge codec, `Facet96` vs `Register128`) comes from the plug (`HotPlug` → `CapabilityAuthority::activate` → `Activation::resolve_for_context`) plus the slab's own `SlabDeclaration`. Nothing else selects a reading. Lockstep tables (a central list every consumer must be added to) are deprecated.
 3. **A concept is an immutable address.** Its id never changes meaning. This is what ontologies are for.
 4. **Names in different languages are labels of one concept, not separate concepts.** "Stundenzettel", "TimeSheet", "Zeiterfassung" and "TimeEntry" are labels; the concept is the address (here `0x0103` / `ogit.WorkOrder:TimeSheet`). A label table maps names to the address; it never mints.
-5. **The classview fossils retire.** The `0x1000` V3 marker and the per-app render prefixes `0x0000`–`0x000C` stop carrying meaning. Keys already written with them stay readable.
+5. **The classview fossils are deprecated, not evicted** (operator, 2026-10-10: *"1000 isn't hurting, just document and Mark it as deprecated. No need to force evict"*). The `0x1000` V3 marker and the per-app render prefixes `0x0000`–`0x000C` stop carrying meaning for new work. Keys, constants and callers that already use them keep working; nothing is migrated by force.
 
 ## Where things stand (measured 2026-10-10 on `origin/main` `feb21972`)
 
@@ -55,13 +55,13 @@ What it means, in rules:
 - [ ] **W2 — D-V3M-2: the canon domains get their reading from the authority.** The domain value models (`OSINT`/`PROJECT`/`ERP` Cognitive, `FMA`/`CPIC` Compressed) move into `concept_override`, keyed by concept, all on a V3 tail. `OgarAuthority` then answers for those concepts with no classview involved.
   - Falsifier: `read_mode_for(concept)` equals today's `classid_read_mode(<V3 classid>)` for each canon domain, so the move changes no reading.
 - [ ] **W3 — D-V3M-3: consumers move.** lance-graph callcenter / deepnsm-v2 / probes, then q2 osint-bake + geo, MedCare cohorts. Each takes its reading from its `Activation`. Then `classid_read_mode` gets `#[deprecated]`.
-- [ ] **W4 — D-V3M-4: stop minting at the fossil classviews.** New mints stop using classview `0x1000` (OGAR osm / ro / dismech / loco, q2 geo) and new code stops depending on `APP_PREFIX` as a classview value. Which classview a new mint uses instead is an open operator question (O1).
-- [ ] **W5 — D-V3M-5: legacy reads.** Stored `0x1000` and pre-flip keys are read through a `SlabDeclaration`, not through `BUILTIN_READ_MODES`. The table's V3 keys are removed once no persisted slab needs them (corpus proof, as for the existing `*_LEGACY` aliases).
+- [x] **W4 — D-V3M-4: document the fossils as deprecated.** Done in `lance-graph-contract`: the five `CLASSID_*_V3` constants and `classid_read_mode` carry a "Deprecated, kept" doc note. A doc note, not `#[deprecated]`: the attribute would turn every existing caller red under `-D warnings`, which is the forced migration the ruling rules out. OGAR (`ogar-osm` `CLASSVIEW_V3_SUBSTRATE`, ro, dismech, loco) and q2 `geo` get the same note when next touched; existing mints stay.
+- [ ] **W5 — D-V3M-5: legacy reads stay.** Stored `0x1000` and pre-flip keys keep resolving through `BUILTIN_READ_MODES`; no forced removal. A slab may additionally declare its reading (`SlabDeclaration`), which wins for its own data. Removing a table key is optional and only after nothing reads it.
 - [ ] **W6 — D-V3M-6: V1 cannot be reached by default.** `ReadMode::DEFAULT` stops being the fallback for an unknown classid (it becomes `NoReadingFor`, as on the plug path), and `guid-v3-tail` stops being a feature gate.
 
 ## Open questions (operator)
 
-- **O1.** With the `0x1000` marker retired, what classview does a new mint of a canon domain use: `0x0000` (shared canonical core), or an app-owned value?
+- **O1.** What classview should a NEW mint of a canon domain use instead of `0x1000`: `0x0000` (shared canonical core), or an app-owned value? Not blocking: existing mints keep `0x1000`.
 - **O2.** Does WoA's `ogit.WorkOrder:TimeSheet` resolve to `0x0103`, with "Stundenzettel" as its label, instead of today's `TimesheetActivity` (plan `cross-glove-business-parity-v1.md` §C.9.5)? Rule 4 settles that the German name is a label; it does not settle which WoA row the label names.
 
 ## What this plan does not do
