@@ -786,6 +786,11 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
                 if f.tag == 0x84 && f.value.len() != 1 {
                     return Err(LdapError::Malformed);
                 }
+                // matchingRule (MatchingRuleId) and type (AttributeDescription)
+                // are LDAPStrings: UTF-8, checked like every other one.
+                if matches!(f.tag, 0x81 | 0x82) {
+                    text(&f)?;
+                }
                 last = f.tag;
                 seen[usize::from(f.tag - 0x80)] = true;
             }
@@ -823,7 +828,7 @@ fn order(
                 .any(|x| keep(int_cmp(x, v))),
         );
     }
-    let v = fold(attr, v);
+    let v = fold(attr, v)?;
     Some(vals.iter().any(|x| keep(x.as_slice().cmp(v.as_slice()))))
 }
 
@@ -856,17 +861,98 @@ fn is_binary(attr: &str) -> bool {
     matches!(attr, "objectguid" | "msexchmailboxguid")
 }
 
-fn fold(attr: &str, v: &[u8]) -> Vec<u8> {
+/// The matching form of a value or an equality / ordering assertion, or
+/// `None` when it has none (a DN that does not parse, text that is not
+/// UTF-8 or contains a prohibited character). A `None` assertion makes the
+/// item Undefined; a `None` value matches nothing.
+fn fold(attr: &str, v: &[u8]) -> Option<Vec<u8>> {
     if is_dn(attr) {
-        // Served values are always DNs; the fallback is never compared to
-        // an assertion, which must parse to match at all.
-        return dn_form(v).unwrap_or_default();
+        return dn_form(v);
     }
+    // Binary values compare as stored; integers are parsed by
+    // [`rfc_integer`], which rejects anything but the canonical form.
+    if is_binary(attr) || is_integer(attr) {
+        return Some(v.to_vec());
+    }
+    prep(v, Piece::Whole)
+}
+
+/// Which part of an assertion a string is, for RFC 4518 §2.6.1
+/// insignificant-space handling.
+#[derive(Clone, Copy, PartialEq)]
+enum Piece {
+    /// An attribute value or an equality / ordering assertion.
+    Whole,
+    Initial,
+    Any,
+    Final,
+}
+
+/// RFC 4518 string preparation for caseIgnoreMatch and its ordering and
+/// substrings rules: transcode (UTF-8 or nothing), map (map-to-nothing
+/// characters dropped, every space separator to SPACE, case folded),
+/// normalize (NFKC), prohibit (unassigned-free check reduced to the
+/// prohibited ranges below), then insignificant spaces.
+fn prep(v: &[u8], piece: Piece) -> Option<Vec<u8>> {
+    use unicode_normalization::UnicodeNormalization;
+    let s = std::str::from_utf8(v).ok()?;
+    let mut mapped = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            // §2.2 mapped to nothing: soft hyphen, combining grapheme
+            // joiner, Mongolian free variation selectors, variation
+            // selectors, object replacement, zero-width space, and controls
+            // other than the spaces mapped below.
+            '\u{00AD}'
+            | '\u{034F}'
+            | '\u{1806}'
+            | '\u{180B}'..='\u{180E}'
+            | '\u{FE00}'..='\u{FE0F}'
+            | '\u{FFFC}'
+            | '\u{200B}' => {}
+            '\u{0009}'..='\u{000D}' | '\u{0085}' => mapped.push(' '),
+            c if c.is_control() => {}
+            // §2.4 prohibited: private use, non-characters, the
+            // replacement character.
+            '\u{E000}'..='\u{F8FF}' | '\u{FDD0}'..='\u{FDEF}' | '\u{FFFD}' => return None,
+            c if (c as u32 & 0xFFFE) == 0xFFFE => return None,
+            c if c.is_whitespace() => mapped.push(' '),
+            c => mapped.extend(c.to_lowercase()),
+        }
+    }
+    let norm: String = mapped.nfkc().collect();
+    let words: Vec<&str> = norm.split(' ').filter(|w| !w.is_empty()).collect();
+    let mut out = String::with_capacity(norm.len() + 2);
+    if piece == Piece::Whole {
+        // §2.6.1: one SPACE each side, interior runs to two, empty to two.
+        if words.is_empty() {
+            return Some(b"  ".to_vec());
+        }
+        out.push(' ');
+        out.push_str(&words.join("  "));
+        out.push(' ');
+        return Some(out.into_bytes());
+    }
+    if words.is_empty() {
+        return Some(b" ".to_vec());
+    }
+    if piece == Piece::Initial || norm.starts_with(' ') {
+        out.push(' ');
+    }
+    out.push_str(&words.join("  "));
+    if piece == Piece::Final || norm.ends_with(' ') {
+        out.push(' ');
+    }
+    Some(out.into_bytes())
+}
+
+/// A substring piece in matching form; binary attributes are compared as
+/// stored.
+fn fold_piece(attr: &str, v: &[u8], piece: Piece) -> Option<Vec<u8>> {
     if is_binary(attr) {
-        v.to_vec()
-    } else {
-        String::from_utf8_lossy(v).to_lowercase().into_bytes()
+        return Some(v.to_vec());
     }
+    prep(v, piece)
 }
 
 /// Values of `attr` on `e`, as `(raw, matching form)`; includes the
@@ -914,7 +1000,7 @@ fn eval(f: &Filter, e: &Entry, acc: &Access<'_>) -> Option<bool> {
             values(e, a)
                 .into_iter()
                 .filter(|v| (acc.shows)(a, v))
-                .map(|v| fold(a, &v))
+                .filter_map(|v| fold(a, &v))
                 .collect(),
         )
     };
@@ -952,7 +1038,7 @@ fn eval(f: &Filter, e: &Entry, acc: &Access<'_>) -> Option<bool> {
             Some(vals.contains(&dn_form(v)?))
         }
         Filter::Eq(a, v) => {
-            let v = fold(a, v);
+            let v = fold(a, v)?;
             Some(vals(a)?.contains(&v))
         }
         // distinguishedNameMatch has no substrings rule.
@@ -968,9 +1054,19 @@ fn eval(f: &Filter, e: &Entry, acc: &Access<'_>) -> Option<bool> {
             any,
             last,
         } => {
-            let initial = initial.as_ref().map(|x| fold(attr, x));
-            let any: Vec<Vec<u8>> = any.iter().map(|x| fold(attr, x)).collect();
-            let last = last.as_ref().map(|x| fold(attr, x));
+            // A piece with no matching form makes the item Undefined.
+            let initial = match initial {
+                Some(x) => Some(fold_piece(attr, x, Piece::Initial)?),
+                None => None,
+            };
+            let any = any
+                .iter()
+                .map(|x| fold_piece(attr, x, Piece::Any))
+                .collect::<Option<Vec<_>>>()?;
+            let last = match last {
+                Some(x) => Some(fold_piece(attr, x, Piece::Final)?),
+                None => None,
+            };
             Some(vals(attr)?.iter().any(|x| {
                 let mut rest: &[u8] = x;
                 if let Some(i) = &initial {

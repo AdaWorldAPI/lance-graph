@@ -1009,6 +1009,8 @@ fn extensible_matches_are_shape_checked() {
         f(&[ty.clone(), ty.clone(), val.clone()]),     // duplicate
         f(&[ty.clone(), val.clone(), tlv(0x84, &[])]), // empty dnAttributes
         f(&[ty.clone(), tlv(0x04, b"2")]),             // wrong tag
+        f(&[tlv(0x82, &[0xff]), val.clone()]),         // type not UTF-8
+        f(&[tlv(0x81, &[0xc3]), val.clone()]),         // rule not UTF-8
     ] {
         let mut s = Session::default();
         run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
@@ -1372,4 +1374,42 @@ fn server_limits_cap_the_root_dse() {
         (0, 11)
     );
     assert_eq!(q(Server::new(&dir, &Iam).with_limits(10, 1)), (0, 11));
+}
+
+fn eq_raw(a: &str, v: &[u8]) -> Vec<u8> {
+    let mut b = tlv(0x04, a.as_bytes());
+    b.extend(tlv(0x04, v));
+    tlv(0xa3, &b)
+}
+
+// caseIgnoreMatch prepares both sides per RFC 4518: insignificant spaces,
+// compatibility forms and case do not matter, while an assertion that is not
+// valid UTF-8 has no prepared form and is Undefined, so its negation does
+// not match either.
+#[test]
+fn text_matching_uses_ldap_string_preparation() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let mut q = |f| dns(&run(&srv, &mut s, search(2, NC, 2, 0, f, &["1.1"]))).len();
+    let staff = q(eq("ou", "Staff"));
+    let cloud = q(eq("ou", "Cloud Only (emulated)"));
+    assert_eq!((staff, cloud), (1, 1));
+    assert_eq!(q(eq("ou", "  staff ")), 1);
+    assert_eq!(q(eq("ou", "cloud \t  ONLY   (EMULATED)")), 1);
+    assert_eq!(q(eq("ou", "\u{FF33}\u{FF54}\u{FF41}\u{FF46}\u{FF46}")), 1);
+    assert_eq!(q(eq("ou", "staf\u{00AD}f")), 1);
+    // A space inside a word is significant.
+    assert_eq!(q(eq("ou", "cloudonly (emulated)")), 0);
+    assert_eq!(q(eq("ou", "sta ff")), 0);
+    // Substring pieces keep their word boundaries.
+    assert_eq!(q(substr_initial("ou", "cloud  o")), 1);
+    assert_eq!(q(substr_initial("ou", "cloudo")), 0);
+    // Not UTF-8, or a prohibited character: Undefined, so NOT is too.
+    let all = q(not(eq("ou", "zz-no-such-value")));
+    assert!(all > 2, "{all}");
+    assert_eq!(q(not(eq_raw("ou", &[0xff]))), 0);
+    assert_eq!(q(not(eq("ou", "\u{E000}"))), 0);
+    assert_eq!(q(not(substr_initial("ou", "\u{FFFD}"))), 0);
 }
