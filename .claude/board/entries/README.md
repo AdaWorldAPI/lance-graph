@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-291 entries, 2026-08-06 .. 2026-10-10.
+292 entries, 2026-08-06 .. 2026-10-10.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-10-10 | `D-XGP-2` |  | [2026-10-10-d-xgp-2-hotplug-billable-work-entry.md](2026-10-10-d-xgp-2-hotplug-billable-work-entry.md) |
 | 2026-10-10 | `D-XGP-1` |  | [2026-10-10-d-xgp-1-cats-binder-canonical-front.md](2026-10-10-d-xgp-1-cats-binder-canonical-front.md) |
 | 2026-10-10 | `D-XGP-0` | SAP and Odoo share a type, not a meaning | [2026-10-10-d-xgp-0-cross-glove-inventory.md](2026-10-10-d-xgp-0-cross-glove-inventory.md) |
+| 2026-10-10 | `D-SELF-CALIBRATING-LAB-1` |  | [2026-10-10-d-self-calibrating-lab-1.md](2026-10-10-d-self-calibrating-lab-1.md) |
 | 2026-10-10 | `D-SELF-CALIBRATING-LAB-0` |  | [2026-10-10-d-self-calibrating-lab-0.md](2026-10-10-d-self-calibrating-lab-0.md) |
 | 2026-10-10 | `D-RPF-P5` |  | [2026-10-10-d-rpf-p5-nars-beta-correspondence.md](2026-10-10-d-rpf-p5-nars-beta-correspondence.md) |
 | 2026-10-10 | `D-RPF-G2` |  | [2026-10-10-d-rpf-g2-law-a-boundary.md](2026-10-10-d-rpf-g2-law-a-boundary.md) |
