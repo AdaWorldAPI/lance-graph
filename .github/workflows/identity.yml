@@ -118,6 +118,7 @@ jobs:
           search_fields_are_type_checked
           integer_equality_is_numeric_and_undefined_for_non_integers
           the_time_limit_holds_while_the_base_is_resolved
+          nested_fields_are_type_checked
           ordering_follows_the_attribute
           binds_are_checked
           framing_unbind_and_malformed_requests

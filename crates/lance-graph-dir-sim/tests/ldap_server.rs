@@ -756,3 +756,70 @@ fn the_time_limit_holds_while_the_base_is_resolved() {
     let r: Vec<Resp> = srv.handle(&mut s, &q).iter().map(|p| decode(p).1).collect();
     assert_eq!(done(&r), 3);
 }
+
+// Attach one control, given as its raw SEQUENCE content.
+fn with_raw_control(pdu: Vec<u8>, ctrl: Vec<u8>) -> Vec<u8> {
+    let (_, body, _) = read(&pdu);
+    let mut b = body.to_vec();
+    b.extend(tlv(0xa0, &tlv(0x30, &ctrl)));
+    tlv(0x30, &b)
+}
+
+// A search whose attribute list is given as raw TLVs.
+fn search_attrs(attrs: Vec<u8>) -> Vec<u8> {
+    let mut b = tlv(0x04, NC.as_bytes());
+    for (t, v) in [(0x0a, 2), (0x0a, 0), (0x02, 0), (0x02, 0), (0x01, 0)] {
+        b.extend(int(t, v));
+    }
+    b.extend(present("objectClass"));
+    b.extend(tlv(0x30, &attrs));
+    msg(2, tlv(0x63, &b))
+}
+
+// Every typed field inside a request is checked: control OID, criticality
+// BOOLEAN and value; requested attribute names; the attribute and value of
+// an assertion filter; a non-empty substrings sequence. A violation
+// disconnects; a well-formed request still runs.
+#[test]
+fn nested_fields_are_type_checked() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let q = || search(2, NC, 2, 0, present("objectClass"), &["1.1"]);
+    let oid = tlv(0x04, b"1.2.840.113556.1.4.319");
+    let with = |extra: &[Vec<u8>]| [oid.clone(), extra.concat()].concat();
+    let mut sub = tlv(0x04, b"cn");
+    sub.extend(tlv(0x30, &[]));
+    let mut int_attr = tlv(0x02, b"cn");
+    int_attr.extend(tlv(0x04, b"x"));
+    let mut int_value = tlv(0x04, b"cn");
+    int_value.extend(tlv(0x02, b"x"));
+    let bad = [
+        with_raw_control(q(), with(&[tlv(0x01, &[])])), // empty BOOLEAN
+        with_raw_control(q(), with(&[tlv(0x01, &[0, 0])])), // two octets
+        with_raw_control(q(), [tlv(0x02, &[1]), tlv(0x01, &[0])].concat()), // OID tag
+        with_raw_control(q(), with(&[tlv(0x02, &[1])])), // value tag
+        with_raw_control(q(), with(&[tlv(0x04, b"v"), tlv(0x04, b"w")])), // extra field
+        search_attrs(tlv(0x02, b"objectClass")),
+        search(2, NC, 2, 0, tlv(0xa4, &sub), &["1.1"]),
+        search(2, NC, 2, 0, tlv(0xa3, &int_attr), &["1.1"]),
+        search(2, NC, 2, 0, tlv(0xa3, &int_value), &["1.1"]),
+    ];
+    for pdu in bad {
+        let mut s = Session::default();
+        run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+        let out = srv.handle(&mut s, &pdu);
+        assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
+        assert!(s.closed());
+    }
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    for pdu in [
+        with_raw_control(q(), with(&[])),
+        with_raw_control(q(), with(&[tlv(0x04, b"v")])),
+        with_raw_control(q(), with(&[tlv(0x01, &[0]), tlv(0x04, b"v")])),
+        search_attrs(tlv(0x04, b"1.1")),
+    ] {
+        let r = run(&srv, &mut s, pdu);
+        assert_eq!((dns(&r).len(), done(&r)), (5, 0));
+    }
+}

@@ -103,6 +103,29 @@ fn int(t: &Tlv<'_>) -> Result<i64, LdapError> {
     Ok(v)
 }
 
+/// An OCTET STRING (universal tag 4); any other tag is malformed.
+fn octets<'a>(t: &Tlv<'a>) -> Result<&'a [u8], LdapError> {
+    if t.tag != 0x04 {
+        return Err(LdapError::Malformed);
+    }
+    Ok(t.value)
+}
+
+/// An LDAPString: an OCTET STRING holding UTF-8.
+fn string(t: &Tlv<'_>) -> Result<String, LdapError> {
+    String::from_utf8(octets(t)?.to_vec()).map_err(|_| LdapError::Malformed)
+}
+
+/// A BOOLEAN: universal tag 1 with exactly one content octet.
+fn boolean(t: &Tlv<'_>) -> Result<bool, LdapError> {
+    if t.tag != 0x01 || t.value.len() != 1 {
+        return Err(LdapError::Malformed);
+    }
+    Ok(t.value[0] != 0)
+}
+
+/// The content of an implicitly tagged string, read as UTF-8; the caller
+/// has already matched the tag.
 fn text(t: &Tlv<'_>) -> Result<String, LdapError> {
     String::from_utf8(t.value.to_vec()).map_err(|_| LdapError::Malformed)
 }
@@ -380,7 +403,7 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
         if c.len() != 2 {
             return Err(LdapError::Malformed);
         }
-        Ok((text(&c[0])?.to_lowercase(), c[1].value.to_vec()))
+        Ok((string(&c[0])?.to_lowercase(), octets(&c[1])?.to_vec()))
     };
     Ok(match t.tag {
         0xa0 => Filter::And(
@@ -420,8 +443,14 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
             if c.len() != 2 || c[1].tag != 0x30 {
                 return Err(LdapError::Malformed);
             }
+            let attr = string(&c[0])?.to_lowercase();
+            let parts = children(c[1].value)?;
+            // substrings SEQUENCE SIZE (1..MAX)
+            if parts.is_empty() {
+                return Err(LdapError::Malformed);
+            }
             let (mut initial, mut any, mut last) = (None, Vec::new(), None);
-            for s in children(c[1].value)? {
+            for s in parts {
                 match s.tag {
                     0x80 if initial.is_none() && any.is_empty() && last.is_none() => {
                         initial = Some(s.value.to_vec())
@@ -432,7 +461,7 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
                 }
             }
             Filter::Sub {
-                attr: text(&c[0])?.to_lowercase(),
+                attr,
                 initial,
                 any,
                 last,
@@ -571,18 +600,32 @@ fn eval(f: &Filter, e: &Entry, readable: &dyn Fn(&str) -> bool) -> Option<bool> 
 
 /// Whether a `controls` element carries a control marked critical.
 fn has_critical(ctrls: &Tlv<'_>) -> Result<bool, LdapError> {
+    // Every control is checked, not only those before the first critical one.
+    let mut critical = false;
     for ctrl in children(ctrls.value)? {
-        let f = children(ctrl.value)?;
-        if ctrl.tag != 0x30 || f.is_empty() || f[0].tag != 0x04 {
+        // Control ::= SEQUENCE { controlType LDAPOID, criticality BOOLEAN
+        // DEFAULT FALSE, controlValue OCTET STRING OPTIONAL }
+        if ctrl.tag != 0x30 {
             return Err(LdapError::Malformed);
         }
-        if f.get(1)
-            .is_some_and(|b| b.tag == 0x01 && b.value.first().is_some_and(|&x| x != 0))
-        {
-            return Ok(true);
+        let f = children(ctrl.value)?;
+        let Some((oid, mut rest)) = f.split_first() else {
+            return Err(LdapError::Malformed);
+        };
+        octets(oid)?;
+        if let Some((b, r)) = rest.split_first().filter(|(b, _)| b.tag == 0x01) {
+            critical |= boolean(b)?;
+            rest = r;
+        }
+        match rest {
+            [] => {}
+            [v] => {
+                octets(v)?;
+            }
+            _ => return Err(LdapError::Malformed),
         }
     }
-    Ok(false)
+    Ok(critical)
 }
 
 fn result(id: i64, op: u8, code: ResultCode, msg: &str) -> Vec<u8> {
@@ -723,7 +766,7 @@ impl<'a, P: Authority> Server<'a, P> {
                 "simple bind only",
             ));
         }
-        let name = text(&c[1])?;
+        let name = string(&c[1])?;
         let password = c[2].value;
         Ok(match (name.is_empty(), password.is_empty()) {
             (true, true) => result(id, 0x61, ResultCode::Success, ""),
@@ -761,14 +804,12 @@ impl<'a, P: Authority> Server<'a, P> {
             || c[2].tag != 0x0a
             || c[3].tag != 0x02
             || c[4].tag != 0x02
-            || c[5].tag != 0x01
-            || c[5].value.len() != 1
             || c[7].tag != 0x30
             || !(0..=3).contains(&int(&c[2])?)
         {
             return Err(LdapError::Malformed);
         }
-        let base = text(&c[0])?;
+        let base = string(&c[0])?;
         let scope = int(&c[1])?;
         let size_limit = int(&c[3])?;
         let time_limit = int(&c[4])?;
@@ -784,11 +825,11 @@ impl<'a, P: Authority> Server<'a, P> {
                     .checked_add(std::time::Duration::from_secs(time_limit as u64))
             })
             .flatten();
-        let types_only = c[5].value.first().is_some_and(|&b| b != 0);
+        let types_only = boolean(&c[5])?;
         let filter = parse_filter(&c[6])?;
         let requested: Vec<String> = children(c[7].value)?
             .iter()
-            .map(|t| text(t).map(|s| s.to_lowercase()))
+            .map(|t| string(t).map(|s| s.to_lowercase()))
             .collect::<Result<_, _>>()?;
         if !(0..=2).contains(&scope) {
             return Err(LdapError::Malformed);
