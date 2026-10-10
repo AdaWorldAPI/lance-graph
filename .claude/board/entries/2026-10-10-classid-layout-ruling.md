@@ -41,3 +41,9 @@ So the per-app render prefixes (`0x0001` OpenProject … `0x000C` Hiro) are the 
 Today they still occupy `classview` values `0x0000`–`0x000C` and are read by `render_classid` / `PortSpec::classview()`. Whether to retire them, and what replaces them, is the operator's call and NOT decided here. Until then, do not mint new code that depends on `APP_PREFIX` being a classview value.
 
 **odoo-rs dates from that era (operator, 2026-10-10; verified):** first commit 2026-06-17. Its classid code (`od-ontology/src/ogar.rs`, `tests/classid_pins.rs`) landed 2026-07-06/07, right after the flip. Its pinned ids carry the fossil prefix `0x0002` in the classview bits: `0x0202_0002`, `0x0103_0002`, `0x0204_0002`, plus `id & 0xFFFF == 0x0002`. They also appear in generated Python/C#/Rust (`CLASSID = 0x02020002`) and the od-server `/compile` JSON (render_classid audit, §C.9.4). If the prefix is retired, odoo-rs is the first consumer to re-pin.
+
+**`classview = 0x1000` is the V3 migration marker (operator, 2026-10-10: "we used 1000 in classview as a V3 migration marker as opposed to V1/V2"; verified):**
+- Examples: `lance-graph-contract` `canonical_node.rs` `CLASSID_OSINT_V3 = 0x0701_1000`, `FMA_V3 0x0A01_1000`, `CPIC_V3 0x0E01_1000`, `PROJECT_V3 0x0101_1000`, `ERP_V3 0x0202_1000`; `ogar-osm` `CLASSVIEW_V3_SUBSTRATE = 0x1000`; `ogar-ro` `0x0306_1000`; `ogar-dismech` `0x0333_1000`.
+- The code calls it temporary by declaration; its retirement is the plan's P4 operator checkpoint.
+- So the classview bits hold two historical uses today: render prefixes `0x0000`–`0x000C` (the June fossil) and the V3 marker `0x1000`. Only convention keeps them apart (`AppPrefix::from_prefix(0x1000)` is `None`).
+- Neither is the general compute-mask use the ruling describes. Do not mint new meanings at `0x1000` or in `0x0000`–`0x000C`.
