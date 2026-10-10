@@ -147,6 +147,7 @@ jobs:
           a_user_s_groups_follow_nesting_upward
           members_and_groups_are_inverse
           group_properties_are_a_quack_filter
+          empty_property_junctions_are_identities
           nesting_and_properties_compose
           a_version_s_memberships_are_followed
           ad_group_type_sets_the_flag

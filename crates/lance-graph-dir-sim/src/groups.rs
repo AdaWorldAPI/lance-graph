@@ -77,6 +77,11 @@ impl GroupWhere {
             GroupWhere::Is(GroupProperty::MailEnabled) => Filter::cmp(SMTP, Cmp::NeU32(NONE)),
             GroupWhere::Is(GroupProperty::SecurityEnabled) => Filter::plane(SECURITY),
             GroupWhere::Not(w) => Filter::Not(Box::new(w.filter())),
+            // Quack refuses an empty junction, so the identities are spelled
+            // out: an empty `And` holds for every live group, an empty `Or`
+            // for none.
+            GroupWhere::And(ws) if ws.is_empty() => Filter::plane(LIVE),
+            GroupWhere::Or(ws) if ws.is_empty() => Filter::Not(Box::new(Filter::plane(LIVE))),
             GroupWhere::And(ws) => Filter::and(ws.iter().map(Self::filter)),
             GroupWhere::Or(ws) => Filter::or(ws.iter().map(Self::filter)),
         }

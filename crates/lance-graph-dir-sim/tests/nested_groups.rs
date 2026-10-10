@@ -204,6 +204,24 @@ fn group_properties_are_a_quack_filter() {
     }
 }
 
+// The empty junctions are the identities, not a refused query: an empty And
+// holds for every group, an empty Or for none, also when nested.
+#[test]
+fn empty_property_junctions_are_identities() {
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 1, observed()).unwrap();
+    let view = st.view(v).unwrap();
+    let all = ids(&[S1, S2, S3, D1, UNREAD]);
+    assert_eq!(selected(&view, &GroupWhere::And(vec![])), all);
+    assert!(selected(&view, &GroupWhere::Or(vec![])).is_empty());
+    assert_eq!(selected(&view, &not(GroupWhere::Or(vec![]))), all);
+    assert!(selected(
+        &view,
+        &GroupWhere::And(vec![GroupWhere::Or(vec![]), is(GroupProperty::MailEnabled)])
+    )
+    .is_empty());
+}
+
 // Nesting and properties compose: the groups u4 is in, filtered. Its SIDs
 // come from the security groups, its lists from the mail-enabled ones.
 #[test]
