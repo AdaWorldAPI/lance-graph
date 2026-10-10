@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-298 entries, 2026-08-06 .. 2026-10-10.
+299 entries, 2026-08-06 .. 2026-10-10.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-10 | `D-XGP-8` |  | [2026-10-10-woa-anchors-timesheet.md](2026-10-10-woa-anchors-timesheet.md) |
 | 2026-10-10 | `D-HPR-0` |  | [2026-10-10-v3-mandatory-hotplug-reading.md](2026-10-10-v3-mandatory-hotplug-reading.md) |
+| 2026-10-10 | `split-tunnel-sparse-append-resident-fold` | Sparse append on write, resident fold on read: history 0.72 ms vs 336 ms scanning Lance; Lance read once, at replay; never compacted | [2026-10-10-split-tunnel-sparse-append-resident-fold.md](2026-10-10-split-tunnel-sparse-append-resident-fold.md) |
 | 2026-10-10 | `render-classid-reversal-audit` |  | [2026-10-10-render-classid-reversal-audit.md](2026-10-10-render-classid-reversal-audit.md) |
 | 2026-10-10 | `E-W2-SPACE-AXIS-CUSTOM-SPACE-LEAVES-THE-CLASSID-1` | W2's space axis is decided: fixed spaces 0–3 stay in the classid, custom spaces move to the payload or edge | [2026-10-10-e-w2-space-axis-custom-space-leaves-the-classid-1.md](2026-10-10-e-w2-space-axis-custom-space-leaves-the-classid-1.md) |
 | 2026-10-10 | `D-XGP-3-BILLABLE` |  | [2026-10-10-d-xgp-3-billable-converted.md](2026-10-10-d-xgp-3-billable-converted.md) |
