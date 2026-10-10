@@ -150,11 +150,10 @@ fn a_cross_attribute_claim_makes_the_recipient_ambiguous() {
         panic!("two holders must not resolve to one owner");
     };
     assert_eq!(k, key);
-    assert!(holders.contains(&(g(A), AddressRole::PrimarySmtp)));
-    assert!(holders.contains(&(g(B), AddressRole::Upn)));
-    assert!(
-        !holders.iter().any(|h| h.1 == AddressRole::Mail),
-        "`mail` holds nothing: {holders:?}"
+    // Exactly the two claims: `mail` holds nothing, so no third holder.
+    assert_eq!(
+        holders,
+        vec![(g(A), AddressRole::PrimarySmtp), (g(B), AddressRole::Upn)]
     );
     let found = validate(&st.view(v).unwrap());
     assert!(
