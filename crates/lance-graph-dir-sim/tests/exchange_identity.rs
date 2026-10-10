@@ -1,9 +1,10 @@
 //! Identity is read by GUID, never through an address. After provisioning
 //! the mailbox is identified by its `ExchangeGuid`, and
 //! `ExternalDirectoryObjectId` links it to its user, the Entra object
-//! (formerly the MsolUser). `mail` is the licence plate: shown in the
-//! address book and used inside messages, kept as written, and neither
-//! identity nor a receiving address nor provisioned.
+//! (formerly the MsolUser). `mail` is the licence plate on the user object:
+//! shown in the address book and used inside messages, kept as written, it
+//! follows the user rather than the mailbox, and is neither identity nor a
+//! receiving address nor provisioned.
 
 use lance_graph_dir_sim::validate::address_owner;
 use lance_graph_dir_sim::*;
@@ -119,8 +120,8 @@ fn no_mailbox_no_exchange_guid() {
     assert_eq!(view.exchange_identity(&g(0x99)), None);
 }
 
-// The licence plate is kept as written, on any object, mail-enabled or not,
-// and on an object whose plate names another's address. Reading it changes
+// The licence plate is kept as written, on the user whether or not it is
+// mail-enabled, and when it names another user's address. Reading it changes
 // nothing: the plate's holder is not its owner, the address's owner and
 // recipient are unchanged.
 #[test]

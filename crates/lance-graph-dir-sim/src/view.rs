@@ -499,12 +499,14 @@ impl<'s> View<'s> {
         }
     }
 
-    /// A node's `mail`, as written: the licence plate shown in the address
-    /// book and used inside messages. A label only: it is not the node's
-    /// identity, not an address the node receives at, and not what
-    /// provisions anything. Any object may carry one, naming any address.
-    /// Labels come from the observed snapshot: no change edits `mail`, and a
-    /// node created in this version has none.
+    /// A user's `mail`, as written: the licence plate on the user object,
+    /// shown in the address book and used inside messages. It follows the
+    /// user, not the mailbox or the recipient: deprovisioning or migrating
+    /// the mailbox leaves it in place. A label only: it is not the user's
+    /// identity, not an address anything is received at, and not
+    /// provisioned; it may name any address. It comes from the observed
+    /// snapshot: no change edits `mail`, and a node created in this version
+    /// has none.
     pub fn mail(&self, g: &Guid128) -> Option<ValueId> {
         let (kind, i) = self.locate(g)?;
         let (p, _) = self.pop(kind);
