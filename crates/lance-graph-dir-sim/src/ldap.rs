@@ -21,7 +21,10 @@
 //! [`Authority::visible`] says so, and an attribute only when
 //! [`Authority::readable`] does; a refused entry is absent (no
 //! "insufficient access" that would confirm it exists), and a refused
-//! attribute is omitted. The check runs before an entry is encoded.
+//! attribute is omitted. A value that names another entry (`member`) is
+//! shown, and matched by a filter, only when that entry is visible too, so
+//! neither a group's member list nor a `member=` filter reveals a hidden
+//! entry. The check runs before an entry is encoded.
 
 use crate::ad::{Entry, Projection, Value};
 use ogar_dir_core::Dn;
@@ -79,6 +82,20 @@ fn read_tlv(b: &[u8]) -> Result<(Tlv<'_>, &[u8]), LdapError> {
         },
         &rest[len..],
     ))
+}
+
+/// The TLVs in `b`, decoded one at a time.
+fn each_child(b: &[u8]) -> impl Iterator<Item = Result<Tlv<'_>, LdapError>> {
+    let mut rest = b;
+    std::iter::from_fn(move || {
+        if rest.is_empty() {
+            return None;
+        }
+        Some(read_tlv(rest).map(|(t, r)| {
+            rest = r;
+            t
+        }))
+    })
 }
 
 fn children(b: &[u8]) -> Result<Vec<Tlv<'_>>, LdapError> {
@@ -292,6 +309,8 @@ pub struct Directory {
     nc_key: Key,
     nc_entry: Entry,
     entries: Vec<(Key, Entry)>,
+    /// Entry position by key, for resolving DN-valued attributes.
+    index: std::collections::HashMap<Key, usize>,
 }
 
 impl Directory {
@@ -321,11 +340,17 @@ impl Directory {
             .into_iter()
             .map(|e| key(&e.dn).map(|k| (k, e)))
             .collect::<Option<Vec<_>>>()?;
+        let index = entries
+            .iter()
+            .enumerate()
+            .map(|(i, (k, _))| (k.clone(), i))
+            .collect();
         Some(Self {
             naming_context: naming_context.to_string(),
             nc_key,
             nc_entry,
             entries,
+            index,
         })
     }
 
@@ -348,6 +373,15 @@ impl Directory {
         }
     }
 
+    /// The entry named by `dn`, if it is served.
+    fn resolve(&self, dn: &[u8]) -> Option<&Entry> {
+        let k = key(std::str::from_utf8(dn).ok()?)?;
+        if k == self.nc_key {
+            return Some(&self.nc_entry);
+        }
+        self.index.get(&k).map(|&i| &self.entries[i].1)
+    }
+
     fn all(&self) -> impl Iterator<Item = (&Key, &Entry)> {
         std::iter::once((&self.nc_key, &self.nc_entry))
             .chain(self.entries.iter().map(|(k, e)| (k, e)))
@@ -364,6 +398,9 @@ struct SearchRequest {
     filter: Filter,
     /// Lower-cased, sorted and deduplicated.
     requested: Vec<String>,
+    /// More than [`MAX_ATTRIBUTE_SELECTORS`] distinct selectors were named;
+    /// `requested` then holds only the first ones and must not be used.
+    too_many_selectors: bool,
 }
 
 fn parse_search(op: &Tlv<'_>) -> Result<SearchRequest, LdapError> {
@@ -393,13 +430,30 @@ fn parse_search(op: &Tlv<'_>) -> Result<SearchRequest, LdapError> {
     }
     let types_only = boolean(&c[5])?;
     let filter = parse_filter(&c[6])?;
-    let mut requested: Vec<String> = children(c[7].value)?
-        .iter()
-        .map(|t| string(t).map(|s| s.to_lowercase()))
-        .collect::<Result<_, _>>()?;
+    // Decoded one selector at a time and deduplicated as they arrive, so a
+    // repeated selector allocates nothing; past MAX_ATTRIBUTE_SELECTORS
+    // distinct ones the rest are only shape-checked.
+    let mut set = std::collections::BTreeSet::new();
+    let mut too_many_selectors = false;
+    let mut buf = String::new();
+    for t in each_child(c[7].value) {
+        let name = std::str::from_utf8(octets(&t?)?).map_err(|_| LdapError::Malformed)?;
+        if too_many_selectors {
+            continue;
+        }
+        buf.clear();
+        buf.push_str(name);
+        buf.make_ascii_lowercase();
+        if !set.contains(buf.as_str()) {
+            if set.len() == MAX_ATTRIBUTE_SELECTORS {
+                too_many_selectors = true;
+                continue;
+            }
+            set.insert(buf.clone());
+        }
+    }
     // Sorted and deduplicated: looked up by binary search per attribute.
-    requested.sort_unstable();
-    requested.dedup();
+    let requested: Vec<String> = set.into_iter().collect();
     if !(0..=2).contains(&scope) {
         return Err(LdapError::Malformed);
     }
@@ -411,6 +465,7 @@ fn parse_search(op: &Tlv<'_>) -> Result<SearchRequest, LdapError> {
         types_only,
         filter,
         requested,
+        too_many_selectors,
     })
 }
 
@@ -830,24 +885,44 @@ fn values(e: &Entry, attr: &str) -> Vec<Vec<u8>> {
         .collect()
 }
 
+/// What one reader may see of one entry.
+struct Access<'x> {
+    /// Whether an attribute (lower-cased) may be read.
+    readable: &'x dyn Fn(&str) -> bool,
+    /// Whether one value of an attribute may be shown: false for a
+    /// reference to an entry the reader cannot see.
+    shows: &'x dyn Fn(&str, &[u8]) -> bool,
+}
+
+/// Attributes whose values name other entries.
+fn is_reference(attr: &str) -> bool {
+    attr == "member"
+}
+
 /// Three-valued filter evaluation (RFC 4511 §4.5.1.7): `None` = Undefined.
-fn eval(f: &Filter, e: &Entry, readable: &dyn Fn(&str) -> bool) -> Option<bool> {
+fn eval(f: &Filter, e: &Entry, acc: &Access<'_>) -> Option<bool> {
     let vals = |a: &str| -> Option<Vec<Vec<u8>>> {
         // An unrecognised attribute type makes the item Undefined; a
         // recognised one that is unreadable or absent has no values.
         if !is_known(a) {
             return None;
         }
-        if !readable(a) {
+        if !(acc.readable)(a) {
             return Some(Vec::new());
         }
-        Some(values(e, a).into_iter().map(|v| fold(a, &v)).collect())
+        Some(
+            values(e, a)
+                .into_iter()
+                .filter(|v| (acc.shows)(a, v))
+                .map(|v| fold(a, &v))
+                .collect(),
+        )
     };
     match f {
         Filter::And(fs) => {
             let mut out = Some(true);
             for f in fs {
-                match eval(f, e, readable) {
+                match eval(f, e, acc) {
                     Some(false) => return Some(false),
                     None => out = None,
                     Some(true) => {}
@@ -858,7 +933,7 @@ fn eval(f: &Filter, e: &Entry, readable: &dyn Fn(&str) -> bool) -> Option<bool> 
         Filter::Or(fs) => {
             let mut out = Some(false);
             for f in fs {
-                match eval(f, e, readable) {
+                match eval(f, e, acc) {
                     Some(true) => return Some(true),
                     None => out = None,
                     Some(false) => {}
@@ -866,7 +941,7 @@ fn eval(f: &Filter, e: &Entry, readable: &dyn Fn(&str) -> bool) -> Option<bool> 
             }
             out
         }
-        Filter::Not(f) => eval(f, e, readable).map(|b| !b),
+        Filter::Not(f) => eval(f, e, acc).map(|b| !b),
         // present is FALSE, never Undefined, for an unrecognised type.
         Filter::Present(a) => Some(!vals(a).unwrap_or_default().is_empty()),
         // Integer equality is numeric, and Undefined for a non-integer
@@ -1145,6 +1220,7 @@ impl<'a, P: Authority> Server<'a, P> {
             types_only,
             filter,
             requested,
+            too_many_selectors,
         } = parse_search(op)?;
         // A deadline past what the clock can represent is no deadline.
         let deadline = (time_limit > 0)
@@ -1154,7 +1230,7 @@ impl<'a, P: Authority> Server<'a, P> {
             })
             .flatten();
         let done = |code, msg: &str| result(id, 0x65, code, msg);
-        if requested.len() > MAX_ATTRIBUTE_SELECTORS {
+        if too_many_selectors {
             return Ok(vec![done(
                 ResultCode::AdminLimitExceeded,
                 "too many attributes requested",
@@ -1164,9 +1240,23 @@ impl<'a, P: Authority> Server<'a, P> {
         // The rootDSE: readable by anyone.
         if base.is_empty() && scope == 0 {
             let dse = self.dir.root_dse();
+            let acc = Access {
+                readable: &|_| true,
+                shows: &|_, _| true,
+            };
             let mut out = Vec::new();
-            if eval(&filter, &dse, &|_| true) == Some(true) {
-                out.push(self.entry(id, &dse, &requested, types_only, &|_| true));
+            if eval(&filter, &dse, &acc) == Some(true) {
+                // The server caps hold for the rootDSE too.
+                if self.max_entries == 0 {
+                    out.push(done(ResultCode::AdminLimitExceeded, ""));
+                    return Ok(out);
+                }
+                let pdu = self.entry(id, &dse, &requested, types_only, &acc);
+                if pdu.len() > self.max_bytes {
+                    out.push(done(ResultCode::AdminLimitExceeded, ""));
+                    return Ok(out);
+                }
+                out.push(pdu);
             }
             out.push(done(ResultCode::Success, ""));
             return Ok(out);
@@ -1209,7 +1299,18 @@ impl<'a, P: Authority> Server<'a, P> {
                 continue;
             }
             let readable = |a: &str| self.authority.readable(actor, e, a);
-            if eval(&filter, e, &readable) != Some(true) {
+            let shows = |a: &str, v: &[u8]| {
+                !is_reference(a)
+                    || self
+                        .dir
+                        .resolve(v)
+                        .is_some_and(|t| self.authority.visible(actor, t))
+            };
+            let acc = Access {
+                readable: &readable,
+                shows: &shows,
+            };
+            if eval(&filter, e, &acc) != Some(true) {
                 continue;
             }
             if size_limit > 0 && sent == size_limit {
@@ -1221,7 +1322,7 @@ impl<'a, P: Authority> Server<'a, P> {
                 out.push(done(ResultCode::AdminLimitExceeded, ""));
                 return Ok(out);
             }
-            let pdu = self.entry(id, e, &requested, types_only, &readable);
+            let pdu = self.entry(id, e, &requested, types_only, &acc);
             // Checking and projecting this candidate can outlast the limit:
             // nothing found after it is returned.
             if deadline.is_some_and(|d| std::time::Instant::now() >= d) {
@@ -1251,7 +1352,7 @@ impl<'a, P: Authority> Server<'a, P> {
         e: &Entry,
         requested: &[String],
         types_only: bool,
-        readable: &dyn Fn(&str) -> bool,
+        acc: &Access<'_>,
     ) -> Vec<u8> {
         let has = |r: &str| requested.binary_search_by(|x| x.as_str().cmp(r)).is_ok();
         let all = requested.is_empty() || has("*");
@@ -1269,7 +1370,7 @@ impl<'a, P: Authority> Server<'a, P> {
         let mut attrs = Vec::new();
         for l in names {
             let wanted = !none && (all || has(&l));
-            if !wanted || !readable(&l) {
+            if !wanted || !(acc.readable)(&l) {
                 continue;
             }
             let shown = e
@@ -1277,10 +1378,19 @@ impl<'a, P: Authority> Server<'a, P> {
                 .iter()
                 .find(|(n, _)| n.eq_ignore_ascii_case(&l))
                 .map_or("distinguishedName", |(n, _)| *n);
+            let visible: Vec<Vec<u8>> = values(e, &l)
+                .into_iter()
+                .filter(|v| (acc.shows)(&l, v))
+                .collect();
+            // An attribute whose every value is hidden is omitted, even in
+            // a types-only result: its presence alone would reveal them.
+            if visible.is_empty() {
+                continue;
+            }
             let mut vals = Vec::new();
             if !types_only {
-                for v in values(e, &l) {
-                    vals.extend(tlv(0x04, &v));
+                for v in &visible {
+                    vals.extend(tlv(0x04, v));
                 }
             }
             let mut a = tlv(0x04, shown.as_bytes());

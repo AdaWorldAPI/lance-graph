@@ -1222,3 +1222,154 @@ fn the_entry_cap_is_checked_before_building_the_entry() {
     srv.handle(&mut s, &search(3, NC, 2, 0, present("objectClass"), &["*"]));
     assert!(auth.0.get() > 0);
 }
+
+const GROUP_DN: &str = "CN=Sales,OU=Groups,DC=example,DC=de";
+const SEEN_DN: &str = "CN=Seen,OU=Staff,DC=example,DC=de";
+const HIDDEN_DN: &str = "CN=Hidden,OU=Staff,DC=example,DC=de";
+
+fn text(n: &'static str, v: &str) -> (&'static str, lance_graph_dir_sim::ad::Value) {
+    (n, lance_graph_dir_sim::ad::Value::Text(v.into()))
+}
+
+/// Two OUs, two users and one group holding both users, built directly.
+fn group_directory() -> Directory {
+    use lance_graph_dir_sim::ad::{Origin, Projection};
+    let e = |dn: &str, attrs| Entry {
+        dn: dn.into(),
+        origin: Origin::Observed,
+        node: None,
+        attrs,
+    };
+    let ou = |dn: &str, name: &str| {
+        e(
+            dn,
+            vec![text("objectClass", "organizationalUnit"), text("ou", name)],
+        )
+    };
+    let user = |dn: &str, cn: &str| e(dn, vec![text("objectClass", "user"), text("cn", cn)]);
+    let p = Projection {
+        entries: vec![
+            ou("OU=Groups,DC=example,DC=de", "Groups"),
+            ou("OU=Staff,DC=example,DC=de", "Staff"),
+            user(SEEN_DN, "Seen"),
+            user(HIDDEN_DN, "Hidden"),
+            e(
+                GROUP_DN,
+                vec![
+                    text("objectClass", "group"),
+                    text("cn", "Sales"),
+                    text("member", HIDDEN_DN),
+                    text("member", SEEN_DN),
+                ],
+            ),
+        ],
+        dangling_members: 0,
+    };
+    Directory::new(p, NC).unwrap()
+}
+
+/// Sees everything except the entry named `CN=Hidden`.
+struct HideOne;
+impl Authority for HideOne {
+    type Actor = ();
+    fn bind(&self, _: &str, _: &[u8]) -> Option<()> {
+        Some(())
+    }
+    fn visible(&self, _: &(), e: &Entry) -> bool {
+        !e.dn.starts_with("CN=Hidden")
+    }
+}
+
+// A visible group's member list omits members the reader cannot see, and a
+// `member=` filter cannot confirm that a hidden entry exists.
+#[test]
+fn hidden_members_are_neither_shown_nor_matched() {
+    let dir = group_directory();
+    let srv = Server::new(&dir, &HideOne);
+    let mut s = Session::default();
+    srv.handle(&mut s, &bind(1, "x", b"y"));
+    let mut q = |f, attrs: &[&str]| -> Vec<Resp> {
+        let out = srv.handle(&mut s, &search(2, NC, 2, 0, f, attrs));
+        out.iter().map(|p| decode(p).1).collect()
+    };
+    let r = q(eq("cn", "Sales"), &["member"]);
+    let members: Vec<String> = r
+        .iter()
+        .find_map(|x| match x {
+            Resp::Entry { attrs, .. } => Some(attrs.iter().flat_map(|(_, v)| v.clone()).collect()),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(members, [SEEN_DN]);
+    assert_eq!(dns(&q(eq("member", SEEN_DN), &["1.1"])), [GROUP_DN]);
+    assert!(dns(&q(eq("member", HIDDEN_DN), &["1.1"])).is_empty());
+    assert!(dns(&q(substr_initial("cn", "Hid"), &["1.1"])).is_empty());
+}
+
+/// Sees everything except both users.
+struct HideUsers;
+impl Authority for HideUsers {
+    type Actor = ();
+    fn bind(&self, _: &str, _: &[u8]) -> Option<()> {
+        Some(())
+    }
+    fn visible(&self, _: &(), e: &Entry) -> bool {
+        !e.dn.starts_with("CN=Seen") && !e.dn.starts_with("CN=Hidden")
+    }
+}
+
+// When every member is hidden, `member` is omitted entirely, also from a
+// types-only result.
+#[test]
+fn an_attribute_with_only_hidden_values_is_omitted() {
+    let dir = group_directory();
+    let srv = Server::new(&dir, &HideUsers);
+    let mut s = Session::default();
+    srv.handle(&mut s, &bind(1, "x", b"y"));
+    for types_only in [0u8, 0xff] {
+        let mut b = tlv(0x04, GROUP_DN.as_bytes());
+        for (t, v) in [(0x0a, 0), (0x0a, 0), (0x02, 0), (0x02, 0)] {
+            b.extend(int(t, v));
+        }
+        b.extend(tlv(0x01, &[types_only]));
+        b.extend(present("objectClass"));
+        b.extend(tlv(0x30, &tlv(0x04, b"member")));
+        let out = srv.handle(&mut s, &msg(2, tlv(0x63, &b)));
+        let r: Vec<Resp> = out.iter().map(|p| decode(p).1).collect();
+        assert_eq!(
+            r,
+            [
+                Resp::Entry {
+                    dn: GROUP_DN.into(),
+                    attrs: vec![]
+                },
+                Resp::Done { op: 0x65, code: 0 }
+            ],
+            "typesOnly={types_only}"
+        );
+    }
+}
+
+// The server caps hold for the rootDSE too.
+#[test]
+fn server_limits_cap_the_root_dse() {
+    let dir = directory();
+    let q = |srv: Server<'_, Iam>| {
+        let mut s = Session::default();
+        let r = run(
+            &srv,
+            &mut s,
+            search(1, "", 0, 0, present("objectClass"), &[]),
+        );
+        (
+            r.iter().filter(|x| matches!(x, Resp::Entry { .. })).count(),
+            done(&r),
+        )
+    };
+    assert_eq!(q(Server::new(&dir, &Iam)), (1, 0));
+    assert_eq!(
+        q(Server::new(&dir, &Iam).with_limits(0, usize::MAX)),
+        (0, 11)
+    );
+    assert_eq!(q(Server::new(&dir, &Iam).with_limits(10, 1)), (0, 11));
+}

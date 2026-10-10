@@ -117,6 +117,9 @@ jobs:
           the_time_limit_holds_for_the_last_candidate
           search_fields_are_type_checked
           integer_equality_is_numeric_and_undefined_for_non_integers
+          hidden_members_are_neither_shown_nor_matched
+          an_attribute_with_only_hidden_values_is_omitted
+          server_limits_cap_the_root_dse
           the_time_limit_holds_while_the_base_is_resolved
           nested_fields_are_type_checked
           unknown_attribute_types_are_undefined
@@ -131,6 +134,9 @@ jobs:
           every_request_is_shape_checked
           the_entry_cap_is_checked_before_building_the_entry
           integer_equality_is_numeric_and_undefined_for_non_integers
+          hidden_members_are_neither_shown_nor_matched
+          an_attribute_with_only_hidden_values_is_omitted
+          server_limits_cap_the_root_dse
           ordering_follows_the_attribute
           binds_are_checked
           framing_unbind_and_malformed_requests
