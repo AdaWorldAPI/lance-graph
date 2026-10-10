@@ -27,3 +27,4 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
 ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
 ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
+ogar-az = { path = "../../../OGAR/crates/ogar-az" }
