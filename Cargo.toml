@@ -396,6 +396,13 @@ object_store = { version = "0.14", features = ["aws"] }
 # Full measurement + the target geometry: .claude/knowledge/CARGO-COMPUTE-SUBSTRATE.md
 ndarray = { path = "../ndarray" }
 
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+# The same sibling checkout for crates that name the canonical git coordinate
+# (today `lance-graph-mask-risc`, so that git consumers of Quack can build).
+# Without this, a member on the git coordinate would resolve a second ndarray
+# package beside the path one (CARGO-COMPUTE-SUBSTRATE rule 9).
+ndarray = { path = "../ndarray" }
+
 # Dev/test debuginfo OFF (operator, 2026-08-18: "Cargo Debug*=0 or so makes it
 # much smaller and faster"). Measured incident the same day: full debuginfo
 # test binaries grew target/ to 17 GB and killed the linker with SIGBUS on a
