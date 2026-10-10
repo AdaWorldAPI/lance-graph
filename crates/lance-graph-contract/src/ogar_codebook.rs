@@ -56,6 +56,9 @@ pub enum ConceptDomain {
     Ontology,
     /// `0x04XX` — Weather / Atmosphere. Shared forecast and atmospheric cells.
     Weather,
+    /// `0x05XX` — CRM (customer relationship management; consumer hubspo-rs,
+    /// app prefix `0x000B`). Mirrors `ogar_vocab::ConceptDomain::Crm`.
+    Crm,
     /// `0x07XX` — OSINT (open-source intelligence / Palantir-Gotham).
     Osint,
     /// `0x08XX` — OCR (optical character recognition / document extraction).
@@ -125,7 +128,7 @@ pub enum ConceptDomain {
     /// lifted program references. Mirrors `ogar_vocab::ConceptDomain::Mmio`
     /// (OGAR PR #284, 2026-08-25).
     Mmio,
-    /// Any high-byte slot not yet assigned a domain (`0x05XX`–`0x06XX`,
+    /// Any high-byte slot not yet assigned a domain (`0x06XX`,
     /// `0x10XX`–`0x16XX`, `0x18XX`–`0xBFXX`, `0xC2XX`–`0xC3XX` — a
     /// DELIBERATE gap, pinned like OGAR's own `0x10`–`0x16` — and
     /// `0x90XX` — reference (domain reference tree). HIGH byte = compartment, LOW
@@ -189,6 +192,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x98 => ConceptDomain::Procedure,
         0x9A => ConceptDomain::Form,
         0x04 => ConceptDomain::Weather,
+        0x05 => ConceptDomain::Crm,
         0x07 => ConceptDomain::Osint,
         0x08 => ConceptDomain::Ocr,
         0x09 => ConceptDomain::Health,
@@ -310,6 +314,14 @@ pub enum AppPrefix {
     /// `0x0007` — Redmine (project-mgmt render lens; OpenProject twin at the
     /// shared concept level).
     Redmine,
+    /// `0x0008` — OpenStreetMap (geo render lens).
+    Osm,
+    /// `0x0009` — WeatherNext (weather render lens).
+    WeatherNext,
+    /// `0x000A` — Spear (mail and document hub render lens).
+    Spear,
+    /// `0x000B` — HubSPO (CRM render lens).
+    HubSpo,
 }
 
 impl AppPrefix {
@@ -329,11 +341,15 @@ impl AppPrefix {
             AppPrefix::Smb => 0x0004,
             AppPrefix::Healthcare => 0x0005,
             AppPrefix::Redmine => 0x0007,
+            AppPrefix::Osm => 0x0008,
+            AppPrefix::WeatherNext => 0x0009,
+            AppPrefix::Spear => 0x000A,
+            AppPrefix::HubSpo => 0x000B,
         }
     }
 
     /// Resolve an app-prefix value back to its [`AppPrefix`]. `None` for an
-    /// unallocated value (`0x0006`, `0x0008`+ — reserved, costs nothing until
+    /// unallocated value (`0x0006`, `0x000C`+ — reserved, costs nothing until
     /// an app mints its first private class).
     #[inline]
     #[must_use]
@@ -346,6 +362,10 @@ impl AppPrefix {
             0x0004 => Some(AppPrefix::Smb),
             0x0005 => Some(AppPrefix::Healthcare),
             0x0007 => Some(AppPrefix::Redmine),
+            0x0008 => Some(AppPrefix::Osm),
+            0x0009 => Some(AppPrefix::WeatherNext),
+            0x000A => Some(AppPrefix::Spear),
+            0x000B => Some(AppPrefix::HubSpo),
             _ => None,
         }
     }
@@ -634,6 +654,24 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     // remain ClassView-owned payload structure, not promoted concept rows.
     ("weather_cell", 0x0401),
     ("weather_static_cell", 0x0402),
+    // ── 0x05XX — CRM domain (consumer hubspo-rs) ──
+    // Minted by OGAR (D-ONT-4). Custom objects share `crm_custom_record`;
+    // custom properties are tenant data and never minted.
+    ("crm_contact", 0x0501),
+    ("crm_company", 0x0502),
+    ("crm_deal", 0x0503),
+    ("crm_ticket", 0x0504),
+    ("crm_lead", 0x0505),
+    ("crm_pipeline", 0x0506),
+    ("crm_pipeline_stage", 0x0507),
+    ("crm_call", 0x0508),
+    ("crm_meeting", 0x0509),
+    ("crm_task", 0x050A),
+    ("crm_note", 0x050B),
+    ("crm_list", 0x050C),
+    ("crm_campaign", 0x050D),
+    ("crm_sequence", 0x050E),
+    ("crm_custom_record", 0x050F),
     // ── 0x08XX — OCR domain (document extraction; the Tesseract-rs arc) ──
     // Class-level container KINDS only (the 5+3-hardened mint discipline):
     // the concept slots name the container types the OGAR Core resolves —
@@ -878,7 +916,9 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0C09), ConceptDomain::Automation);
         assert_eq!(canonical_concept_domain(0x0D01), ConceptDomain::HR);
         assert_eq!(canonical_concept_domain(0x0D04), ConceptDomain::HR);
-        assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Crm);
+        assert_eq!(canonical_concept_domain(0x0501), ConceptDomain::Crm);
+        assert_eq!(canonical_concept_domain(0x0600), ConceptDomain::Unassigned);
         assert_eq!(canonical_concept_domain(0x0E00), ConceptDomain::Genetics);
         assert_eq!(canonical_concept_domain(0x0F00), ConceptDomain::Geo);
         assert_eq!(canonical_concept_domain(0x0300), ConceptDomain::Ontology);
@@ -960,6 +1000,12 @@ mod tests {
         assert_eq!(canonical_concept_id("currency_policy"), Some(0x0206));
         assert_eq!(canonical_concept_id("weather_cell"), Some(0x0401));
         assert_eq!(canonical_concept_id("weather_static_cell"), Some(0x0402));
+        assert_eq!(canonical_concept_id("crm_contact"), Some(0x0501));
+        assert_eq!(canonical_concept_id("crm_custom_record"), Some(0x050F));
+        assert_eq!(
+            render_classid_for_concept(AppPrefix::HubSpo, "crm_deal"),
+            Some(0x0503_000B)
+        );
         assert_eq!(canonical_concept_id("email"), Some(0x0B05));
         assert_eq!(canonical_concept_id("unicharset"), Some(0x0801));
         assert_eq!(canonical_concept_id("charset"), Some(0x0803));
@@ -1011,6 +1057,10 @@ mod tests {
         assert_eq!(AppPrefix::Smb.prefix(), 0x0004);
         assert_eq!(AppPrefix::Healthcare.prefix(), 0x0005);
         assert_eq!(AppPrefix::Redmine.prefix(), 0x0007);
+        assert_eq!(AppPrefix::Osm.prefix(), 0x0008);
+        assert_eq!(AppPrefix::WeatherNext.prefix(), 0x0009);
+        assert_eq!(AppPrefix::Spear.prefix(), 0x000A);
+        assert_eq!(AppPrefix::HubSpo.prefix(), 0x000B);
         for app in [
             AppPrefix::Core,
             AppPrefix::OpenProject,
@@ -1019,11 +1069,15 @@ mod tests {
             AppPrefix::Smb,
             AppPrefix::Healthcare,
             AppPrefix::Redmine,
+            AppPrefix::Osm,
+            AppPrefix::WeatherNext,
+            AppPrefix::Spear,
+            AppPrefix::HubSpo,
         ] {
             assert_eq!(AppPrefix::from_prefix(app.prefix()), Some(app));
         }
         assert_eq!(AppPrefix::from_prefix(0x0006), None);
-        assert_eq!(AppPrefix::from_prefix(0x0008), None);
+        assert_eq!(AppPrefix::from_prefix(0x000C), None);
     }
 
     #[test]
