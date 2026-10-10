@@ -1,3 +1,5 @@
+<!-- Provenance (added on commit, 2026-10-10): operator-supplied proposal, committed VERBATIM below this comment. Board tracking: D-XGP-0 (inventory) and the cross-glove addendum `.claude/plans/cross-glove-business-parity-v1.md`, which records the two statements here that no longer hold at newer pins (§0). -->
+
 # sap-glove-quack-v1 — SAP as the sixth glove over lance-graph-quack
 
 > Status: PROPOSAL (2026-10-10). Read-only draft; nothing below is built.
