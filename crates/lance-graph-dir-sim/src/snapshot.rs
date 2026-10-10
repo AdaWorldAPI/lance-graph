@@ -252,10 +252,16 @@ pub struct ObservedNode {
     /// source never reported them), distinct from read and all absent
     /// (not mail-enabled).
     pub recipient: Option<ObservedRecipient>,
-    /// Raw `mail`.
+    /// Raw `mail`: the licence plate. It is shown in the address book and
+    /// used inside messages, and is not the object's identity, not an
+    /// address it receives at and not provisioned by anything; it is kept
+    /// as a label, as written.
     pub mail: Option<String>,
     /// Raw `mailNickname` (the Exchange Online `Alias`).
     pub alias: Option<String>,
+    /// `msExchMailboxGuid`, the mailbox's own GUID (Exchange Online keeps it
+    /// as the mailbox's `ExchangeGuid`); `None` = no mailbox, or not read.
+    pub exchange_guid: Option<Guid128>,
 }
 
 /// The Exchange recipient attributes as a source reported them (strings
@@ -273,9 +279,11 @@ pub struct ObservedRecipient {
     pub target_address: Option<String>,
 }
 
-/// Whether a user owns its addresses: enabled, or a live mail recipient.
-/// This is the address *claim* (who reserves an address, so no one else may
-/// take it), not whether mail is delivered: see [`is_mail_recipient`].
+/// Whether a user holds its UPN: enabled, or a live mail recipient (a
+/// shared mailbox is a disabled account and keeps its UPN). The UPN is not
+/// an Exchange address, so the recipient type alone does not provision it.
+/// This is the *claim* (who reserves a value, so no one else may take it),
+/// not whether mail is delivered: see [`is_mail_recipient`].
 pub(crate) fn is_owner(active: Option<bool>, recipient: Option<Recipient>) -> bool {
     active == Some(true) || recipient.is_some_and(|r| r.is_recipient())
 }
@@ -290,6 +298,12 @@ pub(crate) fn is_owner(active: Option<bool>, recipient: Option<Recipient>) -> bo
 /// enabled account counts, the assumption every snapshot without Exchange
 /// data was built on; an unknown flag with unknown attributes is not a
 /// recipient.
+///
+/// The same rule provisions a user's mail addresses (its primary SMTP, its
+/// secondary `smtp:` proxies and a remote mailbox's routing address): an
+/// object holds them exactly when it is a mail recipient, whether or not
+/// the account is enabled. Leftover `proxyAddresses` on an account that is
+/// not mail-enabled reserve nothing in Exchange.
 pub fn is_mail_recipient(active: Option<bool>, recipient: Option<Recipient>) -> bool {
     match recipient {
         Some(r) => r.is_recipient(),
@@ -315,6 +329,7 @@ impl ObservedNode {
             recipient: None,
             mail: None,
             alias: None,
+            exchange_guid: None,
         }
     }
     /// Group.
@@ -329,6 +344,7 @@ impl ObservedNode {
             recipient: None,
             mail: None,
             alias: None,
+            exchange_guid: None,
         }
     }
 }
@@ -404,12 +420,16 @@ pub struct Population {
     pub(crate) rcp_target: Vec<u32>,
     pub(crate) rcp_present: Vec<u8>,
     pub(crate) rcp_read: Vec<u64>,
-    /// `mail` comparison keys (`NONE` = absent).
-    pub(crate) mail_key: Vec<u32>,
+    /// `mail` values as written (`NONE` = absent): a label, never compared.
+    pub(crate) mail_val: Vec<u32>,
     /// `mailNickname` comparison keys (`NONE` = absent).
     pub(crate) alias_key: Vec<u32>,
-    /// Owns its addresses ([`is_owner`] of the observed flag and recipient).
+    /// `msExchMailboxGuid` ([`Guid128::NIL`] = absent).
+    pub(crate) exchange_guid: Vec<Guid128>,
+    /// Holds its UPN ([`is_owner`] of the observed flag and recipient).
     pub(crate) owner: Vec<u64>,
+    /// Its mail addresses are provisioned ([`is_mail_recipient`]).
+    pub(crate) mail_owner: Vec<u64>,
 }
 
 impl Population {
@@ -433,9 +453,11 @@ impl Population {
             rcp_target: Vec::with_capacity(n),
             rcp_present: Vec::with_capacity(n),
             rcp_read: vec![0; words_for(n)],
-            mail_key: Vec::with_capacity(n),
+            mail_val: Vec::with_capacity(n),
             alias_key: Vec::with_capacity(n),
+            exchange_guid: Vec::with_capacity(n),
             owner: vec![0; words_for(n)],
+            mail_owner: vec![0; words_for(n)],
         };
         for (i, (id, node)) in nodes.iter().enumerate() {
             p.ids.push(*id);
@@ -460,8 +482,10 @@ impl Population {
             p.upn_key.push(uk);
             p.smtp_val.push(sv);
             p.smtp_key.push(sk);
-            p.mail_key.push(ids(&node.mail, d).1);
+            p.mail_val.push(ids(&node.mail, d).0);
             p.alias_key.push(ids(&node.alias, d).1);
+            p.exchange_guid
+                .push(node.exchange_guid.unwrap_or(Guid128::NIL));
             let dn = node.dn.unwrap_or(Dn128::ROOT);
             p.dn.push(dn.bytes());
             p.dn_depth.push(dn.depth() as i32);
@@ -491,6 +515,9 @@ impl Population {
             }
             if is_owner(active, p.recipient_of(i)) {
                 set_bit(&mut p.owner, i);
+            }
+            if is_mail_recipient(active, p.recipient_of(i)) {
+                set_bit(&mut p.mail_owner, i);
             }
         }
         p

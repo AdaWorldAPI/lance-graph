@@ -91,6 +91,8 @@ jobs:
             fi
           done <<'EOF'
           enabling_a_mailbox_stamps_its_routing_proxy
+          leftover_mail_addresses_of_a_non_recipient_claim_nothing_but_its_upn_does
+          a_group_does_not_collide_with_a_non_recipients_leftovers
           an_introduced_routing_address_must_match_the_alias
           the_routing_address_must_be_the_nodes_own_alias
           the_routing_address_must_be_a_proxy
@@ -111,6 +113,11 @@ jobs:
           contradicting_witnesses_are_not_a_mailbox
           an_on_premises_mailbox_needs_no_cloud_mailbox
           the_cloud_never_revives_a_non_recipient
+          identity_is_read_by_guid
+          mail_hydrates_no_identity
+          mail_is_the_licence_plate_as_written
+          no_mailbox_no_exchange_guid
+          from_ad_reads_the_exchange_guid_from_schema_6_only
           EOF
           exit "$missing"
 

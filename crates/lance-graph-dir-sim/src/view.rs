@@ -25,13 +25,15 @@
 //! keeps identities wherever an ordinal could shift.
 
 use crate::snapshot::{
-    bit, clear_bit, is_owner, set_bit, Dicts, GroupOrdinal, Population, Snapshot, UserOrdinal,
-    MAX_GROUPS, MAX_USERS, NONE,
+    bit, clear_bit, is_mail_recipient, is_owner, set_bit, Dicts, GroupOrdinal, Population,
+    Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{Dn128, Guid128};
-use ogar_dir_sim::{Attribute, Change, NodeKind, NodeState, Recipient, Refusal, ValueId};
+use ogar_dir_sim::{
+    Attribute, Change, ExchangeIdentity, NodeKind, NodeState, Recipient, Refusal, ValueId,
+};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -346,24 +348,46 @@ impl<'s> View<'s> {
             cr.active[i] == Some(true)
         })
     }
-    /// Address owners as a bit plane over the user ordinals: users that are
-    /// enabled or a live mail recipient, in this version (observed,
-    /// overridden, created). Uniqueness counts these, not the active plane.
+    /// UPN holders as a bit plane over the user ordinals: users that are
+    /// enabled or a live mail recipient ([`is_owner`]), in this version
+    /// (observed, overridden, created). UPN uniqueness counts these.
     pub fn owner_users(&self) -> Cow<'s, [u64]> {
+        self.claim_plane(&self.snap.users.owner, is_owner)
+    }
+    /// Users whose mail addresses are provisioned ([`is_mail_recipient`]: the
+    /// recipient type decides), in this version. SMTP uniqueness and the
+    /// address space of [`crate::validate::address_owner`] count these for
+    /// the primary SMTP, secondary `smtp:` and routing addresses.
+    pub fn mail_owner_users(&self) -> Cow<'s, [u64]> {
+        self.claim_plane(&self.snap.users.mail_owner, is_mail_recipient)
+    }
+    /// An observed claim plane with the version's flag and recipient
+    /// overrides applied and created users added, all through `rule`.
+    fn claim_plane(
+        &self,
+        observed: &'s [u64],
+        rule: fn(Option<bool>, Option<Recipient>) -> bool,
+    ) -> Cow<'s, [u64]> {
         let cr = &self.ov.users.created;
-        self.live_plane(NodeKind::User, self.base_owner(), |i| {
-            is_owner(cr.active[i], cr.recipient[i])
+        let base = self.base_claim(observed, rule);
+        self.live_plane(NodeKind::User, base, |i| {
+            rule(cr.active[i], cr.recipient[i])
         })
     }
-    /// The observed owner plane (base width) with the version's flag and
-    /// recipient overrides applied. Borrowed when there are none.
-    fn base_owner(&self) -> Cow<'s, [u64]> {
+    /// An observed claim plane (base width) with the version's flag and
+    /// recipient overrides applied through `rule`. Borrowed when there are
+    /// none.
+    fn base_claim(
+        &self,
+        observed: &'s [u64],
+        rule: fn(Option<bool>, Option<Recipient>) -> bool,
+    ) -> Cow<'s, [u64]> {
         let o = &self.ov.users;
         if o.active.is_empty() && o.recipient.is_empty() {
-            return Cow::Borrowed(&self.snap.users.owner);
+            return Cow::Borrowed(observed);
         }
         let p = &self.snap.users;
-        let mut plane = p.owner.clone();
+        let mut plane = observed.to_vec();
         for &k in o.active.keys().chain(o.recipient.keys()) {
             let i = usize::from(k);
             let active = o
@@ -376,7 +400,7 @@ impl<'s> View<'s> {
                 .get(&k)
                 .copied()
                 .unwrap_or_else(|| p.recipient_of(i));
-            if is_owner(active, rcp) {
+            if rule(active, rcp) {
                 set_bit(&mut plane, i);
             } else {
                 clear_bit(&mut plane, i);
@@ -475,6 +499,43 @@ impl<'s> View<'s> {
         }
     }
 
+    /// A node's `mail`, as written: the licence plate shown in the address
+    /// book and used inside messages. A label only: it is not the node's
+    /// identity, not an address the node receives at, and not what
+    /// provisions anything. Any object may carry one, naming any address.
+    /// Labels come from the observed snapshot: no change edits `mail`, and a
+    /// node created in this version has none.
+    pub fn mail(&self, g: &Guid128) -> Option<ValueId> {
+        let (kind, i) = self.locate(g)?;
+        let (p, _) = self.pop(kind);
+        let v = *p.mail_val.get(i)?;
+        (v != NONE).then_some(ValueId(v))
+    }
+
+    /// A node's `msExchMailboxGuid`, if observed. It comes from the observed
+    /// snapshot: no change edits it, and a node created in this version has
+    /// none.
+    pub fn exchange_guid(&self, g: &Guid128) -> Option<Guid128> {
+        let (kind, i) = self.locate(g)?;
+        let (p, _) = self.pop(kind);
+        p.exchange_guid.get(i).copied().filter(|x| !x.is_nil())
+    }
+
+    /// What Exchange knows an existing node as, read by its GUID: recipient
+    /// types, `ExchangeGuid` and primary SMTP address. Identity is the GUID
+    /// (after provisioning, the mailbox's `ExchangeGuid`; across the cloud
+    /// join, `ExternalDirectoryObjectId`), never an address: `mail` in
+    /// particular is a label and resolves to no identity.
+    pub fn exchange_identity(&self, g: &Guid128) -> Option<ExchangeIdentity> {
+        let s = self.node_state(g)?;
+        Some(ExchangeIdentity {
+            node: *g,
+            recipient: s.recipient,
+            exchange_guid: self.exchange_guid(g),
+            primary_smtp: s.primary_smtp,
+        })
+    }
+
     /// The canonical semantic state of an existing node — ids only.
     pub fn node_state(&self, g: &Guid128) -> Option<NodeState> {
         let (kind, i) = self.locate(g)?;
@@ -520,13 +581,20 @@ impl<'s> View<'s> {
         Cow::Owned(p)
     }
 
-    /// Base address owners (base width) minus deleted users and the users
-    /// whose attribute `a` is overridden — the base rows that still own
+    /// Base claimants of attribute `a` (base width): UPN holders
+    /// ([`is_owner`]) for the UPN, users whose mail addresses are provisioned
+    /// ([`is_mail_recipient`]) for the primary SMTP; minus deleted users and
+    /// the users whose `a` is overridden — the base rows that still own
     /// their observed value.
     pub(crate) fn live_owners(&self, a: Attribute) -> Cow<'s, [u64]> {
         let o = &self.ov.users;
         let ov = o.overrides(a);
-        let base = self.base_owner();
+        let base = match a {
+            Attribute::Upn => self.base_claim(&self.snap.users.owner, is_owner),
+            Attribute::PrimarySmtp => {
+                self.base_claim(&self.snap.users.mail_owner, is_mail_recipient)
+            }
+        };
         if ov.is_empty() && o.deleted.is_empty() {
             return base;
         }
