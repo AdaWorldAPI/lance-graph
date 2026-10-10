@@ -984,8 +984,8 @@ fn extensible_matches_are_shape_checked() {
     );
     for bad in [
         f(&[]),                                        // empty
-        f(&[ty.clone()]),                              // no matchValue
-        f(&[val.clone()]),                             // neither rule nor type
+        f(std::slice::from_ref(&ty)),                  // no matchValue
+        f(std::slice::from_ref(&val)),                 // neither rule nor type
         f(&[val.clone(), ty.clone()]),                 // out of order
         f(&[ty.clone(), ty.clone(), val.clone()]),     // duplicate
         f(&[ty.clone(), val.clone(), tlv(0x84, &[])]), // empty dnAttributes
