@@ -14,10 +14,11 @@
 //!
 //! Note: 9 of the class's 12 edge targets (`Worker`, `Duration`, `Tenant`, …)
 //! have no id in the SHARED codebook. That is NOT a blocker. A classid is
-//! `domain(8) | appid(8) | concept(16)`: each app mints its own concepts in its
-//! own appid slot, so these targets are addressed through an app's own classid
-//! (e.g. WoA's `Tenant`, `User`, `TimeSheet`), not through a shared mint
-//! (operator, 2026-10-10; plan §C.9.3).
+//! `domain(8) | appid(8) | concept(16)`: the domain is immutable, the appid is
+//! the same byte as the codebook's concept byte (`0xDDCC` = `domain:appid`),
+//! and the low 16 bits are handed out in 64k blocks per `domain:appid`. So
+//! these targets are addressable without a shared mint (e.g. via WoA's
+//! `Tenant`, `User`, `TimeSheet`) (operator, 2026-10-10; plan §C.9.3).
 use lance_graph_contract::hotplug::HotPlug;
 use lance_graph_contract::ClassView;
 use lance_graph_ogar::ogar_vocab::class_ids::BILLABLE_WORK_ENTRY;

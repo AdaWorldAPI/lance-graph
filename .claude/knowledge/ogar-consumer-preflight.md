@@ -244,18 +244,21 @@ Triggers: `*Bridge` · `class_id` · `classid` · `entity_type_id` · `codebook`
 - OGAR#95 `APP-CLASS-CODEBOOK-LAYOUT.md` (hi/lo split) · #97 `render_classid_for`
   · #98 `canonical_concept_name`.
 
-## The classid layout — a missing shared-codebook id is NOT a blocker (operator-ruled 2026-10-10, appended)
+## The classid layout — domain is immutable, appid ≡ concept byte, 64k handed out (operator-ruled 2026-10-10, appended)
 
-The ruling, verbatim: *"Domain 8 bit / Appid 8 bit / Concept 16 bit / Together 32 bit classid"* — *"That's the whole purpose of"* it.
+The ruling, verbatim: *"Domain 8 bit / Appid 8 bit / Concept 16 bit / Together 32 bit classid"*. Its correction, the same day: *"Appid/concept are synonymous"*, and *"One is immutable, the other one is handed out in 64k size."*
 
-| bits | part | owner |
-|---|---|---|
-| 8 | domain | shared; concepts from different apps converge through it |
-| 8 | appid | the app |
-| 16 | concept | the app's own concept, minted in its own appid slot |
+```
+classid : u32 = [ domain 8 | appid 8 ] [ concept 16 ]
+                  0xDD       0xAA        0xCCCC
+                  immutable  ≡ the codebook's     handed out in 64k blocks
+                             "concept byte"       per domain:appid
+```
 
-**The misreading this stops** (it happened on 2026-10-10, in the cross-glove parity work): "this concept is not in `ogar_vocab::class_ids` / the shared `CODEBOOK`, so it is unminted and blocks until OGAR mints it." Wrong. A concept missing from the shared codebook is still addressable as `domain | appid | concept` by the app that owns it. Ask *which app owns this concept, and what is its classid?* before calling anything blocked.
+- **The 16-bit codebook id `0xDDCC` IS `domain:appid`.** `DD` is the immutable domain, and `CC` is the appid, which is the same byte as "the concept byte". Do not read them as two different things.
+- **Do not spend the appid byte naming a sub-namespace.** MedCare's OBO ontologies moved from `0x03:01..` (one domain, with the appid byte only naming the ontology) to their own domain bytes `0x91..` (`0x9101` MONDO, `0x9202` HPO, `0x9303` UBERON). That frees the appid byte (`ogar-obo/src/lib.rs:208-242`).
+- **A missing shared-codebook id is NOT a blocker.** Each `domain:appid` hands out its own 64k concept space. Before calling anything "unminted", ask: which domain:appid, and which value in its 64k space?
+- **Never decode a classid by hand (`>> 16`, `& 0xFFFF`).** The halves are easy to conflate, and a mixed-up half still yields a *valid* id of a *different* class. Example: `0x0905` is `treatment`. Use the named accessors.
+- **Do not reverse `render_classid`.** An audit (lance-graph `.claude/board/entries/2026-10-10-render-classid-reversal-audit.md`) found ~20 hand-copied bit-math sites, silent RBAC and tenant mis-routing, and persisted bakes that would need re-keying.
 
-This does not loosen the spellbook above: a consumer still never copies the shared codebook or constructs a `*Bridge`. It reads shared ids from OGAR and addresses its OWN concepts in its OWN appid slot.
-
-OPEN (not decided here): the code has two layouts — the V3 mint (`canonical_node.rs`: `domain:appid` in the high u16, which matches the ruling) and the render lens (`ogar_codebook::render_classid`: concept high, app prefix low). Their reconciliation is not settled. Record: lance-graph `.claude/plans/cross-glove-business-parity-v1.md` §C.9.3 and `.claude/board/entries/2026-10-10-classid-layout-ruling.md`.
+OPEN: today the low 16 bits carry the per-app render prefix (`PortSpec::APP_PREFIX`), while the ruling names them the 64k concept space. How the two relate is not settled. Record: lance-graph `.claude/plans/cross-glove-business-parity-v1.md` §C.9.3–§C.9.4.

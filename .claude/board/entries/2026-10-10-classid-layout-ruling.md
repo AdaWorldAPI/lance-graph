@@ -1,11 +1,23 @@
-# 2026-10-10 — CLASSID-LAYOUT-RULING: domain(8) | appid(8) | concept(16) — a missing shared-codebook id is not a blocker
+# 2026-10-10 — CLASSID-LAYOUT-RULING: domain(8)|appid(8)|concept(16); appid ≡ concept byte; domain immutable; 64k handed out
 
 **Status:** RULING (operator), recorded verbatim. Plan: `.claude/plans/cross-glove-business-parity-v1.md` §C.9.3.
 
-**The ruling:** "Domain 8 bit / Appid 8 bit / Concept 16 bit / Together 32 bit classid" — "That's the whole purpose of" it.
+**The ruling:**
+- "Domain 8 bit / Appid 8 bit / Concept 16 bit / Together 32 bit classid".
+- Correction: "Appid/concept are synonymous". MedCare-rs uses "91..9E to have the concept id freed up"; before, "03:01..0E … was wasting the concept for defining the Ontology".
+- "One is immutable, the other one is handed out in 64k size."
 
-**The misreading it corrects (D-XGP-2/3, this session):** "9 of `BillableWorkEntry`'s 12 edge targets are unminted, so nothing can be anchored until OGAR mints them." Wrong. They lack only a SHARED codebook id. Each app mints its own 16-bit concepts in its own appid slot; convergence runs through the shared domain byte.
+**Read it as:**
+- the 16-bit codebook id `0xDDCC` = `domain:appid`;
+- the domain is immutable;
+- the low 16 bits are handed out in 64k blocks per `domain:appid`.
 
-**Do not repeat:** do not treat "absent from `ogar_vocab::class_ids` / `CODEBOOK`" as "unaddressable" or "blocked on a shared mint". Ask instead: which app owns the concept, and what is its `domain | appid | concept`?
+Today's `render_classid` high half already matches.
 
-**OPEN:** the code has two layouts (V3 mint, `domain:appid` high; render lens, concept high). Their reconciliation is not decided here.
+**Misreadings it corrects (this session):**
+1. "9 of 12 edge targets are unminted, so blocked." Wrong: a missing shared-codebook id is not a blocker.
+2. "appid and concept are different fields, so reverse `render_classid`." Wrong: they are the same byte, and reversal is not asked for.
+
+**Do not repeat:** treating "absent from `ogar_vocab::class_ids`" as unaddressable; decoding classid halves by hand; reversing `render_classid`.
+
+**OPEN:** how the per-app render prefix (today's low 16 bits) relates to the 64k concept space the ruling puts there.

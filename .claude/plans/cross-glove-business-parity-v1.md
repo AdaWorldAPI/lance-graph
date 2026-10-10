@@ -830,43 +830,70 @@ Next: `project` / `about` for Odoo would need `hr_timesheet`'s `project_id` / `t
 
 > **⊘ This corrects §C.9 point 2 and §C.9.2.** Those sections read "this edge target has no id in the shared codebook" as "this target is unminted, so nothing can be anchored until OGAR mints it". That reading is wrong.
 
-**The ruling, verbatim (operator, 2026-10-10):**
+**The ruling, verbatim (operator, 2026-10-10):** *"Domain 8 bit / Appid 8 bit / Concept 16 bit / Together 32 bit classid"*, *"That's the whole purpose of"* it.
+
+**And its correction (same day):**
+- *"Appid/concept are synonymous."*
+- MedCare-rs uses *"91..9E to have the concept id freed up"*, where *"before it was 03:01..0E which was wasting the concept for defining the Ontology."*
+- Domain and concept are easy to conflate. *"One is immutable, the other one is handed out in 64k size."*
 
 ```
-Domain 8 bit
-Appid 8 bit
-Concept 16 bit
-Together 32 bit classid
+classid : u32 = [ domain 8 | appid 8 ] [ concept 16 ]
+                  0xDD       0xAA        0xCCCC
+                  immutable  ≡ the codebook's     handed out in 64k blocks
+                             "concept byte"       per domain:appid
 ```
 
-…and: *"That's the whole purpose of"* it.
-
-**What it means:**
-
-| bits | part | who owns it |
+| part | bits | lifecycle |
 |---|---|---|
-| 8 | domain | shared; concepts from different apps converge through it |
-| 8 | appid | the app (OpenProject, WoA, MedCare, q2, …) |
-| 16 | concept | the app's own concept, minted inside its own appid slot |
+| domain | 8 | **immutable**: fixed and shared, never reassigned |
+| appid ≡ concept byte | 8 | the second byte of today's 16-bit codebook id `0xDDCC`. **Appid and concept are the same slot.** |
+| concept space | 16 | **handed out in 64k blocks**, one per `domain:appid` |
 
-- **An app does not wait for a shared mint to address its own concepts.** WoA's `Tenant`, `User` and `TimeSheet` are addressable as `domain | WoA appid | concept`.
-- **A missing shared-codebook id is normal, not a blocker.** The test `three_edge_targets_have_a_shared_codebook_id` (renamed from `only_three_edges_point_at_minted_concepts`) measures shared-codebook coverage only, and now says so.
-- **The anchors for the open fields already exist in the OGIT WoA extension** (`lance-graph-ontology` `semantic_types.toml`):
-  - `ogit.WorkOrder:Tenant` → `tenant`;
+**What this means:**
+
+- **Today's 16-bit codebook id `0xDDCC` already *is* `domain:appid`.** The high half of today's `render_classid` (`concept << 16`) therefore already matches the ruling. Reversing `render_classid` is NOT what the ruling asks for; §C.9.4 records what that reversal would break.
+- **Do not spend the appid byte naming a sub-namespace inside a domain.** The worked example, verified in code (`OGAR/crates/ogar-obo/src/lib.rs:208-242`, `examples/rekey_domain.rs`), is the OBO ontologies.
+  - Before, they shared domain `0x03`, and the appid byte only said which ontology: `0x0301` MONDO, `0x0302` HPO, `0x0303` UBERON.
+  - The S3 re-key gave each ontology its own domain byte: `0x9101`, `0x9202`, `0x9303`. That frees the appid byte.
+  - PATO and RO are still on `0x0304` / `0x0305` in that enum.
+- **A missing shared-codebook id is not a blocker.** Each `domain:appid` hands out its own 64k concept space. So `Worker`, `Duration`, `Tenant` and the work date are addressable without a shared mint, e.g. from the OGIT WoA extension:
   - `ogit.WorkOrder:User` → `performed_by`;
-  - `ogit.WorkOrder:TimeSheet.minuten` → `duration`;
-  - `ogit.WorkOrder:TimeSheet.datum` (type `Date`) → the work date the class lacks.
+  - `ogit.WorkOrder:Tenant` → `tenant`;
+  - `TimeSheet.minuten` → `duration`;
+  - `TimeSheet.datum` (type `Date`) → the work date.
 
-  WoA's `TimeSheet` (`Stundenzettel`) already maps to `BILLABLE_WORK_ENTRY` (`ogar-vocab` `ports.rs`).
+  The test `three_edge_targets_have_a_shared_codebook_id` measures shared-codebook coverage only, and says so.
 
-**Open, not decided here — two layouts in the code:**
-
-- `lance-graph-contract` `canonical_node.rs` (the V3 mint): the high u16 is `domain:appid` (e.g. `0x0101` = project-mgmt `0x01`, OpenProject appid `0x01`), and the low u16 is the app's own part. This matches the ruling.
-- `ogar_codebook::render_classid` (the render lens) puts the concept in the high u16 and the app prefix in the low u16. Its own docs call the two "independent composition axes".
-- Codebook ids such as `BILLABLE_WORK_ENTRY = 0x0103` are 16-bit `0xDDCC` values. Under the ruling's layout that reads as domain `0x01`, appid `0x03`; how that relates to the 16-bit concept part is not settled in this plan.
+**Open, not decided here:** today the low 16 bits carry the per-app *render prefix* (OpenProject `0x0001`, Odoo `0x0002`, WoA `0x0003`, MedCare `0x0005`, … — `PortSpec::APP_PREFIX`). Under the ruling, the low 16 bits are the concept space handed out in 64k blocks. How the render prefix and that space relate is the real open question. Answer it before writing any code that composes or splits a classid.
 
 **Next:**
-
-1. Read the WoA appid and domain from code (never guess them).
-2. Anchor `performed_by` / `tenant` / `duration` / the work date on WoA's own concepts.
+1. Settle the low-16 question above.
+2. Anchor `performed_by` / `tenant` / `duration` / the work date on WoA's own concepts, reading every value from code.
 3. Map SAP and Odoo onto those anchors.
+
+#### C.9.4 Audit: what reversing `render_classid` would break — do not do it (2026-10-10)
+
+Read-only audit, run by three parallel agents and spot-checked against source. The full site list is in `.claude/board/entries/2026-10-10-render-classid-reversal-audit.md`.
+
+The hypothesis audited was a reversal to `[domain:appid][concept]` with the codebook's 16-bit concept moved to the low half. §C.9.3's correction shows that is not what the ruling asks. The audit stands as the record of why the order must not be flipped.
+
+**Findings:**
+
+1. **There is no single switch.** The `(concept << 16) | prefix` math is hand-copied about 20 times across 9+ repos. Examples: `ogar-obo` `Namespace::render_classid`, `ogar-loco`, `ogar-ro`, `ogar-dismech`, the Python and C# adapter templates, a2ui `concept_of_key` (server + wasm), MedCare `node_key` / `class_registry`, spear `EMAIL_CLASS`, tesseract `mint_document_root`, ruff `r2il` facets. Changing `render_classid` alone would leave them silently on the old order.
+2. **A flip mis-routes; it does not fail.** Every `>> 16` and `classid_canon` reader still gets a valid-looking 16-bit value, and it is a different class. Affected:
+   - RBAC `ClassGrant::permits` (`rbac.rs:538-540`);
+   - `RbacBinding::plugged`;
+   - `graph_of` tenant routing;
+   - `chain_admission::palette_of`;
+   - `VocabularyRegistry::resolve_classid`;
+   - `Namespace::from_concept_id`;
+   - a2ui ClassView selection.
+3. **Domain routing survives by position.** `classid_concept_domain` and `FacetSchema::of_classid` read the top byte, which stays the domain.
+4. **Persisted data is the hard part.**
+   - OBO `.soa` bakes: re-key plus re-sort, because `SpineLens` binary-searches by classid.
+   - MedCare `obo_slim_edges.tsv` (123 rows), `obo_slim_labels.tsv`, `bakes.tsv` `@0x…` gates, the joinmap.
+   - Constants emitted into consumer repos by `ogar-from-ruff`.
+   - Lance `NodeGuid` key bytes, the tesseract-paperless `document_guid` archive, osm slabs.
+5. **The legacy forms collide.** A reversed id has the same shape as the pre-2026-07-02 `CanonLow` forms, so `classid_canon_compat` / `classify_form` / the `CLASSID_*_LEGACY` aliases could no longer tell old rows from new.
+6. **The ClassView field basis is safe.** `ClassView` keys on a bare `u16` (`class_view.rs:54`) and every production caller passes the concept, so `WideFieldMask` bit positions are stable. The view is the "ERB fieldview as masks" pattern: `rbac ∩ present ∩ view` (op-server `viewfilter.rs:83-95`) or `surface ∩ role` (a2ui). Selecting a skin per app via the low half (`resolve_codebook`) is documented in `OGAR/docs/APP-CLASS-CODEBOOK-LAYOUT.md` §4 and implemented nowhere.

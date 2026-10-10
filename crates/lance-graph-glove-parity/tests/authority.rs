@@ -125,8 +125,8 @@ fn converted_sap_claims_bind_under_their_canonical_name() {
 ///
 /// This measures shared-codebook coverage only. It does NOT mean the other
 /// targets are unaddressable or must wait for a shared mint: a classid is
-/// `domain(8) | appid(8) | concept(16)`, and an app addresses its own concepts
-/// in its own appid slot (plan §C.9.3).
+/// `domain(8) | appid(8) | concept(16)`, and each `domain:appid` hands out its
+/// own 64k concept space (plan §C.9.3).
 #[test]
 fn three_edge_targets_have_a_shared_codebook_id() {
     use lance_graph_ogar::ogar_vocab::{billable_work_entry, canonical_concept_id};
