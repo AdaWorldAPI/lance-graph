@@ -52,6 +52,7 @@
 //! [`classid_read_mode`]: crate::canonical_node::classid_read_mode
 
 use crate::canonical_node::{classid_read_mode, NodeRow, ValueSchema, ValueTenant};
+use crate::hotplug::{Activation, ActivationDrift};
 
 /// `true` iff an `f32` bit pattern is non-finite (Inf or NaN): the exponent
 /// field is all-ones. No float materialised.
@@ -151,6 +152,18 @@ pub fn energy_all_finite_resolved(rows: &[NodeRow], schema: ValueSchema) -> bool
 /// Split `rows` into maximal runs of equal classid, resolving each run's
 /// value schema once. Yields `(start index, run, schema)`.
 fn schema_runs(rows: &[NodeRow]) -> impl Iterator<Item = (usize, &[NodeRow], ValueSchema)> {
+    classid_runs(rows).map(|(at, run)| {
+        (
+            at,
+            run,
+            classid_read_mode(run[0].key.classid()).value_schema,
+        )
+    })
+}
+
+/// Split `rows` into maximal non-empty runs of equal classid. Yields
+/// `(start index, run)`.
+fn classid_runs(rows: &[NodeRow]) -> impl Iterator<Item = (usize, &[NodeRow])> {
     let mut start = 0usize;
     core::iter::from_fn(move || {
         if start >= rows.len() {
@@ -164,8 +177,38 @@ fn schema_runs(rows: &[NodeRow]) -> impl Iterator<Item = (usize, &[NodeRow], Val
         let run = &rows[start..start + len];
         let at = start;
         start += len;
-        Some((at, run, classid_read_mode(classid).value_schema))
+        Some((at, run))
     })
+}
+
+/// [`project_energy_nonfinite`] with each run's reading resolved through the
+/// plug (`Activation::resolve_tenant_reading`, once per run of equal classid)
+/// instead of the classid lookup. The form new code uses (plan
+/// `v3-mandatory-hotplug-reading-v1`, D-V3M-1).
+///
+/// # Errors
+///
+/// The first [`ActivationDrift`] a run's concept resolves to, e.g.
+/// `NoReadingFor` for a concept the plug does not cover. There is no default
+/// reading: an unplugged row is an error, never read as V1.
+pub fn project_energy_nonfinite_plugged(
+    rows: &[NodeRow],
+    act: &Activation,
+) -> Result<NanReport, ActivationDrift> {
+    let mut report = NanReport::default();
+    for (at, run) in classid_runs(rows) {
+        let schema = act
+            .resolve_tenant_reading(run[0].key, None)?
+            .read_mode
+            .value_schema;
+        let r = project_energy_nonfinite_resolved(run, schema);
+        report.total += r.total;
+        report.skipped += r.skipped;
+        report
+            .nonfinite
+            .extend(r.nonfinite.into_iter().map(|i| i + at as u32));
+    }
+    Ok(report)
 }
 
 /// Project a batch of canonical boards onto the NaN-detection surface by reading
@@ -375,5 +418,43 @@ mod tests {
         assert!(!energy_all_finite(&rows));
         // the FMA rows alone are skipped, not read
         assert!(energy_all_finite(&[rows[0], rows[2]]));
+    }
+
+    /// D-V3M-1: the plugged form reads each run under the plug's reading. The
+    /// classid is unknown to the lookup, which answers `Full` (has `Energy`)
+    /// and so flags the NaN; the plug declares `Bootstrap` (no `Energy`), so
+    /// the plugged form skips it. An unplugged concept is an error, never a
+    /// default reading.
+    #[test]
+    fn plugged_form_reads_under_the_plug_and_refuses_unplugged_rows() {
+        use crate::canonical_node::{EdgeCodecFlavor, ReadMode, TailVariant};
+        let classid = 0x1718_0000;
+        let rows = [board_with_classid(classid, f32::NAN)];
+        assert_eq!(project_energy_nonfinite(&rows).nonfinite, vec![0]);
+
+        let mode = |value_schema| ReadMode {
+            tail_variant: TailVariant::V3,
+            value_schema,
+            edge_codec: EdgeCodecFlavor::CoarseOnly,
+        };
+        let act = |schema| Activation::new(Vec::new(), Vec::new(), vec![(0x1718, mode(schema))]);
+
+        let skipped =
+            project_energy_nonfinite_plugged(&rows, &act(ValueSchema::Bootstrap)).unwrap();
+        assert_eq!((skipped.skipped, skipped.count()), (1, 0));
+
+        let flagged =
+            project_energy_nonfinite_plugged(&rows, &act(ValueSchema::Cognitive)).unwrap();
+        assert_eq!(flagged.nonfinite, vec![0]);
+
+        let unplugged = Activation::new(
+            Vec::new(),
+            Vec::new(),
+            vec![(0x1719, mode(ValueSchema::Full))],
+        );
+        assert_eq!(
+            project_energy_nonfinite_plugged(&rows, &unplugged),
+            Err(ActivationDrift::NoReadingFor(0x1718))
+        );
     }
 }

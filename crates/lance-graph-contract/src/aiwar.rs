@@ -13,7 +13,7 @@
 //! `GraphSnapshot` to the Quadro-2 visual. Run it on the real graph with
 //! `cargo run -p lance-graph-contract --example aiwar_family_poc`.
 
-use crate::canonical_node::{classid_read_mode, EdgeBlock, NodeGuid, NodeRow};
+use crate::canonical_node::{classid_read_mode, EdgeBlock, NodeGuid, NodeRow, ReadMode};
 use crate::literal_graph::LiteralGraph;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -81,7 +81,19 @@ pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
     let osint_classid = NodeGuid::CLASSID_OSINT_V3;
     #[cfg(not(feature = "guid-v3-tail"))]
     let osint_classid = NodeGuid::CLASSID_OSINT;
+    aiwar_node_rows_with(graph, osint_classid, classid_read_mode(osint_classid))
+}
 
+/// [`aiwar_node_rows`] with the classid and reading supplied by the caller,
+/// the reading resolved from its plug (`Activation::read_mode_for`) rather
+/// than looked up by classid. The form new code uses (plan
+/// `v3-mandatory-hotplug-reading-v1`, D-V3M-1); the lookup in
+/// [`aiwar_node_rows`] is legacy.
+pub fn aiwar_node_rows_with(
+    graph: &LiteralGraph,
+    osint_classid: u32,
+    mode: ReadMode,
+) -> Vec<NodeRow> {
     let view = AiwarClassView::from_graph(graph);
     let ids = graph.all_node_ids();
     let fam_of =
@@ -116,7 +128,7 @@ pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
                 // Masked to u16 — fits both the V3 basin tail and the V1 fallback
                 // (POC cardinalities are tiny: category count + node count).
                 key: NodeGuid::mint_for(
-                    classid_read_mode(osint_classid).tail_variant,
+                    mode.tail_variant,
                     osint_classid,
                     0,
                     0,
@@ -212,5 +224,25 @@ mod tests {
             assert_eq!(row.key.classid(), expected_classid);
             assert_eq!(row.value, [0u8; 480], "head-only: value slab stays zero");
         }
+    }
+
+    /// D-V3M-1: `aiwar_node_rows_with` reproduces `aiwar_node_rows` when handed
+    /// the same reading, and follows a different reading when handed one.
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn with_form_follows_the_handed_reading() {
+        use crate::canonical_node::{EdgeCodecFlavor, TailVariant, ValueSchema};
+        let g = ingest_aiwar_json(SAMPLE).unwrap();
+        let keys = |rows: &[NodeRow]| rows.iter().map(|r| r.key).collect::<Vec<_>>();
+        let legacy = aiwar_node_rows(&g);
+        let same = aiwar_node_rows_with(&g, NodeGuid::CLASSID_OSINT_V3, ReadMode::OSINT_V3);
+        assert_eq!(keys(&same), keys(&legacy));
+        let v1 = ReadMode {
+            tail_variant: TailVariant::V1,
+            value_schema: ValueSchema::Cognitive,
+            edge_codec: EdgeCodecFlavor::CoarseOnly,
+        };
+        let other = aiwar_node_rows_with(&g, NodeGuid::CLASSID_OSINT_V3, v1);
+        assert_ne!(keys(&other), keys(&legacy));
     }
 }

@@ -240,13 +240,24 @@ fn identity_of(guid: &NodeGuid, tail: TailVariant) -> u32 {
 /// edges. Touches ONLY the 32-byte head of each row (`key` + `edges`); never the
 /// value slab.
 pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot {
+    project_snapshot_with(rows, domain, domain_tail(domain))
+}
+
+/// [`project_snapshot`] with the tail supplied by the caller, taken from the
+/// reading its plug resolved (`Activation::read_mode_for(..)?.tail_variant`)
+/// rather than looked up by classid. The form new code uses (plan
+/// `v3-mandatory-hotplug-reading-v1`, D-V3M-1).
+pub fn project_snapshot_with(
+    rows: &[NodeRow],
+    domain: &DomainSpec,
+    tail: TailVariant,
+) -> GraphSnapshot {
     // codex P1: a classid IS the class — project only rows of THIS domain, so a
     // mixed-class board can't leak other domains' nodes/edges into the view.
     let domain_rows: Vec<&NodeRow> = rows
         .iter()
         .filter(|r| r.key.classid() == domain.classid)
         .collect();
-    let tail = domain_tail(domain);
 
     // family → member count, and a COLLISION-AWARE family-low-byte → family map.
     // codex P1: with >256 families two ids can share a low byte; a duplicate
@@ -387,12 +398,21 @@ pub struct AnchorHop {
 /// tree walk: smaller hops ⇔ deeper shared `classid_lo·HEEL·HIP·TWIG` prefix.
 /// Ranking (nearest anchor) is what callers use; the absolute value is even.
 pub fn nearest_anchor(rows: &[NodeRow], domain: &DomainSpec) -> Vec<AnchorHop> {
+    nearest_anchor_with(rows, domain, domain_tail(domain))
+}
+
+/// [`nearest_anchor`] with the tail supplied by the caller (see
+/// [`project_snapshot_with`]).
+pub fn nearest_anchor_with(
+    rows: &[NodeRow],
+    domain: &DomainSpec,
+    tail: TailVariant,
+) -> Vec<AnchorHop> {
     // codex P1: only rank rows of THIS domain (classid IS the class).
     let domain_rows: Vec<&NodeRow> = rows
         .iter()
         .filter(|r| r.key.classid() == domain.classid)
         .collect();
-    let tail = domain_tail(domain);
     // Representative HHTL path per anchor family (first member encountered).
     let mut anchor_paths: Vec<(u32, NiblePath)> = Vec::new();
     for row in &domain_rows {
@@ -758,5 +778,47 @@ mod tests {
             )
         };
         assert_eq!(key(&a), key(&b));
+    }
+
+    /// D-V3M-1: the `_with` forms use the tail they are handed, not the classid
+    /// lookup. The classid here is unknown to `BUILTIN_READ_MODES`, so the
+    /// lookup answers V1; the plug says V3. Only the handed tail decodes the V3
+    /// basin family correctly.
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn with_forms_use_the_handed_tail_not_the_classid_lookup() {
+        use crate::canonical_node::classid_read_mode;
+        let classid = 0x1718_0000;
+        assert_eq!(classid_read_mode(classid).tail_variant, TailVariant::V1);
+        let dom = DomainSpec {
+            classid,
+            name: "plugged",
+            anchor_families: &[],
+            in_family_edge: "a",
+            out_family_edge: "b",
+            member_edge: "m",
+        };
+        let g = NodeGuid::mint_for(TailVariant::V3, classid, 1, 0, 0, 0xAAAA, 0xBBBB, 0xCCCC);
+        let rows = [NodeRow {
+            key: g,
+            edges: EdgeBlock::default(),
+            value: [0u8; 480],
+        }];
+        let family = |snap: &GraphSnapshot| {
+            snap.nodes
+                .iter()
+                .filter(|n| n.kind == "Family")
+                .flat_map(|n| n.props.iter())
+                .find(|(k, _)| k == "family")
+                .map(|(_, v)| v.clone())
+        };
+        let plugged = project_snapshot_with(&rows, &dom, TailVariant::V3);
+        assert_eq!(family(&plugged).as_deref(), Some("00bbbb"));
+        let looked_up = project_snapshot(&rows, &dom);
+        assert_ne!(family(&looked_up), family(&plugged));
+        assert_eq!(
+            nearest_anchor_with(&rows, &dom, TailVariant::V3).len(),
+            nearest_anchor(&rows, &dom).len()
+        );
     }
 }
