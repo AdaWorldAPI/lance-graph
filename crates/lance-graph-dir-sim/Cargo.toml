@@ -28,3 +28,9 @@ ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
 ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
 ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
 ogar-az = { path = "../../../OGAR/crates/ogar-az" }
+
+# mask-risc names ndarray by its canonical git coordinate; point it at the
+# sibling checkout so this workspace has one ndarray identity and needs no
+# network for it (same patch as the lance-graph root).
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
