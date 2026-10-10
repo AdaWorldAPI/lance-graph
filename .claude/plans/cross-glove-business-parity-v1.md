@@ -825,3 +825,48 @@ The proof is `lance-graph-sap` `tests/binder.rs::billable_lens_selects_exactly_t
 So `performed_by`, `duration` and `tenant` stay `Hypothesized` until OGAR mints their targets. That is an OGAR authority change, and it is open for the operator alongside the temporal role.
 
 Next: `project` / `about` for Odoo would need `hr_timesheet`'s `project_id` / `task_id`, which are not harvested. SAP `project_code` / `task_code` are optional fields, which `CatsBinder` refuses until a validity plane exists.
+
+#### C.9.3 The classid layout — operator ruling, recorded so it is not misread again (2026-10-10)
+
+> **⊘ This corrects §C.9 point 2 and §C.9.2.** Those sections read "this edge target has no id in the shared codebook" as "this target is unminted, so nothing can be anchored until OGAR mints it". That reading is wrong.
+
+**The ruling, verbatim (operator, 2026-10-10):**
+
+```
+Domain 8 bit
+Appid 8 bit
+Concept 16 bit
+Together 32 bit classid
+```
+
+…and: *"That's the whole purpose of"* it.
+
+**What it means:**
+
+| bits | part | who owns it |
+|---|---|---|
+| 8 | domain | shared; concepts from different apps converge through it |
+| 8 | appid | the app (OpenProject, WoA, MedCare, q2, …) |
+| 16 | concept | the app's own concept, minted inside its own appid slot |
+
+- **An app does not wait for a shared mint to address its own concepts.** WoA's `Tenant`, `User` and `TimeSheet` are addressable as `domain | WoA appid | concept`.
+- **A missing shared-codebook id is normal, not a blocker.** The test `three_edge_targets_have_a_shared_codebook_id` (renamed from `only_three_edges_point_at_minted_concepts`) measures shared-codebook coverage only, and now says so.
+- **The anchors for the open fields already exist in the OGIT WoA extension** (`lance-graph-ontology` `semantic_types.toml`):
+  - `ogit.WorkOrder:Tenant` → `tenant`;
+  - `ogit.WorkOrder:User` → `performed_by`;
+  - `ogit.WorkOrder:TimeSheet.minuten` → `duration`;
+  - `ogit.WorkOrder:TimeSheet.datum` (type `Date`) → the work date the class lacks.
+
+  WoA's `TimeSheet` (`Stundenzettel`) already maps to `BILLABLE_WORK_ENTRY` (`ogar-vocab` `ports.rs`).
+
+**Open, not decided here — two layouts in the code:**
+
+- `lance-graph-contract` `canonical_node.rs` (the V3 mint): the high u16 is `domain:appid` (e.g. `0x0101` = project-mgmt `0x01`, OpenProject appid `0x01`), and the low u16 is the app's own part. This matches the ruling.
+- `ogar_codebook::render_classid` (the render lens) puts the concept in the high u16 and the app prefix in the low u16. Its own docs call the two "independent composition axes".
+- Codebook ids such as `BILLABLE_WORK_ENTRY = 0x0103` are 16-bit `0xDDCC` values. Under the ruling's layout that reads as domain `0x01`, appid `0x03`; how that relates to the 16-bit concept part is not settled in this plan.
+
+**Next:**
+
+1. Read the WoA appid and domain from code (never guess them).
+2. Anchor `performed_by` / `tenant` / `duration` / the work date on WoA's own concepts.
+3. Map SAP and Odoo onto those anchors.

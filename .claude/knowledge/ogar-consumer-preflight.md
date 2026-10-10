@@ -243,3 +243,19 @@ Triggers: `*Bridge` · `class_id` · `classid` · `entity_type_id` · `codebook`
   *inverse* arm of the same boundary).
 - OGAR#95 `APP-CLASS-CODEBOOK-LAYOUT.md` (hi/lo split) · #97 `render_classid_for`
   · #98 `canonical_concept_name`.
+
+## The classid layout — a missing shared-codebook id is NOT a blocker (operator-ruled 2026-10-10, appended)
+
+The ruling, verbatim: *"Domain 8 bit / Appid 8 bit / Concept 16 bit / Together 32 bit classid"* — *"That's the whole purpose of"* it.
+
+| bits | part | owner |
+|---|---|---|
+| 8 | domain | shared; concepts from different apps converge through it |
+| 8 | appid | the app |
+| 16 | concept | the app's own concept, minted in its own appid slot |
+
+**The misreading this stops** (it happened on 2026-10-10, in the cross-glove parity work): "this concept is not in `ogar_vocab::class_ids` / the shared `CODEBOOK`, so it is unminted and blocks until OGAR mints it." Wrong. A concept missing from the shared codebook is still addressable as `domain | appid | concept` by the app that owns it. Ask *which app owns this concept, and what is its classid?* before calling anything blocked.
+
+This does not loosen the spellbook above: a consumer still never copies the shared codebook or constructs a `*Bridge`. It reads shared ids from OGAR and addresses its OWN concepts in its OWN appid slot.
+
+OPEN (not decided here): the code has two layouts — the V3 mint (`canonical_node.rs`: `domain:appid` in the high u16, which matches the ruling) and the render lens (`ogar_codebook::render_classid`: concept high, app prefix low). Their reconciliation is not settled. Record: lance-graph `.claude/plans/cross-glove-business-parity-v1.md` §C.9.3 and `.claude/board/entries/2026-10-10-classid-layout-ruling.md`.

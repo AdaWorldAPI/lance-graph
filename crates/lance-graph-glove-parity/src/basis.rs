@@ -10,9 +10,14 @@
 //! canonical position with a [`Grade`]. One claim is `Converted`: SAP
 //! `billing_indicator` → `billable`, through the derived lens
 //! `lance-graph-sap::bind::BILLABLE` (test-proven on real rows, D-XGP-3). Every
-//! other claim is `Hypothesized`: 9 of the class's 12 edges point at concepts
-//! OGAR has not minted (`Worker`, `Duration`, `Tenant`, …), so no conversion
-//! onto them can be anchored yet (plan §C.6.2, §C.9.2).
+//! other claim is `Hypothesized`.
+//!
+//! Note: 9 of the class's 12 edge targets (`Worker`, `Duration`, `Tenant`, …)
+//! have no id in the SHARED codebook. That is NOT a blocker. A classid is
+//! `domain(8) | appid(8) | concept(16)`: each app mints its own concepts in its
+//! own appid slot, so these targets are addressed through an app's own classid
+//! (e.g. WoA's `Tenant`, `User`, `TimeSheet`), not through a shared mint
+//! (operator, 2026-10-10; plan §C.9.3).
 use lance_graph_contract::hotplug::HotPlug;
 use lance_graph_contract::ClassView;
 use lance_graph_ogar::ogar_vocab::class_ids::BILLABLE_WORK_ENTRY;

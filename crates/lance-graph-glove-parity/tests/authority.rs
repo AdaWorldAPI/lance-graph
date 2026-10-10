@@ -121,11 +121,14 @@ fn converted_sap_claims_bind_under_their_canonical_name() {
     }
 }
 
-/// Which `BillableWorkEntry` edges point at a concept OGAR has minted. Only
-/// these can carry a conversion anchored at the authority; the rest wait for
-/// OGAR to mint their targets (plan §C.9.2).
+/// Which `BillableWorkEntry` edge targets have an id in the SHARED codebook.
+///
+/// This measures shared-codebook coverage only. It does NOT mean the other
+/// targets are unaddressable or must wait for a shared mint: a classid is
+/// `domain(8) | appid(8) | concept(16)`, and an app addresses its own concepts
+/// in its own appid slot (plan §C.9.3).
 #[test]
-fn only_three_edges_point_at_minted_concepts() {
+fn three_edge_targets_have_a_shared_codebook_id() {
     use lance_graph_ogar::ogar_vocab::{billable_work_entry, canonical_concept_id};
     let snake = |camel: &str| {
         let mut out = String::new();
