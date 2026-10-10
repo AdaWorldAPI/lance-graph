@@ -1,3 +1,12 @@
+## 2026-10-10 — cross-glove-business-parity-v1 — Odoo × SAP over one Quack algebra → `.claude/plans/cross-glove-business-parity-v1.md`
+
+**Status:** PROPOSAL (D-XGP-0..7). No code authorized. Addendum to `.claude/plans/sap-glove-quack-v1.md` (baseline, committed verbatim; W0–W6 preserved). **Corrected same day (plan §C):** the contract bullet below is superseded. The landing is shipped `OntologyRegistry` attribute rows plus a CATS `impl Binder` (missing) behind a registry front; no new contract module.
+
+- Landing contract: a versioned canonical field basis per concept + one graded pivot per glove (`Exact / Converted / Hypothesized / Unsupported`), executed as ONE Quack `Query` over a canonical-order view of borrowed lanes.
+- `Binder` is the seam; `Registrar` is not (name + width only, no production impl).
+- One W1 correction: `Pivot` starts in `lance-graph-contract`, because Odoo is the second consumer and may not depend on an SAP crate.
+- Behavior parity for SAP is UNPROVEN: no SAP runtime evidence exists. Handoff: `.claude/handovers/2026-10-10-cross-glove-odoo-session-handoff.md`.
+
 ## 2026-10-08 — resident-projection-fold-mask-v1 — mask × fold × CE64 register over projections of resident bytes → `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`
 
 **Status:** PROPOSAL (D-RPF-0..8). No code authorized; probes and measurements first.

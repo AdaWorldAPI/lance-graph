@@ -1,3 +1,18 @@
+## D-XGP — Cross-glove business parity: Odoo × SAP over one Quack algebra (2026-10-10)
+
+Plan: `plans/cross-glove-business-parity-v1.md`. Board entry: `entries/2026-10-10-d-xgp-0-cross-glove-inventory.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-XGP-0** | Read-only inventory across lance-graph, OGAR, ruff, odoo-rs, lgj, SIMAF | Shipped (analysis) | every row carries `file:line` at the pins in plan §0 |
+| **D-XGP-1** | ~~`lance-graph-contract::glove` types + laws 1–5~~ ⊘ superseded (plan §C): CATS `impl Binder` (dir-sim `UserBinder` shape) + registry canonical-name front | Queued | probe Q1: canonical-name path gives the same `Col`s, `Program` and sums as `CatsQuery`; N-a..N-d |
+| **D-XGP-2** | ~~`BILLABLE_WORK_ENTRY` basis v1 in `ogar-class-view`~~ ⊘ superseded: canonical attribute URIs for `0x0103` fields, registered as `OntologyRegistry` attribute rows under bridges `sap`/`odoo` | Queued (needs ruling §C.5: who mints the URIs) | probe Q2: shared `entity_type_id` per field; one-sided fields resolve `None` on the other side |
+| **D-XGP-3** | `lance-graph-glove-parity` probe: P1–P4, N1–N7 | Queued | equal `Program`s for literal-free queries; N1/N2/N5/N6 red without the conversion |
+| **D-XGP-4** | Odoo analytic-line pivot + behavior classification (Odoo session) | Queued | pivot validates; mapping `unit_amount` as Exact is rejected |
+| **D-XGP-5** | Report `Catalog` from `CanonicalBasis` | Queued | one report plan, identical cells over both lane views |
+| **D-XGP-6** | lgj ↔ quack convergence cases for canonical-bound queries | Queued | `lowering_convergence.rs` byte-equality per case |
+| **D-XGP-7** | SAP behavior oracle | Blocked (no SAP runtime or trace) | behavior parity stays UNPROVEN until it exists |
+
 ## D-ART — Algebraic recipe table over concepts and terminals (2026-10-08)
 
 Board entry: `entries/2026-10-08-algebraic-recipe-probe.md`. A linear canonicaliser and a static guarded recipe table reduce (concept, transformation chain, terminal) to the minimal work; affine transforms of `CrossPowerSums`; projected order statistics of `m`-fold families.
