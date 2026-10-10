@@ -1,4 +1,4 @@
-# D-SELF-CALIBRATING-LAB-0 — the hypothesis lab, v0: shared statistics + the Gomoku arm (2026-10-10)
+# D-SELF-CALIBRATING-LAB-0 — the hypothesis lab, v0: shared statistics + Gomoku and crossword arms (2026-10-10)
 
 **Status:** MEASURED (one task family). Probe only; no production code.
 **Code:** `crates/cognitive-shader-driver/examples/shared/lab.rs` (task-agnostic
@@ -90,9 +90,40 @@ and it is well calibrated for that. Reading it as P(productive step) is the
 error. Same lesson as D-RPF-P5: e is a posterior mean of the evidence the
 substrate actually records, nothing more.
 
+## Crossword arm (`crossword_crossing_care_probe lab`)
+
+Same `lab.rs`, second task family, separate Holm family. Blocks = 16 fresh
+puzzles (seed 0x1AB5EED; the original used the 0xC0FFEE sets), side 5, open
+workload (half givens, cap 50). Endpoints in natural logs (min effect 0.1 ≈
+10 %); ops is the deterministic cost counter, not wall time. 3.4 s wall.
+
+Deterministic half: every arm sound on every puzzle; same fill count wherever
+two arms both solved; 16/16 solved by each arm.
+
+| id | hypothesis | effect (ln, + = treatment better) | 95 % CI | Holm | verdict |
+|---|---|---|---|---|---|
+| C1 | Support cuts search nodes vs Baseline | +3.59 (≈36×) | [+3.00, +4.17] | reject | **SUPPORTED** |
+| C2 | Support cuts total ops vs Baseline | −2.57 (≈13× more ops) | [−2.90, −2.24] | reject | **FALSIFIED** |
+| C3 | Single counterfactuals cut ops vs Baseline | −1.07 (≈2.9× more) | [−1.71, −0.43] | reject | **FALSIFIED** |
+| C4 | Pair nogoods cut ops beyond Single | −0.78 (≈2.2× more) | [−1.13, −0.43] | reject | **FALSIFIED** |
+
+Geometric means: Baseline 2,427 nodes / 4,718 ops; Support 67 / 61,700;
+Single 471 / 13,717; Pair 434 / 29,895. Replicates D-SCF-CARE-PAIR-0 on
+fresh puzzles. One difference worth noting: here Single needs 5× fewer nodes
+than Baseline, while the original's open set showed similar node counts;
+the original attributed that to enumeration order under the cap.
+
+## Across the two tasks (empirical, not yet a tested meta-hypothesis)
+
+On both tasks the strategy that wins on a work-avoidance proxy (nodes;
+learned value) is not automatically the cheapest end to end, and the lab
+separates the two only because cost is a declared endpoint. On Gomoku the
+deterministic certificate is the one change that cuts cost with zero quality
+change; on crossword no tested arm beats Baseline on ops. A cost-aware
+strategy selector is therefore the next lab question, not a conclusion.
+
 ## OPEN
 
-- Crossword arm (D-SCF-CARE-PAIR-0 arms on matched puzzles) — next increment.
 - Held-out evaluation (Moore #1428) and the cross-task meta-experiment need
   both tasks in one process: the record should move to a SoA-shaped carrier
   then, not before.
@@ -106,7 +137,8 @@ PR (this) | STATUS: measured | OUTCOME: lab v0 (paired sign-flip + Holm +
 verdicts + reliability) with a Gomoku arm; pilot exposed 3 design errors,
 fixed before a fresh-seed confirmation: H2 H4 H7 supported, H3 inconclusive,
 H5 falsified; e calibrated (ECE 0.05) only over non-neutral outcomes |
-OPEN: crossword arm, held-out domain, SoA record, Thompson/eligibility arms
+OPEN: held-out domain, SoA record, Thompson/eligibility arms, cost-aware
+selector; crossword arm: C1 supported, C2-C4 falsified (fresh puzzles)
 ```
 
 MIRROR
