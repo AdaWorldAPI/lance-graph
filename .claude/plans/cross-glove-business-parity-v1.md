@@ -939,3 +939,26 @@ The hypothesis audited was a reversal to `[domain:appid][concept]` with the code
    - Lance `NodeGuid` key bytes, the tesseract-paperless `document_guid` archive, osm slabs.
 5. **The legacy forms collide.** A reversed id has the same shape as the pre-2026-07-02 `CanonLow` forms, so `classid_canon_compat` / `classify_form` / the `CLASSID_*_LEGACY` aliases could no longer tell old rows from new.
 6. **The ClassView field basis is safe.** `ClassView` keys on a bare `u16` (`class_view.rs:54`) and every production caller passes the concept, so `WideFieldMask` bit positions are stable. The view is the "ERB fieldview as masks" pattern: `rbac ∩ present ∩ view` (op-server `viewfilter.rs:83-95`) or `surface ∩ role` (a2ui). Selecting a skin per app via the low half (`resolve_codebook`) is documented in `OGAR/docs/APP-CLASS-CODEBOOK-LAYOUT.md` §4 and implemented nowhere.
+
+#### C.9.5 WoA anchors: the hours row is `TimeSheet`, not the pinned `TimesheetActivity` (D-XGP-8, 2026-10-10)
+
+Source read: OGAR `.claude/harvest/woa-rs/models.py` + `woa_facet.sql` + `woa_graph.spo` (generated from WoA's own `models.py` by `ruff_sqlalchemy_spo` → `ogar-from-ruff`, 151 classes), and `ogar-vocab/src/ports.rs` `WOA_ALIASES`.
+
+**Finding.** OGAR's `WoaPort` resolves `TimesheetActivity` (and `Stundenzettel` / `TimeEntry` / `Zeiterfassung`) to `BILLABLE_WORK_ENTRY` (`0x0103`). In WoA, `TimesheetActivity` is a child row holding only `beschreibung` and `created_at`. The hours live in its parent `TimeSheet`: `datum` (DATE NOT NULL), `minuten` (INTEGER), `user` (→ `User`), `tenant_id`, `abgerechnet` (BOOLEAN). `TimeSheet`, `User` and `Tenant` all carry classid `0x0000_0000` in the harvest. So the convergence pin is on the description row, not the hours row.
+
+**Shipped (`lance-graph-glove-parity::basis`):** `WOA_FIELDS` claims the three anchors from `TimeSheet`, all `Hypothesized`:
+
+- `user` → `performed_by`;
+- `minuten` → `duration` (an integer minute count; SAP `hours_logged` and Odoo `unit_amount` are hours, so a conversion is ×60);
+- `tenant_id` → `tenant`.
+
+`ANCHORS = [performed_by, duration, tenant]`; each glove (SAP, Odoo, WoA) claims each anchor exactly once (test-pinned). Unmapped on purpose:
+
+- `datum`: the class has no temporal role, same as SAP `work_date_utc` and Odoo `date`;
+- `abgerechnet`: means "already invoiced", an invoicing state, not `billable` ("may be invoiced"). Mapping it to `billable` would be wrong both ways.
+
+**Two-sided pin** (`woa_pin_is_on_the_description_row_not_the_hours_row`): `WoaPort::class_id("TimesheetActivity") == Some(0x0103)` and `TimeSheet` / `User` / `Tenant` resolve to `None`. When OGAR moves the pin or mints those concepts, the test fails and the WoA claims get re-read.
+
+**For the operator (OGAR change, not made here):** should `WoaPort` resolve `TimeSheet` to `0x0103` (and `TimesheetActivity` become a description child of it)? `Stundenzettel` is the German name of `TimeSheet`, not of `TimesheetActivity`, so today's alias table points the German name at the wrong row too.
+
+**Next:** with the three anchors claimed by all three gloves, the remaining step is a `Converted` grade for one anchor: `duration` is the candidate (SAP hours × 60 = WoA minutes, provable on rows once a WoA fixture exists).
