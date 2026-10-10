@@ -105,6 +105,42 @@ jobs:
           a_cloud_read_is_shown_mirrored_and_synthetic
           a_simulated_version_marks_what_it_created
           unsafe_values_are_base64_and_long_lines_fold
+          iam_filters_entries_and_attributes
+          writes_are_refused_and_the_directory_does_not_change
+          the_root_dse_is_public_and_the_tree_is_not
+          deep_filters_are_refused_before_they_recurse
+          critical_controls_are_refused_and_others_ignored
+          wide_filters_are_refused
+          out_of_range_limits_are_refused_without_panicking
+          a_rebind_refused_for_a_control_drops_the_identity
+          the_time_limit_is_honoured
+          the_time_limit_holds_for_the_last_candidate
+          search_fields_are_type_checked
+          integer_equality_is_numeric_and_undefined_for_non_integers
+          hidden_members_are_neither_shown_nor_matched
+          an_attribute_with_only_hidden_values_is_omitted
+          server_limits_cap_the_root_dse
+          the_time_limit_holds_while_the_base_is_resolved
+          nested_fields_are_type_checked
+          unknown_attribute_types_are_undefined
+          dn_values_match_by_parsed_name
+          empty_and_or_are_refused
+          server_limits_cap_unlimited_searches
+          message_id_zero_is_refused
+          extensible_matches_are_shape_checked
+          attribute_selectors_are_bounded
+          substring_items_count_against_the_budget
+          text_matching_uses_ldap_string_preparation
+          substrings_need_a_substrings_rule
+          a_wide_filter_is_refused_before_its_children_are_held
+          ldap::tests::preparation_uses_full_case_folding
+          an_entry_found_after_the_deadline_is_not_returned
+          every_request_is_shape_checked
+          the_entry_cap_is_checked_before_building_the_entry
+          ordering_follows_the_attribute
+          binds_are_checked
+          framing_unbind_and_malformed_requests
+          an_administrator_sees_the_emulated_tree_marked
           a_disabled_shared_mailbox_still_receives
           departure_by_conversion_to_shared_keeps_the_mailbox
           an_unknown_lifecycle_is_not_a_recipient

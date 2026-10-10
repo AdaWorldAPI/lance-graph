@@ -28,6 +28,10 @@ ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
 ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
 ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
 ogar-az = { path = "../../../OGAR/crates/ogar-az" }
+# RFC 4518 string preparation (NFKC) for case-ignore LDAP matching.
+unicode-normalization = "0.1"
+# Full Unicode case folding (RFC 3454 B.2) for the same.
+unicase = "2"
 
 # mask-risc names ndarray by its canonical git coordinate; point it at the
 # sibling checkout so this workspace has one ndarray identity and needs no

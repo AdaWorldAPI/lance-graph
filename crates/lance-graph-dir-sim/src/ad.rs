@@ -129,6 +129,22 @@ pub enum ProjectError {
     },
 }
 
+/// Every attribute type a projected entry can carry: the schema the LDAP
+/// handler recognises for its users, groups and OUs.
+pub const ATTRIBUTES: &[&str] = &[
+    "objectClass",
+    "ou",
+    "cn",
+    "objectGUID",
+    "userPrincipalName",
+    "mail",
+    "proxyAddresses",
+    "userAccountControl",
+    "msExchMailboxGuid",
+    "member",
+    "dirSimOrigin",
+];
+
 /// The projection of one version.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Projection {
@@ -276,6 +292,13 @@ pub fn project(
         nodes.iter().map(|(_, g, d)| (*g, d.clone())).collect();
     let (members, dangling) = members(v);
     out.dangling_members = dangling;
+    // Member DNs per group, built once: O(memberships), not O(groups × memberships).
+    let mut by_group: std::collections::BTreeMap<Guid128, Vec<&String>> = Default::default();
+    for (u, grp) in &members {
+        if let Some(d) = dn_of.get(u) {
+            by_group.entry(*grp).or_default().push(d);
+        }
+    }
 
     let mut objs: Vec<(NodeKind, String, Entry)> = Vec::with_capacity(nodes.len());
     for (kind, g, dn) in nodes {
@@ -315,11 +338,7 @@ pub fn project(
                 a.push(("msExchMailboxGuid", Value::Binary(x.to_ms_bytes().to_vec())));
             }
         } else {
-            let mut m: Vec<&String> = members
-                .iter()
-                .filter(|(_, grp)| *grp == g)
-                .filter_map(|(u, _)| dn_of.get(u))
-                .collect();
+            let mut m = by_group.remove(&g).unwrap_or_default();
             m.sort();
             for d in m {
                 a.push(("member", Value::Text(d.clone())));

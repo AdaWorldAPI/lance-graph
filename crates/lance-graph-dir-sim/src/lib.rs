@@ -20,10 +20,13 @@
 //!   failing closed).
 //! * [`ad`] — a version as Active Directory entries (observed, mirrored,
 //!   synthetic or simulated) and as LDIF.
+//! * [`ldap`] — a read-only LDAP v3 protocol handler over a projection;
+//!   access decided by the host's [`ldap::Authority`]. Bytes in, bytes out.
 //! * [`cloud`] — which AD objects have their mailbox in Exchange Online,
 //!   read from OGAR's GUID-keyed hybrid correspondence fold.
 //!
-//! No network, process or file I/O. Nothing writes to AD, Entra, Exchange,
+//! No network, process or file I/O (the LDAP handler takes bytes; the host
+//! owns any socket). Nothing writes to AD, Entra, Exchange,
 //! LDAP or PowerShell. `#![forbid(unsafe_code)]`.
 
 #![forbid(unsafe_code)]
@@ -32,6 +35,7 @@ pub mod ad;
 pub mod bind;
 pub mod cloud;
 mod exec;
+pub mod ldap;
 pub mod observe;
 pub mod proxy;
 pub mod rule;
