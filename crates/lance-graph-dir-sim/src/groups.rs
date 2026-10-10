@@ -11,9 +11,18 @@
 //! * **security-enabled**: the group has a SID, which carries the
 //!   permissions granted to the group to its members.
 //!
-//! A caller combines the two halves: the groups a user is in
-//! (`groups_transitive`) that are security-enabled (`groups_where`) are the
-//! SIDs the user inherits.
+//! Neither property is inherited through plain nesting. Each one is a chain
+//! through groups that have it, walked with the `_through` variants and a
+//! [`GroupWhere`] filter:
+//!
+//! * **Mail is chained addressing.** Mail to a group goes to its members; a
+//!   nested group receives it through its own address and passes it on to
+//!   its members. A nested group without an address cannot be addressed and
+//!   ends the chain: `members_transitive_through(g, Is(MailEnabled))`.
+//! * **Permissions follow the SID chain.** Only a security group has a SID,
+//!   so a group without one neither holds nor passes on a permission:
+//!   [`View::security_identifiers`], `members_transitive_through(g,
+//!   Is(SecurityEnabled))`.
 //!
 //! ```text
 //!   groups_where(view, &GroupWhere::Is(SecurityEnabled))
@@ -34,8 +43,9 @@ use crate::{exec, Kept, NodeKind, View};
 /// A property a group has, independent of nesting and of the other.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum GroupProperty {
-    /// The group has a primary SMTP address: mail sent to it reaches its
-    /// members.
+    /// The group has a primary SMTP address: it can be addressed, so mail
+    /// sent to it reaches its members, and through a nested member group's
+    /// own address, that group's members.
     MailEnabled,
     /// The group is known to be security-enabled: it has a SID that carries
     /// permissions. A group whose flag was not read, or that a version

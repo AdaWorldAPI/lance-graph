@@ -262,21 +262,31 @@ fn empty_property_junctions_are_identities() {
     .is_empty());
 }
 
-// Nesting and properties compose: the groups u4 is in, filtered. Its SIDs
-// come from the security groups, its lists from the mail-enabled ones.
+// Mail is chained addressing, never inherited: mail to S1 reaches its
+// members and, through each nested group's own address, theirs. S2 has no
+// address, so u2 (reached only through S2) gets nothing, though it is a
+// member of S1 by nesting.
 #[test]
-fn nesting_and_properties_compose() {
-    use GroupProperty::{MailEnabled, SecurityEnabled};
+fn mail_is_chained_addressing() {
     let mut st = VersionStore::new();
     let v = st.observe("lab", 1, observed()).unwrap();
     let view = st.view(v).unwrap();
-    let up = view.groups_transitive(&g(U4));
-    let filter = |w: &GroupWhere| -> Vec<Guid128> {
-        let keep = selected(&view, w);
-        up.iter().copied().filter(|gr| keep.contains(gr)).collect()
-    };
-    assert_eq!(filter(&is(SecurityEnabled)), ids(&[S1, S2, S3]));
-    assert_eq!(filter(&is(MailEnabled)), ids(&[S1, S3, D1]));
+    let mail = GroupWhere::Is(GroupProperty::MailEnabled);
+    assert_eq!(view.members_transitive(&g(S1)), ids(&[U1, U2, U3, U4, U5]));
+    assert_eq!(
+        view.members_transitive_through(&g(S1), &mail),
+        ids(&[U1, U3, U4, U5])
+    );
+    // A group without an address cannot be addressed at all.
+    assert!(view.members_transitive_through(&g(S2), &mail).is_empty());
+    // The lists u4 receives through: S3, D1 and S1, each by address; the
+    // chain stops at S2, which has none.
+    assert_eq!(
+        view.groups_transitive_through(&g(U4), &mail),
+        ids(&[S1, S3, D1])
+    );
+    // u2 receives through no list.
+    assert!(view.groups_transitive_through(&g(U2), &mail).is_empty());
 }
 
 struct Edit(Vec<Change>);

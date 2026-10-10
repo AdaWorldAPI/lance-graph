@@ -512,9 +512,10 @@ impl<'s> View<'s> {
 
     /// The users in `group`, directly or through nested groups, each once
     /// (a cycle is walked once), in user-ordinal order. Nesting is one
-    /// pattern: every nested group is followed, whatever its kind. Whether
-    /// a group is mail-enabled or security-enabled is a property, filtered
-    /// separately ([`crate::groups_where`]). The inverse of
+    /// pattern: every nested group is followed, whatever its kind. Neither
+    /// mail nor a permission is inherited this way: each is a chain through
+    /// groups that have its property, walked with
+    /// [`Self::members_transitive_through`]. The inverse of
     /// [`Self::groups_transitive`].
     ///
     /// Membership only: whether a reached user is enabled, or receives mail,
@@ -529,10 +530,13 @@ impl<'s> View<'s> {
 
     /// [`Self::members_transitive`] through groups that satisfy `through`
     /// only: `group` itself and every nested group on the way must pass the
-    /// filter. With [`GroupProperty::SecurityEnabled`] this is who inherits
-    /// a permission granted to `group`: only a security group has a SID, so
-    /// a chain broken by a group without one carries no permission. The
-    /// inverse of [`Self::groups_transitive_through`].
+    /// filter. With [`GroupProperty::MailEnabled`] this is who receives mail
+    /// sent to `group`: mail is chained addressing, so a nested group without
+    /// an address ends the chain. With [`GroupProperty::SecurityEnabled`] it
+    /// is who inherits a permission granted to `group`: only a security
+    /// group has a SID. The inverse of [`Self::groups_transitive_through`].
+    ///
+    /// [`GroupProperty::MailEnabled`]: crate::GroupProperty::MailEnabled
     ///
     /// [`GroupProperty::SecurityEnabled`]: crate::GroupProperty::SecurityEnabled
     pub fn members_transitive_through(
@@ -604,8 +608,9 @@ impl<'s> View<'s> {
     /// kind, each once, in group-ordinal order: the inverse of
     /// [`Self::members_transitive`], so `user` is in
     /// `members_transitive(g)` exactly when `g` is in
-    /// `groups_transitive(user)`. Filter by property with
-    /// [`crate::groups_where`].
+    /// `groups_transitive(user)`. For the lists a user receives through or
+    /// the SIDs it holds, walk the chain with
+    /// [`Self::groups_transitive_through`].
     ///
     /// Empty when `user` is not an existing user. Work: one pass over the
     /// live membership rows plus the nested pairs.
