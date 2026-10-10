@@ -1,3 +1,9 @@
+## 2026-10-10 (2) — v3-mandatory-hotplug-reading-v1 — the reading comes from the plug, never from the classid value → `.claude/plans/v3-mandatory-hotplug-reading-v1.md`
+
+**Status:** ACTIVE (D-V3M-0..6). Operator DECISION 2026-10-10: V3 mandatory, hotplug.rs + OGAR plug-and-play is the only reading path, lockstep deprecated, concepts are immutable addresses and language names are labels.
+
+- Retires `classid_read_mode` / `BUILTIN_READ_MODES` (selects V3 by the `0x1000` marker; V1 fallback for unknown ids) in six waves; stored `0x1000` keys stay readable.
+
 ## 2026-10-10 — cross-glove-business-parity-v1 — Odoo × SAP over one Quack algebra → `.claude/plans/cross-glove-business-parity-v1.md`
 
 **Status:** PROPOSAL (D-XGP-0..7). No code authorized. Addendum to `.claude/plans/sap-glove-quack-v1.md` (baseline, committed verbatim; W0–W6 preserved). **Corrected same day (plan §C):** the contract bullet below is superseded. The landing is shipped `OntologyRegistry` attribute rows plus a CATS `impl Binder` (missing) behind a registry front; no new contract module.
