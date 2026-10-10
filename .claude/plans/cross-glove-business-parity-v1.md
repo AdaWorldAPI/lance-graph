@@ -893,6 +893,8 @@ So the per-app render prefixes (`0x0001` OpenProject … `0x000C` Hiro) are the 
 
 Today they still occupy `classview` values `0x0000`–`0x000C` and are read by `render_classid` / `PortSpec::classview()`. Whether to retire them, and what replaces them, is the operator's call and NOT decided here. Until then, do not mint new code that depends on `APP_PREFIX` being a classview value.
 
+**odoo-rs dates from that era (operator, 2026-10-10; verified):** first commit 2026-06-17. Its classid code (`od-ontology/src/ogar.rs`, `tests/classid_pins.rs`) landed 2026-07-06/07, right after the flip. Its pinned ids carry the fossil prefix `0x0002` in the classview bits: `0x0202_0002`, `0x0103_0002`, `0x0204_0002`, plus `id & 0xFFFF == 0x0002`. They also appear in generated Python/C#/Rust (`CLASSID = 0x02020002`) and the od-server `/compile` JSON (render_classid audit, §C.9.4). If the prefix is retired, odoo-rs is the first consumer to re-pin.
+
 **Next:**
 1. Anchor `performed_by` / `tenant` / `duration` / the work date on WoA's own concepts, reading every value from code.
 2. Map SAP and Odoo onto those anchors.
