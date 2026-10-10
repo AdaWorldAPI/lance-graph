@@ -1,3 +1,7 @@
+## 2026-10-10 — HIRO app prefix mirror on branch `claude/hiro-app-prefix` (unmerged; pairs with OGAR #333)
+
+- Contract delta (additive): `ogar_codebook::AppPrefix::Hiro` = `0x000C`, matching OGAR's new `HiroPort`, which maps HIRO's `ogit/_type` wire names onto the nine `0x0CXX` automation concepts. No codebook row changes, so `lance-graph-ogar` codebook parity is unaffected; no cross-repo test pairs the two prefixes, so merge order does not matter. `0x0006` stays unallocated and the next free prefix is `0x000D`. `app_prefixes_match_ogar_allocation_table` pins the value; mapping `Hiro` to `0x000D` turns it red.
+
 ## 2026-10-10 — CRM codebook mirror on branch `ccr-1d749cc5-q8s5qs` (unmerged; pairs with OGAR #330)
 
 - Contract delta (additive): `ogar_codebook::ConceptDomain::Crm` (high byte `0x05`), 15 `CODEBOOK` rows `crm_contact 0x0501` … `crm_custom_record 0x050F`; `AppPrefix::{Osm 0x0008, WeatherNext 0x0009, Spear 0x000A, HubSpo 0x000B}` (the prefixes OGAR already allocated, now reachable without `ogar-vocab`). `0x0500` re-pinned `Unassigned` → `Crm`; `0x0006` stays unallocated. Parity (`lance-graph-ogar`, 84 + 21 tests) green against the OGAR branch. Order: OGAR #330 first, this straight after. This branch's parity check against OGAR `main` is red until #330 merges, and `main`'s is red from that merge until this one lands.
