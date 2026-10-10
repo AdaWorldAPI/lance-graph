@@ -1,0 +1,39 @@
+name: Cross-glove parity (D-XGP)
+on:
+  pull_request:
+    paths:
+      - 'crates/lance-graph-glove-parity/**'
+      - 'crates/lance-graph-sap/**'
+      - 'crates/lance-graph-ontology/**'
+      - 'crates/lance-graph-quack/**'
+      - 'crates/lance-graph-mask-risc/**'
+      - 'crates/lance-graph-contract/**'
+      - '.github/workflows/glove-parity.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          ref: master
+          path: ndarray
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Record tested substrate
+        run: git -C ndarray rev-parse HEAD
+      - name: Format
+        run: cargo +stable fmt --manifest-path lance-graph/crates/lance-graph-glove-parity/Cargo.toml -- --check
+      - name: Lint
+        run: cargo +stable clippy --manifest-path lance-graph/crates/lance-graph-glove-parity/Cargo.toml --all-targets -- -D warnings
+      - name: Probe Q1/Q2 and negative controls
+        run: cargo +stable test --manifest-path lance-graph/crates/lance-graph-glove-parity/Cargo.toml

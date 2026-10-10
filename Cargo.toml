@@ -35,6 +35,7 @@ members = [
 ]
 exclude = [
     "crates/lance-graph-sap",
+    "crates/lance-graph-glove-parity",
     # Python bindings (upstream-inherited, opt-in via --manifest-path)
     "crates/lance-graph-python",
     "crates/lance-graph-codec-research",

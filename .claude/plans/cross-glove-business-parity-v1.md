@@ -758,3 +758,20 @@ Any entry that fails one of the four points is `Hypothesized` by definition. In 
 3. **D-XGP-2.** The canonical attribute URIs for `0x0103`, after the §C.5 ruling.
 4. **D-XGP-3.** The probe: Q1, Q2, N1–N7 and N-a…N-d.
 5. **D-XGP-4.** Only then does the Odoo session start from its handoff. The handoff stays gated until steps 2 and 3 have merged.
+
+### C.8 D-XGP-1 landed on a branch: what is now true (2026-10-10)
+
+- **Shipped (test-pinned, unmerged):**
+  - `lance-graph-sap::binder::CatsBinder`, an `impl Binder` over a bound `CatsBatch`, plus `CatsBatch::dictionary_code`.
+  - `lance-graph-glove-parity::{native_field, CanonicalBinder}`.
+  - Probe Q1, Q2, N-a and N-c (§C.4) as tests.
+  - N-b (an unknown value mints nothing) and N-d (optional fields refused) as tests in `lance-graph-sap/tests/binder.rs`.
+  - Every guard disable-verified: 6 in sap, 5 in the front.
+- **The fold half of Q1 is still built by hand.** `Draft` cannot express ranges or grouped folds, so the probe writes them against the lanes the binder resolved. Closing this is a Quack frontend change (`bind.rs` `Op`/`Want`), not a lowering change.
+- **Registry identity is keyed by `(bridge_id, public_name)`.** A second proposal for the same native field is idempotent when its checksum matches. Producers (the Odoo `SchemaSource`) must make the checksum cover the URI, or a re-mapping is silently a no-op.
+- **`MappingRow::active` is not consulted.** No registry path sets it false, so a guard on it could not be tested.
+- **Correction to §0.1 / §10.1.** `0x000C` is claimed by `HiroPort` (OGAR #333 and the contract mirror on `claude/hiro-app-prefix`, both unmerged at this writing). The next free app prefix for a `SapPort` is `0x000D`; `0x0006` stays deliberately unallocated. The ruling remains the operator's.
+- **Still open:**
+  - the canonical attribute URIs (§C.5);
+  - an Odoo population binder for cross-glove algebra parity (step 2, not built);
+  - SAP behavior parity, still UNPROVEN.

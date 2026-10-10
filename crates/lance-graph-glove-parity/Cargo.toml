@@ -1,0 +1,20 @@
+[package]
+name = "lance-graph-glove-parity"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Cross-glove parity probe (D-XGP): canonical attribute names from OntologyRegistry resolved through a glove's Quack Binder"
+
+# Own workspace, like lance-graph-sap: this probe path-depends on sap, which is
+# outside the root workspace. Ontology is used with default features only (no
+# lance cache).
+[workspace]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-ontology = { path = "../lance-graph-ontology" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+
+[dev-dependencies]
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-sap = { path = "../lance-graph-sap" }

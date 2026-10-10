@@ -190,6 +190,22 @@ impl CatsBatch {
             .and_then(|i| self.dictionaries[ACTIVITY].get(i as usize))
             .map(String::as_str)
     }
+    /// Cold forward lookup of a dictionary field's code: the inverse of the
+    /// reverse labels kept by [`Self::edge_value`]. A literal the batch never
+    /// observed has no code and nothing is minted. `None` also for any field
+    /// that is not dictionary-coded or an ordinal out of range.
+    pub fn dictionary_code(&self, ordinal: usize, literal: &str) -> Option<u32> {
+        let field = FIELDS.get(ordinal)?;
+        if !matches!(self.columns[ordinal], Column::U32(_))
+            || matches!(field.native_type, "pernr_d" | "abap_bool")
+        {
+            return None;
+        }
+        let index = self.dictionaries[ordinal]
+            .iter()
+            .position(|v| v == literal)?;
+        u32::try_from(index + 1).ok()
+    }
     /// Explicit terminal adapter only; never invoked by a fold.
     pub fn edge_value(&self, ordinal: usize, row: usize) -> Result<Option<String>, BindError> {
         let field = FIELDS
