@@ -383,35 +383,35 @@ fn observed_secondaries(
     out
 }
 
-/// The live `(user, group)` memberships of a version whose endpoints both
-/// exist, by identity; and the count of those that do not.
+/// The live `(user, group)` memberships of a version, by identity; and the
+/// count of observed or added memberships naming a node this version does
+/// not hold.
 fn members(v: &View<'_>) -> (Vec<(Guid128, Guid128)>, usize) {
     let snap = v.snapshot();
     let live = v.live_rows();
     let mut out = Vec::new();
-    let mut dangling = 0;
     for r in 0..snap.membership_rows() {
         if live[r / 64] & (1 << (r % 64)) == 0 {
             continue;
         }
-        let u = snap.users().ids[snap.m_user[r] as usize];
-        let g = snap.groups().ids[snap.m_group[r] as usize];
-        if v.exists(&u) && v.exists(&g) {
-            out.push((u, g));
-        } else {
-            dangling += 1;
-        }
+        // A node cannot be deleted while it holds a membership
+        // (`ApplyError::NodeHasMemberships`), so both ends of a live row exist.
+        out.push((
+            snap.users().ids[snap.m_user[r] as usize],
+            snap.groups().ids[snap.m_group[r] as usize],
+        ));
     }
     let added = v.added_rows();
+    // Resolved against this view: both ordinals name existing nodes.
     for (u, g) in added.users.iter().zip(&added.groups) {
-        let u = v.guid_in(NodeKind::User, *u as usize);
-        let g = v.guid_in(NodeKind::Group, *g as usize);
-        match (u, g) {
-            (Some(u), Some(g)) => out.push((u, g)),
-            _ => dangling += 1,
+        if let (Some(u), Some(g)) = (
+            v.guid_in(NodeKind::User, *u as usize),
+            v.guid_in(NodeKind::Group, *g as usize),
+        ) {
+            out.push((u, g));
         }
     }
-    dangling += added.unresolved.len();
+    let dangling = added.unresolved.len();
     out.sort_unstable();
     out.dedup();
     (out, dangling)
