@@ -499,12 +499,16 @@ impl<'s> View<'s> {
         }
     }
 
-    /// A node's `mail`, as written: the licence plate shown in the address
-    /// book and used inside messages. A label only: it is not the node's
-    /// identity, not an address the node receives at, and not what
-    /// provisions anything. Any object may carry one, naming any address.
-    /// Labels come from the observed snapshot: no change edits `mail`, and a
-    /// node created in this version has none.
+    /// A user's `mail`, as written: a property on the user's business card,
+    /// like the telephone number, shown in the address book and used inside
+    /// messages. It follows the user, not the mailbox or the recipient:
+    /// deprovisioning or migrating the mailbox leaves it in place. It is not
+    /// the recipient's identity (the immutable one is the mailbox's
+    /// `ExchangeGuid`; `PrimarySmtpAddress` identifies it implicitly), not an
+    /// address anything is received at, and not provisioned; it may name any
+    /// address. It comes from the observed
+    /// snapshot: no change edits `mail`, and a node created in this version
+    /// has none.
     pub fn mail(&self, g: &Guid128) -> Option<ValueId> {
         let (kind, i) = self.locate(g)?;
         let (p, _) = self.pop(kind);
@@ -522,14 +526,17 @@ impl<'s> View<'s> {
     }
 
     /// What Exchange knows an existing node as, read by its GUID: recipient
-    /// types, `ExchangeGuid` and primary SMTP address. Identity is a GUID,
-    /// never an address: the object's own, and the provisioned mailbox's
-    /// `ExchangeGuid`. Every mail recipient links its mailbox to its user,
+    /// types, `ExchangeGuid` and primary SMTP address. The mailbox's
+    /// immutable identity is its `ExchangeGuid`; `PrimarySmtpAddress`
+    /// identifies the recipient implicitly, as a string, and can change. The
+    /// object is identified by its own GUID. Every mail recipient
+    /// links its mailbox to its user,
     /// the Entra object (formerly the MsolUser) that carries the internal
     /// `{alias}@{tenant}.onmicrosoft.com`, through
     /// `ExternalDirectoryObjectId` ("external": the directory outside
     /// Exchange). None of these is the routing address
-    /// `{alias}@{tenant}.mail.onmicrosoft.com`, the external EOP target. `mail` in particular is a label and resolves to no
+    /// `{alias}@{tenant}.mail.onmicrosoft.com`, the external EOP target.
+    /// `mail` is a business-card property of the user and resolves to no
     /// identity.
     pub fn exchange_identity(&self, g: &Guid128) -> Option<ExchangeIdentity> {
         let s = self.node_state(g)?;

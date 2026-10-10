@@ -252,10 +252,13 @@ pub struct ObservedNode {
     /// source never reported them), distinct from read and all absent
     /// (not mail-enabled).
     pub recipient: Option<ObservedRecipient>,
-    /// Raw `mail`: the licence plate. It is shown in the address book and
-    /// used inside messages, and is not the object's identity, not an
-    /// address it receives at and not provisioned by anything; it is kept
-    /// as a label, as written.
+    /// Raw `mail`: a property on the user's business card, like the
+    /// telephone number, shown in the address book and used inside
+    /// messages. It follows the user, not the mailbox or the recipient. It
+    /// is not the recipient's identity (the mailbox's `ExchangeGuid` is,
+    /// immutably; `PrimarySmtpAddress` implicitly), not an
+    /// address anything is received at and not provisioned; kept as
+    /// written.
     pub mail: Option<String>,
     /// Raw `mailNickname` (the Exchange Online `Alias`).
     pub alias: Option<String>,

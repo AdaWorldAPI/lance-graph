@@ -147,6 +147,45 @@ fn offboarding_by_disable_remote_mailbox_stops_delivery() {
     assert_eq!(rcpt, None, "and nothing is delivered");
 }
 
+// `mail` is on the user's business card and follows the user, not the
+// mailbox: offboarding the remote mailbox (Disable-RemoteMailbox) ends its
+// addresses and delivery, and the user's `mail` stays exactly as it was.
+#[test]
+fn mail_follows_the_user_through_offboarding() {
+    let mut u = user(Some(true), Some(remote_user_mailbox()));
+    u.mail = Some("D.Person@Example.org".into());
+    let (mut st, v0) = observe(vec![(g(1), u)]);
+    let mail = |st: &VersionStore, v| {
+        let view = st.view(v).unwrap();
+        view.mail(&g(1))
+            .and_then(|m| st.dicts().value(m).map(str::to_string))
+    };
+    assert_eq!(mail(&st, v0).as_deref(), Some("D.Person@Example.org"));
+    let before = st
+        .view(v0)
+        .unwrap()
+        .node_state(&g(1))
+        .unwrap()
+        .recipient
+        .unwrap();
+    let after = RemoteMailboxOp::Disable.apply(&before).unwrap();
+    let plan = Plan(vec![
+        Change::SetActive {
+            node: g(1),
+            from: Some(true),
+            to: Some(false),
+        },
+        Change::SetRecipient {
+            node: g(1),
+            from: Some(before),
+            to: Some(after),
+        },
+    ]);
+    let v1 = st.simulate(v0, &plan, &[]).unwrap();
+    assert_eq!(both(&st, v1, D), (None, None), "the mailbox is gone");
+    assert_eq!(mail(&st, v1), mail(&st, v0), "the user keeps its mail");
+}
+
 // 3. A disabled shared mailbox is a recipient: disabled accounts are how
 // shared, room and equipment mailboxes are kept.
 #[test]
