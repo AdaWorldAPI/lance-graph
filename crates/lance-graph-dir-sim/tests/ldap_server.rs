@@ -561,3 +561,69 @@ fn the_time_limit_is_honoured() {
     assert_eq!(done(&r), 3);
     assert!(dns(&r).len() < 5);
 }
+
+fn or(fs: &[Vec<u8>]) -> Vec<u8> {
+    tlv(0xa1, &fs.concat())
+}
+
+// A shallow but wide filter is bounded too: every node counts.
+#[test]
+fn wide_filters_are_refused() {
+    use lance_graph_dir_sim::ldap::MAX_FILTER_NODES;
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let leaves = |n: usize| or(&vec![eq("cn", "x"); n]);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    // The `or` itself plus its leaves: exactly at the budget.
+    let r = run(
+        &srv,
+        &mut s,
+        search(2, NC, 2, 0, leaves(MAX_FILTER_NODES - 1), &["1.1"]),
+    );
+    assert_eq!((dns(&r).len(), done(&r)), (0, 0));
+    assert!(!s.closed());
+    let out = srv.handle(
+        &mut s,
+        &search(3, NC, 2, 0, leaves(MAX_FILTER_NODES), &["1.1"]),
+    );
+    assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
+    assert!(s.closed());
+}
+
+/// A search with explicit size and time limits, encoded as given.
+fn search_limits(size: &[u8], time: &[u8]) -> Vec<u8> {
+    let mut b = tlv(0x04, NC.as_bytes());
+    b.extend(int(0x0a, 2));
+    b.extend(int(0x0a, 0));
+    b.extend(tlv(0x02, size));
+    b.extend(tlv(0x02, time));
+    b.extend(int(0x01, 0));
+    b.extend(present("objectClass"));
+    b.extend(tlv(0x30, &tlv(0x04, b"1.1")));
+    msg(2, tlv(0x63, &b))
+}
+
+// Limits outside 0..maxInt are a protocol error, never a panic, even
+// before the session is bound.
+#[test]
+fn out_of_range_limits_are_refused_without_panicking() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let huge = [0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+    for pdu in [
+        search_limits(&[0], &huge),
+        search_limits(&huge, &[0]),
+        search_limits(&[0], &[0xff]),
+    ] {
+        let mut s = Session::default();
+        let out = srv.handle(&mut s, &pdu);
+        assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
+        assert!(s.closed());
+    }
+    // The largest legal limit is accepted.
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let r = run(&srv, &mut s, search_limits(&[0], &[0x7f, 0xff, 0xff, 0xff]));
+    assert_eq!((dns(&r).len(), done(&r)), (5, 0));
+}

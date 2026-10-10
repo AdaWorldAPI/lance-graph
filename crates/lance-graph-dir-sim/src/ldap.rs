@@ -359,15 +359,22 @@ enum Filter {
 /// exhaust the stack.
 pub const MAX_FILTER_DEPTH: usize = 32;
 
+/// The most filter nodes (every `and`, `or`, `not` and leaf counts) one
+/// search may carry. Evaluation visits each node once per candidate entry,
+/// so this bounds the work a single request can ask for.
+pub const MAX_FILTER_NODES: usize = 256;
+
 fn parse_filter(t: &Tlv<'_>) -> Result<Filter, LdapError> {
-    parse_filter_at(t, 0)
+    let mut budget = MAX_FILTER_NODES;
+    parse_filter_at(t, 0, &mut budget)
 }
 
-fn parse_filter_at(t: &Tlv<'_>, depth: usize) -> Result<Filter, LdapError> {
-    if depth >= MAX_FILTER_DEPTH {
+fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filter, LdapError> {
+    if depth >= MAX_FILTER_DEPTH || *budget == 0 {
         return Err(LdapError::Malformed);
     }
-    let sub = |t: &Tlv<'_>| parse_filter_at(t, depth + 1);
+    *budget -= 1;
+    let mut sub = |t: &Tlv<'_>| parse_filter_at(t, depth + 1, budget);
     let pair = |t: &Tlv<'_>| -> Result<(String, Vec<u8>), LdapError> {
         let c = children(t.value)?;
         if c.len() != 2 {
@@ -746,8 +753,18 @@ impl<'a, P: Authority> Server<'a, P> {
         let scope = int(&c[1])?;
         let size_limit = int(&c[3])?;
         let time_limit = int(&c[4])?;
+        // sizeLimit and timeLimit are INTEGER (0 .. maxInt).
+        let max_int = 0..=i64::from(i32::MAX);
+        if !max_int.contains(&size_limit) || !max_int.contains(&time_limit) {
+            return Err(LdapError::Malformed);
+        }
+        // A deadline past what the clock can represent is no deadline.
         let deadline = (time_limit > 0)
-            .then(|| std::time::Instant::now() + std::time::Duration::from_secs(time_limit as u64));
+            .then(|| {
+                std::time::Instant::now()
+                    .checked_add(std::time::Duration::from_secs(time_limit as u64))
+            })
+            .flatten();
         let types_only = c[5].value.first().is_some_and(|&b| b != 0);
         let filter = parse_filter(&c[6])?;
         let requested: Vec<String> = children(c[7].value)?
