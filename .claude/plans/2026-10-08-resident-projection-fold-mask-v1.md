@@ -227,6 +227,22 @@ pass-through field is copied from its declared source, never deduplicated.
 **Out of scope.** Execution of the deduplicated instruction over survivors is
 not a mask-risc op (see D-RPF-8).
 
+**Cost evidence (D-SCF-CARE-PAIR-0, MEASURED 2026-10-09).** This is the same
+key shape on a counted relation: a projection plus every link's resolution
+context. Reuse pays once a relation is queried N times:
+
+| instance | search/query | lookup | validate (fingerprint / key) | break-even N |
+|---|---|---|---|---|
+| H1 | 63.6 µs | 0.018 µs | 802 µs / 0.6 µs | 36 (24 with a versioned key) |
+| H2 | 162.0 µs | 0.016 µs | 818 µs / 0.7 µs | 15 (9 with a versioned key) |
+
+Almost all of the validation cost is content fingerprinting. A generation
+counter in the key, which is this plan's `(classid, rail, generation)` row,
+removes it. Falsifier template: one isolating fixture per key field, with
+forced reuse past the refusal producing a wrong answer (H3 context, H4
+no-repeat with equal lengths, H5 no-repeat alone).
+Source: `.claude/board/entries/2026-10-09-d-scf-care-pair-0-crossing-counterfactuals.md`.
+
 ### D-RPF-4 — Population revision as one fold
 
 **Observation.** NARS revision of `n` independent truths is the weighted mean

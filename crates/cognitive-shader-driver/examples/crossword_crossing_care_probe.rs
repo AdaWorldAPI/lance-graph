@@ -40,7 +40,9 @@
 use std::time::Instant;
 
 use deepnsm_v2::vocab::WordId;
-use ndarray::simd::{mask_andnot_assign, mask_ternlog_popcount, ternlog};
+use ndarray::simd::{
+    mask_andnot_assign, mask_ternlog_popcount, masked_group_count_u32_pair, ternlog,
+};
 
 #[path = "shared/population_fold.rs"]
 mod population_fold;
@@ -146,6 +148,27 @@ fn pair_counts_scan(hot: &Hot, d: &[u64], i: usize, j: usize) -> PairCounts {
         out.n[hot.letter(w, i).0 as usize * SYMS + hot.letter(w, j).0 as usize] += 1;
     }
     out
+}
+
+/// Resident per-position letter columns: `lanes[i][w]` = the symbol of word
+/// `w` at offset `i` (0 past its length). Built once per language, like the
+/// populations.
+fn letter_lanes(hot: &Hot) -> Vec<Vec<u32>> {
+    let n = hot.len.len();
+    (0..MAX_LEN)
+        .map(|i| (0..n).map(|w| hot.spell[w * STRIDE + i].0 as u32).collect())
+        .collect()
+}
+
+/// The shipped one-pass arm: mask-risc's `GroupReduce { Pair, Count }`
+/// kernel, `ndarray::simd::masked_group_count_u32_pair`, keyed
+/// `letter_i * SYMS + letter_j`. No composite lane is written.
+fn pair_counts_group(lanes: &[Vec<u32>], d: &[u64], i: usize, j: usize) -> PairCounts {
+    let mut out = vec![0i64; SYMS * SYMS];
+    masked_group_count_u32_pair(d, &lanes[i], &lanes[j], SYMS as u32, &mut out);
+    PairCounts {
+        n: out.into_iter().map(|v| v as u64).collect(),
+    }
 }
 
 /// Existential elimination of the shared cell: `Σ_z r1(x,z) r2(z,y)`.
@@ -374,20 +397,110 @@ fn settle(
     }
 }
 
+/// Letter support cached per `(slot, offset)`, keyed by the slot's popcount
+/// when it was computed. Masks only shrink, so an unchanged count means an
+/// unchanged mask and a still-valid cache.
+#[derive(Clone)]
+struct SupCache {
+    count: Vec<u64>,
+    sup: Vec<u32>,
+}
+
+impl SupCache {
+    fn new(slots: usize) -> Self {
+        SupCache {
+            count: vec![u64::MAX; slots],
+            sup: vec![0; slots * STRIDE],
+        }
+    }
+}
+
+/// [`support_pass`], re-checking only crossings that touch a slot whose mask
+/// changed since its support was cached.
+fn support_pass_inc(
+    hot: &Hot,
+    puz: &Puzzle,
+    st: &mut State,
+    cr: &[Crossing],
+    cache: &mut SupCache,
+    queue: &mut Vec<u8>,
+    ops: &mut u64,
+) -> Result<bool, Stop> {
+    let mut fresh = vec![false; puz.slots()];
+    for (s, f) in fresh.iter_mut().enumerate() {
+        if st.placed[s] != UNSET {
+            continue;
+        }
+        *ops += 1;
+        let c = st.count(s);
+        if c == cache.count[s] {
+            continue;
+        }
+        cache.count[s] = c;
+        *f = true;
+        for o in 0..puz.len[s] as usize {
+            if puz.cross[s * STRIDE + o] != NONE {
+                cache.sup[s * STRIDE + o] = support(hot, puz, st, (s, o), ops);
+            }
+        }
+    }
+    let mut changed = false;
+    for c in cr {
+        if st.placed[c.a.0] != UNSET || st.placed[c.b.0] != UNSET {
+            continue;
+        }
+        if !fresh[c.a.0] && !fresh[c.b.0] {
+            continue;
+        }
+        let sa = cache.sup[c.a.0 * STRIDE + c.a.1];
+        let sb = cache.sup[c.b.0 * STRIDE + c.b.1];
+        for x in letters(sa & !sb) {
+            changed |= exclude(hot, puz, st, c.a, x, queue, ops)?;
+        }
+        for x in letters(sb & !sa) {
+            changed |= exclude(hot, puz, st, c.b, x, queue, ops)?;
+        }
+    }
+    Ok(changed)
+}
+
+/// The fixed point plus incremental letter support.
+fn settle_inc(
+    hot: &Hot,
+    puz: &Puzzle,
+    st: &mut State,
+    queue: &mut Vec<u8>,
+    cr: &[Crossing],
+    cache: &mut SupCache,
+    ops: &mut u64,
+) -> Result<(), Stop> {
+    loop {
+        let a0 = st.ands;
+        propagate_token(hot, puz, st, queue)?;
+        *ops += (st.ands - a0) as u64;
+        let changed = support_pass_inc(hot, puz, st, cr, cache, queue, ops)?;
+        if queue.is_empty() && !changed {
+            return Ok(());
+        }
+    }
+}
+
 // ─────────────────────────────── root counterfactuals ───────────────────────────────
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Arm {
     Baseline,
     Support,
+    SupportInc,
     Single,
     Pair,
     PairZ,
 }
 
-const ARMS: [Arm; 5] = [
+const ARMS: [Arm; 6] = [
     Arm::Baseline,
     Arm::Support,
+    Arm::SupportInc,
     Arm::Single,
     Arm::Pair,
     Arm::PairZ,
@@ -619,6 +732,8 @@ struct Search<'a> {
     hot: &'a Hot,
     puz: &'a Puzzle,
     cr: Option<&'a [Crossing]>,
+    /// Incremental support: the crossings, with a cache carried per state.
+    inc: Option<&'a [Crossing]>,
     ng: Option<&'a Nogoods>,
     budget: u64,
     cap: u64,
@@ -626,7 +741,7 @@ struct Search<'a> {
 }
 
 impl Search<'_> {
-    fn go(&mut self, st: State) -> bool {
+    fn go(&mut self, st: State, cache: Option<SupCache>) -> bool {
         let open: Vec<usize> = (0..self.puz.slots())
             .filter(|&s| st.placed[s] == UNSET)
             .collect();
@@ -647,16 +762,21 @@ impl Search<'_> {
             }
             self.run.nodes += 1;
             let mut next = st.clone();
+            let mut next_cache = cache.clone();
             next.place(s, w);
             let mut q = vec![s as u8];
             let mut ops = 0;
-            let ok = settle(
-                self.hot, self.puz, &mut next, &mut q, self.cr, self.ng, &mut ops,
-            )
-            .is_ok()
-                && no_repeats(&next.placed);
+            let settled = match (self.inc, next_cache.as_mut()) {
+                (Some(cr), Some(c)) => {
+                    settle_inc(self.hot, self.puz, &mut next, &mut q, cr, c, &mut ops)
+                }
+                _ => settle(
+                    self.hot, self.puz, &mut next, &mut q, self.cr, self.ng, &mut ops,
+                ),
+            };
+            let ok = settled.is_ok() && no_repeats(&next.placed);
             self.run.ops += ops;
-            if ok && !self.go(next) {
+            if ok && !self.go(next, next_cache) {
                 return false;
             }
         }
@@ -681,11 +801,21 @@ fn run(
         return out;
     };
     let use_support = arm == Arm::Support;
+    let mut cache = (arm == Arm::SupportInc).then(|| SupCache::new(puz.slots()));
     let root = settle(hot, puz, &mut st, &mut q, None, None, &mut ops).and_then(|_| {
         out.pre.cands_before = total(&st, puz.slots());
         match arm {
             Arm::Baseline => Ok(()),
             Arm::Support => settle(hot, puz, &mut st, &mut q, Some(&cr), None, &mut ops),
+            Arm::SupportInc => settle_inc(
+                hot,
+                puz,
+                &mut st,
+                &mut q,
+                &cr,
+                cache.as_mut().expect("the incremental arm carries a cache"),
+                &mut ops,
+            ),
             Arm::Single => single_root(hot, puz, &mut st, &cr, &mut out.pre, &mut ops),
             Arm::Pair | Arm::PairZ => {
                 single_root(hot, puz, &mut st, &cr, &mut out.pre, &mut ops)?;
@@ -715,12 +845,13 @@ fn run(
         hot,
         puz,
         cr: use_support.then_some(cr.as_slice()),
+        inc: cache.is_some().then_some(cr.as_slice()),
         ng: (!ng.list.is_empty()).then_some(&ng),
         budget,
         cap,
         run: out,
     };
-    s.go(st);
+    s.go(st, cache);
     let mut out = s.run;
     out.ng = ng;
     out.ns = t.elapsed().as_nanos() as f64;
@@ -1176,7 +1307,55 @@ fn arms_report(hot: &Hot, set: &[Created2], open: bool, budget: u64) {
     }
 }
 
+/// L2: the open workload with no fill cap. A capped enumeration stops at a
+/// different place depending on the search order; the uncapped tree does not.
+fn uncapped_report(hot: &Hot, set: &[Created2]) {
+    println!(" open, no fill cap (L2):");
+    for arm in [
+        Arm::Baseline,
+        Arm::Support,
+        Arm::SupportInc,
+        Arm::Single,
+        Arm::Pair,
+    ] {
+        let (mut nodes, mut fills, mut done, mut ops, mut ns) = (0, 0, 0, 0, 0.0);
+        for x in set {
+            let r = run(
+                hot,
+                &x.c.puz,
+                &half(&x.c.givens),
+                arm,
+                Broken::default(),
+                u64::MAX,
+                u64::MAX,
+            );
+            assert!(sound(hot, &x.c.puz, &r, &x.c.solution), "{arm:?}");
+            if r.solved() {
+                done += 1;
+                nodes += r.nodes;
+                fills += r.fills;
+                ops += r.ops;
+                ns += r.ns;
+            }
+        }
+        println!(
+            "  {:<10} finished {done}/{}  nodes {nodes:>10}  fills {fills}  ops {ops:>11}  ms {:>9.1}",
+            format!("{arm:?}"),
+            set.len(),
+            ns / 1e6
+        );
+    }
+}
+
 fn chain_report(hot: &Hot) {
+    let t = Instant::now();
+    let lanes = &letter_lanes(hot);
+    println!(
+        "  letter lanes: {} positions x {} ids, built in {:.1} us",
+        lanes.len(),
+        lanes[0].len(),
+        t.elapsed().as_nanos() as f64 / 1e3
+    );
     for (l, i, j) in [(4usize, 0usize, 3usize), (5, 0, 4)] {
         let t = Instant::now();
         let (m, passes) = pair_counts_mask(hot, l, &hot.all[l], i, j);
@@ -1185,13 +1364,18 @@ fn chain_report(hot: &Hot) {
         let scan = pair_counts_scan(hot, &hot.all[l], i, j);
         let scan_ns = t.elapsed().as_nanos() as f64;
         assert_eq!(m, scan);
+        let t = Instant::now();
+        let group = pair_counts_group(lanes, &hot.all[l], i, j);
+        let group_ns = t.elapsed().as_nanos() as f64;
+        assert_eq!(group, scan);
         println!(
-            "  P_all({l}) on ({i},{j}): {} pairs of {} in the marginal product ({} spurious); mask {passes} passes {:.1} us, id scan {:.1} us",
+            "  P_all({l}) on ({i},{j}): {} pairs of {} in the marginal product ({} spurious); mask {passes} passes {:.1} us, id scan {:.1} us, group-count {:.1} us",
             m.support(),
             m.support() + m.spurious_in_product(),
             m.spurious_in_product(),
             mask_ns / 1e3,
-            scan_ns / 1e3
+            scan_ns / 1e3,
+            group_ns / 1e3
         );
     }
     let (b, construct_ns) = train(hot);
@@ -1268,6 +1452,10 @@ fn chain_report(hot: &Hot) {
 fn main() {
     let (hot, _cold) = build_lexicon(Lang::En, &english_ranked());
     println!("D-SCF-CARE-PAIR-0 (English, {} ids)", hot.len.len());
+    if std::env::args().nth(1).as_deref() == Some("l2") {
+        uncapped_report(&hot, &make(&hot, 5, 10, 0xC0FFEE + 5));
+        return;
+    }
     for side in [5usize, 7] {
         let set = make(&hot, side, 10, 0xC0FFEE + side as u64);
         let unchecked: usize = set
@@ -1290,6 +1478,9 @@ fn main() {
         ] {
             println!(" {label}");
             arms_report(&hot, &set, open, 40_000_000);
+        }
+        if side == 5 {
+            uncapped_report(&hot, &set);
         }
     }
     println!("\nchain boundary relations:");
@@ -1541,6 +1732,76 @@ mod tests {
                 }
                 assert!(r.pre.cands_after <= r.pre.cands_before);
             }
+        }
+    }
+
+    /// L1: incremental support reaches the same fixed point at every node, so
+    /// the search tree is the full-support tree, node for node.
+    #[test]
+    fn incremental_support_is_the_full_support_search() {
+        let h = hot();
+        let mut fired = 0;
+        for x in set() {
+            for g in [x.c.givens.clone(), half(&x.c.givens)] {
+                let full = run(
+                    h,
+                    &x.c.puz,
+                    &g,
+                    Arm::Support,
+                    Broken::default(),
+                    3_000_000,
+                    50,
+                );
+                let inc = run(
+                    h,
+                    &x.c.puz,
+                    &g,
+                    Arm::SupportInc,
+                    Broken::default(),
+                    3_000_000,
+                    50,
+                );
+                let base = run(
+                    h,
+                    &x.c.puz,
+                    &g,
+                    Arm::Baseline,
+                    Broken::default(),
+                    3_000_000,
+                    50,
+                );
+                assert!(full.solved() && inc.solved());
+                assert_eq!((inc.nodes, inc.fills), (full.nodes, full.fills));
+                assert_eq!(
+                    inc.root.as_ref().map(|r| r.cand.clone()),
+                    full.root.as_ref().map(|r| r.cand.clone())
+                );
+                assert!(sound(h, &x.c.puz, &inc, &x.c.solution));
+                fired += u64::from(inc.nodes < base.nodes);
+            }
+        }
+        assert!(
+            fired > 0,
+            "support must prune somewhere, or the equality is vacuous"
+        );
+    }
+
+    /// The shipped group-count kernel is the same relation as the oracle.
+    #[test]
+    fn group_count_relation_equals_spelling_scan() {
+        let h = hot();
+        let lanes = letter_lanes(h);
+        for (l, i, j) in [(4, 0, 3), (5, 1, 3), (6, 0, 5)] {
+            let mut d = h.all[l].clone();
+            assert_eq!(
+                pair_counts_group(&lanes, &d, i, j),
+                pair_counts_scan(h, &d, i, j)
+            );
+            ndarray::simd::mask_and_assign(&mut d, h.pop(l, 2, MooreSymbol8::of('e').unwrap()));
+            assert_eq!(
+                pair_counts_group(&lanes, &d, i, j),
+                pair_counts_scan(h, &d, i, j)
+            );
         }
     }
 

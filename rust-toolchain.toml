@@ -1,5 +1,5 @@
 [toolchain]
-channel = "1.98.1"
+channel = "1.99.0"
 # The pinned version is the `channel` line ABOVE — deliberately not restated
 # in this comment. Restating it is what made this comment wrong twice: it said
 # "1.94.1" until `10f87fb6` corrected it, then said "1.95.0" after the bump to
@@ -30,6 +30,17 @@ channel = "1.98.1"
 #                     Nothing from rustc bit: measured 0 manual `impl Ord` (so
 #                     the derive(PartialOrd) fast path cannot apply), 1 c_void
 #                     return, 7 transmutes, 34 repr(transparent).
+#   1.98.1 → 1.99.0   current stable (2026-10-01; LLVM 23). Same method:
+#                     toolchain leg measured ALONE on the unchanged lance-12
+#                     pins, as an error-SET diff of `clippy --workspace
+#                     --all-targets --keep-going -D warnings` on 1.98.1 vs
+#                     1.99.0. Exactly ONE new error: `approx_constant` now
+#                     covers GOLDEN_RATIO (one site, phasor_trig_probe; the
+#                     const is bit-identical and stable on both). Every other
+#                     error in that run is pre-existing on 1.98.1 (main is not
+#                     clippy-clean under --all-targets), so it is not this
+#                     bump's. ndarray codegen witness (avx512 + avx2) and
+#                     simd-masking-parity both pass under LLVM 23.
 #
 # Never auto-track `stable` — bump explicitly when a future version is
 # reviewed and workspace clippy passes clean.

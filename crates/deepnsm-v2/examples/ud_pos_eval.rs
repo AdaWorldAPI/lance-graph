@@ -957,7 +957,7 @@ fn pair_tokens<'a>(
                     clause_final: k + 1 == hi,
                     before_bracket: k + 1 < hi && (k + 1..hi).all(verb_only),
                     this,
-                    prev: k.checked_sub(1).map_or(PosSet::EMPTY, &set),
+                    prev: k.checked_sub(1).map_or(PosSet::EMPTY, set),
                     next: if k + 1 < s.len() {
                         set(k + 1)
                     } else {

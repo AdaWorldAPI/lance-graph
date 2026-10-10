@@ -231,36 +231,79 @@ cannot be written without `unsafe`.
 
 ## Loose ends (deduplicated; supersedes the earlier OPEN list)
 
-Low fruit:
-- **L1 — incremental letter support.** Re-check only crossings of slots
-  whose mask changed (the dirty set is `settle`'s queue). Full support cuts
-  nodes 35–65× and loses 2–5× on wall time; the incremental cost is
-  unmeasured. Falsifier: same fixed point as full support; then wall time
-  against Baseline. Risk: the Moore incremental certificate failed.
-- **L2 — the side-5 open node increase** (Single 721,784 vs 686,948).
-  Untested explanation: cap-50 enumeration order. One run with cap = ∞ on
-  the puzzles that finish decides it.
+Outcomes of the autonomous pass (2026-10-10). Every number below comes from
+`crossword_crossing_care_probe` on the same machine, 10 puzzles per cell.
 
-High fruit:
-- **L3 — tesseract-rs #51 step 2.** `D_len ∧ ⋀_i ⋁_{x ∈ top8_i} P(len,i,x)`
-  over the correction lexicon; zero = no word fits what the recognizer saw.
-  Needs the retained steps carried to correction (`DocWord` drops them) and a
-  class → letter map. Falsifiers: `Referenz` is refused unless the softmax
-  held `d`; the English 6/6 fixes survive.
-- **L4 — feed D-RPF-3.** Write the measured break-even and the
-  context-refusal fixtures into D-RPF-3 as its cost evidence and falsifier
-  template.
+- **L1 — incremental letter support. MEASURED, STOP for search.**
+  `support_pass_inc` (recount open slots, recompute support only for slots
+  whose count changed, recheck only crossings touching such a slot) reaches
+  the same fixed point as full support. The test pins this: identical nodes,
+  fills and root candidates, with anti-vacuity that support prunes somewhere.
+  Disables D9 (stale cache), D10 (fresh needs both sides) and D11 all go red.
+  It does not reduce ops: a placement dirties most slots, so the incremental
+  pass recomputes nearly everything.
 
-Heavy fruit (decisions, not code):
-- **L5 — where a certified reusable relation lives.** OGAR has no memo or
-  derived-relation type; basin + knowable-from are candidates; a value-side
-  table is needed (a basin entry is 16 bytes, 255 per codebook). Operator.
-- **L6 — an exact-consequence certification.** `Certification3` has no
-  "proven". Contract change. Operator.
-- **L7 — r2il `SCATTER_COUNT` parity case.** Read the mask-risc terminal
-  first; if `pair_counts` matches its semantics, its mask = scan test is the
-  parity case.
-- **L8 — a dismech support verb.** Only after L1.
+  | workload | Baseline ms | Support ms | SupportInc ms |
+  |---|---|---|---|
+  | side 5 prove | 6.0 | 12.8 | 14.1 |
+  | side 5 open (cap 50) | 721.6 | 1510 | 1619 |
+  | side 7 prove | 2.7 | 14.4 | 11.4 |
+  | side 7 open (cap 50) | 58.7 | 264 | 192 |
+
+  DECISION: support stays a probe arm and is not wired into a solver.
+  SCOPE: capped and uncapped crossword search, sides 5 and 7.
+  BASIS: the tables above and L2.
+  REVISIT WHEN: a workload has few dirty slots per placement (one changed
+  slot rechecking only its crossings), which crosswords do not.
+- **L2 — the side-5 open node increase. CLOSED: a cap artefact.** With no
+  fill cap on 10 side-5 open puzzles, every arm finds all 2996 fills:
+
+  | arm | nodes | ops | ms |
+  |---|---|---|---|
+  | Baseline | 12,232,710 | 23,894,073 | 13,139.8 |
+  | Support | 175,465 | 205,289,997 | 22,248.1 |
+  | SupportInc | 175,465 | 223,243,795 | 24,881.1 |
+  | Single | 9,552,642 | 18,469,578 | 10,735.4 |
+  | Pair | 9,549,353 | 19,970,790 | 10,284.6 |
+
+  Uncapped, Single is below Baseline (9.55M vs 12.23M nodes), so the capped
+  increase was enumeration order under the cap. Support needs 70× fewer
+  nodes, but each node costs ~150× Baseline's ops, so it loses 1.7× on wall
+  time. Single and Pair are the fastest arms (-18 % and -22 %).
+- **L3 — tesseract-rs #51 step 2. OPEN, not started.** The groundwork is the
+  group-count arm (L7). It still needs a substitution fixture and the
+  retained steps carried into `DocWord`. No spec exists yet. It belongs in
+  tesseract-rs and is not autonomous work.
+- **L4 — feed D-RPF-3. DONE.** The break-even table and the H3/H4/H5 refusal
+  fixtures are written into
+  `plans/2026-10-08-resident-projection-fold-mask-v1.md` § D-RPF-3 as its
+  first cost evidence.
+- **L5 — where a certified relation lives. DECIDED: no new carrier.**
+  DECISION: the relation is a value-side static array keyed by `ChainKey`,
+  and its home is D-RPF-3's class table.
+  SCOPE: this probe's relations.
+  BASIS: OGAR has no memo type; a basin entry is 16 bytes, 255 per codebook,
+  and cannot hold a 31×31 count table.
+  REVISIT WHEN: D-RPF-3 lands its table or OGAR adds a derived-relation type.
+- **L6 — an exact-consequence certification. DECIDED: no new
+  `Certification3` value.**
+  DECISION: an exact count is data, carried with its key. It is not a
+  causal certification.
+  SCOPE: counted relations.
+  BASIS: `Certification3` grades causal claims, and an exact count is
+  checkable by recount.
+  REVISIT WHEN: a consumer needs to distinguish "proven" from "measured" at
+  the type level.
+- **L7 — r2il `SCATTER_COUNT` parity. CLOSED: wrong premise.**
+  `ScatterCountU32` is COUNT(DISTINCT) and stays held. The pair relation is
+  `GroupReduce{key: Pair{hi, lo, stride}, fold: Count}`, i.e.
+  `masked_group_count_u32_pair`. The `pair_counts_group` arm equals the
+  spelling scan (test `group_count_relation_equals_spelling_scan`; disable
+  D11 swaps the lanes and goes red). It is the fastest arm: 7.2–7.5 µs,
+  versus 699.7 µs to build the letter lanes once.
+- **L8 — a dismech support verb. CLOSED by L1.** Do not mint it: support does
+  not pay on capped or uncapped search ("a row minted before its falsifier
+  passed is enum explosion").
 
 ## Closed
 
