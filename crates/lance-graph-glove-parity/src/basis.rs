@@ -142,23 +142,27 @@ pub const WOA_PINNED_TABLE: &str = "TimesheetActivity";
 /// - `abgerechnet` ("already invoiced") has no row. It is an invoicing state,
 ///   not `billable` ("may be invoiced"), so mapping it to `billable` would be
 ///   wrong in both directions.
-/// - `user` and `tenant_id` point at WoA's `User` / `Tenant`, which have no
-///   classid in the harvest (`0x0000_0000`).
+/// - `TimeSheet`, `User` and `Tenant` are minted in OGIT
+///   (`NTO/WorkOrder/entities/{TimeSheet,User,Tenant}.ttl`:
+///   `ogit.WorkOrder:TimeSheet` / `:User` / `:Tenant`). What they lack is an
+///   OGAR codebook id and a `WoaPort` alias: the harvest gives them classid
+///   `0x0000_0000`. "Stundenzettel" is a DTO label of `ogit.WorkOrder:TimeSheet`
+///   (its OGIT description starts with it), not a concept of its own.
 pub const WOA_FIELDS: &[FieldMap] = &[
     hyp(
         "user",
         "performed_by",
-        "a WoA User is the Worker; User has no classid yet",
+        "ogit.WorkOrder:User is the Worker (OGIT: TimeSheet relates User)",
     ),
     hyp(
         "minuten",
         "duration",
-        "an integer minute count; SAP hours_logged and Odoo unit_amount are hours (×60)",
+        "ogit.WorkOrder:minuten is integer minutes; SAP hours_logged and Odoo unit_amount are hours (×60)",
     ),
     hyp(
         "tenant_id",
         "tenant",
-        "a WoA Tenant is the canonical Tenant; Tenant has no classid yet",
+        "ogit.WorkOrder:Tenant is the canonical Tenant (OGIT: TimeSheet belongs Tenant)",
     ),
 ];
 

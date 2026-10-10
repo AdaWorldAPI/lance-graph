@@ -225,8 +225,9 @@ fn woa_invoiced_flag_is_not_billable() {
 }
 
 /// OGAR's WoA pin sits on the description row, not on the hours row, and the
-/// hours row's targets have no shared id. Two-sided: when OGAR moves the pin
-/// or mints `User` / `Tenant`, this fails and the WoA claims are re-read.
+/// OGIT concepts `ogit.WorkOrder:TimeSheet` / `:User` / `:Tenant` have no
+/// `WoaPort` alias yet. Two-sided: when OGAR moves the pin or aliases those
+/// concepts, this fails and the WoA claims are re-read.
 #[test]
 fn woa_pin_is_on_the_description_row_not_the_hours_row() {
     use lance_graph_ogar::ogar_vocab::ports::{PortSpec, WoaPort};
