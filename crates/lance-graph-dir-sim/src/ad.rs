@@ -129,6 +129,22 @@ pub enum ProjectError {
     },
 }
 
+/// Every attribute type a projected entry can carry: the schema the LDAP
+/// handler recognises for its users, groups and OUs.
+pub const ATTRIBUTES: &[&str] = &[
+    "objectClass",
+    "ou",
+    "cn",
+    "objectGUID",
+    "userPrincipalName",
+    "mail",
+    "proxyAddresses",
+    "userAccountControl",
+    "msExchMailboxGuid",
+    "member",
+    "dirSimOrigin",
+];
+
 /// The projection of one version.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Projection {

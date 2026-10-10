@@ -210,6 +210,8 @@ pub enum ResultCode {
     ProtocolError = 2,
     /// sizeLimitExceeded
     SizeLimitExceeded = 4,
+    /// adminLimitExceeded: a server-side cap was reached
+    AdminLimitExceeded = 11,
     /// timeLimitExceeded
     TimeLimitExceeded = 3,
     /// authMethodNotSupported
@@ -356,6 +358,57 @@ impl Directory {
 pub struct Server<'a, P: Authority> {
     dir: &'a Directory,
     authority: &'a P,
+    max_entries: usize,
+    max_bytes: usize,
+}
+
+/// Entries one search returns at most, whatever the client asks: Active
+/// Directory's default MaxPageSize.
+pub const DEFAULT_MAX_ENTRIES: usize = 1000;
+/// Encoded entry bytes one search returns at most.
+pub const DEFAULT_MAX_BYTES: usize = 16 << 20;
+
+/// Attribute types the rootDSE and the naming-context entry carry, beyond
+/// the projection schema in [`crate::ad::ATTRIBUTES`].
+const SERVED_ATTRIBUTES: &[&str] = &[
+    "distinguishedName",
+    "dc",
+    "namingContexts",
+    "defaultNamingContext",
+    "supportedLDAPVersion",
+    "vendorName",
+    "isReadOnly",
+];
+
+/// Whether the server recognises `attr` (lower-cased).
+fn is_known(attr: &str) -> bool {
+    crate::ad::ATTRIBUTES
+        .iter()
+        .chain(SERVED_ATTRIBUTES)
+        .any(|a| a.eq_ignore_ascii_case(attr))
+}
+
+/// DN-valued attributes: matched as parsed distinguished names
+/// (distinguishedNameMatch), with no ordering or substring rule.
+fn is_dn(attr: &str) -> bool {
+    matches!(
+        attr,
+        "distinguishedname" | "member" | "namingcontexts" | "defaultnamingcontext"
+    )
+}
+
+/// The matching form of a DN: its parsed RDNs, case-folded. `None` if `v`
+/// is not a DN.
+fn dn_form(v: &[u8]) -> Option<Vec<u8>> {
+    let k = key(std::str::from_utf8(v).ok()?)?;
+    let mut out = Vec::new();
+    for (a, v) in k {
+        out.extend(a.as_bytes());
+        out.push(0);
+        out.extend(v.as_bytes());
+        out.push(1);
+    }
+    Some(out)
 }
 
 #[derive(Debug)]
@@ -406,18 +459,19 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
         Ok((string(&c[0])?.to_lowercase(), octets(&c[1])?.to_vec()))
     };
     Ok(match t.tag {
-        0xa0 => Filter::And(
-            children(t.value)?
-                .iter()
-                .map(sub)
-                .collect::<Result<_, _>>()?,
-        ),
-        0xa1 => Filter::Or(
-            children(t.value)?
-                .iter()
-                .map(sub)
-                .collect::<Result<_, _>>()?,
-        ),
+        // and / or are SET SIZE (1..MAX) OF Filter (RFC 4511 §4.5.1).
+        0xa0 | 0xa1 => {
+            let c = children(t.value)?;
+            if c.is_empty() {
+                return Err(LdapError::Malformed);
+            }
+            let fs = c.iter().map(sub).collect::<Result<_, _>>()?;
+            if t.tag == 0xa0 {
+                Filter::And(fs)
+            } else {
+                Filter::Or(fs)
+            }
+        }
         0xa2 => {
             let c = children(t.value)?;
             if c.len() != 1 {
@@ -486,7 +540,7 @@ fn order(
     vals: Vec<Vec<u8>>,
     keep: impl Fn(std::cmp::Ordering) -> bool,
 ) -> Option<bool> {
-    if is_binary(attr) {
+    if is_binary(attr) || is_dn(attr) {
         return None;
     }
     if is_integer(attr) {
@@ -503,6 +557,11 @@ fn is_binary(attr: &str) -> bool {
 }
 
 fn fold(attr: &str, v: &[u8]) -> Vec<u8> {
+    if is_dn(attr) {
+        // Served values are always DNs; the fallback is never compared to
+        // an assertion, which must parse to match at all.
+        return dn_form(v).unwrap_or_default();
+    }
     if is_binary(attr) {
         v.to_vec()
     } else {
@@ -529,8 +588,13 @@ fn values(e: &Entry, attr: &str) -> Vec<Vec<u8>> {
 /// Three-valued filter evaluation (RFC 4511 §4.5.1.7): `None` = Undefined.
 fn eval(f: &Filter, e: &Entry, readable: &dyn Fn(&str) -> bool) -> Option<bool> {
     let vals = |a: &str| -> Option<Vec<Vec<u8>>> {
+        // An unrecognised attribute type makes the item Undefined; a
+        // recognised one that is unreadable or absent has no values.
+        if !is_known(a) {
+            return None;
+        }
         if !readable(a) {
-            return Some(Vec::new()); // an unreadable attribute is absent
+            return Some(Vec::new());
         }
         Some(values(e, a).into_iter().map(|v| fold(a, &v)).collect())
     };
@@ -558,13 +622,23 @@ fn eval(f: &Filter, e: &Entry, readable: &dyn Fn(&str) -> bool) -> Option<bool> 
             out
         }
         Filter::Not(f) => eval(f, e, readable).map(|b| !b),
-        Filter::Present(a) => Some(!vals(a)?.is_empty()),
+        // present is FALSE, never Undefined, for an unrecognised type.
+        Filter::Present(a) => Some(!vals(a).unwrap_or_default().is_empty()),
         // Integer equality is numeric, and Undefined for a non-integer
         // assertion (RFC 4517 integerMatch).
         Filter::Eq(a, v) if is_integer(a) => order(a, v, vals(a)?, |o| o.is_eq()),
+        Filter::Eq(a, v) if is_dn(a) => {
+            let vals = vals(a)?;
+            Some(vals.contains(&dn_form(v)?))
+        }
         Filter::Eq(a, v) => {
             let v = fold(a, v);
             Some(vals(a)?.contains(&v))
+        }
+        // distinguishedNameMatch has no substrings rule.
+        Filter::Sub { attr, .. } if is_dn(attr) => {
+            vals(attr)?;
+            None
         }
         Filter::Ge(a, v) => order(a, v, vals(a)?, |o| o.is_ge()),
         Filter::Le(a, v) => order(a, v, vals(a)?, |o| o.is_le()),
@@ -646,7 +720,21 @@ const READ_ONLY: &str = "the directory emulation is read-only";
 impl<'a, P: Authority> Server<'a, P> {
     /// A handler over `dir`, with access decided by `authority`.
     pub fn new(dir: &'a Directory, authority: &'a P) -> Self {
-        Self { dir, authority }
+        Self {
+            dir,
+            authority,
+            max_entries: DEFAULT_MAX_ENTRIES,
+            max_bytes: DEFAULT_MAX_BYTES,
+        }
+    }
+
+    /// Cap what one search returns, whatever its sizeLimit: at most
+    /// `max_entries` entries and `max_bytes` encoded entry bytes. Reaching
+    /// either ends the search with adminLimitExceeded.
+    pub fn with_limits(mut self, max_entries: usize, max_bytes: usize) -> Self {
+        self.max_entries = max_entries;
+        self.max_bytes = max_bytes;
+        self
     }
 
     /// Handle one request PDU; returns the response PDUs in order (none for
@@ -874,6 +962,7 @@ impl<'a, P: Authority> Server<'a, P> {
         };
         let mut out = Vec::new();
         let mut sent = 0i64;
+        let mut bytes = 0usize;
         for (k, e) in self.dir.all() {
             if deadline.is_some_and(|d| std::time::Instant::now() >= d) {
                 out.push(done(ResultCode::TimeLimitExceeded, ""));
@@ -890,7 +979,13 @@ impl<'a, P: Authority> Server<'a, P> {
                 out.push(done(ResultCode::SizeLimitExceeded, ""));
                 return Ok(out);
             }
-            out.push(self.entry(id, e, &requested, types_only, &readable));
+            let pdu = self.entry(id, e, &requested, types_only, &readable);
+            if sent as usize >= self.max_entries || bytes + pdu.len() > self.max_bytes {
+                out.push(done(ResultCode::AdminLimitExceeded, ""));
+                return Ok(out);
+            }
+            bytes += pdu.len();
+            out.push(pdu);
             sent += 1;
         }
         // The last candidate's checks can outlast the limit too.

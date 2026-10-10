@@ -823,3 +823,135 @@ fn nested_fields_are_type_checked() {
         assert_eq!((dns(&r).len(), done(&r)), (5, 0));
     }
 }
+
+// A filter on an attribute type the server does not recognise is Undefined
+// and stays Undefined under NOT; `present` on it is FALSE. Every type the
+// server emits is recognised.
+#[test]
+fn unknown_attribute_types_are_undefined() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let mut q = |base: &str, scope: u8, f| run(&srv, &mut s, search(2, base, scope, 0, f, &["*"]));
+    assert_eq!(dns(&q(NC, 2, not(eq("unknownAttribute", "x")))).len(), 0);
+    assert_eq!(dns(&q(NC, 2, present("unknownAttribute"))).len(), 0);
+    assert_eq!(dns(&q(NC, 2, not(present("unknownAttribute")))).len(), 5);
+    // Drift guard: a NOT of a non-matching equality on each emitted type
+    // matches, so none of them is treated as unknown.
+    let mut names: Vec<String> = Vec::new();
+    for (base, scope) in [(NC, 2u8), ("", 0)] {
+        for r in q(base, scope, present("objectClass")) {
+            if let Resp::Entry { attrs, .. } = r {
+                names.extend(attrs.into_iter().map(|(n, _)| n));
+            }
+        }
+    }
+    names.sort();
+    names.dedup();
+    assert!(names.len() > 8, "{names:?}");
+    for n in names {
+        let v = match n.to_lowercase().as_str() {
+            "useraccountcontrol" | "supportedldapversion" => "999999",
+            "member" | "distinguishedname" | "namingcontexts" | "defaultnamingcontext" => "CN=none",
+            _ => "zz-no-such-value",
+        };
+        let (base, scope) = if [
+            "namingContexts",
+            "defaultNamingContext",
+            "supportedLDAPVersion",
+            "vendorName",
+            "isReadOnly",
+        ]
+        .contains(&n.as_str())
+        {
+            ("", 0)
+        } else {
+            (NC, 2)
+        };
+        assert!(
+            !dns(&q(base, scope, not(eq(&n, v)))).is_empty(),
+            "{n} is not recognised"
+        );
+    }
+}
+
+fn substr_initial(a: &str, v: &str) -> Vec<u8> {
+    let mut b = tlv(0x04, a.as_bytes());
+    b.extend(tlv(0x30, &tlv(0x80, v.as_bytes())));
+    tlv(0xa4, &b)
+}
+
+// distinguishedName and member compare as parsed DNs: a differently escaped
+// spelling of the same name matches, a value that is not a DN is Undefined,
+// and DNs have no substrings rule.
+#[test]
+fn dn_values_match_by_parsed_name() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let mut q = |f| {
+        dns(&run(&srv, &mut s, search(2, NC, 2, 0, f, &["1.1"])))
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+    };
+    let plain = format!("CN={CLOUD},OU=Cloud Only (emulated),{NC}");
+    let escaped = format!("cn={CLOUD},ou=Cloud Only \\28emulated\\29,dc=EXAMPLE,dc=de");
+    assert_eq!(q(eq("distinguishedName", &plain)).len(), 1);
+    assert_eq!(
+        q(eq("distinguishedName", &escaped)),
+        q(eq("distinguishedName", &plain))
+    );
+    assert_eq!(q(not(eq("distinguishedName", "not a dn"))).len(), 0);
+    assert_eq!(q(not(substr_initial("distinguishedName", "CN="))).len(), 0);
+}
+
+// and / or with no members are malformed.
+#[test]
+fn empty_and_or_are_refused() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    for f in [tlv(0xa0, &[]), tlv(0xa1, &[]), not(tlv(0xa0, &[]))] {
+        let mut s = Session::default();
+        run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+        let out = srv.handle(&mut s, &search(2, NC, 2, 0, f, &["1.1"]));
+        assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
+        assert!(s.closed());
+    }
+}
+
+// The server caps what one search returns, whatever the client asks.
+#[test]
+fn server_limits_cap_unlimited_searches() {
+    let dir = directory();
+    let q = |srv: &Server<'_, Iam>, size: u8| {
+        let mut s = Session::default();
+        run(srv, &mut s, bind(1, "admin@example.de", b"pw"));
+        let r = run(
+            srv,
+            &mut s,
+            search(2, NC, 2, size, present("objectClass"), &["*"]),
+        );
+        (dns(&r).len(), done(&r))
+    };
+    // The fixture has five entries: a cap of five is not reached.
+    assert_eq!(
+        q(&Server::new(&dir, &Iam).with_limits(5, usize::MAX), 0),
+        (5, 0)
+    );
+    assert_eq!(
+        q(&Server::new(&dir, &Iam).with_limits(2, usize::MAX), 0),
+        (2, 11)
+    );
+    // The client's own smaller limit still reports sizeLimitExceeded.
+    assert_eq!(
+        q(&Server::new(&dir, &Iam).with_limits(2, usize::MAX), 1),
+        (1, 4)
+    );
+    // The byte cap holds even when no entry fits.
+    assert_eq!(q(&Server::new(&dir, &Iam).with_limits(100, 1), 0), (0, 11));
+    // The default cap leaves a small directory whole.
+    assert_eq!(q(&Server::new(&dir, &Iam), 0), (5, 0));
+}
