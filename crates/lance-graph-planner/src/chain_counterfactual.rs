@@ -94,18 +94,17 @@ pub enum Verdict {
 /// derived number) — but the choice of **frequency over confidence is
 /// measured, and it matters**.
 ///
-/// `NarsTables::build(1)` drives revision's confidence to a fixed point:
-/// measured across a weak 3-chain, a strong 4-chain, and a mixed one, the
-/// terminal confidence was **170 in every case**, while frequency separated
-/// them cleanly (78 / 247 / 93). A confidence-based verdict would therefore
-/// have been a **vacuous threshold** — every chain on the same side of every
-/// bar, a gate that cannot fire and cannot stay silent, discriminating
-/// nothing while looking rigorous.
+/// The reason is semantic: "is this chain consistent?" asks how strongly the
+/// composed relation holds (frequency), not how much evidence stands behind
+/// it (confidence). A verdict read off confidence would call a well-attested
+/// refutation "consistent".
 ///
-/// It is also the semantically right axis: "is this chain consistent?" asks
-/// how strongly the composed relation holds, not how much evidence has piled
-/// up behind it. Confidence saturating is the substrate working as designed;
-/// reading a verdict off it was the error.
+/// Corrected 2026-10-10 (D-RPF-TABLE-1): this doc used to cite a measured
+/// "terminal confidence of 170 in every chain" as the evidence. 170 is not
+/// saturation: it is `NarsTables::build(1)` discarding both confidences and
+/// returning one constant. Under exact revision (law A) confidence varies
+/// along every chain, so that measurement says nothing about confidence as a
+/// verdict axis. The choice of frequency stands on the semantic reason alone.
 ///
 /// [`the_bar_is_not_inert`] pins that the knob does something in BOTH
 /// directions — the inertness test a threshold parameter owes.
@@ -642,9 +641,9 @@ mod tests {
     }
     /// The bar is a real knob, not decoration: raising it must silence a
     /// verdict that fires, and lowering it must admit one that does not. The
-    /// inertness test a threshold parameter owes — and the test that would
-    /// have caught the confidence axis, where every chain sat at 170 and no
-    /// bar could separate anything.
+    /// inertness test a threshold parameter owes. (This fixture runs under
+    /// `NarsTables::build(1)`, which returns one constant confidence, 170; see
+    /// `DEFAULT_FREQUENCY_BAR` for why that is not evidence about confidence.)
     #[test]
     fn the_bar_is_not_inert() {
         let (tables, t) = fixture();
@@ -671,14 +670,11 @@ mod tests {
             "lowering admits"
         );
 
-        // ...and the axis matters: the SAME trace's confidence is saturated,
-        // so a confidence bar cannot discriminate. Pinned so nobody switches
-        // the verdict back onto it.
+        // B1 (`build(1)`) returns one constant confidence. Pinned as a
+        // property of B1, not of revision: under law A the confidence varies
+        // (D-RPF-TABLE-1). If the fixture's table changes, this moves.
         let c = trace.last().unwrap().edge.confidence_u8();
-        assert_eq!(
-            c, 170,
-            "confidence saturates — measured across every fixture here"
-        );
+        assert_eq!(c, 170, "B1's constant confidence");
 
         // An empty replay asserts nothing and fails closed at any bar.
         assert_eq!(verdict_at(&[], 0), Verdict::Inconsistent);
