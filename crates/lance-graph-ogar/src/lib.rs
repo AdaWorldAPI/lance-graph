@@ -505,6 +505,29 @@ const fn is_palette_seat(classid: u16) -> bool {
     classid >= 0x1717 && (classid >> 8) == 0x17
 }
 
+/// `true` for the five canon storage domains whose reading lives in
+/// [`concept_override`] (D-HPR-2): OSINT `0x0701`, FMA `0x0A01`, CPIC
+/// `0x0E01`, PROJECT `0x0101`, ERP `0x0202`.
+const fn is_canon_storage_domain(classid: u16) -> bool {
+    matches!(classid, 0x0701 | 0x0A01 | 0x0E01 | 0x0101 | 0x0202)
+}
+
+/// A canon storage domain that the capability join does not serve, so it is
+/// plugged for its reading alone (codex P1 on #1465). The join answers
+/// `UnknownClassid` for a concept outside the capability codebook and
+/// `NoCapabilitiesFor` for one with no action table; either way there is no
+/// capability side, and routing it to the join would refuse the whole plug.
+/// Probed per id rather than listed, so a domain that later gains actions
+/// goes back through the join and its capabilities are not dropped.
+fn is_reading_only_canon_domain(consumer: &str, classid: u16) -> bool {
+    use ogar_vocab::capability_registry::{resolve_hotplug, HotplugDrift};
+    is_canon_storage_domain(classid)
+        && matches!(
+            resolve_hotplug(consumer, &[classid], &[]),
+            Err(HotplugDrift::UnknownClassid(_) | HotplugDrift::NoCapabilitiesFor(_))
+        )
+}
+
 /// The consumer a palette seat is KNOWN to belong to, when one is known.
 ///
 /// Deliberately a short list of CLAIMED seats, not a roster of participants.
@@ -581,8 +604,12 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
         // The two id kinds answer to different authorities, so they are
         // routed separately and the results merged; the reading covers the
         // whole plug either way, because it is derived from the plug.
-        let (palette, capability): (Vec<u16>, Vec<u16>) =
-            plug.classids.iter().partition(|&&id| is_palette_seat(id));
+        // Canon storage domains with no capability side are reading-only too
+        // (codex P1 on #1465): the join refuses them, so they are routed with
+        // the palette seats and get their reading from `plug_readings`.
+        let (palette, capability): (Vec<u16>, Vec<u16>) = plug.classids.iter().partition(|&&id| {
+            is_palette_seat(id) || is_reading_only_canon_domain(plug.consumer, id)
+        });
 
         // A CLAIMED seat is its owner's, whichever arm it arrives on. An
         // unclaimed one is plug-and-play for whoever plugs it.
@@ -810,7 +837,13 @@ mod plug_and_play_reading {
             classids: &[0x0701, 0x0A01, 0x0E01, 0x0101, 0x0202],
             covered: &[],
         };
-        let readings = super::plug_readings(&plug);
+        // Through the public path, not the private helper (codex P1 on
+        // #1465): every one of these ids is refused by the capability join,
+        // so a reading reachable only via `plug_readings` would be dead.
+        let act = super::OgarAuthority
+            .activate(&plug)
+            .expect("a canon-domain plug activates for its reading");
+        let readings = act.declared_readings().to_vec();
         for (concept, classid) in domains {
             assert_eq!(
                 classid >> 16,
@@ -829,6 +862,34 @@ mod plug_and_play_reading {
         assert!(domains.iter().any(|(c, _)| readings
             .iter()
             .any(|(rc, m)| rc == c && *m != ReadMode::PLUG_AND_PLAY_V3)));
+    }
+
+    /// A canon storage domain plugged alongside capability ids: the domain
+    /// gets its reading without reaching the join, and the capability half
+    /// still resolves (codex P1 on #1465).
+    #[test]
+    fn a_canon_domain_next_to_capability_ids_activates_and_reads_its_domain() {
+        let mixed = HotPlug {
+            consumer: "medcare-rs",
+            classids: &[0x0A01, 0x0901, 0x0902],
+            covered: &[
+                "register_patient",
+                "get_patient_record",
+                "list_patients",
+                "update_patient_access",
+                "add_diagnosis",
+                "get_diagnosis",
+                "list_diagnoses",
+                "delete_diagnosis",
+            ],
+        };
+        let act = super::OgarAuthority
+            .activate(&mixed)
+            .expect("the canon domain must not make the plug refuse");
+        assert_eq!(act.read_mode_for(0x0A01), Ok(ReadMode::FMA_V3));
+        assert_eq!(act.read_mode_for(0x0901), Ok(ReadMode::PLUG_AND_PLAY_V3));
+        assert!(!act.capabilities.is_empty());
+        assert!(act.concepts.iter().all(|(_, id)| *id != 0x0A01));
     }
 
     /// THE MEDCARE CASE — the one this rewrite exists for.
