@@ -283,6 +283,13 @@ mod lab_tests {
         );
         // Direction matters: "lower is better" flips the sign.
         assert!(paired(&base, &better, false).mean < 0.0);
+        // Significant but below the minimum effect: never SUPPORTED. A tiny
+        // shift on every block is rejected by Holm, and its interval sits
+        // under 0.02, so the verdict is FALSIFIED.
+        let tiny: Vec<f64> = base.iter().map(|x| x + 0.005).collect();
+        let rt = paired(&base, &tiny, true);
+        assert!(rt.p < 0.001);
+        assert_eq!(verdict(&pr, &rt, true), Verdict::Falsified);
         // A run with the wrong block count is never SUPPORTED.
         let short = paired(&base[..6], &better[..6], true);
         assert_eq!(verdict(&pr, &short, true), Verdict::Inconclusive);
