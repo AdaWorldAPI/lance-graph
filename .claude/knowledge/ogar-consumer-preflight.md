@@ -38,6 +38,19 @@
 > of drift in one jump. If a consumer build breaks against sibling HEAD, the
 > remedy is fixing the breakage (or a STOP-and-ask), never a pin.
 >
+> **⊘ STALE COORDINATES (corrected 2026-10-10).** The two lance-family
+> coordinates above, `lance =9.0.0` · `lancedb =0.33.0`, predate both the
+> lance-12 line and the float rule in lance-graph `CLAUDE.md` § Key
+> Dependencies (never an exact `.0.0` pin; float the patch). The whitelist
+> today reads `lance 12.*` · `lancedb 0.39.*` · `arrow 58` · `datafusion 54`.
+> `CLAUDE.md` is the one authoritative pin policy: this paragraph is kept for
+> its rule (internal siblings are never pinned; only the external storage
+> family is), not for its numbers. The lockfile "sanity check" below no longer
+> holds as written for the same reason — lance and lancedb now float their
+> patch exactly as arrow and datafusion float their minor; without a lock each
+> build takes the newest compatible patch, never the next major. Found during
+> HubSPO-rs's integration survey, where the two files disagreed.
+>
 > **The lockfile corollary (codex P1 on the first draft — accepted).** A git
 > dep on `branch = "main"` is STILL resolved to one precise commit in
 > `Cargo.lock`; a consumer that commits its lock (or deploys with
