@@ -28,6 +28,8 @@ use std::f64::consts::{GOLDEN_RATIO, TAU};
 use std::hint::black_box;
 use std::time::Instant;
 
+use ndarray::simd::PhaseLut;
+
 // ───────────────────────── rng ─────────────────────────
 
 struct Rng(u64);
@@ -52,48 +54,16 @@ fn turns_to_rad(p: u32) -> f64 {
 
 // ───────────────────────── the four phasor evaluators ─────────────────────────
 
-/// A `(cos, sin)` table over `2^bits` phases, `f32`.
-struct Lut {
-    bits: u32,
-    t: Vec<(f32, f32)>,
-}
+/// The `(cos, sin)` table is `ndarray::simd::PhaseLut` (#343); this probe used
+/// to carry its own copy.
+type Lut = PhaseLut;
 
-impl Lut {
-    fn new(bits: u32) -> Self {
-        let n = 1usize << bits;
-        let t = (0..n)
-            .map(|i| {
-                let a = TAU * i as f64 / n as f64;
-                (a.cos() as f32, a.sin() as f32)
-            })
-            .collect();
-        Lut { bits, t }
-    }
-    /// Nearest entry.
-    #[inline]
-    fn nearest(&self, p: u32) -> (f32, f32) {
-        let sh = 32 - self.bits;
-        let i = (p.wrapping_add(1 << (sh - 1)) >> sh) as usize;
-        self.t[i & (self.t.len() - 1)]
-    }
-    /// Linear interpolation between the two neighbouring entries.
-    #[inline]
-    fn lerp(&self, p: u32) -> (f32, f32) {
-        let sh = 32 - self.bits;
-        let i = (p >> sh) as usize;
-        let f = (p & ((1 << sh) - 1)) as f32 / (1u32 << sh) as f32;
-        let m = self.t.len() - 1;
-        let (a, b) = (self.t[i & m], self.t[(i + 1) & m]);
-        (a.0 + (b.0 - a.0) * f, a.1 + (b.1 - a.1) * f)
-    }
-    fn bytes(&self) -> usize {
-        self.t.len() * 8
-    }
-    /// A conservative bound on `|lut(p) − e^{ip}|` for `nearest`: half a step
-    /// of arc plus the `f32` rounding of both components.
-    fn nearest_bound(&self) -> f64 {
-        std::f64::consts::PI / (1u64 << self.bits) as f64 + 2.0 * f64::from(f32::EPSILON)
-    }
+/// A conservative bound on the COMPLEX distance `|lut(p) − e^{ip}|` for
+/// `nearest`: half a step of arc plus the `f32` rounding of both components.
+/// Not `PhaseLut::nearest_error_bound`, which bounds each component
+/// separately; the early exit below sums complex terms, so it needs this one.
+fn nearest_bound(lut: &PhaseLut) -> f64 {
+    std::f64::consts::PI / (1u64 << lut.bits()) as f64 + 2.0 * f64::from(f32::EPSILON)
 }
 
 /// Circular CORDIC in rotation mode, `i64` fixed point Q30, angle in turns.
@@ -597,7 +567,7 @@ fn interference(n_src: usize, side: usize, heavy_tail: bool) {
     };
     let mut sorted = truth.clone();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let eps = l12.nearest_bound();
+    let eps = nearest_bound(&l12);
     for q in [0.5, 0.9, 0.99] {
         let t_thr = sorted[((sorted.len() - 1) as f64 * q) as usize];
         // Exact path: f64 reference phasors.
