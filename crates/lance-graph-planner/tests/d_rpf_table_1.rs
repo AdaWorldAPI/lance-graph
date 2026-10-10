@@ -847,6 +847,40 @@ fn the_load_bearing_fixture_is_load_bearing_only_under_b1() {
     assert_eq!(lb, vec![true, false, false, false, false]);
 }
 
+/// G2 re-derivation: a load-bearing fixture under law A, the law
+/// recommended for decision-bearing wiring. Seed 200/200, a strong support
+/// step 250/250, then a confident refutation 10/230. Cutting the support
+/// leaves the refutation to dominate, so the verdict flips under exact
+/// revision. B1's verdict on the same chain is pinned beside it as the
+/// historical record, not as the contract.
+#[test]
+fn a_load_bearing_fixture_under_law_a() {
+    let c = compose_tables();
+    let compose = compose_of(&c);
+    let ch = Chain {
+        seed: edge(200, 200, InferenceType::Deduction),
+        steps: vec![
+            (0x91, edge(250, 250, InferenceType::Deduction)),
+            (0x92, edge(10, 230, InferenceType::Deduction)),
+        ],
+    };
+    let a = decide(&law_a(), &ch, 0, compose);
+    assert_eq!(
+        a.reaction,
+        Reaction::LoadBearing {
+            factual: 210,
+            counterfactual: 64
+        }
+    );
+    // The mirror image of the old fixture: B1, B2, B4 and B8 call this cut
+    // NOT load-bearing; only B16 agrees with A.
+    let lb: Vec<bool> = tables()
+        .iter()
+        .map(|t| decide(&law_table(t), &ch, 0, compose).load_bearing)
+        .collect();
+    assert_eq!(lb, vec![false, false, false, false, true]);
+}
+
 /// Anti-vacuity for the flip counter: a counter that compared only
 /// frequencies would miss TruthOnly decisions that come from confidence
 /// alone. This fixture has A moving confidence with frequency held, so a

@@ -52,6 +52,9 @@ use population_fold::Rng;
 mod crossword_core;
 use crossword_core::*;
 
+#[path = "shared/lab.rs"]
+mod lab;
+
 const SYMS: usize = MooreSymbol8::COUNT;
 
 /// `|a ∧ b|` without writing anything.
@@ -1449,8 +1452,139 @@ fn chain_report(hot: &Hot) {
     }
 }
 
+// ── D-SELF-CALIBRATING-LAB-0: the crossword arm of the hypothesis lab ──────
+
+/// Pre-registered before the run that reports it. Directions come from
+/// D-SCF-CARE-PAIR-0 (support: far fewer nodes, more ops; single and pair
+/// counterfactuals do not pay). Endpoints are natural logs, so a minimum
+/// effect of 0.1 means about 10 %. Fresh puzzles (seed 0x1AB5EED, not the
+/// 0xC0FFEE sets the original measured), side 5, open workload.
+const LAB_PUZZLES: usize = 16;
+const LAB_PREREG: [lab::Prereg; 4] = [
+    lab::Prereg {
+        id: "C1",
+        hypothesis: "letter support cuts search nodes",
+        baseline: "Baseline",
+        treatment: "Support",
+        endpoint: "ln nodes",
+        higher_is_better: false,
+        min_effect: 0.1,
+        blocks: LAB_PUZZLES,
+    },
+    lab::Prereg {
+        id: "C2",
+        hypothesis: "letter support cuts total ops",
+        baseline: "Baseline",
+        treatment: "Support",
+        endpoint: "ln ops",
+        higher_is_better: false,
+        min_effect: 0.1,
+        blocks: LAB_PUZZLES,
+    },
+    lab::Prereg {
+        id: "C3",
+        hypothesis: "single-crossing counterfactuals cut total ops",
+        baseline: "Baseline",
+        treatment: "Single",
+        endpoint: "ln ops",
+        higher_is_better: false,
+        min_effect: 0.1,
+        blocks: LAB_PUZZLES,
+    },
+    lab::Prereg {
+        id: "C4",
+        hypothesis: "pair nogoods cut total ops beyond single",
+        baseline: "Single",
+        treatment: "Pair",
+        endpoint: "ln ops",
+        higher_is_better: false,
+        min_effect: 0.1,
+        blocks: LAB_PUZZLES,
+    },
+];
+
+fn lab_stage(hot: &Hot) {
+    let t0 = Instant::now();
+    println!("D-SELF-CALIBRATING-LAB-0 — crossword arm (side 5, open: half givens, cap 50)");
+    let set = make(hot, 5, LAB_PUZZLES, 0x1AB5EED);
+    let arms = [Arm::Baseline, Arm::Support, Arm::Single, Arm::Pair];
+    let runs: Vec<Vec<Run>> = arms
+        .iter()
+        .map(|&arm| {
+            set.iter()
+                .map(|x| {
+                    run(
+                        hot,
+                        &x.c.puz,
+                        &half(&x.c.givens),
+                        arm,
+                        Broken::default(),
+                        40_000_000,
+                        50,
+                    )
+                })
+                .collect()
+        })
+        .collect();
+    // Deterministic half: every arm is sound and reaches the same answer.
+    let sound_all = arms.iter().enumerate().all(|(k, _)| {
+        set.iter()
+            .zip(&runs[k])
+            .all(|(x, r)| sound(hot, &x.c.puz, r, &x.c.solution))
+    });
+    let same = (1..arms.len()).all(|k| {
+        runs[k]
+            .iter()
+            .zip(&runs[0])
+            .all(|(a, b)| a.solved() != b.solved() || !a.solved() || a.fills == b.fills)
+    });
+    let solved: Vec<usize> = runs
+        .iter()
+        .map(|v| v.iter().filter(|r| r.solved()).count())
+        .collect();
+    println!(
+        "deterministic: every arm sound {sound_all}; same fill count where both solved {same}; solved {solved:?} of {LAB_PUZZLES}"
+    );
+    let ln = |v: &[Run], f: fn(&Run) -> u64| {
+        v.iter()
+            .map(|r| (f(r).max(1) as f64).ln())
+            .collect::<Vec<_>>()
+    };
+    let nodes = |r: &Run| r.nodes;
+    let ops = |r: &Run| r.ops;
+    let results = [
+        lab::paired(&ln(&runs[0], nodes), &ln(&runs[1], nodes), false),
+        lab::paired(&ln(&runs[0], ops), &ln(&runs[1], ops), false),
+        lab::paired(&ln(&runs[0], ops), &ln(&runs[2], ops), false),
+        lab::paired(&ln(&runs[2], ops), &ln(&runs[3], ops), false),
+    ];
+    let rejected = lab::holm(&results.map(|r| r.p), 0.05);
+    println!("\nFamily (Holm, alpha 0.05; effects in ln units, + = treatment better):");
+    for i in 0..LAB_PREREG.len() {
+        println!(
+            "  {}",
+            lab::report(&LAB_PREREG[i], &results[i], rejected[i])
+        );
+    }
+    println!("\nPareto (geometric mean over puzzles; empirical):");
+    for (k, arm) in arms.iter().enumerate() {
+        let g = |v: Vec<f64>| (v.iter().sum::<f64>() / v.len() as f64).exp();
+        println!(
+            "  {:<9} nodes {:>10.0}  ops {:>12.0}",
+            format!("{arm:?}"),
+            g(ln(&runs[k], nodes)),
+            g(ln(&runs[k], ops))
+        );
+    }
+    println!("\nlab wall time {:.1}s", t0.elapsed().as_secs_f64());
+}
+
 fn main() {
     let (hot, _cold) = build_lexicon(Lang::En, &english_ranked());
+    if std::env::args().nth(1).as_deref() == Some("lab") {
+        lab_stage(&hot);
+        return;
+    }
     println!("D-SCF-CARE-PAIR-0 (English, {} ids)", hot.len.len());
     if std::env::args().nth(1).as_deref() == Some("l2") {
         uncapped_report(&hot, &make(&hot, 5, 10, 0xC0FFEE + 5));

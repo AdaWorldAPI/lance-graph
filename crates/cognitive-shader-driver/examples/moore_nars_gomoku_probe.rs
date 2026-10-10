@@ -34,6 +34,9 @@ use lance_graph_contract::epistemic_state5::{Certification3, Epi5Gen, EpistemicS
 #[cfg(test)]
 use lance_graph_contract::recipes::RECIPES;
 
+#[path = "shared/lab.rs"]
+mod lab;
+
 // ── Census of the 34 catalogue recipes ─────────────────────────────────────
 
 /// How a catalogue recipe stands in this domain.
@@ -550,6 +553,57 @@ fn minimax(b: &Board, me: u8, s: &Snap, k1: usize, k2: usize, folds: &mut u64) -
     best.1
 }
 
+/// D-LAB-P1: `minimax` with a deterministic certificate. A candidate's value
+/// is the minimum over its replies, so the running minimum is an upper bound
+/// that only falls. Once it is `<=` the best finished value, the candidate
+/// cannot be chosen (the choice needs a strict `>`), and its remaining
+/// replies are skipped. Values never exceed 7, so a finished 7 ends the
+/// search. Picks the same move as `minimax` by construction; the probe
+/// measures what the skipped replies were worth in folds.
+fn minimax_certified(b: &Board, me: u8, s: &Snap, k1: usize, k2: usize, folds: &mut u64) -> usize {
+    let mut best = (i32::MIN, s.cells[0].i);
+    for m in s.top(k1, hpm) {
+        if best.0 >= 7 {
+            break;
+        }
+        let mut c = b.clone();
+        c.play(m.i, me);
+        let worst = if m.c_me == FIVE {
+            7
+        } else {
+            let s1 = snapshot(&c, 3 - me, folds);
+            let mut worst = i32::MAX;
+            for r in s1.top(k2, hpm) {
+                let v = if r.c_me == FIVE {
+                    -7
+                } else {
+                    let mut cc = c.clone();
+                    cc.play(r.i, 3 - me);
+                    let s2 = snapshot(&cc, me, folds);
+                    if s2.cells.is_empty() {
+                        0
+                    } else {
+                        balance(&s2)
+                    }
+                };
+                worst = worst.min(v);
+                if worst <= best.0 {
+                    break;
+                }
+            }
+            if worst == i32::MAX {
+                0
+            } else {
+                worst
+            }
+        };
+        if worst > best.0 {
+            best = (worst, m.i);
+        }
+    }
+    best.1
+}
+
 struct Rng(u64);
 impl Rng {
     fn next(&mut self) -> u64 {
@@ -565,7 +619,15 @@ impl Rng {
 }
 
 /// Run one recipe over the population. Returns the move; adds its folds.
-fn run_op(op: Op, b: &Board, me: u8, s: &Snap, rng: &mut Rng, folds: &mut u64) -> usize {
+fn run_op(
+    op: Op,
+    b: &Board,
+    me: u8,
+    s: &Snap,
+    rng: &mut Rng,
+    folds: &mut u64,
+    certified: bool,
+) -> usize {
     match op {
         Op::Hpm => s.argmax(hpm).i,
         Op::Rcr => {
@@ -615,6 +677,7 @@ fn run_op(op: Op, b: &Board, me: u8, s: &Snap, rng: &mut Rng, folds: &mut u64) -
             }
             best.1
         }
+        Op::Asc if certified => minimax_certified(b, me, s, 4, 4, folds),
         Op::Asc => minimax(b, me, s, 4, 4, folds),
         Op::Cr => {
             let a = s.argmax(|c| i64::from(c.s_me)).i;
@@ -633,9 +696,9 @@ fn run_op(op: Op, b: &Board, me: u8, s: &Snap, rng: &mut Rng, folds: &mut u64) -
         }
         Op::Tcf => {
             let picks = [
-                run_op(Op::Hpm, b, me, s, rng, folds),
-                run_op(Op::Rcr, b, me, s, rng, folds),
-                run_op(Op::Tcp, b, me, s, rng, folds),
+                run_op(Op::Hpm, b, me, s, rng, folds, certified),
+                run_op(Op::Rcr, b, me, s, rng, folds, certified),
+                run_op(Op::Tcp, b, me, s, rng, folds, certified),
             ];
             if picks[1] == picks[2] {
                 picks[1]
@@ -717,6 +780,8 @@ struct Cfg {
     cost_weight: f64,
     /// Update from experience (false = frozen evaluation).
     learn: bool,
+    /// ASC runs `minimax_certified` (same pick, fewer folds; D-LAB-P1).
+    certified: bool,
 }
 
 const BASE: Cfg = Cfg {
@@ -727,6 +792,7 @@ const BASE: Cfg = Cfg {
     decay: 1.0,
     cost_weight: 0.02,
     learn: true,
+    certified: false,
 };
 
 /// NARS evidence for one (signature, recipe) pairing.
@@ -775,6 +841,9 @@ struct Pending {
     dir: u8,
     /// The question the step asked (bits 40..42).
     question: CausalMask,
+    /// The chooser's NARS expectation of this recipe at choice time (0.5
+    /// when not learned): the lab's calibration prediction.
+    pred: f64,
 }
 
 #[derive(Default)]
@@ -890,6 +959,12 @@ struct Stats {
     regret_n: u64,
     /// Steps where the chosen recipe was among the best.
     optimal: u64,
+    /// Reliability bins over `Pending::pred`: (count, sum of pred, retained > 0).
+    cal: [(u64, f64, u64); 10],
+    /// The same bins over non-neutral outcomes only (retained != 0): the
+    /// population a NARS expectation actually estimates, since a zero
+    /// activation adds no evidence.
+    cal_nn: [(u64, f64, u64); 10],
 }
 
 impl Stats {
@@ -910,6 +985,16 @@ impl Stats {
         self.regret += o.regret;
         self.regret_n += o.regret_n;
         self.optimal += o.optimal;
+        for (a, b) in self
+            .cal
+            .iter_mut()
+            .chain(self.cal_nn.iter_mut())
+            .zip(o.cal.iter().chain(o.cal_nn.iter()))
+        {
+            a.0 += b.0;
+            a.1 += b.1;
+            a.2 += b.2;
+        }
     }
     fn score(&self) -> f64 {
         (self.wins as f64 + 0.5 * (self.games - self.wins - self.losses) as f64)
@@ -959,7 +1044,7 @@ fn oracle_regret(
     for (k, &op) in OPS.iter().enumerate() {
         let mut f = 0;
         let mut rng = Rng(rng_seed);
-        let mv = run_op(op, b, me, s, &mut rng, &mut f);
+        let mv = run_op(op, b, me, s, &mut rng, &mut f, false);
         acts[k] = consequence(b, me, mv, opp, before);
     }
     let best = *acts.iter().max().unwrap();
@@ -1066,6 +1151,15 @@ fn game(
             if retained > 0 {
                 st.productive += 1;
             }
+            let bin = ((p.pred * 10.0) as usize).min(9);
+            st.cal[bin].0 += 1;
+            st.cal[bin].1 += p.pred;
+            st.cal[bin].2 += u64::from(retained > 0);
+            if retained != 0 {
+                st.cal_nn[bin].0 += 1;
+                st.cal_nn[bin].1 += p.pred;
+                st.cal_nn[bin].2 += u64::from(retained > 0);
+            }
             let act = match cfg.signal {
                 Signal::Retained(_) => Some(retained),
                 Signal::Immediate => Some(p.immediate),
@@ -1091,11 +1185,22 @@ fn game(
                 };
                 let back = coarse(&s);
                 let (op, hit) = l.choose(cfg, key, back, &mut rng);
+                let pred = match cfg.chooser {
+                    Chooser::Learned => l
+                        .stats
+                        .get(&key)
+                        .or_else(|| match cfg.memory {
+                            Memory::Structural => l.stats.get(&back),
+                            Memory::Literal => None,
+                        })
+                        .map_or(0.5, |row| row[op.index()].expectation()),
+                    _ => 0.5,
+                };
                 st.hits += u64::from(hit);
                 let step_seed = rng.next();
                 let mut r2 = Rng(step_seed);
                 let mut f = 0;
-                let mv = run_op(op, &b, me, &s, &mut r2, &mut f);
+                let mv = run_op(op, &b, me, &s, &mut r2, &mut f, cfg.certified);
                 st.steps += 1;
                 st.folds += f;
                 st.ops[op.index()] += 1;
@@ -1129,6 +1234,7 @@ fn game(
                     immediate,
                     dir: s.cells.iter().find(|c| c.i == mv).map_or(0, |c| c.dir),
                     question: question(&s),
+                    pred,
                 };
                 ring[wslot as usize] = Some(p);
                 queue.push_back((wslot, st.moves));
@@ -1265,7 +1371,234 @@ fn dist(s: &Stats) -> String {
         .join(" ")
 }
 
+// ── D-SELF-CALIBRATING-LAB-0: the Gomoku arm of the hypothesis lab ─────────
+
+/// One arm on one block: the LAST window's stats (the learned policy, not
+/// the learning phase).
+fn lab_block(cfg: &Cfg, seed: u64, games: usize) -> Stats {
+    let w = World {
+        n: 9,
+        win: 5,
+        opp: Opp::Threat,
+        oracle: false,
+    };
+    run(w, cfg, &mut Learner::default(), seed, games, LAB_WINDOW)
+        .pop()
+        .expect("at least one window")
+}
+
+/// Train against Threat, then switch to Aggressor; return the post-switch
+/// stats only.
+fn lab_switch_block(cfg: &Cfg, seed: u64, games: usize) -> Stats {
+    let mut l = Learner::default();
+    let threat = World {
+        n: 9,
+        win: 5,
+        opp: Opp::Threat,
+        oracle: false,
+    };
+    let aggressor = World {
+        opp: Opp::Aggressor,
+        ..threat
+    };
+    let _ = run(threat, cfg, &mut l, seed, games, games);
+    total(&run(aggressor, cfg, &mut l, seed ^ 0xA55A, games, games))
+}
+
+/// The confirmatory family, pre-registered before the run that reports it.
+///
+/// Pilot (2026-10-10, seeds 1001..1012, 100 games, whole-run score) was
+/// exploratory and amended three things before this confirmation:
+/// H4 is compared at cost weight 0 (a cost-aware chooser reacts to the
+/// cheaper ASC, so games diverge for a reason that is not the certificate);
+/// the endpoint is the last 100-game window of 300 (the pilot measured the
+/// learning phase); calibration is also read over non-neutral outcomes.
+/// Confirmation uses fresh seeds 2001.. (D-MOORE-NARS-0 used 11, 22, 33).
+const LAB_BLOCKS: usize = 16;
+const LAB_GAMES: usize = 300;
+const LAB_WINDOW: usize = 100;
+const LAB_SEED0: u64 = 2001;
+const LAB_PREREG: [lab::Prereg; 5] = [
+    lab::Prereg {
+        id: "H3",
+        hypothesis: "delayed (one-reply) credit beats immediate credit",
+        baseline: "Immediate",
+        treatment: "Retained(1)",
+        endpoint: "score",
+        higher_is_better: true,
+        min_effect: 0.02,
+        blocks: LAB_BLOCKS,
+    },
+    lab::Prereg {
+        id: "H4",
+        hypothesis: "certified minimax reduces folds per step (cost weight 0)",
+        baseline: "cost 0",
+        treatment: "cost 0 + certified",
+        endpoint: "folds/step",
+        higher_is_better: false,
+        min_effect: 1.0,
+        blocks: LAB_BLOCKS,
+    },
+    lab::Prereg {
+        id: "H7",
+        hypothesis: "a fold-cost term reduces folds per step",
+        baseline: "cost 0",
+        treatment: "cost 0.02",
+        endpoint: "folds/step",
+        higher_is_better: false,
+        min_effect: 5.0,
+        blocks: LAB_BLOCKS,
+    },
+    lab::Prereg {
+        id: "H2",
+        hypothesis: "the learned chooser beats the best fixed recipe",
+        baseline: "fixed HPM",
+        treatment: "learned",
+        endpoint: "score",
+        higher_is_better: true,
+        min_effect: 0.02,
+        blocks: LAB_BLOCKS,
+    },
+    lab::Prereg {
+        id: "H5",
+        hypothesis: "evidence decay adapts faster after an opponent switch",
+        baseline: "decay 1.0",
+        treatment: "decay 0.95",
+        endpoint: "post-switch score",
+        higher_is_better: true,
+        min_effect: 0.02,
+        blocks: LAB_BLOCKS,
+    },
+];
+
+fn lab_stage() {
+    let t0 = std::time::Instant::now();
+    println!("D-SELF-CALIBRATING-LAB-0 — Gomoku arm (9x9 five vs Threat, oracle off)");
+    println!(
+        "blocks {LAB_BLOCKS} (seeds {LAB_SEED0}..), {LAB_GAMES} games per arm per block, endpoint = last {LAB_WINDOW}\n"
+    );
+    let seeds: Vec<u64> = (0..LAB_BLOCKS as u64).map(|i| LAB_SEED0 + i).collect();
+    let arms: [(&str, Cfg); 6] = [
+        ("base", BASE),
+        (
+            "immediate",
+            Cfg {
+                signal: Signal::Immediate,
+                ..BASE
+            },
+        ),
+        (
+            "cost 0 + cert",
+            Cfg {
+                certified: true,
+                cost_weight: 0.0,
+                ..BASE
+            },
+        ),
+        (
+            "cost 0",
+            Cfg {
+                cost_weight: 0.0,
+                ..BASE
+            },
+        ),
+        (
+            "fixed HPM",
+            Cfg {
+                chooser: Chooser::Fixed(Op::Hpm),
+                ..BASE
+            },
+        ),
+        (
+            "decay 0.95",
+            Cfg {
+                decay: 0.95,
+                ..BASE
+            },
+        ),
+    ];
+    let mut per: Vec<Vec<Stats>> = Vec::new();
+    for (_, cfg) in &arms {
+        per.push(
+            seeds
+                .iter()
+                .map(|&s| lab_block(cfg, s, LAB_GAMES))
+                .collect(),
+        );
+    }
+    let switch_base: Vec<Stats> = seeds
+        .iter()
+        .map(|&s| lab_switch_block(&BASE, s, LAB_GAMES))
+        .collect();
+    let switch_decay: Vec<Stats> = seeds
+        .iter()
+        .map(|&s| lab_switch_block(&arms[5].1, s, LAB_GAMES))
+        .collect();
+
+    let score = |v: &[Stats]| v.iter().map(Stats::score).collect::<Vec<_>>();
+    let fps = |v: &[Stats]| v.iter().map(Stats::folds_per_step).collect::<Vec<_>>();
+
+    // H4's deterministic half: the certificate never changes a pick, so every
+    // block's games must be identical, not merely similar.
+    let identical = per[3]
+        .iter()
+        .zip(&per[2])
+        .all(|(a, b)| a.wins == b.wins && a.losses == b.losses && a.moves == b.moves);
+    println!(
+        "H4 deterministic: certified and minimax games identical on every block: {identical} (deterministic)"
+    );
+
+    let results = [
+        lab::paired(&score(&per[1]), &score(&per[0]), true),
+        lab::paired(&fps(&per[3]), &fps(&per[2]), false),
+        lab::paired(&fps(&per[3]), &fps(&per[0]), false),
+        lab::paired(&score(&per[4]), &score(&per[0]), true),
+        lab::paired(&score(&switch_base), &score(&switch_decay), true),
+    ];
+    let rejected = lab::holm(&results.map(|r| r.p), 0.05);
+    println!("\nFamily (Holm, alpha 0.05):");
+    for i in 0..LAB_PREREG.len() {
+        println!(
+            "  {}",
+            lab::report(&LAB_PREREG[i], &results[i], rejected[i])
+        );
+    }
+
+    println!("\nPareto (mean over blocks; empirical):");
+    for (k, (name, _)) in arms.iter().enumerate() {
+        let sc = score(&per[k]).iter().sum::<f64>() / LAB_BLOCKS as f64;
+        let f = fps(&per[k]).iter().sum::<f64>() / LAB_BLOCKS as f64;
+        println!("  {name:<12} score {sc:.4}  folds/step {f:7.1}");
+    }
+
+    let mut cal = Stats::default();
+    for s in &per[0] {
+        cal.add(s);
+    }
+    for (label, bins) in [
+        ("all outcomes", &cal.cal),
+        ("non-neutral outcomes", &cal.cal_nn),
+    ] {
+        let (bins, ece) = lab::reliability(bins);
+        println!(
+            "\nReliability of the learned chooser's expectation, {label} (base arm; empirical):"
+        );
+        for b in bins.iter().filter(|b| b.n > 0) {
+            println!(
+                "  [{:.1},{:.1})  n {:6}  mean e {:.3}  observed productive {:.3}",
+                b.lo, b.hi, b.n, b.mean_pred, b.observed
+            );
+        }
+        println!("  ECE {ece:.4}");
+    }
+    println!("\nlab wall time {:.1}s", t0.elapsed().as_secs_f64());
+}
+
 fn main() {
+    if std::env::args().any(|a| a == "--lab") {
+        lab_stage();
+        return;
+    }
     let t0 = std::time::Instant::now();
     println!("D-MOORE-NARS-0: recipe learning on Gomoku\n");
     println!("Census of the 34 catalogue recipes:");
@@ -1553,6 +1886,113 @@ mod tests {
         DIRS.iter().any(|&d| c.line(i, p, d).0 >= c.win)
     }
 
+    /// Positions where reasoning (not propagation) decides: played from the
+    /// empty 9x9 board by a noisy threat player, stopped at a random depth.
+    fn reasoning_corpus(count: usize) -> Vec<(Board, u8)> {
+        let mut out = Vec::new();
+        let mut rng = Rng(0x5EED_0001);
+        while out.len() < count {
+            let mut b = Board::new(9, 5);
+            let depth = 4 + rng.below(30);
+            let mut me = 1u8;
+            let mut ok = true;
+            for _ in 0..depth {
+                let mut f = 0;
+                let s = snapshot(&b, me, &mut f);
+                if s.cells.is_empty() {
+                    ok = false;
+                    break;
+                }
+                let i = if rng.below(10) < 7 {
+                    opp_move(&b, me, Opp::Threat)
+                } else {
+                    s.cells[rng.below(s.cells.len())].i
+                };
+                b.play(i, me);
+                if DIRS.iter().any(|&d| b.line(i, me, d).0 >= b.win) {
+                    ok = false;
+                    break;
+                }
+                me = 3 - me;
+            }
+            if !ok {
+                continue;
+            }
+            let mut f = 0;
+            let s = snapshot(&b, me, &mut f);
+            if s.cells.len() >= 2 && propagate(&s).is_none() {
+                out.push((b, me));
+            }
+        }
+        out
+    }
+
+    /// D-SELF-CALIBRATING-LAB-0, H4's deterministic half: inside the learner,
+    /// the certificate changes no game when the chooser is cost-blind. With
+    /// a cost term the cheaper ASC changes what the chooser picks, so games
+    /// may diverge; that interaction is pinned too, so a future reading of
+    /// "identical" is not made without the cost-weight condition.
+    #[test]
+    fn the_certificate_changes_no_game_for_a_cost_blind_learner() {
+        let pairs = |cost: f64| -> Vec<bool> {
+            (0..4u64)
+                .map(|i| {
+                    let off = Cfg {
+                        cost_weight: cost,
+                        ..BASE
+                    };
+                    let on = Cfg {
+                        certified: true,
+                        ..off
+                    };
+                    let a = lab_block(&off, 3001 + i, 200);
+                    let b = lab_block(&on, 3001 + i, 200);
+                    a.wins == b.wins && a.losses == b.losses && a.moves == b.moves
+                })
+                .collect()
+        };
+        assert!(pairs(0.0).iter().all(|&x| x), "cost 0: identical games");
+        assert!(
+            !pairs(0.02).iter().all(|&x| x),
+            "cost 0.02: the chooser reacts to the cheaper ASC"
+        );
+    }
+
+    /// D-LAB-P1: the certificate never changes the pick, and it saves folds.
+    #[test]
+    fn certified_minimax_picks_what_minimax_picks_with_fewer_folds() {
+        let corpus = reasoning_corpus(400);
+        // Measured, deterministic: (k1, k2, full folds, certified folds).
+        const PINNED: [(usize, usize, u64, u64); 3] = [
+            (4, 4, 442_720, 282_480),
+            (5, 5, 665_076, 367_344),
+            (8, 8, 1_601_258, 624_386),
+        ];
+        for (k1, k2, pin_full, pin_cert) in PINNED {
+            let (mut full, mut cert, mut cut_positions) = (0u64, 0u64, 0usize);
+            for (b, me) in &corpus {
+                let mut f0 = 0;
+                let s = snapshot(b, *me, &mut f0);
+                let (mut ff, mut fc) = (0u64, 0u64);
+                let a = minimax(b, *me, &s, k1, k2, &mut ff);
+                let c = minimax_certified(b, *me, &s, k1, k2, &mut fc);
+                assert_eq!(a, c, "the certificate changed the pick (k {k1}/{k2})");
+                assert!(fc <= ff);
+                if fc < ff {
+                    cut_positions += 1;
+                }
+                full += ff;
+                cert += fc;
+            }
+            eprintln!(
+                "P1 k {k1}/{k2}: folds {full} -> {cert} ({:.1}% saved), cut on {cut_positions}/{} positions",
+                100.0 * (1.0 - cert as f64 / full as f64),
+                corpus.len()
+            );
+            assert_eq!((full, cert), (pin_full, pin_cert), "k {k1}/{k2}");
+        }
+    }
+
     #[test]
     fn census_covers_the_catalogue_exactly() {
         let c = census();
@@ -1609,6 +2049,7 @@ mod tests {
             immediate: 0,
             dir: 2,
             question: CausalMask::SO,
+            pred: 0.5,
         };
         let epi = Ev::default().state(Topology2::Direct);
         for a in [-7, 0, 3] {
