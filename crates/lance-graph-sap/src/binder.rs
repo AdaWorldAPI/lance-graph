@@ -35,7 +35,7 @@ pub const WORK_DAY_FIELD: &str = "work_day";
 pub fn live_words(n: usize) -> Vec<u64> {
     let mut words = vec![u64::MAX; n.div_ceil(64)];
     if let Some(last) = words.last_mut() {
-        if n % 64 != 0 {
+        if !n.is_multiple_of(64) {
             *last = (1u64 << (n % 64)) - 1;
         }
     }

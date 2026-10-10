@@ -15,6 +15,7 @@ use lance_graph_sap::query::CatsQuery;
 const T: TableId = TableId(0);
 
 /// Mixed employees, days and activities; the same shape `tests/fold.rs` uses.
+#[allow(clippy::needless_range_loop)] // Same test-only multi-column fixture as tests/fold.rs.
 fn mixed(n: usize) -> [Vec<Option<&'static str>>; 23] {
     let mut input = fixture(n);
     for i in 0..n {
@@ -38,7 +39,10 @@ fn names_resolve_to_the_lanes_the_shipped_query_hard_codes() {
     assert_eq!(b.table("users"), None);
 
     let f = b.field(T, "employee_number").unwrap();
-    assert_eq!((f.col, f.kind, f.validity), (Col(EMPLOYEE as u16), FieldKind::Code, None));
+    assert_eq!(
+        (f.col, f.kind, f.validity),
+        (Col(EMPLOYEE as u16), FieldKind::Code, None)
+    );
     // The C# alias is the same field, as in `CatsSchema::resolve`.
     assert_eq!(b.field(T, "EmployeeNumber"), Some(f));
 
@@ -65,7 +69,11 @@ fn literals_resolve_through_the_fields_own_domain_and_mint_nothing() {
     assert_eq!(b.code(T, act, "OPS"), Some(2));
     let groups = batch.activity_groups();
     assert_eq!(b.code(T, act, "QA"), None);
-    assert_eq!(batch.activity_groups(), groups, "an unknown literal minted nothing");
+    assert_eq!(
+        batch.activity_groups(),
+        groups,
+        "an unknown literal minted nothing"
+    );
 }
 
 #[test]
@@ -97,8 +105,14 @@ fn a_bound_draft_selects_exactly_the_oracles_rows() {
         };
         let mut scratch = Scratch::for_program(&program, n).unwrap();
         let mut mask = vec![0; words_for(n)];
-        execute_into(&program, &planes, &Foreign::NONE, &mut scratch, Out::Mask(&mut mask))
-            .unwrap();
+        execute_into(
+            &program,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::Mask(&mut mask),
+        )
+        .unwrap();
         for i in 0..n {
             let kept = (mask[i / 64] >> (i % 64)) & 1 != 0;
             assert_eq!(kept, i % 3 != 0 && i % 2 == 0, "n={n}, row={i}");
@@ -141,15 +155,25 @@ fn folding_over_bound_lanes_equals_the_shipped_cats_query() {
         };
         let mut scratch = Scratch::for_program(&program, n).unwrap();
         let mut by_name = vec![0; batch.activity_groups() as usize];
-        let v = execute_into(&program, &planes, &Foreign::NONE, &mut scratch, Out::I64(&mut by_name))
-            .unwrap();
+        let v = execute_into(
+            &program,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::I64(&mut by_name),
+        )
+        .unwrap();
         assert_eq!(v, Value::GroupSummed);
 
-        let mut shipped = CatsQuery::prepare(&batch, "00000042", "2026-09-01", "2026-09-30").unwrap();
+        let mut shipped =
+            CatsQuery::prepare(&batch, "00000042", "2026-09-01", "2026-09-30").unwrap();
         let mut expected = vec![0; shipped.groups()];
         shipped.execute_into(&mut expected).unwrap();
         assert_eq!(by_name, expected, "n={n}");
-        assert!(expected.iter().any(|s| *s != 0), "anti-vacuity: something was summed");
+        assert!(
+            expected.iter().any(|s| *s != 0),
+            "anti-vacuity: something was summed"
+        );
     }
 }
 
@@ -190,7 +214,9 @@ fn optional_and_instant_fields_are_refused_not_read_through_sentinels() {
     // U64 instants have no `FieldKind`; the derived `work_day` is the bindable lens.
     assert_eq!(b.field(T, "work_date_utc"), None);
     assert!(matches!(
-        table(TABLE).where_eq("customer_number", "0000000123").bind(&b),
+        table(TABLE)
+            .where_eq("customer_number", "0000000123")
+            .bind(&b),
         Err(BindError::UnknownField { .. })
     ));
 }
