@@ -50,11 +50,12 @@ lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.4" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 lance = { workspace = true }
 lance-linalg = { workspace = true }
-lance-namespace = "12.*"
-# `remote` is NOT a capability we asked for: lancedb 0.39.0 does not compile
+lance-namespace = "13.*"
+# `remote` is NOT a capability we asked for: lancedb 0.40.0 does not compile
 # without it. `src/lib.rs` leaves `pub mod job;` ungated while `src/job.rs`
 # builds `Error::Http`, which `src/error.rs` gates on `cfg(feature = "remote")`
-# (E0599). Same upstream defect as 0.38.0; no 0.39 patch release fixes it.
+# (E0599). Same upstream defect as 0.38.0 and 0.39.0; re-measured on 0.40.0
+# (2026-10-10, dropping `remote` -> the same two E0599) -- still unfixed.
 # Declared here, not in the workspace entry, so it is active only when
 # `lancedb-sdk` turns the optional dep on. Drop it once upstream gates `job`.
 # Cost, measured with `cargo tree -p lance-graph --features lancedb-sdk`
@@ -153,7 +154,7 @@ lite-unified = []
 deepnsm = { path = "../deepnsm" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 futures = "0.3"
-lance-arrow = "12.*"
+lance-arrow = "13.*"
 lance-index = { workspace = true }
 tempfile = "3"
 # D-MW-P2 probe only: `ShardWriterConfig::shard_id` is a `Uuid`, so the probe

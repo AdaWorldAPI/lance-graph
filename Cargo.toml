@@ -248,9 +248,9 @@ resolver = "2"
 # Crate-level pins (canonical source of truth — workspace.dependencies is not
 # used; each consumer crate declares its own pin with exact-equals so the
 # whole graph resolves to the same semver):
-#   lance           = "12.*"     (lance-arrow / lance-index / lance-linalg /
+#   lance           = "13.*"     (lance-arrow / lance-index / lance-linalg /
 #                                 lance-namespace bump in lock-step)
-#   lancedb         = "0.39.*"
+#   lancedb         = "0.40.*"
 #   datafusion      = "54"       (+ datafusion-common / -expr / -sql /
 #                                 -functions-aggregate)
 #   arrow-array     = "58"       (+ arrow-schema / -buffer / -ipc / arrow)
@@ -321,7 +321,7 @@ resolver = "2"
 # fork of `aws-smithy-json` fixed against `aws-smithy-types 1.7` -- the two
 # call sites need `.into()` and one wildcard arm; upstream's own compiler
 # hints spell both out.
-lance = { version = "12.*", default-features = false, features = [
+lance = { version = "13.*", default-features = false, features = [
     "azure",
     "gcp",
     "oss",
@@ -331,9 +331,9 @@ lance = { version = "12.*", default-features = false, features = [
     "goosefs",
     "geo",
 ] }
-lance-linalg = "12.*"
-lance-index = "12.*"
-lancedb = { version = "0.39.*", default-features = false }
+lance-linalg = "13.*"
+lance-index = "13.*"
+lancedb = { version = "0.40.*", default-features = false }
 # ⊘ OPERATOR RULING 2026-09-18 — NEVER PIN TO `.0.0`; FLOAT THE PATCH.
 # *"never pin to x.00, always float x.*"* / *"so no decimal .0.0"*. The
 # `=X.Y.0` exact-equals these replaced are RETIRED. Floating the patch is
