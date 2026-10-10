@@ -227,7 +227,7 @@ fn optional_and_instant_fields_are_refused_not_read_through_sentinels() {
 /// and the undocumented value is in neither set.
 #[test]
 fn billable_lens_selects_exactly_the_documented_rows_and_never_an_unknown_one() {
-    use lance_graph_sap::bind::{billable_code, BILLABLE, BILLABLE_UNKNOWN, BILLING_VALUES};
+    use lance_graph_sap::bind::{billable_code, BILLABLE, BILLABLE_UNKNOWN};
     const VALUES: [&str; 4] = ["Billable", "Non-Billable", "Internal Cost", "Pro bono"];
     for n in [4, 65, 4097] {
         let mut input = fixture(n);
@@ -273,12 +273,16 @@ fn billable_lens_selects_exactly_the_documented_rows_and_never_an_unknown_one() 
                 .filter(|i| (mask[i / 64] >> (i % 64)) & 1 != 0)
                 .collect();
         }
+        // Stated from the DTO's documentation, NOT read from `BILLING_VALUES`:
+        // VALUES[0] "Billable" is billable; [1] and [2] are not; [3] is unknown.
         let expected = |want: bool| -> Vec<usize> {
             (0..n)
                 .filter(|i| {
-                    BILLING_VALUES
-                        .iter()
-                        .any(|(v, b)| *v == VALUES[i % 4] && *b == want)
+                    if want {
+                        i % 4 == 0
+                    } else {
+                        i % 4 == 1 || i % 4 == 2
+                    }
                 })
                 .collect()
         };
