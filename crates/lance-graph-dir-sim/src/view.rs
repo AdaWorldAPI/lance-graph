@@ -522,10 +522,14 @@ impl<'s> View<'s> {
     }
 
     /// What Exchange knows an existing node as, read by its GUID: recipient
-    /// types, `ExchangeGuid` and primary SMTP address. Identity is the GUID
-    /// (after provisioning, the mailbox's `ExchangeGuid`; across the cloud
-    /// join, `ExternalDirectoryObjectId`), never an address: `mail` in
-    /// particular is a label and resolves to no identity.
+    /// types, `ExchangeGuid` and primary SMTP address. Identity is a GUID,
+    /// never an address: the object's own, the provisioned mailbox's
+    /// `ExchangeGuid`, and the Entra identity every mail recipient has
+    /// (`ExternalDirectoryObjectId`, formerly the MsolUser), which carries
+    /// the internal `{alias}@{tenant}.onmicrosoft.com`. That is not the
+    /// routing address `{alias}@{tenant}.mail.onmicrosoft.com`, the external
+    /// EOP target. `mail` in particular is a label and resolves to no
+    /// identity.
     pub fn exchange_identity(&self, g: &Guid128) -> Option<ExchangeIdentity> {
         let s = self.node_state(g)?;
         Some(ExchangeIdentity {

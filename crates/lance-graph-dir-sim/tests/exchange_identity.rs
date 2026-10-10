@@ -1,6 +1,6 @@
 //! Identity is read by GUID, never through an address. After provisioning
-//! the mailbox is identified by its `ExchangeGuid`; across the cloud join it
-//! is `ExternalDirectoryObjectId`. `mail` is the licence plate: shown in the
+//! the mailbox is identified by its `ExchangeGuid`; every mail recipient's
+//! Entra identity (formerly the MsolUser) is `ExternalDirectoryObjectId`. `mail` is the licence plate: shown in the
 //! address book and used inside messages, kept as written, and neither
 //! identity nor a receiving address nor provisioned.
 
