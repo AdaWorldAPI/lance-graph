@@ -4,8 +4,8 @@ Plan: `.claude/plans/v3-mandatory-hotplug-reading-v1.md`.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| **D-V3M-0** | Ruling + plan + caller inventory | In PR | — |
-| **D-V3M-1** | Contract modules (`ocr`, `aiwar`, `nan_projection`, `soa_graph`) take the reading as a parameter | Queued | new form returns the handed reading even where `classid_read_mode` disagrees |
+| **D-V3M-0** | Ruling + plan + caller inventory | In PR (#1464) | — |
+| **D-V3M-1** | Contract modules (`ocr`, `aiwar`, `nan_projection`, `soa_graph`) take the reading as a parameter | In PR (#1464; 4 `_with`/`_plugged` forms, disable runs 4/4 red) | new form returns the handed reading even where `classid_read_mode` disagrees |
 | **D-V3M-2** | Canon domain readings move into `OgarAuthority::concept_override` | Queued | `read_mode_for(concept)` == today's `classid_read_mode(<V3 classid>)` per domain |
 | **D-V3M-3** | Consumers move (lance-graph, q2, MedCare); `classid_read_mode` deprecated | Queued | no production caller left |
 | **D-V3M-4** | No new mints at classview `0x1000` or `0x0000`–`0x000C` as meaning | Blocked on O1 | — |
