@@ -362,6 +362,9 @@ pub struct Server<'a, P: Authority> {
     max_bytes: usize,
 }
 
+/// Distinct attribute selectors one search may name.
+pub const MAX_ATTRIBUTE_SELECTORS: usize = 256;
+
 /// Entries one search returns at most, whatever the client asks: Active
 /// Directory's default MaxPageSize.
 pub const DEFAULT_MAX_ENTRIES: usize = 1000;
@@ -505,6 +508,11 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
             }
             let (mut initial, mut any, mut last) = (None, Vec::new(), None);
             for s in parts {
+                // Each substring item counts against the filter budget.
+                if *budget == 0 {
+                    return Err(LdapError::Malformed);
+                }
+                *budget -= 1;
                 match s.tag {
                     0x80 if initial.is_none() && any.is_empty() && last.is_none() => {
                         initial = Some(s.value.to_vec())
@@ -521,7 +529,28 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
                 last,
             }
         }
-        0xa9 => Filter::Unsupported,
+        // extensibleMatch: decoded for shape, never evaluated (Undefined).
+        0xa9 => {
+            // MatchingRuleAssertion ::= SEQUENCE { matchingRule [1]
+            // OPTIONAL, type [2] OPTIONAL, matchValue [3], dnAttributes [4]
+            // BOOLEAN DEFAULT FALSE }, fields in order, a rule or a type.
+            let mut last = 0x80;
+            let mut seen = [false; 5];
+            for f in children(t.value)? {
+                if !(0x81..=0x84).contains(&f.tag) || f.tag <= last {
+                    return Err(LdapError::Malformed);
+                }
+                if f.tag == 0x84 && f.value.len() != 1 {
+                    return Err(LdapError::Malformed);
+                }
+                last = f.tag;
+                seen[usize::from(f.tag - 0x80)] = true;
+            }
+            if !seen[3] || !(seen[1] || seen[2]) {
+                return Err(LdapError::Malformed);
+            }
+            Filter::Unsupported
+        }
         _ => return Err(LdapError::Malformed),
     })
 }
@@ -766,7 +795,9 @@ impl<'a, P: Authority> Server<'a, P> {
             return Err(LdapError::Malformed);
         }
         let id = int(&c[0])?;
-        if !(0..=i64::from(i32::MAX)).contains(&id) {
+        // MessageID 0 is reserved for unsolicited notifications (RFC 4511
+        // §4.1.1.1): a request carries 1 .. maxInt.
+        if !(1..=i64::from(i32::MAX)).contains(&id) {
             return Err(LdapError::Malformed);
         }
         let op = c[1];
@@ -915,14 +946,23 @@ impl<'a, P: Authority> Server<'a, P> {
             .flatten();
         let types_only = boolean(&c[5])?;
         let filter = parse_filter(&c[6])?;
-        let requested: Vec<String> = children(c[7].value)?
+        let mut requested: Vec<String> = children(c[7].value)?
             .iter()
             .map(|t| string(t).map(|s| s.to_lowercase()))
             .collect::<Result<_, _>>()?;
+        // Sorted and deduplicated: looked up by binary search per attribute.
+        requested.sort_unstable();
+        requested.dedup();
         if !(0..=2).contains(&scope) {
             return Err(LdapError::Malformed);
         }
         let done = |code, msg: &str| result(id, 0x65, code, msg);
+        if requested.len() > MAX_ATTRIBUTE_SELECTORS {
+            return Ok(vec![done(
+                ResultCode::AdminLimitExceeded,
+                "too many attributes requested",
+            )]);
+        }
 
         // The rootDSE: readable by anyone.
         if base.is_empty() && scope == 0 {
@@ -980,6 +1020,12 @@ impl<'a, P: Authority> Server<'a, P> {
                 return Ok(out);
             }
             let pdu = self.entry(id, e, &requested, types_only, &readable);
+            // Checking and projecting this candidate can outlast the limit:
+            // nothing found after it is returned.
+            if deadline.is_some_and(|d| std::time::Instant::now() >= d) {
+                out.push(done(ResultCode::TimeLimitExceeded, ""));
+                return Ok(out);
+            }
             if sent as usize >= self.max_entries || bytes + pdu.len() > self.max_bytes {
                 out.push(done(ResultCode::AdminLimitExceeded, ""));
                 return Ok(out);
@@ -1005,7 +1051,8 @@ impl<'a, P: Authority> Server<'a, P> {
         types_only: bool,
         readable: &dyn Fn(&str) -> bool,
     ) -> Vec<u8> {
-        let all = requested.is_empty() || requested.iter().any(|r| r == "*");
+        let has = |r: &str| requested.binary_search_by(|x| x.as_str().cmp(r)).is_ok();
+        let all = requested.is_empty() || has("*");
         let none = requested.len() == 1 && requested[0] == "1.1";
         let mut names: Vec<String> = Vec::new();
         for (n, _) in &e.attrs {
@@ -1014,12 +1061,12 @@ impl<'a, P: Authority> Server<'a, P> {
                 names.push(l);
             }
         }
-        if requested.iter().any(|r| r == "distinguishedname") && !e.dn.is_empty() {
+        if has("distinguishedname") && !e.dn.is_empty() {
             names.push("distinguishedname".into());
         }
         let mut attrs = Vec::new();
         for l in names {
-            let wanted = !none && (all || requested.contains(&l));
+            let wanted = !none && (all || has(&l));
             if !wanted || !readable(&l) {
                 continue;
             }

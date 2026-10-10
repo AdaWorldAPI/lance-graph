@@ -123,6 +123,11 @@ jobs:
           dn_values_match_by_parsed_name
           empty_and_or_are_refused
           server_limits_cap_unlimited_searches
+          message_id_zero_is_refused
+          extensible_matches_are_shape_checked
+          attribute_selectors_are_bounded
+          substring_items_count_against_the_budget
+          an_entry_found_after_the_deadline_is_not_returned
           ordering_follows_the_attribute
           binds_are_checked
           framing_unbind_and_malformed_requests

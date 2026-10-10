@@ -335,7 +335,8 @@ fn an_administrator_sees_the_emulated_tree_marked() {
     assert_eq!(dns(&r), [format!("CN={ERIKA},OU=Staff,{NC}")]);
     // NOT of an Undefined filter is still Undefined: an extensible match
     // (unsupported) matches nothing, negated or not.
-    let ext = tlv(0xa9, &tlv(0x82, b"cn"));
+    // A well-formed MatchingRuleAssertion: type and matchValue.
+    let ext = tlv(0xa9, &[tlv(0x82, b"cn"), tlv(0x83, b"x")].concat());
     for f in [ext.clone(), not(ext)] {
         let r = run(&srv, &mut s, search(8, NC, 2, 0, f, &["1.1"]));
         assert_eq!((dns(&r).len(), done(&r)), (0, 0));
@@ -954,4 +955,128 @@ fn server_limits_cap_unlimited_searches() {
     assert_eq!(q(&Server::new(&dir, &Iam).with_limits(100, 1), 0), (0, 11));
     // The default cap leaves a small directory whole.
     assert_eq!(q(&Server::new(&dir, &Iam), 0), (5, 0));
+}
+
+// Every message from a client carries a nonzero MessageID.
+#[test]
+fn message_id_zero_is_refused() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    let out = srv.handle(&mut s, &bind(0, "admin@example.de", b"pw"));
+    assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
+    assert!(s.closed());
+    assert!(s.actor().is_none());
+}
+
+// An extensible match is decoded for shape: malformed ones disconnect,
+// well-formed ones are Undefined.
+#[test]
+fn extensible_matches_are_shape_checked() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let f = |parts: &[Vec<u8>]| tlv(0xa9, &parts.concat());
+    let (rule, ty, val, dn) = (
+        tlv(0x81, b"1.2.840.113556.1.4.803"),
+        tlv(0x82, b"userAccountControl"),
+        tlv(0x83, b"2"),
+        tlv(0x84, &[0xff]),
+    );
+    for bad in [
+        f(&[]),                                        // empty
+        f(&[ty.clone()]),                              // no matchValue
+        f(&[val.clone()]),                             // neither rule nor type
+        f(&[val.clone(), ty.clone()]),                 // out of order
+        f(&[ty.clone(), ty.clone(), val.clone()]),     // duplicate
+        f(&[ty.clone(), val.clone(), tlv(0x84, &[])]), // empty dnAttributes
+        f(&[ty.clone(), tlv(0x04, b"2")]),             // wrong tag
+    ] {
+        let mut s = Session::default();
+        run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+        let out = srv.handle(&mut s, &search(2, NC, 2, 0, bad, &["1.1"]));
+        assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
+        assert!(s.closed());
+    }
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    for good in [
+        f(&[ty.clone(), val.clone()]),
+        f(&[rule.clone(), val.clone()]),
+        f(&[rule, ty, val, dn]),
+    ] {
+        let r = run(&srv, &mut s, search(2, NC, 2, 0, not(good), &["1.1"]));
+        assert_eq!((dns(&r).len(), done(&r)), (0, 0));
+    }
+}
+
+// Selectors are deduplicated, so repeating one costs nothing, and the
+// number of distinct ones is capped.
+#[test]
+fn attribute_selectors_are_bounded() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let many = vec!["cn"; 10_000];
+    let r = run(
+        &srv,
+        &mut s,
+        search(2, NC, 2, 0, present("objectClass"), &many),
+    );
+    assert_eq!((dns(&r).len(), done(&r)), (5, 0));
+    let distinct: Vec<String> = (0..300).map(|i| format!("a{i}")).collect();
+    let distinct: Vec<&str> = distinct.iter().map(String::as_str).collect();
+    let r = run(
+        &srv,
+        &mut s,
+        search(3, NC, 2, 0, present("objectClass"), &distinct),
+    );
+    assert_eq!((dns(&r).len(), done(&r)), (0, 11));
+}
+
+// Substring items count against the filter budget.
+#[test]
+fn substring_items_count_against_the_budget() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let sub = |n: usize| {
+        let mut b = tlv(0x04, b"cn");
+        b.extend(tlv(0x30, &vec![tlv(0x81, b"a"); n].concat()));
+        tlv(0xa4, &b)
+    };
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let r = run(&srv, &mut s, search(2, NC, 2, 0, sub(10), &["1.1"]));
+    assert_eq!(done(&r), 0);
+    let out = srv.handle(&mut s, &search(3, NC, 2, 0, sub(5000), &["1.1"]));
+    assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
+}
+
+/// Sees everything; `visible` of the entry named here takes this long.
+struct SlowOn(&'static str, u64);
+impl Authority for SlowOn {
+    type Actor = ();
+    fn bind(&self, _: &str, _: &[u8]) -> Option<()> {
+        Some(())
+    }
+    fn visible(&self, _: &(), e: &Entry) -> bool {
+        if e.dn.contains(self.0) {
+            std::thread::sleep(std::time::Duration::from_millis(self.1));
+        }
+        true
+    }
+}
+
+// A candidate whose checks cross the deadline is not returned.
+#[test]
+fn an_entry_found_after_the_deadline_is_not_returned() {
+    let dir = directory();
+    // Slow only for the last entry, and only in the loop (the base is the NC).
+    let srv = Server::new(&dir, &SlowOn(CLOUD, 1100));
+    let mut s = Session::default();
+    srv.handle(&mut s, &bind(1, "x", b"y"));
+    let q = with_time_limit(search(2, NC, 2, 0, present("objectClass"), &["1.1"]), 1);
+    let r: Vec<Resp> = srv.handle(&mut s, &q).iter().map(|p| decode(p).1).collect();
+    assert_eq!(done(&r), 3);
+    assert!(!dns(&r).iter().any(|d| d.contains(CLOUD)), "{r:?}");
 }
