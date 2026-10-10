@@ -1,7 +1,7 @@
-//! Nested groups expand through two closures (OGAR plan V19): delivery
-//! follows every nested group from a mail-enabled one, security walks only
-//! groups known to be security-enabled. Both directions: the users a group
-//! reaches, and the groups a user is in.
+//! Nesting is one global pattern (OGAR plan V19): every nested group is
+//! followed, whatever its kind, in both directions (the users a group
+//! reaches, the groups a user is in). Mail-enabled and security-enabled are
+//! independent properties, filtered with one Quack program.
 
 use lance_graph_dir_sim::*;
 use ogar_dir_core::{DirectoryScope, Guid128};
@@ -89,96 +89,41 @@ fn the_security_flag_is_kept_as_read() {
     assert!(view.is_mail_recipient(&g(D1)));
 }
 
-// Security walks S1 → S2 (and back, once) but never through the
-// distribution group D1, nor through the group whose flag was not read.
+// Nesting follows every group, whatever its kind: from S1 through the
+// address-less S2, the distribution group D1 and the unread group alike.
 #[test]
-fn the_security_closure_walks_only_security_groups() {
+fn nesting_follows_every_group() {
     let mut st = VersionStore::new();
     let v = st.observe("lab", 1, observed()).unwrap();
     let view = st.view(v).unwrap();
-    assert_eq!(
-        view.members_transitive(&g(S1), Closure::Security),
-        ids(&[U1, U2])
-    );
-    // The cycle S1 ↔ S2 is the same set from either side.
-    assert_eq!(
-        view.members_transitive(&g(S2), Closure::Security),
-        ids(&[U1, U2])
-    );
-    // A security group reached only through a distribution group keeps its
-    // own members.
-    assert_eq!(
-        view.members_transitive(&g(S3), Closure::Security),
-        ids(&[U4])
-    );
-    // A distribution group, or an unread flag, holds no permission at all.
-    assert!(view
-        .members_transitive(&g(D1), Closure::Security)
-        .is_empty());
-    assert!(view
-        .members_transitive(&g(UNREAD), Closure::Security)
-        .is_empty());
-}
-
-// Delivery follows every nested group, whatever its kind: from S1 it reaches
-// u2 through the address-less S2 and u5 through the unread group. The
-// addressed group itself must be mail-enabled, so S2 delivers nothing.
-#[test]
-fn the_delivery_closure_follows_every_nested_group() {
-    let mut st = VersionStore::new();
-    let v = st.observe("lab", 1, observed()).unwrap();
-    let view = st.view(v).unwrap();
-    assert_eq!(
-        view.members_transitive(&g(S1), Closure::Delivery),
-        ids(&[U1, U2, U3, U4, U5])
-    );
-    assert_eq!(
-        view.members_transitive(&g(D1), Closure::Delivery),
-        ids(&[U3, U4])
-    );
-    assert!(view
-        .members_transitive(&g(S2), Closure::Delivery)
-        .is_empty());
+    let all = ids(&[U1, U2, U3, U4, U5]);
+    assert_eq!(view.members_transitive(&g(S1)), all);
+    // S2 contains S1, which closes the cycle: the same set from either side.
+    assert_eq!(view.members_transitive(&g(S2)), all);
+    assert_eq!(view.members_transitive(&g(D1)), ids(&[U3, U4]));
+    assert_eq!(view.members_transitive(&g(S3)), ids(&[U4]));
+    assert_eq!(view.members_transitive(&g(UNREAD)), ids(&[U5]));
     // A user, or nothing, is not a group.
-    assert!(view
-        .members_transitive(&g(U1), Closure::Delivery)
-        .is_empty());
-    assert!(view
-        .members_transitive(&g(0x99), Closure::Delivery)
-        .is_empty());
+    assert!(view.members_transitive(&g(U1)).is_empty());
+    assert!(view.members_transitive(&g(0x99)).is_empty());
 }
 
-// The groups a user is in, directly or through nesting. u4 sits in S3, which
-// is in D1, which is in S1 (and S1 in S2). Delivery lists every mail-enabled
-// group on the way up; security stops at the distribution group D1.
+// The groups a user is in, upward through every kind of group: u4 is in S3,
+// S3 in D1, D1 in S1, S1 in S2.
 #[test]
 fn a_user_s_groups_follow_nesting_upward() {
     let mut st = VersionStore::new();
     let v = st.observe("lab", 1, observed()).unwrap();
     let view = st.view(v).unwrap();
-    assert_eq!(
-        view.groups_transitive(&g(U4), Closure::Delivery),
-        ids(&[S1, S3, D1])
-    );
-    assert_eq!(
-        view.groups_transitive(&g(U4), Closure::Security),
-        ids(&[S3])
-    );
-    // u2 is in S2 directly, and through S2 in S1.
-    assert_eq!(
-        view.groups_transitive(&g(U2), Closure::Security),
-        ids(&[S1, S2])
-    );
-    // Delivery also passes the address-less S2, but lists only S1.
-    assert_eq!(
-        view.groups_transitive(&g(U2), Closure::Delivery),
-        ids(&[S1])
-    );
+    assert_eq!(view.groups_transitive(&g(U4)), ids(&[S1, S2, S3, D1]));
+    assert_eq!(view.groups_transitive(&g(U2)), ids(&[S1, S2]));
+    assert_eq!(view.groups_transitive(&g(U5)), ids(&[S1, S2, UNREAD]));
     // A group, or nothing, is not a user.
-    assert!(view.groups_transitive(&g(S1), Closure::Delivery).is_empty());
+    assert!(view.groups_transitive(&g(S1)).is_empty());
+    assert!(view.groups_transitive(&g(0x99)).is_empty());
 }
 
-// The two directions agree on every user, group and closure.
+// The two directions agree on every user and group.
 #[test]
 fn members_and_groups_are_inverse() {
     let mut st = VersionStore::new();
@@ -186,26 +131,94 @@ fn members_and_groups_are_inverse() {
     let view = st.view(v).unwrap();
     let users = ids(&[U1, U2, U3, U4, U5]);
     let groups = ids(&[S1, S2, S3, D1, UNREAD]);
-    let mut pairs = 0;
-    for closure in [Closure::Delivery, Closure::Security] {
-        for gr in &groups {
-            let members = view.members_transitive(gr, closure);
-            for u in &users {
-                let up = view.groups_transitive(u, closure);
-                assert_eq!(
-                    members.contains(u),
-                    up.contains(gr),
-                    "{closure:?} {u:?} {gr:?}"
-                );
-                pairs += usize::from(members.contains(u));
-            }
+    let mut held = 0;
+    for gr in &groups {
+        let members = view.members_transitive(gr);
+        for u in &users {
+            let up = view.groups_transitive(u);
+            assert_eq!(members.contains(u), up.contains(gr), "{u:?} {gr:?}");
+            held += usize::from(members.contains(u));
         }
     }
     // Not vacuous: some pairs hold and some do not.
-    assert!(
-        pairs > 0 && pairs < 2 * users.len() * groups.len(),
-        "{pairs}"
+    assert!(held > 0 && held < users.len() * groups.len(), "{held}");
+}
+
+fn selected(view: &View<'_>, w: &GroupWhere) -> Vec<Guid128> {
+    groups_where(view, w)
+        .rows()
+        .into_iter()
+        .filter_map(|i| view.group_guid(GroupOrdinal(i as u16)))
+        .collect()
+}
+
+fn is(p: GroupProperty) -> GroupWhere {
+    GroupWhere::Is(p)
+}
+
+fn not(w: GroupWhere) -> GroupWhere {
+    GroupWhere::Not(Box::new(w))
+}
+
+// Mail-enabled and security-enabled are independent properties, selected
+// by one Quack filter: neither, either or both.
+#[test]
+fn group_properties_are_a_quack_filter() {
+    use GroupProperty::{MailEnabled, SecurityEnabled};
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 1, observed()).unwrap();
+    let view = st.view(v).unwrap();
+    assert_eq!(
+        selected(&view, &is(MailEnabled)),
+        ids(&[S1, S3, D1, UNREAD])
     );
+    assert_eq!(selected(&view, &is(SecurityEnabled)), ids(&[S1, S2, S3]));
+    // Both is both.
+    assert_eq!(selected(&view, &GroupWhere::both()), ids(&[S1, S3]));
+    // A security group without an address.
+    assert_eq!(
+        selected(
+            &view,
+            &GroupWhere::And(vec![is(SecurityEnabled), not(is(MailEnabled))])
+        ),
+        ids(&[S2])
+    );
+    // A distribution group: mail-enabled, not known to be security-enabled.
+    assert_eq!(
+        selected(
+            &view,
+            &GroupWhere::And(vec![is(MailEnabled), not(is(SecurityEnabled))])
+        ),
+        ids(&[D1, UNREAD])
+    );
+    // The filter agrees with the per-group reads on every group.
+    for gr in ids(&[S1, S2, S3, D1, UNREAD]) {
+        assert_eq!(
+            selected(&view, &is(MailEnabled)).contains(&gr),
+            view.is_mail_recipient(&gr)
+        );
+        assert_eq!(
+            selected(&view, &is(SecurityEnabled)).contains(&gr),
+            view.is_security_enabled(&gr) == Some(true)
+        );
+    }
+}
+
+// Nesting and properties compose: the groups u4 is in, filtered. Its SIDs
+// come from the security groups, its lists from the mail-enabled ones.
+#[test]
+fn nesting_and_properties_compose() {
+    use GroupProperty::{MailEnabled, SecurityEnabled};
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 1, observed()).unwrap();
+    let view = st.view(v).unwrap();
+    let up = view.groups_transitive(&g(U4));
+    let filter = |w: &GroupWhere| -> Vec<Guid128> {
+        let keep = selected(&view, w);
+        up.iter().copied().filter(|gr| keep.contains(gr)).collect()
+    };
+    assert_eq!(filter(&is(SecurityEnabled)), ids(&[S1, S2, S3]));
+    assert_eq!(filter(&is(MailEnabled)), ids(&[S1, S3, D1]));
 }
 
 struct Edit(Vec<Change>);
@@ -221,17 +234,20 @@ impl Rule for Edit {
     }
 }
 
-// A version's added and removed memberships are seen, nested pairs included.
+// A version's added and removed memberships are seen, nested pairs included,
+// and a version's address change is seen by the property filter.
 #[test]
 fn a_version_s_memberships_are_followed() {
     let mut st = VersionStore::new();
     let v0 = st.observe("lab", 1, observed()).unwrap();
+    let s1_smtp = st.view(v0).unwrap().attr(&g(S1), Attribute::PrimarySmtp);
+    assert!(s1_smtp.is_some());
     let v1 = st
         .simulate(
             v0,
             &Edit(vec![
-                // u5 joins S2 directly; S2 leaves S1; S3 joins S1; u1 leaves
-                // S1 (an observed, resolved row).
+                // u1 leaves S1 (an observed, resolved row); u5 joins S2
+                // directly; S2 leaves S1; S3 joins S1; S1 loses its address.
                 Change::RemoveMembership {
                     user: g(U1),
                     group: g(S1),
@@ -248,28 +264,32 @@ fn a_version_s_memberships_are_followed() {
                     user: g(S3),
                     group: g(S1),
                 },
+                Change::SetAttribute {
+                    node: g(S1),
+                    attribute: Attribute::PrimarySmtp,
+                    from: s1_smtp,
+                    to: None,
+                },
             ]),
             &[EvidenceRef("t".into())],
         )
         .unwrap();
     let view = st.view(v1).unwrap();
-    // S1 no longer contains u1 or S2 (so u2 and u5 are gone); S3 now
-    // reaches u4.
+    // S1: D1 (u3, S3 → u4), UNREAD (u5), S3 (u4).
+    assert_eq!(view.members_transitive(&g(S1)), ids(&[U3, U4, U5]));
+    // S2: u2 and u5 directly, S1's set through S1.
+    assert_eq!(view.members_transitive(&g(S2)), ids(&[U2, U3, U4, U5]));
+    assert_eq!(view.groups_transitive(&g(U1)), Vec::<Guid128>::new());
+    // S1 is no longer mail-enabled in this version; still security-enabled.
     assert_eq!(
-        view.members_transitive(&g(S1), Closure::Security),
-        ids(&[U4])
+        selected(&view, &GroupWhere::Is(GroupProperty::MailEnabled)),
+        ids(&[S3, D1, UNREAD])
     );
-    // S2 still contains S1, and u5 directly.
-    assert_eq!(
-        view.members_transitive(&g(S2), Closure::Security),
-        ids(&[U2, U4, U5])
-    );
+    assert_eq!(selected(&view, &GroupWhere::both()), ids(&[S3]));
     // The observed version is unchanged.
     let view0 = st.view(v0).unwrap();
-    assert_eq!(
-        view0.members_transitive(&g(S1), Closure::Security),
-        ids(&[U1, U2])
-    );
+    assert_eq!(view0.members_transitive(&g(S1)), ids(&[U1, U2, U3, U4, U5]));
+    assert_eq!(selected(&view0, &GroupWhere::both()), ids(&[S1, S3]));
 }
 
 // AD's groupType reaches the observation: its high bit is the flag, and a

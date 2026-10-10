@@ -143,10 +143,11 @@ jobs:
           an_administrator_sees_the_emulated_tree_marked
           a_disabled_shared_mailbox_still_receives
           the_security_flag_is_kept_as_read
-          the_security_closure_walks_only_security_groups
-          the_delivery_closure_follows_every_nested_group
+          nesting_follows_every_group
           a_user_s_groups_follow_nesting_upward
           members_and_groups_are_inverse
+          group_properties_are_a_quack_filter
+          nesting_and_properties_compose
           a_version_s_memberships_are_followed
           ad_group_type_sets_the_flag
           departure_by_conversion_to_shared_keeps_the_mailbox
