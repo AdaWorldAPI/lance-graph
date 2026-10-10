@@ -878,12 +878,15 @@ The same 16 bits also go by `APP_PREFIX` (older name, kept for existing callers)
 - `classid & 0xFFFF_0000` selects one `domain:appid`;
 - any aligned power-of-two sub-block of the low 16 bits selects a group the app defined itself, which is what SPOG graph/tenant masks and cohort masks need.
 
-**Open, not decided here:** today the low 16 bits carry the per-app *render prefix* (OpenProject `0x0001`, Odoo `0x0002`, WoA `0x0003`, MedCare `0x0005`, … — `PortSpec::APP_PREFIX`). Under the ruling, the low 16 bits are the concept space handed out in 64k blocks. How the render prefix and that space relate is the real open question. Answer it before writing any code that composes or splits a classid.
+**Resolved (operator, 2026-10-10):** *"Classview can be used for any compute masking, we explicitly expanded the ERB redmine fieldview pattern for risk mask of everything."*
+
+- Rendering is ONE use of `classview`. Per-app render prefixes (OpenProject `0x0001`, MedCare `0x0005`, … — `PortSpec::APP_PREFIX` / `classview()`) are values in the same 64k compute-mask space as field, RBAC and SPOG masks.
+- The ERB fieldview pattern (pick the fields a view shows) was deliberately generalised into mask-RISC masks over everything.
+- So `render_classid` and today's layout stay as they are. No layout change follows from the ruling.
 
 **Next:**
-1. Settle the low-16 question above.
-2. Anchor `performed_by` / `tenant` / `duration` / the work date on WoA's own concepts, reading every value from code.
-3. Map SAP and Odoo onto those anchors.
+1. Anchor `performed_by` / `tenant` / `duration` / the work date on WoA's own concepts, reading every value from code.
+2. Map SAP and Odoo onto those anchors.
 
 #### C.9.4 Audit: what reversing `render_classid` would break — do not do it (2026-10-10)
 

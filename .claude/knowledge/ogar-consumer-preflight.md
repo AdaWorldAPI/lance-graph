@@ -274,4 +274,4 @@ The same 16 bits also go by `APP_PREFIX` (older name, kept for existing callers)
 - `classid & 0xFFFF_0000` selects one `domain:appid`;
 - any aligned power-of-two sub-block of the low 16 bits selects a group the app defined itself, which is what SPOG graph/tenant masks and cohort masks need.
 
-OPEN: today the low 16 bits carry the per-app render prefix (`PortSpec::APP_PREFIX`), while the ruling names them the 64k concept space. How the two relate is not settled. Record: lance-graph `.claude/plans/cross-glove-business-parity-v1.md` §C.9.3–§C.9.4.
+RESOLVED (operator, 2026-10-10): *"Classview can be used for any compute masking, we explicitly expanded the ERB redmine fieldview pattern for risk mask of everything."* Rendering is one use of `classview`: per-app render prefixes are values in the same 64k compute-mask space as field, RBAC and SPOG masks, so `render_classid` stays as it is. Record: lance-graph `.claude/plans/cross-glove-business-parity-v1.md` §C.9.3–§C.9.4.

@@ -29,4 +29,4 @@ The same 16 bits also go by `APP_PREFIX` (older name, kept for existing callers)
 
 **Do not repeat:** treating "absent from `ogar_vocab::class_ids`" as unaddressable; decoding classid halves by hand; reversing `render_classid`.
 
-**OPEN:** how the per-app render prefix (today's low 16 bits) relates to the 64k concept space the ruling puts there.
+**RESOLVED (same day):** "Classview can be used for any compute masking, we explicitly expanded the ERB redmine fieldview pattern for risk mask of everything." Rendering is one use of `classview`; render prefixes are values in that 64k mask space; `render_classid` stays.

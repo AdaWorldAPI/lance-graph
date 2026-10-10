@@ -43,4 +43,4 @@
 ## Follows automatically
 These call OGAR or the contract and only need their pinned tests re-pinned: odoo-rs `od-ontology`, openproject `op-canon` wrappers, HubSPO `hubspo-port`, stockfish-web classview, rs-graph-llm `AUTH_STORE`, osm `row.rs` `CLASSID_GEO_V3`, MedCare `Namespace::render_classid` callers.
 
-OPEN: the low-16 question in §C.9.3.
+RESOLVED: rendering is one use of `classview` (compute masking of everything); no layout change (§C.9.3).
