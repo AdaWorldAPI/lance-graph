@@ -1413,3 +1413,23 @@ fn text_matching_uses_ldap_string_preparation() {
     assert_eq!(q(not(eq("ou", "\u{E000}"))), 0);
     assert_eq!(q(not(substr_initial("ou", "\u{FFFD}"))), 0);
 }
+
+// Integers and the binary GUIDs have no substrings rule: such an item is
+// Undefined, so neither it nor its negation matches.
+#[test]
+fn substrings_need_a_substrings_rule() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let mut q = |f| dns(&run(&srv, &mut s, search(2, NC, 2, 0, f, &["1.1"]))).len();
+    // Every user is userAccountControl 512, and equality still applies.
+    let users = q(eq("userAccountControl", "512"));
+    assert!(users > 0);
+    for (a, v) in [("userAccountControl", "5"), ("objectGUID", "\u{7a}")] {
+        assert_eq!(q(substr_initial(a, v)), 0, "{a}");
+        assert_eq!(q(not(substr_initial(a, v))), 0, "{a}");
+    }
+    // A text attribute still has one.
+    assert_eq!(q(substr_initial("ou", "sta")), 1);
+}

@@ -706,12 +706,16 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
     };
     Ok(match t.tag {
         // and / or are SET SIZE (1..MAX) OF Filter (RFC 4511 §4.5.1).
+        // Children are decoded one at a time, each against the budget, so a
+        // wide set is refused before it is held in memory.
         0xa0 | 0xa1 => {
-            let c = children(t.value)?;
-            if c.is_empty() {
+            let mut fs = Vec::new();
+            for c in each_child(t.value) {
+                fs.push(sub(&c?)?);
+            }
+            if fs.is_empty() {
                 return Err(LdapError::Malformed);
             }
-            let fs = c.iter().map(sub).collect::<Result<_, _>>()?;
             if t.tag == 0xa0 {
                 Filter::And(fs)
             } else {
@@ -744,13 +748,12 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
                 return Err(LdapError::Malformed);
             }
             let attr = string(&c[0])?.to_lowercase();
-            let parts = children(c[1].value)?;
-            // substrings SEQUENCE SIZE (1..MAX)
-            if parts.is_empty() {
-                return Err(LdapError::Malformed);
-            }
+            // substrings SEQUENCE SIZE (1..MAX), decoded one at a time.
             let (mut initial, mut any, mut last) = (None, Vec::new(), None);
-            for s in parts {
+            let mut parts = 0usize;
+            for s in each_child(c[1].value) {
+                let s = s?;
+                parts += 1;
                 // Each substring item counts against the filter budget.
                 if *budget == 0 {
                     return Err(LdapError::Malformed);
@@ -764,6 +767,9 @@ fn parse_filter_at(t: &Tlv<'_>, depth: usize, budget: &mut usize) -> Result<Filt
                     0x82 if last.is_none() => last = Some(s.value.to_vec()),
                     _ => return Err(LdapError::Malformed),
                 }
+            }
+            if parts == 0 {
+                return Err(LdapError::Malformed);
             }
             Filter::Sub {
                 attr,
@@ -917,10 +923,15 @@ fn prep(v: &[u8], piece: Piece) -> Option<Vec<u8>> {
             '\u{E000}'..='\u{F8FF}' | '\u{FDD0}'..='\u{FDEF}' | '\u{FFFD}' => return None,
             c if (c as u32 & 0xFFFE) == 0xFFFE => return None,
             c if c.is_whitespace() => mapped.push(' '),
-            c => mapped.extend(c.to_lowercase()),
+            c => mapped.push(c),
         }
     }
-    let norm: String = mapped.nfkc().collect();
+    // Full case folding (RFC 3454 B.2) and NFKC, applied twice: B.2 is
+    // the folding closed under NFKC, which one fold-then-normalize pass
+    // does not reach for every character (e.g. a compatibility form whose
+    // decomposition has upper case).
+    let once = |x: &str| -> String { unicase::UniCase::new(x).to_folded_case().nfkc().collect() };
+    let norm = once(&once(&mapped));
     let words: Vec<&str> = norm.split(' ').filter(|w| !w.is_empty()).collect();
     let mut out = String::with_capacity(norm.len() + 2);
     if piece == Piece::Whole {
@@ -944,15 +955,6 @@ fn prep(v: &[u8], piece: Piece) -> Option<Vec<u8>> {
         out.push(' ');
     }
     Some(out.into_bytes())
-}
-
-/// A substring piece in matching form; binary attributes are compared as
-/// stored.
-fn fold_piece(attr: &str, v: &[u8], piece: Piece) -> Option<Vec<u8>> {
-    if is_binary(attr) {
-        return Some(v.to_vec());
-    }
-    prep(v, piece)
 }
 
 /// Values of `attr` on `e`, as `(raw, matching form)`; includes the
@@ -1041,8 +1043,9 @@ fn eval(f: &Filter, e: &Entry, acc: &Access<'_>) -> Option<bool> {
             let v = fold(a, v)?;
             Some(vals(a)?.contains(&v))
         }
-        // distinguishedNameMatch has no substrings rule.
-        Filter::Sub { attr, .. } if is_dn(attr) => {
+        // distinguishedNameMatch, integerMatch and the binary GUIDs have no
+        // substrings rule: the item is Undefined.
+        Filter::Sub { attr, .. } if is_dn(attr) || is_integer(attr) || is_binary(attr) => {
             vals(attr)?;
             None
         }
@@ -1056,15 +1059,15 @@ fn eval(f: &Filter, e: &Entry, acc: &Access<'_>) -> Option<bool> {
         } => {
             // A piece with no matching form makes the item Undefined.
             let initial = match initial {
-                Some(x) => Some(fold_piece(attr, x, Piece::Initial)?),
+                Some(x) => Some(prep(x, Piece::Initial)?),
                 None => None,
             };
             let any = any
                 .iter()
-                .map(|x| fold_piece(attr, x, Piece::Any))
+                .map(|x| prep(x, Piece::Any))
                 .collect::<Option<Vec<_>>>()?;
             let last = match last {
-                Some(x) => Some(fold_piece(attr, x, Piece::Final)?),
+                Some(x) => Some(prep(x, Piece::Final)?),
                 None => None,
             };
             Some(vals(attr)?.iter().any(|x| {
@@ -1496,5 +1499,25 @@ impl<'a, P: Authority> Server<'a, P> {
         let mut body = tlv(0x04, e.dn.as_bytes());
         body.extend(tlv(0x30, &attrs));
         message(id, &tlv(0x64, &body))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{prep, Piece};
+
+    // RFC 3454 B.2 is full case folding: ß and ẞ fold to "ss", final sigma
+    // to sigma. Lower-casing alone keeps them apart.
+    #[test]
+    fn preparation_uses_full_case_folding() {
+        let p = |s: &str| prep(s.as_bytes(), Piece::Whole);
+        assert_eq!(p("Straße"), p("STRASSE"));
+        assert_eq!(p("\u{1E9E}"), p("ss"));
+        assert_eq!(p("ΟΔΟΣ"), p("οδος"));
+        assert_eq!(p("οδος"), p("οδοσ"));
+        // Folding is not a wildcard.
+        assert_ne!(p("Straße"), p("STRASE"));
+        let f = |s: &str| prep(s.as_bytes(), Piece::Final);
+        assert_eq!(f("STRASSE"), f("straße"));
     }
 }
