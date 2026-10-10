@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-290 entries, 2026-08-06 .. 2026-10-10.
+291 entries, 2026-08-06 .. 2026-10-10.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-10 | `E-W2-SPACE-AXIS-CUSTOM-SPACE-LEAVES-THE-CLASSID-1` | W2's space axis is decided: fixed spaces 0–3 stay in the classid, custom spaces move to the payload or edge | [2026-10-10-e-w2-space-axis-custom-space-leaves-the-classid-1.md](2026-10-10-e-w2-space-axis-custom-space-leaves-the-classid-1.md) |
+| 2026-10-10 | `D-XGP-2` |  | [2026-10-10-d-xgp-2-hotplug-billable-work-entry.md](2026-10-10-d-xgp-2-hotplug-billable-work-entry.md) |
 | 2026-10-10 | `D-XGP-1` |  | [2026-10-10-d-xgp-1-cats-binder-canonical-front.md](2026-10-10-d-xgp-1-cats-binder-canonical-front.md) |
 | 2026-10-10 | `D-XGP-0` | SAP and Odoo share a type, not a meaning | [2026-10-10-d-xgp-0-cross-glove-inventory.md](2026-10-10-d-xgp-0-cross-glove-inventory.md) |
 | 2026-10-10 | `D-SELF-CALIBRATING-LAB-0` |  | [2026-10-10-d-self-calibrating-lab-0.md](2026-10-10-d-self-calibrating-lab-0.md) |
