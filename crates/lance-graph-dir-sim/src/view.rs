@@ -28,6 +28,7 @@ use crate::snapshot::{
     bit, clear_bit, is_mail_recipient, is_owner, set_bit, Dicts, GroupOrdinal, Population,
     Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
+use crate::GroupWhere;
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{Dn128, Guid128};
@@ -90,40 +91,6 @@ pub enum ApplyError {
     /// `CreateNode` into a population already at its bound
     /// ([`MAX_USERS`] / [`MAX_GROUPS`]).
     PopulationFull(NodeKind),
-}
-
-/// Which nested groups [`View::members_transitive`] walks.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Closure {
-    /// Who receives mail sent to a group: the addressed group must be
-    /// mail-enabled, and nesting is followed through every group whatever
-    /// its kind, a security group without an address included.
-    Delivery,
-    /// Who holds a permission granted to a group: every group on the chain,
-    /// the granting one included, must be known to be security-enabled. A
-    /// distribution group, or a group whose flag was not read, breaks the
-    /// chain, as in an AD token, so the permission fails closed.
-    Security,
-}
-
-impl Closure {
-    /// Whether nesting is followed through `g`.
-    fn walks(self, view: &View<'_>, g: &Guid128) -> bool {
-        match self {
-            Closure::Delivery => true,
-            Closure::Security => view.is_security_enabled(g) == Some(true),
-        }
-    }
-
-    /// Whether `g` can be the group addressed or granted (the start of
-    /// [`View::members_transitive`], a result of
-    /// [`View::groups_transitive`]).
-    fn ends(self, view: &View<'_>, g: &Guid128) -> bool {
-        match self {
-            Closure::Delivery => view.is_mail_recipient(g),
-            Closure::Security => view.is_security_enabled(g) == Some(true),
-        }
-    }
 }
 
 /// Nodes a version created in one population, as SoA lanes sorted by
@@ -543,33 +510,68 @@ impl<'s> View<'s> {
         (i < p.len() && bit(&p.security_known, i)).then(|| bit(&p.security, i))
     }
 
-    /// The users reached from `group` through nesting, each once (a cycle
-    /// is walked once), in user-ordinal order. `group` must qualify for
-    /// `closure` (mail-enabled for [`Closure::Delivery`], security-enabled
-    /// for [`Closure::Security`]); nesting is then followed as `closure`
-    /// says. The inverse of [`Self::groups_transitive`].
+    /// The users in `group`, directly or through nested groups, each once
+    /// (a cycle is walked once), in user-ordinal order. Nesting is one
+    /// pattern: every nested group is followed, whatever its kind. Neither
+    /// mail nor a permission is inherited this way: each is a chain through
+    /// groups that have its property, walked with
+    /// [`Self::members_transitive_through`]. The inverse of
+    /// [`Self::groups_transitive`].
     ///
     /// Membership only: whether a reached user is enabled, or receives mail,
-    /// is the caller's question. Empty when `group` is not an existing group
-    /// or does not qualify.
+    /// is the caller's question. Empty when `group` is not an existing group.
     ///
     /// Work: one pass over the live membership rows plus the nested pairs,
     /// which are evidence-sized (held by identity in the unresolved table
     /// and the overlay).
-    pub fn members_transitive(&self, group: &Guid128, closure: Closure) -> Vec<Guid128> {
+    pub fn members_transitive(&self, group: &Guid128) -> Vec<Guid128> {
+        self.members_walk(group, None)
+    }
+
+    /// [`Self::members_transitive`] through groups that satisfy `through`
+    /// only: `group` itself and every nested group on the way must pass the
+    /// filter. With [`GroupProperty::MailEnabled`] this is who receives mail
+    /// sent to `group`: mail is chained addressing, so a nested group without
+    /// an address ends the chain. With [`GroupProperty::SecurityEnabled`] it
+    /// is who inherits a permission granted to `group`: only a security
+    /// group has a SID. The inverse of [`Self::groups_transitive_through`].
+    ///
+    /// [`GroupProperty::MailEnabled`]: crate::GroupProperty::MailEnabled
+    ///
+    /// [`GroupProperty::SecurityEnabled`]: crate::GroupProperty::SecurityEnabled
+    pub fn members_transitive_through(
+        &self,
+        group: &Guid128,
+        through: &GroupWhere,
+    ) -> Vec<Guid128> {
+        let allowed = self.groups_bitmap(through);
+        self.members_walk(group, Some(&allowed))
+    }
+
+    /// The groups that satisfy `w`, as a bitmap over group ordinals.
+    fn groups_bitmap(&self, w: &GroupWhere) -> Vec<u64> {
+        let mut bits = vec![0u64; words_for(self.groups_len())];
+        for i in crate::groups_where(self, w).rows() {
+            set_bit(&mut bits, i);
+        }
+        bits
+    }
+
+    fn members_walk(&self, group: &Guid128, allowed: Option<&[u64]>) -> Vec<Guid128> {
+        let admits = |g: usize| allowed.is_none_or(|a| bit(a, g));
         let Some(start) = self.group_ordinal(group) else {
             return Vec::new();
         };
-        if !closure.ends(self, group) {
+        if !admits(usize::from(start.0)) {
             return Vec::new();
         }
         let added = self.added_rows();
         // Nested pairs (child, parent) whose endpoints are both existing
         // groups, sorted by parent.
-        let mut nested: Vec<(u16, Guid128, u16)> = added
+        let mut nested: Vec<(u16, u16)> = added
             .unresolved
             .iter()
-            .filter_map(|(c, p)| Some((self.group_ordinal(p)?.0, *c, self.group_ordinal(c)?.0)))
+            .filter_map(|(c, p)| Some((self.group_ordinal(p)?.0, self.group_ordinal(c)?.0)))
             .collect();
         nested.sort_unstable();
         let mut reached = vec![0u64; words_for(self.groups_len())];
@@ -577,10 +579,10 @@ impl<'s> View<'s> {
         let mut queue = vec![start.0];
         while let Some(parent) = queue.pop() {
             let from = nested.partition_point(|n| n.0 < parent);
-            for (_, child, c) in nested[from..].iter().take_while(|n| n.0 == parent) {
-                if !bit(&reached, usize::from(*c)) && closure.walks(self, child) {
-                    set_bit(&mut reached, usize::from(*c));
-                    queue.push(*c);
+            for &(_, c) in nested[from..].iter().take_while(|n| n.0 == parent) {
+                if !bit(&reached, usize::from(c)) && admits(usize::from(c)) {
+                    set_bit(&mut reached, usize::from(c));
+                    queue.push(c);
                 }
             }
         }
@@ -602,17 +604,43 @@ impl<'s> View<'s> {
             .collect()
     }
 
-    /// The groups `user` belongs to, directly or through nesting, each
-    /// once, in group-ordinal order: the inverse of
+    /// The groups `user` is in, directly or through nested groups of any
+    /// kind, each once, in group-ordinal order: the inverse of
     /// [`Self::members_transitive`], so `user` is in
-    /// `members_transitive(g, closure)` exactly when `g` is in
-    /// `groups_transitive(user, closure)`. A group is reached through a
-    /// chain of groups `closure` walks, and is listed when it qualifies as
-    /// the addressed or granting group.
+    /// `members_transitive(g)` exactly when `g` is in
+    /// `groups_transitive(user)`. For the lists a user receives through or
+    /// the SIDs it holds, walk the chain with
+    /// [`Self::groups_transitive_through`].
     ///
     /// Empty when `user` is not an existing user. Work: one pass over the
     /// live membership rows plus the nested pairs.
-    pub fn groups_transitive(&self, user: &Guid128, closure: Closure) -> Vec<Guid128> {
+    pub fn groups_transitive(&self, user: &Guid128) -> Vec<Guid128> {
+        self.groups_walk(user, None)
+    }
+
+    /// [`Self::groups_transitive`] through groups that satisfy `through`
+    /// only: the group `user` is directly in and every group above it on the
+    /// chain must pass the filter. With
+    /// [`GroupProperty::SecurityEnabled`] this is [`Self::security_identifiers`].
+    /// The inverse of [`Self::members_transitive_through`].
+    ///
+    /// [`GroupProperty::SecurityEnabled`]: crate::GroupProperty::SecurityEnabled
+    pub fn groups_transitive_through(&self, user: &Guid128, through: &GroupWhere) -> Vec<Guid128> {
+        let allowed = self.groups_bitmap(through);
+        self.groups_walk(user, Some(&allowed))
+    }
+
+    /// The security groups whose SID `user` holds, directly or through
+    /// nesting, and so whose permissions it inherits. Only a security group
+    /// has a SID, so the chain runs through security groups only: a user in
+    /// a distribution group nested in a security group does not hold that
+    /// group's SID. A group whose security flag was not read is not a
+    /// security group here.
+    pub fn security_identifiers(&self, user: &Guid128) -> Vec<Guid128> {
+        self.groups_transitive_through(user, &GroupWhere::Is(crate::GroupProperty::SecurityEnabled))
+    }
+
+    fn groups_walk(&self, user: &Guid128, allowed: Option<&[u64]>) -> Vec<Guid128> {
         let Some(uo) = self.user_ordinal(user) else {
             return Vec::new();
         };
@@ -620,22 +648,11 @@ impl<'s> View<'s> {
         let added = self.added_rows();
         let mut reached = vec![0u64; words_for(self.groups_len())];
         let mut queue = Vec::new();
-        // A group is recorded when the chain may pass through it or end at
-        // it; only a group the chain passes through is walked further up.
         let reach = |g: u32, reached: &mut [u64], queue: &mut Vec<u16>| {
             let g = g as usize;
-            if bit(reached, g) {
-                return;
-            }
-            let Some(id) = self.group_guid(GroupOrdinal(g as u16)) else {
-                return;
-            };
-            let walks = closure.walks(self, &id);
-            if walks || closure.ends(self, &id) {
+            if !bit(reached, g) && allowed.is_none_or(|a| bit(a, g)) {
                 set_bit(reached, g);
-                if walks {
-                    queue.push(g as u16);
-                }
+                queue.push(g as u16);
             }
         };
         let s = self.snap;
@@ -666,7 +683,6 @@ impl<'s> View<'s> {
         (0..self.groups_len())
             .filter(|&i| bit(&reached, i))
             .filter_map(|i| self.group_guid(GroupOrdinal(i as u16)))
-            .filter(|g| closure.ends(self, g))
             .collect()
     }
 
