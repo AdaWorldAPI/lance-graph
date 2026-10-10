@@ -530,6 +530,9 @@ fn eval(f: &Filter, e: &Entry, readable: &dyn Fn(&str) -> bool) -> Option<bool> 
         }
         Filter::Not(f) => eval(f, e, readable).map(|b| !b),
         Filter::Present(a) => Some(!vals(a)?.is_empty()),
+        // Integer equality is numeric, and Undefined for a non-integer
+        // assertion (RFC 4517 integerMatch).
+        Filter::Eq(a, v) if is_integer(a) => order(a, v, vals(a)?, |o| o.is_eq()),
         Filter::Eq(a, v) => {
             let v = fold(a, v);
             Some(vals(a)?.contains(&v))
@@ -749,7 +752,20 @@ impl<'a, P: Authority> Server<'a, P> {
         op: &Tlv<'_>,
     ) -> Result<Vec<Vec<u8>>, LdapError> {
         let c = children(op.value)?;
-        if c.len() != 8 || c[0].tag != 0x04 || c[1].tag != 0x0a || c[7].tag != 0x30 {
+        // RFC 4511 §4.5.1: baseObject OCTET STRING, scope ENUMERATED,
+        // derefAliases ENUMERATED (0..=3), sizeLimit and timeLimit INTEGER,
+        // typesOnly BOOLEAN, filter, attributes SEQUENCE.
+        if c.len() != 8
+            || c[0].tag != 0x04
+            || c[1].tag != 0x0a
+            || c[2].tag != 0x0a
+            || c[3].tag != 0x02
+            || c[4].tag != 0x02
+            || c[5].tag != 0x01
+            || c[5].value.len() != 1
+            || c[7].tag != 0x30
+            || !(0..=3).contains(&int(&c[2])?)
+        {
             return Err(LdapError::Malformed);
         }
         let base = text(&c[0])?;
@@ -803,6 +819,10 @@ impl<'a, P: Authority> Server<'a, P> {
             .dir
             .all()
             .any(|(k, e)| *k == base_key && self.authority.visible(actor, e));
+        // Resolving the base counts against the time limit too.
+        if deadline.is_some_and(|d| std::time::Instant::now() >= d) {
+            return Ok(vec![done(ResultCode::TimeLimitExceeded, "")]);
+        }
         if !base_ok {
             return Ok(vec![done(ResultCode::NoSuchObject, "")]);
         }

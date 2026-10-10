@@ -674,3 +674,85 @@ fn a_rebind_refused_for_a_control_drops_the_identity() {
     );
     assert_eq!((dns(&r).len(), done(&r)), (0, 1));
 }
+
+// A subtree search of the naming context with the four fixed-type fields
+// after the scope given verbatim: derefAliases, sizeLimit, timeLimit,
+// typesOnly.
+fn search_fields(fields: [(u8, &[u8]); 4], filter: Vec<u8>) -> Vec<u8> {
+    let mut b = tlv(0x04, NC.as_bytes());
+    b.extend(int(0x0a, 2));
+    for (t, v) in fields {
+        b.extend(tlv(t, v));
+    }
+    b.extend(filter);
+    b.extend(tlv(0x30, &tlv(0x04, b"1.1")));
+    msg(2, tlv(0x63, &b))
+}
+
+// Every SearchRequest field has a fixed ASN.1 type (RFC 4511 §4.5.1); a
+// request that breaks one is a protocol error, not a search.
+#[test]
+fn search_fields_are_type_checked() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let ok: [(u8, &[u8]); 4] = [(0x0a, &[0]), (0x02, &[0]), (0x02, &[0]), (0x01, &[0])];
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let r = run(&srv, &mut s, search_fields(ok, present("objectClass")));
+    assert_eq!((dns(&r).len(), done(&r)), (5, 0));
+    let bad: [[(u8, &[u8]); 4]; 6] = [
+        [(0x02, &[0]), ok[1], ok[2], ok[3]], // derefAliases not ENUMERATED
+        [(0x0a, &[4]), ok[1], ok[2], ok[3]], // derefAliases out of range
+        [ok[0], (0x04, &[0]), ok[2], ok[3]], // sizeLimit not INTEGER
+        [ok[0], ok[1], (0x0a, &[0]), ok[3]], // timeLimit not INTEGER
+        [ok[0], ok[1], ok[2], (0x04, &[1])], // typesOnly not BOOLEAN
+        [ok[0], ok[1], ok[2], (0x01, &[1, 1])], // BOOLEAN of two octets
+    ];
+    for f in bad {
+        let mut s = Session::default();
+        run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+        let out = srv.handle(&mut s, &search_fields(f, present("objectClass")));
+        assert_eq!(decode(&out[0]), (0, Resp::Done { op: 0x78, code: 2 }));
+        assert!(s.closed());
+    }
+}
+
+// Equality on an integer attribute is integerMatch: numeric, and Undefined
+// for an assertion that is not an integer, so a NOT of it matches nothing.
+#[test]
+fn integer_equality_is_numeric_and_undefined_for_non_integers() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    let mut q = |f| dns(&run(&srv, &mut s, search(2, NC, 2, 0, f, &["1.1"]))).len();
+    let plain = q(eq("userAccountControl", "512"));
+    assert!(plain > 0, "the fixture must carry an enabled account");
+    assert_eq!(q(eq("userAccountControl", "0512")), plain);
+    assert_eq!(q(not(eq("userAccountControl", "abc"))), 0);
+}
+
+struct SlowHidden(u64);
+impl Authority for SlowHidden {
+    type Actor = ();
+    fn bind(&self, _: &str, _: &[u8]) -> Option<()> {
+        Some(())
+    }
+    fn visible(&self, _: &(), _: &Entry) -> bool {
+        std::thread::sleep(std::time::Duration::from_millis(self.0));
+        false
+    }
+}
+
+// Resolving a hidden base can itself use up the time limit; that is
+// timeLimitExceeded, not noSuchObject.
+#[test]
+fn the_time_limit_holds_while_the_base_is_resolved() {
+    let dir = directory();
+    let srv = Server::new(&dir, &SlowHidden(1100));
+    let mut s = Session::default();
+    srv.handle(&mut s, &bind(1, "x", b"y"));
+    let q = with_time_limit(search(2, NC, 0, 0, present("objectClass"), &["1.1"]), 1);
+    let r: Vec<Resp> = srv.handle(&mut s, &q).iter().map(|p| decode(p).1).collect();
+    assert_eq!(done(&r), 3);
+}
