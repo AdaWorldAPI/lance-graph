@@ -261,4 +261,10 @@ classid : u32 = [ domain 8 | appid 8 ] [ concept 16 ]
 - **Never decode a classid by hand (`>> 16`, `& 0xFFFF`).** The halves are easy to conflate, and a mixed-up half still yields a *valid* id of a *different* class. Example: `0x0905` is `treatment`. Use the named accessors.
 - **Do not reverse `render_classid`.** An audit (lance-graph `.claude/board/entries/2026-10-10-render-classid-reversal-audit.md`) found ~20 hand-copied bit-math sites, silent RBAC and tenant mis-routing, and persisted bakes that would need re-keying.
 
+**Why the low 16 bits are app-owned (operator, 2026-10-10):** *"16 bit for 64k granular app owned so you can do cheap masking, spoG etc."* Each `domain:appid` gets 64k app-owned values in the low half, so selection is plain bit masking with no lookup:
+
+- `classid >> 24` selects a domain;
+- `classid & 0xFFFF_0000` selects one `domain:appid`;
+- any aligned power-of-two sub-block of the low 16 bits selects a group the app defined itself, which is what SPOG graph/tenant masks and cohort masks need.
+
 OPEN: today the low 16 bits carry the per-app render prefix (`PortSpec::APP_PREFIX`), while the ruling names them the 64k concept space. How the two relate is not settled. Record: lance-graph `.claude/plans/cross-glove-business-parity-v1.md` §C.9.3–§C.9.4.

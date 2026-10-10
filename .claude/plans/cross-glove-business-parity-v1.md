@@ -865,6 +865,12 @@ classid : u32 = [ domain 8 | appid 8 ] [ concept 16 ]
 
   The test `three_edge_targets_have_a_shared_codebook_id` measures shared-codebook coverage only, and says so.
 
+**Why the low 16 bits are app-owned (operator, 2026-10-10):** *"16 bit for 64k granular app owned so you can do cheap masking, spoG etc."* Each `domain:appid` gets 64k app-owned values in the low half, so selection is plain bit masking with no lookup:
+
+- `classid >> 24` selects a domain;
+- `classid & 0xFFFF_0000` selects one `domain:appid`;
+- any aligned power-of-two sub-block of the low 16 bits selects a group the app defined itself, which is what SPOG graph/tenant masks and cohort masks need.
+
 **Open, not decided here:** today the low 16 bits carry the per-app *render prefix* (OpenProject `0x0001`, Odoo `0x0002`, WoA `0x0003`, MedCare `0x0005`, … — `PortSpec::APP_PREFIX`). Under the ruling, the low 16 bits are the concept space handed out in 64k blocks. How the render prefix and that space relate is the real open question. Answer it before writing any code that composes or splits a classid.
 
 **Next:**
