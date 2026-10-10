@@ -18,6 +18,8 @@
 //! * [`store`] — append-only versions, tags, diff, plan, audit.
 //! * [`observe`] — `ogar-ad` records → observation (`OuHhtl` → `Dn128`,
 //!   failing closed).
+//! * [`ad`] — a version as Active Directory entries (observed, mirrored,
+//!   synthetic or simulated) and as LDIF.
 //! * [`cloud`] — which AD objects have their mailbox in Exchange Online,
 //!   read from OGAR's GUID-keyed hybrid correspondence fold.
 //!
@@ -26,6 +28,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod ad;
 pub mod bind;
 pub mod cloud;
 mod exec;
