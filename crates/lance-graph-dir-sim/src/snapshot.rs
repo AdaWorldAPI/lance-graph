@@ -265,6 +265,13 @@ pub struct ObservedNode {
     /// `msExchMailboxGuid`, the mailbox's own GUID (Exchange Online keeps it
     /// as the mailbox's `ExchangeGuid`); `None` = no mailbox, or not read.
     pub exchange_guid: Option<Guid128>,
+    /// Groups: whether the group is security-enabled, i.e. can hold
+    /// permissions (AD `groupType` bit `0x80000000`, Graph
+    /// `securityEnabled`). A group that is not is a distribution group.
+    /// `None` = not read, which is not the same as `Some(false)`. Whether a
+    /// group is mail-enabled is a separate question (its primary SMTP
+    /// address, [`crate::View::is_mail_recipient`]). Ignored for users.
+    pub security: Option<bool>,
 }
 
 /// The Exchange recipient attributes as a source reported them (strings
@@ -333,6 +340,7 @@ impl ObservedNode {
             mail: None,
             alias: None,
             exchange_guid: None,
+            security: None,
         }
     }
     /// Group.
@@ -348,6 +356,7 @@ impl ObservedNode {
             mail: None,
             alias: None,
             exchange_guid: None,
+            security: None,
         }
     }
 }
@@ -433,6 +442,11 @@ pub struct Population {
     pub(crate) owner: Vec<u64>,
     /// Its mail addresses are provisioned ([`is_mail_recipient`]).
     pub(crate) mail_owner: Vec<u64>,
+    /// Groups known security-enabled.
+    pub(crate) security: Vec<u64>,
+    /// Groups whose security flag was read (the validity plane of
+    /// `security`).
+    pub(crate) security_known: Vec<u64>,
 }
 
 impl Population {
@@ -461,6 +475,8 @@ impl Population {
             exchange_guid: Vec::with_capacity(n),
             owner: vec![0; words_for(n)],
             mail_owner: vec![0; words_for(n)],
+            security: vec![0; words_for(n)],
+            security_known: vec![0; words_for(n)],
         };
         for (i, (id, node)) in nodes.iter().enumerate() {
             p.ids.push(*id);
@@ -521,6 +537,14 @@ impl Population {
             }
             if is_mail_recipient(active, p.recipient_of(i)) {
                 set_bit(&mut p.mail_owner, i);
+            }
+            if node.kind == NodeKind::Group {
+                if let Some(sec) = node.security {
+                    set_bit(&mut p.security_known, i);
+                    if sec {
+                        set_bit(&mut p.security, i);
+                    }
+                }
             }
         }
         p

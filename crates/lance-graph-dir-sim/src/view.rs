@@ -92,6 +92,16 @@ pub enum ApplyError {
     PopulationFull(NodeKind),
 }
 
+/// Which nested groups [`View::members_transitive`] walks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Closure {
+    /// Mail-enabled groups: how a distribution list expands.
+    Delivery,
+    /// Groups known to be security-enabled: who holds a permission granted
+    /// to the group.
+    Security,
+}
+
 /// Nodes a version created in one population, as SoA lanes sorted by
 /// identity. Delta-sized.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -497,6 +507,85 @@ impl<'s> View<'s> {
             Some(s) => crate::snapshot::is_mail_recipient(s.active, s.recipient),
             None => false,
         }
+    }
+
+    /// Whether a group is security-enabled, i.e. can hold permissions;
+    /// `None` when the source did not read its flag, for a group created in
+    /// this version (a change carries no flag), and for anything that is
+    /// not an existing group.
+    pub fn is_security_enabled(&self, g: &Guid128) -> Option<bool> {
+        let i = self.index_in(NodeKind::Group, g)?;
+        let p = &self.snap.groups;
+        (i < p.len() && bit(&p.security_known, i)).then(|| bit(&p.security, i))
+    }
+
+    /// The users reached from `group` through nesting, each once (a cycle
+    /// is walked once), in user-ordinal order. The start group and every
+    /// nested group are walked only when `closure` admits them:
+    ///
+    /// * [`Closure::Delivery`]: mail-enabled groups
+    ///   ([`Self::is_mail_recipient`]), which is how a distribution list
+    ///   expands.
+    /// * [`Closure::Security`]: groups known to be security-enabled
+    ///   ([`Self::is_security_enabled`]). A distribution group, or a group
+    ///   whose flag was not read, breaks the chain, as in an AD token, so a
+    ///   permission granted through it fails closed.
+    ///
+    /// Membership only: whether a reached user is enabled, or receives mail,
+    /// is the caller's question. Empty when `group` is not an existing group
+    /// or is not admitted itself.
+    ///
+    /// Work: one pass over the live membership rows plus the nested pairs,
+    /// which are evidence-sized (held by identity in the unresolved table
+    /// and the overlay).
+    pub fn members_transitive(&self, group: &Guid128, closure: Closure) -> Vec<Guid128> {
+        let admits = |g: &Guid128| match closure {
+            Closure::Delivery => self.is_mail_recipient(g),
+            Closure::Security => self.is_security_enabled(g) == Some(true),
+        };
+        let Some(start) = self.group_ordinal(group) else {
+            return Vec::new();
+        };
+        if !admits(group) {
+            return Vec::new();
+        }
+        let added = self.added_rows();
+        // Nested pairs (child, parent) whose endpoints are both existing
+        // groups, sorted by parent.
+        let mut nested: Vec<(u16, Guid128, u16)> = added
+            .unresolved
+            .iter()
+            .filter_map(|(c, p)| Some((self.group_ordinal(p)?.0, *c, self.group_ordinal(c)?.0)))
+            .collect();
+        nested.sort_unstable();
+        let mut reached = vec![0u64; words_for(self.groups_len())];
+        set_bit(&mut reached, usize::from(start.0));
+        let mut queue = vec![start.0];
+        while let Some(parent) = queue.pop() {
+            let from = nested.partition_point(|n| n.0 < parent);
+            for (_, child, c) in nested[from..].iter().take_while(|n| n.0 == parent) {
+                if !bit(&reached, usize::from(*c)) && admits(child) {
+                    set_bit(&mut reached, usize::from(*c));
+                    queue.push(*c);
+                }
+            }
+        }
+        let mut users = vec![0u64; words_for(self.users_len())];
+        let s = self.snap;
+        for (r, (&u, &g)) in s.m_user.iter().zip(&s.m_group).enumerate() {
+            if bit(&reached, g as usize) && !self.ov.removed.contains(&(r as u32)) {
+                set_bit(&mut users, u as usize);
+            }
+        }
+        for (&u, &g) in added.users.iter().zip(&added.groups) {
+            if bit(&reached, g as usize) {
+                set_bit(&mut users, u as usize);
+            }
+        }
+        (0..self.users_len())
+            .filter(|&i| bit(&users, i))
+            .filter_map(|i| self.user_guid(UserOrdinal(i as u16)))
+            .collect()
     }
 
     /// A user's `mail`, as written: a property on the user's business card,
