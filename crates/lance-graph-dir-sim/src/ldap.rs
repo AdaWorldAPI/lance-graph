@@ -655,8 +655,11 @@ impl<'a, P: Authority> Server<'a, P> {
                     0x42 | 0x50 => None,
                     _ => return Err(LdapError::Malformed),
                 };
-                if op.tag == 0x42 {
-                    s.closed = true;
+                match op.tag {
+                    0x42 => s.closed = true,
+                    // Any bind, accepted or not, starts from anonymous.
+                    0x60 => s.actor = None,
+                    _ => {}
                 }
                 return Ok(resp
                     .map(|r| {
@@ -828,6 +831,11 @@ impl<'a, P: Authority> Server<'a, P> {
             }
             out.push(self.entry(id, e, &requested, types_only, &readable));
             sent += 1;
+        }
+        // The last candidate's checks can outlast the limit too.
+        if deadline.is_some_and(|d| std::time::Instant::now() >= d) {
+            out.push(done(ResultCode::TimeLimitExceeded, ""));
+            return Ok(out);
         }
         out.push(done(ResultCode::Success, ""));
         Ok(out)

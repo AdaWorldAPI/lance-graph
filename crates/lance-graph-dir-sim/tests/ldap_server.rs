@@ -531,15 +531,15 @@ fn critical_controls_are_refused_and_others_ignored() {
     assert_eq!(r, [Resp::Done { op: 0x61, code: 12 }]);
 }
 
-/// Sees everything, slowly.
-struct Slow;
+/// Sees everything, slowly: each visibility check takes this many ms.
+struct Slow(u64);
 impl Authority for Slow {
     type Actor = ();
     fn bind(&self, _: &str, _: &[u8]) -> Option<()> {
         Some(())
     }
     fn visible(&self, _: &(), _: &Entry) -> bool {
-        std::thread::sleep(std::time::Duration::from_millis(400));
+        std::thread::sleep(std::time::Duration::from_millis(self.0));
         true
     }
 }
@@ -547,7 +547,7 @@ impl Authority for Slow {
 #[test]
 fn the_time_limit_is_honoured() {
     let dir = directory();
-    let srv = Server::new(&dir, &Slow);
+    let srv = Server::new(&dir, &Slow(400));
     let mut s = Session::default();
     srv.handle(&mut s, &bind(1, "x", b"y"));
     let mut q = search(2, NC, 2, 0, present("objectClass"), &["1.1"]);
@@ -626,4 +626,49 @@ fn out_of_range_limits_are_refused_without_panicking() {
     run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
     let r = run(&srv, &mut s, search_limits(&[0], &[0x7f, 0xff, 0xff, 0xff]));
     assert_eq!((dns(&r).len(), done(&r)), (5, 0));
+}
+
+fn with_time_limit(mut q: Vec<u8>, secs: u8) -> Vec<u8> {
+    let pos = q
+        .windows(9)
+        .position(|w| w == [0x02, 1, 0, 0x02, 1, 0, 0x01, 1, 0])
+        .unwrap();
+    q[pos + 5] = secs;
+    q
+}
+
+// A base-scope search has one candidate: a limit that runs out while it is
+// checked is still exceeded, not reported as success.
+#[test]
+fn the_time_limit_holds_for_the_last_candidate() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Slow(600));
+    let mut s = Session::default();
+    srv.handle(&mut s, &bind(1, "x", b"y"));
+    let q = with_time_limit(search(2, NC, 0, 0, present("objectClass"), &["1.1"]), 1);
+    let r: Vec<Resp> = srv.handle(&mut s, &q).iter().map(|p| decode(p).1).collect();
+    assert_eq!(done(&r), 3);
+}
+
+// A rebind refused for a critical control still drops the earlier identity.
+#[test]
+fn a_rebind_refused_for_a_control_drops_the_identity() {
+    let dir = directory();
+    let srv = Server::new(&dir, &Iam);
+    let mut s = Session::default();
+    run(&srv, &mut s, bind(1, "admin@example.de", b"pw"));
+    assert!(s.actor().is_some());
+    let r = run(
+        &srv,
+        &mut s,
+        with_control(bind(2, "admin@example.de", b"pw"), true),
+    );
+    assert_eq!(r, [Resp::Done { op: 0x61, code: 12 }]);
+    assert!(s.actor().is_none());
+    let r = run(
+        &srv,
+        &mut s,
+        search(3, NC, 2, 0, present("objectClass"), &["1.1"]),
+    );
+    assert_eq!((dns(&r).len(), done(&r)), (0, 1));
 }
