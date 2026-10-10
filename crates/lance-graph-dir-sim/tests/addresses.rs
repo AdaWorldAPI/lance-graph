@@ -384,3 +384,22 @@ fn leftover_mail_addresses_of_a_non_recipient_claim_nothing_but_its_upn_does() {
         .collect();
     assert_eq!(clashes.len(), 2, "primary and proxy both clash: {out:?}");
 }
+
+// A group holding a non-recipient's leftover address is not in conflict
+// with it; the same address on a mailbox is. Group collisions are
+// `AddressConflict`, a different validator path from `DuplicateSmtp`.
+#[test]
+fn a_group_does_not_collide_with_a_non_recipients_leftovers() {
+    let mut grp = ObservedNode::group();
+    grp.primary_smtp = Some("team@x.test".into());
+    let (_, out) = validate_nodes(vec![
+        (g(BOB), grp.clone()),
+        (g(DAVE), deprovisioned("dave", "team@x.test", "old@x.test")),
+    ]);
+    assert!(conflicts(&out).is_empty(), "{out:?}");
+
+    let mut live = mailbox("dave", "dave", &format!("dave@{TENANT}"), true);
+    live.primary_smtp = Some("team@x.test".into());
+    let (_, out) = validate_nodes(vec![(g(BOB), grp), (g(DAVE), live)]);
+    assert_eq!(conflicts(&out).len(), 1, "{out:?}");
+}

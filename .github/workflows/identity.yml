@@ -91,6 +91,8 @@ jobs:
             fi
           done <<'EOF'
           enabling_a_mailbox_stamps_its_routing_proxy
+          leftover_mail_addresses_of_a_non_recipient_claim_nothing_but_its_upn_does
+          a_group_does_not_collide_with_a_non_recipients_leftovers
           an_introduced_routing_address_must_match_the_alias
           the_routing_address_must_be_the_nodes_own_alias
           the_routing_address_must_be_a_proxy
