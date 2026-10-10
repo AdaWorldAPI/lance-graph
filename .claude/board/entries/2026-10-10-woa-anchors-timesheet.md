@@ -17,6 +17,12 @@
 
 **Two-sided pin** (`woa_pin_is_on_the_description_row_not_the_hours_row`): `WoaPort::class_id("TimesheetActivity") == Some(0x0103)` and `TimeSheet` / `User` / `Tenant` resolve to `None`. When OGAR moves the pin or mints those concepts, the test fails and the WoA claims get re-read.
 
-**For the operator (OGAR change, not made here):** should `WoaPort` resolve `TimeSheet` to `0x0103` (and `TimesheetActivity` become a description child of it)? `Stundenzettel` is the German name of `TimeSheet`, not of `TimesheetActivity`, so today's alias table points the German name at the wrong row too.
+**For the operator (OGAR change, not made here):** should `WoaPort` resolve `TimeSheet` to `0x0103`? See the correction below for "Stundenzettel".
+
+**Correction (operator, 2026-10-10: "I believe OGIT has the time sheet concept minted. Stundenzettel should be a dto label"; verified against `AdaWorldAPI/OGIT` `2315167`).**
+- OGIT mints `ogit.WorkOrder:TimeSheet` (`NTO/WorkOrder/entities/TimeSheet.ttl`), plus `ogit.WorkOrder:User` and `ogit.WorkOrder:Tenant` in the same folder. "Has classid `0x0000_0000`" above is true only of the OGAR harvest and codebook: those concepts have no OGAR id and no `WoaPort` alias. They are not unminted.
+- OGIT confirms the reading: `minuten` is "duration … in minutes (integer)", rounded up to 15 minutes for billing; `abgerechnet` is the "billed-flag … transferred onto an invoice document"; `TimeSheet` `belongs` `Customer` and `Tenant`, and `relates` `User` (the verb `logsTime`: User → TimeSheet).
+- **"Stundenzettel" is a DTO label of `ogit.WorkOrder:TimeSheet`, not a concept name** (its OGIT description begins "Stundenzettel — …"). OGIT has no `TimesheetActivity` concept.
+- So the open OGAR question is: give `ogit.WorkOrder:TimeSheet` its `0x0103` alias in `WoaPort`, and treat "Stundenzettel" as a label of it rather than an alias name of its own.
 
 **Next:** with the three anchors claimed by all three gloves, the remaining step is a `Converted` grade for one anchor: `duration` is the candidate (SAP hours × 60 = WoA minutes, provable on rows once a WoA fixture exists).
