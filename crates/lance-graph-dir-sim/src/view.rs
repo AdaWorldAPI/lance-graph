@@ -503,7 +503,8 @@ impl<'s> View<'s> {
     /// like the telephone number, shown in the address book and used inside
     /// messages. It follows the user, not the mailbox or the recipient:
     /// deprovisioning or migrating the mailbox leaves it in place. It is not
-    /// the recipient's identity (that is `PrimarySmtpAddress`), not an
+    /// the recipient's identity (the immutable one is the mailbox's
+    /// `ExchangeGuid`; `PrimarySmtpAddress` identifies it implicitly), not an
     /// address anything is received at, and not provisioned; it may name any
     /// address. It comes from the observed
     /// snapshot: no change edits `mail`, and a node created in this version
@@ -525,9 +526,10 @@ impl<'s> View<'s> {
     }
 
     /// What Exchange knows an existing node as, read by its GUID: recipient
-    /// types, `ExchangeGuid` and primary SMTP address. The recipient is
-    /// identified by its `PrimarySmtpAddress`, the provisioned mailbox by
-    /// its `ExchangeGuid`, the object by its own GUID. Every mail recipient
+    /// types, `ExchangeGuid` and primary SMTP address. The mailbox's
+    /// immutable identity is its `ExchangeGuid`; `PrimarySmtpAddress`
+    /// identifies the recipient implicitly, as a string, and can change. The
+    /// object is identified by its own GUID. Every mail recipient
     /// links its mailbox to its user,
     /// the Entra object (formerly the MsolUser) that carries the internal
     /// `{alias}@{tenant}.onmicrosoft.com`, through

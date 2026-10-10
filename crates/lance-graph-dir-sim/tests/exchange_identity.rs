@@ -1,5 +1,6 @@
-//! The recipient is identified by its `PrimarySmtpAddress`; after
-//! provisioning the mailbox is identified by its `ExchangeGuid`, and
+//! After provisioning the mailbox's immutable identity is its `ExchangeGuid`;
+//! `PrimarySmtpAddress` identifies the recipient implicitly, as a mutable
+//! string; and
 //! `ExternalDirectoryObjectId` links it to its user, the Entra object
 //! (formerly the MsolUser). Exchange identity is read by the object's GUID.
 //! `mail` is a property on the user's business card, like the telephone
