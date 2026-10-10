@@ -1,7 +1,8 @@
 //! Identity is read by GUID, never through an address. After provisioning
 //! the mailbox is identified by its `ExchangeGuid`; across the cloud join it
-//! is `ExternalDirectoryObjectId`. `mail` is a label: it hydrates no
-//! identity and changes nobody's claim.
+//! is `ExternalDirectoryObjectId`. `mail` is the licence plate: shown in the
+//! address book and used inside messages, kept as written, and neither
+//! identity nor a receiving address nor provisioned.
 
 use lance_graph_dir_sim::validate::address_owner;
 use lance_graph_dir_sim::*;
@@ -115,6 +116,50 @@ fn no_mailbox_no_exchange_guid() {
     let view = st.view(v).unwrap();
     assert_eq!(view.exchange_guid(&g(PLAIN)), None);
     assert_eq!(view.exchange_identity(&g(0x99)), None);
+}
+
+// The licence plate is kept as written, on any object, mail-enabled or not,
+// and on an object whose plate names another's address. Reading it changes
+// nothing: the plate's holder is not its owner, the address's owner and
+// recipient are unchanged.
+#[test]
+fn mail_is_the_licence_plate_as_written() {
+    let mut plate = ObservedNode::user("p.upn@example.org", "p@example.org");
+    plate.mail = Some("Pat.Example@Example.ORG".into());
+    let (st, v) = {
+        let mut st = VersionStore::new();
+        let v = st
+            .observe(
+                "lab",
+                0,
+                Observation {
+                    scope: SCOPE,
+                    nodes: vec![
+                        (
+                            g(A),
+                            mailbox("a.upn@example.org", "a@example.org", Some(A_MAILBOX)),
+                        ),
+                        (g(ADMIN), labelled("admin@example.org", "a@example.org")),
+                        (g(PLAIN), plate),
+                    ],
+                    members: vec![],
+                },
+            )
+            .unwrap();
+        (st, v)
+    };
+    let view = st.view(v).unwrap();
+    let text = |g: Guid128| view.mail(&g).and_then(|m| st.dicts().value(m));
+    assert_eq!(text(g(PLAIN)), Some("Pat.Example@Example.ORG"));
+    assert_eq!(text(g(ADMIN)), Some("a@example.org"));
+    assert_eq!(text(g(A)), Some("a@example.org"));
+    assert_eq!(view.mail(&g(0x99)), None);
+    // Nobody holds the plate's text as an address; the admin's plate does
+    // not make it A's co-holder.
+    let k = st.dicts().key_lookup("Pat.Example@Example.ORG").unwrap();
+    assert_eq!(address_owner(&view, k).unwrap(), None);
+    let a = st.dicts().key_lookup("a@example.org").unwrap();
+    assert_eq!(address_owner(&view, a).unwrap(), Some(g(A)));
 }
 
 // Ingest: `msExchMailboxGuid` reaches the node as an id from a schema-6

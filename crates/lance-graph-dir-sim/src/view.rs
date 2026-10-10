@@ -499,6 +499,19 @@ impl<'s> View<'s> {
         }
     }
 
+    /// A node's `mail`, as written: the licence plate shown in the address
+    /// book and used inside messages. A label only: it is not the node's
+    /// identity, not an address the node receives at, and not what
+    /// provisions anything. Any object may carry one, naming any address.
+    /// Labels come from the observed snapshot: no change edits `mail`, and a
+    /// node created in this version has none.
+    pub fn mail(&self, g: &Guid128) -> Option<ValueId> {
+        let (kind, i) = self.locate(g)?;
+        let (p, _) = self.pop(kind);
+        let v = *p.mail_val.get(i)?;
+        (v != NONE).then_some(ValueId(v))
+    }
+
     /// A node's `msExchMailboxGuid`, if observed. It comes from the observed
     /// snapshot: no change edits it, and a node created in this version has
     /// none.

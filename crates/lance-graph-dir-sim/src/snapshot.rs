@@ -252,7 +252,10 @@ pub struct ObservedNode {
     /// source never reported them), distinct from read and all absent
     /// (not mail-enabled).
     pub recipient: Option<ObservedRecipient>,
-    /// Raw `mail`.
+    /// Raw `mail`: the licence plate. It is shown in the address book and
+    /// used inside messages, and is not the object's identity, not an
+    /// address it receives at and not provisioned by anything; it is kept
+    /// as a label, as written.
     pub mail: Option<String>,
     /// Raw `mailNickname` (the Exchange Online `Alias`).
     pub alias: Option<String>,
@@ -417,8 +420,8 @@ pub struct Population {
     pub(crate) rcp_target: Vec<u32>,
     pub(crate) rcp_present: Vec<u8>,
     pub(crate) rcp_read: Vec<u64>,
-    /// `mail` comparison keys (`NONE` = absent).
-    pub(crate) mail_key: Vec<u32>,
+    /// `mail` values as written (`NONE` = absent): a label, never compared.
+    pub(crate) mail_val: Vec<u32>,
     /// `mailNickname` comparison keys (`NONE` = absent).
     pub(crate) alias_key: Vec<u32>,
     /// `msExchMailboxGuid` ([`Guid128::NIL`] = absent).
@@ -450,7 +453,7 @@ impl Population {
             rcp_target: Vec::with_capacity(n),
             rcp_present: Vec::with_capacity(n),
             rcp_read: vec![0; words_for(n)],
-            mail_key: Vec::with_capacity(n),
+            mail_val: Vec::with_capacity(n),
             alias_key: Vec::with_capacity(n),
             exchange_guid: Vec::with_capacity(n),
             owner: vec![0; words_for(n)],
@@ -479,7 +482,7 @@ impl Population {
             p.upn_key.push(uk);
             p.smtp_val.push(sv);
             p.smtp_key.push(sk);
-            p.mail_key.push(ids(&node.mail, d).1);
+            p.mail_val.push(ids(&node.mail, d).0);
             p.alias_key.push(ids(&node.alias, d).1);
             p.exchange_guid
                 .push(node.exchange_guid.unwrap_or(Guid128::NIL));

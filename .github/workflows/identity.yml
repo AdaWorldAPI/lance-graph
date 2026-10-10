@@ -115,6 +115,7 @@ jobs:
           the_cloud_never_revives_a_non_recipient
           identity_is_read_by_guid
           mail_hydrates_no_identity
+          mail_is_the_licence_plate_as_written
           no_mailbox_no_exchange_guid
           from_ad_reads_the_exchange_guid_from_schema_6_only
           EOF
