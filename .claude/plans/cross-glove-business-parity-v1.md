@@ -707,3 +707,37 @@ for SAP stays UNPROVEN, unchanged.
   `SchemaSource` implementation, fed from the ruff harvest / blueprint), and
   the behavior classification. It does not build a `GlovePivot`. See the
   handoff's correction block.
+
+### C.6 Two contract clarifications (operator review, 2026-10-10)
+
+**C.6.1 A glove field mapping is not a report `pivot()`.** The two are used together but obey different laws, and the plan must never merge them.
+
+| | glove field mapping (this plan) | `lance-graph-report` `pivot()` / `rotate()` |
+|---|---|---|
+| what it is | a mapping of **fields**: native `(bridge_id, public_name)` → canonical attribute URI → the glove's `Col` (`OntologyRegistry` rows + `Binder`, §C.3) | an assignment of **coordinates to roles** over an already folded cell space: `ReportPlan::pivot(rows, columns)` (`report/src/plan.rs:399`), `rotate` (`:411`), `ReportResult::with_roles` (`result.rs:332`) |
+| when | cold, at bind, before lowering | after the fold; metadata over `Arc<CellSpace>` |
+| what it changes | which lane a name reads; never values | which axis a coordinate is shown on; never cells. `PhysicalKey` excludes roles, so re-roling never re-folds (`plan.rs:313`) |
+| laws | partial function; injective per glove (`native` unique); composes only through the shared URI, never directly glove-to-glove; no inverse for a selection; a missing or `confidence < 1.0` row is a bind error, never a default | a permutation of roles; on a plan, `rotate ∘ rotate` restores the roles by construction (Row↔Column, Page fixed; `plan.rs:411-419`, not separately test-pinned); on a result, `rotate` also clears `row_order` (`result.rs:321-329`), so a double rotation restores the roles but **not** a top-k row ordering; cell `(a,b)` equals rotated cell `(b,a)` (`report/tests/agnostic.rs:29`); measures and fold state unchanged |
+| what it may not do | aggregate, filter, reorder rows | rename fields, change a lane, change a measure |
+| how they compose | a field mapping produces the `Col`s that a report `CoordSpec::Field` / `Measure` reads. The report pivot then arranges the folded result. The order is fixed: **map → fold → pivot**, never pivot → map. |
+
+The baseline's `Pivot<const N>` (`sap-glove-quack-v1.md` §3.3, positions of a wire shape → canonical ordinals, e.g. `BAPI_ORDINALS`) is a **field mapping** in this sense. Its "composition" law is the field-mapping law above, not the report's role permutation. Any code or doc that names both must keep the names distinct: here *field mapping*, there *report pivot*.
+
+**C.6.2 `Converted` means a tested conversion, not a claim about two types.** A mapping entry may be bound as converted only when all of these hold:
+
+1. **The conversion is named and lives in the glove's bind.** For example, CATS `decimal` (`sap/src/bind.rs:237`) with the batch rescale (`:85-105`), and `utc` (`:274`) with the derived `WORK_DAY` (`:157-162`). Registry rows hold no conversion code.
+2. **An oracle test pins it on real values.** The test covers both sides of every boundary the conversion has: scale 0/1/2 across batches, the midnight-UTC date edge, and the ±range limits (the C# `[0.01, 24.00]` range, `bind.rs:252`).
+3. **A disable run proves the test is load-bearing.** Removing the conversion must turn the test red. This follows the repo rule: commit first, then disable, assert the disable patch applied, then restore.
+4. **Unit and identity questions are conversions too, and are not settled by type.**
+   - `unit_amount` is a time quantity only when `product_uom_id` is a time unit. That is a row predicate, not a field type, so the mapping is `Converted` only with a UoM gate that refuses non-time rows (negative control N1).
+   - An HR employee (PERNR, `hr.employee`) and a login user (`res.users`) are **different identities**. No conversion between them exists without an explicit, tested crosswalk table, so `worker` stays `Hypothesized` (`confidence < 1.0`, never bound) until the ruling and a crosswalk exist.
+
+Any entry that fails one of the four points is `Hypothesized` by definition. In the registry design (§C.5) that means `confidence < 1.0`, and the canonical-name front refuses to bind it. The negative controls N1–N7 (§5.4) and N-a…N-d (§C.4) are the acceptance gate for every `Converted` entry. The positive demo is not.
+
+### C.7 Order of work after this PR (operator review)
+
+1. **This docs PR.** Merged after reviews.
+2. **D-XGP-1.** The minimal adapter of §C.3: a CATS `impl Binder`, the canonical-name front, and the clarification laws of C.6 as tests. It reuses `OntologyRegistry` and `Binder`; no `glove.rs` module unless review asks for one again.
+3. **D-XGP-2.** The canonical attribute URIs for `0x0103`, after the §C.5 ruling.
+4. **D-XGP-3.** The probe: Q1, Q2, N1–N7 and N-a…N-d.
+5. **D-XGP-4.** Only then does the Odoo session start from its handoff. The handoff stays gated until steps 2 and 3 have merged.
