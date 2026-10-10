@@ -56,10 +56,12 @@ impl MatrixDistance {
     pub fn new(spec: &FeatureSpec, table: Vec<u32>) -> Self {
         let dim = spec.dim();
         assert_eq!(table.len(), dim * dim, "distance table must be dim × dim");
-        let offsets: Vec<usize> = (0..spec.num_features())
-            .map(|f| spec.block(f).0)
-            .collect();
-        Self { dim, offsets, table }
+        let offsets: Vec<usize> = (0..spec.num_features()).map(|f| spec.block(f).0).collect();
+        Self {
+            dim,
+            offsets,
+            table,
+        }
     }
 
     /// The flat code (slot index) of an item. Validates bounds so an invalid
@@ -150,11 +152,7 @@ impl CodebookDistance for TopKDistance {
 /// consequent item: the **nearest** antecedent item wins (min). For a
 /// single-item antecedent this is just `distance(a, item)`.
 #[must_use]
-pub fn antecedent_distance(
-    oracle: &dyn CodebookDistance,
-    antecedent: &[Item],
-    item: Item,
-) -> u32 {
+pub fn antecedent_distance(oracle: &dyn CodebookDistance, antecedent: &[Item], item: Item) -> u32 {
     antecedent
         .iter()
         .map(|&a| oracle.distance(a, item))
@@ -169,7 +167,7 @@ mod tests {
     #[test]
     fn matrix_distance_is_slot_addressed_and_symmetric_if_built_so() {
         let spec = FeatureSpec::new(vec![2, 2]); // dim 4
-        // 4×4 table; (f0,c0)=slot0 near (f1,c0)=slot2 (dist 1), far from slot3.
+                                                 // 4×4 table; (f0,c0)=slot0 near (f1,c0)=slot2 (dist 1), far from slot3.
         #[rustfmt::skip]
         let table = vec![
             0, 5, 1, 9,
@@ -216,7 +214,11 @@ mod tests {
         let d = TopKDistance::new(spec, 99, &edges);
         assert_eq!(d.distance(Item::new(0, 0), Item::new(1, 0)), 3);
         assert_eq!(d.distance(Item::new(1, 0), Item::new(0, 0)), 3, "symmetric");
-        assert_eq!(d.distance(Item::new(0, 0), Item::new(1, 1)), 99, "non-neighbour = far");
+        assert_eq!(
+            d.distance(Item::new(0, 0), Item::new(1, 1)),
+            99,
+            "non-neighbour = far"
+        );
         assert_eq!(d.distance(Item::new(0, 0), Item::new(0, 0)), 0, "self = 0");
     }
 

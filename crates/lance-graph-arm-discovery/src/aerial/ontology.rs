@@ -127,7 +127,10 @@ impl OntologyProjector {
             is_dolce: true,
             ..Self::subclass_of(
                 namespace,
-                DolceCategory::ALL.iter().map(|c| c.iri().to_string()).collect(),
+                DolceCategory::ALL
+                    .iter()
+                    .map(|c| c.iri().to_string())
+                    .collect(),
             )
         }
     }
@@ -212,7 +215,11 @@ mod tests {
         // consequent category == dolce_id == basin (the hub routing key)
         assert_eq!(proj.dolce_id(&[Item::new(1, 0)]), Some(0)); // Endurant
         assert_eq!(proj.dolce_id(&[Item::new(1, 1)]), Some(1)); // Perdurant
-        assert_eq!(proj.dolce_id(&[Item::new(1, 9)]), None, "out-of-range facet");
+        assert_eq!(
+            proj.dolce_id(&[Item::new(1, 9)]),
+            None,
+            "out-of-range facet"
+        );
         // a non-DOLCE projector has no dolce_id to emit
         let plain = OntologyProjector::subclass_of("wd:", vec!["wd:Q5".into()]);
         assert_eq!(plain.dolce_id(&[Item::new(1, 0)]), None);
@@ -226,7 +233,12 @@ mod tests {
         // feature 0 = occupation (3), feature 1 = DOLCE class (4 facets).
         let spec = FeatureSpec::new(vec![3, 4]);
         // Plant occupation k ⇒ class k for k ∈ {0,1,2} (Abstract unused).
-        let rows: Vec<Vec<u32>> = (0..300).map(|i| { let k = (i % 3) as u32; vec![k, k] }).collect();
+        let rows: Vec<Vec<u32>> = (0..300)
+            .map(|i| {
+                let k = (i % 3) as u32;
+                vec![k, k]
+            })
+            .collect();
         let data = Dataset::new(spec.clone(), rows);
 
         // Splat top-k: occupation k is near DOLCE class k (distance 1), else far.
@@ -246,7 +258,9 @@ mod tests {
         // The planted occupation0 ⇒ Endurant(class0) skeleton edge is recovered.
         let rule = rules
             .iter()
-            .find(|r| r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)])
+            .find(|r| {
+                r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)]
+            })
             .expect("occupation0 → DOLCE class0 not discovered");
 
         let proj = OntologyProjector::dolce_subclass("wd:");

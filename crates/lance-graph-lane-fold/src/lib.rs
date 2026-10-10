@@ -6,13 +6,13 @@
 
 #![forbid(unsafe_code)]
 
+mod clifford_fold;
+mod optics;
 mod query;
 mod stars;
-mod optics;
-mod clifford_fold;
 
 pub use query::{
-    Aperture, ApertureId, BestQuery, Hom, LaneId, Query, Refuse, Request, Row, Terminal, N,
-    MASK_WORDS,
+    Aperture, ApertureId, BestQuery, Hom, LaneId, Query, Refuse, Request, Row, Terminal,
+    MASK_WORDS, N,
 };
 pub use stars::{Landing, Map, MapOp, Star, Teleport};
