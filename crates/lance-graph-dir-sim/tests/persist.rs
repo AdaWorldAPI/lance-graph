@@ -444,3 +444,47 @@ fn the_log_moves_forward_only() {
         LogError::NotAContinuation
     );
 }
+
+// An image with the logged counts but a different history is not a
+// continuation: the log must not "save" it by appending nothing (or only
+// the tail) while replay keeps returning the old history.
+#[test]
+fn a_divergent_history_is_not_a_continuation() {
+    let (st, _, _) = history();
+    let mut log = LogState::new();
+    save(&st, &mut log);
+    let logged = StoredImage::from(st.image());
+
+    let mut value = logged.clone();
+    value.values[0].push('x');
+    assert_eq!(
+        log.batch(&value).unwrap_err(),
+        LogError::NotAContinuation,
+        "a changed value"
+    );
+
+    let mut version = logged.clone();
+    version
+        .versions
+        .iter_mut()
+        .find(|v| !v.delta.is_empty())
+        .expect("a version with changes")
+        .delta
+        .pop();
+    assert_eq!(
+        log.batch(&version).unwrap_err(),
+        LogError::NotAContinuation,
+        "a changed version"
+    );
+
+    let mut root = logged.clone();
+    root.roots[0].1.scope = DirectoryScope(g(0x77));
+    assert_eq!(
+        log.batch(&root).unwrap_err(),
+        LogError::NotAContinuation,
+        "a changed root"
+    );
+
+    // The unchanged image still has nothing new.
+    assert!(log.batch(&logged).unwrap().is_none());
+}

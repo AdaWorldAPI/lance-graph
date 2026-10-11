@@ -775,11 +775,14 @@ impl Batch {
 // ---------------------------------------------------------------- writer
 
 /// What the log already holds: everything [`LogState::batch`] leaves out.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LogState {
     next_batch: u64,
     values: usize,
     versions: u64,
+    /// A digest of the logged values, roots and versions (`prefix_digest`):
+    /// what an image must still hold to continue the log.
+    prefix: u64,
     tags: BTreeMap<String, VersionId>,
     verdicts: BTreeMap<VersionId, Vec<Violation>>,
 }
@@ -787,8 +790,9 @@ pub struct LogState {
 /// Why an image cannot be appended to the log.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LogError {
-    /// The image has fewer values or versions than the log already holds:
-    /// it is not a continuation of the logged history.
+    /// The image does not start with the logged history: it has fewer
+    /// values or versions than the log holds, or the logged values, roots
+    /// or versions differ in it.
     NotAContinuation,
     /// A tag the log holds is gone from the image; tags are never removed.
     TagRemoved(String),
@@ -802,6 +806,21 @@ pub enum LogError {
         /// The batch offered.
         found: u64,
     },
+}
+
+impl Default for LogState {
+    /// An empty log. Its prefix is the digest of the empty history, not 0,
+    /// so the first image is checked like every later one.
+    fn default() -> Self {
+        Self {
+            next_batch: 0,
+            values: 0,
+            versions: 0,
+            prefix: prefix_digest(&StoredImage::default(), 0, 0),
+            tags: BTreeMap::new(),
+            verdicts: BTreeMap::new(),
+        }
+    }
 }
 
 impl LogState {
@@ -824,7 +843,10 @@ impl LogState {
     /// [`LogError`] when `image` does not extend the logged history.
     pub fn batch(&self, image: &StoredImage) -> Result<Option<Batch>, LogError> {
         let versions = image.versions.len() as u64;
-        if image.values.len() < self.values || versions < self.versions {
+        if image.values.len() < self.values
+            || versions < self.versions
+            || prefix_digest(image, self.values, self.versions) != self.prefix
+        {
             return Err(LogError::NotAContinuation);
         }
         let tags: BTreeMap<String, VersionId> = image.tags.iter().cloned().collect();
@@ -909,6 +931,7 @@ impl LogState {
                 next_batch: batch + 1,
                 values: image.values.len(),
                 versions,
+                prefix: prefix_digest(image, image.values.len(), versions),
                 tags,
                 verdicts,
             },
@@ -931,6 +954,45 @@ impl LogState {
         *self = batch.next.clone();
         Ok(())
     }
+}
+
+/// FNV-1a over the first `values` values, the roots of versions below
+/// `versions` (in version order) and the first `versions` versions, each
+/// item length-prefixed. Two images agree on it exactly when they agree on
+/// that prefix (up to hash collision), which is what lets
+/// [`LogState::batch`] refuse an image that rewrote logged history.
+///
+/// It reads the whole prefix, so a save costs time linear in the history;
+/// `batch` already walks every root.
+fn prefix_digest(image: &StoredImage, values: usize, versions: u64) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut eat = |w: W| {
+        let len = u32::try_from(w.0.len()).expect("item under 4 GiB");
+        for b in len.to_le_bytes().into_iter().chain(w.0) {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    };
+    for value in image.values.iter().take(values) {
+        let mut w = W::default();
+        w.str(value);
+        eat(w);
+    }
+    let mut roots: Vec<&(VersionId, Observation)> =
+        image.roots.iter().filter(|(v, _)| v.0 < versions).collect();
+    roots.sort_by_key(|(v, _)| *v);
+    for (v, obs) in roots {
+        let mut w = W::default();
+        w.u64(v.0);
+        w_observation(&mut w, obs);
+        eat(w);
+    }
+    for v in image.versions.iter().take(versions as usize) {
+        let mut w = W::default();
+        w_version(&mut w, v);
+        eat(w);
+    }
+    h
 }
 
 fn encode_header(h: &Header) -> Vec<u8> {
@@ -1034,23 +1096,29 @@ pub fn replay_prefix(
     let mut err = None;
     for run in records.chunk_by(|a, b| a.batch == b.batch) {
         let b = run[0].batch;
-        let mut next = image.clone();
-        let (mut ntags, mut nverdicts) = (tags.clone(), verdicts.clone());
+        // A batch is applied to the image in place and undone on failure by
+        // truncating to these lengths (values, roots and versions only ever
+        // grow), so replay never copies the accumulated image. Its tags and
+        // verdicts collect apart and merge only once the batch is whole.
+        let lens = (image.values.len(), image.roots.len(), image.versions.len());
+        let (mut ntags, mut nverdicts) = (BTreeMap::new(), BTreeMap::new());
         match apply_batch(
             b,
             state.next_batch,
             run,
-            &mut next,
+            &mut image,
             &mut ntags,
             &mut nverdicts,
         ) {
             Ok(()) => {
-                image = next;
-                tags = ntags;
-                verdicts = nverdicts;
+                tags.extend(ntags);
+                verdicts.extend(nverdicts);
                 state.next_batch = b + 1;
             }
             Err(e) => {
+                image.values.truncate(lens.0);
+                image.roots.truncate(lens.1);
+                image.versions.truncate(lens.2);
                 err = Some(e);
                 break;
             }
@@ -1060,6 +1128,7 @@ pub fn replay_prefix(
     image.verdicts = verdicts.clone().into_iter().collect();
     state.values = image.values.len();
     state.versions = image.versions.len() as u64;
+    state.prefix = prefix_digest(&image, state.values, state.versions);
     state.tags = tags;
     state.verdicts = verdicts;
     (image, state, err)
@@ -1158,6 +1227,36 @@ mod tests {
 
     fn g(n: u8) -> Guid128 {
         Guid128([n; 16])
+    }
+
+    // A batch that fails after it already changed the image (here: its
+    // header claims a version it does not carry, found only at the end)
+    // leaves the image exactly as the batches before it built it.
+    #[test]
+    fn a_batch_failing_after_it_applied_is_undone() {
+        let ab = StoredImage {
+            values: vec!["a".into(), "b".into()],
+            ..StoredImage::default()
+        };
+        let mut abc = ab.clone();
+        abc.values.push("c".into());
+        abc.tags.push(("t".into(), VersionId(0)));
+
+        let mut log = LogState::new();
+        let first = log.batch(&ab).unwrap().unwrap();
+        log.committed(&first).unwrap();
+        let mut second = log.batch(&abc).unwrap().unwrap();
+        let mut header = decode_header(&second.records[0].body).unwrap();
+        header.versions = 1;
+        second.records[0].body = encode_header(&header);
+
+        let (image, state, err) = replay_prefix(first.records.into_iter().chain(second.records));
+        assert_eq!(err, Some(ReplayError::VersionOrder(1)));
+        assert_eq!(image.values, ab.values, "the failed batch's value is gone");
+        assert!(image.tags.is_empty(), "the failed batch's tag is gone");
+        assert_eq!(state.next_batch(), 1);
+        // The state replay returns continues the log it read.
+        assert!(state.batch(&ab).unwrap().is_none());
     }
 
     fn round<T: PartialEq + std::fmt::Debug>(
