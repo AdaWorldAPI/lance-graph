@@ -411,7 +411,12 @@ fn chain_world() -> (Vec<Premise>, Vec<Relation>) {
 
 #[test]
 fn t1_eight_codes_round_trip_and_only_bits_50_52_move() {
-    let base = open(9, 7).with_w_slot(0b101101);
+    // W's lowest bit (53) clear and bits 50..52 all set, so a write that
+    // leaks into W or forgets to clear the old code is visible.
+    let mut base = open(9, 7).with_w_slot(0b101100);
+    base.set_plasticity(PlasticityState::from_bits(0b111));
+    assert_eq!(base.0 & M3_MASK, M3_MASK, "fixture: old code bits set");
+    assert_eq!(base.0 & (1 << 53), 0, "fixture: bit 53 clear");
     for m in Maturation3::ALL {
         let e = write_m3(base, m, M3Reading::Experimental).unwrap();
         assert_eq!(read_m3(e, M3Reading::Experimental), Ok(m));
