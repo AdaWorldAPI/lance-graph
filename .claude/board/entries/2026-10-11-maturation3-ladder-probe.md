@@ -72,3 +72,21 @@ that reading, and a `learn` that does not gate on maturation bits. Not done.
   outcomes; mapping recipe outputs onto them is undesigned.
 - T5 uses hydration outcomes as the discriminating test, a weak stand-in for
   a Pearl trial; certification is untouched by design.
+
+## Addendum, same day — Maslov Pyramid of Cognition
+
+Named by the operator; the model is documented in
+`.claude/knowledge/maslov-pyramid-of-cognition.md`. Stage 7 renamed
+Astonishment.
+
+- **Corrected:** the first T9 applied the new violation to the anchor itself.
+  It now lands on the contradicted relation (B), which starts at 7, and the
+  anchor (A) stays at 0. Direct counterevidence against A's own relation
+  still reopens A.
+- **Added:** an indirect 3-cycle (A → B → C → A) stays open; disabled, it
+  grounds itself. A grounded 3-cycle resolves once and 64 further passes add
+  no root.
+- **Disable runs, red:** a derived relation manufacturing its own root;
+  violation routed by subject only (hits the anchor).
+- The root union matches the existing `lance_graph_contract::revision` mask
+  algebra (`independent_roots`, difference against ancestry).
