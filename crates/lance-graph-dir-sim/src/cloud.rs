@@ -190,3 +190,16 @@ impl CloudMailboxes {
             }
     }
 }
+
+/// Whether mail to `g` is delivered to it: [`CloudMailboxes::delivers_to`]
+/// when the cloud was observed, otherwise [`View::is_mail_recipient`] alone.
+///
+/// This is the one rule every consumer applies, to the holder of an address
+/// and to each member a list expands to, so a consumer that holds an
+/// optional cloud observation does not restate it.
+pub fn receives_mail(v: &View<'_>, cloud: Option<&CloudMailboxes>, g: &Guid128) -> bool {
+    match cloud {
+        Some(c) => c.delivers_to(v, g),
+        None => v.is_mail_recipient(g),
+    }
+}
