@@ -4,8 +4,9 @@ Plan: `.claude/plans/sql-polyfill-r2il-v1.md`.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| **D-SQLP-0** | Plan + board rows | In PR | — |
-| **D-SQLP-1** | `FoldDialect` moved into a `lance-graph-r2il` crate | In PR (workspace-excluded, own CI step; probe 40/40 unchanged, crate 6 tests) | existing `row_bridge.rs` tests unchanged and green; one arity table |
+| **D-SQLP-0** | Plan + board rows | Shipped (#1476, #1478) | — |
+| **D-SQLP-1** | `FoldDialect` moved into a `lance-graph-r2il` crate | Shipped (#1479; workspace-excluded, own CI step; probe 40/40 unchanged, crate 7 tests) | existing `row_bridge.rs` tests unchanged and green; one arity table |
+| **D-TELEPORT-0** | Source-restricted fold probe: scan/join vs gated gather vs extent; range intersection; sorted-lane crossing point | Shipped (probe) | every arm equals the oracle on clustered and scattered layouts |
 | **D-SQLP-2** | First procedures (`filter_lt`, `sum`, `group_sum`, `margin`) as `PROC_DEF` bodies; `FoldDialect` wires `IntOr` and adds a fused mode (mask-risc `fuse`) beside the in-place mode | Queued | scalar-reference parity; disable runs red; both modes keep the same rows, fused holds ternlogs |
 | **D-SQLP-3** | Benchmark: direct ndarray vs hand-built `Program` vs interpreted procedure | Queued | interpreted ≤ 1.05× hand-built at 65,536 and 1M rows (pre-registered) |
 | **D-SQLP-4** | Build-time generator: declared procedure → Rust with const-generic opcodes | Queued, gated on D-SQLP-3 | ≤ 1.05× direct ndarray; no interpreter dispatch in the hot loop |
