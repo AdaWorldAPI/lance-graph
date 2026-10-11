@@ -28,7 +28,8 @@ use lance_graph_ogar::OgarClassView;
 pub const CONCEPTS: &[u16] = &[BILLABLE_WORK_ENTRY];
 
 /// SAP CATS. No capabilities are covered: the authority declares none on
-/// `0x0103` yet, so activation refuses with `NoCapabilitiesFor`.
+/// `0x0103` yet, so the plug asks for a reading only and activates with it
+/// (D-HPR-8: reading is not a capability).
 pub const SAP_HOT_PLUG: HotPlug = HotPlug {
     consumer: "sap-glove",
     classids: CONCEPTS,

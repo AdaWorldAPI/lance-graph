@@ -480,16 +480,13 @@ const fn concept_override(classid: u16) -> Option<ReadMode> {
             value_schema: ValueSchema::Bootstrap,
             edge_codec: EdgeCodecFlavor::CoarseOnly,
         }),
-        // The canon domains' value models, keyed by concept (D-HPR-2, plan
-        // `v3-mandatory-hotplug-reading-v1`). The same readings
-        // `classid_read_mode` gives their `CLASSID_*_V3` keys, so a consumer
-        // plugging one of these concepts reads what the classid table reads,
-        // with no classview involved.
-        0x0701 => Some(ReadMode::OSINT_V3),
-        0x0A01 => Some(ReadMode::FMA_V3),
-        0x0E01 => Some(ReadMode::CPIC_V3),
-        0x0101 => Some(ReadMode::PROJECT_V3),
-        0x0202 => Some(ReadMode::ERP_V3),
+        // The five canon domains (0x0701, 0x0A01, 0x0E01, 0x0101, 0x0202)
+        // carried their storage models here under D-HPR-2. They were removed
+        // by D-HPR-7 (decided 2026-10-11): three of those u16s are also
+        // consumer appid heads, so any consumer plugging the shared concept
+        // got one app's storage model. A domain's model now comes from the
+        // slab holding its data (`SlabDeclaration`, which overrides exactly
+        // the value schema in which these readings differed).
         _ => None,
     }
 }
@@ -505,9 +502,11 @@ const fn is_palette_seat(classid: u16) -> bool {
     classid >= 0x1717 && (classid >> 8) == 0x17
 }
 
-/// `true` for the five canon storage domains whose reading lives in
-/// [`concept_override`] (D-HPR-2): OSINT `0x0701`, FMA `0x0A01`, CPIC
-/// `0x0E01`, PROJECT `0x0101`, ERP `0x0202`.
+/// `true` for the five canon storage domains: OSINT `0x0701`, FMA `0x0A01`,
+/// CPIC `0x0E01`, PROJECT `0x0101`, ERP `0x0202`. Only their ROUTING is special
+/// (reading-only when the join refuses them); since D-HPR-7 they read
+/// plug-and-play, and a domain's storage model comes from its slab's
+/// `SlabDeclaration`.
 const fn is_canon_storage_domain(classid: u16) -> bool {
     matches!(classid, 0x0701 | 0x0A01 | 0x0E01 | 0x0101 | 0x0202)
 }
@@ -615,6 +614,32 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
         // unclaimed one is plug-and-play for whoever plugs it.
         if impersonated_seat(plug.consumer, &palette).is_some() {
             return Err(ActivationDrift::UnexpectedConsumer(plug.consumer.into()));
+        }
+
+        // D-HPR-8 (decided 2026-10-11): a plug that covers no capability asks
+        // for a reading only, and reading is not a capability. So the join is
+        // not consulted: a concept with no action table, or a table whose
+        // executor list does not name this consumer, cannot refuse it. The
+        // ids still have to be real. Palette seats and canon storage domains
+        // keep their routing above (no concept row, as before); every other
+        // id must be a minted concept, and its row goes through the mirror
+        // check. A plug that names any capability falls through to the join
+        // unchanged.
+        if plug.covered.is_empty() {
+            let mut concepts = Vec::with_capacity(capability.len());
+            for &id in &capability {
+                match ogar_vocab::class_ids::ALL
+                    .iter()
+                    .find(|&&(_, cid)| cid == id)
+                {
+                    Some(&(name, cid)) => concepts.push((name.to_string(), cid)),
+                    None => return Err(ActivationDrift::UnknownClassid(id)),
+                }
+            }
+            if let Some(drift) = lance_graph_contract::hotplug::verify_against_mirror(&concepts) {
+                return Err(drift);
+            }
+            return Ok(Activation::new(concepts, Vec::new(), plug_readings(plug)));
         }
 
         // Pure-palette plug: no capability ids at all, so the join is not
@@ -820,11 +845,18 @@ mod plug_and_play_reading {
         assert!(super::OgarAuthority.activate(&BLOCKLY).is_ok());
     }
 
-    /// D-HPR-2: the canon domains' readings come from the plug, keyed by
-    /// concept, and equal what `classid_read_mode` gives their `*_V3` keys.
+    /// D-HPR-7 (decided 2026-10-11): plugging a canon domain's concept reads
+    /// plug-and-play, like any other plugged concept. The domain's own storage
+    /// model belongs to the slab that holds its data, so the slab's
+    /// declaration restores it, and then it equals what `classid_read_mode`
+    /// gives the domain's `*_V3` key. Reading-only routing (D-HPR-2's codex P1
+    /// fix) is unchanged: the plug still activates although the join refuses
+    /// every one of these ids.
     #[test]
-    fn canon_domains_read_from_the_plug_as_the_classid_table_reads_them() {
-        use lance_graph_contract::canonical_node::NodeGuid;
+    fn canon_domains_read_plug_and_play_and_their_slab_restores_the_domain_model() {
+        use lance_graph_contract::canonical_node::{NodeGuid, ValueSchema};
+        use lance_graph_contract::hotplug::{SlabDeclaration, SlabReading};
+        use lance_graph_contract::soa_envelope::ENVELOPE_LAYOUT_VERSION;
         let domains = [
             (0x0701u16, NodeGuid::CLASSID_OSINT_V3),
             (0x0A01, NodeGuid::CLASSID_FMA_V3),
@@ -837,38 +869,39 @@ mod plug_and_play_reading {
             classids: &[0x0701, 0x0A01, 0x0E01, 0x0101, 0x0202],
             covered: &[],
         };
-        // Through the public path, not the private helper (codex P1 on
-        // #1465): every one of these ids is refused by the capability join,
-        // so a reading reachable only via `plug_readings` would be dead.
         let act = super::OgarAuthority
             .activate(&plug)
             .expect("a canon-domain plug activates for its reading");
-        let readings = act.declared_readings().to_vec();
         for (concept, classid) in domains {
+            assert_eq!(classid >> 16, u32::from(concept), "fixture pairs");
             assert_eq!(
-                classid >> 16,
-                u32::from(concept),
-                "fixture pairs concept and classid"
+                act.read_mode_for(concept),
+                Ok(ReadMode::PLUG_AND_PLAY_V3),
+                "0x{concept:04X}: the concept alone carries no storage model"
             );
-            let from_plug = readings
-                .iter()
-                .find_map(|(c, m)| (*c == concept).then_some(*m))
-                .expect("every plugged concept reads");
-            assert_eq!(from_plug, classid_read_mode(classid), "0x{concept:04X}");
-            assert_eq!(from_plug.tail_variant, TailVariant::V3);
+            let stored = classid_read_mode(classid);
+            let slab = SlabDeclaration {
+                reading: SlabReading::Facet96,
+                value_schema: stored.value_schema,
+                layout_version: ENVELOPE_LAYOUT_VERSION,
+            };
+            let resolved = act
+                .resolve_for_context(concept, Some(&slab))
+                .expect("a declared slab resolves");
+            assert_eq!(resolved.read_mode, stored, "0x{concept:04X}");
         }
-        // Anti-vacuity: the domains do not all read the plug-and-play default,
-        // so the overrides are what this test checks.
-        assert!(domains.iter().any(|(c, _)| readings
+        // Anti-vacuity: the stored domain models are not all plug-and-play,
+        // so the slab declaration is what restores them.
+        assert!(domains
             .iter()
-            .any(|(rc, m)| rc == c && *m != ReadMode::PLUG_AND_PLAY_V3)));
+            .any(|(_, c)| classid_read_mode(*c).value_schema != ValueSchema::Full));
     }
 
     /// A canon storage domain plugged alongside capability ids: the domain
     /// gets its reading without reaching the join, and the capability half
     /// still resolves (codex P1 on #1465).
     #[test]
-    fn a_canon_domain_next_to_capability_ids_activates_and_reads_its_domain() {
+    fn a_canon_domain_next_to_capability_ids_activates_and_reads_plug_and_play() {
         let mixed = HotPlug {
             consumer: "medcare-rs",
             classids: &[0x0A01, 0x0901, 0x0902],
@@ -886,7 +919,9 @@ mod plug_and_play_reading {
         let act = super::OgarAuthority
             .activate(&mixed)
             .expect("the canon domain must not make the plug refuse");
-        assert_eq!(act.read_mode_for(0x0A01), Ok(ReadMode::FMA_V3));
+        // D-HPR-7: the concept alone reads plug-and-play; FMA's Compressed
+        // model comes from its slab's declaration.
+        assert_eq!(act.read_mode_for(0x0A01), Ok(ReadMode::PLUG_AND_PLAY_V3));
         assert_eq!(act.read_mode_for(0x0901), Ok(ReadMode::PLUG_AND_PLAY_V3));
         assert!(!act.capabilities.is_empty());
         assert!(act.concepts.iter().all(|(_, id)| *id != 0x0A01));
@@ -998,6 +1033,71 @@ mod plug_and_play_reading {
         assert!(matches!(
             super::OgarAuthority.activate(&impostor),
             Err(ActivationDrift::UnexpectedConsumer(c)) if c == "medcare-rs"
+        ));
+    }
+
+    /// D-HPR-8 CAN FIRE: a plug that covers no capability asks for a reading
+    /// only, and gets one — for a concept that has no capability table
+    /// (`0x0103`, the SAP/Odoo glove plugs) and for one that has a table it
+    /// does not serve (`0x0901`, whose healthcare table expects only
+    /// `medcare-rs`). Reading is not a capability, so neither the missing table
+    /// nor the executor list stands in the way.
+    #[test]
+    fn a_plug_covering_nothing_activates_for_its_reading_only() {
+        let plugs = [
+            (
+                HotPlug {
+                    consumer: "sap-glove",
+                    classids: &[0x0103],
+                    covered: &[],
+                },
+                0x0103u16,
+                "billable_work_entry",
+            ),
+            (
+                HotPlug {
+                    consumer: "some-reader",
+                    classids: &[0x0901],
+                    covered: &[],
+                },
+                0x0901,
+                "patient",
+            ),
+        ];
+        for (plug, id, name) in plugs {
+            let act = super::OgarAuthority.activate(&plug).unwrap_or_else(|d| {
+                panic!("{} reading-only plug of {id:#06x}: {d:?}", plug.consumer)
+            });
+            assert_eq!(act.read_mode_for(id), Ok(ReadMode::PLUG_AND_PLAY_V3));
+            // Concept rows still come from the codebook, so the mirror check
+            // keeps running; capabilities are empty because none were asked.
+            assert_eq!(act.concepts, vec![(name.to_string(), id)]);
+            assert!(act.capabilities.is_empty());
+        }
+    }
+
+    /// D-HPR-8 CAN STAY SILENT: the moment a plug names a capability it goes
+    /// through the join exactly as before. `0x0103` still has no table, and a
+    /// non-executor covering a healthcare capability is still an impostor.
+    #[test]
+    fn a_plug_that_covers_a_capability_is_still_refused_without_its_table() {
+        let sap_claiming = HotPlug {
+            consumer: "sap-glove",
+            classids: &[0x0103],
+            covered: &["anything"],
+        };
+        assert_eq!(
+            super::OgarAuthority.activate(&sap_claiming),
+            Err(ActivationDrift::NoCapabilitiesFor(0x0103))
+        );
+        let impostor = HotPlug {
+            consumer: "some-reader",
+            classids: &[0x0901],
+            covered: &["register_patient"],
+        };
+        assert!(matches!(
+            super::OgarAuthority.activate(&impostor),
+            Err(ActivationDrift::UnexpectedConsumer(c)) if c == "some-reader"
         ));
     }
 
