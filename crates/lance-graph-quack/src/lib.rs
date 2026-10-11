@@ -1892,6 +1892,60 @@ pub fn lower_group_by_auto(g: &GroupBy, filter_plane: u16) -> Result<GroupLoweri
     lower_group_by(g, filter_plane).map(GroupLowering::Forest)
 }
 
+/// **`Range ∧ Range → Range`.** Inside each `AND`, the direct children
+/// `Cmp(col, Range { lo, hi })` that share a `col` collapse into the one
+/// range `[max(lo), max(max(lo), min(hi)))`, kept at the first one's position.
+///
+/// Three passes (two range writes and an `And`) become a property of two
+/// boundaries. Under a `Count` or `Any` that leaves the single range
+/// mask-risc answers from `hi - lo` without visiting a row; under any other
+/// terminal the survivors are still visited, minus two passes and two slots.
+///
+/// - **Empty intersections stay empty and valid**: disjoint ranges become
+///   `Range { lo: x, hi: x }`, never `lo > hi`.
+/// - **Row-order identity**: a `Range` is row ordinals in the order of the
+///   lane it was bound against, and `col` is the only order identity a
+///   [`Filter`] carries, so only ranges on the same `col` merge. Ranges on
+///   different columns are left as they are.
+/// - **Scope**: siblings of one `AND` only. A range under an `OR` or a `NOT`
+///   is never merged with one outside it, and nested `AND`s are not
+///   flattened.
+/// - **Refusals**: a range with `lo > hi` is not merged, so mask-risc still
+///   refuses it. A bound past `n_rows` cannot be checked here (the filter
+///   carries no row count); if it is on the side the intersection drops, the
+///   merged range is in bounds and runs. The bounded producers
+///   ([`Filter::prefix_facet`], [`Filter::aperture_facet`]) never emit one.
+fn fold_ranges(f: &Filter) -> Filter {
+    match f {
+        Filter::And(parts) => {
+            let mut out: Vec<Filter> = Vec::with_capacity(parts.len());
+            let mut first: Vec<(Col, usize)> = Vec::new();
+            for p in parts {
+                let p = fold_ranges(p);
+                if let Filter::Cmp(col, Cmp::Range { lo, hi }) = p {
+                    if lo <= hi {
+                        let seen = first.iter().find(|(c, _)| *c == col).map(|&(_, i)| i);
+                        if let Some(i) = seen {
+                            if let Filter::Cmp(_, Cmp::Range { lo: l0, hi: h0 }) = &mut out[i] {
+                                let l = (*l0).max(lo);
+                                *h0 = (*h0).min(hi).max(l);
+                                *l0 = l;
+                            }
+                            continue;
+                        }
+                        first.push((col, out.len()));
+                    }
+                }
+                out.push(p);
+            }
+            Filter::And(out)
+        }
+        Filter::Or(parts) => Filter::Or(parts.iter().map(fold_ranges).collect()),
+        Filter::Not(inner) => Filter::Not(Box::new(fold_ranges(inner))),
+        leaf => leaf.clone(),
+    }
+}
+
 /// The shared front half of every lowering: gate the tree, emit it, read the
 /// aggregate off wherever the result landed.
 fn lower_with(
@@ -1899,7 +1953,8 @@ fn lower_with(
     agg: Agg,
     emit: impl FnOnce(&Node, &mut Vec<MaskOp>) -> Result<Operand, LowerError>,
 ) -> Result<Program, LowerError> {
-    let (node, _) = gate_walk(filter, None)?;
+    let filter = fold_ranges(filter);
+    let (node, _) = gate_walk(&filter, None)?;
     let mut ops = Vec::new();
     let mask = emit(&node, &mut ops)?;
     Ok(Program::new(ops, terminal_of(agg, mask)))
@@ -4996,5 +5051,204 @@ mod facet16_tests {
         let only_first: usize = (0..n).filter(|&i| bytes[i * 16] == 3).count();
         assert!(!want.is_empty() && want.len() < only_first, "anti-vacuity");
         assert_eq!(got, want);
+    }
+}
+
+#[cfg(test)]
+mod range_fold_tests {
+    //! `fold_ranges`: two ranges on one column become one, and nothing else
+    //! moves.
+
+    use super::*;
+    use lance_graph_mask_risc::{
+        execute_into, words_for, Foreign, LaneRef, Lowering, Out, Planes, Scratch, Value,
+    };
+
+    const N: usize = 1_000;
+    const V: Col = Col(0);
+    const W: Col = Col(1);
+
+    fn range(col: Col, lo: u32, hi: u32) -> Filter {
+        Filter::Cmp(col, Cmp::Range { lo, hi })
+    }
+
+    fn lowered(f: &Filter, fused: bool) -> Program {
+        let q = Query {
+            filter: f.clone(),
+            agg: Agg::Count,
+        };
+        if fused { lower_fused(&q) } else { lower(&q) }.expect("lowers")
+    }
+
+    fn ranges_in(p: &Program) -> Vec<(u32, u32)> {
+        p.ops
+            .iter()
+            .filter_map(|op| match op {
+                MaskOp::Pred {
+                    pred: Pred::Range { lo, hi },
+                    ..
+                } => Some((*lo, *hi)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Two lanes, `vals = i % 97 - 48` and `alt = i % 31`, one plane
+    /// `r % 3 != 0`. Ranges read no lane; the lanes serve the mixed leaves.
+    struct Fx {
+        vals: Vec<i32>,
+        alt: Vec<i32>,
+        plane: Vec<u64>,
+    }
+
+    impl Fx {
+        fn new() -> Self {
+            let mut plane = vec![0u64; words_for(N)];
+            for r in (0..N).filter(|r| r % 3 != 0) {
+                plane[r / 64] |= 1 << (r % 64);
+            }
+            Fx {
+                vals: (0..N).map(|i| (i % 97) as i32 - 48).collect(),
+                alt: (0..N).map(|i| (i % 31) as i32).collect(),
+                plane,
+            }
+        }
+
+        fn oracle(&self, f: &Filter, r: usize) -> bool {
+            match f {
+                Filter::Cmp(_, Cmp::Range { lo, hi }) => (*lo as usize) <= r && r < *hi as usize,
+                Filter::Cmp(c, Cmp::LtI32(t)) => {
+                    let lane = if *c == V { &self.vals } else { &self.alt };
+                    lane[r] < *t
+                }
+                Filter::Plane(_) => self.plane[r / 64] >> (r % 64) & 1 == 1,
+                Filter::And(ps) => ps.iter().all(|p| self.oracle(p, r)),
+                Filter::Or(ps) => ps.iter().any(|p| self.oracle(p, r)),
+                Filter::Not(p) => !self.oracle(p, r),
+                other => panic!("not in this fixture: {other:?}"),
+            }
+        }
+
+        fn want(&self, f: &Filter) -> usize {
+            (0..N).filter(|&r| self.oracle(f, r)).count()
+        }
+
+        fn count(&self, p: &Program) -> usize {
+            let lanes = [LaneRef::I32(&self.vals), LaneRef::I32(&self.alt)];
+            let masks = [self.plane.as_slice()];
+            let planes = Planes {
+                n_rows: N,
+                masks: &masks,
+                lanes: &lanes,
+            };
+            let mut scratch = Scratch::for_program(p, N).expect("carves");
+            match execute_into(p, &planes, &Foreign::NONE, &mut scratch, Out::None) {
+                Ok(Value::Count(c)) => c,
+                other => panic!("not a count: {other:?}"),
+            }
+        }
+    }
+
+    /// FAILS IF: two overlapping ranges on one column stop lowering to the
+    /// one intersected range, or that range stops taking mask-risc's
+    /// closed-form path for COUNT.
+    #[test]
+    fn two_ranges_on_one_column_lower_to_their_intersection() {
+        let fx = Fx::new();
+        let f = Filter::and([range(V, 10, 500), range(V, 300, 900)]);
+        assert_eq!(fx.want(&f), 200);
+        for fused in [false, true] {
+            let p = lowered(&f, fused);
+            assert_eq!(
+                ranges_in(&p),
+                vec![(300, 500)],
+                "fused = {fused}: {:?}",
+                p.ops
+            );
+            assert_eq!(p.ops.len(), 1, "fused = {fused}: {:?}", p.ops);
+            assert!(
+                matches!(p.compile().lowering(), Lowering::Range(_)),
+                "fused = {fused}: COUNT of one range is the closed form"
+            );
+            assert_eq!(fx.count(&p), 200);
+        }
+    }
+
+    /// FAILS IF: a disjoint pair stops lowering to an EMPTY valid range
+    /// (`lo == hi`), e.g. produces `lo > hi`, which mask-risc refuses.
+    #[test]
+    fn disjoint_ranges_lower_to_an_empty_range() {
+        let fx = Fx::new();
+        let f = Filter::and([range(V, 10, 20), range(V, 30, 40)]);
+        let p = lowered(&f, false);
+        assert_eq!(ranges_in(&p), vec![(30, 30)]);
+        assert_eq!(fx.count(&p), 0);
+    }
+
+    /// FAILS IF: ranges on DIFFERENT columns, ranges split by an `OR`, or a
+    /// lone range start being rewritten. Each lowers to the ops it lowered
+    /// to before the rewrite.
+    #[test]
+    fn ranges_without_a_shared_and_and_column_are_left_alone() {
+        let fx = Fx::new();
+        let cases = [
+            Filter::and([range(V, 10, 500), range(W, 300, 900)]),
+            Filter::or([range(V, 10, 500), range(V, 300, 900)]),
+            Filter::and([range(V, 10, 500), Filter::Not(Box::new(range(V, 300, 900)))]),
+        ];
+        for f in &cases {
+            let p = lowered(f, false);
+            assert_eq!(ranges_in(&p).len(), 2, "{f:?} -> {:?}", p.ops);
+            assert_eq!(fx.count(&p), fx.want(f), "{f:?}");
+        }
+        assert_eq!(fold_ranges(&range(V, 1, 2)), range(V, 1, 2));
+    }
+
+    /// FAILS IF: a range with `lo > hi` is merged (which would turn a
+    /// refused range into a valid empty one).
+    #[test]
+    fn an_inverted_range_is_not_merged() {
+        let f = Filter::and([range(V, 50, 10), range(V, 0, 100)]);
+        assert_eq!(fold_ranges(&f), f);
+    }
+
+    /// FAILS IF: any conjunction of ranges, mixed with a plane and lane
+    /// compares, stops counting the rows the oracle counts under either
+    /// lowering. 400 seeded cases.
+    #[test]
+    fn random_range_conjunctions_match_the_oracle() {
+        let fx = Fx::new();
+        let mut x = 0x9E37_79B9_7F4A_7C15u64;
+        let mut next = |m: u64| {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x % m
+        };
+        let mut merged = 0;
+        for _ in 0..400 {
+            let mut parts = Vec::new();
+            for _ in 0..(2 + next(4)) {
+                let a = next(N as u64 + 1) as u32;
+                let b = next(N as u64 + 1) as u32;
+                let col = if next(4) == 0 { W } else { V };
+                parts.push(range(col, a.min(b), a.max(b)));
+            }
+            match next(3) {
+                0 => parts.push(Filter::Plane(Mask(0))),
+                1 => parts.push(Filter::Cmp(V, Cmp::LtI32(next(97) as i32 - 48))),
+                _ => {}
+            }
+            let f = Filter::And(parts);
+            let want = fx.want(&f);
+            for fused in [false, true] {
+                let p = lowered(&f, fused);
+                assert_eq!(fx.count(&p), want, "fused = {fused}: {f:?}");
+            }
+            if fold_ranges(&f) != f {
+                merged += 1;
+            }
+        }
+        assert!(merged > 300, "the cases must exercise the merge: {merged}");
     }
 }
