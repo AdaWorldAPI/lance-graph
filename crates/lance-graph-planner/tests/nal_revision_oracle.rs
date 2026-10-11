@@ -16,8 +16,10 @@
 //! fixture of the same shape (`<a2 --> b2>`, `<a3 --> b3>`), whose OUT lines
 //! read `%0.45;0.77%` and `%0.50;0.95%`. OpenNARS prints truth to two decimals,
 //! so that is the equivalence criterion: a law agrees when its output rounds to
-//! the printed value. Laws whose inputs pass through the u8 truth grid get one
-//! extra hundredth, because an 8-bit code moves 0.9 to 0.902 before the law runs.
+//! the printed value. Laws that read and write u8 truth codes get one extra
+//! output code (1/255), the most the grid itself can move a result. Law A runs
+//! on the same grid and stays within 0.0045 of every printed value, so the
+//! allowance is measured, not generous.
 //!
 //! The law letters are D-RPF-CONF-0's census:
 //! A `CausalEdge64::revision`, B1/B16 `NarsTables::build(1|16).revise`,
@@ -47,8 +49,8 @@ const ORACLE: [Point; 3] = [
 
 /// Print precision of the oracle: agreement is |x - printed| <= half a hundredth.
 const PRINT_TOL: f32 = 0.005 + 1e-6;
-/// For laws that read u8 truth codes: one further hundredth.
-const GRID_TOL: f32 = PRINT_TOL + 0.01;
+/// For laws that read u8 truth codes: one further output code.
+const GRID_TOL: f32 = PRINT_TOL + 1.0 / 255.0;
 
 fn q(x: f32) -> u8 {
     (x.clamp(0.0, 1.0) * 255.0).round() as u8
@@ -155,7 +157,7 @@ fn b1_b16_and_lin_diverge_from_the_reference() {
         .filter(|(n, _, _)| ["B1", "B16", "LIN"].contains(n))
         .map(|(n, tol, law)| (*n, agreements(law, *tol)))
         .collect();
-    assert_eq!(got, vec![("B1", 0), ("B16", 2), ("LIN", 0)]);
+    assert_eq!(got, vec![("B1", 0), ("B16", 1), ("LIN", 0)]);
 }
 
 /// B1 is the law the replay and counterfactual path emits (D-RPF-CONF-0). Its

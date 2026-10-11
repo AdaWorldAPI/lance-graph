@@ -22,8 +22,8 @@ reasoning can work?
    evidence against a NAL reference. (`recipes.tsv`, VERIFIED-IN-CODE.)
 2. **lance-graph's NAL-1 revision arithmetic is right in four places and
    wrong in two.** Against OpenNARS output, laws A, C, D and E reproduce all
-   three points; B1 (the replay path's table) and LIN (`grammar::revise_truth`)
-   reproduce none. (MEASURED, `tests/nal_revision_oracle.rs`.)
+   three points; B16 one; B1 (the replay path's table) and LIN
+   (`grammar::revise_truth`) reproduce none. (MEASURED, `tests/nal_revision_oracle.rs`.)
 3. **MCP ("meta-cognition") is two scalars.** It cannot see any past execution,
    so it gives a calibrated and an overconfident history the same verdict. A
    receipt (executed step + confidence left + later outcome + identity) fixes

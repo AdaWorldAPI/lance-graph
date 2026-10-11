@@ -90,8 +90,14 @@ fn mcp_verdict_depends_on_confidence_and_free_energy_only() {
 /// One executed step, the confidence it left in the context, the outcome
 /// observed later, and an identity. `ExecutedStep` supplies the first part
 /// today; the other three have no carrier.
+///
+/// The identity is `(session, run, step.id)`. `run` alone restarts at 0 in
+/// every batch, so two batches would collide and the second would be dropped
+/// as a repeat; `session` names the batch so identities stay unique across
+/// them.
 #[derive(Debug, Clone)]
 struct Receipt {
+    session: u64,
     run: u32,
     step: ExecutedStep,
     predicted: f32,
@@ -101,13 +107,14 @@ struct Receipt {
 /// A history of `n` executed MCP steps that each left confidence `p`, of
 /// which `hits` were later confirmed. MCP runs for real; the outcomes are the
 /// later evidence the context never carried.
-fn history(n: u32, p: f32, hits: u32) -> Vec<Receipt> {
+fn history(session: u64, n: u32, p: f32, hits: u32) -> Vec<Receipt> {
     (0..n)
         .map(|run| {
             // free_energy 0.4: MCP's rule stays quiet, so the step leaves `p`.
             let mut c = ctx(p, 0.4);
             let step = run_recipes(&mut c, &[MCP]).remove(0);
             Receipt {
+                session,
                 run,
                 step,
                 predicted: c.confidence,
@@ -125,7 +132,7 @@ fn calibrate(receipts: &[Receipt]) -> Option<f32> {
     let mut lp = LearningLoop::new();
     let (mut sum_p, mut hits, mut n) = (0.0f64, 0u32, 0u32);
     for r in receipts {
-        if !seen.insert((r.run, r.step.id)) {
+        if !seen.insert((r.session, r.run, r.step.id)) {
             continue; // the same execution again is not new evidence
         }
         let outcome = if r.hit { 1.0 } else { 0.0 };
@@ -148,8 +155,8 @@ fn calibrate(receipts: &[Receipt]) -> Option<f32> {
 
 #[test]
 fn mcp_cannot_tell_a_calibrated_past_from_an_overconfident_one() {
-    let calibrated = history(10, 0.9, 9); // said 0.9, right 9 of 10
-    let overconfident = history(10, 0.9, 2); // said 0.9, right 2 of 10
+    let calibrated = history(1, 10, 0.9, 9); // said 0.9, right 9 of 10
+    let overconfident = history(2, 10, 0.9, 2); // said 0.9, right 2 of 10
     assert!(
         calibrated
             .iter()
@@ -183,7 +190,7 @@ fn mcp_cannot_tell_a_calibrated_past_from_an_overconfident_one() {
 #[test]
 fn without_receipts_the_reader_abstains_while_mcp_still_acts() {
     assert_eq!(calibrate(&[]), None);
-    assert_eq!(calibrate(&history(9, 0.9, 2)), None, "below 10 receipts");
+    assert_eq!(calibrate(&history(1, 9, 0.9, 2)), None, "below 10 receipts");
     let (fired, delta, _) = mcp(&mut ctx(0.9, 0.6));
     assert!(
         fired && delta < 0.0,
@@ -195,7 +202,7 @@ fn without_receipts_the_reader_abstains_while_mcp_still_acts() {
 
 #[test]
 fn a_repeated_receipt_is_not_new_evidence() {
-    let base = history(10, 0.9, 9);
+    let base = history(1, 10, 0.9, 9);
     // Re-deliver the one miss nine more times: same run, same step.
     let miss = base.iter().find(|r| !r.hit).expect("one miss").clone();
     let mut echoed = base.clone();
@@ -213,4 +220,24 @@ fn a_repeated_receipt_is_not_new_evidence() {
     }
     assert!(clean.is_calibrated() && !raw.is_calibrated());
     assert!(raw.brier_score() > clean.brier_score());
+}
+
+/// Two batches whose run counters both start at 0 are still two pasts. With
+/// `run` alone as the identity the second batch read as a repeat of the first
+/// and vanished, so the verdict was the first batch's whatever came after.
+#[test]
+fn receipts_from_separate_batches_are_all_counted() {
+    let first = history(1, 10, 0.9, 9);
+    let second = history(2, 10, 0.9, 2);
+    // Same (run, step.id) pairs in both batches: only `session` separates them.
+    assert!(first
+        .iter()
+        .zip(&second)
+        .all(|(a, b)| a.run == b.run && a.step.id == b.step.id));
+
+    let both: Vec<Receipt> = first.iter().chain(&second).cloned().collect();
+    let got = calibrate(&both).expect("twenty receipts");
+    assert_ne!(Some(got), calibrate(&first), "the second batch must count");
+    // 11 hits of 20 against a predicted 0.9.
+    assert!((got - (0.55 - 0.9)).abs() < 1e-6, "got {got}");
 }

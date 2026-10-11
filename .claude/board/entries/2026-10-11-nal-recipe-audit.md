@@ -21,7 +21,8 @@ cargo test -p lance-graph-planner --test nal_revision_oracle
   MEASURED; 5 disable runs red, including one that made MCP read `beliefs`.
 - **Revision against OpenNARS output** (D-NAL-REV-0). Three points whose
   expected values are OpenNARS for Research's printed output (commit
-  `4d1bdb0`): laws A, C, D, E reproduce all three; B16 two; B1 and LIN none.
+  `4d1bdb0`): laws A, C, D, E reproduce all three; B16 one (its 0.012 and 0.018 misses exceed
+  the one-code u8 allowance); B1 and LIN none.
   B1, the replay path's law, keeps the same confidence whatever the premises.
   LIN can end below the stronger premise. MEASURED; 3 disable runs red,
   including one on production `nars::truth::TruthValue::revise`.
