@@ -271,3 +271,44 @@ fn scratch_is_sized_by_the_tile_not_the_rows() {
     );
     assert!(s <= l);
 }
+
+/// FAILS IF: a fold wider than `MAX_SLOTS` stops being refused (or is
+/// silently truncated), or a fold of exactly `MAX_SLOTS` stops running.
+#[test]
+fn a_fold_wider_than_max_slots_is_refused_not_truncated() {
+    let values = lane();
+    let lanes = [LaneRef::I32(&values)];
+    let planes = Planes {
+        n_rows: N,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign::NONE;
+
+    // `width` RANGE predicates, each its own slot, then count the last one.
+    let fold = |width: usize| {
+        let mut d = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![];
+        for i in 0..width {
+            call(&mut d, RANGE, [i as u8, 100, 0], &mut stack).expect("RANGE");
+        }
+        let r = call(&mut d, POP_COUNT, [0; 3], &mut stack);
+        (r, stack)
+    };
+
+    let (ok, stack) = fold(MAX_SLOTS);
+    assert_eq!(ok, Ok(()), "a fold of exactly MAX_SLOTS slots runs");
+    let last = (MAX_SLOTS - 1) as i64;
+    assert_eq!(stack.last(), Some(&Val::Scalar(100 - last)));
+
+    let (wide, _) = fold(MAX_SLOTS + 1);
+    assert!(
+        matches!(
+            wide,
+            Err(FoldError::Exec(
+                lance_graph_mask_risc::ExecError::ScratchBufferTooSmall { .. }
+            ))
+        ),
+        "a fold wider than MAX_SLOTS must be refused, got {wide:?}"
+    );
+}

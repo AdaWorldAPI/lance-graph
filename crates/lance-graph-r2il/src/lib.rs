@@ -47,6 +47,16 @@
 //! [`FoldError::UnknownLoadSpace`]; every other byte, `IntAdd` and `IntOr`
 //! included, as [`FoldError::Unimplemented`].
 //!
+//! # Slot limit
+//!
+//! The scratch buffer is sized once, for [`MAX_SLOTS`] slots. One fold may
+//! therefore use at most [`MAX_SLOTS`] scratch slots between two fold
+//! boundaries; a wider body is refused at that fold with
+//! [`FoldError::Exec`]`(ScratchBufferTooSmall)`, never truncated. The limit
+//! keeps allocation independent of program size as well as row count. A
+//! caller that needs wider folds needs a larger arena, which is a constructor
+//! change, not a silent grow.
+//!
 //! # Branching on a population
 //!
 //! `Dialect::truthy` returns a bare `bool` through `&self`, so the dialect
@@ -92,8 +102,8 @@ pub const INT_S_LESS: FnIndex = FnIndex(R2IL_BASE + 30);
 pub const INT_LESS_EQUAL: FnIndex = FnIndex(R2IL_BASE + 31);
 pub const POP_COUNT: FnIndex = FnIndex(R2IL_BASE + 41);
 
-/// Ceiling on scratch slots any ONE finalized fold program may touch — the
-/// probe's `gating_only_folds_the_last_ungated_pred` (3 preds + 1 real `And`)
+/// Ceiling on scratch slots any ONE finalized fold program may touch (see
+/// the crate doc's § Slot limit; a wider fold is refused). The probe's `gating_only_folds_the_last_ungated_pred` (3 preds + 1 real `And`)
 /// is the widest measured body, at 4. Sized with headroom, not tightly, since
 /// the whole point of `Scratch::over` is that a shared buffer can be carved
 /// smaller than its own capacity for free.
