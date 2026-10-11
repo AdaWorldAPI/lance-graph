@@ -66,6 +66,24 @@ It follows the 2026-09-05 lance-graph ruling that planning moves to
   lowerings select, not the `Program`s they build, over 28 combine vectors;
   `lowering_convergence.rs` `eval_plan_lower` vs `run(quack::lower(..))`);
   `lance-graph-sap` (CATS boundary adapters, "no SAP evaluator").
+- **NULL in quack** (`lance-graph-quack/src/lib.rs`, `Filter::sql_where`):
+  a nullable column is its value lane plus a resident validity plane; there
+  is no NULL value, tag or second bitmap. `sql_where` rewrites a `Filter` into
+  an ordinary two-valued `Filter` over the same `Cmp`/`Plane`/`And`/`Or`/`Not`
+  leaves, using the SQL true/false polarity laws (`T(NOT ψ) = F(ψ)`,
+  `F(AND) = ⋁ F`, `F(OR) = ⋀ F`, leaf on nullable `x` gated by `valid(x)`;
+  `Semijoin` gated but never UNKNOWN). A filter that reads no nullable column
+  comes back unchanged. NULL literals, `COALESCE`/`NULLIF` and nullable
+  arithmetic are out of scope there. Baseline tests:
+  `tests/sql_null_3vl.rs`, against an independent row-at-a-time Kleene
+  oracle that never calls `sql_where`, over `lower` and `lower_fused`
+  (required cases, gating-before-negation, NULL ≠ 0, random trees, deep mixed
+  chains, aggregates' NULL conventions).
+- **Ternlog fusion** lives in mask-risc (`fuse.rs`: `fuse` / `fuse_program`
+  turn a `BoolExpr` into ternlogs); quack's `lower_fused` assigns leaf slots
+  and calls it. `FoldDialect` today emits one `MaskOp` per Boolean call and
+  wires `IntAnd` and `IntNot` but not `IntOr`, although R2IL has `IntOr` and
+  mask-risc has `MaskOp::Or`.
 - **Column types mask-risc reads:** `LaneRef::{I32, U32, U64}` plus strided
   reads; quack's binder knows `FieldKind::{I32, Code}` only.
 
@@ -109,6 +127,30 @@ It follows the 2026-09-05 lance-graph ruling that planning moves to
 - **DECISION: Java holds no operations.** `sql()` is one Panama downcall;
   parameters and results cross as Valhalla value records and handles; every
   public call stays O(1) in rows (lance-graph-java `CLAUDE.md`).
+- **DECISION: NULL keeps quack's semantics and representation.** The R2IL
+  path lowers the output of `Filter::sql_where`, never the raw filter, so
+  three-valued `WHERE` arrives as an ordinary two-valued mask expression
+  over validity planes. No NULL representation, opcode family, execution
+  layer or second evaluator is added; validity gates stay resident-plane
+  gates, so survivor skipping applies to them as before.
+- **DECISION: two Boolean lowering modes, matching quack's two.** quack pins
+  both shapes (`the_fused_lowering_trades_slots_for_passes`: `lower` = 2 mask
+  passes / 2 slots, `lower_fused` = 1 ternlog / 4 slots), so `FoldDialect`
+  keeps both. *In-place* emits one `MaskOp` per Boolean call, as today.
+  *Fused* collects a body's Boolean calls into one `BoolExpr` and hands it to
+  mask-risc's `fuse`, so ternlog fusion and deforestation are preserved. The
+  caller picks the mode; `lower` maps to in-place and `lower_fused` to fused.
+- **SCOPE: NULL extensions are predicate rewrites only.** Inside a `WHERE`,
+  NULL literals (`x = NULL`, `NOT IN (…, NULL)`), `COALESCE` and `NULLIF`
+  expand to Boolean combinations of validity planes and leaf compares (e.g.
+  `COALESCE(x, y) = 5` → `(valid(x) ∧ x = 5) ∨ (¬valid(x) ∧ valid(y) ∧ y = 5)`),
+  so they fit the mask algebra; each is a W7 item. Value-producing
+  expressions (nullable arithmetic such as `x + y > 5`, and `COALESCE` /
+  `NULLIF` / arithmetic as projected values) need a derived value lane and a
+  result path that mask algebra cannot provide: OPEN, not in this plan, and
+  `IntAdd` stays scalar-only. NULLs in a foreign value lane stay unmodelled,
+  as in quack. BASIS for this decision and the previous ones: quack's
+  `sql_where` doc and `tests/sql_null_3vl.rs`.
 - **OPEN: SQL text parser.** DataFusion is in its grace period, so its parser
   is not the route. Candidates: a standalone parser crate, or a declared-query
   schema that needs no text parser for the compile-time mode. Decided in W6.
@@ -121,12 +163,12 @@ It follows the 2026-09-05 lance-graph ruling that planning moves to
 |---|---|---|---|---|
 | W0 | D-SQLP-0 | lance-graph | This plan + board rows | — |
 | W1 | D-SQLP-1 | lance-graph | Move `FoldDialect` and its `Val`/`FoldError` types from `r2il-mask-abi-probe/tests/row_bridge.rs` into a workspace crate `lance-graph-r2il`; the probe's tests depend on it | every existing `row_bridge.rs` test passes unchanged against the crate; still one arity table in the tree (`ogar_r2il`'s); no new opcode; the named refusals still refuse |
-| W2 | D-SQLP-2 | lance-graph | First procedures as `PROC_DEF` bodies over R2IL calls: `filter_lt` (`Load` + `IntSLess` + `KEEP`), `sum`, `group_sum`, and `margin` (two `SUM` + `IntSub`) | each answer equals a scalar reference on fixtures with ≥ 3 groups and both empty and full selections; no new opcode; disable runs: drop `KEEP` from `filter_lt` → red; swap `IntSub` operands in `margin` → red |
+| W2 | D-SQLP-2 | lance-graph | First procedures as `PROC_DEF` bodies over R2IL calls: `filter_lt` (`Load` + `IntSLess` + `KEEP`), `sum`, `group_sum`, and `margin` (two `SUM` + `IntSub`). Prerequisites in `FoldDialect`: wire `IntOr` onto `MaskOp::Or` like `IntAnd`; add the fused mode (a body's Boolean calls collected into one `BoolExpr` and lowered through mask-risc `fuse`) beside today's in-place mode | each answer equals a scalar reference on fixtures with ≥ 3 groups and both empty and full selections; no new opcode; disable runs: drop `KEEP` from `filter_lt` → red; swap `IntSub` operands in `margin` → red; an `IntOr` test that is red if it is lowered as `And`; a two-mode test where both keep the same rows, in-place emits per-call ops and fused holds ternlogs |
 | W3 | D-SQLP-3 | lance-graph | Benchmark `margin` three ways: direct `ndarray::simd` calls, hand-built mask-risc `Program`s, the interpreted procedure. N = 65,536 and 1,048,576; selectivity ~1 % and ~50 % | answers identical before timing; release, quiet machine, median of 101 runs, avx512 and avx2 reported separately. Pre-registered: interpreted ≤ 1.05× hand-built `Program` at both N |
 | W4 | D-SQLP-4 | lance-graph | Build-time generator: a declared procedure body → Rust that calls mask-risc / `ndarray::simd` directly, with opcodes as const generics (the `ternlog::<IMM>` pattern) | generated code's answers identical to the interpreted body; generated ≤ 1.05× direct ndarray at both N; disassembly of the hot loop contains no interpreter dispatch |
-| W5 | D-SQLP-5 | lance-graph, lance-graph-java | quack, `plan_eval` and the SAP binder lower through the procedures | quack and SAP: for every case their tests pin, the `mask_risc::Program` produced through the procedures is byte-identical to today's. lance-graph-java: first add a `Program`-level test comparing the procedure lowering against the legacy `plan_lower` output (none exists today; `lowering_convergence` compares row counts only), then require byte-identical `Program`s for its 28 combine vectors. No other behaviour change |
+| W5 | D-SQLP-5 | lance-graph, lance-graph-java | quack, `plan_eval` and the SAP binder lower through the procedures | quack and SAP: for every case their tests pin, the `mask_risc::Program` produced through the procedures is byte-identical to today's, per mode (`lower` against in-place, `lower_fused` against fused; `the_fused_lowering_trades_slots_for_passes` stays green). lance-graph-java: first add a `Program`-level test comparing the procedure lowering against the legacy `plan_lower` output (none exists today; `lowering_convergence` compares row counts only), then require byte-identical `Program`s for its 28 combine vectors. Nullable predicates: run the `sql_null_3vl.rs` cases through the procedure path in both modes, against the same Kleene oracle, byte-identical to `lower(sql_where(f))` / `lower_fused(sql_where(f))` respectively: required cases, nested `NOT`/`AND`/`OR`, gating-before-negation, NULL ≠ 0, random trees, deep chains, and the `Rows` / `Count` / `SumI32` aggregate cases. Its `MinI32` / `MaxI32` cases join once W7's `MIN` / `MAX` items land (explicit prerequisite for those cases only); add falsifiers only for shapes that suite does not cover. No other behaviour change |
 | W6 | D-SQLP-6 | lance-graph-java, lance-graph | `sql()` membrane: one Panama downcall (new ABI minor), parameters and result handles as value records; parser decision (§4 OPEN) | `ApiSurfaceTest` green (no opcode, mask or FFM type in a public signature); allocation gate shows no row-proportional Java allocation; full `AllTests` + consumer mains on JDK 28 |
-| W7 | D-SQLP-7 | ndarray, lance-graph, OGAR | Backlog, one item at a time. Population items, mask-risc first: `MIN`, `MAX`, `KEY_RUNS`, `ANY`, `ALL`, `SCATTER_OR`, `BLEND`; lanes for i64 compares, f64, decimal (scaled i64), date (i32 days). Scalar items: `IntAdd` | population items: ndarray primitive with parity on every realization row → mask-risc `Pred`/`Terminal` with parity → `FoldDialect` wiring → procedure. Scalar items: `FoldDialect` wiring over `Val::Scalar` only, the way `IntSub` already is (`row_bridge.rs`, `INT_SUB` arm), with a scalar test and the `Addr`/`Addr` refusal kept; no ndarray or mask-risc change. Each item its own PR |
+| W7 | D-SQLP-7 | ndarray, lance-graph, OGAR | Backlog, one item at a time. Population items, mask-risc first: `MIN`, `MAX`, `KEY_RUNS`, `ANY`, `ALL`, `SCATTER_OR`, `BLEND`; lanes for i64 compares, f64, decimal (scaled i64), date (i32 days). Scalar items: `IntAdd`. NULL predicate extensions, each separately scoped: NULL literals, `COALESCE` and `NULLIF` inside predicates — expanded over validity planes and the existing mask algebra, extending quack's `sql_where` rules first and the procedures second (value-producing forms and nullable arithmetic are OPEN, see §4) | population items: ndarray primitive with parity on every realization row → mask-risc `Pred`/`Terminal` with parity → `FoldDialect` wiring → procedure. Scalar items: `FoldDialect` wiring over `Val::Scalar` only, the way `IntSub` already is (`row_bridge.rs`, `INT_SUB` arm), with a scalar test and the `Addr`/`Addr` refusal kept; no ndarray or mask-risc change. NULL extensions: written into quack's `sql_null_3vl.rs` oracle first (red before, green after), no new NULL representation. Each item its own PR |
 | W8 | D-SQLP-8 | OGAR | Mint `0xC400` / `0xC401` in `ogar-vocab` (request to OGAR; this plan does not mint) | the provisional notes in `ogar-r2il` are replaced by minted ids; no persisted GUID uses them before |
 
 **Kill conditions.** W3 interpreted > 1.5× hand-built at either N → stop
@@ -152,5 +194,7 @@ the procedures need. W8 is a request that can go out now.
 - No meta layer or second IR between `ogar-r2il` and `ogar-loco`.
 - No new DataFusion code.
 - No computation, materialization or opcode on the Java side.
+- No second NULL representation or 3VL evaluator; NULL stays validity planes
+  plus `sql_where`.
 - No GPU or JIT backend until W3/W4 numbers show per-tile dispatch costs
   something measurable.
