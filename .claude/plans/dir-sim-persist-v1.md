@@ -41,20 +41,60 @@ as a simulated version whose origin names the restored version.
       completeness.
 - [x] `VersionStore` keeps each root's `Observation` (needed for the image).
 - [x] `VersionStore::revert(current, earlier, evidence)` — the undo as a version, recorded under `REVERT`.
-- [ ] Lance writer/reader in a separate crate (`lance-graph-dir-sim-lance`),
-      so `lance-graph-dir-sim` keeps its no-I/O rule: one Lance dataset per
-      store, tables `values`, `nodes`, `members`, `proxies`, `versions`,
-      `changes`, `tags`; one Lance version per dir-sim version written.
+- [x] **Decision 2(a), 2026-10-11:** persisted rules resolve by exact
+      `(name, version)`. `StoredImage` holds every rule as text
+      (`StoredRule`); `RuleRegistry` resolves only to the registered rule
+      with the same name and version (`REVERT` always registered);
+      `VersionStore::restore_stored` refuses an unknown rule
+      (`RestoreError::UnknownRules`, every version listed); `History` reads
+      such an image without ever resolving or replacing the rule, and
+      exposes no write. Tests in `tests/persist.rs`; disable runs red
+      (name-only match, `REVERT` not registered).
+- [ ] **D-DSP-2, Lance writer/reader** in a separate crate
+      (`lance-graph-dir-sim-lance`), so `lance-graph-dir-sim` keeps its
+      no-I/O rule. Shape, decided 2026-10-11 (3(b)):
+  - **Logical versions are not Lance versions.** `VersionId` is the
+    history's own clock. A save appends one **batch** holding every logical
+    version written since the previous save, in order; one batch = one
+    Lance commit, so a Lance version counts saves, never dir-sim versions.
+  - **Sparse append, resident fold** (`knowledge/split-tunnel-sparse-append-resident-fold.md`):
+    a batch carries only what is new since the last save (values interned
+    since, roots observed since, versions since, tag and verdict changes).
+    Nothing is updated in place or compacted; Lance is read once, at
+    restore, into a `StoredImage`.
+  - **Verifiable batches.** Each batch carries a header record: batch
+    sequence number, first and last logical version, record count, and a
+    checksum over the batch's records, written in the same commit. Restore
+    checks, batch by batch in sequence order: the sequence is dense, the
+    first version follows the previous batch's last, the record count and
+    checksum match.
+  - **Torn saves are refused, never repaired.** A batch failing any check
+    (missing records, a gap, a checksum mismatch, a header without its
+    records) refuses the restore with the batch named. No prefix of the
+    history is restored silently; reading up to the last good batch is a
+    separate, explicit call, not a fallback.
+  - **One writer.** The writer checks the dataset's latest version before
+    and after its append (stale writer refused, race detected); a race
+    leaves the log refused until reconciled. In-band idempotency stays
+    OPEN, as in the reference implementation.
+  - Records: `Observation`, `Change`, `Origin` and `Violation` need a
+    stable encoding; it lives in the Lance crate next to the reader that
+    must decode it, with a round-trip test per variant.
+- [x] **Decision 4(b), 2026-10-11:** group-to-role grants are the
+      authority's versioned policy, not directory state: OGAR
+      `ogar_rbac::group_policy::GroupRolePolicy` (append-only, own
+      `PolicyVersion`, `GrantProvenance` per change). dir-sim's
+      `GroupRoles` is filled from a policy state; `None` (never named) and
+      `Some([])` (all revoked) stay distinct (5(a)).
 - [ ] Board: STATUS_BOARD row; HubSPO handover reply.
 
 ## Open
 
-- Whether a Lance version per dir-sim version, or per write batch, is the
-  right mapping (OGAR says 1:1 "by design"; a batch import would write many
-  versions at once).
+- ~~Whether a Lance version per dir-sim version, or per write batch, is the
+  right mapping.~~ Decided 2026-10-11 (3(b)): per batch; the logical clock
+  is independent (OGAR #354 corrects `provenance.rs`).
 - Encoding of `Change` / `Origin` rows: they are OGAR types; their columnar
   form belongs next to them in OGAR or here.
-- `RuleId::name` is `&'static str` (OGAR `provenance.rs:29`). An image held in
-  memory restores fine, but one read back from bytes has no `'static` name to
-  put there. D-DSP-2 needs either a rule registry the reader maps names
-  through (unknown name = refusal), or an owned name in OGAR's `RuleId`.
+- ~~`RuleId::name` is `&'static str`.~~ Decided 2026-10-11 (2(a)): a rule
+  registry, exact `(name, version)`, unknown = refusal; `History` for
+  read-only inspection.

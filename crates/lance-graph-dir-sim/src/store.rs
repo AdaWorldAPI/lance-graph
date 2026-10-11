@@ -338,6 +338,21 @@ impl VersionStore {
         Ok(st)
     }
 
+    /// A store from a persisted image whose rules are text: each resolved
+    /// through `rules` by exact name and version, then [`Self::restore`].
+    ///
+    /// # Errors
+    ///
+    /// [`RestoreError::UnknownRules`] when any rule is not registered, or
+    /// any error of [`Self::restore`]. For reading such a history, see
+    /// [`crate::image::History`].
+    pub fn restore_stored(
+        image: crate::image::StoredImage,
+        rules: &crate::image::RuleRegistry,
+    ) -> Result<Self, RestoreError> {
+        Self::restore(image.resolve(rules)?)
+    }
+
     /// Version a tag points to.
     pub fn tag(&self, name: &str) -> Option<VersionId> {
         self.tags.get(name).copied()
