@@ -22,7 +22,7 @@ What it means, in rules:
 
 **The plug path already exists.** `lance-graph-ogar::plug_readings` (`lib.rs:452`) gives every plugged concept `ReadMode::PLUG_AND_PLAY_V3` unless `concept_override` (`lib.rs:477`) names an exception. `Activation::read_mode_for` fails closed (`NoReadingFor`), never defaulting.
 
-**The second path that must go:** `canonical_node::classid_read_mode(classid)` (`canonical_node.rs:1813`) looks the full `u32` up in `BUILTIN_READ_MODES` (`:1743`). It has two faults:
+**The second path, which stops selecting new readings** (⊘ the heading read "The second path that must go", which contradicts rule 5; regraded 2026-10-11 — the path stays as the reader of stored legacy keys, it stops being where a NEW reading comes from): `canonical_node::classid_read_mode(classid)` (`canonical_node.rs:1850`; `:1813` when written) looks the full `u32` up in `BUILTIN_READ_MODES` (`:1773`; was `:1743`). It has two faults:
 
 - the V3 reading is chosen by the `0x1000` marker in the classview bits (the `*_V3` keys);
 - an unknown classid falls through to `ReadMode::DEFAULT`, which is a **V1** tail. That is exactly the silent V1 fallback the 2026-09-07 ruling forbade on the plug path.
