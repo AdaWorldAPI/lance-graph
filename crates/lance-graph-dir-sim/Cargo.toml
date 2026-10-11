@@ -38,13 +38,17 @@ ogar-az = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # The actor source over a view (`actors`, feature `rbac`): the contract's
 # zero-dep `ActorSource` socket.
 lance-graph-contract = { path = "../lance-graph-contract", optional = true }
+# Group-to-role grants are the authority's versioned policy
+# (`ogar_rbac::GroupRolePolicy`); `GroupRoles::from_policy` reads one
+# version of it. The directory supplies membership only.
+ogar-rbac = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", optional = true }
 # RFC 4518 string preparation (NFKC) for case-ignore LDAP matching.
 unicode-normalization = "0.1"
 # Full Unicode case folding (RFC 3454 B.2) for the same.
 unicase = "2"
 
 [features]
-rbac = ["dep:lance-graph-contract"]
+rbac = ["dep:lance-graph-contract", "dep:ogar-rbac"]
 
 # mask-risc names ndarray by its canonical git coordinate; point it at the
 # sibling checkout so this workspace has one ndarray identity and needs no
@@ -58,6 +62,16 @@ ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
 ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
 ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
 ogar-az = { path = "../../../OGAR/crates/ogar-az" }
+ogar-rbac = { path = "../../../OGAR/crates/ogar-rbac" }
+ogar-auth = { path = "../../../OGAR/crates/ogar-auth" }
+ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
+
+# ogar-rbac names the contract and the RBAC kernel by git. Point them at
+# this checkout so the crate builds against one contract: the `RoleId` the
+# policy hands back is the one `ViewActors` answers with.
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-rbac = { path = "../lance-graph-rbac" }
 
 [[test]]
 name = "view_actors"
