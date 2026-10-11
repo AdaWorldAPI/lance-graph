@@ -22,6 +22,8 @@
 //!   synthetic or simulated) and as LDIF.
 //! * [`ldap`] — a read-only LDAP v3 protocol handler over a projection;
 //!   access decided by the host's [`ldap::Authority`]. Bytes in, bytes out.
+//! * `actors` (feature `rbac`) — the roles a principal holds through the
+//!   security groups whose SID it carries, as the contract's `ActorSource`.
 //! * [`cloud`] — which AD objects have their mailbox in Exchange Online,
 //!   read from OGAR's GUID-keyed hybrid correspondence fold.
 //!
@@ -31,6 +33,8 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "rbac")]
+pub mod actors;
 pub mod ad;
 pub mod bind;
 pub mod cloud;

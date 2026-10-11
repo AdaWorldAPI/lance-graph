@@ -35,10 +35,16 @@ ogar-dir-core = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 ogar-dir-sim = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 ogar-ad = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 ogar-az = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+# The actor source over a view (`actors`, feature `rbac`): the contract's
+# zero-dep `ActorSource` socket.
+lance-graph-contract = { path = "../lance-graph-contract", optional = true }
 # RFC 4518 string preparation (NFKC) for case-ignore LDAP matching.
 unicode-normalization = "0.1"
 # Full Unicode case folding (RFC 3454 B.2) for the same.
 unicase = "2"
+
+[features]
+rbac = ["dep:lance-graph-contract"]
 
 # mask-risc names ndarray by its canonical git coordinate; point it at the
 # sibling checkout so this workspace has one ndarray identity and needs no
@@ -52,3 +58,7 @@ ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
 ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
 ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
 ogar-az = { path = "../../../OGAR/crates/ogar-az" }
+
+[[test]]
+name = "view_actors"
+required-features = ["rbac"]
