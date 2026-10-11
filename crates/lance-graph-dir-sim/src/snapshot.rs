@@ -603,6 +603,10 @@ pub struct Snapshot {
     pub(crate) groups: Population,
     /// `proxyAddresses` of the users, as rows.
     pub(crate) proxies: ProxyRelation,
+    /// `proxyAddresses` of the groups, as rows (owner = group ordinal).
+    /// Read only by the provisioning plane: delivery reads a group's primary
+    /// SMTP address alone.
+    pub(crate) group_proxies: ProxyRelation,
     pub(crate) m_user: Vec<u32>,
     pub(crate) m_group: Vec<u32>,
     pub(crate) m_all: Vec<u64>,
@@ -637,7 +641,12 @@ impl Snapshot {
         if proxies.len() >= u32::MAX as usize {
             return Err(BuildError::TooManyProxies);
         }
-        let groups = Population::build(&groups, d);
+        let group_nodes = groups;
+        let groups = Population::build(&group_nodes, d);
+        let group_proxies = ProxyRelation::build(&group_nodes, &groups, d);
+        if group_proxies.len() >= u32::MAX as usize {
+            return Err(BuildError::TooManyProxies);
+        }
         let mut rows: Vec<(u16, u16)> = Vec::with_capacity(obs.members.len());
         let mut unresolved = Vec::new();
         for (u, g) in &obs.members {
@@ -660,6 +669,7 @@ impl Snapshot {
             users,
             groups,
             proxies,
+            group_proxies,
             m_user,
             m_group,
             m_all,

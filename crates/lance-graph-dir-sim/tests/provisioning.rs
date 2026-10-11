@@ -128,3 +128,35 @@ fn distinct_claims_and_one_object_under_two_roles_are_not_conflicts() {
     let view = st.view(v).unwrap();
     assert_eq!(provisioning_conflicts(&view), vec![]);
 }
+
+// A group's secondary SMTP proxy claims like any other address: another
+// object carrying it is a provisioning conflict. Delivery still reads a
+// group by its primary address only, so the user keeps the address there.
+#[test]
+fn a_groups_secondary_proxy_claims_its_address() {
+    let mut grp = group("team@x.test");
+    grp.proxies = vec!["smtp:sales@x.test".into()];
+    let (mut st, v) = store(vec![
+        (g(0xB0), grp),
+        (
+            g(0xA1),
+            ObservedNode::user("alice.upn@x.test", "sales@x.test"),
+        ),
+    ]);
+    let key = {
+        let id = st.intern("sales@x.test");
+        st.key_of(id).unwrap()
+    };
+    let view = st.view(v).unwrap();
+    assert_eq!(address_owner(&view, key), Ok(Some(g(0xA1))));
+    assert_eq!(
+        provisioning_conflicts(&view),
+        vec![ProvisioningConflict {
+            key,
+            claims: vec![
+                (g(0xA1), AddressRole::PrimarySmtp),
+                (g(0xB0), AddressRole::SecondarySmtp),
+            ],
+        }]
+    );
+}
