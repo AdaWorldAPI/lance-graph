@@ -33,7 +33,8 @@ Decision 1(c): observed claims, provisioning conflicts and delivery are three qu
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| **D-DSV-1** | `validate::provisioning_conflicts`: every present object's claims, separate from `address_owner` / `address_recipient` / `validate` | In PR | `tests/provisioning.rs`: delivery unchanged, conflict reported, silence half; two disable runs red |
+| **D-DSV-1** | `validate::provisioning_conflicts`: every present object's claims, separate from `address_owner` / `address_recipient` / `validate` | Shipped (#1477, #1480) | `tests/provisioning.rs`: delivery unchanged, conflict reported, silence half; two disable runs red |
+| **D-DSV-2** | A mail-enabled group's secondary SMTP proxies are in the Exchange address space (a group without a primary SMTP address claims them only in the provisioning plane): mail to them reaches the group (`address_owner` / `address_recipient`), and an object sharing one is an `AddressConflict` | In PR | `tests/provisioning.rs`: `mail_to_a_groups_secondary_proxy_reaches_the_group` red before; `a_groups_secondary_proxy_claims_its_address` re-pinned from owner to conflict; `a_non_mail_enabled_groups_proxy_is_only_a_provisioning_claim` red before (Codex P1) |
 
 ## D-DSP — dir-sim history that survives a restart (2026-10-11)
 
