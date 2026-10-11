@@ -1,7 +1,14 @@
 # lance-graph-dir-sim — simulate a directory's desired state over the SoA
 # substrate. EXCLUDED from the lance-graph workspace (own [workspace] root)
-# because it path-deps the OGAR sibling — the same shape as
-# lance-graph-report-ogar / lance-graph-ogar.
+# because it depends on OGAR — the same shape as lance-graph-ogar.
+#
+# OGAR is a git dependency, so a consumer in another repository (HubSPO-rs)
+# can depend on this crate by git (ISS-LG-DIRSIM-NOT-GIT-CONSUMABLE). The
+# [patch] below redirects that git source onto the sibling checkout for this
+# crate's own build and CI, so a paired OGAR change is tested before it
+# merges. `[patch]` only applies in the workspace root: a consumer that also
+# names OGAR by path (Spear, Stalwart) must repeat it in its root, or it
+# builds two `ogar-dir-core` crates and the types do not unify.
 #
 # Direction: this crate depends on BOTH sides; neither depends on it. OGAR
 # owns the semantic vocabulary (ogar-dir-sim: Change, provenance, Violation,
@@ -24,10 +31,10 @@ description = "Versioned directory graph over SoA lanes: observed snapshots shar
 [dependencies]
 lance-graph-quack = { path = "../lance-graph-quack" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
-ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
-ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
-ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
-ogar-az = { path = "../../../OGAR/crates/ogar-az" }
+ogar-dir-core = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-dir-sim = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-ad = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-az = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # RFC 4518 string preparation (NFKC) for case-ignore LDAP matching.
 unicode-normalization = "0.1"
 # Full Unicode case folding (RFC 3454 B.2) for the same.
@@ -38,3 +45,10 @@ unicase = "2"
 # network for it (same patch as the lance-graph root).
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 ndarray = { path = "../../../ndarray" }
+
+# This crate's own build uses the OGAR sibling checkout (see the header).
+[patch."https://github.com/AdaWorldAPI/OGAR"]
+ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
+ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
+ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
+ogar-az = { path = "../../../OGAR/crates/ogar-az" }
