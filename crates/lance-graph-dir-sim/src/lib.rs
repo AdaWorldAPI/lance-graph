@@ -46,7 +46,7 @@ pub mod validate;
 pub mod view;
 
 pub use bind::{where_eq, UserBinder, WhereEqError};
-pub use cloud::{CloudMailboxes, MailboxGuid};
+pub use cloud::{receives_mail, CloudMailboxes, MailboxGuid};
 pub use exec::Kept;
 pub use groups::{groups_where, GroupProperty, GroupWhere};
 pub use ogar_dir_sim::{KeyId, ValueId};

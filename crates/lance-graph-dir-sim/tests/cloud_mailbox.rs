@@ -337,3 +337,27 @@ fn the_exchange_guid_comparison_needs_a_remote_mailbox_in_the_cloud() {
         MailboxGuid::NoCloudMailbox
     );
 }
+
+// The one rule consumers apply to "is mail to this node delivered":
+// without a cloud observation the view decides alone; with one, a remote
+// mailbox must also have its cloud mailbox. The remote mailbox below has
+// none, so the two answers differ.
+#[test]
+fn receives_mail_uses_the_cloud_only_when_it_is_observed() {
+    let c = cloud(Some(g(ENTRA)), &[(g(ENTRA), g(ANCHOR))], &[]);
+    let (st, v) = observe(user(true));
+    let view = st.view(v).unwrap();
+    assert!(receives_mail(&view, None, &g(USER)));
+    assert!(!receives_mail(&view, Some(&c), &g(USER)));
+    assert_eq!(
+        receives_mail(&view, None, &g(USER)),
+        view.is_mail_recipient(&g(USER))
+    );
+    assert_eq!(
+        receives_mail(&view, Some(&c), &g(USER)),
+        c.delivers_to(&view, &g(USER))
+    );
+    // A node that does not exist receives nothing, either way.
+    assert!(!receives_mail(&view, None, &g(0x99)));
+    assert!(!receives_mail(&view, Some(&c), &g(0x99)));
+}
