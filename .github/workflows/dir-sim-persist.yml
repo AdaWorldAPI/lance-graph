@@ -1,0 +1,71 @@
+name: dir-sim persist
+# lance-graph-dir-sim-lance stores the dir-sim history log in Lance. It is
+# workspace-excluded (own [workspace] root, like lance-graph-dir-sim, which
+# it depends on), so no other job builds it. Without this one a change to
+# `lance_graph_dir_sim::log` or a lance bump could break it unnoticed.
+#
+# lance's build compiles .proto files: `protoc` alone is not enough, the
+# well-known includes (libprotobuf-dev) are needed too.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - crates/lance-graph-dir-sim/**
+      - crates/lance-graph-dir-sim-lance/**
+      - crates/lance-graph-quack/**
+      - crates/lance-graph-mask-risc/**
+      - .github/workflows/dir-sim-persist.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  lance-log:
+    name: dir-sim log in Lance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: lance-graph
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+          persist-credentials: false
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+          persist-credentials: false
+      - name: Checkout AdaWorldAPI/OGAR (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/OGAR
+          path: OGAR
+          persist-credentials: false
+      - name: Install protoc and the protobuf includes (for lance)
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libprotobuf-dev
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lance-graph/crates/lance-graph-dir-sim-lance
+      - name: clippy
+        run: cargo clippy --manifest-path crates/lance-graph-dir-sim-lance/Cargo.toml --all-targets -- -D warnings
+      - name: test
+        run: cargo test --manifest-path crates/lance-graph-dir-sim-lance/Cargo.toml
