@@ -617,6 +617,32 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
             return Err(ActivationDrift::UnexpectedConsumer(plug.consumer.into()));
         }
 
+        // D-HPR-8 (decided 2026-10-11): a plug that covers no capability asks
+        // for a reading only, and reading is not a capability. So the join is
+        // not consulted: a concept with no action table, or a table whose
+        // executor list does not name this consumer, cannot refuse it. The
+        // ids still have to be real. Palette seats and canon storage domains
+        // keep their routing above (no concept row, as before); every other
+        // id must be a minted concept, and its row goes through the mirror
+        // check. A plug that names any capability falls through to the join
+        // unchanged.
+        if plug.covered.is_empty() {
+            let mut concepts = Vec::with_capacity(capability.len());
+            for &id in &capability {
+                match ogar_vocab::class_ids::ALL
+                    .iter()
+                    .find(|&&(_, cid)| cid == id)
+                {
+                    Some(&(name, cid)) => concepts.push((name.to_string(), cid)),
+                    None => return Err(ActivationDrift::UnknownClassid(id)),
+                }
+            }
+            if let Some(drift) = lance_graph_contract::hotplug::verify_against_mirror(&concepts) {
+                return Err(drift);
+            }
+            return Ok(Activation::new(concepts, Vec::new(), plug_readings(plug)));
+        }
+
         // Pure-palette plug: no capability ids at all, so the join is not
         // consulted (it is pinned to refuse `0x17XX`).
         if !palette.is_empty() && capability.is_empty() {
@@ -998,6 +1024,71 @@ mod plug_and_play_reading {
         assert!(matches!(
             super::OgarAuthority.activate(&impostor),
             Err(ActivationDrift::UnexpectedConsumer(c)) if c == "medcare-rs"
+        ));
+    }
+
+    /// D-HPR-8 CAN FIRE: a plug that covers no capability asks for a reading
+    /// only, and gets one — for a concept that has no capability table
+    /// (`0x0103`, the SAP/Odoo glove plugs) and for one that has a table it
+    /// does not serve (`0x0901`, whose healthcare table expects only
+    /// `medcare-rs`). Reading is not a capability, so neither the missing table
+    /// nor the executor list stands in the way.
+    #[test]
+    fn a_plug_covering_nothing_activates_for_its_reading_only() {
+        let plugs = [
+            (
+                HotPlug {
+                    consumer: "sap-glove",
+                    classids: &[0x0103],
+                    covered: &[],
+                },
+                0x0103u16,
+                "billable_work_entry",
+            ),
+            (
+                HotPlug {
+                    consumer: "some-reader",
+                    classids: &[0x0901],
+                    covered: &[],
+                },
+                0x0901,
+                "patient",
+            ),
+        ];
+        for (plug, id, name) in plugs {
+            let act = super::OgarAuthority.activate(&plug).unwrap_or_else(|d| {
+                panic!("{} reading-only plug of {id:#06x}: {d:?}", plug.consumer)
+            });
+            assert_eq!(act.read_mode_for(id), Ok(ReadMode::PLUG_AND_PLAY_V3));
+            // Concept rows still come from the codebook, so the mirror check
+            // keeps running; capabilities are empty because none were asked.
+            assert_eq!(act.concepts, vec![(name.to_string(), id)]);
+            assert!(act.capabilities.is_empty());
+        }
+    }
+
+    /// D-HPR-8 CAN STAY SILENT: the moment a plug names a capability it goes
+    /// through the join exactly as before. `0x0103` still has no table, and a
+    /// non-executor covering a healthcare capability is still an impostor.
+    #[test]
+    fn a_plug_that_covers_a_capability_is_still_refused_without_its_table() {
+        let sap_claiming = HotPlug {
+            consumer: "sap-glove",
+            classids: &[0x0103],
+            covered: &["anything"],
+        };
+        assert_eq!(
+            super::OgarAuthority.activate(&sap_claiming),
+            Err(ActivationDrift::NoCapabilitiesFor(0x0103))
+        );
+        let impostor = HotPlug {
+            consumer: "some-reader",
+            classids: &[0x0901],
+            covered: &["register_patient"],
+        };
+        assert!(matches!(
+            super::OgarAuthority.activate(&impostor),
+            Err(ActivationDrift::UnexpectedConsumer(c)) if c == "some-reader"
         ));
     }
 

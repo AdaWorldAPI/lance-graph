@@ -1,5 +1,6 @@
 //! D-XGP-2: the hot-plugs and the canonical basis, against the authority.
-use lance_graph_contract::hotplug::{ActivationDrift, CapabilityAuthority};
+use lance_graph_contract::canonical_node::ReadMode;
+use lance_graph_contract::hotplug::{ActivationDrift, CapabilityAuthority, HotPlug};
 use lance_graph_glove_parity::basis::{
     canonical_fields, Grade, ANCHORS, ODOO_FIELDS, ODOO_HOT_PLUG, SAP_FIELDS, SAP_HOT_PLUG,
     WOA_FIELDS, WOA_HOURS_TABLE, WOA_PINNED_TABLE,
@@ -8,11 +9,29 @@ use lance_graph_ogar::ogar_vocab::class_ids::BILLABLE_WORK_ENTRY;
 use lance_graph_ogar::OgarAuthority;
 use lance_graph_sap::schema::FIELDS;
 
+/// D-HPR-8: both gloves cover no capability, so they plug `0x0103` for its
+/// reading alone and activate, although OGAR declares no capabilities on it.
 #[test]
-fn both_plugs_refuse_until_the_authority_declares_capabilities_on_0x0103() {
+fn both_plugs_activate_for_their_reading_while_0x0103_has_no_capabilities() {
     for plug in [SAP_HOT_PLUG, ODOO_HOT_PLUG] {
+        let act = OgarAuthority
+            .activate(&plug)
+            .unwrap_or_else(|d| panic!("{}: {d:?}", plug.consumer));
         assert_eq!(
-            OgarAuthority.activate(&plug).map(|_| ()),
+            act.read_mode_for(BILLABLE_WORK_ENTRY),
+            Ok(ReadMode::PLUG_AND_PLAY_V3),
+            "{}",
+            plug.consumer
+        );
+        assert!(act.capabilities.is_empty(), "{}", plug.consumer);
+        // Twin: claiming a capability still goes through the join, which has
+        // no table for 0x0103. When OGAR declares one, write `covered`.
+        let claiming = HotPlug {
+            covered: &["log_time"],
+            ..plug
+        };
+        assert_eq!(
+            OgarAuthority.activate(&claiming).map(|_| ()),
             Err(ActivationDrift::NoCapabilitiesFor(BILLABLE_WORK_ENTRY)),
             "{}: OGAR now declares capabilities on 0x0103; write `covered`",
             plug.consumer
