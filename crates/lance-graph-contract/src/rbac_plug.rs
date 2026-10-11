@@ -273,6 +273,67 @@ pub trait ActorSource {
     }
 }
 
+/// The roles one authenticated subject holds: the rule every per-request
+/// [`ActorSource`] answers by, written once.
+///
+/// An actor source built for a request answers for that request's subject
+/// and for nobody else. In particular a delegated login (RFC 8693 `act`)
+/// authorizes as the principal whose authority the token carries: the party
+/// acting with it is recorded by the caller for audit and holds no role
+/// here, under any name. So [`of`](Self::of) returns the roles for the
+/// subject and nothing for every other actor id.
+///
+/// Fails closed: an empty subject holds no roles, so an actor id that did not
+/// resolve can never match it. Roles keep their first-seen order, without
+/// duplicates.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubjectRoles {
+    subject: String,
+    roles: Vec<RoleId>,
+}
+
+impl SubjectRoles {
+    /// `subject` holding `roles`.
+    #[must_use]
+    pub fn new(subject: impl Into<String>, roles: Vec<RoleId>) -> Self {
+        let subject = subject.into();
+        let mut held: Vec<RoleId> = Vec::with_capacity(roles.len());
+        if !subject.is_empty() {
+            for role in roles {
+                if !held.contains(&role) {
+                    held.push(role);
+                }
+            }
+        }
+        Self {
+            subject,
+            roles: held,
+        }
+    }
+
+    /// The subject, the id decisions are asked under.
+    #[must_use]
+    pub fn subject(&self) -> &str {
+        &self.subject
+    }
+
+    /// The roles the subject holds.
+    #[must_use]
+    pub fn roles(&self) -> &[RoleId] {
+        &self.roles
+    }
+
+    /// The roles `actor` holds: the subject's, or none.
+    #[must_use]
+    pub fn of(&self, actor: ActorId<'_>) -> &[RoleId] {
+        if actor == self.subject {
+            &self.roles
+        } else {
+            &[]
+        }
+    }
+}
+
 /// A binding paired with an [`ActorSource`]: the [`ClassRbac`] view.
 ///
 /// Scopes come from the actor's memberships, so decide with
@@ -324,6 +385,28 @@ pub trait RbacAuthority {
 
 #[cfg(test)]
 mod tests {
+
+    // The one rule every per-request actor source follows: the subject holds
+    // its roles; every other actor, the acting party of a delegated login
+    // included, holds none. An empty subject holds nothing, so an actor id
+    // that failed to resolve can never match it.
+    #[test]
+    fn only_the_subject_holds_its_roles() {
+        let s = SubjectRoles::new("alice", vec!["reader", "editor", "reader"]);
+        assert_eq!(s.subject(), "alice");
+        assert_eq!(s.roles(), &["reader", "editor"]);
+        assert_eq!(s.of("alice"), &["reader", "editor"]);
+        assert!(s.of("bob").is_empty());
+        assert!(s.of("").is_empty());
+        assert!(s.of("ALICE").is_empty());
+    }
+
+    #[test]
+    fn an_empty_subject_holds_nothing() {
+        let s = SubjectRoles::new("", vec!["reader"]);
+        assert!(s.roles().is_empty());
+        assert!(s.of("").is_empty());
+    }
     use super::*;
     use crate::ogar_codebook::compose_classid;
     use crate::property::PrefetchDepth;

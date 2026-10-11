@@ -27,7 +27,7 @@
 use std::collections::HashMap;
 
 use lance_graph_contract::rbac::{ActorId, RoleId};
-use lance_graph_contract::rbac_plug::{ActorSource, RbacBinding};
+use lance_graph_contract::rbac_plug::{ActorSource, RbacBinding, SubjectRoles};
 use ogar_dir_core::Guid128;
 
 use crate::View;
@@ -77,9 +77,8 @@ impl GroupRoles {
 /// One principal's roles, read from a [`View`] once.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ViewActors {
-    subject: String,
+    held: SubjectRoles,
     principal: Guid128,
-    roles: Vec<RoleId>,
     unread: Vec<Guid128>,
 }
 
@@ -114,9 +113,8 @@ impl ViewActors {
         }
         roles.sort_unstable();
         Self {
-            subject: principal.to_string(),
+            held: SubjectRoles::new(principal.to_string(), roles),
             principal: *principal,
-            roles,
             unread,
         }
     }
@@ -124,7 +122,7 @@ impl ViewActors {
     /// The principal's GUID as text, the id decisions are asked under.
     #[must_use]
     pub fn subject(&self) -> &str {
-        &self.subject
+        self.held.subject()
     }
 
     /// The principal's directory object.
@@ -136,7 +134,7 @@ impl ViewActors {
     /// The roles held, sorted.
     #[must_use]
     pub fn roles(&self) -> &[RoleId] {
-        &self.roles
+        self.held.roles()
     }
 
     /// The security groups of the principal whose grants were never read.
@@ -150,10 +148,6 @@ impl ViewActors {
 
 impl ActorSource for ViewActors {
     fn roles_of(&self, actor: ActorId<'_>) -> &[RoleId] {
-        if actor == self.subject {
-            &self.roles
-        } else {
-            &[]
-        }
+        self.held.of(actor)
     }
 }

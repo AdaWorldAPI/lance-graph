@@ -24,12 +24,12 @@
 //! every live plane. Ordinals are valid only inside one view; the overlay
 //! keeps identities wherever an ordinal could shift.
 
-use crate::GroupWhere;
 use crate::snapshot::{
-    Dicts, GroupOrdinal, MAX_GROUPS, MAX_USERS, NONE, Population, Snapshot, UserOrdinal, bit,
-    clear_bit, is_mail_recipient, is_owner, set_bit,
+    bit, clear_bit, is_mail_recipient, is_owner, set_bit, Dicts, GroupOrdinal, Population,
+    Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
-use lance_graph_mask_risc::{Foreign, LaneRef, Planes, words_for};
+use crate::GroupWhere;
+use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{Dn128, Guid128};
 use ogar_dir_sim::{
