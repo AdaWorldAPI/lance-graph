@@ -6,12 +6,12 @@ Plan: `.claude/plans/sql-polyfill-r2il-v1.md`.
 |---|---|---|---|
 | **D-SQLP-0** | Plan + board rows | In PR | — |
 | **D-SQLP-1** | `FoldDialect` moved into a `lance-graph-r2il` crate | Queued | existing `row_bridge.rs` tests unchanged and green; one arity table |
-| **D-SQLP-2** | First procedures (`filter_lt`, `sum`, `group_sum`, `margin`) as `PROC_DEF` bodies; `FoldDialect` wires `IntOr` and fuses Boolean calls through mask-risc `fuse` | Queued | scalar-reference parity; disable runs red; fused `Program` holds ternlogs |
+| **D-SQLP-2** | First procedures (`filter_lt`, `sum`, `group_sum`, `margin`) as `PROC_DEF` bodies; `FoldDialect` wires `IntOr` and adds a fused mode (mask-risc `fuse`) beside the in-place mode | Queued | scalar-reference parity; disable runs red; both modes keep the same rows, fused holds ternlogs |
 | **D-SQLP-3** | Benchmark: direct ndarray vs hand-built `Program` vs interpreted procedure | Queued | interpreted ≤ 1.05× hand-built at 65,536 and 1M rows (pre-registered) |
 | **D-SQLP-4** | Build-time generator: declared procedure → Rust with const-generic opcodes | Queued, gated on D-SQLP-3 | ≤ 1.05× direct ndarray; no interpreter dispatch in the hot loop |
-| **D-SQLP-5** | quack, `plan_eval`, SAP binder lower through the procedures | Queued, gated on D-SQLP-3 | byte-identical `mask_risc::Program` for every pinned case; lance-graph-java first gets a `Program`-level test (today's `lowering_convergence` compares row counts); quack's `sql_null_3vl.rs` cases pass through the procedure path, byte-identical to `lower_fused(sql_where(f))` |
+| **D-SQLP-5** | quack, `plan_eval`, SAP binder lower through the procedures | Queued, gated on D-SQLP-3 | byte-identical `mask_risc::Program` for every pinned case; lance-graph-java first gets a `Program`-level test (today's `lowering_convergence` compares row counts); quack's `sql_null_3vl.rs` cases pass through the procedure path per mode (`MinI32`/`MaxI32` cases after W7 `MIN`/`MAX`) |
 | **D-SQLP-6** | lance-graph-java `sql()` membrane (one Panama call, value records); parser decision | Queued | `ApiSurfaceTest`; no row-proportional Java allocation; `AllTests` on JDK 28 |
-| **D-SQLP-7** | Backlog: refused fold opcodes and i64/f64/decimal/date lanes (mask-risc first); scalar `IntAdd` (`FoldDialect` only) | Queued (per item) | population items: parity on every realization row; scalar items: scalar test, `Addr`/`Addr` refusal kept |
+| **D-SQLP-7** | Backlog: refused fold opcodes and i64/f64/decimal/date lanes (mask-risc first); scalar `IntAdd` (`FoldDialect` only); NULL predicate extensions (literals, `COALESCE`/`NULLIF` in predicates) | Queued (per item) | population items: parity on every realization row; scalar items: scalar test, `Addr`/`Addr` refusal kept |
 | **D-SQLP-8** | Mint `0xC400` / `0xC401` in `ogar-vocab` | Queued (OGAR request) | provisional notes replaced; no persisted GUID before |
 
 ## D-KEY16 — contiguous fast path for the 16-byte key match (2026-10-11)
