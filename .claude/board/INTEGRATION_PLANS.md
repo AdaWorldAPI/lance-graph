@@ -1,3 +1,12 @@
+## 2026-10-11 (3) — key16-contiguous-match-v1 — a contiguous fast path for the 16-byte key match → `.claude/plans/key16-contiguous-match-v1.md`
+
+**Status:** PROPOSAL (D-K16-0..5). No kernel change authorized until the D-K16-2 probe clears its pre-registered threshold.
+
+- `ternary_match_strided16_to_mask` gathers every 16-byte key with two scalar loads even at stride 16, where one `U64x8` load holds four keys; the plan adds a facade-only stride-16 path and measures an AVX-512 gather for wider strides.
+- Parity coverage first: the 16-byte kernel is absent from ndarray's `simd-masking-parity`, so no backend other than the in-crate tests checks it.
+- The Rust 1.99 `u128`-in-vector-register `asm!` path is rejected with its reason (one key per instruction vs eight halves per `U64x8`).
+- Consumers (mask-risc, quack, dir-sim `subtree`) change no code; lance-graph-java does not call the kernel.
+
 ## 2026-10-11 (2) — dir-sim-persist-v1 — a dir-sim history that survives a restart (W-3) → `.claude/plans/dir-sim-persist-v1.md`
 
 **Status:** ACTIVE (D-DSP-0..3). Consumer ask: HubSPO-rs handover W-3.
