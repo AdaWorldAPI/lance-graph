@@ -307,3 +307,184 @@ fn a_revert_resolves_without_registering_it() {
     let back = VersionStore::restore_stored(stored, &all_rules()).unwrap();
     assert_eq!(back.diff(vs[0], r), st.diff(vs[0], r));
 }
+
+// ---- The log: verified append-only batches (decision 3(b)).
+
+use lance_graph_dir_sim::log::{replay, replay_prefix, LogError, LogState, Record, ReplayError};
+
+/// Save `st` as one batch on top of `log`, returning the batch's records.
+fn save(st: &VersionStore, log: &mut LogState) -> Vec<Record> {
+    let batch = log
+        .batch(&StoredImage::from(st.image()))
+        .unwrap()
+        .expect("something new");
+    log.committed(&batch).unwrap();
+    batch.records
+}
+
+fn restored(records: Vec<Record>) -> VersionStore {
+    let (image, _) = replay(records).unwrap();
+    VersionStore::restore_stored(image, &all_rules()).unwrap()
+}
+
+// Two saves, the second holding only what the first did not: the replayed
+// log restores a store that reads the same as the original.
+#[test]
+fn a_log_of_two_batches_restores_the_same_reads() {
+    let (mut st, mut vs, _) = history();
+    let mut log = LogState::new();
+    let mut records = save(&st, &mut log);
+    let first_len = records.len();
+    let r = st.revert(vs[2], vs[0], &ev("UNDO-1")).unwrap();
+    st.validate(r).unwrap();
+    vs.push(r);
+    let second = save(&st, &mut log);
+    assert!(
+        second.len() < first_len,
+        "the second batch is only the new part"
+    );
+    assert!(second.iter().all(|x| x.batch == 1));
+    records.extend(second);
+    let back = restored(records);
+    assert_eq!(reads(&back, &vs), reads(&st, &vs));
+    // Nothing new: no batch.
+    assert!(log.batch(&StoredImage::from(st.image())).unwrap().is_none());
+}
+
+// The logical clock is the history's own: one batch holds five versions.
+#[test]
+fn one_batch_carries_many_logical_versions() {
+    let (st, vs, _) = history();
+    let records = save(&st, &mut LogState::new());
+    assert!(records.iter().all(|r| r.batch == 0));
+    let (image, state) = replay(records).unwrap();
+    assert_eq!(image.versions.len(), vs.len());
+    assert_eq!(state.next_batch(), 1);
+}
+
+fn two_batches() -> (Vec<Record>, Vec<Record>) {
+    let (mut st, vs, _) = history();
+    let mut log = LogState::new();
+    let a = save(&st, &mut log);
+    st.revert(vs[2], vs[0], &ev("UNDO-1")).unwrap();
+    let b = save(&st, &mut log);
+    (a, b)
+}
+
+// Each way a save can be torn is refused, naming the batch.
+#[test]
+fn a_torn_save_is_refused() {
+    let (a, b) = two_batches();
+    let all = || a.iter().chain(&b).cloned().collect::<Vec<_>>();
+
+    let mut lost_tail = all();
+    lost_tail.pop();
+    assert!(matches!(
+        replay(lost_tail),
+        Err(ReplayError::RecordCount { batch: 1, .. })
+    ));
+
+    let headless: Vec<Record> = all()
+        .into_iter()
+        .filter(|r| !(r.batch == 1 && r.seq == 0))
+        .collect();
+    assert_eq!(replay(headless).unwrap_err(), ReplayError::MissingHeader(1));
+
+    let mut flipped = all();
+    let last = flipped.len() - 1;
+    *flipped[last].body.last_mut().unwrap() ^= 1;
+    assert_eq!(replay(flipped).unwrap_err(), ReplayError::Checksum(1));
+
+    assert_eq!(
+        replay(b.clone()).unwrap_err(),
+        ReplayError::BatchGap {
+            expected: 0,
+            found: 1
+        }
+    );
+}
+
+// Reading up to the damage is its own call: it returns the good batches
+// and names the bad one; `replay` returns nothing.
+#[test]
+fn the_prefix_up_to_the_damage_is_explicit() {
+    let (a, mut b) = two_batches();
+    b.pop();
+    let (good, _) = replay(a.clone()).unwrap();
+    let (image, state, err) = replay_prefix(a.into_iter().chain(b));
+    assert!(matches!(
+        err,
+        Some(ReplayError::RecordCount { batch: 1, .. })
+    ));
+    assert_eq!(image.versions, good.versions);
+    assert_eq!(state.next_batch(), 1);
+}
+
+// A batch is committed once, in order; an image that does not extend the
+// log is refused.
+#[test]
+fn the_log_moves_forward_only() {
+    let (st, _, _) = history();
+    let mut log = LogState::new();
+    let image = StoredImage::from(st.image());
+    let first = log.batch(&image).unwrap().unwrap();
+    let again = log.batch(&image).unwrap().unwrap();
+    log.committed(&first).unwrap();
+    assert_eq!(
+        log.committed(&again),
+        Err(LogError::StaleBatch {
+            expected: 1,
+            found: 0
+        })
+    );
+    let mut shorter = VersionStore::new();
+    shorter.observe("lab", 1, observed()).unwrap();
+    assert_eq!(
+        log.batch(&StoredImage::from(shorter.image())).unwrap_err(),
+        LogError::NotAContinuation
+    );
+}
+
+// An image with the logged counts but a different history is not a
+// continuation: the log must not "save" it by appending nothing (or only
+// the tail) while replay keeps returning the old history.
+#[test]
+fn a_divergent_history_is_not_a_continuation() {
+    let (st, _, _) = history();
+    let mut log = LogState::new();
+    save(&st, &mut log);
+    let logged = StoredImage::from(st.image());
+
+    let mut value = logged.clone();
+    value.values[0].push('x');
+    assert_eq!(
+        log.batch(&value).unwrap_err(),
+        LogError::NotAContinuation,
+        "a changed value"
+    );
+
+    let mut version = logged.clone();
+    version
+        .versions
+        .iter_mut()
+        .find(|v| !v.delta.is_empty())
+        .expect("a version with changes")
+        .delta
+        .pop();
+    assert_eq!(
+        log.batch(&version).unwrap_err(),
+        LogError::NotAContinuation,
+        "a changed version"
+    );
+
+    let mut root = logged.clone();
+    root.roots[0].1.scope = DirectoryScope(g(0x77));
+    assert_eq!(
+        log.batch(&root).unwrap_err(),
+        LogError::NotAContinuation,
+        "a changed root"
+    );
+
+    // The unchanged image still has nothing new.
+    assert!(log.batch(&logged).unwrap().is_none());
+}

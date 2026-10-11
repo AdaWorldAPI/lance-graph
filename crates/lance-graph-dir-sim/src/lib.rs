@@ -43,6 +43,7 @@ mod exec;
 pub mod groups;
 pub mod image;
 pub mod ldap;
+pub mod log;
 pub mod observe;
 pub mod proxy;
 pub mod rule;

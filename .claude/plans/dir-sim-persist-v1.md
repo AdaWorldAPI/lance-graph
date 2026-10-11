@@ -78,8 +78,17 @@ as a simulated version whose origin names the restored version.
     leaves the log refused until reconciled. In-band idempotency stays
     OPEN, as in the reference implementation.
   - Records: `Observation`, `Change`, `Origin` and `Violation` need a
-    stable encoding; it lives in the Lance crate next to the reader that
-    must decode it, with a round-trip test per variant.
+    stable encoding. **Amended 2026-10-11:** it lives in
+    `lance-graph-dir-sim::log` (pure, no I/O), next to the types, so the
+    storage crate only maps a `Record` to a row and back.
+  - [x] **D-DSP-2a** `log`: `LogState::batch` / `committed`, `replay`,
+        `replay_prefix`; per-variant round trips with every strict prefix
+        refused; two-batch restore; torn saves (lost tail, lost header,
+        flipped byte, missing batch) refused. Disable runs red: checksum,
+        record count, batch gap, the sparse skip, stale commit.
+  - [ ] **D-DSP-2b** the Lance crate: one batch = one Lance append; the
+        dataset version checked before and after (stale writer refused,
+        race detected); read once at restore. Needs disk for lancedb.
 - [x] **Decision 4(b), 2026-10-11:** group-to-role grants are the
       authority's versioned policy, not directory state: OGAR
       `ogar_rbac::group_policy::GroupRolePolicy` (append-only, own
