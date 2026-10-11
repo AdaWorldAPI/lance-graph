@@ -668,8 +668,7 @@ pub struct ProvisioningConflict {
 /// mailbox-less account's leftover SMTP and proxies, and a group all claim
 /// their values. The claims read here are each present user's UPN, primary
 /// and secondary SMTP and routing address, and each live group's primary
-/// SMTP, in one address space as [`address_rules`] reads it. `mail` claims
-/// nothing.
+/// and secondary SMTP, in one address space. `mail` claims nothing.
 ///
 /// This is a separate plane from the Exchange one. It does not feed
 /// [`address_owner`], [`address_recipient`] or [`validate`], so a conflict
@@ -680,7 +679,22 @@ pub struct ProvisioningConflict {
 /// real tenant and are not in this plane.
 pub fn provisioning_conflicts(v: &View<'_>) -> Vec<ProvisioningConflict> {
     let present = v.existing(NodeKind::User);
-    let rows = rows_over(v, &present, &present, &mut Vec::new());
+    let mut rows = rows_over(v, &present, &present, &mut Vec::new());
+    // A group's secondary SMTP proxies claim too. A group created in a
+    // version carries none (a `Change` sets no proxy).
+    let gp = &v.snap.group_proxies;
+    for i in 0..v.snap.groups.len() {
+        let Some(g) = v.guid_in(NodeKind::Group, i) else {
+            continue;
+        };
+        for r in gp.owner_rows(i as u32) {
+            if gp.meta[r] == meta::SMTP_SECONDARY {
+                rows.push((gp.key[r], g, AddressRole::SecondarySmtp));
+            }
+        }
+    }
+    rows.sort_unstable();
+    rows.dedup();
     rows.chunk_by(|a, b| a.0 == b.0)
         .filter(|run| run.iter().any(|r| r.1 != run[0].1))
         .map(|run| ProvisioningConflict {
