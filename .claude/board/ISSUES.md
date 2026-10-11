@@ -2,10 +2,10 @@
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE; DECISION by operator 2026-10-10 (the V3 marker is a fossil; only `hotplug.rs` and the slab metadata envelope decide whether a slab is `Facet96` (32 + 96) or `Register128` (128, classid via SPOG/plug)). Record: `entries/2026-10-10-classid-layout-ruling.md`, plan `cross-glove-business-parity-v1.md` §C.9.3.
 
-- `canonical_node::classid_read_mode(classid)` (`canonical_node.rs:1813`) reads `BUILTIN_READ_MODES` (`:1743`), keyed by the full classid, including the `*_V3` keys carrying classview `0x1000`.
+- `canonical_node::classid_read_mode(classid)` (`canonical_node.rs:1850`, re-measured 2026-10-11 on `1116c120`; was `:1813`) reads `BUILTIN_READ_MODES` (`:1773`, was `:1743`), keyed by the full classid, including the `*_V3` keys carrying classview `0x1000`.
 - Callers: `ocr.rs:105/124`, `aiwar.rs:119`, `nan_projection.rs:167`, `soa_graph.rs:204/457`.
 - `hotplug.rs` states it is the ONE resolution path ("there is no second registry"); this table is a second one.
-- **What closes it:** route those callers through `Activation::resolve_for_context`, keep the legacy keys readable for slabs already written with them (an explicit `SlabDeclaration` wins for existing data), then retire the `0x1000` keys on corpus proof that no row needs them.
+- ⊘ **What closes it** (regraded 2026-10-11): the earlier text ended "then retire the `0x1000` keys on corpus proof that no row needs them". SUPERSEDED by the operator ruling of 2026-10-10 (*"1000 isn't hurting, just document and Mark it as deprecated. No need to force evict"*), recorded as rule 5 of plan `v3-mandatory-hotplug-reading-v1.md`. The legacy keys stay. The issue closes when (a) no NEW reading is selected through this table — every mint path takes its reading from an `Activation` or a `SlabDeclaration` (D-HPR-3), and (b) an unknown classid no longer falls back to `ReadMode::DEFAULT` (D-HPR-6b, operator decision). The table then survives only as the reader of stored legacy keys (D-HPR-5).
 
 ## ISS-EPI5-CODEBOOK-LACKS-P7A-CONJUNCTIONS — P7a certifications with no canonical EpistemicState5 code (2026-10-07)
 

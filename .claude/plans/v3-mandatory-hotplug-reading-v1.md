@@ -22,7 +22,7 @@ What it means, in rules:
 
 **The plug path already exists.** `lance-graph-ogar::plug_readings` (`lib.rs:452`) gives every plugged concept `ReadMode::PLUG_AND_PLAY_V3` unless `concept_override` (`lib.rs:477`) names an exception. `Activation::read_mode_for` fails closed (`NoReadingFor`), never defaulting.
 
-**The second path that must go:** `canonical_node::classid_read_mode(classid)` (`canonical_node.rs:1813`) looks the full `u32` up in `BUILTIN_READ_MODES` (`:1743`). It has two faults:
+**The second path, which stops selecting new readings** (⊘ the heading read "The second path that must go", which contradicts rule 5; regraded 2026-10-11 — the path stays as the reader of stored legacy keys, it stops being where a NEW reading comes from): `canonical_node::classid_read_mode(classid)` (`canonical_node.rs:1850`; `:1813` when written) looks the full `u32` up in `BUILTIN_READ_MODES` (`:1773`; was `:1743`). It has two faults:
 
 - the V3 reading is chosen by the `0x1000` marker in the classview bits (the `*_V3` keys);
 - an unknown classid falls through to `ReadMode::DEFAULT`, which is a **V1** tail. That is exactly the silent V1 fallback the 2026-09-07 ruling forbade on the plug path.
@@ -55,15 +55,25 @@ What it means, in rules:
 - [x] **W2 — D-HPR-2: the canon domains get their reading from the authority.** The domain value models (`OSINT`/`PROJECT`/`ERP` Cognitive, `FMA`/`CPIC` Compressed) move into `concept_override`, keyed by concept, all on a V3 tail. `OgarAuthority` then answers for those concepts with no classview involved.
   - **Shipped:** `lance-graph-ogar::concept_override` arms `0x0701`/`0x0A01`/`0x0E01`/`0x0101`/`0x0202` → `ReadMode::{OSINT,FMA,CPIC,PROJECT,ERP}_V3`. Test `canon_domains_read_from_the_plug_as_the_classid_table_reads_them` pins each equal to `classid_read_mode(CLASSID_*_V3)`; red with an arm removed. No consumer plugs these concepts today (`grep` of every `HotPlug` in lance-graph, OGAR, MedCare-rs, q2, odoo-rs, openproject-nexgen-rs, HubSPO-rs, spear), so no live reading changes.
   - Falsifier: `read_mode_for(concept)` equals today's `classid_read_mode(<V3 classid>)` for each canon domain, so the move changes no reading.
-- [ ] **W3 — D-HPR-3: consumers move.** lance-graph callcenter / deepnsm-v2 / probes, then q2 osint-bake + geo, MedCare cohorts. Each takes its reading from its `Activation`. Then `classid_read_mode` gets `#[deprecated]`.
+- [ ] **W3 — D-HPR-3: consumers move.** lance-graph callcenter / deepnsm-v2 / probes, then q2 osint-bake + geo, MedCare cohorts. Each takes its reading from its `Activation`. ⊘ "Then `classid_read_mode` gets `#[deprecated]`" is struck: W4 and rule 5 rule the attribute out (it fails every caller under `-D warnings`).
+  - **Census 2026-10-11 (synergy ledger):** MedCare has 0 callers. q2's callers are offline bake mints on `CLASSID_FMA_V3`, which can take the reading when next touched. deepnsm-v2 `promote::key_at` is blocked on a concept mint (its corpus has no OGAR concept), not on code. q2 geo (`osm_node` 0x0F01) cannot get a plug reading at all: the reading is gated behind the geo capability table, which expects `osm-soa-bake`. The geo and deepnsm cases need the rule "reading is not a capability" (O3).
 - [x] **W4 — D-HPR-4: document the fossils as deprecated.** Done in `lance-graph-contract`: the five `CLASSID_*_V3` constants and `classid_read_mode` carry a "Deprecated, kept" doc note. A doc note, not `#[deprecated]`: the attribute would turn every existing caller red under `-D warnings`, which is the forced migration the ruling rules out. OGAR (`ogar-osm` `CLASSVIEW_V3_SUBSTRATE`, ro, dismech, loco) and q2 `geo` get the same note when next touched; existing mints stay.
 - [ ] **W5 — D-HPR-5: legacy reads stay.** Stored `0x1000` and pre-flip keys keep resolving through `BUILTIN_READ_MODES`; no forced removal. A slab may additionally declare its reading (`SlabDeclaration`), which wins for its own data. Removing a table key is optional and only after nothing reads it.
+  - Holds today. **Caveat (2026-10-11):** a `SlabDeclaration` overrides `value_schema` and the register reading only, never the key tail (`hotplug.rs:231-257`, `:392`). It cannot protect a V1/V2-tail slab. q2's `osint_scene.soa` is one: V2 tails under a classid whose builtin reading is V1. It is read by its own projection and must not be re-read through the table.
 - [ ] **W6 — D-HPR-6: V1 cannot be reached by default.** `ReadMode::DEFAULT` stops being the fallback for an unknown classid (it becomes `NoReadingFor`, as on the plug path), and `guid-v3-tail` stops being a feature gate.
+  - Split (2026-10-11). **W6a**: un-gate `guid-v3-tail`. It is default-on and no fleet consumer disables it, so only `--no-default-features` builds change; there the 5 V3 fossils read `DEFAULT` today (coresearch probe P-X3). **W6b**: an unknown classid errors. This is a behaviour change, and both q2 and MedCare have already hit the V1 default once, so it needs operator approval.
 
 ## Open questions (operator)
 
 - **O1.** What classview should a NEW mint of a canon domain use instead of `0x1000`: `0x0000` (shared canonical core), or an app-owned value? Not blocking: existing mints keep `0x1000`.
 - **O2.** Does WoA's `ogit.WorkOrder:TimeSheet` resolve to `0x0103`, with "Stundenzettel" as its label, instead of today's `TimesheetActivity` (plan `cross-glove-business-parity-v1.md` §C.9.5)? Rule 4 settles that the German name is a label; it does not settle which WoA row the label names.
+
+- **O3 (2026-10-11).** Since W2, `concept_override` keys storage readings by **concept** (`0x0101` → `PROJECT_V3`, `0x0202` → `ERP_V3`, `0x0A01` → `FMA_V3`). Those three u16s are also code-minted consumer appid heads (OpenProject, Odoo, q2). So any consumer that plugs `commercial_document` (aliased by the WoA, SMB, Odoo and HubSpo ports) gets the ERP storage reading, not `PLUG_AND_PLAY_V3`. This is latent: no plug names these concepts today. Options:
+  - (a) key storage readings by a consumer-owned value;
+  - (b) move the heads off occupied concept slots;
+  - (c) document that plugging these concepts means that domain's storage model.
+
+  Related: should a plug that asks only for a reading (`covered` empty) succeed for a concept that has a capability table? It would unblock the SAP/Odoo `0x0103` plugs, q2 geo and deepnsm-v2. Record: `entries/2026-10-11-coresearch-labels-address-lifetime.md` (X6), `entries/2026-10-11-synergy-ledger-classid-hotplug.md`.
 
 ## What this plan does not do
 
