@@ -11,16 +11,24 @@ Plan: `.claude/plans/key16-contiguous-match-v1.md`.
 | **D-KEY16-4** | AVX-512 gather for strides > 16, behind the facade | Queued, gated on D-KEY16-2 (≥ 1.2× at strides 32 and 512) | other backends still take the old path, asserted |
 | **D-KEY16-5** | Consumer verification: mask-risc, quack, dir-sim tests + Identity CI names; dir-sim `subtree` timing before/after | Queued (after the ndarray merge) | no consumer source change; timing recorded with method |
 
+## D-DSV — dir-sim address planes kept apart (2026-10-11)
+
+Decision 1(c): observed claims, provisioning conflicts and delivery are three questions.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| **D-DSV-1** | `validate::provisioning_conflicts`: every present object's claims, separate from `address_owner` / `address_recipient` / `validate` | In PR | `tests/provisioning.rs`: delivery unchanged, conflict reported, silence half; two disable runs red |
+
 ## D-DSP — dir-sim history that survives a restart (2026-10-11)
 
 Plan: `.claude/plans/dir-sim-persist-v1.md`.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| **D-DSP-0** | `StoreImage` + `VersionStore::image` / `restore` (dir-sim, no I/O) | In PR | P-W3-0: round trip answers every read the same; damaged image refused |
-| **D-DSP-1** | `VersionStore::revert(current, earlier, evidence)` — undo as a version | In PR | the revert's view equals `earlier`'s |
+| **D-DSP-0** | `StoreImage` + `VersionStore::image` / `restore` (dir-sim, no I/O) | Shipped (#1473) | P-W3-0: round trip answers every read the same; damaged image refused |
+| **D-DSP-1** | `VersionStore::revert(current, earlier, evidence)` — undo as a version | Shipped (#1473) | the revert's view equals `earlier`'s |
 | **D-DSP-2** | Lance writer/reader crate for `StoreImage` | Queued | write → read → restore equals the in-memory image |
-| **D-DSP-3** | `ViewActors` (W-2) + `from_graph` groups (wishlist #19) in dir-sim | In PR | disable runs red |
+| **D-DSP-3** | `ViewActors` (W-2) + `from_graph` groups (wishlist #19) in dir-sim | Shipped (#1473) | disable runs red |
 
 ## D-LBL — labels of a concept, pulled through the plug (2026-10-11)
 
