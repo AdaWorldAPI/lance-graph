@@ -7,10 +7,10 @@ Plan: `.claude/plans/v3-mandatory-hotplug-reading-v1.md`.
 | **D-HPR-0** | Ruling + plan + caller inventory | Shipped (#1464) | — |
 | **D-HPR-1** | Contract modules (`ocr`, `aiwar`, `nan_projection`, `soa_graph`) take the reading as a parameter | Shipped (#1464; 4 `_with`/`_plugged` forms, disable runs 4/4 red) | new form returns the handed reading even where `classid_read_mode` disagrees |
 | **D-HPR-2** | Canon domain readings move into `OgarAuthority::concept_override` | Shipped (#1465; 5 concept arms, red with an arm removed; codex P1 fix: canon domains also activate through the public `activate` path) | `read_mode_for(concept)` == today's `classid_read_mode(<V3 classid>)` per domain |
-| **D-HPR-3** | Consumers move (lance-graph, q2, MedCare); `classid_read_mode` deprecated | Queued | no production caller left |
-| **D-HPR-4** | `0x1000` / render prefixes documented as deprecated, kept (no eviction) | Shipped (#1464; doc notes on `CLASSID_*_V3` + `classid_read_mode`) | — |
-| **D-HPR-5** | Stored legacy keys keep resolving; a `SlabDeclaration` may override for its own data; no forced removal | Queued | — |
-| **D-HPR-6** | No V1 default for an unknown classid; `guid-v3-tail` not a gate | Queued | unknown classid → `NoReadingFor` |
+| **D-HPR-3** | Consumers move (lance-graph, q2, MedCare); `classid_read_mode` deprecated | Queued (2026-10-11 census: MedCare has 0 callers; q2's are offline bake mints; deepnsm-v2 is blocked on a concept mint, not code) | no NEW reading selected through the table (rule 5 keeps stored keys readable) |
+| **D-HPR-4** | `0x1000` / render prefixes documented as deprecated, kept (no eviction) | Shipped for `0x1000` (#1464; doc notes on `CLASSID_*_V3` + `classid_read_mode`); render prefixes, `NodeGuid::read_mode` and OGAR/q2 sites still carry no note | — |
+| **D-HPR-5** | Stored legacy keys keep resolving; a `SlabDeclaration` may override for its own data; no forced removal | Holds today (status quo). Caveat: a `SlabDeclaration` overrides `value_schema` only, never the tail, so it cannot protect a V1/V2-tail slab (`hotplug.rs:231-257, 392`) | — |
+| **D-HPR-6** | No V1 default for an unknown classid; `guid-v3-tail` not a gate | Queued — split: **6a** un-gate `guid-v3-tail` (default-on, and no fleet consumer disables it, so only `--no-default-features` builds change; there the 5 V3 fossils read `DEFAULT` today); **6b** unknown classid → error (behaviour change, operator) | unknown classid → `NoReadingFor` |
 
 ## D-XGP — Cross-glove business parity: Odoo × SAP over one Quack algebra (2026-10-10)
 
