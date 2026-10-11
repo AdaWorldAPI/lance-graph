@@ -299,9 +299,7 @@ mod tests {
 
     /// D-HPR-1: `to_node_row_with` mints with the tail and value schema it is
     /// handed. The classid is unknown to the lookup, which would answer the
-    /// V1 / Full default; the handed reading is V3 / Bootstrap. Gated: minting
-    /// a V3 tail needs the tail feature (`mint_for` refuses it otherwise).
-    #[cfg(feature = "guid-v3-tail")]
+    /// V1 / Full default; the handed reading is V3 / Bootstrap.
     #[test]
     fn to_node_row_with_follows_the_handed_reading() {
         use crate::canonical_node::{classid_read_mode, EdgeCodecFlavor, TailVariant};

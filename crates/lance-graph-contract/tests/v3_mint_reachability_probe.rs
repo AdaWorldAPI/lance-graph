@@ -8,7 +8,7 @@
 //! returns V1), so the fallback arm is dead — it exists purely so the crate
 //! compiles `--no-default-features`."*
 //!
-//! That justification is checkable. The registry's V3 entries are gated on
+//! That justification was checkable while the V3 registry entries were gated on
 //! `guid-v3-tail` (default ON); `mint_for`'s V3 arm is gated on `guid-v2-tail`
 //! (default OFF). Those are two different features, so the premise and the
 //! conclusion can come apart.
@@ -16,6 +16,9 @@
 //! The discriminator is `leaf`: the V3 arm feeds it to `new_v2`, the V1
 //! fallback discards it (`let _ = leaf;`). Two mints differing only in `leaf`
 //! are therefore byte-equal iff the fallback ran.
+//!
+//! Since D-HPR-6a (2026-10-11) neither half is gated and the fallback arm is
+//! gone; both tests assert the V3 path unconditionally.
 
 use lance_graph_contract::canonical_node::{classid_read_mode, NodeGuid, TailVariant};
 
@@ -23,15 +26,13 @@ use lance_graph_contract::canonical_node::{classid_read_mode, NodeGuid, TailVari
 /// register a V2/V3 tail variant in this build?
 #[test]
 fn a_v3_registered_classid_resolves_to_the_v3_tail_variant() {
+    // Unconditional since D-HPR-6a: no feature gates the V3 registry entries.
     let m = classid_read_mode(NodeGuid::CLASSID_OSINT_V3);
-    #[cfg(feature = "guid-v3-tail")]
     assert_eq!(
         m.tail_variant,
         TailVariant::V3,
-        "CLASSID_OSINT_V3 must register the V3 tail when guid-v3-tail is on"
+        "CLASSID_OSINT_V3 must register the V3 tail"
     );
-    #[cfg(not(feature = "guid-v3-tail"))]
-    assert_eq!(m.tail_variant, TailVariant::V1);
 }
 
 /// The CONCLUSION half: given a classid that registers V3, does `mint_for`
@@ -52,9 +53,7 @@ fn minting_through_the_registered_tail_variant_honours_leaf() {
     let leaf_is_live = a.as_bytes() != b.as_bytes();
 
     eprintln!(
-        "tail_variant={tv:?} guid-v3-tail={} guid-v2-tail={} leaf_is_live={leaf_is_live}\n  a={:02x?}\n  b={:02x?}",
-        cfg!(feature = "guid-v3-tail"),
-        cfg!(feature = "guid-v2-tail"),
+        "tail_variant={tv:?} leaf_is_live={leaf_is_live}\n  a={:02x?}\n  b={:02x?}",
         a.as_bytes(),
         b.as_bytes(),
     );

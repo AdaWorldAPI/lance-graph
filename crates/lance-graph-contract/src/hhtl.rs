@@ -344,7 +344,6 @@ impl NiblePath {
     /// are the basin tail (NOT in the path). Two GUIDs differing only in
     /// family/identity therefore share a path; differing in any HHT tier (incl.
     /// `leaf`) do not — the property v2 hop-distance relies on.
-    #[cfg(feature = "guid-v2-tail")]
     #[must_use]
     pub const fn from_guid_prefix_v2(guid: &crate::canonical_node::NodeGuid) -> Self {
         let path = ((guid.heel() as u64) << 48)
@@ -381,7 +380,6 @@ impl NiblePath {
     /// [`EMPTY`](NiblePath::EMPTY). This is why "custom half is reserved-zero"
     /// is a **v1-fold** statement, NOT a global classid law — the schema's
     /// `tail_variant` selects the fold.
-    #[cfg(feature = "guid-v3-tail")]
     #[must_use]
     pub const fn from_guid_prefix_v3(guid: &crate::canonical_node::NodeGuid) -> Self {
         // Read the 4 HHTL tiers as full LE `u16` from the raw key bytes [4..12] —
@@ -833,7 +831,6 @@ mod tests {
         assert_eq!(NiblePath::EMPTY.common_ancestor(a), None);
     }
 
-    #[cfg(feature = "guid-v2-tail")]
     #[test]
     fn from_guid_prefix_v2_includes_leaf_not_basin_tail() {
         use crate::canonical_node::NodeGuid;
@@ -979,7 +976,6 @@ mod tests {
         assert!(NiblePath::from_guid_prefix(&g).is_some());
     }
 
-    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn from_guid_prefix_v3_routes_both_bytes_of_part_of_is_a_and_ignores_classid() {
         use crate::canonical_node::NodeGuid;
