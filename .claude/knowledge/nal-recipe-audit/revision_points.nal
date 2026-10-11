@@ -11,3 +11,5 @@
 <a5 --> b5>. %0.20;0.30%
 10
 ''outputMustContain('<a1 --> b1>. %0.87;0.91%')
+''outputMustContain('<a2 --> b2>. %0.45;0.77%')
+''outputMustContain('<a3 --> b3>. %0.50;0.95%')

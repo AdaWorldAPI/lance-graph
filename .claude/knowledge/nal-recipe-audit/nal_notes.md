@@ -32,7 +32,7 @@ What the specification actually adds per layer:
 | NAL-4 | ×, ⊥, ⊤, image placeholder | **none new**: SPEC §6.3 "There is no new inference rule directly defined in NAL-4, except the equivalence and implication propositions in the definitions and theorems" | — |
 | NAL-5 | statement-as-term; ¬, ∧, ∨; ⇒, ⇔ | higher-order copies of NAL-1..3 rules (same truth functions), conditional rules, negation, contraposition | — |
 | NAL-6 | variables (independent, dependent, query) | variable introduction / elimination / unification | — |
-| NAL-7 | sequential/parallel conjunction; /⇒ \⇒ |⇒ /⇔ |⇔; tense | "variants of the rules defined in NAL-5 and NAL-6. The only additional function of these rules is to keep the available temporal information" (SPEC §9.3); temporal induction | internal clock; update vs revision |
+| NAL-7 | sequential/parallel conjunction; /⇒ \⇒ \|⇒ /⇔ \|⇔; tense | "variants of the rules defined in NAL-5 and NAL-6. The only additional function of these rules is to keep the available temporal information" (SPEC §9.3); temporal induction | internal clock; update vs revision |
 | NAL-8 | '!' goals, desire values, operations (⇑op) | goal derivation meta-rule; desire merged by revision | decision rule, execution, sensorimotor interface |
 | NAL-9 | — | — | internal operations, internal experience |
 

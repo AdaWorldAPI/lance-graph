@@ -60,7 +60,7 @@ for all inputs. Not executed here — this is a prediction from the masks.
 | LSI 15 | Sd | gate() of Gate-bucket TR 6, CAS 8, CDT 13, TCF 20, CUR 26 | real read, UNDECLARED: `Tactic::gate` reads `ctx.sd` via `gate_state` (recipe_kernels.rs:366-371, :80-88) but those kernels' `requires` omit Sd |
 | RTE 1 | FreeEnergy | AMP 23, MCP 10, SSR 21, ICR 31 | real value dependence in sequential execution (`run_recipes` doc, recipe_dispatch.rs:291-293: "Rte spends free_energy … before Amp ever reads"); invisible to the scheduler because consumers already require FE |
 | RTE 1 / AMP 23 | Rung | CAS 8, RTE 1 | same: value dependence, no new bit |
-| CDI 17 | Beliefs | CR 11 | semantically real: the injected (topic, 0.1, 0.6) trips CR's |df|>0.5 rule when beliefs[0].f > 0.6; invisible (both require Beliefs) |
+| CDI 17 | Beliefs | CR 11 | semantically real: the injected (topic, 0.1, 0.6) trips CR's \|df\|>0.5 rule when beliefs[0].f > 0.6; invisible (both require Beliefs) |
 | CWS 18 | Beliefs | CR 11, CDI 17 | CWS over-declares Beliefs in `requires` (apply only appends, recipe_kernels.rs:971-976); with an honest mask it could produce Beliefs from an empty set — the would-be edge is hidden by the over-declaration |
 | DTMF 33 | Temperature | TR 6, IRS 9, CDT 13 | value dependence, no new bit (DTMF requires Temperature) |
 | 17 Candidates-writers | Candidates | 21 Candidates-readers (e.g. HTD 2 reorders, then SMAD 3 / SPP 30 / SDD 32 read spread/mean) | value dependence on every collapse-to-one (MCT/MPC/TCF/HPM/IDR/CDT/CUR) — invisible |
