@@ -172,6 +172,14 @@ jobs:
       # which is exactly what `both_sides_span_the_same_words` pins), then
       # detached the local OGAR sibling to `origin/main` and ran the probe:
       # 6/6 green, exit 0. Closes ISS-R2IL-PROBE-HAS-NO-CI-LINE-UNTIL-OGAR-305.
+      # lance-graph-r2il (workspace-EXCLUDED, same OGAR + ndarray siblings):
+      # FoldDialect, extracted from the probe's row_bridge.rs (D-SQLP-1). The
+      # probe step below now exercises it too; this step runs the crate's own
+      # tests (ordinal pins against ogar_r2il, named refusals) and its clippy.
+      - name: Run lance-graph-r2il tests (excluded tier, OGAR + ndarray siblings)
+        run: cargo test --manifest-path crates/lance-graph-r2il/Cargo.toml
+      - name: Clippy lance-graph-r2il
+        run: cargo clippy --manifest-path crates/lance-graph-r2il/Cargo.toml --all-targets -- -D warnings
       - name: Run r2il-mask-abi-probe mask-ABI differential (excluded tier, OGAR + ndarray siblings)
         run: cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml
       # deepnsm: standalone 0-dep codec crate, workspace-excluded, so the

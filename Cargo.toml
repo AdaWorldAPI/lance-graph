@@ -101,6 +101,11 @@ exclude = [
     # that checkout present. Verify via
     # `cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml`.
     "crates/r2il-mask-abi-probe",
+    # The fold reading of R2IL over mask-risc (FoldDialect), extracted from
+    # r2il-mask-abi-probe (D-SQLP-1). Excluded for the same reason: it path-deps
+    # the OGAR sibling. Verify via
+    # `cargo test --manifest-path crates/lance-graph-r2il/Cargo.toml`.
+    "crates/lance-graph-r2il",
     "crates/symbiont",
     # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
     # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +

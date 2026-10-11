@@ -19,6 +19,9 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # W0C's yardstick: the native lowering the loco-carried program must match
 # bit-for-bit. Consumed, never delegated to — the probe compares RESULTS.
 lance-graph-quack = { path = "../lance-graph-quack" }
+# The fold dialect under test (D-SQLP-1). `tests/row_bridge.rs` used to
+# define it; it now lives in its own crate and this probe tests it.
+lance-graph-r2il = { path = "../lance-graph-r2il" }
 # The oracle in THIS probe — deliberately not yet the delegating side. Reached
 # by PATH, not git. Until 2026-10-10 mask-risc path-depped `ndarray` at
 # `../../../ndarray`, which no cargo git checkout could resolve, so the
