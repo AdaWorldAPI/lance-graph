@@ -147,14 +147,12 @@ fn run_to_fixed_point(
     sealed: &[ChainStep],
     d: &Epi5Declarations,
 ) -> usize {
-    let mut moving = 0;
-    for _ in 0..16 {
+    for moving in 0..16 {
         let before = bits(edges);
         pass(edges, sealed, d);
         if bits(edges) == before {
             return moving;
         }
-        moving += 1;
     }
     panic!("the loop did not reach a fixed point in 16 passes");
 }
