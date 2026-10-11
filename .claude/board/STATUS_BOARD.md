@@ -43,7 +43,8 @@ Plan: `.claude/plans/dir-sim-persist-v1.md`.
 |---|---|---|---|
 | **D-DSP-0** | `StoreImage` + `VersionStore::image` / `restore` (dir-sim, no I/O) | Shipped (#1473) | P-W3-0: round trip answers every read the same; damaged image refused |
 | **D-DSP-1** | `VersionStore::revert(current, earlier, evidence)` — undo as a version | Shipped (#1473) | the revert's view equals `earlier`'s |
-| **D-DSP-2** | Lance writer/reader crate for `StoredImage`: logical versions in verifiable append-only batches (one batch = one Lance commit), torn saves refused | Queued | write → read → restore equals the in-memory image; a truncated or reordered batch is refused |
+| **D-DSP-2a** | `log`: verified append-only batches of a `StoredImage` (pure, no I/O); torn saves refused; explicit prefix read | In PR | two-batch restore reads the same; four torn-save shapes refused; five disable runs red |
+| **D-DSP-2** | Lance writer/reader crate for `StoredImage`: logical versions in verifiable append-only batches (one batch = one Lance commit), torn saves refused | Queued (2b: Lance I/O over `log`) | write → read → restore equals the in-memory image; a truncated or reordered batch is refused |
 | **D-DSP-4** | `StoredImage` + `RuleRegistry` (exact `(name, version)`) + `restore_stored` + read-only `History` (decision 2(a)) | In PR | unknown rule refused, never substituted; history still reads; disable runs red |
 | **D-DSP-3** | `ViewActors` (W-2) + `from_graph` groups (wishlist #19) in dir-sim | Shipped (#1473) | disable runs red |
 
