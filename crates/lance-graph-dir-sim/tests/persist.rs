@@ -193,3 +193,35 @@ fn a_damaged_image_is_refused() {
         RestoreError::Apply(VersionId(2), _)
     ));
 }
+
+// Undo is a new version whose reads equal the earlier one's; nothing before
+// it changes.
+#[test]
+fn a_revert_is_a_new_version_that_reads_as_the_earlier_one() {
+    let (mut st, vs, _) = history();
+    let (g0, g3) = (vs[0], vs[3]);
+    let before = reads(&st, &vs);
+    let r = st.revert(g3, g0, &ev("UNDO-1")).unwrap();
+    assert_eq!(st.diff(r, g0).unwrap(), vec![]);
+    assert_ne!(st.diff(g3, g0).unwrap(), vec![]);
+    assert_eq!(st.version(r).unwrap().parent, Some(g3));
+    assert_eq!(
+        st.version(r).unwrap().origin,
+        Origin::Simulated {
+            rule: lance_graph_dir_sim::store::REVERT,
+            evidence: vec![
+                EvidenceRef("version:0".into()),
+                EvidenceRef("UNDO-1".into())
+            ],
+        }
+    );
+    assert_eq!(reads(&st, &vs), before, "history is not rewritten");
+    // Nothing to undo: no version.
+    assert!(matches!(
+        st.revert(r, g0, &[]),
+        Err(SimError::EmptyProposal(_))
+    ));
+    // A revert persists like any version.
+    let back = VersionStore::restore(st.image()).unwrap();
+    assert_eq!(back.diff(r, g0).unwrap(), vec![]);
+}

@@ -16,7 +16,7 @@ use crate::view::{ApplyError, Overlay, View};
 use ogar_dir_core::Guid128;
 use ogar_dir_sim::{
     Attribute, Change, EvidenceRef, ExecutionPlan, KeyId, NodeKind, NodeState, Origin, PlanError,
-    ValueId, Version, VersionId, Violation, TAG_DESIRED, TAG_OBSERVED,
+    RuleId, ValueId, Version, VersionId, Violation, TAG_DESIRED, TAG_OBSERVED,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -43,6 +43,12 @@ pub struct Rejection {
     /// Why.
     pub violations: Vec<Violation>,
 }
+
+/// The rule a [`VersionStore::revert`] is recorded under.
+pub const REVERT: RuleId = RuleId {
+    name: "Revert",
+    version: 1,
+};
 
 /// Append-only version store.
 #[derive(Debug, Default)]
@@ -188,6 +194,37 @@ impl VersionStore {
             delta,
         });
         Ok(id)
+    }
+
+    /// Undo back to `earlier`: a new version on top of `current` whose
+    /// delta is `diff(current, earlier)`, so its reads equal `earlier`'s.
+    /// History is never rewritten; the revert is recorded like any other
+    /// simulation, under [`REVERT`] with `version:<earlier>` as its first
+    /// evidence.
+    ///
+    /// # Errors
+    ///
+    /// [`SimError::ScopeMismatch`] across directories,
+    /// [`SimError::EmptyProposal`] when `current` already reads as `earlier`.
+    pub fn revert(
+        &mut self,
+        current: VersionId,
+        earlier: VersionId,
+        evidence: &[EvidenceRef],
+    ) -> Result<VersionId, SimError> {
+        struct Fixed(Vec<Change>);
+        impl Rule for Fixed {
+            fn id(&self) -> RuleId {
+                REVERT
+            }
+            fn propose(&self, _: &View<'_>, _: &[EvidenceRef]) -> Vec<Change> {
+                self.0.clone()
+            }
+        }
+        let delta = self.diff(current, earlier)?;
+        let mut ev = vec![EvidenceRef(format!("version:{}", earlier.0))];
+        ev.extend_from_slice(evidence);
+        self.simulate(current, &Fixed(delta), &ev)
     }
 
     /// Validate `v` and record the verdict. Empty = valid.

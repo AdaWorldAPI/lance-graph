@@ -40,7 +40,7 @@ as a simulated version whose origin names the restored version.
       runs red: dictionary order, verdicts, tags, delta check, dictionary
       completeness.
 - [x] `VersionStore` keeps each root's `Observation` (needed for the image).
-- [ ] `VersionStore::revert_to(current, earlier)` — the undo as a version.
+- [x] `VersionStore::revert(current, earlier, evidence)` — the undo as a version, recorded under `REVERT`.
 - [ ] Lance writer/reader in a separate crate (`lance-graph-dir-sim-lance`),
       so `lance-graph-dir-sim` keeps its no-I/O rule: one Lance dataset per
       store, tables `values`, `nodes`, `members`, `proxies`, `versions`,
@@ -54,3 +54,7 @@ as a simulated version whose origin names the restored version.
   versions at once).
 - Encoding of `Change` / `Origin` rows: they are OGAR types; their columnar
   form belongs next to them in OGAR or here.
+- `RuleId::name` is `&'static str` (OGAR `provenance.rs:29`). An image held in
+  memory restores fine, but one read back from bytes has no `'static` name to
+  put there. D-DSP-2 needs either a rule registry the reader maps names
+  through (unknown name = refusal), or an owned name in OGAR's `RuleId`.

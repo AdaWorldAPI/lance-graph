@@ -5,7 +5,7 @@ Plan: `.claude/plans/dir-sim-persist-v1.md`.
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
 | **D-DSP-0** | `StoreImage` + `VersionStore::image` / `restore` (dir-sim, no I/O) | In PR | P-W3-0: round trip answers every read the same; damaged image refused |
-| **D-DSP-1** | `VersionStore::revert_to(current, earlier)` — undo as a version | Queued | the revert's view equals `earlier`'s |
+| **D-DSP-1** | `VersionStore::revert(current, earlier, evidence)` — undo as a version | In PR | the revert's view equals `earlier`'s |
 | **D-DSP-2** | Lance writer/reader crate for `StoreImage` | Queued | write → read → restore equals the in-memory image |
 | **D-DSP-3** | `ViewActors` (W-2) + `from_graph` groups (wishlist #19) in dir-sim | In PR | disable runs red |
 
