@@ -303,7 +303,8 @@ impl ResolvedIdentity {
 
     /// Record the delegation a verified token's claims carry: the provider's
     /// `act` claim names the current actor, each `act` nested in it the one
-    /// before (RFC 8693 §4.1). A token without the claim is not delegated.
+    /// before (RFC 8693 §4.1). A token without the claim is not delegated,
+    /// and any delegation this identity carried before is replaced.
     /// A provider whose grammar has no `act` claim reads none.
     ///
     /// Read the claims only after the token's signature and issuer were
@@ -314,9 +315,13 @@ impl ResolvedIdentity {
     /// [`DelegationRefused::MalformedAct`] when an `act` does not name an
     /// actor; [`DelegationRefused::ChainTooDeep`] past [`MAX_ACT_DEPTH`].
     pub fn with_act_claim<C: ClaimSet + ?Sized>(
-        self,
+        mut self,
         claims: &C,
     ) -> Result<Self, DelegationRefused> {
+        // The claims decide the delegation outright: whatever this identity
+        // carried before is replaced, never kept beside them.
+        self.acting = None;
+        self.prior_actors.clear();
         let Some(key) = self.provider.grammar().act_claim else {
             return Ok(self);
         };
@@ -470,6 +475,27 @@ mod tests {
                 Err(DelegationRefused::MalformedAct)
             );
         }
+    }
+
+    // The claims decide the delegation outright: an identity already
+    // carrying one is not delegated by a token without `act`, and a token
+    // naming another chain replaces it rather than keeping the old one.
+    #[test]
+    fn the_claims_replace_an_earlier_delegation() {
+        let earlier = alice()
+            .acting_through(Actor::new("mallory"), [Actor::new("old")])
+            .unwrap();
+        let id = earlier
+            .clone()
+            .with_act_claim(&obj(vec![("sub", Claim::Str("alice"))]))
+            .unwrap();
+        assert!(!id.is_delegated());
+        assert!(id.prior_actors.is_empty());
+        let id = earlier
+            .with_act_claim(&obj(vec![("act", obj(vec![("sub", Claim::Str("bob"))]))]))
+            .unwrap();
+        assert_eq!(id.acting_party(), Some(&Actor::new("bob")));
+        assert!(id.prior_actors.is_empty());
     }
 
     // A chain deeper than MAX_ACT_DEPTH is refused rather than walked.
