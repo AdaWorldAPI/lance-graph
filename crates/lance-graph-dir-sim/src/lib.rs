@@ -16,6 +16,7 @@
 //! * [`validate`] — invariants as Quack programs (`Semijoin` anti-joins,
 //!   `GroupReduce` counts).
 //! * [`store`] — append-only versions, tags, diff, plan, audit.
+//! * [`image`] — a history as owned data, to persist and restore.
 //! * [`observe`] — `ogar-ad` records → observation (`OuHhtl` → `Dn128`,
 //!   failing closed).
 //! * [`ad`] — a version as Active Directory entries (observed, mirrored,
@@ -40,6 +41,7 @@ pub mod bind;
 pub mod cloud;
 mod exec;
 pub mod groups;
+pub mod image;
 pub mod ldap;
 pub mod observe;
 pub mod proxy;
