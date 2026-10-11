@@ -98,8 +98,8 @@ fn activate_with_labels(&self, plug: &HotPlug, spec: &LabelSpec)
 - **The mapping lives in the consumer's plug, not in OGAR's port tables.** WoA's `HotPlug` declares `0x0103` for its `TimeSheet` (a close match, owned by WoA). `WOA_ALIASES` and the other `PortSpec` alias tables are lockstep tables: deprecated, kept. This supersedes, in `entries/2026-10-11-coresearch-labels-address-lifetime.md`, shape piece 2 ("`PortSpec` is the mapping set") and the X14 / X17 / X18 verdicts "ADOPT in `PortSpec` / OGAR".
 - **Capabilities.** The concept declares its capabilities; each consumer's plug declares which it covers. No list of consumers exists. The expected-executors check in OGAR's `resolve_hotplug` (`UnexpectedConsumer`) is a lockstep residue to deprecate. This supersedes the executor-list framing of `ogar-p18-capability-table-0x0103` in `entries/2026-10-11-synergy-ledger-classid-hotplug.md`.
 
-## Still open (operator)
+## Decided with this record (operator, 2026-10-11: "Recommended accepted")
 
-- The three colliding u16s (`v3-mandatory-hotplug-reading-v1` O3).
-- A plug that asks only for a reading on a concept that has capability declarations.
-- D-HPR-6b (an unknown classid errors).
+- The three colliding u16s: storage readings leave the concept key (`v3-mandatory-hotplug-reading-v1` W7, D-HPR-7).
+- A plug that asks only for a reading succeeds; reading is not a capability (W8, D-HPR-8).
+- D-HPR-6b goes ahead, staged after W6a, W3 and a stored-classid check.
