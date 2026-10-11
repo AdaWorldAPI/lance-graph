@@ -8,6 +8,12 @@ adversarial re-reader per scout checked every item against its cited lines:
 completeness critic was not run (stopped to save tokens), so the ranking below
 is the main thread's.
 
+> **⊘ Corrected 2026-10-11 (operator, plan `concept-labels-hotplug-v1.md`):** capabilities on a
+> concept carry no list of consumers. Each consumer's plug declares what it covers, and the
+> expected-executors check in OGAR's `resolve_hotplug` is a lockstep residue to deprecate.
+> The executor-list framing of `ogar-p18-capability-table-0x0103` and
+> `odoo-capability-0x0103-consumer-tension` is superseded.
+
 ## Leverage ranking (open items)
 
 **Low fruit (hours, no operator needed):**

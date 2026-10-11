@@ -62,18 +62,21 @@ What it means, in rules:
   - Holds today. **Caveat (2026-10-11):** a `SlabDeclaration` overrides `value_schema` and the register reading only, never the key tail (`hotplug.rs:231-257`, `:392`). It cannot protect a V1/V2-tail slab. q2's `osint_scene.soa` is one: V2 tails under a classid whose builtin reading is V1. It is read by its own projection and must not be re-read through the table.
 - [ ] **W6 — D-HPR-6: V1 cannot be reached by default.** `ReadMode::DEFAULT` stops being the fallback for an unknown classid (it becomes `NoReadingFor`, as on the plug path), and `guid-v3-tail` stops being a feature gate.
   - Split (2026-10-11). **W6a**: un-gate `guid-v3-tail`. It is default-on and no fleet consumer disables it, so only `--no-default-features` builds change; there the 5 V3 fossils read `DEFAULT` today (coresearch probe P-X3). **W6b**: an unknown classid errors. This is a behaviour change, and both q2 and MedCare have already hit the V1 default once, so it needs operator approval.
+  - **Decided (operator, 2026-10-11: "Recommended accepted"): go, staged.** 1. W6a. 2. W3 moves the remaining mint paths onto plug readings. 3. A check that every stored artifact's classid resolves. 4. Only then W6b.
+- [ ] **W7 — D-HPR-7: storage readings leave the concept key** (O3, decided (a)). The five domain storage readings move out of `concept_override` (keyed by concept) into the slab's `SlabDeclaration` or the owning consumer's plug. A consumer plugging a shared concept then reads `PLUG_AND_PLAY_V3`. Falsifier: a plug of `0x0202` by a non-Odoo consumer reads `PLUG_AND_PLAY_V3`, and Odoo's own slab still reads `ERP_V3`.
+- [ ] **W8 — D-HPR-8: a plug that asks only for a reading succeeds** (decided). Reading is not a capability. A plug with `covered` empty gets readings only, also for a concept that has a capability table. A plug that names a capability still needs the table. Falsifier: `[0x0103]` with `covered: &[]` → `Ok` and `read_mode_for(0x0103) == PLUG_AND_PLAY_V3`; with `covered: &["anything"]` → refused as today.
 
 ## Open questions (operator)
 
 - **O1.** What classview should a NEW mint of a canon domain use instead of `0x1000`: `0x0000` (shared canonical core), or an app-owned value? Not blocking: existing mints keep `0x1000`.
 - **O2.** Does WoA's `ogit.WorkOrder:TimeSheet` resolve to `0x0103`, with "Stundenzettel" as its label, instead of today's `TimesheetActivity` (plan `cross-glove-business-parity-v1.md` §C.9.5)? Rule 4 settles that the German name is a label; it does not settle which WoA row the label names.
 
-- **O3 (2026-10-11).** Since W2, `concept_override` keys storage readings by **concept** (`0x0101` → `PROJECT_V3`, `0x0202` → `ERP_V3`, `0x0A01` → `FMA_V3`). Those three u16s are also code-minted consumer appid heads (OpenProject, Odoo, q2). So any consumer that plugs `commercial_document` (aliased by the WoA, SMB, Odoo and HubSpo ports) gets the ERP storage reading, not `PLUG_AND_PLAY_V3`. This is latent: no plug names these concepts today. Options:
+- **O3 (2026-10-11).** Since W2, `concept_override` keys storage readings by **concept** (`0x0101` → `PROJECT_V3`, `0x0202` → `ERP_V3`, `0x0A01` → `FMA_V3`). Those three u16s are also code-minted consumer appid heads (OpenProject, Odoo, q2). So any consumer that plugs `commercial_document` (aliased by the WoA, SMB, Odoo and HubSpo ports) gets the ERP storage reading, not `PLUG_AND_PLAY_V3`. This is latent: no plug names these concepts today. **Decided 2026-10-11: (a)** → W7 (D-HPR-7). Options were:
   - (a) key storage readings by a consumer-owned value;
   - (b) move the heads off occupied concept slots;
   - (c) document that plugging these concepts means that domain's storage model.
 
-  Related: should a plug that asks only for a reading (`covered` empty) succeed for a concept that has a capability table? It would unblock the SAP/Odoo `0x0103` plugs, q2 geo and deepnsm-v2. Record: `entries/2026-10-11-coresearch-labels-address-lifetime.md` (X6), `entries/2026-10-11-synergy-ledger-classid-hotplug.md`.
+  Related, **decided 2026-10-11: yes** → W8 (D-HPR-8). The question was: should a plug that asks only for a reading (`covered` empty) succeed for a concept that has a capability table? It would unblock the SAP/Odoo `0x0103` plugs, q2 geo and deepnsm-v2. Record: `entries/2026-10-11-coresearch-labels-address-lifetime.md` (X6), `entries/2026-10-11-synergy-ledger-classid-hotplug.md`.
 
 ## What this plan does not do
 

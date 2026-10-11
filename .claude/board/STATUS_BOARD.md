@@ -1,3 +1,16 @@
+## D-LBL — labels of a concept, pulled through the plug (2026-10-11)
+
+Plan: `.claude/plans/concept-labels-hotplug-v1.md`.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| **D-LBL-0** | Decision record, board rows, corrections (mapping in the consumer plug; no executor lists) | In PR | — |
+| **D-LBL-1** | `ogar-vocab` label rows + concept × language `LazyLock` index; seed `0x0103` (de pref Zeiterfassung, de alt Stundenzettel) | Queued (OGAR PR) | one preferred per (concept, tag); roles disjoint; concept in `CODEBOOK` |
+| **D-LBL-2** | `Activation::with_labels` + `label()` / `alt_labels()`; `OgarAuthority::activate` fills plugged concepts only | Queued | unplugged concept's labels absent; missing language → `None` |
+| **D-LBL-3** | Build-time activation for customer binaries (generated constants, labels included) | Queued | the binary links only `lance-graph-contract` |
+| **D-LBL-4** | Per-consumer `LabelSpec` + default `activate_with_labels` (non-breaking) | Queued (when a volume problem is measured) | `activate()` output unchanged; spec `["de"]` yields no `en` rows |
+| **D-LBL-5** | TTL reader keeps language tags (`ogar-from-schema`) | Queued | a tagged `rdfs:label` reaches the label rows with its tag |
+
 ## D-HPR — V3 mandatory; reading from the plug only (2026-10-10)
 
 Plan: `.claude/plans/v3-mandatory-hotplug-reading-v1.md`.
@@ -10,7 +23,9 @@ Plan: `.claude/plans/v3-mandatory-hotplug-reading-v1.md`.
 | **D-HPR-3** | Consumers move (lance-graph, q2, MedCare); `classid_read_mode` deprecated | Queued (2026-10-11 census: MedCare has 0 callers; q2's are offline bake mints; deepnsm-v2 is blocked on a concept mint, not code) | no NEW reading selected through the table (rule 5 keeps stored keys readable) |
 | **D-HPR-4** | `0x1000` / render prefixes documented as deprecated, kept (no eviction) | Shipped for `0x1000` (#1464; doc notes on `CLASSID_*_V3` + `classid_read_mode`); render prefixes, `NodeGuid::read_mode` and OGAR/q2 sites still carry no note | — |
 | **D-HPR-5** | Stored legacy keys keep resolving; a `SlabDeclaration` may override for its own data; no forced removal | Holds today (status quo). Caveat: a `SlabDeclaration` overrides `value_schema` only, never the tail, so it cannot protect a V1/V2-tail slab (`hotplug.rs:231-257, 392`) | — |
-| **D-HPR-6** | No V1 default for an unknown classid; `guid-v3-tail` not a gate | Queued — split: **6a** un-gate `guid-v3-tail` (default-on, and no fleet consumer disables it, so only `--no-default-features` builds change; there the 5 V3 fossils read `DEFAULT` today); **6b** unknown classid → error (behaviour change, operator) | unknown classid → `NoReadingFor` |
+| **D-HPR-6** | No V1 default for an unknown classid; `guid-v3-tail` not a gate | Queued — split: **6a** un-gate `guid-v3-tail` (default-on, and no fleet consumer disables it, so only `--no-default-features` builds change; there the 5 V3 fossils read `DEFAULT` today); **6b** unknown classid → error. Decided 2026-10-11: go, staged after 6a, D-HPR-3 and a stored-classid check | unknown classid → `NoReadingFor` |
+| **D-HPR-7** | Storage readings leave the concept key: out of `concept_override`, into the slab's `SlabDeclaration` or the owning consumer's plug (O3, decided (a) 2026-10-11) | Queued | a non-Odoo plug of `0x0202` reads `PLUG_AND_PLAY_V3`; Odoo's slab still reads `ERP_V3` |
+| **D-HPR-8** | A plug that asks only for a reading succeeds (reading is not a capability; decided 2026-10-11) | Queued | `[0x0103]` with `covered: &[]` → `Ok`, `PLUG_AND_PLAY_V3`; with a covered capability → refused as today |
 
 ## D-XGP — Cross-glove business parity: Odoo × SAP over one Quack algebra (2026-10-10)
 
