@@ -459,7 +459,7 @@ pub fn address_rules(v: &View<'_>) -> Vec<Violation> {
 /// The single directory object that holds `key` in the one address space
 /// [`address_rules`] checks, read from the same rows: UPN, primary and
 /// secondary SMTP and the routing address of address owners; the primary
-/// SMTP address of every live group. `mail` holds nothing.
+/// and secondary SMTP addresses of every live group. `mail` holds nothing.
 ///
 /// - `Ok(None)`: no live directory object holds the key.
 /// - `Ok(Some(owner))`: exactly one does, under one or more roles (a user
@@ -546,8 +546,8 @@ fn address_rows(v: &View<'_>, out: &mut Vec<Violation>) -> Vec<(u32, Guid128, Ad
 
 /// The `(key, holder, role)` rows of the users in `owners` (their UPN)
 /// and `mail_owners` (their primary and secondary SMTP and routing
-/// address), and of every live group (its primary SMTP), sorted and
-/// deduplicated. Routing violations of `mail_owners` go to `out`.
+/// address), and of every live group (its primary and secondary SMTP),
+/// sorted and deduplicated. Routing violations of `mail_owners` go to `out`.
 fn rows_over(
     v: &View<'_>,
     owners: &[u64],
@@ -615,9 +615,13 @@ fn rows_over(
             out.push(Violation::RoutingMismatch { node: g });
         }
     }
-    // A mail-enabled group's primary SMTP address is in the same space: a
-    // group is a recipient too (a distribution list), and Exchange refuses
-    // an address another object holds, whatever kind that object is.
+    // A mail-enabled group's SMTP addresses are in the same space: a group
+    // is a recipient too (a distribution list), Exchange delivers mail sent
+    // to any of its SMTP proxies, and it refuses an address another object
+    // holds, whatever kind that object is. A group created in a version
+    // carries no secondary proxies (a `Change` sets none), so only observed
+    // groups have proxy rows.
+    let gp = &v.snap.group_proxies;
     for i in 0..v.groups_len() {
         let Some(g) = v.guid_in(NodeKind::Group, i) else {
             continue;
@@ -627,6 +631,13 @@ fn rows_over(
             .filter(|&(_, k)| k != NONE)
         {
             rows.push((k, g, AddressRole::PrimarySmtp));
+        }
+        if i < v.snap.groups.len() {
+            for r in gp.owner_rows(i as u32) {
+                if gp.meta[r] == meta::SMTP_SECONDARY {
+                    rows.push((gp.key[r], g, AddressRole::SecondarySmtp));
+                }
+            }
         }
     }
     rows.sort_unstable();
@@ -679,22 +690,7 @@ pub struct ProvisioningConflict {
 /// real tenant and are not in this plane.
 pub fn provisioning_conflicts(v: &View<'_>) -> Vec<ProvisioningConflict> {
     let present = v.existing(NodeKind::User);
-    let mut rows = rows_over(v, &present, &present, &mut Vec::new());
-    // A group's secondary SMTP proxies claim too. A group created in a
-    // version carries none (a `Change` sets no proxy).
-    let gp = &v.snap.group_proxies;
-    for i in 0..v.snap.groups.len() {
-        let Some(g) = v.guid_in(NodeKind::Group, i) else {
-            continue;
-        };
-        for r in gp.owner_rows(i as u32) {
-            if gp.meta[r] == meta::SMTP_SECONDARY {
-                rows.push((gp.key[r], g, AddressRole::SecondarySmtp));
-            }
-        }
-    }
-    rows.sort_unstable();
-    rows.dedup();
+    let rows = rows_over(v, &present, &present, &mut Vec::new());
     rows.chunk_by(|a, b| a.0 == b.0)
         .filter(|run| run.iter().any(|r| r.1 != run[0].1))
         .map(|run| ProvisioningConflict {
