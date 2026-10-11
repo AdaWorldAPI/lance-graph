@@ -1,0 +1,46 @@
+# lance-graph-dir-sim-lance — the dir-sim history log stored in Lance
+# (plan dir-sim-persist-v1, D-DSP-2b). EXCLUDED from the lance-graph
+# workspace (own [workspace] root), like lance-graph-dir-sim, which it
+# depends on: dir-sim stays free of lance, arrow and datafusion.
+#
+# One log batch is one Lance append. The history's logical versions live
+# in the records; the Lance dataset version is only the physical commit
+# counter, used to refuse a stale writer and detect a race.
+#
+# Build/verify:
+#   cargo test --manifest-path crates/lance-graph-dir-sim-lance/Cargo.toml
+
+[package]
+name = "lance-graph-dir-sim-lance"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+description = "Lance storage for the dir-sim history log: one verified batch per append, dataset version checked before and after, read once at restore."
+
+[workspace]
+
+[dependencies]
+lance-graph-dir-sim = { path = "../lance-graph-dir-sim" }
+# The lance family moves in lockstep with the lance-graph root (13 / arrow
+# 58); no cloud object stores, a local or file URI is enough here.
+lance = { version = "13.*", default-features = false }
+arrow-array = "58"
+arrow-schema = "58"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tempfile = "3"
+ogar-dir-core = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-dir-sim = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+
+# The same patches as lance-graph-dir-sim: [patch] applies only at the
+# workspace root, so a crate that depends on dir-sim repeats them.
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
+
+[patch."https://github.com/AdaWorldAPI/OGAR"]
+ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
+ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
+ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
+ogar-az = { path = "../../../OGAR/crates/ogar-az" }

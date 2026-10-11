@@ -86,9 +86,13 @@ as a simulated version whose origin names the restored version.
         refused; two-batch restore; torn saves (lost tail, lost header,
         flipped byte, missing batch) refused. Disable runs red: checksum,
         record count, batch gap, the sparse skip, stale commit.
-  - [ ] **D-DSP-2b** the Lance crate: one batch = one Lance append; the
-        dataset version checked before and after (stale writer refused,
-        race detected); read once at restore. Needs disk for lancedb.
+  - [x] **D-DSP-2b** the Lance crate `lance-graph-dir-sim-lance` (own
+        workspace, lance 13 without cloud stores; dir-sim itself stays
+        free of lance): one batch = one Lance append (`Create`, then
+        `Append`); the dataset version checked before (stale writer
+        refused, nothing written) and after (`Race` when the commit is not
+        the next version); read once at restore. Logical versions stay in
+        the records; the Lance version is only the commit counter.
 - [x] **Decision 4(b), 2026-10-11:** group-to-role grants are the
       authority's versioned policy, not directory state: OGAR
       `ogar_rbac::group_policy::GroupRolePolicy` (append-only, own
