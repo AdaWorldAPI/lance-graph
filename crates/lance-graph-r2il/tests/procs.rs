@@ -297,3 +297,45 @@ fn a_fused_slot_from_an_earlier_fold_is_refused() {
         Err(FoldError::StaleSlot)
     );
 }
+
+/// FAILS IF: an `IntAnd` of two resident planes stops being accepted in
+/// either mode, or the two modes stop agreeing on it.
+#[test]
+fn plane_and_plane_is_accepted_in_both_modes() {
+    let f = fixture();
+    let lanes = lanes(&f);
+    let pa: Vec<u64> = (0..words_for(N))
+        .map(|w| 0xF0F0_F0F0_F0F0_F0F0 ^ w as u64)
+        .collect();
+    let pb: Vec<u64> = (0..words_for(N))
+        .map(|w| 0x3333_3333_3333_3333u64.rotate_left(w as u32))
+        .collect();
+    // mask-risc refuses set bits past `n_rows` in a resident plane.
+    let tail = |mut w: Vec<u64>| {
+        let last = w.len() - 1;
+        w[last] &= (1u64 << (N % 64)) - 1;
+        w
+    };
+    let (pa, pb) = (tail(pa), tail(pb));
+    let masks = [pa.as_slice(), pb.as_slice()];
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let want = (0..N)
+        .filter(|&r| pa[r / 64] >> (r % 64) & 1 == 1 && pb[r / 64] >> (r % 64) & 1 == 1)
+        .count() as i64;
+    assert!(want > 0 && want < N as i64);
+    for mode in [BoolMode::InPlace, BoolMode::Fused] {
+        let mut d = FoldDialect::new(&planes, &Foreign::NONE).with_mode(mode);
+        let mut stack = vec![
+            Val::Address(lance_graph_r2il::Addr::Plane(0)),
+            Val::Address(lance_graph_r2il::Addr::Plane(1)),
+        ];
+        d.call(INT_AND, [0; 3], &mut stack)
+            .expect("plane AND plane");
+        d.call(POP_COUNT, [0; 3], &mut stack).expect("count");
+        assert_eq!(stack, vec![Val::Scalar(want)], "{mode:?}");
+    }
+}

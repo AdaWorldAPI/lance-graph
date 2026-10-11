@@ -803,6 +803,20 @@ impl Dialect for FoldDialect<'_> {
                         });
                         Ok(())
                     }
+                    // Two resident planes: nothing to gate, one `And` pass.
+                    (Val::Address(Addr::Plane(pa)), Val::Address(Addr::Plane(pb))) => {
+                        let dst = self.fresh();
+                        self.ops.push(MaskOp::And {
+                            a: Operand::Plane(pa),
+                            b: Operand::Plane(pb),
+                            dst,
+                        });
+                        stack.push(Val::Slot {
+                            slot: dst,
+                            epoch: self.epoch,
+                        });
+                        Ok(())
+                    }
                     (Val::Scalar(x), Val::Scalar(y)) => {
                         stack.push(Val::Scalar(x & y));
                         Ok(())

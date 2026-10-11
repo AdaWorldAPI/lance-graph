@@ -23,7 +23,7 @@ differences are read. No cache-miss counter (`perf` unavailable).
 - **A** `Pred K`, ungated `Gather`, `And`, `Count` (scan, join, filter).
 - **B** `Pred K`, `Gather under K`, `Count` (fused, gated gather).
 - **C** clustered layout only: `hi = partition_point(s < t)`, then `Gather`,
-  `Count` over `execute_extent(0..hi)`.
+  `Count` over `execute_extent(0..hi)`. The search is timed with the arm.
 
 ## Results (sel_B 0.5; sel_B 0.01 matches within noise)
 
@@ -31,7 +31,7 @@ differences are read. No cache-miss counter (`perf` unavailable).
 |---|---|---|---|
 | 0.5 | 16384 / 1048576 / ~1.8 ms | 16384 / 523683 / ~1.1 ms | 8183 / 523683 / ~0.8 ms |
 | 0.01 | 16384 / 1048576 / ~1.7 ms | 16384 / 10459 / ~0.19 ms | 164 / 10459 / ~14.5 µs |
-| 0.0001 | 16384 / 1048576 / ~1.8 ms | 16384 / 126 / ~0.17 ms | 2 / 126 / ~0.29 µs |
+| 0.0001 | 16384 / 1048576 / ~1.8 ms | 16384 / 126 / ~0.17 ms | 2 / 126 / ~0.48 µs |
 
 Scattered layout: A ~1.8 ms flat; B falls to a floor of ~0.17–0.29 ms; C
 does not exist.
@@ -42,8 +42,8 @@ does not exist.
   `|K|`, but it still reads every `s` and writes every tile. Its floor
   (~0.17 ms) is the K predicate scan.
 - **C eliminates source reads.** Words visited and fk-reads both track `|K|`;
-  the `s` lane is read ~20 times (the binary search). At 0.01% C is ~600×
-  faster than B. At 50% it is ~1.4×: little is left to eliminate.
+  the `s` lane is read ~20 times (the binary search). At 0.01% C is ~370×
+  faster than B, search included. At 50% it is ~1.4×: little is left to eliminate.
 - **The scattered control behaves as predicted.** With no interval, the
   restriction collapses to B, so C's gain is the restriction itself, not a
   faster kernel.

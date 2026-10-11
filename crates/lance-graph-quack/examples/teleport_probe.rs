@@ -364,8 +364,17 @@ fn join_sweep(n: usize, reps: usize) {
                     // O(log n) and reads ~log2(n) values of `s`.
                     let hi = e.s.partition_point(|s| *s < t);
                     assert_eq!(hi, k_rows);
+                    // The search is part of the arm, so it is timed with it.
+                    let tm = Instant::now();
+                    for _ in 0..reps {
+                        std::hint::black_box(
+                            std::hint::black_box(&e.s).partition_point(|s| *s < t),
+                        );
+                    }
+                    let search_ns = tm.elapsed().as_nanos() as f64 / reps as f64;
                     let pc = arm_c();
                     let (cc, ns, al) = time(&pc, &planes, &foreign, 0..hi, reps);
+                    let ns = ns + search_ns;
                     assert_eq!(cc, want, "arm C");
                     let ew = words_for(hi);
                     row(
