@@ -151,6 +151,19 @@ It follows the 2026-09-05 lance-graph ruling that planning moves to
   `IntAdd` stays scalar-only. NULLs in a foreign value lane stay unmodelled,
   as in quack. BASIS for this decision and the previous ones: quack's
   `sql_where` doc and `tests/sql_null_3vl.rs`.
+- **DECISION (2026-10-11): procedures are inlined until `PROC_*` executes.**
+  W2 writes each procedure as a Rust function that emits R2IL calls through
+  `Dialect::call` (`lance-graph-r2il::procs`). It adds no opcode; what reaches
+  mask-risc is what the calls written out by hand produce. BASIS: `ogar-loco`
+  routes `PROC_DEF`/`PROC_CALL`/`PROC_ARG` to `Dialect::call`, not the engine;
+  `PROC_CALL` has no fixed stack arity and no `body_refs`, so a call site
+  cannot name its target body. REVISIT WHEN: the OPEN item below is settled.
+- **OPEN (OGAR): an executable `PROC_DEF`/`PROC_CALL` contract.** It needs
+  per-call arity, a `body_refs` entry naming the target, call frames with
+  `PROC_ARG` and returns, a rule for who owns `VAR_GET`/`VAR_SET` across a
+  call, and a corrected `interpret.rs` doc (it says the engine refuses
+  `PROC_DEF`; the dialect receives it). Until then a "procedure body" is the
+  inlined call sequence.
 - **OPEN: SQL text parser.** DataFusion is in its grace period, so its parser
   is not the route. Candidates: a standalone parser crate, or a declared-query
   schema that needs no text parser for the compile-time mode. Decided in W6.
@@ -163,7 +176,7 @@ It follows the 2026-09-05 lance-graph ruling that planning moves to
 |---|---|---|---|---|
 | W0 | D-SQLP-0 | lance-graph | This plan + board rows | — |
 | W1 | D-SQLP-1 | lance-graph | Move `FoldDialect` and its `Val`/`FoldError` types from `r2il-mask-abi-probe/tests/row_bridge.rs` into a workspace crate `lance-graph-r2il`; the probe's tests depend on it | every existing `row_bridge.rs` test passes unchanged against the crate; still one arity table in the tree (`ogar_r2il`'s); no new opcode; the named refusals still refuse |
-| W2 | D-SQLP-2 | lance-graph | First procedures as `PROC_DEF` bodies over R2IL calls: `filter_lt` (`Load` + `IntSLess` + `KEEP`), `sum`, `group_sum`, and `margin` (two `SUM` + `IntSub`). Prerequisites in `FoldDialect`: wire `IntOr` onto `MaskOp::Or` like `IntAnd`; add the fused mode (a body's Boolean calls collected into one `BoolExpr` and lowered through mask-risc `fuse`) beside today's in-place mode | each answer equals a scalar reference on fixtures with ≥ 3 groups and both empty and full selections; no new opcode; disable runs: drop `KEEP` from `filter_lt` → red; swap `IntSub` operands in `margin` → red; an `IntOr` test that is red if it is lowered as `And`; a two-mode test where both keep the same rows, in-place emits per-call ops and fused holds ternlogs |
+| W2 | D-SQLP-2 | lance-graph | First procedures as inlined R2IL call sequences (`procs`, see §4; `PROC_DEF` bodies once the OGAR contract exists): `filter_lt` (`Load` + `IntSLess` + `KEEP`), `sum`, `group_sum`, and `margin` (two `SUM` + `IntSub`). Prerequisites in `FoldDialect`: wire `IntOr` onto `MaskOp::Or` like `IntAnd`; add the fused mode (a body's Boolean calls collected into one `BoolExpr` and lowered through mask-risc `fuse`) beside today's in-place mode | each answer equals a scalar reference on fixtures with ≥ 3 groups and both empty and full selections; no new opcode; disable runs: drop `KEEP` from `filter_lt` → red; swap `IntSub` operands in `margin` → red; an `IntOr` test that is red if it is lowered as `And`; a two-mode test where both keep the same rows, in-place emits per-call ops and fused holds ternlogs |
 | W3 | D-SQLP-3 | lance-graph | Benchmark `margin` three ways: direct `ndarray::simd` calls, hand-built mask-risc `Program`s, the interpreted procedure. N = 65,536 and 1,048,576; selectivity ~1 % and ~50 % | answers identical before timing; release, quiet machine, median of 101 runs, avx512 and avx2 reported separately. Pre-registered: interpreted ≤ 1.05× hand-built `Program` at both N |
 | W4 | D-SQLP-4 | lance-graph | Build-time generator: a declared procedure body → Rust that calls mask-risc / `ndarray::simd` directly, with opcodes as const generics (the `ternlog::<IMM>` pattern) | generated code's answers identical to the interpreted body; generated ≤ 1.05× direct ndarray at both N; disassembly of the hot loop contains no interpreter dispatch |
 | W5 | D-SQLP-5 | lance-graph, lance-graph-java | quack, `plan_eval` and the SAP binder lower through the procedures | quack and SAP: for every case their tests pin, the `mask_risc::Program` produced through the procedures is byte-identical to today's, per mode (`lower` against in-place, `lower_fused` against fused; `the_fused_lowering_trades_slots_for_passes` stays green). lance-graph-java: first add a `Program`-level test comparing the procedure lowering against the legacy `plan_lower` output (none exists today; `lowering_convergence` compares row counts only), then require byte-identical `Program`s for its 28 combine vectors. Nullable predicates: run the `sql_null_3vl.rs` cases through the procedure path in both modes, against the same Kleene oracle, byte-identical to `lower(sql_where(f))` / `lower_fused(sql_where(f))` respectively: required cases, nested `NOT`/`AND`/`OR`, gating-before-negation, NULL ≠ 0, random trees, deep chains, and the `Rows` / `Count` / `SumI32` aggregate cases. Its `MinI32` / `MaxI32` cases join once W7's `MIN` / `MAX` items land (explicit prerequisite for those cases only); add falsifiers only for shapes that suite does not cover. No other behaviour change |

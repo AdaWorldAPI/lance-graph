@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-302 entries, 2026-08-06 .. 2026-10-11.
+303 entries, 2026-08-06 .. 2026-10-11.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-11 | `D-TELEPORT-0` |  | [2026-10-11-teleport-probe-source-restriction.md](2026-10-11-teleport-probe-source-restriction.md) |
 | 2026-10-11 | `synergy-ledger-classid-hotplug` |  | [2026-10-11-synergy-ledger-classid-hotplug.md](2026-10-11-synergy-ledger-classid-hotplug.md) |
 | 2026-10-11 | `coresearch-labels-address-lifetime` |  | [2026-10-11-coresearch-labels-address-lifetime.md](2026-10-11-coresearch-labels-address-lifetime.md) |
 | 2026-10-11 | `coresearch-instance-authz` |  | [2026-10-11-coresearch-instance-authz.md](2026-10-11-coresearch-instance-authz.md) |
