@@ -1,15 +1,15 @@
-## D-K16 — contiguous fast path for the 16-byte key match (2026-10-11)
+## D-KEY16 — contiguous fast path for the 16-byte key match (2026-10-11)
 
 Plan: `.claude/plans/key16-contiguous-match-v1.md`.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| **D-K16-0** | Plan + board rows | In PR | — |
-| **D-K16-1** | `ternary_match_strided16_to_mask` in ndarray's `simd-masking-parity` (strides 16/20/32/512, offsets 0..15, care bytes 12..16, tails) | Queued (ndarray PR) | green on the current kernel on every realization row; a wrong reference turns it red |
-| **D-K16-2** | `examples/key16_match_probe.rs`: current kernel vs contiguous path vs AVX-512 gather at 65,536 and 1M rows | Queued (ndarray PR) | answers identical before timing; median of 101; avx512 and avx2 reported separately |
-| **D-K16-3** | Stride-16 path in the kernel, facade only | Queued, gated on D-K16-2 (≥ 1.5× on avx512 AND avx2, no regression at strides 32/512) | parity green; codegen witness unchanged; two disable runs red |
-| **D-K16-4** | AVX-512 gather for strides > 16, behind the facade | Queued, gated on D-K16-2 (≥ 1.2× at strides 32 and 512) | other backends still take the old path, asserted |
-| **D-K16-5** | Consumer verification: mask-risc, quack, dir-sim tests + Identity CI names; dir-sim `subtree` timing before/after | Queued (after the ndarray merge) | no consumer source change; timing recorded with method |
+| **D-KEY16-0** | Plan + board rows | In PR | — |
+| **D-KEY16-1** | `ternary_match_strided16_to_mask` in ndarray's `simd-masking-parity` (strides 16/20/32/512, offsets 0..15, care bytes 12..16, tails) | Queued (ndarray PR) | green on the current kernel on every realization row; a wrong reference turns it red |
+| **D-KEY16-2** | `examples/key16_match_probe.rs`: current kernel vs contiguous path vs AVX-512 gather at 65,536 and 1M rows | Queued (ndarray PR) | answers identical before timing; median of 101; avx512 and avx2 reported separately |
+| **D-KEY16-3** | Stride-16 path in the kernel, facade only | Queued, gated on D-KEY16-2 (≥ 1.5× on avx512 AND avx2, no regression at strides 32/512) | parity green; codegen witness unchanged; two disable runs red |
+| **D-KEY16-4** | AVX-512 gather for strides > 16, behind the facade | Queued, gated on D-KEY16-2 (≥ 1.2× at strides 32 and 512) | other backends still take the old path, asserted |
+| **D-KEY16-5** | Consumer verification: mask-risc, quack, dir-sim tests + Identity CI names; dir-sim `subtree` timing before/after | Queued (after the ndarray merge) | no consumer source change; timing recorded with method |
 
 ## D-DSP — dir-sim history that survives a restart (2026-10-11)
 

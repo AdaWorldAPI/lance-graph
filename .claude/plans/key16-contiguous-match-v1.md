@@ -1,7 +1,7 @@
 # key16-contiguous-match-v1 — a contiguous fast path for the 16-byte key match
 
-**Status:** PROPOSAL (D-K16-0..5). No kernel change is authorized until the
-D-K16-2 probe clears its pre-registered threshold.
+**Status:** PROPOSAL (D-KEY16-0..5). No kernel change is authorized until the
+D-KEY16-2 probe clears its pre-registered threshold.
 **Date:** 2026-10-11. **Repos:** ndarray (kernel, parity, probe), lance-graph
 (consumers: mask-risc, quack, dir-sim). lance-graph-java is unaffected (see §6).
 
@@ -68,16 +68,16 @@ unaligned load on every backend, as the current kernel assumes.
 
 | Wave | D-id | Repo | Work | Gate (all must pass) |
 |---|---|---|---|---|
-| W0 | D-K16-0 | lance-graph | This plan + board rows | — |
-| W1 | D-K16-1 | ndarray | Add `ternary_match_strided16_to_mask` to `crates/simd-masking-parity` against a bytewise reference: strides 16 / 20 / 32 / 512, first offsets 0..15, care bits in bytes 12..16 (the in-crate test `ternary_match_strided16_sees_bytes_past_twelve` shape), tails 0 / 1 / 3 / 4 / 5 / 15 / 16 / 17 / 63 / 64 / 65 / 130 | green on the CURRENT kernel on every `simd-matrix.yaml` realization row (avx512, avx2, avx, v2, neon, wasm + scalar, nightly); a deliberately wrong reference makes it red (can-fire) |
-| W2 | D-K16-2 | ndarray | `examples/key16_match_probe.rs`: arm A current kernel; arm B contiguous fast path (prototype inside the probe); arm C AVX-512 64-bit gather for strides > 16 (prototype, `cfg`-gated in the probe only). N = 65,536 (dir-sim population) and 1,048,576; strides 16 / 32 / 512; selectivity ~1 % and ~50 % | answers bit-identical across arms BEFORE timing; release, quiet machine, median of 101 runs, avx512 and avx2 hosts reported separately; results committed to the probe's doc |
-| W3 | D-K16-3 | ndarray | Only if W2 shows arm B ≥ 1.5× arm A at stride 16 on BOTH avx512 and avx2, with no arm slower at strides 32 / 512: add the `stride_bytes == 16` path to the kernel | W1 parity green on every matrix row; `scripts/codegen-witness.sh` unchanged; disable run 1: route stride 16 back to the gather path, probe speedup disappears; disable run 2: fold on the low half only (`m & 0x55`), parity goes red |
-| W4 | D-K16-4 | ndarray | Only if W2 shows arm C ≥ 1.2× arm A at strides 32 and 512 on the avx512 CI tier: gather path in `simd_avx512.rs` behind the facade; other backends keep the scalar gather | as W3, plus the avx2 / neon / wasm rows still take the old path (asserted, not assumed) |
-| W5 | D-K16-5 | lance-graph | Consumer verification after the ndarray merge: `cargo test` for mask-risc, quack, dir-sim; the Identity workflow's 87 pinned dir-sim names; dir-sim `subtree` timing before/after at 65,536 nodes, recorded | no consumer source change; all green; timing recorded with method |
+| W0 | D-KEY16-0 | lance-graph | This plan + board rows | — |
+| W1 | D-KEY16-1 | ndarray | Add `ternary_match_strided16_to_mask` to `crates/simd-masking-parity` against a bytewise reference: strides 16 / 20 / 32 / 512, first offsets 0..15, care bits in bytes 12..16 (the in-crate test `ternary_match_strided16_sees_bytes_past_twelve` shape), tails 0 / 1 / 3 / 4 / 5 / 15 / 16 / 17 / 63 / 64 / 65 / 130 | green on the CURRENT kernel on every `simd-matrix.yaml` realization row (avx512, avx2, avx, v2, neon, wasm + scalar, nightly); a deliberately wrong reference makes it red (can-fire) |
+| W2 | D-KEY16-2 | ndarray | `examples/key16_match_probe.rs`: arm A current kernel; arm B contiguous fast path (prototype inside the probe); arm C AVX-512 64-bit gather for strides > 16 (prototype, `cfg`-gated in the probe only). N = 65,536 (dir-sim population) and 1,048,576; strides 16 / 32 / 512; selectivity ~1 % and ~50 % | answers bit-identical across arms BEFORE timing; release, quiet machine, median of 101 runs, avx512 and avx2 hosts reported separately; results committed to the probe's doc |
+| W3 | D-KEY16-3 | ndarray | Only if W2 shows arm B ≥ 1.5× arm A at stride 16 on BOTH avx512 and avx2, with no arm slower at strides 32 / 512: add the `stride_bytes == 16` path to the kernel | W1 parity green on every matrix row; `scripts/codegen-witness.sh` unchanged; disable run 1: route stride 16 back to the gather path, probe speedup disappears; disable run 2: fold on the low half only (`m & 0x55`), parity goes red |
+| W4 | D-KEY16-4 | ndarray | Only if W2 shows arm C ≥ 1.2× arm A at strides 32 and 512 on the avx512 CI tier: gather path in `simd_avx512.rs` behind the facade; other backends keep the scalar gather | as W3, plus the avx2 / neon / wasm rows still take the old path (asserted, not assumed) |
+| W5 | D-KEY16-5 | lance-graph | Consumer verification after the ndarray merge: `cargo test` for mask-risc, quack, dir-sim; the Identity workflow's 87 pinned dir-sim names; dir-sim `subtree` timing before/after at 65,536 nodes, recorded | no consumer source change; all green; timing recorded with method |
 
-**Kill conditions.** W2 below threshold for arm B → close D-K16-3 as
+**Kill conditions.** W2 below threshold for arm B → close D-KEY16-3 as
 measured won't-fix and keep W1 (parity coverage stands on its own). Arm C
-below threshold → close D-K16-4 the same way. A W1 failure on the current
+below threshold → close D-KEY16-4 the same way. A W1 failure on the current
 kernel is a real backend bug: fix it first, as its own PR.
 
 ## 5. Order and ownership
