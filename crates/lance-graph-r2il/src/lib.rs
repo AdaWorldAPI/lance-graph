@@ -57,7 +57,7 @@
 //!   instead of spending an `And`.
 //! - [`BoolMode::Fused`]: the calls build one [`BoolExpr`]; the first consumer
 //!   (`PopCount`, `SUM`, `GROUP_SUM`, `KEEP`) lowers it through mask-risc
-//!   [`fuse`] into ternlogs. Fewer passes, no survivor gating.
+//!   [`fuse()`] into ternlogs. Fewer passes, no survivor gating.
 //!
 //! Both modes keep the same rows. Predicates are emitted the same way in
 //! both; only the Boolean combination differs.
@@ -229,7 +229,7 @@ pub enum BoolMode {
     #[default]
     InPlace,
     /// The calls build one [`BoolExpr`]; at the fold it is lowered through
-    /// mask-risc [`fuse`] into ternlogs. Fewer passes, no survivor gating.
+    /// mask-risc [`fuse()`] into ternlogs. Fewer passes, no survivor gating.
     Fused,
 }
 
