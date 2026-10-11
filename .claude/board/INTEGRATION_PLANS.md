@@ -1,6 +1,6 @@
 ## 2026-10-11 (4) — sql-polyfill-r2il-v1 — SQL() as a polyfill of R2IL procedures over mask-risc → `.claude/plans/sql-polyfill-r2il-v1.md`
 
-**Status:** PROPOSAL (D-SQLP-0..8). Nothing past W1 authorized until the D-SQLP-3 benchmark clears its pre-registered threshold.
+**Status:** PROPOSAL (D-SQLP-0..8). W1–W3 authorized; nothing from W4 on until the D-SQLP-3 benchmark clears its pre-registered threshold.
 
 - SQL operations become `ogar-loco` `PROC_DEF` bodies over R2IL fold-reading calls; no new opcode and no meta layer (loco already nests via `PROC_DEF`/`PROC_CALL`).
 - `FoldDialect` moves from a probe test file into a `lance-graph-r2il` crate; mask-risc stays the only engine.

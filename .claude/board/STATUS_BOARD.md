@@ -9,9 +9,9 @@ Plan: `.claude/plans/sql-polyfill-r2il-v1.md`.
 | **D-SQLP-2** | First procedures (`filter_lt`, `sum`, `group_sum`, `margin`) as `PROC_DEF` bodies | Queued | scalar-reference parity; two disable runs red |
 | **D-SQLP-3** | Benchmark: direct ndarray vs hand-built `Program` vs interpreted procedure | Queued | interpreted ≤ 1.05× hand-built at 65,536 and 1M rows (pre-registered) |
 | **D-SQLP-4** | Build-time generator: declared procedure → Rust with const-generic opcodes | Queued, gated on D-SQLP-3 | ≤ 1.05× direct ndarray; no interpreter dispatch in the hot loop |
-| **D-SQLP-5** | quack, `plan_eval`, SAP binder lower through the procedures | Queued, gated on D-SQLP-3 | byte-identical `mask_risc::Program` for every pinned case |
+| **D-SQLP-5** | quack, `plan_eval`, SAP binder lower through the procedures | Queued, gated on D-SQLP-3 | byte-identical `mask_risc::Program` for every pinned case; lance-graph-java first gets a `Program`-level test (today's `lowering_convergence` compares row counts) |
 | **D-SQLP-6** | lance-graph-java `sql()` membrane (one Panama call, value records); parser decision | Queued | `ApiSurfaceTest`; no row-proportional Java allocation; `AllTests` on JDK 28 |
-| **D-SQLP-7** | Backlog: refused fold opcodes, `IntAdd`, i64/f64/decimal/date lanes | Queued (per item, mask-risc first) | per-item parity on every realization row |
+| **D-SQLP-7** | Backlog: refused fold opcodes and i64/f64/decimal/date lanes (mask-risc first); scalar `IntAdd` (`FoldDialect` only) | Queued (per item) | population items: parity on every realization row; scalar items: scalar test, `Addr`/`Addr` refusal kept |
 | **D-SQLP-8** | Mint `0xC400` / `0xC401` in `ogar-vocab` | Queued (OGAR request) | provisional notes replaced; no persisted GUID before |
 
 ## D-KEY16 — contiguous fast path for the 16-byte key match (2026-10-11)

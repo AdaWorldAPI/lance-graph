@@ -1,7 +1,8 @@
 # sql-polyfill-r2il-v1 — SQL() as a polyfill of R2IL procedures over mask-risc
 
-**Status:** PROPOSAL (D-SQLP-0..8). Nothing beyond W1 is authorized until the
-D-SQLP-3 benchmark clears its pre-registered threshold.
+**Status:** PROPOSAL (D-SQLP-0..8). W1–W3 are authorized: they build what the
+D-SQLP-3 benchmark measures. Nothing from W4 on is authorized until that
+benchmark clears its pre-registered threshold.
 **Date:** 2026-10-11. **Repos:** lance-graph (crate, procedures, codegen,
 quack/SAP front ends), lance-graph-java (`sql()` membrane, `plan_eval`),
 OGAR (fold-band bytes, concept mint), ndarray (missing lane primitives).
@@ -61,8 +62,10 @@ It follows the 2026-09-05 lance-graph ruling that planning moves to
 - **Front ends that lower to `mask_risc::Program` today:** quack
   (`lance-graph-quack/src/lib.rs`: `lower`, `lower_fused`, `lower_group_by`,
   `lower_avg`); lance-graph-java `plan_eval` (`lgj-abi/src/exports.rs`,
-  with the `lowering_convergence` test module proving its `Program` equals
-  quack's); `lance-graph-sap` (CATS boundary adapters, "no SAP evaluator").
+  whose `lowering_convergence` test compares the ROW COUNTS the two
+  lowerings select, not the `Program`s they build, over 28 combine vectors;
+  `lowering_convergence.rs` `eval_plan_lower` vs `run(quack::lower(..))`);
+  `lance-graph-sap` (CATS boundary adapters, "no SAP evaluator").
 - **Column types mask-risc reads:** `LaneRef::{I32, U32, U64}` plus strided
   reads; quack's binder knows `FieldKind::{I32, Code}` only.
 
@@ -74,6 +77,9 @@ It follows the 2026-09-05 lance-graph ruling that planning moves to
   triples/DDL, and `ogar-render-askama` renders class artifacts; neither
   turns a `FunctionBody` into Rust.
 - No `sql()` export in lance-graph-java.
+- No structural (`Program`-level) comparison between lance-graph-java's
+  `plan_lower` and any other lowering; the existing differential checks
+  answers only.
 - No float, decimal, date or i64-compare lanes in mask-risc; no ndarray i64
   or float compare-to-mask.
 
@@ -118,9 +124,9 @@ It follows the 2026-09-05 lance-graph ruling that planning moves to
 | W2 | D-SQLP-2 | lance-graph | First procedures as `PROC_DEF` bodies over R2IL calls: `filter_lt` (`Load` + `IntSLess` + `KEEP`), `sum`, `group_sum`, and `margin` (two `SUM` + `IntSub`) | each answer equals a scalar reference on fixtures with ≥ 3 groups and both empty and full selections; no new opcode; disable runs: drop `KEEP` from `filter_lt` → red; swap `IntSub` operands in `margin` → red |
 | W3 | D-SQLP-3 | lance-graph | Benchmark `margin` three ways: direct `ndarray::simd` calls, hand-built mask-risc `Program`s, the interpreted procedure. N = 65,536 and 1,048,576; selectivity ~1 % and ~50 % | answers identical before timing; release, quiet machine, median of 101 runs, avx512 and avx2 reported separately. Pre-registered: interpreted ≤ 1.05× hand-built `Program` at both N |
 | W4 | D-SQLP-4 | lance-graph | Build-time generator: a declared procedure body → Rust that calls mask-risc / `ndarray::simd` directly, with opcodes as const generics (the `ternlog::<IMM>` pattern) | generated code's answers identical to the interpreted body; generated ≤ 1.05× direct ndarray at both N; disassembly of the hot loop contains no interpreter dispatch |
-| W5 | D-SQLP-5 | lance-graph, lance-graph-java | quack, `plan_eval` and the SAP binder lower through the procedures | for every case `lowering_convergence` and quack's tests pin, the `mask_risc::Program` produced through the procedures is byte-identical to today's; no other behaviour change |
+| W5 | D-SQLP-5 | lance-graph, lance-graph-java | quack, `plan_eval` and the SAP binder lower through the procedures | quack and SAP: for every case their tests pin, the `mask_risc::Program` produced through the procedures is byte-identical to today's. lance-graph-java: first add a `Program`-level test comparing the procedure lowering against the legacy `plan_lower` output (none exists today; `lowering_convergence` compares row counts only), then require byte-identical `Program`s for its 28 combine vectors. No other behaviour change |
 | W6 | D-SQLP-6 | lance-graph-java, lance-graph | `sql()` membrane: one Panama downcall (new ABI minor), parameters and result handles as value records; parser decision (§4 OPEN) | `ApiSurfaceTest` green (no opcode, mask or FFM type in a public signature); allocation gate shows no row-proportional Java allocation; full `AllTests` + consumer mains on JDK 28 |
-| W7 | D-SQLP-7 | ndarray, lance-graph, OGAR | Backlog, one item at a time, mask-risc first: `MIN`, `MAX`, `KEY_RUNS`, `ANY`, `ALL`, `SCATTER_OR`, `BLEND`, `IntAdd`; lanes for i64 compares, f64, decimal (scaled i64), date (i32 days) | per item: ndarray primitive with parity on every realization row → mask-risc `Pred`/`Terminal` with parity → `FoldDialect` wiring → procedure; each its own PR |
+| W7 | D-SQLP-7 | ndarray, lance-graph, OGAR | Backlog, one item at a time. Population items, mask-risc first: `MIN`, `MAX`, `KEY_RUNS`, `ANY`, `ALL`, `SCATTER_OR`, `BLEND`; lanes for i64 compares, f64, decimal (scaled i64), date (i32 days). Scalar items: `IntAdd` | population items: ndarray primitive with parity on every realization row → mask-risc `Pred`/`Terminal` with parity → `FoldDialect` wiring → procedure. Scalar items: `FoldDialect` wiring over `Val::Scalar` only, the way `IntSub` already is (`row_bridge.rs`, `INT_SUB` arm), with a scalar test and the `Addr`/`Addr` refusal kept; no ndarray or mask-risc change. Each item its own PR |
 | W8 | D-SQLP-8 | OGAR | Mint `0xC400` / `0xC401` in `ogar-vocab` (request to OGAR; this plan does not mint) | the provisional notes in `ogar-r2il` are replaced by minted ids; no persisted GUID uses them before |
 
 **Kill conditions.** W3 interpreted > 1.5× hand-built at either N → stop
