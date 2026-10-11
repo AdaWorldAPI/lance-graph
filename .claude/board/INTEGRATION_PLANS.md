@@ -1,3 +1,12 @@
+## 2026-10-11 (4) — sql-polyfill-r2il-v1 — SQL() as a polyfill of R2IL procedures over mask-risc → `.claude/plans/sql-polyfill-r2il-v1.md`
+
+**Status:** PROPOSAL (D-SQLP-0..8). W1–W3 authorized; nothing from W4 on until the D-SQLP-3 benchmark clears its pre-registered threshold.
+
+- SQL operations become `ogar-loco` `PROC_DEF` bodies over R2IL fold-reading calls; no new opcode and no meta layer (loco already nests via `PROC_DEF`/`PROC_CALL`).
+- `FoldDialect` moves from a probe test file into a `lance-graph-r2il` crate; mask-risc stays the only engine.
+- Declared queries compile to Rust at build time (the only "compile time" mode); ad-hoc `sql()` text runs interpreted at mask-risc's per-tile cost.
+- quack, lance-graph-java `plan_eval` and the SAP binder lower through the procedures, gated on byte-identical `Program`s; Java's `sql()` is one Panama call with Valhalla value records.
+
 ## 2026-10-11 (3) — key16-contiguous-match-v1 — a contiguous fast path for the 16-byte key match → `.claude/plans/key16-contiguous-match-v1.md`
 
 **Status:** PROPOSAL (D-KEY16-0..5). No kernel change authorized until the D-KEY16-2 probe clears its pre-registered threshold.
