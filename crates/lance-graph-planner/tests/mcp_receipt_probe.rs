@@ -61,7 +61,10 @@ fn mcp_verdict_depends_on_confidence_and_free_energy_only() {
     // invariance checks below are not vacuously comparing two no-ops.
     let (_, fire, _) = mcp(&mut ctx(0.9, 0.6));
     let (_, quiet, _) = mcp(&mut ctx(0.9, 0.4));
-    assert!(fire < 0.0 && quiet == 0.0, "fixture: one side fires, one does not");
+    assert!(
+        fire < 0.0 && quiet == 0.0,
+        "fixture: one side fires, one does not"
+    );
 
     for (conf, fe) in [(0.9, 0.6), (0.9, 0.4), (0.5, 0.9), (0.71, 0.51)] {
         let mut base = ctx(conf, fe);
@@ -148,7 +151,10 @@ fn mcp_cannot_tell_a_calibrated_past_from_an_overconfident_one() {
     let calibrated = history(10, 0.9, 9); // said 0.9, right 9 of 10
     let overconfident = history(10, 0.9, 2); // said 0.9, right 2 of 10
     assert!(
-        calibrated.iter().chain(&overconfident).all(|r| r.step.outcome.fired),
+        calibrated
+            .iter()
+            .chain(&overconfident)
+            .all(|r| r.step.outcome.fired),
         "fixture: every receipt comes from an MCP step that actually ran"
     );
 
@@ -157,7 +163,10 @@ fn mcp_cannot_tell_a_calibrated_past_from_an_overconfident_one() {
     let now_a = mcp(&mut ctx(0.9, 0.4));
     let now_b = mcp(&mut ctx(0.9, 0.4));
     assert_eq!(now_a, now_b);
-    assert_eq!(now_a.1, 0.0, "MCP calls this 'calibration ok' in both worlds");
+    assert_eq!(
+        now_a.1, 0.0,
+        "MCP calls this 'calibration ok' in both worlds"
+    );
 
     // The receipt reader separates them.
     let a = calibrate(&calibrated).expect("ten receipts");
@@ -176,7 +185,10 @@ fn without_receipts_the_reader_abstains_while_mcp_still_acts() {
     assert_eq!(calibrate(&[]), None);
     assert_eq!(calibrate(&history(9, 0.9, 2)), None, "below 10 receipts");
     let (fired, delta, _) = mcp(&mut ctx(0.9, 0.6));
-    assert!(fired && delta < 0.0, "MCP lowers confidence with no past at all");
+    assert!(
+        fired && delta < 0.0,
+        "MCP lowers confidence with no past at all"
+    );
 }
 
 // ── 5. no evidence laundering ─────────────────────────────────────────────
@@ -187,7 +199,7 @@ fn a_repeated_receipt_is_not_new_evidence() {
     // Re-deliver the one miss nine more times: same run, same step.
     let miss = base.iter().find(|r| !r.hit).expect("one miss").clone();
     let mut echoed = base.clone();
-    echoed.extend(std::iter::repeat(miss).take(9));
+    echoed.extend(std::iter::repeat_n(miss, 9));
     assert_eq!(calibrate(&echoed), calibrate(&base));
 
     // The production carrier alone has no identity: the echo moves it.
