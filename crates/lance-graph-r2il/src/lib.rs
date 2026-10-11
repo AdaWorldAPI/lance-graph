@@ -40,12 +40,32 @@
 //!
 //! R2IL band: `Load` (spaces 0 = U32, 1 = I32, 2 = U64, 3 = resident mask
 //! plane), `IntSub` (scalar/scalar), `IntAnd` (with survivor gating),
-//! `IntNot`, `IntEqual`, `IntSLess` and `PopCount` are wired. `IntLess` and
+//! `IntOr`, `IntNot`, `IntEqual`, `IntSLess` and `PopCount` are wired. `IntLess` and
 //! `IntLessEqual` are refused as [`FoldError::NoUnsignedLaneCompare`]
 //! (mask-risc has no unsigned lane compare); `IntSub` of two addresses as
 //! [`FoldError::LaneVersusLane`]; an unknown `Load` space as
-//! [`FoldError::UnknownLoadSpace`]; every other byte, `IntAdd` and `IntOr`
-//! included, as [`FoldError::Unimplemented`].
+//! [`FoldError::UnknownLoadSpace`]; every other byte, `IntAdd` included, as
+//! [`FoldError::Unimplemented`].
+//!
+//! # Boolean modes
+//!
+//! [`BoolMode`] decides how `IntAnd`, `IntOr` and `IntNot` on masks lower,
+//! mirroring quack's `lower` / `lower_fused`:
+//!
+//! - [`BoolMode::InPlace`] (default): one mask-risc op per call. `IntAnd`
+//!   gates a just-emitted predicate under its left operand (survivor gating)
+//!   instead of spending an `And`.
+//! - [`BoolMode::Fused`]: the calls build one [`BoolExpr`]; the first consumer
+//!   (`PopCount`, `SUM`, `GROUP_SUM`, `KEEP`) lowers it through mask-risc
+//!   [`fuse`] into ternlogs. Fewer passes, no survivor gating.
+//!
+//! Both modes keep the same rows. Predicates are emitted the same way in
+//! both; only the Boolean combination differs.
+//!
+//! # Procedures
+//!
+//! [`procs`] holds named call sequences (`filter_lt`, `sum`, `group_sum`,
+//! `margin`). They are Rust functions over [`Dialect::call`], not opcodes.
 //!
 //! # Slot limit
 //!
@@ -72,11 +92,13 @@
 //! are pinned against `ogar_r2il::R2ILFn::MNEMONICS` by this crate's tests,
 //! so the arity table stays in `ogar_r2il` alone.
 
+pub mod procs;
+
 use std::cell::Cell;
 
 use lance_graph_mask_risc::{
-    execute_into, scratch_words_for, tile_words_for, Foreign, LaneKind, MaskOp, Operand, Out,
-    Planes, Pred, Program, Scratch, Terminal, Value,
+    execute_into, fuse, scratch_words_for, tile_words_for, BoolExpr, Foreign, FuseError, LaneKind,
+    MaskOp, Operand, Out, Planes, Pred, Program, Scratch, Terminal, Value,
 };
 use ogar_loco::{Dialect, FnIndex};
 use ogar_r2il::{GROUP_SUM, KEEP, R2IL_BASE, RANGE, SUM, VIA};
@@ -93,6 +115,7 @@ use ogar_r2il::{GROUP_SUM, KEEP, R2IL_BASE, RANGE, SUM, VIA};
 pub const LOAD: FnIndex = FnIndex(R2IL_BASE + 1);
 pub const INT_SUB: FnIndex = FnIndex(R2IL_BASE + 10);
 pub const INT_AND: FnIndex = FnIndex(R2IL_BASE + 20);
+pub const INT_OR: FnIndex = FnIndex(R2IL_BASE + 21);
 /// `IntNot` = ordinal 23, arity 1 (confirmed against `R2ILFn::MNEMONICS`).
 /// Over a population it lowers to `MaskOp::Not`.
 pub const INT_NOT: FnIndex = FnIndex(R2IL_BASE + 23);
@@ -191,7 +214,29 @@ pub enum FoldError {
     BranchOnPopulation,
     /// A finalized fold's `execute_into` call itself refused the program.
     Exec(lance_graph_mask_risc::ExecError),
+    /// The fused mode's Boolean expression could not be lowered by mask-risc
+    /// `fuse` (it needed a scratch slot past `u16::MAX`).
+    Fuse(FuseError),
 }
+
+/// How a body's Boolean calls (`IntAnd`, `IntOr`, `IntNot` on masks) are
+/// lowered. See the crate doc's § Boolean modes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BoolMode {
+    /// One mask-risc op per call, written in place. `IntAnd` gates a
+    /// just-emitted predicate under its left operand instead of spending an
+    /// `And` (survivor gating). The default.
+    #[default]
+    InPlace,
+    /// The calls build one [`BoolExpr`]; at the fold it is lowered through
+    /// mask-risc [`fuse`] into ternlogs. Fewer passes, no survivor gating.
+    Fused,
+}
+
+/// Slot numbers at or above this name a pending fused expression, not a
+/// scratch slot. Real slots never reach it: a fold is limited to
+/// [`MAX_SLOTS`].
+const VIRTUAL: u16 = 0x8000;
 
 /// Which caller buffer a finalized fold writes into.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -253,6 +298,14 @@ pub struct FoldDialect<'p> {
     /// Set by [`Dialect::truthy`] when asked to branch on a non-`Scalar`
     /// value. `Cell`, not a plain field, because `truthy` takes `&self`.
     poison: Cell<Option<FoldError>>,
+    /// [`BoolMode`]; fixed at construction.
+    mode: BoolMode,
+    /// Fused mode only: the pending Boolean expressions of the current
+    /// epoch, named by `VIRTUAL + index`. Cleared at every fold.
+    exprs: Vec<BoolExpr>,
+    /// Fused mode only: where each pending expression was lowered to, once a
+    /// consumer needed it, so a second consumer reuses the same ops.
+    lowered: Vec<Option<Operand>>,
 }
 
 impl<'p> FoldDialect<'p> {
@@ -278,6 +331,9 @@ impl<'p> FoldDialect<'p> {
             facade_passes: 0,
             programs_run: 0,
             poison: Cell::new(None),
+            mode: BoolMode::InPlace,
+            exprs: Vec::new(),
+            lowered: Vec::new(),
         }
     }
 
@@ -333,6 +389,85 @@ impl<'p> FoldDialect<'p> {
     /// (`scratch_words_for(tile_words_for(n_rows), MAX_SLOTS)`).
     pub fn scratch_len(&self) -> usize {
         self.scratch.len()
+    }
+
+    /// This dialect with its Boolean calls lowered in `mode`.
+    #[must_use]
+    pub fn with_mode(mut self, mode: BoolMode) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    /// The Boolean mode this dialect was built with.
+    pub fn mode(&self) -> BoolMode {
+        self.mode
+    }
+
+    /// The expression a mask operand stands for, for the fused mode.
+    fn expr_of(&self, v: Val) -> Result<BoolExpr, FoldError> {
+        match v {
+            Val::Address(Addr::Plane(p)) => Ok(BoolExpr::Leaf(Operand::Plane(p))),
+            Val::Slot { slot, epoch } => {
+                if epoch != self.epoch {
+                    return Err(FoldError::StaleSlot);
+                }
+                if slot >= VIRTUAL {
+                    self.exprs
+                        .get(usize::from(slot - VIRTUAL))
+                        .cloned()
+                        .ok_or(FoldError::StaleSlot)
+                } else {
+                    Ok(BoolExpr::Leaf(Operand::Scratch(slot)))
+                }
+            }
+            _ => Err(FoldError::WrongOperandKind(INT_AND)),
+        }
+    }
+
+    /// Push a pending fused expression as a virtual slot.
+    fn push_expr(&mut self, e: BoolExpr, stack: &mut Vec<Val>) {
+        let slot = VIRTUAL + u16::try_from(self.exprs.len()).unwrap_or(u16::MAX - VIRTUAL);
+        self.exprs.push(e);
+        self.lowered.push(None);
+        stack.push(Val::Slot {
+            slot,
+            epoch: self.epoch,
+        });
+    }
+
+    /// The operand a consumer reads for `slot`. A real slot is itself; a
+    /// virtual one is lowered through mask-risc `fuse` the first time it is
+    /// consumed, its ternlogs appended to this fold's ops.
+    fn operand_of(&mut self, slot: u16) -> Result<Operand, FoldError> {
+        if slot < VIRTUAL {
+            return Ok(Operand::Scratch(slot));
+        }
+        let i = usize::from(slot - VIRTUAL);
+        if let Some(Some(op)) = self.lowered.get(i) {
+            return Ok(*op);
+        }
+        let expr = self.exprs.get(i).ok_or(FoldError::StaleSlot)?;
+        let f = fuse(expr, self.next_slot).map_err(FoldError::Fuse)?;
+        self.next_slot = f
+            .next_slot
+            .ok_or(FoldError::Fuse(FuseError::SlotOverflow))?;
+        self.ops.extend(f.ops);
+        self.lowered[i] = Some(f.result);
+        Ok(f.result)
+    }
+
+    /// Fused-mode `IntAnd`/`IntOr`: combine two mask operands into one
+    /// pending expression.
+    fn fuse_binary(
+        &mut self,
+        a: Val,
+        b: Val,
+        stack: &mut Vec<Val>,
+        build: fn(Box<BoolExpr>, Box<BoolExpr>) -> BoolExpr,
+    ) -> Result<(), FoldError> {
+        let e = build(Box::new(self.expr_of(a)?), Box::new(self.expr_of(b)?));
+        self.push_expr(e, stack);
+        Ok(())
     }
 
     /// The next unused scratch slot within the current `ops` accumulation,
@@ -398,6 +533,8 @@ impl<'p> FoldDialect<'p> {
         let ops = std::mem::take(&mut self.ops);
         self.next_slot = 0;
         self.epoch += 1;
+        self.exprs.clear();
+        self.lowered.clear();
         self.facade_passes += ops.len();
         self.programs_run += 1;
         let program = Program::new(ops, terminal);
@@ -427,6 +564,11 @@ impl<'p> FoldDialect<'p> {
             other => panic!("terminal shape guarantees Count or SumI64, got {other:?}"),
         }
     }
+}
+
+/// A value that names a mask: a scratch slot or a resident plane.
+fn is_mask(v: Val) -> bool {
+    matches!(v, Val::Slot { .. } | Val::Address(Addr::Plane(_)))
 }
 
 impl Dialect for FoldDialect<'_> {
@@ -621,6 +763,9 @@ impl Dialect for FoldDialect<'_> {
             INT_AND => {
                 let b = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
+                if self.mode == BoolMode::Fused && is_mask(a) && is_mask(b) {
+                    return self.fuse_binary(a, b, stack, BoolExpr::And);
+                }
                 match (a, b) {
                     (
                         Val::Slot {
@@ -665,6 +810,36 @@ impl Dialect for FoldDialect<'_> {
                     _ => Err(FoldError::WrongOperandKind(f)),
                 }
             }
+            // Like `IntAnd` without the survivor gate: an `Or` cannot gate its
+            // right operand under its left, so every in-place `IntOr` on masks
+            // is one `Or` pass.
+            INT_OR => {
+                let b = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let a = stack.pop().ok_or(FoldError::Underflow(f))?;
+                if let (Val::Scalar(x), Val::Scalar(y)) = (a, b) {
+                    stack.push(Val::Scalar(x | y));
+                    return Ok(());
+                }
+                if !(is_mask(a) && is_mask(b)) {
+                    return Err(FoldError::WrongOperandKind(f));
+                }
+                if self.mode == BoolMode::Fused {
+                    return self.fuse_binary(a, b, stack, BoolExpr::Or);
+                }
+                let operand = |v: Val, epoch_now: u32| match v {
+                    Val::Address(Addr::Plane(p)) => Ok(Operand::Plane(p)),
+                    Val::Slot { slot, epoch } if epoch == epoch_now => Ok(Operand::Scratch(slot)),
+                    _ => Err(FoldError::StaleSlot),
+                };
+                let (a, b) = (operand(a, self.epoch)?, operand(b, self.epoch)?);
+                let dst = self.fresh();
+                self.ops.push(MaskOp::Or { a, b, dst });
+                stack.push(Val::Slot {
+                    slot: dst,
+                    epoch: self.epoch,
+                });
+                Ok(())
+            }
             INT_SUB => {
                 let b = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
@@ -685,9 +860,8 @@ impl Dialect for FoldDialect<'_> {
                 if epoch != self.epoch {
                     return Err(FoldError::StaleSlot);
                 }
-                let n = self.finalize_and_run_scalar(Terminal::Count {
-                    mask: Operand::Scratch(s),
-                })?;
+                let mask = self.operand_of(s)?;
+                let n = self.finalize_and_run_scalar(Terminal::Count { mask })?;
                 stack.push(Val::Scalar(n));
                 Ok(())
             }
@@ -705,7 +879,7 @@ impl Dialect for FoldDialect<'_> {
                         if epoch != self.epoch {
                             return Err(FoldError::StaleSlot);
                         }
-                        (Operand::Scratch(s), idx)
+                        (self.operand_of(s)?, idx)
                     }
                     (
                         Val::Address(Addr::Lane {
@@ -717,7 +891,7 @@ impl Dialect for FoldDialect<'_> {
                         if epoch != self.epoch {
                             return Err(FoldError::StaleSlot);
                         }
-                        (Operand::Scratch(s), idx)
+                        (self.operand_of(s)?, idx)
                     }
                     _ => return Err(FoldError::WrongOperandKind(f)),
                 };
@@ -743,22 +917,26 @@ impl Dialect for FoldDialect<'_> {
                 else {
                     return Err(FoldError::WrongOperandKind(f));
                 };
-                let mask = Operand::Scratch(s);
-                let terminal = match key {
+                // The key shape is checked first, so a wrong-kind body is
+                // reported as wrong-kind.
+                let via = match key {
                     Val::Address(Addr::Lane {
-                        idx: key,
+                        idx,
                         kind: LaneKind::U32,
-                    }) => Terminal::GroupSumI32 { mask, key, val },
-                    Val::Address(Addr::Via { fk, key }) => {
-                        Terminal::GroupSumViaI32 { mask, fk, key, val }
-                    }
+                    }) => (idx, None),
+                    Val::Address(Addr::Via { fk, key }) => (key, Some(fk)),
                     _ => return Err(FoldError::WrongOperandKind(f)),
                 };
-                // Epoch checked AFTER the shape checks so a wrong-kind body is
-                // reported as wrong-kind, and BEFORE the fold, like SUM's arm.
+                // Then the epoch, BEFORE a fused expression is lowered and
+                // before the fold, like SUM's arm.
                 if epoch != self.epoch {
                     return Err(FoldError::StaleSlot);
                 }
+                let mask = self.operand_of(s)?;
+                let terminal = match via {
+                    (key, None) => Terminal::GroupSumI32 { mask, key, val },
+                    (key, Some(fk)) => Terminal::GroupSumViaI32 { mask, fk, key, val },
+                };
                 match self.finalize_and_run(terminal, OutKind::Group)? {
                     Value::GroupSummed => Ok(()),
                     other => {
@@ -768,6 +946,11 @@ impl Dialect for FoldDialect<'_> {
             }
             INT_NOT => {
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
+                if self.mode == BoolMode::Fused && is_mask(a) {
+                    let e = BoolExpr::Not(Box::new(self.expr_of(a)?));
+                    self.push_expr(e, stack);
+                    return Ok(());
+                }
                 let operand = match a {
                     Val::Scalar(x) => {
                         stack.push(Val::Scalar(!x));
@@ -814,12 +997,8 @@ impl Dialect for FoldDialect<'_> {
                 if epoch != self.epoch {
                     return Err(FoldError::StaleSlot);
                 }
-                match self.finalize_and_run(
-                    Terminal::Keep {
-                        mask: Operand::Scratch(slot),
-                    },
-                    OutKind::Keep,
-                )? {
+                let mask = self.operand_of(slot)?;
+                match self.finalize_and_run(Terminal::Keep { mask }, OutKind::Keep)? {
                     Value::Mask(_) => Ok(()),
                     other => panic!("KEEP terminal shape guarantees Mask, got {other:?}"),
                 }

@@ -9,7 +9,7 @@
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_r2il::{
     Addr, FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_LESS, INT_LESS_EQUAL, INT_NOT,
-    INT_SUB, INT_S_LESS, LOAD, MAX_SLOTS, POP_COUNT,
+    INT_OR, INT_SUB, INT_S_LESS, LOAD, MAX_SLOTS, POP_COUNT,
 };
 use ogar_loco::{Dialect, FnIndex};
 use ogar_r2il::{
@@ -31,6 +31,7 @@ fn local_r2il_ordinals_name_the_ogar_r2il_opcodes() {
         (LOAD, "Load"),
         (INT_SUB, "IntSub"),
         (INT_AND, "IntAnd"),
+        (INT_OR, "IntOr"),
         (INT_NOT, "IntNot"),
         (INT_EQUAL, "IntEqual"),
         (INT_LESS, "IntLess"),
@@ -79,14 +80,11 @@ fn every_named_refusal_is_still_produced() {
     };
     let foreign = Foreign::NONE;
 
-    // Fold-band bytes that are not wired, and two R2IL-band ones.
+    // Fold-band bytes that are not wired, and one R2IL-band one. `IntOr` is
+    // wired since D-SQLP-2.
     let int_add = FnIndex(R2IL_BASE + 9);
-    let int_or = FnIndex(R2IL_BASE + 21);
     assert_eq!(mnemonic(int_add), "IntAdd");
-    assert_eq!(mnemonic(int_or), "IntOr");
-    for f in [
-        MIN, MAX, KEY_RUNS, ANY, ALL, SCATTER_OR, BLEND, int_add, int_or,
-    ] {
+    for f in [MIN, MAX, KEY_RUNS, ANY, ALL, SCATTER_OR, BLEND, int_add] {
         let mut d = FoldDialect::new(&planes, &foreign);
         let mut stack = vec![Val::Scalar(1), Val::Scalar(2)];
         assert_eq!(
