@@ -48,7 +48,7 @@ fn a_synchronized_user_is_mirrored_and_a_cloud_only_user_is_synthetic() {
         &mut dict,
         &mut pool,
     );
-    let out = from_graph(DirectoryScope(g(TENANT)), &recs, &pool, &mut dict).unwrap();
+    let out = from_graph(DirectoryScope(g(TENANT)), &recs, &[], &pool, &mut dict).unwrap();
     assert_eq!(out.synthetic, vec![g(CLOUD)]);
     let node = |id| {
         &out.observation
@@ -89,7 +89,7 @@ fn an_unread_account_flag_stays_unknown() {
     let mut dict = OuDictionary::new();
     let mut pool = ValuePool::new();
     let recs = ingest(&[user(CLOUD, "")], &mut dict, &mut pool);
-    let out = from_graph(DirectoryScope(g(TENANT)), &recs, &pool, &mut dict).unwrap();
+    let out = from_graph(DirectoryScope(g(TENANT)), &recs, &[], &pool, &mut dict).unwrap();
     assert_eq!(out.observation.nodes[0].1.active, None);
 }
 
@@ -104,7 +104,7 @@ fn a_mirrored_user_inside_the_synthetic_container_is_refused() {
     );
     let recs = ingest(&[user(HYBRID, &dn)], &mut dict, &mut pool);
     assert_eq!(
-        from_graph(DirectoryScope(g(TENANT)), &recs, &pool, &mut dict).unwrap_err(),
+        from_graph(DirectoryScope(g(TENANT)), &recs, &[], &pool, &mut dict).unwrap_err(),
         ObserveError::SyntheticClash { node: g(HYBRID) }
     );
 }
@@ -121,7 +121,7 @@ fn an_unencoded_on_premises_dn_is_refused_not_made_synthetic() {
         &mut pool,
     );
     assert_eq!(
-        from_graph(DirectoryScope(g(TENANT)), &recs, &pool, &mut dict).unwrap_err(),
+        from_graph(DirectoryScope(g(TENANT)), &recs, &[], &pool, &mut dict).unwrap_err(),
         ObserveError::UnplacedMirror { node: g(HYBRID) }
     );
 }
@@ -133,7 +133,7 @@ fn a_record_of_another_tenant_is_refused() {
     let recs = ingest(&[user(CLOUD, "")], &mut dict, &mut pool);
     let other = g("c0ffee00-1234-4abc-8def-000000000043");
     assert!(matches!(
-        from_graph(DirectoryScope(other), &recs, &pool, &mut dict),
+        from_graph(DirectoryScope(other), &recs, &[], &pool, &mut dict),
         Err(ObserveError::ForeignScope { .. })
     ));
 }
@@ -154,7 +154,95 @@ fn mailbox_records_are_not_observed_as_users() {
         0,
     )
     .unwrap();
-    let out = from_graph(DirectoryScope(g(TENANT)), &[mbx], &pool, &mut dict).unwrap();
+    let out = from_graph(DirectoryScope(g(TENANT)), &[mbx], &[], &pool, &mut dict).unwrap();
     assert!(out.observation.nodes.is_empty());
     assert!(out.synthetic.is_empty());
+}
+
+const SEC: &str = "a1a1a1a1-0000-4000-8000-000000000001";
+const DL: &str = "d1d1d1d1-0000-4000-8000-000000000002";
+const PLAIN: &str = "e1e1e1e1-0000-4000-8000-000000000003";
+
+// Graph groups and their direct members become groups and memberships of
+// the observation; nesting and the SID chain are then the view's walk.
+#[test]
+fn graph_groups_and_memberships_are_observed() {
+    use lance_graph_dir_sim::observe::GroupMembers;
+    use lance_graph_dir_sim::VersionStore;
+    let mut dict = OuDictionary::new();
+    let mut pool = ValuePool::new();
+    let mut recs = ingest(
+        &[user(HYBRID, HYBRID_DN), user(CLOUD, "")],
+        &mut dict,
+        &mut pool,
+    );
+    let groups = format!(
+        r#"{{"value":[
+        {{"id":"{SEC}","mail":"fin@example.de","mailNickname":"fin","mailEnabled":true,"securityEnabled":true,
+          "proxyAddresses":["smtp:f@example.de","SMTP:finance@example.de"]}},
+        {{"id":"{DL}","mail":"all@example.de","mailEnabled":true,"securityEnabled":false}},
+        {{"id":"{PLAIN}","mail":"left@example.de","mailEnabled":false,"securityEnabled":null}}]}}"#
+    );
+    recs.extend(
+        ogar_az::group::ingest_groups_page(&groups, g(TENANT), &mut pool, 0)
+            .unwrap()
+            .records,
+    );
+    // SEC ⊃ {HYBRID, DL}; DL ⊃ {CLOUD}; PLAIN ⊃ {HYBRID}.
+    let memberships = [
+        GroupMembers {
+            group: g(SEC),
+            members: vec![g(HYBRID), g(DL)],
+        },
+        GroupMembers {
+            group: g(DL),
+            members: vec![g(CLOUD)],
+        },
+        GroupMembers {
+            group: g(PLAIN),
+            members: vec![g(HYBRID)],
+        },
+    ];
+    let out = from_graph(
+        DirectoryScope(g(TENANT)),
+        &recs,
+        &memberships,
+        &pool,
+        &mut dict,
+    )
+    .unwrap();
+    let node = |id| {
+        out.observation
+            .nodes
+            .iter()
+            .find(|(n, _)| *n == g(id))
+            .unwrap()
+            .1
+            .clone()
+    };
+    // The primary proxy is the address; `mail` only when there is none.
+    assert_eq!(
+        node(SEC).primary_smtp.as_deref(),
+        Some("finance@example.de")
+    );
+    assert_eq!(node(DL).primary_smtp.as_deref(), Some("all@example.de"));
+    // Not mail-enabled: no address, whatever `mail` still says.
+    assert_eq!(node(PLAIN).primary_smtp, None);
+    assert_eq!(node(PLAIN).mail.as_deref(), Some("left@example.de"));
+    assert_eq!(node(PLAIN).dn, None);
+    assert_eq!(out.observation.members.len(), 4);
+
+    let mut st = VersionStore::new();
+    let v = st.observe("graph", 1, out.observation).unwrap();
+    let view = st.view(v).unwrap();
+    assert!(view.is_mail_recipient(&g(SEC)));
+    assert!(!view.is_mail_recipient(&g(PLAIN)));
+    assert_eq!(view.is_security_enabled(&g(SEC)), Some(true));
+    assert_eq!(view.is_security_enabled(&g(DL)), Some(false));
+    assert_eq!(view.is_security_enabled(&g(PLAIN)), None, "null is unknown");
+    // CLOUD reaches SEC only through the distribution group, so it holds no
+    // SID; HYBRID holds SEC's directly. PLAIN's flag was not read.
+    assert_eq!(view.groups_transitive(&g(CLOUD)), vec![g(SEC), g(DL)]);
+    assert!(view.security_identifiers(&g(CLOUD)).is_empty());
+    assert_eq!(view.security_identifiers(&g(HYBRID)), vec![g(SEC)]);
 }

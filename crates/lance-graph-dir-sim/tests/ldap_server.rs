@@ -29,7 +29,7 @@ fn directory() -> Directory {
     let recs = ogar_az::ingest_page(&body, g(TENANT), &mut dict, &mut pool, 0)
         .unwrap()
         .records;
-    let out = from_graph(DirectoryScope(g(TENANT)), &recs, &pool, &mut dict).unwrap();
+    let out = from_graph(DirectoryScope(g(TENANT)), &recs, &[], &pool, &mut dict).unwrap();
     let mut st = VersionStore::new();
     let v = st.observe("graph", 0, out.observation).unwrap();
     let p = project(

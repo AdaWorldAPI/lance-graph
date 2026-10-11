@@ -200,6 +200,15 @@ impl Dicts {
         bump(&self.counters.resolutions);
         self.values.resolve(v.0)
     }
+    /// Every raw value, in `ValueId` order. Interning them in this order
+    /// into an empty dictionary reproduces every value and key id.
+    pub fn values_in_order(&self) -> impl ExactSizeIterator<Item = &str> {
+        self.values.strings.iter().map(String::as_str)
+    }
+    /// Number of raw values issued.
+    pub fn value_count(&self) -> usize {
+        self.values.len()
+    }
     /// The comparison key of a value.
     pub fn key_of(&self, v: ValueId) -> Option<KeyId> {
         self.key_of.get(v.0 as usize).map(|&k| KeyId(k))

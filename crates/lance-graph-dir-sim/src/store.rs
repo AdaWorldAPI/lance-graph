@@ -8,6 +8,7 @@
 //! * Versions, snapshots and dictionaries are append-only. Simulating,
 //!   validating or rejecting a version cannot alter another.
 
+use crate::image::{RestoreError, StoreImage};
 use crate::rule::Rule;
 use crate::snapshot::{BuildError, Dicts, Observation, Snapshot};
 use crate::validate::validate;
@@ -15,7 +16,7 @@ use crate::view::{ApplyError, Overlay, View};
 use ogar_dir_core::Guid128;
 use ogar_dir_sim::{
     Attribute, Change, EvidenceRef, ExecutionPlan, KeyId, NodeKind, NodeState, Origin, PlanError,
-    ValueId, Version, VersionId, Violation, TAG_DESIRED, TAG_OBSERVED,
+    RuleId, ValueId, Version, VersionId, Violation, TAG_DESIRED, TAG_OBSERVED,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -43,6 +44,12 @@ pub struct Rejection {
     pub violations: Vec<Violation>,
 }
 
+/// The rule a [`VersionStore::revert`] is recorded under.
+pub const REVERT: RuleId = RuleId {
+    name: "Revert",
+    version: 1,
+};
+
 /// Append-only version store.
 #[derive(Debug, Default)]
 pub struct VersionStore {
@@ -51,6 +58,9 @@ pub struct VersionStore {
     versions: Vec<Version>,
     tags: BTreeMap<String, VersionId>,
     verdicts: BTreeMap<VersionId, Vec<Violation>>,
+    /// Each root's observation as recorded: the persisted form of a root
+    /// ([`crate::image`]), since its snapshot lanes are derived.
+    observations: BTreeMap<VersionId, Observation>,
 }
 
 impl VersionStore {
@@ -97,8 +107,9 @@ impl VersionStore {
         observed_at_ms: i64,
         obs: Observation,
     ) -> Result<VersionId, BuildError> {
-        let snap = Snapshot::build(obs, &mut self.dicts)?;
+        let snap = Snapshot::build(obs.clone(), &mut self.dicts)?;
         let id = self.next_id();
+        self.observations.insert(id, obs);
         self.versions.push(Version {
             id,
             parent: None,
@@ -185,6 +196,37 @@ impl VersionStore {
         Ok(id)
     }
 
+    /// Undo back to `earlier`: a new version on top of `current` whose
+    /// delta is `diff(current, earlier)`, so its reads equal `earlier`'s.
+    /// History is never rewritten; the revert is recorded like any other
+    /// simulation, under [`REVERT`] with `version:<earlier>` as its first
+    /// evidence.
+    ///
+    /// # Errors
+    ///
+    /// [`SimError::ScopeMismatch`] across directories,
+    /// [`SimError::EmptyProposal`] when `current` already reads as `earlier`.
+    pub fn revert(
+        &mut self,
+        current: VersionId,
+        earlier: VersionId,
+        evidence: &[EvidenceRef],
+    ) -> Result<VersionId, SimError> {
+        struct Fixed(Vec<Change>);
+        impl Rule for Fixed {
+            fn id(&self) -> RuleId {
+                REVERT
+            }
+            fn propose(&self, _: &View<'_>, _: &[EvidenceRef]) -> Vec<Change> {
+                self.0.clone()
+            }
+        }
+        let delta = self.diff(current, earlier)?;
+        let mut ev = vec![EvidenceRef(format!("version:{}", earlier.0))];
+        ev.extend_from_slice(evidence);
+        self.simulate(current, &Fixed(delta), &ev)
+    }
+
     /// Validate `v` and record the verdict. Empty = valid.
     pub fn validate(&mut self, v: VersionId) -> Result<Vec<Violation>, SimError> {
         let violations = validate(&self.view(v)?);
@@ -211,6 +253,89 @@ impl VersionStore {
         }
         self.tags.insert(TAG_DESIRED.into(), v);
         Ok(())
+    }
+
+    /// The whole history as owned data ([`crate::image`]): what a storage
+    /// crate writes.
+    pub fn image(&self) -> StoreImage {
+        StoreImage {
+            values: self.dicts.values_in_order().map(str::to_string).collect(),
+            roots: self
+                .observations
+                .iter()
+                .map(|(v, o)| (*v, o.clone()))
+                .collect(),
+            versions: self.versions.clone(),
+            tags: self.tags.iter().map(|(n, v)| (n.clone(), *v)).collect(),
+            verdicts: self.verdicts.iter().map(|(v, x)| (*v, x.clone())).collect(),
+        }
+    }
+
+    /// A store from an image: the dictionary interned in order, each root
+    /// rebuilt from its observation, each version re-applied to its parent.
+    /// The result answers every read exactly as the store the image was
+    /// taken from.
+    ///
+    /// # Errors
+    ///
+    /// [`RestoreError`]: the image is not one a store could have produced.
+    pub fn restore(image: StoreImage) -> Result<Self, RestoreError> {
+        let mut st = Self::new();
+        for (i, v) in image.values.iter().enumerate() {
+            if st.dicts.intern(v).0 as usize != i {
+                return Err(RestoreError::DuplicateValue(i));
+            }
+        }
+        let mut roots: BTreeMap<VersionId, Observation> = image.roots.into_iter().collect();
+        for (i, v) in image.versions.into_iter().enumerate() {
+            if v.id != VersionId(i as u64) {
+                return Err(RestoreError::VersionOrder {
+                    index: i,
+                    found: v.id,
+                });
+            }
+            match v.parent {
+                None => {
+                    let obs = roots.remove(&v.id).ok_or(RestoreError::MissingRoot(v.id))?;
+                    let snap = Snapshot::build(obs.clone(), &mut st.dicts)
+                        .map_err(|e| RestoreError::Build(v.id, e))?;
+                    // A root interns only values the dictionary listed: any
+                    // other would take an id a later change means otherwise.
+                    if st.dicts.value_count() != image.values.len() {
+                        return Err(RestoreError::IncompleteDictionary);
+                    }
+                    st.roots.insert(v.id, Arc::new(snap));
+                    st.observations.insert(v.id, obs);
+                }
+                Some(p) => {
+                    if p >= v.id {
+                        return Err(RestoreError::UnknownParent(v.id));
+                    }
+                    let mut view = st.view(p).map_err(|_| RestoreError::UnknownParent(v.id))?;
+                    for c in &v.delta {
+                        view.apply(c).map_err(|e| RestoreError::Apply(v.id, e))?;
+                    }
+                }
+            }
+            st.versions.push(v);
+        }
+        if let Some((&v, _)) = roots.iter().next() {
+            return Err(RestoreError::NotARoot(v));
+        }
+        let known = |v: VersionId| (v.0 as usize) < st.versions.len();
+        for (name, v) in image.tags {
+            if !known(v) {
+                return Err(RestoreError::UnknownVersion(v));
+            }
+            st.tags.insert(name, v);
+        }
+        for (v, x) in image.verdicts {
+            if !known(v) {
+                return Err(RestoreError::UnknownVersion(v));
+            }
+            st.verdicts.insert(v, x);
+        }
+        Ok(st)
     }
 
     /// Version a tag points to.

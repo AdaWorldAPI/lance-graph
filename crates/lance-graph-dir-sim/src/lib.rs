@@ -16,12 +16,15 @@
 //! * [`validate`] — invariants as Quack programs (`Semijoin` anti-joins,
 //!   `GroupReduce` counts).
 //! * [`store`] — append-only versions, tags, diff, plan, audit.
+//! * [`image`] — a history as owned data, to persist and restore.
 //! * [`observe`] — `ogar-ad` records → observation (`OuHhtl` → `Dn128`,
 //!   failing closed).
 //! * [`ad`] — a version as Active Directory entries (observed, mirrored,
 //!   synthetic or simulated) and as LDIF.
 //! * [`ldap`] — a read-only LDAP v3 protocol handler over a projection;
 //!   access decided by the host's [`ldap::Authority`]. Bytes in, bytes out.
+//! * `actors` (feature `rbac`) — the roles a principal holds through the
+//!   security groups whose SID it carries, as the contract's `ActorSource`.
 //! * [`cloud`] — which AD objects have their mailbox in Exchange Online,
 //!   read from OGAR's GUID-keyed hybrid correspondence fold.
 //!
@@ -31,11 +34,14 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "rbac")]
+pub mod actors;
 pub mod ad;
 pub mod bind;
 pub mod cloud;
 mod exec;
 pub mod groups;
+pub mod image;
 pub mod ldap;
 pub mod observe;
 pub mod proxy;
