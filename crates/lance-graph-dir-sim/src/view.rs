@@ -24,12 +24,12 @@
 //! every live plane. Ordinals are valid only inside one view; the overlay
 //! keeps identities wherever an ordinal could shift.
 
-use crate::snapshot::{
-    bit, clear_bit, is_mail_recipient, is_owner, set_bit, Dicts, GroupOrdinal, Population,
-    Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
-};
 use crate::GroupWhere;
-use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
+use crate::snapshot::{
+    Dicts, GroupOrdinal, MAX_GROUPS, MAX_USERS, NONE, Population, Snapshot, UserOrdinal, bit,
+    clear_bit, is_mail_recipient, is_owner, set_bit,
+};
+use lance_graph_mask_risc::{Foreign, LaneRef, Planes, words_for};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
 use ogar_dir_core::{Dn128, Guid128};
 use ogar_dir_sim::{
@@ -545,6 +545,22 @@ impl<'s> View<'s> {
         through: &GroupWhere,
     ) -> Vec<Guid128> {
         let allowed = self.groups_bitmap(through);
+        self.members_walk(group, Some(&allowed))
+    }
+
+    /// [`Self::members_transitive`] through the groups in `within` only:
+    /// `group` itself and every nested group on the way must be in the set.
+    /// For a consumer whose own notion of a group is an explicit list (a CRM
+    /// team hierarchy, where a team's sub-teams are nested groups but an
+    /// unrelated security group nested in a team is not a sub-team). A
+    /// GUID in `within` that is not an existing group is ignored.
+    pub fn members_transitive_within(&self, group: &Guid128, within: &[Guid128]) -> Vec<Guid128> {
+        let mut allowed = vec![0u64; words_for(self.groups_len())];
+        for g in within {
+            if let Some(o) = self.group_ordinal(g) {
+                set_bit(&mut allowed, usize::from(o.0));
+            }
+        }
         self.members_walk(group, Some(&allowed))
     }
 

@@ -255,11 +255,13 @@ fn empty_property_junctions_are_identities() {
     assert_eq!(selected(&view, &GroupWhere::And(vec![])), all);
     assert!(selected(&view, &GroupWhere::Or(vec![])).is_empty());
     assert_eq!(selected(&view, &not(GroupWhere::Or(vec![]))), all);
-    assert!(selected(
-        &view,
-        &GroupWhere::And(vec![GroupWhere::Or(vec![]), is(GroupProperty::MailEnabled)])
-    )
-    .is_empty());
+    assert!(
+        selected(
+            &view,
+            &GroupWhere::And(vec![GroupWhere::Or(vec![]), is(GroupProperty::MailEnabled)])
+        )
+        .is_empty()
+    );
 }
 
 // Mail is chained addressing, never inherited: mail to S1 reaches its
@@ -386,4 +388,33 @@ fn ad_group_type_sets_the_flag() {
         })
         .collect();
     assert_eq!(flags, vec![Some(true), Some(false), None]);
+}
+
+#[test]
+fn members_transitive_within_walks_only_the_listed_groups() {
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 1, observed()).unwrap();
+    let view = st.view(v).unwrap();
+    // S1 alone: its direct user u1; S2, D1 and UNREAD are not walked.
+    assert_eq!(
+        view.members_transitive_within(&g(S1), &[g(S1)]),
+        vec![g(U1)]
+    );
+    // S1 through D1: u3, and S3 (not listed) is not walked, so u4 is not.
+    assert_eq!(
+        view.members_transitive_within(&g(S1), &[g(S1), g(D1)]),
+        vec![g(U1), g(U3)]
+    );
+    // Every group listed: the same as the unrestricted walk.
+    let all = [g(S1), g(S2), g(S3), g(D1), g(UNREAD)];
+    assert_eq!(
+        view.members_transitive_within(&g(S1), &all),
+        view.members_transitive(&g(S1))
+    );
+    // The start group not listed: nothing. A non-group GUID is ignored.
+    assert!(view.members_transitive_within(&g(S1), &[g(S2)]).is_empty());
+    assert_eq!(
+        view.members_transitive_within(&g(S1), &[g(S1), g(U2)]),
+        vec![g(U1)]
+    );
 }
