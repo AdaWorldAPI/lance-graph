@@ -459,7 +459,8 @@ pub fn address_rules(v: &View<'_>) -> Vec<Violation> {
 /// The single directory object that holds `key` in the one address space
 /// [`address_rules`] checks, read from the same rows: UPN, primary and
 /// secondary SMTP and the routing address of address owners; the primary
-/// and secondary SMTP addresses of every live group. `mail` holds nothing.
+/// and secondary SMTP addresses of every mail-enabled group (one with a
+/// primary SMTP address). `mail` holds nothing.
 ///
 /// - `Ok(None)`: no live directory object holds the key.
 /// - `Ok(Some(owner))`: exactly one does, under one or more roles (a user
@@ -541,17 +542,24 @@ pub fn address_recipient_in(
 fn address_rows(v: &View<'_>, out: &mut Vec<Violation>) -> Vec<(u32, Guid128, AddressRole)> {
     // The UPN is held by an enabled account or a live recipient; the mail
     // addresses are provisioned by the recipient type alone.
-    rows_over(v, &v.owner_users(), &v.mail_owner_users(), out)
+    rows_over(v, &v.owner_users(), &v.mail_owner_users(), false, out)
 }
 
 /// The `(key, holder, role)` rows of the users in `owners` (their UPN)
 /// and `mail_owners` (their primary and secondary SMTP and routing
 /// address), and of every live group (its primary and secondary SMTP),
 /// sorted and deduplicated. Routing violations of `mail_owners` go to `out`.
+///
+/// `every_group_proxy` decides which groups' secondary proxies count: in
+/// Exchange (`false`) only a mail-enabled group's, the one that has a
+/// primary SMTP address, since a group that is not mail-enabled holds and
+/// receives at nothing; in the provisioning plane (`true`) every present
+/// group's, since Entra keeps proxy addresses unique whatever the object.
 fn rows_over(
     v: &View<'_>,
     owners: &[u64],
     mail_owners: &[u64],
+    every_group_proxy: bool,
     out: &mut Vec<Violation>,
 ) -> Vec<(u32, Guid128, AddressRole)> {
     let p = &v.snap.users;
@@ -626,13 +634,13 @@ fn rows_over(
         let Some(g) = v.guid_in(NodeKind::Group, i) else {
             continue;
         };
-        if let Some((_, k)) = v
+        let primary = v
             .attr_ids((NodeKind::Group, i), Attribute::PrimarySmtp)
-            .filter(|&(_, k)| k != NONE)
-        {
+            .filter(|&(_, k)| k != NONE);
+        if let Some((_, k)) = primary {
             rows.push((k, g, AddressRole::PrimarySmtp));
         }
-        if i < v.snap.groups.len() {
+        if (every_group_proxy || primary.is_some()) && i < v.snap.groups.len() {
             for r in gp.owner_rows(i as u32) {
                 if gp.meta[r] == meta::SMTP_SECONDARY {
                     rows.push((gp.key[r], g, AddressRole::SecondarySmtp));
@@ -690,7 +698,7 @@ pub struct ProvisioningConflict {
 /// real tenant and are not in this plane.
 pub fn provisioning_conflicts(v: &View<'_>) -> Vec<ProvisioningConflict> {
     let present = v.existing(NodeKind::User);
-    let rows = rows_over(v, &present, &present, &mut Vec::new());
+    let rows = rows_over(v, &present, &present, true, &mut Vec::new());
     rows.chunk_by(|a, b| a.0 == b.0)
         .filter(|run| run.iter().any(|r| r.1 != run[0].1))
         .map(|run| ProvisioningConflict {

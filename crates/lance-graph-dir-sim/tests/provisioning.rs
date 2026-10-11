@@ -198,3 +198,41 @@ fn mail_to_a_groups_secondary_proxy_reaches_the_group() {
     assert_eq!(address_recipient(&view, key), Ok(Some(g(0xB0))));
     assert_eq!(st.validate(v).unwrap(), vec![]);
 }
+
+// A group with no primary SMTP address is not mail-enabled: its leftover
+// secondary proxy is not held in Exchange and delivers nowhere, so a user
+// carrying the same address keeps it. The leftover still claims the key in
+// the provisioning plane.
+#[test]
+fn a_non_mail_enabled_groups_proxy_is_only_a_provisioning_claim() {
+    let mut grp = ObservedNode::group();
+    grp.proxies = vec!["smtp:sales@x.test".into()];
+    let (mut st, v) = store(vec![
+        (g(0xB0), grp),
+        (
+            g(0xA1),
+            ObservedNode::user("alice.upn@x.test", "sales@x.test"),
+        ),
+    ]);
+    let key = {
+        let id = st.intern("sales@x.test");
+        st.key_of(id).unwrap()
+    };
+    let view = st.view(v).unwrap();
+    assert!(
+        !view.is_mail_recipient(&g(0xB0)),
+        "fixture: not mail-enabled"
+    );
+    assert_eq!(address_owner(&view, key), Ok(Some(g(0xA1))));
+    assert_eq!(address_recipient(&view, key), Ok(Some(g(0xA1))));
+    assert_eq!(
+        provisioning_conflicts(&view),
+        vec![ProvisioningConflict {
+            key,
+            claims: vec![
+                (g(0xA1), AddressRole::PrimarySmtp),
+                (g(0xB0), AddressRole::SecondarySmtp),
+            ],
+        }]
+    );
+}
