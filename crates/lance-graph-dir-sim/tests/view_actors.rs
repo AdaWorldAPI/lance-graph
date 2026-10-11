@@ -161,3 +161,66 @@ fn only_the_principal_holds_roles() {
     let a = ViewActors::for_principal(&view, &g(S1), &grants(), &b);
     assert!(a.roles().is_empty());
 }
+
+// Grants come from the authority's versioned policy, not from the directory.
+// A group the policy never named stays unread; a group whose grants were
+// all revoked is read with no roles; an earlier policy version gives the
+// roles that stood then.
+#[test]
+fn roles_come_from_one_version_of_the_group_role_policy() {
+    use ogar_rbac::group_policy::{GrantProvenance, GroupRolePolicy, PolicyChange};
+    let by = |e: &str| GrantProvenance {
+        by: "admin".into(),
+        evidence: e.into(),
+        at_ms: 1,
+    };
+    let mut policy = GroupRolePolicy::new();
+    policy
+        .apply(
+            PolicyChange::Grant {
+                group: g(S1),
+                role: "reader",
+            },
+            by("t1"),
+        )
+        .unwrap();
+    let granted = policy
+        .apply(
+            PolicyChange::Grant {
+                group: g(S3),
+                role: "editor",
+            },
+            by("t2"),
+        )
+        .unwrap();
+    policy
+        .apply(
+            PolicyChange::Revoke {
+                group: g(S3),
+                role: "editor",
+            },
+            by("t3"),
+        )
+        .unwrap();
+
+    let mut st = VersionStore::new();
+    let v = st.observe("lab", 1, observed()).unwrap();
+    let view = st.view(v).unwrap();
+    let b = binding(DECLARED);
+
+    let now = GroupRoles::from_policy(&policy.as_of(policy.head()).unwrap());
+    // u1: S1 grants `reader`; S2 (reached through S1) was never named by the
+    // policy, so it is unread, not empty.
+    let a = ViewActors::for_principal(&view, &g(U1), &now, &b);
+    assert_eq!(a.roles(), &["reader"]);
+    assert_eq!(a.unread_groups(), &[g(S2)]);
+    // u4: S3's only grant was revoked. Read with no roles, so not unread.
+    let a = ViewActors::for_principal(&view, &g(U4), &now, &b);
+    assert!(a.roles().is_empty());
+    assert!(a.unread_groups().is_empty());
+
+    // At the version where S3 still granted `editor`, u4 holds it.
+    let then = GroupRoles::from_policy(&policy.as_of(granted).unwrap());
+    let a = ViewActors::for_principal(&view, &g(U4), &then, &b);
+    assert_eq!(a.roles(), &["editor"]);
+}

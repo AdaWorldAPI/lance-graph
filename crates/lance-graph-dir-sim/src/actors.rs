@@ -17,6 +17,10 @@
 //!   data can never hand out a role the plug did not ask for;
 //! * any actor other than the principal holds nothing.
 //!
+//! The grants are policy, not directory state: they live in the
+//! authority's versioned [`GroupRolePolicy`](ogar_rbac::group_policy::GroupRolePolicy),
+//! and [`GroupRoles::from_policy`] reads one version of it.
+//!
 //! Roles are unscoped here; a consumer that binds a role to rows (a mailbox,
 //! a practice) supplies its own `memberships_of`.
 
@@ -49,6 +53,18 @@ impl GroupRoles {
     pub fn read(&mut self, group: Guid128, roles: &[RoleId]) -> &mut Self {
         self.read.insert(group, roles.to_vec());
         self
+    }
+
+    /// The grants as one version of the authority's group-role policy
+    /// states them. Every group the policy has named is read, with its
+    /// standing roles; a group whose grants were all revoked is read with
+    /// none. A group the policy never named stays unread, so it grants
+    /// nothing and [`ViewActors::unread_groups`] names it.
+    #[must_use]
+    pub fn from_policy(state: &ogar_rbac::group_policy::GroupRoleState) -> Self {
+        Self {
+            read: state.groups().collect(),
+        }
     }
 
     /// The roles of `group`, or `None` when its grants were never read.
