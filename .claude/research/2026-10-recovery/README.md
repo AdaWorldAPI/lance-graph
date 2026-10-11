@@ -16,5 +16,7 @@ Read order:
 4. `RECOVERY-A-to-G.md` with `A-pr-ledger.md` and `B1`-`B5` substrate reports.
 5. `BILANZ-session-2026-10-08-bis-10.md` — session balance and violation
    audit V1-V17.
-6. `coresearch-mexhat/`, `5plus3-remediation/` — council drafts.
+6. `coresearch-mexhat/`, `5plus3-remediation/`, `council/` — council drafts
+   (coresearch brief/crosswalk, recipe/palette inventory, 5+3 spec v1.1).
+   `recipe-classification-table.md` — the 34-recipe classification table.
 7. `PAPER-2604.18873-nars-reasoning-benchmark.md` — external paper note.
