@@ -255,13 +255,11 @@ fn empty_property_junctions_are_identities() {
     assert_eq!(selected(&view, &GroupWhere::And(vec![])), all);
     assert!(selected(&view, &GroupWhere::Or(vec![])).is_empty());
     assert_eq!(selected(&view, &not(GroupWhere::Or(vec![]))), all);
-    assert!(
-        selected(
-            &view,
-            &GroupWhere::And(vec![GroupWhere::Or(vec![]), is(GroupProperty::MailEnabled)])
-        )
-        .is_empty()
-    );
+    assert!(selected(
+        &view,
+        &GroupWhere::And(vec![GroupWhere::Or(vec![]), is(GroupProperty::MailEnabled)])
+    )
+    .is_empty());
 }
 
 // Mail is chained addressing, never inherited: mail to S1 reaches its

@@ -186,6 +186,31 @@ pub struct ClaimGrammar {
     pub act_claim: Option<&'static str>,
 }
 
+/// The deepest `act` chain [`ResolvedIdentity::with_act_claim`] reads: the
+/// current actor plus the prior ones. A deeper chain is refused.
+pub const MAX_ACT_DEPTH: usize = 16;
+
+/// What a decoded claim set holds under one key.
+#[derive(Debug)]
+pub enum ClaimKind<'a, C: ?Sized> {
+    /// No such claim.
+    Absent,
+    /// A string.
+    Str(&'a str),
+    /// A nested object.
+    Object(&'a C),
+    /// Anything else (number, boolean, array, null).
+    Other,
+}
+
+/// A decoded token's claims, as the membrane holds them. This crate reads
+/// claims through it and so takes no JSON or JWT dependency: the membrane
+/// that parsed and verified the token implements it over its own value type.
+pub trait ClaimSet {
+    /// The claim under `key`.
+    fn kind(&self, key: &str) -> ClaimKind<'_, Self>;
+}
+
 /// One party named by an RFC 8693 `act` claim: its `sub`, and its `iss` when
 /// the claim carries one.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -213,6 +238,13 @@ pub enum DelegationRefused {
     /// The provider has no `act` claim ([`ClaimGrammar::act_claim`] is
     /// `None`), so no token it resolves can be delegated.
     NotIssuedByProvider,
+    /// The token's `act` claim, or one nested in it, does not name an actor:
+    /// it is not an object, or it has no non-empty string `sub`, or its `iss`
+    /// is not a non-empty string. Refused rather than read as "not
+    /// delegated": the token says someone else acts.
+    MalformedAct,
+    /// The `act` chain is deeper than [`MAX_ACT_DEPTH`].
+    ChainTooDeep,
 }
 
 /// The resolved identity — the ONLY thing that crosses the membrane inward
@@ -269,6 +301,63 @@ impl ResolvedIdentity {
         Ok(self)
     }
 
+    /// Record the delegation a verified token's claims carry: the provider's
+    /// `act` claim names the current actor, each `act` nested in it the one
+    /// before (RFC 8693 §4.1). A token without the claim is not delegated,
+    /// and any delegation this identity carried before is replaced.
+    /// A provider whose grammar has no `act` claim reads none.
+    ///
+    /// Read the claims only after the token's signature and issuer were
+    /// verified: this records who acts, it does not check that they may.
+    ///
+    /// # Errors
+    ///
+    /// [`DelegationRefused::MalformedAct`] when an `act` does not name an
+    /// actor; [`DelegationRefused::ChainTooDeep`] past [`MAX_ACT_DEPTH`].
+    pub fn with_act_claim<C: ClaimSet + ?Sized>(
+        mut self,
+        claims: &C,
+    ) -> Result<Self, DelegationRefused> {
+        // The claims decide the delegation outright: whatever this identity
+        // carried before is replaced, never kept beside them.
+        self.acting = None;
+        self.prior_actors.clear();
+        let Some(key) = self.provider.grammar().act_claim else {
+            return Ok(self);
+        };
+        let mut chain = Vec::new();
+        let mut at = claims.kind(key);
+        loop {
+            match at {
+                ClaimKind::Absent => break,
+                ClaimKind::Object(act) => {
+                    if chain.len() == MAX_ACT_DEPTH {
+                        return Err(DelegationRefused::ChainTooDeep);
+                    }
+                    let subject = match act.kind("sub") {
+                        ClaimKind::Str(s) if !s.is_empty() => s.to_string(),
+                        _ => return Err(DelegationRefused::MalformedAct),
+                    };
+                    let issuer = match act.kind("iss") {
+                        ClaimKind::Absent => None,
+                        ClaimKind::Str(s) if !s.is_empty() => Some(s.to_string()),
+                        _ => return Err(DelegationRefused::MalformedAct),
+                    };
+                    chain.push(Actor { subject, issuer });
+                    at = act.kind(key);
+                }
+                ClaimKind::Str(_) | ClaimKind::Other => {
+                    return Err(DelegationRefused::MalformedAct)
+                }
+            }
+        }
+        if chain.is_empty() {
+            return Ok(self);
+        }
+        let current = chain.remove(0);
+        self.acting_through(current, chain)
+    }
+
     /// Whether another party acts on the principal's behalf.
     #[must_use]
     pub fn is_delegated(&self) -> bool {
@@ -298,6 +387,146 @@ mod tests {
     use crate::authorize::{authorize, ClassGrants};
     use crate::permission::PermissionSpec;
     use crate::policy::Operation;
+
+    /// A decoded claim tree, standing in for whatever JSON value the
+    /// membrane holds.
+    enum Claim {
+        Str(&'static str),
+        Num,
+        Obj(Vec<(&'static str, Claim)>),
+    }
+
+    impl ClaimSet for Claim {
+        fn kind(&self, key: &str) -> ClaimKind<'_, Self> {
+            let Claim::Obj(fields) = self else {
+                return ClaimKind::Absent;
+            };
+            match fields.iter().find(|(k, _)| *k == key).map(|(_, v)| v) {
+                None => ClaimKind::Absent,
+                Some(Claim::Str(s)) => ClaimKind::Str(s),
+                Some(v @ Claim::Obj(_)) => ClaimKind::Object(v),
+                Some(Claim::Num) => ClaimKind::Other,
+            }
+        }
+    }
+
+    fn obj(fields: Vec<(&'static str, Claim)>) -> Claim {
+        Claim::Obj(fields)
+    }
+
+    fn alice() -> ResolvedIdentity {
+        AuthProvider::Store.resolve("alice", vec!["reader".to_string()], None)
+    }
+
+    // The token's `act` claim names the current actor; a nested `act`
+    // names the one before it; `iss` is kept with each.
+    #[test]
+    fn the_act_claim_is_read_into_the_delegation() {
+        let claims = obj(vec![
+            ("sub", Claim::Str("alice")),
+            (
+                "act",
+                obj(vec![
+                    ("sub", Claim::Str("bob")),
+                    ("iss", Claim::Str("https://idp.other")),
+                    ("act", obj(vec![("sub", Claim::Str("svc"))])),
+                ]),
+            ),
+        ]);
+        let id = alice().with_act_claim(&claims).unwrap();
+        assert_eq!(id.actor, "alice");
+        let bob = id.acting_party().unwrap();
+        assert_eq!(bob.subject, "bob");
+        assert_eq!(bob.issuer.as_deref(), Some("https://idp.other"));
+        assert_eq!(id.prior_actors, vec![Actor::new("svc")]);
+    }
+
+    // No `act` claim: not delegated, and nothing is refused.
+    #[test]
+    fn a_token_without_act_is_not_delegated() {
+        let id = alice()
+            .with_act_claim(&obj(vec![("sub", Claim::Str("alice"))]))
+            .unwrap();
+        assert!(!id.is_delegated());
+        assert!(id.prior_actors.is_empty());
+    }
+
+    // An `act` that does not name an actor is refused, never read as "not
+    // delegated": the token said someone else acts, and we cannot say who.
+    #[test]
+    fn a_malformed_act_is_refused() {
+        for bad in [
+            obj(vec![("act", Claim::Str("bob"))]),
+            obj(vec![("act", Claim::Num)]),
+            obj(vec![("act", obj(vec![]))]),
+            obj(vec![("act", obj(vec![("sub", Claim::Num)]))]),
+            obj(vec![("act", obj(vec![("sub", Claim::Str(""))]))]),
+            obj(vec![(
+                "act",
+                obj(vec![("sub", Claim::Str("bob")), ("iss", Claim::Num)]),
+            )]),
+            obj(vec![(
+                "act",
+                obj(vec![("sub", Claim::Str("bob")), ("act", Claim::Str("svc"))]),
+            )]),
+        ] {
+            assert_eq!(
+                alice().with_act_claim(&bad).map(|_| ()),
+                Err(DelegationRefused::MalformedAct)
+            );
+        }
+    }
+
+    // The claims decide the delegation outright: an identity already
+    // carrying one is not delegated by a token without `act`, and a token
+    // naming another chain replaces it rather than keeping the old one.
+    #[test]
+    fn the_claims_replace_an_earlier_delegation() {
+        let earlier = alice()
+            .acting_through(Actor::new("mallory"), [Actor::new("old")])
+            .unwrap();
+        let id = earlier
+            .clone()
+            .with_act_claim(&obj(vec![("sub", Claim::Str("alice"))]))
+            .unwrap();
+        assert!(!id.is_delegated());
+        assert!(id.prior_actors.is_empty());
+        let id = earlier
+            .with_act_claim(&obj(vec![("act", obj(vec![("sub", Claim::Str("bob"))]))]))
+            .unwrap();
+        assert_eq!(id.acting_party(), Some(&Actor::new("bob")));
+        assert!(id.prior_actors.is_empty());
+    }
+
+    // A chain deeper than MAX_ACT_DEPTH is refused rather than walked.
+    #[test]
+    fn an_overlong_act_chain_is_refused() {
+        let chain = |depth: usize| {
+            let mut c = obj(vec![("sub", Claim::Str("a"))]);
+            for _ in 1..depth {
+                c = obj(vec![("sub", Claim::Str("a")), ("act", c)]);
+            }
+            obj(vec![("act", c)])
+        };
+        assert!(alice().with_act_claim(&chain(MAX_ACT_DEPTH)).is_ok());
+        assert_eq!(
+            alice()
+                .with_act_claim(&chain(MAX_ACT_DEPTH + 1))
+                .map(|_| ()),
+            Err(DelegationRefused::ChainTooDeep)
+        );
+    }
+
+    // A provider that issues no exchanged tokens is never delegated, and an
+    // `act` key in its claims is not read as one.
+    #[test]
+    fn a_provider_without_act_ignores_the_key() {
+        let id = AuthProvider::Zanzibar
+            .resolve("alice", Vec::new(), None)
+            .with_act_claim(&obj(vec![("act", obj(vec![("sub", Claim::Str("bob"))]))]))
+            .unwrap();
+        assert!(!id.is_delegated());
+    }
 
     #[test]
     fn provider_class_ids_resolve_through_the_contract_mirror() {

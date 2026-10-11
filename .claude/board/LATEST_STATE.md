@@ -1,3 +1,8 @@
+## 2026-10-11 — one-subject rule + RFC 8693 `act` reading on branch `ccr-0455e606-wmtsor` (unmerged)
+
+- Contract delta (additive): `rbac_plug::SubjectRoles` (the subject holds its roles; every other actor, the acting party of a delegated login included, holds none; an empty subject holds nothing). dir-sim's `ViewActors` adopts it; OGAR's `IdentityActors` and Spear's `DirectoryActors` follow.
+- `lance-graph-rbac` (additive): `ResolvedIdentity::with_act_claim(&impl ClaimSet)`, `ClaimSet` / `ClaimKind`, `MAX_ACT_DEPTH = 16`, `DelegationRefused::{MalformedAct, ChainTooDeep}`. No JSON or JWT dependency: the membrane implements `ClaimSet` over its own value type.
+
 ## 2026-10-10 — D-XGP-1 CATS `Binder` + canonical-name front on branch `ccr-f5674497-orfkox` (unmerged)
 
 - `lance-graph-sap` (additive): `binder::{CatsBinder, live_words, TABLE, LIVE, WORK_DAY_FIELD}`, an `impl lance_graph_quack::bind::Binder` over a bound `CatsBatch`; `CatsBatch::dictionary_code` (cold forward lookup). Optional fields and U64 instants are refused (NULL is a sentinel in CATS). `tests/binder.rs`: 6 tests, 6 disable runs red.
