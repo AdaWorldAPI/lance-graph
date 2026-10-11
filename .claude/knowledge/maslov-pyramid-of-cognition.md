@@ -69,9 +69,16 @@ A resolved relation may become a premise for further inference. It carries
 the **union of its parents' observation roots** and never adds one of its
 own. This is the same mask algebra as the existing
 `lance_graph_contract::revision` (`independent_roots`, `difference` against
-the ancestry). Only resolved relations may serve as premises, so neither a
-direct cycle nor an indirect one (A → B → C → A) can ground itself, and going
-round a grounded cycle adds nothing.
+the ancestry). Two guards keep reuse from becoming self-support:
+
+1. Only resolved relations may serve as premises, so neither a direct cycle
+   nor an indirect one (A → B → C → A) can ground itself.
+2. A relation's own descendants are never its premises. Without this, a
+   relation reopened by counterevidence would be re-grounded by what was
+   derived from it, and circular support would survive the loss of its
+   external ground.
+
+Going round a grounded cycle adds nothing.
 
 ## Status
 

@@ -306,15 +306,19 @@ struct Loop {
     feedback: bool,
     /// DISABLE knob: let still-open relations act as premises.
     open_premises: bool,
+    /// DISABLE knob: let a relation's descendants act as its premises.
+    ignore_lineage: bool,
 }
 
 const LOOP: Loop = Loop {
     feedback: true,
     open_premises: false,
+    ignore_lineage: false,
 };
 const BASELINE: Loop = Loop {
     feedback: false,
     open_premises: false,
+    ignore_lineage: false,
 };
 
 /// One pass. Every open relation tries every intermediate the premises
@@ -332,15 +336,19 @@ fn pass(
         if topology(rels[i].edge) != Topology2::IndirectUnknown {
             continue;
         }
+        let me = rels[i].id;
         // The premise pool: observations, plus (with feedback) resolved
-        // relations that neither are this relation nor were derived from it.
+        // relations that were not derived from this relation.
         let mut pool: Vec<Premise> = obs.to_vec();
         if cfg.feedback {
             for r in rels.iter() {
-                // Only RESOLVED relations are premises. That is the
-                // self-support guard: an open relation can never ground
-                // another, so a cycle cannot bootstrap itself (T8 disable).
+                // Two self-support guards. (1) Only RESOLVED relations are
+                // premises, so an open cycle cannot bootstrap itself. (2) A
+                // relation's own descendants are never its premises, so a
+                // REOPENED relation cannot be re-grounded by what was derived
+                // from it (T8 reopen test).
                 let usable = Some(r.id) != banned
+                    && (cfg.ignore_lineage || r.derivations & (1 << me) == 0)
                     && (cfg.open_premises || topology(r.edge) != Topology2::IndirectUnknown);
                 if usable {
                     pool.push(Premise {
@@ -739,6 +747,7 @@ fn t8_disable_open_premises_lets_a_cycle_ground_itself() {
     let broken = Loop {
         feedback: true,
         open_premises: true,
+        ignore_lineage: false,
     };
     fixed_point(&mut cyc, &obs, None, broken, &d);
     assert!(
@@ -981,6 +990,7 @@ fn t8_disable_open_premises_lets_an_indirect_cycle_ground_itself() {
     let broken = Loop {
         feedback: true,
         open_premises: true,
+        ignore_lineage: false,
     };
     fixed_point(&mut rels, &obs, None, broken, &d);
     assert!(
@@ -1011,4 +1021,55 @@ fn t8_a_grounded_cycle_resolves_once_and_its_roots_stay_bounded() {
             "never more roots than observations"
         );
     }
+}
+
+/// Reopen a relation: its own lineage is dropped, its descendants keep theirs.
+fn reopen(rels: &mut [Relation], idx: usize) {
+    let st = EpistemicState5::new(
+        Epi5Gen::V1,
+        Topology2::IndirectUnknown,
+        Certification3::Related,
+    );
+    rels[idx].edge = rels[idx].edge.with_epistemic_raw5(st.raw());
+    rels[idx].roots = 0;
+    rels[idx].derivations = 0;
+}
+
+/// Ground the 3-cycle, then remove the ground and reopen R0. R1 and R2 are
+/// still resolved and were derived through R0.
+fn ungrounded_after_reopen(cfg: Loop) -> Vec<Relation> {
+    let d = declarations();
+    let (mut obs, mut rels) = three_cycle();
+    obs.push(observation(40, 41, 3));
+    fixed_point(&mut rels, &obs, None, LOOP, &d);
+    assert_eq!(residue(&rels), 0, "fixture: the grounded cycle resolves");
+    assert_ne!(rels[2].derivations & 1, 0, "fixture: R2 descends from R0");
+    obs.pop();
+    reopen(&mut rels, 0);
+    fixed_point(&mut rels, &obs, None, cfg, &d);
+    rels
+}
+
+#[test]
+fn t8_a_reopened_relation_is_not_regrounded_by_its_descendants() {
+    let rels = ungrounded_after_reopen(LOOP);
+    assert_eq!(
+        topology(rels[0].edge),
+        Topology2::IndirectUnknown,
+        "R0 lost its ground; R2 was derived through R0 and may not restore it"
+    );
+}
+
+#[test]
+fn t8_disable_lineage_guard_lets_descendants_reground_their_source() {
+    let rels = ungrounded_after_reopen(Loop {
+        feedback: true,
+        open_premises: false,
+        ignore_lineage: true,
+    });
+    assert_eq!(
+        topology(rels[0].edge),
+        Topology2::IndirectKnown,
+        "the lineage guard is load-bearing: without it R2 re-grounds R0"
+    );
 }

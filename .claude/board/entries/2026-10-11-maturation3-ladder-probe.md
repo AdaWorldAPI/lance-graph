@@ -90,3 +90,11 @@ Astonishment.
   violation routed by subject only (hits the anchor).
 - The root union matches the existing `lance_graph_contract::revision` mask
   algebra (`independent_roots`, difference against ancestry).
+
+## Addendum — lineage guard restored (review on #1494)
+
+I had removed the "descendants are not premises" guard as unreachable. That
+holds only while relations never reopen; T9 reopens an anchor. Reproduced:
+ground the 3-cycle, remove the ground, reopen R0, and R2 (derived through R0)
+re-grounds it. The guard is restored. A test pins that R0 stays open, and a
+disable arm shows that without the guard R0 is re-grounded.
