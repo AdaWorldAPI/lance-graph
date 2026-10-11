@@ -1,3 +1,10 @@
+## 2026-10-11 (2) — dir-sim-persist-v1 — a dir-sim history that survives a restart (W-3) → `.claude/plans/dir-sim-persist-v1.md`
+
+**Status:** ACTIVE (D-DSP-0..3). Consumer ask: HubSPO-rs handover W-3.
+
+- The persisted form is the store's inputs (root observations, dictionary in id order, versions verbatim, tags, verdicts), never the derived snapshot lanes.
+- `lance-graph-dir-sim` stays free of I/O; a separate crate writes the image to Lance.
+
 ## 2026-10-11 — concept-labels-hotplug-v1 — labels of a concept, pulled through the plug → `.claude/plans/concept-labels-hotplug-v1.md`
 
 **Status:** ACTIVE (D-LBL-0..5). Operator DECISION 2026-10-11: labels are ontology data in `ogar-vocab`, pulled through `hotplug.rs` only for plugged concepts; every language now, a non-breaking per-consumer spec later; customer binaries activate at build time; `0x0103` German preferred "Zeiterfassung".

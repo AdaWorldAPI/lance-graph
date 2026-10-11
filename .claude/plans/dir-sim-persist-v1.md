@@ -32,12 +32,14 @@ as a simulated version whose origin names the restored version.
 
 ## Work items
 
-- [ ] **P-W3-0 (probe first):** `StoreImage` (owned, in `lance-graph-dir-sim`,
+- [x] **P-W3-0 (probe first):** `StoreImage` (owned, in `lance-graph-dir-sim`,
       no I/O) + `VersionStore::image()` / `VersionStore::restore(image)`;
       test: a store with two roots, simulated versions, tags and verdicts
       round-trips, and every version's view, diff and plan are equal before
-      and after. Disable runs: drop the dictionary order; drop a delta.
-- [ ] `VersionStore` keeps each root's `Observation` (needed for the image).
+      and after. Done (`tests/persist.rs`); five disable
+      runs red: dictionary order, verdicts, tags, delta check, dictionary
+      completeness.
+- [x] `VersionStore` keeps each root's `Observation` (needed for the image).
 - [ ] `VersionStore::revert_to(current, earlier)` — the undo as a version.
 - [ ] Lance writer/reader in a separate crate (`lance-graph-dir-sim-lance`),
       so `lance-graph-dir-sim` keeps its no-I/O rule: one Lance dataset per
