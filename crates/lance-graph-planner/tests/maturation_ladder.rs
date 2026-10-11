@@ -1,4 +1,13 @@
-//! **D-MATURATION3-0 — Novelty → Wisdom as an eight-stage 3-bit ladder.**
+//! **D-MATURATION3-0 — the Maslov Pyramid of Cognition as an eight-stage
+//! 3-bit maturation code.**
+//!
+//! Named by the operator after Maslow's hierarchy. A proposed computational
+//! model, not a claim about Maslow, and distinct from Wang's NAL-1..9
+//! capability levels: NAL describes what a reasoner can do; the pyramid
+//! describes how far one discovery has matured, from Astonishment (7) to a
+//! generative Wisdom anchor (0). Its recursion: an anchor's expectations make
+//! new contradictions visible, and each new problem climbs its own pyramid
+//! while the anchor stays at 0.
 //!
 //! EXPERIMENTAL, test-local. Nothing here changes production code.
 //!
@@ -86,7 +95,7 @@ enum Maturation3 {
     /// The discrepancy is independently substantiated.
     Anomaly = 6,
     /// A new expectation violation.
-    Staunen = 7,
+    Astonishment = 7,
 }
 
 impl Maturation3 {
@@ -98,7 +107,7 @@ impl Maturation3 {
         Maturation3::Candidates,
         Maturation3::DogEar,
         Maturation3::Anomaly,
-        Maturation3::Staunen,
+        Maturation3::Astonishment,
     ];
 
     const fn from_code(c: u8) -> Self {
@@ -183,7 +192,7 @@ fn mature(
         } => return Ok(current),
         Executed::Violation {
             independent_roots: 1,
-        } => return Ok(M::Staunen),
+        } => return Ok(M::Astonishment),
         Executed::Violation { .. } => return Ok(M::Anomaly),
         Executed::Hydrated(Hydration::ProposedOnly) => M::DogEar,
         Executed::Hydrated(Hydration::Partial) => M::Candidates,
@@ -463,7 +472,7 @@ fn t1_every_existing_provenance_refuses_the_maturation_reading() {
 #[test]
 fn t2_repeating_a_completed_result_never_advances_maturation() {
     let x = M3Reading::Experimental;
-    let mut m = Maturation3::Staunen;
+    let mut m = Maturation3::Astonishment;
     m = mature(m, Executed::Hydrated(Hydration::Hydrated), x).unwrap();
     assert_eq!(m, Maturation3::Mechanism, "a hydration may skip stages");
     for _ in 0..100 {
@@ -514,7 +523,7 @@ fn t3_a_localized_gap_keeps_its_dogear_and_witness_until_addressed() {
     let obs = [observation(7, 8, 0)];
     let mut r = [rel(0, 7, 9)];
     let (_, h) = hydrate(r[0].edge, (7, 8, 9), &[(0, obs[0].edge)], reading(&d)).unwrap();
-    let m = mature(Maturation3::Staunen, Executed::Hydrated(h), x).unwrap();
+    let m = mature(Maturation3::Astonishment, Executed::Hydrated(h), x).unwrap();
     assert_eq!(m, Maturation3::Candidates, "one binding found: candidates");
 
     // The witness handle points at the transition record (test-local log).
@@ -742,8 +751,8 @@ fn t8_disable_open_premises_lets_a_cycle_ground_itself() {
 
 /// An observation violates an expectation only if a resolved relation
 /// predicts the opposite.
-fn violates(rels: &[Relation], s: u8, o: u8, freq: u8) -> bool {
-    rels.iter().any(|r| {
+fn violates(rels: &[Relation], s: u8, o: u8, freq: u8) -> Option<usize> {
+    rels.iter().position(|r| {
         r.edge.s_idx() == s
             && r.edge.o_idx() == o
             && topology(r.edge) == Topology2::IndirectKnown
@@ -752,33 +761,72 @@ fn violates(rels: &[Relation], s: u8, o: u8, freq: u8) -> bool {
 }
 
 #[test]
-fn t9_an_anchor_turns_a_neutral_observation_into_an_anomaly() {
+fn t9_an_anchor_turns_a_neutral_observation_into_new_astonishment() {
+    let x = M3Reading::Experimental;
     let d = declarations();
     // "1 → 4 does not hold" (low frequency).
     let (s, o, f) = (1u8, 4u8, 20u8);
 
     let (obs, mut without) = chain_world();
     fixed_point(&mut without, &obs, None, BASELINE, &d);
-    assert!(
-        !violates(&without, s, o, f),
+    assert_eq!(
+        violates(&without, s, o, f),
+        None,
         "no model of 1 → 4: nothing to contradict"
     );
 
     let (obs, mut with) = chain_world();
     fixed_point(&mut with, &obs, None, LOOP, &d);
-    assert!(
-        violates(&with, s, o, f),
-        "the anchor chain now predicts 1 → 4"
+    // A is the anchor (Wisdom, earned as in T6/T7); B and C are resolved.
+    let mut m3 = [
+        Maturation3::Wisdom,
+        Maturation3::Mechanism,
+        Maturation3::Mechanism,
+    ];
+    let hit = violates(&with, s, o, f).expect("the anchor chain now predicts 1 → 4");
+    assert_eq!(
+        hit, 1,
+        "the contradicted expectation is B, derived through A"
     );
+    m3[hit] = mature(
+        m3[hit],
+        Executed::Violation {
+            independent_roots: 1,
+        },
+        x,
+    )
+    .unwrap();
+
+    assert_eq!(
+        m3[1],
+        Maturation3::Astonishment,
+        "the new problem starts its own pyramid"
+    );
+    assert_eq!(
+        m3[0],
+        Maturation3::Wisdom,
+        "the anchor that made it visible stays at 0"
+    );
+}
+
+#[test]
+fn t9_direct_counterevidence_reopens_the_anchor_itself() {
+    let x = M3Reading::Experimental;
+    let d = declarations();
+    let (obs, mut rels) = chain_world();
+    fixed_point(&mut rels, &obs, None, LOOP, &d);
+    // "1 → 3 does not hold" contradicts A's own relation.
+    let hit = violates(&rels, 1, 3, 20).expect("A predicts 1 → 3");
+    assert_eq!(hit, 0);
     let m = mature(
         Maturation3::Wisdom,
         Executed::Violation {
             independent_roots: 1,
         },
-        M3Reading::Experimental,
+        x,
     )
     .unwrap();
-    assert_eq!(m, Maturation3::Staunen);
+    assert_eq!(m, Maturation3::Astonishment);
 }
 
 // ── T10: regression and replay ────────────────────────────────────────────
@@ -795,7 +843,7 @@ fn t10_counterevidence_reopens_and_old_plasticity_is_never_read_as_wisdom() {
             x
         )
         .unwrap(),
-        Maturation3::Staunen
+        Maturation3::Astonishment
     );
     assert_eq!(
         mature(
@@ -846,7 +894,7 @@ fn measure_transition_cost_and_allocations() {
         Executed::Ablated { impact: 2 },
     ];
     let before = ALLOCS.with(Cell::get);
-    let mut m = Maturation3::Staunen;
+    let mut m = Maturation3::Astonishment;
     let mut acc = 0u64;
     for i in 0..1_000_000usize {
         m = mature(m, inputs[i % inputs.len()], x).unwrap();
@@ -903,4 +951,64 @@ fn measure_feedback_overhead() {
         f.3 < b.3,
         "feedback discovers relations the baseline cannot"
     );
+}
+
+/// A supports B, B supports C, C supports A, with no grounding.
+fn three_cycle() -> (Vec<Premise>, Vec<Relation>) {
+    let obs = vec![
+        observation(41, 42, 0),
+        observation(42, 43, 1),
+        observation(43, 41, 2),
+    ];
+    // R0 40→42 needs 40→41 (R2); R1 40→43 needs 40→42 (R0);
+    // R2 40→41 needs 40→43 (R1).
+    let rels = vec![rel(0, 40, 42), rel(1, 40, 43), rel(2, 40, 41)];
+    (obs, rels)
+}
+
+#[test]
+fn t8_an_indirect_cycle_cannot_ground_itself() {
+    let d = declarations();
+    let (obs, mut rels) = three_cycle();
+    fixed_point(&mut rels, &obs, None, LOOP, &d);
+    assert_eq!(residue(&rels), 3);
+}
+
+#[test]
+fn t8_disable_open_premises_lets_an_indirect_cycle_ground_itself() {
+    let d = declarations();
+    let (obs, mut rels) = three_cycle();
+    let broken = Loop {
+        feedback: true,
+        open_premises: true,
+    };
+    fixed_point(&mut rels, &obs, None, broken, &d);
+    assert!(
+        residue(&rels) < 3,
+        "the guard is load-bearing for indirect cycles too"
+    );
+}
+
+#[test]
+fn t8_a_grounded_cycle_resolves_once_and_its_roots_stay_bounded() {
+    let d = declarations();
+    let (mut obs, mut rels) = three_cycle();
+    obs.push(observation(40, 41, 3)); // grounds R0
+    fixed_point(&mut rels, &obs, None, LOOP, &d);
+    assert_eq!(residue(&rels), 0);
+    let roots: Vec<u64> = rels.iter().map(|r| r.roots).collect();
+    for _ in 0..64 {
+        pass(&mut rels, &obs, None, LOOP, &d);
+    }
+    assert_eq!(
+        rels.iter().map(|r| r.roots).collect::<Vec<_>>(),
+        roots,
+        "going round the cycle adds nothing"
+    );
+    for r in &rels {
+        assert!(
+            r.roots.count_ones() <= obs.len() as u32,
+            "never more roots than observations"
+        );
+    }
 }
