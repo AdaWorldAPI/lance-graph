@@ -17,13 +17,16 @@
 //! |-------|------------|
 //! | OU    | `objectClass: top, organizationalUnit`, `ou` |
 //! | user  | `objectClass: top, person, organizationalPerson, user`, `cn`, `objectGUID`, `userPrincipalName`, `mail`, `proxyAddresses`, `userAccountControl`, `msExchMailboxGuid` |
-//! | group | `objectClass: top, group`, `cn`, `objectGUID`, `proxyAddresses`, `member` |
+//! | group | `objectClass: top, group`, `cn`, `objectGUID`, `proxyAddresses`, `member` (users and nested groups) |
 //!
 //! plus `dirSimOrigin` on every entry. An attribute the version does not
 //! hold is absent, never guessed: `userAccountControl` only when the flag is
 //! known (512 enabled, 514 disabled), `msExchMailboxGuid` only when
-//! observed. A node's relative name is `CN=<objectGUID>`: the version holds
-//! no display name, and identity is the GUID.
+//! observed. `groupType` is never emitted: a version keeps a group's
+//! security flag but not its scope (global, domain local, universal), and AD
+//! has no `groupType` without a scope bit. A node's relative name is
+//! `CN=<objectGUID>`: the version holds no display name, and identity is the
+//! GUID.
 //!
 //! `proxyAddresses` is the effective primary SMTP address (`SMTP:`) followed
 //! by the observed non-primary addresses, in their observed spelling. A
@@ -409,9 +412,10 @@ fn observed_secondaries(
     out
 }
 
-/// The live `(user, group)` memberships of a version, by identity; and the
-/// count of observed or added memberships naming a node this version does
-/// not hold.
+/// The live `(member, group)` memberships of a version, by identity, where
+/// the member is a user or a nested group (nesting is one pattern, V19); and
+/// the count of observed or added memberships naming a node this version
+/// does not hold.
 fn members(v: &View<'_>) -> (Vec<(Guid128, Guid128)>, usize) {
     let snap = v.snapshot();
     let live = v.live_rows();
@@ -437,7 +441,17 @@ fn members(v: &View<'_>) -> (Vec<(Guid128, Guid128)>, usize) {
             out.push((u, g));
         }
     }
-    let dangling = added.unresolved.len();
+    // Unresolved pairs are not user-to-group rows. A pair whose member and
+    // group are both existing groups is nesting and is a `member`; any other
+    // names a node this version does not hold.
+    let mut dangling = 0;
+    for (m, grp) in &added.unresolved {
+        if v.group_ordinal(m).is_some() && v.group_ordinal(grp).is_some() {
+            out.push((*m, *grp));
+        } else {
+            dangling += 1;
+        }
+    }
     out.sort_unstable();
     out.dedup();
     (out, dangling)

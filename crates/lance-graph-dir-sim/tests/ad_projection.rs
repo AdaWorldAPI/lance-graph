@@ -304,3 +304,41 @@ fn unsafe_values_are_base64_and_long_lines_fold() {
         assert!(l.len() <= 76, "{l}");
     }
 }
+
+// A group nested in a group is an AD `member` of it (one global nesting
+// pattern, V19), never a dangling membership. A membership naming a missing
+// node is still counted, not emitted.
+#[test]
+fn a_nested_group_is_a_member_not_dangling() {
+    let mut dict = OuDictionary::new();
+    let staff = Dn128::from_ou_hhtl(&dict.intern(&["Staff"]).unwrap()).unwrap();
+    let (alice, outer, inner) = (
+        Guid128([0xA1; 16]),
+        Guid128([0xE0; 16]),
+        Guid128([0xE1; 16]),
+    );
+    let mut a = ObservedNode::user("alice@example.de", "alice@example.de");
+    a.dn = Some(staff);
+    let mut o = ObservedNode::group();
+    o.dn = Some(staff);
+    let mut i = ObservedNode::group();
+    i.dn = Some(staff);
+    let obs = Observation {
+        scope: DirectoryScope(Guid128([0x5C; 16])),
+        nodes: vec![(alice, a), (outer, o), (inner, i)],
+        members: vec![(alice, inner), (inner, outer), (Guid128([0xFF; 16]), outer)],
+    };
+    let mut st = VersionStore::new();
+    let v = st.observe("ad", 0, obs).unwrap();
+    let p = project(&st.view(v).unwrap(), Source::Ad, NC, &dict).unwrap();
+    let by_node = |n: Guid128| p.entries.iter().find(|e| e.node == Some(n)).unwrap();
+    assert_eq!(
+        by_node(outer).text("member"),
+        [format!("CN={inner},OU=Staff,{NC}").as_str()]
+    );
+    assert_eq!(
+        by_node(inner).text("member"),
+        [format!("CN={alice},OU=Staff,{NC}").as_str()]
+    );
+    assert_eq!(p.dangling_members, 1);
+}
