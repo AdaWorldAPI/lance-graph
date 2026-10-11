@@ -34,9 +34,19 @@ scoping it.
   none passes a 128-bit value and none works around the old limit. REVISIT
   WHEN: a 16-byte-key kernel needs an instruction `std::arch` does not expose.
 - **The fast path is written against the facade, not a backend.** It uses
-  `U64x8::from_slice`, `U64x8::ternlog::<{ ternlog::XOR_AND }>` and
-  `U64x8::cmpeq_mask` (returns `u8`), so every backend realizes it the way it
-  realizes the existing kernel. No new intrinsic outside `simd_{arch}.rs`.
+  a byte-level unaligned load (below), `U64x8::ternlog::<{ ternlog::XOR_AND }>`
+  and `U64x8::cmpeq_mask` (returns `u8`), so every backend realizes it the way
+  it realizes the existing kernel. No new intrinsic outside `simd_{arch}.rs`.
+- **The load takes bytes, never a reinterpreted `&[u64]`.** The kernel's input
+  is `&[u8]` and the first offset may be 1..15, so the address is not
+  `u64`-aligned; building a `&[u64]` from it for `U64x8::from_slice` is
+  undefined behaviour regardless of which instruction the backend emits. The
+  facade has no `U8x64 → U64x8` bitcast and no byte load for `U64x8` today
+  (checked 2026-10-11), so W3 adds one, `U64x8::from_le_bytes(&[u8; 64])`,
+  on every backend (an unaligned vector load where one exists, eight
+  `u64::from_le_bytes` otherwise), covered by its own parity case at offsets
+  0..63. The current kernel already reads each half with `u64::from_le_bytes`,
+  so the scalar fallback is the same arithmetic. (Codex review on #1475.)
 - **The branch is on the runtime argument** (`stride_bytes == 16`), never on
   `cfg(target_feature)`. The function signature does not change, so no
   consumer changes and no lgj ABI minor bump.
@@ -61,8 +71,9 @@ output bits (portable bit fold, or `pext` behind the facade if a backend
 offers it). Every row is still tested; nothing is skipped. Tail rows
 (`count % 4`, and the partial final word) use the existing scalar tail.
 
-Alignment: the lane base is not guaranteed 64-byte aligned; `from_slice` is an
-unaligned load on every backend, as the current kernel assumes.
+Alignment: the lane base is not guaranteed aligned to anything. The load is
+`U64x8::from_le_bytes`, which takes bytes and is defined at every address;
+the probe's arm B uses the same byte load so W2 measures what W3 ships.
 
 ## 4. Waves
 
@@ -71,7 +82,7 @@ unaligned load on every backend, as the current kernel assumes.
 | W0 | D-KEY16-0 | lance-graph | This plan + board rows | — |
 | W1 | D-KEY16-1 | ndarray | Add `ternary_match_strided16_to_mask` to `crates/simd-masking-parity` against a bytewise reference: strides 16 / 20 / 32 / 512, first offsets 0..15, care bits in bytes 12..16 (the in-crate test `ternary_match_strided16_sees_bytes_past_twelve` shape), tails 0 / 1 / 3 / 4 / 5 / 15 / 16 / 17 / 63 / 64 / 65 / 130 | green on the CURRENT kernel on every `simd-matrix.yaml` realization row (avx512, avx2, avx, v2, neon, wasm + scalar, nightly); a deliberately wrong reference makes it red (can-fire) |
 | W2 | D-KEY16-2 | ndarray | `examples/key16_match_probe.rs`: arm A current kernel; arm B contiguous fast path (prototype inside the probe); arm C AVX-512 64-bit gather for strides > 16 (prototype, `cfg`-gated in the probe only). N = 65,536 (dir-sim population) and 1,048,576; strides 16 / 32 / 512; selectivity ~1 % and ~50 % | answers bit-identical across arms BEFORE timing; release, quiet machine, median of 101 runs, avx512 and avx2 hosts reported separately; results committed to the probe's doc |
-| W3 | D-KEY16-3 | ndarray | Only if W2 shows arm B ≥ 1.5× arm A at stride 16 on BOTH avx512 and avx2, with no arm slower at strides 32 / 512: add the `stride_bytes == 16` path to the kernel | W1 parity green on every matrix row; `scripts/codegen-witness.sh` unchanged; disable run 1: route stride 16 back to the gather path, probe speedup disappears; disable run 2: fold on the low half only (`m & 0x55`), parity goes red |
+| W3 | D-KEY16-3 | ndarray | Only if W2 shows arm B ≥ 1.5× arm A at stride 16 on BOTH avx512 and avx2, with no arm slower at strides 32 / 512: add `U64x8::from_le_bytes` to the facade and every backend, then the `stride_bytes == 16` path to the kernel | W1 parity green on every matrix row, including first offsets 1..15; a `from_le_bytes` parity case at offsets 0..63 against `u64::from_le_bytes`; `scripts/codegen-witness.sh` unchanged; disable run 1: route stride 16 back to the gather path, probe speedup disappears; disable run 2: fold on the low half only (`m & 0x55`), parity goes red |
 | W4 | D-KEY16-4 | ndarray | Only if W2 shows arm C ≥ 1.2× arm A at strides 32 and 512 on the avx512 CI tier: gather path in `simd_avx512.rs` behind the facade; other backends keep the scalar gather | as W3, plus the avx2 / neon / wasm rows still take the old path (asserted, not assumed) |
 | W5 | D-KEY16-5 | lance-graph | Consumer verification after the ndarray merge: `cargo test` for mask-risc, quack, dir-sim; the Identity workflow's 87 pinned dir-sim names; dir-sim `subtree` timing before/after at 65,536 nodes, recorded | no consumer source change; all green; timing recorded with method |
 
