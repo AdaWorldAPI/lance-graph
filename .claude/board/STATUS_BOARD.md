@@ -49,6 +49,7 @@ Plan: `.claude/plans/dir-sim-persist-v1.md`.
 | **D-DSP-2** | Lance writer/reader crate for `StoredImage`: logical versions in verifiable append-only batches (one batch = one Lance commit), torn saves refused | In PR (2b: `lance-graph-dir-sim-lance`, one batch = one Lance append) | two saves restore to the same reads; missing dataset = empty log; stale writer writes nothing (create and append); torn batch refused at restore; out-of-order batch refused |
 | **D-DSP-4** | `StoredImage` + `RuleRegistry` (exact `(name, version)`) + `restore_stored` + read-only `History` (decision 2(a)) | Shipped (#1481) | unknown rule refused, never substituted; history still reads; disable runs red |
 | **D-DSP-3** | `ViewActors` (W-2) + `from_graph` groups (wishlist #19) in dir-sim | Shipped (#1473) | disable runs red |
+| **D-DSP-3b** | `GroupRoles::from_policy`: grants read from one version of OGAR `GroupRolePolicy` (decision 4(b)); never-named = unread, all-revoked = read with no roles (5(a)) | In PR | policy test red without `from_policy`; dropping empty groups fails it |
 
 ## D-LBL — labels of a concept, pulled through the plug (2026-10-11)
 
