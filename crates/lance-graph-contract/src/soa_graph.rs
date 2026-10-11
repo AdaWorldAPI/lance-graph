@@ -83,14 +83,10 @@ pub struct DomainSpec {
     pub member_edge: &'static str,
 }
 
-/// The OSINT domain classid: the V3 OSINT class (`CLASSID_OSINT_V3`) in a
-/// normal build; the legacy V1 `CLASSID_OSINT` only under
-/// `--no-default-features` (where the V3 class is gated out). aiwar mints under
-/// the same selector, so its rows always match this domain's projector filter.
-#[cfg(feature = "guid-v3-tail")]
+/// The OSINT domain classid: the V3 OSINT class (`CLASSID_OSINT_V3`). aiwar
+/// mints under the same selector, so its rows always match this domain's
+/// projector filter.
 const OSINT_GOTHAM_CLASSID: u32 = NodeGuid::CLASSID_OSINT_V3;
-#[cfg(not(feature = "guid-v3-tail"))]
-const OSINT_GOTHAM_CLASSID: u32 = NodeGuid::CLASSID_OSINT;
 
 /// The **OSINT / Palantir-Gotham** domain (V3 class [`NodeGuid::CLASSID_OSINT_V3`]):
 /// a neo4j-emulation entity graph. Anchor families are caller-supplied (the key
@@ -108,15 +104,11 @@ pub const OSINT_GOTHAM: DomainSpec = DomainSpec {
 /// structural entities, family = body region, `out_family` = part-of. Anchor
 /// families are the *bones* (the skeleton the soft tissue hangs off); the
 /// default declares none — a caller supplies the bone families.
-/// The FMA domain classid: the V3 anatomy class (`CLASSID_FMA_V3`) in a normal
-/// build; the legacy V1 `CLASSID_FMA` only under `--no-default-features`.
+/// The FMA domain classid: the V3 anatomy class (`CLASSID_FMA_V3`).
 /// Matches q2's `osint-bake/body` (`/helix` substrate) which already mints
 /// `CLASSID_FMA_V3`. V3 routes on the `from_guid_prefix_v3` fold (classid not
 /// folded) — `hhtl_path`/`nearest_anchor` are already tail-aware.
-#[cfg(feature = "guid-v3-tail")]
 const FMA_ANATOMY_CLASSID: u32 = NodeGuid::CLASSID_FMA_V3;
-#[cfg(not(feature = "guid-v3-tail"))]
-const FMA_ANATOMY_CLASSID: u32 = NodeGuid::CLASSID_FMA;
 
 pub const FMA_ANATOMY: DomainSpec = DomainSpec {
     classid: FMA_ANATOMY_CLASSID,
@@ -128,12 +120,8 @@ pub const FMA_ANATOMY: DomainSpec = DomainSpec {
 };
 
 /// The project-management domain classid: the V3 class
-/// [`NodeGuid::CLASSID_PROJECT_V3`] in a normal build; the legacy V1
-/// [`NodeGuid::CLASSID_PROJECT`] only under `--no-default-features`.
-#[cfg(feature = "guid-v3-tail")]
+/// [`NodeGuid::CLASSID_PROJECT_V3`].
 const PROJECT_CLASSID: u32 = NodeGuid::CLASSID_PROJECT_V3;
-#[cfg(not(feature = "guid-v3-tail"))]
-const PROJECT_CLASSID: u32 = NodeGuid::CLASSID_PROJECT;
 
 /// The **project-management** domain (V3 class [`NodeGuid::CLASSID_PROJECT_V3`],
 /// OGAR `0x01XX`): OpenProject ↔ Redmine work items. Family = project / version;
@@ -148,13 +136,8 @@ pub const PROJECT: DomainSpec = DomainSpec {
     member_edge: "in-project",
 };
 
-/// The commerce/ERP domain classid: the V3 class [`NodeGuid::CLASSID_ERP_V3`]
-/// in a normal build; the legacy V1 [`NodeGuid::CLASSID_ERP`] only under
-/// `--no-default-features`.
-#[cfg(feature = "guid-v3-tail")]
+/// The commerce/ERP domain classid: the V3 class [`NodeGuid::CLASSID_ERP_V3`].
 const ERP_CLASSID: u32 = NodeGuid::CLASSID_ERP_V3;
-#[cfg(not(feature = "guid-v3-tail"))]
-const ERP_CLASSID: u32 = NodeGuid::CLASSID_ERP;
 
 /// The **commerce / ERP** domain (V3 class [`NodeGuid::CLASSID_ERP_V3`], OGAR
 /// `0x02XX`): Odoo ↔ OSB invoices / partners / taxes. Family = partner / journal;
@@ -188,11 +171,9 @@ fn family_node_id(family: u32) -> String {
 /// ([`domain_tail`]) — never looked up per row.
 #[inline]
 fn hhtl_path(guid: &NodeGuid, tail: TailVariant) -> NiblePath {
-    #[cfg(feature = "guid-v3-tail")]
     if tail == TailVariant::V3 {
         return NiblePath::from_guid_prefix_v3(guid);
     }
-    let _ = tail;
     NiblePath::from_guid_prefix(guid).unwrap_or(NiblePath::EMPTY)
 }
 
@@ -210,15 +191,12 @@ fn domain_tail(domain: &DomainSpec) -> TailVariant {
 /// tail in bytes 10..13 ([`NodeGuid::family`]). Reading the V1 `family()` on a
 /// V2/V3 row would fold the `leaf` byte into the id (`I-LEGACY-API-FEATURE-GATED`),
 /// so the family decode is routed through the canonical `classid → tail_variant`
-/// mapping exactly like the path is. Under no tail feature every classid is V1, so
-/// this is just `family()`.
+/// mapping exactly like the path is.
 #[inline]
 fn family_of(guid: &NodeGuid, tail: TailVariant) -> u32 {
-    #[cfg(feature = "guid-v2-tail")]
     if matches!(tail, TailVariant::V2 | TailVariant::V3) {
         return guid.family_v2() as u32;
     }
-    let _ = tail;
     guid.family()
 }
 
@@ -227,11 +205,9 @@ fn family_of(guid: &NodeGuid, tail: TailVariant) -> u32 {
 /// [`NodeGuid::identity`] (bytes 13..16).
 #[inline]
 fn identity_of(guid: &NodeGuid, tail: TailVariant) -> u32 {
-    #[cfg(feature = "guid-v2-tail")]
     if matches!(tail, TailVariant::V2 | TailVariant::V3) {
         return guid.identity_v2() as u32;
     }
-    let _ = tail;
     guid.identity()
 }
 
@@ -537,7 +513,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn v3_rows_decode_family_and_identity_via_tail_variant() {
         use crate::canonical_node::classid_read_mode;
@@ -721,24 +696,12 @@ mod tests {
             hops[2].hops,
             hops[3].hops
         );
-        // The exact fixed-depth-16 values depend on the fold:
-        // - V3 (default, `from_guid_prefix_v3`): folds HEEL·HIP·TWIG·LEAF, classid
-        //   NOT folded, so lcp counts only the shared HEEL nibbles. node2 HEEL
-        //   0x1009 shares 0x100 (lcp 3) ⇒ 2·(16−3)=26; node3 HEEL 0xF000 diverges
-        //   at nibble 0 (lcp 0) ⇒ 2·(16−0)=32.
-        // - V1 (`--no-default-features`, `from_guid_prefix`): folds
-        //   classid_lo·HEEL·HIP·TWIG; the shared classid_lo adds 4 to the lcp ⇒
-        //   lcp 7 ⇒ 18 and lcp 4 ⇒ 24.
-        #[cfg(feature = "guid-v3-tail")]
-        {
-            assert_eq!(hops[2].hops, 26);
-            assert_eq!(hops[3].hops, 32);
-        }
-        #[cfg(not(feature = "guid-v3-tail"))]
-        {
-            assert_eq!(hops[2].hops, 18);
-            assert_eq!(hops[3].hops, 24);
-        }
+        // V3 (`from_guid_prefix_v3`) folds HEEL·HIP·TWIG·LEAF, classid NOT
+        // folded, so lcp counts only the shared HEEL nibbles. node2 HEEL 0x1009
+        // shares 0x100 (lcp 3) ⇒ 2·(16−3)=26; node3 HEEL 0xF000 diverges at
+        // nibble 0 (lcp 0) ⇒ 2·(16−0)=32.
+        assert_eq!(hops[2].hops, 26);
+        assert_eq!(hops[3].hops, 32);
     }
 
     #[test]
@@ -784,7 +747,6 @@ mod tests {
     /// lookup. The classid here is unknown to `BUILTIN_READ_MODES`, so the
     /// lookup answers V1; the plug says V3. Only the handed tail decodes the V3
     /// basin family correctly.
-    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn with_forms_use_the_handed_tail_not_the_classid_lookup() {
         use crate::canonical_node::classid_read_mode;

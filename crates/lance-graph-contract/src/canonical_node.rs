@@ -115,12 +115,10 @@ impl NodeGuid {
     /// (`Activation::resolve_for_context`), not from this value. Existing keys
     /// and callers keep working and nothing is evicted; new code should not
     /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_OSINT_V3: u32 = 0x0701_1000;
     /// Pre-flip stored form of [`CLASSID_OSINT_V3`] (marker HIGH, canon
     /// `0x0700` LOW — note the pre-normalization appid `:00`) — read-only
     /// legacy alias for persisted rows; do NOT mint with this.
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_OSINT_V3_LEGACY: u32 = 0x1000_0700;
 
     /// **FMA-V3** — FMA anatomy on a [`TailVariant::V3`] cascade tail, minted
@@ -135,10 +133,8 @@ impl NodeGuid {
     /// (`Activation::resolve_for_context`), not from this value. Existing keys
     /// and callers keep working and nothing is evicted; new code should not
     /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_FMA_V3: u32 = 0x0A01_1000;
     /// Pre-flip stored form of [`CLASSID_FMA_V3`] — read-only legacy alias.
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_FMA_V3_LEGACY: u32 = 0x1000_0A01;
 
     /// **CPIC-V3** — CPIC pharmacogenomics (gene–drug guidelines) on a
@@ -167,11 +163,9 @@ impl NodeGuid {
     /// (`Activation::resolve_for_context`), not from this value. Existing keys
     /// and callers keep working and nothing is evicted; new code should not
     /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_CPIC_V3: u32 = 0x0E01_1000;
     /// Pre-flip stored form of [`CLASSID_CPIC_V3`] (marker HIGH, canon
     /// `0x0E00` LOW — pre-normalization appid `:00`) — read-only legacy alias.
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_CPIC_V3_LEGACY: u32 = 0x1000_0E00;
 
     /// **PROJECT-V3** — project-management (OpenProject ↔ Redmine) on a
@@ -194,11 +188,9 @@ impl NodeGuid {
     /// (`Activation::resolve_for_context`), not from this value. Existing keys
     /// and callers keep working and nothing is evicted; new code should not
     /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_PROJECT_V3: u32 = 0x0101_1000;
     /// Pre-flip stored form of [`CLASSID_PROJECT_V3`] (marker HIGH, canon
     /// `0x0100` LOW — pre-normalization appid `:00`) — read-only legacy alias.
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_PROJECT_V3_LEGACY: u32 = 0x1000_0100;
 
     /// **ERP-V3** — commerce/ERP (Odoo ↔ OSB) on a [`TailVariant::V3`] cascade
@@ -215,11 +207,9 @@ impl NodeGuid {
     /// (`Activation::resolve_for_context`), not from this value. Existing keys
     /// and callers keep working and nothing is evicted; new code should not
     /// give classview `0x1000` a meaning (plan `v3-mandatory-hotplug-reading-v1`).
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_ERP_V3: u32 = 0x0202_1000;
     /// Pre-flip stored form of [`CLASSID_ERP_V3`] (marker HIGH, canon `0x0200`
     /// LOW — pre-normalization appid `:00`) — read-only legacy alias.
-    #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_ERP_V3_LEGACY: u32 = 0x1000_0200;
 
     /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
@@ -383,20 +373,13 @@ impl NodeGuid {
     /// `new` vs `new_v2`. Migrating a class's identity to V3 is then a one-line
     /// flip of its `tail_variant` in the registry, with zero consumer rewrite.
     ///
-    /// **Un-gated dispatch (`ISS-V1-TAIL-RESIDUE`):** `mint_for` itself is always
-    /// available so production mints (`ocr.rs`, `aiwar.rs`) route through it in
-    /// every build. The [`V1`](TailVariant::V1) arm is unconditional
-    /// ([`new`](NodeGuid::new)); the [`V2`](TailVariant::V2)/[`V3`](TailVariant::V3)
-    /// arms lower to `new_v2` only under `guid-v2-tail`. With the feature off the
-    /// V2/V3 arm **panics** rather than falling back to V1.
-    ///
-    /// That arm was previously a silent fallback, justified as dead code
-    /// because "no classid registers a V2/V3 `tail_variant`". Since
-    /// D-BLOCKS-HOTPLUG-1 a hot-plugged consumer's reading rides the
-    /// authority's `Activation::read_modes` instead of [`classid_read_mode`],
-    /// so a caller can pass V3 with no registry entry involved — the arm is
-    /// reachable, and a fallback would silently mint a V1 tail for a caller
-    /// that asked for V3.
+    /// **Un-gated (D-HPR-6a, 2026-10-11):** every arm is unconditional. The
+    /// [`V1`](TailVariant::V1) arm lowers to [`new`](NodeGuid::new); the
+    /// [`V2`](TailVariant::V2)/[`V3`](TailVariant::V3) arms lower to `new_v2`,
+    /// which writes the same 16 bytes a [`FacetCascade`](crate::facet::FacetCascade)
+    /// holds (`classid(4) | 6×(8:8)`). The `guid-v2-tail` / `guid-v3-tail`
+    /// features remain as empty names only. Before, a build without them
+    /// panicked here instead of minting V3.
     ///
     /// **No silent truncation:** the V2/V3 arm asserts `family`/`identity` fit
     /// `u16`, mirroring [`new`](NodeGuid::new)'s own 24-bit guard.
@@ -413,7 +396,6 @@ impl NodeGuid {
     ) -> Self {
         match tail_variant {
             TailVariant::V1 => Self::new(classid, heel, hip, twig, family, identity),
-            #[cfg(feature = "guid-v2-tail")]
             TailVariant::V2 | TailVariant::V3 => {
                 assert!(
                     family <= 0xFFFF,
@@ -431,38 +413,6 @@ impl NodeGuid {
                     leaf,
                     family as u16,
                     identity as u16,
-                )
-            }
-            #[cfg(not(feature = "guid-v2-tail"))]
-            TailVariant::V2 | TailVariant::V3 => {
-                // A V3 MINT NEVER DEGRADES TO V1 (operator, 2026-09-07).
-                //
-                // This arm used to fall back to `new`, justified as dead code:
-                // "no classid registers a V2/V3 tail_variant, so the fallback
-                // arm is unreachable". D-BLOCKS-HOTPLUG-1 falsified that
-                // premise. A hot-plugged consumer's reading no longer comes
-                // from `classid_read_mode` at all — it rides the authority's
-                // `Activation::read_modes`, and the consumer passes the
-                // `TailVariant` straight in. `blockly-store` does exactly
-                // that, and `medcare-cohorts` calls `mint_for(V3, …)`
-                // directly. The arm is live.
-                //
-                // Falling back would hand a caller that ASKED for V3 a V1
-                // `family:identity` u24 key, and the tail is not recorded in
-                // the key — `decode` versus `decode_v2` is chosen by classid
-                // alone — so the corruption is unobservable at the mint and
-                // surfaces as garbage identities much later.
-                //
-                // `mint_for` is `const fn`, so this fails a const-context mint
-                // at COMPILE time and panics loudly otherwise. Scoped
-                // deliberately: no default is flipped, no feature set changes,
-                // no dependency is added, and the V1 arm above still mints V1
-                // for classes that legitimately read V1.
-                let _ = (classid, heel, hip, twig, leaf, family, identity);
-                panic!(
-                    "mint_for was asked for a V2/V3 tail without `guid-v2-tail`; \
-                     enable the feature (it is implied by the default-on \
-                     `guid-v3-tail`) — a V3 mint must never silently become V1"
                 )
             }
         }
@@ -533,7 +483,6 @@ mod facet_bridge_tests {
 // I-LEGACY-API-FEATURE-GATED the v2 names are distinct (`leaf`/`*_v2`), so no
 // function silently changes semantics, and `GUID_TAIL_LAYOUT_VERSION_V2` is the
 // version gate marking a v2-tail packet.
-#[cfg(feature = "guid-v2-tail")]
 impl NodeGuid {
     /// Construct a v2-tail GUID: `classid·HEEL·HIP·TWIG` identical to v1, then the
     /// 3×u16 basin tail `leaf·family·identity`. Each tail field is a full `u16` —
@@ -624,8 +573,7 @@ impl NodeGuid {
 
 /// The v2-tail GUID decoded — `classid · HEEL · HIP · TWIG · leaf · family ·
 /// identity`, every tier a native integer (no `u24`). The v2 counterpart of
-/// [`GuidParts`]. (D-GV2-1; feature `guid-v2-tail`.)
-#[cfg(feature = "guid-v2-tail")]
+/// [`GuidParts`]. (D-GV2-1.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GuidPartsV2 {
     /// 0..4 — prefix-routable class id.
@@ -648,7 +596,6 @@ pub struct GuidPartsV2 {
 /// MUST refuse a v2 blob (and vice-versa) — the version gate per
 /// `I-LEGACY-API-FEATURE-GATED`. Wired into the `SoaEnvelope` version at cutover
 /// (D-GV2-5).
-#[cfg(feature = "guid-v2-tail")]
 pub const GUID_TAIL_LAYOUT_VERSION_V2: u16 = 2;
 
 /// The whole canonical key decoded in one shot — `classid · HEEL · HIP · TWIG ·
@@ -1690,7 +1637,6 @@ impl ReadMode {
     /// read through the new-generation [`TailVariant::V3`] cascade tail. The first
     /// V3 exemplar; [`FMA_V3`](ReadMode::FMA_V3) + [`CPIC_V3`](ReadMode::CPIC_V3)
     /// complete the Phase-1 V3 set.
-    #[cfg(feature = "guid-v3-tail")]
     pub const OSINT_V3: ReadMode = ReadMode {
         tail_variant: TailVariant::V3,
         value_schema: ValueSchema::Cognitive,
@@ -1700,7 +1646,6 @@ impl ReadMode {
     /// The **FMA-V3** read-mode ([`NodeGuid::CLASSID_FMA_V3`]): the same cold
     /// [`ValueSchema::Compressed`] value model as legacy [`FMA`](ReadMode::FMA),
     /// read through the new-generation [`TailVariant::V3`] cascade tail.
-    #[cfg(feature = "guid-v3-tail")]
     pub const FMA_V3: ReadMode = ReadMode {
         tail_variant: TailVariant::V3,
         value_schema: ValueSchema::Compressed,
@@ -1712,7 +1657,6 @@ impl ReadMode {
     /// [`ValueSchema::Compressed`] is the **Phase-1 provisional** (biomedical
     /// reference, mirroring FMA's cold treatment); Phase 2 pins the V3-shaped
     /// tenants. Edges [`EdgeCodecFlavor::CoarseOnly`].
-    #[cfg(feature = "guid-v3-tail")]
     pub const CPIC_V3: ReadMode = ReadMode {
         tail_variant: TailVariant::V3,
         value_schema: ValueSchema::Compressed,
@@ -1722,7 +1666,6 @@ impl ReadMode {
     /// The **PROJECT-V3** read-mode ([`NodeGuid::CLASSID_PROJECT_V3`]): the same
     /// hot [`ValueSchema::Cognitive`] value model as legacy [`PROJECT`](ReadMode::PROJECT),
     /// read through the new-generation [`TailVariant::V3`] cascade tail.
-    #[cfg(feature = "guid-v3-tail")]
     pub const PROJECT_V3: ReadMode = ReadMode {
         tail_variant: TailVariant::V3,
         value_schema: ValueSchema::Cognitive,
@@ -1732,7 +1675,6 @@ impl ReadMode {
     /// The **ERP-V3** read-mode ([`NodeGuid::CLASSID_ERP_V3`]): the same hot
     /// [`ValueSchema::Cognitive`] value model as legacy [`ERP`](ReadMode::ERP),
     /// read through the new-generation [`TailVariant::V3`] cascade tail.
-    #[cfg(feature = "guid-v3-tail")]
     pub const ERP_V3: ReadMode = ReadMode {
         tail_variant: TailVariant::V3,
         value_schema: ValueSchema::Cognitive,
@@ -1797,7 +1739,6 @@ static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
     // (`domain:appid`) is the HIGH u16 (`0x0701_1000`-form), so
     // `classid_concept_domain` routes Osint / Anatomy / Genetics directly off
     // the canon half; the pre-flip `0x1000_DDCC` forms stay as aliases.
-    #[cfg(feature = "guid-v3-tail")]
     {
         m.insert(NodeGuid::CLASSID_OSINT_V3, ReadMode::OSINT_V3);
         m.insert(NodeGuid::CLASSID_FMA_V3, ReadMode::FMA_V3);
@@ -2551,14 +2492,12 @@ mod tests {
     /// — measured, not assumed. The third fails earlier still, at compile time
     /// (`E0599`), because `family_v2`/`identity_v2` are themselves gated.
     #[test]
-    #[cfg(feature = "guid-v2-tail")]
     #[should_panic(expected = "v2/v3 identity must fit in 16 bits")]
     fn mint_for_v3_panics_on_identity_overflow() {
         let _ = NodeGuid::mint_for(TailVariant::V3, 0, 0, 0, 0, 0, 0, 0x0001_0000);
     }
 
     #[test]
-    #[cfg(feature = "guid-v2-tail")]
     #[should_panic(expected = "v2/v3 family must fit in 16 bits")]
     fn mint_for_v3_panics_on_family_overflow() {
         let _ = NodeGuid::mint_for(TailVariant::V3, 0, 0, 0, 0, 0, 0x0001_0000, 0);
@@ -2568,7 +2507,6 @@ mod tests {
     /// information as one that never fires. The widest legal tail must mint and
     /// read back intact.
     #[test]
-    #[cfg(feature = "guid-v2-tail")]
     fn mint_for_v3_admits_the_widest_legal_tail() {
         let g = NodeGuid::mint_for(TailVariant::V3, 0, 0, 0, 0, 0, 0xFFFF, 0xFFFF);
         assert_eq!(g.family_v2(), 0xFFFF);
@@ -3193,7 +3131,6 @@ mod tests {
         assert!(TailVariant::V2.is_layout_preserving());
     }
 
-    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn read_mode_osint_v3_routes_v3_tail_and_osint_domain() {
         // The wired V3 exemplar proves BOTH facts at once — the canon/custom
@@ -3242,7 +3179,6 @@ mod tests {
         assert_eq!(NodeGuid::CLASSID_OSINT_V3_LEGACY, 0x1000_0700);
     }
 
-    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn read_mode_fma_v3_and_cpic_v3_route_their_domains() {
         use crate::ogar_codebook::{
@@ -3323,7 +3259,6 @@ mod tests {
         assert_ne!(NodeGuid::CLASSID_FMA_V3, NodeGuid::CLASSID_OSINT_V3);
     }
 
-    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn mint_for_osint_v3_is_end_to_end_routable() {
         // Phase-1 end-to-end (soa-value-tenant-migration-v2.md §2): mint a class's
@@ -3394,7 +3329,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn osint_v3_cognitive_tenant_carve_field_isolation_matrix() {
         // Phase-2 seam (the CPIC doc's "Phase 2 shapes the V3 tenants … on top"):
@@ -3500,7 +3434,6 @@ mod tests {
     /// Shared body of the tenant-carve matrix: flip every byte of one tenant's
     /// lane; assert the lane changed and every byte OUTSIDE it did not — per
     /// tenant, in carve order (the I-LEGACY mandatory field-isolation test).
-    #[cfg(feature = "guid-v3-tail")]
     fn assert_value_lane_isolation(row: &mut NodeRow, lanes: &[ValueTenant]) {
         for &t in lanes {
             let before = row.value;
@@ -3518,7 +3451,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn fma_cpic_v3_compressed_tenant_carve_field_isolation_matrix() {
         // The cold half of the Phase-1 V3 set: FMA-V3 and CPIC-V3 both resolve to
@@ -3602,7 +3534,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "guid-v2-tail")]
     #[test]
     fn mint_for_dispatches_to_the_right_constructor_per_tail() {
         // The carrier is exactly `new` (V1) / `new_v2` (V2 & V3) — no new layout,
@@ -3637,7 +3568,6 @@ mod tests {
 
     // ── GUID v2 tail (D-GV2-1) — field-isolation matrix + coexistence ─────────
 
-    #[cfg(feature = "guid-v2-tail")]
     #[test]
     fn v2_field_isolation_matrix() {
         // Each tier carries a distinct value; every accessor reads back exactly
@@ -3678,7 +3608,6 @@ mod tests {
         assert_eq!(base.to_hex_v2(), "11112222-3333-4444-5555-6666-7777-8888");
     }
 
-    #[cfg(feature = "guid-v2-tail")]
     #[test]
     fn v1_and_v2_share_prefix_differ_in_tail() {
         // v1 and v2 agree on the prefix (classid·HEEL·HIP·TWIG)…
@@ -3697,38 +3626,82 @@ mod tests {
     }
 }
 
-/// A V3 mint must never silently degrade to a V1 tail (operator, 2026-09-07).
-///
-/// Only compiled when `guid-v2-tail` is OFF — the one configuration in which
-/// [`NodeGuid::mint_for`]'s V2/V3 arm can be reached without `new_v2` behind
-/// it. In every default build the feature is on (implied by the default-on
-/// `guid-v3-tail`) and this arm does not exist at all.
-#[cfg(all(test, not(feature = "guid-v2-tail")))]
-mod v3_never_degrades_to_v1 {
+/// D-HPR-6a: the un-gated V3 mint writes exactly the 16 bytes the 128-bit
+/// opt-in reads. Identity and edge are each `classid(4) | 6×(8:8)`; per tile
+/// `lo` is the `is_a` byte and `hi` the `part_of` byte. Removing the gate must
+/// not move one byte of that, or keys already written as `FacetCascade` stop
+/// matching keys minted through `mint_for`.
+#[cfg(test)]
+mod v3_mint_is_the_128_bit_facet {
     use super::*;
+    use crate::facet::FacetCascade;
 
-    /// Can-fire: asking for V3 without the feature bangs.
-    ///
-    /// The behaviour this replaced was a silent `new(…)` fallback, which
-    /// handed back a V1 `family:identity` u24 key. Nothing downstream could
-    /// notice — the tail is not recorded in the key, so the wrong reading
-    /// surfaces only as garbage identities much later.
-    #[test]
-    #[should_panic(expected = "must never silently become V1")]
-    fn a_v3_mint_without_the_feature_bangs_instead_of_minting_v1() {
-        let _ = NodeGuid::mint_for(TailVariant::V3, 0x1717_1000, 0, 0, 0, 0, 0, 1);
+    /// The fixed input; every tier has distinct `hi`/`lo` bytes so a swapped or
+    /// widened byte is visible.
+    const CLASSID: u32 = 0x0A01_1000;
+    const TIERS: [u16; 6] = [0x1211, 0x2221, 0x3231, 0x4241, 0x5251, 0x6261];
+
+    /// The bytes written by hand: classid LE, then each tier as `lo, hi`.
+    fn expected() -> [u8; 16] {
+        let mut b = [0u8; 16];
+        b[0..4].copy_from_slice(&CLASSID.to_le_bytes());
+        for (i, t) in TIERS.iter().enumerate() {
+            b[4 + 2 * i..6 + 2 * i].copy_from_slice(&t.to_le_bytes());
+        }
+        b
     }
 
-    /// …and V2 takes the same arm, so the guard is not V3-only.
-    #[test]
-    #[should_panic(expected = "must never silently become V1")]
-    fn a_v2_mint_without_the_feature_bangs_too() {
-        let _ = NodeGuid::mint_for(TailVariant::V2, 0x1717_1000, 0, 0, 0, 0, 0, 1);
+    fn mint(v: TailVariant) -> NodeGuid {
+        let [heel, hip, twig, leaf, family, identity] = TIERS;
+        NodeGuid::mint_for(
+            v,
+            CLASSID,
+            heel,
+            hip,
+            twig,
+            leaf,
+            u32::from(family),
+            u32::from(identity),
+        )
     }
 
-    /// Can-stay-silent: a class that legitimately reads V1 still mints, in the
-    /// same configuration. Without this half the guard could be "refuse every
-    /// mint", which carries exactly as much information as refusing none.
+    /// Identity: a V3 mint is byte-identical to the facet, and the facet's
+    /// `lo` chain is the is_a bytes, its `hi` chain the part_of bytes.
+    #[test]
+    fn a_v3_identity_mint_is_the_facet_bytes() {
+        let g = mint(TailVariant::V3);
+        assert_eq!(*g.as_bytes(), expected());
+        let f = FacetCascade::from(g);
+        assert_eq!(f.to_bytes(), expected());
+        assert_eq!(f.lo_chain(), [0x11, 0x21, 0x31, 0x41, 0x51, 0x61]);
+        assert_eq!(f.hi_chain(), [0x12, 0x22, 0x32, 0x42, 0x52, 0x62]);
+        assert_eq!(NodeGuid::from(f), g);
+    }
+
+    /// Edge: the same 16 bytes carried as the edge facet survive the
+    /// round trip unchanged.
+    #[test]
+    fn the_edge_facet_carries_the_same_bytes() {
+        let f = FacetCascade::from(mint(TailVariant::V3));
+        let e = EdgeFacet::from(f);
+        assert_eq!(e.to_bytes(), expected());
+        assert_eq!(FacetCascade::from(e), f);
+    }
+
+    /// V2 and V3 write the same bytes; V3 is a reading of them, not a carving.
+    #[test]
+    fn v2_and_v3_mint_the_same_bytes() {
+        assert_eq!(mint(TailVariant::V2), mint(TailVariant::V3));
+    }
+
+    /// Can-stay-silent: a V1 mint is NOT the facet layout (the u24 tail packs
+    /// `family:identity` into bytes 10..16 and drops `leaf`), so the equality
+    /// above is not true of every mint.
+    #[test]
+    fn a_v1_mint_is_not_the_facet_layout() {
+        assert_ne!(*mint(TailVariant::V1).as_bytes(), expected());
+    }
+
     #[test]
     fn a_v1_mint_is_untouched_and_still_carries_the_u24_tail() {
         let g = NodeGuid::mint_for(TailVariant::V1, 0x0000_0000, 0, 0, 0, 0xFFFF, 0, 1);

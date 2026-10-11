@@ -36,37 +36,24 @@ name = "i4_batch"
 harness = false
 
 [features]
-# default-on `guid-v3-tail` (operator ruling 2026-07-04, ISS-V1-TAIL-RESIDUE):
-# every normal build mints real V3 keys via `mint_for`. `--no-default-features`
-# still compiles (mint_for's V1 arm is un-gated; V2/V3 arms fall back to V1).
-default = ["guid-v3-tail"]
+# No default features. The V2/V3 tail is unconditional since D-HPR-6a
+# (2026-10-11); `--no-default-features` and a default build compile the same.
+default = []
 
 # A-unlock-stepdomain — `step_trajectory_hash` forward stub for the E4
 # cross-PR bridge between PR #278 audit log + PR #279 grammar trajectory.
 # No-op alias today; concrete impl lands once the bridge PR ships.
 trajectory-audit = []
 
-# guid-v2-tail (D-GV2-1, plan: guid-v2-tail-per-family-codebook-v1.md) — the v2
-# basin tail leaf(u16)·family(u16)·identity(u16) replacing v1 family(u24)·
-# identity(u24), leaf as the 4th HHTL tier. Default OFF; additive v2 accessors
-# (`leaf`/`*_v2`) coexist with v1 until cutover (D-GV2-5). Layout reclaim →
-# I-LEGACY-API-FEATURE-GATED (field-isolation matrix + version gate).
+# guid-v2-tail / guid-v3-tail — EMPTY since D-HPR-6a (2026-10-11). They gated
+# the v2/v3 tail constructor (`new_v2`), the five V3 classid constants and the
+# `codebook` module; all of that is now unconditional. The names stay so the
+# consumers that request them (deepnsm-v2, MedCare-rs, q2) still resolve.
+# `new_v2` writes the same 16 bytes `facet::FacetCascade` holds
+# (`classid(4) | 6×(8:8)`, lo = is_a, hi = part_of); see
+# `canonical_node::v3_mint_is_the_128_bit_facet`.
 guid-v2-tail = []
-
-# guid-v3-tail (P-A, plan: soa-value-tenant-migration-v2.md §2.1/§2.2) — gates the
-# V3 cascade-key per-classid entries. The V3 identity AXIS itself (TailVariant::V3
-# + ReadMode::tail_variant) is unconditional, latent (nothing reads tail_variant
-# yet) → non-breaking. Since the classid half-order flip (P1, 2026-07-02,
-# classid-canon-custom-flip-v1.md) the CANON `domain:appid` sits in the HIGH u16
-# and the gen-marker 0x1000 in the LOW (custom) u16: OSINT-V3 = 0x0701_1000,
-# FMA-V3 = 0x0A01_1000, CPIC-V3 = 0x0E01_1000; the pre-flip 0x1000_DDCC forms
-# stay registered as read-only legacy aliases (mint-forward). Default OFF.
-#
-# Implies `guid-v2-tail`: V3 is a *reading* of the SAME leaf·family·identity 3×u16
-# tail bytes v2 mints (the (part_of:is_a) cascade reinterprets them, never re-carves),
-# so the V3 mint path (`NodeGuid::mint_for`'s V3 arm) dispatches to `new_v2`. The
-# tail constructor must exist whenever a V3 classid can be minted.
-guid-v3-tail = ["guid-v2-tail"]
+guid-v3-tail = []
 
 # tenant-counters — per-ValueTenant update counters for debug instrumentation of
 # the SoA write cascade (the capstone NaN-census / seam-wiring measurement). OFF

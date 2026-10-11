@@ -75,12 +75,8 @@ pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
     // ONE OSINT class, minted V3 (ISS-V1-TAIL-RESIDUE): route through `mint_for`
     // so the classid's registered `tail_variant` drives the tail. `OSINT_GOTHAM`
     // filters on the SAME selector, and `family_of`/`identity_of` decode the V3
-    // basin tail-aware — so the round-trip is consistent. `--no-default-features`
-    // falls back to the V1 `CLASSID_OSINT` (the V3 class is gated out there).
-    #[cfg(feature = "guid-v3-tail")]
+    // basin tail-aware — so the round-trip is consistent.
     let osint_classid = NodeGuid::CLASSID_OSINT_V3;
-    #[cfg(not(feature = "guid-v3-tail"))]
-    let osint_classid = NodeGuid::CLASSID_OSINT;
     aiwar_node_rows_with(graph, osint_classid, classid_read_mode(osint_classid))
 }
 
@@ -213,12 +209,8 @@ mod tests {
 
     #[test]
     fn rows_are_osint_class_and_head_only() {
-        // ONE OSINT class: V3 in a normal build, V1 under `--no-default-features`
-        // (mirrors `aiwar_node_rows` + `OSINT_GOTHAM`).
-        #[cfg(feature = "guid-v3-tail")]
+        // ONE OSINT class, V3 (mirrors `aiwar_node_rows` + `OSINT_GOTHAM`).
         let expected_classid = NodeGuid::CLASSID_OSINT_V3;
-        #[cfg(not(feature = "guid-v3-tail"))]
-        let expected_classid = NodeGuid::CLASSID_OSINT;
         let g = ingest_aiwar_json(SAMPLE).unwrap();
         for row in aiwar_node_rows(&g) {
             assert_eq!(row.key.classid(), expected_classid);
@@ -228,7 +220,6 @@ mod tests {
 
     /// D-HPR-1: `aiwar_node_rows_with` reproduces `aiwar_node_rows` when handed
     /// the same reading, and follows a different reading when handed one.
-    #[cfg(feature = "guid-v3-tail")]
     #[test]
     fn with_form_follows_the_handed_reading() {
         use crate::canonical_node::{EdgeCodecFlavor, TailVariant, ValueSchema};

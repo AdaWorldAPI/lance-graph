@@ -70,8 +70,7 @@ pub mod class_view;
 /// `classify_form`, `AdoptionCounts`, `count_adoption`). See
 /// `.claude/v3/soa_layout/routing.md` §5.
 pub mod classid_scan;
-/// D-GV2-2 — per-family codebook (`family → Codebook`), gated on the v2 tail.
-#[cfg(feature = "guid-v2-tail")]
+/// D-GV2-2 — per-family codebook (`family → Codebook`) over the v2 tail.
 pub mod codebook;
 pub mod codegen_manifest;
 pub mod codegen_spine;
