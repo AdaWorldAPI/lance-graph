@@ -202,8 +202,19 @@ pub struct GraphObservation {
     pub synthetic: Vec<Guid128>,
 }
 
-/// Graph `user` records (`ogar-az`) in `tenant`, as an observation. Other
-/// record kinds are skipped. `dict` must be the dictionary the records were
+/// One group's direct members as Graph listed them
+/// (`ogar_az::group::ingest_members_page`, users and nested groups alike).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct GroupMembers {
+    /// The group (Graph `id`).
+    pub group: Guid128,
+    /// Its direct members (Graph `id`s). Nesting is walked by the view.
+    pub members: Vec<Guid128>,
+}
+
+/// Graph `user` and `group` records (`ogar-az`) in `tenant`, with the
+/// groups' direct `memberships`, as an observation. Other record kinds are
+/// skipped. `dict` must be the dictionary the records were
 /// ingested with (the on-premises domain's, so a mirrored user's OU equals
 /// its AD object's); the synthetic container is added to it.
 ///
@@ -211,9 +222,16 @@ pub struct GraphObservation {
 /// `msExchMailboxGuid`, so `recipient` is not read (`None`) and
 /// `exchange_guid` is `None`. `accountEnabled` gives the flag; absent is
 /// unknown, never enabled.
+///
+/// A group carries no location (Graph reports no on-premises DN for one),
+/// its `securityEnabled` flag as read, and an address only when
+/// `mailEnabled` was read as `true`: the primary SMTP proxy, else `mail`.
+/// A membership is kept whatever its ends: one naming an object that was
+/// not read is a dangling observation, reported by validation.
 pub fn from_graph(
     tenant: DirectoryScope,
     records: &[DirRecord],
+    memberships: &[GroupMembers],
     pool: &ValuePool,
     dict: &mut OuDictionary,
 ) -> Result<GraphObservation, ObserveError> {
@@ -238,16 +256,25 @@ pub fn from_graph(
         },
         synthetic: Vec::new(),
     };
-    for r in records.iter().filter(|r| {
-        r.schema().family == SchemaFamily::MsGraph
-            && r.object_kind() == ogar_az::AzKind::User as u16
-    }) {
+    for r in records
+        .iter()
+        .filter(|r| r.schema().family == SchemaFamily::MsGraph)
+    {
         let node = r.node_guid();
+        let kind = r.object_kind();
+        let is_user = kind == ogar_az::AzKind::User as u16;
+        if !is_user && kind != ogar_az::AzKind::Group as u16 {
+            continue;
+        }
         if r.scope_guid() != tenant.0 {
             return Err(ObserveError::ForeignScope {
                 node,
                 scope: DirectoryScope(r.scope_guid()),
             });
+        }
+        if !is_user {
+            out.observation.nodes.push((node, graph_group(r, pool)));
+            continue;
         }
         let hybrid = ogar_az::attr_str(r, pool, "onPremisesDistinguishedName").is_some();
         let dn = match (hybrid, r.ou_hhtl()) {
@@ -291,6 +318,34 @@ pub fn from_graph(
             },
         ));
     }
+    for m in memberships {
+        out.observation
+            .members
+            .extend(m.members.iter().map(|&member| (member, m.group)));
+    }
     out.synthetic.sort_unstable();
     Ok(out)
+}
+
+fn graph_group(r: &DirRecord, pool: &ValuePool) -> ObservedNode {
+    use ogar_az::group::{group_flag, group_multi, group_str};
+    let mut n = ObservedNode::group();
+    let mut proxies: Vec<String> = group_multi(r, pool, "proxyAddresses")
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+    let primary = proxies
+        .iter()
+        .position(|v| v.starts_with("SMTP:"))
+        .map(|i| proxies.remove(i)["SMTP:".len()..].to_string());
+    let mail = group_str(r, pool, "mail").map(str::to_string);
+    if group_flag(r, "mailEnabled") == Some(true) {
+        n.primary_smtp = primary.or_else(|| mail.clone());
+        n.proxies = proxies;
+    }
+    n.mail = mail;
+    n.alias = group_str(r, pool, "mailNickname").map(str::to_string);
+    n.security = group_flag(r, "securityEnabled");
+    n
 }
