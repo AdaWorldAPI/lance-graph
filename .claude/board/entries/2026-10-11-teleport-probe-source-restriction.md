@@ -56,6 +56,14 @@ does not exist.
   `Lowering::Range`: no slot, two words touched, ~28 ns. Same answer at
   every width. **quack does not fold two ranges into one today**; the fused
   path requires exactly one `Range` op (`ir.rs` `fused_terminal`).
+- **What the ~28 ns is, and is not.** It is COUNT's closed form: the fused
+  `Range` terminal (`Lowering::Range`, `Count`/`Any` only) answers from the
+  two boundaries, `hi - lo`, and visits no row. A fold that needs the rows
+  (`SUM`, `GROUP_SUM`, `KEEP`, a gated gather) still visits every survivor of
+  the intersected range; there the rewrite removes two passes and two slots
+  but the cost stays proportional to the range. The finding is the
+  reduction of a three-pass computation to a property of two boundaries,
+  not the speed ratio.
 - A monotone predicate on a sorted lane (`s < t`) scanned: ~150–190 µs.
   The crossing point by `partition_point` (~20 reads) plus one fused
   `Range`: ~0.1 µs. Only `prefix_facet`/`aperture_facet` under a witness
