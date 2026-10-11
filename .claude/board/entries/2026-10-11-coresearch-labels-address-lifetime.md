@@ -3,6 +3,17 @@
 **Status:** OPEN — exploration map. It ratifies nothing; the operator chooses.
 Plan context: `v3-mandatory-hotplug-reading-v1.md` rules 3–5, O1, O2.
 
+> **⊘ Corrected 2026-10-11 (operator decisions, plan `concept-labels-hotplug-v1.md`).**
+> - Shape piece 2 ("`PortSpec` is the mapping set") and the X14 / X17 / X18 verdicts
+>   "ADOPT in `PortSpec` / OGAR" are superseded. Port alias tables are lockstep tables,
+>   deprecated and kept. The source-id → concept mapping lives in the consumer's own `HotPlug`.
+> - Shape piece 3 and the "Label home" open point are decided. Labels live in `ogar-vocab`.
+>   A consumer pulls them through `hotplug.rs` only for the concepts it plugs (concept ×
+>   language `LazyLock` index). Every language comes now; a non-breaking per-consumer spec
+>   comes later.
+> - O2's label half is decided: `0x0103` has German preferred "Zeiterfassung" and German
+>   alternate "Stundenzettel".
+
 ## The question, after the premise audit
 
 The draft asked where "Stundenzettel / TimeSheet / Zeiterfassung" live as

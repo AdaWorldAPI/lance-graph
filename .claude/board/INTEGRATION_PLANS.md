@@ -1,3 +1,10 @@
+## 2026-10-11 — concept-labels-hotplug-v1 — labels of a concept, pulled through the plug → `.claude/plans/concept-labels-hotplug-v1.md`
+
+**Status:** ACTIVE (D-LBL-0..5). Operator DECISION 2026-10-11: labels are ontology data in `ogar-vocab`, pulled through `hotplug.rs` only for plugged concepts; every language now, a non-breaking per-consumer spec later; customer binaries activate at build time; `0x0103` German preferred "Zeiterfassung".
+
+- Rows `(concept u16, BCP-47 tag, role, text)`, a concept × language `LazyLock` index, `Activation::with_labels` (additive, like `with_register_laws`).
+- Carries two corrections: the source-id mapping lives in the consumer's plug, not in OGAR port tables; capabilities carry no consumer list.
+
 ## 2026-10-10 (2) — v3-mandatory-hotplug-reading-v1 — the reading comes from the plug, never from the classid value → `.claude/plans/v3-mandatory-hotplug-reading-v1.md`
 
 **Status:** ACTIVE (D-HPR-0..6). Operator DECISION 2026-10-10: V3 mandatory, hotplug.rs + OGAR plug-and-play is the only reading path, lockstep deprecated, concepts are immutable addresses and language names are labels.

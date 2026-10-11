@@ -1,3 +1,16 @@
+## D-LBL — labels of a concept, pulled through the plug (2026-10-11)
+
+Plan: `.claude/plans/concept-labels-hotplug-v1.md`.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| **D-LBL-0** | Decision record, board rows, corrections (mapping in the consumer plug; no executor lists) | In PR | — |
+| **D-LBL-1** | `ogar-vocab` label rows + concept × language `LazyLock` index; seed `0x0103` (de pref Zeiterfassung, de alt Stundenzettel) | Queued (OGAR PR) | one preferred per (concept, tag); roles disjoint; concept in `CODEBOOK` |
+| **D-LBL-2** | `Activation::with_labels` + `label()` / `alt_labels()`; `OgarAuthority::activate` fills plugged concepts only | Queued | unplugged concept's labels absent; missing language → `None` |
+| **D-LBL-3** | Build-time activation for customer binaries (generated constants, labels included) | Queued | the binary links only `lance-graph-contract` |
+| **D-LBL-4** | Per-consumer `LabelSpec` + default `activate_with_labels` (non-breaking) | Queued (when a volume problem is measured) | `activate()` output unchanged; spec `["de"]` yields no `en` rows |
+| **D-LBL-5** | TTL reader keeps language tags (`ogar-from-schema`) | Queued | a tagged `rdfs:label` reaches the label rows with its tag |
+
 ## D-HPR — V3 mandatory; reading from the plug only (2026-10-10)
 
 Plan: `.claude/plans/v3-mandatory-hotplug-reading-v1.md`.
