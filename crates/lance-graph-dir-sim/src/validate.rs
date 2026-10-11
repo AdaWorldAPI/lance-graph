@@ -539,12 +539,23 @@ pub fn address_recipient_in(
 /// deduplicated, with the routing violations (`RoutingNotInProxies`,
 /// `RoutingMismatch`) pushed to `out` on the way.
 fn address_rows(v: &View<'_>, out: &mut Vec<Violation>) -> Vec<(u32, Guid128, AddressRole)> {
-    let p = &v.snap.users;
-    let rel = &v.snap.proxies;
     // The UPN is held by an enabled account or a live recipient; the mail
     // addresses are provisioned by the recipient type alone.
-    let owners = v.owner_users();
-    let mail_owners = v.mail_owner_users();
+    rows_over(v, &v.owner_users(), &v.mail_owner_users(), out)
+}
+
+/// The `(key, holder, role)` rows of the users in `owners` (their UPN)
+/// and `mail_owners` (their primary and secondary SMTP and routing
+/// address), and of every live group (its primary SMTP), sorted and
+/// deduplicated. Routing violations of `mail_owners` go to `out`.
+fn rows_over(
+    v: &View<'_>,
+    owners: &[u64],
+    mail_owners: &[u64],
+    out: &mut Vec<Violation>,
+) -> Vec<(u32, Guid128, AddressRole)> {
+    let p = &v.snap.users;
+    let rel = &v.snap.proxies;
     let n = p.len();
     let mut rows: Vec<(u32, Guid128, AddressRole)> = Vec::new();
     for i in 0..v.users_len() {
@@ -552,12 +563,12 @@ fn address_rows(v: &View<'_>, out: &mut Vec<Violation>) -> Vec<(u32, Guid128, Ad
             continue;
         };
         let slot = (NodeKind::User, i);
-        if bit(&owners, i) {
+        if bit(owners, i) {
             if let Some((_, k)) = v.attr_ids(slot, Attribute::Upn).filter(|&(_, k)| k != NONE) {
                 rows.push((k, g, AddressRole::Upn));
             }
         }
-        if !bit(&mail_owners, i) {
+        if !bit(mail_owners, i) {
             continue;
         }
         let mut smtp: Vec<u32> = Vec::new();
@@ -634,4 +645,47 @@ pub fn validate(v: &View<'_>) -> Vec<Violation> {
     out.extend(address_rules(v));
     out.sort();
     out
+}
+
+/// Two or more present directory objects claiming one comparison key.
+///
+/// The claimants are listed, not judged: Entra quarantines the duplicate
+/// value on the object whose sync brought it, and the simulator observes
+/// no sync order, so it does not pick the object that keeps the value.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ProvisioningConflict {
+    /// The key claimed.
+    pub key: KeyId,
+    /// Every `(claimant, role)`, sorted by claimant.
+    pub claims: Vec<(Guid128, AddressRole)>,
+}
+
+/// The provisioning plane: every key claimed by more than one present
+/// directory object, sorted by key.
+///
+/// Entra ID keeps `userPrincipalName` and `proxyAddresses` unique across
+/// the tenant, over every object whatever its state: a disabled account, a
+/// mailbox-less account's leftover SMTP and proxies, and a group all claim
+/// their values. The claims read here are each present user's UPN, primary
+/// and secondary SMTP and routing address, and each live group's primary
+/// SMTP, in one address space as [`address_rules`] reads it. `mail` claims
+/// nothing.
+///
+/// This is a separate plane from the Exchange one. It does not feed
+/// [`address_owner`], [`address_recipient`] or [`validate`], so a conflict
+/// here changes neither who holds an address nor where mail to it goes.
+///
+/// Fidelity limit: the simulator observes users and groups only. Contacts,
+/// public folders and other object kinds also claim proxy addresses in a
+/// real tenant and are not in this plane.
+pub fn provisioning_conflicts(v: &View<'_>) -> Vec<ProvisioningConflict> {
+    let present = v.existing(NodeKind::User);
+    let rows = rows_over(v, &present, &present, &mut Vec::new());
+    rows.chunk_by(|a, b| a.0 == b.0)
+        .filter(|run| run.iter().any(|r| r.1 != run[0].1))
+        .map(|run| ProvisioningConflict {
+            key: KeyId(run[0].0),
+            claims: run.iter().map(|r| (r.1, r.2)).collect(),
+        })
+        .collect()
 }
