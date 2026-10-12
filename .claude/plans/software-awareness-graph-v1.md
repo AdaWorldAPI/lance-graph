@@ -2,7 +2,7 @@
 
 **Status:** MEASURED for one concept's methods (#1504's `BillableWorkEntry` set).
 Code: `crates/lance-graph-glove-parity/src/awareness.rs`, tests
-`tests/awareness.rs` (16), example `examples/awareness_loop.rs`.
+`tests/awareness.rs` (19), example `examples/awareness_loop.rs`.
 
 **Research question.** Can lance-graph represent its own methods, dependencies,
 semantic contracts and execution evidence as graph rows in its existing
@@ -371,11 +371,12 @@ method body. That would need its own parity test against
 
 | item | status | evidence |
 |---|---|---|
-| projection of prepared methods, tiers, provenance | implemented | 16 tests |
+| projection of prepared methods, tiers, provenance | implemented | 19 tests |
 | dependency query through Quack | implemented, one hop | query A test; example output |
 | compiler verdicts as edges (refusals, compute cycle) | implemented | falsifiers 1–3, query B |
 | certificates and staleness | implemented | falsifier 4 |
-| capability status | implemented | falsifier 9 |
+| capability status | implemented; a note cannot write a compiled or verified edge | falsifier 9; `a_claim_cannot_take_the_compiled_or_verified_tier` |
+| re-projection replaces a method's edges | implemented | `a_reprojection_replaces_the_methods_earlier_edges` |
 | shared predicates / shared selections | implemented (detection only) | query D test |
 | MDL measure | implemented, crude, with its limitation | MDL test |
 | H1 fusion candidate | candidate; cost gap measured; fused terminal absent | `awareness_loop` |

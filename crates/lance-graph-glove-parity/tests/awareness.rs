@@ -1051,3 +1051,81 @@ fn method_references_are_calls_edges_and_cycles_are_the_compilers() {
     assert_eq!(cyc, want.iter().map(String::as_str).collect::<Vec<_>>());
     assert_eq!(w.graph.out(&method_ident(A), Rel::Calls).len(), 1);
 }
+
+/// FAILS IF: a claim can be written at a tier only the compiler or a
+/// certificate may write — which would let a note ship a capability or
+/// demonstrate a gap — or a refused claim leaves an edge behind.
+#[test]
+fn a_claim_cannot_take_the_compiled_or_verified_tier() {
+    let mut g = SoftwareGraph::new();
+    let p = g.note(SOURCE, REV);
+    for tier in [Tier::Compiled, Tier::Verified] {
+        assert!(g
+            .claim("method:m", Rel::UsesPrimitive, "cap:FirstOfRun", tier, p)
+            .is_err());
+        assert!(g
+            .claim(
+                "method:a_note",
+                Rel::RefusedFor,
+                "refusal:EvidenceNotIndependent",
+                tier,
+                p
+            )
+            .is_err());
+    }
+    assert!(g.edges().is_empty());
+    assert_eq!(g.capability("cap:FirstOfRun"), CapStatus::Unknown);
+    assert!(g
+        .blocked_by("refusal:EvidenceNotIndependent", "cap:FirstOfRun", p)
+        .is_err());
+    // Silence twin: the claim tiers still record.
+    for tier in [Tier::Declared, Tier::Derived, Tier::Hypothesis] {
+        g.claim("method:m", Rel::MayRequire, "cap:FirstOfRun", tier, p)
+            .unwrap();
+    }
+    assert_eq!(g.edges().len(), 3);
+}
+
+/// FAILS IF: projecting a method again keeps its earlier projection's edges:
+/// stale conditions, a stale program next to a new refusal, or a
+/// verification of a body that no longer exists.
+#[test]
+fn a_reprojection_replaces_the_methods_earlier_edges() {
+    let b = batch(65);
+    let basis = canonical_fields();
+    let cats = CatsBinder::new(&b);
+    let claims = with_duration();
+    let first = specs();
+    let t1 = MethodTable::prepare(&glove(&basis, &cats, &claims), &first);
+    let mut g = SoftwareGraph::new();
+    g.project(&t1, &first, &claims, SOURCE, REV);
+    let p = g.note(SOURCE, REV);
+    g.certify(
+        &Certificate {
+            method: BILLABLE_HOURS,
+            digest: g.digest(BILLABLE_HOURS).unwrap(),
+            seal: seal(),
+            test: "x".into(),
+        },
+        p,
+    )
+    .unwrap();
+    assert_eq!(g.out(&hours_ident(), Rel::VerifiedBy).len(), 1);
+    // The same key, now reading a field the glove cannot bind: refused.
+    let mut second = specs();
+    second[3].1.body = query(&[BILLABLE_TRUE], &[Fold::Sum("activity_type")]);
+    let t2 = MethodTable::prepare(&glove(&basis, &cats, &claims), &second);
+    assert!(t2.get(BILLABLE_HOURS).unwrap().is_err());
+    g.project(&t2, &second, &claims, SOURCE, REV);
+    let m = hours_ident();
+    assert!(g.out(&m, Rel::VerifiedBy).is_empty());
+    assert!(g.out(&m, Rel::LowersTo).is_empty());
+    assert_eq!(g.out(&m, Rel::RefusedFor).len(), 1);
+    assert_eq!(g.out(&m, Rel::Folds).len(), 1);
+    assert!(!g
+        .methods_using("MaskedSumI32")
+        .unwrap()
+        .contains(&m.as_str()));
+    // Other methods' edges are untouched.
+    assert_eq!(g.out(&method_ident(COUNT_BILLABLE), Rel::LowersTo).len(), 1);
+}

@@ -584,6 +584,10 @@ impl SoftwareGraph {
             self.digests.push((spec.key, digest(spec), spec.schema));
             let class = self.intern(Kind::Class, format!("class:{:#06x}", spec.concept));
             let m = self.intern(Kind::Method, method_ident(spec.key));
+            // A method's projection replaces its earlier one: every edge
+            // written within it (structure, programs, verdicts,
+            // certificates, notes) belongs to the body it described.
+            self.edges.retain(|e| e.ctx != m);
             self.nodes[m as usize].label = Some((*label).to_owned());
             self.link(class, Rel::HasMethod, m, Tier::Declared, m, prov);
             let r = spec.reading.0;
@@ -711,7 +715,8 @@ impl SoftwareGraph {
     ///
     /// # Errors
     ///
-    /// The identity whose prefix names no kind.
+    /// A compiled or verified tier, or an identity whose prefix names no
+    /// kind.
     pub fn claim(
         &mut self,
         src: &str,
@@ -720,6 +725,13 @@ impl SoftwareGraph {
         tier: Tier,
         prov: u32,
     ) -> Result<(), String> {
+        // Compiled and verified edges are written by `project`, `add_program`,
+        // `project_compute`, `blocked_by` and `certify`, never by a note.
+        if matches!(tier, Tier::Compiled | Tier::Verified) {
+            return Err(format!(
+                "{tier:?} is written by the compiler or a certificate"
+            ));
+        }
         let m = self.intern_ident(src)?;
         let c = self.intern_ident(target)?;
         self.link(m, rel, c, tier, m, prov);

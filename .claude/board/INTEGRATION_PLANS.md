@@ -1,6 +1,6 @@
 ## 2026-10-12 (4) — software-awareness-graph-v1 — the software's own methods, programs and evidence as graph rows → `.claude/plans/software-awareness-graph-v1.md`
 
-**Status:** MEASURED for one concept's methods (D-SAG-1-0..3 in the PR); D-SAG-1-4..6 queued.
+**Status:** MEASURED for one concept's methods (D-SAG-1-0..3 and D-SAG-1-5 in the PR); D-SAG-1-4 and D-SAG-1-6 queued.
 
 - A `MethodTable` projects to typed rows (class, method, field, condition, fold, law, program, primitive, lowering, refusal, claim, capability, test). Each row has a tier (declared / derived / compiled / verified / hypothesis) and a provenance.
 - The edge table is a Quack table: dependency questions are Drafts lowered and run on mask-risc. Validation is the compiler's verdicts recorded as edges.
