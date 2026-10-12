@@ -178,3 +178,16 @@ Terminate or narrow scope if any test silently reinterprets production CE64 50..
 **Decision requested from operator later, not implicit in this PR:** whether and how Maturation3 is promoted beyond test-local provenance without changing the stable byte-ISA contract; and whether population carrier for legal multi-hop already exists. Until then all projections are research overlays.
 
 **Status of this PR:** documentation and experiment specification only. None of P0-P5 is claimed executed merely because this file exists.
+
+
+## Deferred extension on the same PR: A16..A33
+
+The first-wave D-SAG-2-0..15 falsifiers deliberately focused on establishing the positive, bounded stage-0 frontier and independently validated CARE-style proposal. The following **second-wave research**, added to #1511, covers safety and epistemic failure modes not yet exhaustively specified in that first wave:
+
+- [Hard-problems / incremental truth maintenance](sag-wisdom-frontier-hard-problems-v1.md): **four-state prerequisite debt** (known / refuted / missing / unread); alternative sufficient supports; deletion/retraction against fresh full-recomputation; source/version invalidation; bounded work and starvation; rubicon commitment hysteresis; conditional permits and cancellation races; graph ablation vs intervention; field-by-field ONA/MeTTa/PLN oracle parity.
+- [Second-wave .arxiv source excerpts](../../.arxiv/2026-10_wisdom_frontier_active_inference_delta_and_misspecification.md): Friston et al. 2026 active inference and structure learning, Wei 2024 EFE/value, Catanach/Das 2023 misspecified EIG, Pathak 2017 curiosity, Burda 2018 RND, McSherry et al. 2013 differential dataflow, Beckers 2021 actual causation, plus source limitations.
+- [Adversarial Claude Code handoff](../prompts/sag-wisdom-frontier-adversarial-expansion.md): implements **only A16-A19 first in a future implementation PR** (subject to audit and scope decision), then stages A20..A33 as unexecuted red tests.
+
+This extension supersedes no proven claim in #1494/#1509. It does not endorse introducing Differential Dataflow, a new physical graph traversal, cryptographic receipt, reassigning CE64 bands or deploying real-world IAM effects.
+
+**Additional stop condition:** Budget exhausted, source unread, stale certificate, model uncalibrated and lack of causal identifiability must each have a distinct explicit result; none may be silently reclassified as fixed point, negative evidence, successful exploration or permission to act.
