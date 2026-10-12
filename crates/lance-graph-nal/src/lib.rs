@@ -33,7 +33,7 @@
 //!
 //! Each [`nal`] operation is an R2IL procedure ([`nal::NalOp::lower`]) over
 //! [`lance_graph_r2il::FoldDialect`]. Binding a query runs that procedure once
-//! and keeps the mask-risc [`Program`] it produced; every later call runs the
+//! and keeps the mask-risc [`Program`](lance_graph_mask_risc::Program) it produced; every later call runs the
 //! kept program through [`execute_compiled`]. A call does not parse, lower or
 //! allocate.
 //!
