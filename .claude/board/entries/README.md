@@ -30,7 +30,7 @@ exactly one of them, never both.
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-12 | `D-SAG-1` |  | [2026-10-12-software-awareness-graph.md](2026-10-12-software-awareness-graph.md) |
-| 2026-10-12 | `D-SAG-2-0` | Post-#1509 SAG self-querying, provenance and limited attention with NARS/Hyperon/PLN comparisons; research prompt and high-signal falsifiers | [2026-10-12-sag-reflexive-cognition-research.md](2026-10-12-sag-reflexive-cognition-research.md) |
+| 2026-10-12 | `D-SAG-5-0` | Post-#1509 SAG self-querying, provenance and limited attention with NARS/Hyperon/PLN comparisons; research prompt and high-signal falsifiers | [2026-10-12-sag-reflexive-cognition-research.md](2026-10-12-sag-reflexive-cognition-research.md) |
 | 2026-10-12 | `opencog-pln-entropy-research-map` | Source inventory and falsifiable PLN/ECAN/Shannon/Moore attention comparison: entropy target, evidence overlap, graph projection, resource fairness | [2026-10-12-opencog-pln-entropy-research-map.md](2026-10-12-opencog-pln-entropy-research-map.md) |
 | 2026-10-12 | `nars-self-evidence-literature` | NARS internal trace versus evidence, Jøsang dependent/independent fusion and fission, and the snapshot-stable fold assumption; source-grounded red tests for merged #1496 | [2026-10-12-nars-self-evidence-literature.md](2026-10-12-nars-self-evidence-literature.md) |
 | 2026-10-12 | `hyperon-metta-lg-translation` | Hyperon/MeTTa to LG sibling map: atom/hypergraph roundtrip, binding and rewrite parity, typed folds, scoped effects and 15 open questions | [2026-10-12-hyperon-metta-lg-translation.md](2026-10-12-hyperon-metta-lg-translation.md) |
