@@ -30,7 +30,7 @@ use lance_graph_contract::rbac::{ActorId, RoleId};
 use lance_graph_contract::rbac_plug::{ActorSource, RbacBinding, SubjectRoles};
 use ogar_dir_core::Guid128;
 
-use crate::View;
+use crate::{GroupProperty, GroupWhere, MembershipPath, View};
 
 /// The roles granted to each group, keyed by the group's GUID.
 ///
@@ -71,6 +71,133 @@ impl GroupRoles {
     #[must_use]
     pub fn of(&self, group: &Guid128) -> Option<&[RoleId]> {
         self.read.get(group).map(Vec::as_slice)
+    }
+}
+
+/// Why a principal holds a role in one view, or why it cannot be said.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RoleEvidence {
+    /// Held. `grant` is the group whose read grants include the role, and
+    /// `path` one chain of security groups (SIDs) from the principal to it.
+    /// Other groups and other chains may grant it too: this is a witness,
+    /// not the only reason.
+    Held {
+        /// The security group whose grants include the role.
+        grant: Guid128,
+        /// One SID chain from the principal to `grant`.
+        path: MembershipPath,
+    },
+    /// Not held: no security group the principal carries grants it, and
+    /// every one of those groups was read.
+    NotHeld,
+    /// Not held as far as was read, but some of the principal's security
+    /// groups were never read and might grant it. Named so a caller can
+    /// refuse rather than report a loss or an absence.
+    Undetermined {
+        /// The principal's security groups whose grants were never read.
+        unread: Vec<Guid128>,
+    },
+    /// The consumer's binding does not declare the role, so no group data
+    /// can confer it.
+    NotDeclared,
+}
+
+impl RoleEvidence {
+    /// Whether the role is held.
+    #[must_use]
+    pub fn is_held(&self) -> bool {
+        matches!(self, Self::Held { .. })
+    }
+}
+
+impl GroupRoles {
+    /// Whether `principal` holds `role` in `view`, with a witness when it
+    /// does: the same decision as [`ViewActors::for_principal`], asked for
+    /// one role.
+    ///
+    /// The witness group is the granting group with the shortest SID chain,
+    /// the lowest-ordinal one among equals, so one view always gives the
+    /// same answer. The answer is about this view only: to know whether a
+    /// change takes the role away, ask the view after the change
+    /// ([`RoleImpact::between`]), never infer it from a witness's edge
+    /// having gone.
+    #[must_use]
+    pub fn role_evidence(
+        &self,
+        view: &View<'_>,
+        principal: &Guid128,
+        role: RoleId,
+        binding: &RbacBinding,
+    ) -> RoleEvidence {
+        if !binding.declared_grants().iter().any(|(r, _)| *r == role) {
+            return RoleEvidence::NotDeclared;
+        }
+        let sid = GroupWhere::Is(GroupProperty::SecurityEnabled);
+        let mut best: Option<(Guid128, MembershipPath)> = None;
+        let mut unread = Vec::new();
+        for group in view.security_identifiers(principal) {
+            match self.of(&group) {
+                Some(granted) if granted.contains(&role) => {
+                    let Some(path) = view.membership_path_through(principal, &group, &sid) else {
+                        continue;
+                    };
+                    if best
+                        .as_ref()
+                        .is_none_or(|(_, b)| path.groups().len() < b.groups().len())
+                    {
+                        best = Some((group, path));
+                    }
+                }
+                Some(_) => {}
+                None => unread.push(group),
+            }
+        }
+        match (best, unread.is_empty()) {
+            (Some((grant, path)), _) => RoleEvidence::Held { grant, path },
+            (None, true) => RoleEvidence::NotHeld,
+            (None, false) => RoleEvidence::Undetermined { unread },
+        }
+    }
+}
+
+/// A role before and after a change, each read from its own version.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoleImpact {
+    /// The role in the version before the change.
+    pub before: RoleEvidence,
+    /// The role in the version after the change.
+    pub after: RoleEvidence,
+}
+
+impl RoleImpact {
+    /// `role` for `principal` in `before` and in `after`, each decided on
+    /// its own view, so a role that survives along another chain stays held.
+    #[must_use]
+    pub fn between(
+        before: &View<'_>,
+        after: &View<'_>,
+        principal: &Guid128,
+        role: RoleId,
+        grants: &GroupRoles,
+        binding: &RbacBinding,
+    ) -> Self {
+        Self {
+            before: grants.role_evidence(before, principal, role, binding),
+            after: grants.role_evidence(after, principal, role, binding),
+        }
+    }
+
+    /// Held before and known not held after. An undetermined side is not a
+    /// loss.
+    #[must_use]
+    pub fn is_lost(&self) -> bool {
+        self.before.is_held() && self.after == RoleEvidence::NotHeld
+    }
+
+    /// Known not held before and held after.
+    #[must_use]
+    pub fn is_gained(&self) -> bool {
+        self.before == RoleEvidence::NotHeld && self.after.is_held()
     }
 }
 
