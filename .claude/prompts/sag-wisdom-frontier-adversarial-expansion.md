@@ -1,6 +1,6 @@
-# Claude Code extension prompt: D-SAG-2 red-team / deferred falsifiers A16..A33
+# Claude Code extension prompt: D-SAG-3 red-team / deferred falsifiers A16..A33
 
-**Scope:** Follow-up on existing PR #1511, NOT a new engine or production implementation. Begin from merged #1509 and the three initial D-SAG-2 documents. Read:
+**Scope:** Follow-up on existing PR #1511, NOT a new engine or production implementation. Begin from merged #1509 and the three initial D-SAG-3 documents. Read:
 - .claude/plans/sag-wisdom-frontier-ona-hyperon-v1.md
 - .claude/plans/sag-wisdom-frontier-hard-problems-v1.md
 - .arxiv/2026-10_wisdom_frontier_active_inference_delta_and_misspecification.md

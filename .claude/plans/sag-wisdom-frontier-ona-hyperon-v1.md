@@ -1,4 +1,4 @@
-# D-SAG-2 — Wisdom frontier: OpenPsi x Rubikon x Shannon x CARE x ONA/Hyperon
+# D-SAG-3 — Wisdom frontier: OpenPsi x Rubikon x Shannon x CARE x ONA/Hyperon
 
 **Status:** RESEARCH / FALSIFIABLE DESIGN ONLY, 2026-10-12. Sibling extension of merged [D-SAG-1 / #1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509). **No implementation, runtime evaluation, opcode, wire change, new graph engine, bit migration, authorization change, or speedup claim.**
 
@@ -130,7 +130,7 @@ Never reward entropy for entropy's sake. Penalize useless curiosity through meas
 
 No proposed optimizer H1 is performed automatically. Any optimization is a proposal checked by semantic equivalence, NULL/bag/set, cost tier and authority, and requires an authorized effect separately.
 
-## 6. Falsifier ledger (proposed D-SAG-2-0 .. 15)
+## 6. Falsifier ledger (proposed D-SAG-3-0 .. 15)
 
 | ID | Fixture / comparison | Failure condition |
 | --- | --- | --- |
@@ -182,7 +182,7 @@ Terminate or narrow scope if any test silently reinterprets production CE64 50..
 
 ## Deferred extension on the same PR: A16..A33
 
-The first-wave D-SAG-2-0..15 falsifiers deliberately focused on establishing the positive, bounded stage-0 frontier and independently validated CARE-style proposal. The following **second-wave research**, added to #1511, covers safety and epistemic failure modes not yet exhaustively specified in that first wave:
+The first-wave D-SAG-3-0..15 falsifiers deliberately focused on establishing the positive, bounded stage-0 frontier and independently validated CARE-style proposal. The following **second-wave research**, added to #1511, covers safety and epistemic failure modes not yet exhaustively specified in that first wave:
 
 - [Hard-problems / incremental truth maintenance](sag-wisdom-frontier-hard-problems-v1.md): **four-state prerequisite debt** (known / refuted / missing / unread); alternative sufficient supports; deletion/retraction against fresh full-recomputation; source/version invalidation; bounded work and starvation; rubicon commitment hysteresis; conditional permits and cancellation races; graph ablation vs intervention; field-by-field ONA/MeTTa/PLN oracle parity.
 - [Second-wave .arxiv source excerpts](../../.arxiv/2026-10_wisdom_frontier_active_inference_delta_and_misspecification.md): Friston et al. 2026 active inference and structure learning, Wei 2024 EFE/value, Catanach/Das 2023 misspecified EIG, Pathak 2017 curiosity, Burda 2018 RND, McSherry et al. 2013 differential dataflow, Beckers 2021 actual causation, plus source limitations.

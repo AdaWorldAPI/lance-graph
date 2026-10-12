@@ -1,6 +1,6 @@
-# D-SAG-2.1: deferred hard problems in the wisdom frontier
+# D-SAG-3.1: deferred hard problems in the wisdom frontier
 
-**Status:** RESEARCH ONLY. Extension of [D-SAG-2](sag-wisdom-frontier-ona-hyperon-v1.md) on PR #1511, based on merged #1509. Nothing here is a shipped feature, performed experiment, authorization, or production ABI decision. [Source excerpts](../../.arxiv/2026-10_wisdom_frontier_active_inference_delta_and_misspecification.md).
+**Status:** RESEARCH ONLY. Extension of [D-SAG-3](sag-wisdom-frontier-ona-hyperon-v1.md) on PR #1511, based on merged #1509. Nothing here is a shipped feature, performed experiment, authorization, or production ABI decision. [Source excerpts](../../.arxiv/2026-10_wisdom_frontier_active_inference_delta_and_misspecification.md).
 
 ## H1. Four distinct epistemic quantities
 

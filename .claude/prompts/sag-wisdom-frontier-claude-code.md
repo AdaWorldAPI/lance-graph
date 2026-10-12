@@ -1,4 +1,4 @@
-# Claude Code handoff — D-SAG-2: wisdom-frontier / OpenPsi / Rubikon / CARE / ONA / Hyperon
+# Claude Code handoff — D-SAG-3: wisdom-frontier / OpenPsi / Rubikon / CARE / ONA / Hyperon
 
 **Objective:** Turn the merged D-SAG-1 software-awareness graph (#1509) into a *testable research path* toward evidence-grounded, intrinsically motivated self-inspection. Implement only verified, phase-gated, reversible probes. **Do not build a second graph engine.**
 
@@ -18,7 +18,7 @@
 
 First give a **source-grounded code census** of the actual merged #1509 API: SoftwareGraph, Binder, MethodTable, Quack Draft, mask-risc program/terminal, class_view seal, provenance/root algebra, pearl::hydrate, experimental maturation, any current stage reading and the legal one-hop limit. Also inspect relevant OGAR and ONA/Hyperon source interfaces and **mark unverified capabilities as unverified**. Do not treat document plans as production APIs.
 
-Then choose the **smallest independent probe** which can be implemented in the current test tree and compared to a scalar oracle. Preferred first target: **D-SAG-2-P1, stage-0 frontier popcount and evidence-root invariants**. Do not expand to live adapters, volition, EIG and CARE all in one code change.
+Then choose the **smallest independent probe** which can be implemented in the current test tree and compared to a scalar oracle. Preferred first target: **D-SAG-3-P1, stage-0 frontier popcount and evidence-root invariants**. Do not expand to live adapters, volition, EIG and CARE all in one code change.
 
 ### Substrate invariants (non-negotiable)
 
@@ -112,7 +112,7 @@ After the above, ask the existing SoftwareGraph whether a method's repeated cond
 ## Reporting format
 
 For each probe, produce:
-- question and falsifier ID (D-SAG-2-x);
+- question and falsifier ID (D-SAG-3-x);
 - source revision, actual call path, declared semantic reading;
 - exact input/original observation roots, candidate count and budget;
 - independent scalar oracle expectation;

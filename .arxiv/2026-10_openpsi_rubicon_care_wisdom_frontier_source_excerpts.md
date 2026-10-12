@@ -1,9 +1,9 @@
-# D-SAG-2 source excerpts: OpenPsi, Rubikon, Shannon/EIG, CARE, ONA and Hyperon
+# D-SAG-3 source excerpts: OpenPsi, Rubikon, Shannon/EIG, CARE, ONA and Hyperon
 
 **Date:** 2026-10-12. **Status:** ANNOTATED RESEARCH, not a replication, formal proof, or benchmark.  
-**Parent work:** merged [#1509 software-awareness graph](https://github.com/AdaWorldAPI/lance-graph/pull/1509); [D-SAG-2 plan](../.claude/plans/sag-wisdom-frontier-ona-hyperon-v1.md).
+**Parent work:** merged [#1509 software-awareness graph](https://github.com/AdaWorldAPI/lance-graph/pull/1509); [D-SAG-3 plan](../.claude/plans/sag-wisdom-frontier-ona-hyperon-v1.md).
 
-**Editorial rule:** These are **short paraphrased excerpts / takeaways**, not verbatim reproductions. Every entry states (a) what is supported by its linked source, (b) the proposed transfer to lance-graph, and (c) a disconfirming experiment. This directory is a literature shelf; OpenPsi READMEs, GitHub PRs and peer-reviewed articles are **not** being misrepresented as arXiv papers. The full text of each work must be consulted before claiming algorithmic equivalence. No source is evidence that a D-SAG-2 probe has already run.
+**Editorial rule:** These are **short paraphrased excerpts / takeaways**, not verbatim reproductions. Every entry states (a) what is supported by its linked source, (b) the proposed transfer to lance-graph, and (c) a disconfirming experiment. This directory is a literature shelf; OpenPsi READMEs, GitHub PRs and peer-reviewed articles are **not** being misrepresented as arXiv papers. The full text of each work must be consulted before claiming algorithmic equivalence. No source is evidence that a D-SAG-3 probe has already run.
 
 ## S01 — CARE reference-conditioned executable programs (2026)
 
@@ -113,7 +113,7 @@
 
 **Paraphrased excerpt from PR description, not established merge:** Multiple demands in the normal interval share satisfaction score 0.84, making implicit tie decisions order-sensitive. The current selector previously mapped affiliation, competence and energy to the same mission goal. The PR proposes explicit deterministic demand order and separate goal destinations.
 
-**Transfer hypothesis:** Include ties, reversed row order and meaningful goal-to-action mapping in the D-SAG-2 evaluation even if the upstream fix remains unmerged.
+**Transfer hypothesis:** Include ties, reversed row order and meaningful goal-to-action mapping in the D-SAG-3 evaluation even if the upstream fix remains unmerged.
 
 **Falsifier:** Same semantics, different iteration order produces a different winner; or changing dominant demand leaves goal/action unchanged.
 
@@ -145,7 +145,7 @@
 | GitHub README/release | Select actual oracle and CLI/test entrypoints | Claim two runtimes share truth laws |
 | GitHub open PR | Construct an adversarial fixture | Treat unmerged fixes as shipped |
 | Our merged #1494/#1509 | Ground existing test-local mechanisms and one-hop SAG | Assume a mature production motivational engine exists |
-| Our proposed D-SAG-2 | Run pre-registered falsifiers | Claim discoveries merely because graph patterns are visually fractal |
+| Our proposed D-SAG-3 | Run pre-registered falsifiers | Claim discoveries merely because graph patterns are visually fractal |
 
 ### Citation/replication rules
 

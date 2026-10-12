@@ -1,8 +1,8 @@
 # Wisdom frontier: active inference, robust curiosity and incremental reasoning
 
-**Date:** 2026-10-12. **Status:** Research-only annotated literature shelf (second wave for [D-SAG-2 / PR #1511](https://github.com/AdaWorldAPI/lance-graph/pull/1511)). These are **original paraphrased research excerpts** and engineering transfer hypotheses, not verbatim copyrighted extracts, reproduction of proofs, run logs or benchmark results. This directory includes publisher and project research references as well as arXiv sources; the directory name does not assert that every source is an arXiv preprint.
+**Date:** 2026-10-12. **Status:** Research-only annotated literature shelf (second wave for [D-SAG-3 / PR #1511](https://github.com/AdaWorldAPI/lance-graph/pull/1511)). These are **original paraphrased research excerpts** and engineering transfer hypotheses, not verbatim copyrighted extracts, reproduction of proofs, run logs or benchmark results. This directory includes publisher and project research references as well as arXiv sources; the directory name does not assert that every source is an arXiv preprint.
 
-Read with [D-SAG-2 architecture](../.claude/plans/sag-wisdom-frontier-ona-hyperon-v1.md), [deferred hard problems](../.claude/plans/sag-wisdom-frontier-hard-problems-v1.md), and [first-wave literature](2026-10_openpsi_rubicon_care_wisdom_frontier_source_excerpts.md).
+Read with [D-SAG-3 architecture](../.claude/plans/sag-wisdom-frontier-ona-hyperon-v1.md), [deferred hard problems](../.claude/plans/sag-wisdom-frontier-hard-problems-v1.md), and [first-wave literature](2026-10_openpsi_rubicon_care_wisdom_frontier_source_excerpts.md).
 
 ## E01. Friston et al. (2026): active inference and artificial reasoning
 
@@ -23,7 +23,7 @@ Read with [D-SAG-2 architecture](../.claude/plans/sag-wisdom-frontier-ona-hypero
 
 - **Reference:** Tommie A. Catanach and Niladri Das, *Metrics for Bayesian Optimal Experiment Design under Model Misspecification*, [arXiv:2304.07949](https://arxiv.org/abs/2304.07949) (2023).
 - **Paraphrased excerpt:** Standard Bayesian experiment design optimizes information gain using the selected inference model's predictions. The paper motivates and examines additional criteria, including expected generalized information gain and expected discriminatory information, to account for model discrepancy.
-- **Transfer:** Make the original D-SAG-2 probability-calibration requirement stricter: holding a normalized posterior over a *wrong set of explanations* is insufficient. Maintain model criticism or a rival hypothesis family outside the trusted candidate set.
+- **Transfer:** Make the original D-SAG-3 probability-calibration requirement stricter: holding a normalized posterior over a *wrong set of explanations* is insufficient. Maintain model criticism or a rival hypothesis family outside the trusted candidate set.
 - **Falsifier:** Every candidate causal graph is false, yet a closed-world EIG controller becomes more certain; an independent discrepancy test must challenge this self-certainty. Do not import source formulas without their assumptions and quantities.
 
 ## E04. Pathak et al. (2017): action-relevant curiosity
