@@ -241,3 +241,39 @@ The reference evaluator must be **separate from the optimized implementation**, 
 If fully correct explanations of negative claims and policy decisions require a second independent authorization engine *because the current Quack/OGAR/dir_sim interface cannot legally express its proof obligation*, **stop** rather than hide a new runtime behind a hotplug. Document the smallest missing primitive, parity target, data/edge witness cost and authority boundary. That is an informative result.
 
 The high-signal hypothesis remains narrow: **the same SoA substrate can host independent typed readings of identity, policy, evidence and software methods**, while the meaning of those readings and the authority to act stay separately governed.
+
+## 12. Post-#1509 implementation drift: #1514 earns *one* relation hop [G, on main]
+
+**Verified after writing this RFC:** [#1514](https://github.com/AdaWorldAPI/lance-graph/pull/1514) is merged to `main` (the #1512 research branch was cut at the earlier #1509 merge and has not been rebased). `crates/lance-graph-glove-parity/tests/relation.rs` and `src/gremlin.rs` now expose **D-CMH-G1-4a**, a *functional* `out(rel)` carrier preserving one anchor row per traverser. A declared `Relation` uses a foreign key; `out(rel)` tests that it references a **live** target with `Filter::Semijoin`; `out(rel).has` can evaluate `EqU32Via`. The tests use synthetic ERP line->partner rows n=1,64,65,4097 with text-based row oracles and documented disable runs.
+
+**Exactly what it does NOT earn:**
+- fan-out or many-to-many access membership, `in`/`both`, or target dedup;
+- a second hop `out(rel).out(rel)` (explicit `SecondHop` refusal);
+- sums/values or referenced methods after a relation when the method glove refuses them;
+- R2IL parity for the foreign-target liveness test: R2IL's current fold band lacks `GATHER`, and the method reports `FrontendGap`;
+- a complete IAM authorization result, policy evaluation, source identity merge or production session evidence.
+
+**IAM transfer [H]:** a functional `User -> Manager` or `Line -> Account` read could reuse this exact carrier, but `User -> Groups -> Roles -> Entitlements` is multi-valued and recursive. It cannot use `out(rel)` without proving multiplicity and anchor semantics. This **updates** earlier #1509-era text that described *all* relation carriers as absent. The general D-SAG-1-4 and D-CMH-G1-4 obligations are still open.
+
+**IAM-44:** a synthetic functional one-hop matches #1514's row oracle and refuses an R2IL path that needs `GATHER`. **IAM-45:** a user with two groups and cyclic/nested memberships must not be silently forced into a one-foreign-key functional relation; fan-out/second-hop deliberately refuse pending an earned carrier.
+
+## 13. Device policy is not device compliance: D-PBL intersection [P, on main]
+
+The [policy-baseline integration plan](policy-baseline-integration-v1.md) is a **proposal** on current `main`, not an implemented Intune/GPO reader. It distinguishes:
+
+| Layer | GPO | Intune |
+|---|---|---|
+| Configured | directory policy object + SYSVOL setting | Graph configuration setting |
+| Assigned | GPO link, inheritance, security/WMI filter | target group, exclusion and assignment |
+| Observed | only via supplied client-side RSoP/status (not centrally inferred) | per-device status returned by Intune |
+| Authorization consequence | only if a **separate** supported access-control policy uses the fact | only if conditional-access policy and evaluation evidence authorize the effect |
+
+A unified policy-setting row needs published **GPO↔CSP mapping evidence**; identical-looking names and values are not proof of the same setting. An unmapped setting remains source-specific. `dir_sim` cannot assume it already contains device populations: D-PBL explicitly identifies device ingestion, device-group path support and read-only source adapters as gaps.
+
+**IAM-41:** assignment to a group with an explicit exclusion is not applied to excluded device; missing device/group reader yields `Unknown`, not compliance.
+
+**IAM-42:** `GPO configured=true` plus link is not the same as `observed compliant`; without RSoP/device evidence, observed GPO state remains unknown.
+
+**IAM-43:** unreviewed GPO↔CSP alias/mapping and a missing device object must fail closed on cross-source policy comparison. A device policy conflict may be *observed* without automatically deciding conditional access.
+
+**Dependency:** D-PBL must separately earn policy-object ingestion, source mapping, assignment precedence and actual device status before the IAM projection can consume it. Do not move GPO/Intune into `dir_sim` as if they shared directory authority or write lifecycle. This new seam is relevant to the advertisement's “Device & App Management” category, but it is not proof of an Intune connector.
