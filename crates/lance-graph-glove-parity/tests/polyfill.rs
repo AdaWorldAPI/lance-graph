@@ -775,3 +775,100 @@ fn evidence_outside_the_declared_domain_is_dropped_silently() {
     };
     assert_eq!(got, base, "the out-of-domain row left no trace");
 }
+
+// --- Experiment C: replay, layers, retraction --------------------------------
+
+/// One delta as it arrives: `(delta_id, layer, statement, stamp, f, c)`.
+/// Replay identity (`delta_id`) and evidential identity (`stamp`) are
+/// different things: a replayed delta repeats a delta; two deltas can carry
+/// the same stamp (one observation, reported in two hypothesis layers).
+type Delta = (u32, u8, u32, u32, f64, f64);
+
+/// The payload producer: drops a replayed `delta_id` first, then marks the
+/// first occurrence of each `(statement, stamp)` across ALL layers as
+/// independent. Both marks are the producer's, because the algebra cannot
+/// compute a first occurrence yet (ledger row 1).
+fn produce_deltas(deltas: &[Delta]) -> Lanes {
+    let mut seen_delta = Vec::new();
+    let rows: Vec<Evidence> = deltas
+        .iter()
+        .filter(|d| {
+            let fresh = !seen_delta.contains(&d.0);
+            seen_delta.push(d.0);
+            fresh
+        })
+        .map(|&(_, _, s, stamp, f, c)| (s, stamp, f, c))
+        .collect();
+    produce(&rows)
+}
+
+/// FAILS IF: a replayed delta, or the same stamp arriving in a second
+/// hypothesis layer, changes the revised truth.
+#[test]
+fn replay_and_cross_layer_repeats_do_not_change_revision() {
+    let t = nars_table();
+    let base: Vec<Delta> = ROWS[..6]
+        .iter()
+        .enumerate()
+        .map(|(i, &(s, stamp, f, c))| (i as u32, 0, s, stamp, f, c))
+        .collect();
+    let mut noisy = base.clone();
+    noisy.push(base[0]); // the same delta, replayed
+    noisy.push(base[3]); // replayed again, later
+    noisy.push((100, 1, 0, 11, 0.1, 0.6)); // stamp 11, seen in layer 1 too
+    noisy.push((101, 1, 2, 30, 0.0, 0.9)); // stamp 30, layer 1
+    for f in [Frontend::Quack, Frontend::R2il] {
+        let a = run_nars(&t, REVISION, &produce_deltas(&base), f);
+        let b = run_nars(&t, REVISION, &produce_deltas(&noisy), f);
+        assert_eq!(a, b, "{f:?}");
+    }
+    // Non-vacuity: without the marks, the noisy payload inflates the sums.
+    let raw = |d: &[Delta]| {
+        let rows: Vec<Evidence> = d.iter().map(|&(_, _, s, st, f, c)| (s, st, f, c)).collect();
+        let Answer::Values(v) = run_nars(&t, RAW_SUMS, &produce(&rows), Frontend::Quack) else {
+            panic!()
+        };
+        v
+    };
+    assert_ne!(raw(&base), raw(&noisy));
+}
+
+/// TYPED INSUFFICIENCY, pinned: retraction is not declared by
+/// `Law::NarsRevision`. Writing it as a negative-weight delta is legal
+/// arithmetic in the sums, and wrong whenever the retracted stamp was never
+/// asserted: the sums cannot see which stamps were asserted. Retraction needs
+/// a semijoin of retraction stamps onto asserted stamps (ledger).
+#[test]
+fn retraction_by_negative_weight_is_not_revision() {
+    let t = nars_table();
+    // Retract stamp 11 from statement 0 (it was asserted): exact.
+    let mut lanes = produce(&ROWS[..6]);
+    let retract_11 = (0, 11, 0.1, 0.6);
+    let w = (f64::from(SCALE) * 0.6 / 0.4).round();
+    lanes.statement.push(retract_11.0);
+    lanes.stamp.push(retract_11.1);
+    lanes.independent.push(1);
+    lanes.w.push(-(w as i32));
+    lanes.wf.push(-((w * 0.1).round() as i32));
+    let Answer::Truths(got) = run_nars(&t, REVISION, &lanes, Frontend::Quack) else {
+        panic!()
+    };
+    let only_10 = oracle(&[(0, 10, 1.0, 0.9)]);
+    assert!((got[0].unwrap().c - only_10[0].unwrap().c).abs() < 1e-3);
+
+    // Retract stamp 99 (never asserted): the sums accept it and answer.
+    let mut lanes = produce(&ROWS[..6]);
+    lanes.statement.push(0);
+    lanes.stamp.push(99);
+    lanes.independent.push(1);
+    lanes.w.push(-(w as i32));
+    lanes.wf.push(-((w * 0.1).round() as i32));
+    let Answer::Truths(got) = run_nars(&t, REVISION, &lanes, Frontend::Quack) else {
+        panic!()
+    };
+    let unchanged = oracle(&ROWS[..6])[0].unwrap();
+    assert!(
+        (got[0].unwrap().c - unchanged.c).abs() > 0.01,
+        "a phantom retraction changed the truth, and nothing refused it"
+    );
+}
