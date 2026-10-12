@@ -33,7 +33,7 @@ use lance_graph_mask_risc::{
     Operand, Planes, Pred, Program, Scratch, Terminal,
 };
 use lance_graph_quack::bind::{BindError, Binder, BoundField, Draft, FieldKind, TableId};
-use lance_graph_quack::{lower, Agg, Col, LowerError, Mask, Query};
+use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, LowerError, Mask, Query};
 
 use crate::basis::{FieldMap, Grade};
 use crate::method::{
@@ -102,6 +102,14 @@ pub enum Rel {
     MayRequire,
     /// method → test, under a certificate.
     VerifiedBy,
+}
+
+/// Which end of an edge a hop leaves from: `Out` follows `src -> dst`,
+/// `In` follows `dst -> src`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dir {
+    Out,
+    In,
 }
 
 /// How an edge is known.
@@ -955,6 +963,84 @@ impl SoftwareGraph {
         Ok(materialize_rows(&out, self.nodes.len())
             .into_iter()
             .map(|i| self.nodes[i].ident.as_str())
+            .collect())
+    }
+
+    /// The nodes reached from `start` along `path`, each hop over the edges
+    /// of one relation in one direction, any tier. Set semantics per hop:
+    /// each node once, in node order.
+    ///
+    /// Each hop is one Quack program over the resident edge lanes:
+    /// `rel = R AND from IN (S)`, keeping its rows. The previous hop's
+    /// survivors reach it as a VALUE set `S` the size of those survivors,
+    /// read from the kept rows' `to` lane; no hop reads a plane another
+    /// program produced. An empty set ends the walk without running a
+    /// program.
+    ///
+    /// # Errors
+    ///
+    /// [`QueryError::Bind`] for a start node the graph does not have (never
+    /// an empty answer); otherwise lowering or execution errors.
+    pub fn hops(&self, start: &[&str], path: &[(Rel, Dir)]) -> Result<Vec<&str>, QueryError> {
+        let mut set: Vec<u32> = start
+            .iter()
+            .map(|s| {
+                self.node(s).ok_or_else(|| {
+                    QueryError::Bind(BindError::UnknownValue {
+                        field: "src".into(),
+                        value: (*s).into(),
+                    })
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        set.sort_unstable();
+        set.dedup();
+        let (cols, live) = self.columns();
+        let n = self.edges.len();
+        for &(rel, dir) in path {
+            if set.is_empty() {
+                break;
+            }
+            let (from, to) = match dir {
+                Dir::Out => (SRC, DST),
+                Dir::In => (DST, SRC),
+            };
+            let q = Query {
+                filter: Filter::and([
+                    Filter::plane(Mask(0)),
+                    Filter::cmp(Col(REL), Cmp::EqU32(rel_code(rel))),
+                    Filter::in_u32(Col(from), set.iter().copied()),
+                ]),
+                agg: Agg::Rows,
+            };
+            let program = lower(&q).map_err(QueryError::Lower)?;
+            let lanes: Vec<LaneRef<'_>> = cols.iter().map(|c| LaneRef::U32(c)).collect();
+            let planes = Planes {
+                n_rows: n,
+                masks: &[live.as_slice()],
+                lanes: &lanes,
+            };
+            let mut scratch = Scratch::for_program(&program, n).map_err(QueryError::Exec)?;
+            let mut kept = vec![0u64; words_for(n)];
+            execute_into(
+                &program,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                lance_graph_mask_risc::Out::Mask(&mut kept),
+            )
+            .map_err(QueryError::Exec)?;
+            let mut next: Vec<u32> = materialize_rows(&kept, n)
+                .into_iter()
+                .map(|r| cols[to as usize][r])
+                .collect();
+            next.sort_unstable();
+            next.dedup();
+            set = next;
+        }
+        Ok(set
+            .into_iter()
+            .map(|i| self.nodes[i as usize].ident.as_str())
             .collect())
     }
 

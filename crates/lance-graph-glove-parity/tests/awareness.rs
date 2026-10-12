@@ -7,8 +7,8 @@
 use lance_graph_contract::class_view::ComputeEdge;
 use lance_graph_glove_parity::awareness::{
     description_length, field_ident, method_ident, verdict, Candidate, CandidateKind, CapStatus,
-    CertError, Certificate, CostError, CpuTier, Measurement, Rel, SoftwareGraph, Tier, Verdict,
-    Workload,
+    CertError, Certificate, CostError, CpuTier, Dir, Measurement, Rel, SoftwareGraph, Tier,
+    Verdict, Workload,
 };
 use lance_graph_glove_parity::basis::{canonical_fields, FieldMap, Grade, SAP_FIELDS};
 use lance_graph_glove_parity::method::{
@@ -1246,4 +1246,141 @@ fn reprojecting_a_compute_dag_replaces_the_earlier_one() {
         );
         assert_eq!(state(&g, DOCUMENT), (2, 1), "the other class is untouched");
     }
+}
+
+/// Row-loop oracle for a hop path: per hop, the set of nodes reached over
+/// edges of `rel` in `dir` from the previous set, by identity.
+fn oracle_hops(g: &SoftwareGraph, start: &[&str], path: &[(Rel, Dir)]) -> Vec<String> {
+    let id = |i: u32| g.nodes()[i as usize].ident.clone();
+    let mut set: Vec<String> = start.iter().map(|s| (*s).to_owned()).collect();
+    for &(rel, dir) in path {
+        let mut next: Vec<String> = g
+            .edges()
+            .iter()
+            .filter(|e| e.rel == rel)
+            .filter_map(|e| {
+                let (from, to) = match dir {
+                    Dir::Out => (e.src, e.dst),
+                    Dir::In => (e.dst, e.src),
+                };
+                set.contains(&id(from)).then(|| id(to))
+            })
+            .collect();
+        next.sort();
+        next.dedup();
+        set = next;
+    }
+    set
+}
+
+/// A named multi-hop question: start nodes and the path.
+type HopCase<'a> = (&'a str, Vec<&'a str>, Vec<(Rel, Dir)>);
+
+fn sorted(v: Vec<&str>) -> Vec<String> {
+    let mut v: Vec<String> = v.into_iter().map(str::to_owned).collect();
+    v.sort();
+    v
+}
+
+/// D-SAG-1-4. FAILS IF: a multi-hop question over the edge table disagrees
+/// with the row loop. Each hop is one Quack program over the resident edge
+/// lanes; the previous hop's survivors reach it as a value set, never as a
+/// plane another program produced.
+#[test]
+fn multi_hop_questions_match_the_row_loop() {
+    let b = batch(65);
+    let w = world(&b, &with_duration(), &specs());
+    let g = &w.graph;
+    let hours = hours_ident();
+    let cases: Vec<HopCase<'_>> = vec![
+        // The methods that read a field `billable_hours` reads.
+        (
+            "co-readers",
+            vec![&hours],
+            vec![(Rel::ReadsField, Dir::Out), (Rel::ReadsField, Dir::In)],
+        ),
+        // The claims behind the fields `billable_hours` reads.
+        (
+            "claims",
+            vec![&hours],
+            vec![(Rel::ReadsField, Dir::Out), (Rel::DependsOnClaim, Dir::Out)],
+        ),
+        // Every method that depends on any claim behind any field it shares
+        // with `billable_hours`: four hops.
+        (
+            "claim co-dependents",
+            vec![&hours],
+            vec![
+                (Rel::ReadsField, Dir::Out),
+                (Rel::DependsOnClaim, Dir::Out),
+                (Rel::DependsOnClaim, Dir::In),
+                (Rel::ReadsField, Dir::In),
+            ],
+        ),
+        // The primitives of every program of a method that shares a field.
+        (
+            "shared primitives",
+            vec![&hours],
+            vec![
+                (Rel::ReadsField, Dir::Out),
+                (Rel::ReadsField, Dir::In),
+                (Rel::LowersTo, Dir::Out),
+                (Rel::UsesPrimitive, Dir::Out),
+            ],
+        ),
+    ];
+    for (name, start, path) in &cases {
+        let want = oracle_hops(g, start, path);
+        let got = sorted(g.hops(start, path).unwrap());
+        assert_eq!(got, want, "{name}");
+        assert!(!got.is_empty(), "{name}: non-vacuous");
+    }
+    // The hop filters: `count_by_duration` reads one field, so its
+    // co-readers are fewer than all methods (`billable_hours` reads both and
+    // shares a field with every method here).
+    let by_duration = method_ident(COUNT_BY_DURATION);
+    let co = g.hops(&[&by_duration], &cases[0].2).unwrap();
+    assert_eq!(
+        sorted(co.clone()),
+        oracle_hops(g, &[&by_duration], &cases[0].2)
+    );
+    let all = specs().len();
+    assert!(!co.is_empty() && co.len() < all, "{} of {all}", co.len());
+    // A start with no edge of the first relation reaches nothing; an empty
+    // path returns the start.
+    assert!(g
+        .hops(&["law:values"], &[(Rel::ReadsField, Dir::Out)])
+        .unwrap()
+        .is_empty());
+    assert_eq!(g.hops(&[&hours], &[]).unwrap(), vec![hours.as_str()]);
+    // An unknown start node is an error, never an empty answer.
+    assert!(g.hops(&["method:nope"], &cases[0].2).is_err());
+}
+
+/// FAILS IF: a hop path reads a stale edge after a reprojection (it runs on
+/// the current edge table, the one defect A fixed).
+#[test]
+fn multi_hop_follows_a_reprojection() {
+    let b = batch(65);
+    let basis = canonical_fields();
+    let cats = CatsBinder::new(&b);
+    let claims = with_duration();
+    let all = specs();
+    let t = MethodTable::prepare(&glove(&basis, &cats, &claims), &all);
+    let mut g = SoftwareGraph::new();
+    g.project(&t, &all, &claims, SOURCE, REV);
+    let path = [(Rel::ReadsField, Dir::Out), (Rel::ReadsField, Dir::In)];
+    let count = method_ident(COUNT_BILLABLE);
+    let before = sorted(g.hops(&[&count], &path).unwrap());
+    assert!(before.contains(&hours_ident()));
+    // count_billable stops reading `billable`: it shares no field any more.
+    let mut changed = all.clone();
+    changed[0].1.body = query(&[], &[Fold::Count]);
+    let t2 = MethodTable::prepare(&glove(&basis, &cats, &claims), &changed);
+    g.project(&t2, &changed[0..1], &claims, SOURCE, REV);
+    assert!(g.hops(&[&count], &path).unwrap().is_empty());
+    assert_eq!(
+        sorted(g.hops(&[&count], &path).unwrap()),
+        oracle_hops(&g, &[&count], &path)
+    );
 }
