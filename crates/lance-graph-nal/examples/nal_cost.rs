@@ -7,12 +7,14 @@
 use std::hint::black_box;
 use std::time::Instant;
 
-use lance_graph_nal::{nal, Belief, Beliefs, Copula};
+use lance_graph_nal::{nal, Aperture, Belief, Beliefs, Copula};
+
+const CLASS: u32 = 0x0E01_0001;
 
 fn fixture(n: usize) -> Vec<Belief> {
     let mut x: u64 = 0x9E37_79B9_7F4A_7C15;
     (0..n)
-        .map(|_| {
+        .map(|i| {
             x = x.wrapping_add(0x9E37_79B9_7F4A_7C15);
             let mut z = x;
             z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
@@ -22,6 +24,7 @@ fn fixture(n: usize) -> Vec<Belief> {
                 s: (r % 4096) as u16,
                 copula: Copula::ALL[((r >> 12) % 4) as usize],
                 p: ((r >> 16) % 4096) as u16,
+                id: i as u16,
                 f: (r >> 32) as u8,
                 c: (r >> 40) as u8,
             }
@@ -55,19 +58,23 @@ fn main() {
     println!("target: {simd}");
     for n in [65_536usize, 1_048_576] {
         let input = fixture(n);
-        let beliefs = Beliefs::seal(0x0E01_0001, &input, 1).unwrap();
+        let beliefs = Beliefs::seal(CLASS, &input, 1).unwrap();
         let b = beliefs.bind(&beliefs.witness()).unwrap();
         let st = input[n / 2].statement();
         let s = st.s;
+        let ast = Aperture::statement(CLASS, st);
+        let asub = Aperture::subject(CLASS, s);
 
-        let q = nal::Question::bind(&b, st).unwrap();
+        let q = nal::Question::bind(&b, ast).unwrap();
         let mut qs = q.scratch(&b).unwrap();
-        let t = nal::TruthAtLeast::bind(&b, st, 128).unwrap();
+        let t = nal::TruthAtLeast::bind(&b, ast, 128).unwrap();
         let mut ts = t.scratch(&b).unwrap();
-        let sup = nal::Support::bind(&b, s).unwrap();
+        let sup = nal::Question::bind(&b, asub).unwrap();
         let mut ss = sup.scratch(&b).unwrap();
-        let across = nal::TruthAtLeastAcross::bind(&b, s, 128).unwrap();
+        let across = nal::TruthAtLeast::bind(&b, asub, 128).unwrap();
         let mut asx = across.scratch(&b).unwrap();
+        let ch = nal::Choice::bind(&b, asub).unwrap();
+        let mut cs = ch.scratch(&b).unwrap();
 
         let same = |x: &Belief| x.statement() == st;
         assert_eq!(
@@ -86,6 +93,14 @@ fn main() {
             across.count(&b, &mut asx).unwrap(),
             input.iter().filter(|x| x.s == s && x.c >= 128).count()
         );
+        assert_eq!(
+            ch.max(&b, &mut cs).unwrap(),
+            input
+                .iter()
+                .filter(|x| x.s == s)
+                .map(|x| i32::from(x.c))
+                .max()
+        );
 
         println!(
             "n = {n}  (subject support = {})",
@@ -95,30 +110,28 @@ fn main() {
         r(
             "bind Question (search + procedure)",
             median_ns(100, || {
-                nal::Question::bind(&b, st).unwrap().program().ops.len()
+                nal::Question::bind(&b, ast).unwrap().program().ops.len()
             }),
         );
         r(
-            "Question::count (kept program)",
+            "Question::count (statement)",
             median_ns(10_000, || q.count(&b, &mut qs).unwrap()),
         );
         r(
-            "TruthAtLeast::count",
+            "TruthAtLeast::count (statement)",
             median_ns(10_000, || t.count(&b, &mut ts).unwrap()),
         );
         r(
-            "Support::count",
+            "Question::count (subject)",
             median_ns(10_000, || sup.count(&b, &mut ss).unwrap()),
         );
         r(
-            "TruthAtLeastAcross::count",
+            "TruthAtLeast::count (subject)",
             median_ns(1_000, || across.count(&b, &mut asx).unwrap()),
         );
         r(
-            "Choice::of",
-            median_ns(10_000, || {
-                nal::Choice::of(&b, st).map_or(0, |x| x.c as usize)
-            }),
+            "Choice::max (subject)",
+            median_ns(1_000, || ch.max(&b, &mut cs).unwrap().unwrap_or(0) as usize),
         );
         r(
             "row loop: count statement",

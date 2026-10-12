@@ -1,19 +1,22 @@
 //! The typed NAL surface: `nal::{Operation}::bind(…)` (plan §4 G).
 //!
 //! Each operation is a zero-sized type. [`NalOp::lower`] is its procedure: the
-//! R2IL calls it emits through [`FoldDialect`], reading its bound coordinates
-//! as scalars off the loco stack. `bind` resolves the coordinates on the
-//! witnessed order, runs the procedure ONCE and keeps the mask-risc program it
-//! produced as a [`Prepared`]; every call after that runs the kept program.
+//! R2IL calls it emits through [`FoldDialect`], reading its scalars off the
+//! loco stack. `bind` resolves the [`Aperture`] to its range on the witnessed
+//! order, runs the procedure ONCE and keeps the mask-risc program it produced
+//! as a [`Prepared`]; every call after that runs the kept program over the
+//! range.
 //!
 //! None of the operations here earns a byte (plan §4 A): `FN` is `None` for
 //! all of them.
 
+use std::ops::Range;
+
 use lance_graph_mask_risc::{Foreign, LaneRef, Lowering, Planes, Pred, Program, Scratch, Value};
-use lance_graph_r2il::{procs, FoldDialect, FoldError, Val, INT_S_LESS, LOAD};
+use lance_graph_r2il::{procs, FoldDialect, FoldError, Val, INT_S_LESS, LOAD, POP_COUNT};
 use ogar_loco::{Dialect, FnIndex};
 
-use crate::{Belief, Bound, NalError, Statement, LANE_C};
+use crate::{Aperture, Bound, NalError, LANE_C};
 
 /// One NAL operation: its byte, if it earned one, and its procedure.
 pub trait NalOp {
@@ -26,51 +29,38 @@ pub trait NalOp {
     fn lower(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError>;
 }
 
-fn pop_u32(stack: &mut Vec<Val>, f: FnIndex) -> Result<u32, FoldError> {
+fn pop_i64(stack: &mut Vec<Val>) -> Result<i64, FoldError> {
     match stack.pop() {
-        Some(Val::Scalar(v)) => u32::try_from(v).map_err(|_| FoldError::WrongOperandKind(f)),
-        Some(_) => Err(FoldError::WrongOperandKind(f)),
-        None => Err(FoldError::Underflow(f)),
+        Some(Val::Scalar(v)) => Ok(v),
+        Some(_) => Err(FoldError::WrongOperandKind(POP_COUNT)),
+        None => Err(FoldError::Underflow(POP_COUNT)),
     }
 }
 
-/// `lo hi -- n`: the number of rows in the coordinate range `[lo, hi)`.
-///
-/// Calls: the range predicate, `PopCount`.
-fn range_count(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
-    let hi = pop_u32(stack, procs_fn())?;
-    let lo = pop_u32(stack, procs_fn())?;
+fn pop_u32(stack: &mut Vec<Val>) -> Result<u32, FoldError> {
+    u32::try_from(pop_i64(stack)?).map_err(|_| FoldError::WrongOperandKind(POP_COUNT))
+}
+
+/// `lo hi --`, pushing the mask of rows `[lo, hi)`.
+fn range(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
+    let hi = pop_u32(stack)?;
+    let lo = pop_u32(stack)?;
     d.emit_pred(Pred::Range { lo, hi }, stack);
-    procs::count(d, stack)
+    Ok(())
 }
 
-/// The function index named in a refusal raised by these procedures.
-fn procs_fn() -> FnIndex {
-    lance_graph_r2il::POP_COUNT
-}
-
-/// A query bound to its coordinates, with the program its procedure produced.
-///
-/// `extent` is the coordinate range the program runs over. A query whose rows
-/// are one range (a statement, a subject) is restricted to it before any lane
-/// is read, so its cost follows the range, not the population.
+/// A query bound to its range, with the program its procedure produced.
 #[derive(Debug, Clone)]
 pub struct Prepared {
     program: Program,
-    extent: std::ops::Range<usize>,
+    extent: Range<usize>,
 }
 
 impl Prepared {
-    fn of<O: NalOp>(b: &Bound<'_>, args: &[i64]) -> Result<Self, NalError> {
-        Self::over::<O>(b, args, 0..b.n_rows())
-    }
-
-    fn over<O: NalOp>(
-        b: &Bound<'_>,
-        args: &[i64],
-        extent: std::ops::Range<usize>,
-    ) -> Result<Self, NalError> {
-        let lanes = [LaneRef::I32(&b.beliefs.c)];
+    /// Run `O`'s procedure once over `extent` with `args` on the stack and keep
+    /// the program.
+    fn of<O: NalOp>(b: &Bound<'_>, args: &[i64], extent: Range<usize>) -> Result<Self, NalError> {
+        let lanes = [LaneRef::I32(&b.beliefs.f), LaneRef::I32(&b.beliefs.c)];
         let planes = Planes {
             n_rows: b.n_rows(),
             masks: &[],
@@ -115,104 +105,79 @@ impl Prepared {
         &self.program
     }
 
-    /// Run the kept program and read its count.
+    /// The rows the program runs over.
+    pub fn extent(&self) -> Range<usize> {
+        self.extent.clone()
+    }
+
+    fn value(&self, b: &Bound<'_>, scratch: &mut Scratch<'_>) -> Result<Value, NalError> {
+        Ok(b.run(&self.program, scratch, self.extent.clone())?)
+    }
+
+    /// Run a counting query.
     ///
     /// # Errors
     ///
-    /// [`NalError::Exec`] if `b` is not the population the query was bound on
-    /// (a range past its rows), or [`NalError::NoAnswer`].
+    /// [`NalError::Exec`] if `b` is not the population the query was bound on,
+    /// or [`NalError::NoAnswer`] if the query does not count.
     pub fn count(&self, b: &Bound<'_>, scratch: &mut Scratch<'_>) -> Result<usize, NalError> {
-        match b.run(&self.program, scratch, self.extent.clone())? {
+        match self.value(b, scratch)? {
             Value::Count(n) => Ok(n),
+            _ => Err(NalError::NoAnswer),
+        }
+    }
+
+    /// Run a maximum query; `None` for an empty selection.
+    ///
+    /// # Errors
+    ///
+    /// As [`Prepared::count`].
+    pub fn max(&self, b: &Bound<'_>, scratch: &mut Scratch<'_>) -> Result<Option<i32>, NalError> {
+        match self.value(b, scratch)? {
+            Value::OptI32(v) => Ok(v),
             _ => Err(NalError::NoAnswer),
         }
     }
 }
 
-/// `<S copula P>?` — how many beliefs the population holds about a statement.
+/// How many beliefs an aperture selects: `<S copula P>?` with a statement
+/// aperture, the support of `S` with a subject aperture.
 pub struct Question;
 
 impl NalOp for Question {
     const FN: Option<FnIndex> = None;
     const ARITY: (u8, u8) = (2, 1);
+    /// `lo hi -- n`. Calls: the range predicate, `PopCount`.
     fn lower(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
-        range_count(d, stack)
+        range(d, stack)?;
+        procs::count(d, stack)
     }
 }
 
 impl Question {
-    /// Bind the statement's coordinate range.
+    /// Bind the aperture's range.
     ///
     /// # Errors
     ///
-    /// [`NalError`] if the procedure is refused.
-    pub fn bind(b: &Bound<'_>, st: Statement) -> Result<Prepared, NalError> {
-        let (lo, hi) = b.statement(st);
-        Prepared::of::<Self>(b, &[i64::from(lo), i64::from(hi)])
+    /// [`NalError`] if the witness or the procedure is refused.
+    pub fn bind(b: &Bound<'_>, a: Aperture) -> Result<Prepared, NalError> {
+        let (lo, hi) = b.range(a)?;
+        Prepared::of::<Self>(b, &[i64::from(lo), i64::from(hi)], 0..b.n_rows())
     }
 }
 
-/// The beliefs of a statement with confidence code `>= t`.
+/// The beliefs an aperture selects with confidence code `>= t`. Confidence is
+/// a value lane, not part of the name, so this is a lane predicate; it reads
+/// only the aperture's range, which is the execution extent.
 pub struct TruthAtLeast;
 
 impl NalOp for TruthAtLeast {
     const FN: Option<FnIndex> = None;
-    const ARITY: (u8, u8) = (2, 1);
-    fn lower(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
-        range_count(d, stack)
-    }
-}
-
-impl TruthAtLeast {
-    /// Bind the statement's range cut at `t`: confidence is stored inverted,
-    /// so the threshold is the end of a prefix of the statement's range.
-    ///
-    /// # Errors
-    ///
-    /// [`NalError`] if the procedure is refused.
-    pub fn bind(b: &Bound<'_>, st: Statement, t: u8) -> Result<Prepared, NalError> {
-        let (lo, hi) = b.statement_at_least(st, t);
-        Prepared::of::<Self>(b, &[i64::from(lo), i64::from(hi)])
-    }
-}
-
-/// Every belief about a subject: the support of `S` in the population.
-pub struct Support;
-
-impl NalOp for Support {
-    const FN: Option<FnIndex> = None;
-    const ARITY: (u8, u8) = (2, 1);
-    fn lower(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
-        range_count(d, stack)
-    }
-}
-
-impl Support {
-    /// Bind the subject's range.
-    ///
-    /// # Errors
-    ///
-    /// [`NalError`] if the procedure is refused.
-    pub fn bind(b: &Bound<'_>, s: u16) -> Result<Prepared, NalError> {
-        let (lo, hi) = b.subject(s);
-        Prepared::of::<Self>(b, &[i64::from(lo), i64::from(hi)])
-    }
-}
-
-/// Beliefs about a subject with confidence `>= t`, over every statement of
-/// that subject. The subject is one range, the threshold is not (each
-/// statement restarts the confidence order), so the program reads the `c`
-/// lane, and only over the subject's range: the range is the execution
-/// extent, never a mask the lane predicate is ANDed with.
-pub struct TruthAtLeastAcross;
-
-impl NalOp for TruthAtLeastAcross {
-    const FN: Option<FnIndex> = None;
     const ARITY: (u8, u8) = (1, 1);
     /// `t -- n`, counting `t − 1 < c`. Calls: `LOAD`, `IntSLess`, `PopCount`.
     fn lower(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
-        let t = pop_u32(stack, procs_fn())?;
-        stack.push(Val::Scalar(i64::from(t) - 1));
+        let t = pop_i64(stack)?;
+        stack.push(Val::Scalar(t - 1));
         stack.push(Val::Scalar(i64::from(LANE_C)));
         d.call(LOAD, [1, 0, 0], stack)?;
         d.call(INT_S_LESS, [0; 3], stack)?;
@@ -220,27 +185,40 @@ impl NalOp for TruthAtLeastAcross {
     }
 }
 
-impl TruthAtLeastAcross {
-    /// Bind the subject's range and the threshold.
+impl TruthAtLeast {
+    /// Bind the aperture's range and the threshold.
     ///
     /// # Errors
     ///
-    /// [`NalError`] if the procedure is refused.
-    pub fn bind(b: &Bound<'_>, s: u16, t: u8) -> Result<Prepared, NalError> {
-        let (lo, hi) = b.subject(s);
-        Prepared::over::<Self>(b, &[i64::from(t)], lo as usize..hi as usize)
+    /// [`NalError`] if the witness or the procedure is refused.
+    pub fn bind(b: &Bound<'_>, a: Aperture, t: u8) -> Result<Prepared, NalError> {
+        let (lo, hi) = b.range(a)?;
+        Prepared::of::<Self>(b, &[i64::from(t)], lo as usize..hi as usize)
     }
 }
 
-/// NAL choice: the highest-confidence belief about a statement.
+/// NAL choice: the highest confidence among the beliefs an aperture selects.
+/// Which belief holds it (an argmax) is not a fold mask-risc has yet.
 pub struct Choice;
 
+impl NalOp for Choice {
+    const FN: Option<FnIndex> = None;
+    const ARITY: (u8, u8) = (2, 1);
+    /// `lo hi -- max c`. Calls: the range predicate, `LOAD`, `MAX`.
+    fn lower(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
+        range(d, stack)?;
+        procs::max(d, stack, LANE_C)
+    }
+}
+
 impl Choice {
-    /// The first row of the statement's range. Confidence is stored inverted,
-    /// so that row has the highest confidence; among equal confidence, the
-    /// highest frequency. `None` when the statement has no belief.
-    pub fn of(b: &Bound<'_>, st: Statement) -> Option<Belief> {
-        let (lo, hi) = b.statement(st);
-        (lo < hi).then(|| b.belief(lo as usize)).flatten()
+    /// Bind the aperture's range.
+    ///
+    /// # Errors
+    ///
+    /// [`NalError`] if the witness or the procedure is refused.
+    pub fn bind(b: &Bound<'_>, a: Aperture) -> Result<Prepared, NalError> {
+        let (lo, hi) = b.range(a)?;
+        Prepared::of::<Self>(b, &[i64::from(lo), i64::from(hi)], lo as usize..hi as usize)
     }
 }
