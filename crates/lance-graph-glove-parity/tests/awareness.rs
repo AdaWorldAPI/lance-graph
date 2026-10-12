@@ -1224,7 +1224,9 @@ fn reprojecting_a_compute_dag_replaces_the_earlier_one() {
             .iter()
             .filter(|e| e.rel == Rel::ComputesFrom && e.ctx == class)
             .count();
-        let cycle = g.out(&format!("class:{concept:#06x}"), Rel::RefusedFor).len();
+        let cycle = g
+            .out(&format!("class:{concept:#06x}"), Rel::RefusedFor)
+            .len();
         (from, cycle)
     };
     for (first, then, want) in [
@@ -1237,7 +1239,11 @@ fn reprojecting_a_compute_dag_replaces_the_earlier_one() {
         g.project_compute(DOCUMENT, seal(), &basis, &cyclic, p);
         g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, first, p);
         g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, then, p);
-        assert_eq!(state(&g, BILLABLE_WORK_ENTRY), want, "{first:?} then {then:?}");
+        assert_eq!(
+            state(&g, BILLABLE_WORK_ENTRY),
+            want,
+            "{first:?} then {then:?}"
+        );
         assert_eq!(state(&g, DOCUMENT), (2, 1), "the other class is untouched");
     }
 }
