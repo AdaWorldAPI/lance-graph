@@ -8,7 +8,7 @@ Plan: `.claude/plans/software-awareness-graph-v1.md`. No new opcode, Quack varia
 | D-SAG-1-1 | typed schema + projection of prepared methods with tiers and provenance | In PR | `tests/awareness.rs` projection test; one identity, one kind |
 | D-SAG-1-2 | queries A–D through Quack; compiler verdicts as edges | In PR | answers == the programs; falsifiers 1–10, each disable-verified |
 | D-SAG-1-3 | H1 candidate + tier-labelled measurement; MDL measure with counterexample | In PR | `examples/awareness_loop.rs`; MDL test |
-| D-SAG-1-4 | multi-hop dependency via relation carrier / factored `EqU32Via` | Queued (needs D-CMH-G1-4) | two-hop answer == closure computed from the programs |
+| D-SAG-1-4 | multi-hop dependency: `SoftwareGraph::hops(start, path)`, one Quack program per hop, survivors passed as a value set (`in_u32`), never as a produced plane | In PR | 4 paths (up to 4 hops) == row loop; follows a reprojection; 4 disable runs red. Value-set transfer reads every edge row; skipping to survivors needs a Lance index or the order witness |
 | D-SAG-1-5 | G1 `CALLS` edges + method-reference refusals | In PR | `method_references_are_calls_edges_and_cycles_are_the_compilers`; callers via Quack; `MethodCycle` recorded, never re-derived |
 | D-SAG-1-6 | persist as a Lance dataset; source revision from git; canonical body digest | Queued | reload equals projection; toolchain change keeps digests |
 
