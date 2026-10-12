@@ -1,7 +1,7 @@
 # SAG capstone alignment — v1
 
 **Status:** CURRENT-CONTRACT for the documents it aligns; nothing here is
-implemented by this PR. Supersedes the separate review threads of #1510,
+implemented by this PR. Lands as #1523; supersedes the separate review threads of #1510,
 #1511, #1512, #1513, #1515 and #1517, which are merged here unchanged except
 for the edits listed in §6.
 
