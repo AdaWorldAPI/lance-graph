@@ -1,3 +1,11 @@
+## 2026-10-12 — ce64-hypothesis-layers-v1 — 64 hypothesis layers over an immutable address, validated against literal Narsese → `.claude/plans/ce64-hypothesis-layers-v1.md`
+
+**Status:** PROPOSAL (D-HL-0..9). D-HL-0 (documentation) only; every later item waits on its decision (D-HL-1) or its probe.
+
+- Plateau first: `.claude/knowledge/ce64-reasoning-substrate-plateau.md` maps the design onto what exists (ISA contract, Alpha overlay/tunnel, split-tunnel append, D-GSO, D-RPF, Staunen probes, NAL oracles) and lists 8 design-vs-code conflicts.
+- First probes: merge-on-read vs in-place revision (D-HL-2) and the layer id as independence stamp (D-HL-3), both beside the D-RPF-P5 harness.
+- Validation is a parallel run against pinned OpenNARS, scored with `jc::reliability` (D-HL-4).
+
 ## 2026-10-11 (4) — sql-polyfill-r2il-v1 — SQL() as a polyfill of R2IL procedures over mask-risc → `.claude/plans/sql-polyfill-r2il-v1.md`
 
 **Status:** PROPOSAL (D-SQLP-0..8). W1–W3 authorized; nothing from W4 on until the D-SQLP-3 benchmark clears its pre-registered threshold.

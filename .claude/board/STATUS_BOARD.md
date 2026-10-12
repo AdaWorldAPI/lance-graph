@@ -1,3 +1,20 @@
+## D-HL — CE64 hypothesis layers over an immutable address (2026-10-12)
+
+Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/ce64-reasoning-substrate-plateau.md`. No CE64 bit, tenant, opcode or ABI change is authorized.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-HL-0** | Plateau, plan, research map, board entry | In PR | docs only; every claim cites a file or entry |
+| **D-HL-1** | Decisions O1 (46..49), O2 (50..52), O3 (W), O5 (lane budget), O6 (what persists) | Queued (operator) | stored-meaning changes ship behind a version gate |
+| **D-HL-2** | Merge-on-read vs in-place revision | Queued | merge-on-read within 1 code of exact on every cell where in-place is not; ≥ 1 cell differs by ≥ 2 codes |
+| **D-HL-3** | Layer id as the independence stamp | Queued | duplicate sd ratio back within 10 % of 1.0; independent layers still narrow as today |
+| **D-HL-4** | Narsese parallel calibration (OpenNARS vs CE64 deltas, `jc::reliability`) | Queued (after D-HL-2) | an encoding that does not beat linear ICC by the pre-declared margin is dropped |
+| **D-HL-5** | Hypothesis lanes: tunnel with a lane budget ≤ 64 | Queued (probe) | reserve cost flat in lane count; sequential = parallel byte for byte |
+| **D-HL-6** | Read mask ∧ thinking mask before decode | Queued | equal answers; fewer rows decoded than the read mask alone |
+| **D-HL-7** | SparseDelta record through the split-tunnel append | Queued | replay composite = in-memory composite; dropping one delta changes only its rows |
+| **D-HL-8** | Validation ladder: when a layer may commit | Queued | some rung beats "commit everything" on oracle agreement, with a no-meta control |
+| **D-HL-9** | Hydration budget split sweep | Queued | agreement not flat in k |
+
 ## D-NAL — NAL-1..9 × 34 recipes against OpenNARS and ONA (2026-10-11)
 
 Audit: `.claude/knowledge/nal-recipe-audit/README.md`. Entry:
@@ -5,9 +22,9 @@ Audit: `.claude/knowledge/nal-recipe-audit/README.md`. Entry:
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| **D-NAL-AUDIT-0** | 34-recipe table, 115-capability NAL inventory, engine runs at pinned commits, architecture decision | Committed, not pushed | every table claim cites file:line; engine outputs observed, never copied from fixture comments |
-| **D-NAL-MCP-0** | `planner/tests/mcp_receipt_probe.rs`: MCP history-blind; receipt reader separates calibrated from overconfident pasts | Committed, not pushed | 4 tests; 5 disable runs red |
-| **D-NAL-REV-0** | `planner/tests/nal_revision_oracle.rs`: revision laws against OpenNARS output | Committed, not pushed | 4 tests; 3 disable runs red, one on production `TruthValue::revise` |
+| **D-NAL-AUDIT-0** | 34-recipe table, 115-capability NAL inventory, engine runs at pinned commits, architecture decision | Shipped (#1495) | every table claim cites file:line; engine outputs observed, never copied from fixture comments |
+| **D-NAL-MCP-0** | `planner/tests/mcp_receipt_probe.rs`: MCP history-blind; receipt reader separates calibrated from overconfident pasts | Shipped (#1495) | 4 tests; 5 disable runs red |
+| **D-NAL-REV-0** | `planner/tests/nal_revision_oracle.rs`: revision laws against OpenNARS output | Shipped (#1495) | 4 tests; 3 disable runs red, one on production `TruthValue::revise` |
 | **D-NAL-RCPT-1** | Receipt a recipe can read (executed step + confidence left + later outcome + identity) | Queued, design only | a meta recipe that loses its receipts must abstain; a repeated receipt must not move it |
 
 ## D-SQLP — SQL() as a polyfill of R2IL procedures over mask-risc (2026-10-11)
