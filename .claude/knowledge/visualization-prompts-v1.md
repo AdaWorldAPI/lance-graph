@@ -50,16 +50,25 @@ GPO/Intune (plan `policy-baseline-integration-v1`).
 > A Windows-style admin application screenshot, German UI, title bar
 > "LanceGraph — Verzeichnis-Simulation". Left: a directory tree with
 > "contoso.local [AD]" and "contoso.onmicrosoft.com [Entra ID]", both marked
-> "nur lesend". Center: a user "Anna Müller" with a table "Mitglied von"
-> whose column "Art" shows "direkt", "verschachtelt über GG_Vertrieb". A
-> separate, visually distinct section below it titled "Mail-Zustellung (keine
-> Berechtigung)" lists "vertrieb@ — Verteiler". Right: a panel "Zugriffspfade"
-> drawing Anna → GG_Vertrieb → GG_CRM_Users → "Rolle: CRM-Leser (Richtlinie
-> v3)". Top of the window: a timeline bar "Versionen" with version markers,
-> one labelled "Simulation: Abteilungswechsel", and a button
-> "Rückgängig als neue Version". Status bar: "Simulation — es wird nichts an
-> AD oder Entra geschrieben · Änderungen als Antrag exportieren". No column
-> called "zuletzt genutzt", no device policies.
+> "nur lesend"; under Entra ID show only "Benutzer" and "Gruppen". Center: a
+> user "Anna Müller" with fields "Objekt-GUID" (a GUID) and, separately,
+> "Ort (DN)"; a field "Cloud-Identität: verknüpft über Sync-Anker". A table
+> "Mitglied von" lists only security groups, with column "Art" showing
+> "direkt" or "verschachtelt über GG_Vertrieb". Below it, a separate box
+> titled "Verteiler: Zustellung, keine Rechte" listing "vertrieb@". Right: a
+> panel "Zugriffspfade" drawing Anna → GG_Vertrieb → GG_CRM_Users →
+> "Rolle: CRM-Leser (Richtlinie v3)". Top: a version timeline of observed
+> versions as solid dots; from one of them a dashed side branch labelled
+> "Simulation: Abteilungswechsel" leaves the main line. No planned or future
+> versions. A button "Rückgängig als neue Version". Status bar: "Simulation —
+> es wird nichts an AD oder Entra geschrieben · Änderungen als Antrag
+> exportieren". No column called "zuletzt genutzt", no device policies.
+
+Known misreadings from the first render (2026-10-12): "keine Berechtigung"
+was drawn as "you may not view this"; the distribution group was listed among
+memberships; the simulation was drawn on the observed timeline next to a
+"geplant" version; the DN was labelled as the object id; Entra roles and
+applications appeared although nothing reads them.
 
 ## Prompt 3 — architecture, one rule in many apps
 
