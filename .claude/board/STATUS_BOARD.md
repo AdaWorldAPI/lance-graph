@@ -24,7 +24,8 @@ Plan: `.claude/plans/gremlin-composable-algebra-v1.md`.
 | D-CMH-G1-3 | Gremlin-shaped runtime declarations | Shipped (#1508) | loads after the build; effects refused at load |
 | D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` | Shipped (#1514; ConflictingUniverse fix follows) | row loop over the text at n ∈ {1,64,65,4097}; 6 disable runs red; R2IL refuses (no `GATHER`) |
 | D-CMH-G1-4b | edge table as the anchor (`E()`, M:N one hop, `outE/inV`) + `Fold::Distinct` (`out(rel).dedup().count()`) | In PR | bag and set == row loop over the text at n ∈ {1,64,65,4097}; unordered key lane refused (`LaneNotOrdered`); 7 disable runs red |
-| D-CMH-G1-4 | rest: a second hop (blocked on the chained-hop decision), `V(parent).in(rel)` spelling, `bothE` | Queued | — |
+| D-CMH-G1-7 | chained hops folded: `MaskOp::GatherChain` + Quack `Filter::Chain` (one op, tests at every depth, no hop mask) | In PR (needs ndarray#358) | executor == oracle == row loop, gated/ungated, tiles; 0-byte L1; 7 disable runs red |
+| D-CMH-G1-4 | rest: a second hop (now D-CMH-G1-7 + glove lowering), `V(parent).in(rel)` spelling, `bothE` | Queued | — |
 | D-CMH-G1-5 | FirstOfRun | Queued | insufficiency proof first; Quack + R2IL vs independent oracle |
 | D-CMH-G1-6 | ordered `I32` conditions + `MIN`/`MAX` folds as method steps; R2IL `MIN`/`MAX` wired | In PR | both frontends == row loop incl. empty selection; 8 disable runs red |
 
