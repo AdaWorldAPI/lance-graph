@@ -30,3 +30,22 @@ Treat IGA, PAM, access/SSO, directories, device/app and automation as **overlapp
 **Principal boundaries:** observed ≠ inferred ≠ authorized; one provenance witness ≠ exhaustive proof; group membership ≠ successful SSO; simulated role impact ≠ executed revocation; append-log version ≠ observation/policy effective time. No new ISA bit reading or CE64 mutation.
 
 **Implementation expectation:** execute [the prompt](../../prompts/iam-substrate-after-1509.md) against actual code, ship narrow test-pinned W1/W2 first, and leave unfinished integration explicitly open.
+
+## Frontier addendum D-IAM-SAG-1, research-only (2026-10-12)
+
+**New plan:** [iam-substrate-frontier-gaps-v1](../../plans/iam-substrate-frontier-gaps-v1.md). **New excerpts:** [iam-negative-provenance-authority](../../../.arxiv/2026-10_iam_negative_provenance_authority_and_agentic_policy_excerpts.md). **Same expanded prompt:** [iam-substrate-after-1509](../../prompts/iam-substrate-after-1509.md).
+
+| D-id | Additional proof obligation | Status / falsifier |
+|---|---|---|
+| D-IAM-SAG-1-0 | Closed-world scope and why-not provenance | RFC; IAM-16,19..21 |
+| D-IAM-SAG-1-1 | Source-specific identity anchors and version vectors | RFC; IAM-17,18,35,38 |
+| D-IAM-SAG-1-2 | Deny/Permit/NotApplicable/Indeterminate and policy precedence | RFC; IAM-21..24 |
+| D-IAM-SAG-1-3 | Alternate-witness, multi-cut, SoD/JIT and temporal what-if | RFC; IAM-19,22..24,34 |
+| D-IAM-SAG-1-4 | Independent effects authority, receipts and unknown outcomes | Research-only, **separate implementation PR**; IAM-25..27,39 |
+| D-IAM-SAG-1-5 | SAG method certificates, field+row privacy boundary | RFC; IAM-28,29,36..38 |
+| D-IAM-SAG-1-6 | Observer/no-observer ablation and independent safety gate | RFC; IAM-30,31,33 |
+| D-IAM-SAG-1-7 | License reconciliation and edge-order invariance | RFC; IAM-32,33,39,40 |
+
+**Numbered falsifiers:** IAM-01..15 remain the first-draft baseline; IAM-16..40 are planned, not run. The addendum contains 25 additional cases, including adversarial/disable controls. Source research includes [arXiv:1701.05699](https://arxiv.org/abs/1701.05699), [arXiv:2603.13181](https://arxiv.org/abs/2603.13181), [arXiv:2602.16708](https://arxiv.org/abs/2602.16708), [arXiv:2603.07004](https://arxiv.org/abs/2603.07004), [OASIS XACML 3.0](https://docs.oasis-open.org/xacml/3.0/xacml-3.0-core-spec-os-en.html) and [RFC 7644](https://www.rfc-editor.org/info/rfc7644).
+
+**Scope invariant:** no new compiler opcode, graph engine, policy authority, register-lane/CE64 encoding, live provider write, privileged session, or claim of implemented validation. Integrate only by a later code-grounded, reviewable PR.
