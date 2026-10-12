@@ -682,6 +682,9 @@ impl SoftwareGraph {
                         field(self, key),
                         field(self, val)
                     ),
+                    // A relation's key and target belong to the glove; the
+                    // fold is recorded as written.
+                    Fold::Distinct { rel } => format!("fold:distinct({rel})"),
                 };
                 let n = self.intern(Kind::Fold, format!("{ident}@r{r}"));
                 self.link(m, Rel::Folds, n, Tier::Declared, m, prov);

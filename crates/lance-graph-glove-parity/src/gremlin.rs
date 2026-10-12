@@ -39,8 +39,14 @@
 //! | `count()` | `COUNT(*)` of anchor rows that reach a live target |
 //! | `out` | refused (`SecondHop`): a key read through a key (#1311 G1) |
 //! | `values(f)` | refused (`ValueThroughRelation`): a sum through the key is not in Quack |
-//! | `dedup()` | refused (`DedupThroughRelation`): distinct targets is a set count |
+//! | `dedup().count()` | the number of distinct live targets ([`Fold::Distinct`]); the key lane must be stored in key order |
+//! | `dedup()` then `has(f, eq/neq)` | as `has` before `dedup`: a target filter commutes with it |
+//! | `dedup()` ending, or followed by anything else | refused (`DedupThroughRelation`): the distinct targets are no population of the anchor |
 //! | `where(method())` | refused (`WhereThroughRelation`): a method of the target concept |
+//!
+//! An M:N relation is an edge concept anchored as its own `V(edge)`, with a
+//! functional relation to each end: each edge row is one traverser, so
+//! `count()` is the bag and `dedup().count()` the set of reached ends.
 //!
 //! Whether the relation exists, and which target fields it carries, is the
 //! glove's to say; preparation refuses an unknown one.
@@ -127,7 +133,7 @@ pub enum GremlinRefusal {
     SecondHop(String),
     /// `values(f)` after `out(rel)` (the relation's label).
     ValueThroughRelation(String),
-    /// `dedup()` after `out(rel)`.
+    /// `dedup()` after `out(rel)` not followed by `count()` (or `has`).
     DedupThroughRelation(String),
     /// `where(method())` after `out(rel)`.
     WhereThroughRelation(String),
@@ -194,6 +200,9 @@ enum Cursor<'a> {
     Vertex,
     /// On the target of `out(rel)`; the anchor has not moved.
     Reached(&'a str),
+    /// On the distinct targets of `out(rel)` (`dedup()` after the hop).
+    /// Only `has` (which commutes with `dedup`) and `count()` follow.
+    Distinct(&'a str),
     Value(&'a str),
     Done,
 }
@@ -246,7 +255,24 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
             (Step::Where(_), Cursor::Reached(rel)) => {
                 return Err(GremlinRefusal::WhereThroughRelation(rel.to_owned()))
             }
-            (Step::Dedup, Cursor::Reached(rel)) => {
+            (Step::Dedup, Cursor::Reached(rel)) => Cursor::Distinct(rel),
+            (Step::Has { field, pred }, Cursor::Distinct(rel)) => {
+                let (Pred::Eq(literal) | Pred::Neq(literal)) = pred else {
+                    return Err(GremlinRefusal::OrderThroughRelation(rel.to_owned()));
+                };
+                filter.push(Cond::Via {
+                    rel,
+                    field,
+                    literal,
+                    negate: matches!(pred, Pred::Neq(_)),
+                });
+                Cursor::Distinct(rel)
+            }
+            (Step::Count, Cursor::Distinct(rel)) => {
+                folds.push(Fold::Distinct { rel });
+                Cursor::Done
+            }
+            (_, Cursor::Distinct(rel)) => {
                 return Err(GremlinRefusal::DedupThroughRelation(rel.to_owned()))
             }
             (Step::Values(_), Cursor::Reached(rel)) => {
@@ -307,6 +333,10 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
     }
     if matches!(cursor, Cursor::Value(_)) {
         return Err(GremlinRefusal::NoTerminal);
+    }
+    // The distinct targets are not a population of the anchor.
+    if let Cursor::Distinct(rel) = cursor {
+        return Err(GremlinRefusal::DedupThroughRelation(rel.to_owned()));
     }
     Ok(Composed { filter, folds })
 }
