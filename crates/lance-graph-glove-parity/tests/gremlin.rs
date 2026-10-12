@@ -222,3 +222,230 @@ fn counting_values_is_refused_not_rewritten() {
         GremlinRefusal::CountOfValues
     );
 }
+
+// =====================================================================
+// The same compositions, loaded as text at run time.
+// =====================================================================
+
+use lance_graph_glove_parity::decl::{parse_decls, DeclError};
+use lance_graph_glove_parity::method::PrepareError;
+
+fn seal_hex() -> String {
+    format!("{:016x}", seal().0)
+}
+
+fn lego_text() -> String {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/lego.methods");
+    let text = std::fs::read_to_string(path).expect("fixture");
+    assert!(
+        text.contains(&seal_hex()),
+        "re-seal the fixture: {}",
+        seal_hex()
+    );
+    text
+}
+
+fn line(label: &str, key: u8, body: &str) -> String {
+    format!(
+        "billable_work_entry::{label} key={} schema={} reading=1 := {body}\n",
+        format!("{key:02x}").repeat(16),
+        seal_hex()
+    )
+}
+
+/// FAILS IF: the Lego methods loaded from text do not prepare to the same
+/// programs as the compiled composition, or disagree with the oracle.
+#[test]
+fn the_lego_methods_load_from_text_and_match_the_compiled_ones() {
+    let decls = parse_decls(&lego_text()).expect("parses");
+    let is_billable = compose(BILLABLE_WORK_ENTRY, &[V, has("billable", "true")]).unwrap();
+    let uses = Step::Where(MethodRef::Label("compiled_is_billable"));
+    let hours = compose(
+        BILLABLE_WORK_ENTRY,
+        &[V, uses, Step::Values("duration"), Step::Sum],
+    )
+    .unwrap();
+    for n in SIZES {
+        let batch = batch(n);
+        let cats = CatsBinder::new(&batch);
+        let (basis, claims) = (canonical_fields(), with_duration());
+        let compiled = [
+            (
+                "compiled_is_billable",
+                spec(IS_BILLABLE, is_billable.body()),
+            ),
+            ("compiled_hours", spec(BILLABLE_HOURS, hours.body())),
+        ];
+        let t = MethodTable::prepare_with(&glove(&basis, &cats, &claims), &compiled, &decls);
+        let get = |l: &str| t.get(t.resolve(l).unwrap()).unwrap().as_ref().unwrap();
+        assert_eq!(
+            get("billable_hours").programs(),
+            get("compiled_hours").programs()
+        );
+        let (c, s) = count_sum(&batch, |code| code == 1);
+        for f in [Frontend::Quack, Frontend::R2il] {
+            let key = |l| t.resolve(l).unwrap();
+            assert_eq!(
+                call(&t, &batch, key("billable_hours"), f).unwrap(),
+                scalars(&[s])
+            );
+            assert_eq!(
+                call(&t, &batch, key("billable_count"), f).unwrap(),
+                scalars(&[c])
+            );
+        }
+    }
+}
+
+/// FAILS IF: a method loaded later cannot name a predicate loaded earlier or
+/// compiled in, or the text outlives nothing it should.
+#[test]
+fn a_later_declaration_reuses_an_earlier_predicate() {
+    let mut decls = parse_decls(&lego_text()).unwrap();
+    // Written after the build and after the first load; it names the loaded
+    // `is_billable`, and a second predicate it declares itself.
+    let later = [
+        line(
+            "is_not_billed",
+            0xC1,
+            "V(billable_work_entry).has(billable, false)",
+        ),
+        line(
+            "unbilled_hours",
+            0xC2,
+            "V(billable_work_entry).where(is_not_billed()).values(duration).sum()",
+        ),
+        line(
+            "billable_known_count",
+            0xC3,
+            "V(billable_work_entry).where(is_billable()).has(billable, neq(false)).count()",
+        ),
+    ]
+    .concat();
+    decls.extend(parse_decls(&later).unwrap());
+    drop(later);
+    let batch = batch(4097);
+    let cats = CatsBinder::new(&batch);
+    let (basis, claims) = (canonical_fields(), with_duration());
+    let t = MethodTable::prepare_with(&glove(&basis, &cats, &claims), &[], &decls);
+    drop(decls);
+    let (_, unbilled) = count_sum(&batch, |c| c == 0);
+    let (billable, _) = count_sum(&batch, |c| c == 1);
+    for f in [Frontend::Quack, Frontend::R2il] {
+        let key = |l| t.resolve(l).unwrap();
+        assert_eq!(
+            call(&t, &batch, key("unbilled_hours"), f).unwrap(),
+            scalars(&[unbilled])
+        );
+        assert_eq!(
+            call(&t, &batch, key("billable_known_count"), f).unwrap(),
+            scalars(&[billable])
+        );
+    }
+}
+
+/// FAILS IF: loading text can express an effect, or a form outside the
+/// slice loads instead of being refused by name.
+#[test]
+fn effects_and_unsupported_steps_are_refused_at_load() {
+    let head = "V(billable_work_entry)";
+    for step in [
+        "addV(x)",
+        "addE(x)",
+        "property(x, 1)",
+        "drop()",
+        "mergeV(x)",
+        "mergeE(x)",
+        "sideEffect(x)",
+        "aggregate(x)",
+        "store(x)",
+        "sack(x)",
+        "inject(1)",
+        "io(x)",
+        "call(x)",
+    ] {
+        let name = step.split('(').next().unwrap();
+        match parse_decls(&line("m", 0xE0, &format!("{head}.{step}"))) {
+            Err(DeclError::Effect { line: 1, step: s }) => assert_eq!(s, name),
+            other => panic!("{step}: {other:?}"),
+        }
+    }
+    for (step, what) in [
+        ("groupCount()", "groupCount"),
+        ("order()", "order"),
+        ("repeat(out(x))", "repeat"),
+        ("path()", "path"),
+        ("select(a)", "select"),
+        ("as(a)", "as"),
+        ("has(duration, gt(1))", "gt"),
+        ("where(not(is_billable()))", "not"),
+        ("mean()", "mean"),
+        ("fold()", "fold"),
+    ] {
+        match parse_decls(&line("m", 0xE1, &format!("{head}.{step}"))) {
+            Err(DeclError::Unsupported { line: 1, what: w }) => assert_eq!(w, what, "{step}"),
+            other => panic!("{step}: {other:?}"),
+        }
+    }
+    // Lawful steps outside the anchor contract: refused by the composer.
+    for (body, refusal) in [
+        (
+            format!("{head}.out(performed_by).count()"),
+            GremlinRefusal::NoRelationCarrier("performed_by".into()),
+        ),
+        (
+            format!("{head}.values(duration).dedup().count()"),
+            GremlinRefusal::DedupOfValues,
+        ),
+        (
+            "V(document).count()".to_owned(),
+            GremlinRefusal::AnchorMismatch {
+                step: DOCUMENT,
+                concept: BILLABLE_WORK_ENTRY,
+            },
+        ),
+    ] {
+        assert_eq!(
+            parse_decls(&line("m", 0xE2, &body)),
+            Err(DeclError::Refused { line: 1, refusal }),
+            "{body}"
+        );
+    }
+    // Silence twin: every loaded method is pure.
+    for d in parse_decls(&lego_text()).unwrap() {
+        assert_eq!(d.effect(), EffectClass::Pure);
+    }
+}
+
+/// FAILS IF: references between loaded methods bypass the preparation
+/// checks: a cycle, a missing predicate, a reference to a fold.
+#[test]
+fn references_between_loaded_methods_are_checked() {
+    let text = [
+        line("a", 0xF1, "V(billable_work_entry).where(b())"),
+        line("b", 0xF2, "V(billable_work_entry).where(a())"),
+        line("c", 0xF3, "V(billable_work_entry).where(missing()).count()"),
+        line("d", 0xF4, "V(billable_work_entry).count()"),
+        line("e", 0xF5, "V(billable_work_entry).where(d()).count()"),
+    ]
+    .concat();
+    let decls = parse_decls(&text).unwrap();
+    let batch = batch(2);
+    let cats = CatsBinder::new(&batch);
+    let (basis, claims) = (canonical_fields(), with_duration());
+    let t = MethodTable::prepare_with(&glove(&basis, &cats, &claims), &[], &decls);
+    let refused = |l: &str| t.get(t.resolve(l).unwrap()).unwrap().clone().unwrap_err();
+    assert_eq!(
+        refused("a"),
+        PrepareError::MethodCycle(MethodKey([0xF1; 16]))
+    );
+    assert_eq!(
+        refused("c"),
+        PrepareError::UnknownMethodRef("missing".into())
+    );
+    assert_eq!(
+        refused("e"),
+        PrepareError::MethodRefNotPredicate(MethodKey([0xF4; 16]))
+    );
+    assert!(t.get(t.resolve("d").unwrap()).unwrap().is_ok());
+}

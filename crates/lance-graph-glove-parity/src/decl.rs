@@ -29,9 +29,10 @@
 //! reading are checked against the glove at preparation, never trusted here.
 use lance_graph_ogar::ogar_vocab::canonical_concept_id;
 
+use crate::gremlin::{compose, GremlinRefusal, Pred, Step};
 use crate::method::{
-    Cond, EffectClass, Fold, Glove, Law, MethodBody, MethodKey, MethodSpec, MethodTable, ReadingId,
-    SchemaSeal,
+    Cond, EffectClass, Fold, Glove, Law, MethodBody, MethodKey, MethodRef, MethodSpec, MethodTable,
+    ReadingId, SchemaSeal,
 };
 
 /// A method declared in text: a [`MethodSpec`] with owned storage.
@@ -49,10 +50,14 @@ pub struct MethodDecl {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct DeclCond {
-    field: String,
-    literal: String,
-    negate: bool,
+enum DeclCond {
+    Field {
+        field: String,
+        literal: String,
+        negate: bool,
+    },
+    /// A predicate method, by label; resolved at preparation.
+    Ref(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,13 +75,14 @@ impl MethodDecl {
     fn conds(&self) -> Vec<Cond<'_>> {
         self.filter
             .iter()
-            .map(|c| {
-                let (field, literal) = (c.field.as_str(), c.literal.as_str());
-                if c.negate {
-                    Cond::Ne { field, literal }
-                } else {
-                    Cond::Eq { field, literal }
-                }
+            .map(|c| match c {
+                DeclCond::Field {
+                    field,
+                    literal,
+                    negate: true,
+                } => Cond::Ne { field, literal },
+                DeclCond::Field { field, literal, .. } => Cond::Eq { field, literal },
+                DeclCond::Ref(label) => Cond::Method(MethodRef::Label(label)),
             })
             .collect()
     }
@@ -96,19 +102,31 @@ impl MethodDecl {
             .collect()
     }
 
+    /// What the method may do. A declaration can only express a pure query
+    /// or a pure predicate: no grammar form loads an effect, so loading
+    /// grants no authority.
+    #[must_use]
+    pub fn effect(&self) -> EffectClass {
+        EffectClass::Pure
+    }
+
     /// The spec this declaration is, borrowing `conds` and `folds` (its own
-    /// conditions and folds as views).
+    /// conditions and folds as views). No folds is a predicate.
     fn spec<'a>(&self, conds: &'a [Cond<'a>], folds: &'a [Fold<'a>]) -> MethodSpec<'a> {
         MethodSpec {
             key: self.key,
             concept: self.concept,
             schema: self.schema,
             reading: self.reading,
-            effect: EffectClass::Pure,
-            body: MethodBody::Query {
-                filter: conds,
-                folds,
-                law: Law::Values,
+            effect: self.effect(),
+            body: if folds.is_empty() {
+                MethodBody::Select { filter: conds }
+            } else {
+                MethodBody::Query {
+                    filter: conds,
+                    folds,
+                    law: Law::Values,
+                }
             },
         }
     }
@@ -146,6 +164,13 @@ pub enum DeclError {
     Unsupported { line: usize, what: String },
     /// OGAR's codebook has no concept of that name.
     UnknownConcept { line: usize, name: String },
+    /// A Gremlin step that changes the world. No declaration can carry one.
+    Effect { line: usize, step: String },
+    /// The steps parse, but break the composer's anchor contract.
+    Refused {
+        line: usize,
+        refusal: GremlinRefusal,
+    },
 }
 
 /// Parse every declaration in `text`.
@@ -222,13 +247,17 @@ fn parse_line(line: &str, n: usize) -> Result<MethodDecl, DeclError> {
         line: n,
         name: concept.to_owned(),
     })?;
-    let toks = tokenize(body).map_err(|m| syntax(&m))?;
-    let (folds, filter) = Parser {
-        toks: &toks,
-        at: 0,
-        line: n,
-    }
-    .body()?;
+    let (folds, filter) = if body.trim_start().starts_with("V(") {
+        traversal(body.trim(), concept_id, n)?
+    } else {
+        let toks = tokenize(body).map_err(|m| syntax(&m))?;
+        Parser {
+            toks: &toks,
+            at: 0,
+            line: n,
+        }
+        .body()?
+    };
     Ok(MethodDecl {
         label: label.to_owned(),
         concept: concept_id,
@@ -448,7 +477,7 @@ impl<'t> Parser<'t> {
             Some(Tok::Str(s)) => s.clone(),
             _ => return Err(self.syntax("expected a literal")),
         };
-        Ok(DeclCond {
+        Ok(DeclCond::Field {
             field,
             literal,
             negate,
@@ -460,4 +489,249 @@ fn is_keyword(w: &str) -> bool {
     ["WHERE", "AND", "OR", "NOT", "BY", "IN", "IS"]
         .iter()
         .any(|k| w.eq_ignore_ascii_case(k))
+}
+
+// ---------------------------------------------------------------- Gremlin form
+
+/// Steps that change the world (TinkerPop 3.7.7). Refused as effects, never
+/// as syntax, so a caller can tell "not allowed" from "not understood".
+const EFFECT_STEPS: [&str; 13] = [
+    "addV",
+    "addE",
+    "property",
+    "drop",
+    "mergeV",
+    "mergeE",
+    "sideEffect",
+    "aggregate",
+    "store",
+    "sack",
+    "inject",
+    "io",
+    "call",
+];
+
+/// `V(concept).step(args)…`, parsed into typed [`Step`]s and composed by
+/// [`compose`]; the result is copied into owned conditions and folds.
+fn traversal(
+    body: &str,
+    concept: u16,
+    n: usize,
+) -> Result<(Vec<DeclFold>, Vec<DeclCond>), DeclError> {
+    let syntax = |msg: &str| DeclError::Syntax {
+        line: n,
+        msg: msg.to_owned(),
+    };
+    let unsupported = |what: &str| DeclError::Unsupported {
+        line: n,
+        what: what.to_owned(),
+    };
+    let mut steps = Vec::new();
+    for (name, args) in calls(body).ok_or_else(|| syntax("expected `name(args).name(args)…`"))? {
+        let arity = |k: usize| {
+            let a = split_args(args);
+            if a.len() == k {
+                Ok(a)
+            } else {
+                Err(syntax(&format!("{name} takes {k} argument(s)")))
+            }
+        };
+        let field = |s: &str| {
+            if ident(s) {
+                Ok(s.to_owned())
+            } else {
+                Err(syntax("expected a field name"))
+            }
+        };
+        if EFFECT_STEPS.contains(&name) {
+            return Err(DeclError::Effect {
+                line: n,
+                step: name.to_owned(),
+            });
+        }
+        steps.push(match name {
+            "V" => {
+                let [c] = arity(1)?[..] else { unreachable!() };
+                Step::V(
+                    canonical_concept_id(c).ok_or_else(|| DeclError::UnknownConcept {
+                        line: n,
+                        name: c.to_owned(),
+                    })?,
+                )
+            }
+            "has" => {
+                let [f, p] = arity(2)?[..] else {
+                    unreachable!()
+                };
+                field(f)?;
+                let pred = match calls(p) {
+                    Some(c) if c.len() == 1 => {
+                        let (pn, pa) = c[0];
+                        let [lit] = split_args(pa)[..] else {
+                            return Err(syntax("a predicate takes one literal"));
+                        };
+                        match pn {
+                            "eq" => Pred::Eq(literal(lit).ok_or_else(|| syntax("literal"))?),
+                            "neq" => Pred::Neq(literal(lit).ok_or_else(|| syntax("literal"))?),
+                            other => return Err(unsupported(other)),
+                        }
+                    }
+                    Some(_) => return Err(syntax("one predicate")),
+                    None => Pred::Eq(literal(p).ok_or_else(|| syntax("expected a literal"))?),
+                };
+                Step::Has { field: f, pred }
+            }
+            "where" => {
+                let [inner] = arity(1)?[..] else {
+                    unreachable!()
+                };
+                match calls(inner).as_deref() {
+                    Some([(label, "")]) if !is_step_name(label) => {
+                        Step::Where(MethodRef::Label(label))
+                    }
+                    Some([(other, _), ..]) => return Err(unsupported(other)),
+                    _ => return Err(syntax("where takes a method reference")),
+                }
+            }
+            "values" => {
+                let [f] = arity(1)?[..] else { unreachable!() };
+                field(f)?;
+                Step::Values(f)
+            }
+            "out" | "in" | "both" => {
+                let [r] = arity(1)?[..] else { unreachable!() };
+                field(r)?;
+                match name {
+                    "out" => Step::Out(r),
+                    "in" => Step::In(r),
+                    _ => Step::Both(r),
+                }
+            }
+            "dedup" | "count" | "sum" => {
+                if !args.trim().is_empty() {
+                    return Err(syntax(&format!("{name} takes no arguments")));
+                }
+                match name {
+                    "dedup" => Step::Dedup,
+                    "count" => Step::Count,
+                    _ => Step::Sum,
+                }
+            }
+            other => return Err(unsupported(other)),
+        });
+    }
+    let composed =
+        compose(concept, &steps).map_err(|refusal| DeclError::Refused { line: n, refusal })?;
+    let filter = composed
+        .filter()
+        .iter()
+        .map(|c| match *c {
+            Cond::Eq { field, literal } => DeclCond::Field {
+                field: field.to_owned(),
+                literal: literal.to_owned(),
+                negate: false,
+            },
+            Cond::Ne { field, literal } => DeclCond::Field {
+                field: field.to_owned(),
+                literal: literal.to_owned(),
+                negate: true,
+            },
+            Cond::Method(MethodRef::Label(l)) => DeclCond::Ref(l.to_owned()),
+            Cond::Method(MethodRef::Key(_)) => unreachable!("text names methods by label"),
+        })
+        .collect();
+    let folds = composed
+        .folds()
+        .iter()
+        .map(|f| match *f {
+            Fold::Count => DeclFold::Count,
+            Fold::Sum(field) => DeclFold::Sum(field.to_owned()),
+            Fold::GroupSum { key, val, groups } => DeclFold::GroupSum {
+                key: key.to_owned(),
+                val: val.to_owned(),
+                groups,
+            },
+        })
+        .collect();
+    Ok((folds, filter))
+}
+
+/// A Gremlin step name: refused if used as a method label in `where`.
+fn is_step_name(s: &str) -> bool {
+    EFFECT_STEPS.contains(&s)
+        || [
+            "V", "has", "where", "values", "out", "in", "both", "dedup", "count", "sum", "not",
+            "and", "or",
+        ]
+        .contains(&s)
+}
+
+/// `a(x).b(y)` → `[("a","x"), ("b","y")]`; arguments keep nested parentheses.
+/// `None` if the text is not a dot-separated chain of calls.
+fn calls(s: &str) -> Option<Vec<(&str, &str)>> {
+    let mut out = Vec::new();
+    let mut rest = s.trim();
+    loop {
+        let open = rest.find('(')?;
+        let name = rest[..open].trim();
+        if !ident(name) {
+            return None;
+        }
+        let mut depth = 0usize;
+        let mut close = None;
+        for (i, c) in rest[open..].char_indices() {
+            match c {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        close = Some(open + i);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let close = close?;
+        out.push((name, rest[open + 1..close].trim()));
+        rest = rest[close + 1..].trim_start();
+        if rest.is_empty() {
+            return Some(out);
+        }
+        rest = rest.strip_prefix('.')?;
+    }
+}
+
+/// Top-level comma split; empty input is no arguments.
+fn split_args(s: &str) -> Vec<&str> {
+    if s.trim().is_empty() {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    let (mut depth, mut start) = (0usize, 0usize);
+    for (i, c) in s.char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                out.push(s[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    out.push(s[start..].trim());
+    out
+}
+
+/// A bare word or a double-quoted string.
+fn literal(s: &str) -> Option<&str> {
+    let s = s.trim();
+    if let Some(inner) = s.strip_prefix('"').and_then(|r| r.strip_suffix('"')) {
+        return Some(inner);
+    }
+    (!s.is_empty()
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-')))
+    .then_some(s)
 }
