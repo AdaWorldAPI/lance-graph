@@ -74,6 +74,10 @@ fn main() {
     let t1 = Instant::now();
     let table = MethodTable::prepare_with(&glove, &[], &decls);
     let prepared = t1.elapsed();
+    // Each declaration's label and key, taken before the text and the
+    // declarations are dropped; calls go by key, so a duplicate label (which
+    // `resolve` leaves unnamed on purpose) is still reported, not a panic.
+    let methods: Vec<(String, _)> = decls.iter().map(|d| (d.label.clone(), d.key)).collect();
     drop((decls, text));
 
     let live = live_words(n);
@@ -84,13 +88,7 @@ fn main() {
         lanes: &lanes,
     };
     println!("{path}: parsed in {parsed:?}, prepared in {prepared:?}, rows {n}");
-    for label in std::fs::read_to_string(&path)
-        .unwrap()
-        .lines()
-        .filter_map(|l| l.trim().split_once("::").map(|(_, r)| r))
-        .filter_map(|r| r.split_whitespace().next())
-    {
-        let key = table.resolve(label).expect("label");
+    for (label, key) in methods {
         let q = table.call(key, &planes, Universe(42), Frontend::Quack);
         let r = table.call(key, &planes, Universe(42), Frontend::R2il);
         match (q, r) {
