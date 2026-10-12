@@ -9,7 +9,7 @@ Every "read" row points at a distillation already in this folder; every
 
 ## Punchline
 
-> **The design asks four research questions, and this folder already answers parts of three: accumulate wide and round once (BF16), fuse independent evidence cumulatively and dependent evidence by averaging (subjective logic), and treat confidence as evidence stability (Wang). The fourth — persisted hypothesis layers as sparse deltas merged on read — has storage precedent in log-structured and copy-on-write systems, but no paper here covers it yet.**
+> **The design raises six research questions (Q1–Q6). This folder already covers parts of five: accumulate wide and round once (BF16, Q1), fuse independent evidence cumulatively and dependent evidence by averaging (subjective logic, Q2), validate by executable Narsese (Q3), check metacognition against a no-meta control (Q5), and separate correlation from causation (Q6). Q4 — persisted hypothesis layers as sparse deltas merged on read — has storage precedent in log-structured and copy-on-write systems, but no paper here covers it yet.**
 
 ## Q1 — Where does precision get lost, and how often?
 
