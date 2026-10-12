@@ -719,8 +719,8 @@ impl WideFieldMask {
 /// cells, a chess-eval feature's inputs). All fields are `&'static` so a
 /// generated `const DAG: &[ComputeEdge] = &[..]` compiles (the harvest IS the
 /// manifest — mirrors [`crate::codegen_manifest::MethodSig`] /
-/// [`crate::action::ActionDef`]). Positions index the class's [`FieldMask`]
-/// (0..[`FieldMask::MAX_FIELDS`]), matching [`ClassView::fields`].
+/// [`crate::action::ActionDef`]). Positions are field positions `0..=255`,
+/// the [`WideFieldMask`] range, matching [`ClassView::fields`].
 ///
 /// This is the Core home for recompute *dispatch* (`E-EXCEL-SHADER-PROJECTION` /
 /// `probe-excel-compute-dag-v1`): the manifest lives ABOVE the SoA (resolution
@@ -739,49 +739,14 @@ pub struct ComputeEdge {
 /// A cyclic recompute DAG (a formula loop `A=B+1, B=A+1`, or a `@api.depends`
 /// cycle) MUST be rejected at registry-build: it has no topological order and
 /// would never converge. Returns `false` on any cycle (incl. a self-loop
-/// `target ∈ inputs`). Considers only positions `< FieldMask::MAX_FIELDS`;
-/// out-of-range targets/inputs are ignored (no panic, mirrors
-/// [`FieldMask::from_positions`]). Allocation-free (≤ 64 positions).
+/// `target ∈ inputs`).
+///
+/// Every `u8` position takes part (`0..=255`, the [`WideFieldMask`] range), so
+/// no target or input is ignored and no width needs refusing: a position past
+/// 255 cannot be written. Allocation-free.
 #[must_use]
 pub fn compute_dag_is_acyclic(edges: &[ComputeEdge]) -> bool {
-    const N: usize = FieldMask::MAX_FIELDS as usize; // 64
-                                                     // deps[t] = bitmask of in-range positions that target `t` depends on.
-    let mut deps = [0u64; N];
-    let mut is_target = 0u64;
-    for e in edges {
-        if (e.target as usize) >= N {
-            continue;
-        }
-        is_target |= 1u64 << e.target;
-        for &inp in e.inputs {
-            if (inp as usize) < N {
-                deps[e.target as usize] |= 1u64 << inp;
-            }
-        }
-    }
-    // Kahn: leaves (non-targets) are resolved; peel any target whose deps are all
-    // resolved. If a round makes no progress with targets remaining → cycle.
-    let mut resolved = !is_target;
-    let mut remaining = is_target;
-    loop {
-        if remaining == 0 {
-            return true;
-        }
-        let mut progressed = false;
-        let mut r = remaining;
-        while r != 0 {
-            let t = r.trailing_zeros();
-            r &= r - 1;
-            if deps[t as usize] & !resolved == 0 {
-                resolved |= 1u64 << t;
-                remaining &= !(1u64 << t);
-                progressed = true;
-            }
-        }
-        if !progressed {
-            return false; // stuck with targets remaining → cycle
-        }
-    }
+    compute_dag_kahn(edges, |_| {})
 }
 
 /// A valid **recompute order** for a class's `compute_dag` — the target field
@@ -789,48 +754,67 @@ pub fn compute_dag_is_acyclic(edges: &[ComputeEdge]) -> bool {
 /// (transitively) depends on. `None` if the DAG is cyclic (no topological order).
 ///
 /// Leaves (positions that are only inputs, never targets) are not included — they
-/// are the already-present values a recompute reads. Within one Kahn round the
-/// resolved targets are mutually independent, so any order among them is valid.
+/// are the already-present values a recompute reads. Each pass scans targets
+/// in ascending position and emits those whose inputs are already resolved,
+/// so a target can follow its input within the same pass. Every `u8` position
+/// takes part, as in [`compute_dag_is_acyclic`].
 /// The consumer recomputes targets in this order, each gated by the cycle-aware
 /// `write_row` (`probe-excel-compute-dag-v1` Inc 2). Allocation = one `Vec` of
-/// the target positions (≤ 64).
+/// the target positions (≤ 256).
 #[must_use]
 pub fn compute_dag_topo_order(edges: &[ComputeEdge]) -> Option<Vec<u8>> {
-    const N: usize = FieldMask::MAX_FIELDS as usize; // 64
-    let mut deps = [0u64; N];
-    let mut is_target = 0u64;
+    let mut order = Vec::new();
+    compute_dag_kahn(edges, |t| order.push(t)).then_some(order)
+}
+
+/// Positions as four 64-bit words: the whole `u8` range.
+type Positions = [u64; 4];
+
+const fn bit(p: u8) -> (usize, u64) {
+    ((p >> 6) as usize, 1u64 << (p & 63))
+}
+
+/// Kahn rounds over 256-position bit sets. `emit` receives each target as it
+/// is resolved; returns whether every target was resolved (no cycle).
+fn compute_dag_kahn(edges: &[ComputeEdge], mut emit: impl FnMut(u8)) -> bool {
+    // deps[t] = positions target `t` reads.
+    let mut deps = [[0u64; 4]; 256];
+    let mut is_target: Positions = [0; 4];
     for e in edges {
-        if (e.target as usize) >= N {
-            continue;
-        }
-        is_target |= 1u64 << e.target;
+        let (w, m) = bit(e.target);
+        is_target[w] |= m;
         for &inp in e.inputs {
-            if (inp as usize) < N {
-                deps[e.target as usize] |= 1u64 << inp;
-            }
+            let (w, m) = bit(inp);
+            deps[e.target as usize][w] |= m;
         }
     }
-    let mut resolved = !is_target;
+    // Leaves (non-targets) are resolved; peel any target whose deps are all
+    // resolved. A round with no progress and targets remaining is a cycle.
+    let mut resolved: Positions = is_target.map(|w| !w);
     let mut remaining = is_target;
-    let mut order = Vec::with_capacity(is_target.count_ones() as usize);
     loop {
-        if remaining == 0 {
-            return Some(order);
+        if remaining == [0; 4] {
+            return true;
         }
         let mut progressed = false;
-        let mut r = remaining;
-        while r != 0 {
-            let t = r.trailing_zeros();
-            r &= r - 1;
-            if deps[t as usize] & !resolved == 0 {
-                resolved |= 1u64 << t;
-                remaining &= !(1u64 << t);
-                order.push(t as u8);
-                progressed = true;
+        let snapshot = remaining;
+        for (w, &word) in snapshot.iter().enumerate() {
+            let mut r = word;
+            while r != 0 {
+                let t = (w as u32 * 64 + r.trailing_zeros()) as u8;
+                r &= r - 1;
+                let d = &deps[t as usize];
+                if (0..4).all(|i| d[i] & !resolved[i] == 0) {
+                    let (tw, tm) = bit(t);
+                    resolved[tw] |= tm;
+                    remaining[tw] &= !tm;
+                    emit(t);
+                    progressed = true;
+                }
             }
         }
         if !progressed {
-            return None; // cycle
+            return false;
         }
     }
 }
