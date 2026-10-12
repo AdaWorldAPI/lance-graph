@@ -56,7 +56,8 @@ use lance_graph_mask_risc::{
 };
 use lance_graph_quack::bind::{Binder, BoundField, FieldKind, TableId};
 use lance_graph_quack::{
-    lower, Agg, Cmp, Col, Filter, ForeignLane, ForeignPlane, LowerError, Mask, Query,
+    lower, Agg, ChainHop, ChainTest, Cmp, Col, Filter, ForeignLane, ForeignPlane, LowerError, Mask,
+    Query,
 };
 use lance_graph_r2il::{procs, FoldDialect, FoldError, Val};
 
@@ -139,6 +140,91 @@ pub enum Order {
     Ge,
 }
 
+/// The most relations one [`Path`] may chain: the depth one
+/// `MaskOp::GatherChain` carries ([`lance_graph_mask_risc::MAX_CHAIN_HOPS`]).
+pub const MAX_PATH: usize = lance_graph_mask_risc::MAX_CHAIN_HOPS;
+
+/// A chain of functional relations, from the anchor outward:
+/// `out(rels[0]).out(rels[1])…`. Each relation is looked up on the previous
+/// relation's target glove. At least one, at most [`MAX_PATH`].
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Path<'a> {
+    rels: [&'a str; MAX_PATH],
+    len: u8,
+}
+
+impl<'a> Path<'a> {
+    /// The path through `rels`.
+    ///
+    /// # Panics
+    ///
+    /// When `rels` is empty or longer than [`MAX_PATH`] — a path literal
+    /// is a programming error, not input. Input goes through
+    /// [`Path::try_of`].
+    #[must_use]
+    pub const fn of(rels: &[&'a str]) -> Self {
+        match Self::try_of(rels) {
+            Some(p) => p,
+            None => panic!("a path has 1..=MAX_PATH relations"),
+        }
+    }
+
+    /// The path through `rels`, or `None` when it is empty or longer than
+    /// [`MAX_PATH`].
+    #[must_use]
+    pub const fn try_of(rels: &[&'a str]) -> Option<Self> {
+        if rels.is_empty() || rels.len() > MAX_PATH {
+            return None;
+        }
+        let mut out = [""; MAX_PATH];
+        let mut i = 0;
+        while i < rels.len() {
+            out[i] = rels[i];
+            i += 1;
+        }
+        Some(Self {
+            rels: out,
+            len: rels.len() as u8,
+        })
+    }
+
+    /// The relations, in order.
+    #[must_use]
+    pub fn rels(&self) -> &[&'a str] {
+        &self.rels[..usize::from(self.len)]
+    }
+
+    /// This path followed by `rel`, or `None` past [`MAX_PATH`].
+    #[must_use]
+    pub fn then(self, rel: &'a str) -> Option<Self> {
+        let n = usize::from(self.len);
+        if n == MAX_PATH {
+            return None;
+        }
+        let mut p = self;
+        p.rels[n] = rel;
+        p.len += 1;
+        Some(p)
+    }
+
+    /// The last relation.
+    #[must_use]
+    pub fn last(&self) -> &'a str {
+        self.rels[usize::from(self.len) - 1]
+    }
+
+    /// Whether `self` is `other` or a prefix of it.
+    fn is_prefix_of(&self, other: &Path<'_>) -> bool {
+        self.len <= other.len && self.rels() == &other.rels()[..usize::from(self.len)]
+    }
+}
+
+impl core::fmt::Debug for Path<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_list().entries(self.rels()).finish()
+    }
+}
+
 /// One condition of a body's `WHERE`, on a canonical field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cond<'a> {
@@ -172,9 +258,35 @@ pub enum Cond<'a> {
         literal: &'a str,
         negate: bool,
     },
+    /// `out(r1).out(r2)…`: the key chain along `path` (two relations or
+    /// more; one is [`Cond::Reaches`]) reaches a live row at every hop.
+    /// Every relation is functional, so the anchor does not move. Lowered
+    /// with every other condition on the same path into ONE chained gather:
+    /// no hop table gets a mask.
+    ReachesPath { path: Path<'a> },
+    /// `out(r1).out(r2)….has(field, = literal)`, or `!=` when `negate`: the
+    /// path reaches live rows (as [`Cond::ReachesPath`]) and the LAST target's
+    /// canonical `field` equals the literal, or does not.
+    ViaPath {
+        path: Path<'a>,
+        field: &'a str,
+        literal: &'a str,
+        negate: bool,
+    },
 }
 
 impl<'a> Cond<'a> {
+    /// The relation path the condition walks, if any: one relation for
+    /// [`Cond::Reaches`] / [`Cond::Via`].
+    #[must_use]
+    pub fn path(self) -> Option<Path<'a>> {
+        match self {
+            Cond::Reaches { rel } | Cond::Via { rel, .. } => Path::try_of(&[rel]),
+            Cond::ReachesPath { path } | Cond::ViaPath { path, .. } => Some(path),
+            _ => None,
+        }
+    }
+
     /// The canonical field of the method's own concept the condition names.
     /// A relation's key is known only to the glove, so a relation condition
     /// names none here; preparation adds the key to `required`.
@@ -183,7 +295,11 @@ impl<'a> Cond<'a> {
             Cond::Eq { field, .. } | Cond::Ne { field, .. } | Cond::Order { field, .. } => {
                 Some(field)
             }
-            Cond::Method(_) | Cond::Reaches { .. } | Cond::Via { .. } => None,
+            Cond::Method(_)
+            | Cond::Reaches { .. }
+            | Cond::Via { .. }
+            | Cond::ReachesPath { .. }
+            | Cond::ViaPath { .. } => None,
         }
     }
 }
@@ -401,6 +517,11 @@ pub enum PrepareError {
     /// The relation supplies no foreign lane for this target field
     /// (`relation.field`).
     NoForeignLane(String),
+    /// More conditions on one hop of a chain than a chained gather carries
+    /// (`lance_graph_mask_risc::MAX_HOP_TESTS`); the relation is named.
+    TooManyHopTests(String),
+    /// More relation chains in one body than a `u16` index names.
+    TooManyChains,
     /// Two relations the method reads reach this target concept in
     /// different populations. A call names one population per concept.
     ConflictingUniverse(u16),
@@ -498,6 +619,9 @@ enum BoundCond {
         code: u32,
         negate: bool,
     },
+    /// The key `fk` leads through the hops of `chains[chain]`
+    /// ([`Filter::Chain`]): every condition on one relation path, folded.
+    Chain { fk: Col, chain: u16 },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -505,6 +629,8 @@ enum Bound {
     Query {
         live: Mask,
         conds: Vec<BoundCond>,
+        /// The hop chains [`BoundCond::Chain`] names.
+        chains: Vec<Vec<ChainHop>>,
         folds: Vec<BoundFold>,
         law: OwnedLaw,
         /// The Quack programs, lowered once at preparation, one per fold.
@@ -551,12 +677,16 @@ impl PreparedMethod {
     #[must_use]
     pub fn queries(&self) -> Vec<Query> {
         let Bound::Query {
-            live, conds, folds, ..
+            live,
+            conds,
+            chains,
+            folds,
+            ..
         } = &self.bound
         else {
             return Vec::new();
         };
-        bound_queries(*live, conds, folds)
+        bound_queries(*live, conds, chains, folds)
     }
 
     /// The lowered Quack programs a call executes, one per fold. Lowered once,
@@ -570,7 +700,12 @@ impl PreparedMethod {
     }
 }
 
-fn bound_queries(live: Mask, conds: &[BoundCond], folds: &[BoundFold]) -> Vec<Query> {
+fn bound_queries(
+    live: Mask,
+    conds: &[BoundCond],
+    chains: &[Vec<ChainHop>],
+    folds: &[BoundFold],
+) -> Vec<Query> {
     // A distinct fold tests its relation's liveness, unless the conditions
     // already do: the same test is never emitted twice.
     let filter = |fold: &BoundFold| {
@@ -603,6 +738,9 @@ fn bound_queries(live: Mask, conds: &[BoundCond], folds: &[BoundFold]) -> Vec<Qu
                         },
                     ),
                     BoundCond::Reaches { fk, plane } => Filter::semijoin(fk, plane),
+                    BoundCond::Chain { fk, chain } => {
+                        Filter::chain(fk, chains[usize::from(chain)].clone())
+                    }
                     BoundCond::Via {
                         fk,
                         lane,
@@ -674,6 +812,7 @@ impl PreparedMethod {
             folds,
             law,
             programs,
+            ..
         } = &self.bound
         else {
             return Err(match self.bound {
@@ -743,12 +882,12 @@ impl PreparedMethod {
                         // A relation condition always tests the target row's
                         // liveness, and R2IL's fold band has no call that
                         // reads a foreign plane through a key.
-                        BoundCond::Reaches { .. } | BoundCond::Via { .. } => {
-                            Err(CallError::FrontendGap {
-                                frontend: Frontend::R2il,
-                                missing: "GATHER",
-                            })
-                        }
+                        BoundCond::Reaches { .. }
+                        | BoundCond::Via { .. }
+                        | BoundCond::Chain { .. } => Err(CallError::FrontendGap {
+                            frontend: Frontend::R2il,
+                            missing: "GATHER",
+                        }),
                     })
                     .collect::<Result<Vec<(u16, u32, bool)>, _>>()?;
                 folds
@@ -1184,8 +1323,8 @@ impl Glove<'_> {
             _ => &[],
         };
         let mut keys = Vec::new();
-        for rel in relations_named(filter, folds_of) {
-            let fk = self.relation(rel)?.fk;
+        for path in relations_named(filter, folds_of) {
+            let fk = self.relation(path.rels()[0])?.fk;
             if !reads.contains(&fk) && !keys.contains(&fk) {
                 keys.push(fk);
             }
@@ -1214,7 +1353,7 @@ impl Glove<'_> {
                     .binder
                     .table(self.table)
                     .ok_or_else(|| PrepareError::UnknownTable(self.table.to_owned()))?;
-                let conds = self.conds(t, filter)?;
+                let (conds, chains) = self.conds(t, filter)?;
                 let folds = folds
                     .iter()
                     .map(|f| match *f {
@@ -1243,7 +1382,7 @@ impl Glove<'_> {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 let live = self.binder.live(t);
-                let programs = bound_queries(live, &conds, &folds)
+                let programs = bound_queries(live, &conds, &chains, &folds)
                     .iter()
                     .map(lower)
                     .collect::<Result<Vec<_>, _>>()
@@ -1251,6 +1390,7 @@ impl Glove<'_> {
                 Bound::Query {
                     live,
                     conds,
+                    chains,
                     folds,
                     law: law.into(),
                     programs,
@@ -1270,15 +1410,16 @@ impl Glove<'_> {
             _ => return Err(PrepareError::EffectMismatch),
         };
         let mut reaches: Vec<(u16, Universe)> = Vec::new();
-        for rel in relations_named(filter, folds_of) {
-            let r = self.relation(rel)?;
-            let (concept, universe) = (r.target.concept, r.target.universe);
-            match reaches.iter().find(|(c, _)| *c == concept) {
-                None => reaches.push((concept, universe)),
-                Some(&(_, u)) if u != universe => {
-                    return Err(PrepareError::ConflictingUniverse(concept));
+        for path in relations_named(filter, folds_of) {
+            for r in self.walk(path)? {
+                let (concept, universe) = (r.target.concept, r.target.universe);
+                match reaches.iter().find(|(c, _)| *c == concept) {
+                    None => reaches.push((concept, universe)),
+                    Some(&(_, u)) if u != universe => {
+                        return Err(PrepareError::ConflictingUniverse(concept));
+                    }
+                    Some(_) => {}
                 }
-                Some(_) => {}
             }
         }
         Ok(PreparedMethod {
@@ -1298,48 +1439,159 @@ impl Glove<'_> {
             .ok_or_else(|| PrepareError::UnknownRelation(name.to_owned()))
     }
 
-    /// Bind a filter. Each relation's liveness test is emitted once, where
-    /// the relation is first named.
-    fn conds(&self, t: TableId, filter: &[Cond<'_>]) -> Result<Vec<BoundCond>, PrepareError> {
-        let mut out = Vec::with_capacity(filter.len());
-        let mut reached: Vec<&str> = Vec::new();
-        for c in filter {
-            let rel = match *c {
-                Cond::Reaches { rel } | Cond::Via { rel, .. } => rel,
-                _ => {
-                    out.push(self.cond(t, *c)?);
-                    continue;
-                }
+    /// The relations `path` walks, each looked up on the previous one's
+    /// target glove.
+    fn walk(&self, path: Path<'_>) -> Result<Vec<&Relation<'_>>, PrepareError> {
+        let mut out: Vec<&Relation<'_>> = Vec::with_capacity(path.rels().len());
+        for (k, name) in path.rels().iter().enumerate() {
+            let r = match out.last() {
+                None => self.relation(name)?,
+                Some(prev) => prev.target.relation(name)?,
             };
-            let r = self.relation(rel)?;
-            let fk = self.field(t, r.fk)?;
-            if fk.kind != FieldKind::Code {
-                return Err(PrepareError::KindMismatch(r.fk.to_owned()));
-            }
-            if !reached.contains(&rel) {
-                reached.push(rel);
-                out.push(BoundCond::Reaches {
-                    fk: fk.col,
-                    plane: ForeignPlane(r.plane),
-                });
-            }
-            if let Cond::Via {
-                field,
-                literal,
-                negate,
-                ..
-            } = *c
-            {
-                let (lane, code) = r.bind(field, literal)?;
-                out.push(BoundCond::Via {
-                    fk: fk.col,
-                    lane,
-                    code,
-                    negate,
-                });
-            }
+            debug_assert_eq!(out.len(), k);
+            out.push(r);
         }
         Ok(out)
+    }
+
+    /// Bind a filter. Conditions on a one-relation path keep their own
+    /// leaves (the relation's liveness test emitted once, where it is first
+    /// named). Conditions on a longer path, and every condition on one of
+    /// its prefixes, fold into ONE chain per maximal path: the chain is
+    /// emitted where the first of them stands.
+    fn conds(
+        &self,
+        t: TableId,
+        filter: &[Cond<'_>],
+    ) -> Result<(Vec<BoundCond>, Vec<Vec<ChainHop>>), PrepareError> {
+        let paths: Vec<Path<'_>> = filter.iter().filter_map(|c| c.path()).collect();
+        // A path two relations or longer that no other path extends.
+        let mut chained: Vec<Path<'_>> = Vec::new();
+        for p in &paths {
+            let extended = paths
+                .iter()
+                .any(|q| q.rels().len() > p.rels().len() && p.is_prefix_of(q));
+            if p.rels().len() >= 2 && !extended && !chained.contains(p) {
+                chained.push(*p);
+            }
+        }
+        let mut out = Vec::with_capacity(filter.len());
+        let mut chains: Vec<Vec<ChainHop>> = Vec::new();
+        let mut emitted = vec![false; chained.len()];
+        let mut reached: Vec<&str> = Vec::new();
+        for c in filter {
+            let Some(path) = c.path() else {
+                out.push(self.cond(t, *c)?);
+                continue;
+            };
+            let owners: Vec<usize> = (0..chained.len())
+                .filter(|&i| path.is_prefix_of(&chained[i]))
+                .collect();
+            if owners.is_empty() {
+                // A one-relation path no chain extends.
+                let rel = path.last();
+                let r = self.relation(rel)?;
+                let fk = self.field(t, r.fk)?;
+                if fk.kind != FieldKind::Code {
+                    return Err(PrepareError::KindMismatch(r.fk.to_owned()));
+                }
+                if !reached.contains(&rel) {
+                    reached.push(rel);
+                    out.push(BoundCond::Reaches {
+                        fk: fk.col,
+                        plane: ForeignPlane(r.plane),
+                    });
+                }
+                if let Cond::Via {
+                    field,
+                    literal,
+                    negate,
+                    ..
+                } = *c
+                {
+                    let (lane, code) = r.bind(field, literal)?;
+                    out.push(BoundCond::Via {
+                        fk: fk.col,
+                        lane,
+                        code,
+                        negate,
+                    });
+                }
+                continue;
+            }
+            for i in owners {
+                if emitted[i] {
+                    continue;
+                }
+                emitted[i] = true;
+                let (fk, hops) = self.chain(t, chained[i], filter)?;
+                let chain = u16::try_from(chains.len()).map_err(|_| PrepareError::TooManyChains)?;
+                chains.push(hops);
+                out.push(BoundCond::Chain { fk, chain });
+            }
+        }
+        Ok((out, chains))
+    }
+
+    /// The chain along `path`: each hop's live plane, the tests every
+    /// condition in `filter` puts on that hop (a condition on the prefix
+    /// ending there), and the key into the next hop.
+    fn chain(
+        &self,
+        t: TableId,
+        path: Path<'_>,
+        filter: &[Cond<'_>],
+    ) -> Result<(Col, Vec<ChainHop>), PrepareError> {
+        let rels = self.walk(path)?;
+        let first = rels[0];
+        let fk = self.field(t, first.fk)?;
+        if fk.kind != FieldKind::Code {
+            return Err(PrepareError::KindMismatch(first.fk.to_owned()));
+        }
+        let mut hops = Vec::with_capacity(rels.len());
+        for (k, r) in rels.iter().enumerate() {
+            let mut tests: Vec<ChainTest> = Vec::new();
+            for c in filter {
+                let at_hop = c.path().is_some_and(|p| p.rels() == &path.rels()[..=k]);
+                let (field, literal, negate) = match *c {
+                    Cond::Via {
+                        field,
+                        literal,
+                        negate,
+                        ..
+                    }
+                    | Cond::ViaPath {
+                        field,
+                        literal,
+                        negate,
+                        ..
+                    } if at_hop => (field, literal, negate),
+                    _ => continue,
+                };
+                let (lane, value) = r.bind(field, literal)?;
+                let test = ChainTest {
+                    lane,
+                    value,
+                    negate,
+                };
+                if !tests.contains(&test) {
+                    tests.push(test);
+                }
+            }
+            if tests.len() > lance_graph_mask_risc::MAX_HOP_TESTS {
+                return Err(PrepareError::TooManyHopTests(r.name.to_owned()));
+            }
+            let next = match rels.get(k + 1) {
+                Some(n) => Some(r.key_lane(n.fk)?),
+                None => None,
+            };
+            hops.push(ChainHop {
+                live: ForeignPlane(r.plane),
+                tests,
+                next,
+            });
+        }
+        Ok((fk.col, hops))
     }
 
     /// A required field's lane, which must be of `kind`.
@@ -1390,7 +1642,10 @@ impl Glove<'_> {
         let (field, literal, negate) = match c {
             Cond::Eq { field, literal } => (field, literal, false),
             Cond::Ne { field, literal } => (field, literal, true),
-            Cond::Reaches { .. } | Cond::Via { .. } => unreachable!("bound by `conds`"),
+            Cond::Reaches { .. }
+            | Cond::Via { .. }
+            | Cond::ReachesPath { .. }
+            | Cond::ViaPath { .. } => unreachable!("bound by `conds`"),
             Cond::Order { field, op, value } => {
                 return Ok(BoundCond::Ordered {
                     col: self.lane(t, field, FieldKind::I32)?,
@@ -1426,7 +1681,28 @@ impl Glove<'_> {
 impl Relation<'_> {
     /// A target field and literal, as a foreign lane and code. Errors name
     /// the field `relation.field`.
+    /// The foreign lane a call supplies for target `field`, which must be a
+    /// proven `Code` field: the key into the next hop of a chain. Its lane
+    /// holds row ordinals, so no literal is resolved against it.
+    fn key_lane(&self, field: &str) -> Result<ForeignLane, PrepareError> {
+        self.checked(field).map(|(lane, _, _)| lane)
+    }
+
     fn bind(&self, field: &str, literal: &str) -> Result<(ForeignLane, u32), PrepareError> {
+        let (lane, t, b) = self.checked(field)?;
+        let named = || format!("{}.{field}", self.name);
+        let code = self.target.binder.code(t, b.col, literal).ok_or_else(|| {
+            PrepareError::UnknownValue {
+                field: named(),
+                literal: literal.to_owned(),
+            }
+        })?;
+        Ok((lane, code))
+    }
+
+    /// `field` of the target: in its basis, proven by a claim, supplied as a
+    /// foreign lane, bound, and a `Code` field.
+    fn checked(&self, field: &str) -> Result<(ForeignLane, TableId, BoundField), PrepareError> {
         let named = || format!("{}.{field}", self.name);
         let g = self.target;
         if !g.basis.iter().any(|b| b == field) {
@@ -1459,27 +1735,18 @@ impl Relation<'_> {
         if b.kind != FieldKind::Code {
             return Err(PrepareError::KindMismatch(named()));
         }
-        let code = g
-            .binder
-            .code(t, b.col, literal)
-            .ok_or_else(|| PrepareError::UnknownValue {
-                field: named(),
-                literal: literal.to_owned(),
-            })?;
-        Ok((lane, code))
+        Ok((lane, t, b))
     }
 }
 
-/// The relations a body names, in order: its conditions', then its folds'.
-fn relations_named<'a>(filter: &[Cond<'a>], folds: &[Fold<'a>]) -> Vec<&'a str> {
+/// The relation paths a body names, in order: its conditions', then its
+/// folds'.
+fn relations_named<'a>(filter: &[Cond<'a>], folds: &[Fold<'a>]) -> Vec<Path<'a>> {
     filter
         .iter()
-        .filter_map(|c| match *c {
-            Cond::Reaches { rel } | Cond::Via { rel, .. } => Some(rel),
-            _ => None,
-        })
+        .filter_map(|c| c.path())
         .chain(folds.iter().filter_map(|f| match *f {
-            Fold::Distinct { rel } => Some(rel),
+            Fold::Distinct { rel } => Path::try_of(&[rel]),
             _ => None,
         }))
         .collect()

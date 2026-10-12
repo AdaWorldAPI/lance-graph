@@ -606,9 +606,18 @@ fn out_composes_and_keeps_the_anchor() {
     assert_eq!(c.filter(), &[REACHES, NOT_DE]);
     let refuse = |steps: &[Step<'static>]| compose(LINE, steps).unwrap_err();
     let out = Step::Out("billed_to");
+    // A second hop composes since D-CMH-G1-7 (it was `SecondHop` before):
+    // the path folds into one chained gather. Whether `owned_by` exists is
+    // preparation's to say (tests/two_hop.rs).
+    let c = compose(LINE, &[v, out, Step::Out("owned_by"), Step::Count]).unwrap();
     assert_eq!(
-        refuse(&[v, out, Step::Out("owned_by"), Step::Count]),
-        GremlinRefusal::SecondHop("owned_by".into())
+        c.filter(),
+        &[
+            REACHES,
+            Cond::ReachesPath {
+                path: lance_graph_glove_parity::method::Path::of(&["billed_to", "owned_by"]),
+            },
+        ]
     );
     assert_eq!(
         refuse(&[v, out, Step::Values("credit"), Step::Sum]),

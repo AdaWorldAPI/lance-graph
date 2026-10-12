@@ -32,7 +32,7 @@ use lance_graph_ogar::ogar_vocab::canonical_concept_id;
 use crate::gremlin::{compose, GremlinRefusal, Pred, Step};
 use crate::method::{
     Cond, EffectClass, Fold, Glove, Law, MethodBody, MethodKey, MethodRef, MethodSpec, MethodTable,
-    Order, ReadingId, SchemaSeal,
+    Order, Path, ReadingId, SchemaSeal,
 };
 
 /// A method declared in text: a [`MethodSpec`] with owned storage.
@@ -73,6 +73,21 @@ enum DeclCond {
         literal: String,
         negate: bool,
     },
+    /// `out(r1).out(r2)…`, two relations or more.
+    ReachesPath(Vec<String>),
+    /// `out(r1).out(r2)….has(field, literal)`.
+    ViaPath {
+        path: Vec<String>,
+        field: String,
+        literal: String,
+        negate: bool,
+    },
+}
+
+/// A loaded path as a [`Path`]; its length was checked when it was composed.
+fn path_of(rels: &[String]) -> Path<'_> {
+    let rels: Vec<&str> = rels.iter().map(String::as_str).collect();
+    Path::try_of(&rels).expect("composed paths are 1..=MAX_PATH long")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,6 +129,20 @@ impl MethodDecl {
                     negate,
                 } => Cond::Via {
                     rel,
+                    field,
+                    literal,
+                    negate: *negate,
+                },
+                DeclCond::ReachesPath(path) => Cond::ReachesPath {
+                    path: path_of(path),
+                },
+                DeclCond::ViaPath {
+                    path,
+                    field,
+                    literal,
+                    negate,
+                } => Cond::ViaPath {
+                    path: path_of(path),
                     field,
                     literal,
                     negate: *negate,
@@ -715,6 +744,20 @@ fn traversal(
                 negate,
             } => DeclCond::Via {
                 rel: rel.to_owned(),
+                field: field.to_owned(),
+                literal: literal.to_owned(),
+                negate,
+            },
+            Cond::ReachesPath { path } => {
+                DeclCond::ReachesPath(path.rels().iter().map(|r| (*r).to_owned()).collect())
+            }
+            Cond::ViaPath {
+                path,
+                field,
+                literal,
+                negate,
+            } => DeclCond::ViaPath {
+                path: path.rels().iter().map(|r| (*r).to_owned()).collect(),
                 field: field.to_owned(),
                 literal: literal.to_owned(),
                 negate,

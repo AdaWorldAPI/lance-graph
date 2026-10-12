@@ -340,6 +340,15 @@ pub fn field_ident(concept: u16, seal: SchemaSeal, name: &str) -> String {
     format!("field:{concept:#06x}/{:016x}/{name}", seal.0)
 }
 
+/// `out(a).out(b)…` for a relation path, as written.
+fn outs(path: crate::method::Path<'_>) -> String {
+    path.rels()
+        .iter()
+        .map(|r| format!("out({r})"))
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
 /// The primitive kind of a mask op, by variant.
 #[must_use]
 pub fn op_name(op: &MaskOp) -> String {
@@ -663,6 +672,25 @@ impl SoftwareGraph {
                         let n = self.intern(
                             Kind::Cond,
                             format!("cond:out({rel}).{field}{op}{literal}@r{r}"),
+                        );
+                        self.link(m, Rel::Filters, n, Tier::Declared, m, prov);
+                        continue;
+                    }
+                    Cond::ReachesPath { path } => {
+                        let n = self.intern(Kind::Cond, format!("cond:{}@r{r}", outs(path)));
+                        self.link(m, Rel::Filters, n, Tier::Declared, m, prov);
+                        continue;
+                    }
+                    Cond::ViaPath {
+                        path,
+                        field,
+                        literal,
+                        negate,
+                    } => {
+                        let op = if negate { "!=" } else { "=" };
+                        let n = self.intern(
+                            Kind::Cond,
+                            format!("cond:{}.{field}{op}{literal}@r{r}", outs(path)),
                         );
                         self.link(m, Rel::Filters, n, Tier::Declared, m, prov);
                         continue;

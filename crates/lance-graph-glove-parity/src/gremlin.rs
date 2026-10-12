@@ -37,7 +37,7 @@
 //! | `has(f, eq/neq)` | a condition on the target's field, read through the key |
 //! | `has(f, lt/lte/gt/gte)` | refused (`OrderThroughRelation`): no ordered compare reads through a key |
 //! | `count()` | `COUNT(*)` of anchor rows that reach a live target |
-//! | `out` | refused (`SecondHop`): a key read through a key (#1311 G1) |
+//! | `out` | the next hop of the path; the anchor stays. All the path's conditions fold into one chained gather (D-CMH-G1-7); past `MAX_PATH` relations refused (`PathTooDeep`) |
 //! | `values(f)` | refused (`ValueThroughRelation`): a sum through the key is not in Quack |
 //! | `dedup().count()` | the number of distinct live targets ([`Fold::Distinct`]); the key lane must be stored in key order |
 //! | `dedup()` then `has(f, eq/neq)` | as `has` before `dedup`: a target filter commutes with it |
@@ -56,7 +56,7 @@
 //! stream this layer has no answer type for (`NoTerminal`). Effectful steps
 //! (`addV`, `property`, `drop`, …) have no [`Step`] at all: a traversal cannot
 //! express them, so it cannot carry authority.
-use crate::method::{Cond, Fold, Law, MethodBody, MethodRef, Order};
+use crate::method::{Cond, Fold, Law, MethodBody, MethodRef, Order, Path};
 
 /// A predicate in `has(field, pred)`: equality over a coded field's
 /// literal, or an ordered compare of an `I32` field against a number.
@@ -129,8 +129,8 @@ pub enum GremlinRefusal {
     AnchorMismatch { step: u16, concept: u16 },
     /// `in` / `both`: a fan-out moves the anchor; not carried.
     FanOut(String),
-    /// A hop after `out(rel)`.
-    SecondHop(String),
+    /// An `out(rel)` past [`MAX_PATH`](crate::method::MAX_PATH) relations; the relation is named.
+    PathTooDeep(String),
     /// `values(f)` after `out(rel)` (the relation's label).
     ValueThroughRelation(String),
     /// `dedup()` after `out(rel)` not followed by `count()` (or `has`).
@@ -198,8 +198,8 @@ impl<'a> Composed<'a> {
 
 enum Cursor<'a> {
     Vertex,
-    /// On the target of `out(rel)`; the anchor has not moved.
-    Reached(&'a str),
+    /// On the target of `out(r1)…out(rk)`; the anchor has not moved.
+    Reached(Path<'a>),
     /// On the distinct targets of `out(rel)` (`dedup()` after the hop).
     /// Only `has` (which commutes with `dedup`) and `count()` follow.
     Distinct(&'a str),
@@ -231,31 +231,48 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
             (Step::In(r) | Step::Both(r), _) => return Err(GremlinRefusal::FanOut(r.to_owned())),
             (Step::Out(r), Cursor::Vertex) => {
                 filter.push(Cond::Reaches { rel: r });
-                Cursor::Reached(r)
+                Cursor::Reached(Path::of(&[r]))
             }
-            (Step::Out(r), Cursor::Reached(_)) => {
-                return Err(GremlinRefusal::SecondHop(r.to_owned()))
+            (Step::Out(r), Cursor::Reached(path)) => {
+                let path = path
+                    .then(r)
+                    .ok_or_else(|| GremlinRefusal::PathTooDeep(r.to_owned()))?;
+                filter.push(Cond::ReachesPath { path });
+                Cursor::Reached(path)
             }
-            (Step::Has { field, pred }, Cursor::Reached(rel)) => {
+            (Step::Has { field, pred }, Cursor::Reached(path)) => {
                 let (literal, negate) = match pred {
                     Pred::Eq(l) => (l, false),
                     Pred::Neq(l) => (l, true),
                     Pred::Lt(_) | Pred::Lte(_) | Pred::Gt(_) | Pred::Gte(_) => {
-                        return Err(GremlinRefusal::OrderThroughRelation(rel.to_owned()))
+                        return Err(GremlinRefusal::OrderThroughRelation(path.last().to_owned()))
                     }
                 };
-                filter.push(Cond::Via {
-                    rel,
-                    field,
-                    literal,
-                    negate,
+                filter.push(match path.rels() {
+                    [rel] => Cond::Via {
+                        rel,
+                        field,
+                        literal,
+                        negate,
+                    },
+                    _ => Cond::ViaPath {
+                        path,
+                        field,
+                        literal,
+                        negate,
+                    },
                 });
-                Cursor::Reached(rel)
+                Cursor::Reached(path)
             }
-            (Step::Where(_), Cursor::Reached(rel)) => {
-                return Err(GremlinRefusal::WhereThroughRelation(rel.to_owned()))
+            (Step::Where(_), Cursor::Reached(path)) => {
+                return Err(GremlinRefusal::WhereThroughRelation(path.last().to_owned()))
             }
-            (Step::Dedup, Cursor::Reached(rel)) => Cursor::Distinct(rel),
+            // The distinct targets of a chain are not carried: the distinct
+            // fold counts one relation's key lane.
+            (Step::Dedup, Cursor::Reached(path)) => match path.rels() {
+                [rel] => Cursor::Distinct(rel),
+                _ => return Err(GremlinRefusal::DedupThroughRelation(path.last().to_owned())),
+            },
             (Step::Has { field, pred }, Cursor::Distinct(rel)) => {
                 let (Pred::Eq(literal) | Pred::Neq(literal)) = pred else {
                     return Err(GremlinRefusal::OrderThroughRelation(rel.to_owned()));
@@ -275,11 +292,8 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
             (_, Cursor::Distinct(rel)) => {
                 return Err(GremlinRefusal::DedupThroughRelation(rel.to_owned()))
             }
-            (Step::Values(_), Cursor::Reached(rel)) => {
-                return Err(GremlinRefusal::ValueThroughRelation(rel.to_owned()))
-            }
-            (Step::Min | Step::Max, Cursor::Reached(rel)) => {
-                return Err(GremlinRefusal::ValueThroughRelation(rel.to_owned()))
+            (Step::Values(_) | Step::Min | Step::Max, Cursor::Reached(path)) => {
+                return Err(GremlinRefusal::ValueThroughRelation(path.last().to_owned()))
             }
             (Step::Min, Cursor::Value(f)) => {
                 folds.push(Fold::Min(f));
