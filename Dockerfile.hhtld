@@ -23,6 +23,10 @@
 # Stage 1: Build
 # ═══════════════════════════════════════════════════════════════════
 FROM debian:bookworm-slim AS builder
+# Portable baseline. The repo's .cargo/config.toml defaults to `native`
+# (tuned to the build host); an image must run on any x86_64 since Haswell.
+# A RUSTFLAGS env replaces every cargo-config rustflags entry.
+ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates gcc libc6-dev pkg-config libssl-dev \

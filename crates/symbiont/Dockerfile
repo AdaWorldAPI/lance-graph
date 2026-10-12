@@ -22,6 +22,10 @@ ARG ADA_BRANCH=claude/jirak-math-theorems-harvest-rfii13
 
 # ── builder ──────────────────────────────────────────────────────────────────
 FROM rust:1.98.1-bookworm AS builder
+# Portable baseline. The repo's .cargo/config.toml defaults to `native`
+# (tuned to the build host); an image must run on any x86_64 since Haswell.
+# A RUSTFLAGS env replaces every cargo-config rustflags entry.
+ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
 ARG ADA_BRANCH
 # Make cargo fetch git deps via the system `git` CLI so it uses Railway's
 # ambient credentials for the private AdaWorldAPI forks.

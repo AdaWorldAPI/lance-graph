@@ -16,7 +16,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-C debuginfo=1 -C target-cpu=x86-64-v3"
+  RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
   RUST_BACKTRACE: "1"
   CARGO_INCREMENTAL: "0"
 
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      # Override the workflow-level debuginfo=1 for this job (parity with the
+      # Pin debuginfo=0 here too (the workflow level is also 0 since 2026-10-12) for this job (parity with the
       # `test` + `test-with-coverage` jobs in rust-test.yml, TD-CI-TEST-JOB-DEBUGINFO0
       # / TD-CI-COVERAGE-MOLD-1). This job links the SAME full lance+datafusion
       # test-binary set at the SAME disk/RSS cliff and was the one job still
