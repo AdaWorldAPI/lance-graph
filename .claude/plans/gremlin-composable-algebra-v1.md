@@ -1,5 +1,7 @@
 # gremlin-composable-algebra-v1 — Gremlin steps as typed building blocks of ClassId methods (D-CMH-G1)
 
+> **⊘ WITHDRAWN 2026-10-12.** The code this plan describes was removed from main and kept on `backup/session-011BMJ-2026-10-12`. It built class methods as a second algebra beside the existing folds, lowered per call over value lanes, and modelled hops as foreign-key reads. See `.claude/board/entries/2026-10-12-session-reset-inventory.md`.
+
 > **Status:** MEASURED for the slice in §2 (code: `crates/lance-graph-glove-parity/src/{method,gremlin,decl}.rs`,
 > tests `tests/{compose,gremlin}.rs`). The vocabulary matrix (§4) is ANALYSIS against code and tests,
 > one row per step family. Stacked on #1507 (runtime declarations); independent of #1506.

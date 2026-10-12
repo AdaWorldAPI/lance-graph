@@ -1,5 +1,7 @@
 # D-SAG-1 — Software-awareness graph: the methods, programs and evidence of lance-graph as graph rows
 
+> **⊘ WITHDRAWN 2026-10-12.** The code this plan describes was removed from main and kept on `backup/session-011BMJ-2026-10-12`. It built class methods as a second algebra beside the existing folds, lowered per call over value lanes, and modelled hops as foreign-key reads. See `.claude/board/entries/2026-10-12-session-reset-inventory.md`.
+
 **Status:** MEASURED for one concept's methods (#1504's `BillableWorkEntry` set).
 Code: `crates/lance-graph-glove-parity/src/awareness.rs`, tests
 `tests/awareness.rs` (19), example `examples/awareness_loop.rs`.

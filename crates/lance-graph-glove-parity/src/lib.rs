@@ -11,12 +11,7 @@
 //! glove's own `Binder`, so a `Draft` written in canonical names binds to the
 //! glove's lanes. This is a FIELD MAPPING (bind time, fields → lanes), not a
 //! report `pivot()` (plan §C.6.1).
-pub mod awareness;
 pub mod basis;
-pub mod call;
-pub mod decl;
-pub mod gremlin;
-pub mod method;
 
 use lance_graph_ontology::namespace::SchemaKind;
 use lance_graph_ontology::OntologyRegistry;

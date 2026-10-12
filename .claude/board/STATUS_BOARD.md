@@ -4,13 +4,13 @@ Plan: `.claude/plans/software-awareness-graph-v1.md`. No new opcode, Quack varia
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| D-SAG-1-0 | inventory: Bible work (6-lane fixture, English KJV; no 7-language graph in code), OGAR identities, dir-sim provenance, Quack/mask-risc | In PR | every row cites code or says documented-only |
-| D-SAG-1-1 | typed schema + projection of prepared methods with tiers and provenance | In PR | `tests/awareness.rs` projection test; one identity, one kind |
-| D-SAG-1-2 | queries A–D through Quack; compiler verdicts as edges | In PR | answers == the programs; falsifiers 1–10, each disable-verified |
-| D-SAG-1-3 | H1 candidate + tier-labelled measurement; MDL measure with counterexample | In PR | `examples/awareness_loop.rs`; MDL test |
-| D-SAG-1-4 | multi-hop dependency via relation carrier / factored `EqU32Via` | Queued (needs D-CMH-G1-4) | two-hop answer == closure computed from the programs |
-| D-SAG-1-5 | G1 `CALLS` edges + method-reference refusals | In PR | `method_references_are_calls_edges_and_cycles_are_the_compilers`; callers via Quack; `MethodCycle` recorded, never re-derived |
-| D-SAG-1-6 | persist as a Lance dataset; source revision from git; canonical body digest | Queued | reload equals projection; toolchain change keeps digests |
+| D-SAG-1-0 | inventory: Bible work (6-lane fixture, English KJV; no 7-language graph in code), OGAR identities, dir-sim provenance, Quack/mask-risc | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | every row cites code or says documented-only |
+| D-SAG-1-1 | typed schema + projection of prepared methods with tiers and provenance | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | `tests/awareness.rs` projection test; one identity, one kind |
+| D-SAG-1-2 | queries A–D through Quack; compiler verdicts as edges | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | answers == the programs; falsifiers 1–10, each disable-verified |
+| D-SAG-1-3 | H1 candidate + tier-labelled measurement; MDL measure with counterexample | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | `examples/awareness_loop.rs`; MDL test |
+| D-SAG-1-4 | multi-hop dependency via relation carrier / factored `EqU32Via` | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | two-hop answer == closure computed from the programs |
+| D-SAG-1-5 | G1 `CALLS` edges + method-reference refusals | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | `method_references_are_calls_edges_and_cycles_are_the_compilers`; callers via Quack; `MethodCycle` recorded, never re-derived |
+| D-SAG-1-6 | persist as a Lance dataset; source revision from git; canonical body digest | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | reload equals projection; toolchain change keeps digests |
 
 ## D-CMH-G1 — Gremlin as a composable ClassId algebra (2026-10-12)
 
@@ -18,15 +18,15 @@ Plan: `.claude/plans/gremlin-composable-algebra-v1.md`.
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| D-CMH-G1-0 | vocabulary → algebra matrix, TinkerPop 3.7.7 | Shipped (#1508) | every row cites a test, a refusal or the missing capability |
-| D-CMH-G1-1 | predicate methods + method references | Shipped (#1508) | composed `programs()` == hand conjunction; cycles, contract, cross-class refused |
-| D-CMH-G1-2 | typed Gremlin steps → method body | Shipped (#1508) | == direct Quack program; both frontends == row oracle |
-| D-CMH-G1-3 | Gremlin-shaped runtime declarations | Shipped (#1508) | loads after the build; effects refused at load |
-| D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` | Shipped (#1514; ConflictingUniverse fix follows) | row loop over the text at n ∈ {1,64,65,4097}; 6 disable runs red; R2IL refuses (no `GATHER`) |
-| D-CMH-G1-4b | edge table as the anchor (`E()`, M:N one hop, `outE/inV`) + `Fold::Distinct` (`out(rel).dedup().count()`) | In PR | bag and set == row loop over the text at n ∈ {1,64,65,4097}; unordered key lane refused (`LaneNotOrdered`); 7 disable runs red |
-| D-CMH-G1-4 | rest: a second hop (blocked on the chained-hop decision), `V(parent).in(rel)` spelling, `bothE` | Queued | — |
-| D-CMH-G1-5 | FirstOfRun | Queued | insufficiency proof first; Quack + R2IL vs independent oracle |
-| D-CMH-G1-6 | ordered `I32` conditions + `MIN`/`MAX` folds as method steps; R2IL `MIN`/`MAX` wired | In PR | both frontends == row loop incl. empty selection; 8 disable runs red |
+| D-CMH-G1-0 | vocabulary → algebra matrix, TinkerPop 3.7.7 | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | every row cites a test, a refusal or the missing capability |
+| D-CMH-G1-1 | predicate methods + method references | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | composed `programs()` == hand conjunction; cycles, contract, cross-class refused |
+| D-CMH-G1-2 | typed Gremlin steps → method body | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | == direct Quack program; both frontends == row oracle |
+| D-CMH-G1-3 | Gremlin-shaped runtime declarations | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | loads after the build; effects refused at load |
+| D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | row loop over the text at n ∈ {1,64,65,4097}; 6 disable runs red; R2IL refuses (no `GATHER`) |
+| D-CMH-G1-4b | edge table as the anchor (`E()`, M:N one hop, `outE/inV`) + `Fold::Distinct` (`out(rel).dedup().count()`) | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | bag and set == row loop over the text at n ∈ {1,64,65,4097}; unordered key lane refused (`LaneNotOrdered`); 7 disable runs red |
+| D-CMH-G1-4 | rest: a second hop (blocked on the chained-hop decision), `V(parent).in(rel)` spelling, `bothE` | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | — |
+| D-CMH-G1-5 | FirstOfRun | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | insufficiency proof first; Quack + R2IL vs independent oracle |
+| D-CMH-G1-6 | ordered `I32` conditions + `MIN`/`MAX` folds as method steps; R2IL `MIN`/`MAX` wired | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | both frontends == row loop incl. empty selection; 8 disable runs red |
 
 ## D-NALP — `NAL::narsese()` polyfill over R2IL procedures and mask-risc (2026-10-12)
 
