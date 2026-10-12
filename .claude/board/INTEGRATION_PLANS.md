@@ -1,3 +1,11 @@
+## 2026-10-12 (4) — software-awareness-graph-v1 — the software's own methods, programs and evidence as graph rows → `.claude/plans/software-awareness-graph-v1.md`
+
+**Status:** MEASURED for one concept's methods (D-SAG-1-0..3 and D-SAG-1-5 in the PR); D-SAG-1-4 and D-SAG-1-6 queued.
+
+- A `MethodTable` projects to typed rows (class, method, field, condition, fold, law, program, primitive, lowering, refusal, claim, capability, test). Each row has a tier (declared / derived / compiled / verified / hypothesis) and a provenance.
+- The edge table is a Quack table: dependency questions are Drafts lowered and run on mask-risc. Validation is the compiler's verdicts recorded as edges.
+- H1 (fuse a predicate into `MaskedSumI32`) comes from the rows. Measured gap: 1.6–1.8× against a single-pass scalar reference on two tiers. Missing: `Pred` fusion and a sum `FusedFold`.
+- First blocker: multi-hop questions need a relation carrier, not a mask fed between programs.
 ## 2026-10-12 (3) — gremlin-composable-algebra-v1 — Gremlin steps as typed building blocks of ClassId methods → `.claude/plans/gremlin-composable-algebra-v1.md`
 
 **Status:** MEASURED for one population (D-CMH-G1-0..3 shipped in the PR); D-CMH-G1-4..5 queued.
