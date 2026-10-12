@@ -114,7 +114,7 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | step(s) | family | in → out | multiplicity | order/path witness | effect | G1 status | evidence | missing capability |
 |---|---|---|---|---|---|---|---|---|
 | V(c) | population | -> vertices of c | bag=rows, bulk 1 | — | pure | DIRECT | anchor = concept table (live plane) | — |
-| E() | population | -> edges | bag=edge rows | — | pure | COMPOSE | #1311: edge table as anchor population | relation carrier |
+| E() | population | -> edges | bag=edge rows | — | pure | DIRECT (G1-4b) | `V(edge)`: the edge table is a concept, anchored on the edge or child concept (tests/distinct.rs) | — |
 | hasLabel | selection | V->V | keeps | — | pure | DIRECT | V(c) is the classid population; a second label is another anchor | — |
 | hasId | selection | V->V | keeps | — | pure | COMPOSE | Cmp::Range / row ordinal | id↔row binding in Glove |
 | has(f, eq/neq) | selection | V->V | keeps | — | pure | DIRECT | Cmp::EqU32/NeU32 (tests/gremlin.rs) | — |
@@ -132,20 +132,20 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | not | boolean | pred->pred | keeps | — | pure | COMPOSE | Filter::Not / dir-sim negate(Semijoin) | Cond::Not |
 | filter(lambda) | selection | any | — | — | opaque | OUT | — | lambda |
 | dedup() on anchor | multiplicity | V->V | identity (rows distinct) | — | pure | DIRECT | tests/gremlin.rs dedup().count()==count() | — |
-| dedup() after fan-out | multiplicity | bag->set | bag→set | ordered key | pure | COMPOSE | #1311 `bag_and_set_stay_apart…` (ScatterOrU32 / CountDistinctOrderedU32) | relation carrier |
+| dedup() after fan-out | multiplicity | bag->set | bag→set | ordered key | pure | DIRECT (G1-4b) | `out(rel).dedup().count()` → `Fold::Distinct` → CountDistinctOrderedU32; an unordered key lane is refused (`LaneNotOrdered`) (tests/distinct.rs) | — (a set as a population, not a count: none) |
 | dedup() of values | multiplicity | values->set | bag→set | ordered key | pure | YET | refused (DedupOfValues); CountKeyRunsU32 needs ordered lane | ordered first-occurrence mask (FirstOfRun) |
 | coin/sample/timeLimit | selection | any | random | — | nondet | OUT | — | — |
 | range/limit/skip/tail | ordered | any | prefix of an order | order | pure | YET | Cmp::Range is row-ordinal only | ordered population op |
 | none | selection | any->∅ | — | — | pure | COMPOSE | empty filter | — |
 | all/any (list) | selection | list->list | — | — | pure | OUT | no list type | list values |
 | out(rel) functional | traversal | V->V' | keeps (anchor stays) | — | pure | DIRECT (G1-4a) | `Cond::Reaches` (Semijoin over the target's live plane) + `Cond::Via` (EqU32Via); tests/relation.rs vs a row loop over the text; R2IL refuses by name (no `GATHER`) | R2IL `GATHER` |
-| in(rel) reverse fk | traversal | V->V' | re-anchor on child rows | — | pure | COMPOSE | #1311 `reverse_fanout_reanchors…` | relation carrier |
-| out/in(rel) M:N | traversal | V->V' | re-anchor on edge rows | — | pure | COMPOSE | #1311 `many_to_many_one_hop…` | relation carrier |
+| in(rel) reverse fk | traversal | V->V' | re-anchor on child rows | — | pure | DIRECT (G1-4b) | spelled `V(child).out(rel)`, anchored on the edge or child concept (tests/distinct.rs); the `V(parent).in(rel)` spelling is still refused (`FanOut`) | composer re-anchoring of the `in` spelling |
+| out/in(rel) M:N | traversal | V->V' | re-anchor on edge rows | — | pure | DIRECT (G1-4b) | `V(edge).where(p()).out(end)`: `count()` = bag, `dedup().count()` = set, both ends filtered at the source; anchored on the edge or child concept (tests/distinct.rs) | — |
 | both(rel) | traversal | V->V' | union of two bags | — | pure | YET | no bag union across anchors | typed bag merge |
 | second hop, functional | traversal | V->V'' | keeps | — | pure | YET | #1311 `functional_two_hop_is_refused…` | composed fk read (G1) |
 | second fan-out (fan-in carried) | traversal | V->V'' | bag | — | pure | YET | #1311 `many_to_many_two_hop_is_refused…`; #1312 §D | barrier / fan-in operand (G2) |
-| outE/inE/bothE | traversal | V->E | edge rows | — | pure | COMPOSE | edge table as anchor | relation carrier |
-| outV/inV/otherV/bothV | traversal | E->V | fk read | — | pure | COMPOSE | EqU32Via from edge row | relation carrier |
+| outE/inE/bothE | traversal | V->E | edge rows | — | pure | DIRECT (G1-4b) | `V(edge).where(p())` with `p` over `out(src)`; anchored on the edge or child concept (tests/distinct.rs); `bothE` needs the union below | — |
+| outV/inV/otherV/bothV | traversal | E->V | fk read | — | pure | DIRECT (G1-4b) | `out(src)` / `out(dst)` from `V(edge)`: EqU32Via + liveness Semijoin; anchored on the edge or child concept (tests/distinct.rs) | — |
 | values(f) then fold | projection | V->value | keeps | — | pure | DIRECT | Fold::Sum (tests/gremlin.rs) | — |
 | values(f) as result | projection | V->values | bag of values | — | pure | YET | Agg::Rows / Keep exist; Answer has no row/value type | row answer type |
 | valueMap/elementMap/propertyMap/properties | projection | V->map | keeps | — | pure | YET | Agg::Rows | row answer type |
@@ -191,12 +191,12 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | TextP.startingWith | COMPOSE | PrefixLowering over an ordered dictionary lane |
 | TextP.endingWith/containing/regex and negations | OUT | strings are codes |
 
-Step rows: 67. DIRECT 14 (21%), COMPOSE 18 (27%), YET 19 (28%), EFFECT 4 (6%), OUT 12 (18%) — after G1-6; after G1-4a: DIRECT 12, COMPOSE 20; at #1508: DIRECT 10, COMPOSE 22
+Step rows: 67. DIRECT 20 (30%), COMPOSE 12 (18%), YET 19 (28%), EFFECT 4 (6%), OUT 12 (18%) — after G1-4b; after G1-6: DIRECT 14, COMPOSE 18; after G1-4a: DIRECT 12, COMPOSE 20; at #1508: DIRECT 10, COMPOSE 22
 Predicate rows: 7. DIRECT 2, COMPOSE 3, YET 1, OUT 1 (after G1-6; DIRECT 1, COMPOSE 4 before)
 
 YET rows by missing capability: row answer type ×3; ordered population op ×2; typed bag merge ×2; ordered u32 compare (G5) ×1; three-valued condition + null policy ×1; ordered first-occurrence mask (FirstOfRun) ×1; composed fk read (G1) ×1; barrier / fan-in operand (G2) ×1; binding environment ×1; binding environment + join ×1; field-reading count fold ×1; masked_sum_i32_via ×1; typed branch + merge ×1; bounded fixpoint ×1; provenance-carrying path ×1
 
-COMPOSE rows by what the method layer lacks: relation carrier ×6 (×8 at #1508; G1-4a moved functional `out` and `where` over it to DIRECT); Cond::Or ×3; a two-sided `Pred` ×1 (Cond ordered compare ×2 before G1-6); — ×2; id↔row binding in Glove ×1; value-cursor filter ×1; relation carrier + order witness ×1; Cond::Not ×1; a law over two folds ×1; Fold::GroupCount ×1
+COMPOSE rows by what the method layer lacks: relation carrier ×0 (×6 before G1-4b, ×8 at #1508); Cond::Or ×3; a two-sided `Pred` ×1 (Cond ordered compare ×2 before G1-6); — ×2; id↔row binding in Glove ×1; value-cursor filter ×1; relation carrier + order witness ×1; Cond::Not ×1; a law over two folds ×1; Fold::GroupCount ×1
 
 ## §5 — What the matrix says to build next
 
@@ -304,6 +304,44 @@ Quack `>` as `>=`; R2IL ordered conditions dropped; R2IL identity read as a
 value; Quack `None` read as 0; ordered condition bound on a coded field; R2IL
 `MIN` lowered to `MAX`; `<=`/`>=` without the negation; empty identity as 0.
 
+## §10 — D-CMH-G1-4b: an edge table as the anchor, and distinct targets
+
+An M:N relation is carried as its own concept, with a functional relation to
+each end. Each edge row is one traverser, so the one-hop questions need no
+new carrier:
+
+- `V(edge).where(p()).out(end).count()` is the bag (edge rows);
+- `V(edge).where(p()).out(end).dedup().count()` is the set: `Fold::Distinct
+  { rel }`, the number of distinct LIVE targets reached;
+- conditions on either end are filtered at the source through the key
+  (`EqU32Via` + the liveness `Semijoin`), as in G1-4a. No program produces a
+  mask another program reads.
+
+`Fold::Distinct` lowers to the relation's liveness test (emitted once, even
+when a condition already named the relation) and `COUNT(DISTINCT key)` over
+the key lane: `Terminal::CountKeyRunsU32`, two words of state. It needs the
+key lane stored in key order, the projection a child or edge table is
+stored under; a lane in another order is refused at run time
+(`LaneNotOrdered`), never miscounted. `ScatterCountU32` (a population-sized
+seen-set) is held and not used. A distinct count over the other end needs
+the edges stored in that end's order: a second projection of the concept.
+
+Composer: `dedup()` after `out(rel)` moves to the distinct targets; `has`
+commutes with it; `count()` folds; ending there, or any other step, stays
+`DedupThroughRelation`. `V(parent).in(rel)` is still refused (`FanOut`); the
+same population is spelled `V(child).out(rel)`. R2IL: `FrontendGap { R2il,
+"GATHER" }`. A second hop stays refused: it needs the chained-hop decision
+(`.claude/board/entries/2026-10-03-coresearch-chained-hop.md`).
+
+Evidence: `tests/distinct.rs` (6 tests). FIXTURE: synthetic `method`,
+`field` and `reads` tables, dangling keys and dead rows on each, two
+projections of `reads` (by field, by method); every answer against a row
+loop over the field text at n ∈ {1, 64, 65, 4097}; bag ≠ set on this data.
+Seven disable runs, each red on the test that names it: the fold's liveness
+test dropped, the test emitted twice, the fold lowered as `COUNT(*)`, the
+R2IL refusal dropped, `has` after `dedup` dropped, ending on the distinct
+targets accepted, the key left out of `required`.
+
 ## D-ids
 
 | D-id | scope | status |
@@ -313,6 +351,7 @@ value; Quack `None` read as 0; ordered condition bound on a coded field; R2IL
 | D-CMH-G1-2 | typed Gremlin steps → method body | Shipped (#1508) |
 | D-CMH-G1-3 | Gremlin-shaped runtime declarations | Shipped (#1508) |
 | D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` after it (§8) | Shipped (#1514) |
-| D-CMH-G1-4 | the rest of the carrier: `in`/M:N (anchor moves to child or edge rows), `E()`, `outE/inV`, `dedup` after a fan-out | Queued |
+| D-CMH-G1-4b | edge table as the anchor (`E()`, M:N, `outE/inV`, `in` spelled from the child), `Fold::Distinct` (§10) | In PR |
+| D-CMH-G1-4 | the rest: a second hop (needs the chained-hop decision), the `V(parent).in(rel)` spelling, `bothE` | Queued |
 | D-CMH-G1-5 | FirstOfRun (insufficiency proof first; separate PR #3) | Queued |
 | D-CMH-G1-6 | ordered `I32` conditions, `MIN`/`MAX` folds; R2IL `MIN`/`MAX` wired (§9) | In PR |
