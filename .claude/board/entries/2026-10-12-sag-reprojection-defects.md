@@ -1,4 +1,4 @@
-# 2026-10-12 — D-SAG-1 follow-up: reprojection defects A and B (#1510)
+# 2026-10-12 — D-SAG-1R — SAG reprojection defects A and B, found by #1510
 
 **Status:** In PR. **Found by:** #1510's audit of #1509.
 
