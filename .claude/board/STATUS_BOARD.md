@@ -14,6 +14,7 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-HL-7** | SparseDelta record through the split-tunnel append | Queued | replay composite = in-memory composite; dropping one delta changes only its rows |
 | **D-HL-8** | Validation ladder: when a layer may commit | Queued | some rung beats "commit everything" on oracle agreement, with a no-meta control |
 | **D-HL-9** | Hydration budget split sweep | Queued | agreement not flat in k |
+| **D-HL-10** | NAL inference ISA: `ogar-nal` loco vocabulary + mask-risc dialect (a vocabulary on the existing IR, ledger R18) | Queued (design; after D-HL-4) | per-op parity with the CE64 register method of the same name; agreement with OpenNARS within D-HL-4's tolerance; no second IR |
 
 ## D-NAL — NAL-1..9 × 34 recipes against OpenNARS and ONA (2026-10-11)
 

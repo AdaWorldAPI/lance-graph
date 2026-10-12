@@ -35,6 +35,7 @@ every step is a measurement that can kill the next.
 - [ ] **D-HL-7** SparseDelta probe record, persisted through the split tunnel (U4).
 - [ ] **D-HL-8** Validation ladder: when a layer may commit.
 - [ ] **D-HL-9** Hydration budget split sweep.
+- [ ] **D-HL-10** NAL inference ISA: an `ogar-nal` loco vocabulary plus a mask-risc dialect.
 
 ## Order
 
@@ -156,6 +157,59 @@ behind a version gate (`I-LEGACY-API-FEATURE-GATED`).
 - **Measure:** oracle agreement (D-HL-4) and lanes left for reasoning.
 - **Output:** the curve; the knee is the recommended split.
 - **Kill:** agreement is flat in k ⇒ the budget is not the binding constraint.
+
+### D-HL-10 — NAL inference ISA (M, design first)
+
+**Idea (operator, 2026-10-12):** make NAL's inference rules a small RISC-style
+instruction palette with a compile-time polyfill. The abstraction gives
+reusable patterns, execution costs what masking costs, and serialization
+costs almost nothing, because a loco program is already a 512-byte node of
+call bytes.
+
+**This is a vocabulary on the existing IR, not a new IR.** The shape exists
+three times:
+- `ogar-ro` (relation predicates as a loco `Vocabulary`);
+- `ogar-r2il` (an opcode arity table, pinned to its source enum by a drift
+  test, minting nothing);
+- `lance-graph-r2il::FoldDialect` (calls build mask ops; each fold runs one
+  mask-risc `Program`).
+
+`ogar-loco/src/nars.rs` already carries the 34 recipes as a vocabulary with
+their Datapath / Control / Gate tiers. D-HL-10 adds the layer below them:
+- `ogar-nal`: the NAL rules (deduction, induction, abduction, exemplification,
+  conversion, comparison, analogy, resemblance, revision, choice, …) as an
+  arity table in the loco domain range, selected by its own classid;
+- a NAL dialect in lance-graph that lowers each call to mask-risc.
+
+Ledger item R18 is this vocabulary.
+
+**Naming.** "Thinking atoms" already names the 144 verbs at rung 2
+(`.claude/v3/knowledge/persona-vs-rung-ladder.md`). Call these
+**inference atoms**, the truth-ALU instruction set: verbs say *what* is
+thought; inference atoms say *how truth moves*. A recipe (rung 3) is a
+program over both.
+
+**Relation to the CE64 strict decoder.** `isa.rs` already executes five NAL
+codes per edge (+1 deduction, +2 induction, −1 abduction, +4 revision,
++5 synthesis). `ogar-nal` is the population form of the same rules. A
+parity test pins each `ogar-nal` op, applied to one row, against the CE64
+register method of the same name.
+
+**What is cheap and what is not:**
+- choice and threshold predicates: already mask patterns (D-RPF-0);
+- revision over a population: one fold, `Σw` and `Σw·f`, which needs the
+  LUT-weighted strided group-sum (coresearch G3);
+- deduction, induction, abduction over a population pair statements on a
+  shared middle term. That is a hop (mask-risc `Gather` over a foreign
+  plane), not an element-wise mask. Measure it before calling it cheap.
+
+**Blocked regardless of IR:** NAL-3..6 need compound terms (ledger R10).
+
+**Gate:** D-HL-4's oracle comparison, with Narsese text compiled to an
+`ogar-nal` program as arm B. **Kill:** a NAL op whose dialect lowering
+disagrees with the OpenNARS output beyond the D-HL-4 tolerance is not
+admitted. **Warden:** `isa-anti-lasagne-warden` must find no second IR and
+no lowering into a representation with no second reader.
 
 ## Related fix-now items outside this plan
 

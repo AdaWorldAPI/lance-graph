@@ -254,8 +254,11 @@ with literal Narsese run by an independent engine, to a measured tolerance.
   inside the D-RPF plan).
 - **NAL-3..6 need compound terms.** Terms are atomic u16 ids and a statement
   cannot be a term (NAL ledger R10). Everything above NAL-2 waits on that.
-- **NAL rules as loco ops.** The 256 palette is full; NAL rules go to the
-  `ogar-loco` domain range (ledger R18).
+- **NAL rules as loco ops: the inference ISA (D-HL-10).** The 256 palette is
+  full; NAL rules go to the `ogar-loco` domain range as an `ogar-nal`
+  vocabulary, executed by a mask-risc dialect, the same shape as `ogar-ro` /
+  `ogar-r2il` / `lance-graph-r2il::FoldDialect` (ledger R18). Call them
+  inference atoms: "thinking atoms" already names the 144 verbs at rung 2.
 - **Receipts give NAL-9.** `run_recipes` returns executed steps and
   `wave_dispatch` drops them (ledger R7). With receipts, MCP/SSR/ASC can judge
   their own past, which is NAL-9's "wonder/doubt" substrate.
