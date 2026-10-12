@@ -1,3 +1,22 @@
+## D-NALP — `NAL::narsese()` polyfill over R2IL procedures and mask-risc (2026-10-12)
+
+Plan: `.claude/plans/nal-polyfill-v1.md`. Template: D-SQLP. No opcode, tenant or ABI change is authorized.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-NALP-0** | Plan, board rows | In PR | docs only |
+| **D-NALP-1** | Statement layout + declared ClassView reading; binder's `WideFieldMask`; term width decision | Queued | only the mask's lanes are read; undeclared reading and masked-out field refuse; Small = Wide answers |
+| **D-NALP-2** | Query procedures: select, truth threshold, choice by confidence, support count | Queued | equal to a row-at-a-time oracle; one-pattern threshold disable red; no new opcode |
+| **D-NALP-3** | Revision as `GroupCrossPowerSumsI32` over stored `w`/`f` | Queued | equal to exact integer revision; OpenNARS revision points; duplicate evidence counts once |
+| **D-NALP-4** | Per-row truth law into a lane: `MapPairU8` vs fixed-point multiply-high | Queued | insufficiency proof; per-row parity with `isa::truth`, error in codes; one shape also serves SQL nullable arithmetic |
+| **D-NALP-5** | Deduction / induction / abduction / analogy over populations | Queued (after D-NALP-4) | equals pairwise scalar rule; abduction direction test red for the reversed statement |
+| **D-NALP-6** | `lance-graph-nal`: parser, bound-plan lowering, `NAL::narsese()`, typed refusals | Queued | lowers from the bound plan; no fallback; no `Program` outside procedures |
+| **D-NALP-7** | Oracle parity on NAL-1/2 fixtures vs pinned OpenNARS, `jc::reliability` | Queued | within D-HL-4 tolerance per rule |
+| **D-NALP-8** | `ogar-nal` arity table for earned bytes only (OGAR request) | Queued | one NAL table in the tree; no byte a procedure can express |
+| **D-NALP-9** | `narsese!{}` declared mode via the D-SQLP-4 generator | Blocked (D-SQLP-4) | generated = interpreted; ≤ 1.05× hand-built; no dispatch in hot loop |
+| **D-NALP-10** | Benchmark, D-SQLP-3 protocol | Queued | answers equal before timing; interpreted ≤ 1.05× hand-built |
+| **D-NALP-11** | One spelling: quack / cypher-quack / Java route through the procedures | Queued | byte-identical `Program`s; Java `ApiSurfaceTest` green |
+
 ## D-HL — CE64 hypothesis layers over an immutable address (2026-10-12)
 
 Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/ce64-reasoning-substrate-plateau.md`. No CE64 bit, tenant, opcode or ABI change is authorized.
@@ -14,7 +33,7 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-HL-7** | SparseDelta record through the split-tunnel append | Queued | replay composite = in-memory composite; dropping one delta changes only its rows |
 | **D-HL-8** | Validation ladder: when a layer may commit | Queued | some rung beats "commit everything" on oracle agreement, with a no-meta control |
 | **D-HL-9** | Hydration budget split sweep | Queued | agreement not flat in k |
-| **D-HL-10** | NAL inference ISA: `ogar-nal` loco vocabulary + mask-risc dialect (a vocabulary on the existing IR, ledger R18) | Queued (design; after D-HL-4) | per-op parity with the CE64 register method of the same name; agreement with OpenNARS within D-HL-4's tolerance; no second IR |
+| **D-HL-10** | NAL inference ISA: `ogar-nal` loco vocabulary + mask-risc dialect (a vocabulary on the existing IR, ledger R18); detailed as D-NALP | Queued (design; after D-HL-4) | per-op parity with the CE64 register method of the same name; agreement with OpenNARS within D-HL-4's tolerance; no second IR |
 
 ## D-NAL — NAL-1..9 × 34 recipes against OpenNARS and ONA (2026-10-11)
 

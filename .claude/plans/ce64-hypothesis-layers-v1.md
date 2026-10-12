@@ -160,6 +160,10 @@ behind a version gate (`I-LEGACY-API-FEATURE-GATED`).
 
 ### D-HL-10 — NAL inference ISA (M, design first)
 
+**Integration plan:** `.claude/plans/nal-polyfill-v1.md` (D-NALP-0..11) maps
+this item across `lance-graph-r2il`, quack, mask-risc, `ogar-nal` and
+`lance-graph-nal`. Where the two differ, that plan governs.
+
 **Idea (operator, 2026-10-12):** make NAL's inference rules a small RISC-style
 instruction palette with a compile-time polyfill. The abstraction gives
 reusable patterns, execution costs what masking costs, and serialization

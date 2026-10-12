@@ -1,0 +1,249 @@
+# nal-polyfill-v1 — `NAL::narsese()` as a polyfill over the R2IL / mask-risc path
+
+**Status:** PROPOSAL (D-NALP-0..11). Nothing is authorized beyond D-NALP-0,
+this document. W1 and W2 are cheap and need no new opcode. Every later wave
+is gated on the measurement of the one before it.
+**Date:** 2026-10-12.
+**Repos:** lance-graph (`lance-graph-nal`, `lance-graph-r2il`,
+`lance-graph-mask-risc`, `lance-graph-quack`, contract), OGAR (`ogar-nal`,
+`ogar-loco`), ndarray (any missing lane primitive).
+**Template:** `.claude/plans/sql-polyfill-r2il-v1.md`. That plan already
+settles most of the architecture for SQL. This plan applies the same rules to
+Narsese and adds only what NAL needs and SQL does not.
+**Parents:** D-HL-10 (inference atoms), D-NAL-AUDIT-0 (NAL ledger), D-RPF-0
+(resident CE64 predicates), D-RPF-P5 / D-RPF-CONF-0 (truth surface).
+**Plateau:** `.claude/knowledge/ce64-reasoning-substrate-plateau.md`.
+
+## 1. Overview
+
+```text
+Rust  narsese!{ … }  ─ compile time ─┐
+Rust  NAL::narsese("…") ─ runtime ───┤
+Java  nal("…")  (later, one Panama call)
+                                     ▼
+              lance-graph-nal: parse → bind (ClassView reading + WideFieldMask)
+                                     │  names → lanes, once
+                                     ▼
+              NAL procedures (Rust fns emitting loco calls, like r2il::procs)
+                                     │  R2IL fold calls + the few ogar-nal bytes
+                                     ▼
+              FoldDialect (lance-graph-r2il) ──▶ mask_risc::Program ──▶ ndarray::simd
+```
+
+The ergonomics are `NAL::narsese("<bird --> animal>?")` for ad-hoc text and
+`narsese!{ … }` for declared queries. Underneath, every NAL operation is
+either a procedure over calls that already exist, or one of a very few new
+execution bytes that a measurement has shown to be necessary. The "polyfill"
+is the same arrangement ndarray uses for SIMD and the SQL plan uses for SQL:
+procedure names are the API, R2IL calls implement them, and mask-risc is the
+only engine.
+
+## 2. The five components, side by side
+
+The crate names are as they exist in the tree. The engine crate is
+`lance-graph-mask-risc`, not "risc-mask".
+
+| component | exists? | role | input → output | owns | never does |
+|---|---|---|---|---|---|
+| `lance-graph-mask-risc` | yes | **the engine.** The one bulk executor | `Program` (preds, mask ops, ternlog, gather, one terminal) → `Value` / caller out-buffer | `Pred` (`GtI32`…`MatchU64`, `EqU32Via`, `Range`, `MatchFacetStrided`, `MatchFacet16Strided`), `MaskOp` (`And/Or/Xor/AndNot/Not/Ternlog/Gather`), `Terminal` (`Count`, `MaskedSum/Min/MaxI32`, `MaskedStridedGroupSum`, `BlendI32`, `Keep`, `ScatterOrU32`, `CountKeyRunsU32`, `GroupSumI32`, `GroupReduce`, `GroupPowerSumsI32`, `GroupCrossPowerSumsI32`); `fuse` (ternlog fusion) | parse, bind, name anything, or know what NAL is |
+| `lance-graph-quack` | yes | **the relational front end.** `Query`/`Filter`/`GroupBy` → `Program` | `Filter` tree (`Cmp`, `Plane`, `EqU32Via`, semijoin, `And/Or/Not`) → `Program` via `lower` / `lower_fused` | SQL three-valued `WHERE` (`sql_where`), group-by lowering, the two Boolean modes | execute (mask-risc does), or interpret a loco body |
+| `lance-graph-r2il` | yes (D-SQLP-1) | **the procedure executor.** `FoldDialect` interprets R2IL fold-band calls over borrowed planes | loco calls (`LOAD`, `IntSLess`, `IntAnd`, `KEEP`, `SUM`, `GROUP_SUM`, …) → `Program`s, run at each scalar fold | `Val` (`Scalar` / `Slot` / `Address`; nothing row-sized), `procs` (`select_lt`, `filter_lt`, `sum`, `group_sum`, `margin`), `BoolMode` | parse text, or own an opcode table (that is `ogar-r2il`) |
+| `ogar-nal` | **new (OGAR)** | **the NAL vocabulary.** An arity table, in the style of `ogar-r2il`, for the NAL operations that need a byte | none at runtime; a `Vocabulary` impl in the loco domain range | the few NAL bytes that §4 earns, plus the provisional concept id | execute anything, mint concepts, or hold a byte for an operation that a procedure over existing calls can express |
+| `lance-graph-nal` | **new (lance-graph)** | **the Narsese front end.** Parse, bind, lower into procedures; the `NAL::narsese()` / `narsese!` surface | Narsese text or a declared form → bound statement plan → procedure calls | the parser, the binder (ClassView reading + WideFieldMask), the NAL procedures, refusals | execute (FoldDialect/mask-risc do), fall back to another engine, or build a `Program` directly (that would be a second spelling) |
+
+Existing precedents for the parts that are new:
+- `lance-graph-cypher-quack`: a text front end that lowers from the bound
+  plan, never the raw AST, and refuses unsupported shapes by name.
+- `ogar-ro`: relation predicates as a loco vocabulary.
+- `ogar-loco/src/nars.rs`: the 34 recipes as a vocabulary with
+  Datapath / Control / Gate tiers.
+
+## 3. What exists that NAL needs (VERIFIED-IN-CODE, 2026-10-12)
+
+- **Truth functions, scalar.** `causal_edge::isa::truth`: `deduction`,
+  `induction`, `abduction`, `revision` (`isa.rs:226-261`). Planner
+  `nars::truth::TruthValue`: `deduction`, `induction`, `abduction`,
+  `analogy`, `expectation` (`truth.rs:36-107`). These are the per-row
+  oracles for every population op below.
+- **Field predicates in place.** D-RPF-0: Pearl3, inference nibble and Epi5
+  predicates over `MaterializedEdges` via `Pred::MatchFacet16Strided`. A
+  threshold `raw >= t` is a union of at most n + 1 ternary patterns. This is
+  exactly a NAL truth filter ("c ≥ 0.8") over u8 fields.
+- **Joins without materialising.** `Pred::EqU32Via` (fk resolved through a
+  foreign lane, one facade pass) and `MaskOp::Gather` (semijoin over a
+  resident foreign plane). These are the shared-middle-term pairing that a
+  syllogism needs.
+- **Grouped moments.** `Terminal::GroupCrossPowerSumsI32` folds
+  `n, Σx, Σy, Σx², Σy², Σxy` per group in one pass, exact up to 2³² rows.
+  With `x = w` (evidence weight) and `y = f`, it yields `Σw` and `Σw·f`,
+  which is all of revision (`f = Σw·f / Σw`, `w_total = Σw`). See §4 B.
+- **Value-producing terminal.** `Terminal::BlendI32` writes
+  `out[i] = mask[i] ? then[i] : els[i]` into a caller buffer. It is the only
+  terminal that produces a lane, and the precedent for §4 C.
+- **ClassView / WideFieldMask.** `contract/src/class_view.rs`: `ClassView`
+  (`fields`, `field_count`, `project(class, mask)`), `FieldMask(u64)`,
+  `WideFieldMask` (`Small(u64)` until a class passes 64 fields, then
+  `Wide(Box<[u64]>)`).
+- **Byte permutes in ndarray.** `permute_bytes` / `shuffle_bytes` (64- or
+  16-entry byte lookups per register) and `gather_u16`. These are candidate
+  realizations for a 256-entry `c → w` table; not yet a `ndarray::simd`
+  facade word for that purpose.
+
+## 4. Decisions and the three things NAL needs that SQL did not
+
+### A. NAL operations are procedures first (DECISION, carried from D-SQLP)
+
+Each NAL operation is a procedure: a Rust function emitting R2IL fold calls
+(the inlined form, `lance-graph-r2il::procs`), and a `PROC_DEF` body once
+OGAR's executable `PROC_*` contract exists. A NAL byte in `ogar-nal` is
+minted only for an operation that no procedure can express, with an
+execution-level insufficiency proof (`isa-anti-lasagne-warden`). Expected
+outcome of that rule, to be confirmed in W2–W5:
+
+| NAL operation | lowering | new byte? |
+|---|---|---|
+| belief query `<S --> P>?`, copula / term match | `MatchFacet16Strided` or `EqU32` over the term lanes | no |
+| truth filter `c ≥ t`, `f ≥ t`, Epi5 state | ≤ n+1 ternary patterns (D-RPF-0) | no |
+| choice (highest confidence among candidates) | `GroupReduce` / `MaskedMaxI32` on the c lane per statement key | no |
+| revision over a population | `GroupCrossPowerSumsI32` with `x = w`, `y = f` (§4 B) | no, if w is stored |
+| count / support / evidence census | `Count`, `GroupSumI32` | no |
+| deduction / induction / abduction / analogy producing new truth values | join on the middle term, then a per-row truth law into a new lane (§4 C) | **yes, one, if W4 proves it** |
+| NAL-3 compounds, NAL-5 higher order, NAL-6 variables | blocked on compound terms (ledger R10) | out of scope |
+
+### B. Revision without a new primitive: store the weight, not only the confidence
+
+Coresearch gap G3 asked for a LUT-weighted strided group-sum because the row
+stores `c` and revision needs `w = c/(1−c)`. The hypothesis behind this plan
+(HYPOTHESIS, gated by W3) is to avoid the gap on the write path instead:
+- each delta of a hypothesis layer (D-HL-7) carries its evidence as a
+  fixed-point `i32` weight lane `w` (scale 2¹⁶) and a frequency lane `f`
+  (0..255);
+- then revision per statement is one `GroupCrossPowerSumsI32` with
+  `key = statement`, `x = w`, `y = f`: `Σw` and `Σw·f` come out in `i64`;
+- `c` is computed once, at commit, from `Σw`. That is the "round once" of
+  D-HL-2.
+
+This dissolves G3 for the delta path. G3 remains open for reading
+already-baked rows that store only `c`.
+
+### C. The one execution capability NAL needs: a per-row truth law into a lane
+
+A syllogism produces new truth values: for each paired row, `f = f₁·f₂`,
+`c = f₁·f₂·c₁·c₂` (deduction), with the other rules similar. That is
+value-producing arithmetic, which mask algebra cannot express. It is the same
+gap the SQL plan left OPEN for nullable arithmetic (`x + y > 5`). Two
+candidate shapes, chosen by W4's measurement, not here:
+1. **`MapPairU8` terminal:** in the style of `BlendI32`, writes
+   `out[i] = law(a[i], b[i])` for u8 lanes into a caller buffer. A NAL rule is
+   a composition of two-input u8 laws (`f = mul(f₁, f₂)`,
+   `c = mul(mul(f₁, f₂), mul(c₁, c₂))`), each law a 256×256 u8 table, the
+   same law-table shape as the `Palette256²` pair address. Rounding per stage
+   is measured against the exact rule.
+2. **Fixed-point arithmetic terminal:** `out[i] = (a[i]·b[i]) >> s` in u16/i32
+   lanes. Fewer table bytes, no per-stage table rounding, and it needs an
+   ndarray multiply-high word.
+
+Whichever wins, it is solved once for both NAL and SQL nullable arithmetic,
+never twice. The path is: ndarray primitive with parity on every realization
+row → mask-risc terminal with parity → `FoldDialect` wiring → one `ogar-nal`
+byte → procedure.
+
+### D. Binding goes through the ClassView, never through hard-coded offsets
+
+- A Narsese statement population is a class. Its reading of the bytes
+  (where S, copula, O, F, C, w, Epi5 sit) is declared by that class's
+  `ClassView`, as plateau U1 proposes for CE64 bits 40..63. An undeclared
+  reading is refused.
+- The binder computes one `WideFieldMask` per query: exactly the fields the
+  query reads. Only those lanes are bound and touched. This is where the
+  cheapness comes from. The same mask is the RBAC projection: a field the
+  caller may not read is absent, so the query refuses (fail-closed), never
+  reads it silently.
+- Names bind to lanes once, at bind time (the cypher-quack rule). Nothing
+  after the binder sees a name.
+
+### E. Two execution modes, never confused in claims (DECISION, carried from D-SQLP)
+
+- **Declared** (`narsese!{ … }` or a schema-declared query): procedure
+  bodies are generated into Rust at build time. "Compile-time polyfill" is
+  true only here, and only once D-SQLP-4's generator exists.
+- **Ad hoc** (`NAL::narsese(text)` at runtime): parsed, bound and run
+  through the interpreter and mask-risc. The cost is one opcode dispatch per
+  16,384-row tile.
+
+### F. One spelling (DECISION)
+
+Once `lance-graph-nal` exists, any other front end that filters or revises
+on truth fields (quack, cypher-quack, lance-graph-java) does so through the
+NAL procedures. A `Program` built directly for a NAL operation elsewhere is a
+second spelling.
+
+### OPEN
+
+- **Term addressing width.** A CE64 edge carries 8-bit S/P/O bytes; the
+  planner's arena uses u16 term ids; the address space is `NodeGuid`. Which
+  one a statement row uses decides the join lanes (`EqU32Via` needs u32).
+  Decide in W1. It must not be widened in place inside CE64.
+- **Expectation as a sort key.** `e = c(f − ½) + ½` is not a single-field
+  order. Choice by expectation needs either a stored lane or the §4 C law.
+  Choice by confidence alone needs nothing new. Which rule is the default
+  follows OpenNARS's choice rule, checked in W7.
+- **Narsese parser.** A standalone crate, or reuse of an existing parser
+  (`.claude/knowledge/nal-recipe-audit/oracles.md` lists what the pinned
+  engines accept). Decided in W6.
+- **`PROC_DEF` execution.** The same OPEN item as D-SQLP: until it exists,
+  procedures are inlined call sequences.
+
+## 5. Waves
+
+| Wave | D-id | Repo | Work | Gate (all must pass) |
+|---|---|---|---|---|
+| W0 | D-NALP-0 | lance-graph | This plan, board rows | — |
+| W1 | D-NALP-1 | lance-graph | Statement layout + ClassView reading: a declared `nal-statement-v1` reading (S, copula, O, f, c, w, Epi5, evidential base) over a probe table; the binder computes the query's `WideFieldMask`; decide the term width (OPEN) | a query touches exactly its mask's lanes (counted reads); an undeclared reading refuses; a masked-out field refuses, never reads; promotion past 64 fields keeps the same answer (Small vs Wide) |
+| W2 | D-NALP-2 | lance-graph | Query procedures with no new byte: `select(copula, subject?, object?)`, `truth_at_least(field, t)`, `choice_by_confidence`, `support_count` in `lance-graph-r2il::procs` style | each equals a row-at-a-time oracle over `isa::truth` / accessor reads, on fixtures with empty and full selections; disable: drop the threshold pattern set to one pattern → red; no new opcode |
+| W3 | D-NALP-3 | lance-graph | Revision as `GroupCrossPowerSumsI32` over `w`/`f` deltas (§4 B) | equals the exact integer revision (D-HL-2 arm c) on every statement; agrees with the OpenNARS revision points (`revision_points.nal`); a duplicate-evidence fixture under the D-HL-3 evidential base counts once; disable: drop the `w` scale → red |
+| W4 | D-NALP-4 | ndarray, lance-graph | The per-row truth law (§4 C): measure `MapPairU8` (256² tables) vs fixed-point multiply-high on the four NAL-1 rules; ship the winner as ndarray word → mask-risc terminal → `FoldDialect` wiring | insufficiency proof recorded (no existing terminal expresses it); per-row parity with `isa::truth` on all 2³² `(f₁,c₁,f₂,c₂)` codes or a declared stratified sample, error stated in codes; parity on every SIMD realization row; one shape serves SQL nullable arithmetic too |
+| W5 | D-NALP-5 | lance-graph | Syllogistic population ops: deduction, induction, abduction, analogy = middle-term join (`EqU32Via`/`Gather`) + W4 law | equals the scalar rule applied pair by pair (oracle enumerates pairs); abduction attaches to the right statement (ledger R1's defect must not reappear: a direction test that is red for the reversed statement); measured cost per derived row vs the scalar loop |
+| W6 | D-NALP-6 | lance-graph | `lance-graph-nal` crate: Narsese parser (NAL-1/2 statements, truth, questions), lowering from the bound plan into W2–W5 procedures; `NAL::narsese(text)`; typed `Refusal` for every unsupported shape | lowers from the bound plan, never the AST (`cypher-lowering-warden`); every refusal names its reason; no fallback to another engine; no `Program` built outside the procedures |
+| W7 | D-NALP-7 | lance-graph | Oracle parity: compile the upstream NAL-1/2 fixtures (`nal1.*`, `nal2.*`) and `revision_points.nal`, run, compare with the pinned OpenNARS output; score with `jc::reliability` | every fixture's expected outputs reproduced within the D-HL-4 tolerance; ICC/Spearman reported per rule; feeds D-HL-4 and D-HL-10 |
+| W8 | D-NALP-8 | OGAR | `ogar-nal` vocabulary: arity table holding only the bytes W4/W5 earned, provisional concept id, drift test against `lance-graph-nal`'s procedure list | one arity table in the tree for NAL; no byte for an operation a procedure expresses; mint request for the concept id goes to OGAR (this plan does not mint) |
+| W9 | D-NALP-9 | lance-graph | `narsese!{}` declared mode: build-time generation from procedure bodies (reuses D-SQLP-4's generator; blocked until it exists) | generated answers identical to interpreted; generated ≤ 1.05× hand-built `Program`; no interpreter dispatch in the hot loop's disassembly |
+| W10 | D-NALP-10 | lance-graph | Benchmark, D-SQLP-3 protocol: a revision + one deduction query three ways (direct ndarray, hand-built `Program`, interpreted procedure); N = 65,536 and 1,048,576 | answers identical before timing; release, quiet machine, median of 101, avx512 and avx2 separately; pre-registered: interpreted ≤ 1.05× hand-built |
+| W11 | D-NALP-11 | lance-graph, lance-graph-java | One spelling: quack / cypher-quack truth filters route through the procedures; later a Java `nal()` membrane like `sql()` | byte-identical `Program`s for the shapes those front ends already pin; Java: `ApiSurfaceTest` green, no row-proportional allocation |
+
+**Kill conditions.**
+- W3: the moment fold disagrees with exact revision by more than one code
+  on any statement ⇒ §4 B is wrong; fall back to the G3 primitive.
+- W4: neither shape stays within the D-HL-4 tolerance ⇒ no NAL byte ships;
+  syllogisms stay scalar (planner `nars::tactics`).
+- W10: interpreted > 1.5× hand-built ⇒ stop before W9/W11 and re-plan.
+- A `Program` in W11 that is not byte-identical is a lowering bug, never a
+  re-pin.
+
+## 6. Order and ownership
+
+```text
+W1 → W2 → W3 ┐
+        └──► W4 → W5 → W6 → W7 → W8
+                              └──► W10 → (W9 once D-SQLP-4 exists) → W11
+```
+
+- **lance-graph:** W1–W7, W9–W11.
+- **ndarray:** W4's primitive, if one is needed.
+- **OGAR:** W8, a request; this plan mints nothing.
+- **Shared with D-SQLP:** the `PROC_*` contract, the generator (D-SQLP-4),
+  and §4 C's arithmetic terminal. Each is built once.
+
+## 7. Wardens that apply
+
+- `isa-anti-lasagne-warden` (W4, W8): a byte needs an execution-level
+  insufficiency proof; no second IR.
+- `cypher-lowering-warden` (W6): lower from the bound plan, no silent
+  fallback.
+- `kernel-membrane-warden` (W4): the truth law is T1 epistemic algebra; the
+  procedure that composes it is T2.
+- `bbb-warden` (W11): what crosses into Java is a name, never a lane or an
+  opcode.
+- `fold-carrier-scientist` (W3, W10): carrier and crossover claims are
+  measured.
+- `query-stage-profiler` (W10): timings are per stage and answer-checked.

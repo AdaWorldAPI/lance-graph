@@ -1,3 +1,12 @@
+## 2026-10-12 (2) — nal-polyfill-v1 — `NAL::narsese()` as a polyfill over R2IL procedures and mask-risc → `.claude/plans/nal-polyfill-v1.md`
+
+**Status:** PROPOSAL (D-NALP-0..11). Only D-NALP-0 (this plan); each wave is gated on the one before.
+
+- Applies the D-SQLP rules to Narsese: NAL operations are procedures over existing R2IL fold calls; an `ogar-nal` byte only with an execution-level insufficiency proof.
+- Maps five components side by side: `lance-graph-mask-risc` (engine), `lance-graph-quack` (relational front end), `lance-graph-r2il` (`FoldDialect` + procedures), `ogar-nal` (new vocabulary), `lance-graph-nal` (new Narsese front end).
+- Revision needs no new primitive if deltas store the evidence weight `w`: `GroupCrossPowerSumsI32` gives `Σw` and `Σw·f`. The one expected new capability is a per-row truth law into a lane, shared with SQL nullable arithmetic.
+- Binding goes through a declared ClassView reading; the query's `WideFieldMask` decides which lanes are touched and doubles as the RBAC projection.
+
 ## 2026-10-12 — ce64-hypothesis-layers-v1 — 64 hypothesis layers over an immutable address, validated against literal Narsese → `.claude/plans/ce64-hypothesis-layers-v1.md`
 
 **Status:** PROPOSAL (D-HL-0..9). D-HL-0 (documentation) only; every later item waits on its decision (D-HL-1) or its probe.
