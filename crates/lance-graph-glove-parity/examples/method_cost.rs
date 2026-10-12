@@ -200,6 +200,11 @@ fn main() {
     };
     assert_eq!(run_direct(), want);
 
+    println!(
+        "tier: avx512f={} avx2={} (compiled target features, not the host)",
+        cfg!(target_feature = "avx512f"),
+        cfg!(target_feature = "avx2")
+    );
     println!("rows {n}, reps {reps} (median), answer {want}");
     println!(
         "lowered program: {} mask ops + terminal, {} scratch slots",
