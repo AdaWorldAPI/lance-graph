@@ -28,7 +28,7 @@ every step is a measurement that can kill the next.
 - [x] **D-HL-0** Plateau, plan, research map, board entry (this PR).
 - [ ] **D-HL-1** Decisions O1, O2, O3, O5, O6 (plateau §4). Operator.
 - [ ] **D-HL-2** Merge-on-read vs in-place revision (U2).
-- [ ] **D-HL-3** The layer id as the independence stamp (U6).
+- [ ] **D-HL-3** A per-delta evidential base as the independence test (U6).
 - [ ] **D-HL-4** Narsese parallel calibration harness.
 - [ ] **D-HL-5** Hypothesis lanes: `AlphaTunnel` with a lane budget.
 - [ ] **D-HL-6** Two masks before decode (U5).
@@ -69,15 +69,24 @@ behind a version gate (`I-LEGACY-API-FEATURE-GATED`).
   (b) as far from (c) as (a) ⇒ U2 is cosmetic; record and stop.
 - **Anti-vacuity:** at least one cell where (a) and (c) differ by ≥ 2 codes.
 
-### D-HL-3 — layer id as the independence stamp (S)
+### D-HL-3 — a per-delta evidential base as the independence test (S)
 
 - **Where:** same test file family.
 - **Setup:** D-RPF-P5 E3's duplicate fixture (4 and 8 copies). Each delta
-  carries `(layer, seq)`; fusion across distinct layers is cumulative,
-  repeats within a layer are not counted again.
-- **Kill:** the sd ratio does not return to within 10 % of 1.0 ⇒ U6 is wrong.
-- **Silence twin:** independent observations in distinct layers must still
-  narrow the posterior exactly as today.
+  carries `(layer, seq, evidential base)`, the base being a source bitset
+  (`nars::belief::Stamp` shape). Fusion is cumulative only between disjoint
+  bases; overlapping bases are not counted again. Layer membership plays no
+  part in the decision.
+- **The fixture must separate layer from provenance**, or it encodes the
+  answer: it includes (a) one observation copied into two layers, which must
+  count once, and (b) two independent observations inside one layer, which
+  must count twice; plus the plain cases (duplicates in one layer,
+  independents in distinct layers).
+- **Kill:** the sd ratio does not return to within 10 % of 1.0 on all four
+  cases ⇒ U6 is wrong. A rule keyed on the layer id instead of the base must
+  fail cases (a) and (b); that arm is run as the disable.
+- **Silence twin:** independent observations must still narrow the posterior
+  exactly as today.
 
 ### D-HL-4 — Narsese parallel calibration harness (M)
 
@@ -109,7 +118,13 @@ behind a version gate (`I-LEGACY-API-FEATURE-GATED`).
 ### D-HL-6 — two masks before decode (M)
 
 - **Where:** `lance-graph-benches/examples/` beside `lance_source_probe.rs`.
-- **Arms:** unmasked scan; `RowAddrMask` only; `RowAddrMask ∧ AlphaMask`.
+- **Projection first:** `AlphaMask` bits are `AlphaAllocation` ordinals and
+  `RowAddrMask` holds Lance row addresses (fragment id << 32 | offset). Build
+  an explicit `AlphaAddr` / `NodeGuid` → row-address map for the fixture and
+  project the thinking mask through it before intersecting. A test pins the
+  projection: every projected address resolves to the row whose key equals
+  the alpha address, and a fragment boundary inside the selection is covered.
+- **Arms:** unmasked scan; `RowAddrMask` only; `RowAddrMask ∧ project(AlphaMask)`.
 - **Measure:** rows decoded, bytes read, wall time; answers must be equal
   across arms.
 - **Kill:** the joint mask decodes no fewer rows than the read mask alone on
@@ -148,7 +163,7 @@ From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
 D-HL-*:
 R1 RCR abduction direction; R2 commit the tactic oracle test; R4 retire the
 two non-NARS revision laws (needs coresearch G2); R16 AriGraph evidence stamp
-(U6 is the general form); R17 AriGraph deduction and contradiction semantics.
+(U6's evidential base is the general form); R17 AriGraph deduction and contradiction semantics.
 
 ## Boundaries
 

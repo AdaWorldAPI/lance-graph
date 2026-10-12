@@ -133,7 +133,7 @@ stored bits mean requires a version gate (`I-LEGACY-API-FEATURE-GATED`).
 | O4 | bits 40..42 | "Pearl ladder" | plane-subset lattice; not ordinal | coresearch X13 | none for the code; doc wording must not threshold it |
 | O5 | number of layers | 64 hypothesis layers (a budget) | `AlphaTunnel`: 10 lanes, one per rung | `alpha_tunnel.rs`, `rung_schedule::LEVELS = 10` | Generalize the tunnel from rung lanes to a hypothesis budget, or add a second tunnel kind |
 | O6 | layer storage | dirty-byte delta, persisted, merged on read | overlay row = a full 512-byte `NodeRow`, ephemeral and discardable whole ("ephemer daneben, verwerfbar") | `alpha.rs` module doc | Persist validated layers only (through the split-tunnel append), keep unvalidated layers ephemeral |
-| O7 | F/C encoding | 8 bits: linear, log/Shannon, or Moore DoF | linear u8 (`/255`, round half away from zero) | D-RPF-CONF-0, D-RPF-P5 | Chosen by the calibration (D-HL-6), not by taste |
+| O7 | F/C encoding | 8 bits: linear, log/Shannon, or Moore DoF | linear u8 (`/255`, round half away from zero) | D-RPF-CONF-0, D-RPF-P5 | Chosen by the calibration (D-HL-4), not by taste |
 | O8 | "Activation", "novelty", "belief update" meanings | stored in bits | no home; G8 of the coresearch entry | | Resolved if readings are per-classid ClassView declarations (§5 U1) |
 
 ---
@@ -174,15 +174,28 @@ storage-portability entry.
 
 **U5 — Two masks before any decode.** `RowAddrMask` (Lance read selection) ∧
 the per-layer `AlphaMask` (thinking selection) decide which rows are read at
-all. Both are already word-level bitmaps.
+all. They live in different coordinates and cannot be ANDed directly:
+`AlphaMask` bits are ordinals into an `AlphaAllocation`'s base slice
+(`AlphaAllocation::ordinal`), while `RowAddrMask` holds Lance row addresses
+(fragment id in the high 32 bits, offset in the low 32;
+`lance_source_probe.rs::sorted_prefix_mask`). The thinking mask must first be
+projected through an explicit `AlphaAddr` / `NodeGuid` → Lance row-address map;
+that projection is part of the design, not a detail.
 
-**U6 — The layer id is the independence stamp.** D-RPF-P5 E3 (duplicates
-inflate confidence) and the AriGraph no-stamp gap (R16) are the same defect:
-revision cannot tell independent from repeated evidence. A delta carries its
-layer and its saccade sequence (`AlphaStamp { cycle, seq, rung, visits }`
-already exists). Cumulative fusion applies across independent layers;
-repeated evidence within one layer is averaged or ignored. This answers
-coresearch G5 ("where the stamp lives") without a CE64 field.
+**U6 — Each delta carries its evidential base; the layer is not the stamp.**
+D-RPF-P5 E3 (duplicates inflate confidence) and the AriGraph no-stamp gap
+(R16) are the same defect: revision cannot tell independent from repeated
+evidence. A layer is a hypothesis container, not an evidence source: one
+observation copied into two hypothesis layers is still one observation, and
+two independent observations can sit in one layer. So the independence test
+must read an evidence-source identity carried by each delta, beside its layer
+and its saccade sequence (`AlphaStamp { cycle, seq, rung, visits }` records
+attention, not provenance). Homes that already exist: the planner's
+`nars::belief::Stamp(u64)` observation-source bitset (disjoint → revise,
+overlap → choice) and the contract's `revision::EvidenceMask` used by
+`fusion::fuse`. Cumulative fusion applies only to disjoint evidential bases,
+whatever layers they sit in. This answers coresearch G5 ("where the stamp
+lives") outside the CE64 word, in the delta record.
 
 **U7 — Meta-awareness is mask arithmetic over layers.** Per node, the set of
 layers that wrote is a 64-bit word. "How many hypotheses touch this",
@@ -223,8 +236,8 @@ with literal Narsese run by an independent engine, to a measured tolerance.
 5. **Kill conditions** (pre-registered; full list in the plan):
    merge-on-read does not beat in-place revision on long chains ⇒ U2 is
    cosmetic; log encoding does not beat linear ICC by a declared margin ⇒
-   stay linear; layer stamping does not remove D-RPF-P5 E3's inflation ⇒ U6
-   is wrong.
+   stay linear; a per-delta evidential base does not remove D-RPF-P5 E3's
+   inflation across layers ⇒ U6 is wrong.
 6. **Falsifiability.** Every guard written for this gets a can-fire and a
    can-stay-silent test on non-trivial input (lance-graph `CLAUDE.md`
    § falsifiability rule).

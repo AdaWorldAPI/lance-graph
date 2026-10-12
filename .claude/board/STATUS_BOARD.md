@@ -7,10 +7,10 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-HL-0** | Plateau, plan, research map, board entry | In PR | docs only; every claim cites a file or entry |
 | **D-HL-1** | Decisions O1 (46..49), O2 (50..52), O3 (W), O5 (lane budget), O6 (what persists) | Queued (operator) | stored-meaning changes ship behind a version gate |
 | **D-HL-2** | Merge-on-read vs in-place revision | Queued | merge-on-read within 1 code of exact on every cell where in-place is not; ≥ 1 cell differs by ≥ 2 codes |
-| **D-HL-3** | Layer id as the independence stamp | Queued | duplicate sd ratio back within 10 % of 1.0; independent layers still narrow as today |
+| **D-HL-3** | Per-delta evidential base as the independence test (layer ≠ source) | Queued | sd ratio within 10 % of 1.0 on all four cases, incl. a cross-layer duplicate (counts once) and two independents in one layer (count twice); a layer-keyed rule must fail those two |
 | **D-HL-4** | Narsese parallel calibration (OpenNARS vs CE64 deltas, `jc::reliability`) | Queued (after D-HL-2) | an encoding that does not beat linear ICC by the pre-declared margin is dropped |
 | **D-HL-5** | Hypothesis lanes: tunnel with a lane budget ≤ 64 | Queued (probe) | reserve cost flat in lane count; sequential = parallel byte for byte |
-| **D-HL-6** | Read mask ∧ thinking mask before decode | Queued | equal answers; fewer rows decoded than the read mask alone |
+| **D-HL-6** | Read mask ∧ thinking mask before decode, via an explicit alpha-ordinal → Lance row-address projection | Queued | projection pinned (keys match, fragment boundary covered); equal answers; fewer rows decoded than the read mask alone |
 | **D-HL-7** | SparseDelta record through the split-tunnel append | Queued | replay composite = in-memory composite; dropping one delta changes only its rows |
 | **D-HL-8** | Validation ladder: when a layer may commit | Queued | some rung beats "commit everything" on oracle agreement, with a no-meta control |
 | **D-HL-9** | Hydration budget split sweep | Queued | agreement not flat in k |

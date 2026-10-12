@@ -29,7 +29,7 @@ Every "read" row points at a distillation already in this folder; every
   `2009_wang_two_numbers_preserve_direction_and_stability_of_evidence.md`;
   `1303.1517_revision_is_not_bayesian_conditioning.md`.
 - **Measured here since:** D-RPF-P5 E3 (duplicates inflate certainty 2–3.5×).
-- **Test:** D-HL-3 (the layer id as the stamp).
+- **Test:** D-HL-3 (a per-delta evidential base; the layer is not the stamp).
 - **Unsearched:** NARS evidential-base overlap in OpenNARS/ONA source
   (how stamps are compared and truncated); provenance semirings for
   derivation lineage.
