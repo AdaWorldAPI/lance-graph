@@ -654,3 +654,66 @@ fn out_composes_and_keeps_the_anchor() {
     let get = |k: u8| table.get(MethodKey([k; 16])).unwrap().as_ref().unwrap();
     assert_eq!(get(1).programs(), get(2).programs());
 }
+
+/// FAILS IF: two relations to one target concept from different populations
+/// prepare. A call names one population per concept, so the method could not
+/// say which one the second relation's planes come from.
+#[test]
+fn two_populations_of_one_target_concept_are_refused() {
+    let fx = Fx::new();
+    let glove = |universe| Glove {
+        concept: PARTNER,
+        basis: &fx.partner_basis,
+        claims: &fx.partner_claims,
+        binder: &Erp,
+        table: "partner",
+        reading: READING,
+        universe,
+        relations: &[],
+    };
+    let (now, then) = (glove(PARTNER_U), glove(Universe(9)));
+    let lanes: &[(&str, u16)] = &[("country", 0)];
+    let rel = |name, target, plane| Relation {
+        name,
+        fk: "partner",
+        target,
+        plane,
+        lanes,
+    };
+    let prepare = |second| {
+        let rels = [rel("billed_to", &now, 0), rel("shipped_to", second, 1)];
+        let line = Glove {
+            concept: LINE,
+            basis: &fx.line_basis,
+            claims: &fx.line_claims,
+            binder: &Erp,
+            table: "line",
+            reading: READING,
+            universe: LINE_U,
+            relations: &rels,
+        };
+        let specs = [(
+            "m",
+            fx.spec(
+                1,
+                query(
+                    &[
+                        Cond::Reaches { rel: "billed_to" },
+                        Cond::Reaches { rel: "shipped_to" },
+                    ],
+                    &[Fold::Count],
+                ),
+            ),
+        )];
+        MethodTable::prepare(&line, &specs)
+            .get(MethodKey([1; 16]))
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(
+        prepare(&then).unwrap_err(),
+        PrepareError::ConflictingUniverse(PARTNER)
+    );
+    // Silence twin: the same population through both relations prepares.
+    assert!(prepare(&now).is_ok());
+}
