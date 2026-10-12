@@ -16,7 +16,6 @@ use lance_graph_mask_risc::{LaneRef, Planes};
 use lance_graph_ogar::ogar_vocab::class_ids::BILLABLE_WORK_ENTRY;
 use lance_graph_quack::bind::{table, Binder, BoundField, TableId};
 use lance_graph_quack::{lower, Col, Mask};
-use lance_graph_r2il::FoldError;
 use lance_graph_sap::bind::{billable_code, CatsBatch, ACTIVITY, BILLABLE, BILLING, HOURS};
 use lance_graph_sap::binder::{live_words, CatsBinder, TABLE};
 use lance_graph_sap::schema::{CatsSchema, FIELD_COUNT};
@@ -471,6 +470,10 @@ fn a_swapped_lane_breaks_parity() {
 /// rows with an undocumented indicator carry neither code and fall outside
 /// the two groups.
 ///
+/// Under the frozen executor (e984885) R2IL refused it: its folds took a mask
+/// only from a computed slot, and a body with no condition hands them the
+/// live plane. The next commit let every R2IL fold read a resident plane.
+///
 /// FAILS IF: the grouped answer stops matching a row loop per group, on
 /// either frontend.
 #[test]
@@ -489,21 +492,13 @@ fn a_method_declared_after_the_freeze_runs_on_both_frontends() {
                 want[code as usize] += i64::from(h);
             }
         }
-        assert_eq!(
-            call(&t, &batch, key, Frontend::Quack).unwrap(),
-            Answer::Values(vec![FoldValue::Groups(want.clone())]),
-            "n={n}"
-        );
-        // FROZEN-EXECUTOR RESULT: R2IL's GROUP_SUM takes its mask only from
-        // a computed slot, and a body with no condition hands it the
-        // resident live plane. A typed refusal, not a wrong answer.
-        assert!(
-            matches!(
-                call(&t, &batch, key, Frontend::R2il),
-                Err(CallError::Fold(FoldError::WrongOperandKind(_)))
-            ),
-            "n={n}"
-        );
+        for f in [Frontend::Quack, Frontend::R2il] {
+            assert_eq!(
+                call(&t, &batch, key, f).unwrap(),
+                Answer::Values(vec![FoldValue::Groups(want.clone())]),
+                "{f:?} n={n}"
+            );
+        }
     }
     // Non-vacuity: both groups are populated, and the undocumented
     // indicator is present, so a drop of it is observable.

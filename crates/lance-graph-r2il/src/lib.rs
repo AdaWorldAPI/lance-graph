@@ -438,6 +438,22 @@ impl<'p> FoldDialect<'p> {
     /// The operand a consumer reads for `slot`. A real slot is itself; a
     /// virtual one is lowered through mask-risc `fuse` the first time it is
     /// consumed, its ternlogs appended to this fold's ops.
+    /// Resolve a fold's mask: a computed slot of the current epoch, or a
+    /// resident plane read where it stands. Shape is judged by
+    /// [`fold_mask`] first, so a wrong-kind operand is reported as such
+    /// before the epoch is.
+    fn resolve_mask(&mut self, m: FoldMask) -> Result<Operand, FoldError> {
+        match m {
+            FoldMask::Slot { slot, epoch } => {
+                if epoch != self.epoch {
+                    return Err(FoldError::StaleSlot);
+                }
+                self.operand_of(slot)
+            }
+            FoldMask::Plane(p) => Ok(Operand::Plane(p)),
+        }
+    }
+
     fn operand_of(&mut self, slot: u16) -> Result<Operand, FoldError> {
         if slot < VIRTUAL {
             return Ok(Operand::Scratch(slot));
@@ -867,17 +883,9 @@ impl Dialect for FoldDialect<'_> {
                 }
             }
             POP_COUNT => {
-                let mask = match stack.pop().ok_or(FoldError::Underflow(f))? {
-                    Val::Slot { slot: s, epoch } => {
-                        if epoch != self.epoch {
-                            return Err(FoldError::StaleSlot);
-                        }
-                        self.operand_of(s)?
-                    }
-                    // A resident plane is counted where it stands.
-                    Val::Address(Addr::Plane(p)) => Operand::Plane(p),
-                    _ => return Err(FoldError::WrongOperandKind(f)),
-                };
+                let m = fold_mask(stack.pop().ok_or(FoldError::Underflow(f))?)
+                    .ok_or(FoldError::WrongOperandKind(f))?;
+                let mask = self.resolve_mask(m)?;
                 let n = self.finalize_and_run_scalar(Terminal::Count { mask })?;
                 stack.push(Val::Scalar(n));
                 Ok(())
@@ -885,33 +893,19 @@ impl Dialect for FoldDialect<'_> {
             SUM => {
                 let b = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
-                let (mask, lane) = match (a, b) {
-                    (
-                        Val::Slot { slot: s, epoch },
-                        Val::Address(Addr::Lane {
-                            idx,
-                            kind: LaneKind::I32,
-                        }),
-                    ) => {
-                        if epoch != self.epoch {
-                            return Err(FoldError::StaleSlot);
-                        }
-                        (self.operand_of(s)?, idx)
-                    }
-                    (
-                        Val::Address(Addr::Lane {
-                            idx,
-                            kind: LaneKind::I32,
-                        }),
-                        Val::Slot { slot: s, epoch },
-                    ) => {
-                        if epoch != self.epoch {
-                            return Err(FoldError::StaleSlot);
-                        }
-                        (self.operand_of(s)?, idx)
-                    }
+                let i32_lane = |v: Val| match v {
+                    Val::Address(Addr::Lane {
+                        idx,
+                        kind: LaneKind::I32,
+                    }) => Some(idx),
+                    _ => None,
+                };
+                // Either order: mask then lane, or lane then mask.
+                let (m, lane) = match (fold_mask(a), i32_lane(b), i32_lane(a), fold_mask(b)) {
+                    (Some(m), Some(lane), _, _) | (_, _, Some(lane), Some(m)) => (m, lane),
                     _ => return Err(FoldError::WrongOperandKind(f)),
                 };
+                let mask = self.resolve_mask(m)?;
                 let n = self.finalize_and_run_scalar(Terminal::MaskedSumI32 { mask, lane })?;
                 stack.push(Val::Scalar(n));
                 Ok(())
@@ -924,9 +918,7 @@ impl Dialect for FoldDialect<'_> {
                 let val = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let key = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let mask = stack.pop().ok_or(FoldError::Underflow(f))?;
-                let Val::Slot { slot: s, epoch } = mask else {
-                    return Err(FoldError::WrongOperandKind(f));
-                };
+                let m = fold_mask(mask).ok_or(FoldError::WrongOperandKind(f))?;
                 let Val::Address(Addr::Lane {
                     idx: val,
                     kind: LaneKind::I32,
@@ -946,10 +938,7 @@ impl Dialect for FoldDialect<'_> {
                 };
                 // Then the epoch, BEFORE a fused expression is lowered and
                 // before the fold, like SUM's arm.
-                if epoch != self.epoch {
-                    return Err(FoldError::StaleSlot);
-                }
-                let mask = self.operand_of(s)?;
+                let mask = self.resolve_mask(m)?;
                 let terminal = match via {
                     (key, None) => Terminal::GroupSumI32 { mask, key, val },
                     (key, Some(fk)) => Terminal::GroupSumViaI32 { mask, fk, key, val },
@@ -1007,14 +996,9 @@ impl Dialect for FoldDialect<'_> {
             // Arity 1, pushes nothing: the mask itself is the demanded result,
             // written into the caller's `keep_sink` by `Terminal::Keep`.
             KEEP => {
-                let mask = stack.pop().ok_or(FoldError::Underflow(f))?;
-                let Val::Slot { slot, epoch } = mask else {
-                    return Err(FoldError::WrongOperandKind(f));
-                };
-                if epoch != self.epoch {
-                    return Err(FoldError::StaleSlot);
-                }
-                let mask = self.operand_of(slot)?;
+                let m = fold_mask(stack.pop().ok_or(FoldError::Underflow(f))?)
+                    .ok_or(FoldError::WrongOperandKind(f))?;
+                let mask = self.resolve_mask(m)?;
                 match self.finalize_and_run(Terminal::Keep { mask }, OutKind::Keep)? {
                     Value::Mask(_) => Ok(()),
                     other => panic!("KEEP terminal shape guarantees Mask, got {other:?}"),
@@ -1022,5 +1006,20 @@ impl Dialect for FoldDialect<'_> {
             }
             other => Err(FoldError::Unimplemented(other)),
         }
+    }
+}
+
+/// A fold's mask operand, by shape only: a computed slot or a resident plane.
+#[derive(Clone, Copy)]
+enum FoldMask {
+    Slot { slot: u16, epoch: u32 },
+    Plane(u16),
+}
+
+fn fold_mask(v: Val) -> Option<FoldMask> {
+    match v {
+        Val::Slot { slot, epoch } => Some(FoldMask::Slot { slot, epoch }),
+        Val::Address(Addr::Plane(p)) => Some(FoldMask::Plane(p)),
+        _ => None,
     }
 }
