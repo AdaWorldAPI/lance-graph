@@ -16,7 +16,7 @@ use ogar_loco::{Dialect, FnIndex};
 use ogar_r2il::{GROUP_SUM, KEEP, SUM};
 
 use crate::{
-    FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_SUB, INT_S_LESS, LOAD, POP_COUNT,
+    FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_NOT, INT_SUB, INT_S_LESS, LOAD, POP_COUNT,
 };
 
 /// A selection that a procedure re-emits once per fold (see [`margin`]).
@@ -77,22 +77,35 @@ pub fn filter_lt(
     call(d, KEEP, [0; 3], stack)
 }
 
-/// How many rows of the resident plane `live` hold `v` in the `U32` lane
-/// `lane`. Pushes the count.
+/// The rows of the resident plane `live` that pass every condition: each
+/// `(lane, v, negate)` is `U32 lane = v`, or `!=` when `negate`. Pushes the
+/// mask.
 ///
-/// Calls: `LOAD` (plane), `LOAD`, `IntEqual`, `IntAnd`, `PopCount`.
-pub fn count_eq(
+/// Calls: `LOAD` (plane), then per condition `LOAD`, `IntEqual`, [`IntNot`,]
+/// `IntAnd`.
+pub fn select_u32(
     d: &mut FoldDialect<'_>,
     stack: &mut Vec<Val>,
     live: u16,
-    lane: u16,
-    v: u32,
+    conds: &[(u16, u32, bool)],
 ) -> Result<(), FoldError> {
     load(d, stack, SPACE_PLANE, live)?;
-    load(d, stack, SPACE_U32, lane)?;
-    stack.push(Val::Scalar(i64::from(v)));
-    call(d, INT_EQUAL, [0; 3], stack)?;
-    call(d, INT_AND, [0; 3], stack)?;
+    for &(lane, v, negate) in conds {
+        load(d, stack, SPACE_U32, lane)?;
+        stack.push(Val::Scalar(i64::from(v)));
+        call(d, INT_EQUAL, [0; 3], stack)?;
+        if negate {
+            call(d, INT_NOT, [0; 3], stack)?;
+        }
+        call(d, INT_AND, [0; 3], stack)?;
+    }
+    Ok(())
+}
+
+/// How many rows the mask on top of the stack holds. Pushes the count.
+///
+/// Calls: `PopCount`.
+pub fn count(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
     call(d, POP_COUNT, [0; 3], stack)
 }
 

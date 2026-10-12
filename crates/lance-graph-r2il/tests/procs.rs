@@ -5,7 +5,7 @@
 //! selection, a partial one and a full one.
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, MaskOp, Planes};
-use lance_graph_r2il::procs::{count_eq, filter_lt, group_sum, margin, select_lt, sum};
+use lance_graph_r2il::procs::{count, filter_lt, group_sum, margin, select_lt, select_u32, sum};
 use lance_graph_r2il::{
     BoolMode, FoldDialect, FoldError, Val, INT_AND, INT_NOT, INT_OR, POP_COUNT,
 };
@@ -81,11 +81,11 @@ fn filter_lt_keeps_the_rows_the_reference_keeps() {
     }
 }
 
-/// FAILS IF: `count_eq` stops counting exactly the live rows whose `U32`
-/// lane holds the value. The live plane drops every seventh row, so a count
-/// that ignores the plane is too high.
+/// FAILS IF: `select_u32` stops keeping exactly the live rows that pass every
+/// condition. The live plane drops every seventh row, so a selection that
+/// ignores the plane counts too many; `!=` and `=` are both exercised.
 #[test]
-fn count_eq_counts_live_rows_holding_the_value() {
+fn select_u32_counts_live_rows_passing_every_condition() {
     let f = fixture();
     let lanes = lanes(&f);
     let mut live = vec![0u64; words_for(N)];
@@ -97,15 +97,25 @@ fn count_eq_counts_live_rows_holding_the_value() {
         masks: &[live.as_slice()],
         lanes: &lanes,
     };
-    for v in [0u32, 3, 9] {
-        let want = (0..N).filter(|&r| r % 7 != 0 && f.key[r] == v).count() as i64;
+    type Case = (&'static [(u16, u32, bool)], fn(usize) -> bool);
+    let cases: [Case; 4] = [
+        (&[], |_| true),
+        (&[(KEY, 3, false)], |k| k == 3),
+        (&[(KEY, 3, true)], |k| k != 3),
+        (&[(KEY, 3, true), (KEY, 1, true)], |k| k != 3 && k != 1),
+    ];
+    for (conds, keep) in cases {
+        let want = (0..N)
+            .filter(|&r| r % 7 != 0 && keep(f.key[r] as usize))
+            .count() as i64;
         let mut d = FoldDialect::new(&planes, &Foreign::NONE);
         let mut stack = vec![];
-        count_eq(&mut d, &mut stack, 0, KEY, v).expect("count_eq");
-        assert_eq!(stack, vec![Val::Scalar(want)], "v = {v}");
+        select_u32(&mut d, &mut stack, 0, conds).expect("select");
+        count(&mut d, &mut stack).expect("count");
+        assert_eq!(stack, vec![Val::Scalar(want)], "{conds:?}");
         assert_eq!(d.programs_run(), 1, "one fold");
     }
-    // Non-vacuity: the plane removes rows that hold the value.
+    // Non-vacuity: the plane removes rows that pass the conditions.
     assert!((0..N).any(|r| r % 7 == 0 && f.key[r] == 3));
 }
 

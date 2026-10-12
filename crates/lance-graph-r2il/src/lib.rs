@@ -64,8 +64,8 @@
 //!
 //! # Procedures
 //!
-//! [`procs`] holds named call sequences (`filter_lt`, `count_eq`, `sum`,
-//! `group_sum`, `margin`). They are Rust functions over [`Dialect::call`], not opcodes.
+//! [`procs`] holds named call sequences (`filter_lt`, `select_u32`, `count`,
+//! `sum`, `group_sum`, `margin`). They are Rust functions over [`Dialect::call`], not opcodes.
 //!
 //! # Slot limit
 //!
@@ -867,14 +867,17 @@ impl Dialect for FoldDialect<'_> {
                 }
             }
             POP_COUNT => {
-                let mask = stack.pop().ok_or(FoldError::Underflow(f))?;
-                let Val::Slot { slot: s, epoch } = mask else {
-                    return Err(FoldError::WrongOperandKind(f));
+                let mask = match stack.pop().ok_or(FoldError::Underflow(f))? {
+                    Val::Slot { slot: s, epoch } => {
+                        if epoch != self.epoch {
+                            return Err(FoldError::StaleSlot);
+                        }
+                        self.operand_of(s)?
+                    }
+                    // A resident plane is counted where it stands.
+                    Val::Address(Addr::Plane(p)) => Operand::Plane(p),
+                    _ => return Err(FoldError::WrongOperandKind(f)),
                 };
-                if epoch != self.epoch {
-                    return Err(FoldError::StaleSlot);
-                }
-                let mask = self.operand_of(s)?;
                 let n = self.finalize_and_run_scalar(Terminal::Count { mask })?;
                 stack.push(Val::Scalar(n));
                 Ok(())
