@@ -34,9 +34,13 @@
 //!
 //! # Implemented, and refused by name
 //!
-//! Fold band: `VIA`, `SUM`, `GROUP_SUM`, `RANGE` and `KEEP` are wired.
-//! `MIN`, `MAX`, `KEY_RUNS`, `ANY`, `ALL`, `SCATTER_OR` and `BLEND` are
+//! Fold band: `VIA`, `SUM`, `MIN`, `MAX`, `GROUP_SUM`, `RANGE` and `KEEP`
+//! are wired. `KEY_RUNS`, `ANY`, `ALL`, `SCATTER_OR` and `BLEND` are
 //! refused as [`FoldError::Unimplemented`].
+//!
+//! `MIN`/`MAX` of an empty selection push the fold's identity, `i64::MAX` /
+//! `i64::MIN`: the same seed mask-risc's grouped `MIN`/`MAX` leave in an
+//! empty group. No `I32` value equals it, so a caller reads it as SQL NULL.
 //!
 //! R2IL band: `Load` (spaces 0 = U32, 1 = I32, 2 = U64, 3 = resident mask
 //! plane), `IntSub` (scalar/scalar), `IntAnd` (with survivor gating),
@@ -101,7 +105,7 @@ use lance_graph_mask_risc::{
     MaskOp, Operand, Out, Planes, Pred, Program, Scratch, Terminal, Value,
 };
 use ogar_loco::{Dialect, FnIndex};
-use ogar_r2il::{GROUP_SUM, KEEP, R2IL_BASE, RANGE, SUM, VIA};
+use ogar_r2il::{GROUP_SUM, KEEP, MAX, MIN, R2IL_BASE, RANGE, SUM, VIA};
 
 // ── R2IL-band opcodes this dialect wires, by their VERIFIED ordinals ───────
 //
@@ -907,6 +911,34 @@ impl Dialect for FoldDialect<'_> {
                 };
                 let mask = self.resolve_mask(m)?;
                 let n = self.finalize_and_run_scalar(Terminal::MaskedSumI32 { mask, lane })?;
+                stack.push(Val::Scalar(n));
+                Ok(())
+            }
+            MIN | MAX => {
+                let b = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let a = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let i32_lane = |v: Val| match v {
+                    Val::Address(Addr::Lane {
+                        idx,
+                        kind: LaneKind::I32,
+                    }) => Some(idx),
+                    _ => None,
+                };
+                // Either order, as `SUM`.
+                let (m, lane) = match (fold_mask(a), i32_lane(b), i32_lane(a), fold_mask(b)) {
+                    (Some(m), Some(lane), _, _) | (_, _, Some(lane), Some(m)) => (m, lane),
+                    _ => return Err(FoldError::WrongOperandKind(f)),
+                };
+                let mask = self.resolve_mask(m)?;
+                let (terminal, empty) = if f == MIN {
+                    (Terminal::MaskedMinI32 { mask, lane }, i64::MAX)
+                } else {
+                    (Terminal::MaskedMaxI32 { mask, lane }, i64::MIN)
+                };
+                let n = match self.finalize_and_run(terminal, OutKind::None)? {
+                    Value::OptI32(v) => v.map_or(empty, i64::from),
+                    other => panic!("terminal shape guarantees OptI32, got {other:?}"),
+                };
                 stack.push(Val::Scalar(n));
                 Ok(())
             }

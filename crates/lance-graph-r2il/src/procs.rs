@@ -13,7 +13,7 @@
 //! [`Planes::lanes`](lance_graph_mask_risc::Planes::lanes).
 
 use ogar_loco::{Dialect, FnIndex};
-use ogar_r2il::{GROUP_SUM, KEEP, SUM};
+use ogar_r2il::{GROUP_SUM, KEEP, MAX, MIN, SUM};
 
 use crate::{
     FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_NOT, INT_SUB, INT_S_LESS, LOAD, POP_COUNT,
@@ -115,6 +115,70 @@ pub fn count(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldEr
 pub fn sum(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>, val_lane: u16) -> Result<(), FoldError> {
     load(d, stack, SPACE_I32, val_lane)?;
     call(d, SUM, [0; 3], stack)
+}
+
+/// `MIN(val_lane | mask)` for the mask on top of the stack. Pushes the
+/// minimum, or `i64::MAX` when the mask is empty (SQL NULL; no `I32` value
+/// equals it).
+///
+/// Calls: `LOAD`, `MIN`.
+pub fn min(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>, val_lane: u16) -> Result<(), FoldError> {
+    load(d, stack, SPACE_I32, val_lane)?;
+    call(d, MIN, [0; 3], stack)
+}
+
+/// `MAX(val_lane | mask)` for the mask on top of the stack. Pushes the
+/// maximum, or `i64::MIN` when the mask is empty.
+///
+/// Calls: `LOAD`, `MAX`.
+pub fn max(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>, val_lane: u16) -> Result<(), FoldError> {
+    load(d, stack, SPACE_I32, val_lane)?;
+    call(d, MAX, [0; 3], stack)
+}
+
+/// An ordered comparison of an `I32` lane against a threshold.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Order {
+    /// `lane < t`.
+    Lt,
+    /// `lane <= t`.
+    Le,
+    /// `lane > t`.
+    Gt,
+    /// `lane >= t`.
+    Ge,
+}
+
+/// AND `lane op t` (an `I32` lane) onto the mask on top of the stack.
+///
+/// `IntSLess` is the only ordered compare, so `>` is `t < lane` and `<=` /
+/// `>=` are the negations of `>` / `<`. The negation covers every row; the
+/// AND with the mask below confines it.
+///
+/// Calls: `LOAD`, `IntSLess`, [`IntNot`,] `IntAnd`.
+pub fn and_cmp_i32(
+    d: &mut FoldDialect<'_>,
+    stack: &mut Vec<Val>,
+    lane: u16,
+    op: Order,
+    t: i32,
+) -> Result<(), FoldError> {
+    let t = Val::Scalar(i64::from(t));
+    match op {
+        Order::Lt | Order::Ge => {
+            load(d, stack, SPACE_I32, lane)?;
+            stack.push(t);
+        }
+        Order::Gt | Order::Le => {
+            stack.push(t);
+            load(d, stack, SPACE_I32, lane)?;
+        }
+    }
+    call(d, INT_S_LESS, [0; 3], stack)?;
+    if matches!(op, Order::Le | Order::Ge) {
+        call(d, INT_NOT, [0; 3], stack)?;
+    }
+    call(d, INT_AND, [0; 3], stack)
 }
 
 /// Per-group `SUM(val_lane | mask)` keyed by the `U32` lane `key_lane`, for

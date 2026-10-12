@@ -5,7 +5,9 @@
 //! selection, a partial one and a full one.
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, MaskOp, Planes};
-use lance_graph_r2il::procs::{count, filter_lt, group_sum, margin, select_lt, select_u32, sum};
+use lance_graph_r2il::procs::{
+    and_cmp_i32, count, filter_lt, group_sum, margin, max, min, select_lt, select_u32, sum, Order,
+};
 use lance_graph_r2il::{
     BoolMode, FoldDialect, FoldError, Val, INT_AND, INT_NOT, INT_OR, POP_COUNT,
 };
@@ -425,4 +427,75 @@ fn every_fold_takes_a_resident_plane_as_its_mask() {
     assert_eq!(rows(&out), kept);
     // Non-vacuity: the plane drops rows, so reading every row would differ.
     assert!(kept.len() < N);
+}
+
+/// FAILS IF: `min`/`max` stop matching `MIN`/`MAX(revenue | x < t)`, or an
+/// empty selection stops answering the fold's identity (`i64::MAX` for
+/// `MIN`, `i64::MIN` for `MAX`): the grouped terminals' seed, which no `I32`
+/// value can equal, so a caller reads it as SQL NULL.
+#[test]
+fn min_max_match_the_reference() {
+    let f = fixture();
+    let lanes = lanes(&f);
+    let planes = Planes {
+        n_rows: N,
+        masks: &[],
+        lanes: &lanes,
+    };
+    // `(t, value lane)`: the thresholds, plus one where the mask decides
+    // the answer (rows with `x < 1` all have cost 0; the table's max is 4).
+    let cases = THRESHOLDS
+        .iter()
+        .map(|&t| (t, REVENUE, &f.revenue))
+        .chain([(1, COST, &f.cost)]);
+    for (t, lane, vals) in cases {
+        let sel = || (0..N).filter(|&r| f.x[r] < t).map(|r| i64::from(vals[r]));
+        let lo = sel().min().unwrap_or(i64::MAX);
+        let hi = sel().max().unwrap_or(i64::MIN);
+        for (fold, want) in [(min as Fold, lo), (max as Fold, hi)] {
+            let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+            let mut stack = vec![];
+            select_lt(&mut d, &mut stack, X, t).expect("select");
+            fold(&mut d, &mut stack, lane).expect("fold");
+            assert_eq!(stack, vec![Val::Scalar(want)], "t = {t}, lane {lane}");
+        }
+    }
+    let masked_max = (0..N).filter(|&r| f.x[r] < 1).map(|r| f.cost[r]).max();
+    assert_eq!(masked_max, Some(0));
+    assert_eq!(f.cost.iter().copied().max(), Some(4));
+}
+
+/// A row-level reference for an ordered compare.
+type Holds = fn(i32, i32) -> bool;
+
+type Fold = fn(&mut FoldDialect<'_>, &mut Vec<Val>, u16) -> Result<(), FoldError>;
+
+/// FAILS IF: an ordered compare ANDed onto a selection stops matching
+/// `y op t` row by row, for each of `<`, `<=`, `>`, `>=`.
+#[test]
+fn ordered_compares_match_the_reference() {
+    let f = fixture();
+    let lanes = lanes(&f);
+    let planes = Planes {
+        n_rows: N,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let ops: [(Order, Holds); 4] = [
+        (Order::Lt, |a, b| a < b),
+        (Order::Le, |a, b| a <= b),
+        (Order::Gt, |a, b| a > b),
+        (Order::Ge, |a, b| a >= b),
+    ];
+    for (op, holds) in ops {
+        for t in [-1, 0, 15, 30, 31] {
+            let want = (0..N).filter(|&r| f.x[r] < 40 && holds(f.y[r], t)).count() as i64;
+            let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+            let mut stack = vec![];
+            select_lt(&mut d, &mut stack, X, 40).expect("select");
+            and_cmp_i32(&mut d, &mut stack, Y, op, t).expect("compare");
+            count(&mut d, &mut stack).expect("count");
+            assert_eq!(stack, vec![Val::Scalar(want)], "{op:?} {t}");
+        }
+    }
 }
