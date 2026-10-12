@@ -806,6 +806,13 @@ fn resolve_ref<'a, 'b>(
         ),
     };
     match (hits.as_slice(), r) {
+        // A unique label is not enough: the key behind it must be unique
+        // too, or the reference would inline a method `prepare` refuses.
+        ([one], MethodRef::Label(_))
+            if specs.iter().filter(|(_, s)| s.key == one.key).count() > 1 =>
+        {
+            Err(PrepareError::DuplicateKey(one.key))
+        }
         ([one], _) => Ok(one),
         ([_, _, ..], MethodRef::Key(k)) => Err(PrepareError::DuplicateKey(k)),
         _ => Err(PrepareError::UnknownMethodRef(name)),

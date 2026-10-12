@@ -690,10 +690,12 @@ fn calls(s: &str) -> Option<Vec<(&str, &str)>> {
         if !ident(name) {
             return None;
         }
-        let mut depth = 0usize;
+        let (mut depth, mut quoted) = (0usize, false);
         let mut close = None;
         for (i, c) in rest[open..].char_indices() {
             match c {
+                '"' => quoted = !quoted,
+                _ if quoted => {}
                 '(' => depth += 1,
                 ')' => {
                     depth -= 1;
@@ -721,9 +723,11 @@ fn split_args(s: &str) -> Vec<&str> {
         return Vec::new();
     }
     let mut out = Vec::new();
-    let (mut depth, mut start) = (0usize, 0usize);
+    let (mut depth, mut start, mut quoted) = (0usize, 0usize, false);
     for (i, c) in s.char_indices() {
         match c {
+            '"' => quoted = !quoted,
+            _ if quoted => {}
             '(' => depth += 1,
             ')' => depth = depth.saturating_sub(1),
             ',' if depth == 0 => {

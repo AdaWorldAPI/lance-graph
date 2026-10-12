@@ -449,3 +449,56 @@ fn references_between_loaded_methods_are_checked() {
     );
     assert!(t.get(t.resolve("d").unwrap()).unwrap().is_ok());
 }
+
+/// FAILS IF: a label reference reaches a method whose key another method
+/// also carries. Both holders of the key are refused; a third method must
+/// not inline either one's predicate through its label.
+#[test]
+fn a_label_reference_to_a_duplicated_key_is_refused() {
+    let text = [
+        line("x", 0xD1, "V(billable_work_entry).has(billable, true)"),
+        line("y", 0xD1, "V(billable_work_entry).has(billable, false)"),
+        line("z", 0xD2, "V(billable_work_entry).where(y()).count()"),
+    ]
+    .concat();
+    let decls = parse_decls(&text).unwrap();
+    let batch = batch(2);
+    let cats = CatsBinder::new(&batch);
+    let (basis, claims) = (canonical_fields(), with_duration());
+    let t = MethodTable::prepare_with(&glove(&basis, &cats, &claims), &[], &decls);
+    assert_eq!(
+        t.get(MethodKey([0xD2; 16])).unwrap().clone().unwrap_err(),
+        PrepareError::DuplicateKey(MethodKey([0xD1; 16]))
+    );
+    // Silence twin: a unique key behind the label still inlines.
+    let ok = [
+        line("x", 0xD1, "V(billable_work_entry).has(billable, true)"),
+        line("z", 0xD2, "V(billable_work_entry).where(x()).count()"),
+    ]
+    .concat();
+    let decls = parse_decls(&ok).unwrap();
+    let t = MethodTable::prepare_with(&glove(&basis, &cats, &claims), &[], &decls);
+    assert!(t.get(MethodKey([0xD2; 16])).unwrap().is_ok());
+}
+
+/// FAILS IF: a comma or parenthesis inside a quoted literal is read as
+/// syntax. The literal must reach preparation whole.
+#[test]
+fn quoted_literals_keep_their_commas_and_parentheses() {
+    let batch = batch(2);
+    let cats = CatsBinder::new(&batch);
+    let (basis, claims) = (canonical_fields(), with_duration());
+    for lit in ["North, America", "a)b", "(x"] {
+        let body = format!("V(billable_work_entry).has(billable, \"{lit}\").count()");
+        let decls = parse_decls(&line("q", 0xD3, &body)).unwrap_or_else(|e| panic!("{lit}: {e:?}"));
+        let t = MethodTable::prepare_with(&glove(&basis, &cats, &claims), &[], &decls);
+        assert_eq!(
+            t.get(MethodKey([0xD3; 16])).unwrap().clone().unwrap_err(),
+            PrepareError::UnknownValue {
+                field: "billable".into(),
+                literal: lit.into()
+            },
+            "{lit}"
+        );
+    }
+}
