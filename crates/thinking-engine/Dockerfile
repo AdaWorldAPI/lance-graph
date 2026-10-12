@@ -1,8 +1,8 @@
 FROM rust:1.98.1-bookworm AS builder
-# Portable baseline. The repo's .cargo/config.toml defaults to `native`
-# (tuned to the build host); an image must run on any x86_64 since Haswell.
-# A RUSTFLAGS env replaces every cargo-config rustflags entry.
-ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
+# Portable baseline for x86_64 only: this image does not copy .cargo, so the
+# per-target variable is the only flag source, and it does not apply when
+# building for another architecture.
+ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=x86-64-v3"
 WORKDIR /app
 
 # Dependencies first (cached layer)

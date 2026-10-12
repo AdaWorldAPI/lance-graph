@@ -24,5 +24,11 @@ clean:
 	rm -rf .venv
 	rm -rf ../target
 
+# The repo's .cargo/config.toml defaults to `native`, which would tune the
+# wheel to the build host; a published x86_64 wheel must run on any x86_64
+# since Haswell. RUSTFLAGS replaces the config's flags; it is set only on an
+# x86_64 host so an arm64 build keeps its own baseline.
+PORTABLE_RUSTFLAGS := $(if $(filter x86_64,$(shell uname -m)),RUSTFLAGS="-C target-cpu=x86-64-v3",)
+
 publish:
-	maturin build --release --out dist --sdist
+	$(PORTABLE_RUSTFLAGS) maturin build --release --out dist --sdist

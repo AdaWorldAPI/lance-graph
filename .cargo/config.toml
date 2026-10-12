@@ -37,8 +37,13 @@
 #
 # CI is unaffected: every workflow sets `RUSTFLAGS` with an explicit
 # `-C target-cpu=x86-64-v3`, and a RUSTFLAGS env REPLACES every cargo-config
-# rustflags entry. The Dockerfiles that copy this directory pin `RUSTFLAGS`
-# themselves for the same reason. Anything below v3 still SIGILLs on the
+# rustflags entry. Everything else that ships pins x86_64 to v3 without
+# touching other architectures: the Dockerfiles that copy this tree replace
+# this file with config-v3.toml (x86_64-only), the thinking-engine images set
+# CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS, and `make publish` in
+# python/ sets RUSTFLAGS only on an x86_64 host. Note that the per-target
+# variable is JOINED with this file's entry, with `native` last (measured), so
+# it cannot pin a build that sees this file. Anything below v3 still SIGILLs on the
 # `simd_avx2` intrinsics, so never build with no target-cpu at all.
 #
 # The two crypto cfgs ndarray's config also carries (`curve25519_dalek_backend`,

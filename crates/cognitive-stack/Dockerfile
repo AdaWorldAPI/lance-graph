@@ -22,10 +22,6 @@ ARG ADA_BRANCH=claude/jirak-math-theorems-harvest-rfii13
 
 # ── builder ──────────────────────────────────────────────────────────────────
 FROM rust:1.98.1-bookworm AS builder
-# Portable baseline. The repo's .cargo/config.toml defaults to `native`
-# (tuned to the build host); an image must run on any x86_64 since Haswell.
-# A RUSTFLAGS env replaces every cargo-config rustflags entry.
-ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
 ARG ADA_BRANCH
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 # Native build deps for the closure: aws-lc-sys (C++), zstd/lz4 (C), and protoc
@@ -39,6 +35,12 @@ WORKDIR /build
 # The lance-graph repo (this build context). cognitive-stack path-deps the
 # in-repo crates (lance-graph, the four template crates, lance-graph-ogar).
 COPY . /build/lance-graph
+# Portable baseline. The repo's .cargo/config.toml defaults to `native`
+# (tuned to the build host); an image must run on any x86_64 since Haswell.
+# The copied tree's config is replaced by config-v3.toml, which only applies
+# to x86_64 targets, so an arm64 build keeps its own aarch64 baseline (a
+# global RUSTFLAGS would hand the aarch64 compiler an x86 CPU name).
+RUN cp /build/lance-graph/.cargo/config-v3.toml /build/lance-graph/.cargo/config.toml
 
 # lance-graph path-deps the ndarray fork as a SIBLING (`../../../ndarray`).
 # Clone it next to the repo so that path resolves.

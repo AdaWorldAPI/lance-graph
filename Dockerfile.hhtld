@@ -23,10 +23,6 @@
 # Stage 1: Build
 # ═══════════════════════════════════════════════════════════════════
 FROM debian:bookworm-slim AS builder
-# Portable baseline. The repo's .cargo/config.toml defaults to `native`
-# (tuned to the build host); an image must run on any x86_64 since Haswell.
-# A RUSTFLAGS env replaces every cargo-config rustflags entry.
-ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates gcc libc6-dev pkg-config libssl-dev \
@@ -52,6 +48,12 @@ RUN if [ ! -d /build/ndarray ]; then \
     fi
 
 WORKDIR /build/lance-graph
+# Portable baseline. The repo's .cargo/config.toml defaults to `native`
+# (tuned to the build host); an image must run on any x86_64 since Haswell.
+# The copied tree's config is replaced by config-v3.toml, which only applies
+# to x86_64 targets, so an arm64 build keeps its own aarch64 baseline (a
+# global RUSTFLAGS would hand the aarch64 compiler an x86 CPU name).
+RUN cp .cargo/config-v3.toml .cargo/config.toml
 
 # Build the decode example (the inference binary)
 RUN cargo build --release --example tts_17b_hhtld_decode \
