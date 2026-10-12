@@ -235,3 +235,39 @@ fn a_stale_witness_refuses_to_bind() {
     let forged = OrderedLaneWitness::forged(7, beliefs.witness().n_rows(), 0xDEAD);
     assert!(matches!(beliefs.bind(&forged), Err(NalError::Witness(_))));
 }
+
+/// FAILS IF: a query bound on one population runs on another of the same
+/// size. Its kept range is in the first population's coordinates, so the
+/// second would answer silently for the wrong beliefs.
+#[test]
+fn a_prepared_query_refuses_another_population() {
+    let a = sealed(&fixture(2_000));
+    let mut other = fixture(2_000);
+    other.iter_mut().for_each(|b| b.s = (b.s + 7) % 40);
+    let b = sealed(&other);
+    assert_eq!(a.witness().n_rows(), b.witness().n_rows());
+    let (ba, bb) = (a.bind(&a.witness()).unwrap(), b.bind(&b.witness()).unwrap());
+    let st = Statement {
+        s: 3,
+        copula: Copula::Inheritance,
+        p: 5,
+    };
+    let ap = Aperture::statement(CLASS, st);
+    let q = nal::Question::bind(&ba, ap).unwrap();
+    assert!(matches!(
+        q.count(&bb, &mut q.scratch(&bb).unwrap()),
+        Err(NalError::WrongPopulation)
+    ));
+    let t = nal::TruthAtLeast::bind(&ba, ap, 100).unwrap();
+    assert!(matches!(
+        t.count(&bb, &mut t.scratch(&bb).unwrap()),
+        Err(NalError::WrongPopulation)
+    ));
+    let c = nal::Choice::bind(&ba, ap).unwrap();
+    assert!(matches!(
+        c.max(&bb, &mut c.scratch(&bb).unwrap()),
+        Err(NalError::WrongPopulation)
+    ));
+    // The population it was bound on still answers.
+    assert!(q.count(&ba, &mut q.scratch(&ba).unwrap()).is_ok());
+}

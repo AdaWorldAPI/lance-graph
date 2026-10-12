@@ -56,7 +56,7 @@ use lance_graph_contract::canonical_node::NodeGuid;
 use lance_graph_contract::facet::{FacetCascade, SemanticAperture};
 use lance_graph_contract::ordered_lane::{OrderedLaneWitness, SealedFacetLane, WitnessError};
 use lance_graph_contract::temporal_pov::LanceVersion;
-use lance_graph_mask_risc::{execute_compiled, ExecError, LaneRef, Program};
+use lance_graph_mask_risc::{execute_compiled, CompiledProgram, ExecError, LaneRef};
 
 /// The NAL copulas this reading stores. NAL-1 and NAL-2 (inheritance,
 /// similarity) and NAL-5 (implication, equivalence) statements over atomic
@@ -283,10 +283,15 @@ impl Bound<'_> {
             .ok_or(NalError::NotAnInterval)
     }
 
+    /// The witness this view was bound with.
+    pub(crate) fn witness(&self) -> OrderedLaneWitness {
+        self.witness
+    }
+
     /// Run a kept program over `extent`.
     pub(crate) fn run(
         &self,
-        program: &Program,
+        program: &CompiledProgram,
         scratch: &mut lance_graph_mask_risc::Scratch<'_>,
         extent: std::ops::Range<usize>,
     ) -> Result<lance_graph_mask_risc::Value, ExecError> {
@@ -301,7 +306,7 @@ impl Bound<'_> {
             lanes: &[],
         };
         execute_compiled(
-            &program.compile(),
+            &program.compiled(),
             &planes,
             &foreign,
             scratch,
@@ -324,6 +329,9 @@ pub enum NalError {
     Exec(ExecError),
     /// The procedure ended without the one scalar it promised.
     NoAnswer,
+    /// A prepared query was run on a population other than the one it was
+    /// bound on: its kept range is in the other population's coordinates.
+    WrongPopulation,
 }
 
 impl From<WitnessError> for NalError {

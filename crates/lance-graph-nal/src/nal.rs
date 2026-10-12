@@ -12,7 +12,10 @@
 
 use std::ops::Range;
 
-use lance_graph_mask_risc::{Foreign, LaneRef, Lowering, Planes, Pred, Program, Scratch, Value};
+use lance_graph_contract::ordered_lane::OrderedLaneWitness;
+use lance_graph_mask_risc::{
+    CompiledProgram, Foreign, LaneRef, Lowering, Planes, Pred, Program, Scratch, Value,
+};
 use lance_graph_r2il::{procs, FoldDialect, FoldError, Val, INT_S_LESS, LOAD, POP_COUNT};
 use ogar_loco::{Dialect, FnIndex};
 
@@ -52,8 +55,10 @@ fn range(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError>
 /// A query bound to its range, with the program its procedure produced.
 #[derive(Debug, Clone)]
 pub struct Prepared {
-    program: Program,
+    program: CompiledProgram,
     extent: Range<usize>,
+    /// The population the range belongs to; a run on any other is refused.
+    witness: OrderedLaneWitness,
 }
 
 impl Prepared {
@@ -78,8 +83,9 @@ impl Prepared {
         }
         match (stack.as_slice(), d.programs_run(), d.last_program()) {
             ([Val::Scalar(_)], 1, Some(p)) => Ok(Prepared {
-                program: p.clone(),
+                program: CompiledProgram::new(p.clone()),
                 extent,
+                witness: b.witness(),
             }),
             _ => Err(NalError::NoAnswer),
         }
@@ -92,17 +98,17 @@ impl Prepared {
     ///
     /// [`NalError::Exec`] if the program declares more slots than can exist.
     pub fn scratch(&self, b: &Bound<'_>) -> Result<Scratch<'static>, NalError> {
-        Ok(Scratch::for_program(&self.program, b.n_rows())?)
+        Ok(Scratch::for_program(self.program.program(), b.n_rows())?)
     }
 
     /// How mask-risc folds this query.
     pub fn lowering(&self) -> Lowering {
-        self.program.compile().lowering()
+        self.program.lowering()
     }
 
     /// The kept program.
     pub fn program(&self) -> &Program {
-        &self.program
+        self.program.program()
     }
 
     /// The rows the program runs over.
@@ -111,6 +117,9 @@ impl Prepared {
     }
 
     fn value(&self, b: &Bound<'_>, scratch: &mut Scratch<'_>) -> Result<Value, NalError> {
+        if b.witness() != self.witness {
+            return Err(NalError::WrongPopulation);
+        }
         Ok(b.run(&self.program, scratch, self.extent.clone())?)
     }
 
@@ -118,8 +127,9 @@ impl Prepared {
     ///
     /// # Errors
     ///
-    /// [`NalError::Exec`] if `b` is not the population the query was bound on,
-    /// or [`NalError::NoAnswer`] if the query does not count.
+    /// [`NalError::WrongPopulation`] if `b` is not the population the query was
+    /// bound on, [`NalError::Exec`] if mask-risc refuses the program, or
+    /// [`NalError::NoAnswer`] if the query does not count.
     pub fn count(&self, b: &Bound<'_>, scratch: &mut Scratch<'_>) -> Result<usize, NalError> {
         match self.value(b, scratch)? {
             Value::Count(n) => Ok(n),
