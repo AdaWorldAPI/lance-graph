@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-319 entries, 2026-08-06 .. 2026-10-12.
+320 entries, 2026-08-06 .. 2026-10-12.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-12 | `D-SAG-1` |  | [2026-10-12-software-awareness-graph.md](2026-10-12-software-awareness-graph.md) |
+| 2026-10-12 | `D-CMR-RESET` | method layer was a second algebra beside the folds and slower than a row loop (430–480 µs vs 283 µs); moved to backup, rebuild as bindings over existing folds | [2026-10-12-session-reset-inventory.md](2026-10-12-session-reset-inventory.md) |
 | 2026-10-12 | `D-CMH-G1-6` |  | [2026-10-12-ordered-conditions-and-extrema.md](2026-10-12-ordered-conditions-and-extrema.md) |
 | 2026-10-12 | `opencog-pln-entropy-research-map` | Source inventory and falsifiable PLN/ECAN/Shannon/Moore attention comparison: entropy target, evidence overlap, graph projection, resource fairness | [2026-10-12-opencog-pln-entropy-research-map.md](2026-10-12-opencog-pln-entropy-research-map.md) |
 | 2026-10-12 | `nars-self-evidence-literature` | NARS internal trace versus evidence, Jøsang dependent/independent fusion and fission, and the snapshot-stable fold assumption; source-grounded red tests for merged #1496 | [2026-10-12-nars-self-evidence-literature.md](2026-10-12-nars-self-evidence-literature.md) |
