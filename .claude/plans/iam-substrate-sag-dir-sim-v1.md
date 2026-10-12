@@ -168,3 +168,18 @@ See [primary-source excerpts](../../.arxiv/2026-10_iam_access_paths_temporal_pro
 - IAM-01..15 test matrix with disable/falsification evidence; one passing end-to-end `explain -> simulate -> re-evaluate -> propose` demo.
 - Measurement table (baseline, candidate, environment, versions) before any performance claim.
 - Security review showing external provider writes impossible in read-only mode; no unreviewed policy/byte-layout/ISA drift.
+
+## 11. Frontier expansion after the first draft: deliberately **not** a shipped capability
+
+**Follow-on RFC:** [D-IAM-SAG-1: negative proof, temporal authority, safe introspection](iam-substrate-frontier-gaps-v1.md) and its [source-distilled excerpts](../../.arxiv/2026-10_iam_negative_provenance_authority_and_agentic_policy_excerpts.md). The [Claude Code handoff](../prompts/iam-substrate-after-1509.md) now carries the additional research and falsification obligations.
+
+The first 15 tests primarily cover *positive* entitlement evidence and directory what-if. The extension adds IAM-16..40, grouped by proof obligation:
+
+- **Proof of absence:** complete source/policy coverage, failed derivations, witness exhaustiveness and alternate paths. A shortest path is not a sufficient revocation proof.
+- **Proof of identity and time:** verified cross-tenant anchors, source GUID distinct from DN, source/policy version vectors, observation-vs-valid-vs-record-vs-execution times.
+- **Proof of policy:** versioned decision-combining algorithm, explicit Permit/Deny/NotApplicable/Indeterminate, SoD/JIT/approval expiry, bounded negative explanation.
+- **Proof of action:** actor-scoped independent authorization, fresh provider preconditions, idempotency/unknown-outcome receipts, provider-specific compensation, no automatic rollback guarantee.
+- **Proof of introspection:** SAG compiled vs verified tiers, actor row scope independently checked from WideFieldMask, ONA/Hyperon observer evaluated by no-observer ablation with no authority transfer.
+- **Proof of responsible explanation:** tenant-scoped/redacted witness output, machine identities, duplicate-source lineage, adversarial prompt injection and cyclic/high-path-count workloads.
+
+**Release order:** maintain W0/W1 as the smallest read-only implementation. Research the expanded test fixture now; implement only when its domain's existing semantics and compiled oracle can be verified. General multi-hop, policy evaluator and provider DO remain independent later work. These are *candidate requirements*, not claims of new Rust code or completed review.
