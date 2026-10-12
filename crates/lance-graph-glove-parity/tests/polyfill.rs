@@ -872,3 +872,127 @@ fn retraction_by_negative_weight_is_not_revision() {
         "a phantom retraction changed the truth, and nothing refused it"
     );
 }
+
+// --- review fixes: ambiguity and law parameters are refused ------------------
+
+/// FAILS IF: a repeated method key or label is resolved by slice order
+/// instead of refused.
+#[test]
+fn a_repeated_key_or_label_is_refused() {
+    let batch = batch(2);
+    let cats = CatsBinder::new(&batch);
+    let claims = with_duration();
+    let basis = canonical_fields();
+    let other_key = MethodSpec {
+        key: MethodKey([0xC1; 16]),
+        ..billable_hours()
+    };
+    let t = MethodTable::prepare(
+        &glove(&basis, &cats, &claims),
+        &[
+            ("h", billable_hours()),
+            ("h2", billable_hours()), // same key, another label
+            ("dup", other_key),
+            (
+                "dup",
+                MethodSpec {
+                    key: MethodKey([0xC2; 16]),
+                    ..billable_hours()
+                },
+            ),
+        ],
+    );
+    assert_eq!(
+        t.get(BILLABLE_HOURS),
+        Some(&Err(PrepareError::DuplicateKey(BILLABLE_HOURS)))
+    );
+    assert_eq!(t.resolve("dup"), None, "an ambiguous label names nothing");
+    assert_eq!(
+        t.get(MethodKey([0xC1; 16])),
+        Some(&Err(PrepareError::DuplicateLabel("dup")))
+    );
+    // Twin: a unique key and label still prepare.
+    let t = MethodTable::prepare(&glove(&basis, &cats, &claims), &[("h", billable_hours())]);
+    assert!(t.get(BILLABLE_HOURS).unwrap().is_ok());
+    assert_eq!(t.resolve("h"), Some(BILLABLE_HOURS));
+}
+
+/// FAILS IF: a revision law with a zero scale or zero horizon prepares (a
+/// zero scale yields NaN, a zero horizon a confidence of exactly 1).
+#[test]
+fn a_degenerate_revision_law_is_refused() {
+    const INDEP: &[Cond] = &[Cond::Eq {
+        field: "independent",
+        literal: "true",
+    }];
+    let law = |scale, horizon| Law::NarsRevision {
+        independent: "independent",
+        scale,
+        horizon,
+    };
+    let basis = nars_basis();
+    let specs = [
+        (
+            "zero_scale",
+            nars_spec(MethodKey([4; 16]), INDEP, REVISION_FOLDS, law(0, 1)),
+        ),
+        (
+            "zero_horizon",
+            nars_spec(MethodKey([5; 16]), INDEP, REVISION_FOLDS, law(SCALE, 0)),
+        ),
+        (
+            "ok",
+            nars_spec(MethodKey([6; 16]), INDEP, REVISION_FOLDS, law(SCALE, 1)),
+        ),
+    ];
+    let t = MethodTable::prepare(
+        &Glove {
+            concept: NARS,
+            basis: &basis,
+            claims: &NARS_CLAIMS,
+            binder: &EvidenceBinder,
+            table: EVIDENCE,
+            reading: READING,
+            universe: UNIVERSE,
+        },
+        &specs,
+    );
+    assert_eq!(
+        t.get(MethodKey([4; 16])),
+        Some(&Err(PrepareError::LawParameter))
+    );
+    assert_eq!(
+        t.get(MethodKey([5; 16])),
+        Some(&Err(PrepareError::LawParameter))
+    );
+    assert!(t.get(MethodKey([6; 16])).unwrap().is_ok());
+}
+
+/// FAILS IF: two proven claims for one canonical field are resolved by
+/// slice order. Reordering the claims must not change which lane binds.
+#[test]
+fn an_ambiguous_canonical_claim_is_refused() {
+    let batch = batch(2);
+    let cats = CatsBinder::new(&batch);
+    let basis = canonical_fields();
+    let mut claims = with_duration();
+    // A second proven source for `duration`, from another native field.
+    claims.push(FieldMap {
+        native: "work_day",
+        canonical: "duration",
+        grade: Grade::Exact,
+        note: "fixture: a conflicting claim",
+    });
+    let t = MethodTable::prepare(&glove(&basis, &cats, &claims), &[("h", billable_hours())]);
+    assert_eq!(
+        t.get(BILLABLE_HOURS),
+        Some(&Err(PrepareError::AmbiguousClaim("duration")))
+    );
+    // Twin: the same claim repeated for the same native field is not
+    // ambiguous.
+    let mut claims = with_duration();
+    let dup = *claims.iter().find(|c| c.canonical == "duration").unwrap();
+    claims.push(dup);
+    let t = MethodTable::prepare(&glove(&basis, &cats, &claims), &[("h", billable_hours())]);
+    assert!(t.get(BILLABLE_HOURS).unwrap().is_ok());
+}

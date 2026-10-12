@@ -300,6 +300,16 @@ pub enum PrepareError {
     EvidenceNotIndependent(&'static str),
     /// Quack could not lower the bound body.
     Lower(LowerError),
+    /// Another spec in the same table carries this key.
+    DuplicateKey(MethodKey),
+    /// Another spec in the same table carries this label.
+    DuplicateLabel(&'static str),
+    /// A law's numeric parameter is out of its domain (a zero
+    /// `NarsRevision` scale or horizon).
+    LawParameter,
+    /// Two proven claims map different native fields onto this canonical
+    /// field; binding either would depend on claim order.
+    AmbiguousClaim(&'static str),
 }
 
 /// Why a call did not run.
@@ -567,13 +577,29 @@ impl MethodTable {
     pub fn prepare(glove: &Glove<'_>, specs: &[(&'static str, MethodSpec)]) -> Self {
         let available = available(glove.basis, glove.claims);
         let seal = SchemaSeal::of(glove.basis);
+        let count =
+            |f: &dyn Fn(&(&'static str, MethodSpec)) -> bool| specs.iter().filter(|x| f(x)).count();
         Self {
             concept: glove.concept,
             table: glove.table,
-            labels: specs.iter().map(|(l, s)| (*l, s.key)).collect(),
+            // An ambiguous label names nothing.
+            labels: specs
+                .iter()
+                .filter(|(l, _)| count(&|(m, _)| m == l) == 1)
+                .map(|(l, s)| (*l, s.key))
+                .collect(),
             methods: specs
                 .iter()
-                .map(|(_, s)| (s.key, glove.prepare(seal, available.as_ref(), s)))
+                .map(|(l, s)| {
+                    let prepared = if count(&|(_, t)| t.key == s.key) > 1 {
+                        Err(PrepareError::DuplicateKey(s.key))
+                    } else if count(&|(m, _)| m == l) > 1 {
+                        Err(PrepareError::DuplicateLabel(l))
+                    } else {
+                        glove.prepare(seal, available.as_ref(), s)
+                    };
+                    (s.key, prepared)
+                })
                 .collect(),
         }
     }
@@ -782,11 +808,14 @@ impl Glove<'_> {
     /// served under its canonical name (the derived lens the conversion is
     /// proven on); an exact one under the glove's own name.
     fn field(&self, t: TableId, field: &'static str) -> Result<BoundField, PrepareError> {
-        let claim = self
+        let mut proven = self
             .claims
             .iter()
-            .find(|c| c.canonical == field && matches!(c.grade, Grade::Exact | Grade::Converted))
-            .expect("available implies a proven claim");
+            .filter(|c| c.canonical == field && matches!(c.grade, Grade::Exact | Grade::Converted));
+        let claim = proven.next().expect("available implies a proven claim");
+        if proven.any(|c| c.native != claim.native || c.grade != claim.grade) {
+            return Err(PrepareError::AmbiguousClaim(field));
+        }
         let name = match claim.grade {
             Grade::Converted => claim.canonical,
             _ => claim.native,
@@ -822,7 +851,14 @@ impl Glove<'_> {
 fn check_law(law: Law, filter: &[Cond], folds: &[Fold]) -> Result<(), PrepareError> {
     match law {
         Law::Values => Ok(()),
-        Law::NarsRevision { independent, .. } => {
+        Law::NarsRevision {
+            independent,
+            scale,
+            horizon,
+        } => {
+            if scale == 0 || horizon == 0 {
+                return Err(PrepareError::LawParameter);
+            }
             let [Fold::GroupSum {
                 key: k1,
                 val: w,
