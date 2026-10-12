@@ -16,6 +16,7 @@ use lance_graph_mask_risc::{LaneRef, Planes};
 use lance_graph_ogar::ogar_vocab::class_ids::BILLABLE_WORK_ENTRY;
 use lance_graph_quack::bind::{table, Binder, BoundField, TableId};
 use lance_graph_quack::{lower, Col, Mask};
+use lance_graph_r2il::FoldError;
 use lance_graph_sap::bind::{billable_code, CatsBatch, ACTIVITY, BILLABLE, BILLING, HOURS};
 use lance_graph_sap::binder::{live_words, CatsBinder, TABLE};
 use lance_graph_sap::schema::{CatsSchema, FIELD_COUNT};
@@ -25,6 +26,7 @@ const COUNT_BY_DURATION: MethodKey = MethodKey([0xD0; 16]);
 const SUBMIT: MethodKey = MethodKey([0xA0; 16]);
 const NOT_BILLABLE: MethodKey = MethodKey([0xB0; 16]);
 const BILLABLE_HOURS: MethodKey = MethodKey([0xB2; 16]);
+const HOURS_BY_BILLABLE: MethodKey = MethodKey([0xB3; 16]);
 
 const fn query(filter: &'static [Cond], folds: &'static [Fold]) -> MethodBody {
     MethodBody::Query {
@@ -109,6 +111,22 @@ fn specs() -> Vec<(&'static str, MethodSpec)> {
             pure(
                 BILLABLE_HOURS,
                 query(&[BILLABLE_TRUE], &[Fold::Count, Fold::Sum("duration")]),
+            ),
+        ),
+        // Experiment B: declared after the executor was frozen (e984885),
+        // using only an existing block (grouped SUM).
+        (
+            "hours_by_billable",
+            pure(
+                HOURS_BY_BILLABLE,
+                query(
+                    &[],
+                    &[Fold::GroupSum {
+                        key: "billable",
+                        val: "duration",
+                        groups: 2,
+                    }],
+                ),
             ),
         ),
     ]
@@ -446,4 +464,57 @@ fn a_swapped_lane_breaks_parity() {
     for f in [Frontend::Quack, Frontend::R2il] {
         assert_ne!(call(&t, &batch, COUNT_BILLABLE, f).unwrap(), want, "{f:?}");
     }
+}
+
+/// Experiment B: a method declared after the executor was frozen, in this
+/// file only. Its key is the billable code (0 = not billable, 1 = billable);
+/// rows with an undocumented indicator carry neither code and fall outside
+/// the two groups.
+///
+/// FAILS IF: the grouped answer stops matching a row loop per group, on
+/// either frontend.
+#[test]
+fn a_method_declared_after_the_freeze_runs_on_both_frontends() {
+    for n in [1, 65, 4097] {
+        let batch = batch(n);
+        let t = table_for(&CatsBinder::new(&batch), &with_duration());
+        let key = t.resolve("hours_by_billable").expect("label");
+        let LaneRef::I32(hours) = batch.lanes()[HOURS] else {
+            panic!("hours is an I32 lane");
+        };
+        let mut want = vec![0i64; 2];
+        for (i, &h) in hours.iter().enumerate() {
+            let code = billable_code(indicator(i));
+            if code < 2 {
+                want[code as usize] += i64::from(h);
+            }
+        }
+        assert_eq!(
+            call(&t, &batch, key, Frontend::Quack).unwrap(),
+            Answer::Values(vec![FoldValue::Groups(want.clone())]),
+            "n={n}"
+        );
+        // FROZEN-EXECUTOR RESULT: R2IL's GROUP_SUM takes its mask only from
+        // a computed slot, and a body with no condition hands it the
+        // resident live plane. A typed refusal, not a wrong answer.
+        assert!(
+            matches!(
+                call(&t, &batch, key, Frontend::R2il),
+                Err(CallError::Fold(FoldError::WrongOperandKind(_)))
+            ),
+            "n={n}"
+        );
+    }
+    // Non-vacuity: both groups are populated, and the undocumented
+    // indicator is present, so a drop of it is observable.
+    let batch = batch(65);
+    assert!((0..65).any(|i| billable_code(indicator(i)) > 1));
+    let t = table_for(&CatsBinder::new(&batch), &with_duration());
+    let Answer::Values(v) = call(&t, &batch, HOURS_BY_BILLABLE, Frontend::Quack).unwrap() else {
+        panic!()
+    };
+    let [FoldValue::Groups(g)] = v.as_slice() else {
+        panic!()
+    };
+    assert!(g[0] > 0 && g[1] > 0);
 }
