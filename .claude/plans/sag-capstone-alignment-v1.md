@@ -36,9 +36,12 @@ optimization is a proposal" (#1511).
 > names what would change and what must be shown first. It can never execute,
 > and no stage downstream of it may treat its existence as authorization.
 
-It has exactly two shapes, and both are already anchored on main:
+It has exactly two shapes. ⊘ Both anchors named below were removed from
+main by the method-layer reset (#1524, `D-CMR-RESET`; the code is kept on
+`backup/session-011BMJ-2026-10-12`). The name and the two shapes stand; the
+code anchor is re-decided when the class-method rebuild (D-CMR) lands:
 
-| shape | anchor on main | what it carries | what it is not |
+| shape | former anchor (removed by #1524) | what it carries | what it is not |
 |---|---|---|---|
 | **rewrite** — a pure, structural optimization | `awareness::Candidate { kind, methods, obligations }` ("never a rewrite") | the candidate, its open `Obligation`s, evidence tier and provenance, and a read-only verification query | not applied: it still needs a semantic-equivalence oracle (NULL / bag / set), a cost measurement and an operator decision |
 | **action** — an external effect | `EffectClass::Propose` on `MethodBody::Action` ("builds an inert proposal"); every call refuses with `NotPure` | the effect, its preconditions (source ETag/version, policy revision, target identity) and its simulated impact | not dispatched: it needs fresh OGAR authorization, then provider receipt and re-observation |
@@ -64,10 +67,9 @@ spelled (#1511); prose is left as is. A scheduler decision is `Pure` or
 **Name check.** `lance_graph_ontology::MappingProposal` is unrelated (an
 ontology mapping); it keeps its name.
 
-**When code lands,** `ProposedMethod` is a type in
-`lance-graph-glove-parity::awareness`, built from `Candidate` (rewrite) or
-from an `EffectClass::Propose` method (action). No other crate defines its
-own proposal type.
+**When code lands,** `ProposedMethod` is one type, in the crate the D-CMR
+rebuild puts class methods in (`lance-graph-glove-parity::awareness` no
+longer exists after #1524). No other crate defines its own proposal type.
 
 ## 3. One status vocabulary: unknown is not false
 
@@ -128,8 +130,8 @@ These are true at the #1509 base and false now. The plans keep their text
 2. **SAG defects A and B remain UNVERIFIED** (#1510 plan is right). The
    fixes were written in #1519, which was closed unmerged with the method
    layer reset (kept on `backup/session-011BMJ-2026-10-12-sagfix`); the
-   shared-provenance and stale-`BlockedBy` failure modes are still possible
-   in the shipped `awareness.rs`.
+   `awareness.rs` itself was removed by #1524, so both failure modes must be
+   re-tested on whatever replaces it.
 3. **OGAR #357 status.** Still unverified upstream; the plans' "RFC" is the
    safe reading.
 

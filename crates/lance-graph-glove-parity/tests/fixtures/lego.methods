@@ -1,6 +1,0 @@
-# The Lego example of D-CMH-G1, as text loaded at run time. Two consumers name
-# one predicate method; none of the three exists in compiled code. Keys are
-# FIXTURES; `schema` is the canonical basis seal, checked at preparation.
-billable_work_entry::is_billable    key=b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1 schema=00420936c94ff753 reading=1 := V(billable_work_entry).has(billable, true)
-billable_work_entry::billable_hours key=b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2 schema=00420936c94ff753 reading=1 := V(billable_work_entry).where(is_billable()).values(duration).sum()
-billable_work_entry::billable_count key=b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3 schema=00420936c94ff753 reading=1 := V(billable_work_entry).where(is_billable()).dedup().count()
