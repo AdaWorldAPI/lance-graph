@@ -1,3 +1,16 @@
+## D-CMH-G1 — Gremlin as a composable ClassId algebra (2026-10-12)
+
+Plan: `.claude/plans/gremlin-composable-algebra-v1.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-CMH-G1-0 | vocabulary → algebra matrix, TinkerPop 3.7.7 | In PR | every row cites a test, a refusal or the missing capability |
+| D-CMH-G1-1 | predicate methods + method references | In PR | composed `programs()` == hand conjunction; cycles, contract, cross-class refused |
+| D-CMH-G1-2 | typed Gremlin steps → method body | In PR | == direct Quack program; both frontends == row oracle |
+| D-CMH-G1-3 | Gremlin-shaped runtime declarations | In PR | loads after the build; effects refused at load |
+| D-CMH-G1-4 | relation carrier in the glove; anchor rule in `compose` | Queued | #1311 bulk oracle + DuckDB through the method layer |
+| D-CMH-G1-5 | FirstOfRun | Queued | insufficiency proof first; Quack + R2IL vs independent oracle |
+
 ## D-NALP — `NAL::narsese()` polyfill over R2IL procedures and mask-risc (2026-10-12)
 
 Plan: `.claude/plans/nal-polyfill-v1.md`. Template: D-SQLP. No opcode, tenant or ABI change is authorized.

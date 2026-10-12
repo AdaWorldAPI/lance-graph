@@ -56,7 +56,8 @@ them and cannot supply its own.
 | Reading and population ids | No ClassView reading id and no plane generation id exist. Both are fixtures here. | — | Issue from the ClassView and the plane owner. | — |
 | Compute bodies (fields derived from fields) | Not attempted. The compute-DAG check now reads all 256 positions (it was fail-open past 63: `10→70→10` read acyclic). | `compute_dag_cycle_crossing_63_64_is_rejected` and four siblings, red on the 64-bit code. | A compute body may now land; the DAG gate no longer limits it. | Hand-checked orders; `assert_topological`. |
 | Runtime declarations | Done (step 2): `decl::parse_decls` + `MethodTable::prepare_with`; one build loads any declarations file. Grammar: `COUNT(*)`, `SUM`, `GROUP_SUM … BY … IN`, `WHERE = / != … AND …`; everything else refused by name. | — | — | Row loop over indicator text (`tests/declared.rs`); the compiled twin's programs. |
-| **Next: compositional formulas** — a declared method reused by another, e.g. `is_billable := billable = true`, `billable_hours := SUM(duration WHERE is_billable())`, `billable_count := COUNT(WHERE is_billable())`. | No method reference in `MethodBody`; a predicate method has no body shape (it returns a selection, not folds). Today `… WHERE is_billable()` is refused as `method reference`. | `unsupported_formulas_are_refused_by_name`. | A predicate body (`Select{filter}`) and a `Cond::Method(key)` resolved at preparation, inlined into the caller's conjunction, cycles refused; no new Rust per method. Tracked as D-CMH-G1. | The inlined method's programs equal the hand-written conjunction's. |
+| Compositional formulas | Done (D-CMH-G1): `MethodBody::Select` + `Cond::Method`, inlined at preparation; typed Gremlin steps compose into bodies; Gremlin-shaped text loads at run time. `billable_hours` names the separately declared `is_billable`, no Rust for either. | `…WHERE is_billable()` inside an aggregate is still refused (the SQL-ish grammar); the Gremlin form carries references. | — | Programs equal the hand conjunction's / direct Quack's; row loop on both frontends. |
+| **Next: relation carrier in the glove** | A method glove declares no relation, so every `out/in/both` is refused (`NoRelationCarrier`) though #1311 lowers one hop of each kind. | `gremlin.rs::steps_outside_the_anchor_contract_are_refused`. | `(carrier fk | edge, fields, direction, target)` per relation; move #1311's anchor rule into `compose`. A binding, not a primitive; 9 matrix rows. | #1311's bulk oracle and DuckDB cases. |
 | Fused folds | One mask-risc program per fold; the selection is re-emitted per fold. | — | A multi-sink terminal; an optimisation only, no semantic change. | Same answers. |
 
 No new mask-risc opcode or R2IL op was added. One R2IL change: `POP_COUNT`
@@ -143,3 +144,8 @@ resident), and fused-vs-unfused lowering (no fused terminal exists).
 frontends: 6; refused by design: 2. New algebra members: 0 since the freeze;
 executor fixes: 1 (R2IL plane masks, found by B). New laws: 1. New ISA: 0.
 Domain Rust: 0.
+
+**Metrics after D-CMH-G1.** Methods declared in tests or text: +14 (predicates, consumers,
+refusal fixtures); domain Rust functions: 0; new physical instructions: 0; new
+Quack/R2IL variants: 0. Gremlin vocabulary (TinkerPop 3.7.7, per row of
+`gremlin-composable-algebra-v1.md` §4): DIRECT 15%, COMPOSE 33%, YET 28%, EFFECT 6%, OUT 18%.
