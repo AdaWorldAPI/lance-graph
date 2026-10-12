@@ -365,6 +365,9 @@ pub enum PrepareError {
     /// The relation supplies no foreign lane for this target field
     /// (`relation.field`).
     NoForeignLane(String),
+    /// Two relations the method reads reach this target concept in
+    /// different populations. A call names one population per concept.
+    ConflictingUniverse(u16),
 }
 
 /// Why a call did not run.
@@ -1136,8 +1139,13 @@ impl Glove<'_> {
         for c in filter {
             if let Cond::Reaches { rel } | Cond::Via { rel, .. } = *c {
                 let r = self.relation(rel)?;
-                if !reaches.iter().any(|(c, _)| *c == r.target.concept) {
-                    reaches.push((r.target.concept, r.target.universe));
+                let (concept, universe) = (r.target.concept, r.target.universe);
+                match reaches.iter().find(|(c, _)| *c == concept) {
+                    None => reaches.push((concept, universe)),
+                    Some(&(_, u)) if u != universe => {
+                        return Err(PrepareError::ConflictingUniverse(concept));
+                    }
+                    Some(_) => {}
                 }
             }
         }
