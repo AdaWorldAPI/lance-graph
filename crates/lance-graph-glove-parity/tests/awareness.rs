@@ -1046,7 +1046,7 @@ fn method_references_are_calls_edges_and_cycles_are_the_compilers() {
     // detect cycles itself.
     let mut cyc = w.graph.refused_for("MethodCycle").unwrap();
     cyc.sort_unstable();
-    let mut want = vec![method_ident(A), method_ident(B)];
+    let mut want = [method_ident(A), method_ident(B)];
     want.sort();
     assert_eq!(cyc, want.iter().map(String::as_str).collect::<Vec<_>>());
     assert_eq!(w.graph.out(&method_ident(A), Rel::Calls).len(), 1);
