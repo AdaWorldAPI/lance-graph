@@ -76,3 +76,68 @@ counterexample showing no composition of existing members gives the answer,
 (3) an independent oracle, (4) both frontends or a stated reason one cannot,
 and (5) a second domain that can use it. A new law lands only with an
 independent oracle and the body shape it requires checked at preparation.
+
+## Experiments A–E (same day)
+
+Machine: `-Ctarget-cpu=x86-64-v3` (the repo default), AVX-512 host, shared
+and noisy; hot paths interleaved per rep, medians and minima reported.
+Command: `cargo run --release --example method_cost -- <rows> 301`.
+
+**A. The seam.** `SELECT billable_work_entry::billable_hours(cats) FROM cats`
+= the same query written in Quack = R2IL procs = a row loop, at n ∈ {1, 64,
+65, 4097}. The prepared method now holds its Quack programs, lowered once;
+the tests assert `programs() == [lower(direct query)]`, so a call executes
+the same program a direct query does and no other evaluator exists. There
+is no SQL frontend into Quack: "direct Quack" is the query built through
+Quack's binder, not parsed SQL.
+
+**B. Frozen executor.** At e984885, `hours_by_billable` (hours grouped by the
+billable code) was declared in `tests/method.rs` only; that commit's stat is
+one file. Quack: correct. R2IL: a typed refusal (`WrongOperandKind`), because
+its SUM, GROUP_SUM and KEEP took a mask only from a computed slot and a body
+with no condition hands them the live plane. Closed in the next commit by one
+shared mask resolution in R2IL (domain-neutral; no new op), after which both
+frontends agree. So the method needed no Rust; the executor had a gap that
+the first condition-free method exposed.
+
+**C. NARS.** Independent positive and conflicting evidence: matches the float
+oracle and OpenNARS's three reference points. A repeated stamp, a replayed
+delta, and the same stamp in a second hypothesis layer leave the truth
+unchanged, given the producer's two marks (replay by `delta_id`, independence
+by `(statement, stamp)`). Retraction: not declared; a negative-weight delta is
+exact for an asserted stamp and silently wrong for a phantom one (pinned).
+The oracle is the NAL weight formula in floating point plus the OpenNARS
+points from `lance-graph-planner/tests/nal_revision_oracle.rs`; no external
+NARS binary was run.
+
+**D. Faults.** Each is a typed refusal before execution, or a red test:
+swapped lanes (both frontends disagree with the oracle); schema seal; reading;
+population; nullable field read as a value (the refusal test goes red when the
+guard is removed); duplicate stamps (refused body / counterexample); law shape;
+basis of 257. A compute body has no `MethodBody` variant, so it cannot be
+written, rather than being refused at the 64-position DAG limit.
+
+**E. Cost** (1,048,576 rows; 65,536 in brackets):
+
+| path | median | min | ns/row (min) | allocs/call |
+|---|---|---|---|---|
+| cold: prepare one method | 0.8 µs | | | 13 (1.1 KB) |
+| cold: resolve call text | 0.2 µs | | | 1 |
+| cold: lower one query | 0.2 µs | | | 4 |
+| warm method call, Quack | 600 µs (56) | 447 µs (33) | 0.43 (0.51) | 2 (2.1 KB) |
+| warm method call, R2IL | 605 µs (56) | 448 µs (35) | 0.43 (0.53) | 5 (16.8 KB) |
+| direct Quack, lowered once | 599 µs (54) | 442 µs (37) | 0.42 (0.56) | 0 |
+| scalar row loop | 366 µs (23) | 300 µs (10) | 0.29 (0.15) | 0 |
+
+The interface costs nothing measurable over direct Quack once prepared: the
+remaining per-call cost is a scratch arena and the answer vector. Both are
+1.5–3× slower than a fused scalar loop, because the program writes a mask
+and then sums it (two passes over 8 MB of lanes); that is the executor's
+cost, the same for a hand-written Quack query. Fusion of filter into fold is
+the lever, not the method layer. Not measured: decoded bytes (lanes are read
+resident), and fused-vs-unfused lowering (no fused terminal exists).
+
+**Metrics after the experiments.** Methods declared: 8; executable on both
+frontends: 6; refused by design: 2. New algebra members: 0 since the freeze;
+executor fixes: 1 (R2IL plane masks, found by B). New laws: 1. New ISA: 0.
+Domain Rust: 0.
