@@ -48,15 +48,37 @@
 //! stream this layer has no answer type for (`NoTerminal`). Effectful steps
 //! (`addV`, `property`, `drop`, …) have no [`Step`] at all: a traversal cannot
 //! express them, so it cannot carry authority.
-use crate::method::{Cond, Fold, Law, MethodBody, MethodRef};
+use crate::method::{Cond, Fold, Law, MethodBody, MethodRef, Order};
 
-/// A predicate in `has(field, pred)`, over a coded field's literal.
+/// A predicate in `has(field, pred)`: equality over a coded field's
+/// literal, or an ordered compare of an `I32` field against a number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pred<'a> {
     /// `P.eq(literal)`.
     Eq(&'a str),
     /// `P.neq(literal)`.
     Neq(&'a str),
+    /// `P.lt(n)`.
+    Lt(i32),
+    /// `P.lte(n)`.
+    Lte(i32),
+    /// `P.gt(n)`.
+    Gt(i32),
+    /// `P.gte(n)`.
+    Gte(i32),
+}
+
+impl Pred<'_> {
+    /// The ordered compare this predicate is, if it is one.
+    fn order(self) -> Option<(Order, i32)> {
+        match self {
+            Pred::Lt(n) => Some((Order::Lt, n)),
+            Pred::Lte(n) => Some((Order::Le, n)),
+            Pred::Gt(n) => Some((Order::Gt, n)),
+            Pred::Gte(n) => Some((Order::Ge, n)),
+            Pred::Eq(_) | Pred::Neq(_) => None,
+        }
+    }
 }
 
 /// One traversal step. Names are canonical: a concept id, the concept's
@@ -77,6 +99,10 @@ pub enum Step<'a> {
     Count,
     /// `sum()`.
     Sum,
+    /// `min()`.
+    Min,
+    /// `max()`.
+    Max,
     /// `out(relation)`.
     Out(&'a str),
     /// `in(relation)`.
@@ -109,6 +135,11 @@ pub enum GremlinRefusal {
     CountOfValues,
     /// `sum()` of vertices.
     SumOfVertices,
+    /// `min()` / `max()` of vertices: vertices have no order.
+    ExtremumOfVertices,
+    /// An ordered `has` after `out(rel)`: no ordered compare reads through a
+    /// key.
+    OrderThroughRelation(String),
     /// A filter after `values(f)`.
     FilterAfterValues,
     /// `values(f)` after `values(g)`.
@@ -198,6 +229,9 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
                 let (literal, negate) = match pred {
                     Pred::Eq(l) => (l, false),
                     Pred::Neq(l) => (l, true),
+                    Pred::Lt(_) | Pred::Lte(_) | Pred::Gt(_) | Pred::Gte(_) => {
+                        return Err(GremlinRefusal::OrderThroughRelation(rel.to_owned()))
+                    }
                 };
                 filter.push(Cond::Via {
                     rel,
@@ -216,6 +250,18 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
             (Step::Values(_), Cursor::Reached(rel)) => {
                 return Err(GremlinRefusal::ValueThroughRelation(rel.to_owned()))
             }
+            (Step::Min | Step::Max, Cursor::Reached(rel)) => {
+                return Err(GremlinRefusal::ValueThroughRelation(rel.to_owned()))
+            }
+            (Step::Min, Cursor::Value(f)) => {
+                folds.push(Fold::Min(f));
+                Cursor::Done
+            }
+            (Step::Max, Cursor::Value(f)) => {
+                folds.push(Fold::Max(f));
+                Cursor::Done
+            }
+            (Step::Min | Step::Max, _) => return Err(GremlinRefusal::ExtremumOfVertices),
             (Step::Count, Cursor::Reached(_)) => {
                 folds.push(Fold::Count);
                 Cursor::Done
@@ -225,6 +271,12 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
                 filter.push(match pred {
                     Pred::Eq(literal) => Cond::Eq { field, literal },
                     Pred::Neq(literal) => Cond::Ne { field, literal },
+                    Pred::Lt(_) | Pred::Lte(_) | Pred::Gt(_) | Pred::Gte(_) => {
+                        let Some((op, value)) = pred.order() else {
+                            unreachable!("an ordered predicate")
+                        };
+                        Cond::Order { field, op, value }
+                    }
                 });
                 Cursor::Vertex
             }

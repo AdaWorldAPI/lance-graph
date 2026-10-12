@@ -375,7 +375,7 @@ fn effects_and_unsupported_steps_are_refused_at_load() {
         ("path()", "path"),
         ("select(a)", "select"),
         ("as(a)", "as"),
-        ("has(duration, gt(1))", "gt"),
+        ("has(duration, within(1))", "within"),
         ("where(not(is_billable()))", "not"),
         ("mean()", "mean"),
         ("fold()", "fold"),
