@@ -54,7 +54,7 @@ them and cannot supply its own.
 | NARS concept | Not minted in OGAR's codebook. | `SELECT nars::revision(..)` → `UnknownConcept`. | Mint through OGAR; the fixture `0xFFF0` then goes. | — |
 | Method identity | OGAR has `MethodDecl` (harvested ORM methods, no key) and #357's `LogicMethodSpec` (RFC only). `MethodKey` is a fixture. | — | Key = `ogar_loco::Inventory::key_of` once methods are minted there; this table becomes the prepared sidecar, not a second inventory. | — |
 | Reading and population ids | No ClassView reading id and no plane generation id exist. Both are fixtures here. | — | Issue from the ClassView and the plane owner. | — |
-| Compute bodies (fields derived from fields) | Not attempted. The compute-DAG check is fail-open past 64 positions (`10→70→10` reads acyclic). | — | Fix the DAG check to 256 before any compute body lands. | — |
+| Compute bodies (fields derived from fields) | Not attempted. The compute-DAG check now reads all 256 positions (it was fail-open past 63: `10→70→10` read acyclic). | `compute_dag_cycle_crossing_63_64_is_rejected` and four siblings, red on the 64-bit code. | A compute body may now land; the DAG gate no longer limits it. | Hand-checked orders; `assert_topological`. |
 | Fused folds | One mask-risc program per fold; the selection is re-emitted per fold. | — | A multi-sink terminal; an optimisation only, no semantic change. | Same answers. |
 
 No new mask-risc opcode or R2IL op was added. One R2IL change: `POP_COUNT`
