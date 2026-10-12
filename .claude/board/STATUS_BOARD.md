@@ -1,3 +1,15 @@
+## D-NAL — NAL-1..9 × 34 recipes against OpenNARS and ONA (2026-10-11)
+
+Audit: `.claude/knowledge/nal-recipe-audit/README.md`. Entry:
+`entries/2026-10-11-nal-recipe-audit.md`.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| **D-NAL-AUDIT-0** | 34-recipe table, 115-capability NAL inventory, engine runs at pinned commits, architecture decision | Committed, not pushed | every table claim cites file:line; engine outputs observed, never copied from fixture comments |
+| **D-NAL-MCP-0** | `planner/tests/mcp_receipt_probe.rs`: MCP history-blind; receipt reader separates calibrated from overconfident pasts | Committed, not pushed | 4 tests; 5 disable runs red |
+| **D-NAL-REV-0** | `planner/tests/nal_revision_oracle.rs`: revision laws against OpenNARS output | Committed, not pushed | 4 tests; 3 disable runs red, one on production `TruthValue::revise` |
+| **D-NAL-RCPT-1** | Receipt a recipe can read (executed step + confidence left + later outcome + identity) | Queued, design only | a meta recipe that loses its receipts must abstain; a repeated receipt must not move it |
+
 ## D-SQLP — SQL() as a polyfill of R2IL procedures over mask-risc (2026-10-11)
 
 Plan: `.claude/plans/sql-polyfill-r2il-v1.md`.
