@@ -76,3 +76,7 @@ lance-graph-rbac = { path = "../lance-graph-rbac" }
 [[test]]
 name = "view_actors"
 required-features = ["rbac"]
+
+[[test]]
+name = "membership_path"
+required-features = ["rbac"]

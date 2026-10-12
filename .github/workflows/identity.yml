@@ -78,6 +78,10 @@ jobs:
           workspaces: lance-graph/crates/lance-graph-dir-sim
       - name: Run the simulator's tests
         run: cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml
+      - name: Run the simulator's role tests (feature rbac)
+        # view_actors and membership_path need the rbac feature; without
+        # this step they compile only locally.
+        run: cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml --features rbac
       - name: The tests pinning Exchange behaviour exist
         run: |
           cargo test -q --manifest-path crates/lance-graph-dir-sim/Cargo.toml -- --list \
