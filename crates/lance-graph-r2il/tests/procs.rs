@@ -5,7 +5,7 @@
 //! selection, a partial one and a full one.
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, MaskOp, Planes};
-use lance_graph_r2il::procs::{filter_lt, group_sum, margin, select_lt, sum};
+use lance_graph_r2il::procs::{count, filter_lt, group_sum, margin, select_lt, select_u32, sum};
 use lance_graph_r2il::{
     BoolMode, FoldDialect, FoldError, Val, INT_AND, INT_NOT, INT_OR, POP_COUNT,
 };
@@ -79,6 +79,44 @@ fn filter_lt_keeps_the_rows_the_reference_keeps() {
         let want: Vec<usize> = (0..N).filter(|&r| f.x[r] < t).collect();
         assert_eq!(rows(&sink), want, "t = {t}");
     }
+}
+
+/// FAILS IF: `select_u32` stops keeping exactly the live rows that pass every
+/// condition. The live plane drops every seventh row, so a selection that
+/// ignores the plane counts too many; `!=` and `=` are both exercised.
+#[test]
+fn select_u32_counts_live_rows_passing_every_condition() {
+    let f = fixture();
+    let lanes = lanes(&f);
+    let mut live = vec![0u64; words_for(N)];
+    for r in (0..N).filter(|r| r % 7 != 0) {
+        live[r / 64] |= 1 << (r % 64);
+    }
+    let planes = Planes {
+        n_rows: N,
+        masks: &[live.as_slice()],
+        lanes: &lanes,
+    };
+    type Case = (&'static [(u16, u32, bool)], fn(usize) -> bool);
+    let cases: [Case; 4] = [
+        (&[], |_| true),
+        (&[(KEY, 3, false)], |k| k == 3),
+        (&[(KEY, 3, true)], |k| k != 3),
+        (&[(KEY, 3, true), (KEY, 1, true)], |k| k != 3 && k != 1),
+    ];
+    for (conds, keep) in cases {
+        let want = (0..N)
+            .filter(|&r| r % 7 != 0 && keep(f.key[r] as usize))
+            .count() as i64;
+        let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+        let mut stack = vec![];
+        select_u32(&mut d, &mut stack, 0, conds).expect("select");
+        count(&mut d, &mut stack).expect("count");
+        assert_eq!(stack, vec![Val::Scalar(want)], "{conds:?}");
+        assert_eq!(d.programs_run(), 1, "one fold");
+    }
+    // Non-vacuity: the plane removes rows that pass the conditions.
+    assert!((0..N).any(|r| r % 7 == 0 && f.key[r] == 3));
 }
 
 /// FAILS IF: `sum` stops matching `SUM(revenue | x < t)`.
@@ -338,4 +376,53 @@ fn plane_and_plane_is_accepted_in_both_modes() {
         d.call(POP_COUNT, [0; 3], &mut stack).expect("count");
         assert_eq!(stack, vec![Val::Scalar(want)], "{mode:?}");
     }
+}
+
+/// FAILS IF: a fold refuses, or misreads, a resident plane as its mask.
+/// A body with no condition hands the fold the live plane itself, not a
+/// computed slot; SUM, GROUP_SUM and KEEP must read it where it stands, as
+/// POP_COUNT does.
+#[test]
+fn every_fold_takes_a_resident_plane_as_its_mask() {
+    let f = fixture();
+    let lanes = lanes(&f);
+    let mut live = vec![0u64; words_for(N)];
+    for r in (0..N).filter(|r| r % 7 != 0) {
+        live[r / 64] |= 1 << (r % 64);
+    }
+    let planes = Planes {
+        n_rows: N,
+        masks: &[live.as_slice()],
+        lanes: &lanes,
+    };
+    let kept: Vec<usize> = (0..N).filter(|r| r % 7 != 0).collect();
+    let plane = || vec![Val::Address(lance_graph_r2il::Addr::Plane(0))];
+
+    let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+    let mut stack = plane();
+    sum(&mut d, &mut stack, REVENUE).expect("sum over a plane");
+    let want: i64 = kept.iter().map(|&r| i64::from(f.revenue[r])).sum();
+    assert_eq!(stack, vec![Val::Scalar(want)]);
+
+    let mut want = [0i64; GROUPS];
+    for &r in &kept {
+        want[f.key[r] as usize] += i64::from(f.revenue[r]);
+    }
+    let mut sink = [0i64; GROUPS];
+    {
+        let mut d = FoldDialect::with_groups(&planes, &Foreign::NONE, &mut sink);
+        let mut stack = plane();
+        group_sum(&mut d, &mut stack, KEY, REVENUE).expect("group_sum over a plane");
+    }
+    assert_eq!(sink, want);
+
+    let mut out = vec![0u64; words_for(N)];
+    {
+        let mut d = FoldDialect::with_keep(&planes, &Foreign::NONE, &mut out);
+        let mut stack = plane();
+        d.call(KEEP, [0; 3], &mut stack).expect("keep a plane");
+    }
+    assert_eq!(rows(&out), kept);
+    // Non-vacuity: the plane drops rows, so reading every row would differ.
+    assert!(kept.len() < N);
 }
