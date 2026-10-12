@@ -9,8 +9,8 @@
 //! the method's owner (OGAR); nothing here mints one.
 use lance_graph_glove_parity::basis::{canonical_fields, FieldMap, Grade, SAP_FIELDS};
 use lance_graph_glove_parity::method::{
-    CallError, Cond, EffectClass, Fold, Frontend, Law, MethodBody, MethodKey, MethodSpec,
-    MethodTable, PrepareError,
+    Answer, CallError, Cond, EffectClass, Fold, FoldValue, Frontend, Glove, Law, MethodBody,
+    MethodKey, MethodSpec, MethodTable, PrepareError, ReadingId, SchemaSeal, Universe,
 };
 use lance_graph_mask_risc::{LaneRef, Planes};
 use lance_graph_ogar::ogar_vocab::class_ids::BILLABLE_WORK_ENTRY;
@@ -34,13 +34,23 @@ const fn query(filter: &'static [Cond], folds: &'static [Fold]) -> MethodBody {
     }
 }
 
-const fn pure(key: MethodKey, body: MethodBody) -> MethodSpec {
+/// FIXTURES: the reading id and population id a real glove is issued.
+const READING: ReadingId = ReadingId(1);
+const UNIVERSE: Universe = Universe(42);
+
+fn pure(key: MethodKey, body: MethodBody) -> MethodSpec {
     MethodSpec {
         key,
         concept: BILLABLE_WORK_ENTRY,
+        schema: SchemaSeal::of(&canonical_fields()),
+        reading: READING,
         effect: EffectClass::Pure,
         body,
     }
+}
+
+fn scalars(v: &[i64]) -> Answer {
+    Answer::Values(v.iter().map(|&n| FoldValue::Scalar(n)).collect())
 }
 
 const BILLABLE_TRUE: Cond = Cond::Eq {
@@ -70,12 +80,13 @@ fn specs() -> Vec<(&'static str, MethodSpec)> {
         (
             "submit_for_approval",
             MethodSpec {
-                key: SUBMIT,
-                concept: BILLABLE_WORK_ENTRY,
                 effect: EffectClass::ExternalMutate,
-                body: MethodBody::Action {
-                    action: "submit_for_approval",
-                },
+                ..pure(
+                    SUBMIT,
+                    MethodBody::Action {
+                        action: "submit_for_approval",
+                    },
+                )
             },
         ),
         // Two more shapes, still data: a negated condition, and a body with
@@ -152,15 +163,20 @@ fn with_duration() -> Vec<FieldMap> {
         .collect()
 }
 
-fn table_for(binder: &dyn Binder, claims: &[FieldMap]) -> MethodTable {
-    MethodTable::prepare(
-        BILLABLE_WORK_ENTRY,
-        &canonical_fields(),
+fn glove<'a>(basis: &'a [String], binder: &'a dyn Binder, claims: &'a [FieldMap]) -> Glove<'a> {
+    Glove {
+        concept: BILLABLE_WORK_ENTRY,
+        basis,
         claims,
         binder,
-        TABLE,
-        &specs(),
-    )
+        table: TABLE,
+        reading: READING,
+        universe: UNIVERSE,
+    }
+}
+
+fn table_for(binder: &dyn Binder, claims: &[FieldMap]) -> MethodTable {
+    MethodTable::prepare(&glove(&canonical_fields(), binder, claims), &specs())
 }
 
 fn call(
@@ -168,7 +184,7 @@ fn call(
     batch: &CatsBatch,
     key: MethodKey,
     f: Frontend,
-) -> Result<Vec<i64>, CallError> {
+) -> Result<Answer, CallError> {
     let n = batch.len();
     let live = live_words(n);
     let lanes = batch.lanes();
@@ -177,7 +193,7 @@ fn call(
         masks: &[live.as_slice()],
         lanes: &lanes,
     };
-    t.call(key, &planes, f)
+    t.call(key, &planes, UNIVERSE, f)
 }
 
 /// FAILS IF: either frontend stops counting exactly the rows the DTO documents
@@ -188,7 +204,7 @@ fn count_billable_agrees_across_quack_r2il_and_the_oracle() {
         let batch = batch(n);
         let t = table_for(&CatsBinder::new(&batch), SAP_FIELDS);
         let key = t.resolve("count_billable").expect("label");
-        let want = vec![billable_rows(n).count() as i64];
+        let want = scalars(&[billable_rows(n).count() as i64]);
         assert_eq!(
             call(&t, &batch, key, Frontend::Quack).unwrap(),
             want,
@@ -220,10 +236,10 @@ fn methods_declared_as_data_run_without_new_rust() {
         };
         let billable_sum: i64 = billable_rows(n).map(|i| i64::from(hours[i])).sum();
         let cases = [
-            ("count_not_billable", vec![not_billable]),
+            ("count_not_billable", scalars(&[not_billable])),
             (
                 "billable_hours",
-                vec![billable_rows(n).count() as i64, billable_sum],
+                scalars(&[billable_rows(n).count() as i64, billable_sum]),
             ),
         ];
         for (label, want) in cases {
@@ -374,14 +390,8 @@ fn malformed_specs_are_refused_by_name() {
         ("unknown_value", unknown_value),
         ("pure_action", pure_action),
     ];
-    let t = MethodTable::prepare(
-        BILLABLE_WORK_ENTRY,
-        &canonical_fields(),
-        SAP_FIELDS,
-        &CatsBinder::new(&batch),
-        TABLE,
-        &specs,
-    );
+    let cats = CatsBinder::new(&batch);
+    let t = MethodTable::prepare(&glove(&canonical_fields(), &cats, SAP_FIELDS), &specs);
     let refused = |k: u8| t.get(MethodKey([k; 16])).unwrap().clone().unwrap_err();
     assert!(matches!(refused(1), PrepareError::WrongConcept { .. }));
     assert_eq!(refused(2), PrepareError::NoFold);
@@ -429,7 +439,7 @@ fn a_swapped_lane_breaks_parity() {
     let n = 4097;
     let batch = batch(n);
     let t = table_for(&Swapped(CatsBinder::new(&batch)), SAP_FIELDS);
-    let want = vec![billable_rows(n).count() as i64];
+    let want = scalars(&[billable_rows(n).count() as i64]);
     for f in [Frontend::Quack, Frontend::R2il] {
         assert_ne!(call(&t, &batch, COUNT_BILLABLE, f).unwrap(), want, "{f:?}");
     }

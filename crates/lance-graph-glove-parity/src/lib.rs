@@ -12,6 +12,7 @@
 //! glove's lanes. This is a FIELD MAPPING (bind time, fields → lanes), not a
 //! report `pivot()` (plan §C.6.1).
 pub mod basis;
+pub mod call;
 pub mod method;
 
 use lance_graph_ontology::namespace::SchemaKind;

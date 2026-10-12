@@ -36,9 +36,20 @@
 //! An action body prepares, so the table can name it, and is refused by
 //! every pure call ([`CallError::NotPure`]).
 //!
+//! A spec is bound only to the glove it was written for: its
+//! [`SchemaSeal`] (the canonical basis, in order) and its [`ReadingId`] must
+//! equal the glove's, and a call must name the [`Universe`] (source
+//! generation and population) the method was prepared against.
+//!
 //! Scope: conditions are `=`/`!=` on non-nullable `Code` fields; folds are
-//! `COUNT` and `SUM` over a non-nullable `I32` field; the only law is
-//! [`Law::Values`]. Everything else is refused by name.
+//! `COUNT`, `SUM` and grouped `SUM` over non-nullable `I32` fields; laws are
+//! [`Law::Values`] and [`Law::NarsRevision`]. Everything else is refused by
+//! name.
+//!
+//! A [`Law`] is the one place a domain's semantics are written in Rust: it is
+//! a certified finisher, checked against an independent oracle, and every
+//! method of every concept that names it reuses it. A method never supplies
+//! its own.
 use lance_graph_contract::WideFieldMask;
 use lance_graph_mask_risc::{execute_into, ExecError, Foreign, Out, Planes, Scratch, Value};
 use lance_graph_quack::bind::{Binder, BoundField, FieldKind, TableId};
@@ -51,6 +62,40 @@ use crate::basis::{FieldMap, Grade};
 /// from its label.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MethodKey(pub [u8; 16]);
+
+/// The canonical basis a spec was written against: its field names, in
+/// `ClassView` order. Reordering, renaming, adding or removing a field
+/// changes the seal, so a spec written for one basis never binds another.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SchemaSeal(pub u64);
+
+impl SchemaSeal {
+    /// FNV-1a over the names, each terminated by `0xFF` (not a UTF-8 byte),
+    /// so `["ab","c"]` and `["a","bc"]` differ.
+    #[must_use]
+    pub fn of(basis: &[String]) -> Self {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for name in basis {
+            for b in name.bytes().chain(std::iter::once(0xFF)) {
+                h ^= u64::from(b);
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        }
+        Self(h)
+    }
+}
+
+/// Which interpretation of the glove's bytes a spec assumes. Issued with the
+/// reading (the ClassView's); a different reading of the same lanes is a
+/// different id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ReadingId(pub u16);
+
+/// The population a method was prepared against: source generation and row
+/// universe, issued by whoever owns the planes. Rows from another universe
+/// are not rows of this method's table, whatever their shape.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Universe(pub u64);
 
 /// What a method may do (OGAR #357 §8).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,6 +140,14 @@ pub enum Fold {
     Count,
     /// `SUM(field)` over the selected rows.
     Sum(&'static str),
+    /// `SUM(val) GROUP BY key` over the selected rows, for the key domain
+    /// `0..groups`. Rows whose key is at or past `groups` are dropped by the
+    /// terminal, not refused.
+    GroupSum {
+        key: &'static str,
+        val: &'static str,
+        groups: u32,
+    },
 }
 
 /// How the folds' values become the method's result. A fixed set the
@@ -103,6 +156,55 @@ pub enum Fold {
 pub enum Law {
     /// The fold values, in order.
     Values,
+    /// NAL revision of independent evidence, per statement.
+    ///
+    /// The body's folds must be exactly `[GroupSum { key, val: w },
+    /// GroupSum { key, val: wf }]` over the same key and domain, where each
+    /// row carries one piece of evidence as a fixed-point evidence weight
+    /// `w = scale · c / (1 - c)` and `wf = round(w · f)`. Revision of
+    /// independent evidence adds weights, so for each statement
+    /// `f = Σwf / Σw` and `c = (Σw/scale) / (Σw/scale + horizon)`, computed
+    /// once from the sums (never by chaining pairwise revisions).
+    ///
+    /// Adding weights is only revision when the evidence is independent: a
+    /// repeated stamp would count twice. The body's filter must therefore
+    /// contain `independent = "true"`, the payload's own mark of the first
+    /// occurrence of each `(statement, stamp)`. The algebra cannot compute
+    /// that mark yet (see the capability ledger); a body without it is
+    /// refused.
+    NarsRevision {
+        /// The field marking the first occurrence of each evidential stamp.
+        independent: &'static str,
+        /// Fixed-point scale of `w`.
+        scale: u32,
+        /// The evidential horizon `k`.
+        horizon: u32,
+    },
+}
+
+/// A NAL truth value.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Truth {
+    pub f: f64,
+    pub c: f64,
+}
+
+/// One fold's value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FoldValue {
+    Scalar(i64),
+    /// One value per group, `0..groups`.
+    Groups(Vec<i64>),
+}
+
+/// A method's typed result.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Answer {
+    /// [`Law::Values`]: the fold values, in order.
+    Values(Vec<FoldValue>),
+    /// [`Law::NarsRevision`]: one truth per statement; `None` where no
+    /// independent evidence was selected.
+    Truths(Vec<Option<Truth>>),
 }
 
 /// A method's body, in the concept's canonical field names.
@@ -124,6 +226,10 @@ pub struct MethodSpec {
     pub key: MethodKey,
     /// Canonical concept id (`ogar_vocab::class_ids`).
     pub concept: u16,
+    /// The basis the body's field names refer to.
+    pub schema: SchemaSeal,
+    /// The reading of the glove's bytes the body assumes.
+    pub reading: ReadingId,
     pub effect: EffectClass,
     pub body: MethodBody,
 }
@@ -137,9 +243,10 @@ impl MethodSpec {
             let fields = filter
                 .iter()
                 .map(|c| c.field())
-                .chain(folds.iter().filter_map(|f| match f {
-                    Fold::Count => None,
-                    Fold::Sum(field) => Some(*field),
+                .chain(folds.iter().flat_map(|f| match *f {
+                    Fold::Count => vec![],
+                    Fold::Sum(field) => vec![field],
+                    Fold::GroupSum { key, val, .. } => vec![key, val],
                 }));
             for f in fields {
                 if !out.contains(&f) {
@@ -180,6 +287,15 @@ pub enum PrepareError {
     NoFold,
     /// The declared effect does not match the body.
     EffectMismatch,
+    /// The spec was written for another canonical basis.
+    SchemaMismatch { spec: SchemaSeal, glove: SchemaSeal },
+    /// The spec assumes another reading of the glove's bytes.
+    ReadingMismatch { spec: ReadingId, glove: ReadingId },
+    /// The body's folds do not have the shape its law requires.
+    LawShape,
+    /// The law adds evidence, and the body does not select independent
+    /// evidence (`Law::NarsRevision::independent`).
+    EvidenceNotIndependent(&'static str),
 }
 
 /// Why a call did not run.
@@ -191,6 +307,12 @@ pub enum CallError {
     Refused(PrepareError),
     /// The method is an action; a pure call never runs it.
     NotPure,
+    /// The planes belong to another population than the method was
+    /// prepared against.
+    UniverseMismatch {
+        method: Universe,
+        planes: Universe,
+    },
     Lower(LowerError),
     Exec(ExecError),
     Fold(FoldError),
@@ -207,6 +329,7 @@ pub enum Frontend {
 enum BoundFold {
     Count,
     Sum(Col),
+    GroupSum { key: Col, val: Col, groups: u32 },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -228,6 +351,8 @@ pub struct PreparedMethod {
     pub effect: EffectClass,
     /// The canonical fields the method reads, as basis positions.
     pub required: WideFieldMask,
+    /// The population the method was bound against.
+    pub universe: Universe,
     bound: Bound,
 }
 
@@ -262,9 +387,10 @@ impl PreparedMethod {
             .iter()
             .map(|f| Query {
                 filter: filter(),
-                agg: match f {
+                agg: match *f {
                     BoundFold::Count => Agg::Count,
-                    BoundFold::Sum(col) => Agg::SumI32(*col),
+                    BoundFold::Sum(col) => Agg::SumI32(col),
+                    BoundFold::GroupSum { key, val, .. } => Agg::GroupSumI32 { key, val },
                 },
             })
             .collect()
@@ -274,9 +400,15 @@ impl PreparedMethod {
     ///
     /// # Errors
     ///
-    /// [`CallError::NotPure`] for an action, otherwise the frontend's own
+    /// [`CallError::NotPure`] for an action, [`CallError::UniverseMismatch`]
+    /// for planes of another population, otherwise the frontend's own
     /// refusal.
-    pub fn call(&self, planes: &Planes<'_>, frontend: Frontend) -> Result<Vec<i64>, CallError> {
+    pub fn call(
+        &self,
+        planes: &Planes<'_>,
+        universe: Universe,
+        frontend: Frontend,
+    ) -> Result<Answer, CallError> {
         let Bound::Query {
             live,
             conds,
@@ -286,11 +418,18 @@ impl PreparedMethod {
         else {
             return Err(CallError::NotPure);
         };
+        if universe != self.universe {
+            return Err(CallError::UniverseMismatch {
+                method: self.universe,
+                planes: universe,
+            });
+        }
         let values = match frontend {
             Frontend::Quack => self
                 .queries()
                 .iter()
-                .map(|q| run_quack(q, planes))
+                .zip(folds)
+                .map(|(q, f)| run_quack(q, *f, planes))
                 .collect::<Result<Vec<_>, _>>()?,
             Frontend::R2il => {
                 let conds: Vec<(u16, u32, bool)> =
@@ -301,20 +440,56 @@ impl PreparedMethod {
                     .collect::<Result<Vec<_>, _>>()?
             }
         };
-        match law {
-            Law::Values => Ok(values),
-        }
+        Ok(match *law {
+            Law::Values => Answer::Values(values),
+            Law::NarsRevision { scale, horizon, .. } => {
+                let [FoldValue::Groups(w), FoldValue::Groups(wf)] = values.as_slice() else {
+                    unreachable!("preparation checked the law's shape")
+                };
+                Answer::Truths(nars_revision(w, wf, scale, horizon))
+            }
+        })
     }
 }
 
-fn run_quack(q: &Query, planes: &Planes<'_>) -> Result<i64, CallError> {
+/// [`Law::NarsRevision`]'s finisher: per group, from the evidence sums.
+fn nars_revision(w: &[i64], wf: &[i64], scale: u32, horizon: u32) -> Vec<Option<Truth>> {
+    w.iter()
+        .zip(wf)
+        .map(|(&w, &wf)| {
+            (w > 0).then(|| {
+                let weight = w as f64 / f64::from(scale);
+                Truth {
+                    f: wf as f64 / w as f64,
+                    c: weight / (weight + f64::from(horizon)),
+                }
+            })
+        })
+        .collect()
+}
+
+fn run_quack(q: &Query, fold: BoundFold, planes: &Planes<'_>) -> Result<FoldValue, CallError> {
     let program = lower(q).map_err(CallError::Lower)?;
     let mut scratch = Scratch::for_program(&program, planes.n_rows).map_err(CallError::Exec)?;
+    if let BoundFold::GroupSum { groups, .. } = fold {
+        let mut sink = vec![0i64; groups as usize];
+        execute_into(
+            &program,
+            planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::I64(&mut sink),
+        )
+        .map_err(CallError::Exec)?;
+        return Ok(FoldValue::Groups(sink));
+    }
     match execute_into(&program, planes, &Foreign::NONE, &mut scratch, Out::None)
         .map_err(CallError::Exec)?
     {
-        Value::Count(n) => Ok(i64::try_from(n).expect("a row count fits i64")),
-        Value::SumI64(s) => Ok(s),
+        Value::Count(n) => Ok(FoldValue::Scalar(
+            i64::try_from(n).expect("a row count fits i64"),
+        )),
+        Value::SumI64(s) => Ok(FoldValue::Scalar(s)),
         other => panic!("a Count or SumI32 terminal, got {other:?}"),
     }
 }
@@ -326,17 +501,27 @@ fn run_r2il(
     conds: &[(u16, u32, bool)],
     fold: BoundFold,
     planes: &Planes<'_>,
-) -> Result<i64, CallError> {
-    let mut d = FoldDialect::new(planes, &Foreign::NONE);
+) -> Result<FoldValue, CallError> {
     let mut stack = Vec::new();
+    if let BoundFold::GroupSum { key, val, groups } = fold {
+        let mut sink = vec![0i64; groups as usize];
+        let mut d = FoldDialect::with_groups(planes, &Foreign::NONE, &mut sink);
+        procs::select_u32(&mut d, &mut stack, live.0, conds).map_err(CallError::Fold)?;
+        procs::group_sum(&mut d, &mut stack, key.0, val.0).map_err(CallError::Fold)?;
+        assert!(stack.is_empty(), "GROUP_SUM pushes nothing, got {stack:?}");
+        drop(d);
+        return Ok(FoldValue::Groups(sink));
+    }
+    let mut d = FoldDialect::new(planes, &Foreign::NONE);
     procs::select_u32(&mut d, &mut stack, live.0, conds).map_err(CallError::Fold)?;
     match fold {
         BoundFold::Count => procs::count(&mut d, &mut stack),
         BoundFold::Sum(col) => procs::sum(&mut d, &mut stack, col.0),
+        BoundFold::GroupSum { .. } => unreachable!("handled above"),
     }
     .map_err(CallError::Fold)?;
     match stack.as_slice() {
-        [Val::Scalar(n)] => Ok(*n),
+        [Val::Scalar(n)] => Ok(FoldValue::Scalar(*n)),
         other => panic!("a fold leaves one scalar, got {other:?}"),
     }
 }
@@ -344,42 +529,42 @@ fn run_r2il(
 /// One concept's methods, bound against one glove.
 #[derive(Debug)]
 pub struct MethodTable {
+    concept: u16,
+    table: &'static str,
     labels: Vec<(&'static str, MethodKey)>,
     methods: Vec<(MethodKey, Result<PreparedMethod, PrepareError>)>,
 }
 
 impl MethodTable {
-    /// Bind every method of `concept` once.
-    ///
-    /// - `basis`: the concept's canonical fields in `ClassView` order;
-    /// - `claims`: this glove's native → canonical claims;
-    /// - `binder`, `table`: this glove's resolution membrane;
-    /// - `specs`: `(label, spec)`; the label is display text only.
+    /// Bind every method of the glove's concept once. `specs` are
+    /// `(label, spec)`; the label is display text only.
     ///
     /// A refused method stays in the table with its reason.
     #[must_use]
-    pub fn prepare(
-        concept: u16,
-        basis: &[String],
-        claims: &[FieldMap],
-        binder: &dyn Binder,
-        table: &'static str,
-        specs: &[(&'static str, MethodSpec)],
-    ) -> Self {
-        let available = available(basis, claims);
-        let glove = Glove {
-            basis,
-            claims,
-            binder,
-            table,
-        };
+    pub fn prepare(glove: &Glove<'_>, specs: &[(&'static str, MethodSpec)]) -> Self {
+        let available = available(glove.basis, glove.claims);
+        let seal = SchemaSeal::of(glove.basis);
         Self {
+            concept: glove.concept,
+            table: glove.table,
             labels: specs.iter().map(|(l, s)| (*l, s.key)).collect(),
             methods: specs
                 .iter()
-                .map(|(_, s)| (s.key, glove.prepare(concept, available.as_ref(), s)))
+                .map(|(_, s)| (s.key, glove.prepare(seal, available.as_ref(), s)))
                 .collect(),
         }
+    }
+
+    /// The concept whose methods this table holds.
+    #[must_use]
+    pub fn concept(&self) -> u16 {
+        self.concept
+    }
+
+    /// The glove table its methods were bound against.
+    #[must_use]
+    pub fn table(&self) -> &'static str {
+        self.table
     }
 
     /// The key a label names. Cold: done once, never per call.
@@ -407,10 +592,11 @@ impl MethodTable {
         &self,
         key: MethodKey,
         planes: &Planes<'_>,
+        universe: Universe,
         frontend: Frontend,
-    ) -> Result<Vec<i64>, CallError> {
+    ) -> Result<Answer, CallError> {
         match self.get(key).ok_or(CallError::UnknownMethod)? {
-            Ok(m) => m.call(planes, frontend),
+            Ok(m) => m.call(planes, universe, frontend),
             Err(e) => Err(CallError::Refused(e.clone())),
         }
     }
@@ -430,25 +616,53 @@ fn available(basis: &[String], claims: &[FieldMap]) -> Result<WideFieldMask, Pre
     Ok(mask)
 }
 
-/// One glove's resolution inputs.
-struct Glove<'a> {
-    basis: &'a [String],
-    claims: &'a [FieldMap],
-    binder: &'a dyn Binder,
-    table: &'static str,
+/// One glove of one concept: everything a spec is bound against.
+pub struct Glove<'a> {
+    /// Canonical concept id (`ogar_vocab::class_ids`).
+    pub concept: u16,
+    /// The concept's canonical fields in `ClassView` order.
+    pub basis: &'a [String],
+    /// This glove's native → canonical claims.
+    pub claims: &'a [FieldMap],
+    /// This glove's resolution membrane.
+    pub binder: &'a dyn Binder,
+    /// The glove's table for the concept.
+    pub table: &'static str,
+    /// The reading of the glove's bytes it serves.
+    pub reading: ReadingId,
+    /// The population its planes hold.
+    pub universe: Universe,
 }
 
 impl Glove<'_> {
     fn prepare(
         &self,
-        concept: u16,
+        seal: SchemaSeal,
         available: Result<&WideFieldMask, &PrepareError>,
         spec: &MethodSpec,
     ) -> Result<PreparedMethod, PrepareError> {
-        if spec.concept != concept {
+        if spec.concept != self.concept {
             return Err(PrepareError::WrongConcept {
                 spec: spec.concept,
-                table: concept,
+                table: self.concept,
+            });
+        }
+        // The basis IS the field mask's universe: one wider than a position
+        // can address is refused whole, even if no claimed or read field
+        // sits past the edge.
+        if self.basis.len() > usize::from(u8::MAX) + 1 {
+            return Err(PrepareError::BasisTooWide(self.basis.len()));
+        }
+        if spec.schema != seal {
+            return Err(PrepareError::SchemaMismatch {
+                spec: spec.schema,
+                glove: seal,
+            });
+        }
+        if spec.reading != self.reading {
+            return Err(PrepareError::ReadingMismatch {
+                spec: spec.reading,
+                glove: self.reading,
             });
         }
         let available = available.map_err(Clone::clone)?;
@@ -472,6 +686,7 @@ impl Glove<'_> {
                 if folds.is_empty() {
                     return Err(PrepareError::NoFold);
                 }
+                check_law(law, filter, folds)?;
                 let t = self
                     .binder
                     .table(self.table)
@@ -482,15 +697,16 @@ impl Glove<'_> {
                     .collect::<Result<Vec<_>, _>>()?;
                 let folds = folds
                     .iter()
-                    .map(|f| match f {
+                    .map(|f| match *f {
                         Fold::Count => Ok(BoundFold::Count),
                         Fold::Sum(field) => {
-                            let b = self.field(t, field)?;
-                            if b.kind != FieldKind::I32 {
-                                return Err(PrepareError::KindMismatch(field));
-                            }
-                            Ok(BoundFold::Sum(b.col))
+                            Ok(BoundFold::Sum(self.lane(t, field, FieldKind::I32)?))
                         }
+                        Fold::GroupSum { key, val, groups } => Ok(BoundFold::GroupSum {
+                            key: self.lane(t, key, FieldKind::Code)?,
+                            val: self.lane(t, val, FieldKind::I32)?,
+                            groups,
+                        }),
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 Bound::Query {
@@ -509,8 +725,18 @@ impl Glove<'_> {
             key: spec.key,
             effect: spec.effect,
             required,
+            universe: self.universe,
             bound,
         })
+    }
+
+    /// A required field's lane, which must be of `kind`.
+    fn lane(&self, t: TableId, field: &'static str, kind: FieldKind) -> Result<Col, PrepareError> {
+        let b = self.field(t, field)?;
+        if b.kind != kind {
+            return Err(PrepareError::KindMismatch(field));
+        }
+        Ok(b.col)
     }
 
     fn position(&self, field: &'static str) -> Result<u8, PrepareError> {
@@ -559,5 +785,39 @@ impl Glove<'_> {
             .code(t, b.col, literal)
             .ok_or(PrepareError::UnknownValue { field, literal })?;
         Ok((b.col, code, negate))
+    }
+}
+
+/// The body shape a law needs, checked before anything binds.
+fn check_law(law: Law, filter: &[Cond], folds: &[Fold]) -> Result<(), PrepareError> {
+    match law {
+        Law::Values => Ok(()),
+        Law::NarsRevision { independent, .. } => {
+            let [Fold::GroupSum {
+                key: k1,
+                val: w,
+                groups: g1,
+            }, Fold::GroupSum {
+                key: k2,
+                val: wf,
+                groups: g2,
+            }] = folds
+            else {
+                return Err(PrepareError::LawShape);
+            };
+            if k1 != k2 || g1 != g2 || w == wf {
+                return Err(PrepareError::LawShape);
+            }
+            let selects_independent = filter.iter().any(|c| {
+                *c == Cond::Eq {
+                    field: independent,
+                    literal: "true",
+                }
+            });
+            if !selects_independent {
+                return Err(PrepareError::EvidenceNotIndependent(independent));
+            }
+            Ok(())
+        }
     }
 }
