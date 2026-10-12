@@ -142,3 +142,19 @@ Keep three signals separate: syntax-level MDL redundancy, epistemic uncertainty 
 Proceed beyond W1 only if the graph returns a **smaller and at least equally correct**, source-backed context slice than the strongest conventional baseline, with bounded indexing/invalidations. Proceed beyond W3 only if the receipt+revision loop improves prediction or decision over a simple history-based selector. Otherwise retain the read-only graph context service and stop.
 
 References: [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509), [#1504](https://github.com/AdaWorldAPI/lance-graph/pull/1504), [#1508](https://github.com/AdaWorldAPI/lance-graph/pull/1508), [#1495](https://github.com/AdaWorldAPI/lance-graph/pull/1495), [#1359](https://github.com/AdaWorldAPI/lance-graph/pull/1359), [#1311](https://github.com/AdaWorldAPI/lance-graph/pull/1311), and companion `.arxiv` notes.
+
+## 9. Deferred contracts now expanded (research-only)
+
+The first documentation pass intentionally left implementation detail unresolved. The explicit contracts and negative fixtures are now written out in [D-SAG-2 deferred contracts](software-awareness-agent-context-deferred-contracts-v1.md), including:
+
+- source-symbol versus OGAR/MethodKey identity, version/worktree freshness and atomic graph generations;
+- `resolve/context/impact/propose/expand/explain` proposals as bounded, read-only, typed calls;
+- one-hop Quack mechanics and refusal on unsupported multi-hop;
+- mandatory correctness facets, query budgeting, delta slices and explicit coverage omissions;
+- deterministic local propositions with witnessed edges, prompt-injection treatment and authority separation;
+- receipts, prediction registration, observer-recursion protection, CPU-tier validity and baseline ablations;
+- independent retrieval, execution and learning economics and a stop/go ladder.
+
+The [attention and active-experiment excerpts](../../.arxiv/2026-10_sag_agent_attention_active_selection_excerpts.md) add paper-grounded controls from Lost in the Middle, RepoHyper/RepoGraph, costly active learning and verification-first code uncertainty.
+
+**Scope remains unchanged:** these additions are specifications and source reviews, *not* executable features or measured gains. Any follow-up CC run should start with W1's one-method one-hop proof, not implement every proposal simultaneously.
