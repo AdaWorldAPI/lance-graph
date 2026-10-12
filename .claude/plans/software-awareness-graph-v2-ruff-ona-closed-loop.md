@@ -189,3 +189,10 @@ Internal: [#1496](https://github.com/AdaWorldAPI/lance-graph/pull/1496), [#1497]
 Ruff: [AdaWorldAPI/ruff](https://github.com/AdaWorldAPI/ruff), [polyglot RFC](https://github.com/AdaWorldAPI/ruff/blob/main/.claude/OGAR-POLYGLOT-AST-INTEGRATION.md), [ModelGraph](https://github.com/AdaWorldAPI/ruff/blob/main/crates/ruff_spo_triplet/src/ir.rs), [C++-only reassembler](https://github.com/AdaWorldAPI/ruff/blob/main/crates/ruff_spo_triplet/src/reassemble.rs), [#117 order](https://github.com/AdaWorldAPI/ruff/pull/117), [#118 C linkage](https://github.com/AdaWorldAPI/ruff/pull/118), [#120 Odoo views](https://github.com/AdaWorldAPI/ruff/pull/120).
 
 Primary literature and independent runtimes: see the .arxiv shelf. All external implementation versions are **not pinned for execution yet**.
+
+## 9. Deferred-probe expansion after initial D-SAG-2 draft
+
+An additional source-grounded adversarial pass is documented in [SAG observability, causality, metamorphic testing and adaptive evaluation](../knowledge/sag-v2-observability-causality-and-evaluation-addendum.md) with **SAG2-P21..P40**. Its supplemental primary-source shelf is [ONA anticipation, do-nothing controls, adaptive holdouts and metamorphic relations](../../.arxiv/2026-10_software_awareness_ona_observability_metamorphic_holdout_excerpts.md).
+
+This expansion does **not** mark a new wave as shipped or authorize new runtime semantics. Before D-SAG-2-3, settle observation completeness, negative evidence admission, independent source stamps, NoOp/Probe/action distinctions, and protected unseen evaluation. Keep introspective telemetry on k+1 while reading k. The 20 new probes are extensions of the original P01–P20, not replacements.
+

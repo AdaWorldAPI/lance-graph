@@ -99,3 +99,8 @@ Related merged sources: [#1496 CE64/NAL](https://github.com/AdaWorldAPI/lance-gr
 ## 10. Reproduction and source restrictions
 
 Pin runtime commits and package/tool versions before claiming parity. Cite a versioned test artifact, fixture, input/output and exact operator mapping. Treat peer-reviewed empirical effects, mathematical proofs, and project-specific engineering hypotheses as **different epistemic tiers**. No paper here licenses adding a new byte interpretation, operator, or action privilege without an independently verified insufficiency and explicit owner decision.
+
+## 11. Further research note (non-shipped addendum)
+
+The research shelf [ONA observability, adaptive holdouts and metamorphic oracle limits](2026-10_software_awareness_ona_observability_metamorphic_holdout_excerpts.md) adds annotated excerpts from Hammer & Lofthouse's 2020 ONA architecture paper, the ONA do-nothing-operator issue, Dwork et al. on adaptive holdout reuse, and metamorphic testing studies. These sources motivate **P21–P40**, in particular the distinction between an *unobserved* event and an event known not to have occurred in a fully observed window. None is a production semantics change.
+

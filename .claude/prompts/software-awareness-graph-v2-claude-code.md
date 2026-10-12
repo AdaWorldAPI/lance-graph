@@ -56,3 +56,17 @@ Track predictions and observed outcomes separately, with timestamps or pinned re
 - Run plan_dids.py, append_only_gate.py and relevant repository CI gates as applicable; do not claim they passed unless executed.
 - Avoid status-board inflation: distinguish shipped, measured locally, untested, proposed and blocked.
 - Do not auto-merge, grant permissions, modify policy, deploy or overwrite source code as a side effect of an awareness conclusion.
+
+## Required deferred-probe supplement (read before implementation)
+
+Read `../knowledge/sag-v2-observability-causality-and-evaluation-addendum.md` and `../../.arxiv/2026-10_software_awareness_ona_observability_metamorphic_holdout_excerpts.md`; they add P21–P40 to the previous P01–P20. In particular:
+
+- Refutation by missing observation is legal **only** when Ruff/runtime collector positively certifies predicate support, scope completeness, matching frozen revision, successful scan and closed observation interval. Otherwise return `NotObservable`, `Incomplete`, `Pending` or `Stale`. ONA's published *Assumption of Failure* is a research mechanism, not a license for closed-world Ruff assumptions.
+- Distinguish `NoOp` causal control, read-only `Probe` (it consumes resources), and inert `Proposal` before any OGAR-gated action. Try A→A no-op, semantic-preserving A→B, real change A→B, and A→B→A' revert.
+- Obtain preregistered predicted deltas before editing. Compare full versus incremental reharvest; keep one evidence stamp for multiple pipeline copies of the same source fact; test independent-source twins.
+- Use development / validation / protected holdout **grouped by repository and edit family**, not randomly selected lines, and count oracle reuse. On frozen holdout test no-feedback, correct-feedback, shuffled-feedback, and no-op arms with identical budget; record null or negative results honestly.
+- Bound self-observation recursion: a Quack query sees snapshot k, its telemetry writes k+1; no query in the same epoch may certify itself.
+- Preserve separate source-revision/event-time/ingestion-time/decision-time and treat late receipts or partial coverage explicitly. Never turn attention score, CARE heuristic or popcount of unknown cells into truth/authorization or alter CE64's byte/ISA contract.
+
+Run the original P01–P20 gates before claiming D-SAG-2 success. The deferred P21–P40 tests are additional hypotheses, not claims of implementation.
+
