@@ -15,6 +15,13 @@
 - First probes: merge-on-read vs in-place revision (D-HL-2) and a per-delta evidential base as the independence test (D-HL-3), both beside the D-RPF-P5 harness.
 - Validation is a parallel run against pinned OpenNARS, scored with `jc::reliability` (D-HL-4).
 
+## 2026-10-12 — policy-baseline-integration-v1 — GPO, Intune and Linux baselines in one view → `.claude/plans/policy-baseline-integration-v1.md`
+
+**Status:** PROPOSAL (D-PBL-0..7). Nothing past D-PBL-0 until the operator picks the canonical setting key, the home crate and the Linux source.
+
+- Keeps three questions apart: configured (policy object), assigned (links, filters, group assignments), observed (per-device state). GPO has no central observed state, so a GPO column never shows drift.
+- Read-only encoders in `ogar-ad` / `ogar-az`; the GPO↔CSP mapping is read as published data; assignment resolves over the dir-sim directory.
+
 ## 2026-10-11 (4) — sql-polyfill-r2il-v1 — SQL() as a polyfill of R2IL procedures over mask-risc → `.claude/plans/sql-polyfill-r2il-v1.md`
 
 **Status:** PROPOSAL (D-SQLP-0..8). W1–W3 authorized; nothing from W4 on until the D-SQLP-3 benchmark clears its pre-registered threshold.

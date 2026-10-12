@@ -35,6 +35,21 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-HL-9** | Hydration budget split sweep | Queued | agreement not flat in k |
 | **D-HL-10** | NAL inference ISA: `ogar-nal` loco vocabulary + mask-risc dialect (a vocabulary on the existing IR, ledger R18); detailed as D-NALP | Queued (design; after D-HL-4) | per-op parity with the CE64 register method of the same name; agreement with OpenNARS within D-HL-4's tolerance; no second IR |
 
+## D-PBL — policy baselines across GPO, Intune and Linux (2026-10-12)
+
+Plan: `.claude/plans/policy-baseline-integration-v1.md`.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| **D-PBL-0** | Operator decisions (setting key, home, Linux source); mint policy concepts in `ogar-vocab` | Queued (decision) | decisions recorded in the plan |
+| **D-PBL-1** | Intune read: configuration policies, settings, assignments, devices from recorded Graph JSON | Queued | raw round trip; exclusions kept (disable run red) |
+| **D-PBL-2** | GPO read: `groupPolicyContainer`, `gPLink`, `gPOptions`; `Registry.pol`, `GptTmpl.inf` parsers | Queued | parse equals an independent reader; disabled links kept and flagged |
+| **D-PBL-3** | Setting identity from the published GPO↔CSP mapping as data | Queued | join only through a mapping row (disable run red) |
+| **D-PBL-4** | Assignment resolution over dir-sim (precedence, enforced, block inheritance, exclusions) | Queued | precedence fixtures; nested member carries its chain |
+| **D-PBL-5** | Observed state: Intune per-device status; GPO "not centrally observable" | Queued | no drift count on a GPO-only setting |
+| **D-PBL-6** | Console projection; empty where no source | Queued | each cell names its source |
+| **D-PBL-7** | Linux source | Parked (D-PBL-0) | — |
+
 ## D-NAL — NAL-1..9 × 34 recipes against OpenNARS and ONA (2026-10-11)
 
 Audit: `.claude/knowledge/nal-recipe-audit/README.md`. Entry:
