@@ -143,3 +143,14 @@ In addition to the earlier deliverables, report:
 - what remains research-only, what is code-grounded, and what would require new authority/legal/security review.
 
 **Ultimate invariant:** graph inference may *propose* a safe action, but it cannot *become* the principal that authorizes it.
+
+### X9. Refresh the baseline for #1514 and the D-PBL device policy proposal
+
+Before doing any traversal work, inspect merged [#1514](https://github.com/AdaWorldAPI/lance-graph/pull/1514), `crates/lance-graph-glove-parity/{src/gremlin.rs,tests/relation.rs}` on current main and [the frontier update](../plans/iam-substrate-frontier-gaps-v1.md#12-post-1509-implementation-drift-1514-earns-one-relation-hop-g-on-main). Correct older “no relation carrier” statements:
+
+- **Available on main:** one functional FK `out(rel)`, liveness via `Semijoin`, filtered target property via `EqU32Via`, anchor preserved, tested in Quack/mask-risc on a synthetic ERP fixture.
+- **Still missing:** general many-to-many group memberships/fan-out, `out().out()`, target `values`/sum/dedup, R2IL `GATHER` parity, multi-hop SAG queries. Do not retrofit IAM's recursive group closure into a functional FK without independently proving multiplicity semantics.
+- **D-PBL-0..7** in `.claude/plans/policy-baseline-integration-v1.md` is proposal only: GPO configured vs assigned vs observed differs from Intune configured vs assigned vs per-device observed; D-PBL explicitly lacks device ingestion and canonical GPO↔CSP mapping unless sourced. No “compliant” result from an assigned policy alone.
+- **New gates IAM-41..45** in frontier plan check Intune exclusions and unknown device membership, GPO observed unknown without RSoP, unmapped policy-setting identity, one-hop Quack/R2IL asymmetry, and rejection of false functional cardinality.
+
+Report the current SHA and whether #1514 has landed in the implementation checkout. This research PR branch is intentionally still based on #1509; implementations should start from the then-current main or explicitly rebase before testing. Stop if a baseline assertion cannot be reconciled with code.
