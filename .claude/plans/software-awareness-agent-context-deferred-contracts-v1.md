@@ -193,13 +193,13 @@ Every guard needs a non-vacuous red disable or an independently observed failure
 
 ## I. Incremental delivery order and explicit exclusions
 
-1. **D-SAG-2A: read-only one-hop context slice** using existing Quack `Draft`, with source refs and stale checks; compare independent source lookup.
-2. **D-SAG-2B: source-symbol adapter** only if it improves task correctness against LSP baseline. No broad tree-sitter rewrite before benchmarking.
-3. **D-SAG-2C: bounded deterministic proposer**, three witnessed rules; supported one-hop only.
-4. **D-SAG-2D: receipt schema + nonrecursive offline graph projection**, with oracle and version guarantees.
-5. **D-SAG-2E: registered anticipation/feedback and baseline comparison**, initially benchmark-only.
-6. **D-SAG-2F: optional Claude Code adapter and token study**, only with a live measured call.
-7. **D-SAG-2G: multi-hop projection**, only after current Quack carrier laws/semantics permit it.
+1. **D-SAG-4A: read-only one-hop context slice** using existing Quack `Draft`, with source refs and stale checks; compare independent source lookup.
+2. **D-SAG-4B: source-symbol adapter** only if it improves task correctness against LSP baseline. No broad tree-sitter rewrite before benchmarking.
+3. **D-SAG-4C: bounded deterministic proposer**, three witnessed rules; supported one-hop only.
+4. **D-SAG-4D: receipt schema + nonrecursive offline graph projection**, with oracle and version guarantees.
+5. **D-SAG-4E: registered anticipation/feedback and baseline comparison**, initially benchmark-only.
+6. **D-SAG-4F: optional Claude Code adapter and token study**, only with a live measured call.
+7. **D-SAG-4G: multi-hop projection**, only after current Quack carrier laws/semantics permit it.
 
 Explicitly deferred: full Rust call-graph completeness; all-repository persistent index; causal proof from mere temporal data; unbounded graph walks; automatic code edits; automatic git merges; NAL-9 parity; production optimizer switching; personalized tool policy not backed by receipts; speculative ISA/CE64 reinterpretation; any claim about deployed self-modification.
 
