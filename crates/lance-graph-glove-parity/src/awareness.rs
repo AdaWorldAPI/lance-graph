@@ -37,8 +37,8 @@ use lance_graph_quack::{lower, Agg, Col, LowerError, Mask, Query};
 
 use crate::basis::{FieldMap, Grade};
 use crate::method::{
-    Cond, Fold, Law, MethodBody, MethodKey, MethodRef, MethodSpec, MethodTable, PrepareError,
-    ReadingId, SchemaSeal,
+    Cond, Fold, Law, MethodBody, MethodKey, MethodRef, MethodSpec, MethodTable, Order,
+    PrepareError, ReadingId, SchemaSeal,
 };
 
 /// What a node is.
@@ -631,6 +631,22 @@ impl SoftwareGraph {
                     }
                     // A hop's key and target field belong to the glove, not
                     // the spec: the condition is recorded as written.
+                    Cond::Order {
+                        field: name,
+                        op,
+                        value,
+                    } => {
+                        let op = match op {
+                            Order::Lt => "<",
+                            Order::Le => "<=",
+                            Order::Gt => ">",
+                            Order::Ge => ">=",
+                        };
+                        let f = field(self, name);
+                        let n = self.intern(Kind::Cond, format!("cond:{f}{op}{value}@r{r}"));
+                        self.link(m, Rel::Filters, n, Tier::Declared, m, prov);
+                        continue;
+                    }
                     Cond::Reaches { rel } => {
                         let n = self.intern(Kind::Cond, format!("cond:out({rel})@r{r}"));
                         self.link(m, Rel::Filters, n, Tier::Declared, m, prov);
@@ -659,6 +675,8 @@ impl SoftwareGraph {
                 let ident = match *fold {
                     Fold::Count => "fold:count(*)".to_owned(),
                     Fold::Sum(f) => format!("fold:sum({})", field(self, f)),
+                    Fold::Min(f) => format!("fold:min({})", field(self, f)),
+                    Fold::Max(f) => format!("fold:max({})", field(self, f)),
                     Fold::GroupSum { key, val, groups } => format!(
                         "fold:group_sum({},{},{groups})",
                         field(self, key),

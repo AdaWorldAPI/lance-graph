@@ -25,6 +25,7 @@ Plan: `.claude/plans/gremlin-composable-algebra-v1.md`.
 | D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` | Shipped (#1514; ConflictingUniverse fix follows) | row loop over the text at n ∈ {1,64,65,4097}; 6 disable runs red; R2IL refuses (no `GATHER`) |
 | D-CMH-G1-4 | rest of the relation carrier (fan-out moves the anchor; `E()`, `outE/inV`) | Queued | #1311 bulk oracle + DuckDB through the method layer | #1311 bulk oracle + DuckDB through the method layer |
 | D-CMH-G1-5 | FirstOfRun | Queued | insufficiency proof first; Quack + R2IL vs independent oracle |
+| D-CMH-G1-6 | ordered `I32` conditions + `MIN`/`MAX` folds as method steps; R2IL `MIN`/`MAX` wired | In PR | both frontends == row loop incl. empty selection; 8 disable runs red |
 
 ## D-NALP — `NAL::narsese()` polyfill over R2IL procedures and mask-risc (2026-10-12)
 
