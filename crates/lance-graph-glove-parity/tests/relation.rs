@@ -390,6 +390,17 @@ fn the_relation_lowers_to_the_direct_quack_query() {
     assert_eq!(m.programs(), programs.as_slice());
     // The key is a field the method reads.
     assert!(m.required.has(2), "the fk is required");
+    // `out(rel)` before `has` adds no second liveness test.
+    let specs = [
+        (
+            "explicit",
+            fx.spec(1, query(&[OPEN, REACHES, TO_DE], COUNT_SUM)),
+        ),
+        ("implied", fx.spec(2, query(&[OPEN, TO_DE], COUNT_SUM))),
+    ];
+    let t = fx.table(&specs);
+    let get = |k: u8| t.get(MethodKey([k; 16])).unwrap().as_ref().unwrap();
+    assert_eq!(get(1).queries(), get(2).queries());
 }
 
 #[test]
