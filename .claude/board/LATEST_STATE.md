@@ -1,3 +1,10 @@
+## 2026-10-12 — dir-sim membership path witness + role evidence on branch `ccr-0455e606-wmtsor` (unmerged)
+
+- `lance-graph-dir-sim` (additive): `View::membership_path` / `membership_path_through` return a `MembershipPath` (the user, then each group on one chain of direct memberships). The upward walk is now breadth first and records where each group was reached from; the reached set is unchanged. Witness = shortest chain, lowest ordinal among equals.
+- `actors` (feature `rbac`, additive): `GroupRoles::role_evidence` → `RoleEvidence::{Held { grant, path }, NotHeld, Undetermined { unread }, NotDeclared}`; `RoleImpact::between(before, after, …)` decides each version on its own, so a role carried by another chain survives the loss of the witness's edge. `is_lost` / `is_gained` need a known `NotHeld` on the other side; undetermined is neither.
+- Not here (seams): which policy version granted the role (`GroupRoles` keeps no version), device memberships, the UI panel.
+- CI: the Identity workflow now runs dir-sim's tests with `--features rbac` (`view_actors` had compiled only locally).
+
 ## 2026-10-11 — one-subject rule + RFC 8693 `act` reading on branch `ccr-0455e606-wmtsor` (unmerged)
 
 - Contract delta (additive): `rbac_plug::SubjectRoles` (the subject holds its roles; every other actor, the acting party of a delegated login included, holds none; an empty subject holds nothing). dir-sim's `ViewActors` adopts it; OGAR's `IdentityActors` and Spear's `DirectoryActors` follow.

@@ -64,7 +64,7 @@ pub use snapshot::{
     ObservedRecipient, Population, Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
 pub use store::{Rejection, SimError, VersionStore};
-pub use view::{ApplyError, View};
+pub use view::{ApplyError, MembershipPath, View};
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes, Program, StridedRef};
 use lance_graph_quack::{Cmp, Col, Filter, Mask};
