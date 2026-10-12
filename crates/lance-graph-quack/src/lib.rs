@@ -173,8 +173,8 @@ use std::cmp::Reverse;
 use lance_graph_contract::facet::{SemanticAperture, SemanticPrefix};
 use lance_graph_contract::ordered_lane::{OrderedLaneWitness, SealedFacetLane};
 use lance_graph_mask_risc::{
-    fuse, BoolExpr, FuseError, GroupFold, GroupKey, MaskOp, Operand, Pred, Program, Terminal,
-    MAX_SCRATCH_SLOTS,
+    fuse, BoolExpr, FuseError, GroupFold, GroupKey, Hop, HopTest, MaskOp, Operand, Pred, Program,
+    Terminal, MAX_SCRATCH_SLOTS,
 };
 
 /// A column reference — an index into [`Planes::lanes`](lance_graph_mask_risc::Planes).
@@ -206,6 +206,32 @@ pub struct ForeignPlane(pub u16);
 /// resolve through THIS table's own fk column, never as an ordinary [`Col`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ForeignLane(pub u16);
+
+/// One equality test a [`ChainHop`] applies to the row its key reached:
+/// `lane[row] == value`, or `!=` when `negate`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChainTest {
+    /// The hop table's value lane (`U32`).
+    pub lane: ForeignLane,
+    /// The value compared against.
+    pub value: u32,
+    /// Test `!=` instead of `==`.
+    pub negate: bool,
+}
+
+/// One hop of a [`Filter::Chain`]: the RESIDENT validity of the table the key
+/// lands in, the tests on the row reached, and the key into the next hop
+/// (`None` on the last hop only).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChainHop {
+    /// The hop table's resident kept plane — the same precondition as
+    /// [`Filter::Semijoin`]'s `foreign`: never a produced mask.
+    pub live: ForeignPlane,
+    /// Tests on the reached row.
+    pub tests: Vec<ChainTest>,
+    /// The hop table's key into the next hop (`U32`).
+    pub next: Option<ForeignLane>,
+}
 
 /// A predicate over one column — the filter's whole vocabulary.
 ///
@@ -390,6 +416,22 @@ pub enum Filter {
         /// Which foreign table's RESIDENT kept plane the fk resolves into.
         foreign: ForeignPlane,
     },
+    /// The CHAINED semijoin — chained hops are folded hops. Holds when `fk`
+    /// leads through every hop: at each, the row reached is live in the hop's
+    /// resident plane and passes its tests, and the hop's `next` key names
+    /// the following hop's row. Lowered to ONE
+    /// [`MaskOp::GatherChain`]: no mask over any hop table is built, and the
+    /// tests at every depth are read in place at the row the key reached.
+    /// A single hop with no tests is exactly [`Filter::Semijoin`].
+    ///
+    /// NULL `fk`: as [`Filter::Semijoin`] — `EXISTS` over a chain that starts
+    /// nowhere is FALSE, never UNKNOWN.
+    Chain {
+        /// The foreign-key column on THIS table.
+        fk: Col,
+        /// The hops, in order.
+        hops: Vec<ChainHop>,
+    },
     /// Every child must hold.
     And(Vec<Filter>),
     /// Some child must hold.
@@ -418,6 +460,14 @@ impl Filter {
     /// precondition on `foreign`.
     pub fn semijoin(fk: Col, foreign: ForeignPlane) -> Self {
         Filter::Semijoin { fk, foreign }
+    }
+
+    /// The chained semijoin leaf — see [`Filter::Chain`].
+    pub fn chain(fk: Col, hops: impl IntoIterator<Item = ChainHop>) -> Self {
+        Filter::Chain {
+            fk,
+            hops: hops.into_iter().collect(),
+        }
     }
 
     /// Conjunction.
@@ -581,7 +631,7 @@ impl Filter {
                 let valid = leaf.leaf_validity(nullable)?;
                 // `EXISTS` over a NULL fk is FALSE, not UNKNOWN: gate the
                 // leaf, then complement the gated leaf for `F`.
-                if let Filter::Semijoin { .. } = leaf {
+                if let Filter::Semijoin { .. } | Filter::Chain { .. } = leaf {
                     let gated = Filter::And(vec![Filter::Plane(valid), leaf.clone()]);
                     return Some(gated.polar(want_true));
                 }
@@ -607,7 +657,9 @@ impl Filter {
         let col = match *self {
             Filter::Plane(_) => return None,
             Filter::Cmp(col, _) => col,
-            Filter::EqU32Via { fk, .. } | Filter::Semijoin { fk, .. } => fk,
+            Filter::EqU32Via { fk, .. }
+            | Filter::Semijoin { fk, .. }
+            | Filter::Chain { fk, .. } => fk,
             Filter::And(_) | Filter::Or(_) | Filter::Not(_) => return None,
         };
         nullable.iter().find(|(c, _)| *c == col).map(|&(_, m)| m)
@@ -1091,6 +1143,8 @@ pub enum LowerError {
     /// the executor refuses a zero-length sink — so the plan would be
     /// unexecutable. Refused here, where the caller can see why.
     EmptyGroupUniverse,
+    /// More [`Filter::Chain`] leaves than a `u16` chain index can name.
+    TooManyChains,
 }
 
 impl core::fmt::Display for LowerError {
@@ -1101,6 +1155,9 @@ impl core::fmt::Display for LowerError {
             }
             LowerError::TooManySlots { needed } => {
                 write!(f, "needs {needed} scratch slots; the address space is u16")
+            }
+            LowerError::TooManyChains => {
+                write!(f, "more chained semijoins than a u16 chain index names")
             }
             LowerError::GroupedBlend => {
                 write!(f, "a blend writes the whole output; it cannot be grouped")
@@ -1954,10 +2011,31 @@ fn lower_with(
     emit: impl FnOnce(&Node, &mut Vec<MaskOp>) -> Result<Operand, LowerError>,
 ) -> Result<Program, LowerError> {
     let filter = fold_ranges(filter);
-    let (node, _) = gate_walk(&filter, None)?;
+    let (mut node, _) = gate_walk(&filter, None)?;
+    let mut chains = Vec::new();
+    index_chains(&mut node, &mut chains)?;
     let mut ops = Vec::new();
     let mask = emit(&node, &mut ops)?;
-    Ok(Program::new(ops, terminal_of(agg, mask)))
+    Ok(Program::with_chains(ops, terminal_of(agg, mask), chains))
+}
+
+/// Move every [`Node::GatherChain`]'s hops into the program's chain table
+/// and leave the index behind, so both emitters only copy an index.
+fn index_chains(n: &mut Node, chains: &mut Vec<Vec<Hop>>) -> Result<(), LowerError> {
+    match n {
+        Node::GatherChain { chain, hops, .. } => {
+            *chain = u16::try_from(chains.len()).map_err(|_| LowerError::TooManyChains)?;
+            chains.push(core::mem::take(hops));
+        }
+        Node::Not(inner) => index_chains(inner, chains)?,
+        Node::And(parts) | Node::Or(parts) => {
+            for p in parts {
+                index_chains(p, chains)?;
+            }
+        }
+        Node::Pred { .. } | Node::Plane(_) | Node::Gather { .. } => {}
+    }
+    Ok(())
 }
 
 /// The filter after the survivor-skip pass, before any slot is assigned.
@@ -1979,6 +2057,15 @@ enum Node {
     Gather {
         fk: u16,
         foreign: u16,
+        under: Option<Mask>,
+    },
+    /// The chained semijoin leaf ([`Filter::Chain`]), gated exactly as
+    /// `Gather` is. `hops` is moved into the program's chain table by
+    /// [`index_chains`] before emission, leaving `chain`.
+    GatherChain {
+        fk: u16,
+        chain: u16,
+        hops: Vec<Hop>,
         under: Option<Mask>,
     },
     And(Vec<Node>),
@@ -2056,6 +2143,32 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
             Node::Gather {
                 fk: fk.0,
                 foreign: foreign.0,
+                under: gate,
+            },
+            gate.is_some(),
+        ),
+        // A `Semijoin` with more apertures: the gate is baked into
+        // `MaskOp::GatherChain { under }` the same way.
+        Filter::Chain { fk, hops } => (
+            Node::GatherChain {
+                fk: fk.0,
+                chain: 0,
+                hops: hops
+                    .iter()
+                    .map(|h| Hop {
+                        live: h.live.0,
+                        tests: h
+                            .tests
+                            .iter()
+                            .map(|t| HopTest {
+                                lane: t.lane.0,
+                                value: t.value,
+                                negate: t.negate,
+                            })
+                            .collect(),
+                        next: h.next.map(|k| k.0),
+                    })
+                    .collect(),
                 under: gate,
             },
             gate.is_some(),
@@ -2264,6 +2377,18 @@ fn emit_gated(
             });
             Ok(Operand::Scratch(dst))
         }
+        Node::GatherChain {
+            fk, chain, under, ..
+        } => {
+            let gate = under.map(|m| Operand::Plane(m.0)).or(acc_gate);
+            ops.push(MaskOp::GatherChain {
+                lane: *fk,
+                chain: *chain,
+                under: gate,
+                dst,
+            });
+            Ok(Operand::Scratch(dst))
+        }
         Node::Not(inner) => {
             let a = emit_gated(inner, dst, acc_gate, ops)?;
             ops.push(MaskOp::Not { a, dst });
@@ -2353,6 +2478,20 @@ fn assign_slots(n: &Node, ops: &mut Vec<MaskOp>) -> Result<BoolExpr, LowerError>
             ops.push(MaskOp::Gather {
                 lane: *fk,
                 foreign: *foreign,
+                under: under.map(|m| Operand::Plane(m.0)),
+                dst,
+            });
+            Ok(BoolExpr::Leaf(Operand::Scratch(dst)))
+        }
+        Node::GatherChain {
+            fk, chain, under, ..
+        } => {
+            let dst = u16::try_from(ops.len()).map_err(|_| LowerError::TooManySlots {
+                needed: ops.len() + 1,
+            })?;
+            ops.push(MaskOp::GatherChain {
+                lane: *fk,
+                chain: *chain,
                 under: under.map(|m| Operand::Plane(m.0)),
                 dst,
             });
@@ -2803,6 +2942,27 @@ mod tests {
                     let bits = &self.foreign[usize::from(foreign.0)];
                     let rows = self.foreign_rows[usize::from(foreign.0)];
                     idx < rows && (bits[idx / 64] >> (idx % 64)) & 1 == 1
+                }
+                Filter::Chain { fk, hops } => {
+                    let mut cur = self.u32_at(*fk, row) as usize;
+                    for h in hops {
+                        let bits = &self.foreign[usize::from(h.live.0)];
+                        let rows = self.foreign_rows[usize::from(h.live.0)];
+                        if cur >= rows || (bits[cur / 64] >> (cur % 64)) & 1 == 0 {
+                            return false;
+                        }
+                        let lane = |k: ForeignLane| &self.foreign_lanes[usize::from(k.0)];
+                        if h.tests
+                            .iter()
+                            .any(|t| (lane(t.lane)[cur] == t.value) == t.negate)
+                        {
+                            return false;
+                        }
+                        if let Some(k) = h.next {
+                            cur = lane(k)[cur] as usize;
+                        }
+                    }
+                    true
                 }
                 Filter::And(ps) => ps.iter().all(|p| self.oracle(p, row)),
                 Filter::Or(ps) => ps.iter().any(|p| self.oracle(p, row)),
@@ -4206,6 +4366,119 @@ mod tests {
                 .expect("runs")
             });
             assert_eq!(value, Value::SumI64(expected), "{label}: value");
+        }
+    }
+
+    /// FAILS IF: `Filter::Chain` disagrees with an independent per-row
+    /// reading in EITHER lowering, or lowers to anything but ONE
+    /// `GatherChain` carrying both hops — the fold. Shape: `CLASS` keys a
+    /// 5-row partner table (live, `status == 1`), whose `country` key leads
+    /// to a 4-row country table (live, `region != 2`), with an out-of-range
+    /// country key. Anti-vacuity: each depth rejects rows the other keeps,
+    /// and the chain is selective.
+    #[test]
+    fn chain_folds_to_one_gather_chain_and_matches_a_per_row_reading() {
+        let mut fx = Fx::new(N);
+        let (p_rows, c_rows) = (5usize, 4usize);
+        let p_live = plane(p_rows, |r| r != 4);
+        let c_live = plane(c_rows, |r| r != 1);
+        let partner = fx.push_foreign(p_live.clone(), p_rows);
+        let country = fx.push_foreign(c_live.clone(), c_rows);
+        let status = vec![1, 1, 0, 1, 1];
+        let country_of = vec![0, 2, 3, 9, 0];
+        let region = vec![0, 0, 2, 1];
+        let status_l = fx.push_foreign_lane(status.clone());
+        let next_l = fx.push_foreign_lane(country_of.clone());
+        let region_l = fx.push_foreign_lane(region.clone());
+        let hops = vec![
+            ChainHop {
+                live: partner,
+                tests: vec![ChainTest {
+                    lane: status_l,
+                    value: 1,
+                    negate: false,
+                }],
+                next: Some(next_l),
+            },
+            ChainHop {
+                live: country,
+                tests: vec![ChainTest {
+                    lane: region_l,
+                    value: 2,
+                    negate: true,
+                }],
+                next: None,
+            },
+        ];
+        let bare = Filter::chain(CLASS, hops.clone());
+        // CLASS = i % 5: class 0 -> country 0 (kept); 1 -> country 2
+        // (region 2, rejected at depth 2); 2 -> status 0 (rejected at
+        // depth 1); 3 -> country 9 (out of range); 4 -> partner dead.
+        let kept = fx.rows(&bare).len();
+        assert_eq!(kept, N / 5, "only class 0 survives every hop");
+        let one_hop = Filter::semijoin(CLASS, partner);
+        assert!(
+            fx.rows(&one_hop).len() > kept,
+            "depth 2 must reject rows depth 1 keeps"
+        );
+
+        let f = Filter::and([Filter::cmp(VALS, Cmp::GtI32(0)), bare]);
+        let expected = fx.rows(&f).len();
+        assert!(expected > 0 && expected < kept);
+        let q = Query {
+            filter: f,
+            agg: Agg::Count,
+        };
+        let fplanes = [
+            lance_graph_mask_risc::ForeignPlane {
+                words: &p_live,
+                rows: p_rows,
+            },
+            lance_graph_mask_risc::ForeignPlane {
+                words: &c_live,
+                rows: c_rows,
+            },
+        ];
+        let flanes = [
+            lance_graph_mask_risc::LaneRef::U32(&status),
+            lance_graph_mask_risc::LaneRef::U32(&country_of),
+            lance_graph_mask_risc::LaneRef::U32(&region),
+        ];
+        let mask_risc_foreign = lance_graph_mask_risc::Foreign {
+            planes: &fplanes,
+            lanes: &flanes,
+        };
+        for (label, program) in [
+            ("in place", lower(&q).expect("lowers in place")),
+            ("fused", lower_fused(&q).expect("lowers fused")),
+        ] {
+            let chained = program
+                .ops
+                .iter()
+                .filter(|o| matches!(o, MaskOp::GatherChain { .. }))
+                .count();
+            assert_eq!(chained, 1, "{label}: one folded op");
+            assert!(
+                !program
+                    .ops
+                    .iter()
+                    .any(|o| matches!(o, MaskOp::Gather { .. })),
+                "{label}: no per-hop gather"
+            );
+            assert_eq!(program.chains.len(), 1, "{label}: one chain");
+            assert_eq!(program.chains[0].len(), 2, "{label}: both hops in it");
+            let mut scratch = Scratch::for_program(&program, fx.n()).expect("carves");
+            let value = fx.with_planes(&[], |planes| {
+                lance_graph_mask_risc::execute_into(
+                    &program,
+                    planes,
+                    &mask_risc_foreign,
+                    &mut scratch,
+                    lance_graph_mask_risc::Out::None,
+                )
+                .expect("runs")
+            });
+            assert_eq!(value, Value::Count(expected), "{label}: value");
         }
     }
 

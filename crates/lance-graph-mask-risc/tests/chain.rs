@@ -45,7 +45,7 @@ struct Fixture {
 
 fn live_bits(rows: usize, s: &mut u64) -> Vec<u64> {
     let mut w: Vec<u64> = (0..words_for(rows)).map(|_| lcg(s) | lcg(s)).collect();
-    if rows % 64 != 0 {
+    if !rows.is_multiple_of(64) {
         if let Some(last) = w.last_mut() {
             *last &= (1u64 << (rows % 64)) - 1;
         }
@@ -127,7 +127,7 @@ fn run(
     planes: &Planes<'_>,
     foreign: &Foreign<'_>,
 ) -> (Result<Value, ExecError>, Result<Value, ExecError>) {
-    let words = words_for(planes.n_rows).min(TEST_TILE_WORDS).max(1);
+    let words = words_for(planes.n_rows).clamp(1, TEST_TILE_WORDS);
     let slots = p.scratch_slots as usize;
     let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
     let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
