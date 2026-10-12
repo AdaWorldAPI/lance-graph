@@ -58,6 +58,15 @@ enum DeclCond {
     },
     /// A predicate method, by label; resolved at preparation.
     Ref(String),
+    /// `out(rel)`.
+    Reaches(String),
+    /// `out(rel).has(field, literal)`.
+    Via {
+        rel: String,
+        field: String,
+        literal: String,
+        negate: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,6 +92,18 @@ impl MethodDecl {
                 } => Cond::Ne { field, literal },
                 DeclCond::Field { field, literal, .. } => Cond::Eq { field, literal },
                 DeclCond::Ref(label) => Cond::Method(MethodRef::Label(label)),
+                DeclCond::Reaches(rel) => Cond::Reaches { rel },
+                DeclCond::Via {
+                    rel,
+                    field,
+                    literal,
+                    negate,
+                } => Cond::Via {
+                    rel,
+                    field,
+                    literal,
+                    negate: *negate,
+                },
             })
             .collect()
     }
@@ -650,6 +671,18 @@ fn traversal(
                 negate: true,
             },
             Cond::Method(MethodRef::Label(l)) => DeclCond::Ref(l.to_owned()),
+            Cond::Reaches { rel } => DeclCond::Reaches(rel.to_owned()),
+            Cond::Via {
+                rel,
+                field,
+                literal,
+                negate,
+            } => DeclCond::Via {
+                rel: rel.to_owned(),
+                field: field.to_owned(),
+                literal: literal.to_owned(),
+                negate,
+            },
             Cond::Method(MethodRef::Key(_)) => unreachable!("text names methods by label"),
         })
         .collect();

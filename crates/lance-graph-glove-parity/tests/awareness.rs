@@ -170,6 +170,7 @@ fn glove<'a>(basis: &'a [String], binder: &'a dyn Binder, claims: &'a [FieldMap]
         table: TABLE,
         reading: READING,
         universe: UNIVERSE,
+        relations: &[],
     }
 }
 
@@ -734,6 +735,7 @@ fn nars_table(
             table: EVIDENCE,
             reading: READING,
             universe: UNIVERSE,
+            relations: &[],
         },
         &specs,
     );

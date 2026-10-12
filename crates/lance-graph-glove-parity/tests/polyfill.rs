@@ -104,6 +104,7 @@ fn glove<'a>(basis: &'a [String], binder: &'a dyn Binder, claims: &'a [FieldMap]
         table: TABLE,
         reading: READING,
         universe: UNIVERSE,
+        relations: &[],
     }
 }
 
@@ -612,6 +613,7 @@ fn nars_table() -> MethodTable {
             table: EVIDENCE,
             reading: READING,
             universe: UNIVERSE,
+            relations: &[],
         },
         &nars_specs(),
     )
@@ -743,6 +745,7 @@ fn a_revision_body_without_independence_or_in_the_wrong_shape_is_refused() {
             table: EVIDENCE,
             reading: READING,
             universe: UNIVERSE,
+            relations: &[],
         },
         &specs,
     );
@@ -956,6 +959,7 @@ fn a_degenerate_revision_law_is_refused() {
             table: EVIDENCE,
             reading: READING,
             universe: UNIVERSE,
+            relations: &[],
         },
         &specs,
     );

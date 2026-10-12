@@ -629,6 +629,27 @@ impl SoftwareGraph {
                         }
                         continue;
                     }
+                    // A hop's key and target field belong to the glove, not
+                    // the spec: the condition is recorded as written.
+                    Cond::Reaches { rel } => {
+                        let n = self.intern(Kind::Cond, format!("cond:out({rel})@r{r}"));
+                        self.link(m, Rel::Filters, n, Tier::Declared, m, prov);
+                        continue;
+                    }
+                    Cond::Via {
+                        rel,
+                        field,
+                        literal,
+                        negate,
+                    } => {
+                        let op = if negate { "!=" } else { "=" };
+                        let n = self.intern(
+                            Kind::Cond,
+                            format!("cond:out({rel}).{field}{op}{literal}@r{r}"),
+                        );
+                        self.link(m, Rel::Filters, n, Tier::Declared, m, prov);
+                        continue;
+                    }
                 };
                 let f = field(self, name);
                 let n = self.intern(Kind::Cond, format!("cond:{f}{op}{lit}@r{r}"));

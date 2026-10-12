@@ -192,6 +192,7 @@ fn glove<'a>(basis: &'a [String], binder: &'a dyn Binder, claims: &'a [FieldMap]
         table: TABLE,
         reading: READING,
         universe: UNIVERSE,
+        relations: &[],
     }
 }
 

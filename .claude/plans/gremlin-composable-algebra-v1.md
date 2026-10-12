@@ -125,7 +125,7 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | hasKey/hasValue/hasNot | selection | V->V | keeps | null | pure | YET | nullable fields refused (`a_nullable_field_is_refused`) | three-valued condition + null policy |
 | is | selection | value->value | keeps | — | pure | COMPOSE | = has(f,p) when the value is an anchor field | value-cursor filter |
 | where(method()) | selection | V->V | keeps | — | pure | DIRECT | inlined predicate (tests/compose.rs) | — |
-| where(traversal) functional | selection | V->V | keeps | — | pure | COMPOSE | #1311 `functional_where_equals_sql_join_sum` (EqU32Via) | relation carrier |
+| where(traversal) functional | selection | V->V | keeps | — | pure | DIRECT (G1-4a) | a predicate method over `out(rel).has(..)`, referenced by `where(method())` (tests/relation.rs `a_predicate_through_the_relation_is_reused_by_reference`) | — |
 | where(traversal) fan-out | selection | V->V (set) | set over fk | ordered fk | pure | COMPOSE | #1311 `exists_over_children…` (CountDistinctOrdered; refuses unordered) | relation carrier + order witness |
 | and | boolean | pred,pred->pred | keeps | — | pure | DIRECT | conjunction of Conds | — |
 | or | boolean | pred,pred->pred | keeps | — | pure | COMPOSE | Filter::Or | Cond::Or |
@@ -138,7 +138,7 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | range/limit/skip/tail | ordered | any | prefix of an order | order | pure | YET | Cmp::Range is row-ordinal only | ordered population op |
 | none | selection | any->∅ | — | — | pure | COMPOSE | empty filter | — |
 | all/any (list) | selection | list->list | — | — | pure | OUT | no list type | list values |
-| out(rel) functional | traversal | V->V' | keeps (anchor stays) | — | pure | COMPOSE | #1311 functional hop: Semijoin + EqU32Via | relation carrier |
+| out(rel) functional | traversal | V->V' | keeps (anchor stays) | — | pure | DIRECT (G1-4a) | `Cond::Reaches` (Semijoin over the target's live plane) + `Cond::Via` (EqU32Via); tests/relation.rs vs a row loop over the text; R2IL refuses by name (no `GATHER`) | R2IL `GATHER` |
 | in(rel) reverse fk | traversal | V->V' | re-anchor on child rows | — | pure | COMPOSE | #1311 `reverse_fanout_reanchors…` | relation carrier |
 | out/in(rel) M:N | traversal | V->V' | re-anchor on edge rows | — | pure | COMPOSE | #1311 `many_to_many_one_hop…` | relation carrier |
 | both(rel) | traversal | V->V' | union of two bags | — | pure | YET | no bag union across anchors | typed bag merge |
@@ -191,12 +191,12 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | TextP.startingWith | COMPOSE | PrefixLowering over an ordered dictionary lane |
 | TextP.endingWith/containing/regex and negations | OUT | strings are codes |
 
-Step rows: 67. DIRECT 10 (15%), COMPOSE 22 (33%), YET 19 (28%), EFFECT 4 (6%), OUT 12 (18%)
+Step rows: 67. DIRECT 12 (18%), COMPOSE 20 (30%), YET 19 (28%), EFFECT 4 (6%), OUT 12 (18%) — after G1-4a; at #1508: DIRECT 10, COMPOSE 22
 Predicate rows: 7. DIRECT 1, COMPOSE 4, YET 1, OUT 1
 
 YET rows by missing capability: row answer type ×3; ordered population op ×2; typed bag merge ×2; ordered u32 compare (G5) ×1; three-valued condition + null policy ×1; ordered first-occurrence mask (FirstOfRun) ×1; composed fk read (G1) ×1; barrier / fan-in operand (G2) ×1; binding environment ×1; binding environment + join ×1; field-reading count fold ×1; masked_sum_i32_via ×1; typed branch + merge ×1; bounded fixpoint ×1; provenance-carrying path ×1
 
-COMPOSE rows by what the method layer lacks: relation carrier ×8; Cond::Or ×3; Cond ordered compare ×2; — ×2; id↔row binding in Glove ×1; value-cursor filter ×1; relation carrier + order witness ×1; Cond::Not ×1; Fold::Min/Max ×1; a law over two folds ×1; Fold::GroupCount ×1
+COMPOSE rows by what the method layer lacks: relation carrier ×6 (×8 at #1508; G1-4a moved functional `out` and `where` over it to DIRECT); Cond::Or ×3; Cond ordered compare ×2; — ×2; id↔row binding in Glove ×1; value-cursor filter ×1; relation carrier + order witness ×1; Cond::Not ×1; Fold::Min/Max ×1; a law over two folds ×1; Fold::GroupCount ×1
 
 ## §5 — What the matrix says to build next
 
@@ -233,13 +233,53 @@ traversal grants no authority. Not exercised here: no write of any kind.
 4. `dedup` or `count` composed past `values(f)` without a refusal.
 5. A declaration that loads an effect.
 
+## §8 — D-CMH-G1-4a: the functional relation carrier
+
+A [`Glove`] now carries [`Relation`]s: the canonical key field on its concept,
+the target concept's glove, and where a call supplies the target's live plane
+and value lanes (`Foreign::planes` / `Foreign::lanes`). That is #1311's
+adapter, minus the relations that fan out.
+
+- `out(rel)` composes to `Cond::Reaches { rel }` and binds to
+  `Filter::Semijoin(fk, target live plane)`. Gremlin drops a traverser whose
+  edge leads nowhere, so a dangling key and a key to a dead row both fail it.
+  `EqU32Via` alone drops only the first, so the liveness test is not
+  optional: removing it fails the row oracle.
+- `out(rel).has(f, eq/neq)` composes to `Cond::Via` and adds
+  `Filter::EqU32Via` (negated for `neq`) on the target's lane. The liveness
+  test is emitted once per relation, wherever it is first named.
+- `count()` after `out(rel)` counts anchor rows: a functional relation yields
+  at most one traverser per anchor row, so the anchor does not move.
+- Refused by name: a second hop (`SecondHop`), `values(f)` on the target
+  (`ValueThroughRelation`; no sum through a key in Quack), `dedup()` on the
+  target (`DedupThroughRelation`; a set count), `where(method())` on the
+  target (`WhereThroughRelation`), and `in`/`both` (`FanOut`).
+- Preparation binds the target field against the target's own basis, claims
+  and binder, and names errors `relation.field`. The key joins `required`, so
+  an unproven key refuses the method like any field it reads.
+- A call names each target concept's population; another population, or
+  none, is `CallError::ForeignUniverse`.
+- **R2IL cannot express it.** The fold band has `VIA` but no `GATHER`: it can
+  read a target field through a key, but not test that the key names a live
+  row. A method with a relation condition returns `CallError::FrontendGap {
+  R2il, "GATHER" }`; methods without one still run on both frontends.
+
+Evidence: `tests/relation.rs` (7 tests). FIXTURE: a synthetic `line -billed_to->
+partner` pair (37 partners, 4 dangling key values, every 7th partner dead,
+every 13th line dead); every answer is checked against a row loop over the
+field text at n ∈ {1, 64, 65, 4097}. Six disable runs, each red on the test
+that names it: liveness test removed, `neq` ignored, population check removed,
+key dropped from `required`, R2IL refusal turned into a silent pass, liveness
+emitted per condition.
+
 ## D-ids
 
 | D-id | scope | status |
 |---|---|---|
-| D-CMH-G1-0 | vocabulary matrix (§4) | Shipped (this PR) |
-| D-CMH-G1-1 | predicate methods + method references | Shipped (this PR) |
-| D-CMH-G1-2 | typed Gremlin steps → method body | Shipped (this PR) |
-| D-CMH-G1-3 | Gremlin-shaped runtime declarations | Shipped (this PR) |
-| D-CMH-G1-4 | relation carrier in the `Glove`; #1311 anchor rule moved into `compose` | Queued |
+| D-CMH-G1-0 | vocabulary matrix (§4) | Shipped (#1508) |
+| D-CMH-G1-1 | predicate methods + method references | Shipped (#1508) |
+| D-CMH-G1-2 | typed Gremlin steps → method body | Shipped (#1508) |
+| D-CMH-G1-3 | Gremlin-shaped runtime declarations | Shipped (#1508) |
+| D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` after it (§8) | In PR |
+| D-CMH-G1-4 | the rest of the carrier: `in`/M:N (anchor moves to child or edge rows), `E()`, `outE/inV`, `dedup` after a fan-out | Queued |
 | D-CMH-G1-5 | FirstOfRun (insufficiency proof first; separate PR #3) | Queued |

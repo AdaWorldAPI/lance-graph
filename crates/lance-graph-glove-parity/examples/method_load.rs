@@ -70,6 +70,7 @@ fn main() {
         table: TABLE,
         reading: ReadingId(1),
         universe: Universe(42),
+        relations: &[],
     };
     let t1 = Instant::now();
     let table = MethodTable::prepare_with(&glove, &[], &decls);

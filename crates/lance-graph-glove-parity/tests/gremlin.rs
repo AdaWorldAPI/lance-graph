@@ -148,15 +148,13 @@ fn a_composed_traversal_is_the_direct_quack_query() {
 #[test]
 fn steps_outside_the_anchor_contract_are_refused() {
     let refuse = |steps: &[Step<'static>]| compose(BILLABLE_WORK_ENTRY, steps).unwrap_err();
-    // A hop: the glove declares no relation carrier, in either direction.
-    for hop in [
-        Step::Out("performed_by"),
-        Step::In("performed_by"),
-        Step::Both("performed_by"),
-    ] {
+    // A fan-out moves the anchor; only a functional `out` is carried
+    // (D-CMH-G1-4a; whether this glove carries the relation is decided at
+    // preparation, see `a_relation_the_glove_does_not_carry_is_refused`).
+    for hop in [Step::In("performed_by"), Step::Both("performed_by")] {
         assert_eq!(
             refuse(&[V, hop, Step::Count]),
-            GremlinRefusal::NoRelationCarrier("performed_by".into())
+            GremlinRefusal::FanOut("performed_by".into())
         );
     }
     // dedup of values is a distinct-value count: a different multiset.
@@ -390,8 +388,8 @@ fn effects_and_unsupported_steps_are_refused_at_load() {
     // Lawful steps outside the anchor contract: refused by the composer.
     for (body, refusal) in [
         (
-            format!("{head}.out(performed_by).count()"),
-            GremlinRefusal::NoRelationCarrier("performed_by".into()),
+            format!("{head}.in(performed_by).count()"),
+            GremlinRefusal::FanOut("performed_by".into()),
         ),
         (
             format!("{head}.values(duration).dedup().count()"),
@@ -415,6 +413,26 @@ fn effects_and_unsupported_steps_are_refused_at_load() {
     for d in parse_decls(&lego_text()).unwrap() {
         assert_eq!(d.effect(), EffectClass::Pure);
     }
+}
+
+/// FAILS IF: `out(rel)` over a relation the SAP glove does not carry
+/// prepares. It composes (the composer knows no glove); preparation refuses.
+#[test]
+fn a_relation_the_glove_does_not_carry_is_refused() {
+    let text = line(
+        "m",
+        0xF0,
+        "V(billable_work_entry).out(performed_by).count()",
+    );
+    let decls = parse_decls(&text).unwrap();
+    let batch = batch(2);
+    let cats = CatsBinder::new(&batch);
+    let (basis, claims) = (canonical_fields(), with_duration());
+    let t = MethodTable::prepare_with(&glove(&basis, &cats, &claims), &[], &decls);
+    assert_eq!(
+        t.get(t.resolve("m").unwrap()).unwrap().clone().unwrap_err(),
+        PrepareError::UnknownRelation("performed_by".into())
+    );
 }
 
 /// FAILS IF: references between loaded methods bypass the preparation

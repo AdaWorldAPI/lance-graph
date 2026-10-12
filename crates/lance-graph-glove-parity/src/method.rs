@@ -55,7 +55,9 @@ use lance_graph_mask_risc::{
     execute_into, ExecError, Foreign, Out, Planes, Program, Scratch, Value,
 };
 use lance_graph_quack::bind::{Binder, BoundField, FieldKind, TableId};
-use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, LowerError, Mask, Query};
+use lance_graph_quack::{
+    lower, Agg, Cmp, Col, Filter, ForeignLane, ForeignPlane, LowerError, Mask, Query,
+};
 use lance_graph_r2il::{procs, FoldDialect, FoldError, Val};
 
 use crate::basis::{FieldMap, Grade};
@@ -135,13 +137,31 @@ pub enum Cond<'a> {
     /// same concept, schema and reading. Preparation replaces the reference
     /// with those conditions before anything binds, so a call never sees it.
     Method(MethodRef<'a>),
+    /// `out(rel)`: the row's key names a LIVE row of the relation's target.
+    /// A dangling key, or a key to a dead row, fails it, as a Gremlin
+    /// traverser with no edge is dropped. The anchor does not move: each
+    /// anchor row is still one traverser ([`Relation`]).
+    Reaches { rel: &'a str },
+    /// `out(rel).has(field, = literal)`, or `!=` when `negate`: the row
+    /// reaches a live target (as [`Cond::Reaches`]) whose canonical `field`
+    /// equals the literal, or does not. `field` is a field of the TARGET
+    /// concept.
+    Via {
+        rel: &'a str,
+        field: &'a str,
+        literal: &'a str,
+        negate: bool,
+    },
 }
 
 impl<'a> Cond<'a> {
+    /// The canonical field of the method's own concept the condition names.
+    /// A relation's key is known only to the glove, so a relation condition
+    /// names none here; preparation adds the key to `required`.
     fn field(self) -> Option<&'a str> {
         match self {
             Cond::Eq { field, .. } | Cond::Ne { field, .. } => Some(field),
-            Cond::Method(_) => None,
+            Cond::Method(_) | Cond::Reaches { .. } | Cond::Via { .. } => None,
         }
     }
 }
@@ -340,6 +360,11 @@ pub enum PrepareError {
     /// A [`Cond::Method`] names a predicate written for another concept,
     /// basis, reading or effect than the caller.
     MethodRefContract(MethodKey),
+    /// A relation condition names a relation the glove does not carry.
+    UnknownRelation(String),
+    /// The relation supplies no foreign lane for this target field
+    /// (`relation.field`).
+    NoForeignLane(String),
 }
 
 /// Why a call did not run.
@@ -359,9 +384,38 @@ pub enum CallError {
         method: Universe,
         planes: Universe,
     },
+    /// The frontend has no call for a step the method needs (R2IL's fold band
+    /// has no `GATHER`, so it cannot test that a key names a live row).
+    FrontendGap {
+        frontend: Frontend,
+        missing: &'static str,
+    },
+    /// The method reads a relation's target, and the call supplies that
+    /// concept's planes from another population, or none.
+    ForeignUniverse {
+        concept: u16,
+        method: Universe,
+        planes: Option<Universe>,
+    },
     Lower(LowerError),
     Exec(ExecError),
     Fold(FoldError),
+}
+
+/// What a call reaches beyond its own table: the relation targets' resident
+/// planes and value lanes, in the numbering the glove's [`Relation`]s
+/// declare, and the population each target concept's planes hold.
+pub struct Reach<'p> {
+    pub foreign: Foreign<'p>,
+    pub universes: &'p [(u16, Universe)],
+}
+
+impl Reach<'static> {
+    /// No relation target.
+    pub const NONE: Self = Reach {
+        foreign: Foreign::NONE,
+        universes: &[],
+    };
 }
 
 /// Which frontend lowers the call.
@@ -378,12 +432,27 @@ enum BoundFold {
     GroupSum { key: Col, val: Col, groups: u32 },
 }
 
+/// A bound condition: numbers only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BoundCond {
+    /// `lane = code`, or `!=` when `negate`.
+    Local { col: Col, code: u32, negate: bool },
+    /// The key `fk` names a row of the foreign plane (the target's live rows).
+    Reaches { fk: Col, plane: ForeignPlane },
+    /// The target's `lane` read through `fk` equals `code`, or not.
+    Via {
+        fk: Col,
+        lane: ForeignLane,
+        code: u32,
+        negate: bool,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Bound {
     Query {
         live: Mask,
-        /// `(lane, code, negate)`.
-        conds: Vec<(Col, u32, bool)>,
+        conds: Vec<BoundCond>,
         folds: Vec<BoundFold>,
         law: OwnedLaw,
         /// The Quack programs, lowered once at preparation, one per fold.
@@ -419,6 +488,8 @@ pub struct PreparedMethod {
     pub required: WideFieldMask,
     /// The population the method was bound against.
     pub universe: Universe,
+    /// The populations of the relation targets it reads, by concept.
+    reaches: Vec<(u16, Universe)>,
     bound: Bound,
 }
 
@@ -447,20 +518,34 @@ impl PreparedMethod {
     }
 }
 
-fn bound_queries(live: Mask, conds: &[(Col, u32, bool)], folds: &[BoundFold]) -> Vec<Query> {
+fn bound_queries(live: Mask, conds: &[BoundCond], folds: &[BoundFold]) -> Vec<Query> {
     let filter = || {
-        Filter::and(std::iter::once(Filter::plane(live)).chain(conds.iter().map(
-            |&(col, code, negate)| {
-                Filter::cmp(
+        Filter::and(
+            std::iter::once(Filter::plane(live)).chain(conds.iter().map(|c| match *c {
+                BoundCond::Local { col, code, negate } => Filter::cmp(
                     col,
                     if negate {
                         Cmp::NeU32(code)
                     } else {
                         Cmp::EqU32(code)
                     },
-                )
-            },
-        )))
+                ),
+                BoundCond::Reaches { fk, plane } => Filter::semijoin(fk, plane),
+                BoundCond::Via {
+                    fk,
+                    lane,
+                    code,
+                    negate,
+                } => {
+                    let eq = Filter::eq_u32_via(fk, lane, code);
+                    if negate {
+                        Filter::Not(Box::new(eq))
+                    } else {
+                        eq
+                    }
+                }
+            })),
+        )
     };
     folds
         .iter()
@@ -489,6 +574,24 @@ impl PreparedMethod {
         universe: Universe,
         frontend: Frontend,
     ) -> Result<Answer, CallError> {
+        self.call_with(planes, universe, &Reach::NONE, frontend)
+    }
+
+    /// Run the method over `planes`, reading relation targets from `reach`.
+    ///
+    /// # Errors
+    ///
+    /// As [`PreparedMethod::call`], plus [`CallError::ForeignUniverse`] when
+    /// `reach` holds a target concept's planes from another population (or
+    /// none), and [`CallError::FrontendGap`] when the frontend cannot express
+    /// a relation step.
+    pub fn call_with(
+        &self,
+        planes: &Planes<'_>,
+        universe: Universe,
+        reach: &Reach<'_>,
+        frontend: Frontend,
+    ) -> Result<Answer, CallError> {
         let Bound::Query {
             live,
             conds,
@@ -508,15 +611,42 @@ impl PreparedMethod {
                 planes: universe,
             });
         }
+        for &(concept, method) in &self.reaches {
+            let planes = reach
+                .universes
+                .iter()
+                .find(|(c, _)| *c == concept)
+                .map(|(_, u)| *u);
+            if planes != Some(method) {
+                return Err(CallError::ForeignUniverse {
+                    concept,
+                    method,
+                    planes,
+                });
+            }
+        }
         let values = match frontend {
             Frontend::Quack => programs
                 .iter()
                 .zip(folds)
-                .map(|(p, f)| run_quack(p, *f, planes))
+                .map(|(p, f)| run_quack(p, *f, planes, &reach.foreign))
                 .collect::<Result<Vec<_>, _>>()?,
             Frontend::R2il => {
-                let conds: Vec<(u16, u32, bool)> =
-                    conds.iter().map(|&(c, v, n)| (c.0, v, n)).collect();
+                let conds = conds
+                    .iter()
+                    .map(|c| match *c {
+                        BoundCond::Local { col, code, negate } => Ok((col.0, code, negate)),
+                        // A relation condition always tests the target row's
+                        // liveness, and R2IL's fold band has no call that
+                        // reads a foreign plane through a key.
+                        BoundCond::Reaches { .. } | BoundCond::Via { .. } => {
+                            Err(CallError::FrontendGap {
+                                frontend: Frontend::R2il,
+                                missing: "GATHER",
+                            })
+                        }
+                    })
+                    .collect::<Result<Vec<(u16, u32, bool)>, _>>()?;
                 folds
                     .iter()
                     .map(|f| run_r2il(*live, &conds, *f, planes))
@@ -555,21 +685,16 @@ fn run_quack(
     program: &Program,
     fold: BoundFold,
     planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
 ) -> Result<FoldValue, CallError> {
     let mut scratch = Scratch::for_program(program, planes.n_rows).map_err(CallError::Exec)?;
     if let BoundFold::GroupSum { groups, .. } = fold {
         let mut sink = vec![0i64; groups as usize];
-        execute_into(
-            program,
-            planes,
-            &Foreign::NONE,
-            &mut scratch,
-            Out::I64(&mut sink),
-        )
-        .map_err(CallError::Exec)?;
+        execute_into(program, planes, foreign, &mut scratch, Out::I64(&mut sink))
+            .map_err(CallError::Exec)?;
         return Ok(FoldValue::Groups(sink));
     }
-    match execute_into(program, planes, &Foreign::NONE, &mut scratch, Out::None)
+    match execute_into(program, planes, foreign, &mut scratch, Out::None)
         .map_err(CallError::Exec)?
     {
         Value::Count(n) => Ok(FoldValue::Scalar(
@@ -698,8 +823,24 @@ impl MethodTable {
         universe: Universe,
         frontend: Frontend,
     ) -> Result<Answer, CallError> {
+        self.call_with(key, planes, universe, &Reach::NONE, frontend)
+    }
+
+    /// Call a method by key, reading relation targets from `reach`.
+    ///
+    /// # Errors
+    ///
+    /// As [`MethodTable::call`] and [`PreparedMethod::call_with`].
+    pub fn call_with(
+        &self,
+        key: MethodKey,
+        planes: &Planes<'_>,
+        universe: Universe,
+        reach: &Reach<'_>,
+        frontend: Frontend,
+    ) -> Result<Answer, CallError> {
         match self.get(key).ok_or(CallError::UnknownMethod)? {
-            Ok(m) => m.call(planes, universe, frontend),
+            Ok(m) => m.call_with(planes, universe, reach, frontend),
             Err(e) => Err(CallError::Refused(e.clone())),
         }
     }
@@ -833,6 +974,30 @@ fn available(basis: &[String], claims: &[FieldMap]) -> Result<WideFieldMask, Pre
     Ok(mask)
 }
 
+/// A functional relation the glove carries: a key on this concept naming,
+/// per row, a row of the target concept's table (#1311's anchor rule).
+///
+/// Only the facts a binding needs: which canonical field holds the key, the
+/// target's glove (its basis, claims and binder bind the target's fields),
+/// and where a call supplies the target's planes. A hop over it keeps the
+/// anchor, since each row names at most one target. A relation that fans out
+/// (the reverse of a key, an edge table) moves the anchor and is not carried
+/// here.
+pub struct Relation<'a> {
+    /// The label `out(rel)` uses.
+    pub name: &'a str,
+    /// Canonical field of THIS concept. Its lane holds target row ordinals,
+    /// not codebook identities, so its literals are never resolved.
+    pub fk: &'a str,
+    /// The target concept's glove.
+    pub target: &'a Glove<'a>,
+    /// `Foreign::planes` index of the target's live plane.
+    pub plane: u16,
+    /// Target canonical fields a call supplies as `Foreign::lanes`, with
+    /// their index.
+    pub lanes: &'a [(&'a str, u16)],
+}
+
 /// One glove of one concept: everything a spec is bound against.
 pub struct Glove<'a> {
     /// Canonical concept id (`ogar_vocab::class_ids`).
@@ -849,6 +1014,8 @@ pub struct Glove<'a> {
     pub reading: ReadingId,
     /// The population its planes hold.
     pub universe: Universe,
+    /// The functional relations it carries.
+    pub relations: &'a [Relation<'a>],
 }
 
 impl Glove<'_> {
@@ -886,7 +1053,20 @@ impl Glove<'_> {
         let reads = spec.reads();
         let mut required = WideFieldMask::EMPTY;
         let mut missing = None;
-        for field in &reads {
+        let filter = match spec.body {
+            MethodBody::Query { filter, .. } | MethodBody::Select { filter } => filter,
+            MethodBody::Action { .. } => &[],
+        };
+        let mut keys = Vec::new();
+        for c in filter {
+            if let Cond::Reaches { rel } | Cond::Via { rel, .. } = *c {
+                let fk = self.relation(rel)?.fk;
+                if !reads.contains(&fk) && !keys.contains(&fk) {
+                    keys.push(fk);
+                }
+            }
+        }
+        for field in reads.iter().chain(&keys) {
             let pos = self.position(field)?;
             required = required.with(pos);
             if missing.is_none() && !available.has(pos) {
@@ -910,10 +1090,7 @@ impl Glove<'_> {
                     .binder
                     .table(self.table)
                     .ok_or_else(|| PrepareError::UnknownTable(self.table.to_owned()))?;
-                let conds = filter
-                    .iter()
-                    .map(|c| self.cond(t, *c))
-                    .collect::<Result<Vec<_>, _>>()?;
+                let conds = self.conds(t, filter)?;
                 let folds = folds
                     .iter()
                     .map(|f| match *f {
@@ -947,9 +1124,7 @@ impl Glove<'_> {
                     .binder
                     .table(self.table)
                     .ok_or_else(|| PrepareError::UnknownTable(self.table.to_owned()))?;
-                for c in filter {
-                    self.cond(t, *c)?;
-                }
+                self.conds(t, filter)?;
                 Bound::Select
             }
             (MethodBody::Action { .. }, EffectClass::Propose | EffectClass::ExternalMutate) => {
@@ -957,13 +1132,74 @@ impl Glove<'_> {
             }
             _ => return Err(PrepareError::EffectMismatch),
         };
+        let mut reaches: Vec<(u16, Universe)> = Vec::new();
+        for c in filter {
+            if let Cond::Reaches { rel } | Cond::Via { rel, .. } = *c {
+                let r = self.relation(rel)?;
+                if !reaches.iter().any(|(c, _)| *c == r.target.concept) {
+                    reaches.push((r.target.concept, r.target.universe));
+                }
+            }
+        }
         Ok(PreparedMethod {
             key: spec.key,
             effect: spec.effect,
             required,
             universe: self.universe,
+            reaches,
             bound,
         })
+    }
+
+    fn relation(&self, name: &str) -> Result<&Relation<'_>, PrepareError> {
+        self.relations
+            .iter()
+            .find(|r| r.name == name)
+            .ok_or_else(|| PrepareError::UnknownRelation(name.to_owned()))
+    }
+
+    /// Bind a filter. Each relation's liveness test is emitted once, where
+    /// the relation is first named.
+    fn conds(&self, t: TableId, filter: &[Cond<'_>]) -> Result<Vec<BoundCond>, PrepareError> {
+        let mut out = Vec::with_capacity(filter.len());
+        let mut reached: Vec<&str> = Vec::new();
+        for c in filter {
+            let rel = match *c {
+                Cond::Reaches { rel } | Cond::Via { rel, .. } => rel,
+                _ => {
+                    out.push(self.cond(t, *c)?);
+                    continue;
+                }
+            };
+            let r = self.relation(rel)?;
+            let fk = self.field(t, r.fk)?;
+            if fk.kind != FieldKind::Code {
+                return Err(PrepareError::KindMismatch(r.fk.to_owned()));
+            }
+            if !reached.contains(&rel) {
+                reached.push(rel);
+                out.push(BoundCond::Reaches {
+                    fk: fk.col,
+                    plane: ForeignPlane(r.plane),
+                });
+            }
+            if let Cond::Via {
+                field,
+                literal,
+                negate,
+                ..
+            } = *c
+            {
+                let (lane, code) = r.bind(field, literal)?;
+                out.push(BoundCond::Via {
+                    fk: fk.col,
+                    lane,
+                    code,
+                    negate,
+                });
+            }
+        }
+        Ok(out)
     }
 
     /// A required field's lane, which must be of `kind`.
@@ -1010,10 +1246,11 @@ impl Glove<'_> {
         Ok(b)
     }
 
-    fn cond(&self, t: TableId, c: Cond<'_>) -> Result<(Col, u32, bool), PrepareError> {
+    fn cond(&self, t: TableId, c: Cond<'_>) -> Result<BoundCond, PrepareError> {
         let (field, literal, negate) = match c {
             Cond::Eq { field, literal } => (field, literal, false),
             Cond::Ne { field, literal } => (field, literal, true),
+            Cond::Reaches { .. } | Cond::Via { .. } => unreachable!("bound by `conds`"),
             // Inlined before binding; a reference that reaches here was not.
             Cond::Method(MethodRef::Key(k)) => return Err(PrepareError::MethodRefNotPredicate(k)),
             Cond::Method(MethodRef::Label(l)) => {
@@ -1031,7 +1268,58 @@ impl Glove<'_> {
                     field: field.to_owned(),
                     literal: literal.to_owned(),
                 })?;
-        Ok((b.col, code, negate))
+        Ok(BoundCond::Local {
+            col: b.col,
+            code,
+            negate,
+        })
+    }
+}
+
+impl Relation<'_> {
+    /// A target field and literal, as a foreign lane and code. Errors name
+    /// the field `relation.field`.
+    fn bind(&self, field: &str, literal: &str) -> Result<(ForeignLane, u32), PrepareError> {
+        let named = || format!("{}.{field}", self.name);
+        let g = self.target;
+        if !g.basis.iter().any(|b| b == field) {
+            return Err(PrepareError::UnknownField(named()));
+        }
+        let proven = g
+            .claims
+            .iter()
+            .any(|c| c.canonical == field && matches!(c.grade, Grade::Exact | Grade::Converted));
+        if !proven {
+            return Err(PrepareError::UnmappedRequired(named()));
+        }
+        let lane = self
+            .lanes
+            .iter()
+            .find(|(f, _)| *f == field)
+            .map(|(_, l)| ForeignLane(*l))
+            .ok_or_else(|| PrepareError::NoForeignLane(named()))?;
+        let t = g
+            .binder
+            .table(g.table)
+            .ok_or_else(|| PrepareError::UnknownTable(g.table.to_owned()))?;
+        let rename = |e: PrepareError| match e {
+            PrepareError::Nullable(_) => PrepareError::Nullable(named()),
+            PrepareError::Unbound(_) => PrepareError::Unbound(named()),
+            PrepareError::AmbiguousClaim(_) => PrepareError::AmbiguousClaim(named()),
+            other => other,
+        };
+        let b = g.field(t, field).map_err(rename)?;
+        if b.kind != FieldKind::Code {
+            return Err(PrepareError::KindMismatch(named()));
+        }
+        let code = g
+            .binder
+            .code(t, b.col, literal)
+            .ok_or_else(|| PrepareError::UnknownValue {
+                field: named(),
+                literal: literal.to_owned(),
+            })?;
+        Ok((lane, code))
     }
 }
 
