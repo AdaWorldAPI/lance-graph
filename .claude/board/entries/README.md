@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-310 entries, 2026-08-06 .. 2026-10-12.
+311 entries, 2026-08-06 .. 2026-10-12.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-12 | `hyperon-metta-lg-translation` | Hyperon/MeTTa to LG sibling map: atom/hypergraph roundtrip, binding and rewrite parity, typed folds, scoped effects and 15 open questions | [2026-10-12-hyperon-metta-lg-translation.md](2026-10-12-hyperon-metta-lg-translation.md) |
 | 2026-10-12 | `D-HL-0` | CE64 hypothesis layers: plateau of the design (opaque LE bytes, 64 sparse-delta layers merged on read, Narsese-parallel validation), 8 design-vs-code conflicts, 9 unification hypotheses | [2026-10-12-ce64-hypothesis-layers-plateau.md](2026-10-12-ce64-hypothesis-layers-plateau.md) |
 | 2026-10-11 | `D-TELEPORT-0` |  | [2026-10-11-teleport-probe-source-restriction.md](2026-10-11-teleport-probe-source-restriction.md) |
 | 2026-10-11 | `synergy-ledger-classid-hotplug` |  | [2026-10-11-synergy-ledger-classid-hotplug.md](2026-10-11-synergy-ledger-classid-hotplug.md) |
