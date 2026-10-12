@@ -68,3 +68,78 @@ Deliver:
 7. An **OPEN questions** table where data is unavailable; do not replace missing evidence with inference.
 
 **Definition of done:** one well-specified, tested, read-only IAM access-path/impact claim and SAG-aware method evidence, with no second engine and no unproved external authority. If it cannot compile legally, deliver an explicit, code-grounded blocker instead of a fake implementation.
+
+## Research extension D-IAM-SAG-1 (required reading, not new scope authorization)
+
+The original task intentionally focused on the positive role path. Also read, before implementing a general IAM policy surface:
+
+- [Frontier architecture addendum](../plans/iam-substrate-frontier-gaps-v1.md), with a decision/authority/time ontology, release train and IAM-16..40;
+- [Why-not provenance, robust access policies and agentic reference monitors](../../.arxiv/2026-10_iam_negative_provenance_authority_and_agentic_policy_excerpts.md), with original arXiv/OASIS/IETF sources, transfer limits and falsifiers.
+
+**The extension does not enlarge the first implementation slice.** If this prompt is used for the first Rust PR, implement only a smallest read-only, test-pinned path; mark the remaining requirements open. The extensions guard against accidentally shipping a positive-graph demo as a full IAM policy engine.
+
+### X1. Answer types and data completeness
+
+Design or evaluate (do not prematurely expose a new contract API) **three distinct result planes**:
+
+1. Evidence: positive witness, complete scoped absence, incomplete/unknown or contradictory sources;
+2. Policy: Permit, Deny, NotApplicable, Indeterminate (including the *explicitly selected* policy-combining algorithm);
+3. Provider: actual accepted/rejected/no observation, which the graph must never infer from a permission edge.
+
+Extend the original synthetic fixture with a missing page, incomplete group-policy read, explicit empty policy, explicit deny, and a changed combining algorithm. Show **which authority** was read and why the negative conclusion does or does not follow. A closed-world claim must cite its complete source scope and versions. Do not collapse absent evidence, unknownness and Deny into false.
+
+### X2. Multi-path, negation and bounded completeness
+
+- Produce two independent granting paths, remove only one, and verify the entitlement remains. Use `RoleImpact::between` for directory role impact; do not equate its one shortest path with exhaustive reachability.
+- Record `one_witness / exhaustive / incomplete_due_to_budget` on every explanation. Explicitly refuse a universal “no access” claim where source coverage is incomplete or path enumeration is bounded.
+- Include `why_not_access` fixture; test against a **separate small reference model**. Do not silently implement Datalog/XACML/provenance as a second production engine.
+- A minimal set of membership removals is not automatically the lowest-risk or authorized intervention. Include business-policy constraints in the simulation oracle.
+
+### X3. Source identity and four time concepts
+
+- Verify source AD GUID, Entra objectId, SCIM id, canonical NodeGuid, full classid, mutable DN, user alias, tenant and SIDHistory are separate unless a **reviewed and versioned** mapping explicitly links them.
+- Test UPN reuse, two forests with same sAMAccountName, one-to-many sync anchor ambiguity, and a service/workload principal with no human HR record. No privilege inheritance from probabilistic matching.
+- Report effective-at, observed-at, recorded-at, and decision/execution-at separately; use a **version vector** for AD/Entra/HR/MDM/policy rather than pretending `VersionStore::VersionId` is a cross-provider transaction.
+- Under source clock skew, partial snapshots or changed policy revision, either refuse a consistency-sensitive claim or explicitly downgrade it. Historical permission never yields present write permission.
+
+### X4. Lifecycle, SoD and JIT as policy problems
+
+Use synthetic examples for: moved employee with a temporary double entitlement, leaver with a stale app session, mutually exclusive roles from two sources, orphaned automation principal, privileged JIT grant that expires, break-glass requiring a separate approval. Refuse a “verified safe” claim when versioned policy constraints are unavailable. Treat robust-under-future-policy-extensions as a research problem, not an achieved theorem.
+
+### X5. Independent executable authority and protocol receipts
+
+No actual provider writes are allowed in this PR. For future protocol contracts, specify:
+```text
+proposed != approved != requested != applied != re-observed != verified
+```
+A provider timeout may mean success or failure: **UnknownOutcome**, re-observe before retry. If conditional resource versions/ETags are unsupported, fail safely or explicitly require a different authorized concurrency strategy. SCIM per-resource PATCH atomicity is not cross-provider rollback. Do not let a natural-language prompt, SAG `Tier::Verified`, a CE64 confidence code or a speculative CARE/ONA observer supply authorization. Do not imply revoking a group membership terminates an already issued privileged session.
+
+### X6. Negative-proof privacy and information flow
+
+The answer `why does Anna have access?` can expose privileged group and policy names. Include a principal/tenant/scope-bound explanation gate, field redaction and completeness labeling. A request may legitimately obtain the policy decision but **not** all witness edges. Redaction must not change the underlying decision, and graph traversal must not cross tenant scope. `WideFieldMask` is a projection, not an authorization decision.
+
+### X7. Property-based/metamorphic and disable-run suite
+
+Track IAM-16..40 from the frontier plan. Essential metamorphic checks:
+- Source-row order and graph-edge order permutation do not alter effective answers.
+- Replaying one upstream event from two adapters does not double-count license or evidential confirmation.
+- Adding an independent allow path cannot remove a role grant **under a declared purely positive graph rule**, but this monotonicity must NOT be generalized to deny rules or mutable policies.
+- Alternative grant path removal must not imply entitlement loss.
+- A source policy version change invalidates a stale certificate if the rule is not proved robust under the permitted extension.
+- Actor row-scope, field authorization, source coverage and executable-effect gates each have a named disable-red test.
+- Cyclic 1000-path fixture has a stated cost/time/memory bound and returns `incomplete` rather than a false exhaustive proof.
+- Observer/no-observer with identical inputs produces identical authorized results, even if query cost and discovery order change.
+
+**Stop sign:** If a capability requires inventing a second policy evaluator, traversal runtime or authority registry to make tests pass, STOP and write an explicit blocker and narrow follow-on PR. Don't mislabel inferred behavior as compiled/verified.
+
+### X8. Handoff output expansion
+
+In addition to the earlier deliverables, report:
+- an access-decision/evidence/provider triple for each fixture, including unknown cases;
+- exact completeness scope and source/policy version vector;
+- one-witness vs exhaustive explanation with witness budget;
+- a source-anchor collision ledger and privacy review;
+- result parity and disable evidence, including IAM-16..40 as Pass/Fail/Blocked/Not attempted with **no fabricated green**;
+- what remains research-only, what is code-grounded, and what would require new authority/legal/security review.
+
+**Ultimate invariant:** graph inference may *propose* a safe action, but it cannot *become* the principal that authorizes it.
