@@ -93,7 +93,14 @@ behind a version gate (`I-LEGACY-API-FEATURE-GATED`).
 
 - **Arm L:** `.nal` files run by the pinned OpenNARS for Research build
   (`.claude/knowledge/nal-recipe-audit/oracles.md`, `RunNal.java`).
-- **Arm B:** the same evidence as CE64 deltas, merged on read (D-HL-2 (b)).
+- **Arm B:** the same evidence as CE64 deltas, merged on read (D-HL-2 (b)),
+  computed by the scalar CE64 register methods.
+- **Arm C (added by D-HL-10 / D-NALP-7):** the same Narsese text compiled to
+  an `ogar-nal` program and run through the NAL dialect over mask-risc. It is
+  a separate arm, not a replacement for B.
+- **What the gate evaluates:** each of B and C against arm L (the oracle).
+  B and C must also agree with each other, within the same tolerance, on
+  every statement both derive.
 - **Output:** one row per derived statement `(statement, f_L, c_L, f_B, c_B)`.
 - **Statistics:** `jc::reliability::{icc, spearman, cronbach_alpha}`, plus
   absolute code error and its sign (bias).
@@ -210,7 +217,8 @@ register method of the same name.
 **Blocked regardless of IR:** NAL-3..6 need compound terms (ledger R10).
 
 **Gate:** D-HL-4's oracle comparison, with Narsese text compiled to an
-`ogar-nal` program as arm B. **Kill:** a NAL op whose dialect lowering
+`ogar-nal` program as arm C, a separate arm beside B (the scalar CE64
+deltas). Both are scored against arm L, the pinned OpenNARS. **Kill:** a NAL op whose dialect lowering
 disagrees with the OpenNARS output beyond the D-HL-4 tolerance is not
 admitted. **Warden:** `isa-anti-lasagne-warden` must find no second IR and
 no lowering into a representation with no second reader.

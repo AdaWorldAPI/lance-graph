@@ -119,9 +119,24 @@ stores `c` and revision needs `w = c/(1−c)`. The hypothesis behind this plan
   fixed-point `i32` weight lane `w` (scale 2¹⁶) and a frequency lane `f`
   (0..255);
 - then revision per statement is one `GroupCrossPowerSumsI32` with
-  `key = statement`, `x = w`, `y = f`: `Σw` and `Σw·f` come out in `i64`;
+  `key = statement`, `x = w`, `y = f`. It yields `Σw` in the `i64` `sum_x`
+  field and `Σw·f` in the `i128` `sum_xy` field (`ndarray::simd::CrossPowerSums`);
 - `c` is computed once, at commit, from `Σw`. That is the "round once" of
   D-HL-2.
+
+**Overflow bounds.** The bounds are explicit, not assumed:
+- **Per row:** `w` is an `I32` lane, so `|w| ≤ 2³¹ − 1`. At scale 2¹⁶ that is
+  a weight of about 32,767, far above the 254 a single u8 confidence code can
+  express.
+- **A delta whose weight exceeds the lane is refused at write time,** never
+  saturated. Saturating would silently undercount evidence.
+- **`Σw`:** at most 2³² rows × 2³¹ ≤ 2⁶³, so the `i64` field is exact within
+  the terminal's stated 2³²-row bound. The executor already refuses a wider
+  plane.
+- **`Σw·f`:** at most 2³² × 2³¹ × 255 < 2⁷¹, held exactly in the `i128`
+  `sum_xy` field.
+- **Commit:** reads both in their full width and rounds into the u8 code
+  once.
 
 This dissolves G3 for the delta path. G3 remains open for reading
 already-baked rows that store only `c`.
@@ -244,14 +259,14 @@ pub struct Choice;      // impl NalOp: GroupReduce Max over c
 | Wave | D-id | Repo | Work | Gate (all must pass) |
 |---|---|---|---|---|
 | W0 | D-NALP-0 | lance-graph | This plan, board rows | — |
-| W1 | D-NALP-1 | lance-graph | Statement layout + ClassView reading: a declared `nal-statement-v1` reading (S, copula, O, f, c, w, Epi5, evidential base) over a probe table; the binder computes the query's `WideFieldMask`; decide the term width (OPEN) | a query touches exactly its mask's lanes (counted reads); an undeclared reading refuses; a masked-out field refuses, never reads; promotion past 64 fields keeps the same answer (Small vs Wide) |
+| W1 | D-NALP-1 | lance-graph | Statement layout + ClassView reading: a declared `nal-statement-v1` reading (S, copula, O, f, c, w, Epi5, evidential base) over a probe table; the binder computes the query's `WideFieldMask`; decide the term width (OPEN). Prerequisite inside W1: `ClassView::project` takes a 64-bit `FieldMask` today (`class_view.rs`), so W1 adds an additive projection path that takes a `WideFieldMask`, defaulting to the existing method for the Small case; no existing implementation changes behaviour | a query touches exactly its mask's lanes (counted reads); an undeclared reading refuses; a masked-out field refuses, never reads; promotion past 64 fields keeps the same answer (Small vs Wide) |
 | W2 | D-NALP-2 | lance-graph | Query procedures with no new byte: `select(copula, subject?, object?)`, `truth_at_least(field, t)`, `choice_by_confidence`, `support_count` in `lance-graph-r2il::procs` style | each equals a row-at-a-time oracle over `isa::truth` / accessor reads, on fixtures with empty and full selections; disable: drop the threshold pattern set to one pattern → red; no new opcode |
 | W3 | D-NALP-3 | lance-graph | Revision as `GroupCrossPowerSumsI32` over `w`/`f` deltas (§4 B) | equals the exact integer revision (D-HL-2 arm c) on every statement; agrees with the OpenNARS revision points (`revision_points.nal`); a duplicate-evidence fixture under the D-HL-3 evidential base counts once; disable: drop the `w` scale → red |
 | W4 | D-NALP-4 | ndarray, lance-graph | The per-row truth law (§4 C): measure `MapPairU8` (256² tables) vs fixed-point multiply-high on the four NAL-1 rules; ship the winner as ndarray word → mask-risc terminal → `FoldDialect` wiring | insufficiency proof recorded (no existing terminal expresses it); per-row parity with `isa::truth` on all 2³² `(f₁,c₁,f₂,c₂)` codes or a declared stratified sample, error stated in codes; parity on every SIMD realization row; one shape serves SQL nullable arithmetic too |
 | W5 | D-NALP-5 | lance-graph | Syllogistic population ops: deduction, induction, abduction, analogy = middle-term join (`EqU32Via`/`Gather`) + W4 law | equals the scalar rule applied pair by pair (oracle enumerates pairs); abduction attaches to the right statement (ledger R1's defect must not reappear: a direction test that is red for the reversed statement); measured cost per derived row vs the scalar loop |
 | W6 | D-NALP-6 | lance-graph | `lance-graph-nal` crate: the typed surface `nal::{Operation}` (`NalOp` trait, §4 G) over W2–W5 procedures; Narsese parser (NAL-1/2 statements, truth, questions) lowering from the bound plan onto the same types; `NAL::narsese(text)`; typed `Refusal` for every unsupported shape | text and typed calls produce byte-identical `Program`s for the same query; lowers from the bound plan, never the AST (`cypher-lowering-warden`); every refusal names its reason; no fallback to another engine; no `Program` built outside the procedures |
 | W7 | D-NALP-7 | lance-graph | Oracle parity: compile the upstream NAL-1/2 fixtures (`nal1.*`, `nal2.*`) and `revision_points.nal`, run, compare with the pinned OpenNARS output; score with `jc::reliability` | every fixture's expected outputs reproduced within the D-HL-4 tolerance; ICC/Spearman reported per rule; feeds D-HL-4 and D-HL-10 |
-| W8 | D-NALP-8 | OGAR | `ogar-nal` vocabulary: arity table holding only the bytes W4/W5 earned, provisional concept id, drift test against the `nal::` type list (§4 G) | one arity table in the tree for NAL; no byte for an operation a procedure expresses; mint request for the concept id goes to OGAR (this plan does not mint) |
+| W8 | D-NALP-8 | OGAR | `ogar-nal` vocabulary, built after W4/W5 and before W6: arity table holding only the bytes W4/W5 earned, provisional concept id, drift test against the `nal::` type list (§4 G) | one arity table in the tree for NAL; no byte for an operation a procedure expresses; mint request for the concept id goes to OGAR (this plan does not mint) |
 | W9 | D-NALP-9 | lance-graph | `narsese!{}` declared mode: build-time generation from procedure bodies (reuses D-SQLP-4's generator; blocked until it exists) | generated answers identical to interpreted; generated ≤ 1.05× hand-built `Program`; no interpreter dispatch in the hot loop's disassembly |
 | W10 | D-NALP-10 | lance-graph | Benchmark, D-SQLP-3 protocol: a revision + one deduction query three ways (direct ndarray, hand-built `Program`, interpreted procedure); N = 65,536 and 1,048,576 | answers identical before timing; release, quiet machine, median of 101, avx512 and avx2 separately; pre-registered: interpreted ≤ 1.05× hand-built |
 | W11 | D-NALP-11 | lance-graph, lance-graph-java | One spelling: quack / cypher-quack truth filters route through the procedures; later a Java `nal()` membrane like `sql()` | byte-identical `Program`s for the shapes those front ends already pin; Java: `ApiSurfaceTest` green, no row-proportional allocation |
@@ -269,8 +284,16 @@ pub struct Choice;      // impl NalOp: GroupReduce Max over c
 
 ```text
 W1 → W2 → W3 ┐
-        └──► W4 → W5 → W6 → W7 → W8
+        └──► W4 → W5 → W8 → W6 → W7
                               └──► W10 → (W9 once D-SQLP-4 exists) → W11
+```
+
+W8 comes before W6 because the `nal::` types read `FN` and `ARITY` from the
+`ogar-nal` table (§4 G). W8 can only fix the table once W4 and W5 have decided
+which operations earn a byte. An operation without a byte gets `FN = None`,
+so W8 never blocks a procedure-only op.
+
+```text
 ```
 
 - **lance-graph:** W1–W7, W9–W11.
