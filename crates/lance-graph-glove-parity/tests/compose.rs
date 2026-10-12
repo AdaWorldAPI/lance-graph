@@ -366,3 +366,53 @@ fn a_broken_reference_is_refused() {
         &Err(PrepareError::UnmappedRequired("duration".into()))
     );
 }
+
+/// FAILS IF: a predicate of another class is captured because its field names
+/// and positions coincide. `foreign` is identical to `is_billable` in seal,
+/// reading, effect, field name and literal; only its concept differs. The
+/// reference is refused, the caller does not prepare, and the result types
+/// stay apart: only a predicate can be named, never a fold or an action.
+#[test]
+fn a_same_shaped_predicate_of_another_class_is_not_captured() {
+    use lance_graph_ogar::ogar_vocab::class_ids::DOCUMENT;
+    const FOREIGN: MethodKey = MethodKey([0xB7; 16]);
+    const USER: MethodKey = MethodKey([0xB8; 16]);
+    let foreign = MethodSpec {
+        concept: DOCUMENT,
+        ..spec(FOREIGN, MethodBody::Select { filter: BILLABLE })
+    };
+    let s = [
+        ("foreign_is_billable", foreign),
+        (
+            "count",
+            spec(
+                USER,
+                values(&[Cond::Method(MethodRef::Key(FOREIGN))], &[Fold::Count]),
+            ),
+        ),
+    ];
+    assert_eq!(refusal(&s, USER), PrepareError::MethodRefContract(FOREIGN));
+    // The foreign predicate is refused on its own, too: it is not a method of
+    // this table's concept.
+    assert_eq!(
+        refusal(&s, FOREIGN),
+        PrepareError::WrongConcept {
+            spec: DOCUMENT,
+            table: BILLABLE_WORK_ENTRY
+        }
+    );
+    // Silence twin: the same spec with this table's concept is inlined.
+    let ours = MethodSpec {
+        concept: BILLABLE_WORK_ENTRY,
+        ..foreign
+    };
+    let batch = batch(65);
+    let cats = CatsBinder::new(&batch);
+    let (basis, claims) = (canonical_fields(), with_duration());
+    let t = MethodTable::prepare(&glove(&basis, &cats, &claims), &[("ours", ours), s[1]]);
+    let (c, _) = count_sum(&batch, |code| code == 1);
+    assert_eq!(
+        call(&t, &batch, USER, Frontend::Quack).unwrap(),
+        scalars(&[c])
+    );
+}
