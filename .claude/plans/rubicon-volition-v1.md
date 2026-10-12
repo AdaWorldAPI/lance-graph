@@ -1,7 +1,7 @@
 # rubicon-volition-v1 — falsifiable goal -> plan -> action -> revision overlay
 
 **Date:** 2026-10-12  
-**Status:** PROPOSAL ONLY (RV-0..RV-9). No production code, new crate, opcode, actor VM, bit reassignment, wire contract, API or implementation authorization.  
+**Status:** PROPOSAL ONLY (D-RV-0..D-RV-9). No production code, new crate, opcode, actor VM, bit reassignment, wire contract, API or implementation authorization.  
 **Literature:** [.arxiv/2026-10_rubicon_gollwitzer_volition_source_excerpts.md](../../.arxiv/2026-10_rubicon_gollwitzer_volition_source_excerpts.md).  
 **Constraints:** [CE64 plateau](../knowledge/ce64-reasoning-substrate-plateau.md), [D-HL-0..10](ce64-hypothesis-layers-v1.md), [NAL polyfill](nal-polyfill-v1.md), [prediction != purpose](../../.arxiv/2607.21273_prediction_may_update_belief_not_purpose.md), [CARE commit gate](../../.arxiv/2606.14581_synthesize_programs_gate_commit.md).  
 **Related but distinct:** [lance-graph PR #1496](https://github.com/AdaWorldAPI/lance-graph/pull/1496) CE64 plateau / hypotheses; [#1497](https://github.com/AdaWorldAPI/lance-graph/pull/1497) PLN x Shannon/attention scheduling; [#1498](https://github.com/AdaWorldAPI/lance-graph/pull/1498) Hyperon/MeTTa projection/folds. These are references, **not** dependencies to merge or modify. Preserve sibling isolation.
@@ -12,7 +12,7 @@ Can a revocable if-then policy formed **after** evidence-sensitive goal selectio
 
 A cognitively plausible story is insufficient. Compare against matched budgeted baselines; negative results are acceptable.
 
-## RV-0: preserve four separate contracts
+## D-RV-0: preserve four separate contracts
 
 1. **Carrier/ISA**: stable opaque LE bytes / byte-lane ALU, projection and mask contracts. Never conflate register layout with psychological, NARS or actor semantics.
 2. **Epistemic + statistical evidence**: declarative ClassView reading; NARS f/c is statistical support/evidence stability when so interpreted; CE64 59..63 is an epistemic/topology/certification reading under the declared class, **not** goal intent; a different source class may interpret the same carrier differently. Keep EvidenceRootId and derivation lineage separate from action receipts; no intent inserted into bits 59..63.
@@ -21,7 +21,7 @@ A cognitively plausible story is insufficient. Compare against matched budgeted 
 
 Invariant: **predicted agreement != truth != desire/utility != authorization**. Moore activation or entropy may recommend examining evidence, never silently elevate a desire into an action commitment.
 
-## RV-1: state machine (proposed, not implemented)
+## D-RV-1: state machine (proposed, not implemented)
 
     Observation/Evidence ---------+
                                     v
@@ -62,7 +62,7 @@ Transitions must be explicit and reconstructible by replay; no implicit COMMITTE
 
 Allowed to switch back to deliberative mindset when a critical assumption changes. Goal commitment creates focus but does **not** make evidence immutable.
 
-## RV-2: typed candidate records (conceptual schema, not an ABI)
+## D-RV-2: typed candidate records (conceptual schema, not an ABI)
 
     GoalCandidate { goal_id, desired_outcome, feasibility_basis,
                     motivation_score?, utility_basis?, evidence_roots[],
@@ -88,7 +88,7 @@ All names are hypothetical **semantic fields**; do not reserve new bytes/tenant 
 - EventId, EvidenceRootId, GoalId, PolicyId and action receipt are **distinct identity domains**.
 - A no-action result must also be replayable (why matching cue did *not* fire).
 
-## RV-3: mapping into the current AdaWorldAPI landscape
+## D-RV-3: mapping into the current AdaWorldAPI landscape
 
 | Cognitive responsibility | Candidate owner / existing substrate | Contract to reuse | Gap to verify |
 |---|---|---|---|
@@ -107,7 +107,7 @@ All names are hypothetical **semantic fields**; do not reserve new bytes/tenant 
 
 **Actor virtualization comparison** (hypothesis only): compare existing ractor, an Erlang-inspired virtual actor lease/scheduler, and deterministic in-process event-loop control *using the same goal/policy/event types*. Count enqueue-to-actuation latency, suspended actor footprint, cancellation race leakage, message duplication, replay parity and failure recovery. This is a separate runtime test, **not** a prerequisite to the volition behavioral experiment. Avoid adding a new actor substrate until a measured insufficiency is shown.
 
-## RV-4: controlled experiment matrix
+## D-RV-4: controlled experiment matrix
 
 Fixed tasks, evidence stream, candidate universe, action API, reference oracles, random seeds, wall clock/CPU and candidate budget per arm. Count action work **including** planning/rehearsal/monitor. Cost normalization must include IO, hydration, trigger compilation and all rejected work.
 
@@ -142,7 +142,7 @@ Safety/epistemics: evidence-source duplication inflation, unsupported actions, s
 
 Use confidence intervals across independently seeded episodes; report task distribution, environmental drift and effect heterogeneity. Never transplant Cohen d from human psychology into agent success predictions.
 
-## RV-5: falsifiers and kill gates
+## D-RV-5: falsifiers and kill gates
 
 1. **Rubicon not needed:** B is behaviorally indistinguishable from A and total cost rises or remains unchanged on tasks containing repeated decisions.
 2. **Conditional plan not useful:** C misses or falsely fires as often as B at equivalent all-in budget; trigger engineering does not improve actual goal outcomes.
@@ -155,14 +155,14 @@ Use confidence intervals across independently seeded episodes; report task distr
 9. **Carrier drift:** a new motivational reading mutates CE64 stored bytes, ALU ISA or bits 59..63 without existing declared ClassView/evidence gate.
 10. **Scope creep:** a second scheduler/opcode/runtime is proposed without a reproducible oracle counterexample to existing R2IL/mask-risc procedures.
 
-## RV-6..RV-9: staged plan with stop conditions
+## D-RV-6..D-RV-9: staged plan with stop conditions
 
 | Stage | Artifact (proposal only) | Pass criterion |
 |---|---|---|
-| RV-6 source census | exact OGAR ActionDef / OGIT / ONA / RIG / rs-graph-llm and ractor symbols + SHAs; compare #1496–#1498 | no assumed API, no duplicate path; open questions resolved or typed-refused |
-| RV-7 scalar oracle | tiny independent controller with pure state transitions; typed fixtures RV-E1..E8 | every reference transition + negative/no-action twin passes |
-| RV-8 procedure lowering | compile read-only cue matching to existing Quack/R2IL/mask-risc, keep commit external | bit-exact guard parity, versions/cancellation invariant, physical decoded work counted |
-| RV-9 factorial & ablation | A/B/C/D/E matched seeded episodes; then isolate actor runtime vs execution path | same task/evidence/seed/budget; uncertainty intervals; publish failures; **no merge/production authorization** |
+| D-RV-6 source census | exact OGAR ActionDef / OGIT / ONA / RIG / rs-graph-llm and ractor symbols + SHAs; compare #1496–#1498 | no assumed API, no duplicate path; open questions resolved or typed-refused |
+| D-RV-7 scalar oracle | tiny independent controller with pure state transitions; typed fixtures RV-E1..E8 | every reference transition + negative/no-action twin passes |
+| D-RV-8 procedure lowering | compile read-only cue matching to existing Quack/R2IL/mask-risc, keep commit external | bit-exact guard parity, versions/cancellation invariant, physical decoded work counted |
+| D-RV-9 factorial & ablation | A/B/C/D/E matched seeded episodes; then isolate actor runtime vs execution path | same task/evidence/seed/budget; uncertainty intervals; publish failures; **no merge/production authorization** |
 
 ### Explicit questions for later review
 
