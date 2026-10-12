@@ -142,7 +142,7 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | in(rel) reverse fk | traversal | V->V' | re-anchor on child rows | — | pure | DIRECT (G1-4b) | spelled `V(child).out(rel)`, anchored on the edge or child concept (tests/distinct.rs); the `V(parent).in(rel)` spelling is still refused (`FanOut`) | composer re-anchoring of the `in` spelling |
 | out/in(rel) M:N | traversal | V->V' | re-anchor on edge rows | — | pure | DIRECT (G1-4b) | `V(edge).where(p()).out(end)`: `count()` = bag, `dedup().count()` = set, both ends filtered at the source; anchored on the edge or child concept (tests/distinct.rs) | — |
 | both(rel) | traversal | V->V' | union of two bags | — | pure | YET | no bag union across anchors | typed bag merge |
-| second hop, functional | traversal | V->V'' | keeps | — | pure | YET | #1311 `functional_two_hop_is_refused…` | composed fk read (G1) |
+| second hop, functional | traversal | V->V'' | keeps | — | pure | DIRECT (G1-7) | `out(r1)…out(rk)` folds into ONE `MaskOp::GatherChain` (§11): tests/two_hop.rs vs a row loop over the text; R2IL refuses (no `GATHER`) | R2IL `GATHER` |
 | second fan-out (fan-in carried) | traversal | V->V'' | bag | — | pure | YET | #1311 `many_to_many_two_hop_is_refused…`; #1312 §D | barrier / fan-in operand (G2) |
 | outE/inE/bothE | traversal | V->E | edge rows | — | pure | DIRECT (G1-4b) | `V(edge).where(p())` with `p` over `out(src)`; anchored on the edge or child concept (tests/distinct.rs); `bothE` needs the union below | — |
 | outV/inV/otherV/bothV | traversal | E->V | fk read | — | pure | DIRECT (G1-4b) | `out(src)` / `out(dst)` from `V(edge)`: EqU32Via + liveness Semijoin; anchored on the edge or child concept (tests/distinct.rs) | — |
@@ -250,7 +250,7 @@ adapter, minus the relations that fan out.
   test is emitted once per relation, wherever it is first named.
 - `count()` after `out(rel)` counts anchor rows: a functional relation yields
   at most one traverser per anchor row, so the anchor does not move.
-- Refused by name: a second hop (`SecondHop`), `values(f)` on the target
+- Refused by name (at §8; a second hop composes since §11): `values(f)` on the target
   (`ValueThroughRelation`; no sum through a key in Quack), `dedup()` on the
   target (`DedupThroughRelation`; a set count), `where(method())` on the
   target (`WhereThroughRelation`), and `in`/`both` (`FanOut`).
@@ -330,8 +330,7 @@ Composer: `dedup()` after `out(rel)` moves to the distinct targets; `has`
 commutes with it; `count()` folds; ending there, or any other step, stays
 `DedupThroughRelation`. `V(parent).in(rel)` is still refused (`FanOut`); the
 same population is spelled `V(child).out(rel)`. R2IL: `FrontendGap { R2il,
-"GATHER" }`. A second hop stays refused: it needs the chained-hop decision
-(`.claude/board/entries/2026-10-03-coresearch-chained-hop.md`).
+"GATHER" }`. A second hop composes since §11.
 
 Evidence: `tests/distinct.rs` (6 tests). FIXTURE: synthetic `method`,
 `field` and `reads` tables, dangling keys and dead rows on each, two
@@ -341,6 +340,41 @@ Seven disable runs, each red on the test that names it: the fold's liveness
 test dropped, the test emitted twice, the fold lowered as `COUNT(*)`, the
 R2IL refusal dropped, `has` after `dedup` dropped, ending on the distinct
 targets accepted, the key left out of `required`.
+
+## §11 — chained hops are folded hops (D-CMH-G1-7)
+
+`out(r1).out(r2)…` over functional relations keeps the anchor and lowers to
+ONE chained gather: `Filter::Chain` → `MaskOp::GatherChain` →
+`ndarray::simd::mask_gather_chain_u32[_under]`. A condition on any hop is a
+test read in place at the row the key reached; no mask over a hop table is
+built and no program feeds another (the photolithography pattern: each hop
+is one more aperture in the same pass, materialised once at the terminal).
+
+Method layer: `Path` (1..=`MAX_PATH` = 8 relations) and
+`Cond::ReachesPath` / `Cond::ViaPath` for a path of two or more; a one-hop
+path is still `Cond::Reaches` / `Cond::Via`. Preparation walks each
+relation on the previous one's target glove; every condition on a maximal
+path and on its prefixes binds into one `BoundCond::Chain` (hop-1 tests
+folded into hop 1, never a separate semijoin). The next key must be a
+proven `Code` field of the hop table that the call supplies as a foreign
+lane (`NoForeignLane` otherwise). Every target universe along the path is
+checked at the call.
+
+Composer: `out` after `out` extends the path (`PathTooDeep` past
+`MAX_PATH`); `has` after it is a `ViaPath`; `dedup`, `values`, `min`/`max`
+after a path of two are refused. Text form and awareness graph carry the
+path.
+
+Evidence: `tests/two_hop.rs` (5 tests): `line -billed_to-> partner
+-located_in-> region`, dangling keys and dead rows at both depths, against a
+row loop over the text at n ∈ {1, 64, 65, 4097}; the lowering is exactly one
+chain; composer, text form, awareness, refusals. Six disable runs red:
+prefix not absorbed, tests dropped, tests on the wrong hop, next key not
+followed, only the first universe checked, the composer refusing the hop.
+The executor side (mask-risc, Quack) has its own seven (board entry
+`2026-10-12-chained-hops-folded.md`).
+
+OPEN: the M:N two-edge-table hop (an edge concept per hop, run-level OR).
 
 ## D-ids
 
@@ -352,6 +386,7 @@ targets accepted, the key left out of `required`.
 | D-CMH-G1-3 | Gremlin-shaped runtime declarations | Shipped (#1508) |
 | D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` after it (§8) | Shipped (#1514) |
 | D-CMH-G1-4b | edge table as the anchor (`E()`, M:N, `outE/inV`, `in` spelled from the child), `Fold::Distinct` (§10) | In PR |
-| D-CMH-G1-4 | the rest: a second hop (needs the chained-hop decision), the `V(parent).in(rel)` spelling, `bothE` | Queued |
+| D-CMH-G1-4 | the rest: the `V(parent).in(rel)` spelling, `bothE` | Queued |
+| D-CMH-G1-7 | chained hops folded: `out(r1).out(r2)…` → one `GatherChain` (§11) | In PR |
 | D-CMH-G1-5 | FirstOfRun (insufficiency proof first; separate PR #3) | Queued |
 | D-CMH-G1-6 | ordered `I32` conditions, `MIN`/`MAX` folds; R2IL `MIN`/`MAX` wired (§9) | In PR |

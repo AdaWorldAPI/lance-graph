@@ -28,5 +28,9 @@ DECISION: chains are stack-bounded (`MAX_CHAIN_HOPS = 8`,
 `MAX_HOP_TESTS = 8`) so `execute` keeps L1 (no allocation). REVISIT WHEN: a
 real query needs a deeper chain.
 
-OPEN: the glove/composer `out(r1).out(r2)` lowering (step 3); the M:N
-two-edge-table hop (run-level OR) awaits a decision.
+Glove (plan §11): `Path` + `Cond::ReachesPath` / `ViaPath`; every
+condition on a path and its prefixes binds into one chain; Gremlin `out`
+after `out` extends the path. `tests/two_hop.rs` against a row loop over the
+text; six more disable runs red.
+
+OPEN: the M:N two-edge-table hop (run-level OR) awaits a decision.
