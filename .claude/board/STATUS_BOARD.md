@@ -1,20 +1,20 @@
-## D-SAG-2 — Reflexive cognition and proposal safety from SAG #1509 (2026-10-12)
+## D-SAG-5 — Reflexive cognition and proposal safety from SAG #1509 (2026-10-12)
 
 **Status:** PROPOSAL. Plan: .claude/plans/sag-reflexive-cognition-from-1509-v1.md. Docs only; no runtime authorization.
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| D-SAG-2-0 | source research, Claude Code prompt, board and negative-control matrix | In PR (docs) | sources pinned; new runtime diff empty |
-| D-SAG-2-1 | rerun compiler-backed SAG one-hop parity | Queued | exact prepared Program/refusal and tier; stale cert red |
-| D-SAG-2-2 | ContextSlice vs source/rg/Markdown with real tokens | Queued | exact answer/source with counted input tokens; unsupported hop refused |
-| D-SAG-2-3 | evidence, derivation and attention independent provenance | Queued | copied source counted once; independent source twice |
-| D-SAG-2-4 | episode interpretation and pinned snapshot replay | Queued | k immutable under k+1 append; no replay-as-evidence |
-| D-SAG-2-5 | Shannon/BALD/PLN/ONA/ECAN/Staunen policies | Queued | fixed truth law, same budget, noisy and epistemic controls |
-| D-SAG-2-6 | four named appraisal-policy ablations | Queued | no factual truth drift; benefit vs frozen no-meta |
-| D-SAG-2-7 | MeTTa/metagraph typed subset | Queued | four-result multiplicity, typed port, static fold or refusal |
-| D-SAG-2-8 | H1 and MDL candidate independent validation | Queued | null, overflow, bag, source and cost proofs; no fused speedup assumed |
-| D-SAG-2-9 | conflicting sources and revised significance | Queued | no person-wide penalty or false new observation |
-| D-SAG-2-10 | approval, source change and rollback gates | Queued | default deny; self-issued compiled/verified tier fails |
+| D-SAG-5-0 | source research, Claude Code prompt, board and negative-control matrix | In PR (docs) | sources pinned; new runtime diff empty |
+| D-SAG-5-1 | rerun compiler-backed SAG one-hop parity | Queued | exact prepared Program/refusal and tier; stale cert red |
+| D-SAG-5-2 | ContextSlice vs source/rg/Markdown with real tokens | Queued | exact answer/source with counted input tokens; unsupported hop refused |
+| D-SAG-5-3 | evidence, derivation and attention independent provenance | Queued | copied source counted once; independent source twice |
+| D-SAG-5-4 | episode interpretation and pinned snapshot replay | Queued | k immutable under k+1 append; no replay-as-evidence |
+| D-SAG-5-5 | Shannon/BALD/PLN/ONA/ECAN/Staunen policies | Queued | fixed truth law, same budget, noisy and epistemic controls |
+| D-SAG-5-6 | four named appraisal-policy ablations | Queued | no factual truth drift; benefit vs frozen no-meta |
+| D-SAG-5-7 | MeTTa/metagraph typed subset | Queued | four-result multiplicity, typed port, static fold or refusal |
+| D-SAG-5-8 | H1 and MDL candidate independent validation | Queued | null, overflow, bag, source and cost proofs; no fused speedup assumed |
+| D-SAG-5-9 | conflicting sources and revised significance | Queued | no person-wide penalty or false new observation |
+| D-SAG-5-10 | approval, source change and rollback gates | Queued | default deny; self-issued compiled/verified tier fails |
 
 ## D-SAG-1 — Software-awareness graph (2026-10-12)
 

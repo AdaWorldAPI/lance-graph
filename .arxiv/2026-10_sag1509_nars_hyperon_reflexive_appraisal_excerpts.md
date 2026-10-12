@@ -1,6 +1,6 @@
 # Source excerpts: NARS/ONA and Hyperon as a grounded self-model, not a homunculus
 
-**Date:** 2026-10-12. **Status:** primary paper extracts / source-grounded questions, not LG runtime parity. **Parent:** #1509. **Companion:** [D-SAG-2](../.claude/plans/sag-reflexive-cognition-from-1509-v1.md). Paraphrases, not large verbatim quotations.
+**Date:** 2026-10-12. **Status:** primary paper extracts / source-grounded questions, not LG runtime parity. **Parent:** #1509. **Companion:** [D-SAG-5](../.claude/plans/sag-reflexive-cognition-from-1509-v1.md). Paraphrases, not large verbatim quotations.
 
 ## Wang, Li, Hammer, 2018: Self in NARS
 

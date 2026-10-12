@@ -1,6 +1,6 @@
 ## 2026-10-12 (5) — sag-reflexive-cognition-from-1509-v1 — source-backed SAG self-querying, cognition/attention controls and safe optimization proposals → .claude/plans/sag-reflexive-cognition-from-1509-v1.md
 
-**Status:** PROPOSAL D-SAG-2-0..10. Only D-SAG-2-0 documentation is in this PR, based on merged #1509.
+**Status:** PROPOSAL D-SAG-5-0..10. Only D-SAG-5-0 documentation is in this PR, based on merged #1509.
 
 - Reuses shipped MethodTable/SoftwareGraph/Quack one-hop behavior, compiler tiers, source seals and H1 cost/refusal ledger. Two-hop, persistence and applying optimizations remain blocked or queued.
 - Source-indexed .arxiv excerpts connect Wang/ONA internal events, Hyperon reflexive reasoning and affective modulators, BALD vs noise, Miner surprise, metagraph fold laws, evidence fusion/fission and egg rewrite certificates.

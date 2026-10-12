@@ -1,4 +1,4 @@
-# 2026-10-12: D-SAG-2-0, grounded reflexive-cognition research after #1509
+# 2026-10-12: D-SAG-5-0, grounded reflexive-cognition research after #1509
 
 **Status:** PROPOSED / docs only. Parent is merged #1509. No runtime, schema, ISA, oracle or permission changes.
 **Plan:** .claude/plans/sag-reflexive-cognition-from-1509-v1.md.
@@ -9,6 +9,6 @@ The already measured SAG projects prepared methods and compiler tiers to a Quack
 
 Novel crosscheck: internally observed/derived/attended events are distinct; copied evidence never increases truth; time-k episode may receive time-(k+1) significance without changing time-k fact; opposing source propositions need not invalidate their authors. Emberglow, Steelwind, Woodwarm and Velvetpause are *functional controller names*, not qualia findings or bits. Shannon H(f), BALD, ONA control, PLN and ECAN have separate baselines. A local code graph is not a zero-token LLM interface.
 
-D-SAG-2-0 is documentation; D-SAG-2-1..10 are QUEUED and require independent falsifiers and explicit later implementation authorization.
+D-SAG-5-0 is documentation; D-SAG-5-1..10 are QUEUED and require independent falsifiers and explicit later implementation authorization.
 
 Closeout: PR #<tbd> | DRAFT | source extracts, reconciled plan, Claude Code prompt, frozen-source oracle/negative-control matrix | nothing implemented, all experiments OPEN.

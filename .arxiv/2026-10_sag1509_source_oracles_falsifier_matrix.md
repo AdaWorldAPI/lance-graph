@@ -1,4 +1,4 @@
-# D-SAG-2 pinned sources, executable oracles and refusal matrix
+# D-SAG-5 pinned sources, executable oracles and refusal matrix
 
 **Date:** 2026-10-12. **Status:** repository locations and primary papers checked, but **NO NEW EXPERIMENT WAS EXECUTED**. Source URL or headline is not a green test. Read [.claude/knowledge/FIRST-HAND-SOURCE-LAW.md](../.claude/knowledge/FIRST-HAND-SOURCE-LAW.md) before a future implementation.
 

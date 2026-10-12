@@ -1,6 +1,6 @@
 # Source excerpts: Shannon, PLN, pattern surprise, typed metagraph folding and safe program rewrites
 
-**Date:** 2026-10-12. **Status:** first-hand paper distillation and counterexamples, not experimental results on SAG. **Companion:** [D-SAG-2](../.claude/plans/sag-reflexive-cognition-from-1509-v1.md), prior #1497/#1498 paper distillations.
+**Date:** 2026-10-12. **Status:** first-hand paper distillation and counterexamples, not experimental results on SAG. **Companion:** [D-SAG-5](../.claude/plans/sag-reflexive-cognition-from-1509-v1.md), prior #1497/#1498 paper distillations.
 
 ## Houlsby et al., 2011: Bayesian Active Learning by Disagreement
 

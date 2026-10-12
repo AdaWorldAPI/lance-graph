@@ -1,4 +1,4 @@
-# D-SAG-2: reflexive cognition and safe optimization from #1509
+# D-SAG-5: reflexive cognition and safe optimization from #1509
 
 **Date:** 2026-10-12. **Status:** PROPOSAL. Documentation only. **Parent:** merged [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509); follow-up research to merged [#1496](https://github.com/AdaWorldAPI/lance-graph/pull/1496), [#1497](https://github.com/AdaWorldAPI/lance-graph/pull/1497), [#1498](https://github.com/AdaWorldAPI/lance-graph/pull/1498) and [#1499](https://github.com/AdaWorldAPI/lance-graph/pull/1499).
 
@@ -62,23 +62,23 @@ These four user-coined terms are proposed **functional policy labels**. Neither 
 
 The engine remains: prepared MethodTable -> SoftwareGraph/Binder -> Quack -> R2IL procedures when actually implemented -> mask-risc -> ndarray. A proposed controller may rank **which existing legal query to execute next**, but may not mint a new OGAR byte, new VM, implicit carrier, optimizer backend or hidden global knowledge service.
 
-## D-SAG-2 falsification ladder
+## D-SAG-5 falsification ladder
 
 | D-id | Probe | Independent oracle / red test |
 |---|---|---|
-| D-SAG-2-0 | literature plan, source map, prompt and board (this PR) | docs only, status explicitly proposed |
-| D-SAG-2-1 | re-run #1509 one-hop queries and compiler tiers | actual MethodTable/compiled Programs; changed source or stale certificate refuses |
-| D-SAG-2-2 | ContextSlice vs full source/rg/Markdown and tokens | exact answers, source SHA, false/omitted results, real model input token count; unsupported hop refuses |
-| D-SAG-2-3 | evidence vs derivation vs attention | same observation copied into 2 layers counts once; 2 independent in same layer count twice; final truth unchanged by receipt replay |
-| D-SAG-2-4 | episodic continuity and later appraisal | pinned version k replay identical while k+1 appends; changed significance does not rewrite old source event |
-| D-SAG-2-5 | scheduler factorial | FIFO, ONA/PLN source-accurate queues, raw H(f), BALD, Miner/JSD, Moore/Staunen; identical truth laws and candidate budgets |
-| D-SAG-2-6 | four functional-appraisal arms | policy changes attention only; measured utility vs no-appraisal and frozen/no-meta controls |
-| D-SAG-2-7 | MeTTa and fold-law subset | 4 nondeterministic results not collapsed to 2 survivors; typed port ordering, error/unreduced form, constructor/snapshot parity |
-| D-SAG-2-8 | safe H1, MDL and rewrite proposals | actual compiler + independent scalar oracle; NULL, bag/set, overflow, provenance, stale seal and mixed workloads |
-| D-SAG-2-9 | conflicting arguments, relational significance | claim update not source-wide trust penalty; facts stable while context-aware prediction improves or policy rejected |
-| D-SAG-2-10 | permission and rollback | proposal != authorization; no self-issued compiled/verified edge, no source or external write until separately authorized |
+| D-SAG-5-0 | literature plan, source map, prompt and board (this PR) | docs only, status explicitly proposed |
+| D-SAG-5-1 | re-run #1509 one-hop queries and compiler tiers | actual MethodTable/compiled Programs; changed source or stale certificate refuses |
+| D-SAG-5-2 | ContextSlice vs full source/rg/Markdown and tokens | exact answers, source SHA, false/omitted results, real model input token count; unsupported hop refuses |
+| D-SAG-5-3 | evidence vs derivation vs attention | same observation copied into 2 layers counts once; 2 independent in same layer count twice; final truth unchanged by receipt replay |
+| D-SAG-5-4 | episodic continuity and later appraisal | pinned version k replay identical while k+1 appends; changed significance does not rewrite old source event |
+| D-SAG-5-5 | scheduler factorial | FIFO, ONA/PLN source-accurate queues, raw H(f), BALD, Miner/JSD, Moore/Staunen; identical truth laws and candidate budgets |
+| D-SAG-5-6 | four functional-appraisal arms | policy changes attention only; measured utility vs no-appraisal and frozen/no-meta controls |
+| D-SAG-5-7 | MeTTa and fold-law subset | 4 nondeterministic results not collapsed to 2 survivors; typed port ordering, error/unreduced form, constructor/snapshot parity |
+| D-SAG-5-8 | safe H1, MDL and rewrite proposals | actual compiler + independent scalar oracle; NULL, bag/set, overflow, provenance, stale seal and mixed workloads |
+| D-SAG-5-9 | conflicting arguments, relational significance | claim update not source-wide trust penalty; facts stable while context-aware prediction improves or policy rejected |
+| D-SAG-5-10 | permission and rollback | proposal != authorization; no self-issued compiled/verified edge, no source or external write until separately authorized |
 
-**Suggested order:** D-SAG-2-1 -> 2 -> 3/4 -> 5/6 -> 7/8/9 -> 10. An early failed claim may stop the downstream work.
+**Suggested order:** D-SAG-5-1 -> 2 -> 3/4 -> 5/6 -> 7/8/9 -> 10. An early failed claim may stop the downstream work.
 
 ## Required controls and metrics
 
@@ -100,4 +100,4 @@ The 2023 Hyperon paper describes the metagraph as substrate for reflexive cognit
 - No independently observed performance/accuracy benefit? Report null or failure, do not claim adaptive self-optimization.
 - No evidence of subjective states? Never claim machine qualia, feeling, respect or transcendence.
 
-**No runtime code, CE64 meaning, new field, opcode, tenant, schema or ABI is authorized by D-SAG-2-0.**
+**No runtime code, CE64 meaning, new field, opcode, tenant, schema or ABI is authorized by D-SAG-5-0.**
