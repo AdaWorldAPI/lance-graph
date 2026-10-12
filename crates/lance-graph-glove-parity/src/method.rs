@@ -51,7 +51,9 @@
 //! method of every concept that names it reuses it. A method never supplies
 //! its own.
 use lance_graph_contract::WideFieldMask;
-use lance_graph_mask_risc::{execute_into, ExecError, Foreign, Out, Planes, Scratch, Value};
+use lance_graph_mask_risc::{
+    execute_into, ExecError, Foreign, Out, Planes, Program, Scratch, Value,
+};
 use lance_graph_quack::bind::{Binder, BoundField, FieldKind, TableId};
 use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, LowerError, Mask, Query};
 use lance_graph_r2il::{procs, FoldDialect, FoldError, Val};
@@ -296,6 +298,8 @@ pub enum PrepareError {
     /// The law adds evidence, and the body does not select independent
     /// evidence (`Law::NarsRevision::independent`).
     EvidenceNotIndependent(&'static str),
+    /// Quack could not lower the bound body.
+    Lower(LowerError),
 }
 
 /// Why a call did not run.
@@ -340,6 +344,8 @@ enum Bound {
         conds: Vec<(Col, u32, bool)>,
         folds: Vec<BoundFold>,
         law: Law,
+        /// The Quack programs, lowered once at preparation, one per fold.
+        programs: Vec<Program>,
     },
     Action,
 }
@@ -367,35 +373,49 @@ impl PreparedMethod {
         else {
             return Vec::new();
         };
-        let filter = || {
-            Filter::and(
-                std::iter::once(Filter::plane(*live)).chain(conds.iter().map(
-                    |&(col, code, negate)| {
-                        Filter::cmp(
-                            col,
-                            if negate {
-                                Cmp::NeU32(code)
-                            } else {
-                                Cmp::EqU32(code)
-                            },
-                        )
-                    },
-                )),
-            )
-        };
-        folds
-            .iter()
-            .map(|f| Query {
-                filter: filter(),
-                agg: match *f {
-                    BoundFold::Count => Agg::Count,
-                    BoundFold::Sum(col) => Agg::SumI32(col),
-                    BoundFold::GroupSum { key, val, .. } => Agg::GroupSumI32 { key, val },
-                },
-            })
-            .collect()
+        bound_queries(*live, conds, folds)
     }
 
+    /// The lowered Quack programs a call executes, one per fold. Lowered once,
+    /// when the method was prepared; a call never lowers.
+    #[must_use]
+    pub fn programs(&self) -> &[Program] {
+        match &self.bound {
+            Bound::Query { programs, .. } => programs,
+            Bound::Action => &[],
+        }
+    }
+}
+
+fn bound_queries(live: Mask, conds: &[(Col, u32, bool)], folds: &[BoundFold]) -> Vec<Query> {
+    let filter = || {
+        Filter::and(std::iter::once(Filter::plane(live)).chain(conds.iter().map(
+            |&(col, code, negate)| {
+                Filter::cmp(
+                    col,
+                    if negate {
+                        Cmp::NeU32(code)
+                    } else {
+                        Cmp::EqU32(code)
+                    },
+                )
+            },
+        )))
+    };
+    folds
+        .iter()
+        .map(|f| Query {
+            filter: filter(),
+            agg: match *f {
+                BoundFold::Count => Agg::Count,
+                BoundFold::Sum(col) => Agg::SumI32(col),
+                BoundFold::GroupSum { key, val, .. } => Agg::GroupSumI32 { key, val },
+            },
+        })
+        .collect()
+}
+
+impl PreparedMethod {
     /// Run the method over `planes` through `frontend`.
     ///
     /// # Errors
@@ -414,6 +434,7 @@ impl PreparedMethod {
             conds,
             folds,
             law,
+            programs,
         } = &self.bound
         else {
             return Err(CallError::NotPure);
@@ -425,11 +446,10 @@ impl PreparedMethod {
             });
         }
         let values = match frontend {
-            Frontend::Quack => self
-                .queries()
+            Frontend::Quack => programs
                 .iter()
                 .zip(folds)
-                .map(|(q, f)| run_quack(q, *f, planes))
+                .map(|(p, f)| run_quack(p, *f, planes))
                 .collect::<Result<Vec<_>, _>>()?,
             Frontend::R2il => {
                 let conds: Vec<(u16, u32, bool)> =
@@ -468,13 +488,16 @@ fn nars_revision(w: &[i64], wf: &[i64], scale: u32, horizon: u32) -> Vec<Option<
         .collect()
 }
 
-fn run_quack(q: &Query, fold: BoundFold, planes: &Planes<'_>) -> Result<FoldValue, CallError> {
-    let program = lower(q).map_err(CallError::Lower)?;
-    let mut scratch = Scratch::for_program(&program, planes.n_rows).map_err(CallError::Exec)?;
+fn run_quack(
+    program: &Program,
+    fold: BoundFold,
+    planes: &Planes<'_>,
+) -> Result<FoldValue, CallError> {
+    let mut scratch = Scratch::for_program(program, planes.n_rows).map_err(CallError::Exec)?;
     if let BoundFold::GroupSum { groups, .. } = fold {
         let mut sink = vec![0i64; groups as usize];
         execute_into(
-            &program,
+            program,
             planes,
             &Foreign::NONE,
             &mut scratch,
@@ -483,7 +506,7 @@ fn run_quack(q: &Query, fold: BoundFold, planes: &Planes<'_>) -> Result<FoldValu
         .map_err(CallError::Exec)?;
         return Ok(FoldValue::Groups(sink));
     }
-    match execute_into(&program, planes, &Foreign::NONE, &mut scratch, Out::None)
+    match execute_into(program, planes, &Foreign::NONE, &mut scratch, Out::None)
         .map_err(CallError::Exec)?
     {
         Value::Count(n) => Ok(FoldValue::Scalar(
@@ -709,11 +732,18 @@ impl Glove<'_> {
                         }),
                     })
                     .collect::<Result<Vec<_>, _>>()?;
+                let live = self.binder.live(t);
+                let programs = bound_queries(live, &conds, &folds)
+                    .iter()
+                    .map(lower)
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(PrepareError::Lower)?;
                 Bound::Query {
-                    live: self.binder.live(t),
+                    live,
                     conds,
                     folds,
                     law,
+                    programs,
                 }
             }
             (MethodBody::Action { .. }, EffectClass::Propose | EffectClass::ExternalMutate) => {

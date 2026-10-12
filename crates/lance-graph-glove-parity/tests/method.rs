@@ -279,6 +279,9 @@ fn the_bound_query_is_the_one_quack_binds_from_names() {
         .unwrap();
     assert_eq!(m.queries(), vec![by_name.clone()]);
     assert_eq!(lower(&m.queries()[0]).unwrap(), lower(&by_name).unwrap());
+    // What a call executes is that lowered program, prepared once: no
+    // separate row evaluator sits behind the method.
+    assert_eq!(m.programs(), [lower(&by_name).unwrap()]);
 }
 
 /// The field mask is over the canonical basis, not the glove's lanes.
