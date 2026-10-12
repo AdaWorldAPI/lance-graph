@@ -155,6 +155,12 @@ impl MethodTable {
     }
 }
 
+/// The largest `GROUP_SUM … IN n` a loaded declaration may ask for. Each
+/// call allocates an `n`-slot `i64` sink (here 512 KiB), so text from outside
+/// the build must not choose `n` freely. A policy pin, not a measurement: a
+/// compiled spec is not bound by it, and a wider domain needs its own case.
+pub const MAX_DECLARED_GROUPS: u32 = 1 << 16;
+
 /// Why a declaration did not load. `line` is 1-based.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeclError {
@@ -435,10 +441,17 @@ impl<'t> Parser<'t> {
                     return Err(self.syntax("expected IN"));
                 }
                 let groups = match self.next() {
-                    Some(Tok::Word(w)) => w.parse::<u32>().ok().filter(|&g| g > 0),
+                    Some(Tok::Word(w)) => w
+                        .parse::<u32>()
+                        .ok()
+                        .filter(|&g| (1..=MAX_DECLARED_GROUPS).contains(&g)),
                     _ => None,
                 }
-                .ok_or_else(|| self.syntax("IN takes a positive group count"))?;
+                .ok_or_else(|| {
+                    self.syntax(&format!(
+                        "IN takes a group count in 1..={MAX_DECLARED_GROUPS}"
+                    ))
+                })?;
                 DeclFold::GroupSum { key, val, groups }
             }
         };

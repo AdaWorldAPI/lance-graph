@@ -325,6 +325,10 @@ fn unsupported_formulas_are_refused_by_name() {
         format!("{head}SUM()"),
         format!("{head}COUNT(*),"),
         format!("{head}GROUP_SUM(duration BY billable IN 0)"),
+        // The group count sizes the sink every call allocates; a declaration
+        // past the cap is refused at load, not left to exhaust memory.
+        format!("{head}GROUP_SUM(duration BY billable IN 65537)"),
+        format!("{head}GROUP_SUM(duration BY billable IN 4294967295)"),
         "billable_work_entry::m := COUNT(*)".to_owned(),
         format!(
             "billable_work_entry::m key=ab schema={} reading=1 := COUNT(*)",
@@ -369,6 +373,8 @@ fn unsupported_formulas_are_refused_by_name() {
             .len(),
         1
     );
+    // Silence twin: the cap itself loads.
+    assert!(parse_decls(&format!("{head}GROUP_SUM(duration BY billable IN 65536)")).is_ok());
 }
 
 /// FAILS IF: a loaded method can shadow a compiled one. Keys and labels are
