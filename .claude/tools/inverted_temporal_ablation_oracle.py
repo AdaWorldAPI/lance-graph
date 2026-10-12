@@ -89,7 +89,9 @@ def evaluate(
             if rule.id in cut_rules:
                 continue
             supports = [roots.get(p, set()) for p in rule.premises]
-            if not supports or any(not s for s in supports):
+            # A zero-premise rule has no supports and still proves its
+            # conclusion with the rule-only term.
+            if any(not s for s in supports):
                 continue
             for chosen in product(*supports):
                 evidence = frozenset.union(*chosen, frozenset((f"rule:{rule.id}",)))
@@ -218,6 +220,12 @@ class ProbeTests(unittest.TestCase):
                                      Rule("S@1", ("B",), "A")))
         with self.assertRaisesRegex(ValueError, "cyclic"):
             evaluate(w)
+
+    def test_zero_premise_rule_proves_and_its_cut_removes(self) -> None:
+        w = World((), (Rule("R@1", (), "C"),))
+        self.assertEqual(evaluate(w)["C"], frozenset((frozenset(("rule:R@1",)),)))
+        s = ablate(w, rules=frozenset(("R@1",)))
+        self.assertIn("C", s.lost_claims)
 
     def test_refuse_duplicate_rule_identity(self) -> None:
         w = World((("A", "a"),),

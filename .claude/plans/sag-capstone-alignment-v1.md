@@ -84,6 +84,11 @@ four-state status already shipped by dir-sim (`Held / NotHeld / Undetermined
 | **Undetermined** (not read, not readable, or not finished) | `Pending`, `NotObservable`, `Incomplete`, `Unread`, `Missing`, `Undetermined`, `Partial`, `NotIndexed`, `InsufficientEvidence` |
 | **Conflicted** | `Conflict`, `Conflicted` |
 
+dir-sim's `NotDeclared` (the directory declares nothing for the subject)
+is not a truth value: it maps to **Undetermined** with reason
+`NotDeclared`, so a caller can tell "nobody said" from "not read yet"
+without a fifth state.
+
 `Stale` is not a fifth state: it is any of the four read against an expired
 revision, carried as a separate revision field. `Unsupported` /
 `UnsupportedMultiHop` are typed refusals, not statuses.
