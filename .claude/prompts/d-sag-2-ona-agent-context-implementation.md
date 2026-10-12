@@ -144,3 +144,22 @@ Do not broaden into general NAL-9, new ISA bytes, source rewriting or a UI until
 One method, one revision-scoped context query and one independent oracle; one explicit pre-registered performance prediction and measured revision; and a quantified comparison showing whether this approach beats simpler context retrieval without losing correctness.
 
 The ambition is *local architectural memory with addressable evidence*, not an invisible second agent.
+
+## Deferred research addendum: read before broadening the implementation
+
+This initial prompt was intentionally a minimal falsifier. For the deeper alternatives and rigorous edge cases, read:
+
+- [Addressable context, identity/freshness, foveated selection, receipts, experiment economics and 15 negative fixtures](../plans/software-awareness-agent-context-deferred-contracts-v1.md).
+- [High-signal arXiv excerpts: context ordering, graph retrieval, costly experiment selection, code uncertainty and verification](../../.arxiv/2026-10_sag_agent_attention_active_selection_excerpts.md).
+
+**Do not silently ship those deferred proposals in W1.** Select the smallest experiment that can break the hypothesis. Implement `context` for one real #1509 `MethodTable` method and one Quack hop; add a source provenance witness; test negative controls. Escalate to incremental symbol indexing, ONA receipt selection, extra graph hops or Claude adapter only after independent correctness and efficiency gates pass.
+
+Further research probes to retain in the ledger:
+- intent-specific **evidence coverage**, token ordering and a mandatory-law budget overflow refusal;
+- `HEAD` vs dirty-worktree cache invalidation and macro/trait-call incompleteness;
+- a bounded `DeltaSlice` protocol which cannot invent context absent from the model's prior accessible history;
+- experiment cost versus expected information gain, separate from materialization/cycle benefit;
+- source-verified low-level dependency facts versus source prose/LLM claims;
+- ONA-style prediction ablation, receipt replay on another layer, CPU-tier and selectivity shift, and static/history-model controls.
+
+When reporting results, distinguish `TokenEstimate` from tokenizer-counted `ModelInputTokens`; `LogicalMaskOps` from `MaterializedBytes`; `CpuTier` from observed code generation; and `ObservedOutcome` from `VerifiedCausalEffect`.
