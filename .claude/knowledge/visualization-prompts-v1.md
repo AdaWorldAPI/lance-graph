@@ -72,6 +72,35 @@ memberships; the simulation was drawn on the observed timeline next to a
 "geplant" version; the DN was labelled as the object id; Entra roles and
 applications appeared although nothing reads them.
 
+## Prompt 4 — before/after of a simulated change (the strongest view)
+
+What backs it: two versions of one history (the observed one and a simulated
+one), each read as a `View`; group changes are the set difference of
+`groups_transitive` on both views; mail effects come from the mail chain
+(`members_transitive_through` mail-enabled); role effects from the versioned
+group-role policy. What does not back it: the intermediate groups of a path,
+usage dates, recommendations.
+
+> A Windows-style admin application screenshot, German UI, title
+> "LanceGraph — Verzeichnis-Simulation". Top: a timeline of observed
+> versions as solid dots; from the last one a dashed branch labelled
+> "Simulation: Abteilungswechsel Vertrieb → Marketing". No planned versions.
+> Center: user "Anna Müller", field "Abteilung" showing "Vertrieb" struck
+> through and "Marketing". A tab "Vorschau Änderungen" with a table
+> "Auswirkungen der Simulation" and columns "Änderung", "Gruppe", "Art",
+> "Folge". Rows: red "entfernt GG_Vertrieb (direkt, gesetzt)", red "entfernt
+> GG_CRM_Users (verschachtelt, abgeleitet)", green "hinzugefügt GG_Marketing
+> (direkt, gesetzt)", green "hinzugefügt GG_CMS_Editors (verschachtelt,
+> abgeleitet)", grey "unverändert GG_Standort_Berlin". Each row says whether
+> the simulation set it or it follows from nesting. Below, a separate box
+> "Zustellung (keine Rechte)" with one row "vertrieb@ — erhält keine Mails
+> mehr". Right: two columns "Vorher" and "Nachher", each listing roles only:
+> "CRM-Leser (Richtlinie v3)" struck through on the left, "CMS-Redakteur
+> (Richtlinie v3)" on the right; no group chains between them. Status bar:
+> "Simulation — es wird nichts an AD oder Entra geschrieben · 2 entfernt ·
+> 2 hinzugefügt · Änderungen als Antrag exportieren". No "zuletzt genutzt",
+> no "Entfernen empfohlen", no Entra roles or applications in the tree.
+
 ## Prompt 3 — architecture, one rule in many apps
 
 > A minimalist architecture diagram, German labels, white background, thin
