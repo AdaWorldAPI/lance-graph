@@ -1,3 +1,17 @@
+## D-SAG-1 — Software-awareness graph (2026-10-12)
+
+Plan: `.claude/plans/software-awareness-graph-v1.md`. No new opcode, Quack variant, engine or registry. Nothing applies a transformation.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-SAG-1-0 | inventory: Bible work (6-lane fixture, English KJV; no 7-language graph in code), OGAR identities, dir-sim provenance, Quack/mask-risc | In PR | every row cites code or says documented-only |
+| D-SAG-1-1 | typed schema + projection of prepared methods with tiers and provenance | In PR | `tests/awareness.rs` projection test; one identity, one kind |
+| D-SAG-1-2 | queries A–D through Quack; compiler verdicts as edges | In PR | answers == the programs; falsifiers 1–10, each disable-verified |
+| D-SAG-1-3 | H1 candidate + tier-labelled measurement; MDL measure with counterexample | In PR | `examples/awareness_loop.rs`; MDL test |
+| D-SAG-1-4 | multi-hop dependency via relation carrier / factored `EqU32Via` | Queued (needs D-CMH-G1-4) | two-hop answer == closure computed from the programs |
+| D-SAG-1-5 | G1 `CALLS` edges + method-reference refusals | Queued (after #1508) | `MethodCycle` etc. recorded, never re-derived |
+| D-SAG-1-6 | persist as a Lance dataset; source revision from git; canonical body digest | Queued | reload equals projection; toolchain change keeps digests |
+
 ## D-NALP — `NAL::narsese()` polyfill over R2IL procedures and mask-risc (2026-10-12)
 
 Plan: `.claude/plans/nal-polyfill-v1.md`. Template: D-SQLP. No opcode, tenant or ABI change is authorized.
