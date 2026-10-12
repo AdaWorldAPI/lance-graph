@@ -301,6 +301,30 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
+/// A node's kind, from its identity's prefix: one identity, one kind.
+#[must_use]
+pub fn kind_of(ident: &str) -> Option<Kind> {
+    const PREFIXES: [(&str, Kind); 13] = [
+        ("class:", Kind::Class),
+        ("method:", Kind::Method),
+        ("field:", Kind::Field),
+        ("cond:", Kind::Cond),
+        ("fold:", Kind::Fold),
+        ("law:", Kind::Law),
+        ("program:", Kind::Program),
+        ("prim:", Kind::Primitive),
+        ("lowering:", Kind::Lowering),
+        ("refusal:", Kind::Refusal),
+        ("claim:", Kind::Claim),
+        ("cap:", Kind::Capability),
+        ("test:", Kind::Test),
+    ];
+    PREFIXES
+        .iter()
+        .find(|(p, _)| ident.starts_with(p))
+        .map(|(_, k)| *k)
+}
+
 /// The identity of a method node.
 #[must_use]
 pub fn method_ident(key: MethodKey) -> String {
@@ -479,6 +503,7 @@ impl SoftwareGraph {
     }
 
     fn intern(&mut self, kind: Kind, ident: String) -> u32 {
+        debug_assert_eq!(kind_of(&ident), Some(kind), "{ident}");
         if let Some(i) = self.node(&ident) {
             return i;
         }
@@ -655,17 +680,32 @@ impl SoftwareGraph {
         (self.provs.len() - 1) as u32
     }
 
-    /// Record a need, or a claim, by identity: `method REL capability` at
-    /// `tier`. Recording never ships anything (see [`Self::capability`]).
-    pub fn claim(&mut self, method: &str, rel: Rel, target: &str, tier: Tier, prov: u32) {
-        let kind = if target.starts_with("prim:") {
-            Kind::Primitive
-        } else {
-            Kind::Capability
-        };
-        let m = self.intern(Kind::Method, method.to_owned());
-        let c = self.intern(kind, target.to_owned());
+    /// Record a need, or a claim, by identity: `src REL target` at `tier`.
+    /// Each node's kind is read from its identity's prefix, so a noted
+    /// `refusal:` is the same refusal node the compiler writes, never a
+    /// second node of another kind. Recording never ships anything (see
+    /// [`Self::capability`]).
+    ///
+    /// # Errors
+    ///
+    /// The identity whose prefix names no kind.
+    pub fn claim(
+        &mut self,
+        src: &str,
+        rel: Rel,
+        target: &str,
+        tier: Tier,
+        prov: u32,
+    ) -> Result<(), String> {
+        let m = self.intern_ident(src)?;
+        let c = self.intern_ident(target)?;
         self.link(m, rel, c, tier, m, prov);
+        Ok(())
+    }
+
+    fn intern_ident(&mut self, ident: &str) -> Result<u32, String> {
+        let kind = kind_of(ident).ok_or_else(|| ident.to_owned())?;
+        Ok(self.intern(kind, ident.to_owned()))
     }
 
     /// A method node by identity, for programs not prepared by a table.

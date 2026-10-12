@@ -613,21 +613,25 @@ fn a_claimed_primitive_must_be_in_the_lowered_program() {
     let mut w = world(&b, &with_duration(), &specs());
     let p = w.graph.note(SOURCE, REV);
     let m = hours_ident();
-    w.graph.claim(
-        &m,
-        Rel::UsesPrimitive,
-        "prim:MaskedSumI32",
-        Tier::Declared,
-        p,
-    );
+    w.graph
+        .claim(
+            &m,
+            Rel::UsesPrimitive,
+            "prim:MaskedSumI32",
+            Tier::Declared,
+            p,
+        )
+        .unwrap();
     assert!(w.graph.primitive_claim_mismatches().is_empty());
-    w.graph.claim(
-        &m,
-        Rel::UsesPrimitive,
-        "prim:GroupSumI32",
-        Tier::Declared,
-        p,
-    );
+    w.graph
+        .claim(
+            &m,
+            Rel::UsesPrimitive,
+            "prim:GroupSumI32",
+            Tier::Declared,
+            p,
+        )
+        .unwrap();
     let bad = w.graph.primitive_claim_mismatches();
     assert_eq!(bad.len(), 1);
     assert_eq!(
@@ -756,14 +760,16 @@ fn a_declared_need_never_ships_a_capability() {
         "cap:FirstOfRun",
         Tier::Hypothesis,
         p,
-    );
+    )
+    .unwrap();
     g.claim(
         "method:sap_import",
         Rel::MayRequire,
         "cap:FirstOfRun",
         Tier::Hypothesis,
         p,
-    );
+    )
+    .unwrap();
     // Even a method that says it USES it does not make it shipped.
     g.claim(
         &hours_ident(),
@@ -771,9 +777,34 @@ fn a_declared_need_never_ships_a_capability() {
         "cap:FirstOfRun",
         Tier::Declared,
         p,
-    );
+    )
+    .unwrap();
     assert!(matches!(g.capability("cap:FirstOfRun"), CapStatus::Claimed { by } if by.len() == 3));
-    // A gap cannot be demonstrated by a refusal nobody compiled.
+    // An identity whose prefix names no kind is refused, not guessed.
+    assert_eq!(
+        g.claim(
+            "method:x",
+            Rel::MayRequire,
+            "FirstOfRun",
+            Tier::Hypothesis,
+            p
+        ),
+        Err("FirstOfRun".into())
+    );
+    // A gap cannot be demonstrated by a refusal nobody compiled: not by an
+    // absent one, and not by one a person only noted.
+    assert_eq!(
+        g.blocked_by("refusal:EvidenceNotIndependent", "cap:FirstOfRun", p),
+        Err("refusal:EvidenceNotIndependent".into())
+    );
+    g.claim(
+        "method:a_note",
+        Rel::RefusedFor,
+        "refusal:EvidenceNotIndependent",
+        Tier::Hypothesis,
+        p,
+    )
+    .unwrap();
     assert_eq!(
         g.blocked_by("refusal:EvidenceNotIndependent", "cap:FirstOfRun", p),
         Err("refusal:EvidenceNotIndependent".into())
