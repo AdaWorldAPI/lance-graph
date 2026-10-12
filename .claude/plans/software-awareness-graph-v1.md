@@ -33,6 +33,7 @@ propose a factoring. Nothing in this plan concerns hardware.
 - [x] 7. MDL experiment with stated assumptions (§5)
 - [x] 8. Capability ledger (§10)
 - [x] 9. Plan for G1 compositions without a second registry (§8)
+- [x] G1 method references as `CALLS` edges; callers through Quack; `MethodCycle` recorded (§8)
 - [ ] Multi-hop questions (blocked, §9)
 - [ ] Persisting the graph as a Lance dataset; source revisions from git
 
@@ -336,7 +337,7 @@ performance measured → rejected / approved for implementation.
 **Not executable today:** acting on a candidate. Nothing rewrites code, a
 declaration, a deployment or an external system.
 
-**G1 (#1508)** needs no second registry. `Cond::Method` references become
+**G1 (#1508, merged) — done in this PR (D-SAG-1-5).** It needs no second registry. `Cond::Method` references become
 `CALLS` edges (method → method, declared), and the compiler's
 `MethodCycle`, `MethodRefContract`, `MethodRefNotPredicate` and
 `UnknownMethodRef` refusals become `REFUSED_FOR` edges. The projection keeps
