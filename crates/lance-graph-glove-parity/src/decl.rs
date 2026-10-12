@@ -86,6 +86,7 @@ enum DeclFold {
         val: String,
         groups: u32,
     },
+    Distinct(String),
 }
 
 impl MethodDecl {
@@ -134,6 +135,7 @@ impl MethodDecl {
                     val,
                     groups: *groups,
                 },
+                DeclFold::Distinct(rel) => Fold::Distinct { rel },
             })
             .collect()
     }
@@ -733,6 +735,7 @@ fn traversal(
                 val: val.to_owned(),
                 groups,
             },
+            Fold::Distinct { rel } => DeclFold::Distinct(rel.to_owned()),
         })
         .collect();
     Ok((folds, filter))
