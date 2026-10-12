@@ -37,6 +37,18 @@
 //! kept program through [`execute_compiled`]. A call does not parse, lower or
 //! allocate.
 //!
+//! # Global core methods, not class methods
+//!
+//! NARS is global (operator, 2026-10-12). The NAL operations are **global core
+//! methods**: they run over any belief population and check no classid, need
+//! no hot-plug and no minted concept. The classid in a key is only the prefix
+//! that addresses the population. They read one canonical reading,
+//! `nal-statement-v1`, the same for every class.
+//!
+//! Methods that depend on a classid (a method of one business class) are the
+//! other kind: declared at compile time through the consumer's `HotPlug` and
+//! checked against the row's classid. That path is not this crate.
+//!
 //! # Not here yet
 //!
 //! Revision (W3), the per-row truth laws (W4), syllogisms (W5), the Narsese

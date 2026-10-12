@@ -298,6 +298,13 @@ Rules that follow, each enforced in W6:
 
 ### Status 2026-10-12 (D-NALP-1/2, `crates/lance-graph-nal`)
 
+- **NAL operations are global core methods** (operator, 2026-10-12: "NARS
+  ist global"). They run over any belief population, check no classid, and
+  need no hot-plug and no minted concept; they read the one canonical reading
+  `nal-statement-v1`. Classid-dependent methods are the other kind: declared at
+  compile time through a consumer's `HotPlug` and checked against the row's
+  classid (the D-CMH path, not this crate). This removes W8's concept-id mint
+  request; W8 keeps only the bytes W4/W5 earn.
 - **The NodeGuid is the address and the distinguished name** (operator,
   2026-10-12). Reading `nal-statement-v1`: semantic tiles `[classid hi,
   classid lo, S, copula, P, id, 0, 0]`. The key names the belief and nothing
