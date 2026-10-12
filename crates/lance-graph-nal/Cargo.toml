@@ -1,0 +1,26 @@
+[package]
+name = "lance-graph-nal"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "NAL over the fold path: Narsese statements as sealed facet coordinates, NAL operations as R2IL procedures compiled once into mask-risc programs (D-NALP-1/2)."
+
+# Its OWN workspace root, like `lance-graph-r2il`: it path-deps the r2il crate,
+# which path-deps the OGAR sibling. Verify via
+# `cargo test --manifest-path crates/lance-graph-nal/Cargo.toml`.
+[workspace]
+
+[dependencies]
+# The coordinate machinery: FacetCascade keys, the sealed ordered lane and its witness.
+lance-graph-contract = { path = "../lance-graph-contract" }
+# The only bulk engine.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# The procedure executor: NAL operations are R2IL call sequences over it.
+lance-graph-r2il = { path = "../lance-graph-r2il" }
+ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
