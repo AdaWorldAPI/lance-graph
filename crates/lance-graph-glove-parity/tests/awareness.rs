@@ -1131,3 +1131,113 @@ fn a_reprojection_replaces_the_methods_earlier_edges() {
     // Other methods' edges are untouched.
     assert_eq!(g.out(&method_ident(COUNT_BILLABLE), Rel::LowersTo).len(), 1);
 }
+
+/// The distinct `(src, rel, dst, tier)` facts of a graph, by identity.
+fn facts(g: &SoftwareGraph) -> Vec<(String, String, String, Tier)> {
+    let id = |i: u32| g.nodes()[i as usize].ident.clone();
+    let mut v: Vec<_> = g
+        .edges()
+        .iter()
+        .map(|e| (id(e.src), format!("{:?}", e.rel), id(e.dst), e.tier))
+        .collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
+/// Defect A (#1510). FAILS IF: reprojecting a subset of methods loses a
+/// fact another, unchanged method still contributes. An edge two methods
+/// share (the claim behind a field both read) belongs to each of them: one
+/// method's reprojection may retract only its own copy.
+#[test]
+fn reprojecting_a_subset_keeps_the_facts_of_the_other_methods() {
+    let b = batch(65);
+    let basis = canonical_fields();
+    let cats = CatsBinder::new(&b);
+    let claims = with_duration();
+    let all = specs();
+    let t = MethodTable::prepare(&glove(&basis, &cats, &claims), &all);
+    let mut full = SoftwareGraph::new();
+    full.project(&t, &all, &claims, SOURCE, REV);
+    let want = facts(&full);
+    let billable = field_ident(BILLABLE_WORK_ENTRY, seal(), "billable");
+    // Non-vacuity: `billable` is read by more than one method, so its claim
+    // edge is shared and the subset below would drop it under first-owner
+    // dedup.
+    let readers = all
+        .iter()
+        .filter(|(_, s)| {
+            full.out(&method_ident(s.key), Rel::ReadsField)
+                .iter()
+                .any(|(f, _)| *f == billable)
+        })
+        .count();
+    assert!(readers >= 2, "billable has {readers} readers");
+    for i in 0..all.len() {
+        // Unchanged: a reprojection of one method changes nothing.
+        let mut g = full.clone();
+        g.project(&t, &all[i..=i], &claims, SOURCE, REV);
+        assert_eq!(facts(&g), want, "reprojecting {} alone", all[i].0);
+        // Changed: the method stops reading any field. The graph must equal
+        // a fresh projection of the new declarations, so a fact another
+        // method still contributes survives.
+        let mut changed = all.clone();
+        changed[i].1.body = query(&[], &[Fold::Count]);
+        let t2 = MethodTable::prepare(&glove(&basis, &cats, &claims), &changed);
+        let mut fresh = SoftwareGraph::new();
+        fresh.project(&t2, &changed, &claims, SOURCE, REV);
+        let mut g = full.clone();
+        g.project(&t2, &changed[i..=i], &claims, SOURCE, REV);
+        assert_eq!(facts(&g), facts(&fresh), "{} stops reading", all[i].0);
+    }
+    assert_eq!(
+        full.out(&billable, Rel::DependsOnClaim).len(),
+        1,
+        "a shared fact reads as one fact"
+    );
+}
+
+/// Defect B (#1510). FAILS IF: reprojecting a class's compute DAG keeps
+/// edges or the cycle verdict of the DAG it replaced, or touches another
+/// class's DAG.
+#[test]
+fn reprojecting_a_compute_dag_replaces_the_earlier_one() {
+    let basis = canonical_fields();
+    let cyclic = [
+        ComputeEdge {
+            target: 2,
+            inputs: &[3],
+        },
+        ComputeEdge {
+            target: 3,
+            inputs: &[2],
+        },
+    ];
+    let acyclic = [ComputeEdge {
+        target: 2,
+        inputs: &[3],
+    }];
+    let state = |g: &SoftwareGraph, concept: u16| {
+        let class = g.node(&format!("class:{concept:#06x}")).unwrap();
+        let from = g
+            .edges()
+            .iter()
+            .filter(|e| e.rel == Rel::ComputesFrom && e.ctx == class)
+            .count();
+        let cycle = g.out(&format!("class:{concept:#06x}"), Rel::RefusedFor).len();
+        (from, cycle)
+    };
+    for (first, then, want) in [
+        (&cyclic[..], &acyclic[..], (1, 0)),
+        (&acyclic[..], &cyclic[..], (2, 1)),
+        (&cyclic[..], &cyclic[..], (2, 1)),
+    ] {
+        let mut g = SoftwareGraph::new();
+        let p = g.note(SOURCE, REV);
+        g.project_compute(DOCUMENT, seal(), &basis, &cyclic, p);
+        g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, first, p);
+        g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, then, p);
+        assert_eq!(state(&g, BILLABLE_WORK_ENTRY), want, "{first:?} then {then:?}");
+        assert_eq!(state(&g, DOCUMENT), (2, 1), "the other class is untouched");
+    }
+}

@@ -518,12 +518,18 @@ impl SoftwareGraph {
         (self.nodes.len() - 1) as u32
     }
 
-    /// Add an edge unless the same `(src, rel, dst, tier)` is already there.
+    /// Add an edge unless the same `(src, rel, dst, tier, ctx)` is already
+    /// there.
+    ///
+    /// `ctx` is part of the key: a fact two methods contribute (the claim
+    /// behind a field both read) is one row per method, so a method's
+    /// reprojection retracts only its own row and the other method's
+    /// survives. Readers that ask for facts ([`Self::out`]) see one fact.
     pub fn link(&mut self, src: u32, rel: Rel, dst: u32, tier: Tier, ctx: u32, prov: u32) {
         let dup = self
             .edges
             .iter()
-            .any(|e| (e.src, e.rel, e.dst, e.tier) == (src, rel, dst, tier));
+            .any(|e| (e.src, e.rel, e.dst, e.tier, e.ctx) == (src, rel, dst, tier, ctx));
         if !dup {
             self.edges.push(Edge {
                 src,
@@ -536,17 +542,21 @@ impl SoftwareGraph {
         }
     }
 
-    /// The edges `src REL ?`, any tier.
+    /// The facts `src REL ?`, any tier, each once however many contexts
+    /// wrote it, in first-written order.
     #[must_use]
     pub fn out(&self, src: &str, rel: Rel) -> Vec<(&str, Tier)> {
         let Some(s) = self.node(src) else {
             return Vec::new();
         };
-        self.edges
-            .iter()
-            .filter(|e| e.src == s && e.rel == rel)
-            .map(|e| (self.nodes[e.dst as usize].ident.as_str(), e.tier))
-            .collect()
+        let mut v: Vec<(&str, Tier)> = Vec::new();
+        for e in self.edges.iter().filter(|e| e.src == s && e.rel == rel) {
+            let f = (self.nodes[e.dst as usize].ident.as_str(), e.tier);
+            if !v.contains(&f) {
+                v.push(f);
+            }
+        }
+        v
     }
 
     /// The current body digest of a projected method.
@@ -804,6 +814,15 @@ impl SoftwareGraph {
         prov: u32,
     ) {
         let class = self.intern(Kind::Class, format!("class:{concept:#06x}"));
+        // A class's DAG projection replaces its earlier one: its edges and
+        // its cycle verdict described the DAG it had then. Other facts
+        // written in the class's context (a note from it) are kept.
+        let cycle = self.node("refusal:ComputeCycle");
+        self.edges.retain(|e| {
+            e.ctx != class
+                || !(e.rel == Rel::ComputesFrom
+                    || (e.rel == Rel::RefusedFor && Some(e.dst) == cycle))
+        });
         let name = |p: u8| {
             basis
                 .get(usize::from(p))
@@ -996,11 +1015,14 @@ impl SoftwareGraph {
             return CapStatus::Unknown;
         };
         let into = |p: &dyn Fn(&Edge) -> bool| -> Vec<String> {
-            self.edges
-                .iter()
-                .filter(|e| e.dst == c && p(e))
-                .map(|e| self.nodes[e.src as usize].ident.clone())
-                .collect()
+            let mut v: Vec<String> = Vec::new();
+            for e in self.edges.iter().filter(|e| e.dst == c && p(e)) {
+                let s = &self.nodes[e.src as usize].ident;
+                if !v.contains(s) {
+                    v.push(s.clone());
+                }
+            }
+            v
         };
         if !into(&|e| e.rel == Rel::UsesPrimitive && e.tier == Tier::Compiled).is_empty() {
             return CapStatus::Shipped;
