@@ -16,14 +16,35 @@
 # scalar, because the polyfill's scalar arm is emulating eight lanes through
 # arrays. A build with no target-cpu is a regression, not a no-op.
 #
-# Default here is v3 (AVX2) for the same reason ndarray chose it: portable
-# across all x86_64 since Haswell, and what CI runs (`.github/workflows/*.yml`
-# set `-C target-cpu=x86-64-v3` explicitly). Anything below v3 SIGILLs on the
-# `simd_avx2` intrinsics.
+# ⊘ SUPERSEDED 2026-10-12: the default here WAS v3 (AVX2), "for the same
+# reason ndarray chose it". ndarray itself flipped its default to `native` on
+# 2026-09-16 (see its `.cargo/config.toml`): a default that names a tier the
+# host is not makes every faster-tier measurement need an incantation, and a
+# forgotten one does not fail, it grades the wrong tier. Measured here the
+# same way: a cost probe under this file reported AVX2 timings on an AVX-512
+# host with nothing in the output saying so.
 #
-# AVX-512 (v4):  cargo build --config .cargo/config-avx512.toml ...
-#                or CARGO_BUILD_RUSTFLAGS='-Ctarget-cpu=x86-64-v4'
-# Build machine: cargo build --config .cargo/config-native.toml ...
+# Default is now `native`: rustc resolves the host CPUID, so the polyfill
+# compiles to the arm this machine can run and can never SIGILL here. A
+# measurement is labelled by the arm the program reports
+# (`cfg!(target_feature = "avx512f")`), never by "it was the default".
+#
+# A default build is therefore tuned to the BUILD HOST and is NOT portable.
+# Anything shipped pins its tier explicitly:
+#
+#   portable baseline (AVX2):  cargo build --config .cargo/config-v3.toml ...
+#   AVX-512 (v4):              cargo build --config .cargo/config-avx512.toml ...
+#
+# CI is unaffected: every workflow sets `RUSTFLAGS` with an explicit
+# `-C target-cpu=x86-64-v3`, and a RUSTFLAGS env REPLACES every cargo-config
+# rustflags entry. Everything else that ships pins x86_64 to v3 without
+# touching other architectures: the Dockerfiles that copy this tree replace
+# this file with config-v3.toml (x86_64-only), the thinking-engine images set
+# CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS, and `make publish` in
+# python/ sets RUSTFLAGS only on an x86_64 host. Note that the per-target
+# variable is JOINED with this file's entry, with `native` last (measured), so
+# it cannot pin a build that sees this file. Anything below v3 still SIGILLs on the
+# `simd_avx2` intrinsics, so never build with no target-cpu at all.
 #
 # The two crypto cfgs ndarray's config also carries (`curve25519_dalek_backend`,
 # `poly1305_force_soft`) are deliberately NOT repeated: neither crate is in
@@ -31,4 +52,16 @@
 # AVX2 crypto surface here to compile out. Re-check if `encryption` or
 # `ed25519-dalek` ever enters the tree.
 [target.'cfg(target_arch = "x86_64")']
-rustflags = ["-Ctarget-cpu=x86-64-v3"]
+rustflags = ["-Ctarget-cpu=native"]
+
+# Debug info off for every dev/test build under this tree, including the
+# crates that are their own workspace (19 of them: they never see the root
+# Cargo.toml's `[profile.dev] debug = 0`). Debug info is what fills the disk,
+# not the code. A config-file profile overrides a manifest profile; an
+# explicit CARGO_PROFILE_* env var still overrides this. Release profiles are
+# left to each crate.
+[profile.dev]
+debug = 0
+
+[profile.test]
+debug = 0

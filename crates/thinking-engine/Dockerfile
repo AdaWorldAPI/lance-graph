@@ -1,4 +1,8 @@
 FROM rust:1.98.1-bookworm AS builder
+# Portable baseline for x86_64 only: this image does not copy .cargo, so the
+# per-target variable is the only flag source, and it does not apply when
+# building for another architecture.
+ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=x86-64-v3"
 WORKDIR /app
 
 # Dependencies first (cached layer)

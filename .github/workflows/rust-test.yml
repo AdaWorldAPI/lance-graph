@@ -16,7 +16,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-C debuginfo=1 -C target-cpu=x86-64-v3"
+  RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
   RUST_BACKTRACE: "1"
   CARGO_INCREMENTAL: "0"
 
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      # Override the workflow-level debuginfo=1 for this job too (parity with
+      # Pin debuginfo=0 here too (the workflow level is also 0 since 2026-10-12) for this job too (parity with
       # test-with-coverage, TD-CI-COVERAGE-MOLD-1). The `test` job links the
       # full lance+datafusion integration-test set at the SAME disk/RSS cliff
       # the coverage job hit — and #507 (+4055 lines across causal-edge +
@@ -506,7 +506,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      # Override the workflow-level debuginfo=1 for this job only. llvm-cov
+      # Pin debuginfo=0 here too (the workflow level is also 0 since 2026-10-12) for this job only. llvm-cov
       # coverage lives in __llvm_covmap/__llvm_prf_* ELF sections, NOT in
       # DWARF (verified locally: 600/600 contract tests pass under
       # `-C instrument-coverage -C debuginfo=0`, covmap sections present,
