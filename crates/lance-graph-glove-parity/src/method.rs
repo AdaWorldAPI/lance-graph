@@ -112,6 +112,18 @@ pub enum EffectClass {
     ExternalMutate,
 }
 
+/// How a body names another method of the same table.
+///
+/// A key is the method's identity. A label is display text, resolved to a
+/// key once, at preparation, by the same rule [`MethodTable::resolve`] uses
+/// (an ambiguous label names nothing); it is how an authoring format refers
+/// to a method it was not compiled against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MethodRef<'a> {
+    Key(MethodKey),
+    Label(&'a str),
+}
+
 /// One condition of a body's `WHERE`, on a canonical field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cond<'a> {
@@ -119,12 +131,17 @@ pub enum Cond<'a> {
     Eq { field: &'a str, literal: &'a str },
     /// `field != literal`.
     Ne { field: &'a str, literal: &'a str },
+    /// The conditions of a predicate method ([`MethodBody::Select`]) of the
+    /// same concept, schema and reading. Preparation replaces the reference
+    /// with those conditions before anything binds, so a call never sees it.
+    Method(MethodRef<'a>),
 }
 
 impl<'a> Cond<'a> {
-    fn field(self) -> &'a str {
+    fn field(self) -> Option<&'a str> {
         match self {
-            Cond::Eq { field, .. } | Cond::Ne { field, .. } => field,
+            Cond::Eq { field, .. } | Cond::Ne { field, .. } => Some(field),
+            Cond::Method(_) => None,
         }
     }
 }
@@ -212,6 +229,10 @@ pub enum MethodBody<'a> {
         folds: &'a [Fold<'a>],
         law: Law<'a>,
     },
+    /// A predicate: `WHERE filter`, folding nothing. It has no value of its
+    /// own; other bodies use it through [`Cond::Method`], and a pure call of
+    /// it is refused ([`CallError::NotTerminal`]).
+    Select { filter: &'a [Cond<'a>] },
     /// An OGAR action. Named here; never executed here.
     Action { action: &'a str },
 }
@@ -238,10 +259,15 @@ impl<'a> MethodSpec<'a> {
     #[must_use]
     pub fn reads(&self) -> Vec<&'a str> {
         let mut out = Vec::new();
-        if let MethodBody::Query { filter, folds, .. } = self.body {
+        let (filter, folds): (&[Cond<'a>], &[Fold<'a>]) = match self.body {
+            MethodBody::Query { filter, folds, .. } => (filter, folds),
+            MethodBody::Select { filter } => (filter, &[]),
+            MethodBody::Action { .. } => (&[], &[]),
+        };
+        {
             let fields = filter
                 .iter()
-                .map(|c| c.field())
+                .filter_map(|c| c.field())
                 .chain(folds.iter().flat_map(|f| match *f {
                     Fold::Count => vec![],
                     Fold::Sum(field) => vec![field],
@@ -304,6 +330,16 @@ pub enum PrepareError {
     /// Two proven claims map different native fields onto this canonical
     /// field; binding either would depend on claim order.
     AmbiguousClaim(String),
+    /// A [`Cond::Method`] names no method of this table (the key in hex, or
+    /// the label; an ambiguous label names nothing).
+    UnknownMethodRef(String),
+    /// A [`Cond::Method`] names a method that is not a predicate.
+    MethodRefNotPredicate(MethodKey),
+    /// Following references returns to this method.
+    MethodCycle(MethodKey),
+    /// A [`Cond::Method`] names a predicate written for another concept,
+    /// basis, reading or effect than the caller.
+    MethodRefContract(MethodKey),
 }
 
 /// Why a call did not run.
@@ -315,6 +351,8 @@ pub enum CallError {
     Refused(PrepareError),
     /// The method is an action; a pure call never runs it.
     NotPure,
+    /// The method is a predicate; it selects rows and has no value.
+    NotTerminal,
     /// The planes belong to another population than the method was
     /// prepared against.
     UniverseMismatch {
@@ -351,6 +389,7 @@ enum Bound {
         /// The Quack programs, lowered once at preparation, one per fold.
         programs: Vec<Program>,
     },
+    Select,
     Action,
 }
 
@@ -403,7 +442,7 @@ impl PreparedMethod {
     pub fn programs(&self) -> &[Program] {
         match &self.bound {
             Bound::Query { programs, .. } => programs,
-            Bound::Action => &[],
+            Bound::Select | Bound::Action => &[],
         }
     }
 }
@@ -458,7 +497,10 @@ impl PreparedMethod {
             programs,
         } = &self.bound
         else {
-            return Err(CallError::NotPure);
+            return Err(match self.bound {
+                Bound::Select => CallError::NotTerminal,
+                _ => CallError::NotPure,
+            });
         };
         if universe != self.universe {
             return Err(CallError::UniverseMismatch {
@@ -607,7 +649,8 @@ impl MethodTable {
                     } else if count(&|(m, _)| m == l) > 1 {
                         Err(PrepareError::DuplicateLabel((*l).to_owned()))
                     } else {
-                        glove.prepare(seal, available.as_ref(), s)
+                        inline_methods(specs, s)
+                            .and_then(|s| glove.prepare(seal, available.as_ref(), &s.spec()))
                     };
                     (s.key, prepared)
                 })
@@ -659,6 +702,113 @@ impl MethodTable {
             Ok(m) => m.call(planes, universe, frontend),
             Err(e) => Err(CallError::Refused(e.clone())),
         }
+    }
+}
+
+/// A spec with every [`Cond::Method`] replaced by the predicate's conditions.
+struct Inlined<'a> {
+    spec: MethodSpec<'a>,
+    filter: Vec<Cond<'a>>,
+}
+
+impl Inlined<'_> {
+    fn spec(&self) -> MethodSpec<'_> {
+        let body = match self.spec.body {
+            MethodBody::Query { folds, law, .. } => MethodBody::Query {
+                filter: &self.filter,
+                folds,
+                law,
+            },
+            MethodBody::Select { .. } => MethodBody::Select {
+                filter: &self.filter,
+            },
+            action @ MethodBody::Action { .. } => action,
+        };
+        MethodSpec { body, ..self.spec }
+    }
+}
+
+/// Resolve `spec`'s method references against `specs` and inline them.
+/// Cold, once per spec; depth is bounded by the cycle check.
+fn inline_methods<'a>(
+    specs: &[(&str, MethodSpec<'a>)],
+    spec: &MethodSpec<'a>,
+) -> Result<Inlined<'a>, PrepareError> {
+    let filter = match spec.body {
+        MethodBody::Query { filter, .. } | MethodBody::Select { filter } => filter,
+        MethodBody::Action { .. } => &[],
+    };
+    let mut out = Vec::with_capacity(filter.len());
+    let mut stack = vec![spec.key];
+    expand(specs, spec, filter, &mut stack, &mut out)?;
+    Ok(Inlined {
+        spec: *spec,
+        filter: out,
+    })
+}
+
+fn expand<'a>(
+    specs: &[(&str, MethodSpec<'a>)],
+    caller: &MethodSpec<'a>,
+    filter: &[Cond<'a>],
+    stack: &mut Vec<MethodKey>,
+    out: &mut Vec<Cond<'a>>,
+) -> Result<(), PrepareError> {
+    for c in filter {
+        let Cond::Method(r) = *c else {
+            out.push(*c);
+            continue;
+        };
+        let target = resolve_ref(specs, r)?;
+        if stack.contains(&target.key) {
+            return Err(PrepareError::MethodCycle(target.key));
+        }
+        let MethodBody::Select { filter: inner } = target.body else {
+            return Err(PrepareError::MethodRefNotPredicate(target.key));
+        };
+        if (target.concept, target.schema, target.reading, target.effect)
+            != (
+                caller.concept,
+                caller.schema,
+                caller.reading,
+                EffectClass::Pure,
+            )
+        {
+            return Err(PrepareError::MethodRefContract(target.key));
+        }
+        stack.push(target.key);
+        expand(specs, caller, inner, stack, out)?;
+        stack.pop();
+    }
+    Ok(())
+}
+
+fn resolve_ref<'a, 'b>(
+    specs: &'b [(&str, MethodSpec<'a>)],
+    r: MethodRef<'_>,
+) -> Result<&'b MethodSpec<'a>, PrepareError> {
+    let (hits, name): (Vec<&MethodSpec<'a>>, String) = match r {
+        MethodRef::Key(k) => (
+            specs
+                .iter()
+                .filter(|(_, s)| s.key == k)
+                .map(|(_, s)| s)
+                .collect(),
+            k.0.iter().map(|b| format!("{b:02x}")).collect(),
+        ),
+        MethodRef::Label(l) => (
+            specs
+                .iter()
+                .filter(|(m, _)| *m == l)
+                .map(|(_, s)| s)
+                .collect(),
+            l.to_owned(),
+        ),
+    };
+    match (hits.as_slice(), r) {
+        ([one], _) => Ok(one),
+        ([_, _, ..], MethodRef::Key(k)) => Err(PrepareError::DuplicateKey(k)),
+        _ => Err(PrepareError::UnknownMethodRef(name)),
     }
 }
 
@@ -785,6 +935,16 @@ impl Glove<'_> {
                     programs,
                 }
             }
+            (MethodBody::Select { filter }, EffectClass::Pure) => {
+                let t = self
+                    .binder
+                    .table(self.table)
+                    .ok_or_else(|| PrepareError::UnknownTable(self.table.to_owned()))?;
+                for c in filter {
+                    self.cond(t, *c)?;
+                }
+                Bound::Select
+            }
             (MethodBody::Action { .. }, EffectClass::Propose | EffectClass::ExternalMutate) => {
                 Bound::Action
             }
@@ -847,6 +1007,11 @@ impl Glove<'_> {
         let (field, literal, negate) = match c {
             Cond::Eq { field, literal } => (field, literal, false),
             Cond::Ne { field, literal } => (field, literal, true),
+            // Inlined before binding; a reference that reaches here was not.
+            Cond::Method(MethodRef::Key(k)) => return Err(PrepareError::MethodRefNotPredicate(k)),
+            Cond::Method(MethodRef::Label(l)) => {
+                return Err(PrepareError::UnknownMethodRef(l.to_owned()))
+            }
         };
         let b = self.field(t, field)?;
         if b.kind != FieldKind::Code {
