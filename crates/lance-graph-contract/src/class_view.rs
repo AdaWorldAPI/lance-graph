@@ -1641,19 +1641,184 @@ mod tests {
     }
 
     #[test]
-    fn compute_dag_out_of_range_positions_ignored() {
-        // target/inputs >= MAX_FIELDS (64) are ignored, never folded → no panic,
-        // no false cycle (mirrors FieldMask::from_positions).
-        assert!(compute_dag_is_acyclic(&[
+    fn compute_dag_positions_past_63_take_part() {
+        // Every u8 position is a field position: 64 is a target and 200 is a
+        // leaf input, so 64 and 5 are both ordered (64's input 0 is a leaf).
+        let edges = [
             ComputeEdge {
                 target: 64,
-                inputs: &[0]
-            }, // ignored target
+                inputs: &[0],
+            },
             ComputeEdge {
                 target: 5,
-                inputs: &[200]
-            }, // input ignored → leaf-only target
-        ]));
+                inputs: &[200],
+            },
+        ];
+        assert!(compute_dag_is_acyclic(&edges));
+        let mut order = compute_dag_topo_order(&edges).expect("acyclic");
+        order.sort_unstable();
+        assert_eq!(order, vec![5, 64]);
+    }
+
+    /// Both functions, one verdict: `Some(order)` exactly when acyclic.
+    fn dag_verdict(edges: &[ComputeEdge]) -> Option<Vec<u8>> {
+        let order = compute_dag_topo_order(edges);
+        assert_eq!(compute_dag_is_acyclic(edges), order.is_some());
+        order
+    }
+
+    /// Every target after each of its inputs that is itself a target.
+    fn assert_topological(edges: &[ComputeEdge], order: &[u8]) {
+        let at = |p: u8| order.iter().position(|&q| q == p);
+        for e in edges {
+            let t = at(e.target).expect("every target is ordered");
+            for &i in e.inputs {
+                if let Some(j) = at(i) {
+                    assert!(j < t, "{i} must precede {} in {order:?}", e.target);
+                }
+            }
+        }
+        let mut targets: Vec<u8> = edges.iter().map(|e| e.target).collect();
+        targets.sort_unstable();
+        targets.dedup();
+        let mut sorted = order.to_vec();
+        sorted.sort_unstable();
+        assert_eq!(sorted, targets, "each target exactly once, no leaves");
+    }
+
+    #[test]
+    fn compute_dag_cycle_crossing_63_64_is_rejected() {
+        // 10 → 70 → 10: one end below the old 64-bit window, one above.
+        let edges = [
+            ComputeEdge {
+                target: 10,
+                inputs: &[70],
+            },
+            ComputeEdge {
+                target: 70,
+                inputs: &[10],
+            },
+        ];
+        assert_eq!(dag_verdict(&edges), None);
+        // The tightest crossing: 63 ↔ 64.
+        let edges = [
+            ComputeEdge {
+                target: 63,
+                inputs: &[64],
+            },
+            ComputeEdge {
+                target: 64,
+                inputs: &[63],
+            },
+        ];
+        assert_eq!(dag_verdict(&edges), None);
+    }
+
+    #[test]
+    fn compute_dag_cycle_entirely_above_63_is_rejected() {
+        let edges = [
+            ComputeEdge {
+                target: 100,
+                inputs: &[200],
+            },
+            ComputeEdge {
+                target: 200,
+                inputs: &[255],
+            },
+            ComputeEdge {
+                target: 255,
+                inputs: &[100],
+            },
+        ];
+        assert_eq!(dag_verdict(&edges), None);
+        // A self-loop at the last position.
+        assert_eq!(
+            dag_verdict(&[ComputeEdge {
+                target: 255,
+                inputs: &[255],
+            }]),
+            None
+        );
+        // A cycle in each of the four 64-bit words, beside an acyclic part.
+        let edges = [
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 190,
+                inputs: &[191],
+            },
+            ComputeEdge {
+                target: 191,
+                inputs: &[190],
+            },
+        ];
+        assert_eq!(dag_verdict(&edges), None);
+    }
+
+    #[test]
+    fn compute_dag_wide_dependencies_are_ordered() {
+        // A chain that crosses every 64-bit word boundary, declared in an
+        // order that puts each dependent before its input.
+        let edges = [
+            ComputeEdge {
+                target: 5,
+                inputs: &[70],
+            },
+            ComputeEdge {
+                target: 70,
+                inputs: &[130, 3],
+            },
+            ComputeEdge {
+                target: 130,
+                inputs: &[255],
+            },
+            ComputeEdge {
+                target: 255,
+                inputs: &[64, 63],
+            },
+            ComputeEdge {
+                target: 64,
+                inputs: &[0],
+            },
+        ];
+        let order = dag_verdict(&edges).expect("acyclic");
+        assert_topological(&edges, &order);
+        assert_eq!(order, vec![64, 255, 130, 70, 5]);
+    }
+
+    #[test]
+    fn compute_dag_covers_every_u8_position() {
+        // 256 positions is the whole u8 range, so position 257 cannot be
+        // written and nothing needs refusing: the last addressable position
+        // (255) and the first (0) both take part. A chain through all 256
+        // positions orders all 255 targets.
+        static INPUTS: [[u8; 1]; 256] = {
+            let mut a = [[0u8; 1]; 256];
+            let mut i = 0;
+            while i < 256 {
+                a[i] = [i as u8];
+                i += 1;
+            }
+            a
+        };
+        let edges: Vec<ComputeEdge> = (1..=255u8)
+            .rev()
+            .map(|t| ComputeEdge {
+                target: t,
+                inputs: &INPUTS[t as usize - 1],
+            })
+            .collect();
+        let order = dag_verdict(&edges).expect("acyclic");
+        assert_eq!(order, (1..=255u8).collect::<Vec<_>>());
+        // Closing the chain from 255 back to 1 makes it cyclic.
+        let mut closed = edges.clone();
+        closed.push(ComputeEdge {
+            target: 1,
+            inputs: &INPUTS[255],
+        });
+        assert_eq!(dag_verdict(&closed), None);
     }
 
     #[test]
