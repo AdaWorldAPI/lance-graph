@@ -10,7 +10,7 @@ Plan: `.claude/plans/nal-polyfill-v1.md`. Template: D-SQLP. No opcode, tenant or
 | **D-NALP-3** | Revision as `GroupCrossPowerSumsI32` over stored `w`/`f` | Queued | equal to exact integer revision; OpenNARS revision points; duplicate evidence counts once |
 | **D-NALP-4** | Per-row truth law into a lane: `MapPairU8` vs fixed-point multiply-high | Queued | insufficiency proof; per-row parity with `isa::truth`, error in codes; one shape also serves SQL nullable arithmetic |
 | **D-NALP-5** | Deduction / induction / abduction / analogy over populations | Queued (after D-NALP-4) | equals pairwise scalar rule; abduction direction test red for the reversed statement |
-| **D-NALP-6** | `lance-graph-nal`: parser, bound-plan lowering, `NAL::narsese()`, typed refusals | Queued | lowers from the bound plan; no fallback; no `Program` outside procedures |
+| **D-NALP-6** | `lance-graph-nal`: typed `nal::{Operation}` surface (`NalOp`), parser, bound-plan lowering, `NAL::narsese()`, typed refusals | Queued | text and typed calls give byte-identical `Program`s; lowers from the bound plan; no fallback; no `Program` outside procedures |
 | **D-NALP-7** | Oracle parity on NAL-1/2 fixtures vs pinned OpenNARS, `jc::reliability` | Queued | within D-HL-4 tolerance per rule |
 | **D-NALP-8** | `ogar-nal` arity table for earned bytes only (OGAR request) | Queued | one NAL table in the tree; no byte a procedure can express |
 | **D-NALP-9** | `narsese!{}` declared mode via the D-SQLP-4 generator | Blocked (D-SQLP-4) | generated = interpreted; ≤ 1.05× hand-built; no dispatch in hot loop |

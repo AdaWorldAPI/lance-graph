@@ -178,6 +178,51 @@ on truth fields (quack, cypher-quack, lance-graph-java) does so through the
 NAL procedures. A `Program` built directly for a NAL operation elsewhere is a
 second spelling.
 
+### G. The typed surface: `nal::{Operation}::(…)` (operator, 2026-10-12)
+
+Each NAL operation is a zero-sized type in the `nal` module, used as
+`nal::Deduction::run(&plan, …)`, `nal::Revision::run(…)`,
+`nal::Choice::run(…)`. This is the shape ndarray already uses for SIMD,
+where the immediate is a named constant chosen at compile time:
+`a.ternlog::<{ ternlog::AND3 }>(b, c)`. Here the "immediate" is the NAL
+operation.
+
+```rust
+pub trait NalOp {
+    /// The loco byte when the op earned one (§4 A), else None: the op is a
+    /// procedure over existing R2IL calls.
+    const FN: Option<FnIndex>;
+    /// Operands popped / pushed, read from the one arity table.
+    const ARITY: (u8, u8);
+    /// Emits the op's calls through the dialect: one inlined procedure.
+    fn lower(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError>;
+}
+pub struct Deduction;   // impl NalOp: middle-term join + §4 C truth law
+pub struct Revision;    // impl NalOp: GroupCrossPowerSumsI32 over w, f (§4 B)
+pub struct Choice;      // impl NalOp: GroupReduce Max over c
+```
+
+- **Compile time, honestly stated.** A call through a concrete type
+  (`nal::Deduction::run`) is monomorphized: no opcode dispatch, no table
+  lookup, and the lowering is fixed when the crate compiles. What still runs
+  at runtime is mask-risc over the bound lanes, which bottoms out in
+  `ndarray::simd` (AVX-512 / AVX2 / NEON / wasm). "Hardware-accelerated
+  algebra" is true of that bottom layer and is measured, not assumed (W10).
+  Text through `NAL::narsese("…")` takes the interpreted path (§4 E), and
+  the two must give identical answers.
+- **One table, two spellings forbidden.** The op set lives once. Bytes come
+  from `ogar-nal` (`pub const DEDUCTION: FnIndex`, like `ogar_r2il::SUM`); each
+  `nal::` type reads its `FN` from there. A drift test compares the `nal::`
+  type list with `ogar-nal`'s table (the `R2ILFn::MNEMONICS` pattern). An op
+  without a byte has `FN = None` and is a procedure, so a loco program
+  reaches it through `PROC_CALL` once that contract executes.
+- **Loco palette mapping.** The `nal::` types are the Rust spelling of the
+  `ogar-nal` vocabulary. A loco program, a `narsese!{}` block and a direct
+  `nal::Deduction::run` call all lower to the same R2IL / mask-risc calls.
+  W11's byte-identical `Program` gate holds across all three.
+- **Not a second engine.** `NalOp::lower` emits calls; it never loops over
+  rows.
+
 ### OPEN
 
 - **Term addressing width.** A CE64 edge carries 8-bit S/P/O bytes; the
@@ -204,9 +249,9 @@ second spelling.
 | W3 | D-NALP-3 | lance-graph | Revision as `GroupCrossPowerSumsI32` over `w`/`f` deltas (§4 B) | equals the exact integer revision (D-HL-2 arm c) on every statement; agrees with the OpenNARS revision points (`revision_points.nal`); a duplicate-evidence fixture under the D-HL-3 evidential base counts once; disable: drop the `w` scale → red |
 | W4 | D-NALP-4 | ndarray, lance-graph | The per-row truth law (§4 C): measure `MapPairU8` (256² tables) vs fixed-point multiply-high on the four NAL-1 rules; ship the winner as ndarray word → mask-risc terminal → `FoldDialect` wiring | insufficiency proof recorded (no existing terminal expresses it); per-row parity with `isa::truth` on all 2³² `(f₁,c₁,f₂,c₂)` codes or a declared stratified sample, error stated in codes; parity on every SIMD realization row; one shape serves SQL nullable arithmetic too |
 | W5 | D-NALP-5 | lance-graph | Syllogistic population ops: deduction, induction, abduction, analogy = middle-term join (`EqU32Via`/`Gather`) + W4 law | equals the scalar rule applied pair by pair (oracle enumerates pairs); abduction attaches to the right statement (ledger R1's defect must not reappear: a direction test that is red for the reversed statement); measured cost per derived row vs the scalar loop |
-| W6 | D-NALP-6 | lance-graph | `lance-graph-nal` crate: Narsese parser (NAL-1/2 statements, truth, questions), lowering from the bound plan into W2–W5 procedures; `NAL::narsese(text)`; typed `Refusal` for every unsupported shape | lowers from the bound plan, never the AST (`cypher-lowering-warden`); every refusal names its reason; no fallback to another engine; no `Program` built outside the procedures |
+| W6 | D-NALP-6 | lance-graph | `lance-graph-nal` crate: the typed surface `nal::{Operation}` (`NalOp` trait, §4 G) over W2–W5 procedures; Narsese parser (NAL-1/2 statements, truth, questions) lowering from the bound plan onto the same types; `NAL::narsese(text)`; typed `Refusal` for every unsupported shape | text and typed calls produce byte-identical `Program`s for the same query; lowers from the bound plan, never the AST (`cypher-lowering-warden`); every refusal names its reason; no fallback to another engine; no `Program` built outside the procedures |
 | W7 | D-NALP-7 | lance-graph | Oracle parity: compile the upstream NAL-1/2 fixtures (`nal1.*`, `nal2.*`) and `revision_points.nal`, run, compare with the pinned OpenNARS output; score with `jc::reliability` | every fixture's expected outputs reproduced within the D-HL-4 tolerance; ICC/Spearman reported per rule; feeds D-HL-4 and D-HL-10 |
-| W8 | D-NALP-8 | OGAR | `ogar-nal` vocabulary: arity table holding only the bytes W4/W5 earned, provisional concept id, drift test against `lance-graph-nal`'s procedure list | one arity table in the tree for NAL; no byte for an operation a procedure expresses; mint request for the concept id goes to OGAR (this plan does not mint) |
+| W8 | D-NALP-8 | OGAR | `ogar-nal` vocabulary: arity table holding only the bytes W4/W5 earned, provisional concept id, drift test against the `nal::` type list (§4 G) | one arity table in the tree for NAL; no byte for an operation a procedure expresses; mint request for the concept id goes to OGAR (this plan does not mint) |
 | W9 | D-NALP-9 | lance-graph | `narsese!{}` declared mode: build-time generation from procedure bodies (reuses D-SQLP-4's generator; blocked until it exists) | generated answers identical to interpreted; generated ≤ 1.05× hand-built `Program`; no interpreter dispatch in the hot loop's disassembly |
 | W10 | D-NALP-10 | lance-graph | Benchmark, D-SQLP-3 protocol: a revision + one deduction query three ways (direct ndarray, hand-built `Program`, interpreted procedure); N = 65,536 and 1,048,576 | answers identical before timing; release, quiet machine, median of 101, avx512 and avx2 separately; pre-registered: interpreted ≤ 1.05× hand-built |
 | W11 | D-NALP-11 | lance-graph, lance-graph-java | One spelling: quack / cypher-quack truth filters route through the procedures; later a Java `nal()` membrane like `sql()` | byte-identical `Program`s for the shapes those front ends already pin; Java: `ApiSurfaceTest` green, no row-proportional allocation |
