@@ -1,6 +1,6 @@
-# D-SAG-2 appendix: deferred concrete contracts for an agent-facing software graph
+# D-SAG-4 appendix: deferred concrete contracts for an agent-facing software graph
 
-**Status:** PROPOSAL / NOT SHIPPED. **Added after #1513's first documentation pass.** Built on merged [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509), not an alternative to it. Parent: [D-SAG-2 plan](software-awareness-agent-context-ona-v1.md). Research: [source excerpts](../../.arxiv/2026-10_sag_agent_attention_active_selection_excerpts.md). This appendix unpacks design and falsification details deliberately left small in the first draft. It does **not** certify measurements, APIs, an IDE plug-in or runtime integration.
+**Status:** PROPOSAL / NOT SHIPPED. **Added after #1513's first documentation pass.** Built on merged [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509), not an alternative to it. Parent: [D-SAG-4 plan](software-awareness-agent-context-ona-v1.md). Research: [source excerpts](../../.arxiv/2026-10_sag_agent_attention_active_selection_excerpts.md). This appendix unpacks design and falsification details deliberately left small in the first draft. It does **not** certify measurements, APIs, an IDE plug-in or runtime integration.
 
 ## A. What the existing executor can actually answer
 

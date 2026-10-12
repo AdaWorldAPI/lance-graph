@@ -1,4 +1,4 @@
-# Claude Code prompt — D-SAG-2: graph-backed agent context, ONA feedback, and falsifiers
+# Claude Code prompt — D-SAG-4: graph-backed agent context, ONA feedback, and falsifiers
 
 > **Hand this to a fresh Claude Code session after #1509.** The associated plan and research excerpts are already part of the branch. This document asks for a small executable follow-up, not a claim that the functionality shipped in the documentation PR.
 

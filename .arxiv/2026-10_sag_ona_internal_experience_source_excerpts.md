@@ -1,6 +1,6 @@
-# D-SAG-2 source excerpts: ONA's event–anticipation–feedback loop and internal experience
+# D-SAG-4 source excerpts: ONA's event–anticipation–feedback loop and internal experience
 
-**Read:** 2026-10-12. **Kind:** SOURCE-GROUNDED PARAPHRASES / RESEARCH; no ONA port, executable parity test, or runtime integration in this note. **Upstream pin:** [OpenNARS for Applications @ dc4efd0](https://github.com/opennars/OpenNARS-for-Applications/tree/dc4efd0abd520cdb79bf53bfa3c285ebb24f2e8a). **Companions:** [D-SAG-2 plan](../.claude/plans/software-awareness-agent-context-ona-v1.md), [repository-code-graph papers](2026-10_sag_repo_graph_context_source_excerpts.md).
+**Read:** 2026-10-12. **Kind:** SOURCE-GROUNDED PARAPHRASES / RESEARCH; no ONA port, executable parity test, or runtime integration in this note. **Upstream pin:** [OpenNARS for Applications @ dc4efd0](https://github.com/opennars/OpenNARS-for-Applications/tree/dc4efd0abd520cdb79bf53bfa3c285ebb24f2e8a). **Companions:** [D-SAG-4 plan](../.claude/plans/software-awareness-agent-context-ona-v1.md), [repository-code-graph papers](2026-10_sag_repo_graph_context_source_excerpts.md).
 
 The term *excerpt* here means a short, attributed **paraphrase** of a source passage or an implementation observation, not a copied passage. Any project transfer is labeled a hypothesis. Existing [2018 self-model note](2018_self_in_nars_requires_internal_experience_and_mental_operations.md) and [NAL audit #1495](https://github.com/AdaWorldAPI/lance-graph/pull/1495) remain separate authorities.
 

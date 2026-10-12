@@ -1,6 +1,6 @@
-# D-SAG-2 source excerpts: repository code graphs as low-token agent context
+# D-SAG-4 source excerpts: repository code graphs as low-token agent context
 
-**Date:** 2026-10-12. **Kind:** RESEARCH / SHORT ATTRIBUTED PARAPHRASES. **Status:** no Claude Code connector, token measurement, source-code index or graph-to-editor implementation demonstrated by this note. **Base:** [merged #1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509). **Companion:** [D-SAG-2 plan](../.claude/plans/software-awareness-agent-context-ona-v1.md).
+**Date:** 2026-10-12. **Kind:** RESEARCH / SHORT ATTRIBUTED PARAPHRASES. **Status:** no Claude Code connector, token measurement, source-code index or graph-to-editor implementation demonstrated by this note. **Base:** [merged #1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509). **Companion:** [D-SAG-4 plan](../.claude/plans/software-awareness-agent-context-ona-v1.md).
 
 Aim: compare the idea of *addressable, typed, locally queried repository context* against existing research rather than treating it as original or already measured. These are paraphrased excerpts keyed to the papers' abstracts and conceptual methods. Source-provided paper benchmark conclusions **do not transfer automatically** to lance-graph/Claude Code.
 

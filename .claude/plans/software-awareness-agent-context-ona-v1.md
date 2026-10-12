@@ -1,4 +1,4 @@
-# D-SAG-2 — Addressable software context and ONA-inspired execution feedback
+# D-SAG-4 — Addressable software context and ONA-inspired execution feedback
 
 **Status:** RESEARCH / unimplemented follow-up. **Base:** [merged D-SAG-1 #1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509), merge commit `42fa2a347cda22eaaa327bba514f2029cc9daa82`. **Code examined:** `crates/lance-graph-glove-parity/src/awareness.rs`, `method.rs`, `gremlin.rs`; [D-SAG-1 plan](software-awareness-graph-v1.md). **Date:** 2026-10-12.
 **Companions:** [execution prompt](../prompts/d-sag-2-ona-agent-context-implementation.md), [primary research excerpts](../../.arxiv/2026-10_sag_ona_internal_experience_source_excerpts.md), [repository-graph papers](../../.arxiv/2026-10_sag_repo_graph_context_source_excerpts.md).
@@ -145,7 +145,7 @@ References: [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509), [#150
 
 ## 9. Deferred contracts now expanded (research-only)
 
-The first documentation pass intentionally left implementation detail unresolved. The explicit contracts and negative fixtures are now written out in [D-SAG-2 deferred contracts](software-awareness-agent-context-deferred-contracts-v1.md), including:
+The first documentation pass intentionally left implementation detail unresolved. The explicit contracts and negative fixtures are now written out in [D-SAG-4 deferred contracts](software-awareness-agent-context-deferred-contracts-v1.md), including:
 
 - source-symbol versus OGAR/MethodKey identity, version/worktree freshness and atomic graph generations;
 - `resolve/context/impact/propose/expand/explain` proposals as bounded, read-only, typed calls;

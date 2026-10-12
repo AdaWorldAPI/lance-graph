@@ -1,4 +1,4 @@
-# D-SAG-2: bounded context attention, costly exploration and correctness-first uncertainty
+# D-SAG-4: bounded context attention, costly exploration and correctness-first uncertainty
 
 **Date:** 2026-10-12. **Mode:** primary-paper **abstract-level paraphrases**, not verbatim quotations, no code implementations or D-SAG performance claims. Some papers have detailed methods/results not reproduced here; CC must read and pin an exact PDF version before claiming detailed parity or method reproduction. Companion: [deferred contracts](../.claude/plans/software-awareness-agent-context-deferred-contracts-v1.md).
 
