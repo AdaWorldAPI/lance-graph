@@ -123,7 +123,8 @@ fn op_dst(op: &MaskOp) -> u16 {
         | MaskOp::AndNot { dst, .. }
         | MaskOp::Not { dst, .. }
         | MaskOp::Ternlog { dst, .. }
-        | MaskOp::Gather { dst, .. } => dst,
+        | MaskOp::Gather { dst, .. }
+        | MaskOp::GatherChain { dst, .. } => dst,
     }
 }
 

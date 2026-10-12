@@ -3143,9 +3143,10 @@ mod tests {
                 MaskOp::Ternlog { a, b, c, .. } => {
                     read_as_leaf |= a == gate || b == gate || c == gate;
                 }
-                // `lane` and `foreign` are plain indices; the only operand a
-                // `Gather` reads is its gate, classified exactly as `Pred`'s.
-                MaskOp::Gather { under, .. } => match under {
+                // `lane`, `foreign` and `chain` are plain indices; the only
+                // operand a `Gather`/`GatherChain` reads is its gate,
+                // classified exactly as `Pred`'s.
+                MaskOp::Gather { under, .. } | MaskOp::GatherChain { under, .. } => match under {
                     Some(Operand::Scratch(_)) => on_accumulator = true,
                     Some(_) => {}
                     None => all_gated = false,

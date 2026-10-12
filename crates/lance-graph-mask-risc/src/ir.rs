@@ -280,6 +280,69 @@ pub enum MaskOp {
         under: Option<Operand>,
         dst: u16,
     },
+    /// The CHAINED semijoin: chained hops are folded hops. `dst[i]` is set
+    /// when the key `lane[i]` leads through every hop of
+    /// [`Program::chains`]`[chain]`: at each hop the row reached is in
+    /// range, live in that hop's resident [`ForeignPlane`], and passes that
+    /// hop's [`HopTest`]s — read IN PLACE at that row — and the hop's `next`
+    /// lane names the following hop's row.
+    ///
+    /// No mask over any hop's table is built and no program feeds another:
+    /// each hop is one more aperture in the same pass, and the only
+    /// materialisation is this op's `dst` over THIS table's rows
+    /// (`ndarray::simd::mask_gather_chain_u32[_under]`). One hop with no
+    /// tests is exactly [`MaskOp::Gather`].
+    ///
+    /// The fold is the reason this op exists: [`MaskOp::Gather`] can only
+    /// test a hop's target through a plane over that target's table, so a
+    /// predicate at depth 2 would need a mask over the depth-1 table built
+    /// first, and a program's `Keep` feeding another program's `Gather` —
+    /// the projection → population → projection shape the
+    /// [`Terminal::ScatterOrU32`] survival condition forbids.
+    ///
+    /// `under` gates it exactly as it gates [`MaskOp::Gather`], and may not
+    /// be `dst`.
+    GatherChain {
+        lane: u16,
+        chain: u16,
+        under: Option<Operand>,
+        dst: u16,
+    },
+}
+
+/// The most hops one [`MaskOp::GatherChain`] may name. The executor builds
+/// the chain on the stack (L1: `execute` never allocates), so the bound is
+/// a capacity, not a policy; a longer chain is refused at validation.
+pub const MAX_CHAIN_HOPS: usize = 8;
+
+/// The most [`HopTest`]s one [`Hop`] may carry — the same stack capacity.
+pub const MAX_HOP_TESTS: usize = 8;
+
+/// One equality test a [`Hop`] applies to the row its key reached:
+/// `foreign.lanes[lane][row] == value`, or `!=` when `negate`. `lane` must
+/// be a `U32` lane of [`Foreign::lanes`] at least the hop's plane rows long.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HopTest {
+    /// Index into [`Foreign::lanes`].
+    pub lane: u16,
+    /// The value compared against.
+    pub value: u32,
+    /// Test `!=` instead of `==`.
+    pub negate: bool,
+}
+
+/// One hop of a [`MaskOp::GatherChain`]: which foreign table the key lands
+/// in, what must hold there, and which key leads on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Hop {
+    /// Index into [`Foreign::planes`]: the hop table's resident validity,
+    /// whose `rows` is the hop table's row count.
+    pub live: u16,
+    /// Tests on the reached row, at most [`MAX_HOP_TESTS`].
+    pub tests: Vec<HopTest>,
+    /// Index into [`Foreign::lanes`] (`U32`): the key into the next hop.
+    /// `Some` on every hop but the last, `None` on the last.
+    pub next: Option<u16>,
 }
 
 /// What the program produces. Exactly one per program; the mask it reads is
@@ -711,6 +774,9 @@ pub struct Program {
     pub ops: Vec<MaskOp>,
     /// The single result.
     pub terminal: Terminal,
+    /// The hop chains [`MaskOp::GatherChain`] names, by index. Empty for
+    /// every program without one.
+    pub chains: Vec<Vec<Hop>>,
     /// How many scratch slots the program touches: `max slot + 1` over EVERY
     /// `Operand::Scratch` the program names — destinations, sources, a
     /// `Pred`'s gate, and the terminal's operands alike — sizing from
@@ -790,7 +856,7 @@ impl Program {
                 // `foreign` is not a `Scratch`/`Plane` operand — it indexes
                 // `Foreign::planes`, a wholly separate address space this
                 // touch-based accounting has no business over.
-                MaskOp::Gather { under, dst, .. } => {
+                MaskOp::Gather { under, dst, .. } | MaskOp::GatherChain { under, dst, .. } => {
                     if let Some(u) = under {
                         touch(u);
                     }
@@ -820,7 +886,17 @@ impl Program {
         Self {
             ops,
             terminal,
+            chains: Vec::new(),
             scratch_slots: slots,
+        }
+    }
+
+    /// [`Program::new`] with the hop chains its [`MaskOp::GatherChain`]s
+    /// name.
+    pub fn with_chains(ops: Vec<MaskOp>, terminal: Terminal, chains: Vec<Vec<Hop>>) -> Self {
+        Self {
+            chains,
+            ..Self::new(ops, terminal)
         }
     }
 
@@ -1009,7 +1085,9 @@ impl Program {
                     );
                     (apply_table(*imm, ta, tb, tc), *dst)
                 }
-                MaskOp::Pred { .. } | MaskOp::Gather { .. } => return None,
+                MaskOp::Pred { .. } | MaskOp::Gather { .. } | MaskOp::GatherChain { .. } => {
+                    return None
+                }
             };
             *slots.get_mut(usize::from(dst))? = Some(t);
         }
@@ -1155,7 +1233,9 @@ impl Program {
                     );
                     (apply_table64(*imm, ta, tb, tc), *dst)
                 }
-                MaskOp::Pred { .. } | MaskOp::Gather { .. } => return None,
+                MaskOp::Pred { .. } | MaskOp::Gather { .. } | MaskOp::GatherChain { .. } => {
+                    return None
+                }
             };
             *slots.get_mut(usize::from(dst))? = Some(t);
         }
@@ -1337,7 +1417,7 @@ impl Program {
                 | MaskOp::AndNot { .. } => h.two_input += 1,
                 MaskOp::Not { .. } => h.not += 1,
                 MaskOp::Ternlog { .. } => h.ternlog += 1,
-                MaskOp::Gather { .. } => h.gather += 1,
+                MaskOp::Gather { .. } | MaskOp::GatherChain { .. } => h.gather += 1,
             }
         }
         h

@@ -17,8 +17,9 @@
 //! path a consumer should reach for.
 
 use crate::ir::{
-    Foreign, GroupFold, GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
-    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
+    Foreign, GroupFold, GroupKey, Hop, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
+    GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_CHAIN_HOPS, MAX_HOP_TESTS,
+    MAX_SCRATCH_SLOTS,
 };
 use crate::value::{CrossPowerSums, PowerSums};
 use crate::value::{ExecError, LaneKind, Out, Value};
@@ -286,8 +287,83 @@ fn dst_of(op: &MaskOp) -> u16 {
         | MaskOp::AndNot { dst, .. }
         | MaskOp::Not { dst, .. }
         | MaskOp::Ternlog { dst, .. }
-        | MaskOp::Gather { dst, .. } => dst,
+        | MaskOp::Gather { dst, .. }
+        | MaskOp::GatherChain { dst, .. } => dst,
     }
+}
+
+/// Validate `p.chains[chain]` against `foreign`: the shape the facade
+/// requires (non-empty, within the stack caps, `next` on every hop but the
+/// last) and every plane and lane it names, at the lengths the facade
+/// reads. Refusing here means the executor never reaches the facade's own
+/// shape panics.
+fn check_chain(p: &Program, foreign: &Foreign<'_>, chain: u16) -> Result<(), ExecError> {
+    let hops = p
+        .chains
+        .get(usize::from(chain))
+        .ok_or(ExecError::ChainOutOfRange(chain))?;
+    if hops.is_empty() || hops.len() > MAX_CHAIN_HOPS {
+        return Err(ExecError::ChainShape { chain, hop: 0 });
+    }
+    let last = hops.len() - 1;
+    for (h, hop) in hops.iter().enumerate() {
+        if hop.tests.len() > MAX_HOP_TESTS || hop.next.is_some() != (h < last) {
+            return Err(ExecError::ChainShape { chain, hop: h });
+        }
+        let fp = foreign
+            .planes
+            .get(usize::from(hop.live))
+            .ok_or(ExecError::ForeignOutOfRange(hop.live))?;
+        let want = words_for(fp.rows);
+        if fp.words.len() < want {
+            return Err(ExecError::LenMismatch {
+                what: "foreign",
+                expected: want,
+                found: fp.words.len(),
+            });
+        }
+        for key in hop.tests.iter().map(|t| t.lane).chain(hop.next) {
+            check_foreign_lane(foreign, key, LaneKind::U32)?;
+            if let LaneRef::U32(l) = foreign.lanes[usize::from(key)] {
+                if l.len() < fp.rows {
+                    return Err(ExecError::LenMismatch {
+                        what: "chain lane",
+                        expected: fp.rows,
+                        found: l.len(),
+                    });
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Whether the key `k` leads through every hop of `hops` — the row-loop
+/// statement of [`MaskOp::GatherChain`], read straight off the IR so the
+/// oracle never calls the facade it checks. Assumes [`check_chain`] passed.
+fn chain_holds_at(hops: &[Hop], foreign: &Foreign<'_>, k: u32) -> bool {
+    let u32_lane = |key: u16| match foreign.lanes[usize::from(key)] {
+        LaneRef::U32(l) => l,
+        _ => &[][..],
+    };
+    let mut cur = k as usize;
+    for hop in hops {
+        let fp = &foreign.planes[usize::from(hop.live)];
+        if cur >= fp.rows || (fp.words[cur / 64] >> (cur % 64)) & 1 == 0 {
+            return false;
+        }
+        if hop
+            .tests
+            .iter()
+            .any(|t| (u32_lane(t.lane)[cur] == t.value) == t.negate)
+        {
+            return false;
+        }
+        if let Some(next) = hop.next {
+            cur = u32_lane(next)[cur] as usize;
+        }
+    }
+    true
 }
 
 /// The validation rules, in the order both the executor and the oracle apply
@@ -460,6 +536,23 @@ pub(crate) fn validate(
                         found: fp.words.len(),
                     });
                 }
+                check_operand(p, planes, Operand::Scratch(dst))?;
+            }
+            MaskOp::GatherChain {
+                lane,
+                chain,
+                under,
+                dst,
+            } => {
+                if let Some(u) = under {
+                    check_operand(p, planes, u)?;
+                    if u == Operand::Scratch(dst) {
+                        return Err(ExecError::GateAliasesDst { dst });
+                    }
+                    written(u)?;
+                }
+                check_lane(planes, lane, LaneKind::U32)?;
+                check_chain(p, foreign, chain)?;
                 check_operand(p, planes, Operand::Scratch(dst))?;
             }
         }
@@ -931,6 +1024,16 @@ fn run(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>) -> Rows {
                         && idx < fp.rows
                         && (fp.words[idx / 64] >> (idx % 64)) & 1 == 1
                 }
+                MaskOp::GatherChain {
+                    lane, chain, under, ..
+                } => {
+                    under.is_none_or(|u| rows.bit(planes, u, row))
+                        && chain_holds_at(
+                            &p.chains[usize::from(chain)],
+                            foreign,
+                            u32_at(planes, lane, row),
+                        )
+                }
             };
             let dst = match *op {
                 MaskOp::Pred { dst, .. }
@@ -940,7 +1043,8 @@ fn run(p: &Program, planes: &Planes<'_>, foreign: &Foreign<'_>) -> Rows {
                 | MaskOp::AndNot { dst, .. }
                 | MaskOp::Not { dst, .. }
                 | MaskOp::Ternlog { dst, .. }
-                | MaskOp::Gather { dst, .. } => dst,
+                | MaskOp::Gather { dst, .. }
+                | MaskOp::GatherChain { dst, .. } => dst,
             };
             rows.set(dst, row, v);
         }
@@ -1731,6 +1835,7 @@ mod tests {
                 terminal: Terminal::Any {
                     mask: Operand::Scratch(4),
                 },
+                chains: Vec::new(),
                 scratch_slots: 1,
             };
             assert_eq!(
@@ -1868,6 +1973,7 @@ mod tests {
             let lying = Program {
                 ops: vec![],
                 terminal: Terminal::Any { mask: P0 },
+                chains: Vec::new(),
                 scratch_slots: MAX_SCRATCH_SLOTS + 1,
             };
             // Anti-vacuity: nothing here NAMES a scratch slot, so the only
@@ -1907,6 +2013,7 @@ mod tests {
             let exact = Program {
                 ops: vec![],
                 terminal: Terminal::Any { mask: P0 },
+                chains: Vec::new(),
                 scratch_slots: MAX_SCRATCH_SLOTS,
             };
             assert!(reference_execute(&exact, planes, None).is_ok());

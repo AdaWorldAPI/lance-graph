@@ -352,6 +352,7 @@ pub fn op_name(op: &MaskOp) -> String {
         MaskOp::Not { .. } => "Not".into(),
         MaskOp::Ternlog { .. } => "Ternlog".into(),
         MaskOp::Gather { .. } => "Gather".into(),
+        MaskOp::GatherChain { .. } => "GatherChain".into(),
     }
 }
 
@@ -1202,7 +1203,9 @@ fn gate_planes(p: &Program) -> Vec<u16> {
     };
     for op in &p.ops {
         match *op {
-            MaskOp::Pred { under, .. } | MaskOp::Gather { under, .. } => {
+            MaskOp::Pred { under, .. }
+            | MaskOp::Gather { under, .. }
+            | MaskOp::GatherChain { under, .. } => {
                 if let Some(u) = under {
                     see(u);
                 }

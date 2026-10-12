@@ -228,3 +228,99 @@ fn six_plane_recognition_allocates_nothing() {
         "six-plane recognition allocated {bytes} bytes over 100 runs"
     );
 }
+
+/// FAILS IF: a `GatherChain` allocates — the executor builds the facade
+/// chain on the stack, bounded by `MAX_CHAIN_HOPS` / `MAX_HOP_TESTS`, so a
+/// `Vec` built per tile would show here. Two hops, a test at each, gated.
+#[test]
+fn a_gather_chain_allocates_nothing() {
+    use lance_graph_mask_risc::exec::execute_into;
+    use lance_graph_mask_risc::{Foreign, ForeignPlane, Hop, HopTest, Out};
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let n = 65_536;
+    let mut seed = 11u64;
+    let key: Vec<u32> = (0..n).map(|_| (lcg(&mut seed) % 520) as u32).collect();
+    let status: Vec<u32> = (0..n).map(|_| (lcg(&mut seed) % 2) as u32).collect();
+    let (mid, far) = (500usize, 40usize);
+    let mid_live: Vec<u64> = (0..mid.div_ceil(64)).map(|_| lcg(&mut seed)).collect();
+    let far_live: Vec<u64> = vec![u64::MAX];
+    let mid_test: Vec<u32> = (0..mid).map(|_| (lcg(&mut seed) % 2) as u32).collect();
+    let mid_next: Vec<u32> = (0..mid).map(|_| (lcg(&mut seed) % 45) as u32).collect();
+    let far_test: Vec<u32> = (0..far).map(|_| (lcg(&mut seed) % 3) as u32).collect();
+    let lanes = [LaneRef::U32(&key), LaneRef::U32(&status)];
+    let planes = Planes {
+        n_rows: n,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let fplanes = [
+        ForeignPlane {
+            words: &mid_live,
+            rows: mid,
+        },
+        ForeignPlane {
+            words: &far_live,
+            rows: far,
+        },
+    ];
+    let flanes = [
+        LaneRef::U32(&mid_test),
+        LaneRef::U32(&mid_next),
+        LaneRef::U32(&far_test),
+    ];
+    let foreign = Foreign {
+        planes: &fplanes,
+        lanes: &flanes,
+    };
+    let t = |lane, value, negate| HopTest {
+        lane,
+        value,
+        negate,
+    };
+    let p = Program::with_chains(
+        vec![
+            MaskOp::Pred {
+                pred: Pred::EqU32 { lane: 1, v: 1 },
+                under: None,
+                dst: 0,
+            },
+            MaskOp::GatherChain {
+                lane: 0,
+                chain: 0,
+                under: Some(Operand::Scratch(0)),
+                dst: 1,
+            },
+        ],
+        Terminal::Count {
+            mask: Operand::Scratch(1),
+        },
+        vec![vec![
+            Hop {
+                live: 0,
+                tests: vec![t(0, 1, false)],
+                next: Some(1),
+            },
+            Hop {
+                live: 1,
+                tests: vec![t(2, 2, true)],
+                next: None,
+            },
+        ]],
+    );
+    let mut scratch = Scratch::for_program(&p, n).expect("addressable");
+    let warm = execute_into(&p, &planes, &foreign, &mut scratch, Out::None);
+    assert!(
+        matches!(warm, Ok(Value::Count(c)) if c > 0),
+        "vacuous: {warm:?}"
+    );
+    let bytes = measure(|| {
+        for _ in 0..1000 {
+            let v = execute_into(&p, &planes, &foreign, &mut scratch, Out::None);
+            assert_eq!(v, warm);
+        }
+    });
+    assert_eq!(
+        bytes, 0,
+        "GatherChain allocated {bytes} bytes over 1000 runs"
+    );
+}

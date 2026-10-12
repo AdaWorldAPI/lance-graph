@@ -27,26 +27,28 @@ use ndarray::simd::{
     eq_u32_to_mask_under, eq_u32_via_to_mask, ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask,
     gt_i32_to_mask_under, le_i32_to_mask, le_i32_to_mask_under, lt_i32_to_mask,
     lt_i32_to_mask_under, mask_all, mask_and, mask_and_assign, mask_andnot, mask_andnot_assign,
-    mask_any, mask_gather_u32, mask_gather_u32_under, mask_not, mask_not_assign, mask_or,
-    mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor, mask_xor_assign,
-    masked_group_count_u32, masked_group_count_u32_pair, masked_group_count_u32_via,
-    masked_group_cross_power_sums_i32, masked_group_cross_power_sums_i32_pair,
-    masked_group_cross_power_sums_i32_via, masked_group_max_i32, masked_group_max_i32_pair,
-    masked_group_max_i32_via, masked_group_min_i32, masked_group_min_i32_pair,
-    masked_group_min_i32_via, masked_group_power_sums_i32, masked_group_power_sums_i32_pair,
-    masked_group_power_sums_i32_via, masked_group_sum_i32, masked_group_sum_i32_via,
-    masked_group_sum_sym_i32, masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via,
-    masked_key_run_count_u32, masked_max_i32, masked_min_i32, masked_strided_group_sum,
-    masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under,
-    popcount_batch_u64, ternary_match_strided16_to_mask, ternary_match_strided_to_mask,
-    ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
-    ternary_match_u64_to_mask_under, CrossPowerSums, KeyRunCarry, PowerSums,
+    mask_any, mask_gather_chain_u32, mask_gather_chain_u32_under, mask_gather_u32,
+    mask_gather_u32_under, mask_not, mask_not_assign, mask_or, mask_or_assign, mask_scatter_or_u32,
+    mask_set_range, mask_xor, mask_xor_assign, masked_group_count_u32, masked_group_count_u32_pair,
+    masked_group_count_u32_via, masked_group_cross_power_sums_i32,
+    masked_group_cross_power_sums_i32_pair, masked_group_cross_power_sums_i32_via,
+    masked_group_max_i32, masked_group_max_i32_pair, masked_group_max_i32_via,
+    masked_group_min_i32, masked_group_min_i32_pair, masked_group_min_i32_via,
+    masked_group_power_sums_i32, masked_group_power_sums_i32_pair, masked_group_power_sums_i32_via,
+    masked_group_sum_i32, masked_group_sum_i32_via, masked_group_sum_sym_i32,
+    masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via, masked_key_run_count_u32,
+    masked_max_i32, masked_min_i32, masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask,
+    ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
+    ternary_match_strided16_to_mask, ternary_match_strided_to_mask, ternary_match_u32_to_mask,
+    ternary_match_u32_to_mask_under, ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
+    ChainHop, ChainTest, CrossPowerSums, KeyRunCarry, PowerSums,
 };
 
 use crate::ir::{
     span_words, touched_words, Compiled, Foreign, FusedFold, FusedKeep, FusedTerminal, FusedTern2,
-    FusedTern3, FusedTernlog, GroupFold, GroupKey, LaneRef, Lowering, MaskOp, Operand, Planes,
-    Pred, Program, StridedRef, Terminal, Tern2Fold, Tern3In, FUSED_SLOT_CAP, MAX_SCRATCH_SLOTS,
+    FusedTern3, FusedTernlog, GroupFold, GroupKey, Hop, LaneRef, Lowering, MaskOp, Operand, Planes,
+    Pred, Program, StridedRef, Terminal, Tern2Fold, Tern3In, FUSED_SLOT_CAP, MAX_CHAIN_HOPS,
+    MAX_HOP_TESTS, MAX_SCRATCH_SLOTS,
 };
 use crate::reference::{out_shape, validate, OutShape};
 use crate::ternlog_dispatch::{
@@ -546,6 +548,55 @@ fn foreign_lane_u32<'a>(foreign: &Foreign<'a>, key: u16) -> &'a [u32] {
     match foreign.lanes[usize::from(key)] {
         LaneRef::U32(v) => v,
         _ => &[],
+    }
+}
+
+/// One [`MaskOp::GatherChain`] pass into `out` (one tile of it). The facade
+/// chain is built on the stack — `validate` has bounded it by
+/// [`MAX_CHAIN_HOPS`] and [`MAX_HOP_TESTS`] — so `execute` still allocates
+/// nothing (L1).
+fn run_gather_chain(
+    hops: &[Hop],
+    foreign: &Foreign<'_>,
+    index: &[u32],
+    under: Option<&[u64]>,
+    out: &mut [u64],
+) {
+    let none = ChainTest {
+        lane: &[],
+        value: 0,
+        negate: false,
+    };
+    let mut tests = [[none; MAX_HOP_TESTS]; MAX_CHAIN_HOPS];
+    for (row, hop) in tests.iter_mut().zip(hops) {
+        for (slot, t) in row.iter_mut().zip(&hop.tests) {
+            *slot = ChainTest {
+                lane: foreign_lane_u32(foreign, t.lane),
+                value: t.value,
+                negate: t.negate,
+            };
+        }
+    }
+    let empty = ChainHop {
+        live: &[],
+        rows: 0,
+        tests: &[],
+        next: None,
+    };
+    let mut chain = [empty; MAX_CHAIN_HOPS];
+    for ((slot, hop), row) in chain.iter_mut().zip(hops).zip(&tests) {
+        let fp = &foreign.planes[usize::from(hop.live)];
+        *slot = ChainHop {
+            live: fp.words,
+            rows: fp.rows,
+            tests: &row[..hop.tests.len()],
+            next: hop.next.map(|k| foreign_lane_u32(foreign, k)),
+        };
+    }
+    let chain = &chain[..hops.len()];
+    match under {
+        None => mask_gather_chain_u32(index, chain, out),
+        Some(g) => mask_gather_chain_u32_under(index, g, chain, out),
     }
 }
 
@@ -1780,6 +1831,23 @@ pub fn execute_compiled(
                         ),
                     }
                 }
+                // Same tile discipline as `Gather`: the key lane is this
+                // tile's rows, every hop's plane and lanes are read WHOLE.
+                MaskOp::GatherChain {
+                    lane,
+                    chain,
+                    under,
+                    dst,
+                } => {
+                    let (d, rest) = scratch.split(dst);
+                    run_gather_chain(
+                        &program.chains[usize::from(chain)],
+                        foreign,
+                        lane_u32(planes, lane, t),
+                        under.map(|u| read(planes, &rest, u, t)),
+                        &mut d[..t.words],
+                    );
+                }
             }
         }
 
@@ -2537,6 +2605,7 @@ mod tests {
             terminal: Terminal::Count {
                 mask: Operand::Plane(0),
             },
+            chains: Vec::new(),
             scratch_slots: MAX_SCRATCH_SLOTS + 1,
         };
         let mut small = Scratch::new(2, 1);
@@ -2574,6 +2643,7 @@ mod tests {
             terminal: Terminal::Count {
                 mask: Operand::Plane(0),
             },
+            chains: Vec::new(),
             scratch_slots: MAX_SCRATCH_SLOTS + 1,
         };
         assert_eq!(

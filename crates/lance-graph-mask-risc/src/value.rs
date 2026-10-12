@@ -182,6 +182,14 @@ pub enum ExecError {
     /// [`crate::MaskOp::Gather`]'s `foreign` names no entry of the caller's
     /// [`crate::Foreign::planes`].
     ForeignOutOfRange(u16),
+    /// [`crate::MaskOp::GatherChain`]'s `chain` names no entry of
+    /// [`crate::Program::chains`].
+    ChainOutOfRange(u16),
+    /// A chain that cannot run: empty, longer than
+    /// [`crate::MAX_CHAIN_HOPS`], a hop with more than
+    /// [`crate::MAX_HOP_TESTS`] tests, a missing `next` before the last hop
+    /// or a `next` on it. `chain` names the chain, `hop` the offending hop.
+    ChainShape { chain: u16, hop: usize },
     /// [`crate::Terminal::GroupSumViaI32`]'s `key` names no entry of the
     /// caller's [`crate::Foreign::lanes`]. Distinct from [`Self::LaneOutOfRange`]
     /// — that one bounds a program's OWN `Planes::lanes`, this one bounds
