@@ -15,6 +15,7 @@ pub mod awareness;
 pub mod basis;
 pub mod call;
 pub mod decl;
+pub mod gremlin;
 pub mod method;
 
 use lance_graph_ontology::namespace::SchemaKind;

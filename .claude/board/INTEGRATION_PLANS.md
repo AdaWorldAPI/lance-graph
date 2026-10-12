@@ -6,6 +6,14 @@
 - The edge table is a Quack table: dependency questions are Drafts lowered and run on mask-risc. Validation is the compiler's verdicts recorded as edges.
 - H1 (fuse a predicate into `MaskedSumI32`) comes from the rows. Measured gap: 1.6–1.8× against a single-pass scalar reference on two tiers. Missing: `Pred` fusion and a sum `FusedFold`.
 - First blocker: multi-hop questions need a relation carrier, not a mask fed between programs.
+## 2026-10-12 (3) — gremlin-composable-algebra-v1 — Gremlin steps as typed building blocks of ClassId methods → `.claude/plans/gremlin-composable-algebra-v1.md`
+
+**Status:** MEASURED for one population (D-CMH-G1-0..3 shipped in the PR); D-CMH-G1-4..5 queued.
+
+- A method names another: predicate methods (`MethodBody::Select`) referenced by `Cond::Method`, inlined at preparation; no call at run time.
+- Typed Gremlin steps (`V/has/where/values/dedup/count/sum`) compose into a method body under #1311's anchor rule; hops refused until the glove declares a relation carrier.
+- Gremlin-shaped declarations load as text at run time; effects are refused at load.
+- Vocabulary matrix over TinkerPop 3.7.7: next lever is a relation carrier in the glove (a binding), then the ordered-key family.
 
 ## 2026-10-12 (2) — nal-polyfill-v1 — `NAL::narsese()` as a polyfill over R2IL procedures and mask-risc → `.claude/plans/nal-polyfill-v1.md`
 

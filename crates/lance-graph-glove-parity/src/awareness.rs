@@ -37,8 +37,8 @@ use lance_graph_quack::{lower, Agg, Col, LowerError, Mask, Query};
 
 use crate::basis::{FieldMap, Grade};
 use crate::method::{
-    Cond, Fold, Law, MethodBody, MethodKey, MethodSpec, MethodTable, PrepareError, ReadingId,
-    SchemaSeal,
+    Cond, Fold, Law, MethodBody, MethodKey, MethodRef, MethodSpec, MethodTable, PrepareError,
+    ReadingId, SchemaSeal,
 };
 
 /// What a node is.
@@ -82,6 +82,8 @@ pub enum Rel {
     Folds,
     /// method → law.
     FinishedBy,
+    /// method → method: a `Cond::Method` reference (G1).
+    Calls,
     /// method → program.
     LowersTo,
     /// program → primitive (compiled), or method → primitive (a claim).
@@ -434,7 +436,8 @@ const DST: u16 = 2;
 const TIER: u16 = 3;
 const CTX: u16 = 4;
 
-const RELS: [(Rel, &str); 14] = [
+const RELS: [(Rel, &str); 15] = [
+    (Rel::Calls, "calls"),
     (Rel::HasMethod, "has_method"),
     (Rel::ReadsField, "reads_field"),
     (Rel::Filters, "filters"),
@@ -598,29 +601,49 @@ impl SoftwareGraph {
                 }
                 g.nodes[f as usize].ident.clone()
             };
-            if let MethodBody::Query { filter, folds, law } = spec.body {
-                for c in filter {
-                    let (name, op, lit) = match *c {
-                        Cond::Eq { field, literal } => (field, "=", literal),
-                        Cond::Ne { field, literal } => (field, "!=", literal),
-                    };
-                    let f = field(self, name);
-                    let n = self.intern(Kind::Cond, format!("cond:{f}{op}{lit}@r{r}"));
-                    self.link(m, Rel::Filters, n, Tier::Declared, m, prov);
-                }
-                for fold in folds {
-                    let ident = match *fold {
-                        Fold::Count => "fold:count(*)".to_owned(),
-                        Fold::Sum(f) => format!("fold:sum({})", field(self, f)),
-                        Fold::GroupSum { key, val, groups } => format!(
-                            "fold:group_sum({},{},{groups})",
-                            field(self, key),
-                            field(self, val)
-                        ),
-                    };
-                    let n = self.intern(Kind::Fold, format!("{ident}@r{r}"));
-                    self.link(m, Rel::Folds, n, Tier::Declared, m, prov);
-                }
+            let (filter, folds, law): (&[Cond<'_>], &[Fold<'_>], Option<Law<'_>>) = match spec.body
+            {
+                MethodBody::Query { filter, folds, law } => (filter, folds, Some(law)),
+                MethodBody::Select { filter } => (filter, &[], None),
+                MethodBody::Action { .. } => (&[], &[], None),
+            };
+            for c in filter {
+                let (name, op, lit) = match *c {
+                    Cond::Eq { field, literal } => (field, "=", literal),
+                    Cond::Ne { field, literal } => (field, "!=", literal),
+                    // A reference is a CALLS edge to the method it names, as
+                    // the table resolves it; one that does not resolve has no
+                    // edge, and the table's refusal says why.
+                    Cond::Method(r) => {
+                        let target = match r {
+                            MethodRef::Key(k) => Some(k),
+                            MethodRef::Label(l) => table.resolve(l),
+                        };
+                        if let Some(k) = target {
+                            let t = self.intern(Kind::Method, method_ident(k));
+                            self.link(m, Rel::Calls, t, Tier::Declared, m, prov);
+                        }
+                        continue;
+                    }
+                };
+                let f = field(self, name);
+                let n = self.intern(Kind::Cond, format!("cond:{f}{op}{lit}@r{r}"));
+                self.link(m, Rel::Filters, n, Tier::Declared, m, prov);
+            }
+            for fold in folds {
+                let ident = match *fold {
+                    Fold::Count => "fold:count(*)".to_owned(),
+                    Fold::Sum(f) => format!("fold:sum({})", field(self, f)),
+                    Fold::GroupSum { key, val, groups } => format!(
+                        "fold:group_sum({},{},{groups})",
+                        field(self, key),
+                        field(self, val)
+                    ),
+                };
+                let n = self.intern(Kind::Fold, format!("{ident}@r{r}"));
+                self.link(m, Rel::Folds, n, Tier::Declared, m, prov);
+            }
+            if let Some(law) = law {
                 let law = match law {
                     Law::Values => "law:values".to_owned(),
                     Law::NarsRevision {

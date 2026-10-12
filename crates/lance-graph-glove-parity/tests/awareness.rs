@@ -13,7 +13,7 @@ use lance_graph_glove_parity::awareness::{
 use lance_graph_glove_parity::basis::{canonical_fields, FieldMap, Grade, SAP_FIELDS};
 use lance_graph_glove_parity::method::{
     Answer, Cond, EffectClass, Fold, FoldValue, Frontend, Glove, Law, MethodBody, MethodKey,
-    MethodSpec, MethodTable, ReadingId, SchemaSeal, Universe,
+    MethodRef, MethodSpec, MethodTable, ReadingId, SchemaSeal, Universe,
 };
 use lance_graph_mask_risc::{LaneRef, Planes, Program};
 use lance_graph_ogar::ogar_vocab::class_ids::{BILLABLE_WORK_ENTRY, DOCUMENT};
@@ -978,4 +978,76 @@ fn the_graph_supplies_typed_bodies() {
     assert_eq!(hours.len(), 4, "{hours:?}");
     assert!(hours.iter().any(|t| t.starts_with("cond:field:0x0103/")));
     assert!(hours.contains(&"law:values".to_owned()));
+}
+
+/// D-SAG-1-5 (G1 merged). FAILS IF: a method reference is not a declared
+/// CALLS edge to the method the table resolves, the callers of a predicate
+/// are not found through Quack, or a reference cycle is not the compiler's
+/// `MethodCycle` recorded on the cycle.
+#[test]
+fn method_references_are_calls_edges_and_cycles_are_the_compilers() {
+    const IS_BILLABLE: MethodKey = MethodKey([0xA1; 16]);
+    const HOURS: MethodKey = MethodKey([0xA2; 16]);
+    const A: MethodKey = MethodKey([0xA3; 16]);
+    const B: MethodKey = MethodKey([0xA4; 16]);
+    const USES: &[Cond] = &[Cond::Method(MethodRef::Label("is_billable"))];
+    let specs = vec![
+        (
+            "is_billable",
+            pure(
+                IS_BILLABLE,
+                MethodBody::Select {
+                    filter: &[BILLABLE_TRUE],
+                },
+            ),
+        ),
+        ("hours", pure(HOURS, query(USES, &[Fold::Sum("duration")]))),
+        (
+            "a",
+            pure(
+                A,
+                MethodBody::Select {
+                    filter: &[Cond::Method(MethodRef::Key(B))],
+                },
+            ),
+        ),
+        (
+            "b",
+            pure(
+                B,
+                MethodBody::Select {
+                    filter: &[Cond::Method(MethodRef::Key(A))],
+                },
+            ),
+        ),
+    ];
+    let b = batch(65);
+    let w = world(&b, &with_duration(), &specs);
+    assert_eq!(
+        w.graph.out(&method_ident(HOURS), Rel::Calls),
+        vec![(method_ident(IS_BILLABLE).as_str(), Tier::Declared)]
+    );
+    // Who calls is_billable: one Quack program over the edge table.
+    let callers = w
+        .graph
+        .hop_to_ctx(
+            &lance_graph_quack::bind::table("edges")
+                .where_eq("rel", "calls")
+                .where_eq("dst", method_ident(IS_BILLABLE).as_str()),
+        )
+        .unwrap();
+    assert_eq!(callers, vec![method_ident(HOURS).as_str()]);
+    // The caller lowered to a program reading the predicate's field.
+    assert_eq!(
+        w.graph.methods_using("MaskedSumI32").unwrap(),
+        vec![method_ident(HOURS).as_str()]
+    );
+    // The cycle: the graph records the compiler's verdict, it does not
+    // detect cycles itself.
+    let mut cyc = w.graph.refused_for("MethodCycle").unwrap();
+    cyc.sort_unstable();
+    let mut want = vec![method_ident(A), method_ident(B)];
+    want.sort();
+    assert_eq!(cyc, want.iter().map(String::as_str).collect::<Vec<_>>());
+    assert_eq!(w.graph.out(&method_ident(A), Rel::Calls).len(), 1);
 }
