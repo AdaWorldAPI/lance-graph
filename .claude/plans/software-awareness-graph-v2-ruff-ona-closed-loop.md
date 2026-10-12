@@ -1,5 +1,7 @@
 # D-SAG-2 — Ruff × ONA software-awareness closed-loop validation
 
+> **Aligned by [`sag-capstone-alignment-v1.md`](sag-capstone-alignment-v1.md)** — read it first: canonical `ProposedMethod`, the shared status vocabulary, D-id map, and the claims it marks stale (incl. "second hop refused").
+
 **Status:** RESEARCH / IMPLEMENTATION PLAN, not an implementation. **Base:** merged lance-graph #1509, main merge 42fa2a347cda22eaaa327bba514f2029cc9daa82 (2026-10-12).
 **Owner of authority:** existing OGAR action gate. **First executor:** existing Quack → mask-risc; R2IL FoldDialect is the alternate frontend. **Independent source oracle:** AdaWorldAPI/ruff.
 **Prompt:** [software-awareness-graph-v2-claude-code.md](../prompts/software-awareness-graph-v2-claude-code.md).

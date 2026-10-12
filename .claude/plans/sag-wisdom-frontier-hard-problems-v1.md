@@ -1,5 +1,7 @@
 # D-SAG-3.1: deferred hard problems in the wisdom frontier
 
+> **Aligned by [`sag-capstone-alignment-v1.md`](sag-capstone-alignment-v1.md)** — read it first: canonical `ProposedMethod`, the shared status vocabulary, D-id map, and the claims it marks stale (incl. "second hop refused").
+
 **Status:** RESEARCH ONLY. Extension of [D-SAG-3](sag-wisdom-frontier-ona-hyperon-v1.md) on PR #1511, based on merged #1509. Nothing here is a shipped feature, performed experiment, authorization, or production ABI decision. [Source excerpts](../../.arxiv/2026-10_wisdom_frontier_active_inference_delta_and_misspecification.md).
 
 ## H1. Four distinct epistemic quantities

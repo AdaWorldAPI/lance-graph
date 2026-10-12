@@ -11,4 +11,4 @@ Novel crosscheck: internally observed/derived/attended events are distinct; copi
 
 D-SAG-5-0 is documentation; D-SAG-5-1..10 are QUEUED and require independent falsifiers and explicit later implementation authorization.
 
-Closeout: PR #<tbd> | DRAFT | source extracts, reconciled plan, Claude Code prompt, frozen-source oracle/negative-control matrix | nothing implemented, all experiments OPEN.
+Closeout: PR #1515 (folded into the capstone) | DRAFT | source extracts, reconciled plan, Claude Code prompt, frozen-source oracle/negative-control matrix | nothing implemented, all experiments OPEN.

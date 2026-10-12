@@ -1,5 +1,7 @@
 # D-IAM-SAG-0 — IAM substrate: dir_sim × OGAR × Class/Methods × Software Awareness Graph
 
+> **Aligned by [`sag-capstone-alignment-v1.md`](sag-capstone-alignment-v1.md)** — read it first: canonical `ProposedMethod`, the shared status vocabulary, D-id map, and the claims it marks stale (incl. "second hop refused").
+
 > **RFC / implementation handoff, documentation only.** Based on merged [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509), merge commit `42fa2a347cda22eaaa327bba514f2029cc9daa82`. The goal is to specify executable, falsifiable IAM projections, not announce six shipped IAM products. No connector writes, security-authority migration, new opcode, second graph engine, or CE64 byte-semantic change is authorized.
 >
 > **Companions:** [Software Awareness Graph](software-awareness-graph-v1.md), [Class × Schema × Methods HotPlug](class-method-schema-hotplug-v1.md), [class/method falsifiers](class-method-hotplug-falsifiers-v1.md), [dir-sim persistence](dir-sim-persist-v1.md), [RBAC nested scope](../board/entries/2026-10-08-rbac-nested-scope-path.md), [research excerpts](../../.arxiv/2026-10_iam_access_paths_temporal_provenance_primary_excerpts.md), [implementation prompt](../prompts/iam-substrate-after-1509.md). OGAR semantic sibling [#357](https://github.com/AdaWorldAPI/OGAR/pull/357) is an RFC, not a shipped dynamic-method link.
@@ -88,7 +90,7 @@ Requests:
 1. `explain_access(A, ERP_Ledger, Write, as_of=V, policy=p7)`: enumerate **all** supporting paths or declare `one witness / nonexhaustive`; include policy, source and snapshot receipt.
 2. `revoke_preview(A, GRP_Finance)`: `VersionStore.simulate` on base V, evaluate effective roles for both views with `RoleImpact::between`, compute target entitlement deltas; ensure another valid path preserves access.
 3. `why_not_access?`: if the device/CA policy is missing, report `Undetermined/Unknown`, *not* a denial or approval.
-4. `propose_action`: stage an inert change with preconditions and impact; policy authority separately gates `approve` and eventual external executor.
+4. `propose_action`: stage an inert `ProposedMethod` with preconditions and impact; policy authority separately gates `approve` and eventual external executor.
 
 Distinguish **effective graph grant**, **authentication success**, **conditional access evaluation**, and **live enforcement**. A directory membership cannot prove an IdP token was accepted.
 
@@ -103,7 +105,7 @@ class Grant         { policy, witnesses, effective_during }
 class Change        { preview, validate, approve, execute, verify, revert }
 ```
 
-**Execution class:** `PureRead | VersionPinnedRead | Propose | ExternalMutate` is an RFC name only. `PureRead` and `Propose` use existing Quack/R2IL and dir_sim primitives. `ExternalMutate` is not a Quack opcode and must refuse unless independently authorized, with fresh source preconditions and external connector attestation. An absent field, alias, authority, schema seal, body, read scope, source version, evidence completeness or capability causes an explicit typed refusal.
+**Execution class:** these are main's shipped `EffectClass::{Pure, ReadVersion, Propose, ExternalMutate}` (`method.rs`); use those names. `Pure` uses existing Quack/R2IL and dir_sim primitives. `Propose` builds a `ProposedMethod` and is legal only on an Action body; every call on it refuses with `NotPure`. `ExternalMutate` is not a Quack opcode and must refuse unless independently authorized, with fresh source preconditions and external connector attestation. An absent field, alias, authority, schema seal, body, read scope, source version, evidence completeness or capability causes an explicit typed refusal.
 
 ## 7. Falsifiers and acceptance matrix
 

@@ -27,7 +27,7 @@ Then choose the **smallest independent probe** which can be implemented in the c
 3. Register bytes are ISA/ALU carriers. ClassView, provenance and method signatures determine readings. No hidden semantic assumptions in raw register tests.
 4. NARS frequency/confidence are not automatically calibrated Bayesian probabilities; Shannon entropy/EIG require an explicitly calibrated and versioned hypothesis distribution.
 5. Derived edges inherit original observation roots, never mint a new independent root. No self/descendant support, including reopened grounded cycles.
-6. Mask debt must operate on a separately typed prerequisite universe: missing = required & ~(known | refuted); blocked = required & refuted; debt = popcount(missing). A debt of 0 is not proof of truth.
+6. Mask debt must operate on a separately typed prerequisite universe: missing = required & ~(known | refuted | unread) (unread is not negative evidence); blocked = required & refuted; debt = popcount(missing). A debt of 0 is not proof of truth.
 7. SAG #1509 is **one hop** using existing Quack Draft/ScatterOrU32. A second hop must be represented by a *proven legal* relation carrier or explicitly blocked. No second traversal VM, custom graph executor, shadow methods registry or invented Quack operator.
 8. An LLM-synthesized ranking **program** is not a decision, a decision is not a committed goal, and a committed goal is not permission to effect a real-world operation. Version/seal/time, capability and live authorization gates remain separate.
 9. Compiled, verified and hypothesized SAG tiers remain distinct. No automatic application of H1 fusion. Do not claim a SIMD improvement before a fused terminal exists and runs.

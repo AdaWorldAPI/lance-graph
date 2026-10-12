@@ -1,3 +1,11 @@
+## 2026-10-12 (6) — sag-capstone-alignment-v1 — one alignment over the six SAG research PRs (#1510, #1511, #1512, #1513, #1515, #1517) → `.claude/plans/sag-capstone-alignment-v1.md`
+
+**Status:** CURRENT-CONTRACT for naming and vocabulary; nothing built.
+
+- `ProposedMethod` is canonical (rewrite shape on `awareness::Candidate`, action shape on `EffectClass::Propose`); six aliases retired; scheduler selection renamed `SchedulerDecision`.
+- One four-state status (Witnessed / Refuted / Undetermined / Conflicted) maps the five PR vocabularies; unread is never missing.
+- Stale claims listed (second hop refused, defects A/B unverified); contradictions on Ruff's role, ONA pin and execution-class names resolved.
+
 ## 2026-10-12 (5) — sag-reflexive-cognition-from-1509-v1 — source-backed SAG self-querying, cognition/attention controls and safe optimization proposals → .claude/plans/sag-reflexive-cognition-from-1509-v1.md
 
 **Status:** PROPOSAL D-SAG-5-0..10. Only D-SAG-5-0 documentation is in this PR, based on merged #1509.

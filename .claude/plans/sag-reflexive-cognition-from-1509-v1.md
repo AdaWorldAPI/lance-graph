@@ -1,5 +1,7 @@
 # D-SAG-5: reflexive cognition and safe optimization from #1509
 
+> **Aligned by [`sag-capstone-alignment-v1.md`](sag-capstone-alignment-v1.md)** — read it first: canonical `ProposedMethod`, the shared status vocabulary, D-id map, and the claims it marks stale (incl. "second hop refused").
+
 **Date:** 2026-10-12. **Status:** PROPOSAL. Documentation only. **Parent:** merged [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509); follow-up research to merged [#1496](https://github.com/AdaWorldAPI/lance-graph/pull/1496), [#1497](https://github.com/AdaWorldAPI/lance-graph/pull/1497), [#1498](https://github.com/AdaWorldAPI/lance-graph/pull/1498) and [#1499](https://github.com/AdaWorldAPI/lance-graph/pull/1499).
 
 **Research sources:** [NARS, ONA, Hyperon](../../.arxiv/2026-10_sag1509_nars_hyperon_reflexive_appraisal_excerpts.md), [information theory and metagraphs](../../.arxiv/2026-10_sag1509_information_metagraph_optimization_excerpts.md), [pinned source and falsifier ledger](../../.arxiv/2026-10_sag1509_source_oracles_falsifier_matrix.md). **Runnable research brief:** [Claude Code prompt](../prompts/sag-reflexive-cognition-from-1509.md).

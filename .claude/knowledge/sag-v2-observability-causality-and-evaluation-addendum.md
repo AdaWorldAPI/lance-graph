@@ -113,7 +113,7 @@ read frozen A
 Observe three classes of operation separately:
 - **NoOp**: no source or external change; tests attention and measurement drift. An ONA issue discusses ambiguity around a "do nothing operator" as an implementation question, not a settled semantic analogue for SAG.
 - **Probe**: read-only, potentially costly harvest/measurement. Its side effect is **knowledge intake**, not target-program modification.
-- **Proposal**: inert suggested code/transformation/action that cannot execute externally before OGAR authorization.
+- **`ProposedMethod`** (canonical, see [capstone](../plans/sag-capstone-alignment-v1.md)): inert suggested code/transformation/action that cannot execute externally before OGAR authorization.
 
 No unbounded action loops, no automatic source rewriting. A decision to probe is not the same as a commitment to mutate. A failure prediction becomes negative evidence **only** if the collector could have witnessed its expected outcome.
 
@@ -158,7 +158,7 @@ The Rubicon research (#1500) describes human commitment/implementation intention
 
 ```text
 Hypothesis -> CandidateProbe -> PrecommittedPrediction -> ReadOnlyProbe
-          -> OutcomeReceipt -> RevisedEvidence -> CandidateProposal
+          -> OutcomeReceipt -> RevisedEvidence -> ProposedMethod
           -> OperatorCommitIntent (revocable) -> OGAR Action Gate
           -> ExternalActionReceipt -> PostconditionObservation
 ```

@@ -1,5 +1,7 @@
 # D-SAG-3 — Wisdom frontier: OpenPsi x Rubikon x Shannon x CARE x ONA/Hyperon
 
+> **Aligned by [`sag-capstone-alignment-v1.md`](sag-capstone-alignment-v1.md)** — read it first: canonical `ProposedMethod`, the shared status vocabulary, D-id map, and the claims it marks stale (incl. "second hop refused").
+
 **Status:** RESEARCH / FALSIFIABLE DESIGN ONLY, 2026-10-12. Sibling extension of merged [D-SAG-1 / #1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509). **No implementation, runtime evaluation, opcode, wire change, new graph engine, bit migration, authorization change, or speedup claim.**
 
 **Read alongside:** [D-SAG-1](software-awareness-graph-v1.md), [D-MATURATION3-0](../knowledge/maslov-pyramid-of-cognition.md), [D-RV](rubicon-volition-v1.md), [PLN/Shannon #1497](../../.arxiv/2026-10_opencog_pln_shannon_attention_research_map.md), [CARE paper notes](../../.arxiv/2606.14581_synthesize_programs_gate_commit.md), and [new annotated sources](../../.arxiv/2026-10_openpsi_rubicon_care_wisdom_frontier_source_excerpts.md). A self-contained execution prompt lives at [sag-wisdom-frontier-claude-code.md](../prompts/sag-wisdom-frontier-claude-code.md).
@@ -43,7 +45,7 @@ Information gain does not prove causality. A program selected by CARE does not a
         maturity_test_local, candidate_hypotheses,
         provenance, cost_estimate, authorization_scope
     }
-    Proposal {
+    SchedulerDecision {   // not a ProposedMethod: it selects work, it changes nothing
         program_hash, schema_seal, data_revision,
         evidence_cutoff, ordered_candidates, scores,
         reference_score, challenger_score,
@@ -58,7 +60,7 @@ At a validated stage-0 anchor, enumerate **only relations reachable through a do
 
 For each candidate typed relation, on a declared prerequisite universe U:
 
-    missing = required & ~(established | refuted)
+    missing = required & ~(established | refuted | unread)   // unread is not missing; see hard-problems H1
     blocked = required & refuted
     debt = popcount(missing)
 
@@ -128,7 +130,7 @@ Never reward entropy for entropy's sake. Penalize useless curiosity through meas
       |-> update demand / epistemic evidence / disengage or replan
       |-> optional new knowledge can enter next snapshot only
 
-No proposed optimizer H1 is performed automatically. Any optimization is a proposal checked by semantic equivalence, NULL/bag/set, cost tier and authority, and requires an authorized effect separately.
+No proposed optimizer H1 is performed automatically. Any optimization is a `ProposedMethod` checked by semantic equivalence, NULL/bag/set, cost tier and authority, and requires an authorized effect separately.
 
 ## 6. Falsifier ledger (proposed D-SAG-3-0 .. 15)
 

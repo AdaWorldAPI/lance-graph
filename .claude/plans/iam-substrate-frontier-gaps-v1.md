@@ -1,5 +1,7 @@
 # D-IAM-SAG-1 — Frontier addendum: negative proof, temporal authority, and safe introspection
 
+> **Aligned by [`sag-capstone-alignment-v1.md`](sag-capstone-alignment-v1.md)** — read it first: canonical `ProposedMethod`, the shared status vocabulary, D-id map, and the claims it marks stale (incl. "second hop refused").
+
 > **2026-10-12 / RFC only / deliberately unshipped architectural hypotheses.** Extends [D-IAM-SAG-0](iam-substrate-sag-dir-sim-v1.md) in draft [#1512](https://github.com/AdaWorldAPI/lance-graph/pull/1512), based on merged [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509). [Primary literature and standards excerpts](../../.arxiv/2026-10_iam_negative_provenance_authority_and_agentic_policy_excerpts.md). Existing [Claude implementation prompt](../prompts/iam-substrate-after-1509.md) is extended accordingly.
 >
 > **Status discipline:** [G] = confirmed in cited code or #1509; [R] = result from cited paper/standard **within its own assumptions**; [H] = proposed mapping not proved in lance-graph; [B] = implementation blocker. An RFC is not implementation. No change to existing ISA/byte contract, OGAR/OGIT mint, any directory schema or authorized provider behavior.
@@ -135,7 +137,7 @@ Represent:
 Keep `D-IAM-SAG-0` read-only. A *future separate PR* can specify:
 
 ```text
-ProposedChange -> SimulatedImpact -> Human/Policy Approval
+ProposedMethod -> SimulatedImpact -> Human/Policy Approval
  -> Fresh Authorization (actor+resource+verb+scope+purpose)
  -> Provider Preconditions (source ETag/version, policy rev, target identity)
  -> External Call (idempotency strategy, declared retry semantics)

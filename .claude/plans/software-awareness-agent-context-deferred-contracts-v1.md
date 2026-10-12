@@ -1,5 +1,7 @@
 # D-SAG-4 appendix: deferred concrete contracts for an agent-facing software graph
 
+> **Aligned by [`sag-capstone-alignment-v1.md`](sag-capstone-alignment-v1.md)** — read it first: canonical `ProposedMethod`, the shared status vocabulary, D-id map, and the claims it marks stale (incl. "second hop refused").
+
 **Status:** PROPOSAL / NOT SHIPPED. **Added after #1513's first documentation pass.** Built on merged [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509), not an alternative to it. Parent: [D-SAG-4 plan](software-awareness-agent-context-ona-v1.md). Research: [source excerpts](../../.arxiv/2026-10_sag_agent_attention_active_selection_excerpts.md). This appendix unpacks design and falsification details deliberately left small in the first draft. It does **not** certify measurements, APIs, an IDE plug-in or runtime integration.
 
 ## A. What the existing executor can actually answer
@@ -41,7 +43,7 @@ First useful interface is a *local* read-only CLI or protocol adapter:
 resolve(symbol_query, revision)       -> SymbolRef | Ambiguous | NotIndexed
 context(SymbolRef, intent, budget)    -> Slice | Stale | Unsupported
 impact(SymbolRef, change_kind, budget)-> Slice | Uncertain | Unsupported
-propose(SymbolRef, objective, budget) -> Candidate[] | InsufficientEvidence
+propose(SymbolRef, objective, budget) -> ProposedMethod[] | InsufficientEvidence
 expand(SliceHandle, relation, budget) -> SliceDelta | UnsupportedMultiHop
 explain(EdgeRef)                      -> SourceSpan + Witness + Tier + Revision
 ```

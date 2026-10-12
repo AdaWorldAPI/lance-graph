@@ -1,5 +1,7 @@
 # D-SAG-CF-1: Inverted temporal ablation as a cross-reasoner epistemic probe
 
+> **Aligned by [`sag-capstone-alignment-v1.md`](sag-capstone-alignment-v1.md)** — read it first: canonical `ProposedMethod`, the shared status vocabulary, D-id map, and the claims it marks stale (incl. "second hop refused").
+
 **Status: RESEARCH RFC / NOT AN IMPLEMENTED ADAPTER.** Parent: [#1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509), the merged one-hop Software Awareness Graph (SAG). Relevant siblings: [#1496](https://github.com/AdaWorldAPI/lance-graph/pull/1496), [#1497](https://github.com/AdaWorldAPI/lance-graph/pull/1497), [#1498](https://github.com/AdaWorldAPI/lance-graph/pull/1498). Literature: [research map](../../.arxiv/2026-10_inverted_temporal_ablation_reasoner_oracles.md). Existing audit: [Gadamer ablation](../research/2026-10-recovery/GADAMER-ABLATION-RESEARCH.md).
 
 ## 0. The question: nine dots, one hidden boundary

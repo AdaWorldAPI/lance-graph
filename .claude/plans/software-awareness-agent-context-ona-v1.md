@@ -1,7 +1,9 @@
 # D-SAG-4 — Addressable software context and ONA-inspired execution feedback
 
+> **Aligned by [`sag-capstone-alignment-v1.md`](sag-capstone-alignment-v1.md)** — read it first: canonical `ProposedMethod`, the shared status vocabulary, D-id map, and the claims it marks stale (incl. "second hop refused").
+
 **Status:** RESEARCH / unimplemented follow-up. **Base:** [merged D-SAG-1 #1509](https://github.com/AdaWorldAPI/lance-graph/pull/1509), merge commit `42fa2a347cda22eaaa327bba514f2029cc9daa82`. **Code examined:** `crates/lance-graph-glove-parity/src/awareness.rs`, `method.rs`, `gremlin.rs`; [D-SAG-1 plan](software-awareness-graph-v1.md). **Date:** 2026-10-12.
-**Companions:** [execution prompt](../prompts/d-sag-2-ona-agent-context-implementation.md), [primary research excerpts](../../.arxiv/2026-10_sag_ona_internal_experience_source_excerpts.md), [repository-graph papers](../../.arxiv/2026-10_sag_repo_graph_context_source_excerpts.md).
+**Companions:** [execution prompt](../prompts/d-sag-4-ona-agent-context-implementation.md), [primary research excerpts](../../.arxiv/2026-10_sag_ona_internal_experience_source_excerpts.md), [repository-graph papers](../../.arxiv/2026-10_sag_repo_graph_context_source_excerpts.md).
 
 ## 0. Problem and result that would change our mind
 
@@ -45,8 +47,8 @@ Three **candidate** tool operations, not claims of installed integrations:
 
 ```text
 context(SymbolRef, Intent, Budget, Revision) -> ContextSlice | TypedRefusal
-impact(SymbolRef, ProposedChange, Budget, Revision) -> ImpactSlice | TypedRefusal
-propose(SymbolRef, Objective, Budget, Revision) -> Candidate[] | TypedRefusal
+impact(SymbolRef, ProposedMethod, Budget, Revision) -> ImpactSlice | TypedRefusal
+propose(SymbolRef, Objective, Budget, Revision) -> ProposedMethod[] | TypedRefusal
 ```
 
 - `SymbolRef` is a canonical location/ID plus optional exact source location, not an unqualified string.
@@ -54,7 +56,7 @@ propose(SymbolRef, Objective, Budget, Revision) -> Candidate[] | TypedRefusal
 - `Budget`: max nodes/edges/hops, returned bytes/tokens (estimated), wall time, privacy/redaction policy; show `truncated` and a continuation handle.
 - `ContextSlice`: exact anchor IDs, source links and line ranges, evidence tiers, graph revision, discovered dependencies, relevant laws, tests/refusals, uncertainties, `not_checked`, and explicit omissions.
 - `ImpactSlice`: affected functions/methods/tests/build targets by typed reachability, plus separate potential or unresolved impacts. Missing an edge is NOT a negative proof.
-- `Candidate`: deterministic graph-pattern recommendation, obligations, confidence provenance and a suggested *read-only* verification query. No execute/edit capability.
+- `ProposedMethod` (canonical; wraps main's `awareness::Candidate`): deterministic graph-pattern recommendation, obligations, confidence provenance and a suggested *read-only* verification query. No execute/edit capability.
 
 Example payload, strictly illustrative:
 
