@@ -118,10 +118,10 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | hasLabel | selection | V->V | keeps | — | pure | DIRECT | V(c) is the classid population; a second label is another anchor | — |
 | hasId | selection | V->V | keeps | — | pure | COMPOSE | Cmp::Range / row ordinal | id↔row binding in Glove |
 | has(f, eq/neq) | selection | V->V | keeps | — | pure | DIRECT | Cmp::EqU32/NeU32 (tests/gremlin.rs) | — |
-| has(f, lt/lte/gt/gte) on i32 | selection | V->V | keeps | — | pure | COMPOSE | Cmp::LtI32..GeI32 | Cond ordered compare |
+| has(f, lt/lte/gt/gte) on i32 | selection | V->V | keeps | — | pure | DIRECT (G1-6) | `Cond::Order` → Cmp::LtI32..GeI32 / R2IL `and_cmp_i32` (tests/ordered.rs) | — |
 | has(f, ordered) on u32 | selection | V->V | keeps | — | pure | YET | none: #1311 G5 (`far_side_ordered_predicate_is_refused…`) | ordered u32 compare (G5) |
 | has(f, within/without) | selection | V->V | keeps | — | pure | COMPOSE | Filter::Or of EqU32 / And of NeU32 | Cond::Or |
-| has(f, inside/outside/between) | selection | V->V | keeps | — | pure | COMPOSE | And/Or of i32 compares | Cond ordered compare |
+| has(f, inside/outside/between) | selection | V->V | keeps | — | pure | COMPOSE | And/Or of i32 compares | a two-sided `Pred` (`inside`/`between` = two `Cond::Order`; `outside` needs `Cond::Or`) |
 | hasKey/hasValue/hasNot | selection | V->V | keeps | null | pure | YET | nullable fields refused (`a_nullable_field_is_refused`) | three-valued condition + null policy |
 | is | selection | value->value | keeps | — | pure | COMPOSE | = has(f,p) when the value is an anchor field | value-cursor filter |
 | where(method()) | selection | V->V | keeps | — | pure | DIRECT | inlined predicate (tests/compose.rs) | — |
@@ -157,7 +157,7 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | count() of values | aggregation | values->scalar | COUNT(f) | — | pure | YET | refused (CountOfValues) | field-reading count fold |
 | sum() on anchor i32 | aggregation | values->scalar | bag sum | — | pure | DIRECT | Fold::Sum | — |
 | sum() through fk | aggregation | values->scalar | bag sum | — | pure | YET | none (#1312 §I gap 4) | masked_sum_i32_via |
-| min/max | aggregation | values->scalar | — | — | pure | COMPOSE | Agg::MinI32/MaxI32 | Fold::Min/Max |
+| min/max | aggregation | values->scalar | — | — | pure | DIRECT (G1-6) | `Fold::Min/Max` → Agg::MinI32/MaxI32 / R2IL `MIN`/`MAX`; empty → `None` (tests/ordered.rs) | — |
 | mean | aggregation | values->scalar | — | — | pure | COMPOSE | lower_avg (SUM+COUNT) | a law over two folds |
 | groupCount().by(f) | aggregation | V->map | bag per key | — | pure | COMPOSE | GroupReduce{Count}; #1311 groupCount tests | Fold::GroupCount |
 | group().by(f).by(sum) | aggregation | V->map | bag per key | — | pure | DIRECT | Fold::GroupSum (tests/declared.rs) | — |
@@ -184,19 +184,19 @@ Rows group steps of one mechanism, so percentages are of rows, not of step names
 | predicate | status | evidence |
 |---|---|---|
 | P.eq / P.neq | DIRECT | Cmp::EqU32/NeU32 |
-| P.lt/lte/gt/gte (i32) | COMPOSE | Cmp::*I32; no Cond form |
+| P.lt/lte/gt/gte (i32) | DIRECT (G1-6) | `Pred::Lt..Gte` → `Cond::Order` |
 | P.lt/lte/gt/gte (u32) | YET | G5 |
 | P.inside/outside/between | COMPOSE | And/Or of compares |
 | P.within/without | COMPOSE | Or/And of EqU32 |
 | TextP.startingWith | COMPOSE | PrefixLowering over an ordered dictionary lane |
 | TextP.endingWith/containing/regex and negations | OUT | strings are codes |
 
-Step rows: 67. DIRECT 12 (18%), COMPOSE 20 (30%), YET 19 (28%), EFFECT 4 (6%), OUT 12 (18%) — after G1-4a; at #1508: DIRECT 10, COMPOSE 22
-Predicate rows: 7. DIRECT 1, COMPOSE 4, YET 1, OUT 1
+Step rows: 67. DIRECT 14 (21%), COMPOSE 18 (27%), YET 19 (28%), EFFECT 4 (6%), OUT 12 (18%) — after G1-6; after G1-4a: DIRECT 12, COMPOSE 20; at #1508: DIRECT 10, COMPOSE 22
+Predicate rows: 7. DIRECT 2, COMPOSE 3, YET 1, OUT 1 (after G1-6; DIRECT 1, COMPOSE 4 before)
 
 YET rows by missing capability: row answer type ×3; ordered population op ×2; typed bag merge ×2; ordered u32 compare (G5) ×1; three-valued condition + null policy ×1; ordered first-occurrence mask (FirstOfRun) ×1; composed fk read (G1) ×1; barrier / fan-in operand (G2) ×1; binding environment ×1; binding environment + join ×1; field-reading count fold ×1; masked_sum_i32_via ×1; typed branch + merge ×1; bounded fixpoint ×1; provenance-carrying path ×1
 
-COMPOSE rows by what the method layer lacks: relation carrier ×6 (×8 at #1508; G1-4a moved functional `out` and `where` over it to DIRECT); Cond::Or ×3; Cond ordered compare ×2; — ×2; id↔row binding in Glove ×1; value-cursor filter ×1; relation carrier + order witness ×1; Cond::Not ×1; Fold::Min/Max ×1; a law over two folds ×1; Fold::GroupCount ×1
+COMPOSE rows by what the method layer lacks: relation carrier ×6 (×8 at #1508; G1-4a moved functional `out` and `where` over it to DIRECT); Cond::Or ×3; a two-sided `Pred` ×1 (Cond ordered compare ×2 before G1-6); — ×2; id↔row binding in Glove ×1; value-cursor filter ×1; relation carrier + order witness ×1; Cond::Not ×1; a law over two folds ×1; Fold::GroupCount ×1
 
 ## §5 — What the matrix says to build next
 
@@ -274,6 +274,36 @@ that names it: liveness test removed, `neq` ignored, population check removed,
 key dropped from `required`, R2IL refusal turned into a silent pass, liveness
 emitted per condition.
 
+## §9 — D-CMH-G1-6: ordered `I32` conditions and `MIN`/`MAX`
+
+- `Cond::Order { field, op, value }` (`<`, `<=`, `>`, `>=` on an `I32` field).
+  The value is a number in the lane's own units; no codebook resolves it, and
+  an ordered condition on a coded field is refused (`KindMismatch`). Quack:
+  `Cmp::{Lt,Le,Gt,Ge}I32`. R2IL: `procs::and_cmp_i32`: `IntSLess` is the
+  only ordered call, so `>` is `t < lane` and `<=`/`>=` are `IntNot` of `>`/`<`,
+  confined by the AND with the selection.
+- `Fold::Min/Max` over an `I32` field. Quack: `Agg::MinI32/MaxI32`. R2IL: the
+  `MIN`/`MAX` fold calls, newly wired in `lance-graph-r2il` onto mask-risc's
+  `MaskedMinI32/MaxI32`. An empty selection answers `FoldValue::Extremum(None)`
+  on both: Quack returns `OptI32(None)`; R2IL pushes the fold's identity
+  (`i64::MAX`/`i64::MIN`, the grouped terminals' seed), which no `I32` equals.
+- Gremlin: `has(f, lt|lte|gt|gte(n))`, `values(f).min()/max()`, and the same in
+  text. Refused: `min()/max()` of vertices (`ExtremumOfVertices`), an ordered
+  `has` after `out(rel)` (`OrderThroughRelation`; no ordered compare reads
+  through a key), `min/max` on a relation's target (`ValueThroughRelation`).
+
+No new opcode: `MIN`/`MAX` were already defined in OGAR's fold band and
+refused here as unimplemented.
+
+Evidence: `tests/ordered.rs` (3 tests, CATS glove, both frontends vs a row loop
+over the indicator text, n ∈ {1, 64, 65, 4097}, every comparison at thresholds
+below, at, between and above the lane's values, including an empty selection);
+`lance-graph-r2il/tests/procs.rs` (`min_max_match_the_reference`,
+`ordered_compares_match_the_reference`). Disable runs, each red on its test:
+Quack `>` as `>=`; R2IL ordered conditions dropped; R2IL identity read as a
+value; Quack `None` read as 0; ordered condition bound on a coded field; R2IL
+`MIN` lowered to `MAX`; `<=`/`>=` without the negation; empty identity as 0.
+
 ## D-ids
 
 | D-id | scope | status |
@@ -285,3 +315,4 @@ emitted per condition.
 | D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` after it (§8) | Shipped (#1514) |
 | D-CMH-G1-4 | the rest of the carrier: `in`/M:N (anchor moves to child or edge rows), `E()`, `outE/inV`, `dedup` after a fan-out | Queued |
 | D-CMH-G1-5 | FirstOfRun (insufficiency proof first; separate PR #3) | Queued |
+| D-CMH-G1-6 | ordered `I32` conditions, `MIN`/`MAX` folds; R2IL `MIN`/`MAX` wired (§9) | In PR |
