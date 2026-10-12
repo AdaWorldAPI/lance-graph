@@ -258,13 +258,15 @@ adapter, minus the relations that fan out.
   and binder, and names errors `relation.field`. The key joins `required`, so
   an unproven key refuses the method like any field it reads.
 - A call names each target concept's population; another population, or
-  none, is `CallError::ForeignUniverse`.
+  none, is `CallError::ForeignUniverse`. Two relations that reach one target concept in
+  different populations are refused at preparation (`ConflictingUniverse`),
+  since one population per concept is all a call can name.
 - **R2IL cannot express it.** The fold band has `VIA` but no `GATHER`: it can
   read a target field through a key, but not test that the key names a live
   row. A method with a relation condition returns `CallError::FrontendGap {
   R2il, "GATHER" }`; methods without one still run on both frontends.
 
-Evidence: `tests/relation.rs` (7 tests). FIXTURE: a synthetic `line -billed_to->
+Evidence: `tests/relation.rs` (8 tests). FIXTURE: a synthetic `line -billed_to->
 partner` pair (37 partners, 4 dangling key values, every 7th partner dead,
 every 13th line dead); every answer is checked against a row loop over the
 field text at n ∈ {1, 64, 65, 4097}. Six disable runs, each red on the test
