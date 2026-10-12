@@ -134,3 +134,17 @@ The final status table must distinguish **IMPLEMENTED / MEASURED / SOURCE-VERIFI
 - No unproven full cognitive architecture claim merely because individual probes pass.
 
 **Deliverable of the current research PR:** documentation, annotated .arxiv source shelf and this prompt. Future code P1-P6 is *proposed work*, not claimed delivered.
+
+
+## Second-wave handoff added on #1511
+
+Before implementing a curiosity scheduler, read:
+- .claude/plans/sag-wisdom-frontier-hard-problems-v1.md
+- .arxiv/2026-10_wisdom_frontier_active_inference_delta_and_misspecification.md
+- .claude/prompts/sag-wisdom-frontier-adversarial-expansion.md
+
+**Explicit priority:** The first missing technical invariant is not faster popcount. It is **correct incremental retraction of evidence with alternate supports, inaccessible sources, bounded queue semantics, and a full-recomputation scalar oracle**. Treat A16..A33 as additional *proposed* red tests, not tests already executed. In a future implementation PR start with A16-A19, and stop rather than silently building or changing production infrastructure.
+
+Preserve the distinction between (i) graph support ablation, (ii) world-model intervention and (iii) model criticism. Never call derived graph dependence proof of causality. Include uncalibrated or misspecified EIG, procedural permission denial, starvation and commitment oscillation as explicit negative/silence twins.
+
+No code changes or runtime measurements are authorized by the existence of this prompt; the current #1511 documents hypotheses and does not ship their implementations.
