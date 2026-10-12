@@ -18,11 +18,12 @@
 //!
 //! | step | on a vertex | on `values(f)` |
 //! |---|---|---|
-//! | `has(f, eq/neq)`, `where(method())` | a condition | refused (`FilterAfterValues`) |
+//! | `has(f, eq/neq)`, `has(f, lt/lte/gt/gte(n))`, `where(method())` | a condition | refused (`FilterAfterValues`) |
 //! | `dedup()` | identity: anchor rows are distinct vertices | refused (`DedupOfValues`: a set of values is another multiset) |
 //! | `values(f)` | cursor moves to the value | refused (`ValuesOfValues`) |
 //! | `count()` | `COUNT(*)` | refused (`CountOfValues`: `COUNT(f)` is not `COUNT(*)` under nulls) |
 //! | `sum()` | refused (`SumOfVertices`) | `SUM(f)` |
+//! | `min()` / `max()` | refused (`ExtremumOfVertices`) | `MIN(f)` / `MAX(f)`; `None` when nothing is selected |
 //! | `out(rel)` | the cursor moves to the target; the anchor stays (below) | — |
 //! | `in` / `both` | refused (`FanOut`): a fan-out moves the anchor, not carried | — |
 //!
@@ -34,6 +35,7 @@
 //! | step | after `out(rel)` |
 //! |---|---|
 //! | `has(f, eq/neq)` | a condition on the target's field, read through the key |
+//! | `has(f, lt/lte/gt/gte)` | refused (`OrderThroughRelation`): no ordered compare reads through a key |
 //! | `count()` | `COUNT(*)` of anchor rows that reach a live target |
 //! | `out` | refused (`SecondHop`): a key read through a key (#1311 G1) |
 //! | `values(f)` | refused (`ValueThroughRelation`): a sum through the key is not in Quack |
