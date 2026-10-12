@@ -13,8 +13,8 @@ prompt.
 | capability | evidence |
 |---|---|
 | Directory simulation with version history: AD (LDIF) and Entra (Graph JSON) observed read-only, one history, undo as a new version | dir-sim; image/restore/revert #1473; Lance log D-DSP-2 #1485 |
-| Group membership with the chain kept (direct vs nested vs via which group), transitive members | #1458; Graph groups + `transitiveMemberOf` observed (HubSPO wishlist 19) |
-| Address claim vs delivery kept apart; a mail-enabled group grants delivery, not send-as | dir-sim delivery work; Stalwart fix (task #41) |
+| Group membership, direct and transitive (flattened: the intermediate groups are not returned, so a drawn path Anna → GG_Vertrieb → GG_CRM_Users is research) | #1458; Graph groups + `transitiveMemberOf` observed (HubSPO wishlist 19) |
+| Address claim vs delivery kept apart; in Stalwart a distribution list grants delivery only, and security-group membership is not send-as | dir-sim delivery work; Stalwart #13, #14 (`groups_of` = SID chain only). The dir-sim backend is a build feature, not yet selectable in Stalwart config |
 | LDIF export and a read-only LDAP server over a simulated version | #1469, #1453 |
 | One authorization rule shared by Spear, MedCare, a2ui and OGAR: only the signed-in subject holds roles; delegated login read from the token's `act` chain | `rbac_plug::SubjectRoles` + `with_act_claim` #1491; OGAR #356; Spear #25 |
 | Group → role grants in a versioned policy, unread ≠ empty | `GroupRoles::from_policy` #1486 |
@@ -37,7 +37,8 @@ GPO/Intune (plan `policy-baseline-integration-v1`).
 > icons labelled "Spear (Mail-Hub)", "MedCare", "a2ui", and a small badge
 > "angemeldete Person hält Rollen; Vertretung aus Token-Kette". Below it a
 > tile "Mailserver Stalwart: Zustellung aus dem Verzeichnis" with a note
-> "Verteiler = Zustellung, keine Berechtigung". At the bottom, a separate
+> "Verteiler = Zustellung, keine Berechtigung" and a small grey badge
+> "noch nicht per Konfiguration wählbar". At the bottom, a separate
 > dashed area labelled "Forschung, noch nicht gebaut" with small grey tiles:
 > "Hypothesen-Schichten", "Aufmerksamkeit (PLN/Shannon)",
 > "Hyperon/MeTTa", "Willensbildung (Rubikon)", "Klassen-Methoden-Hotplug",
@@ -54,10 +55,11 @@ GPO/Intune (plan `policy-baseline-integration-v1`).
 > user "Anna Müller" with fields "Objekt-GUID" (a GUID) and, separately,
 > "Ort (DN)"; a field "Cloud-Identität: verknüpft über Sync-Anker". A table
 > "Mitglied von" lists only security groups, with column "Art" showing
-> "direkt" or "verschachtelt über GG_Vertrieb". Below it, a separate box
+> "direkt" or "verschachtelt" (never "über" a named group). Below it, a separate box
 > titled "Verteiler: Zustellung, keine Rechte" listing "vertrieb@". Right: a
-> panel "Zugriffspfade" drawing Anna → GG_Vertrieb → GG_CRM_Users →
-> "Rolle: CRM-Leser (Richtlinie v3)". Top: a version timeline of observed
+> panel "Zugriffspfade" whose path Anna → GG_Vertrieb → GG_CRM_Users →
+> "Rolle: CRM-Leser (Richtlinie v3)" is drawn dashed in grey with the caption
+> "Pfad-Erklärung: geplant". Top: a version timeline of observed
 > versions as solid dots; from one of them a dashed side branch labelled
 > "Simulation: Abteilungswechsel" leaves the main line. No planned or future
 > versions. A button "Rückgängig als neue Version". Status bar: "Simulation —
@@ -75,7 +77,7 @@ applications appeared although nothing reads them.
 > A minimalist architecture diagram, German labels, white background, thin
 > lines. Left: two sources "AD (LDIF)" and "Entra ID (Graph)" with arrows
 > labelled "nur lesen" into a box "Verzeichnis-Simulation (versioniert)".
-> From it, an arrow labelled "Mitgliedschaft mit Kette" into a box
+> From it, an arrow labelled "Mitgliedschaft (direkt und transitiv)" into a box
 > "Berechtigungsregel: nur die angemeldete Person hält Rollen". A small token
 > icon labelled "Anmelde-Token mit Vertretungskette (act)" feeds the same box.
 > From the rule box, three arrows to "Spear", "MedCare", "a2ui", and one arrow

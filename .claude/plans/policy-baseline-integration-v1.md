@@ -88,8 +88,17 @@ Concepts to mint (names indicative, the vocabulary owner decides):
 Encoder in `ogar-az` (new module, same shape as `group.rs`): input is
 recorded Graph JSON for configuration policies and their settings, the
 ADMX-backed administrative-template policies, and the assignments of each.
-Device objects are needed for device-group assignment; `ogar-az` encodes
-users and groups only today, so devices are part of this deliverable.
+Device objects are needed for device-group assignment. `ogar-az` encodes
+users and groups only, and dir-sim's `observe::from_graph` skips every other
+object kind, with `members_transitive` returning users only. So devices need
+a population and a device-group membership path in dir-sim too; until they
+exist, a device-targeted assignment resolves to "unbekannt", never to
+"nicht zugewiesen".
+
+Assignment targets can carry an assignment filter (filter id and
+include/exclude type). The filter is captured raw with its definition; D-PBL-4
+evaluates it against device properties or reports the assignment as
+unresolved.
 
 Endpoint names and API versions (several are beta-only) are to be verified
 against current Graph documentation when the encoder is written; this plan
@@ -104,7 +113,10 @@ its own record (disable run: drop exclusions → test red).
 `ogar-ad` already parses LDIF. Add `groupPolicyContainer` attributes
 (`gPCFileSysPath`, `versionNumber`, `flags`, extension GUID lists), and on
 OUs/domain `gPLink` (with its per-link disabled/enforced flags) and
-`gPOptions` (block inheritance). New pure parsers for SYSVOL: `Registry.pol`
+`gPOptions` (block inheritance), and `gPLink` on site objects in the
+configuration partition, with the subnet/site objects needed to place a
+computer in a site. The GPC's `gPCWQLFilter` and the referenced WMI filter
+object are captured raw. New pure parsers for SYSVOL: `Registry.pol`
 (binary) and `GptTmpl.inf` (INI). Security filtering needs the GPC's
 security descriptor; if that attribute is not exported, record "filtering
 not read", never "applies to all".
@@ -126,14 +138,19 @@ row; removing the row splits it into two rows (disable run red).
 
 GPO: OU subtree (dir-sim `subtree`), link order and precedence (local, site,
 domain, OU), enforced links and block inheritance, then security filtering.
+Site links apply only when the computer's site is known; otherwise the
+site-scoped part is "unbekannt". A WMI filter is evaluated only against
+device inventory that answers its query; without it the GPO's assignment is
+"abhängig von WMI-Filter", never "zugewiesen".
 Intune: transitive group members via dir-sim, minus exclusions. When a
 setting is configured by both GPO and Intune on one device, report the
 conflict and the device's declared precedence setting if read; do not pick
 a winner without it.
 
 **Gate:** precedence fixtures with enforced + blocked links reproduce the
-documented order; a member reached only through a nested group carries the
-chain.
+documented order; a device-targeted assignment with no device population, a
+filtered assignment without device properties, and a WMI-filtered GPO each
+resolve to an explicit unknown state (disable runs red).
 
 ## D-PBL-5 — observed state
 
