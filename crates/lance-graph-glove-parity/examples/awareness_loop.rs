@@ -111,6 +111,7 @@ fn main() {
         table: TABLE,
         reading: ReadingId(1),
         universe: Universe(42),
+        relations: &[],
     };
     let table = MethodTable::prepare(&glove, &specs);
     let mut g = SoftwareGraph::new();

@@ -73,6 +73,7 @@ pub fn glove<'a>(basis: &'a [String], binder: &'a dyn Binder, claims: &'a [Field
         table: TABLE,
         reading: READING,
         universe: UNIVERSE,
+        relations: &[],
     }
 }
 

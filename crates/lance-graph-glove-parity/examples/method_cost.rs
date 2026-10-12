@@ -131,6 +131,7 @@ fn main() {
         table: TABLE,
         reading: ReadingId(1),
         universe: Universe(42),
+        relations: &[],
     };
     let specs = [("billable_hours", spec)];
     let sql = "SELECT billable_work_entry::billable_hours(cats) FROM cats";

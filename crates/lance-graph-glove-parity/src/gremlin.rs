@@ -23,7 +23,25 @@
 //! | `values(f)` | cursor moves to the value | refused (`ValuesOfValues`) |
 //! | `count()` | `COUNT(*)` | refused (`CountOfValues`: `COUNT(f)` is not `COUNT(*)` under nulls) |
 //! | `sum()` | refused (`SumOfVertices`) | `SUM(f)` |
-//! | `out` / `in` / `both` | refused (`NoRelationCarrier`): the glove declares no relation carrier | — |
+//! | `out(rel)` | the cursor moves to the target; the anchor stays (below) | — |
+//! | `in` / `both` | refused (`FanOut`): a fan-out moves the anchor, not carried | — |
+//!
+//! `out(rel)` follows a functional relation the glove carries
+//! ([`Relation`](crate::method::Relation)): each anchor row names at most one
+//! target, so the traversers after it are still one per anchor row, and
+//! #1311's anchor rule holds. On the target:
+//!
+//! | step | after `out(rel)` |
+//! |---|---|
+//! | `has(f, eq/neq)` | a condition on the target's field, read through the key |
+//! | `count()` | `COUNT(*)` of anchor rows that reach a live target |
+//! | `out` | refused (`SecondHop`): a key read through a key (#1311 G1) |
+//! | `values(f)` | refused (`ValueThroughRelation`): a sum through the key is not in Quack |
+//! | `dedup()` | refused (`DedupThroughRelation`): distinct targets is a set count |
+//! | `where(method())` | refused (`WhereThroughRelation`): a method of the target concept |
+//!
+//! Whether the relation exists, and which target fields it carries, is the
+//! glove's to say; preparation refuses an unknown one.
 //!
 //! A traversal that ends on vertices is a predicate ([`MethodBody::Select`]);
 //! one that ends on a fold is a query; one that ends on `values(f)` returns a
@@ -75,8 +93,16 @@ pub enum GremlinRefusal {
     NoStart,
     /// `V` names another concept than the method's.
     AnchorMismatch { step: u16, concept: u16 },
-    /// A hop over a relation the glove declares no carrier for.
-    NoRelationCarrier(String),
+    /// `in` / `both`: a fan-out moves the anchor; not carried.
+    FanOut(String),
+    /// A hop after `out(rel)`.
+    SecondHop(String),
+    /// `values(f)` after `out(rel)` (the relation's label).
+    ValueThroughRelation(String),
+    /// `dedup()` after `out(rel)`.
+    DedupThroughRelation(String),
+    /// `where(method())` after `out(rel)`.
+    WhereThroughRelation(String),
     /// `dedup()` after `values(f)`: distinct values, a different multiset.
     DedupOfValues,
     /// `count()` after `values(f)`: `COUNT(f)`, no such fold yet.
@@ -133,6 +159,8 @@ impl<'a> Composed<'a> {
 
 enum Cursor<'a> {
     Vertex,
+    /// On the target of `out(rel)`; the anchor has not moved.
+    Reached(&'a str),
     Value(&'a str),
     Done,
 }
@@ -158,9 +186,41 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
         }
         cursor = match (step, cursor) {
             (Step::V(_), _) => return Err(GremlinRefusal::NoStart),
-            (Step::Out(r) | Step::In(r) | Step::Both(r), _) => {
-                return Err(GremlinRefusal::NoRelationCarrier(r.to_owned()))
+            (Step::In(r) | Step::Both(r), _) => return Err(GremlinRefusal::FanOut(r.to_owned())),
+            (Step::Out(r), Cursor::Vertex) => {
+                filter.push(Cond::Reaches { rel: r });
+                Cursor::Reached(r)
             }
+            (Step::Out(r), Cursor::Reached(_)) => {
+                return Err(GremlinRefusal::SecondHop(r.to_owned()))
+            }
+            (Step::Has { field, pred }, Cursor::Reached(rel)) => {
+                let (literal, negate) = match pred {
+                    Pred::Eq(l) => (l, false),
+                    Pred::Neq(l) => (l, true),
+                };
+                filter.push(Cond::Via {
+                    rel,
+                    field,
+                    literal,
+                    negate,
+                });
+                Cursor::Reached(rel)
+            }
+            (Step::Where(_), Cursor::Reached(rel)) => {
+                return Err(GremlinRefusal::WhereThroughRelation(rel.to_owned()))
+            }
+            (Step::Dedup, Cursor::Reached(rel)) => {
+                return Err(GremlinRefusal::DedupThroughRelation(rel.to_owned()))
+            }
+            (Step::Values(_), Cursor::Reached(rel)) => {
+                return Err(GremlinRefusal::ValueThroughRelation(rel.to_owned()))
+            }
+            (Step::Count, Cursor::Reached(_)) => {
+                folds.push(Fold::Count);
+                Cursor::Done
+            }
+            (Step::Out(_), _) => return Err(GremlinRefusal::FilterAfterValues),
             (Step::Has { field, pred }, Cursor::Vertex) => {
                 filter.push(match pred {
                     Pred::Eq(literal) => Cond::Eq { field, literal },

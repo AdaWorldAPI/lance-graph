@@ -71,6 +71,7 @@ fn main() {
         table: TABLE,
         reading: ReadingId(1),
         universe: Universe(42),
+        relations: &[],
     };
     let live = live_words(n);
     let lanes = batch.lanes();
