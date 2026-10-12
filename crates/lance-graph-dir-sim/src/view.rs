@@ -187,6 +187,55 @@ impl PopOverlay {
     }
 }
 
+/// `via` of a group a user is directly in.
+const DIRECT: u32 = u32::MAX;
+
+/// A user's upward reach: the groups reached, and for each the group it was
+/// first reached from ([`DIRECT`] for a direct membership).
+struct UpReach {
+    reached: Vec<u64>,
+    via: Vec<u32>,
+}
+
+/// One chain of membership edges that puts a user in a group: the user is a
+/// direct member of `groups()[0]`, each group is a direct member of the
+/// next, and the last is the group asked about. See
+/// [`View::membership_path`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MembershipPath {
+    user: Guid128,
+    groups: Vec<Guid128>,
+}
+
+impl MembershipPath {
+    /// The member at the start of the chain.
+    #[must_use]
+    pub fn user(&self) -> &Guid128 {
+        &self.user
+    }
+
+    /// The groups on the chain, the user's direct group first and the group
+    /// asked about last. Never empty.
+    #[must_use]
+    pub fn groups(&self) -> &[Guid128] {
+        &self.groups
+    }
+
+    /// The group asked about.
+    #[must_use]
+    pub fn group(&self) -> &Guid128 {
+        self.groups
+            .last()
+            .expect("a chain names at least the group")
+    }
+
+    /// Whether the user is a direct member of the group.
+    #[must_use]
+    pub fn is_direct(&self) -> bool {
+        self.groups.len() == 1
+    }
+}
+
 /// The delta-sized part of a version.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Overlay {
@@ -657,49 +706,142 @@ impl<'s> View<'s> {
     }
 
     fn groups_walk(&self, user: &Guid128, allowed: Option<&[u64]>) -> Vec<Guid128> {
-        let Some(uo) = self.user_ordinal(user) else {
+        let Some(reach) = self.groups_reach(user, allowed) else {
             return Vec::new();
         };
-        let u = u32::from(uo.0);
-        let added = self.added_rows();
-        let mut reached = vec![0u64; words_for(self.groups_len())];
-        let mut queue = Vec::new();
-        let reach = |g: u32, reached: &mut [u64], queue: &mut Vec<u16>| {
-            let g = g as usize;
-            if !bit(reached, g) && allowed.is_none_or(|a| bit(a, g)) {
-                set_bit(reached, g);
-                queue.push(g as u16);
-            }
-        };
-        let s = self.snap;
-        for (r, (&mu, &g)) in s.m_user.iter().zip(&s.m_group).enumerate() {
-            if mu == u && !self.ov.removed.contains(&(r as u32)) {
-                reach(g, &mut reached, &mut queue);
-            }
+        (0..self.groups_len())
+            .filter(|&i| bit(&reach.reached, i))
+            .filter_map(|i| self.group_guid(GroupOrdinal(i as u16)))
+            .collect()
+    }
+
+    /// Why `user` is in `group`: one chain of membership edges from `user`
+    /// up to `group`, or `None` when `user` is not in `group` (directly or
+    /// through nesting) or either is not there.
+    ///
+    /// The chain is a witness, not the only reason: `user` may reach `group`
+    /// along other chains too, so removing one edge of this chain does not
+    /// show that the membership ends. Ask the version after the change.
+    ///
+    /// The witness is the shortest chain; among equally short chains, each
+    /// group is reached from the lowest-ordinal group that reaches it, so
+    /// the same view always gives the same chain. It is
+    /// [`Self::groups_transitive`]'s own walk, kept with where each group
+    /// was reached from: `Some` exactly when `group` is in
+    /// `groups_transitive(user)`.
+    pub fn membership_path(&self, user: &Guid128, group: &Guid128) -> Option<MembershipPath> {
+        self.path_in(user, group, None)
+    }
+
+    /// [`Self::membership_path`] through groups that satisfy `through`
+    /// only, the chain [`Self::groups_transitive_through`] walks. With
+    /// [`GroupProperty::SecurityEnabled`] it is the chain of SIDs that
+    /// carries a permission granted to `group`.
+    ///
+    /// [`GroupProperty::SecurityEnabled`]: crate::GroupProperty::SecurityEnabled
+    pub fn membership_path_through(
+        &self,
+        user: &Guid128,
+        group: &Guid128,
+        through: &GroupWhere,
+    ) -> Option<MembershipPath> {
+        let allowed = self.groups_bitmap(through);
+        self.path_in(user, group, Some(&allowed))
+    }
+
+    fn path_in(
+        &self,
+        user: &Guid128,
+        group: &Guid128,
+        allowed: Option<&[u64]>,
+    ) -> Option<MembershipPath> {
+        let target = usize::from(self.group_ordinal(group)?.0);
+        let reach = self.groups_reach(user, allowed)?;
+        if !bit(&reach.reached, target) {
+            return None;
         }
-        for (&mu, &g) in added.users.iter().zip(&added.groups) {
-            if mu == u {
-                reach(g, &mut reached, &mut queue);
+        let mut chain = vec![target];
+        let mut at = target;
+        while reach.via[at] != DIRECT {
+            at = reach.via[at] as usize;
+            chain.push(at);
+        }
+        chain.reverse();
+        let groups = chain
+            .into_iter()
+            .map(|i| self.group_guid(GroupOrdinal(i as u16)))
+            .collect::<Option<Vec<_>>>()?;
+        Some(MembershipPath {
+            user: *user,
+            groups,
+        })
+    }
+
+    /// The groups `user` reaches upward, breadth first, with the group each
+    /// was first reached from. `None` when `user` is not an existing user.
+    ///
+    /// Breadth first from the direct groups in ordinal order, and each
+    /// group's parents in ordinal order, so the recorded chains are the
+    /// shortest and fixed for a view. The reached set is the closure, the
+    /// same whatever the order.
+    fn groups_reach(&self, user: &Guid128, allowed: Option<&[u64]>) -> Option<UpReach> {
+        let u = u32::from(self.user_ordinal(user)?.0);
+        let admits = |g: usize| allowed.is_none_or(|a| bit(a, g));
+        let added = self.added_rows();
+        let s = self.snap;
+        let mut direct: Vec<u32> = s
+            .m_user
+            .iter()
+            .zip(&s.m_group)
+            .enumerate()
+            .filter(|&(r, (&mu, _))| mu == u && !self.ov.removed.contains(&(r as u32)))
+            .map(|(_, (_, &g))| g)
+            .chain(
+                added
+                    .users
+                    .iter()
+                    .zip(&added.groups)
+                    .filter(|&(&mu, _)| mu == u)
+                    .map(|(_, &g)| g),
+            )
+            .collect();
+        direct.sort_unstable();
+        direct.dedup();
+        let n = self.groups_len();
+        let mut reached = vec![0u64; words_for(n)];
+        let mut via = vec![DIRECT; n];
+        let mut queue = std::collections::VecDeque::new();
+        for g in direct {
+            let g = g as usize;
+            if !bit(&reached, g) && admits(g) {
+                set_bit(&mut reached, g);
+                queue.push_back(g);
             }
         }
         // Nested pairs (child, parent) between existing groups, sorted by
-        // child: walk upward.
+        // child then parent: walk upward.
         let mut nested: Vec<(u16, u16)> = added
             .unresolved
             .iter()
             .filter_map(|(c, p)| Some((self.group_ordinal(c)?.0, self.group_ordinal(p)?.0)))
             .collect();
         nested.sort_unstable();
-        while let Some(child) = queue.pop() {
-            let from = nested.partition_point(|n| n.0 < child);
-            for &(_, parent) in nested[from..].iter().take_while(|n| n.0 == child) {
-                reach(u32::from(parent), &mut reached, &mut queue);
+        nested.dedup();
+        while let Some(child) = queue.pop_front() {
+            let from = nested.partition_point(|n| usize::from(n.0) < child);
+            for &(_, parent) in nested[from..]
+                .iter()
+                .take_while(|n| usize::from(n.0) == child)
+            {
+                let parent = usize::from(parent);
+                if !bit(&reached, parent) && admits(parent) {
+                    set_bit(&mut reached, parent);
+                    via[parent] = child as u32;
+                    queue.push_back(parent);
+                }
             }
         }
-        (0..self.groups_len())
-            .filter(|&i| bit(&reached, i))
-            .filter_map(|i| self.group_guid(GroupOrdinal(i as u16)))
-            .collect()
+        Some(UpReach { reached, via })
     }
 
     /// A user's `mail`, as written: a property on the user's business card,
