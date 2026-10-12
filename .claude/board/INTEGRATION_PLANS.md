@@ -1,3 +1,12 @@
+## 2026-10-12 (3) — gremlin-composable-algebra-v1 — Gremlin steps as typed building blocks of ClassId methods → `.claude/plans/gremlin-composable-algebra-v1.md`
+
+**Status:** MEASURED for one population (D-CMH-G1-0..3 shipped in the PR); D-CMH-G1-4..5 queued.
+
+- A method names another: predicate methods (`MethodBody::Select`) referenced by `Cond::Method`, inlined at preparation; no call at run time.
+- Typed Gremlin steps (`V/has/where/values/dedup/count/sum`) compose into a method body under #1311's anchor rule; hops refused until the glove declares a relation carrier.
+- Gremlin-shaped declarations load as text at run time; effects are refused at load.
+- Vocabulary matrix over TinkerPop 3.7.7: next lever is a relation carrier in the glove (a binding), then the ordered-key family.
+
 ## 2026-10-12 (2) — nal-polyfill-v1 — `NAL::narsese()` as a polyfill over R2IL procedures and mask-risc → `.claude/plans/nal-polyfill-v1.md`
 
 **Status:** PROPOSAL (D-NALP-0..11). Only D-NALP-0 (this plan); each wave is gated on the one before.
