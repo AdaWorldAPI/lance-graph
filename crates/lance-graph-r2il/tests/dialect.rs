@@ -13,8 +13,7 @@ use lance_graph_r2il::{
 };
 use ogar_loco::{Dialect, FnIndex};
 use ogar_r2il::{
-    R2ILFn, ALL, ANY, BLEND, GROUP_SUM, KEEP, KEY_RUNS, MAX, MIN, R2IL_BASE, RANGE, SCATTER_OR,
-    SUM, VIA,
+    R2ILFn, ALL, ANY, BLEND, GROUP_SUM, KEEP, KEY_RUNS, R2IL_BASE, RANGE, SCATTER_OR, SUM, VIA,
 };
 
 /// The R2IL-band ordinal of `f`, as an index into `R2ILFn::MNEMONICS`.
@@ -84,7 +83,7 @@ fn every_named_refusal_is_still_produced() {
     // wired since D-SQLP-2.
     let int_add = FnIndex(R2IL_BASE + 9);
     assert_eq!(mnemonic(int_add), "IntAdd");
-    for f in [MIN, MAX, KEY_RUNS, ANY, ALL, SCATTER_OR, BLEND, int_add] {
+    for f in [KEY_RUNS, ANY, ALL, SCATTER_OR, BLEND, int_add] {
         let mut d = FoldDialect::new(&planes, &foreign);
         let mut stack = vec![Val::Scalar(1), Val::Scalar(2)];
         assert_eq!(

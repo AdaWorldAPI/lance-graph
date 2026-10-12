@@ -126,6 +126,19 @@ pub enum MethodRef<'a> {
     Label(&'a str),
 }
 
+/// An ordered comparison of an `I32` field against a number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Order {
+    /// `field < value`.
+    Lt,
+    /// `field <= value`.
+    Le,
+    /// `field > value`.
+    Gt,
+    /// `field >= value`.
+    Ge,
+}
+
 /// One condition of a body's `WHERE`, on a canonical field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cond<'a> {
@@ -133,6 +146,13 @@ pub enum Cond<'a> {
     Eq { field: &'a str, literal: &'a str },
     /// `field != literal`.
     Ne { field: &'a str, literal: &'a str },
+    /// `field op value` on an `I32` field, in the lane's own units. A number,
+    /// never text: no codebook resolves it.
+    Order {
+        field: &'a str,
+        op: Order,
+        value: i32,
+    },
     /// The conditions of a predicate method ([`MethodBody::Select`]) of the
     /// same concept, schema and reading. Preparation replaces the reference
     /// with those conditions before anything binds, so a call never sees it.
@@ -160,7 +180,9 @@ impl<'a> Cond<'a> {
     /// names none here; preparation adds the key to `required`.
     fn field(self) -> Option<&'a str> {
         match self {
-            Cond::Eq { field, .. } | Cond::Ne { field, .. } => Some(field),
+            Cond::Eq { field, .. } | Cond::Ne { field, .. } | Cond::Order { field, .. } => {
+                Some(field)
+            }
             Cond::Method(_) | Cond::Reaches { .. } | Cond::Via { .. } => None,
         }
     }
@@ -173,6 +195,10 @@ pub enum Fold<'a> {
     Count,
     /// `SUM(field)` over the selected rows.
     Sum(&'a str),
+    /// `MIN(field)` over the selected rows; `None` when none is selected.
+    Min(&'a str),
+    /// `MAX(field)` over the selected rows; `None` when none is selected.
+    Max(&'a str),
     /// `SUM(val) GROUP BY key` over the selected rows, for the key domain
     /// `0..groups`. Rows whose key is at or past `groups` are dropped by the
     /// terminal, not refused.
@@ -181,6 +207,13 @@ pub enum Fold<'a> {
         val: &'a str,
         groups: u32,
     },
+    /// `out(rel).dedup().count()`: the number of distinct LIVE targets the
+    /// selected rows reach through `rel`. `COUNT(DISTINCT key)` over the
+    /// relation's key lane, which must be stored in key order (the
+    /// projection a child or edge table is stored under): a lane in another
+    /// order is refused at run time, never miscounted. No target mask is
+    /// produced; the fold carries two words of state.
+    Distinct { rel: &'a str },
 }
 
 /// How the folds' values become the method's result. A fixed set the
@@ -226,6 +259,8 @@ pub struct Truth {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FoldValue {
     Scalar(i64),
+    /// [`Fold::Min`] / [`Fold::Max`]: `None` when no row was selected.
+    Extremum(Option<i64>),
     /// One value per group, `0..groups`.
     Groups(Vec<i64>),
 }
@@ -290,8 +325,9 @@ impl<'a> MethodSpec<'a> {
                 .filter_map(|c| c.field())
                 .chain(folds.iter().flat_map(|f| match *f {
                     Fold::Count => vec![],
-                    Fold::Sum(field) => vec![field],
+                    Fold::Sum(field) | Fold::Min(field) | Fold::Max(field) => vec![field],
                     Fold::GroupSum { key, val, .. } => vec![key, val],
+                    Fold::Distinct { .. } => vec![],
                 }));
             for f in fields {
                 if !out.contains(&f) {
@@ -432,7 +468,18 @@ pub enum Frontend {
 enum BoundFold {
     Count,
     Sum(Col),
-    GroupSum { key: Col, val: Col, groups: u32 },
+    Min(Col),
+    Max(Col),
+    GroupSum {
+        key: Col,
+        val: Col,
+        groups: u32,
+    },
+    /// Distinct live targets through the key `fk`.
+    Distinct {
+        fk: Col,
+        plane: ForeignPlane,
+    },
 }
 
 /// A bound condition: numbers only.
@@ -440,6 +487,8 @@ enum BoundFold {
 enum BoundCond {
     /// `lane = code`, or `!=` when `negate`.
     Local { col: Col, code: u32, negate: bool },
+    /// `lane op value` on an `I32` lane.
+    Ordered { col: Col, op: Order, value: i32 },
     /// The key `fk` names a row of the foreign plane (the target's live rows).
     Reaches { fk: Col, plane: ForeignPlane },
     /// The target's `lane` read through `fk` equals `code`, or not.
@@ -522,42 +571,66 @@ impl PreparedMethod {
 }
 
 fn bound_queries(live: Mask, conds: &[BoundCond], folds: &[BoundFold]) -> Vec<Query> {
-    let filter = || {
+    // A distinct fold tests its relation's liveness, unless the conditions
+    // already do: the same test is never emitted twice.
+    let filter = |fold: &BoundFold| {
+        let extra = match *fold {
+            BoundFold::Distinct { fk, plane }
+                if !conds.contains(&BoundCond::Reaches { fk, plane }) =>
+            {
+                Some(BoundCond::Reaches { fk, plane })
+            }
+            _ => None,
+        };
         Filter::and(
-            std::iter::once(Filter::plane(live)).chain(conds.iter().map(|c| match *c {
-                BoundCond::Local { col, code, negate } => Filter::cmp(
-                    col,
-                    if negate {
-                        Cmp::NeU32(code)
-                    } else {
-                        Cmp::EqU32(code)
-                    },
-                ),
-                BoundCond::Reaches { fk, plane } => Filter::semijoin(fk, plane),
-                BoundCond::Via {
-                    fk,
-                    lane,
-                    code,
-                    negate,
-                } => {
-                    let eq = Filter::eq_u32_via(fk, lane, code);
-                    if negate {
-                        Filter::Not(Box::new(eq))
-                    } else {
-                        eq
+            std::iter::once(Filter::plane(live)).chain(conds.iter().chain(&extra).map(
+                |c| match *c {
+                    BoundCond::Local { col, code, negate } => Filter::cmp(
+                        col,
+                        if negate {
+                            Cmp::NeU32(code)
+                        } else {
+                            Cmp::EqU32(code)
+                        },
+                    ),
+                    BoundCond::Ordered { col, op, value } => Filter::cmp(
+                        col,
+                        match op {
+                            Order::Lt => Cmp::LtI32(value),
+                            Order::Le => Cmp::LeI32(value),
+                            Order::Gt => Cmp::GtI32(value),
+                            Order::Ge => Cmp::GeI32(value),
+                        },
+                    ),
+                    BoundCond::Reaches { fk, plane } => Filter::semijoin(fk, plane),
+                    BoundCond::Via {
+                        fk,
+                        lane,
+                        code,
+                        negate,
+                    } => {
+                        let eq = Filter::eq_u32_via(fk, lane, code);
+                        if negate {
+                            Filter::Not(Box::new(eq))
+                        } else {
+                            eq
+                        }
                     }
-                }
-            })),
+                },
+            )),
         )
     };
     folds
         .iter()
         .map(|f| Query {
-            filter: filter(),
+            filter: filter(f),
             agg: match *f {
                 BoundFold::Count => Agg::Count,
                 BoundFold::Sum(col) => Agg::SumI32(col),
+                BoundFold::Min(col) => Agg::MinI32(col),
+                BoundFold::Max(col) => Agg::MaxI32(col),
                 BoundFold::GroupSum { key, val, .. } => Agg::GroupSumI32 { key, val },
+                BoundFold::Distinct { fk, .. } => Agg::CountDistinctOrderedU32 { key: fk },
             },
         })
         .collect()
@@ -635,10 +708,38 @@ impl PreparedMethod {
                 .map(|(p, f)| run_quack(p, *f, planes, &reach.foreign))
                 .collect::<Result<Vec<_>, _>>()?,
             Frontend::R2il => {
+                // A distinct fold always tests its target's liveness.
+                if folds
+                    .iter()
+                    .any(|f| matches!(f, BoundFold::Distinct { .. }))
+                {
+                    return Err(CallError::FrontendGap {
+                        frontend: Frontend::R2il,
+                        missing: "GATHER",
+                    });
+                }
+                let ordered: Vec<(u16, procs::Order, i32)> = conds
+                    .iter()
+                    .filter_map(|c| match *c {
+                        BoundCond::Ordered { col, op, value } => Some((
+                            col.0,
+                            match op {
+                                Order::Lt => procs::Order::Lt,
+                                Order::Le => procs::Order::Le,
+                                Order::Gt => procs::Order::Gt,
+                                Order::Ge => procs::Order::Ge,
+                            },
+                            value,
+                        )),
+                        _ => None,
+                    })
+                    .collect();
                 let conds = conds
                     .iter()
+                    .filter(|c| !matches!(c, BoundCond::Ordered { .. }))
                     .map(|c| match *c {
                         BoundCond::Local { col, code, negate } => Ok((col.0, code, negate)),
+                        BoundCond::Ordered { .. } => unreachable!("filtered out"),
                         // A relation condition always tests the target row's
                         // liveness, and R2IL's fold band has no call that
                         // reads a foreign plane through a key.
@@ -652,7 +753,7 @@ impl PreparedMethod {
                     .collect::<Result<Vec<(u16, u32, bool)>, _>>()?;
                 folds
                     .iter()
-                    .map(|f| run_r2il(*live, &conds, *f, planes))
+                    .map(|f| run_r2il(*live, &conds, &ordered, *f, planes))
                     .collect::<Result<Vec<_>, _>>()?
             }
         };
@@ -704,6 +805,7 @@ fn run_quack(
             i64::try_from(n).expect("a row count fits i64"),
         )),
         Value::SumI64(s) => Ok(FoldValue::Scalar(s)),
+        Value::OptI32(v) => Ok(FoldValue::Extremum(v.map(i64::from))),
         other => panic!("a Count or SumI32 terminal, got {other:?}"),
     }
 }
@@ -713,31 +815,48 @@ fn run_quack(
 fn run_r2il(
     live: Mask,
     conds: &[(u16, u32, bool)],
+    ordered: &[(u16, procs::Order, i32)],
     fold: BoundFold,
     planes: &Planes<'_>,
 ) -> Result<FoldValue, CallError> {
+    let select = |d: &mut FoldDialect<'_>, stack: &mut Vec<Val>| -> Result<(), FoldError> {
+        procs::select_u32(d, stack, live.0, conds)?;
+        for &(lane, op, t) in ordered {
+            procs::and_cmp_i32(d, stack, lane, op, t)?;
+        }
+        Ok(())
+    };
     let mut stack = Vec::new();
     if let BoundFold::GroupSum { key, val, groups } = fold {
         let mut sink = vec![0i64; groups as usize];
         let mut d = FoldDialect::with_groups(planes, &Foreign::NONE, &mut sink);
-        procs::select_u32(&mut d, &mut stack, live.0, conds).map_err(CallError::Fold)?;
+        select(&mut d, &mut stack).map_err(CallError::Fold)?;
         procs::group_sum(&mut d, &mut stack, key.0, val.0).map_err(CallError::Fold)?;
         assert!(stack.is_empty(), "GROUP_SUM pushes nothing, got {stack:?}");
         drop(d);
         return Ok(FoldValue::Groups(sink));
     }
     let mut d = FoldDialect::new(planes, &Foreign::NONE);
-    procs::select_u32(&mut d, &mut stack, live.0, conds).map_err(CallError::Fold)?;
+    select(&mut d, &mut stack).map_err(CallError::Fold)?;
     match fold {
         BoundFold::Count => procs::count(&mut d, &mut stack),
         BoundFold::Sum(col) => procs::sum(&mut d, &mut stack, col.0),
+        BoundFold::Min(col) => procs::min(&mut d, &mut stack, col.0),
+        BoundFold::Max(col) => procs::max(&mut d, &mut stack, col.0),
         BoundFold::GroupSum { .. } => unreachable!("handled above"),
+        BoundFold::Distinct { .. } => unreachable!("refused before the call"),
     }
     .map_err(CallError::Fold)?;
-    match stack.as_slice() {
-        [Val::Scalar(n)] => Ok(FoldValue::Scalar(*n)),
-        other => panic!("a fold leaves one scalar, got {other:?}"),
-    }
+    let [Val::Scalar(n)] = stack.as_slice() else {
+        panic!("a fold leaves one scalar, got {stack:?}")
+    };
+    Ok(match fold {
+        // R2IL answers an empty selection with the fold's identity, which no
+        // I32 value equals.
+        BoundFold::Min(_) => FoldValue::Extremum((*n != i64::MAX).then_some(*n)),
+        BoundFold::Max(_) => FoldValue::Extremum((*n != i64::MIN).then_some(*n)),
+        _ => FoldValue::Scalar(*n),
+    })
 }
 
 /// One concept's methods, bound against one glove.
@@ -1060,13 +1179,15 @@ impl Glove<'_> {
             MethodBody::Query { filter, .. } | MethodBody::Select { filter } => filter,
             MethodBody::Action { .. } => &[],
         };
+        let folds_of = match spec.body {
+            MethodBody::Query { folds, .. } => folds,
+            _ => &[],
+        };
         let mut keys = Vec::new();
-        for c in filter {
-            if let Cond::Reaches { rel } | Cond::Via { rel, .. } = *c {
-                let fk = self.relation(rel)?.fk;
-                if !reads.contains(&fk) && !keys.contains(&fk) {
-                    keys.push(fk);
-                }
+        for rel in relations_named(filter, folds_of) {
+            let fk = self.relation(rel)?.fk;
+            if !reads.contains(&fk) && !keys.contains(&fk) {
+                keys.push(fk);
             }
         }
         for field in reads.iter().chain(&keys) {
@@ -1101,11 +1222,24 @@ impl Glove<'_> {
                         Fold::Sum(field) => {
                             Ok(BoundFold::Sum(self.lane(t, field, FieldKind::I32)?))
                         }
+                        Fold::Min(field) => {
+                            Ok(BoundFold::Min(self.lane(t, field, FieldKind::I32)?))
+                        }
+                        Fold::Max(field) => {
+                            Ok(BoundFold::Max(self.lane(t, field, FieldKind::I32)?))
+                        }
                         Fold::GroupSum { key, val, groups } => Ok(BoundFold::GroupSum {
                             key: self.lane(t, key, FieldKind::Code)?,
                             val: self.lane(t, val, FieldKind::I32)?,
                             groups,
                         }),
+                        Fold::Distinct { rel } => {
+                            let r = self.relation(rel)?;
+                            Ok(BoundFold::Distinct {
+                                fk: self.lane(t, r.fk, FieldKind::Code)?,
+                                plane: ForeignPlane(r.plane),
+                            })
+                        }
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 let live = self.binder.live(t);
@@ -1136,17 +1270,15 @@ impl Glove<'_> {
             _ => return Err(PrepareError::EffectMismatch),
         };
         let mut reaches: Vec<(u16, Universe)> = Vec::new();
-        for c in filter {
-            if let Cond::Reaches { rel } | Cond::Via { rel, .. } = *c {
-                let r = self.relation(rel)?;
-                let (concept, universe) = (r.target.concept, r.target.universe);
-                match reaches.iter().find(|(c, _)| *c == concept) {
-                    None => reaches.push((concept, universe)),
-                    Some(&(_, u)) if u != universe => {
-                        return Err(PrepareError::ConflictingUniverse(concept));
-                    }
-                    Some(_) => {}
+        for rel in relations_named(filter, folds_of) {
+            let r = self.relation(rel)?;
+            let (concept, universe) = (r.target.concept, r.target.universe);
+            match reaches.iter().find(|(c, _)| *c == concept) {
+                None => reaches.push((concept, universe)),
+                Some(&(_, u)) if u != universe => {
+                    return Err(PrepareError::ConflictingUniverse(concept));
                 }
+                Some(_) => {}
             }
         }
         Ok(PreparedMethod {
@@ -1259,6 +1391,13 @@ impl Glove<'_> {
             Cond::Eq { field, literal } => (field, literal, false),
             Cond::Ne { field, literal } => (field, literal, true),
             Cond::Reaches { .. } | Cond::Via { .. } => unreachable!("bound by `conds`"),
+            Cond::Order { field, op, value } => {
+                return Ok(BoundCond::Ordered {
+                    col: self.lane(t, field, FieldKind::I32)?,
+                    op,
+                    value,
+                })
+            }
             // Inlined before binding; a reference that reaches here was not.
             Cond::Method(MethodRef::Key(k)) => return Err(PrepareError::MethodRefNotPredicate(k)),
             Cond::Method(MethodRef::Label(l)) => {
@@ -1329,6 +1468,21 @@ impl Relation<'_> {
             })?;
         Ok((lane, code))
     }
+}
+
+/// The relations a body names, in order: its conditions', then its folds'.
+fn relations_named<'a>(filter: &[Cond<'a>], folds: &[Fold<'a>]) -> Vec<&'a str> {
+    filter
+        .iter()
+        .filter_map(|c| match *c {
+            Cond::Reaches { rel } | Cond::Via { rel, .. } => Some(rel),
+            _ => None,
+        })
+        .chain(folds.iter().filter_map(|f| match *f {
+            Fold::Distinct { rel } => Some(rel),
+            _ => None,
+        }))
+        .collect()
 }
 
 /// The body shape a law needs, checked before anything binds.

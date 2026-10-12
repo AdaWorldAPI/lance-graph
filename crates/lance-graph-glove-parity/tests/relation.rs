@@ -614,8 +614,11 @@ fn out_composes_and_keeps_the_anchor() {
         refuse(&[v, out, Step::Values("credit"), Step::Sum]),
         GremlinRefusal::ValueThroughRelation("billed_to".into())
     );
+    // `dedup().count()` after the hop is the distinct fold (D-CMH-G1-4b,
+    // tests/distinct.rs); `dedup()` alone would end on the distinct
+    // targets, which are no population of the anchor.
     assert_eq!(
-        refuse(&[v, out, Step::Dedup, Step::Count]),
+        refuse(&[v, out, Step::Dedup]),
         GremlinRefusal::DedupThroughRelation("billed_to".into())
     );
     assert_eq!(

@@ -32,7 +32,7 @@ use lance_graph_ogar::ogar_vocab::canonical_concept_id;
 use crate::gremlin::{compose, GremlinRefusal, Pred, Step};
 use crate::method::{
     Cond, EffectClass, Fold, Glove, Law, MethodBody, MethodKey, MethodRef, MethodSpec, MethodTable,
-    ReadingId, SchemaSeal,
+    Order, ReadingId, SchemaSeal,
 };
 
 /// A method declared in text: a [`MethodSpec`] with owned storage.
@@ -58,6 +58,12 @@ enum DeclCond {
     },
     /// A predicate method, by label; resolved at preparation.
     Ref(String),
+    /// `has(field, lt|lte|gt|gte(n))`.
+    Order {
+        field: String,
+        op: Order,
+        value: i32,
+    },
     /// `out(rel)`.
     Reaches(String),
     /// `out(rel).has(field, literal)`.
@@ -73,11 +79,14 @@ enum DeclCond {
 enum DeclFold {
     Count,
     Sum(String),
+    Min(String),
+    Max(String),
     GroupSum {
         key: String,
         val: String,
         groups: u32,
     },
+    Distinct(String),
 }
 
 impl MethodDecl {
@@ -92,6 +101,11 @@ impl MethodDecl {
                 } => Cond::Ne { field, literal },
                 DeclCond::Field { field, literal, .. } => Cond::Eq { field, literal },
                 DeclCond::Ref(label) => Cond::Method(MethodRef::Label(label)),
+                DeclCond::Order { field, op, value } => Cond::Order {
+                    field,
+                    op: *op,
+                    value: *value,
+                },
                 DeclCond::Reaches(rel) => Cond::Reaches { rel },
                 DeclCond::Via {
                     rel,
@@ -114,11 +128,14 @@ impl MethodDecl {
             .map(|f| match f {
                 DeclFold::Count => Fold::Count,
                 DeclFold::Sum(field) => Fold::Sum(field),
+                DeclFold::Min(field) => Fold::Min(field),
+                DeclFold::Max(field) => Fold::Max(field),
                 DeclFold::GroupSum { key, val, groups } => Fold::GroupSum {
                     key,
                     val,
                     groups: *groups,
                 },
+                DeclFold::Distinct(rel) => Fold::Distinct { rel },
             })
             .collect()
     }
@@ -606,6 +623,18 @@ fn traversal(
                         };
                         match pn {
                             "eq" => Pred::Eq(literal(lit).ok_or_else(|| syntax("literal"))?),
+                            "lt" | "lte" | "gt" | "gte" => {
+                                let n: i32 = lit
+                                    .trim()
+                                    .parse()
+                                    .map_err(|_| syntax("an ordered predicate takes an integer"))?;
+                                match pn {
+                                    "lt" => Pred::Lt(n),
+                                    "lte" => Pred::Lte(n),
+                                    "gt" => Pred::Gt(n),
+                                    _ => Pred::Gte(n),
+                                }
+                            }
                             "neq" => Pred::Neq(literal(lit).ok_or_else(|| syntax("literal"))?),
                             other => return Err(unsupported(other)),
                         }
@@ -641,13 +670,15 @@ fn traversal(
                     _ => Step::Both(r),
                 }
             }
-            "dedup" | "count" | "sum" => {
+            "dedup" | "count" | "sum" | "min" | "max" => {
                 if !args.trim().is_empty() {
                     return Err(syntax(&format!("{name} takes no arguments")));
                 }
                 match name {
                     "dedup" => Step::Dedup,
                     "count" => Step::Count,
+                    "min" => Step::Min,
+                    "max" => Step::Max,
                     _ => Step::Sum,
                 }
             }
@@ -671,6 +702,11 @@ fn traversal(
                 negate: true,
             },
             Cond::Method(MethodRef::Label(l)) => DeclCond::Ref(l.to_owned()),
+            Cond::Order { field, op, value } => DeclCond::Order {
+                field: field.to_owned(),
+                op,
+                value,
+            },
             Cond::Reaches { rel } => DeclCond::Reaches(rel.to_owned()),
             Cond::Via {
                 rel,
@@ -692,11 +728,14 @@ fn traversal(
         .map(|f| match *f {
             Fold::Count => DeclFold::Count,
             Fold::Sum(field) => DeclFold::Sum(field.to_owned()),
+            Fold::Min(field) => DeclFold::Min(field.to_owned()),
+            Fold::Max(field) => DeclFold::Max(field.to_owned()),
             Fold::GroupSum { key, val, groups } => DeclFold::GroupSum {
                 key: key.to_owned(),
                 val: val.to_owned(),
                 groups,
             },
+            Fold::Distinct { rel } => DeclFold::Distinct(rel.to_owned()),
         })
         .collect();
     Ok((folds, filter))
@@ -706,8 +745,8 @@ fn traversal(
 fn is_step_name(s: &str) -> bool {
     EFFECT_STEPS.contains(&s)
         || [
-            "V", "has", "where", "values", "out", "in", "both", "dedup", "count", "sum", "not",
-            "and", "or",
+            "V", "has", "where", "values", "out", "in", "both", "dedup", "count", "sum", "min",
+            "max", "not", "and", "or",
         ]
         .contains(&s)
 }

@@ -18,11 +18,12 @@
 //!
 //! | step | on a vertex | on `values(f)` |
 //! |---|---|---|
-//! | `has(f, eq/neq)`, `where(method())` | a condition | refused (`FilterAfterValues`) |
+//! | `has(f, eq/neq)`, `has(f, lt/lte/gt/gte(n))`, `where(method())` | a condition | refused (`FilterAfterValues`) |
 //! | `dedup()` | identity: anchor rows are distinct vertices | refused (`DedupOfValues`: a set of values is another multiset) |
 //! | `values(f)` | cursor moves to the value | refused (`ValuesOfValues`) |
 //! | `count()` | `COUNT(*)` | refused (`CountOfValues`: `COUNT(f)` is not `COUNT(*)` under nulls) |
 //! | `sum()` | refused (`SumOfVertices`) | `SUM(f)` |
+//! | `min()` / `max()` | refused (`ExtremumOfVertices`) | `MIN(f)` / `MAX(f)`; `None` when nothing is selected |
 //! | `out(rel)` | the cursor moves to the target; the anchor stays (below) | — |
 //! | `in` / `both` | refused (`FanOut`): a fan-out moves the anchor, not carried | — |
 //!
@@ -34,11 +35,18 @@
 //! | step | after `out(rel)` |
 //! |---|---|
 //! | `has(f, eq/neq)` | a condition on the target's field, read through the key |
+//! | `has(f, lt/lte/gt/gte)` | refused (`OrderThroughRelation`): no ordered compare reads through a key |
 //! | `count()` | `COUNT(*)` of anchor rows that reach a live target |
 //! | `out` | refused (`SecondHop`): a key read through a key (#1311 G1) |
 //! | `values(f)` | refused (`ValueThroughRelation`): a sum through the key is not in Quack |
-//! | `dedup()` | refused (`DedupThroughRelation`): distinct targets is a set count |
+//! | `dedup().count()` | the number of distinct live targets ([`Fold::Distinct`]); the key lane must be stored in key order |
+//! | `dedup()` then `has(f, eq/neq)` | as `has` before `dedup`: a target filter commutes with it |
+//! | `dedup()` ending, or followed by anything else | refused (`DedupThroughRelation`): the distinct targets are no population of the anchor |
 //! | `where(method())` | refused (`WhereThroughRelation`): a method of the target concept |
+//!
+//! An M:N relation is an edge concept anchored as its own `V(edge)`, with a
+//! functional relation to each end: each edge row is one traverser, so
+//! `count()` is the bag and `dedup().count()` the set of reached ends.
 //!
 //! Whether the relation exists, and which target fields it carries, is the
 //! glove's to say; preparation refuses an unknown one.
@@ -48,15 +56,37 @@
 //! stream this layer has no answer type for (`NoTerminal`). Effectful steps
 //! (`addV`, `property`, `drop`, …) have no [`Step`] at all: a traversal cannot
 //! express them, so it cannot carry authority.
-use crate::method::{Cond, Fold, Law, MethodBody, MethodRef};
+use crate::method::{Cond, Fold, Law, MethodBody, MethodRef, Order};
 
-/// A predicate in `has(field, pred)`, over a coded field's literal.
+/// A predicate in `has(field, pred)`: equality over a coded field's
+/// literal, or an ordered compare of an `I32` field against a number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pred<'a> {
     /// `P.eq(literal)`.
     Eq(&'a str),
     /// `P.neq(literal)`.
     Neq(&'a str),
+    /// `P.lt(n)`.
+    Lt(i32),
+    /// `P.lte(n)`.
+    Lte(i32),
+    /// `P.gt(n)`.
+    Gt(i32),
+    /// `P.gte(n)`.
+    Gte(i32),
+}
+
+impl Pred<'_> {
+    /// The ordered compare this predicate is, if it is one.
+    fn order(self) -> Option<(Order, i32)> {
+        match self {
+            Pred::Lt(n) => Some((Order::Lt, n)),
+            Pred::Lte(n) => Some((Order::Le, n)),
+            Pred::Gt(n) => Some((Order::Gt, n)),
+            Pred::Gte(n) => Some((Order::Ge, n)),
+            Pred::Eq(_) | Pred::Neq(_) => None,
+        }
+    }
 }
 
 /// One traversal step. Names are canonical: a concept id, the concept's
@@ -77,6 +107,10 @@ pub enum Step<'a> {
     Count,
     /// `sum()`.
     Sum,
+    /// `min()`.
+    Min,
+    /// `max()`.
+    Max,
     /// `out(relation)`.
     Out(&'a str),
     /// `in(relation)`.
@@ -99,7 +133,7 @@ pub enum GremlinRefusal {
     SecondHop(String),
     /// `values(f)` after `out(rel)` (the relation's label).
     ValueThroughRelation(String),
-    /// `dedup()` after `out(rel)`.
+    /// `dedup()` after `out(rel)` not followed by `count()` (or `has`).
     DedupThroughRelation(String),
     /// `where(method())` after `out(rel)`.
     WhereThroughRelation(String),
@@ -109,6 +143,11 @@ pub enum GremlinRefusal {
     CountOfValues,
     /// `sum()` of vertices.
     SumOfVertices,
+    /// `min()` / `max()` of vertices: vertices have no order.
+    ExtremumOfVertices,
+    /// An ordered `has` after `out(rel)`: no ordered compare reads through a
+    /// key.
+    OrderThroughRelation(String),
     /// A filter after `values(f)`.
     FilterAfterValues,
     /// `values(f)` after `values(g)`.
@@ -161,6 +200,9 @@ enum Cursor<'a> {
     Vertex,
     /// On the target of `out(rel)`; the anchor has not moved.
     Reached(&'a str),
+    /// On the distinct targets of `out(rel)` (`dedup()` after the hop).
+    /// Only `has` (which commutes with `dedup`) and `count()` follow.
+    Distinct(&'a str),
     Value(&'a str),
     Done,
 }
@@ -198,6 +240,9 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
                 let (literal, negate) = match pred {
                     Pred::Eq(l) => (l, false),
                     Pred::Neq(l) => (l, true),
+                    Pred::Lt(_) | Pred::Lte(_) | Pred::Gt(_) | Pred::Gte(_) => {
+                        return Err(GremlinRefusal::OrderThroughRelation(rel.to_owned()))
+                    }
                 };
                 filter.push(Cond::Via {
                     rel,
@@ -210,12 +255,41 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
             (Step::Where(_), Cursor::Reached(rel)) => {
                 return Err(GremlinRefusal::WhereThroughRelation(rel.to_owned()))
             }
-            (Step::Dedup, Cursor::Reached(rel)) => {
+            (Step::Dedup, Cursor::Reached(rel)) => Cursor::Distinct(rel),
+            (Step::Has { field, pred }, Cursor::Distinct(rel)) => {
+                let (Pred::Eq(literal) | Pred::Neq(literal)) = pred else {
+                    return Err(GremlinRefusal::OrderThroughRelation(rel.to_owned()));
+                };
+                filter.push(Cond::Via {
+                    rel,
+                    field,
+                    literal,
+                    negate: matches!(pred, Pred::Neq(_)),
+                });
+                Cursor::Distinct(rel)
+            }
+            (Step::Count, Cursor::Distinct(rel)) => {
+                folds.push(Fold::Distinct { rel });
+                Cursor::Done
+            }
+            (_, Cursor::Distinct(rel)) => {
                 return Err(GremlinRefusal::DedupThroughRelation(rel.to_owned()))
             }
             (Step::Values(_), Cursor::Reached(rel)) => {
                 return Err(GremlinRefusal::ValueThroughRelation(rel.to_owned()))
             }
+            (Step::Min | Step::Max, Cursor::Reached(rel)) => {
+                return Err(GremlinRefusal::ValueThroughRelation(rel.to_owned()))
+            }
+            (Step::Min, Cursor::Value(f)) => {
+                folds.push(Fold::Min(f));
+                Cursor::Done
+            }
+            (Step::Max, Cursor::Value(f)) => {
+                folds.push(Fold::Max(f));
+                Cursor::Done
+            }
+            (Step::Min | Step::Max, _) => return Err(GremlinRefusal::ExtremumOfVertices),
             (Step::Count, Cursor::Reached(_)) => {
                 folds.push(Fold::Count);
                 Cursor::Done
@@ -225,6 +299,12 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
                 filter.push(match pred {
                     Pred::Eq(literal) => Cond::Eq { field, literal },
                     Pred::Neq(literal) => Cond::Ne { field, literal },
+                    Pred::Lt(_) | Pred::Lte(_) | Pred::Gt(_) | Pred::Gte(_) => {
+                        let Some((op, value)) = pred.order() else {
+                            unreachable!("an ordered predicate")
+                        };
+                        Cond::Order { field, op, value }
+                    }
                 });
                 Cursor::Vertex
             }
@@ -253,6 +333,10 @@ pub fn compose<'a>(concept: u16, steps: &[Step<'a>]) -> Result<Composed<'a>, Gre
     }
     if matches!(cursor, Cursor::Value(_)) {
         return Err(GremlinRefusal::NoTerminal);
+    }
+    // The distinct targets are not a population of the anchor.
+    if let Cursor::Distinct(rel) = cursor {
+        return Err(GremlinRefusal::DedupThroughRelation(rel.to_owned()));
     }
     Ok(Composed { filter, folds })
 }
