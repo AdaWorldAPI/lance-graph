@@ -117,17 +117,19 @@ These are true at the #1509 base and false now. The plans keep their text
 (history); this list is the correction.
 
 1. **"Second hop refused" / "multi-hop blocked" / `NoRelationCarrier` /
-   `SecondHop`.** Wrong after #1518, #1520 and #1522: `out(r1).out(r2)`
-   lowers to one `MaskOp::GatherChain` (chained hops are folded hops), the
-   edge-table anchor carries many-to-many, and `Fold::Distinct` dedups
-   targets. `in` / `both` still refuse as `FanOut`. Appears in #1510 plan
-   §2, #1511 (`MultiHopBlocked`, invariant 7, H-tables), #1512 frontier and
-   prompt, #1513 plan/deferred/prompt, #1515 plan and prompt (the "invalid
-   two-hop query" probe must pick another refusal), #1517 F13.
-2. **SAG defects A and B "UNVERIFIED"** (#1510 plan). Fixed and test-pinned
-   in #1519, including the two Codex follow-ups: reprojection keeps claimed
-   class facts, and a `BlockedBy` edge is retracted with its last compiled
-   refusal.
+   `SecondHop` — NOT stale; the refusal stands.** An earlier draft of this
+   list said #1522 removed it. #1522 (`MaskOp::GatherChain`) and its ndarray
+   primitive were withdrawn unmerged (closed 2026-10-12, kept on
+   `backup/session-011BMJ-2026-10-12-chain2`; `D-CMR-RESET`): a hop is a
+   coordinate range, and chained hops are the intersection of ranges, not a
+   chain of key reads. `gremlin::compose` still returns
+   `GremlinRefusal::SecondHop`, so #1517 F13's "invalid two-hop query" probe
+   remains valid as written.
+2. **SAG defects A and B remain UNVERIFIED** (#1510 plan is right). The
+   fixes were written in #1519, which was closed unmerged with the method
+   layer reset (kept on `backup/session-011BMJ-2026-10-12-sagfix`); the
+   shared-provenance and stale-`BlockedBy` failure modes are still possible
+   in the shipped `awareness.rs`.
 3. **OGAR #357 status.** Still unverified upstream; the plans' "RFC" is the
    safe reading.
 
