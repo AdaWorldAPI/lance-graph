@@ -1247,3 +1247,86 @@ fn reprojecting_a_compute_dag_replaces_the_earlier_one() {
         assert_eq!(state(&g, DOCUMENT), (2, 1), "the other class is untouched");
     }
 }
+
+/// FAILS IF a capability stays `Demonstrated` by a refusal the compiler no
+/// longer records: a blocker names a compiled refusal, so when the last
+/// compiled `RefusedFor` for it is retracted, the blocker goes with it. A
+/// refusal another class still records keeps it.
+#[test]
+fn a_blocker_is_retracted_with_its_last_compiled_refusal() {
+    let basis = canonical_fields();
+    let cyclic = [
+        ComputeEdge {
+            target: 2,
+            inputs: &[3],
+        },
+        ComputeEdge {
+            target: 3,
+            inputs: &[2],
+        },
+    ];
+    let acyclic = [ComputeEdge {
+        target: 2,
+        inputs: &[3],
+    }];
+    let cap = "cap:ComputeCycleBreak";
+    // One class: its cycle goes, the blocker goes.
+    let mut g = SoftwareGraph::new();
+    let p = g.note(SOURCE, REV);
+    g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, &cyclic, p);
+    g.blocked_by("refusal:ComputeCycle", cap, p).unwrap();
+    assert!(matches!(g.capability(cap), CapStatus::Demonstrated { .. }));
+    g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, &acyclic, p);
+    assert_eq!(g.capability(cap), CapStatus::Unknown);
+    assert!(g.out("refusal:ComputeCycle", Rel::BlockedBy).is_empty());
+    // Two classes: the other still refuses, so the blocker stays.
+    let mut g = SoftwareGraph::new();
+    let p = g.note(SOURCE, REV);
+    g.project_compute(DOCUMENT, seal(), &basis, &cyclic, p);
+    g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, &cyclic, p);
+    g.blocked_by("refusal:ComputeCycle", cap, p).unwrap();
+    g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, &acyclic, p);
+    assert!(matches!(g.capability(cap), CapStatus::Demonstrated { .. }));
+}
+
+/// FAILS IF reprojecting a class's DAG erases a fact a note recorded in the
+/// class's context: only the rows the projection itself wrote (derived
+/// `ComputesFrom` from a field, the compiled cycle verdict) are replaced.
+#[test]
+fn reprojecting_a_compute_dag_keeps_claimed_class_facts() {
+    let basis = canonical_fields();
+    let acyclic = [ComputeEdge {
+        target: 2,
+        inputs: &[3],
+    }];
+    let class = format!("class:{BILLABLE_WORK_ENTRY:#06x}");
+    let field = field_ident(BILLABLE_WORK_ENTRY, seal(), &basis[3]);
+    let mut g = SoftwareGraph::new();
+    let p = g.note(SOURCE, REV);
+    g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, &acyclic, p);
+    g.claim(&class, Rel::ComputesFrom, &field, Tier::Hypothesis, p)
+        .unwrap();
+    g.claim(
+        &class,
+        Rel::RefusedFor,
+        "refusal:ComputeCycle",
+        Tier::Hypothesis,
+        p,
+    )
+    .unwrap();
+    g.claim(&class, Rel::ComputesFrom, &field, Tier::Derived, p)
+        .unwrap();
+    let before = facts(&g);
+    g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, &acyclic, p);
+    assert_eq!(facts(&g), before, "the same DAG again changes nothing");
+    for (rel, tier) in [
+        (Rel::ComputesFrom, Tier::Hypothesis),
+        (Rel::RefusedFor, Tier::Hypothesis),
+        (Rel::ComputesFrom, Tier::Derived),
+    ] {
+        assert!(
+            g.out(&class, rel).iter().any(|&(_, t)| t == tier),
+            "{rel:?} at {tier:?} survives"
+        );
+    }
+}

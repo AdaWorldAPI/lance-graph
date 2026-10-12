@@ -598,6 +598,7 @@ impl SoftwareGraph {
             // written within it (structure, programs, verdicts,
             // certificates, notes) belongs to the body it described.
             self.edges.retain(|e| e.ctx != m);
+            self.prune_unsupported_blockers();
             self.nodes[m as usize].label = Some((*label).to_owned());
             self.link(class, Rel::HasMethod, m, Tier::Declared, m, prov);
             let r = spec.reading.0;
@@ -808,6 +809,20 @@ impl SoftwareGraph {
     /// # Errors
     ///
     /// The refusal identity, when no compiled refusal carries it.
+    /// Drop every `BlockedBy` edge whose refusal no longer has a compiled
+    /// `RefusedFor`: a blocker is admitted only on a demonstrated refusal
+    /// (see [`Self::blocked_by`]), so it is retracted with the last one.
+    fn prune_unsupported_blockers(&mut self) {
+        let supported: std::collections::HashSet<u32> = self
+            .edges
+            .iter()
+            .filter(|e| e.rel == Rel::RefusedFor && e.tier == Tier::Compiled)
+            .map(|e| e.dst)
+            .collect();
+        self.edges
+            .retain(|e| e.rel != Rel::BlockedBy || supported.contains(&e.src));
+    }
+
     pub fn blocked_by(&mut self, refusal: &str, capability: &str, prov: u32) -> Result<(), String> {
         let r = self
             .node(refusal)
@@ -839,11 +854,17 @@ impl SoftwareGraph {
         // its cycle verdict described the DAG it had then. Other facts
         // written in the class's context (a note from it) are kept.
         let cycle = self.node("refusal:ComputeCycle");
+        // Only the rows this projection wrote are retracted: derived
+        // `ComputesFrom` edges run field -> field, so a claim made from the
+        // class itself (`src == ctx`) or at another tier is kept.
         self.edges.retain(|e| {
             e.ctx != class
-                || !(e.rel == Rel::ComputesFrom
-                    || (e.rel == Rel::RefusedFor && Some(e.dst) == cycle))
+                || !((e.rel == Rel::ComputesFrom && e.tier == Tier::Derived && e.src != e.ctx)
+                    || (e.rel == Rel::RefusedFor
+                        && Some(e.dst) == cycle
+                        && e.tier == Tier::Compiled))
         });
+        self.prune_unsupported_blockers();
         let name = |p: u8| {
             basis
                 .get(usize::from(p))
