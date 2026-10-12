@@ -238,8 +238,50 @@ pub struct Choice;      // impl NalOp: GroupReduce Max over c
 - **Not a second engine.** `NalOp::lower` emits calls; it never loops over
   rows.
 
+### H. Text is a front end; strings are labels, never addresses (operator, 2026-10-12)
+
+> "text" queries should follow the SQL / Gremlin over RISC ABI shaped
+> substrate, never text serialization. Parsing <> label codebook. Strings are
+> never stored as address, only as a label.
+
+Rules that follow, each enforced in W6:
+
+1. **Narsese text is a front end exactly like SQL, Cypher or Gremlin.** It is
+   parsed and bound into the same structured plan the typed `nal::` calls
+   build (§4 G). The text stops at the parser. Nothing after the binder sees a
+   string: no text plan, no text IR, no text on any wire, no serialized
+   Narsese between components.
+2. **Parsing and the label codebook are separate steps.** The parser
+   recognizes structure (copulas, brackets, truth values, punctuation) and
+   produces term *tokens*. The binder resolves each token to an address
+   through the label codebook. The parser never assigns an address, and the
+   codebook never parses.
+3. **Strings are stored only as labels.** A statement row holds addresses
+   (classid / `NodeGuid` / term id) and truth codes, never a string.
+   - A concept's names live in `ogar-vocab` as labels (D-LBL,
+     `concept-labels-hotplug-v1`), pulled through `hotplug.rs` with the
+     activation.
+   - An app's or instance's names live in that consumer's own ClassView or
+     overlay (D-LBL's rule for app-specific and private labels).
+4. **Resolution is a lookup from label to address.** D-LBL builds the
+   forward index (concept × language → label). Binding needs the reverse
+   direction (label × language → address). That reverse index is a W6
+   prerequisite, built from the same rows, never a second label store.
+   - A label that resolves to more than one address is a typed refusal
+     (`AmbiguousLabel`), never a guess.
+   - A label that resolves to nothing is a refusal (`UnknownLabel`). Minting
+     a new address from a string is not the parser's job.
+5. **Output is addresses and codes.** A result is turned back into Narsese
+   text only at the display edge, by looking labels up for the caller's
+   language priority (`Activation::label(concept, langs)`). An absent label
+   renders as the address, never as another language's label.
+
 ### OPEN
 
+- **Label source for instances.** Concept labels come from `ogar-vocab`.
+  Instance terms (`tweety`, a patient, a document) need a per-consumer label
+  codebook. Which existing surface holds it (ClassView overlay, a deepnsm
+  lexical lane, the consumer's own table) is decided in W6.
 - **Term addressing width.** A CE64 edge carries 8-bit S/P/O bytes; the
   planner's arena uses u16 term ids; the address space is `NodeGuid`. Which
   one a statement row uses decides the join lanes (`EqU32Via` needs u32).
@@ -264,7 +306,7 @@ pub struct Choice;      // impl NalOp: GroupReduce Max over c
 | W3 | D-NALP-3 | lance-graph | Revision as `GroupCrossPowerSumsI32` over `w`/`f` deltas (§4 B) | equals the exact integer revision (D-HL-2 arm c) on every statement; agrees with the OpenNARS revision points (`revision_points.nal`); a duplicate-evidence fixture under the D-HL-3 evidential base counts once; disable: drop the `w` scale → red |
 | W4 | D-NALP-4 | ndarray, lance-graph | The per-row truth law (§4 C): measure `MapPairU8` (256² tables) vs fixed-point multiply-high on the four NAL-1 rules; ship the winner as ndarray word → mask-risc terminal → `FoldDialect` wiring | insufficiency proof recorded (no existing terminal expresses it); per-row parity with `isa::truth` on all 2³² `(f₁,c₁,f₂,c₂)` codes or a declared stratified sample, error stated in codes; parity on every SIMD realization row; one shape serves SQL nullable arithmetic too |
 | W5 | D-NALP-5 | lance-graph | Syllogistic population ops: deduction, induction, abduction, analogy = middle-term join (`EqU32Via`/`Gather`) + W4 law | equals the scalar rule applied pair by pair (oracle enumerates pairs); abduction attaches to the right statement (ledger R1's defect must not reappear: a direction test that is red for the reversed statement); measured cost per derived row vs the scalar loop |
-| W6 | D-NALP-6 | lance-graph | `lance-graph-nal` crate: the typed surface `nal::{Operation}` (`NalOp` trait, §4 G) over W2–W5 procedures; Narsese parser (NAL-1/2 statements, truth, questions) lowering from the bound plan onto the same types; `NAL::narsese(text)`; typed `Refusal` for every unsupported shape | text and typed calls produce byte-identical `Program`s for the same query; lowers from the bound plan, never the AST (`cypher-lowering-warden`); every refusal names its reason; no fallback to another engine; no `Program` built outside the procedures |
+| W6 | D-NALP-6 | lance-graph | `lance-graph-nal` crate: the typed surface `nal::{Operation}` (`NalOp` trait, §4 G) over W2–W5 procedures; Narsese parser (NAL-1/2 statements, truth, questions) producing tokens only, a binder resolving tokens through the reverse label index (§4 H) onto the same types; `NAL::narsese(text)`; typed `Refusal` for every unsupported shape, including `AmbiguousLabel` and `UnknownLabel` | text and typed calls produce byte-identical `Program`s for the same query; no string reaches the plan, a row or any wire (a test scans the bound plan and the written rows for string data); an ambiguous or unknown label refuses; output renders through `Activation::label` and an absent label renders as the address; lowers from the bound plan, never the AST (`cypher-lowering-warden`); every refusal names its reason; no fallback to another engine; no `Program` built outside the procedures |
 | W7 | D-NALP-7 | lance-graph | Oracle parity: compile the upstream NAL-1/2 fixtures (`nal1.*`, `nal2.*`) and `revision_points.nal`, run, compare with the pinned OpenNARS output; score with `jc::reliability` | every fixture's expected outputs reproduced within the D-HL-4 tolerance; ICC/Spearman reported per rule; feeds D-HL-4 and D-HL-10 |
 | W8 | D-NALP-8 | OGAR | `ogar-nal` vocabulary, built after W4/W5 and before W6: arity table holding only the bytes W4/W5 earned, provisional concept id, drift test against the `nal::` type list (§4 G) | one arity table in the tree for NAL; no byte for an operation a procedure expresses; mint request for the concept id goes to OGAR (this plan does not mint) |
 | W9 | D-NALP-9 | lance-graph | `narsese!{}` declared mode: build-time generation from procedure bodies (reuses D-SQLP-4's generator; blocked until it exists) | generated answers identical to interpreted; generated ≤ 1.05× hand-built `Program`; no interpreter dispatch in the hot loop's disassembly |
