@@ -296,6 +296,33 @@ Rules that follow, each enforced in W6:
 - **`PROC_DEF` execution.** The same OPEN item as D-SQLP: until it exists,
   procedures are inlined call sequences.
 
+### Status 2026-10-12 (D-NALP-1/2, `crates/lance-graph-nal`)
+
+- **Statements are coordinates, not rows with keys.** Reading
+  `nal-statement-v1` puts a belief on one `FacetCascade` key, semantic tiles
+  `[classid hi, classid lo, S, copula, P, 255 − c, 255 − f, 0]`, sealed into a
+  `SealedFacetLane` with its witness. This replaces the §4 A lowering column
+  for the first three rows: a belief query, a threshold within a statement and
+  choice are witnessed ranges (two `partition_point`s), not lane predicates.
+- **Term width (OPEN above): decided `u16` per tile.** A vocabulary past
+  65,536 terms scales through the classid prefix, not by widening a tile.
+- **Bind once, run the kept program.** `nal::{Question, TruthAtLeast,
+  Support, TruthAtLeastAcross}` run their R2IL procedure once at bind and keep
+  the mask-risc `Program`; a call runs only `execute_compiled`. A query whose
+  rows are one range passes that range as the execution extent, so a lane
+  predicate reads only the range (`TruthAtLeastAcross`: 195 µs → 139 ns at
+  1,048,576 rows once the range became the extent instead of an ANDed mask).
+- **Measured** (`examples/nal_cost.rs`, release, AVX-512, median of 101, answers
+  asserted first), n = 1,048,576: range counts 24 ns, `TruthAtLeastAcross` 139
+  ns over a 245-row subject, `Choice::of` 265 ns, bind 524 ns; the row loop
+  554–614 µs.
+- **OPEN, found here:** R2IL `RANGE` (arity 0) takes its bounds from two `u8`
+  immediates, so through the byte it cannot name a range past row 255. The
+  procedures emit the bound with `FoldDialect::emit_pred(Pred::Range)`. An
+  `ogar-r2il` request, not minted here.
+- Not yet: the ClassView `WideFieldMask` projection and the binder's mask
+  (rest of D-NALP-1); W3 onwards.
+
 ## 5. Waves
 
 | Wave | D-id | Repo | Work | Gate (all must pass) |
