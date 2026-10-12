@@ -51,9 +51,7 @@ Do not demand that Quack and R2IL emit **identical mask-risc opcode sequences**:
 
 ### 2.1 F-SIMAF-CATS scalar reference
 
-Generate rows for ``
-0, 1, 63, 64, 65, 256, 257, 1_024
-``, fields by current `CatsBatch::lanes()`:
+Generate rows for `n ∈ {0, 1, 63, 64, 65, 256, 257, 1_024}`, fields by current `CatsBatch::lanes()`:
 - billable true/nonbillable/unknown, one nonmapped value;
 - hours scaled under at least two **different** batch-local decimal scales;
 - derived `work_day` across UTC boundary;
