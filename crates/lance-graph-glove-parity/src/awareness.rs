@@ -598,7 +598,6 @@ impl SoftwareGraph {
             // written within it (structure, programs, verdicts,
             // certificates, notes) belongs to the body it described.
             self.edges.retain(|e| e.ctx != m);
-            self.prune_unsupported_blockers();
             self.nodes[m as usize].label = Some((*label).to_owned());
             self.link(class, Rel::HasMethod, m, Tier::Declared, m, prov);
             let r = spec.reading.0;
@@ -726,6 +725,9 @@ impl SoftwareGraph {
                 None => {}
             }
         }
+        // After every replacement verdict is written, so a refusal the new
+        // bodies reproduce still supports its blocker.
+        self.prune_unsupported_blockers();
     }
 
     /// Record one lowered program of `owner`: its primitives and lowering,
@@ -809,9 +811,10 @@ impl SoftwareGraph {
     /// # Errors
     ///
     /// The refusal identity, when no compiled refusal carries it.
-    /// Drop every `BlockedBy` edge whose refusal no longer has a compiled
-    /// `RefusedFor`: a blocker is admitted only on a demonstrated refusal
-    /// (see [`Self::blocked_by`]), so it is retracted with the last one.
+    /// Drop every compiled, refusal-sourced `BlockedBy` edge whose refusal
+    /// no longer has a compiled `RefusedFor`: such a blocker is admitted only
+    /// on a demonstrated refusal (see [`Self::blocked_by`]), so it is
+    /// retracted with the last one. Claimed blockers are left alone.
     fn prune_unsupported_blockers(&mut self) {
         let supported: std::collections::HashSet<u32> = self
             .edges
@@ -819,8 +822,13 @@ impl SoftwareGraph {
             .filter(|e| e.rel == Rel::RefusedFor && e.tier == Tier::Compiled)
             .map(|e| e.dst)
             .collect();
-        self.edges
-            .retain(|e| e.rel != Rel::BlockedBy || supported.contains(&e.src));
+        let nodes = &self.nodes;
+        self.edges.retain(|e| {
+            e.rel != Rel::BlockedBy
+                || e.tier != Tier::Compiled
+                || nodes[e.src as usize].kind != Kind::Refusal
+                || supported.contains(&e.src)
+        });
     }
 
     pub fn blocked_by(&mut self, refusal: &str, capability: &str, prov: u32) -> Result<(), String> {
@@ -864,7 +872,6 @@ impl SoftwareGraph {
                         && Some(e.dst) == cycle
                         && e.tier == Tier::Compiled))
         });
-        self.prune_unsupported_blockers();
         let name = |p: u8| {
             basis
                 .get(usize::from(p))
@@ -882,6 +889,7 @@ impl SoftwareGraph {
             let r = self.intern(Kind::Refusal, "refusal:ComputeCycle".into());
             self.link(class, Rel::RefusedFor, r, Tier::Compiled, class, prov);
         }
+        self.prune_unsupported_blockers();
     }
 
     /// Accept a certificate when the body and seal it names are current.

@@ -1330,3 +1330,46 @@ fn reprojecting_a_compute_dag_keeps_claimed_class_facts() {
         );
     }
 }
+
+/// FAILS IF a reprojection that reproduces the same cycle loses its blocker:
+/// pruning must see the replacement verdict, not the intermediate state.
+#[test]
+fn reprojecting_the_same_cycle_keeps_its_blocker() {
+    let basis = canonical_fields();
+    let cyclic = [
+        ComputeEdge {
+            target: 2,
+            inputs: &[3],
+        },
+        ComputeEdge {
+            target: 3,
+            inputs: &[2],
+        },
+    ];
+    let cap = "cap:ComputeCycleBreak";
+    let mut g = SoftwareGraph::new();
+    let p = g.note(SOURCE, REV);
+    g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, &cyclic, p);
+    g.blocked_by("refusal:ComputeCycle", cap, p).unwrap();
+    g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, &cyclic, p);
+    assert!(matches!(g.capability(cap), CapStatus::Demonstrated { .. }));
+}
+
+/// FAILS IF pruning removes a claimed `BlockedBy` that no refusal sources:
+/// only compiled, refusal-sourced blockers depend on a compiled refusal.
+#[test]
+fn reprojection_keeps_a_claimed_method_blocker() {
+    let basis = canonical_fields();
+    let acyclic = [ComputeEdge {
+        target: 2,
+        inputs: &[3],
+    }];
+    let cap = "cap:SomethingElse";
+    let mut g = SoftwareGraph::new();
+    let p = g.note(SOURCE, REV);
+    g.claim("method:other", Rel::BlockedBy, cap, Tier::Hypothesis, p)
+        .unwrap();
+    assert!(matches!(g.capability(cap), CapStatus::Claimed { .. }));
+    g.project_compute(BILLABLE_WORK_ENTRY, seal(), &basis, &acyclic, p);
+    assert!(matches!(g.capability(cap), CapStatus::Claimed { .. }));
+}
