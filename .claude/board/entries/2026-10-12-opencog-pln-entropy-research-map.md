@@ -17,7 +17,7 @@ The upstream OpenCog ecosystem gives **distinct** research comparisons, not one 
 
 The map has source-referenced questions **OC-Q01..OC-Q13**: define the entropy random variable and calibrated `p`; define a leakage-free expected-information-gain estimator; test PLN-vs-NARS truth-law parity; identify evidence overlap; identify exact PLN and ECAN attention equations; scope AtomSpace graph/Frame projection; enforce equal budgets; include noise and duplicates; isolate sparse masking from scheduling; pin licenses, runtime, metacognitive controls.
 
-**First falsifier:** on identical rules, evidence and fold budget, does naïve `H(f)` chase high-entropy zero-information distractors while a documented confidence queue or Stoanen/Moore policy discovers more *oracle-supported* target edges? Raw Shannon and *expected* information gain must be separate experimental arms. Corrected spelling in the research map: `Staunen`.
+**First falsifier:** on identical rules, evidence and fold budget, does naïve `H(f)` chase high-entropy zero-information distractors while a documented confidence queue or Staunen/Moore policy discovers more *oracle-supported* target edges? Raw Shannon and *expected* information gain must be separate experimental arms.
 
 **Not measured:** no upstream oracle executed; no new runtime code; no implementation gate cleared. Preserve the byte-level ALU/ISA register contract and per-ClassView semantic readings.
 
