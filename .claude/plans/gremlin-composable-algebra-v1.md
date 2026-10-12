@@ -282,6 +282,6 @@ emitted per condition.
 | D-CMH-G1-1 | predicate methods + method references | Shipped (#1508) |
 | D-CMH-G1-2 | typed Gremlin steps → method body | Shipped (#1508) |
 | D-CMH-G1-3 | Gremlin-shaped runtime declarations | Shipped (#1508) |
-| D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` after it (§8) | In PR |
+| D-CMH-G1-4a | functional relation carrier: `out(rel)`, `out(rel).has`, `count()` after it (§8) | Shipped (#1514) |
 | D-CMH-G1-4 | the rest of the carrier: `in`/M:N (anchor moves to child or edge rows), `E()`, `outE/inV`, `dedup` after a fan-out | Queued |
 | D-CMH-G1-5 | FirstOfRun (insufficiency proof first; separate PR #3) | Queued |
