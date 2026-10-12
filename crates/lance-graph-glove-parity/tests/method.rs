@@ -27,7 +27,10 @@ const NOT_BILLABLE: MethodKey = MethodKey([0xB0; 16]);
 const BILLABLE_HOURS: MethodKey = MethodKey([0xB2; 16]);
 const HOURS_BY_BILLABLE: MethodKey = MethodKey([0xB3; 16]);
 
-const fn query(filter: &'static [Cond], folds: &'static [Fold]) -> MethodBody {
+const fn query(
+    filter: &'static [Cond<'static>],
+    folds: &'static [Fold<'static>],
+) -> MethodBody<'static> {
     MethodBody::Query {
         filter,
         folds,
@@ -39,7 +42,7 @@ const fn query(filter: &'static [Cond], folds: &'static [Fold]) -> MethodBody {
 const READING: ReadingId = ReadingId(1);
 const UNIVERSE: Universe = Universe(42);
 
-fn pure(key: MethodKey, body: MethodBody) -> MethodSpec {
+fn pure(key: MethodKey, body: MethodBody<'static>) -> MethodSpec<'static> {
     MethodSpec {
         key,
         concept: BILLABLE_WORK_ENTRY,
@@ -59,7 +62,7 @@ const BILLABLE_TRUE: Cond = Cond::Eq {
     literal: "true",
 };
 
-fn specs() -> Vec<(&'static str, MethodSpec)> {
+fn specs() -> Vec<(&'static str, MethodSpec<'static>)> {
     vec![
         (
             "count_billable",
@@ -324,21 +327,19 @@ fn a_hypothesized_field_is_refused_at_preparation() {
     for key in [COUNT_BY_DURATION, BILLABLE_HOURS] {
         assert_eq!(
             t.get(key),
-            Some(&Err(PrepareError::UnmappedRequired("duration")))
+            Some(&Err(PrepareError::UnmappedRequired("duration".into())))
         );
     }
     assert!(matches!(
         call(&t, &batch, COUNT_BY_DURATION, Frontend::Quack),
-        Err(CallError::Refused(PrepareError::UnmappedRequired(
-            "duration"
-        )))
+        Err(CallError::Refused(PrepareError::UnmappedRequired(ref f))) if f == "duration"
     ));
     // Twin: with the claim proven, the refusal moves on to binding (a decimal
     // lane is not a code), so the availability check was what refused.
     let t = table_for(&CatsBinder::new(&batch), &with_duration());
     assert_eq!(
         t.get(COUNT_BY_DURATION),
-        Some(&Err(PrepareError::KindMismatch("duration")))
+        Some(&Err(PrepareError::KindMismatch("duration".into())))
     );
 }
 
@@ -415,12 +416,12 @@ fn malformed_specs_are_refused_by_name() {
     let refused = |k: u8| t.get(MethodKey([k; 16])).unwrap().clone().unwrap_err();
     assert!(matches!(refused(1), PrepareError::WrongConcept { .. }));
     assert_eq!(refused(2), PrepareError::NoFold);
-    assert_eq!(refused(3), PrepareError::UnknownField("colour"));
+    assert_eq!(refused(3), PrepareError::UnknownField("colour".into()));
     assert_eq!(
         refused(4),
         PrepareError::UnknownValue {
-            field: "billable",
-            literal: "maybe"
+            field: "billable".into(),
+            literal: "maybe".into()
         }
     );
     assert_eq!(refused(5), PrepareError::EffectMismatch);

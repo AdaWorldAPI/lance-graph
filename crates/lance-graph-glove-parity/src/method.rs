@@ -114,21 +114,15 @@ pub enum EffectClass {
 
 /// One condition of a body's `WHERE`, on a canonical field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Cond {
+pub enum Cond<'a> {
     /// `field = literal`.
-    Eq {
-        field: &'static str,
-        literal: &'static str,
-    },
+    Eq { field: &'a str, literal: &'a str },
     /// `field != literal`.
-    Ne {
-        field: &'static str,
-        literal: &'static str,
-    },
+    Ne { field: &'a str, literal: &'a str },
 }
 
-impl Cond {
-    fn field(self) -> &'static str {
+impl<'a> Cond<'a> {
+    fn field(self) -> &'a str {
         match self {
             Cond::Eq { field, .. } | Cond::Ne { field, .. } => field,
         }
@@ -137,17 +131,17 @@ impl Cond {
 
 /// One aggregate of a body.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Fold {
+pub enum Fold<'a> {
     /// `COUNT(*)` over the selected rows.
     Count,
     /// `SUM(field)` over the selected rows.
-    Sum(&'static str),
+    Sum(&'a str),
     /// `SUM(val) GROUP BY key` over the selected rows, for the key domain
     /// `0..groups`. Rows whose key is at or past `groups` are dropped by the
     /// terminal, not refused.
     GroupSum {
-        key: &'static str,
-        val: &'static str,
+        key: &'a str,
+        val: &'a str,
         groups: u32,
     },
 }
@@ -155,7 +149,7 @@ pub enum Fold {
 /// How the folds' values become the method's result. A fixed set the
 /// compiler knows; a method names one, it never supplies one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Law {
+pub enum Law<'a> {
     /// The fold values, in order.
     Values,
     /// NAL revision of independent evidence, per statement.
@@ -176,7 +170,7 @@ pub enum Law {
     /// refused.
     NarsRevision {
         /// The field marking the first occurrence of each evidential stamp.
-        independent: &'static str,
+        independent: &'a str,
         /// Fixed-point scale of `w`.
         scale: u32,
         /// The evidential horizon `k`.
@@ -211,20 +205,23 @@ pub enum Answer {
 
 /// A method's body, in the concept's canonical field names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MethodBody {
+pub enum MethodBody<'a> {
     /// `SELECT folds FROM concept WHERE filter`, finished by `law`.
     Query {
-        filter: &'static [Cond],
-        folds: &'static [Fold],
-        law: Law,
+        filter: &'a [Cond<'a>],
+        folds: &'a [Fold<'a>],
+        law: Law<'a>,
     },
     /// An OGAR action. Named here; never executed here.
-    Action { action: &'static str },
+    Action { action: &'a str },
 }
 
-/// A method as its concept declares it.
+/// A method as its concept declares it. `'a` is the declaration's storage:
+/// `'static` for a compiled spec, a [`crate::decl::MethodDecl`] for one
+/// loaded at run time. Preparation copies out what it keeps, so a prepared
+/// method borrows nothing from the spec.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MethodSpec {
+pub struct MethodSpec<'a> {
     pub key: MethodKey,
     /// Canonical concept id (`ogar_vocab::class_ids`).
     pub concept: u16,
@@ -233,13 +230,13 @@ pub struct MethodSpec {
     /// The reading of the glove's bytes the body assumes.
     pub reading: ReadingId,
     pub effect: EffectClass,
-    pub body: MethodBody,
+    pub body: MethodBody<'a>,
 }
 
-impl MethodSpec {
+impl<'a> MethodSpec<'a> {
     /// The canonical fields the body reads, each once, in order of use.
     #[must_use]
-    pub fn reads(&self) -> Vec<&'static str> {
+    pub fn reads(&self) -> Vec<&'a str> {
         let mut out = Vec::new();
         if let MethodBody::Query { filter, folds, .. } = self.body {
             let fields = filter
@@ -266,25 +263,22 @@ pub enum PrepareError {
     /// The spec belongs to another concept than the table's.
     WrongConcept { spec: u16, table: u16 },
     /// The body names a field the canonical basis does not have.
-    UnknownField(&'static str),
+    UnknownField(String),
     /// The basis is wider than a field position can address.
     BasisTooWide(usize),
     /// A required field has no proven claim in this glove
     /// (`required ⊄ available`).
-    UnmappedRequired(&'static str),
+    UnmappedRequired(String),
     /// The glove's binder has no table of that name.
-    UnknownTable(&'static str),
+    UnknownTable(String),
     /// The glove's binder does not serve the claimed field.
-    Unbound(&'static str),
+    Unbound(String),
     /// The field is nullable. Three-valued comparison is not in scope.
-    Nullable(&'static str),
+    Nullable(String),
     /// The body uses the field as a different kind.
-    KindMismatch(&'static str),
+    KindMismatch(String),
     /// The literal is not in the field's domain.
-    UnknownValue {
-        field: &'static str,
-        literal: &'static str,
-    },
+    UnknownValue { field: String, literal: String },
     /// A query body with no fold computes nothing.
     NoFold,
     /// The declared effect does not match the body.
@@ -297,19 +291,19 @@ pub enum PrepareError {
     LawShape,
     /// The law adds evidence, and the body does not select independent
     /// evidence (`Law::NarsRevision::independent`).
-    EvidenceNotIndependent(&'static str),
+    EvidenceNotIndependent(String),
     /// Quack could not lower the bound body.
     Lower(LowerError),
     /// Another spec in the same table carries this key.
     DuplicateKey(MethodKey),
     /// Another spec in the same table carries this label.
-    DuplicateLabel(&'static str),
+    DuplicateLabel(String),
     /// A law's numeric parameter is out of its domain (a zero
     /// `NarsRevision` scale or horizon).
     LawParameter,
     /// Two proven claims map different native fields onto this canonical
     /// field; binding either would depend on claim order.
-    AmbiguousClaim(&'static str),
+    AmbiguousClaim(String),
 }
 
 /// Why a call did not run.
@@ -353,11 +347,28 @@ enum Bound {
         /// `(lane, code, negate)`.
         conds: Vec<(Col, u32, bool)>,
         folds: Vec<BoundFold>,
-        law: Law,
+        law: OwnedLaw,
         /// The Quack programs, lowered once at preparation, one per fold.
         programs: Vec<Program>,
     },
     Action,
+}
+
+/// The law a prepared method finishes with. Only its numbers are kept: the
+/// fields a law names are checked at preparation and never read again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OwnedLaw {
+    Values,
+    NarsRevision { scale: u32, horizon: u32 },
+}
+
+impl From<Law<'_>> for OwnedLaw {
+    fn from(l: Law<'_>) -> Self {
+        match l {
+            Law::Values => Self::Values,
+            Law::NarsRevision { scale, horizon, .. } => Self::NarsRevision { scale, horizon },
+        }
+    }
 }
 
 /// A method bound against one glove: numbers only.
@@ -471,8 +482,8 @@ impl PreparedMethod {
             }
         };
         Ok(match *law {
-            Law::Values => Answer::Values(values),
-            Law::NarsRevision { scale, horizon, .. } => {
+            OwnedLaw::Values => Answer::Values(values),
+            OwnedLaw::NarsRevision { scale, horizon } => {
                 let [FoldValue::Groups(w), FoldValue::Groups(wf)] = values.as_slice() else {
                     unreachable!("preparation checked the law's shape")
                 };
@@ -564,7 +575,7 @@ fn run_r2il(
 pub struct MethodTable {
     concept: u16,
     table: &'static str,
-    labels: Vec<(&'static str, MethodKey)>,
+    labels: Vec<(String, MethodKey)>,
     methods: Vec<(MethodKey, Result<PreparedMethod, PrepareError>)>,
 }
 
@@ -574,11 +585,11 @@ impl MethodTable {
     ///
     /// A refused method stays in the table with its reason.
     #[must_use]
-    pub fn prepare(glove: &Glove<'_>, specs: &[(&'static str, MethodSpec)]) -> Self {
+    pub fn prepare(glove: &Glove<'_>, specs: &[(&str, MethodSpec<'_>)]) -> Self {
         let available = available(glove.basis, glove.claims);
         let seal = SchemaSeal::of(glove.basis);
         let count =
-            |f: &dyn Fn(&(&'static str, MethodSpec)) -> bool| specs.iter().filter(|x| f(x)).count();
+            |f: &dyn Fn(&(&str, MethodSpec<'_>)) -> bool| specs.iter().filter(|x| f(x)).count();
         Self {
             concept: glove.concept,
             table: glove.table,
@@ -586,7 +597,7 @@ impl MethodTable {
             labels: specs
                 .iter()
                 .filter(|(l, _)| count(&|(m, _)| m == l) == 1)
-                .map(|(l, s)| (*l, s.key))
+                .map(|(l, s)| ((*l).to_owned(), s.key))
                 .collect(),
             methods: specs
                 .iter()
@@ -594,7 +605,7 @@ impl MethodTable {
                     let prepared = if count(&|(_, t)| t.key == s.key) > 1 {
                         Err(PrepareError::DuplicateKey(s.key))
                     } else if count(&|(m, _)| m == l) > 1 {
-                        Err(PrepareError::DuplicateLabel(l))
+                        Err(PrepareError::DuplicateLabel((*l).to_owned()))
                     } else {
                         glove.prepare(seal, available.as_ref(), s)
                     };
@@ -621,7 +632,7 @@ impl MethodTable {
     pub fn resolve(&self, label: &str) -> Option<MethodKey> {
         self.labels
             .iter()
-            .find(|(l, _)| *l == label)
+            .find(|(l, _)| l == label)
             .map(|(_, k)| *k)
     }
 
@@ -688,7 +699,7 @@ impl Glove<'_> {
         &self,
         seal: SchemaSeal,
         available: Result<&WideFieldMask, &PrepareError>,
-        spec: &MethodSpec,
+        spec: &MethodSpec<'_>,
     ) -> Result<PreparedMethod, PrepareError> {
         if spec.concept != self.concept {
             return Err(PrepareError::WrongConcept {
@@ -727,7 +738,9 @@ impl Glove<'_> {
         }
         if !required.is_subset_of(available) {
             return Err(PrepareError::UnmappedRequired(
-                missing.expect("a field outside available exists"),
+                missing
+                    .expect("a field outside available exists")
+                    .to_owned(),
             ));
         }
         let bound = match (spec.body, spec.effect) {
@@ -739,7 +752,7 @@ impl Glove<'_> {
                 let t = self
                     .binder
                     .table(self.table)
-                    .ok_or(PrepareError::UnknownTable(self.table))?;
+                    .ok_or_else(|| PrepareError::UnknownTable(self.table.to_owned()))?;
                 let conds = filter
                     .iter()
                     .map(|c| self.cond(t, *c))
@@ -768,7 +781,7 @@ impl Glove<'_> {
                     live,
                     conds,
                     folds,
-                    law,
+                    law: law.into(),
                     programs,
                 }
             }
@@ -787,34 +800,34 @@ impl Glove<'_> {
     }
 
     /// A required field's lane, which must be of `kind`.
-    fn lane(&self, t: TableId, field: &'static str, kind: FieldKind) -> Result<Col, PrepareError> {
+    fn lane(&self, t: TableId, field: &str, kind: FieldKind) -> Result<Col, PrepareError> {
         let b = self.field(t, field)?;
         if b.kind != kind {
-            return Err(PrepareError::KindMismatch(field));
+            return Err(PrepareError::KindMismatch(field.to_owned()));
         }
         Ok(b.col)
     }
 
-    fn position(&self, field: &'static str) -> Result<u8, PrepareError> {
+    fn position(&self, field: &str) -> Result<u8, PrepareError> {
         let pos = self
             .basis
             .iter()
             .position(|b| b == field)
-            .ok_or(PrepareError::UnknownField(field))?;
+            .ok_or_else(|| PrepareError::UnknownField(field.to_owned()))?;
         u8::try_from(pos).map_err(|_| PrepareError::BasisTooWide(self.basis.len()))
     }
 
     /// A required field, through its proven claim. A converted claim is
     /// served under its canonical name (the derived lens the conversion is
     /// proven on); an exact one under the glove's own name.
-    fn field(&self, t: TableId, field: &'static str) -> Result<BoundField, PrepareError> {
+    fn field(&self, t: TableId, field: &str) -> Result<BoundField, PrepareError> {
         let mut proven = self
             .claims
             .iter()
             .filter(|c| c.canonical == field && matches!(c.grade, Grade::Exact | Grade::Converted));
         let claim = proven.next().expect("available implies a proven claim");
         if proven.any(|c| c.native != claim.native || c.grade != claim.grade) {
-            return Err(PrepareError::AmbiguousClaim(field));
+            return Err(PrepareError::AmbiguousClaim(field.to_owned()));
         }
         let name = match claim.grade {
             Grade::Converted => claim.canonical,
@@ -823,32 +836,35 @@ impl Glove<'_> {
         let b = self
             .binder
             .field(t, name)
-            .ok_or(PrepareError::Unbound(field))?;
+            .ok_or_else(|| PrepareError::Unbound(field.to_owned()))?;
         if b.validity.is_some() {
-            return Err(PrepareError::Nullable(field));
+            return Err(PrepareError::Nullable(field.to_owned()));
         }
         Ok(b)
     }
 
-    fn cond(&self, t: TableId, c: Cond) -> Result<(Col, u32, bool), PrepareError> {
+    fn cond(&self, t: TableId, c: Cond<'_>) -> Result<(Col, u32, bool), PrepareError> {
         let (field, literal, negate) = match c {
             Cond::Eq { field, literal } => (field, literal, false),
             Cond::Ne { field, literal } => (field, literal, true),
         };
         let b = self.field(t, field)?;
         if b.kind != FieldKind::Code {
-            return Err(PrepareError::KindMismatch(field));
+            return Err(PrepareError::KindMismatch(field.to_owned()));
         }
-        let code = self
-            .binder
-            .code(t, b.col, literal)
-            .ok_or(PrepareError::UnknownValue { field, literal })?;
+        let code =
+            self.binder
+                .code(t, b.col, literal)
+                .ok_or_else(|| PrepareError::UnknownValue {
+                    field: field.to_owned(),
+                    literal: literal.to_owned(),
+                })?;
         Ok((b.col, code, negate))
     }
 }
 
 /// The body shape a law needs, checked before anything binds.
-fn check_law(law: Law, filter: &[Cond], folds: &[Fold]) -> Result<(), PrepareError> {
+fn check_law(law: Law<'_>, filter: &[Cond<'_>], folds: &[Fold<'_>]) -> Result<(), PrepareError> {
     match law {
         Law::Values => Ok(()),
         Law::NarsRevision {
@@ -881,7 +897,7 @@ fn check_law(law: Law, filter: &[Cond], folds: &[Fold]) -> Result<(), PrepareErr
                 }
             });
             if !selects_independent {
-                return Err(PrepareError::EvidenceNotIndependent(independent));
+                return Err(PrepareError::EvidenceNotIndependent(independent.to_owned()));
             }
             Ok(())
         }

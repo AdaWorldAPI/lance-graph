@@ -38,7 +38,7 @@ fn seal() -> SchemaSeal {
     SchemaSeal::of(&canonical_fields())
 }
 
-fn billable_hours() -> MethodSpec {
+fn billable_hours() -> MethodSpec<'static> {
     MethodSpec {
         key: BILLABLE_HOURS,
         concept: BILLABLE_WORK_ENTRY,
@@ -345,7 +345,7 @@ fn a_nullable_field_is_refused() {
     let t = MethodTable::prepare(&glove(&basis, &nb, &claims), &[("h", billable_hours())]);
     assert_eq!(
         t.get(BILLABLE_HOURS),
-        Some(&Err(PrepareError::Nullable("billable")))
+        Some(&Err(PrepareError::Nullable("billable".into())))
     );
 }
 
@@ -496,8 +496,8 @@ fn nars_spec(
     key: MethodKey,
     filter: &'static [Cond],
     folds: &'static [Fold],
-    law: Law,
-) -> MethodSpec {
+    law: Law<'static>,
+) -> MethodSpec<'static> {
     MethodSpec {
         key,
         concept: NARS,
@@ -508,7 +508,7 @@ fn nars_spec(
     }
 }
 
-fn nars_specs() -> Vec<(&'static str, MethodSpec)> {
+fn nars_specs() -> Vec<(&'static str, MethodSpec<'static>)> {
     const INDEP: &[Cond] = &[Cond::Eq {
         field: "independent",
         literal: "true",
@@ -748,7 +748,9 @@ fn a_revision_body_without_independence_or_in_the_wrong_shape_is_refused() {
     );
     assert_eq!(
         t.get(MethodKey([1; 16])),
-        Some(&Err(PrepareError::EvidenceNotIndependent("independent")))
+        Some(&Err(PrepareError::EvidenceNotIndependent(
+            "independent".into()
+        )))
     );
     assert_eq!(
         t.get(MethodKey([2; 16])),
@@ -909,7 +911,7 @@ fn a_repeated_key_or_label_is_refused() {
     assert_eq!(t.resolve("dup"), None, "an ambiguous label names nothing");
     assert_eq!(
         t.get(MethodKey([0xC1; 16])),
-        Some(&Err(PrepareError::DuplicateLabel("dup")))
+        Some(&Err(PrepareError::DuplicateLabel("dup".into())))
     );
     // Twin: a unique key and label still prepare.
     let t = MethodTable::prepare(&glove(&basis, &cats, &claims), &[("h", billable_hours())]);
@@ -986,7 +988,7 @@ fn an_ambiguous_canonical_claim_is_refused() {
     let t = MethodTable::prepare(&glove(&basis, &cats, &claims), &[("h", billable_hours())]);
     assert_eq!(
         t.get(BILLABLE_HOURS),
-        Some(&Err(PrepareError::AmbiguousClaim("duration")))
+        Some(&Err(PrepareError::AmbiguousClaim("duration".into())))
     );
     // Twin: the same claim repeated for the same native field is not
     // ambiguous.

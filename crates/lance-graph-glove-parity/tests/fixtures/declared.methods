@@ -1,0 +1,7 @@
+# Methods of billable_work_entry (0x0103), declared as text and loaded at run
+# time by tests/declared.rs and examples/method_load.rs. No compiled code
+# names them. The keys are FIXTURES; `schema` is the seal of the canonical
+# basis they were written against, checked against the glove at preparation.
+billable_work_entry::count_not_billed key=d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1 schema=00420936c94ff753 reading=1 := COUNT(*) WHERE billable = false
+billable_work_entry::hours_by_billing key=d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2 schema=00420936c94ff753 reading=1 := GROUP_SUM(duration BY billable IN 2)
+billable_work_entry::billable_hours   key=d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3 schema=00420936c94ff753 reading=1 := COUNT(*), SUM(duration) WHERE billable = true
