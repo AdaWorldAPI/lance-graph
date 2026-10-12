@@ -5,7 +5,7 @@
 //! selection, a partial one and a full one.
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, MaskOp, Planes};
-use lance_graph_r2il::procs::{filter_lt, group_sum, margin, select_lt, sum};
+use lance_graph_r2il::procs::{count_eq, filter_lt, group_sum, margin, select_lt, sum};
 use lance_graph_r2il::{
     BoolMode, FoldDialect, FoldError, Val, INT_AND, INT_NOT, INT_OR, POP_COUNT,
 };
@@ -79,6 +79,34 @@ fn filter_lt_keeps_the_rows_the_reference_keeps() {
         let want: Vec<usize> = (0..N).filter(|&r| f.x[r] < t).collect();
         assert_eq!(rows(&sink), want, "t = {t}");
     }
+}
+
+/// FAILS IF: `count_eq` stops counting exactly the live rows whose `U32`
+/// lane holds the value. The live plane drops every seventh row, so a count
+/// that ignores the plane is too high.
+#[test]
+fn count_eq_counts_live_rows_holding_the_value() {
+    let f = fixture();
+    let lanes = lanes(&f);
+    let mut live = vec![0u64; words_for(N)];
+    for r in (0..N).filter(|r| r % 7 != 0) {
+        live[r / 64] |= 1 << (r % 64);
+    }
+    let planes = Planes {
+        n_rows: N,
+        masks: &[live.as_slice()],
+        lanes: &lanes,
+    };
+    for v in [0u32, 3, 9] {
+        let want = (0..N).filter(|&r| r % 7 != 0 && f.key[r] == v).count() as i64;
+        let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+        let mut stack = vec![];
+        count_eq(&mut d, &mut stack, 0, KEY, v).expect("count_eq");
+        assert_eq!(stack, vec![Val::Scalar(want)], "v = {v}");
+        assert_eq!(d.programs_run(), 1, "one fold");
+    }
+    // Non-vacuity: the plane removes rows that hold the value.
+    assert!((0..N).any(|r| r % 7 == 0 && f.key[r] == 3));
 }
 
 /// FAILS IF: `sum` stops matching `SUM(revenue | x < t)`.

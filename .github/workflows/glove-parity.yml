@@ -7,6 +7,7 @@ on:
       - 'crates/lance-graph-ontology/**'
       - 'crates/lance-graph-quack/**'
       - 'crates/lance-graph-mask-risc/**'
+      - 'crates/lance-graph-r2il/**'
       - 'crates/lance-graph-contract/**'
       - '.github/workflows/glove-parity.yml'
   workflow_dispatch:
@@ -26,11 +27,21 @@ jobs:
           ref: master
           path: ndarray
           persist-credentials: false
+      # lance-graph-r2il (method calls through R2IL) path-deps ogar-loco and
+      # ogar-r2il from the OGAR sibling.
+      - uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/OGAR
+          ref: main
+          path: OGAR
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - name: Record tested substrate
-        run: git -C ndarray rev-parse HEAD
+        run: |
+          git -C ndarray rev-parse HEAD
+          git -C OGAR rev-parse HEAD
       - name: Format
         run: cargo +stable fmt --manifest-path lance-graph/crates/lance-graph-glove-parity/Cargo.toml -- --check
       - name: Lint

@@ -64,8 +64,8 @@
 //!
 //! # Procedures
 //!
-//! [`procs`] holds named call sequences (`filter_lt`, `sum`, `group_sum`,
-//! `margin`). They are Rust functions over [`Dialect::call`], not opcodes.
+//! [`procs`] holds named call sequences (`filter_lt`, `count_eq`, `sum`,
+//! `group_sum`, `margin`). They are Rust functions over [`Dialect::call`], not opcodes.
 //!
 //! # Slot limit
 //!

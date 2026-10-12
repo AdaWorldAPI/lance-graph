@@ -17,9 +17,12 @@ lance-graph-quack = { path = "../lance-graph-quack" }
 # The capability authority (`OgarAuthority`) and OGAR's promoted classes and
 # `ClassView`, for the hot-plugs and the canonical field basis (`basis`).
 lance-graph-ogar = { path = "../lance-graph-ogar" }
+# Executes a method through both frontends: Quack (above) and R2IL. R2IL
+# path-deps the OGAR sibling (`ogar-loco`, `ogar-r2il`), so CI checks it out.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-r2il = { path = "../lance-graph-r2il" }
 
 [dev-dependencies]
-lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 lance-graph-sap = { path = "../lance-graph-sap" }
 
 # mask-risc names ndarray by its canonical git coordinate; point it at the
