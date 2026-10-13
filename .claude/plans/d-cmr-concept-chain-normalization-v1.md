@@ -229,8 +229,10 @@ update and maintenance laws), never a precondition for `SUM`.
 ## 7. Experiments, each with an independent oracle and a negative control
 
 - **A. Cancellation.** At the aggregate level: `Sum(A) − Sum(A∧B)` against
-  `Sum(A∧¬B)` and an exact `i128` oracle; an eager variant accumulating into
-  `i32` shows the loss. Under checked arithmetic the rewrite must refuse.
+  `Sum(A∧¬B)` and an exact `i128` oracle. An eager variant that deliberately
+  accumulates into `i32` is the counterexample that shows the loss; it is not
+  a model of today's fold, which accumulates exactly into `i64` within the row
+  bound. Under checked arithmetic the rewrite must refuse.
 - **B. Range intersection.** k compatible ranges intersect before any row is
   read. Baseline: `fold_ranges` and `Lowering::Range` (tests at quack
   `lib.rs:5204–5248`).
