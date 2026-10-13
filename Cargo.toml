@@ -106,6 +106,10 @@ exclude = [
     # the OGAR sibling. Verify via
     # `cargo test --manifest-path crates/lance-graph-r2il/Cargo.toml`.
     "crates/lance-graph-r2il",
+    # NAL over the fold path (D-NALP-1/2): path-deps lance-graph-r2il, so it
+    # needs the OGAR checkout too. Own workspace root; verify via
+    # `cargo test --manifest-path crates/lance-graph-nal/Cargo.toml`.
+    "crates/lance-graph-nal",
     "crates/symbiont",
     # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
     # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +
