@@ -267,7 +267,9 @@ impl Actor for CallcenterSupervisor {
 
                 // The backoff has already been waited out by the sender
                 // (`handle_supervisor_evt`). A slot that is live again needs
-                // nothing; this message never reschedules itself.
+                // nothing; this message never reschedules itself. Defensive
+                // only: ractor's registry would also refuse a second actor
+                // under the same name, so no test can tell this check apart.
                 if state.slots.contains_key(&(g, version)) {
                     tracing::debug!(g, version, "RespawnG: slot already live");
                     return Ok(());
