@@ -1,3 +1,17 @@
+## 2026-10-13 — lance-graph PR #1536 (merged `2b28a19`, branch `docs/outer-membrane-graph-lab-20261013`, head `93b0993`, 5 commits) — docs: outer membrane graph lab, epoch-indexed temporal graph agenda, ONA → NAL/R2IL fold-method program
+
+- **Added:** three proposal documents under `docs/architecture/`: `OUTER_MEMBRANE_GRAPH_LAB_VERTICAL_SLICE.md` (ownership rule, callcenter/supervisor evidence table, a falsifiable two-node one-edge vertical slice), `EPOCH_TEMPORAL_GRAPH_RESEARCH_AGENDA.md` (E01–E20 exploration questions, three time axes, T0–T6 sequence), `ONA_NAL_R2IL_FOLD_METHOD_ASSIMILATION.md` (ONA source map, W3–W9 coding waves, falsifiers). No code.
+- **Locked:** ONA is a pinned oracle and a source of pure laws to reimplement, not a runtime; NAL stays its own crate over R2IL/mask-risc; decision methods stay inert until authorised. This superseded D-FOLD-CORE-c (NAL as a core module).
+- **Deferred / open:** written by another agent and merged with two open codex P2s; taken over and corrected in the follow-up PR: ONA links pinned to `dc4efd0` instead of `master`, and the supervisor row no longer claims restart backoff (`ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED`).
+- **Confidence:** medium; proposals grounded in code reads, two factual errors found after merge.
+
+## 2026-10-13 — lance-graph PR #1537 (merged `befbf1d`, branch `ccr-9f3b8075-74u47l-core-fold`, head `8091f98`, 2 commits) — D-FOLD-CORE-b: core depends on mask-risc, Quack and R2IL; `lance_graph::fold`
+
+- **Added:** `crates/lance-graph` depends on `lance-graph-mask-risc`, `lance-graph-quack` and `lance-graph-r2il` by default and re-exports them as `lance_graph::fold::{mask_risc, quack, r2il}`. `tests/fold_path.rs` runs a Quack query (two row ranges intersected, a value residual) and an R2IL count through core, each against a row loop.
+- **Locked:** `Cmp::Range` is a row range on the ordered axis, not a value range; a condition on another column is a residual over the extent.
+- **Deferred / open:** D-FOLD-CORE-c (NAL as a core module) dropped: the ONA brief keeps `lance-graph-nal` as the authoritative NAL crate.
+- **Confidence:** high; disable run (dropping one row range) turns the Quack test red.
+
 ## 2026-10-13 — lance-graph PR #1534 (merged `0a6708b`, branch `ccr-9f3b8075-74u47l-r2il-member`, head `196eb2e`, 1 commit) — D-FOLD-CORE-a: `lance-graph-r2il` joins the workspace; OGAR by git `main`
 
 - **Added:** `crates/lance-graph-r2il` moves from `exclude` to `members` and loses its own `[workspace]` and `[patch]` sections. It, `crates/lance-graph-nal` and `crates/r2il-mask-abi-probe` take `ogar-loco` / `ogar-r2il` from `https://github.com/AdaWorldAPI/OGAR` `main` instead of `../../../OGAR` paths. The root `Cargo.toml` patches `https://github.com/AdaWorldAPI/lance-graph` `lance-graph-contract` to the in-tree crate.

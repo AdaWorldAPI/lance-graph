@@ -1,4 +1,4 @@
-## 2026-10-13 — main after #1505, #1506, #1507–#1509, #1514, #1516, #1518, #1520, #1523, #1524, #1525, #1526, #1529, #1530, #1531, #1534 (merged)
+## 2026-10-13 — main after #1505, #1506, #1507–#1509, #1514, #1516, #1518, #1520, #1523, #1524, #1525, #1526, #1529, #1530, #1531, #1534, #1536, #1537 (merged)
 
 - **On `main`, live:** `.cargo/config.toml` defaults to `-Ctarget-cpu=native` with `config-v3.toml` as the portable baseline and `debug = 0` everywhere (#1505); `compute_dag_kahn` checks all 256 field positions (#1506); R2IL `MIN`/`MAX` lowering onto mask-risc (#1518, the part outside glove-parity).
 - **Merged then withdrawn by #1524 (D-CMR-RESET):** the class-method layer of `lance-graph-glove-parity` (`method`, `call`, `decl`, `gremlin`, `awareness`; #1507, #1508, #1509, #1514, #1516, #1518, #1520). Prior state: `backup/session-011BMJ-2026-10-12`. Inventory: entry `2026-10-12-session-reset-inventory.md`.
@@ -7,6 +7,8 @@
 - **On `main` (#1529, merged `2d33bb0`):** D-PROD-V4. `Dockerfile.avx512` builds `sapphirerapids`, `Dockerfile` builds `native`, the other images and the wheel build `x86-64-v4`; `linux-build-v4` compiles both tiers in CI without running them.
 - **On `main` (#1530 `c864721`, #1531 `86e3174`):** the thinking-engine, cognitive-stack and symbiont images build on `rust:1.99.0-bookworm` against ndarray `master`; the thinking-engine images build v4 with `--target <host triple>`.
 - **On `main` (#1534, merged `0a6708b`):** `lance-graph-r2il` is a workspace member; r2il, `lance-graph-nal` and `r2il-mask-abi-probe` take OGAR by git `main`, so the graph holds one `ogar-loco` and one `lance-graph-contract` (D-FOLD-CORE-a).
+- **On `main` (#1537, merged `befbf1d`):** core `lance-graph` depends on mask-risc, Quack and R2IL by default and exposes them as `lance_graph::fold` (D-FOLD-CORE-b). NAL stays in `crates/lance-graph-nal` (D-FOLD-CORE-c dropped).
+- **Docs only (#1536, merged `2b28a19`):** outer-membrane graph lab, epoch-indexed temporal graph agenda, and the ONA → NAL/R2IL fold-method program (W3–W9). Proposals; nothing in them is built by that PR. The supervisor's restart backoff is not applied (`ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED`).
 - **CI (#1526, merged `abc0a1f`):** the native default plus `rust-cache` reused AVX-512 artifacts on runners without them (SIGILL in `dir-sim log in Lance`). `native` is now written out as each runner's exact feature list, and the cache is keyed to it.
 - **Rules carried from this session (operator):** classid-dependent methods go through the existing `hotplug.rs` plug-and-play; NAL/NARS operations are global core methods (no classid check, no plug, no `BeliefClass`); internal pins are forbidden (the v3 pins in the Dockerfiles and wheel build were replaced in #1529).
 

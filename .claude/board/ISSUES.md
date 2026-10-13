@@ -1,3 +1,12 @@
+## ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED — a crashed consumer actor is respawned at once and the respawn is rescheduled forever (2026-10-13)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-supervisor/src/supervisor.rs`, `RespawnG` arm); found by the codex review of #1536.
+
+- On `ActorTerminated` the supervisor casts `RespawnG { crash_count: n }`. The arm computes the backoff delay, spawns a task that sleeps that delay and casts `RespawnG { crash_count: 0 }`, and then calls `spawn_consumer_actor` right away (the comment says the delayed cast is a retry "if we need to").
+- The delayed `RespawnG` runs the same arm: another immediate spawn, another delayed cast. So the backoff never delays the first respawn, the crash count is reset to 0 on every round, and each round schedules the next one 100 ms later, whether or not the child is alive.
+- The `>10` escalation guard cannot trip, because the count it reads is reset.
+- What closes it: the delayed cast becomes the only respawn path (no immediate spawn), the count is carried rather than reset, and the arm does nothing when the slot is already alive. Needs a test that crashes a child twice and checks one spawn per crash after the delay.
+
 ## ISS-CLASSID-READ-MODE-IS-A-SECOND-RESOLUTION-PATH — the `0x1000` V3 marker still selects the reading (2026-10-10)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE; DECISION by operator 2026-10-10 (the V3 marker is a fossil; only `hotplug.rs` and the slab metadata envelope decide whether a slab is `Facet96` (32 + 96) or `Register128` (128, classid via SPOG/plug)). Record: `entries/2026-10-10-classid-layout-ruling.md`, plan `cross-glove-business-parity-v1.md` §C.9.3.
