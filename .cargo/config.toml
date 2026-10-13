@@ -35,9 +35,13 @@
 #   portable baseline (AVX2):  cargo build --config .cargo/config-v3.toml ...
 #   AVX-512 (v4):              cargo build --config .cargo/config-avx512.toml ...
 #
-# CI is unaffected: every workflow sets `RUSTFLAGS` with an explicit
-# `-C target-cpu=x86-64-v3`, and a RUSTFLAGS env REPLACES every cargo-config
-# rustflags entry. Everything else that ships pins x86_64 to v3 without
+# CI: build.yml, rust-test.yml and style.yml set `RUSTFLAGS` with an explicit
+# `-C target-cpu=x86-64-v3` (a RUSTFLAGS env REPLACES every cargo-config
+# rustflags entry). Every other workflow builds with `native`. Cargo
+# fingerprints the flag TEXT, not the CPU, so a workflow that caches `target/`
+# must key the cache to the runner's CPU flags (dir-sim-persist.yml and
+# identity.yml do); without that, an artifact built on a runner with AVX-512
+# is reused on one without and dies with SIGILL. Everything else that ships pins x86_64 to v3 without
 # touching other architectures: the Dockerfiles that copy this tree replace
 # this file with config-v3.toml (x86_64-only), the thinking-engine images set
 # CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS, and `make publish` in
