@@ -158,6 +158,13 @@ candidate shapes, chosen by W4's measurement, not here:
    lanes. Fewer table bytes, no per-stage table rounding, and it needs an
    ndarray multiply-high word.
 
+**MEASURED (2026-10-13, W4 probe):** neither candidate as written. Over all
+2³² inputs per law, the table shape misses 10–18 % of rows by one code and
+`f32` misses a few thousand; integer-valued `f64` (products of codes, one
+division, one rounding) is exact on every row of deduction, analogy,
+induction and abduction, and handles the variable division of `w / (w + k)`.
+Entry `2026-10-13-d-nalp-4-truth-law-shape.md`.
+
 Whichever wins, it is solved once for both NAL and SQL nullable arithmetic,
 never twice. The path is: ndarray primitive with parity on every realization
 row → mask-risc terminal with parity → `FoldDialect` wiring → one `ogar-nal`
