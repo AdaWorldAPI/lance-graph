@@ -1,3 +1,10 @@
+## 2026-10-13 — lance-graph PR #1526 (merged `abc0a1f`, branch `ccr-9f3b8075-74u47l-cpukey`, head `8342c9f`, 4 commits) — CI: spell target-cpu=native out per runner and key the cache to it
+
+- **Added:** `.github/scripts/resolve-native-rustflags.sh`: prints `-Ctarget-feature=` with the runner's exact native feature list and no CPU name, and fails unless `rustc --print cfg` under those flags equals native; `--cpu` prints the name for logs. `dir-sim-persist.yml` and `identity.yml` set `RUSTFLAGS` from it before each of their three rust-cache steps, key the cache on its hash, and write the CPU to the job summary.
+- **Locked:** a named `-Ctarget-cpu` enables its model defaults and a `+feature` list cannot remove them (`-Ctarget-cpu=skylake-avx512 -Ctarget-feature=+sse2` still reports `avx512f`; codex P1). Disable run: the CPU name put back makes the self-check fail and list the 16 extra features. On runners, one run got two different feature lists (`avx512bf16` on one job, absent on two): the heterogeneity behind the SIGILL, now separate flags and caches.
+- **Deferred / open:** cache hit rate and build time across CPU types are not measured yet (first runs were all cold); features stable rustc hides (amx, avx10) are never enabled. Companion: AdaWorldAPI/ndarray#360 warns at build time about enabled features `cpu_guard` has no row for.
+- **Confidence:** high for correctness; the cache cost is unmeasured.
+
 ## 2026-10-13 — lance-graph PR #1523 (merged `8884173`, branch `ccr-9f3b8075-74u47l-capstone`, head `11b61ba`, 53 commits) — D-SAG-CAP-1: SAG capstone alignment of #1510, #1511, #1512, #1513, #1515, #1517
 
 - **Added:** the six parallel SAG research PRs merged and aligned in `.claude/plans/sag-capstone-alignment-v1.md`; docs plus #1517's Python oracle, no Rust. One name, `ProposedMethod` (Rewrite shape on `awareness::Candidate`, Action shape on `EffectClass::Propose`), replacing five per-PR names; #1511's probe choice renamed `SchedulerDecision`; one four-state status (Witnessed / Refuted / Undetermined / Conflicted).
@@ -61,7 +68,7 @@
 
 - **Added:** `.cargo/config.toml` defaults to `-Ctarget-cpu=native`; new `.cargo/config-v3.toml` (portable AVX2); `[profile.dev]`/`[profile.test]` `debug = 0` for every build under the tree, including the 19 standalone workspaces.
 - **Locked:** measured on `lance-graph-glove-parity`: before `-C debuginfo=2 -C target-cpu=x86-64-v3`, after `-C target-cpu=native` and no debuginfo.
-- **Deferred / open:** (1) the native default plus `rust-cache` reused AVX-512 artifacts on runners without it and turned `dir-sim log in Lance` red with SIGILL; fixed in #1526 (open). (2) The Dockerfiles and the wheel build pin x86_64 to v3; whether those internal pins stay is an open operator decision.
+- **Deferred / open:** (1) the native default plus `rust-cache` reused AVX-512 artifacts on runners without it and turned `dir-sim log in Lance` red with SIGILL; fixed in #1526 (merged `abc0a1f`). (2) The Dockerfiles and the wheel build pin x86_64 to v3; whether those internal pins stay is an open operator decision.
 - **Confidence:** high for the flags; the CI regression is the caveat above.
 
 ## 2026-10-09 — lance-graph PR #1432 (merged `d29d0aa`, branch `ccr-edc85bd9-89tiwe`, head `669fc42`, 7 commits) — D-SCF-CARE-PAIR-0: crossing counterfactuals, pairwise nogoods, folded chain relations
