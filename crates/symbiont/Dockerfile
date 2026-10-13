@@ -22,7 +22,7 @@
 ARG ADA_BRANCH=master
 
 # ── builder ──────────────────────────────────────────────────────────────────
-FROM rust:1.98.1-bookworm AS builder
+FROM rust:1.99.0-bookworm AS builder
 ARG ADA_BRANCH
 # Make cargo fetch git deps via the system `git` CLI so it uses Railway's
 # ambient credentials for the private AdaWorldAPI forks.
