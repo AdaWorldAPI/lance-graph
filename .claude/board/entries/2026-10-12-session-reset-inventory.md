@@ -52,5 +52,16 @@ hops are coordinate-range intersections inside the same program. A fold that
 does not exist is reported as a gap in the fold catalogue, not built in the
 method layer.
 
-OPEN: #1523 anchors `ProposedMethod` on `awareness::Candidate`, which this
-reset removes; the anchor moves to the rebuilt binding.
+**Test cases to port into the rebuild** (on `backup/session-011BMJ-2026-10-12`,
+`8ae5bce`, under `crates/lance-graph-glove-parity/tests/`): `polyfill.rs` (15
+tests, NARS revision as data; W3 of #42), `ordered.rs` (3, MIN/MAX),
+`distinct.rs` (6, distinct hop targets), `relation.rs` (8, functional
+relations), `awareness.rs` (19, the H1 candidate). They call the removed
+`MethodBody` API, so each case is re-expressed against a `Compiled` program,
+and its row-loop answer is re-read and re-run before it counts as an oracle.
+
+OPEN: #1523 anchors `ProposedMethod` on two removed types: the rewrite shape
+on `glove-parity::awareness::Candidate`, the action shape on
+`glove-parity::method::EffectClass::Propose` (not the unrelated Cohen's d
+`EffectClass` in `lance-graph-cognitive`). The rewrite anchor moves to the
+rebuilt binding; the action anchor is undecided.
