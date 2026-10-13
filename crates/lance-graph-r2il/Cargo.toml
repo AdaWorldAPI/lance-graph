@@ -5,24 +5,16 @@ edition = "2021"
 publish = false
 description = "The fold reading of R2IL executed over mask-risc: FoldDialect, an ogar-loco Dialect that turns R2IL calls into mask-risc Programs and runs them at each fold boundary. Extracted from r2il-mask-abi-probe (D-SQLP-1)."
 
-# Its OWN workspace root, like `r2il-mask-abi-probe`: it path-deps the OGAR
-# sibling (`ogar-loco`, `ogar-r2il`), and no ordinary lance-graph workspace
-# build should need that checkout. Verify via
-# `cargo test --manifest-path crates/lance-graph-r2il/Cargo.toml`.
-[workspace]
+# A workspace member: the root `Cargo.toml` patches the contract and ndarray
+# git coordinates to their local paths, so there is one of each.
 
 [dependencies]
 # The only bulk execution engine.
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
-# The interpreter seam and the R2IL opcode/arity table. By PATH, matching
-# `r2il-mask-abi-probe`, so both crates see one `ogar-r2il` identity.
-ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
-ogar-r2il = { path = "../../../OGAR/crates/ogar-r2il" }
-
-# Same patches as `r2il-mask-abi-probe`: one local contract identity, one
-# local ndarray identity.
-[patch."https://github.com/AdaWorldAPI/lance-graph"]
-lance-graph-contract = { path = "../lance-graph-contract" }
-
-[patch."https://github.com/AdaWorldAPI/ndarray"]
-ndarray = { path = "../../../ndarray" }
+# The interpreter seam and the R2IL opcode/arity table, by git `main`, the
+# coordinate `lance-graph-ogar` uses: one `ogar-loco` in the workspace, and a
+# repo that pulls lance-graph by git can still resolve it (a `../../../OGAR`
+# path escapes the fetched repository; medcare-rs #565). The OGAR crates take
+# the contract from git `main`; the root `[patch]` maps that to the member.
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-r2il = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }

@@ -22,13 +22,11 @@ lance-graph-quack = { path = "../lance-graph-quack" }
 # The fold dialect under test (D-SQLP-1). `tests/row_bridge.rs` used to
 # define it; it now lives in its own crate and this probe tests it.
 lance-graph-r2il = { path = "../lance-graph-r2il" }
-# The oracle in THIS probe — deliberately not yet the delegating side. Reached
-# by PATH, not git. Until 2026-10-10 mask-risc path-depped `ndarray` at
-# `../../../ndarray`, which no cargo git checkout could resolve, so the
-# differential could not live on the OGAR side. The direction
-# here matches `crates/symbiont`'s existing `../../../OGAR/crates/...` deps.
-ogar-r2il = { path = "../../../OGAR/crates/ogar-r2il" }
-ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
+# The oracle in THIS probe — deliberately not yet the delegating side. By git
+# `main` since 2026-10-13, the coordinate `lance-graph-r2il` uses, so the
+# probe and the dialect it tests see one `ogar-r2il` and one `ogar-loco`.
+ogar-r2il = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # Round 3 (`tests/v3_v4_dual_reading.rs`): the V3 reading — `NodeRow`,
 # `node_rows_from_le_bytes`, `FacetCascade::ref_from_bytes` — over the same
 # bytes the loco/R2IL reading projects.
