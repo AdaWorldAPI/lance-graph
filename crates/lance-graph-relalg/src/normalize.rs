@@ -221,6 +221,7 @@ fn disj(children: Vec<Rel>) -> Rel {
     // Intervals per lane: a comparison atom, or an `And` that is exactly the
     // bounds of one interval on one lane.
     let mut ranges: BTreeMap<u16, Vec<(i64, i64)>> = BTreeMap::new();
+    let mut excluded: BTreeMap<u16, BTreeSet<i64>> = BTreeMap::new();
     let mut eqs: BTreeMap<u16, (BTreeSet<u32>, BTreeSet<u32>)> = BTreeMap::new();
     let mut rest = Vec::new();
     for c in flat {
@@ -229,6 +230,13 @@ fn disj(children: Vec<Rel>) -> Rel {
             continue;
         }
         match c {
+            Rel::Atom(Atom::I32 {
+                lane,
+                op: Cmp::Ne,
+                t,
+            }) => {
+                excluded.entry(lane).or_default().insert(i64::from(t));
+            }
             Rel::Atom(Atom::U32 { lane, eq, v }) => {
                 let e = eqs.entry(lane).or_default();
                 if eq { &mut e.0 } else { &mut e.1 }.insert(v);
@@ -237,6 +245,20 @@ fn disj(children: Vec<Rel>) -> Rel {
         }
     }
     let mut out = Vec::new();
+    // `x ≠ a` on a lane: a second `x ≠ b`, or any interval holding `a`,
+    // covers the whole lane; otherwise every interval on the lane lies
+    // inside `x ≠ a` and is absorbed by it.
+    for (lane, ne) in excluded {
+        let mut ne = ne.into_iter();
+        let (Some(a), None) = (ne.next(), ne.next()) else {
+            return Rel::All;
+        };
+        let iv = ranges.remove(&lane).unwrap_or_default();
+        if iv.iter().any(|&(lo, hi)| lo <= a && a <= hi) {
+            return Rel::All;
+        }
+        out.push(Rel::i32(lane, Cmp::Ne, a as i32));
+    }
     for (lane, mut iv) in ranges {
         iv.sort_unstable();
         let mut merged: Vec<(i64, i64)> = Vec::new();

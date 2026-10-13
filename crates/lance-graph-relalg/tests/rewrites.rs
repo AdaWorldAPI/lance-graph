@@ -475,3 +475,34 @@ fn a_wide_conjunction_runs_only_after_the_rewrite() {
     assert!(r2.as_ref().is_err_and(out_of_slots), "as written: {r2:?}");
     assert_eq!(r1.expect("rewritten").answer, oracle(&fx, &q).0);
 }
+
+/// FAILS IF: a `!=` on an `I32` lane is not reconciled with the intervals
+/// beside it in a disjunction (codex review on #1546): `x = t ∨ x ≠ t` and
+/// `x ≠ a ∨ x ≠ b` cover the lane; `x ≠ a ∨ (interval without a)` is `x ≠ a`.
+#[test]
+fn an_inequality_in_a_union_meets_the_intervals() {
+    let fx = fixture();
+    for rel in [
+        Rel::Or(vec![Rel::i32(X, Cmp::Eq, 3), Rel::i32(X, Cmp::Ne, 3)]),
+        Rel::Or(vec![Rel::i32(X, Cmp::Ne, 3), Rel::i32(X, Cmp::Ne, 4)]),
+        Rel::Or(vec![Rel::i32(X, Cmp::Ne, 3), Rel::i32(X, Cmp::Lt, 10)]),
+    ] {
+        assert_eq!(normalize(&rel), Rel::All, "{rel:?}");
+        let (r, _) = count(&fx, rel);
+        assert_eq!(r.programs, 0);
+    }
+    let rel = Rel::Or(vec![Rel::i32(X, Cmp::Ne, 3), Rel::i32(X, Cmp::Gt, 10)]);
+    assert_eq!(normalize(&rel), Rel::i32(X, Cmp::Ne, 3));
+    count(&fx, rel);
+    // The reported shape: the tautology plus three unrelated terms fits no
+    // fold as written, and must be answered without one.
+    let wide = Rel::Or(vec![
+        Rel::i32(X, Cmp::Eq, 3),
+        Rel::i32(X, Cmp::Ne, 3),
+        Rel::i32(Y, Cmp::Le, 3),
+        Rel::Not(Box::new(Rel::Plane(0))),
+        Rel::ne_u32(K, 2),
+    ]);
+    let (r, _) = count(&fx, wide);
+    assert_eq!(r.programs, 0);
+}
