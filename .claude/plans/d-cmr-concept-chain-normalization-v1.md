@@ -5,6 +5,14 @@ rows) is in the PR that adds it. No code, no dependency.
 **Revision 2026-10-13:** the normalization gets one new IR, a set-theory IR
 (§3). This reverses point 3 of the concept-chain rule in the reset entry
 ("no new universal IR"); §3.1 is the insufficiency proof that justifies it.
+**Revision 2, 2026-10-13 (aligned with the eight-point ruling):** the set IR
+is the shared *semantic domain* of normalization, not a third frontend
+syntax. Quack's `Filter`/`Query` stays the home of Quack compositions and NAL
+stays on R2IL. What is shared is the rule catalogue: identities, their
+preconditions and their cost effects, plus the set values they compute over.
+**DECISION:** the IR describes and never executes. Thinking in abstract
+relations before materializing is the point; what #1524 removed was a layer
+that executed early. §3.1 justifies the IR; it is not a review gate.
 **Date:** 2026-10-13. **Repo:** lance-graph (Quack, mask-risc, core NAL module).
 **Parents:** D-CMR-RESET (`entries/2026-10-12-session-reset-inventory.md`,
 root cause and the eight-point concept-chain rule), #1524, #1532.
@@ -64,7 +72,10 @@ Four things therefore have no home:
    computed from the set's description where that description is known.
 
 The IR exists only to hold these four. It is not a second method algebra and
-not a second executor: execution stays in mask-risc.
+not a second executor: execution stays in mask-risc. This is enforced by a
+test, not by convention: the IR module holds no row data and calls no
+mask-risc execution function; its only output is a normalized description
+handed to lowering.
 
 ### 3.2 The IR
 
@@ -97,12 +108,14 @@ M ::= Count(S) | Sum_x(S) | Exists(S)
   mapping is refused and stays a physical aggregation); intersection only
   within one universe, otherwise through a proven `f`, otherwise residual.
 - **Home:** the algebra lives in `lance-graph-contract`, next to `ClassView`,
-  and needs no dependency. Its lowering needs mask-risc. Today the contract's
-  `Cargo.toml` declares it dependency-free (even of optional path deps); the
-  agreed contract → mask-risc change has not landed. Until it does, D-CMR-2
-  is blocked, and if it does not land, the lowering lives in an adapter crate
-  that depends on both, never in the contract. Quack's `Filter` and the core NAL module lower
-  **into** this IR, so neither frontend implements intervals of its own.
+  and needs no dependency (the contract's `Cargo.toml` stays dependency-free).
+  Lowering lives in core, which depends on mask-risc, Quack and R2IL (the
+  other session's step (b)); it is never in the contract.
+- **Frontends keep their representations.** A normalization pass over Quack's
+  `Filter` (and later over NAL's R2IL program) computes set values in this
+  domain with the shared rules: ranges on a proven basis become `Runs`,
+  everything else stays residual. The frontend tree is rewritten to the
+  irreducible remainder; neither frontend implements intervals of its own.
 
 ### 3.3 The lithography reading
 
@@ -154,6 +167,16 @@ scope. The key is the pattern **and** its preconditions. Rules are applied
 until none fires or a step budget is reached, and none may increase the size of
 the expression. Heuristics order rules; they never replace a proof.
 
+The mechanism has three known parts, used in this order and only as far as
+measured need goes: **constraint propagation** (narrow bounds, detect `∅`, the
+interval part of `fold_ranges` generalized), **term rewriting** with the
+catalogue, and **cost-based selection** among valid forms. Equality saturation
+(egg, egglog) keeps competing forms instead of committing to one; it is a
+research reference (D-CMR-8), justified only if a bounded local rewriter
+measurably commits to worse forms. Rules found automatically (Ruler) are
+candidates only, admitted after validation under the type, overflow and NULL
+conditions of §4.
+
 ## 4. Identity matrix with semantic conditions
 
 | identity | legal when | illegal when |
@@ -167,6 +190,12 @@ the expression. Heuristics order rules; they never replace a proof.
 | `A∧A → A`, absorption, De Morgan, ≤ 6 planes → truth tables | two-valued planes | three-valued leaves without `sql_where` |
 | `hi·stride+lo` as one coordinate | `lo < stride` (enforced: ndarray `group_of` drops `lo ≥ stride`), no overflow | otherwise |
 | NAL truth laws | the W4 law representation, parity in codes | before W4 |
+
+**Numeric contract today:** mask-risc sums are exact (`i32` into `i64`, row
+count bounded so the total cannot overflow, `ir.rs:296`, `:461`); there is no
+floating point on the surface. The IR therefore assumes exact integers and
+refuses any other operand. A per-method declaration of numeric rules is added
+when the first floating-point or quantized column arrives, not before.
 
 ## 5. Symbolic preservation is not numerical precision
 
@@ -182,13 +211,17 @@ the expression. Heuristics order rules; they never replace a proof.
 |---|---|---|
 | D-CMR-1 | **Set IR core** in the contract: `Runs` with `∩ ∪ ∖` and complement, `Res`, measures; pure, no lowering | algebra laws (closure, distributivity, De Morgan, `∅`) checked against materialized bitsets as oracle on random and edge-case runs |
 | D-CMR-2 | **Lowering** to mask-risc: runs → extents, residual → predicates within each run, the three measurement levels. Level 2 for residual comparisons needs predicate fusion in mask-risc (`fused_ternlog` declines `Pred` today) | == row oracle; a `Count` with no residual reads zero rows (instrumented); disabling level 1 or 2 keeps answers |
-| D-CMR-3 | **Quack frontend:** `Filter` → set IR (ranges on a proven basis → `Runs`, other leaves → `Res`, `sql_where` first). Extent hoisting falls out of this (Experiment C) | answers identical to today's `lower` path on the quack suite; a range on another basis stays residual (negative control) |
+| D-CMR-3 | **Quack normalization pass:** over `Filter`, computing set values (ranges on a proven basis → `Runs`, other leaves → `Res`, `sql_where` first). Extent hoisting falls out of this (Experiment C) | answers identical to today's `lower` path on the quack suite; a range on another basis stays residual (negative control) |
 | D-CMR-4 | **Two dimensions:** `Rect` over composite coordinates, linearized row-major or in Morton order | rectangle `∩` == bitset oracle; run count within the stated bound |
 | D-CMR-5 | **Preimage** `f⁻¹(S)` under a proven mapping (the hop) | == row oracle; a many-to-one image is refused |
 | D-CMR-6 | **Rule catalogue and fixpoint driver**: complement, relational difference `Sum(A) − Sum(A∧B) → Sum(A∧¬B)` | Experiments A, D, E; each guard removal fails |
-| D-CMR-7 | **NAL frontend:** aperture → `Runs` (after NAL lands in core) | NAL W2 tests unchanged |
+| D-CMR-7 | **NAL normalization pass:** aperture → `Runs` over the R2IL program, R2IL route unchanged (after NAL lands in core) | NAL W2 tests unchanged |
 | D-CMR-8 | **Equality-saturation probe** (`egg`, `egglog` as references only) | only if rules compete; compared against D-CMR-6; no dependency without evidence |
 | D-CMR-9 | **Benchmark** (section 8) | answers asserted before timing |
+
+Compile-time normalization is separate from runtime binding: a parameter
+known only per call (W3's range) is bound per call with a small boundary
+calculation, never a population scan, a materialized mask or a re-lowering.
 
 Prefix lanes stay a separate, measured candidate (ordering, overflow, NULL,
 update and maintenance laws), never a precondition for `SUM`.
@@ -241,6 +274,6 @@ median of 101, tier named from the build's own report, answers asserted first.
 ## 10. Ownership
 
 - D-CMR-1 (pure algebra in the contract) can start now.
-- D-CMR-2 needs the contract → mask-risc dependency (agreed, not yet landed).
+- D-CMR-2 lives in core and needs core's dependency on mask-risc, Quack and R2IL (step (b)); no contract dependency is needed.
 - D-CMR-3..6 touch quack; D-CMR-7 waits until NAL lands in core.
 - Owner to be assigned.
