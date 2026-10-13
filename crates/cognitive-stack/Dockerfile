@@ -18,7 +18,8 @@
 # AUTH: a Railway server has access to all private AdaWorldAPI repos by design;
 # CARGO_NET_GIT_FETCH_WITH_CLI=true makes cargo use the system git (ambient creds).
 
-ARG ADA_BRANCH=claude/jirak-math-theorems-harvest-rfii13
+# ndarray branch to clone: master, the default every other build and CI job uses.
+ARG ADA_BRANCH=master
 
 # ── builder ──────────────────────────────────────────────────────────────────
 FROM rust:1.98.1-bookworm AS builder
