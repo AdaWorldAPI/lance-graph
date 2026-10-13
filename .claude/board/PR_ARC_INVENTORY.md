@@ -1,3 +1,10 @@
+## 2026-10-13 — lance-graph PR #1534 (merged `0a6708b`, branch `ccr-9f3b8075-74u47l-r2il-member`, head `196eb2e`, 1 commit) — D-FOLD-CORE-a: `lance-graph-r2il` joins the workspace; OGAR by git `main`
+
+- **Added:** `crates/lance-graph-r2il` moves from `exclude` to `members` and loses its own `[workspace]` and `[patch]` sections. It, `crates/lance-graph-nal` and `crates/r2il-mask-abi-probe` take `ogar-loco` / `ogar-r2il` from `https://github.com/AdaWorldAPI/OGAR` `main` instead of `../../../OGAR` paths. The root `Cargo.toml` patches `https://github.com/AdaWorldAPI/lance-graph` `lance-graph-contract` to the in-tree crate.
+- **Locked:** a git-consumed crate cannot follow a path out of its fetched repo (medcare-rs #565), and `lance-graph-ogar` already used the git coordinate, so a path dep beside it gave two `ogar-loco` identities. Measured with `cargo metadata`: one `lance-graph-contract`, one `ogar-loco`, one `ogar-r2il`. Tests: r2il 19 (as a member), nal 8, probe 40; clippy `-D warnings` and fmt clean; CI 11/11 green.
+- **Deferred / open:** D-FOLD-CORE-b (core depends on mask-risc, quack and R2IL by default) and -c (NAL as a core module).
+- **Confidence:** high; one dependency identity per crate, measured.
+
 ## 2026-10-13 — lance-graph PR #1531 (merged `86e3174`, branch `ccr-9f3b8075-74u47l-ndarray-master`, head `3b1e3f9`, 2 commits) — crate images clone ndarray `master` on Rust 1.99
 
 - **Added:** `crates/symbiont/Dockerfile` and `crates/cognitive-stack/Dockerfile` default `ADA_BRANCH` to `master` (was the stale branch `claude/jirak-math-theorems-harvest-rfii13`); both builder images move from `rust:1.98.1-bookworm` to `rust:1.99.0-bookworm`, matching `rust-toolchain.toml`.

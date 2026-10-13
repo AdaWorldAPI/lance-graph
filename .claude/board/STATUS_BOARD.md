@@ -69,7 +69,7 @@ Decision (operator, 2026-10-13): the contract's only dependency becomes mask-ris
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-FOLD-CORE-a** | `lance-graph-r2il` becomes a workspace member; it, `lance-graph-nal` and `r2il-mask-abi-probe` take OGAR by git `main` (the `lance-graph-ogar` coordinate) instead of `../../../OGAR` paths; the root patches the contract's git URL to the member | In PR | `cargo metadata`: one `lance-graph-contract`, one `ogar-loco`, one `ogar-r2il`; tests: r2il 19, nal 8, probe 40, all green |
+| **D-FOLD-CORE-a** | `lance-graph-r2il` becomes a workspace member; it, `lance-graph-nal` and `r2il-mask-abi-probe` take OGAR by git `main` (the `lance-graph-ogar` coordinate) instead of `../../../OGAR` paths; the root patches the contract's git URL to the member | Shipped #1534 `0a6708b` | `cargo metadata`: one `lance-graph-contract`, one `ogar-loco`, one `ogar-r2il`; tests: r2il 19, nal 8, probe 40, all green |
 | **D-FOLD-CORE-b** | `crates/lance-graph` depends on mask-risc, quack and R2IL by default | Queued | core builds and tests green with the three in the default graph |
 | **D-FOLD-CORE-c** | NAL as a module of `crates/lance-graph`; `crates/lance-graph-nal` removed; W2 tests moved unchanged | Queued | the 8 W2 tests pass unchanged in core |
 
