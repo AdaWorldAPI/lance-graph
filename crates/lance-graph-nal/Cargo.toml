@@ -17,7 +17,8 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # The procedure executor: NAL operations are R2IL call sequences over it.
 lance-graph-r2il = { path = "../lance-graph-r2il" }
-ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
+# By git `main`, the coordinate `lance-graph-r2il` uses (one `ogar-loco`).
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }

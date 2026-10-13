@@ -46,6 +46,16 @@ Plan: `.claude/plans/gremlin-composable-algebra-v1.md`.
 | D-CMH-G1-5 | FirstOfRun | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | insufficiency proof first; Quack + R2IL vs independent oracle |
 | D-CMH-G1-6 | ordered `I32` conditions + `MIN`/`MAX` folds as method steps; R2IL `MIN`/`MAX` wired | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | both frontends == row loop incl. empty selection; 8 disable runs red |
 
+## D-FOLD-CORE — the fold path as a core capability (2026-10-13)
+
+Decision (operator, 2026-10-13): the contract's only dependency becomes mask-risc and through it ndarray (the other session's step); `lance-graph` core depends on mask-risc, quack and R2IL by default; NAL moves into core as a module and keeps lowering through R2IL. The contract never depends on OGAR (`ogar-loco` depends on the contract).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-FOLD-CORE-a** | `lance-graph-r2il` becomes a workspace member; it, `lance-graph-nal` and `r2il-mask-abi-probe` take OGAR by git `main` (the `lance-graph-ogar` coordinate) instead of `../../../OGAR` paths; the root patches the contract's git URL to the member | In PR | `cargo metadata`: one `lance-graph-contract`, one `ogar-loco`, one `ogar-r2il`; tests: r2il 19, nal 8, probe 40, all green |
+| **D-FOLD-CORE-b** | `crates/lance-graph` depends on mask-risc, quack and R2IL by default | Queued | core builds and tests green with the three in the default graph |
+| **D-FOLD-CORE-c** | NAL as a module of `crates/lance-graph`; `crates/lance-graph-nal` removed; W2 tests moved unchanged | Queued | the 8 W2 tests pass unchanged in core |
+
 ## D-PROD-V4 — production build tiers (2026-10-13)
 
 Entry: `entries/2026-10-13-production-targets-v4.md`.

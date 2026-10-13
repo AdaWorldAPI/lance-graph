@@ -7,6 +7,12 @@ members = [
     "crates/lance-graph-contract",
     "crates/lance-graph-mask-risc",
     "crates/lance-graph-quack",
+    # The fold reading of R2IL over mask-risc (FoldDialect, D-SQLP-1). A member
+    # since 2026-10-13: the fold path is a core capability, and CI and the root
+    # Dockerfiles check out the OGAR sibling it path-deps (`ogar-loco`,
+    # `ogar-r2il`). The contract may never depend on OGAR (`ogar-loco` depends on
+    # the contract), but members other than the contract may.
+    "crates/lance-graph-r2il",
     # EXPERIMENTAL, routed nowhere: Cypher (upstream front end, read-only) →
     # bound LogicalOperator → Quack, with typed refusals.
     "crates/lance-graph-cypher-quack",
@@ -101,11 +107,6 @@ exclude = [
     # that checkout present. Verify via
     # `cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml`.
     "crates/r2il-mask-abi-probe",
-    # The fold reading of R2IL over mask-risc (FoldDialect), extracted from
-    # r2il-mask-abi-probe (D-SQLP-1). Excluded for the same reason: it path-deps
-    # the OGAR sibling. Verify via
-    # `cargo test --manifest-path crates/lance-graph-r2il/Cargo.toml`.
-    "crates/lance-graph-r2il",
     # NAL over the fold path (D-NALP-1/2): path-deps lance-graph-r2il, so it
     # needs the OGAR checkout too. Own workspace root; verify via
     # `cargo test --manifest-path crates/lance-graph-nal/Cargo.toml`.
@@ -404,6 +405,12 @@ object_store = { version = "0.14", features = ["aws"] }
 # reason than the one this comment used to give.
 # Full measurement + the target geometry: .claude/knowledge/CARGO-COMPUTE-SUBSTRATE.md
 ndarray = { path = "../ndarray" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+# OGAR's crates (`ogar-loco`, reached through the `lance-graph-r2il` member)
+# depend on the contract by its git coordinate. Without this the workspace
+# would hold two contract packages: the member and the git copy.
+lance-graph-contract = { path = "crates/lance-graph-contract" }
 
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 # The same sibling checkout for crates that name the canonical git coordinate
