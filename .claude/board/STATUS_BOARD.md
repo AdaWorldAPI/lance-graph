@@ -67,11 +67,13 @@ Plan: `.claude/plans/gremlin-composable-algebra-v1.md`.
 
 Decision (operator, 2026-10-13): the contract's only dependency becomes mask-risc and through it ndarray (the other session's step); `lance-graph` core depends on mask-risc, quack and R2IL by default; NAL moves into core as a module and keeps lowering through R2IL. The contract never depends on OGAR (`ogar-loco` depends on the contract).
 
+> ⊘ **Superseded in part, 2026-10-13.** DECISION: the ONA assimilation brief given in the same session (2026-10-13) directs that "NAL stays the authoritative `lance-graph-nal` crate", so NAL does not move into core; it keeps lowering through R2IL as its own crate. SCOPE: the NAL half of the decision above only; mask-risc / quack / R2IL in core (D-FOLD-CORE-a/b) stand. BASIS: that brief, not the #1536 doc, which only describes the crate as the starting contract. REVISIT WHEN: a later decision moves NAL into core again.
+
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-FOLD-CORE-a** | `lance-graph-r2il` becomes a workspace member; it, `lance-graph-nal` and `r2il-mask-abi-probe` take OGAR by git `main` (the `lance-graph-ogar` coordinate) instead of `../../../OGAR` paths; the root patches the contract's git URL to the member | Shipped #1534 `0a6708b` | `cargo metadata`: one `lance-graph-contract`, one `ogar-loco`, one `ogar-r2il`; tests: r2il 19, nal 8, probe 40, all green |
 | **D-FOLD-CORE-b** | `crates/lance-graph` depends on mask-risc, quack and R2IL by default | Shipped #1537 `befbf1d` | core builds and tests green with the three in the default graph; `tests/fold_path.rs` runs a Quack query and an R2IL count through `lance_graph::fold` against row loops (disable run: dropping one row range turns it red, 303 vs 201) |
-| **D-FOLD-CORE-c** | NAL as a module of `crates/lance-graph`; `crates/lance-graph-nal` removed; W2 tests moved unchanged | Dropped 2026-10-13: the ONA assimilation brief (#1536) keeps `lance-graph-nal` as the authoritative NAL crate | the 8 W2 tests pass unchanged in core |
+| **D-FOLD-CORE-c** | NAL as a module of `crates/lance-graph`; `crates/lance-graph-nal` removed; W2 tests moved unchanged | Dropped 2026-10-13: superseded by the ONA assimilation brief's direction to keep `lance-graph-nal` as the authoritative NAL crate (see the ⊘ note under the decision above) | the 8 W2 tests pass unchanged in core |
 
 ## D-PROD-V4 — production build tiers (2026-10-13)
 

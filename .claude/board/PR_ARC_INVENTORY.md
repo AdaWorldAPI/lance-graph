@@ -1,7 +1,7 @@
 ## 2026-10-13 — lance-graph PR #1536 (merged `2b28a19`, branch `docs/outer-membrane-graph-lab-20261013`, head `93b0993`, 5 commits) — docs: outer membrane graph lab, epoch-indexed temporal graph agenda, ONA → NAL/R2IL fold-method program
 
 - **Added:** three proposal documents under `docs/architecture/`: `OUTER_MEMBRANE_GRAPH_LAB_VERTICAL_SLICE.md` (ownership rule, callcenter/supervisor evidence table, a falsifiable two-node one-edge vertical slice), `EPOCH_TEMPORAL_GRAPH_RESEARCH_AGENDA.md` (E01–E20 exploration questions, three time axes, T0–T6 sequence), `ONA_NAL_R2IL_FOLD_METHOD_ASSIMILATION.md` (ONA source map, W3–W9 coding waves, falsifiers). No code.
-- **Locked:** ONA is a pinned oracle and a source of pure laws to reimplement, not a runtime; NAL stays its own crate over R2IL/mask-risc; decision methods stay inert until authorised. This superseded D-FOLD-CORE-c (NAL as a core module).
+- **Locked:** ONA is a pinned oracle and a source of pure laws to reimplement, not a runtime; NAL stays its own crate over R2IL/mask-risc; decision methods stay inert until authorised. The ONA assimilation brief behind these documents is what superseded D-FOLD-CORE-c (NAL as a core module); the documents themselves only describe the crate as the starting contract (recorded under the D-FOLD-CORE decision in `STATUS_BOARD.md`).
 - **Deferred / open:** written by another agent and merged with two open codex P2s; taken over and corrected in the follow-up PR: ONA links pinned to `dc4efd0` instead of `master`, and the supervisor row no longer claims restart backoff (`ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED`).
 - **Confidence:** medium; proposals grounded in code reads, two factual errors found after merge.
 
