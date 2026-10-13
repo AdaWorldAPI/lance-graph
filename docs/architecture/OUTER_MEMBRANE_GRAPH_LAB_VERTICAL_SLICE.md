@@ -59,7 +59,8 @@ The existing [`ExternalMembrane`](../../crates/lance-graph-callcenter/src/lance_
 
 | Capability | Current evidence | Confidence / gap |
 |---|---|---|
-| Per-consumer actor slots, health, restart/backoff | `supervisor.rs` | Implemented skeleton; confirm runtime integration before claiming production behavior |
+| Per-consumer actor slots, health | `supervisor.rs` | Implemented skeleton; confirm runtime integration before claiming production behavior |
+| Restart backoff | `RespawnG` arm in `supervisor.rs` | **Not applied.** The arm schedules a delayed `RespawnG` with `crash_count: 0` and then calls `spawn_consumer_actor` immediately; the delayed message repeats both, so respawns start without waiting and keep being rescheduled every 100 ms (`ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED`) |
 | Default mailbox target `1024` / per-module override | `DEFAULT_MAILBOX_CAPACITY`, `ModuleEntry.mailbox_capacity` | **Declared**, but `spawn_consumer_actor` currently calls `Actor::spawn_linked` without applying that capacity |
 | Normal `DispatchToG` forwarding | `supervisor.rs::handle` | **Not implemented** for non-`Health` envelopes: returns `DispatchNotImplemented` |
 | Inbound `DrainTask` queue | `callcenter/src/drain.rs` | **Unbounded** Tokio mpsc in realtime build, even though child mailbox backpressure is a design goal |
