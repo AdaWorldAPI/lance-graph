@@ -84,7 +84,9 @@ jobs:
         run: |
           flags=$(.github/scripts/resolve-native-rustflags.sh)
           echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
-          echo "flags=$(printf %s "$flags" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+          echo "native resolved to \`${flags%% *}\` (features $hash) for job \`$GITHUB_JOB\`" >> "$GITHUB_STEP_SUMMARY"
       - uses: Swatinem/rust-cache@v2
         with:
           key: cpu-${{ steps.cpu.outputs.flags }}
@@ -237,7 +239,9 @@ jobs:
         run: |
           flags=$(.github/scripts/resolve-native-rustflags.sh)
           echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
-          echo "flags=$(printf %s "$flags" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+          echo "native resolved to \`${flags%% *}\` (features $hash) for job \`$GITHUB_JOB\`" >> "$GITHUB_STEP_SUMMARY"
       - uses: Swatinem/rust-cache@v2
         with:
           key: cpu-${{ steps.cpu.outputs.flags }}
