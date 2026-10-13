@@ -1,3 +1,20 @@
+## 2026-10-12 (6) — sag-capstone-alignment-v1 — one alignment over the six SAG research PRs (#1510, #1511, #1512, #1513, #1515, #1517) → `.claude/plans/sag-capstone-alignment-v1.md`
+
+**Status:** CURRENT-CONTRACT for naming and vocabulary; nothing built.
+
+- `ProposedMethod` is canonical (rewrite shape on `awareness::Candidate`, action shape on `EffectClass::Propose`); six aliases retired; scheduler selection renamed `SchedulerDecision`.
+- One four-state status (Witnessed / Refuted / Undetermined / Conflicted) maps the five PR vocabularies; unread is never missing.
+- Stale claims listed (second hop refused, defects A/B unverified); contradictions on Ruff's role, ONA pin and execution-class names resolved.
+
+## 2026-10-12 (5) — sag-reflexive-cognition-from-1509-v1 — source-backed SAG self-querying, cognition/attention controls and safe optimization proposals → .claude/plans/sag-reflexive-cognition-from-1509-v1.md
+
+**Status:** PROPOSAL D-SAG-5-0..10. Only D-SAG-5-0 documentation is in this PR, based on merged #1509.
+
+- Reuses shipped MethodTable/SoftwareGraph/Quack one-hop behavior, compiler tiers, source seals and H1 cost/refusal ledger. Two-hop, persistence and applying optimizations remain blocked or queued.
+- Source-indexed .arxiv excerpts connect Wang/ONA internal events, Hyperon reflexive reasoning and affective modulators, BALD vs noise, Miner surprise, metagraph fold laws, evidence fusion/fission and egg rewrite certificates.
+- Claude Code prompt demands exact source/answer parity, context-token measurement, independent epistemic and attention ablations, and explicit refusal on unsupported semantics. Functional Emberglow, Steelwind, Woodwarm and Velvetpause labels authorize no CE64 bit change.
+- No runtime feature, second IR, self-certified result, automatic code mutation, new opcode or schema is created.
+
 ## 2026-10-12 (4) — software-awareness-graph-v1 — the software's own methods, programs and evidence as graph rows → `.claude/plans/software-awareness-graph-v1.md`
 
 **Status:** MEASURED for one concept's methods (D-SAG-1-0..3 and D-SAG-1-5 in the PR); D-SAG-1-4 and D-SAG-1-6 queued.
