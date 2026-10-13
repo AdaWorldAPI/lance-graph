@@ -48,6 +48,14 @@ datafusion-functions-aggregate = { workspace = true }
 futures = "0.3"
 lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.4" }
 lance-graph-contract = { path = "../lance-graph-contract" }
+# The fold path, as a core capability (D-FOLD-CORE-b): mask-risc is the only
+# bulk execution engine; Quack and R2IL are the two frontends that lower onto
+# it (Quack for set/aggregate queries, R2IL for procedures such as NAL).
+# Unconditional on purpose: the polyfill is part of core, not an add-on.
+# Re-exported as `lance_graph::fold`.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-r2il = { path = "../lance-graph-r2il" }
 lance = { workspace = true }
 lance-linalg = { workspace = true }
 lance-namespace = "13.*"
