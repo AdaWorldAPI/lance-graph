@@ -1,12 +1,18 @@
-# lance-graph — AVX-512 pinned build (server/Railway)
-# target-cpu=x86-64-v4: native AVX-512, all SIMD inlined.
-# Consumes ndarray with same AVX-512 pinning.
+# lance-graph — Sapphire Rapids build (server/Railway)
+# target-cpu=sapphirerapids: the x86-64-v4 AVX-512 baseline plus VNNI, BF16,
+# FP16, VBMI2, BITALG and VPOPCNTDQ (AMX is runtime-detected by ndarray;
+# stable rustc does not expose it as a cfg). Railway hosts are Sapphire Rapids,
+# Emerald Rapids or newer; all of them carry these features.
 #
-# ONLY deploy on AVX-512 hardware.
+# ONLY deploy on Sapphire Rapids or newer. On an older host ndarray's startup
+# cpu_guard names the missing features and exits before main.
+#
+# The build stage runs the tests, so they execute on the build host: a build
+# that lands on an older host fails here instead of in production.
 #
 # CPU detection & SIMD dispatch documentation: see Dockerfile.md
-# This is the canonical deploy file. Dockerfile builds the same tier
-# (x86-64-v4) as the fallback when a deploy does not name this one.
+# This is the canonical deploy file. Dockerfile builds the broader x86-64-v4
+# tier as the fallback when a deploy does not name this one.
 #
 # Build: docker build -f Dockerfile.avx512 -t lance-graph-avx512 .
 # Run:   docker run --rm lance-graph-avx512
@@ -30,8 +36,8 @@ WORKDIR /app
 COPY Cargo.toml ./
 COPY crates/ crates/
 
-# AVX-512 pinned: compile-time dispatch, everything inlined
-ENV RUSTFLAGS="-C target-cpu=x86-64-v4"
+# Compile-time dispatch for Sapphire Rapids, everything inlined
+ENV RUSTFLAGS="-C target-cpu=sapphirerapids"
 
 # bgz17 standalone (zero deps, fast check)
 RUN cargo build --release --manifest-path crates/bgz17/Cargo.toml 2>&1 \
@@ -53,4 +59,4 @@ RUN cargo test --release \
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
-CMD ["echo", "lance-graph AVX-512 build verified — Rust 1.99.0, target-cpu=x86-64-v4"]
+CMD ["echo", "lance-graph build verified — Rust 1.99.0, target-cpu=sapphirerapids"]

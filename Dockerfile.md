@@ -2,13 +2,14 @@
 
 ## Build Targets
 
-Production always runs on x86-64-v4 (AVX-512), so every image and the wheel
-build for v4.
+Production always runs on x86-64-v4 (AVX-512) or better. Railway hosts are
+Sapphire Rapids, Emerald Rapids or newer, so the canonical deploy file builds
+for `sapphirerapids`; every other image and the wheel build for v4.
 
 | Target | File | Flags | Use case |
 |---|---|---|---|
-| **Deploy (canonical)** | `Dockerfile.avx512` | `-C target-cpu=x86-64-v4` | Railway / production deploys |
-| **Same-tier fallback** | `Dockerfile` | `-C target-cpu=x86-64-v4` | Compile/test image; a deploy that forgets the file name still gets v4 |
+| **Deploy (canonical)** | `Dockerfile.avx512` | `-C target-cpu=sapphirerapids` | Railway / production (Sapphire Rapids, Emerald Rapids or newer) |
+| **Fallback** | `Dockerfile` | `-C target-cpu=x86-64-v4` | Compile/test image; a deploy that forgets the file name still gets AVX-512 |
 | **HHTL-D TTS** | `Dockerfile.hhtld` | `.cargo/config-v4.toml` | TTS inference container |
 | **Local dev** | `.cargo/config.toml` | `-C target-cpu=native` | Developer machines (host CPU) |
 | **CI tests** | `build.yml`, `rust-test.yml`, `style.yml` | `-C target-cpu=x86-64-v3` | Not production; never cite a timing from it |
@@ -83,7 +84,7 @@ lance-graph inherits this via ndarray; no ARM-specific configuration needed.
 ## Choosing the Right Dockerfile
 
 ```
-Railway / production      → Dockerfile.avx512 (canonical); Dockerfile is the same-tier fallback
+Railway / production      → Dockerfile.avx512 (sapphirerapids, canonical); Dockerfile (v4) is the fallback
 TTS inference             → Dockerfile.hhtld (config-v4.toml; downloads codebooks)
 Raspberry Pi / ARM        → Dockerfile.hhtld (config-v4.toml applies to x86_64 only)
 ```
