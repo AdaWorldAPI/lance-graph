@@ -15,7 +15,7 @@ FROM debian:bookworm-slim AS builder
 
 # System deps for arrow/lance/protobuf
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates gcc libc6-dev pkg-config libssl-dev \
+    curl ca-certificates gcc libc6-dev pkg-config libssl-dev git \
     protobuf-compiler cmake \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,6 +26,14 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- -y --default-toolchain 1.99.0 --profile minimal \
     && rustc --version | grep -q "1.99.0"
+
+# lance-graph path-deps two sibling repos: ndarray (`../ndarray` from the
+# workspace root, `../../../ndarray` from a crate) and OGAR. With the
+# workspace at /app both resolve to the filesystem root, so they are cloned
+# to /ndarray and /OGAR. No branch is named: each repo's default branch
+# (ndarray `master`, OGAR `main`) is the floating head the CI jobs also build.
+RUN git clone --depth 1 https://github.com/AdaWorldAPI/ndarray.git /ndarray \
+    && git clone --depth 1 https://github.com/AdaWorldAPI/OGAR.git /OGAR
 
 WORKDIR /app
 
@@ -43,6 +51,8 @@ COPY crates/bgz17/Cargo.toml crates/bgz17/Cargo.toml
 
 # Copy source
 COPY crates/ crates/
+# Workspace member outside crates/ (the root Cargo.toml lists it).
+COPY tools/ tools/
 
 # The build host's own CPU, the same default as the repo's .cargo/config.toml
 # (which this image does not copy, so it is set here).

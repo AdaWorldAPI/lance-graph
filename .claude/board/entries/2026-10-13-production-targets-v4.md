@@ -60,9 +60,14 @@ SIGILL mid-run. That holds only for binaries that link ndarray.
   build host; if the run host lacks a compiled-in feature, ndarray's startup
   `cpu_guard` stops the binary before `main`, and ndarray#360 warns at build
   time about enabled features the guard has no row for.
-- Neither Dockerfile provides the ndarray sibling (`/ndarray`) that the
-  default features and `lance-graph-planner` require, so as written they
-  cannot resolve dependencies; `crates/symbiont/Dockerfile` clones it.
+- `Dockerfile` and `Dockerfile.avx512` could not resolve dependencies: they
+  provided neither sibling the workspace path-deps (ndarray, OGAR) and did not
+  copy the workspace member `tools/dto-class-check`. Both now clone ndarray and
+  OGAR at their default branches (`master`, `main`) to `/ndarray` and `/OGAR`
+  and copy `tools/`. Checked in a Docker-shaped layout: every member and path
+  dependency resolves (cargo reached locking 879 packages; only `--offline`
+  stopped the download). `Dockerfile.hhtld`'s fallback fetched ndarray's
+  `main` branch, which does not exist; it now fetches `master`.
 - Not verified with `docker build` here.
 
 **REVISIT WHEN:** a production host without AVX-512 appears.

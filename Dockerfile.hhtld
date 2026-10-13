@@ -43,7 +43,7 @@ COPY . /build/lance-graph
 # If building in CI, clone it here:
 RUN if [ ! -d /build/ndarray ]; then \
       echo "WARNING: ndarray not found, attempting clone..." && \
-      curl -sL "https://github.com/AdaWorldAPI/ndarray/archive/refs/heads/main.tar.gz" | \
+      curl -sL "https://github.com/AdaWorldAPI/ndarray/archive/refs/heads/master.tar.gz" | \
       tar xz && mv ndarray-* /build/ndarray || true; \
     fi
 
