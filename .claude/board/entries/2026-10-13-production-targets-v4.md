@@ -40,17 +40,16 @@ the missing features and exits before `main`; the binary does not die with
 SIGILL mid-run. That holds only for binaries that link ndarray.
 
 **OPEN:**
-- `build.yml` gains `linux-build-v4`: it compiles and links lance-graph's
-  tests at x86-64-v4 with `--target`, so build scripts stay at the host
-  baseline, and runs nothing (most GitHub runners are v3). The v4 arm is now
-  compiled in CI but still never executed there.
+- `build.yml` gains `linux-build-v4`, a two-entry matrix (`x86-64-v4`,
+  `sapphirerapids`): it compiles and links lance-graph's tests for each tier
+  with `--target`, so build scripts stay at the host baseline, and runs
+  nothing (most GitHub runners are v3). Both tiers are compiled in CI but
+  never executed there. ndarray gets the same pair in AdaWorldAPI/ndarray#361.
 - `build.yml`, `rust-test.yml` and `style.yml` still RUN tests on a v3 pin
   instead of per-runner `native` (the #1526 resolver).
 - Probes and examples do not yet refuse to report timings off v4.
 - `Dockerfile.avx512` builds `sapphirerapids`; its build stage runs the
   tests, so that arm executes on the Railway build host and nowhere else.
-  CI compiles only the v4 arm; the Sapphire Rapids-only code (VNNI, BF16,
-  FP16) is not compiled in lance-graph CI.
 - Plain `Dockerfile` builds `native` (maintainer's decision). It tunes to the
   build host; if the run host lacks a compiled-in feature, ndarray's startup
   `cpu_guard` stops the binary before `main`, and ndarray#360 warns at build

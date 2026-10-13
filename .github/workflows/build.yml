@@ -93,11 +93,20 @@ jobs:
   # die with SIGILL in the middle of the build. With an explicit target,
   # RUSTFLAGS applies only to target artifacts (measured: the build script
   # compiles with no target-cpu, the crate with x86-64-v4).
+  #
+  # Two tiers: x86-64-v4 (the floor production runs on) and sapphirerapids
+  # (Dockerfile.avx512, the canonical deploy; Railway hosts are Sapphire
+  # Rapids, Emerald Rapids or newer). Both compile, neither runs.
   linux-build-v4:
+    name: linux-build-v4 (${{ matrix.cpu }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        cpu: [x86-64-v4, sapphirerapids]
     env:
-      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v4"
+      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=${{ matrix.cpu }}"
       # Runner disk makes debug 0 mandatory. With `--target`, RUSTFLAGS no
       # longer reaches build scripts and proc-macros, so their debug level
       # comes from the profile; these pin it to 0 for every artifact.
@@ -126,18 +135,18 @@ jobs:
         uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "lance-graph-deps-v4"
+          shared-key: "lance-graph-deps-${{ matrix.cpu }}"
           workspaces: |
             lance-graph/crates/lance-graph
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y protobuf-compiler
-      - name: Check the target really is v4
+      - name: Check the target really is AVX-512
         run: |
-          rustc --print cfg -C target-cpu=x86-64-v4 | grep -qx 'target_feature="avx512f"'
-          echo "Built for x86-64-v4 (not run). Runner CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2)" >> "$GITHUB_STEP_SUMMARY"
-      - name: Build tests for x86-64-v4 (no run)
+          rustc --print cfg -C target-cpu=${{ matrix.cpu }} | grep -qx 'target_feature="avx512f"'
+          echo "Built for ${{ matrix.cpu }} (not run). Runner CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build tests for ${{ matrix.cpu }} (no run)
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --target x86_64-unknown-linux-gnu --no-run
-      - name: Check benchmarks for x86-64-v4
+      - name: Check benchmarks for ${{ matrix.cpu }}
         run: cargo check --manifest-path crates/lance-graph/Cargo.toml --target x86_64-unknown-linux-gnu --benches
