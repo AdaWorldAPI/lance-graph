@@ -11,8 +11,8 @@
 # that lands on an older host fails here instead of in production.
 #
 # CPU detection & SIMD dispatch documentation: see Dockerfile.md
-# This is the canonical deploy file. Dockerfile builds the broader x86-64-v4
-# tier as the fallback when a deploy does not name this one.
+# This is the canonical deploy file. Dockerfile builds for the build host's
+# CPU (native) as the fallback when a deploy does not name this one.
 #
 # Build: docker build -f Dockerfile.avx512 -t lance-graph-avx512 .
 # Run:   docker run --rm lance-graph-avx512

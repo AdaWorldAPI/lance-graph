@@ -15,7 +15,7 @@ production.
 
 | site | before | after |
 |---|---|---|
-| `Dockerfile` | `RUSTFLAGS -C target-cpu=x86-64-v3` | `x86-64-v4` (fallback) |
+| `Dockerfile` | `RUSTFLAGS -C target-cpu=x86-64-v3` | `native` (fallback; the build host's CPU) |
 | `Dockerfile.avx512` (canonical deploy) | `x86-64-v4` | `sapphirerapids` (Railway hosts are Sapphire Rapids, Emerald Rapids or newer, per the maintainer) |
 | `Dockerfile.hhtld`, `crates/cognitive-stack/Dockerfile`, `crates/symbiont/Dockerfile` | `cp config-v3.toml config.toml` | `cp config-v4.toml config.toml` (x86_64 only; arm64 untouched) |
 | `crates/thinking-engine/Dockerfile`, `Dockerfile.railway` | `CARGO_TARGET_X86_64_…_RUSTFLAGS x86-64-v3` | `x86-64-v4` |
@@ -51,9 +51,13 @@ SIGILL mid-run. That holds only for binaries that link ndarray.
   tests, so that arm executes on the Railway build host and nowhere else.
   CI compiles only the v4 arm; the Sapphire Rapids-only code (VNNI, BF16,
   FP16) is not compiled in lance-graph CI.
-- Plain `Dockerfile` stays at v4 as the fallback. `native` was rejected: it
-  tunes to the build host, and a newer build host would compile in features
-  a Sapphire Rapids run host lacks.
+- Plain `Dockerfile` builds `native` (maintainer's decision). It tunes to the
+  build host; if the run host lacks a compiled-in feature, ndarray's startup
+  `cpu_guard` stops the binary before `main`, and ndarray#360 warns at build
+  time about enabled features the guard has no row for.
+- Neither Dockerfile provides the ndarray sibling (`/ndarray`) that the
+  default features and `lance-graph-planner` require, so as written they
+  cannot resolve dependencies; `crates/symbiont/Dockerfile` clones it.
 - Not verified with `docker build` here.
 
 **REVISIT WHEN:** a production host without AVX-512 appears.

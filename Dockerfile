@@ -1,11 +1,12 @@
-# lance-graph — Railway compile-test image (x86-64-v4, the production target)
+# lance-graph — Railway compile-test image (target-cpu=native, the build host)
 # Verifies the workspace builds cleanly (core + bgz17 + planner + contract)
 # Requires Rust 1.99.0 (LazyLock, modern std APIs)
 #
 # CPU detection & SIMD dispatch documentation: see Dockerfile.md
 # Dockerfile.avx512 is the canonical deploy file (sapphirerapids). This image
-# builds the broader x86-64-v4 tier as the fallback for a deploy that does not
-# name that file.
+# is the fallback for a deploy that does not name that file: it builds for the
+# build host's own CPU, so it takes whatever that host has. ndarray's startup
+# cpu_guard stops the binary on a run host that lacks a compiled-in feature.
 #
 # Build: docker build -t lance-graph-test .
 # Run:   docker run --rm lance-graph-test
@@ -43,10 +44,9 @@ COPY crates/bgz17/Cargo.toml crates/bgz17/Cargo.toml
 # Copy source
 COPY crates/ crates/
 
-# Production always runs on x86-64-v4, so the compile-test image builds and
-# tests that arm. (The repo's .cargo/config.toml defaults to `native`; this
-# RUSTFLAGS replaces it.)
-ENV RUSTFLAGS="-C target-cpu=x86-64-v4"
+# The build host's own CPU, the same default as the repo's .cargo/config.toml
+# (which this image does not copy, so it is set here).
+ENV RUSTFLAGS="-C target-cpu=native"
 
 # Build bgz17 standalone (zero deps, fast check)
 RUN cargo build --release --manifest-path crates/bgz17/Cargo.toml 2>&1 \
