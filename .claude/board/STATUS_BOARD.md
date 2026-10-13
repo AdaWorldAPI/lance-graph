@@ -52,7 +52,7 @@ Entry: `entries/2026-10-13-production-targets-v4.md`.
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-PROD-V4** | Shipped images and wheel off v3: `Dockerfile.avx512` `sapphirerapids`, `Dockerfile` `native`, the rest `x86-64-v4`; compile-only CI for both tiers | Shipped #1529 `2d33bb0`; ndarray side in AdaWorldAPI/ndarray#361 | `--target` keeps CPU flags off build scripts (scratch crate: build script without `target-cpu`); `linux-build-v4` green on both tiers on the `main` push of `2d33bb0` (run 38356680938); thinking-engine images fixed and their build line run in a Docker-shaped layout in #1530; no `docker build` run |
+| **D-PROD-V4** | Shipped images and wheel off v3: `Dockerfile.avx512` `sapphirerapids`, `Dockerfile` `native`, the rest `x86-64-v4`; compile-only CI for both tiers | Shipped #1529 `2d33bb0`, #1530 `c864721`, #1531 `86e3174`; ndarray side in AdaWorldAPI/ndarray#361 | `--target` keeps CPU flags off build scripts (scratch crate: build script without `target-cpu`); `linux-build-v4` green on both tiers on the `main` push of `2d33bb0` (run 38356680938); thinking-engine images fixed and their build line run in a Docker-shaped layout in #1530; no `docker build` run |
 
 ## D-NALP — `NAL::narsese()` polyfill over R2IL procedures and mask-risc (2026-10-12)
 
