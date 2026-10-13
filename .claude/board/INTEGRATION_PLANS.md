@@ -1,18 +1,21 @@
 ## 2026-10-13 (1) — d-cmr-concept-chain-normalization-v1 — preserve the equation, not the intermediate result → `.claude/plans/d-cmr-concept-chain-normalization-v1.md`
 
-**Status:** PROPOSAL D-CMR-0..7. Only D-CMR-0 (plan, board rows) is in the PR; no code, no dependency, no new IR.
+**Status:** PROPOSAL D-CMR-0..9, revised to a set-theory IR (see the last bullet). Only D-CMR-0 (plan, board rows) is in the PR; no code, no dependency.
 
 - Methods in a pure chain are unresolved relations; the chain is normalized with proven identities and only the irreducible remainder is compiled. `(a+b)−a` means `a+b` never exists, not a wider accumulator.
 - Inventory, read in code: `fold_ranges`, survivor skip, `sql_where`, ternlog fusion, `Lowering::Range` (Count/Any only), `Compiled`, `execute_extent`. Quack never emits an extent; NAL does by hand (127 ns vs 195 µs).
 - Path: extent hoisting in Quack (D-CMR-1), lazy binding (-2), fixpoint driver (-3), complement (-4), relational difference `Sum(A)−Sum(A∧B)=Sum(A∧¬B)` (-5), equality-saturation probe only on evidence (-6), benchmark against eager materialization and the row loop (-7).
 - Revision (same day): the normalization lives in a set-theory IR in the contract (sets with a universe, interval runs as values, 2-D rectangles, preimage, measures; edges, not content), with an insufficiency proof in §3.1. Measurement levels: geometry (no row read), optics (fused filter + count, nothing written), etch (materialize). Path recut to D-CMR-1..9. Reverses point 3 of the concept-chain rule.
+- Corrections to the 2026-10-12 entries below, made by #1524 (D-CMR-RESET); code is on `backup/session-011BMJ-2026-10-12`:
+  - (6) sag-capstone-alignment: both `ProposedMethod` anchors are gone (`glove-parity::awareness::Candidate`, `glove-parity::method::EffectClass::Propose`). The name and the two shapes stand; the anchors are re-decided with the D-CMR rebuild. Not the Cohen's-d `EffectClass` in `lance-graph-cognitive`, which is unrelated.
+  - (5) sag-reflexive-cognition: `MethodTable` and `SoftwareGraph` are no longer shipped; nothing in that plan can reuse them until the rebuild.
+  - (4) software-awareness-graph: withdrawn with the whole method layer; D-SAG-1-0..6 are Withdrawn on `STATUS_BOARD.md`.
 
 ## 2026-10-12 (6) — sag-capstone-alignment-v1 — one alignment over the six SAG research PRs (#1510, #1511, #1512, #1513, #1515, #1517) → `.claude/plans/sag-capstone-alignment-v1.md`
 
 **Status:** CURRENT-CONTRACT for naming and vocabulary; nothing built.
 
 - `ProposedMethod` is canonical (rewrite shape on `awareness::Candidate`, action shape on `EffectClass::Propose`); six aliases retired; scheduler selection renamed `SchedulerDecision`.
-  - ⊘ 2026-10-13: both anchors were removed by #1524 (D-CMR-RESET): `glove-parity::awareness::Candidate` and `glove-parity::method::EffectClass::Propose`. Code on `backup/session-011BMJ-2026-10-12`. The name and the two shapes stand; the anchors are re-decided with the D-CMR rebuild. (Not the `EffectClass` still on `main` at `crates/lance-graph-cognitive/src/search/certificate.rs`: that one classifies Cohen's d effect sizes and is unrelated.)
 - One four-state status (Witnessed / Refuted / Undetermined / Conflicted) maps the five PR vocabularies; unread is never missing.
 - Stale claims listed (second hop refused, defects A/B unverified); contradictions on Ruff's role, ONA pin and execution-class names resolved.
 
@@ -21,7 +24,6 @@
 **Status:** PROPOSAL D-SAG-5-0..10. Only D-SAG-5-0 documentation is in this PR, based on merged #1509.
 
 - Reuses shipped MethodTable/SoftwareGraph/Quack one-hop behavior, compiler tiers, source seals and H1 cost/refusal ledger. Two-hop, persistence and applying optimizations remain blocked or queued.
-  - ⊘ 2026-10-13: `MethodTable` and `SoftwareGraph` are no longer shipped; #1524 (D-CMR-RESET) moved them to `backup/session-011BMJ-2026-10-12`. Nothing in this plan can reuse them until the D-CMR rebuild.
 - Source-indexed .arxiv excerpts connect Wang/ONA internal events, Hyperon reflexive reasoning and affective modulators, BALD vs noise, Miner surprise, metagraph fold laws, evidence fusion/fission and egg rewrite certificates.
 - Claude Code prompt demands exact source/answer parity, context-token measurement, independent epistemic and attention ablations, and explicit refusal on unsupported semantics. Functional Emberglow, Steelwind, Woodwarm and Velvetpause labels authorize no CE64 bit change.
 - No runtime feature, second IR, self-certified result, automatic code mutation, new opcode or schema is created.
@@ -31,7 +33,6 @@
 **Status:** MEASURED for one concept's methods (D-SAG-1-0..3 and D-SAG-1-5 in the PR); D-SAG-1-4 and D-SAG-1-6 queued.
 
 - A `MethodTable` projects to typed rows (class, method, field, condition, fold, law, program, primitive, lowering, refusal, claim, capability, test). Each row has a tier (declared / derived / compiled / verified / hypothesis) and a provenance.
-  - ⊘ 2026-10-13: withdrawn by #1524 (D-CMR-RESET) with the whole method layer; D-SAG-1-0..6 are marked Withdrawn on `STATUS_BOARD.md`. Code and tests on `backup/session-011BMJ-2026-10-12`.
 - The edge table is a Quack table: dependency questions are Drafts lowered and run on mask-risc. Validation is the compiler's verdicts recorded as edges.
 - H1 (fuse a predicate into `MaskedSumI32`) comes from the rows. Measured gap: 1.6–1.8× against a single-pass scalar reference on two tiers. Missing: `Pred` fusion and a sum `FusedFold`.
 - First blocker: multi-hop questions need a relation carrier, not a mask fed between programs.

@@ -51,7 +51,9 @@ code anchor is re-decided when the class-method rebuild (D-CMR) lands:
 **DECISION.** The action shape anchors on the action gate that already exists:
 a proposal is an `ActionInvocation` in state `Pending`, and the gate that may
 advance it is `ActionInvocation::commit_via` (the `ClassRbac` grant registry,
-no admin bypass). This is a requirement, not yet a property of the code: the
+no admin bypass). `commit_via` consults the registry only when
+`ActionDef.required_role` is `Some`, so a proposed action must set
+`required_role` or carry a separate authorization check. This is a requirement, not yet a property of the code: the
 older `ActionInvocation::commit` (`action.rs:265`) makes the same transitions
 with an admin bypass, is public, and `lance-graph-ogar/src/actions.rs`
 directs consumers to it (OPEN item 7).

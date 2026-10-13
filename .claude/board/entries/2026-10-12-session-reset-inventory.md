@@ -113,5 +113,7 @@ on `glove-parity::awareness::Candidate`, the action shape on
 `glove-parity::method::EffectClass::Propose` (not the unrelated Cohen's d
 `EffectClass` in `lance-graph-cognitive`). The rewrite anchor moves to the
 rebuilt binding. The action anchor is the action gate: a `Pending`
-`ActionInvocation` advanced only by `commit_via` (capstone §2.1, which lists
+`ActionInvocation`. Today two methods advance it: `commit_via` (no admin
+bypass) and `commit` (admin bypass). Which one a proposal must pass is OPEN
+(capstone §2.1 item 7, which also lists
 what the gate does not carry yet).

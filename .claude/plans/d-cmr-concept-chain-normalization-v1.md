@@ -83,8 +83,10 @@ M ::= Count(S) | Sum_x(S) | Exists(S)
 - **Normal form:** `Runs_b ∩ Res_b`. Interval sets are closed under `∩`, `∪`
   and `∖` at a cost linear in the number of intervals, with no row read; `∅`
   is a proof that the answer is 0. The residual stays opaque.
-- **Edges, not content.** A set is stored by its boundaries. Cost scales with
-  the number of edges, never with the number of rows.
+- **Edges, not content.** A set is stored by its boundaries. Interval-only
+  operations scale with the number of edges, never with rows. Evaluating a
+  residual and lowering a rectangle (one run per `hi`) scale with the rows or
+  coordinate extent they visit.
 - **Two dimensions.** A condition on `hi` and one on `lo` of a composite
   coordinate (`hi·stride + lo`, the `_pair` family) form a rectangle. It
   becomes 1-D runs only at lowering: one run per `hi` in row-major order, or a
