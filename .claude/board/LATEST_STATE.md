@@ -1,3 +1,12 @@
+## 2026-10-13 — main after #1505, #1506, #1507–#1509, #1514, #1516, #1518, #1520, #1523, #1524, #1526 (merged); #1525 open
+
+- **On `main`, live:** `.cargo/config.toml` defaults to `-Ctarget-cpu=native` with `config-v3.toml` as the portable baseline and `debug = 0` everywhere (#1505); `compute_dag_kahn` checks all 256 field positions (#1506); R2IL `MIN`/`MAX` lowering onto mask-risc (#1518, the part outside glove-parity).
+- **Merged then withdrawn by #1524 (D-CMR-RESET):** the class-method layer of `lance-graph-glove-parity` (`method`, `call`, `decl`, `gremlin`, `awareness`; #1507, #1508, #1509, #1514, #1516, #1518, #1520). Prior state: `backup/session-011BMJ-2026-10-12`. Inventory: entry `2026-10-12-session-reset-inventory.md`.
+- **Docs only:** SAG capstone (#1523): `ProposedMethod`, four-state status; not built.
+- **Open:** #1525 D-NALP W1/W2 (`lance-graph-nal`: NodeGuid-keyed beliefs, byte apertures, `Question`/`TruthAtLeast`/`Choice` over compiled mask-risc programs; mask-risc `CompiledProgram`).
+- **CI (#1526, merged `abc0a1f`):** the native default plus `rust-cache` reused AVX-512 artifacts on runners without them (SIGILL in `dir-sim log in Lance`). `native` is now written out as each runner's exact feature list, and the cache is keyed to it.
+- **Rules carried from this session (operator):** classid-dependent methods go through the existing `hotplug.rs` plug-and-play; NAL/NARS operations are global core methods (no classid check, no plug, no `BeliefClass`); internal pins are forbidden (the v3 pins in the Dockerfiles and wheel build are an open decision).
+
 ## 2026-10-12 — dir-sim membership path witness + role evidence on branch `ccr-0455e606-wmtsor` (unmerged)
 
 - `lance-graph-dir-sim` (additive): `View::membership_path` / `membership_path_through` return a `MembershipPath` (the user, then each group on one chain of direct memberships). The upward walk is now breadth first and records where each group was reached from; the reached set is unchanged. Witness = shortest chain, lowest ordinal among equals.

@@ -1,3 +1,76 @@
+## 2026-10-13 — lance-graph PR #1526 (merged `abc0a1f`, branch `ccr-9f3b8075-74u47l-cpukey`, head `8342c9f`, 4 commits) — CI: spell target-cpu=native out per runner and key the cache to it
+
+- **Added:** `.github/scripts/resolve-native-rustflags.sh`: prints `-Ctarget-feature=` with the runner's exact native feature list and no CPU name, and fails unless `rustc --print cfg` under those flags equals native; `--cpu` prints the name for logs. `dir-sim-persist.yml` and `identity.yml` set `RUSTFLAGS` from it before each of their three rust-cache steps, key the cache on its hash, and write the CPU to the job summary.
+- **Locked:** a named `-Ctarget-cpu` enables its model defaults and a `+feature` list cannot remove them (`-Ctarget-cpu=skylake-avx512 -Ctarget-feature=+sse2` still reports `avx512f`; codex P1). Disable run: the CPU name put back makes the self-check fail and list the 16 extra features. On runners, one run got two different feature lists (`avx512bf16` on one job, absent on two): the heterogeneity behind the SIGILL, now separate flags and caches.
+- **Deferred / open:** cache hit rate and build time across CPU types are not measured yet (first runs were all cold); features stable rustc hides (amx, avx10) are never enabled. Companion: AdaWorldAPI/ndarray#360 warns at build time about enabled features `cpu_guard` has no row for.
+- **Confidence:** high for correctness; the cache cost is unmeasured.
+
+## 2026-10-13 — lance-graph PR #1523 (merged `8884173`, branch `ccr-9f3b8075-74u47l-capstone`, head `11b61ba`, 53 commits) — D-SAG-CAP-1: SAG capstone alignment of #1510, #1511, #1512, #1513, #1515, #1517
+
+- **Added:** the six parallel SAG research PRs merged and aligned in `.claude/plans/sag-capstone-alignment-v1.md`; docs plus #1517's Python oracle, no Rust. One name, `ProposedMethod` (Rewrite shape on `awareness::Candidate`, Action shape on `EffectClass::Propose`), replacing five per-PR names; #1511's probe choice renamed `SchedulerDecision`; one four-state status (Witnessed / Refuted / Undetermined / Conflicted).
+- **Locked:** Ruff is a source-structure oracle, never a semantic-equivalence oracle; ONA pin `dc4efd0`; execution classes are the shipped `EffectClass` names; receipts are content-addressed, not signed.
+- **Deferred / open:** `ProposedMethod` and the four-state status are not built (SAG Step 4); #1517's oracle tests F0, F7, F8 are vacuous or missing ("claimed, unverified"). Note: merged after #1524, so the `awareness` code the capstone anchors on is in backup, not on `main`.
+- **Confidence:** documentation only; index regeneration `--check` passes.
+
+## 2026-10-12 — lance-graph PR #1524 (merged `ecb9d9a`, branch `ccr-9f3b8075-74u47l-reset`, head `9cfdf2a`, 1 commit) — D-CMR-RESET: class-method layer moved to backup
+
+- **Added:** entry `2026-10-12-session-reset-inventory.md` (everything removed and kept, with reasons). Removed from `lance-graph-glove-parity`: modules `method`, `call`, `decl`, `gremlin`, `awareness`, ten test files, two fixtures, four examples (−10,716 lines). Kept: D-XGP `basis.rs`, `tests/authority.rs`, `tests/canonical_front.rs`.
+- **Locked:** the layer was a second algebra beside the folds (fresh `Filter::cmp` scratch per call, no `Compiled`/`lower_fused`/resident planes) and slower than a row loop: `billable_hours` 430–480 µs vs 283 µs (1,048,576 rows, AVX-512, release). Hops were foreign-key reads; the graph has no foreign keys.
+- **Deferred / open:** the rebuild over the folds (first wave: D-NALP, #1525). Prior state on `backup/session-011BMJ-2026-10-12`; #1519, #1521, #1522 backed up as `-sagfix`, `-hops`, `-chain2`.
+- **Confidence:** high for the removal; supersedes the code of #1507, #1508, #1509, #1514, #1516, #1518, #1520.
+
+## 2026-10-12 — lance-graph PR #1520 (merged `8ae5bce`, branch `ccr-9f3b8075-74u47l-mn`, head `ef27527`, 6 commits) — D-CMH-G1-4b: edge table as the anchor, distinct targets of a hop
+
+- **Added:** an M:N relation as its own concept with a functional relation to each end; `Fold::Distinct { rel }` lowered to the liveness test plus `COUNT(DISTINCT key)` via `Terminal::CountKeyRunsU32`; a key lane out of order refused with `LaneNotOrdered`.
+- **Locked:** bag vs set counts equal a row oracle; second hop, `V(parent).in(rel)` and `bothE` refused by name.
+- **Deferred / open:** chained hops.
+- **Confidence:** WITHDRAWN by #1524 (code in backup).
+
+## 2026-10-12 — lance-graph PR #1518 (merged `bf06ba1`, branch `ccr-9f3b8075-74u47l-ord`, head `ead959d`, 4 commits) — D-CMH-G1-6: ordered I32 conditions and MIN/MAX as method steps
+
+- **Added:** `Cond::Order` lowered to `Cmp::{Lt,Le,Gt,Ge}I32` (Quack) and `procs::and_cmp_i32` (R2IL); `Fold::Min`/`Max`; R2IL `MIN`/`MAX` wired onto mask-risc `MaskedMinI32`/`MaskedMaxI32` (no new opcode); empty selection answers `Extremum(None)`.
+- **Locked:** both frontends equal a row loop at n ∈ {1, 64, 65, 4097} and five thresholds; eight disable runs each red on its own test.
+- **Confidence:** the method-layer part is WITHDRAWN by #1524. The `lance-graph-r2il` `MIN`/`MAX` lowering survives on `main` (`tests/procs.rs::min_max_match_the_reference` present after the reset).
+
+## 2026-10-12 — lance-graph PR #1516 (merged `c1ce262`, branch `ccr-9f3b8075-74u47l-rel2`, head `d746905`, 2 commits) — #1514 follow-up: refuse two populations of one relation target concept
+
+- **Added:** `PrepareError::ConflictingUniverse(concept)` with a silence twin; carried the Codex finding that missed #1514's merge.
+- **Confidence:** WITHDRAWN by #1524 (code in backup).
+
+## 2026-10-12 — lance-graph PR #1514 (merged `10325b3`, branch `ccr-9f3b8075-74u47l-rel`, head `4f73869`, 3 commits) — D-CMH-G1-4a: functional relation carrier, `out(rel)` as a method
+
+- **Added:** relations on a method `Glove`; `out(rel)` → `Filter::Semijoin`, `out(rel).has` → `Filter::EqU32Via`; second hop, values/dedup/where through a relation and fan-out refused by name.
+- **Confidence:** WITHDRAWN by #1524: a hop as a foreign-key read is the design the reset rejected.
+
+## 2026-10-12 — lance-graph PR #1509 (merged `42fa2a3`, branch `ccr-9f3b8075-74u47l-sag`, head `b3e3b3a`, 8 commits) — D-SAG-1: software-awareness graph
+
+- **Added:** the methods of #1504's `BillableWorkEntry` projected into typed rows from the `MethodTable`; questions over them as Quack `Draft`s on mask-risc; candidate H1 with a measured cost gap; plan `software-awareness-graph-v1.md`.
+- **Locked:** one concept, one hop; no new opcode, Quack variant, engine or registry; nothing applies a transformation.
+- **Confidence:** code WITHDRAWN by #1524; the plan and the SAG research line (#1510–#1517, capstone #1523) remain.
+
+## 2026-10-12 — lance-graph PR #1508 (merged `5217049`, branch `ccr-9f3b8075-74u47l-gremlin`, head `772bb8e`, 9 commits) — D-CMH-G1: Gremlin steps as composable ClassId methods
+
+- **Added:** `billable_hours` calling the separately declared predicate `is_billable`, as text loaded at run time; lowering equals the direct Quack `Program`; answers equal a row oracle on Quack and R2IL at n ∈ {1, 64, 65, 4097}.
+- **Confidence:** WITHDRAWN by #1524 (second algebra, slower than a row loop).
+
+## 2026-10-12 — lance-graph PR #1507 (merged `b77d43a`, branch `ccr-9f3b8075-74u47l-decl`, head `5ace57f`, 5 commits) — D-CMH-1 step 2: class method declarations loaded at run time
+
+- **Added:** `decl.rs` (`parse_decls`, `MethodTable::prepare_with`), lifetimes on `Cond`/`Fold`/`Law`/`MethodBody`/`MethodSpec`.
+- **Confidence:** WITHDRAWN by #1524.
+
+## 2026-10-12 — lance-graph PR #1506 (merged `3c54c1f`, branch `ccr-9f3b8075-74u47l-dag256`, head `b4369f3`, 3 commits) — fix(contract): compute-DAG gate reads all 256 field positions
+
+- **Added:** `compute_dag_kahn`, one Kahn pass over four 64-bit words shared by `compute_dag_is_acyclic` and `compute_dag_topo_order` (`lance-graph-contract/src/class_view.rs`).
+- **Locked (test-pinned, red on the 64-bit code):** cycles crossing 63/64 and entirely above 63 are rejected; a 255-target chain through every `u8` position is ordered; both functions agree. Replaces the test that pinned the skip.
+- **Confidence:** high; on `main`, unaffected by #1524.
+
+## 2026-10-12 — lance-graph PR #1505 (merged `c8686a0`, branch `ccr-9f3b8075-74u47l-native-default`, head `12cdfde`, 2 commits) — build: native target-cpu by default, debug 0 everywhere
+
+- **Added:** `.cargo/config.toml` defaults to `-Ctarget-cpu=native`; new `.cargo/config-v3.toml` (portable AVX2); `[profile.dev]`/`[profile.test]` `debug = 0` for every build under the tree, including the 19 standalone workspaces.
+- **Locked:** measured on `lance-graph-glove-parity`: before `-C debuginfo=2 -C target-cpu=x86-64-v3`, after `-C target-cpu=native` and no debuginfo.
+- **Deferred / open:** (1) the native default plus `rust-cache` reused AVX-512 artifacts on runners without it and turned `dir-sim log in Lance` red with SIGILL; fixed in #1526 (merged `abc0a1f`). (2) The Dockerfiles and the wheel build pin x86_64 to v3; whether those internal pins stay is an open operator decision.
+- **Confidence:** high for the flags; the CI regression is the caveat above.
+
 ## 2026-10-09 — lance-graph PR #1432 (merged `d29d0aa`, branch `ccr-edc85bd9-89tiwe`, head `669fc42`, 7 commits) — D-SCF-CARE-PAIR-0: crossing counterfactuals, pairwise nogoods, folded chain relations
 
 - **Added:** `cognitive-shader-driver/examples/crossword_crossing_care_probe.rs` (`test = true`; 10 tests) over the unchanged `shared/crossword_core.rs`: letter support, single- and two-crossing counterfactuals, pairwise nogoods, existential elimination of internal slots into a canonical reusable 31×31 count relation.
