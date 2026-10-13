@@ -1,9 +1,12 @@
-# lance-graph — Railway compile-test image (AVX2 default)
+# lance-graph — Railway compile-test image (target-cpu=native, the build host)
 # Verifies the workspace builds cleanly (core + bgz17 + planner + contract)
 # Requires Rust 1.99.0 (LazyLock, modern std APIs)
 #
 # CPU detection & SIMD dispatch documentation: see Dockerfile.md
-# AVX-512 pinned variant: see Dockerfile.avx512
+# Dockerfile.avx512 is the canonical deploy file (sapphirerapids). This image
+# is the fallback for a deploy that does not name that file: it builds for the
+# build host's own CPU, so it takes whatever that host has. ndarray's startup
+# cpu_guard stops the binary on a run host that lacks a compiled-in feature.
 #
 # Build: docker build -t lance-graph-test .
 # Run:   docker run --rm lance-graph-test
@@ -12,7 +15,7 @@ FROM debian:bookworm-slim AS builder
 
 # System deps for arrow/lance/protobuf
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates gcc libc6-dev pkg-config libssl-dev \
+    curl ca-certificates gcc libc6-dev pkg-config libssl-dev git \
     protobuf-compiler cmake \
     && rm -rf /var/lib/apt/lists/*
 
@@ -23,6 +26,14 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- -y --default-toolchain 1.99.0 --profile minimal \
     && rustc --version | grep -q "1.99.0"
+
+# lance-graph path-deps two sibling repos: ndarray (`../ndarray` from the
+# workspace root, `../../../ndarray` from a crate) and OGAR. With the
+# workspace at /app both resolve to the filesystem root, so they are cloned
+# to /ndarray and /OGAR. No branch is named: each repo's default branch
+# (ndarray `master`, OGAR `main`) is the floating head the CI jobs also build.
+RUN git clone --depth 1 https://github.com/AdaWorldAPI/ndarray.git /ndarray \
+    && git clone --depth 1 https://github.com/AdaWorldAPI/OGAR.git /OGAR
 
 WORKDIR /app
 
@@ -40,11 +51,12 @@ COPY crates/bgz17/Cargo.toml crates/bgz17/Cargo.toml
 
 # Copy source
 COPY crates/ crates/
+# Workspace member outside crates/ (the root Cargo.toml lists it).
+COPY tools/ tools/
 
-# Default target: x86-64-v3 (AVX2) — runs on GitHub CI and most servers.
-# Use Dockerfile.avx512 for x86-64-v4 (AVX-512) on Skylake-X / Ice Lake / Sapphire Rapids.
-# The .cargo/config.toml pins x86-64-v4 for LOCAL builds; override here for portability.
-ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
+# The build host's own CPU, the same default as the repo's .cargo/config.toml
+# (which this image does not copy, so it is set here).
+ENV RUSTFLAGS="-C target-cpu=native"
 
 # Build bgz17 standalone (zero deps, fast check)
 RUN cargo build --release --manifest-path crates/bgz17/Cargo.toml 2>&1 \

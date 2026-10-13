@@ -25,10 +25,18 @@ clean:
 	rm -rf ../target
 
 # The repo's .cargo/config.toml defaults to `native`, which would tune the
-# wheel to the build host; a published x86_64 wheel must run on any x86_64
-# since Haswell. RUSTFLAGS replaces the config's flags; it is set only on an
-# x86_64 host so an arm64 build keeps its own baseline.
-PORTABLE_RUSTFLAGS := $(if $(filter x86_64,$(shell uname -m)),RUSTFLAGS="-C target-cpu=x86-64-v3",)
+# wheel to the build host; production runs on x86-64-v4, so the wheel is
+# built for exactly that. RUSTFLAGS replaces the config's flags; it is set
+# only on an x86_64 host so an arm64 build keeps its own baseline.
+#
+# `--target <host triple>` is load-bearing: without it RUSTFLAGS also reaches
+# build scripts and proc-macros (serde, pyo3, tokio), which run on this host,
+# so a publishing machine without AVX-512 would die with SIGILL. With an
+# explicit target the flags reach only the wheel's own code.
+IS_X86_64 := $(filter x86_64,$(shell uname -m))
+HOST_TRIPLE := $(shell rustc -vV | sed -n 's/^host: //p')
+PORTABLE_RUSTFLAGS := $(if $(IS_X86_64),RUSTFLAGS="-C target-cpu=x86-64-v4",)
+PORTABLE_TARGET := $(if $(IS_X86_64),--target $(HOST_TRIPLE),)
 
 publish:
-	$(PORTABLE_RUSTFLAGS) maturin build --release --out dist --sdist
+	$(PORTABLE_RUSTFLAGS) maturin build --release --out dist --sdist $(PORTABLE_TARGET)

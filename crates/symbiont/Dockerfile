@@ -35,12 +35,12 @@ WORKDIR /build
 # The lance-graph repo (this build context). symbiont path-deps lance-graph +
 # perturbation-sim from inside it.
 COPY . /build/lance-graph
-# Portable baseline. The repo's .cargo/config.toml defaults to `native`
-# (tuned to the build host); an image must run on any x86_64 since Haswell.
-# The copied tree's config is replaced by config-v3.toml, which only applies
+# Production target. The repo's .cargo/config.toml defaults to `native`
+# (tuned to the build host); production always runs on x86-64-v4, so the
+# copied tree's config is replaced by config-v4.toml. That file only applies
 # to x86_64 targets, so an arm64 build keeps its own aarch64 baseline (a
 # global RUSTFLAGS would hand the aarch64 compiler an x86 CPU name).
-RUN cp /build/lance-graph/.cargo/config-v3.toml /build/lance-graph/.cargo/config.toml
+RUN cp /build/lance-graph/.cargo/config-v4.toml /build/lance-graph/.cargo/config.toml
 
 # lance-graph's own Cargo.toml path-deps the ndarray fork as a SIBLING
 # (`../../../ndarray`). Clone it next to the repo so that path resolves.
@@ -48,7 +48,16 @@ RUN git clone --depth 1 --branch "$ADA_BRANCH" \
         https://github.com/AdaWorldAPI/ndarray.git /build/ndarray
 
 WORKDIR /build/lance-graph/crates/symbiont
-RUN cargo build --release
+# `--target <host triple>` keeps the v4 flags on the binary only. Without it
+# cargo also compiles build scripts and proc-macros for v4 and runs them
+# here, so a build host without AVX-512 would die with SIGILL mid-build.
+# With an explicit target they stay at the host baseline. The binaries then
+# land under target/<triple>/ and are copied to the path the runtime stage
+# reads.
+RUN T="$(rustc -vV | sed -n 's/^host: //p')" \
+    && cargo build --release --target "$T" \
+    && mkdir -p target/release \
+    && cp "target/$T/release/symbiont" target/release/
 
 # ── runtime ──────────────────────────────────────────────────────────────────
 FROM debian:bookworm-slim

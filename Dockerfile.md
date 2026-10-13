@@ -1,13 +1,19 @@
 # lance-graph Docker CPU Detection & SIMD Dispatch
 
-## Three-Tier Build Strategy
+## Build Targets
 
-| Target | Dockerfile | RUSTFLAGS | Use case |
+Production always runs on x86-64-v4 (AVX-512) or better. Railway hosts are
+Sapphire Rapids, Emerald Rapids or newer, so the canonical deploy file builds
+for `sapphirerapids`, the fallback `Dockerfile` builds `native` (the build
+host), and every other image and the wheel build for v4.
+
+| Target | File | Flags | Use case |
 |---|---|---|---|
-| **Portable (AVX2)** | `Dockerfile` | `-C target-cpu=x86-64-v3` | GitHub CI, general servers |
-| **AVX-512 pinned** | `Dockerfile.avx512` | `-C target-cpu=x86-64-v4` | Production (Skylake-X+) |
-| **HHTL-D TTS** | `Dockerfile.hhtld` | (inherits) | TTS inference container |
-| **Local dev** | `.cargo/config.toml` | `-C target-cpu=x86-64-v4` | Developer machines |
+| **Deploy (canonical)** | `Dockerfile.avx512` | `-C target-cpu=sapphirerapids` | Railway / production (Sapphire Rapids, Emerald Rapids or newer) |
+| **Fallback** | `Dockerfile` | `-C target-cpu=native` | Compile/test image; a deploy that forgets the file name gets the build host's CPU |
+| **HHTL-D TTS** | `Dockerfile.hhtld` | `.cargo/config-v4.toml` | TTS inference container |
+| **Local dev** | `.cargo/config.toml` | `-C target-cpu=native` | Developer machines (host CPU) |
+| **CI tests** | `build.yml`, `rust-test.yml`, `style.yml` | `-C target-cpu=x86-64-v3` | Not production; never cite a timing from it |
 
 ## How lance-graph Uses SIMD
 
@@ -52,14 +58,16 @@ Polyfill (ndarray simd.rs):
 **Important:** `RUSTFLAGS` env var **replaces** (not appends to) the `rustflags`
 array in `.cargo/config.toml`. This is a Cargo design decision.
 
-lance-graph's `.cargo/config.toml` sets `target-cpu=x86-64-v4` for local dev.
-CI workflows set `RUSTFLAGS="-C debuginfo=1 -C target-cpu=x86-64-v3"` which
-**overrides** config.toml entirely. The CI binary targets AVX2.
+lance-graph's `.cargo/config.toml` sets `target-cpu=native` for local dev.
+The test workflows set `RUSTFLAGS="-C debuginfo=0 -C target-cpu=x86-64-v3"`,
+which **overrides** config.toml entirely, so those CI binaries target AVX2.
 
-This is intentional:
-- Local dev: maximum SIMD (AVX-512, everything inlined)
-- CI: portable (AVX2, runtime detection for anything higher)
-- Production Docker: choose `Dockerfile` (AVX2) or `Dockerfile.avx512`
+- Local dev: the host CPU (`native`).
+- CI tests: AVX2. Production does not run this arm, so a timing from it is
+  not evidence.
+- Production: x86-64-v4, in every Dockerfile and the wheel. On a host without
+  AVX-512, ndarray's startup `cpu_guard` names the missing features and exits
+  before `main` instead of dying with SIGILL.
 
 ## AMX Detection
 
@@ -77,11 +85,9 @@ lance-graph inherits this via ndarray; no ARM-specific configuration needed.
 ## Choosing the Right Dockerfile
 
 ```
-GitHub CI / PR checks     → Dockerfile (AVX2, -C target-cpu=x86-64-v3)
-Railway / production      → Dockerfile.avx512 (-C target-cpu=x86-64-v4)
-TTS inference             → Dockerfile.hhtld (downloads codebooks + runs decoder)
-Raspberry Pi / ARM        → Dockerfile (NEON auto-detected at runtime)
-Maximum compatibility     → docker build --build-arg RUSTFLAGS="-C target-cpu=x86-64"
+Railway / production      → Dockerfile.avx512 (sapphirerapids, canonical); Dockerfile (native) is the fallback
+TTS inference             → Dockerfile.hhtld (config-v4.toml; downloads codebooks)
+Raspberry Pi / ARM        → Dockerfile.hhtld (config-v4.toml applies to x86_64 only)
 ```
 
 ## Verifying CPU Features
@@ -98,11 +104,8 @@ println!("{:?}", simd_caps());  // CpuCaps { avx512: true, avx2: true, fma: true
 ## Build Examples
 
 ```bash
-# Default (AVX2) — safe everywhere
+# Production tier (x86-64-v4)
 docker build -t lance-graph-test .
-
-# AVX-512 pinned — production servers
-docker build -f Dockerfile.avx512 -t lance-graph-avx512 .
 
 # TTS inference
 docker build -f Dockerfile.hhtld \
