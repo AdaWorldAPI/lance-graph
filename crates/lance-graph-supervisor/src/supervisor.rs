@@ -53,11 +53,16 @@ impl ConsumerSlot {
     /// Exponential backoff delay for the next respawn.
     /// Formula: `min(100ms * 2^crash_count, 30s)`.
     pub fn backoff_delay(&self) -> Duration {
-        let shifts = self.crash_count.min(30);
-        let ms = BACKOFF_INITIAL_MS.saturating_mul(1u64.checked_shl(shifts).unwrap_or(u64::MAX));
-        let delay = Duration::from_millis(ms.min(BACKOFF_CAP.as_millis() as u64));
-        delay.min(BACKOFF_CAP)
+        backoff_delay(self.crash_count)
     }
+}
+
+/// Backoff before respawning a child that has crashed `crash_count` times:
+/// `min(100ms * 2^crash_count, 30s)`.
+fn backoff_delay(crash_count: u32) -> Duration {
+    let shifts = crash_count.min(30);
+    let ms = BACKOFF_INITIAL_MS.saturating_mul(1u64.checked_shl(shifts).unwrap_or(u64::MAX));
+    Duration::from_millis(ms.min(BACKOFF_CAP.as_millis() as u64)).min(BACKOFF_CAP)
 }
 
 // ─── Supervisor messages ──────────────────────────────────────────────────────
@@ -77,7 +82,9 @@ pub enum SupervisorMsg {
     },
     /// Graceful shutdown — stops all children then stops supervisor.
     Shutdown,
-    /// Internal: supervisor schedules a respawn of a dead child after backoff.
+    /// Internal: respawn a dead child. Sent only by the supervisor itself,
+    /// once the backoff for `crash_count` has elapsed; the respawned slot
+    /// carries `crash_count` forward.
     RespawnG {
         g: u32,
         version: u32,
@@ -258,48 +265,14 @@ impl Actor for CallcenterSupervisor {
                     return Ok(());
                 };
 
-                if crash_count > ESCALATION_CRASH_COUNT {
-                    tracing::error!(
-                        g,
-                        version,
-                        crash_count,
-                        "consumer actor crash threshold > 10 — NOT respawning; \
-                         operator action required (send ResetCrashCount)"
-                    );
+                // The backoff has already been waited out by the sender
+                // (`handle_supervisor_evt`). A slot that is live again needs
+                // nothing; this message never reschedules itself.
+                if state.slots.contains_key(&(g, version)) {
+                    tracing::debug!(g, version, "RespawnG: slot already live");
                     return Ok(());
                 }
 
-                // Backoff: 100ms * 2^crash_count, capped at 30s.
-                let delay = {
-                    let shifts = crash_count.min(30);
-                    let ms = BACKOFF_INITIAL_MS
-                        .saturating_mul(1u64.checked_shl(shifts).unwrap_or(u64::MAX));
-                    Duration::from_millis(ms.min(BACKOFF_CAP.as_millis() as u64)).min(BACKOFF_CAP)
-                };
-
-                tracing::warn!(
-                    g,
-                    version,
-                    crash_count,
-                    delay_ms = delay.as_millis(),
-                    "scheduling consumer actor respawn"
-                );
-
-                // Use tokio to sleep the backoff, then respawn.
-                let myself2 = myself.clone();
-                tokio::spawn(async move {
-                    tokio::time::sleep(delay).await;
-                    if let Err(e) = myself2.cast(SupervisorMsg::RespawnG {
-                        g,
-                        version,
-                        crash_count: 0, // reset count after backoff succeeds
-                    }) {
-                        tracing::error!(g, version, ?e, "failed to cast RespawnG after backoff");
-                    }
-                });
-
-                // Immediate spawn attempt (the tokio task above will re-cast with count=0
-                // after the backoff if we need to retry).
                 match spawn_consumer_actor(myself.clone(), state, &entry).await {
                     Ok(()) => {
                         if let Some(slot) = state.slots.get_mut(&(g, version)) {
@@ -343,11 +316,38 @@ impl Actor for CallcenterSupervisor {
                 state.slots.remove(&(g, version));
                 state.reverse_index.remove(&actor_id);
 
-                myself.cast(SupervisorMsg::RespawnG {
+                if crash_count > ESCALATION_CRASH_COUNT {
+                    tracing::error!(
+                        g,
+                        version,
+                        crash_count,
+                        "consumer actor crash threshold > 10 — NOT respawning; \
+                         operator action required"
+                    );
+                    return Ok(());
+                }
+
+                // The delayed cast is the only respawn path: one per crash,
+                // after `min(100ms * 2^crash_count, 30s)`.
+                let delay = backoff_delay(crash_count);
+                tracing::warn!(
                     g,
                     version,
                     crash_count,
-                })?;
+                    delay_ms = delay.as_millis(),
+                    "scheduling consumer actor respawn"
+                );
+                let myself2 = myself.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(delay).await;
+                    if let Err(e) = myself2.cast(SupervisorMsg::RespawnG {
+                        g,
+                        version,
+                        crash_count,
+                    }) {
+                        tracing::error!(g, version, ?e, "failed to cast RespawnG after backoff");
+                    }
+                });
             }
         }
         Ok(())
