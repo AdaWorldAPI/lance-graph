@@ -1,0 +1,26 @@
+[package]
+name = "lance-graph-relalg"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Relational algebra over coordinate populations: an IR that describes a query, proven rewrites before anything runs, lowering through R2IL into one mask-risc program per fold (D-RA-1)."
+
+# Its OWN workspace root, like `lance-graph-nal`: it path-deps the r2il crate,
+# which git-deps OGAR. Verify via
+# `cargo test --manifest-path crates/lance-graph-relalg/Cargo.toml`.
+[workspace]
+
+[dependencies]
+# The only bulk engine.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# The lowering target: queries become R2IL call sequences over FoldDialect.
+lance-graph-r2il = { path = "../lance-graph-r2il" }
+# By git `main`, the coordinate `lance-graph-r2il` uses (one `ogar-loco`).
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-r2il = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
