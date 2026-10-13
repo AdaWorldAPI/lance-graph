@@ -106,4 +106,36 @@ mod tests {
         sup.stop(None);
         let _ = handle.await;
     }
+
+    /// Spec §5.3: escalation is more than ten crashes within a five-minute
+    /// window. A child that ran quietly for longer than the window starts
+    /// counting again.
+    #[tokio::test(start_paused = true)]
+    async fn the_count_restarts_after_a_quiet_window() {
+        const G: u32 = 4;
+        let (sup, handle) = Actor::spawn(None, CallcenterSupervisor::new(one_active_module(G)), ())
+            .await
+            .expect("supervisor spawn");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        for n in 1..=10u32 {
+            crash(G);
+            tokio::time::sleep(backoff(n) + Duration::from_millis(50)).await;
+            assert_eq!(slot(&sup, G).await, (true, n), "crash {n} is respawned");
+        }
+
+        // Six quiet minutes, then one more crash: the count restarts at 1
+        // instead of escalating as crash 11.
+        tokio::time::sleep(Duration::from_secs(6 * 60)).await;
+        crash(G);
+        tokio::time::sleep(backoff(1) + Duration::from_millis(50)).await;
+        assert_eq!(
+            slot(&sup, G).await,
+            (true, 1),
+            "a crash after a quiet window counts from 1"
+        );
+
+        sup.stop(None);
+        let _ = handle.await;
+    }
 }
