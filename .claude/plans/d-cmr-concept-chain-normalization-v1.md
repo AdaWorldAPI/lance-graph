@@ -94,9 +94,12 @@ M ::= Count(S) | Sum_x(S) | Exists(S)
   sets); sets, not bags (preimage gives a set; the image of a many-to-one
   mapping is refused and stays a physical aggregation); intersection only
   within one universe, otherwise through a proven `f`, otherwise residual.
-- **Home:** `lance-graph-contract`, next to `ClassView`. The algebra itself
-  needs no dependency; its lowering needs mask-risc, which the contract gains
-  in the agreed restructure. Quack's `Filter` and the core NAL module lower
+- **Home:** the algebra lives in `lance-graph-contract`, next to `ClassView`,
+  and needs no dependency. Its lowering needs mask-risc. Today the contract's
+  `Cargo.toml` declares it dependency-free (even of optional path deps); the
+  agreed contract → mask-risc change has not landed. Until it does, D-CMR-2
+  is blocked, and if it does not land, the lowering lives in an adapter crate
+  that depends on both, never in the contract. Quack's `Filter` and the core NAL module lower
   **into** this IR, so neither frontend implements intervals of its own.
 
 ### 3.3 The lithography reading
@@ -134,7 +137,7 @@ applies:
 | level | when | how | in the tree |
 |---|---|---|---|
 | 1. geometry, no light | no residual | `Count(Runs) = Σ(hᵢ − lᵢ)`; `Exists = Runs ≠ ∅` | `Lowering::Range` (one interval, `Count`/`Any`) |
-| 2. optics, no etch | residual present, caller needs a measure | residual predicates fused into one filter, one pass per run as extent, nothing written | `mask_ternlog_popcount`, `Lowering::Ternlog` → `Count`, `execute_extent` |
+| 2. optics, no etch | residual present, caller needs a measure | residual predicates fused into one filter, one pass per run as extent, nothing written | **resident planes only:** `mask_ternlog_popcount`, `Lowering::Ternlog` → `Count`, `execute_extent`. A residual *comparison* is a `Pred`, which `fused_ternlog` declines (`ir.rs` doc), so it takes `Lowering::Tiled` and writes scratch. Predicate fusion is missing (part of D-CMR-2) |
 | 3. etch | caller needs the set itself | materialize the mask for the surviving runs only | `Keep` / `Out::Mask` |
 
 `Sum_x(S)` is a graded filter: the existing masked sum fold over the runs as
@@ -176,7 +179,7 @@ the expression. Heuristics order rules; they never replace a proof.
 | D-id | step | gate / falsifier |
 |---|---|---|
 | D-CMR-1 | **Set IR core** in the contract: `Runs` with `∩ ∪ ∖` and complement, `Res`, measures; pure, no lowering | algebra laws (closure, distributivity, De Morgan, `∅`) checked against materialized bitsets as oracle on random and edge-case runs |
-| D-CMR-2 | **Lowering** to mask-risc: runs → extents, residual → predicates within each run, the three measurement levels | == row oracle; a `Count` with no residual reads zero rows (instrumented); disabling level 1 or 2 keeps answers |
+| D-CMR-2 | **Lowering** to mask-risc: runs → extents, residual → predicates within each run, the three measurement levels. Level 2 for residual comparisons needs predicate fusion in mask-risc (`fused_ternlog` declines `Pred` today) | == row oracle; a `Count` with no residual reads zero rows (instrumented); disabling level 1 or 2 keeps answers |
 | D-CMR-3 | **Quack frontend:** `Filter` → set IR (ranges on a proven basis → `Runs`, other leaves → `Res`, `sql_where` first). Extent hoisting falls out of this (Experiment C) | answers identical to today's `lower` path on the quack suite; a range on another basis stays residual (negative control) |
 | D-CMR-4 | **Two dimensions:** `Rect` over composite coordinates, linearized row-major or in Morton order | rectangle `∩` == bitset oracle; run count within the stated bound |
 | D-CMR-5 | **Preimage** `f⁻¹(S)` under a proven mapping (the hop) | == row oracle; a many-to-one image is refused |
@@ -224,7 +227,7 @@ median of 101, tier named from the build's own report, answers asserted first.
 | ≤ 6-plane Boolean → truth tables | SHIPPED (`Ternlog`/`Tern2`/`Tern3`) |
 | compile once | SHIPPED (`Compiled`) |
 | range as execution extent | SHIPPED in mask-risc and NAL; **missing in Quack** (D-CMR-3) |
-| fused filter + count without writing a mask (level 2) | SHIPPED (`mask_ternlog_popcount`, `Lowering::Ternlog`) |
+| fused filter + count without writing a mask (level 2) | SHIPPED for resident planes only; **missing for residual comparisons** (`fused_ternlog` declines `Pred`, so they run tiled) — D-CMR-2 |
 | sets with a universe, interval sets as values | OPEN (D-CMR-1) |
 | multi-run extents, two-dimensional sets, preimage | OPEN (D-CMR-2, -4, -5) |
 | chains composed before lowering | OPEN (D-CMR-3, -7) |

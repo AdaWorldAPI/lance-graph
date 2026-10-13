@@ -50,7 +50,11 @@ code anchor is re-decided when the class-method rebuild (D-CMR) lands:
 
 **DECISION.** The action shape anchors on the action gate that already exists:
 a proposal is an `ActionInvocation` in state `Pending`, and the gate that may
-advance it is `ActionInvocation::commit_via`.
+advance it is `ActionInvocation::commit_via` (the `ClassRbac` grant registry,
+no admin bypass). This is a requirement, not yet a property of the code: the
+older `ActionInvocation::commit` (`action.rs:265`) makes the same transitions
+with an admin bypass, is public, and `lance-graph-ogar/src/actions.rs`
+directs consumers to it (OPEN item 7).
 **SCOPE.** The action shape only. The rewrite shape anchors on the rebuilt
 D-CMR fold binding (`classid × WideFieldMask → Compiled` program) and waits
 for it.
@@ -89,11 +93,14 @@ ontology registry) and the Cohen's d `EffectClass` in `lance-graph-cognitive`.
    timed-out external call, which the life cycle requires never to read as
    "not applied".
 6. *Re-observation.* Nothing records the target's state after the effect.
+7. *A second gate.* `commit` (admin bypass) can advance the same `Pending`
+   invocation without the `ClassRbac` check. Either retire, privatize or
+   redirect it, or document both gates and their different authorization.
 
-None of the six is built by this note; each lands, if at all, in the gate's
+None of the seven is built by this note; each lands, if at all, in the gate's
 own types.
 **REVISIT WHEN** the D-CMR rebuild lands (rewrite anchor), or when any of the
-six gaps is closed.
+seven gaps is closed.
 
 The life cycle is shared, and each arrow is a separate fact with its own
 receipt:
