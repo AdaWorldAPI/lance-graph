@@ -73,8 +73,16 @@ jobs:
           persist-credentials: false
       - name: Setup rust toolchain (pinned by rust-toolchain.toml)
         run: rustup show
+      # `.cargo/config.toml` builds with target-cpu=native, and cargo's
+      # fingerprint sees the flag text, not the CPU: a cached artifact built
+      # on a runner with AVX-512 would be reused on one without and die with
+      # SIGILL. Key the cache to this runner's CPU feature flags.
+      - name: Key the cache to this runner's CPU
+        id: cpu
+        run: echo "flags=$(grep -m1 '^flags' /proc/cpuinfo | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
       - uses: Swatinem/rust-cache@v2
         with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
           workspaces: lance-graph/crates/lance-graph-dir-sim
       - name: Run the simulator's tests
         run: cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml
@@ -213,8 +221,16 @@ jobs:
           persist-credentials: false
       - name: Setup rust toolchain (pinned by rust-toolchain.toml)
         run: rustup show
+      # `.cargo/config.toml` builds with target-cpu=native, and cargo's
+      # fingerprint sees the flag text, not the CPU: a cached artifact built
+      # on a runner with AVX-512 would be reused on one without and die with
+      # SIGILL. Key the cache to this runner's CPU feature flags.
+      - name: Key the cache to this runner's CPU
+        id: cpu
+        run: echo "flags=$(grep -m1 '^flags' /proc/cpuinfo | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
       - uses: Swatinem/rust-cache@v2
         with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
           workspaces: lance-graph/crates/lance-graph-rbac
       - name: Run the IAM tests
         run: cargo test --manifest-path crates/lance-graph-rbac/Cargo.toml
