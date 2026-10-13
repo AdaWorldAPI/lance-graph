@@ -1,0 +1,12 @@
+# Production target: x86-64-v4 (AVX-512 F + BW + CD + DQ + VL), nothing above
+# it. Production always runs on v4, so everything shipped from this tree
+# builds with this file (Dockerfiles) or the same flag (wheel, images that
+# copy no .cargo). Mirrors ndarray/.cargo/config-v4.toml without its
+# `-Dwarnings`, which is a CI rule, not a build-image rule.
+#   cargo build --config .cargo/config-v4.toml ...
+# On a host without AVX-512 the binary does not SIGILL mid-run: ndarray's
+# startup `cpu_guard` names the missing features and exits before `main`.
+# `config-avx512.toml` (Sapphire Rapids) is stricter and SIGILLs on earlier
+# AVX-512 silicon such as Cascade Lake, so it is not the production default.
+[target.'cfg(target_arch = "x86_64")']
+rustflags = ["-Ctarget-cpu=x86-64-v4"]

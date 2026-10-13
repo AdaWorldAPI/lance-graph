@@ -1,6 +1,7 @@
-# Portable distribution baseline: x86-64-v3 (AVX2), every x86_64 since
-# Haswell. REQUIRED for anything shipped from this tree, now that the default
-# `.cargo/config.toml` is `native`. Mirrors ndarray/.cargo/config-v3.toml.
+# x86-64-v3 (AVX2), every x86_64 since Haswell. NOT the production target:
+# production always runs on v4 and ships with config-v4.toml. Kept for
+# building or testing the AVX2 arm on purpose. Never cite a timing from a v3
+# build: production does not run that arm. Mirrors ndarray/.cargo/config-v3.toml.
 #   cargo build --config .cargo/config-v3.toml ...
 [target.'cfg(target_arch = "x86_64")']
 rustflags = ["-Ctarget-cpu=x86-64-v3"]
