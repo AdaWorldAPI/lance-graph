@@ -28,6 +28,9 @@ const BACKOFF_INITIAL_MS: u64 = 100;
 const BACKOFF_CAP: Duration = Duration::from_secs(30);
 /// Crash count threshold for escalation (operator alert).
 const ESCALATION_CRASH_COUNT: u32 = 10;
+/// Escalation counts crashes within this window (spec §5.3): a crash more
+/// than this long after the previous one starts the count again at 1.
+const CRASH_WINDOW: Duration = Duration::from_secs(5 * 60);
 
 // ─── Module info for a G slot ─────────────────────────────────────────────────
 
@@ -46,6 +49,8 @@ pub struct ModuleEntry {
 pub struct ConsumerSlot {
     pub actor_ref: ActorRef<ConsumerEnvelope>,
     pub crash_count: u32,
+    /// When the crash that led to this respawn happened; `None` for a child
+    /// that has never crashed.
     pub last_crash_ts: Option<Instant>,
 }
 
@@ -89,6 +94,7 @@ pub enum SupervisorMsg {
         g: u32,
         version: u32,
         crash_count: u32,
+        crashed_at: Instant,
     },
 }
 
@@ -253,6 +259,7 @@ impl Actor for CallcenterSupervisor {
                 g,
                 version,
                 crash_count,
+                crashed_at,
             } => {
                 let entry = state
                     .modules
@@ -279,7 +286,7 @@ impl Actor for CallcenterSupervisor {
                     Ok(()) => {
                         if let Some(slot) = state.slots.get_mut(&(g, version)) {
                             slot.crash_count = crash_count;
-                            slot.last_crash_ts = Some(Instant::now());
+                            slot.last_crash_ts = Some(crashed_at);
                         }
                         tracing::info!(g, version, crash_count, "consumer actor respawned");
                     }
@@ -309,11 +316,19 @@ impl Actor for CallcenterSupervisor {
                     ?reason,
                     "consumer actor terminated; scheduling respawn"
                 );
-                let crash_count = state
-                    .slots
-                    .get(&(g, version))
-                    .map(|s| s.crash_count + 1)
-                    .unwrap_or(1);
+                // Count crashes within the window: a crash more than
+                // CRASH_WINDOW after the previous one starts again at 1.
+                // tokio's clock, so the window follows paused time in tests;
+                // outside tests it is the real clock.
+                let crashed_at = tokio::time::Instant::now().into_std();
+                let crash_count = match state.slots.get(&(g, version)) {
+                    Some(ConsumerSlot {
+                        crash_count,
+                        last_crash_ts: Some(prev),
+                        ..
+                    }) if crashed_at.duration_since(*prev) <= CRASH_WINDOW => crash_count + 1,
+                    _ => 1,
+                };
 
                 state.slots.remove(&(g, version));
                 state.reverse_index.remove(&actor_id);
@@ -323,7 +338,7 @@ impl Actor for CallcenterSupervisor {
                         g,
                         version,
                         crash_count,
-                        "consumer actor crash threshold > 10 — NOT respawning; \
+                        "consumer actor crashed more than 10 times within 5 minutes — NOT respawning; \
                          operator action required"
                     );
                     return Ok(());
@@ -346,6 +361,7 @@ impl Actor for CallcenterSupervisor {
                         g,
                         version,
                         crash_count,
+                        crashed_at,
                     }) {
                         tracing::error!(g, version, ?e, "failed to cast RespawnG after backoff");
                     }
