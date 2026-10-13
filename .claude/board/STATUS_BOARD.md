@@ -1,3 +1,18 @@
+## D-CMR — Concept-chain normalization: preserve the equation, not the intermediate result (2026-10-13)
+
+Plan: `.claude/plans/d-cmr-concept-chain-normalization-v1.md`. Parent: D-CMR-RESET. No new IR, no method-body algebra, no dependency.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-CMR-0** | Plan, identity matrix, inventory, board rows | In PR | docs only; every inventory row cites code |
+| **D-CMR-1** | Extent hoisting: a top-level range conjunct becomes the `execute_extent` extent in Quack; the rest stays residual | Queued | == unhoisted == row oracle; a range on another coordinate basis must not hoist |
+| **D-CMR-2** | Lazy binding: methods yield `Filter` fragments composed into one `Query` before lowering | Queued (after NAL lands in core) | k methods lower once; no scratch per link |
+| **D-CMR-3** | Fixpoint driver over existing passes, step budget, size non-increase | Queued | a second rule fires only because the first did |
+| **D-CMR-4** | Complement rule `Count(¬A) = N − Count(A)`, two-valued guard | Queued | removing the guard fails on a nullable column |
+| **D-CMR-5** | Relational difference `Sum(A) − Sum(A∧B) = Sum(A∧¬B)` | Queued | == exact `i128` oracle; `_sym` and checked variants refuse |
+| **D-CMR-6** | Equality-saturation probe (`egg`/`egglog` as references) | Queued (only if rules compete) | compared against D-CMR-3; no dependency without evidence |
+| **D-CMR-7** | Benchmark: eager materialization vs normalized chain vs row loop | Queued | answers asserted before timing; tier from the build's report |
+
 ## D-SAG-5 — Reflexive cognition and proposal safety from SAG #1509 (2026-10-12)
 
 **Status:** PROPOSAL. Plan: .claude/plans/sag-reflexive-cognition-from-1509-v1.md. Docs only; no runtime authorization.

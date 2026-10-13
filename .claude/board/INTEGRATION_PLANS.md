@@ -1,3 +1,11 @@
+## 2026-10-13 (1) — d-cmr-concept-chain-normalization-v1 — preserve the equation, not the intermediate result → `.claude/plans/d-cmr-concept-chain-normalization-v1.md`
+
+**Status:** PROPOSAL D-CMR-0..7. Only D-CMR-0 (plan, board rows) is in the PR; no code, no dependency, no new IR.
+
+- Methods in a pure chain are unresolved relations; the chain is normalized with proven identities and only the irreducible remainder is compiled. `(a+b)−a` means `a+b` never exists, not a wider accumulator.
+- Inventory, read in code: `fold_ranges`, survivor skip, `sql_where`, ternlog fusion, `Lowering::Range` (Count/Any only), `Compiled`, `execute_extent`. Quack never emits an extent; NAL does by hand (127 ns vs 195 µs).
+- Path: extent hoisting in Quack (D-CMR-1), lazy binding (-2), fixpoint driver (-3), complement (-4), relational difference `Sum(A)−Sum(A∧B)=Sum(A∧¬B)` (-5), equality-saturation probe only on evidence (-6), benchmark against eager materialization and the row loop (-7).
+
 ## 2026-10-12 (6) — sag-capstone-alignment-v1 — one alignment over the six SAG research PRs (#1510, #1511, #1512, #1513, #1515, #1517) → `.claude/plans/sag-capstone-alignment-v1.md`
 
 **Status:** CURRENT-CONTRACT for naming and vocabulary; nothing built.
