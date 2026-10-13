@@ -1,5 +1,16 @@
 //! The IR. It describes a selection over one table's row space; it never
-//! holds rows.
+//! holds rows and never holds a string: lanes are indexes, constants are
+//! numbers. A name a person reads is a label, resolved through the label
+//! codebook before a description is built, never part of it.
+
+// No string in the IR: an atom and a measure are `Copy`, which a `String`
+// field would break at compile time.
+const _: fn() = || {
+    fn copy<T: Copy>() {}
+    copy::<Atom>();
+    copy::<Cmp>();
+    copy::<Measure>();
+};
 
 /// An ordered comparison of an `I32` lane against a constant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

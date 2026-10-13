@@ -59,7 +59,7 @@ of them runs.
 |---|---|---|
 | D-RA-1 | Prototype: `Rel`, `normalize`, `symbolic`, R2IL lowering | == row oracle on generated descriptions; each guard removal fails |
 | D-RA-2 | Move the rules into the contract set IR (D-CMR-1/-6) with a universe per set; relalg keeps only the R2IL lowering, or is deleted | relalg's tests pass unchanged against the contract IR |
-| D-RA-3 | Thin Datalog front end: rule text → `Rel` (non-recursive rules, constants bound to lanes) | parsed rules == hand-written `Rel` on the D-RA-1 suite |
+| D-RA-3 | Datalog rules as algebra values, not text: a rule is a `Rel` built from coordinates (lane indexes, numeric constants, classids). Names are labels only, resolved through the label codebook to coordinates once; no string is stored in a rule or used as an address. A text rendering is a label view of the value, never a query path | rules built from codebook coordinates == hand-written `Rel`; a rule naming an unknown label is refused at resolution, never kept as a string |
 | D-RA-4 | Bound recursion: `ancestor(c, Y)` as a frontier fixpoint in an external driver (option d′ of `entries/2026-10-03-coresearch-chained-hop.md`), each step a D-CMR-5 preimage; unbound closure refused | == row oracle closure; a step that grows the frontier past its bound is refused, never truncated |
 
 D-RA-2 is a decision for the maintainer (see the PR). D-RA-3 and D-RA-4 wait
@@ -68,4 +68,5 @@ for it.
 ## 4. Not built
 
 Joins (a hop is a preimage over coordinates, D-CMR-5, never a foreign key),
-recursion, row intervals, `Sum(A) − Sum(A∧B)`, Datalog text.
+recursion, row intervals, `Sum(A) − Sum(A∧B)`. Datalog text as a query path
+is excluded by design: strings are labels, the query is algebra.

@@ -6,7 +6,7 @@ Plan: `.claude/plans/relalg-v1.md`. Crate: `crates/lance-graph-relalg` (own work
 |---|---|---|---|
 | **D-RA-1** | `Rel` + `normalize` + `symbolic` + R2IL lowering | In PR (10 tests, 8 disable runs red; four comparisons on one lane 8 → 2 ops; 70/2,000 small descriptions refused as written, all run rewritten) | == row oracle over 400 generated descriptions × 5 measures |
 | **D-RA-2** | Rules into the contract set IR (D-CMR-1/-6); relalg keeps only lowering or is deleted | Queued (maintainer decision) | relalg tests pass unchanged against the contract IR |
-| **D-RA-3** | Thin Datalog front end, non-recursive | Queued (after D-RA-2) | parsed == hand-written `Rel` |
+| **D-RA-3** | Datalog rules as algebra values; names are labels resolved through the label codebook, never strings in a rule | Queued (after D-RA-2) | codebook-built rules == hand-written `Rel`; unknown label refused at resolution |
 | **D-RA-4** | Bound recursion via external frontier driver over D-CMR-5 preimage | Queued (after D-CMR-5) | == row-oracle closure; frontier past bound refused |
 
 ## D-CMR — Concept-chain normalization: preserve the equation, not the intermediate result (2026-10-13)
