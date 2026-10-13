@@ -51,7 +51,7 @@ supervisor-lifecycle-audit = ["supervisor"]
 cycle-driver = ["dep:lance-graph-planner", "dep:tokio"]
 
 [dev-dependencies]
-tokio             = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio             = { version = "1", features = ["rt-multi-thread", "macros", "test-util"] }
 static_assertions = "1"
 # D-V3-W2b integration probe ONLY: spawns KanbanActor over the REAL production
 # MailboxSoaOwner impl instead of the in-file TestBoard fake. dev-dependencies
