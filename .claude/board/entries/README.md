@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-325 entries, 2026-08-06 .. 2026-10-13.
+326 entries, 2026-08-06 .. 2026-10-13.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -37,6 +37,7 @@ exactly one of them, never both.
 | 2026-10-12 | `D-CMH-G1-6` |  | [2026-10-12-ordered-conditions-and-extrema.md](2026-10-12-ordered-conditions-and-extrema.md) |
 | 2026-10-12 | `opencog-pln-entropy-research-map` | Source inventory and falsifiable PLN/ECAN/Shannon/Moore attention comparison: entropy target, evidence overlap, graph projection, resource fairness | [2026-10-12-opencog-pln-entropy-research-map.md](2026-10-12-opencog-pln-entropy-research-map.md) |
 | 2026-10-12 | `nars-self-evidence-literature` | NARS internal trace versus evidence, Jøsang dependent/independent fusion and fission, and the snapshot-stable fold assumption; source-grounded red tests for merged #1496 | [2026-10-12-nars-self-evidence-literature.md](2026-10-12-nars-self-evidence-literature.md) |
+| 2026-10-12 | `D-NALP-1` |  | [2026-10-12-nal-coordinate-queries.md](2026-10-12-nal-coordinate-queries.md) |
 | 2026-10-12 | `D-SAG-CF-1` | counterfactual dependency = factual W0 vs detached W_X; RFC + Boolean smoke oracle (F0/F7/F8 unverified) | [2026-10-12-inverted-temporal-ablation.md](2026-10-12-inverted-temporal-ablation.md) |
 | 2026-10-12 | `D-IAM-SAG-0` | IAM categories as read-only projections over dir_sim/OGAR/SAG; observed != inferred != authorized | [2026-10-12-iam-substrate-sag-dir-sim.md](2026-10-12-iam-substrate-sag-dir-sim.md) |
 | 2026-10-12 | `hyperon-metta-lg-translation` | Hyperon/MeTTa to LG sibling map: atom/hypergraph roundtrip, binding and rewrite parity, typed folds, scoped effects and 15 open questions | [2026-10-12-hyperon-metta-lg-translation.md](2026-10-12-hyperon-metta-lg-translation.md) |

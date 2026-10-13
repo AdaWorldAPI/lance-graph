@@ -1416,6 +1416,45 @@ impl<'p> Compiled<'p> {
     }
 }
 
+/// A [`Program`] owned together with its recognised lowering.
+///
+/// [`Compiled`] borrows its program, so a caller that keeps a prepared query
+/// (bound once, run many times) cannot keep a `Compiled` beside the program
+/// it borrows from. This type holds both; [`CompiledProgram::compiled`] hands
+/// out a `Compiled` without recognising the lowering again. The program is
+/// private, so it cannot change after the lowering was recognised.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompiledProgram {
+    program: Program,
+    lowering: Lowering,
+}
+
+impl CompiledProgram {
+    /// Recognise `program`'s lowering once and keep both.
+    pub fn new(program: Program) -> Self {
+        let lowering = program.lowering();
+        CompiledProgram { program, lowering }
+    }
+
+    /// The program.
+    pub fn program(&self) -> &Program {
+        &self.program
+    }
+
+    /// The lowering recognised at construction.
+    pub fn lowering(&self) -> Lowering {
+        self.lowering
+    }
+
+    /// The compiled view for [`crate::exec::execute_compiled`]; no recognition.
+    pub fn compiled(&self) -> Compiled<'_> {
+        Compiled {
+            program: &self.program,
+            lowering: self.lowering,
+        }
+    }
+}
+
 /// A program the executor folds without writing membership bits: see
 /// [`Program::fused_terminal`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -53,8 +53,8 @@ Plan: `.claude/plans/nal-polyfill-v1.md`. Template: D-SQLP. No opcode, tenant or
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-NALP-0** | Plan, board rows | In PR | docs only |
-| **D-NALP-1** | Statement layout + declared ClassView reading; additive `WideFieldMask` projection path on `ClassView`; binder's mask; term width decision | Queued | only the mask's lanes are read; undeclared reading and masked-out field refuse; Small = Wide answers |
-| **D-NALP-2** | Query procedures: select, truth threshold, choice by confidence, support count | Queued | equal to a row-at-a-time oracle; one-pattern threshold disable red; no new opcode |
+| **D-NALP-1** | Statement layout + declared ClassView reading; additive `WideFieldMask` projection path on `ClassView`; binder's mask; term width decision | In PR #1525 (NodeGuid reading `nal-statement-v1`, term width u16, aperture selection; ClassView wide projection and binder mask still queued) | only the mask's lanes are read; undeclared reading and masked-out field refuse; Small = Wide answers |
+| **D-NALP-2** | Query procedures: select, truth threshold, choice by confidence, support count | In PR #1525 (`crates/lance-graph-nal`: NodeGuid key, byte apertures; 7 oracle tests, 7 disable runs red; 19–248 ns at 1,048,576 rows) | equal to a row-at-a-time oracle; one-pattern threshold disable red; no new opcode |
 | **D-NALP-3** | Revision as `GroupCrossPowerSumsI32` over stored `w`/`f` | Queued | equal to exact integer revision; OpenNARS revision points; duplicate evidence counts once |
 | **D-NALP-4** | Per-row truth law into a lane: `MapPairU8` vs fixed-point multiply-high | Queued | insufficiency proof; per-row parity with `isa::truth`, error in codes; one shape also serves SQL nullable arithmetic |
 | **D-NALP-5** | Deduction / induction / abduction / analogy over populations | Queued (after D-NALP-4) | equals pairwise scalar rule; abduction direction test red for the reversed statement |

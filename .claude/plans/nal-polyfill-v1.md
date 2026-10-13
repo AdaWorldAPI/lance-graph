@@ -296,6 +296,50 @@ Rules that follow, each enforced in W6:
 - **`PROC_DEF` execution.** The same OPEN item as D-SQLP: until it exists,
   procedures are inlined call sequences.
 
+### Status 2026-10-12 (D-NALP-1/2, `crates/lance-graph-nal`)
+
+- **NAL operations are global core methods** (operator, 2026-10-12: "NARS
+  ist global"). They run over any belief population, check no classid, and
+  need no hot-plug and no minted concept; they read the one canonical reading
+  `nal-statement-v1`. Classid-dependent methods are the other kind: declared at
+  compile time through a consumer's `HotPlug` and checked against the row's
+  classid (the D-CMH path, not this crate). This removes W8's concept-id mint
+  request; W8 keeps only the bytes W4/W5 earn.
+- **The NodeGuid is the address and the distinguished name** (operator,
+  2026-10-12). Reading `nal-statement-v1`: semantic tiles `[classid hi,
+  classid lo, S, copula, P, id, 0, 0]`. The key names the belief and nothing
+  else; `f` and `c` are value lanes written in the key's sealed order, so key
+  row `i` and truth row `i` are one belief by construction. Truth is never
+  part of a name.
+- **A selection is the 16-byte key minus an aperture** (operator,
+  2026-10-12): `Aperture { key, bytes }` cares the leading `bytes` bytes and
+  frees the rest. On the witnessed HHTL order (classid, then each tile coarse
+  to fine) the matches are one range, found by the contract's
+  `SealedFacetLane::bound_aperture`: 4 bytes = the class, 6 = a subject, 10 =
+  a statement. This replaces the §4 A lowering column for the belief query:
+  it is a range, not a lane predicate.
+- **Term width (OPEN above): decided `u16` per tile.** A vocabulary past
+  65,536 terms scales through the classid prefix, not by widening a tile.
+- **Bind once, run the kept program.** `nal::{Question, TruthAtLeast, Choice}`
+  run their R2IL procedure once at bind and keep the mask-risc `Program`; a
+  call runs only `execute_compiled`. The aperture's range is the execution
+  extent, so the confidence predicate and the `MAX` fold read only its rows
+  (a range passed as an ANDed mask instead cost 195 µs at 1,048,576 rows;
+  as the extent, 127 ns).
+- **Measured** (`examples/nal_cost.rs`, release, AVX-512, median of 101,
+  answers asserted first), n = 1,048,576: range counts 19–20 ns; confidence
+  threshold over one statement 81 ns, over a 245-row subject 127 ns; choice
+  (max confidence) over the subject 248 ns; bind 274 ns; the row loop
+  495–559 µs.
+- **OPEN, found here:** R2IL `RANGE` (arity 0) takes its bounds from two `u8`
+  immediates, so through the byte it cannot name a range past row 255. The
+  procedures emit the bound with `FoldDialect::emit_pred(Pred::Range)`. An
+  `ogar-r2il` request, not minted here.
+- **OPEN:** which belief holds the maximum (argmax) is not a mask-risc fold;
+  `Choice` answers the maximum confidence only.
+- Not yet: the ClassView `WideFieldMask` projection and the binder's mask
+  (rest of D-NALP-1); W3 onwards.
+
 ## 5. Waves
 
 | Wave | D-id | Repo | Work | Gate (all must pass) |
