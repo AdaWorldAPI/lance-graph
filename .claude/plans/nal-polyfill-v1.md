@@ -348,7 +348,13 @@ Rules that follow, each enforced in W6:
   four-group sink. The commit law reads `Σw` (`sum_x`) and `Σw·f` (`sum_xy`,
   `i128`) of group 0 and rounds once: `f = round(Σw·f / Σw)`,
   `c = round(255 · Σw / (Σw + k · 2¹⁶))`, capped at ONA's `MAX_CONFIDENCE`
-  (0.99, code 252). `k = 1` (ONA `Config.h:168`).
+  (0.99, code 252). `k = 1` (ONA `Config.h:168`). **Divergence from ONA,
+  kept on purpose:** the cap applies to the result only. ONA caps after every
+  pairwise step, so once its running confidence saturates its answer depends
+  on arrival order (10 × `(255,230)` then 10 × `(0,230)`: f = 104; reversed:
+  151). The fold is order-independent and keeps the exact `Σw` (f = 128);
+  pinned by `saturated_evidence_is_the_exact_sum_where_onas_fold_depends_on_order`
+  (codex P2 on #1538).
 - **The key is the evidential base, read as a group.** `Beliefs::seal_evidence`
   takes `(belief, stamp)` pairs and classes each piece, per statement in sealed
   order: 0 independent; 1 exact duplicate (same stamp set and truth as an

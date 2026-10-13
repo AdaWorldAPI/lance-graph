@@ -280,6 +280,14 @@ fn round_div(a: i128, b: i128) -> i128 {
 }
 
 /// The commit law over the four evidence groups. Rounds once.
+///
+/// This is the exact NAL revision `w = Σwᵢ`, capped only at the end. It
+/// matches ONA's pairwise `Truth_Revision` until ONA's running confidence hits
+/// its 0.99 cap; past that ONA turns the capped confidence back into a bounded
+/// weight, so its answer depends on arrival order (ten `(255, 230)` then ten
+/// `(0, 230)` give f = 104, the reverse order 151). A fold over a set cannot
+/// have an order, so it keeps the exact sum (f = 128) — a documented
+/// divergence, pinned in `tests/w3.rs`.
 fn commit(g: &[CrossPowerSums; evidence::CLASSES]) -> Result<Option<Revised>, NalError> {
     let overlap = g[evidence::OVERLAP as usize].n;
     if overlap > 0 {

@@ -170,6 +170,10 @@ fn rng(seed: u64) -> impl FnMut() -> u64 {
 /// FAILS IF: on any statement the fold's sums differ from the exact integer
 /// sums of the stored weights (`Σw`, `Σw·f`), or its truth differs from ONA's
 /// pairwise law by more than one code.
+///
+/// The agreement with ONA holds on this fixture; where ONA's running
+/// confidence saturates mid-fold the two laws part, see
+/// `saturated_evidence_is_the_exact_sum_where_onas_fold_depends_on_order`.
 #[test]
 fn revision_is_the_exact_integer_sum_and_agrees_on_every_statement() {
     let mut next = rng(0xC0FF_EE00);
@@ -243,6 +247,55 @@ fn confidence_is_capped_where_ona_caps_it() {
     let w = 20.0 * c2w(real(code(0.9)));
     assert!(code(w2c(w)) > MAX_CONFIDENCE_CODE);
     assert_eq!((WEIGHT_SCALE, HORIZON), (1 << 16, 1));
+}
+
+/// Ten positive and ten negative pieces at `c = 230`, each with its own root.
+fn mixed(positive_first: bool) -> Vec<(u8, u8)> {
+    let (pos, neg) = ([(255u8, 230u8); 10], [(0u8, 230u8); 10]);
+    if positive_first {
+        pos.iter().chain(neg.iter()).copied().collect()
+    } else {
+        neg.iter().chain(pos.iter()).copied().collect()
+    }
+}
+
+/// A documented divergence, not an agreement. Once the running confidence
+/// reaches ONA's 0.99 cap, ONA's pairwise law turns the capped confidence back
+/// into a bounded weight for the next step, so its answer depends on the order
+/// the evidence arrives in. The fold sums every weight once and caps only the
+/// result, so it is order-independent: the exact NAL revision `w = Σwᵢ`.
+///
+/// FAILS IF: the fold depends on the sealed order, stops being the exact
+/// weighted mean, or ONA's pairwise fold stops disagreeing with itself on this
+/// input (then the fixture no longer reaches saturation and pins nothing).
+#[test]
+fn saturated_evidence_is_the_exact_sum_where_onas_fold_depends_on_order() {
+    let roots: Vec<[u64; 1]> = (1..=20).map(|r| [r]).collect();
+    let mut answers = Vec::new();
+    for positive_first in [true, false] {
+        let evidence: Vec<Evidence<'_>> = mixed(positive_first)
+            .iter()
+            .zip(&roots)
+            .enumerate()
+            .map(|(i, (&(f, c), stamp))| Evidence {
+                belief: Belief {
+                    f,
+                    c,
+                    ..belief(0, i as u16, 0.0, 0.0)
+                },
+                stamp,
+            })
+            .collect();
+        let beliefs = Beliefs::seal_evidence(CLASS, &evidence, 1).unwrap();
+        let got = revise(&beliefs, st(0)).unwrap().unwrap();
+        answers.push((got.f, got.c));
+    }
+    // Order-independent, and the weighted mean of equal weights at 255 and 0.
+    assert_eq!(answers[0], answers[1]);
+    assert_eq!(answers[0], (128, MAX_CONFIDENCE_CODE));
+    // ONA's pairwise fold disagrees with itself on the same multiset.
+    assert_eq!(oracle(&mixed(true)), Some((104, MAX_CONFIDENCE_CODE)));
+    assert_eq!(oracle(&mixed(false)), Some((151, MAX_CONFIDENCE_CODE)));
 }
 
 // --- evidential independence ------------------------------------------------
