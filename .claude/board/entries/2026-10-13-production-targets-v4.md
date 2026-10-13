@@ -32,8 +32,12 @@ the missing features and exits before `main`; the binary does not die with
 SIGILL mid-run. That holds only for binaries that link ndarray.
 
 **OPEN:**
-- `build.yml`, `rust-test.yml` and `style.yml` still test the v3 arm only;
-  production's AVX-512 code paths have no coverage in lance-graph's main CI.
+- `build.yml` gains `linux-build-v4`: it compiles and links lance-graph's
+  tests at x86-64-v4 with `--target`, so build scripts stay at the host
+  baseline, and runs nothing (most GitHub runners are v3). The v4 arm is now
+  compiled in CI but still never executed there.
+- `build.yml`, `rust-test.yml` and `style.yml` still RUN tests on a v3 pin
+  instead of per-runner `native` (the #1526 resolver).
 - Probes and examples do not yet refuse to report timings off v4.
 - Open choice: `Dockerfile.avx512` is the canonical deploy file and plain
   `Dockerfile` is the same-tier fallback for a deploy that forgets the file

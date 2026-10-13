@@ -83,3 +83,55 @@ jobs:
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml
       - name: Check benchmarks
         run: cargo check --manifest-path crates/lance-graph/Cargo.toml --benches
+
+  # Production runs x86-64-v4, but GitHub's runners are mostly v3, so the v4
+  # arm cannot be executed here. This job compiles and links it without
+  # running anything.
+  #
+  # `--target` is load-bearing: without it RUSTFLAGS also reaches build
+  # scripts and proc-macros, which DO run on this host, so a v3 runner could
+  # die with SIGILL in the middle of the build. With an explicit target,
+  # RUSTFLAGS applies only to target artifacts (measured: the build script
+  # compiles with no target-cpu, the crate with x86-64-v4).
+  linux-build-v4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v4"
+    defaults:
+      run:
+        working-directory: lance-graph
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+      - uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/OGAR
+          path: OGAR
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - name: Setup mold linker
+        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "lance-graph-deps-v4"
+          workspaces: |
+            lance-graph/crates/lance-graph
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+      - name: Check the target really is v4
+        run: |
+          rustc --print cfg -C target-cpu=x86-64-v4 | grep -qx 'target_feature="avx512f"'
+          echo "Built for x86-64-v4 (not run). Runner CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build tests for x86-64-v4 (no run)
+        run: cargo test --manifest-path crates/lance-graph/Cargo.toml --target x86_64-unknown-linux-gnu --no-run
+      - name: Check benchmarks for x86-64-v4
+        run: cargo check --manifest-path crates/lance-graph/Cargo.toml --target x86_64-unknown-linux-gnu --benches
