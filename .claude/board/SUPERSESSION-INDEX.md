@@ -56,7 +56,7 @@ coverage instead.
 | `persist_cycle` | BLOCKED | — | 12 | 8 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 1 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 7 | 1 | 0 |
-| `GateDecision` | REPURPOSE | — | 25 | 28 | 25 |
+| `GateDecision` | REPURPOSE | — | 25 | 29 | 26 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 14 | 13 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
@@ -64,7 +64,7 @@ coverage instead.
 | `CollapseGateEmission` | RETIRE | — | 5 | 14 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 53 | 28 | 24 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (76)
+## Table 2 — plans naming a ruled symbol without citing the ruling (77)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -96,6 +96,7 @@ a licence to act on it.
 | **READ** | `persistence-artifact-backed-commit-v1` | `persist_cycle` | RATIFIED (operator ruling 2026-08-09). Phase | 0/0 |
 | **READ** | `post-teardown-buildup-survey-v1` | `StepMask` | SURVEY, read-only, plan-only (no code, no te | 2/5 |
 | **READ** | `r2il-bpe-typed-genetic-recombination-v1` | `GateDecision` | PROPOSAL, §7's three falsifiers now RUN (see | 1/1 |
+| **READ** | `sag-capstone-alignment-v1` | `GateDecision` | CURRENT-CONTRACT for the documents it aligns | 7/13 |
 | **READ** | `scientific-kg-substrate-v1` | `GateDecision` | PROPOSED — **scoping doc**, no code. Records | 3/9 |
 | **READ** | `self-reasoning-substrate-v1` | `GateDecision` | PROPOSED — doc-only. No code, no contract ch | 4/5 |
 | **READ** | `v3-convergence-wiring-v1` | `GateDecision` | ACTIVE (2026-07-01). Operator: "I'm all in f | 0/0 |
@@ -158,5 +159,5 @@ a licence to act on it.
 
 - **ARCHIVE?**: 0
 - **RESCOPE**: 56
-- **READ**: 20
+- **READ**: 21
 - ruled symbols tracked: 14

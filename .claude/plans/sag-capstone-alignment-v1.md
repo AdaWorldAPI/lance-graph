@@ -46,6 +46,51 @@ code anchor is re-decided when the class-method rebuild (D-CMR) lands:
 | **rewrite** — a pure, structural optimization | `awareness::Candidate { kind, methods, obligations }` ("never a rewrite") | the candidate, its open `Obligation`s, evidence tier and provenance, and a read-only verification query | not applied: it still needs a semantic-equivalence oracle (NULL / bag / set), a cost measurement and an operator decision |
 | **action** — an external effect | `EffectClass::Propose` on `MethodBody::Action` ("builds an inert proposal"); every call refuses with `NotPure` | the effect, its preconditions (source ETag/version, policy revision, target identity) and its simulated impact | not dispatched: it needs fresh OGAR authorization, then provider receipt and re-observation |
 
+### 2.1 Anchors after the reset (2026-10-13)
+
+**DECISION.** The action shape anchors on the action gate that already exists:
+a proposal is an `ActionInvocation` in state `Pending`, and the gate that may
+advance it is `ActionInvocation::commit_via`.
+**SCOPE.** The action shape only. The rewrite shape anchors on the rebuilt
+D-CMR fold binding (`classid × WideFieldMask → Compiled` program) and waits
+for it.
+**BASIS.** The removed `glove-parity::method::EffectClass` documented that only
+OGAR's action gate runs `ExternalMutate`, so `Propose` sits in front of that
+gate. Read in code:
+
+| piece | where | what it already gives a proposal |
+|---|---|---|
+| the gate | `lance-graph-contract/src/action.rs` `ActionInvocation::commit_via` (`:327`; `commit` at `:265` is the older variant with an admin bypass) | sticky terminal states, then def match → RBAC grant (`ClassRbac`, `Operation::Act`) → `StateGuard` → MUL `GateDecision`; `Pending → Committed / Failed / Cancelled`, and `Hold` keeps it `Pending` |
+| the inert record | `ActionInvocation::pending(..)` (`:218`) | target as a full `NodeGuid`, `cycle`, `idempotency_key`, `trace_id`; `emitted_at_millis` stays `None` until commit |
+| OGAR's IR form | `ogar-vocab` `ActionDef` / `ActionInvocation` / `ActionState` (same four states, String identities, plus `parent_invocation` and `failure_reason`) | the producer-side record |
+| building a `Pending` invocation from a request | `ogar-from-schema/src/action_ws.rs` `submit_to_invocation` | HIRO `submitAction` → `Pending`; the doc comment says it then passes `commit_via` before `Committed` |
+| running it | `ogar-action-handler` `CapabilityExecutor` impls; the doc comments say `commit_via` runs upstream of them, in rs-graph-llm's `graph-flow-action` (not read here) | execution plus `Receipt` and `sendActionResult` |
+
+Not related: `ogar-proposal` (schema `MappingProposal` drafts for the
+ontology registry) and the Cohen's d `EffectClass` in `lance-graph-cognitive`.
+
+**What the gate does not carry yet** (OPEN, against the life cycle below):
+1. *Source version / ETag precondition.* `StateGuard` is `field == value` on
+   the current instance; no version of the source the proposal was made
+   against.
+2. *Policy revision.* RBAC is evaluated at commit against the current grants;
+   the proposal records no revision.
+3. *Simulated impact.* The MUL `GateDecision` is an input to `commit_via`,
+   not stored on the invocation.
+4. *Separate approval and authorization.* The life cycle keeps "approved"
+   and "authorized" as two facts; `commit_via` decides RBAC and impact in one
+   call.
+5. *`UnknownOutcome`.* `ActionState::Failed` covers both an unauthorized actor
+   and a runtime failure (`action.rs:50`), and there is no state for a
+   timed-out external call, which the life cycle requires never to read as
+   "not applied".
+6. *Re-observation.* Nothing records the target's state after the effect.
+
+None of the six is built by this note; each lands, if at all, in the gate's
+own types.
+**REVISIT WHEN** the D-CMR rebuild lands (rewrite anchor), or when any of the
+six gaps is closed.
+
 The life cycle is shared, and each arrow is a separate fact with its own
 receipt:
 

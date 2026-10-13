@@ -64,4 +64,6 @@ OPEN: #1523 anchors `ProposedMethod` on two removed types: the rewrite shape
 on `glove-parity::awareness::Candidate`, the action shape on
 `glove-parity::method::EffectClass::Propose` (not the unrelated Cohen's d
 `EffectClass` in `lance-graph-cognitive`). The rewrite anchor moves to the
-rebuilt binding; the action anchor is undecided.
+rebuilt binding. The action anchor is the action gate: a `Pending`
+`ActionInvocation` advanced only by `commit_via` (capstone §2.1, which lists
+what the gate does not carry yet).
