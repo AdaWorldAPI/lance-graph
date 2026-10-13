@@ -1,3 +1,17 @@
+## 2026-10-13 (1) — d-cmr-concept-chain-normalization-v1 — preserve the equation, not the intermediate result → `.claude/plans/d-cmr-concept-chain-normalization-v1.md`
+
+**Status:** PROPOSAL D-CMR-0..9, revised to a set-theory IR (see the last bullet). Only D-CMR-0 (plan, board rows) is in the PR; no code, no dependency.
+
+- Methods in a pure chain are unresolved relations; the chain is normalized with proven identities and only the irreducible remainder is compiled. `(a+b)−a` means `a+b` never exists, not a wider accumulator.
+- Inventory, read in code: `fold_ranges`, survivor skip, `sql_where`, ternlog fusion, `Lowering::Range` (Count/Any only), `Compiled`, `execute_extent`. Quack never emits an extent; NAL does by hand (127 ns vs 195 µs).
+- Path: extent hoisting in Quack (D-CMR-1), lazy binding (-2), fixpoint driver (-3), complement (-4), relational difference `Sum(A)−Sum(A∧B)=Sum(A∧¬B)` (-5), equality-saturation probe only on evidence (-6), benchmark against eager materialization and the row loop (-7).
+- Revision (same day): the normalization lives in a set-theory IR in the contract (sets with a universe, interval runs as values, 2-D rectangles, preimage, measures; edges, not content), with an insufficiency proof in §3.1. Measurement levels: geometry (no row read), optics (fused filter + count, nothing written), etch (materialize). Path recut to D-CMR-1..9. Reverses point 3 of the concept-chain rule.
+- Revision 2 (same day, aligned with the eight-point ruling): the set IR is the shared semantic domain of normalization, not a frontend syntax; Quack's `Filter` stays home for Quack compositions, NAL stays on R2IL; shared are the rules, their preconditions and costs. The IR describes and never executes (enforced by a test). Lowering in core, algebra in the contract.
+- Corrections to the 2026-10-12 entries below, made by #1524 (D-CMR-RESET); code is on `backup/session-011BMJ-2026-10-12`:
+  - (6) sag-capstone-alignment: both `ProposedMethod` anchors are gone (`glove-parity::awareness::Candidate`, `glove-parity::method::EffectClass::Propose`). The name and the two shapes stand; the anchors are re-decided with the D-CMR rebuild. Not the Cohen's-d `EffectClass` in `lance-graph-cognitive`, which is unrelated.
+  - (5) sag-reflexive-cognition: `MethodTable` and `SoftwareGraph` are no longer shipped; nothing in that plan can reuse them until the rebuild.
+  - (4) software-awareness-graph: withdrawn with the whole method layer; D-SAG-1-0..6 are Withdrawn on `STATUS_BOARD.md`.
+
 ## 2026-10-12 (6) — sag-capstone-alignment-v1 — one alignment over the six SAG research PRs (#1510, #1511, #1512, #1513, #1515, #1517) → `.claude/plans/sag-capstone-alignment-v1.md`
 
 **Status:** CURRENT-CONTRACT for naming and vocabulary; nothing built.

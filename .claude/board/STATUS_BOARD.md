@@ -1,3 +1,20 @@
+## D-CMR — Concept-chain normalization: preserve the equation, not the intermediate result (2026-10-13)
+
+Plan: `.claude/plans/d-cmr-concept-chain-normalization-v1.md`. Parent: D-CMR-RESET. One new IR (set theory, plan §3.1 insufficiency proof); no method-body algebra, no dependency.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-CMR-0** | Plan, identity matrix, inventory, board rows | In PR | docs only; every inventory row cites code |
+| **D-CMR-1** | Set-theory IR core in the contract: `Runs` (∩ ∪ ∖, complement), residual `Res`, measures; pure | Queued | algebra laws vs materialized bitsets as oracle |
+| **D-CMR-2** | Lowering: runs → extents, residual → predicates per run; measurement levels geometry / optics / etch | Queued (after contract → mask-risc) | == row oracle; `Count` without residual reads zero rows |
+| **D-CMR-3** | Quack frontend: `Filter` → set IR (extent hoisting falls out) | Queued | identical answers on the quack suite; other-basis range stays residual |
+| **D-CMR-4** | Two dimensions: `Rect` over composite coordinates, row-major or Morton runs | Queued | rectangle ∩ == bitset oracle |
+| **D-CMR-5** | Preimage `f⁻¹(S)` under a proven mapping (the hop) | Queued | == row oracle; many-to-one image refused |
+| **D-CMR-6** | Rule catalogue + fixpoint driver: complement, relational difference | Queued | Experiments A, D, E; each guard removal fails |
+| **D-CMR-7** | NAL frontend: aperture → `Runs` | Queued (after NAL lands in core) | NAL W2 tests unchanged |
+| **D-CMR-8** | Equality-saturation probe (`egg`/`egglog` as references) | Queued (only if rules compete) | compared against D-CMR-6; no dependency without evidence |
+| **D-CMR-9** | Benchmark: eager materialization vs set IR vs row loop | Queued | answers asserted before timing; tier from the build's report |
+
 ## D-SAG-5 — Reflexive cognition and proposal safety from SAG #1509 (2026-10-12)
 
 **Status:** PROPOSAL. Plan: .claude/plans/sag-reflexive-cognition-from-1509-v1.md. Docs only; no runtime authorization.

@@ -3,6 +3,8 @@
 **Type:** cross-repo method and validation checklist. **READ BY:** anyone changing SoftwareGraph/MethodTable, Ruff SPO/AST frontends, SAG prediction loops, OGAR ActionDef, Quack/R2IL or NARS evidence.
 **Status:** proposed guardrail, with source-grounded possible defects to *test*, not confirmed bugs.
 
+> ⊘ 2026-10-13: `SoftwareGraph` and `MethodTable` (`lance-graph-glove-parity`'s `method.rs` / `awareness.rs`) were removed from `main` by #1524 (D-CMR-RESET); the code is on `backup/session-011BMJ-2026-10-12`. Wherever this doc names them, read them as the withdrawn first build. The separation-of-concerns rules still apply to the D-CMR rebuild, whose binding replaces them.
+
 ## Separation of concerns
 
 | Question | Evidence source | Permitted conclusion |
@@ -75,7 +77,7 @@ If a new result cannot be expressed through existing Quack/OGAR/R2IL, return an 
 - [#1504 method parity](https://github.com/AdaWorldAPI/lance-graph/pull/1504)
 - [#1506 DAG range](https://github.com/AdaWorldAPI/lance-graph/pull/1506)
 - [#1508 predicate reuse](https://github.com/AdaWorldAPI/lance-graph/pull/1508)
-- [#1509 SoftwareGraph](https://github.com/AdaWorldAPI/lance-graph/pull/1509)
+- [#1509 SoftwareGraph](https://github.com/AdaWorldAPI/lance-graph/pull/1509) (withdrawn by #1524; backup branch above)
 - [Ruff #117 ordered behavioral ore](https://github.com/AdaWorldAPI/ruff/pull/117)
 - [Ruff #118 C linkage semantics](https://github.com/AdaWorldAPI/ruff/pull/118)
 - [Ruff #120 Odoo inherit_id](https://github.com/AdaWorldAPI/ruff/pull/120)
