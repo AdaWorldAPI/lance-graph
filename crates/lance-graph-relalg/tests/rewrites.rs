@@ -319,6 +319,10 @@ fn comparisons_on_one_lane_fuse_into_one_interval() {
         Rel::And(vec![Rel::i32(X, Cmp::Lt, 20), Rel::i32(X, Cmp::Gt, -6)])
     );
     let (r1, r2) = count_both(&fixture(), rel);
+    eprintln!(
+        "passes: rewritten {} vs as written {}",
+        r1.passes, r2.passes
+    );
     assert!(r1.passes < r2.passes, "{} vs {}", r1.passes, r2.passes);
 }
 
@@ -417,6 +421,10 @@ fn a_union_of_intervals_merges() {
         Rel::And(vec![Rel::i32(X, Cmp::Lt, 6), Rel::i32(X, Cmp::Gt, 2)])
     );
     let (r1, r2) = count_both(&fixture(), eqs);
+    eprintln!(
+        "passes: rewritten {} vs as written {}",
+        r1.passes, r2.passes
+    );
     assert!(r1.passes < r2.passes, "{} vs {}", r1.passes, r2.passes);
     // A gap stays a gap.
     let gap = Rel::Or(vec![Rel::i32(X, Cmp::Eq, 3), Rel::i32(X, Cmp::Eq, 5)]);
