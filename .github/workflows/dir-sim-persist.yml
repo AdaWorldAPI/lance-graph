@@ -62,8 +62,23 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libprotobuf-dev
       - name: Setup rust toolchain (pinned by rust-toolchain.toml)
         run: rustup show
+      # `.cargo/config.toml` builds with target-cpu=native, and cargo's
+      # fingerprint sees the flag text, not the CPU: an artifact built on a
+      # runner with AVX-512 would be reused on one without and die with
+      # SIGILL. Spell `native` out as this runner's exact feature list:
+      # a different CPU then gives different flags, cargo recompiles by itself,
+      # and the cache is keyed to the same flags.
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+          echo "native is \`$(.github/scripts/resolve-native-rustflags.sh --cpu)\`, features $hash, job \`$GITHUB_JOB\`" >> "$GITHUB_STEP_SUMMARY"
       - uses: Swatinem/rust-cache@v2
         with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
           workspaces: lance-graph/crates/lance-graph-dir-sim-lance
       - name: clippy
         run: cargo clippy --manifest-path crates/lance-graph-dir-sim-lance/Cargo.toml --all-targets -- -D warnings
