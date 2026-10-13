@@ -1,3 +1,17 @@
+## 2026-10-13 — lance-graph PR #1531 (merged `86e3174`, branch `ccr-9f3b8075-74u47l-ndarray-master`, head `3b1e3f9`, 2 commits) — crate images clone ndarray `master` on Rust 1.99
+
+- **Added:** `crates/symbiont/Dockerfile` and `crates/cognitive-stack/Dockerfile` default `ADA_BRANCH` to `master` (was the stale branch `claude/jirak-math-theorems-harvest-rfii13`); both builder images move from `rust:1.98.1-bookworm` to `rust:1.99.0-bookworm`, matching `rust-toolchain.toml`.
+- **Locked:** ndarray, p64 and thinking-engine declare `rust-version = "1.99.0"`, and a 1.98.1 builder refuses them (measured on the thinking-engine build in #1530). ndarray `master` is the branch every build and CI job clones.
+- **Deferred / open:** neither image was built with `docker build`. symbiont is a research project, not a production path.
+- **Confidence:** medium; the change is two lines per file, unbuilt.
+
+## 2026-10-13 — lance-graph PR #1530 (merged `c864721`, branch `ccr-9f3b8075-74u47l-board-v4`, head `6cb34a0`, 3 commits) — #1529 board entries; thinking-engine images build v4 with `--target`
+
+- **Added:** board entries for #1529 (PR_ARC, LATEST_STATE, the D-PROD-V4 STATUS_BOARD row, its gate filled from the `main` push run 38356680938). Both thinking-engine images (`crates/thinking-engine/Dockerfile`, `Dockerfile.railway`) build `x86-64-v4` with `--target <host triple>`, clone ndarray beside `/app`, use `rust:1.99.0-bookworm`, and build the `playground` example the runtime stage copies.
+- **Locked:** codex P2: #1529 had missed these two images, so their build scripts still compiled for v4. Running the new build line in a Docker-shaped layout showed three earlier breaks that had kept them from building at all (no ndarray sibling, a 1.98.1 base, no example built); the Railway image hid them behind `2>/dev/null || true`, now removed.
+- **Deferred / open:** no `docker build` run; the dependency-cache layer of `crates/thinking-engine/Dockerfile` still copies only three manifests and fails silently (`|| true`), unchanged.
+- **Confidence:** medium; the build line was run, the image was not built.
+
 ## 2026-10-13 — lance-graph PR #1529 (merged `2d33bb0`, branch `ccr-9f3b8075-74u47l-prod-v4`, head `6197dac`, 13 commits) — D-PROD-V4: production build tiers
 
 - **Added:** shipped builds leave v3. `Dockerfile.avx512` (canonical deploy) builds `sapphirerapids`; plain `Dockerfile` (fallback) builds `native`; `Dockerfile.hhtld`, `crates/cognitive-stack/Dockerfile`, `crates/symbiont/Dockerfile` copy the new `.cargo/config-v4.toml`; both thinking-engine images and `make publish` build `x86-64-v4`. `build.yml` gains `linux-build-v4`, a compile-only matrix over `x86-64-v4` and `sapphirerapids` (nothing runs; most runners are v3), debug 0 for every artifact. The two root Dockerfiles now clone ndarray and OGAR at their default branches and copy `tools/`; before, they could not resolve the workspace. Also carries #1525's board entries.
