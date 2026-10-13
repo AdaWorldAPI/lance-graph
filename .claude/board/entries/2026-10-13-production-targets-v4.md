@@ -27,6 +27,13 @@ production.
 (23 target features), not native (32 on this Cascade Lake host). The
 Dockerfiles copy the file over `config.toml`, so they never join.
 
+**Debug 0 in CI (reported by the maintainer, not re-measured here):** a
+build without debug info drops from 16-19 GB to 3.5 GB of disk and from
+22-42 to 4-9 minutes. With `--target`, RUSTFLAGS no longer reaches build
+scripts and proc-macros (measured: a build script compiled with
+`-C debuginfo=2`), so the v4 job also sets `CARGO_PROFILE_DEV_DEBUG=0` and
+`CARGO_PROFILE_TEST_DEBUG=0`.
+
 **Safety:** on a host without AVX-512, ndarray's startup `cpu_guard` names
 the missing features and exits before `main`; the binary does not die with
 SIGILL mid-run. That holds only for binaries that link ndarray.
