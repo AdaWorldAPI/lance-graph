@@ -98,6 +98,12 @@ jobs:
     timeout-minutes: 30
     env:
       RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v4"
+      # Runner disk makes debug 0 mandatory. With `--target`, RUSTFLAGS no
+      # longer reaches build scripts and proc-macros, so their debug level
+      # comes from the profile; these pin it to 0 for every artifact.
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
     defaults:
       run:
         working-directory: lance-graph
