@@ -55,14 +55,30 @@ WORKDIR /build/lance-graph
 # global RUSTFLAGS would hand the aarch64 compiler an x86 CPU name).
 RUN cp .cargo/config-v4.toml .cargo/config.toml
 
+# `--target <host triple>` keeps the v4 flags on the binary only. Without it
+# cargo also compiles build scripts and proc-macros for v4 and runs them
+# here, so a build host without AVX-512 would die with SIGILL mid-build.
+# With an explicit target they stay at the host baseline. The binaries then
+# land under target/<triple>/ and are copied to the path the runtime stage
+# reads.
+# thinking-engine is excluded from the workspace, so CARGO_TARGET_DIR pins
+# the output to the directory the runtime stage copies from.
+ENV CARGO_TARGET_DIR=/build/lance-graph/target
+
 # Build the decode example (the inference binary)
-RUN cargo build --release --example tts_17b_hhtld_decode \
-    --manifest-path crates/thinking-engine/Cargo.toml 2>&1 || \
+RUN T="$(rustc -vV | sed -n 's/^host: //p')" \
+    && cargo build --release --target "$T" --example tts_17b_hhtld_decode \
+       --manifest-path crates/thinking-engine/Cargo.toml 2>&1 \
+    && mkdir -p target/release/examples \
+    && cp "target/$T/release/examples/tts_17b_hhtld_decode" target/release/examples/ || \
     echo "Build failed — ndarray dependency may be missing"
 
 # Also build the cascade runner if available
-RUN cargo build --release --example tts_cascade_runner \
-    --manifest-path crates/thinking-engine/Cargo.toml 2>&1 || true
+RUN T="$(rustc -vV | sed -n 's/^host: //p')" \
+    && cargo build --release --target "$T" --example tts_cascade_runner \
+       --manifest-path crates/thinking-engine/Cargo.toml 2>&1 \
+    && mkdir -p target/release/examples \
+    && cp "target/$T/release/examples/tts_cascade_runner" target/release/examples/ || true
 
 # ═══════════════════════════════════════════════════════════════════
 # Stage 2: Runtime

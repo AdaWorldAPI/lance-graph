@@ -48,7 +48,16 @@ RUN git clone --depth 1 --branch "$ADA_BRANCH" \
         https://github.com/AdaWorldAPI/ndarray.git /build/ndarray
 
 WORKDIR /build/lance-graph/crates/cognitive-stack
-RUN cargo build --release
+# `--target <host triple>` keeps the v4 flags on the binary only. Without it
+# cargo also compiles build scripts and proc-macros for v4 and runs them
+# here, so a build host without AVX-512 would die with SIGILL mid-build.
+# With an explicit target they stay at the host baseline. The binaries then
+# land under target/<triple>/ and are copied to the path the runtime stage
+# reads.
+RUN T="$(rustc -vV | sed -n 's/^host: //p')" \
+    && cargo build --release --target "$T" \
+    && mkdir -p target/release \
+    && cp "target/$T/release/cognitive-stack" target/release/
 
 # ── runtime ──────────────────────────────────────────────────────────────────
 FROM debian:bookworm-slim

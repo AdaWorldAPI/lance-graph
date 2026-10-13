@@ -35,6 +35,12 @@ scripts and proc-macros (measured: a build script compiled with
 `-C debuginfo=2`), so the v4 job also sets `CARGO_PROFILE_DEV_DEBUG=0` and
 `CARGO_PROFILE_TEST_DEBUG=0`.
 
+**Build scripts:** the three images that copy `config-v4.toml` build with
+`--target <host triple>` (codex P1 on #1529). Without it the cfg-keyed v4
+flags also reach build scripts and proc-macros, which run on the build host
+(measured on a scratch crate: the build script compiled with
+`target-cpu=x86-64-v4`; with `--target`, with none).
+
 **Safety:** on a host without AVX-512, ndarray's startup `cpu_guard` names
 the missing features and exits before `main`; the binary does not die with
 SIGILL mid-run. That holds only for binaries that link ndarray.
