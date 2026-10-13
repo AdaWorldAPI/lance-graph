@@ -39,7 +39,7 @@
 # `-C target-cpu=x86-64-v3` (a RUSTFLAGS env REPLACES every cargo-config
 # rustflags entry). Every other workflow builds with `native`. Cargo
 # fingerprints the flag TEXT, not the CPU, so a workflow that caches `target/`
-# resolves `native` to the runner's CPU name and feature list first
+# spells `native` out as the runner's exact feature list first
 # (.github/scripts/resolve-native-rustflags.sh, used by dir-sim-persist.yml and
 # identity.yml) and keys the cache to those flags; without that, an artifact
 # built on a runner with AVX-512 is reused on one without and dies with SIGILL.
