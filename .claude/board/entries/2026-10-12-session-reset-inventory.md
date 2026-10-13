@@ -79,6 +79,10 @@ lowering; only the irreducible remainder becomes a `Compiled` program.
 3. Existing IRs and folds only. Quack's `Filter`/`Query` tree holds
    Quack-bound chains; global NAL methods stay R2IL-bound and are not routed
    through Quack. No second method algebra, no new universal IR.
+   ⊘ 2026-10-13: the "no new universal IR" half is superseded by one
+   set-theory IR (`plans/d-cmr-concept-chain-normalization-v1.md` §3, with
+   its insufficiency proof); Quack and NAL become frontends lowering into it.
+   "No second method algebra" stands.
 4. `SUM` first uses the existing fold over the minimized extent. A prefix lane
    (`P[hi] − P[lo]`) is a separate, measured candidate with its own ordering,
    overflow, NULL, update and maintenance laws.

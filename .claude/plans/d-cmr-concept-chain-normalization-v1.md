@@ -1,7 +1,10 @@
 # d-cmr-concept-chain-normalization-v1 — preserve the equation, not the intermediate result
 
-**Status:** PROPOSAL (D-CMR-0..7). Only D-CMR-0 (this document and its board
-rows) is in the PR that adds it. No code, no dependency, no new IR.
+**Status:** PROPOSAL (D-CMR-0..9). Only D-CMR-0 (this document and its board
+rows) is in the PR that adds it. No code, no dependency.
+**Revision 2026-10-13:** the normalization gets one new IR, a set-theory IR
+(§3). This reverses point 3 of the concept-chain rule in the reset entry
+("no new universal IR"); §3.1 is the insufficiency proof that justifies it.
 **Date:** 2026-10-13. **Repo:** lance-graph (Quack, mask-risc, core NAL module).
 **Parents:** D-CMR-RESET (`entries/2026-10-12-session-reset-inventory.md`,
 root cause and the eight-point concept-chain rule), #1524, #1532.
@@ -37,22 +40,114 @@ steps survive once the chain is simplified.
 So `(a+b)−a` has no home today at the value level. It appears first at the
 aggregate level: `Sum(A) − Sum(A∧B) = Sum(A∧¬B)`.
 
-## 3. Rule catalogue (the Tafelwerk), in existing representations
+## 3. The set-theory IR
 
-A rule is an identity, not a stored result. Each entry has six fields:
-pattern, semantic preconditions, rewrite, proof (independent oracle plus a
-negative control), cost effect, scope. The lookup key is the pattern **and**
-its preconditions: `Count(¬A)` under three-valued logic is a different entry
-from `Count(¬A)` under Boolean logic.
+### 3.1 Why a new IR (insufficiency proof, VERIFIED-IN-CODE at `c157c0a`)
 
-- **Home.** Quack-bound chains: passes over `Filter`/`Query` in the quack
-  crate, next to `fold_ranges`. Global NAL methods: rules applied while the
-  core NAL module emits its R2IL procedure. No new IR. A `Rule` type exists
-  only if the fixpoint driver (D-CMR-3) cannot be written over plain passes;
-  the insufficiency is recorded first.
-- **Application.** Repeat until no rule fires or a step budget is reached.
-  Every rule must not increase expression size, so the loop terminates.
-- **Heuristics** order the rules; they never replace a proof.
+Everything set-like in the tree is either a predicate or a materialized bitset:
+- Quack's `Filter` is predicates, lowered straight to masks. `fold_ranges`
+  yields at most one interval per column, never merges ranges under `Or`, and
+  its doc names `col` as the only order identity.
+- `EvidenceMask` (`revision.rs:31`, `union`/`intersection`/`difference`) and
+  mask-risc masks are set algebra after materialization.
+- `WideFieldMask` (`intersect`/`difference`) is sets of fields, not of rows.
+- No interval-set type exists anywhere in `crates/`.
+
+Four things therefore have no home:
+1. **The universe of a set:** which proven ordering (coordinate basis) of
+   which population it lives in.
+2. **An intersection result as a value** before materialization: empty, one
+   point, one interval, or several disjoint intervals.
+3. **Mappings between universes:** a hop is the preimage `f⁻¹(S)`, not a
+   stacked key read.
+4. **Measures as functions of a set:** `Count(S)`, `Sum_x(S)`, `Exists(S)`,
+   computed from the set's description where that description is known.
+
+The IR exists only to hold these four. It is not a second method algebra and
+not a second executor: execution stays in mask-risc.
+
+### 3.2 The IR
+
+```
+U_b                    universe over basis b (a proven ordering of one population)
+S ::= ∅
+    | [lo,hi)_b                  interval; a point is [p, p+1)
+    | Runs_b{[l1,h1), …}         sorted, disjoint intervals (one scanline)
+    | Rect_{b1×b2}               product of intervals over a composite coordinate
+    | Res_b(p)                   residual: an opaque predicate over basis b
+    | S ∩ S | S ∪ S | U_b ∖ S
+    | f⁻¹(S')                    preimage under a proven mapping b → b'
+M ::= Count(S) | Sum_x(S) | Exists(S)
+```
+
+- **Normal form:** `Runs_b ∩ Res_b`. Interval sets are closed under `∩`, `∪`
+  and `∖` at a cost linear in the number of intervals, with no row read; `∅`
+  is a proof that the answer is 0. The residual stays opaque.
+- **Edges, not content.** A set is stored by its boundaries. Cost scales with
+  the number of edges, never with the number of rows.
+- **Two dimensions.** A condition on `hi` and one on `lo` of a composite
+  coordinate (`hi·stride + lo`, the `_pair` family) form a rectangle. It
+  becomes 1-D runs only at lowering: one run per `hi` in row-major order, or a
+  few aligned runs in Morton order (`mask_shift_morton`, the HHTL prefixes).
+- **Limits the IR enforces:** two-valued only (three-valued logic is resolved
+  by `sql_where` into the TRUE set first; complements only over two-valued
+  sets); sets, not bags (preimage gives a set; the image of a many-to-one
+  mapping is refused and stays a physical aggregation); intersection only
+  within one universe, otherwise through a proven `f`, otherwise residual.
+- **Home:** `lance-graph-contract`, next to `ClassView`. The algebra itself
+  needs no dependency; its lowering needs mask-risc, which the contract gains
+  in the agreed restructure. Quack's `Filter` and the core NAL module lower
+  **into** this IR, so neither frontend implements intervals of its own.
+
+### 3.3 The lithography reading
+
+A chip is designed as set algebra over polygon edges, entirely before any wafer
+is exposed. A transistor exists where poly ∩ active is non-empty; a via where
+metal1 ∩ via ∩ metal2 is. Layout tools compute layer booleans on edges with a
+scanline, at a cost in edges, never in area. Rasterization happens once, in the
+mask writer, at the end; exposure processes only the final mask.
+
+| lithography | IR |
+|---|---|
+| wafer and its coordinate frame | `U_b` |
+| one mask layer | a set `S`, stored as edges |
+| device = layer intersection | `∩`, possibly empty, one point or many |
+| positive / negative resist | `S` / `U_b ∖ S` |
+| etch / deposit | `∖` / `∪` |
+| overlay alignment between layers | intersection only within one basis or through a proven `f` |
+| layer booleans and design-rule checks | normalization |
+| optical proximity correction tables | the rule catalogue (§3.5) |
+| rasterization in the mask writer | lowering to mask words, once |
+| exposure and etch | execution in mask-risc |
+| minimum feature size, writer grid | one row; 64-row words (an unaligned edge costs an edge merge, `execute_extent` doc) |
+
+The withdrawn method layer exposed and etched each layer before the design was
+complete, then tried to combine the etched wafers.
+
+### 3.4 Measurement levels (the laser-filter reading)
+
+A measure is light through a stack of masks onto a detector: light passes only
+where every mask is open, so the stack forms the intersection and the detector
+integrates it. Three levels, cheapest first; lowering picks the first that
+applies:
+
+| level | when | how | in the tree |
+|---|---|---|---|
+| 1. geometry, no light | no residual | `Count(Runs) = Σ(hᵢ − lᵢ)`; `Exists = Runs ≠ ∅` | `Lowering::Range` (one interval, `Count`/`Any`) |
+| 2. optics, no etch | residual present, caller needs a measure | residual predicates fused into one filter, one pass per run as extent, nothing written | `mask_ternlog_popcount`, `Lowering::Ternlog` → `Count`, `execute_extent` |
+| 3. etch | caller needs the set itself | materialize the mask for the surviving runs only | `Keep` / `Out::Mask` |
+
+`Sum_x(S)` is a graded filter: the existing masked sum fold over the runs as
+extents (level 2). A prefix lane would move it to level 1; it stays a separate,
+measured candidate.
+
+### 3.5 Rule catalogue (the Tafelwerk) over the set IR
+
+A rule is an identity, not a stored result: pattern, semantic preconditions,
+rewrite, proof (independent oracle plus a negative control), cost effect,
+scope. The key is the pattern **and** its preconditions. Rules are applied
+until none fires or a step budget is reached, and none may increase the size of
+the expression. Heuristics order rules; they never replace a proof.
 
 ## 4. Identity matrix with semantic conditions
 
@@ -76,17 +171,19 @@ from `Count(¬A)` under Boolean logic.
   delays rounding or quantization to a named boundary. Allowed only where
   declared, never inferred from "the result looks more accurate".
 
-## 6. Minimal implementation path (no second algebra)
+## 6. Implementation path
 
 | D-id | step | gate / falsifier |
 |---|---|---|
-| D-CMR-1 | **Extent hoisting.** A top-level range conjunct that `fold_ranges` produced becomes the `execute_extent` extent; the rest of the filter runs as the residual (Experiment C) | answers == unhoisted == row oracle; disabling hoisting keeps answers; a range on a different coordinate basis must not hoist (negative control) |
-| D-CMR-2 | **Lazy binding.** A bound method yields a `Filter` fragment plus aggregate, composed into one `Query` before lowering; no per-link execution | chain of k methods lowers once; no scratch allocated per link |
-| D-CMR-3 | **Fixpoint driver** over the existing passes, with a step budget and size non-increase | Experiment D: a second rule fires only because the first did |
-| D-CMR-4 | **Complement rule**, guarded on two-valued leaves | removing the guard fails on a nullable column |
-| D-CMR-5 | **Relational difference rule** `Sum(A) − Sum(A∧B) → Sum(A∧¬B)` (Experiment A at the aggregate level) | equal to the exact `i128` oracle; the `_sym` and checked variants refuse |
-| D-CMR-6 | **Equality-saturation probe** (`egg`, `egglog`, as references only) | runs only if two rules compete and order changes the result; compared against D-CMR-3 with extraction cost taken from the real lowerings; no dependency without that evidence |
-| D-CMR-7 | **Benchmark** (section 8) | answers asserted before timing |
+| D-CMR-1 | **Set IR core** in the contract: `Runs` with `∩ ∪ ∖` and complement, `Res`, measures; pure, no lowering | algebra laws (closure, distributivity, De Morgan, `∅`) checked against materialized bitsets as oracle on random and edge-case runs |
+| D-CMR-2 | **Lowering** to mask-risc: runs → extents, residual → predicates within each run, the three measurement levels | == row oracle; a `Count` with no residual reads zero rows (instrumented); disabling level 1 or 2 keeps answers |
+| D-CMR-3 | **Quack frontend:** `Filter` → set IR (ranges on a proven basis → `Runs`, other leaves → `Res`, `sql_where` first). Extent hoisting falls out of this (Experiment C) | answers identical to today's `lower` path on the quack suite; a range on another basis stays residual (negative control) |
+| D-CMR-4 | **Two dimensions:** `Rect` over composite coordinates, linearized row-major or in Morton order | rectangle `∩` == bitset oracle; run count within the stated bound |
+| D-CMR-5 | **Preimage** `f⁻¹(S)` under a proven mapping (the hop) | == row oracle; a many-to-one image is refused |
+| D-CMR-6 | **Rule catalogue and fixpoint driver**: complement, relational difference `Sum(A) − Sum(A∧B) → Sum(A∧¬B)` | Experiments A, D, E; each guard removal fails |
+| D-CMR-7 | **NAL frontend:** aperture → `Runs` (after NAL lands in core) | NAL W2 tests unchanged |
+| D-CMR-8 | **Equality-saturation probe** (`egg`, `egglog` as references only) | only if rules compete; compared against D-CMR-6; no dependency without evidence |
+| D-CMR-9 | **Benchmark** (section 8) | answers asserted before timing |
 
 Prefix lanes stay a separate, measured candidate (ordering, overflow, NULL,
 update and maintenance laws), never a precondition for `SUM`.
@@ -100,7 +197,8 @@ update and maintenance laws), never a precondition for `SUM`.
   read. Baseline: `fold_ranges` and `Lowering::Range` (tests at quack
   `lib.rs:5204–5248`).
 - **C. Mixed.** A sorted-coordinate range plus an unsorted value predicate:
-  the range becomes the extent, the predicate stays residual (D-CMR-1).
+  the range becomes `Runs` and the extent, the predicate stays `Res` and is
+  measured at level 2 (D-CMR-2, D-CMR-3).
 - **D. Composition.** Two identities on one expression, the second enabled by
   the first (intersection, then `Count = hi − lo`).
 - **E. Invalid rewrites.** NULL, overflow, incompatible coordinates, IEEE
@@ -125,16 +223,19 @@ median of 101, tier named from the build's own report, answers asserted first.
 | `Count`/`Any` over a range without row reads | SHIPPED (`Lowering::Range`) |
 | ≤ 6-plane Boolean → truth tables | SHIPPED (`Ternlog`/`Tern2`/`Tern3`) |
 | compile once | SHIPPED (`Compiled`) |
-| range as execution extent | SHIPPED in mask-risc and NAL; **missing in Quack** (D-CMR-1) |
-| chains composed before lowering | OPEN (D-CMR-2) |
-| repeated rule application | OPEN (D-CMR-3) |
-| complement, relational difference | OPEN (D-CMR-4, -5) |
+| range as execution extent | SHIPPED in mask-risc and NAL; **missing in Quack** (D-CMR-3) |
+| fused filter + count without writing a mask (level 2) | SHIPPED (`mask_ternlog_popcount`, `Lowering::Ternlog`) |
+| sets with a universe, interval sets as values | OPEN (D-CMR-1) |
+| multi-run extents, two-dimensional sets, preimage | OPEN (D-CMR-2, -4, -5) |
+| chains composed before lowering | OPEN (D-CMR-3, -7) |
+| repeated rule application, complement, relational difference | OPEN (D-CMR-6) |
 | prefix aggregates | candidate |
 | value-arithmetic IR (`a+b` as an expression) | OPEN, shared with NAL §4 C and D-SQLP |
-| equality saturation | research (D-CMR-6) |
+| equality saturation | research (D-CMR-8) |
 
 ## 10. Ownership
 
-D-CMR-1..5 touch quack and the core NAL module. The other session is moving
-R2IL and NAL into core; D-CMR-1 (quack only) can start independently,
-D-CMR-2..5 after NAL lands in core. Owner to be assigned.
+- D-CMR-1 (pure algebra in the contract) can start now.
+- D-CMR-2 needs the contract → mask-risc dependency (agreed, not yet landed).
+- D-CMR-3..6 touch quack; D-CMR-7 waits until NAL lands in core.
+- Owner to be assigned.

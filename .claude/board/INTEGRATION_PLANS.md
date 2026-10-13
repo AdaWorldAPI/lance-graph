@@ -5,6 +5,7 @@
 - Methods in a pure chain are unresolved relations; the chain is normalized with proven identities and only the irreducible remainder is compiled. `(a+b)−a` means `a+b` never exists, not a wider accumulator.
 - Inventory, read in code: `fold_ranges`, survivor skip, `sql_where`, ternlog fusion, `Lowering::Range` (Count/Any only), `Compiled`, `execute_extent`. Quack never emits an extent; NAL does by hand (127 ns vs 195 µs).
 - Path: extent hoisting in Quack (D-CMR-1), lazy binding (-2), fixpoint driver (-3), complement (-4), relational difference `Sum(A)−Sum(A∧B)=Sum(A∧¬B)` (-5), equality-saturation probe only on evidence (-6), benchmark against eager materialization and the row loop (-7).
+- Revision (same day): the normalization lives in a set-theory IR in the contract (sets with a universe, interval runs as values, 2-D rectangles, preimage, measures; edges, not content), with an insufficiency proof in §3.1. Measurement levels: geometry (no row read), optics (fused filter + count, nothing written), etch (materialize). Path recut to D-CMR-1..9. Reverses point 3 of the concept-chain rule.
 
 ## 2026-10-12 (6) — sag-capstone-alignment-v1 — one alignment over the six SAG research PRs (#1510, #1511, #1512, #1513, #1515, #1517) → `.claude/plans/sag-capstone-alignment-v1.md`
 
