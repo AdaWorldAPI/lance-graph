@@ -11,6 +11,10 @@ This note records a documentation-only decision and a demonstrable integration t
 
 The detailed temporal proposal and its **20 falsifiable exploration questions** live in [Epoch-indexed temporal graph: research agenda](EPOCH_TEMPORAL_GRAPH_RESEARCH_AGENDA.md). It covers existing `TemporalPov` and `VersionedGraph` machinery, the prior September delta/tombstone audit, three distinct clocks, half-open interval masks, sparse deltas versus checkpoints, NAL/kanban revision history, Rust/SIMD cost tests, authorization/backpressure, and KGExplorer-inspired time-slider projection. **No temporal graph implementation is claimed in this docs PR.**
 
+## New implementation target: assimilate ONA as folding IR methods
+
+[**ONA → LanceGraph NAL/R2IL fold-method assimilation**](ONA_NAL_R2IL_FOLD_METHOD_ASSIMILATION.md) defines the next executable objective, preserving OGAR's Loco/r2sleigh ownership: ONA truth laws, derivation stamps, premise matching, temporal projection, goal scoring, method-shaped R2IL lowering, and pinned semantic oracles. The W3–W9 coding waves are *proposed*: **this PR does not implement or finalize those operations**. Implementation completion depends on independent truth/provenance parity, correct retained non-scalar outputs, and the existing authorized write/action boundaries.
+
 ## 1. Decision: coexistence, not blanket R2IL relocation
 
 - **OGAR remains authoritative for its `ogar-loco` / `ogar-r2il` toolchain and r2sleigh-oriented use cases.** The fact that its generic pieces are reusable does not authorize moving both crates into LanceGraph. Preserve the shared ABI / wire identities and avoid parallel incompatible definitions.
