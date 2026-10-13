@@ -46,6 +46,14 @@ Plan: `.claude/plans/gremlin-composable-algebra-v1.md`.
 | D-CMH-G1-5 | FirstOfRun | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | insufficiency proof first; Quack + R2IL vs independent oracle |
 | D-CMH-G1-6 | ordered `I32` conditions + `MIN`/`MAX` folds as method steps; R2IL `MIN`/`MAX` wired | Withdrawn 2026-10-12 (backup `backup/session-011BMJ-2026-10-12`; see entry session-reset-inventory) | both frontends == row loop incl. empty selection; 8 disable runs red |
 
+## D-PROD-V4 — production build tiers (2026-10-13)
+
+Entry: `entries/2026-10-13-production-targets-v4.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-PROD-V4** | Shipped images and wheel off v3: `Dockerfile.avx512` `sapphirerapids`, `Dockerfile` `native`, the rest `x86-64-v4`; compile-only CI for both tiers | Shipped #1529 `2d33bb0`; ndarray side in AdaWorldAPI/ndarray#361 | `--target` keeps CPU flags off build scripts (scratch crate: build script without `target-cpu`); `linux-build-v4` green on both tiers on the `main` push of `2d33bb0` (run 38356680938); thinking-engine images fixed and their build line run in a Docker-shaped layout in #1530; no `docker build` run |
+
 ## D-NALP — `NAL::narsese()` polyfill over R2IL procedures and mask-risc (2026-10-12)
 
 Plan: `.claude/plans/nal-polyfill-v1.md`. Template: D-SQLP. No opcode, tenant or ABI change is authorized.
