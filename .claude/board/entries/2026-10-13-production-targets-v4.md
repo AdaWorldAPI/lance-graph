@@ -35,8 +35,10 @@ SIGILL mid-run. That holds only for binaries that link ndarray.
 - `build.yml`, `rust-test.yml` and `style.yml` still test the v3 arm only;
   production's AVX-512 code paths have no coverage in lance-graph's main CI.
 - Probes and examples do not yet refuse to report timings off v4.
-- `Dockerfile.avx512` now builds the same tier as `Dockerfile`; it is kept
-  until nothing names it.
+- Open choice: `Dockerfile.avx512` is the canonical deploy file and plain
+  `Dockerfile` is the same-tier fallback for a deploy that forgets the file
+  name. Whether that fallback should be `native` instead of v4 is undecided;
+  `native` tunes to the Railway build host, not the run host.
 - Not verified with `docker build` here.
 
 **REVISIT WHEN:** a production host without AVX-512 appears.

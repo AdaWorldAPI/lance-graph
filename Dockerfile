@@ -3,7 +3,8 @@
 # Requires Rust 1.99.0 (LazyLock, modern std APIs)
 #
 # CPU detection & SIMD dispatch documentation: see Dockerfile.md
-# Dockerfile.avx512 now builds the same tier; it is kept until nothing names it.
+# Dockerfile.avx512 is the canonical deploy file. This image builds the same
+# tier, so a deploy that names it by mistake still gets x86-64-v4.
 #
 # Build: docker build -t lance-graph-test .
 # Run:   docker run --rm lance-graph-test

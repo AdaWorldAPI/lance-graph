@@ -7,8 +7,8 @@ build for v4.
 
 | Target | File | Flags | Use case |
 |---|---|---|---|
-| **Compile test (v4)** | `Dockerfile` | `-C target-cpu=x86-64-v4` | Railway compile/test image |
-| **Same tier** | `Dockerfile.avx512` | `-C target-cpu=x86-64-v4` | Kept until nothing names it |
+| **Deploy (canonical)** | `Dockerfile.avx512` | `-C target-cpu=x86-64-v4` | Railway / production deploys |
+| **Same-tier fallback** | `Dockerfile` | `-C target-cpu=x86-64-v4` | Compile/test image; a deploy that forgets the file name still gets v4 |
 | **HHTL-D TTS** | `Dockerfile.hhtld` | `.cargo/config-v4.toml` | TTS inference container |
 | **Local dev** | `.cargo/config.toml` | `-C target-cpu=native` | Developer machines (host CPU) |
 | **CI tests** | `build.yml`, `rust-test.yml`, `style.yml` | `-C target-cpu=x86-64-v3` | Not production; never cite a timing from it |
@@ -83,7 +83,7 @@ lance-graph inherits this via ndarray; no ARM-specific configuration needed.
 ## Choosing the Right Dockerfile
 
 ```
-Railway / production      → Dockerfile or Dockerfile.avx512 (-C target-cpu=x86-64-v4)
+Railway / production      → Dockerfile.avx512 (canonical); Dockerfile is the same-tier fallback
 TTS inference             → Dockerfile.hhtld (config-v4.toml; downloads codebooks)
 Raspberry Pi / ARM        → Dockerfile.hhtld (config-v4.toml applies to x86_64 only)
 ```

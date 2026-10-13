@@ -5,7 +5,8 @@
 # ONLY deploy on AVX-512 hardware.
 #
 # CPU detection & SIMD dispatch documentation: see Dockerfile.md
-# Dockerfile builds the same tier (x86-64-v4) since production moved to v4.
+# This is the canonical deploy file. Dockerfile builds the same tier
+# (x86-64-v4) as the fallback when a deploy does not name this one.
 #
 # Build: docker build -f Dockerfile.avx512 -t lance-graph-avx512 .
 # Run:   docker run --rm lance-graph-avx512
