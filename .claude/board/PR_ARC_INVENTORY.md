@@ -1,3 +1,17 @@
+## 2026-10-13 — lance-graph PR #1540 (merged `f2bf199`, branch `ccr-9f3b8075-74u47l-supervisor-backoff`, head `dd3ab5d`, 5 commits) — supervisor: apply the restart backoff
+
+- **Added:** `ActorTerminated` computes the crash count (carried from the slot; restarts at 1 when the previous crash is more than `CRASH_WINDOW` = 5 min old), escalates past 10 crashes, otherwise sleeps `backoff_delay(n) = min(100 ms · 2^n, 30 s)` and casts the only `RespawnG`. The arm spawns once, skips a slot that is already live, and stores the count and crash time on the new slot. `tests/supervisor_respawn_backoff.rs` (paused tokio time): one respawn per crash after its backoff, crash 11 stays down, the count restarts after a quiet window; each guard disable-verified red.
+- **Locked:** before, the arm spawned immediately and also scheduled a `RespawnG { crash_count: 0 }` that re-ran itself every 100 ms forever, so neither backoff nor escalation could take effect. The crash time uses `tokio::time::Instant` (a `std` instant ignores paused time, which hid the window bug from the test).
+- **Deferred / open:** none; `ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED` resolved.
+- **Confidence:** high; three tests, disable runs red, CI green.
+
+## 2026-10-13 — lance-graph PR #1538 (merged `4ceaab3`, branch `ccr-9f3b8075-74u47l-nal-w3`, head `12f3291`, 5 commits) — D-NALP-3: NAL revision as one grouped fold
+
+- **Added:** `nal::Revision` in `crates/lance-graph-nal`: groups evidence by the class its stamps define and folds stored `w`/`f` with `GroupCrossPowerSumsI32`; refuses overlapping stamps and evidence without provenance. `tests/w3.rs`, 11 tests against a scalar oracle and ONA pinned at `dc4efd0`, and the revision points OpenNARS printed for `revision_points.nal`.
+- **Locked:** the fold computes the exact `w = Σwᵢ` and caps only the result. ONA caps pairwise, so once evidence saturates its answer depends on arrival order (measured on one fixture: 104 positive-first, 151 negative-first; the fold gives 128 either way). Documented as a divergence and pinned.
+- **Deferred / open:** W4–W9 of the ONA program (per-row truth laws, inference over populations, the `NAL::narsese()` surface).
+- **Confidence:** high; disable runs red, oracle parity up to ONA's mid-fold saturation.
+
 ## 2026-10-13 — lance-graph PR #1536 (merged `2b28a19`, branch `docs/outer-membrane-graph-lab-20261013`, head `93b0993`, 5 commits) — docs: outer membrane graph lab, epoch-indexed temporal graph agenda, ONA → NAL/R2IL fold-method program
 
 - **Added:** three proposal documents under `docs/architecture/`: `OUTER_MEMBRANE_GRAPH_LAB_VERTICAL_SLICE.md` (ownership rule, callcenter/supervisor evidence table, a falsifiable two-node one-edge vertical slice), `EPOCH_TEMPORAL_GRAPH_RESEARCH_AGENDA.md` (E01–E20 exploration questions, three time axes, T0–T6 sequence), `ONA_NAL_R2IL_FOLD_METHOD_ASSIMILATION.md` (ONA source map, W3–W9 coding waves, falsifiers). No code.
