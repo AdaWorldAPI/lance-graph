@@ -7,6 +7,10 @@
 
 This note records a documentation-only decision and a demonstrable integration target. It does **not** declare an existing Redis service, a production REST gateway, full actor dispatch, or whole-chain D-CMR normalization. Paths below were read on `main` during preparation; links are navigational, not substitutes for compatibility or CI tests.
 
+## Companion: epoch-indexed graph timeline research
+
+The detailed temporal proposal and its **20 falsifiable exploration questions** live in [Epoch-indexed temporal graph: research agenda](EPOCH_TEMPORAL_GRAPH_RESEARCH_AGENDA.md). It covers existing `TemporalPov` and `VersionedGraph` machinery, the prior September delta/tombstone audit, three distinct clocks, half-open interval masks, sparse deltas versus checkpoints, NAL/kanban revision history, Rust/SIMD cost tests, authorization/backpressure, and KGExplorer-inspired time-slider projection. **No temporal graph implementation is claimed in this docs PR.**
+
 ## 1. Decision: coexistence, not blanket R2IL relocation
 
 - **OGAR remains authoritative for its `ogar-loco` / `ogar-r2il` toolchain and r2sleigh-oriented use cases.** The fact that its generic pieces are reusable does not authorize moving both crates into LanceGraph. Preserve the shared ABI / wire identities and avoid parallel incompatible definitions.
