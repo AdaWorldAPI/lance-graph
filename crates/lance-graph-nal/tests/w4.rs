@@ -41,13 +41,17 @@ fn induction_and_abduction_are_mirror_images() {
     assert_ne!(induction(f1, c1, f2, c2), abduction(f1, c1, f2, c2));
 }
 
-/// The round-once rule is half up: all-ones evidence gives w = 1, so
-/// c = 1/2 = 127.5 codes, which rounds to 128. Rounding down (or banker's
-/// rounding) gives 127 and fails here.
+/// The round-once rule is half up. All-ones evidence gives w = 1, so
+/// c = 1/2 = 127.5 codes, which rounds to 128; rounding down gives 127. That
+/// tie cannot reject ties-to-even (128 is even), so a second tie has an even
+/// lower integer: f1 = 195 gives c = 255·195/450 = 110.5 codes, 111 half up
+/// and 110 ties-to-even.
 #[test]
 fn a_tie_rounds_up() {
     assert_eq!(induction(255, 255, 255, 255), (255, 128));
     assert_eq!(abduction(255, 255, 255, 255), (255, 128));
+    assert_eq!(induction(195, 255, 255, 255), (255, 111));
+    assert_eq!(abduction(255, 255, 195, 255), (255, 111));
 }
 
 /// Zero evidence yields zero confidence for every law.
