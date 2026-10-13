@@ -101,8 +101,9 @@ pub mod procs;
 use std::cell::Cell;
 
 use lance_graph_mask_risc::{
-    execute_into, fuse, scratch_words_for, tile_words_for, BoolExpr, Foreign, FuseError, LaneKind,
-    MaskOp, Operand, Out, Planes, Pred, Program, Scratch, Terminal, Value,
+    execute_into, fuse, scratch_words_for, tile_words_for, BoolExpr, CrossPowerSums, Foreign,
+    FuseError, GroupKey, LaneKind, MaskOp, Operand, Out, Planes, Pred, Program, Scratch, Terminal,
+    Value,
 };
 use ogar_loco::{Dialect, FnIndex};
 use ogar_r2il::{GROUP_SUM, KEEP, MAX, MIN, R2IL_BASE, RANGE, SUM, VIA};
@@ -248,6 +249,7 @@ enum OutKind {
     None,
     Group,
     Keep,
+    CrossSums,
 }
 
 /// Interprets one loco body, building [`MaskOp`]s and RUNNING them at every
@@ -290,6 +292,10 @@ pub struct FoldDialect<'p> {
     /// demanded result when a body asks for the mask itself. `None` unless
     /// the dialect was built by [`Self::with_keep`].
     keep_sink: Option<&'p mut [u64]>,
+    /// Caller-owned sink for [`FoldDialect::fold_cross_power_sums`], one
+    /// [`CrossPowerSums`] per group; empty unless the dialect was built by
+    /// [`Self::with_cross_sums`]. Its length is the group universe K.
+    cross_sink: &'p mut [CrossPowerSums],
     /// The last fold program this dialect finalized and ran, kept so a test
     /// can compare it physically against `quack::lower`'s. Moved in after
     /// execution, never cloned.
@@ -331,6 +337,7 @@ impl<'p> FoldDialect<'p> {
             scratch: vec![0u64; cap],
             group_sink: &mut [],
             keep_sink: None,
+            cross_sink: &mut [],
             last_program: None,
             facade_passes: 0,
             programs_run: 0,
@@ -364,6 +371,58 @@ impl<'p> FoldDialect<'p> {
         let mut d = Self::new(planes, foreign);
         d.keep_sink = Some(sink);
         d
+    }
+
+    /// [`Self::new`], writing [`Self::fold_cross_power_sums`] results into the
+    /// caller's `sink`. Its length is the group universe K; the dialect
+    /// allocates nothing for it.
+    pub fn with_cross_sums(
+        planes: &'p Planes<'p>,
+        foreign: &'p Foreign<'p>,
+        sink: &'p mut [CrossPowerSums],
+    ) -> Self {
+        let mut d = Self::new(planes, foreign);
+        d.cross_sink = sink;
+        d
+    }
+
+    /// Grouped cross moments of two `I32` lanes over the mask on top of the
+    /// stack: pops the mask, folds `(lanes[x][i], lanes[y][i])` into group
+    /// `lanes[key][i]` of the lent sink as `n, Σx, Σy, Σx², Σy², Σxy`
+    /// (mask-risc `Terminal::GroupCrossPowerSumsI32`, keyed by a `U32` lane).
+    /// Pushes nothing; the sink is the result, like `GROUP_SUM`.
+    ///
+    /// Not an R2IL byte: the fold band names no cross-moment call. Like
+    /// [`Self::emit_pred`] it is a dialect method a procedure calls directly.
+    ///
+    /// # Errors
+    ///
+    /// [`FoldError::Underflow`] / [`FoldError::WrongOperandKind`] if the top
+    /// of the stack is not a mask, [`FoldError::StaleSlot`] for a slot of an
+    /// earlier fold, [`FoldError::Exec`] if mask-risc refuses the program (a
+    /// wrong lane kind, an empty sink).
+    pub fn fold_cross_power_sums(
+        &mut self,
+        key: u16,
+        x: u16,
+        y: u16,
+        stack: &mut Vec<Val>,
+    ) -> Result<(), FoldError> {
+        let m = fold_mask(stack.pop().ok_or(FoldError::Underflow(GROUP_SUM))?)
+            .ok_or(FoldError::WrongOperandKind(GROUP_SUM))?;
+        let mask = self.resolve_mask(m)?;
+        let terminal = Terminal::GroupCrossPowerSumsI32 {
+            mask,
+            key: GroupKey::Lane(key),
+            x,
+            y,
+        };
+        match self.finalize_and_run(terminal, OutKind::CrossSums)? {
+            Value::GroupCrossPowerSums => Ok(()),
+            other => {
+                panic!("cross-moment terminal shape guarantees GroupCrossPowerSums, got {other:?}")
+            }
+        }
     }
 
     /// The population-branch poison flag, if [`Dialect::truthy`] ever set
@@ -565,6 +624,7 @@ impl<'p> FoldDialect<'p> {
             OutKind::None => Out::None,
             OutKind::Group => Out::I64(self.group_sink),
             OutKind::Keep => Out::Mask(self.keep_sink.as_deref_mut().ok_or(FoldError::NoKeepSink)?),
+            OutKind::CrossSums => Out::CrossPowerSums(self.cross_sink),
         };
         let value = execute_into(&program, self.planes, self.foreign, &mut scratch, out)
             .map_err(FoldError::Exec);

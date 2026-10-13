@@ -340,6 +340,54 @@ Rules that follow, each enforced in W6:
 - Not yet: the ClassView `WideFieldMask` projection and the binder's mask
   (rest of D-NALP-1); W3 onwards.
 
+### Status 2026-10-13 (D-NALP-3, revision)
+
+- **Revision is one fold.** `nal::Revision::bind(bound, statement)` keeps one
+  mask-risc program: the statement's range, then
+  `GroupCrossPowerSumsI32 { key = evidence class, x = w, y = f }` into a
+  four-group sink. The commit law reads `Σw` (`sum_x`) and `Σw·f` (`sum_xy`,
+  `i128`) of group 0 and rounds once: `f = round(Σw·f / Σw)`,
+  `c = round(255 · Σw / (Σw + k · 2¹⁶))`, capped at ONA's `MAX_CONFIDENCE`
+  (0.99, code 252). `k = 1` (ONA `Config.h:168`). **Divergence from ONA,
+  kept on purpose:** the cap applies to the result only. ONA caps after every
+  pairwise step, so once its running confidence saturates its answer depends
+  on arrival order (10 × `(255,230)` then 10 × `(0,230)`: f = 104; reversed:
+  151). The fold is order-independent and keeps the exact `Σw` (f = 128);
+  pinned by `saturated_evidence_is_the_exact_sum_where_onas_fold_depends_on_order`
+  (codex P2 on #1538).
+- **The key is the evidential base, read as a group.** `Beliefs::seal_evidence`
+  takes `(belief, stamp)` pairs and classes each piece, per statement in sealed
+  order: 0 independent; 1 exact duplicate (same stamp set and truth as an
+  earlier independent piece, counted once); 2 overlapping (shares a root
+  without being a duplicate, or one stamp with two truths); 3 no stamp. Groups
+  2 and 3 must be empty or revision refuses (`DependentEvidence`,
+  `MissingProvenance`). A stamp naming one root twice is refused at seal (ONA
+  drops such events, `Memory.c:501`), which also refuses the stamp of ONA's
+  reasoningbench answer #9 (`[10,2,11,2,1]`, c = 0.815686). A population
+  sealed with `Beliefs::seal` (W2) has no stamps and never revises.
+- **§4 B kept, with one change.** The weight is stored at seal, `w =
+  round(2¹⁶ · c / (255 − c))` from the confidence code; code 255 is refused at
+  write. The group key is the evidence class, not the statement: the
+  statement is already the execution extent.
+- **No R2IL byte.** The fold band names no cross-moment call, so
+  `lance-graph-r2il` gains `FoldDialect::with_cross_sums` /
+  `fold_cross_power_sums`, a dialect method with the standing of `emit_pred`.
+- **Oracles.** ONA `Truth_Revision` transcribed from `Truth.c` at `dc4efd0`
+  (folded pairwise) and the three OpenNARS points of `revision_points.nal`.
+  Gate held: within one code of ONA on 60 random statements (at least 10 with
+  three or more pieces, at least one empty) and on the three points; `Σw` and `Σw·f` equal the integer
+  row sums exactly. Seven disable runs, each red on its named test: no overlap
+  refusal, overlap classed independent, duplicate classed independent, `w`
+  scale dropped (4 tests red), no provenance refusal, no repeated-root check,
+  no confidence cap.
+- **Differs from ONA by policy.** ONA's `Inference_RevisionAndChoice` keeps the
+  stronger of two overlapping beliefs (choice); this fold refuses instead.
+  Choice on overlap is not built.
+- **OPEN.** Revising every statement of a subject or class in one pass needs a
+  statement-ordinal key and a sink per statement; not built. The `w` lane is a
+  second reading of `c`; deltas that carry their own weight (D-HL-7) would
+  remove it. Not measured on the v4 arm yet.
+
 ## 5. Waves
 
 | Wave | D-id | Repo | Work | Gate (all must pass) |
