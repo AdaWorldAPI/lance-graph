@@ -43,6 +43,7 @@ pub mod csr_index;
 pub mod datafusion_planner;
 pub mod dev_s3_env;
 pub mod error;
+pub mod fold;
 pub mod graph;
 pub mod lance_native_planner;
 pub mod lance_vector_search;
