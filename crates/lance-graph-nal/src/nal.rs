@@ -8,18 +8,22 @@
 //! range.
 //!
 //! None of the operations here earns a byte (plan §4 A): `FN` is `None` for
-//! all of them.
+//! all of them. [`Revision`] folds through a dialect method rather than a
+//! byte ([`FoldDialect::fold_cross_power_sums`]).
 
 use std::ops::Range;
 
 use lance_graph_contract::ordered_lane::OrderedLaneWitness;
 use lance_graph_mask_risc::{
-    CompiledProgram, Foreign, LaneRef, Lowering, Planes, Pred, Program, Scratch, Value,
+    CompiledProgram, CrossPowerSums, Foreign, Lowering, Out, Planes, Pred, Program, Scratch, Value,
 };
 use lance_graph_r2il::{procs, FoldDialect, FoldError, Val, INT_S_LESS, LOAD, POP_COUNT};
 use ogar_loco::{Dialect, FnIndex};
 
-use crate::{Aperture, Bound, NalError, LANE_C};
+use crate::{
+    evidence, Aperture, Bound, NalError, Statement, HORIZON, LANE_C, LANE_EVIDENCE, LANE_F, LANE_W,
+    MAX_CONFIDENCE_CODE, WEIGHT_SCALE,
+};
 
 /// One NAL operation: its byte, if it earned one, and its procedure.
 pub trait NalOp {
@@ -65,7 +69,7 @@ impl Prepared {
     /// Run `O`'s procedure once over `extent` with `args` on the stack and keep
     /// the program.
     fn of<O: NalOp>(b: &Bound<'_>, args: &[i64], extent: Range<usize>) -> Result<Self, NalError> {
-        let lanes = [LaneRef::I32(&b.beliefs.f), LaneRef::I32(&b.beliefs.c)];
+        let lanes = b.lanes();
         let planes = Planes {
             n_rows: b.n_rows(),
             masks: &[],
@@ -120,7 +124,7 @@ impl Prepared {
         if b.witness() != self.witness {
             return Err(NalError::WrongPopulation);
         }
-        Ok(b.run(&self.program, scratch, self.extent.clone())?)
+        Ok(b.run(&self.program, scratch, self.extent.clone(), Out::None)?)
     }
 
     /// Run a counting query.
@@ -230,5 +234,165 @@ impl Choice {
     pub fn bind(b: &Bound<'_>, a: Aperture) -> Result<Prepared, NalError> {
         let (lo, hi) = b.range(a)?;
         Prepared::of::<Self>(b, &[i64::from(lo), i64::from(hi)], lo as usize..hi as usize)
+    }
+}
+
+/// NAL revision of one statement: its independent evidence pooled, `w = Σwᵢ`,
+/// `f = Σwᵢ·fᵢ / Σwᵢ`, `c = w / (w + k)`. One grouped cross-moment fold over
+/// the statement's range, keyed by the evidence class: group 0 is the
+/// independent evidence, the others are checked empty (overlap, no
+/// provenance) or reported (duplicates, counted once).
+pub struct Revision;
+
+impl NalOp for Revision {
+    const FN: Option<FnIndex> = None;
+    const ARITY: (u8, u8) = (2, 0);
+    /// `lo hi --`, the sink holding the moments. Calls: the range predicate,
+    /// then [`FoldDialect::fold_cross_power_sums`] with key = evidence class,
+    /// `x = w`, `y = f`.
+    fn lower(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
+        range(d, stack)?;
+        d.fold_cross_power_sums(LANE_EVIDENCE, LANE_W, LANE_F, stack)
+    }
+}
+
+/// A revised truth, with the exact sums it was rounded from once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Revised {
+    /// Frequency code, `round(Σw·f / Σw)`.
+    pub f: u8,
+    /// Confidence code, `round(255 · Σw / (Σw + k·WEIGHT_SCALE))`, capped at
+    /// [`MAX_CONFIDENCE_CODE`].
+    pub c: u8,
+    /// `Σw` of the independent evidence, at [`WEIGHT_SCALE`].
+    pub w: i64,
+    /// `Σw·f`, `f` in codes.
+    pub wf: i128,
+    /// Independent pieces pooled.
+    pub rows: u64,
+    /// Exact duplicates seen and counted once.
+    pub duplicates: u64,
+}
+
+/// `round(a / b)` for `a ≥ 0`, `b > 0`.
+fn round_div(a: i128, b: i128) -> i128 {
+    (2 * a + b) / (2 * b)
+}
+
+/// The commit law over the four evidence groups. Rounds once.
+fn commit(g: &[CrossPowerSums; evidence::CLASSES]) -> Result<Option<Revised>, NalError> {
+    let overlap = g[evidence::OVERLAP as usize].n;
+    if overlap > 0 {
+        return Err(NalError::DependentEvidence { rows: overlap });
+    }
+    let unprovenanced = g[evidence::NO_PROVENANCE as usize].n;
+    if unprovenanced > 0 {
+        return Err(NalError::MissingProvenance {
+            rows: unprovenanced,
+        });
+    }
+    let ind = &g[evidence::INDEPENDENT as usize];
+    if ind.sum_x <= 0 {
+        return Ok(None);
+    }
+    let w = i128::from(ind.sum_x);
+    let f = round_div(ind.sum_xy, w);
+    let c = round_div(255 * w, w + i128::from(HORIZON) * i128::from(WEIGHT_SCALE));
+    Ok(Some(Revised {
+        f: u8::try_from(f).unwrap_or(u8::MAX),
+        c: u8::try_from(c).unwrap_or(u8::MAX).min(MAX_CONFIDENCE_CODE),
+        w: ind.sum_x,
+        wf: ind.sum_xy,
+        rows: ind.n,
+        duplicates: g[evidence::DUPLICATE as usize].n,
+    }))
+}
+
+/// A revision bound to its statement's range, with the program its
+/// procedure produced.
+#[derive(Debug, Clone)]
+pub struct PreparedRevision {
+    program: CompiledProgram,
+    extent: Range<usize>,
+    witness: OrderedLaneWitness,
+}
+
+impl Revision {
+    /// Bind the statement's range and keep the fold.
+    ///
+    /// # Errors
+    ///
+    /// [`NalError`] if the witness or the procedure is refused.
+    pub fn bind(b: &Bound<'_>, st: Statement) -> Result<PreparedRevision, NalError> {
+        let (lo, hi) = b.range(Aperture::statement(b.class(), st))?;
+        let lanes = b.lanes();
+        let planes = Planes {
+            n_rows: b.n_rows(),
+            masks: &[],
+            lanes: &lanes,
+        };
+        let foreign = Foreign {
+            planes: &[],
+            lanes: &[],
+        };
+        let mut sink = [CrossPowerSums::default(); evidence::CLASSES];
+        let mut d = FoldDialect::with_cross_sums(&planes, &foreign, &mut sink);
+        let mut stack = vec![Val::Scalar(i64::from(lo)), Val::Scalar(i64::from(hi))];
+        Self::lower(&mut d, &mut stack)?;
+        if let Some(e) = d.poison() {
+            return Err(e.into());
+        }
+        match (stack.is_empty(), d.programs_run(), d.last_program()) {
+            (true, 1, Some(p)) => Ok(PreparedRevision {
+                program: CompiledProgram::new(p.clone()),
+                extent: lo as usize..hi as usize,
+                witness: b.witness(),
+            }),
+            _ => Err(NalError::NoAnswer),
+        }
+    }
+}
+
+impl PreparedRevision {
+    /// The scratch this revision needs. Allocate it once and reuse it.
+    ///
+    /// # Errors
+    ///
+    /// [`NalError::Exec`] if the program declares more slots than can exist.
+    pub fn scratch(&self, b: &Bound<'_>) -> Result<Scratch<'static>, NalError> {
+        Ok(Scratch::for_program(self.program.program(), b.n_rows())?)
+    }
+
+    /// The kept program.
+    pub fn program(&self) -> &Program {
+        self.program.program()
+    }
+
+    /// Run the fold and commit: the revised truth, `None` without evidence.
+    ///
+    /// # Errors
+    ///
+    /// [`NalError::WrongPopulation`] on another population;
+    /// [`NalError::DependentEvidence`] / [`NalError::MissingProvenance`] when
+    /// the statement holds evidence that cannot be revised exactly;
+    /// [`NalError::Exec`] if mask-risc refuses the program.
+    pub fn revise(
+        &self,
+        b: &Bound<'_>,
+        scratch: &mut Scratch<'_>,
+    ) -> Result<Option<Revised>, NalError> {
+        if b.witness() != self.witness {
+            return Err(NalError::WrongPopulation);
+        }
+        let mut sink = [CrossPowerSums::default(); evidence::CLASSES];
+        match b.run(
+            &self.program,
+            scratch,
+            self.extent.clone(),
+            Out::CrossPowerSums(&mut sink),
+        )? {
+            Value::GroupCrossPowerSums => commit(&sink),
+            _ => Err(NalError::NoAnswer),
+        }
     }
 }

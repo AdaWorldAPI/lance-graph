@@ -49,10 +49,22 @@
 //! other kind: declared at compile time through the consumer's `HotPlug` and
 //! checked against the row's classid. That path is not this crate.
 //!
+//! # Revision and evidential independence (W3)
+//!
+//! A population sealed with [`Beliefs::seal_evidence`] carries, per belief,
+//! its evidence weight `w = c / (1 − c)` as a fixed-point `I32` lane
+//! ([`weight`], scale [`WEIGHT_SCALE`], written once) and an evidence class
+//! (`U32`) computed across the rows of each statement from the stamps:
+//! independent, an exact duplicate of an earlier piece (same stamp, same
+//! truth: counted once), overlapping, or without provenance.
+//! [`nal::Revision`] is one grouped cross-moment fold keyed by that class; the
+//! commit law reads `Σw` and `Σw·f` of the independent group and refuses when
+//! the overlapping or unprovenanced group is not empty.
+//!
 //! # Not here yet
 //!
-//! Revision (W3), the per-row truth laws (W4), syllogisms (W5), the Narsese
-//! text front end (W6), and an argmax fold (which belief holds the maximum).
+//! The per-row truth laws (W4), syllogisms (W5), the Narsese text front end
+//! (W6), and an argmax fold (which belief holds the maximum).
 //! The term width is `u16` per tile: a vocabulary larger than 65,536 terms
 //! scales through the classid prefix, not by widening the tile.
 //!
@@ -64,11 +76,15 @@
 
 pub mod nal;
 
+pub use nal::Revised;
+
 use lance_graph_contract::canonical_node::NodeGuid;
 use lance_graph_contract::facet::{FacetCascade, SemanticAperture};
 use lance_graph_contract::ordered_lane::{OrderedLaneWitness, SealedFacetLane, WitnessError};
 use lance_graph_contract::temporal_pov::LanceVersion;
-use lance_graph_mask_risc::{execute_compiled, CompiledProgram, ExecError, LaneRef};
+use std::collections::{HashMap, HashSet};
+
+use lance_graph_mask_risc::{execute_compiled, CompiledProgram, ExecError, LaneRef, Out};
 
 /// The NAL copulas this reading stores. NAL-1 and NAL-2 (inheritance,
 /// similarity) and NAL-5 (implication, equivalence) statements over atomic
@@ -192,7 +208,53 @@ impl Aperture {
     }
 }
 
-/// A sealed belief population: the ordered NodeGuid lane and the truth lanes
+/// Fixed-point scale of the weight lane: a weight of 1 is stored as `2¹⁶`.
+pub const WEIGHT_SCALE: i32 = 1 << 16;
+
+/// The evidential horizon `k` of `c = w / (w + k)`. ONA's
+/// `TRUTH_EVIDENTIAL_HORIZON_INITIAL` (`Config.h:168` at `dc4efd0`).
+pub const HORIZON: i32 = 1;
+
+/// The highest confidence code revision answers: `round(255 · 0.99)`, ONA's
+/// `MAX_CONFIDENCE` (`Config.h:172`).
+pub const MAX_CONFIDENCE_CODE: u8 = 252;
+
+/// The stored weight of confidence code `c`: `round(WEIGHT_SCALE · c / (255
+/// − c))`, the evidence `w = c / (1 − c)` of `c / 255` at horizon 1. `None`
+/// for `c = 255`: a confidence of 1 has no finite weight.
+pub fn weight(c: u8) -> Option<i32> {
+    if c == 255 {
+        return None;
+    }
+    let (num, den) = (i64::from(WEIGHT_SCALE) * i64::from(c), 255 - i64::from(c));
+    i32::try_from((2 * num + den) / (2 * den)).ok()
+}
+
+/// Evidence classes of the class lane, read as the group key of revision.
+pub(crate) mod evidence {
+    /// Independent of every earlier piece of the statement.
+    pub const INDEPENDENT: u32 = 0;
+    /// The same stamp and truth as an earlier independent piece.
+    pub const DUPLICATE: u32 = 1;
+    /// Shares a root with an earlier piece without being its duplicate.
+    pub const OVERLAP: u32 = 2;
+    /// No stamp.
+    pub const NO_PROVENANCE: u32 = 3;
+    /// The group universe.
+    pub const CLASSES: usize = 4;
+}
+
+/// One piece of evidence: a belief and its stamp, the roots of the evidence it
+/// rests on (ONA's evidential base). An empty stamp is no provenance.
+#[derive(Debug, Clone, Copy)]
+pub struct Evidence<'a> {
+    /// The belief.
+    pub belief: Belief,
+    /// Its evidential base.
+    pub stamp: &'a [u64],
+}
+
+/// A sealed belief population: the ordered NodeGuid lane and the value lanes
 /// in the same order.
 #[derive(Debug, Clone)]
 pub struct Beliefs {
@@ -200,6 +262,10 @@ pub struct Beliefs {
     lane: SealedFacetLane,
     pub(crate) f: Vec<i32>,
     pub(crate) c: Vec<i32>,
+    /// Fixed-point evidence weight ([`weight`]); 0 where `c = 255`.
+    pub(crate) w: Vec<i32>,
+    /// Evidence class per row ([`evidence`]).
+    pub(crate) evidence: Vec<u32>,
 }
 
 impl Beliefs {
@@ -216,22 +282,71 @@ impl Beliefs {
         beliefs: &[Belief],
         version: LanceVersion,
     ) -> Result<Self, WitnessError> {
-        let mut rows: Vec<(FacetCascade, i32, i32)> = beliefs
+        let rows: Vec<Evidence<'_>> = beliefs
             .iter()
-            .map(|b| {
-                (
-                    guid(class, b.s, b.copula, b.p, b.id).facet(),
-                    i32::from(b.f),
-                    i32::from(b.c),
-                )
+            .map(|&belief| Evidence { belief, stamp: &[] })
+            .collect();
+        Self::seal_rows(class, &rows, version)
+    }
+
+    /// Seal `evidence` with its stamps, so the population can be revised.
+    /// Per statement, in sealed order, each piece is classed independent,
+    /// duplicate (same stamp set and truth as an earlier independent piece),
+    /// overlapping, or without provenance (empty stamp).
+    ///
+    /// # Errors
+    ///
+    /// [`NalError::UnboundedWeight`] for a confidence code of 255;
+    /// [`NalError::InvalidStamp`] for a stamp naming one root twice (ONA drops
+    /// such events at input, `Memory.c:501`); [`NalError::Witness`] past
+    /// `u32::MAX` rows.
+    pub fn seal_evidence(
+        class: u32,
+        evidence: &[Evidence<'_>],
+        version: LanceVersion,
+    ) -> Result<Self, NalError> {
+        for (i, e) in evidence.iter().enumerate() {
+            if weight(e.belief.c).is_none() {
+                return Err(NalError::UnboundedWeight { input: i });
+            }
+            let roots: HashSet<u64> = e.stamp.iter().copied().collect();
+            if roots.len() != e.stamp.len() {
+                return Err(NalError::InvalidStamp { input: i });
+            }
+        }
+        Ok(Self::seal_rows(class, evidence, version)?)
+    }
+
+    fn seal_rows(
+        class: u32,
+        rows: &[Evidence<'_>],
+        version: LanceVersion,
+    ) -> Result<Self, WitnessError> {
+        let mut rows: Vec<(FacetCascade, &Evidence<'_>)> = rows
+            .iter()
+            .map(|e| {
+                let b = &e.belief;
+                (guid(class, b.s, b.copula, b.p, b.id).facet(), e)
             })
             .collect();
         rows.sort_by(|a, b| a.0.cmp_numeric_projection(&b.0));
-        let f = rows.iter().map(|r| r.1).collect();
-        let c = rows.iter().map(|r| r.2).collect();
+        let f = rows.iter().map(|r| i32::from(r.1.belief.f)).collect();
+        let c = rows.iter().map(|r| i32::from(r.1.belief.c)).collect();
+        let w = rows
+            .iter()
+            .map(|r| weight(r.1.belief.c).unwrap_or(0))
+            .collect();
+        let evidence = classify(rows.iter().map(|r| r.1));
         let lane =
             SealedFacetLane::attest_sorted(rows.into_iter().map(|r| r.0).collect(), version)?;
-        Ok(Beliefs { class, lane, f, c })
+        Ok(Beliefs {
+            class,
+            lane,
+            f,
+            c,
+            w,
+            evidence,
+        })
     }
 
     /// The statement class.
@@ -260,6 +375,42 @@ impl Beliefs {
     }
 }
 
+/// The evidence class of each row, in sealed order. Pieces of one statement
+/// are contiguous there; a statement's roots are compared only with its own
+/// earlier pieces, because revision merges one statement.
+fn classify<'e>(rows: impl Iterator<Item = &'e Evidence<'e>>) -> Vec<u32> {
+    let mut out = Vec::new();
+    let mut current: Option<Statement> = None;
+    let mut roots: HashSet<u64> = HashSet::new();
+    let mut stamps: HashMap<Vec<u64>, (u8, u8)> = HashMap::new();
+    for e in rows {
+        let st = e.belief.statement();
+        if current != Some(st) {
+            current = Some(st);
+            roots.clear();
+            stamps.clear();
+        }
+        let class = if e.stamp.is_empty() {
+            evidence::NO_PROVENANCE
+        } else {
+            let mut key = e.stamp.to_vec();
+            key.sort_unstable();
+            match stamps.get(&key) {
+                Some(&truth) if truth == (e.belief.f, e.belief.c) => evidence::DUPLICATE,
+                Some(_) => evidence::OVERLAP,
+                None if e.stamp.iter().any(|r| roots.contains(r)) => evidence::OVERLAP,
+                None => {
+                    roots.extend(e.stamp.iter().copied());
+                    stamps.insert(key, (e.belief.f, e.belief.c));
+                    evidence::INDEPENDENT
+                }
+            }
+        };
+        out.push(class);
+    }
+    out
+}
+
 /// A belief population whose ordering witness has been validated.
 #[derive(Debug, Clone, Copy)]
 pub struct Bound<'a> {
@@ -267,8 +418,14 @@ pub struct Bound<'a> {
     witness: OrderedLaneWitness,
 }
 
-/// Lane index of `c` in the planes every NAL program runs over (`f` is lane 0).
+/// Lane index of `f` in the planes every NAL program runs over.
+pub(crate) const LANE_F: u16 = 0;
+/// Lane index of `c`.
 pub(crate) const LANE_C: u16 = 1;
+/// Lane index of the weight `w`.
+pub(crate) const LANE_W: u16 = 2;
+/// Lane index of the evidence class (`U32`).
+pub(crate) const LANE_EVIDENCE: u16 = 3;
 
 impl Bound<'_> {
     /// Row count.
@@ -300,14 +457,25 @@ impl Bound<'_> {
         self.witness
     }
 
-    /// Run a kept program over `extent`.
+    /// The value lanes, in lane-index order ([`LANE_F`] … [`LANE_EVIDENCE`]).
+    pub(crate) fn lanes(&self) -> [LaneRef<'_>; 4] {
+        [
+            LaneRef::I32(&self.beliefs.f),
+            LaneRef::I32(&self.beliefs.c),
+            LaneRef::I32(&self.beliefs.w),
+            LaneRef::U32(&self.beliefs.evidence),
+        ]
+    }
+
+    /// Run a kept program over `extent`, writing into `out`.
     pub(crate) fn run(
         &self,
         program: &CompiledProgram,
         scratch: &mut lance_graph_mask_risc::Scratch<'_>,
         extent: std::ops::Range<usize>,
+        out: Out<'_>,
     ) -> Result<lance_graph_mask_risc::Value, ExecError> {
-        let lanes = [LaneRef::I32(&self.beliefs.f), LaneRef::I32(&self.beliefs.c)];
+        let lanes = self.lanes();
         let planes = lance_graph_mask_risc::Planes {
             n_rows: self.n_rows(),
             masks: &[],
@@ -317,14 +485,7 @@ impl Bound<'_> {
             planes: &[],
             lanes: &[],
         };
-        execute_compiled(
-            &program.compiled(),
-            &planes,
-            &foreign,
-            scratch,
-            lance_graph_mask_risc::Out::None,
-            extent,
-        )
+        execute_compiled(&program.compiled(), &planes, &foreign, scratch, out, extent)
     }
 }
 
@@ -344,6 +505,27 @@ pub enum NalError {
     /// A prepared query was run on a population other than the one it was
     /// bound on: its kept range is in the other population's coordinates.
     WrongPopulation,
+    /// Revision met evidence that shares roots with an earlier piece of the
+    /// statement without being its duplicate; no exact revision exists.
+    DependentEvidence {
+        /// Overlapping pieces in the statement.
+        rows: u64,
+    },
+    /// Revision met evidence without a stamp; its independence is unknown.
+    MissingProvenance {
+        /// Unprovenanced pieces in the statement.
+        rows: u64,
+    },
+    /// Input `input` has confidence code 255: no finite weight.
+    UnboundedWeight {
+        /// Index into the sealed input.
+        input: usize,
+    },
+    /// Input `input` has a stamp naming one root twice.
+    InvalidStamp {
+        /// Index into the sealed input.
+        input: usize,
+    },
 }
 
 impl From<WitnessError> for NalError {

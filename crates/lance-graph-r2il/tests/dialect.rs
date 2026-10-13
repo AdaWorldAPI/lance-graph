@@ -235,6 +235,55 @@ fn keep_writes_the_selection_into_the_lent_sink() {
     assert_eq!(kept, (3..70).collect::<Vec<_>>());
 }
 
+/// FAILS IF: the cross-moment fold stops matching a row loop per group, folds
+/// rows outside the mask, or drops a group.
+#[test]
+fn cross_power_sums_match_the_row_loop_per_group() {
+    use lance_graph_mask_risc::CrossPowerSums;
+    let xs = lane();
+    let ys: Vec<i32> = (0..N).map(|i| (i % 7) as i32 - 3).collect();
+    let keys: Vec<u32> = (0..N).map(|i| (i % 3) as u32).collect();
+    let lanes = [LaneRef::I32(&xs), LaneRef::I32(&ys), LaneRef::U32(&keys)];
+    let planes = Planes {
+        n_rows: N,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign::NONE;
+    let mut sink = [CrossPowerSums::default(); 3];
+    {
+        let mut d = FoldDialect::with_cross_sums(&planes, &foreign, &mut sink);
+        let mut stack = vec![];
+        call(&mut d, RANGE, [40, 200, 0], &mut stack).expect("RANGE");
+        d.fold_cross_power_sums(2, 0, 1, &mut stack).expect("folds");
+        assert!(stack.is_empty(), "the sink is the result");
+        assert_eq!(d.programs_run(), 1);
+    }
+    for (g, got) in sink.iter().enumerate() {
+        let rows = (40..200).filter(|&i| keys[i] as usize == g);
+        let (mut n, mut sx, mut sy, mut sxy) = (0u64, 0i64, 0i64, 0i128);
+        for i in rows {
+            n += 1;
+            sx += i64::from(xs[i]);
+            sy += i64::from(ys[i]);
+            sxy += i128::from(xs[i]) * i128::from(ys[i]);
+        }
+        assert_eq!(
+            (got.n, got.sum_x, got.sum_y, got.sum_xy),
+            (n, sx, sy, sxy),
+            "group {g}"
+        );
+        assert!(n > 0);
+    }
+    // A scalar where the mask belongs is refused, not folded.
+    let mut sink = [CrossPowerSums::default(); 3];
+    let mut d = FoldDialect::with_cross_sums(&planes, &foreign, &mut sink);
+    assert_eq!(
+        d.fold_cross_power_sums(2, 0, 1, &mut vec![Val::Scalar(1)]),
+        Err(FoldError::WrongOperandKind(GROUP_SUM))
+    );
+}
+
 /// FAILS IF: the scratch buffer starts growing with the row count. It is
 /// sized by the tile, so 1,000 and 1,048,576 rows get the same buffer once
 /// both exceed one tile's worth only through the tile cap.
