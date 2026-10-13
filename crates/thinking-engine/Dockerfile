@@ -1,9 +1,13 @@
-FROM rust:1.98.1-bookworm AS builder
+FROM rust:1.99.0-bookworm AS builder
 # Production target (x86-64-v4) for x86_64 only: this image does not copy
 # .cargo, so the per-target variable is the only flag source, and it does not
 # apply when building for another architecture.
 ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=x86-64-v4"
 WORKDIR /app
+
+# thinking-engine path-deps the ndarray fork as a sibling (`../../../ndarray`
+# from crates/thinking-engine), so clone it next to /app at its default branch.
+RUN git clone --depth 1 https://github.com/AdaWorldAPI/ndarray.git /ndarray
 
 # Dependencies first (cached layer)
 COPY Cargo.toml ./
@@ -13,7 +17,8 @@ COPY crates/highheelbgz/Cargo.toml crates/highheelbgz/
 RUN mkdir -p crates/thinking-engine/src && echo "fn main() {}" > crates/thinking-engine/src/lib.rs \
     && mkdir -p crates/bgz-tensor/src && echo "" > crates/bgz-tensor/src/lib.rs \
     && mkdir -p crates/highheelbgz/src && echo "" > crates/highheelbgz/src/lib.rs \
-    && cargo build --release --manifest-path crates/thinking-engine/Cargo.toml 2>/dev/null || true
+    && cargo build --release --target "$(rustc -vV | sed -n 's/^host: //p')" \
+       --manifest-path crates/thinking-engine/Cargo.toml 2>/dev/null || true
 
 # Source code
 COPY crates/ crates/
@@ -28,8 +33,18 @@ RUN cd /app/crates/thinking-engine/data && \
     tar xzf /tmp/jina-reranker-v3-BF16-7lane.tar.gz && \
     rm /tmp/*.tar.gz
 
-# Build thinking engine
-RUN cargo build --release --manifest-path crates/thinking-engine/Cargo.toml
+# Build thinking engine. The runtime stage copies the `playground` example, so
+# build it by name: a plain `cargo build` builds no examples.
+# `--target <host triple>` keeps the v4 flags on the binary only. Without it
+# cargo also compiles build scripts and proc-macros for v4 and runs them
+# here, so a build host without AVX-512 would die with SIGILL mid-build.
+# The binary is copied back to the path the runtime stage reads.
+RUN T="$(rustc -vV | sed -n 's/^host: //p')" \
+    && cargo build --release --target "$T" \
+       --manifest-path crates/thinking-engine/Cargo.toml --example playground \
+    && mkdir -p crates/thinking-engine/target/release/examples \
+    && cp "crates/thinking-engine/target/$T/release/examples/playground" \
+       crates/thinking-engine/target/release/examples/
 
 # Runtime image
 FROM debian:bookworm-slim

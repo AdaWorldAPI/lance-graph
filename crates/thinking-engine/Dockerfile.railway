@@ -6,12 +6,16 @@
 # For ReaderLM-v2 HTML→markdown: download BF16 safetensors (3 GB) separately
 # The codebooks run standalone for reasoning at 5,676 queries/sec
 
-FROM rust:1.98.1-bookworm AS builder
+FROM rust:1.99.0-bookworm AS builder
 # Production target (x86-64-v4) for x86_64 only: this image does not copy
 # .cargo, so the per-target variable is the only flag source, and it does not
 # apply when building for another architecture.
 ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=x86-64-v4"
 WORKDIR /app
+
+# thinking-engine path-deps the ndarray fork as a sibling (`../../../ndarray`
+# from crates/thinking-engine), so clone it next to /app at its default branch.
+RUN git clone --depth 1 https://github.com/AdaWorldAPI/ndarray.git /ndarray
 
 # Copy workspace
 COPY Cargo.toml ./
@@ -22,8 +26,16 @@ ADD https://github.com/AdaWorldAPI/lance-graph/releases/download/v1.0.0-context-
 RUN cd /app/crates/thinking-engine/data && tar xzf /tmp/context-spine-v1.0.tar.gz && rm /tmp/*.tar.gz
 
 # Build thinking engine (release, no calibration feature = no candle = small binary)
-RUN cargo build --release --manifest-path crates/thinking-engine/Cargo.toml \
-    --example playground 2>/dev/null || true
+# `--target <host triple>` keeps the v4 flags on the binary only. Without it
+# cargo also compiles build scripts and proc-macros for v4 and runs them
+# here, so a build host without AVX-512 would die with SIGILL mid-build.
+# The binary is copied back to the path the runtime stage reads.
+RUN T="$(rustc -vV | sed -n 's/^host: //p')" \
+    && cargo build --release --target "$T" \
+       --manifest-path crates/thinking-engine/Cargo.toml --example playground \
+    && mkdir -p crates/thinking-engine/target/release/examples \
+    && cp "crates/thinking-engine/target/$T/release/examples/playground" \
+       crates/thinking-engine/target/release/examples/
 
 # Runtime
 FROM debian:bookworm-slim
