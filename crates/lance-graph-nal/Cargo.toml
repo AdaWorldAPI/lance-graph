@@ -20,6 +20,10 @@ lance-graph-r2il = { path = "../lance-graph-r2il" }
 # By git `main`, the coordinate `lance-graph-r2il` uses (one `ogar-loco`).
 ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 
+[dev-dependencies]
+# The in-tree scalar NARS truth formulas (zero dependencies), the W4 parity reference.
+causal-edge = { path = "../causal-edge" }
+
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }
 
