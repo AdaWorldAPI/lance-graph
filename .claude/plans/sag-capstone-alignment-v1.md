@@ -54,6 +54,10 @@ advance it is `ActionInvocation::commit_via`.
 **SCOPE.** The action shape only. The rewrite shape anchors on the rebuilt
 D-CMR fold binding (`classid × WideFieldMask → Compiled` program) and waits
 for it.
+A rewrite-shape `ProposedMethod` is then the output of concept-chain
+normalization: an equivalent, cheaper form of a chain, proven against the
+unrewritten form and a row oracle (rules in
+`entries/2026-10-12-session-reset-inventory.md`, "Concept chains").
 **BASIS.** The removed `glove-parity::method::EffectClass` documented that only
 OGAR's action gate runs `ExternalMutate`, so `Propose` sits in front of that
 gate. Read in code:
