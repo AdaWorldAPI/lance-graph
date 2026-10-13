@@ -11,6 +11,7 @@
 - **Locked:** Ruff is a source-structure oracle, never a semantic-equivalence oracle; ONA pin `dc4efd0`; execution classes are the shipped `EffectClass` names; receipts are content-addressed, not signed.
 - **Deferred / open:** `ProposedMethod` and the four-state status are not built (SAG Step 4); #1517's oracle tests F0, F7, F8 are vacuous or missing ("claimed, unverified"). Note: merged after #1524, so the `awareness` code the capstone anchors on is in backup, not on `main`.
 - **Confidence:** documentation only; index regeneration `--check` passes.
+- **Correction (2026-10-13):** the capstone's own stale-claims note ("'second hop refused' is wrong after #1518, #1520 and #1522") is itself stale: #1524 withdrew #1518's and #1520's method layer and #1522 closed unmerged, so on `main` no method-level second hop exists at all.
 
 ## 2026-10-12 — lance-graph PR #1524 (merged `ecb9d9a`, branch `ccr-9f3b8075-74u47l-reset`, head `9cfdf2a`, 1 commit) — D-CMR-RESET: class-method layer moved to backup
 
@@ -18,6 +19,7 @@
 - **Locked:** the layer was a second algebra beside the folds (fresh `Filter::cmp` scratch per call, no `Compiled`/`lower_fused`/resident planes) and slower than a row loop: `billable_hours` 430–480 µs vs 283 µs (1,048,576 rows, AVX-512, release). Hops were foreign-key reads; the graph has no foreign keys.
 - **Deferred / open:** the rebuild over the folds (first wave: D-NALP, #1525). Prior state on `backup/session-011BMJ-2026-10-12`; #1519, #1521, #1522 backed up as `-sagfix`, `-hops`, `-chain2`.
 - **Confidence:** high for the removal; supersedes the code of #1507, #1508, #1509, #1514, #1516, #1518, #1520.
+- **Correction (2026-10-13):** companion change AdaWorldAPI/ndarray#359 removed `mask_gather_chain_u32`; the rebuild target (from the PR body) is a class method as `classid × WideFieldMask →` one `Compiled` mask-risc fold over resident planes and coordinate ranges, with no per-call lowering or allocation.
 
 ## 2026-10-12 — lance-graph PR #1520 (merged `8ae5bce`, branch `ccr-9f3b8075-74u47l-mn`, head `ef27527`, 6 commits) — D-CMH-G1-4b: edge table as the anchor, distinct targets of a hop
 
@@ -31,6 +33,7 @@
 - **Added:** `Cond::Order` lowered to `Cmp::{Lt,Le,Gt,Ge}I32` (Quack) and `procs::and_cmp_i32` (R2IL); `Fold::Min`/`Max`; R2IL `MIN`/`MAX` wired onto mask-risc `MaskedMinI32`/`MaskedMaxI32` (no new opcode); empty selection answers `Extremum(None)`.
 - **Locked:** both frontends equal a row loop at n ∈ {1, 64, 65, 4097} and five thresholds; eight disable runs each red on its own test.
 - **Confidence:** the method-layer part is WITHDRAWN by #1524. The `lance-graph-r2il` `MIN`/`MAX` lowering survives on `main` (`tests/procs.rs::min_max_match_the_reference` present after the reset).
+- **Correction (2026-10-13):** the R2IL ordered comparison `procs::and_cmp_i32` and its test `ordered_compares_match_the_reference` also survive on `main`, not only `MIN`/`MAX`.
 
 ## 2026-10-12 — lance-graph PR #1516 (merged `c1ce262`, branch `ccr-9f3b8075-74u47l-rel2`, head `d746905`, 2 commits) — #1514 follow-up: refuse two populations of one relation target concept
 
@@ -47,6 +50,7 @@
 - **Added:** the methods of #1504's `BillableWorkEntry` projected into typed rows from the `MethodTable`; questions over them as Quack `Draft`s on mask-risc; candidate H1 with a measured cost gap; plan `software-awareness-graph-v1.md`.
 - **Locked:** one concept, one hop; no new opcode, Quack variant, engine or registry; nothing applies a transformation.
 - **Confidence:** code WITHDRAWN by #1524; the plan and the SAG research line (#1510–#1517, capstone #1523) remain.
+- **Correction (2026-10-13, measurement omitted before):** H1 was measured slower, not faster: fused program 603–617 µs vs scalar reference 348–379 µs (ratio 1.59–1.78, 1,048,576 rows), and the PR claims no speed-up. Missing pieces named there: `fused_ternlog` declines lane `Pred`s; `FusedFold` covers only `Count`/`Any`.
 
 ## 2026-10-12 — lance-graph PR #1508 (merged `5217049`, branch `ccr-9f3b8075-74u47l-gremlin`, head `772bb8e`, 9 commits) — D-CMH-G1: Gremlin steps as composable ClassId methods
 
@@ -70,6 +74,7 @@
 - **Locked:** measured on `lance-graph-glove-parity`: before `-C debuginfo=2 -C target-cpu=x86-64-v3`, after `-C target-cpu=native` and no debuginfo.
 - **Deferred / open:** (1) the native default plus `rust-cache` reused AVX-512 artifacts on runners without it and turned `dir-sim log in Lance` red with SIGILL; fixed in #1526 (merged `abc0a1f`). (2) The Dockerfiles and the wheel build pin x86_64 to v3; whether those internal pins stay is an open operator decision.
 - **Confidence:** high for the flags; the CI regression is the caveat above.
+- **Correction (2026-10-13, from the full PR body and commit `12cdfde`):** the PR body's "every workflow sets `RUSTFLAGS` with an explicit `-C target-cpu=x86-64-v3`" was false: `dir-sim-persist.yml` and `identity.yml` set none, and that is where the SIGILL appeared. The wheel pin is not in the body; it came in the second commit `12cdfde` (Codex P1 on `make publish`), as did replacing the global Docker `ENV RUSTFLAGS` with `config-v3.toml` / `CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS` so arm64 builds are untouched (Codex P2). Not recorded before: the two thinking-engine images had been building at generic x86-64 (SSE2) and now build at v3.
 
 ## 2026-10-09 — lance-graph PR #1432 (merged `d29d0aa`, branch `ccr-edc85bd9-89tiwe`, head `669fc42`, 7 commits) — D-SCF-CARE-PAIR-0: crossing counterfactuals, pairwise nogoods, folded chain relations
 
