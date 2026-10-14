@@ -427,6 +427,36 @@ reported and does not change the choice. If neither arm reads a point in
 under 1 microsecond at the reference cell, report that as a failure of the
 nanosecond target, not as a win for either arm.
 
+**Result (MEASURED 2026-10-14).** `lane_trie_probe`, built with
+`rustc -O -C target-cpu=native`, printed tier `v4 (avx512f)`; 4-core VM, one
+run. The run reached the 30-minute limit before its last two rows (T = 64,
+d = 100 %, w = 4, all lanes; w = 30 was skipped by the cap); every other cell,
+the reference cell included, completed. 5 tests (both arms against a
+brute-force oracle for point and range reads, precedence, drop on an
+uncovered key, rank order, empty lane-tables); 5 disable runs red.
+
+| reference cell T = 64, d = 10 %, w = 4, all lanes | P (per-lane) | S (shared) |
+|---|---|---|
+| Q1 bytes | 79,270,480 | 41,514,192 |
+| Q2 point read | 569,240 ns | 6,363 ns |
+| Q2 per trie-level step | 26.4 ns | 8.1 ns |
+| Q3 range, per emitted NodeGuid | 11,068 ns | 1,078 ns |
+
+- Rule: P is 89 times slower on Q2, 10 times on Q3 and 1.9 times larger, so
+  **S is chosen**. Neither arm reads a point under 1 microsecond at the
+  reference cell: **the nanosecond target fails for both**.
+- P is never cheaper with all lanes selected. With one lane selected it reads
+  points at about S's cost (3.3 to 7.5 microseconds at T = 64) and is faster
+  on ranges, because S walks every covered node to emit the few that carry
+  the lane.
+- Cost is set by tries descended times levels: at T = 64 a point read takes
+  up to 64 x 16 steps at 5 to 10 ns. The first 8 levels are the classid
+  chain, identical in every trie, so about half the steps carry no
+  information.
+- Not decided here: a single trie over all thoughts with a 64-bit thought
+  mask per node (one descent instead of 64), and taking the classid levels
+  out of the trie. Both change the arms and need a new pre-registration.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
