@@ -31,3 +31,7 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 [[example]]
 name = "holo_k_branch_probe"
 test = true
+
+[[example]]
+name = "holo_coord_probe"
+test = true
