@@ -97,6 +97,11 @@ test = true
 name = "revision_epistemic_writer_probe"
 test = true
 
+# D-HL-5/7 in memory: 64 thought tables, sparse slot deltas, merge on read.
+[[example]]
+name = "thought_layers_probe"
+test = true
+
 # D-GSO-6 recipe selector probe; tests run under `cargo test`.
 [[example]]
 name = "recipe_selector_probe"
