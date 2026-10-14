@@ -407,6 +407,23 @@ mod tests {
         assert_eq!(part, o_id(&r, t, Aperture { lo: 128, hi: 4_000 }));
     }
 
+    /// FAILS IF: a thought whose only coverage sits just outside the aperture,
+    /// in the same 64-row word as the aperture's first row, is counted.
+    #[test]
+    fn a_thought_just_outside_the_aperture_is_not_counted() {
+        let mut r = RowWords { w: vec![0u64; ROWS] };
+        r.w[99] = 1 << 5; // thought 5: one row, just below the aperture
+        r.w[3_000] = 1 << 6; // thought 6: the row just past the aperture end
+        r.w[200] = 1 << 7; // thought 7: inside
+        let c = transpose_rc(&r);
+        let a = Aperture { lo: 100, hi: 3_000 };
+        let t = u64::MAX;
+        assert_eq!(o_th(&r, t, a), 1);
+        assert_eq!(r_th(&r, t, a), 1);
+        assert_eq!(c_th(&c, t, a), 1);
+        assert_eq!(c_th(&c, t, Aperture { lo: 64, hi: 3_008 }), 3);
+    }
+
     /// FAILS IF: the thought selection is ignored (a one-thought selection
     /// must count fewer pairs than all 64).
     #[test]
