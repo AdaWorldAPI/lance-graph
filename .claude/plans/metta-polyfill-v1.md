@@ -65,8 +65,8 @@ band, the absolute seconds are not a primitive claim.
 
 ### 3.0 A Rust Datalog oracle (datafrog 2, measured 2026-10-14)
 
-`datafrog` (the semi-naive engine behind Polonius; no AdaWorldAPI fork exists,
-so the crates.io release is used) on the same generated programs, release,
+`datafrog` (the semi-naive engine behind Polonius), consumed from the fork
+`AdaWorldAPI/datafrog` (`master`, `edd7cfc`, version 2.0.1), on the same generated programs, release,
 `target-cpu=native`, program-printed tier `avx512f=true`, best of 5, three runs
 within 5–15 %. Relation construction (sorting) is charged. Counts asserted
 against the known answers, which match Hyperon's and PeTTa's.
@@ -83,7 +83,9 @@ ancestor query costs more per tuple than the join because a chain derives one
 tuple per semi-naive round, so per-round overhead dominates. These are
 per-tuple engine costs on hash-free sorted merges, not mask-risc primitives;
 they are the bar a folded lowering is compared against, not a production path.
-Probe source: local crate `/home/user/datalog-oracle-probe` (not committed).
+First run against the crates.io 2.0.1 release, re-run against the fork: every count
+identical, timings within the noise band (join 10⁶ 65.0 ns/pair; seeded ancestors
+10⁶ 0.31 s). Probe source: local crate `/home/user/datalog-oracle-probe` (not committed).
 
 ### 3.1 A second Hyperon trie bug (distinct from the fix already on the fork)
 

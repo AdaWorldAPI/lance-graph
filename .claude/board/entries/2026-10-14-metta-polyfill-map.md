@@ -19,7 +19,7 @@
   `fix-trie-key-value`, on which these runs were taken): an expression with ≥ 1,024 children passed to a MeTTa function aborts in
   `TrieKey::start_expr` (`hyperon-space/src/index/trie.rs:539`, `TK_MAX_EXPRESSION_SIZE = 1 << 10`);
   1,023 children works. This stopped the n = 10⁴ join.
-- Rust Datalog oracle: datafrog 2 (v4, best of 5) runs join 10⁶ in 65–69 ms (65–69 ns/pair) and the
+- Rust Datalog oracle: datafrog 2.0.1 from the fork `AdaWorldAPI/datafrog` (v4, best of 5) runs join 10⁶ in 65–69 ms (65–69 ns/pair) and the
   seeded ancestor query 10⁶ in 0.29 s; join_10000 in 0.5 ms against PeTTa 1.47 s and Hyperon > 600 s.
   Oracle and comparison bar only, never a production engine (hash/sort joins beside mask-risc).
 - Crate name: `lance-graph-metta` (one concern: front end + `Space` adapter); "cog" would mix in
