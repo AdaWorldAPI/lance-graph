@@ -1,3 +1,7 @@
+## 2026-10-14 — main after #1548 (merged)
+
+- **On `main` (#1548, merged `e7c5f790`):** D-NALP-4, exact truth codes for deduction, induction and abduction in `causal_edge::isa::truth::code`, packed by `execute` and `syllogize` (0 of 2³² rows off an independent oracle). Revision and synthesis keep the `f32` path. Board: entries `2026-10-14-isa-truth-exact-codes.md` and `2026-10-14-revision-layer-invariants.md` (Gadamer invariants G1–G7, test-pinned; Rubikon R1–R4, specified, tests open).
+
 ## 2026-10-13 — main after #1505, #1506, #1507–#1509, #1514, #1516, #1518, #1520, #1523, #1524, #1525, #1526, #1529, #1530, #1531, #1534, #1536, #1537, #1538, #1539, #1540, #1545, #1546 (merged)
 
 - **On `main`, live:** `.cargo/config.toml` defaults to `-Ctarget-cpu=native` with `config-v3.toml` as the portable baseline and `debug = 0` everywhere (#1505); `compute_dag_kahn` checks all 256 field positions (#1506); R2IL `MIN`/`MAX` lowering onto mask-risc (#1518, the part outside glove-parity).

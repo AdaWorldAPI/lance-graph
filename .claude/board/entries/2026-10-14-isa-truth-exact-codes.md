@@ -1,6 +1,6 @@
 # 2026-10-14 — Exact truth codes in `causal_edge::isa::truth` (D-NALP-4 harvest)
 
-**Status:** IN PR (branch `ccr-9f3b8075-74u47l-truth-exact`). Harvested from
+**Status:** MERGED (#1548, `e7c5f790`). Harvested from
 the draft #1544, which stays open as a reminder and is not merged.
 
 **DECISION:** the exact per-row truth law lives where NARS truth already
