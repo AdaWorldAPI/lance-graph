@@ -27,6 +27,8 @@ pub struct Relation2 {
     /// `valid`'s runs, recorded during ingest when the facts arrive in
     /// address order (`None` otherwise).
     pub declared_runs: Option<Vec<Run>>,
+    /// The order witness, checked once at ingest: `dst` non-decreasing.
+    pub monotone: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -77,11 +79,13 @@ impl Relation2 {
                 prev = *d;
             }
         }
+        let monotone = dst.windows(2).all(|w| w[0] <= w[1]);
         Ok(Relation2 {
             n,
             dst,
             valid,
             declared_runs: in_order.then_some(runs),
+            monotone,
         })
     }
 
@@ -186,7 +190,7 @@ impl Relation2 {
     /// The kept rows of `Plane(valid) AND Semijoin(dst, valid)` as intervals.
     /// `None` when the order witness fails: the caller uses the gather.
     pub fn kept_ranges(&self, valid_runs: &[Run]) -> Option<Vec<Run>> {
-        if !self.dst_monotone() {
+        if !self.monotone {
             return None;
         }
         Some(intersect(valid_runs, &self.preimage(valid_runs)))

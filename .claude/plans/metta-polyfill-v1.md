@@ -333,6 +333,51 @@ should not exceed G-clustered's. Reported per row and per pair, v4,
 program-printed tier, best of 5, three runs; ingest (including the
 monotonicity pass and, for R-declared, the run recording) reported separately.
 
+## 6d. D-MTP-1b results (2026-10-14)
+
+Probe `crates/lance-graph-metta/examples/join_range_probe.rs` (3 tests, shared
+fixture code in `examples/common/mod.rs`). v4 host, program-printed
+`avx512f=true`, release, best of 5, three runs; ranges span the three.
+
+**Correctness.** Every arm's pairs equal datafrog's (sorted) on F3, F4 and the
+scattered twins at n = 100, 1,000, 4,097; counts equal at every n up to 10⁶.
+The range path refuses the scattered (non-monotone) lane. Disable runs, after
+committing: (1) taking the preimage of `valid`'s runs without intersecting
+with `valid` itself fails F4 (`banded=true`) while F3 stays green; (2) taking
+`valid`'s runs without the preimage fails already on F3. Both as
+pre-registered. A fixture test pins that both halves of the intersection
+change the answer on F4.
+
+| n = 10⁶ | G-scattered count ns/row | G-clustered count ns/row | R-scan count ns/row | R-declared count ns/row | emit ns/pair G-clustered / R | datafrog ns/pair |
+|---|---|---|---|---|---|---|
+| F3 (999,995 pairs, 1 run) | 1.96–3.13 | 1.74–1.99 | 0.037–0.055 | 0.00010–0.00011 | 3.4–5.2 / 1.5–1.8 | 16–24 |
+| F4 (66,576 pairs, 4 runs) | 1.52–2.43 | 1.27–2.08 | 0.037–0.051 | 0.00026–0.00038 | 21–35 / 1.2–2.0 | 144–196 |
+
+Ingest is charged separately: 3.4–7.1 ns/row clustered, of which the
+monotonicity pass is 0.5–0.9 ns/row (scalar `windows(2)`), and 7.8–10.2 ns/row
+scattered. G-clustered's emission per pair on F4 is high because the gather
+pass runs over all 10⁶ rows for 66,576 pairs.
+
+**Against the pre-registration.**
+- Pairs identical; two disable runs red: met.
+- "R count far below a nanosecond per row": met. R-declared is
+  O(runs · log n), about 0.1–0.4 µs for the whole count at 10⁶, 3,000–24,000×
+  below the gather. R-scan pays the word scan of the plane (n/64 words) and
+  sits at 0.04–0.05 ns/row.
+- "G-clustered between G-scattered and R": met only barely. Clustering the
+  same gather program saves 11–36 %; the gather's per-row work, not its cache
+  misses, sets most of its cost at this size.
+- "R emission not above G-clustered": met (1.2–2.0 ns/pair; the remaining
+  cost is the dependent read `dst[dst[x]]`).
+- The fixture note "about depth·2/3 runs" was wrong: adjacent kept levels
+  merge, so F4 has one run per band of two levels (2 runs at 4,097, 4 at 10⁶).
+
+**Scope.** The range path needs the order witness; it is a probe-local flag
+set at ingest, not the contract's `OrderedLaneWitness`, which covers sealed
+facet lanes only. A scattered layout (F3s/F4s) has no range path and keeps
+the gather. Pair emission still reads `dst` twice per pair; a chained range
+(the second hop as a range too) is not built here.
+
 ## 7. Deliverables
 
 | D-id | scope | gate |
@@ -342,7 +387,7 @@ monotonicity pass and, for R-declared, the run recording) reported separately.
 | D-MTP-2 | `LanceSpace` adapter (`Space + SpaceMut`) for the non-recursive Datalog subset, bound as a named space; Hyperon's golden corpus (`hyperon-probe/golden`, 32 of 33 passing) rerun with facts moved into it | every golden file that passes today still passes; refusals named; the probe records whether the space received whole conjunctions or single conjuncts |
 | D-MTP-3 | recursive Datalog rules declared into `LanceSpace` → relalg `μ` through d′, queried by `match` over the derived relation | `anc_n` answers identical; no fixpoint state inside mask-risc |
 | D-MTP-4 | the §3.1 expression-width panic as a fix on the fork, test first (separate from `1ffdbd6`) | red before, green after; upstream only with the operator's word |
-| D-MTP-1b | the hop as a range (§6c): preimage of `valid`'s runs under a monotone `dst`, against the gather on clustered and scattered layouts | pairs == datafrog on F3/F4 and their scattered twins; two disable runs red; costs reported |
+| D-MTP-1b | the hop as a range (§6c): preimage of `valid`'s runs under a monotone `dst`, against the gather on clustered and scattered layouts | pairs == datafrog on F3/F4 and their scattered twins; two disable runs red; costs reported — **measured, §6d** |
 | D-MTP-6 | datafrog as the exact Rust oracle in D-MTP-1/3 probes and the `ruff_metta_spo` lowerable tag (test-only dependency) | answers identical to Hyperon and PeTTa as bags of pairs, not only counts |
 | D-MTP-5 | PeTTa as the second oracle in the probes (needs SWI-Prolog ≥ 9.3; 10.0.2 installed from the official PPA) | divergences between PeTTa and Hyperon recorded, never averaged |
 

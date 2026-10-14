@@ -93,7 +93,7 @@ mod tests {
                 let want = sorted(oracle(&f));
                 assert!(!want.is_empty());
                 let r = Relation2::ingest(n as usize, &f).unwrap();
-                assert!(r.dst_monotone());
+                assert!(r.dst_monotone() && r.monotone);
                 let declared = r.declared_runs.clone().expect("address order");
                 let scanned = r.scanned_runs();
                 assert_eq!(declared, scanned, "n={n} banded={banded}");
@@ -115,7 +115,7 @@ mod tests {
     fn a_non_monotone_lane_is_refused() {
         let s = scatter(1000, &tree(1000, true));
         let r = Relation2::ingest(1000, &s).unwrap();
-        assert!(!r.dst_monotone());
+        assert!(!r.dst_monotone() && !r.monotone);
         assert!(r.declared_runs.is_none());
         assert!(r.kept_ranges(&r.scanned_runs()).is_none());
     }
@@ -160,7 +160,7 @@ fn main() {
 
             let (r, t_ingest) = best(REPS, || Relation2::ingest(n as usize, &f).unwrap());
             let (rs, t_ingest_s) = best(REPS, || Relation2::ingest(n as usize, &s).unwrap());
-            let (_, t_mono) = best(REPS, || r.dst_monotone());
+            let (_, t_mono) = best(REPS, || std::hint::black_box(std::hint::black_box(&r).dst_monotone()));
 
             let (c, t_gc) = best(REPS, || r.count());
             let (cs, t_gs) = best(REPS, || rs.count());
