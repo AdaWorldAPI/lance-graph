@@ -188,8 +188,8 @@ fn c_pair(c: &ThoughtMasks, t: u64, a: Aperture) -> u64 {
     let mut total = 0u64;
     for &th in &ts[..n] {
         let m = &c.m[th as usize];
-        for wi in w0..w1 {
-            total += (m[wi] & a.word_mask(wi)).count_ones() as u64;
+        for (wi, &word) in m.iter().enumerate().take(w1).skip(w0) {
+            total += (word & a.word_mask(wi)).count_ones() as u64;
         }
     }
     total
@@ -209,22 +209,26 @@ fn c_persp(c: &ThoughtMasks, t: u64, row: usize) -> u32 {
 
 // ---------- oracle ----------
 
+#[cfg(test)]
 fn covers(r: &RowWords, row: usize, th: usize) -> bool {
     (r.w[row] >> th) & 1 == 1
 }
 
+#[cfg(test)]
 fn o_id(r: &RowWords, t: u64, a: Aperture) -> u64 {
     (a.lo..a.hi)
         .filter(|&row| (0..THOUGHTS).any(|th| (t >> th) & 1 == 1 && covers(r, row, th)))
         .count() as u64
 }
 
+#[cfg(test)]
 fn o_th(r: &RowWords, t: u64, a: Aperture) -> u64 {
     (0..THOUGHTS)
         .filter(|&th| (t >> th) & 1 == 1 && (a.lo..a.hi).any(|row| covers(r, row, th)))
         .count() as u64
 }
 
+#[cfg(test)]
 fn o_pair(r: &RowWords, t: u64, a: Aperture) -> u64 {
     let mut n = 0;
     for row in a.lo..a.hi {
@@ -274,9 +278,7 @@ fn thought_sel(k: usize, seed: u64) -> u64 {
 
 fn main() {
     println!("tier: {}", tier());
-    println!(
-        "d\t|T|\taperture\tquery\tR_ns\tC_ns\tR_ns_row\tC_ns_row\tanswer"
-    );
+    println!("d\t|T|\taperture\tquery\tR_ns\tC_ns\tR_ns_row\tC_ns_row\tanswer");
     let probes: Vec<usize> = (0..4096).map(|i| (mix(i as u64) as usize) % ROWS).collect();
     for &d_ppm in &[10_000u64, 100_000, 500_000] {
         let r = fixture(d_ppm, 0x5EED);
@@ -295,9 +297,16 @@ fn main() {
                 // A prefix range in the middle of the tile.
                 let lo = (ROWS / 2 / rows) * rows;
                 let a = Aperture { lo, hi: lo + rows };
-                type Q = (&'static str, fn(&RowWords, u64, Aperture) -> u64,
-                          fn(&ThoughtMasks, u64, Aperture) -> u64);
-                let qs: [Q; 3] = [("ID", r_id, c_id), ("TH", r_th, c_th), ("PAIR", r_pair, c_pair)];
+                type Q = (
+                    &'static str,
+                    fn(&RowWords, u64, Aperture) -> u64,
+                    fn(&ThoughtMasks, u64, Aperture) -> u64,
+                );
+                let qs: [Q; 3] = [
+                    ("ID", r_id, c_id),
+                    ("TH", r_th, c_th),
+                    ("PAIR", r_pair, c_pair),
+                ];
                 for (name, rf, cf) in qs {
                     let ans = rf(&r, t, a);
                     assert_eq!(ans, cf(&c, t, a), "{name}");
@@ -318,10 +327,16 @@ fn main() {
                 }
             }
             let rn = ns_per_call(|| {
-                probes.iter().map(|&p| r_persp(&r, black_box(t), p) as u64).sum()
+                probes
+                    .iter()
+                    .map(|&p| r_persp(&r, black_box(t), p) as u64)
+                    .sum()
             }) / probes.len() as f64;
             let cn = ns_per_call(|| {
-                probes.iter().map(|&p| c_persp(&c, black_box(t), p) as u64).sum()
+                probes
+                    .iter()
+                    .map(|&p| c_persp(&c, black_box(t), p) as u64)
+                    .sum()
             }) / probes.len() as f64;
             println!(
                 "{}%\t{}\t1\tPERSP\t{:.2}\t{:.2}\t-\t-\t-",
@@ -342,7 +357,10 @@ mod tests {
         vec![
             Aperture { lo: 0, hi: ROWS },
             Aperture { lo: 4096, hi: 8192 },
-            Aperture { lo: 32_768, hi: 33_024 },
+            Aperture {
+                lo: 32_768,
+                hi: 33_024,
+            },
             Aperture { lo: 100, hi: 3_000 },
         ]
     }
@@ -411,7 +429,9 @@ mod tests {
     /// in the same 64-row word as the aperture's first row, is counted.
     #[test]
     fn a_thought_just_outside_the_aperture_is_not_counted() {
-        let mut r = RowWords { w: vec![0u64; ROWS] };
+        let mut r = RowWords {
+            w: vec![0u64; ROWS],
+        };
         r.w[99] = 1 << 5; // thought 5: one row, just below the aperture
         r.w[3_000] = 1 << 6; // thought 6: the row just past the aperture end
         r.w[200] = 1 << 7; // thought 7: inside
