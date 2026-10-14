@@ -17,7 +17,7 @@ roots, resistance and contradictions); it never counts.
 | G3 | Gadamer, not Hegel: `unresolved_tension` grows by union and is never cleared. | `fusion_accumulates_tension_and_never_clears_prior_tension` |
 | G4 | The evidential effect is categorical (`IncreaseEligible` / `NoIncrease` / `Suspend`), deliberately coarser than a confidence. It is never replaced by a number. | the type `EvidentialEffect` |
 | G5 | The gate sits above the register: the register never sees a horizon, the gate never computes a truth value. The register alone would inflate an echo. | `gadamer_isa_revision.rs`: `the_register_alone_would_inflate_an_echo`, `new_independent_roots_are_revised` |
-| G6 | Eligibility is not acceptance: commit needs `IncreaseEligible` AND a counterfactual verdict `Necessary`; revision outputs stop before any world mutation. | `RevisionVerdict::is_acceptable`, `revision_verdict_alone_cannot_reach_commit` |
+| G6 | Eligibility is not acceptance: commit needs `IncreaseEligible` AND a counterfactual verdict `Necessary`; revision outputs stop before any world mutation. | `RevisionVerdict::is_acceptable`; `contract/src/kanban.rs`: `revision_verdict_alone_cannot_reach_commit` |
 | G7 | Revision is relative to a question: the horizon carries `question`, `language`, `grammar`, `codebook`, `lens` and `projected_claims` (the anticipated whole the parts are read against). | the type `InterpretiveHorizon` |
 
 ## 2. The layers, kept apart
