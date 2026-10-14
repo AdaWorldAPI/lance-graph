@@ -1104,23 +1104,31 @@ the runtime Blackboard. Keep them architecturally distinct.
 - **`Explore` subagent:** Sonnet default. Search is pattern matching.
   If the explore requires synthesis across many files (mapping an
   architecture), escalate to Opus.
-- **NEVER `haiku` for any subagent in this workspace** — with ONE narrow,
-  contract-gated exception: the **guarded-executor** role (run a pre-written,
-  `-p`-scoped bash/cargo card with explicit START/STOP, retry table, root-
-  diagnostic output discipline (true exit status preserved, complete output
-  retained, the FIRST relevant diagnostic block read in full — a short tail
-  is display only), one shared `target/`, and a mandatory append-only log
-  entry; never authors, decides, or edits any file but the log). See
-  `.claude/knowledge/tiered-agent-execution-protocol.md` for the full
-  contract. Outside that role the quality floor is Sonnet regardless of task
-  simplicity — Haiku remains forbidden for synthesis, drafting, review, and
-  any file edit.
+- **`haiku` for scoped, read-only harvest grindwork and guarded execution.**
+  DECISION (2026-10-14): Haiku is no longer on the forbidden list. It is the
+  default for cheap harvest discovery: one question over a closed, named
+  search space, returning candidates, counts or verbatim quotes with their
+  locations — never a conclusion. Four cards carry the contract:
+  `harvest-scout` (find candidates), `census-counter` (count, with the
+  command), `quote-harvester` (verbatim text with line numbers) and
+  `guarded-executor` (run a pre-written `-p`-scoped command card). Haiku
+  still does not edit or write source or docs, draft, review, synthesize or
+  decide; those stay with Sonnet and Opus. The orchestrator watches closely:
+  it Reads every harvested item it relies on, re-runs at least one reported
+  count per reply, and records hits and misses per run; a card that misses or
+  concludes twice on one kind of task is dropped back to Sonnet for that
+  kind. Full contract and supervision rules:
+  `.claude/knowledge/tiered-agent-execution-protocol.md` § Haiku harvest tier.
+  SCOPE: this workspace. REVISIT WHEN: the run ledger shows a miss rate that
+  makes the spot checks cost more than a Sonnet run, or Haiku is proposed for
+  edits.
 
 **Concrete test before spawning a subagent:**
 > "Does this agent have to read N sources and produce something that
 > only makes sense when those sources are held in mind together?"
 >
 > **Yes → Opus.** No (one source in, one shape out) → Sonnet.
+> Read-only and the answer is a list, a count or a quote → Haiku harvest card.
 
 **Settings baseline** (`.claude/settings.local.json`, gitignored):
 `alwaysThinkingEnabled: true`, `effortLevel: high`,

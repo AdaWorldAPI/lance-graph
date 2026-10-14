@@ -147,7 +147,9 @@ specialist judgment — they route, prime, and compose.
 
 Meta-agents run on Opus. Specialists run on Sonnet for single-source
 grindwork (draft-file-from-spec); Opus for multi-source accumulation.
-Never Haiku. See `../CLAUDE.md § Model Policy`.
+Haiku only through the four harvest/executor cards (`harvest-scout`,
+`census-counter`, `quote-harvester`, `guarded-executor`), read-only and
+supervised. See `../CLAUDE.md § Model Policy`.
 
 ## Session-Start Knowledge Bootload (per agent)
 
