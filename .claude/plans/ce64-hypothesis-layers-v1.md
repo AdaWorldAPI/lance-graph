@@ -311,6 +311,45 @@ when a thought only needs one slot.
 - Not yet: oracles in lanes (H4..H6), persistence (D-HL-7), the comparison
   report over all lanes.
 
+## Delta granularity: 16-byte slot or 512-byte row (pre-registered 2026-10-14)
+
+**Question (operator, 2026-10-14).** Should a thought's delta store the whole
+512-byte row image or only the changed 16-byte slots, when up to 10^9 folds
+land in up to 64k rows of 512 bytes? Written before the probe exists; a change
+after the run is a new dated section.
+
+**Arms.**
+- R (row image): per dirty row, the full 512-byte image, as `cycle_sink`
+  writes today.
+- S (slot delta): per dirty row, a 32-bit slot mask plus the changed 16-byte
+  slots, packed. S-known: the writer knows which slots it wrote. S-diff: the
+  mask is found by comparing the new row with the base.
+
+Both keyed by the same row id and merged on read against the same base.
+Folds accumulate wide in a resident accumulator per (row, slot) and are
+rounded once at seal (U2); the fold path is identical in both arms and is
+measured once to show it.
+
+**Grid.** 65,536 rows; slots written per dirty row k in {1, 2, 4, 8, 16, 31};
+dirty fraction d in {1 %, 10 %, 100 %}; 10^9 folds.
+
+**Metrics.** v4 arm only, tier printed by the probe, ns per element, median
+of 5 runs.
+- M1 bytes stored per seal (counted).
+- M2 ns per fold.
+- M3 seal ns per dirty row (R, S-known, S-diff).
+- M4 merge-on-read ns per row: full row and one slot.
+- M5 resident bytes for 64 tables (computed, not allocated).
+
+**Decision rule.**
+- S is the default if at k = 1, for every d: M1(S) <= M1(R) / 16,
+  M3(S-known) <= M3(R), and M4 one-slot(S) <= 2 x M4 one-slot(R).
+- Crossover k*: the smallest k where S's M3 + M4(full row) exceeds R's. A
+  table whose thought writes k >= k* slots per row stores row images. No
+  crossover up to k = 31 means S throughout.
+- Not measured here: Lance append bytes and time (in-memory probe). Both arms
+  make one Lance write per seal by construction.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
