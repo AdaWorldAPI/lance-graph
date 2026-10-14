@@ -285,6 +285,32 @@ diverge (first differing `seq`), which lanes revisit and where, and what each
 lane attended that no other lane did. Exploratory findings may motivate a new
 pre-registration; they never confirm a hypothesis in this one.
 
+## Placement and the first probe (2026-10-14)
+
+**DECISION (operator, 2026-10-14).** Saccades go into up to 64 tables; each
+table writes only its delta (sparse write) and is merged on read. Any change
+inside a 512-byte row causes a write. A thought's delta is placed either
+**globally**, in a table it owns alone, or **locally**, in one 16-byte slot
+(a tenant-sized lane) of a table shared with other thoughts, to save tables
+when a thought only needs one slot.
+
+**Probe:** `cognitive-shader-driver/examples/thought_layers_probe.rs`
+(`cargo test --example thought_layers_probe`). In memory only.
+- Table = `AlphaOverlay` (saccades) + per-row `RowDelta`: the XOR of the
+  slots that differ from the base, nothing else. Read = base XOR delta.
+- A slot-placed thought may write and read only its slot; the key slot never
+  changes; the 65th table is refused.
+- MEASURED (`cargo run --example thought_layers_probe`): 30 slot-placed
+  thoughts × 256 rows, one byte each, fit in 1 table and store 122,880 bytes
+  against 3,932,160 for full rows.
+- TEST-PINNED: 9 tests. Disable runs red: the key guard, the slot guard,
+  storing every slot instead of the changed ones, and reading another
+  thought's slots. Dropping the empty-delta check in `RowDelta::between`
+  stays green because `restrict` already drops empty deltas (redundant, not
+  a missing test).
+- Not yet: oracles in lanes (H4..H6), persistence (D-HL-7), the comparison
+  report over all lanes.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
