@@ -284,6 +284,55 @@ given to every engine. Symbol → address resolution through the label codebook
 is not charged to anyone here; one-to-many relations, recursion and the
 `Space` adapter are not covered.
 
+## 6c. D-MTP-1b pre-registration: the hop as a range (2026-10-14, before any code)
+
+**Question.** D-MTP-1's count costs 1.2–1.8 ns/row because the semijoin is a
+`Gather`: one dependent random read per row. When the link lane is monotone in
+row order, can the hop become interval arithmetic instead (the hop as a
+coordinate range, chained hops as intersections)?
+
+**Mechanism.** If `dst` is non-decreasing over rows, the rows whose target lies
+in `[a, b)` are exactly `[pp(dst < a), pp(dst < b))` (`pp` = `partition_point`,
+as in `teleport_probe`). So `Semijoin(dst, valid)` restricted to rows in
+`valid` is the intersection of two interval sets: `valid`'s runs, and the
+preimages of `valid`'s runs. The count is the length of that intersection;
+the pairs `(x, dst[dst[x]])` are emitted by walking the intervals.
+
+**Precondition, checked not assumed.** Monotonicity of `dst` is verified once at
+ingest (an O(n) pass, charged to ingest) and recorded as a flag; the range path
+refuses a lane without it and the caller falls back to the gather. This is a
+probe-local witness, not the contract's `OrderedLaneWitness` (which covers
+sealed facet lanes only, `teleport-probe` OPEN item).
+
+**Fixtures** (generated, n = 10³..10⁶):
+- F3 BFS tree, fanout 4: `parent(x, (x-1)/4)` for every `x ≥ 1` (root has no
+  fact); `dst` monotone; `valid` is one run.
+- F4: F3 without the facts of nodes whose depth is a multiple of 3; `valid` is
+  one run per kept level band (about depth·2/3 runs), so both the source and the
+  target restriction bite.
+- F3s / F4s: the same facts under a random permutation of addresses (the
+  scattered control; no range path exists there).
+
+**Arms.**
+- G-scattered: D-MTP-1's gather program on F3s/F4s.
+- G-clustered: the same gather program on F3/F4 (same algebra, local reads).
+- R-scan: `valid`'s runs extracted from the plane by a word scan, then the
+  interval path.
+- R-declared: `valid`'s runs recorded at ingest (no scan), then the interval path.
+
+**Oracle and tests.** datafrog pairs (sorted) equal every arm's pairs at every
+n; counts equal. The range path refuses a non-monotone `dst`. Disable runs
+(commit first, assert each patch applied once): (1) intersect with the
+preimage runs only, skipping `valid`'s own runs → F4 red, F3 green; (2) take
+`valid`'s runs as the answer, skipping the preimage → F4 red.
+
+**Expected, as a direction only (no threshold before the run).** R count costs
+O(runs · log n), far below a nanosecond per row at 10⁶; G-clustered sits
+between G-scattered and R; pair emission on the range path is sequential and
+should not exceed G-clustered's. Reported per row and per pair, v4,
+program-printed tier, best of 5, three runs; ingest (including the
+monotonicity pass and, for R-declared, the run recording) reported separately.
+
 ## 7. Deliverables
 
 | D-id | scope | gate |
@@ -293,6 +342,7 @@ is not charged to anyone here; one-to-many relations, recursion and the
 | D-MTP-2 | `LanceSpace` adapter (`Space + SpaceMut`) for the non-recursive Datalog subset, bound as a named space; Hyperon's golden corpus (`hyperon-probe/golden`, 32 of 33 passing) rerun with facts moved into it | every golden file that passes today still passes; refusals named; the probe records whether the space received whole conjunctions or single conjuncts |
 | D-MTP-3 | recursive Datalog rules declared into `LanceSpace` → relalg `μ` through d′, queried by `match` over the derived relation | `anc_n` answers identical; no fixpoint state inside mask-risc |
 | D-MTP-4 | the §3.1 expression-width panic as a fix on the fork, test first (separate from `1ffdbd6`) | red before, green after; upstream only with the operator's word |
+| D-MTP-1b | the hop as a range (§6c): preimage of `valid`'s runs under a monotone `dst`, against the gather on clustered and scattered layouts | pairs == datafrog on F3/F4 and their scattered twins; two disable runs red; costs reported |
 | D-MTP-6 | datafrog as the exact Rust oracle in D-MTP-1/3 probes and the `ruff_metta_spo` lowerable tag (test-only dependency) | answers identical to Hyperon and PeTTa as bags of pairs, not only counts |
 | D-MTP-5 | PeTTa as the second oracle in the probes (needs SWI-Prolog ≥ 9.3; 10.0.2 installed from the official PPA) | divergences between PeTTa and Hyperon recorded, never averaged |
 

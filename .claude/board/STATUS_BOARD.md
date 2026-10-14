@@ -6,6 +6,7 @@ Plan: `.claude/plans/metta-polyfill-v1.md`. Proposed crate `lance-graph-metta` (
 |---|---|---|---|
 | **D-MTP-0** | Adoption map, MeTTa-as-IR verdict, PeTTa vs Hyperon measurements, trie panic ≥ 1,024 children | Done 2026-10-14 (entry `2026-10-14-metta-polyfill-map.md`) | — |
 | **D-MTP-1** | Two-hop join lowered by hand through Quack `Semijoin` (relalg has no hop), n = 10²..10⁶, v4 | Measured 2026-10-14: pairs == datafrog at every n, counts == Hyperon/PeTTa; at 10⁶ emit 4.0–5.7 ns/pair vs datafrog 59–71 (7.2–9.6× with ingest charged per emitted pair); count 1.2–1.8 ns/row, the random `Gather` read, not sub-ns as expected | == oracles; two disable runs red as pre-registered |
+| **D-MTP-1b** | The hop as a range: preimage of `valid`'s runs under a monotone `dst` vs the gather, clustered and scattered | In progress (pre-registered §6c) | == datafrog; two disable runs red; costs reported |
 | **D-MTP-2** | `LanceSpace` (`Space + SpaceMut`) as a named space for the non-recursive Datalog subset; golden corpus rerun | Queued (not authorized) | 32/33 golden files still pass; refusals named; whole-conjunction vs per-conjunct calls recorded |
 | **D-MTP-3** | Recursive Datalog rules → relalg μ through the external driver d′ | Queued (not authorized) | `anc_n` answers identical; no fixpoint state in mask-risc |
 | **D-MTP-4** | Fork fix for the expression-width trie panic (≥ 1,024 children), test first; distinct from the id-decoding fix `1ffdbd6` | Queued (needs operator's word) | red before, green after |
