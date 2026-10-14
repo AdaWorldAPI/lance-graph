@@ -35,3 +35,7 @@ test = true
 [[example]]
 name = "holo_coord_probe"
 test = true
+
+[[example]]
+name = "holo_interval_probe"
+test = true
