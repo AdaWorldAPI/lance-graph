@@ -1,3 +1,13 @@
+## D-WAL — `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path (2026-10-14)
+
+Plan: `.claude/plans/wal-shootout-v1.md`. Feeds D-LNC-7; decides nothing.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-WAL-1** | V1 SIGKILL atomicity, V2 acknowledged ⇒ durable, V3 idempotent resubmit, V4 read horizon; both arms | Queued (pre-registered) | no partial cycle, sweep brackets the boundary; no acknowledged cycle lost after the replay read; V3/V4 behaviour recorded |
+| **D-WAL-2** | commit p50/p99 and ns/row at N = 64 / 1,024 / 8,192; disk, files, versions/generations, full-scan latency after 200 cycles | Queued (pre-registered) | numbers with tier; no threshold |
+| **D-WAL-3** | 60-minute soak per arm, CSV every 30 s | Queued (pre-registered) | drift, growth and RSS reported |
+
 ## D-MTP — Hyperon/MeTTa over the masking-algebra polyfill (2026-10-14)
 
 Plan: `.claude/plans/metta-polyfill-v1.md`. Proposed crate `lance-graph-metta` (not created).
