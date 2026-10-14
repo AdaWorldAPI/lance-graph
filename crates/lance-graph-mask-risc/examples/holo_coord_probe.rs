@@ -18,8 +18,8 @@ use std::time::Instant;
 
 use lance_graph_mask_risc::exec::{execute_compiled, Scratch};
 use lance_graph_mask_risc::{
-    touched_words, words_for, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program,
-    Terminal, Value,
+    touched_words, words_for, CompiledProgram, Foreign, LaneRef, MaskOp, Operand, Out, Planes,
+    Pred, Program, Terminal, Value,
 };
 
 const N: usize = 65_536;
@@ -53,8 +53,18 @@ fn count(v: Value) -> u64 {
     }
 }
 
-fn run(p: &Program, planes: &Planes<'_>, s: &mut Scratch<'_>, ext: std::ops::Range<usize>) -> u64 {
-    count(execute_compiled(&p.compile(), planes, &Foreign::NONE, s, Out::None, ext).expect("run"))
+/// Lowering recognition, once, outside any timed path.
+fn cp(p: Program) -> CompiledProgram {
+    CompiledProgram::new(p)
+}
+
+fn run(
+    p: &CompiledProgram,
+    planes: &Planes<'_>,
+    s: &mut Scratch<'_>,
+    ext: std::ops::Range<usize>,
+) -> u64 {
+    count(execute_compiled(&p.compiled(), planes, &Foreign::NONE, s, Out::None, ext).expect("run"))
 }
 
 /// Median of 11 runs, ns per call.
@@ -88,6 +98,16 @@ fn occupancy(density_pct: u64, seed: u64) -> Vec<u64> {
         if mix(seed ^ r as u64) % 100 < density_pct {
             o[r / 64] |= 1 << (r % 64);
         }
+    }
+    o
+}
+
+/// The occupancy plane packed from a per-row presence lane: the maintenance
+/// step that produces the resident mask both Q1 arms read (charged).
+fn pack_occupancy(present: &[u8]) -> Vec<u64> {
+    let mut o = vec![0u64; W];
+    for (r, &b) in present.iter().enumerate() {
+        o[r / 64] |= u64::from(b & 1) << (r % 64);
     }
     o
 }
@@ -161,6 +181,36 @@ fn coverage(seed: u64) -> (Vec<u64>, Vec<Vec<u64>>) {
         }
     }
     (w, m)
+}
+
+/// Per-thought planes from row words (charged when row words are stored).
+fn planes_from_words(w: &[u64]) -> Vec<Vec<u64>> {
+    let mut m = vec![vec![0u64; W]; THOUGHTS];
+    for (r, &word) in w.iter().enumerate() {
+        let mut b = word;
+        while b != 0 {
+            let t = b.trailing_zeros() as usize;
+            b &= b - 1;
+            m[t][r / 64] |= 1 << (r % 64);
+        }
+    }
+    m
+}
+
+/// Row words from per-thought planes (charged when planes are stored).
+fn words_from_planes(m: &[Vec<u64>]) -> Vec<u64> {
+    let mut w = vec![0u64; N];
+    for (t, plane) in m.iter().enumerate() {
+        for (wi, &word) in plane.iter().enumerate() {
+            let mut b = word;
+            while b != 0 {
+                let r = wi * 64 + b.trailing_zeros() as usize;
+                b &= b - 1;
+                w[r] |= 1 << t;
+            }
+        }
+    }
+    w
 }
 
 fn q2_prog(t: u16, row: usize) -> Program {
@@ -377,7 +427,7 @@ struct Q3 {
 }
 
 impl Q3 {
-    fn scan(&self, g: u32, lo: usize, hi: usize, t: Option<i32>, s: &mut Scratch<'_>) -> u64 {
+    fn scan(&self, prog: &CompiledProgram, lo: usize, hi: usize, s: &mut Scratch<'_>) -> u64 {
         let lanes: [LaneRef<'_>; SLOTS + 1] = std::array::from_fn(|j| {
             if j < SLOTS {
                 LaneRef::U32(&self.m.lanes[j])
@@ -390,14 +440,14 @@ impl Q3 {
             masks: &[],
             lanes: &lanes,
         };
-        run(&q3_scan(g, lo, hi, t), &planes, s, lo..hi)
+        run(prog, &planes, s, lo..hi)
     }
     fn inverse_planes(
         &self,
         g: u32,
+        prog: &CompiledProgram,
         lo: usize,
         hi: usize,
-        t: Option<i32>,
         s: &mut Scratch<'_>,
     ) -> u64 {
         let masks = [self.gp[g as usize].as_slice()];
@@ -407,7 +457,7 @@ impl Q3 {
             masks: &masks,
             lanes: &lanes,
         };
-        run(&q3_plane(lo, hi, t), &planes, s, lo..hi)
+        run(prog, &planes, s, lo..hi)
     }
 }
 
@@ -421,9 +471,21 @@ fn main() {
         perm.swap(i, mix(0xFEED ^ i as u64) as usize % (i + 1));
     }
     println!("# Q1 identity[$prefix].count()");
-    println!("occ\tp\trows\tR_ns\tS_ns\tR_words_read\tS_rows_read\tanswer");
+    println!("occ\tp\trows\tR_ns\tS_ns\tR_words_read\tS_rows_read\tanswer\tR_total_N1\tS_total_N1\tR_total_N100\tS_total_N100");
     for &occ in &[100u64, 30] {
         let o = occupancy(occ, 7);
+        let present: Vec<u8> = (0..N)
+            .map(|r| ((o[r / 64] >> (r % 64)) & 1) as u8)
+            .collect();
+        let t0 = Instant::now();
+        let o2 = black_box(pack_occupancy(&present));
+        let o_ns = t0.elapsed().as_nanos() as f64;
+        assert_eq!(o2, o, "packed occupancy");
+        println!(
+            "# occupancy {occ}%: plane built from a presence lane in {o_ns:.0} ns ({:.2} ns/row, {} KiB), charged to both arms",
+            o_ns / N as f64,
+            W * 8 / 1024
+        );
         for &p in &[1u32, 2, 3] {
             let pv = (1u64 << (4 * p)) / 2 + 3;
             let (lo, hi) = prefix_rows(p, pv);
@@ -434,8 +496,8 @@ fn main() {
                 masks: &masks,
                 lanes: &lanes,
             };
-            let (pr, ps) = (q1_range(lo, hi), q1_sweep(p, pv));
-            let mut s = Scratch::for_program(&ps, N).expect("scratch");
+            let mut s = Scratch::for_program(&q1_sweep(p, pv), N).expect("scratch");
+            let (pr, ps) = (cp(q1_range(lo, hi)), cp(q1_sweep(p, pv)));
             let want = q1_oracle(&keys, &o, p, pv);
             let r = run(&pr, &planes, &mut s, 0..N);
             let sw = run(&ps, &planes, &mut s, 0..N);
@@ -450,9 +512,13 @@ fn main() {
                 black_box(run(&ps, &planes, &mut s, 0..N));
             });
             println!(
-                "{occ}%\t{p}\t{}\t{rn:.1}\t{sn:.1}\t{}\t{N}\t{want}",
+                "{occ}%\t{p}\t{}\t{rn:.1}\t{sn:.1}\t{}\t{N}\t{want}\t{:.0}\t{:.0}\t{:.0}\t{:.0}",
                 hi - lo,
-                touched_words(lo as u32, hi as u32).len()
+                touched_words(lo as u32, hi as u32).len(),
+                o_ns + rn,
+                o_ns + sn,
+                o_ns / 100.0 + rn,
+                o_ns / 100.0 + sn
             );
         }
     }
@@ -470,8 +536,8 @@ fn main() {
             lanes: &lanes,
         };
         let mut s = Scratch::for_program(&q1_sweep(p, pv), N).expect("scratch");
-        let r = run(&q1_range(lo, hi), &planes, &mut s, 0..N);
-        let sw = run(&q1_sweep(p, pv), &planes, &mut s, 0..N);
+        let r = run(&cp(q1_range(lo, hi)), &planes, &mut s, 0..N);
+        let sw = run(&cp(q1_sweep(p, pv)), &planes, &mut s, 0..N);
         let want = q1_oracle(&perm, &o, p, pv);
         assert_eq!(sw, want);
         assert_ne!(
@@ -485,6 +551,13 @@ fn main() {
 
     // ---- Q2 ----
     let (w, m) = coverage(11);
+    let t0 = Instant::now();
+    let m2 = black_box(planes_from_words(&w));
+    let m_ns = t0.elapsed().as_nanos() as f64;
+    let t0 = Instant::now();
+    let w2 = black_box(words_from_planes(&m));
+    let w_ns = t0.elapsed().as_nanos() as f64;
+    assert_eq!((&m2, &w2), (&m, &w), "rebuilt coverage");
     let probes: Vec<usize> = (0..1024).map(|i| mix(i as u64) as usize % N).collect();
     let thought_masks: [&[u64]; THOUGHTS] = std::array::from_fn(|t| m[t].as_slice());
     let planes = Planes {
@@ -492,11 +565,11 @@ fn main() {
         masks: &thought_masks,
         lanes: &[],
     };
-    let progs: Vec<Vec<Program>> = probes[..16]
+    let mut s = Scratch::for_program(&q2_prog(0, 0), N).expect("scratch");
+    let progs: Vec<Vec<CompiledProgram>> = probes[..16]
         .iter()
-        .map(|&row| (0..THOUGHTS as u16).map(|t| q2_prog(t, row)).collect())
+        .map(|&row| (0..THOUGHTS as u16).map(|t| cp(q2_prog(t, row))).collect())
         .collect();
-    let mut s = Scratch::for_program(&progs[0][0], N).expect("scratch");
     for (i, &row) in probes[..16].iter().enumerate() {
         let want = u64::from(w[row].count_ones());
         let viap: u64 = progs[i]
@@ -540,6 +613,23 @@ fn main() {
     }) / 16.0;
     println!("# Q2 identity[$node].thoughts($all).count(), ns per identity");
     println!("W (row word popcount) {wn:.2}\tB (64 plane bit reads) {bn:.2}\tP (64 mask-risc programs) {pn:.0}");
+    println!(
+        "# construction (charged): planes from row words {:.0} ns ({:.2} ns/row), row words from planes {:.0} ns ({:.2} ns/row)",
+        m_ns,
+        m_ns / N as f64,
+        w_ns,
+        w_ns / N as f64
+    );
+    for (stored, wc, mc) in [("row words", 0.0, m_ns), ("planes", w_ns, 0.0)] {
+        for q in [1.0f64, 100.0] {
+            println!(
+                "# total per identity, {stored} stored, N = {q:.0}: W {:.1}  B {:.1}  P {:.0}",
+                wc / q + wn,
+                mc / q + bn,
+                mc / q + pn
+            );
+        }
+    }
 
     // ---- Q3 ----
     println!("# Q3 reverse memberOf");
@@ -602,23 +692,26 @@ fn main() {
             ("Q3c reverse(g)&(v<t)", 0, N, Some(100)),
         ];
         for (name, lo, hi, t) in shapes {
-            for &g in &groups[..32] {
+            let scans: Vec<CompiledProgram> =
+                groups.iter().map(|&g| cp(q3_scan(g, lo, hi, t))).collect();
+            let plane_prog = cp(q3_plane(lo, hi, t));
+            for (i, &g) in groups[..32].iter().enumerate() {
                 let want = q3_oracle(&q.m, g, lo, hi, t);
-                assert_eq!(q.scan(g, lo, hi, t, &mut s), want, "{name} scan g={g}");
+                assert_eq!(q.scan(&scans[i], lo, hi, &mut s), want, "{name} scan g={g}");
                 assert_eq!(
                     q.csr.count(g, lo, hi, t.map(|t| (q.m.v.as_slice(), t))),
                     want,
                     "{name} csr"
                 );
                 assert_eq!(
-                    q.inverse_planes(g, lo, hi, t, &mut s),
+                    q.inverse_planes(g, &plane_prog, lo, hi, &mut s),
                     want,
                     "{name} planes"
                 );
             }
             let sn = time(|| {
-                for &g in &groups {
-                    black_box(q.scan(g, lo, hi, t, &mut s));
+                for sp in &scans {
+                    black_box(q.scan(sp, lo, hi, &mut s));
                 }
             }) / groups.len() as f64;
             let iv = t.map(|t| (q.m.v.as_slice(), t));
@@ -629,7 +722,7 @@ fn main() {
             }) / groups.len() as f64;
             let imn = time(|| {
                 for &g in &groups {
-                    black_box(q.inverse_planes(g, lo, hi, t, &mut s));
+                    black_box(q.inverse_planes(g, &plane_prog, lo, hi, &mut s));
                 }
             }) / groups.len() as f64;
             let be_i = if sn > inn {
@@ -675,8 +768,8 @@ mod tests {
                     let mut s = Scratch::for_program(&q1_sweep(p, pv), N).expect("scratch");
                     let want = q1_oracle(&keys, &o, p, pv);
                     assert!(want > 0);
-                    assert_eq!(run(&q1_range(lo, hi), &planes, &mut s, 0..N), want);
-                    assert_eq!(run(&q1_sweep(p, pv), &planes, &mut s, 0..N), want);
+                    assert_eq!(run(&cp(q1_range(lo, hi)), &planes, &mut s, 0..N), want);
+                    assert_eq!(run(&cp(q1_sweep(p, pv)), &planes, &mut s, 0..N), want);
                 }
             }
         }
@@ -701,8 +794,8 @@ mod tests {
         };
         let mut s = Scratch::for_program(&q1_sweep(1, 11), N).expect("scratch");
         let want = q1_oracle(&perm, &o, 1, 11);
-        assert_eq!(run(&q1_sweep(1, 11), &planes, &mut s, 0..N), want);
-        assert_ne!(run(&q1_range(lo, hi), &planes, &mut s, 0..N), want);
+        assert_eq!(run(&cp(q1_sweep(1, 11)), &planes, &mut s, 0..N), want);
+        assert_ne!(run(&cp(q1_range(lo, hi)), &planes, &mut s, 0..N), want);
     }
 
     /// FAILS IF: any Q3 arm differs from the oracle, for any shape, either
@@ -723,13 +816,21 @@ mod tests {
                     (100, 3000, Some(500)),
                 ] {
                     let want = q3_oracle(&q.m, g, lo, hi, t);
-                    assert_eq!(q.scan(g, lo, hi, t, &mut s), want, "scan g={g}");
+                    assert_eq!(
+                        q.scan(&cp(q3_scan(g, lo, hi, t)), lo, hi, &mut s),
+                        want,
+                        "scan g={g}"
+                    );
                     assert_eq!(
                         q.csr.count(g, lo, hi, t.map(|t| (q.m.v.as_slice(), t))),
                         want,
                         "csr"
                     );
-                    assert_eq!(q.inverse_planes(g, lo, hi, t, &mut s), want, "planes");
+                    assert_eq!(
+                        q.inverse_planes(g, &cp(q3_plane(lo, hi, t)), lo, hi, &mut s),
+                        want,
+                        "planes"
+                    );
                 }
             }
             // Anti-vacuity: groups of different sizes, and skew visible.
@@ -760,7 +861,7 @@ mod tests {
         for row in [0usize, 63, 64, 4097, N - 1] {
             let want = u64::from(w[row].count_ones());
             let p: u64 = (0..THOUGHTS as u16)
-                .map(|t| run(&q2_prog(t, row), &planes, &mut s, row..row + 1))
+                .map(|t| run(&cp(q2_prog(t, row)), &planes, &mut s, row..row + 1))
                 .sum();
             assert_eq!(p, want);
         }

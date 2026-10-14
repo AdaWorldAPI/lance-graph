@@ -27,7 +27,8 @@ use std::time::Instant;
 
 use lance_graph_mask_risc::exec::{execute_compiled, Scratch};
 use lance_graph_mask_risc::{
-    words_for, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program, Terminal, Value,
+    words_for, CompiledProgram, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred, Program,
+    Terminal, Value,
 };
 
 struct Counting;
@@ -100,6 +101,23 @@ fn build_planes(w: &[u64]) -> Vec<Vec<u64>> {
         }
     }
     m
+}
+
+/// Row words built from per-thought planes: the other orientation of the
+/// same coverage (charged when planes are the stored form).
+fn build_words(m: &[Vec<u64>]) -> Vec<u64> {
+    let mut w = vec![0u64; N];
+    for (t, plane) in m.iter().enumerate() {
+        for (wi, &word) in plane.iter().enumerate() {
+            let mut b = word;
+            while b != 0 {
+                let r = wi * 64 + b.trailing_zeros() as usize;
+                b &= b - 1;
+                w[r] |= 1 << t;
+            }
+        }
+    }
+    w
 }
 
 /// Per-branch materialized row lists (snapshot baseline input, charged).
@@ -224,9 +242,9 @@ struct Arms<'a> {
 /// Prepared programs and scratch for one cell: planning happens once,
 /// outside the timed region, like a prepared statement.
 struct Prepared {
-    a: Vec<Program>,
-    gate: Program,
-    b: Vec<Program>,
+    a: Vec<CompiledProgram>,
+    gate: CompiledProgram,
+    b: Vec<CompiledProgram>,
     sa: Scratch<'static>,
     sg: Scratch<'static>,
     sb: Scratch<'static>,
@@ -239,10 +257,11 @@ fn prepare(c: Cell) -> Prepared {
     let sa = Scratch::for_program(&a[0], N).expect("scratch");
     let sb = Scratch::for_program(&b[0], N).expect("scratch");
     let sg = Scratch::for_program(&gate, N).expect("scratch");
+    // Lowering recognition happens here, once, not in the timed path.
     Prepared {
-        a,
-        gate,
-        b,
+        a: a.into_iter().map(CompiledProgram::new).collect(),
+        gate: CompiledProgram::new(gate),
+        b: b.into_iter().map(CompiledProgram::new).collect(),
         sa,
         sg,
         sb,
@@ -265,7 +284,7 @@ impl Arms<'_> {
         for (prog, o) in p.a.iter().zip(out.iter_mut()) {
             *o = count(
                 execute_compiled(
-                    &prog.compile(),
+                    &prog.compiled(),
                     &planes,
                     &Foreign::NONE,
                     &mut p.sa,
@@ -286,7 +305,7 @@ impl Arms<'_> {
         };
         g.fill(0);
         execute_compiled(
-            &p.gate.compile(),
+            &p.gate.compiled(),
             &planes,
             &Foreign::NONE,
             &mut p.sg,
@@ -309,7 +328,7 @@ impl Arms<'_> {
         for (prog, o) in p.b.iter().zip(out.iter_mut()) {
             *o = count(
                 execute_compiled(
-                    &prog.compile(),
+                    &prog.compiled(),
                     &planes,
                     &Foreign::NONE,
                     &mut p.sb,
@@ -388,11 +407,15 @@ fn main() {
     let t0 = Instant::now();
     let lists = black_box(build_lists(&f.w));
     let l_ns = t0.elapsed().as_nanos() as f64 / N as f64;
+    let t0 = Instant::now();
+    let w2 = black_box(build_words(&m));
+    let w_ns = t0.elapsed().as_nanos() as f64 / N as f64;
+    assert_eq!(w2, f.w, "row words rebuilt from planes");
     println!(
-        "# construction (charged): thought planes {m_ns:.2} ns/row ({} KiB), snapshot lists {l_ns:.2} ns/row ({} KiB); row words are the canonical coverage ({} KiB)",
+        "# construction (charged): thought planes from row words {m_ns:.2} ns/row ({} KiB); row words from planes {w_ns:.2} ns/row ({} KiB); snapshot lists {l_ns:.2} ns/row ({} KiB)",
         THOUGHTS * W * 8 / 1024,
-        lists.iter().map(|l| l.len() * 4).sum::<usize>() / 1024,
-        N * 8 / 1024
+        N * 8 / 1024,
+        lists.iter().map(|l| l.len() * 4).sum::<usize>() / 1024
     );
     let arms = Arms {
         f: &f,
