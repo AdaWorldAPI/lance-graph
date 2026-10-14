@@ -194,6 +194,57 @@ Recommendation: **`lance-graph-metta`**, workspace-excluded like
   transcode of the interpreter; this plan does not transcode it, so a crate
   beside relalg is enough. Revisit if the interpreter itself is ever ported.
 
+## 6a. D-MTP-1 pre-registration (2026-10-14, before any code)
+
+**Correction to §4:** `lance-graph-relalg` cannot lower the join: its own
+crate docs say "recursion (`μ`) and the hop (preimage) are not built". The
+existing join surface is Quack's `Filter::Semijoin { fk, foreign }`, which
+lowers to mask-risc `MaskOp::Gather` over a RESIDENT foreign plane. D-MTP-1
+uses that path; relalg gains the hop later or not at all.
+
+**Layout (ingest, charged separately).** Symbols resolve once to addresses.
+The `parent` facts become a table over the address space of their first
+argument: row `a` holds the fact whose subject has address `a`, the `dst` lane
+holds the object's address (a coordinate, not a key), and a `valid` plane marks
+the addresses that have a fact. Functional relations only: one fact per
+subject. A second fact for the same subject is refused at ingest, not
+approximated (one-to-many needs `ScatterOrU32`/a CSR and is out of scope here).
+
+**Query.** `(match &kb (, (parent $x $y) (parent $y $z)) ($x $z))` lowers to
+`Filter::and([Plane(valid), Semijoin { fk: dst, foreign: valid }])`. Two
+terminals: `Agg::Count` (the MeTTa `size-atom` of the collapsed result) and
+`Agg::Rows` (`Keep`) followed by binding emission `(x, dst[dst[x]])` over the
+kept bits only — the one place pairs are materialized.
+
+**Fixtures** (generated, identical in all engines):
+- F1 `join_n`: `parent(i, (7i+3) mod n)` for every `i` (total, every row
+  survives; count = n).
+- F2 `join_n_partial`: the same, only for `i mod 3 ≠ 0` (the semijoin rejects
+  rows whose target has no fact; count < n).
+- n = 10², 10³, 10⁴, 10⁵, 10⁶.
+
+**Oracles.** datafrog (fork) at every n: the emitted pairs as a sorted vector
+must equal datafrog's, not only the count. Hyperon and PeTTa on F1 and F2 at
+n = 10², 10³ (and PeTTa 10⁴): counts must match.
+
+**Disable runs** (commit first, assert each patch applied once):
+1. drop the `Semijoin` leaf → F2 count and pairs must go red (F1 stays green,
+   which is why F2 exists);
+2. emit `(x, dst[x])` instead of `(x, dst[dst[x]])` → pairs red on F1 and F2.
+
+**Measured, reported, no threshold claimed before the run** (v4 arm,
+program-printed tier, best of 5): ingest ns/fact; count program ns/row;
+Rows + emission ns/pair; datafrog ns/pair beside it (its relation build
+charged, as in §3.0). Expected only as a direction, not a gate: the folded
+count costs a small fraction of a nanosecond per row, emission a few ns per
+pair, both below datafrog's 65 ns/pair, because ingest has already turned
+the join key into a coordinate. If ingest is charged to the query, the
+comparison is reported both ways.
+
+**Home.** First probe of `crates/lance-graph-metta` (own workspace root,
+excluded, like `lance-graph-relalg`), so the datafrog git dev-dependency never
+enters the main workspace's resolution.
+
 ## 7. Deliverables
 
 | D-id | scope | gate |
