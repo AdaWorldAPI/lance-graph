@@ -1,0 +1,28 @@
+[package]
+name = "lance-graph-metta"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "MeTTa (Hyperon) as a declaration front end over the masking-algebra polyfill: the Datalog subset lowers through lance-graph-quack into mask-risc; everything else stays in Hyperon's interpreter. Plan: .claude/plans/metta-polyfill-v1.md."
+
+# Its OWN workspace root, like `lance-graph-relalg`: the datafrog oracle is a
+# git dev-dependency that must not enter the main workspace's resolution.
+# Verify via `cargo test --manifest-path crates/lance-graph-metta/Cargo.toml`.
+[workspace]
+
+[dependencies]
+# The only bulk engine, reached through Quack's lowering.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+
+[dev-dependencies]
+# D-MTP-6: the exact Datalog oracle, from the AdaWorldAPI fork. Probe/test only.
+datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", branch = "master" }
+
+[[example]]
+name = "join_probe"
+test = true
+
+[[example]]
+name = "join_range_probe"
+test = true
