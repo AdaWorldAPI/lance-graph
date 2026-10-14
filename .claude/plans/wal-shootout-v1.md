@@ -1,6 +1,6 @@
 # WAL shootout v1 — `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path
 
-**Status:** PRE-REGISTERED (2026-10-14), nothing run yet. Feeds D-LNC-7 (the one-WAL
+**Status:** D-WAL-1 MEASURED (§2a); D-WAL-2/3 running. Feeds D-LNC-7 (the one-WAL
 decision, `lance-convergence-staged-migration-v1.md` §4C); this plan does not decide it.
 
 ## 1. What is compared
@@ -46,6 +46,47 @@ found MemWAL puts crash-atomic.
 
 Scope: process crash on a local filesystem. Not power loss (no claim about fsync), not
 object storage, not concurrent writers or fencing.
+
+## 2a. D-WAL-1 results (2026-10-14)
+
+`crates/lance-graph/tests/wal_shootout_probe.rs`, lance 13.0.0 / lancedb 0.40.0, debug build
+(correctness only; no timing is read from it), local filesystem, M flush interval 10 ms.
+
+**V1 SIGKILL atomicity — holds on both arms.** N = 4,096 casts (8,193 rows) per cycle:
+
+| kill after | 5 | 30 | 60 | 120 | 250 | 500 | 1,000 | 2,000 ms |
+|---|---|---|---|---|---|---|---|---|
+| L, fresh reader | 0 | 0 | 0 | 8,193 | 8,193 | 8,193 | 8,193 | 8,193 |
+| M, reader that has not written | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| M, same reader after its first write (replay) | 0 | 0 | 0 | 0 | 8,193 | 8,193 | 8,193 | 8,193 |
+
+Both sweeps land on both sides of the durability boundary; no partial cycle anywhere.
+
+**V2 acknowledged ⇒ durable — holds on both arms, with a visibility difference.** Kill right
+after reading ACK 2, 5 and 9 (N = 1,024): L — every acknowledged cycle is readable by a fresh
+reader. M — a reader that has not written sees **no** cycle at all; after its first write
+(which opens the shard writer and replays the WAL) every acknowledged cycle is present.
+Disable run (after commit): `durable_write = false` for M → acknowledged cycle 2 lost after
+replay, V2 red; restored.
+
+**V3 idempotent resubmit — holds on both arms.** L: `Committed` then `Reconciled`, 129 rows.
+M: two upserts of one cycle, 129 rows (dedup by `pk`).
+
+**V4 read horizon.** L: a reader opened at cycle 1 keeps seeing cycle 1 after cycle 2 commits;
+a fresh reader sees both. M, after two acknowledged cycles: the writing handle's LSM read sees
+both; a second handle in the same process (its own writer cache) sees **neither**; the
+base-only read sees neither. After `close_lsm_writers` the second handle's LSM read sees both;
+the base-only read still sees neither (no compaction ran).
+
+**What this means.** Both paths are crash-atomic per cycle and lose nothing they
+acknowledged. They differ in who can read an acknowledged write: L publishes a version every
+reader can open; M's acknowledged writes live in the WAL and the writer's memtable, readable
+by the writing handle, by any process only after a flush into a generation (here:
+`close_lsm_writers`) or after that process replays the WAL by opening a writer, and by the base
+table only after compaction. The sealed read horizon (`08-memwal-vs-batchwriter.md`) is
+therefore not lost by MemWAL for OTHER readers — they see less, not more — but a reader
+sharing the writer's handle sees in-flight state, which is the property item 2 of that doc
+warns about.
 
 ## 3. Cost (D-WAL-2)
 
