@@ -163,6 +163,14 @@ never twice. The path is: ndarray primitive with parity on every realization
 row → mask-risc terminal with parity → `FoldDialect` wiring → one `ogar-nal`
 byte → procedure.
 
+MEASURED 2026-10-14: the exact law is now `causal_edge::isa::truth::code`
+(deduction, induction, abduction), integers with one half-up rounding, and
+the CE64 register paths pack it; 0 of 2³² inputs per law differ from the
+independent oracle, where the old `f32` path differed on 2,413 / 4,352 /
+4,352. Whether this section's lane terminal is still needed, or whether
+populations of CE64 registers carry the law, is OPEN (entry
+`2026-10-14-isa-truth-exact-codes.md`).
+
 ### D. Binding goes through the ClassView, never through hard-coded offsets
 
 - A Narsese statement population is a class. Its reading of the bytes
