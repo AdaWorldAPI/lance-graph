@@ -43,3 +43,7 @@ test = true
 [[example]]
 name = "holo_tile_forms_probe"
 test = true
+
+[[example]]
+name = "holo_tile_crossover_probe"
+test = true
