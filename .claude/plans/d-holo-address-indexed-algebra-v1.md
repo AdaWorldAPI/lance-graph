@@ -1,7 +1,8 @@
 # D-HOLO — address-indexed algebra: falsifiers H1, H5, H6 (v1)
 
-**Status:** MEASURED 2026-10-14 (H1, H5, H6). The pre-registration below is
-unchanged; results are in § Results (2026-10-14).
+**Status:** MEASURED 2026-10-14 (H1, H5, H6); H6b, H8, H9 PRE-REGISTERED, not
+run. The pre-registration below is unchanged; results are in § Results
+(2026-10-14), the next falsifiers in § Next falsifiers.
 
 ## Overview
 
@@ -378,3 +379,102 @@ boxes. M and V run prepared programs.
 - One `Range`-set write per program instead of one full-tile write per
   interval. Not built: no new op was added for this pass.
 - External baselines (DuckDB, differential dataflow, TACO).
+
+## Next falsifiers: H6b, H8, H9 (PRE-REGISTERED 2026-10-14, NOT RUN)
+
+DECISION (operator, 2026-10-14): H6b approved as a probe; the terminal
+representation selector is approved as a concept and held until H6b reports.
+SCOPE: examples only, no new opcode or executor, no production selector.
+BASIS: H6 above. REVISIT WHEN: H6b reports.
+
+**Research objective.** Whether symbolic normalization lowers the total cost of
+composing a solution (construction, normalization, reuse across queries, and
+the terminal), not whether individual Boolean kernels get faster.
+
+Separate from D-ORACLE-0 (#1549, epistemic oracle fidelity). That work asks
+whether an answer is faithful to its oracle; this one asks which representation
+computes it most cheaply. Cross-referenced, not combined.
+
+### H6b — symbolic normal forms on the Context × Operation tile
+
+**Universe.** The 256 × 256 tile read as Context × Operation. This is one
+contextual reading of the existing `u8:u8` rail, not a new ISA schema: what a
+context and an operation mean stays bound by Class / Schema / Datalog, and the
+256 operations are references to (possibly composed) methods, not hardware
+opcodes.
+
+**Representations.**
+- **P, canonical product form.** Contexts grouped by identical operation mask:
+  a list of (context mask, operation mask), each 256 bits.
+- **I, normalized Morton interval unions** (as in H6).
+- **D, dense mask:** 8 KiB, operated on with existing ndarray SIMD.
+- **H, hybrid:** P while it is smaller than D, else D.
+- **O, row oracle** on every cell.
+
+**Correction to the earlier claim.** P is NOT bounded by D's footprint.
+256 distinct operation masks, each paired with a context mask, take 256 × 64 B
+= 16 KiB, twice the dense 8 KiB. Canonicalization and comparison also cost
+time. H6b measures this; neither P nor H is assumed to be optimal.
+
+**Patterns.** Row-oriented (one context, many operations), column-oriented,
+rectangles, prefixes, diagonal, checkerboard, random at 1 % and 50 %, sparse,
+dense, complementary pairs, disjoint pairs, and high fragmentation (one
+distinct mask per context).
+
+**Measured per representation and pattern.** Construction; normalization;
+∩, ∪, ¬; emptiness; equality; bytes held; total cost amortized over N = 1, 10,
+100 and 1,000 queries. Tier printed, v4 only, median of 11, ns per operation.
+
+**Decision.**
+- P (or H) is worth a selector if, on the structured patterns (row, column,
+  rectangle, prefix), its total cost at N = 100 is at most 0.5× D's.
+- H is safe as a default only if, on the adversarial patterns (checkerboard,
+  random 50 %, high fragmentation), it is at most 1.25× D's total cost.
+- Differences under 2× are reported as undecided: H1 measured about 40 %
+  run-to-run noise on this VM.
+- Thresholds (group count, interval count, density) where each representation
+  stops being the cheapest are reported, with every counterexample.
+
+### H8 — semantic diversity does not add instruction families
+
+- One fixed formula (a restriction ∧ a forward hop ∧ a negation, then count),
+  written in three unrelated domains through the existing frontends (Quack,
+  R2IL): dir-sim `memberOf`, thought coverage, planet → location.
+- Compared, as three separate dimensions:
+  - the canonical logical algebra (the normalized formula, before any physical
+    choice);
+  - the physical realization (op families, value families, terminals, carriers);
+  - semantic leakage (a meaning that reaches the algebra or the physical layer).
+- Value access is mathematical, not semantic: reading a lane (`v < t`, a key
+  through `Gather`) is substrate; only interpretation is optional.
+- Accounting: the work avoided through gating (coordinates examined), and the
+  construction of every resident input mask, charged.
+- Passes: no semantic leakage. Instruction families may grow with
+  representation shape and value algebra, never with meaning, and only where an
+  existing generic op cannot support the new shape efficiently or correctly.
+  Answers match the row oracle.
+- Fails: a domain needs its own predicate, op, terminal or lowering layer
+  because of what it means rather than how its values are represented.
+
+### H9 — relational emptiness without a fold
+
+Hop and Join stay symbolic terms until an evaluation is required. Some
+simplifications need no fold:
+- an empty operand;
+- known disjoint domains (classes, apertures, value intervals);
+- contradictory algebraic constraints.
+
+General relational emptiness and equality may still need evaluation.
+
+**Measured.** Over a generated set of composed relational queries: the fraction
+decided symbolically, the fraction that needs the fold, and the cost of each
+route.
+
+**Decision.** Soundness is one-sided and absolute: no query may be declared
+empty symbolically while the fold finds a row (zero false empties). A
+"cannot decide" answer is always allowed; it only costs a fold.
+
+### Open beyond these
+
+H11, the end-to-end test: `$var` composed algebraically before `$var.think()`,
+with H6b's measured normal-form costs as an input. Not registered yet.
