@@ -132,6 +132,7 @@ pub struct RbacBinding {
     classids: Vec<u16>,
     grants: Vec<(RoleId, Vec<ClassGrant>)>,
     field_masks: Vec<(RoleId, u16, WideFieldMask)>,
+    class_field_defaults: Vec<(u16, WideFieldMask)>,
 }
 
 impl RbacBinding {
@@ -166,7 +167,26 @@ impl RbacBinding {
             classids,
             grants,
             field_masks,
+            class_field_defaults: Vec::new(),
         }
+    }
+
+    /// Set, per plugged classid, the field mask a role gets when the authority
+    /// declared no mask of its own for it. Without this, such a role sees every
+    /// field ([`ClassRbac::field_mask`]'s open default); with it, fields left
+    /// out of the class default (sensitive properties) stay hidden unless a
+    /// role's own mask names them.
+    ///
+    /// This is policy data keyed by classid, not a derivation: it replaces only
+    /// the open default and never changes a mask a role was given. Defaults on
+    /// a concept outside the plug are dropped, as in [`new`](RbacBinding::new).
+    #[must_use]
+    pub fn with_class_field_defaults(mut self, defaults: Vec<(u16, WideFieldMask)>) -> Self {
+        self.class_field_defaults = defaults
+            .into_iter()
+            .filter(|(c, _)| self.classids.contains(c))
+            .collect();
+        self
     }
 
     /// The consumer this binding was resolved for.
@@ -217,8 +237,9 @@ impl RbacBinding {
         Ok(grants_permit(self.grants_for(role)?, class, op))
     }
 
-    /// The field mask declared for `role` on `class`, or `None` when the
-    /// authority declared none (the class is then not column-restricted for
+    /// The field mask declared for `role` on `class`; failing that, the class
+    /// default set by [`with_class_field_defaults`](RbacBinding::with_class_field_defaults);
+    /// `None` when neither exists (the class is then not column-restricted for
     /// that role, the same as [`ClassRbac::field_mask`]'s default).
     ///
     /// # Errors
@@ -234,7 +255,12 @@ impl RbacBinding {
         Ok(self
             .field_masks
             .iter()
-            .find_map(|(r, c, m)| (*r == role && *c == concept).then_some(m)))
+            .find_map(|(r, c, m)| (*r == role && *c == concept).then_some(m))
+            .or_else(|| {
+                self.class_field_defaults
+                    .iter()
+                    .find_map(|(c, m)| (*c == concept).then_some(m))
+            }))
     }
 
     /// Every declared `(role, grants)` row — the audit surface for tests and
@@ -512,6 +538,41 @@ mod tests {
         );
         assert_eq!(b.plugged(class(PATIENT)), Ok(PATIENT));
         assert_eq!(b.consumer(), "demo");
+    }
+
+    /// The class default is policy data keyed by classid: it applies only to
+    /// roles the authority declared no mask for, never widens a role's own
+    /// mask, and is dropped outside the plug like every other row.
+    #[test]
+    fn a_class_default_replaces_the_open_default_and_nothing_else() {
+        let sensitive_free = WideFieldMask::from_positions(&[0, 1, 2]);
+        let b = TinyAuthority
+            .bind(&PLUG)
+            .unwrap()
+            .with_class_field_defaults(vec![
+                (PATIENT, sensitive_free.clone()),
+                (LAB, WideFieldMask::EMPTY),
+            ]);
+        // Without the default this role would see every field (FULL).
+        assert_eq!(
+            b.field_mask_for("physician", class(PATIENT)),
+            Ok(Some(&sensitive_free))
+        );
+        // A role's own mask wins over the class default.
+        assert_eq!(
+            b.field_mask_for("nurse", class(PATIENT)),
+            Ok(Some(&WideFieldMask::from_positions(&[0, 1])))
+        );
+        // A class without a default keeps the open default.
+        assert_eq!(b.field_mask_for("physician", class(DIAGNOSIS)), Ok(None));
+        // A default outside the plug is not carried.
+        assert_eq!(
+            b.field_mask_for("physician", class(LAB)),
+            Err(RbacDrift::NotPlugged(LAB))
+        );
+        let rbac = b.with_actors(Ward);
+        assert_eq!(rbac.field_mask("physician", class(PATIENT)), sensitive_free);
+        assert!(!rbac.field_mask("physician", class(PATIENT)).has(3));
     }
 
     #[test]

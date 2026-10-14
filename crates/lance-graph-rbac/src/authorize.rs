@@ -549,6 +549,64 @@ mod plug_tests {
             lab.decision
         );
     }
+
+    /// Sales reads patients with fields 0 and 1; admin reads them with no mask
+    /// of its own; compliance is granted the sensitive field 3.
+    struct Office;
+    impl ActorSource for Office {
+        fn roles_of(&self, actor: ActorId<'_>) -> &[RoleId] {
+            match actor {
+                "mixed" => &["sales", "admin"],
+                "auditor" => &["sales", "compliance"],
+                _ => &[],
+            }
+        }
+    }
+
+    fn office_binding() -> RbacBinding {
+        let read_patient = || vec![ClassGrant::new(PATIENT, OpMask::READ)];
+        RbacBinding::new(
+            "demo",
+            vec![PATIENT],
+            vec![
+                ("sales", read_patient()),
+                ("admin", read_patient()),
+                ("compliance", read_patient()),
+            ],
+            vec![
+                ("sales", PATIENT, WideFieldMask::from_positions(&[0, 1])),
+                ("compliance", PATIENT, WideFieldMask::from_positions(&[3])),
+            ],
+        )
+    }
+
+    // The union over roles must not let a role without a mask open the
+    // sensitive field once the class has a default; a role whose own mask
+    // names the field still sees it.
+    #[test]
+    fn a_class_default_keeps_sensitive_fields_out_of_the_union() {
+        let class = compose_classid(PATIENT, 0);
+        let open = office_binding();
+        let open_rbac = open.with_actors(Office);
+        assert!(
+            authorize_scoped(&open_rbac, "mixed", class, read())
+                .field_mask
+                .has(3),
+            "without a class default the admin role opens every field"
+        );
+
+        let closed = office_binding()
+            .with_class_field_defaults(vec![(PATIENT, WideFieldMask::from_positions(&[0, 1, 2]))]);
+        let rbac = closed.with_actors(Office);
+        let mixed = authorize_scoped(&rbac, "mixed", class, read());
+        assert_eq!(mixed.decision, AccessDecision::Allow);
+        assert_eq!(mixed.field_mask, WideFieldMask::from_positions(&[0, 1, 2]));
+        let auditor = authorize_scoped(&rbac, "auditor", class, read());
+        assert_eq!(
+            auditor.field_mask,
+            WideFieldMask::from_positions(&[0, 1, 3])
+        );
+    }
 }
 
 #[cfg(test)]
