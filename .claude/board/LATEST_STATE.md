@@ -1,4 +1,4 @@
-## 2026-10-13 — main after #1505, #1506, #1507–#1509, #1514, #1516, #1518, #1520, #1523, #1524, #1525, #1526, #1529, #1530, #1531, #1534, #1536, #1537, #1538, #1539, #1540 (merged)
+## 2026-10-13 — main after #1505, #1506, #1507–#1509, #1514, #1516, #1518, #1520, #1523, #1524, #1525, #1526, #1529, #1530, #1531, #1534, #1536, #1537, #1538, #1539, #1540, #1545, #1546 (merged)
 
 - **On `main`, live:** `.cargo/config.toml` defaults to `-Ctarget-cpu=native` with `config-v3.toml` as the portable baseline and `debug = 0` everywhere (#1505); `compute_dag_kahn` checks all 256 field positions (#1506); R2IL `MIN`/`MAX` lowering onto mask-risc (#1518, the part outside glove-parity).
 - **Merged then withdrawn by #1524 (D-CMR-RESET):** the class-method layer of `lance-graph-glove-parity` (`method`, `call`, `decl`, `gremlin`, `awareness`; #1507, #1508, #1509, #1514, #1516, #1518, #1520). Prior state: `backup/session-011BMJ-2026-10-12`. Inventory: entry `2026-10-12-session-reset-inventory.md`.
@@ -10,6 +10,8 @@
 - **On `main` (#1537, merged `befbf1d`):** core `lance-graph` depends on mask-risc, Quack and R2IL by default and exposes them as `lance_graph::fold` (D-FOLD-CORE-b). NAL stays in `crates/lance-graph-nal` (D-FOLD-CORE-c dropped).
 - **Docs only (#1536, merged `2b28a19`):** outer-membrane graph lab, epoch-indexed temporal graph agenda, and the ONA → NAL/R2IL fold-method program (W3–W9). Proposals; nothing in them is built by that PR.
 - **On `main` (#1538, merged `4ceaab3`):** D-NALP-3, `nal::Revision`: evidence revision as one grouped fold over stored `w`/`f`, refusing overlapping stamps and evidence without provenance. Where ONA saturates mid-fold and its answer depends on arrival order, the fold keeps the exact sum (pinned against the ONA oracle).
+- **On `main` (#1546, merged `c21bd165`):** D-RA-1, `crates/lance-graph-relalg` (excluded, own workspace): a relational IR normalized by proven rewrites before it runs, lowered through R2IL; a prototype for D-CMR, whose set IR in the contract (D-CMR-1) is meant to take over the rules (D-RA-2).
+- **Docs only (#1545, merged `9f889c28`):** semantic Morton grammar ABI, Moore pressure and qualia-masked DO research notes; no code.
 - **On `main` (#1540, merged `f2bf199`):** the supervisor applies its restart backoff; `ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED` resolved. #1539 (`3635109`) corrected #1536's docs and board.
 - **CI (#1526, merged `abc0a1f`):** the native default plus `rust-cache` reused AVX-512 artifacts on runners without them (SIGILL in `dir-sim log in Lance`). `native` is now written out as each runner's exact feature list, and the cache is keyed to it.
 - **Rules carried from this session (operator):** classid-dependent methods go through the existing `hotplug.rs` plug-and-play; NAL/NARS operations are global core methods (no classid check, no plug, no `BeliefClass`); internal pins are forbidden (the v3 pins in the Dockerfiles and wheel build were replaced in #1529).
