@@ -22,3 +22,7 @@ datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", branch = "master" 
 [[example]]
 name = "join_probe"
 test = true
+
+[[example]]
+name = "join_range_probe"
+test = true
