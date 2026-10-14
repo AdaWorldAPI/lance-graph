@@ -57,8 +57,8 @@ fn base(n: usize) -> Vec<Row> {
     (0..n)
         .map(|_| {
             let mut row = [0u8; ROW];
-            for c in row.chunks_exact_mut(8) {
-                c.copy_from_slice(&r.next().to_le_bytes());
+            for c in row.as_chunks_mut::<8>().0 {
+                *c = r.next().to_le_bytes();
             }
             row
         })
@@ -73,7 +73,7 @@ fn dirty_rows(n: usize, stride: usize) -> Vec<u32> {
 /// The value a sealed accumulator writes into its slot: always differs from
 /// the base slot so every written slot is a real change.
 fn sealed(acc: [u64; 2], base_slot: &[u8]) -> [u8; SLOT] {
-    let f = if acc[0] == 0 { 0 } else { acc[1] / acc[0] };
+    let f = acc[1].checked_div(acc[0]).unwrap_or(0);
     let mut w = [0u8; SLOT];
     w[..8].copy_from_slice(&f.to_le_bytes());
     w[8..].copy_from_slice(&acc[0].to_le_bytes());
@@ -202,10 +202,9 @@ impl SlotStore {
         let i = self.index[r];
         if i != NONE {
             let i = i as usize;
-            let mut w = self.starts[i] as usize;
-            for sl in BitIter(self.masks[i]) {
-                out[sl * SLOT..(sl + 1) * SLOT].copy_from_slice(&self.words[w]);
-                w += 1;
+            let w0 = self.starts[i] as usize;
+            for (w, sl) in BitIter(self.masks[i]).enumerate() {
+                out[sl * SLOT..(sl + 1) * SLOT].copy_from_slice(&self.words[w0 + w]);
             }
         }
         out
@@ -305,7 +304,7 @@ fn main() {
             el.as_secs_f64(),
             el.as_nanos() as f64 / total as f64,
             n_acc,
-            n_acc * 16 >> 10
+            (n_acc * 16) >> 10
         );
     }
 
@@ -445,7 +444,7 @@ mod tests {
     #[test]
     fn folds_accumulate_wide_and_round_once() {
         let mut acc = vec![[0u64; 2]; 4];
-        fold(&mut acc, &[(1, 3, 3 * 200), (1, 1, 1 * 100)], 2);
+        fold(&mut acc, &[(1, 3, 3 * 200), (1, 1, 100)], 2);
         assert_eq!(acc[1], [8, 1400]);
         assert_eq!(acc[0], [0, 0]);
         let w = sealed(acc[1], &[0u8; SLOT]);

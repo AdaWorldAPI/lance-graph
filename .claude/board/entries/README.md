@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-336 entries, 2026-08-06 .. 2026-10-15.
+337 entries, 2026-08-06 .. 2026-10-15.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -35,6 +35,7 @@ exactly one of them, never both.
 | 2026-10-14 | `D-MTP-0` | where Hyperon/MeTTa attaches to the masking-algebra polyfill | [2026-10-14-metta-polyfill-map.md](2026-10-14-metta-polyfill-map.md) |
 | 2026-10-14 | `ledger-revision-after-1553` |  | [2026-10-14-ledger-revision-after-1553.md](2026-10-14-ledger-revision-after-1553.md) |
 | 2026-10-14 | `D-NALP-4` |  | [2026-10-14-isa-truth-exact-codes.md](2026-10-14-isa-truth-exact-codes.md) |
+| 2026-10-14 | `delta-granularity-economics` |  | [2026-10-14-delta-granularity-economics.md](2026-10-14-delta-granularity-economics.md) |
 | 2026-10-14 | `D-MTP-1b` | the hop as a range (measured) | [2026-10-14-d-mtp-1b-range-hop.md](2026-10-14-d-mtp-1b-range-hop.md) |
 | 2026-10-14 | `D-MTP-1` | the MeTTa two-hop join through Quack Semijoin (measured) | [2026-10-14-d-mtp-1-join.md](2026-10-14-d-mtp-1-join.md) |
 | 2026-10-14 | `D-HOLO-H6b` | normal forms on the Context × Operation tile (measured) | [2026-10-14-d-holo-h6b.md](2026-10-14-d-holo-h6b.md) |

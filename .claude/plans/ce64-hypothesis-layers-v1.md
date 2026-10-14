@@ -350,6 +350,29 @@ of 5 runs.
 - Not measured here: Lance append bytes and time (in-memory probe). Both arms
   make one Lance write per seal by construction.
 
+**Result (MEASURED 2026-10-14).** `delta_granularity_probe`, built with
+`rustc -O -C target-cpu=native`, printed tier `v4 (avx512f)`; 4-core VM, two
+full runs. 5 tests; 5 disable runs red (read without overlay, store every
+slot, diff ignoring the base, slot offset from 0, store an empty mask).
+- M1, counted: S/R = (8 + 16k) / 516, from 0.047 at k = 1 to 0.977 at k = 31.
+- M2: 2.93 ns/fold over 1 MiB of accumulators (k = 1), 13.0 and 15.2 ns/fold
+  over 31 MiB in random order, 4.64 ns/fold over the same 31 MiB sorted by
+  accumulator. 10^9 folds take 3 to 15 s; sealing 64k rows takes 3 to 35 ms.
+  The fold cost does not depend on the arm. It depends on accumulator
+  footprint and order.
+- M5, computed: 64 tables with every row dirty hold 2.016 GiB as row images,
+  0.094 GiB as slot deltas at k = 1 and 1.969 GiB at k = 31.
+- Rule at k = 1: met in both runs. M1 0.047 <= 0.0625; M3 S-known below R in
+  all 6 cells; M4 one-slot S/R between 0.66 and 1.97 (closest: 1.97 at
+  d = 10 %, run 2).
+- k*: not stable. Run 1: 31, 31, 16; run 2: 16, 8, 16 (d = 1, 10, 100 %).
+- Full-row reads cost 1.1 to 4.3 times more with S in every cell; one-slot
+  reads are equal within noise at d <= 10 %.
+- Caveats: M3 at d = 1 % includes allocating the 256 KiB row index per seal
+  for 655 rows, so it is not a per-row cost, and it varies up to 6 times
+  between runs. The k* sum adds one seal to one read, which is the cost only
+  when each dirty row is read once per seal. Lance append not measured.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
