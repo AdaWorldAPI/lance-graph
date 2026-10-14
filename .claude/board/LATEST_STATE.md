@@ -1,3 +1,8 @@
+## 2026-10-14 — main after #1552 (merged)
+
+- **On `main` (#1552, merged `98c03dd1`):** the Haiku harvest tier (six cards, supervision rules); policy only.
+- **In PR (#1553):** D-HOLO H6b measured (`holo_tile_forms_probe`): structured rule not met, hybrid byte switch refuted, group count tracks P's cost. H6c pre-registered (group-count crossover, group-count switch, declared construction); not run.
+
 ## 2026-10-14 — main after #1551 (merged)
 
 - **On `main` (#1551, merged `9337da49`):** D-HOLO H11 and H12 pre-registered, H6b amended with connectedness; plan only, nothing run.

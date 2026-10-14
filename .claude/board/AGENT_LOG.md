@@ -1,3 +1,9 @@
+## 2026-10-14 — D-HOLO H6b harvest: four substrate-mapper runs, one reply each
+
+- Card `substrate-mapper`, four units: `holo_interval_probe.rs` (H6), mask-risc exec, mask-risc IR, ndarray `simd` mask re-exports.
+- Ledger: spot-checks 3/3, 2/2, 3/3 and the re-export lines correct; 0 wrong, 0 missed. The ndarray map lists re-exports without signatures, as the card requires; signatures were read from `src/simd_masking_ops.rs` by the orchestrator.
+- Cost: about 454k, 518k, 556k and 566k subagent tokens. The maps fed the H6b probe; no conclusion came from a card.
+
 ## 2026-10-14 — first Haiku harvest run (harvest-scout card, policy change)
 
 - Card `harvest-scout`, one run: lines still forbidding Haiku across `.claude/{agents,skills,knowledge,v3}`, `.claude/BOOT.md`, `CLAUDE.md`, 8 patterns.
