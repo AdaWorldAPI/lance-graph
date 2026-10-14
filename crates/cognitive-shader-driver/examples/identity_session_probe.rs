@@ -537,9 +537,20 @@ fn range_m<F: FnMut(u64, &Lanes, u32)>(
 /// Session materialization: the session's view of a prefix range as
 /// 512-byte rows (identity row, then the session's overlays).
 fn materialize(id: &Identity, o: &Overlays, thoughts: u64, prefix: u64, buf: &mut Vec<Row>) {
-    buf.clear();
     let (lo, hi) = id.trie.range(prefix, id.trie.depth - 7);
-    for r in lo as usize..hi as usize {
+    materialize_rows(id, o, thoughts, lo as usize, hi as usize, buf);
+}
+
+fn materialize_rows(
+    id: &Identity,
+    o: &Overlays,
+    thoughts: u64,
+    lo: usize,
+    hi: usize,
+    buf: &mut Vec<Row>,
+) {
+    buf.clear();
+    for r in lo..hi {
         let mut row = id.rows[r];
         if o.written[r] & thoughts != 0 {
             let mut out = [[0u8; 16]; LANES];
@@ -549,6 +560,62 @@ fn materialize(id: &Identity, o: &Overlays, thoughts: u64, prefix: u64, buf: &mu
             }
         }
         buf.push(row);
+    }
+}
+
+// ---------- arm D: dense tile, the Morton code is the row ----------
+
+/// One classid, all 65,536 HEEL codes (a full 256 x 256 Morton tile), HIP 0.
+fn dense_universe() -> Vec<u64> {
+    (0..65_536u64)
+        .map(|c| (CLASSID << 32) | (c << 16))
+        .collect()
+}
+
+/// Row of `key` in the dense tile: its HEEL code, after the classid check.
+#[inline]
+fn row_d(key: u64) -> Option<usize> {
+    if key >> 32 != CLASSID || key & 0xFFFF != 0 {
+        None
+    } else {
+        Some(((key >> 16) & 0xFFFF) as usize)
+    }
+}
+
+/// Rows under a prefix (top HEEL nibble p): a Z-order prefix is a
+/// contiguous code range.
+fn rows_d(prefix: u64) -> (usize, usize) {
+    let p = ((prefix >> 28) & 0xF) as usize;
+    (p << 12, (p + 1) << 12)
+}
+
+fn point_d(o: &Overlays, thoughts: u64, lanes: u32, key: u64) -> (Lanes, u32) {
+    let mut out = [[0u8; 16]; LANES];
+    let m = match row_d(key) {
+        Some(r) => o.merge(r, thoughts, lanes, &mut out),
+        None => 0,
+    };
+    (out, m)
+}
+
+fn range_d<F: FnMut(u64, &Lanes, u32)>(
+    univ: &[u64],
+    o: &Overlays,
+    thoughts: u64,
+    lanes: u32,
+    prefix: u64,
+    f: &mut F,
+) {
+    let (lo, hi) = rows_d(prefix);
+    for r in lo..hi {
+        if o.written[r] & thoughts == 0 {
+            continue;
+        }
+        let mut out = [[0u8; 16]; LANES];
+        let m = o.merge(r, thoughts, lanes, &mut out);
+        if m != 0 {
+            f(path(univ[r], 8), &out, m);
+        }
     }
 }
 
@@ -648,6 +715,10 @@ fn run_m(id: &Identity, o: &Overlays, thoughts: u64, lanes: u32, probes: &[u64])
 }
 
 fn main() {
+    if std::env::args().any(|a| a == "dense") {
+        main_dense();
+        return;
+    }
     const N: usize = 65_536;
     println!("tier: {}", tier());
     let univ = universe(N);
@@ -741,6 +812,102 @@ fn main() {
     println!("\nQ1 bytes (identity table excluded); Q2 ns per point read; st = ns per descent step; Q3 ns per emitted NodeGuid.");
 }
 
+/// The dense-tile run: M8 (identity trie) vs D (Morton code is the row).
+fn main_dense() {
+    const N: usize = 65_536;
+    println!(
+        "tier: {}  (dense tile: one classid, all 65,536 HEEL codes)",
+        tier()
+    );
+    let univ = dense_universe();
+    let id8 = identity(&univ, 8);
+    let mut r = 12345u64;
+    let probes: Vec<u64> = (0..N)
+        .map(|_| {
+            r = mix(r);
+            univ[(r % N as u64) as usize]
+        })
+        .collect();
+    println!(
+        "\n{:>3} {:>5} {:>3} {:>4} | {:>8} {:>8} | {:>7} {:>7} | {:>7}",
+        "T", "d", "w", "sel", "Q2 M8", "Q2 D", "Q3 M8", "Q3 D", "emitted"
+    );
+    let mut ref_overlays = None;
+    for t in [1usize, 8, 64] {
+        for (dl, d) in [("1%", 0.01), ("10%", 0.10), ("100%", 1.0)] {
+            for w in [1usize, 4, 30] {
+                let cells = (t as f64 * N as f64 * d * w as f64) as u64;
+                if cells > 32_000_000 {
+                    println!("{t:>3} {dl:>5} {w:>3}   skipped ({cells} lane-cells > 32 M)");
+                    continue;
+                }
+                let cov = coverage(&univ, t, d, w);
+                let o = build_m(&univ, &cov);
+                let thoughts = if t == 64 { u64::MAX } else { (1u64 << t) - 1 };
+                for (sl, lanes) in [("1", 1u32), ("all", (1u32 << LANES) - 1)] {
+                    let m8 = run_m(&id8, &o, thoughts, lanes, &probes);
+                    let q2d = ns_per(probes.len() as u64, || {
+                        for &k in &probes {
+                            black_box(point_d(&o, thoughts, lanes, k));
+                        }
+                    });
+                    let mut emitted = 0u64;
+                    for p in 0..16 {
+                        range_d(&univ, &o, thoughts, lanes, prefix_of(p), &mut |_, _, _| {
+                            emitted += 1
+                        });
+                    }
+                    assert_eq!(emitted, m8.emitted);
+                    let q3d = ns_per(emitted, || {
+                        let mut acc = 0u64;
+                        for p in 0..16 {
+                            range_d(&univ, &o, thoughts, lanes, prefix_of(p), &mut |k, o, m| {
+                                acc ^= k ^ m as u64 ^ o[0][0] as u64
+                            });
+                        }
+                        black_box(acc);
+                    });
+                    println!(
+                        "{t:>3} {dl:>5} {w:>3} {sl:>4} | {:>8.1} {:>8.1} | {:>7.1} {:>7.1} | {:>7}",
+                        m8.q2, q2d, m8.q3, q3d, emitted
+                    );
+                }
+                if t == 64 && dl == "10%" && w == 4 {
+                    ref_overlays = Some(o);
+                }
+            }
+        }
+    }
+    let o = ref_overlays.expect("reference cell ran");
+    let mut buf = Vec::with_capacity(N / 8);
+    let rows = N as u64;
+    let m8 = ns_per(rows, || {
+        for p in 0..16 {
+            materialize(&id8, &o, u64::MAX, prefix_of(p), &mut buf);
+            black_box(&buf);
+        }
+    });
+    let d1 = ns_per(rows * 64, || {
+        for s in 0..64 {
+            for p in 0..16 {
+                let (lo, hi) = rows_d(prefix_of(p));
+                materialize_rows(&id8, &o, 1u64 << s, lo, hi, &mut buf);
+                black_box(&buf);
+            }
+        }
+    });
+    let dall = ns_per(rows, || {
+        for p in 0..16 {
+            let (lo, hi) = rows_d(prefix_of(p));
+            materialize_rows(&id8, &o, u64::MAX, lo, hi, &mut buf);
+            black_box(&buf);
+        }
+    });
+    println!(
+        "\nsessions (reference cell): M8 all-64 {m8:.2} ns/row; D one-thought {d1:.2} ns/row; D all-64 {dall:.2} ns/row"
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -823,6 +990,40 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn dense_tile_direct_rows_match_the_oracle_and_the_trie() {
+        let univ = dense_universe();
+        let cov = coverage(&univ, 5, 0.05, 3);
+        let o = build_m(&univ, &cov);
+        let id = identity(&univ, 8);
+        for thoughts in [0b1_1111u64, 0b1_0010] {
+            for lanes in [1u32, (1 << LANES) - 1] {
+                let want = oracle(&cov, thoughts, lanes);
+                let mut st = 0;
+                for &k in univ.iter().step_by(7) {
+                    let d = point_d(&o, thoughts, lanes, k);
+                    same(d, want.get(&k));
+                    let m = point_m(&id, &o, thoughts, lanes, k, &mut st);
+                    assert_eq!(d.1, m.1);
+                }
+                let mut got = BTreeMap::new();
+                for p in 0..16 {
+                    let (lo, hi) = rows_d(prefix_of(p));
+                    assert_eq!((lo as u32, hi as u32), id.trie.range(prefix_of(p), 1));
+                    range_d(&univ, &o, thoughts, lanes, prefix_of(p), &mut |k, v, m| {
+                        assert!(got.insert(k, (*v, m)).is_none());
+                    });
+                }
+                assert_eq!(got.len(), want.len());
+                for (k, w) in &want {
+                    same(got[&path(*k, 8)], Some(w));
+                }
+            }
+        }
+        assert_eq!(row_d((CLASSID + 1) << 32), None, "other class");
+        assert_eq!(row_d((CLASSID << 32) | 1), None, "HIP set");
     }
 
     #[test]
