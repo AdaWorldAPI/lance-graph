@@ -25,13 +25,14 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-329 entries, 2026-08-06 .. 2026-10-14.
+330 entries, 2026-08-06 .. 2026-10-14.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-14 | `lane-trie-economics` |  | [2026-10-14-lane-trie-economics.md](2026-10-14-lane-trie-economics.md) |
 | 2026-10-14 | `identity-sessions-morton` |  | [2026-10-14-identity-sessions-morton.md](2026-10-14-identity-sessions-morton.md) |
 | 2026-10-14 | `delta-granularity-economics` |  | [2026-10-14-delta-granularity-economics.md](2026-10-14-delta-granularity-economics.md) |
+| 2026-10-14 | `coverage-orientation` |  | [2026-10-14-coverage-orientation.md](2026-10-14-coverage-orientation.md) |
 | 2026-10-13 | `D-PROD-V4` |  | [2026-10-13-production-targets-v4.md](2026-10-13-production-targets-v4.md) |
 | 2026-10-12 | `D-SAG-1` |  | [2026-10-12-software-awareness-graph.md](2026-10-12-software-awareness-graph.md) |
 | 2026-10-12 | `D-CMR-RESET` | method layer was a second algebra beside the folds and slower than a row loop (430–480 µs vs 283 µs); moved to backup, rebuild as bindings over existing folds | [2026-10-12-session-reset-inventory.md](2026-10-12-session-reset-inventory.md) |

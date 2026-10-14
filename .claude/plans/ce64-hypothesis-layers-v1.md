@@ -619,6 +619,51 @@ orientation derived at seal. Nanosecond target: Q-PERSP under 10 ns, and
 the aperture queries under 1 ns per aperture row, in the better
 orientation; reported pass or fail.
 
+**Results (MEASURED 2026-10-14).** `coverage_orientation_probe`, built with
+`rustc -O -C target-cpu=native`, printed tier `v4 (avx512f)`; 4-core VM, two
+full runs. 6 tests against a brute-force oracle over the bit matrix
+(apertures aligned, unaligned, inside one word, across two words; a thought
+whose only rows sit next to the aperture); 9 disable runs red (aperture edge
+masks in both column helpers, thought selection in the row arm and in
+Q-PERSP, the OR over the selection, the transpose bit index).
+
+Reference cells, d = 10 %, ns per query, run 1 (run 2 within 1.6 times on
+every cell, same winner on every cell):
+
+| query | \|T\| = 8, 65,536 rows | \|T\| = 8, 4,096 | \|T\| = 64, 65,536 | \|T\| = 64, 4,096 |
+|---|---|---|---|---|
+| Q-ID | R 9,536 / **C 1,644** | R 502 / **C 189** | **R 9,808** / C 12,831 | **R 495** / C 966 |
+| Q-TH | R 6,233 / **C 52** | R 505 / **C 50** | R 5,624 / **C 154** | R 371 / **C 155** |
+| Q-PAIR | R 19,207 / **C 2,126** | R 2,240 / **C 275** | R 17,770 / **C 15,722** | **R 1,675** / C 2,135 |
+| Q-PERSP | **R 1.10** / C 7.61 | — | **R 1.11** / C 76.7 | — |
+
+- Rule: neither orientation is within 2 times the best on every query
+  (the row words lose Q-TH by up to 120 times and Q-PAIR by up to 9 times at
+  \|T\| = 8; the thought masks lose Q-PERSP by 7 to 70 times). **Both are
+  kept; each query routes to its faster orientation; the second is derived
+  at seal.**
+- Routing that follows from the numbers: Q-PERSP always on the row words;
+  Q-TH always on the thought masks; Q-ID and Q-PAIR on the thought masks for
+  a few thoughts and on the row words near all 64. The row arm reads the
+  whole 512 KiB whatever \|T\| is; the mask arm reads \|T\| x 8 KiB, so the
+  two meet at \|T\| = 64. The Q-PAIR cell at \|T\| = 64, full aperture
+  (C 15,722 vs R 17,770) is within run-to-run noise.
+- Nanosecond target: **met.** Q-PERSP 1.1 ns on the row words; the aperture
+  queries at most 0.40 ns per aperture row in the better orientation (all
+  cells, all three densities).
+- Seal cost (reported only): transpose row words to masks 6 to 120 ns per
+  row (d = 1 % to 50 %), masks to row words 6 to 36 ns per row; one class
+  tile is 0.4 to 7.9 ms.
+- Caveat: the mask arm's Q-TH stops at the first set word of each thought;
+  the row arm, as registered, scans the whole aperture and could stop once
+  every selected thought is seen. Not measured; it would narrow, not
+  reverse, the Q-TH gap at high density.
+- A first build wrote the mask arm's Q-PAIR as an iterator chain with a mask
+  per word and was 3.5 times slower; the final arms sum interior words whole
+  and mask only the two edge words, and the Q-ID arm ORs the selected masks
+  into a reused window. The code shape moved the number more than the
+  orientation did in that cell, so only the final build is reported.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
