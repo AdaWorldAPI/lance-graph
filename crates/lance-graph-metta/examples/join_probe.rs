@@ -216,7 +216,15 @@ mod tests {
     /// The counts Hyperon and PeTTa returned for the same MeTTa programs.
     #[test]
     fn counts_match_hyperon_and_petta() {
-        for (n, partial, expected) in [(100, false, 100), (1_000, false, 1_000)] {
+        // F1 from the D-MTP-0 runs; F2 measured 2026-10-14: Hyperon 46 / 476,
+        // PeTTa 46 / 476 / 4,762.
+        for (n, partial, expected) in [
+            (100, false, 100),
+            (1_000, false, 1_000),
+            (100, true, 46),
+            (1_000, true, 476),
+            (10_000, true, 4_762),
+        ] {
             let f = facts(n, partial);
             let rel = Relation2::ingest(n as usize, &f).expect("functional");
             assert_eq!(rel.count(), expected, "n={n}");
