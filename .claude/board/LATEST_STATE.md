@@ -1,11 +1,17 @@
-## 2026-10-14 — `commit` loses its admin bypass on branch `ccr-0455e606-wmtsor` (unmerged)
+## 2026-10-14 — the rail walk applies the reader's field mask on branch `ccr-0455e606-wmtsor` (unmerged)
+
+- **Contract:** `selection::walk_rails_authorized(graph, class_view, registry, view_binding, allowed, root, max_depth, visit)`. Same walk as `walk_rails`, with `allowed(class)` added to the AND at every hop: `view.mask ∩ presence ∩ allowed(class)`. A hidden field is not emitted at any depth (each hop uses its own class's mask), and a hidden rail is not followed, so a linked object cannot be read through a link the reader may not see. `allowed` returns a mask, not an `Option`, so there is no permit-all fallback. `walk_rails` is unchanged. Closes H7 for every output built on the walk (OGAR `ogar-doc-ir` resolve uses it); the caller passes the `field_mask` of its `Decision` per class. Tests: four `selection::tests::authorized_walk_*`; three fail with the mask removed, the hidden-rail test fails with the mask applied to emission only.
+- **rbac:** `ScopedDecision::visible_fields()` / `MembershipDecision::visible_fields()` return the field mask only when the decision allows, `EMPTY` otherwise. A refused decision keeps the open default in `field_mask`, so passing that field to the walk would show every field of a class the reader may not read. Tests `scoped_tests::a_refused_decision_shows_no_fields` (red with the check removed) and `an_allowed_decision_shows_its_field_mask`.
+- **Open:** OGAR's `resolve_doc` does not pass a decision yet; the report seam (`lance-graph-report-ogar` grids) has no field positions to mask.
+
+## 2026-10-14 — `commit` loses its admin bypass (merged #1557)
 
 - **Contract:** `ActionInvocation::commit` no longer lets an `admin` role pass an action that requires another role; admin is an ordinary role, as it already was in `commit_via`. One authorization rule for both paths (decision 2, 2026-10-14). Test: `action::tests::commit_admin_is_a_role_not_a_bypass` (red before the change). No caller relied on the bypass (rs-graph-llm `graph-flow-action` tests use no admin role).
 
-## 2026-10-14 — per-classid field mask default on branch `ccr-0455e606-wmtsor` (unmerged)
+## 2026-10-14 — per-classid field mask default (merged #1556; OGAR side #358)
 
 - **Contract:** `RbacBinding::with_class_field_defaults(Vec<(u16, WideFieldMask)>)`. A role the authority declared no field mask for gets the class default instead of every field, so the union over a user's roles can no longer open a sensitive field through a mask-less role. Policy data keyed by classid; it never changes a declared mask and is dropped outside the plug. HubSPO-rs D-IAM-3 (POC). Tests: `rbac_plug::a_class_default_replaces_the_open_default_and_nothing_else`, `authorize::plug_tests::a_class_default_keeps_sensitive_fields_out_of_the_union`; both red with the lookup removed.
-- **Open:** OGAR's authority does not set the default yet (`GrantSource` has no class-level mask); no output stage drops the masked columns (H7).
+- **Open (closed since):** OGAR's authority now sets the default (`GrantSource::default_field_mask_of`, OGAR #358); the output stage is `walk_rails_authorized` (above).
 
 ## 2026-10-14 — main after #1552 (merged)
 

@@ -296,6 +296,63 @@ pub fn walk_rails<G, V, F>(
         class_view,
         registry,
         &view_binding,
+        &|_: ClassId| None,
+        root,
+        0,
+        max_depth.min(MAX_WALK_DEPTH),
+        &mut stack,
+        visit,
+    );
+}
+
+/// **The rail walk under an access decision.** Identical to [`walk_rails`],
+/// with one more mask in the AND at every hop:
+///
+/// ```text
+/// effective = view.mask ∩ presence ∩ allowed(class)
+/// ```
+///
+/// `allowed` answers, per class, which field positions the reader may see —
+/// typically `visible_fields()` of the reader's authorization decision for
+/// that class (`lance-graph-rbac`'s `ScopedDecision` / `MembershipDecision`),
+/// which already folds role masks and the class default together. Use
+/// `visible_fields()`, not the raw `field_mask` field: a refused decision
+/// carries the open default there. The walk applies the mask; it decides
+/// nothing.
+///
+/// What this guarantees:
+///
+/// - **A hidden field is never emitted**, at any depth: each hop applies the
+///   mask of the hop's OWN class, so a reader who may see a work package but
+///   not a user's e-mail gets the assignee's name and no e-mail.
+/// - **A hidden rail is not followed**: a rail is a field position, so masking
+///   it out also prunes everything reachable only through it. The reader
+///   cannot learn a linked object's fields by walking a link they may not see.
+/// - **Fail-closed by type**: `allowed` returns a mask, never an `Option`, so
+///   there is no "unrestricted" answer to fall back to. A class the reader may
+///   not read at all returns [`WideFieldMask::EMPTY`] and emits nothing.
+#[allow(clippy::too_many_arguments)]
+pub fn walk_rails_authorized<G, V, F>(
+    graph: &G,
+    class_view: &V,
+    registry: &ViewRegistry,
+    view_binding: impl Fn(ClassId) -> Option<ViewId>,
+    allowed: impl Fn(ClassId) -> WideFieldMask,
+    root: G::Key,
+    max_depth: usize,
+    visit: &mut F,
+) where
+    G: RailGraph,
+    V: ClassView,
+    F: FnMut(FieldVisit<G::Key>),
+{
+    let mut stack: HashSet<G::Key> = HashSet::new();
+    walk_node(
+        graph,
+        class_view,
+        registry,
+        &view_binding,
+        &|class: ClassId| Some(allowed(class)),
         root,
         0,
         max_depth.min(MAX_WALK_DEPTH),
@@ -318,11 +375,12 @@ pub const MAX_WALK_DEPTH: usize = 64;
 const MAX_POSITIONS: usize = 256;
 
 #[allow(clippy::too_many_arguments)]
-fn walk_node<G, V, B, F>(
+fn walk_node<G, V, B, A, F>(
     graph: &G,
     class_view: &V,
     registry: &ViewRegistry,
     view_binding: &B,
+    allowed: &A,
     key: G::Key,
     depth: usize,
     max_depth: usize,
@@ -332,6 +390,7 @@ fn walk_node<G, V, B, F>(
     G: RailGraph,
     V: ClassView,
     B: Fn(ClassId) -> Option<ViewId>,
+    A: Fn(ClassId) -> Option<WideFieldMask>,
     F: FnMut(FieldVisit<G::Key>),
 {
     if depth > max_depth {
@@ -366,7 +425,13 @@ fn walk_node<G, V, B, F>(
         // AND the view's selection mask with the node's presence: emit only fields
         // that are BOTH selected by the view AND populated on this instance (C2
         // presence).
-        let effective = view.mask.intersect(&graph.present_mask(key));
+        let mut effective = view.mask.intersect(&graph.present_mask(key));
+        // The access decision for this hop's own class, when the caller gave one
+        // (`walk_rails_authorized`). Applied before the emit AND the rail loop, so
+        // a hidden rail is neither emitted nor followed.
+        if let Some(mask) = allowed(class) {
+            effective = effective.intersect(&mask);
+        }
 
         // Bound iteration to the class's declared field count (a class has exactly
         // `field_count` fields), capped at the u8 position ceiling.
@@ -398,6 +463,7 @@ fn walk_node<G, V, B, F>(
                         class_view,
                         registry,
                         view_binding,
+                        allowed,
                         child,
                         depth + 1,
                         max_depth,
@@ -609,6 +675,113 @@ mod tests {
             ],
             "each hop emits exactly (view.mask ∩ presence); email is pruned by the mask"
         );
+    }
+
+    fn collect_authorized(
+        graph: &TestGraph,
+        cv: &TestClasses,
+        reg: &ViewRegistry,
+        binding: &HashMap<ClassId, ViewId>,
+        allowed: impl Fn(ClassId) -> WideFieldMask,
+        root: u32,
+    ) -> Vec<(u32, ClassId, u8, usize)> {
+        let mut out = Vec::new();
+        walk_rails_authorized(
+            graph,
+            cv,
+            reg,
+            |c| binding.get(&c).copied(),
+            allowed,
+            root,
+            8,
+            &mut |v: FieldVisit<u32>| out.push((v.key, v.class, v.position, v.depth)),
+        );
+        out
+    }
+
+    /// A work package whose assignee rails to a user with name AND email
+    /// present, under a view that selects both user fields.
+    fn wp_with_assignee() -> (ViewRegistry, HashMap<ClassId, ViewId>, TestGraph) {
+        let (mut reg, mut binding) = registry();
+        binding.insert(
+            USER,
+            reg.register(NamedView::new(
+                USER,
+                WideFieldMask::from_positions(&[0, 1]),
+                DisplayTemplate::Card,
+            )),
+        );
+        let mut g = TestGraph::new();
+        g.node(10, WORK_PACKAGE, &[0, 1, 2]);
+        g.node(20, USER, &[0, 1]);
+        g.rail(10, 1, 20);
+        (reg, binding, g)
+    }
+
+    #[test]
+    fn authorized_walk_hides_a_field_of_a_nested_class() {
+        let cv = TestClasses::new();
+        let (reg, binding, g) = wp_with_assignee();
+        // The reader may see every work-package field, but only the user's name.
+        let allowed = |c: ClassId| match c {
+            WORK_PACKAGE => WideFieldMask::from_positions(&[0, 1, 2]),
+            USER => WideFieldMask::from_positions(&[0]),
+            _ => WideFieldMask::EMPTY,
+        };
+        let got = collect_authorized(&g, &cv, &reg, &binding, allowed, 10);
+        assert_eq!(
+            got,
+            vec![
+                (10, WORK_PACKAGE, 0, 0),
+                (10, WORK_PACKAGE, 1, 0),
+                (10, WORK_PACKAGE, 2, 0),
+                (20, USER, 0, 1),
+            ],
+            "the user's email is selected and present, but the reader may not see it"
+        );
+        // The same graph walked without a decision shows the email: the
+        // fixture can reveal it, so its absence above comes from the mask.
+        let open = collect(&g, &cv, &reg, &binding, 10, 8);
+        assert!(open.contains(&(20, USER, 1, 1)));
+    }
+
+    #[test]
+    fn authorized_walk_does_not_follow_a_hidden_rail() {
+        let cv = TestClasses::new();
+        let (reg, binding, g) = wp_with_assignee();
+        // The assignee rail (position 1) is hidden; the user class is fully
+        // readable, but nothing may reach it through this work package.
+        let allowed = |c: ClassId| match c {
+            WORK_PACKAGE => WideFieldMask::from_positions(&[0, 2]),
+            USER => WideFieldMask::from_positions(&[0, 1]),
+            _ => WideFieldMask::EMPTY,
+        };
+        let got = collect_authorized(&g, &cv, &reg, &binding, allowed, 10);
+        assert_eq!(
+            got,
+            vec![(10, WORK_PACKAGE, 0, 0), (10, WORK_PACKAGE, 2, 0)],
+            "a hidden rail is neither emitted nor followed"
+        );
+    }
+
+    #[test]
+    fn authorized_walk_with_a_full_decision_equals_the_plain_walk() {
+        let cv = TestClasses::new();
+        let (reg, binding, g) = wp_with_assignee();
+        let full = |_: ClassId| WideFieldMask::from_positions(&[0, 1, 2]);
+        assert_eq!(
+            collect_authorized(&g, &cv, &reg, &binding, full, 10),
+            collect(&g, &cv, &reg, &binding, 10, 8),
+            "a decision that hides nothing changes nothing"
+        );
+    }
+
+    #[test]
+    fn authorized_walk_emits_nothing_for_an_unreadable_root() {
+        let cv = TestClasses::new();
+        let (reg, binding, g) = wp_with_assignee();
+        let got = collect_authorized(&g, &cv, &reg, &binding, |_| WideFieldMask::EMPTY, 10);
+        assert!(got.is_empty(), "no readable field, no rail, no output");
     }
 
     #[test]
