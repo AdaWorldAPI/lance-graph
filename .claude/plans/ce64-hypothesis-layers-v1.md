@@ -527,6 +527,52 @@ cell (T = 64, d = 10 %, w = 4, all lanes), dense class tiles use D and the
 trie is kept for sparse classes only. Otherwise both stay open and the
 overlay cost is the next thing to measure.
 
+**Results (MEASURED 2026-10-14)** for the two sections above.
+`identity_session_probe`, built with `rustc -O -C target-cpu=native`, printed
+tier `v4 (avx512f)`; 4-core VM, one run each, both complete (only the
+pre-declared T = 64, d = 100 %, w = 30 cell skipped). 6 tests (every arm and
+the dense arm against the brute-force oracle, prefix ranges, rank = row,
+classid-out depth, sessions); 6 disable runs red (classid check, prefix row
+range, thought selection in the merge, thought precedence, trie range end,
+session writing the key lane).
+
+Identity table and thought sessions, reference cell (T = 64, d = 10 %, w = 4,
+all lanes), random sparse universe:
+
+| arm | bytes | point read | range, per NodeGuid |
+|---|---|---|---|
+| S16 | 41.5 MB | 6,725 ns | 1,121 ns |
+| S8 | 41.5 MB | 3,844 ns | 1,082 ns |
+| M16 | 31.4 MB | 776 ns | 112 ns |
+| M8 | 31.4 MB | 783 ns | 116 ns |
+
+- Rule: M16 and M8 are the arms within 1.5 times the best range read; M16
+  has the lower point read, by 7 ns, which is within run-to-run noise.
+  **Chosen: the identity trie with overlays per row (M).** Nanosecond target
+  (point read under 1 µs): **met by M16 and M8**, not by S16 or S8.
+- Classid out of the trie: S8 is 1.75 times faster than S16 on points; M8
+  and M16 are equal, because in M the merge of the overlays costs more than
+  the descent.
+- Sessions (M8): 105 ns per materialized row for a one-thought session,
+  138 ns for the all-64 session. All 64 sessions over the whole class at
+  once would take 2 GiB, which is why sessions materialize a prefix range
+  and are temporary.
+
+Dense tile, reference cell, dense universe (all 65,536 HEEL codes):
+
+| arm | point read | range, per NodeGuid |
+|---|---|---|
+| M8 (identity trie) | 1,256 ns | 134 ns |
+| D (Morton code is the row) | 558 ns | 82 ns |
+
+- Rule: D reads a point under 1 µs at the reference cell, so **dense class
+  tiles use D; the trie stays for sparse classes.**
+- With few thoughts D reads a point in 16 to 60 ns (T = 1 and 8, d up to
+  10 %). At T = 64 the merge over up to 64 entries per row is what remains;
+  the overlay layout is the next thing to measure.
+- Sessions on the dense tile: D 106 ns per row (one thought), 147 ns per row
+  (all 64); M8 144 ns per row (all 64).
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of

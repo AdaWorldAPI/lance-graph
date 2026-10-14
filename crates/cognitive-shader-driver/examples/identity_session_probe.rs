@@ -607,14 +607,14 @@ fn range_d<F: FnMut(u64, &Lanes, u32)>(
     f: &mut F,
 ) {
     let (lo, hi) = rows_d(prefix);
-    for r in lo..hi {
+    for (r, &key) in univ.iter().enumerate().take(hi).skip(lo) {
         if o.written[r] & thoughts == 0 {
             continue;
         }
         let mut out = [[0u8; 16]; LANES];
         let m = o.merge(r, thoughts, lanes, &mut out);
         if m != 0 {
-            f(path(univ[r], 8), &out, m);
+            f(path(key, 8), &out, m);
         }
     }
 }
