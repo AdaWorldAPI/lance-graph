@@ -49,7 +49,15 @@ identity ──► actor ──► roles / memberships ──► decision ──
    - `authorize_scoped`: allow or deny, plus the row scope and field mask.
    - `authorize_memberships`: the same, with scopes taken per membership.
 5. **Output.** `selection::walk_rails_authorized` removes what the decision
-   hides before anything is emitted.
+   hides before anything is emitted. For documents, OGAR's
+   `ogar_doc_ir::resolve::{resolve_slot_authorized, resolve_doc_authorized}`
+   take `Access { fields, admits }`:
+   - `fields` is `visible_fields()` per class;
+   - `admits(key)` is the decision's row scope, applied to each object.
+
+   An object outside the scope resolves like a missing one, and nothing is
+   reached through it. Grid views are refused under a decision, because their
+   cells have no field positions (OGAR #359).
 
 ## The four axes of a decision
 
@@ -58,7 +66,7 @@ identity ──► actor ──► roles / memberships ──► decision ──
 | verb × class | may this role read / write / act on this class at all? | `ClassGrant { class, op_mask }`, `grants_permit` | default deny; at least one granting role is required |
 | row scope | which instances? | `ScopeSpec` (`row_scope`), `Membership` | `authorize_scoped`: intersection over granting roles. `authorize_memberships`: union over granting memberships, and one unscoped membership means no restriction |
 | field projection | which fields? | `ClassRbac::field_mask` → `WideFieldMask` | union over granting roles: a field is visible if any granting role shows it |
-| output | what leaves the system? | `walk_rails_authorized` + `visible_fields()` | `view.mask ∩ presence ∩ visible(class)` at every hop |
+| output | what leaves the system? | `walk_rails_authorized` + `visible_fields()`; OGAR `resolve_*_authorized` | `view.mask ∩ presence ∩ visible(class)` at every hop. Row scope is applied by the caller's `admits(key)`, because the field mask is per class |
 
 Field masks are `WideFieldMask`, not `FieldMask`. A `u64` mask silently drops
 positions 64 and above, which was a measured loss (a grant of `{1, 7, 92}` lost
@@ -92,10 +100,9 @@ positions 64 and above, which was a measured loss (a grant of `{1, 7, 92}` lost
 
 ## Open
 
-- OGAR `ogar-doc-ir`'s `resolve_doc` calls `walk_rails`. It does not yet take
-  a decision.
-- Report grids (`lance-graph-report-ogar`) have no per-field positions, so the
-  walk's mask does not apply to them.
+- Report grids (`lance-graph-report-ogar`) have no per-field positions. Under
+  an access decision they are refused, not masked. Showing a grid to a
+  restricted reader needs field positions for its axes and measures first.
 - Accepted 2026-10-14, not yet implemented:
   - relational algebra as the normal form of a decision, with Quack /
     mask-risc as the executor (after a parity test);
