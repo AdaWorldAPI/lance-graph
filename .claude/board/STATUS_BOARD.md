@@ -8,7 +8,7 @@ Plan: `.claude/plans/metta-polyfill-v1.md`. Proposed crate `lance-graph-metta` (
 | **D-MTP-1** | `join_n` lowered by hand through relalg/R2IL, n = 10²..10⁶, v4 | Queued (not authorized) | == Hyperon and PeTTa answers (count and bag); cost reported, no threshold before the run |
 | **D-MTP-2** | `LanceSpace` (`Space + SpaceMut`) as a named space for the non-recursive Datalog subset; golden corpus rerun | Queued (not authorized) | 32/33 golden files still pass; refusals named; whole-conjunction vs per-conjunct calls recorded |
 | **D-MTP-3** | Recursive Datalog rules → relalg μ through the external driver d′ | Queued (not authorized) | `anc_n` answers identical; no fixpoint state in mask-risc |
-| **D-MTP-4** | Upstream fix for the trie panic, test first | Queued (needs operator's word) | red before, green after |
+| **D-MTP-4** | Fork fix for the expression-width trie panic (≥ 1,024 children), test first; distinct from the id-decoding fix `1ffdbd6` | Queued (needs operator's word) | red before, green after |
 | **D-MTP-5** | PeTTa as second oracle in the probes | Queued (not authorized) | PeTTa/Hyperon divergences recorded, never averaged |
 
 ## D-RA — Relational algebra over coordinate populations, a D-CMR prototype (2026-10-13)

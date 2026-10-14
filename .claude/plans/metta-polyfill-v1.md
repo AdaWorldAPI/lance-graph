@@ -63,7 +63,13 @@ grows about n^1.7 on the join (×54 for ×10) and n^2.4–2.9 on the recursion
 (×26 then ×56 per ×4). Single runs; the ratios are far outside the 40 % noise
 band, the absolute seconds are not a primitive claim.
 
-### 3.1 A second Hyperon trie bug (upstream, sibling of #1107)
+### 3.1 A second Hyperon trie bug (distinct from the fix already on the fork)
+
+The measurements above ran on the fork's `fix-trie-key-value` branch (`1ffdbd6`),
+which already carries the earlier fix: `TrieKey::value()` decoded ids ≥ 1,024
+wrongly (`& (MASK - 1024)` instead of `- 1024`), so a space with more than 1,024
+distinct atoms returned wrong atoms or panicked. That fix is in place and is not
+what follows. The panic below is a separate limit that shares the constant 1,024.
 
 Any expression with 1,024 or more children passed to a MeTTa-defined function
 panics: `(let $r (0 … 1022) (size-atom $r))` returns 1023; the same with 1,024
@@ -73,7 +79,7 @@ items aborts with `assertion failed: size < TK_MAX_EXPRESSION_SIZE`
 space for `(= (let $r <expr> …) $X)`, and the trie cannot key an expression
 that wide. `(size-atom (0 … 1023))` called directly does not panic, because a
 grounded op is executed without a space query. This is what stopped join_10000
-(its `collapse` result has 10,000 children). Not fixed here.
+(its `collapse` result has 10,000 children). Not fixed here; reproduced on `1ffdbd6`.
 
 ## 4. Can MeTTa work as an IR?
 
@@ -172,7 +178,7 @@ Recommendation: **`lance-graph-metta`**, workspace-excluded like
 | D-MTP-1 | pre-registered probe: `join_n` lowered by hand through relalg/R2IL against the Hyperon and PeTTa answers, n = 10²..10⁶, v4, ns per row, build and terminal charged | answers identical (count and bag of pairs); cost reported, no threshold claimed before the run |
 | D-MTP-2 | `LanceSpace` adapter (`Space + SpaceMut`) for the non-recursive Datalog subset, bound as a named space; Hyperon's golden corpus (`hyperon-probe/golden`, 32 of 33 passing) rerun with facts moved into it | every golden file that passes today still passes; refusals named; the probe records whether the space received whole conjunctions or single conjuncts |
 | D-MTP-3 | recursive Datalog rules declared into `LanceSpace` → relalg `μ` through d′, queried by `match` over the derived relation | `anc_n` answers identical; no fixpoint state inside mask-risc |
-| D-MTP-4 | upstream: the §3.1 panic as an issue/PR on the fork, test first | red before, green after; upstream only with the operator's word |
+| D-MTP-4 | the §3.1 expression-width panic as a fix on the fork, test first (separate from `1ffdbd6`) | red before, green after; upstream only with the operator's word |
 | D-MTP-5 | PeTTa as the second oracle in the probes (needs SWI-Prolog ≥ 9.3; 10.0.2 installed from the official PPA) | divergences between PeTTa and Hyperon recorded, never averaged |
 
 ## 8. Fences

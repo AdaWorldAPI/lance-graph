@@ -15,11 +15,12 @@
 - Measured, same generated programs: two-hop join PeTTa 0.29 / 0.41 / 1.47 s vs Hyperon 0.11 / 5.9 s /
   panic at n = 10² / 10³ / 10⁴; recursive ancestor PeTTa 0.29 / 0.33 / 0.42 s vs Hyperon
   0.28 / 7.4 / 417 s at n = 50 / 200 / 800. Answers correct wherever an engine finished.
-- New upstream panic: an expression with ≥ 1,024 children passed to a MeTTa function aborts in
+- New panic, separate from the id-decoding fix already on the fork (`1ffdbd6`, branch
+  `fix-trie-key-value`, on which these runs were taken): an expression with ≥ 1,024 children passed to a MeTTa function aborts in
   `TrieKey::start_expr` (`hyperon-space/src/index/trie.rs:539`, `TK_MAX_EXPRESSION_SIZE = 1 << 10`);
   1,023 children works. This stopped the n = 10⁴ join.
 - Crate name: `lance-graph-metta` (one concern: front end + `Space` adapter); "cog" would mix in
   PLN, the miner, attention and Classic AtomSpace (AGPL).
 
 **Open:** whether `match &self` can reach whole conjunctions without patching Hyperon; D-MTP-1..5
-not authorized; the trie panic is not reported upstream.
+not authorized; the expression-width panic has no fix yet.
