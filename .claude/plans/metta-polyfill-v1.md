@@ -245,12 +245,49 @@ comparison is reported both ways.
 excluded, like `lance-graph-relalg`), so the datafrog git dev-dependency never
 enters the main workspace's resolution.
 
+## 6b. D-MTP-1 results (2026-10-14)
+
+Probe `crates/lance-graph-metta/examples/join_probe.rs` (5 tests, run as part
+of `cargo test`). v4 host, program-printed `avx512f=true`, release, best of 5,
+three runs; ranges below span the three.
+
+**Correctness.** The emitted pairs equal datafrog's as sorted vectors at every
+n on F1 and F2. Counts equal Hyperon (F1 100 / 1,000; F2 46 / 476) and PeTTa
+(F2 46 / 476 / 4,762). Disable runs, after committing: dropping the
+`Semijoin` leaf fails F2 and the pinned counts while F1 stays green; emitting
+`(x, dst[x])` fails the pairs on F1 and F2. Both as pre-registered.
+
+| fixture, n = 10⁶ | ingest ns/fact | count ns/row | Rows + emit ns/pair | datafrog ns/pair |
+|---|---|---|---|---|
+| F1 (10⁶ pairs) | 2.5–3.0 | 1.72–1.79 | 3.97–4.06 | 59–62 |
+| F2 (476,190 pairs) | 2.3–2.5 | 1.21–1.24 | 5.4–5.7 | 66–71 |
+
+From 10³ to 10⁶ the count stays at 1.1–2.4 ns/row and emission at 3.0–5.7
+ns/pair; at n = 100 fixed costs (lowering, scratch) dominate (8–9 ns/row,
+10–21 ns/pair).
+
+**Against the pre-registration.**
+- Pairs and counts identical: met.
+- Emission below datafrog: met, by 11–15× per pair at 10⁶, and by 7–9× with
+  ingest charged to the query (ingest + emit ≈ 6.5–8 ns against 59–71).
+- "The folded count costs a small fraction of a nanosecond per row": NOT met.
+  It costs 1.2–1.8 ns/row. The semijoin is a `Gather` through `dst`, one
+  dependent random read per row (`(7i+3) mod n` scatters the targets), and
+  that read, not the mask algebra, sets the cost. A layout where the hop is a
+  range (rule: hops are coordinate ranges, chained hops are intersections) is
+  what would remove it; this fixture has no such locality to exploit.
+
+**Scope.** Functional relations over a dense address space, integer facts
+given to every engine. Symbol → address resolution through the label codebook
+is not charged to anyone here; one-to-many relations, recursion and the
+`Space` adapter are not covered.
+
 ## 7. Deliverables
 
 | D-id | scope | gate |
 |---|---|---|
 | D-MTP-0 | this map, measurements §3, bug §3.1 | — (done) |
-| D-MTP-1 | pre-registered probe: `join_n` lowered by hand through relalg/R2IL against the Hyperon and PeTTa answers, n = 10²..10⁶, v4, ns per row, build and terminal charged | answers identical (count and bag of pairs); cost reported, no threshold claimed before the run |
+| D-MTP-1 | pre-registered probe (§6a): the two-hop join lowered by hand through Quack `Semijoin` (relalg has no hop) against datafrog, Hyperon and PeTTa, n = 10²..10⁶, v4 | answers identical (count and bag of pairs); cost reported, no threshold claimed before the run — **measured, §6b** |
 | D-MTP-2 | `LanceSpace` adapter (`Space + SpaceMut`) for the non-recursive Datalog subset, bound as a named space; Hyperon's golden corpus (`hyperon-probe/golden`, 32 of 33 passing) rerun with facts moved into it | every golden file that passes today still passes; refusals named; the probe records whether the space received whole conjunctions or single conjuncts |
 | D-MTP-3 | recursive Datalog rules declared into `LanceSpace` → relalg `μ` through d′, queried by `match` over the derived relation | `anc_n` answers identical; no fixpoint state inside mask-risc |
 | D-MTP-4 | the §3.1 expression-width panic as a fix on the fork, test first (separate from `1ffdbd6`) | red before, green after; upstream only with the operator's word |

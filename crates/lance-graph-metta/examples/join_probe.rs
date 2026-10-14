@@ -72,12 +72,26 @@ impl Relation2 {
 
     fn run(&self, agg: Agg, kept: &mut [u64]) -> Value {
         let keep = matches!(agg, Agg::Rows);
-        let program = lower(&Query { filter: self.query(), agg }).expect("lowers");
+        let program = lower(&Query {
+            filter: self.query(),
+            agg,
+        })
+        .expect("lowers");
         let lanes = [LaneRef::U32(&self.dst)];
         let masks = [self.valid.as_slice()];
-        let planes = Planes { n_rows: self.n, masks: &masks, lanes: &lanes };
-        let fplanes = [ForeignPlane { words: &self.valid, rows: self.n }];
-        let foreign = Foreign { planes: &fplanes, lanes: &[] };
+        let planes = Planes {
+            n_rows: self.n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let fplanes = [ForeignPlane {
+            words: &self.valid,
+            rows: self.n,
+        }];
+        let foreign = Foreign {
+            planes: &fplanes,
+            lanes: &[],
+        };
         let mut scratch = Scratch::for_program(&program, self.n).expect("carves");
         let out = if keep { Out::Mask(kept) } else { Out::None };
         execute_into(&program, &planes, &foreign, &mut scratch, out).expect("runs")
@@ -145,11 +159,14 @@ fn main() {
         cfg!(target_feature = "avx512f"),
         cfg!(target_feature = "avx2")
     );
-    println!("fixture n | pairs | ingest ns/fact | count ns/row | rows+emit ns/pair | datafrog ns/pair");
+    println!(
+        "fixture n | pairs | ingest ns/fact | count ns/row | rows+emit ns/pair | datafrog ns/pair"
+    );
     for partial in [false, true] {
         for n in [100u32, 1_000, 10_000, 100_000, 1_000_000] {
             let f = facts(n, partial);
-            let (rel, t_ingest) = best(5, || Relation2::ingest(n as usize, &f).expect("functional"));
+            let (rel, t_ingest) =
+                best(5, || Relation2::ingest(n as usize, &f).expect("functional"));
             let (count, t_count) = best(5, || rel.count());
             let mut kept = vec![0u64; words_for(n as usize)];
             let mut pairs = Vec::with_capacity(n as usize);
@@ -157,7 +174,12 @@ fn main() {
             let (want, t_frog) = best(5, || oracle(&f));
             let mut got = pairs.clone();
             got.sort_unstable();
-            assert_eq!(got, want, "pairs differ from datafrog (F{}, n={n})", 1 + partial as u8);
+            assert_eq!(
+                got,
+                want,
+                "pairs differ from datafrog (F{}, n={n})",
+                1 + partial as u8
+            );
             assert_eq!(count, want.len(), "count differs from datafrog");
             let p = want.len().max(1) as f64;
             println!(
@@ -209,8 +231,16 @@ mod tests {
     fn f2_semijoin_rejects_rows() {
         let f = facts(1_000, true);
         let want = oracle(&f);
-        assert!(want.len() < f.len(), "{} of {} facts survive", want.len(), f.len());
-        assert!(want.len() * 2 > f.len(), "fixture too sparse to be informative");
+        assert!(
+            want.len() < f.len(),
+            "{} of {} facts survive",
+            want.len(),
+            f.len()
+        );
+        assert!(
+            want.len() * 2 > f.len(),
+            "fixture too sparse to be informative"
+        );
     }
 
     /// The counts Hyperon and PeTTa returned for the same MeTTa programs.
