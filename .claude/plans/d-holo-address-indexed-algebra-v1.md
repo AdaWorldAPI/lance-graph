@@ -380,6 +380,104 @@ boxes. M and V run prepared programs.
   interval. Not built: no new op was added for this pass.
 - External baselines (DuckDB, differential dataflow, TACO).
 
+## Results, corrected after review (2026-10-14)
+
+The Codex review of #1550 found two accounting errors in the H1 and H5 probes.
+Both are fixed in `30fb38dd`; the results above are left as first measured.
+
+- **Lowering recognised inside the timed path.** Every timed call ran
+  `Program::compile()`, so arms A and B paid K recognitions per query, and H5's
+  Q3 also rebuilt its scan program for every group. The probes now store
+  `CompiledProgram` and time execution only.
+- **H5 charged no input construction**, against accounting rule 1. Q1 now builds
+  its occupancy plane from a presence lane and charges it to both arms; Q2
+  measures both coverage orientations. H1 now also measures row words built from
+  planes.
+
+Re-run, v4 (avx512f), same fixtures.
+
+### H1: unchanged verdict, B faster
+
+Construction: planes from row words 20.56 ns/row (1.35 ms per tile); row words
+from planes 17.17 ns/row (1.13 ms); snapshot lists 37.67 ns/row.
+
+s = 10 %, K = 64: A 924,205, B 33,762, C 54,862, D 394,664 ns. Without the
+repeated `compile()`, B dropped from 51,971 to 33,762 ns; each further branch
+now costs about 0.31 µs.
+
+| stored form | aperture | N | B total | C total | verdict |
+|---|---|---|---|---|---|
+| row words | 65,536 | 1 | 1,381 µs | 55 µs | PASS |
+| row words | 65,536 | 100 | 47.2 µs | 54.9 µs | FAIL |
+| row words | 4,096 | 1 | 1,354 µs | 3.6 µs | PASS |
+| row words | 4,096 | 100 | 20.2 µs | 3.6 µs | PASS |
+| planes | 65,536 | 100 | 33.8 µs | 66.1 µs | FAIL |
+| planes | 4,096 | 100 | 6.7 µs | 14.8 µs | FAIL |
+
+C stays flat in K (0.58–1.08 across all cells). The verdict still turns on
+which orientation is stored.
+
+### H5: Q1 fails at N = 1, passes at N = 100
+
+Building the occupancy plane costs 109–113 µs (1.66–1.73 ns/row). Both arms
+read it, so both are charged:
+
+| occupancy | p | R total, N = 1 | S total, N = 1 | ratio | R total, N = 100 | S total, N = 100 | ratio |
+|---|---|---|---|---|---|---|---|
+| 100 % | 1 | 109.1 µs | 144.3 µs | 1.32× | 1.17 µs | 36.4 µs | 31× |
+| 100 % | 2 | 109.1 µs | 150.3 µs | 1.38× | 1.21 µs | 42.4 µs | 35× |
+| 100 % | 3 | 109.1 µs | 150.3 µs | 1.38× | 1.15 µs | 42.3 µs | 37× |
+| 30 % | 1 | 113.2 µs | 152.8 µs | 1.35× | 1.22 µs | 40.8 µs | 33× |
+| 30 % | 2 | 113.2 µs | 151.4 µs | 1.34× | 1.19 µs | 39.4 µs | 33× |
+| 30 % | 3 | 113.2 µs | 151.9 µs | 1.34× | 1.20 µs | 39.9 µs | 33× |
+
+- At N = 1 the ≥ 5× rule FAILS in every cell: building the plane is the query.
+  At N = 100 it PASSES in every cell. The coordinate-native advantage is real
+  only once the occupancy plane is maintained, not rebuilt per query.
+- At 100 % occupancy neither arm needs the plane (the closed form answers from
+  `16^(4-p)`). The probe charges it anyway, because it reads it.
+- The adversarial permuted run still disagrees (Range 1,212, sweep and oracle
+  1,214).
+
+Q2 per identity:
+
+| stored form | N | W | B | P |
+|---|---|---|---|---|
+| row words | 1 | 1.0 ns | 1.18 ms | 1.18 ms |
+| row words | 100 | 1.0 ns | 11.9 µs | 15.2 µs |
+| planes | 1 | 1.01 ms | 54.3 ns | 3.38 µs |
+| planes | 100 | 10.1 µs | 54.3 ns | 3.38 µs |
+
+The "W under 5 ns" rule passes only when row words are the stored form, the same
+dependence as H1.
+
+Q3, after compiling the scan programs once:
+
+| dist | query | S ns | I ns | IM ns | break-even N CSR / planes |
+|---|---|---|---|---|---|
+| uniform | Q3a count | 99,578 | 42.9 | 469 | 22 / 71 |
+| uniform | Q3b ∧ prefix | 6,636 | 23.4 | 50 | 339 / 1,073 |
+| uniform | Q3c ∧ v < t | 101,843 | 243.2 | 7,514 | 22 / 75 |
+| zipf | Q3a count | 62,141 | 21.0 | 361 | 56 / 126 |
+| zipf | Q3b ∧ prefix | 3,621 | 17.7 | 52 | 958 / 2,175 |
+| zipf | Q3c ∧ v < t | 100,599 | 355.9 | 5,416 | 34 / 82 |
+
+- The plane inverse is still refuted on Q3b (break-even 1,073 and 2,175, over
+  1,000). CSR now comes close (958 on zipf Q3b).
+- This run was noisy: the uniform scan took 99.6 µs against 59.5 µs before, and
+  the CSR insert 40.5 µs against 13.2 µs. The scan's cost still follows the
+  aperture (time ratio 15.0 and 17.2 for a row ratio of 16).
+
+### Corrected verdicts
+
+| falsifier | first run | after review |
+|---|---|---|
+| H1 | MIXED, depends on stored orientation | unchanged |
+| H5 Q1 (coordinate-native) | CONFIRMED | CONFIRMED at N = 100; FAILS at N = 1 |
+| H5 Q2 | PASS | PASS only with row words stored |
+| H5 Q3 (crossing; plane inverse refuted on Q3b) | as before | unchanged |
+| H6 | HOLDS | not affected (it already used `CompiledProgram`) |
+
 ## Next falsifiers: H6b, H8, H9 (PRE-REGISTERED 2026-10-14, NOT RUN)
 
 DECISION (operator, 2026-10-14): H6b approved as a probe; the terminal

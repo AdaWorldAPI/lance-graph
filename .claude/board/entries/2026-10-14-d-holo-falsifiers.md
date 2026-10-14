@@ -9,7 +9,12 @@
   the 4,096-row aperture (4.8 vs 31.0 µs); on the full tile gate-once is as fast (71.2 vs 71.7 µs).
   The verdict depends on storing coverage by row: with per-thought planes stored, gate-once wins
   every reference cell.
-- **H5 (native vs crossing): CONFIRMED.** A prefix `Range` reads exactly the prefix's occupancy
+- **Correction after review (`30fb38dd`):** H5 charged no input construction and both probes
+  recognised lowerings inside the timed path. Re-run: H5 Q1 holds at N = 100 (31–37×) but fails at
+  N = 1 (1.3–1.4×), because building the occupancy plane (about 110 µs) dominates both arms; Q2's
+  1 ns holds only with row words stored. H1's verdict is unchanged. Details: plan § Results,
+  corrected after review.
+- **H5 (native vs crossing), as first measured: CONFIRMED.** A prefix `Range` reads exactly the prefix's occupancy
   words and is 292–573× faster than a key sweep; a permuted key lane makes it disagree with the
   oracle, so it needs a layout-order witness. A row popcount answers all 64 perspectives in 1 ns.
   Reverse `memberOf` costs the aperture's rows without a seal-time inverse. The per-group plane
