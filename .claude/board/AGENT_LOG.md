@@ -4,6 +4,7 @@
 - Ledger: 9 hits reported, 9 verified by an independent grep and Reads; 0 wrong; 1 missed (`coresearch-council.md:110-111`, the phrase wraps a line), and the card's own notes named that limitation. No conclusions stated.
 - Cost: about 444k subagent tokens for 8 tool calls, most of it the loaded workspace context, not the search. Briefs should stay narrow until that is measured per card.
 - Outcome: three stale policy lines updated; council lenses keep their Sonnet floor (they synthesize).
+- Two more harvest-scout runs (ndarray, tesseract-rs `haiku` lines): 2/2 and 7/7 hits verified by grep; 0 wrong, 0 missed; ~434k and ~437k subagent tokens.
 
 ## 2026-10-03 — Explore agent: SurrealQL AST harvest (D-FPW-0)
 

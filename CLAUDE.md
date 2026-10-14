@@ -1108,27 +1108,34 @@ the runtime Blackboard. Keep them architecturally distinct.
   DECISION (2026-10-14): Haiku is no longer on the forbidden list. It is the
   default for cheap harvest discovery: one question over a closed, named
   search space, returning candidates, counts or verbatim quotes with their
-  locations — never a conclusion. Four cards carry the contract:
+  locations — never a conclusion. Its main job is deep mapping of the
+  substrate, whose token size makes reading it on the main thread too
+  expensive: a Haiku mapper turns one bounded unit into a compact fact map,
+  and the orchestrator reasons over the map. Six cards carry the contract:
   `harvest-scout` (find candidates), `census-counter` (count, with the
-  command), `quote-harvester` (verbatim text with line numbers) and
+  command), `quote-harvester` (verbatim text with line numbers),
+  `substrate-mapper` (a fact map of one module, crate or folder, written to
+  one file), `spec-editor` (exact edits to one file from a written spec) and
   `guarded-executor` (run a pre-written `-p`-scoped command card). Haiku
-  still does not edit or write source or docs, draft, review, synthesize or
-  decide; those stay with Sonnet and Opus. The orchestrator watches closely:
+  still does not author content, draft, review, synthesize or decide; those
+  stay with Sonnet and Opus. The orchestrator watches closely:
   it Reads every harvested item it relies on, re-runs at least one reported
-  count per reply, and records hits and misses per run; a card that misses or
+  count per reply, spot-checks every map against its source, reads the diff
+  of every `spec-editor` edit, and records hits and misses per run; a card that misses or
   concludes twice on one kind of task is dropped back to Sonnet for that
   kind. Full contract and supervision rules:
   `.claude/knowledge/tiered-agent-execution-protocol.md` § Haiku harvest tier.
   SCOPE: this workspace. REVISIT WHEN: the run ledger shows a miss rate that
   makes the spot checks cost more than a Sonnet run, or Haiku is proposed for
-  edits.
+  edits that author content.
 
 **Concrete test before spawning a subagent:**
 > "Does this agent have to read N sources and produce something that
 > only makes sense when those sources are held in mind together?"
 >
 > **Yes → Opus.** No (one source in, one shape out) → Sonnet.
-> Read-only and the answer is a list, a count or a quote → Haiku harvest card.
+> Read-only and the answer is a list, a count, a quote or a fact map, or an
+> edit fully written out in the brief → Haiku card.
 
 **Settings baseline** (`.claude/settings.local.json`, gitignored):
 `alwaysThinkingEnabled: true`, `effortLevel: high`,

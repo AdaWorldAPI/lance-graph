@@ -225,8 +225,11 @@ merged, the exception is not in force.
 DECISION (operator, 2026-10-14): "Use Haiku agents for grindwork and take
 Haiku off the guard list, but watch the agents closely and start using them
 for very focused and scoped tasks that you use for cheap harvest discovery."
-SCOPE: read-only discovery and guarded execution in this workspace; edits
-stay with Sonnet. BASIS: harvest output is navigation (FIRST-HAND-SOURCE-LAW),
+SCOPE: read-only discovery, deep mapping, exact spec edits and guarded
+execution in this workspace; authoring stays with Sonnet. Follow-up
+(operator, same day): "Goal is to outsource deeper mapping due to enormous
+token equivalent of the substrate", and Haiku may apply exact edits from a
+written spec. BASIS: harvest output is navigation (FIRST-HAND-SOURCE-LAW),
 so a cheap model is enough to find things as long as reading and deciding
 stay with a stronger one. REVISIT WHEN: the run ledger below shows the spot
 checks costing more than a Sonnet run, or Haiku is proposed for edits.
@@ -238,6 +241,8 @@ checks costing more than a Sonnet run, or Haiku is proposed for edits.
 | `harvest-scout` | every candidate as `path:line` + the matching line | Read, Glob, Grep |
 | `census-counter` | raw counts, each with the exact command | Read, Glob, Grep, read-only Bash |
 | `quote-harvester` | verbatim text with line numbers; FOUND / NOT FOUND checks | Read, Grep, Glob |
+| `substrate-mapper` | a fact map of one bounded unit, written to one named file | Read, Glob, Grep, Write (its map only) |
+| `spec-editor` | per-edit APPLIED / REFUSED for exact edits to one file | Read, Edit |
 | `guarded-executor` | a run-record for a pre-written command card | Bash, Read, Write (its own run-record only) |
 
 ### What makes a brief Haiku-sized
@@ -267,6 +272,18 @@ checks costing more than a Sonnet run, or Haiku is proposed for edits.
 5. **Drop back on repeat failure.** A card that misses a hit, miscounts or
    states a conclusion twice on one kind of task is not used for that kind
    again; that kind goes to Sonnet, and the case is noted in the ledger.
-6. **No edits.** Haiku cards have no Edit tool, and `guarded-executor`
-   writes only its own run-record. A harvest agent that wants to change a
-   file reports `notes:` instead.
+6. **No authored content.** Only `spec-editor` edits, and only text the
+   orchestrator wrote out in full; the orchestrator reads its diff before
+   committing. `substrate-mapper` writes only its map, `guarded-executor`
+   only its run-record. Other cards have no write tool.
+7. **Maps are checked against source.** For every map, the orchestrator
+   Reads at least two mapped items at their stated locations before relying
+   on the map, and treats `mentioned by` as candidates, never as a call graph.
+
+### Mapping a large surface
+
+Split the surface into units small enough to read in full (one module file,
+or one directory of a few thousand lines). Run one `substrate-mapper` per
+unit, in parallel only over disjoint units, each with its own output file.
+The orchestrator reads the maps, not the source, and Reads source only where
+a decision rests on it.

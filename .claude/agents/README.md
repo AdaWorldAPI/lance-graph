@@ -8,8 +8,8 @@
 > when starting a session; read this file when deciding which
 > specialist to wake for a specific task.
 
-Ensemble size: **22 specialists + 5 meta-agents**, plus the four Haiku
-harvest/executor cards (§ Haiku harvest tier). Every card is at
+Ensemble size: **22 specialists + 5 meta-agents**, plus the six Haiku
+cards (§ Haiku harvest tier). Every card is at
 `.claude/agents/<name>.md`. Each card declares its own
 `tools`, `model`, and `READ BY:` knowledge prerequisites.
 
@@ -230,6 +230,15 @@ it. Read-only Bash.
 Returns verbatim text with line numbers for given ranges or symbols, and
 checks whether a cited quote is where a document says it is.
 
+### `substrate-mapper`
+Turns one bounded unit (module, crate `src/`, doc folder) into a fact map in
+one named file: items, verbatim signatures and doc lines, names each body
+mentions, candidate callers. The tool for outsourcing deep mapping.
+
+### `spec-editor`
+Applies exact (old, new) edits to one file, each only if its anchor occurs
+exactly once. The orchestrator writes every edit in full and reads the diff.
+
 ### `guarded-executor`
 Runs a pre-written, numbered command card (cargo `-p ...`, probes) and writes
 one run-record. Never edits source, never fixes.
@@ -241,8 +250,9 @@ one run-record. Never edits source, never fixes.
 Decision flow:
 
 1. **Session just started?** → `workspace-primer` first.
-   **Need a list, a count or a quote from a closed space?** → a Haiku
-   harvest card (`harvest-scout`, `census-counter`, `quote-harvester`).
+   **Need a list, a count, a quote or a map of a closed space?** → a Haiku
+   card (`harvest-scout`, `census-counter`, `quote-harvester`,
+   `substrate-mapper`).
 2. **Problem needs 3+ specialists?** → `adk-coordinator` to frame.
 3. **Proposal adds a layer or makes claims without measurement?** →
    `truth-architect` is the mandatory reviewer; loop it in early.

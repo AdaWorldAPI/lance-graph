@@ -57,9 +57,10 @@ Every V3 card reads, in order:
 Sonnet 5 for grindwork (mechanical wiring, greps, censuses, doc stubs from
 spec); Fable/Opus tier for decisions, plans needing nuance, reviews, and
 anything accumulating multiple sources. Haiku (since 2026-10-14) only for
-read-only harvest and guarded execution through the four cards in
-`.claude/agents/` (harvest-scout, census-counter, quote-harvester,
-guarded-executor): greps and censuses can go there, edits cannot.
+harvest, deep mapping, exact spec edits and guarded execution through the six
+cards in `.claude/agents/` (harvest-scout, census-counter, quote-harvester,
+substrate-mapper, spec-editor, guarded-executor): greps, censuses and maps
+go there; authoring does not.
 
 **Sonnet footgun-proofing (operator, 2026-07-02):** every Sonnet worker
 brief MUST paste the §1 preamble of

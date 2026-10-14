@@ -11,7 +11,7 @@ conventions prescribe. Per the 2026-04-19 audit of
 | Agent cards location | `.claude/agents/<name>.md` with YAML frontmatter |
 | Frontmatter fields | `name`, `description`, `tools`, `model` |
 | Settings files | `.claude/settings.json` (project, committed) + `.claude/settings.local.json` (local, gitignored) |
-| Model values | `sonnet`, `opus`, `haiku` (haiku only on the four harvest/executor cards) |
+| Model values | `sonnet`, `opus`, `haiku` (haiku only on the six Haiku cards) |
 | CLAUDE.md location | Project root or `.claude/CLAUDE.md` |
 | Permissions arrays | `permissions.ask`, `permissions.allow`, `permissions.deny` |
 | Hook events | `SessionStart`, `PostCompact`, etc. all official |

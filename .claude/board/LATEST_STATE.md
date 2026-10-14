@@ -1,3 +1,7 @@
+## 2026-10-14 — main after #1551 (merged)
+
+- **On `main` (#1551, merged `9337da49`):** D-HOLO H11 and H12 pre-registered, H6b amended with connectedness; plan only, nothing run.
+
 ## 2026-10-14 — main after #1550 (merged)
 
 - **On `main` (#1550, merged `5cbb3fd5`):** D-HOLO H1/H5/H6 measured (examples only, no production change): symbolic interval closure cheapest; K-branch evaluation flat in K but orientation-dependent; coordinate-native prefix counting wins only once its build is amortized. Plan `d-holo-address-indexed-algebra-v1.md`; entry `2026-10-14-d-holo-falsifiers.md`.

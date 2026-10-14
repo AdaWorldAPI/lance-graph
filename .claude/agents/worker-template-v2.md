@@ -338,9 +338,9 @@ The worker MUST NOT, under any circumstance:
 7. **Add a new top-level abstraction** without `truth-architect` review
    per `frankenstein-checklist.md`. New struct / new trait / new layer
    → flag in CSI section, do not ship without review.
-8. **Use `haiku` for any nested sub-spawn other than the four harvest/executor
-   cards** (`harvest-scout`, `census-counter`, `quote-harvester`,
-   `guarded-executor`). Sonnet floor for everything else per Model Policy.
+8. **Use `haiku` for any nested sub-spawn other than the six Haiku cards**
+   (`harvest-scout`, `census-counter`, `quote-harvester`, `substrate-mapper`,
+   `spec-editor`, `guarded-executor`). Sonnet floor for everything else per Model Policy.
 9. **Skip the mandatory reads.** A worker that grep'd before reading
    `LATEST_STATE.md` is operating without context; the prompt is
    structurally invalid for that worker.

@@ -117,9 +117,10 @@ rediscovery.**
 - Main thread: Opus, deep thinking, full `effortLevel: high`.
 - Subagent grindwork (single-source mechanical): Sonnet.
 - Subagent accumulation (multi-source synthesis): Opus.
-- Haiku only for read-only harvest and guarded execution, through the four
-  cards in `.claude/agents/` (harvest-scout, census-counter, quote-harvester,
-  guarded-executor); Sonnet is the floor for edits, drafting and review.
+- Haiku only through the six cards in `.claude/agents/` (harvest-scout,
+  census-counter, quote-harvester, substrate-mapper, spec-editor,
+  guarded-executor): harvest, deep mapping, exact spec edits, execution.
+  Sonnet is the floor for authoring, drafting and review.
 
 Concrete test before spawning a subagent:
 > "Does this agent have to read N sources and produce something that
