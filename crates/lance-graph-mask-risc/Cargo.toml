@@ -25,3 +25,9 @@ ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", d
 # still names neither.
 causal-edge = { path = "../causal-edge" }
 lance-graph-contract = { path = "../lance-graph-contract" }
+
+# D-HOLO falsifier probes (plan d-holo-address-indexed-algebra-v1); their
+# oracle tests run under `cargo test`.
+[[example]]
+name = "holo_k_branch_probe"
+test = true
