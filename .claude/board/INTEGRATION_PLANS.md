@@ -1,3 +1,11 @@
+## 2026-10-14 — d-holo-address-indexed-algebra-v1 — falsifiers H1, H5, H6 for the address-indexed algebra → `.claude/plans/d-holo-address-indexed-algebra-v1.md`
+
+**Status:** PRE-REGISTERED; nothing measured.
+
+- Tests the D-HOLO-0 candidate: bounded parallel evaluation of coordinate-aligned constraints across up to 64 thought branches with no query-time intermediate relations.
+- H1 K-branch scaling (mask-risc per-branch and gate-once arms, a positional-popcount arm outside the contract, a snapshot baseline); H5 coordinate-native vs coordinate-crossing (prefix count, one identity's perspectives, reverse `memberOf` by scan vs maintained inverse with build and update cost); H6 closure of prefix/Morton-box restrictions as interval sets vs masks vs value sweep.
+- Every input mask's construction is charged; work avoided is measured in coordinates examined; a `Range` needs a layout-order witness and gets an adversarial permuted run.
+
 ## 2026-10-13 (2) — relalg-v1 — relational algebra over coordinate populations, rewritten before it runs → `.claude/plans/relalg-v1.md`
 
 **Status:** D-RA-1 MEASURED (prototype crate); D-RA-2..4 PROPOSAL. A prototype for D-CMR, not a competing IR.
