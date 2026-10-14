@@ -313,9 +313,12 @@ pub fn walk_rails<G, V, F>(
 /// ```
 ///
 /// `allowed` answers, per class, which field positions the reader may see —
-/// typically the `field_mask` of the reader's authorization decision for that
-/// class (`lance-graph-rbac`'s `Decision`), which already folds role masks and
-/// the class default together. The walk applies it; it decides nothing.
+/// typically `visible_fields()` of the reader's authorization decision for
+/// that class (`lance-graph-rbac`'s `ScopedDecision` / `MembershipDecision`),
+/// which already folds role masks and the class default together. Use
+/// `visible_fields()`, not the raw `field_mask` field: a refused decision
+/// carries the open default there. The walk applies the mask; it decides
+/// nothing.
 ///
 /// What this guarantees:
 ///

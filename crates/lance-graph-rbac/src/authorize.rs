@@ -181,6 +181,24 @@ pub struct ScopedDecision {
     pub field_mask: WideFieldMask,
 }
 
+impl ScopedDecision {
+    /// The field positions the actor may see: [`field_mask`](Self::field_mask)
+    /// when access is allowed, [`WideFieldMask::EMPTY`] otherwise.
+    ///
+    /// Use this, not `field_mask`, when the mask feeds an output stage such as
+    /// `selection::walk_rails_authorized`: a refused decision carries the open
+    /// default in `field_mask`, which would show every field of a class the
+    /// actor may not read.
+    #[must_use]
+    pub fn visible_fields(&self) -> WideFieldMask {
+        if matches!(self.decision, AccessDecision::Allow) {
+            self.field_mask.clone()
+        } else {
+            WideFieldMask::EMPTY
+        }
+    }
+}
+
 /// §5 two-stage authorize: stage-1 is the unchanged positive∧op-gate
 /// ([`authorize`]); stage-2 folds the **granting subset** (the roles that
 /// actually permit `op` — the SAME predicate stage-1 uses, NOT `roles_reaching`)
@@ -247,6 +265,20 @@ pub struct MembershipDecision {
     /// promotion of `FieldMask::FULL` on a non-`Allow`, as in
     /// [`ScopedDecision`].
     pub field_mask: WideFieldMask,
+}
+
+impl MembershipDecision {
+    /// The field positions the actor may see: [`field_mask`](Self::field_mask)
+    /// when access is allowed, [`WideFieldMask::EMPTY`] otherwise. See
+    /// [`ScopedDecision::visible_fields`] for why output stages use this.
+    #[must_use]
+    pub fn visible_fields(&self) -> WideFieldMask {
+        if matches!(self.decision, AccessDecision::Allow) {
+            self.field_mask.clone()
+        } else {
+            WideFieldMask::EMPTY
+        }
+    }
 }
 
 /// Authorize through [`ClassRbac::memberships`], the permissive counterpart of
@@ -697,6 +729,26 @@ mod scoped_tests {
         assert!(matches!(d.decision, AccessDecision::Deny { .. }));
         assert_eq!(d.scope, None);
         assert_eq!(d.field_mask, WideFieldMask::from(FieldMask::FULL));
+    }
+    #[test]
+    fn a_refused_decision_shows_no_fields() {
+        let d = authorize_scoped(&NoRoles, "ghost", CLS, Operation::Act { action: "x" });
+        assert_eq!(d.field_mask, WideFieldMask::from(FieldMask::FULL));
+        assert_eq!(d.visible_fields(), WideFieldMask::EMPTY);
+        let m = authorize_memberships(&NoRoles, "ghost", CLS, Operation::Act { action: "x" });
+        assert!(!matches!(m.decision, AccessDecision::Allow));
+        assert_eq!(m.field_mask, WideFieldMask::from(FieldMask::FULL));
+        assert_eq!(m.visible_fields(), WideFieldMask::EMPTY);
+    }
+    #[test]
+    fn an_allowed_decision_shows_its_field_mask() {
+        let d = authorize_scoped(&DualGrantRbac, "u", CLS, Operation::Act { action: "x" });
+        assert!(matches!(d.decision, AccessDecision::Allow));
+        assert_eq!(d.visible_fields(), d.field_mask);
+        assert!(d.visible_fields().has(0));
+        let m = authorize_memberships(&DualGrantRbac, "u", CLS, Operation::Act { action: "x" });
+        assert!(matches!(m.decision, AccessDecision::Allow));
+        assert_eq!(m.visible_fields(), m.field_mask);
     }
     // ── T5 (F5) wide-projection regression ────────────────────────────────
     //
