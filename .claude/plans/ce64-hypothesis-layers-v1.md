@@ -457,6 +457,50 @@ uncovered key, rank order, empty lane-tables); 5 disable runs red.
   mask per node (one descent instead of 64), and taking the classid levels
   out of the trie. Both change the arms and need a new pre-registration.
 
+## Identity table and thought sessions (pre-registered 2026-10-14)
+
+**DECISION (operator, 2026-10-14).** Measure the two follow-ups from the
+lane-trie result (one shared trie; classid out of the trie), and add: the
+identity is a dense table of 64k rows x 32 lanes (lane 0 key, 1 edge, 2..31
+value; 64k x 512 B), addressed by the NodeGuid's rank in its class trie; the
+64 thoughts are session addresses for temporary materialization, not
+storage. Written before the probe exists; a change after the run is a new
+dated section.
+
+**Arms.**
+- S16: the previous winner, one trie per thought, 16 levels (classid 8 +
+  HEEL 4 + HIP 4). Re-run as the baseline.
+- S8: S16 with the classid taken out (one trie per class): 8 levels.
+- M16, M8: one identity trie per class (16 or 8 levels) resolving a NodeGuid
+  to its identity row; thought overlays hang off the row: one 64-bit
+  written-by thought mask per row, then per (row, thought) entry a 30-bit
+  lane mask and the packed cells, entries sorted by thought. One descent per
+  read whatever the number of thoughts. Internal trie nodes carry no thought
+  mask: a prefix maps to a contiguous row range, so the range read scans
+  rows and skips each row whose written-by AND selection is 0.
+
+All arms return the same merged delta (30 value lanes plus the lane mask)
+and are checked against the brute-force oracle; a higher thought index wins
+a shared lane.
+
+**Session materialization (M8 only, reported, no decision attached).**
+Materialize a session's view into a temporary 512-byte-row buffer over a
+prefix range (1/16 of the class): identity row copied, then the session's
+overlays applied. Session = one thought (s in 0..63), and the merged view of
+all 64. Metric: ns per materialized row; bytes for all 64 sessions over the
+full class are computed, not allocated.
+
+**Grid, metrics.** As in the lane-trie pre-registration: universe 65,536,
+T in {1, 8, 64}, d in {1 %, 10 %, 100 %}, w in {1, 4, 30}, lanes 1 or all,
+32 M lane-cell cap; Q1 bytes (the 32 MiB identity table is shared by every
+arm and reported once), Q2 point read ns and ns per descent step, Q3 range
+ns per emitted NodeGuid; v4 only, tier printed, median of 5.
+
+**Decision rule.** Reference cell T = 64, d = 10 %, w = 4, all lanes. Among
+the arms whose Q3 is within 1.5 times the best Q3 and whose Q1 is within
+2 times the best Q1, choose the lowest Q2. Nanosecond target: a point read
+under 1 microsecond at the reference cell, reported pass or fail per arm.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
