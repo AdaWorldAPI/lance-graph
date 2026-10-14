@@ -1,3 +1,10 @@
+## 2026-10-14 — lance-graph PR #1550 (merged `5cbb3fd5`, branch `ccr-9f3b8075-74u47l-holo`, head `91ca4359`, 10 commits) — D-HOLO: falsifiers H1, H5, H6 for the address-indexed algebra
+
+- **Added:** plan `d-holo-address-indexed-algebra-v1.md` (pre-registered before any probe); three examples in `lance-graph-mask-risc`: `holo_k_branch_probe` (H1), `holo_coord_probe` (H5), `holo_interval_probe` (H6), each with row-oracle tests. Board entry `2026-10-14-d-holo-falsifiers.md`; rows D-HOLO-H1/H5/H6 and the pre-registrations H6b/H8/H9. Also the owed #1548 board reconciliation.
+- **Locked:** v4 only, tier printed, input construction and lowering charged. H6 HOLDS (the symbolic interval arm cheapest in all 24 cells). H1 MIXED: K-branch evaluation is flat in K but beats gate-once only when coverage is stored as row words and the gate is narrow. H5 Q1 holds at N = 100 (31–37×) and FAILS at N = 1 (1.3–1.4×, the occupancy build dominates); the plane inverse is refuted on Q3b.
+- **Deferred / open:** H6b, H8, H9 not run; no production terminal selector; D-HOLO stays separate from D-ORACLE-0 (#1549), cross-referenced only.
+- **Confidence:** medium; disable runs red for every oracle test, but run-to-run noise on the VM was about 40 %, so differences under 2× are reported as undecided.
+
 ## 2026-10-14 — lance-graph PR #1548 (merged `e7c5f790`, branch `ccr-9f3b8075-74u47l-truth-exact`, head `0e15cff7`, 4 commits) — D-NALP-4: exact truth codes in `causal_edge::isa::truth`; revision-layer invariants
 
 - **Added:** `truth::code::{deduction, induction, abduction}` over `u8` codes (integer arithmetic, one half-up rounding); `Opcode::truth_code` routes the three rules there, and `execute` / `syllogize` pack its result. `tests/ce64_truth_exact.rs` (8 tests) against an oracle written independently of the crate (`tests/common/truth_law.rs`); `examples/truth_exact_probe.rs` checks all 2³² inputs per law. Board entry `2026-10-14-revision-layer-invariants.md`: Gadamer gate invariants G1–G7 and the Rubikon goal-revision specifications R1–R4.

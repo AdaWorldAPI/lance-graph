@@ -1,7 +1,7 @@
 # D-HOLO — address-indexed algebra: falsifiers H1, H5, H6 (v1)
 
-**Status:** MEASURED 2026-10-14 (H1, H5, H6); H6b, H8, H9 PRE-REGISTERED, not
-run. The pre-registration below is unchanged; results are in § Results
+**Status:** MEASURED 2026-10-14 (H1, H5, H6); H6b, H8, H9, H11, H12
+PRE-REGISTERED, not run. The pre-registration below is unchanged; results are in § Results
 (2026-10-14), the next falsifiers in § Next falsifiers.
 
 ## Overview
@@ -34,6 +34,11 @@ is run.
 - [x] D-HOLO-H5: coordinate-native vs coordinate-crossing probe, same
 - [x] D-HOLO-H6: closure of address restrictions probe, same
 - [x] Results section, board entry, status rows
+- [ ] D-HOLO-H6b: normal forms on the Context × Operation tile (with the connectedness column)
+- [ ] D-HOLO-H8: semantic diversity does not add instruction families
+- [ ] D-HOLO-H9: relational emptiness without a fold
+- [ ] D-HOLO-H11: stacked logic (pre-registered after H6b; runs after it)
+- [ ] D-HOLO-H12: semantic map of inference functions across NARS systems
 
 ## Accounting rules (apply to every falsifier)
 
@@ -533,6 +538,21 @@ distinct mask per context).
 - Thresholds (group count, interval count, density) where each representation
   stops being the cheapest are reported, with every counterexample.
 
+**Amendment before any run (2026-10-14): connectedness as a measured column.**
+DECISION (operator, 2026-10-14). BASIS: Haspelmath 2003, "The Geometry of
+Grammatical Meaning": a gram covers a connected region of a semantic map; a
+1-D map makes every region an interval (Fig. 8.19), an implicational
+hierarchy makes it a prefix (Fig. 8.20), and the map can have cycles
+(Fig. 8.12) and non-connected "doughnuts" (Turkish present, p. 236).
+- For every pattern, also report its 4-connected component count on the
+  256 × 256 grid and its Morton interval count.
+- Add one fixture: a doughnut (a filled rectangle with an interior hole).
+- Report whether component count predicts the cheapest representation better
+  than density does (rank agreement of each predictor with the winner, over
+  all patterns).
+- Connectedness is a selector input to be tested, never a constraint: no
+  representation may assume it, and the doughnut must still match the oracle.
+
 ### H8 — semantic diversity does not add instruction families
 
 - One fixed formula (a restriction ∧ a forward hop ∧ a negation, then count),
@@ -572,7 +592,80 @@ route.
 empty symbolically while the fold finds a row (zero false empties). A
 "cannot decide" answer is always allowed; it only costs a fold.
 
+### H11 — stacked logic answers more without inflating confidence
+
+PRE-REGISTERED 2026-10-14, NOT RUN; runs after H6b. DECISION (operator,
+2026-10-14). SCOPE: examples only, existing ops; no new opcode, executor or
+NARS-specific path (the bet is that stacking needs none). BASIS: the operator's
+bet that "thinking becomes smarter through logic stacked", read as reusable,
+replayable arithmetic over deterministic addresses.
+
+**Setup.** `$var` composed algebraically (a chain of bricks at depth
+d = 1, 2, 4, 8) before one evaluation, `$var.think()`. Bricks are the existing
+NAL polyfill methods (D-NALP, `.claude/plans/nal-polyfill-v1.md`) lowered to
+mask-risc / Quack; H6b's measured normal-form costs choose the representation
+at the terminal.
+
+**Three criteria, each with its own falsifier.**
+- **Smarter:** a depth-d chain answers a query set that no single brick
+  answers, and every answer matches the oracle (row oracle; for truth values,
+  the pinned OpenNARS for Research / ONA fixtures of D-NAL-AUDIT-0). Fails if
+  the chain adds no answer a single brick lacks, or any answer differs from the
+  oracle.
+- **Cheap stacking:** total cost (construction of every input charged,
+  composition, the one terminal) at depth d is below d independent evaluations
+  of the bricks, and cost per brick falls as d grows. Fails if the composed
+  form costs at least as much as running the bricks separately at d = 4.
+  Same accounting rules as H1/H5/H6: v4 only, tier printed, median of 11, ns.
+- **No confidence inflation:** stacking adds structure, not evidence. The
+  confidence of a stacked conclusion never exceeds what the truth functions
+  give for its premises, and two derivation paths sharing an evidential base
+  are not revised together (NAL-1 stamp rule, `nal_inventory.tsv`
+  `NAL1.evidential_base_stamp`). The Gadamer gate (G1–G7) must be
+  load-bearing: a disable run that removes the gate must produce an inflated
+  confidence on the fixture, or the test is vacuous.
+
+**Not claimed.** That deeper chains are always better: a depth where the
+chain stops adding answers is a result, not a failure.
+
+### H12 — a semantic map of inference functions across NARS systems
+
+PRE-REGISTERED 2026-10-14, NOT RUN. DECISION (operator, 2026-10-14). SCOPE:
+external systems run outside the build at pinned commits, as oracles only (the
+D-NAL-AUDIT-0 fences: no NARS clone, no CE64 migration, no schema migration).
+BASIS: Haspelmath's selection and stability rules, applied to reasoning
+systems instead of languages.
+
+**Method.**
+- Systems: OpenNARS for Research and ONA (pinned in D-NAL-AUDIT-0), our NAL
+  polyfill, and a MeTTa NAL implementation if one can be pinned (otherwise the
+  map is built from three systems and says so).
+- Corpus: the D-NAL-AUDIT-0 fixtures plus `nal_inventory.tsv`'s falsifier
+  column, run on every system.
+- Selection rule: an inference function becomes a node if at least two systems
+  give different results on it (a different truth value beyond the u8
+  allowance, a different derived term, or one derives and the other does not).
+  Functions on which all systems agree are recorded but do not split a node.
+- Each system's coverage is a region of the map. Report whether each region is
+  connected.
+
+**Measured.** Nodes added by each additional system, in a fixed order and in
+reverse order; the nodes our polyfill does not cover; disconnected regions.
+
+**Decision.**
+- Assimilation is complete when the last system added contributes zero new
+  nodes, in both orders, and our polyfill covers every node or lists the
+  missing ones as named gaps.
+- A difference is classified before it counts as a node: spec-conformant
+  disagreement (a real distinction), or a defect in one system (reported, not a
+  node). D-NAL-AUDIT-0 already found the engines disagree with each other and
+  with Wang's 2009 spec on compound-term confidence; that is the first case to
+  classify.
+- Fails, as a method: if most nodes are introduced by only one system, the map
+  measures implementation noise, not a shared space of functions.
+
 ### Open beyond these
 
-H11, the end-to-end test: `$var` composed algebraically before `$var.think()`,
-with H6b's measured normal-form costs as an input. Not registered yet.
+H13 (attention-limited expansion vs full expansion, "saccades") and an
+inertness test for every proposed meta-awareness level stay unregistered: H13
+needs a named focus signal, and the levels need a stated meaning.
