@@ -1,6 +1,6 @@
 # WAL shootout v1 — `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path
 
-**Status:** D-WAL-1 MEASURED (§2a); D-WAL-2/3 running. Feeds D-LNC-7 (the one-WAL
+**Status:** D-WAL-1 MEASURED (§2a), D-WAL-2 MEASURED (§3a), D-WAL-3 running. Feeds D-LNC-7 (the one-WAL
 decision, `lance-convergence-staged-migration-v1.md` §4C); this plan does not decide it.
 
 ## 1. What is compared
@@ -102,6 +102,47 @@ program-printed tier:
 Direction only, no threshold before the run: M's per-call latency should track the flush
 interval for small N; L's per-cycle cost should be flat in history length while its read
 cost grows with the number of versions/fragments (never compacted).
+
+## 3a. D-WAL-2 results (2026-10-14)
+
+`crates/lance-graph/examples/wal_shootout.rs latency`, release, `-Ctarget-cpu=native`, the
+program prints `avx512f=true`; three runs, ranges span the three. Local filesystem; the cost
+is I/O and encoding, so it is reported per cycle (ms) and per stored row (µs). A cycle of N
+casts stores 2N + 1 rows (N × 512 payload bytes).
+
+| arm | N | commit p50 ms | commit p99 ms | µs per row (p50) |
+|---|---|---|---|---|
+| L | 64 | 3.5–4.8 | 5.9–8.3 | 27–37 |
+| M, flush 10 ms | 64 | 7.0–8.1 | 10.5–14.0 | 55–63 |
+| M, flush 100 ms | 64 | 96.9–97.4 | 101–103 | 751–755 |
+| L | 1,024 | 7.9–9.0 | 12.5–13.9 | 3.9–4.4 |
+| M, flush 10 ms | 1,024 | 5.3–5.6 | 15.8–17.2 | 2.6–2.7 |
+| M, flush 100 ms | 1,024 | 93.5–94.3 | 101–102 | 45.6–46.0 |
+| L | 8,192 | 72–80 | 90–106 | 4.4–4.9 |
+| M, flush 10 ms | 8,192 | 34–35 | 82–90 | 2.1–2.2 |
+| M, flush 100 ms | 8,192 | 89–91 | 172–179 | 5.4–5.6 |
+
+After the run (200 cycles at N = 64 and 1,024, 40 at N = 8,192):
+
+| N | disk L / M (MiB) | files L / M | versions L / M base | full scan L / M ms |
+|---|---|---|---|---|
+| 64 | 15.6 / 15.0 | 601 / 209 | 200 / 3 | 32–36 / 9–12 |
+| 1,024 | 205.7 / 427–429 | 601 / 234–241 | 200 / 3 | 33–43 / 91–147 |
+| 8,192 | 323.6 / 663.8 | 121 / 97 | 40 / 3 | 21–35 / 211–298 |
+
+**Against the pre-registration.**
+- "M's per-call latency tracks the flush interval for small N": confirmed and stronger than
+  expected. With the default 100 ms ticker every acknowledged write waits about 94–97 ms at
+  any N; at 10 ms, M is slower than L at N = 64 (7–8 ms vs 3.5–4.8) and faster from N = 1,024
+  (5.4 vs 8.5 ms; 34 vs 76 ms at 8,192).
+- "L's per-cycle cost flat in history": consistent over 200 cycles (checked further in the
+  soak).
+- Disk: M holds about 2× L's bytes at N ≥ 1,024. Hypothesis, not checked here: the WAL
+  entries stay on disk after their memtable is flushed into a generation, so the payload is
+  stored twice until something removes the WAL.
+- Read: L's full scan stays at 21–43 ms; M's LSM scan grows with the data (9 → 91–147 →
+  211–298 ms), because nothing compacts the flushed generations into the base table (the
+  base table stays at version 3 throughout).
 
 ## 4. Soak (D-WAL-3) — "monitor both for a while"
 

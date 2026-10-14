@@ -52,7 +52,7 @@ fn free_bytes(dir: &Path) -> u64 {
 /// One arm's writer.
 enum Arm {
     L(LanceCycleWriter, String),
-    M(lancedb::Table, String),
+    M(lancedb::Table),
 }
 
 impl Arm {
@@ -64,7 +64,7 @@ impl Arm {
             }
             k if k.starts_with('M') => {
                 let flush: u64 = k[1..].parse().unwrap_or(100);
-                Arm::M(m_create(dir, flush).await, dir.to_string())
+                Arm::M(m_create(dir, flush).await)
             }
             other => panic!("arm {other}"),
         }
@@ -73,7 +73,7 @@ impl Arm {
     async fn commit(&mut self, cycle: u64, n: usize) {
         match self {
             Arm::L(w, _) => l_commit(w, cycle, n).await,
-            Arm::M(t, _) => m_put(t, &frozen(cycle, 0, n)).await,
+            Arm::M(t) => m_put(t, &frozen(cycle, 0, n)).await,
         }
     }
 
@@ -83,7 +83,7 @@ impl Arm {
         let t0 = Instant::now();
         let rows = match self {
             Arm::L(_, p) => l_rows_by_cycle(p).await.unwrap_or_default().values().sum(),
-            Arm::M(t, _) => m_rows_by_cycle(t, true).await.values().sum(),
+            Arm::M(t) => m_rows_by_cycle(t, true).await.values().sum(),
         };
         (rows, t0.elapsed())
     }
@@ -93,7 +93,7 @@ impl Arm {
     async fn versions(&self) -> u64 {
         match self {
             Arm::L(w, _) => w.head().0,
-            Arm::M(t, _) => t.version().await.unwrap_or(0),
+            Arm::M(t) => t.version().await.unwrap_or(0),
         }
     }
 }
