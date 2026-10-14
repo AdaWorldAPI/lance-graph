@@ -1,4 +1,4 @@
-READ BY: any session orchestrating subagent fleets in this workspace. PROPOSES a narrow exception to the Model Policy's blanket "NEVER haiku" line for ONE role (guarded executor); the exception is ratified if and only if the operator merges the PR carrying this doc — the merge is the authorization, not this text.
+READ BY: any session orchestrating subagent fleets in this workspace. Defines the three tiers; since 2026-10-14 Haiku is allowed for read-only harvest and guarded execution (§ Haiku harvest tier), no longer only the executor role. The earlier proposal text below is kept as history.
 
 > **Provenance (operator request, in-session 2026-07-22, quoted verbatim):**
 > "can you use opus agents for filigrane and sonnet 5 agents for grindwork
@@ -25,7 +25,7 @@ READ BY: any session orchestrating subagent fleets in this workspace. PROPOSES a
 > disk allowance** it converts "compile the workspace" into "fill the disk
 > and fail every write." Cheap tokens are worthless if the disk is gone.
 
-# Tiered agent execution — Opus filigree / Sonnet grindwork / Haiku guarded execution
+# Tiered agent execution — Opus filigree / Sonnet grindwork / Haiku harvest and guarded execution
 
 ## The three tiers
 
@@ -33,7 +33,7 @@ READ BY: any session orchestrating subagent fleets in this workspace. PROPOSES a
 |---|---|---|---|
 | Opus (or main thread) | FILIGREE: synthesis, plan authorship, adjudication of probe results vs gates, board rulings, review | read everything; write plans/knowledge/board | be used for mechanical loops |
 | Sonnet | GRINDWORK: write-file-from-spec, scoped edits, drafting from a complete brief | edit code/docs per brief | synthesize across sources; decide gates; touch board files unless brief says so |
-| Haiku | GUARDED EXECUTION ONLY: run a pre-written bash sequence with clear START/STOP, capture output, write its OWN tag-file receipt | run the exact commands in its brief; retry per an explicit retry table | write or edit ANY source file; append to any SHARED file; interpret ambiguous failures; deviate from the command list; run commands not in the brief |
+| Haiku | HARVEST (read-only discovery: candidates, counts, verbatim quotes over a closed space) and GUARDED EXECUTION (a pre-written command card) | return what it found, with locations and the commands used; run the exact commands in its card; retry per an explicit retry table | write or edit ANY source or doc file; state a conclusion, an absence or an explanation; append to any SHARED file; interpret ambiguous failures; deviate from the brief |
 
 ## The load-bearing invariant — ONE WRITER PER FILE (all tiers)
 
@@ -219,3 +219,71 @@ guardrailed enough"). Haiku remains forbidden for synthesis, drafting,
 review, and any file edit. This doc is the canonical statement; cite it when
 spawning. If a future session finds this doc on a branch whose PR was NOT
 merged, the exception is not in force.
+
+## Haiku harvest tier (DECISION 2026-10-14)
+
+DECISION (operator, 2026-10-14): "Use Haiku agents for grindwork and take
+Haiku off the guard list, but watch the agents closely and start using them
+for very focused and scoped tasks that you use for cheap harvest discovery."
+SCOPE: read-only discovery, deep mapping, exact spec edits and guarded
+execution in this workspace; authoring stays with Sonnet. Follow-up
+(operator, same day): "Goal is to outsource deeper mapping due to enormous
+token equivalent of the substrate", and Haiku may apply exact edits from a
+written spec. BASIS: harvest output is navigation (FIRST-HAND-SOURCE-LAW),
+so a cheap model is enough to find things as long as reading and deciding
+stay with a stronger one. REVISIT WHEN: the run ledger below shows the spot
+checks costing more than a Sonnet run, or Haiku is proposed for edits.
+
+### Cards
+
+| card | returns | tools |
+|---|---|---|
+| `harvest-scout` | every candidate as `path:line` + the matching line | Read, Glob, Grep |
+| `census-counter` | raw counts, each with the exact command | Read, Glob, Grep, read-only Bash |
+| `quote-harvester` | verbatim text with line numbers; FOUND / NOT FOUND checks | Read, Grep, Glob |
+| `substrate-mapper` | a fact map of one bounded unit, written to one named file | Read, Glob, Grep, Write (its map only) |
+| `spec-editor` | per-edit APPLIED / REFUSED for exact edits to one file | Read, Edit |
+| `guarded-executor` | a run-record for a pre-written command card | Bash, Read, Write (its own run-record only) |
+
+### What makes a brief Haiku-sized
+
+- ONE question, answerable as a list, a count or a quote.
+- A CLOSED search space: exact paths or globs. "Somewhere in the repo" is
+  not a brief.
+- The patterns written out by the orchestrator, including aliases,
+  fully-qualified spellings and re-exports (the measured grep failures in
+  CLAUDE.md were all spelling misses).
+- A hit cap.
+- No step that needs holding two sources in mind together. If it does, it is
+  an Opus task.
+
+### Watching closely (the supervision rules)
+
+1. **Harvest is navigation.** The orchestrator Reads every item it relies on
+   before using it in a claim, board entry, PR body or decision. A Haiku list
+   is never cited as evidence.
+2. **Re-run one count per reply.** For `census-counter`, the orchestrator
+   re-runs at least one reported command and compares.
+3. **Absence is never taken from Haiku.** A `hits: 0` sends the orchestrator
+   to Read the place the thing would live, as for any search.
+4. **Record every run.** The orchestrator's `AGENT_LOG.md` entry for a wave
+   that used Haiku lists, per card: runs, items spot-checked, items wrong,
+   items missed (found later by a stronger agent or a Read).
+5. **Drop back on repeat failure.** A card that misses a hit, miscounts or
+   states a conclusion twice on one kind of task is not used for that kind
+   again; that kind goes to Sonnet, and the case is noted in the ledger.
+6. **No authored content.** Only `spec-editor` edits, and only text the
+   orchestrator wrote out in full; the orchestrator reads its diff before
+   committing. `substrate-mapper` writes only its map, `guarded-executor`
+   only its run-record. Other cards have no write tool.
+7. **Maps are checked against source.** For every map, the orchestrator
+   Reads at least two mapped items at their stated locations before relying
+   on the map, and treats `mentioned by` as candidates, never as a call graph.
+
+### Mapping a large surface
+
+Split the surface into units small enough to read in full (one module file,
+or one directory of a few thousand lines). Run one `substrate-mapper` per
+unit, in parallel only over disjoint units, each with its own output file.
+The orchestrator reads the maps, not the source, and Reads source only where
+a decision rests on it.

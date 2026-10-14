@@ -8,7 +8,8 @@
 > when starting a session; read this file when deciding which
 > specialist to wake for a specific task.
 
-Ensemble size: **22 specialists + 5 meta-agents**. Every card is at
+Ensemble size: **22 specialists + 5 meta-agents**, plus the six Haiku
+cards (§ Haiku harvest tier). Every card is at
 `.claude/agents/<name>.md`. Each card declares its own
 `tools`, `model`, and `READ BY:` knowledge prerequisites.
 
@@ -210,11 +211,48 @@ an adapter "doesn't quite fit", or before scaling the adapter approach across mo
 
 ---
 
+## Haiku harvest tier (read-only, supervised)
+
+Cheap discovery for one question over a closed search space. Output is
+navigation: the orchestrator Reads what it relies on. Contract and
+supervision rules: `.claude/knowledge/tiered-agent-execution-protocol.md`
+§ Haiku harvest tier.
+
+### `harvest-scout`
+Finds candidates (`path:line` + matching line) for given patterns in given
+paths. Never concludes, never reports absence beyond a hit count.
+
+### `census-counter`
+Counts items in a named space; every count carries the command that produced
+it. Read-only Bash.
+
+### `quote-harvester`
+Returns verbatim text with line numbers for given ranges or symbols, and
+checks whether a cited quote is where a document says it is.
+
+### `substrate-mapper`
+Turns one bounded unit (module, crate `src/`, doc folder) into a fact map in
+one named file: items, verbatim signatures and doc lines, names each body
+mentions, candidate callers. The tool for outsourcing deep mapping.
+
+### `spec-editor`
+Applies exact (old, new) edits to one file, each only if its anchor occurs
+exactly once. The orchestrator writes every edit in full and reads the diff.
+
+### `guarded-executor`
+Runs a pre-written, numbered command card (cargo `-p ...`, probes) and writes
+one run-record. Never edits source, never fixes.
+
+---
+
 ## How to pick the right agent
 
 Decision flow:
 
 1. **Session just started?** → `workspace-primer` first.
+   **Need a list, a count, a quote or a map of a closed space?** → a Haiku
+   card (`harvest-scout`, `census-counter`, `quote-harvester`,
+   `substrate-mapper`).
 2. **Problem needs 3+ specialists?** → `adk-coordinator` to frame.
 3. **Proposal adds a layer or makes claims without measurement?** →
    `truth-architect` is the mandatory reviewer; loop it in early.

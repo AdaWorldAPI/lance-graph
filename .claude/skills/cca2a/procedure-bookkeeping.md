@@ -66,8 +66,8 @@ table rows (one per prompt file). Literal filename match — will miss
 semantic overlap (that's Pass 2's job).
 
 **Governance:** Haiku is acceptable *here* because the work is
-single-source-mechanical with a known output shape. The "never Haiku"
-rule (see `concepts.md` § Model policy) targets synthesis; this pass
+single-source-mechanical with a known output shape. The Haiku limits
+(see `concepts.md` § Model policy) target synthesis and edits; this pass
 does zero synthesis.
 
 ### Pass 2 — Opus meta-synthesizer (one-shot, ledger-only inputs)

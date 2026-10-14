@@ -109,10 +109,12 @@ version matters — typically mid-session, not at cold start):
    mentioned by `@`.
 2. **Model policy.** Main thread on Opus with deep thinking.
    Subagents: Sonnet for grindwork (single-source mechanical),
-   Opus for accumulation (multi-source synthesis). **Never Haiku**,
-   regardless of task — EXCEPT the one contract-gated guarded-executor
-   role (`.claude/knowledge/tiered-agent-execution-protocol.md`). Full
-   spec in CLAUDE.md §Model Policy.
+   Opus for accumulation (multi-source synthesis). Haiku for read-only
+   harvest, deep substrate mapping, exact spec edits and guarded execution,
+   through the six Haiku cards (`harvest-scout`, `census-counter`,
+   `quote-harvester`, `substrate-mapper`, `spec-editor`,
+   `guarded-executor`), never for authoring or decisions (`.claude/knowledge/tiered-agent-execution-protocol.md`
+   § Haiku harvest tier). Full spec in CLAUDE.md §Model Policy.
 3. **GitHub access.** Zipball to `/tmp/sources/` + local grep for
    3+ reads per external repo. MCP github only for writes (PR,
    comments, reviews) and single-path reads. Full spec in
@@ -228,8 +230,8 @@ of contents:
 
 - CLAUDE.md §Session Start — mandatory reads (same three as above)
 - CLAUDE.md §A2A Orchestration — both layers in detail
-- CLAUDE.md §Model Policy — grindwork vs accumulation, never Haiku
-  (except the contract-gated guarded-executor role)
+- CLAUDE.md §Model Policy — grindwork vs accumulation; Haiku only for
+  harvest, deep mapping, spec edits and execution (six cards, supervised)
 - CLAUDE.md §GitHub Access Policy — zipball for reads
 - CLAUDE.md §Workspace Structure — 11-crate layout
 - CLAUDE.md §Knowledge Base — all `.claude/knowledge/` files

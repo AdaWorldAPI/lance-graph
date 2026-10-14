@@ -1,3 +1,10 @@
+## 2026-10-14 — lance-graph PR #1551 (merged `9337da49`, branch `ccr-9f3b8075-74u47l-holo-prereg`, head `d56f2581`, 1 commit) — D-HOLO: pre-register H11 and H12, connectedness in H6b
+
+- **Added:** plan sections H11 (stacked logic: answers no single brick gives, == oracle; cost below separate runs at d = 4; no confidence inflation, gate disable must inflate) and H12 (semantic map of inference functions across OpenNARS, ONA and the NAL polyfill; stability rule: the last system adds zero nodes in both orders). STATUS rows D-HOLO-H11/H12; the #1550 arc and LATEST_STATE entries.
+- **Locked:** H6b amended before any run with a connected-component column and a doughnut fixture; connectedness is a selector input to test, never a constraint (Haspelmath 2003 as basis).
+- **Deferred / open:** nothing run; H13 (saccades) and meta-level inertness tests unregistered (need a named focus signal and a stated meaning).
+- **Confidence:** n/a (pre-registration only).
+
 ## 2026-10-14 — lance-graph PR #1550 (merged `5cbb3fd5`, branch `ccr-9f3b8075-74u47l-holo`, head `91ca4359`, 10 commits) — D-HOLO: falsifiers H1, H5, H6 for the address-indexed algebra
 
 - **Added:** plan `d-holo-address-indexed-algebra-v1.md` (pre-registered before any probe); three examples in `lance-graph-mask-risc`: `holo_k_branch_probe` (H1), `holo_coord_probe` (H5), `holo_interval_probe` (H6), each with row-oracle tests. Board entry `2026-10-14-d-holo-falsifiers.md`; rows D-HOLO-H1/H5/H6 and the pre-registrations H6b/H8/H9. Also the owed #1548 board reconciliation.
