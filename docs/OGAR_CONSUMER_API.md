@@ -117,8 +117,9 @@ Adjudication order (each step can short-circuit):
 - **`def`-match first**: `def.object_class`/`predicate` MUST identify this
   invocation, else `ActionState::Failed` — RBAC/guard/MUL are never applied
   against an unrelated definition's policy.
-- **RBAC** (`auth::ActorContext`): actor must hold `def.required_role` (or be
-  admin) → else `Failed`.
+- **RBAC** (`auth::ActorContext`): actor must hold `def.required_role` → else
+  `Failed`. Admin is an ordinary role, not a bypass: an admin without the
+  required role is refused like anyone else (`commit` and `commit_via` agree).
 - **State guard** (`def.guard`): if present, `guard_field_value` must equal
   `guard.value` (the caller supplies the target instance's current field value —
   the Core holds no object state) → else `Cancelled` (not eligible in this
