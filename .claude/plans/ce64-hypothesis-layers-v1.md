@@ -373,6 +373,60 @@ slot, diff ignoring the base, slot offset from 0, store an empty mask).
   between runs. The k* sum adds one seal to one read, which is the cost only
   when each dirty row is read once per seal. Lance append not measured.
 
+## Lane-tables addressed by the NodeGuid trie (pre-registered 2026-10-14)
+
+**DECISION (operator, 2026-10-14).** One thought owns up to 32 lane-tables,
+table position = lane/tenant position: 0 identity (the thought's coverage,
+key immutable), 1 edge, 2..31 value. Up to 64 thoughts, so up to 2048
+lane-tables. Addressing is the NodeGuid trie, not a row index. A read is a
+merge on read over a selection (prefix aperture x thought mask x lane mask),
+keyed by the immutable NodeGuid: no join, no fold.
+
+**Question (operator: "measure both").** Per-lane tries, or one trie per
+thought with a lane mask at each leaf? Written before the probe exists; a
+change after the run is a new dated section.
+
+**Arms.**
+- P (per-lane): each (thought, lane) has its own trie over the NodeGuids it
+  wrote and its own packed payload in leaf order.
+- S (shared): each thought has one trie over every NodeGuid it wrote; each
+  leaf carries a 30-bit lane mask; payload is packed per leaf in lane order,
+  located by a per-leaf start plus popcount of the lane mask below the lane.
+
+**Trie, identical in both arms.** Level-ordered, fan-out 16, one 16-bit child
+mask per node; child index = first child of the node + popcount(mask below
+the nibble). Path = classid (8 nibbles) + HEEL (4) + HIP (4) = 16 levels.
+Pointer-based layouts are out of scope for this probe.
+
+**Reads, both lockstep over the selected tries.**
+- Point: one NodeGuid; descend all selected tries level by level, drop a trie
+  when its child bit is clear; overlay the selected lanes of the surviving
+  tries in thought order (higher thought index wins a shared lane) onto the
+  base value.
+- Range: every NodeGuid under a 9-nibble prefix (classid + top HEEL nibble,
+  1/16 of the universe); depth-first lockstep enumeration, child set at each
+  node = OR of the alive tries' masks.
+
+**Grid.** Universe 65,536 NodeGuids, one classid. Thoughts T in {1, 8, 64};
+each covers a fraction d in {1 %, 10 %, 100 %} of the universe and writes
+w in {1, 4, 30} lanes per covered node, the lanes drawn per node. Lane mask
+selects 1 lane or all 30. Cells with more than 32 M written lane-cells are
+skipped (only T = 64, d = 100 %, w = 30).
+
+**Metrics.** v4 arm only, tier printed by the probe, median of 5.
+- Q1 bytes: trie structure + payload.
+- Q2 point read: ns per read and ns per trie-level step.
+- Q3 range read: ns per NodeGuid emitted.
+- Correctness, not timed: P, S and a brute-force oracle return identical
+  bytes for every point and range read in the tests.
+
+**Decision rule.** Reference cell T = 64, d = 10 %, w = 4, all 30 lanes
+selected. Choose P if, at the reference cell, its Q2 and Q3 are each within
+1.5 times S and its Q1 within 2 times S; otherwise S. Every other cell is
+reported and does not change the choice. If neither arm reads a point in
+under 1 microsecond at the reference cell, report that as a failure of the
+nanosecond target, not as a win for either arm.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
