@@ -154,7 +154,7 @@ fn coverage(seed: u64) -> (Vec<u64>, Vec<Vec<u64>>) {
     let mut m = vec![vec![0u64; W]; THOUGHTS];
     for (r, word) in w.iter_mut().enumerate() {
         for (t, plane) in m.iter_mut().enumerate() {
-            if mix(seed ^ ((r as u64) << 8) ^ t as u64) % 10 == 0 {
+            if mix(seed ^ ((r as u64) << 8) ^ t as u64).is_multiple_of(10) {
                 *word |= 1 << t;
                 plane[r / 64] |= 1 << (r % 64);
             }
@@ -201,7 +201,7 @@ fn members(skewed: bool, seed: u64) -> Members {
         let mut have = [0u32; SLOTS];
         for (j, lane) in lanes.iter_mut().enumerate() {
             let x = mix(seed ^ ((r as u64) << 4) ^ j as u64);
-            if x % 4 == 0 {
+            if x.is_multiple_of(4) {
                 continue; // a quarter of the slots are empty
             }
             let u = (x >> 8) as f64 / (1u64 << 56) as f64;

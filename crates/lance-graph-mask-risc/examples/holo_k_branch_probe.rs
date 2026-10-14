@@ -80,7 +80,7 @@ fn fixture(seed: u64) -> Fixture {
     let mut w = vec![0u64; N];
     for (r, word) in w.iter_mut().enumerate() {
         for t in 0..THOUGHTS {
-            if mix(seed.rotate_left(17) ^ ((r as u64) << 8) ^ t as u64) % 10 == 0 {
+            if mix(seed.rotate_left(17) ^ ((r as u64) << 8) ^ t as u64).is_multiple_of(10) {
                 *word |= 1 << t;
             }
         }
@@ -327,8 +327,9 @@ impl Arms<'_> {
         self.gate(c, p, g);
         let sel = sel_mask(c.k);
         let mut cnt = [0u32; 64];
-        for wi in c.lo / 64..c.hi.div_ceil(64) {
-            let mut b = g[wi];
+        let words = g.iter().enumerate();
+        for (wi, &gw) in words.take(c.hi.div_ceil(64)).skip(c.lo / 64) {
+            let mut b = gw;
             while b != 0 {
                 let r = wi * 64 + b.trailing_zeros() as usize;
                 b &= b - 1;
