@@ -1,3 +1,7 @@
+## 2026-10-14 — `commit` loses its admin bypass on branch `ccr-0455e606-wmtsor` (unmerged)
+
+- **Contract:** `ActionInvocation::commit` no longer lets an `admin` role pass an action that requires another role; admin is an ordinary role, as it already was in `commit_via`. One authorization rule for both paths (decision 2, 2026-10-14). Test: `action::tests::commit_admin_is_a_role_not_a_bypass` (red before the change). No caller relied on the bypass (rs-graph-llm `graph-flow-action` tests use no admin role).
+
 ## 2026-10-14 — per-classid field mask default on branch `ccr-0455e606-wmtsor` (unmerged)
 
 - **Contract:** `RbacBinding::with_class_field_defaults(Vec<(u16, WideFieldMask)>)`. A role the authority declared no field mask for gets the class default instead of every field, so the union over a user's roles can no longer open a sensitive field through a mask-less role. Policy data keyed by classid; it never changes a declared mask and is dropped outside the plug. HubSPO-rs D-IAM-3 (POC). Tests: `rbac_plug::a_class_default_replaces_the_open_default_and_nothing_else`, `authorize::plug_tests::a_class_default_keeps_sensitive_fields_out_of_the_union`; both red with the lookup removed.

@@ -253,7 +253,8 @@ impl ActionInvocation {
     /// - `def` does not identify THIS invocation (`object_class`/`predicate`
     ///   mismatch) → `Failed` — authorization is NEVER applied against an
     ///   unrelated definition's `required_role`.
-    /// - unauthorized actor (lacks [`ActionDef::required_role`], not admin) → `Failed`
+    /// - unauthorized actor (lacks [`ActionDef::required_role`]) → `Failed`. Admin
+    ///   is an ordinary role here: it passes only where the action requires it.
     /// - state guard present and unsatisfied (`guard_field_value != Some(value)`)
     ///   → `Cancelled` — the action is not eligible in the current state.
     /// - MUL `Flow`  → `Committed` (dispatched; `emitted_at_millis` stamped)
@@ -281,7 +282,7 @@ impl ActionInvocation {
         }
         // RBAC — authority before eligibility/impact.
         if let Some(role) = def.required_role {
-            let authorized = actor.is_admin() || actor.roles.iter().any(|r| r == role);
+            let authorized = actor.roles.iter().any(|r| r == role);
             if !authorized {
                 self.state = ActionState::Failed;
                 return self.state;
@@ -318,7 +319,7 @@ impl ActionInvocation {
     /// state guard → MUL impact), but RBAC is resolved through the [`ClassRbac`]
     /// trait instead of an [`crate::auth::ActorContext`] value.
     ///
-    /// **No `is_admin` bypass**: unlike `commit`, this method does NOT grant
+    /// **No `is_admin` bypass**, the same as `commit`: this method does NOT grant
     /// unconditional access to admins. An actor claiming administrative privilege
     /// must hold a role whose grant explicitly permits
     /// `Operation::Act { action: def.predicate }` on `def.object_class`. This is
@@ -728,6 +729,37 @@ mod tests {
                 2000
             ),
             ActionState::Committed
+        );
+    }
+
+    /// Admin is an ordinary role: it passes only where an action requires it
+    /// (decision 2026-10-14; `commit_via` already had no bypass).
+    #[test]
+    fn commit_admin_is_a_role_not_a_bypass() {
+        let def = &SALE_ORDER_ACTIONS[0]; // required_role = "sales_manager"
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(7), 3, 1, 1);
+        assert_eq!(
+            inv.commit(
+                def,
+                &actor_with(&["admin"]),
+                &GateDecision::Flow,
+                Some("draft"),
+                1000
+            ),
+            ActionState::Failed,
+            "admin without the required role is refused"
+        );
+        let mut both = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(7), 3, 1, 1);
+        assert_eq!(
+            both.commit(
+                def,
+                &actor_with(&["admin", "sales_manager"]),
+                &GateDecision::Flow,
+                Some("draft"),
+                1000
+            ),
+            ActionState::Committed,
+            "the required role still admits, admin or not"
         );
     }
 
