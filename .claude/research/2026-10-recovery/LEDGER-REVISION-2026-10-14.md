@@ -6,8 +6,8 @@ hypothesis-layer plateau (`ce64-reasoning-substrate-plateau.md` §4) has its
 own O1..O8, which collide with this ledger's ids; this file calls them
 **HL-O1..HL-O8**.
 
-Method: lance-graph, OGAR and ndarray fast-forwarded to `main` (51 lance-graph
-PRs, OGAR #357, ndarray +16; nothing rewritten). Read in full: PR arc
+Method: lance-graph, OGAR and ndarray fast-forwarded to `main` (49 lance-graph
+PRs merged after #1494, OGAR #357, ndarray +16; nothing rewritten). Read in full: PR arc
 #1505–#1552, `revision-layer-invariants`, `isa-truth-exact-codes`,
 `ce64-hypothesis-layers-plateau`, plateau §4/§5/§8, `nal-polyfill-v1` §D-NALP-3,
 `inverted-temporal-ablation` entry and plan §0–§1. Haiku harvest (search and
@@ -37,9 +37,8 @@ Kept from 2026-10-11: C1–C14 unchanged. New:
 |---|---|---|---|
 | C15 | O25 "pin first" | already pinned before the ledger was written | `planner/tests/chain_confidence.rs:88-100` (`self_revision_raises_confidence_on_the_replay_path`, FAILS IF `replay_step` gains a stamp guard), commit `1bcb15b6`, 2026-10-08 |
 | C16 | D2 core: a revision that refuses dependent evidence | `nal::Revision` classes each piece as independent / duplicate (counted once) / overlapping / no stamp; refuses the last two | `nal-polyfill-v1.md` §D-NALP-3; `lance-graph-nal/src/lib.rs:292-404`; 7 disable runs red |
-| C17 | exact NARS truth codes (part of the O7-coresearch quantiser debt) | deduction / induction / abduction exact over all 2³² inputs | #1548 entry, `truth_exact_probe` |
+| C17 | exact NARS truth codes (part of the quantiser debt in coresearch G2 / plateau U8; not this ledger's O7) | deduction / induction / abduction exact over all 2³² inputs | #1548 entry, `truth_exact_probe` |
 | C18 | Gadamer invariants as contract | G1–G7 TEST-PINNED, G6 makes `is_acceptable()` the commit gate | `revision-layer-invariants.md` §1 |
-| C19 | O7 model-identifier trailer | settled by the repo rule (no model identifier in committed artifacts), practised since #1492 | lance-graph / OGAR CLAUDE.md |
 | C20 | CodeRabbit "Staunen in the codebook table" | no change: board entries are append-only; the same-day addendum records the rename to Astonishment | `2026-10-11-maturation3-ladder-probe.md:76-80` |
 | C21 | O9 resident-cycle operand design | unchanged, stays settled | — |
 
@@ -68,6 +67,7 @@ worker; O = Opus main thread).
 | O1 | board supersession of tenants 18–20 claims, #1427 label | OPEN, unchanged | L | Haiku spec-editor on an O-written spec |
 | O2a | Moore tenant hygiene (`project_state5`, `tenant_update`, Energy4 name) | OPEN, unchanged (0 doc hits since) | L | S |
 | O3 | `RelativeOffset` in `RegisterLaw` | OPEN, still at `register128.rs:228`, `hotplug.rs:274` | H | O decides, S edits |
+| O7 | model-identifier trailer on commits | DECISION, unchanged: OGAR, tesseract-rs and stockfish-rs forbid model identifiers in committed artifacts; lance-graph's CLAUDE.md does not, and `LATEST_STATE.md:1748` leaves the workspace-wide policy to the operator. This session omits the trailer, which is a practice, not a rule | — | O |
 | O4 | CE64 replay compatibility | DECISION, now part of **K1** (one version gate for every bits-40..63 reading change) | Y | O |
 | O5→O6 | `lab.rs` into jc, then its five defects | OPEN, unchanged | H | S + guarded-executor |
 | N3 | PR arc has no entries for #1494–#1504 (11 merged PRs) | OPEN | L | Haiku quote-harvester (PR bodies) → O writes |
@@ -217,3 +217,4 @@ no loop as independent support).
 | O26 | What does "A intends B" map to? | a Rubikon commitment with its own evidence class, never Causes |
 | O13 | phase / activation rule | unchanged; needs your rule |
 | O15 | go for Experiment A? | unchanged |
+| O7 | Is "no model identifier in committed artifacts" workspace-wide (then lance-graph's CLAUDE.md should say so), or per repo? | make it workspace-wide and write it into lance-graph's CLAUDE.md, so commits and harness trailers stop disagreeing |
