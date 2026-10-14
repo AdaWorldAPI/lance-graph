@@ -195,6 +195,12 @@ On the dense tile (row = Morton code), restrictions are:
 - The interval count at which M or V becomes cheaper than S is reported. It is
   not a pass/fail criterion.
 
+## Amendment before any run (2026-10-14)
+
+H1 and H5 name no query count for amortizing construction. Fixed here, before
+any probe exists: construction is amortized over N = 1 and N = 100 queries, and
+each decision is stated at both. H5's break-even N stays as defined.
+
 ## Boundaries
 
 - No change to mask-risc, Quack, the contract or ndarray. The probes are examples.
