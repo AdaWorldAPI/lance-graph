@@ -111,6 +111,10 @@ exclude = [
     # needs the OGAR checkout too. Own workspace root; verify via
     # `cargo test --manifest-path crates/lance-graph-nal/Cargo.toml`.
     "crates/lance-graph-nal",
+    # Relational algebra over coordinate populations (D-RA-1): path-deps
+    # lance-graph-r2il like lance-graph-nal. Own workspace root; verify via
+    # `cargo test --manifest-path crates/lance-graph-relalg/Cargo.toml`.
+    "crates/lance-graph-relalg",
     "crates/symbiont",
     # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
     # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +

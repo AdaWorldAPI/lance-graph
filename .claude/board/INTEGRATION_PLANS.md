@@ -1,3 +1,11 @@
+## 2026-10-13 (2) — relalg-v1 — relational algebra over coordinate populations, rewritten before it runs → `.claude/plans/relalg-v1.md`
+
+**Status:** D-RA-1 MEASURED (prototype crate); D-RA-2..4 PROPOSAL. A prototype for D-CMR, not a competing IR.
+
+- `Rel` describes a row set of one table; `normalize` applies De Morgan, unit/zero, complement, value-interval fusion per lane, interval union and absorption to a fixpoint; `∅` and (for a count) `U` are answered without a program; everything else lowers through R2IL over `FoldDialect`.
+- Measured: == row oracle on 400 generated descriptions × 5 measures; four comparisons on one lane 8 → 2 mask-risc ops; 70/2,000 small descriptions do not fit one fold as written (each negation takes a scratch slot), all fit after the rewrite.
+- D-RA-2 moves the rules into the contract set IR (D-CMR-1/-6); Datalog rules as algebra values with names only as codebook labels (D-RA-3) and bound recursion (D-RA-4) wait for it.
+
 ## 2026-10-13 (1) — d-cmr-concept-chain-normalization-v1 — preserve the equation, not the intermediate result → `.claude/plans/d-cmr-concept-chain-normalization-v1.md`
 
 **Status:** PROPOSAL D-CMR-0..9, revised to a set-theory IR (see the last bullet). Only D-CMR-0 (plan, board rows) is in the PR; no code, no dependency.
