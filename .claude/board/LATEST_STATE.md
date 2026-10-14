@@ -21,6 +21,11 @@
 - **Contract:** `RbacBinding::with_class_field_defaults(Vec<(u16, WideFieldMask)>)`. A role the authority declared no field mask for gets the class default instead of every field, so the union over a user's roles can no longer open a sensitive field through a mask-less role. Policy data keyed by classid; it never changes a declared mask and is dropped outside the plug. HubSPO-rs D-IAM-3 (POC). Tests: `rbac_plug::a_class_default_replaces_the_open_default_and_nothing_else`, `authorize::plug_tests::a_class_default_keeps_sensitive_fields_out_of_the_union`; both red with the lookup removed.
 - **Open (closed since):** OGAR's authority now sets the default (`GrantSource::default_field_mask_of`, OGAR #358); the output stage is `walk_rails_authorized` (above).
 
+## 2026-10-14 — main after #1553 (merged)
+
+- **On `main` (#1553, merged `a1abdf8f`):** D-HOLO H6b measured; H6c pre-registered.
+- **In PR:** D-HOLO H6c measured (`holo_tile_crossover_probe`): crossover at g = 8–12 holds; declared construction passes the structured rule; no switch certified under the max-over-fixtures rule.
+
 ## 2026-10-14 — main after #1552 (merged)
 
 - **On `main` (#1552, merged `98c03dd1`):** the Haiku harvest tier (six cards, supervision rules); policy only.

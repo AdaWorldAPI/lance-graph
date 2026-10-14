@@ -1,6 +1,6 @@
 # D-HOLO — address-indexed algebra: falsifiers H1, H5, H6 (v1)
 
-**Status:** MEASURED 2026-10-14 (H1, H5, H6, H6b); H6c, H8, H9, H11, H12
+**Status:** MEASURED 2026-10-14 (H1, H5, H6, H6b, H6c); H8, H9, H11, H12
 PRE-REGISTERED, not run. The pre-registration below is unchanged; results are in § Results
 (2026-10-14), the next falsifiers in § Next falsifiers.
 
@@ -35,7 +35,7 @@ is run.
 - [x] D-HOLO-H6: closure of address restrictions probe, same
 - [x] Results section, board entry, status rows
 - [x] D-HOLO-H6b: normal forms on the Context × Operation tile (with the connectedness column)
-- [ ] D-HOLO-H6c: group-count switch, the 2–60 group crossover, declared construction
+- [x] D-HOLO-H6c: group-count switch, the 2–60 group crossover, declared construction
 - [ ] D-HOLO-H8: semantic diversity does not add instruction families
 - [ ] D-HOLO-H9: relational emptiness without a fold
 - [ ] D-HOLO-H11: stacked logic (pre-registered after H6b; runs after it)
@@ -794,4 +794,54 @@ because D is swept while P is declared does not count.
   ignoring G must fail it.
 - Every Q1 fixture really has g groups (P's group count equals g) and is neither
   empty nor full. Disable: assigning every context the first mask must fail it.
+
+## Results: H6c (2026-10-14)
+
+Probe `crates/lance-graph-mask-risc/examples/holo_tile_crossover_probe.rs`, v4
+(avx512f), three runs. The arms, query and patterns are copied from the H6b
+probe; the hybrid gains a switch policy. Five tests (declared == swept build in
+P, D and I; Q1 fixtures have exactly g groups; the group switch goes both ways;
+every arm and switch matches the row oracle on the 14 H6b patterns and 24 Q1
+fixtures; a rectangle's Morton decomposition is exact). The three pre-registered
+disables each turned a test red: an off-by-one in the declared range end, the
+switch ignoring G, every context given the first mask.
+
+| Question | Result, three runs | Verdict |
+|---|---|---|
+| Q1: P/D per query crosses 1 between g = 4 and 16 in both layouts | blocked: 8 → 12 in all runs; interleaved: 8 → 12 twice, 12 → 16 once | HOLDS; layouts agree within one step |
+| Q2: a group switch ≤ 1.25× D everywhere, never ≥ 2× (G nearest the crossover: 8) | G = 8: max query 1.68 / 2.28 / 1.21; max total 1.88 / 1.72 / 1.20 | NOT shown safe (undecided, fails, passes) |
+| Q2: the byte switch | max query 9.8–15.1× D | NOT safe in every run |
+| Q3: declared build, P or H ≤ 0.5× D at N = 100 on row, column, rectangle, prefix | P 0.32–0.76, H 0.38–0.83; the better of the two 0.32–0.42 | PASS in all runs |
+
+**Q1.** P's query cost grows with the group count; D's does not. P is 0.14–0.49×
+D up to g = 4, 0.40–0.63× at g = 6–8, and 0.92–1.86× at g = 12–16. At g = 64 it is
+9.4–12.4× D. Single operations sit above the full query: at g = 12, ∩ and ∪ are
+1.29–1.94× D, and ¬ already crosses 1 at g = 6–8 in the interleaved layout
+(1.03–1.38×).
+
+**Q2.** The group switches at G = 2–16 beat the byte switch by a wide margin
+(worst query 1.21–2.88× against 9.8–15.1×); G = 32 keeps P past the crossover
+and reaches 3.1–7.3×. But the maximum over 38 fixtures moves from run to
+run (worst fixture: doughnut, fragmented, g = 12 blocked, g = 48 interleaved),
+which is what a maximum over noisy ratios does at about 40 % noise. The rule as
+registered cannot certify any switch here. One effect repeats in two runs: at
+G = 2 the doughnut (2 groups) costs 1.8–1.9× D per query, because its
+intermediate results exceed 2 groups and are converted to D mid-query.
+
+**Q3.** Built from a declaration, P costs about 0.3–0.7 µs to build, against
+about 0.3 ms for the 65,536-cell sweep (H6b), and P's total is below D's from
+the first query (N ≤ 1) on every declared pattern. I's declared build (Morton
+decomposition of the rectangles, 2–10 µs) makes I the most expensive arm
+except on the prefix. The "swept D" column in the probe's output builds through
+the declaration's membership function, which re-collects the rectangles on
+every cell; it is not comparable with H6b's sweep and is not used in any ratio.
+
+**What this changes.** The H6b structured rule fails only because of the sweep:
+with declared construction it passes in every run. P is the cheaper form up to
+about 8 groups and loses beyond about 12. A group-count switch near G = 8 fixes
+H6b's byte-switch failure, but the registered max-over-fixtures criterion is
+too noise-sensitive to certify it at 14 + 24 fixtures. The selector stays held.
+Open: a noise-robust criterion (per-fixture median over runs, or a repeated
+maximum) and whether switching intermediate results mid-query should be
+allowed at all.
 

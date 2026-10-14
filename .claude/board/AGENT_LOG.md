@@ -14,6 +14,11 @@
 - Card `substrate-mapper`, three units: lance 13 `dataset/mem_wal` (5 files, 187 items), lancedb 0.40 MemWAL/LSM (4 files, ~301 items), lance-graph persist sink (`persist_sink.rs`, `batch_writer.rs`, `blw_rows.rs`, `blw_tenant.rs`, 76 items).
 - Ledger: spot-checks 2/2 per map against source (`set_lsm_write_spec` :73, `execute_lsm_merge_insert` :666, `WalSink` :534, `recover_and_apply` :677, and the `LsmWriteSpec` public API); 0 wrong. One stale upstream doc found by the orchestrator, not by a card: `LsmWriteSpec`'s doc calls the `merge_insert` dispatch a follow-up, but `table/merge.rs:320` already dispatches it.
 - Cost: about 587k, 591k and 606k subagent tokens. The maps fed the pre-registration; no conclusion came from a card.
+## 2026-10-14 — D-HOLO H6c harvest: one substrate-mapper run
+
+- Card `substrate-mapper` (run as a general-purpose agent with the card pasted; the card is not in this session's agent list), unit: the merged `holo_tile_forms_probe.rs`, 93 items.
+- Ledger: spot-checks 3/3 (`Prod::binop` L127, `Hyb::settle` L359, `time` L622); 0 wrong, 0 missed. About 515k subagent tokens.
+- Outcome: the map located the sections copied into `holo_tile_crossover_probe.rs`; no conclusion came from the card.
 
 ## 2026-10-14 — D-HOLO H6b harvest: four substrate-mapper runs, one reply each
 

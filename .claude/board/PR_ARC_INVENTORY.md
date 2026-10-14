@@ -12,6 +12,13 @@
 - **Deferred / open:** D-MTP-2..5 (named `LanceSpace`, recursion via the external driver, the trie width fix upstream, PeTTa in the probes); the order witness is probe-local.
 - **Confidence:** high for equality (disable runs red as pre-registered); timings are best of 5 over three runs on one VM.
 
+## 2026-10-14 — lance-graph PR #1553 (merged `a1abdf8f`, branch `ccr-9f3b8075-74u47l-holo-h6b`, head `c25573e3`, 3 commits) — D-HOLO H6b measured; H6c pre-registered
+
+- **Added:** example `holo_tile_forms_probe` (P / I / D / H on the 256 × 256 Context × Operation tile, 14 patterns incl. the doughnut, row-oracle tests); H6b results; H6c pre-registration; board entry `2026-10-14-d-holo-h6b.md`; the #1552 arc entries.
+- **Locked:** H6b structured rule NOT MET (the 65,536-cell build dominates at N = 100; P 0.21–0.73× D per query); the hybrid's byte switch refuted by sparse and dense (1.8–4.8× D); P's cost follows its group count.
+- **Deferred / open:** the terminal selector stays held; H6c measures the group switch, the crossover and declared construction.
+- **Confidence:** medium; three disable runs red, three timing runs, ~40 % VM noise.
+
 ## 2026-10-14 — lance-graph PR #1552 (merged `98c03dd1`, branch `ccr-9f3b8075-74u47l-haiku-harvest`) — Haiku harvest tier: six cards and their supervision rules
 
 - **Added:** cards `.claude/agents/{harvest-scout,census-counter,quote-harvester,substrate-mapper,spec-editor,guarded-executor}.md`; `tiered-agent-execution-protocol.md` § Haiku harvest tier (card table, brief sizing, supervision rules, mapping a large surface); CLAUDE.md Model Policy rewritten; BOOT files, worker template, cca2a and v3 BOOT aligned; AGENT_LOG entries for the first runs; #1551 board entries.
