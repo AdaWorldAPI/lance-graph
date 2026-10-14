@@ -15,6 +15,7 @@
 //! Run: `cargo run --release --example coverage_orientation_probe` (tier printed).
 //! Tests: `cargo test --example coverage_orientation_probe`.
 
+use std::cell::RefCell;
 use std::hint::black_box;
 use std::time::Instant;
 
@@ -47,6 +48,8 @@ struct RowWords {
 /// Per-thought orientation: bit r of `m[t]` is set when thought t covers row r.
 struct ThoughtMasks {
     m: Vec<[u64; WORDS]>,
+    /// Reused buffer for the OR of the selected masks (one aperture window).
+    scratch: RefCell<Vec<u64>>,
 }
 
 /// Independent coverage with probability `d_ppm` per million.
@@ -73,7 +76,10 @@ fn transpose_rc(r: &RowWords) -> ThoughtMasks {
             m[t][row / 64] |= 1 << (row % 64);
         }
     }
-    ThoughtMasks { m }
+    ThoughtMasks {
+        m,
+        scratch: RefCell::new(vec![0; WORDS]),
+    }
 }
 
 fn transpose_cr(c: &ThoughtMasks) -> RowWords {
@@ -155,44 +161,72 @@ fn sel(t: u64) -> ([u8; THOUGHTS], usize) {
     (out, n)
 }
 
-fn c_id(c: &ThoughtMasks, t: u64, a: Aperture) -> u64 {
-    let (ts, n) = sel(t);
+/// Popcount of the aperture's rows, given the aperture's word window
+/// (`window[i]` is word `w0 + i`): the interior words are summed whole, only
+/// the two edge words are masked.
+fn popcount_in(window: &[u64], a: Aperture) -> u64 {
     let (w0, w1) = a.words();
-    let mut total = 0u64;
-    for wi in w0..w1 {
-        let mut or = 0u64;
-        for &th in &ts[..n] {
-            or |= c.m[th as usize][wi];
-        }
-        total += (or & a.word_mask(wi)).count_ones() as u64;
+    let Some((&first, rest)) = window.split_first() else {
+        return 0;
+    };
+    let mut total: u64 = window.iter().map(|w| w.count_ones() as u64).sum();
+    total -= (first & !a.word_mask(w0)).count_ones() as u64;
+    if let Some(&last) = rest.last() {
+        total -= (last & !a.word_mask(w1 - 1)).count_ones() as u64;
     }
     total
+}
+
+/// Whether any row of the aperture is set, given the aperture's word window.
+fn any_in(window: &[u64], a: Aperture) -> bool {
+    let (w0, w1) = a.words();
+    let Some((&first, rest)) = window.split_first() else {
+        return false;
+    };
+    if first & a.word_mask(w0) != 0 {
+        return true;
+    }
+    match rest.split_last() {
+        None => false,
+        Some((&last, interior)) => {
+            interior.iter().any(|&w| w != 0) || last & a.word_mask(w1 - 1) != 0
+        }
+    }
+}
+
+fn c_id(c: &ThoughtMasks, t: u64, a: Aperture) -> u64 {
+    let (ts, n) = sel(t);
+    if n == 0 {
+        return 0;
+    }
+    let (w0, w1) = a.words();
+    let mut scratch = c.scratch.borrow_mut();
+    let acc = &mut scratch[..w1 - w0];
+    acc.copy_from_slice(&c.m[ts[0] as usize][w0..w1]);
+    for &th in &ts[1..n] {
+        for (x, &y) in acc.iter_mut().zip(&c.m[th as usize][w0..w1]) {
+            *x |= y;
+        }
+    }
+    popcount_in(acc, a)
 }
 
 fn c_th(c: &ThoughtMasks, t: u64, a: Aperture) -> u64 {
     let (ts, n) = sel(t);
     let (w0, w1) = a.words();
-    let mut count = 0;
-    for &th in &ts[..n] {
-        let m = &c.m[th as usize];
-        if (w0..w1).any(|wi| m[wi] & a.word_mask(wi) != 0) {
-            count += 1;
-        }
-    }
-    count
+    ts[..n]
+        .iter()
+        .filter(|&&th| any_in(&c.m[th as usize][w0..w1], a))
+        .count() as u64
 }
 
 fn c_pair(c: &ThoughtMasks, t: u64, a: Aperture) -> u64 {
     let (ts, n) = sel(t);
     let (w0, w1) = a.words();
-    let mut total = 0u64;
-    for &th in &ts[..n] {
-        let m = &c.m[th as usize];
-        for (wi, &word) in m.iter().enumerate().take(w1).skip(w0) {
-            total += (word & a.word_mask(wi)).count_ones() as u64;
-        }
-    }
-    total
+    ts[..n]
+        .iter()
+        .map(|&th| popcount_in(&c.m[th as usize][w0..w1], a))
+        .sum()
 }
 
 fn c_persp(c: &ThoughtMasks, t: u64, row: usize) -> u32 {
@@ -362,6 +396,8 @@ mod tests {
                 hi: 33_024,
             },
             Aperture { lo: 100, hi: 3_000 },
+            Aperture { lo: 70, hi: 120 },
+            Aperture { lo: 100, hi: 150 },
         ]
     }
 
