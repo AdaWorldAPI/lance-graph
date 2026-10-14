@@ -1,6 +1,6 @@
 # WAL shootout v1 — `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path
 
-**Status:** D-WAL-1 MEASURED (§2a), D-WAL-2 MEASURED (§3a), D-WAL-3 running. Feeds D-LNC-7 (the one-WAL
+**Status:** D-WAL-1 MEASURED (§2a), D-WAL-2 MEASURED (§3a), spec cross-check (§3b), D-WAL-3 running. Feeds D-LNC-7 (the one-WAL
 decision, `lance-convergence-staged-migration-v1.md` §4C); this plan does not decide it.
 
 ## 1. What is compared
@@ -143,6 +143,28 @@ After the run (200 cycles at N = 64 and 1,024, 40 at N = 8,192):
 - Read: L's full scan stays at 21–43 ms; M's LSM scan grows with the data (9 → 91–147 →
   211–298 ms), because nothing compacts the flushed generations into the base table (the
   base table stays at version 3 throughout).
+
+## 3b. Spec cross-check (2026-10-14)
+
+Source: lance `docs/src/format/table/mem_wal.md` at tag `v13.0.0`, titled "MemTable & WAL
+Specification (Experimental)". `main` differs only in the maintained-index fields and a
+per-entry `generation` value; nothing below depends on those.
+
+| property | what the spec says | what D-WAL-1/2 measured |
+|---|---|---|
+| atomicity | "Every durable WAL append creates one WAL entry" (l. 88); entry N+1 never exists before N is complete | V1: no partial cycle on M, consistent with one `put` = one entry |
+| durability | writes are "durably appended" to the shard WAL (l. 54); the spec never names `durable_write` or fsync | V2 holds with `durable_write = true` and fails with `false`: in lancedb that setting, not the format, decides whether an ack waits for the WAL |
+| recovery | "Recovery replays from `replay_after_wal_entry_position + 1`" (l. 98), done by a writer claiming the shard | V1/V2: a process sees M's rows only after its first write opens a writer and replays |
+| visibility | strong consistency needs "active in-memory MemTable access" plus the latest shard manifests; "Otherwise, reads are eventually consistent" (l. 578–579) | V4: the writing handle sees its rows; a second handle and a base-only read see nothing until a flush |
+| single writer | epoch fencing; a stale writer collides on the next WAL position (l. 110, 490–509) | not tested (§2 scope excludes concurrent writers) |
+| compaction | a separate job: merge-insert into base, `compacted_sstables` committed atomically with base (l. 518) | the base table stayed at version 3; nothing in our runs started it, so the LSM scan grew 9 → 298 ms |
+| garbage collection | removes SSTables only, after compaction and index catch-up (l. 527–532); "Deleting WAL files can weaken writer fencing" (l. 534) | M used about 2× L's disk. The spec describes no component that removes WAL entries, which supports the §3a hypothesis that the payload stays twice on disk; who may remove the WAL is not specified |
+
+Consequence for D-LNC-7: under the spec's own terms M is crash-atomic and durable per put,
+but it is eventually consistent for every reader except the writing handle, and it is only
+complete once something outside the write path runs compaction and garbage collection. L
+gives every reader a sealed version with no background job. Neither property was in doubt
+after §2a; the spec confirms they are by design, not by our configuration.
 
 ## 4. Soak (D-WAL-3) — "monitor both for a while"
 
