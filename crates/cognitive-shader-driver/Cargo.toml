@@ -102,6 +102,11 @@ test = true
 name = "thought_layers_probe"
 test = true
 
+# Delta granularity economics (16-byte slot vs 512-byte row); tests run under `cargo test`.
+[[example]]
+name = "delta_granularity_probe"
+test = true
+
 # D-GSO-6 recipe selector probe; tests run under `cargo test`.
 [[example]]
 name = "recipe_selector_probe"
