@@ -98,7 +98,7 @@ mod tests {
                 let scanned = r.scanned_runs();
                 assert_eq!(declared, scanned, "n={n} banded={banded}");
                 assert_eq!(gather_pairs(&r), want, "G-clustered n={n}");
-                assert_eq!(range_pairs(&r, &scanned), want, "R n={n}");
+                assert_eq!(range_pairs(&r, &scanned), want, "R n={n} banded={banded}");
                 assert_eq!(r.count(), want.len());
                 let kept = r.kept_ranges(&scanned).unwrap();
                 assert_eq!(total(&kept), want.len());
