@@ -1,6 +1,6 @@
 # D-HOLO — address-indexed algebra: falsifiers H1, H5, H6 (v1)
 
-**Status:** MEASURED 2026-10-14 (H1, H5, H6); H6b, H8, H9, H11, H12
+**Status:** MEASURED 2026-10-14 (H1, H5, H6, H6b); H8, H9, H11, H12
 PRE-REGISTERED, not run. The pre-registration below is unchanged; results are in § Results
 (2026-10-14), the next falsifiers in § Next falsifiers.
 
@@ -34,7 +34,7 @@ is run.
 - [x] D-HOLO-H5: coordinate-native vs coordinate-crossing probe, same
 - [x] D-HOLO-H6: closure of address restrictions probe, same
 - [x] Results section, board entry, status rows
-- [ ] D-HOLO-H6b: normal forms on the Context × Operation tile (with the connectedness column)
+- [x] D-HOLO-H6b: normal forms on the Context × Operation tile (with the connectedness column)
 - [ ] D-HOLO-H8: semantic diversity does not add instruction families
 - [ ] D-HOLO-H9: relational emptiness without a fold
 - [ ] D-HOLO-H11: stacked logic (pre-registered after H6b; runs after it)
@@ -669,3 +669,63 @@ reverse order; the nodes our polyfill does not cover; disconnected regions.
 H13 (attention-limited expansion vs full expansion, "saccades") and an
 inertness test for every proposed meta-awareness level stay unregistered: H13
 needs a named focus signal, and the levels need a stated meaning.
+
+## Results: H6b (2026-10-14)
+
+Probe `crates/lance-graph-mask-risc/examples/holo_tile_forms_probe.rs`, v4
+(avx512f), three runs. Every arm matches the row oracle cell by cell on all 14
+patterns, including the doughnut. Disable runs, each red: P without merging
+equal operation masks (`product_form_is_canonical_across_routes` and the oracle
+test fail); binary ops without the implicit empty group (both fail); the hybrid
+ignoring its threshold (`hybrid_switches_both_ways` fails).
+
+Deviation from the pre-registration: normalization is folded into construction
+and into each operation, not timed as its own step. Every arm builds by sweeping
+the pattern's membership function over all 65,536 cells.
+
+**Verdicts against the pre-registered rules.**
+
+| Rule | Result, three runs | Verdict |
+|---|---|---|
+| Structured (row, column, rectangle, prefix): P or H total at N = 100 ≤ 0.5× D | P 0.64–1.28, H 0.71–1.01 | NOT MET; undecided (under 2×) |
+| Adversarial: H total at N = 100 ≤ 1.25× D | checkerboard 0.60–0.85, random 50 % 1.04–1.17, fragmented 1.19–1.33 | checkerboard and random 50 % pass; fragmented passes in one run, undecided in two |
+| Component count predicts the winner better than density (Spearman with ln(best symbolic / D)) | components +0.34 / +0.55 / +0.52, density −0.06 / −0.07 / +0.12 | components ahead, weak at 14 patterns |
+
+**Why the structured rule fails: construction dominates.** The 65,536-cell
+build costs about 0.3 ms in every arm, against a query of 0.6–2.6 µs, so at
+N = 100 the totals are mostly build. At N = 1,000 P reaches 0.29–0.77× D on the
+structured patterns. Query-only (post hoc, not pre-registered), P is 0.21–0.73×
+D on those four patterns, and 0.25–0.62× on checkerboard, complementary,
+disjoint and doughnut: about 2–4× per query, at the edge of the 2× noise rule.
+A symbolic construction (from a declared rectangle or class, O(groups) instead of
+O(cells)) was not measured; the rule cannot be judged without it.
+
+**Counterexample: the hybrid's byte switch is wrong.** H stays in P while P is
+smaller than 8 KiB. On sparse (60 groups, 3.8 KiB) and dense (61 groups) that
+keeps P, and H's total is 1.8–4.8× D's (query 6.8–14.6× D's). H as specified is
+not safe as a default: it is more than 2× worse than D on two patterns outside
+the adversarial set. P's cost follows the group count (a binary op builds the
+g_a × g_b refinement), not its bytes. Post hoc, P's group count predicts
+ln(P query / D query) with Spearman +0.81 and +0.88; components +0.37 / +0.45,
+density −0.17 / −0.12.
+
+**Thresholds and counterexamples.**
+- P is the cheapest per query at 1–2 groups (row, column, rectangle, prefix,
+  complementary, disjoint, doughnut, checkerboard) and loses at 60 or more
+  (sparse, dense: 7–11× D; diagonal, random, fragmented: 59–188× D). No fixture
+  lies between 2 and 60 groups, so the crossover is not located.
+- I is cheapest only on the prefix (one interval, 0.04–0.05× D per query), as
+  in H6; it loses heavily wherever intervals multiply (checkerboard 120×, random
+  50 % 400–474× D).
+- Density predicts nothing: checkerboard and random 50 % share density 0.5 and
+  sit at opposite ends (P 0.25–0.30× vs 96–188× D per query).
+- Connectedness alone is not enough: the staircase ("fragmented") is one
+  component with 255 groups and loses as P by 60–77×; the doughnut is one
+  component with 2 groups and wins.
+
+**What this changes.** The terminal representation selector stays held. The
+evidence points at a switch on group count, not bytes, and at symbolic
+construction as the term that decides whether P pays at small N. Neither is
+measured. Open: a fixture family between 2 and 60 groups to locate the
+crossover; P built from a declaration instead of a cell sweep.
+

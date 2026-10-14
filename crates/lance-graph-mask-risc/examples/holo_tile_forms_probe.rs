@@ -82,7 +82,7 @@ impl Prod {
     /// equal operation masks, sort.
     fn normalize(mut cells: Vec<(M256, M256)>) -> Prod {
         cells.retain(|(c, o)| !is_zero(c) && !is_zero(o));
-        cells.sort_unstable_by(|a, b| a.1.cmp(&b.1));
+        cells.sort_unstable_by_key(|a| a.1);
         let mut groups: Vec<(M256, M256)> = Vec::with_capacity(cells.len());
         for (c, o) in cells {
             match groups.last_mut() {
@@ -145,7 +145,11 @@ impl Prod {
         self.binop(b, or)
     }
     fn complement(&self) -> Prod {
-        let cells = self.with_rest().into_iter().map(|(c, o)| (c, not(&o))).collect();
+        let cells = self
+            .with_rest()
+            .into_iter()
+            .map(|(c, o)| (c, not(&o)))
+            .collect();
         Prod::normalize(cells)
     }
     fn is_empty(&self) -> bool {
@@ -300,7 +304,9 @@ struct Dense {
 
 impl Dense {
     fn zero() -> Dense {
-        Dense { w: vec![0u64; DENSE_WORDS].into_boxed_slice() }
+        Dense {
+            w: vec![0u64; DENSE_WORDS].into_boxed_slice(),
+        }
     }
     fn build(f: &dyn Fn(usize, usize) -> bool) -> Dense {
         let mut d = Dense::zero();
@@ -421,7 +427,9 @@ impl Hyb {
 macro_rules! query {
     ($a:expr, $b:expr, $eq:expr) => {{
         let (a, b) = ($a, $b);
-        let x = a.intersect(&b.complement()).union(&b.intersect(&a.complement()));
+        let x = a
+            .intersect(&b.complement())
+            .union(&b.intersect(&a.complement()));
         let e = x.is_empty();
         let q = $eq(&x, a);
         (x, e, q)
@@ -454,10 +462,28 @@ struct Pattern {
 }
 
 fn patterns() -> Vec<Pattern> {
-    let p = |name, structured, adversarial, a: Cell, b: Cell| Pattern { name, structured, adversarial, a, b };
+    let p = |name, structured, adversarial, a: Cell, b: Cell| Pattern {
+        name,
+        structured,
+        adversarial,
+        a,
+        b,
+    };
     vec![
-        p("row", true, false, |c, o| c == 37 && (10..200).contains(&o), |c, o| c == 37 && (100..250).contains(&o)),
-        p("column", true, false, |c, o| o == 91 && (5..230).contains(&c), |c, o| o == 91 && (40..256).contains(&c)),
+        p(
+            "row",
+            true,
+            false,
+            |c, o| c == 37 && (10..200).contains(&o),
+            |c, o| c == 37 && (100..250).contains(&o),
+        ),
+        p(
+            "column",
+            true,
+            false,
+            |c, o| o == 91 && (5..230).contains(&c),
+            |c, o| o == 91 && (40..256).contains(&c),
+        ),
         p(
             "rectangle",
             true,
@@ -465,13 +491,49 @@ fn patterns() -> Vec<Pattern> {
             |c, o| in_rect(c, o, 20, 120, 30, 170),
             |c, o| in_rect(c, o, 60, 200, 100, 240),
         ),
-        p("prefix", true, false, |c, o| morton(c, o) >> 12 == 3, |c, o| morton(c, o) >> 14 == 0),
+        p(
+            "prefix",
+            true,
+            false,
+            |c, o| morton(c, o) >> 12 == 3,
+            |c, o| morton(c, o) >> 14 == 0,
+        ),
         p("diagonal", false, false, |c, o| c == o, |c, o| c == o + 1),
-        p("checkerboard", false, true, |c, o| (c + o) % 2 == 0, |c, o| (c ^ o) & 2 == 0),
-        p("random 1%", false, false, |c, o| coin(1, c, o, 100), |c, o| coin(2, c, o, 100)),
-        p("random 50%", false, true, |c, o| coin(3, c, o, 5_000), |c, o| coin(4, c, o, 5_000)),
-        p("sparse", false, false, |c, o| coin(5, c, o, 10), |c, o| coin(6, c, o, 10)),
-        p("dense", false, false, |c, o| !coin(7, c, o, 10), |c, o| !coin(8, c, o, 10)),
+        p(
+            "checkerboard",
+            false,
+            true,
+            |c, o| (c + o) % 2 == 0,
+            |c, o| (c ^ o) & 2 == 0,
+        ),
+        p(
+            "random 1%",
+            false,
+            false,
+            |c, o| coin(1, c, o, 100),
+            |c, o| coin(2, c, o, 100),
+        ),
+        p(
+            "random 50%",
+            false,
+            true,
+            |c, o| coin(3, c, o, 5_000),
+            |c, o| coin(4, c, o, 5_000),
+        ),
+        p(
+            "sparse",
+            false,
+            false,
+            |c, o| coin(5, c, o, 10),
+            |c, o| coin(6, c, o, 10),
+        ),
+        p(
+            "dense",
+            false,
+            false,
+            |c, o| !coin(7, c, o, 10),
+            |c, o| !coin(8, c, o, 10),
+        ),
         p(
             "complementary",
             true,
@@ -486,7 +548,13 @@ fn patterns() -> Vec<Pattern> {
             |c, o| in_rect(c, o, 0, 100, 0, 100),
             |c, o| in_rect(c, o, 150, 256, 120, 256),
         ),
-        p("fragmented", false, true, |c, o| o < c, |c, o| o < c * 3 / 4),
+        p(
+            "fragmented",
+            false,
+            true,
+            |c, o| o < c,
+            |c, o| o < c * 3 / 4,
+        ),
         p(
             "doughnut",
             false,
@@ -617,7 +685,8 @@ struct Row {
 }
 
 fn measure(p: &Pattern) -> Row {
-    let (fa, fb): (&dyn Fn(usize, usize) -> bool, &dyn Fn(usize, usize) -> bool) = (&p.a, &p.b);
+    let fa: &dyn Fn(usize, usize) -> bool = &p.a;
+    let fb: &dyn Fn(usize, usize) -> bool = &p.b;
     let (pa, pb) = (Prod::build(fa), Prod::build(fb));
     let (ia, ib) = (Iv::build(fa), Iv::build(fb));
     let (da, db) = (Dense::build(fa), Dense::build(fb));
@@ -639,16 +708,28 @@ fn measure(p: &Pattern) -> Row {
     ];
     let query = [
         time(|| {
-            black_box(query!(black_box(&pa), black_box(&pb), |x: &Prod, y: &Prod| x == y));
+            black_box(query!(
+                black_box(&pa),
+                black_box(&pb),
+                |x: &Prod, y: &Prod| x == y
+            ));
         }),
         time(|| {
             black_box(query!(black_box(&ia), black_box(&ib), |x: &Iv, y: &Iv| x == y));
         }),
         time(|| {
-            black_box(query!(black_box(&da), black_box(&db), |x: &Dense, y: &Dense| x == y));
+            black_box(query!(
+                black_box(&da),
+                black_box(&db),
+                |x: &Dense, y: &Dense| x == y
+            ));
         }),
         time(|| {
-            black_box(query!(black_box(&ha), black_box(&hb), |x: &Hyb, y: &Hyb| x.equal(y)));
+            black_box(query!(
+                black_box(&ha),
+                black_box(&hb),
+                |x: &Hyb, y: &Hyb| x.equal(y)
+            ));
         }),
     ];
     let ops = [
@@ -760,7 +841,11 @@ fn main() {
         let (ix, ie, iq) = query!(&ia, &ib, |x: &Iv, y: &Iv| x == y);
         let (dx, de, dq) = query!(&da, &db, |x: &Dense, y: &Dense| x == y);
         let (hx, he, hq) = query!(&ha, &hb, |x: &Hyb, y: &Hyb| x.equal(y));
-        assert!(px.canonical() && ix.canonical(), "{}: not canonical", p.name);
+        assert!(
+            px.canonical() && ix.canonical(),
+            "{}: not canonical",
+            p.name
+        );
         assert_eq!((pe, pq), (e, q), "{}: P", p.name);
         assert_eq!((ie, iq), (e, q), "{}: I", p.name);
         assert_eq!((de, dq), (e, q), "{}: D", p.name);
@@ -773,7 +858,10 @@ fn main() {
             assert_eq!(hx.contains(c, o), want, "{}: H cell {i}", p.name);
         }
     }
-    println!("oracle: all {} patterns match in all four arms\n", pats.len());
+    println!(
+        "oracle: all {} patterns match in all four arms\n",
+        pats.len()
+    );
 
     let rows: Vec<Row> = pats.iter().map(measure).collect();
 
@@ -809,7 +897,15 @@ fn main() {
     for r in &rows {
         println!(
             "{:<13} build {:>9.0} {:>9.0} {:>9.0} {:>9.0} | query {:>9.0} {:>9.0} {:>9.0} {:>9.0}",
-            r.name, r.build[0], r.build[1], r.build[2], r.build[3], r.query[0], r.query[1], r.query[2], r.query[3]
+            r.name,
+            r.build[0],
+            r.build[1],
+            r.build[2],
+            r.build[3],
+            r.query[0],
+            r.query[1],
+            r.query[2],
+            r.query[3]
         );
     }
 
@@ -832,9 +928,17 @@ fn main() {
     println!("\ndecision rules at N = 100 (ratio to D; < 2× either way is undecided)");
     for r in &rows {
         let d = total(r, 2, 100.0);
-        let (p, i, h) = (total(r, 0, 100.0) / d, total(r, 1, 100.0) / d, total(r, 3, 100.0) / d);
+        let (p, i, h) = (
+            total(r, 0, 100.0) / d,
+            total(r, 1, 100.0) / d,
+            total(r, 3, 100.0) / d,
+        );
         let rule = if r.structured {
-            format!("structured: P {} (≤ 0.5), H {}", verdict_le(p, 0.5), verdict_le(h, 0.5))
+            format!(
+                "structured: P {} (≤ 0.5), H {}",
+                verdict_le(p, 0.5),
+                verdict_le(h, 0.5)
+            )
         } else if r.adversarial {
             format!("adversarial: H {} (≤ 1.25)", verdict_le(h, 1.25))
         } else {
@@ -844,7 +948,10 @@ fn main() {
             .into_iter()
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .map_or("?", |t| t.1);
-        println!("{:<13} P {p:>5.2} I {i:>5.2} H {h:>5.2} cheapest {best:<2} {rule}", r.name);
+        println!(
+            "{:<13} P {p:>5.2} I {i:>5.2} H {h:>5.2} cheapest {best:<2} {rule}",
+            r.name
+        );
     }
 
     let ratio: Vec<f64> = rows
@@ -852,12 +959,57 @@ fn main() {
         .map(|r| (total(r, 0, 100.0).min(total(r, 1, 100.0)) / total(r, 2, 100.0)).ln())
         .collect();
     let comps: Vec<f64> = rows.iter().map(|r| r.comps as f64).collect();
-    let dens: Vec<f64> = rows.iter().map(|r| r.density.min(1.0 - r.density)).collect();
+    let dens: Vec<f64> = rows
+        .iter()
+        .map(|r| r.density.min(1.0 - r.density))
+        .collect();
     let ivs: Vec<f64> = rows.iter().map(|r| r.intervals as f64).collect();
-    println!("\npredictors of ln(best symbolic / D) at N = 100, Spearman over {} patterns", rows.len());
-    println!("  components                 {:+.2}", spearman(&comps, &ratio));
-    println!("  density (min(d, 1 - d))    {:+.2}", spearman(&dens, &ratio));
-    println!("  Morton intervals           {:+.2}", spearman(&ivs, &ratio));
+    println!(
+        "\npredictors of ln(best symbolic / D) at N = 100, Spearman over {} patterns",
+        rows.len()
+    );
+    println!(
+        "  components                 {:+.2}",
+        spearman(&comps, &ratio)
+    );
+    println!(
+        "  density (min(d, 1 - d))    {:+.2}",
+        spearman(&dens, &ratio)
+    );
+    println!(
+        "  Morton intervals           {:+.2}",
+        spearman(&ivs, &ratio)
+    );
+
+    // Not pre-registered: added after the first run showed that the generic
+    // 65,536-cell build dominates every total at N = 100.
+    let grp: Vec<f64> = rows.iter().map(|r| r.groups as f64).collect();
+    let qratio: Vec<f64> = rows
+        .iter()
+        .map(|r| (r.query[0] / r.query[2]).ln())
+        .collect();
+    println!("\npost hoc (not pre-registered): query-only ratio to D, P / I / H");
+    for r in &rows {
+        println!(
+            "{:<13} {:>6.2} {:>6.2} {:>6.2}",
+            r.name,
+            r.query[0] / r.query[2],
+            r.query[1] / r.query[2],
+            r.query[3] / r.query[2]
+        );
+    }
+    println!(
+        "  Spearman, P groups vs ln(P query / D query)      {:+.2}",
+        spearman(&grp, &qratio)
+    );
+    println!(
+        "  Spearman, components vs ln(P query / D query)    {:+.2}",
+        spearman(&comps, &qratio)
+    );
+    println!(
+        "  Spearman, density vs ln(P query / D query)       {:+.2}",
+        spearman(&dens, &qratio)
+    );
 }
 
 fn verdict_le(x: f64, bound: f64) -> &'static str {
@@ -903,10 +1055,30 @@ mod tests {
                 let (c, o) = (i / SIDE, i % SIDE);
                 let (a, b) = ((p.a)(c, o), (p.b)(c, o));
                 let want = [a && b, a || b, !a];
-                assert_eq!([pi.contains(c, o), pu.contains(c, o), pn.contains(c, o)], want, "{} P", p.name);
-                assert_eq!([ii.contains(c, o), iu.contains(c, o), inn.contains(c, o)], want, "{} I", p.name);
-                assert_eq!([di.contains(c, o), du.contains(c, o), dn.contains(c, o)], want, "{} D", p.name);
-                assert_eq!([hi.contains(c, o), hu.contains(c, o), hn.contains(c, o)], want, "{} H", p.name);
+                assert_eq!(
+                    [pi.contains(c, o), pu.contains(c, o), pn.contains(c, o)],
+                    want,
+                    "{} P",
+                    p.name
+                );
+                assert_eq!(
+                    [ii.contains(c, o), iu.contains(c, o), inn.contains(c, o)],
+                    want,
+                    "{} I",
+                    p.name
+                );
+                assert_eq!(
+                    [di.contains(c, o), du.contains(c, o), dn.contains(c, o)],
+                    want,
+                    "{} D",
+                    p.name
+                );
+                assert_eq!(
+                    [hi.contains(c, o), hu.contains(c, o), hn.contains(c, o)],
+                    want,
+                    "{} H",
+                    p.name
+                );
             }
             let (x, e, q) = oracle(&p);
             let (px, pe, pq) = query!(&pa, &pb, |x: &Prod, y: &Prod| x == y);
@@ -929,7 +1101,9 @@ mod tests {
             let a = Prod::build(&p.a);
             assert_eq!(a.intersect(&full), a, "{}: A ∩ ⊤", p.name);
             assert_eq!(a.complement().complement(), a, "{}: ¬¬A", p.name);
-            let via_union = a.intersect(&Prod::build(&p.b)).union(&a.intersect(&Prod::build(&p.b).complement()));
+            let via_union = a
+                .intersect(&Prod::build(&p.b))
+                .union(&a.intersect(&Prod::build(&p.b).complement()));
             assert_eq!(via_union, a, "{}: (A∩B) ∪ (A∩¬B)", p.name);
         }
     }

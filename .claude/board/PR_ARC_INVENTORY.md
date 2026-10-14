@@ -1,3 +1,10 @@
+## 2026-10-14 — lance-graph PR #1552 (merged `98c03dd1`, branch `ccr-9f3b8075-74u47l-haiku-harvest`) — Haiku harvest tier: six cards and their supervision rules
+
+- **Added:** cards `.claude/agents/{harvest-scout,census-counter,quote-harvester,substrate-mapper,spec-editor,guarded-executor}.md`; `tiered-agent-execution-protocol.md` § Haiku harvest tier (card table, brief sizing, supervision rules, mapping a large surface); CLAUDE.md Model Policy rewritten; BOOT files, worker template, cca2a and v3 BOOT aligned; AGENT_LOG entries for the first runs; #1551 board entries.
+- **Locked:** Haiku is read-only harvest and exact-spec edits; it never authors, reviews or decides. The orchestrator Reads every item relied on, re-runs one count per reply, spot-checks every map, reads every spec-editor diff; two misses on one kind of task drop that kind back to Sonnet.
+- **Deferred / open:** per-card miss rates; whether the fixed context cost (~0.45 M tokens per run) makes small searches uneconomic.
+- **Confidence:** medium; policy, first runs 9/9, 2/2, 7/7.
+
 ## 2026-10-14 — lance-graph PR #1551 (merged `9337da49`, branch `ccr-9f3b8075-74u47l-holo-prereg`, head `d56f2581`, 1 commit) — D-HOLO: pre-register H11 and H12, connectedness in H6b
 
 - **Added:** plan sections H11 (stacked logic: answers no single brick gives, == oracle; cost below separate runs at d = 4; no confidence inflation, gate disable must inflate) and H12 (semantic map of inference functions across OpenNARS, ONA and the NAL polyfill; stability rule: the last system adds zero nodes in both orders). STATUS rows D-HOLO-H11/H12; the #1550 arc and LATEST_STATE entries.

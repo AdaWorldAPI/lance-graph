@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-329 entries, 2026-08-06 .. 2026-10-14.
+330 entries, 2026-08-06 .. 2026-10-14.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-14 | `revision-layer-invariants` |  | [2026-10-14-revision-layer-invariants.md](2026-10-14-revision-layer-invariants.md) |
 | 2026-10-14 | `D-NALP-4` |  | [2026-10-14-isa-truth-exact-codes.md](2026-10-14-isa-truth-exact-codes.md) |
+| 2026-10-14 | `D-HOLO-H6b` | normal forms on the Context × Operation tile (measured) | [2026-10-14-d-holo-h6b.md](2026-10-14-d-holo-h6b.md) |
 | 2026-10-14 | `D-HOLO` |  | [2026-10-14-d-holo-falsifiers.md](2026-10-14-d-holo-falsifiers.md) |
 | 2026-10-13 | `D-PROD-V4` |  | [2026-10-13-production-targets-v4.md](2026-10-13-production-targets-v4.md) |
 | 2026-10-12 | `D-SAG-1` |  | [2026-10-12-software-awareness-graph.md](2026-10-12-software-awareness-graph.md) |
