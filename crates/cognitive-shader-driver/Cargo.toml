@@ -107,6 +107,11 @@ test = true
 name = "delta_granularity_probe"
 test = true
 
+# Lane-tables on the NodeGuid trie (per-lane vs shared trie); tests run under `cargo test`.
+[[example]]
+name = "lane_trie_probe"
+test = true
+
 # D-GSO-6 recipe selector probe; tests run under `cargo test`.
 [[example]]
 name = "recipe_selector_probe"
