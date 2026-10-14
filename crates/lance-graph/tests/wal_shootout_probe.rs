@@ -82,9 +82,18 @@ fn spawn_child(mode: &str, arm: &str, dir: &str, stdout: Stdio) -> std::process:
 
 /// After a crash: (L) rows per cycle; (M) rows per cycle before and after the
 /// reader's first write (sentinel cycle `u64::MAX >> 8`, excluded from the map).
-async fn recovered(arm: &str, dir: &str) -> (std::collections::BTreeMap<u64, usize>, Option<std::collections::BTreeMap<u64, usize>>) {
+async fn recovered(
+    arm: &str,
+    dir: &str,
+) -> (
+    std::collections::BTreeMap<u64, usize>,
+    Option<std::collections::BTreeMap<u64, usize>>,
+) {
     match arm {
-        "L" => (l_rows_by_cycle(&l_path(dir)).await.unwrap_or_default(), None),
+        "L" => (
+            l_rows_by_cycle(&l_path(dir)).await.unwrap_or_default(),
+            None,
+        ),
         _ => {
             let t = m_open(dir).await;
             let before = m_rows_by_cycle(&t, true).await;
@@ -124,24 +133,31 @@ async fn v1_sigkill_mid_write_leaves_all_or_nothing() {
             let (a, b) = recovered(arm, &dir).await;
             let ra = a.get(&1).copied().unwrap_or(0);
             let rb = b.as_ref().map(|m| m.get(&1).copied().unwrap_or(0));
-            eprintln!("V1 {arm} kill@{delay_ms}ms recovered: read={ra} after-replay={rb:?} (full {full})");
+            eprintln!(
+                "V1 {arm} kill@{delay_ms}ms recovered: read={ra} after-replay={rb:?} (full {full})"
+            );
             observed.push((delay_ms, ra, rb));
         }
         let partial: Vec<_> = observed
             .iter()
-            .filter(|(_, a, b)| {
-                (*a != 0 && *a != full) || b.is_some_and(|b| b != 0 && b != full)
-            })
+            .filter(|(_, a, b)| (*a != 0 && *a != full) || b.is_some_and(|b| b != 0 && b != full))
             .collect();
-        let landed = observed.iter().any(|(_, a, b)| *a > 0 || b.is_some_and(|b| b > 0));
-        let empty = observed.iter().any(|(_, a, b)| *a == 0 && b.unwrap_or(0) == 0);
+        let landed = observed
+            .iter()
+            .any(|(_, a, b)| *a > 0 || b.is_some_and(|b| b > 0));
+        let empty = observed
+            .iter()
+            .any(|(_, a, b)| *a == 0 && b.unwrap_or(0) == 0);
         if !landed || !empty {
             eprintln!(
                 "V1 {arm} INCONCLUSIVE: the sweep did not land on both sides of the \
                  durability boundary (landed={landed}, empty={empty}); widen it."
             );
         }
-        assert!(partial.is_empty(), "V1 {arm}: partial cycle after SIGKILL: {partial:?}");
+        assert!(
+            partial.is_empty(),
+            "V1 {arm}: partial cycle after SIGKILL: {partial:?}"
+        );
     }
 }
 
@@ -176,10 +192,15 @@ async fn v2_acknowledged_cycles_survive_sigkill() {
             let _ = child.wait();
             let (a, b) = recovered(arm, &dir).await;
             let lost = |m: &std::collections::BTreeMap<u64, usize>| -> Vec<u64> {
-                (1..=acked).filter(|c| m.get(c).copied() != Some(full)).collect()
+                (1..=acked)
+                    .filter(|c| m.get(c).copied() != Some(full))
+                    .collect()
             };
             let partial = |m: &std::collections::BTreeMap<u64, usize>| -> Vec<(u64, usize)> {
-                m.iter().filter(|(_, &v)| v != full).map(|(&k, &v)| (k, v)).collect()
+                m.iter()
+                    .filter(|(_, &v)| v != full)
+                    .map(|(&k, &v)| (k, v))
+                    .collect()
             };
             eprintln!(
                 "V2 {arm} acked={acked}: read sees cycles {:?} (missing acked {:?}); after replay {:?}",
@@ -187,12 +208,28 @@ async fn v2_acknowledged_cycles_survive_sigkill() {
                 lost(&a),
                 b.as_ref().map(|m| (m.keys().copied().collect::<Vec<_>>(), lost(m))),
             );
-            assert!(partial(&a).is_empty(), "V2 {arm}: partial cycle {:?}", partial(&a));
+            assert!(
+                partial(&a).is_empty(),
+                "V2 {arm}: partial cycle {:?}",
+                partial(&a)
+            );
             match &b {
-                None => assert!(lost(&a).is_empty(), "V2 L lost acknowledged cycles {:?}", lost(&a)),
+                None => assert!(
+                    lost(&a).is_empty(),
+                    "V2 L lost acknowledged cycles {:?}",
+                    lost(&a)
+                ),
                 Some(b) => {
-                    assert!(partial(b).is_empty(), "V2 M: partial cycle after replay {:?}", partial(b));
-                    assert!(lost(b).is_empty(), "V2 M lost acknowledged cycles after replay {:?}", lost(b));
+                    assert!(
+                        partial(b).is_empty(),
+                        "V2 M: partial cycle after replay {:?}",
+                        partial(b)
+                    );
+                    assert!(
+                        lost(b).is_empty(),
+                        "V2 M lost acknowledged cycles after replay {:?}",
+                        lost(b)
+                    );
                 }
             }
         }
@@ -250,7 +287,10 @@ async fn v4_read_horizon_while_a_cycle_is_unflushed() {
     l_commit(&mut w, 2, n).await;
     let pinned_rows = pinned.count_rows(None).await.unwrap();
     let fresh = l_rows_by_cycle(&path).await.unwrap();
-    eprintln!("V4 L pinned reader rows={pinned_rows} fresh reader cycles={:?}", fresh.keys().collect::<Vec<_>>());
+    eprintln!(
+        "V4 L pinned reader rows={pinned_rows} fresh reader cycles={:?}",
+        fresh.keys().collect::<Vec<_>>()
+    );
     assert_eq!(pinned_rows, rows_per_cycle(n));
     assert_eq!(fresh.len(), 2);
     drop(w);
@@ -275,5 +315,9 @@ async fn v4_read_horizon_while_a_cycle_is_unflushed() {
         m_rows_by_cycle(&b2, true).await,
         m_rows_by_cycle(&b2, false).await
     );
-    assert_eq!(a_lsm.len(), 2, "the writer's own LSM read must see what it acknowledged");
+    assert_eq!(
+        a_lsm.len(),
+        2,
+        "the writer's own LSM read must see what it acknowledged"
+    );
 }

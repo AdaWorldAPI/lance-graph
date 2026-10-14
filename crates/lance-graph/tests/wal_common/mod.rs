@@ -19,9 +19,11 @@ use arrow_array::{
 };
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use futures::TryStreamExt;
-use lance_graph::graph::cycle_sink::{cycle_store_schema, LanceCycleWriter, EPISODIC_WITNESS_BYTES};
-use lance_graph_planner::persist_sink::{CycleFrame, CycleId, DetachedCycleBatch, SweepSlot};
+use lance_graph::graph::cycle_sink::{
+    cycle_store_schema, LanceCycleWriter, EPISODIC_WITNESS_BYTES,
+};
 use lance_graph_contract::scheduler::DatasetVersion;
+use lance_graph_planner::persist_sink::{CycleFrame, CycleId, DetachedCycleBatch, SweepSlot};
 use lancedb::query::{ExecutableQuery, QueryBase, Select};
 use lancedb::table::LsmWriteSpec;
 
@@ -120,7 +122,10 @@ pub async fn m_create(dir: &str, flush_ms: u64) -> lancedb::Table {
         .expect("primary key");
     let defaults: HashMap<String, String> = [
         ("durable_write".to_string(), "true".to_string()),
-        ("max_wal_flush_interval_ms".to_string(), flush_ms.to_string()),
+        (
+            "max_wal_flush_interval_ms".to_string(),
+            flush_ms.to_string(),
+        ),
     ]
     .into_iter()
     .collect();
@@ -203,7 +208,8 @@ pub async fn m_put(t: &lancedb::Table, batch: &DetachedCycleBatch) {
     let rb = m_batch(batch);
     let schema = rb.schema();
     let mut mi = t.merge_insert(&["pk"]);
-    mi.when_matched_update_all(None).when_not_matched_insert_all();
+    mi.when_matched_update_all(None)
+        .when_not_matched_insert_all();
     mi.execute(Box::new(RecordBatchIterator::new(vec![Ok(rb)], schema)))
         .await
         .expect("M merge_insert");

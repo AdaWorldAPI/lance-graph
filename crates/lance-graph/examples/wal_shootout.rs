@@ -206,6 +206,8 @@ async fn main() {
             )
             .await
         }
-        _ => eprintln!("usage: wal_shootout latency <dir> | soak <L|M> <dir> <min> <rows> <interval_ms> <csv>"),
+        _ => eprintln!(
+            "usage: wal_shootout latency <dir> | soak <L|M> <dir> <min> <rows> <interval_ms> <csv>"
+        ),
     }
 }
