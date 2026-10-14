@@ -40,6 +40,13 @@ to `f32` (syllogize test), round down, ties-to-even. The legacy golden
 capture (`ce64_isa_golden.rs`, 126 words) is unchanged: none of its inputs
 is one the `f32` path got wrong.
 
+**MEASURED, differential against `main`** (2,000,000 random register-word
+pairs, all bits random including 50..52 and 59..63; every path: the five
+`execute` opcodes, `syllogize`, `learn`, `revision`; 16,000,000 results): 5
+words differ (3 induction, 1 deduction, 1 abduction), each only in the
+confidence field (bits 32..39), by exactly one code. No other bit changed;
+`learn`, `revision` and synthesis are bit-identical.
+
 **OPEN:**
 - Revision and synthesis are not exact. Exact revision has to settle the
   both-operands-at-255 case first (today it packs `(0, 0)`, pinned as a known
