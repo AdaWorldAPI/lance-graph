@@ -268,8 +268,10 @@ ns/pair; at n = 100 fixed costs (lowering, scratch) dominate (8–9 ns/row,
 
 **Against the pre-registration.**
 - Pairs and counts identical: met.
-- Emission below datafrog: met, by 11–15× per pair at 10⁶, and by 7–9× with
-  ingest charged to the query (ingest + emit ≈ 6.5–8 ns against 59–71).
+- Emission below datafrog: met, by 11–15× per pair at 10⁶. With ingest
+  charged to the query, normalized per emitted pair (F2 ingests 666,666 facts
+  for 476,190 pairs, so its ingest counts 1.4×): F1 6.5–7.1 ns/pair against
+  59–62 (8.4–9.6×), F2 8.6–9.2 ns/pair against 66–71 (7.2–8.2×).
 - "The folded count costs a small fraction of a nanosecond per row": NOT met.
   It costs 1.2–1.8 ns/row. The semijoin is a `Gather` through `dst`, one
   dependent random read per row (`(7i+3) mod n` scatters the targets), and

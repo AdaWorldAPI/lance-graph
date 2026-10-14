@@ -1,6 +1,6 @@
 ## 2026-10-14 (2) — metta-polyfill-v1 — Hyperon/MeTTa as a front end over the masking-algebra polyfill → `.claude/plans/metta-polyfill-v1.md`
 
-**Status:** PROPOSAL; D-MTP-0 (map + measurements) done, D-MTP-1..5 not authorized.
+**Status:** PROPOSAL; D-MTP-0 (map + measurements), D-MTP-1 (join probe, measured) and D-MTP-6 (datafrog oracle) done; D-MTP-2..5 not authorized.
 
 - MeTTa is a declaration IR, not an execution IR: the Datalog subset lowers through `lance-graph-relalg` → R2IL → mask-risc; everything else stays in Hyperon's interpreter.
 - Seam: a named `LanceSpace` implementing `hyperon_space::Space`; `ModuleSpace` splits conjunctions, so `&self` is not the seam.
