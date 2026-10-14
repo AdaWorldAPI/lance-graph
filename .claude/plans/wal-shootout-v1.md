@@ -16,7 +16,7 @@ only `LanceCycleWriter` has a MemWAL counterpart (`.claude/temporal/08-memwal-vs
 
 Both arms store the same logical cycle: the rows `LanceCycleWriter::build_batch` writes
 (1 frame row, N landing rows, N image rows with a 512-byte payload). M adds one column,
-`pk: UInt64` (`cycle << 24 | ordinal`), carrying the unenforced-primary-key marker MemWAL
+`pk: Int64` (`cycle << 24 | ordinal`; lancedb rejects `UInt64` as a primary key), carrying the unenforced-primary-key marker MemWAL
 requires. Same N, same payload bytes.
 
 Prior evidence, not re-run here: D-MW-P2 (lance 11, raw `ShardWriter::put`, 5,000 rows)

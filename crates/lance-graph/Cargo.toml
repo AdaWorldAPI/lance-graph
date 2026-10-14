@@ -206,3 +206,16 @@ object_store = { workspace = true }
 name = "w0b_corpus_census"
 path = "examples/w0b_corpus_census.rs"
 test = true
+
+# D-WAL (plan `.claude/plans/wal-shootout-v1.md`): `LanceCycleWriter` against the
+# lancedb 0.40 MemWAL write path. Needs the optional lancedb dependency, so both
+# targets are gated on `lancedb-sdk` instead of breaking the default test build.
+[[test]]
+name = "wal_shootout_probe"
+path = "tests/wal_shootout_probe.rs"
+required-features = ["lancedb-sdk"]
+
+[[example]]
+name = "wal_shootout"
+path = "examples/wal_shootout.rs"
+required-features = ["lancedb-sdk"]
