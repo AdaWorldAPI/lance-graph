@@ -198,6 +198,26 @@ impl Opcode {
             Opcode::Synthesis => truth::synthesis(f1, c1, f2, c2),
         }
     }
+
+    /// The truth codes a register gets: `f` and `c` as `u8` codes (`x / 255`)
+    /// in and out. This is what `execute`, `forward` and `syllogize` pack.
+    ///
+    /// Deduction, induction and abduction are exact ([`truth::code`]): the
+    /// law's value rounded once, half up. Revision and synthesis still go
+    /// through the `f32` functions and are packed with `(v · 255).round()`.
+    #[inline]
+    pub fn truth_code(self, f1: u8, c1: u8, f2: u8, c2: u8) -> (u8, u8) {
+        match self {
+            Opcode::Deduction => truth::code::deduction(f1, c1, f2, c2),
+            Opcode::Induction => truth::code::induction(f1, c1, f2, c2),
+            Opcode::Abduction => truth::code::abduction(f1, c1, f2, c2),
+            Opcode::Revision | Opcode::Synthesis => {
+                let d = |x: u8| f32::from(x) / 255.0;
+                let (f, c) = self.truth(d(f1), d(c1), d(f2), d(c2));
+                (truth::pack(f), truth::pack(c))
+            }
+        }
+    }
 }
 
 /// The canonical NARS truth functions (evidence horizon `k = 1`).
@@ -264,6 +284,60 @@ pub mod truth {
     #[inline]
     pub fn synthesis(f1: f32, c1: f32, f2: f32, c2: f32) -> (f32, f32) {
         ((f1 + f2) / 2.0, (c1 + c2) / 2.0)
+    }
+
+    /// A value in `[0, 1]` as a `u8` code: `(v.clamp(0, 1) · 255).round()`.
+    /// `NaN` packs as 0.
+    #[inline]
+    pub fn pack(v: f32) -> u8 {
+        (v.clamp(0.0, 1.0) * 255.0).round() as u8
+    }
+
+    /// The same laws on `u8` codes (`x` stands for `x / 255`), exact.
+    ///
+    /// Each value is computed in integers and rounded once, half up, into a
+    /// code. The `f32` functions above round at every step, so packing their
+    /// result is off by one code on some inputs: measured over all 2³²
+    /// inputs, 2,413 rows for deduction and 4,352 each for induction and
+    /// abduction (`examples/truth_exact_probe.rs`). These functions are what
+    /// the register paths pack.
+    pub mod code {
+        const K1: u64 = 255;
+        const K3: u64 = 255 * 255 * 255;
+
+        /// `round(p / q)`, half up, for `p ≤ q · 255` and `q > 0`.
+        #[inline]
+        fn round_div(p: u64, q: u64) -> u8 {
+            ((2 * p + q) / (2 * q)) as u8
+        }
+
+        /// `c = w / (w + 1)` with `w = w_num / 255³`, as a code.
+        #[inline]
+        fn w2c(w_num: u64) -> u8 {
+            round_div(K1 * w_num, w_num + K3)
+        }
+
+        /// Deduction: `f = f1·f2`, `c = f1·f2·c1·c2`.
+        #[inline]
+        pub fn deduction(f1: u8, c1: u8, f2: u8, c2: u8) -> (u8, u8) {
+            let ff = u64::from(f1) * u64::from(f2);
+            (
+                round_div(ff, K1),
+                round_div(ff * u64::from(c1) * u64::from(c2), K3),
+            )
+        }
+
+        /// Induction: `f = f2`, `c = w/(w+1)` with `w = f1·c1·c2`.
+        #[inline]
+        pub fn induction(f1: u8, c1: u8, f2: u8, c2: u8) -> (u8, u8) {
+            (f2, w2c(u64::from(f1) * u64::from(c1) * u64::from(c2)))
+        }
+
+        /// Abduction: `f = f1`, `c = w/(w+1)` with `w = f2·c1·c2`.
+        #[inline]
+        pub fn abduction(f1: u8, c1: u8, f2: u8, c2: u8) -> (u8, u8) {
+            (f1, w2c(u64::from(f2) * u64::from(c1) * u64::from(c2)))
+        }
     }
 }
 

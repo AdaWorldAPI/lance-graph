@@ -768,7 +768,7 @@ impl CausalEdge64 {
     /// runs after decoding the weight's code.
     ///
     /// - S/P/O: composed per plane through `compose`;
-    /// - truth: `op`'s canonical truth function ([`Opcode::truth`]);
+    /// - truth: `op`'s truth codes ([`Opcode::truth_code`]);
     /// - Pearl mask: AND of both operands;
     /// - inference field: `op`'s own encoding;
     /// - direction and plasticity: passed through from `rhs`;
@@ -783,11 +783,11 @@ impl CausalEdge64 {
         let p_out = compose.p[self.p_idx() as usize * 256 + rhs.p_idx() as usize];
         let o_out = compose.o[self.o_idx() as usize * 256 + rhs.o_idx() as usize];
 
-        let (f_out, c_out) = op.truth(
-            self.frequency(),
-            self.confidence(),
-            rhs.frequency(),
-            rhs.confidence(),
+        let (f_out, c_out) = op.truth_code(
+            self.frequency_u8(),
+            self.confidence_u8(),
+            rhs.frequency_u8(),
+            rhs.confidence_u8(),
         );
 
         let mask_out =
@@ -802,8 +802,8 @@ impl CausalEdge64 {
             s_out,
             p_out,
             o_out,
-            (f_out.clamp(0.0, 1.0) * 255.0).round() as u8,
-            (c_out.clamp(0.0, 1.0) * 255.0).round() as u8,
+            f_out,
+            c_out,
             mask_out,
             rhs.direction(), // TODO: recompute from composed palette dim0 signs
             op.inference_type(),

@@ -197,12 +197,12 @@ impl CausalEdge64 {
 
         // Conclusion truth — canonical NARS rule for the figure (premise order
         // self, other). Mirrors `ndarray::hpc::nars` and `forward`.
-        let (f1, c1) = (self.frequency(), self.confidence());
-        let (f2, c2) = (other.frequency(), other.confidence());
+        let (f1, c1) = (self.frequency_u8(), self.confidence_u8());
+        let (f2, c2) = (other.frequency_u8(), other.confidence_u8());
         let (f, c) = match figure {
-            Figure::Chain | Figure::ChainRev => crate::isa::truth::deduction(f1, c1, f2, c2),
-            Figure::SharedSubject => crate::isa::truth::induction(f1, c1, f2, c2),
-            Figure::SharedObject => crate::isa::truth::abduction(f1, c1, f2, c2),
+            Figure::Chain | Figure::ChainRev => crate::isa::truth::code::deduction(f1, c1, f2, c2),
+            Figure::SharedSubject => crate::isa::truth::code::induction(f1, c1, f2, c2),
+            Figure::SharedObject => crate::isa::truth::code::abduction(f1, c1, f2, c2),
         };
 
         // Pearl mask: AND (only planes active in both survive) — as `forward`.
@@ -218,8 +218,8 @@ impl CausalEdge64 {
             cs,
             cp,
             co,
-            (f.clamp(0.0, 1.0) * 255.0).round() as u8,
-            (c.clamp(0.0, 1.0) * 255.0).round() as u8,
+            f,
+            c,
             mask,
             0, // direction: neutral; recomputed from composed palette downstream
             figure.rule(),
