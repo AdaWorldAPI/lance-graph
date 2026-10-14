@@ -9,6 +9,7 @@ Plan: `.claude/plans/metta-polyfill-v1.md`. Proposed crate `lance-graph-metta` (
 | **D-MTP-2** | `LanceSpace` (`Space + SpaceMut`) as a named space for the non-recursive Datalog subset; golden corpus rerun | Queued (not authorized) | 32/33 golden files still pass; refusals named; whole-conjunction vs per-conjunct calls recorded |
 | **D-MTP-3** | Recursive Datalog rules → relalg μ through the external driver d′ | Queued (not authorized) | `anc_n` answers identical; no fixpoint state in mask-risc |
 | **D-MTP-4** | Fork fix for the expression-width trie panic (≥ 1,024 children), test first; distinct from the id-decoding fix `1ffdbd6` | Queued (needs operator's word) | red before, green after |
+| **D-MTP-6** | datafrog as the exact Rust oracle (probe/test only) | Measured 2026-10-14 (v4): join 10⁶ in 65–69 ns/pair, seeded ancestors 10⁶ in 286–298 ns/tuple; counts match; not yet a committed probe | bag-of-pairs equality with Hyperon and PeTTa |
 | **D-MTP-5** | PeTTa as second oracle in the probes | Queued (not authorized) | PeTTa/Hyperon divergences recorded, never averaged |
 
 ## D-RA — Relational algebra over coordinate populations, a D-CMR prototype (2026-10-13)

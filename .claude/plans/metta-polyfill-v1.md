@@ -63,6 +63,28 @@ grows about n^1.7 on the join (×54 for ×10) and n^2.4–2.9 on the recursion
 (×26 then ×56 per ×4). Single runs; the ratios are far outside the 40 % noise
 band, the absolute seconds are not a primitive claim.
 
+### 3.0 A Rust Datalog oracle (datafrog 2, measured 2026-10-14)
+
+`datafrog` (the semi-naive engine behind Polonius; no AdaWorldAPI fork exists,
+so the crates.io release is used) on the same generated programs, release,
+`target-cpu=native`, program-printed tier `avx512f=true`, best of 5, three runs
+within 5–15 %. Relation construction (sorting) is charged. Counts asserted
+against the known answers, which match Hyperon's and PeTTa's.
+
+| program | datafrog | per output tuple |
+|---|---|---|
+| join, n = 10² / 10⁴ / 10⁶ | 3 µs / 0.51–0.62 ms / 65–69 ms | 33 / 51–62 / 65–69 ns |
+| ancestors from n0 (the MeTTa query, seeded), n = 800 / 10⁴ / 10⁶ | 0.14 ms / 2.2 ms / 0.29 s | 179–185 / 222 / 286–298 ns |
+| full closure on the chain, n = 2,000 (2.0 M tuples) | 0.28 s | 139–143 ns |
+
+It finishes join_10000 in 0.5 ms where Hyperon does not finish in 600 s and
+PeTTa needs 1.47 s (mostly its 0.32 s startup plus compilation). The seeded
+ancestor query costs more per tuple than the join because a chain derives one
+tuple per semi-naive round, so per-round overhead dominates. These are
+per-tuple engine costs on hash-free sorted merges, not mask-risc primitives;
+they are the bar a folded lowering is compared against, not a production path.
+Probe source: local crate `/home/user/datalog-oracle-probe` (not committed).
+
 ### 3.1 A second Hyperon trie bug (distinct from the fix already on the fork)
 
 The measurements above ran on the fork's `fix-trie-key-value` branch (`1ffdbd6`),
@@ -179,6 +201,7 @@ Recommendation: **`lance-graph-metta`**, workspace-excluded like
 | D-MTP-2 | `LanceSpace` adapter (`Space + SpaceMut`) for the non-recursive Datalog subset, bound as a named space; Hyperon's golden corpus (`hyperon-probe/golden`, 32 of 33 passing) rerun with facts moved into it | every golden file that passes today still passes; refusals named; the probe records whether the space received whole conjunctions or single conjuncts |
 | D-MTP-3 | recursive Datalog rules declared into `LanceSpace` → relalg `μ` through d′, queried by `match` over the derived relation | `anc_n` answers identical; no fixpoint state inside mask-risc |
 | D-MTP-4 | the §3.1 expression-width panic as a fix on the fork, test first (separate from `1ffdbd6`) | red before, green after; upstream only with the operator's word |
+| D-MTP-6 | datafrog as the exact Rust oracle in D-MTP-1/3 probes and the `ruff_metta_spo` lowerable tag (test-only dependency) | answers identical to Hyperon and PeTTa as bags of pairs, not only counts |
 | D-MTP-5 | PeTTa as the second oracle in the probes (needs SWI-Prolog ≥ 9.3; 10.0.2 installed from the official PPA) | divergences between PeTTa and Hyperon recorded, never averaged |
 
 ## 8. Fences
