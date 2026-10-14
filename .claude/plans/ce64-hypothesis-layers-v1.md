@@ -573,6 +573,52 @@ Dense tile, reference cell, dense universe (all 65,536 HEEL codes):
 - Sessions on the dense tile: D 106 ns per row (one thought), 147 ns per row
   (all 64); M8 144 ns per row (all 64).
 
+## Coverage orientation: per-thought masks or per-row words (pre-registered 2026-10-14)
+
+**DECISION (operator, 2026-10-14).** Counting is popcount under an explicit
+equivalence key, intersected with the aperture. The thought x identity
+coverage is one 64k x 64 bit matrix (512 KiB per class) held in one of two
+orientations; measure both on the four count queries before choosing.
+Written before the probe exists; a change after the run is a new dated
+section.
+
+**Orientations, one dense class tile of 65,536 rows, 64 thoughts.**
+- C (per thought): 64 masks of 65,536 bits, 1,024 u64 words each; the
+  formula's M_t.
+- R (per row): one 64-bit written-by word per row; what the identity-session
+  and dense-tile arms already store.
+
+**Queries,** for a thought selection T (u64) and an aperture (a contiguous
+row range, as a Morton prefix gives):
+- Q-ID, distinct NodeGuid: C = popcount(OR of M_t over T, in the aperture);
+  R = number of rows with w AND T != 0.
+- Q-TH, distinct ThoughtId: C = thoughts in T whose M_t has a set bit in the
+  aperture; R = popcount(OR of w AND T over the aperture).
+- Q-PAIR, (NodeGuid, ThoughtId) observations: C = sum of popcount(M_t) in
+  the aperture; R = sum of popcount(w AND T).
+- Q-PERSP, perspectives on one identity: C = |T| bit reads; R =
+  popcount(w AND T).
+EvidenceRoot is not a coverage query and is not measured.
+
+**Also reported, no decision attached:** the cost of deriving one
+orientation from the other at seal (transpose, ns per row).
+
+**Grid.** Coverage independent per (thought, row) with density d in {1 %,
+10 %, 50 %}; |T| in {1, 8, 64} (T a fixed random subset, all 64 for 64);
+aperture 65,536, 4,096 or 256 rows. Every answer checked against a
+brute-force oracle over the bit matrix.
+
+**Metrics.** ns per query; for Q-ID, Q-TH, Q-PAIR also ns per aperture row
+(the per-element figure); v4 only, tier printed by the program, median of 5.
+
+**Decision rule.** Reference cells: d = 10 %, |T| in {8, 64}, aperture
+65,536 and 4,096. If one orientation is within 2 times the best on every
+query at every reference cell, only that one is stored. Otherwise both are
+kept, each query routed to its faster orientation, and the second
+orientation derived at seal. Nanosecond target: Q-PERSP under 10 ns, and
+the aperture queries under 1 ns per aperture row, in the better
+orientation; reported pass or fail.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
