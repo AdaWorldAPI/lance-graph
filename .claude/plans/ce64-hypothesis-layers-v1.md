@@ -501,6 +501,32 @@ the arms whose Q3 is within 1.5 times the best Q3 and whose Q1 is within
 2 times the best Q1, choose the lowest Q2. Nanosecond target: a point read
 under 1 microsecond at the reference cell, reported pass or fail per arm.
 
+## Dense tile: the Morton code is the row (pre-registered 2026-10-14)
+
+**Input (operator, 2026-10-14):** the Morton tenant already has Cartesian
+addressing (`lance-graph-contract::morton8x8`, D-MORTON-0: checked 8:8
+arithmetic on the Z-order code, one nibble = one 4 x 4 refinement, fan-out
+16). 64k identity rows = 256 x 256 = one Morton tile, so for a class whose
+HEEL tile is dense the row is the HEEL code: no trie, no rank. A prefix
+aperture (top nibble p) is the contiguous row range [p x 4096, (p+1) x 4096).
+Written before the arm exists; it runs after the identity-session run, on
+its own, so the two do not share the CPU.
+
+**Arms, on a dense universe** (one classid, all 65,536 HEEL codes, HIP 0):
+- M8: the identity trie of the previous section (8 levels, HEEL + HIP).
+- D: row = the key's HEEL code, after checking the classid; no descent.
+Overlays, merge, materialization and the oracle are the ones of M.
+
+**Grid, metrics.** T in {1, 8, 64}, d in {1 %, 10 %, 100 %}, w in {1, 4, 30},
+lanes 1 or all, same cap; Q2 point read ns, Q3 range ns per emitted
+NodeGuid, and session materialization ns per row at the reference cell;
+v4 only, tier printed, median of 5.
+
+**Decision rule.** If D reads a point under 1 microsecond at the reference
+cell (T = 64, d = 10 %, w = 4, all lanes), dense class tiles use D and the
+trie is kept for sparse classes only. Otherwise both stay open and the
+overlay cost is the next thing to measure.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
