@@ -223,6 +223,68 @@ disagrees with the OpenNARS output beyond the D-HL-4 tolerance is not
 admitted. **Warden:** `isa-anti-lasagne-warden` must find no second IR and
 no lowering into a representation with no second reader.
 
+## Pre-registration — thought lanes as hypothesis tests (2026-10-14)
+
+**Status:** PROPOSAL, written before any lane code or run. Decision O5 taken
+by the operator on 2026-10-14: up to 64 thought lanes beside the 10 rung lanes.
+Changing a hypothesis, metric, threshold or decision rule after a run is not an
+edit of this section: it is a new dated section that says what changed and why.
+
+**Unit of observation.** One fixture: a premise pair (or set) with its kind of
+fact declared (math, episodic, agreement/disagreement) and its premises' CE64
+bytes set, including bits 50..52, 53..58 and 59..63. The fixture set is
+committed before the first run and is not filtered afterwards.
+
+**Lane = treatment.** Each lane runs one thought on the same fixtures against
+the same read-only base. A lane records its saccade (`AlphaOverlay`: where it
+looked, in which order, revisits) and its conclusions as sparse
+`delta = conclusion XOR base`. Lane identity is its own type, not a rung and
+not a recipe id. External engines (ONA, OpenNARS) fill their lanes from
+committed golden outputs; their derivation order is their saccade.
+
+**Controls, run in every comparison:**
+- Negative control: an identity lane that concludes the base. "Differs"
+  against base must report 0 rows. If not, the comparison is broken and no
+  other result of that run is read.
+- Positive control: a lane that changes exactly one known field on a known
+  set of rows. "Differs" must report exactly that field on exactly those rows.
+- Permutation null for every agreement rate: the same lane's conclusions
+  reassigned across fixtures at random (fixed seed); the observed agreement is
+  reported beside the null distribution.
+
+**Confirmatory hypotheses.** Deterministic ones are falsified by one
+counterexample and need no statistics.
+
+| H | Claim | Measure | Falsified when |
+|---|---|---|---|
+| H1 | No lane changes the base | hash of the base bytes before and after every run | any hash differs |
+| H2 | Reserving a lane costs nothing | reserve cost per lane over 1..64 lanes | cost grows with lane count (report the slope) |
+| H3 | Lanes are independent | parallel run vs sequential run | any byte differs |
+| H4 | The current law loses hydration marks | conclusions' bits 59..63 from `execute`/`syllogize` vs `pearl::hydrate` on the same chain | (stated null: they agree) agreement on every fixture, i.e. no loss |
+| H5 | NAL evidential-base overlap and the Gadamer gate agree on whether a conclusion may be revised into its own premise | admit / refuse per fixture, paired | any fixture where they differ (reported as a finding, not a failure) |
+| H6 | The exact codes (lane 1) agree with OpenNARS better than the f32 path (lane 2) | per-statement code error, paired | lane 1 not better on the paired exact McNemar test |
+
+**Candidate laws for a conclusion's marks** (lanes 9..12): (a) 0, today;
+(b) `IndirectKnown × Open`; (c) weakest premise topology made indirect,
+× `Open`; (d) `Unknown × Open`, hydrated afterwards. **Decision rule, declared
+now:** among laws that never raise certification above what a Pearl operator
+measured, choose the one with the highest topology agreement with the
+`pearl::hydrate` lane; on a tie, the one that writes fewer fields. The
+operator makes the final call from the table; this rule is the
+recommendation.
+
+**Statistics.** Exact counts with n for every rate. Paired comparisons (same
+fixtures through two lanes) use the exact McNemar test. Significance level
+0.01, Bonferroni-corrected over the number of paired comparisons, fixed here
+before the run (H6 plus the six pairwise comparisons between laws (a)..(d)).
+No confidence claim on dependent rows without citing the dependence
+(`I-NOISE-FLOOR-JIRAK`).
+
+**Exploratory, no decision attached:** where ONA's and OpenNARS's saccades
+diverge (first differing `seq`), which lanes revisit and where, and what each
+lane attended that no other lane did. Exploratory findings may motivate a new
+pre-registration; they never confirm a hypothesis in this one.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
