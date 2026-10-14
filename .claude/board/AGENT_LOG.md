@@ -1,3 +1,9 @@
+## 2026-10-14 — D-MTP-0 harvest: six substrate-mapper runs, one reply each
+
+- Card `substrate-mapper` (run as a general-purpose agent with the card pasted; the card is not registered in this session), six units: `hyperon-atom`, `hyperon-space`, the minimal-MeTTa interpreter, the grounded stdlib, lance-graph `nal`/`r2il`/`relalg`, `quack`.
+- Ledger: spot-checks `Space::query` L175, `complex_query` L340, `GroundingSpace` L17, interpreter dispatch L417/L453, `query` L604, `FoldDialect` L260 — all correct; 0 wrong. 1 missed: no map recorded that `ModuleSpace` splits conjunctions and requires `ModuleSpace` dependencies (`space/module.rs:33-48`); the orchestrator found it by reading the file in full.
+- Cost: about 515k–646k subagent tokens per run. No conclusion came from a card.
+
 ## 2026-10-14 — D-HOLO H6b harvest: four substrate-mapper runs, one reply each
 
 - Card `substrate-mapper`, four units: `holo_interval_probe.rs` (H6), mask-risc exec, mask-risc IR, ndarray `simd` mask re-exports.
