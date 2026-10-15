@@ -1128,3 +1128,46 @@ compared against.
 **Disable runs.** M's merge iterating the touched tables instead of `Mask[r]`
 must turn the probe test red. A mask that drops one lane must turn the
 reference test red.
+
+### H14b results (v4, 2026-10-15): the prediction fails above 1 % dirty; M is C's read fixed, not B's
+
+Run: `cargo run --release -p lance-graph-mask-risc --example
+holo_lane_storage_probe`; the program printed `tier: v4 (avx512f)`. A, B, C
+and M were timed in the same run on the same host (a different host from the
+H14 run, so the two runs are not compared). One class. 11 tests pass; the two
+pre-registered disable runs turned their tests red (M's merge over every
+touched table; a mask that drops a lane).
+
+**Rule at k <= 4 (18 cells).**
+- Prediction (M's full-row and session read each <= 1.25× B): **FALSIFIED**
+  in 9 of 18 cells. All 6 cells at 1 % dirty pass (full-row 0.94–1.14× B,
+  session 0.93–1.13×). The failures are at 10 % dirty (T = 8 k = 4: 1.40 /
+  1.34; T = 64: session 1.34–1.87) and at 100 % dirty (full-row up to 1.63×,
+  session up to 5.85×).
+- M's bytes to the writer <= B's: yes, in every cell (one u32 per dirty row
+  less than B).
+- Folds: M uses C's presence masks; tested equal, not re-timed.
+- M default: **not met.** Returns to the operator.
+
+**What M did change.** Against C in the same run, M's full-row read is
+0.98–3.69× as fast (C/M): faster in 35 of 36 cells, from 297.4 vs 209.8 ns
+(T = 1, 1 %, k = 1) to 1,129 vs 306 ns (T = 64, 1 %, k = 1); the one cell
+where C is faster is T = 1, 100 %, k = 31 (1,299 vs 1,320 ns). On F3 (fold,
+then build the rows the fold names), M beats C in 33 of 36 cells and B in
+18 of 36. At 1 % dirty M is the cheapest arm in 10 of 12 cells (M 84–184 ns
+per emitted row, B 175–1,260, C 123–241); C is cheaper at k = 31 for 1 and 8
+thoughts.
+
+**Where M loses (HYPOTHESIS, not measured).** B keeps a row's changed lanes
+next to each other in one record, so a row read is one index lookup and one
+or two cache lines. M keeps lane l of row i in table l at position i, so a
+row with k changed lanes is k cache lines in k tables. That costs little when
+few rows are dirty and grows with density; the session read at 8–64 thoughts
+also walks up to T × k tables at once. A test would be to time the read
+against k at fixed density and count cache misses per row.
+
+**Crossover.** At 1 % dirty, M matches B on reads (within 1.25× in all 6
+cells at k <= 4) and beats B on F3 in all 12 cells; at 10 % and above, B's
+reads are faster. M's seal at 1 % dirty is still the
+page-fault cost of C's positional tables (6.5–15 µs per dirty row at one
+thought).
