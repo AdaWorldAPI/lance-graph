@@ -546,22 +546,47 @@ mod tests {
     /// The version check is load-bearing: after a reordering rewrite the old
     /// map, used without the check, attributes rows to the wrong coordinates.
     #[tokio::test]
-    async fn an_unchecked_stale_map_returns_wrong_coordinates() {
-        let dir = tempfile::tempdir().unwrap();
-        let uri = dir.path().join("stale");
-        let uri = uri.to_str().unwrap();
-        let ds = write(uri, vec![batch(&coords(0..TN), Pattern::Uniform, 0.5, 1)], WriteMode::Create, false, 1 << 20).await;
-        let m1 = build_map(&ds).await;
-        let rev: Vec<u32> = (0..TN).rev().collect();
-        let ds = write(uri, vec![batch(&rev, Pattern::Uniform, 0.5, 1)], WriteMode::Overwrite, false, 1 << 20).await;
-        let asked = [5u32, 6, 7];
-        let (got, _) = masked_read(&ds, &m1, &asked, &[0], MaterializationStyle::Heuristic, false).await.unwrap();
-        let wrong = got.keys().filter(|c| !asked.contains(c)).count();
-        assert!(wrong > 0, "the hazard must be real for the version check to matter");
-        assert!(matches!(
-            masked_read(&ds, &m1, &asked, &[0], MaterializationStyle::Heuristic, true).await,
-            Err(ReadError::StaleMapping { .. })
-        ));
+    async fn an_unchecked_stale_map_returns_a_wrong_answer() {
+        let asked: Vec<u32> = (0..TN).step_by(17).collect();
+        let mut outcomes = Vec::new();
+        for (name, stable) in [("overwrite-reversed", false), ("delete+compact", false), ("update", false), ("overwrite-reversed", true), ("delete+compact", true), ("update", true)] {
+            let dir = tempfile::tempdir().unwrap();
+            let uri = dir.path().join("stale");
+            let uri = uri.to_str().unwrap();
+            let mut ds = write(uri, vec![batch(&coords(0..TN), Pattern::Uniform, 0.5, 1)], WriteMode::Create, stable, 1024).await;
+            let m1 = build_map(&ds).await;
+            match name {
+                "overwrite-reversed" => {
+                    let rev: Vec<u32> = (0..TN).rev().collect();
+                    ds = write(uri, vec![batch(&rev, Pattern::Uniform, 0.5, 1)], WriteMode::Overwrite, stable, 1024).await;
+                }
+                "delete+compact" => {
+                    ds.delete("coord % 3 = 0").await.unwrap();
+                    lance::dataset::optimize::compact_files(&mut ds, Default::default(), None).await.unwrap();
+                }
+                _ => {
+                    let upd = lance::dataset::UpdateBuilder::new(Arc::new(ds.clone()))
+                        .update_where("coord < 2000").unwrap()
+                        .set("epoch", "2").unwrap()
+                        .build().unwrap()
+                        .execute().await.unwrap();
+                    ds = (*upd.new_dataset).clone();
+                }
+            }
+            let fresh = build_map(&ds).await;
+            let want: Vec<u32> = asked.iter().copied().filter(|c| fresh.id_of.contains_key(c)).collect();
+            let (got, _) = masked_read(&ds, &m1, &asked, &[0], MaterializationStyle::Heuristic, false).await.unwrap();
+            let wrong = got.keys().filter(|c| !asked.contains(c)).count();
+            let missing = want.iter().filter(|c| !got.contains_key(c)).count();
+            let extra_deleted = got.keys().filter(|c| asked.contains(c) && !fresh.id_of.contains_key(c)).count();
+            println!("stale map, {name}, stable={stable}: asked {}, live {}, returned {}, wrong coord {wrong}, silently missing {missing}, deleted returned {extra_deleted}", asked.len(), want.len(), got.len());
+            outcomes.push(wrong + missing + extra_deleted);
+            assert!(matches!(
+                masked_read(&ds, &m1, &asked, &[0], MaterializationStyle::Heuristic, true).await,
+                Err(ReadError::StaleMapping { .. })
+            ));
+        }
+        assert!(outcomes.iter().any(|&n| n > 0), "the hazard must be real for the version check to matter");
     }
 
     /// A missing lane column or a missing lane dataset fails explicitly.
