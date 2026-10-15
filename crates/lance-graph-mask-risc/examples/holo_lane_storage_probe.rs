@@ -466,9 +466,15 @@ fn main() {
                 // and scaled by its dirty count, so a 64-thought cell does
                 // not rebuild gigabytes eleven times.
                 let d0 = ws[0].rows.len().max(1) as f64;
-                let sa = time(|| { black_box(ArmA::seal(&base, black_box(&ws[0]))); }) / d0;
-                let sb = time(|| { black_box(ArmB::seal(black_box(&ws[0]))); }) / d0;
-                let sc = time(|| { black_box(ArmC::seal(black_box(&ws[0]))); }) / d0;
+                let sa = time(|| {
+                    black_box(ArmA::seal(&base, black_box(&ws[0])));
+                }) / d0;
+                let sb = time(|| {
+                    black_box(ArmB::seal(black_box(&ws[0])));
+                }) / d0;
+                let sc = time(|| {
+                    black_box(ArmC::seal(black_box(&ws[0])));
+                }) / d0;
 
                 // Full-row read: 65,536 random (thought, row) pairs.
                 let probe: Vec<(u16, u32)> = (0..N as u64)
@@ -478,17 +484,47 @@ fn main() {
                     })
                     .collect();
                 let per = probe.len() as f64;
-                let ra = time(|| { for &(t, r) in &probe { black_box(a[t as usize].read(&base, r as usize)); } }) / per;
-                let rb = time(|| { for &(t, r) in &probe { black_box(b[t as usize].read(&base, r as usize)); } }) / per;
-                let rcn = time(|| { for &(t, r) in &probe { black_box(c[t as usize].read(&base, r as usize)); } }) / per;
+                let ra = time(|| {
+                    for &(t, r) in &probe {
+                        black_box(a[t as usize].read(&base, r as usize));
+                    }
+                }) / per;
+                let rb = time(|| {
+                    for &(t, r) in &probe {
+                        black_box(b[t as usize].read(&base, r as usize));
+                    }
+                }) / per;
+                let rcn = time(|| {
+                    for &(t, r) in &probe {
+                        black_box(c[t as usize].read(&base, r as usize));
+                    }
+                }) / per;
 
                 // Session read: every thought of the session over one aperture.
                 let a0 = 8 * APERTURE;
                 let thoughts: Vec<usize> = (0..t_n).filter(|t| session >> t & 1 == 1).collect();
                 let sper = (thoughts.len() * APERTURE).max(1) as f64;
-                let qa = time(|| { for r in a0..a0 + APERTURE { for &t in &thoughts { black_box(a[t].read(&base, r)); } } }) / sper;
-                let qb = time(|| { for r in a0..a0 + APERTURE { for &t in &thoughts { black_box(b[t].read(&base, r)); } } }) / sper;
-                let qc = time(|| { for r in a0..a0 + APERTURE { for &t in &thoughts { black_box(c[t].read(&base, r)); } } }) / sper;
+                let qa = time(|| {
+                    for r in a0..a0 + APERTURE {
+                        for &t in &thoughts {
+                            black_box(a[t].read(&base, r));
+                        }
+                    }
+                }) / sper;
+                let qb = time(|| {
+                    for r in a0..a0 + APERTURE {
+                        for &t in &thoughts {
+                            black_box(b[t].read(&base, r));
+                        }
+                    }
+                }) / sper;
+                let qc = time(|| {
+                    for r in a0..a0 + APERTURE {
+                        for &t in &thoughts {
+                            black_box(c[t].read(&base, r));
+                        }
+                    }
+                }) / sper;
 
                 // F1 / F2 / F3, ns per aperture row (F3 per emitted row).
                 let ap = APERTURE as f64;
@@ -498,16 +534,37 @@ fn main() {
                 let want2 = f2_b(&b, 5, a0);
                 assert_eq!(f2_a(&a, &base, 5, a0), want2, "F2 A");
                 assert_eq!(f2_c(&c, 5, a0, &mut acc, &mut tmp), want2, "F2 C");
-                let f1a = time(|| { black_box(f1_a(&a[0], &base, black_box(a0))); }) / ap;
-                let f1b = time(|| { black_box(f1_b(&b[0], black_box(a0))); }) / ap;
-                let f1c = time(|| { black_box(f1_c(&c[0], black_box(a0), &mut acc)); }) / ap;
-                let f2a = time(|| { black_box(f2_a(&a, &base, 5, black_box(a0))); }) / ap;
-                let f2b = time(|| { black_box(f2_b(&b, 5, black_box(a0))); }) / ap;
-                let f2c = time(|| { black_box(f2_c(&c, 5, black_box(a0), &mut acc, &mut tmp)); }) / ap;
+                let f1a = time(|| {
+                    black_box(f1_a(&a[0], &base, black_box(a0)));
+                }) / ap;
+                let f1b = time(|| {
+                    black_box(f1_b(&b[0], black_box(a0)));
+                }) / ap;
+                let f1c = time(|| {
+                    black_box(f1_c(&c[0], black_box(a0), &mut acc));
+                }) / ap;
+                let f2a = time(|| {
+                    black_box(f2_a(&a, &base, 5, black_box(a0)));
+                }) / ap;
+                let f2b = time(|| {
+                    black_box(f2_b(&b, 5, black_box(a0)));
+                }) / ap;
+                let f2c = time(|| {
+                    black_box(f2_c(&c, 5, black_box(a0), &mut acc, &mut tmp));
+                }) / ap;
                 let emitted = want1.max(1) as f64;
-                let f3a = time(|| { f3_a(&a[0], &base, black_box(a0), &mut out); black_box(&out); }) / emitted;
-                let f3b = time(|| { f3_b(&b[0], &base, black_box(a0), &mut out); black_box(&out); }) / emitted;
-                let f3c = time(|| { f3_c(&c[0], &base, black_box(a0), &mut acc, &mut out); black_box(&out); }) / emitted;
+                let f3a = time(|| {
+                    f3_a(&a[0], &base, black_box(a0), &mut out);
+                    black_box(&out);
+                }) / emitted;
+                let f3b = time(|| {
+                    f3_b(&b[0], &base, black_box(a0), &mut out);
+                    black_box(&out);
+                }) / emitted;
+                let f3c = time(|| {
+                    f3_c(&c[0], &base, black_box(a0), &mut acc, &mut out);
+                    black_box(&out);
+                }) / emitted;
 
                 if k <= 4 {
                     let b_ok = rb <= 1.25 * ra && qb <= 1.25 * qa && bb as f64 <= 0.5 * ba as f64;
@@ -529,10 +586,19 @@ fn main() {
     }
     println!("\nseal: ns per dirty row; read/sess: ns per row read; F1/F2: ns per aperture row; F3: ns per emitted row");
     println!("rule at k <= 4, every (dirty, thoughts) cell:");
-    println!("  C folds >= 2x faster than B on F1 and F2: {}", if c_fold_wins { "yes" } else { "no" });
-    println!("  C reads (merge-on-read) <= 1.25x B: {}", if c_read_ok { "yes" } else { "no" });
+    println!(
+        "  C folds >= 2x faster than B on F1 and F2: {}",
+        if c_fold_wins { "yes" } else { "no" }
+    );
+    println!(
+        "  C reads (merge-on-read) <= 1.25x B: {}",
+        if c_read_ok { "yes" } else { "no" }
+    );
     println!("  C default: {}", if c_rule { "HOLDS" } else { "not met" });
-    println!("  B default over A: {}", if b_rule { "HOLDS" } else { "not met" });
+    println!(
+        "  B default over A: {}",
+        if b_rule { "HOLDS" } else { "not met" }
+    );
 }
 
 #[cfg(test)]
@@ -627,7 +693,11 @@ mod tests {
         let (mut acc, mut tmp) = (vec![0u64; APERTURE / 64], vec![0u64; APERTURE / 64]);
         for a0 in [0, 3 * APERTURE, N - APERTURE] {
             let want1 = (a0..a0 + APERTURE)
-                .filter(|&r| F1_LANES.iter().any(|&l| lane_bytes(&d0[r], l) != lane_bytes(&base[r], l)))
+                .filter(|&r| {
+                    F1_LANES
+                        .iter()
+                        .any(|&l| lane_bytes(&d0[r], l) != lane_bytes(&base[r], l))
+                })
                 .count() as u64;
             assert!(want1 > 0, "fixture changes F1 lanes in the aperture");
             assert_eq!(f1_a(&a[0], &base, a0), want1);
@@ -674,7 +744,15 @@ mod tests {
                 found += u64::from(c.value(l, r).is_some());
             }
         }
-        assert_eq!(found, 3 * 31, "every lane of a fully written row is present");
-        assert_eq!(VALUE_READS.with(|v| v.get()), found, "one value access per lane read");
+        assert_eq!(
+            found,
+            3 * 31,
+            "every lane of a fully written row is present"
+        );
+        assert_eq!(
+            VALUE_READS.with(|v| v.get()),
+            found,
+            "one value access per lane read"
+        );
     }
 }
