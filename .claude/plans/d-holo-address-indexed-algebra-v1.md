@@ -1007,3 +1007,19 @@ memory is visible, not hidden behind the persisted size.
 table: an access counter equals the number of lanes read, independent of how
 many rows the table holds (disable: store C's values compacted and look them
 up by rank, which makes the counter grow with the plane).
+
+**Addendum (operator, 2026-10-15): "it's merge on read but for the join."**
+Combining lane tables is not a separate join step. It is the same
+merge-on-read that overlays dirty bytes on the base: for row i, start from the
+base row and overlay position i of each touched (thought, lane) table. Base
+over delta and lane next to lane are one operation at one index. So:
+- the original metric "for C, the re-merge ns per row reported on its own" is
+  SUPERSEDED; C's full-row read is measured as one merge-on-read and reported
+  with the same metric as A and B;
+- "terminal materialization" for C means exactly this merge-on-read, run only
+  for the rows a terminal asks for; F1 and F2 never run it;
+- the original DECISION's concern (a dissociation that a later read must
+  re-merge at extra cost) does not apply to positional tables, because the
+  merge is the read itself. It still applies to any layout that would need a
+  key lookup or a sort to line lanes up, which is why compacted runs stay
+  superseded.
