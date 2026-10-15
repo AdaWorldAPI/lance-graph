@@ -503,7 +503,9 @@ fn time<F: FnMut()>(mut f: F) -> f64 {
 }
 
 fn main() {
-    println!("D-HOLO H14: full row (A) vs connected delta (B) vs inverted fold (C)");
+    println!(
+        "D-HOLO H14/H14b: full row (A), connected delta (B), inverted fold (C), C + positional lane mask (M)"
+    );
     println!("tier: {}", tier());
     println!("rows per tile {N}; aperture {APERTURE}; timings ns, median of 11\n");
     let base = base();
@@ -517,6 +519,10 @@ fn main() {
     let mut c_rule = true;
     let mut c_fold_wins = true;
     let mut c_read_ok = true;
+    let mut m_read_ok = true;
+    let mut m_bytes_ok = true;
+    let mut m_fail: Vec<String> = Vec::new();
+    let mut mrows: Vec<String> = Vec::new();
     let mut acc = vec![0u64; APERTURE / 64];
     let mut tmp = vec![0u64; APERTURE / 64];
     let mut out: Vec<Row> = Vec::with_capacity(APERTURE);
@@ -529,6 +535,8 @@ fn main() {
                 let a: Vec<ArmA> = ws.iter().map(|w| ArmA::seal(&base, w)).collect();
                 let b: Vec<ArmB> = ws.iter().map(ArmB::seal).collect();
                 let c: Vec<ArmC> = ws.iter().map(ArmC::seal).collect();
+                let m: Vec<ArmM> = ws.iter().map(ArmM::seal).collect();
+                let bm: usize = m.iter().map(ArmM::bytes).sum();
                 let (ba, bb): (usize, usize) = (
                     a.iter().map(ArmA::bytes).sum(),
                     b.iter().map(ArmB::bytes).sum(),
@@ -548,6 +556,9 @@ fn main() {
                 }) / d0;
                 let sc = time(|| {
                     black_box(ArmC::seal(black_box(&ws[0])));
+                }) / d0;
+                let sm = time(|| {
+                    black_box(ArmM::seal(black_box(&ws[0])));
                 }) / d0;
 
                 // Full-row read: 65,536 random (thought, row) pairs.
@@ -573,6 +584,11 @@ fn main() {
                         black_box(c[t as usize].read(&base, r as usize));
                     }
                 }) / per;
+                let rm = time(|| {
+                    for &(t, r) in &probe {
+                        black_box(m[t as usize].read(&base, r as usize));
+                    }
+                }) / per;
 
                 // Session read: every thought of the session over one aperture.
                 let a0 = 8 * APERTURE;
@@ -596,6 +612,13 @@ fn main() {
                     for r in a0..a0 + APERTURE {
                         for &t in &thoughts {
                             black_box(c[t].read(&base, r));
+                        }
+                    }
+                }) / sper;
+                let qm = time(|| {
+                    for r in a0..a0 + APERTURE {
+                        for &t in &thoughts {
+                            black_box(m[t].read(&base, r));
                         }
                     }
                 }) / sper;
@@ -639,6 +662,10 @@ fn main() {
                     f3_c(&c[0], &base, black_box(a0), &mut acc, &mut out);
                     black_box(&out);
                 }) / emitted;
+                let f3m = time(|| {
+                    f3_m(&m[0], &base, black_box(a0), &mut acc, &mut out);
+                    black_box(&out);
+                }) / emitted;
 
                 if k <= 4 {
                     let b_ok = rb <= 1.25 * ra && qb <= 1.25 * qa && bb as f64 <= 0.5 * ba as f64;
@@ -649,7 +676,24 @@ fn main() {
                     c_rule &= c_ok;
                     c_fold_wins &= folds;
                     c_read_ok &= reads;
+                    let m_reads = rm <= 1.25 * rb && qm <= 1.25 * qb;
+                    m_read_ok &= m_reads;
+                    m_bytes_ok &= bm <= bb;
+                    if !m_reads {
+                        m_fail.push(format!(
+                            "T {t_n} {label} k {k}: read M/B {:.2}, session M/B {:.2}",
+                            rm / rb,
+                            qm / qb
+                        ));
+                    }
                 }
+                mrows.push(format!(
+                    "{t_n:>3} {label:>5} {k:>3} | {:>9} {:>9} | {sm:>7.1} | {rb:>7.2} {rm:>7.2} {:>5.2} | {qb:>7.2} {qm:>7.2} {:>5.2} | {f3b:>6.1} {f3c:>6.1} {f3m:>6.1}",
+                    bb >> 10,
+                    bm >> 10,
+                    rm / rb,
+                    qm / qb
+                ));
                 let _ = dirty;
                 println!(
                     "{t_n:>3} {label:>5} {k:>3} | {:>9} {:>9} {:>9} {:>10} | {sa:>6.1} {sb:>6.1} {sc:>6.1} | {ra:>6.2} {rb:>6.2} {rcn:>6.2} | {qa:>6.2} {qb:>6.2} {qc:>6.2} | {f1a:>7.3} {f1b:>7.3} {f1c:>7.3} | {f2a:>7.3} {f2b:>7.3} {f2c:>7.3} | {f3a:>6.1} {f3b:>6.1} {f3c:>6.1}",
@@ -672,6 +716,37 @@ fn main() {
     println!(
         "  B default over A: {}",
         if b_rule { "HOLDS" } else { "not met" }
+    );
+
+    println!("\nH14b: M (C + positional lane mask) against B, same run");
+    println!(
+        "{:>3} {:>5} {:>3} | {:>9} {:>9} | {:>7} | {:>7} {:>7} {:>5} | {:>7} {:>7} {:>5} | {:>6} {:>6} {:>6}",
+        "T", "dirty", "k", "B KiB", "M KiB", "sealM", "readB", "readM", "M/B", "sessB", "sessM", "M/B",
+        "F3 B", "F3 C", "F3 M"
+    );
+    for row in &mrows {
+        println!("{row}");
+    }
+    println!("rule at k <= 4, every (dirty, thoughts) cell:");
+    println!(
+        "  M full-row and session read <= 1.25x B: {}",
+        if m_read_ok { "HOLDS" } else { "FALSIFIED" }
+    );
+    for f in &m_fail {
+        println!("    {f}");
+    }
+    println!(
+        "  M bytes to the writer <= B: {}",
+        if m_bytes_ok { "yes" } else { "no" }
+    );
+    println!("  M folds are C's folds (tested equal, not re-timed)");
+    println!(
+        "  M default: {}",
+        if m_read_ok && m_bytes_ok {
+            "HOLDS"
+        } else {
+            "not met"
+        }
     );
 }
 
@@ -724,8 +799,8 @@ mod tests {
             for w in &ws {
                 let d = dense(&base, w);
                 let m = ArmM::seal(w);
-                for r in 0..N {
-                    assert_eq!(m.read(&base, r), d[r], "M row {r} k {k}");
+                for (r, want) in d.iter().enumerate() {
+                    assert_eq!(&m.read(&base, r), want, "M row {r} k {k}");
                 }
             }
         }
