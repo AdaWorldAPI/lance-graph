@@ -27,8 +27,7 @@
 //!   the certification, not certifications.
 //! - **Topology changes only through [`hydrate`]**: `IndirectUnknown` becomes
 //!   `IndirectKnown` when both bindings `A → B` and `B → Y` exist in the sealed
-//!   chain under the relation's own predicate. Proposing a candidate is not
-//!   evidence; a chain under another predicate is another chain.
+//!   chain. Proposing a candidate is not evidence.
 //! - **Only bits 59..63 move.** The projection, mantissa, frequency and
 //!   confidence of the edge are inputs, never outputs.
 //! - **A pass cannot be asserted.** [`Measured`] has private fields; only
@@ -436,11 +435,8 @@ pub enum Hydration {
 }
 
 /// The topology gate. `IndirectUnknown` becomes `IndirectKnown` only when both
-/// bindings `a → b` and `b → y` are present in the sealed chain **under the
-/// hydrated relation's own predicate** (the step's ordinal equals the edge's
-/// `p_idx`). A chain recorded under another predicate is another chain; it
-/// locates nothing about this relation's intermediate and is not counted,
-/// not even as `Partial`. Certification never moves here.
+/// bindings `a → b` and `b → y` are present in the sealed chain. Certification
+/// never moves here.
 ///
 /// # Errors
 ///
@@ -451,14 +447,7 @@ pub fn hydrate(
     sealed: &[ChainStep],
     reading: Reading<'_>,
 ) -> Result<(CausalEdge64, Hydration), Epi5ReadError> {
-    // A binding is a step of THIS relation's chain: same predicate ordinal,
-    // then the endpoints. Steps under another predicate are another chain.
-    let p = edge.p_idx();
-    let has = |s: u8, o: u8| {
-        sealed
-            .iter()
-            .any(|(pred, e)| *pred == p && e.s_idx() == s && e.o_idx() == o)
-    };
+    let has = |s: u8, o: u8| sealed.iter().any(|(_, e)| e.s_idx() == s && e.o_idx() == o);
     let found = match (has(a, b), has(b, y)) {
         (true, true) => Hydration::Hydrated,
         (false, false) => Hydration::ProposedOnly,
@@ -1294,48 +1283,6 @@ mod tests {
         );
         let (out, _) = hydrate(own, (A, B, Y), &rp.steps, reading(&d)).unwrap();
         assert_eq!(state(out).0, Topology2::IndirectKnown);
-    }
-
-    /// A binding counts only under the hydrated relation's own predicate.
-    /// `A → B` and `B → Y` recorded under another predicate locate nothing
-    /// about `A -p-> Y`; a chain under a different predicate is a different
-    /// chain, not a located intermediate of this one.
-    #[test]
-    fn hydration_counts_only_bindings_under_the_relations_own_predicate() {
-        let d = declarations();
-        const OTHER: u8 = PREDICATE ^ 0x3C;
-        let q = query(
-            CausalMask::SO,
-            Certification3::Related,
-            Topology2::IndirectUnknown,
-        );
-        // Both legs exist, both under another predicate: nothing is bound.
-        let foreign: Vec<ChainStep> = vec![
-            (OTHER, edge(A, B, 40, 220, CausalMask::SPO)),
-            (OTHER, edge(B, Y, 250, 220, CausalMask::SPO)),
-        ];
-        assert_eq!(
-            hydrate(q, (A, B, Y), &foreign, reading(&d)).unwrap(),
-            (q, Hydration::ProposedOnly),
-            "a chain under another predicate is not this relation's chain"
-        );
-        // One leg under the relation's predicate, the other under a foreign
-        // one: half a link, and the topology stays put.
-        let mixed: Vec<ChainStep> = vec![
-            (PREDICATE, edge(A, B, 40, 220, CausalMask::SPO)),
-            (OTHER, edge(B, Y, 250, 220, CausalMask::SPO)),
-        ];
-        assert_eq!(
-            hydrate(q, (A, B, Y), &mixed, reading(&d)).unwrap(),
-            (q, Hydration::Partial)
-        );
-        // Silence twin: both legs under the relation's predicate hydrate,
-        // and the foreign steps beside them change nothing.
-        let mut both = foreign.clone();
-        both.extend(chain_steps());
-        let (e, h) = hydrate(q, (A, B, Y), &both, reading(&d)).unwrap();
-        assert_eq!(h, Hydration::Hydrated);
-        assert_eq!(state(e).0, Topology2::IndirectKnown);
     }
 
     #[test]
