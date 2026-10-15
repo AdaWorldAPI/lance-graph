@@ -380,12 +380,19 @@ where
 
 /// [`deinterlace`] without copying rows: the positions in `rows` of the
 /// dispatchable rows, in deinterlace order. Four bytes per admitted row.
+///
+/// # Panics
+/// If `rows` holds more than `u32::MAX` rows.
 #[must_use]
 pub fn deinterlace_indices<R, D>(rows: &[R], v_ref: &QueryReference, deps: &D) -> Vec<u32>
 where
     R: DeinterlaceRow,
     D: DependsClosure,
 {
+    assert!(
+        u32::try_from(rows.len()).is_ok(),
+        "more than u32::MAX rows; the index forms address rows with u32"
+    );
     let mut out: Vec<u32> = (0..rows.len() as u32)
         .filter(|&i| {
             let r = &rows[i as usize];
@@ -480,6 +487,10 @@ pub fn local_trajectories<R: LocalCausalRow + Clone>(global: &[R]) -> BTreeMap<M
 pub fn local_trajectories_indices<R: LocalCausalRow>(
     global: &[R],
 ) -> BTreeMap<MailboxId, Vec<u32>> {
+    assert!(
+        u32::try_from(global.len()).is_ok(),
+        "more than u32::MAX rows; the index forms address rows with u32"
+    );
     let mut by_owner: BTreeMap<MailboxId, Vec<u32>> = BTreeMap::new();
     for (i, row) in global.iter().enumerate() {
         by_owner.entry(row.owner()).or_default().push(i as u32);
@@ -508,6 +519,10 @@ pub fn local_trajectory_of<R: LocalCausalRow + Clone>(global: &[R], owner: Mailb
 /// `owner`'s rows in `cast_seq` order.
 #[must_use]
 pub fn local_trajectory_indices_of<R: LocalCausalRow>(global: &[R], owner: MailboxId) -> Vec<u32> {
+    assert!(
+        u32::try_from(global.len()).is_ok(),
+        "more than u32::MAX rows; the index forms address rows with u32"
+    );
     let mut chain: Vec<u32> = (0..global.len() as u32)
         .filter(|&i| global[i as usize].owner() == owner)
         .collect();

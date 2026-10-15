@@ -208,12 +208,10 @@ path = "examples/w0b_corpus_census.rs"
 test = true
 
 # D-WAL (plan `.claude/plans/wal-shootout-v1.md`): `LanceCycleWriter` against the
-# lancedb 0.40 MemWAL write path. Needs the optional lancedb dependency, so both
-# targets are gated on `lancedb-sdk` instead of breaking the default test build.
-[[test]]
-name = "wal_shootout_probe"
-path = "tests/wal_shootout_probe.rs"
-required-features = ["lancedb-sdk"]
+# lancedb 0.40 MemWAL write path. Needs the optional lancedb dependency. The
+# example is gated here; the test `tests/wal_shootout_probe.rs` gates itself with
+# `#![cfg(feature = "lancedb-sdk")]`, because CI runs `cargo test --test '*'`
+# and cargo refuses an explicitly selected target whose required features are off.
 
 [[example]]
 name = "wal_shootout"

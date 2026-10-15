@@ -13,6 +13,8 @@
 //!
 //! Run: `cargo test -p lance-graph --features lancedb-sdk --test wal_shootout_probe -- --nocapture --test-threads=1`
 
+#![cfg(feature = "lancedb-sdk")]
+
 mod wal_common;
 
 use std::io::{BufRead, BufReader, Write};
