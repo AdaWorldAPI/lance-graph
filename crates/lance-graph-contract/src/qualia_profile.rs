@@ -53,14 +53,18 @@
 //! # Determinism
 //!
 //! Palette indices are a pure function of the sorted `id` strings; PCS values
-//! are exact in hundredths; [`TABLE_FNV`] re-computes from the Rust table and
-//! [`PROFILE_ID`] is the sha256 of the source JSON. Two sessions building from
-//! the same calibration file produce byte-identical tables, and a drifted
-//! table fails [`tests::table_fnv_matches_source`].
+//! are exact in hundredths. Two fingerprints pin the pair (source, table) from
+//! both sides: [`TABLE_FNV`] is re-computed from the Rust table (a hand-edited
+//! row fails) and [`SOURCE_FNV`] is re-computed from the JSON itself, read with
+//! `include_str!` (a source edited without re-running the generator fails).
+//! [`PROFILE_ID`] is the sha256 of the same source bytes, kept as the ICC
+//! profile-ID field for consumers that want to cite it; the in-crate check is
+//! `SOURCE_FNV`. Two sessions building from the same calibration file produce
+//! byte-identical tables.
 
 use crate::qualia::{QualiaVector, QUALIA_DIMS};
 
-pub use crate::qualia_profile_table::{NAMED, NAMED_COUNT, PROFILE_ID, TABLE_FNV};
+pub use crate::qualia_profile_table::{NAMED, NAMED_COUNT, PROFILE_ID, SOURCE_FNV, TABLE_FNV};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PCS axes
@@ -430,8 +434,12 @@ mod tests {
         h
     }
 
+    /// The calibration source, read at compile time so the test sees the file
+    /// as committed — not a copy the generator made.
+    const SOURCE_JSON: &str = include_str!("../../../data/qualia/calibrated_219.json");
+
     #[test]
-    fn table_fnv_matches_source() {
+    fn table_matches_the_rust_table_it_was_generated_into() {
         // Re-computes the generator's fingerprint from the Rust table. A single
         // hand-edited hundredth, or a reordered row, changes this value.
         let h = fnv1a64(
@@ -441,8 +449,29 @@ mod tests {
         );
         assert_eq!(
             h, TABLE_FNV,
-            "qualia_profile_table.rs drifted from data/qualia/calibrated_219.json"
+            "qualia_profile_table.rs was edited by hand; re-run scripts/gen_qualia_profile.py"
         );
+    }
+
+    #[test]
+    fn table_is_not_stale_against_the_json_source() {
+        // Re-computes the generator's fingerprint of the SOURCE bytes from the
+        // file itself. Editing calibrated_219.json without re-running the
+        // generator changes this value while TABLE_FNV stays put — the drift the
+        // previous test cannot see.
+        let h = fnv1a64(SOURCE_JSON.bytes());
+        assert_eq!(
+            h, SOURCE_FNV,
+            "data/qualia/calibrated_219.json changed; re-run scripts/gen_qualia_profile.py"
+        );
+        // And the row count the source declares is the row count the table has.
+        let declared = SOURCE_JSON
+            .split("\"count\":")
+            .nth(1)
+            .and_then(|s| s.trim_start().split(',').next())
+            .and_then(|n| n.trim().parse::<usize>().ok())
+            .expect("source JSON declares a count");
+        assert_eq!(declared, NAMED_COUNT);
     }
 
     #[test]

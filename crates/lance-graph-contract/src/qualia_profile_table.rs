@@ -8,7 +8,13 @@ use super::qualia_profile::NamedQualia;
 pub const PROFILE_ID: &str = "505df9acb847a0ea41155838c6754f12c5b6f102a66d0a5c31fc89c74c50fb69";
 
 /// FNV-1a 64 over `id` bytes ++ `pcs` bytes of every row, in table order.
+/// Re-computed from `NAMED` by the tests: catches a hand-edited table.
 pub const TABLE_FNV: u64 = 0xC0FDE8721BB8D4AC;
+
+/// FNV-1a 64 over the raw bytes of `data/qualia/calibrated_219.json` as the
+/// generator read them. Re-computed from the file by the tests: catches a
+/// source edited without re-running the generator (a stale table).
+pub const SOURCE_FNV: u64 = 0x818894A34F955F9C;
 
 /// Number of named qualia. Palette index 0 = UNNAMED; 1..=219 = this table;
 /// 220..=255 reserved (RESERVE-DON'T-RECLAIM).
