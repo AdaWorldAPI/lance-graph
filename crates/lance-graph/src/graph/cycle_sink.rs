@@ -86,7 +86,9 @@ use arrow_array::{
 };
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use futures::TryStreamExt;
+use lance::dataset::builder::DatasetBuilder;
 use lance::dataset::{Dataset, WriteMode, WriteParams};
+use lance::session::Session;
 
 use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
@@ -143,6 +145,20 @@ pub fn cycle_store_schema() -> SchemaRef {
     ]))
 }
 
+/// Byte cap for the metadata cache of the writer's Lance session (D-WAL-5).
+/// Lance caches one manifest clone per committed version; without a cap that
+/// grows as V^2/2 in an append-only store (D-WAL-4). Old versions are then
+/// read from storage when asked for, which only reconciliation does.
+pub const SESSION_METADATA_CACHE_BYTES: usize = 8 << 20;
+
+/// Open `path` on the writer's capped session.
+async fn open_with(path: &str, session: &Arc<Session>) -> lance::Result<Dataset> {
+    DatasetBuilder::from_uri(path)
+        .with_session(session.clone())
+        .load()
+        .await
+}
+
 /// The sole owned application writer over one Lance cycle store.
 ///
 /// Deliberately **non-`Clone`**: constructing a second writer over the same
@@ -157,6 +173,9 @@ pub struct LanceCycleWriter {
     /// NEVER degrades back to `None` — a store that existed cannot become
     /// "empty" again (see [`reopen`](Self::reopen)).
     ds: Option<Dataset>,
+    /// The Lance session every open and write of this writer uses, with its
+    /// metadata cache capped at [`SESSION_METADATA_CACHE_BYTES`] (D-WAL-5).
+    session: Arc<Session>,
     /// `Dataset::open` count — startup + ambiguity-resolution ONLY. The
     /// normal-path invariant (zero post-success reopens) is instrumented here.
     opens: AtomicU64,
@@ -319,7 +338,12 @@ impl LanceCycleWriter {
         let dataset_path = path.into();
         let claim = WriterClaim::acquire(store_identity(&dataset_path))?;
         let opens = AtomicU64::new(0);
-        let ds = match Dataset::open(&dataset_path).await {
+        let session = Arc::new(Session::new(
+            0,
+            SESSION_METADATA_CACHE_BYTES,
+            Arc::new(Default::default()),
+        ));
+        let ds = match open_with(&dataset_path, &session).await {
             Ok(ds) => {
                 opens.fetch_add(1, Ordering::Relaxed);
                 Self::guard_schema(&dataset_path, &ds)?;
@@ -331,6 +355,7 @@ impl LanceCycleWriter {
         let mut w = Self {
             dataset_path,
             ds,
+            session,
             opens,
             reconcile_scans: AtomicU64::new(0),
             committed_through: None,
@@ -622,7 +647,7 @@ impl LanceCycleWriter {
                 Ok(())
             };
         }
-        match Dataset::open(&self.dataset_path).await {
+        match open_with(&self.dataset_path, &self.session).await {
             Ok(ds) => {
                 self.opens.fetch_add(1, Ordering::Relaxed);
                 self.ds = Some(ds);
@@ -677,6 +702,7 @@ impl LanceCycleWriter {
                 &self.dataset_path,
                 Some(WriteParams {
                     mode: WriteMode::Create,
+                    session: Some(self.session.clone()),
                     ..Default::default()
                 }),
             )
@@ -696,6 +722,13 @@ impl LanceCycleWriter {
     pub fn reconcile_scans(&self) -> u64 {
         self.reconcile_scans.load(Ordering::Relaxed)
     }
+
+    /// Bytes held by the Lance session caches of this writer's handle
+    /// (metadata and index caches). `0` before the store exists.
+    #[must_use]
+    pub fn session_cache_bytes(&self) -> u64 {
+        self.ds.as_ref().map_or(0, |d| d.session().size_bytes())
+    }
 }
 
 impl LanceCycleWriter {
@@ -712,6 +745,7 @@ impl LanceCycleWriter {
                 &self.dataset_path,
                 Some(WriteParams {
                     mode: WriteMode::Create,
+                    session: Some(self.session.clone()),
                     ..Default::default()
                 }),
             )
@@ -1319,6 +1353,36 @@ mod tests {
             w.head(),
             DatasetVersion(3),
             "the head token tracks in memory"
+        );
+    }
+
+    /// D-WAL-5: every Lance commit caches a clone of the new manifest, and in
+    /// this append-only store manifest v lists v fragments, so an uncapped
+    /// session grows as V^2/2 (D-WAL-4). The writer's session caps it.
+    /// Falsifier: 400 commits push the default (1 GiB) session well past the
+    /// cap; with the cap the cache stays at or under it.
+    #[tokio::test]
+    async fn session_cache_stays_under_the_cap_over_many_commits() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        for c in 1..=400u64 {
+            persist_cycle(
+                &mut w,
+                CycleFrame::new(CycleId(c), DatasetVersion(c - 1)),
+                vec![artifact(c, c, 42, c)],
+            )
+            .await
+            .unwrap();
+        }
+        assert_eq!(w.head(), DatasetVersion(400));
+        let bytes = w.session_cache_bytes();
+        assert!(bytes > 0, "the session cache is in use");
+        assert!(
+            bytes <= SESSION_METADATA_CACHE_BYTES as u64,
+            "session cache {bytes} B exceeds the cap {SESSION_METADATA_CACHE_BYTES} B"
         );
     }
 
