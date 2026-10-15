@@ -73,6 +73,14 @@ beside the ladder, not on it. Today's plasticity encoding (`plasticity.rs`: `S_H
    Room exists: the four single-plane codes (`None`, `S`, `P`, `O`) select no
    operator today. Undecided: whether ablation takes one of them as its own
    rung, or stays the pyramid's operation that 40..42 only feeds.
+   **Operator, 2026-10-15:** ablation will be detailed through the N15 families
+   (NAL, Hyperon/MeTTa, PeTTa, CE64, ONA, OpenNARS / Pei Wang's Java), not
+   decided here. Existing anchors to start from:
+   - OpenNARS Java runner and fixture: `.claude/knowledge/nal-recipe-audit/` (#1495);
+   - removing a contributor from fused evidence (Jøsang fission, #1499 red test 2);
+   - NARS retraction, a typed insufficiency today (#1504; needs a semijoin onto asserted stamps);
+   - Hyperon/MeTTa over the mask polyfill (D-MTP, #1553); PeTTa is not pinned yet (#1497, #1498).
+   Until then no code reserves a 40..42 code for ablation.
 
 ## 4a. Reconciled against the README diagram (2026-10-15)
 
@@ -107,6 +115,9 @@ of the same bytes, never a second encoding.
 | Hyperon / MeTTa | pattern matching with binding multiplicity | D-MTP (#1553), #1498 |
 
 Home: D-HOLO H12 (semantic map of the stacked bricks).
+
+Ablation (§4 item 6) is defined through these families, each with its own
+oracle, before it gets a place on the wire.
 
 Caveats, stated so the wiring does not overclaim:
 
