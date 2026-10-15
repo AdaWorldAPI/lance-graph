@@ -54,7 +54,7 @@ use lance_graph_contract::epistemic_state5::{
 use lance_graph_contract::rail_geometry::RailAxis;
 use lance_graph_contract::revision::CounterfactualVerdict;
 
-use crate::chain_counterfactual::{counterfactual_replay, CutContext};
+use crate::chain_counterfactual::{counterfactual_replay, CutContext, Verdict};
 use crate::chain_replay::ChainStep;
 
 /// The operator bits 40..42 select.
@@ -140,8 +140,14 @@ impl Reaction {
 
     /// The counterfactual verdict this cut supports for the CUT STEP, the
     /// middle leg of the Gadamer docket (`revision::RevisionVerdict`).
+    /// `factual_consistent` is the verdict of the uncut chain.
     ///
-    /// - `LoadBearing` → `Necessary`: removing the step changed the verdict.
+    /// - `LoadBearing` from a consistent factual chain → `Necessary`: the
+    ///   conclusion breaks without the step.
+    /// - `LoadBearing` from an inconsistent factual chain → `Dispensable`:
+    ///   removing the step REPAIRS the chain, so it is not needed for a
+    ///   consistent conclusion. Never `Necessary`, or a harmful step would
+    ///   make a revision acceptable.
     /// - `Inert` → `Dispensable`: removing it changed nothing.
     /// - `TruthOnly` → `NotRun`: the truth moved but the verdict did not.
     ///   How that maps is an open decision (O23); until it is made the docket
@@ -150,10 +156,12 @@ impl Reaction {
     /// Scope: one cut judges one step. A claim resting on several steps needs
     /// the claim ↔ step map before a step's verdict becomes the claim's.
     #[must_use]
-    pub fn verdict(self) -> CounterfactualVerdict {
+    pub fn verdict(self, factual_consistent: bool) -> CounterfactualVerdict {
         match self {
-            Reaction::LoadBearing { .. } => CounterfactualVerdict::Necessary,
-            Reaction::Inert { .. } => CounterfactualVerdict::Dispensable,
+            Reaction::LoadBearing { .. } if factual_consistent => CounterfactualVerdict::Necessary,
+            Reaction::LoadBearing { .. } | Reaction::Inert { .. } => {
+                CounterfactualVerdict::Dispensable
+            }
             Reaction::TruthOnly { .. } => CounterfactualVerdict::NotRun,
         }
     }
@@ -199,6 +207,8 @@ pub struct Measured {
     earned: Option<Certification3>,
     ungrounded: Option<Ungrounded>,
     reaction: Option<Reaction>,
+    /// Whether the uncut chain was consistent (set with `reaction`).
+    factual_consistent: Option<bool>,
     confounded: Option<bool>,
     counterfactual_terminal: Option<CausalEdge64>,
 }
@@ -211,6 +221,7 @@ impl Measured {
             earned: None,
             ungrounded: None,
             reaction: None,
+            factual_consistent: None,
             confounded: None,
             counterfactual_terminal: None,
         }
@@ -246,8 +257,10 @@ impl Measured {
     /// or `NotRun` when no cut ran (another operator, or ungrounded).
     #[must_use]
     pub fn counterfactual_verdict(&self) -> CounterfactualVerdict {
-        self.reaction
-            .map_or(CounterfactualVerdict::NotRun, Reaction::verdict)
+        match (self.reaction, self.factual_consistent) {
+            (Some(r), Some(consistent)) => r.verdict(consistent),
+            _ => CounterfactualVerdict::NotRun,
+        }
     }
     /// Whether the observational and interventional directions disagree
     /// (`SP` only).
@@ -313,6 +326,7 @@ pub fn reason<M: PopulationMask>(edge: CausalEdge64, ev: &Evidence<'_, M>, edit:
                         (f, conf(&cf.factual)),
                         (c, conf(&cf.counterfactual)),
                     ));
+                    out.factual_consistent = Some(cf.role.factual == Verdict::Consistent);
                     out.counterfactual_terminal = cf.counterfactual.last().map(|r| r.edge);
                 }
             }
@@ -765,12 +779,40 @@ mod tests {
         use lance_graph_contract::revision::{EvidentialEffect, RevisionVerdict};
         let r = Reaction::classify(false, (180, 200), (180, 200));
         assert_eq!(r, Reaction::Inert { frequency: 180 });
-        assert_eq!(r.verdict(), CounterfactualVerdict::Dispensable);
+        assert_eq!(r.verdict(true), CounterfactualVerdict::Dispensable);
         assert!(!RevisionVerdict {
             effect: EvidentialEffect::IncreaseEligible,
-            counterfactual: r.verdict(),
+            counterfactual: r.verdict(true),
         }
         .is_acceptable());
+    }
+
+    /// O22 (Codex P1 on #1560): a cut that turns an inconsistent chain into a
+    /// consistent one is load-bearing but the step is harmful, not needed.
+    /// It must never read as `Necessary`, through `Reaction` or `Measured`.
+    #[test]
+    fn o22_a_cut_that_repairs_the_chain_is_not_necessary() {
+        use lance_graph_contract::revision::{EvidentialEffect, RevisionVerdict};
+        let r = Reaction::classify(true, (100, 200), (200, 200));
+        assert!(matches!(r, Reaction::LoadBearing { .. }));
+        assert_eq!(r.verdict(true), CounterfactualVerdict::Necessary);
+        assert_eq!(r.verdict(false), CounterfactualVerdict::Dispensable);
+
+        let mut m = Measured::new(CausalEdge64(0), Operation::Counterfactual);
+        m.reaction = Some(r);
+        m.factual_consistent = Some(false);
+        assert_eq!(
+            m.counterfactual_verdict(),
+            CounterfactualVerdict::Dispensable
+        );
+        assert!(!RevisionVerdict {
+            effect: EvidentialEffect::IncreaseEligible,
+            counterfactual: m.counterfactual_verdict(),
+        }
+        .is_acceptable());
+        // Silence twin: the same reaction from a consistent chain accepts.
+        m.factual_consistent = Some(true);
+        assert_eq!(m.counterfactual_verdict(), CounterfactualVerdict::Necessary);
     }
 
     /// F1. Observation alone never reaches `Causes`, even when the sealed
