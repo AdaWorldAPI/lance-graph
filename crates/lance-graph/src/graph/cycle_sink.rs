@@ -93,6 +93,7 @@ use lance::session::Session;
 use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::scheduler::DatasetVersion;
+use lance_graph_contract::temporal_pov::VersionClock;
 use lance_graph_planner::persist_sink::{
     CommitError, CommitOutcome, CycleId, DetachedCycleBatch, FrameMeta, LandedSlot, SweepSlot,
     WalSink, WriteFailed,
@@ -201,6 +202,9 @@ pub struct LanceCycleWriter {
     /// [`WalSink::commit_cycle`] refuses to run a SECOND `Create` and
     /// `DatasetNotFound` is never read as proof of absence.
     create_unknown: bool,
+    /// Rows durable per version since this writer first saw the store
+    /// (D-WAL-6). Seeded at the head on open, recorded after every commit.
+    clock: Option<VersionClock>,
     /// The RAII registry claim. Held from BEFORE `open`'s first `.await`, so
     /// a cancelled or failed `open` releases its slot through `Drop` — no
     /// manual removal on any path, no leaked reservation.
@@ -360,6 +364,7 @@ impl LanceCycleWriter {
             reconcile_scans: AtomicU64::new(0),
             committed_through: None,
             create_unknown: false,
+            clock: None,
             claim,
             #[cfg(test)]
             fault: TestFaults::default(),
@@ -373,6 +378,7 @@ impl LanceCycleWriter {
             // mechanism, never a second head ledger.
             w.committed_through = w.max_cycle().await?;
         }
+        w.sync_clock();
         Ok(w)
     }
 
@@ -712,7 +718,47 @@ impl LanceCycleWriter {
         }
         // Storage has now shown the store to exist, by either route.
         self.create_unknown = false;
+        self.sync_clock();
         Ok(())
+    }
+
+    /// The store's version clock: rows durable through each version, so a
+    /// temporal read resolves a version range to a row range without touching
+    /// storage (D-WAL-6). `None` before the store exists and for a store with
+    /// deleted rows, where row positions no longer follow append order.
+    #[must_use]
+    pub fn version_clock(&self) -> Option<&VersionClock> {
+        self.clock.as_ref()
+    }
+
+    /// Bring the clock to the handle's version: record it when it is newer,
+    /// start a new clock at it when the rows went back (a rewrite) or the
+    /// writer has none yet. Row positions are physical rows: a deleted row
+    /// keeps its position and the reader masks it (`VersionClock` contract).
+    /// Reads only the manifest the handle already holds; no I/O.
+    fn sync_clock(&mut self) {
+        let Some(ds) = self.ds.as_ref() else {
+            return;
+        };
+        let version = ds.version().version;
+        let Some(rows) = ds
+            .fragments()
+            .iter()
+            .map(|f| f.physical_rows.map(|n| n as u64))
+            .sum::<Option<u64>>()
+        else {
+            // A fragment without a physical row count: positions are unknown.
+            self.clock = None;
+            return;
+        };
+        let keep = match self.clock.as_mut() {
+            Some(c) if version > c.head() => c.record(version, rows).is_ok(),
+            Some(c) => version == c.head() && c.head_rows() == rows,
+            None => false,
+        };
+        if !keep {
+            self.clock = Some(VersionClock::new(version, rows));
+        }
     }
 
     /// How many reconciliation scans ([`find_frame`](Self::find_frame)) this
@@ -762,10 +808,10 @@ impl LanceCycleWriter {
     }
 }
 
-impl WalSink for LanceCycleWriter {
-    /// THE single durable commit for a whole cycle — reconciliation-first,
-    /// fence second, append third; the outcome is fully honored.
-    async fn commit_cycle(
+impl LanceCycleWriter {
+    /// The body of [`WalSink::commit_cycle`]; the trait method syncs the
+    /// version clock after it, whatever the outcome.
+    async fn commit_cycle_inner(
         &mut self,
         batch: DetachedCycleBatch,
     ) -> Result<CommitOutcome, CommitError> {
@@ -995,6 +1041,19 @@ impl WalSink for LanceCycleWriter {
                 }
             }
         }
+    }
+}
+
+impl WalSink for LanceCycleWriter {
+    /// THE single durable commit for a whole cycle — reconciliation-first,
+    /// fence second, append third; the outcome is fully honored.
+    async fn commit_cycle(
+        &mut self,
+        batch: DetachedCycleBatch,
+    ) -> Result<CommitOutcome, CommitError> {
+        let out = self.commit_cycle_inner(batch).await;
+        self.sync_clock();
+        out
     }
 
     /// Committed landing METADATA in stored canonical order, bounded by
@@ -2289,6 +2348,167 @@ mod tests {
             w.timeline().await.unwrap().len(),
             frames_before,
             "no frame added"
+        );
+    }
+
+    /// Rows a reader of version `v` sees, read from storage: the oracle the
+    /// in-memory clock must match.
+    async fn rows_in_storage(path: &str, v: u64) -> u64 {
+        let ds = Dataset::open(path).await.unwrap();
+        let ds = ds.checkout_version(v).await.unwrap();
+        ds.count_rows(None).await.unwrap() as u64
+    }
+
+    /// Commits of different sizes on a bootstrapped store (version 1 holds no
+    /// rows): one batch per cycle, `c` landings on `c` distinct rows.
+    async fn varied_store(path: &str) -> LanceCycleWriter {
+        let mut w = LanceCycleWriter::open(path).await.unwrap();
+        w.bootstrap().await.unwrap();
+        for c in 1..=6u64 {
+            let casts = (0..c).map(|i| artifact(c, i, 42, i)).collect();
+            let head = w.head();
+            persist_cycle(&mut w, CycleFrame::new(CycleId(c), head), casts)
+                .await
+                .unwrap();
+        }
+        w
+    }
+
+    /// D-WAL-6 wiring: the live clock answers, for every version, exactly the
+    /// rows a reader of that version finds in storage.
+    #[tokio::test]
+    async fn the_version_clock_matches_storage_at_every_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let path = path.to_str().unwrap();
+        let w = varied_store(path).await;
+        let head = w.head().0;
+        assert_eq!(head, 7, "bootstrap plus six commits");
+        let clock = w.version_clock().expect("a written store has a clock");
+        assert_eq!(clock.head(), head);
+        for v in 1..=head {
+            assert_eq!(
+                clock.rows_through(v),
+                Some(rows_in_storage(path, v).await),
+                "version {v}"
+            );
+        }
+        assert_eq!(clock.rows_through(1), Some(0), "bootstrap adds no rows");
+    }
+
+    /// Physical row positions durable at version `v`: rows plus deleted
+    /// rows, which keep their position (`VersionClock` contract).
+    async fn positions_in_storage(path: &str, v: u64) -> u64 {
+        let ds = Dataset::open(path).await.unwrap();
+        let ds = ds.checkout_version(v).await.unwrap();
+        ds.fragments()
+            .iter()
+            .map(|f| f.physical_rows.unwrap() as u64)
+            .sum()
+    }
+
+    /// A reopened writer seeds its clock at the store's head, as the
+    /// `VersionClock` contract says: versions before the head read `None`,
+    /// never a guess; commits after it are recorded.
+    #[tokio::test]
+    async fn a_reopened_writer_seeds_its_clock_at_the_head() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let path = path.to_str().unwrap();
+        drop(varied_store(path).await);
+        let mut w = LanceCycleWriter::open(path).await.unwrap();
+        let head = w.head().0;
+        let clock = w.version_clock().expect("an existing store has a clock");
+        assert_eq!(clock.base(), head);
+        assert_eq!(
+            clock.rows_through(head),
+            Some(rows_in_storage(path, head).await)
+        );
+        assert_eq!(
+            clock.rows_through(head - 1),
+            None,
+            "before the seed: no guess"
+        );
+        let at = w.head();
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(7), at),
+            vec![artifact(7, 0, 42, 0), artifact(7, 1, 42, 1)],
+        )
+        .await
+        .unwrap();
+        let next = w.head().0;
+        assert_eq!(next, head + 1);
+        let clock = w.version_clock().unwrap();
+        assert_eq!(
+            clock.rows_through(next),
+            Some(rows_in_storage(path, next).await)
+        );
+    }
+
+    /// Deleted rows stay inside their range (the caller masks them): the
+    /// clock counts positions, not live rows, so rows appended after a delete
+    /// get the positions storage gives them.
+    #[tokio::test]
+    async fn deleted_rows_keep_their_positions() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let path = path.to_str().unwrap();
+        drop(varied_store(path).await);
+        let mut ds = Dataset::open(path).await.unwrap();
+        ds.delete(&format!("kind = {KIND_IMAGE} AND cycle = 3"))
+            .await
+            .unwrap();
+        let mut w = LanceCycleWriter::open(path).await.unwrap();
+        let head = w.head().0;
+        let live = rows_in_storage(path, head).await;
+        let positions = positions_in_storage(path, head).await;
+        assert!(live < positions, "the fixture deleted rows");
+        assert_eq!(
+            w.version_clock().unwrap().rows_through(head),
+            Some(positions)
+        );
+        let at = w.head();
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(7), at),
+            vec![artifact(7, 0, 42, 0)],
+        )
+        .await
+        .unwrap();
+        let next = w.head().0;
+        assert_eq!(
+            w.version_clock().unwrap().rows_through(next),
+            Some(positions_in_storage(path, next).await)
+        );
+    }
+
+    /// The reconciled path (a published append whose acknowledgement was
+    /// lost) keeps the clock equal to storage.
+    #[tokio::test]
+    async fn the_clock_survives_a_reconciled_append() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let path = path.to_str().unwrap();
+        let mut w = varied_store(path).await;
+        w.fault
+            .fail_append_published
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let at = w.head();
+        let out = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(7), at),
+            vec![artifact(7, 0, 42, 0), artifact(7, 1, 42, 1)],
+        )
+        .await
+        .unwrap();
+        assert!(matches!(out, CommitOutcome::Reconciled { .. }), "{out:?}");
+        let head = w.head().0;
+        let clock = w.version_clock().expect("clock after reconcile");
+        assert_eq!(clock.head(), head);
+        assert_eq!(
+            clock.rows_through(head),
+            Some(rows_in_storage(path, head).await)
         );
     }
 }

@@ -243,8 +243,10 @@ compactor) does to both curves.
   reconciliation asks for them.
 - **D-WAL-6.** `contract::temporal_pov::VersionClock`: rows of an append-only lane per
   version, eight bytes per version; a `TemporalPov` resolves to one row range in 4.2 ns on
-  v4 (a per-row scan of 400k rows: 127 µs). Not yet wired: a writer records into it after
-  each commit; seeding it from storage at open is open.
+  v4 (a per-row scan of 400k rows: 127 µs). Wired into `LanceCycleWriter` (2026-10-15):
+  seeded at the store's head on open from the physical row counts of the held manifest (no
+  reads), recorded after every commit outcome; versions before the seed read `None`; deleted
+  rows keep their positions; rows going back start a new clock. A reader is not wired yet.
 - **D-WAL-7.** `temporal.rs` index forms (`deinterlace_indices`,
   `local_trajectories_indices`, `local_trajectory_indices_of`); the copying forms wrap them.
 - **D-LNC-7, decided:** `LanceCycleWriter` stays the default with the capped session;
