@@ -1,0 +1,19 @@
+[package]
+name = "holo-lance-masked-io-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "D-HOLO-H14c-4/-5: Lance 13 masked I/O and coordinate identity probe (plan d-holo-h14c-thought-first-v1)"
+
+# Excluded from the workspace on purpose: a research probe with its own narrow
+# dependency set (lance, arrow, tokio), so it changes no dependency of any
+# workspace crate. Run with
+#   cargo run --release --manifest-path crates/holo-lance-masked-io-probe/Cargo.toml
+#   cargo test --release --manifest-path crates/holo-lance-masked-io-probe/Cargo.toml
+[dependencies]
+lance = { version = "13.*", default-features = false }
+arrow-array = "58"
+arrow-schema = "58"
+futures = "0.3"
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
+tempfile = "3"
