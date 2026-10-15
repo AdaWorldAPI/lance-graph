@@ -202,6 +202,9 @@ pub struct LanceCycleWriter {
     /// [`WalSink::commit_cycle`] refuses to run a SECOND `Create` and
     /// `DatasetNotFound` is never read as proof of absence.
     create_unknown: bool,
+    /// Rows durable per version since this writer first saw the store
+    /// (D-WAL-6). Seeded at the head on open, recorded after every commit.
+    clock: Option<VersionClock>,
     /// The RAII registry claim. Held from BEFORE `open`'s first `.await`, so
     /// a cancelled or failed `open` releases its slot through `Drop` — no
     /// manual removal on any path, no leaked reservation.
@@ -361,6 +364,7 @@ impl LanceCycleWriter {
             reconcile_scans: AtomicU64::new(0),
             committed_through: None,
             create_unknown: false,
+            clock: None,
             claim,
             #[cfg(test)]
             fault: TestFaults::default(),
@@ -374,6 +378,7 @@ impl LanceCycleWriter {
             // mechanism, never a second head ledger.
             w.committed_through = w.max_cycle().await?;
         }
+        w.sync_clock();
         Ok(w)
     }
 
@@ -713,6 +718,7 @@ impl LanceCycleWriter {
         }
         // Storage has now shown the store to exist, by either route.
         self.create_unknown = false;
+        self.sync_clock();
         Ok(())
     }
 
@@ -722,7 +728,37 @@ impl LanceCycleWriter {
     /// deleted rows, where row positions no longer follow append order.
     #[must_use]
     pub fn version_clock(&self) -> Option<&VersionClock> {
-        None
+        self.clock.as_ref()
+    }
+
+    /// Bring the clock to the handle's version: record it when it is newer,
+    /// start a new clock at it when the rows went back (a rewrite) or the
+    /// writer has none yet. Row positions are physical rows: a deleted row
+    /// keeps its position and the reader masks it (`VersionClock` contract).
+    /// Reads only the manifest the handle already holds; no I/O.
+    fn sync_clock(&mut self) {
+        let Some(ds) = self.ds.as_ref() else {
+            return;
+        };
+        let version = ds.version().version;
+        let Some(rows) = ds
+            .fragments()
+            .iter()
+            .map(|f| f.physical_rows.map(|n| n as u64))
+            .sum::<Option<u64>>()
+        else {
+            // A fragment without a physical row count: positions are unknown.
+            self.clock = None;
+            return;
+        };
+        let keep = match self.clock.as_mut() {
+            Some(c) if version > c.head() => c.record(version, rows).is_ok(),
+            Some(c) => version == c.head() && c.head_rows() == rows,
+            None => false,
+        };
+        if !keep {
+            self.clock = Some(VersionClock::new(version, rows));
+        }
     }
 
     /// How many reconciliation scans ([`find_frame`](Self::find_frame)) this
@@ -772,10 +808,10 @@ impl LanceCycleWriter {
     }
 }
 
-impl WalSink for LanceCycleWriter {
-    /// THE single durable commit for a whole cycle — reconciliation-first,
-    /// fence second, append third; the outcome is fully honored.
-    async fn commit_cycle(
+impl LanceCycleWriter {
+    /// The body of [`WalSink::commit_cycle`]; the trait method syncs the
+    /// version clock after it, whatever the outcome.
+    async fn commit_cycle_inner(
         &mut self,
         batch: DetachedCycleBatch,
     ) -> Result<CommitOutcome, CommitError> {
@@ -1005,6 +1041,19 @@ impl WalSink for LanceCycleWriter {
                 }
             }
         }
+    }
+}
+
+impl WalSink for LanceCycleWriter {
+    /// THE single durable commit for a whole cycle — reconciliation-first,
+    /// fence second, append third; the outcome is fully honored.
+    async fn commit_cycle(
+        &mut self,
+        batch: DetachedCycleBatch,
+    ) -> Result<CommitOutcome, CommitError> {
+        let out = self.commit_cycle_inner(batch).await;
+        self.sync_clock();
+        out
     }
 
     /// Committed landing METADATA in stored canonical order, bounded by
@@ -2371,8 +2420,15 @@ mod tests {
         let head = w.head().0;
         let clock = w.version_clock().expect("an existing store has a clock");
         assert_eq!(clock.base(), head);
-        assert_eq!(clock.rows_through(head), Some(rows_in_storage(path, head).await));
-        assert_eq!(clock.rows_through(head - 1), None, "before the seed: no guess");
+        assert_eq!(
+            clock.rows_through(head),
+            Some(rows_in_storage(path, head).await)
+        );
+        assert_eq!(
+            clock.rows_through(head - 1),
+            None,
+            "before the seed: no guess"
+        );
         let at = w.head();
         persist_cycle(
             &mut w,
@@ -2384,7 +2440,10 @@ mod tests {
         let next = w.head().0;
         assert_eq!(next, head + 1);
         let clock = w.version_clock().unwrap();
-        assert_eq!(clock.rows_through(next), Some(rows_in_storage(path, next).await));
+        assert_eq!(
+            clock.rows_through(next),
+            Some(rows_in_storage(path, next).await)
+        );
     }
 
     /// Deleted rows stay inside their range (the caller masks them): the
@@ -2405,7 +2464,10 @@ mod tests {
         let live = rows_in_storage(path, head).await;
         let positions = positions_in_storage(path, head).await;
         assert!(live < positions, "the fixture deleted rows");
-        assert_eq!(w.version_clock().unwrap().rows_through(head), Some(positions));
+        assert_eq!(
+            w.version_clock().unwrap().rows_through(head),
+            Some(positions)
+        );
         let at = w.head();
         persist_cycle(
             &mut w,
@@ -2444,6 +2506,9 @@ mod tests {
         let head = w.head().0;
         let clock = w.version_clock().expect("clock after reconcile");
         assert_eq!(clock.head(), head);
-        assert_eq!(clock.rows_through(head), Some(rows_in_storage(path, head).await));
+        assert_eq!(
+            clock.rows_through(head),
+            Some(rows_in_storage(path, head).await)
+        );
     }
 }
