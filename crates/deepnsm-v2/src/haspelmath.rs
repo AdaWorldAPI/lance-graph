@@ -111,7 +111,10 @@ pub enum HarnessError {
     DisconnectedCompleteDistribution,
     ParserOverflow,
     UnaddressedTriples(usize),
-    LocalPaletteOverflow,
+    AbiPaletteOverflow,
+    InvalidAbiVersion,
+    DuplicateCanonicalOperand(WordId),
+    UnknownCanonicalOperand(WordId),
 }
 
 /// Bind surfaces to an existing vocabulary and supplied lexical reading sets.
@@ -132,19 +135,65 @@ pub fn bind_tokens(
         .collect()
 }
 
+/// A FROZEN, VERSION-IDENTIFIED register operand dictionary, provided by
+/// the consumer's shared ABI/codebook registry. The harness may NOT invent
+/// one per verse, per query, per thought or per grammatical interpretation.
+///
+/// Canonical agreement is an external deployment requirement; version equality
+/// only detects mismatches, it does not prove independent implementations chose
+/// the same contents. This small dictionary is an explicit probe limitation:
+/// a real global 65K lexical corpus cannot be squeezed into 256 operand codes
+/// without wider addressing/indirection defined by the canonical ISA.
+#[derive(Clone, Debug)]
+pub struct FrozenOperandAbi {
+    pub version: u64,
+    operands: Vec<WordId>,
+    by_word: HashMap<WordId, u8>,
+}
+
+impl FrozenOperandAbi {
+    pub fn new(version: u64, operands: &[WordId]) -> Result<Self, HarnessError> {
+        if version == 0 {
+            return Err(HarnessError::InvalidAbiVersion);
+        }
+        if operands.len() > 256 {
+            return Err(HarnessError::AbiPaletteOverflow);
+        }
+        let mut by_word = HashMap::new();
+        for (i, &word) in operands.iter().enumerate() {
+            if by_word.insert(word, i as u8).is_some() {
+                return Err(HarnessError::DuplicateCanonicalOperand(word));
+            }
+        }
+        Ok(Self { version, operands: operands.to_vec(), by_word })
+    }
+
+    fn code(&self, word: WordId) -> Result<u8, HarnessError> {
+        self.by_word
+            .get(&word)
+            .copied()
+            .ok_or(HarnessError::UnknownCanonicalOperand(word))
+    }
+
+    fn word(&self, code: u8) -> Option<WordId> {
+        self.operands.get(code as usize).copied()
+    }
+}
+
 /// CE64's grammar-only payload has no truth/causality/witness claims.
-/// The three indices refer to the per-path palette in HarnessOutput.
+/// The three u8 operand codes are interpreted by ONE externally pinned
+/// register dictionary for the entire epoch, not a per-verse palette.
 #[derive(Clone, Copy)]
 pub struct AddressedSyntax {
     pub path: NiblePath,
     pub order: u32,
+    pub abi_version: u64,
     pub word: CausalEdge64,
 }
 
 pub struct HarnessOutput {
     pub hydration: Hydration,
     pub encoded: Vec<AddressedSyntax>,
-    pub local_palettes: HashMap<NiblePath, Vec<WordId>>,
     /// Uncertain triples stay associated with their exact input verse ordinal.
     /// They are NEVER passed as certain givens to hydrate().
     pub alternatives: Vec<(usize, Spo)>,
@@ -153,61 +202,43 @@ pub struct HarnessOutput {
 }
 
 impl HarnessOutput {
-    /// Reconstruct u16 global vocabulary identity, using the SAME path as the
-    /// edge. Treating CE64 low bytes as global WordIds would be lossy.
+    /// Interpret register operands ONLY under the matching canonical
+    /// version. Cross-version decoding is a refusal, not best-effort guessing.
     #[must_use]
-    pub fn decode(&self, edge: &AddressedSyntax) -> Option<Spo> {
-        let palette = self.local_palettes.get(&edge.path)?;
+    pub fn decode(&self, edge: &AddressedSyntax, abi: &FrozenOperandAbi) -> Option<Spo> {
+        if edge.abi_version != abi.version {
+            return None;
+        }
         Some(Spo::new(
-            *palette.get(edge.word.s_idx() as usize)?,
-            *palette.get(edge.word.p_idx() as usize)?,
-            *palette.get(edge.word.o_idx() as usize)?,
+            abi.word(edge.word.s_idx())?,
+            abi.word(edge.word.p_idx())?,
+            abi.word(edge.word.o_idx())?,
         ))
     }
 }
 
-/// Encode already-hydrated CERTAIN triples, with one reversible local u8
-/// codebook per verse address. This is deliberately a reference implementation,
-/// not a throughput claim: each lookup scans at most 256 entries.
-/// An actual writer must persist the palette with its sealed-version identity.
+/// Encode already-hydrated CERTAIN triples using a shared frozen operand
+/// vocabulary. No ephemeral remapping and no silent truncation. This is still
+/// only an adapter experiment; production must supply a true canonical global
+/// registry and stable cross-class/temporal addressing.
 fn encode_hydration(
     hydration: &Hydration,
-) -> Result<(Vec<AddressedSyntax>, HashMap<NiblePath, Vec<WordId>>), HarnessError> {
-    let mut palettes: HashMap<NiblePath, Vec<WordId>> = HashMap::new();
+    abi: &FrozenOperandAbi,
+) -> Result<Vec<AddressedSyntax>, HarnessError> {
     let mut encoded = Vec::with_capacity(hydration.triples.len());
     for triple in &hydration.triples {
-        let palette = palettes.entry(triple.path).or_default();
-        let mut idx = [0u8; 3];
-        for (i, id) in [
-            triple.spo.subject,
-            triple.spo.predicate,
-            triple.spo.object,
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            let index = if let Some(existing) = palette.iter().position(|&x| x == id) {
-                existing
-            } else {
-                if palette.len() == 256 {
-                    return Err(HarnessError::LocalPaletteOverflow);
-                }
-                palette.push(id);
-                palette.len() - 1
-            };
-            idx[i] = index as u8;
-        }
         let mut word = CausalEdge64::ZERO;
-        word.set_s_idx(idx[0]);
-        word.set_p_idx(idx[1]);
-        word.set_o_idx(idx[2]);
+        word.set_s_idx(abi.code(triple.spo.subject)?);
+        word.set_p_idx(abi.code(triple.spo.predicate)?);
+        word.set_o_idx(abi.code(triple.spo.object)?);
         encoded.push(AddressedSyntax {
             path: triple.path,
             order: triple.order,
+            abi_version: abi.version,
             word,
         });
     }
-    Ok((encoded, palettes))
+    Ok(encoded)
 }
 
 /// Executable seam: known/readable tokens -> existing multi-reading FSM ->
@@ -221,6 +252,7 @@ pub fn run_harness(
     verses: &[Vec<Reading>],
     form_evidence: &[Vec<FormAttestation>],
     basin: u8,
+    abi: &FrozenOperandAbi,
 ) -> Result<HarnessOutput, HarnessError> {
     if markers.len() != verses.len() || markers.len() != form_evidence.len() {
         return Err(HarnessError::UnalignedVerses);
@@ -256,11 +288,10 @@ pub fn run_harness(
     if hydration.unaddressed != 0 {
         return Err(HarnessError::UnaddressedTriples(hydration.unaddressed));
     }
-    let (encoded, local_palettes) = encode_hydration(&hydration)?;
+    let encoded = encode_hydration(&hydration, abi)?;
     Ok(HarnessOutput {
         hydration,
         encoded,
-        local_palettes,
         alternatives,
         attestations,
         ambiguous_tokens,
@@ -311,12 +342,15 @@ mod tests {
             one(0x1234, Pos::Verb),
             one(0xFFFF, Pos::Noun),
         ]];
-        let output = run_harness(&[(1, 1)], &v, &forms, 3).unwrap();
+        let abi = FrozenOperandAbi::new(7, &[0x0101, 0x1234, 0xFFFF]).unwrap();
+        let output = run_harness(&[(1, 1)], &v, &forms, 3, &abi).unwrap();
         assert_eq!(output.hydration.unaddressed, 0);
         assert_eq!(output.encoded.len(), 1);
         assert_eq!(output.hydration.triples.len(), 1);
         let e = &output.encoded[0];
-        assert_eq!(output.decode(e), Some(Spo::new(0x0101, 0x1234, 0xFFFF)));
+        assert_eq!(output.decode(e, &abi), Some(Spo::new(0x0101, 0x1234, 0xFFFF)));
+        let other_version = FrozenOperandAbi::new(8, &[0x0101, 0x1234, 0xFFFF]).unwrap();
+        assert_eq!(output.decode(e, &other_version), None);
         assert_eq!(e.order, output.hydration.triples[0].order);
         assert_eq!(e.path, output.hydration.triples[0].path);
         assert_eq!(e.word.0 >> 24, 0, "no fabricated truth, Pearl or maturity");
@@ -330,7 +364,8 @@ mod tests {
             coverage_complete: false,
             evidence_root: 1,
         };
-        let r = run_harness(&[(1, 1)], &[vec![]], &[vec![att]], 1).unwrap();
+        let abi = FrozenOperandAbi::new(1, &[]).unwrap();
+        let r = run_harness(&[(1, 1)], &[vec![]], &[vec![att]], 1, &abi).unwrap();
         assert_eq!(r.attestations[0].2, MapVerdict::Incomplete);
         assert!(r.encoded.is_empty());
         assert_eq!(r.hydration.verse_nodes(), 1);
@@ -340,6 +375,7 @@ mod tests {
                 &[vec![]],
                 &[vec![FormAttestation { coverage_complete: true, ..att }]],
                 1,
+                &abi,
             ).err(),
             Some(HarnessError::DisconnectedCompleteDistribution)
         );
@@ -356,28 +392,41 @@ mod tests {
         let mut with_stop = tokens.clone();
         with_stop.push(Reading::stop());
         let oracle = parse_readings(&with_stop);
-        let r = run_harness(&[(1, 1)], &[tokens], &[vec![]], 2).unwrap();
+        let abi = FrozenOperandAbi::new(1, &[1, 2, 3, 9]).unwrap();
+        let r = run_harness(&[(1, 1)], &[tokens], &[vec![]], 2, &abi).unwrap();
         assert_eq!(r.ambiguous_tokens, oracle.ambiguous.len());
         assert_eq!(r.alternatives, oracle.alternative.into_iter().map(|s| (0, s)).collect::<Vec<_>>());
         assert_eq!(r.hydration.triples.iter().map(|t| t.spo).collect::<Vec<_>>(), oracle.certain);
     }
 
     #[test]
-    fn local_palette_refuses_overflow_instead_of_truncating() {
-        let triples: Vec<Spo> = (0..86u16)
-            .map(|i| Spo::new(i * 3, i * 3 + 1, i * 3 + 2))
-            .collect();
-        let h = hydrate(&[(1, 1)], &[triples], 1);
-        assert_eq!(
-            encode_hydration(&h).err(),
-            Some(HarnessError::LocalPaletteOverflow)
-        );
+    fn fixed_operand_abi_refuses_overflow_and_unknown_ids() {
+        let words: Vec<WordId> = (0..=256).collect();
+        assert!(matches!(
+            FrozenOperandAbi::new(1, &words),
+            Err(HarnessError::AbiPaletteOverflow)
+        ));
+        let abi = FrozenOperandAbi::new(1, &(0..256).collect::<Vec<_>>()).unwrap();
+        let h = hydrate(&[(1, 1)], &[vec![Spo::new(10, 20, 256)]], 1);
+        assert!(matches!(
+            encode_hydration(&h, &abi),
+            Err(HarnessError::UnknownCanonicalOperand(256))
+        ));
+        assert!(matches!(
+            FrozenOperandAbi::new(0, &[1]),
+            Err(HarnessError::InvalidAbiVersion)
+        ));
+        assert!(matches!(
+            FrozenOperandAbi::new(1, &[1, 1]),
+            Err(HarnessError::DuplicateCanonicalOperand(1))
+        ));
     }
 
     #[test]
     fn refuses_unaligned_walk_and_missing_evidence_provenance() {
+        let abi = FrozenOperandAbi::new(1, &[]).unwrap();
         assert_eq!(
-            run_harness(&[(1, 1)], &[], &[], 1).err(),
+            run_harness(&[(1, 1)], &[], &[], 1, &abi).err(),
             Some(HarnessError::UnalignedVerses)
         );
         let forms = vec![vec![FormAttestation {
@@ -387,7 +436,7 @@ mod tests {
             evidence_root: 0,
         }]];
         assert_eq!(
-            run_harness(&[(1, 1)], &[vec![]], &forms, 1).err(),
+            run_harness(&[(1, 1)], &[vec![]], &forms, 1, &abi).err(),
             Some(HarnessError::MissingEvidenceRoot)
         );
     }
