@@ -16,3 +16,11 @@
 **OPEN:** why M loses at higher density (HYPOTHESIS: a row's k lanes sit in k
 tables, B's in one record); C's and M's seal at 1 % dirty is page-fault
 bound; 16 classes untimed.
+
+**Withdrawal note (2026-10-15, before merge).** M is withdrawn as a candidate
+default layout for thought-first C, and the density-based A/B/C/M switch is
+withdrawn. H14 and H14b mostly measured whole-row reconstruction, which is not
+C's primary operation; `Mask[i]` transposes what C's per-lane presence planes
+already hold into a row-oriented index. The numbers above stand; their reading
+as a verdict on C does not. M remains an experimental row-oriented acceleration
+structure. Follow-up: D-HOLO-H14c. Full note: the plan's "H14b withdrawal note".

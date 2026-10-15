@@ -1171,3 +1171,36 @@ cells at k <= 4) and beats B on F3 in all 12 cells; at 10 % and above, B's
 reads are faster. M's seal at 1 % dirty is still the
 page-fault cost of C's positional tables (6.5–15 µs per dirty row at one
 thought).
+
+### H14b withdrawal note (2026-10-15): M withdrawn as a layout candidate; the numbers stand, their reading as a verdict on C does not
+
+DECISION (operator, 2026-10-15: "I think M is a categorical error"). SCOPE: the
+default-layout question for thought-first C. BASIS: below. REVISIT WHEN: a
+consumer is shown that genuinely needs whole-row reconstruction as its primary
+operation.
+
+1. **M is withdrawn as a candidate default layout for C.** It stays in the probe
+   as an experimental, row-oriented acceleration structure. It is not a
+   prerequisite for Cartesian operand addressing.
+2. **The density-based A/B/C/M layout switch proposed after H14b is withdrawn.**
+3. **H14 and H14b mostly measured whole-row reconstruction** (full-row read,
+   session read, F3 materialization). That is not C's primary operation. In C a
+   thought program names the lane tables it needs, and each is read at the shared
+   address: `Thought(t)[Table(a)[i] : Table(b)[i]]`. No row is assembled unless a
+   named terminal asks for one.
+4. **What M adds is a transposition, not new information.** `Mask[i]` restates,
+   row by row, what C's per-(thought, lane) presence planes already hold column
+   by column: bit l of `Mask[i]` equals bit i of `P_{t,l}`. Storing it again,
+   per row, reintroduces row-first discovery ("which lanes does this row have?")
+   in front of positional access.
+5. **Two facts are distinct.** The thought knows which lanes its program
+   *requests*; it does not need to know which lanes are *populated* at a row.
+   C answers the second question with the presence bit of each requested table,
+   one test per requested lane, never by scanning the touched tables.
+6. **The measurements are not invalid.** Every number above stands as measured.
+   What is withdrawn is their interpretation as a verdict on whether C works.
+   The open hypothesis from H14 ("the merge probes every touched table") is
+   itself an artifact of the full-row question: a query-shaped read probes only
+   the tables its program selects.
+7. The follow-up falsifier is **H14c** (thought-first positional reads, Hamming
+   presence, Lance 13 masked I/O), run on its own branch and PR.

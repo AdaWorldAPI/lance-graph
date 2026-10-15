@@ -330,6 +330,11 @@ impl ArmC {
 
 /// C plus one lane mask per row, held positionally: `mask[i]` names the
 /// lanes row i changed. The merge reads only the tables the mask names.
+///
+/// Withdrawn as a layout candidate (2026-10-15): `mask[i]` restates, per row,
+/// what C's presence planes already hold per lane. Kept as an experimental
+/// row-oriented acceleration for whole-row reconstruction only; see the plan's
+/// "H14b withdrawal note" and D-HOLO-H14c.
 struct ArmM {
     c: ArmC,
     mask: Vec<u32>,
