@@ -1050,8 +1050,10 @@ Measured, ns per row unless noted (full table in the board entry):
 
 Rule at k <= 4 on every (dirty, thoughts) cell:
 - C's folds are at least 2× faster than B's on F1 and F2: **yes**, in every
-  cell (F1 10–24×, F2 39–256×; F2 is the session-wide count
-  and grows with thoughts on A and B, not on C).
+  cell (F1 10–24×, F2 39–256×). F2 is the session-wide count and
+  grows with the number of thoughts on all three arms: C ORs one presence
+  window per thought, 0.017–0.023 ns per aperture row at 1 thought,
+  0.058–0.072 at 8, 0.38–0.59 at 64.
 - C's reads with merge-on-read within 1.25× of B's: **no**, in every cell
   (2.8–6.1× slower).
 - C default: not met. B default over A: not met (B's full-row read is up to
