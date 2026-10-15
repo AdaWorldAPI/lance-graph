@@ -29,5 +29,9 @@
   628 MiB cache, 570 MiB RSS; session with an 8 MiB metadata cache 7.8 MiB, 52 MiB RSS.
   Capping the metadata cache, or compacting so fragment count stops growing, bounds it.
 
-**Open:** a full-length soak (this one stopped at 27.5 min when the container restarted); the effect of compaction on both; D-LNC-7
+- Follow-up done the same day (D-WAL-5/6/7): the writer's session cap, a version clock
+  (`contract::temporal_pov::VersionClock`, 4.2 ns per point-of-view read on v4), and index
+  forms of the `temporal.rs` projections. D-LNC-7: L stays default, MemWAL an option.
+
+**Open:** a full-length soak (deferred; this one stopped at 27.5 min when the container restarted); the effect of compaction on both; D-LNC-7
 (which WAL to keep) stays a decision for the user.

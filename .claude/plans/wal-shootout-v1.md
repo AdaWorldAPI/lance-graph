@@ -1,6 +1,6 @@
 # WAL shootout v1 — `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path
 
-**Status:** D-WAL-1 MEASURED (§2a), D-WAL-2 MEASURED (§3a), spec cross-check (§3b), D-WAL-3 MEASURED, truncated at 27.5 min by a container restart (§4a). Feeds D-LNC-7 (the one-WAL
+**Status:** D-WAL-1 MEASURED (§2a), D-WAL-2 MEASURED (§3a), spec cross-check (§3b), D-WAL-3 MEASURED, truncated at 27.5 min by a container restart (§4a). D-WAL-4..7 DONE (§7); D-LNC-7 decided 2026-10-15 (§7). Feeds D-LNC-7 (the one-WAL
 decision, `lance-convergence-staged-migration-v1.md` §4C); this plan does not decide it.
 
 ## 1. What is compared
@@ -231,3 +231,22 @@ compactor) does to both curves.
   enables MemWAL anywhere. D-LNC-7 stays a decision for the operator.
 - lance and lancedb come from crates.io (the upstream carve-out); no new dependency beyond
   the existing optional `lancedb-sdk` feature.
+
+## 7. D-WAL-4..7 and the decision (2026-10-15)
+
+- **D-WAL-4 (measured).** L's resident memory is Lance's session metadata cache: each
+  commit caches a manifest clone per version, and manifest v lists v fragments, so the
+  cache grows as V^2/2 (1,600 versions: 628 MiB default vs 7.8 MiB with an 8 MiB cap;
+  RSS 570 vs 52 MiB). `examples/wal_rss_probe.rs`.
+- **D-WAL-5.** `LanceCycleWriter` opens and writes on a session with an 8 MiB metadata
+  cache (`SESSION_METADATA_CACHE_BYTES`). Old manifests are read from storage when
+  reconciliation asks for them.
+- **D-WAL-6.** `contract::temporal_pov::VersionClock`: rows of an append-only lane per
+  version, eight bytes per version; a `TemporalPov` resolves to one row range in 4.2 ns on
+  v4 (a per-row scan of 400k rows: 127 µs). Not yet wired: a writer records into it after
+  each commit; seeding it from storage at open is open.
+- **D-WAL-7.** `temporal.rs` index forms (`deinterlace_indices`,
+  `local_trajectories_indices`, `local_trajectory_indices_of`); the copying forms wrap them.
+- **D-LNC-7, decided:** `LanceCycleWriter` stays the default with the capped session;
+  MemWAL stays an option. The 60-minute soak is deferred.
+

@@ -1,6 +1,8 @@
 ## 2026-10-15 — main after #1555 (merged); D-WAL measured on branch `ccr-9f3b8075-74u47l-wal-shootout` (unpushed)
 
 - **On `main` (#1555, merged `5366a5ab`):** `crates/lance-graph-metta` (excluded) with the D-MTP-1 join probe and the D-MTP-1b range-hop probe; plan `metta-polyfill-v1.md`. Examples only, no production change.
+- **On branch:** D-WAL-5/6/7 (decisions accepted 2026-10-15): `LanceCycleWriter` opens and writes on a Lance session with an 8 MiB metadata cache (`SESSION_METADATA_CACHE_BYTES`); index forms of `deinterlace` / `local_trajectories` in `lance-graph-planner::temporal`.
+- **Contract (new type):** `temporal_pov::{VersionClock, ClockError}` — rows of an append-only lane per version; `rows_at(&TemporalPov)` resolves a point of view to one half-open row range (v4: 4.2 ns per call; a per-row scan of 400k rows takes 127 µs). Eight bytes per version.
 - **On branch (unpushed):** D-WAL-1/2/3 for `LanceCycleWriter` vs the lancedb 0.40 MemWAL path (probe, harness, example behind `lancedb-sdk`); entry `2026-10-15-d-wal-shootout.md`. No production wiring.
 
 ## 2026-10-14 — the rail walk applies the reader's field mask on branch `ccr-0455e606-wmtsor` (unmerged)
