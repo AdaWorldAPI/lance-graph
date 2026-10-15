@@ -247,6 +247,8 @@ struct ArmC {
 thread_local! {
     static VALUE_READS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
     static MERGES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// Lane tables a merge looks into, present or not.
+    static PROBES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 impl ArmC {
@@ -287,6 +289,8 @@ impl ArmC {
         self.touched.len() * (WORDS * 8 + N * LANE)
     }
     fn value(&self, l: usize, r: usize) -> Option<&Val> {
+        #[cfg(test)]
+        PROBES.with(|c| c.set(c.get() + 1));
         let p = self.planes[l].as_ref()?;
         if p.present[r / 64] >> (r % 64) & 1 == 0 {
             return None;
@@ -319,6 +323,40 @@ impl ArmC {
                 acc.copy_from_slice(&tmp);
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------- M (H14b)
+
+/// C plus one lane mask per row, held positionally: `mask[i]` names the
+/// lanes row i changed. The merge reads only the tables the mask names.
+struct ArmM {
+    c: ArmC,
+    mask: Vec<u32>,
+}
+
+impl ArmM {
+    fn seal(w: &Writes) -> Self {
+        // STUB (test-first): no mask yet.
+        ArmM {
+            c: ArmC::seal(w),
+            mask: vec![0; N],
+        }
+    }
+    /// Bytes handed to the writer: per dirty row key + mask + changed lanes.
+    fn bytes(&self) -> usize {
+        self.mask
+            .iter()
+            .filter(|&&m| m != 0)
+            .map(|m| 8 + LANE * m.count_ones() as usize)
+            .sum()
+    }
+    fn resident(&self) -> usize {
+        self.c.resident() + 4 * N
+    }
+    fn read(&self, base: &[Row], r: usize) -> Row {
+        // STUB (test-first).
+        base[r]
     }
 }
 
@@ -365,6 +403,27 @@ fn f2_c(arms: &[ArmC], l: usize, a0: usize, acc: &mut [u64], tmp: &mut [u64]) ->
         }
     }
     popcount(acc)
+}
+fn f2_m(arms: &[ArmM], l: usize, a0: usize, acc: &mut [u64], tmp: &mut [u64]) -> u64 {
+    let (w0, w1) = (a0 / 64, (a0 + APERTURE) / 64);
+    acc.fill(0);
+    for m in arms {
+        if let Some(p) = &m.c.planes[l] {
+            mask_or(acc, &p.present[w0..w1], tmp);
+            acc.copy_from_slice(tmp);
+        }
+    }
+    popcount(acc)
+}
+/// F3 on M: C's fold, then M's merge on the rows the fold names.
+fn f3_m(m: &ArmM, base: &[Row], a0: usize, acc: &mut [u64], out: &mut Vec<Row>) {
+    m.c.fold_lanes(&F1_LANES, a0, acc);
+    out.clear();
+    for (wi, &w) in acc.iter().enumerate() {
+        for b in BitIter64(w) {
+            out.push(m.read(base, a0 + wi * 64 + b));
+        }
+    }
 }
 /// F3 on C: fold first, then merge-on-read only the rows the fold names.
 fn f3_c(c: &ArmC, base: &[Row], a0: usize, acc: &mut [u64], out: &mut Vec<Row>) {
@@ -640,6 +699,81 @@ mod tests {
                 }
                 assert_eq!(changed, w.rows.len(), "every dirty row changes, no other");
             }
+        }
+    }
+
+    #[test]
+    fn m_reads_the_dense_reference() {
+        for k in [1, 4, 31] {
+            let (base, ws) = fixture(2, 1_000, k);
+            for w in &ws {
+                let d = dense(&base, w);
+                let m = ArmM::seal(w);
+                for r in 0..N {
+                    assert_eq!(m.read(&base, r), d[r], "M row {r} k {k}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn m_mask_is_b_lane_mask_at_every_row() {
+        let (_, ws) = fixture(2, 1_000, 4);
+        for w in &ws {
+            let (b, m) = (ArmB::seal(w), ArmM::seal(w));
+            for r in 0..N {
+                assert_eq!(m.mask[r], b.mask(r), "row {r}");
+            }
+        }
+    }
+
+    #[test]
+    fn m_merge_probes_only_the_tables_its_mask_names() {
+        let (base, ws) = fixture(1, 1_000, 4);
+        let (c, m) = (ArmC::seal(&ws[0]), ArmM::seal(&ws[0]));
+        assert!(
+            c.touched.len() > 4,
+            "fixture must touch more tables than k, or this proves nothing"
+        );
+        let mut dirty_seen = 0;
+        for r in 0..N {
+            PROBES.with(|p| p.set(0));
+            let _ = m.read(&base, r);
+            assert_eq!(
+                PROBES.with(|p| p.get()),
+                u64::from(m.mask[r].count_ones()),
+                "M row {r}"
+            );
+            if m.mask[r] != 0 && dirty_seen < 50 {
+                dirty_seen += 1;
+                PROBES.with(|p| p.set(0));
+                let _ = c.read(&base, r);
+                assert_eq!(
+                    PROBES.with(|p| p.get()),
+                    c.touched.len() as u64,
+                    "C row {r}"
+                );
+            }
+        }
+        assert_eq!(dirty_seen, 50, "fixture has dirty rows");
+    }
+
+    #[test]
+    fn m_folds_and_terminal_equal_c() {
+        let (base, ws) = fixture(3, 1_000, 4);
+        let c: Vec<ArmC> = ws.iter().map(ArmC::seal).collect();
+        let m: Vec<ArmM> = ws.iter().map(ArmM::seal).collect();
+        let mc: Vec<&ArmC> = m.iter().map(|x| &x.c).collect();
+        let (mut acc, mut tmp) = (vec![0u64; APERTURE / 64], vec![0u64; APERTURE / 64]);
+        for a0 in [0, 3 * APERTURE, N - APERTURE] {
+            let want1 = f1_c(&c[0], a0, &mut acc);
+            assert_eq!(f1_c(mc[0], a0, &mut acc), want1);
+            let want2 = f2_c(&c, 5, a0, &mut acc, &mut tmp);
+            assert_eq!(f2_m(&m, 5, a0, &mut acc, &mut tmp), want2);
+            let (mut oc, mut om) = (Vec::new(), Vec::new());
+            f3_c(&c[0], &base, a0, &mut acc, &mut oc);
+            f3_m(&m[0], &base, a0, &mut acc, &mut om);
+            assert_eq!(oc, om);
         }
     }
 
