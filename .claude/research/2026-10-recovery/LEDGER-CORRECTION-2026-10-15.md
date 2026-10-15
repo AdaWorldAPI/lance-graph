@@ -20,11 +20,11 @@ Board entry: `.claude/board/entries/2026-10-15-ledger-correction-wire-contract.m
 |---|---|---|
 | 0..23 | S, P, O | which three things |
 | 24..39 | f, c | how much evidence (fixed codes, one global quantizer) |
-| 40..42 | SPO / Pearl mask | by which method (which planes the hydration used: a subset lattice, not an ordinal) |
+| 40..42 | Pearl ladder (`CausalMask`) | which causal question: `SO` association, `PO` intervention, `SPO` counterfactual, `SP` confounder test, plus the marginals. Ablation has no mask of its own; it is the counterfactual cut |
 | 43..45 | orientation | which way the relation is read (code: direction triad, `DIR_SHIFT = 43`, sign per S, P, O) |
 | 46..49 | OPEN | opcode (code) vs activation (design); one global meaning still to choose |
 | 50..52 | plasticity ladder (the pyramid) | how free the edge still is to change; freezing is earned by dependency or ablation, not by confidence |
-| 53..58 | OPEN | witness; one global meaning still to choose |
+| 53..58 | witness handle (`w_slot`, 0..=63, 0 = no anchor) | which record changed this state; the W1 → W2 → W3 history lives outside the edge |
 | 59..63 | `EpistemicState5` | what the edge is licensed to claim (moved by `hydrate`) |
 
 Three fields, three concerns: method (40..42), maturity (50..52), licence
@@ -51,11 +51,26 @@ Three fields, three concerns: method (40..42), maturity (50..52), licence
 ## 4. Header decisions still open (replacing K1)
 
 1. One global meaning for 46..49: opcode (code) or activation (design).
-2. One global meaning for 53..58 (witness).
-3. The derived-packet rule: what a syllogism writes into 53..63.
-4. The pyramid's entry code: 7 (Astonishment) at birth, or a separate "new".
-5. `learn`'s rule under R-c: a plane changes only if it is in the SPO mask AND the ladder stage permits change; the threshold is the operator's.
-6. The migration gate: old plasticity codes 1..6 need one global version gate; `learn`, `MooreNars16` and `CausalEdgeV3` byte 3 move together.
+2. The derived-packet rule: what a syllogism writes into 53..63.
+3. The pyramid's entry code: 7 (Astonishment) at birth, or a separate "new".
+4. `learn`'s rule under R-c: a plane changes only if it is in the SPO mask AND the ladder stage permits change; the threshold is the operator's.
+5. The migration gate: old plasticity codes 1..6 need one global version gate; `learn`, `MooreNars16` and `CausalEdgeV3` byte 3 move together.
+
+## 4a. Reconciled against the README diagram (2026-10-15)
+
+The README diagram and `docs/architecture/ce64-semantic-upper-half.md` are
+the reference. Against them:
+
+- 40..42 and 59..63 match the code; 53..58 is already the witness handle in
+  code. Both rows above now say so (this file first left 53..58 open).
+- 43..52 are a proposed re-reading (orientation, activation, novelty) of bits
+  the code writes as direction triad, inference mantissa and plasticity. The
+  doc lists this as open behind a version gate; so does §4 here.
+- **Tension to resolve:** the doc's "Encoding, reading, operation" section
+  lets each tenant declare its own reading through a versioned binding. Ruling
+  R-b says every bit means the same thing everywhere. Both hold only if the
+  versioned binding is global (one wire version), not per tenant. The doc's
+  wording is not changed here.
 
 ## 5. N15 — Pearl × Wang S-P × all others, as views on one wire
 

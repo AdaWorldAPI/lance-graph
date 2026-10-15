@@ -23,5 +23,7 @@ the 2026-10-14 ledger revision.
 - **N15:** Pearl × Wang NAL S-P × OpenNARS, ONA, PLN, Jøsang, Hyperon/MeTTa as
   views on the one wire; home D-HOLO H12.
 
-OPEN: 46..49 and 53..58 meanings; the derived-packet rule; the ladder's entry
+53..58 is already the witness handle in code (`w_slot`).
+
+OPEN: 46..49 meaning; per-tenant vs global readings in `docs/architecture/ce64-semantic-upper-half.md`; the derived-packet rule; the ladder's entry
 code; `learn`'s rule; the migration gate for old codes 1..6; O23.
