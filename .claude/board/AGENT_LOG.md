@@ -1,3 +1,9 @@
+## 2026-10-15 — D-HOLO H14c: one Haiku census run
+
+- General-purpose on Haiku, read-only census of `Program::new` constructions in mask-risc tests and `lance-graph-quack` (D-HOLO-H14c-6): 169 occurrences, 61 literal, 108 dynamic; distinct lanes per literal program 0:26, 1:31, 2:4.
+- Ledger: count re-run (170 raw grep hits; the one difference is `fuse.rs:216`, production code the card excluded as instructed); spot-checks 2/2 (`distinct.rs:267` P=[] L=[0,1], `reference.rs:1922` P=[3] L=[9]); 0 wrong, 0 missed. About 457k subagent tokens.
+- Outcome: the census is labelled test-corpus observation in the plan; no conclusion came from the card.
+
 ## 2026-10-15 — ledger-correction batch: two Haiku harvest runs
 
 - Card `harvest-scout` over ndarray `src/hpc/*cascade*` + blackboard (O20): hits at `cascade.rs:270-276`, `:813`, blackboard `:84-90` read and confirmed; 0 wrong, 0 missed. Earlier in the session the doc scout returned counts without hits (one miss on that kind of task).
