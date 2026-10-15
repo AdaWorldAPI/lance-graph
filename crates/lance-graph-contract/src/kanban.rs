@@ -424,24 +424,50 @@ mod tests {
     use crate::revision::CounterfactualVerdict;
 
     /// R1 (entry 2026-10-14-revision-layer-invariants §3): a goal is revised
-    /// only outside `CognitiveWork`, where the intention is shielded. Revision
-    /// from `CognitiveWork` is refused whatever the verdict; `Evaluation`
+    /// only outside `CognitiveWork`, where the intention is shielded. No
+    /// verdict reopens the goal from `CognitiveWork`: the result is never
+    /// `Plan` or `Planning`. An ACCEPTED verdict (eligible and `Necessary`)
+    /// is not a goal revision: it advances the work to `Evaluation`, the
+    /// postactional phase where the goal can then be revised. `Evaluation`
     /// reopens the goal through `Plan → Planning`.
     #[test]
     fn r1_goal_revision_is_refused_inside_cognitive_work() {
         use KanbanColumn::*;
         assert_eq!(CognitiveWork.revise(), None);
+        let mut accepted = 0;
         for effect in [
             EvidentialEffect::NoIncrease,
             EvidentialEffect::IncreaseEligible,
+            EvidentialEffect::Suspend,
         ] {
-            assert_eq!(
-                CognitiveWork.advance_on_revision(RevisionVerdict::unadjudicated(effect)),
-                None,
-                "{effect:?} must not revise inside CognitiveWork"
-            );
+            for counterfactual in [
+                CounterfactualVerdict::NotRun,
+                CounterfactualVerdict::Dispensable,
+                CounterfactualVerdict::Necessary,
+            ] {
+                let verdict = RevisionVerdict {
+                    effect,
+                    counterfactual,
+                };
+                let got = CognitiveWork.advance_on_revision(verdict);
+                assert!(
+                    !matches!(got, Some(Plan | Planning)),
+                    "{verdict:?} reopened the goal inside CognitiveWork: {got:?}"
+                );
+                if verdict.is_acceptable() {
+                    accepted += 1;
+                    assert_eq!(
+                        got,
+                        Some(Evaluation),
+                        "accepted work moves on to Evaluation"
+                    );
+                } else {
+                    assert_eq!(got, None, "{verdict:?} must not move CognitiveWork");
+                }
+            }
         }
-        // Silence twin: the same revision IS admitted pre- and post-action.
+        assert_eq!(accepted, 1, "the grid holds exactly one acceptable verdict");
+        // Silence twin: the same revision IS admitted post-action.
         assert_eq!(Evaluation.revise(), Some(Plan));
         assert_eq!(Plan.advance(), Some(Planning));
         assert_eq!(
