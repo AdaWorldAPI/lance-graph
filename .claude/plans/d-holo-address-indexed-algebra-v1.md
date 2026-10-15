@@ -1,6 +1,6 @@
 # D-HOLO — address-indexed algebra: falsifiers H1, H5, H6 (v1)
 
-**Status:** MEASURED 2026-10-14 (H1, H5, H6, H6b, H6c); H8, H9, H11, H12
+**Status:** MEASURED 2026-10-14 (H1, H5, H6, H6b, H6c); H8, H9, H11, H12, H14
 PRE-REGISTERED, not run. The pre-registration below is unchanged; results are in § Results
 (2026-10-14), the next falsifiers in § Next falsifiers.
 
@@ -40,6 +40,7 @@ is run.
 - [ ] D-HOLO-H9: relational emptiness without a fold
 - [ ] D-HOLO-H11: stacked logic (pre-registered after H6b; runs after it)
 - [ ] D-HOLO-H12: semantic map of inference functions across NARS systems
+- [ ] D-HOLO-H14: full-row writes vs lane deltas that stay in their row (pre-registered 2026-10-15)
 
 ## Accounting rules (apply to every falsifier)
 
@@ -845,3 +846,62 @@ Open: a noise-robust criterion (per-fixture median over runs, or a repeated
 maximum) and whether switching intermediate results mid-query should be
 allowed at all.
 
+
+## Next falsifier: H14 — full-row writes vs lane deltas that stay in their row (PRE-REGISTERED 2026-10-15, NOT RUN)
+
+**Question (operator, 2026-10-15).** For one graph (classid) x thought (rung) x
+64k-row tile, is a dirty row written as (a) the full 512-byte SoA row, or (b) a
+32-lane index plus the changed 16-byte lanes? D-HL-5 measured the in-memory
+tile (slot delta 12 + 16k bytes per dirty row, 0.054 of a row at k = 1); this
+falsifier owns the persistence choice. Written before the probe exists; a
+change after the run is a new dated section.
+
+**DECISION (operator, 2026-10-15).** Two levels of awareness stay distinct and
+are never folded into each other:
+- a **session** holds several thoughts: one thought mask per session;
+- a **thought** holds several lanes: one lane mask per (thought, row).
+A lane is never stored apart from its row. Either the whole row is written, or
+the delta carries its row key and lane mask in the same record, so a read never
+has to re-join lanes to rows. Storage that splits lanes from their rows creates
+a dissociation that a later read must re-merge, and that re-merge is a
+materialization cost. SCOPE: H14. REVISIT WHEN: an arm without the connection
+wins on read and bytes together.
+
+**Arms.**
+- A (full row): per dirty (thought, row), the 512-byte row image.
+- B (connected delta): per dirty (thought, row), one record = row key, lane
+  mask (u32), the changed lanes packed in lane order. Lanes exist only inside
+  their record.
+- C (dissociated, control): one table per (thought, lane), keyed by row. It is
+  kept only to measure the re-merge it forces; it cannot become the default
+  under the decision above.
+All three hold the same session thought masks; the session level is not part
+of any arm's lane storage.
+
+**Grid.** Classes 1 and 16; thoughts per session 1, 8, 64; 65,536 rows per
+tile; dirty fraction 1 %, 10 %, 100 %; changed lanes per dirty row k = 1, 4,
+16, 31. Fixtures deterministic (seeded), identical for every arm.
+
+**Metrics.** Bytes stored and bytes one append would write (Arrow batch size,
+computed exactly); seal ns per dirty row; full-row read ns per row (base merged
+with the thought's record); session read ns per row (every thought of one
+session over a 4,096-row aperture); for C, the re-merge ns per row reported on
+its own. v4 only, tier printed by the program; ns per row or per record, never
+whole-call milliseconds. The Lance write itself is not timed here (D-WAL owns
+it); this falsifier reports what each arm would hand to it.
+
+**Rule.** B is the default if, at k <= 4 on every (dirty, thoughts) cell, B's
+full-row read is <= 1.25x A's, its session read <= 1.25x A's, and its bytes <=
+0.5x A's. Otherwise A is the default. C is reported, never chosen. If B passes
+only at some k, the crossover k* is reported and the decision returns to the
+operator.
+
+**Tests and disable runs (before any timing).**
+- Every arm reads the same bytes as a dense reference tile, row by row
+  (disable: drop the merge in B's read).
+- The session mask names exactly the thoughts that wrote in the session
+  (disable: derive it from the lane masks of one thought).
+- A thought's lane mask equals the lanes that differ from the base at that row
+  (disable: store every lane).
+- B never yields a lane without its row key; C's re-merge returns the same rows
+  as A (disable: skip a lane table in the re-merge).
