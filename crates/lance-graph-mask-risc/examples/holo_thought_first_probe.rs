@@ -636,6 +636,26 @@ fn scalar_xor(a: &[u64], b: &[u64]) -> usize {
     (0..N).filter(|&i| bit(a, i) != bit(b, i)).count()
 }
 
+/// The planes and value lanes a mask-risc program names (D-HOLO-H14c-6):
+/// the operand selection the program carries, read from the program itself.
+/// Parsed from the program's `Debug` form (`Plane(n)`, `lane: n`) so it
+/// covers every op and terminal variant without restating them; a lane field
+/// that is not a literal is not counted.
+fn lane_footprint(p: &Program) -> (std::collections::BTreeSet<u16>, std::collections::BTreeSet<u16>) {
+    let text = format!("{p:?}");
+    let grab = |key: &str, end: char| {
+        text.match_indices(key)
+            .filter_map(|(i, _)| {
+                let rest = &text[i + key.len()..];
+                let num: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                let ok = rest[num.len()..].starts_with(end) || end == ' ';
+                (ok && !num.is_empty()).then(|| num.parse().ok()).flatten()
+            })
+            .collect::<std::collections::BTreeSet<u16>>()
+    };
+    (grab("Plane(", ')'), grab("lane: ", ' '))
+}
+
 // ------------------------------------------------------------- measurement
 
 fn proc_status(key: &str) -> u64 {
@@ -1278,6 +1298,25 @@ mod tests {
         assert_eq!(counters()[2], 0, "no value may be loaded for a denied address");
         r.read_under(&ap, 0, &mut out);
         assert!(out.iter().all(|g| !matches!(g, Got::Denied)));
+    }
+
+    /// The footprint instrument reads exactly the planes and lanes named.
+    #[test]
+    fn lane_footprint_reads_the_program_selection() {
+        let (planes, lanes) = lane_footprint(&and_count_program(3));
+        assert_eq!(planes.into_iter().collect::<Vec<_>>(), vec![0, 1, 2]);
+        assert!(lanes.is_empty());
+        let p = Program::new(
+            vec![lance_graph_mask_risc::MaskOp::Pred {
+                pred: lance_graph_mask_risc::Pred::GtI32 { lane: 7, t: 3 },
+                under: Some(MOp::Plane(4)),
+                dst: 0,
+            }],
+            Terminal::MaskedSumI32 { mask: MOp::Scratch(0), lane: 12 },
+        );
+        let (planes, lanes) = lane_footprint(&p);
+        assert_eq!(planes.into_iter().collect::<Vec<_>>(), vec![4]);
+        assert_eq!(lanes.into_iter().collect::<Vec<_>>(), vec![7, 12]);
     }
 
     /// The fixtures do what their names say (anti-vacuity).
