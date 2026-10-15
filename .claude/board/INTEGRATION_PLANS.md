@@ -1,3 +1,11 @@
+## 2026-10-15 — d-holo-h14c-thought-first-v1 — thought-first positional reads, Hamming presence and Lance 13 masked I/O → `.claude/plans/d-holo-h14c-thought-first-v1.md`
+
+**Status:** PRE-REGISTERED; nothing measured. D-HOLO-H14c, -1 … -6.
+
+- Replaces the row-reconstruction question of H14/H14b (arm M withdrawn) with: given thought, operands and Cartesian address, which accesses are unavoidable. `Thought(t)[Table(a)[i] : Table(b)[i]]`.
+- Point projection, presence populations (mask-risc AND/OR/XOR/Count) and explicit terminal rows measured apart; tables consulted must equal the requested lanes, independent of the touched tables.
+- Memory/fragmentation of 1 MiB positional tables (lazy, eager, sparse); Lance 13 `with_row_addr_prefilter` bytes_read vs unmasked; coordinate identity across append/delete/update/compaction with stale maps refused.
+
 ## 2026-10-14 (2) — metta-polyfill-v1 — Hyperon/MeTTa as a front end over the masking-algebra polyfill → `.claude/plans/metta-polyfill-v1.md`
 
 **Status:** PROPOSAL; D-MTP-0 (map + measurements), D-MTP-1 (join probe, measured), D-MTP-1b (range hop, measured) and D-MTP-6 (datafrog oracle) done; D-MTP-2..5 not authorized.
