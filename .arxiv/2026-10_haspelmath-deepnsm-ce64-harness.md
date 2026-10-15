@@ -14,12 +14,23 @@ existing lexical source (COCA / UD / WordNet / language-aware morphology)
   -> parse_readings: certain / alternative / ambiguity / overflow
   -> [separate attested grammatical-form function masks]
   -> hydrate(markers, per_verse_certain, basin): SPO + original verse path + order
-  -> CausalEdge64 syntactic view (S/P/O local u8 indices)
-     + sealed-version-scoped per-verse reversible u8 <-> u16 codebook
+  -> CausalEdge64 syntactic operand view (8:8:8 fixed register/ISA contract)
+     + ONE externally pinned, immutable epoch-wide operand dictionary
+     + version-qualified canonical meaning for all readers
   -> downstream authority/provenance/temporal writer: NOT IMPLEMENTED
 ```
 
 This executable probe is in `crates/deepnsm-v2/src/haspelmath.rs`.
+
+**ABI correction (15 Oct):** The original draft mistakenly introduced a
+per-verse palette. That would make the same CE64 operand byte mean different
+things in two verses, defeating the intention of a globally interoperable
+8:8:8 register contract. The implementation now requires a single frozen,
+explicit, version-identified operand dictionary for the execution epoch.
+This is a test fixture only until the canonical ISA/codebook registry supplies
+and verifies that dictionary across independent clients. BF16 and TCP/IP are
+*interoperability analogies*, not claims that a numerical format alone grounds
+semantic truth or that every NAL/Hyperon operator is equivalent.
 It changes no existing grammar decision, hydration behavior, CE64 bit definition,
 or Lance/OGAR writer.
 
@@ -61,7 +72,7 @@ local to this research example, not new classid, CE64 or ABI assignments.
 | Existing code, consumed | Harness addition | Still outside scope |
 |---|---|---|
 | `fsm::Reading / PosSet / parse_readings` | Existing lexical alternatives remain alternatives | German case, full morphological agreement, nested relatives |
-| `spo::Spo` with **u16** IDs | Per-verse reversible remap for **u8 CE64 slots** | Globally stable CE64 vocabulary encoding |
+| `spo::Spo` with **u16** IDs | Fixed epoch-wide dictionary (max 256 operands) for CE64's **u8** slots | Production canonical registry, full-vocabulary indirection |
 | `hydrate::hydrate` | Counts/addresses verified; unaddressed triples refused | Index-only hydration replacing the TOC, full throughput claim |
 | `CausalEdge64::ZERO` and S/P/O setters | Grammar-only low 24 bits, *high 40 zero* | Evidence/root persistence and NAL confidence calibration |
 | `tekamolo::read_clause`, `loci`, `wave` | Explicit future join points | TEKAMOLO x Haspelmath adjudication and 24xi4 anaphora |
@@ -70,9 +81,13 @@ local to this research example, not new classid, CE64 or ABI assignments.
 **Do not conflate:**
 1. English *to* vs French *à* is a comparison of multifunctionality,
    not a mathematical mapping from the lexical word "to" to its WordId neighbors.
-2. The lower 24 bits of a CE64 register have three **u8 local** codes here,
-   not the `u16` `Spo::pack` layout. The sidecar is indispensable and must
-   be persisted atomically by any future production writer.
+2. CE64's three **u8 operand lanes are a versioned ALU/ISA register contract**,
+   not u16 `Spo::pack` and NOT per-verse tokens. A stable, externally pinned
+   operand dictionary at the ingest boundary is essential to make codes mean
+   the same thing for every consumer of the same sealed epoch. Never infer
+   semantic identity from coincidental byte equality between unaligned versions.
+   This harness's tiny dictionary is a compatibility fixture, not a new global
+   codebook authority or a solution for all 65,536 WordIds.
 3. Syntax does not deserve f=1, c=1, a Pearl intervention mark, or
    `EpistemicState5::Causes`. Bare grammar output has no independent
    witness-based evidence roots. This probe leaves the CE64 header unset.
@@ -96,9 +111,9 @@ cargo fmt --manifest-path crates/deepnsm-v2/Cargo.toml --check
 | HSM-0 | Fig. 8.1 English *to*, German *zu*: connected | Wrong adjacency topology |
 | HSM-1 | Purpose+judicantis: disjoint | A vacuous "everything is adjacent" map |
 | HSM-2 | Incomplete function evidence stays `Incomplete` | Mistaking missing linguistic data for contradiction |
-| HSM-3 | Single verse FSM → hydrate → CE64 → u16 roundtrip (IDs >255) | Silent `u16 as u8` truncation |
+| HSM-3 | Single verse FSM → hydrate → CE64 → u16 roundtrip (IDs >255) using ONE frozen ABI | Silent narrowing and ephemeral relabeling |
 | HSM-4 | Parser alternatives preserved separately from certain hydrated givens | Silent arbitrary disambiguation |
-| HSM-5 | One verse, 258 different IDs | Silent codebook overflow/aliasing |
+| HSM-5 | Attempt >256 globally admitted operand codes, or an unknown word | Silent overflow, implicit remap or aliasing |
 | HSM-6 | Mismatched per-verse markers refused | Cross-verse identity drift |
 | HSM-7 | Missing evidence source refused | Unsupported evidence annotation |
 | HSM-8 | CE64 upper bits remain zero | Fabricated NARS/Pearl/epistemic certainty |
@@ -121,9 +136,13 @@ Preserve multiplicity, lexical unknowns, scope, ambiguity and signed local
 pointer overflow. Unbound references escalate instead of being guessed.
 
 **Wave C: Hydrated CE64 evidence.** Add a genuinely authorized writer whose
-sidecar scope is `(classid, sealed version, verse path)`, preserving
-stable word IDs, grammar receipts, original evidence roots, source timestamps,
-and read authorization. Require CE64 high-bit interpretations to follow the
+shared-ABI scope is `(classid, sealed version, register codebook/version)`,
+*not* one codebook per verse. Preserve stable WordIds separately from the
+agreed operand ABI, grammar receipts, original evidence roots, source timestamps,
+and read authorization. The ABI must be identical for all readers of that
+version, with incompatible dictionaries rejected. A full-vocabulary strategy
+requires explicit, global indirection or a wider addressing contract; do not
+silently redefine the 8:8:8 physical register. Require CE64 high-bit interpretations to follow the
 current global header contract; no private reassignments.
 
 **Wave D: Measurement.** Pin the KJV + Luther corpus snapshots, report
@@ -137,13 +156,15 @@ sets to the existing parser oracle before claiming a speedup.
 
 - A complete cross-linguistic attestation disconnected on a frozen map:
   **map falsified**, not an invitation to modify oracle data to fit.
-- Broken u16 recovery or local palette overflow: **refuse CE64 projection**.
+- Missing canonical register operand or frozen ABI overflow: **refuse CE64 projection**.
 - Any altered `parse_readings` certain/alternative accounting: **STOP**.
 - Inference from grammatical contiguity to causality or truth confidence:
   **STOP**.
 - Source-root duplication elevating confidence, stale temporal windows, or
   unauthorized view composition: **STOP**.
 - A build lacking the relevant production writer: **do not call it wired**.
+- A per-verse or per-thought register meaning remap: **STOP**, violates the
+  interoperability goal (the BF16 / TCP-IP analogy).
 
 Related plans: D-HOLO-H12 in #1551, D-ORACLE-0 in #1549,
 D-HL-5 in #1564, D-MTP-0 in #1555, the DeepNSM-v2 D-LXC experiments
