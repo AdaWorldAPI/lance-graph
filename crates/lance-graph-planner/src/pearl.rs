@@ -52,8 +52,9 @@ use lance_graph_contract::epistemic_state5::{
     Certification3, Epi5Declarations, Epi5Gen, Epi5ReadError, EpistemicState5, Topology2,
 };
 use lance_graph_contract::rail_geometry::RailAxis;
+use lance_graph_contract::revision::CounterfactualVerdict;
 
-use crate::chain_counterfactual::{counterfactual_replay, CutContext};
+use crate::chain_counterfactual::{counterfactual_replay, CutContext, Verdict};
 use crate::chain_replay::ChainStep;
 
 /// The operator bits 40..42 select.
@@ -136,6 +137,34 @@ impl Reaction {
             Reaction::Inert { frequency: f }
         }
     }
+
+    /// The counterfactual verdict this cut supports for the CUT STEP, the
+    /// middle leg of the Gadamer docket (`revision::RevisionVerdict`).
+    /// `factual_consistent` is the verdict of the uncut chain.
+    ///
+    /// - `LoadBearing` from a consistent factual chain → `Necessary`: the
+    ///   conclusion breaks without the step.
+    /// - `LoadBearing` from an inconsistent factual chain → `Dispensable`:
+    ///   removing the step REPAIRS the chain, so it is not needed for a
+    ///   consistent conclusion. Never `Necessary`, or a harmful step would
+    ///   make a revision acceptable.
+    /// - `Inert` → `Dispensable`: removing it changed nothing.
+    /// - `TruthOnly` → `NotRun`: the truth moved but the verdict did not.
+    ///   How that maps is an open decision (O23); until it is made the docket
+    ///   stays incomplete, so this never reads as `Necessary` or `Dispensable`.
+    ///
+    /// Scope: one cut judges one step. A claim resting on several steps needs
+    /// the claim ↔ step map before a step's verdict becomes the claim's.
+    #[must_use]
+    pub fn verdict(self, factual_consistent: bool) -> CounterfactualVerdict {
+        match self {
+            Reaction::LoadBearing { .. } if factual_consistent => CounterfactualVerdict::Necessary,
+            Reaction::LoadBearing { .. } | Reaction::Inert { .. } => {
+                CounterfactualVerdict::Dispensable
+            }
+            Reaction::TruthOnly { .. } => CounterfactualVerdict::NotRun,
+        }
+    }
 }
 
 /// A counterfactual edit. The base chain is never modified; the operator
@@ -178,6 +207,8 @@ pub struct Measured {
     earned: Option<Certification3>,
     ungrounded: Option<Ungrounded>,
     reaction: Option<Reaction>,
+    /// Whether the uncut chain was consistent (set with `reaction`).
+    factual_consistent: Option<bool>,
     confounded: Option<bool>,
     counterfactual_terminal: Option<CausalEdge64>,
 }
@@ -190,6 +221,7 @@ impl Measured {
             earned: None,
             ungrounded: None,
             reaction: None,
+            factual_consistent: None,
             confounded: None,
             counterfactual_terminal: None,
         }
@@ -220,6 +252,15 @@ impl Measured {
     #[must_use]
     pub fn reaction(&self) -> Option<Reaction> {
         self.reaction
+    }
+    /// The counterfactual verdict for the cut step: [`Reaction::verdict`],
+    /// or `NotRun` when no cut ran (another operator, or ungrounded).
+    #[must_use]
+    pub fn counterfactual_verdict(&self) -> CounterfactualVerdict {
+        match (self.reaction, self.factual_consistent) {
+            (Some(r), Some(consistent)) => r.verdict(consistent),
+            _ => CounterfactualVerdict::NotRun,
+        }
     }
     /// Whether the observational and interventional directions disagree
     /// (`SP` only).
@@ -285,6 +326,7 @@ pub fn reason<M: PopulationMask>(edge: CausalEdge64, ev: &Evidence<'_, M>, edit:
                         (f, conf(&cf.factual)),
                         (c, conf(&cf.counterfactual)),
                     ));
+                    out.factual_consistent = Some(cf.role.factual == Verdict::Consistent);
                     out.counterfactual_terminal = cf.counterfactual.last().map(|r| r.edge);
                 }
             }
@@ -682,6 +724,95 @@ mod tests {
                 counterfactual: 225
             })
         );
+    }
+
+    /// O22: the cut's reaction is the docket's counterfactual leg, so an
+    /// eligible revision reaches `is_acceptable()` end to end only when the
+    /// cut step was load-bearing.
+    #[test]
+    fn o22_a_load_bearing_cut_is_the_only_route_to_acceptance() {
+        use lance_graph_contract::revision::{EvidentialEffect, RevisionVerdict};
+        let d = declarations();
+        let rp = Replay::new();
+        let model = with_trial(related_population());
+        let ev = rp.evidence(&model);
+        let e = query(
+            CausalMask::SPO,
+            Certification3::Causes,
+            Topology2::IndirectKnown,
+        );
+        let accept = |m: &Measured| {
+            RevisionVerdict {
+                effect: EvidentialEffect::IncreaseEligible,
+                counterfactual: m.counterfactual_verdict(),
+            }
+            .is_acceptable()
+        };
+
+        // Cutting B → Y changes the verdict: Necessary, acceptable.
+        let (_, m) = step(e, CausalMask::SPO, &ev, Edit::CutStep(1), &d);
+        assert!(matches!(m.reaction(), Some(Reaction::LoadBearing { .. })));
+        assert_eq!(m.counterfactual_verdict(), CounterfactualVerdict::Necessary);
+        assert!(accept(&m));
+
+        // Cutting A → B moves only the truth: undecided (O23), not acceptable.
+        let (_, m) = step(e, CausalMask::SPO, &ev, Edit::CutStep(0), &d);
+        assert!(matches!(m.reaction(), Some(Reaction::TruthOnly { .. })));
+        assert_eq!(m.counterfactual_verdict(), CounterfactualVerdict::NotRun);
+        assert!(!accept(&m));
+
+        // No cut asked for: the attack did not run.
+        let (_, m) = step(e, CausalMask::SPO, &ev, Edit::None, &d);
+        assert!(m.reaction().is_none());
+        assert_eq!(m.counterfactual_verdict(), CounterfactualVerdict::NotRun);
+        assert!(!accept(&m));
+
+        // Another operator ran: no counterfactual verdict.
+        let (_, m) = step(e, CausalMask::PO, &ev, Edit::None, &d);
+        assert_eq!(m.counterfactual_verdict(), CounterfactualVerdict::NotRun);
+        assert!(!accept(&m));
+    }
+
+    /// O22: an inert cut makes the step dispensable, which never accepts.
+    #[test]
+    fn o22_an_inert_cut_is_dispensable() {
+        use lance_graph_contract::revision::{EvidentialEffect, RevisionVerdict};
+        let r = Reaction::classify(false, (180, 200), (180, 200));
+        assert_eq!(r, Reaction::Inert { frequency: 180 });
+        assert_eq!(r.verdict(true), CounterfactualVerdict::Dispensable);
+        assert!(!RevisionVerdict {
+            effect: EvidentialEffect::IncreaseEligible,
+            counterfactual: r.verdict(true),
+        }
+        .is_acceptable());
+    }
+
+    /// O22 (Codex P1 on #1560): a cut that turns an inconsistent chain into a
+    /// consistent one is load-bearing but the step is harmful, not needed.
+    /// It must never read as `Necessary`, through `Reaction` or `Measured`.
+    #[test]
+    fn o22_a_cut_that_repairs_the_chain_is_not_necessary() {
+        use lance_graph_contract::revision::{EvidentialEffect, RevisionVerdict};
+        let r = Reaction::classify(true, (100, 200), (200, 200));
+        assert!(matches!(r, Reaction::LoadBearing { .. }));
+        assert_eq!(r.verdict(true), CounterfactualVerdict::Necessary);
+        assert_eq!(r.verdict(false), CounterfactualVerdict::Dispensable);
+
+        let mut m = Measured::new(CausalEdge64(0), Operation::Counterfactual);
+        m.reaction = Some(r);
+        m.factual_consistent = Some(false);
+        assert_eq!(
+            m.counterfactual_verdict(),
+            CounterfactualVerdict::Dispensable
+        );
+        assert!(!RevisionVerdict {
+            effect: EvidentialEffect::IncreaseEligible,
+            counterfactual: m.counterfactual_verdict(),
+        }
+        .is_acceptable());
+        // Silence twin: the same reaction from a consistent chain accepts.
+        m.factual_consistent = Some(true);
+        assert_eq!(m.counterfactual_verdict(), CounterfactualVerdict::Necessary);
     }
 
     /// F1. Observation alone never reaches `Causes`, even when the sealed

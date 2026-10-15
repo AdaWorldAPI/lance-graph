@@ -124,7 +124,7 @@ Plan: `.claude/plans/nal-polyfill-v1.md`. Template: D-SQLP. No opcode, tenant or
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-NALP-0** | Plan, board rows | In PR | docs only |
+| **D-NALP-0** | Plan, board rows | Shipped (#1496) | docs only |
 | **D-NALP-1** | Statement layout + declared ClassView reading; additive `WideFieldMask` projection path on `ClassView`; binder's mask; term width decision | Partial: #1525 merged `08635ed` (NodeGuid reading `nal-statement-v1`, term width u16, aperture selection); ClassView wide projection and binder mask Queued | only the mask's lanes are read; undeclared reading and masked-out field refuse; Small = Wide answers |
 | **D-NALP-2** | Query procedures: select, truth threshold, choice by confidence, support count | Shipped #1525 `08635ed` (`crates/lance-graph-nal`: NodeGuid key, byte apertures; 7 oracle tests, 7 disable runs red; 19–248 ns at 1,048,576 rows); support count and argmax not built | equal to a row-at-a-time oracle; one-pattern threshold disable red; no new opcode |
 | **D-NALP-3** | Revision as `GroupCrossPowerSumsI32` over stored `w`/`f` | Shipped #1538 `4ceaab3` (`nal::Revision`, key = evidence class from the stamps; refuses overlap and missing provenance; 11 tests, 7 disable runs red; ONA's mid-fold saturation is a documented divergence, the fold keeps the exact sum) | equal to exact integer revision; OpenNARS revision points; duplicate evidence counts once |
@@ -143,7 +143,7 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-HL-0** | Plateau, plan, research map, board entry | In PR | docs only; every claim cites a file or entry |
+| **D-HL-0** | Plateau, plan, research map, board entry | Shipped (#1496) | docs only; every claim cites a file or entry |
 | **D-HL-1** | Decisions O1 (46..49), O2 (50..52), O3 (W), O5 (lane budget), O6 (what persists) | Queued (operator) | stored-meaning changes ship behind a version gate |
 | **D-HL-2** | Merge-on-read vs in-place revision | Queued | merge-on-read within 1 code of exact on every cell where in-place is not; ≥ 1 cell differs by ≥ 2 codes |
 | **D-HL-3** | Per-delta evidential base as the independence test (layer ≠ source) | Queued | sd ratio within 10 % of 1.0 on all four cases, incl. a cross-layer duplicate (counts once) and two independents in one layer (count twice); a layer-keyed rule must fail those two |
@@ -169,6 +169,16 @@ Plan: `.claude/plans/policy-baseline-integration-v1.md`.
 | **D-PBL-5** | Observed state: Intune per-device status; GPO "not centrally observable" | Queued | no drift count on a GPO-only setting |
 | **D-PBL-6** | Console projection; empty where no source | Queued | each cell names its source |
 | **D-PBL-7** | Linux source | Parked (D-PBL-0) | — |
+
+## D-RESIDUE-FP / D-MATURATION3 — hydrate fixed point and the Maslov pyramid (2026-10-11)
+
+Knowledge: `.claude/knowledge/maslov-pyramid-of-cognition.md`. Test-only (#1494).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-RESIDUE-FP-0** | `planner/tests/residue_fixed_point.rs`: production `pearl::hydrate` to a fixed point | Shipped (#1494) | extra passes bit-identical; only bits 59..60 change; 2 disable runs red |
+| **D-MATURATION3-0** | `planner/tests/maturation_ladder.rs`: stages 7..0, feedback, ablation, no self-support | Shipped (#1494) | 12 disable runs red; the stage reading of 50..52 is test-local |
+| **D-MATURATION3-1** | The pyramid as the plasticity ladder in bits 50..52, one global meaning | Queued (operator) | needs a global version gate for old codes; `learn`, `MooreNars16` and `CausalEdgeV3` byte 3 move in lockstep |
 
 ## D-NAL — NAL-1..9 × 34 recipes against OpenNARS and ONA (2026-10-11)
 

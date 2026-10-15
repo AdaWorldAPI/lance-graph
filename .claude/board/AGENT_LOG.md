@@ -1,3 +1,9 @@
+## 2026-10-15 — ledger-correction batch: two Haiku harvest runs
+
+- Card `harvest-scout` over ndarray `src/hpc/*cascade*` + blackboard (O20): hits at `cascade.rs:270-276`, `:813`, blackboard `:84-90` read and confirmed; 0 wrong, 0 missed. Earlier in the session the doc scout returned counts without hits (one miss on that kind of task).
+- General-purpose on Haiku, PR bodies #1494–#1504 verbatim (N3): 11/11 fetched; merge SHAs absent from the fetch and taken from `git log`; 2 deletions counts missing. Bodies used as written; 0 wrong.
+- Cost: about 338k and 425k subagent tokens. No conclusion came from a card.
+
 ## 2026-10-14 — D-MTP-0 harvest: six substrate-mapper runs, one reply each
 
 - Card `substrate-mapper` (run as a general-purpose agent with the card pasted; the card is not registered in this session), six units: `hyperon-atom`, `hyperon-space`, the minimal-MeTTa interpreter, the grounded stdlib, lance-graph `nal`/`r2il`/`relalg`, `quack`.

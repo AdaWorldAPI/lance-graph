@@ -422,6 +422,34 @@ const _: () = assert!(core::mem::size_of::<KanbanMove>() <= 16);
 #[cfg(test)]
 mod tests {
     use crate::revision::CounterfactualVerdict;
+
+    /// R1 (entry 2026-10-14-revision-layer-invariants §3): a goal is revised
+    /// only outside `CognitiveWork`, where the intention is shielded. Revision
+    /// from `CognitiveWork` is refused whatever the verdict; `Evaluation`
+    /// reopens the goal through `Plan → Planning`.
+    #[test]
+    fn r1_goal_revision_is_refused_inside_cognitive_work() {
+        use KanbanColumn::*;
+        assert_eq!(CognitiveWork.revise(), None);
+        for effect in [
+            EvidentialEffect::NoIncrease,
+            EvidentialEffect::IncreaseEligible,
+        ] {
+            assert_eq!(
+                CognitiveWork.advance_on_revision(RevisionVerdict::unadjudicated(effect)),
+                None,
+                "{effect:?} must not revise inside CognitiveWork"
+            );
+        }
+        // Silence twin: the same revision IS admitted pre- and post-action.
+        assert_eq!(Evaluation.revise(), Some(Plan));
+        assert_eq!(Plan.advance(), Some(Planning));
+        assert_eq!(
+            Evaluation
+                .advance_on_revision(RevisionVerdict::unadjudicated(EvidentialEffect::NoIncrease)),
+            Some(Plan)
+        );
+    }
     /// `Plan` was DECLARED with semantics and structurally unreachable: from
     /// `Evaluation`, `advance()` takes the first non-`Prune` (always `Commit`)
     /// and `veto()` takes `Prune`. This is the route that closes
