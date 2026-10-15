@@ -223,6 +223,546 @@ disagrees with the OpenNARS output beyond the D-HL-4 tolerance is not
 admitted. **Warden:** `isa-anti-lasagne-warden` must find no second IR and
 no lowering into a representation with no second reader.
 
+## Pre-registration — thought lanes as hypothesis tests (2026-10-14)
+
+**Status:** PROPOSAL, written before any lane code or run. Decision O5 taken
+by the operator on 2026-10-14: up to 64 thought lanes beside the 10 rung lanes.
+Changing a hypothesis, metric, threshold or decision rule after a run is not an
+edit of this section: it is a new dated section that says what changed and why.
+
+**Unit of observation.** One fixture: a premise pair (or set) with its kind of
+fact declared (math, episodic, agreement/disagreement) and its premises' CE64
+bytes set, including bits 50..52, 53..58 and 59..63. The fixture set is
+committed before the first run and is not filtered afterwards.
+
+**Lane = treatment.** Each lane runs one thought on the same fixtures against
+the same read-only base. A lane records its saccade (`AlphaOverlay`: where it
+looked, in which order, revisits) and its conclusions as sparse
+`delta = conclusion XOR base`. Lane identity is its own type, not a rung and
+not a recipe id. External engines (ONA, OpenNARS) fill their lanes from
+committed golden outputs; their derivation order is their saccade.
+
+**Controls, run in every comparison:**
+- Negative control: an identity lane that concludes the base. "Differs"
+  against base must report 0 rows. If not, the comparison is broken and no
+  other result of that run is read.
+- Positive control: a lane that changes exactly one known field on a known
+  set of rows. "Differs" must report exactly that field on exactly those rows.
+- Permutation null for every agreement rate: the same lane's conclusions
+  reassigned across fixtures at random (fixed seed); the observed agreement is
+  reported beside the null distribution.
+
+**Confirmatory hypotheses.** Deterministic ones are falsified by one
+counterexample and need no statistics.
+
+| H | Claim | Measure | Falsified when |
+|---|---|---|---|
+| H1 | No lane changes the base | hash of the base bytes before and after every run | any hash differs |
+| H2 | Reserving a lane costs nothing | reserve cost per lane over 1..64 lanes | cost grows with lane count (report the slope) |
+| H3 | Lanes are independent | parallel run vs sequential run | any byte differs |
+| H4 | The current law loses hydration marks | conclusions' bits 59..63 from `execute`/`syllogize` vs `pearl::hydrate` on the same chain | (stated null: they agree) agreement on every fixture, i.e. no loss |
+| H5 | NAL evidential-base overlap and the Gadamer gate agree on whether a conclusion may be revised into its own premise | admit / refuse per fixture, paired | any fixture where they differ (reported as a finding, not a failure) |
+| H6 | The exact codes (lane 1) agree with OpenNARS better than the f32 path (lane 2) | per-statement code error, paired | lane 1 not better on the paired exact McNemar test |
+
+**Candidate laws for a conclusion's marks** (lanes 9..12): (a) 0, today;
+(b) `IndirectKnown × Open`; (c) weakest premise topology made indirect,
+× `Open`; (d) `Unknown × Open`, hydrated afterwards. **Decision rule, declared
+now:** among laws that never raise certification above what a Pearl operator
+measured, choose the one with the highest topology agreement with the
+`pearl::hydrate` lane; on a tie, the one that writes fewer fields. The
+operator makes the final call from the table; this rule is the
+recommendation.
+
+**Statistics.** Exact counts with n for every rate. Paired comparisons (same
+fixtures through two lanes) use the exact McNemar test. Significance level
+0.01, Bonferroni-corrected over the number of paired comparisons, fixed here
+before the run (H6 plus the six pairwise comparisons between laws (a)..(d)).
+No confidence claim on dependent rows without citing the dependence
+(`I-NOISE-FLOOR-JIRAK`).
+
+**Exploratory, no decision attached:** where ONA's and OpenNARS's saccades
+diverge (first differing `seq`), which lanes revisit and where, and what each
+lane attended that no other lane did. Exploratory findings may motivate a new
+pre-registration; they never confirm a hypothesis in this one.
+
+## Placement and the first probe (2026-10-14)
+
+**DECISION (operator, 2026-10-14).** Saccades go into up to 64 tables; each
+table writes only its delta (sparse write) and is merged on read. Any change
+inside a 512-byte row causes a write. A thought's delta is placed either
+**globally**, in a table it owns alone, or **locally**, in one 16-byte slot
+(a tenant-sized lane) of a table shared with other thoughts, to save tables
+when a thought only needs one slot.
+
+**Probe:** `cognitive-shader-driver/examples/thought_layers_probe.rs`
+(`cargo test --example thought_layers_probe`). In memory only.
+- Table = `AlphaOverlay` (saccades) + per-row `RowDelta`: the XOR of the
+  slots that differ from the base, nothing else. Read = base XOR delta.
+- A slot-placed thought may write and read only its slot; the key slot never
+  changes; the 65th table is refused.
+- MEASURED (`cargo run --example thought_layers_probe`): 30 slot-placed
+  thoughts × 256 rows, one byte each, fit in 1 table and store 122,880 bytes
+  against 3,932,160 for full rows.
+- TEST-PINNED: 9 tests. Disable runs red: the key guard, the slot guard,
+  storing every slot instead of the changed ones, and reading another
+  thought's slots. Dropping the empty-delta check in `RowDelta::between`
+  stays green because `restrict` already drops empty deltas (redundant, not
+  a missing test).
+- Not yet: oracles in lanes (H4..H6), persistence (D-HL-7), the comparison
+  report over all lanes.
+
+## Delta granularity: 16-byte slot or 512-byte row (pre-registered 2026-10-14)
+
+**Question (operator, 2026-10-14).** Should a thought's delta store the whole
+512-byte row image or only the changed 16-byte slots, when up to 10^9 folds
+land in up to 64k rows of 512 bytes? Written before the probe exists; a change
+after the run is a new dated section.
+
+**Arms.**
+- R (row image): per dirty row, the full 512-byte image, as `cycle_sink`
+  writes today.
+- S (slot delta): per dirty row, a 32-bit slot mask plus the changed 16-byte
+  slots, packed. S-known: the writer knows which slots it wrote. S-diff: the
+  mask is found by comparing the new row with the base.
+
+Both keyed by the same row id and merged on read against the same base.
+Folds accumulate wide in a resident accumulator per (row, slot) and are
+rounded once at seal (U2); the fold path is identical in both arms and is
+measured once to show it.
+
+**Grid.** 65,536 rows; slots written per dirty row k in {1, 2, 4, 8, 16, 31};
+dirty fraction d in {1 %, 10 %, 100 %}; 10^9 folds.
+
+**Metrics.** v4 arm only, tier printed by the probe, ns per element, median
+of 5 runs.
+- M1 bytes stored per seal (counted).
+- M2 ns per fold.
+- M3 seal ns per dirty row (R, S-known, S-diff).
+- M4 merge-on-read ns per row: full row and one slot.
+- M5 resident bytes for 64 tables (computed, not allocated).
+
+**Decision rule.**
+- S is the default if at k = 1, for every d: M1(S) <= M1(R) / 16,
+  M3(S-known) <= M3(R), and M4 one-slot(S) <= 2 x M4 one-slot(R).
+- Crossover k*: the smallest k where S's M3 + M4(full row) exceeds R's. A
+  table whose thought writes k >= k* slots per row stores row images. No
+  crossover up to k = 31 means S throughout.
+- Not measured here: Lance append bytes and time (in-memory probe). Both arms
+  make one Lance write per seal by construction.
+
+**Result (MEASURED 2026-10-14).** `delta_granularity_probe`, built with
+`rustc -O -C target-cpu=native`, printed tier `v4 (avx512f)`; 4-core VM, two
+full runs. 5 tests; 5 disable runs red (read without overlay, store every
+slot, diff ignoring the base, slot offset from 0, store an empty mask).
+- M1, counted: S/R = (12 + 16k) / 516, from 0.054 at k = 1 to 0.984 at k = 31
+  (corrected 2026-10-15: three `u32` per dirty row, not two).
+- M2: 2.93 ns/fold over 1 MiB of accumulators (k = 1), 13.0 and 15.2 ns/fold
+  over 31 MiB in random order, 4.64 ns/fold over the same 31 MiB sorted by
+  accumulator. 10^9 folds take 3 to 15 s; sealing 64k rows takes 3 to 35 ms.
+  The fold cost does not depend on the arm. It depends on accumulator
+  footprint and order.
+- M5, computed: 64 tables with every row dirty hold 2.016 GiB as row images,
+  0.109 GiB as slot deltas at k = 1 and 1.984 GiB at k = 31.
+- Rule at k = 1: met in both runs. M1 0.054 <= 0.0625; M3 S-known below R in
+  all 6 cells; M4 one-slot S/R between 0.66 and 1.97 (closest: 1.97 at
+  d = 10 %, run 2).
+- k*: not stable. Run 1: 31, 31, 16; run 2: 16, 8, 16 (d = 1, 10, 100 %).
+- Full-row reads cost 1.1 to 4.3 times more with S in every cell; one-slot
+  reads are equal within noise at d <= 10 %.
+- Caveats: M3 at d = 1 % includes allocating the 256 KiB row index per seal
+  for 655 rows, so it is not a per-row cost, and it varies up to 6 times
+  between runs. The k* sum adds one seal to one read, which is the cost only
+  when each dirty row is read once per seal. Lance append not measured.
+
+**Scope (operator, 2026-10-15).** This section measures one class tile in
+memory. Which form is persisted per (graph/classid x thought/rung x 64k
+tile), (a) the full 512-byte SoA row for every dirty row or (b) the 32-lane
+index plus 16-byte lanes, is a question for the D-HOLO plan
+(`d-holo-address-indexed-algebra-v1.md`), not for D-HL-5. The figures above
+are inputs to it, not its answer.
+
+## Lane-tables addressed by the NodeGuid trie (pre-registered 2026-10-14)
+
+**DECISION (operator, 2026-10-14).** One thought owns up to 32 lane-tables,
+table position = lane/tenant position: 0 identity (the thought's coverage,
+key immutable), 1 edge, 2..31 value. Up to 64 thoughts, so up to 2048
+lane-tables. Addressing is the NodeGuid trie, not a row index. A read is a
+merge on read over a selection (prefix aperture x thought mask x lane mask),
+keyed by the immutable NodeGuid: no join, no fold.
+
+**Question (operator: "measure both").** Per-lane tries, or one trie per
+thought with a lane mask at each leaf? Written before the probe exists; a
+change after the run is a new dated section.
+
+**Arms.**
+- P (per-lane): each (thought, lane) has its own trie over the NodeGuids it
+  wrote and its own packed payload in leaf order.
+- S (shared): each thought has one trie over every NodeGuid it wrote; each
+  leaf carries a 30-bit lane mask; payload is packed per leaf in lane order,
+  located by a per-leaf start plus popcount of the lane mask below the lane.
+
+**Trie, identical in both arms.** Level-ordered, fan-out 16, one 16-bit child
+mask per node; child index = first child of the node + popcount(mask below
+the nibble). Path = classid (8 nibbles) + HEEL (4) + HIP (4) = 16 levels.
+Pointer-based layouts are out of scope for this probe.
+
+**Reads, both lockstep over the selected tries.**
+- Point: one NodeGuid; descend all selected tries level by level, drop a trie
+  when its child bit is clear; overlay the selected lanes of the surviving
+  tries in thought order (higher thought index wins a shared lane) onto the
+  base value.
+- Range: every NodeGuid under a 9-nibble prefix (classid + top HEEL nibble,
+  1/16 of the universe); depth-first lockstep enumeration, child set at each
+  node = OR of the alive tries' masks.
+
+**Grid.** Universe 65,536 NodeGuids, one classid. Thoughts T in {1, 8, 64};
+each covers a fraction d in {1 %, 10 %, 100 %} of the universe and writes
+w in {1, 4, 30} lanes per covered node, the lanes drawn per node. Lane mask
+selects 1 lane or all 30. Cells with more than 32 M written lane-cells are
+skipped (only T = 64, d = 100 %, w = 30).
+
+**Metrics.** v4 arm only, tier printed by the probe, median of 5.
+- Q1 bytes: trie structure + payload.
+- Q2 point read: ns per read and ns per trie-level step.
+- Q3 range read: ns per NodeGuid emitted.
+- Correctness, not timed: P, S and a brute-force oracle return identical
+  bytes for every point and range read in the tests.
+
+**Decision rule.** Reference cell T = 64, d = 10 %, w = 4, all 30 lanes
+selected. Choose P if, at the reference cell, its Q2 and Q3 are each within
+1.5 times S and its Q1 within 2 times S; otherwise S. Every other cell is
+reported and does not change the choice. If neither arm reads a point in
+under 1 microsecond at the reference cell, report that as a failure of the
+nanosecond target, not as a win for either arm.
+
+**Result (MEASURED 2026-10-14).** `lane_trie_probe`, built with
+`rustc -O -C target-cpu=native`, printed tier `v4 (avx512f)`; 4-core VM, one
+run. The run reached the 30-minute limit before its last two rows (T = 64,
+d = 100 %, w = 4, all lanes; w = 30 was skipped by the cap); every other cell,
+the reference cell included, completed. 5 tests (both arms against a
+brute-force oracle for point and range reads, precedence, drop on an
+uncovered key, rank order, empty lane-tables); 5 disable runs red.
+
+| reference cell T = 64, d = 10 %, w = 4, all lanes | P (per-lane) | S (shared) |
+|---|---|---|
+| Q1 bytes | 79,270,480 | 41,514,192 |
+| Q2 point read | 569,240 ns | 6,363 ns |
+| Q2 per trie-level step | 26.4 ns | 8.1 ns |
+| Q3 range, per emitted NodeGuid | 11,068 ns | 1,078 ns |
+
+- Rule: P is 89 times slower on Q2, 10 times on Q3 and 1.9 times larger, so
+  **S is chosen**. Neither arm reads a point under 1 microsecond at the
+  reference cell: **the nanosecond target fails for both**.
+- P is never cheaper with all lanes selected. With one lane selected it reads
+  points at about S's cost (3.3 to 7.5 microseconds at T = 64) and is faster
+  on ranges, because S walks every covered node to emit the few that carry
+  the lane.
+- Cost is set by tries descended times levels: at T = 64 a point read takes
+  up to 64 x 16 steps at 5 to 10 ns. The first 8 levels are the classid
+  chain, identical in every trie, so about half the steps carry no
+  information.
+- Not decided here: a single trie over all thoughts with a 64-bit thought
+  mask per node (one descent instead of 64), and taking the classid levels
+  out of the trie. Both change the arms and need a new pre-registration.
+
+## Identity table and thought sessions (pre-registered 2026-10-14)
+
+**DECISION (operator, 2026-10-14).** Measure the two follow-ups from the
+lane-trie result (one shared trie; classid out of the trie), and add: the
+identity is a dense table of 64k rows x 32 lanes (lane 0 key, 1 edge, 2..31
+value; 64k x 512 B), addressed by the NodeGuid's rank in its class trie; the
+64 thoughts are session addresses for temporary materialization, not
+storage. Written before the probe exists; a change after the run is a new
+dated section.
+
+**Arms.**
+- S16: the previous winner, one trie per thought, 16 levels (classid 8 +
+  HEEL 4 + HIP 4). Re-run as the baseline.
+- S8: S16 with the classid taken out (one trie per class): 8 levels.
+- M16, M8: one identity trie per class (16 or 8 levels) resolving a NodeGuid
+  to its identity row; thought overlays hang off the row: one 64-bit
+  written-by thought mask per row, then per (row, thought) entry a 30-bit
+  lane mask and the packed cells, entries sorted by thought. One descent per
+  read whatever the number of thoughts. Internal trie nodes carry no thought
+  mask: a prefix maps to a contiguous row range, so the range read scans
+  rows and skips each row whose written-by AND selection is 0.
+
+All arms return the same merged delta (30 value lanes plus the lane mask)
+and are checked against the brute-force oracle; a higher thought index wins
+a shared lane.
+
+**Session materialization (M8 only, reported, no decision attached).**
+Materialize a session's view into a temporary 512-byte-row buffer over a
+prefix range (1/16 of the class): identity row copied, then the session's
+overlays applied. Session = one thought (s in 0..63), and the merged view of
+all 64. Metric: ns per materialized row; bytes for all 64 sessions over the
+full class are computed, not allocated.
+
+**Grid, metrics.** As in the lane-trie pre-registration: universe 65,536,
+T in {1, 8, 64}, d in {1 %, 10 %, 100 %}, w in {1, 4, 30}, lanes 1 or all,
+32 M lane-cell cap; Q1 bytes (the 32 MiB identity table is shared by every
+arm and reported once), Q2 point read ns and ns per descent step, Q3 range
+ns per emitted NodeGuid; v4 only, tier printed, median of 5.
+
+**Decision rule.** Reference cell T = 64, d = 10 %, w = 4, all lanes. Among
+the arms whose Q3 is within 1.5 times the best Q3 and whose Q1 is within
+2 times the best Q1, choose the lowest Q2. Nanosecond target: a point read
+under 1 microsecond at the reference cell, reported pass or fail per arm.
+
+## Dense tile: the Morton code is the row (pre-registered 2026-10-14)
+
+**Input (operator, 2026-10-14):** the Morton tenant already has Cartesian
+addressing (`lance-graph-contract::morton8x8`, D-MORTON-0: checked 8:8
+arithmetic on the Z-order code, one nibble = one 4 x 4 refinement, fan-out
+16). 64k identity rows = 256 x 256 = one Morton tile, so for a class whose
+HEEL tile is dense the row is the HEEL code: no trie, no rank. A prefix
+aperture (top nibble p) is the contiguous row range [p x 4096, (p+1) x 4096).
+Written before the arm exists; it runs after the identity-session run, on
+its own, so the two do not share the CPU.
+
+**Arms, on a dense universe** (one classid, all 65,536 HEEL codes, HIP 0):
+- M8: the identity trie of the previous section (8 levels, HEEL + HIP).
+- D: row = the key's HEEL code, after checking the classid; no descent.
+Overlays, merge, materialization and the oracle are the ones of M.
+
+**Grid, metrics.** T in {1, 8, 64}, d in {1 %, 10 %, 100 %}, w in {1, 4, 30},
+lanes 1 or all, same cap; Q2 point read ns, Q3 range ns per emitted
+NodeGuid, and session materialization ns per row at the reference cell;
+v4 only, tier printed, median of 5.
+
+**Decision rule.** If D reads a point under 1 microsecond at the reference
+cell (T = 64, d = 10 %, w = 4, all lanes), dense class tiles use D and the
+trie is kept for sparse classes only. Otherwise both stay open and the
+overlay cost is the next thing to measure.
+
+**Results (MEASURED 2026-10-14)** for the two sections above.
+`identity_session_probe`, built with `rustc -O -C target-cpu=native`, printed
+tier `v4 (avx512f)`; 4-core VM, one run each, both complete (only the
+pre-declared T = 64, d = 100 %, w = 30 cell skipped). 6 tests (every arm and
+the dense arm against the brute-force oracle, prefix ranges, rank = row,
+classid-out depth, sessions); 6 disable runs red (classid check, prefix row
+range, thought selection in the merge, thought precedence, trie range end,
+session writing the key lane).
+
+Identity table and thought sessions, reference cell (T = 64, d = 10 %, w = 4,
+all lanes), random sparse universe:
+
+| arm | bytes | point read | range, per NodeGuid |
+|---|---|---|---|
+| S16 | 41.5 MB | 6,725 ns | 1,121 ns |
+| S8 | 41.5 MB | 3,844 ns | 1,082 ns |
+| M16 | 31.4 MB | 776 ns | 112 ns |
+| M8 | 31.4 MB | 783 ns | 116 ns |
+
+- Rule: M16 and M8 are the arms within 1.5 times the best range read; M16
+  has the lower point read, by 7 ns, which is within run-to-run noise.
+  **Chosen: the identity trie with overlays per row (M).** Nanosecond target
+  (point read under 1 µs): **met by M16 and M8**, not by S16 or S8.
+- Classid out of the trie: S8 is 1.75 times faster than S16 on points; M8
+  and M16 are equal, because in M the merge of the overlays costs more than
+  the descent.
+- Sessions (M8): 105 ns per materialized row for a one-thought session,
+  138 ns for the all-64 session. All 64 sessions over the whole class at
+  once would take 2 GiB, which is why sessions materialize a prefix range
+  and are temporary.
+
+Dense tile, reference cell, dense universe (all 65,536 HEEL codes):
+
+| arm | point read | range, per NodeGuid |
+|---|---|---|
+| M8 (identity trie) | 1,256 ns | 134 ns |
+| D (Morton code is the row) | 558 ns | 82 ns |
+
+- Rule: D reads a point under 1 µs at the reference cell, so **dense class
+  tiles use D; the trie stays for sparse classes.**
+- With few thoughts D reads a point in 16 to 60 ns (T = 1 and 8, d up to
+  10 %). At T = 64 the merge over up to 64 entries per row is what remains;
+  the overlay layout is the next thing to measure.
+- Sessions on the dense tile: D 106 ns per row (one thought), 147 ns per row
+  (all 64); M8 144 ns per row (all 64).
+
+## Coverage orientation: per-thought masks or per-row words (pre-registered 2026-10-14)
+
+**DECISION (operator, 2026-10-14).** Counting is popcount under an explicit
+equivalence key, intersected with the aperture. The thought x identity
+coverage is one 64k x 64 bit matrix (512 KiB per class) held in one of two
+orientations; measure both on the four count queries before choosing.
+Written before the probe exists; a change after the run is a new dated
+section.
+
+**Orientations, one dense class tile of 65,536 rows, 64 thoughts.**
+- C (per thought): 64 masks of 65,536 bits, 1,024 u64 words each; the
+  formula's M_t.
+- R (per row): one 64-bit written-by word per row; what the identity-session
+  and dense-tile arms already store.
+
+**Queries,** for a thought selection T (u64) and an aperture (a contiguous
+row range, as a Morton prefix gives):
+- Q-ID, distinct NodeGuid: C = popcount(OR of M_t over T, in the aperture);
+  R = number of rows with w AND T != 0.
+- Q-TH, distinct ThoughtId: C = thoughts in T whose M_t has a set bit in the
+  aperture; R = popcount(OR of w AND T over the aperture).
+- Q-PAIR, (NodeGuid, ThoughtId) observations: C = sum of popcount(M_t) in
+  the aperture; R = sum of popcount(w AND T).
+- Q-PERSP, perspectives on one identity: C = |T| bit reads; R =
+  popcount(w AND T).
+EvidenceRoot is not a coverage query and is not measured.
+
+**Also reported, no decision attached:** the cost of deriving one
+orientation from the other at seal (transpose, ns per row).
+
+**Grid.** Coverage independent per (thought, row) with density d in {1 %,
+10 %, 50 %}; |T| in {1, 8, 64} (T a fixed random subset, all 64 for 64);
+aperture 65,536, 4,096 or 256 rows. Every answer checked against a
+brute-force oracle over the bit matrix.
+
+**Metrics.** ns per query; for Q-ID, Q-TH, Q-PAIR also ns per aperture row
+(the per-element figure); v4 only, tier printed by the program, median of 5.
+
+**Decision rule.** Reference cells: d = 10 %, |T| in {8, 64}, aperture
+65,536 and 4,096. If one orientation is within 2 times the best on every
+query at every reference cell, only that one is stored. Otherwise both are
+kept, each query routed to its faster orientation, and the second
+orientation derived at seal. Nanosecond target: Q-PERSP under 10 ns, and
+the aperture queries under 1 ns per aperture row, in the better
+orientation; reported pass or fail.
+
+**Results (MEASURED 2026-10-14).** `coverage_orientation_probe`, built with
+`rustc -O -C target-cpu=native`, printed tier `v4 (avx512f)`; 4-core VM, two
+full runs. 6 tests against a brute-force oracle over the bit matrix
+(apertures aligned, unaligned, inside one word, across two words; a thought
+whose only rows sit next to the aperture); 9 disable runs red (aperture edge
+masks in both column helpers, thought selection in the row arm and in
+Q-PERSP, the OR over the selection, the transpose bit index).
+
+Reference cells, d = 10 %, ns per query, run 1 (run 2 within 1.6 times on
+every cell, same winner on every cell):
+
+| query | \|T\| = 8, 65,536 rows | \|T\| = 8, 4,096 | \|T\| = 64, 65,536 | \|T\| = 64, 4,096 |
+|---|---|---|---|---|
+| Q-ID | R 9,536 / **C 1,644** | R 502 / **C 189** | **R 9,808** / C 12,831 | **R 495** / C 966 |
+| Q-TH | R 6,233 / **C 52** | R 505 / **C 50** | R 5,624 / **C 154** | R 371 / **C 155** |
+| Q-PAIR | R 19,207 / **C 2,126** | R 2,240 / **C 275** | R 17,770 / **C 15,722** | **R 1,675** / C 2,135 |
+| Q-PERSP | **R 1.10** / C 7.61 | — | **R 1.11** / C 76.7 | — |
+
+- Rule: neither orientation is within 2 times the best on every query
+  (the row words lose Q-TH by up to 120 times and Q-PAIR by up to 9 times at
+  \|T\| = 8; the thought masks lose Q-PERSP by 7 to 70 times). **Both are
+  kept; each query routes to its faster orientation; the second is derived
+  at seal.**
+- Routing that follows from the numbers: Q-PERSP always on the row words;
+  Q-TH always on the thought masks; Q-ID and Q-PAIR on the thought masks for
+  a few thoughts and on the row words near all 64. The row arm reads the
+  whole 512 KiB whatever \|T\| is; the mask arm reads \|T\| x 8 KiB, so the
+  two meet at \|T\| = 64. The Q-PAIR cell at \|T\| = 64, full aperture
+  (C 15,722 vs R 17,770) is within run-to-run noise.
+- Nanosecond target: **met.** Q-PERSP 1.1 ns on the row words; the aperture
+  queries at most 0.40 ns per aperture row in the better orientation (all
+  cells, all three densities).
+- Seal cost (reported only): transpose row words to masks 6 to 120 ns per
+  row (d = 1 % to 50 %), masks to row words 6 to 36 ns per row; one class
+  tile is 0.4 to 7.9 ms.
+- Caveat: the mask arm's Q-TH stops at the first set word of each thought;
+  the row arm, as registered, scans the whole aperture and could stop once
+  every selected thought is seen. Not measured; it would narrow, not
+  reverse, the Q-TH gap at high density.
+- **Corrected 2026-10-15 (review): the early exit reverses Q-TH.** With the
+  row arm stopping once every selected thought is seen (one v4 run, tier
+  printed), Q-TH at d = 10 %, ns per query: \|T\| = 8 full tile R 60 / C 54,
+  4,096 rows R 50 / C 51; \|T\| = 64 full tile **R 86** / C 176, 4,096 rows
+  **R 57** / C 187. At d = 50 % the row words win every cell; at d = 1 % the
+  masks still win. The prediction above was wrong. Routing for Q-TH: masks
+  at low density, row words at d >= 10 % near all 64 thoughts; the "both
+  kept" outcome stands. The transposes are now timed with the whole result
+  passed to `black_box`: 6.3 to 128 ns per row (rows to masks), 5.3 to
+  25 ns per row (masks to rows); one class tile up to 8.4 ms.
+- A first build wrote the mask arm's Q-PAIR as an iterator chain with a mask
+  per word and was 3.5 times slower; the final arms sum interior words whole
+  and mask only the two edge words, and the Q-ID arm ORs the selected masks
+  into a reused window. The code shape moved the number more than the
+  orientation did in that cell, so only the final build is reported.
+
+## Givens layer: hydration is thought 0 (pre-registered 2026-10-15)
+
+**DECISION (operator, 2026-10-15, items 1-5 accepted).** The givens of the
+epistemic sudoku (D-GSO plan § GIVEN) live in thought layer 0 of the tunnel.
+Written before the probe exists; a change after the run is a new dated
+section.
+
+1. **Writer.** Only hydration writes layer 0, as the first execution of the
+   sudoku loop. Layers 1..63 are hypotheses. The lane budget (O5: up to 64
+   thought lanes beside the 10 rung lanes) is unchanged; layer 0 is one of
+   the 64.
+2. **Precedence.** A given is never overwritten. A hypothesis write that
+   offers a different value for a given's lane is refused and recorded as a
+   contradiction (row, thought, lanes, offered cell), never merged. A write
+   of the given's own value is agreement: not stored, not a contradiction.
+   Between hypotheses the D-HL-5 rule (higher thought wins) still holds;
+   only layer 0 changes.
+3. **CE64 bits.** Hydration writes bits 59..63 as one `EpistemicState5`
+   (`lance_graph_contract::epistemic_state5`, the declared reading of those
+   bits) through `with_epistemic_raw5`, never through the deprecated
+   `with_reasoning_band`. Topology2 comes from the ontology (direct relation;
+   through a named intermediate that resolves; through an unnamed one; no
+   relation). Certification3 is capped by the proofs hydration actually ran:
+   membership of both endpoints in the hydrated class earns Associated; a
+   declared relation whose endpoints (and named intermediate) resolve earns
+   Related. Nothing higher, whatever the ontology text claims, until a test
+   earns it (`Certification3::entails`, never a code comparison). Bits 50..52
+   are not written (O2 open).
+4. **Lifetime.** One read-only givens table per (classid, sealed version),
+   built at seal from an already hydrated resident set, held behind a
+   `LazyLock` registry, never persisted, never built inside a request.
+   Recomputing it gives the same bytes.
+5. **Tests first** (written and seen red before the implementation):
+   - (a) two hydrations of the same world give identical givens, including a
+     world whose relation declarations arrive in reverse order;
+   - (b) a hypothesis offering a different value for a given's lane is refused
+     and recorded; its twin: a non-trivial set of hypotheses writing only
+     non-given lanes or the given's own values produces zero contradictions
+     and merges higher-wins;
+   - (c) count queries exclude layer 0 when it is outside the thought
+     selection, against a brute-force oracle with and without bit 0;
+   - (d) every hydrated edge's certification is entailed by the proofs that
+     ran, including a world whose ontology claims `Causes`, which must
+     hydrate to at most `Related`.
+   Each guard gets a disable run that must turn its test red.
+
+**Metrics (reported, no decision attached).** v4 only, tier printed by the
+program, median of 5, dense class tile of 65,536 rows: hydration ns per row;
+merged point read with givens selected and unselected, ns per read;
+hypothesis write with the given check, ns per offered cell; Q-PERSP-style
+count with and without bit 0, ns per row.
+
+**Results (MEASURED 2026-10-15).** `givens_layer_probe`, `cargo run --release`,
+tier printed `v4 (avx512f)`, one run on a shared VM.
+- Tests: 7, all written first and seen red against stubs (a, b, b-twin,
+  layer-0 single writer, c, d, the registry). 8 disable runs, each red: cells
+  placed in declaration order (a, b); the given check removed (b, b-twin);
+  agreement counted as contradiction (b-twin); bit 0 forced into the count
+  (c); bit 0 forced into the read (caught by b and b-twin, not by c: a row
+  carrying only givens is never read past the written-word check); the
+  ontology's claim trusted as certification (d); a second seal re-hydrating
+  (registry); the layer-0 refusal removed.
+- 65,536 rows, 63 hypothesis thoughts, a third of the rows per thought, four
+  lanes each:
+  - hydration 34.1 ns per row (median of 5);
+  - hypothesis write with the given check 73.2 ns per offered cell (one pass;
+    5,233,689 offered: 4,978,337 accepted, 255,352 contradicted in 239,318
+    records, 0 agreed since the fixture's values are its own);
+  - merged point read over all 30 lanes 1,523 to 1,859 ns with givens,
+    1,059 to 1,741 ns without, three runs (about 21 overlay entries per row;
+    the cost is the overlay merge D-HL-5 already names; the givens gap is
+    within run-to-run spread). Re-measured 2026-10-15 with the read output
+    passed to `black_box` (review finding); the first run's 2,341 / 1,676 ns
+    did not observe the output;
+  - count over the written words 0.19 ns per row with or without bit 0 (at
+    this density every row holds a hypothesis, so both counts are 65,536;
+    the exclusion is shown by test c, not by this cell).
+- Certification on the fixture world: Open, Associated and Related all occur;
+  no edge asserts Supports or above, including the relations whose ontology
+  text claims Causes.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of

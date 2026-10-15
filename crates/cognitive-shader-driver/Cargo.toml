@@ -97,6 +97,35 @@ test = true
 name = "revision_epistemic_writer_probe"
 test = true
 
+# D-HL-5/7 in memory: 64 thought tables, sparse slot deltas, merge on read.
+[[example]]
+name = "thought_layers_probe"
+test = true
+
+# Delta granularity economics (16-byte slot vs 512-byte row); tests run under `cargo test`.
+[[example]]
+name = "delta_granularity_probe"
+test = true
+
+# Lane-tables on the NodeGuid trie (per-lane vs shared trie); tests run under `cargo test`.
+[[example]]
+name = "lane_trie_probe"
+test = true
+
+# Identity table + thought sessions (shared trie, classid out); tests run under `cargo test`.
+[[example]]
+name = "identity_session_probe"
+test = true
+
+[[example]]
+name = "coverage_orientation_probe"
+test = true
+
+# D-HL-5 givens layer: hydration writes thought 0; tests run under `cargo test`.
+[[example]]
+name = "givens_layer_probe"
+test = true
+
 # D-GSO-6 recipe selector probe; tests run under `cargo test`.
 [[example]]
 name = "recipe_selector_probe"
