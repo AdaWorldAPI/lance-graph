@@ -51,7 +51,7 @@ fn free_bytes(dir: &Path) -> u64 {
 
 /// One arm's writer.
 enum Arm {
-    L(LanceCycleWriter, String),
+    L(Box<LanceCycleWriter>, String),
     M(lancedb::Table),
 }
 
@@ -60,7 +60,10 @@ impl Arm {
         match kind {
             "L" => {
                 let p = format!("{dir}/cycles.lance");
-                Arm::L(LanceCycleWriter::open(p.clone()).await.expect("open L"), p)
+                Arm::L(
+                    Box::new(LanceCycleWriter::open(p.clone()).await.expect("open L")),
+                    p,
+                )
             }
             k if k.starts_with('M') => {
                 let flush: u64 = k[1..].parse().unwrap_or(100);
