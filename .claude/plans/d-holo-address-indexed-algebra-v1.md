@@ -1144,8 +1144,11 @@ touched table; a mask that drops a lane).
   session 0.93–1.13×). The failures are at 10 % dirty (T = 8 k = 4: 1.40 /
   1.34; T = 64: session 1.34–1.87) and at 100 % dirty (full-row up to 1.63×,
   session up to 5.85×).
-- M's bytes to the writer <= B's: yes, in every cell (one u32 per dirty row
-  less than B).
+- M's bytes to the writer <= B's: true in every cell, but by construction,
+  not as a measurement. Both arms carry the same values; B was also charged a
+  4-byte `starts` offset per dirty row that M was not, although both can
+  derive per-lane positions from the masks. Under the same accounting the two
+  are equal, so this part of the rule carried no evidence (review of #1569).
 - Folds: M uses C's presence masks; tested equal, not re-timed.
 - M default: **not met.** Returns to the operator.
 

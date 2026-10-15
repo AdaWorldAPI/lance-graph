@@ -352,6 +352,10 @@ impl ArmM {
         }
     }
     /// Bytes handed to the writer: per dirty row key + mask + changed lanes.
+    ///
+    /// This omits the per-row value offset that `ArmB::bytes` charges, though
+    /// both can derive it from the masks, so `bm <= bb` below holds by
+    /// construction (`bm == bb - 4 * dirty rows`); it is not a measurement.
     fn bytes(&self) -> usize {
         self.mask
             .iter()
@@ -741,7 +745,7 @@ fn main() {
         println!("    {f}");
     }
     println!(
-        "  M bytes to the writer <= B: {}",
+        "  M bytes to the writer <= B (by construction, see ArmM::bytes): {}",
         if m_bytes_ok { "yes" } else { "no" }
     );
     println!("  M folds are C's folds (tested equal, not re-timed)");

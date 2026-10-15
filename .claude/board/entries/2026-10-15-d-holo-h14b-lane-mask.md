@@ -7,7 +7,9 @@
   FALSIFIED in 9 of 18 cells. At 1 % dirty all 6 cells pass (full-row
   0.94–1.14× B, session 0.93–1.13×); failures at 10 % dirty (up to 1.40 /
   1.87×) and 100 % dirty (up to 1.63 / 5.85×). M's bytes to the writer are
-  at most B's in every cell. M default not met; returns to the operator.
+  at most B's in every cell, by construction rather than measurement (B was
+  charged a `starts` offset per dirty row that M was not; under the same
+  accounting they are equal). M default not met; returns to the operator.
 - The mask fixed most of C's merge cost: M's full-row read is faster than C's
   in 35 of 36 cells (C/M 0.98–3.69×).
 - F3 (fold, then build the named rows): M beats B in all 12 cells at 1 %
