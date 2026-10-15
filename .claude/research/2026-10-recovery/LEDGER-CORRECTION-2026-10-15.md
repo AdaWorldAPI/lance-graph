@@ -62,6 +62,18 @@ beside the ladder, not on it. Today's plasticity encoding (`plasticity.rs`: `S_H
 4. `learn`'s rule under R-c: a plane changes only if it is in the SPO mask AND the ladder stage permits change; the threshold is the operator's.
 5. The migration gate: old plasticity codes 1..6 need one global version gate; `learn`, `MooreNars16` and `CausalEdgeV3` byte 3 move together.
 
+6. **Ablation on the Pearl ladder? (operator: "probably part of it")** Two
+   different operations carry the name today:
+   - the counterfactual cut (`SPO`, `pearl.rs`): remove one step from one
+     chain; does THIS conclusion still hold? It looks upstream (necessity).
+   - the anchor ablation (`maturation_ladder.rs`, `Executed::Ablated { impact }`):
+     remove a relation from an isolated copy of the population; how many
+     OTHER relations reopen? It looks downstream (dependence), and it is what
+     earns the pyramid's Wisdom stage (impact ≥ 1 from Integration).
+   Room exists: the four single-plane codes (`None`, `S`, `P`, `O`) select no
+   operator today. Undecided: whether ablation takes one of them as its own
+   rung, or stays the pyramid's operation that 40..42 only feeds.
+
 ## 4a. Reconciled against the README diagram (2026-10-15)
 
 The README diagram and `docs/architecture/ce64-semantic-upper-half.md` are
