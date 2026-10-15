@@ -22,6 +22,12 @@
   1,649 cycles. The spec describes no component that removes WAL files.
 - Neither path compacts; both full scans grow linearly in rows.
 
-**Open:** a full-length soak (this one stopped at 27.5 min when the container restarted);
-the source of L's RSS growth (95 → 762 MiB); the effect of compaction on both; D-LNC-7
+- L's RSS growth is Lance's session metadata cache, not our writer (D-WAL-4,
+  `examples/wal_rss_probe.rs`): each commit inserts a clone of the new manifest keyed by
+  version, and in an append-only store manifest v lists v fragments, so the cache holds
+  about V²/2 fragment entries up to its 1 GiB default. At 1,600 versions: default session
+  628 MiB cache, 570 MiB RSS; session with an 8 MiB metadata cache 7.8 MiB, 52 MiB RSS.
+  Capping the metadata cache, or compacting so fragment count stops growing, bounds it.
+
+**Open:** a full-length soak (this one stopped at 27.5 min when the container restarted); the effect of compaction on both; D-LNC-7
 (which WAL to keep) stays a decision for the user.
