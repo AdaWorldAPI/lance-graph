@@ -73,7 +73,7 @@ fn overlay_value(t: usize, l: usize, i: usize) -> Val {
 /// The immutable base: one 512-byte row per address (the given).
 fn base_rows() -> Vec<u8> {
     let mut b = vec![0u8; N * ROW];
-    for (i, row) in b.chunks_exact_mut(ROW).enumerate() {
+    for (i, row) in b.as_chunks_mut::<ROW>().0.iter_mut().enumerate() {
         for l in 0..LANES {
             let v = mix(0xBA5E ^ ((l as u64) << 32) ^ i as u64).to_le_bytes();
             row[l * LANE..l * LANE + 8].copy_from_slice(&v);
@@ -479,7 +479,14 @@ impl ThoughtB {
 
     /// Lane `l` of row `i`: index lookup, mask test, popcount rank.
     #[inline]
-    fn read(&self, sel_lanes: &[usize], fallback: Fallback, base: &[u8], i: usize, out: &mut [Got]) {
+    fn read(
+        &self,
+        sel_lanes: &[usize],
+        fallback: Fallback,
+        base: &[u8],
+        i: usize,
+        out: &mut [Got],
+    ) {
         let r = self.rec_of[i];
         for (o, &l) in out.iter_mut().zip(sel_lanes) {
             *o = if r != NONE && self.masks[r as usize] >> l & 1 == 1 {
@@ -532,7 +539,14 @@ impl ThoughtS {
     }
 
     #[inline]
-    fn read(&self, sel_lanes: &[usize], fallback: Fallback, base: &[u8], i: usize, out: &mut [Got]) {
+    fn read(
+        &self,
+        sel_lanes: &[usize],
+        fallback: Fallback,
+        base: &[u8],
+        i: usize,
+        out: &mut [Got],
+    ) {
         for (o, &l) in out.iter_mut().zip(sel_lanes) {
             let hit = self.lanes[l].as_ref().and_then(|s| {
                 count!(TRANSLATIONS);
@@ -593,7 +607,12 @@ fn xor_count_program() -> Program {
 /// `popcount(OR of n planes)`: the session-wide population.
 fn or_count_program(n: u16) -> Program {
     if n == 1 {
-        return Program::new(vec![], Terminal::Count { mask: MOp::Plane(0) });
+        return Program::new(
+            vec![],
+            Terminal::Count {
+                mask: MOp::Plane(0),
+            },
+        );
     }
     let mut ops = vec![MaskOp::Or {
         a: MOp::Plane(0),
@@ -641,7 +660,12 @@ fn scalar_xor(a: &[u64], b: &[u64]) -> usize {
 /// Parsed from the program's `Debug` form (`Plane(n)`, `lane: n`) so it
 /// covers every op and terminal variant without restating them; a lane field
 /// that is not a literal is not counted.
-fn lane_footprint(p: &Program) -> (std::collections::BTreeSet<u16>, std::collections::BTreeSet<u16>) {
+fn lane_footprint(
+    p: &Program,
+) -> (
+    std::collections::BTreeSet<u16>,
+    std::collections::BTreeSet<u16>,
+) {
     let text = format!("{p:?}");
     let grab = |key: &str, end: char| {
         text.match_indices(key)
@@ -728,12 +752,23 @@ fn addrs_hot() -> Vec<usize> {
 }
 
 fn addrs_cold() -> Vec<usize> {
-    (0..READS).map(|j| (mix(0xC01D ^ j as u64) as usize) % N).collect()
+    (0..READS)
+        .map(|j| (mix(0xC01D ^ j as u64) as usize) % N)
+        .collect()
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let only = args.get(1).map(String::as_str).unwrap_or("all");
+    if only == "memcell" {
+        memory_cell(
+            &args[2],
+            args[3].parse().unwrap(),
+            args[4].parse().unwrap(),
+            &args[5],
+        );
+        return;
+    }
     println!("tier: {}", tier());
     println!(
         "host: MemTotal {} kB, batches 7 (median), reads per batch {READS}",
@@ -826,7 +861,18 @@ fn main_grid(base: &[u8], ev: &mut [u64]) {
                     }
                     t.elapsed().as_nanos() as f64 / 1000.0
                 };
-                row("A", "C", Pattern::Uniform, d, 1, u, k, "-", "resolve_ns", res_ns);
+                row(
+                    "A",
+                    "C",
+                    Pattern::Uniform,
+                    d,
+                    1,
+                    u,
+                    k,
+                    "-",
+                    "resolve_ns",
+                    res_ns,
+                );
                 let r = resolve(&sel, &c, base);
                 let mut out = vec![Got::Absent; k];
                 for (cache, addrs) in [("hot", &hot), ("cold", &cold)] {
@@ -873,9 +919,42 @@ fn main_grid(base: &[u8], ev: &mut [u64]) {
                             }
                         },
                     );
-                    row("A", "C", Pattern::Uniform, d, 1, u, k, cache, "read_ns", ns_c);
-                    row("A", "B", Pattern::Uniform, d, 1, u, k, cache, "read_ns", ns_b);
-                    row("A", "S", Pattern::Uniform, d, 1, u, k, cache, "read_ns", ns_s);
+                    row(
+                        "A",
+                        "C",
+                        Pattern::Uniform,
+                        d,
+                        1,
+                        u,
+                        k,
+                        cache,
+                        "read_ns",
+                        ns_c,
+                    );
+                    row(
+                        "A",
+                        "B",
+                        Pattern::Uniform,
+                        d,
+                        1,
+                        u,
+                        k,
+                        cache,
+                        "read_ns",
+                        ns_b,
+                    );
+                    row(
+                        "A",
+                        "S",
+                        Pattern::Uniform,
+                        d,
+                        1,
+                        u,
+                        k,
+                        cache,
+                        "read_ns",
+                        ns_s,
+                    );
                 }
             }
             if u >= 2 {
@@ -888,14 +967,44 @@ fn main_grid(base: &[u8], ev: &mut [u64]) {
                 let xor = xor_count_program();
                 let planes3: [&[u64]; 3] = [pa, pb, &ap];
                 let planes2: [&[u64]; 2] = [pa, pb];
-                let ns_and = time_batches(WORDS, || {}, || {
-                    black_box(run_count(&and3, black_box(&planes3)));
-                });
-                let ns_xor = time_batches(WORDS, || {}, || {
-                    black_box(run_count(&xor, black_box(&planes2)));
-                });
-                row("B", "C", Pattern::Uniform, d, 1, u, 2, "hot", "shared_ns_per_word", ns_and);
-                row("B", "C", Pattern::Uniform, d, 1, u, 2, "hot", "hamming_ns_per_word", ns_xor);
+                let ns_and = time_batches(
+                    WORDS,
+                    || {},
+                    || {
+                        black_box(run_count(&and3, black_box(&planes3)));
+                    },
+                );
+                let ns_xor = time_batches(
+                    WORDS,
+                    || {},
+                    || {
+                        black_box(run_count(&xor, black_box(&planes2)));
+                    },
+                );
+                row(
+                    "B",
+                    "C",
+                    Pattern::Uniform,
+                    d,
+                    1,
+                    u,
+                    2,
+                    "hot",
+                    "shared_ns_per_word",
+                    ns_and,
+                );
+                row(
+                    "B",
+                    "C",
+                    Pattern::Uniform,
+                    d,
+                    1,
+                    u,
+                    2,
+                    "hot",
+                    "hamming_ns_per_word",
+                    ns_xor,
+                );
                 row(
                     "B",
                     "C",
@@ -912,11 +1021,15 @@ fn main_grid(base: &[u8], ev: &mut [u64]) {
             if u == 31 {
                 // explicit terminal: rows built for 1,024 addresses
                 let addrs: Vec<usize> = (0..1024).map(|j| (mix(0x7E ^ j) as usize) % N).collect();
-                let ns = time_batches(1024, || {}, || {
-                    for &i in &addrs {
-                        black_box(materialize_row(&c[0], base, black_box(i)));
-                    }
-                });
+                let ns = time_batches(
+                    1024,
+                    || {},
+                    || {
+                        for &i in &addrs {
+                            black_box(materialize_row(&c[0], base, black_box(i)));
+                        }
+                    },
+                );
                 row("C", "C", Pattern::Uniform, d, 1, u, 31, "hot", "row_ns", ns);
             }
         }
@@ -967,7 +1080,18 @@ fn thought_axis(base: &[u8], ev: &mut [u64]) {
                         }
                     },
                 );
-                row("A", "C", Pattern::Uniform, d, tn, 31, 2, cache, "read_ns", ns);
+                row(
+                    "A",
+                    "C",
+                    Pattern::Uniform,
+                    d,
+                    tn,
+                    31,
+                    2,
+                    cache,
+                    "read_ns",
+                    ns,
+                );
             }
             let l0 = lanes[0];
             let planes: Vec<&[u64]> = cs
@@ -975,10 +1099,25 @@ fn thought_axis(base: &[u8], ev: &mut [u64]) {
                 .map(|c| c.tables[l0].as_ref().unwrap().present.as_slice())
                 .collect();
             let prog = or_count_program(tn as u16);
-            let ns = time_batches(WORDS, || {}, || {
-                black_box(run_count(&prog, black_box(&planes)));
-            });
-            row("B", "C", Pattern::Uniform, d, tn, 31, 1, "hot", "session_or_ns_per_word", ns);
+            let ns = time_batches(
+                WORDS,
+                || {},
+                || {
+                    black_box(run_count(&prog, black_box(&planes)));
+                },
+            );
+            row(
+                "B",
+                "C",
+                Pattern::Uniform,
+                d,
+                tn,
+                31,
+                1,
+                "hot",
+                "session_or_ns_per_word",
+                ns,
+            );
         }
     }
 }
@@ -1048,44 +1187,200 @@ fn spatial_axis(base: &[u8], ev: &mut [u64]) {
             let planes2: [&[u64]; 2] = [pa, pb];
             let ap = vec![u64::MAX; WORDS];
             let planes3: [&[u64]; 3] = [pa, pb, &ap];
-            row("B", "C", p, d, 1, 31, 2, "-", "shared_count", run_count(&and_count_program(3), &planes3) as f64);
-            row("B", "C", p, d, 1, 31, 2, "-", "hamming", run_count(&xor_count_program(), &planes2) as f64);
-            row("B", "C", p, d, 1, 31, 2, "-", "pop_a", run_count(&or_count_program(1), &[pa.as_slice()]) as f64);
+            row(
+                "B",
+                "C",
+                p,
+                d,
+                1,
+                31,
+                2,
+                "-",
+                "shared_count",
+                run_count(&and_count_program(3), &planes3) as f64,
+            );
+            row(
+                "B",
+                "C",
+                p,
+                d,
+                1,
+                31,
+                2,
+                "-",
+                "hamming",
+                run_count(&xor_count_program(), &planes2) as f64,
+            );
+            row(
+                "B",
+                "C",
+                p,
+                d,
+                1,
+                31,
+                2,
+                "-",
+                "pop_a",
+                run_count(&or_count_program(1), &[pa.as_slice()]) as f64,
+            );
         }
     }
 }
 
 /// Resident cost of C-lazy, C-eager and S, per (T, density, pattern), U = 31.
+/// Each (cell, arm) runs in its own child process: in one process the
+/// allocator hands freed pages of the previous cell to the next one, and the
+/// RSS and fault deltas read zero.
 fn memory_grid() {
+    let exe = std::env::current_exe().expect("own path");
     for p in [Pattern::Uniform, Pattern::Clustered] {
         for &d in &[0.001, 0.01, 0.1, 1.0] {
             for &tn in &[1usize, 8, 64] {
-                let ws: Vec<Writes> = (0..tn).map(|t| writes(p, d, t, 31)).collect();
-                let dirty: usize = ws.iter().map(|w| w.lanes.iter().map(|(_, v)| v.len()).sum::<usize>()).sum();
-                let tables = tn * 31;
-                row("M", "-", p, d, tn, 31, 0, "-", "logical_bytes", (tables * N * LANE) as f64);
-                row("M", "-", p, d, tn, 31, 0, "-", "payload_bytes", (dirty * LANE) as f64);
-                row("M", "-", p, d, tn, 31, 0, "-", "presence_bytes", (tables * WORDS * 8) as f64);
-                row("M", "-", p, d, tn, 31, 0, "-", "sparse_persist_bytes", (dirty * (4 + LANE)) as f64);
-                for (arm, commit) in [("C-lazy", Some(Commit::Lazy)), ("C-eager", Some(Commit::Eager)), ("S", None)] {
-                    let m0 = mem();
-                    let t = Instant::now();
-                    let held: (Vec<ThoughtC>, Vec<ThoughtS>) = match commit {
-                        Some(c) => (ws.iter().map(|w| ThoughtC::seal(w, c)).collect(), vec![]),
-                        None => (vec![], ws.iter().map(ThoughtS::seal).collect()),
-                    };
-                    let seal_ns = t.elapsed().as_nanos() as f64;
-                    let m1 = mem();
-                    black_box(&held);
-                    row("M", arm, p, d, tn, 31, 0, "-", "virtual_delta_bytes", ((m1.vm_kb as f64 - m0.vm_kb as f64) * 1024.0).max(0.0));
-                    row("M", arm, p, d, tn, 31, 0, "-", "rss_delta_bytes", ((m1.rss_kb as f64 - m0.rss_kb as f64) * 1024.0).max(0.0));
-                    row("M", arm, p, d, tn, 31, 0, "-", "minor_faults", (m1.flt - m0.flt) as f64);
-                    row("M", arm, p, d, tn, 31, 0, "-", "seal_ns_per_dirty", if dirty > 0 { seal_ns / dirty as f64 } else { seal_ns });
-                    drop(held);
+                for arm in ["sizes", "C-lazy", "C-eager", "S"] {
+                    let out = std::process::Command::new(&exe)
+                        .args(["memcell", p.name(), &d.to_string(), &tn.to_string(), arm])
+                        .output()
+                        .expect("child");
+                    print!("{}", String::from_utf8_lossy(&out.stdout));
                 }
             }
         }
     }
+}
+
+fn memory_cell(p: &str, d: f64, tn: usize, arm: &str) {
+    let p = [Pattern::Uniform, Pattern::Clustered]
+        .into_iter()
+        .find(|x| x.name() == p)
+        .expect("pattern");
+    let ws: Vec<Writes> = (0..tn).map(|t| writes(p, d, t, 31)).collect();
+    let dirty: usize = ws
+        .iter()
+        .map(|w| w.lanes.iter().map(|(_, v)| v.len()).sum::<usize>())
+        .sum();
+    let tables = tn * 31;
+    if arm == "sizes" {
+        row(
+            "M",
+            "-",
+            p,
+            d,
+            tn,
+            31,
+            0,
+            "-",
+            "logical_bytes",
+            (tables * N * LANE) as f64,
+        );
+        row(
+            "M",
+            "-",
+            p,
+            d,
+            tn,
+            31,
+            0,
+            "-",
+            "payload_bytes",
+            (dirty * LANE) as f64,
+        );
+        row(
+            "M",
+            "-",
+            p,
+            d,
+            tn,
+            31,
+            0,
+            "-",
+            "presence_bytes",
+            (tables * WORDS * 8) as f64,
+        );
+        row(
+            "M",
+            "-",
+            p,
+            d,
+            tn,
+            31,
+            0,
+            "-",
+            "sparse_persist_bytes",
+            (dirty * (4 + LANE)) as f64,
+        );
+        return;
+    }
+    let m0 = mem();
+    let t = Instant::now();
+    let held: (Vec<ThoughtC>, Vec<ThoughtS>) = match arm {
+        "C-lazy" => (
+            ws.iter().map(|w| ThoughtC::seal(w, Commit::Lazy)).collect(),
+            vec![],
+        ),
+        "C-eager" => (
+            ws.iter()
+                .map(|w| ThoughtC::seal(w, Commit::Eager))
+                .collect(),
+            vec![],
+        ),
+        _ => (vec![], ws.iter().map(ThoughtS::seal).collect()),
+    };
+    let seal_ns = t.elapsed().as_nanos() as f64;
+    let m1 = mem();
+    black_box(&held);
+    let delta = |a: u64, b: u64| ((b as f64 - a as f64) * 1024.0).max(0.0);
+    row(
+        "M",
+        arm,
+        p,
+        d,
+        tn,
+        31,
+        0,
+        "-",
+        "virtual_delta_bytes",
+        delta(m0.vm_kb, m1.vm_kb),
+    );
+    row(
+        "M",
+        arm,
+        p,
+        d,
+        tn,
+        31,
+        0,
+        "-",
+        "rss_delta_bytes",
+        delta(m0.rss_kb, m1.rss_kb),
+    );
+    row(
+        "M",
+        arm,
+        p,
+        d,
+        tn,
+        31,
+        0,
+        "-",
+        "minor_faults",
+        (m1.flt - m0.flt) as f64,
+    );
+    row(
+        "M",
+        arm,
+        p,
+        d,
+        tn,
+        31,
+        0,
+        "-",
+        "seal_ns_per_dirty",
+        if dirty > 0 {
+            seal_ns / dirty as f64
+        } else {
+            seal_ns
+        },
+    );
 }
 
 // ------------------------------------------------------------- oracle tests
@@ -1126,7 +1421,15 @@ mod tests {
         let s = ThoughtS::seal(&w);
         let lanes = touched_lanes(31)[..4].to_vec();
         for fb in [Fallback::Base, Fallback::Absent] {
-            let r = resolve(&Selection { thought: 0, lanes: lanes.clone(), fallback: fb }, &c, &base);
+            let r = resolve(
+                &Selection {
+                    thought: 0,
+                    lanes: lanes.clone(),
+                    fallback: fb,
+                },
+                &c,
+                &base,
+            );
             let mut oc = vec![Got::Absent; 4];
             let mut ob = vec![Got::Absent; 4];
             let mut os = vec![Got::Absent; 4];
@@ -1154,7 +1457,15 @@ mod tests {
             let c = vec![ThoughtC::seal(&w, Commit::Lazy)];
             assert_eq!(c[0].touched(), u, "the fixture must touch {u} tables");
             let lanes = touched_lanes(u)[..2].to_vec();
-            let r = resolve(&Selection { thought: 0, lanes, fallback: Fallback::Absent }, &c, &base);
+            let r = resolve(
+                &Selection {
+                    thought: 0,
+                    lanes,
+                    fallback: Fallback::Absent,
+                },
+                &c,
+                &base,
+            );
             let mut out = vec![Got::Absent; 2];
             reset();
             for i in 0..1000 {
@@ -1173,13 +1484,30 @@ mod tests {
     fn a_zero_overlay_is_not_absent() {
         let base = base_rows();
         let l = touched_lanes(1)[0];
-        let w = Writes { thought: 0, lanes: vec![(l, vec![5])] };
+        let w = Writes {
+            thought: 0,
+            lanes: vec![(l, vec![5])],
+        };
         let mut c = vec![ThoughtC::seal(&w, Commit::Lazy)];
         c[0].tables[l].as_mut().unwrap().values[5] = [0; LANE];
-        let r = resolve(&Selection { thought: 0, lanes: vec![l], fallback: Fallback::Absent }, &c, &base);
+        let r = resolve(
+            &Selection {
+                thought: 0,
+                lanes: vec![l],
+                fallback: Fallback::Absent,
+            },
+            &c,
+            &base,
+        );
         let mut out = [Got::Absent];
         r.read(5, &mut out);
-        assert_eq!(out[0], Got::Overlay { thought: 0, value: [0; LANE] });
+        assert_eq!(
+            out[0],
+            Got::Overlay {
+                thought: 0,
+                value: [0; LANE]
+            }
+        );
         r.read(6, &mut out);
         assert_eq!(out[0], Got::Absent);
     }
@@ -1191,14 +1519,32 @@ mod tests {
         let l = touched_lanes(4)[0];
         let dirty = &w.lanes[0].1;
         let hit = dirty[0] as usize;
-        let miss = (0..N).find(|i| dirty.binary_search(&(*i as u32)).is_err()).unwrap();
+        let miss = (0..N)
+            .find(|i| dirty.binary_search(&(*i as u32)).is_err())
+            .unwrap();
         let mut out = [Got::Absent];
-        let rb = resolve(&Selection { thought: 0, lanes: vec![l], fallback: Fallback::Base }, &c, &base);
+        let rb = resolve(
+            &Selection {
+                thought: 0,
+                lanes: vec![l],
+                fallback: Fallback::Base,
+            },
+            &c,
+            &base,
+        );
         rb.read(hit, &mut out);
         assert!(matches!(out[0], Got::Overlay { .. }));
         rb.read(miss, &mut out);
         assert_eq!(out[0], Got::Base(base_lane(&base, miss, l)));
-        let ra = resolve(&Selection { thought: 0, lanes: vec![l], fallback: Fallback::Absent }, &c, &base);
+        let ra = resolve(
+            &Selection {
+                thought: 0,
+                lanes: vec![l],
+                fallback: Fallback::Absent,
+            },
+            &c,
+            &base,
+        );
         ra.read(miss, &mut out);
         assert_eq!(out[0], Got::Absent);
     }
@@ -1206,7 +1552,12 @@ mod tests {
     /// Oracles 6 and 7: mask-risc populations equal a scalar bit loop.
     #[test]
     fn populations_equal_the_scalar_reference() {
-        for p in [Pattern::Uniform, Pattern::Clustered, Pattern::Disjoint, Pattern::Overlapping] {
+        for p in [
+            Pattern::Uniform,
+            Pattern::Clustered,
+            Pattern::Disjoint,
+            Pattern::Overlapping,
+        ] {
             let w = writes(p, 0.1, 0, 4);
             let c = ThoughtC::seal(&w, Commit::Lazy);
             let l = touched_lanes(4);
@@ -1214,19 +1565,33 @@ mod tests {
             let pb = &c.tables[l[1]].as_ref().unwrap().present;
             let ap: Vec<u64> = (0..WORDS).map(|j| mix(0xA9 ^ j as u64)).collect();
             let three: [&[u64]; 3] = [pa, pb, &ap];
-            assert_eq!(run_count(&and_count_program(3), &three), scalar_and(&three), "{p:?}");
+            assert_eq!(
+                run_count(&and_count_program(3), &three),
+                scalar_and(&three),
+                "{p:?}"
+            );
             let two: [&[u64]; 2] = [pa, pb];
-            assert_eq!(run_count(&xor_count_program(), &two), scalar_xor(pa, pb), "{p:?}");
+            assert_eq!(
+                run_count(&xor_count_program(), &two),
+                scalar_xor(pa, pb),
+                "{p:?}"
+            );
             let or = (0..N).filter(|&i| bit(pa, i) || bit(pb, i)).count();
             assert_eq!(run_count(&or_count_program(2), &two), or, "{p:?}");
             // weight of one plane equals its dirty count
-            assert_eq!(run_count(&or_count_program(1), &[pa.as_slice()]), w.lanes[0].1.len());
+            assert_eq!(
+                run_count(&or_count_program(1), &[pa.as_slice()]),
+                w.lanes[0].1.len()
+            );
         }
         // the disjoint pattern really is disjoint, the overlapping one overlaps
         let wd = writes(Pattern::Disjoint, 0.5, 0, 4);
         let cd = ThoughtC::seal(&wd, Commit::Lazy);
         let l = touched_lanes(4);
-        let (a, b) = (&cd.tables[l[0]].as_ref().unwrap().present, &cd.tables[l[1]].as_ref().unwrap().present);
+        let (a, b) = (
+            &cd.tables[l[0]].as_ref().unwrap().present,
+            &cd.tables[l[1]].as_ref().unwrap().present,
+        );
         assert_eq!(scalar_and(&[a.as_slice(), b.as_slice()]), 0);
         assert!(scalar_xor(a, b) > 0);
     }
@@ -1239,7 +1604,10 @@ mod tests {
         let pa = &c[0].tables[l[0]].as_ref().unwrap().present;
         let pb = &c[0].tables[l[1]].as_ref().unwrap().present;
         reset();
-        black_box(run_count(&and_count_program(2), &[pa.as_slice(), pb.as_slice()]));
+        black_box(run_count(
+            &and_count_program(2),
+            &[pa.as_slice(), pb.as_slice()],
+        ));
         assert_eq!(counters(), [0; 5]);
     }
 
@@ -1248,7 +1616,15 @@ mod tests {
     #[test]
     fn rows_are_built_only_by_the_terminal() {
         let (base, w, c) = fixture(31);
-        let r = resolve(&Selection { thought: 0, lanes: touched_lanes(31)[..2].to_vec(), fallback: Fallback::Base }, &c, &base);
+        let r = resolve(
+            &Selection {
+                thought: 0,
+                lanes: touched_lanes(31)[..2].to_vec(),
+                fallback: Fallback::Base,
+            },
+            &c,
+            &base,
+        );
         let mut out = vec![Got::Absent; 2];
         reset();
         for i in 0..4096 {
@@ -1274,12 +1650,35 @@ mod tests {
         let base = base_rows();
         let l = touched_lanes(1)[0];
         let c: Vec<ThoughtC> = (0..2)
-            .map(|t| ThoughtC::seal(&Writes { thought: t, lanes: vec![(l, vec![9])] }, Commit::Lazy))
+            .map(|t| {
+                ThoughtC::seal(
+                    &Writes {
+                        thought: t,
+                        lanes: vec![(l, vec![9])],
+                    },
+                    Commit::Lazy,
+                )
+            })
             .collect();
         let mut out = [Got::Absent];
         for t in 0..2 {
-            resolve(&Selection { thought: t, lanes: vec![l], fallback: Fallback::Absent }, &c, &base).read(9, &mut out);
-            assert_eq!(out[0], Got::Overlay { thought: t as u16, value: overlay_value(t, l, 9) });
+            resolve(
+                &Selection {
+                    thought: t,
+                    lanes: vec![l],
+                    fallback: Fallback::Absent,
+                },
+                &c,
+                &base,
+            )
+            .read(9, &mut out);
+            assert_eq!(
+                out[0],
+                Got::Overlay {
+                    thought: t as u16,
+                    value: overlay_value(t, l, 9)
+                }
+            );
         }
         assert_ne!(overlay_value(0, l, 9), overlay_value(1, l, 9));
     }
@@ -1288,14 +1687,26 @@ mod tests {
     #[test]
     fn a_denied_address_loads_nothing() {
         let (base, _, c) = fixture(4);
-        let r = resolve(&Selection { thought: 0, lanes: touched_lanes(4)[..2].to_vec(), fallback: Fallback::Base }, &c, &base);
+        let r = resolve(
+            &Selection {
+                thought: 0,
+                lanes: touched_lanes(4)[..2].to_vec(),
+                fallback: Fallback::Base,
+            },
+            &c,
+            &base,
+        );
         let mut ap = vec![0u64; WORDS];
         ap[0] = 1; // only address 0 admitted
         let mut out = vec![Got::Absent; 2];
         reset();
         r.read_under(&ap, 1, &mut out);
         assert_eq!(out, vec![Got::Denied; 2]);
-        assert_eq!(counters()[2], 0, "no value may be loaded for a denied address");
+        assert_eq!(
+            counters()[2],
+            0,
+            "no value may be loaded for a denied address"
+        );
         r.read_under(&ap, 0, &mut out);
         assert!(out.iter().all(|g| !matches!(g, Got::Denied)));
     }
@@ -1312,7 +1723,10 @@ mod tests {
                 under: Some(MOp::Plane(4)),
                 dst: 0,
             }],
-            Terminal::MaskedSumI32 { mask: MOp::Scratch(0), lane: 12 },
+            Terminal::MaskedSumI32 {
+                mask: MOp::Scratch(0),
+                lane: 12,
+            },
         );
         let (planes, lanes) = lane_footprint(&p);
         assert_eq!(planes.into_iter().collect::<Vec<_>>(), vec![4]);
@@ -1332,7 +1746,8 @@ mod tests {
         assert_eq!(v.len(), 655);
         assert_eq!(v[v.len() - 1] - v[0], 654);
         let mo = writes(Pattern::Morton, 0.01, 0, 2);
-        let blocks: std::collections::BTreeSet<u32> = mo.lanes[0].1.iter().map(|i| i / 256).collect();
+        let blocks: std::collections::BTreeSet<u32> =
+            mo.lanes[0].1.iter().map(|i| i / 256).collect();
         assert!(blocks.len() <= 6, "morton: {} blocks", blocks.len());
         assert_eq!(writes(Pattern::Uniform, 0.0, 0, 2).lanes[0].1.len(), 0);
         assert_eq!(writes(Pattern::Uniform, 1.0, 0, 2).lanes[0].1.len(), N);

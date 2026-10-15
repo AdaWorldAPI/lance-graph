@@ -95,7 +95,11 @@ fn schema() -> Arc<Schema> {
         Field::new("epoch", DataType::UInt32, false),
     ];
     for l in 0..LANES {
-        f.push(Field::new(lane_name(l), DataType::FixedSizeBinary(LANE as i32), true));
+        f.push(Field::new(
+            lane_name(l),
+            DataType::FixedSizeBinary(LANE as i32),
+            true,
+        ));
     }
     Arc::new(Schema::new(f))
 }
@@ -224,7 +228,8 @@ async fn read_with(
     let stats: Arc<Mutex<Option<Io>>> = Arc::new(Mutex::new(None));
     let sink = stats.clone();
     let mut s = ds.scan();
-    s.project(&names).map_err(|e| ReadError::Lance(e.to_string()))?;
+    s.project(&names)
+        .map_err(|e| ReadError::Lance(e.to_string()))?;
     if let Some(m) = mask {
         s.with_row_addr_prefilter(m);
     }
@@ -311,7 +316,7 @@ async fn main() {
             "below v4: timings not reportable"
         }
     );
-    println!("csv,strategy,pattern,density,k,style,rows_emitted,bytes_read,iops,requests,wall_us");
+    println!("csv,strategy,pattern,density,k,style,rows_emitted,bytes_read,iops,requests,rows_scanned,ranges_scanned,wall_us");
     let dir = tempfile::tempdir().unwrap();
     let mut printed_keys = false;
     for p in [Pattern::Uniform, Pattern::Clustered] {
@@ -319,7 +324,14 @@ async fn main() {
             let uri = dir.path().join(format!("{}_{d}", p.name()));
             let uri = uri.to_str().unwrap();
             let coords: Vec<u32> = (0..N).collect();
-            let ds = write(uri, vec![batch(&coords, p, d, 1)], WriteMode::Create, false, 1 << 20).await;
+            let ds = write(
+                uri,
+                vec![batch(&coords, p, d, 1)],
+                WriteMode::Create,
+                false,
+                1 << 20,
+            )
+            .await;
             let map = build_map(&ds).await;
             for &k in &[1usize, 2, 4, 8] {
                 let lanes: Vec<usize> = (0..k).collect();
@@ -334,7 +346,10 @@ async fn main() {
                         io = i;
                     }
                     if !printed_keys {
-                        println!("all_counts keys: {:?}", io.counts.keys().collect::<Vec<_>>());
+                        println!(
+                            "all_counts keys: {:?}",
+                            io.counts.keys().collect::<Vec<_>>()
+                        );
                         printed_keys = true;
                     }
                     report("unmasked", p, d, k, &style, &io, median(walls));
@@ -347,7 +362,9 @@ async fn main() {
                     let mut walls = Vec::new();
                     for _ in 0..5 {
                         let t = Instant::now();
-                        let (_, i) = masked_read(&ds, &map, &joint, &lanes, style.clone(), true).await.unwrap();
+                        let (_, i) = masked_read(&ds, &map, &joint, &lanes, style.clone(), true)
+                            .await
+                            .unwrap();
                         walls.push(t.elapsed().as_secs_f64() * 1e6);
                         io = i;
                     }
@@ -359,12 +376,21 @@ async fn main() {
                         sum = Io::default();
                         let t = Instant::now();
                         for &l in &lanes {
-                            let own: Vec<u32> = coords.iter().copied().filter(|&c| present(p, d, l, c)).collect();
-                            let (_, i) = masked_read(&ds, &map, &own, &[l], style.clone(), true).await.unwrap();
+                            let own: Vec<u32> = coords
+                                .iter()
+                                .copied()
+                                .filter(|&c| present(p, d, l, c))
+                                .collect();
+                            let (_, i) = masked_read(&ds, &map, &own, &[l], style.clone(), true)
+                                .await
+                                .unwrap();
                             sum.bytes_read += i.bytes_read;
                             sum.iops += i.iops;
                             sum.requests += i.requests;
                             sum.rows += i.rows;
+                            for (key, v) in i.counts {
+                                *sum.counts.entry(key).or_default() += v;
+                            }
                         }
                         walls.push(t.elapsed().as_secs_f64() * 1e6);
                     }
@@ -375,15 +401,25 @@ async fn main() {
     }
 }
 
-fn report(strategy: &str, p: Pattern, d: f64, k: usize, s: &MaterializationStyle, io: &Io, wall_us: f64) {
+fn report(
+    strategy: &str,
+    p: Pattern,
+    d: f64,
+    k: usize,
+    s: &MaterializationStyle,
+    io: &Io,
+    wall_us: f64,
+) {
     println!(
-        "csv,{strategy},{},{d},{k},{},{},{},{},{},{wall_us:.1}",
+        "csv,{strategy},{},{d},{k},{},{},{},{},{},{},{},{wall_us:.1}",
         p.name(),
         style_name(s),
         io.rows,
         io.bytes_read,
         io.iops,
-        io.requests
+        io.requests,
+        io.counts.get("rows_scanned").copied().unwrap_or(0),
+        io.counts.get("ranges_scanned").copied().unwrap_or(0)
     );
 }
 
@@ -416,7 +452,11 @@ mod tests {
         for (&c, vals) in &got {
             assert!(cs.contains(&c), "coord {c} was not requested");
             for (j, &l) in lanes.iter().enumerate() {
-                assert_eq!(vals[j], want(Pattern::Uniform, 0.5, l, c, epoch_of(c)), "lane {l} at {c}");
+                assert_eq!(
+                    vals[j],
+                    want(Pattern::Uniform, 0.5, l, c, epoch_of(c)),
+                    "lane {l} at {c}"
+                );
             }
         }
         for &c in cs {
@@ -432,12 +472,34 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let uri = dir.path().join("t");
         let uri = uri.to_str().unwrap();
-        let ds = write(uri, vec![batch(&coords(0..TN), Pattern::Uniform, 0.5, 1)], WriteMode::Create, false, 1 << 20).await;
+        let ds = write(
+            uri,
+            vec![batch(&coords(0..TN), Pattern::Uniform, 0.5, 1)],
+            WriteMode::Create,
+            false,
+            1 << 20,
+        )
+        .await;
         let map = build_map(&ds).await;
         let lanes = [1usize, 2];
-        let joint: Vec<u32> = (0..TN).filter(|&c| lanes.iter().all(|&l| present(Pattern::Uniform, 0.5, l, c))).collect();
-        assert!(joint.len() > 500 && joint.len() < 2000, "joint population {}", joint.len());
-        let (got, io) = masked_read(&ds, &map, &joint, &lanes, MaterializationStyle::Heuristic, true).await.unwrap();
+        let joint: Vec<u32> = (0..TN)
+            .filter(|&c| lanes.iter().all(|&l| present(Pattern::Uniform, 0.5, l, c)))
+            .collect();
+        assert!(
+            joint.len() > 500 && joint.len() < 2000,
+            "joint population {}",
+            joint.len()
+        );
+        let (got, io) = masked_read(
+            &ds,
+            &map,
+            &joint,
+            &lanes,
+            MaterializationStyle::Heuristic,
+            true,
+        )
+        .await
+        .unwrap();
         assert_eq!(io.rows, joint.len());
         for &c in &joint {
             for (j, &l) in lanes.iter().enumerate() {
@@ -446,8 +508,12 @@ mod tests {
             }
         }
         for &l in &lanes {
-            let own: Vec<u32> = (0..TN).filter(|&c| present(Pattern::Uniform, 0.5, l, c)).collect();
-            let (got, _) = masked_read(&ds, &map, &own, &[l], MaterializationStyle::AllLate, true).await.unwrap();
+            let own: Vec<u32> = (0..TN)
+                .filter(|&c| present(Pattern::Uniform, 0.5, l, c))
+                .collect();
+            let (got, _) = masked_read(&ds, &map, &own, &[l], MaterializationStyle::AllLate, true)
+                .await
+                .unwrap();
             assert_eq!(got.len(), own.len());
             for &c in &own {
                 assert_eq!(got[&c][0], want(Pattern::Uniform, 0.5, l, c, 1));
@@ -462,15 +528,31 @@ mod tests {
         let cs = coords(0..256);
         let b = batch(&cs, Pattern::Uniform, 0.5, 1);
         // the same rows in reverse order
-        let rev = batch(&cs.iter().rev().copied().collect::<Vec<_>>(), Pattern::Uniform, 0.5, 1);
+        let rev = batch(
+            &cs.iter().rev().copied().collect::<Vec<_>>(),
+            Pattern::Uniform,
+            0.5,
+            1,
+        );
         assert_eq!(align(&b, &[0, 1]), align(&rev, &[0, 1]));
         // positional attribution of the reversed batch disagrees
-        let lane0 = rev.column_by_name("lane_0").unwrap().as_any().downcast_ref::<FixedSizeBinaryArray>().unwrap();
-        let positional_wrong = (0..256).filter(|&j| {
-            let by_pos: Option<Val> = (!lane0.is_null(j)).then(|| lane0.value(j).try_into().unwrap());
-            by_pos != want(Pattern::Uniform, 0.5, 0, j as u32, 1)
-        }).count();
-        assert!(positional_wrong > 100, "the fixture must make position and coord disagree");
+        let lane0 = rev
+            .column_by_name("lane_0")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<FixedSizeBinaryArray>()
+            .unwrap();
+        let positional_wrong = (0..256)
+            .filter(|&j| {
+                let by_pos: Option<Val> =
+                    (!lane0.is_null(j)).then(|| lane0.value(j).try_into().unwrap());
+                by_pos != want(Pattern::Uniform, 0.5, 0, j as u32, 1)
+            })
+            .count();
+        assert!(
+            positional_wrong > 100,
+            "the fixture must make position and coord disagree"
+        );
     }
 
     /// Oracle 10 and § 8: every identity scenario returns the requested
@@ -482,11 +564,25 @@ mod tests {
             let uri = dir.path().join("id");
             let uri = uri.to_str().unwrap();
             // initial append (two fragments of 1,024 rows)
-            let mut ds = write(uri, vec![batch(&coords(0..2048), Pattern::Uniform, 0.5, 1)], WriteMode::Create, stable, 1024).await;
+            let mut ds = write(
+                uri,
+                vec![batch(&coords(0..2048), Pattern::Uniform, 0.5, 1)],
+                WriteMode::Create,
+                stable,
+                1024,
+            )
+            .await;
             let m1 = build_map(&ds).await;
             check(&ds, &m1, &sample(2048), |_| 1).await;
             // second append
-            ds = write(uri, vec![batch(&coords(2048..TN), Pattern::Uniform, 0.5, 1)], WriteMode::Append, stable, 1024).await;
+            ds = write(
+                uri,
+                vec![batch(&coords(2048..TN), Pattern::Uniform, 0.5, 1)],
+                WriteMode::Append,
+                stable,
+                1024,
+            )
+            .await;
             assert!(matches!(
                 masked_read(&ds, &m1, &[1], &[0], MaterializationStyle::Heuristic, true).await,
                 Err(ReadError::StaleMapping { .. })
@@ -497,33 +593,58 @@ mod tests {
             ds.delete("coord % 7 = 0").await.unwrap();
             let m3 = build_map(&ds).await;
             assert!(!m3.id_of.contains_key(&7));
-            let (got, _) = masked_read(&ds, &m3, &[7, 8], &[0], MaterializationStyle::Heuristic, true).await.unwrap();
+            let (got, _) = masked_read(
+                &ds,
+                &m3,
+                &[7, 8],
+                &[0],
+                MaterializationStyle::Heuristic,
+                true,
+            )
+            .await
+            .unwrap();
             assert!(!got.contains_key(&7) && got.contains_key(&8));
             check(&ds, &m3, &sample(TN), |_| 1).await;
             // update: epoch 2 for coord < 100, lane values rewritten in place
             let upd = lance::dataset::UpdateBuilder::new(Arc::new(ds.clone()))
-                .update_where("coord < 100").unwrap()
-                .set("epoch", "2").unwrap()
-                .build().unwrap()
-                .execute().await.unwrap();
+                .update_where("coord < 100")
+                .unwrap()
+                .set("epoch", "2")
+                .unwrap()
+                .build()
+                .unwrap()
+                .execute()
+                .await
+                .unwrap();
             ds = (*upd.new_dataset).clone();
             let m4 = build_map(&ds).await;
-            let moved = (0..100u32).filter(|c| m3.id_of.get(c).is_some() && m3.id_of.get(c) != m4.id_of.get(c)).count();
+            let moved = (0..100u32)
+                .filter(|c| m3.id_of.contains_key(c) && m3.id_of.get(c) != m4.id_of.get(c))
+                .count();
             println!("stable={stable}: update moved {moved} of the updated rows' _rowid");
             check(&ds, &m4, &sample(TN), |_| 1).await; // lane values unchanged by the epoch update
-            // reopen: same version, the map stays valid
+                                                       // reopen: same version, the map stays valid
             let reopened = Dataset::open(uri).await.unwrap();
             assert_eq!(reopened.version().version, m4.version);
             check(&reopened, &m4, &sample(TN), |_| 1).await;
             // compaction
-            lance::dataset::optimize::compact_files(&mut ds, Default::default(), None).await.unwrap();
+            lance::dataset::optimize::compact_files(&mut ds, Default::default(), None)
+                .await
+                .unwrap();
             assert!(matches!(
                 masked_read(&ds, &m4, &[8], &[0], MaterializationStyle::Heuristic, true).await,
                 Err(ReadError::StaleMapping { .. })
             ));
             let m5 = build_map(&ds).await;
-            let changed = m4.id_of.iter().filter(|(c, id)| m5.id_of.get(c) != Some(id)).count();
-            println!("stable={stable}: compaction changed {changed} of {} _rowid", m4.id_of.len());
+            let changed = m4
+                .id_of
+                .iter()
+                .filter(|(c, id)| m5.id_of.get(c) != Some(id))
+                .count();
+            println!(
+                "stable={stable}: compaction changed {changed} of {} _rowid",
+                m4.id_of.len()
+            );
             if stable {
                 assert_eq!(changed, 0, "stable row ids must survive compaction");
             }
@@ -533,7 +654,14 @@ mod tests {
             check(&old, &m2, &sample(TN), |_| 1).await;
             // same-row-count rewrite: overwrite with the coordinates reversed
             let rev: Vec<u32> = (0..TN).rev().collect();
-            ds = write(uri, vec![batch(&rev, Pattern::Uniform, 0.5, 1)], WriteMode::Overwrite, stable, 1024).await;
+            ds = write(
+                uri,
+                vec![batch(&rev, Pattern::Uniform, 0.5, 1)],
+                WriteMode::Overwrite,
+                stable,
+                1024,
+            )
+            .await;
             assert!(matches!(
                 masked_read(&ds, &m5, &[8], &[0], MaterializationStyle::Heuristic, true).await,
                 Err(ReadError::StaleMapping { .. })
@@ -549,44 +677,99 @@ mod tests {
     async fn an_unchecked_stale_map_returns_a_wrong_answer() {
         let asked: Vec<u32> = (0..TN).step_by(17).collect();
         let mut outcomes = Vec::new();
-        for (name, stable) in [("overwrite-reversed", false), ("delete+compact", false), ("update", false), ("overwrite-reversed", true), ("delete+compact", true), ("update", true)] {
+        for (name, stable) in [
+            ("overwrite-reversed", false),
+            ("delete+compact", false),
+            ("update", false),
+            ("overwrite-reversed", true),
+            ("delete+compact", true),
+            ("update", true),
+        ] {
             let dir = tempfile::tempdir().unwrap();
             let uri = dir.path().join("stale");
             let uri = uri.to_str().unwrap();
-            let mut ds = write(uri, vec![batch(&coords(0..TN), Pattern::Uniform, 0.5, 1)], WriteMode::Create, stable, 1024).await;
+            let mut ds = write(
+                uri,
+                vec![batch(&coords(0..TN), Pattern::Uniform, 0.5, 1)],
+                WriteMode::Create,
+                stable,
+                1024,
+            )
+            .await;
             let m1 = build_map(&ds).await;
             match name {
                 "overwrite-reversed" => {
                     let rev: Vec<u32> = (0..TN).rev().collect();
-                    ds = write(uri, vec![batch(&rev, Pattern::Uniform, 0.5, 1)], WriteMode::Overwrite, stable, 1024).await;
+                    ds = write(
+                        uri,
+                        vec![batch(&rev, Pattern::Uniform, 0.5, 1)],
+                        WriteMode::Overwrite,
+                        stable,
+                        1024,
+                    )
+                    .await;
                 }
                 "delete+compact" => {
                     ds.delete("coord % 3 = 0").await.unwrap();
-                    lance::dataset::optimize::compact_files(&mut ds, Default::default(), None).await.unwrap();
+                    lance::dataset::optimize::compact_files(&mut ds, Default::default(), None)
+                        .await
+                        .unwrap();
                 }
                 _ => {
                     let upd = lance::dataset::UpdateBuilder::new(Arc::new(ds.clone()))
-                        .update_where("coord < 2000").unwrap()
-                        .set("epoch", "2").unwrap()
-                        .build().unwrap()
-                        .execute().await.unwrap();
+                        .update_where("coord < 2000")
+                        .unwrap()
+                        .set("epoch", "2")
+                        .unwrap()
+                        .build()
+                        .unwrap()
+                        .execute()
+                        .await
+                        .unwrap();
                     ds = (*upd.new_dataset).clone();
                 }
             }
             let fresh = build_map(&ds).await;
-            let want: Vec<u32> = asked.iter().copied().filter(|c| fresh.id_of.contains_key(c)).collect();
-            let (got, _) = masked_read(&ds, &m1, &asked, &[0], MaterializationStyle::Heuristic, false).await.unwrap();
+            let want: Vec<u32> = asked
+                .iter()
+                .copied()
+                .filter(|c| fresh.id_of.contains_key(c))
+                .collect();
+            let (got, _) = masked_read(
+                &ds,
+                &m1,
+                &asked,
+                &[0],
+                MaterializationStyle::Heuristic,
+                false,
+            )
+            .await
+            .unwrap();
             let wrong = got.keys().filter(|c| !asked.contains(c)).count();
             let missing = want.iter().filter(|c| !got.contains_key(c)).count();
-            let extra_deleted = got.keys().filter(|c| asked.contains(c) && !fresh.id_of.contains_key(c)).count();
+            let extra_deleted = got
+                .keys()
+                .filter(|c| asked.contains(c) && !fresh.id_of.contains_key(c))
+                .count();
             println!("stale map, {name}, stable={stable}: asked {}, live {}, returned {}, wrong coord {wrong}, silently missing {missing}, deleted returned {extra_deleted}", asked.len(), want.len(), got.len());
             outcomes.push(wrong + missing + extra_deleted);
             assert!(matches!(
-                masked_read(&ds, &m1, &asked, &[0], MaterializationStyle::Heuristic, true).await,
+                masked_read(
+                    &ds,
+                    &m1,
+                    &asked,
+                    &[0],
+                    MaterializationStyle::Heuristic,
+                    true
+                )
+                .await,
                 Err(ReadError::StaleMapping { .. })
             ));
         }
-        assert!(outcomes.iter().any(|&n| n > 0), "the hazard must be real for the version check to matter");
+        assert!(
+            outcomes.iter().any(|&n| n > 0),
+            "the hazard must be real for the version check to matter"
+        );
     }
 
     /// A missing lane column or a missing lane dataset fails explicitly.
@@ -595,12 +778,29 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let uri = dir.path().join("m");
         let uri = uri.to_str().unwrap();
-        let ds = write(uri, vec![batch(&coords(0..64), Pattern::Uniform, 0.5, 1)], WriteMode::Create, false, 1 << 20).await;
+        let ds = write(
+            uri,
+            vec![batch(&coords(0..64), Pattern::Uniform, 0.5, 1)],
+            WriteMode::Create,
+            false,
+            1 << 20,
+        )
+        .await;
         let map = build_map(&ds).await;
         assert!(matches!(
-            masked_read(&ds, &map, &[1], &[LANES + 3], MaterializationStyle::Heuristic, true).await,
+            masked_read(
+                &ds,
+                &map,
+                &[1],
+                &[LANES + 3],
+                MaterializationStyle::Heuristic,
+                true
+            )
+            .await,
             Err(ReadError::Lance(_))
         ));
-        assert!(Dataset::open(dir.path().join("absent").to_str().unwrap()).await.is_err());
+        assert!(Dataset::open(dir.path().join("absent").to_str().unwrap())
+            .await
+            .is_err());
     }
 }
