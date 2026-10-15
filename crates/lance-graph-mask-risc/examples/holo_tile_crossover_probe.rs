@@ -620,6 +620,16 @@ fn time<F: FnMut()>(mut f: F) -> f64 {
 
 // ---------------------------------------------------------------- Q1 fixtures
 
+/// The first adjacent pair of grid points where P/D goes from below 1 to at
+/// least 1, as `(g below, g above)`. A ratio above 1 that comes before every
+/// point below 1 is not a crossing: noise can put one there.
+fn upward_crossing(points: &[(usize, f64)]) -> Option<(usize, usize)> {
+    points
+        .windows(2)
+        .find(|w| w[0].1 < 1.0 && w[1].1 >= 1.0)
+        .map(|w| (w[0].0, w[1].0))
+}
+
 const GS: [usize; 12] = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -886,6 +896,7 @@ fn main() {
     for layout in [Layout::Blocked, Layout::Interleaved] {
         let mut last_below: Option<usize> = None;
         let mut first_above: Option<usize> = None;
+        let mut points: Vec<(usize, f64)> = Vec::new();
         for &g in &GS {
             let (ra, rb) = (group_rows(g, layout, 11), group_rows(g, layout, 12));
             let fa = |c: usize, o: usize| bit(&ra[c], o);
@@ -929,6 +940,7 @@ fn main() {
                 black_box(black_box(&da).complement());
             });
             let r = pq / dq;
+            points.push((g, r));
             if r < 1.0 {
                 last_below = Some(g);
             } else if first_above.is_none() {
@@ -943,18 +955,22 @@ fn main() {
                 pn / dn
             );
         }
-        println!("  {layout:?}: last g with P/D < 1: {last_below:?}; first g with P/D ≥ 1: {first_above:?}");
-        crossover.push((layout, last_below, first_above));
+        let up = upward_crossing(&points);
+        println!("  {layout:?}: last g with P/D < 1: {last_below:?}; first g with P/D ≥ 1: {first_above:?}; first upward crossing: {up:?}");
+        crossover.push((layout, up));
     }
-    let in_range = crossover.iter().all(
-        |&(_, below, above)| matches!((below, above), (Some(b), Some(a)) if b >= 4 && a <= 16),
-    );
+    let in_range = crossover
+        .iter()
+        .all(|&(_, up)| matches!(up, Some((b, a)) if b >= 4 && a <= 16));
     println!(
         "  prediction (crossover between g = 4 and 16 in both layouts): {}",
         if in_range { "HOLDS" } else { "FALSIFIED" }
     );
     let step = |g: Option<usize>| g.and_then(|g| GS.iter().position(|&x| x == g));
-    let agree = match (step(crossover[0].2), step(crossover[1].2)) {
+    let agree = match (
+        step(crossover[0].1.map(|(_, a)| a)),
+        step(crossover[1].1.map(|(_, a)| a)),
+    ) {
         (Some(a), Some(b)) => a.abs_diff(b) <= 1,
         _ => false,
     };
@@ -1105,6 +1121,22 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_ratio_above_one_before_every_point_below_is_not_a_crossing() {
+        // Codex example: above 1 at g = 1, then below 1 through g = 64.
+        let pts: Vec<(usize, f64)> = GS
+            .iter()
+            .map(|&g| (g, if g == 1 { 1.2 } else { 0.8 }))
+            .collect();
+        assert_eq!(upward_crossing(&pts), None);
+        // An ordinary crossing between 8 and 12 is found.
+        let pts: Vec<(usize, f64)> = GS
+            .iter()
+            .map(|&g| (g, if g <= 8 { 0.8 } else { 1.2 }))
+            .collect();
+        assert_eq!(upward_crossing(&pts), Some((8, 12)));
+    }
 
     fn same_cells(a: &dyn Fn(usize, usize) -> bool, b: &dyn Fn(usize, usize) -> bool) -> bool {
         (0..CELLS).all(|i| a(i / SIDE, i % SIDE) == b(i / SIDE, i % SIDE))
