@@ -40,7 +40,7 @@ is run.
 - [ ] D-HOLO-H9: relational emptiness without a fold
 - [ ] D-HOLO-H11: stacked logic (pre-registered after H6b; runs after it)
 - [ ] D-HOLO-H12: semantic map of inference functions across NARS systems
-- [ ] D-HOLO-H14: full-row writes vs lane deltas that stay in their row (pre-registered 2026-10-15)
+- [ ] D-HOLO-H14: full-row writes vs lane deltas that stay in their row (pre-registered 2026-10-15); amended 2026-10-15: arm C is the inverted fold and a candidate
 
 ## Accounting rules (apply to every falsifier)
 
@@ -905,3 +905,70 @@ operator.
   (disable: store every lane).
 - B never yields a lane without its row key; C's re-merge returns the same rows
   as A (disable: skip a lane table in the re-merge).
+
+### H14 amendment before any run (2026-10-15): arm C is the inverted fold, and a candidate
+
+**Correction (operator, 2026-10-15).** "If you use c) with the inverted
+holographic addresses you just make the fold the default and computation
+happens inside the inverted fold, only pay for materialisierung." The text
+above treated C as a dissociated control that "cannot become the default" and
+is "reported, never chosen". Both statements are SUPERSEDED. Nothing has been
+run, so this is a pre-registration change, not a result change.
+
+**Why C does not dissociate.** The decision above forbids storage that a read
+must re-join to its rows. Per-lane planes over the tile's own row addresses
+need no re-join: every plane lives in the same 65,536-row coordinate space, so
+combining lanes, thoughts and the aperture is an address-aligned mask fold
+(`And` / `Or` / `Count` in mask-risc), not a join. The row connection is
+carried by the address instead of by co-locating lanes in one record. Lanes
+are assembled into a row only when a terminal asks for a row, and that
+assembly is the one materialization C pays.
+
+**C (inverted fold), replacing the control.** Per (thought, lane) one plane:
+- the set of rows whose lane differs from the base, as an address mask
+  (carrier chosen by density: dense bitmap, sparse list or runs; the probe
+  prints which carrier each cell used, since a dense 8 KiB plane per
+  (thought, lane) is 64 x 31 x 8 KiB = 15.9 MB per tile and would lose on
+  bytes at 1 % dirty);
+- the changed 16-byte values for those rows, in address order.
+Queries stay inside the fold until a named terminal. The session thought mask
+is unchanged and still not part of any arm's lane storage.
+
+**Relation to H5.** H5 refuted a maintained inverse built in addition to the
+primary store (the plane inverse did not pay back its build within 1,000
+queries). Here the inverse planes are the primary store: there is no second
+structure to build, only the seal cost of writing into planes, which is
+measured below. If C's seal cost per dirty row exceeds B's by more than the
+H5 plane build ratio, that is reported as the same failure, not hidden.
+
+**Added queries (all arms, same fixtures).** Each answered without building a
+row, except where a terminal is named:
+- F1: rows thought t changed in any lane of a lane set L, inside an aperture,
+  as a count;
+- F2: rows changed by any thought of the session in lane l, inside an
+  aperture, as a count;
+- F3: F1's rows, materialized as full 512-byte rows (terminal).
+A and B answer F1 and F2 by scanning their records; C by folding planes.
+
+**Metrics added.** For C, fold ns per row of the aperture (F1, F2) and
+terminal materialization ns per emitted row (F3, and the full-row and session
+reads), reported separately so the materialization cost is visible on its
+own. Bytes as before, per carrier.
+
+**Revised rule (replaces "C is reported, never chosen").**
+- C is the default if, at k <= 4 on every (dirty, thoughts) cell: F1 and F2
+  on C are at least 2x faster than on B; the full-row read and session read on
+  C, including terminal materialization, are <= 1.25x B's; and C's bytes are
+  <= B's.
+- Otherwise the A-vs-B rule above decides between A and B.
+- If C wins the fold queries but loses the materializing reads, both numbers
+  are reported, the crossover (how many rows a query materializes before C
+  stops winning) is stated, and the decision returns to the operator.
+
+**Tests and disable runs added (before any timing).**
+- F1, F2 and F3 return the same rows and bytes on every arm as on the dense
+  reference (disable: drop one lane plane from C's fold).
+- C's materialization counter is zero after F1 and F2 and equals the emitted
+  row count after F3 (disable: assemble rows inside the fold).
+- C's planes name exactly the rows whose lane differs from the base
+  (disable: store every row of a touched lane).
