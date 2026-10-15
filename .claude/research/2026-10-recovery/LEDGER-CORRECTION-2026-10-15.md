@@ -13,6 +13,7 @@ Board entry: `.claude/board/entries/2026-10-15-ledger-correction-wire-contract.m
 | R-c | Bits 50..52 are the Maslov pyramid as the plasticity version of 59..63: a discrete plasticity dependency ladder. | The pyramid IS the plasticity field, not a second field beside it. |
 | R-d | The SPO mask (40..42) is the separation of concerns for Pearl's ladder, a fixed hydration method in the pyramid's dependencies. | Per-plane granularity belongs to 40..42, not to 50..52. |
 | R-e | Pearl's ladder is later wired with Pei Wang's NAL S-P and ALL others, as views on the same substrate. | New item N15. |
+| R-f | Bits 40..42 do for Pearl what bits 50..52 do for the plasticity pyramid. | Two 3-bit ladders side by side: 40..42 is how far up the causal ladder the edge has been interrogated (association → intervention → counterfactual), 50..52 is how far the edge has matured (Staunen 7 → wisdom 0). Both feed 59..63, which says what may be claimed. |
 
 ## 2. The header after R-b..R-d
 
@@ -28,7 +29,12 @@ Board entry: `.claude/board/entries/2026-10-15-ledger-correction-wire-contract.m
 | 59..63 | `EpistemicState5` | what the edge is licensed to claim (moved by `hydrate`) |
 
 Three fields, three concerns: method (40..42), maturity (50..52), licence
-(59..63). Today's plasticity encoding (`plasticity.rs`: `S_HOT`, `P_HOT`,
+(59..63). The first two are parallel ladders (R-f). Caveat: the pyramid is an
+ordinal code, but `CausalMask` encodes a rung as a plane subset (`SO`, `PO`,
+`SPO`, `SP`), and `SO` and `PO` are not ordered by inclusion. The rung order
+association < intervention < counterfactual must therefore be declared, never
+read off bit inclusion; confounder detection (`SP`) and the marginals sit
+beside the ladder, not on it. Today's plasticity encoding (`plasticity.rs`: `S_HOT`, `P_HOT`,
 `O_HOT`) mixes the first two; that is the cost of the migration.
 
 ## 3. Rows corrected
