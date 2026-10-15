@@ -111,7 +111,9 @@ const _: () = assert!(BAND_STATES == 8 && (BAND_STATES - 1) == 0b111);
 /// `Unknown`, ordinal-identical on the wire and identical in meaning
 /// (`Trust` is the Meta-Uncertainty-Layer's vocabulary for the Faktorortung
 /// cells). The declaration records which names the producer wrote with; it
-/// does not change what the bits mean. The names below are doc-comment
+/// does not change what the bits mean. [`project_truth`](BandReading::project_truth)
+/// still refuses a request for the other vocabulary (`LensMismatch`): the
+/// gate checks the declaration, it is not a semantic firewall. The names below are doc-comment
 /// pointers to the edge crate's enums, **never imports** (both crates are
 /// zero-dep):
 ///

@@ -255,6 +255,10 @@ impl TrustTexture {
 ///   writer meant. What is NOT guaranteed is that the bits were written at
 ///   all: under `V1Legacy` / `Unknown` provenance they may be v1 temporal
 ///   bits, and the reading contract refuses them rather than guessing.
+///   The declared-lens gate in `band_reading::project_truth`
+///   (`LensMismatch`) is unchanged by this note: a reader still has to ask
+///   for the vocabulary the class declared. That gate checks the
+///   declaration, it does not assert a second meaning for the bits.
 ///   ⊘ The earlier text here ("stamped with TRUST-TEXTURE semantics, not
 ///   TOPOLOGY semantics … not the same fact") treated the two vocabularies
 ///   as two facts; struck 2026-10-15.
