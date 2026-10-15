@@ -972,3 +972,38 @@ own. Bytes as before, per carrier.
   row count after F3 (disable: assemble rows inside the fold).
 - C's planes name exactly the rows whose lane differs from the base
   (disable: store every row of a touched lane).
+
+### H14 correction to the amendment (2026-10-15): the address is the register, nothing is traversed
+
+**Correction (operator, 2026-10-15).** "You don't traverse, the address is
+already the loci register. Instead of `Table1[index][a][b]`,
+`Table1[index][a] Table2[index][b]`." The amendment above stored C's changed
+values "in address order", compacted. Finding a row's value in a compacted run
+needs a rank or a search over the plane, which is a traversal. That part is
+SUPERSEDED.
+
+**C, as corrected.** One table per (thought, lane), indexed by the row address
+itself: `Lane_l[index]` is the 16-byte value of lane l at that row. The
+address is the position; reading lanes a and b of row i is two positional
+reads at the same i, with no search, no rank and no join. The presence mask
+per (thought, lane) stays, and it is what F1 and F2 fold over; it is never
+used to locate a value.
+
+Contrast with B: B's record is `Table[index][a][b]`, one row key with its lanes
+packed behind a lane mask, so reading lane b means walking the record (a
+popcount rank over the lane mask). The probe reports that rank as part of B's
+read cost.
+
+**Bytes.** Logically every (thought, lane) table spans the tile, which is
+65,536 x 16 B = 1 MiB. Two rules keep that from becoming the stored size:
+- only (thought, lane) pairs that changed at least one row get a table;
+  an absent table falls through to the base row (the zero-fallback);
+- the bytes handed to the writer are the dirty positions only (Lance sparse
+  write, merge on read), reported per cell next to the resident size.
+The resident size is reported on its own so the cost of positional tables in
+memory is visible, not hidden behind the persisted size.
+
+**Test added.** Reading lane l of row i on C touches exactly position i of one
+table: an access counter equals the number of lanes read, independent of how
+many rows the table holds (disable: store C's values compacted and look them
+up by rank, which makes the counter grow with the plane).
