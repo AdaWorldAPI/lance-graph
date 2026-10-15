@@ -307,7 +307,10 @@ fn median(mut v: Vec<f64>) -> f64 {
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
-    println!("lance: 13.0.0 (resolved; see Cargo.lock of this probe crate)");
+    println!(
+        "lance: {} (resolved at build time; no lockfile is tracked)",
+        env!("PROBE_LANCE_VERSION")
+    );
     println!(
         "tier: {}",
         if cfg!(target_feature = "avx512f") {
@@ -369,19 +372,25 @@ async fn main() {
                         io = i;
                     }
                     report("combined", p, d, k, &style, &io, median(walls));
-                    // independent: each lane with its own mask, aligned by coord
+                    // independent: each lane with its own mask, aligned by coord.
+                    // The masks are built before the timer, as `joint` is above.
+                    let owns: Vec<Vec<u32>> = lanes
+                        .iter()
+                        .map(|&l| {
+                            coords
+                                .iter()
+                                .copied()
+                                .filter(|&c| present(p, d, l, c))
+                                .collect()
+                        })
+                        .collect();
                     let mut walls = Vec::new();
                     let mut sum = Io::default();
                     for _ in 0..5 {
                         sum = Io::default();
                         let t = Instant::now();
-                        for &l in &lanes {
-                            let own: Vec<u32> = coords
-                                .iter()
-                                .copied()
-                                .filter(|&c| present(p, d, l, c))
-                                .collect();
-                            let (_, i) = masked_read(&ds, &map, &own, &[l], style.clone(), true)
+                        for (&l, own) in lanes.iter().zip(&owns) {
+                            let (_, i) = masked_read(&ds, &map, own, &[l], style.clone(), true)
                                 .await
                                 .unwrap();
                             sum.bytes_read += i.bytes_read;
