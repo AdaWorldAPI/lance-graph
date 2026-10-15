@@ -664,6 +664,58 @@ every cell, same winner on every cell):
   into a reused window. The code shape moved the number more than the
   orientation did in that cell, so only the final build is reported.
 
+## Givens layer: hydration is thought 0 (pre-registered 2026-10-15)
+
+**DECISION (operator, 2026-10-15, items 1-5 accepted).** The givens of the
+epistemic sudoku (D-GSO plan § GIVEN) live in thought layer 0 of the tunnel.
+Written before the probe exists; a change after the run is a new dated
+section.
+
+1. **Writer.** Only hydration writes layer 0, as the first execution of the
+   sudoku loop. Layers 1..63 are hypotheses. The lane budget (O5: up to 64
+   thought lanes beside the 10 rung lanes) is unchanged; layer 0 is one of
+   the 64.
+2. **Precedence.** A given is never overwritten. A hypothesis write that
+   offers a different value for a given's lane is refused and recorded as a
+   contradiction (row, thought, lanes, offered cell), never merged. A write
+   of the given's own value is agreement: not stored, not a contradiction.
+   Between hypotheses the D-HL-5 rule (higher thought wins) still holds;
+   only layer 0 changes.
+3. **CE64 bits.** Hydration writes bits 59..63 as one `EpistemicState5`
+   (`lance_graph_contract::epistemic_state5`, the declared reading of those
+   bits) through `with_epistemic_raw5`, never through the deprecated
+   `with_reasoning_band`. Topology2 comes from the ontology (direct relation;
+   through a named intermediate that resolves; through an unnamed one; no
+   relation). Certification3 is capped by the proofs hydration actually ran:
+   membership of both endpoints in the hydrated class earns Associated; a
+   declared relation whose endpoints (and named intermediate) resolve earns
+   Related. Nothing higher, whatever the ontology text claims, until a test
+   earns it (`Certification3::entails`, never a code comparison). Bits 50..52
+   are not written (O2 open).
+4. **Lifetime.** One read-only givens table per (classid, sealed version),
+   built at seal from an already hydrated resident set, held behind a
+   `LazyLock` registry, never persisted, never built inside a request.
+   Recomputing it gives the same bytes.
+5. **Tests first** (written and seen red before the implementation):
+   - (a) two hydrations of the same world give identical givens, including a
+     world whose relation declarations arrive in reverse order;
+   - (b) a hypothesis offering a different value for a given's lane is refused
+     and recorded; its twin: a non-trivial set of hypotheses writing only
+     non-given lanes or the given's own values produces zero contradictions
+     and merges higher-wins;
+   - (c) count queries exclude layer 0 when it is outside the thought
+     selection, against a brute-force oracle with and without bit 0;
+   - (d) every hydrated edge's certification is entailed by the proofs that
+     ran, including a world whose ontology claims `Causes`, which must
+     hydrate to at most `Related`.
+   Each guard gets a disable run that must turn its test red.
+
+**Metrics (reported, no decision attached).** v4 only, tier printed by the
+program, median of 5, dense class tile of 65,536 rows: hydration ns per row;
+merged point read with givens selected and unselected, ns per read;
+hypothesis write with the given check, ns per offered cell; Q-PERSP-style
+count with and without bit 0, ns per row.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
