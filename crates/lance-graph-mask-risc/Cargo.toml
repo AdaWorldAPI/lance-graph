@@ -47,3 +47,7 @@ test = true
 [[example]]
 name = "holo_tile_crossover_probe"
 test = true
+
+[[example]]
+name = "holo_lane_storage_probe"
+test = true
