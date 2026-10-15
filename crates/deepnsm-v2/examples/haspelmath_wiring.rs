@@ -5,7 +5,7 @@
 
 use deepnsm_v2::fsm::{Pos, PosSet};
 use deepnsm_v2::haspelmath::{
-    bind_tokens, run_harness, DativeFunction, FormAttestation,
+    bind_tokens, run_harness, DativeFunction, FormAttestation, FrozenOperandAbi,
 };
 use deepnsm_v2::vocab::PaletteVocab;
 
@@ -36,10 +36,19 @@ fn main() {
         coverage_complete: true,
         evidence_root: 1,
     };
-    let out = run_harness(&[(1, 1)], &[tokens], &[vec![attestation]], 3)
+    // Register ABI is version-pinned across the entire execution epoch.
+    // This tiny shared dictionary is a fixture, not the deployed global ISA.
+    let abi = FrozenOperandAbi::new(1, &[
+        vocab.id("doctor").unwrap(),
+        vocab.id("gave").unwrap(),
+        vocab.id("letter").unwrap(),
+        vocab.id("to").unwrap(),
+    ])
+    .expect("shared dictionary fixture");
+    let out = run_harness(&[(1, 1)], &[tokens], &[vec![attestation]], 3, &abi)
         .expect("fixture is addressable");
     for edge in &out.encoded {
-        let decoded = out.decode(edge).expect("reversible local palette");
+        let decoded = out.decode(edge, &abi).expect("frozen ABI decoding");
         println!(
             "verse={:?} order={} SPO=({}, {}, {}) ce64={:016x} map={:?}",
             edge.path,
