@@ -89,6 +89,7 @@ Going round a grounded cycle adds nothing.
 | anchor ablation measures dependence (impact 2 on the chain) | EXPERIMENTAL (probe) |
 | an anchor turns a neutral observation into new Astonishment; the anchor stays at 0 | EXPERIMENTAL (probe) |
 | `mature`: ~2–3 ns median, 0 allocations (release, one container) | MEASURED |
-| bits 50..52 carry the code in production | BLOCKED — they are plasticity (`learn`, `MooreNars16`, `CausalEdgeV3`) |
+| bits 50..52 carry the code in production | DECISION 2026-10-15: the pyramid IS the plasticity ladder (how free an edge still is to change), not a second field beside it. ⊘ was "BLOCKED — they are plasticity". Pending: one global version gate, since the bits are a wire contract read the same everywhere; `learn`, `MooreNars16` and `CausalEdgeV3` byte 3 move in lockstep (D-MATURATION3-1) |
+| per-plane granularity (S/P/O hot flags in today's encoding) | belongs to the SPO mask (40..42, Pearl method), not to the ladder |
 | production feedback | BLOCKED — needs D2 provenance ids |
-| bit migration and where plasticity lives | CONTRACT DECISION (operator) |
+| entry code, `learn`'s rule, migration of codes 1..6 | OPEN (operator); see `entries/2026-10-15-ledger-correction-wire-contract.md` |

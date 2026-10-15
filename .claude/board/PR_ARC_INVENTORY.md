@@ -174,6 +174,83 @@
 - **Confidence:** high for the flags; the CI regression is the caveat above.
 - **Correction (2026-10-13, from the full PR body and commit `12cdfde`):** the PR body's "every workflow sets `RUSTFLAGS` with an explicit `-C target-cpu=x86-64-v3`" was false: `dir-sim-persist.yml` and `identity.yml` set none, and that is where the SIGILL appeared. The wheel pin is not in the body; it came in the second commit `12cdfde` (Codex P1 on `make publish`), as did replacing the global Docker `ENV RUSTFLAGS` with `config-v3.toml` / `CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS` so arm64 builds are untouched (Codex P2). Not recorded before: the two thinking-engine images had been building at generic x86-64 (SSE2) and now build at v3.
 
+## 2026-10-12 — lance-graph PR #1504 (merged `c853cffa`, branch `ccr-9f3b8075-74u47l`, 12 commits) — D-CMH-1: class-qualified methods compile into Quack algebra, with no Rust per method
+
+- **Added:** `glove-parity/src/method.rs` (`MethodSpec`, `Glove`, `MethodTable`, `PreparedMethod`, `GroupSum`, `Law::NarsRevision`, `SchemaSeal` / `ReadingId` / `Universe`), `glove-parity/src/call.rs` (`resolve_call`), `examples/method_cost.rs`; R2IL `select_u32` + `count`; `POP_COUNT` / `SUM` / `GROUP_SUM` / `KEEP` read a resident plane as their mask. No new mask-risc or R2IL op.
+- **Locked:** a prepared method's `programs()` equals `lower(direct query)`; Quack, R2IL and a row loop agree at n ∈ {1, 64, 65, 4097}; `NarsRevision` matches OpenNARS's three reference revisions; repeated stamps leave truth unchanged. Cost on 1,048,576 rows (v3): method warm call 600 µs vs direct Quack 599 µs vs scalar loop 366 µs.
+- **Deferred / open:** `FirstOfRun` over an ordered key; retraction by semijoin (typed insufficiency today); three-valued conditions; method-key mint in OGAR (#357); compute-DAG at 256 positions (done in #1506); a fused filter + fold terminal.
+- **Confidence:** high; 13 disable runs red. Board entry `2026-10-12-class-method-polyfill-ledger.md`.
+
+## 2026-10-12 — lance-graph PR #1501 (merged `ec3fee7d`, branch `docs/class-method-hotplug-activation-rfc`, 7 commits) — docs: class-method HotPlug activation across Quack and R2IL (D-CMH-0)
+
+- **Added:** plans `class-method-schema-hotplug-v1.md` (D-CMH-0..12) and `class-method-hotplug-falsifiers-v1.md` (CMH-P01..P24); knowledge `class-method-hotplug-existing-contracts.md`; board entry D-CMH-0.
+- **Locked:** `ogar-loco::Inventory`, `VecInventory::push_keyed` and `Interpreter::with_inventory` already exist; the gap is their link to OGAR `MethodDecl`, Quack bindings and R2IL procedures. OGAR stays the only DO authority; one `mask-risc → ndarray` executor.
+- **Deferred / open:** where the `PreparedClass` sidecar lives (not in `lance-graph-contract`); implementation went to #1504.
+- **Confidence:** n/a (docs; no tests run).
+
+## 2026-10-12 — lance-graph PR #1499 (merged `060e8e63`, branch `docs/ce64-nars-evidence-primary-excerpts-20261012`, 2 commits) — docs: NARS internal evidence, fission and snapshot excerpts (follow-up #1496)
+
+- **Added:** `.arxiv/2026-10_nars_self_epistemic_needs_evidence_primary_excerpts.md` (Wang, Li & Hammer 2018; Jøsang 2007; Goertzel 2021) and a board entry.
+- **Locked:** nothing; five proposed red tests (same observation in two layers must not raise confidence; contributor removal; separate source / derivation / attention roles; version-k fold replays during k+1 append; appraisal ablation never rewrites truth).
+- **Deferred / open:** all five tests unrun.
+- **Confidence:** n/a (docs).
+
+## 2026-10-12 — lance-graph PR #1500 (merged `f746e634`, branch `docs/rubicon-gollwitzer-volition-research-20261012`, 3 commits) — docs: Rubicon volition source excerpts and falsifiable agent mapping (D-RV-0..9)
+
+- **Added:** `.arxiv/2026-10_rubicon_gollwitzer_volition_source_excerpts.md` (9 sources) and plan `rubicon-volition-v1.md` (D-RV-0..9).
+- **Locked:** NARS and CE64 evidence never become desire or action authority; bits 59..63 are not reassigned to volition.
+- **Deferred / open:** the A–E falsifier (deliberate each step / committed goal / + if-then / + counterfactual revision and disengagement / + mental contrasting) unrun; OGAR ActionDef / ONA / RIG mapping pending a source census.
+- **Confidence:** n/a (docs).
+
+## 2026-10-12 — lance-graph PR #1498 (merged `c73acbc2`, branch `docs/hyperon-metta-to-lg-parity-20261012`, 3 commits) — docs: Hyperon/MeTTa → lance-graph semantic projection and fold parity
+
+- **Added:** `.arxiv/2026-10_hyperon_metta_to_lance_graph_parity_map.md` (HY-Q01..15, candidate lowering matrix) and a board entry.
+- **Locked:** a row mask representing two matching rows is not equivalent to `b4_nondeterm.metta`'s four alternatives; a column SUM does not prove a metagraph fold law.
+- **Deferred / open:** upstream interpreters not run; later taken up as D-MTP (#1553).
+- **Confidence:** n/a (docs).
+
+## 2026-10-12 — lance-graph PR #1497 (merged `e323b918`, branch `docs/opencog-pln-shannon-entropy-research-20261012`, 3 commits) — docs: OpenCog PLN × Shannon attention research map and falsifiers
+
+- **Added:** `.arxiv/2026-10_opencog_pln_shannon_attention_research_map.md` (OC-Q01..13) and a board entry.
+- **Locked:** NARS frequency and PLN strength are not silently read as calibrated probabilities; PLN priority, ECAN and Staunen/Moore are three mechanisms.
+- **Deferred / open:** the scheduler swap (FIFO / confidence / naive Shannon / EIG / Moore-Staunen at fixed rules and budget) unrun.
+- **Confidence:** n/a (docs).
+
+## 2026-10-12 — lance-graph PR #1503 (merged `60255ec6`, branch `ccr-0455e606-wmtsor`, 1 commit) — dir-sim: membership path witness and role evidence before/after
+
+- **Added:** `membership_path` / `membership_path_through` → `MembershipPath` (BFS, shortest chain, lowest ordinal on ties); `GroupRoles::role_evidence` → `Held` / `NotHeld` / `Undetermined { unread }` / `NotDeclared`; `RoleImpact::between`. Identity CI runs dir-sim with `--features rbac`.
+- **Locked:** each version is decided on its own, so an alternative chain is not a loss; `is_lost` / `is_gained` need a known `NotHeld` on the other side; roles come only from read, declared grants.
+- **Deferred / open:** which policy version granted a role; device memberships; proposal export.
+- **Confidence:** high; 11 tests, 7 disable runs red.
+
+## 2026-10-12 — lance-graph PR #1502 (merged `40409589`, branch `ccr-0455e606-wmtsor`, 4 commits) — docs: policy baseline plan (GPO, Intune, Linux) and visualization prompts (D-PBL-0..7)
+
+- **Added:** plan `policy-baseline-integration-v1.md` (D-PBL-0..7: configured / assigned / observed kept apart; read-only encoders in `ogar-ad` / `ogar-az`; GPO↔CSP mapping read as data) and `visualization-prompts-v1`.
+- **Locked:** GPO has no central observed state, so a GPO column never shows drift.
+- **Deferred / open:** everything past D-PBL-0 waits on the operator (setting key, home crate, Linux source).
+- **Confidence:** n/a (docs).
+
+## 2026-10-12 — lance-graph PR #1496 (merged `349e63af`, branch `ccr-9f3b8075-74u47l`, 9 commits) — docs: CE64 hypothesis-layers plateau, plans D-HL-0..10 and D-NALP-0..11, research map
+
+- **Added:** `.claude/knowledge/ce64-reasoning-substrate-plateau.md`, plans `ce64-hypothesis-layers-v1.md` (D-HL-0..10) and `nal-polyfill-v1.md` (D-NALP-0..11), `.arxiv/2026-10_ce64_hypothesis_layers_research_map.md`, board rows.
+- **Locked:** no stored bit changes meaning; 8 design-vs-code disagreements recorded, each with the decision it needs (bits 46..49 opcode vs activation; 50..52 plasticity; 10 rung lanes, not 64; overlay rows discarded, not persisted).
+- **Deferred / open:** D-HL-1 operator decisions; per-class reading of 40..63 (H-1) — withdrawn 2026-10-15 by the wire-contract ruling (`entries/2026-10-15-ledger-correction-wire-contract.md`).
+- **Confidence:** n/a (docs).
+
+## 2026-10-12 — lance-graph PR #1495 (merged `43000203`, branch `ccr-9f3b8075-74u47l`, 6 commits) — NAL-1..9 × 34 recipes audit: MCP receipt probe, revision laws against OpenNARS (D-NAL-MCP-0, D-NAL-REV-0)
+
+- **Added:** `planner/tests/mcp_receipt_probe.rs`, `planner/tests/nal_revision_oracle.rs`, `.claude/knowledge/nal-recipe-audit/` (34-row recipe table, 115-row NAL inventory, schedule-depth scan, Narsese fixture, Java runner).
+- **Locked:** MCP (recipe 10) cannot tell a calibrated past from an overconfident one (`wave_dispatch.rs` discards `run_recipes`); revision paths A/C/D/E match 3/3 OpenNARS points, B1 (replay) 0/3, B16 2/3, `grammar::revise_truth` 0/3; 64 of 256 masks schedule at depth 2.
+- **Deferred / open:** D-NAL-RCPT-1 (a receipt a recipe can read), design only.
+- **Confidence:** high; 8 disable runs red.
+
+## 2026-10-11 — lance-graph PR #1494 (merged `3f8d13c4`, branch `ccr-b2e415d9-4jfvyk`, 8 commits) — planner: residue fixed point + Maslov Pyramid of Cognition probe (D-RESIDUE-FP-0, D-MATURATION3-0)
+
+- **Added:** `planner/tests/residue_fixed_point.rs`, `planner/tests/maturation_ladder.rs`, `.claude/knowledge/maslov-pyramid-of-cognition.md`, two board entries. No production code.
+- **Locked:** `pearl::hydrate` reaches a fixed point (extra passes bit-identical; only bits 59..60 change); derived relations carry their parents' root union and add none; two paths from one observation count 2, not 4; cycles cannot ground themselves; `mature` 1.99–2.83 ns median, 0 allocations.
+- **Deferred / open:** production feedback needs D2 provenance ids; recipe-output → stage mapping; the stage reading of bits 50..52 (ruled 2026-10-15: the pyramid IS the plasticity ladder, pending a global version gate).
+- **Confidence:** high; 14 disable runs red (2 residue, 12 maturation).
+
 ## 2026-10-09 — lance-graph PR #1432 (merged `d29d0aa`, branch `ccr-edc85bd9-89tiwe`, head `669fc42`, 7 commits) — D-SCF-CARE-PAIR-0: crossing counterfactuals, pairwise nogoods, folded chain relations
 
 - **Added:** `cognitive-shader-driver/examples/crossword_crossing_care_probe.rs` (`test = true`; 10 tests) over the unchanged `shared/crossword_core.rs`: letter support, single- and two-crossing counterfactuals, pairwise nogoods, existential elimination of internal slots into a canonical reusable 31×31 count relation.

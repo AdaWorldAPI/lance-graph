@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-334 entries, 2026-08-06 .. 2026-10-14.
+335 entries, 2026-08-06 .. 2026-10-15.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-15 | `ledger-correction-wire-contract` |  | [2026-10-15-ledger-correction-wire-contract.md](2026-10-15-ledger-correction-wire-contract.md) |
 | 2026-10-14 | `revision-layer-invariants` |  | [2026-10-14-revision-layer-invariants.md](2026-10-14-revision-layer-invariants.md) |
 | 2026-10-14 | `D-MTP-0` | where Hyperon/MeTTa attaches to the masking-algebra polyfill | [2026-10-14-metta-polyfill-map.md](2026-10-14-metta-polyfill-map.md) |
 | 2026-10-14 | `ledger-revision-after-1553` |  | [2026-10-14-ledger-revision-after-1553.md](2026-10-14-ledger-revision-after-1553.md) |
