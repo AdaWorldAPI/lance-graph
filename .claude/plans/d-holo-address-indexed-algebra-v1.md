@@ -1083,3 +1083,48 @@ What the numbers point at (HYPOTHESIS, not measured here):
 - C's seal at 1 % dirty is page faults: the positional tables are zeroed
   lazily, so each scattered dirty row touches a fresh page. At 100 % dirty
   the same seal costs 32–222 ns. Persisted bytes are unaffected.
+
+## Next falsifier: H14b — C with a positional lane mask per row (PRE-REGISTERED 2026-10-15, NOT RUN)
+
+Approved by the operator 2026-10-15 ("go ahead with H14b").
+
+**Arm M.** C's per-(thought, lane) tables and presence masks, unchanged, plus
+one `u32` per row per thought held positionally: `Mask[i]` names the lanes row
+i changed in that thought (0 for a clean row). The address stays the register:
+no index, no traversal. Folds are C's folds (the same presence masks).
+Merge-on-read reads `Mask[i]` and then position i of only the tables it names,
+instead of probing every touched table.
+
+Resident cost added per thought: 4 bytes per row (256 KiB per 64k tile).
+Bytes handed to the writer: per dirty row its key, its lane mask and the
+changed lanes (8 + 16k); per-lane positions follow from the masks.
+
+**Prediction.** At k <= 4, on every (dirty, thoughts) cell of the H14 grid,
+M's full-row read and M's session read are each at most 1.25× B's. Falsified
+if any such cell exceeds 1.25×.
+
+**Decision rule.** M becomes the default for a dirty tile if, at k <= 4 on
+every cell: the prediction holds; M's bytes to the writer are at most B's;
+and C's fold advantage (at least 2× B on F1 and F2) carries over, which holds
+by construction because M folds C's masks (checked by test, not re-timed). If
+the prediction fails, the result returns to the operator with the cells that
+failed and the F3 crossover between M and B.
+
+Also reported, not part of the rule: seal per dirty row, F3 per emitted row
+for M against A, B and C.
+
+**Comparisons are within one run.** A, B, C and M are timed in the same run on
+the same host with the tier printed. The H14 numbers (another host) are not
+compared against.
+
+**Tests before any timing.**
+- M reads the dense reference on every row (k = 1, 4, 31).
+- M's `Mask[r]` equals B's lane mask for every row r.
+- M's merge probes exactly `popcount(Mask[r])` tables for row r, and C's
+  merge probes every touched table; the fixture must have more touched tables
+  than k, or the test proves nothing.
+- M's F1, F2 and F3 equal C's.
+
+**Disable runs.** M's merge iterating the touched tables instead of `Mask[r]`
+must turn the probe test red. A mask that drops one lane must turn the
+reference test red.
