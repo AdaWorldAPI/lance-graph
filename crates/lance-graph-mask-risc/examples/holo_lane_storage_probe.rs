@@ -337,10 +337,13 @@ struct ArmM {
 
 impl ArmM {
     fn seal(w: &Writes) -> Self {
-        // STUB (test-first): no mask yet.
+        let mut mask = vec![0u32; N];
+        for (&r, &m) in w.rows.iter().zip(&w.masks) {
+            mask[r as usize] = m;
+        }
         ArmM {
             c: ArmC::seal(w),
-            mask: vec![0; N],
+            mask,
         }
     }
     /// Bytes handed to the writer: per dirty row key + mask + changed lanes.
@@ -355,8 +358,20 @@ impl ArmM {
         self.c.resident() + 4 * N
     }
     fn read(&self, base: &[Row], r: usize) -> Row {
-        // STUB (test-first).
-        base[r]
+        #[cfg(test)]
+        MERGES.with(|c| c.set(c.get() + 1));
+        let mut out = base[r];
+        for l in BitIter(self.mask[r]) {
+            #[cfg(test)]
+            PROBES.with(|c| c.set(c.get() + 1));
+            // The mask names the lane, so the plane exists and holds row r.
+            let v = &self.c.planes[l]
+                .as_ref()
+                .expect("masked lane has a table")
+                .values[r];
+            out[l * LANE..(l + 1) * LANE].copy_from_slice(v);
+        }
+        out
     }
 }
 
