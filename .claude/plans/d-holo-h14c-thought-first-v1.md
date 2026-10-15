@@ -324,7 +324,8 @@ block (CSV inside the entry) and the console output to the session scratchpad.
 
 **Run record.** `tier: v4 (avx512f)` printed by both probes (Intel Xeon @ 2.80 GHz,
 4 vCPUs, avx512f/bw/cd/dq/vl/vnni; `MemTotal 16,479,424 kB`); `rustc 1.99.0
-(b940084d7 2026-09-28)`; `lance 13.0.0` (probe crate's own lockfile). In-memory
+(b940084d7 2026-09-28)`; `lance 13.0.0` (resolved at build time and printed by the probe; the
+repository tracks no lockfile). In-memory
 probe: `cargo run --release -p lance-graph-mask-risc --example
 holo_thought_first_probe` (sections A, B, C, thought and spatial axes) and
 `… -- memory` (memory grid, one child process per cell); 7 batches of 8,192
@@ -485,46 +486,46 @@ cache), not a physical disk count.
 
 | pattern | dirty | k | style | unmasked bytes | independent bytes (ratio) | rows scanned indep / unmasked | combined rows | combined bytes (ratio) | unmasked µs | combined µs | independent µs |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| uniform | 0.1 % | 1 | heuristic | 127296 | 97424 (0.77) | 46 / 65536 | 46 | 97424 (0.77) | 20361 | 1903 | 1732 |
-| uniform | 0.1 % | 2 | heuristic | 131560 | 202952 (1.54) | 112 / 65536 | 1 | 6536 (0.05) | 19577 | 1441 | 3531 |
-| uniform | 0.1 % | 4 | heuristic | 140808 | 419424 (2.98) | 245 / 65536 | 0 | 0 (0.00) | 44787 | 459 | 6882 |
-| uniform | 0.1 % | 8 | heuristic | 159736 | 849024 (5.32) | 531 / 65536 | 0 | 0 (0.00) | 50480 | 690 | 14724 |
-| uniform | 1 % | 1 | heuristic | 136160 | 136160 (1.00) | 692 / 65536 | 692 | 136160 (1.00) | 17419 | 2238 | 2059 |
-| uniform | 1 % | 2 | heuristic | 147720 | 271752 (1.84) | 1354 / 65536 | 9 | 30920 (0.21) | 18436 | 2420 | 7810 |
-| uniform | 1 % | 4 | heuristic | 170624 | 542720 (3.18) | 2655 / 65536 | 0 | 0 (0.00) | 28349 | 588 | 11766 |
-| uniform | 1 % | 8 | heuristic | 217040 | 1085264 (5.00) | 5304 / 65536 | 0 | 0 (0.00) | 43980 | 579 | 23244 |
-| uniform | 10 % | 1 | heuristic | 195416 | 195416 (1.00) | 6606 / 65536 | 6606 | 195416 (1.00) | 22045 | 6994 | 7035 |
-| uniform | 10 % | 2 | heuristic | 266584 | 390616 (1.47) | 13194 / 65536 | 679 | 266584 (1.00) | 21164 | 3198 | 14780 |
-| uniform | 10 % | 4 | heuristic | 409560 | 781656 (1.91) | 26435 / 65536 | 8 | 143320 (0.35) | 26194 | 2735 | 28000 |
-| uniform | 10 % | 8 | heuristic | 692016 | 1560240 (2.25) | 52513 / 65536 | 0 | 0 (0.00) | 50365 | 529 | 64182 |
-| uniform | 50 % | 1 | heuristic | 1208448 | 1208448 (1.00) | 33120 / 65536 | 33120 | 1208448 (1.00) | 18861 | 20882 | 22606 |
-| uniform | 50 % | 2 | heuristic | 2292864 | 2415872 (1.05) | 65891 / 65536 | 16591 | 2292864 (1.00) | 21271 | 18150 | 43608 |
-| uniform | 50 % | 4 | heuristic | 2541824 | 2912640 (1.15) | 131294 / 65536 | 4074 | 2541824 (1.00) | 29479 | 11880 | 79249 |
-| uniform | 50 % | 8 | heuristic | 4958336 | 5824256 (1.17) | 261893 / 65536 | 247 | 3195520 (0.64) | 39020 | 11242 | 167085 |
-| uniform | 100 % | 1 | heuristic | 1175680 | 1175680 (1.00) | 65536 / 65536 | 65536 | 1175680 (1.00) | 17436 | 21706 | 21129 |
-| uniform | 100 % | 2 | heuristic | 2227328 | 2350336 (1.06) | 131072 / 65536 | 65536 | 2227328 (1.00) | 20555 | 30819 | 44391 |
-| uniform | 100 % | 4 | heuristic | 4330624 | 4699648 (1.09) | 262144 / 65536 | 65536 | 4330624 (1.00) | 22931 | 27403 | 87673 |
-| uniform | 100 % | 8 | heuristic | 8535168 | 9398272 (1.10) | 524288 / 65536 | 65536 | 8535168 (1.00) | 33334 | 38369 | 192390 |
-| clustered | 0.1 % | 1 | heuristic | 127744 | 3000 (0.02) | 64 / 65536 | 64 | 3000 (0.02) | 17289 | 1350 | 1394 |
-| clustered | 0.1 % | 2 | heuristic | 132552 | 6008 (0.05) | 128 / 65536 | 0 | 0 (0.00) | 18579 | 349 | 2546 |
-| clustered | 0.1 % | 4 | heuristic | 143048 | 14184 (0.10) | 320 / 65536 | 0 | 0 (0.00) | 21828 | 440 | 4593 |
-| clustered | 0.1 % | 8 | heuristic | 153648 | 28664 (0.19) | 640 / 65536 | 0 | 0 (0.00) | 28765 | 546 | 10190 |
-| clustered | 1 % | 1 | heuristic | 130448 | 31504 (0.24) | 704 / 65536 | 704 | 31504 (0.24) | 16859 | 1812 | 1488 |
-| clustered | 1 % | 2 | heuristic | 135832 | 50136 (0.37) | 1216 / 65536 | 0 | 0 (0.00) | 18830 | 343 | 2957 |
-| clustered | 1 % | 4 | heuristic | 145968 | 91200 (0.62) | 2112 / 65536 | 0 | 0 (0.00) | 31447 | 412 | 6281 |
-| clustered | 1 % | 8 | heuristic | 169416 | 214248 (1.26) | 4544 / 65536 | 0 | 0 (0.00) | 28629 | 498 | 14205 |
-| clustered | 10 % | 1 | heuristic | 159928 | 153736 (0.96) | 6528 / 65536 | 6528 | 153736 (0.96) | 17550 | 3528 | 3605 |
-| clustered | 10 % | 2 | heuristic | 194472 | 308184 (1.58) | 12800 / 65536 | 832 | 80512 (0.41) | 18680 | 1934 | 6508 |
-| clustered | 10 % | 4 | heuristic | 263544 | 619256 (2.35) | 25344 / 65536 | 0 | 0 (0.00) | 23435 | 425 | 13853 |
-| clustered | 10 % | 8 | heuristic | 406864 | 1250448 (3.07) | 51456 / 65536 | 0 | 0 (0.00) | 29721 | 532 | 31067 |
-| clustered | 50 % | 1 | heuristic | 1180776 | 1086016 (0.92) | 32512 / 65536 | 32512 | 1086016 (0.92) | 17714 | 13810 | 14064 |
-| clustered | 50 % | 2 | heuristic | 1299824 | 1328816 (1.02) | 64640 / 65536 | 15232 | 915328 (0.70) | 21886 | 10748 | 27227 |
-| clustered | 50 % | 4 | heuristic | 2474528 | 2685664 (1.09) | 128896 / 65536 | 3328 | 739232 (0.30) | 25104 | 6432 | 55687 |
-| clustered | 50 % | 8 | heuristic | 6701944 | 7133064 (1.06) | 258368 / 65536 | 192 | 92312 (0.01) | 33188 | 2556 | 106485 |
-| clustered | 100 % | 1 | heuristic | 1175680 | 1175680 (1.00) | 65536 / 65536 | 65536 | 1175680 (1.00) | 17438 | 22304 | 23203 |
-| clustered | 100 % | 2 | heuristic | 2227328 | 2350336 (1.06) | 131072 / 65536 | 65536 | 2227328 (1.00) | 18155 | 23203 | 43737 |
-| clustered | 100 % | 4 | heuristic | 4330624 | 4699648 (1.09) | 262144 / 65536 | 65536 | 4330624 (1.00) | 23527 | 29553 | 96698 |
-| clustered | 100 % | 8 | heuristic | 8535168 | 9398272 (1.10) | 524288 / 65536 | 65536 | 8535168 (1.00) | 30948 | 39615 | 183068 |
+| uniform | 0.1 % | 1 | heuristic | 127296 | 97424 (0.77) | 46 / 65536 | 46 | 97424 (0.77) | 24016 | 1544 | 1252 |
+| uniform | 0.1 % | 2 | heuristic | 131560 | 202952 (1.54) | 112 / 65536 | 1 | 6536 (0.05) | 21806 | 1363 | 3203 |
+| uniform | 0.1 % | 4 | heuristic | 140808 | 419424 (2.98) | 245 / 65536 | 0 | 0 (0.00) | 30442 | 406 | 6820 |
+| uniform | 0.1 % | 8 | heuristic | 159736 | 849024 (5.32) | 531 / 65536 | 0 | 0 (0.00) | 42240 | 491 | 12051 |
+| uniform | 1 % | 1 | heuristic | 136160 | 136160 (1.00) | 692 / 65536 | 692 | 136160 (1.00) | 18135 | 2640 | 2579 |
+| uniform | 1 % | 2 | heuristic | 147720 | 271752 (1.84) | 1354 / 65536 | 9 | 30920 (0.21) | 19547 | 1531 | 4534 |
+| uniform | 1 % | 4 | heuristic | 170624 | 542720 (3.18) | 2655 / 65536 | 0 | 0 (0.00) | 24855 | 398 | 9633 |
+| uniform | 1 % | 8 | heuristic | 217040 | 1085264 (5.00) | 5304 / 65536 | 0 | 0 (0.00) | 30113 | 524 | 16802 |
+| uniform | 10 % | 1 | heuristic | 195416 | 195416 (1.00) | 6606 / 65536 | 6606 | 195416 (1.00) | 18726 | 8030 | 8362 |
+| uniform | 10 % | 2 | heuristic | 266584 | 390616 (1.47) | 13194 / 65536 | 679 | 266584 (1.00) | 21610 | 3642 | 16969 |
+| uniform | 10 % | 4 | heuristic | 409560 | 781656 (1.91) | 26435 / 65536 | 8 | 143320 (0.35) | 24118 | 2791 | 34299 |
+| uniform | 10 % | 8 | heuristic | 692016 | 1560240 (2.25) | 52513 / 65536 | 0 | 0 (0.00) | 46024 | 542 | 60455 |
+| uniform | 50 % | 1 | heuristic | 1208448 | 1208448 (1.00) | 33120 / 65536 | 33120 | 1208448 (1.00) | 18422 | 19593 | 20913 |
+| uniform | 50 % | 2 | heuristic | 2292864 | 2415872 (1.05) | 65891 / 65536 | 16591 | 2292864 (1.00) | 29535 | 19743 | 42360 |
+| uniform | 50 % | 4 | heuristic | 2541824 | 2912640 (1.15) | 131294 / 65536 | 4074 | 2541824 (1.00) | 27553 | 12331 | 78100 |
+| uniform | 50 % | 8 | heuristic | 4958336 | 5824256 (1.17) | 261893 / 65536 | 247 | 3195520 (0.64) | 38960 | 11204 | 183889 |
+| uniform | 100 % | 1 | heuristic | 1175680 | 1175680 (1.00) | 65536 / 65536 | 65536 | 1175680 (1.00) | 26148 | 24902 | 23463 |
+| uniform | 100 % | 2 | heuristic | 2227328 | 2350336 (1.06) | 131072 / 65536 | 65536 | 2227328 (1.00) | 20804 | 26007 | 59764 |
+| uniform | 100 % | 4 | heuristic | 4330624 | 4699648 (1.09) | 262144 / 65536 | 65536 | 4330624 (1.00) | 27932 | 31766 | 99231 |
+| uniform | 100 % | 8 | heuristic | 8535168 | 9398272 (1.10) | 524288 / 65536 | 65536 | 8535168 (1.00) | 35396 | 35899 | 198529 |
+| clustered | 0.1 % | 1 | heuristic | 127744 | 3000 (0.02) | 64 / 65536 | 64 | 3000 (0.02) | 20594 | 1426 | 1120 |
+| clustered | 0.1 % | 2 | heuristic | 132552 | 6008 (0.05) | 128 / 65536 | 0 | 0 (0.00) | 21548 | 411 | 2328 |
+| clustered | 0.1 % | 4 | heuristic | 143048 | 14184 (0.10) | 320 / 65536 | 0 | 0 (0.00) | 25836 | 399 | 4418 |
+| clustered | 0.1 % | 8 | heuristic | 153648 | 28664 (0.19) | 640 / 65536 | 0 | 0 (0.00) | 30906 | 577 | 9662 |
+| clustered | 1 % | 1 | heuristic | 130448 | 31504 (0.24) | 704 / 65536 | 704 | 31504 (0.24) | 25186 | 2180 | 1864 |
+| clustered | 1 % | 2 | heuristic | 135832 | 50136 (0.37) | 1216 / 65536 | 0 | 0 (0.00) | 20052 | 394 | 3348 |
+| clustered | 1 % | 4 | heuristic | 145968 | 91200 (0.62) | 2112 / 65536 | 0 | 0 (0.00) | 28818 | 411 | 7870 |
+| clustered | 1 % | 8 | heuristic | 169416 | 214248 (1.26) | 4544 / 65536 | 0 | 0 (0.00) | 38129 | 846 | 14683 |
+| clustered | 10 % | 1 | heuristic | 159928 | 153736 (0.96) | 6528 / 65536 | 6528 | 153736 (0.96) | 27283 | 4294 | 3760 |
+| clustered | 10 % | 2 | heuristic | 194472 | 308184 (1.58) | 12800 / 65536 | 832 | 80512 (0.41) | 20208 | 2322 | 8682 |
+| clustered | 10 % | 4 | heuristic | 263544 | 619256 (2.35) | 25344 / 65536 | 0 | 0 (0.00) | 24153 | 667 | 21098 |
+| clustered | 10 % | 8 | heuristic | 406864 | 1250448 (3.07) | 51456 / 65536 | 0 | 0 (0.00) | 30902 | 570 | 32887 |
+| clustered | 50 % | 1 | heuristic | 1180776 | 1086016 (0.92) | 32512 / 65536 | 32512 | 1086016 (0.92) | 17634 | 13254 | 14354 |
+| clustered | 50 % | 2 | heuristic | 1299824 | 1328816 (1.02) | 64640 / 65536 | 15232 | 915328 (0.70) | 19273 | 7627 | 23061 |
+| clustered | 50 % | 4 | heuristic | 2474528 | 2685664 (1.09) | 128896 / 65536 | 3328 | 739232 (0.30) | 24328 | 6264 | 49197 |
+| clustered | 50 % | 8 | heuristic | 6701944 | 7133064 (1.06) | 258368 / 65536 | 192 | 92312 (0.01) | 30654 | 2263 | 101602 |
+| clustered | 100 % | 1 | heuristic | 1175680 | 1175680 (1.00) | 65536 / 65536 | 65536 | 1175680 (1.00) | 18409 | 21556 | 23025 |
+| clustered | 100 % | 2 | heuristic | 2227328 | 2350336 (1.06) | 131072 / 65536 | 65536 | 2227328 (1.00) | 19125 | 22928 | 42014 |
+| clustered | 100 % | 4 | heuristic | 4330624 | 4699648 (1.09) | 262144 / 65536 | 65536 | 4330624 (1.00) | 24521 | 30269 | 87551 |
+| clustered | 100 % | 8 | heuristic | 8535168 | 9398272 (1.10) | 524288 / 65536 | 65536 | 8535168 (1.00) | 32631 | 35082 | 179174 |
 
 **Prediction: both halves hold.** At 1 % uniform, k = 1: masked bytes = unmasked
 bytes (136,160; ratio 1.00) while rows scanned fall to 692 of 65,536. At 1 %
@@ -538,8 +539,18 @@ clustered, k = 1: ratio 0.24 (≤ 0.5). At 0.1 % uniform the ratio is 0.77.
   uniform low density (1.5–5.3×).
 - The combined mask (every requested lane present) is the joint population,
   ≈ dᵏ for independent lanes: one row at 0.1 %, k = 2.
-- Wall time: masked reads of small populations take 0.3–2.4 ms against
-  17–55 ms unmasked; at 100 % the masked read is slower (22 vs 17 ms, k = 1).
+- Wall time (heuristic style; times from the re-run after review, see below):
+  combined masked reads at ≤ 1 % density take 0.39–2.6 ms against 17.6–46 ms
+  unmasked. At 100 %, k = 1, the two are within run-to-run noise (uniform
+  24.9 vs 26.1 ms, clustered 21.6 vs 18.4 ms); no ordering is claimed there.
+- Re-run after review (#1573): the first run built each lane's mask inside
+  the timed loop for the independent strategy, while the combined strategy
+  built its mask before the timer. The masks are now built before the timer
+  for both. All three timing columns above come from the re-run; bytes, IOPS,
+  requests and rows scanned were identical in both runs (360 of 360 rows).
+  Timings moved by up to about 40 % between the two runs even for the
+  unmasked baseline, which the defect did not touch, so differences below
+  that size are not read as results.
 
 ### Coordinate identity (H14c-5)
 
