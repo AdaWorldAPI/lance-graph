@@ -75,9 +75,9 @@ pub fn continuity(functions: u8, coverage_complete: bool) -> MapVerdict {
     let mut seen = 1u8 << functions.trailing_zeros();
     loop {
         let mut next = seen;
-        for i in 0..8 {
+        for (i, &neighbors) in NEIGHBORS.iter().enumerate() {
             if seen & (1 << i) != 0 {
-                next |= NEIGHBORS[i] & functions;
+                next |= neighbors & functions;
             }
         }
         if next == seen {
