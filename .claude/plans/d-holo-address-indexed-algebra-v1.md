@@ -1023,3 +1023,61 @@ over delta and lane next to lane are one operation at one index. So:
   merge is the read itself. It still applies to any layout that would need a
   key lookup or a sort to line lanes up, which is why compacted runs stay
   superseded.
+
+### H14 results (v4, 2026-10-15): C wins every fold, loses every merge-on-read; returns to the operator
+
+Run: `cargo run --release -p lance-graph-mask-risc --example
+holo_lane_storage_probe` on an AVX-512 host (the program printed
+`tier: v4 (avx512f)`). One class per run; 16 classes were not timed (the
+64-thought cells need about 8 GB for one class on a 15 GB host). Bytes scale
+linearly with classes; the timing effect of more classes is untested.
+Seven oracle tests pass against a dense reference; five disable runs each
+turned their test red (drop B's merge, store every lane in B, skip a lane
+plane in C's fold, build rows inside C's fold, session mask from one thought).
+
+Measured, ns per row unless noted (full table in the board entry):
+
+| quantity | A full row | B connected delta | C inverted fold |
+|---|---|---|---|
+| F1 (one thought, 4 lanes, per aperture row) | 0.5–38.8 | 0.43–1.6 | 0.027–0.075 |
+| F2 (all thoughts, one lane, per aperture row) | 1.2–272 | 0.86–109 | 0.017–0.59 |
+| full-row read (merge-on-read for C) | 38–152 | 51–1,005 | 259–1,529 |
+| session read (per thought-row) | 6.7–61 | 11.5–173 | 57–539 |
+| seal per dirty row, 1 % dirty | 31–292 | 13–30 | 2,454–21,106 |
+| seal per dirty row, 100 % dirty | 271–389 | 5–59 | 32–222 |
+| bytes handed to the writer | 516 B per dirty row | 12 + 16k | ≈ B (0.7–1.2× B) |
+| resident | as written | as written | 31 MiB per thought, logical |
+
+Rule at k <= 4 on every (dirty, thoughts) cell:
+- C's folds are at least 2× faster than B's on F1 and F2: **yes**, in every
+  cell (F1 10–24×, F2 39–256×; F2 is the session-wide count
+  and grows with thoughts on A and B, not on C).
+- C's reads with merge-on-read within 1.25× of B's: **no**, in every cell
+  (2.8–6.1× slower).
+- C default: not met. B default over A: not met (B's full-row read is up to
+  4.6× A's at 100 % dirty with k = 4, and its session read 1.4–2.2× A's at
+  1 % dirty).
+
+Per the pre-registered rule this returns to the operator with both numbers.
+The crossover, from F3 (fold, then materialize the rows the fold names):
+C beats B on F3 at 1 % dirty in every cell (C 59–136 vs B 87–690 ns per
+emitted row) and at 10 % dirty when k = 1; it loses in most other cells. A
+query on C pays about 0.4 ns per aperture row less than B for F1 and about
+200–450 ns more per materialized row, so C wins a mixed query while it
+materializes fewer than about 1 row in 500–1,000 of the aperture for a
+single-thought count, and between about 1 in 8 and 1 in 3 for a
+session-wide count at 64 thoughts.
+
+What the numbers point at (HYPOTHESIS, not measured here):
+- C's read cost is the merge itself, not the positional access: the merge
+  probes every touched lane table of the thought (31 tables at every k in
+  this fixture, because the changed lanes vary by row), and each probe is a
+  separate 1 MiB table, so a row read touches up to 31 cache lines in 31
+  tables. A per-row lane mask held positionally beside the tables
+  (`Mask[i]`, 4 bytes per row) would let the merge read only the k tables
+  that changed, keep the fold, and keep the address as the register. That is
+  B's lane mask without B's packed record, and it is the next arm to try
+  (H14b).
+- C's seal at 1 % dirty is page faults: the positional tables are zeroed
+  lazily, so each scattered dirty row touches a fresh page. At 100 % dirty
+  the same seal costs 32–222 ns. Persisted bytes are unaffected.
