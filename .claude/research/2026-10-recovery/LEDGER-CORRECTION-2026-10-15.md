@@ -21,6 +21,7 @@ Board entry: `.claude/board/entries/2026-10-15-ledger-correction-wire-contract.m
 | 0..23 | S, P, O | which three things |
 | 24..39 | f, c | how much evidence (fixed codes, one global quantizer) |
 | 40..42 | SPO / Pearl mask | by which method (which planes the hydration used: a subset lattice, not an ordinal) |
+| 43..45 | orientation | which way the relation is read (code: direction triad, `DIR_SHIFT = 43`, sign per S, P, O) |
 | 46..49 | OPEN | opcode (code) vs activation (design); one global meaning still to choose |
 | 50..52 | plasticity ladder (the pyramid) | how free the edge still is to change; freezing is earned by dependency or ablation, not by confidence |
 | 53..58 | OPEN | witness; one global meaning still to choose |
