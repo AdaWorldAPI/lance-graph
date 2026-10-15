@@ -195,9 +195,235 @@ impl TemporalPov {
     }
 }
 
+/// Why [`VersionClock::record`] refused a tick.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClockError {
+    /// The version is not newer than the clock's head.
+    NotNewer {
+        /// The clock's head.
+        head: LanceVersion,
+        /// The refused version.
+        version: LanceVersion,
+    },
+    /// The row count went down: an append-only lane never loses rows.
+    RowsWentBack {
+        /// Rows at the head.
+        head_rows: u64,
+        /// The refused count.
+        rows: u64,
+    },
+}
+
+impl core::fmt::Display for ClockError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::NotNewer { head, version } => {
+                write!(f, "version {version} is not newer than head {head}")
+            }
+            Self::RowsWentBack { head_rows, rows } => {
+                write!(f, "row count {rows} is below the head's {head_rows}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ClockError {}
+
+/// The version clock of one append-only lane: which rows each version holds.
+///
+/// Rows are numbered in append order. Version `v` holds rows
+/// `0..rows_through(v)`, so a [`TemporalPov`] resolves to one half-open row
+/// range by two array reads. No manifest, no per-version file list and no
+/// per-row predicate: eight bytes per version, and the rows themselves stay
+/// where they are.
+///
+/// The tick is any monotone durable coordinate: a Lance version for a
+/// one-version-per-commit writer, or a WAL entry position for a MemWAL
+/// writer, whose base table does not advance per commit.
+///
+/// The clock knows versions from its `base` on. A clock seeded on an
+/// existing store at its head cannot answer for versions before that head;
+/// those reads return `None`, never a guess.
+///
+/// Rewriting rows (compaction that reorders, deletion) is out of scope:
+/// a deleted row stays inside its range and must be masked by the caller;
+/// a reordering rewrite needs a new clock.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VersionClock {
+    base: LanceVersion,
+    /// `ends[i]` = rows durable through version `base + i`. Non-decreasing,
+    /// never empty.
+    ends: Vec<u64>,
+}
+
+impl VersionClock {
+    /// A clock that knows `base` and its row count.
+    #[must_use]
+    pub fn new(base: LanceVersion, rows_at_base: u64) -> Self {
+        Self {
+            base,
+            ends: vec![rows_at_base],
+        }
+    }
+
+    /// The first version this clock can answer for.
+    #[inline]
+    #[must_use]
+    pub fn base(&self) -> LanceVersion {
+        self.base
+    }
+
+    /// The newest recorded version.
+    #[inline]
+    #[must_use]
+    pub fn head(&self) -> LanceVersion {
+        self.base + (self.ends.len() as u64 - 1)
+    }
+
+    /// Rows durable at the head.
+    #[inline]
+    #[must_use]
+    pub fn head_rows(&self) -> u64 {
+        // `ends` is never empty.
+        self.ends[self.ends.len() - 1]
+    }
+
+    /// Record that `version` is durable with `rows` rows in total. Versions
+    /// skipped between the head and `version` added no rows to this lane
+    /// (another operation minted them) and inherit the head's count.
+    pub fn record(&mut self, version: LanceVersion, rows: u64) -> Result<(), ClockError> {
+        let head = self.head();
+        if version <= head {
+            return Err(ClockError::NotNewer { head, version });
+        }
+        let head_rows = self.head_rows();
+        if rows < head_rows {
+            return Err(ClockError::RowsWentBack { head_rows, rows });
+        }
+        let gap = (version - head - 1) as usize;
+        self.ends.extend(core::iter::repeat_n(head_rows, gap));
+        self.ends.push(rows);
+        Ok(())
+    }
+
+    /// Rows durable through `version`: `0..rows_through(version)`. A version
+    /// past the head holds the head's rows (nothing newer exists yet).
+    /// `None` for a version before [`Self::base`].
+    #[inline]
+    #[must_use]
+    pub fn rows_through(&self, version: LanceVersion) -> Option<u64> {
+        if version < self.base {
+            return None;
+        }
+        let i = (version - self.base).min(self.ends.len() as u64 - 1) as usize;
+        Some(self.ends[i])
+    }
+
+    /// The rows a point of view admits: the rows that landed in versions
+    /// `pov.range.from .. pov.range.to`, as a half-open row range. For
+    /// [`TemporalPov::at`]`(v, _)` this is `0..rows_through(v)`.
+    #[inline]
+    #[must_use]
+    pub fn rows_at(&self, pov: &TemporalPov) -> Option<core::ops::Range<u64>> {
+        let VersionRange { from, to } = pov.range;
+        if from >= to {
+            return Some(0..0);
+        }
+        let start = if from == 0 {
+            0
+        } else {
+            self.rows_through(from - 1)?
+        };
+        let end = self.rows_through(to - 1)?;
+        Some(start..end)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn clock() -> VersionClock {
+        // v0: 0 rows, v1: 10, v2: 10 (no rows, e.g. an index op), v3: 25.
+        let mut c = VersionClock::new(0, 0);
+        c.record(1, 10).unwrap();
+        c.record(3, 25).unwrap();
+        c
+    }
+
+    #[test]
+    fn clock_answers_at_and_ranges() {
+        let c = clock();
+        assert_eq!(c.head(), 3);
+        let at = |v| c.rows_at(&TemporalPov::at(v, 0)).unwrap();
+        assert_eq!(at(0), 0..0);
+        assert_eq!(at(1), 0..10);
+        assert_eq!(at(2), 0..10, "the skipped version inherits the head's rows");
+        assert_eq!(at(3), 0..25);
+        assert_eq!(at(99), 0..25, "a version past the head holds the head's rows");
+        assert_eq!(at(u64::MAX), 0..25, "the latest sentinel saturates");
+        // Rows landed in versions 2..=3 only.
+        let r = c.rows_at(&TemporalPov::new(VersionRange::new(2, 4), 0)).unwrap();
+        assert_eq!(r, 10..25);
+        let empty = c.rows_at(&TemporalPov::new(VersionRange::new(4, 4), 0)).unwrap();
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn clock_agrees_with_a_per_row_scan() {
+        // Oracle: every row carries the version it landed at; the clock range
+        // must equal the set of rows the per-row predicate admits.
+        let mut c = VersionClock::new(0, 0);
+        let mut row_version = Vec::new();
+        let mut v = 0u64;
+        for step in 1..200u64 {
+            v += 1 + step % 3; // gaps of 0..2 skipped versions
+            let added = (step * 7) % 5; // some versions add no rows
+            for _ in 0..added {
+                row_version.push(v);
+            }
+            c.record(v, row_version.len() as u64).unwrap();
+        }
+        for from in 0..=v + 2 {
+            for to in [from, from + 1, from + 3, v / 2, v + 5] {
+                let pov = TemporalPov::new(VersionRange::new(from, to), 0);
+                let want: Vec<u64> = (0..row_version.len() as u64)
+                    .filter(|&i| pov.admits(row_version[i as usize]))
+                    .collect();
+                let got: Vec<u64> = c.rows_at(&pov).unwrap().collect();
+                assert_eq!(got, want, "from {from} to {to}");
+            }
+        }
+    }
+
+    #[test]
+    fn clock_refuses_old_versions_and_shrinking_rows() {
+        let mut c = clock();
+        assert_eq!(
+            c.record(3, 30),
+            Err(ClockError::NotNewer { head: 3, version: 3 })
+        );
+        assert_eq!(
+            c.record(4, 24),
+            Err(ClockError::RowsWentBack { head_rows: 25, rows: 24 })
+        );
+        assert_eq!(c.head(), 3, "a refused record changes nothing");
+        assert!(c.record(4, 25).is_ok(), "an equal count is a version with no rows");
+    }
+
+    #[test]
+    fn clock_seeded_at_a_head_does_not_answer_for_earlier_versions() {
+        let c = VersionClock::new(100, 5_000);
+        assert_eq!(c.rows_through(99), None);
+        assert_eq!(c.rows_at(&TemporalPov::at(99, 0)), None);
+        assert_eq!(c.rows_at(&TemporalPov::at(100, 0)), Some(0..5_000));
+        // A range starting after the base needs rows_through(from - 1).
+        assert_eq!(
+            c.rows_at(&TemporalPov::new(VersionRange::new(101, 102), 0)),
+            Some(5_000..5_000)
+        );
+        assert_eq!(c.rows_at(&TemporalPov::new(VersionRange::new(100, 101), 0)), None);
+    }
 
     #[test]
     fn version_range_basic_contains_and_len() {
