@@ -1384,6 +1384,28 @@ mod tests {
             bytes <= SESSION_METADATA_CACHE_BYTES as u64,
             "session cache {bytes} B exceeds the cap {SESSION_METADATA_CACHE_BYTES} B"
         );
+
+        // The open path too: a reopened writer appends on the same capped
+        // session, not on a default one.
+        drop(w);
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        for c in 401..=800u64 {
+            persist_cycle(
+                &mut w,
+                CycleFrame::new(CycleId(c), DatasetVersion(c - 1)),
+                vec![artifact(c, c, 42, c)],
+            )
+            .await
+            .unwrap();
+        }
+        assert_eq!(w.head(), DatasetVersion(800));
+        let bytes = w.session_cache_bytes();
+        assert!(
+            bytes <= SESSION_METADATA_CACHE_BYTES as u64,
+            "after reopen: session cache {bytes} B exceeds the cap"
+        );
     }
 
     /// The one-writer topology is ENFORCED in-process: a second live writer on
