@@ -124,7 +124,9 @@ async fn v1_sigkill_mid_write_leaves_all_or_nothing() {
     let full = rows_per_cycle(V1_N);
     for arm in ["L", "M"] {
         let mut observed = Vec::new();
-        for delay_ms in [5u64, 30, 60, 120, 250, 500, 1000, 2000] {
+        // 0 ms kills before the child can write; 10 s lets it finish. Both ends
+        // are needed: a sweep that lands on one side only proves nothing.
+        for delay_ms in [0u64, 5, 30, 60, 120, 250, 500, 1000, 2000, 10_000] {
             let tmp = tempfile::tempdir().expect("tempdir");
             let dir = tmp.path().to_string_lossy().to_string();
             prepare(arm, &dir).await;
@@ -150,12 +152,11 @@ async fn v1_sigkill_mid_write_leaves_all_or_nothing() {
         let empty = observed
             .iter()
             .any(|(_, a, b)| *a == 0 && b.unwrap_or(0) == 0);
-        if !landed || !empty {
-            eprintln!(
-                "V1 {arm} INCONCLUSIVE: the sweep did not land on both sides of the \
-                 durability boundary (landed={landed}, empty={empty}); widen it."
-            );
-        }
+        assert!(
+            landed && empty,
+            "V1 {arm}: the sweep did not land on both sides of the durability \
+             boundary (landed={landed}, empty={empty}), so it proves nothing; widen it"
+        );
         assert!(
             partial.is_empty(),
             "V1 {arm}: partial cycle after SIGKILL: {partial:?}"
@@ -190,6 +191,10 @@ async fn v2_acknowledged_cycles_survive_sigkill() {
                     }
                 }
             }
+            assert!(
+                acked >= target,
+                "V2 {arm}: the child stopped at ACK {acked} before ACK {target}; nothing to recover"
+            );
             child.kill().expect("kill");
             let _ = child.wait();
             let (a, b) = recovered(arm, &dir).await;
