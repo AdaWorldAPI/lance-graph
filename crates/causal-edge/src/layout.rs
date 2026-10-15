@@ -53,35 +53,35 @@ pub const V1_TEMPORAL_SHIFT: u32 = 52;
 /// 0 = no corpus anchor. Per cognitive-substrate-convergence-v1.md L-6.
 pub const W_SHIFT: u32 = 53;
 
-/// Truth-band lens: 2-bit TrustTexture ordinal (bits 59-60).
+/// Topology coordinate of the epistemic ladder: 2-bit ordinal (bits 59-60).
 ///
 /// ⊘ D-EPI-CANON-0 (2026-10-07): bits 59..63 are ONE field, the 5-bit
 /// `EpistemicState5` code ([`EPISTEMIC_SHIFT`]), `raw5 = topology |
 /// certification << 2`. These two bits are its TOPOLOGY coordinate, read with
-/// the [`CausalTopology`] ordinals. The `TrustTexture` reading of the same
-/// bits is legacy: no mapping into the canonical state exists for it.
-/// 0 = Crystalline. Per cognitive-substrate-convergence-v1.md L-7.
+/// the [`CausalTopology`] ordinals. 0 = Direct. Per
+/// cognitive-substrate-convergence-v1.md L-7.
 ///
-/// Same two bits also carry an ADDITIVE factual view, [`CausalTopology`]
-/// (below) — see its doc comment for the wire/ordinal/behavioural/
-/// provenance compatibility statement. `TrustTexture` remains the
-/// canonical epistemic-trust reading; `CausalTopology` is a second,
-/// orthogonal reading of the identical bits for producers that want to
-/// record topology instead of (or alongside) trust texture. No bits move.
+/// [`TrustTexture`] is the Meta-Uncertainty-Layer vocabulary for the SAME
+/// four cells (Crystalline / Solid / Fuzzy / Murky name Direct /
+/// IndirectKnown / IndirectUnknown / Unknown); the mapping between the two
+/// enums is the identity. ⊘ The earlier text here — "no mapping into the
+/// canonical state exists" and "`TrustTexture` remains the canonical
+/// epistemic-trust reading" — described them as two readings; they are one
+/// field under two vocabularies (DECISION 2026-10-15). No bits move.
 pub const TRUTH_SHIFT: u32 = 59;
 
-/// Spare: 3-bit reserved for sprint-12+ (bits 61-63).
+/// Certification coordinate of the epistemic ladder (bits 61-63).
 ///
-/// ⊘ D-EPI-CANON-0 (2026-10-07): the CERTIFICATION coordinate of the joint
+/// D-EPI-CANON-0 (2026-10-07): the upper coordinate of the joint
 /// `EpistemicState5` field ([`EPISTEMIC_SHIFT`]): `0 Open, 1 Associated,
 /// 2 Related, 3 Supports, 4 CausalCandidate, 5 Causes, 6/7 reserved` (the P7a
 /// codes). The historical [`ReasoningBand`] view below names reasoning levels,
 /// not certifications; it is legacy, with no mapping into the canonical state.
-/// Candidates: Rubicon-commit marker, Markov-decay quantum, I-NOISE-FLOOR-JIRAK threshold.
-///
-/// Same three bits also carry an ADDITIVE quantized-projection view,
-/// [`ReasoningBand`] (below). No auto-derivation: nothing writes this
-/// field except an explicit `with_reasoning_band()` call.
+/// ⊘ The name `SPARE_SHIFT`, the "reserved for sprint-12+" headline and the
+/// candidate list (Rubicon-commit marker, Markov-decay quantum, Jirak
+/// threshold) that stood here predate the merge; the constant keeps its name
+/// for source compatibility only. Nothing writes [`ReasoningBand`] except an
+/// explicit `with_reasoning_band()` call.
 ///
 /// **v1 provenance:** bits 61-63 were temporal bits 9-11, so a v1 edge with
 /// `temporal >= 512` reads a NON-ZERO band. Apply a version gate on edges of
@@ -137,15 +137,23 @@ const _LAYOUT_COVERAGE: () = {
     );
 };
 
-/// Two-bit truth-band lens — 4 levels of epistemic texture.
+/// The Meta-Uncertainty-Layer names for the topology coordinate (bits 59-60).
 ///
-/// Lens projection table (per causaledge64-mailbox-rename-soa-v1.md §2):
+/// One field, two vocabularies. Each row is the SAME cell as the
+/// [`CausalTopology`] variant of the same ordinal; the last two columns are
+/// the MUL's reaction to that cell, not a second meaning of the bits
+/// (table per causaledge64-mailbox-rename-soa-v1.md §2, relabelled):
 /// ```text
-///   0b00 = Crystalline | Mastered     | Quiet  | Proceed
-///   0b01 = Solid       | Calibrated   | Mild   | Proceed
-///   0b10 = Fuzzy       | Uncertain    | Active | Sandbox
-///   0b11 = Murky       | Contradiction| Loud   | Compass (veto)
+///   0b00 = Crystalline | Direct                      | Quiet  | Proceed
+///   0b01 = Solid       | IndirectKnownIntermediates  | Mild   | Proceed
+///   0b10 = Fuzzy       | IndirectUnknownIntermediates| Active | Sandbox
+///   0b11 = Murky       | Unknown                     | Loud   | Compass (veto)
 /// ```
+///
+/// ⊘ The second column used to read `Mastered / Calibrated / Uncertain /
+/// Contradiction`. A contradiction that needs revision is an **epistemic
+/// pothole** — something the MUL reacts to (Compass) — not a cell of this
+/// field; `Murky` is the MUL word for topology `Unknown`.
 ///
 /// NOTE: Local definition in causal-edge (zero-dep crate).
 ///
@@ -159,9 +167,9 @@ const _LAYOUT_COVERAGE: () = {
 /// opposite of the old note: **"Canonical: NONE — both are domain-correct
 /// and should keep distinct names."** Do not build a cast on the old claim.
 ///
-/// This enum is the LEGACY/COMPATIBILITY projection of bits 59-60; the
-/// factual view over the same bits is [`CausalTopology`]. Not deprecated —
-/// nothing is ready to move, and the wider rename is owned by the existing
+/// This enum is the MUL-vocabulary alias of [`CausalTopology`] over bits
+/// 59-60 (ordinal-identical, identity mapping). Not deprecated — nothing is
+/// ready to move, and the wider rename is owned by the existing
 /// TrustTexture-duplication debt item.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 #[repr(u8)]
@@ -196,16 +204,16 @@ impl TrustTexture {
     }
 }
 
-/// Two-bit CAUSAL TOPOLOGY lens — an ADDITIVE factual view over the same
-/// two bits (59-60) that [`TrustTexture`] occupies. No bits move; this is
-/// a second reading of the identical register, not a new field and not a
-/// layout revision (no CE64 v3, no `ENVELOPE_LAYOUT_VERSION` bump).
+/// Two-bit CAUSAL TOPOLOGY coordinate of the epistemic ladder (bits 59-60)
+/// — the Faktorortung of the edge: where the missing link sits. No bits
+/// move; this is the same register [`TrustTexture`] names in MUL vocabulary,
+/// not a new field and not a layout revision (no CE64 v3, no
+/// `ENVELOPE_LAYOUT_VERSION` bump).
 ///
-/// `TrustTexture` reads those bits as an EPISTEMIC-TRUST texture (how much
-/// to trust the edge: mastered/calibrated/uncertain/contradiction).
-/// `CausalTopology` reads the identical bits as a FACTUAL TOPOLOGY
-/// classification (how the edge's causal path is structured — direct vs.
-/// mediated, known vs. unknown intermediates).
+/// `CausalTopology` classifies how the edge's causal path is structured —
+/// direct vs. mediated, intermediates known vs. unknown, topology unknown.
+/// `TrustTexture` names the identical four cells (Crystalline / Solid /
+/// Fuzzy / Murky) as the MUL reads them.
 ///
 /// ```text
 ///   0b00 = Direct
@@ -226,7 +234,7 @@ impl TrustTexture {
 /// wire compatibility:            exact
 /// ordinal compatibility:         exact
 /// legacy behavioural projection: intentional
-/// historical factual provenance: NOT guaranteed for old rows
+/// historical provenance:         the EdgeProvenance gate, not a semantic gap
 /// ```
 ///
 /// - **Wire compatibility is exact** — same two bits (59-60), same shift,
@@ -241,17 +249,15 @@ impl TrustTexture {
 ///   `CausalTopology` yet is unaffected by rows a `CausalTopology`-aware
 ///   writer produces, and vice versa — this is a staged migration, not a
 ///   flag day.
-/// - **Historical factual provenance is NOT guaranteed for old rows.** A row
-///   written before this change had its bits 59-60 stamped with
-///   TRUST-TEXTURE semantics (how confident the writer was in the edge), not
-///   TOPOLOGY semantics (how the causal path is shaped). The two concepts
-///   are correlated in practice but they are not the same fact, and nothing
-///   in this change infers, repairs, or backfills the topology of a
-///   pre-existing row. **Do not treat `old_edge.topology()` as ground truth
-///   about that row's actual causal topology** — it is only the
-///   same-ordinal projection through the new lens. Source-authoritative
-///   topology begins only when a later producer explicitly writes
-///   `CausalTopology` via [`CausalEdge64::with_topology`].
+/// - **Historical provenance is the `EdgeProvenance` gate, not a semantic
+///   gap.** A row written through `TrustTexture` carries the same four
+///   cells under the MUL names, so `old_edge.topology()` reads what its
+///   writer meant. What is NOT guaranteed is that the bits were written at
+///   all: under `V1Legacy` / `Unknown` provenance they may be v1 temporal
+///   bits, and the reading contract refuses them rather than guessing.
+///   ⊘ The earlier text here ("stamped with TRUST-TEXTURE semantics, not
+///   TOPOLOGY semantics … not the same fact") treated the two vocabularies
+///   as two facts; struck 2026-10-15.
 ///
 /// [`CausalEdge64::ZERO`] therefore reads `CausalTopology::Direct` under
 /// this view exactly as it reads `TrustTexture::Crystalline` under the old
