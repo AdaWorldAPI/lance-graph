@@ -1,3 +1,17 @@
+## 2026-10-15 — lance-graph PR #1567 (merged `b1f1365d`, branch `ccr-9f3b8075-74u47l-version-clock`, head `6ced7887`, 3 commits) — D-WAL-6: the version clock wired into `LanceCycleWriter`
+
+- **Added:** `LanceCycleWriter::version_clock()`; `sync_clock` after open, bootstrap and every commit: records the new head's row positions (sum of `physical_rows` over fragments), keeps the clock on a no-op, reseeds when history went back. Seven tests in `cycle_sink.rs`, written first (red against a stub returning `None`).
+- **Locked:** the #1562 contract: a reopened writer seeds the clock at its head and answers `None` for older versions; deleted rows keep their positions, so the clock counts positions, not live rows; a reconciled append (published, then failed) still records its version.
+- **Deferred / open:** the reader is not wired; a rewrite that reorders rows needs a new clock.
+- **Confidence:** high; three disable runs red (no sync after commit, live rows instead of positions, reseed on every sync).
+
+## 2026-10-15 — lance-graph PR #1566 (merged `c18aefcb`, branch `ccr-9f3b8075-74u47l-holo-h6c`, head `09cf22c0`, 13 commits) — D-HOLO H6c measured, H14 lane storage measured
+
+- **Added:** `holo_tile_crossover_probe` (H6c) and `holo_lane_storage_probe` (H14) in `lance-graph-mask-risc/examples`; plan sections and results for both; entries `2026-10-14-d-holo-h6c.md`, `2026-10-15-d-holo-h14-lane-storage.md`; STATUS rows D-HOLO-H6c, D-HOLO-H14. Board catch-up for #1564/#1565.
+- **Locked:** H6c (v4, three runs): Q1 holds, P/D crosses 1 between g = 8 and 12 (once 12 → 16) in both layouts; Q2 no switch certified (G = 8 worst query 1.21–2.28× D), the byte switch unsafe (9.8–15.1×); Q3 declared build passes (better of P/H 0.32–0.42× D). H14 (v4): C's folds beat B by 10–24× (F1) and 39–256× (F2); C's merge-on-read full-row read is 2.8–6.1× slower than B; neither C nor B is the default by the pre-registered rule.
+- **Deferred / open:** H14b (C with a per-row lane mask so the merge reads only the touched lanes) awaits the operator; C's seal at low dirt (page faults); H14 timed on one class only.
+- **Confidence:** medium; oracle tests and disable runs red; about 40 % run-to-run noise on the VM. Codex P2s fixed in review: the crossover is now an adjacent below-to-above step; C's F2 grows with thoughts.
+
 ## 2026-10-15 — lance-graph PR #1565 (merged `2379ddc2`, branch `ccr-9f3b8075-74u47l-r1-test`, head `39ad8b1a`, 1 commit) — contract: the R1 test checks every verdict from `CognitiveWork`
 
 - **Added:** `kanban.rs` R1 test walks all nine (effect, counterfactual) verdicts from `CognitiveWork`: none reopens the goal, the one accepted verdict moves on to `Evaluation`, the other eight leave the column unchanged.

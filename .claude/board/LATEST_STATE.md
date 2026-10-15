@@ -1,3 +1,8 @@
+## 2026-10-15 — main after #1567 (merged `b1f1365d`); D-HOLO H6c/H14 and the writer's version clock on main
+
+- **On `main` (#1566, merged `c18aefcb`):** D-HOLO H6c and H14 probes and results; H14b open (awaits the operator).
+- **On `main` (#1567):** `LanceCycleWriter::version_clock()` follows the #1562 contract (seeded at the head on open, positions not live rows). Reader not wired.
+
 ## 2026-10-15 — main after #1565 (merged `2379ddc2`); D-HL-5 probes on main
 
 - **On `main` (#1564, merged `703d6a94`):** six D-HL-5 thought-lane probes in `cognitive-shader-driver/examples` and the givens layer (hydration writes thought 0; contradicting hypotheses refused and recorded). Probes only; no production wiring.
