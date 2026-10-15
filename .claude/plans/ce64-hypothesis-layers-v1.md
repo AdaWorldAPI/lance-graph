@@ -716,6 +716,32 @@ merged point read with givens selected and unselected, ns per read;
 hypothesis write with the given check, ns per offered cell; Q-PERSP-style
 count with and without bit 0, ns per row.
 
+**Results (MEASURED 2026-10-15).** `givens_layer_probe`, `cargo run --release`,
+tier printed `v4 (avx512f)`, one run on a shared VM.
+- Tests: 7, all written first and seen red against stubs (a, b, b-twin,
+  layer-0 single writer, c, d, the registry). 8 disable runs, each red: cells
+  placed in declaration order (a, b); the given check removed (b, b-twin);
+  agreement counted as contradiction (b-twin); bit 0 forced into the count
+  (c); bit 0 forced into the read (caught by b and b-twin, not by c: a row
+  carrying only givens is never read past the written-word check); the
+  ontology's claim trusted as certification (d); a second seal re-hydrating
+  (registry); the layer-0 refusal removed.
+- 65,536 rows, 63 hypothesis thoughts, a third of the rows per thought, four
+  lanes each:
+  - hydration 34.1 ns per row (median of 5);
+  - hypothesis write with the given check 73.2 ns per offered cell (one pass;
+    5,233,689 offered: 4,978,337 accepted, 255,352 contradicted in 239,318
+    records, 0 agreed since the fixture's values are its own);
+  - merged point read over all 30 lanes 2,341 ns with givens, 1,676 ns
+    without (about 21 overlay entries per row; the cost is the overlay merge
+    D-HL-5 already names, not the givens);
+  - count over the written words 0.19 ns per row with or without bit 0 (at
+    this density every row holds a hypothesis, so both counts are 65,536;
+    the exclusion is shown by test c, not by this cell).
+- Certification on the fixture world: Open, Associated and Related all occur;
+  no edge asserts Supports or above, including the relations whose ontology
+  text claims Causes.
+
 ## Related fix-now items outside this plan
 
 From the NAL ledger (`D-NAL-AUDIT-0` follow-ups), each S and independent of
