@@ -121,6 +121,11 @@ test = true
 name = "coverage_orientation_probe"
 test = true
 
+# D-HL-5 givens layer: hydration writes thought 0; tests run under `cargo test`.
+[[example]]
+name = "givens_layer_probe"
+test = true
+
 # D-GSO-6 recipe selector probe; tests run under `cargo test`.
 [[example]]
 name = "recipe_selector_probe"
