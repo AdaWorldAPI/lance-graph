@@ -1,6 +1,6 @@
 # WAL shootout v1 — `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path
 
-**Status:** D-WAL-1 MEASURED (§2a), D-WAL-2 MEASURED (§3a), spec cross-check (§3b), D-WAL-3 running. Feeds D-LNC-7 (the one-WAL
+**Status:** D-WAL-1 MEASURED (§2a), D-WAL-2 MEASURED (§3a), spec cross-check (§3b), D-WAL-3 MEASURED, truncated at 27.5 min by a container restart (§4a). Feeds D-LNC-7 (the one-WAL
 decision, `lance-convergence-staged-migration-v1.md` §4C); this plan does not decide it.
 
 ## 1. What is compared
@@ -177,6 +177,45 @@ disk grow linearly; does RSS stay flat (M holds memtables).
 
 Disk budget is checked before the start (this host has about 5 GB free); the soak stops
 early if free space falls under 1 GB, and says so.
+
+## 4a. D-WAL-3 results (2026-10-15) — truncated at 27.5 minutes
+
+`crates/lance-graph/examples/wal_shootout.rs soak`, release build, one process per arm, one
+cycle of 256 casts (513 rows, 128 KiB of payload) per second, M with a 10 ms flush interval.
+Started 23:01:38 UTC. **Both runs stopped at t = 1,651 s (1,649 cycles), not 60 minutes:
+the container restarted at about 23:29 UTC** (`uptime` 0 min at the check-in, both CSVs end at
+the same second, empty logs, no "stopped early" line). Samples from t ≈ 970 s to 1,300 s
+overlap ruff builds run at low priority on the same host and are not used for latency.
+Timings are whole-call I/O on one VM, not primitive costs.
+
+| at t ≈ 30 s → 1,651 s | L (`LanceCycleWriter`) | M (MemWAL, flush 10 ms) |
+|---|---|---|
+| commit p50 | 5.8 → 10.1–11.2 ms (last 5 min); grows with history | 2.0–2.8 ms throughout; no trend |
+| commit p99 | mostly 9–35 ms; outliers 239 ms (t = 1,141, build window) and 192 ms (t = 1,591, cause unknown) | mostly 3–16 ms; one outlier 64 ms (t = 1,141, build window) |
+| disk | 562 MiB, linear, 0.34 MiB per cycle | 883 MiB (1.57× L): 0.29 MiB per cycle continuously, plus a step of about 60 MiB every ~195 cycles |
+| files | 4,948 (3 per cycle) | 1,722 |
+| versions | 1,649 (one per cycle) | base table stays at 3 |
+| full scan | 9.7 → 445 ms (846k rows, 0.53 µs/row) | 6.2 → 374 ms (0.44 µs/row; one sample 604 ms) |
+| RSS | 95 → 762 MiB, about 0.4 MiB per cycle, no plateau | 114 → 335 MiB, rising at each flush step |
+
+**What it shows.**
+- **Commit latency:** M is flat and 2–4× cheaper per cycle at this size; L's p50 nearly
+  doubles over 1,649 versions. Consistent with the D-WAL-2 crossover (M faster from about
+  1,000 casts per cycle at 10 ms flush; here 256 casts, but L pays per version).
+- **WAL not truncated, now measured over time:** M's disk grows by a WAL increment every
+  cycle and by a second copy at every flush, which comes every ~195 cycles, i.e. when the
+  100,000-row memtable default fills (195 × 513 ≈ 100k). The payload is stored twice and
+  nothing removes the WAL, as the spec cross-check (§3b) predicted.
+- **Scan:** both arms grow linearly in rows, M slightly cheaper per row. This corrects the §3a
+  reading that L's scan "stays at 21–43 ms": that held for 40–200 large cycles; with 1,649
+  small versions L pays per fragment too. Neither arm compacts.
+- **RSS:** L's process grows without a plateau and ends at 2.3× M. Not explained yet: the
+  writer, Lance's caches for 1,649 versions, or the in-process scan's `Dataset::open` each
+  sample. Needs a probe that separates them before anyone reads it as a writer leak.
+
+**Open:** a full 60-minute run (and longer) to see whether L's latency and RSS keep growing
+or level off; the RSS source; what compaction (L: `Dataset::optimize`; M: the MemWAL
+compactor) does to both curves.
 
 ## 5. Deliverables
 

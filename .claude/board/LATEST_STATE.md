@@ -1,3 +1,8 @@
+## 2026-10-15 — main after #1555 (merged); D-WAL measured on branch `ccr-9f3b8075-74u47l-wal-shootout` (unpushed)
+
+- **On `main` (#1555, merged `5366a5ab`):** `crates/lance-graph-metta` (excluded) with the D-MTP-1 join probe and the D-MTP-1b range-hop probe; plan `metta-polyfill-v1.md`. Examples only, no production change.
+- **On branch (unpushed):** D-WAL-1/2/3 for `LanceCycleWriter` vs the lancedb 0.40 MemWAL path (probe, harness, example behind `lancedb-sdk`); entry `2026-10-15-d-wal-shootout.md`. No production wiring.
+
 ## 2026-10-14 — the rail walk applies the reader's field mask on branch `ccr-0455e606-wmtsor` (unmerged)
 
 - **Contract:** `selection::walk_rails_authorized(graph, class_view, registry, view_binding, allowed, root, max_depth, visit)`. Same walk as `walk_rails`, with `allowed(class)` added to the AND at every hop: `view.mask ∩ presence ∩ allowed(class)`. A hidden field is not emitted at any depth (each hop uses its own class's mask), and a hidden rail is not followed, so a linked object cannot be read through a link the reader may not see. `allowed` returns a mask, not an `Option`, so there is no permit-all fallback. `walk_rails` is unchanged. Closes H7 for every output built on the walk (OGAR `ogar-doc-ir` resolve uses it); the caller passes the `field_mask` of its `Decision` per class. Tests: four `selection::tests::authorized_walk_*`; three fail with the mask removed, the hidden-rail test fails with the mask applied to emission only.

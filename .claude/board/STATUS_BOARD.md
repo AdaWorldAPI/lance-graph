@@ -6,7 +6,7 @@ Plan: `.claude/plans/wal-shootout-v1.md`. Feeds D-LNC-7; decides nothing.
 |---|---|---|---|
 | **D-WAL-1** | V1 SIGKILL atomicity, V2 acknowledged ⇒ durable, V3 idempotent resubmit, V4 read horizon; both arms | Measured (§2a): V1–V3 hold on both arms; M's acknowledged writes are invisible to other readers until a flush or a writer replay | no partial cycle, sweep brackets the boundary; no acknowledged cycle lost after the replay read; V3/V4 behaviour recorded |
 | **D-WAL-2** | commit p50/p99 and ns/row at N = 64 / 1,024 / 8,192; disk, files, versions/generations, full-scan latency after 200 cycles | Measured (§3a): M waits for the WAL ticker (~95 ms at the 100 ms default); at 10 ms faster than L from N = 1,024; M holds ~2× the bytes and its scan grows without compaction | numbers with tier; no threshold |
-| **D-WAL-3** | 60-minute soak per arm, CSV every 30 s | Queued (pre-registered) | drift, growth and RSS reported |
+| **D-WAL-3** | 60-minute soak per arm, CSV every 30 s | Measured, truncated at 27.5 min / 1,649 cycles by a container restart (§4a): M commit p50 flat 2.0–2.8 ms, L 5.8 → ~10.5 ms; M disk 1.57× L (WAL kept after each flush); both scans linear in rows; L RSS 95 → 762 MiB unexplained | drift, growth and RSS reported |
 
 ## D-MTP — Hyperon/MeTTa over the masking-algebra polyfill (2026-10-14)
 
