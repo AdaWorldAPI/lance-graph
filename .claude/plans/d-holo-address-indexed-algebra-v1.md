@@ -1,6 +1,6 @@
 # D-HOLO — address-indexed algebra: falsifiers H1, H5, H6 (v1)
 
-**Status:** MEASURED 2026-10-14 (H1, H5, H6, H6b); H6c, H8, H9, H11, H12
+**Status:** MEASURED 2026-10-14 (H1, H5, H6, H6b, H6c); H8, H9, H11, H12, H14
 PRE-REGISTERED, not run. The pre-registration below is unchanged; results are in § Results
 (2026-10-14), the next falsifiers in § Next falsifiers.
 
@@ -35,11 +35,12 @@ is run.
 - [x] D-HOLO-H6: closure of address restrictions probe, same
 - [x] Results section, board entry, status rows
 - [x] D-HOLO-H6b: normal forms on the Context × Operation tile (with the connectedness column)
-- [ ] D-HOLO-H6c: group-count switch, the 2–60 group crossover, declared construction
+- [x] D-HOLO-H6c: group-count switch, the 2–60 group crossover, declared construction
 - [ ] D-HOLO-H8: semantic diversity does not add instruction families
 - [ ] D-HOLO-H9: relational emptiness without a fold
 - [ ] D-HOLO-H11: stacked logic (pre-registered after H6b; runs after it)
 - [ ] D-HOLO-H12: semantic map of inference functions across NARS systems
+- [ ] D-HOLO-H14: full-row writes vs lane deltas that stay in their row (pre-registered 2026-10-15); amended 2026-10-15: arm C is the inverted fold and a candidate
 
 ## Accounting rules (apply to every falsifier)
 
@@ -795,3 +796,290 @@ because D is swept while P is declared does not count.
 - Every Q1 fixture really has g groups (P's group count equals g) and is neither
   empty nor full. Disable: assigning every context the first mask must fail it.
 
+## Results: H6c (2026-10-14)
+
+Probe `crates/lance-graph-mask-risc/examples/holo_tile_crossover_probe.rs`, v4
+(avx512f), three runs. The arms, query and patterns are copied from the H6b
+probe; the hybrid gains a switch policy. Five tests (declared == swept build in
+P, D and I; Q1 fixtures have exactly g groups; the group switch goes both ways;
+every arm and switch matches the row oracle on the 14 H6b patterns and 24 Q1
+fixtures; a rectangle's Morton decomposition is exact). The three pre-registered
+disables each turned a test red: an off-by-one in the declared range end, the
+switch ignoring G, every context given the first mask.
+
+| Question | Result, three runs | Verdict |
+|---|---|---|
+| Q1: P/D per query crosses 1 between g = 4 and 16 in both layouts | blocked: 8 → 12 in all runs; interleaved: 8 → 12 twice, 12 → 16 once | HOLDS; layouts agree within one step |
+| Q2: a group switch ≤ 1.25× D everywhere, never ≥ 2× (G nearest the crossover: 8) | G = 8: max query 1.68 / 2.28 / 1.21; max total 1.88 / 1.72 / 1.20 | NOT shown safe (undecided, fails, passes) |
+| Q2: the byte switch | max query 9.8–15.1× D | NOT safe in every run |
+| Q3: declared build, P or H ≤ 0.5× D at N = 100 on row, column, rectangle, prefix | P 0.32–0.76, H 0.38–0.83; the better of the two 0.32–0.42 | PASS in all runs |
+
+**Q1.** P's query cost grows with the group count; D's does not. P is 0.14–0.49×
+D up to g = 4, 0.40–0.63× at g = 6–8, and 0.92–1.86× at g = 12–16. At g = 64 it is
+9.4–12.4× D. Single operations sit above the full query: at g = 12, ∩ and ∪ are
+1.29–1.94× D, and ¬ already crosses 1 at g = 6–8 in the interleaved layout
+(1.03–1.38×).
+
+**Q2.** The group switches at G = 2–16 beat the byte switch by a wide margin
+(worst query 1.21–2.88× against 9.8–15.1×); G = 32 keeps P past the crossover
+and reaches 3.1–7.3×. But the maximum over 38 fixtures moves from run to
+run (worst fixture: doughnut, fragmented, g = 12 blocked, g = 48 interleaved),
+which is what a maximum over noisy ratios does at about 40 % noise. The rule as
+registered cannot certify any switch here. One effect repeats in two runs: at
+G = 2 the doughnut (2 groups) costs 1.8–1.9× D per query, because its
+intermediate results exceed 2 groups and are converted to D mid-query.
+
+**Q3.** Built from a declaration, P costs about 0.3–0.7 µs to build, against
+about 0.3 ms for the 65,536-cell sweep (H6b), and P's total is below D's from
+the first query (N ≤ 1) on every declared pattern. I's declared build (Morton
+decomposition of the rectangles, 2–10 µs) makes I the most expensive arm
+except on the prefix. The "swept D" column in the probe's output builds through
+the declaration's membership function, which re-collects the rectangles on
+every cell; it is not comparable with H6b's sweep and is not used in any ratio.
+
+**What this changes.** The H6b structured rule fails only because of the sweep:
+with declared construction it passes in every run. P is the cheaper form up to
+about 8 groups and loses beyond about 12. A group-count switch near G = 8 fixes
+H6b's byte-switch failure, but the registered max-over-fixtures criterion is
+too noise-sensitive to certify it at 14 + 24 fixtures. The selector stays held.
+Open: a noise-robust criterion (per-fixture median over runs, or a repeated
+maximum) and whether switching intermediate results mid-query should be
+allowed at all.
+
+
+## Next falsifier: H14 — full-row writes vs lane deltas that stay in their row (PRE-REGISTERED 2026-10-15, NOT RUN)
+
+**Question (operator, 2026-10-15).** For one graph (classid) x thought (rung) x
+64k-row tile, is a dirty row written as (a) the full 512-byte SoA row, or (b) a
+32-lane index plus the changed 16-byte lanes? D-HL-5 measured the in-memory
+tile (slot delta 12 + 16k bytes per dirty row, 0.054 of a row at k = 1); this
+falsifier owns the persistence choice. Written before the probe exists; a
+change after the run is a new dated section.
+
+**DECISION (operator, 2026-10-15).** Two levels of awareness stay distinct and
+are never folded into each other:
+- a **session** holds several thoughts: one thought mask per session;
+- a **thought** holds several lanes: one lane mask per (thought, row).
+A lane is never stored apart from its row. Either the whole row is written, or
+the delta carries its row key and lane mask in the same record, so a read never
+has to re-join lanes to rows. Storage that splits lanes from their rows creates
+a dissociation that a later read must re-merge, and that re-merge is a
+materialization cost. SCOPE: H14. REVISIT WHEN: an arm without the connection
+wins on read and bytes together.
+
+**Arms.**
+- A (full row): per dirty (thought, row), the 512-byte row image.
+- B (connected delta): per dirty (thought, row), one record = row key, lane
+  mask (u32), the changed lanes packed in lane order. Lanes exist only inside
+  their record.
+- C (dissociated, control): one table per (thought, lane), keyed by row. It is
+  kept only to measure the re-merge it forces; it cannot become the default
+  under the decision above.
+All three hold the same session thought masks; the session level is not part
+of any arm's lane storage.
+
+**Grid.** Classes 1 and 16; thoughts per session 1, 8, 64; 65,536 rows per
+tile; dirty fraction 1 %, 10 %, 100 %; changed lanes per dirty row k = 1, 4,
+16, 31. Fixtures deterministic (seeded), identical for every arm.
+
+**Metrics.** Bytes stored and bytes one append would write (Arrow batch size,
+computed exactly); seal ns per dirty row; full-row read ns per row (base merged
+with the thought's record); session read ns per row (every thought of one
+session over a 4,096-row aperture); for C, the re-merge ns per row reported on
+its own. v4 only, tier printed by the program; ns per row or per record, never
+whole-call milliseconds. The Lance write itself is not timed here (D-WAL owns
+it); this falsifier reports what each arm would hand to it.
+
+**Rule.** B is the default if, at k <= 4 on every (dirty, thoughts) cell, B's
+full-row read is <= 1.25x A's, its session read <= 1.25x A's, and its bytes <=
+0.5x A's. Otherwise A is the default. C is reported, never chosen. If B passes
+only at some k, the crossover k* is reported and the decision returns to the
+operator.
+
+**Tests and disable runs (before any timing).**
+- Every arm reads the same bytes as a dense reference tile, row by row
+  (disable: drop the merge in B's read).
+- The session mask names exactly the thoughts that wrote in the session
+  (disable: derive it from the lane masks of one thought).
+- A thought's lane mask equals the lanes that differ from the base at that row
+  (disable: store every lane).
+- B never yields a lane without its row key; C's re-merge returns the same rows
+  as A (disable: skip a lane table in the re-merge).
+
+### H14 amendment before any run (2026-10-15): arm C is the inverted fold, and a candidate
+
+**Correction (operator, 2026-10-15).** "If you use c) with the inverted
+holographic addresses you just make the fold the default and computation
+happens inside the inverted fold, only pay for materialisierung." The text
+above treated C as a dissociated control that "cannot become the default" and
+is "reported, never chosen". Both statements are SUPERSEDED. Nothing has been
+run, so this is a pre-registration change, not a result change.
+
+**Why C does not dissociate.** The decision above forbids storage that a read
+must re-join to its rows. Per-lane planes over the tile's own row addresses
+need no re-join: every plane lives in the same 65,536-row coordinate space, so
+combining lanes, thoughts and the aperture is an address-aligned mask fold
+(`And` / `Or` / `Count` in mask-risc), not a join. The row connection is
+carried by the address instead of by co-locating lanes in one record. Lanes
+are assembled into a row only when a terminal asks for a row, and that
+assembly is the one materialization C pays.
+
+**C (inverted fold), replacing the control.** Per (thought, lane) one plane:
+- the set of rows whose lane differs from the base, as an address mask
+  (carrier chosen by density: dense bitmap, sparse list or runs; the probe
+  prints which carrier each cell used, since a dense 8 KiB plane per
+  (thought, lane) is 64 x 31 x 8 KiB = 15.9 MB per tile and would lose on
+  bytes at 1 % dirty);
+- the changed 16-byte values for those rows, in address order.
+Queries stay inside the fold until a named terminal. The session thought mask
+is unchanged and still not part of any arm's lane storage.
+
+**Relation to H5.** H5 refuted a maintained inverse built in addition to the
+primary store (the plane inverse did not pay back its build within 1,000
+queries). Here the inverse planes are the primary store: there is no second
+structure to build, only the seal cost of writing into planes, which is
+measured below. If C's seal cost per dirty row exceeds B's by more than the
+H5 plane build ratio, that is reported as the same failure, not hidden.
+
+**Added queries (all arms, same fixtures).** Each answered without building a
+row, except where a terminal is named:
+- F1: rows thought t changed in any lane of a lane set L, inside an aperture,
+  as a count;
+- F2: rows changed by any thought of the session in lane l, inside an
+  aperture, as a count;
+- F3: F1's rows, materialized as full 512-byte rows (terminal).
+A and B answer F1 and F2 by scanning their records; C by folding planes.
+
+**Metrics added.** For C, fold ns per row of the aperture (F1, F2) and
+terminal materialization ns per emitted row (F3, and the full-row and session
+reads), reported separately so the materialization cost is visible on its
+own. Bytes as before, per carrier.
+
+**Revised rule (replaces "C is reported, never chosen").**
+- C is the default if, at k <= 4 on every (dirty, thoughts) cell: F1 and F2
+  on C are at least 2x faster than on B; the full-row read and session read on
+  C, including terminal materialization, are <= 1.25x B's; and C's bytes are
+  <= B's.
+- Otherwise the A-vs-B rule above decides between A and B.
+- If C wins the fold queries but loses the materializing reads, both numbers
+  are reported, the crossover (how many rows a query materializes before C
+  stops winning) is stated, and the decision returns to the operator.
+
+**Tests and disable runs added (before any timing).**
+- F1, F2 and F3 return the same rows and bytes on every arm as on the dense
+  reference (disable: drop one lane plane from C's fold).
+- C's materialization counter is zero after F1 and F2 and equals the emitted
+  row count after F3 (disable: assemble rows inside the fold).
+- C's planes name exactly the rows whose lane differs from the base
+  (disable: store every row of a touched lane).
+
+### H14 correction to the amendment (2026-10-15): the address is the register, nothing is traversed
+
+**Correction (operator, 2026-10-15).** "You don't traverse, the address is
+already the loci register. Instead of `Table1[index][a][b]`,
+`Table1[index][a] Table2[index][b]`." The amendment above stored C's changed
+values "in address order", compacted. Finding a row's value in a compacted run
+needs a rank or a search over the plane, which is a traversal. That part is
+SUPERSEDED.
+
+**C, as corrected.** One table per (thought, lane), indexed by the row address
+itself: `Lane_l[index]` is the 16-byte value of lane l at that row. The
+address is the position; reading lanes a and b of row i is two positional
+reads at the same i, with no search, no rank and no join. The presence mask
+per (thought, lane) stays, and it is what F1 and F2 fold over; it is never
+used to locate a value.
+
+Contrast with B: B's record is `Table[index][a][b]`, one row key with its lanes
+packed behind a lane mask, so reading lane b means walking the record (a
+popcount rank over the lane mask). The probe reports that rank as part of B's
+read cost.
+
+**Bytes.** Logically every (thought, lane) table spans the tile, which is
+65,536 x 16 B = 1 MiB. Two rules keep that from becoming the stored size:
+- only (thought, lane) pairs that changed at least one row get a table;
+  an absent table falls through to the base row (the zero-fallback);
+- the bytes handed to the writer are the dirty positions only (Lance sparse
+  write, merge on read), reported per cell next to the resident size.
+The resident size is reported on its own so the cost of positional tables in
+memory is visible, not hidden behind the persisted size.
+
+**Test added.** Reading lane l of row i on C touches exactly position i of one
+table: an access counter equals the number of lanes read, independent of how
+many rows the table holds (disable: store C's values compacted and look them
+up by rank, which makes the counter grow with the plane).
+
+**Addendum (operator, 2026-10-15): "it's merge on read but for the join."**
+Combining lane tables is not a separate join step. It is the same
+merge-on-read that overlays dirty bytes on the base: for row i, start from the
+base row and overlay position i of each touched (thought, lane) table. Base
+over delta and lane next to lane are one operation at one index. So:
+- the original metric "for C, the re-merge ns per row reported on its own" is
+  SUPERSEDED; C's full-row read is measured as one merge-on-read and reported
+  with the same metric as A and B;
+- "terminal materialization" for C means exactly this merge-on-read, run only
+  for the rows a terminal asks for; F1 and F2 never run it;
+- the original DECISION's concern (a dissociation that a later read must
+  re-merge at extra cost) does not apply to positional tables, because the
+  merge is the read itself. It still applies to any layout that would need a
+  key lookup or a sort to line lanes up, which is why compacted runs stay
+  superseded.
+
+### H14 results (v4, 2026-10-15): C wins every fold, loses every merge-on-read; returns to the operator
+
+Run: `cargo run --release -p lance-graph-mask-risc --example
+holo_lane_storage_probe` on an AVX-512 host (the program printed
+`tier: v4 (avx512f)`). One class per run; 16 classes were not timed (the
+64-thought cells need about 8 GB for one class on a 15 GB host). Bytes scale
+linearly with classes; the timing effect of more classes is untested.
+Seven oracle tests pass against a dense reference; five disable runs each
+turned their test red (drop B's merge, store every lane in B, skip a lane
+plane in C's fold, build rows inside C's fold, session mask from one thought).
+
+Measured, ns per row unless noted (full table in the board entry):
+
+| quantity | A full row | B connected delta | C inverted fold |
+|---|---|---|---|
+| F1 (one thought, 4 lanes, per aperture row) | 0.5–38.8 | 0.43–1.6 | 0.027–0.075 |
+| F2 (all thoughts, one lane, per aperture row) | 1.2–272 | 0.86–109 | 0.017–0.59 |
+| full-row read (merge-on-read for C) | 38–152 | 51–1,005 | 259–1,529 |
+| session read (per thought-row) | 6.7–61 | 11.5–173 | 57–539 |
+| seal per dirty row, 1 % dirty | 31–292 | 13–30 | 2,454–21,106 |
+| seal per dirty row, 100 % dirty | 271–389 | 5–59 | 32–222 |
+| bytes handed to the writer | 516 B per dirty row | 12 + 16k | ≈ B (0.7–1.2× B) |
+| resident | as written | as written | 31 MiB per thought, logical |
+
+Rule at k <= 4 on every (dirty, thoughts) cell:
+- C's folds are at least 2× faster than B's on F1 and F2: **yes**, in every
+  cell (F1 10–24×, F2 39–256×). F2 is the session-wide count and
+  grows with the number of thoughts on all three arms: C ORs one presence
+  window per thought, 0.017–0.023 ns per aperture row at 1 thought,
+  0.058–0.072 at 8, 0.38–0.59 at 64.
+- C's reads with merge-on-read within 1.25× of B's: **no**, in every cell
+  (2.8–6.1× slower).
+- C default: not met. B default over A: not met (B's full-row read is up to
+  4.6× A's at 100 % dirty with k = 4, and its session read 1.4–2.2× A's at
+  1 % dirty).
+
+Per the pre-registered rule this returns to the operator with both numbers.
+The crossover, from F3 (fold, then materialize the rows the fold names):
+C beats B on F3 at 1 % dirty in every cell (C 59–136 vs B 87–690 ns per
+emitted row) and at 10 % dirty when k = 1; it loses in most other cells. A
+query on C pays about 0.4 ns per aperture row less than B for F1 and about
+200–450 ns more per materialized row, so C wins a mixed query while it
+materializes fewer than about 1 row in 500–1,000 of the aperture for a
+single-thought count, and between about 1 in 8 and 1 in 3 for a
+session-wide count at 64 thoughts.
+
+What the numbers point at (HYPOTHESIS, not measured here):
+- C's read cost is the merge itself, not the positional access: the merge
+  probes every touched lane table of the thought (31 tables at every k in
+  this fixture, because the changed lanes vary by row), and each probe is a
+  separate 1 MiB table, so a row read touches up to 31 cache lines in 31
+  tables. A per-row lane mask held positionally beside the tables
+  (`Mask[i]`, 4 bytes per row) would let the merge read only the k tables
+  that changed, keep the fold, and keep the address as the register. That is
+  B's lane mask without B's packed record, and it is the next arm to try
+  (H14b).
+- C's seal at 1 % dirty is page faults: the positional tables are zeroed
+  lazily, so each scattered dirty row touches a fresh page. At 100 % dirty
+  the same seal costs 32–222 ns. Persisted bytes are unaffected.

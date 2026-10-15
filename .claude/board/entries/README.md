@@ -25,13 +25,14 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-341 entries, 2026-08-06 .. 2026-10-15.
+343 entries, 2026-08-06 .. 2026-10-15.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-15 | `ledger-correction-wire-contract` |  | [2026-10-15-ledger-correction-wire-contract.md](2026-10-15-ledger-correction-wire-contract.md) |
 | 2026-10-15 | `givens-layer` |  | [2026-10-15-givens-layer.md](2026-10-15-givens-layer.md) |
 | 2026-10-15 | `D-WAL` | `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path (measured) | [2026-10-15-d-wal-shootout.md](2026-10-15-d-wal-shootout.md) |
+| 2026-10-15 | `D-HOLO-H14` |  | [2026-10-15-d-holo-h14-lane-storage.md](2026-10-15-d-holo-h14-lane-storage.md) |
 | 2026-10-14 | `revision-layer-invariants` |  | [2026-10-14-revision-layer-invariants.md](2026-10-14-revision-layer-invariants.md) |
 | 2026-10-14 | `D-MTP-0` | where Hyperon/MeTTa attaches to the masking-algebra polyfill | [2026-10-14-metta-polyfill-map.md](2026-10-14-metta-polyfill-map.md) |
 | 2026-10-14 | `ledger-revision-after-1553` |  | [2026-10-14-ledger-revision-after-1553.md](2026-10-14-ledger-revision-after-1553.md) |
@@ -41,6 +42,7 @@ exactly one of them, never both.
 | 2026-10-14 | `delta-granularity-economics` |  | [2026-10-14-delta-granularity-economics.md](2026-10-14-delta-granularity-economics.md) |
 | 2026-10-14 | `D-MTP-1b` | the hop as a range (measured) | [2026-10-14-d-mtp-1b-range-hop.md](2026-10-14-d-mtp-1b-range-hop.md) |
 | 2026-10-14 | `D-MTP-1` | the MeTTa two-hop join through Quack Semijoin (measured) | [2026-10-14-d-mtp-1-join.md](2026-10-14-d-mtp-1-join.md) |
+| 2026-10-14 | `D-HOLO-H6c` | group-count crossover, group switch, declared construction (measured) | [2026-10-14-d-holo-h6c.md](2026-10-14-d-holo-h6c.md) |
 | 2026-10-14 | `D-HOLO-H6b` | normal forms on the Context × Operation tile (measured) | [2026-10-14-d-holo-h6b.md](2026-10-14-d-holo-h6b.md) |
 | 2026-10-14 | `D-HOLO` |  | [2026-10-14-d-holo-falsifiers.md](2026-10-14-d-holo-falsifiers.md) |
 | 2026-10-14 | `coverage-orientation` |  | [2026-10-14-coverage-orientation.md](2026-10-14-coverage-orientation.md) |
