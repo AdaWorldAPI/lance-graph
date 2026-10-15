@@ -1,3 +1,10 @@
+## 2026-10-14 — lance-graph PR #1555 (merged `5366a5ab`, branch `ccr-9f3b8075-74u47l-metta`, head `457a8c41`, 14 commits) — D-MTP: MeTTa over the masking-algebra polyfill; two-hop join and the hop as a range
+
+- **Added:** plan `metta-polyfill-v1.md` (Hyperon seams, PeTTa vs Hyperon measurements, MeTTa-as-IR verdict, datafrog fork as the exact Rust oracle). `crates/lance-graph-metta` (own workspace, excluded; datafrog from `AdaWorldAPI/datafrog` as a dev-dependency only) with `join_probe` (D-MTP-1, two-hop join through Quack `Semijoin`) and `join_range_probe` (D-MTP-1b, the hop as a range under a monotone `dst`). Entries `2026-10-14-metta-polyfill-map.md`, `-d-mtp-1-join.md`, `-d-mtp-1b-range-hop.md`; STATUS D-MTP rows.
+- **Locked:** pairs equal datafrog at every size; counts equal Hyperon and PeTTa. At 10⁶ (v4): gather count 1.2–1.8 ns/row, emit 4.0–5.7 ns/pair against datafrog's 59–71; the range path counts in 0.0001–0.0004 ns/row with runs recorded at ingest and refuses a non-monotone lane. relalg has no hop yet, so the join lowers through Quack.
+- **Deferred / open:** D-MTP-2..5 (named `LanceSpace`, recursion via the external driver, the trie width fix upstream, PeTTa in the probes); the order witness is probe-local.
+- **Confidence:** high for equality (disable runs red as pre-registered); timings are best of 5 over three runs on one VM.
+
 ## 2026-10-14 — lance-graph PR #1552 (merged `98c03dd1`, branch `ccr-9f3b8075-74u47l-haiku-harvest`) — Haiku harvest tier: six cards and their supervision rules
 
 - **Added:** cards `.claude/agents/{harvest-scout,census-counter,quote-harvester,substrate-mapper,spec-editor,guarded-executor}.md`; `tiered-agent-execution-protocol.md` § Haiku harvest tier (card table, brief sizing, supervision rules, mapping a large surface); CLAUDE.md Model Policy rewritten; BOOT files, worker template, cca2a and v3 BOOT aligned; AGENT_LOG entries for the first runs; #1551 board entries.

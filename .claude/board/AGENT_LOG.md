@@ -9,6 +9,11 @@
 - Card `substrate-mapper` (run as a general-purpose agent with the card pasted; the card is not registered in this session), six units: `hyperon-atom`, `hyperon-space`, the minimal-MeTTa interpreter, the grounded stdlib, lance-graph `nal`/`r2il`/`relalg`, `quack`.
 - Ledger: spot-checks `Space::query` L175, `complex_query` L340, `GroundingSpace` L17, interpreter dispatch L417/L453, `query` L604, `FoldDialect` L260 — all correct; 0 wrong. 1 missed: no map recorded that `ModuleSpace` splits conjunctions and requires `ModuleSpace` dependencies (`space/module.rs:33-48`); the orchestrator found it by reading the file in full.
 - Cost: about 515k–646k subagent tokens per run. No conclusion came from a card.
+## 2026-10-14 — WAL shootout harvest: three substrate-mapper runs
+
+- Card `substrate-mapper`, three units: lance 13 `dataset/mem_wal` (5 files, 187 items), lancedb 0.40 MemWAL/LSM (4 files, ~301 items), lance-graph persist sink (`persist_sink.rs`, `batch_writer.rs`, `blw_rows.rs`, `blw_tenant.rs`, 76 items).
+- Ledger: spot-checks 2/2 per map against source (`set_lsm_write_spec` :73, `execute_lsm_merge_insert` :666, `WalSink` :534, `recover_and_apply` :677, and the `LsmWriteSpec` public API); 0 wrong. One stale upstream doc found by the orchestrator, not by a card: `LsmWriteSpec`'s doc calls the `merge_insert` dispatch a follow-up, but `table/merge.rs:320` already dispatches it.
+- Cost: about 587k, 591k and 606k subagent tokens. The maps fed the pre-registration; no conclusion came from a card.
 
 ## 2026-10-14 — D-HOLO H6b harvest: four substrate-mapper runs, one reply each
 

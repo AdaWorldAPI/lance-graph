@@ -323,10 +323,9 @@ accordingly to batchwriter."* Followed. The arc, and what it left:
 
 **So `Dataset::write` is real and in-tree** — two call sites, under a module doc
 saying the I/O *"is INTERNAL to this one writer"*:
-`Dataset::write` at `crates/lance-graph/src/graph/cycle_sink.rs:675` (the Create
-inside `LanceCycleWriter::bootstrap`) and `Dataset::write` at
-`crates/lance-graph/src/graph/cycle_sink.rs:710` (the Create-or-Append inside
-`LanceCycleWriter::raw_append`). The plan's G-C above — *"no `Dataset::write`"* —
+`Dataset::write` in `crates/lance-graph/src/graph/cycle_sink.rs`, function
+`LanceCycleWriter::bootstrap` (the Create), and `Dataset::write` in the same file,
+function `LanceCycleWriter::raw_append` (the Create-or-Append). The plan's G-C above — *"no `Dataset::write`"* —
 was **wrong when written.**
 
 > ⊘ The first spelling of this citation was `…rs:675` followed by a bare

@@ -5,6 +5,13 @@
 - MeTTa is a declaration IR, not an execution IR: the Datalog subset lowers through `lance-graph-relalg` → R2IL → mask-risc; everything else stays in Hyperon's interpreter.
 - Seam: a named `LanceSpace` implementing `hyperon_space::Space`; `ModuleSpace` splits conjunctions, so `&self` is not the seam.
 - Measured PeTTa (SWI-Prolog) near-linear, Hyperon superlinear (anc_800: 0.42 s vs 417 s); new trie panic at ≥ 1,024 children.
+## 2026-10-14 (2) — wal-shootout-v1 — `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path → `.claude/plans/wal-shootout-v1.md`
+
+**Status:** MEASURED (D-WAL-1, D-WAL-2, spec cross-check; D-WAL-3 truncated at 27.5 min by a container restart). Feeds D-LNC-7 without deciding it.
+
+- Same logical cycle on both arms (frame + landing + image rows); M adds a `pk` column for MemWAL.
+- D-WAL-1 validation: SIGKILL atomicity (sweep must bracket the boundary), acknowledged ⇒ durable (read before and after writer replay), idempotent resubmit, read horizon.
+- D-WAL-2 cost per cycle and per row at N = 64 / 1,024 / 8,192; D-WAL-3 60-minute soak per arm with a CSV sample every 30 s.
 
 ## 2026-10-14 — d-holo-address-indexed-algebra-v1 — falsifiers H1, H5, H6 for the address-indexed algebra → `.claude/plans/d-holo-address-indexed-algebra-v1.md`
 
