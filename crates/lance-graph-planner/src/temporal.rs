@@ -363,15 +363,32 @@ pub trait DeinterlaceRow {
 /// type-visible here; their bodies are trivial (`hlc_tick == None`, `NoDeps`)
 /// until the cluster bus and the SPO frontends land. No signature changes when
 /// they do.
+///
+/// **Copies every admitted row.** Prefer [`deinterlace_indices`], which returns
+/// positions into `rows` and leaves the rows where they are.
 #[must_use]
 pub fn deinterlace<R, D>(rows: &[R], v_ref: &QueryReference, deps: &D) -> Vec<R>
 where
     R: DeinterlaceRow + Clone,
     D: DependsClosure,
 {
-    let mut out: Vec<R> = rows
-        .iter()
-        .filter(|r| {
+    deinterlace_indices(rows, v_ref, deps)
+        .into_iter()
+        .map(|i| rows[i as usize].clone())
+        .collect()
+}
+
+/// [`deinterlace`] without copying rows: the positions in `rows` of the
+/// dispatchable rows, in deinterlace order. Four bytes per admitted row.
+#[must_use]
+pub fn deinterlace_indices<R, D>(rows: &[R], v_ref: &QueryReference, deps: &D) -> Vec<u32>
+where
+    R: DeinterlaceRow,
+    D: DependsClosure,
+{
+    let mut out: Vec<u32> = (0..rows.len() as u32)
+        .filter(|&i| {
+            let r = &rows[i as usize];
             classify_ready(
                 r.subject(),
                 r.lance_version(),
@@ -381,13 +398,14 @@ where
             )
             .dispatchable(v_ref.mode)
         })
-        .cloned()
         .collect();
     // Falls back to the row's own lance_version when no HLC tick is present
     // (single-server / legacy rows) — NOT to 0, which would force every
     // missing-HLC row ahead of all HLC rows regardless of its version (Codex
     // P2 on #468; honors the documented "fallback to lance_version").
-    out.sort_by_key(|r| {
+    // Stable sort: equal keys keep their input order, as before.
+    out.sort_by_key(|&i| {
+        let r = &rows[i as usize];
         (
             r.hlc_tick().unwrap_or_else(|| r.lance_version()),
             r.lance_version(),
@@ -441,14 +459,33 @@ pub trait LocalCausalRow {
 /// neighbours are removed from its timeline, and each timeline is put back into
 /// the owner's own cast order (the crash-replay order). Returns a `BTreeMap` so
 /// owners iterate deterministically.
+///
+/// **Copies every row.** Prefer [`local_trajectories_indices`].
 #[must_use]
 pub fn local_trajectories<R: LocalCausalRow + Clone>(global: &[R]) -> BTreeMap<MailboxId, Vec<R>> {
-    let mut by_owner: BTreeMap<MailboxId, Vec<R>> = BTreeMap::new();
-    for row in global {
-        by_owner.entry(row.owner()).or_default().push(row.clone());
+    local_trajectories_indices(global)
+        .into_iter()
+        .map(|(owner, ix)| {
+            (
+                owner,
+                ix.into_iter().map(|i| global[i as usize].clone()).collect(),
+            )
+        })
+        .collect()
+}
+
+/// [`local_trajectories`] without copying rows: per owner, the positions in
+/// `global` of that owner's rows in `cast_seq` order.
+#[must_use]
+pub fn local_trajectories_indices<R: LocalCausalRow>(
+    global: &[R],
+) -> BTreeMap<MailboxId, Vec<u32>> {
+    let mut by_owner: BTreeMap<MailboxId, Vec<u32>> = BTreeMap::new();
+    for (i, row) in global.iter().enumerate() {
+        by_owner.entry(row.owner()).or_default().push(i as u32);
     }
-    for rows in by_owner.values_mut() {
-        rows.sort_by_key(LocalCausalRow::cast_seq);
+    for ix in by_owner.values_mut() {
+        ix.sort_by_key(|&i| global[i as usize].cast_seq());
     }
     by_owner
 }
@@ -457,14 +494,24 @@ pub fn local_trajectories<R: LocalCausalRow + Clone>(global: &[R]) -> BTreeMap<M
 /// owner. Filters the interleaved global stream to that owner's rows and orders
 /// them by `cast_seq`. Equivalent to `local_trajectories(global).remove(&owner)`
 /// but without materialising the other owners' chains.
+///
+/// **Copies the owner's rows.** Prefer [`local_trajectory_indices_of`].
 #[must_use]
 pub fn local_trajectory_of<R: LocalCausalRow + Clone>(global: &[R], owner: MailboxId) -> Vec<R> {
-    let mut chain: Vec<R> = global
-        .iter()
-        .filter(|r| r.owner() == owner)
-        .cloned()
+    local_trajectory_indices_of(global, owner)
+        .into_iter()
+        .map(|i| global[i as usize].clone())
+        .collect()
+}
+
+/// [`local_trajectory_of`] without copying rows: the positions in `global` of
+/// `owner`'s rows in `cast_seq` order.
+#[must_use]
+pub fn local_trajectory_indices_of<R: LocalCausalRow>(global: &[R], owner: MailboxId) -> Vec<u32> {
+    let mut chain: Vec<u32> = (0..global.len() as u32)
+        .filter(|&i| global[i as usize].owner() == owner)
         .collect();
-    chain.sort_by_key(LocalCausalRow::cast_seq);
+    chain.sort_by_key(|&i| global[i as usize].cast_seq());
     chain
 }
 
@@ -629,6 +676,72 @@ mod tests {
             vec!["first", "second", "third"],
             "replay follows cast_seq, not the (scrambled) durable-log order",
         );
+    }
+
+    /// D-WAL-7: the index forms select exactly the rows the copying forms
+    /// return, in the same order, and never clone a row.
+    #[test]
+    fn index_forms_match_the_copying_forms_without_cloning() {
+        use std::cell::Cell;
+        thread_local!(static CLONES: Cell<usize> = const { Cell::new(0) });
+        #[derive(Debug, PartialEq)]
+        struct Counted(Row);
+        impl Clone for Counted {
+            fn clone(&self) -> Self {
+                CLONES.with(|c| c.set(c.get() + 1));
+                Counted(self.0.clone())
+            }
+        }
+        impl DeinterlaceRow for Counted {
+            fn subject(&self) -> &str {
+                self.0.subject()
+            }
+            fn lance_version(&self) -> LanceVersion {
+                self.0.v
+            }
+            fn knowable_from(&self) -> LanceVersion {
+                self.0.knowable
+            }
+            fn hlc_tick(&self) -> Option<u64> {
+                self.0.hlc
+            }
+        }
+        let rows: Vec<Counted> = (0..40u64)
+            .map(|i| {
+                Counted(Row::new(
+                    (i * 37) % 50,
+                    i % 7,
+                    (i % 3 == 0).then_some(i * 11 % 60),
+                ))
+            })
+            .collect();
+        let v_ref = QueryReference::at(30, 0);
+        CLONES.with(|c| c.set(0));
+        let ix = deinterlace_indices(&rows, &v_ref, &NoDeps);
+        assert_eq!(CLONES.with(Cell::get), 0, "the index form clones nothing");
+        let copied = deinterlace(&rows, &v_ref, &NoDeps);
+        assert!(
+            !ix.is_empty() && ix.len() < rows.len(),
+            "the filter admits some, not all"
+        );
+        let via_ix: Vec<&Counted> = ix.iter().map(|&i| &rows[i as usize]).collect();
+        assert_eq!(via_ix, copied.iter().collect::<Vec<_>>());
+
+        let global: Vec<CausalRow> = (0..30u64)
+            .map(|i| CausalRow {
+                owner: (i % 3) as MailboxId,
+                seq: (i * 7) % 11,
+                tag: "x",
+            })
+            .collect();
+        let by_ix = local_trajectories_indices(&global);
+        let by_copy = local_trajectories(&global);
+        assert_eq!(by_ix.len(), by_copy.len());
+        for (owner, ix) in &by_ix {
+            let got: Vec<&CausalRow> = ix.iter().map(|&i| &global[i as usize]).collect();
+            assert_eq!(got, by_copy[owner].iter().collect::<Vec<_>>());
+            assert_eq!(*ix, local_trajectory_indices_of(&global, *owner));
+        }
     }
 
     #[test]

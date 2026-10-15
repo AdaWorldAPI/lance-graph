@@ -360,12 +360,20 @@ mod tests {
         assert_eq!(at(1), 0..10);
         assert_eq!(at(2), 0..10, "the skipped version inherits the head's rows");
         assert_eq!(at(3), 0..25);
-        assert_eq!(at(99), 0..25, "a version past the head holds the head's rows");
+        assert_eq!(
+            at(99),
+            0..25,
+            "a version past the head holds the head's rows"
+        );
         assert_eq!(at(u64::MAX), 0..25, "the latest sentinel saturates");
         // Rows landed in versions 2..=3 only.
-        let r = c.rows_at(&TemporalPov::new(VersionRange::new(2, 4), 0)).unwrap();
+        let r = c
+            .rows_at(&TemporalPov::new(VersionRange::new(2, 4), 0))
+            .unwrap();
         assert_eq!(r, 10..25);
-        let empty = c.rows_at(&TemporalPov::new(VersionRange::new(4, 4), 0)).unwrap();
+        let empty = c
+            .rows_at(&TemporalPov::new(VersionRange::new(4, 4), 0))
+            .unwrap();
         assert!(empty.is_empty());
     }
 
@@ -401,14 +409,23 @@ mod tests {
         let mut c = clock();
         assert_eq!(
             c.record(3, 30),
-            Err(ClockError::NotNewer { head: 3, version: 3 })
+            Err(ClockError::NotNewer {
+                head: 3,
+                version: 3
+            })
         );
         assert_eq!(
             c.record(4, 24),
-            Err(ClockError::RowsWentBack { head_rows: 25, rows: 24 })
+            Err(ClockError::RowsWentBack {
+                head_rows: 25,
+                rows: 24
+            })
         );
         assert_eq!(c.head(), 3, "a refused record changes nothing");
-        assert!(c.record(4, 25).is_ok(), "an equal count is a version with no rows");
+        assert!(
+            c.record(4, 25).is_ok(),
+            "an equal count is a version with no rows"
+        );
     }
 
     #[test]
@@ -422,7 +439,10 @@ mod tests {
             c.rows_at(&TemporalPov::new(VersionRange::new(101, 102), 0)),
             Some(5_000..5_000)
         );
-        assert_eq!(c.rows_at(&TemporalPov::new(VersionRange::new(100, 101), 0)), None);
+        assert_eq!(
+            c.rows_at(&TemporalPov::new(VersionRange::new(100, 101), 0)),
+            None
+        );
     }
 
     #[test]
