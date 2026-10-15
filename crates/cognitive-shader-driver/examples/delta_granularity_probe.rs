@@ -195,7 +195,8 @@ impl SlotStore {
         s
     }
     fn stored_bytes(&self) -> usize {
-        self.rows.len() * (4 + 4) + self.words.len() * SLOT
+        // rows, masks and starts: three u32 per dirty row.
+        self.rows.len() * (4 + 4 + 4) + self.words.len() * SLOT
     }
     fn read(&self, base: &[Row], r: usize) -> Row {
         let mut out = base[r];
@@ -410,7 +411,7 @@ mod tests {
         let (b, d, acc) = setup(2);
         let sk = SlotStore::seal_known(&b, &d, 2, &acc);
         assert_eq!(sk.words.len(), d.len() * 2);
-        assert_eq!(sk.stored_bytes(), d.len() * (8 + 2 * SLOT));
+        assert_eq!(sk.stored_bytes(), d.len() * (12 + 2 * SLOT));
         let rs = RowStore::seal(&b, &d, 2, &acc);
         assert_eq!(rs.stored_bytes(), d.len() * (4 + ROW));
     }

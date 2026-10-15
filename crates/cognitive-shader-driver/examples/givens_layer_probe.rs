@@ -480,11 +480,13 @@ fn main() {
     let read_with = ns_per(N as u64, || {
         for &p in &probes {
             black_box(tun.read(p, u64::MAX, ALL_LANES, &mut out));
+            black_box(&out);
         }
     });
     let read_without = ns_per(N as u64, || {
         for &p in &probes {
             black_box(tun.read(p, HYPOTHESES, ALL_LANES, &mut out));
+            black_box(&out);
         }
     });
     let count_with = ns_per(N as u64, || {

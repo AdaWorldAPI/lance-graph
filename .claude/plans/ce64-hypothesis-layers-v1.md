@@ -354,15 +354,16 @@ of 5 runs.
 `rustc -O -C target-cpu=native`, printed tier `v4 (avx512f)`; 4-core VM, two
 full runs. 5 tests; 5 disable runs red (read without overlay, store every
 slot, diff ignoring the base, slot offset from 0, store an empty mask).
-- M1, counted: S/R = (8 + 16k) / 516, from 0.047 at k = 1 to 0.977 at k = 31.
+- M1, counted: S/R = (12 + 16k) / 516, from 0.054 at k = 1 to 0.984 at k = 31
+  (corrected 2026-10-15: three `u32` per dirty row, not two).
 - M2: 2.93 ns/fold over 1 MiB of accumulators (k = 1), 13.0 and 15.2 ns/fold
   over 31 MiB in random order, 4.64 ns/fold over the same 31 MiB sorted by
   accumulator. 10^9 folds take 3 to 15 s; sealing 64k rows takes 3 to 35 ms.
   The fold cost does not depend on the arm. It depends on accumulator
   footprint and order.
 - M5, computed: 64 tables with every row dirty hold 2.016 GiB as row images,
-  0.094 GiB as slot deltas at k = 1 and 1.969 GiB at k = 31.
-- Rule at k = 1: met in both runs. M1 0.047 <= 0.0625; M3 S-known below R in
+  0.109 GiB as slot deltas at k = 1 and 1.984 GiB at k = 31.
+- Rule at k = 1: met in both runs. M1 0.054 <= 0.0625; M3 S-known below R in
   all 6 cells; M4 one-slot S/R between 0.66 and 1.97 (closest: 1.97 at
   d = 10 %, run 2).
 - k*: not stable. Run 1: 31, 31, 16; run 2: 16, 8, 16 (d = 1, 10, 100 %).
@@ -372,6 +373,13 @@ slot, diff ignoring the base, slot offset from 0, store an empty mask).
   for 655 rows, so it is not a per-row cost, and it varies up to 6 times
   between runs. The k* sum adds one seal to one read, which is the cost only
   when each dirty row is read once per seal. Lance append not measured.
+
+**Scope (operator, 2026-10-15).** This section measures one class tile in
+memory. Which form is persisted per (graph/classid x thought/rung x 64k
+tile), (a) the full 512-byte SoA row for every dirty row or (b) the 32-lane
+index plus 16-byte lanes, is a question for the D-HOLO plan
+(`d-holo-address-indexed-algebra-v1.md`), not for D-HL-5. The figures above
+are inputs to it, not its answer.
 
 ## Lane-tables addressed by the NodeGuid trie (pre-registered 2026-10-14)
 
@@ -732,9 +740,12 @@ tier printed `v4 (avx512f)`, one run on a shared VM.
   - hypothesis write with the given check 73.2 ns per offered cell (one pass;
     5,233,689 offered: 4,978,337 accepted, 255,352 contradicted in 239,318
     records, 0 agreed since the fixture's values are its own);
-  - merged point read over all 30 lanes 2,341 ns with givens, 1,676 ns
-    without (about 21 overlay entries per row; the cost is the overlay merge
-    D-HL-5 already names, not the givens);
+  - merged point read over all 30 lanes 1,523 to 1,859 ns with givens,
+    1,059 to 1,741 ns without, three runs (about 21 overlay entries per row;
+    the cost is the overlay merge D-HL-5 already names; the givens gap is
+    within run-to-run spread). Re-measured 2026-10-15 with the read output
+    passed to `black_box` (review finding); the first run's 2,341 / 1,676 ns
+    did not observe the output;
   - count over the written words 0.19 ns per row with or without bit 0 (at
     this density every row holds a hypothesis, so both counts are 65,536;
     the exclusion is shown by test c, not by this cell).

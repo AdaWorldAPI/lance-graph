@@ -16,8 +16,9 @@
 //! read back identically; they differ only in how many of the 64 tables they
 //! use.
 //!
-//! **Saccades** are the existing `AlphaOverlay` claims, one overlay per table:
-//! where a thought looked, in which order, and where it came back. A look is
+//! **Saccades** are the existing `AlphaOverlay` claims, one overlay per
+//! thought (not per table, so slot-placed thoughts sharing a table keep
+//! separate paths): where a thought looked, in which order, and where it came back. A look is
 //! recorded whether or not it changes anything, so "looked and agreed with
 //! the base" stays visible.
 //!
@@ -177,10 +178,9 @@ enum Owner {
     Slots([Option<ThoughtId>; SLOTS]),
 }
 
-/// One thought table: its saccades and its deltas.
-pub struct Table<'a> {
+/// One thought table: its deltas. Saccades live per thought.
+pub struct Table {
     owner: Owner,
-    saccades: AlphaOverlay<'a>,
     deltas: HashMap<u32, RowDelta>,
 }
 
@@ -196,8 +196,9 @@ pub enum Written {
 /// Up to [`MAX_TABLES`] thought tables over one base.
 pub struct ThoughtTables<'a> {
     alloc: &'a AlphaAllocation<'a>,
-    tables: Vec<Table<'a>>,
+    tables: Vec<Table>,
     placement: HashMap<ThoughtId, Placement>,
+    saccades: HashMap<ThoughtId, AlphaOverlay<'a>>,
     cycle: u32,
 }
 
@@ -209,6 +210,7 @@ impl<'a> ThoughtTables<'a> {
             alloc,
             tables: Vec::new(),
             placement: HashMap::new(),
+            saccades: HashMap::new(),
             cycle,
         }
     }
@@ -230,7 +232,6 @@ impl<'a> ThoughtTables<'a> {
         let id = TableId(u8::try_from(self.tables.len()).map_err(|_| Refusal::OverBudget)?);
         self.tables.push(Table {
             owner: Owner::Slots([None; SLOTS]),
-            saccades: AlphaOverlay::over_shared(self.alloc, self.cycle),
             deltas: HashMap::new(),
         });
         Ok(id)
@@ -265,6 +266,8 @@ impl<'a> ThoughtTables<'a> {
             _ => return Err(Refusal::Occupied),
         }
         self.placement.insert(thought, p);
+        self.saccades
+            .insert(thought, AlphaOverlay::over_shared(self.alloc, self.cycle));
         Ok(())
     }
 
@@ -289,9 +292,9 @@ impl<'a> ThoughtTables<'a> {
     /// # Errors
     /// [`Refusal::Unplaced`] or [`Refusal::Unallocated`].
     pub fn look(&mut self, thought: ThoughtId, addr: AlphaAddr, rung: u8) -> Result<(), Refusal> {
-        let p = *self.placement.get(&thought).ok_or(Refusal::Unplaced)?;
-        self.tables[p.table().0 as usize]
-            .saccades
+        self.saccades
+            .get_mut(&thought)
+            .ok_or(Refusal::Unplaced)?
             .claim(addr, rung)
             .map(|_| ())
             .map_err(|_| Refusal::Unallocated)
@@ -322,10 +325,12 @@ impl<'a> ThoughtTables<'a> {
                 return Err(Refusal::OutsideSlot);
             }
         }
-        let t = &mut self.tables[p.table().0 as usize];
-        t.saccades
+        self.saccades
+            .get_mut(&thought)
+            .ok_or(Refusal::Unplaced)?
             .claim(addr, rung)
             .map_err(|_| Refusal::Unallocated)?;
+        let t = &mut self.tables[p.table().0 as usize];
         // Keep the other slots' owners' bytes; replace only this thought's.
         let others = t.deltas.get(&ord).and_then(|d| d.restrict(!mine));
         let merged = match (others, delta.and_then(|d| d.restrict(mine))) {
@@ -400,23 +405,27 @@ impl<'a> ThoughtTables<'a> {
             .fold(0u64, |w, (i, _)| w | 1 << i)
     }
 
-    /// Where `thought`'s table looked.
+    /// Where `thought` looked.
     ///
     /// # Errors
     /// [`Refusal::Unplaced`].
     pub fn looked(&self, thought: ThoughtId) -> Result<AlphaMask, Refusal> {
-        let p = *self.placement.get(&thought).ok_or(Refusal::Unplaced)?;
-        Ok(self.tables[p.table().0 as usize].saccades.attended_mask())
+        Ok(self
+            .saccades
+            .get(&thought)
+            .ok_or(Refusal::Unplaced)?
+            .attended_mask())
     }
 
-    /// The saccade path of `thought`'s table, in order.
+    /// The saccade path of `thought`, in order.
     ///
     /// # Errors
     /// [`Refusal::Unplaced`].
     pub fn scanpath(&self, thought: ThoughtId) -> Result<Vec<AlphaAddr>, Refusal> {
-        let p = *self.placement.get(&thought).ok_or(Refusal::Unplaced)?;
-        Ok(self.tables[p.table().0 as usize]
+        Ok(self
             .saccades
+            .get(&thought)
+            .ok_or(Refusal::Unplaced)?
             .scanpath()
             .collect())
     }
@@ -435,22 +444,27 @@ impl<'a> ThoughtTables<'a> {
     /// holds only its own table.
     pub fn write_parallel(&mut self, jobs: &[ThoughtJob]) {
         let alloc = self.alloc;
-        let mut by_table: HashMap<usize, &Vec<(AlphaAddr, [u8; 512])>> = HashMap::new();
+        let mut by_table: HashMap<usize, (ThoughtId, &RowWrites)> = HashMap::new();
         for (th, rows) in jobs {
             if let Some(Placement::Table(t)) = self.placement.get(th) {
-                by_table.insert(t.0 as usize, rows);
+                by_table.insert(t.0 as usize, (*th, rows));
             }
         }
+        let mut overlays: HashMap<ThoughtId, &mut AlphaOverlay<'a>> =
+            self.saccades.iter_mut().map(|(k, v)| (*k, v)).collect();
         std::thread::scope(|s| {
             for (i, t) in self.tables.iter_mut().enumerate() {
-                if let Some(rows) = by_table.get(&i).copied() {
+                if let Some((th, rows)) = by_table.get(&i).copied() {
+                    let Some(sacc) = overlays.remove(&th) else {
+                        continue;
+                    };
                     s.spawn(move || {
                         for (addr, row) in rows {
                             let Some(ord) = alloc.ordinal(*addr) else {
                                 continue;
                             };
                             let base = row_bytes(&alloc.base()[ord as usize]);
-                            let _ = t.saccades.claim(*addr, 0);
+                            let _ = sacc.claim(*addr, 0);
                             match RowDelta::between(&base, row) {
                                 Some(d) if d.slots & KEY_SLOT == 0 => {
                                     t.deltas.insert(ord, d);
@@ -466,6 +480,9 @@ impl<'a> ThoughtTables<'a> {
         });
     }
 }
+
+/// The rows one thought writes, as (address, new row image).
+type RowWrites = Vec<(AlphaAddr, [u8; 512])>;
 
 fn base(n: u32) -> Vec<NodeRow> {
     (0..n)
@@ -626,6 +643,37 @@ mod tests {
             tt.write(ThoughtId(1), rows[0].key, 1, &changed(&rows[0], 23, 9)),
             Err(Refusal::OutsideSlot)
         );
+    }
+
+    /// Saccades belong to the thought, not the table: two slot-placed thoughts
+    /// sharing a table each see only their own looks, in their own order.
+    #[test]
+    fn slot_placed_thoughts_keep_their_own_saccades() {
+        let rows = base(6);
+        let alloc = AlphaAllocation::over(&rows);
+        let mut tt = ThoughtTables::over(&alloc, 1);
+        let t = tt.open_table().unwrap();
+        tt.place(ThoughtId(1), Placement::Slot(t, 22)).unwrap();
+        tt.place(ThoughtId(2), Placement::Slot(t, 23)).unwrap();
+        tt.look(ThoughtId(1), rows[0].key, 1).unwrap();
+        tt.look(ThoughtId(2), rows[4].key, 1).unwrap();
+        tt.write(ThoughtId(1), rows[2].key, 1, &changed(&rows[2], 22, 1))
+            .unwrap();
+        tt.look(ThoughtId(2), rows[1].key, 1).unwrap();
+        assert_eq!(
+            tt.scanpath(ThoughtId(1)).unwrap(),
+            vec![rows[0].key, rows[2].key]
+        );
+        assert_eq!(
+            tt.scanpath(ThoughtId(2)).unwrap(),
+            vec![rows[4].key, rows[1].key]
+        );
+        let (a, b) = (
+            tt.looked(ThoughtId(1)).unwrap(),
+            tt.looked(ThoughtId(2)).unwrap(),
+        );
+        assert!(a.contains(0) && a.contains(2) && !a.contains(4) && !a.contains(1));
+        assert!(b.contains(4) && b.contains(1) && !b.contains(0) && !b.contains(2));
     }
 
     /// Global and local placement read back the same rows; local uses fewer

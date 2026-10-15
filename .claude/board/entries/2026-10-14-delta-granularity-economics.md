@@ -14,11 +14,15 @@ Built with `rustc -O -C target-cpu=native`; the probe printed
 
 | measure | row image (R) | slot delta (S) |
 |---|---|---|
-| bytes per dirty row | 516 | 8 + 16k (k = slots written) |
-| 64 tables, every row dirty | 2.016 GiB | 0.094 GiB (k = 1) … 1.969 GiB (k = 31) |
+| bytes per dirty row | 516 | 12 + 16k (k = slots written) |
+| 64 tables, every row dirty | 2.016 GiB | 0.109 GiB (k = 1) … 1.984 GiB (k = 31) |
 | seal per dirty row, k = 1 | 64 … 406 ns | 17 … 56 ns |
 | one-slot read | 8.7 … 13.4 ns | 8.5 … 20.5 ns |
 | full-row read | 70 … 148 ns | 94 … 594 ns (1.1 to 4.3 times R) |
+
+Corrected 2026-10-15 (review): the slot store keeps three `u32` per dirty
+row (row, mask, start), not two; the byte rows above use 12 + 16k. The rule
+at k = 1 still holds (0.054 <= 0.0625).
 
 **Folds (same for both arms):** 2.93 ns/fold over 1 MiB of accumulators,
 13.0 to 15.2 ns/fold over 31 MiB in random order, 4.64 ns/fold over the same

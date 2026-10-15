@@ -23,8 +23,12 @@ layer") before the probe was written.
 **Probe:** `crates/cognitive-shader-driver/examples/givens_layer_probe.rs`.
 7 tests written first; 8 disable runs red. Tier `v4 (avx512f)`, 65,536 rows,
 63 hypothesis thoughts: hydration 34.1 ns per row; write with the given
-check 73.2 ns per offered cell; merged point read over 30 lanes 2.3 µs with
-givens, 1.7 µs without (the overlay merge, about 21 entries per row);
+check 73.2 ns per offered cell; merged point read over 30 lanes 1.5 to
+1.9 µs with givens, 1.1 to 1.7 µs without over three runs (the overlay merge,
+about 21 entries per row; the with/without gap is within run-to-run spread).
+Re-measured 2026-10-15 with the read output passed to `black_box`; the first
+figures (2.3 / 1.7 µs) did not observe it, so the compiler was free to drop
+the lane writes;
 count over written words 0.19 ns per row.
 
 **Correction to the accepted wording:** item 3 said "band in 61..63". Those
