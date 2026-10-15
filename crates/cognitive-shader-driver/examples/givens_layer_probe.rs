@@ -218,7 +218,9 @@ fn hydrate(w: &World) -> Givens {
     // on (row, lane) only, never on declaration order.
     let mut lanes = vec![0u32; w.n];
     for &(r, l, _) in &w.facts {
-        lanes[r as usize] |= 1 << l;
+        let bit = 1u32 << l;
+        assert!(lanes[r as usize] & bit == 0, "duplicate given ({r}, {l})");
+        lanes[r as usize] |= bit;
     }
     let mut start = Vec::with_capacity(w.n + 1);
     start.push(0u32);
@@ -232,7 +234,9 @@ fn hydrate(w: &World) -> Givens {
     }
     let mut rel: Vec<Option<&Relation>> = vec![None; w.n];
     for x in &w.relations {
-        rel[x.from as usize] = Some(x);
+        let slot = &mut rel[x.from as usize];
+        assert!(slot.is_none(), "row {} declares two relations", x.from);
+        *slot = Some(x);
     }
     let edge = rel
         .iter()
@@ -516,6 +520,38 @@ mod tests {
     use super::*;
     use lance_graph_contract::epistemic_state5::fact;
     use std::collections::BTreeMap;
+
+    /// Two values for one given lane contradict each other; hydration refuses
+    /// the world instead of letting declaration order pick one.
+    #[test]
+    #[should_panic(expected = "duplicate given")]
+    fn hydration_refuses_two_values_for_one_given_lane() {
+        let w = World {
+            n: 2,
+            facts: vec![(1, 3, val(0, 1, 3)), (1, 3, val(1, 1, 3))],
+            relations: Vec::new(),
+        };
+        let _ = hydrate(&w);
+    }
+
+    /// A row declares at most one relation; a second is refused, not
+    /// overwritten.
+    #[test]
+    #[should_panic(expected = "two relations")]
+    fn hydration_refuses_two_relations_from_one_row() {
+        let rel = |to| Relation {
+            from: 0,
+            to,
+            via: Via::Direct,
+            claimed: Certification3::Related,
+        };
+        let w = World {
+            n: 3,
+            facts: Vec::new(),
+            relations: vec![rel(1), rel(2)],
+        };
+        let _ = hydrate(&w);
+    }
 
     const N: usize = 3000;
 

@@ -131,6 +131,9 @@ fn r_th(r: &RowWords, t: u64, a: Aperture) -> u64 {
     let mut or = 0u64;
     for &w in &r.w[a.lo..a.hi] {
         or |= w;
+        if or & t == t {
+            break;
+        }
     }
     (or & t).count_ones() as u64
 }
@@ -317,8 +320,8 @@ fn main() {
     for &d_ppm in &[10_000u64, 100_000, 500_000] {
         let r = fixture(d_ppm, 0x5EED);
         let c = transpose_rc(&r);
-        let rc = ns_per_call(|| transpose_rc(&r).m[0][0]) / ROWS as f64;
-        let cr = ns_per_call(|| transpose_cr(&c).w[0]) / ROWS as f64;
+        let rc = ns_per_call(|| black_box(transpose_rc(&r)).m[0][0]) / ROWS as f64;
+        let cr = ns_per_call(|| black_box(transpose_cr(&c)).w[0]) / ROWS as f64;
         println!(
             "# d = {}%: transpose R->C {:.2} ns/row, C->R {:.2} ns/row",
             d_ppm / 10_000,

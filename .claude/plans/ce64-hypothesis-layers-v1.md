@@ -666,6 +666,16 @@ every cell, same winner on every cell):
   the row arm, as registered, scans the whole aperture and could stop once
   every selected thought is seen. Not measured; it would narrow, not
   reverse, the Q-TH gap at high density.
+- **Corrected 2026-10-15 (review): the early exit reverses Q-TH.** With the
+  row arm stopping once every selected thought is seen (one v4 run, tier
+  printed), Q-TH at d = 10 %, ns per query: \|T\| = 8 full tile R 60 / C 54,
+  4,096 rows R 50 / C 51; \|T\| = 64 full tile **R 86** / C 176, 4,096 rows
+  **R 57** / C 187. At d = 50 % the row words win every cell; at d = 1 % the
+  masks still win. The prediction above was wrong. Routing for Q-TH: masks
+  at low density, row words at d >= 10 % near all 64 thoughts; the "both
+  kept" outcome stands. The transposes are now timed with the whole result
+  passed to `black_box`: 6.3 to 128 ns per row (rows to masks), 5.3 to
+  25 ns per row (masks to rows); one class tile up to 8.4 ms.
 - A first build wrote the mask arm's Q-PAIR as an iterator chain with a mask
   per word and was 3.5 times slower; the final arms sum interior words whole
   and mask only the two edge words, and the Q-ID arm ORs the selected masks

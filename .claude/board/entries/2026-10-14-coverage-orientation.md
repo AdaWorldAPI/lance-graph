@@ -37,6 +37,12 @@ d = 10 %, full tile, ns per query (row words / thought masks):
 - Nanosecond target met: 1.1 ns per perspective count; at most 0.40 ns per
   aperture row for the aperture counts.
 
-**OPEN:** the row arm's distinct-thought count has an untaken early exit;
-correlated (non-independent) coverage is not tested; EvidenceRoot counting
+**Corrected 2026-10-15 (review):** with the row arm's early exit taken,
+distinct ThoughtId at d = 10 %, full tile, is R 60 / C 54 at 8 thoughts and
+**R 86** / C 176 at 64; at d = 50 % the row words win every cell, at d = 1 %
+the masks still win. So "distinct thoughts: always the masks" no longer
+holds: route it by density. Transposes re-timed with the whole result
+observed: 6.3 to 128 ns per row, up to 8.4 ms per class tile.
+
+**OPEN:** correlated (non-independent) coverage is not tested; EvidenceRoot counting
 needs the evidence stamps per thought.
