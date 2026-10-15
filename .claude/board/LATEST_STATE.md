@@ -1,3 +1,9 @@
+## 2026-10-15 — main after #1565 (merged `2379ddc2`); D-HL-5 probes on main
+
+- **On `main` (#1564, merged `703d6a94`):** six D-HL-5 thought-lane probes in `cognitive-shader-driver/examples` and the givens layer (hydration writes thought 0; contradicting hypotheses refused and recorded). Probes only; no production wiring.
+- **On `main` (#1565):** the kanban R1 test covers all nine verdicts from `CognitiveWork`.
+- **In PR:** #1566 (D-HOLO H14 lane storage, measured on v4), #1567 (D-WAL-6 version clock wired into `LanceCycleWriter`).
+
 ## 2026-10-15 — main after #1562 (merged `31ef1802`); D-WAL on main
 
 - **On `main` (#1562):** D-WAL-1/2/3 for `LanceCycleWriter` vs the lancedb 0.40 MemWAL path (probe, harness, example behind `lancedb-sdk`); entry `2026-10-15-d-wal-shootout.md`. No production wiring of MemWAL.

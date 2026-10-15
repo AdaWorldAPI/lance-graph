@@ -1,3 +1,17 @@
+## 2026-10-15 — lance-graph PR #1565 (merged `2379ddc2`, branch `ccr-9f3b8075-74u47l-r1-test`, head `39ad8b1a`, 1 commit) — contract: the R1 test checks every verdict from `CognitiveWork`
+
+- **Added:** `kanban.rs` R1 test walks all nine (effect, counterfactual) verdicts from `CognitiveWork`: none reopens the goal, the one accepted verdict moves on to `Evaluation`, the other eight leave the column unchanged.
+- **Locked:** moving on to `Evaluation` is not a goal revision; the goal is revised in the postactional phase. The old comment ("refused whatever the verdict") was false since #1560.
+- **Deferred / open:** whether an accepted verdict should move `CognitiveWork` mid-action or wait for the action to finish.
+- **Confidence:** high; disable run red (routing `NoIncrease` to `Plan`).
+
+## 2026-10-15 — lance-graph PR #1564 (merged `703d6a94`, branch `ccr-9f3b8075-74u47l-thought-lanes`, head `83b5cf58`, 25 commits) — D-HL-5 thought lanes: layer probes and the givens layer
+
+- **Added:** six in-memory probes in `cognitive-shader-driver/examples`, each pre-registered in `ce64-hypothesis-layers-v1.md` before it was written: `thought_layers_probe`, `delta_granularity_probe`, `lane_trie_probe`, `identity_session_probe`, `coverage_orientation_probe`, `givens_layer_probe`. Entries `2026-10-14-{delta-granularity-economics,lane-trie-economics,identity-sessions-morton,coverage-orientation}.md`, `2026-10-15-givens-layer.md`; STATUS D-HL-5 row.
+- **Locked:** only hydration writes layer 0; a hypothesis contradicting a given is refused and recorded; bits 59..63 hydrate as one `EpistemicState5`, capped at `Related` by the proofs that ran; one read-only table per (classid, sealed version) behind a `LazyLock`. Count queries keep both per-thought masks and per-row words and route per query (1.1 ns per perspective count). v4: hydration 34 ns per row, given-checked write 73 ns per cell, merged point read 2.3 µs.
+- **Deferred / open:** the merged point read (about 21 overlay entries per row) is the open cost; persistence and the H1–H6 decision rule are not run.
+- **Confidence:** medium; tests written first and red against stubs, disable runs red; timings on one v4 VM.
+
 ## 2026-10-15 — lance-graph PR #1562 (merged `31ef1802`, branch `ccr-9f3b8075-74u47l-wal-shootout`, head `e38779f5`, 19 commits) — D-WAL: LanceCycleWriter vs MemWAL measured; capped session cache, version clock, copy-free temporal projections
 
 - **Added:** plan `wal-shootout-v1.md`; probe `tests/wal_shootout_probe.rs` (V1–V4, behind `lancedb-sdk`), harness `tests/wal_common/`, examples `wal_shootout` and `wal_rss_probe`; `LanceCycleWriter` session capped at `SESSION_METADATA_CACHE_BYTES` (8 MiB) on create and open; contract `temporal_pov::{VersionClock, ClockError}`; `temporal.rs` index forms (`deinterlace_indices`, `local_trajectories_indices`, `local_trajectory_indices_of`); entry `2026-10-15-d-wal-shootout.md`; STATUS rows D-WAL-1..7, D-LNC-7.
