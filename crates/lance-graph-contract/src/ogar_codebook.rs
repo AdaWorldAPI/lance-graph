@@ -712,7 +712,7 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     // `tesseract-rs → doc.v1 → ogar-from-docv1 → DocIr → render`. Mirror of
     // `ogar_vocab::class_ids::DOCUMENT`.
     ("document", 0x080B),
-    // ── 0x09XX — Health domain (MedCare; 0x0901..0x0907 = OGIT
+    // ── 0x09XX — Health domain (0x0901..0x0907 = OGIT
     // NTO/Healthcare promotion; 0x0908..0x090D = harvest-derived mints,
     // furnace-exam rounds 2 & 4 — no OGIT entity, no port alias yet;
     // 0x090C external_practice is three-axis-witnessed, FHIR Organization;
