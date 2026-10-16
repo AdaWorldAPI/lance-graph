@@ -1,3 +1,17 @@
+## 2026-10-16 — lance-graph PR #1586 (merged `f2892f98`, branch `ccr-9f3b8075-74u47l-coresearch-wcoj`, head `2284376a`, 1 commit) — board: co-research map for worst-case-optimal joins (D-ASM-11)
+
+- **Added:** entry `2026-10-16-coresearch-wcoj-leapfrog.md` (leapfrog family mapped onto our surfaces, ADOPT-NOW / PROBE / PARK / SKIP per idea, fixtures F2/F3a/F3b/F4, probes P-1..P-12).
+- **Locked:** none; the map ratifies nothing.
+- **Deferred / open:** items 1-3 run in #1587; closing atoms specified in `.claude/plans/wcoj-closing-atoms-v1.md`.
+- **Confidence:** n/a (board).
+
+## 2026-10-16 — lance-graph PR #1585 (merged `9252e5cf`, branch `ccr-9f3b8075-74u47l-asm-queue-2`, head `4399cb72`, 3 commits) — board: `lance-graph-cog` address + thinking API (D-ASM-12/13), leapfrog arms
+
+- **Added:** STATUS D-ASM-12 (content → NodeGuid atom address in `lance-graph-cog`), D-ASM-13 (thinking API as a facade over NAL / ONA-shaped tables / R2IL / relalg); D-ASM-11 split into Q-E / Q-A with arms A and B; the #1584 arc entry.
+- **Locked:** the thinking API adds no opcode, interpreter or executor; leapfrog is prior art to learn from, decided by measurement.
+- **Deferred / open:** all rows Queued; `lance-graph-cog` not created.
+- **Confidence:** n/a (board).
+
 ## 2026-10-16 — lance-graph PR #1584 (merged, branch `ccr-9f3b8075-74u47l-asm-queue`, head `018be049`, 1 commit) — board: queue the accepted D-ASM follow-ups (D-ASM-1b, 8–11)
 
 - **Added:** STATUS D-ASM-1b (Atomese front end in the binder), D-ASM-8 (learn measures), D-ASM-9 (`lance-graph-das` probe), D-ASM-10 (MORK oracle), D-ASM-11 (leapfrog probe); entry `2026-10-16-asm-accepted-proposals.md`.

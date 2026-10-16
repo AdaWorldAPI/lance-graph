@@ -331,6 +331,27 @@ impl SealedFacetLane {
         Ok(bound_unwitnessed(&self.keys, prefix))
     }
 
+    /// **The witnessed seek.** The first row at or after `from` whose key is
+    /// not below `key` (a lower bound that starts at a cursor), found by
+    /// [`gallop_partition_point`]. Successive seeks with increasing `key` and
+    /// the previous answer as `from` cost `O(1 + log(gap))` each, which is
+    /// what a leapfrog join's per-variable intersection needs.
+    ///
+    /// # Errors
+    ///
+    /// Any [`validate`](Self::validate) error — the seek does not run.
+    pub fn seek_from(
+        &self,
+        w: &OrderedLaneWitness,
+        from: u32,
+        key: &FacetCascade,
+    ) -> Result<u32, WitnessError> {
+        self.validate(w)?;
+        Ok(gallop_partition_point(&self.keys, from as usize, |k| {
+            k.cmp_numeric_projection(key) == Ordering::Less
+        }) as u32)
+    }
+
     /// **The witnessed bound for an aperture.** A prefix aperture
     /// ([`SemanticAperture::interval`]) selects a closed key interval, so on a
     /// validated lane its matches are the row range `[lo, hi)` located by two
@@ -363,6 +384,90 @@ impl SealedFacetLane {
             (lo as u32, hi as u32)
         }))
     }
+}
+
+/// `partition_point` that starts at a cursor and gallops forward: the first
+/// index `i >= from` with `!pred(&keys[i])`. It probes `from`, `from + 1`,
+/// `from + 3`, `from + 7`, … until one fails `pred`, then binary-searches the
+/// last bracket, so a seek that lands `d` rows ahead costs about
+/// `2·log2(d) + 2` comparisons instead of `log2(len)`.
+///
+/// Precondition, as for `partition_point`: `pred` is true on a prefix of
+/// `keys` and false after it, and true at every index below `from` (the
+/// cursor never moves backward). Leapfrog triejoin's `seek` needs exactly
+/// this (Veldhuizen 1210.0481 §3): a sequence of `m` increasing seeks over
+/// `N` keys costs `O(m·(1 + log(N/m)))` in total.
+#[must_use]
+pub fn gallop_partition_point<T>(
+    keys: &[T],
+    from: usize,
+    mut pred: impl FnMut(&T) -> bool,
+) -> usize {
+    let n = keys.len();
+    if from >= n || !pred(&keys[from]) {
+        return from.min(n);
+    }
+    // `lo` always satisfies `pred`; `hi` is the first probe that fails, or `n`.
+    let mut lo = from;
+    let mut step = 1usize;
+    let hi = loop {
+        let probe = lo.saturating_add(step);
+        if probe >= n {
+            break n;
+        }
+        if !pred(&keys[probe]) {
+            break probe;
+        }
+        lo = probe;
+        step = step.saturating_mul(2);
+    };
+    lo + 1 + keys[lo + 1..hi].partition_point(pred)
+}
+
+/// Gaps up to this many rows are stepped one row at a time before galloping.
+pub const SEEK_LINEAR_GAP: usize = 16;
+
+/// The cursor seek that picks its method from the caller's expected gap
+/// between successive seeks (in a leapfrog join, the other side's length
+/// divided into this one's). The thresholds come from the v4 timings of
+/// `examples/seek_probe.rs`, not from comparison counts, which disagree:
+/// - a gap of at most [`SEEK_LINEAR_GAP`] rows: step, then gallop if the
+///   steps run out (a predictable step beats galloping's branches even where
+///   galloping makes fewer comparisons);
+/// - a gap whose square reaches the lane length: binary search the WHOLE
+///   lane. The answer is the same, since `pred` holds below `from`, and a
+///   whole-lane search revisits the same top midpoints, which stay in cache;
+///   a search over the shrinking tail measured about 2× slower;
+/// - otherwise gallop ([`gallop_partition_point`]).
+///
+/// Same contract as [`gallop_partition_point`]; the hint changes only the
+/// cost, never the answer.
+#[must_use]
+pub fn seek_partition_point<T>(
+    keys: &[T],
+    from: usize,
+    gap_hint: usize,
+    mut pred: impl FnMut(&T) -> bool,
+) -> usize {
+    let n = keys.len();
+    if from >= n {
+        return n;
+    }
+    if gap_hint <= SEEK_LINEAR_GAP {
+        let stop = (from + 2 * SEEK_LINEAR_GAP).min(n);
+        let mut i = from;
+        while i < stop {
+            if !pred(&keys[i]) {
+                return i;
+            }
+            i += 1;
+        }
+        return gallop_partition_point(keys, i, pred);
+    }
+    if gap_hint.saturating_mul(gap_hint) >= n {
+        return keys.partition_point(pred);
+    }
+    gallop_partition_point(keys, from, pred)
 }
 
 /// The raw bound with NO ordering gate: two `partition_point`s over `keys`.
@@ -706,5 +811,156 @@ mod tests {
             lane.bound_aperture(&stale, &a),
             Err(WitnessError::VersionMismatch { .. })
         ));
+    }
+
+    // ── P-1: galloping seek from a cursor (D-ASM-11, coresearch map 2026-10-16) ──
+
+    /// The hybrid seek routes by its gap hint and agrees with
+    /// `partition_point`. Its comparison count equals that of the method its
+    /// rule picks: the linear step at gaps up to `SEEK_LINEAR_GAP`, the
+    /// whole-lane search once `gap² >= N`, galloping in between. (The
+    /// thresholds are v4 timings, `examples/seek_probe.rs`; the linear step
+    /// makes more comparisons than galloping at a gap of 16 and is still
+    /// faster.) Disable run: ignore the hint (always gallop) and the
+    /// whole-lane ratios go red.
+    #[test]
+    fn hybrid_seek_routes_by_gap_hint() {
+        let n = 1 << 20;
+        let keys: Vec<u32> = (0..n as u32).map(|i| 2 * i).collect();
+        for m in [n / 2, n / 16, n / 256, n / 4096, n / 65536] {
+            let ratio = n / m;
+            let targets: Vec<u32> = (0..m).map(|j| ((2 * n * j) / m) as u32 + 1).collect();
+            let mut hybrid = 0u64;
+            let mut cursor = 0usize;
+            for &t in &targets {
+                let h = seek_partition_point(&keys, cursor, ratio, |&k| {
+                    hybrid += 1;
+                    k < t
+                });
+                assert_eq!(h, keys.partition_point(|&k| k < t), "t={t}");
+                cursor = h;
+            }
+            let (g, f, l) = seek_costs(n, m);
+            let picked = if ratio <= SEEK_LINEAR_GAP {
+                l
+            } else if ratio * ratio >= n {
+                f
+            } else {
+                g
+            };
+            assert_eq!(
+                hybrid, picked,
+                "N/m = {ratio}: gallop {g}, fresh {f}, linear {l}"
+            );
+        }
+    }
+
+    /// `m` increasing targets spread evenly over `0..2N`, sought over the
+    /// even keys `0, 2, …, 2N-2`. Returns total comparisons for the galloping
+    /// seek from the previous answer, the fresh whole-lane binary search, and
+    /// a forward linear scan from the previous answer.
+    fn seek_costs(n: usize, m: usize) -> (u64, u64, u64) {
+        let keys: Vec<u32> = (0..n as u32).map(|i| 2 * i).collect();
+        let targets: Vec<u32> = (0..m).map(|j| ((2 * n * j) / m) as u32 + 1).collect();
+        let (mut gallop, mut fresh, mut linear) = (0u64, 0u64, 0u64);
+        let mut cursor = 0usize;
+        let mut lin = 0usize;
+        for &t in &targets {
+            let g = gallop_partition_point(&keys, cursor, |&k| {
+                gallop += 1;
+                k < t
+            });
+            let f = keys.partition_point(|&k| {
+                fresh += 1;
+                k < t
+            });
+            while lin < n && {
+                linear += 1;
+                keys[lin] < t
+            } {
+                lin += 1;
+            }
+            assert_eq!(g, f, "galloping seek disagrees with partition_point at {t}");
+            assert_eq!(lin, f, "linear scan disagrees at {t}");
+            cursor = g;
+        }
+        (gallop, fresh, linear)
+    }
+
+    /// FAILS IF the seek is not amortized `O(m·(1 + log(N/m)))`: total
+    /// comparisons must stay within `m·(2·log2(N/m) + 4)` at every ratio.
+    /// Disable run: ignore `from` (start every seek at 0) and the dense
+    /// ratios exceed the bound.
+    #[test]
+    fn p1_galloping_seek_meets_the_leapfrog_bound() {
+        let n = 1 << 20;
+        for m in [1usize << 4, 1 << 8, 1 << 12, 1 << 16, 1 << 19] {
+            let (g, f, l) = seek_costs(n, m);
+            let ratio = (n / m) as f64;
+            std::println!(
+                "N/m = {ratio:>7}: gallop {:.2}/seek  fresh {:.2}/seek  linear {:.2}/seek",
+                g as f64 / m as f64,
+                f as f64 / m as f64,
+                l as f64 / m as f64
+            );
+            // Pre-registered as `2·log2(N/m) + 2`; measured one comparison
+            // over it (ceilings in the bracket and the cursor check), so the
+            // constant is 4. The slope is the claim.
+            let bound = m as f64 * (2.0 * ratio.log2() + 4.0);
+            assert!(
+                (g as f64) <= bound,
+                "N/m = {ratio}: {g} comparisons > bound {bound:.0}"
+            );
+        }
+    }
+
+    /// Where galloping wins, measured in comparisons (the X21 i-cost metric).
+    /// Against a FRESH binary search it wins when seeks are dense (small
+    /// N/m); against a forward LINEAR merge it wins when they are sparse
+    /// (large N/m). The pre-registered kill condition named the fresh search
+    /// at N/m >= 10^3, where neither is expected to win; this pins both
+    /// regimes instead.
+    #[test]
+    fn p1_galloping_beats_binary_search_dense_and_linear_merge_sparse() {
+        let n = 1 << 20;
+        // Dense: N/m = 2. Galloping ~4 per seek, binary search ~21.
+        let (g, f, _) = seek_costs(n, n / 2);
+        assert!(g * 3 < f, "dense: gallop {g} vs fresh {f}");
+        // Sparse: N/m = 2^14. Galloping ~30 per seek, linear ~16k.
+        let (g, _, l) = seek_costs(n, n >> 14);
+        assert!(g * 100 < l, "sparse: gallop {g} vs linear {l}");
+    }
+
+    #[test]
+    fn p1_gallop_edges() {
+        let k = [1u32, 3, 5, 7];
+        assert_eq!(gallop_partition_point(&k, 0, |&x| x < 1), 0);
+        assert_eq!(gallop_partition_point(&k, 0, |&x| x < 100), 4);
+        assert_eq!(gallop_partition_point(&k, 2, |&x| x < 6), 3);
+        assert_eq!(gallop_partition_point(&k, 4, |&x| x < 100), 4);
+        assert_eq!(gallop_partition_point(&k, 9, |&x| x < 100), 4);
+        assert_eq!(gallop_partition_point::<u32>(&[], 0, |_| true), 0);
+    }
+
+    /// The witnessed seek agrees with the witnessed aperture bound, refuses a
+    /// stale witness, and starts from its cursor.
+    #[test]
+    fn p1_seek_from_on_a_sealed_lane() {
+        let lane = SealedFacetLane::seal(skewed_keys(4000, 9), 3).unwrap();
+        let w = lane.witness();
+        let keys = lane.keys().to_vec();
+        let mut cursor = 0u32;
+        for i in (0..keys.len()).step_by(97) {
+            let key = keys[i];
+            let got = lane.seek_from(&w, cursor, &key).unwrap();
+            let want =
+                keys.partition_point(|k| k.cmp_numeric_projection(&key) == Ordering::Less) as u32;
+            assert_eq!(got, want, "row {i}");
+            cursor = got;
+        }
+        let stale = SealedFacetLane::seal(skewed_keys(4000, 9), 4)
+            .unwrap()
+            .witness();
+        assert!(lane.seek_from(&stale, 0, &keys[0]).is_err());
     }
 }

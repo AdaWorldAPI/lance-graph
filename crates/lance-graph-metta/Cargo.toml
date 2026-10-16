@@ -26,3 +26,7 @@ test = true
 [[example]]
 name = "join_range_probe"
 test = true
+
+[[example]]
+name = "wcoj_probe"
+test = true

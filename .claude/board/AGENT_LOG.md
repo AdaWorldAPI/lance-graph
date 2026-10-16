@@ -1,3 +1,17 @@
+## 2026-10-16 — 5+3 council: WCOJ closing atoms (premise + 5 savants + 3 reviewers)
+
+- Premise auditor: PREMISE-SPLIT (Part B is an EXISTS, not a comparison).
+- Savants on Sonnet: prior art, iron rules, code truth, cascade impact, different views. Spot checks on the main thread: `reference.rs:372-405` (validate's `if let` and `_ => {}`), `quack/lib.rs:575-615` (`if let Filter::Semijoin`, one-mask `leaf_validity`), `value.rs:178-188`, the two non-AVX-512 `gather` sites, `ISSUES.md` accumulator-gate entry. All held.
+- Reviewers: overclaim, dilution/collapse, firewall. Three BLOCKs (inverted G5 polarity, visited-only order check, partial sink on refusal), all resolved in v3.
+- Misses: three savants could not write their tag-files (no write tool); reports were taken from their hand-backs. S3 found that gate fixtures F2/F3a/F3b named in v1 did not exist.
+- Result: `.claude/plans/wcoj-closing-atoms-v1.md`, entry `2026-10-16-wcoj-closing-atoms-council.md`. Written by the orchestrating main thread only.
+
+## 2026-10-16 — WCOJ items 1–3: DuckDB and bind harvest (three Haiku runs)
+
+- harvest-scout (as general-purpose on Haiku) over a DuckDB source clone at `e1ecb5b8`: 10 patterns, per-pattern counts. Spot checks: `physical_asof_join.cpp:1182`, `delim_join_cte_rewriter.cpp:1172` and `query_graph_manager.cpp:399` re-read. All three matched. No conclusion drawn.
+- Web scout (general-purpose on Haiku): 12 items with read grades; most were ABSTRACT-ONLY or SECONDHAND and are recorded as leads only.
+- substrate-mapper over `lance-graph-sap` (7 files, 96 rows). Spot checks: `binder.rs` and `bind.rs:1-140` re-read in full. The `Binder` trait was read at `lance-graph-quack/src/bind.rs:92`. No misses.
+- Result: entry `2026-10-16-wcoj-probes-1-3.md`. Written by the orchestrating main thread only.
 ## 2026-10-16 — /coresearch: worst-case-optimal joins for the join path (D-ASM-11)
 
 - Phase 0: brief by the orchestrator; premise-auditor → PREMISE-SPLIT (semijoin chain = existence mask, leapfrog = bindings); re-asked as Q-E / Q-A.
