@@ -1,3 +1,11 @@
+## ISS-RELALG-ABSORPTION-AFTER-DE-MORGAN — `normalize` can leave a program wider than as written (2026-10-16)
+
+**Status:** OPEN. **Basis:** MEASURED (D-HOLO-H14d stage 1, `crates/holo-h14d-probe`, 2 of 2,000 generated programs).
+
+- `¬(x ∧ (x ∨ y))` with `x = P1 ∧ P4` should reduce by absorption to `¬x = ¬P1 ∨ ¬P4`. `lance-graph-relalg::normalize` pushes the negation inward first (De Morgan), flattens, and returns `¬P1 ∨ ¬P4 ∨ ((¬P1 ∨ ¬P4) ∧ ¬P5 ∧ ¬P7)`: the dual absorption pattern `a ∨ (a ∧ b)` is present but `a` is spread across the flattened `Or`, so the rule no longer matches.
+- Consequence: the rewritten program needs more scratch slots than the original; the original answers, the rewrite is refused (`MAX_SLOTS` = 8). Answers are never wrong; only width.
+- **What closes it:** a relalg test with this case (rewritten no wider than as written, and == the row oracle), red first, then absorption applied before De Morgan or matched against flattened operand sets; disable run red.
+
 ## ISS-QUALIA-A2B-CLUT-UNMEASURED — no measured transform from convergence 17D to the calibrated PCS 17D (2026-10-16)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`contract::qualia_profile::SHARED_AXES` maps 5 of 17 axes by name; `device_to_pcs_shared` returns `measured = false` for the other 12). HYPOTHESIS: same-named axes mean the same thing.

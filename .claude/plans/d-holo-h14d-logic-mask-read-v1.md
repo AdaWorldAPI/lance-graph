@@ -1,6 +1,6 @@
 # D-HOLO-H14d — logic → address mask → masked read → terminal (C only)
 
-**Status:** PRE-REGISTERED 2026-10-16. Nothing below has been run.
+**Status:** MEASURED 2026-10-16 (v4, `tier: v4 (avx512f)`, lance 13.0.0). Results in § Results; entry `2026-10-16-d-holo-h14d-logic-mask-read.md`. Returned to the operator.
 **Follows:** D-HOLO-H14c (#1573). H14, H14b and part of H14c measured C by
 rebuilding rows or against row-first layouts (B, M); that framing is withdrawn
 (#1569). This probe measures C's own operation and nothing else.
@@ -29,13 +29,13 @@ whose presence bits the mask has already proved. No arm B, S or M.
 
 ## Checklist
 
-- [ ] Pre-registration committed before any timing (this file)
-- [ ] Probe crate `crates/holo-h14d-probe` (excluded from the workspace, like the relalg crate; path deps: relalg, mask-risc; registry: lance 13, arrow 58, tokio)
-- [ ] Oracles (§ Checks) written first and red against a stub
-- [ ] Disable runs (§ Disable runs) red, files restored
-- [ ] v4 run, tier printed by the program
-- [ ] Results section, board entry with raw CSV, STATUS row, AGENT_LOG
-- [ ] Draft PR; no merge
+- [x] Pre-registration committed before any timing (this file)
+- [x] Probe crate `crates/holo-h14d-probe` (excluded from the workspace; path deps relalg, mask-risc, r2il; registry lance 13, arrow 58, tokio)
+- [x] Oracles (§ Checks) written before the timing code ran. Not run against a stub: red evidence comes from the five disable runs and from check 8 going red on the old clustered fixture (A2).
+- [x] Disable runs (§ Disable runs) red, files restored; repeated after A2
+- [x] v4 run, tier printed by the program
+- [x] Results section, board entry with raw CSV, STATUS row (no agent run, so no AGENT_LOG entry)
+- [x] PR #1575 (marked ready by the operator); no merge
 
 ## Sub-ids
 
@@ -151,6 +151,87 @@ hot (repeated) and cold (cache flushed between batches) reported apart. ns per
 word, per survivor, per query; never whole-call milliseconds. About 40 %
 run-to-run noise was measured on this VM in H14c; differences below that are
 not read as results.
+
+## Results (v4, 2026-10-16)
+
+`tier: v4 (avx512f)`, lance 13.0.0, one tile of 65,536 addresses. All eight
+checks pass on the measured commit (`802db7df`); the five disable runs each turn
+their check red (disable 2 turns checks 4 and 5 red, not check 6: the Lance
+read uses `R` independently of the payload terminal, so the plan's "and 6" was
+wrong for that disable). Raw CSV in the board entry. Timings are medians of 7
+batches; about 40 % run-to-run noise applies, so single-cell differences below
+that are not read.
+
+**Stage 1 (logic, D-HOLO-H14d-1).** Of 2,000 generated programs:
+
+| outcome | programs |
+|---|---|
+| decided symbolically (`Empty`/`All`, 0 programs run) | 675 (34 %) |
+| answered both rewritten and as written | 1,583 |
+| answered only after the rewrite (as written exceeds the 8 scratch slots) | 396 |
+| refused both ways | 19 |
+| widened by the rewrite (answered as written, refused rewritten) | 2 |
+
+On the 1,583 answered both ways the rewrite runs 1,065 mask-risc passes against
+5,898 as written (5.5× fewer). The reduction costs 1.9 µs per program
+(`normalize` + `symbolic`, no data). Prediction 1 holds: every program that
+normalizes to `Empty` or `All` ran 0 programs (check 2). The 2 widened programs
+are the absorption miss in A2.
+
+**Stage 2 (address mask, D-HOLO-H14d-2).** Hot, full aperture, ns per 64-address word:
+
+| form | k = 1 | k = 2 | k = 4 | k = 8 |
+|---|---|---|---|---|
+| `∧` materialize R | 2.0–3.8 | 2.3–3.4 | 3.0–6.6 | 6.5–7.6 |
+| `∨ … ∧ A` materialize R | — | 3.6–4.3 | 4.8–5.6 | 9.1–9.8 |
+| COUNT (`∧`) | 1.8–2.8 | 2.2–3.4 | 3.0–5.7 | 6.2–8.5 |
+
+That is 0.03–0.15 ns per address. Cost grows with the number of operands, not
+with `|R|`. Prediction 2 (flat in density within 1.25×) holds in 11 of 14
+pattern × form × k rows; the three misses are single-cell spikes (1.39×, 2.0×,
+1.81×), not trends in density, and sit inside the measured noise.
+
+**Stage 3 (Lance masked read, D-HOLO-H14d-3).** `rows_scanned == |R|` and
+returned rows == `|R|` in all 96 `∧` cells (prediction 3, first half, holds).
+Bytes read with `R`, as a fraction of the same projection without it, k = 1:
+
+| aperture | uniform 0.1 % | uniform 1 % | uniform 10 % | clustered 1 % | clustered 10 % |
+|---|---|---|---|---|---|
+| 1,024 | 0.01 | 0.01 | 0.03 | 0.00 (R = 0) | 0.00 (R = 0) |
+| 8,192 | 0.09 | 0.10 | 0.11 | 0.02 | 0.09 |
+| 65,536 | 0.65 | 1.00 | 1.00 | 0.19 | 0.99 |
+
+The aperture decides the bytes: a narrow `A` keeps survivors on a few pages.
+Over the full tile, uniform 1 % reads all bytes (H14c reproduced), clustered 1 %
+reads 0.19, but clustered 10 % reads 0.99: runs of 64 addresses are much
+smaller than a Lance page, so 10 % of words still touch nearly every page.
+Clustering helps only at page scale. An empty `R` reads 0 bytes. Prediction 3,
+second half, holds with that refinement.
+
+**Stage 4 (terminals, D-HOLO-H14d-4/-5).** Payload reads == `|R| × k` in every
+`∧` cell (check 4). The explicit payload terminal costs about 6 ns per lane
+load per survivor once `R` is large (hot, 50 %: 6.3 / 11.5 / 24.4 / 48.3 ns per
+survivor at k = 1 / 2 / 4 / 8), plus a fixed scan of `R`'s 1,024 words of about
+1.5 ns per word. Prediction 4 (flat per survivor within 1.5×) is **falsified**
+as stated: at small `|R|` the fixed word scan dominates (k = 2, `|R|` = 1:
+1.6 µs per survivor). Per lane load it is flat. The fused Σ terminal
+(`Measure::Sum`, one mask-risc program) costs 3.5–41 ns per word, about
+1.3 ns per summed value at 50 %, roughly 5× cheaper than the explicit terminal
+on dense `R`. Single-address query (prediction 5): hot 8–45 ns, cold 17–184 ns;
+cost grows with k and with the number of present lanes (loads), with no search.
+
+**What this answers.** C's own operation runs in four stages whose costs are
+separable: the logic stage is microseconds per program and removes a third of
+the corpus outright; the address mask costs nanoseconds per 64 addresses; the
+mask makes Lance scan exactly the survivors, and saves bytes when the survivors
+sit on few pages (a narrow aperture, or clustering at page scale); the payload
+terminal costs about 6 ns per lane load, and a fused terminal several times
+less. No layout decision follows from these numbers.
+
+**Open.** Page-scale clustering (which address order puts a thought's
+survivors on few Lance pages); the payload terminal's fixed word scan (iterating
+only non-zero words of `R`, or a survivor list from the mask program); the
+relalg absorption miss (2 of 2,000).
 
 ## Not measured
 
