@@ -45,14 +45,14 @@ impl DativeFunction {
 // Undirected structural links as printed in Fig. 8.1.
 // They are hypotheses about neighbors, NOT embedding distances or causal edges.
 const NEIGHBORS: [u8; 8] = [
-    (1 << 1) | (1 << 3),               // direction: recipient, purpose
+    (1 << 1) | (1 << 3), // direction: recipient, purpose
     (1 << 0) | (1 << 2) | (1 << 4) | (1 << 5),
-    1 << 1,                             // experiencer: recipient
-    1 << 0,                             // purpose: direction
+    1 << 1,                         // experiencer: recipient
+    1 << 0,                         // purpose: direction
     (1 << 1) | (1 << 6) | (1 << 7), // beneficiary
-    (1 << 1) | (1 << 6),           // predicative possessor
-    (1 << 4) | (1 << 5),           // external possessor
-    1 << 4,                             // judicantis: beneficiary
+    (1 << 1) | (1 << 6),            // predicative possessor
+    (1 << 4) | (1 << 5),            // external possessor
+    1 << 4,                         // judicantis: beneficiary
 ];
 
 /// Test continuity on the INDUCED graph, not along paths through unlicensed
@@ -165,7 +165,11 @@ impl FrozenOperandAbi {
                 return Err(HarnessError::DuplicateCanonicalOperand(word));
             }
         }
-        Ok(Self { version, operands: operands.to_vec(), by_word })
+        Ok(Self {
+            version,
+            operands: operands.to_vec(),
+            by_word,
+        })
     }
 
     fn code(&self, word: WordId) -> Result<u8, HarnessError> {
@@ -310,10 +314,8 @@ mod tests {
     #[test]
     fn haspelmath_to_and_zu_are_connected_but_unrelated_pair_is_not() {
         use DativeFunction as F;
-        let english_to = F::Direction.bit()
-            | F::Recipient.bit()
-            | F::Purpose.bit()
-            | F::Experiencer.bit();
+        let english_to =
+            F::Direction.bit() | F::Recipient.bit() | F::Purpose.bit() | F::Experiencer.bit();
         assert_eq!(continuity(english_to, true), MapVerdict::Connected);
         assert_eq!(
             continuity(F::Direction.bit() | F::Purpose.bit(), true),
@@ -348,7 +350,10 @@ mod tests {
         assert_eq!(output.encoded.len(), 1);
         assert_eq!(output.hydration.triples.len(), 1);
         let e = &output.encoded[0];
-        assert_eq!(output.decode(e, &abi), Some(Spo::new(0x0101, 0x1234, 0xFFFF)));
+        assert_eq!(
+            output.decode(e, &abi),
+            Some(Spo::new(0x0101, 0x1234, 0xFFFF))
+        );
         let other_version = FrozenOperandAbi::new(8, &[0x0101, 0x1234, 0xFFFF]).unwrap();
         assert_eq!(output.decode(e, &other_version), None);
         assert_eq!(e.order, output.hydration.triples[0].order);
@@ -373,10 +378,14 @@ mod tests {
             run_harness(
                 &[(1, 1)],
                 &[vec![]],
-                &[vec![FormAttestation { coverage_complete: true, ..att }]],
+                &[vec![FormAttestation {
+                    coverage_complete: true,
+                    ..att
+                }]],
                 1,
                 &abi,
-            ).err(),
+            )
+            .err(),
             Some(HarnessError::DisconnectedCompleteDistribution)
         );
     }
@@ -395,8 +404,22 @@ mod tests {
         let abi = FrozenOperandAbi::new(1, &[1, 2, 3, 9]).unwrap();
         let r = run_harness(&[(1, 1)], &[tokens], &[vec![]], 2, &abi).unwrap();
         assert_eq!(r.ambiguous_tokens, oracle.ambiguous.len());
-        assert_eq!(r.alternatives, oracle.alternative.into_iter().map(|s| (0, s)).collect::<Vec<_>>());
-        assert_eq!(r.hydration.triples.iter().map(|t| t.spo).collect::<Vec<_>>(), oracle.certain);
+        assert_eq!(
+            r.alternatives,
+            oracle
+                .alternative
+                .into_iter()
+                .map(|s| (0, s))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            r.hydration
+                .triples
+                .iter()
+                .map(|t| t.spo)
+                .collect::<Vec<_>>(),
+            oracle.certain
+        );
     }
 
     #[test]

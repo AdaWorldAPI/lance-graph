@@ -38,12 +38,15 @@ fn main() {
     };
     // Register ABI is version-pinned across the entire execution epoch.
     // This tiny shared dictionary is a fixture, not the deployed global ISA.
-    let abi = FrozenOperandAbi::new(1, &[
-        vocab.id("doctor").unwrap(),
-        vocab.id("gave").unwrap(),
-        vocab.id("letter").unwrap(),
-        vocab.id("to").unwrap(),
-    ])
+    let abi = FrozenOperandAbi::new(
+        1,
+        &[
+            vocab.id("doctor").unwrap(),
+            vocab.id("gave").unwrap(),
+            vocab.id("letter").unwrap(),
+            vocab.id("to").unwrap(),
+        ],
+    )
     .expect("shared dictionary fixture");
     let out = run_harness(&[(1, 1)], &[tokens], &[vec![attestation]], 3, &abi)
         .expect("fixture is addressable");
