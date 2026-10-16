@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1582 (merged `e08e5659`, branch `ccr-9f3b8075-74u47l-doc-drift`, head `0deb37be`, 15 commits) — docs: rev-pin template, TD-POPCNT, AVX2 oracle note; OpenCog oracle and lance-graph-cog decisions
+
+- **Added:** entry `2026-10-16-opencog-oracle-scope.md` (OpenCog as a temporary validation oracle; licence reading of the AtomSpace AGPL + linking exception; `lance-graph-cog` as the Apache-2.0 API an AGPL OpenCog fork calls, with `lance-graph-ontology` as precedent; the atomspace forks and `atomspace-lance`; the atomspace-rocks key map; positional tables with a zipper merge over any ordered KV); `TD-ONTOLOGY-REGISTRY-HASH-LOOKUP-REVIEW-1`; the #1579 arc entry.
+- **Locked:** `CARGO-COMPUTE-SUBSTRATE.md` and the cargo-substrate-architect card name `branch = "master"`, never a rev pin; TD-POPCNT item (b), runtime detection in kernels, withdrawn; `.cargo/config.toml`: the no-target-cpu AVX2 arm is the validation oracle only, real builds use the polyfill at a declared tier (`native` host-bound, x86-64-v4 / `sapphirerapids` shipped) — corrected after Codex review.
+- **Deferred / open:** which OpenCog pieces the validation needs; the content → NodeGuid mapping for atoms; the registry lookup measurement; cross-repo doc fixes (lance-graph-java, tesseract-rs, lichess-rs).
+- **Confidence:** n/a (docs); licence reading is not legal advice.
+
 ## 2026-10-16 — lance-graph PR #1579 (merged `7302f58c`, branch `ccr-9f3b8075-74u47l-synergy-map`, head `97b744ec`, 3 commits) — board: synergy map since 2026-10-11, status sweep, #1575 record
 
 - **Added:** entry `2026-10-16-synergy-map-since-1011.md` (the 2026-10-11 fleet listing revised against 123 merges: closed ends, dots D1–D8, fruits, Haiku ledger, §8 reconciliation with the recovery ledger, §9 label codebook sizes); ten STATUS rows moved from "In PR" to Shipped; arc entry for #1575.
