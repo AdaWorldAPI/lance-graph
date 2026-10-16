@@ -693,19 +693,27 @@ async fn main() {
                             row(cache, "count_ns_per_word", format!("{ns:.3}"));
                             // stage 4: payload terminal over the survivors
                             let o = payload(&fx, &r, k);
-                            let ns = time(
-                                if cold { 1 } else { 50 },
-                                survivors.max(1) as f64,
-                                || {
-                                    if cold {
-                                        evict(&mut ev)
-                                    }
-                                },
-                                || {
-                                    std::hint::black_box(payload(&fx, &r, k));
-                                },
-                            );
-                            row(cache, "payload_ns_per_survivor", format!("{ns:.3}"));
+                            // With no survivors there is nothing per survivor
+                            // to time; the call's fixed cost is not reported
+                            // under that name.
+                            let per_survivor = if survivors == 0 {
+                                "NA".to_string()
+                            } else {
+                                let ns = time(
+                                    if cold { 1 } else { 50 },
+                                    survivors as f64,
+                                    || {
+                                        if cold {
+                                            evict(&mut ev)
+                                        }
+                                    },
+                                    || {
+                                        std::hint::black_box(payload(&fx, &r, k));
+                                    },
+                                );
+                                format!("{ns:.3}")
+                            };
+                            row(cache, "payload_ns_per_survivor", per_survivor);
                             if !cold {
                                 row("-", "payload_reads", o.reads.to_string());
                             }
@@ -764,7 +772,11 @@ async fn main() {
                             row(
                                 "-",
                                 "lance_ns_per_survivor_wall",
-                                format!("{:.1}", wall / survivors.max(1) as f64),
+                                if survivors == 0 {
+                                    "NA".to_string()
+                                } else {
+                                    format!("{:.1}", wall / survivors as f64)
+                                },
                             );
                             assert_eq!(
                                 got.len() as u64,
