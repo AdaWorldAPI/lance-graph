@@ -1860,7 +1860,7 @@ not necessarily a logic bug. NOTE: `lance-graph-arm-discovery/Cargo.toml` *recom
 U64x8 popcount kernel + the AMX re-exports), (b) decide whether ndarray's `U64x8` should runtime-detect
 VPOPCNTDQ/AMX rather than trust compile-time `target_feature`, and (c) correct the Cargo.toml comment to
 warn that `native` can SIGILL on virtualized hosts lacking the detected AVX-512 subset. Until then:
-run the `ndarray-simd` probes on the default path. **Status: Open.**
+run the `ndarray-simd` probes on the default path. **Status: Open; item (b) withdrawn 2026-10-16 — runtime detection in kernels is forbidden (dispatch is compile time, the only CPU check is ndarray's startup `cpu_guard`); (a) and (c) remain.**
 
 ### TD-CI-COVERAGE-MOLD-1 — `test-with-coverage` job lacks the mold linker the `test` job has (2026-06-12)
 
