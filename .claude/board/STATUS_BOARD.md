@@ -73,7 +73,7 @@ Plan: `.claude/plans/d-cmr-concept-chain-normalization-v1.md`. Parent: D-CMR-RES
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-CMR-0** | Plan, identity matrix, inventory, board rows | In PR | docs only; every inventory row cites code |
+| **D-CMR-0** | Plan, identity matrix, inventory, board rows | Shipped #1532 (docs) | docs only; every inventory row cites code |
 | **D-CMR-1** | Set-theory IR core in the contract: `Runs` (∩ ∪ ∖, complement), residual `Res`, measures; pure | Queued | algebra laws vs materialized bitsets as oracle |
 | **D-CMR-2** | Lowering: runs → extents, residual → predicates per run; measurement levels geometry / optics / etch | Queued (after contract → mask-risc) | == row oracle; `Count` without residual reads zero rows |
 | **D-CMR-3** | Quack frontend: `Filter` → set IR (extent hoisting falls out) | Queued | identical answers on the quack suite; other-basis range stays residual |
@@ -236,8 +236,8 @@ Plan: `.claude/plans/sql-polyfill-r2il-v1.md`.
 | **D-SQLP-1** | `FoldDialect` moved into a `lance-graph-r2il` crate | Shipped (#1479; workspace-excluded, own CI step; probe 40/40 unchanged, crate 7 tests) | existing `row_bridge.rs` tests unchanged and green; one arity table |
 | **D-TELEPORT-0** | Source-restricted fold probe: scan/join vs gated gather vs extent; range intersection; sorted-lane crossing point | Shipped (#1484, probe) | every arm equals the oracle on clustered and scattered layouts |
 | **D-TELEPORT-1** | quack `fold_ranges`: `Range ∧ Range` on one column lowers to the intersected range (empty stays a valid empty range; different columns, `OR`/`NOT` and `lo > hi` left alone) | Shipped (#1487) | one op and `Lowering::Range` for COUNT; 400 seeded conjunctions equal the oracle under both lowerings; disable runs red |
-| **D-TELEPORT-2** | Lance 13 source-pruning probe: full scan vs row-range prefilter vs zone map vs B-tree vs index-only COUNT, sorted/partial/periodic/shuffled, with and without NULLs | In PR (probe) | every arm equals the oracle; index COUNT reads no data columns and stays exact after deletes |
-| **D-PHOTO-0** | 64 resident populations × 1 Mi addresses: bit-sliced planes vs extents vs u64 signatures vs signature classes; update and spill costs | In PR (probe) | canonical + 20 random expressions equal the oracle under COUNT, Any, SUM and Rows in four regimes |
+| **D-TELEPORT-2** | Lance 13 source-pruning probe: full scan vs row-range prefilter vs zone map vs B-tree vs index-only COUNT, sorted/partial/periodic/shuffled, with and without NULLs | Shipped #1489 (probe) | every arm equals the oracle; index COUNT reads no data columns and stays exact after deletes |
+| **D-PHOTO-0** | 64 resident populations × 1 Mi addresses: bit-sliced planes vs extents vs u64 signatures vs signature classes; update and spill costs | Shipped #1489 (probe) | canonical + 20 random expressions equal the oracle under COUNT, Any, SUM and Rows in four regimes |
 | **D-SQLP-2** | First procedures (`filter_lt`, `sum`, `group_sum`, `margin`) as inlined R2IL call sequences (`lance-graph-r2il::procs`); `FoldDialect` wires `IntOr` and adds a fused mode (mask-risc `fuse`) beside the in-place mode | Shipped (#1484; 8 tests, six disable runs red; probe suite unchanged) | scalar-reference parity; disable runs red; both modes keep the same rows, fused holds ternlogs |
 | **D-SQLP-3** | Benchmark: direct ndarray vs hand-built `Program` vs interpreted procedure | Queued | interpreted ≤ 1.05× hand-built at 65,536 and 1M rows (pre-registered) |
 | **D-SQLP-4** | Build-time generator: declared procedure → Rust with const-generic opcodes | Queued, gated on D-SQLP-3 | ≤ 1.05× direct ndarray; no interpreter dispatch in the hot loop |
@@ -252,9 +252,9 @@ Plan: `.claude/plans/key16-contiguous-match-v1.md`.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| **D-KEY16-0** | Plan + board rows | In PR | — |
-| **D-KEY16-1** | `ternary_match_strided16_to_mask` in ndarray's `simd-masking-parity` (strides 16/20/32/512, offsets 0..15, care bytes 12..16, tails) | Queued (ndarray PR) | green on the current kernel on every realization row; a wrong reference turns it red |
-| **D-KEY16-2** | `examples/key16_match_probe.rs`: current kernel vs contiguous path vs AVX-512 gather at 65,536 and 1M rows | Queued (ndarray PR) | answers identical before timing; median of 101; avx512 and avx2 reported separately |
+| **D-KEY16-0** | Plan + board rows | Shipped #1475 | — |
+| **D-KEY16-1** | `ternary_match_strided16_to_mask` in ndarray's `simd-masking-parity` (strides 16/20/32/512, offsets 0..15, care bytes 12..16, tails) | Shipped (ndarray #356) | green on the current kernel on every realization row; a wrong reference turns it red |
+| **D-KEY16-2** | `examples/key16_match_probe.rs`: current kernel vs contiguous path vs AVX-512 gather at 65,536 and 1M rows | Shipped (ndarray #356, balanced timing #357); gate verdict for D-KEY16-3/-4 not yet recorded on this board | answers identical before timing; median of 101; avx512 and avx2 reported separately |
 | **D-KEY16-3** | Stride-16 path in the kernel, facade only | Queued, gated on D-KEY16-2 (≥ 1.5× on avx512 AND avx2, no regression at strides 32/512) | parity green; codegen witness unchanged; two disable runs red |
 | **D-KEY16-4** | AVX-512 gather for strides > 16, behind the facade | Queued, gated on D-KEY16-2 (≥ 1.2× at strides 32 and 512) | other backends still take the old path, asserted |
 | **D-KEY16-5** | Consumer verification: mask-risc, quack, dir-sim tests + Identity CI names; dir-sim `subtree` timing before/after | Queued (after the ndarray merge) | no consumer source change; timing recorded with method |
@@ -266,7 +266,7 @@ Decision 1(c): observed claims, provisioning conflicts and delivery are three qu
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
 | **D-DSV-1** | `validate::provisioning_conflicts`: every present object's claims, separate from `address_owner` / `address_recipient` / `validate` | Shipped (#1477, #1480) | `tests/provisioning.rs`: delivery unchanged, conflict reported, silence half; two disable runs red |
-| **D-DSV-2** | A mail-enabled group's secondary SMTP proxies are in the Exchange address space (a group without a primary SMTP address claims them only in the provisioning plane): mail to them reaches the group (`address_owner` / `address_recipient`), and an object sharing one is an `AddressConflict` | In PR | `tests/provisioning.rs`: `mail_to_a_groups_secondary_proxy_reaches_the_group` red before; `a_groups_secondary_proxy_claims_its_address` re-pinned from owner to conflict; `a_non_mail_enabled_groups_proxy_is_only_a_provisioning_claim` red before (Codex P1) |
+| **D-DSV-2** | A mail-enabled group's secondary SMTP proxies are in the Exchange address space (a group without a primary SMTP address claims them only in the provisioning plane): mail to them reaches the group (`address_owner` / `address_recipient`), and an object sharing one is an `AddressConflict` | Shipped #1483 | `tests/provisioning.rs`: `mail_to_a_groups_secondary_proxy_reaches_the_group` red before; `a_groups_secondary_proxy_claims_its_address` re-pinned from owner to conflict; `a_non_mail_enabled_groups_proxy_is_only_a_provisioning_claim` red before (Codex P1) |
 
 ## D-DSP — dir-sim history that survives a restart (2026-10-11)
 
@@ -280,7 +280,7 @@ Plan: `.claude/plans/dir-sim-persist-v1.md`.
 | **D-DSP-2** | Lance writer/reader crate for `StoredImage`: logical versions in verifiable append-only batches (one batch = one Lance commit), torn saves refused | Shipped (#1485; `lance-graph-dir-sim-lance`, one batch = one Lance append) | two saves restore to the same reads; missing dataset = empty log; stale writer writes nothing (create and append); torn batch refused at restore; out-of-order batch refused |
 | **D-DSP-4** | `StoredImage` + `RuleRegistry` (exact `(name, version)`) + `restore_stored` + read-only `History` (decision 2(a)) | Shipped (#1481) | unknown rule refused, never substituted; history still reads; disable runs red |
 | **D-DSP-3** | `ViewActors` (W-2) + `from_graph` groups (wishlist #19) in dir-sim | Shipped (#1473) | disable runs red |
-| **D-DSP-3b** | `GroupRoles::from_policy`: grants read from one version of OGAR `GroupRolePolicy` (decision 4(b)); never-named = unread, all-revoked = read with no roles (5(a)) | In PR | policy test red without `from_policy`; dropping empty groups fails it |
+| **D-DSP-3b** | `GroupRoles::from_policy`: grants read from one version of OGAR `GroupRolePolicy` (decision 4(b)); never-named = unread, all-revoked = read with no roles (5(a)) | Shipped #1486 | policy test red without `from_policy`; dropping empty groups fails it |
 
 ## D-LBL — labels of a concept, pulled through the plug (2026-10-11)
 
@@ -288,7 +288,7 @@ Plan: `.claude/plans/concept-labels-hotplug-v1.md`.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| **D-LBL-0** | Decision record, board rows, corrections (mapping in the consumer plug; no executor lists) | In PR | — |
+| **D-LBL-0** | Decision record, board rows, corrections (mapping in the consumer plug; no executor lists) | Shipped #1472 | — |
 | **D-LBL-1** | `ogar-vocab` label rows + concept × language `LazyLock` index; seed `0x0103` (de pref Zeiterfassung, de alt Stundenzettel) | Queued (OGAR PR) | one preferred per (concept, tag); roles disjoint; concept in `CODEBOOK` |
 | **D-LBL-2** | `Activation::with_labels` + `label()` / `alt_labels()`; `OgarAuthority::activate` fills plugged concepts only | Queued | unplugged concept's labels absent; missing language → `None` |
 | **D-LBL-3** | Build-time activation for customer binaries (generated constants, labels included) | Queued | the binary links only `lance-graph-contract` |
@@ -307,7 +307,7 @@ Plan: `.claude/plans/v3-mandatory-hotplug-reading-v1.md`.
 | **D-HPR-3** | Consumers move (lance-graph, q2, MedCare); `classid_read_mode` deprecated | Queued (2026-10-11 census: MedCare has 0 callers; q2's are offline bake mints; deepnsm-v2 is blocked on a concept mint, not code) | no NEW reading selected through the table (rule 5 keeps stored keys readable) |
 | **D-HPR-4** | `0x1000` / render prefixes documented as deprecated, kept (no eviction) | Shipped for `0x1000` (#1464; doc notes on `CLASSID_*_V3` + `classid_read_mode`); render prefixes, `NodeGuid::read_mode` and OGAR/q2 sites still carry no note | — |
 | **D-HPR-5** | Stored legacy keys keep resolving; a `SlabDeclaration` may override for its own data; no forced removal | Holds today (status quo). Caveat: a `SlabDeclaration` overrides `value_schema` only, never the tail, so it cannot protect a V1/V2-tail slab (`hotplug.rs:231-257, 392`) | — |
-| **D-HPR-6** | No V1 default for an unknown classid; `guid-v3-tail` not a gate | **6a** In PR (un-gated: `guid-v2-tail`/`guid-v3-tail` are empty names, `new_v2` + the five V3 constants + `codebook` unconditional, the panic arm gone; scope ruled 2026-10-11: the 128-bit opt-in — identity and edge facet as 16×u8, lo = is_a, hi = part_of — is not touched, and the new guard `v3_mint_is_the_128_bit_facet` pins that a V3 mint is byte-identical to `FacetCascade` for key and edge; a byte-swap in `new_v2` turns 2 of its tests red). **6b** Queued — unknown classid → error. Decided 2026-10-11: go, staged after 6a, D-HPR-3 and a stored-classid check | unknown classid → `NoReadingFor` |
+| **D-HPR-6** | No V1 default for an unknown classid; `guid-v3-tail` not a gate | **6a** Shipped #1490 (un-gated: `guid-v2-tail`/`guid-v3-tail` are empty names, `new_v2` + the five V3 constants + `codebook` unconditional, the panic arm gone; scope ruled 2026-10-11: the 128-bit opt-in — identity and edge facet as 16×u8, lo = is_a, hi = part_of — is not touched, and the new guard `v3_mint_is_the_128_bit_facet` pins that a V3 mint is byte-identical to `FacetCascade` for key and edge; a byte-swap in `new_v2` turns 2 of its tests red). **6b** Queued — unknown classid → error. Decided 2026-10-11: go, staged after 6a, D-HPR-3 and a stored-classid check | unknown classid → `NoReadingFor` |
 | **D-HPR-7** | Storage readings leave the concept key: out of `concept_override`, into the slab's `SlabDeclaration` or the owning consumer's plug (O3, decided (a) 2026-10-11) | Shipped (#1474; the five domain arms removed; the domain models differed from plug-and-play only in `value_schema`, which `SlabDeclaration` overrides; tests red before, green after) | a non-Odoo plug of `0x0202` reads `PLUG_AND_PLAY_V3`; Odoo's slab still reads `ERP_V3` |
 | **D-HPR-8** | A plug that asks only for a reading succeeds (reading is not a capability; decided 2026-10-11) | Shipped (#1474; `OgarAuthority::activate` skips the capability join when `covered` is empty; ids still must be minted; red before the fix with `NoCapabilitiesFor(0x0103)`; disable run turns the twin red) | `[0x0103]` with `covered: &[]` → `Ok`, `PLUG_AND_PLAY_V3`; with a covered capability → refused as today |
 
