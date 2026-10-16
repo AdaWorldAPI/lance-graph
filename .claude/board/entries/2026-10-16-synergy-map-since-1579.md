@@ -278,3 +278,40 @@ points at long-lived relations through a ±8 window whose referents are usually
 not 8 events away (witness-nibble-lane P2); the 32 × i4 extension (D-CGW-7)
 would drop the classid from tenant 14, so the reading would have to be declared
 the way `SlabReading::Register128` declares registers 16–17.
+
+## 9. H4 restated: the triangle is an intersection of planes, not a pointer chase (2026-10-16)
+
+The P-7 framing (`s_dst[rb[a]] == tc[a]`) is an array-of-structs reading: a row
+holds a value that names another row, and closing the cycle follows it. In the
+SoA substrate nothing points. A relation is a presence plane over a Cartesian
+grid, and a tenant is read at its coordinate the same way whether or not it is
+"nested", because the address is the coordinate.
+
+**Shape.** R over (a, b), S over (b, c), T over (a, c), each a presence plane
+in its own two axes. A triangle at (a, b, c) is
+`R[a][b] ∧ S[b][c] ∧ T[a][c]`: each plane read at the coordinate itself, one
+three-input AND (one ternlog) per surviving coordinate. No lane is read at a
+position taken from another lane's values, so no closing atom exists to build.
+
+**Where the work goes.** The cost is in choosing which coordinates to visit,
+and that is run intersection inside each plane's own coordinates: for each `a`,
+the run of `b` with `R[a][b]`; for each such `b`, the run of `c` with
+`S[b][c]` intersected with the run of `c` with `T[a][c]`. The intersections are
+computed symbolically first (`fold_ranges`, the D-TELEPORT Schnittpunkte); the
+plane AND runs only on what remains. The intersection order is what gives the
+worst-case-optimal bound, and the hybrid seek from #1587 belongs here: it seeks
+inside one plane's own sorted run, never through another lane.
+
+**Pre-registered gates (not run):**
+- G1 answer: the triangle set equals datafrog and the #1587 bag oracle on F4 and
+  on the mixed fixture with real triangles.
+- G2 no value-derived read: no access in the program has an index computed from
+  another lane's values (checked on the lowered program, not by review).
+- G3 work: coordinates visited stay within the AGM bound on F4 (counted).
+- G4 disable runs: drop the T-run intersection and the answer grows to the
+  semijoin over-approximation; drop the symbolic intersection and the visited
+  count exceeds G3.
+
+OPEN: the plane layout for a sparse relation (bitmap per row of `a`, or runs per
+`a`), and how a relation whose two axes have different coordinate spaces is
+aligned. Both are layout questions, decided by measurement.
