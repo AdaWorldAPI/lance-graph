@@ -53,9 +53,10 @@
 # python/ sets RUSTFLAGS only on an x86_64 host. Note that the per-target
 # variable is JOINED with this file's entry, with `native` last (measured), so
 # it cannot pin a build that sees this file. Anything below v3 still SIGILLs on the
-# `simd_avx2` intrinsics, so never build with no target-cpu at all. (ndarray's
-# AVX-without-AVX2 and x86-64-v2 arms apply only when their own config is
-# requested; a plain baseline build still takes the AVX2 arm.)
+# `simd_avx2` intrinsics, so never build with no target-cpu at all. A build with
+# no target-cpu takes ndarray's AVX2 arm, and that arm is kept only as the
+# validation oracle; the goal for every real build is `native` through the
+# ndarray polyfill, once its arms are validated against that oracle.
 #
 # The two crypto cfgs ndarray's config also carries (`curve25519_dalek_backend`,
 # `poly1305_force_soft`) are deliberately NOT repeated: neither crate is in
