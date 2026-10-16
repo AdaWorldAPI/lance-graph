@@ -1298,6 +1298,38 @@ mod tests {
         assert_eq!(qualia_at(w.rows[1].qualia, Q_PREDICATE), 0);
     }
 
+    /// An adjective with no noun after it in its sentence stays unattached;
+    /// it never reaches the next sentence's subject.
+    #[test]
+    fn an_adjective_does_not_cross_a_sentence() {
+        let w = wire(
+            &[(1, 1)],
+            &[qverse(&[
+                (THE, Pos::Det, "the", 0),
+                (DOG, Pos::Noun, "dog", 0),
+                (BIT, Pos::Verb, "caused", 0),
+                (THE, Pos::Det, "the", 0),
+                (MAN, Pos::Noun, "man", 0),
+                (WHO, Pos::Adj, "quick", QUICK),
+                (0, Pos::Stop, ".", 0),
+                (THE, Pos::Det, "the", 0),
+                (CAT, Pos::Noun, "cat", 0),
+                (SAW, Pos::Verb, "saw", 0),
+                (THE, Pos::Det, "the", 0),
+                (DOG, Pos::Noun, "dog", 0),
+            ])],
+            1,
+            &abi(),
+            None,
+            ReadParams::RIGHT_CORNER,
+        )
+        .unwrap();
+        assert_eq!(w.rows.len(), 2);
+        assert_eq!(qualia_at(w.rows[1].qualia, Q_SUBJECT), 0);
+        assert_eq!(w.report.qualia_unattached, 1);
+        assert_eq!(w.report.qualia_adjectival, 0);
+    }
+
     /// The verb cell is the 144-table byte; cell 0 (Becomes, Present) is real
     /// and told apart from "unclassified" by the flag; `saw` stays
     /// unclassified (a homograph the lexicon refuses).
