@@ -25,12 +25,15 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-344 entries, 2026-08-06 .. 2026-10-15.
+347 entries, 2026-08-06 .. 2026-10-15.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-15 | `nars-metta-ce64-mapping-inventory` |  | [2026-10-15-nars-metta-ce64-mapping-inventory.md](2026-10-15-nars-metta-ce64-mapping-inventory.md) |
+| 2026-10-15 | `D-ASM-0` |  | [2026-10-15-metta-datalog-assimilation-plan.md](2026-10-15-metta-datalog-assimilation-plan.md) |
 | 2026-10-15 | `ledger-correction-wire-contract` |  | [2026-10-15-ledger-correction-wire-contract.md](2026-10-15-ledger-correction-wire-contract.md) |
 | 2026-10-15 | `givens-layer` |  | [2026-10-15-givens-layer.md](2026-10-15-givens-layer.md) |
+| 2026-10-15 | `epi-trust-is-topology-vocabulary` |  | [2026-10-15-epi-trust-is-topology-vocabulary.md](2026-10-15-epi-trust-is-topology-vocabulary.md) |
 | 2026-10-15 | `D-WAL` | `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path (measured) | [2026-10-15-d-wal-shootout.md](2026-10-15-d-wal-shootout.md) |
 | 2026-10-15 | `D-HOLO-H14b` |  | [2026-10-15-d-holo-h14b-lane-mask.md](2026-10-15-d-holo-h14b-lane-mask.md) |
 | 2026-10-15 | `D-HOLO-H14` |  | [2026-10-15-d-holo-h14-lane-storage.md](2026-10-15-d-holo-h14-lane-storage.md) |

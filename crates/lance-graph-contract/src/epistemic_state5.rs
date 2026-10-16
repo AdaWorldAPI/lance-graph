@@ -53,12 +53,16 @@
 //!
 //! [`band_reading`](crate::band_reading) declared 59..60 and 61..63 as two
 //! fields. A producer that declared **topology + P7a certification** wrote
-//! exactly this product (identity packing, no translation table). A producer
-//! that declared the `TrustTexture` lens on 59..60 or the historical
-//! `ReasoningBand` on 61..63 wrote OTHER meanings into the same bits; no
-//! explicit mapping exists for either, so its bits are never numerically
-//! reinterpreted here — such a class has no `Epi5Reading` and projection
-//! refuses. The declaration is the migration firewall.
+//! exactly this product (identity packing, no translation table). The
+//! `TrustTexture` lens on 59..60 is the same topology coordinate under the
+//! Meta-Uncertainty-Layer names (Crystalline / Solid / Fuzzy / Murky ≡
+//! Direct / IndirectKnown / IndirectUnknown / Unknown, identity mapping), so
+//! a class that declared it wrote the canonical lower coordinate too. Only
+//! the historical `ReasoningBand` on 61..63 wrote OTHER meanings (reasoning
+//! levels, not certifications); no mapping exists for it, so such a class
+//! has no `Epi5Reading` and projection refuses. ⊘ The earlier text here
+//! counted the `TrustTexture` lens among the "other meanings"; struck
+//! 2026-10-15. The declaration is the migration firewall.
 
 use crate::band_reading::EdgeProvenance;
 use crate::class_view::ClassId;
