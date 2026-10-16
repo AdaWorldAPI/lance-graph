@@ -1,10 +1,14 @@
+## 2026-10-16 — synergy map since #1579 (entry `2026-10-16-synergy-map-since-1579.md`, in PR)
+
+- Revises every point of the #1579 map against merges #1580–#1591. D2 (preimage op) closed as a violation; L6 closed (#1544 closed); X17 and D8 partly closed by #1582. Decisions recorded: 43..45 amended to orientation in the contract, activation becomes a row field, OpenPSI modulators only into qualia.
+
 ## 2026-10-16 — main after #1591 (merged `e53f2325`); ledger revision (c) in PR
 
 - **On main since #1581:** #1582 (doc drift, OpenCog oracle-only decision), #1584/#1585 (D-ASM follow-ups queued), #1586/#1587 (WCOJ map and probes; `seek_from`, `is_alpha_acyclic`), #1588 (CATS three-valued binding), #1589 (arc catch-up), #1590 (gather designs bannered as violations), #1591 (`deepnsm_v2::wire`: every CE64 field of a parsed triple, Gadamer gate first; plan D-CGW-0..14).
 - **In PR:** `LEDGER-REVISION-2026-10-16c.md`; arc entries for #1549 and #1581.
 - **Flagged:** bits 50..52 now carry two opposite encodings in code (pyramid 7 → 0 vs `with_novelty_wisdom` 1 → 7).
 
-## 2026-10-16 — CE64 grammar wiring (branch `ccr-9f3b8075-74u47l-ce64-grammar-wiring`, in PR)
+## 2026-10-16 — CE64 grammar wiring (#1591, merged `e53f2325`)
 
 - `deepnsm-v2::wire` writes every CausalEdge64 field of a parsed triple from a named source, with the Gadamer gate (`contract::revision`) deciding before anything is counted; W is the statement's Markov arc in a `WitnessTable<64>`; 43..45 is the Haspelmath dative-map function; loci carry Antecedent, TEKAMOLO, Quorum and Contradiction pointers. Probe: `lance-graph-quack/examples/wired_reasoning_probe.rs`. Plan: `ce64-grammar-wiring-v1.md` (D-CGW-0..12).
 - Contract inventory delta: none (consumes `revision`, `witness_table`, `causal_witness`, `epistemic_state5`). `deepnsm-v2` gains `wire` and `DativeFunction::ALL`; `causal-edge` gains `activation` / `novelty_wisdom` accessors.

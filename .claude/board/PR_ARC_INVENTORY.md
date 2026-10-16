@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1591 (merged `e53f2325`, branch `ccr-9f3b8075-74u47l-ce64-grammar-wiring`, head `cd1b1b3c`, 24 commits incl. a merge of main) — deepnsm-v2 wire: every CE64 field of a parsed triple from its source, Gadamer gate first; plan D-CGW-0..14
+
+- **Added:** `deepnsm_v2::wire` (verses → rows: F/C from the arm, Pearl from TEKAMOLO, 43..45 = Haspelmath dative function, W = the statement's Markov arc in `WitnessTable<64>`, epistemic state from the support balance, loci Antecedent / TEKAMOLO / Quorum / Contradiction); the Gadamer gate (`contract::revision`) admits before anything is counted; `DativeFunction::ALL`; `causal-edge` `activation` / `novelty_wisdom` accessors; probe `lance-graph-quack/examples/wired_reasoning_probe.rs` (741 rows, 0 rule violations); plan `ce64-grammar-wiring-v1.md`; entry `2026-10-16-grammar-coordinates-annotation-wiring.md` §10–11.
+- **Locked:** each CE64 field has one global meaning held in the `causal-edge` contract (the versioned reading binding was withdrawn the same day); 46..49 stays the inference mantissa.
+- **Deferred / open:** wire edges stay in the probe until D-CGW-1 lands; activation is written into 46..49 today, against the mantissa rule (D-CGW-9); D-CGW-2..14.
+- **Confidence:** deepnsm-v2 tests pass (wire 27 tests; 11 disable runs red, including the two Codex P2 fixes in `2898f124`); causal-edge tests pass; clippy clean on the lib and the quack examples.
+
 ## 2026-10-16 — lance-graph PR #1581 (merged `95c0d104`, branch `ccr-b2e415d9-4jfvyk`, head `67d0698a`, 3 commits) — recovery ledger deduplicated against #1579; DOC-WIRE (2); N21
 
 - **Added:** `.claude/research/2026-10-recovery/LEDGER-UPDATE-2026-10-16b.md`; dated corrections on three docs that still read bits 59..60 as two readings (`causal-plane-inventory.md`, `TYPE_DUPLICATION_MAP.md`, `causaledge64-mailbox-rename-soa-v1.md`); entry `2026-10-16-ledger-update-dedup-1579.md`; arc entry for #1578.
