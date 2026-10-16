@@ -1,3 +1,8 @@
+## 2026-10-16 — main after #1569 (merged `09f31561`); H14b on main as a withdrawn record
+
+- **On `main` (#1569):** D-HOLO H14b arm M and its results, marked withdrawn: no layout verdict on C. Probe code only (an example), no library change.
+- **In PR:** #1573 (D-HOLO H14c: thought-first reads, Hamming presence, Lance 13 masked I/O).
+
 ## 2026-10-15 — main after #1567 (merged `b1f1365d`); D-HOLO H6c/H14 and the writer's version clock on main
 
 - **On `main` (#1566, merged `c18aefcb`):** D-HOLO H6c and H14 probes and results; H14b open (awaits the operator).

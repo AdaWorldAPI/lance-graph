@@ -247,6 +247,8 @@ struct ArmC {
 thread_local! {
     static VALUE_READS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
     static MERGES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// Lane tables a merge looks into, present or not.
+    static PROBES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 impl ArmC {
@@ -287,6 +289,8 @@ impl ArmC {
         self.touched.len() * (WORDS * 8 + N * LANE)
     }
     fn value(&self, l: usize, r: usize) -> Option<&Val> {
+        #[cfg(test)]
+        PROBES.with(|c| c.set(c.get() + 1));
         let p = self.planes[l].as_ref()?;
         if p.present[r / 64] >> (r % 64) & 1 == 0 {
             return None;
@@ -319,6 +323,64 @@ impl ArmC {
                 acc.copy_from_slice(&tmp);
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------- M (H14b)
+
+/// C plus one lane mask per row, held positionally: `mask[i]` names the
+/// lanes row i changed. The merge reads only the tables the mask names.
+///
+/// Withdrawn as a layout candidate (2026-10-15): `mask[i]` restates, per row,
+/// what C's presence planes already hold per lane. Kept as an experimental
+/// row-oriented acceleration for whole-row reconstruction only; see the plan's
+/// "H14b withdrawal note" and D-HOLO-H14c.
+struct ArmM {
+    c: ArmC,
+    mask: Vec<u32>,
+}
+
+impl ArmM {
+    fn seal(w: &Writes) -> Self {
+        let mut mask = vec![0u32; N];
+        for (&r, &m) in w.rows.iter().zip(&w.masks) {
+            mask[r as usize] = m;
+        }
+        ArmM {
+            c: ArmC::seal(w),
+            mask,
+        }
+    }
+    /// Bytes handed to the writer: per dirty row key + mask + changed lanes.
+    ///
+    /// This omits the per-row value offset that `ArmB::bytes` charges, though
+    /// both can derive it from the masks, so `bm <= bb` below holds by
+    /// construction (`bm == bb - 4 * dirty rows`); it is not a measurement.
+    fn bytes(&self) -> usize {
+        self.mask
+            .iter()
+            .filter(|&&m| m != 0)
+            .map(|m| 8 + LANE * m.count_ones() as usize)
+            .sum()
+    }
+    fn resident(&self) -> usize {
+        self.c.resident() + 4 * N
+    }
+    fn read(&self, base: &[Row], r: usize) -> Row {
+        #[cfg(test)]
+        MERGES.with(|c| c.set(c.get() + 1));
+        let mut out = base[r];
+        for l in BitIter(self.mask[r]) {
+            #[cfg(test)]
+            PROBES.with(|c| c.set(c.get() + 1));
+            // The mask names the lane, so the plane exists and holds row r.
+            let v = &self.c.planes[l]
+                .as_ref()
+                .expect("masked lane has a table")
+                .values[r];
+            out[l * LANE..(l + 1) * LANE].copy_from_slice(v);
+        }
+        out
     }
 }
 
@@ -365,6 +427,27 @@ fn f2_c(arms: &[ArmC], l: usize, a0: usize, acc: &mut [u64], tmp: &mut [u64]) ->
         }
     }
     popcount(acc)
+}
+fn f2_m(arms: &[ArmM], l: usize, a0: usize, acc: &mut [u64], tmp: &mut [u64]) -> u64 {
+    let (w0, w1) = (a0 / 64, (a0 + APERTURE) / 64);
+    acc.fill(0);
+    for m in arms {
+        if let Some(p) = &m.c.planes[l] {
+            mask_or(acc, &p.present[w0..w1], tmp);
+            acc.copy_from_slice(tmp);
+        }
+    }
+    popcount(acc)
+}
+/// F3 on M: C's fold, then M's merge on the rows the fold names.
+fn f3_m(m: &ArmM, base: &[Row], a0: usize, acc: &mut [u64], out: &mut Vec<Row>) {
+    m.c.fold_lanes(&F1_LANES, a0, acc);
+    out.clear();
+    for (wi, &w) in acc.iter().enumerate() {
+        for b in BitIter64(w) {
+            out.push(m.read(base, a0 + wi * 64 + b));
+        }
+    }
 }
 /// F3 on C: fold first, then merge-on-read only the rows the fold names.
 fn f3_c(c: &ArmC, base: &[Row], a0: usize, acc: &mut [u64], out: &mut Vec<Row>) {
@@ -429,7 +512,9 @@ fn time<F: FnMut()>(mut f: F) -> f64 {
 }
 
 fn main() {
-    println!("D-HOLO H14: full row (A) vs connected delta (B) vs inverted fold (C)");
+    println!(
+        "D-HOLO H14/H14b: full row (A), connected delta (B), inverted fold (C), C + positional lane mask (M)"
+    );
     println!("tier: {}", tier());
     println!("rows per tile {N}; aperture {APERTURE}; timings ns, median of 11\n");
     let base = base();
@@ -443,6 +528,10 @@ fn main() {
     let mut c_rule = true;
     let mut c_fold_wins = true;
     let mut c_read_ok = true;
+    let mut m_read_ok = true;
+    let mut m_bytes_ok = true;
+    let mut m_fail: Vec<String> = Vec::new();
+    let mut mrows: Vec<String> = Vec::new();
     let mut acc = vec![0u64; APERTURE / 64];
     let mut tmp = vec![0u64; APERTURE / 64];
     let mut out: Vec<Row> = Vec::with_capacity(APERTURE);
@@ -455,6 +544,8 @@ fn main() {
                 let a: Vec<ArmA> = ws.iter().map(|w| ArmA::seal(&base, w)).collect();
                 let b: Vec<ArmB> = ws.iter().map(ArmB::seal).collect();
                 let c: Vec<ArmC> = ws.iter().map(ArmC::seal).collect();
+                let m: Vec<ArmM> = ws.iter().map(ArmM::seal).collect();
+                let bm: usize = m.iter().map(ArmM::bytes).sum();
                 let (ba, bb): (usize, usize) = (
                     a.iter().map(ArmA::bytes).sum(),
                     b.iter().map(ArmB::bytes).sum(),
@@ -474,6 +565,9 @@ fn main() {
                 }) / d0;
                 let sc = time(|| {
                     black_box(ArmC::seal(black_box(&ws[0])));
+                }) / d0;
+                let sm = time(|| {
+                    black_box(ArmM::seal(black_box(&ws[0])));
                 }) / d0;
 
                 // Full-row read: 65,536 random (thought, row) pairs.
@@ -499,6 +593,11 @@ fn main() {
                         black_box(c[t as usize].read(&base, r as usize));
                     }
                 }) / per;
+                let rm = time(|| {
+                    for &(t, r) in &probe {
+                        black_box(m[t as usize].read(&base, r as usize));
+                    }
+                }) / per;
 
                 // Session read: every thought of the session over one aperture.
                 let a0 = 8 * APERTURE;
@@ -522,6 +621,13 @@ fn main() {
                     for r in a0..a0 + APERTURE {
                         for &t in &thoughts {
                             black_box(c[t].read(&base, r));
+                        }
+                    }
+                }) / sper;
+                let qm = time(|| {
+                    for r in a0..a0 + APERTURE {
+                        for &t in &thoughts {
+                            black_box(m[t].read(&base, r));
                         }
                     }
                 }) / sper;
@@ -565,6 +671,10 @@ fn main() {
                     f3_c(&c[0], &base, black_box(a0), &mut acc, &mut out);
                     black_box(&out);
                 }) / emitted;
+                let f3m = time(|| {
+                    f3_m(&m[0], &base, black_box(a0), &mut acc, &mut out);
+                    black_box(&out);
+                }) / emitted;
 
                 if k <= 4 {
                     let b_ok = rb <= 1.25 * ra && qb <= 1.25 * qa && bb as f64 <= 0.5 * ba as f64;
@@ -575,7 +685,24 @@ fn main() {
                     c_rule &= c_ok;
                     c_fold_wins &= folds;
                     c_read_ok &= reads;
+                    let m_reads = rm <= 1.25 * rb && qm <= 1.25 * qb;
+                    m_read_ok &= m_reads;
+                    m_bytes_ok &= bm <= bb;
+                    if !m_reads {
+                        m_fail.push(format!(
+                            "T {t_n} {label} k {k}: read M/B {:.2}, session M/B {:.2}",
+                            rm / rb,
+                            qm / qb
+                        ));
+                    }
                 }
+                mrows.push(format!(
+                    "{t_n:>3} {label:>5} {k:>3} | {:>9} {:>9} | {sm:>7.1} | {rb:>7.2} {rm:>7.2} {:>5.2} | {qb:>7.2} {qm:>7.2} {:>5.2} | {f3b:>6.1} {f3c:>6.1} {f3m:>6.1}",
+                    bb >> 10,
+                    bm >> 10,
+                    rm / rb,
+                    qm / qb
+                ));
                 let _ = dirty;
                 println!(
                     "{t_n:>3} {label:>5} {k:>3} | {:>9} {:>9} {:>9} {:>10} | {sa:>6.1} {sb:>6.1} {sc:>6.1} | {ra:>6.2} {rb:>6.2} {rcn:>6.2} | {qa:>6.2} {qb:>6.2} {qc:>6.2} | {f1a:>7.3} {f1b:>7.3} {f1c:>7.3} | {f2a:>7.3} {f2b:>7.3} {f2c:>7.3} | {f3a:>6.1} {f3b:>6.1} {f3c:>6.1}",
@@ -598,6 +725,37 @@ fn main() {
     println!(
         "  B default over A: {}",
         if b_rule { "HOLDS" } else { "not met" }
+    );
+
+    println!("\nH14b: M (C + positional lane mask) against B, same run");
+    println!(
+        "{:>3} {:>5} {:>3} | {:>9} {:>9} | {:>7} | {:>7} {:>7} {:>5} | {:>7} {:>7} {:>5} | {:>6} {:>6} {:>6}",
+        "T", "dirty", "k", "B KiB", "M KiB", "sealM", "readB", "readM", "M/B", "sessB", "sessM", "M/B",
+        "F3 B", "F3 C", "F3 M"
+    );
+    for row in &mrows {
+        println!("{row}");
+    }
+    println!("rule at k <= 4, every (dirty, thoughts) cell:");
+    println!(
+        "  M full-row and session read <= 1.25x B: {}",
+        if m_read_ok { "HOLDS" } else { "FALSIFIED" }
+    );
+    for f in &m_fail {
+        println!("    {f}");
+    }
+    println!(
+        "  M bytes to the writer <= B (by construction, see ArmM::bytes): {}",
+        if m_bytes_ok { "yes" } else { "no" }
+    );
+    println!("  M folds are C's folds (tested equal, not re-timed)");
+    println!(
+        "  M default: {}",
+        if m_read_ok && m_bytes_ok {
+            "HOLDS"
+        } else {
+            "not met"
+        }
     );
 }
 
@@ -640,6 +798,81 @@ mod tests {
                 }
                 assert_eq!(changed, w.rows.len(), "every dirty row changes, no other");
             }
+        }
+    }
+
+    #[test]
+    fn m_reads_the_dense_reference() {
+        for k in [1, 4, 31] {
+            let (base, ws) = fixture(2, 1_000, k);
+            for w in &ws {
+                let d = dense(&base, w);
+                let m = ArmM::seal(w);
+                for (r, want) in d.iter().enumerate() {
+                    assert_eq!(&m.read(&base, r), want, "M row {r} k {k}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn m_mask_is_b_lane_mask_at_every_row() {
+        let (_, ws) = fixture(2, 1_000, 4);
+        for w in &ws {
+            let (b, m) = (ArmB::seal(w), ArmM::seal(w));
+            for r in 0..N {
+                assert_eq!(m.mask[r], b.mask(r), "row {r}");
+            }
+        }
+    }
+
+    #[test]
+    fn m_merge_probes_only_the_tables_its_mask_names() {
+        let (base, ws) = fixture(1, 1_000, 4);
+        let (c, m) = (ArmC::seal(&ws[0]), ArmM::seal(&ws[0]));
+        assert!(
+            c.touched.len() > 4,
+            "fixture must touch more tables than k, or this proves nothing"
+        );
+        let mut dirty_seen = 0;
+        for r in 0..N {
+            PROBES.with(|p| p.set(0));
+            let _ = m.read(&base, r);
+            assert_eq!(
+                PROBES.with(|p| p.get()),
+                u64::from(m.mask[r].count_ones()),
+                "M row {r}"
+            );
+            if m.mask[r] != 0 && dirty_seen < 50 {
+                dirty_seen += 1;
+                PROBES.with(|p| p.set(0));
+                let _ = c.read(&base, r);
+                assert_eq!(
+                    PROBES.with(|p| p.get()),
+                    c.touched.len() as u64,
+                    "C row {r}"
+                );
+            }
+        }
+        assert_eq!(dirty_seen, 50, "fixture has dirty rows");
+    }
+
+    #[test]
+    fn m_folds_and_terminal_equal_c() {
+        let (base, ws) = fixture(3, 1_000, 4);
+        let c: Vec<ArmC> = ws.iter().map(ArmC::seal).collect();
+        let m: Vec<ArmM> = ws.iter().map(ArmM::seal).collect();
+        let mc: Vec<&ArmC> = m.iter().map(|x| &x.c).collect();
+        let (mut acc, mut tmp) = (vec![0u64; APERTURE / 64], vec![0u64; APERTURE / 64]);
+        for a0 in [0, 3 * APERTURE, N - APERTURE] {
+            let want1 = f1_c(&c[0], a0, &mut acc);
+            assert_eq!(f1_c(mc[0], a0, &mut acc), want1);
+            let want2 = f2_c(&c, 5, a0, &mut acc, &mut tmp);
+            assert_eq!(f2_m(&m, 5, a0, &mut acc, &mut tmp), want2);
+            let (mut oc, mut om) = (Vec::new(), Vec::new());
+            f3_c(&c[0], &base, a0, &mut acc, &mut oc);
+            f3_m(&m[0], &base, a0, &mut acc, &mut om);
+            assert_eq!(oc, om);
         }
     }
 
