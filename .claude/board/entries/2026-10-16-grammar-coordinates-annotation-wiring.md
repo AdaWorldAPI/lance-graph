@@ -216,3 +216,25 @@ Not done, recorded so it is not lost:
   Candidate for later: WordNet senses measured against the 219 patches'
   Jina embeddings (`data/qualia/calibrated_219.bin1024`). Until then the
   caller supplies indices and every index defaults to 0.
+
+## 10. W is the Markov arc; activation is what the update caused (`e31cd087`)
+
+- W (53..58) indexes a per-cohort `WitnessTable<64>` (63 rows per cohort,
+  slot 0 = no prior). Each row's entry is `(verse + 1, facts-arena id)`; its
+  W points at the entry of the PRIOR state of the same statement, so walking
+  W from the newest row visits that statement's verses newest to oldest and
+  skips rival rows. A prior in an earlier cohort starts a new arc
+  (`arc_breaks`). The earlier 3-slot window (`shift_window`) is gone: it
+  ignored the existing `WitnessTable` contract.
+- Activation (46..49) = the change of the statement's arm frequency over the
+  prior state, in eighths (`128` = unknown prior). A repeat of a settled
+  belief activates 0. The ladder and certification read the support balance
+  (`pos > neg`) instead.
+- Tests: `w_walks_the_statement_arc_backwards`,
+  `a_cohort_boundary_breaks_the_arc`, plus re-pinned activation values. Four
+  disables red (activation as pos − neg, cohort check removed, balance
+  always true, W = previous row).
+- Probe R2 now reads `2·support > antecedent`; 741 rows, 0 violations.
+- OPEN: bits 46..49 are also `InferenceType`'s mantissa, and
+  `contract::counterfactual::deposit_counterfactual` writes −6 there to mark
+  the road not taken. Activation and that marker cannot share the bits.
