@@ -1,3 +1,17 @@
+## 2026-10-16 — lance-graph PR #1581 (merged `95c0d104`, branch `ccr-b2e415d9-4jfvyk`, head `67d0698a`, 3 commits) — recovery ledger deduplicated against #1579; DOC-WIRE (2); N21
+
+- **Added:** `.claude/research/2026-10-recovery/LEDGER-UPDATE-2026-10-16b.md`; dated corrections on three docs that still read bits 59..60 as two readings (`causal-plane-inventory.md`, `TYPE_DUPLICATION_MAP.md`, `causaledge64-mailbox-rename-soa-v1.md`); entry `2026-10-16-ledger-update-dedup-1579.md`; arc entry for #1578.
+- **Locked:** none (docs only). Measured: #1570's five commands all exit 0.
+- **Deferred / open:** N17 gated on D-RA-2; D-ASM per-space codebook; DOC-WIRE (1), BAND-RETIRE, O30, O29.
+- **Confidence:** medium.
+
+## 2026-10-14 — lance-graph PR #1549 (merged `149839f8`, branch `research/oracle-fidelity-auditable-thoughts-20261014`, head `53131901`, 3 commits) — D-ORACLE-0: original-oracle fidelity and auditable thoughts
+
+- **Added:** `.claude/plans/d-oracle-fidelity-matrix-v1.md` (research protocol: run OpenNARS, ONA, OpenPsi, Hyperon and others one-to-one as frozen reference oracles over 100–150 pre-registered fixtures), an oracle reference ledger, and a handoff prompt.
+- **Locked:** none (research documentation; no oracle parity claimed).
+- **Deferred / open:** every oracle run; versions to be frozen before measurement.
+- **Confidence:** low (protocol only).
+
 ## 2026-10-16 — lance-graph PR #1590 (merged `2a6d502d`, branch `ccr-9f3b8075-74u47l-violation-banners`, head `d43a6ac5`, 1 commit) — board: mark the gather designs as violations; point at D-HOLO H14c/H14d
 
 - **Added:** capital-letter VIOLATION banners on plans `wcoj-closing-atoms-v1`, `quack-multitable-bind-v1`, `metta-datalog-assimilation-v1-council-v3`, the D-CMR-5 row, the joins line of `relalg-v1`; entries `wcoj-closing-atoms-council`, `wcoj-probes-1-3`, `coresearch-wcoj-leapfrog`, `asm-accepted-proposals`; STATUS rows D-QMB-0..5, D-ASM-11/11A/11B, D-CMR-5, D-RA-4; both 2026-10-16 INTEGRATION_PLANS entries; `TD-NO-BOUNDED-U32-GATHER-1`. Each names `d-holo-h14c-thought-first-v1.md` and `d-holo-h14d-logic-mask-read-v1.md` as the correct plans.
