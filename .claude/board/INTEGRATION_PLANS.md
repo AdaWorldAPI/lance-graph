@@ -1,3 +1,11 @@
+## 2026-10-16 (5) — ce64-grammar-wiring-v1 — every CE64 upper-half field of a parsed triple from its source → `.claude/plans/ce64-grammar-wiring-v1.md`
+
+**Status:** D-CGW-0 in PR; D-CGW-1..12 PROPOSAL, test-first.
+
+- Ships the `deepnsm-v2::wire` field map, the Gadamer gate in front of counting, the W arc, the Haspelmath orientation and the peer loci.
+- First gate: wire edges carry readings of 43..45 and 46..49 that existing readers interpret differently (pathology triad, inference mantissa); they stay in the probe until a versioned binding exists (D-CGW-1).
+- Then: frequency default with antecedent-tested promotion (D-CGW-2), case-driven argument order (D-CGW-3), concessive resistance (D-CGW-5), counterfactual lanes to `Causes` (D-CGW-4), cross-cohort arcs (D-CGW-6), layout widenings behind the envelope audit (D-CGW-7/8).
+
 ## 2026-10-16 (4) — catch-up: 14 plans of 2026-10-12..16 and 59 imported plans had no index entry
 
 **Status:** INDEX CATCH-UP; no plan status changes. The 14 dated plans below were read at their header and status line; the 59 imported ones were not read.

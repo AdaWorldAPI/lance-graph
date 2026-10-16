@@ -265,7 +265,7 @@ Not done, recorded so it is not lost:
   63 rows cut many arcs.
 - Nine disables red (four gate, five orientation/loci).
 - Measured (DeReKo-2014, local only, CC BY-NC): the relative-pronoun reading
-  is a minority of every article form (`der` 4.6 %, `die` 13 %, `das` 13 %,
+  is a minority of every article form (`der` 4.6 %, `die` 13 %, `das` 9.6 %,
   `den` 1.2 %); COCA has no relativizer tag at all (`that` = c 8.3 M / d
   5.0 M). Frequency gives a default only; the antecedent test promotes.
 - OPEN: frequency-ranked promotion of an alternative reading in the parser;

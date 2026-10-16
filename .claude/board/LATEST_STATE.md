@@ -1,3 +1,8 @@
+## 2026-10-16 — CE64 grammar wiring (branch `ccr-9f3b8075-74u47l-ce64-grammar-wiring`, in PR)
+
+- `deepnsm-v2::wire` writes every CausalEdge64 field of a parsed triple from a named source, with the Gadamer gate (`contract::revision`) deciding before anything is counted; W is the statement's Markov arc in a `WitnessTable<64>`; 43..45 is the Haspelmath dative-map function; loci carry Antecedent, TEKAMOLO, Quorum and Contradiction pointers. Probe: `lance-graph-quack/examples/wired_reasoning_probe.rs`. Plan: `ce64-grammar-wiring-v1.md` (D-CGW-0..12).
+- Contract inventory delta: none (consumes `revision`, `witness_table`, `causal_witness`, `epistemic_state5`). `deepnsm-v2` gains `wire` and `DativeFunction::ALL`; `causal-edge` gains `activation` / `novelty_wisdom` accessors.
+
 ## 2026-10-16 — board catch-up for merged PRs #1388–#1588 (in PR)
 
 - **`PR_ARC_INVENTORY.md`:** 115 merged PRs between #1388 and #1588 had no entry; each now has one, written from its description and file list, in date order. Hygiene-only PRs (#1527, #1528, #1563, #1568, #1583) get none, per the termination clause.
