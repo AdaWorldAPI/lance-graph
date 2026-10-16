@@ -60,9 +60,9 @@
 # ndarray's startup `cpu_guard` refuses to start it on a CPU without AVX2
 # instead of letting it SIGILL. That arm is kept only as the validation
 # oracle, so do not ship a build with no target-cpu. Real builds go through
-# the ndarray polyfill at a declared tier once its arms are validated against that oracle: `native` for local and
-# host-bound builds, the explicit x86-64-v4 / `sapphirerapids` tier above for
-# shipped artifacts.
+# the ndarray polyfill at a declared tier once its arms are validated against
+# that oracle: `native` for local and host-bound builds, the explicit
+# x86-64-v4 / `sapphirerapids` tier above for shipped artifacts.
 #
 # The two crypto cfgs ndarray's config also carries (`curve25519_dalek_backend`,
 # `poly1305_force_soft`) are deliberately NOT repeated: neither crate is in
