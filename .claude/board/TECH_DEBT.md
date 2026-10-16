@@ -1,3 +1,13 @@
+## TD-NO-BOUNDED-U32-GATHER-1 (2026-10-16) — OPEN
+
+`eq_u32_via_to_mask` and the planned `eq_u32_via_lane_to_mask` are scalar. An
+`unsafe`, unbounded f32 gather exists on several ndarray backends
+(`simd_avx512.rs:236-246`, `simd_avx2.rs:703`, `simd_scalar.rs:1099`), but no
+bounds-masked u32 gather-and-compare wrapper does, and the out-of-range-is-false
+contract needs one. Whether it pays on random access is unmeasured. Payoff: a
+W1a wrapper plus a v4 per-element measurement against the scalar kernel.
+Source: `.claude/plans/wcoj-closing-atoms-v1.md` §2.
+
 ## TD-KEYED-SINK-MERGE-IDENTITY-1 (2026-10-05) — OPEN
 
 **Equal length is not semantic compatibility.** `Terminal::merge_group_sink`

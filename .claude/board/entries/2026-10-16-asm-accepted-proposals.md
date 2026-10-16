@@ -50,3 +50,77 @@ clustering loop, a model), or its dependency set would have to grow.
 - MORK's `sink_hash_expr` test expects `XoicVnQv2bk` and gets `-Egab4rQ3Nc` on
   both stable and nightly; root cause unknown. Tests 62–70 of `mork test` never
   ran because the suite stops at the first failure.
+
+## Update (same day, after #1584 merged)
+
+DECISION: AtomSpace runs on two layers. `atomspace-lance` (AGPL) is the thin
+`StorageNode` adapter, and it calls `lance-graph-cog` (Apache-2.0). The address
+design, a deterministic content → NodeGuid mapping, is a `lance-graph-cog` item.
+D-ASM-1b's binder uses that same function, so a MeTTa atom and an AtomSpace atom
+with the same content get the same address. Tracked as D-ASM-12 (Queued, not
+authorized). The crate is still not created.
+
+DECISION: `lance-graph-cog` also carries the thinking API that OpenCog calls
+(the PLN/ECAN-shaped questions). It is a facade over the algebra that already
+exists: NAL operations from `lance-graph-nal` (global core methods), the
+ONA-shaped term table and rule catalogue (D-ASM-5/6), procedures in
+`lance-graph-r2il`, and the `lance-graph-relalg` IR, all lowering to mask-risc.
+No new algebra, interpreter or NARS executor. OpenCog's own answers are the
+oracle, and nothing is ported from its source. Tracked as D-ASM-13.
+
+Closed open items:
+- `AdaWorldAPI/matrix` and `AdaWorldAPI/atomspace-storage` now exist as forks, so
+  D-ASM-8's definitions and D-ASM-1b's decoder oracle can run outside the
+  workspace. They are read for documented behaviour and oracle runs only.
+- MORK stable patch: pushed to `AdaWorldAPI/MORK` branch
+  `ccr-9f3b8075-74u47l-stable` (`de9312e`). The upstream PR is opened by the
+  maintainer.
+
+D-ASM-11 shape (same day): which zipper the leapfrog runs over is decided by the
+probe, not up front. Arm A is the cleanest and already integrated: `seek` is a
+`partition_point` over the sealed ordered lanes, the same zipper merge on read
+that `atomspace-lance` plans. Arm B is leapfrog triejoin over a prefix-shared
+trie zipper, and it is something to learn from: it is worst-case optimal on
+cyclic joins, which a semijoin chain is not. The probe records what B teaches
+(variable order, prefix sharing, the seek pattern) and carries those lessons into
+A even when A wins on cost per element; the margin for adopting B as the carrier
+is registered before the run.
+
+### Leapfrog Triejoin, read (Veldhuizen, arXiv 1210.0481v5, ICDT '14)
+
+- Interface: `key`, `atEnd` O(1); `next`, `seek`, `open`, `up` O(log N); `seek`
+  amortized O(1 + log(N/m)) when m keys are visited in ascending order, which
+  needs a seek that moves forward from the current position (the paper: it
+  "ascends just far enough"), not a search from the root.
+- Relations need not be stored as tries; a trie is an iterator view over sorted
+  data (B-tree-like in practice). A sealed NodeGuid-ordered lane already is that
+  view: an aperture of n leading bytes is a trie level, `open` widens the
+  aperture by one tile, `up` narrows it. So arm A is the paper's algorithm on our
+  layout, and the first lesson is a galloping seek from the cursor in place of a
+  fresh `partition_point` per call.
+- Each relation's arguments must be a subsequence of the chosen variable order,
+  so a relation used out of order needs a second sealed ordering. The variable
+  order does not affect the worst-case bound; it does affect real cost.
+- Bound: the triangle query R(a,b), S(b,c), T(a,c) with |R|=|S|=|T|=n has at most
+  n^{3/2} answers (AGM, fractional edge cover); leapfrog triejoin runs in
+  O(n^{3/2} log n); a hash variant (credited to Ken Ross) removes the log factor.
+- The paper reports no experiments of its own.
+
+Pre-registration for D-ASM-11: split after a premise audit (PREMISE-SPLIT).
+The first version predicted that the semijoin chain builds n² intermediate pairs
+on an adversarial triangle instance. That is wrong: a semijoin materializes no
+pairs, it gathers through the key into a head-table mask. And on a cyclic body a
+semijoin chain over-approximates even the existence mask, because semijoin
+reduction is a full reducer only for acyclic bodies. So D-ASM-11 asks two
+questions, each with its own baseline:
+
+- **Q-E (existence half):** for cyclic bodies, does a per-variable leapfrog
+  intersection, lowered to folded range/mask intersections over sealed lanes,
+  give the exact head-row mask where the semijoin chain over-approximates?
+  Gate: mask == datafrog's SET of head rows, first; ns per element on v4 second.
+- **Q-A (answer half):** is leapfrog binding enumeration the carrier D-ASM-3
+  lacks for cross-table projections and foreign fan-out, and can it emit keyed
+  counts instead of tuples, keeping `materialize_bindings` the one exit? Gate:
+  datafrog as a BAG.
+
+Fixtures and predictions come from the co-research run on this question.

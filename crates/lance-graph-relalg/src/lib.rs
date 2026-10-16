@@ -29,6 +29,7 @@
 //! built.
 
 pub mod ir;
+pub mod join_body;
 pub mod lower;
 pub mod normalize;
 

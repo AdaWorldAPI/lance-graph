@@ -2,6 +2,15 @@
 
 `lance-graph-sap`: the six optional `U32` CATS fields bind through validity planes built at `CatsBatch::bind` (`OPTIONAL_CODE_FIELDS`, `validity_mask`, `CatsBatch::masks`), so `=` and `<>` drop NULL rows. Before this, `CatsBinder` refused them. U64 instants stay refused. Found in the bind-DTO synergy check (entry `2026-10-16-wcoj-probes-1-3.md`, #1587).
 
+## 2026-10-16 — WCOJ map items 1–3 run (#1587, merged)
+
+Contract inventory delta: `ordered_lane::gallop_partition_point` (cursor seek, galloping), `ordered_lane::seek_partition_point` + `SEEK_LINEAR_GAP` (hybrid by gap hint, thresholds from v4 timings) and `SealedFacetLane::seek_from` (witnessed). Outside the contract: `lance-graph-relalg::join_body::is_alpha_acyclic` (GYO) and `lance-graph-metta/examples/wcoj_probe.rs` (F4 fixture, bag oracle, P-7 check). Results: entry `2026-10-16-wcoj-probes-1-3.md`.
+
+## 2026-10-16 — main after #1584, #1585, #1586 (#1586: the co-research map, entry `2026-10-16-coresearch-wcoj-leapfrog.md`)
+
+- **On `main` (#1584):** D-ASM-1b and D-ASM-8..11 queued; entry `2026-10-16-asm-accepted-proposals.md`. Nothing built.
+- **#1585 (merged):** D-ASM-12 (the `lance-graph-cog` content → NodeGuid address that `atomspace-lance` and the D-ASM-1b binder share); D-ASM-13 (the `lance-graph-cog` thinking API as a facade over NAL / ONA-shaped tables / R2IL / relalg); the forks `matrix` and `atomspace-storage` recorded; the MORK stable branch recorded.
+
 ## 2026-10-16 — main after #1582 (merged `e08e5659`)
 
 - **On `main` (#1582):** the doc fixes and the OpenCog decisions listed in its arc entry. Nothing built.
