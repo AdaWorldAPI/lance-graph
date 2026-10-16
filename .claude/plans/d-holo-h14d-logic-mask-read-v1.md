@@ -114,6 +114,32 @@ The exact read count is `Σ_l popcount(R ∧ P_l)`; for the `∧` form every
 survivor holds every lane and the count is `|R| × k`, as first stated.
 Prediction 4 and check 4 read with this count.
 
+## Amendment A2 (2026-10-16, after the first test run, before any timing)
+
+Two corrections, both found by the checks before a single timing ran.
+
+1. **Check 2, refusals.** `FoldDialect` refuses a fold wider than
+   `lance_graph_r2il::MAX_SLOTS` (8) scratch slots, by design and never by
+   truncation. Deep corpus programs hit it as written. Check 2 now compares
+   answers only where a run answers, and stage 1 additionally reports how many
+   programs are refused rewritten, refused as written, answered only after the
+   rewrite, and **widened by the rewrite** (answered as written, refused
+   rewritten). Only the scratch-slot refusal is accepted; any other error
+   fails the check. Anti-vacuity: more than half the corpus must be answered
+   both ways.
+2. **Check 8, tolerance.** Clustered presence is drawn per 64-address word, so
+   its count is a binomial over 1,024 draws scaled by 64, with about 9 %
+   relative spread at 10 % density; the flat 10 % bound failed on a correct
+   fixture. The bound is now 5 binomial standard deviations in the pattern's
+   own draw unit.
+
+First observation, from the corrected check (not a timing): of 2,000 programs,
+1,583 are answered both ways, 396 only after the rewrite, and 2 are widened by
+it. The widened case is `¬(x ∧ (x ∨ y))`: `normalize` applies De Morgan before
+absorption, flattens, and leaves `¬x ∨ (¬x ∧ ¬y)`, so absorption no longer
+matches. A relalg defect, recorded for its own test-first fix; this probe
+counts it and does not change relalg.
+
 ## Timing protocol
 
 v4 only, tier printed by the program; release, debug 0. Medians of 7 batches;

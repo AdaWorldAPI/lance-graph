@@ -15,6 +15,7 @@ description = "D-HOLO-H14d: C's own operation in four stages: logic, address mas
 [dependencies]
 lance-graph-relalg = { path = "../lance-graph-relalg" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-r2il = { path = "../lance-graph-r2il" }
 lance = { version = "13.*", default-features = false }
 arrow-array = "58"
 arrow-schema = "58"
