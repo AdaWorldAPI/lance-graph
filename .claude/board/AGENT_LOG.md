@@ -12,6 +12,13 @@
 - Web scout (general-purpose on Haiku): 12 items with read grades; most were ABSTRACT-ONLY or SECONDHAND and are recorded as leads only.
 - substrate-mapper over `lance-graph-sap` (7 files, 96 rows). Spot checks: `binder.rs` and `bind.rs:1-140` re-read in full. The `Binder` trait was read at `lance-graph-quack/src/bind.rs:92`. No misses.
 - Result: entry `2026-10-16-wcoj-probes-1-3.md`. Written by the orchestrating main thread only.
+## 2026-10-16 — /coresearch: worst-case-optimal joins for the join path (D-ASM-11)
+
+- Phase 0: brief by the orchestrator; premise-auditor → PREMISE-SPLIT (semijoin chain = existence mask, leapfrog = bindings); re-asked as Q-E / Q-A.
+- Phase 1 (one parallel spawn): code cartographer (Sonnet), prior-art, literature, systems, concepts (Opus). Two cards had no write tool; the orchestrator banked their output. Spot checks: `bound_aperture` fresh `partition_point` (read), `materialize_bindings` absent (grep), datafrog fork `leapjoin`, MORK `leapfrog.rs`, three paper numbers re-found in the extracted texts, the 2+2+2 counterexample checked by hand.
+- Phase 3 (one parallel spawn on the crosswalk): bridge, firewall, falsifier (Opus). Orchestrator correction: the bridge's new mask-risc op is gated on an insufficiency proof.
+- Second premise gate on the map: 3 rows corrected (X11 sinks, A3 router predicates, X20 bound).
+- Result: entry `2026-10-16-coresearch-wcoj-leapfrog.md`. Nothing adopted. Written by the orchestrating main thread only.
 
 ## 2026-10-16 — D-ASM follow-up rows (two Haiku cards)
 
