@@ -132,7 +132,7 @@ fn planes_of(rows: &[WiredRow]) -> Vec<Vec<u64>> {
         let facts = [
             ("kausal", r.tekamolo[KAUSAL_LANE].is_some()),
             ("support2", r.support >= 2),
-            ("press_pos", e.activation() > 0),
+            ("press_pos", 2 * r.support > r.antecedent),
             ("main", r.origin == Some(Origin::Main)),
             ("climbed", e.novelty_wisdom() > 1),
             ("pearl_po", e.causal_mask() == CausalMask::PO),

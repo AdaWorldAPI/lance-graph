@@ -16,9 +16,9 @@
 //! | 32..39 | confidence | the same: `c = cooccur / (cooccur + k)`, `k = 1` (the NAL horizon) |
 //! | 40..42 | Pearl ladder | the TEKAMOLO read: a Kausal lane stated on this event → `PO` (the claim sits at the intervention rung); otherwise `SO` (association) |
 //! | 43..45 | orientation / syntax | the clause path ([`Origin`]) as a code on [`ORIENTATION_MAP`]; `0` = untraced |
-//! | 46..49 | activation i4 | semantic pressure `pos - neg`, clamped to `-8..=7` |
+//! | 46..49 | activation i4 | what this sentence's update caused: the change of the statement's arm frequency over the prior state, in eighths, clamped to `-8..=7`; `0` when the update changes nothing |
 //! | 50..52 | novelty → wisdom | the statement's rung after this update, `1` Staunen ..= `7` wisdom |
-//! | 53..58 | belief-state update | the statement's last three updates: `W1` prior (53..54), `W2` (55..56), `W3` newest (57..58) |
+//! | 53..58 | belief-state update | W slot into the cohort's [`WitnessTable`]: the entry that witnessed this statement's PRIOR state; `0` = first sighting or the prior is in another cohort |
 //! | 59..63 | epistemic state | `EpistemicState5`: topology from the clause path, certification from the belief state and the causes arena |
 //!
 //! # The belief arenas
@@ -44,7 +44,7 @@
 //!
 //! A statement `(S, P, O)` has one state: `pos`, its independent supporting
 //! verses; `tot`, the independent verses that gave `(S, P)` at all (so
-//! `neg = tot - pos` gave another object); its rung; and its window. Each
+//! `neg = tot - pos` gave another object); and its rung. Each
 //! observation updates the states it touches and nothing else, so the next
 //! state depends only on the current state and the observation:
 //!
@@ -55,14 +55,22 @@
 //! - an observation from a verse already counted is **dependent** (`3`): no new
 //!   evidence, the NAL `DUPLICATE` / `OVERLAP` class.
 //!
-//! The window shifts the newest kind in at `W3`, and `W1` falls off. Each row
-//! records the state of its own statement right after its own update, so the
-//! rows of one statement, in stream order, are its time series.
+//! Reading order is the chain. Each row records its statement's state right
+//! after its own update, and registers one [`WitnessEntry`] (its verse, its
+//! facts-arena belief) in the cohort's [`WitnessTable`]. Its W slot points at
+//! the entry of the statement's PREVIOUS row, as the contract says
+//! (`witness_table`: "each edge's W-slot resolves to the entry that witnessed
+//! the prior state"). Walking W from a row and resolving each entry back to
+//! its row walks the statement's updates newest → oldest: W1 prior, W2, W3 are
+//! the last three hops. A cohort is 63 consecutive rows in reading order
+//! (slots `1..=63`, slot 0 = none); a prior in an earlier cohort cannot be
+//! addressed by 6 bits, so W is 0 there and the report counts an arc break.
 //!
 //! # The ladder (bits 50..52)
 //!
 //! A first sighting sits at rung 1 (Staunen). A corroboration climbs one rung
-//! only while the observation is resolved and the pressure stays positive: a
+//! only while the observation is resolved and the support balance stays
+//! positive (`pos > neg`): a
 //! rung is reached only when the one below holds. Resolved means single
 //! readings, traced, no incomplete Haspelmath map, no TEKAMOLO abstention and,
 //! for a relative clause, a bound antecedent. A contest drops the statement
@@ -99,6 +107,7 @@ use lance_graph_contract::facet::{CascadeShape, FacetCascade};
 use lance_graph_contract::grammar::verb_lexicon::classify_verb;
 use lance_graph_contract::grammar::verb_table::morton_cell;
 use lance_graph_contract::hhtl::NiblePath;
+use lance_graph_contract::witness_table::{WitnessEntry, WitnessTable};
 
 use crate::belief::{BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
 use crate::fsm::{parse_readings, parse_to_spo_traced, Origin, Pos, Reading, Tagged, Traced};
@@ -168,17 +177,8 @@ pub enum Update {
     Dependent = 3,
 }
 
-/// Shift `kind` into a 6-bit window at `W3` (bits 4..5); `W1` falls off.
-#[must_use]
-pub const fn shift_window(window: u8, kind: Update) -> u8 {
-    ((window & 0x3F) >> 2) | ((kind as u8) << 4)
-}
-
-/// The three updates of a window, `[W1 prior, W2, W3 newest]`; `0` = empty.
-#[must_use]
-pub const fn window_slots(window: u8) -> [u8; 3] {
-    [window & 0b11, (window >> 2) & 0b11, (window >> 4) & 0b11]
-}
+/// Rows per witness cohort: slots `1..=63` of a `WitnessTable<64>`.
+pub const COHORT_ROWS: usize = 63;
 
 /// One verse as the caller has it.
 #[derive(Debug, Clone, Default)]
@@ -219,6 +219,8 @@ pub struct WiredRow {
     pub support: u32,
     /// Independent verses that gave `(S, P)` so far (`tot`).
     pub antecedent: u32,
+    /// The witness cohort this row's W slot is read in.
+    pub cohort: u32,
     /// The qualia register, read under [`QUALIA_SHAPE`]: pairs 0..2 are
     /// `(operand code : qualia)` for S, P, O; pair 3 is `(verb cell : 1)` when
     /// the verb classifies, `(0 : 0)` when not. Class id 0 (default class).
@@ -284,6 +286,8 @@ pub struct WireReport {
     pub implications: usize,
     /// Of those, observations the arena pooled (disjoint stamps).
     pub implications_revised: usize,
+    /// Rows whose prior update sits in an earlier witness cohort (W = 0).
+    pub arc_breaks: usize,
     /// Events not interned because the u16 event-term space was full.
     pub event_overflow: usize,
     /// Qualia tokens attached to a subject or object (adjectival).
@@ -319,6 +323,9 @@ pub struct Wired {
     pub causes: BeliefArena,
     /// Event term `i` is the triple `events[i]`.
     pub events: Vec<Spo>,
+    /// One `WitnessTable<64>` per cohort of [`COHORT_ROWS`] rows, in reading
+    /// order. Entry = `(verse + 1, Some(facts-arena belief id))`.
+    pub witnesses: Vec<WitnessTable<64>>,
 }
 
 /// One unit of positive evidence at horizon 1.
@@ -355,8 +362,9 @@ fn trace(readings: &[Reading], certain: &[Spo]) -> Option<Vec<Traced>> {
 #[derive(Debug, Clone, Default)]
 struct StmtState {
     verses: HashSet<usize>,
-    window: u8,
     rung: u8,
+    /// `(cohort, slot)` of this statement's latest row.
+    last: Option<(u32, u8)>,
 }
 
 #[derive(Debug, Default)]
@@ -479,6 +487,17 @@ fn attach_qualia(verse: &VerseIn<'_>, t: &[Traced], rows: &mut [WiredRow], rep: 
     }
 }
 
+/// A frequency change in `u8` codes (`-255..=255`) as eighths, rounded half
+/// away from zero, clamped to the i4 range.
+fn eighths(delta: i32) -> i8 {
+    let r = if delta >= 0 {
+        (delta * 8 + 127) / 255
+    } else {
+        (delta * 8 - 127) / 255
+    };
+    r.clamp(-8, 7) as i8
+}
+
 /// The arm-discovery rule `(S, P) → O` over the counts so far.
 fn rule(spo: Spo, pos: u32, tot: u32, window: u32) -> CandidateRule {
     CandidateRule {
@@ -519,6 +538,7 @@ pub fn wire(
     let mut causes = BeliefArena::new();
     let mut events: Vec<Spo> = Vec::new();
     let mut event_id: HashMap<Spo, u16> = HashMap::new();
+    let mut witnesses: Vec<WitnessTable<64>> = Vec::new();
     let mut next = 0usize;
 
     for (vi, verse) in verses.iter().enumerate() {
@@ -574,6 +594,7 @@ pub fn wire(
                 origin: traced.as_ref().map(|t| t[k].origin),
                 support: 0,
                 antecedent: 0,
+                cohort: 0,
                 qualia: FacetCascade::default(),
             });
         }
@@ -680,10 +701,10 @@ pub fn wire(
                 traced.is_some() && !ambiguous && !incomplete && !abstained && !unbound[k];
 
             let group = groups.entry((spo.subject, spo.predicate)).or_default();
+            let tot_prior = group.verses.len() as u32;
             if group.verses.insert(vi) {
                 for (o, other) in &mut group.objects {
                     if *o != spo.object {
-                        other.window = shift_window(other.window, Update::Contest);
                         if other.rung > 0 {
                             other.rung = 1;
                         }
@@ -693,20 +714,28 @@ pub fn wire(
             }
             let tot = group.verses.len() as u32;
             let st = group.objects.entry(spo.object).or_default();
-            let new_stmt = st.verses.is_empty();
+            let pos_prior = st.verses.len() as u32;
+            let new_stmt = pos_prior == 0;
             let own_fresh = st.verses.insert(vi);
             let pos = st.verses.len() as u32;
-            let pressure = (i64::from(pos) - i64::from(tot - pos)).clamp(-8, 7) as i8;
+            // The support balance: more independent verses for this object than
+            // for every other object of the same (S, P).
+            let balance_pos = 2 * pos > tot;
+            // The activation this sentence causes: the change of the arm
+            // frequency over the prior state (unknown prior = arm's own 128).
+            let f_prior =
+                arm_to_truth_u8(&rule(spo, pos_prior, tot_prior, vi as u32), 1).frequency;
+            let f_now = arm_to_truth_u8(&rule(spo, pos, tot, (vi + 1) as u32), 1).frequency;
+            let activation = eighths(i32::from(f_now) - i32::from(f_prior));
             let kind = if own_fresh {
                 Update::Corroborate
             } else {
                 rep.dependent += 1;
                 Update::Dependent
             };
-            st.window = shift_window(st.window, kind);
             if new_stmt {
                 st.rung = 1;
-            } else if kind == Update::Corroborate && resolved && pressure > 0 {
+            } else if kind == Update::Corroborate && resolved && balance_pos {
                 st.rung = (st.rung + 1).min(7);
             }
 
@@ -723,7 +752,7 @@ pub fn wire(
                 Some(_) if unbound[k] => Topology2::IndirectUnknown,
                 Some(_) => Topology2::IndirectKnown,
             };
-            facts.observe(
+            let fact = match facts.observe(
                 CStmt {
                     s: spo.subject,
                     cop: Copula::Rel(spo.predicate),
@@ -731,8 +760,37 @@ pub fn wire(
                 },
                 unit(),
                 Stamp::source(vi as u32),
-            );
-            let certification = if pos >= 2 && pressure > 0 {
+            ) {
+                ReviseOutcome::Admitted { id }
+                | ReviseOutcome::Revised { id, .. }
+                | ReviseOutcome::Chosen { id, .. } => id,
+            };
+            // Register this row's witness; W points at the prior row's entry.
+            let row_ix = first + k;
+            let (cohort, slot) = ((row_ix / COHORT_ROWS) as u32, (1 + row_ix % COHORT_ROWS) as u8);
+            if witnesses.len() <= cohort as usize {
+                witnesses.push(WitnessTable::new());
+            }
+            witnesses[cohort as usize]
+                .set(
+                    slot,
+                    WitnessEntry {
+                        mailbox_ref: vi as u32 + 1,
+                        spo_fact_ref: Some(u64::from(fact)),
+                    },
+                )
+                .expect("slot is 1..=63");
+            let w_prior = match st.last {
+                Some((c, s)) if c == cohort => s,
+                Some(_) => {
+                    rep.arc_breaks += 1;
+                    0
+                }
+                None => 0,
+            };
+            st.last = Some((cohort, slot));
+            row.cohort = cohort;
+            let certification = if pos >= 2 && balance_pos {
                 if cause_sources[k] >= 2 {
                     rep.causal_candidates += 1;
                     Certification3::CausalCandidate
@@ -750,9 +808,9 @@ pub fn wire(
             edge.set_causal_mask(pearl);
             edge.set_direction(row.origin.map_or(0, orientation_code));
             row.edge = edge
-                .with_activation(pressure)
+                .with_activation(activation)
                 .with_novelty_wisdom(st.rung)
-                .with_w_slot(st.window)
+                .with_w_slot(w_prior)
                 .with_epistemic_raw5(state.raw());
             row.support = pos;
             row.antecedent = tot;
@@ -765,6 +823,7 @@ pub fn wire(
         facts,
         causes,
         events,
+        witnesses,
     })
 }
 
@@ -835,20 +894,9 @@ mod tests {
         assert!(!orientation_contiguous(b(0) | b(1)));
     }
 
-    #[test]
-    fn window_shifts_newest_into_w3() {
-        let w = shift_window(0, Update::Corroborate);
-        assert_eq!(window_slots(w), [0, 0, 1]);
-        let w = shift_window(w, Update::Contest);
-        assert_eq!(window_slots(w), [0, 1, 2]);
-        let w = shift_window(w, Update::Dependent);
-        assert_eq!(window_slots(w), [1, 2, 3]);
-        let w = shift_window(w, Update::Corroborate);
-        assert_eq!(window_slots(w), [2, 3, 1], "W1 fell off");
-    }
-
     /// Can fire: three independent verses climb `dog bit man` to rung 3 with
-    /// arm truth f=1, c=3/4, pressure +3, three corroborations, Related.
+    /// arm truth f=1, c=3/4, Related. Only the first verse moves `f` (from the
+    /// unknown 128 to 255), so only it activates.
     #[test]
     fn independent_corroboration_climbs_the_ladder() {
         let v = vec![svo(DOG, BIT, MAN); 3];
@@ -857,9 +905,9 @@ mod tests {
         let last = rows[2].edge;
         assert_eq!(last.frequency_u8(), 255);
         assert_eq!(last.confidence_u8(), (3 * 255 / 4) as u8);
-        assert_eq!(last.activation(), 3);
+        let acts: Vec<i8> = rows.iter().map(|r| r.edge.activation()).collect();
+        assert_eq!(acts, [4, 0, 0], "a repeat of a settled belief changes nothing");
         assert_eq!(last.novelty_wisdom(), 3);
-        assert_eq!(window_slots(last.w_slot()), [1, 1, 1]);
         assert_eq!(epi(last).certification(), Certification3::Related);
         assert_eq!(epi(last).topology(), Topology2::Direct);
         assert_eq!(last.direction(), orientation_code(Origin::Main));
@@ -886,12 +934,12 @@ mod tests {
         let e = rows[1].edge;
         assert_eq!(rows[1].support, 1);
         assert_eq!(e.novelty_wisdom(), 1, "no climb on dependent evidence");
-        assert_eq!(window_slots(e.w_slot()), [0, 1, 3]);
+        assert_eq!(e.activation(), 0, "dependent evidence moves no frequency");
         assert_eq!(epi(e).certification(), Certification3::Associated);
     }
 
-    /// A contest drops the rival back to Staunen, and the pressure of a
-    /// contested statement reads the balance.
+    /// A contest drops the rival back to Staunen; the activation is the change
+    /// of the row's own frequency, and the climb waits for a positive balance.
     #[test]
     fn a_contest_resets_the_rival_and_presses_down() {
         let v = vec![
@@ -907,17 +955,18 @@ mod tests {
             "each later verse contests the existing rival"
         );
         let cat = rows[4].edge;
-        assert_eq!(cat.activation(), 1, "pos 3, neg 2");
         assert_eq!(cat.frequency_u8(), (3 * 255 / 5) as u8);
-        assert_eq!(rows[2].edge.activation(), -1, "pos 1 vs man's 2");
+        let acts: Vec<i8> = rows.iter().map(|r| r.edge.activation()).collect();
+        // man 128→255; man stays; cat 0→85; 85→127; 127→153.
+        assert_eq!(acts, [4, 0, 3, 1, 1]);
         assert_eq!(rows[2].edge.novelty_wisdom(), 1);
-        // pos 2 vs 2: zero pressure, no climb.
-        assert_eq!(rows[3].edge.activation(), 0);
+        // pos 2 vs 2: no positive balance, no climb.
         assert_eq!(
             rows[3].edge.novelty_wisdom(),
             1,
-            "no climb without pressure"
+            "no climb without a positive balance"
         );
+        assert_eq!(rows[4].edge.novelty_wisdom(), 2, "3 vs 2 climbs");
     }
 
     /// The contested rival restarts at Staunen: `man` reached rung 2, a `cat`
@@ -932,13 +981,72 @@ mod tests {
         ];
         let (rows, _) = run(&v);
         assert_eq!(rows[1].edge.novelty_wisdom(), 2);
-        assert_eq!(rows[3].edge.activation(), 2, "pos 3, neg 1");
+        assert_eq!(rows[3].edge.activation(), 1, "170 → 191");
         assert_eq!(
             rows[3].edge.novelty_wisdom(),
             2,
             "reset to 1, then one climb"
         );
-        assert_eq!(window_slots(rows[3].edge.w_slot()), [1, 2, 1]);
+        // The man arc skips the cat row: W points at the man row of verse 1.
+        assert_eq!(rows[3].edge.w_slot(), 2);
+    }
+
+    fn run_wired(verses: &[Vec<Reading>]) -> Wired {
+        let markers: Vec<(u16, u16)> = (0..verses.len() as u16).map(|i| (1, i + 1)).collect();
+        let ins: Vec<VerseIn<'_>> = verses
+            .iter()
+            .map(|r| VerseIn {
+                readings: r.clone(),
+                ..VerseIn::default()
+            })
+            .collect();
+        wire(&markers, &ins, 1, &abi(), None, ReadParams::RIGHT_CORNER).unwrap()
+    }
+
+    /// The W slot is a Markov arc: from the newest row of a statement, each
+    /// W resolves to the witness of the prior state of the SAME statement,
+    /// skipping the rival's rows, and the walk ends at W = 0.
+    #[test]
+    fn w_walks_the_statement_arc_backwards() {
+        let v = vec![
+            svo(DOG, BIT, MAN),
+            svo(DOG, BIT, CAT),
+            svo(DOG, BIT, MAN),
+            svo(DOG, BIT, CAT),
+            svo(DOG, BIT, MAN),
+        ];
+        let w = run_wired(&v);
+        let table = &w.witnesses[0];
+        let mut verses = vec![w.rows[4].verse];
+        let mut facts = Vec::new();
+        let mut slot = w.rows[4].edge.w_slot();
+        while slot != 0 {
+            let e = table.get(slot).unwrap();
+            let vi = (e.mailbox_ref - 1) as usize;
+            verses.push(vi);
+            facts.push(e.spo_fact_ref.unwrap());
+            let prior = w.rows.iter().find(|r| r.verse == vi && r.spo.object == MAN).unwrap();
+            slot = prior.edge.w_slot();
+        }
+        assert_eq!(verses, [4, 2, 0], "newest to oldest, cat rows skipped");
+        assert!(facts.windows(2).all(|p| p[0] == p[1]), "one statement");
+        let cat_fact = table.get(w.rows[3].edge.w_slot()).unwrap().spo_fact_ref.unwrap();
+        assert_ne!(cat_fact, facts[0], "the rival is its own arc");
+        assert_eq!(w.report.arc_breaks, 0);
+    }
+
+    /// A cohort holds 63 rows; a statement whose prior lies in the previous
+    /// cohort starts a new arc (W = 0) and the break is counted.
+    #[test]
+    fn a_cohort_boundary_breaks_the_arc() {
+        let v = vec![svo(DOG, BIT, MAN); COHORT_ROWS + 2];
+        let w = run_wired(&v);
+        assert_eq!(w.witnesses.len(), 2);
+        assert_eq!(w.rows[COHORT_ROWS - 1].edge.w_slot(), (COHORT_ROWS - 1) as u8);
+        assert_eq!(w.rows[COHORT_ROWS].cohort, 1);
+        assert_eq!(w.rows[COHORT_ROWS].edge.w_slot(), 0, "prior is in cohort 0");
+        assert_eq!(w.rows[COHORT_ROWS + 1].edge.w_slot(), 1);
+        assert_eq!(w.report.arc_breaks, 1);
     }
 
     /// F/C stays arm-discovery's law. `f` equals NAL revision of the unit
@@ -1095,7 +1203,7 @@ mod tests {
         plain.push(Reading::stop());
         plain.extend(svo(DOG, BIT, MAN));
         // The plain verse first, so the weil verse's cause row already has two
-        // supports and a positive pressure: only the single implication
+        // supports and a positive balance: only the single implication
         // source keeps it from CausalCandidate.
         let w = run_in(&[
             VerseIn {
@@ -1113,7 +1221,7 @@ mod tests {
             .find(|r| r.verse == 1 && r.spo == Spo::new(CAT, SAW, DOG))
             .unwrap();
         assert_eq!(cause.support, 2);
-        assert!(cause.edge.activation() > 0);
+        assert!(2 * cause.support > cause.antecedent, "positive balance");
         assert_eq!(epi(cause.edge).certification(), Certification3::Related);
         assert_eq!(
             cause.edge.causal_mask(),
