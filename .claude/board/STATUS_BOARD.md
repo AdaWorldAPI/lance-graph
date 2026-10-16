@@ -20,6 +20,17 @@ Plan: `.claude/plans/ce64-grammar-wiring-v1.md`. Entry: `entries/2026-10-16-gram
 | **D-CGW-13** | all oracles (Java OpenNARS, ONA, MeTTa, OpenCog, MORK) read out on the same CE64 fields | Queued | D-ORACLE readout |
 | **D-CGW-14** | OpenPSI modulators as a qualia device profile into the #1571 PCS (demands stay goals) | Queued — approved 2026-10-16: modulators only | — |
 
+## D-ARG — AriGraph onto addresses: strings prohibited → codebook labels → basins → SPOFC (2026-10-16)
+
+Order decided 2026-10-16; each step blocks the next. Finding: synergy map since #1579 (AriGraph keys `entity_index` / `spatial_edges` by `String` and turns a label's FNV hash into an identity via `label_fp`; no `NodeGuid`, HHTL or CE64 anywhere in it).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-ARG-1** | strings prohibited: no `String` as a key or address in AriGraph (`EntityVocab`, `TripletGraph::entity_index`, `spatial_edges`, `label_fp` hash-as-identity) | Queued — decided 2026-10-16 | a test fails if any AriGraph key or address type holds a `String`; text survives only as a label view |
+| **D-ARG-2** | codebook labels: every entity, relation and place resolves once through the label codebook to an id; parsing goes through the codebook | Queued (after D-ARG-1) | same graph built from text and from ids is equal; an unknown label is refused, never hashed |
+| **D-ARG-3** | basins: `EpisodicBasins` keyed by codebook ids, rows given NodeGuid addresses through `deepnsm-v2` `promote::key_at`, real Cam96 `self_code` instead of rung-0 zeros | Queued (after D-ARG-2) | every basin row has a V3 key (V1 refused); `self_code` non-zero and reproducible from its members |
+| **D-ARG-4** | SPOFC: AriGraph facts written as CE64 S/P/O (0..23, palette indices under the row's classid) plus F/C (24..39) from the basins | Queued (after D-ARG-3 and D-CGW-1) | facts decode back to the same S/P/O ids and F/C; no field outside 0..39 is written by this step |
+
 ## Catch-up (2026-10-16) — D-ids named by merged PRs that had no row
 
 Found by the PR-arc catch-up over #1388–#1588. HubSPO-rs D-ids (D-IAM-2, D-IAM-3, D-QRY-1) belong to that repo's board; D-K16 and D-V3M were renamed in their own PRs (to D-KEY16, D-HPR).
