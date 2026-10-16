@@ -1,3 +1,9 @@
+## 2026-10-16 — ledger revision after #1576: three Haiku runs
+
+- `quote-harvester` (PR bodies): refused correctly, the card has no GitHub or Write tool. Re-run as general-purpose on Haiku: 16/16 fetched; 7 bodies read in full and used; 0 wrong.
+- `harvest-scout` (band_reading callers, stale "two readings" prose): positive hits correct; 3 zero-hit claims false (`causal-plane-inventory.md:55`, `TYPE_DUPLICATION_MAP.md:15`, `causaledge64-mailbox-rename-soa-v1.md:57`). Second miss on zero-hit Markdown searches: that kind goes back to Sonnet.
+- Cost: about 318k, 427k and 331k subagent tokens. No conclusion came from a card.
+
 ## 2026-10-16 — /5plus3 council: metta-datalog-assimilation W1–W3 spec (D-ASM-1..4)
 
 - Phase 0: spec v1 by the orchestrator; premise-auditor (Opus) → PREMISE-SPLIT (stamp sub-premise PREMISE-WRONG); six of its code claims re-read and confirmed; spec re-asked as v1.1 before any savant was cast.

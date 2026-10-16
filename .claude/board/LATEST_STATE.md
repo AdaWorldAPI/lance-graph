@@ -1,3 +1,9 @@
+## 2026-10-16 — main after #1576 (merged `9a657bd3`); catch-up for #1560, #1570, #1571, #1574, #1575, #1576
+
+- **On main, not recorded here before:** #1560 (O22 `CounterfactualVerdict` producer, R1 test, ledger correction), #1570 (Haspelmath harness, frozen operand dictionary), #1571 (D-QPROF-0 `qualia_profile`, merged; the "in PR" section below is now on main), #1574 (59..60 one field, two vocabularies; mapping inventory; D-ASM-0), #1575 (D-HOLO H14d measured), #1576 (D-ASM-1..4 spec ratified, nothing authorized).
+- **Contract inventory delta:** `lance_graph_planner::pearl::{Reaction::verdict, Measured::counterfactual_verdict}` (#1560); `lance_graph_contract::qualia_profile` / `qualia_profile_table` (#1571, listed below).
+- **Ledger:** `.claude/research/2026-10-recovery/LEDGER-REVISION-2026-10-16.md` maps #1560–#1576 onto the open items.
+
 ## 2026-10-16 — main after #1573 (merged `461bbd1a`); D-HOLO H14c on main
 
 - **On `main` (#1573):** D-HOLO H14c probes and results (thought-first reads, Lance 13 masked I/O). Probe code only, no library change.

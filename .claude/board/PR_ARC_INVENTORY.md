@@ -1,9 +1,44 @@
+## 2026-10-16 — lance-graph PR #1576 (merged `9a657bd3`, branch `ccr-c09987ed-cuk6r5`, 8 commits) — council: metta-datalog-assimilation W1–W3 spec ratified (D-ASM-1..4)
+
+- **Added:** `.claude/plans/metta-datalog-assimilation-v1-council-v3.md` (executable spec, gates G1–G9); ⊘ notes on the plan's decisions A–E, G and §6; `metta-polyfill-v1.md` §5 amended; STATUS D-ASM-1..5, D-MTP-2, D-RA-3; 3 TECH_DEBT rows; entry `2026-10-16-metta-datalog-assimilation-council-v3.md`.
+- **Locked:** premise gate returned PREMISE-SPLIT (a conjunctive body's existence half is quack `Filter::{Semijoin, EqU32Via}`; its answer half needs tuples with multiplicity) and the stamp sub-premise PREMISE-WRONG: a stamp is an evidence lane beside the atom, never inside it, with reserved value `3` = `NO_PROVENANCE`. Bag = keyed count `Terminal::GroupReduce{Count}`; new u16 `LabelCodebook`; route at `add`, refuse at `query`.
+- **Deferred / open:** nothing authorized to build; D-ASM-1..4 Queued. Cross-table projections have no tuple carrier (W4+); `hyperon-probe/golden` is absent, so the 26-script baseline is measured before `LanceSpace`.
+- **Confidence:** n/a (docs); council 49 findings, 0 BLOCK, 2 FIX-P1, 16 FIX-P2.
+
+## 2026-10-16 — lance-graph PR #1575 (merged `7b62af48`, branch `ccr-9f3b8075-74u47l-holo-h14d`, 8 commits) — D-HOLO H14d: logic → address mask → masked read → terminal (C only)
+
+- **Added:** `crates/holo-h14d-probe` (excluded from the workspace), plan `d-holo-h14d-logic-mask-read-v1.md` (pre-registered, amendments A1/A2), entry `2026-10-16-d-holo-h14d-logic-mask-read.md` with the raw CSV, STATUS row, `ISS-RELALG-ABSORPTION-AFTER-DE-MORGAN`, arc/LATEST entries for #1573.
+- **Locked (v4):** relalg decides 675 of 2,000 programs symbolically (396 only after the rewrite), 1,065 vs 5,898 passes, 1.9 µs per program; the address mask costs 2–10 ns per 64-address word; Lance rows scanned equal |R| in every cell, but bytes are page-bound (uniform 1 % reads 1.00 of the bytes, clustered 1 % reads 0.19); about 6 ns per lane load; point query 8–45 ns hot.
+- **Deferred / open:** page-local clustering; the payload stage scans every word of R (fixed cost, prediction 4 falsified); 2 of 2,000 programs widened by `normalize`.
+- **Confidence:** medium; checks 1–8 pass, five disable runs red; one VM. No layout decision depends on these numbers.
+
 ## 2026-10-16 — lance-graph PR #1573 (merged `461bbd1a`, branch `ccr-9f3b8075-74u47l-holo-h14c`, head `e4681f10`, 11 commits) — D-HOLO H14c: thought-first reads, Hamming presence, Lance 13 masked I/O
 
 - **Added:** `holo_thought_first_probe` (point projection, mask-risc populations, terminal rows; 10 oracle tests) and the `lane_footprint` instrument in `lance-graph-mask-risc/examples`; `crates/holo-lance-masked-io-probe` (excluded from the workspace: Lance 13 masked reads, stale-map hazard across rewrites); plan `d-holo-h14c-thought-first-v1`, entry `2026-10-15-d-holo-h14c-thought-first.md`, STATUS row D-HOLO-H14c.
 - **Locked:** a read consults exactly the requested lane tables for any number of touched lanes; populations load no value; a scattered 1 % mask cuts Lance rows but not bytes (page-bound), a clustered one cuts both; a stale coordinate map omits silently and the version check refuses it.
 - **Deferred / open:** the C vs B comparison lines in that PR rest on the withdrawn row-first framing; C's own four-stage operation is D-HOLO-H14d (#1575). Positional tables are page-dense at uniform 1 % (≈ 93× payload resident).
 - **Confidence:** medium; oracle tests and disable runs red; about 40 % run-to-run noise on the VM.
+
+## 2026-10-16 — lance-graph PR #1574 (merged `4f9d5f26`, branch `ccr-c09987ed-cuk6r5`, 6 commits) — CE64 vocabulary correction, NARS/MeTTa mapping inventory, metta-datalog-assimilation plan
+
+- **Added:** research `2026-10-15-nars-metta-ce64-mapping-inventory.md` (read from hyperon-experimental `3f76dc4`, PeTTa `1d19a1d`, ONA `dc4efd0`, opennars `4d1bdb0`, Narsese.rs `16d4d18`); plan `metta-datalog-assimilation-v1.md` (D-ASM-0..7); three entries; doc corrections in `causal-edge/src/{layout,lib}.rs`, `contract/src/{band_reading,epistemic_state5}.rs`.
+- **Locked:** bits 59..60 are one field under two vocabularies (`TrustTexture` Crystalline…Murky ≡ `CausalTopology` Direct…Unknown, identity mapping); contradiction is an epistemic pothole the MUL reacts to, not a cell; only `ReasoningBand` on 61..63 wrote another meaning. No foreign system carries a 59..63 or a 40..42; lance-graph's abduction/induction argument order matches OpenNARS Java, ONA and PeTTa swap it; evidential-base width differs per engine (`Stamp(u64)`, `&[u64]`, ONA 10, OpenNARS 20,000).
+- **Deferred / open:** relalg join + `μ` is the most unblocking gap; the per-row truth law is the one candidate byte; stale prose listed in the PR body (`causal-plane-inventory.md:55`, `TYPE_DUPLICATION_MAP.md:15`, two historical plans); `project_truth` still refuses the other vocabulary.
+- **Confidence:** high for the doc correction (executable contract unchanged, tests green); the inventory is read-from-source, not executed.
+
+## 2026-10-16 — lance-graph PR #1571 (merged `4d57fe20`, branch `qualia-profile-icc`, 3 commits) — contract: `qualia_profile`, an ICC-style named-qualia table (D-QPROF-0)
+
+- **Added:** `data/qualia/calibrated_219.{json,bin1024}`, `scripts/gen_qualia_profile.py`, `lance_graph_contract::{qualia_profile, qualia_profile_table}` (219 named patches, one-byte palette `0 | 1..=219 | 220..=255 reserved`, `nearest_named`, `Gamut`, `Mix`, `device_to_pcs_shared`); `ISS-QUALIA-A2B-CLUT-UNMEASURED`.
+- **Locked:** three spaces kept apart (device, PCS, observer); only the five same-named axes map device → PCS, returned with a `measured` mask; the table is pinned by `PROFILE_ID` and `TABLE_FNV`.
+- **Deferred / open:** the CLUT for the other twelve axes (a chart probe); how 219 named patches share the Σ-codebook byte with the 64 `sigma_rosetta` glyphs.
+- **Confidence:** high for the table and its 11 tests (FNV mutation red); the same-name hypothesis is stated as a hypothesis.
+
+## 2026-10-16 — lance-graph PR #1570 (merged `aaab596c`, branch `research/haspelmath-deepnsm-ce64-hydrate-harness`, 10 commits) — research(deepnsm-v2): Haspelmath grammar harness on a frozen 8:8:8 operand ABI
+
+- **Added:** `deepnsm-v2/src/haspelmath.rs` (Fig. 8.1 adjacency, connectedness falsifier, token binder, a frozen epoch-wide `u16 WordId ↔ u8` operand dictionary with version check, six tests), example `haspelmath_wiring`, `.arxiv/2026-10_haspelmath-deepnsm-ce64-harness.md`.
+- **Locked:** the 8:8:8 lanes are one register contract; the per-verse palette of an earlier draft was removed. CE64's upper 40 bits stay zero: grammar mints no confidence, Pearl operation, maturity or source root.
+- **Deferred / open:** the dictionary is a fixture until a canonical cross-system registry exists; TEKAMOLO × case × anaphora, a source-backed writer, Bible-scale and held-out UD accuracy are held.
+- **Confidence:** low until run: the body states the tests were committed but not run locally.
 
 ## 2026-10-16 — lance-graph PR #1569 (merged `09f31561`, branch `ccr-9f3b8075-74u47l-holo-h14b`, head `2f07941c`) — D-HOLO H14b: lane mask M measured, then withdrawn
 
@@ -46,6 +81,13 @@
 - **Locked:** both write paths are crash-atomic per cycle and lose no acknowledged cycle (V1 sweep 0 ms … 10 s brackets the boundary on both arms; V2 reaches ACK 2/5/9 on both); MemWAL needs `durable_write = true`. L's RSS growth was Lance's session metadata cache (V²/2 manifest fragments): 628 MiB default vs 7.8 MiB capped at 1,600 versions. D-LNC-7: L default, MemWAL optional.
 - **Deferred / open:** the 60-minute soak; seeding the version clock from storage on open; compaction/deletes break the clock's prefix property (fragment-id remap needed); clock not wired into a writer or reader.
 - **Confidence:** high for V1/V2 and the cache cap (test-first, disable runs red); medium for D-WAL-2/3 timings (one VM, soak truncated at 27.5 min).
+
+## 2026-10-15 — lance-graph PR #1560 (merged `4f47f4bc`, branch `ccr-b2e415d9-4jfvyk`) — O22 counterfactual verdict, R1 pin, ledger correction (CE64 as one wire contract)
+
+- **Added:** `pearl::Reaction::verdict(factual_consistent)` and `Measured::counterfactual_verdict`; `kanban` R1 test; `.claude/research/2026-10-recovery/LEDGER-CORRECTION-2026-10-15.md`; entry `2026-10-15-ledger-correction-wire-contract.md`; 11 arc entries for #1494–#1504; STATUS rows D-RESIDUE-FP-0, D-MATURATION3-0/-1.
+- **Locked:** the first end-to-end `RevisionVerdict::is_acceptable()` over a real replay; only a load-bearing cut from a consistent chain is `Necessary` (a cut that repairs an inconsistent chain is `Dispensable`, Codex P1). Rulings R-a..R-f: CE64 is one global wire; 40..42 is Pearl's ladder as 50..52 is the pyramid; O25 is a defect with a known fix.
+- **Deferred / open:** O23 (TruthOnly reading), ablation (defined later through the N15 families), the 46..49 meaning, the derived-packet rule, the migration gate.
+- **Confidence:** high; 6 disable runs red.
 
 ## 2026-10-14 — lance-graph PR #1555 (merged `5366a5ab`, branch `ccr-9f3b8075-74u47l-metta`, head `457a8c41`, 14 commits) — D-MTP: MeTTa over the masking-algebra polyfill; two-hop join and the hop as a range
 
