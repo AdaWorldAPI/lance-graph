@@ -216,3 +216,62 @@ X16; `pack(...)` positional triad callers; whether `wire` mints addresses.
 |---|---|---|---|
 | substrate-mapper | merge map #1580–#1591 | 12 rows, DONE; noted that #1580 is a second-parent merge and that some D-id hits are tails of `TD-` ids | file counts re-run: #1587 = 17, #1588 = 6 |
 | quote-harvester | 10 sites | 9/10 at the stated place; Q1 path in my brief was wrong (`src/hpc/cpu_guard.rs` → `src/cpu_guard.rs`), the card found it and said so | `simd.rs:1241` re-read; #1544 / ndarray #364 `closed_at` re-queried; N1 quote re-read in `LEDGER-REVISION-2026-10-14.md:97` |
+
+## 8. CE64 as a fixed wire format: identity tenant, edge tenant, the 24×i4 loci (read 2026-10-16)
+
+Read: `causal-edge/src/layout.rs` (shifts and the coverage assert), `edge.rs`
+accessors `activation` / `novelty_wisdom` (`:1112-1150`),
+`contract/src/moore_tenant.rs` `from_ce64` / `ce64_upper` (`:196-219`),
+`causal_witness.rs:1-330`, `.claude/v3/soa_layout/tenants.md`,
+`witness-nibble-lane.md`.
+
+**Where CE64 lives.** Persisted: value tenant 2 `MaterializedEdges` (4 × u64 per
+row). Hot: the MailboxSoA `edges` column. Projected: tenant 20 `MooreNars16`
+(one u16 per Moore slot). The row's bytes 16..32 (`EdgeBlock = FacetCascade`)
+are a second 4+12 facet, not CE64.
+
+**Identity vs edge.** The identity of a node is its 16-byte key (classid + 12-byte
+facet). CE64 carries identity only as three u8 palette indices (0..23). Read as
+a BF16 analogy this stays one global meaning: the field always means "palette
+index of S, P, O", and the codebook it indexes is selected by the row's classid
+(the class prefix selects the codebook), the way a mantissa's value depends on
+the exponent without the mantissa bits changing meaning. Full S/P/O identity
+(D-CGW-8, `8 × (u8:u8)` rails) belongs in an identity-side lane (a 128-bit
+register tenant has room for exactly 8 rails), never in the edge.
+
+**Three places that already give one CE64 field a second meaning:**
+
+| bits | contract (`layout.rs`) | second reading | where |
+|---|---|---|---|
+| 46..49 | inference mantissa (`INFER_SHIFT`) | "activation" pressure | `edge.rs:1137-1145` (written by #1591: "one field, two vocabularies") |
+| 46..49 | inference mantissa | `Energy4` | `moore_tenant.rs:202`, `:215` (`from_ce64` / `ce64_upper`) |
+| 50..52 | plasticity (`PLAST_SHIFT`, read by `learn()`) | "novelty → wisdom" rung | `edge.rs:1112-1122` (written by #1591) |
+
+Under one meaning per field all three are defects, and the D-CGW-1 / D-CGW-9 PR
+must remove them, not document them. 50..52 needs a ruling first: the contract
+and `learn()` say plasticity, the upper-half doc and the earlier S7 rule say the
+Staunen / witness ladder.
+
+**The 24 i4 loci are the provenance of the CE64 values.** The edge holds the
+value (fixed meaning); the CausalWitness lane (tenant 14) holds, for the same row,
+WHERE in the ±8 stream window the evidence for that value sits. Grouped:
+
+| group | loci | CE64 band it is the provenance of | other tenant pointed at | wire fills it? |
+|---|---|---|---|---|
+| circumstance (TEKAMOLO) | 0–3 | Pearl question 40..42 (Kausal → PO) | 13 Tekamolo | yes |
+| meaning grounding | 4–6 S/P/O | payload 0..23 | identity / palette | no |
+| grammar (Markov window) | 7 antecedent | orientation 43..45 (the clause span) | — | yes |
+| episodic / AriGraph | 8–10 basin, supported-by, supports | topology 59..60, W 53..58 | 15 EpisodicBasin | no |
+| reasoning provenance | 11–13 runbook, qualia, meaning level | mantissa 46..49 (rule), — , — | 1 Qualia | no |
+| epistemic peers | 14–15 quorum, contradiction | F/C 24..39, certification 61..63 | — | yes |
+
+This is the co-location rule at work: value and provenance sit at the same row
+coordinate in two lanes and are compared side by side, never reached through
+each other. Qualia stays out of the edge and enters only as a pointer (locus 12),
+which is the "edge is the fixed point, no qualia" rule.
+
+OPEN: groups 4–6 and 8–13 are unbound in `wire`. The AriGraph group (8–10)
+points at long-lived relations through a ±8 window whose referents are usually
+not 8 events away (witness-nibble-lane P2); the 32 × i4 extension (D-CGW-7)
+would drop the classid from tenant 14, so the reading would have to be declared
+the way `SlabReading::Register128` declares registers 16–17.
