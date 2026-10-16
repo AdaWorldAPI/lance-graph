@@ -19,8 +19,10 @@
 //! under the shipped ISA operations, and it carries two refusals that a
 //! consumer must honour:
 //!
-//! - **Direction.** A Moore lane's direction is `(slot, polarity)`. It has no
-//!   S/P/O sign triple, so [`DirectionReading::require_sign_triple`] refuses it.
+//! - **Orientation.** A Moore lane's direction is `(slot, polarity)`
+//!   ([`MooreDirection`]); it holds no CE64 orientation (bits 43..45), so
+//!   [`MooreTenantMut::lift_ce64`] refuses an edge whose orientation is not
+//!   `Core` (0) instead of dropping it.
 //! - **Witness.** One witness covers all eight lanes. It is held by the owner,
 //!   not stored in these bytes, and [`MooreTenantMut::lift_ce64`] refuses
 //!   input whose lanes carry different witnesses.
@@ -114,8 +116,9 @@ impl MooreSlot {
 /// bits 11..15  Epi5         (CE64 59..63; codes 24..31 reserved)
 /// ```
 ///
-/// CE64 bits 43..45 (the S/P/O sign triple) and 53..58 (the witness) are not
-/// here: direction is `(slot, polarity)` and the witness is tenant-scoped.
+/// CE64 bits 43..45 (the orientation, always `Core` for a Moore lane) and
+/// 53..58 (the witness) are not here: direction is `(slot, polarity)` and the
+/// witness is tenant-scoped.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[repr(transparent)]
 pub struct MooreNars16(pub u16);
@@ -184,17 +187,18 @@ impl MooreNars16 {
         }
     }
 
-    /// How this lane's direction is read: `(slot, polarity)`.
+    /// This lane's direction: its slot and polarity.
     #[must_use]
-    pub const fn direction(self, slot: MooreSlot) -> DirectionReading {
-        DirectionReading::Moore {
+    pub const fn direction(self, slot: MooreSlot) -> MooreDirection {
+        MooreDirection {
             slot,
             polarity: self.polarity(),
         }
     }
 
-    /// Read the lane from a CE64 register. Direction (43..45) and witness
+    /// Read the lane from a CE64 register. Orientation (43..45) and witness
     /// (53..58) are not read; `polarity` supplies the Moore-local bit.
+    /// [`MooreTenantMut::lift_ce64`] checks both before calling this.
     #[must_use]
     pub const fn from_ce64(edge: u64, polarity: bool) -> Self {
         Self::new(
@@ -206,9 +210,8 @@ impl MooreNars16 {
         )
     }
 
-    /// CE64 bits 40..63 for this lane under `witness`. The direction bits
-    /// (43..45) are zero: the Moore reading carries no sign triple. Bits
-    /// 0..39 (S/P/O, F, C) are the caller's.
+    /// CE64 bits 40..63 for this lane under `witness`. The orientation bits
+    /// (43..45) are zero (`Core`). Bits 0..39 (S/P/O, F, C) are the caller's.
     #[must_use]
     pub const fn ce64_upper(self, witness: u8) -> u64 {
         ((self.pearl() as u64) << 40)
@@ -219,41 +222,12 @@ impl MooreNars16 {
     }
 }
 
-/// How a CE64 direction is to be read.
+/// A Moore lane's direction: the neighbour it points at and which way.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum DirectionReading {
-    /// Bits 43..45 are the canonical S/P/O sign triple.
-    SignTriple(u8),
-    /// The direction is the lane's slot and polarity; there is no sign triple.
-    Moore {
-        /// The lane's neighbour.
-        slot: MooreSlot,
-        /// `false` = outbound, `true` = inbound.
-        polarity: bool,
-    },
-}
-
-impl DirectionReading {
-    /// The S/P/O sign triple, for a consumer that reads one.
-    ///
-    /// # Errors
-    ///
-    /// [`DirectionRefusal`] for a Moore-local reading, which has no sign
-    /// triple. A sign-triple consumer must not reinterpret it.
-    pub const fn require_sign_triple(self) -> Result<u8, DirectionRefusal> {
-        match self {
-            DirectionReading::SignTriple(bits) => Ok(bits & 0x7),
-            DirectionReading::Moore { slot, polarity } => Err(DirectionRefusal { slot, polarity }),
-        }
-    }
-}
-
-/// A sign-triple consumer was handed a Moore-local direction.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct DirectionRefusal {
-    /// The lane the refused direction came from.
+pub struct MooreDirection {
+    /// The lane's neighbour.
     pub slot: MooreSlot,
-    /// Its polarity.
+    /// `false` = outbound, `true` = inbound.
     pub polarity: bool,
 }
 
@@ -275,6 +249,14 @@ pub enum MooreRefusal {
         expected: u8,
         /// That lane's witness.
         found: u8,
+    },
+    /// A lane's CE64 orientation (bits 43..45) is not `Core`; a Moore tenant
+    /// holds no orientation.
+    Oriented {
+        /// The offending lane.
+        slot: MooreSlot,
+        /// Its orientation code.
+        code: u8,
     },
 }
 
@@ -383,6 +365,10 @@ impl<'a> MooreTenantMut<'a> {
                     expected: witness,
                     found: w,
                 });
+            }
+            let code = ((edge >> 43) & 0x7) as u8;
+            if code != 0 {
+                return Err(MooreRefusal::Oriented { slot, code });
             }
             let lane = MooreNars16::from_ce64(edge, polarity[slot.index()]);
             lane.epistemic(slot)?;
