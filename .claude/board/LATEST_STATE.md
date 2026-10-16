@@ -1,3 +1,8 @@
+## 2026-10-16 — main after #1584
+
+- **On `main` (#1584):** D-ASM-1b and D-ASM-8..11 queued; entry `2026-10-16-asm-accepted-proposals.md`. Nothing built.
+- **In this PR:** D-ASM-12 (the `lance-graph-cog` content → NodeGuid address that `atomspace-lance` and the D-ASM-1b binder share); D-ASM-13 (the `lance-graph-cog` thinking API as a facade over NAL / ONA-shaped tables / R2IL / relalg); the forks `matrix` and `atomspace-storage` recorded; the MORK stable branch recorded.
+
 ## 2026-10-16 — main after #1582 (merged `e08e5659`)
 
 - **On `main` (#1582):** the doc fixes and the OpenCog decisions listed in its arc entry. Nothing built.

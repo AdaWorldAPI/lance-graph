@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1584 (merged, branch `ccr-9f3b8075-74u47l-asm-queue`, head `018be049`, 1 commit) — board: queue the accepted D-ASM follow-ups (D-ASM-1b, 8–11)
+
+- **Added:** STATUS D-ASM-1b (Atomese front end in the binder), D-ASM-8 (learn measures), D-ASM-9 (`lance-graph-das` probe), D-ASM-10 (MORK oracle), D-ASM-11 (leapfrog probe); entry `2026-10-16-asm-accepted-proposals.md`.
+- **Locked:** no `lance-graph-learn` crate: counts in Quack (D-ASM-3), measures in `lance-graph-arm-discovery`, truth in NAL. `lance-graph-das` is created only when its probe runs.
+- **Deferred / open:** all rows Queued, not authorized; D-ASM-12 (content → NodeGuid address in `lance-graph-cog`) added after the merge.
+- **Confidence:** n/a (board).
+
 ## 2026-10-16 — lance-graph PR #1582 (merged `e08e5659`, branch `ccr-9f3b8075-74u47l-doc-drift`, head `0deb37be`, 15 commits) — docs: rev-pin template, TD-POPCNT, AVX2 oracle note; OpenCog oracle and lance-graph-cog decisions
 
 - **Added:** entry `2026-10-16-opencog-oracle-scope.md` (OpenCog as a temporary validation oracle; licence reading of the AtomSpace AGPL + linking exception; `lance-graph-cog` as the Apache-2.0 API an AGPL OpenCog fork calls, with `lance-graph-ontology` as precedent; the atomspace forks and `atomspace-lance`; the atomspace-rocks key map; positional tables with a zipper merge over any ordered KV); `TD-ONTOLOGY-REGISTRY-HASH-LOOKUP-REVIEW-1`; the #1579 arc entry.
