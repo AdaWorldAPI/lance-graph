@@ -1,3 +1,39 @@
+## TD-CANON-HIGH-AUDIT-RESIDUE-1 (2026-10-16, filed from #1430) — OPEN
+
+#1430 aligned the classid docs and two hand-written shifts with the canon-high
+layout (concept = high u16, ClassView/app selector = low u16). The same audit
+found five places that still read the classid another way. Each needs a
+decision, so none was changed:
+
+1. `lance-graph-rbac::ClassGrants` (`authorize.rs:105`, `grant_for`) matches the
+   full u32. The contract's `ClassGrant` / `RbacBinding` match the concept half.
+   Under `ClassGrants` a grant on `0x0901_0000` does not cover `0x0901_0005`.
+   Aligning it widens what that impl grants.
+2. `FacetSchema::of_classid` (`facet_schema.rs:48`) reads bits 24–25, now the
+   low bits of the concept's domain byte: `0x0901` reads as `SpoTriplet`,
+   `0x0A01` as `Pair48`. The doc marks the field position provisional. No
+   caller of `schema()` outside the file was found in #1430's audit.
+3. `actions_for` matches the full u32; a caller holding an instance classid
+   with a selector must look up at the core lens.
+4. `class_id_for_guid` returns `None` for any render-lensed GUID (the v1 fold
+   requires a zero custom half). Documented as deliberate.
+5. `is_access_control_class` uses the strict `classid_concept_domain`, while
+   grant matching uses `classid_canon_compat`, so a pre-flip `0x0000_0B01` row
+   is not Auth under the first but matches under the second.
+
+Items 1 and 2 re-read in code 2026-10-16 and still as described.
+Source: lance-graph PR #1430 body, "Not in this PR".
+
+## TD-CLIPPY-ALL-TARGETS-NOT-CLEAN-1 (2026-10-16, measured in #1437 on 2026-10-09) — OPEN
+
+`cargo clippy --workspace --all-targets --keep-going -D warnings` is not clean
+on `main`: #1437 compared the error sets of 1.98.1 and 1.99.0, and every error
+but one (`approx_constant`, fixed there) was already present on 1.98.1.
+`lance-graph-lane-fold` carries 10 dead-code errors on both toolchains. The
+count is a dated measurement; re-run the command for the current number.
+Payoff: clippy-clean `--all-targets`, so a toolchain bump diff starts from an
+empty set instead of a baseline.
+
 ## TD-NO-BOUNDED-U32-GATHER-1 (2026-10-16) — OPEN
 
 `eq_u32_via_to_mask` and the planned `eq_u32_via_lane_to_mask` are scalar. An

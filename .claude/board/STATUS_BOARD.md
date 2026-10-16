@@ -1,3 +1,20 @@
+## Catch-up (2026-10-16) — D-ids named by merged PRs that had no row
+
+Found by the PR-arc catch-up over #1388–#1588. HubSPO-rs D-ids (D-IAM-2, D-IAM-3, D-QRY-1) belong to that repo's board; D-K16 and D-V3M were renamed in their own PRs (to D-KEY16, D-HPR).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-CMR-RESET** | move the glove-parity method layer to `backup/session-011BMJ-2026-10-12` (second algebra beside the folds) | Shipped (#1524; docs #1532) | parent of D-CMR; entry `2026-10-12-session-reset-inventory.md` |
+| **D-FLOW-COG** | flow/cog convergence: ONA truth via R2IL `FoldDialect`, two Rubicon lineages, ownership and anti-duplication tests, milestones F0–F6 (`docs/architecture/FLOW_COG_RUBICON_ONA_CONVERGENCE.md`) | Proposal (docs only, #1543); nothing built | its own anti-duplication tests; a separate code PR per milestone |
+| **D-SMD-0** | audit: source inventory with line ranges and a mismatch ledger (12×12 tables, Morton/HHTL, Moore, ClassView/WideFieldMask/HotPlug, R2IL, OGAR DO path, CE64) | Queued (#1545 plan) | no implementation before the audit is reviewed |
+| **D-SMD-1** | isolated scalar Morton reference harness (XY prefix vectors, nibble MSB→LSB coarsening) | Queued | known prefix vectors |
+| **D-SMD-2** | grammar topology from Haspelmath maps; functions labelled apart from word forms | Queued | held-out grammar regions |
+| **D-SMD-3** | geometric semantic pressure: schedulers at equal candidate budget (FIFO, Moore, Shannon, EIG) | Queued | equal-budget comparison |
+| **D-SMD-4** | versioned `QualiaReading` with operational, externally testable signals | Queued | qualia ablations; no reading of CE64 bits as these axes |
+| **D-SMD-5** | ClassView → masked DO: only the missing adapters, after the audit | Queued | gated on D-SMD-0 |
+| **D-SMD-6** | assimilation and resonance falsifiers (held-out language; counterexample languages not merged) | Queued | plan §Phase 6 |
+| **D-V3-CLASSVIEW-NODRIFT-0** | comments and hand-written shifts follow the canon-high classid layout (`classid_canon`, `compose_classid`) | Partly shipped (#1430, docs + two shifts + one test, no behaviour change) | falsifier: Bardioc-rs #5 |
+
 ## D-QMB — multi-table bind for Quack (2026-10-16)
 
 Plan: `.claude/plans/quack-multitable-bind-v1.md`. Shared by D-ASM-1/11 and SAP joins.

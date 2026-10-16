@@ -1,3 +1,12 @@
+## 2026-10-16 — board catch-up for merged PRs #1388–#1588 (in PR)
+
+- **`PR_ARC_INVENTORY.md`:** 115 merged PRs between #1388 and #1588 had no entry; each now has one, written from its description and file list, in date order. Hygiene-only PRs (#1527, #1528, #1563, #1568, #1583) get none, per the termination clause.
+- **`STATUS_BOARD.md`:** a catch-up section for D-ids named by merged PRs with no row (D-CMR-RESET, D-FLOW-COG, D-SMD-0..6, D-V3-CLASSVIEW-NODRIFT-0).
+- **`INTEGRATION_PLANS.md`:** one catch-up entry for the 14 plans of 2026-10-12..16 and the 59 imported plans never named in the index.
+- **`TECH_DEBT.md`:** `TD-CANON-HIGH-AUDIT-RESIDUE-1` (#1430's five sites) and `TD-CLIPPY-ALL-TARGETS-NOT-CLEAN-1` (#1437's measurement).
+- **Entry `2026-10-16-board-catchup-open-items.md`:** the open, owed and unbuilt items those PRs name, each pointing at its owner doc, plus the ones that have closed since.
+- **Contract inventory delta:** none. Board only.
+
 ## 2026-10-16 — CATS optional fields bind (branch `ccr-9f3b8075-74u47l-cats-validity`, in PR)
 
 `lance-graph-sap`: the six optional `U32` CATS fields bind through validity planes built at `CatsBatch::bind` (`OPTIONAL_CODE_FIELDS`, `validity_mask`, `CatsBatch::masks`), so `=` and `<>` drop NULL rows. Before this, `CatsBinder` refused them. U64 instants stay refused. Found in the bind-DTO synergy check (entry `2026-10-16-wcoj-probes-1-3.md`, #1587).

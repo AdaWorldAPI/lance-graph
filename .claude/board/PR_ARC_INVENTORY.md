@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1588 (merged `399c8558`, branch `ccr-9f3b8075-74u47l-cats-validity`, head `ba4d0b19`, 3 commits) — sap: optional CATS code fields bind three-valued through validity planes
+
+- **Added:** `CatsBatch::bind` builds one validity plane per optional `U32` field (`OPTIONAL_CODE_FIELDS = [6, 7, 8, 16, 20, 21]`, unit test pins it against `FIELDS`); `CatsBatch::masks(live)` returns live first, then the validity planes; `CatsBinder::field` binds optional fields with `validity: Some(validity_mask(..))`. Files: `lance-graph-sap` `bind.rs`, `binder.rs`, `tests/binder.rs`; two hypothesis notes in `lance-graph-glove-parity` `basis.rs`; `LATEST_STATE.md`, `PR_ARC_INVENTORY.md`.
+- **Locked:** U64 instants have no `FieldKind` and stay refused. NULL is a sentinel (code 0, `u32::MAX` for PERNR), so a `<>` read through the lane alone keeps NULL rows.
+- **Deferred / open:** none stated.
+- **Confidence:** two new tests replace `optional_and_instant_fields_are_refused_not_read_through_sentinels` (`optional_fields_bind_three_valued_through_a_validity_plane` for n = 3, 64, 65, 200 with a can-fire check; `every_optional_code_field_has_a_plane_and_instants_stay_refused`). Disable run: forcing `validity: None` turns both red. `lance-graph-sap` and `lance-graph-glove-parity` tests pass; clippy `-D warnings` clean.
+
 ## 2026-10-16 — lance-graph PR #1587 (merged `215f9753`, branch `ccr-9f3b8075-74u47l-wcoj-probes`, head `ab5a1047`, 11 commits) — WCOJ map items 1–3, hybrid seek, closing-atom spec, multi-table bind plan
 
 - **Added:** contract `ordered_lane::{gallop_partition_point, seek_partition_point, SEEK_LINEAR_GAP}`, `SealedFacetLane::seek_from`; `lance-graph-relalg::join_body::is_alpha_acyclic` (GYO); `lance-graph-metta/examples/wcoj_probe.rs` (F4, bag oracle, P-7); `lance-graph-contract/examples/seek_probe.rs`; entries `2026-10-16-wcoj-probes-1-3.md`, `2026-10-16-wcoj-closing-atoms-council.md`; plans `wcoj-closing-atoms-v1.md`, `quack-multitable-bind-v1.md`; STATUS D-ASM-11A/B, D-QMB-0..5; TD-NO-BOUNDED-U32-GATHER-1; the #1585/#1586 arc entries.
@@ -33,6 +40,13 @@
 - **Deferred / open:** which OpenCog pieces the validation needs; the content → NodeGuid mapping for atoms; the registry lookup measurement; cross-repo doc fixes (lance-graph-java, tesseract-rs, lichess-rs).
 - **Confidence:** n/a (docs); licence reading is not legal advice.
 
+## 2026-10-16 — lance-graph PR #1580 (merged `00772869`, branch `ccr-0455e606-wmtsor`, head `cf8ef267`, 1 commit) — hydrate: move zip from 2 to 9
+
+- **Added:** `lance-graph-hydrate` `Cargo.toml`: `zip = "9"` (still `default-features = false, features = ["deflate"]`). `archive.rs`: `ZipFile::name()` now returns `ZipResult<Cow<str>>`; both call sites map an undecodable name to `HydrateArchiveError::Archive`; the test helper uses `SimpleFileOptions` instead of `FileOptions`.
+- **Locked:** main was red at `38ec25bc` (Build, Style Check, Identity) because crates.io yanked every `zip` release 2.0.0 through 9.0.2; 9.0.3 is the only one left; no tracked `Cargo.lock`. `cargo tree -i zip --workspace` shows `zip v9.0.3` as the only copy. Closeout line: STATUS fixed, OPEN none.
+- **Deferred / open:** none stated.
+- **Confidence:** `cargo test -p lance-graph-hydrate`: 39 passed; clippy `-D warnings` and `cargo fmt` clean. Full workspace not built locally; CI covers it.
+
 ## 2026-10-16 — lance-graph PR #1579 (merged `7302f58c`, branch `ccr-9f3b8075-74u47l-synergy-map`, head `97b744ec`, 3 commits) — board: synergy map since 2026-10-11, status sweep, #1575 record
 
 - **Added:** entry `2026-10-16-synergy-map-since-1011.md` (the 2026-10-11 fleet listing revised against 123 merges: closed ends, dots D1–D8, fruits, Haiku ledger, §8 reconciliation with the recovery ledger, §9 label codebook sizes); ten STATUS rows moved from "In PR" to Shipped; arc entry for #1575.
@@ -46,6 +60,13 @@
 - **Locked:** none (docs only).
 - **Deferred / open:** O30, O29, DOC-WIRE (1), BAND-RETIRE, D-ASM authorization; superseded in part by `LEDGER-UPDATE-2026-10-16b.md` (#1581).
 - **Confidence:** medium; three harvest-scout zero-hit claims were false and re-checked by hand.
+
+## 2026-10-16 — lance-graph PR #1577 (merged `38ec25bc`, branch `ccr-c09987ed-cuk6r5`, head `44be13bc`, 1 commit) — spec v3.1: NO PINS, hyperon deps float on branch main
+
+- **Added:** text edits to `.claude/plans/metta-datalog-assimilation-v1-council-v3.md` (F5 NO PINS decision, R-7 `branch = "main"` for `hyperon-atom` / `hyperon-space` and the `hyperon` dev-dep, G6, §10 ledger row), `.claude/plans/metta-datalog-assimilation-v1.md` oracle row, `STATUS_BOARD.md` D-MTP-4 correction, entry addendum in `2026-10-16-metta-datalog-assimilation-council-v3.md`; generated indexes regenerated.
+- **Locked:** no pins: git deps float on the fork's `main`, no `rev`/`tag`, no tracked `Cargo.lock`; listed SHAs are dated evidence, never a build pin; G6 baseline runs at the `main` head of the run and records that sha (today `e55dc61`). No manifest ever pinned hyperon, so there is no pin bump.
+- **Deferred / open:** W1–W3 remain not authorized; no code.
+- **Confidence:** not stated in the PR (text only)
 
 ## 2026-10-16 — lance-graph PR #1576 (merged `9a657bd3`, branch `ccr-c09987ed-cuk6r5`, 8 commits) — council: metta-datalog-assimilation W1–W3 spec ratified (D-ASM-1..4)
 
@@ -138,12 +159,47 @@
 - **Deferred / open:** O23 (TruthOnly reading), ablation (defined later through the N15 families), the 46..49 meaning, the derived-packet rule, the migration gate.
 - **Confidence:** high; 6 disable runs red.
 
+## 2026-10-14 — lance-graph PR #1559 (merged `4e386f26`, branch `ccr-0455e606-wmtsor`, head `15cdab81`, 1 commit) — knowledge: access-control model covers OGAR's authorized resolve
+
+- **Added:** update to `.claude/knowledge/access-control-model.md` for merged OGAR #359: `resolve_slot_authorized` and `resolve_doc_authorized` take `Access { fields, admits }` (`fields` is `visible_fields()` per class; `admits(key)` is row scope applied per object).
+- **Locked:** row scope sits with the caller; under a decision a grid view is refused because its cells have no field positions; the open item saying documents take no decision is removed.
+- **Deferred / open:** none stated.
+- **Confidence:** n/a (docs only)
+
+## 2026-10-14 — lance-graph PR #1558 (merged `80891b1e`, branch `ccr-0455e606-wmtsor`, head `ee3d31a7`, 5 commits) — contract + rbac: walk_rails_authorized and visible_fields (H7)
+
+- **Added:** `selection::walk_rails_authorized` (same walk as `walk_rails` plus `effective = view.mask ∩ presence ∩ allowed(class)` at every hop; `walk_rails` now delegates with no decision); `visible_fields()` on `ScopedDecision` / `MembershipDecision` (mask only when access is allowed, else `EMPTY`); `.claude/knowledge/access-control-model.md`. Files: `selection.rs`, `lance-graph-rbac` `authorize.rs`.
+- **Locked:** hidden fields stay hidden at every depth; a hidden rail is not followed; no permit-all fallback (`allowed` returns `WideFieldMask`, unreadable class returns `EMPTY`); access control stays policy data keyed by classid, no hand-rolled reasoning (2026-10-14 decision).
+- **Deferred / open:** OGAR `ogar-doc-ir` `resolve_doc` still calls `walk_rails` (separate OGAR PR); report grids (`lance-graph-report-ogar`) have no per-field positions and are not covered.
+- **Confidence:** four `selection::tests::authorized_walk_*` tests plus `a_refused_decision_shows_no_fields` and `an_allowed_decision_shows_its_field_mask`. Two disable runs: mask step removed fails 3 tests; mask applied only to emitted fields fails the hidden-rail test. `cargo test -p lance-graph-contract` passes; `clippy -D warnings` clean.
+
+## 2026-10-14 — lance-graph PR #1557 (merged `0977bfbd`, branch `ccr-0455e606-wmtsor`, head `3d3f4fb7`, 2 commits) — action: commit has no admin bypass
+
+- **Added:** `ActionInvocation::commit` no longer lets the `admin` role pass an action requiring a different role. Files: `action.rs`, `docs/OGAR_CONSUMER_API.md`, `LATEST_STATE.md`; test `action::tests::commit_admin_is_a_role_not_a_bypass`.
+- **Locked:** admin is an ordinary role on both paths (`commit` and `commit_via`); policy only, no new mechanism. `ActorContext::is_admin` unchanged. rs-graph-llm `graph-flow-action::dispatch` calls `commit`; its tests use no admin role and no caller was found relying on the bypass.
+- **Deferred / open:** none stated.
+- **Confidence:** the new test's `admin` without required role → `Failed` assertion failed before the change; `admin` plus the role → `Committed`. `clippy -D warnings` on the contract; all contract tests pass (1,475 lib tests).
+
+## 2026-10-14 — lance-graph PR #1556 (merged `cb35ffa1`, branch `ccr-0455e606-wmtsor`, head `e6da5fd0`, 1 commit) — rbac_plug: per-classid field mask default
+
+- **Added:** `RbacBinding::with_class_field_defaults(Vec<(u16, WideFieldMask)>)` in `rbac_plug.rs`; `field_mask_for` resolves the role's own mask, then the class default, then `None`. Test in `lance-graph-rbac` `authorize.rs`. Supports HubSPO-rs D-IAM-3.
+- **Locked:** policy data keyed by classid; replaces only the open default, never changes a mask a role was given, dropped outside the plug like grants and role masks.
+- **Deferred / open:** OGAR's authority does not set the default yet (`GrantSource` needs a class-level mask; follow-up PR in OGAR); no output stage drops the masked columns yet (H7).
+- **Confidence:** tests `rbac_plug::a_class_default_replaces_the_open_default_and_nothing_else` and `authorize::plug_tests::a_class_default_keeps_sensitive_fields_out_of_the_union`; disable run (class-default lookup removed) fails both. Gates: `fmt --check`, `clippy -D warnings` on contract and rbac, `lance-graph-rbac` tests, dir-sim `--features rbac` tests.
+
 ## 2026-10-14 — lance-graph PR #1555 (merged `5366a5ab`, branch `ccr-9f3b8075-74u47l-metta`, head `457a8c41`, 14 commits) — D-MTP: MeTTa over the masking-algebra polyfill; two-hop join and the hop as a range
 
 - **Added:** plan `metta-polyfill-v1.md` (Hyperon seams, PeTTa vs Hyperon measurements, MeTTa-as-IR verdict, datafrog fork as the exact Rust oracle). `crates/lance-graph-metta` (own workspace, excluded; datafrog from `AdaWorldAPI/datafrog` as a dev-dependency only) with `join_probe` (D-MTP-1, two-hop join through Quack `Semijoin`) and `join_range_probe` (D-MTP-1b, the hop as a range under a monotone `dst`). Entries `2026-10-14-metta-polyfill-map.md`, `-d-mtp-1-join.md`, `-d-mtp-1b-range-hop.md`; STATUS D-MTP rows.
 - **Locked:** pairs equal datafrog at every size; counts equal Hyperon and PeTTa. At 10⁶ (v4): gather count 1.2–1.8 ns/row, emit 4.0–5.7 ns/pair against datafrog's 59–71; the range path counts in 0.0001–0.0004 ns/row with runs recorded at ingest and refuses a non-monotone lane. relalg has no hop yet, so the join lowers through Quack.
 - **Deferred / open:** D-MTP-2..5 (named `LanceSpace`, recursion via the external driver, the trie width fix upstream, PeTTa in the probes); the order witness is probe-local.
 - **Confidence:** high for equality (disable runs red as pre-registered); timings are best of 5 over three runs on one VM.
+
+## 2026-10-14 — lance-graph PR #1554 (merged `a9212e1c`, branch `ccr-b2e415d9-4jfvyk`, head `e7d2cb5b`, 2 commits) — research: recovery ledger revised against #1495–#1553
+
+- **Added:** `.claude/research/2026-10-recovery/LEDGER-REVISION-2026-10-14.md`, board entry `2026-10-14-ledger-revision-after-1553.md`, `entries/README.md` update. Closes C15–C18, C20, C21; adds open items N1–N14; merged dots K1–K5; renames plateau O1..O8 to HL-O1..HL-O8.
+- **Locked:** N1: `syllogize` writes bits 50..52 as `0b111` and zeroes witness and epistemic bits. D2 refusal core shipped as `nal::Revision` (#1538); exact deduction/induction/abduction truth codes landed (#1548); Gadamer invariants G1–G7 pinned. O7 stays open (no model-identifier rule in lance-graph's CLAUDE.md, corrected in `e7d2cb5b`).
+- **Deferred / open:** decisions requested on K1, the O25 policy, O7, O23, O26; board gaps: no PR-arc entries for #1494–#1504, no STATUS rows for D-RESIDUE-FP-0 and D-MATURATION3-0.
+- **Confidence:** n/a (docs); every hit relied on was read at its cited line; Codex review correction applied.
 
 ## 2026-10-14 — lance-graph PR #1553 (merged `a1abdf8f`, branch `ccr-9f3b8075-74u47l-holo-h6b`, head `c25573e3`, 3 commits) — D-HOLO H6b measured; H6c pre-registered
 
@@ -180,6 +236,13 @@
 - **Deferred / open:** exact revision and synthesis (the both-at-255 case packs `(0, 0)`, pinned as a known defect); whether D-NALP-4/5 still need a lane terminal; R1–R4 tests; derived edges write witness and epistemic bits as 0; six pre-existing clippy lints in `causal-edge`. Harvested from draft #1544, which stays open.
 - **Confidence:** high; four disable runs red (`truth_code` back to `f32`, `syllogize` back to `f32`, round down, ties-to-even); the legacy golden capture unchanged.
 
+## 2026-10-14 — lance-graph PR #1547 (merged `7f0e6f19`, branch `ccr-9f3b8075-74u47l-relalg-board`, head `82a0bc1a`, 1 commit) — board: record #1546 (D-RA-1 relalg) and #1545 as merged
+
+- **Added:** `PR_ARC_INVENTORY.md` entry for #1546 (merge `c21bd165`, head `1b2e8f5b`); `LATEST_STATE.md` lines for #1546 and #1545 (docs only, merge `9f889c28`); `STATUS_BOARD.md` D-RA-1 → Shipped #1546 `c21bd165`.
+- **Locked:** disable-run count now reads 11 (8 rewrite guards, the no-`String` guard, 2 union guards), matching the arc entry.
+- **Deferred / open:** none stated.
+- **Confidence:** n/a (board); `entries_index.py --check` passes, `SUPERSESSION-INDEX.md` unchanged.
+
 ## 2026-10-14 — lance-graph PR #1546 (merged `c21bd165`, branch `ccr-9f3b8075-74u47l-relalg`, head `1b2e8f5b`, 4 commits) — D-RA-1: relational IR rewritten before it runs, lowered through R2IL (a D-CMR prototype)
 
 - **Added:** `crates/lance-graph-relalg` (own workspace root, excluded). `Rel` describes a row set of one table (`All`, `Empty`, plane, one `I32`/`U32` comparison, `And`/`Or`/`Not`); `normalize` rewrites to a fixpoint (negation to the leaves, unit/zero, complement, value-interval fusion per lane, interval union with `≠` reconciliation, `U32` agreement, absorption); `symbolic` answers `∅` and a counted `U` with no program; `run` lowers to R2IL calls over `FoldDialect`. No strings in the IR (`Atom`/`Cmp`/`Measure` must be `Copy`). `tests/rewrites.rs`, 11 tests: rewritten == as written == row oracle over 400 generated descriptions × 5 measures.
@@ -187,12 +250,47 @@
 - **Deferred / open:** D-RA-2 (rules into the contract set IR, D-CMR-1/-6), D-RA-3 (Datalog rules as values), D-RA-4 (bound recursion over D-CMR-5 preimage). Codex P2 (`x = t ∨ x ≠ t` left unrewritten) fixed in `1b2e8f5b`.
 - **Confidence:** high; 11 disable runs red (8 rewrite guards, the no-`String` guard, 2 union guards), CI green.
 
+## 2026-10-14 — lance-graph PR #1545 (merged `9f889c28`, branch `docs/semantic-morton-qualia-do-map`, head `aa4e50d8`, 3 commits) — docs(research): semantic Morton grammar ABI, Moore pressure and qualia-masked DO
+
+- **Added:** `docs/research/semantic-morton-qualia-masked-do-rfc.md` (experiments SMD-P00..P18), `.arxiv/2026-10_haspelmath_semantic_maps_grammar_abi_notes.md` (SM-Q01..Q12), `.claude/plans/semantic-morton-qualia-do-falsifier-plan.md` (D-SMD-0..6).
+- **Locked:** research-only; no CE64 bit reassignment, no register/ISA change, no permission change; Morton depths 2/3/4 nibbles = 16×16 / 64×64 / 256×256; a mask is not authorization, OGAR owns DO permission; 12×12 verbs vs 12×12 family×role/TAM require source audit.
+- **Deferred / open:** verify the 12×12 palette/VerbRoleTable, HHTL and Moore sources against HEAD (D-SMD-0); execute scalar Morton and grammar fixtures; confirm embedding, qualia causality, generalization and action-gate properties; CI and doc-generator gates not run.
+- **Confidence:** docs-only; source chapter mapped to pages/figures, Morton arithmetic and falsifier matrix defined; no tests or CI run.
+
+## 2026-10-13 — lance-graph PR #1543 (merged `fd974f4d`, branch `docs/flow-cog-rubicon-ona-convergence-20261013`, head `9a9413c8`, 2 commits) — docs: flow/cog convergence for ONA and two Rubicon lineages
+
+- **Added:** `docs/architecture/FLOW_COG_RUBICON_ONA_CONVERGENCE.md` (D-FLOW-COG; ownership, dependency direction, contracts, F0–F6 milestones) and `.claude/prompts/flow-cog-ona-rubicon-work.md` (implementation handoff).
+- **Locked:** `lance-graph-flow`, `lance-graph-rig`, `lance-graph-z8`, `lance-graph-cog` are conditional integration surfaces, not four new crates; NAL confidence, expected utility and authorization stay separate; #1539 corrections preserved (ONA oracle `dc4efd0...`, supervisor backoff not applied, mailbox bound unenforced, realtime drain unbounded).
+- **Deferred / open:** the Work handoff should produce a separate smallest code PR after checking live source; PR was marked draft for architectural review.
+- **Confidence:** no tests run (docs only); 19 internal relative links checked, none broken; branch 2 commits ahead, 0 behind main.
+
+## 2026-10-13 — lance-graph PR #1542 (merged `fe5371e3`, branch `ccr-9f3b8075-74u47l-supervisor-backoff-board`, head `3b7650ec`, 1 commit) — board: record #1538 and #1540; resolve ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED
+
+- **Added:** `PR_ARC_INVENTORY.md` entries for #1538 (D-NALP-3, NAL revision as one grouped fold) and #1540 (supervisor restart backoff); `LATEST_STATE.md` lists #1538, #1539, #1540 and drops the "backoff not applied" note; `STATUS_BOARD.md` D-NALP-3 → Shipped (`4ceaab3`), W3 test file has 11 tests, documented divergence from ONA; `ISSUES.md` `ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED` RESOLVED by #1540 (`f2bf199`); `OUTER_MEMBRANE_GRAPH_LAB_VERTICAL_SLICE.md` Restart backoff row now Applied (#1540).
+- **Locked:** #1539 gets no entry of its own (it only corrected #1536's docs).
+- **Deferred / open:** none stated.
+- **Confidence:** n/a (board); `entries_index.py --check` passes, `SUPERSESSION-INDEX.md` unchanged.
+
+## 2026-10-13 — lance-graph PR #1541 (merged `350d30aa`, branch `claude/eager-albattani-iufugq`, head `7619f042`, 1 commit) — docs(D-CMR): Experiment A's i32 arm is a counterexample, not today's fold
+
+- **Added:** one paragraph in `.claude/plans/d-cmr-concept-chain-normalization-v1.md` §7, Experiment A; lands a commit that was pushed to the #1532 branch after its merge snapshot.
+- **Locked:** the eager `i32` accumulator variant is a deliberate counterexample; today's fold accumulates exactly into `i64` within the row bound (`mask-risc/src/ir.rs:296`, `:461`).
+- **Deferred / open:** none stated.
+- **Confidence:** n/a (docs); rebased onto `main` (`2b28a19`), no code, no dependency.
+
 ## 2026-10-13 — lance-graph PR #1540 (merged `f2bf199`, branch `ccr-9f3b8075-74u47l-supervisor-backoff`, head `dd3ab5d`, 5 commits) — supervisor: apply the restart backoff
 
 - **Added:** `ActorTerminated` computes the crash count (carried from the slot; restarts at 1 when the previous crash is more than `CRASH_WINDOW` = 5 min old), escalates past 10 crashes, otherwise sleeps `backoff_delay(n) = min(100 ms · 2^n, 30 s)` and casts the only `RespawnG`. The arm spawns once, skips a slot that is already live, and stores the count and crash time on the new slot. `tests/supervisor_respawn_backoff.rs` (paused tokio time): one respawn per crash after its backoff, crash 11 stays down, the count restarts after a quiet window; each guard disable-verified red.
 - **Locked:** before, the arm spawned immediately and also scheduled a `RespawnG { crash_count: 0 }` that re-ran itself every 100 ms forever, so neither backoff nor escalation could take effect. The crash time uses `tokio::time::Instant` (a `std` instant ignores paused time, which hid the window bug from the test).
 - **Deferred / open:** none; `ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED` resolved.
 - **Confidence:** high; three tests, disable runs red, CI green.
+
+## 2026-10-13 — lance-graph PR #1539 (merged `36351098`, branch `ccr-9f3b8075-74u47l-1536-followup`, head `274315e0`, 2 commits) — #1536 follow-up: pin ONA links, correct the supervisor backoff claim; board for #1536/#1537
+
+- **Added:** all 12 source links in `ONA_NAL_R2IL_FOLD_METHOD_ASSIMILATION.md` pinned to `blob/dc4efd0abd520cdb79bf53bfa3c285ebb24f2e8a/`; backoff row corrected in `OUTER_MEMBRANE_GRAPH_LAB_VERTICAL_SLICE.md`; `ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED` filed in `ISSUES.md`; `PR_ARC_INVENTORY` and `LATEST_STATE` entries for #1536 and #1537; `STATUS_BOARD` D-FOLD-CORE-b → Shipped #1537 `befbf1d`, D-FOLD-CORE-c dropped.
+- **Locked:** supervisor `RespawnG` arm spawns immediately each round and resets the crash count, so the `>10` escalation guard cannot trip; backoff is not applied. D-FOLD-CORE-c dropped because the ONA brief keeps `lance-graph-nal` as the authoritative NAL crate.
+- **Deferred / open:** the supervisor code fix is not in this PR; W3 is in #1538.
+- **Confidence:** docs and board only; `supervisor.rs` (`RespawnG` arm, `handle_supervisor_evt`) checked; `SUPERSESSION-INDEX` regenerated, no change.
 
 ## 2026-10-13 — lance-graph PR #1538 (merged `4ceaab3`, branch `ccr-9f3b8075-74u47l-nal-w3`, head `12f3291`, 5 commits) — D-NALP-3: NAL revision as one grouped fold
 
@@ -215,12 +313,33 @@
 - **Deferred / open:** D-FOLD-CORE-c (NAL as a core module) dropped: the ONA brief keeps `lance-graph-nal` as the authoritative NAL crate.
 - **Confidence:** high; disable run (dropping one row range) turns the Quack test red.
 
+## 2026-10-13 — lance-graph PR #1535 (merged `5565a314`, branch `ccr-9f3b8075-74u47l-board-1534`, head `c6138b9a`, 1 commit) — board: #1534 entries (D-FOLD-CORE-a shipped)
+
+- **Added:** `PR_ARC_INVENTORY.md` #1534 entry; `LATEST_STATE.md` header plus one line on the single OGAR / contract identity; `STATUS_BOARD.md` D-FOLD-CORE-a from In PR to Shipped #1534 `0a6708b`.
+- **Locked:** #1533 is board hygiene only and gets no entry (termination clause).
+- **Deferred / open:** none stated.
+- **Confidence:** n/a (board)
+
 ## 2026-10-13 — lance-graph PR #1534 (merged `0a6708b`, branch `ccr-9f3b8075-74u47l-r2il-member`, head `196eb2e`, 1 commit) — D-FOLD-CORE-a: `lance-graph-r2il` joins the workspace; OGAR by git `main`
 
 - **Added:** `crates/lance-graph-r2il` moves from `exclude` to `members` and loses its own `[workspace]` and `[patch]` sections. It, `crates/lance-graph-nal` and `crates/r2il-mask-abi-probe` take `ogar-loco` / `ogar-r2il` from `https://github.com/AdaWorldAPI/OGAR` `main` instead of `../../../OGAR` paths. The root `Cargo.toml` patches `https://github.com/AdaWorldAPI/lance-graph` `lance-graph-contract` to the in-tree crate.
 - **Locked:** a git-consumed crate cannot follow a path out of its fetched repo (medcare-rs #565), and `lance-graph-ogar` already used the git coordinate, so a path dep beside it gave two `ogar-loco` identities. Measured with `cargo metadata`: one `lance-graph-contract`, one `ogar-loco`, one `ogar-r2il`. Tests: r2il 19 (as a member), nal 8, probe 40; clippy `-D warnings` and fmt clean; CI 11/11 green.
 - **Deferred / open:** D-FOLD-CORE-b (core depends on mask-risc, quack and R2IL by default) and -c (NAL as a core module).
 - **Confidence:** high; one dependency identity per crate, measured.
+
+## 2026-10-13 — lance-graph PR #1533 (merged `c6a9d180`, branch `ccr-9f3b8075-74u47l-board-1530`, head `0987e114`, 1 commit) — board: #1530 and #1531 merged, arc entries, LATEST_STATE, D-PROD-V4 row
+
+- **Added:** `PR_ARC_INVENTORY.md` entries for #1531 (crate images clone ndarray `master` on Rust 1.99) and #1530; `LATEST_STATE.md` header and a bullet on the images; `STATUS_BOARD.md` D-PROD-V4 cell names the three merges.
+- **Locked:** #1530 also fixed both thinking-engine images: they build v4 with `--target <host triple>`, clone ndarray, use Rust 1.99, and build the `playground` example the runtime stage copies.
+- **Deferred / open:** none stated.
+- **Confidence:** n/a (board); `entries_index.py --check` passes.
+
+## 2026-10-13 — lance-graph PR #1532 (merged `f2cc28f0`, branch `claude/eager-albattani-iufugq`, head `33dc9f47`, 10 commits) — docs: #1524 reset, root cause, D-CMR set-theory IR plan, ProposedMethod anchors, stale references
+
+- **Added:** `.claude/plans/d-cmr-concept-chain-normalization-v1.md` (D-CMR-0 plan, path D-CMR-1..9, experiments A–E); stale-reference corrections in `INTEGRATION_PLANS.md`, `software-awareness-provenance-parity.md`, `iam-substrate-sag-dir-sim-v1.md`; reset entry `2026-10-12-session-reset-inventory.md` (removed test cases at `8ae5bce` on `backup/session-011BMJ-2026-10-12`); `sag-capstone-alignment-v1.md` §2.1; `STATUS_BOARD.md`, `SUPERSESSION-INDEX.md`.
+- **Locked:** a proposal is an `ActionInvocation` in state `Pending`, gated by `ActionInvocation::commit_via` (`ClassRbac`, no admin bypass); set-theory IR is a shared semantic domain, not a third frontend syntax and not an executor; algebra in the contract, lowering in core; exact integers only; equality saturation is a research reference only. Root cause: each removed method was evaluated on its own, so chains were never one expression.
+- **Deferred / open:** D-CMR-1..9 remain separate steps; seven OPEN items on `ProposedMethod` (source version, policy revision, simulated impact, approval vs authorization, `UnknownOutcome`, re-observation, second gate `commit`); `commit_via` consults `ClassRbac` only when `required_role` is `Some`.
+- **Confidence:** docs only, no code. `append_only_gate.py origin/main` OK; `plan_dids.py` OK; `entries_index.py --check` current (326 rows); `citation_decay.py --since origin/main` no new decay; Codex (3) and CodeRabbit (6) findings fixed, nine threads resolved.
 
 ## 2026-10-13 — lance-graph PR #1531 (merged `86e3174`, branch `ccr-9f3b8075-74u47l-ndarray-master`, head `3b1e3f9`, 2 commits) — crate images clone ndarray `master` on Rust 1.99
 
@@ -405,12 +524,665 @@
 - **Deferred / open:** production feedback needs D2 provenance ids; recipe-output → stage mapping; the stage reading of bits 50..52 (ruled 2026-10-15: the pyramid IS the plasticity ladder, pending a global version gate).
 - **Confidence:** high; 14 disable runs red (2 residue, 12 maturation).
 
+## 2026-10-11 — lance-graph PR #1493 (merged `95e60991`, branch `research/nars-nal-metacognition-distillations-20261011`, head `7dd173d0`, 11 commits) — docs(arxiv): distill NARS evidence, NAL-1..9, and metacognitive self-models
+
+- **Added:** nine Markdown files in `.arxiv/` (eight source distillations plus `2026-10_nars_evidence_nal_metacognition_distillation_index.md`), incl. `2026-08_nal1_to_nal9_is_a_capability_ladder_not_nine_cycles.md` and `2503.13467_metacognition_requires_replayable_self_models_not_just_logs.md`. Sources: Wang 2001, 2009, 1993/2013 (arXiv:1303.1517), 2018 self, NAL-9 slides, NAL intro; Gabriel/Wang arXiv:2604.18873; Nolte et al. arXiv:2503.13467.
+- **Locked:** none stated. Body separates primary findings from architecture synthesis and notes non-arXiv sources and the unverified full 2025 monograph.
+- **Deferred / open:** contains falsification proposals, not measured benchmark results. Review focus listed: NAL terminology, Nolte et al. statistics and selection criteria, references and provenance.
+- **Confidence:** not stated in the PR (docs only; no implementation code changed).
+
+## 2026-10-11 — lance-graph PR #1492 (merged `273f26e4`, branch `research/ce64-gadamer-neutrino-recovery`, head `a8f3b7d8`, 2 commits) — Research recovery reports: CE64 / Gadamer / Neutrino (docs only)
+
+- **Added:** `.claude/research/2026-10-recovery/` with `CONSOLIDATED-LEDGER.md` (closed C1–C14, excluded X1–X7, open O1–O35, dots D1–D7), `GADAMER-ABLATION-RESEARCH.md`, `NEUTRINO-RECOVERY.md`, `RECOVERY-A-to-G.md`, `A-pr-ledger.md`, `B1`–`B5`, `BILANZ-session-2026-10-08-bis-10.md`, `coresearch-mexhat/`, `council/`, `5plus3-remediation/`, `PAPER-2604.18873-nars-reasoning-benchmark.md`, `recipe-classification-table.md`; one board entry `2026-10-11-research-recovery-reports.md` and regenerated entries index.
+- **Locked:** D2 named as keystone (evidence provenance id is the log-record coordinate). No code, contract, plan-status or verdict change; every open item stays OPEN.
+- **Deferred / open:** operator decisions still owed: O4, O7, O13, O14, O15, O23, O26. The proposed falsifier probe from the paper notes is not built.
+- **Confidence:** n/a (docs only).
+
+## 2026-10-11 — lance-graph PR #1491 (merged `5700a21b`, branch `ccr-0455e606-wmtsor`, head `98dc6e29`, 4 commits) — rbac: one-subject rule in the contract; read the RFC 8693 act claim
+
+- **Added:** `contract::rbac_plug::SubjectRoles` (subject holds its roles, every other actor none, fails closed on empty subject); `ResolvedIdentity::with_act_claim` in `crates/lance-graph-rbac/src/auth.rs` (reads `act` chain via a `ClaimSet` trait, `MalformedAct`, `ChainTooDeep`, `MAX_ACT_DEPTH` 16); dir-sim `ViewActors` adopts `SubjectRoles`; `LATEST_STATE` entry.
+- **Locked:** authority stays the principal's (`actor`); chain recorded via `acting_through`. Malformed `act` is refused, never read as "not delegated". Provider without `act` (Zanzibar) reads none. Token verification stays with the caller.
+- **Deferred / open:** OGAR's `IdentityActors` and Spear's `DirectoryActors` adopt `SubjectRoles` once this is on main.
+- **Confidence:** 2 `SubjectRoles` tests, 5 `act` tests; disable runs (answer-every-actor, empty-subject guard, malformed-as-absent, depth check) red; clippy `--all-targets --all-features -D warnings`, full suite and fmt pass on contract, rbac, dir-sim.
+
+## 2026-10-11 — lance-graph PR #1490 (merged `92178b6d`, branch `ccr-f5674497-orfkox`, head `8a613893`, 2 commits) — lance-graph-contract: un-gate the V2/V3 tail (D-HPR-6a)
+
+- **Added:** `NodeGuid::new_v2`, the five V3 classid constants, their registry entries and the `codebook` module are now unconditional (`canonical_node.rs`, `aiwar.rs`, `hhtl.rs`, `ocr.rs`, `soa_graph.rs`, `lib.rs`); `guid-v2-tail`/`guid-v3-tail` stay as empty features; `default` is empty. New test `canonical_node::v3_mint_is_the_128_bit_facet`.
+- **Locked:** `mint_for`'s panic arm removed. `FacetCascade`, `FacetTier`, `EdgeFacet` and the `From` bridges untouched, no byte moved.
+- **Deferred / open:** none stated. Board marks D-HPR-6a in PR and D-HPR-7/8 shipped in #1474.
+- **Confidence:** `lance-graph-contract` lib (1467) and integration tests, `lance-graph-ogar`, `lance-graph-glove-parity` pass; `deepnsm-v2` checks; clippy `-D warnings` and fmt clean; disable run (HEEL big-endian in `new_v2`) turns 2 tests red.
+
+## 2026-10-11 — lance-graph PR #1489 (merged `09658a84`, branch `ccr-b576712f-pexwof`, head `d13dc8a0`, 2 commits) — Probes: Lance 13 source pruning (D-TELEPORT-2) and 64 resident populations (D-PHOTO-0)
+
+- **Added:** `crates/lance-graph-benches/examples/lance_source_probe.rs` (1,048,576 rows; full scan, row-range prefilter, zone-map, B-tree, index-only COUNT; sorted/partial/periodic/shuffled ± NULLs; cold and warm); `crates/lance-graph-quack/examples/photo_probe.rs` (64 populations × 1 Mi addresses); two board entries, three `STATUS_BOARD` rows. No production code.
+- **Locked:** sorted: B-tree bytes scale with selectivity (664 KB to 1.3 KB vs 3.8 MB scan); shuffled 50%: B-tree about 9× slower than full scan; index-only COUNT reads no data columns, exact after deletes. Planes ~0.03–0.05 ms/query; signatures 250–600× slower; classes win only at a few hundred, 30–100× update cost.
+- **Deferred / open:** seams: cost choice scan vs index take; scoped population-cache descriptor, a separate type from `AlphaMask`. B-tree page I/O is not in Lance's `bytes_read`.
+- **Confidence:** every arm asserted against an oracle; `cargo clippy -p lance-graph-quack -p lance-graph-benches --examples -- -D warnings` and `cargo fmt --check` clean.
+
+## 2026-10-11 — lance-graph PR #1488 (merged `6aecba63`, branch `ccr-1d749cc5-q8s5qs`, head `10e3c47d`, 1 commit) — dir-sim: members_transitive_within (walk an explicit group set)
+
+- **Added:** `View::members_transitive_within(group, within)` in `crates/lance-graph-dir-sim/src/view.rs`: `members_transitive` restricted to an explicit group set (reuses the private allowed-groups bitmap walk). Consumer: HubSPO-rs D-IAM-2 (HubSPO-rs #30).
+- **Locked:** start group must be in the list; unlisted nested groups are not followed; unknown GUIDs ignored; full list equals the unrestricted walk.
+- **Deferred / open:** none stated.
+- **Confidence:** test `nested_groups::members_transitive_within_walks_only_the_listed_groups`; clippy `-D warnings` clean.
+
+## 2026-10-11 — lance-graph PR #1487 (merged `31652c5c`, branch `ccr-b576712f-pexwof`, head `f17feba6`, 1 commit) — quack: intersect ANDed row ranges on one column before lowering (D-TELEPORT-1)
+
+- **Added:** `fold_ranges` rewrite in `lance-graph-quack/src/lib.rs`, run first in `lower_with` (so `lower`, `lower_fused`, `lower_group_by`); merges `Cmp(col, Range{lo,hi})` siblings on one column inside an `AND` into `[max(lo), max(max(lo), min(hi)))`. Tests in `range_fold_tests`.
+- **Locked:** disjoint ranges become `Range{lo: x, hi: x}`; only same-column siblings of one `AND` merge (not under `OR`/`NOT`); `lo > hi` not merged; COUNT/ANY answer a single range from `hi − lo`; other terminals still visit every row.
+- **Deferred / open:** a bound past `n_rows` can be lost if on the dropped side (filter carries no row count); documented in the function doc. CI box unchecked.
+- **Confidence:** 400 seeded random conjunctions match a row-by-row oracle under both lowerings (>300 exercise the merge); six disable runs red; `lance-graph-quack` full suite, `lance-graph-cypher-quack`, clippy `-D warnings`, fmt pass.
+
+## 2026-10-11 — lance-graph PR #1486 (merged `e4f697f7`, branch `ccr-0455e606-wmtsor`, head `6c635a94`, 3 commits) — dir-sim: read group grants from the authority's versioned policy
+
+- **Added:** `GroupRoles::from_policy` (`crates/lance-graph-dir-sim/src/actors.rs`) building `ViewActors` grants from `ogar_rbac::GroupRolePolicy`; `Cargo.toml` `rbac` feature pulls `ogar-rbac` by git with `[patch]` for `ogar-rbac`, `ogar-auth`, `ogar-vocab`, `lance-graph-contract`, `lance-graph-rbac`. Re-opened from #1485's branch. Board row D-DSP-3b.
+- **Locked:** never-named group stays unread (`unread_groups`); all-revoked group is read with no roles; earlier policy version gives the roles that stood then (decisions 4(b), 5(a)).
+- **Deferred / open:** none stated.
+- **Confidence:** test `roles_come_from_one_version_of_the_group_role_policy` (fails to compile without `from_policy`); disable run (drop groups with no standing roles) fails at `view_actors.rs:220`; clippy `--all-targets --all-features -D warnings` and full dir-sim suite pass.
+
+## 2026-10-11 — lance-graph PR #1485 (merged `4c3e8136`, branch `ccr-0455e606-wmtsor`, head `293737cc`, 1 commit) — dir-sim: the history log in Lance; group grants read from the authority's policy
+
+- **Added:** new crate `lance-graph-dir-sim-lance` (`LanceLog::append`, `LanceLog::restore`; workspace-excluded), `.github/workflows/dir-sim-persist.yml`, `tests/lance_log.rs`; also `GroupRoles::from_policy` (D-DSP-3b, see #1486). D-DSP-2b.
+- **Locked:** one batch is one Lance commit, `LogState` advances only after; stale writer writes nothing (`StaleWriter`), non-next commit is `Race`; logical versions stay in the records, Lance version is only the physical counter; unread vs empty groups per decision 5(a).
+- **Deferred / open:** the `Race` path has no test (needs a second writer between check and write).
+- **Confidence:** 7 tests pass (`tests/lance_log.rs` plus 2 unit); disable runs (stale-writer check, not advancing state: 3 red); `cargo +1.99.0` fmt, clippy `-D warnings`, test pass; CI installs `protobuf-compiler`, `libprotobuf-dev`.
+
+## 2026-10-11 — lance-graph PR #1484 (merged `d3064df1`, branch `ccr-b576712f-pexwof`, head `9f238934`, 5 commits) — Teleport probe (D-TELEPORT-0) + W2: IntOr, fused Boolean mode, first procedures (D-SQLP-2)
+
+- **Added:** `crates/lance-graph-quack/examples/teleport_probe.rs` (arms A scan-join-filter, B gated semijoin, C sorted-edge `partition_point`); in `lance-graph-r2il`: `IntOr` wired (`MaskOp::Or`), `IntAnd` of two planes in in-place mode, `BoolMode::Fused`, `src/procs.rs` (`filter_lt`, `select_lt`, `sum`, `group_sum`, `margin`), `tests/procs.rs` (8); entry `2026-10-11-teleport-probe-source-restriction.md`; plan section 4.
+- **Locked:** at sel_K 0.0001: A ~1.8 ms, B ~0.17 ms, C ~0.48 µs; C skips source reads, B skips foreign reads only; `Range`,`Range`,`And` collapses to one `Range` (COUNT/ANY ~28 ns), saving two passes and two slots for other folds.
+- **Deferred / open:** the OGAR executable `PROC_DEF`/`PROC_CALL` contract is OPEN; sorted-lane lowering needs an order witness (exists only for facet lanes). CI box unchecked.
+- **Confidence:** every probe arm matches a row-by-row reference on both layouts; `lance-graph-r2il` tests (7 + 8) pass; five sabotages red; clippy `-D warnings`, `cargo doc` clean; timings from a shared 4-vCPU host (up to ~1.5× variance).
+- **Gather-shaped (ruled a violation 2026-10-16):** `teleport_probe.rs` arms B (gated semijoin) and C (gather over rows `0..hi`) with foreign reads.
+
+## 2026-10-11 — lance-graph PR #1483 (merged `ac3c8fbb`, branch `ccr-0455e606-wmtsor`, head `f3dd6eb4`, 3 commits) — dir-sim: a group's secondary SMTP proxies deliver to the group
+
+- **Added:** `rows_over` (`crates/lance-graph-dir-sim/src/validate.rs`) adds each mail-enabled, observed group's secondary SMTP proxies to the Exchange address space; tests `mail_to_a_groups_secondary_proxy_reaches_the_group`, `a_non_mail_enabled_groups_proxy_is_only_a_provisioning_claim` (`tests/provisioning.rs`). Board: D-DSV-1 shipped (#1477, #1480), D-DSV-2 added.
+- **Locked:** `address_owner`/`address_recipient` answer the group for a secondary proxy; a shared key with a user now returns `AddressConflict` listing both (`a_groups_secondary_proxy_claims_its_address` re-pinned); groups without a primary SMTP claim proxies only in the provisioning plane; delivery and provisioning share one definition of group claims.
+- **Deferred / open:** none stated. Downstream: Stalwart's dir-sim backend and Spear call `address_recipient` and now see the change.
+- **Confidence:** `cargo +1.99.0` fmt, clippy `--all-targets -D warnings`, test (233 passed, 0 failed); disable runs (new rows removed: 2 red; mail-enabled gate forced open: third test red).
+
+## 2026-10-11 — lance-graph PR #1482 (merged `dff342c5`, branch `ccr-0455e606-wmtsor`, head `4a2b86a2`, 3 commits) — dir-sim: the history as a log of verified append-only batches
+
+- **Added:** pure `log` module (`crates/lance-graph-dir-sim/src/log.rs`): `LogState::batch`, `committed()`, batch header with FNV-1a checksum, `replay`, `replay_prefix`, exhaustive-destructuring encoder; tests in `tests/persist.rs`. D-DSP-2a.
+- **Locked:** decision 3(b): OGAR logical version independent of Lance physical commit version; `batch` refuses `NotAContinuation`; `replay` refuses the whole log at the first damaged batch and repairs nothing; replay applies in place and undoes by truncation.
+- **Deferred / open:** D-DSP-2b (Lance I/O crate writing these batches) queued on the board.
+- **Confidence:** `cargo +1.99.0` fmt, clippy `--all-targets -D warnings`, test (231 passed, 0 failed) after rebase on #1481; 7 disable runs red; codec round-trip, torn-save (4 kinds), prefix, rollback tests.
+
+## 2026-10-11 — lance-graph PR #1481 (merged `c7c4a533`, branch `ccr-0455e606-wmtsor`, head `164bdfe5`, 2 commits) — dir-sim: persisted rules resolve by exact (name, version)
+
+- **Added:** `StoredImage`/`StoredRule { name, version }` (`image.rs`), `RuleRegistry`, `VersionStore::restore_stored` (`RestoreError::UnknownRules`), read-only `History` (`store.rs`); tests in `tests/persist.rs`; plan `dir-sim-persist-v1.md` records decisions 2(a), 3(b), 4(b). D-DSP-4.
+- **Locked:** a stored rule resolves only to the registered rule with the same name and version; `REVERT` always registered; unknown rules still permit read-only history.
+- **Deferred / open:** log PR (D-DSP-2a) follows after merge.
+- **Confidence:** 4 tests (round trip, no substitution, unknown rules readable, revert); disable runs red (same-name substitution, unknown-rule check); `cargo +1.99.0` fmt, clippy `-D warnings`, test pass after rebase on #1480.
+
+## 2026-10-11 — lance-graph PR #1480 (merged `d025754e`, branch `ccr-0455e606-wmtsor`, head `d1e9665c`, 1 commit) — dir-sim: a group's secondary proxies claim in the provisioning plane
+
+- **Added:** `Snapshot` keeps groups' `proxyAddresses` as `group_proxies` (`snapshot.rs`); `provisioning_conflicts` adds each live group's secondary SMTP rows (`validate.rs`); test `a_groups_secondary_proxy_claims_its_address`. Fix for Codex P1 on #1477.
+- **Locked:** delivery unchanged (`address_owner` reads a group by primary address only).
+- **Deferred / open:** that a group's secondary address delivers nowhere is a separate open delivery gap, to be its own red/green change.
+- **Confidence:** test red with relation present but unread, green after; disable run (loop skipped) red; full `cargo test -p lance-graph-dir-sim --all-features` green; clippy clean.
+
+## 2026-10-11 — lance-graph PR #1479 (merged `87a79279`, branch `ccr-b576712f-pexwof`, head `30796c50`, 2 commits) — D-SQLP-1: extract FoldDialect into the lance-graph-r2il crate
+
+- **Added:** new crate `crates/lance-graph-r2il` (`src/lib.rs`, `tests/dialect.rs`), moving `FoldDialect`, `Val`, `Addr`, `FoldError`, private `OutKind`, `MAX_SLOTS` and nine R2IL-band ordinals out of `r2il-mask-abi-probe/tests/row_bridge.rs`; four read-only accessors; `rust-test.yml` steps. W1 of `sql-polyfill-r2il-v1.md`.
+- **Locked:** code move only (no procedures, `IntOr`, ternlog fusion, codegen or opcodes); `ogar_r2il` stays the only opcode/arity table; crate is workspace-excluded like the probe; allocator stays in the test binary.
+- **Deferred / open:** none stated.
+- **Confidence:** probe 6 + 24 + 2 + 8 pass, `--list` identical (40 tests); new crate 6 pass; 4 disable runs red; fmt, clippy `-D warnings`, `RUSTDOCFLAGS=-D warnings cargo doc` clean.
+
+## 2026-10-11 — lance-graph PR #1478 (merged `f5ba4762`, branch `ccr-b576712f-pexwof`, head `f3ed02b5`, 2 commits) — Plan D-SQLP: keep quack's NULL semantics and ternlog fusion
+
+- **Added:** edits to `.claude/plans/sql-polyfill-r2il-v1.md` and `STATUS_BOARD.md` only (follow-up to #1476); no code.
+- **Locked:** NULL keeps quack's semantics; R2IL path lowers `Filter::sql_where` output, not the raw filter; W2 wires `IntOr` onto `MaskOp::Or` and passes Boolean calls to mask-risc `fuse`; W5 runs `tests/sql_null_3vl.rs` cases through the procedure path, byte-identical to `lower_fused(sql_where(f))`. Non-goals: second NULL representation, second 3VL evaluator.
+- **Deferred / open:** W7 NULL extensions (NULL literals, `COALESCE`, `NULLIF`, nullable arithmetic), each as a failing oracle case first.
+- **Confidence:** `plan_dids.py` passes; `SUPERSESSION-INDEX.md` regenerated, unchanged.
+
+## 2026-10-11 — lance-graph PR #1477 (merged `c6cf39bd`, branch `ccr-0455e606-wmtsor`, head `a42379a2`, 2 commits) — dir-sim: a provisioning plane separate from delivery
+
+- **Added:** `validate::provisioning_conflicts(view)` and `address_rows` becoming `rows_over(owners, mail_owners)` in `crates/lance-graph-dir-sim/src/validate.rs`; `tests/provisioning.rs` (3 tests). Board: D-DSV-1 added; D-DSP-0/1/3 marked shipped in #1473.
+- **Locked:** decision 1(c): address claims, provisioning conflicts and delivery resolution are separate; claimants listed, not judged; `address_owner`, `address_recipient`, `validate` unchanged.
+- **Deferred / open:** fidelity limit: contacts, public folders and other object kinds also claim proxies in a real tenant and are not observed.
+- **Confidence:** tests red against an empty stub, green after; disable runs (owner planes instead of present plane: 2 red; drop distinct-claimant filter: 3 red); `cargo test -p lance-graph-dir-sim --all-features` green; clippy `--all-targets --all-features -D warnings` clean.
+
+## 2026-10-11 — lance-graph PR #1476 (merged `5a9e8f43`, branch `ccr-b576712f-pexwof`, head `730bfa44`, 2 commits) — Plan: SQL() as a polyfill of R2IL procedures over mask-risc (D-SQLP)
+
+- **Added:** `.claude/plans/sql-polyfill-r2il-v1.md`, plus `INTEGRATION_PLANS.md` and `STATUS_BOARD.md` rows; no code.
+- **Locked:** SQL operations are `ogar-loco` `PROC_DEF` procedures over R2IL fold-reading calls (no new opcode, no meta layer); one spelling per query, gate is a byte-identical `mask_risc::Program`; two modes kept separate (declared queries compile at build time, ad-hoc `sql()` interpreted); Java holds no operations.
+- **Deferred / open:** waves W1 (D-SQLP-1) to W8; W3 pre-registered threshold (interpreted ≤ 1.05× hand-built `Program`s) gates everything past W1. Open: which SQL text parser (DataFusion in grace period); SAP cost comparison unmeasured.
+- **Confidence:** `plan_dids.py` passes; `SUPERSESSION-INDEX.md` regenerated unchanged; `entries_index.py --check` clean.
+
+## 2026-10-11 — lance-graph PR #1475 (merged `7baa05db`, branch `ccr-b576712f-pexwof`, head `b0596c94`, 3 commits) — Plan: contiguous fast path for the 16-byte key match (D-KEY16)
+
+- **Added:** plan `.claude/plans/key16-contiguous-match-v1.md` and prepended rows in `INTEGRATION_PLANS.md` and `STATUS_BOARD.md`; no code. Waves: D-KEY16-1 parity coverage in ndarray `simd-masking-parity`, D-KEY16-2 probe (current kernel vs contiguous stride-16 vs AVX-512 gather, 65,536 and 1M rows, answers checked identical before timing), D-KEY16-3/4 kernel changes, D-KEY16-5 consumer verification.
+- **Locked:** the cost is the gather (two scalar 8-byte loads per key); the compare after it is already a fused `XOR_AND` ternlog. Rejected: Rust 1.99 `u128`-in-vector-register `asm!` path (one key per `xmm` instruction is slower than eight 64-bit halves per `U64x8`).
+- **Deferred / open:** ndarray work (D-KEY16-1..4) needs a session with push access to `AdaWorldAPI/ndarray`; kernel changes gated on pre-registered thresholds from the probe.
+- **Confidence:** n/a (plan); `plan_dids.py` passes on the new plan, supersession index regenerated and unchanged. Series renamed `D-K16` to `D-KEY16` in the second commit for the gate pattern.
+
+## 2026-10-11 — lance-graph PR #1474 (merged `48cd63a5`, branch `ccr-f5674497-orfkox`, head `6d27ad0a`, 2 commits) — lance-graph-ogar: reading-only plugs (D-HPR-8) + storage readings off the concept key (D-HPR-7)
+
+- **Added:** `OgarAuthority::activate` skips the capability join when `covered` is empty (D-HPR-8); `concept_override` no longer maps the five canon domains to storage models (D-HPR-7); changes in `crates/lance-graph-ogar/src/lib.rs`, glove-parity `basis.rs` and `tests/authority.rs`, board and plan rows.
+- **Locked:** reading is not a capability; palette seats, canon storage domains and minted-concept checks (`verify_against_mirror`) stay guarded; a plug that names a capability goes through the join unchanged. Domain models differed from `PLUG_AND_PLAY_V3` only in `value_schema`, which the slab's `SlabDeclaration` already overrides.
+- **Deferred / open:** none stated.
+- **Confidence:** two new D-HPR-8 tests, red before the fix (`NoCapabilitiesFor(0x0103)`); D-HPR-2 pin re-pinned, both re-pinned tests red before the change; a disable run making every plug reading-only turned 6 tests red. `lance-graph-ogar` and `lance-graph-glove-parity` pass, fmt clean, clippy shows the same 4 pre-existing warnings.
+
+## 2026-10-11 — lance-graph PR #1473 (merged `8bb32888`, branch `ccr-0455e606-wmtsor`, head `ef93f9ec`, 6 commits) — dir-sim: git-consumable, ViewActors, Graph groups, persistence (image/restore/revert)
+
+- **Added:** `lance-graph-dir-sim` now depends on four OGAR crates by git (`AdaWorldAPI/OGAR`, branch `main`) with a `[patch."https://github.com/AdaWorldAPI/OGAR"]` onto the sibling checkout; `ViewActors` (feature `rbac`, `src/actors.rs`, `GroupRoles`, `unread_groups`); `from_graph` observes Graph groups and direct members (`GroupMembers`); `VersionStore::image()` / `restore()` / `revert(current, earlier, evidence)` (`src/image.rs`, `store.rs`); plan `.claude/plans/dir-sim-persist-v1.md` (D-DSP-0/1); tests `tests/persist.rs`, `tests/view_actors.rs`, extended `tests/graph_observe.rs`.
+- **Locked:** roles inherit through SID chains only (`View::security_identifiers`), so a distribution group passes on nothing; a damaged image is refused; revert is recorded as a new version under `REVERT`; dir-sim keeps its no-I/O rule.
+- **Deferred / open:** the Lance writer (D-DSP-2) is a separate crate. Merge order: Spear and Stalwart root patches first, this PR after them. Graph groups need OGAR #353 (`ogar_az::group`) on OGAR `main` before CI can build.
+- **Confidence:** `cargo +1.99.0 test --manifest-path crates/lance-graph-dir-sim/Cargo.toml` and `--features rbac` pass; clippy `-D warnings` and fmt clean; a throwaway git consumer passes `cargo check`. Disable runs red: four (`ViewActors`), three (Graph groups), five plus one (persistence).
+
+## 2026-10-11 — lance-graph PR #1472 (merged `27c10080`, branch `ccr-f5674497-orfkox`, head `5386fbfa`, 2 commits) — board: concept labels via the plug (D-LBL-0..5), two corrections, three accepted decisions
+
+- **Added:** plan `.claude/plans/concept-labels-hotplug-v1.md` (D-LBL-0..5), rows in `INTEGRATION_PLANS.md` and `STATUS_BOARD.md`, supersession notes on the two 2026-10-11 entries, edits to `v3-mandatory-hotplug-reading-v1.md`. Board and plan only.
+- **Locked:** labels are ontology data in `ogar-vocab`, one row per (concept u16, BCP-47 tag, role, text), pulled through `hotplug.rs` only for plugged concepts; for now an activation carries every language with no `HotPlug` change; customer binaries activate at build time. `0x0103`: German preferred "Zeiterfassung", alternate "Stundenzettel". Corrections: source-id to concept mapping lives in the consumer's `HotPlug`; capabilities carry no list of consumers. Accepted 2026-10-11: D-HPR-7 (storage readings leave the concept key), D-HPR-8 (reading-only plug succeeds), D-HPR-6b goes ahead staged after 6a, D-HPR-3 and a stored-classid check.
+- **Deferred / open:** later, when a volume problem is measured, a consumer-minted `LabelSpec` and a default trait method `activate_with_labels` over a concept x language `LazyLock` index.
+- **Confidence:** n/a (board); `plan_dids.py`, `supersession_index.py` (no diff), `entries_index.py --check`, `epiphany_provenance.py` pass.
+
+## 2026-10-11 — lance-graph PR #1471 (merged `fc479c22`, branch `ccr-f5674497-orfkox`, head `52175ee9`, 4 commits) — board: synergy ledger + coresearch map (concept addresses, labels, id lifetime)
+
+- **Added:** entries `2026-10-11-synergy-ledger-classid-hotplug.md` (113 items) and `2026-10-11-coresearch-labels-address-lifetime.md` (24 rows); STATUS_BOARD rows corrected (D-HPR-2, D-XGP-2, D-XGP-8 Shipped; D-HPR-3..6 measured state, D-HPR-6 split into 6a and 6b); `ISS-CLASSID-READ-MODE-IS-A-SECOND-RESOLUTION-PATH` regraded; edits to plan `v3-mandatory-hotplug-reading-v1`. Board and plan only.
+- **Locked:** of the 113 ledger items, 106 hold and 7 were corrected by an adversarial re-reader; 14 of the 24 label rows measured by falsifier probes.
+- **Deferred / open:** O3 (latent): `0x0101`, `0x0202`, `0x0A01` are both codebook concepts and appid heads, so since #1465 `concept_override` gives plugging consumers the head's storage reading; D-HPR-6b needs operator approval. Also noted: `ClassId` declared twice in the contract (`u32` in `rbac.rs:331`, `u16` in `class_view.rs:54`), `EntityTypeDto.id` unstable, registry ids depend on `read_dir` order.
+- **Confidence:** n/a (board); `supersession_index.py` diff-clean, `entries_index.py --check` and `--self-test`, `epiphany_provenance.py` pass.
+
+## 2026-10-11 — lance-graph PR #1470 (merged `a4ee2ffb`, branch `ccr-0455e606-wmtsor`, head `a3afc3f5`, 1 commit) — dir-sim cloud: receives_mail, the one delivery rule with an optional cloud
+
+- **Added:** `cloud::receives_mail(view, Option<&CloudMailboxes>, node)` in `crates/lance-graph-dir-sim/src/cloud.rs`, re-exported at the crate root; test `receives_mail_uses_the_cloud_only_when_it_is_observed` in `tests/cloud_mailbox.rs`.
+- **Locked:** one rule: when a cloud was observed use `CloudMailboxes::delivers_to`, otherwise `View::is_mail_recipient`; a missing node receives nothing either way. It restates the private `receives` in Spear (`src/mail/directory.rs`) and Stalwart (`crates/directory/src/backend/dirsim/mod.rs`).
+- **Deferred / open:** Spear and Stalwart switch to it in follow-up PRs.
+- **Confidence:** `cargo +1.99.0 test` passes; clippy `-D warnings` and fmt clean; disable-verified (cloud arm ignoring the cloud fails the test).
+
+## 2026-10-11 — lance-graph PR #1469 (merged `53969b5c`, branch `ccr-0455e606-wmtsor`, head `4b4a59a4`, 1 commit) — dir-sim ad: a nested group is a member, not a dangling membership
+
+- **Added:** fix in `members()` in `crates/lance-graph-dir-sim/src/ad.rs`: a pair whose two ends are both existing groups becomes a `member`; test `a_nested_group_is_a_member_not_dangling` in `tests/ad_projection.rs`.
+- **Locked:** only a pair naming a node the version does not hold counts as dangling. `groupType` stays unemitted: a version keeps the security flag but not the scope, and the projection rule is "absent, never guessed".
+- **Deferred / open:** carrying the group scope would mean keeping the raw `groupType` at ingest; stated as a separate change.
+- **Confidence:** disable-verified (nesting branch forced off fails the test); `cargo +1.99.0 test -p lance-graph-dir-sim` passes; clippy `-D warnings` and fmt clean.
+
+## 2026-10-11 — lance-graph PR #1468 (merged `8c2df89d`, branch `ccr-0455e606-wmtsor`, head `dc9b3ee3`, 2 commits) — board: coresearch map — instance authorization and principal expansion
+
+- **Added:** board entry `.claude/board/entries/2026-10-11-coresearch-instance-authz.md` (216 lines) and regenerated entries index; no code. Exploration map from a coresearch council, split into Q1 (V17 mailbox delegation, V18 document role assignments) and Q2 (principal expansion as a resident plane: SID chain, mail chain).
+- **Locked:** converging shape: `PrincipalPlanes` per `(VersionId, chain)`; `GrantRelation` lane (witness, level, deny, expiry); one per-bit first-applicable fold (Windows canonical ACE order) riding the row-scope axis (I-K5), never `ScopeSpec.deny`. Each row has a verdict and a pre-registered probe. The entry ratifies nothing.
+- **Deferred / open:** X13 (Stalwart conflates mail reach, ACL membership, send-as), X14 (V17 trustee rules vs Microsoft cmdlet docs), Y7 (primaryGroupID as a SID-chain-only edge). The RFC 8693 `act` claim and the GUID join moved out as "not authorization".
+- **Confidence:** `entries_index.py --write` regenerates cleanly (300 rows); CI board-index falsifiers unchecked in the test plan.
+
+## 2026-10-10 — lance-graph PR #1466 (merged `1116c120`, branch `ccr-1d749cc5-q8s5qs`, head `ef12df0c`, 3 commits) — Knowledge: split-tunnel persistence — sparse append on write, resident fold on read (measured: 0.72 ms)
+
+- **Added:** `.claude/knowledge/split-tunnel-sparse-append-resident-fold.md` (pattern, seven rules, measurements, scope, adoption), board entry `2026-10-10-split-tunnel-sparse-append-resident-fold.md`, one line in `CLAUDE.md`'s knowledge list. Documentation only; `Alpha*` types untouched.
+- **Locked:** write = sparse `(version, owner, op, row, lane, present, value)` records, one Lance version per batch, never updated in place or compacted; Lance read once at replay, installed in memory only after every batch applies; reads are a Quack / mask-risc fold, newest write wins by append order. Measured (HubSPO-rs `hubspo-store::log`, release, 1.2M records, 1,000 versions, 1,001 fragments): resident fold 0.72 ms, replay 532 ms, Lance scan per read 336 ms, address index into in-place updates 46 ms, budget < 20 ms.
+- **Deferred / open:** labelled MEASURED for one consumer and carrier shape, WORKING-MODEL for `NodeRow` / facet payloads, multi-mailbox logs and in-memory sets larger than memory; `changed_coordinates` representation stays open.
+- **Confidence:** disable runs in HubSPO-rs were all red (resident-version check, install before replay validates, `commit` not extending memory, each history term, I32 sign bit); `entries_index.py --check` passes, `supersession_index.py` regenerates identically, `citation_decay.py --since origin/main` reports no new decay.
+
+## 2026-10-10 — lance-graph PR #1465 (merged `8d88e752`, branch `ccr-f5674497-orfkox`, head `312b5888`, 3 commits) — ogar: canon domain readings come from the plug (D-HPR-2)
+
+- **Added:** `lance-graph-ogar::concept_override` answers five canon domains by concept: `0x0701` `OSINT_V3`, `0x0A01` `FMA_V3`, `0x0E01` `CPIC_V3`, `0x0101` `PROJECT_V3`, `0x0202` `ERP_V3`; test `canon_domains_read_from_the_plug_as_the_classid_table_reads_them`; wave W2 of `v3-mandatory-hotplug-reading-v1.md`.
+- **Locked:** a consumer plugging one of these concepts reads what `classid_read_mode` gives the matching `CLASSID_*_V3` key, with no classview. No consumer plugs these concepts today (checked across lance-graph, OGAR, MedCare-rs, q2, odoo-rs, openproject-nexgen-rs, HubSPO-rs, spear), so no live reading changes.
+- **Deferred / open:** none stated.
+- **Confidence:** disable run (removing the `0x0A01` arm fails the test); `cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml` passes (6 test binaries); fmt clean. Clippy not run in CI for this crate; it reports 6 errors in `bridges/mod.rs` and `rbac_impl.rs`, untouched here, same on `main`.
+
+## 2026-10-10 — lance-graph PR #1464 (merged `1573eb4c`, branch `ccr-f5674497-orfkox`, head `7cdc18f7`, 6 commits) — V3 mandatory: the reading comes from the plug, never from the classid value (D-HPR)
+
+- **Added:** plan `.claude/plans/v3-mandatory-hotplug-reading-v1.md` (waves W1-W6, inventory of `classid_read_mode` / `*_V3` callers), board entry and `INTEGRATION_PLANS` / `STATUS_BOARD` rows (D-HPR-0); contract forms taking the reading as a parameter (D-HPR-1): `ocr::LayoutBlock::to_node_row_with`, `aiwar::aiwar_node_rows_with`, `soa_graph::project_snapshot_with`, `soa_graph::nearest_anchor_with`, `nan_projection::project_energy_nonfinite_plugged`; "Deprecated, kept" doc notes on the five `CLASSID_*_V3` constants and `classid_read_mode` (D-HPR-4).
+- **Locked:** V3 is mandatory; the reading comes from the plug; old forms keep behaviour and delegate to the new ones; an unplugged concept returns `NoReadingFor`, never a V1 default; the `0x1000` fossils are documented, not evicted, and not marked `#[deprecated]` (it would fail existing callers under `-D warnings`).
+- **Deferred / open:** O1 which classview a new canon mint uses instead of `0x1000` (not blocking); O2 which WoA row "Stundenzettel" names.
+- **Confidence:** `lance-graph-contract` tests pass with default features, lib suite passes with `--no-default-features` (1445 tests), fmt and clippy `-D warnings` clean; each new form tested on classid `0x1718_0000`, disable runs red 4/4; Codex P2 fixed (OCR test gated on `guid-v3-tail`), plan ids renamed to `D-HPR-*`.
+
+## 2026-10-10 — lance-graph PR #1463 (merged `cc938a02`, branch `ccr-0455e606-wmtsor`, head `1118c83b`, 4 commits) — dir-sim: nesting is one global pattern; group properties are a Quack filter
+
+- **Added:** `crates/lance-graph-dir-sim/src/groups.rs`; `View::members_transitive(group)`, `View::groups_transitive(user)`, `groups_where(view, &GroupWhere)` (`Is` / `Not` / `And` / `Or`, `GroupWhere::both()`) lowered to one Quack program (plane 0 live groups, plane 1 security plane, lane 0 primary-SMTP key with mail-enabled as `NeU32(NONE)`); `groups_transitive_through`, `members_transitive_through`, `security_identifiers(user)`; eight tests in `tests/nested_groups.rs` pinned in `identity.yml`. Follow-up to #1461, which merged at the intermediate `Closure` version (`59d1d9d`).
+- **Locked:** `Closure` enum is gone; nesting follows every group in both directions; mail-enabled and security-enabled are independent; only a security group has a SID, so permissions follow the SID chain only; mail is chained addressing, never inherited (an address-less group ends the chain).
+- **Deferred / open:** none stated.
+- **Confidence:** three deliberate breaks each make tests fail (security leaf reads live plane: 3; version address overrides ignored: 1; nesting stops at first group: 3); locally fmt, clippy `-D warnings` and dir-sim tests.
+
+## 2026-10-10 — lance-graph PR #1462 (merged `feb21972`, branch `ccr-f5674497-orfkox`, head `7206a17f`, 2 commits) — glove-parity: WoA anchors are OGIT-minted; "Stundenzettel" is a DTO label
+
+- **Added:** corrections to the D-XGP-8 record: `basis.rs` doc comment and `WOA_FIELDS` notes, doc comment on the two-sided `WoaPort` test, plan §C.9.5, its board entry, and the `STATUS_BOARD` D-XGP-8 row.
+- **Locked:** verified against `AdaWorldAPI/OGIT` at `2315167`: OGIT defines `ogit.WorkOrder:TimeSheet`, `:User`, `:Tenant`; #1460's "no classid" held only for the OGAR harvest and codebook. "Stundenzettel" is a DTO label of `ogit.WorkOrder:TimeSheet`, and OGIT has no `TimesheetActivity`. `minuten` is whole minutes (rounded up to 15 for billing), `abgerechnet` is the "billed" flag; `TimeSheet` belongs to `Customer` and `Tenant` and relates to `User` via `logsTime`. No behaviour change.
+- **Deferred / open:** whether `WoaPort` should resolve `ogit.WorkOrder:TimeSheet` to `0x0103` with "Stundenzettel" kept as label; an OGAR change, not made here.
+- **Confidence:** `lance-graph-glove-parity` still passes all 16 tests; fmt and clippy `-D warnings` clean.
+
+## 2026-10-10 — lance-graph PR #1461 (merged `e83a4bc5`, branch `ccr-0455e606-wmtsor`, head `59d1d9d9`, 2 commits) — dir-sim: nesting is one global pattern; group properties are a Quack filter
+
+- **Added:** `View::members_transitive(group)` and `View::groups_transitive(user)` in `view.rs`; `groups_where(view, &GroupWhere)` lowered to one Quack program; tests in `tests/nested_groups.rs` (`nesting_follows_every_group`, `a_user_s_groups_follow_nesting_upward`, `members_and_groups_are_inverse`, `group_properties_are_a_quack_filter`, `nesting_and_properties_compose`, `a_version_s_memberships_are_followed`) pinned in `identity.yml`.
+- **Locked:** the `Closure` enum from #1458 is removed; nesting is independent of group kind; mail-enabled and security-enabled are independent properties; callers combine nesting with `groups_where` (e.g. a user's SIDs).
+- **Deferred / open:** none stated. Merged at an intermediate version; the rework landed in #1463.
+- **Confidence:** three deliberate breaks each make tests fail (security leaf reads live plane: 3; address overrides ignored: 1; nesting stops at first group: 3); locally fmt, clippy `-D warnings`, dir-sim tests.
+
+## 2026-10-10 — lance-graph PR #1460 (merged `ec1c92bd`, branch `ccr-f5674497-orfkox`, head `982e98c0`, 11 commits) — docs+glove-parity: classid layout ruling, render_classid audit, V3-marker fossil, WoA anchors
+
+- **Added:** board entries (`classid-layout-ruling`, `render-classid-reversal-audit`, `woa-anchors-timesheet`), `ISSUES.md` row, `.claude/knowledge/ogar-consumer-preflight.md` (+58), plan §C.9.4 and §C.9.5; `WOA_FIELDS` in `lance-graph-glove-parity::basis` (`user` to `performed_by`, `minuten` to `duration`, `tenant_id` to `tenant`, all `Hypothesized`); tests in `tests/authority.rs`.
+- **Locked:** layout `classid: u32 = [domain 8 | appid 8][classview 16]`; `render_classid` already matches, reversing it is not asked for and not done (about 20 hand-copied bit-math sites across 9+ repos, silent mis-routing, persisted data would need re-keying). Per-app prefixes `0x0000`-`0x000C` and the `0x1000` V3 marker are fossils; V3 is mandatory, `hotplug.rs` and the slab envelope decide `Facet96` vs `Register128`. `datum` stays unmapped, `abgerechnet` not mapped to `billable`. Finding: OGAR's `WoaPort` resolves `0x0103` on `TimesheetActivity` (corrected in #1462).
+- **Deferred / open:** residue `ISS-CLASSID-READ-MODE-IS-A-SECOND-RESOLUTION-PATH` filed, no code change; moving the `WoaPort` pin is an OGAR change left to the operator.
+- **Confidence:** `lance-graph-glove-parity` 16 tests pass, fmt and clippy `-D warnings` clean; disable runs red for the WoA pin, the one-claim-per-anchor rule and the invoiced-flag exclusion; entries and supersession indexes regenerated.
+
+## 2026-10-10 — lance-graph PR #1459 (merged `840e159e`, branch `ccr-f5674497-orfkox`, head `dd042e3e`, 3 commits) — feat(sap, glove-parity): billable lens — first Converted claim (D-XGP-3)
+
+- **Added:** `lance-graph-sap` `billable` lane (`CatsBatch::bind` in `bind.rs`, after `work_day`; `lanes()` now `LANE_COUNT = FIELD_COUNT + 2`) derived from `billing_indicator`: "Billable" to 1, "Non-Billable" and "Internal Cost" to 0, else `BILLABLE_UNKNOWN`; `CatsBinder` serves field `billable` (`Code`, literals `true` / `false`); SAP `billing_indicator` to `billable` claim in `basis.rs` now `Converted`; tests in `lance-graph-sap/tests/binder.rs` and glove-parity `tests/authority.rs`; plan §C.9.2, STATUS_BOARD row, board entry.
+- **Locked:** a filter on either boolean never selects an unknown value. Measured: 9 of 12 `BillableWorkEntry` edge targets are not minted in OGAR (`Worker`, `Duration`, `RatePolicy`, `CostCenter`, `InvoiceLineCandidate`, `ApprovalState`, `Tenant`, `AuditTrail`, `PostingAction`); only 3 of 12 are.
+- **Deferred / open:** `performed_by`, `duration`, `tenant` stay `Hypothesized` until OGAR mints their targets (OGAR authority decision, open alongside the temporal role).
+- **Confidence:** disable runs 5 of 5 failed as expected (one first passed because it computed expectations from the table under test; fixed in `7c93c93d`, now from the DTO docs); `lance-graph-sap` fmt, clippy `-D warnings` and tests pass; `lance-graph-glove-parity` 13 tests pass.
+
+## 2026-10-10 — lance-graph PR #1458 (merged `bbee33f9`, branch `ccr-0455e606-wmtsor`, head `f28756e4`, 2 commits) — dir-sim: security-enabled groups and nested membership closures (W-4)
+
+- **Added:** `ObservedNode::security: Option<bool>` read from AD `groupType` high bit (`ogar_ad::is_security_enabled`, schema 7+); `View::members_transitive(group, Closure)` with `Closure::Delivery` and `Closure::Security`; `tests/nested_groups.rs` (5 tests, pinned in `identity.yml`); literals updated in `bounds.rs` and `sim.rs`.
+- **Locked:** security-enabled and mail-enabled are independent; an unread flag stays `None`, not `false`; `Closure::Security` walks only `Some(true)` groups and fails closed like an AD token; cycles visited once; results in ordinal order. Spear and Stalwart need no change (they use `ObservedNode::user()` / `::group()`).
+- **Deferred / open:** Graph observations leave the flag `None` for now. (The `Closure` enum was removed in #1461 / #1463.)
+- **Confidence:** each of the 5 tests checked by disabling the code it covers and confirming failure; test counts otherwise not stated.
+
+## 2026-10-10 — lance-graph PR #1457 (merged `e724d834`, branch `ccr-1d749cc5-q8s5qs`, head `aef63af8`, 2 commits) — mask-risc: name ndarray by its canonical git coordinate so Quack is consumable by git
+
+- **Added:** `lance-graph-mask-risc` `ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }` in place of the `../../../ndarray` path; `[patch."https://github.com/AdaWorldAPI/ndarray"] ndarray = { path = "../ndarray" }` in the root `Cargo.toml` and in `r2il-mask-abi-probe`, `lance-graph-glove-parity`, `lance-graph-sap`, `d-diamond-1-probe`, `lance-graph-dir-sim`.
+- **Locked:** the relative path broke consumers of `lance-graph-quack` by git (measured from HubSPO-rs, D-QRY-1) and rule 5 of `.claude/knowledge/CARGO-COMPUTE-SUBSTRATE.md`; only mask-risc moves, other ndarray path deps stay.
+- **Deferred / open:** none stated.
+- **Confidence:** `cargo test -p lance-graph-mask-risc -p lance-graph-quack -p lance-graph-cypher-quack` green; `cargo tree -d -e normal` root output same as `main` (no third ndarray); `cargo tree -i ndarray` in each of the five standalone workspaces shows one ndarray, no unused-patch warning; HubSPO-rs consumer builds and its oracle tests pass.
+
+## 2026-10-10 — lance-graph PR #1456 (merged `0a912218`, branch `ccr-b2e415d9-4jfvyk`, head `25e09b25`, 3 commits) — Lab v1 (Thompson + context arms on Gomoku); phasor_trig_probe on PhaseLut
+
+- **Added:** `phasor_trig_probe` uses `ndarray::simd::PhaseLut` (#343) instead of a private `(cos, sin)` table; `lab.rs` Gamma and Beta samplers (moments test for Beta(1/2, 1/2), Beta(2.5, 7.5), Beta(30.5, 10.5)); `Chooser::Thompson` (Jeffreys posterior Beta(pos + 1/2, neg + 1/2)); `Memory::Global`; `--lab-v1` on seeds 4001.. with its own Holm family in `moore_nars_gomoku_probe.rs`; board entry `2026-10-10-d-self-calibrating-lab-1.md`, STATUS_BOARD LAB-1 row. Probe-only, no production code.
+- **Locked:** results: T1 Thompson beats expectation argmax -0.050 score FALSIFIED; T2 adapts faster after opponent switch -0.015 FALSIFIED; T3 structural context beats one global key +0.025 SUPPORTED; T4 Thompson reduces folds/step +18.5, not significant, FALSIFIED (interval excludes the 5-fold minimum). The complex-distance bound stays local to the probe because `PhaseLut::nearest_error_bound` bounds components separately.
+- **Deferred / open:** none stated.
+- **Confidence:** `moore_nars_gomoku_probe` tests 15 passed; mask-risc clippy `--all-targets` and fmt clean; replacing the sampler with the posterior mean turns two tests red; probe non-timing output unchanged by the PhaseLut swap.
+
+## 2026-10-10 — lance-graph PR #1455 (merged `c4be11f3`, branch `ccr-f5674497-orfkox`, head `f1237b58`, 4 commits) — feat(glove-parity): SAP/Odoo hot-plugs + BillableWorkEntry basis from the authority (D-XGP-2)
+
+- **Added:** `lance-graph-glove-parity::basis` module: `SAP_HOT_PLUG`, `ODOO_HOT_PLUG` (declare `BILLABLE_WORK_ENTRY`), `canonical_fields()` (13 field names for `0x0103` from `OgarClassView`), `SAP_FIELDS` (6 claims), `ODOO_FIELDS` (3 claims), all `Hypothesized`; five tests in `tests/authority.rs`; dependency on `lance-graph-ogar` (path) with the same `[patch]`; plan §C.9.1, STATUS_BOARD, board entry, comment in `canonical_front.rs`.
+- **Locked:** both plugs are refused with `NoCapabilitiesFor(0x0103)`; basis is the 13 fields in `ClassView` order; no claim above `Hypothesized`, no native field claimed twice; the class has no temporal field, so work dates stay unmapped.
+- **Deferred / open:** whether `BillableWorkEntry` gains a temporal role (OGAR change); D-XGP-3, the first `Converted` grade.
+- **Confidence:** `cargo fmt --check`, clippy `-D warnings`, 11 tests passing (toolchain 1.99.0); four disable runs, each test failed when its check was disabled.
+
+## 2026-10-10 — lance-graph PR #1454 (merged `c9403ec4`, branch `ccr-1d749cc5-q8s5qs`, head `1e4bbeb9`, 1 commit) — Handover: HubSPO-rs wishlist for dir-sim execution and the report seam
+
+- **Added:** `.claude/handovers/2026-10-10-1600-hubspo-rs-to-lance-graph.md`, a consumer wishlist read against `a75bcc42`. W-1 mailbox delegation (`View::may_act_for`, sparse relation lane), W-2 `ActorSource` over a `View`, W-3 persist a version as a Lance dataset version, W-4 transitive group members (dir-sim); W-5 borrowed/Arrow-buffer lane variant for `LaneData`, W-6 `AbiBatch::generation` `u32` vs Lance `u64` (`lance-graph-report`).
+- **Locked:** none stated (HubSPO-rs needs each item but may not build it locally, per the STOP rule).
+- **Deferred / open:** all six items W-1 to W-6 are requests; the meaning half of W-1 to W-3 is in the sibling OGAR handover.
+- **Confidence:** n/a (docs only); evidence cited is HubSPO-rs PR #17 (comms API map, probe P-QDB-1 over nine Quack programs on Arrow buffers).
+
+## 2026-10-10 — lance-graph PR #1453 (merged `65f45706`, branch `ccr-0455e606-wmtsor`, head `8778918a`, 22 commits) — dir-sim: a read-only LDAP v3 handler over a projection (ldap)
+
+- **Added:** `crates/lance-graph-dir-sim/src/ldap.rs` (`ldap::Server` serving a `Directory` built from an `ad::Projection`; host owns the socket, calls `Server::handle` per PDU, uses `frame()` to split the stream); `tests/ldap_server.rs` (6 tests on raw BER requests), `tests/ldap_alloc.rs`; changes to `src/ad.rs`, `src/lib.rs`, `Cargo.toml`, `.github/workflows/identity.yml` (3 tests pinned).
+- **Locked:** simple bind only; unauthenticated bind (name, no password) refused per RFC 4513; read-only (modify/add/delete/modify DN/compare/extended answer `unwillingToPerform`); anonymous sessions read only the rootDSE; entries gated by `Authority::visible`, attributes by `Authority::readable`; hidden base returns `noSuchObject`; RFC 4511 three-valued filter logic; malformed PDU gets a notice of disconnection. Also member DNs indexed by group once (CodeRabbit nit from #1452).
+- **Deferred / open:** none stated.
+- **Confidence:** full dir-sim suite passes; clippy `-D warnings` clean; disable runs for entry visibility, base visibility, attribute readability (output and filter), write refusal, rebind identity reset, unauthenticated-bind refusal, size limit, three-valued NOT each turn their test red.
+
+## 2026-10-10 — lance-graph PR #1452 (merged `a75bcc42`, branch `ccr-0455e606-wmtsor`, head `d2d970b1`, 4 commits) — dir-sim: a version as Active Directory entries and LDIF (ad::project)
+
+- **Added:** `crates/lance-graph-dir-sim/src/ad.rs` (`ad::project(view, source, naming_context, dict)`, `ad::to_ldif`), `tests/ad_projection.rs` (6 tests, 3 pinned in `identity.yml`), `lib.rs` and `identity.yml` edits. Phase 2 of OGAR IAM plan V16.
+- **Locked:** every entry carries `dirSimOrigin` (`observed`, `mirrored`, `synthetic`, `simulated`); relative name is `CN=<objectGUID>`; `userAccountControl` only when the enabled flag is known (512/514); `msExchMailboxGuid` only when observed; simulated primary change does not invent the old primary as a secondary; dangling memberships counted in `dangling_members`; LDIF per RFC 2849 (base64 for non-SAFE-STRING, fold at 76); projection read-only; refuses non-DC-only naming context, `Unlocated` nodes, `UnknownOu`.
+- **Deferred / open:** next is phase 3, a read-only LDAP server filtered by IAM. A "both endpoints of a membership row exist" check was removed as unreachable (`ApplyError::NodeHasMemberships`).
+- **Confidence:** full dir-sim suite passes; clippy `-D warnings` clean; disable runs red for origins, dangling count, DC-only naming context, base64, line folding, primary duplication and unknown enabled flag.
+
+## 2026-10-10 — lance-graph PR #1451 (merged `fe171b19`, branch `ccr-edc85bd9-89tiwe`, head `e11bcdab`, 1 commit) — rustfmt: lane-fold and arm-discovery (unblocks downstream fmt gates)
+
+- **Added:** formatting only, 13 files in `lance-graph-lane-fold` (`clifford_fold.rs`, `lib.rs`, `query.rs`, `stars.rs`) and `lance-graph-arm-discovery` (`aerial/{codebook,extract,mod,ontology}.rs`, `bitset.rs`, `rule.rs`, `simd.rs`, `translator.rs`, `tests/wikidata_landing.rs`).
+- **Locked:** no code changes; the files arrived non-rustfmt-clean with #1381; q2's `cargo fmt --all -- --check` reaches them (failing AdaWorldAPI/q2#156).
+- **Deferred / open:** none stated (`STATUS: done | OPEN: none`).
+- **Confidence:** formatted with pinned 1.99.0 rustfmt; `cargo check --all-targets` passes for both crates; `cargo fmt -- --check` passes for both; q2's `cargo fmt --all -- --check` exits 0 with this branch as sibling.
+
+## 2026-10-10 — lance-graph PR #1450 (merged `c4d3c4da`, branch `ccr-0455e606-wmtsor`, head `0200bd62`, 1 commit) — dir-sim: observe Entra users as an AD emulation (from_graph)
+
+- **Added:** `observe::from_graph(tenant, records, pool, dict)` in `crates/lance-graph-dir-sim/src/observe.rs`, `GraphObservation::synthetic`, `SYNTHETIC_OU` (`Cloud Only (emulated)`), `ogar-az` path dep, `tests/graph_observe.rs` (6 tests, 4 pinned in `identity.yml`). Phase 1 of OGAR IAM plan V16.
+- **Locked:** user with `onPremisesDistinguishedName` is mirrored at that DN's OU path; cloud-only user goes under `SYNTHETIC_OU`; refusals `SyntheticClash`, `UnplacedMirror` (never demoted to synthetic), `ForeignScope`; `active` from `accountEnabled` (absent means unknown); first `SMTP:` proxy is primary; `recipient` and `exchange_guid` not read; mailbox records skipped; `ObserveError` loses `Copy` (carries `HhtlError`).
+- **Deferred / open:** none stated (companion OGAR plan PR V16).
+- **Confidence:** full dir-sim suite passes; clippy `-D warnings` clean; disable-verified red, one test each: clash guard, unplaced guard, user-kind filter, synthetic listing.
+
+## 2026-10-10 — lance-graph PR #1449 (merged `488571c1`, branch `ccr-f5674497-orfkox`, head `7064aab3`, 1 commit) — docs(plans): apply hotplug ruling to cross-glove parity; D-XGP-2 re-scoped (§C.9)
+
+- **Added:** new §C.9 in `.claude/plans/cross-glove-business-parity-v1.md` superseding in place the lockstep framing in §0.1, §6, §10.1, §C.5, §C.8; entry `.claude/board/entries/2026-10-10-d-xgp-2-hotplug-billable-work-entry.md`; `STATUS_BOARD.md` row update; regenerated entries index.
+- **Locked:** no `APP_PREFIX` allocation gate and no central URI minting; SAP and Odoo each declare a `HotPlug` const (plus `RbacPlug` once roles exist) resolved by `OgarAuthority`; canonical basis for `0x0103` already exists as OGAR `BillableWorkEntry` (`ogar-vocab/src/lib.rs:3515`: attribute `billable` plus 12 family edges), so D-XGP-2 mints nothing. Measured at OGAR `main` `7aaf824`: no temporal role, most fields are edges, no capability table covers `0x0103` (`NoCapabilitiesFor`).
+- **Deferred / open:** whether `BillableWorkEntry` gains a temporal role is an OGAR authority change, not made here; `lance-graph-glove-parity` still uses fixture URIs (`ogar.GloveFixture:*`), moving it onto the authority's `ClassView` names is the next code step.
+- **Confidence:** n/a (docs only).
+
+## 2026-10-10 — lance-graph PR #1448 (merged `1fea69ee`, branch `ccr-f5674497-orfkox`, head `3775de9a`, 5 commits) — feat(sap, glove-parity): CATS behind Quack's Binder, addressed in canonical names (D-XGP-1)
+
+- **Added:** `lance-graph-sap` `binder::CatsBinder` (`impl lance_graph_quack::bind::Binder` over `CatsBatch`) and `CatsBatch::dictionary_code`; new test-only crate `lance-graph-glove-parity` (own workspace, root `exclude`) with `native_field(reg, bridge, uri)` and `CanonicalBinder`; `.github/workflows/glove-parity.yml`; tests `lance-graph-sap/tests/binder.rs` (6) and `lance-graph-glove-parity/tests/canonical_front.rs` (6, Q1, Q2, N-a, N-c); board entry `2026-10-10-d-xgp-1-cats-binder-canonical-front.md`.
+- **Locked:** reuses shipped `OntologyRegistry` and Quack `Binder`, no new registry/trait/evaluator; optional fields and U64 instants refused (CATS NULL is a sentinel, not a validity plane); `native_field` binds only a bridge's own `Attribute` row with confidence 1.0; hypothesized rows never bind. Finding (§C.8): same `(bridge_id, public_name)` with same checksum is idempotent, so the checksum must cover the URI. Next free `SapPort` prefix is `0x000D` (`0x000C` claimed by `HiroPort`, OGAR #333, unmerged).
+- **Deferred / open:** canonical URIs are fixtures (`ogit.GloveFixture:*`), minting for `0x0103` is an open ruling (§C.5); `Draft` supports only `Eq`/`Ne` and `Count`/`Rows` (range and grouped fold in Q1 written against resolved lanes); needs an Odoo population binder for algebra parity; SAP behaviour parity UNPROVEN; `MappingRow::active` not consulted.
+- **Confidence:** sap 20/20 and probe 6/6 on 1.99.0; `clippy --all-targets -D warnings` and `fmt --check` clean for both crates; `cargo run --example cats` passes; 6 disable runs in sap and 5 in the front, each made after committing, each turned its named test red.
+
+## 2026-10-10 — lance-graph PR #1447 (merged `11db6b57`, branch `ccr-0455e606-wmtsor`, head `37b49595`, 3 commits) — dir-sim: compare the remote mailbox's ExchangeGuid on both sides
+
+- **Added:** in `crates/lance-graph-dir-sim/src/cloud.rs`: `Ruler.entra_id`, `with_exchange_guids(&[(ExternalDirectoryObjectId, ExchangeGuid)])`, `mailbox_guid(view, g) -> MailboxGuid` (`NotRemote`, `NoCloudMailbox`, `CloudUnread`, `AwaitingBacksync { cloud }`, `Matched(guid)`, `Mismatch { on_premises, cloud }`), `MailboxGuid::migratable()`; 5 new tests in `tests/cloud_mailbox.rs` pinned in `identity.yml`.
+- **Locked:** `ExchangeGuid` is the mailbox's immutable identity; `Enable-RemoteMailbox` leaves `msExchMailboxGuid` empty; only `Matched` is migratable; `Mismatch` blocks provisioning of the cloud mailbox so `delivers_to` rejects it; an id listed with two different cloud values is ambiguous and stays unread. `from_fold`, `contains`, `owners`, `delivers_to` keep signatures; Spear (`--features iam`) and Stalwart both build unchanged.
+- **Deferred / open:** the Exchange hybrid option is not observed, so an empty value reads as "awaiting backsync" either way.
+- **Confidence:** `fmt`, `clippy -D warnings` and full crate suite green on 1.99.0; five guards disabled in turn (`delivers_to` ignoring mismatch, equality check dropped, empty treated as match, ambiguous takes first, `migratable` accepting more than `Matched`), each turned exactly one test red.
+
+## 2026-10-10 — lance-graph PR #1446 (merged `7db81dee`, branch `ccr-0455e606-wmtsor`, head `219bb291`, 3 commits) — dir-sim: mail is a business-card property of the user; ExchangeGuid is the immutable mailbox identity
+
+- **Added:** doc and wording changes in `View::mail`, `View::exchange_identity`, `ObservedNode::mail` and `tests/exchange_identity.rs`; new test `recipient_eligibility::mail_follows_the_user_through_offboarding`; `mail_is_the_licence_plate_as_written` renamed `mail_is_a_business_card_property_as_written`; both pinned in `identity.yml`.
+- **Locked:** `mail` follows the user, not the mailbox or recipient, and is not identity, not received at, not provisioned; `ExchangeGuid` is immutable mailbox identity; `PrimarySmtpAddress` identifies the recipient implicitly as a string and can change; `ExternalDirectoryObjectId` links the mailbox to its Entra user. `Disable-RemoteMailbox` ends addresses and delivery while `mail` stays as written. OGAR #338 and Stalwart #9 carry the same wording.
+- **Deferred / open:** none stated.
+- **Confidence:** 143 tests pass on 1.99.0, clippy `-D warnings` and fmt clean; disable run (`View::mail` returning nothing once the object stops being a recipient) turns both `mail` tests red.
+
+## 2026-10-10 — lance-graph PR #1445 (merged `a733b445`, branch `ccr-0455e606-wmtsor`, head `b7a7af36`, 2 commits) — dir-sim: ExternalDirectoryObjectId links the mailbox to its Entra user (doc)
+
+- **Added:** doc wording fix to what #1444 introduced, in `crates/lance-graph-dir-sim/src/view.rs` (`View::exchange_identity`) and `tests/exchange_identity.rs` header.
+- **Locked:** a provisioned mailbox is identified by its `ExchangeGuid`; every mail recipient links mailbox to user through `ExternalDirectoryObjectId` (the Entra object); the Entra user carries `{alias}@{tenant}.onmicrosoft.com`, which is not the routing address `{alias}@{tenant}.mail.onmicrosoft.com` (the external target EOP delivers to). OGAR #337 carries the same correction on `ExchangeIdentity` and `ROUTING`.
+- **Deferred / open:** none stated.
+- **Confidence:** 142 tests pass on 1.99.0; clippy `-D warnings` and fmt clean.
+
+## 2026-10-10 — lance-graph PR #1444 (merged `07ab2e52`, branch `ccr-0455e606-wmtsor`, head `15564fe1`, 7 commits) — dir-sim: provisioning by recipient type; identity read by GUID (ExchangeGuid ingest)
+
+- **Added:** in `crates/lance-graph-dir-sim`: `View::exchange_identity(g)`, `View::mail(g)`, `observe::from_ad` reading `msExchMailboxGuid` into `ObservedNode::exchange_guid` (schema-6 records; earlier `None`), snapshot `mail_val` and two claim planes `owner` (UPN) and `mail_owner` (mail addresses); removed `validate::mail_label` / `View::mail_label_key`; new `tests/exchange_identity.rs`; `identity.yml` pins.
+- **Locked:** mail addresses held exactly when the object is a mail recipient (`is_mail_recipient`), UPN still claimed by every live account; `mail` is a label (not identity, not received at, not provisioned) and resolves to nothing; behaviour change re-pinned in `cloud_mailbox::the_cloud_never_revives_a_non_recipient` and `recipient_eligibility::an_enabled_non_mail_enabled_user_is_not_a_recipient`.
+- **Deferred / open:** split between provisioning (`msExchRecipientDisplayType`) and `proxyAddresses` for routing/edge blocking (Authoritative vs InternalRelay) not settled, this half may change. Merge with or after OGAR #337 (removes `MailLabel`).
+- **Confidence:** 142 tests pass on 1.99.0 (debug 0), clippy `--all-targets -D warnings` and fmt clean; disable runs red: lowercased plate, `exchange_identity` following `mail`, flag rule reverted (three tests), `address_rows` back on UPN plane.
+
+## 2026-10-10 — lance-graph PR #1443 (merged `f2a9e2ea`, branch `claude/w2-space-axis-decision`, head `1dfccdfa`, 1 commit) — R2IL W2: decide the space axis; custom spaces leave the classid
+
+- **Added:** board entry `.claude/board/entries/2026-10-10-e-w2-space-axis-custom-space-leaves-the-classid-1.md` (`E-W2-SPACE-AXIS-CUSTOM-SPACE-LEAVES-THE-CLASSID-1`), edits to `.claude/plans/r2il-machine-semantic-contract-v1.md` and entries `README.md`.
+- **Locked:** option 3 decided: custom space moves out of the classid into the payload or edge, keyed by architecture identity and version; classid space discriminant carries only fixed spaces 0-3. Measured on the 6502 spec via `r2sleigh_lift::build_arch_spec`: `RAM` is `Custom(1)` on r2sleigh `master` and `Ram` with r2sleigh #16; `OTHER` stays `Custom(0)`; the 6502 `live_regfile` probe stays 18 of 18; W0 x86 census had 94,536 rows with no custom space. Version-keyed validation 0.6-0.7 µs vs 802-818 µs content fingerprint (D-SCF-CARE-PAIR-0). W2 may resume on the space axis; §8.2 Q2 settled, Q3 decided.
+- **Deferred / open:** the carving itself, assigned to `ruff_r2il` `facet.rs` PR 3.
+- **Confidence:** `entries_index.py --check` and `--self-test`, `citation_decay.py --since` merge-base, and `epiphany_provenance.py` pass; `SUPERSESSION-INDEX.md` regenerated unchanged.
+
+## 2026-10-10 — lance-graph PR #1442 (merged `11bd2885`, branch `claude/hiro-app-prefix`, head `91b63da9`, 1 commit) — Mirror OGAR's HIRO app prefix 0x000C as AppPrefix::Hiro
+
+- **Added:** `AppPrefix::Hiro` = `0x000C` in `prefix()` and `from_prefix()` in `crates/lance-graph-contract/src/ogar_codebook.rs`; `LATEST_STATE.md` contract-delta entry. Mirrors OGAR #333 `HiroPort`.
+- **Locked:** next free prefix is `0x000D`; `0x0006` stays unallocated; no codebook row changes so `lance-graph-ogar` parity is unaffected; no cross-repo test pairs the prefixes, so merge order with OGAR #333 does not matter.
+- **Deferred / open:** none stated (`OPEN: none`).
+- **Confidence:** `app_prefixes_match_ogar_allocation_table` pins `0x000C`, round-trips `Hiro`, checks a HIRO machine renders `0x0C04_000C`; mapping `Hiro` to `0x000D` turns it red; `lance-graph-contract` 1458 unit tests and every integration test pass on Rust 1.99; `rustfmt --check` clean.
+
+## 2026-10-10 — lance-graph PR #1441 (merged `e8e8e5ce`, branch `ccr-f5674497-orfkox`, head `eeee700b`, 6 commits) — docs(plans): cross-glove business parity — Odoo × SAP over one Quack algebra (D-XGP)
+
+- **Added:** `.claude/plans/cross-glove-business-parity-v1.md` (with §C tracing the real data path), `.claude/plans/sap-glove-quack-v1.md` (baseline, verbatim), `.claude/handovers/2026-10-10-cross-glove-odoo-session-handoff.md`, entry `2026-10-10-d-xgp-0-cross-glove-inventory.md`, edits to `INTEGRATION_PLANS.md`, `STATUS_BOARD.md`, entries `README.md`. No code.
+- **Locked:** the first-commit `lance-graph-contract::glove` module (canonical basis and pivot types) is withdrawn as duplicating superseded code; one missing adapter (an `impl Binder` for the CATS batch plus a canonical-to-native name front end via `resolve_uri` and `rows_with_entity_type`); inventory findings: convergence test uses `account.move`, the "SAP" schema is SIMAF's DTO, no SAP runtime so SAP behaviour parity UNPROVEN, CATS uses a batch-local decimal scale; `CatsQuery` never goes through Quack's `Binder`; `Draft` supports only `Eq`/`Ne` and `Count`/`Rows`. Odoo handoff asks for `MappingProposal::Attribute` rows under bridge `"odoo"`.
+- **Deferred / open:** who mints canonical attribute URIs for `0x0103` (§C.5) and the `SapPort` prefix question; probes Q1, Q2 and negative controls N-a to N-d described in the plan; `WireSchema` / `WireBatch<S>` proposed, not shipped.
+- **Confidence:** n/a (docs only).
+
+## 2026-10-10 — lance-graph PR #1440 (merged `9a430fe1`, branch `ccr-b2e415d9-4jfvyk`, head `b448d888`, 11 commits) — D-SELF-CALIBRATING-LAB-0 phases I–IV: G2 law-A boundary, P5 Beta correspondence, P1 certified argmax, lab v0 (Gomoku)
+
+- **Added:** `crates/causal-edge/tests/d_rpf_p5_beta.rs`; `minimax_certified` and `moore_nars_gomoku_probe --lab` arm; `examples/shared/lab.rs` (paired comparison, exact sign-flip p, t-interval, Holm, pre-registration verdicts, ECE/Brier, certificate kind); `a_load_bearing_fixture_under_law_a` in `tests/d_rpf_table_1.rs`; `chain_counterfactual.rs` edit; four board entries `2026-10-10-d-*`; `STATUS_BOARD.md` drift fix plus four rows. No production default changes.
+- **Locked:** P8 re-checked: no production code builds a `CutContext` or calls `replay_chain`; G2 scoped: new decision-bearing wiring uses exact revision (law A), existing defaults incl. `NarsEngine::new`'s `build(1)` unchanged. P5: e is the Jeffreys (k=1) posterior mean; unit observations stall at confidence code 244 after 20; four copies claim posterior sd 2.04x too small; revision never reaches c=255. P1: on 400 positions same pick as `minimax` at every k, 36/45/61% fewer folds at k=4/4, 5/5, 8/8. Confirmatory run on 16 seed blocks: H2 SUPPORTED (+0.024), H4 SUPPORTED (-29 folds/step), H7 SUPPORTED (-143 folds/step at -0.026 score), H3 INCONCLUSIVE, H5 FALSIFIED; chooser ECE 0.05 over non-neutral, 0.32 over all.
+- **Deferred / open:** crossword arm, held-out Moore domain, SoA-shaped experiment record; Thompson, eligibility-trace, context-conditioned arms; stale "In PR" rows (D-CE64-*, D-LXC-*, D-MBX-CUTOVER-0).
+- **Confidence:** `lance-graph-planner` 553 passed; `causal-edge` P5 6 passed; `cognitive-shader-driver` as CI runs it 437 passed, 0 failed; fmt clean; disable runs: law A to B1 red, ceil rounding reds E2/E2b/E5, unsound cut at `L + 1` changes a pick, Holm stop and min-effect gate each disable-verified.
+
+## 2026-10-10 — lance-graph PR #1439 (merged `0cdcc963`, branch `ccr-0455e606-wmtsor`, head `568f33a4`, 1 commit) — dir-sim: assert the exact address-conflict holders instead of naming AddressRole::Mail
+
+- **Added:** one assertion change in `crates/lance-graph-dir-sim/tests/mail_recipient.rs` (`a_mail_label_on_another_object_is_not_a_claim`): now asserts the exact holder list `[(g(A), AddressRole::PrimarySmtp), (g(B), AddressRole::Upn)]`.
+- **Locked:** `address_rows` stopped emitting `AddressRole::Mail` in #1433 (`mail` is a display label); OGAR is deprecating the variant, which would fail `clippy -D warnings` in the Identity CI job; exact-list assertion is stronger (any third holder fails). Pinned test name unchanged.
+- **Deferred / open:** merge before the OGAR deprecation PR (CI checks out OGAR `main`).
+- **Confidence:** on Rust 1.99.0, clippy `--all-targets -D warnings` clean against OGAR `main` and the deprecation branch; `cargo test` 135 passed, 0 failed; `mail_recipient` 13 passed; fmt clean.
+
+## 2026-10-10 — lance-graph PR #1438 (merged `6e40f43b`, branch `ccr-1d749cc5-q8s5qs`, head `2831063f`, 1 commit) — Mirror the OGAR CRM domain and app prefixes 0x0008–0x000B
+
+- **Added:** in `crates/lance-graph-contract/src/ogar_codebook.rs`: `ConceptDomain::Crm` at high byte `0x05`, 15 `CODEBOOK` rows `crm_contact 0x0501` to `crm_custom_record 0x050F`, `AppPrefix::{Osm 0x0008, WeatherNext 0x0009, Spear 0x000A, HubSpo 0x000B}`; tests re-pin `0x0500` from `Unassigned` to `Crm`, pin `0x0600` `Unassigned`, round-trip new prefixes, check `render_classid_for_concept(HubSpo, "crm_deal") == 0x0503_000B`; `LATEST_STATE.md` entry. Mirror for OGAR#330.
+- **Locked:** rows identical to OGAR `ogar-vocab`; `0x0006` stays unallocated.
+- **Deferred / open:** landing order: OGAR #330 first; `lance-graph-ogar` parity check runs against OGAR `main`, so this branch is red until #330 merges and `main` red from that merge until this lands (as `osm_street_node`, #268).
+- **Confidence:** `lance-graph-contract` lib tests 1458 passed, clippy `-D warnings` clean (standalone copy; `manifest_codegen` integration test does not compile there, needs workspace `modules/`); `lance-graph-ogar` with OGAR patched to the #330 branch: 84 + 5 + 6 + 6 + 4 passed, 1 ignored, incl. `mirror_is_a_faithful_copy_of_ogar_codebook` both directions.
+
+## 2026-10-10 — lance-graph PR #1437 (merged `4025314c`, branch `ccr-edc85bd9-89tiwe`, head `756d01b0`, 5 commits) — Rust 1.99 + lance 13 / lancedb 0.40; D-SCF-CARE-PAIR-0 follow-up (L1–L8)
+
+- **Added:** three change groups: Rust 1.98.1 to 1.99.0 (`rust-toolchain.toml` plus bge-m3 and reader-lm copies, `rust-version`, Dockerfiles, bump-log line; `phasor_trig_probe` literal replaced with the std golden-ratio constant); lance 12 to 13 and lancedb 0.39 to 0.40 (`Cargo.toml` files, `CLAUDE.md` pin notes); D-SCF-CARE-PAIR-0 follow-up in `crossword_crossing_care_probe.rs`, the board entry, and `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`.
+- **Locked:** exactly one new clippy error on 1.99.0 (`approx_constant` at `phasor_trig_probe`); `main` not clippy-clean under `--all-targets`; arrow 58 and datafusion 54 unchanged; lancedb 0.40.0 still needs `remote` to compile. L1 incremental support: STOP (same fixed point, no saved ops). L2 uncapped: support visits 70x fewer nodes but is 1.7x slower; Pair (10.3 s) and Single (10.7 s) fastest. L7: `GroupReduce` pair-count arm matches the scan at 7.2-7.5 µs. L4 reuse cost evidence written into D-RPF-3; L5, L6, L8 decided in the board entry.
+- **Deferred / open:** `soa_verbatim` S3 arm red only where `AWS_*` is set (needs `lance/aws`, off by design, same on lance-io 12 and 13); `lance-graph-lane-fold` 10 dead-code errors on both toolchains.
+- **Confidence:** clippy error set compared 1.98.1 vs 1.99.0 and before/after the lance bump (identical); ndarray codegen witness passes avx512 and avx2; `simd-masking-parity` 14/14 on AVX-512; `lance-graph` tests with `--features lancedb-sdk` green apart from the noted arm (a doctest ENOSPC passed on rerun).
+
+## 2026-10-10 — lance-graph PR #1436 (merged `9938c6b7`, branch `ccr-1d749cc5-q8s5qs`, head `4d8130ec`, 1 commit) — Preflight: mark the lance 9 / lancedb 0.33 whitelist coordinates stale
+
+- **Added:** a 13-line dated supersession note in `.claude/knowledge/ogar-consumer-preflight.md`, in place rather than a rewrite.
+- **Locked:** the rule stands (internal siblings never pinned, only the external storage family); the note points at `CLAUDE.md` § Key Dependencies (floats `lance 12.*` / `lancedb 0.39.*`, no exact `.0.0` pins) as the one pin policy; the lockfile "sanity check" relied on exact pins and is flagged. Disagreement found during HubSPO-rs's integration survey.
+- **Deferred / open:** none stated (`STATUS: fixed | OPEN: none`; ordinary correction, no board entry).
+- **Confidence:** n/a (docs only).
+
+## 2026-10-10 — lance-graph PR #1435 (merged `27d5541a`, branch `ccr-edc85bd9-89tiwe`, head `247466b1`, 1 commit) — board: D-SCF-CARE-PAIR-0 synergy revision and merge hygiene
+
+- **Added:** board files only: `STATUS_BOARD.md` D-SCF-CARE-PAIR-0 row set to Shipped, `PR_ARC_INVENTORY.md` and `LATEST_STATE.md` entries, revision of `.claude/board/entries/2026-10-09-d-scf-care-pair-0-crossing-counterfactuals.md` (TRUTH rows for existing surfaces, a synergy table with verdicts, deduplicated loose ends L1-L8, a closed list).
+- **Locked:** corrected test count: 10 probe tests, 12 per run with shared fence tests; closed list: chain reuse inside crosswords excluded and reuse question moved to D-RPF-3, no counted composition exists elsewhere, Java exposure excluded under the BYOS ruling, two tesseract-rs non-synergies recorded.
+- **Deferred / open:** loose ends L1-L8 ranked low / high / heavy (the old OPEN list replaced).
+- **Confidence:** n/a (board); `append_only_gate.py` passes and `entries_index.py --write` regenerated.
+
+## 2026-10-09 — lance-graph PR #1434 (merged `0c7d4e1a`, branch `ccr-0455e606-wmtsor`, head `dfd222ea`, 2 commits) — dir-sim: CloudMailboxes::delivers_to, the per-object cloud rule
+
+- **Added:** `CloudMailboxes::delivers_to(view, g)` in `crates/lance-graph-dir-sim/src/cloud.rs` (g must be a mail recipient; a remote mailbox must also be in the fold's cloud mailboxes; on-premises mailboxes and groups decided by the view alone). `address_recipient_in` in `validate.rs` now uses it. New test `the_cloud_never_revives_a_non_recipient` in `tests/cloud_mailbox.rs`, added to the `Identity` workflow's pinned list.
+- **Locked:** `address_recipient_in` behaviour is unchanged; the cloud rule lives in one place so Spear (AdaWorldAPI/spear#12) and Stalwart (AdaWorldAPI/stalwart#6) do not copy the remote-mailbox match.
+- **Deferred / open:** none stated. Merge order: this PR first, both consumers path-dep this crate.
+- **Confidence:** `cargo test`, `clippy --all-targets -D warnings` and `fmt` in `crates/lance-graph-dir-sim` clean. Disable checks: dropping the `is_mail_recipient` part fails `the_cloud_never_revives_a_non_recipient`; treating every remote mailbox as present fails `a_remote_mailbox_without_a_cloud_mailbox_receives_nothing` and `two_cloud_mailboxes_are_not_one`.
+
+## 2026-10-09 — lance-graph PR #1433 (merged `8c293722`, branch `ccr-0455e606-wmtsor`, head `1759043a`, 4 commits) — dir-sim: mail is a label; remote mailboxes need their cloud mailbox; CI for Exchange fidelity and IAM
+
+- **Added:** `address_rows` in `lance-graph-dir-sim::validate` no longer emits a `mail` row. New `crates/lance-graph-dir-sim/src/cloud.rs` with `CloudMailboxes::from_fold(lanes, index, output)` (reads OGAR's `ogar_dir_core::correspond` fold) and `validate::address_recipient_in(view, key, &cloud)`. New `.github/workflows/identity.yml` (two jobs: Exchange dir-sim fidelity, IAM immutability; each checks its pinning tests exist by name). New `tests/cloud_mailbox.rs` (seven tests) and `a_mail_label_on_another_object_is_not_a_claim`; `tests/addresses.rs`, `mail_recipient.rs`, `recipient_eligibility.rs` re-pinned.
+- **Locked:** Exchange enforces uniqueness on proxy addresses and the UPN namespace, never on `mail`, so a `mail` value is not a claim. A deprovisioned account holds none of its addresses. A remote mailbox receives only when it is in `CloudMailboxes`; the join is on GUIDs only. `AddressRole::Mail` stays in OGAR's enum. `address_recipient` is unchanged.
+- **Deferred / open:** Neither Spear nor Stalwart calls `address_recipient_in` yet (neither observes Entra or Exchange Online). Merge this PR first; matching consumer changes are AdaWorldAPI/spear#11 and AdaWorldAPI/stalwart#5.
+- **Confidence:** `cargo test` in `crates/lance-graph-dir-sim` all pass; `clippy --all-targets -D warnings` and `fmt` clean. Disable checks: re-emitting `mail` rows fails five tests; ignoring the cloud fails two; dropping the conflict guards fails `contradicting_witnesses_are_not_a_mailbox`; applying the cloud rule to every recipient fails `an_on_premises_mailbox_needs_no_cloud_mailbox`. Workflow name checks run locally.
+
 ## 2026-10-09 — lance-graph PR #1432 (merged `d29d0aa`, branch `ccr-edc85bd9-89tiwe`, head `669fc42`, 7 commits) — D-SCF-CARE-PAIR-0: crossing counterfactuals, pairwise nogoods, folded chain relations
 
 - **Added:** `cognitive-shader-driver/examples/crossword_crossing_care_probe.rs` (`test = true`; 10 tests) over the unchanged `shared/crossword_core.rs`: letter support, single- and two-crossing counterfactuals, pairwise nogoods, existential elimination of internal slots into a canonical reusable 31×31 count relation.
 - **Locked (test-pinned):** every arm sound against the planted solution; a pairwise nogood never splits into unary exclusions; composition = the core's search; reuse refused on each key field (context, no-repeat, equal end words). 8 disable runs red.
 - **Deferred / open:** loose ends L1–L8 in the entry (incremental support; tesseract-rs #51 step 2; D-RPF-3 feed; home and certification for a reusable relation).
 - **Confidence:** medium — one dictionary, sides 5 and 7, one machine; counterfactual STOPs are wall-time results on this core.
+
+## 2026-10-09 — lance-graph PR #1431 (merged `729db857`, branch `ccr-0455e606-wmtsor`, head `03d0ef9d`, 3 commits) — rbac: RFC 8693 delegation (act); dir-sim: departure by conversion to shared
+
+- **Added:** in `lance-graph-rbac::auth`: `ClaimGrammar::act_claim` (`Some("act")` for `Store`, `OryKeto`, `Zitadel`; `None` for `Zanzibar`), `Actor { subject, issuer }`, `DelegationRefused`, `ResolvedIdentity` fields `acting` and `prior_actors`, and `acting_through`, `is_delegated`, `acting_party`. A `lance-graph-dir-sim` regression test for departure by `Set-RemoteMailbox -Type Shared` in `tests/recipient_eligibility.rs`.
+- **Locked:** authorization stays on `actor` (the `sub`); the acting party is kept for audit and prior actors never take part in an access decision (RFC 8693 §4.1). Existing callers compile unchanged.
+- **Deferred / open:** known fidelity gap left unpinned: `address_owner` still counts a stale `mail` value as a claim (the three tests named in the body are not on the pinned list).
+- **Confidence:** `cargo test -p lance-graph-rbac` 37 passing; dir-sim `recipient_eligibility` 10 passing; clippy `-D warnings` and `fmt` clean. Disable checks: `acting_party` ignoring delegation fails `a_delegated_identity_authorizes_as_the_principal` and `the_outermost_act_is_the_current_actor`; dropping the provider guard fails `a_provider_without_tokens_cannot_be_delegated`.
+- Note: the body also describes the `Identity` workflow (`.github/workflows/identity.yml`), which is not in this PR's file list (files: `auth.rs`, `recipient_eligibility.rs`); it is listed in #1433's files.
+
+## 2026-10-09 — lance-graph PR #1430 (merged `f2898e53`, branch `ccr-70e679fa-9qvl9y`, head `1be617ab`, 1 commit) — classid docs and helpers: say canon-high where the code is canon-high
+
+- **Added:** no behaviour change. Doc fixes in `ogar_codebook.rs`, `lance-graph-ogar/src/lib.rs`, `lance-graph-ontology/src/registry.rs` (`class_id_for_guid`), `lance-graph-rbac/src/auth.rs`; `spog_tenants::graph_of` now uses `classid_canon`; `chain_admission` (`DISMECH_CLASSID`, `graph_of_classid`) now uses `compose_classid` and `classid_canon`; test renamed to `classid_canon_half_is_the_codebook_id`.
+- **Locked:** canon-high layout (concept in the high u16, selector in the low u16) in force since 2026-07-02; the change is part of D-V3-CLASSVIEW-NODRIFT-0 (falsifier Bardioc-rs #5).
+- **Deferred / open:** five items needing decisions: `ClassGrants` matching the full u32; `FacetSchema::of_classid` reading bits 24–25; `actions_for` matching the full u32; `class_id_for_guid` returning `None` for render-lensed GUIDs; `is_access_control_class` vs `classid_canon_compat`.
+- **Confidence:** `lance-graph-contract` lib 1458 pass; planner `chain_admission` 5 pass; `lance-graph-rbac` 32 pass; renamed `lance-graph-ogar` test passes; clippy `-D warnings` clean on contract and planner; fmt clean.
+
+## 2026-10-09 — lance-graph PR #1429 (merged `f8ec37c0`, branch `ccr-0455e606-wmtsor`, head `7fcb52ae`, 1 commit) — dir-sim: address claim vs mail recipient
+
+- **Added:** `snapshot::is_mail_recipient`, `View::is_mail_recipient`, `validate::address_recipient` in `crates/lance-graph-dir-sim`; new `tests/recipient_eligibility.rs`.
+- **Locked:** `address_owner` answers who holds an address (the claim), not who receives; recipient rule: OGAR lifecycle (`Recipient::is_recipient`) when attributes were read, an enabled account without Exchange data counts, unknown flag plus unknown attributes does not; a group is a recipient when it has a primary SMTP address. `is_owner` and every existing answer are unchanged (additive only).
+- **Deferred / open:** Spear (`DirectoryActors`, `mailbox_members`) and Stalwart (`account()`) switch to `address_recipient` / `is_mail_recipient` after this merges.
+- **Confidence:** crate total 125 passing, clippy `-D warnings` and fmt clean. Four sabotage mutations each turned named tests red, then reverted.
+
+## 2026-10-09 — lance-graph PR #1428 (merged `415bfde8`, branch `ccr-bd5a6e03-niaink`, head `b03c7e4a`, 1 commit) — D-MOORE-OBSERVABLE-FIRST-0: certified decisions before the Moore field converges
+
+- **Added:** `crates/perturbation-sim/examples/moore_observable_first.rs` (behind `moore-probe`), board entry `2026-10-09-d-moore-observable-first-0.md`, `perturbation-sim/Cargo.toml` and `rust-test.yml` member-tests step. Two certificates: field (M-matrix `A·w ≥ 1`) and L1 flow (`‖r‖₁`); five fixtures; three oracles agreeing to 4.2e-13.
+- **Locked:** no certified decision was wrong and no bound was violated on any fixture, arm, budget or decision kind. Warm-started with the L1 bound, 78 % of overload decisions on the heterogeneous 16×16 grid certify at zero sweeps; early certificates prove absence of overload (0 of 225 true overloads at sweep 0, 179 after 1024 Jacobi sweeps, 225 after 256 PCG iterations). PCG certifies 16–57× faster than Jacobi; LODF (17 ms) beats certified PCG (~170 ms), Cholesky (~2.1 s) and Jacobi (~2.7 s) for screening 930 outages.
+- **Deferred / open:** sign decisions need a locality-aware bound (8.6 % certified); N-2 contingencies; grids above about 10³ buses; whether Moore's locality pays off (needs a distributed or streaming setting).
+- **Confidence:** 8 tests for the new example (3.8 s in debug), rustfmt and clippy `-D warnings` clean. Four disable runs each turned at least one test red.
+
+## 2026-10-09 — lance-graph PR #1427 (merged `1d1f472b`, branch `probe/moore-pertubationsfeld-ab-20261009`, head `56d678e1`, 3 commits) — D-MOORE-PERT-AB-0: MoorePertubationsfeld A/B probe with ICC and Spearman
+
+- **Added:** `crates/perturbation-sim/examples/MoorePertubationsfeld.rs` (feature `moore-probe`), `perturbation-sim/Cargo.toml` change, `.github/workflows/rust-test.yml` step. Arm A: existing Laplacian spectral pseudoinverse; arm B: independent Jacobi relaxation on eight canonical `MooreSlot` directions; compared by Pearson, Spearman, ICC(2,1), rel-L2 and MAE over 42 synthetic outages and eight iteration budgets, with outage-block resampling of MAE.
+- **Locked:** none stated beyond the scope: 4×4 8-neighbour lattice only; no CE64 F/C, Epi5, OGAR or production behaviour changed. Kill conditions listed.
+- **Deferred / open:** arbitrary graphs need a separately tested projection; body says to keep draft until the example builds, its tests run and review confirms the measured quantity.
+- **Confidence:** the body states the independent formulation agrees after full relaxation, and that Rust compilation / CI had not yet been observed when written.
+
+## 2026-10-09 — lance-graph PR #1426 (merged `64cbde68`, branch `ccr-bd5a6e03-niaink`, head `7b1d93a1`, 9 commits) — D-RPF-TABLE-1: does the confidence-inert NarsTables fast path earn its semantic cost?
+
+- **Added:** `crates/lance-graph-planner/tests/d_rpf_table_1.rs` (15 tests), `examples/d_rpf_table_1_bench.rs`, board entry `2026-10-09-d-rpf-table-1-fast-path-cost.md`; guards `crates/causal-edge/tests/t2_pearl_subset_mask.rs` and `t4_learn_plasticity_patterns.rs`; comment-only changes in `causal-edge/src/tables.rs`, `lib.rs` and `planner/src/cache/nars_engine.rs`.
+- **Locked:** B1 fails the pre-registered boundary (2.2–4.4× faster hot replay, but about 38 % verdict flips, 12 % load-bearing flips, 44 % Reaction class flips); no table resolution is decision-stable; tables win only on hot dependent replay; no production code reads any `NarsTables` revision today (corrects #1424); `build(1)` was a default chosen 2026-03-31 without a benchmark.
+- **Deferred / open:** G2 (which law future wiring uses); G1 (the (255,255) cell); re-derive the load-bearing fixture and `DEFAULT_FREQUENCY_BAR` rationale; `forward`'s truth is discarded on every replay step. Body says do not merge automatically.
+- **Confidence:** full planner and causal-edge suites pass; fmt clean; clippy clean on new files (five pre-existing `edge.rs` errors in causal-edge); disable runs all red (B1 replaced by A, `c_levels` forced to 1, `replay_step` not writing, confidence-blind flip counter, slow-A bench, T2 and T4 broken variants); entries and supersession indexes current.
+
+## 2026-10-09 — lance-graph PR #1425 (merged `2444f1fe`, branch `ccr-0455e606-wmtsor`, head `cda391c5`, 1 commit) — dir-sim: a group nested in a live group is a membership, not dangling
+
+- **Added:** change to `validate::dangling` in `crates/lance-graph-dir-sim/src/validate.rs` (with `snapshot.rs`): a nested group edge is dangling only when one side is missing. New test `t06b_nested_group_is_valid`; `t06_dangling_fails` and `bounds::an_unresolved_membership_is_kept_by_identity_never_as_a_lane_value` expectations updated.
+- **Locked:** storage is unchanged (group-in-group edges were already stored by identity and `is_member` already answered them); only validation changes.
+- **Deferred / open:** none stated. Spear (same branch name) uses this; the two PRs merge in either order.
+- **Confidence:** `cargo test` passes for the crate; removing the new check fails the bounds test; clippy `--all-targets -D warnings` clean.
+
+## 2026-10-09 — lance-graph PR #1424 (merged `d6f9fef2`, branch `ccr-bd5a6e03-niaink`, head `f185b317`, 7 commits) — D-RPF-CONF-0: measure the confidence revision surface before any policy change
+
+- **Added:** tests only: `crates/causal-edge/tests/d_rpf_conf_0.rs` (T1, singular cell, T3, R1, NarsTables invariance), `crates/lance-graph-planner/tests/d_rpf_conf_0_r3.rs` (R3 disagreement matrix, seven laws × 1,638,400 cells), board entry `2026-10-09-d-rpf-conf-0-confidence-surface.md`.
+- **Locked:** no production semantics changed, no c=255 policy chosen. Measured: Rust matches the exact integer form on 65,532 of 65,535 ordinary cells (off by one code at (45,45), (146,148), (148,146)); (255,255) gives (0,0) via NaN; 24 `revise`/`revision` definitions (nine homonyms, three delegations); B1, the law the replay path emits, differs from A on 99.9 % of cells by up to 168 confidence codes; A and D byte-identical.
+- **Deferred / open:** G1 the (255,255) cell; G2 whether replay should emit B1; T5 stays blocked; J needs a declared c-to-weight rule. Body says do not merge automatically.
+- **Confidence:** six disable runs all red (one vacuous test fixed and re-verified); fmt and clippy clean; entries and supersession indexes current.
+
+## 2026-10-09 — lance-graph PR #1423 (merged `4eb27342`, branch `ccr-bd5a6e03-niaink`, head `448d7337`, 4 commits) — coresearch: "CE64 is like BF16 for thinking" exploration map + 5 .arxiv harvests
+
+- **Added:** research notes only: board entry `2026-10-08-coresearch-ce64-bf16-for-thinking.md` and five `.arxiv/` write-ups (1905.12322, 2209.05433, 2603.24161, 0712.1182, 2310.10537).
+- **Locked:** nothing adopted. Findings: CE64 is a tagged instruction word, "BF16 for thinking" fits only the F/C truth bytes (bits 24..39); bits 40..42 are a subset lattice (SO = 0b101, PO = 0b011 incomparable); c = 255 needs a policy decision (0/0 in exact integer form; f32 model found two exact .5 ties); revision is cumulative fusion, valid only for independent evidence; D-RPF-4 needs no new opcode.
+- **Deferred / open:** a Rust probe for the c = 255 case is owed (checked in numpy only); each idea graded ADOPT-NOW / PROBE / PARK / SKIP with kill conditions; the operator picks which probes to run.
+- **Confidence:** n/a (board / research notes; no code).
+
+## 2026-10-08 — lance-graph PR #1422 (merged `083b71ef`, branch `ccr-0455e606-wmtsor`, head `ba0a38eb`, 2 commits) — dir-sim: group SMTP addresses join the one address space; lance-graph-ogar manifest comment fix
+
+- **Added:** `address_rows` in `crates/lance-graph-dir-sim/src/validate.rs` emits each live group's primary SMTP as an `AddressRole::PrimarySmtp` row; `address_rules` treats an SMTP flag as already reported only for users. Tests in `tests/mail_recipient.rs`: `a_group_address_names_the_group`, `a_group_and_a_user_sharing_an_address_conflict`, `two_groups_sharing_an_address_conflict`. Two `Cargo.toml` comment fixes in `lance-graph-ogar` (count fuse removed 2026-08-14).
+- **Locked:** a group address resolves to a group GUID; a group and a user (or two groups) on one address conflict (`address_owner` returns `Err`, `validate` reports `AddressConflict`). `assert_codebook_parity` stays; parity is 6/6.
+- **Deferred / open:** consumers: Spear expands the group (AdaWorldAPI/spear#8); Stalwart returns `Recipient::Group`.
+- **Confidence:** disable checks: dropping the group rows fails 3 tests; counting a group's SMTP as already reported fails 2.
+
+## 2026-10-08 — lance-graph PR #1421 (merged `0bf15c05`, branch `ccr-b2e415d9-4jfvyk-phaselut-probe`, head `5028237c`, 4 commits) — probe(recipe): order statistics on the shipped PhaseLut, all-ranks timing, power-sum fold cost (D-ART-2)
+
+- **Added:** extension of `crates/lance-graph-mask-risc/examples/algebraic_recipe_probe.rs`; board entry `2026-10-08-recipe-probe-phaselut-foldcost.md`; `STATUS_BOARD.md` row D-ART-2. Probe and board only.
+- **Locked:** single order statistic via `ndarray::simd::PhaseLut` costs 15–19 ns for m = 3, 16, 256 with error about 3.6e-5 (bound 7.8–8.3e-5); all m order statistics: interpolated profile row 18 / 42 / 493 ns; power-sum fold cost is accumulator width (`i128` 4.4–7.5 ns/row vs `i64` 0.5–0.9); the earlier "fused 3.7 vs shipped 4.8" gap was noise; the `i128` summary transform agrees bitwise with shipped `CrossPowerSums::checked_affine` (ndarray #344).
+- **Deferred / open:** split-accumulator fold in ndarray: PROBE (`i64` is not exact for full-range `i32`).
+- **Confidence:** bound `(r + e) · lerp_error_bound()` asserted on every rank; disable run using `nearest` instead of `lerp` gives 0.077 and fails it.
+
+## 2026-10-08 — lance-graph PR #1420 (merged `4e1428f5`, branch `ccr-bd5a6e03-niaink`, head `88c6bc04`, 1 commit) — plan(D-RPF): synergies with the 2026-10-08 probes; separable eligibility
+
+- **Added:** plan change only: `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`. Corrects D-RPF-1 (eligibility is `Or(S_r) ∧ Or(P_r)`, at most 24 + 8 patterns, not 192, per `measure_state` at `affordance_law.rs:267-270`) and adds a synergy table mapping findings of D-RPF-9, D-MHB-1/2, D-ART-1 and D-PHT-1 to D-RPF phases.
+- **Locked:** reserved codes 24..31 stay excluded (`decode` refuses them). Cost estimate: about 1 ms per 64K rows per strided predicate, so 192 patterns about 0.2 s and 32 about 32 ms. The table is a working model, nothing implemented.
+- **Deferred / open:** before D-RPF-1 ships, measure the minimised cover size per recipe on the real law tables; D-RPF-4's LUT-weighted sum exact formulation is a reference oracle, not the fast path; the `c = 255` revision defect must become a stated LUT entry.
+- **Confidence:** n/a (plan; no code change).
+
+## 2026-10-08 — lance-graph PR #1419 (merged `e9d11428`, branch `ccr-0455e606-wmtsor`, head `c7588ec3`, 2 commits) — contract: mirror email (0x0B05, IAM); remove the Mail domain from #1417
+
+- **Added:** `ogar_codebook` row `("email", 0x0B05)` after `auth_ory_keto` (OGIT source `ogit:Email`), in `crates/lance-graph-contract/src/ogar_codebook.rs`. Removes the `0x05XX` rows (`mailbox`, `mail_message`) and `ConceptDomain::Mail` from #1417; `0x0500` routes to `Unassigned` again.
+- **Locked:** the Mail domain was a lockstep central mint, ruled out by the hot-plug pattern; OGAR mints `ogit:Email` in the existing IAM domain and the mirror follows (paired with OGAR#325). Nothing consumed the removed rows.
+- **Deferred / open:** merge together with OGAR #325; Spear #6 goes after.
+- **Confidence:** `cargo test -p lance-graph-contract --lib ogar_codebook` passes (incl. `0x0500 → Unassigned`, `canonical_concept_id("email") == Some(0x0B05)`); `lance-graph-ogar` parity passes against the OGAR branch; deleting the `email` row still builds and fails `mirror_is_a_faithful_copy_of_ogar_codebook`.
+
+## 2026-10-08 — lance-graph PR #1418 (merged `fc33c2e6`, branch `ccr-b2e415d9-4jfvyk-recipe`, head `a56a72f3`, 7 commits) — probe: per-query D/F choice (D-MHB-2) and algebraic recipe table × percentile profiles (D-ART-1)
+
+- **Added:** `mexhat_bucket_probe.rs` gains arms Q, HD, HQ; new `crates/lance-graph-mask-risc/examples/algebraic_recipe_probe.rs` (linear canonicaliser, static guarded recipe table, materialising oracle, `CrossPowerSums` affine summaries, projected order statistics); board entries `2026-10-08-mexhat-df-choice.md` and `2026-10-08-algebraic-recipe-probe.md`; `STATUS_BOARD.md` rows D-MHB-2, D-ART-1. No production change.
+- **Locked:** Q runs within 0.93–1.33× of the faster of D and F at every density (ADOPT with R-MHB-1); HD and HQ REJECT. 36,000 random cases equal the oracle with 0 transcendental calls vs 56–64; centred Σ|z − c|² for regular families with `m ≥ 3` is `(m r²/2)·‖L‖_F²`; summary path bitwise equal to materialise-and-fold, 2.5–4× cheaper; static array lookup 1.2 ns vs SipHash `HashMap` 27 ns.
+- **Deferred / open:** an affine-transform method on ndarray `CrossPowerSums` is proposed, not in this PR; the recipe table is PARKED (no arithmetic expression IR; Quack's IR is Boolean-only).
+- **Confidence:** Q equals D for cuts 0, 100 and ∞; HD/HQ decide as H does; disable run for HD/HQ check and six disable runs for D-ART-1 (isotropy guard, half-turn fold, 1-D rank reversal, half-sector split, population refusal, general `‖L‖_F²`) all turned red.
+
+## 2026-10-08 — lance-graph PR #1417 (merged `3e40dc65`, branch `ccr-0455e606-wmtsor`, head `983f5686`, 1 commit) — contract: mirror the Mail domain (0x05XX: mailbox, mail_message)
+
+- **Added:** `ConceptDomain::Mail` covering `0x05XX`, `mailbox` = `0x0501`, `mail_message` = `0x0502` in the `ogar_codebook` mirror (`crates/lance-graph-contract/src/ogar_codebook.rs`); paired with an OGAR vocab mint (branch `ccr-0455e606-wmtsor`).
+- **Locked:** `0x05XX` chosen as the next clean domain slot; `0x10XX` would put a domain root on the V3 marker `0x1000`, a documented limitation. Additive: one variant on a `#[non_exhaustive]` enum and two rows.
+- **Deferred / open:** merge order: `lance-graph-ogar` reads OGAR from git `main`, so its parity test is green only once both PRs merge. (Superseded by #1419, which removes these rows.)
+- **Confidence:** `cargo test -p lance-graph-contract` passes; `lance-graph-ogar` codebook parity passes against the OGAR branch; disable run: renumbering `mail_message` on the OGAR side turns `mirror_is_a_faithful_copy_of_ogar_codebook` red.
+
+## 2026-10-08 — lance-graph PR #1416 (merged `7f63ae9d`, branch `ccr-b2e415d9-4jfvyk-phasor`, head `c5205468`, 2 commits) — D-PHT-1: phasors without transcendental calls (probe + board)
+
+- **Added:** `crates/lance-graph-mask-risc/examples/phasor_trig_probe.rs`, board entry `2026-10-08-phasor-trig-probe.md`, `STATUS_BOARD` row. No production primitive and no ndarray change.
+- **Locked:** Wankel apex per phase: f64 `sin_cos` 66.8 ns, 2^12 LUT interpolated 5.6 ns (max error 4.6e-5 at R = 100), CORDIC 258 ns; interference per term: LUT 9.95 ns vs f64 45.9 ns. Two-wave closed form 2.8× faster, exact to 1e-14 of peak. Verdicts: ADOPT a `u32`-turns phase with interpolated 2^12 LUT via `ndarray::simd` (separate ndarray PR) and the two-wave closed form; PROBE the amplitude-bounded early exit (heavy-tailed amplitudes only); REJECT CORDIC on CPU, f32 recurrence without renormalisation, treating `vml` as SIMD.
+- **Deferred / open:** SIMD gather of the LUT, the rotor as a moving mask, the VSA comparison, log buckets. Expect a `STATUS_BOARD` / entries-index conflict with #1415.
+- **Confidence:** Wankel invariants hold to 1e-11 on 100,000 angles; three disable runs red then restored; two bugs in the probe's first run caught by its assertions; clippy `-D warnings` and fmt clean; debug 0 on every compile; medians of 5 runs.
+
+## 2026-10-08 — lance-graph PR #1415 (merged `873f45ca`, branch `ccr-b2e415d9-4jfvyk-mexhat`, head `3f84990c`, 1 commit) — D-MHB-1: Mexican-hat response without a raster (probe + board)
+
+- **Added:** `crates/lance-graph-mask-risc/examples/mexhat_bucket_probe.rs`, board entry `2026-10-08-mexhat-bucket-cascade-probe.md`, `STATUS_BOARD` row. No production primitive and no ndarray change.
+- **Locked:** bit-sliced fused `Count`s (F) are exact at constant cost (~600 ns per query, 1M grid); window+LUT (D) wins when sparse (246 ns at density 0.01); ring buckets (E) are fast but wrong; mask-risc (B) materialises a 38–152 KB weight lane per query. Exact early exit (H) about −20 % vs F at the median threshold. Verdicts: ADOPT F (dense) and D (sparse); PROBE per-query D/F choice and early exit on D; REJECT ring-bucket hat, B, treating `lsi.rs` as a DoG; PARK Rolling-Floor controller, statistical early exit, Pillar-15. Reports that `Cascade` Stroke 1 is a statistical prune with no exact fallback (not changed).
+- **Deferred / open:** proposed, not implemented: R-MHB-1 (masked sum over a static narrow integer weight template as bit-sliced fused `Count`s).
+- **Confidence:** F asserted equal to direct geometry on every checked centre; H equals the full decision on every query; two disable runs red then restored; clippy `-D warnings` and fmt clean; entries index regenerated, supersession index unchanged; medians of 10 runs.
+
+## 2026-10-08 — lance-graph PR #1414 (merged `d127f7dc`, branch `ccr-b2e415d9-4jfvyk-fold-join`, head `91d9784b`, 5 commits) — D-RPF-9: Fold-Join deforestation probe + three-stage plan update
+
+- **Added:** `crates/lance-graph-quack/examples/fold_join_probe.rs`, board entry `2026-10-08-fold-join-deforestation-probe.md`, three stages and D-RPF-9 in `2026-10-08-resident-projection-fold-mask-v1.md`, `causal-edge` as an example-only dev-dependency of quack. No production primitive changes.
+- **Locked:** resident ∧ resident → fold is shipped (`fused_ternlog`/`tern2`/`tern3`, ~0.4 µs, 0 B scratch at 64K rows); a gated predicate B under A is ~1.4× faster at dead-word fraction ≥ 0.9; CE64 strided two predicates 2.1 ms vs 1.0 ms for one; two field predicates merged into one pattern 2.47 ms → 1.17 ms. A Fold-Join is an intersection at the same address; `Gather` / `ScatterOrU32` hops are not Fold-Joins.
+- **Deferred / open:** proposed, not implemented, each its own PR: R2 strided pattern merge (valid only when `(p1 ^ p2) & c1 & c2 == 0`), R3 gate selection, and `ndarray::simd` gaps G1 strided `_under` kernel, G2 two-window strided match, G3 tile skip. Arm G (CSD) not run.
+- **Confidence:** probe green, every count asserted against a per-row oracle on 65,536 rows (timings printed only); `cargo clippy -p lance-graph-quack --examples -D warnings` and fmt clean; disable runs red then restored (wrong-half pattern 263 vs 282; unmasked merge 275 vs 258).
+
+## 2026-10-08 — lance-graph PR #1413 (merged `c58683a4`, branch `ccr-bd5a6e03-niaink`, head `b12cd90d`, 3 commits) — D-RPF-0: CE64 field predicate over resident NodeRow bytes (test-only probe)
+
+- **Added:** `crates/lance-graph-mask-risc/tests/resident_ce64_predicate.rs` (6 tests): Pearl3, Inference (raw 4-bit nibble) and Epi5 predicates on the four `CausalEdge64` words of `ValueTenant::MaterializedEdges` via `Pred::MatchFacet16Strided` (two 16-byte windows). `causal-edge` and `lance-graph-contract` added as dev-dependencies of mask-risc; `.github/workflows/rust-test.yml` modified (9/1, not described in the body); board entry `2026-10-08-d-rpf-0-resident-ce64-predicate.md`, plan checkbox, STATUS_BOARD row, entries index.
+- **Locked:** Executor and oracle agree and both equal the CE64 named accessors for every value of every field on every edge; `raw5 >= t` as a union of at most 6 ternary patterns equals the accessor for all 32 thresholds on all four edges. No library code changes; the mask-risc library still names neither dev-dependency.
+- **Deferred / open:** none stated.
+- **Confidence:** 6 tests over 3 tiles + 37 rows; `cargo test -p lance-graph-mask-risc` green, clippy `-D warnings` and fmt clean. Falsifiers: can-fire, stays-silent, anti-vacuity (fixture switched to SplitMix64 after Epi5 was constant). 4 disable runs, each red (3 + 4 + 1 + 1 tests failed per the table, anchors asserted).
+
+## 2026-10-08 — lance-graph PR #1412 (merged `d0cb3486`, branch `ccr-b2e415d9-4jfvyk-ci-optlevel`, head `7aeb2586`, 1 commit) — ci: optimize cognitive-shader-driver in member-tests (debug stays 0)
+
+- **Added:** `.github/workflows/rust-test.yml`: the shader-driver step runs with `--config 'profile.dev.package.cognitive-shader-driver.opt-level=3'`. No `Cargo.toml` change; no test skipped or `#[ignore]`d.
+- **Locked:** Cause measured from the job log: `member-tests` was cancelled at its 30-minute limit on `main` (run 37766947128) and on #1410, in the `hydrate` step. The time came from the `crossword_real_words_probe` example unit tests (D-PUZZLE-0), 810 s at opt-level 0 (`every_question_counts_the_same_three_ways`, `instances_are_unique_and_givens_are_needed`, `nyt_lane_holds_one_claim_per_slot_of_its_own_grid`), not from compiling or debug info.
+- **Deferred / open:** none stated.
+- **Confidence:** Local measurement with `CARGO_PROFILE_DEV_DEBUG=0`: probe tests 810 s (CI log) to 184 s; whole shader-driver step about 15 min (CI) to 4m17 including compile, all green. Before and after come from different machines.
+
+## 2026-10-08 — lance-graph PR #1411 (merged `8fc2d08e`, branch `ccr-bd5a6e03-niaink`, head `bd4c34ca`, 2 commits) — plan: resident-projection-fold-mask-v1 (D-RPF-0..8)
+
+- **Added:** `.claude/plans/2026-10-08-resident-projection-fold-mask-v1.md`; `INTEGRATION_PLANS.md` and `STATUS_BOARD.md` prepended/updated. Proposal only, no code.
+- **Locked:** One resident row has three readings kept apart: mask (mask-risc `Pred`/`MaskOp` over a `LaneRef::Strided` projection), fold (`Terminal`, mask-risc executor, tiled), register (`CausalEdge64`, `causal-edge` `isa`). D-RPF-8 boundary: mask-risc never executes CE64 instructions; no VSA on this path. Codex's three findings addressed in `bd4c34c` (tenant-internal windows, 24 meaningful Epi5 codes, admission plane before the eligibility patterns).
+- **Deferred / open:** D-RPF-4 blocked on four decisions (normative vs pairwise chain, the c = 255 defect, admission as mask, witness scope) and one T1 gap (LUT-weighted strided sum); D-RPF-5 gated on a `SlabReading` decision; D-RPF-2 is the first measurement; `ndarray` not checked out, no real population measured.
+- **Confidence:** not stated in the PR beyond `SUPERSESSION-INDEX.md` regenerated and unchanged; body lists "Not verified" items.
+
+## 2026-10-08 — lance-graph PR #1410 (merged `b24375a6`, branch `ccr-b2e415d9-4jfvyk-register-readings`, head `4c8dc638`, 6 commits) — contract: signed Register128 readings (32×i4, 16×i8) with a per-family law
+
+- **Added:** `SlabReading` variants `RegisterI4x32(law)` (tags 2, 3, 4) and `RegisterI8x16(law)` (tags 5, 6, 7); `RegisterLaw` (`RelativeOffset`, `AxisPosition`, `Support`); `SignedRegisterLanes` read/write taking the expected law; `ResolvedReading::bind_signed_register`; `Activation` `with_register_laws` / `register_law_for` (fails closed with `NoRegisterLawFor`); `atoms::I4x32` `from_bytes`/`as_bytes`. Files: `register128.rs`, `hotplug.rs`, `atoms.rs`, board entry `2026-10-08-register128-signed-readings.md`.
+- **Locked:** No layout change (rails, `NodeRow`, `ENVELOPE_LAYOUT_VERSION` unchanged). Binding refuses `RegisterLawMismatch`; an i4 outside `-8..=7` is refused, never saturated; refused write leaves the row unchanged. `bind_register128` unchanged and refuses signed carvings. `EpistemicState5` gets no law. `CausalWitness` (tenant 14) is not moved.
+- **Deferred / open:** No authority populates `with_register_laws`, so every concept refuses signed registers in production (fail-closed); 32×i4 vs 16×i8 waits on a measurement (KJV anaphora, mammal fixture); no production reader or writer.
+- **Confidence:** `lance-graph-contract` lib 1458 passed; `jc` `register128_bounded_stats` 2 passed; `lance-graph-ogar` builds; clippy `-D warnings` and fmt clean. 11 disable runs listed, each red.
+
+## 2026-10-08 — lance-graph PR #1409 (merged `08e1626f`, branch `ccr-b2e415d9-4jfvyk-tenants-fix`, head `c869458d`, 2 commits) — planner: fix moore_tenant_isa_equivalence for the strict ISA (main build break)
+
+- **Added:** Two commits cherry-picked onto `main` that missed #1408's merge: `e60f2ff` (test J draws only the five executable mantissas +1, +2, -1, +4, +5 and unwraps `forward`) and `c869458` (board entry says `moore_tenant.rs` has 11 tests; stale note removed). Files: `moore_tenant_isa_equivalence.rs`, board entry, entries index.
+- **Locked:** `main` (`a76d9ab5`) did not compile the `moore_tenant_isa_equivalence` test (`E0609`, `Result<CausalEdge64, IsaFault>`) because #1408 merged at `75c83c4`, before the commit adapting J to #1407. Cutting energy to 3 bits still turns J red.
+- **Deferred / open:** none stated (other planner test targets have pre-existing clippy findings, untouched).
+- **Confidence:** `cargo test -p lance-graph-planner --test moore_tenant_isa_equivalence`: 2 passed; clippy `-D warnings` on that target clean.
+
+## 2026-10-08 — lance-graph PR #1408 (merged `a76d9ab5`, branch `ccr-b2e415d9-4jfvyk-tenants`, head `75c83c45`, 2 commits) — contract: Nars16x8, MoorePalettePairs, MooreNars16 value tenants (ordinals 18-20)
+
+- **Added:** Three append-only value tenants after `Register1`: `Nars16x8` (U16 × 8, row [284,300)), `MoorePalettePairs` (U8 × 16, [300,316)), `MooreNars16` (U16 × 8, [316,332)); new module `contract::moore_tenant` (`MooreSlot`, `MooreNars16`, `MooreTenantView`, `MooreTenantMut`, `DirectionReading::require_sign_triple`, `MooreTenantMut::lift_ce64`); `ValueSchema::Full` carries all three. Tests F (`moore_palette_pairs_lut.rs`) and J (`moore_tenant_isa_equivalence.rs`); docs `tenants.md`, `le-contract.md` §3c.
+- **Locked:** `NodeRow` stays 512 B, tenants 0..17 and CE64 fields unchanged, no `ENVELOPE_LAYOUT_VERSION` bump; Full grows 252 to 300 B; `BoardAggregates` reservation re-bases to 21; `lift_ce64` refuses mixed witnesses and Epi5 codes 24..31, checking all eight lanes before writing. No truth formula, no CE64 change.
+- **Deferred / open:** The `Nars16x8` u16 reading is not declared anywhere; no `SlabReading` variant gates these tenants; no production reader or writer.
+- **Confidence:** 11 tests in `moore_tenant.rs` (G exhaustive over 65536 lane values); J: 0 divergences outside the sign triple over 256 tenants × 8 lanes × 5 ops; 10 disable runs, each red then restored. Three tests pinning Full at 252 re-pinned to 300 on purpose.
+
+## 2026-10-08 — lance-graph PR #1407 (merged `16c21c4f`, branch `ccr-b2e415d9-4jfvyk-ce64-isa`, head `bad7b157`, 7 commits) — CE64 ISA: strict decoder, register methods, field contracts
+
+- **Added:** `crates/causal-edge/src/isa.rs` with `deduction`, `induction`, `abduction`, `synthesis`, `revision`, `counterfactual`, `intervention`, `execute`, `forward` and `Compose`; `IsaFault::Unsupported { mantissa }`; `isa::contracts` field-liveness matrix; tests `ce64_isa_contract.rs`, `ce64_isa_golden.rs`, `ce64_legacy_capture.txt` (126 vectors), `gadamer_isa_revision.rs`; `docs/architecture/ce64-semantic-upper-half.md` updated; board entry `2026-10-08-ce64-isa-register-contract.md`.
+- **Locked:** Dispatch over 16 codes: `+1` Deduction, `+2` Induction, `-1` Abduction, `+4` Revision step, `+5` Synthesis; all others `IsaFault::Unsupported`. 71 of 126 legacy vectors reproduce, 55 now refuse; 23 normative vectors checked against an f64 reference within ±1. `revision(c=255, c=255)` returns `f = c = 0` (NaN path), pinned as known-bad. `isa.rs` names no reasoning-policy types (source guard). API change: `forward`, `forward_chain`, `NarsEngine::forward_edge`, `replay_step` return `Result`; `ReplayError` gains `Isa`.
+- **Deferred / open:** `forward`'s revision step composes the payload while `revision(b)` does not; `forward` writes the executed code into bits 46..49; `learn` mixes arithmetic with policy; `syllogize` chooses and computes; planner truth-function copies still differ; the c-cap fix is a separate PR.
+- **Confidence:** causal-edge 81 lib + 12 contract + 6 golden + 8 op-contract tests passing, clippy `-D warnings` clean; planner `chain_confidence`, `gadamer_isa_revision`, `moore_nars16_probe` (15) and full planner, cognitive-shader-driver, p64-bridge suites pass; 9 disable runs, each red.
+
+## 2026-10-08 — lance-graph PR #1406 (merged `92c47988`, branch `ccr-b2e415d9-4jfvyk`, head `bb098c0d`, 4 commits) — Probe: MooreNars16 as a Moore-local representation of ISA-visible CE64 state
+
+- **Added:** `crates/lance-graph-planner/tests/moore_nars16_probe.rs` (15 tests) and board entry `2026-10-08-moore-nars16-isa-visible-representation.md`. Lane layout `Pearl3 | Energy4 | Plasticity3 | Polarity1 | Epi5`; tenant is Witness6 once + 8 lanes. No change to CE64 layout, operations or production paths.
+- **Locked:** `MooreNars16` is not a lossless compression of canonical NARS24; the bar is ISA observational equivalence (all fields except Direction3) for `forward`, `learn`, `syllogize`. 300 tenants × 8 lanes × 5 ops give 0 divergences; raw words still differ in at least 600 of 800 weight-side `forward` results. `CausalNetwork::detect_simpsons_paradox` silently reports "no pattern" for a Moore edge (pinned). Mixed-W tenant refused; Epi5 codes 24..31 refused.
+- **Deferred / open:** Witness ownership scope rests on reading the code; `Polarity1` is a candidate only; Gomoku A/B replay, domain runs, chess and timing not run.
+- **Confidence:** 15 tests; five mutations each produce divergence; disable runs with asserted anchors (witness refusal 1, Epi5 refusal 1, Simpson refusal 1, bitwise comparison 3, polarity 1 tests red).
+
+## 2026-10-08 — lance-graph PR #1405 (merged `d8fb61fc`, branch `ccr-b2e415d9-4jfvyk`, head `b454d518`, 9 commits) — coresearch: CE64 + Moore + masking wiring map, six probes pinned
+
+- **Added:** Board entry `2026-10-08-coresearch-ce64-moore-masking-wiring.md` (exploration map PROBE / PARK / SKIP); tests `crates/causal-edge/tests/ce64_op_contract.rs`, `crates/lance-graph-planner/tests/chain_confidence.rs`; examples `meta_prefilter_mask_probe.rs` and `+2 tests` in `moore_plasticity_probe.rs` (cognitive-shader-driver). No production code changes.
+- **Locked:** Surviving ideas go beside CE64, not inside it; the three carriers (CE64 per edge, `ThoughtCtx` per thought, `MailboxSoA.meta` and masks per population) exist and the wiring between them is missing. CF-MANTISSA: a Counterfactual (-6) weight runs the Synthesis average then is re-stamped -6. W-PRESERVE: `forward` returns W = 0 and bits 59..63 = 0. PREFILTER-MASK: 400 filters × 4099 rows match the shipped `meta_prefilter`. CHAIN-CONF: `replay_step` raises confidence 200 → 224 → 237 then saturates; a zero-confidence weight still adds confidence (128 → 137). The council ratifies nothing.
+- **Deferred / open:** none stated.
+- **Confidence:** `cargo test -p causal-edge` (incl. `--no-default-features`), the two shader-driver examples and `chain_confidence` pass; each pinned behaviour disable-verified red; `cargo clippy -p causal-edge --all-targets -D warnings` reports 9 errors, all pre-existing in `src/`.
+
+## 2026-10-08 — lance-graph PR #1404 (merged `bcc9f50b`, branch `ccr-0455e606-wmtsor`, head `d4855a38`, 2 commits) — rbac: RBAC hot-plug socket (contract::rbac_plug, additive)
+
+- **Added:** New module `lance-graph-contract::rbac_plug`: `RbacPlug { consumer, classids, roles }`, `RbacAuthority::bind(&RbacPlug) -> Result<RbacBinding, RbacDrift>`, `RbacBinding`, `RbacDrift` (`UnknownClassid`, `UnknownRole`, `NotPlugged`, `RoleNotPlugged`, `MirrorDrift`), `verify_concepts_against_mirror`, `ActorSource`, `PluggedRbac`. Kernel test `plug_tests` in `lance-graph-rbac/src/authorize.rs`; board entry `2026-10-08-rbac-hotplug-socket.md`.
+- **Locked:** Applies the `hotplug.rs` pattern to authorization; additive, nothing existing changes. Out-of-plug grants and field masks are dropped at bind; a question outside the plug is a denial with an empty field mask.
+- **Deferred / open:** OGAR `impl RbacAuthority for OgarRbac<S>` is the paired next PR and its CI stays red until this merges; MedCare-rs and a2ui-rs plugs come after both merge.
+- **Confidence:** 6 contract tests plus one kernel test pass; clippy `-D warnings` and fmt clean; 5 disable runs, each failed its test.
+
+## 2026-10-08 — lance-graph PR #1403 (merged `83e6fe4c`, branch `ccr-0455e606-wmtsor`, head `0e12b983`, 2 commits) — rbac: membership-scoped authorization (additive, no consumer change)
+
+- **Added:** `lance-graph-contract::rbac`: `ScopeSpec::covers`, `ScopeSet` (`insert`, `admits`, `narrow(cap)`), `Membership { role, scope }`, `ClassRbac::memberships(actor, class)` (default `actor_roles` × `row_scope`), `is_access_control_class(class)`. `lance-graph-rbac::authorize`: `authorize_memberships` → `MembershipDecision`. Board entry `2026-10-08-rbac-membership-scope.md`.
+- **Locked:** Additive; `authorize`, `authorize_scoped`, `ScopedDecision` and all signatures unchanged. `authorize_memberships` verdict and deny reasons equal `authorize`'s on the default path (test pins it); the deny reason is one shared helper. An unscoped granting membership means unrestricted access. No `ClassRbac` implementor in lance-graph, OGAR or openproject-nexgen-rs defines `memberships`.
+- **Deferred / open:** No consumer migration (`OgarRbac` / `GrantSource` need a membership source); row predicates not evaluated (`predicate_key` opaque); delegation has no type beyond `ScopeSet::narrow`. openproject-nexgen-rs was not built.
+- **Confidence:** contract rbac tests 19 (6 new), `lance-graph-rbac` 31 (7 new), OGAR `ogar-rbac` 8 pass against the branch; clippy `-D warnings` and fmt clean; 7 disable runs, each failed its test.
+
+## 2026-10-08 — lance-graph PR #1402 (merged `e1bd42cd`, branch `ccr-0455e606-wmtsor`, head `b4120b1b`, 1 commit) — rbac: remove the auth_surrealdb provider profile
+
+- **Added:** Removal only: drops `AuthProvider::SurrealDb` and its claim grammar from `lance-graph-rbac::auth`, the `("auth_surrealdb", 0x0B05)` mirror row and assert from `contract::ogar_codebook`; `SCOPE_PATH_DEPTH` doc no longer names SurrealDB; board entry and `LATEST_STATE` delta now describe the scope path alone.
+- **Locked:** #1401's provider profile was a misreading (SurrealDB was a pattern to study, not a provider). `ScopePath` and `ScopeSpec` unchanged. OGAR does not mint `0x0B05` (OGAR#323 drops its side). Current `main` carried a mirror row OGAR's codebook lacked; this brings them back in agreement.
+- **Deferred / open:** none stated.
+- **Confidence:** `lance-graph-contract` 1427 pass; `lance-graph-rbac` all pass; `lance-graph-ogar` mirror/parity tests 4/4; clippy `-D warnings` and fmt clean.
+
+## 2026-10-08 — lance-graph PR #1401 (merged `ecbc396e`, branch `ccr-0455e606-wmtsor`, head `b1bd4c8d`, 2 commits) — rbac: nested scope (ScopePath) and the auth_surrealdb provider
+
+- **Added:** `contract::rbac::ScopePath` (up to `SCOPE_PATH_DEPTH = 4` interned `u64` segments; `contains` = prefix, `ScopePath::ROOT`); `ScopeSpec` gains `path` (default `ROOT`), `admits(&ScopePath)` and a nested-path `intersect` (narrower kept, different branches give `ScopeSpec::DENY`). Also `AuthProvider::SurrealDb` (`auth_surrealdb`, `0x0B05`, claims `ID` / `RL` / `NS`) and its `ogar_codebook` mirror row (both removed by #1402). Board entry `2026-10-08-rbac-nested-scope-path.md`, `LATEST_STATE` delta.
+- **Locked:** Existing scopes unchanged (path defaults to `ROOT`); the tenant rule still applies on top of path intersection. No struct literal outside the two crates exists in lance-graph, OGAR, MedCare-rs or a2ui-rs.
+- **Deferred / open:** No catalog classids for database-catalog objects; scope bound to the role, not the membership (`ClassRbac::row_scope(role, class)` has no actor, `RoleId` is `&'static str`). Merge before the paired OGAR PR.
+- **Confidence:** `lance-graph-contract` 1427 pass, `lance-graph-rbac` all pass, 3 new `rbac` tests, clippy `-D warnings` clean; 3 disable runs each made a test fail.
+
+## 2026-10-08 — lance-graph PR #1400 (merged `7524bf7e`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `2f282499`, 7 commits) — D-MOORE-NARS-0: recipe learning from reasoning consequences on Gomoku
+
+- **Added:** `crates/cognitive-shader-driver/examples/moore_nars_gomoku_probe.rs` (`test = true`; 9×9 five-in-a-row, opponents Threat, Lookahead, Aggressor; census of all 34 catalogue recipes from `contract::recipes::RECIPES`); `Cargo.toml` change; board entry `2026-10-08-moore-nars-0-recipe-learning-gomoku.md`; STATUS_BOARD row.
+- **Locked:** Release run 427 s, 3 seeds, last of 5 windows of 400 games. Against Threat: persistent structural learner 0.500 → 0.535 vs best fixed recipe 0.498 / 0.493 (CUR / HPM), reset-every-game ~0.47, literal board memory ~0.49, uniform ~0.24. Transfer with frozen state: 0.526 vs 0.493 untrained on unseen openings; 0.507 vs 0.493 on 11×11. The W-delayed one-reply consequence is the credit spine (immediate, 3-turns-later, contradiction-only, final-only stay at baseline). No "less work": about 280 folds per step vs 0 for HPM. Unlearning not demonstrated.
+- **Deferred / open:** Earn "less work"; a switch that tests unlearning; per-step attribution over longer horizons; stronger opponents; Renju constraints, then Go local fights. Caveats: regret not independent evidence, ICR privileged against Threat, most games draws.
+- **Confidence:** 7 tests (~30 s debug): 6 structural, each red when disabled, plus 1 learning falsifier with 4 disable runs; clippy `-D warnings` and fmt clean. Four review bookkeeping bugs fixed; re-measured, only the h=3 arm moved (0.495 → 0.496).
+
+## 2026-10-08 — lance-graph PR #1399 (merged `061c57e9`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `4e2cd963`, 2 commits) — Board: #1398 merge hygiene
+
+- **Added:** Board only, for merged #1398 (D-PUZZLE-ATTN-0): a `PR_ARC_INVENTORY.md` entry, a `LATEST_STATE.md` entry, STATUS_BOARD row D-PUZZLE-ATTN-0 set to Shipped (#1398), and a one-line edit to `entries/2026-10-07-puzzle-attn-0-entropy-attention-crosswords.md`. No code.
+- **Locked:** Under the CLAUDE.md termination clause it needs no board entry of its own.
+- **Deferred / open:** none stated.
+- **Confidence:** n/a (board). Body states the entries index and supersession index are current.
 
 ## 2026-10-07 — lance-graph PR #1398 (merged `89694cc`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `ce63247`, 4 commits) — D-PUZZLE-ATTN-0: entropy as the focus of attention on crosswords
 
@@ -426,6 +1198,13 @@
 - **Deferred / open:** the heap scheduler costs ~3.5× FIFO per fold; Moore/EWA/Sudoku folds not in the loop; where cross-cycle state lives in the register.
 - **Confidence:** medium — pooled over 3 seeds, one world model.
 
+## 2026-10-07 — lance-graph PR #1396 (merged `f9bd4327`, branch `ccr-0455e606-wmtsor`, head `2c638e31`, 3 commits) — dir-sim: address_owner, a mail recipient resolves to one directory owner by key, or to a conflict
+
+- **Added:** `validate::address_owner(view, KeyId) -> Result<Option<Guid128>, Violation>` (`Ok(None)`, `Ok(Some(owner))`, `Err(Violation::AddressConflict { key, holders })`); `address_rows` factored out of `address_rules` (behaviour unchanged); `crates/lance-graph-dir-sim/tests/mail_recipient.rs` (9 tests); board entry `2026-10-07-dir-sim-mail-recipient-owner.md`.
+- **Locked:** Ambiguity is never resolved (not first match, insertion order or attribute preference); resolution and validation share one set of rows; no new DTO (reuses OGAR's `Violation::AddressConflict`). Address space is the one #1392 validates. Inventory: neither Stalwart nor Spear has code that produces a recipient identity.
+- **Deferred / open:** Spear has no step that produces a recipient (binding `to_addrs` to a `KeyId` needs a Spear → lance-graph dependency; Spear's `ontology` feature pins `lancedb =0.27.2` while lance-graph `main` is on lance 12); groups' addresses are not in the space.
+- **Confidence:** crate's 112 tests pass (crate is excluded from the workspace, so this is its full gate) including `string_fence`; clippy `-D warnings` and fmt clean; 6 disable runs, each red.
+
 ## 2026-10-07 — lance-graph PR #1395 (merged `5658c10`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `086189a`, 5 commits) — D-CE64-LOOP-0 + D-CE64-STAUNEN-0: self-orchestrating fold loop, surprisal scheduler, bits 40..63 census
 
 - **Added:** `lance-graph-planner/examples/self_orchestration_probe.rs` (one register, five policies, 15 tests) and `staunen_scheduler_probe.rs` (many basins across windows, surprisal distinct from Shannon H, 18 tests), both `test = true`; the bits 40..63 reader/writer census (board entry).
@@ -433,12 +1212,26 @@
 - **Deferred / open:** one world per probe; Moore/EWA/Sudoku folds not wired; the `staunen` name collision with `basin_resonance`.
 - **Confidence (2026-10-07):** the single-seed "wake 4.2 vs 5.1" advantage did not survive pooling three seeds (D-CE64-CYCLE-0).
 
+## 2026-10-07 — lance-graph PR #1394 (merged `129b3f3e`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `f7291377`, 4 commits) — Board: regenerate the entries index on main; record #1391 as shipped
+
+- **Added:** Board only: `python3 .claude/tools/entries_index.py --write` (257 rows), STATUS_BOARD D-PEARL-PROD-0 set to Shipped (#1391), a prepended `PR_ARC_INVENTORY.md` entry for #1391, a `LATEST_STATE.md` addition. Files changed are `LATEST_STATE.md`, `PR_ARC_INVENTORY.md`, `STATUS_BOARD.md`.
+- **Locked:** `main` (`cc15ec0`) failed `regenerate-and-diff` because the entries README was stale after #1391 and #1392 each regenerated it on their own branch. `SUPERSESSION-INDEX.md` unchanged. Hygiene-only, so no arc entry of its own.
+- **Deferred / open:** none stated.
+- **Confidence:** n/a (board). Body states the check now passes.
+
 ## 2026-10-07 — lance-graph PR #1393 (merged `69e661a`, branch `codex/ce64-semantic-upper-half-probe`, head `6c98015`, 6 commits) — D-CE64-SEM-0: a probe-local semantic reading of the CE64 upper half
 
 - **Added:** test-only readings in `pearl_ladder_probe.rs`: bits 46..49 as a signed reaction activation, 50..52 as novelty (`ceil(log2)` of the surviving `EpistemicState5` population; `None` when no state survives), 53..58 as a belief-update breadcrumb. Tests ported onto `planner::pearl` after #1391.
 - **Locked (test-pinned):** 4 example tests: breadcrumb advances only on an Epi5 change, opposite activation signs from one operator, novelty widths 5/2/2/0 plus the contradiction case, direction does not select the operator.
 - **Deferred / open (review findings, PR comment):** each reading reuses bits that already mean something in code: 46..49 is the inference type (activation ±6 aliases Intervention/Counterfactual), 50..52 is plasticity (`network.rs` filters on it), 53..58 is the witness handle (#1371). The tests sit in a `with-planner` example, which CI does not run.
 - **Confidence:** the readings are a candidate only; no layout or accessor changed.
+
+## 2026-10-07 — lance-graph PR #1392 (merged `cc15ec0e`, branch `ccr-0455e606-wmtsor`, head `20783c1e`, 4 commits) — dir-sim: one address space (UPN, SMTP, mail, routing) and the routing rules
+
+- **Added:** `validate::address_rules` computing OGAR #321's `AddressConflict`, `RoutingNotInProxies`, `RoutingMismatch` (and `exchange::ROUTING`); `ObservedNode` gains `mail` and `alias` (`mailNickname`) read by `from_ad`; `Dicts::intern` records the alias key; `crates/lance-graph-dir-sim/tests/addresses.rs` (11 tests); board entry `2026-10-07-dir-sim-address-space.md`. No actuator or write-back code.
+- **Locked:** UPN, SMTP, `mail` and routing addresses share one key space; `RoutingNotInProxies` is scoped to the observed routing address (Codex found enabling a mailbox could never pass `promote_desired` otherwise); pairs already reported as `DuplicateSmtp` / `DuplicateUpn` are not reported again; validation is `O(n log n)` over users and reads no text. Merge OGAR #321 first.
+- **Deferred / open:** `mail` and `mailNickname` cannot change in a simulation (no `Attribute`) and a created node has neither; groups' `mail` and addresses not in the space; one tenant per directory not checked.
+- **Confidence:** all crate tests pass, string fence holds, fmt and `clippy -D warnings` clean; 11 disable runs, each red (the un-normalized-parse one was green until a mixed-case routing test was added).
 
 ## 2026-10-07 — lance-graph PR #1391 (merged `53212db`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `9289c46`, 6 commits) — D-PEARL-PROD-0: Pearl's ladder in production, generic over population width, admission keyed by classid
 
@@ -453,6 +1246,20 @@
 - **Locked (test-pinned):** 14 tests, 12 disable runs red; SO stops below `Causes`, only executed arms earn `Causes`, counterfactual reactions and confounding never certify or demote.
 - **Deferred / open:** production placement (D-PEARL-PROD-0); whole-node removal; contingency search beyond one cause; whether bits 43..52 take the diagram's reading (needs a version gate).
 - **Confidence:** high for the dispatch and write-back rules; the counterfactual fixture is one measured chain.
+
+## 2026-10-07 — lance-graph PR #1389 (merged `0a015880`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `ec08891e`, 1 commit) — Board: D-PUZZLE-0 step 3 disable-run count is 12, not 13
+
+- **Added:** One-line correction to `entries/2026-10-07-puzzle-0-crossword-mask-propagation.md` (merged in #1387) plus the entries index line. No code.
+- **Locked:** The probe has 12 disable runs, numbered D1–D8 and D10–D13 (no D9), and all 12 fail when their guard is disabled. `main` was merged into the branch because force-push was not possible.
+- **Deferred / open:** none stated.
+- **Confidence:** n/a (board).
+
+## 2026-10-07 — lance-graph PR #1388 (merged `fdaf197d`, branch `ccr-0455e606-wmtsor`, head `715534cd`, 3 commits) — dir-sim: Exchange recipients through ingest, snapshot, overlay, diff, plan and uniqueness
+
+- **Added:** Execution side of OGAR #320 (`NodeState.recipient`, `Change::SetRecipient`): `ObservedRecipient` read raw by `observe::from_ad` (`msExchRemoteRecipientType`, `msExchRecipientDisplayType`, `msExchRecipientTypeDetails`, `targetAddress`, `SMTP:` stripped); raw SoA lanes with presence bits plus an `rcp_read` plane, decoded by `Recipient::from_attributes`; `SetRecipient` through OGAR's `NodeState::apply`, `ApplyError::Uninterned`; `RemoteMailboxOp` plan step guarded by `RecipientEquals(observed)`; `duplicates` / `smtp_duplicates` count address owners. `crates/lance-graph-dir-sim/tests/recipients.rs` (9 tests); `tests/alloc.rs` extended; board entry `2026-10-07-dir-sim-exchange-recipients.md`.
+- **Locked:** Schema version 2 or later means the triplet was read (absent = not mail-enabled); older records are "not read" (`None`). Unknown triplets stay `Other`. Uniqueness: owner = enabled user or live mail recipient; union never drops a previously counted owner. Closes the "Uniqueness counts only active owners" open item from #1386's board entry. Merge OGAR #320 first, then this PR.
+- **Deferred / open:** Routing address not added to the proxy relation; groups and contacts as recipients not modelled in uniqueness; hybrid identity anchors (`mS-DS-ConsistencyGuid`, `msDS-ExternalDirectoryObjectId`) do not yet join on-premises and cloud observations.
+- **Confidence:** crate's 92 tests pass; fmt and `clippy -D warnings` clean; 11 disable runs, each red (the delete-keeps-override one was green until the undo path was tested).
 
 ## 2026-10-07 — lance-graph PR #1387 (merged `e6612dc`, branch `claude/epistemicstate5-ce64-bits-3oe0dq`, head `9f8b5e4`, 9 commits) — D-PUZZLE-0 step 3: crossword propagation as Cartesian-addressed masking
 

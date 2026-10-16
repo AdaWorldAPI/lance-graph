@@ -1,3 +1,10 @@
+## 2026-10-16 — board catch-up for merged PRs #1388–#1588 (Haiku + Sonnet grindwork)
+
+- Six Sonnet writers drafted 115 `PR_ARC_INVENTORY` entries from each PR's description and file list (brief: facts only, shas copied from the JSON). The main thread matched every header against the PR metadata mechanically and read samples; inserted by a script that refuses duplicates and a shorter file.
+- Two Haiku debt scouts (deferred / open / measured lines in 120 bodies): pattern hits only. Every row filed was re-read in the body and, for code claims, in the code (`ClassGrants`, `FacetSchema::of_classid`, `ClassId` twice, `address_owner`). Three items they surfaced turned out closed since (#1483, OGAR #353, OGAR #358) and were not filed.
+- Four Haiku plan-header quote runs: one reported hand-transcribed quotes; not used. Plan headers were re-extracted by script and read on the main thread instead.
+- Result: the board files of this PR. Written by the orchestrating main thread only.
+
 ## 2026-10-16 — 5+3 council: WCOJ closing atoms (premise + 5 savants + 3 reviewers)
 
 - Premise auditor: PREMISE-SPLIT (Part B is an EXISTS, not a comparison).
