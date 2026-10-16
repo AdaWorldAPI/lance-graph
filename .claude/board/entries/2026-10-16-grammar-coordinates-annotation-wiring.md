@@ -194,3 +194,25 @@ Not done, recorded so it is not lost:
   neighbours in the same family. So any PCS reading within L1 12 of a patch
   decodes to that patch uniquely. A "3σ" statement needs the noise σ of a
   reading, which is the unmeasured A2B side (`ISS-QUALIA-A2B-CLUT-UNMEASURED`).
+
+## 9. Qualia register (approved proposals #1, #2, #4)
+
+- `WiredRow::qualia` is a `FacetCascade` (class id 0) read `G6D2`, six
+  `u8:u8` pairs: 0..2 = `(operand code : qualia index)` for S, P, O; pair 3 =
+  `(verb_table::morton_cell : 1)`, or `(0 : 0)` when the verb does not
+  classify. An adjective's index lands on its noun's S/O pair, an adverb's
+  on its event's P pair: one index, two meanings, told apart by the pair.
+- Deviation from the proposal, found while building: `morton_cell(Becomes,
+  Present) == 0`, a real verb, so the cell cannot share a pair whose zero
+  means "absent", and a reserved cell may not be borrowed as a sentinel. The
+  cell got its own pair with a presence byte.
+- `saw` stays unclassified (`verb_lexicon` refuses the homograph); German
+  surfaces never classify (the lexicon is English).
+- Five disables red. Two tests were vacuous on their first fixture and were
+  fixed until the disable bit: the single-implication case (plain verse
+  first) and the sentence-bound adjective (only bites when the next
+  sentence's noun also occurs in the current sentence's triples).
+- OPEN (#3, deferred by the operator): the word → qualia index source.
+  Candidate for later: WordNet senses measured against the 219 patches'
+  Jina embeddings (`data/qualia/calibrated_219.bin1024`). Until then the
+  caller supplies indices and every index defaults to 0.
