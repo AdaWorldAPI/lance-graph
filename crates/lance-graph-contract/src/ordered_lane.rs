@@ -424,6 +424,51 @@ pub fn gallop_partition_point<T>(
     lo + 1 + keys[lo + 1..hi].partition_point(pred)
 }
 
+/// Gaps up to this many rows are stepped one row at a time before galloping.
+pub const SEEK_LINEAR_GAP: usize = 4;
+
+/// The cursor seek that picks its method from the caller's expected gap
+/// between successive seeks (in a leapfrog join, the other side's length
+/// divided into this one's). Counted over 2²⁰ keys
+/// (`p1_galloping_beats_binary_search_dense_and_linear_merge_sparse`):
+/// - a gap of at most [`SEEK_LINEAR_GAP`] rows: step, then gallop if the
+///   steps run out (a step costs one comparison, galloping starts at two);
+/// - a gap whose square exceeds the rows left: binary search the rest of the
+///   lane, since galloping costs about `2·log2(gap)` and the search
+///   `log2(rest)`;
+/// - otherwise gallop ([`gallop_partition_point`]).
+///
+/// Same contract as [`gallop_partition_point`]; the hint changes only the
+/// cost, never the answer.
+#[must_use]
+pub fn seek_partition_point<T>(
+    keys: &[T],
+    from: usize,
+    gap_hint: usize,
+    mut pred: impl FnMut(&T) -> bool,
+) -> usize {
+    let n = keys.len();
+    if from >= n {
+        return n;
+    }
+    let rest = n - from;
+    if gap_hint <= SEEK_LINEAR_GAP {
+        let stop = (from + 2 * SEEK_LINEAR_GAP).min(n);
+        let mut i = from;
+        while i < stop {
+            if !pred(&keys[i]) {
+                return i;
+            }
+            i += 1;
+        }
+        return gallop_partition_point(keys, i, pred);
+    }
+    if gap_hint.saturating_mul(gap_hint) > rest {
+        return from + keys[from..].partition_point(pred);
+    }
+    gallop_partition_point(keys, from, pred)
+}
+
 /// The raw bound with NO ordering gate: two `partition_point`s over `keys`.
 /// Correct only on a slice in numeric projection order; on anything else it
 /// returns a PLAUSIBLE WRONG RANGE — which is exactly the failure the witness
@@ -768,6 +813,36 @@ mod tests {
     }
 
     // ── P-1: galloping seek from a cursor (D-ASM-11, coresearch map 2026-10-16) ──
+
+    /// The hybrid seek with the true gap as its hint costs at most a small
+    /// constant more than the best of the three plain seeks, at every ratio,
+    /// and always agrees with `partition_point`. Disable run: ignore the hint
+    /// (always gallop) and the sparse ratio goes red.
+    #[test]
+    fn hybrid_seek_tracks_the_best_plain_seek_at_every_ratio() {
+        let n = 1 << 20;
+        let keys: Vec<u32> = (0..n as u32).map(|i| 2 * i).collect();
+        for m in [n / 2, n / 16, n / 256, n / 4096, n / 65536] {
+            let targets: Vec<u32> = (0..m).map(|j| ((2 * n * j) / m) as u32 + 1).collect();
+            let mut hybrid = 0u64;
+            let mut cursor = 0usize;
+            for &t in &targets {
+                let h = seek_partition_point(&keys, cursor, n / m, |&k| {
+                    hybrid += 1;
+                    k < t
+                });
+                assert_eq!(h, keys.partition_point(|&k| k < t), "t={t}");
+                cursor = h;
+            }
+            let (g, f, l) = seek_costs(n, m);
+            let best = g.min(f).min(l);
+            assert!(
+                hybrid <= best + best / 4 + 2 * m as u64,
+                "N/m = {}: hybrid {hybrid}, best plain {best} (gallop {g}, fresh {f}, linear {l})",
+                n / m
+            );
+        }
+    }
 
     /// `m` increasing targets spread evenly over `0..2N`, sought over the
     /// even keys `0, 2, …, 2N-2`. Returns total comparisons for the galloping
