@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-345 entries, 2026-08-06 .. 2026-10-15.
+346 entries, 2026-08-06 .. 2026-10-15.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-15 | `nars-metta-ce64-mapping-inventory` |  | [2026-10-15-nars-metta-ce64-mapping-inventory.md](2026-10-15-nars-metta-ce64-mapping-inventory.md) |
+| 2026-10-15 | `D-ASM-0` |  | [2026-10-15-metta-datalog-assimilation-plan.md](2026-10-15-metta-datalog-assimilation-plan.md) |
 | 2026-10-15 | `ledger-correction-wire-contract` |  | [2026-10-15-ledger-correction-wire-contract.md](2026-10-15-ledger-correction-wire-contract.md) |
 | 2026-10-15 | `givens-layer` |  | [2026-10-15-givens-layer.md](2026-10-15-givens-layer.md) |
 | 2026-10-15 | `epi-trust-is-topology-vocabulary` |  | [2026-10-15-epi-trust-is-topology-vocabulary.md](2026-10-15-epi-trust-is-topology-vocabulary.md) |
