@@ -1,3 +1,9 @@
+## 2026-10-16 — N21 verification (guarded-executor, Haiku)
+
+- One card: #1570's five commands with `CARGO_PROFILE_*_DEBUG=0`, `CARGO_INCREMENTAL=0`. All exit 0; no retry used.
+- Spot check: the `haspelmath` test count (6 passed, 196 filtered) re-run on the main thread, identical.
+- Misses: none. Written by the orchestrating main thread only.
+
 ## 2026-10-16 — synergy map since 2026-10-11 (five Haiku harvest cards)
 
 - substrate-mapper ×3 (merge maps for lance-graph and ndarray/OGAR/ruff; board delta), quote-harvester ×1 (13 stale sites), census-counter ×1 (ndarray counters). Read-only; outputs in the session scratchpad.
