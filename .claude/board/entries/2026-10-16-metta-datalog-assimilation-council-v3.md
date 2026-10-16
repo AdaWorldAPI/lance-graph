@@ -39,3 +39,7 @@ FOREIGN fan-out (`Semijoin` mask × `GroupReduce{Count}`), and `Space::query -> 
 spec §10 (v3.1): R-3 limit + G2b split (ii pinned two-sided) + N1c; R-5 `try_query` / counted-empty trait path / `(lance-match …)`
 grounded op; N4 rewritten; plan §E and D-ASM-5 reworded around the interned term table; D-MTP-2 gate = the 26-script baseline.
 OPEN (operator): what the adapter answers for a foreign fan-out query in W1–W3 (tagged bag is the written default).
+
+**Addendum (2026-10-16, NO PINS):** DECISION — git deps float on `branch = "main"`, no `rev`, no tracked `Cargo.lock` (already
+gitignored in lance-graph `:15` and the fork `:8`; no `rev =` exists in any `Cargo.toml`). Spec F5/R-7/G6 reworded; the earlier
+"pin bump to `e55dc61`" item is void — there was never a manifest pin, only spec text.
