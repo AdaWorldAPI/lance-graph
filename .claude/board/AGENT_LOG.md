@@ -1,3 +1,10 @@
+## 2026-10-16 — WCOJ items 1–3: DuckDB and bind harvest (three Haiku runs)
+
+- harvest-scout (as general-purpose on Haiku) over a DuckDB source clone at `e1ecb5b8`: 10 patterns, per-pattern counts. Spot checks: `physical_asof_join.cpp:1182`, `delim_join_cte_rewriter.cpp:1172` and `query_graph_manager.cpp:399` re-read. All three matched. No conclusion drawn.
+- Web scout (general-purpose on Haiku): 12 items with read grades; most were ABSTRACT-ONLY or SECONDHAND and are recorded as leads only.
+- substrate-mapper over `lance-graph-sap` (7 files, 96 rows). Spot checks: `binder.rs` and `bind.rs:1-140` re-read in full. The `Binder` trait was read at `lance-graph-quack/src/bind.rs:92`. No misses.
+- Result: entry `2026-10-16-wcoj-probes-1-3.md`. Written by the orchestrating main thread only.
+
 ## 2026-10-16 — D-ASM follow-up rows (two Haiku cards)
 
 - substrate-mapper (as general-purpose on Haiku; the card is not registered from this worktree): arm-discovery fact map, 8 files. Spot checks: no MI/lift/cosine code (grep re-run, three doc-comment hits only), per-candidate counting (`extract.rs:95-109` re-read). Miss: the brief named `src/aerial.rs`, which is a directory; the card mapped the directory and said so.

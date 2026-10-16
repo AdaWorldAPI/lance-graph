@@ -31,7 +31,7 @@ Council 2026-10-16: `metta-datalog-assimilation-v1-council-v3.md` is the ratifie
 | **D-ASM-8** | `learn`-shaped measures (marginals, MI/PMI, cosine, Jaccard) as a reading of pair counts in `lance-graph-arm-discovery`; counts from D-ASM-3, never a loop; no `lance-graph-learn` crate (entry `2026-10-16-asm-accepted-proposals.md`) | Queued (not authorized; gated on D-ASM-3) | measures == an oracle run of upstream `learn` on one corpus; `(opencog matrix)` definitions sourced first |
 | **D-ASM-9** | `lance-graph-das` attention-broker probe: `w = edge.count / node.count`, rent, spread over the D-ASM-2 hop | Queued (not authorized; gated on D-ASM-2; crate not created) | attention values == DAS broker on one fixture; crate created only when the probe runs |
 | **D-ASM-10** | MORK as fourth oracle (Hyperon · PeTTa · datafrog · MORK), built as a separate binary outside the workspace, results only | Queued (not authorized) | MORK answers recorded beside the other three, divergences recorded, never averaged |
-| **D-ASM-11** | Leapfrog-join probe vs our semijoin chain on a cyclic 3-way join, written from the paper | Queued (not authorized; gated on D-ASM-2) | answers == datafrog; per-element cost on the v4 arm only |
+| **D-ASM-11** | Leapfrog-join probe vs our semijoin chain on a cyclic 3-way join, written from the paper | Queued (not authorized; gated on D-ASM-2). Pre-work in PR: F4 fixture, bag oracle, `seek_from` (P-1), GYO (P-3), P-7 insufficiency shown (entry `2026-10-16-wcoj-probes-1-3.md`) | answers == datafrog; per-element cost on the v4 arm only |
 
 ## D-MTP — Hyperon/MeTTa over the masking-algebra polyfill (2026-10-14)
 

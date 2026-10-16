@@ -1,3 +1,7 @@
+## 2026-10-16 — WCOJ map items 1–3 run (branch `ccr-9f3b8075-74u47l-wcoj-probes`, in PR)
+
+Contract inventory delta: `ordered_lane::gallop_partition_point` (cursor seek, galloping) and `SealedFacetLane::seek_from` (witnessed). Outside the contract: `lance-graph-relalg::join_body::is_alpha_acyclic` (GYO) and `lance-graph-metta/examples/wcoj_probe.rs` (F4 fixture, bag oracle, P-7 check). Results: entry `2026-10-16-wcoj-probes-1-3.md`.
+
 ## 2026-10-16 — main after #1582 (merged `e08e5659`)
 
 - **On `main` (#1582):** the doc fixes and the OpenCog decisions listed in its arc entry. Nothing built.
