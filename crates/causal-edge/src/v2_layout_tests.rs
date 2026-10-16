@@ -93,7 +93,7 @@ mod v2_layout_tests {
             209,
             181,            // NARS f=0.82, c=0.71
             CausalMask::PO, // interventional level
-            0b101,          // direction triad
+            crate::orientation::Orientation::from_code(0b101),          // orientation
             InferenceType::Deduction,
             PlasticityState::S_HOT,
             0, // temporal = 0 (v1 compat; bits 52-63 must be 0 for v2 clean read)
@@ -111,7 +111,7 @@ mod v2_layout_tests {
         assert_eq!(v2.frequency_u8(), 209, "frequency disturbed");
         assert_eq!(v2.confidence_u8(), 181, "confidence disturbed");
         assert_eq!(v2.causal_mask(), CausalMask::PO, "causal_mask disturbed");
-        assert_eq!(v2.direction(), 0b101, "direction disturbed");
+        assert_eq!(v2.orientation().code(), 0b101, "orientation disturbed");
 
         // V2 fields must be what we set
         assert_eq!(v2.w_slot(), 10, "w_slot not set");
@@ -291,7 +291,7 @@ mod v2_layout_tests {
             200,
             200,
             CausalMask::None,
-            0,
+            crate::orientation::Orientation::Core,
             PlasticityState::ALL_FROZEN,
         );
         assert_eq!(e.w_slot(), 0, "pack_v2: w_slot defaults to 0");
@@ -326,7 +326,7 @@ mod v2_layout_tests {
             200,
             200,
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             PlasticityState::ALL_FROZEN,
         );
         weight = weight.with_inference_mantissa(-1);
@@ -366,7 +366,7 @@ mod v2_layout_tests {
             200,
             200,
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             PlasticityState::ALL_FROZEN,
         );
         edge = edge
@@ -416,7 +416,7 @@ mod v2_layout_tests {
             200,
             200,
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Abduction,
             PlasticityState::ALL_FROZEN,
             0,
@@ -441,7 +441,7 @@ mod v2_layout_tests {
             200,
             200,
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Counterfactual,
             PlasticityState::ALL_FROZEN,
             0,
@@ -466,7 +466,7 @@ mod v2_layout_tests {
             200,
             200,
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Intervention,
             PlasticityState::ALL_FROZEN,
             0,
@@ -608,7 +608,7 @@ mod v2_layout_tests {
             0xDD,
             0xEE,
             CausalMask::SPO,
-            0b111,
+            crate::orientation::Orientation::from_code(0b111),
             PlasticityState::ALL_HOT,
         )
         .with_w_slot(63)
@@ -649,9 +649,9 @@ mod v2_layout_tests {
             "causal_mask disturbed by with_topology"
         );
         assert_eq!(
-            after.direction(),
+            after.orientation().code(),
             0b111,
-            "direction disturbed by with_topology"
+            "orientation disturbed by with_topology"
         );
         assert_eq!(
             after.inference_mantissa(),
@@ -678,7 +678,7 @@ mod v2_layout_tests {
             0xDD,
             0xEE,
             CausalMask::SPO,
-            0b111,
+            crate::orientation::Orientation::from_code(0b111),
             PlasticityState::ALL_HOT,
         )
         .with_w_slot(63)
@@ -717,9 +717,9 @@ mod v2_layout_tests {
             "causal_mask disturbed by with_reasoning_band"
         );
         assert_eq!(
-            after.direction(),
+            after.orientation().code(),
             0b111,
-            "direction disturbed by with_reasoning_band"
+            "orientation disturbed by with_reasoning_band"
         );
         assert_eq!(
             after.inference_mantissa(),
@@ -804,7 +804,7 @@ mod v2_layout_tests {
             44, // frequency
             55, // confidence
             CausalMask::SO,
-            0b110, // direction
+            crate::orientation::Orientation::from_code(0b110), // direction
             PlasticityState::P_HOT,
         )
         .with_w_slot(17)
@@ -833,9 +833,9 @@ mod v2_layout_tests {
             "causal_mask disturbed by new setters"
         );
         assert_eq!(
-            edge.direction(),
+            edge.orientation().code(),
             0b110,
-            "direction disturbed by new setters"
+            "orientation disturbed by new setters"
         );
         assert_eq!(
             edge.inference_mantissa(),
@@ -868,7 +868,7 @@ mod v2_layout_tests {
             200,
             200,
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             PlasticityState::ALL_FROZEN,
         )
         .with_inference_mantissa(InferenceType::Counterfactual.to_mantissa());
@@ -939,7 +939,7 @@ mod v2_layout_tests {
                 100,
                 conf,
                 CausalMask::None,
-                0,
+                crate::orientation::Orientation::Core,
                 PlasticityState::ALL_FROZEN,
             )
             .with_topology(CausalTopology::Direct);

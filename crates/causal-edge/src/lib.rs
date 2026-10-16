@@ -2,14 +2,14 @@
 //!
 //! One atomic u64 encoding the complete causal unit:
 //! SPO palette indices, NARS truth value, Pearl's causal hierarchy,
-//! direction diagnostic, inference type, plasticity state, and temporal index.
+//! orientation, inference type, plasticity state, and temporal index.
 //!
 //! ## Bit Layout
 //!
 //! ```text
 //! 63        52 51   49 48   46 45   43 42  40 39      32 31      24 23  16 15   8 7    0
 //! ┌──────────┬───────┬───────┬───────┬──────┬──────────┬──────────┬──────┬──────┬──────┐
-//! │ temporal  │plasti │infer  │direct │causal│  NARS c  │  NARS f  │  O   │  P   │  S   │
+//! │ temporal  │plasti │infer  │orient │causal│  NARS c  │  NARS f  │  O   │  P   │  S   │
 //! │  12 bit   │3 bit  │3 bit  │3 bit  │3 bit │  8 bit   │  8 bit   │ 8bit │ 8bit │ 8bit │
 //! └──────────┴───────┴───────┴───────┴──────┴──────────┴──────────┴──────┴──────┴──────┘
 //! ```
@@ -56,6 +56,7 @@ pub mod edge_v3;
 pub mod isa;
 pub mod layout;
 pub mod network;
+pub mod orientation;
 pub mod pearl;
 pub mod plasticity;
 pub mod syllogism;
@@ -67,6 +68,7 @@ mod v2_layout_tests;
 pub use edge::CausalEdge64;
 pub use edge_v3::CausalEdgeV3;
 pub use isa::{Compose, IsaFault, Opcode};
+pub use orientation::Orientation;
 pub use pearl::CausalMask;
 pub use plasticity::PlasticityState;
 pub use syllogism::{Figure, Syllogism};

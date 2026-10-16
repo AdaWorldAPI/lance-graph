@@ -98,7 +98,12 @@ impl CausalMask {
 
     /// Detect Simpson's Paradox potential:
     /// S_O and _PO disagree in direction → confounding present.
-    /// Requires checking both projections' direction triads.
+    ///
+    /// The two directions are computed by the caller from populations (the
+    /// planner's confounder check counts the outcome in the exposed and
+    /// unexposed groups); bit 2 set means the outcome is rarer in the first
+    /// group. They are never read from an edge: bits 43..45 hold the
+    /// orientation (D-CGW-1).
     pub fn simpsons_paradox_risk(so_direction: u8, po_direction: u8) -> bool {
         // If S_O shows negative association (O pathological)
         // but _PO shows positive effect (O healthy under P),

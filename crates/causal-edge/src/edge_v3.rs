@@ -40,7 +40,7 @@
 //! ```text
 //! [0]     MO  freq  u8   (NARS frequency)
 //! [1]     MO  conf  u8   (NARS confidence)
-//! [2]     KA  causal_mask(3) | direction(3)          why-planes + chain dir
+//! [2]     KA  causal_mask(3) | orientation(3)        why-planes + orientation
 //! [3]     KA  inference_mantissa(i4 low) | plasticity(3 high)
 //! [4..6]  LO  target u16 (the node whose CAM-PQ IS the SPO — NO SPO here)
 //! [6]     anaphora nibble (i4 low, −8..+7; 0 = none)
@@ -64,7 +64,7 @@
 //!      relative chain offset the producer sets explicitly, never inherited.
 //!
 //! Under the v2 layout the 64 bits are fully partitioned — S/P/O, freq, conf,
-//! causal_mask, direction, inference i4, plasticity, w_slot, truth, spare — so
+//! causal_mask, orientation, inference i4, plasticity, w_slot, truth, spare — so
 //! "every field preserved" IS "every bit preserved" once the SPO is resupplied.
 //!
 //! ### The signed mantissa is carried RAW, never through `InferenceType`
@@ -107,7 +107,7 @@ impl CausalEdgeV3 {
     /// pointing `target` at the node whose CAM-PQ facet holds that SPO.
     ///
     /// **Every other meaningful v2 field is preserved**: freq, conf,
-    /// causal_mask, direction, the RAW signed inference mantissa, plasticity,
+    /// causal_mask, orientation, the RAW signed inference mantissa, plasticity,
     /// w_slot, the truth/topology 2-bit ordinal, and the spare/band 3-bit
     /// ordinal. Paired with [`Self::rehydrate`] this is a bit-exact round trip
     /// once the same SPO is resupplied — see the module doc.
@@ -123,7 +123,7 @@ impl CausalEdgeV3 {
         let mut p = [0u8; 12];
         p[0] = e.frequency_u8();
         p[1] = e.confidence_u8();
-        p[2] = (e.causal_mask() as u8 & 0b111) | ((e.direction() & 0b111) << 3);
+        p[2] = (e.causal_mask() as u8 & 0b111) | (e.orientation().code() << 3);
         let mantissa = e.inference_mantissa() as u8 & 0x0F;
         p[3] = mantissa | ((e.plasticity().bits() & 0b111) << 4);
         let t = target.to_le_bytes();
@@ -200,9 +200,9 @@ impl CausalEdgeV3 {
         CausalMask::from_bits(self.payload[2] & 0b111)
     }
 
-    /// Direction triad (3 bits, sign(dim0) per S,P,O) — byte 2, bits 3..6.
-    pub fn direction(&self) -> u8 {
-        (self.payload[2] >> 3) & 0b111
+    /// Orientation (CE64 bits 43..45, see [`crate::Orientation`]) — byte 2, bits 3..6.
+    pub fn orientation(&self) -> crate::Orientation {
+        crate::Orientation::from_code(self.payload[2] >> 3)
     }
 
     /// The RAW 4-bit signed inference mantissa (−8..=7) — byte 3, low nibble.
@@ -283,7 +283,7 @@ impl CausalEdgeV3 {
             self.frequency(),
             self.confidence(),
             self.causal_mask(),
-            self.direction(),
+            self.orientation(),
             // placeholder ONLY — overwritten by set_inference_mantissa below.
             InferenceType::Deduction,
             self.plasticity(),
@@ -366,7 +366,7 @@ mod tests {
                 f,
                 c,
                 CausalMask::from_bits(mask),
-                0,
+                crate::orientation::Orientation::Core,
                 InferenceType::Deduction,
                 PlasticityState::ALL_HOT,
                 0,
@@ -608,7 +608,7 @@ mod tests {
                     200,
                     180,
                     CausalMask::from_bits(0b101),
-                    0b010,
+                    crate::orientation::Orientation::from_code(0b010),
                     PlasticityState::ALL_HOT,
                 )
                 .with_inference_mantissa(m);
@@ -640,7 +640,7 @@ mod tests {
                 255,
                 255,
                 CausalMask::from_bits(0b111),
-                0b111,
+                crate::orientation::Orientation::from_code(0b111),
                 PlasticityState::ALL_HOT,
             )
             .with_inference_mantissa(m);
@@ -663,7 +663,7 @@ mod tests {
     ///
     /// Every meaningful CE64-v2 field is asserted after CE64 → V3 → CE64 with
     /// the SAME resolved SPO resupplied. Under v2 the 64 bits are fully
-    /// partitioned (S/P/O · freq · conf · mask · direction · mantissa ·
+    /// partitioned (S/P/O · freq · conf · mask · orientation · mantissa ·
     /// plasticity · w_slot · truth · spare), so this is also a whole-register
     /// bit-identity check — asserted as such at the end.
     ///
@@ -697,7 +697,7 @@ mod tests {
                 freq,
                 conf,
                 CausalMask::from_bits(mask),
-                dir,
+                crate::orientation::Orientation::from_code(dir),
                 PlasticityState::from_bits(0b101),
             )
             .with_inference_mantissa(mant)
@@ -719,7 +719,7 @@ mod tests {
             assert_eq!(got.frequency_u8(), freq, "freq");
             assert_eq!(got.confidence_u8(), conf, "conf");
             assert_eq!(got.causal_mask() as u8, mask, "causal_mask");
-            assert_eq!(got.direction(), dir, "direction");
+            assert_eq!(got.orientation().code(), dir, "orientation");
             assert_eq!(got.inference_mantissa(), mant, "inference i4");
             assert_eq!(got.plasticity().bits(), 0b101, "plasticity");
             assert_eq!(got.w_slot(), w, "w_slot");
@@ -749,7 +749,7 @@ mod tests {
             4,
             5,
             CausalMask::from_bits(0),
-            0,
+            crate::orientation::Orientation::Core,
             PlasticityState::from_bits(0),
         )
         .with_w_slot(0x2A) // 0b101010

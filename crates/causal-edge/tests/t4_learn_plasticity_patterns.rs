@@ -28,7 +28,7 @@ fn edge(s: u8, p: u8, o: u8, c: u8, plast: PlasticityState) -> CausalEdge64 {
         200,
         c,
         CausalMask::SO,
-        0b101,
+        causal_edge::Orientation::from_code(0b101),
         InferenceType::Abduction,
         plast,
         0,
