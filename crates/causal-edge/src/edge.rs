@@ -1103,6 +1103,54 @@ impl CausalEdge64 {
         Self((self.0 & !W_MASK) | (((w as u64) & BITS6_MASK) << W_SHIFT))
     }
 
+    /// Rung on the novelty → wisdom ladder over bits 50..52: `0` = not on the
+    /// ladder (unaddressed, the zero-fallback), `1` = Staunen (first sighting,
+    /// unresolved) ..= `7` = wisdom (settled). A rung is climbed one step at a
+    /// time and only while the step below holds (the Maslow shape); the
+    /// semantic pressure in bits 46..49 ([`Self::activation`]) is what moves it.
+    ///
+    /// These are the same three bits [`Self::plasticity`] reads. The CE64
+    /// semantic upper-half contract (2026-10-16: 40..42 Pearl ladder, 43..45
+    /// orientation/syntax, 46..49 activation i4, 50..52 entropy/novelty, 53..58
+    /// belief-state update witness, 59..63 epistemic state) names this field
+    /// entropy/novelty; per-plane plasticity is the older reading of it. One
+    /// field, two vocabularies, no bits moved. A writer picks one vocabulary
+    /// per class and says which.
+    #[inline(always)]
+    pub fn novelty_wisdom(self) -> u8 {
+        ((self.0 >> crate::layout::PLAST_SHIFT) & crate::layout::BITS3_MASK) as u8
+    }
+
+    /// Return new edge with the novelty → wisdom rung (bits 50..52) set.
+    /// Values above 7 saturate to 7 rather than wrapping to a lower rung.
+    #[inline]
+    pub fn with_novelty_wisdom(self, level: u8) -> Self {
+        use crate::layout::{BITS3_MASK, PLAST_MASK, PLAST_SHIFT};
+        let level = u64::from(level.min(7));
+        Self((self.0 & !PLAST_MASK) | ((level & BITS3_MASK) << PLAST_SHIFT))
+    }
+
+    /// Semantic pressure over bits 46..49, a signed i4 (`+7` excitation, `0`
+    /// neutral, `-8` inhibition): the net evidence pushing a statement up or
+    /// down the [`Self::novelty_wisdom`] ladder.
+    ///
+    /// These are the same four bits [`Self::inference_mantissa`] reads. The
+    /// semantic upper-half contract (2026-10-16) names the field activation;
+    /// the ISA reads it as a signed NARS rule index. One field, two
+    /// vocabularies: an edge written with a pressure must not be decoded as an
+    /// inference rule ([`Self::inference_type`]), and the reverse.
+    #[inline(always)]
+    pub fn activation(self) -> i8 {
+        self.inference_mantissa()
+    }
+
+    /// Return new edge with the semantic pressure (bits 46..49) set, clamped
+    /// to `-8..=7` rather than wrapping to the opposite sign.
+    #[inline]
+    pub fn with_activation(self, pressure: i8) -> Self {
+        self.with_inference_mantissa(pressure.clamp(-8, 7))
+    }
+
     /// Return new edge with bits 59..63 set to the 5-bit `EpistemicState5`
     /// code `code` (`0..=31`). The ONE canonical writer of the field: all five
     /// bits move together, nothing else moves.
@@ -1331,6 +1379,22 @@ impl CausalEdge64 {
     pub fn with_w_slot(self, _w: u8) -> Self {
         self
     }
+    #[inline(always)]
+    pub fn novelty_wisdom(self) -> u8 {
+        0
+    }
+    #[inline]
+    pub fn with_novelty_wisdom(self, _level: u8) -> Self {
+        self
+    }
+    #[inline(always)]
+    pub fn activation(self) -> i8 {
+        0
+    }
+    #[inline]
+    pub fn with_activation(self, _pressure: i8) -> Self {
+        self
+    }
     #[deprecated(
         since = "0.2.0",
         note = "writes bits 59..63 under a reading that is not the declared EpistemicState5 one (TrustTexture, historical ReasoningBand, or untyped spare); its bits would then be consumed as canonical without a declaration. Write a state from `lance_graph_contract::epistemic_state5` with `with_epistemic_raw5`, or the topology factor with `with_topology`"
@@ -1413,6 +1477,40 @@ impl std::fmt::Debug for CausalEdge64 {
 #[allow(deprecated)]
 mod tests {
     use super::*;
+
+    /// Novelty reads and writes bits 50..52 only, saturates at 7, and is the
+    /// same register plasticity reads (one field, two vocabularies).
+    #[cfg(feature = "causal-edge-v2-layout")]
+    #[test]
+    fn novelty_wisdom_owns_bits_50_to_52_only() {
+        let base = CausalEdge64(0xFFFF_FFFF_FFFF_FFFF ^ (0b111 << 50));
+        for level in 0..=7u8 {
+            let e = base.with_novelty_wisdom(level);
+            assert_eq!(e.novelty_wisdom(), level);
+            assert_eq!(e.0 & !(0b111 << 50), base.0, "no other bit moved");
+            assert_eq!(e.plasticity().bits(), level, "same three bits");
+        }
+        assert_eq!(
+            CausalEdge64::ZERO.with_novelty_wisdom(200).novelty_wisdom(),
+            7
+        );
+    }
+
+    /// Activation reads and writes bits 46..49 only, as a signed i4, clamps
+    /// instead of wrapping, and is the register the inference mantissa reads.
+    #[cfg(feature = "causal-edge-v2-layout")]
+    #[test]
+    fn activation_owns_bits_46_to_49_only() {
+        let base = CausalEdge64(0xFFFF_FFFF_FFFF_FFFF ^ (0b1111 << 46));
+        for p in -8..=7i8 {
+            let e = base.with_activation(p);
+            assert_eq!(e.activation(), p);
+            assert_eq!(e.0 & !(0b1111 << 46), base.0, "no other bit moved");
+            assert_eq!(e.inference_mantissa(), p, "same four bits");
+        }
+        assert_eq!(CausalEdge64::ZERO.with_activation(100).activation(), 7);
+        assert_eq!(CausalEdge64::ZERO.with_activation(-100).activation(), -8);
+    }
 
     /// The canonical byte form is little-endian and round-trips every bit,
     /// including bits 59..63 (byte 7, bits 3..7).

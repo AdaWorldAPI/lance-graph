@@ -467,6 +467,10 @@ pub struct ClauseRead {
     pub abstained: usize,
     /// Lanes whose winner was an ambiguous form.
     pub ambiguous_wins: usize,
+    /// Per committed lane, the token index of the winning form — WHERE the
+    /// circumstance was stated, in Te-Ka-Mo-Lo order. `None` exactly where
+    /// [`Self::lanes`] is `None`.
+    pub at: [Option<usize>; 4],
 }
 
 /// Read ONE clause's tokens under `params`.
@@ -546,6 +550,7 @@ pub fn read_clause(h: &GrammarHeuristics, tokens: &[&str], params: ReadParams) -
             out.ambiguous_wins += 1;
         }
         out.lanes[li] = Some(best.addr);
+        out.at[li] = Some(best.at);
     }
     out
 }
@@ -653,6 +658,12 @@ mod tests {
             "right corner adjudicates to `damit` (rank 1) on the evidence"
         );
         assert_ne!(left.lanes[k], right.lanes[k]);
+        // WHERE each corner found its Kausal form: `weil` at 0, `damit` at 3.
+        assert_eq!(left.at[k], Some(0));
+        assert_eq!(right.at[k], Some(3));
+        // Unaddressed lanes report no position.
+        let t = TekamoloRole::Temporal as usize;
+        assert_eq!((right.lanes[t], right.at[t]), (None, None));
     }
 
     /// An ambiguous form may win only where the style admits it — and the
