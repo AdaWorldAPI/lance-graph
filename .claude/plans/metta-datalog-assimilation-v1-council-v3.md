@@ -72,7 +72,7 @@ F12. No model identifier in any committed artifact; status words are `MEASURED/V
 | hyperon-experimental@3f76dc4 `hyperon-atom/src/matcher.rs:883 BindingsSet(SmallVec<[Bindings;1]>)`, `:886-888 PartialEq` unordered, `:975 count(n)`, `:1032 merge` | bag; `count(n)` builds n full matches |
 | hyperon-experimental@3f76dc4 `lib/src/metta/runner/stdlib/core.rs:163` | `match` → `space.borrow().query(&pattern)` unchanged |
 | hyperon-experimental@3f76dc4 `lib/src/space/module.rs:33-48` | `ModuleSpace` runs `complex_query` itself; non-`ModuleSpace` dep panics `:44` |
-| hyperon-experimental@3f76dc4 `hyperon-space/src/index/trie.rs` const `:511`, assert `:539` (`TK_MAX_EXPRESSION_SIZE = 1<<10`; metta-polyfill-v1 §3.1 `:90-106`) | join_10000 panics in Hyperon; D-MTP-4 fix queued, needs operator's word |
+| hyperon-experimental@3f76dc4 `hyperon-space/src/index/trie.rs` const `:511`, assert `:539` (`TK_MAX_EXPRESSION_SIZE = 1<<10`; metta-polyfill-v1 §3.1 `:90-106`) | join_10000 panics in Hyperon at the pinned rev; the fix exists on the fork branch `ccr-9f3b8075-74u47l-trie-expr-width` (`5c9afd4`, tests first) and `1ffdbd6` is upstream PR trueagi-io#1107 — neither on fork main, so the pin still panics (corrected 2026-10-16) |
 | hyperon-experimental@3f76dc4 `python/tests/scripts/*.metta` — 26 files (`ls … | wc -l`, 2026-10-16), among them `b4_nondeterm`, `c1_grounded_basic`, `e1_kb_write`, `a1_symbols` (parity map `:35`, HY-Q04 `:69`) | b4: 2×2 Cartesian branch → four answers; the multiplicity kill condition |
 | `hyperon-probe/golden` (metta-polyfill-v1 `:387`) — ABSENT on disk (S3 #5); G6 builds the baseline first | D-ASM-4 gate |
 | ONA@dc4efd0 `src/Term.h:53-72` `Term {bool hashed; HASH_TYPE hash; Atom atoms[COMPOUND_TERM_SIZE_MAX]}`, `Term_Equal :64`, `Term_ExtractSubterm :68`, `Term_Complexity :70`, `Term_Hash :72`; `Config.h:140 COMPOUND_TERM_SIZE_MAX 64` | decision E (W5, out of tranche; cited for A's arity bound) |
@@ -199,7 +199,8 @@ N2. Compound terms deeper than one level, the 64 × u8 tenant (W5, D-ASM-5): a n
 N3. NAL rule catalogue, Narsese.rs front end (W5/W6, D-ASM-6, D-NALP-5).
 N4. Any write to CE64 bands 40..42 / 50..52 / 53..58 / 59..63 for assimilated facts; the stamp-as-atom shape (plan §6 last
     bullet) stays OPEN and is asked of the council as a question, not resolved here.
-N5. Fixing Hyperon's trie panic (D-MTP-4 needs the operator's word); the gate for join_10000 is "LanceSpace answers",
+N5. Merging/upstreaming Hyperon's trie-panic fix (D-MTP-4: `5c9afd4` exists on the fork branch; `1ffdbd6` is upstream PR #1107;
+    merging to fork main and bumping the pin is the operator's call); the gate for join_10000 is "LanceSpace answers",
     Hyperon's panic is recorded as the oracle's behaviour.
 N6. `contract/nars.rs` InferenceType doc drift (inventory §6) — separate doc PR.
 N7. Mining / `lance-graph-cog` (W7).
@@ -248,7 +249,7 @@ G8b (all) `cargo tree --manifest-path crates/lance-graph-metta/Cargo.toml -e nor
 G9 (all) board, same commit: STATUS_BOARD rows D-ASM-1..4 flipped with gate numbers; **D-MTP-2 flips WITH D-ASM-4 (same
    deliverable)**; D-RA-3 gains "Datalog values live in `metta::datalog`; D-RA-2 still gates relalg" (S4 #9); one entry per wave +
    the R-9 amendment entry, `entries_index.py --write`; TECH_DEBT rows for: the procedures-crate migration debt of R-1b, the missing CI job for metta, and the `contract/nars.rs`
-   `InferenceType` doc drift (N6); no new ISSUES row (the trie panic is the existing D-MTP-4 board row); AGENT_LOG entry written by
+   `InferenceType` doc drift (N6); no new ISSUES row (the trie panic is the existing D-MTP-4 board row, corrected 2026-10-16 to "fix exists on the fork branch"); AGENT_LOG entry written by
    the orchestrating main thread ONLY (one-writer rule), naming the council (5 savants, 3 reviewers, verdict counts, v1→v2→v3
    deltas); `SUPERSESSION-INDEX.md` regenerated LITERALLY LAST — after the entries index write AND after every R-9 plan edit, since
    plans and board are both its inputs (S4 #10, R3 P2).
