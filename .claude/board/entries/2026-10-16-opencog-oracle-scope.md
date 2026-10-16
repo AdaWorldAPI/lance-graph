@@ -68,3 +68,27 @@ things still need care:
 - **Calibration:** matching our constants or truth formulas to OpenCog's answers
   is fine. Taking a formula from the PLN papers or documentation is fine.
   Transcribing it from their source code is the porting case above.
+
+### An OpenCog fork in its own repository that imports our crates
+
+Case: fork OpenCog (AtomSpace) in a separate repository and change it to use
+ndarray, Datalog over folds, or a storage adapter backed by `lance-graph-quack`.
+
+- **Our crates keep their licences.** Dependencies flow OpenCog → ndarray /
+  quack, never back. ndarray is MIT or Apache-2.0, lance-graph is Apache-2.0
+  (repository `LICENSE`; quack and mask-risc carry no own field), relalg is
+  MIT OR Apache-2.0. Both are compatible with AGPL v3, so a combined AGPL binary
+  may include them without changing them.
+- **The fork is AGPL**, including every line we write inside it (the storage
+  backend, glue, patches), because that code is based on OpenCog. If the fork is
+  distributed, or modified and offered to users over a network (§13), its source
+  must be published; a public fork satisfies that.
+- **The trap is reuse in the other direction.** Glue written in the fork cannot
+  later move into lance-graph without bringing AGPL with it. So general logic is
+  written in our repositories first, under our licence, and the fork only calls
+  it; the fork keeps the thinnest possible adapter.
+- The combined binary is distributed under AGPL terms; our crates inside it are
+  still usable on their own under their own licences.
+
+OPEN: whether glue we author ourselves could be dual-licensed is a copyright
+question for counsel, not settled here.
