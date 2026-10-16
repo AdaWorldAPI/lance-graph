@@ -1,3 +1,8 @@
+## 2026-10-16 — main after #1573 (merged `461bbd1a`); D-HOLO H14c on main
+
+- **On `main` (#1573):** D-HOLO H14c probes and results (thought-first reads, Lance 13 masked I/O). Probe code only, no library change.
+- **In PR:** #1575 (D-HOLO H14d: C's own operation in four stages — relalg logic, address mask, Lance prefilter, terminal; measured on v4). New issue `ISS-RELALG-ABSORPTION-AFTER-DE-MORGAN`.
+
 ## 2026-10-16 — main after #1569 (merged `09f31561`); H14b on main as a withdrawn record
 
 - **On `main` (#1569):** D-HOLO H14b arm M and its results, marked withdrawn: no layout verdict on C. Probe code only (an example), no library change.
