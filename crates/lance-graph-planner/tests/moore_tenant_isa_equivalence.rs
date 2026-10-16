@@ -5,14 +5,15 @@
 //! into `ValueTenant::MooreNars16` with `MooreTenantMut::lift_ce64`, read back
 //! with `MooreTenantView`, and rebuilt as `payload40 | ce64_upper(witness)`.
 //! The shipped ops (`forward` both ways, `learn` both ways, `syllogize`) must
-//! give the same result on the rebuilt edge as on the original, on every
-//! field except the S/P/O sign triple, which the Moore reading does not carry.
+//! give the same result on the rebuilt edge as on the original. Bits 43..45
+//! (the orientation, D-CGW-1) are `Core` on every edge: a Moore lane holds no
+//! orientation, and `lift_ce64` refuses an edge that carries one.
 
 use causal_edge::edge::CausalEdge64;
 use lance_graph_contract::canonical_node::VALUE_SLAB_LEN;
 use lance_graph_contract::moore_tenant::{MooreSlot, MooreTenantMut, MooreTenantView};
 
-const DIRECTION: u64 = 0b111 << 43;
+const ORIENTATION: u64 = 0b111 << 43;
 const W: u64 = 0x3F << 53;
 const EPI5: u64 = 0x1F << 59;
 const PAYLOAD40: u64 = (1 << 40) - 1;
@@ -36,7 +37,7 @@ const EXECUTABLE: [u64; 5] = [0x1, 0x2, 0xF, 0x4, 0x5];
 
 fn canonical(r: &mut Rng, w: u64) -> u64 {
     let code = EXECUTABLE[(r.next() % 5) as usize];
-    (r.next() & !W & !EPI5 & !MANTISSA) | (w << 53) | ((r.next() % 24) << 59) | (code << 46)
+    (r.next() & !W & !EPI5 & !MANTISSA & !ORIENTATION) | (w << 53) | ((r.next() % 24) << 59) | (code << 46)
 }
 
 fn tables() -> [Box<[u8; 256 * 256]>; 3] {
@@ -100,7 +101,7 @@ fn divergences(rounds: usize, witness_of: fn(u8) -> u8) -> usize {
             let a = ops(edges[k], partner, &t);
             let b = ops(rebuilt, partner, &t);
             for i in 0..5 {
-                if a[i] & !DIRECTION != b[i] & !DIRECTION {
+                if a[i] != b[i] {
                     diff += 1;
                 }
             }
