@@ -1,3 +1,8 @@
+## 2026-10-16 — main after #1569 (merged `09f31561`); H14b on main as a withdrawn record
+
+- **On `main` (#1569):** D-HOLO H14b arm M and its results, marked withdrawn: no layout verdict on C. Probe code only (an example), no library change.
+- **In PR:** #1573 (D-HOLO H14c: thought-first reads, Hamming presence, Lance 13 masked I/O).
+
 ## 2026-10-16 — D-QPROF-0 qualia profile (branch `qualia-profile-icc`, in PR)
 
 - **Contract delta (branch):** `lance_graph_contract::qualia_profile` + generated `qualia_profile_table` — the first named-emotion calibration set in the repo (219 rows from Upstash `ada:qualia:calibrated:*`, previously cited in `thinking-engine/src/qualia.rs` as "220 calibrated pairs in Upstash" and absent). Data: `data/qualia/calibrated_219.json` (+ `.bin1024` sign-binarized Jina embeddings), generator `scripts/gen_qualia_profile.py` (deterministic, rustfmt-stable, FNV-pinned).

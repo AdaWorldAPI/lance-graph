@@ -8,6 +8,11 @@
 - v1→v2→v3 deltas: struck relalg `Atom::Via`/`Rel::Semijoin`, `Keep+CountKeyRunsU32` as bag carrier, "refused at add", `Rule` value in W1–W3, "existing label codebook", blanket multi-var refusal, b4 as multiplicity gate, "golden 32/33", u32 label ids, one version per add; added `materialize_bindings` as the named exit, reserved evidence lane, G2b/G4b/G8b, POLICY-PIN labelling.
 - Written by the orchestrating main thread only. About 0.37–0.44 M subagent tokens per agent, nine agents.
 
+## 2026-10-15 — D-HOLO H14c: one Haiku census run
+
+- General-purpose on Haiku, read-only census of `Program::new` constructions in mask-risc tests and `lance-graph-quack` (D-HOLO-H14c-6): 169 occurrences, 61 literal, 108 dynamic; distinct lanes per literal program 0:26, 1:31, 2:4.
+- Ledger: count re-run (170 raw grep hits; the one difference is `fuse.rs:216`, production code the card excluded as instructed); spot-checks 2/2 (`distinct.rs:267` P=[] L=[0,1], `reference.rs:1922` P=[3] L=[9]); 0 wrong, 0 missed. About 457k subagent tokens.
+- Outcome: the census is labelled test-corpus observation in the plan; no conclusion came from the card.
 ## 2026-10-15 — D-HOLO H14b result count: one census run
 
 - Card `census-counter` (run as a general-purpose agent on Haiku with the card's rules pasted), the H14b table of `h14b_run1.txt`, lines 59–94: k <= 4 cells, cells above 1.25× B on full-row and session read, min/max per density, F3 and byte comparisons.
