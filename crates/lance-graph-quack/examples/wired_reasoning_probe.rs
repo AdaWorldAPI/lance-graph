@@ -247,6 +247,7 @@ fn main() {
             readings: r.clone(),
             surface: s.clone(),
             forms: vec![],
+            qualia: vec![],
         })
         .collect();
     let mut ops: Vec<u16> = NOUNS.to_vec();

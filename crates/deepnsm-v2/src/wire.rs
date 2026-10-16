@@ -95,6 +95,9 @@ use lance_graph_arm_discovery::{arm_to_truth_u8, CandidateRule, Item};
 use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
 use lance_graph_contract::epistemic_state5::{Certification3, Epi5Gen, EpistemicState5, Topology2};
 use lance_graph_contract::exploration::NarsTruth;
+use lance_graph_contract::facet::{CascadeShape, FacetCascade};
+use lance_graph_contract::grammar::verb_lexicon::classify_verb;
+use lance_graph_contract::grammar::verb_table::morton_cell;
 use lance_graph_contract::hhtl::NiblePath;
 
 use crate::belief::{BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
@@ -187,6 +190,10 @@ pub struct VerseIn<'a> {
     pub surface: Vec<&'a str>,
     /// Haspelmath form attestations cited for this verse.
     pub forms: Vec<FormAttestation>,
+    /// Qualia palette index per token (`contract::qualia_profile`, `0` =
+    /// unnamed), aligned with `readings`; empty = none. Where the index comes
+    /// from is the caller's: this crate holds no word → qualia lexicon.
+    pub qualia: Vec<u8>,
 }
 
 /// One wired triple.
@@ -212,6 +219,42 @@ pub struct WiredRow {
     pub support: u32,
     /// Independent verses that gave `(S, P)` so far (`tot`).
     pub antecedent: u32,
+    /// The qualia register, read under [`QUALIA_SHAPE`]: pairs 0..2 are
+    /// `(operand code : qualia)` for S, P, O; pair 3 is `(verb cell : 1)` when
+    /// the verb classifies, `(0 : 0)` when not. Class id 0 (default class).
+    pub qualia: FacetCascade,
+}
+
+/// The carving the qualia register is read under: six `u8:u8` pairs.
+pub const QUALIA_SHAPE: CascadeShape = CascadeShape::G6D2;
+
+/// Pair index of the subject in the qualia register.
+pub const Q_SUBJECT: u8 = 0;
+/// Pair index of the predicate.
+pub const Q_PREDICATE: u8 = 1;
+/// Pair index of the object.
+pub const Q_OBJECT: u8 = 2;
+/// Pair index of the verb cell (`verb_table::morton_cell`, flag byte).
+pub const Q_VERB_CELL: u8 = 3;
+
+/// The qualia index on pair `pair` (level 1 of the `u8:u8`).
+#[must_use]
+pub fn qualia_at(f: FacetCascade, pair: u8) -> u8 {
+    f.cascade_byte(QUALIA_SHAPE, pair, 1)
+}
+
+/// The operand code on pair `pair` (level 0 of the `u8:u8`).
+#[must_use]
+pub fn operand_at(f: FacetCascade, pair: u8) -> u8 {
+    f.cascade_byte(QUALIA_SHAPE, pair, 0)
+}
+
+/// The verb cell, when the verb classified. Cell `0` is a real verb
+/// (`Becomes`, `Present`), so presence is the flag byte, never the cell.
+#[must_use]
+pub fn verb_cell(f: FacetCascade) -> Option<u8> {
+    (f.cascade_byte(QUALIA_SHAPE, Q_VERB_CELL, 1) == 1)
+        .then(|| f.cascade_byte(QUALIA_SHAPE, Q_VERB_CELL, 0))
 }
 
 /// What the wiring did, so a zero field is never mistaken for a reading.
@@ -243,6 +286,20 @@ pub struct WireReport {
     pub implications_revised: usize,
     /// Events not interned because the u16 event-term space was full.
     pub event_overflow: usize,
+    /// Qualia tokens attached to a subject or object (adjectival).
+    pub qualia_adjectival: usize,
+    /// Qualia tokens attached to an event (adverbial).
+    pub qualia_adverbial: usize,
+    /// Qualia tokens with no slot to attach to (or in an untraced verse).
+    pub qualia_unattached: usize,
+    /// A second, different qualia for an already-qualified slot; the first is
+    /// kept.
+    pub qualia_conflicts: usize,
+    /// Triples whose verb surface classified to a 144-cell.
+    pub verb_classified: usize,
+    /// Triples whose verb did not classify (unknown, non-English, or a
+    /// homograph like `saw` the lexicon leaves unresolved).
+    pub verb_unclassified: usize,
 }
 
 /// What [`wire`] produced: the rows, the report, and the two belief arenas
@@ -306,6 +363,120 @@ struct StmtState {
 struct Group {
     verses: HashSet<usize>,
     objects: HashMap<u16, StmtState>,
+}
+
+/// Fill the qualia register of one traced verse's rows.
+///
+/// - The operand codes come from the edge (bits 0..23).
+/// - A qualia on an adjective attaches to the next noun of its sentence, on
+///   every triple of that sentence where the noun is the subject or object.
+/// - A qualia on any other skipped token (an adverb) attaches to an event:
+///   the preceding triple of the sentence when no noun or verb stands
+///   between its close and the token, otherwise the next triple, otherwise
+///   the last of the sentence.
+/// - The verb cell is `morton_cell(classify_verb(surface))` of the verb token
+///   that closed into the triple's predicate.
+fn attach_qualia(verse: &VerseIn<'_>, t: &[Traced], rows: &mut [WiredRow], rep: &mut WireReport) {
+    let r = &verse.readings;
+    let pos_of = |i: usize| r[i].pos.iter().next();
+    let mut sentence = vec![0u32; r.len()];
+    let mut s = 0;
+    for (i, slot) in sentence.iter_mut().enumerate() {
+        *slot = s;
+        if pos_of(i) == Some(Pos::Stop) {
+            s += 1;
+        }
+    }
+    // Pair g sits at bytes 4 + 2g (lo = qualia) and 5 + 2g (hi = operand).
+    let mut bytes: Vec<[u8; 16]> = rows
+        .iter()
+        .map(|row| {
+            let mut b = [0u8; 16];
+            b[5] = row.edge.s_idx();
+            b[7] = row.edge.p_idx();
+            b[9] = row.edge.o_idx();
+            b
+        })
+        .collect();
+    let content = |i: usize| matches!(pos_of(i), Some(Pos::Noun | Pos::Verb));
+    for (i, &q) in verse.qualia.iter().enumerate() {
+        if q == 0 || i >= r.len() {
+            continue;
+        }
+        let sent = sentence[i];
+        let in_sent: Vec<usize> = (0..t.len()).filter(|&k| t[k].sentence == sent).collect();
+        let mut put = |k: usize, pair: u8| {
+            let at = 4 + 2 * pair as usize;
+            if bytes[k][at] != 0 && bytes[k][at] != q {
+                rep.qualia_conflicts += 1;
+            } else {
+                bytes[k][at] = q;
+            }
+        };
+        let attached = match pos_of(i) {
+            Some(Pos::Adj) => {
+                let noun = (i + 1..r.len())
+                    .take_while(|&j| sentence[j] == sent)
+                    .find(|&j| pos_of(j) == Some(Pos::Noun));
+                let mut hit = false;
+                if let Some(n) = noun {
+                    let w = r[n].id;
+                    for &k in &in_sent {
+                        if t[k].spo.subject == w {
+                            put(k, Q_SUBJECT);
+                            hit = true;
+                        }
+                        if t[k].spo.object == w {
+                            put(k, Q_OBJECT);
+                            hit = true;
+                        }
+                    }
+                }
+                hit.then_some(true)
+            }
+            Some(Pos::Other) => {
+                let prev = in_sent.iter().rev().copied().find(|&k| t[k].closed_at < i);
+                let next = in_sent.iter().copied().find(|&k| t[k].closed_at >= i);
+                let target = match (prev, next) {
+                    (Some(p), _) if !(t[p].closed_at + 1..i).any(content) => Some(p),
+                    (_, Some(n)) => Some(n),
+                    (p, None) => p,
+                };
+                target.map(|k| {
+                    put(k, Q_PREDICATE);
+                    false
+                })
+            }
+            _ => None,
+        };
+        match attached {
+            Some(true) => rep.qualia_adjectival += 1,
+            Some(false) => rep.qualia_adverbial += 1,
+            None => rep.qualia_unattached += 1,
+        }
+    }
+    for (k, tr) in t.iter().enumerate() {
+        let last = tr.closed_at.min(r.len().saturating_sub(1));
+        let verb = (0..=last)
+            .rev()
+            .take_while(|&j| sentence[j] == tr.sentence)
+            .find(|&j| pos_of(j) == Some(Pos::Verb) && r[j].id == tr.spo.predicate);
+        let cell = verb
+            .and_then(|j| verse.surface.get(j))
+            .and_then(|w| classify_verb(w))
+            .map(|(f, tense)| morton_cell(f, tense));
+        match cell {
+            Some(c) => {
+                bytes[k][10] = 1;
+                bytes[k][11] = c;
+                rep.verb_classified += 1;
+            }
+            None => rep.verb_unclassified += 1,
+        }
+    }
+    for (row, b) in rows.iter_mut().zip(bytes) {
+        row.qualia = FacetCascade::from_bytes(&b);
+    }
 }
 
 /// The arm-discovery rule `(S, P) → O` over the counts so far.
@@ -403,6 +574,7 @@ pub fn wire(
                 origin: traced.as_ref().map(|t| t[k].origin),
                 support: 0,
                 antecedent: 0,
+                qualia: FacetCascade::default(),
             });
         }
 
@@ -449,6 +621,12 @@ pub fn wire(
                     rep.tekamolo_loci += 1;
                 }
             }
+        }
+
+        if let Some(t) = traced.as_ref() {
+            attach_qualia(verse, t, &mut rows[first..], &mut rep);
+        } else {
+            rep.qualia_unattached += verse.qualia.iter().filter(|&&q| q != 0).count();
         }
 
         // Kausal claims: the stating event is the cause (the clause `weil`
@@ -857,6 +1035,7 @@ mod tests {
             readings: r,
             surface,
             forms: vec![],
+            qualia: vec![],
         }
     }
 
@@ -953,6 +1132,7 @@ mod tests {
             readings: r,
             surface: vec!["der", "hund", "biss", "den", "mann", "weil"],
             forms: vec![],
+            qualia: vec![],
         };
         let w = run_in(&[v.clone(), v]);
         assert_eq!(w.report.intervention_rows, 2);
@@ -995,6 +1175,155 @@ mod tests {
         let b = w.facts.get(dog_bit_man).unwrap();
         assert_eq!(b.stamp.0.count_ones(), 1, "one verse is one source");
         assert!((b.truth.confidence - 0.5).abs() < 1e-6, "not pooled");
+    }
+
+    const QUICK: u8 = 42;
+
+    /// One verse with surfaces and per-token qualia.
+    fn qverse(tokens: &[(u16, Pos, &'static str, u8)]) -> VerseIn<'static> {
+        VerseIn {
+            readings: tokens.iter().map(|&(id, p, _, _)| one(id, p)).collect(),
+            surface: tokens.iter().map(|&(_, _, w, _)| w).collect(),
+            forms: vec![],
+            qualia: tokens.iter().map(|&(_, _, _, q)| q).collect(),
+        }
+    }
+
+    fn qrun(v: VerseIn<'static>) -> (WiredRow, WireReport) {
+        let w = wire(&[(1, 1)], &[v], 1, &abi(), None, ReadParams::RIGHT_CORNER).unwrap();
+        (w.rows[0], w.report)
+    }
+
+    /// The same qualia index is adjectival on the subject and adverbial on the
+    /// event: the pair carrying it is the distinction, not a tag.
+    #[test]
+    fn one_qualia_index_adjective_or_adverb_by_pair() {
+        let (adj, ra) = qrun(qverse(&[
+            (THE, Pos::Det, "the", 0),
+            (WHO, Pos::Adj, "quick", QUICK),
+            (DOG, Pos::Noun, "dog", 0),
+            (BIT, Pos::Verb, "caused", 0),
+            (THE, Pos::Det, "the", 0),
+            (MAN, Pos::Noun, "man", 0),
+        ]));
+        assert_eq!(adj.spo, Spo::new(DOG, BIT, MAN));
+        assert_eq!(qualia_at(adj.qualia, Q_SUBJECT), QUICK);
+        assert_eq!(qualia_at(adj.qualia, Q_PREDICATE), 0);
+        assert_eq!(qualia_at(adj.qualia, Q_OBJECT), 0);
+        assert_eq!(ra.qualia_adjectival, 1);
+
+        let (adv, rv) = qrun(qverse(&[
+            (THE, Pos::Det, "the", 0),
+            (DOG, Pos::Noun, "dog", 0),
+            (BIT, Pos::Verb, "caused", 0),
+            (THE, Pos::Det, "the", 0),
+            (MAN, Pos::Noun, "man", 0),
+            (WHO, Pos::Other, "quickly", QUICK),
+        ]));
+        assert_eq!(qualia_at(adv.qualia, Q_PREDICATE), QUICK);
+        assert_eq!(qualia_at(adv.qualia, Q_SUBJECT), 0);
+        assert_eq!(rv.qualia_adverbial, 1);
+        // The operand codes sit beside their qualia, equal to the edge's.
+        assert_eq!(operand_at(adv.qualia, Q_SUBJECT), adv.edge.s_idx());
+        assert_eq!(operand_at(adv.qualia, Q_OBJECT), adv.edge.o_idx());
+    }
+
+    /// An adjective on the object lands on the object pair; an adverb before
+    /// the verb lands on the event; no qualia leaves every qualia byte 0.
+    #[test]
+    fn object_adjective_preverbal_adverb_and_silence() {
+        let (obj, _) = qrun(qverse(&[
+            (THE, Pos::Det, "the", 0),
+            (DOG, Pos::Noun, "dog", 0),
+            (BIT, Pos::Verb, "caused", 0),
+            (THE, Pos::Det, "the", 0),
+            (WHO, Pos::Adj, "quick", QUICK),
+            (MAN, Pos::Noun, "man", 0),
+        ]));
+        assert_eq!(qualia_at(obj.qualia, Q_OBJECT), QUICK);
+        assert_eq!(qualia_at(obj.qualia, Q_SUBJECT), 0);
+        let (pre, _) = qrun(qverse(&[
+            (THE, Pos::Det, "the", 0),
+            (DOG, Pos::Noun, "dog", 0),
+            (WHO, Pos::Other, "quickly", QUICK),
+            (BIT, Pos::Verb, "caused", 0),
+            (THE, Pos::Det, "the", 0),
+            (MAN, Pos::Noun, "man", 0),
+        ]));
+        assert_eq!(qualia_at(pre.qualia, Q_PREDICATE), QUICK);
+        let (none, r) = qrun(qverse(&[
+            (THE, Pos::Det, "the", 0),
+            (DOG, Pos::Noun, "dog", 0),
+            (BIT, Pos::Verb, "caused", 0),
+            (THE, Pos::Det, "the", 0),
+            (MAN, Pos::Noun, "man", 0),
+        ]));
+        for pair in [Q_SUBJECT, Q_PREDICATE, Q_OBJECT] {
+            assert_eq!(qualia_at(none.qualia, pair), 0);
+        }
+        assert_eq!(
+            r.qualia_adjectival + r.qualia_adverbial + r.qualia_unattached,
+            0
+        );
+    }
+
+    /// An adverb after the first clause's object attaches to that clause, not
+    /// to the next one: no noun or verb stands between.
+    #[test]
+    fn a_trailing_adverb_stays_with_its_clause() {
+        let w = wire(
+            &[(1, 1)],
+            &[qverse(&[
+                (THE, Pos::Det, "the", 0),
+                (DOG, Pos::Noun, "dog", 0),
+                (BIT, Pos::Verb, "caused", 0),
+                (THE, Pos::Det, "the", 0),
+                (MAN, Pos::Noun, "man", 0),
+                (WHO, Pos::Other, "quickly", QUICK),
+                (THE, Pos::Other, "and", 0),
+                (THE, Pos::Det, "the", 0),
+                (CAT, Pos::Noun, "cat", 0),
+                (SAW, Pos::Verb, "saw", 0),
+                (THE, Pos::Det, "the", 0),
+                (DOG, Pos::Noun, "dog", 0),
+            ])],
+            1,
+            &abi(),
+            None,
+            ReadParams::RIGHT_CORNER,
+        )
+        .unwrap();
+        assert_eq!(w.rows.len(), 2);
+        assert_eq!(qualia_at(w.rows[0].qualia, Q_PREDICATE), QUICK);
+        assert_eq!(qualia_at(w.rows[1].qualia, Q_PREDICATE), 0);
+    }
+
+    /// The verb cell is the 144-table byte; cell 0 (Becomes, Present) is real
+    /// and told apart from "unclassified" by the flag; `saw` stays
+    /// unclassified (a homograph the lexicon refuses).
+    #[test]
+    fn verb_cell_carries_a_presence_flag() {
+        use lance_graph_contract::grammar::role_keys::Tense;
+        use lance_graph_contract::grammar::verb_table::VerbFamily;
+        let verse = |verb: &'static str| {
+            qverse(&[
+                (THE, Pos::Det, "the", 0),
+                (DOG, Pos::Noun, "dog", 0),
+                (BIT, Pos::Verb, verb, 0),
+                (THE, Pos::Det, "the", 0),
+                (MAN, Pos::Noun, "man", 0),
+            ])
+        };
+        let (caused, _) = qrun(verse("caused"));
+        assert_eq!(
+            verb_cell(caused.qualia),
+            Some(morton_cell(VerbFamily::Causes, Tense::Past))
+        );
+        let (becomes, _) = qrun(verse("becomes"));
+        assert_eq!(verb_cell(becomes.qualia), Some(0), "cell 0 is a real verb");
+        let (saw, r) = qrun(verse("saw"));
+        assert_eq!(verb_cell(saw.qualia), None);
+        assert_eq!(r.verb_unclassified, 1);
     }
 
     #[test]
