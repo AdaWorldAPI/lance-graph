@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1573 (merged `461bbd1a`, branch `ccr-9f3b8075-74u47l-holo-h14c`, head `e4681f10`, 11 commits) — D-HOLO H14c: thought-first reads, Hamming presence, Lance 13 masked I/O
+
+- **Added:** `holo_thought_first_probe` (point projection, mask-risc populations, terminal rows; 10 oracle tests) and the `lane_footprint` instrument in `lance-graph-mask-risc/examples`; `crates/holo-lance-masked-io-probe` (excluded from the workspace: Lance 13 masked reads, stale-map hazard across rewrites); plan `d-holo-h14c-thought-first-v1`, entry `2026-10-15-d-holo-h14c-thought-first.md`, STATUS row D-HOLO-H14c.
+- **Locked:** a read consults exactly the requested lane tables for any number of touched lanes; populations load no value; a scattered 1 % mask cuts Lance rows but not bytes (page-bound), a clustered one cuts both; a stale coordinate map omits silently and the version check refuses it.
+- **Deferred / open:** the C vs B comparison lines in that PR rest on the withdrawn row-first framing; C's own four-stage operation is D-HOLO-H14d (#1575). Positional tables are page-dense at uniform 1 % (≈ 93× payload resident).
+- **Confidence:** medium; oracle tests and disable runs red; about 40 % run-to-run noise on the VM.
+
 ## 2026-10-16 — lance-graph PR #1569 (merged `09f31561`, branch `ccr-9f3b8075-74u47l-holo-h14b`, head `2f07941c`) — D-HOLO H14b: lane mask M measured, then withdrawn
 
 - **Added:** arm M (C's per-lane tables plus one `u32` per row naming the changed lanes) in `holo_lane_storage_probe` with 4 tests; plan section, entry `2026-10-15-d-holo-h14b-lane-mask.md`, STATUS row D-HOLO-H14b (WITHDRAWN).

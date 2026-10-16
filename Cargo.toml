@@ -117,6 +117,10 @@ exclude = [
     # lance-graph-r2il like lance-graph-nal. Own workspace root; verify via
     # `cargo test --manifest-path crates/lance-graph-relalg/Cargo.toml`.
     "crates/lance-graph-relalg",
+    # D-HOLO-H14d probe (plan d-holo-h14d-logic-mask-read-v1): its own workspace
+    # root; path-deps relalg and pulls lance 13. Excluded so no workspace crate
+    # gains a dependency.
+    "crates/holo-h14d-probe",
     # D-MTP-1: its own workspace root (datafrog oracle is a git dev-dependency).
     # `cargo test --manifest-path crates/lance-graph-metta/Cargo.toml`.
     "crates/lance-graph-metta",

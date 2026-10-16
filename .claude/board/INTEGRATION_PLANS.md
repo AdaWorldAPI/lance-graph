@@ -1,3 +1,9 @@
+## 2026-10-16 — d-holo-h14d-logic-mask-read-v1 — C's own operation: logic → address mask → masked read → terminal → `.claude/plans/d-holo-h14d-logic-mask-read-v1.md`
+
+**Status:** PRE-REGISTERED; not run.
+
+- Four stages in order, each shrinking the next: relalg symbolic reduction (no data), address materialization over presence planes (64 per word), Lance 13 read pruned by `R`, terminals.
+- C only. No B, S or M arm: the row-first comparisons of H14/H14b are withdrawn (#1569).
 ## 2026-10-15 — d-holo-h14c-thought-first-v1 — thought-first positional reads, Hamming presence and Lance 13 masked I/O → `.claude/plans/d-holo-h14c-thought-first-v1.md`
 
 **Status:** PRE-REGISTERED; nothing measured. D-HOLO-H14c, -1 … -6.
