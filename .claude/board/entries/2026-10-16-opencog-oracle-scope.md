@@ -109,3 +109,12 @@ into the crate, which stays ruled out; here it names the API OpenCog consumes.
 
 REVISIT WHEN: the oracle validation shows which surface OpenCog actually needs;
 until then the crate is not created.
+
+**Precedent:** `lance-graph-ontology` (Apache-2.0) already has this shape. It
+hydrates other people's formats into our registry and Lance cache without
+containing their code: OGIT TTL (`oxttl`), OWL and FIBO RDF/XML (`oxrdfxml`), XSD
+schemas (`quick-xml`), plus a Wikidata path, with `soa_bake` and `lance_cache`
+as the fast side. Tenants then reach it through thin `NamespaceBridge` views.
+`lance-graph-cog` would do the same for OpenCog: read AtomSpace content (Atomese
+atoms) as input data, and give the AGPL fork's adapter the same bake-and-cache
+surface.
