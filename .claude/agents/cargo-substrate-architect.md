@@ -79,7 +79,8 @@ Per workspace root:
 
 ```toml
 [workspace.dependencies]
-ndarray = { git = "<canonical>", rev = "<pinned>", default-features = false, features = ["std"] }
+ndarray = { git = "<canonical>", branch = "master", default-features = false, features = ["std"] }
+# never `rev = …`: a pin on an internal crate is forbidden; master is the go-to branch
 ```
 
 Members become `ndarray = { workspace = true, features = [...] }`.

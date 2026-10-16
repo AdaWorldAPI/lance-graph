@@ -215,7 +215,7 @@ But this:
 every repo:  ndarray = { workspace = true }
 workspace root:
     [workspace.dependencies]
-    ndarray = { git = "<canonical>", rev = "<pinned>" , ... }
+    ndarray = { git = "<canonical>", branch = "master" , ... }   # never a rev pin: internal pins are forbidden
 
 local supercheckout only:
     [patch."<canonical>"]
@@ -225,7 +225,7 @@ local supercheckout only:
 Which gives:
 
 ```text
-CI / standalone clone   ->  pinned git ndarray
+CI / standalone clone   ->  git ndarray, branch master
 local development       ->  same dep, transparently patched to ../ndarray
 release binary          ->  exactly ONE resolved ndarray package
 ```

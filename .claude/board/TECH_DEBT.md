@@ -1860,7 +1860,7 @@ not necessarily a logic bug. NOTE: `lance-graph-arm-discovery/Cargo.toml` *recom
 U64x8 popcount kernel + the AMX re-exports), (b) decide whether ndarray's `U64x8` should runtime-detect
 VPOPCNTDQ/AMX rather than trust compile-time `target_feature`, and (c) correct the Cargo.toml comment to
 warn that `native` can SIGILL on virtualized hosts lacking the detected AVX-512 subset. Until then:
-run the `ndarray-simd` probes on the default path. **Status: Open.**
+run the `ndarray-simd` probes on the default path. **Status: Open; item (b) withdrawn 2026-10-16 — runtime detection in kernels is forbidden (dispatch is compile time, the only CPU check is ndarray's startup `cpu_guard`); (a) and (c) remain.**
 
 ### TD-CI-COVERAGE-MOLD-1 — `test-with-coverage` job lacks the mold linker the `test` job has (2026-06-12)
 
@@ -4618,3 +4618,15 @@ as CAM search modes ("exact CAM search", "wide CAM scan", "DN-tree traversal") w
 (`causal_edge::isa::truth::code`, D-NALP-4) with the argument-order split recorded in
 `.claude/research/2026-10-15-nars-metta-ce64-mapping-inventory.md` §6. Doc-only; close by one PR that rewrites the five doc
 comments to the truth-function meaning and names the OpenNARS/ONA order convention.
+
+## TD-ONTOLOGY-REGISTRY-HASH-LOOKUP-REVIEW-1 (2026-10-16) — OPEN, review only
+
+`lance-graph-ontology`'s `OntologyRegistry` resolves names through string-keyed hash maps
+(`registry.rs:56-73`: `by_bridge_name: HashMap<(String, String), u32>`, `by_uri: HashMap<String, u32>`,
+`by_namespace`, `bundles`, `path_by_type` / `type_by_path`) and persists append-only to Lance
+(`lance_cache.rs`). This predates the BindSpace DTO and the quack fold path. Review whether the hot
+lookups can become label-codebook ids resolved once plus coordinate ranges and masks over baked SoA
+lanes (`soa_bake`, quack `Binder::code`), leaving the string maps only at hydration. Not measured:
+no lookup timing exists for this registry, so there is no claim it is slow yet. Also the precedent for
+`lance-graph-cog` (`entries/2026-10-16-opencog-oracle-scope.md`), so a finding here carries over. Close
+by: a measured comparison on one OGIT tenant (string-map resolve vs codebook + mask), recorded as an entry.

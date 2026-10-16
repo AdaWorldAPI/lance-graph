@@ -1,3 +1,7 @@
+## 2026-10-16 — main after #1581; in PR #1582
+
+- **In PR #1582:** doc fixes (rev-pin template withdrawn, TD-POPCNT runtime-detect option withdrawn, the no-target-cpu AVX2 arm is the validation oracle only); the #1579 arc entry; and the OpenCog decisions in `entries/2026-10-16-opencog-oracle-scope.md` — OpenCog as a temporary validation oracle, the licence reading, `lance-graph-cog` as the Apache-2.0 API an AGPL OpenCog fork (`atomspace-lance`) would call, positional tables over any ordered KV; plus `TD-ONTOLOGY-REGISTRY-HASH-LOOKUP-REVIEW-1`. Nothing built.
+
 ## 2026-10-16 — main after #1578 (merged `1f5322fe`) and #1579 (merged `7302f58c`); ledger update in PR #1581
 
 - **On main:** #1578 (ledger revision after #1576, arc catch-up), #1579 (synergy map since 2026-10-11, ten STATUS rows set to Shipped, label codebook sizes measured), #1580 (hydrate: `zip` 2 → 9).
