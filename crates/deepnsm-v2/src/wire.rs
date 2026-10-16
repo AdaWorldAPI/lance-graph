@@ -623,6 +623,34 @@ mod tests {
         assert_eq!(cat.frequency_u8(), (3 * 255 / 5) as u8);
         assert_eq!(rows[2].edge.activation(), -1, "pos 1 vs man's 2");
         assert_eq!(rows[2].edge.novelty_wisdom(), 1);
+        // pos 2 vs 2: zero pressure, no climb.
+        assert_eq!(rows[3].edge.activation(), 0);
+        assert_eq!(
+            rows[3].edge.novelty_wisdom(),
+            1,
+            "no climb without pressure"
+        );
+    }
+
+    /// The contested rival restarts at Staunen: `man` reached rung 2, a `cat`
+    /// verse contests it, and the next `man` verse climbs from 1, not 2.
+    #[test]
+    fn a_contested_rival_restarts_at_staunen() {
+        let v = vec![
+            svo(DOG, BIT, MAN),
+            svo(DOG, BIT, MAN),
+            svo(DOG, BIT, CAT),
+            svo(DOG, BIT, MAN),
+        ];
+        let (rows, _) = run(&v);
+        assert_eq!(rows[1].edge.novelty_wisdom(), 2);
+        assert_eq!(rows[3].edge.activation(), 2, "pos 3, neg 1");
+        assert_eq!(
+            rows[3].edge.novelty_wisdom(),
+            2,
+            "reset to 1, then one climb"
+        );
+        assert_eq!(window_slots(rows[3].edge.w_slot()), [1, 2, 1]);
     }
 
     /// F/C stays arm-discovery's law. `f` equals NAL revision of the unit
@@ -740,6 +768,26 @@ mod tests {
             epi(rows[1].edge).certification(),
             Certification3::CausalCandidate
         );
+        // One causal verse is not enough: Related, not CausalCandidate.
+        let mixed = vec![
+            ins[0].clone(),
+            VerseIn {
+                readings: svo(DOG, BIT, MAN),
+                ..VerseIn::default()
+            },
+        ];
+        let (rows, rep) = wire(
+            &markers,
+            &mixed,
+            1,
+            &abi(),
+            Some(&h),
+            ReadParams::RIGHT_CORNER,
+        )
+        .unwrap();
+        assert_eq!(rep.intervention_rows, 1);
+        assert_eq!(rep.causal_candidates, 0);
+        assert_eq!(epi(rows[1].edge).certification(), Certification3::Related);
         let (plain, _) = run(&[svo(DOG, BIT, MAN), svo(DOG, BIT, MAN)]);
         assert_eq!(plain[1].edge.causal_mask(), CausalMask::SO);
         assert_eq!(epi(plain[1].edge).certification(), Certification3::Related);
