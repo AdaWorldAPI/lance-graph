@@ -5,6 +5,13 @@
 - **Deferred / open:** D-RA-2, codebook scope, #1544 closure (decisions); the cross-repo doc fixes; the wasm `mul_add` test; the lgj `check_build_cpu` handshake.
 - **Confidence:** n/a (board); counts by token regex over `.metta` files, not the Hyperon parser.
 
+## 2026-10-16 — lance-graph PR #1578 (merged `1f5322fe`, branch `ccr-b2e415d9-4jfvyk`, head `8b669321`) — recovery ledger revised against #1560–#1576
+
+- **Added:** `.claude/research/2026-10-recovery/LEDGER-REVISION-2026-10-16.md` (closed C22–C30; open items merged and deduplicated; K2', K6, K7, K8; fruits; operator decisions with recommendations); entry `2026-10-16-ledger-revision-after-1576.md`; arc entries for #1560, #1570, #1571, #1574, #1575, #1576; LATEST_STATE section.
+- **Locked:** none (docs only).
+- **Deferred / open:** O30, O29, DOC-WIRE (1), BAND-RETIRE, D-ASM authorization; superseded in part by `LEDGER-UPDATE-2026-10-16b.md` (#1581).
+- **Confidence:** medium; three harvest-scout zero-hit claims were false and re-checked by hand.
+
 ## 2026-10-16 — lance-graph PR #1576 (merged `9a657bd3`, branch `ccr-c09987ed-cuk6r5`, 8 commits) — council: metta-datalog-assimilation W1–W3 spec ratified (D-ASM-1..4)
 
 - **Added:** `.claude/plans/metta-datalog-assimilation-v1-council-v3.md` (executable spec, gates G1–G9); ⊘ notes on the plan's decisions A–E, G and §6; `metta-polyfill-v1.md` §5 amended; STATUS D-ASM-1..5, D-MTP-2, D-RA-3; 3 TECH_DEBT rows; entry `2026-10-16-metta-datalog-assimilation-council-v3.md`.

@@ -12,7 +12,7 @@ Four enums with the same name, none importing any other, encoding **different co
 
 | # | Location | Line | Variants | Arity | Semantic axis |
 |---|----------|------|----------|-------|---------------|
-| 1 | `crates/causal-edge/src/layout.rs` | 141 | Crystalline / Solid / Fuzzy / Murky | 4 | Pearl-3 epistemic lens; discriminator = 2-bit truth field in CausalEdge64 (bits 59-60) |
+| 1 | `crates/causal-edge/src/layout.rs` | 141 | Crystalline / Solid / Fuzzy / Murky | 4 | MUL vocabulary for the topology coordinate, bits 59-60 of CausalEdge64: the same cell as `CausalTopology` of the same ordinal, not a second lens (⊘ was "Pearl-3 epistemic lens"; corrected 2026-10-16 per #1574) |
 | 2 | `crates/lance-graph-contract/src/mul.rs` | 82 | Calibrated / Overconfident / Uncertain / Underconfident | 4 | MUL meta-uncertainty layer (felt vs demonstrated competence) |
 | 3 | `crates/lance-graph-planner/src/mul/trust.rs` | 30 | Crystalline / Solid / Fuzzy / Murky / Dissonant | 5 | MUL trust-quality axis; **5 variants are unrepresentable in the 2-bit CausalEdge64 truth field** — this one can never be the carrier-side type |
 | 4 | `crates/lance-graph/src/graph/arigraph/orchestrator.rs` | 114 | Crystalline / Fibrous / Fuzzy | 3 | AriGraph topology-weight reliability lens |

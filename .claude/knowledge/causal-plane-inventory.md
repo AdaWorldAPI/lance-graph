@@ -59,6 +59,13 @@ model of how to fuse two readings honestly: wire and ordinal compatibility exact
 legacy projection intentional, and **historical factual provenance explicitly NOT
 guaranteed** — it refuses to backfill meaning onto old rows.
 
+> ⊘ **Corrected 2026-10-16 (#1574, DECISION 2026-10-15).** "Two readings" is
+> wrong: bits 59..60 are ONE field under two vocabularies. `TrustTexture`
+> is the MUL's name for the same cell as the `CausalTopology` variant of the
+> same ordinal (`causal-edge/src/layout.rs`, `TrustTexture` doc). A
+> contradiction is an epistemic pothole the MUL reacts to, never a cell of
+> this field.
+
 ---
 
 ## §2 — The six semantic families (ratified; do not add a seventh from a shape)

@@ -1,7 +1,7 @@
-## 2026-10-16 — main after #1579 (merged `7302f58c`); synergy map on main
+## 2026-10-16 — main after #1578 (merged `1f5322fe`) and #1579 (merged `7302f58c`); ledger update in PR #1581
 
-- **On `main` (#1579):** the synergy map entry and the status sweep; the open decisions it names are listed in the arc entry.
-- **In PR:** #1582 (doc fixes: rev-pin template, TD-POPCNT runtime-detect option withdrawn, the no-target-cpu AVX2 arm is the validation oracle only).
+- **On main:** #1578 (ledger revision after #1576, arc catch-up), #1579 (synergy map since 2026-10-11, ten STATUS rows set to Shipped, label codebook sizes measured), #1580 (hydrate: `zip` 2 → 9).
+- **In PR #1581:** ledger update deduplicated against #1579; DOC-WIRE (2) stale 59..60 prose corrected; N21 verified green. Docs only.
 
 ## 2026-10-16 — main after #1576 (merged `9a657bd3`); catch-up for #1560, #1570, #1571, #1574, #1575, #1576
 
