@@ -1,3 +1,9 @@
+## 2026-10-16 — synergy map since 2026-10-11 (five Haiku harvest cards)
+
+- substrate-mapper ×3 (merge maps for lance-graph and ndarray/OGAR/ruff; board delta), quote-harvester ×1 (13 stale sites), census-counter ×1 (ndarray counters). Read-only; outputs in the session scratchpad.
+- Spot checks: merge counts re-run (97, 9); ten status rows re-read before editing; quotes Q3/Q5/Q6/Q10/Q13 re-read; parity type counts re-run with a wider pattern.
+- Misses: census-counter made one out-of-card `send_message` call with a placeholder (failed, nothing sent); quote-harvester used `origin/main` for tesseract-rs as the brief said (its branch is `master`; brief error). No conclusion drawn by any card.
+- Result: entry `2026-10-16-synergy-map-since-1011.md`; ten STATUS cells corrected. Written by the orchestrating main thread only.
 ## 2026-10-16 — ledger revision after #1576: three Haiku runs
 
 - `quote-harvester` (PR bodies): refused correctly, the card has no GitHub or Write tool. Re-run as general-purpose on Haiku: 16/16 fetched; 7 bodies read in full and used; 0 wrong.
