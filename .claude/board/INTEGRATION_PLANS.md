@@ -1,3 +1,10 @@
+## 2026-10-16 — d-holo-h14d-logic-mask-read-v1 — C's own operation: logic → address mask → masked read → terminal → `.claude/plans/d-holo-h14d-logic-mask-read-v1.md`
+
+**Status:** PRE-REGISTERED; not run.
+
+- Four stages in order, each shrinking the next: relalg symbolic reduction (no data), address materialization over presence planes (64 per word), Lance 13 read pruned by `R`, terminals.
+- C only. No B, S or M arm: the row-first comparisons of H14/H14b are withdrawn (#1569).
+
 ## 2026-10-14 (2) — metta-polyfill-v1 — Hyperon/MeTTa as a front end over the masking-algebra polyfill → `.claude/plans/metta-polyfill-v1.md`
 
 **Status:** PROPOSAL; D-MTP-0 (map + measurements), D-MTP-1 (join probe, measured), D-MTP-1b (range hop, measured) and D-MTP-6 (datafrog oracle) done; D-MTP-2..5 not authorized.
