@@ -86,7 +86,8 @@ operator.
    same answer on all 2,000 programs; the reference agrees with both.
 3. COUNT terminal == `popcount(R)` == reference.
 4. Resident payload terminal: Σ and the comparison count equal the reference;
-   payload reads == `|R| × k` (counted).
+   payload reads == `Σ_l popcount(R ∧ P_l)` (counted), which is `|R| × k` for
+   the `∧` form.
 5. Fused Σ (`Measure::Sum`) equals the explicit payload terminal.
 6. Lance payload terminal: returned rows == `|R|`, values equal the reference.
 7. Single-address query equals the reference at every address of a sample,
@@ -104,6 +105,14 @@ operator.
    query): check 7 must fail.
 4. Hand Lance a mask that is not `R` (the aperture alone): check 6 must fail.
 5. Drop `A` from the expression: check 1 must fail.
+
+## Amendment A1 (2026-10-16, before any code or timing)
+
+In the `∨` form a survivor of `R` need not hold every requested lane, so the
+payload terminal tests lane `l`'s presence bit at `i` before loading `T_l[i]`.
+The exact read count is `Σ_l popcount(R ∧ P_l)`; for the `∧` form every
+survivor holds every lane and the count is `|R| × k`, as first stated.
+Prediction 4 and check 4 read with this count.
 
 ## Timing protocol
 
