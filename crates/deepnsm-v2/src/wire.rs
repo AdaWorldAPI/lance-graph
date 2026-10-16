@@ -559,7 +559,7 @@ fn attach_qualia(verse: &VerseIn<'_>, t: &[Traced], rows: &mut [WiredRow], rep: 
                 }
                 hit.then_some(true)
             }
-            Some(Pos::Other) => {
+            Some(Pos::Adv | Pos::Other) => {
                 let prev = in_sent.iter().rev().copied().find(|&k| t[k].closed_at < i);
                 let next = in_sent.iter().copied().find(|&k| t[k].closed_at >= i);
                 let target = match (prev, next) {
@@ -843,50 +843,8 @@ pub fn wire(
             rep.qualia_unattached += verse.qualia.iter().filter(|&&q| q != 0).count();
         }
 
-        // Kausal claims: the stating event is the cause (the clause `weil`
-        // opens), every matrix event of the verse is an effect. Each pair is
-        // one unit observation of `cause ⇒ effect`, stamped with the verse, so
-        // the arena pools independent verses and never double counts one.
-        let mut cause_sources = vec![0u32; n];
-        if let (Some(j), Some(t)) = (stating[KAUSAL_LANE], traced.as_ref()) {
-            let mut intern = |spo: Spo, rep: &mut WireReport| -> Option<u16> {
-                if let Some(&id) = event_id.get(&spo) {
-                    return Some(id);
-                }
-                let Ok(id) = u16::try_from(events.len()) else {
-                    rep.event_overflow += 1;
-                    return None;
-                };
-                events.push(spo);
-                event_id.insert(spo, id);
-                Some(id)
-            };
-            for (e, tr) in t.iter().enumerate() {
-                if e == j || tr.origin != Origin::Main {
-                    continue;
-                }
-                let (Some(c), Some(f)) = (intern(t[j].spo, &mut rep), intern(tr.spo, &mut rep))
-                else {
-                    continue;
-                };
-                let stmt = CStmt {
-                    s: c,
-                    cop: Copula::Impl,
-                    p: f,
-                };
-                rep.implications += 1;
-                if matches!(
-                    causes.observe(stmt, unit(), Stamp::source(vi as u32)),
-                    ReviseOutcome::Revised { .. }
-                ) {
-                    rep.implications_revised += 1;
-                }
-                let sources = causes.get(stmt).map_or(0, |b| b.stamp.0.count_ones());
-                cause_sources[j] = cause_sources[j].max(sources);
-            }
-        }
-
         // The belief-state update, row by row in stream order.
+        let mut admitted_rows = vec![false; n];
         for (k, row) in rows[first..].iter_mut().enumerate() {
             let spo = row.spo;
             let causal = row.tekamolo[KAUSAL_LANE].is_some();
@@ -997,13 +955,9 @@ pub fn wire(
             };
             st.last = Some((cohort, slot));
             row.cohort = cohort;
+            // CausalCandidate is decided after the Kausal claims are counted.
             let certification = if pos >= 2 && balance_pos {
-                if cause_sources[k] >= 2 {
-                    rep.causal_candidates += 1;
-                    Certification3::CausalCandidate
-                } else {
-                    Certification3::Related
-                }
+                Certification3::Related
             } else {
                 Certification3::Associated
             };
@@ -1022,7 +976,67 @@ pub fn wire(
             row.antecedent = tot;
             row.contested = contested;
             row.revision = delta.map(|d| d.kind);
+            admitted_rows[k] = admitted;
         }
+
+        // Kausal claims: the stating event is the cause (the clause `weil`
+        // opens), every matrix event of the verse is an effect. Each pair is
+        // one unit observation of `cause ⇒ effect`, stamped with the verse, so
+        // the arena pools independent verses and never double counts one.
+        // It counts, so it runs after the gate: a pair is observed only when
+        // both the cause row and the effect row were admitted (G5).
+        if let (Some(j), Some(t)) = (stating[KAUSAL_LANE], traced.as_ref()) {
+            let mut cause_sources = 0u32;
+            let mut intern = |spo: Spo, rep: &mut WireReport| -> Option<u16> {
+                if let Some(&id) = event_id.get(&spo) {
+                    return Some(id);
+                }
+                let Ok(id) = u16::try_from(events.len()) else {
+                    rep.event_overflow += 1;
+                    return None;
+                };
+                events.push(spo);
+                event_id.insert(spo, id);
+                Some(id)
+            };
+            for (e, tr) in t.iter().enumerate() {
+                if e == j || tr.origin != Origin::Main || !admitted_rows[j] || !admitted_rows[e] {
+                    continue;
+                }
+                let (Some(c), Some(f)) = (intern(t[j].spo, &mut rep), intern(tr.spo, &mut rep))
+                else {
+                    continue;
+                };
+                let stmt = CStmt {
+                    s: c,
+                    cop: Copula::Impl,
+                    p: f,
+                };
+                rep.implications += 1;
+                if matches!(
+                    causes.observe(stmt, unit(), Stamp::source(vi as u32)),
+                    ReviseOutcome::Revised { .. }
+                ) {
+                    rep.implications_revised += 1;
+                }
+                cause_sources =
+                    cause_sources.max(causes.get(stmt).map_or(0, |b| b.stamp.0.count_ones()));
+            }
+            // Two independent implication sources promote a Related cause.
+            let row = &mut rows[first + j];
+            let state = EpistemicState5::decode(Epi5Gen::V1, row.edge.epistemic_raw5())
+                .expect("written above as V1");
+            if cause_sources >= 2 && state.certification() == Certification3::Related {
+                rep.causal_candidates += 1;
+                let up = EpistemicState5::new(
+                    Epi5Gen::V1,
+                    state.topology(),
+                    Certification3::CausalCandidate,
+                );
+                row.edge = row.edge.with_epistemic_raw5(up.raw());
+            }
+        }
+
         rep.rows = rows.len();
     }
     // Quorum and Contradiction loci over the whole row stream (a text is one
@@ -1771,6 +1785,58 @@ mod tests {
         // The operand codes sit beside their qualia, equal to the edge's.
         assert_eq!(operand_at(adv.qualia, Q_SUBJECT), adv.edge.s_idx());
         assert_eq!(operand_at(adv.qualia, Q_OBJECT), adv.edge.o_idx());
+    }
+
+    /// A token the lexicon tags as an adverb (`Pos::Adv`, COCA `r`) is
+    /// adverbial like a skipped `Other` token (Codex review on #1591).
+    #[test]
+    fn a_pos_adv_token_is_adverbial() {
+        let (adv, rv) = qrun(qverse(&[
+            (THE, Pos::Det, "the", 0),
+            (DOG, Pos::Noun, "dog", 0),
+            (BIT, Pos::Verb, "caused", 0),
+            (THE, Pos::Det, "the", 0),
+            (MAN, Pos::Noun, "man", 0),
+            (WHO, Pos::Adv, "quickly", QUICK),
+        ]));
+        assert_eq!(qualia_at(adv.qualia, Q_PREDICATE), QUICK);
+        assert_eq!((rv.qualia_adverbial, rv.qualia_unattached), (1, 0));
+    }
+
+    /// A Kausal claim whose cause row the gate suspended is not counted: the
+    /// verse states `dog bit man` and then `weil dog bit cat`, a rival from a
+    /// source already counted. Twice. Nothing reaches the causes arena (Codex
+    /// review on #1591).
+    #[test]
+    fn a_suspended_cause_is_not_counted() {
+        let mut r = svo(DOG, BIT, MAN);
+        r.push(Reading::stop());
+        r.push(one(WHO, Pos::Other));
+        r.extend(svo(DOG, BIT, CAT));
+        let surface = vec![
+            "der", "hund", "biss", "den", "mann", ".", "weil", "der", "hund", "biss", "die",
+            "katze",
+        ];
+        let v = VerseIn {
+            readings: r,
+            surface,
+            forms: vec![],
+            qualia: vec![],
+        };
+        let w = run_in(&[v.clone(), v]);
+        let cause = w
+            .rows
+            .iter()
+            .find(|x| x.spo == Spo::new(DOG, BIT, CAT))
+            .unwrap();
+        assert!(
+            cause.tekamolo[KAUSAL_LANE].is_some(),
+            "the Kausal lane landed"
+        );
+        assert_eq!(cause.revision, Some(RevisionKind::ContradictionPreserved));
+        assert_eq!(w.report.implications, 0);
+        assert!(w.causes.entries().is_empty());
+        assert_eq!(w.report.causal_candidates, 0);
     }
 
     /// An adjective on the object lands on the object pair; an adverb before
