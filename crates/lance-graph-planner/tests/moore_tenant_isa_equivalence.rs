@@ -37,7 +37,10 @@ const EXECUTABLE: [u64; 5] = [0x1, 0x2, 0xF, 0x4, 0x5];
 
 fn canonical(r: &mut Rng, w: u64) -> u64 {
     let code = EXECUTABLE[(r.next() % 5) as usize];
-    (r.next() & !W & !EPI5 & !MANTISSA & !ORIENTATION) | (w << 53) | ((r.next() % 24) << 59) | (code << 46)
+    (r.next() & !W & !EPI5 & !MANTISSA & !ORIENTATION)
+        | (w << 53)
+        | ((r.next() % 24) << 59)
+        | (code << 46)
 }
 
 fn tables() -> [Box<[u8; 256 * 256]>; 3] {
