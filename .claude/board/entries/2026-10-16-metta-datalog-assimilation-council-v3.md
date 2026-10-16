@@ -31,3 +31,5 @@ the library build), all applied in v3.
 Not an Epiphany: every finding is a correction of this plan's own text or a measured property of shipped code; the durable
 residue is the ratified spec and the ⊘ notes. MIRROR — BIAS CHECK: the v1 spec filed the join in relalg because the plan said so
 (anchoring on the plan's own wording); the premise gate, not the savants, caught it.
+
+**Addendum (2026-10-16, later):** fork PR `AdaWorldAPI/hyperon-experimental#1` merged (`e55dc61`), so both trie fixes are on fork `main`. lance-graph's `hyperon-*` pin is still `3f76dc4`; D-MTP-4's remaining step is the pin bump, OPEN, not authorized here.
