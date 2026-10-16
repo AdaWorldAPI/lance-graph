@@ -129,3 +129,50 @@ Read in full: `deepnsm-v2/src/tekamolo.rs`, `deepnsm-v2/src/loci.rs`,
 ONA source (oracle only, not opened here); Hyperon's own grammar of
 contexts beyond ruff's harvest; the 8 unnamed loci's intended use; any plan
 that may already assign them (grep `Locus` in `.claude/plans` not run).
+
+## 7. Wiring landed (2026-10-16, later the same day)
+
+`crates/deepnsm-v2/src/wire.rs` fills every field of the CE64 semantic
+upper half on each parsed triple, each from one named source (module doc
+has the table). `run_harness` is unchanged and still emits the grammar-only
+edge; `wire` is the annotation layer above it.
+
+| bits | field | source |
+|---|---|---|
+| 24..39 | F/C | `lance-graph-arm-discovery::arm_to_truth_u8`, rule `(S,P) → O` over independent verses, k = 1 |
+| 40..42 | Pearl | TEKAMOLO Kausal lane on the event → `PO`, else `SO` |
+| 43..45 | orientation | clause path (`fsm::parse_to_spo_traced`): 1 Main, 2 Carried, 3 SubjRelative, 4 ObjRelative, 0 untraced |
+| 46..49 | activation | pressure `pos − neg`, clamped i4 (`CausalEdge64::activation`, same bits as `inference_mantissa`) |
+| 50..52 | novelty → wisdom | per-statement Markov rung, 1 Staunen ..= 7 wisdom (`novelty_wisdom`, same bits as plasticity) |
+| 53..58 | belief update | W1/W2/W3 window of the last three updates: 1 corroborate, 2 contest, 3 dependent |
+| 59..63 | epistemic | topology from the clause path; Associated → Related (≥2 independent, pressure > 0) → CausalCandidate (≥2 independent Kausal verses); never Causes |
+
+Closes G1 (relative antecedent → `Locus::Antecedent`) and G2 (TEKAMOLO →
+loci 0..3, via `ClauseRead::at` and the triple's `closed_at`).
+
+Tests: 10 in `wire`, each guard disable-verified red on exactly its named
+test (rival reset, dependent kind, resolved gate, pressure gate, two causal
+verses, Kausal → PO, orientation code, antecedent locus, contest shift, map
+link). `f_and_c_against_nal_revision_of_units` pins that arm `f` equals NAL
+revision of unit evidence, and arm `c` equals it only when uncontested.
+
+Reasoning AST: `lance-graph-quack/examples/wired_reasoning_probe.rs` states
+five field rules as Datalog (R1 `pearl_po ↔ kausal`, R2 `cert_rel ↔
+support2 ∧ press_pos`, R3 `candidate → cert_rel`, R4 `climbed → support2`,
+R5 `direct ↔ main`) and runs each as a quack filter over presence planes of
+541 wired rows: 0 violations, counts equal to a row oracle, every plane
+non-trivial, one flipped output bit breaks exactly its rule.
+
+Not done, recorded so it is not lost:
+
+- The orientation map's contiguity check has no consumer: over the two
+  relative functions it is always true, so a per-relativizer probe would be
+  vacuous.
+- `deepnsm_v2::belief::BeliefArena` and `lance-graph-nal` do not consume
+  wired rows yet. The arena's `Stamp` folds sources modulo 64 (false
+  overlap past 64 verses); `lance-graph-nal` has no relational copula for
+  `(S, verb, O)` (R10).
+- AriGraph `revise_with_evidence` still revises without stamps.
+- The 144 verbs (`contract/src/grammar/verb_table.rs`, 12×12 in a 16×16
+  space with TEKAMOLO slot priors) are not connected to the P code or the
+  Pearl rung.
