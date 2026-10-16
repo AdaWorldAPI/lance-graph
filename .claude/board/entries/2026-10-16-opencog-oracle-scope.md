@@ -118,3 +118,33 @@ as the fast side. Tenants then reach it through thin `NamespaceBridge` views.
 `lance-graph-cog` would do the same for OpenCog: read AtomSpace content (Atomese
 atoms) as input data, and give the AGPL fork's adapter the same bake-and-cache
 surface.
+
+### Repositories (added 2026-10-16)
+
+AdaWorldAPI now has forks of `opencog/atomspace`, `atomspace-cog`, `atomspace-rocks`,
+`cogserver`, `lg-atomese` and `learn`, plus an empty `AdaWorldAPI/atomspace-lance`, the
+landing space for the AGPL-side adapter. Read: the atomspace-rocks fork at `6577a5b`
+(`RocksStorage.h`, the key-schema comment in `RocksIO.cc:78-148`); same licence header and
+linking exception as the AtomSpace; per-file headers `AGPL-3.0-or-later`.
+
+`atomspace-lance` is the analogue of `RocksStorageNode`: a `StorageNode` subclass (AGPL, it
+is based on OpenCog) whose calls go down into `lance-graph-cog` (Apache-2.0). The StorageNode
+API it must implement (`RocksStorage.h:142-171`): open/close, `getAtom`, `getLink`,
+`fetchIncomingSet` / `fetchIncomingByType`, `storeAtom`, `removeAtom`, `storeValue` /
+`updateValue` / `loadValue`, `loadType`, `loadAtomSpace` / `storeAtomSpace`,
+`loadFrameDAG` / `storeFrameDAG` / `deleteFrame`, `barrier`.
+
+How Rocks lays out the data, and the candidate mapping on our side (not built, not measured):
+
+| Rocks key | meaning | our side |
+|---|---|---|
+| `n@satom`, `l@satom` → sid; `a@sid` → satom | atom s-expression ↔ 64-bit id | content → NodeGuid; names via the label codebook |
+| `h@shash` → sid list | hash → ids | not needed if the address is content-derived |
+| `i@sid:stype-sid` | incoming set (by type) | a hop: preimage over coordinate ranges |
+| `k@sid:kid` → sval | values (truth value etc.) per key | lanes on the row |
+| `d@`/`f@`/`o@` frames, `z` heights | Kripke frames (layered AtomSpaces), link heights | hypothesis layers / Lance versions |
+| prefix scans (`n@(Concept`) | load all atoms of a type | class range over the classid prefix |
+
+OPEN: the atom identity mapping (content → NodeGuid) is the first design item; RocksIO's
+s-expression text is the identity Rocks uses, which we would replace with a deterministic
+address.
