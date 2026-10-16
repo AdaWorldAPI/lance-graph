@@ -46,14 +46,25 @@
 //! verses; `tot`, the independent verses that gave `(S, P)` at all (so
 //! `neg = tot - pos` gave another object); and its rung. Each
 //! observation updates the states it touches and nothing else, so the next
-//! state depends only on the current state and the observation:
+//! state depends only on the current state and the observation.
 //!
-//! - an observation of `(S, P, O)` from a verse not yet counted for it is a
-//!   **corroboration** (`1`) of `(S, P, O)`;
-//! - if that verse is also new for `(S, P)`, it is a **contest** (`2`) of every
-//!   other `(S, P, O')`;
-//! - an observation from a verse already counted is **dependent** (`3`): no new
-//!   evidence, the NAL `DUPLICATE` / `OVERLAP` class.
+//! # The Gadamer gate decides; counting follows
+//!
+//! Each `(S, P)` group is an interpretive horizon
+//! (`contract::revision::GadamerRevision`): its claims are the objects met,
+//! its roots the independent verses. Every observation is an encounter, and
+//! the gate's verdict decides whether anything is counted:
+//!
+//! - a new verse for the only object so far is `IndependentConfirmation` (or
+//!   `HorizonExpansion` for a first sighting): counted;
+//! - a new verse while another object is in view is `HorizonFusion`: counted,
+//!   and both objects join the group's tension;
+//! - a verse already counted is `Echo`: nothing counted;
+//! - a rival object from a verse already counted is `ContradictionPreserved`:
+//!   suspended, nothing counted, the tension kept.
+//!
+//! Claims are never withdrawn and the tension only grows (G3): a contest
+//! never resets the rival. Only admitted observations reach the facts arena.
 //!
 //! Reading order is the chain. Each row records its statement's state right
 //! after its own update, and registers one [`WitnessEntry`] (its verse, its
@@ -73,9 +84,9 @@
 //! positive (`pos > neg`): a
 //! rung is reached only when the one below holds. Resolved means single
 //! readings, traced, no incomplete Haspelmath map, no TEKAMOLO abstention and,
-//! for a relative clause, a bound antecedent. A contest drops the statement
-//! back to rung 1. Six resolved corroborations after the first sighting,
-//! without a contest, reach wisdom.
+//! for a relative clause, a bound antecedent. A contest leaves the rival's
+//! rung as it is. Six resolved, admitted observations with a positive balance
+//! after the first sighting reach wisdom.
 //!
 //! # F/C against NAL revision
 //!
@@ -107,6 +118,11 @@ use lance_graph_contract::facet::{CascadeShape, FacetCascade};
 use lance_graph_contract::grammar::verb_lexicon::classify_verb;
 use lance_graph_contract::grammar::verb_table::morton_cell;
 use lance_graph_contract::hhtl::NiblePath;
+use lance_graph_contract::revision::{
+    BasisView, CodebookId, EncounterEvidence, EvidenceMask, EvidentialEffect, GadamerRevision,
+    GrammarId, HorizonId, InterpretiveHorizon, LanguageId, LensId, QuestionId, RevisionDelta,
+    RevisionKind, RevisionPolicy,
+};
 use lance_graph_contract::witness_table::{WitnessEntry, WitnessTable};
 
 use crate::belief::{BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
@@ -165,18 +181,6 @@ pub fn orientation_contiguous(codes: u8) -> bool {
     }
 }
 
-/// The kind of one belief-state update (a 2-bit witness).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum Update {
-    /// An independent verse supports the statement.
-    Corroborate = 1,
-    /// An independent verse gave the same `(S, P)` with another object.
-    Contest = 2,
-    /// The verse was already counted: no new evidence.
-    Dependent = 3,
-}
-
 /// Rows per witness cohort: slots `1..=63` of a `WitnessTable<64>`.
 pub const COHORT_ROWS: usize = 63;
 
@@ -221,6 +225,12 @@ pub struct WiredRow {
     pub antecedent: u32,
     /// The witness cohort this row's W slot is read in.
     pub cohort: u32,
+    /// The object is part of its `(S, P)` group's preserved tension: another
+    /// object was met for the same `(S, P)` and neither was withdrawn.
+    pub contested: bool,
+    /// What the Gadamer gate made of this observation (`None`: the group ran
+    /// out of gate bits and the observation was not admitted).
+    pub revision: Option<RevisionKind>,
     /// The qualia register, read under [`QUALIA_SHAPE`]: pairs 0..2 are
     /// `(operand code : qualia)` for S, P, O; pair 3 is `(verb cell : 1)` when
     /// the verb classifies, `(0 : 0)` when not. Class id 0 (default class).
@@ -280,6 +290,12 @@ pub struct WireReport {
     pub contests: usize,
     /// Dependent observations (a verse already counted).
     pub dependent: usize,
+    /// Observations the gate suspended: a contradiction with no new
+    /// independent root (`ContradictionPreserved`). Nothing is counted.
+    pub suspended: usize,
+    /// Observations not admitted because a group had more than 256 distinct
+    /// verses or objects.
+    pub gate_overflow: usize,
     /// Rows certified `CausalCandidate`.
     pub causal_candidates: usize,
     /// `cause ⇒ effect` observations offered to the causes arena.
@@ -367,10 +383,102 @@ struct StmtState {
     last: Option<(u32, u8)>,
 }
 
-#[derive(Debug, Default)]
+/// The gate's mask width: group-local roots and claims, 256 each.
+type GateMask = [u64; 4];
+
+/// Bit `i` of a [`GateMask`].
+fn gate_bit(i: u16) -> GateMask {
+    let mut m = [0u64; 4];
+    m[usize::from(i / 64)] = 1 << (i % 64);
+    m
+}
+
+const GATE_BITS: u16 = 256;
+
 struct Group {
     verses: HashSet<usize>,
     objects: HashMap<u16, StmtState>,
+    /// The `(S, P)` interpretive horizon: claims are this group's objects,
+    /// roots its independent verses (group-local bit indices).
+    horizon: InterpretiveHorizon<(), GateMask>,
+    roots: HashMap<usize, u16>,
+    claims: HashMap<u16, u16>,
+}
+
+impl Default for Group {
+    fn default() -> Self {
+        let empty = GateMask::empty();
+        Self {
+            verses: HashSet::new(),
+            objects: HashMap::new(),
+            horizon: InterpretiveHorizon {
+                id: HorizonId(0),
+                awareness: (),
+                question: QuestionId(0),
+                language: LanguageId(0),
+                grammar: GrammarId(0),
+                codebook: CodebookId(0),
+                lens: LensId(0),
+                projected_claims: empty,
+                independent_roots: empty,
+                inherited_roots: empty,
+                unresolved_tension: empty,
+                revision_index: 0,
+            },
+            roots: HashMap::new(),
+            claims: HashMap::new(),
+        }
+    }
+}
+
+impl Group {
+    /// Pass one observation of `(S, P, object)` from verse `vi` through the
+    /// Gadamer gate and adopt the resulting horizon. `None` when the group has
+    /// run out of root or claim bits (the observation is not admitted).
+    fn encounter(&mut self, vi: usize, object: u16) -> Option<RevisionDelta<(), GateMask>> {
+        let next_root = self.roots.len() as u16;
+        let next_claim = self.claims.len() as u16;
+        let root = *self.roots.entry(vi).or_insert(next_root);
+        let claim = *self.claims.entry(object).or_insert(next_claim);
+        if root >= GATE_BITS || claim >= GATE_BITS {
+            return None;
+        }
+        let prior = &self.horizon;
+        let own = gate_bit(claim);
+        // Claims are never withdrawn: the working whole keeps every object
+        // the group has met, so a rival stays in view as live tension.
+        let proposed = prior.projected_claims.union(&own);
+        let others = prior.projected_claims.difference(&own);
+        let contradictions = if others.is_empty() {
+            GateMask::empty()
+        } else {
+            others.union(&own)
+        };
+        let encounter = EncounterEvidence {
+            proposed_claims: proposed,
+            independent_roots: gate_bit(root),
+            inherited_roots: GateMask::empty(),
+            resistance: GateMask::empty(),
+            contradictions,
+            affected_parts: contradictions,
+        };
+        let ancestry = BasisView {
+            ancestry_independent_roots: prior.independent_roots,
+            ancestry_derived_roots: GateMask::empty(),
+            ancestor_claims: prior.projected_claims,
+            closes_cycle: false,
+        };
+        let delta = GadamerRevision.revise(prior, &encounter, &ancestry);
+        self.horizon = delta.resulting.clone();
+        Some(delta)
+    }
+
+    /// Whether `object` is part of this group's preserved tension.
+    fn contested(&self, object: u16) -> bool {
+        self.claims
+            .get(&object)
+            .is_some_and(|&c| c < GATE_BITS && self.horizon.unresolved_tension.intersects(&gate_bit(c)))
+    }
 }
 
 /// Fill the qualia register of one traced verse's rows.
@@ -535,6 +643,7 @@ pub fn wire(
     let mut rows: Vec<WiredRow> = Vec::with_capacity(harness.encoded.len());
     let mut groups: HashMap<(u16, u16), Group> = HashMap::new();
     let mut facts = BeliefArena::new();
+    let mut fact_ids: HashMap<CStmt, u32> = HashMap::new();
     let mut causes = BeliefArena::new();
     let mut events: Vec<Spo> = Vec::new();
     let mut event_id: HashMap<Spo, u16> = HashMap::new();
@@ -595,6 +704,8 @@ pub fn wire(
                 support: 0,
                 antecedent: 0,
                 cohort: 0,
+                contested: false,
+                revision: None,
                 qualia: FacetCascade::default(),
             });
         }
@@ -701,22 +812,30 @@ pub fn wire(
                 traced.is_some() && !ambiguous && !incomplete && !abstained && !unbound[k];
 
             let group = groups.entry((spo.subject, spo.predicate)).or_default();
+            // The gate decides whether and in which sense this observation
+            // revises the (S, P) horizon; counting runs only if it admits.
+            let delta = group.encounter(vi, spo.object);
+            let effect = delta.as_ref().map(|d| d.evidential_effect);
+            match delta.as_ref().map(|d| d.kind) {
+                None => rep.gate_overflow += 1,
+                Some(RevisionKind::HorizonFusion) => rep.contests += 1,
+                Some(RevisionKind::ContradictionPreserved) => rep.suspended += 1,
+                Some(RevisionKind::Echo) => rep.dependent += 1,
+                Some(_) => {}
+            }
+            let admitted = effect == Some(EvidentialEffect::IncreaseEligible);
             let tot_prior = group.verses.len() as u32;
-            if group.verses.insert(vi) {
-                for (o, other) in &mut group.objects {
-                    if *o != spo.object {
-                        if other.rung > 0 {
-                            other.rung = 1;
-                        }
-                        rep.contests += 1;
-                    }
-                }
+            if admitted {
+                group.verses.insert(vi);
             }
             let tot = group.verses.len() as u32;
+            let contested = group.contested(spo.object);
             let st = group.objects.entry(spo.object).or_default();
             let pos_prior = st.verses.len() as u32;
-            let new_stmt = pos_prior == 0;
-            let own_fresh = st.verses.insert(vi);
+            let new_stmt = st.rung == 0;
+            if admitted {
+                st.verses.insert(vi);
+            }
             let pos = st.verses.len() as u32;
             // The support balance: more independent verses for this object than
             // for every other object of the same (S, P).
@@ -727,15 +846,9 @@ pub fn wire(
                 arm_to_truth_u8(&rule(spo, pos_prior, tot_prior, vi as u32), 1).frequency;
             let f_now = arm_to_truth_u8(&rule(spo, pos, tot, (vi + 1) as u32), 1).frequency;
             let activation = eighths(i32::from(f_now) - i32::from(f_prior));
-            let kind = if own_fresh {
-                Update::Corroborate
-            } else {
-                rep.dependent += 1;
-                Update::Dependent
-            };
             if new_stmt {
                 st.rung = 1;
-            } else if kind == Update::Corroborate && resolved && balance_pos {
+            } else if admitted && resolved && balance_pos {
                 st.rung = (st.rung + 1).min(7);
             }
 
@@ -752,18 +865,24 @@ pub fn wire(
                 Some(_) if unbound[k] => Topology2::IndirectUnknown,
                 Some(_) => Topology2::IndirectKnown,
             };
-            let fact = match facts.observe(
-                CStmt {
-                    s: spo.subject,
-                    cop: Copula::Rel(spo.predicate),
-                    p: spo.object,
-                },
-                unit(),
-                Stamp::source(vi as u32),
-            ) {
-                ReviseOutcome::Admitted { id }
-                | ReviseOutcome::Revised { id, .. }
-                | ReviseOutcome::Chosen { id, .. } => id,
+            // The facts arena counts, so it sees only admitted observations;
+            // a suspended or echoed row points at the fact as it stands (none
+            // for a claim never admitted).
+            let stmt = CStmt {
+                s: spo.subject,
+                cop: Copula::Rel(spo.predicate),
+                p: spo.object,
+            };
+            let fact = if admitted {
+                let id = match facts.observe(stmt, unit(), Stamp::source(vi as u32)) {
+                    ReviseOutcome::Admitted { id }
+                    | ReviseOutcome::Revised { id, .. }
+                    | ReviseOutcome::Chosen { id, .. } => id,
+                };
+                fact_ids.insert(stmt, id);
+                Some(id)
+            } else {
+                fact_ids.get(&stmt).copied()
             };
             // Register this row's witness; W points at the prior row's entry.
             let row_ix = first + k;
@@ -776,7 +895,7 @@ pub fn wire(
                     slot,
                     WitnessEntry {
                         mailbox_ref: vi as u32 + 1,
-                        spo_fact_ref: Some(u64::from(fact)),
+                        spo_fact_ref: fact.map(u64::from),
                     },
                 )
                 .expect("slot is 1..=63");
@@ -814,6 +933,8 @@ pub fn wire(
                 .with_epistemic_raw5(state.raw());
             row.support = pos;
             row.antecedent = tot;
+            row.contested = contested;
+            row.revision = delta.map(|d| d.kind);
         }
         rep.rows = rows.len();
     }
@@ -969,26 +1090,51 @@ mod tests {
         assert_eq!(rows[4].edge.novelty_wisdom(), 2, "3 vs 2 climbs");
     }
 
-    /// The contested rival restarts at Staunen: `man` reached rung 2, a `cat`
-    /// verse contests it, and the next `man` verse climbs from 1, not 2.
+    /// A contest does not null the rival: `man` reached rung 2, a `cat` verse
+    /// contests it, and the next `man` verse climbs on to 3. Both objects stay
+    /// in the group's preserved tension.
     #[test]
-    fn a_contested_rival_restarts_at_staunen() {
+    fn a_contested_rival_keeps_its_climb() {
         let v = vec![
             svo(DOG, BIT, MAN),
             svo(DOG, BIT, MAN),
             svo(DOG, BIT, CAT),
             svo(DOG, BIT, MAN),
         ];
-        let (rows, _) = run(&v);
+        let (rows, rep) = run(&v);
         assert_eq!(rows[1].edge.novelty_wisdom(), 2);
         assert_eq!(rows[3].edge.activation(), 1, "170 → 191");
-        assert_eq!(
-            rows[3].edge.novelty_wisdom(),
-            2,
-            "reset to 1, then one climb"
-        );
+        assert_eq!(rows[3].edge.novelty_wisdom(), 3, "no reset, one climb");
+        assert_eq!(rows[2].revision, Some(RevisionKind::HorizonFusion));
+        assert_eq!(rows[3].revision, Some(RevisionKind::HorizonFusion));
+        assert!(!rows[1].contested, "no rival yet");
+        assert!(rows[2].contested && rows[3].contested);
+        assert_eq!(rep.contests, 2);
         // The man arc skips the cat row: W points at the man row of verse 1.
         assert_eq!(rows[3].edge.w_slot(), 2);
+    }
+
+    /// A contradiction with no new independent root is suspended, not
+    /// counted: one verse states `dog bit man` and `dog bit cat`. The cat row
+    /// earns no support and no fact; the tension is kept.
+    #[test]
+    fn a_contradiction_from_one_source_is_suspended() {
+        let mut v = svo(DOG, BIT, MAN);
+        v.push(Reading::stop());
+        v.extend(svo(DOG, BIT, CAT));
+        let w = run_wired(&[v, svo(DOG, BIT, MAN)]);
+        assert_eq!(w.report.suspended, 1);
+        let cat = &w.rows[1];
+        assert_eq!(cat.revision, Some(RevisionKind::ContradictionPreserved));
+        assert_eq!(cat.support, 0);
+        assert_eq!(cat.antecedent, 1, "the group counts its one source once");
+        assert!(cat.contested);
+        assert_eq!(w.witnesses[0].get(2).unwrap().spo_fact_ref, None);
+        let cat_stmt = CStmt { s: DOG, cop: Copula::Rel(BIT), p: CAT };
+        assert!(w.facts.get(cat_stmt).is_none(), "the arena never counted it");
+        // A later independent man verse fuses (the tension is still live).
+        assert_eq!(w.rows[2].revision, Some(RevisionKind::HorizonFusion));
+        assert_eq!(w.rows[2].support, 2);
     }
 
     fn run_wired(verses: &[Vec<Reading>]) -> Wired {
