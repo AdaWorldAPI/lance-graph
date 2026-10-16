@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-346 entries, 2026-08-06 .. 2026-10-15.
+347 entries, 2026-08-06 .. 2026-10-15.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -35,6 +35,7 @@ exactly one of them, never both.
 | 2026-10-15 | `givens-layer` |  | [2026-10-15-givens-layer.md](2026-10-15-givens-layer.md) |
 | 2026-10-15 | `epi-trust-is-topology-vocabulary` |  | [2026-10-15-epi-trust-is-topology-vocabulary.md](2026-10-15-epi-trust-is-topology-vocabulary.md) |
 | 2026-10-15 | `D-WAL` | `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path (measured) | [2026-10-15-d-wal-shootout.md](2026-10-15-d-wal-shootout.md) |
+| 2026-10-15 | `D-HOLO-H14b` |  | [2026-10-15-d-holo-h14b-lane-mask.md](2026-10-15-d-holo-h14b-lane-mask.md) |
 | 2026-10-15 | `D-HOLO-H14` |  | [2026-10-15-d-holo-h14-lane-storage.md](2026-10-15-d-holo-h14-lane-storage.md) |
 | 2026-10-14 | `revision-layer-invariants` |  | [2026-10-14-revision-layer-invariants.md](2026-10-14-revision-layer-invariants.md) |
 | 2026-10-14 | `D-MTP-0` | where Hyperon/MeTTa attaches to the masking-algebra polyfill | [2026-10-14-metta-polyfill-map.md](2026-10-14-metta-polyfill-map.md) |

@@ -1083,3 +1083,127 @@ What the numbers point at (HYPOTHESIS, not measured here):
 - C's seal at 1 % dirty is page faults: the positional tables are zeroed
   lazily, so each scattered dirty row touches a fresh page. At 100 % dirty
   the same seal costs 32–222 ns. Persisted bytes are unaffected.
+
+## Next falsifier: H14b — C with a positional lane mask per row (PRE-REGISTERED 2026-10-15, NOT RUN)
+
+Approved by the operator 2026-10-15 ("go ahead with H14b").
+
+**Arm M.** C's per-(thought, lane) tables and presence masks, unchanged, plus
+one `u32` per row per thought held positionally: `Mask[i]` names the lanes row
+i changed in that thought (0 for a clean row). The address stays the register:
+no index, no traversal. Folds are C's folds (the same presence masks).
+Merge-on-read reads `Mask[i]` and then position i of only the tables it names,
+instead of probing every touched table.
+
+Resident cost added per thought: 4 bytes per row (256 KiB per 64k tile).
+Bytes handed to the writer: per dirty row its key, its lane mask and the
+changed lanes (8 + 16k); per-lane positions follow from the masks.
+
+**Prediction.** At k <= 4, on every (dirty, thoughts) cell of the H14 grid,
+M's full-row read and M's session read are each at most 1.25× B's. Falsified
+if any such cell exceeds 1.25×.
+
+**Decision rule.** M becomes the default for a dirty tile if, at k <= 4 on
+every cell: the prediction holds; M's bytes to the writer are at most B's;
+and C's fold advantage (at least 2× B on F1 and F2) carries over, which holds
+by construction because M folds C's masks (checked by test, not re-timed). If
+the prediction fails, the result returns to the operator with the cells that
+failed and the F3 crossover between M and B.
+
+Also reported, not part of the rule: seal per dirty row, F3 per emitted row
+for M against A, B and C.
+
+**Comparisons are within one run.** A, B, C and M are timed in the same run on
+the same host with the tier printed. The H14 numbers (another host) are not
+compared against.
+
+**Tests before any timing.**
+- M reads the dense reference on every row (k = 1, 4, 31).
+- M's `Mask[r]` equals B's lane mask for every row r.
+- M's merge probes exactly `popcount(Mask[r])` tables for row r, and C's
+  merge probes every touched table; the fixture must have more touched tables
+  than k, or the test proves nothing.
+- M's F1, F2 and F3 equal C's.
+
+**Disable runs.** M's merge iterating the touched tables instead of `Mask[r]`
+must turn the probe test red. A mask that drops one lane must turn the
+reference test red.
+
+### H14b results (v4, 2026-10-15): the prediction fails above 1 % dirty; M is C's read fixed, not B's
+
+Run: `cargo run --release -p lance-graph-mask-risc --example
+holo_lane_storage_probe`; the program printed `tier: v4 (avx512f)`. A, B, C
+and M were timed in the same run on the same host (a different host from the
+H14 run, so the two runs are not compared). One class. 11 tests pass; the two
+pre-registered disable runs turned their tests red (M's merge over every
+touched table; a mask that drops a lane).
+
+**Rule at k <= 4 (18 cells).**
+- Prediction (M's full-row and session read each <= 1.25× B): **FALSIFIED**
+  in 9 of 18 cells. All 6 cells at 1 % dirty pass (full-row 0.94–1.14× B,
+  session 0.93–1.13×). The failures are at 10 % dirty (T = 8 k = 4: 1.40 /
+  1.34; T = 64: session 1.34–1.87) and at 100 % dirty (full-row up to 1.63×,
+  session up to 5.85×).
+- M's bytes to the writer <= B's: true in every cell, but by construction,
+  not as a measurement. Both arms carry the same values; B was also charged a
+  4-byte `starts` offset per dirty row that M was not, although both can
+  derive per-lane positions from the masks. Under the same accounting the two
+  are equal, so this part of the rule carried no evidence (review of #1569).
+- Folds: M uses C's presence masks; tested equal, not re-timed.
+- M default: **not met.** Returns to the operator.
+
+**What M did change.** Against C in the same run, M's full-row read is
+0.98–3.69× as fast (C/M): faster in 35 of 36 cells, from 297.4 vs 209.8 ns
+(T = 1, 1 %, k = 1) to 1,129 vs 306 ns (T = 64, 1 %, k = 1); the one cell
+where C is faster is T = 1, 100 %, k = 31 (1,299 vs 1,320 ns). On F3 (fold,
+then build the rows the fold names), M beats C in 33 of 36 cells and B in
+18 of 36. At 1 % dirty M is the cheapest arm in 10 of 12 cells (M 84–184 ns
+per emitted row, B 175–1,260, C 123–241); C is cheaper at k = 31 for 1 and 8
+thoughts.
+
+**Where M loses (HYPOTHESIS, not measured).** B keeps a row's changed lanes
+next to each other in one record, so a row read is one index lookup and one
+or two cache lines. M keeps lane l of row i in table l at position i, so a
+row with k changed lanes is k cache lines in k tables. That costs little when
+few rows are dirty and grows with density; the session read at 8–64 thoughts
+also walks up to T × k tables at once. A test would be to time the read
+against k at fixed density and count cache misses per row.
+
+**Crossover.** At 1 % dirty, M matches B on reads (within 1.25× in all 6
+cells at k <= 4) and beats B on F3 in all 12 cells; at 10 % and above, B's
+reads are faster. M's seal at 1 % dirty is still the
+page-fault cost of C's positional tables (6.5–15 µs per dirty row at one
+thought).
+
+### H14b withdrawal note (2026-10-15): M withdrawn as a layout candidate; the numbers stand, their reading as a verdict on C does not
+
+DECISION (operator, 2026-10-15: "I think M is a categorical error"). SCOPE: the
+default-layout question for thought-first C. BASIS: below. REVISIT WHEN: a
+consumer is shown that genuinely needs whole-row reconstruction as its primary
+operation.
+
+1. **M is withdrawn as a candidate default layout for C.** It stays in the probe
+   as an experimental, row-oriented acceleration structure. It is not a
+   prerequisite for Cartesian operand addressing.
+2. **The density-based A/B/C/M layout switch proposed after H14b is withdrawn.**
+3. **H14 and H14b mostly measured whole-row reconstruction** (full-row read,
+   session read, F3 materialization). That is not C's primary operation. In C a
+   thought program names the lane tables it needs, and each is read at the shared
+   address: `Thought(t)[Table(a)[i] : Table(b)[i]]`. No row is assembled unless a
+   named terminal asks for one.
+4. **What M adds is a transposition, not new information.** `Mask[i]` restates,
+   row by row, what C's per-(thought, lane) presence planes already hold column
+   by column: bit l of `Mask[i]` equals bit i of `P_{t,l}`. Storing it again,
+   per row, reintroduces row-first discovery ("which lanes does this row have?")
+   in front of positional access.
+5. **Two facts are distinct.** The thought knows which lanes its program
+   *requests*; it does not need to know which lanes are *populated* at a row.
+   C answers the second question with the presence bit of each requested table,
+   one test per requested lane, never by scanning the touched tables.
+6. **The measurements are not invalid.** Every number above stands as measured.
+   What is withdrawn is their interpretation as a verdict on whether C works.
+   The open hypothesis from H14 ("the merge probes every touched table") is
+   itself an artifact of the full-row question: a query-shaped read probes only
+   the tables its program selects.
+7. The follow-up falsifier is **H14c** (thought-first positional reads, Hamming
+   presence, Lance 13 masked I/O), run on its own branch and PR.
