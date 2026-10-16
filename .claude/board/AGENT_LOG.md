@@ -1,3 +1,9 @@
+## 2026-10-16 — D-ASM follow-up rows (two Haiku cards)
+
+- substrate-mapper (as general-purpose on Haiku; the card is not registered from this worktree): arm-discovery fact map, 8 files. Spot checks: no MI/lift/cosine code (grep re-run, three doc-comment hits only), per-candidate counting (`extract.rs:95-109` re-read). Miss: the brief named `src/aerial.rs`, which is a directory; the card mapped the directory and said so.
+- spec-editor (as general-purpose on Haiku): five STATUS_BOARD rows after D-ASM-7; anchor asserted once; diff read in full, 5 insertions only. Miss: one stray empty file outside the repo from a heredoc slip, removed by the card.
+- Result: entry `2026-10-16-asm-accepted-proposals.md`. Written by the orchestrating main thread only.
+
 ## 2026-10-16 — N21 verification (guarded-executor, Haiku)
 
 - One card: #1570's five commands with `CARGO_PROFILE_*_DEBUG=0`, `CARGO_INCREMENTAL=0`. All exit 0; no retry used.

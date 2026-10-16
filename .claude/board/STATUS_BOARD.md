@@ -27,6 +27,11 @@ Council 2026-10-16: `metta-datalog-assimilation-v1-council-v3.md` is the ratifie
 | **D-ASM-5** | Interned frame-side term table with ONA `Term_*` parity; 16-byte row reference; strided subterm match (council v3 struck the per-row 64 × u8 tenant) | Queued (not authorized) | byte-identical hash/extraction; > 64 atoms refused; LAYOUT-CLEAN |
 | **D-ASM-6** | Rule catalogue as data (ONA `R1/R2`, OpenNARS tables) with truth label + engine order tag; `Narsese.rs` front end | Queued (not authorized) | each rule re-emits its source line; order tag proven on both engines |
 | **D-ASM-7** | Mining seam (`lance-graph-cog` driver tier) — separate plan | Reserved | — |
+| **D-ASM-1b** | Atomese text front end into the D-ASM-1 binder: `(Type "name" …)` s-expressions → addresses once, names → label codebook; the address must equal the content-derived atom address planned in `AdaWorldAPI/atomspace-lance` | Queued (not authorized) | round trip: our parse == the upstream s-expression decoder's atom set on the same file (oracle run outside the workspace); no `String` reachable from a row |
+| **D-ASM-8** | `learn`-shaped measures (marginals, MI/PMI, cosine, Jaccard) as a reading of pair counts in `lance-graph-arm-discovery`; counts from D-ASM-3, never a loop; no `lance-graph-learn` crate (entry `2026-10-16-asm-accepted-proposals.md`) | Queued (not authorized; gated on D-ASM-3) | measures == an oracle run of upstream `learn` on one corpus; `(opencog matrix)` definitions sourced first |
+| **D-ASM-9** | `lance-graph-das` attention-broker probe: `w = edge.count / node.count`, rent, spread over the D-ASM-2 hop | Queued (not authorized; gated on D-ASM-2; crate not created) | attention values == DAS broker on one fixture; crate created only when the probe runs |
+| **D-ASM-10** | MORK as fourth oracle (Hyperon · PeTTa · datafrog · MORK), built as a separate binary outside the workspace, results only | Queued (not authorized) | MORK answers recorded beside the other three, divergences recorded, never averaged |
+| **D-ASM-11** | Leapfrog-join probe vs our semijoin chain on a cyclic 3-way join, written from the paper | Queued (not authorized; gated on D-ASM-2) | answers == datafrog; per-element cost on the v4 arm only |
 
 ## D-MTP — Hyperon/MeTTa over the masking-algebra polyfill (2026-10-14)
 

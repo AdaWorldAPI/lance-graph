@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-354 entries, 2026-08-06 .. 2026-10-16.
+355 entries, 2026-08-06 .. 2026-10-16.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -35,6 +35,7 @@ exactly one of them, never both.
 | 2026-10-16 | `ledger-update-dedup-1579` |  | [2026-10-16-ledger-update-dedup-1579.md](2026-10-16-ledger-update-dedup-1579.md) |
 | 2026-10-16 | `ledger-revision-after-1576` |  | [2026-10-16-ledger-revision-after-1576.md](2026-10-16-ledger-revision-after-1576.md) |
 | 2026-10-16 | `D-HOLO-H14d` |  | [2026-10-16-d-holo-h14d-logic-mask-read.md](2026-10-16-d-holo-h14d-logic-mask-read.md) |
+| 2026-10-16 | `D-ASM` |  | [2026-10-16-asm-accepted-proposals.md](2026-10-16-asm-accepted-proposals.md) |
 | 2026-10-15 | `nars-metta-ce64-mapping-inventory` |  | [2026-10-15-nars-metta-ce64-mapping-inventory.md](2026-10-15-nars-metta-ce64-mapping-inventory.md) |
 | 2026-10-15 | `D-ASM-0` |  | [2026-10-15-metta-datalog-assimilation-plan.md](2026-10-15-metta-datalog-assimilation-plan.md) |
 | 2026-10-15 | `ledger-correction-wire-contract` |  | [2026-10-15-ledger-correction-wire-contract.md](2026-10-15-ledger-correction-wire-contract.md) |
