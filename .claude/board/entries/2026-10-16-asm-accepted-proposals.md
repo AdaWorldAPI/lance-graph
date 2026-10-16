@@ -85,3 +85,30 @@ cyclic joins, which a semijoin chain is not. The probe records what B teaches
 (variable order, prefix sharing, the seek pattern) and carries those lessons into
 A even when A wins on cost per element; the margin for adopting B as the carrier
 is registered before the run.
+
+### Leapfrog Triejoin, read (Veldhuizen, arXiv 1210.0481v5, ICDT '14)
+
+- Interface: `key`, `atEnd` O(1); `next`, `seek`, `open`, `up` O(log N); `seek`
+  amortized O(1 + log(N/m)) when m keys are visited in ascending order, which
+  needs a seek that moves forward from the current position (the paper: it
+  "ascends just far enough"), not a search from the root.
+- Relations need not be stored as tries; a trie is an iterator view over sorted
+  data (B-tree-like in practice). A sealed NodeGuid-ordered lane already is that
+  view: an aperture of n leading bytes is a trie level, `open` widens the
+  aperture by one tile, `up` narrows it. So arm A is the paper's algorithm on our
+  layout, and the first lesson is a galloping seek from the cursor in place of a
+  fresh `partition_point` per call.
+- Each relation's arguments must be a subsequence of the chosen variable order,
+  so a relation used out of order needs a second sealed ordering. The variable
+  order does not affect the worst-case bound; it does affect real cost.
+- Bound: the triangle query R(a,b), S(b,c), T(a,c) with |R|=|S|=|T|=n has at most
+  n^{3/2} answers (AGM, fractional edge cover); leapfrog triejoin runs in
+  O(n^{3/2} log n); a hash variant (credited to Ken Ross) removes the log factor.
+- The paper reports no experiments of its own.
+
+Pre-registration for D-ASM-11 (before any code): fixture = the triangle query
+at n = 10^3..10^6 on (i) random edges and (ii) an adversarial instance on which a
+pairwise join builds Θ(n²) intermediate pairs; both arms and the semijoin chain
+== datafrog as a bag; prediction: the semijoin chain's intermediate size grows
+as n² on (ii) while both leapfrog arms stay within n^{3/2} visited keys; cost per
+answer on the v4 arm only.
