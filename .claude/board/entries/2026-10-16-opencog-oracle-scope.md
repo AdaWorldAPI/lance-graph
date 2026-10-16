@@ -148,3 +148,24 @@ How Rocks lays out the data, and the candidate mapping on our side (not built, n
 OPEN: the atom identity mapping (content → NodeGuid) is the first design item; RocksIO's
 s-expression text is the identity Rocks uses, which we would replace with a deterministic
 address.
+
+### Positional tables and zipper merge on read work over any KV store
+
+The layout we use — `tableA[index]`, `tableB[index]`: parallel tables addressed by the same
+row index, written sparsely, joined by a zipper merge on read — does not need Lance. It
+needs only that each table can be read in index order. A KV store with ordered keys
+(RocksDB iterates keys lexically) provides that, so the same layout runs on Rocks: one
+key prefix per table, keys ending in the row index, and a read that walks the prefixes in
+step and merges them in one pass instead of one `Get` per atom per key.
+
+Why this matters here:
+- `atomspace-lance` and an improved `atomspace-rocks` can share one layout; Lance is one
+  backend for it, not a precondition (the 2026-10-05 storage-portability decision:
+  Quack owns the semantics, the backend supplies capabilities).
+- Rocks already sorts by prefix (`k@sid:`, `i@sid:`); what changes is that `sid` becomes a
+  row index and the per-atom string keys stop being the join.
+- It is the same pattern as the alpha layers (sparse dirty writes, merge on read).
+
+Not built, not measured: no timing exists for Rocks with this layout or for the current
+`RocksStorageNode`. A first probe would load one AtomSpace both ways and compare reads
+per element.
