@@ -1,3 +1,28 @@
+## 2026-10-16 (4) — catch-up: 14 plans of 2026-10-12..16 and 59 imported plans had no index entry
+
+**Status:** INDEX CATCH-UP; no plan status changes. The 14 dated plans below were read at their header and status line; the 59 imported ones were not read.
+
+The 2026-10-12 plans were written against `lance-graph-glove-parity` (`SoftwareGraph`, `MethodTable`), which #1524 moved to `backup/session-011BMJ-2026-10-12`; read them with #1532's corrections.
+
+- `metta-datalog-assimilation-v1-council-v3.md` — RATIFIED v3 council for D-ASM-1..4 and decisions A–H of `metta-datalog-assimilation-v1`. **Gather-shaped (ruled a violation 2026-10-16):** §0 defines "preimage" as the only sanctioned hop through a lane → key mapping.
+- `d-oracle-fidelity-matrix-v1.md` — D-ORACLE-0, RESEARCH PROTOCOL: run OpenNARS, ONA, OpenPsi, Hyperon, CE64, DeepNSM one-to-one as frozen oracles over 100–150 pre-registered fixtures; no parity claimed.
+- `semantic-morton-qualia-do-falsifier-plan.md` — D-SMD-0..6, DRAFT (#1545): source audit first, then scalar Morton vectors, Moore pressure, qualia ablations, OGAR-authorized DO.
+- `software-awareness-graph-v2-ruff-ona-closed-loop.md` — D-SAG-2, research plan: registered prediction before a change, compared against an independent Ruff harvest, with a no-feedback twin.
+- `software-awareness-agent-context-ona-v1.md` — D-SAG-4, research: addressable software context to cut model-visible tokens. **Gather-shaped (ruled a violation 2026-10-16):** its two-hop step tests `EqU32Via` first.
+- `software-awareness-agent-context-deferred-contracts-v1.md` — D-SAG-4 appendix, PROPOSAL: identity, freshness and context-protocol contracts.
+- `sag-wisdom-frontier-ona-hyperon-v1.md` — D-SAG-3, research only: OpenPsi × Rubikon × Shannon × CARE frontier, three roles kept apart.
+- `sag-wisdom-frontier-hard-problems-v1.md` — D-SAG-3.1, research only: four epistemic quantities as masks, truth-maintenance fixtures.
+- `rubicon-volition-v1.md` — D-RV-0..9, PROPOSAL: goal → commitment → plan → action → revision as separate records.
+- `inverted-temporal-ablation-reasoner-oracles-v1.md` — D-SAG-CF-1, research RFC: counterfactual dependency by removing contributors, compared across reasoners.
+- `iam-substrate-sag-dir-sim-v1.md` — D-IAM-SAG-0, RFC: six IAM functions as typed read-only views over dir-sim / OGAR.
+- `iam-substrate-frontier-gaps-v1.md` — D-IAM-SAG-1, RFC: witnessed vs absent vs undetermined entitlement, policy evaluation and provider enforcement kept apart.
+- `class-method-schema-hotplug-v1.md` — D-CMH-0..12, draft RFC: one per-plug binding composition over `HotPlug` / `Activation`, Quack and R2IL as frontends.
+- `class-method-hotplug-falsifiers-v1.md` — D-CMH acceptance suite (CMH-P01..), proposed tests only.
+
+Imported with the history root (`bad63c33`, #1386, 2026-10-07) and never named in this index — not read, status unknown here:
+`wikidata-lazy-spine-hydration-v1`, `transcode-extend-core-probe-v1`, `tesseract-rs-transcode-master-v1`, `tesseract-rs-traineddata-gguf-v1`, `tesseract-rs-recodebeam-transcode-v1`, `tesseract-rs-layout-transcode-v1`, `tesseract-rs-ast-dll-codegen-v1`, `sprint-5-through-9-roadmap-v1`, `soa-migration-diff-resolution-2026-06-13`, `soa-centroid-attention-field-synthesis-v1`, `reliability-checklist-arc-v1`, `probe-revision-attention-view-1`, `post-438-integration-options-v1`, `oracle-funnel-probe-v1`, `ocr-probes-v1`, `ocr-canonical-soa-integration-v1`, `measure-64k-axes-v4`, `lance9-datafusion54-upgrade-probe-v1`, `jc-pillars-runtime-wiring-v1-ERRATUM`, `hydrate-crate-hardening-council-v1`, `genetics-probes-v1`, `genetic-research-substrate-integration-v1`, `epistemic-quadrant-materialization-v1`, `dtsc1-thinkingstyle-dedup-spec-v1`, `dialectic-engine-v1`, `deepnsm-v2-coverage-bands-v1`, `deepnsm-morton-comma-facet-v1`, `cognitive-write-roundtrip-substrate-v1`, `cognitive-substrate-convergence-v3`, `cognitive-substrate-convergence-v2`, `burn-ndarray-parity-sprint-v1`, `belief-abi-restoration-v1`, `archetype-scaffold-v1`, `alpha-reason-witness-shader-field-lineage-addendum-v1`, `alpha-reason-witness-shader-field-d-arw-0-audit-v1`, `alpha-reason-witness-shader-field-archaeology-pass-1`, `alpha-reason-witness-cognitive-fabric-v1`, `a3-carrier-v1`, `PhiSpiral256-SoA-cross-system-integration-plan`, `Palette256-3DSB-PhiSpiral-attention-integration-plan`, `3DGS-ultrasound-SaMD-plan`, `3DGS-neuronal-network-4x4-plan`, `3DGS-integration-wiring-plan`, `3DGS-genetics-4x4-fanout-plan`, `3DGS-epiphany-roadmap-plan`, `3DGS-domain-adapter-strategy-plan`, `3DGS-cross-pollination-raw-field-plan`, `3DGS-certified-query-render-plan`, `3DGS-blast-radius-application-map`, `3DGS-SplatShaderBlas-BLASGraph-crosspollination-plan`, `3DGS-PRX12-crosspollination-capstone`, `3DGS-PLAN-INDEX`, `3DGS-Lance-Arrow-storage-plan`, `3DGS-HHTL-datalake-traversal-plan`, `3DGS-Cesium-feature-mapping-plan`, `3DGS-Cesium-BindSpace4-headstone-exploration`, `3DGS-Blender-transcode-crosspollination-plan`, `3DGS-4x4-cognitive-shader-integration-plan`, `3DGS-3D-Tiles-runtime-plan`
+
+
 ## 2026-10-16 (3) — wcoj-closing-atoms-v1 — the exact cyclic existence mask: two closing atoms → `.claude/plans/wcoj-closing-atoms-v1.md`
 
 **Status:** RATIFIED SPEC (5+3 council); not authorized. D-ASM-11A, D-ASM-11B.
