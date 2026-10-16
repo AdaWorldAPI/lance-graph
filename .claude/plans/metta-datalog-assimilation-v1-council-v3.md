@@ -16,7 +16,7 @@ The council verifies and hardens; it does not design. A savant that wants a diff
 - "fold" = one mask-risc `Program` run over a population; relalg lowers a `Query` to R2IL calls over `FoldDialect`
   (`crates/lance-graph-relalg/src/lower.rs:1-13`), which emits `Pred`s and ends in a `Terminal`.
 - "preimage" = D-CMR-5: `f⁻¹(S)` of a kept set `S` under a proven mapping `f` (lane → key), the only sanctioned hop
-  (`.claude/plans/relalg-v1.md:68-72`; `STATUS_BOARD.md:78`).
+  (`.claude/plans/relalg-v1.md:68-72` `never a foreign key`; `STATUS_BOARD.md:78`).
 - "bag" = multiset; Hyperon `BindingsSet(SmallVec<[Bindings;1]>)` is a bag, `PartialEq` "conceptually unordered"
   (fork `hyperon-atom/src/matcher.rs:883-888`).
 
@@ -54,15 +54,15 @@ F12. No model identifier in any committed artifact; status words are `MEASURED/V
 ### 2.1 lance-graph (all crates are own-workspace-root, excluded from the main workspace)
 | path | shape | role in tranche |
 |---|---|---|
-| `crates/lance-graph-relalg/src/ir.rs:17-31` `Cmp` 6 variants; `:34-39` `Atom {I32{lane,op,t}, U32{lane,eq,v}}`; `:47-62` `Rel {All, Empty, Plane(u16), Atom, And(Vec), Or(Vec), Not(Box)}`; `:99-110` `Measure {Count, Sum(u16), Min(u16), Max(u16), Keep}`; `:114` `Query` | 7 `Rel` variants, 2 `Atom` kinds, 5 measures; ONE table's row set | home of the Datalog AST VALUES (decision A) |
-| `crates/lance-graph-relalg/src/lower.rs:22 Answer, :37 Run, :49 RelError, :63 run(), :84 run_as_written()`; `normalize.rs:30 normalize(), :44 symbolic()` | lowering = R2IL calls over `FoldDialect` (`lower.rs:5-10`: `INT_AND/INT_EQUAL/…`, `ogar_r2il::{KEEP,MAX,MIN,RANGE,SUM}`) | D-ASM-2 extends `Atom`/`Rel`, keeps `normalize` rewrites and `symbolic` ∅ short-circuit |
+| `crates/lance-graph-relalg/src/ir.rs:17-31` `pub enum Cmp` (6 variants); `Atom {I32{lane,op,t}, U32{lane,eq,v}}` :34-39; `Rel {All, Empty, Plane(u16), Atom, And(Vec), Or(Vec), Not(Box)}` :47-62; `Measure {Count, Sum(u16), Min(u16), Max(u16), Keep}` :99-110; `Query` :114 | 7 `Rel` variants, 2 `Atom` kinds, 5 measures; ONE table's row set | home of the Datalog AST VALUES (decision A) |
+| `crates/lance-graph-relalg/src/lower.rs:22` `pub enum Answer` (`Run` :37, `RelError` :49, `run` :63, `run_as_written` :84); `normalize.rs:30` `pub fn normalize` (`symbolic` :44) | lowering = R2IL calls over `FoldDialect` (`lower.rs:5-10`: `INT_AND/INT_EQUAL/…`, `ogar_r2il::{KEEP,MAX,MIN,RANGE,SUM}`) | D-ASM-2 extends `Atom`/`Rel`, keeps `normalize` rewrites and `symbolic` ∅ short-circuit |
 | `crates/lance-graph-relalg/Cargo.toml` deps: mask-risc, r2il, ogar-loco, ogar-r2il (git main) | no quack, no contract direct | dependency decision below (R-2) |
-| `crates/lance-graph-quack/src/lib.rs:340-420` `Filter::{…, EqU32Via :358, Semijoin{fk,foreign} :387}`; `:1383 lower(&Query)->Program`; `:1301 Query`; deps mask-risc + contract only | the SHIPPED hop lowering (D-MTP-1 used it: `crates/lance-graph-metta/examples/join_probe.rs:1-12,27,75-79`) | parity oracle for D-ASM-2's `Program` bytes |
+| `crates/lance-graph-quack/src/lib.rs:340` `pub enum Filter` (`EqU32Via` :358, `Semijoin { fk, foreign }` :387; `pub fn lower` :1383; `pub struct Query` :1301); deps mask-risc + contract only | the SHIPPED hop lowering (D-MTP-1 used it: `crates/lance-graph-metta/examples/join_probe.rs:1-12,27,75-79`) | parity oracle for D-ASM-2's `Program` bytes |
 | `crates/lance-graph-mask-risc/src/ir.rs:127-205` `Pred` (incl. `EqU32Via{fk,key,v} :158`, `Range :180`, `EqU32Strided :184`, `MatchFacet16Strided :200`); `:210-287` `MaskOp` (incl. `Gather :277`); `:288-470` `Terminal` (incl. `Count :290`, `Keep :321`, `ScatterOrU32 :338`, `ScatterCountU32 :364`, `CountKeyRunsU32 :389`, `GroupSumI32 :399`, `GroupReduce :442`, `GroupPowerSumsI32 :465`) | the whole word set D-ASM-2/3 may use | F2: nothing added without proof |
-| `crates/lance-graph-r2il/src/lib.rs:260 FoldDialect<'p>`, `:327 new(planes, foreign)`, `:366 with_keep`, `:447 last_program()`, `:589 emit_pred` | the only path relalg takes to a `Program` | gate G4 (byte-identical `Program`) reads `last_program()` |
+| `crates/lance-graph-r2il/src/lib.rs:260` `pub struct FoldDialect` (`new(planes, foreign)` :327, `with_keep` :366, `last_program` :447, `emit_pred` :589) | the only path relalg takes to a `Program` | gate G4 (byte-identical `Program`) reads `last_program()` |
 | `crates/lance-graph-metta/Cargo.toml` deps: mask-risc, quack; dev datafrog (fork master); `src/lib.rs` 7 lines (stub); `examples/common/mod.rs:23 Relation2`, `:46 ingest`, `:139 pairs`, `:180 preimage`, `:200 range_pairs`, `:236 oracle`; `examples/join_probe.rs`, `join_range_probe.rs` | D-MTP-1/1b probes, MEASURED; no `Space` impl yet; no hyperon dependency yet | D-ASM-1/4 land here |
-| `crates/lance-graph-nal/src/lib.rs:94 Copula{Inheritance=1,Similarity=2,Implication=3,Equivalence=4}`, `:117 Statement`, `:130 Belief`, `:157-170 guid()` = `FacetCascade::from_semantic_tiles([class>>16, class, s, copula, p, id, 0, 0])`, `:212-244` `WEIGHT_SCALE/HORIZON/MAX_CONFIDENCE_CODE/evidence classes`, `:494-530 NalError` (10 variants, counted 2026-10-16) | arity-2 fact already laid out as 6 u16 tiles + 2 spare | D-ASM-1 reuses the tile layout for `(f a₁…aₖ)`, k ≤ 5 |
-| `crates/lance-graph-contract/src/nars.rs:12-23 InferenceType {Deduction, Induction, Abduction, Revision, Synthesis}` (doc drift: described as CAM search modes) | out of tranche; inventory §6 item | non-goal here |
+| `crates/lance-graph-nal/src/lib.rs:94` `pub enum Copula` (Inheritance=1, Similarity=2, Implication=3, Equivalence=4; `Statement` :117, `Belief` :130, `guid` :157-170 = `FacetCascade::from_semantic_tiles([class>>16, class, s, copula, p, id, 0, 0])`, `WEIGHT_SCALE/HORIZON/MAX_CONFIDENCE_CODE/evidence classes` :212-244, `NalError` :494-530, 10 variants counted 2026-10-16) | arity-2 fact already laid out as 6 u16 tiles + 2 spare | D-ASM-1 reuses the tile layout for `(f a₁…aₖ)`, k ≤ 5 |
+| `crates/lance-graph-contract/src/nars.rs:12` `pub enum InferenceType` (Deduction, Induction, Abduction, Revision, Synthesis; doc drift: described as CAM search modes) | out of tranche; inventory §6 item | non-goal here |
 | `crates/causal-edge/src/layout.rs` bands 40..42 Pearl, 53..58 witness, 59..63 epistemic ladder | no foreign engine carries these | F9 pass-2 only; NOT written by W1–W3 |
 ### 2.2 forks (paths are fork-relative at the pinned revs; local shallow clones were read, nothing here depends on a machine path)
 | path | fact |
@@ -84,7 +84,7 @@ R-1 **Two halves, two homes.** A conjunctive body has (a) an EXISTENCE half — 
    signature is "one table's row set through fk lanes", and (b) an ANSWER half — which binding tuples it produces, with
    multiplicity. They are never filed under one name.
    (a) lowers through **quack** as shipped: `Filter::And([Plane(valid), Semijoin{fk,foreign}, EqU32Via{..}, Range])`
-   (`crates/lance-graph-quack/src/lib.rs:340-420`, `:1383 lower`). relalg is NOT extended in this tranche; D-RA-3 stays queued
+   (`crates/lance-graph-quack/src/lib.rs:340` `pub enum Filter`, `lower` :1383). relalg is NOT extended in this tranche; D-RA-3 stays queued
    behind D-RA-2 (F11). The D-MTP-1 probe is the precedent (`join_probe.rs:1-12,27,75-79`).
    (b) is a KEYED COUNT: for a projection onto one coordinate `?x` (a lane value of the head table, i.e. a LABEL) the bag is
    `Terminal::GroupReduce { mask: kept, key: GroupKey(lane of ?x), fold: Count }` (`mask-risc/src/ir.rs:420-446`) → `(key, n)`

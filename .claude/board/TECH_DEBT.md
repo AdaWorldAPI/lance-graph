@@ -4613,7 +4613,7 @@ no CI line rots invisibly (the tesseract-rs `spider_doc_ir` precedent). Close by
 
 ## TD-CONTRACT-NARS-INFERENCETYPE-DOC-DRIFT-1 (2026-10-16) — OPEN
 
-`crates/lance-graph-contract/src/nars.rs:12-23` documents `InferenceType::{Deduction, Induction, Abduction, Revision, Synthesis}`
+`crates/lance-graph-contract/src/nars.rs:12-23` `pub enum InferenceType` documents its variants (Deduction, Induction, Abduction, Revision, Synthesis)
 as CAM search modes ("exact CAM search", "wide CAM scan", "DN-tree traversal") while the shipped meaning is the NAL truth law
 (`causal_edge::isa::truth::code`, D-NALP-4) with the argument-order split recorded in
 `.claude/research/2026-10-15-nars-metta-ce64-mapping-inventory.md` §6. Doc-only; close by one PR that rewrites the five doc
