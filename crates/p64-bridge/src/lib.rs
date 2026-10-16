@@ -538,16 +538,16 @@ mod tests {
     #[test]
     fn edge_to_palette_addressing() {
         let edge = CausalEdge64::pack(
-            10,                            // S
-            5,                             // P
-            20,                            // O
-            200,                           // frequency
-            150,                           // confidence
-            CausalMask::SO,                // causal: S+O active (association)
-            causal_edge::Orientation::Core,                             // direction
-            InferenceType::Deduction,      // inference
-            PlasticityState::from_bits(0), // plasticity
-            0,                             // temporal
+            10,                             // S
+            5,                              // P
+            20,                             // O
+            200,                            // frequency
+            150,                            // confidence
+            CausalMask::SO,                 // causal: S+O active (association)
+            causal_edge::Orientation::Core, // direction
+            InferenceType::Deduction,       // inference
+            PlasticityState::from_bits(0),  // plasticity
+            0,                              // temporal
         );
 
         let (row, col) = edge_to_block(&edge);

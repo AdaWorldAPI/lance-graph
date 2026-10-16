@@ -638,7 +638,13 @@ mod tests {
         for slot in MooreSlot::ALL {
             for pol in [false, true] {
                 let d = MooreNars16::new(0, 0, 0, pol, 0).direction(slot);
-                assert_eq!(d, MooreDirection { slot, polarity: pol });
+                assert_eq!(
+                    d,
+                    MooreDirection {
+                        slot,
+                        polarity: pol
+                    }
+                );
             }
         }
     }

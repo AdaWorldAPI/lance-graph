@@ -4,8 +4,8 @@
 
 use super::pearl::CausalMask;
 use super::plasticity::PlasticityState;
-use crate::orientation::Orientation;
 use crate::isa::{Compose, IsaFault, Opcode};
+use crate::orientation::Orientation;
 
 /// NARS inference types encoded in 3 bits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -914,8 +914,8 @@ impl CausalEdge64 {
         plasticity: PlasticityState,
     ) -> Self {
         use crate::layout::{
-            BITS3_MASK as B3, CAUSAL_SHIFT as LCA, CONF_SHIFT as LC, ORIENT_SHIFT as LD,
-            FREQ_SHIFT as LF, O_SHIFT as LO, PLAST_SHIFT as LPL, P_SHIFT as LP, S_SHIFT as LS,
+            BITS3_MASK as B3, CAUSAL_SHIFT as LCA, CONF_SHIFT as LC, FREQ_SHIFT as LF,
+            ORIENT_SHIFT as LD, O_SHIFT as LO, PLAST_SHIFT as LPL, P_SHIFT as LP, S_SHIFT as LS,
         };
         let mut v: u64 = 0;
         v |= (s_idx as u64) << LS;

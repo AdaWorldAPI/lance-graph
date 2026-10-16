@@ -1170,7 +1170,11 @@ mod tests {
         assert_eq!(last.novelty_wisdom(), 3);
         assert_eq!(epi(last).certification(), Certification3::Related);
         assert_eq!(epi(last).topology(), Topology2::Direct);
-        assert_eq!(last.orientation(), Orientation::Core, "no attested form: plain core argument");
+        assert_eq!(
+            last.orientation(),
+            Orientation::Core,
+            "no attested form: plain core argument"
+        );
         assert_eq!(last.causal_mask(), CausalMask::SO);
         // The rows of one statement are its time series.
         let rungs: Vec<u8> = rows.iter().map(|r| r.edge.novelty_wisdom()).collect();
@@ -1478,7 +1482,11 @@ mod tests {
             gave_to(vec![]),
             vec![form(TO, &[DativeFunction::Recipient])],
         );
-        assert_eq!(w.rows[0].edge.orientation(), Orientation::Recipient, "Recipient");
+        assert_eq!(
+            w.rows[0].edge.orientation(),
+            Orientation::Recipient,
+            "Recipient"
+        );
         assert_eq!(w.report.orientation_coded, 1);
         let w = run_forms(
             gave_to(vec![]),
@@ -1540,9 +1548,17 @@ mod tests {
         )
         .unwrap();
         assert!(w.rows[0].tekamolo[3].is_some(), "the Lokal lane landed");
-        assert_eq!(w.rows[0].edge.orientation(), Orientation::Direction, "Direction");
+        assert_eq!(
+            w.rows[0].edge.orientation(),
+            Orientation::Direction,
+            "Direction"
+        );
         let w = wire(&[(1, 1)], &ins, 1, &abi(), None, ReadParams::RIGHT_CORNER).unwrap();
-        assert_eq!(w.rows[0].edge.orientation(), Orientation::Core, "no lane: undecided");
+        assert_eq!(
+            w.rows[0].edge.orientation(),
+            Orientation::Core,
+            "no lane: undecided"
+        );
     }
 
     /// Quorum points at the nearest agreeing row, Contradiction at the

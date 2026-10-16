@@ -86,7 +86,11 @@ fn p2_edge_round_trips_palette_indices_and_mask() {
         assert_eq!(edge.p_idx(), pi, "p_idx round-trip");
         assert_eq!(edge.o_idx(), oi, "o_idx round-trip");
         // The Pearl level the edge was stamped with round-trips.
-        assert_eq!(edge.causal_mask(), CausalMask::SPO, "causal_mask round-trip");
+        assert_eq!(
+            edge.causal_mask(),
+            CausalMask::SPO,
+            "causal_mask round-trip"
+        );
         // Frequency/confidence quantized bytes survive too.
         assert_eq!(edge.frequency_u8(), freq, "frequency_u8 round-trip");
         assert_eq!(edge.confidence_u8(), conf, "confidence_u8 round-trip");

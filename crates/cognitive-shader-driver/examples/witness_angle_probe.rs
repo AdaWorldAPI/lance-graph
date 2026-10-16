@@ -366,8 +366,17 @@ mod tests {
             )
             .with_w_slot(23),
             edge(23, 5).with_inference_mantissa(-6),
-            CausalEdge64::pack_v2(0, 0, 0, 0, 0, CausalMask::None, causal_edge::Orientation::from_code(5), PlasticityState::ALL_HOT)
-                .with_w_slot(23),
+            CausalEdge64::pack_v2(
+                0,
+                0,
+                0,
+                0,
+                0,
+                CausalMask::None,
+                causal_edge::Orientation::from_code(5),
+                PlasticityState::ALL_HOT,
+            )
+            .with_w_slot(23),
         ];
         for e in others {
             assert_eq!(stamped(CLASS_OBS, 1, e).unwrap(), base, "{:016x}", e.0);

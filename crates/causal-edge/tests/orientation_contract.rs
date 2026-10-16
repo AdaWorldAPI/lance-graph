@@ -20,9 +20,15 @@ fn code_table_is_one_to_one_over_three_bits() {
         seen[c as usize] = true;
         assert_eq!(Orientation::from_code(c), o, "round trip of {o:?}");
     }
-    assert!(seen.iter().all(|&s| s), "every 3-bit code names an orientation");
+    assert!(
+        seen.iter().all(|&s| s),
+        "every 3-bit code names an orientation"
+    );
     // Only the low three bits are read.
-    assert_eq!(Orientation::from_code(0b1010), Orientation::from_code(0b010));
+    assert_eq!(
+        Orientation::from_code(0b1010),
+        Orientation::from_code(0b010)
+    );
 }
 
 #[test]
@@ -37,14 +43,27 @@ fn accessor_and_setter_agree_for_every_code() {
         let mut e = CausalEdge64(0);
         e.set_orientation(o);
         assert_eq!(e.orientation(), o);
-        assert_eq!((e.0 >> 43) & 0b111, u64::from(o.code()), "{o:?} lands on 43..45");
+        assert_eq!(
+            (e.0 >> 43) & 0b111,
+            u64::from(o.code()),
+            "{o:?} lands on 43..45"
+        );
     }
 }
 
 #[test]
 fn both_packers_write_the_same_table() {
     for o in Orientation::ALL {
-        let v2 = CausalEdge64::pack_v2(1, 2, 3, 200, 100, CausalMask::SPO, o, PlasticityState::ALL_HOT);
+        let v2 = CausalEdge64::pack_v2(
+            1,
+            2,
+            3,
+            200,
+            100,
+            CausalMask::SPO,
+            o,
+            PlasticityState::ALL_HOT,
+        );
         assert_eq!(v2.orientation(), o, "pack_v2 {o:?}");
         #[allow(deprecated)]
         let v1 = CausalEdge64::pack(

@@ -121,9 +121,9 @@ fn p4_rule_truth_packs_into_causal_edge() {
     // impact slot. Palette indices are illustrative here (P1 pinned their metric);
     // P4's teeth are that the discovery truth round-trips into the edge wire.
     let edge = CausalEdge64::pack_v2(
-        1,  // militaryUse=yes palette index
-        0,  // "implies" predicate slot
-        3,  // impact=high palette index
+        1, // militaryUse=yes palette index
+        0, // "implies" predicate slot
+        3, // impact=high palette index
         truth.frequency,
         truth.confidence,
         CausalMask::SPO,

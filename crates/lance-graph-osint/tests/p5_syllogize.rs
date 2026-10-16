@@ -25,7 +25,16 @@ const IS_A: u8 = 0x07; // predicate placeholder slot (shared)
 
 /// Build an `is_a`-style premise edge on the palette with the given truth bytes.
 fn premise(s: u8, o: u8, f: u8, c: u8) -> CausalEdge64 {
-    CausalEdge64::pack_v2(s, IS_A, o, f, c, CausalMask::SPO, causal_edge::Orientation::Core, PlasticityState::ALL_FROZEN)
+    CausalEdge64::pack_v2(
+        s,
+        IS_A,
+        o,
+        f,
+        c,
+        CausalMask::SPO,
+        causal_edge::Orientation::Core,
+        PlasticityState::ALL_FROZEN,
+    )
 }
 
 #[test]
@@ -70,7 +79,11 @@ fn p5_identical_statement_is_revision_not_syllogism() {
     // Same S and O ⇒ NARS revision territory, not a syllogism.
     let e1 = premise(A, B, 255, 100);
     let e2 = premise(A, B, 255, 200);
-    assert_eq!(e1.figure(e2), None, "identical S,O ⇒ revision, not syllogism");
+    assert_eq!(
+        e1.figure(e2),
+        None,
+        "identical S,O ⇒ revision, not syllogism"
+    );
     assert!(e1.syllogize(e2).is_none());
 }
 

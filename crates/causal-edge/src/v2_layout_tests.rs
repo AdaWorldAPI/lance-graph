@@ -91,9 +91,9 @@ mod v2_layout_tests {
             7,
             201, // S, P, O palette indices
             209,
-            181,            // NARS f=0.82, c=0.71
-            CausalMask::PO, // interventional level
-            crate::orientation::Orientation::from_code(0b101),          // orientation
+            181,                                               // NARS f=0.82, c=0.71
+            CausalMask::PO,                                    // interventional level
+            crate::orientation::Orientation::from_code(0b101), // orientation
             InferenceType::Deduction,
             PlasticityState::S_HOT,
             0, // temporal = 0 (v1 compat; bits 52-63 must be 0 for v2 clean read)
