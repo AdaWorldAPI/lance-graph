@@ -53,3 +53,18 @@ OPEN: where a 200× speedup would come from has not been identified or measured.
 The MeTTa-side engines measured so far are Hyperon (MIT) and PeTTa (MIT); the
 local MORK checkout (`ed57c67`) has no licence file and no licence field, so its
 licence is unknown.
+
+### Oracle and calibration use (same reading)
+
+Running unmodified AGPL software and comparing its answers with ours does not
+license our code under AGPL; the AGPL grants running it without conditions. Two
+things still need care:
+
+- **Fixtures:** OpenCog's own input files (rule libraries, test scripts) stay
+  AGPL wherever they are copied. Fetch them at a pinned commit outside the repo
+  (the `bench/fetch.sh` pattern in tesseract-rs) instead of committing them. Our
+  own generated inputs and the recorded answers (truth values, binding sets,
+  counts) are results, not OpenCog code, and can be committed.
+- **Calibration:** matching our constants or truth formulas to OpenCog's answers
+  is fine. Taking a formula from the PLN papers or documentation is fine.
+  Transcribing it from their source code is the porting case above.
