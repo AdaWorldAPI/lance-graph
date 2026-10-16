@@ -106,9 +106,21 @@ is registered before the run.
   O(n^{3/2} log n); a hash variant (credited to Ken Ross) removes the log factor.
 - The paper reports no experiments of its own.
 
-Pre-registration for D-ASM-11 (before any code): fixture = the triangle query
-at n = 10^3..10^6 on (i) random edges and (ii) an adversarial instance on which a
-pairwise join builds Θ(n²) intermediate pairs; both arms and the semijoin chain
-== datafrog as a bag; prediction: the semijoin chain's intermediate size grows
-as n² on (ii) while both leapfrog arms stay within n^{3/2} visited keys; cost per
-answer on the v4 arm only.
+Pre-registration for D-ASM-11: split after a premise audit (PREMISE-SPLIT).
+The first version predicted that the semijoin chain builds n² intermediate pairs
+on an adversarial triangle instance. That is wrong: a semijoin materializes no
+pairs, it gathers through the key into a head-table mask. And on a cyclic body a
+semijoin chain over-approximates even the existence mask, because semijoin
+reduction is a full reducer only for acyclic bodies. So D-ASM-11 asks two
+questions, each with its own baseline:
+
+- **Q-E (existence half):** for cyclic bodies, does a per-variable leapfrog
+  intersection, lowered to folded range/mask intersections over sealed lanes,
+  give the exact head-row mask where the semijoin chain over-approximates?
+  Gate: mask == datafrog's SET of head rows, first; ns per element on v4 second.
+- **Q-A (answer half):** is leapfrog binding enumeration the carrier D-ASM-3
+  lacks for cross-table projections and foreign fan-out, and can it emit keyed
+  counts instead of tuples, keeping `materialize_bindings` the one exit? Gate:
+  datafrog as a BAG.
+
+Fixtures and predictions come from the co-research run on this question.
