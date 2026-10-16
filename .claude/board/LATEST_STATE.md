@@ -1,3 +1,8 @@
+## 2026-10-16 — main after #1579 (merged `7302f58c`); synergy map on main
+
+- **On `main` (#1579):** the synergy map entry and the status sweep; the open decisions it names are listed in the arc entry.
+- **In PR:** #1582 (doc fixes: rev-pin template, TD-POPCNT runtime-detect option withdrawn, the no-target-cpu AVX2 arm is the validation oracle only).
+
 ## 2026-10-16 — main after #1576 (merged `9a657bd3`); catch-up for #1560, #1570, #1571, #1574, #1575, #1576
 
 - **On main, not recorded here before:** #1560 (O22 `CounterfactualVerdict` producer, R1 test, ledger correction), #1570 (Haspelmath harness, frozen operand dictionary), #1571 (D-QPROF-0 `qualia_profile`, merged; the "in PR" section below is now on main), #1574 (59..60 one field, two vocabularies; mapping inventory; D-ASM-0), #1575 (D-HOLO H14d measured), #1576 (D-ASM-1..4 spec ratified, nothing authorized).

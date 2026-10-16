@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1579 (merged `7302f58c`, branch `ccr-9f3b8075-74u47l-synergy-map`, head `97b744ec`, 3 commits) — board: synergy map since 2026-10-11, status sweep, #1575 record
+
+- **Added:** entry `2026-10-16-synergy-map-since-1011.md` (the 2026-10-11 fleet listing revised against 123 merges: closed ends, dots D1–D8, fruits, Haiku ledger, §8 reconciliation with the recovery ledger, §9 label codebook sizes); ten STATUS rows moved from "In PR" to Shipped; arc entry for #1575.
+- **Locked:** measured codebook sizes — ONA `ATOMS_MAX 255`; MeTTa stdlib 266 symbols, the 26 golden scripts 282 together (at most 26 per script outside the stdlib); cog vocabulary 214. No two corpora fit one 256-entry codebook, so codebooks are scoped per classid and space. D7 (two ndarray packages) closed: the root and relalg `[patch]` sections already resolve one package (Codex review).
+- **Deferred / open:** D-RA-2, codebook scope, #1544 closure (decisions); the cross-repo doc fixes; the wasm `mul_add` test; the lgj `check_build_cpu` handshake.
+- **Confidence:** n/a (board); counts by token regex over `.metta` files, not the Hyperon parser.
+
 ## 2026-10-16 — lance-graph PR #1576 (merged `9a657bd3`, branch `ccr-c09987ed-cuk6r5`, 8 commits) — council: metta-datalog-assimilation W1–W3 spec ratified (D-ASM-1..4)
 
 - **Added:** `.claude/plans/metta-datalog-assimilation-v1-council-v3.md` (executable spec, gates G1–G9); ⊘ notes on the plan's decisions A–E, G and §6; `metta-polyfill-v1.md` §5 amended; STATUS D-ASM-1..5, D-MTP-2, D-RA-3; 3 TECH_DEBT rows; entry `2026-10-16-metta-datalog-assimilation-council-v3.md`.
