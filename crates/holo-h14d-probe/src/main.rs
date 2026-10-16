@@ -72,14 +72,40 @@ impl Pattern {
     }
 }
 
+fn draw(l: usize, key: u64) -> u64 {
+    mix((l as u64) << 40 ^ key ^ 0x5151)
+}
+
+/// Clustered presence selects exactly `round(d × N/64)` of the tile's words
+/// per lane: the words whose seeded draw ranks lowest. Returns the largest
+/// selected draw (`None` when no word is selected), cached per (d, lane).
+fn clustered_threshold(d: f64, l: usize) -> Option<u64> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    static CACHE: OnceLock<Mutex<HashMap<(u64, usize), Option<u64>>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(Mutex::default);
+    *cache
+        .lock()
+        .unwrap()
+        .entry((d.to_bits(), l))
+        .or_insert_with(|| {
+            let m = (d * W as f64).round() as usize;
+            let mut h: Vec<u64> = (0..W as u64).map(|w| draw(l, w)).collect();
+            h.sort_unstable();
+            m.checked_sub(1).map(|j| h[j])
+        })
+}
+
 /// Whether lane `l` holds a value at address `i` (closed form; the oracle).
+/// Uniform: an independent draw per address. Clustered: whole 64-address
+/// words, an exact count of them per lane (see [`clustered_threshold`]).
 fn present(p: Pattern, d: f64, l: usize, i: usize) -> bool {
-    let key = match p {
-        Pattern::Uniform => i as u64,
-        Pattern::Clustered => (i / 64) as u64,
-    };
-    let h = mix((l as u64) << 40 ^ key ^ 0x5151);
-    ((h >> 11) as f64 / (1u64 << 53) as f64) < d
+    match p {
+        Pattern::Uniform => ((draw(l, i as u64) >> 11) as f64 / (1u64 << 53) as f64) < d,
+        Pattern::Clustered => {
+            clustered_threshold(d, l).is_some_and(|t| draw(l, (i / 64) as u64) <= t)
+        }
+    }
 }
 
 /// The value lane `l` holds at address `i` when present: small, so sums fit.
@@ -973,19 +999,15 @@ mod tests {
             let fx = fixture(p, d, w);
             for l in 0..LANES {
                 let n = fx.p[l].iter().map(|x| x.count_ones() as f64).sum::<f64>();
-                // Presence is drawn per address (uniform) or per 64-address
-                // word (clustered): a binomial over `units` draws, bounded at
-                // 5 standard deviations, in addresses.
-                let (units, scale) = match p {
-                    Pattern::Uniform => (N as f64, 1.0),
-                    Pattern::Clustered => ((N / 64) as f64, 64.0),
-                };
                 let want = d * N as f64;
-                let sd = (units * d * (1.0 - d)).sqrt() * scale;
                 assert!(
-                    (n - want).abs() <= 5.0 * sd + scale,
+                    (n - want).abs() <= 0.1 * want + 64.0,
                     "{p:?} {d} lane {l}: {n}"
                 );
+                if p == Pattern::Clustered {
+                    // Clustered counts are exact: round(d × words) whole words.
+                    assert_eq!(n as usize, 64 * (d * W as f64).round() as usize);
+                }
                 for i in 0..N {
                     let is_p = fx.p[l][i / 64] >> (i % 64) & 1 == 1;
                     assert_eq!(is_p, fx.t[l][i] != POISON, "poison exactly at absent");

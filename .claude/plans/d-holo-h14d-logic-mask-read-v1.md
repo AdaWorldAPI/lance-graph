@@ -127,11 +127,15 @@ Two corrections, both found by the checks before a single timing ran.
    rewritten). Only the scratch-slot refusal is accepted; any other error
    fails the check. Anti-vacuity: more than half the corpus must be answered
    both ways.
-2. **Check 8, tolerance.** Clustered presence is drawn per 64-address word, so
-   its count is a binomial over 1,024 draws scaled by 64, with about 9 %
-   relative spread at 10 % density; the flat 10 % bound failed on a correct
-   fixture. The bound is now 5 binomial standard deviations in the pattern's
-   own draw unit.
+2. **Check 8, clustered fixture.** An independent draw per 64-address word
+   gives only 1,024 draws per lane, so the clustered count missed the declared
+   density (5,568 vs 6,554 present addresses at 10 %, lane 4): cells with the
+   same label would compare different densities. Clustered presence now
+   selects exactly `round(d × 1,024)` words per lane (the lowest seeded draws),
+   so every clustered cell holds exactly its declared density; check 8 keeps
+   the pre-registered 10 % bound and additionally asserts the exact clustered
+   count. (A first correction widened the tolerance instead; review rejected
+   it because it hid the density mismatch rather than removing it.)
 
 First observation, from the corrected check (not a timing): of 2,000 programs,
 1,583 are answered both ways, 396 only after the rewrite, and 2 are widened by
