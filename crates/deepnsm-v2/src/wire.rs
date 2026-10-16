@@ -19,7 +19,26 @@
 //! | 46..49 | activation i4 | semantic pressure `pos - neg`, clamped to `-8..=7` |
 //! | 50..52 | novelty → wisdom | the statement's rung after this update, `1` Staunen ..= `7` wisdom |
 //! | 53..58 | belief-state update | the statement's last three updates: `W1` prior (53..54), `W2` (55..56), `W3` newest (57..58) |
-//! | 59..63 | epistemic state | `EpistemicState5`: topology from the clause path, certification from the belief state |
+//! | 59..63 | epistemic state | `EpistemicState5`: topology from the clause path, certification from the belief state and the causes arena |
+//!
+//! # The belief arenas
+//!
+//! Every row is also offered to [`crate::belief::BeliefArena`] as one unit
+//! observation, stamped with its verse: the stamp is the independence gate,
+//! so disjoint verses pool and a repeat inside one verse is CHOICE, never
+//! counted twice. Two arenas, two term spaces:
+//!
+//! - **facts**: `S –Rel(P)→ O` over word ids. `Rel` never transits.
+//! - **causes**: `cause ⇒ effect` over event terms. The cause is the event
+//!   whose clause the Kausal marker (`weil`) opens; every matrix event of the
+//!   same verse is an effect. `Impl` does not auto-transit.
+//!
+//! A cause event is certified `CausalCandidate` only when its `cause ⇒
+//! effect` belief rests on two or more disjoint verse stamps (and the triple
+//! itself is Related). Text never certifies `Causes`. The arena's stamps are
+//! a 64-source bitset that folds by modulo: past 64 verses two sources can
+//! collide, which turns a revision into a CHOICE (an undercount, never a
+//! double count).
 //!
 //! # The belief state is a Markov chain per statement
 //!
@@ -75,8 +94,10 @@ use causal_edge::{CausalEdge64, CausalMask};
 use lance_graph_arm_discovery::{arm_to_truth_u8, CandidateRule, Item};
 use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
 use lance_graph_contract::epistemic_state5::{Certification3, Epi5Gen, EpistemicState5, Topology2};
+use lance_graph_contract::exploration::NarsTruth;
 use lance_graph_contract::hhtl::NiblePath;
 
+use crate::belief::{BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
 use crate::fsm::{parse_readings, parse_to_spo_traced, Origin, Pos, Reading, Tagged, Traced};
 use crate::haspelmath::{
     continuity, run_harness, FormAttestation, FrozenOperandAbi, HarnessError, MapVerdict,
@@ -216,6 +237,36 @@ pub struct WireReport {
     pub dependent: usize,
     /// Rows certified `CausalCandidate`.
     pub causal_candidates: usize,
+    /// `cause ⇒ effect` observations offered to the causes arena.
+    pub implications: usize,
+    /// Of those, observations the arena pooled (disjoint stamps).
+    pub implications_revised: usize,
+    /// Events not interned because the u16 event-term space was full.
+    pub event_overflow: usize,
+}
+
+/// What [`wire`] produced: the rows, the report, and the two belief arenas
+/// the rows were fed into.
+#[derive(Debug)]
+pub struct Wired {
+    /// One row per certain triple, in stream order.
+    pub rows: Vec<WiredRow>,
+    /// What happened.
+    pub report: WireReport,
+    /// Every row as `S –Rel(P)→ O`, one unit observation per verse, stamped
+    /// with the verse. `Rel` never transits.
+    pub facts: BeliefArena,
+    /// Every Kausal claim as `cause ⇒ effect` over EVENT terms (indices into
+    /// [`Self::events`]), one unit observation per verse, stamped with the
+    /// verse. `Impl` does not auto-transit (belief.rs V0).
+    pub causes: BeliefArena,
+    /// Event term `i` is the triple `events[i]`.
+    pub events: Vec<Spo>,
+}
+
+/// One unit of positive evidence at horizon 1.
+fn unit() -> NarsTruth {
+    NarsTruth::new(1.0, 0.5)
 }
 
 const REACH_BACK: i64 = -8;
@@ -247,7 +298,6 @@ fn trace(readings: &[Reading], certain: &[Spo]) -> Option<Vec<Traced>> {
 #[derive(Debug, Clone, Default)]
 struct StmtState {
     verses: HashSet<usize>,
-    causal_verses: HashSet<usize>,
     window: u8,
     rung: u8,
 }
@@ -286,7 +336,7 @@ pub fn wire(
     abi: &FrozenOperandAbi,
     heuristics: Option<&GrammarHeuristics>,
     params: ReadParams,
-) -> Result<(Vec<WiredRow>, WireReport), HarnessError> {
+) -> Result<Wired, HarnessError> {
     let readings: Vec<Vec<Reading>> = verses.iter().map(|v| v.readings.clone()).collect();
     let forms: Vec<Vec<FormAttestation>> = verses.iter().map(|v| v.forms.clone()).collect();
     let harness = run_harness(markers, &readings, &forms, basin, abi)?;
@@ -294,6 +344,10 @@ pub fn wire(
     let mut rep = WireReport::default();
     let mut rows: Vec<WiredRow> = Vec::with_capacity(harness.encoded.len());
     let mut groups: HashMap<(u16, u16), Group> = HashMap::new();
+    let mut facts = BeliefArena::new();
+    let mut causes = BeliefArena::new();
+    let mut events: Vec<Spo> = Vec::new();
+    let mut event_id: HashMap<Spo, u16> = HashMap::new();
     let mut next = 0usize;
 
     for (vi, verse) in verses.iter().enumerate() {
@@ -397,6 +451,49 @@ pub fn wire(
             }
         }
 
+        // Kausal claims: the stating event is the cause (the clause `weil`
+        // opens), every matrix event of the verse is an effect. Each pair is
+        // one unit observation of `cause ⇒ effect`, stamped with the verse, so
+        // the arena pools independent verses and never double counts one.
+        let mut cause_sources = vec![0u32; n];
+        if let (Some(j), Some(t)) = (stating[KAUSAL_LANE], traced.as_ref()) {
+            let mut intern = |spo: Spo, rep: &mut WireReport| -> Option<u16> {
+                if let Some(&id) = event_id.get(&spo) {
+                    return Some(id);
+                }
+                let Ok(id) = u16::try_from(events.len()) else {
+                    rep.event_overflow += 1;
+                    return None;
+                };
+                events.push(spo);
+                event_id.insert(spo, id);
+                Some(id)
+            };
+            for (e, tr) in t.iter().enumerate() {
+                if e == j || tr.origin != Origin::Main {
+                    continue;
+                }
+                let (Some(c), Some(f)) = (intern(t[j].spo, &mut rep), intern(tr.spo, &mut rep))
+                else {
+                    continue;
+                };
+                let stmt = CStmt {
+                    s: c,
+                    cop: Copula::Impl,
+                    p: f,
+                };
+                rep.implications += 1;
+                if matches!(
+                    causes.observe(stmt, unit(), Stamp::source(vi as u32)),
+                    ReviseOutcome::Revised { .. }
+                ) {
+                    rep.implications_revised += 1;
+                }
+                let sources = causes.get(stmt).map_or(0, |b| b.stamp.0.count_ones());
+                cause_sources[j] = cause_sources[j].max(sources);
+            }
+        }
+
         // The belief-state update, row by row in stream order.
         for (k, row) in rows[first..].iter_mut().enumerate() {
             let spo = row.spo;
@@ -420,9 +517,6 @@ pub fn wire(
             let st = group.objects.entry(spo.object).or_default();
             let new_stmt = st.verses.is_empty();
             let own_fresh = st.verses.insert(vi);
-            if causal {
-                st.causal_verses.insert(vi);
-            }
             let pos = st.verses.len() as u32;
             let pressure = (i64::from(pos) - i64::from(tot - pos)).clamp(-8, 7) as i8;
             let kind = if own_fresh {
@@ -451,8 +545,17 @@ pub fn wire(
                 Some(_) if unbound[k] => Topology2::IndirectUnknown,
                 Some(_) => Topology2::IndirectKnown,
             };
+            facts.observe(
+                CStmt {
+                    s: spo.subject,
+                    cop: Copula::Rel(spo.predicate),
+                    p: spo.object,
+                },
+                unit(),
+                Stamp::source(vi as u32),
+            );
             let certification = if pos >= 2 && pressure > 0 {
-                if st.causal_verses.len() >= 2 {
+                if cause_sources[k] >= 2 {
                     rep.causal_candidates += 1;
                     Certification3::CausalCandidate
                 } else {
@@ -478,7 +581,13 @@ pub fn wire(
         }
         rep.rows = rows.len();
     }
-    Ok((rows, rep))
+    Ok(Wired {
+        rows,
+        report: rep,
+        facts,
+        causes,
+        events,
+    })
 }
 
 #[cfg(test)]
@@ -523,7 +632,8 @@ mod tests {
                 ..VerseIn::default()
             })
             .collect();
-        wire(&markers, &ins, 1, &abi(), None, ReadParams::RIGHT_CORNER).unwrap()
+        let w = wire(&markers, &ins, 1, &abi(), None, ReadParams::RIGHT_CORNER).unwrap();
+        (w.rows, w.report)
     }
 
     fn epi(e: CausalEdge64) -> EpistemicState5 {
@@ -729,65 +839,157 @@ mod tests {
         assert_eq!(r.edge.novelty_wisdom(), 1, "unresolved: no climb");
     }
 
-    /// Pearl ↔ TEKAMOLO: a Kausal lane stated in two independent verses puts
-    /// the event at the intervention rung and certifies CausalCandidate; the
-    /// same statement without the lane stays SO / Related.
-    #[test]
-    fn kausal_lane_sets_the_intervention_rung() {
-        let h = GrammarHeuristics::parse(
-            "# lane\tlemma\trelation\tcount\nKausal\tweil\tmark\t273\nTemporal\theute\tadvmod\t637\n",
-        );
-        let surf = ["der", "hund", "biss", "den", "mann", "weil"];
-        let mut tok = svo(DOG, BIT, MAN);
-        tok.push(one(THE, Pos::Other)); // `weil`, skipped by the FSM
-        let markers = [(1, 1), (1, 2)];
-        let ins = vec![
-            VerseIn {
-                readings: tok.clone(),
-                surface: surf.to_vec(),
-                forms: vec![],
-            },
-            VerseIn {
-                readings: tok,
-                surface: surf.to_vec(),
-                forms: vec![],
-            },
+    fn heuristics() -> GrammarHeuristics {
+        GrammarHeuristics::parse("# lane\tlemma\trelation\tcount\nKausal\tweil\tmark\t273\n")
+    }
+
+    /// `der Hund biss den Mann. weil die Katze sah den Hund`: effect clause,
+    /// then the cause clause `weil` opens.
+    fn weil_verse() -> VerseIn<'static> {
+        let mut r = svo(DOG, BIT, MAN);
+        r.push(Reading::stop());
+        r.push(one(WHO, Pos::Other)); // `weil`, skipped by the FSM
+        r.extend(svo(CAT, SAW, DOG));
+        let surface = vec![
+            "der", "hund", "biss", "den", "mann", ".", "weil", "die", "katze", "sah", "den", "hund",
         ];
-        let (rows, rep) = wire(
+        VerseIn {
+            readings: r,
+            surface,
+            forms: vec![],
+        }
+    }
+
+    fn run_in(ins: &[VerseIn<'_>]) -> Wired {
+        let markers: Vec<(u16, u16)> = (0..ins.len() as u16).map(|i| (1, i + 1)).collect();
+        wire(
             &markers,
-            &ins,
+            ins,
             1,
             &abi(),
-            Some(&h),
+            Some(&heuristics()),
             ReadParams::RIGHT_CORNER,
         )
-        .unwrap();
-        assert_eq!(rep.intervention_rows, 2);
-        assert_eq!(rows[1].edge.causal_mask(), CausalMask::PO);
+        .unwrap()
+    }
+
+    fn impl_stmt(w: &Wired, cause: Spo, effect: Spo) -> CStmt {
+        let id = |x: Spo| w.events.iter().position(|e| *e == x).unwrap() as u16;
+        CStmt {
+            s: id(cause),
+            cop: Copula::Impl,
+            p: id(effect),
+        }
+    }
+
+    /// Can fire: two independent `weil` verses pool `cause ⇒ effect` in the
+    /// causes arena (two disjoint stamps), the cause event sits at the
+    /// intervention rung and is certified CausalCandidate; the effect is not.
+    #[test]
+    fn weil_feeds_the_causes_arena() {
+        let w = run_in(&[weil_verse(), weil_verse()]);
+        assert_eq!(w.report.implications, 2);
+        assert_eq!(w.report.implications_revised, 1);
+        let (cause, effect) = (Spo::new(CAT, SAW, DOG), Spo::new(DOG, BIT, MAN));
+        let b = w.causes.get(impl_stmt(&w, cause, effect)).unwrap();
+        assert_eq!(b.stamp.0.count_ones(), 2);
+        assert!(b.truth.confidence > 0.6, "two units pool to c = 2/3");
+        let row = |v: usize, x: Spo| w.rows.iter().find(|r| r.verse == v && r.spo == x).unwrap();
+        assert_eq!(row(1, cause).edge.causal_mask(), CausalMask::PO);
         assert_eq!(
-            epi(rows[1].edge).certification(),
+            epi(row(1, cause).edge).certification(),
             Certification3::CausalCandidate
         );
-        // One causal verse is not enough: Related, not CausalCandidate.
-        let mixed = vec![
-            ins[0].clone(),
+        assert_eq!(row(1, effect).edge.causal_mask(), CausalMask::SO);
+        assert_eq!(
+            epi(row(1, effect).edge).certification(),
+            Certification3::Related
+        );
+        assert_eq!(w.report.causal_candidates, 1);
+    }
+
+    /// Stay silent: the cause clause seen twice, but the causal claim only
+    /// once — the cause is Related (two supports), not a candidate.
+    #[test]
+    fn one_causal_claim_is_not_a_candidate() {
+        let mut plain = svo(CAT, SAW, DOG);
+        plain.push(Reading::stop());
+        plain.extend(svo(DOG, BIT, MAN));
+        let w = run_in(&[
+            weil_verse(),
             VerseIn {
-                readings: svo(DOG, BIT, MAN),
+                readings: plain,
                 ..VerseIn::default()
             },
-        ];
-        let (rows, rep) = wire(
-            &markers,
-            &mixed,
-            1,
-            &abi(),
-            Some(&h),
-            ReadParams::RIGHT_CORNER,
-        )
-        .unwrap();
-        assert_eq!(rep.intervention_rows, 1);
-        assert_eq!(rep.causal_candidates, 0);
-        assert_eq!(epi(rows[1].edge).certification(), Certification3::Related);
+        ]);
+        assert_eq!(w.report.implications, 1);
+        assert_eq!(w.report.implications_revised, 0);
+        assert_eq!(w.report.causal_candidates, 0);
+        let cause = w
+            .rows
+            .iter()
+            .find(|r| r.verse == 1 && r.spo == Spo::new(CAT, SAW, DOG))
+            .unwrap();
+        assert_eq!(epi(cause.edge).certification(), Certification3::Related);
+        assert_eq!(cause.edge.causal_mask(), CausalMask::SO);
+    }
+
+    /// A `weil` clause with no matrix event states a cause of nothing: the
+    /// claim sits at the intervention rung, but no implication is observed.
+    #[test]
+    fn weil_without_an_effect_observes_no_implication() {
+        let mut r = svo(DOG, BIT, MAN);
+        r.push(one(WHO, Pos::Other));
+        let v = VerseIn {
+            readings: r,
+            surface: vec!["der", "hund", "biss", "den", "mann", "weil"],
+            forms: vec![],
+        };
+        let w = run_in(&[v.clone(), v]);
+        assert_eq!(w.report.intervention_rows, 2);
+        assert_eq!(w.report.implications, 0);
+        assert!(w.causes.entries().is_empty());
+        assert_eq!(epi(w.rows[1].edge).certification(), Certification3::Related);
+    }
+
+    /// The facts arena pools independent verses exactly as arm-discovery's
+    /// confidence does for an uncontested statement, and one verse repeated
+    /// is CHOICE, never pooled.
+    #[test]
+    fn facts_arena_agrees_with_arm_and_refuses_a_repeat() {
+        let (dog_bit_man, w) = (
+            CStmt {
+                s: DOG,
+                cop: Copula::Rel(BIT),
+                p: MAN,
+            },
+            run_in(&vec![
+                VerseIn {
+                    readings: svo(DOG, BIT, MAN),
+                    ..VerseIn::default()
+                };
+                3
+            ]),
+        );
+        let b = w.facts.get(dog_bit_man).unwrap();
+        let arm = w.rows[2].edge.confidence_u8();
+        assert!(((b.truth.confidence * 255.0) as i32 - i32::from(arm)).abs() <= 1);
+        assert_eq!(b.stamp.0.count_ones(), 3);
+
+        let mut twice = svo(DOG, BIT, MAN);
+        twice.push(Reading::stop());
+        twice.extend(svo(DOG, BIT, MAN));
+        let w = run_in(&[VerseIn {
+            readings: twice,
+            ..VerseIn::default()
+        }]);
+        let b = w.facts.get(dog_bit_man).unwrap();
+        assert_eq!(b.stamp.0.count_ones(), 1, "one verse is one source");
+        assert!((b.truth.confidence - 0.5).abs() < 1e-6, "not pooled");
+    }
+
+    #[test]
+    fn plain_rows_stay_at_association() {
         let (plain, _) = run(&[svo(DOG, BIT, MAN), svo(DOG, BIT, MAN)]);
         assert_eq!(plain[1].edge.causal_mask(), CausalMask::SO);
         assert_eq!(epi(plain[1].edge).certification(), Certification3::Related);

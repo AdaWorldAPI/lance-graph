@@ -83,8 +83,18 @@ fn corpus(n: usize) -> (Vec<Vec<Reading>>, Vec<Vec<&'static str>>) {
             w.extend(["v", "den", "y"]);
         }
         if g.next(2) == 0 {
-            r.push(one(WEIL, Pos::Other));
-            w.push("weil");
+            // `. weil <cause clause>`: the cause event the Kausal lane marks.
+            let (cs, co) = (NOUNS[g.next(2) as usize], NOUNS[2 + g.next(2) as usize]);
+            r.extend([
+                Reading::stop(),
+                one(WEIL, Pos::Other),
+                one(THE, Pos::Det),
+                one(cs, Pos::Noun),
+                one(VERBS[2], Pos::Verb),
+                one(THE, Pos::Det),
+                one(co, Pos::Noun),
+            ]);
+            w.extend([".", "weil", "die", "x", "v", "den", "y"]);
         }
         rs.push(r);
         ss.push(w);
@@ -244,7 +254,8 @@ fn main() {
     ops.extend([THE, WHO, WEIL]);
     let abi = FrozenOperandAbi::new(1, &ops).unwrap();
     let h = GrammarHeuristics::parse("# lane\tlemma\trelation\tcount\nKausal\tweil\tmark\t273\n");
-    let (rows, rep) = wire(&markers, &ins, 1, &abi, Some(&h), ReadParams::RIGHT_CORNER).unwrap();
+    let w = wire(&markers, &ins, 1, &abi, Some(&h), ReadParams::RIGHT_CORNER).unwrap();
+    let (rows, rep) = (w.rows, w.report);
     let n = rows.len();
     println!("rows {n}  report {rep:?}");
 
