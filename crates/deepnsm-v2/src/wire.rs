@@ -915,12 +915,15 @@ mod tests {
         let mut plain = svo(CAT, SAW, DOG);
         plain.push(Reading::stop());
         plain.extend(svo(DOG, BIT, MAN));
+        // The plain verse first, so the weil verse's cause row already has two
+        // supports and a positive pressure: only the single implication
+        // source keeps it from CausalCandidate.
         let w = run_in(&[
-            weil_verse(),
             VerseIn {
                 readings: plain,
                 ..VerseIn::default()
             },
+            weil_verse(),
         ]);
         assert_eq!(w.report.implications, 1);
         assert_eq!(w.report.implications_revised, 0);
@@ -930,8 +933,14 @@ mod tests {
             .iter()
             .find(|r| r.verse == 1 && r.spo == Spo::new(CAT, SAW, DOG))
             .unwrap();
+        assert_eq!(cause.support, 2);
+        assert!(cause.edge.activation() > 0);
         assert_eq!(epi(cause.edge).certification(), Certification3::Related);
-        assert_eq!(cause.edge.causal_mask(), CausalMask::SO);
+        assert_eq!(
+            cause.edge.causal_mask(),
+            CausalMask::PO,
+            "the claim is causal"
+        );
     }
 
     /// A `weil` clause with no matrix event states a cause of nothing: the
