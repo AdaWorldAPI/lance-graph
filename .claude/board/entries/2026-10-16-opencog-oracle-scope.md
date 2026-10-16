@@ -92,3 +92,20 @@ ndarray, Datalog over folds, or a storage adapter backed by `lance-graph-quack`.
 
 OPEN: whether glue we author ourselves could be dual-licensed is a copyright
 question for counsel, not settled here.
+
+### DECISION (same day): `lance-graph-cog` is our API for OpenCog to call
+
+DECISION: improving OpenCog for its community is welcome. `lance-graph-cog` is the
+crate OpenCog would use: a lance-graph crate under lance-graph's own licence
+(Apache-2.0) that exposes the storage, fold-execution and codebook API. The
+AGPL side is a separate OpenCog fork that depends on it and keeps only the thin
+adapter (for example an AtomSpace storage backend).
+
+SCOPE: `lance-graph-cog` contains no OpenCog code. It is written from OpenCog's
+documented API and observed behaviour, never from its source, so it stays
+reusable by any caller. This refines the D-MTP-0 naming note
+(`2026-10-14-metta-polyfill-map.md`): "cog" there meant pulling OpenCog itself
+into the crate, which stays ruled out; here it names the API OpenCog consumes.
+
+REVISIT WHEN: the oracle validation shows which surface OpenCog actually needs;
+until then the crate is not created.
