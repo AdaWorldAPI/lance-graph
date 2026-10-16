@@ -1,3 +1,8 @@
+## 2026-10-16 — main after #1575 (merged `7b62af48`), #1576 and #1577; synergy map in PR
+
+- **On `main`:** D-HOLO H14d probe and results (#1575); the metta-datalog council v3 spec (#1576) and its NO PINS amendment (#1577), both from another session, docs only.
+- **In PR:** board entry `2026-10-16-synergy-map-since-1011.md` (the 2026-10-11 fleet listing revised against 123 merges) and a status sweep of ten rows that still read "In PR" after their PRs merged.
+
 ## 2026-10-16 — main after #1573 (merged `461bbd1a`); D-HOLO H14c on main
 
 - **On `main` (#1573):** D-HOLO H14c probes and results (thought-first reads, Lance 13 masked I/O). Probe code only, no library change.

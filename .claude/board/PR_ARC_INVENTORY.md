@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1575 (merged `7b62af48`, branch `ccr-9f3b8075-74u47l-holo-h14d`, head `175f4374`, 8 commits) — D-HOLO H14d: logic → address mask → masked read → terminal, C only
+
+- **Added:** `crates/holo-h14d-probe` (excluded from the workspace; stages 1–4, checks 1–8 as tests, CSV main); plan `d-holo-h14d-logic-mask-read-v1` with amendments A1, A2 and results; entry `2026-10-16-d-holo-h14d-logic-mask-read.md` with the raw CSV; STATUS row D-HOLO-H14d; `ISS-RELALG-ABSORPTION-AFTER-DE-MORGAN`.
+- **Locked:** the relalg rewrite decides 675 of 2,000 programs with no run and cuts passes 5,898 → 1,065; the address mask costs 2–10 ns per 64-address word; a Lance 13 prefilter scans exactly |R| rows, but bytes fall only for page-local survivors (uniform 1 % 1.00×, clustered 1 % 0.19×); the payload stage scans every word of R (prediction 4 falsified).
+- **Deferred / open:** the absorption defect (2 of 2,000 programs widened); page-scale clustering on the write side; an object-storage arm.
+- **Confidence:** medium; checks 1–8 green, five disable runs red, v4 only.
+
 ## 2026-10-16 — lance-graph PR #1573 (merged `461bbd1a`, branch `ccr-9f3b8075-74u47l-holo-h14c`, head `e4681f10`, 11 commits) — D-HOLO H14c: thought-first reads, Hamming presence, Lance 13 masked I/O
 
 - **Added:** `holo_thought_first_probe` (point projection, mask-risc populations, terminal rows; 10 oracle tests) and the `lane_footprint` instrument in `lance-graph-mask-risc/examples`; `crates/holo-lance-masked-io-probe` (excluded from the workspace: Lance 13 masked reads, stale-map hazard across rewrites); plan `d-holo-h14c-thought-first-v1`, entry `2026-10-15-d-holo-h14c-thought-first.md`, STATUS row D-HOLO-H14c.

@@ -1,3 +1,10 @@
+## 2026-10-16 — synergy map since 2026-10-11 (five Haiku harvest cards)
+
+- substrate-mapper ×3 (merge maps for lance-graph and ndarray/OGAR/ruff; board delta), quote-harvester ×1 (13 stale sites), census-counter ×1 (ndarray counters). Read-only; outputs in the session scratchpad.
+- Spot checks: merge counts re-run (97, 9); ten status rows re-read before editing; quotes Q3/Q5/Q6/Q10/Q13 re-read; parity type counts re-run with a wider pattern.
+- Misses: census-counter made one out-of-card `send_message` call with a placeholder (failed, nothing sent); quote-harvester used `origin/main` for tesseract-rs as the brief said (its branch is `master`; brief error). No conclusion drawn by any card.
+- Result: entry `2026-10-16-synergy-map-since-1011.md`; ten STATUS cells corrected. Written by the orchestrating main thread only.
+
 ## 2026-10-16 — /5plus3 council: metta-datalog-assimilation W1–W3 spec (D-ASM-1..4)
 
 - Phase 0: spec v1 by the orchestrator; premise-auditor (Opus) → PREMISE-SPLIT (stamp sub-premise PREMISE-WRONG); six of its code claims re-read and confirmed; spec re-asked as v1.1 before any savant was cast.
