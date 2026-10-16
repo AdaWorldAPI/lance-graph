@@ -12,6 +12,21 @@ Plan: `.claude/plans/wal-shootout-v1.md`. Feeds D-LNC-7; decides nothing.
 | **D-WAL-6** | version clock: a point of view as one row range | Done: `contract::temporal_pov::VersionClock`; v4 4.2 ns per `rows_at` vs 127 µs per-row scan at 400k rows | row-version oracle over 200 versions with gaps; disables (gap fill, start offset, base guard) each turn it red. Wired into `LanceCycleWriter` 2026-10-15: seeded at the head on open from the manifest's physical row counts, recorded after every commit; deleted rows keep their positions; four tests against storage, three disables red. Reader wiring open |
 | **D-WAL-7** | `temporal.rs` without row copies | Done: `deinterlace_indices`, `local_trajectories_indices`, `local_trajectory_indices_of`; copying forms keep their signatures as wrappers | clone counter at 0 for the index form; removing the sort turns the two ordering tests red |
 
+## D-ASM — MeTTa/PeTTa atoms assimilated into the Datalog-AST · NAL · R2IL · ONA-shaped substrate (2026-10-15)
+
+Plan: `.claude/plans/metta-datalog-assimilation-v1.md`. Umbrella over D-MTP-2/3/5/6, D-RA-3/4, D-NALP-4/5/7 (cited, not copied).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-ASM-0** | Plan + inventory (`.claude/research/2026-10-15-nars-metta-ce64-mapping-inventory.md`) | Done 2026-10-15 | — |
+| **D-ASM-1** | Binder: `(functor, arity) → ClassView` + label codebook; atoms → addresses once; typed refusal for Grounded/nested/state | Queued (not authorized) | same address twice per fixture atom; refusals named by kind; no string survives bind |
+| **D-ASM-2** | Join as D-CMR-5 preimage in relalg (`EqU32Via` / gated `Gather` / range) | Queued (not authorized) | pairs == datafrog as a bag 10²..10⁶; join_10000 answers; `Program` byte-identical across front ends |
+| **D-ASM-3** | Bag terminal → `BindingsSet` multiplicity | Queued (not authorized) | `b4_nondeterm` multiset == Hyperon; dedup arm fails; new terminal only with insufficiency proof |
+| **D-ASM-4** | `LanceSpace` named space; Hyperon · PeTTa · LanceSpace harness | Queued (not authorized) | golden 32/33 unchanged; every answer == Hyperon multiset or a named refusal |
+| **D-ASM-5** | ONA-shaped compound-term tenant (64 × u8 heap), parity vs ONA `Term_*` | Queued (not authorized) | byte-identical hash/extraction; > 64 atoms refused; LAYOUT-CLEAN |
+| **D-ASM-6** | Rule catalogue as data (ONA `R1/R2`, OpenNARS tables) with truth label + engine order tag; `Narsese.rs` front end | Queued (not authorized) | each rule re-emits its source line; order tag proven on both engines |
+| **D-ASM-7** | Mining seam (`lance-graph-cog` driver tier) — separate plan | Reserved | — |
+
 ## D-MTP — Hyperon/MeTTa over the masking-algebra polyfill (2026-10-14)
 
 Plan: `.claude/plans/metta-polyfill-v1.md`. Proposed crate `lance-graph-metta` (not created).

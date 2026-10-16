@@ -5,6 +5,13 @@
 - Replaces the row-reconstruction question of H14/H14b (arm M withdrawn) with: given thought, operands and Cartesian address, which accesses are unavoidable. `Thought(t)[Table(a)[i] : Table(b)[i]]`.
 - Point projection, presence populations (mask-risc AND/OR/XOR/Count) and explicit terminal rows measured apart; tables consulted must equal the requested lanes, independent of the touched tables.
 - Memory/fragmentation of 1 MiB positional tables (lazy, eager, sparse); Lance 13 `with_row_addr_prefilter` bytes_read vs unmasked; coordinate identity across append/delete/update/compaction with stale maps refused.
+## 2026-10-15 — metta-datalog-assimilation-v1 — Hyperon/PeTTa/MeTTa atoms assimilated into a Datalog-AST · NAL · R2IL · ONA-shaped substrate, MeTTa as oracle → `.claude/plans/metta-datalog-assimilation-v1.md`
+
+**Status:** PROPOSAL; D-ASM-0 only (plan + inventory `.claude/research/2026-10-15-nars-metta-ce64-mapping-inventory.md`). Umbrella over D-MTP-2/3/5/6, D-RA-3/4, D-NALP-4/5/7; adds D-ASM-1 binder, -2 join-as-preimage, -3 bag terminal, -4 LanceSpace + three-way harness, -5 ONA-shaped 64×u8 compound-term tenant, -6 rule catalogue as data, -7 mining seam reserved. `/5plus3` before non-probe code.
+
+- One Datalog AST as relalg values, two front ends (Hyperon's own `SExprParser`, `Narsese.rs`); atoms keep their meaning, `Space` is the only seam, execution beyond Datalog stays in Hyperon as the oracle.
+- No new byte without an insufficiency proof; multiplicity is a terminal; recursion is d′ outside the engine; argument-order of truth functions is an engine tag (OpenNARS vs ONA/PeTTa differ).
+- Kill conditions: dedup instead of bag; a differing answer re-pinned; a ported interpreter; any atom meaning changed.
 
 ## 2026-10-14 (2) — metta-polyfill-v1 — Hyperon/MeTTa as a front end over the masking-algebra polyfill → `.claude/plans/metta-polyfill-v1.md`
 

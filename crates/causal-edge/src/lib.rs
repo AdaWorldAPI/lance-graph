@@ -75,9 +75,9 @@ pub use syllogism::{Figure, Syllogism};
 #[cfg(feature = "causal-edge-v2-layout")]
 pub use layout::TrustTexture;
 
-// Additive factual/quantized lenses over the same TrustTexture (bits 59-60)
-// and spare (bits 61-63) registers — see layout.rs doc comments for the
-// full wire/ordinal/behavioural/provenance compatibility statement. No bits
-// move; these are new readings of existing storage, not a new layout.
+// The two coordinates of the epistemic ladder (`EpistemicState5`, bits
+// 59..63): `CausalTopology` on 59-60 (the same cells `TrustTexture` names in
+// MUL vocabulary) and the legacy `ReasoningBand` view of 61-63 — see
+// layout.rs doc comments for the compatibility statement. No bits move.
 #[cfg(feature = "causal-edge-v2-layout")]
 pub use layout::{CausalTopology, ReasoningBand};
