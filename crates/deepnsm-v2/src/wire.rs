@@ -15,7 +15,7 @@
 //! | 24..31 | frequency | `lance-graph-arm-discovery` [`arm_to_truth_u8`], rule `(S, P) → O` over independent verses: `f = cooccur / antecedent` |
 //! | 32..39 | confidence | the same: `c = cooccur / (cooccur + k)`, `k = 1` (the NAL horizon) |
 //! | 40..42 | Pearl ladder | the TEKAMOLO read: a Kausal lane stated on this event → `PO` (the claim sits at the intervention rung); otherwise `SO` (association) |
-//! | 43..45 | orientation / syntax | the clause path ([`Origin`]) as a code on [`ORIENTATION_MAP`]; `0` = untraced |
+//! | 43..45 | orientation / syntax | the Haspelmath function the relation is read in ([`orientation_code`]): the dative-map functions the clause's attested forms allow, narrowed by its TEKAMOLO lanes; `0` = plain core argument or undecided. The clause path ([`Origin`]) goes to the topology in 59..63 |
 //! | 46..49 | activation i4 | what this sentence's update caused: the change of the statement's arm frequency over the prior state, in eighths, clamped to `-8..=7`; `0` when the update changes nothing |
 //! | 50..52 | novelty → wisdom | the statement's rung after this update, `1` Staunen ..= `7` wisdom |
 //! | 53..58 | belief-state update | W slot into the cohort's [`WitnessTable`]: the entry that witnessed this statement's PRIOR state; `0` = first sighting or the prior is in another cohort |
@@ -128,7 +128,8 @@ use lance_graph_contract::witness_table::{WitnessEntry, WitnessTable};
 use crate::belief::{BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
 use crate::fsm::{parse_readings, parse_to_spo_traced, Origin, Pos, Reading, Tagged, Traced};
 use crate::haspelmath::{
-    continuity, run_harness, FormAttestation, FrozenOperandAbi, HarnessError, MapVerdict,
+    continuity, run_harness, DativeFunction, FormAttestation, FrozenOperandAbi, HarnessError,
+    MapVerdict,
 };
 use crate::spo::Spo;
 use crate::tekamolo::{read_clause, GrammarHeuristics, LaneAddress, ReadParams};
@@ -136,50 +137,48 @@ use crate::tekamolo::{read_clause, GrammarHeuristics, LaneAddress, ReadParams};
 /// The TEKAMOLO lane index of Kausal, in Te-Ka-Mo-Lo order.
 pub const KAUSAL_LANE: usize = 1;
 
-/// The orientation code of a clause path (bits 43..45). `0` is reserved for
-/// "untraced", so a zero field never claims a path.
+/// The orientation code of a Haspelmath function (bits 43..45): the
+/// function the relation is read in, on the dative semantic map
+/// (Haspelmath 2003, Fig. 8.1). `0` is the plain core argument (no dative-map
+/// function); `1..=7` are the seven functions below. `Judicantis` has no code.
 #[must_use]
-pub const fn orientation_code(origin: Origin) -> u8 {
-    match origin {
-        Origin::Main => 1,
-        Origin::Carried => 2,
-        Origin::SubjRelative => 3,
-        Origin::ObjRelative => 4,
+pub const fn orientation_code(f: DativeFunction) -> Option<u8> {
+    match f {
+        DativeFunction::Direction => Some(1),
+        DativeFunction::Recipient => Some(2),
+        DativeFunction::Experiencer => Some(3),
+        DativeFunction::Purpose => Some(4),
+        DativeFunction::Beneficiary => Some(5),
+        DativeFunction::PredicativePossessor => Some(6),
+        DativeFunction::ExternalPossessor => Some(7),
+        DativeFunction::Judicantis => None,
     }
 }
 
-/// The syntactic-function map: for each code `0..=4`, its neighbours as a
-/// bitmask over codes (bit `c` = code `c`). Code 0 is on no map.
-pub const ORIENTATION_MAP: [u8; 5] = [
+/// The function an orientation code names; `None` for `0` (core argument)
+/// and anything above 7.
+#[must_use]
+pub const fn orientation_function(code: u8) -> Option<DativeFunction> {
+    match code {
+        1 => Some(DativeFunction::Direction),
+        2 => Some(DativeFunction::Recipient),
+        3 => Some(DativeFunction::Experiencer),
+        4 => Some(DativeFunction::Purpose),
+        5 => Some(DativeFunction::Beneficiary),
+        6 => Some(DativeFunction::PredicativePossessor),
+        7 => Some(DativeFunction::ExternalPossessor),
+        _ => None,
+    }
+}
+
+/// TEKAMOLO lanes that select a dative-map function when a form is
+/// multifunctional: Kausal (final reading) → Purpose, Lokal → Direction.
+const LANE_FUNCTION: [u8; 4] = [
     0,
-    (1 << 2) | (1 << 3), // Main: Carried, SubjRelative
-    1 << 1,              // Carried: Main
-    (1 << 1) | (1 << 4), // SubjRelative: Main, ObjRelative
-    1 << 3,              // ObjRelative: SubjRelative
+    DativeFunction::Purpose.bit(),
+    0,
+    DativeFunction::Direction.bit(),
 ];
-
-/// Is a set of orientation codes (bitmask over codes `1..=4`) one connected
-/// region of [`ORIENTATION_MAP`]? The empty set, and any set containing code
-/// 0 or a code above 4, is not.
-#[must_use]
-pub fn orientation_contiguous(codes: u8) -> bool {
-    if codes == 0 || codes & 1 != 0 || codes >> 5 != 0 {
-        return false;
-    }
-    let mut seen = 1u8 << codes.trailing_zeros();
-    loop {
-        let mut next = seen;
-        for (c, links) in ORIENTATION_MAP.iter().enumerate() {
-            if seen & (1 << c) != 0 {
-                next |= links & codes;
-            }
-        }
-        if next == seen {
-            return seen == codes;
-        }
-        seen = next;
-    }
-}
 
 /// Rows per witness cohort: slots `1..=63` of a `WitnessTable<64>`.
 pub const COHORT_ROWS: usize = 63;
@@ -290,6 +289,16 @@ pub struct WireReport {
     pub contests: usize,
     /// Dependent observations (a verse already counted).
     pub dependent: usize,
+    /// Rows whose orientation names a dative-map function.
+    pub orientation_coded: usize,
+    /// Rows left at 0 because the forms allow several functions.
+    pub orientation_ambiguous: usize,
+    /// Rows whose one function has no code (Judicantis).
+    pub orientation_unrepresented: usize,
+    /// Rows whose Quorum locus points at an agreeing row.
+    pub quorum_bound: usize,
+    /// Rows whose Contradiction locus points at a disagreeing row.
+    pub contradiction_bound: usize,
     /// Observations the gate suspended: a contradiction with no new
     /// independent root (`ContradictionPreserved`). Nothing is counted.
     pub suspended: usize,
@@ -475,9 +484,9 @@ impl Group {
 
     /// Whether `object` is part of this group's preserved tension.
     fn contested(&self, object: u16) -> bool {
-        self.claims
-            .get(&object)
-            .is_some_and(|&c| c < GATE_BITS && self.horizon.unresolved_tension.intersects(&gate_bit(c)))
+        self.claims.get(&object).is_some_and(|&c| {
+            c < GATE_BITS && self.horizon.unresolved_tension.intersects(&gate_bit(c))
+        })
     }
 }
 
@@ -722,11 +731,21 @@ pub fn wire(
                     Origin::SubjRelative => tr.spo.subject,
                     _ => tr.spo.object,
                 };
-                let matrix = t.iter().enumerate().skip(k + 1).find(|(_, m)| {
-                    m.sentence == tr.sentence
-                        && !m.origin.is_relative()
-                        && m.spo.subject == ante_word
-                });
+                // Test every matrix event of the sentence within the i4 reach,
+                // before or after the relative clause, nearest first (the
+                // earlier one on a tie); the antecedent noun may be the
+                // matrix subject or object.
+                let matrix = t
+                    .iter()
+                    .enumerate()
+                    .filter(|(j, m)| {
+                        *j != k
+                            && m.sentence == tr.sentence
+                            && !m.origin.is_relative()
+                            && (m.spo.subject == ante_word || m.spo.object == ante_word)
+                            && offset(k, *j).is_some()
+                    })
+                    .min_by_key(|(j, _)| (j.abs_diff(k), *j > k));
                 match matrix.and_then(|(j, _)| offset(k, j)) {
                     Some(o) => {
                         rows[first + k].loci = rows[first + k].loci.with(Locus::Antecedent, o);
@@ -752,6 +771,69 @@ pub fn wire(
                     rows[first + k].loci = rows[first + k].loci.with(Locus::ALL[lane], o);
                     rep.tekamolo_loci += 1;
                 }
+            }
+        }
+
+        // Orientation: the dative-map functions of the forms attested inside
+        // each traced clause span, narrowed by the row's TEKAMOLO lanes.
+        let mut undecided = vec![false; n];
+        if let Some(t) = traced.as_ref() {
+            for (k, tr) in t.iter().enumerate() {
+                // The clause span: after the previous triple of the same
+                // sentence, never before the sentence's own start.
+                let sentence_start = verse.readings[..tr.closed_at]
+                    .iter()
+                    .rposition(|r| r.pos.contains(Pos::Stop))
+                    .map_or(0, |i| i + 1);
+                let start = t[..k]
+                    .iter()
+                    .rev()
+                    .find(|p| p.sentence == tr.sentence)
+                    .map_or(sentence_start, |p| (p.closed_at + 1).max(sentence_start));
+                let span = &verse.readings
+                    [start.min(tr.closed_at)..=tr.closed_at.min(verse.readings.len() - 1)];
+                let mut f = 0u8;
+                for r in span {
+                    for a in verse.forms.iter().filter(|a| a.word == r.id) {
+                        f |= a.functions;
+                    }
+                }
+                let lanes = rows[first + k]
+                    .tekamolo
+                    .iter()
+                    .enumerate()
+                    .fold(
+                        0u8,
+                        |m, (l, a)| {
+                            if a.is_some() {
+                                m | LANE_FUNCTION[l]
+                            } else {
+                                m
+                            }
+                        },
+                    );
+                if f & lanes != 0 {
+                    f &= lanes;
+                }
+                let code = match f.count_ones() {
+                    0 => 0,
+                    1 => {
+                        let func = DativeFunction::ALL[f.trailing_zeros() as usize];
+                        orientation_code(func).unwrap_or_else(|| {
+                            rep.orientation_unrepresented += 1;
+                            0
+                        })
+                    }
+                    _ => {
+                        rep.orientation_ambiguous += 1;
+                        undecided[k] = true;
+                        0
+                    }
+                };
+                if code != 0 {
+                    rep.orientation_coded += 1;
+                }
+                rows[first + k].edge.set_direction(code);
             }
         }
 
@@ -808,8 +890,12 @@ pub fn wire(
         for (k, row) in rows[first..].iter_mut().enumerate() {
             let spo = row.spo;
             let causal = row.tekamolo[KAUSAL_LANE].is_some();
-            let resolved =
-                traced.is_some() && !ambiguous && !incomplete && !abstained && !unbound[k];
+            let resolved = traced.is_some()
+                && !ambiguous
+                && !incomplete
+                && !abstained
+                && !unbound[k]
+                && !undecided[k];
 
             let group = groups.entry((spo.subject, spo.predicate)).or_default();
             // The gate decides whether and in which sense this observation
@@ -842,8 +928,7 @@ pub fn wire(
             let balance_pos = 2 * pos > tot;
             // The activation this sentence causes: the change of the arm
             // frequency over the prior state (unknown prior = arm's own 128).
-            let f_prior =
-                arm_to_truth_u8(&rule(spo, pos_prior, tot_prior, vi as u32), 1).frequency;
+            let f_prior = arm_to_truth_u8(&rule(spo, pos_prior, tot_prior, vi as u32), 1).frequency;
             let f_now = arm_to_truth_u8(&rule(spo, pos, tot, (vi + 1) as u32), 1).frequency;
             let activation = eighths(i32::from(f_now) - i32::from(f_prior));
             if new_stmt {
@@ -886,7 +971,10 @@ pub fn wire(
             };
             // Register this row's witness; W points at the prior row's entry.
             let row_ix = first + k;
-            let (cohort, slot) = ((row_ix / COHORT_ROWS) as u32, (1 + row_ix % COHORT_ROWS) as u8);
+            let (cohort, slot) = (
+                (row_ix / COHORT_ROWS) as u32,
+                (1 + row_ix % COHORT_ROWS) as u8,
+            );
             if witnesses.len() <= cohort as usize {
                 witnesses.push(WitnessTable::new());
             }
@@ -925,7 +1013,6 @@ pub fn wire(
             edge.set_frequency_u8(truth.frequency);
             edge.set_confidence_u8(truth.confidence);
             edge.set_causal_mask(pearl);
-            edge.set_direction(row.origin.map_or(0, orientation_code));
             row.edge = edge
                 .with_activation(activation)
                 .with_novelty_wisdom(st.rung)
@@ -937,6 +1024,35 @@ pub fn wire(
             row.revision = delta.map(|d| d.kind);
         }
         rep.rows = rows.len();
+    }
+    // Quorum and Contradiction loci over the whole row stream (a text is one
+    // Markov chain): the nearest row within the i4 reach with the same
+    // (S, P) and the same object agrees, with another object disagrees. The
+    // contradiction is kept as a pointer, never dropped.
+    for i in 0..rows.len() {
+        let me = rows[i].spo;
+        let near = |same: bool| {
+            (i.saturating_sub(8)..(i + 8).min(rows.len()))
+                .filter(|&j| j != i && offset(i, j).is_some())
+                .filter(|&j| {
+                    let o = rows[j].spo;
+                    o.subject == me.subject
+                        && o.predicate == me.predicate
+                        && (o.object == me.object) == same
+                })
+                .min_by_key(|&j| (j.abs_diff(i), j > i))
+        };
+        let (agree, disagree) = (near(true), near(false));
+        if let Some(j) = agree {
+            rows[i].loci = rows[i].loci.with(Locus::Quorum, offset(i, j).unwrap());
+            rep.quorum_bound += 1;
+        }
+        if let Some(j) = disagree {
+            rows[i].loci = rows[i]
+                .loci
+                .with(Locus::Contradiction, offset(i, j).unwrap());
+            rep.contradiction_bound += 1;
+        }
     }
     Ok(Wired {
         rows,
@@ -961,6 +1077,8 @@ mod tests {
     const SAW: u16 = 21;
     const THE: u16 = 30;
     const WHO: u16 = 31;
+    const TO: u16 = 32;
+    const THERE: u16 = 33;
 
     fn one(id: u16, pos: Pos) -> Reading {
         Reading::new(id, PosSet::single(pos))
@@ -978,7 +1096,7 @@ mod tests {
     }
 
     fn abi() -> FrozenOperandAbi {
-        FrozenOperandAbi::new(1, &[DOG, MAN, CAT, BIT, SAW, THE, WHO]).unwrap()
+        FrozenOperandAbi::new(1, &[DOG, MAN, CAT, BIT, SAW, THE, WHO, TO, THERE]).unwrap()
     }
 
     fn run(verses: &[Vec<Reading>]) -> (Vec<WiredRow>, WireReport) {
@@ -998,26 +1116,28 @@ mod tests {
         EpistemicState5::decode(Epi5Gen::V1, e.epistemic_raw5()).unwrap()
     }
 
+    /// The seven listed functions round-trip through codes 1..=7; code 0 is
+    /// the plain core argument; Judicantis has no code.
     #[test]
-    fn orientation_map_is_contiguous_where_the_hierarchy_is() {
-        let b = |c: u8| 1u8 << c;
-        assert!(orientation_contiguous(b(1) | b(2)));
-        assert!(orientation_contiguous(b(1) | b(3) | b(4)));
-        assert!(
-            !orientation_contiguous(b(1) | b(4)),
-            "Main–ObjRelative skips SubjRelative"
+    fn orientation_codes_round_trip() {
+        for f in DativeFunction::ALL {
+            match orientation_code(f) {
+                Some(c) => assert_eq!(orientation_function(c), Some(f)),
+                None => assert_eq!(f, DativeFunction::Judicantis),
+            }
+        }
+        let codes: Vec<u8> = DativeFunction::ALL
+            .iter()
+            .filter_map(|&f| orientation_code(f))
+            .collect();
+        assert_eq!(
+            codes,
+            [1, 2, 3, 4, 5, 6, 7],
+            "all seven non-zero states used"
         );
-        assert!(
-            !orientation_contiguous(b(2) | b(3)),
-            "Carried–SubjRelative only via Main"
-        );
-        assert!(!orientation_contiguous(0));
-        assert!(!orientation_contiguous(b(0) | b(1)));
+        assert_eq!(orientation_function(0), None);
     }
 
-    /// Can fire: three independent verses climb `dog bit man` to rung 3 with
-    /// arm truth f=1, c=3/4, Related. Only the first verse moves `f` (from the
-    /// unknown 128 to 255), so only it activates.
     #[test]
     fn independent_corroboration_climbs_the_ladder() {
         let v = vec![svo(DOG, BIT, MAN); 3];
@@ -1027,11 +1147,15 @@ mod tests {
         assert_eq!(last.frequency_u8(), 255);
         assert_eq!(last.confidence_u8(), (3 * 255 / 4) as u8);
         let acts: Vec<i8> = rows.iter().map(|r| r.edge.activation()).collect();
-        assert_eq!(acts, [4, 0, 0], "a repeat of a settled belief changes nothing");
+        assert_eq!(
+            acts,
+            [4, 0, 0],
+            "a repeat of a settled belief changes nothing"
+        );
         assert_eq!(last.novelty_wisdom(), 3);
         assert_eq!(epi(last).certification(), Certification3::Related);
         assert_eq!(epi(last).topology(), Topology2::Direct);
-        assert_eq!(last.direction(), orientation_code(Origin::Main));
+        assert_eq!(last.direction(), 0, "no attested form: plain core argument");
         assert_eq!(last.causal_mask(), CausalMask::SO);
         // The rows of one statement are its time series.
         let rungs: Vec<u8> = rows.iter().map(|r| r.edge.novelty_wisdom()).collect();
@@ -1062,7 +1186,7 @@ mod tests {
     /// A contest drops the rival back to Staunen; the activation is the change
     /// of the row's own frequency, and the climb waits for a positive balance.
     #[test]
-    fn a_contest_resets_the_rival_and_presses_down() {
+    fn a_contest_is_counted_and_the_balance_decides_the_climb() {
         let v = vec![
             svo(DOG, BIT, MAN),
             svo(DOG, BIT, MAN),
@@ -1130,8 +1254,15 @@ mod tests {
         assert_eq!(cat.antecedent, 1, "the group counts its one source once");
         assert!(cat.contested);
         assert_eq!(w.witnesses[0].get(2).unwrap().spo_fact_ref, None);
-        let cat_stmt = CStmt { s: DOG, cop: Copula::Rel(BIT), p: CAT };
-        assert!(w.facts.get(cat_stmt).is_none(), "the arena never counted it");
+        let cat_stmt = CStmt {
+            s: DOG,
+            cop: Copula::Rel(BIT),
+            p: CAT,
+        };
+        assert!(
+            w.facts.get(cat_stmt).is_none(),
+            "the arena never counted it"
+        );
         // A later independent man verse fuses (the tension is still live).
         assert_eq!(w.rows[2].revision, Some(RevisionKind::HorizonFusion));
         assert_eq!(w.rows[2].support, 2);
@@ -1171,12 +1302,20 @@ mod tests {
             let vi = (e.mailbox_ref - 1) as usize;
             verses.push(vi);
             facts.push(e.spo_fact_ref.unwrap());
-            let prior = w.rows.iter().find(|r| r.verse == vi && r.spo.object == MAN).unwrap();
+            let prior = w
+                .rows
+                .iter()
+                .find(|r| r.verse == vi && r.spo.object == MAN)
+                .unwrap();
             slot = prior.edge.w_slot();
         }
         assert_eq!(verses, [4, 2, 0], "newest to oldest, cat rows skipped");
         assert!(facts.windows(2).all(|p| p[0] == p[1]), "one statement");
-        let cat_fact = table.get(w.rows[3].edge.w_slot()).unwrap().spo_fact_ref.unwrap();
+        let cat_fact = table
+            .get(w.rows[3].edge.w_slot())
+            .unwrap()
+            .spo_fact_ref
+            .unwrap();
         assert_ne!(cat_fact, facts[0], "the rival is its own arc");
         assert_eq!(w.report.arc_breaks, 0);
     }
@@ -1188,7 +1327,10 @@ mod tests {
         let v = vec![svo(DOG, BIT, MAN); COHORT_ROWS + 2];
         let w = run_wired(&v);
         assert_eq!(w.witnesses.len(), 2);
-        assert_eq!(w.rows[COHORT_ROWS - 1].edge.w_slot(), (COHORT_ROWS - 1) as u8);
+        assert_eq!(
+            w.rows[COHORT_ROWS - 1].edge.w_slot(),
+            (COHORT_ROWS - 1) as u8
+        );
         assert_eq!(w.rows[COHORT_ROWS].cohort, 1);
         assert_eq!(w.rows[COHORT_ROWS].edge.w_slot(), 0, "prior is in cohort 0");
         assert_eq!(w.rows[COHORT_ROWS + 1].edge.w_slot(), 1);
@@ -1223,8 +1365,8 @@ mod tests {
         }
     }
 
-    /// A subject relative gets its orientation code and an Antecedent pointer
-    /// to the matrix event; topology IndirectKnown.
+    /// A subject relative gets an Antecedent pointer to the matrix event;
+    /// topology IndirectKnown. With no attested form, orientation stays 0.
     #[test]
     fn subject_relative_points_at_its_matrix_event() {
         // the dog who bit the man saw the cat
@@ -1242,7 +1384,7 @@ mod tests {
         let (rows, rep) = run(&[v]);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].origin, Some(Origin::SubjRelative));
-        assert_eq!(rows[0].edge.direction(), 3);
+        assert_eq!(rows[0].edge.direction(), 0);
         assert_eq!(rows[0].loci.at(Locus::Antecedent), 1);
         assert_eq!(rep.antecedent_bound, 1);
         assert_eq!(epi(rows[0].edge).topology(), Topology2::IndirectKnown);
@@ -1251,6 +1393,155 @@ mod tests {
             0,
             "matrix event has no pointer"
         );
+    }
+
+    /// Right corner: `the cat bit the man who saw the dog`. The antecedent
+    /// `man` is the matrix OBJECT and the matrix event comes FIRST, so the
+    /// pointer goes back (-1).
+    #[test]
+    fn an_antecedent_behind_the_relative_is_found() {
+        let v = vec![
+            one(THE, Pos::Det),
+            one(CAT, Pos::Noun),
+            one(BIT, Pos::Verb),
+            one(THE, Pos::Det),
+            one(MAN, Pos::Noun),
+            one(WHO, Pos::Rel),
+            one(SAW, Pos::Verb),
+            one(THE, Pos::Det),
+            one(DOG, Pos::Noun),
+        ];
+        let (rows, rep) = run(&[v]);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].spo, Spo::new(CAT, BIT, MAN));
+        assert!(rows[1].origin.is_some_and(Origin::is_relative));
+        assert_eq!(rows[1].loci.at(Locus::Antecedent), -1);
+        assert_eq!((rep.antecedent_bound, rep.antecedent_unbound), (1, 0));
+    }
+
+    fn form(word: u16, fs: &[DativeFunction]) -> FormAttestation {
+        FormAttestation {
+            word,
+            functions: fs.iter().fold(0, |m, f| m | f.bit()),
+            coverage_complete: true,
+            evidence_root: 7,
+        }
+    }
+
+    /// `the dog gave to the man`: the form `to` inside the clause decides the
+    /// orientation when it allows one function, abstains (0, undecided) when
+    /// it allows several, and the code stays out of a clause that lacks it.
+    #[test]
+    fn the_attested_form_sets_the_orientation() {
+        let gave_to = |extra: Vec<Reading>| {
+            let mut v = vec![
+                one(THE, Pos::Det),
+                one(DOG, Pos::Noun),
+                one(BIT, Pos::Verb),
+                one(TO, Pos::Other),
+            ];
+            v.extend([one(THE, Pos::Det), one(MAN, Pos::Noun)]);
+            v.extend(extra);
+            v
+        };
+        let run_forms = |v: Vec<Reading>, forms: Vec<FormAttestation>| {
+            wire(
+                &[(1, 1)],
+                &[VerseIn {
+                    readings: v,
+                    forms,
+                    ..VerseIn::default()
+                }],
+                1,
+                &abi(),
+                None,
+                ReadParams::RIGHT_CORNER,
+            )
+            .unwrap()
+        };
+        let w = run_forms(
+            gave_to(vec![]),
+            vec![form(TO, &[DativeFunction::Recipient])],
+        );
+        assert_eq!(w.rows[0].edge.direction(), 2, "Recipient");
+        assert_eq!(w.report.orientation_coded, 1);
+        let w = run_forms(
+            gave_to(vec![]),
+            vec![form(
+                TO,
+                &[DativeFunction::Direction, DativeFunction::Recipient],
+            )],
+        );
+        assert_eq!(w.rows[0].edge.direction(), 0);
+        assert_eq!(w.report.orientation_ambiguous, 1);
+        // A second clause without the form stays at 0.
+        let mut second = vec![Reading::stop()];
+        second.extend(svo(CAT, SAW, DOG));
+        let w = run_forms(
+            gave_to(second),
+            vec![form(TO, &[DativeFunction::Recipient])],
+        );
+        assert_eq!(w.rows.len(), 2);
+        assert_eq!(
+            w.rows[1].edge.direction(),
+            0,
+            "the form is in the other clause"
+        );
+    }
+
+    /// A Lokal lane on the clause narrows a multifunctional form to
+    /// Direction; without the lane the same form stays undecided.
+    #[test]
+    fn a_lokal_lane_narrows_the_form_to_direction() {
+        let h =
+            GrammarHeuristics::parse("# lane\tlemma\trelation\tcount\nLokal\tdort\tadvmod\t10\n");
+        let readings = vec![
+            one(THE, Pos::Det),
+            one(DOG, Pos::Noun),
+            one(BIT, Pos::Verb),
+            one(TO, Pos::Other),
+            one(THE, Pos::Det),
+            one(MAN, Pos::Noun),
+            one(THERE, Pos::Other),
+        ];
+        let surface = vec!["the", "dog", "bit", "to", "the", "man", "dort"];
+        let forms = vec![form(
+            TO,
+            &[DativeFunction::Direction, DativeFunction::Recipient],
+        )];
+        let ins = [VerseIn {
+            readings,
+            surface,
+            forms,
+            ..VerseIn::default()
+        }];
+        let w = wire(
+            &[(1, 1)],
+            &ins,
+            1,
+            &abi(),
+            Some(&h),
+            ReadParams::RIGHT_CORNER,
+        )
+        .unwrap();
+        assert!(w.rows[0].tekamolo[3].is_some(), "the Lokal lane landed");
+        assert_eq!(w.rows[0].edge.direction(), 1, "Direction");
+        let w = wire(&[(1, 1)], &ins, 1, &abi(), None, ReadParams::RIGHT_CORNER).unwrap();
+        assert_eq!(w.rows[0].edge.direction(), 0, "no lane: undecided");
+    }
+
+    /// Quorum points at the nearest agreeing row, Contradiction at the
+    /// nearest disagreeing one; across verses, the earlier one on a tie.
+    #[test]
+    fn quorum_and_contradiction_point_at_peers() {
+        let v = vec![svo(DOG, BIT, MAN), svo(DOG, BIT, CAT), svo(DOG, BIT, MAN)];
+        let (rows, rep) = run(&v);
+        assert_eq!(rows[2].loci.at(Locus::Quorum), -2);
+        assert_eq!(rows[2].loci.at(Locus::Contradiction), -1);
+        assert_eq!(rows[1].loci.at(Locus::Contradiction), -1, "tie: the prior");
+        assert_eq!(rows[1].loci.at(Locus::Quorum), 0, "no other cat row");
+        assert_eq!(rows[0].loci.at(Locus::Quorum), 2);
+        assert_eq!((rep.quorum_bound, rep.contradiction_bound), (2, 3));
     }
 
     /// An ambiguous token leaves the verse untraced: orientation 0, topology
