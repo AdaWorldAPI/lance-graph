@@ -47,33 +47,49 @@ Two fields written by `wire.rs` already have other readers with other meanings:
 So a wire edge handed to `CausalNetwork` would read code 1 (Direction) as
 "S pathological", and one handed to the mailbox would read activation +4 as a NARS
 rule. Today wire edges go only to the probe. **They must not go anywhere else
-before D-CGW-1.**
+before D-CGW-1.** Under the contract rule (D-CGW-1) this is not a reading mismatch
+to bind around: these are contract violations by `wire.rs`, to be fixed by
+amending the contract (43..45) or by `wire.rs` conforming (46..49).
 
 ## 2. Work items
 
 Each item lists: goal; tests to write first (can fire + stays silent, non-trivial
 inputs); files; dependencies; the decision it needs, if any.
 
-### D-CGW-1 — versioned reading binding for 43..45 and 46..49
+### D-CGW-1 — one global meaning per CE64 field, held in the contract
 
-- **Goal.** A wire edge declares which reading its bits carry, and every reader
-  refuses a reading it does not implement. `ce64-semantic-upper-half.md`
-  §"Encoding, reading, operation": readings are told apart by a versioned binding,
-  never inferred. `I-LEGACY-API-FEATURE-GATED` applies.
-- **Tests first.**
-  - A triad reader (`s_pathological`, `CausalNetwork`) given an edge bound to the
-    grammar reading refuses it (error / `None`), and still reads a triad-bound edge.
-  - A mantissa reader (`pearl.rs` dispatch, `chain_counterfactual`, `mailbox_soa`)
-    refuses a grammar-bound edge; the −6 counterfactual tag still round-trips on a
-    mantissa-bound edge.
-  - Field-isolation matrix over bits 43..49 for both readings.
-- **Files.** `causal-edge/src/{edge.rs,layout.rs,v2_layout_tests.rs}`; the binding
-  site (where an edge's reading is known: the tenant's ClassView, not a new bit);
-  `docs/architecture/ce64-semantic-upper-half.md` (the "code today" column).
-- **Decision.** Where the binding lives. Options: (a) the tenant / ClassView of the
-  row that holds the edge; (b) a field outside the edge. A bit inside the edge is
-  excluded (no free bit). Recommendation: (a), because a reading is a property of
-  the class that holds the register.
+> ⊘ **Superseded 2026-10-16, same day:** the first version of this item was a
+> per-tenant "versioned reading binding" for 43..45 and 46..49. That is wrong.
+> CE64 is an ISA wire format, like TCP/IP or BF16: every field has one meaning
+> everywhere, fixed by the contract, and nothing interprets it per tenant or per
+> edge. The mantissa bits are law. Like GMT, the edge is the fixed point every
+> reading is measured against, so it carries no qualia of its own: qualia and
+> other readings sit beside it (the row's qualia register), never inside it.
+
+- **Rule.** The meaning of each field lives once, in the `causal-edge` contract
+  (`layout.rs`, the `edge.rs` accessors, and `docs/architecture/ce64-semantic-upper-half.md`).
+  Every writer conforms to it, `wire.rs` included. A field changes meaning only by
+  amending the contract once, with every reader migrated in the same change
+  (`I-LEGACY-API-FEATURE-GATED`).
+- **Where `wire.rs` breaks it today.**
+  - 43..45: the contract says S/P/O pathology triad; `wire.rs` writes the
+    Haspelmath function. The operator ruled 43..45 = orientation / syntax
+    (Haspelmath for text). So the contract is amended to orientation, and the
+    triad's readers (`*_pathological`, `concern_level`, `network.rs` Simpson
+    check, `compose`) migrate or move their signal elsewhere.
+  - 46..49: the contract says inference mantissa, which the ISA executes
+    (+6 Intervention, −6 Counterfactual, NARS rule index). `wire.rs` writes
+    activation there. Because the mantissa is law, activation cannot share these
+    bits; see D-CGW-9.
+- **Tests first.** For each amended field: the contract accessor, a writer and
+  every migrated reader agree on one table of codes; the field-isolation matrix
+  over 43..49; a reader of the old meaning that is not migrated fails to compile
+  (the accessor is renamed), never silently misreads.
+- **Files.** `causal-edge/src/{layout.rs,edge.rs,network.rs,v2_layout_tests.rs}`,
+  the readers listed in §1, `ce64-semantic-upper-half.md`.
+- **Open.** Moore for non-verbal Cartesian data and Haspelmath for text are two
+  code tables for 43..45. Under one global meaning they must be one table, or
+  orientation needs a code space both share.
 
 ### D-CGW-2 — frequency-ranked default, antecedent-tested promotion of the alternative reading
 
@@ -187,14 +203,22 @@ inputs); files; dependencies; the decision it needs, if any.
   palette and resolve through the identity rails; changing 0..23 breaks every ISA
   reader.
 
-### D-CGW-9 — bits 46..49 ownership (activation vs inference mantissa)
+### D-CGW-9 — bits 46..49: the inference mantissa is law; where does activation go?
 
-- **Goal.** Settle D-CGW-1's second half: either activation keeps 46..49 under the
-  grammar binding and counterfactuals live only in their own lanes, or activation
-  moves. Approved direction (2026-10-16 table, row 6): activation owns the bits for
-  grammar-bound edges; the counterfactual lane is separate by design.
-- **Tests first.** `deposit_counterfactual` on a grammar-bound edge is refused;
-  on a mantissa-bound edge unchanged.
+- **Contract.** 46..49 is the inference mantissa the ISA executes. It keeps that
+  meaning globally (D-CGW-1).
+- **Consequence for `wire.rs`.** Writing activation into 46..49 contradicts the
+  contract. Until the contract gives activation a field, `wire.rs` must write the
+  mantissa (or nothing) there and keep activation outside the edge (the row, or a
+  lane beside it).
+- **Supersedes** the row-6 direction of the 2026-10-16 table ("activation owns the
+  bits for grammar-bound edges"), which assumed per-tenant readings.
+- **Tests first.** Every edge `wire.rs` emits decodes through the ISA mantissa
+  decoder as the inference it states; activation is read from its own home and
+  equals the frequency change.
+- **Decision.** Where activation lives: a row field beside the edge, or an amended
+  contract field. Recommendation: a row field until the contract is amended,
+  because no 4-bit field of the edge is free.
 
 ### D-CGW-10 — the clause-path → orientation correction downstream
 
