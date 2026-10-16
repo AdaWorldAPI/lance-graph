@@ -848,7 +848,7 @@ mod tests {
     #[test]
     fn p1_gallop_edges() {
         let k = [1u32, 3, 5, 7];
-        assert_eq!(gallop_partition_point(&k, 0, |&x| x < 0), 0);
+        assert_eq!(gallop_partition_point(&k, 0, |&x| x < 1), 0);
         assert_eq!(gallop_partition_point(&k, 0, |&x| x < 100), 4);
         assert_eq!(gallop_partition_point(&k, 2, |&x| x < 6), 3);
         assert_eq!(gallop_partition_point(&k, 4, |&x| x < 100), 4);

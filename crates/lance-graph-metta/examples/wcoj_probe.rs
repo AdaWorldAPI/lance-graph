@@ -250,7 +250,10 @@ fn bag_datafrog(r: &[(u32, u32)], s: &[(u32, u32)], dedup: bool) -> BTreeMap<(u3
 }
 
 /// n:m facts with duplicates (a bag), and an n:1 set with none.
-fn bag_fixtures() -> [(Vec<(u32, u32)>, Vec<(u32, u32)>, bool); 2] {
+/// `(R, S, has_duplicates)`.
+type BagFixture = (Vec<(u32, u32)>, Vec<(u32, u32)>, bool);
+
+fn bag_fixtures() -> [BagFixture; 2] {
     let mut r = Vec::new();
     let mut s = Vec::new();
     for x in 0..40u32 {
@@ -294,6 +297,15 @@ fn main() {
             exact.len(),
             want.len(),
             tri.n
+        );
+    }
+    for (r, s, dup) in bag_fixtures() {
+        let brute = bag_brute(&r, &s);
+        println!(
+            "bag (duplicates={dup}): {} keys, total multiplicity {}, datafrog+counts agrees: {}",
+            brute.len(),
+            brute.values().sum::<u64>(),
+            bag_datafrog(&r, &s, false) == brute
         );
     }
 }
