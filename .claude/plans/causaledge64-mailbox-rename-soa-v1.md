@@ -58,6 +58,14 @@ Every cognitive-state category has **two forms**: an architectural (cold, unboun
 
 One physical field. Four consumer lenses. `lance-graph-contract::mul::TrustTexture` becomes the canonical 2-bit form; planner MUL `GateDecision` is a projection; Wisdom/Staunen are projections; `thinking-engine::qualia` Staunen depth maps to the same 2 bits.
 
+> ⊘ **Corrected 2026-10-16 (#1574, DECISION 2026-10-15).** The table above
+> is superseded. Bits 59..60 are the topology coordinate under two
+> vocabularies (`Crystalline`/`Direct`, `Solid`/`IndirectKnownIntermediates`,
+> `Fuzzy`/`IndirectUnknownIntermediates`, `Murky`/`Unknown`); `Dissonant` and
+> "Contradiction depth" are not cells of this field. A contradiction is an
+> epistemic pothole the MUL reacts to (Compass). Current table:
+> `crates/causal-edge/src/layout.rs`, `TrustTexture` doc.
+
 **Closes**: `LATEST_STATE.md` "ThinkingStyle: 4 copies (contract canonical, not yet adopted)" — by reclaiming the canonical form via 8-bit-slot rename. Also closes `THINKING_ORCHESTRATION_WIRING.md` Gap 1 (Contract Not Consumed).
 
 **Why this is CPU-shaped:** the architectural ID space is unbounded; the physical slot space is bounded by attention working-set size. Eviction = "this domain/witness/style fell out of attention this session." Rebinding = "new domain entered the conversation; claim a free slot, evict LRU if needed." Per-session different rename tables = per-session different focus-of-attention. The session IS the binding. Two sessions with different rename tables interpret the same 5-bit G value as different domains — exactly how human cognitive context-switching works neurologically (re-binding attention to different active populations).

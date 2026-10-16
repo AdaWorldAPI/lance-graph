@@ -1,3 +1,8 @@
+## 2026-10-16 — main after #1578 (merged `1f5322fe`) and #1579 (merged `7302f58c`); ledger update in PR #1581
+
+- **On main:** #1578 (ledger revision after #1576, arc catch-up), #1579 (synergy map since 2026-10-11, ten STATUS rows set to Shipped, label codebook sizes measured), #1580 (hydrate: `zip` 2 → 9).
+- **In PR #1581:** ledger update deduplicated against #1579; DOC-WIRE (2) stale 59..60 prose corrected; N21 verified green. Docs only.
+
 ## 2026-10-16 — main after #1576 (merged `9a657bd3`); catch-up for #1560, #1570, #1571, #1574, #1575, #1576
 
 - **On main, not recorded here before:** #1560 (O22 `CounterfactualVerdict` producer, R1 test, ledger correction), #1570 (Haspelmath harness, frozen operand dictionary), #1571 (D-QPROF-0 `qualia_profile`, merged; the "in PR" section below is now on main), #1574 (59..60 one field, two vocabularies; mapping inventory; D-ASM-0), #1575 (D-HOLO H14d measured), #1576 (D-ASM-1..4 spec ratified, nothing authorized).
