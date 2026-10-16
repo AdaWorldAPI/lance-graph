@@ -164,9 +164,12 @@ must be found from `pack`'s call sites.
    D2 / H2 withdrawn with it.
 7. D-CGW-0 (#1591); Codex P2 ×2.
 8. #1544 and ndarray #364 closed unmerged (L6 done).
-9. Decisions given 2026-10-16: 43..45 amended in the contract to orientation
-   (readers migrated, own test-first PR); 46..49 stays the mantissa, activation
-   becomes a row field; OpenPSI modulators enter qualia, demands do not.
+9. Decisions taken 2026-10-16 (the decisions are closed; the work is not):
+   43..45 is to be amended in the contract to orientation, with the readers
+   migrated in its own test-first PR (H1, D-CGW-1, still Queued); 46..49 stays
+   the mantissa and activation is to become a row field (H2, D-CGW-9, Queued);
+   OpenPSI modulators are to enter qualia, demands not (D-CGW-14, Queued). The
+   `causal-edge` contract still exposes 43..45 as the S/P/O sign triad today.
 
 ### Low-hanging
 
