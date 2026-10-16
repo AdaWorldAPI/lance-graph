@@ -52,11 +52,15 @@
 # CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS, and `make publish` in
 # python/ sets RUSTFLAGS only on an x86_64 host. Note that the per-target
 # variable is JOINED with this file's entry, with `native` last (measured), so
-# it cannot pin a build that sees this file. Anything below v3 still SIGILLs on the
-# `simd_avx2` intrinsics, so never build with no target-cpu at all. A build with
-# no target-cpu takes ndarray's AVX2 arm, and that arm is kept only as the
-# validation oracle. Real builds go through the ndarray polyfill at a declared
-# tier once its arms are validated against that oracle: `native` for local and
+# it cannot pin a build that sees this file. Below v3 ndarray has two real
+# arms, each selected only by an explicit target-cpu: AVX without AVX2
+# (`simd_avx.rs`, ndarray `.cargo/config-avx.toml`) and x86-64-v2 (SSE4.2, no
+# AVX; `simd_scalar.rs`, `.cargo/config-v2.toml`). A build with NO target-cpu
+# gets neither: it compiles ndarray's AVX2 arm, which needs an AVX2 CPU, and
+# ndarray's startup `cpu_guard` refuses to start it on a CPU without AVX2
+# instead of letting it SIGILL. That arm is kept only as the validation
+# oracle, so do not ship a build with no target-cpu. Real builds go through
+# the ndarray polyfill at a declared tier once its arms are validated against that oracle: `native` for local and
 # host-bound builds, the explicit x86-64-v4 / `sapphirerapids` tier above for
 # shipped artifacts.
 #

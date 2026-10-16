@@ -175,7 +175,7 @@ must be found from `pack`'s call sites.
 | L1 | board records for #1590 and #1591 (arc + LATEST_STATE); D-CGW-1/-9/-14 rows record the decisions | lance-graph | rides the next PR |
 | L2 | narrow `simd.rs:1241` to "fused on every arm except wasm without `relaxed-simd`" and cfg the test, or fuse on wasm | ndarray | run the test on the wasm arm first |
 | L3 | lgj: say which tier the artifact is (host-bound `native` or shipped v4), fix the "ndarray pins v3" comment, call `check_build_cpu()` in the handshake | lance-graph-java | needs push approval |
-| L4 | `.cargo/config.toml:55-56`: name the avx/v2 arms so the sentence stops reading as "nothing below v3 exists" | lance-graph | doc only |
+| L4 | `.cargo/config.toml:55-56`: name the avx/v2 arms so the sentence stops reading as "nothing below v3 exists" | lance-graph | **done in this PR** |
 | L5 | STATUS rows: D-ASM-11A notes ndarray #364 closed unmerged | lance-graph | — |
 
 ### High-hanging (a session each)
