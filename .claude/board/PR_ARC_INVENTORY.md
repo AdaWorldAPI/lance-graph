@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1593 (merged `124eb6cf`, branch `ccr-9f3b8075-74u47l-synergy-1591`, head `526a0bc5`) — synergy map since #1579; config note reword; D-ARG-1..4 queued
+
+- **Added:** entry `2026-10-16-synergy-map-since-1579.md` (§1–§9: revision of every base point, CE64 vs identity/edge tenants and the 24×i4 loci, triangle join as presence-plane intersection); `.cargo/config.toml` note on the avx and v2 arms; STATUS rows D-CGW-13/14 and D-ARG-1..4.
+- **Locked:** none (board and a config comment).
+- **Deferred / open:** D-CGW-1 (in PR after this), D-CGW-9, D-CGW-14, D-ARG-1..4.
+- **Confidence:** board-index checks green; Codex P2 (contract migration presented as done) fixed in `b6f3f40a`.
+
 ## 2026-10-16 — lance-graph PR #1591 (merged `e53f2325`, branch `ccr-9f3b8075-74u47l-ce64-grammar-wiring`, head `cd1b1b3c`, 24 commits incl. a merge of main) — deepnsm-v2 wire: every CE64 field of a parsed triple from its source, Gadamer gate first; plan D-CGW-0..14
 
 - **Added:** `deepnsm_v2::wire` (verses → rows: F/C from the arm, Pearl from TEKAMOLO, 43..45 = Haspelmath dative function, W = the statement's Markov arc in `WitnessTable<64>`, epistemic state from the support balance, loci Antecedent / TEKAMOLO / Quorum / Contradiction); the Gadamer gate (`contract::revision`) admits before anything is counted; `DativeFunction::ALL`; `causal-edge` `activation` / `novelty_wisdom` accessors; probe `lance-graph-quack/examples/wired_reasoning_probe.rs` (741 rows, 0 rule violations); plan `ce64-grammar-wiring-v1.md`; entry `2026-10-16-grammar-coordinates-annotation-wiring.md` §10–11.
