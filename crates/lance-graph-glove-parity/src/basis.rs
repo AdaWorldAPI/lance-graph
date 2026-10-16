@@ -87,12 +87,12 @@ pub const SAP_FIELDS: &[FieldMap] = &[
     hyp(
         "project_code",
         "project",
-        "a PS element identifies a Project; optional, CatsBinder refuses it",
+        "a PS element identifies a Project; optional, bound through its validity plane",
     ),
     hyp(
         "task_code",
         "about",
-        "an order identifies a ProjectWorkItem; optional, CatsBinder refuses it",
+        "an order identifies a ProjectWorkItem; optional, bound through its validity plane",
     ),
     hyp(
         "hours_logged",

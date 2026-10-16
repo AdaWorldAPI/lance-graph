@@ -1,3 +1,7 @@
+## 2026-10-16 — CATS optional fields bind (branch `ccr-9f3b8075-74u47l-cats-validity`, in PR)
+
+`lance-graph-sap`: the six optional `U32` CATS fields bind through validity planes built at `CatsBatch::bind` (`OPTIONAL_CODE_FIELDS`, `validity_mask`, `CatsBatch::masks`), so `=` and `<>` drop NULL rows. Before this, `CatsBinder` refused them. U64 instants stay refused. Found in the bind-DTO synergy check (entry `2026-10-16-wcoj-probes-1-3.md`, #1587).
+
 ## 2026-10-16 — main after #1582 (merged `e08e5659`)
 
 - **On `main` (#1582):** the doc fixes and the OpenCog decisions listed in its arc entry. Nothing built.

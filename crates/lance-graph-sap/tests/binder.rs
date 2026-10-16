@@ -237,8 +237,8 @@ fn optional_fields_bind_three_valued_through_a_validity_plane() {
     use lance_graph_quack::bind::FieldRef;
     for n in [3, 64, 65, 200] {
         let mut input = mixed(n);
-        for i in 0..n {
-            input[6][i] = match i % 3 {
+        for (i, v) in input[6].iter_mut().enumerate() {
+            *v = match i % 3 {
                 0 => None, // NULL customer
                 1 => Some("0000000123"),
                 _ => Some("0000000456"),
