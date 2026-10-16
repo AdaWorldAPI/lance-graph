@@ -176,3 +176,21 @@ Not done, recorded so it is not lost:
 - The 144 verbs (`contract/src/grammar/verb_table.rs`, 12×12 in a 16×16
   space with TEKAMOLO slot priors) are not connected to the P code or the
   Pearl rung.
+
+## 8. Kausal claims through the belief arena; qualia separation measured
+
+- `wire` now returns `Wired { rows, report, facts, causes, events }`. Every
+  row is a unit observation `S –Rel(P)→ O` in a facts `BeliefArena`; every
+  `weil` claim a unit observation `cause ⇒ effect` (event terms) in a causes
+  arena, both stamped `Stamp::source(verse)`. `CausalCandidate` now requires
+  the implication to rest on ≥2 disjoint stamps; the per-statement
+  causal-verse counter is gone. Five disables red (causes stamp, facts stamp,
+  two sources, no self-implication, cause = stating event); the two-sources
+  test was vacuous until its fixture put the plain verse first.
+- Reasoning probe on 741 rows: 0 violations on R1–R5, 72 candidates, 201
+  implications, 138 pooled.
+- Qualia palette (#1571, 219 patches, PCS hundredths): nearest-neighbour L1
+  min 25, p10 50, median 90, max 250; no duplicates; 95 / 219 nearest
+  neighbours in the same family. So any PCS reading within L1 12 of a patch
+  decodes to that patch uniquely. A "3σ" statement needs the noise σ of a
+  reading, which is the unmeasured A2B side (`ISS-QUALIA-A2B-CLUT-UNMEASURED`).
