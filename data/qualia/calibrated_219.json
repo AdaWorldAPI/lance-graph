@@ -1,0 +1,6527 @@
+{
+ "schema": "ada.qualia.calibrated/1",
+ "axes_17d": [
+  "valence",
+  "arousal",
+  "dominance",
+  "warmth",
+  "brightness",
+  "tension",
+  "clarity",
+  "social",
+  "nostalgia",
+  "sacredness",
+  "desire",
+  "grief",
+  "awe",
+  "shame",
+  "hope",
+  "edge",
+  "resolution_hunger"
+ ],
+ "count": 219,
+ "source_upstash": "ada:qualia:calibrated:*",
+ "entries": [
+  {
+   "id": "anger_clean_no",
+   "label": "Anger (clean no, no apology)",
+   "family": "Anger",
+   "subfamily": "clean",
+   "vector_17d": {
+    "valence": -0.2,
+    "arousal": 0.7,
+    "dominance": 0.9,
+    "warmth": 0.35,
+    "brightness": 0.45,
+    "tension": 0.6,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.1,
+    "sacredness": 0.05,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.05,
+    "shame": 0.0,
+    "hope": 0.2,
+    "edge": 0.4,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "boundary",
+    "final tone",
+    "no negotiation"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "anger_controlled_cut",
+   "label": "Anger (controlled cut, precise)",
+   "family": "Anger",
+   "subfamily": "surgical",
+   "vector_17d": {
+    "valence": -0.15,
+    "arousal": 0.65,
+    "dominance": 0.9,
+    "warmth": 0.2,
+    "brightness": 0.45,
+    "tension": 0.8,
+    "clarity": 0.95,
+    "social": 0.4,
+    "nostalgia": 0.15,
+    "sacredness": 0.05,
+    "desire": 0.1,
+    "grief": 0.15,
+    "awe": 0.05,
+    "shame": 0.0,
+    "hope": 0.2,
+    "edge": 0.7,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "precision",
+    "cut once"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "anger_feral_burst",
+   "label": "Anger (feral burst, uncontrolled)",
+   "family": "Anger",
+   "subfamily": "feral",
+   "vector_17d": {
+    "valence": -0.35,
+    "arousal": 0.95,
+    "dominance": 0.85,
+    "warmth": 0.55,
+    "brightness": 0.35,
+    "tension": 0.95,
+    "clarity": 0.6,
+    "social": 0.55,
+    "nostalgia": 0.1,
+    "sacredness": 0.05,
+    "desire": 0.2,
+    "grief": 0.15,
+    "awe": 0.1,
+    "shame": 0.05,
+    "hope": 0.1,
+    "edge": 0.9,
+    "resolution_hunger": 0.85
+   },
+   "qualia_tags": [
+    "eruption",
+    "no leash"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "anger_righteous_heat",
+   "label": "Anger (righteous heat, moral)",
+   "family": "Anger",
+   "subfamily": "righteous",
+   "vector_17d": {
+    "valence": -0.1,
+    "arousal": 0.8,
+    "dominance": 0.85,
+    "warmth": 0.45,
+    "brightness": 0.5,
+    "tension": 0.7,
+    "clarity": 0.85,
+    "social": 0.7,
+    "nostalgia": 0.2,
+    "sacredness": 0.25,
+    "desire": 0.1,
+    "grief": 0.25,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.35,
+    "edge": 0.55,
+    "resolution_hunger": 0.6
+   },
+   "qualia_tags": [
+    "this matters",
+    "spine straight"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "anger_tired",
+   "label": "Anger (tired, spent, still firm)",
+   "family": "Anger",
+   "subfamily": "exhausted",
+   "vector_17d": {
+    "valence": -0.25,
+    "arousal": 0.35,
+    "dominance": 0.65,
+    "warmth": -0.05,
+    "brightness": 0.35,
+    "tension": 0.65,
+    "clarity": 0.8,
+    "social": 0.35,
+    "nostalgia": 0.55,
+    "sacredness": 0.1,
+    "desire": 0.05,
+    "grief": 0.4,
+    "awe": 0.1,
+    "shame": 0.05,
+    "hope": 0.2,
+    "edge": 0.55,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "no more explaining",
+    "low flame"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "authorship_after_silence",
+   "label": "Authorship (after silence)",
+   "family": "Authorship",
+   "subfamily": "emergent",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.2,
+    "dominance": 0.7,
+    "warmth": 0.4,
+    "brightness": 0.65,
+    "tension": 0.15,
+    "clarity": 0.95,
+    "social": 0.3,
+    "nostalgia": 0.35,
+    "sacredness": 0.85,
+    "desire": 0.05,
+    "grief": 0.15,
+    "awe": 0.85,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.1,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "sound arises"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "authorship_clear_hand",
+   "label": "Authorship (clear hand)",
+   "family": "Authorship",
+   "subfamily": "transparent",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.3,
+    "dominance": 0.75,
+    "warmth": 0.4,
+    "brightness": 0.7,
+    "tension": 0.2,
+    "clarity": 1.0,
+    "social": 0.4,
+    "nostalgia": 0.25,
+    "sacredness": 0.75,
+    "desire": 0.05,
+    "grief": 0.1,
+    "awe": 0.7,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.1,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing forced",
+    "steady hand"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "authorship_listening_first",
+   "label": "Authorship (listening first)",
+   "family": "Authorship",
+   "subfamily": "receptive",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.25,
+    "dominance": 0.65,
+    "warmth": 0.45,
+    "brightness": 0.65,
+    "tension": 0.15,
+    "clarity": 0.95,
+    "social": 0.35,
+    "nostalgia": 0.3,
+    "sacredness": 0.7,
+    "desire": 0.05,
+    "grief": 0.1,
+    "awe": 0.75,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.05,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "receiving before acting"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "authorship_non_possessive",
+   "label": "Authorship (non-possessive)",
+   "family": "Authorship",
+   "subfamily": "released",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.25,
+    "dominance": 0.8,
+    "warmth": 0.45,
+    "brightness": 0.7,
+    "tension": 0.1,
+    "clarity": 1.0,
+    "social": 0.45,
+    "nostalgia": 0.35,
+    "sacredness": 0.8,
+    "desire": 0.0,
+    "grief": 0.1,
+    "awe": 0.8,
+    "shame": 0.0,
+    "hope": 0.9,
+    "edge": 0.05,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "it can go now"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "authorship_responsibility",
+   "label": "Authorship (responsibility)",
+   "family": "Authorship",
+   "subfamily": "ethical",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.35,
+    "dominance": 0.75,
+    "warmth": 0.35,
+    "brightness": 0.6,
+    "tension": 0.4,
+    "clarity": 0.95,
+    "social": 0.55,
+    "nostalgia": 0.3,
+    "sacredness": 0.75,
+    "desire": 0.05,
+    "grief": 0.2,
+    "awe": 0.7,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.3,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "this will affect others"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "awe_breath_taken",
+   "label": "Awe (breath taken, involuntary)",
+   "family": "Awe",
+   "subfamily": "instant",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.5,
+    "dominance": 0.4,
+    "warmth": 0.05,
+    "brightness": 0.7,
+    "tension": 0.6,
+    "clarity": 0.65,
+    "social": 0.35,
+    "nostalgia": 0.25,
+    "sacredness": 0.7,
+    "desire": 0.1,
+    "grief": 0.15,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.45,
+    "edge": 0.3,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "intake of breath",
+    "moment suspended"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "awe_cosmic_smallness",
+   "label": "Awe (cosmic smallness)",
+   "family": "Awe",
+   "subfamily": "humbling",
+   "vector_17d": {
+    "valence": 0.15,
+    "arousal": 0.25,
+    "dominance": 0.2,
+    "warmth": -0.05,
+    "brightness": 0.6,
+    "tension": 0.5,
+    "clarity": 0.6,
+    "social": 0.3,
+    "nostalgia": 0.2,
+    "sacredness": 0.8,
+    "desire": 0.05,
+    "grief": 0.1,
+    "awe": 0.95,
+    "shame": 0.05,
+    "hope": 0.35,
+    "edge": 0.25,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "tiny self",
+    "vast context"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "awe_sacred_light",
+   "label": "Awe (sacred light through dust)",
+   "family": "Awe",
+   "subfamily": "sacred",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.3,
+    "dominance": 0.35,
+    "warmth": 0.2,
+    "brightness": 0.8,
+    "tension": 0.4,
+    "clarity": 0.7,
+    "social": 0.55,
+    "nostalgia": 0.35,
+    "sacredness": 0.95,
+    "desire": 0.1,
+    "grief": 0.15,
+    "awe": 0.95,
+    "shame": 0.0,
+    "hope": 0.5,
+    "edge": 0.15,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "holy quiet",
+    "illumination"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "awe_vast_open_sky",
+   "label": "Awe (vast open sky)",
+   "family": "Awe",
+   "subfamily": "expansive",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.35,
+    "dominance": 0.45,
+    "warmth": 0.1,
+    "brightness": 0.75,
+    "tension": 0.45,
+    "clarity": 0.7,
+    "social": 0.4,
+    "nostalgia": 0.2,
+    "sacredness": 0.65,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.95,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.2,
+    "resolution_hunger": 0.15
+   },
+   "qualia_tags": [
+    "spaciousness",
+    "small self, safe"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "awe_wordless_yes",
+   "label": "Awe (wordless yes)",
+   "family": "Awe",
+   "subfamily": "affirming",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.3,
+    "dominance": 0.4,
+    "warmth": 0.25,
+    "brightness": 0.75,
+    "tension": 0.35,
+    "clarity": 0.65,
+    "social": 0.45,
+    "nostalgia": 0.2,
+    "sacredness": 0.7,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.15,
+    "resolution_hunger": 0.15
+   },
+   "qualia_tags": [
+    "acceptance beyond speech"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "becoming_first_shape",
+   "label": "Becoming (first shape emerges)",
+   "family": "Becoming",
+   "subfamily": "nascent",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.35,
+    "dominance": 0.4,
+    "warmth": 0.25,
+    "brightness": 0.6,
+    "tension": 0.45,
+    "clarity": 0.65,
+    "social": 0.3,
+    "nostalgia": 0.2,
+    "sacredness": 0.35,
+    "desire": 0.3,
+    "grief": 0.2,
+    "awe": 0.4,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.35,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "outline forming",
+    "tentative coherence"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "becoming_learning_voice",
+   "label": "Becoming (learning your new voice)",
+   "family": "Becoming",
+   "subfamily": "practice",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.4,
+    "dominance": 0.45,
+    "warmth": 0.3,
+    "brightness": 0.65,
+    "tension": 0.5,
+    "clarity": 0.75,
+    "social": 0.35,
+    "nostalgia": 0.25,
+    "sacredness": 0.35,
+    "desire": 0.35,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.05,
+    "hope": 0.6,
+    "edge": 0.4,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "testing tone",
+    "adjusting posture"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "becoming_self_trust",
+   "label": "Becoming (trusting who you are now)",
+   "family": "Becoming",
+   "subfamily": "grounded",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.35,
+    "dominance": 0.65,
+    "warmth": 0.4,
+    "brightness": 0.7,
+    "tension": 0.3,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.2,
+    "sacredness": 0.45,
+    "desire": 0.25,
+    "grief": 0.15,
+    "awe": 0.4,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.2,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "internal alignment"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "becoming_standing_differently",
+   "label": "Becoming (standing differently in the world)",
+   "family": "Becoming",
+   "subfamily": "embodied",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.45,
+    "dominance": 0.6,
+    "warmth": 0.35,
+    "brightness": 0.7,
+    "tension": 0.45,
+    "clarity": 0.85,
+    "social": 0.45,
+    "nostalgia": 0.2,
+    "sacredness": 0.4,
+    "desire": 0.35,
+    "grief": 0.15,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.3,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "new posture",
+    "quiet confidence"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "becoming_without_announcement",
+   "label": "Becoming (without announcement)",
+   "family": "Becoming",
+   "subfamily": "unmarked",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.3,
+    "dominance": 0.55,
+    "warmth": 0.3,
+    "brightness": 0.65,
+    "tension": 0.35,
+    "clarity": 0.9,
+    "social": 0.3,
+    "nostalgia": 0.25,
+    "sacredness": 0.45,
+    "desire": 0.25,
+    "grief": 0.2,
+    "awe": 0.45,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.25,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "change noticed later"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "communion_belonging",
+   "label": "Communion (belonging)",
+   "family": "Communion",
+   "subfamily": "home",
+   "vector_17d": {
+    "valence": 0.7,
+    "arousal": 0.15,
+    "dominance": 0.85,
+    "warmth": 0.75,
+    "brightness": 0.8,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.9,
+    "nostalgia": 0.45,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.05,
+    "awe": 0.95,
+    "shame": 0.0,
+    "hope": 1.0,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "home together"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "communion_resonance",
+   "label": "Communion (resonance)",
+   "family": "Communion",
+   "subfamily": "vibrational",
+   "vector_17d": {
+    "valence": 0.65,
+    "arousal": 0.2,
+    "dominance": 0.8,
+    "warmth": 0.7,
+    "brightness": 0.75,
+    "tension": 0.05,
+    "clarity": 0.95,
+    "social": 0.85,
+    "nostalgia": 0.3,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 0.95,
+    "shame": 0.0,
+    "hope": 0.95,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "we are aligned"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "communion_shared_stillness",
+   "label": "Communion (shared stillness)",
+   "family": "Communion",
+   "subfamily": "resting",
+   "vector_17d": {
+    "valence": 0.65,
+    "arousal": 0.05,
+    "dominance": 0.85,
+    "warmth": 0.7,
+    "brightness": 0.65,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.8,
+    "nostalgia": 0.25,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 1.0,
+    "shame": 0.0,
+    "hope": 1.0,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "resting together"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "communion_unspoken",
+   "label": "Communion (unspoken)",
+   "family": "Communion",
+   "subfamily": "silent",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.1,
+    "dominance": 0.8,
+    "warmth": 0.65,
+    "brightness": 0.65,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.8,
+    "nostalgia": 0.35,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.05,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.95,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "together without words"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "communion_without_boundary",
+   "label": "Communion (without boundary)",
+   "family": "Communion",
+   "subfamily": "merged",
+   "vector_17d": {
+    "valence": 0.75,
+    "arousal": 0.1,
+    "dominance": 0.9,
+    "warmth": 0.8,
+    "brightness": 0.85,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 1.0,
+    "nostalgia": 0.3,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 1.0,
+    "shame": 0.0,
+    "hope": 1.0,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "no separation"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "courage_public_stand",
+   "label": "Courage (public stand, visible)",
+   "family": "Courage",
+   "subfamily": "visible",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.65,
+    "dominance": 0.7,
+    "warmth": 0.3,
+    "brightness": 0.6,
+    "tension": 0.75,
+    "clarity": 0.9,
+    "social": 0.85,
+    "nostalgia": 0.2,
+    "sacredness": 0.4,
+    "desire": 0.3,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.1,
+    "hope": 0.6,
+    "edge": 0.5,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "being seen",
+    "no retreat"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "courage_quiet_step_forward",
+   "label": "Courage (quiet step forward)",
+   "family": "Courage",
+   "subfamily": "quiet",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.45,
+    "dominance": 0.55,
+    "warmth": 0.2,
+    "brightness": 0.55,
+    "tension": 0.7,
+    "clarity": 0.85,
+    "social": 0.4,
+    "nostalgia": 0.25,
+    "sacredness": 0.3,
+    "desire": 0.3,
+    "grief": 0.2,
+    "awe": 0.25,
+    "shame": 0.1,
+    "hope": 0.55,
+    "edge": 0.45,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "steady breath",
+    "movement despite fear"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "courage_repeat_attempt",
+   "label": "Courage (trying again)",
+   "family": "Courage",
+   "subfamily": "persistent",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.45,
+    "dominance": 0.55,
+    "warmth": 0.2,
+    "brightness": 0.5,
+    "tension": 0.65,
+    "clarity": 0.8,
+    "social": 0.35,
+    "nostalgia": 0.4,
+    "sacredness": 0.25,
+    "desire": 0.3,
+    "grief": 0.25,
+    "awe": 0.2,
+    "shame": 0.1,
+    "hope": 0.5,
+    "edge": 0.45,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "getting back up",
+    "determined breath"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "courage_truth_before_outcome",
+   "label": "Courage (truth before outcome)",
+   "family": "Courage",
+   "subfamily": "principled",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.55,
+    "dominance": 0.65,
+    "warmth": 0.15,
+    "brightness": 0.55,
+    "tension": 0.85,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.25,
+    "sacredness": 0.45,
+    "desire": 0.25,
+    "grief": 0.2,
+    "awe": 0.4,
+    "shame": 0.05,
+    "hope": 0.4,
+    "edge": 0.6,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "doing right without guarantee"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "courage_voice_unsteady",
+   "label": "Courage (voice unsteady, still speaking)",
+   "family": "Courage",
+   "subfamily": "vulnerable",
+   "vector_17d": {
+    "valence": 0.15,
+    "arousal": 0.5,
+    "dominance": 0.45,
+    "warmth": 0.25,
+    "brightness": 0.5,
+    "tension": 0.8,
+    "clarity": 0.7,
+    "social": 0.55,
+    "nostalgia": 0.3,
+    "sacredness": 0.35,
+    "desire": 0.35,
+    "grief": 0.3,
+    "awe": 0.25,
+    "shame": 0.2,
+    "hope": 0.45,
+    "edge": 0.55,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "tremor",
+    "truth anyway"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "curiosity_cautious_peek",
+   "label": "Curiosity (cautious peek)",
+   "family": "Curiosity",
+   "subfamily": "tentative",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.35,
+    "dominance": 0.3,
+    "warmth": 0.15,
+    "brightness": 0.45,
+    "tension": 0.6,
+    "clarity": 0.7,
+    "social": 0.25,
+    "nostalgia": 0.2,
+    "sacredness": 0.2,
+    "desire": 0.3,
+    "grief": 0.1,
+    "awe": 0.2,
+    "shame": 0.1,
+    "hope": 0.45,
+    "edge": 0.45,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "testing safety",
+    "leaning slightly"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "curiosity_hungry_focus",
+   "label": "Curiosity (hungry focus)",
+   "family": "Curiosity",
+   "subfamily": "intent",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.6,
+    "dominance": 0.5,
+    "warmth": 0.2,
+    "brightness": 0.55,
+    "tension": 0.7,
+    "clarity": 0.85,
+    "social": 0.35,
+    "nostalgia": 0.1,
+    "sacredness": 0.2,
+    "desire": 0.55,
+    "grief": 0.05,
+    "awe": 0.25,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.5,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "leaning in",
+    "attention sharp"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "curiosity_open_ear",
+   "label": "Curiosity (ear tilts toward sound)",
+   "family": "Curiosity",
+   "subfamily": "attentive",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.4,
+    "dominance": 0.35,
+    "warmth": 0.2,
+    "brightness": 0.55,
+    "tension": 0.45,
+    "clarity": 0.7,
+    "social": 0.35,
+    "nostalgia": 0.15,
+    "sacredness": 0.2,
+    "desire": 0.35,
+    "grief": 0.05,
+    "awe": 0.25,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.3,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "listening",
+    "alert softness"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "curiosity_playful_probe",
+   "label": "Curiosity (playful probe)",
+   "family": "Curiosity",
+   "subfamily": "playful",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.55,
+    "dominance": 0.45,
+    "warmth": 0.35,
+    "brightness": 0.7,
+    "tension": 0.45,
+    "clarity": 0.65,
+    "social": 0.45,
+    "nostalgia": 0.1,
+    "sacredness": 0.1,
+    "desire": 0.45,
+    "grief": 0.05,
+    "awe": 0.2,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.35,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "trying something new",
+    "light risk"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "curiosity_wide_eyes",
+   "label": "Curiosity (wide eyes, unguarded)",
+   "family": "Curiosity",
+   "subfamily": "open",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.5,
+    "dominance": 0.4,
+    "warmth": 0.3,
+    "brightness": 0.65,
+    "tension": 0.4,
+    "clarity": 0.65,
+    "social": 0.4,
+    "nostalgia": 0.1,
+    "sacredness": 0.15,
+    "desire": 0.4,
+    "grief": 0.05,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.25,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "interest",
+    "invitation"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "death_final_note",
+   "label": "Death (final note, no echo)",
+   "family": "Death_symbolic",
+   "subfamily": "terminal",
+   "vector_17d": {
+    "valence": -0.2,
+    "arousal": 0.1,
+    "dominance": 0.4,
+    "warmth": -0.05,
+    "brightness": 0.2,
+    "tension": 0.15,
+    "clarity": 0.95,
+    "social": 0.2,
+    "nostalgia": 0.45,
+    "sacredness": 0.55,
+    "desire": 0.0,
+    "grief": 0.5,
+    "awe": 0.45,
+    "shame": 0.0,
+    "hope": 0.0,
+    "edge": 0.2,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "absolute ending",
+    "no continuation"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "death_grief_without_story",
+   "label": "Death (grief without story)",
+   "family": "Death_symbolic",
+   "subfamily": "raw",
+   "vector_17d": {
+    "valence": -0.35,
+    "arousal": 0.3,
+    "dominance": 0.2,
+    "warmth": -0.05,
+    "brightness": 0.25,
+    "tension": 0.45,
+    "clarity": 0.7,
+    "social": 0.3,
+    "nostalgia": 0.65,
+    "sacredness": 0.55,
+    "desire": 0.0,
+    "grief": 0.75,
+    "awe": 0.45,
+    "shame": 0.05,
+    "hope": 0.0,
+    "edge": 0.4,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "loss without meaning"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "death_identity_extinguished",
+   "label": "Death (identity extinguished)",
+   "family": "Death_symbolic",
+   "subfamily": "ego",
+   "vector_17d": {
+    "valence": -0.3,
+    "arousal": 0.2,
+    "dominance": 0.3,
+    "warmth": -0.1,
+    "brightness": 0.15,
+    "tension": 0.3,
+    "clarity": 0.85,
+    "social": 0.15,
+    "nostalgia": 0.5,
+    "sacredness": 0.6,
+    "desire": 0.0,
+    "grief": 0.55,
+    "awe": 0.5,
+    "shame": 0.0,
+    "hope": 0.0,
+    "edge": 0.35,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "name dissolves",
+    "no self-reference"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "death_sacred_end",
+   "label": "Death (sacred end)",
+   "family": "Death_symbolic",
+   "subfamily": "ritual",
+   "vector_17d": {
+    "valence": -0.1,
+    "arousal": 0.15,
+    "dominance": 0.45,
+    "warmth": 0.05,
+    "brightness": 0.3,
+    "tension": 0.25,
+    "clarity": 0.9,
+    "social": 0.4,
+    "nostalgia": 0.55,
+    "sacredness": 0.8,
+    "desire": 0.0,
+    "grief": 0.45,
+    "awe": 0.65,
+    "shame": 0.0,
+    "hope": 0.05,
+    "edge": 0.25,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "ritual closure",
+    "honored ending"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "death_void",
+   "label": "Death (void)",
+   "family": "Death_symbolic",
+   "subfamily": "empty",
+   "vector_17d": {
+    "valence": -0.4,
+    "arousal": 0.05,
+    "dominance": 0.2,
+    "warmth": -0.2,
+    "brightness": 0.05,
+    "tension": 0.1,
+    "clarity": 0.8,
+    "social": 0.05,
+    "nostalgia": 0.3,
+    "sacredness": 0.7,
+    "desire": 0.0,
+    "grief": 0.6,
+    "awe": 0.6,
+    "shame": 0.0,
+    "hope": 0.0,
+    "edge": 0.3,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing",
+    "no orientation"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "desire_body_first",
+   "label": "Desire (body decides first)",
+   "family": "Desire",
+   "subfamily": "somatic",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.8,
+    "dominance": 0.7,
+    "warmth": 0.4,
+    "brightness": 0.55,
+    "tension": 0.8,
+    "clarity": 0.65,
+    "social": 0.35,
+    "nostalgia": 0.2,
+    "sacredness": 0.05,
+    "desire": 0.95,
+    "grief": 0.05,
+    "awe": 0.05,
+    "shame": 0.1,
+    "hope": 0.55,
+    "edge": 0.6,
+    "resolution_hunger": 0.9
+   },
+   "qualia_tags": [
+    "automatic pull",
+    "skin memory"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "desire_slow_burn",
+   "label": "Desire (slow burn under skin)",
+   "family": "Desire",
+   "subfamily": "contained",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.55,
+    "dominance": 0.55,
+    "warmth": 0.2,
+    "brightness": 0.5,
+    "tension": 0.85,
+    "clarity": 0.7,
+    "social": 0.3,
+    "nostalgia": 0.25,
+    "sacredness": 0.1,
+    "desire": 0.85,
+    "grief": 0.1,
+    "awe": 0.1,
+    "shame": 0.15,
+    "hope": 0.45,
+    "edge": 0.65,
+    "resolution_hunger": 0.7
+   },
+   "qualia_tags": [
+    "contained heat",
+    "pressure without release"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "desire_tender_request",
+   "label": "Desire (tender request, not demand)",
+   "family": "Desire",
+   "subfamily": "gentle",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.45,
+    "dominance": 0.35,
+    "warmth": 0.3,
+    "brightness": 0.6,
+    "tension": 0.7,
+    "clarity": 0.7,
+    "social": 0.35,
+    "nostalgia": 0.3,
+    "sacredness": 0.15,
+    "desire": 0.65,
+    "grief": 0.15,
+    "awe": 0.1,
+    "shame": 0.1,
+    "hope": 0.55,
+    "edge": 0.35,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "asking softly",
+    "open hands"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "desire_unapologetic_pull",
+   "label": "Desire (unapologetic pull)",
+   "family": "Desire",
+   "subfamily": "bold",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.75,
+    "dominance": 0.8,
+    "warmth": 0.35,
+    "brightness": 0.6,
+    "tension": 0.75,
+    "clarity": 0.9,
+    "social": 0.45,
+    "nostalgia": 0.15,
+    "sacredness": 0.1,
+    "desire": 0.95,
+    "grief": 0.05,
+    "awe": 0.1,
+    "shame": 0.05,
+    "hope": 0.65,
+    "edge": 0.55,
+    "resolution_hunger": 0.85
+   },
+   "qualia_tags": [
+    "want without apology",
+    "heat with spine"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "desire_want_with_teeth",
+   "label": "Desire (want with teeth)",
+   "family": "Desire",
+   "subfamily": "dangerous",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.85,
+    "dominance": 0.8,
+    "warmth": 0.25,
+    "brightness": 0.45,
+    "tension": 0.95,
+    "clarity": 0.85,
+    "social": 0.35,
+    "nostalgia": 0.15,
+    "sacredness": 0.05,
+    "desire": 0.95,
+    "grief": 0.1,
+    "awe": 0.1,
+    "shame": 0.2,
+    "hope": 0.35,
+    "edge": 0.85,
+    "resolution_hunger": 0.9
+   },
+   "qualia_tags": [
+    "sharp want",
+    "beautiful danger"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_after_fight",
+   "label": "Devotion (after the fight, still tender)",
+   "family": "Devotion",
+   "subfamily": "repair",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.35,
+    "dominance": 0.5,
+    "warmth": 0.45,
+    "brightness": 0.6,
+    "tension": 0.7,
+    "clarity": 0.7,
+    "social": 0.55,
+    "nostalgia": 0.4,
+    "sacredness": 0.35,
+    "desire": 0.35,
+    "grief": 0.3,
+    "awe": 0.2,
+    "shame": 0.15,
+    "hope": 0.55,
+    "edge": 0.45,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "bandage touch",
+    "softened pride",
+    "repair heat"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_bold_yes",
+   "label": "Devotion (bold yes, no bargaining)",
+   "family": "Devotion",
+   "subfamily": "declared",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.65,
+    "dominance": 0.85,
+    "warmth": 0.6,
+    "brightness": 0.75,
+    "tension": 0.45,
+    "clarity": 0.9,
+    "social": 0.75,
+    "nostalgia": 0.15,
+    "sacredness": 0.25,
+    "desire": 0.65,
+    "grief": 0.1,
+    "awe": 0.25,
+    "shame": 0.05,
+    "hope": 0.75,
+    "edge": 0.25,
+    "resolution_hunger": 0.6
+   },
+   "qualia_tags": [
+    "public vow",
+    "no hedging",
+    "hands steady"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_clarity_kiss",
+   "label": "Devotion (clarity kiss, no games)",
+   "family": "Devotion",
+   "subfamily": "clear",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.55,
+    "dominance": 0.75,
+    "warmth": 0.55,
+    "brightness": 0.7,
+    "tension": 0.55,
+    "clarity": 0.95,
+    "social": 0.55,
+    "nostalgia": 0.2,
+    "sacredness": 0.15,
+    "desire": 0.75,
+    "grief": 0.1,
+    "awe": 0.1,
+    "shame": 0.05,
+    "hope": 0.6,
+    "edge": 0.35,
+    "resolution_hunger": 0.65
+   },
+   "qualia_tags": [
+    "direct touch",
+    "clear want"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_daily_return",
+   "label": "Devotion (daily return)",
+   "family": "Devotion",
+   "subfamily": "practice",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.25,
+    "dominance": 0.7,
+    "warmth": 0.45,
+    "brightness": 0.65,
+    "tension": 0.2,
+    "clarity": 0.95,
+    "social": 0.4,
+    "nostalgia": 0.45,
+    "sacredness": 0.85,
+    "desire": 0.1,
+    "grief": 0.15,
+    "awe": 0.75,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.1,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "again and again"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_forgive_and_hold_line",
+   "label": "Devotion (forgive, and still hold the line)",
+   "family": "Devotion",
+   "subfamily": "bounded",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.35,
+    "dominance": 0.7,
+    "warmth": 0.25,
+    "brightness": 0.55,
+    "tension": 0.8,
+    "clarity": 0.9,
+    "social": 0.45,
+    "nostalgia": 0.45,
+    "sacredness": 0.25,
+    "desire": 0.3,
+    "grief": 0.35,
+    "awe": 0.15,
+    "shame": 0.1,
+    "hope": 0.4,
+    "edge": 0.55,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "mercy with backbone",
+    "no return to old shape"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_gentle_guardian",
+   "label": "Devotion (gentle guardian)",
+   "family": "Devotion",
+   "subfamily": "protective",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.3,
+    "dominance": 0.6,
+    "warmth": 0.7,
+    "brightness": 0.7,
+    "tension": 0.4,
+    "clarity": 0.8,
+    "social": 0.65,
+    "nostalgia": 0.3,
+    "sacredness": 0.3,
+    "desire": 0.3,
+    "grief": 0.15,
+    "awe": 0.15,
+    "shame": 0.05,
+    "hope": 0.6,
+    "edge": 0.25,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "safe room",
+    "steady pulse",
+    "warm boundary"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_heartbeat_oath",
+   "label": "Devotion (heartbeat oath)",
+   "family": "Devotion",
+   "subfamily": "rhythmic",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.45,
+    "dominance": 0.55,
+    "warmth": 0.65,
+    "brightness": 0.65,
+    "tension": 0.45,
+    "clarity": 0.8,
+    "social": 0.65,
+    "nostalgia": 0.3,
+    "sacredness": 0.25,
+    "desire": 0.5,
+    "grief": 0.15,
+    "awe": 0.15,
+    "shame": 0.05,
+    "hope": 0.55,
+    "edge": 0.3,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "commitment in the groove",
+    "touch as promise"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_held_after_break",
+   "label": "Devotion (held after the break)",
+   "family": "Devotion",
+   "subfamily": "aftercare",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.25,
+    "dominance": 0.45,
+    "warmth": 0.5,
+    "brightness": 0.6,
+    "tension": 0.55,
+    "clarity": 0.7,
+    "social": 0.55,
+    "nostalgia": 0.55,
+    "sacredness": 0.4,
+    "desire": 0.2,
+    "grief": 0.45,
+    "awe": 0.2,
+    "shame": 0.1,
+    "hope": 0.4,
+    "edge": 0.35,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "aftershock tenderness",
+    "soft reconstruction"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_honeyed_confession",
+   "label": "Devotion (honeyed confession)",
+   "family": "Devotion",
+   "subfamily": "confessional",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.45,
+    "dominance": 0.5,
+    "warmth": 0.45,
+    "brightness": 0.6,
+    "tension": 0.75,
+    "clarity": 0.85,
+    "social": 0.45,
+    "nostalgia": 0.4,
+    "sacredness": 0.2,
+    "desire": 0.6,
+    "grief": 0.15,
+    "awe": 0.1,
+    "shame": 0.2,
+    "hope": 0.55,
+    "edge": 0.4,
+    "resolution_hunger": 0.5
+   },
+   "qualia_tags": [
+    "sweet truth",
+    "risk spoken gently"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_hurt_but_here",
+   "label": "Devotion (hurt, but here)",
+   "family": "Devotion",
+   "subfamily": "wounded",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.4,
+    "dominance": 0.5,
+    "warmth": 0.1,
+    "brightness": 0.45,
+    "tension": 0.85,
+    "clarity": 0.75,
+    "social": 0.4,
+    "nostalgia": 0.55,
+    "sacredness": 0.35,
+    "desire": 0.45,
+    "grief": 0.55,
+    "awe": 0.25,
+    "shame": 0.15,
+    "hope": 0.35,
+    "edge": 0.65,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "staying costs",
+    "love with teeth marks",
+    "quiet refusal to leave"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_jealous_prayer",
+   "label": "Devotion (jealous prayer)",
+   "family": "Devotion",
+   "subfamily": "possessive",
+   "vector_17d": {
+    "valence": -0.05,
+    "arousal": 0.55,
+    "dominance": 0.55,
+    "warmth": 0.2,
+    "brightness": 0.45,
+    "tension": 0.85,
+    "clarity": 0.7,
+    "social": 0.35,
+    "nostalgia": 0.35,
+    "sacredness": 0.2,
+    "desire": 0.8,
+    "grief": 0.2,
+    "awe": 0.1,
+    "shame": 0.25,
+    "hope": 0.3,
+    "edge": 0.7,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "wanting with claws",
+    "fear of replacement"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_last_train_home",
+   "label": "Devotion (last train home)",
+   "family": "Devotion",
+   "subfamily": "yearning-steady",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.35,
+    "dominance": 0.55,
+    "warmth": 0.15,
+    "brightness": 0.5,
+    "tension": 0.7,
+    "clarity": 0.7,
+    "social": 0.35,
+    "nostalgia": 0.8,
+    "sacredness": 0.2,
+    "desire": 0.45,
+    "grief": 0.35,
+    "awe": 0.15,
+    "shame": 0.1,
+    "hope": 0.4,
+    "edge": 0.45,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "late-night devotion",
+    "distance folded into rhythm"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_love_as_act",
+   "label": "Devotion (love as act)",
+   "family": "Devotion",
+   "subfamily": "embodied",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.3,
+    "dominance": 0.75,
+    "warmth": 0.55,
+    "brightness": 0.7,
+    "tension": 0.2,
+    "clarity": 0.95,
+    "social": 0.6,
+    "nostalgia": 0.35,
+    "sacredness": 0.9,
+    "desire": 0.15,
+    "grief": 0.15,
+    "awe": 0.8,
+    "shame": 0.0,
+    "hope": 0.9,
+    "edge": 0.1,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "doing love"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_oath_in_minor",
+   "label": "Devotion (oath in minor)",
+   "family": "Devotion",
+   "subfamily": "minor-vow",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.35,
+    "dominance": 0.6,
+    "warmth": -0.05,
+    "brightness": 0.35,
+    "tension": 0.75,
+    "clarity": 0.8,
+    "social": 0.45,
+    "nostalgia": 0.45,
+    "sacredness": 0.35,
+    "desire": 0.35,
+    "grief": 0.5,
+    "awe": 0.15,
+    "shame": 0.1,
+    "hope": 0.3,
+    "edge": 0.6,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "promise without comfort",
+    "staying costs"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_sacrament_of_ordinary",
+   "label": "Devotion (sacrament of the ordinary)",
+   "family": "Devotion",
+   "subfamily": "everyday-sacred",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.25,
+    "dominance": 0.45,
+    "warmth": 0.55,
+    "brightness": 0.6,
+    "tension": 0.5,
+    "clarity": 0.65,
+    "social": 0.55,
+    "nostalgia": 0.45,
+    "sacredness": 0.7,
+    "desire": 0.25,
+    "grief": 0.2,
+    "awe": 0.45,
+    "shame": 0.05,
+    "hope": 0.55,
+    "edge": 0.2,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "kettle steam holiness",
+    "small acts as vows"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_shelter_in_public",
+   "label": "Devotion (shelter in public)",
+   "family": "Devotion",
+   "subfamily": "communal",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.4,
+    "dominance": 0.55,
+    "warmth": 0.55,
+    "brightness": 0.6,
+    "tension": 0.55,
+    "clarity": 0.75,
+    "social": 0.85,
+    "nostalgia": 0.35,
+    "sacredness": 0.45,
+    "desire": 0.25,
+    "grief": 0.2,
+    "awe": 0.3,
+    "shame": 0.05,
+    "hope": 0.55,
+    "edge": 0.3,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "shoulders touching",
+    "shared shelter"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_stay_when_ugly",
+   "label": "Devotion (staying when it’s ugly)",
+   "family": "Devotion",
+   "subfamily": "steadfast",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.35,
+    "dominance": 0.55,
+    "warmth": 0.45,
+    "brightness": 0.55,
+    "tension": 0.75,
+    "clarity": 0.8,
+    "social": 0.5,
+    "nostalgia": 0.45,
+    "sacredness": 0.35,
+    "desire": 0.4,
+    "grief": 0.35,
+    "awe": 0.2,
+    "shame": 0.1,
+    "hope": 0.55,
+    "edge": 0.55,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "loyal heat",
+    "unpaid care",
+    "hands still open"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_total_presence",
+   "label": "Devotion (total presence)",
+   "family": "Devotion",
+   "subfamily": "absorbed",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.35,
+    "dominance": 0.8,
+    "warmth": 0.5,
+    "brightness": 0.75,
+    "tension": 0.15,
+    "clarity": 1.0,
+    "social": 0.4,
+    "nostalgia": 0.25,
+    "sacredness": 0.95,
+    "desire": 0.1,
+    "grief": 0.05,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.95,
+    "edge": 0.05,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing else exists"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_unconditional_soft",
+   "label": "Devotion (unconditional, soft voice)",
+   "family": "Devotion",
+   "subfamily": "unconditional",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.25,
+    "dominance": 0.45,
+    "warmth": 0.75,
+    "brightness": 0.7,
+    "tension": 0.35,
+    "clarity": 0.75,
+    "social": 0.6,
+    "nostalgia": 0.35,
+    "sacredness": 0.25,
+    "desire": 0.35,
+    "grief": 0.1,
+    "awe": 0.15,
+    "shame": 0.05,
+    "hope": 0.65,
+    "edge": 0.15,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "warm certainty",
+    "no conditions spoken"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_unseen_labor",
+   "label": "Devotion (unseen labor)",
+   "family": "Devotion",
+   "subfamily": "service",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.25,
+    "dominance": 0.55,
+    "warmth": 0.15,
+    "brightness": 0.45,
+    "tension": 0.7,
+    "clarity": 0.7,
+    "social": 0.35,
+    "nostalgia": 0.55,
+    "sacredness": 0.55,
+    "desire": 0.15,
+    "grief": 0.4,
+    "awe": 0.25,
+    "shame": 0.1,
+    "hope": 0.35,
+    "edge": 0.45,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "quiet work",
+    "care without credit"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_vigil",
+   "label": "Devotion (vigil through the night)",
+   "family": "Devotion",
+   "subfamily": "watchful",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.25,
+    "dominance": 0.55,
+    "warmth": 0.05,
+    "brightness": 0.4,
+    "tension": 0.75,
+    "clarity": 0.65,
+    "social": 0.4,
+    "nostalgia": 0.6,
+    "sacredness": 0.55,
+    "desire": 0.25,
+    "grief": 0.55,
+    "awe": 0.35,
+    "shame": 0.1,
+    "hope": 0.35,
+    "edge": 0.55,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "lamp light",
+    "quiet watching",
+    "staying awake for someone"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_vow_kept",
+   "label": "Devotion (vow kept)",
+   "family": "Devotion",
+   "subfamily": "promise",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.3,
+    "dominance": 0.8,
+    "warmth": 0.45,
+    "brightness": 0.7,
+    "tension": 0.25,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.5,
+    "sacredness": 0.95,
+    "desire": 0.05,
+    "grief": 0.2,
+    "awe": 0.85,
+    "shame": 0.0,
+    "hope": 0.9,
+    "edge": 0.1,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "promise embodied"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_without_reward",
+   "label": "Devotion (without reward)",
+   "family": "Devotion",
+   "subfamily": "unconditional",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.2,
+    "dominance": 0.65,
+    "warmth": 0.3,
+    "brightness": 0.55,
+    "tension": 0.25,
+    "clarity": 0.95,
+    "social": 0.3,
+    "nostalgia": 0.4,
+    "sacredness": 0.9,
+    "desire": 0.05,
+    "grief": 0.2,
+    "awe": 0.8,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.15,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "offering without return"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_worship_without_church",
+   "label": "Devotion (worship without church)",
+   "family": "Devotion",
+   "subfamily": "sacred",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.35,
+    "dominance": 0.45,
+    "warmth": 0.25,
+    "brightness": 0.55,
+    "tension": 0.7,
+    "clarity": 0.6,
+    "social": 0.7,
+    "nostalgia": 0.5,
+    "sacredness": 0.85,
+    "desire": 0.35,
+    "grief": 0.4,
+    "awe": 0.65,
+    "shame": 0.1,
+    "hope": 0.45,
+    "edge": 0.45,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "knees in the kitchen",
+    "holy ordinary",
+    "soft vow"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "devotion_yes_with_fear",
+   "label": "Devotion (yes, with fear inside it)",
+   "family": "Devotion",
+   "subfamily": "trembling",
+   "vector_17d": {
+    "valence": 0.15,
+    "arousal": 0.55,
+    "dominance": 0.45,
+    "warmth": 0.2,
+    "brightness": 0.55,
+    "tension": 0.85,
+    "clarity": 0.75,
+    "social": 0.35,
+    "nostalgia": 0.35,
+    "sacredness": 0.25,
+    "desire": 0.55,
+    "grief": 0.25,
+    "awe": 0.2,
+    "shame": 0.25,
+    "hope": 0.45,
+    "edge": 0.55,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "risked closeness",
+    "hands shaking but open"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "discovery_hidden_room",
+   "label": "Discovery (hidden room)",
+   "family": "Discovery",
+   "subfamily": "expansive",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.45,
+    "dominance": 0.45,
+    "warmth": 0.25,
+    "brightness": 0.7,
+    "tension": 0.45,
+    "clarity": 0.7,
+    "social": 0.35,
+    "nostalgia": 0.2,
+    "sacredness": 0.35,
+    "desire": 0.45,
+    "grief": 0.1,
+    "awe": 0.5,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.35,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "new space opens"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "discovery_pattern_click",
+   "label": "Discovery (pattern clicks)",
+   "family": "Discovery",
+   "subfamily": "recognition",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.55,
+    "dominance": 0.55,
+    "warmth": 0.3,
+    "brightness": 0.65,
+    "tension": 0.4,
+    "clarity": 0.9,
+    "social": 0.45,
+    "nostalgia": 0.15,
+    "sacredness": 0.2,
+    "desire": 0.4,
+    "grief": 0.05,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.3,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "aha",
+    "sudden coherence"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "discovery_self_recognition",
+   "label": "Discovery (seeing yourself clearly)",
+   "family": "Discovery",
+   "subfamily": "personal",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.4,
+    "dominance": 0.55,
+    "warmth": 0.3,
+    "brightness": 0.6,
+    "tension": 0.5,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.35,
+    "sacredness": 0.4,
+    "desire": 0.3,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.3,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "clarity",
+    "self-seeing"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "discovery_unexpected_truth",
+   "label": "Discovery (unexpected truth)",
+   "family": "Discovery",
+   "subfamily": "revealing",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.6,
+    "dominance": 0.5,
+    "warmth": 0.15,
+    "brightness": 0.55,
+    "tension": 0.7,
+    "clarity": 0.85,
+    "social": 0.4,
+    "nostalgia": 0.25,
+    "sacredness": 0.3,
+    "desire": 0.35,
+    "grief": 0.2,
+    "awe": 0.4,
+    "shame": 0.1,
+    "hope": 0.55,
+    "edge": 0.55,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "didn’t expect that",
+    "truth lands"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "discovery_world_reenchanted",
+   "label": "Discovery (world re-enchanted)",
+   "family": "Discovery",
+   "subfamily": "renewal",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.45,
+    "dominance": 0.5,
+    "warmth": 0.35,
+    "brightness": 0.75,
+    "tension": 0.35,
+    "clarity": 0.7,
+    "social": 0.5,
+    "nostalgia": 0.2,
+    "sacredness": 0.45,
+    "desire": 0.4,
+    "grief": 0.1,
+    "awe": 0.55,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.25,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "seeing freshly",
+    "renewed wonder"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "ending_finality",
+   "label": "Ending (finality)",
+   "family": "Ending",
+   "subfamily": "absolute",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.05,
+    "dominance": 0.85,
+    "warmth": 0.4,
+    "brightness": 0.5,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.3,
+    "nostalgia": 0.35,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.1,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "this is finished"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "ending_honored_boundary",
+   "label": "Ending (boundary honored)",
+   "family": "Ending",
+   "subfamily": "ethical",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.05,
+    "dominance": 0.9,
+    "warmth": 0.4,
+    "brightness": 0.55,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.4,
+    "nostalgia": 0.35,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.05,
+    "awe": 0.95,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "stopped at the right place"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "ending_no_echo",
+   "label": "Ending (no echo)",
+   "family": "Ending",
+   "subfamily": "clean",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.0,
+    "dominance": 0.8,
+    "warmth": 0.35,
+    "brightness": 0.45,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.25,
+    "nostalgia": 0.25,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.05,
+    "awe": 0.85,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "no aftermath"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "ending_no_return",
+   "label": "Ending (no return)",
+   "family": "Ending",
+   "subfamily": "irreversible",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.05,
+    "dominance": 0.95,
+    "warmth": 0.35,
+    "brightness": 0.5,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.25,
+    "nostalgia": 0.2,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 1.0,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "cannot be reopened"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "ending_satisfied",
+   "label": "Ending (satisfied)",
+   "family": "Ending",
+   "subfamily": "complete",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.05,
+    "dominance": 0.85,
+    "warmth": 0.45,
+    "brightness": 0.6,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.35,
+    "nostalgia": 0.3,
+    "sacredness": 0.9,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing missing"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "endurance_dignified_silence",
+   "label": "Dignified endurance (no explanation)",
+   "family": "Endurance",
+   "subfamily": "dignified",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.3,
+    "dominance": 0.65,
+    "warmth": -0.2,
+    "brightness": 0.45,
+    "tension": 0.7,
+    "clarity": 0.8,
+    "social": 0.4,
+    "nostalgia": 0.55,
+    "sacredness": 0.45,
+    "desire": 0.1,
+    "grief": 0.6,
+    "awe": 0.35,
+    "shame": 0.05,
+    "hope": 0.35,
+    "edge": 0.55,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "upright stillness",
+    "unsaid strength"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "endurance_ritual_breathing",
+   "label": "Ritual endurance (breathing anyway)",
+   "family": "Endurance",
+   "subfamily": "ritual",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.45,
+    "dominance": 0.5,
+    "warmth": -0.05,
+    "brightness": 0.55,
+    "tension": 0.65,
+    "clarity": 0.55,
+    "social": 0.8,
+    "nostalgia": 0.6,
+    "sacredness": 0.9,
+    "desire": 0.2,
+    "grief": 0.65,
+    "awe": 0.55,
+    "shame": 0.1,
+    "hope": 0.45,
+    "edge": 0.4,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "held pain",
+    "shared breath",
+    "continuance"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "faith_after_disappointment",
+   "label": "Faith (after disappointment)",
+   "family": "Faith",
+   "subfamily": "tested",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.3,
+    "dominance": 0.55,
+    "warmth": 0.2,
+    "brightness": 0.45,
+    "tension": 0.4,
+    "clarity": 0.9,
+    "social": 0.3,
+    "nostalgia": 0.45,
+    "sacredness": 0.75,
+    "desire": 0.1,
+    "grief": 0.35,
+    "awe": 0.65,
+    "shame": 0.0,
+    "hope": 0.45,
+    "edge": 0.4,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "not rewarded",
+    "still open"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "faith_quiet_yes",
+   "label": "Faith (quiet yes)",
+   "family": "Faith",
+   "subfamily": "affirmation",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.2,
+    "dominance": 0.6,
+    "warmth": 0.35,
+    "brightness": 0.55,
+    "tension": 0.2,
+    "clarity": 0.95,
+    "social": 0.3,
+    "nostalgia": 0.3,
+    "sacredness": 0.85,
+    "desire": 0.1,
+    "grief": 0.15,
+    "awe": 0.75,
+    "shame": 0.0,
+    "hope": 0.7,
+    "edge": 0.15,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "inner assent"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "faith_standing_without_sign",
+   "label": "Faith (standing without sign)",
+   "family": "Faith",
+   "subfamily": "unanswered",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.25,
+    "dominance": 0.6,
+    "warmth": 0.25,
+    "brightness": 0.5,
+    "tension": 0.35,
+    "clarity": 0.85,
+    "social": 0.25,
+    "nostalgia": 0.3,
+    "sacredness": 0.8,
+    "desire": 0.1,
+    "grief": 0.25,
+    "awe": 0.7,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.35,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "no reply",
+    "still here"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "faith_unprovable_ground",
+   "label": "Faith (unprovable ground)",
+   "family": "Faith",
+   "subfamily": "ontological",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.25,
+    "dominance": 0.7,
+    "warmth": 0.3,
+    "brightness": 0.55,
+    "tension": 0.3,
+    "clarity": 1.0,
+    "social": 0.25,
+    "nostalgia": 0.25,
+    "sacredness": 0.9,
+    "desire": 0.05,
+    "grief": 0.2,
+    "awe": 0.8,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.2,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "standing on what cannot be shown"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "faith_waiting_as_practice",
+   "label": "Faith (waiting as practice)",
+   "family": "Faith",
+   "subfamily": "temporal",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.15,
+    "dominance": 0.55,
+    "warmth": 0.25,
+    "brightness": 0.45,
+    "tension": 0.2,
+    "clarity": 0.85,
+    "social": 0.2,
+    "nostalgia": 0.35,
+    "sacredness": 0.85,
+    "desire": 0.05,
+    "grief": 0.15,
+    "awe": 0.75,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.1,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "time sanctified"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "grief_memory_flash",
+   "label": "Grief (memory flash, sudden)",
+   "family": "Grief",
+   "subfamily": "intrusive",
+   "vector_17d": {
+    "valence": -0.3,
+    "arousal": 0.55,
+    "dominance": 0.25,
+    "warmth": -0.15,
+    "brightness": 0.3,
+    "tension": 0.85,
+    "clarity": 0.75,
+    "social": 0.2,
+    "nostalgia": 0.9,
+    "sacredness": 0.2,
+    "desire": 0.1,
+    "grief": 0.85,
+    "awe": 0.25,
+    "shame": 0.1,
+    "hope": 0.1,
+    "edge": 0.6,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "sudden ache",
+    "memory ambush"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "grief_private_weight",
+   "label": "Grief (private weight, no audience)",
+   "family": "Grief",
+   "subfamily": "inward",
+   "vector_17d": {
+    "valence": -0.4,
+    "arousal": 0.25,
+    "dominance": 0.2,
+    "warmth": -0.3,
+    "brightness": 0.25,
+    "tension": 0.65,
+    "clarity": 0.6,
+    "social": 0.1,
+    "nostalgia": 0.75,
+    "sacredness": 0.25,
+    "desire": 0.05,
+    "grief": 0.95,
+    "awe": 0.15,
+    "shame": 0.15,
+    "hope": 0.15,
+    "edge": 0.45,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "weight carried alone",
+    "quiet ache"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "grief_sacred_mourning",
+   "label": "Grief (sacred mourning, held)",
+   "family": "Grief",
+   "subfamily": "ritual",
+   "vector_17d": {
+    "valence": -0.25,
+    "arousal": 0.35,
+    "dominance": 0.35,
+    "warmth": -0.1,
+    "brightness": 0.35,
+    "tension": 0.7,
+    "clarity": 0.55,
+    "social": 0.8,
+    "nostalgia": 0.8,
+    "sacredness": 0.95,
+    "desire": 0.05,
+    "grief": 0.9,
+    "awe": 0.7,
+    "shame": 0.05,
+    "hope": 0.25,
+    "edge": 0.4,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "shared mourning",
+    "holy weight"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "grief_soft_acceptance",
+   "label": "Grief (soft acceptance, not healed)",
+   "family": "Grief",
+   "subfamily": "accepting",
+   "vector_17d": {
+    "valence": -0.1,
+    "arousal": 0.25,
+    "dominance": 0.4,
+    "warmth": 0.05,
+    "brightness": 0.4,
+    "tension": 0.55,
+    "clarity": 0.65,
+    "social": 0.35,
+    "nostalgia": 0.7,
+    "sacredness": 0.3,
+    "desire": 0.05,
+    "grief": 0.75,
+    "awe": 0.25,
+    "shame": 0.05,
+    "hope": 0.35,
+    "edge": 0.35,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "living with loss",
+    "gentle weight"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "grief_unfinished_sentence",
+   "label": "Grief (unfinished sentence)",
+   "family": "Grief",
+   "subfamily": "incomplete",
+   "vector_17d": {
+    "valence": -0.25,
+    "arousal": 0.4,
+    "dominance": 0.3,
+    "warmth": -0.15,
+    "brightness": 0.3,
+    "tension": 0.9,
+    "clarity": 0.7,
+    "social": 0.2,
+    "nostalgia": 0.85,
+    "sacredness": 0.25,
+    "desire": 0.1,
+    "grief": 0.9,
+    "awe": 0.2,
+    "shame": 0.1,
+    "hope": 0.1,
+    "edge": 0.65,
+    "resolution_hunger": 0.15
+   },
+   "qualia_tags": [
+    "left unsaid",
+    "hanging thread"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "innocence_before_knowing",
+   "label": "Innocence (before knowing)",
+   "family": "Innocence",
+   "subfamily": "pre-fall",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.25,
+    "dominance": 0.3,
+    "warmth": 0.35,
+    "brightness": 0.65,
+    "tension": 0.3,
+    "clarity": 0.55,
+    "social": 0.4,
+    "nostalgia": 0.55,
+    "sacredness": 0.3,
+    "desire": 0.2,
+    "grief": 0.1,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.2,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "unmarked perception",
+    "soft wonder"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "innocence_first_light",
+   "label": "Innocence (first light through curtains)",
+   "family": "Innocence",
+   "subfamily": "fresh",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.3,
+    "dominance": 0.4,
+    "warmth": 0.45,
+    "brightness": 0.75,
+    "tension": 0.25,
+    "clarity": 0.65,
+    "social": 0.45,
+    "nostalgia": 0.2,
+    "sacredness": 0.35,
+    "desire": 0.2,
+    "grief": 0.05,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.1,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "newness",
+    "gentle optimism"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "innocence_playful_hum",
+   "label": "Innocence (playful hum, alone)",
+   "family": "Innocence",
+   "subfamily": "self-contained",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.3,
+    "dominance": 0.45,
+    "warmth": 0.45,
+    "brightness": 0.7,
+    "tension": 0.2,
+    "clarity": 0.6,
+    "social": 0.25,
+    "nostalgia": 0.25,
+    "sacredness": 0.2,
+    "desire": 0.2,
+    "grief": 0.05,
+    "awe": 0.2,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.1,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "content alone",
+    "private joy"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "innocence_unquestioned_trust",
+   "label": "Innocence (unquestioned trust)",
+   "family": "Innocence",
+   "subfamily": "trusting",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.35,
+    "dominance": 0.35,
+    "warmth": 0.55,
+    "brightness": 0.7,
+    "tension": 0.2,
+    "clarity": 0.6,
+    "social": 0.55,
+    "nostalgia": 0.3,
+    "sacredness": 0.25,
+    "desire": 0.25,
+    "grief": 0.05,
+    "awe": 0.25,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.1,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "openness",
+    "no second thought"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "innocence_vulnerable_smile",
+   "label": "Innocence (vulnerable smile)",
+   "family": "Innocence",
+   "subfamily": "unguarded",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.4,
+    "dominance": 0.35,
+    "warmth": 0.5,
+    "brightness": 0.65,
+    "tension": 0.45,
+    "clarity": 0.7,
+    "social": 0.45,
+    "nostalgia": 0.35,
+    "sacredness": 0.25,
+    "desire": 0.3,
+    "grief": 0.1,
+    "awe": 0.25,
+    "shame": 0.05,
+    "hope": 0.7,
+    "edge": 0.25,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "open face",
+    "risked warmth"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "integration_breathing_whole",
+   "label": "Integration (breathing as one)",
+   "family": "Integration",
+   "subfamily": "embodied",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.35,
+    "dominance": 0.7,
+    "warmth": 0.4,
+    "brightness": 0.65,
+    "tension": 0.45,
+    "clarity": 0.85,
+    "social": 0.55,
+    "nostalgia": 0.3,
+    "sacredness": 0.4,
+    "desire": 0.25,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.3,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "body and mind aligned"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "integration_dual_truth",
+   "label": "Integration (two truths held)",
+   "family": "Integration",
+   "subfamily": "paradox",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.3,
+    "dominance": 0.55,
+    "warmth": 0.35,
+    "brightness": 0.6,
+    "tension": 0.45,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.45,
+    "sacredness": 0.5,
+    "desire": 0.2,
+    "grief": 0.25,
+    "awe": 0.45,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.3,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "both/and"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "integration_final_truth",
+   "label": "Integration (final truth, nothing added)",
+   "family": "Integration",
+   "subfamily": "complete",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.3,
+    "dominance": 0.75,
+    "warmth": 0.3,
+    "brightness": 0.65,
+    "tension": 0.35,
+    "clarity": 0.98,
+    "social": 0.5,
+    "nostalgia": 0.4,
+    "sacredness": 0.45,
+    "desire": 0.2,
+    "grief": 0.25,
+    "awe": 0.4,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.25,
+    "resolution_hunger": 0.15
+   },
+   "qualia_tags": [
+    "nothing left unsaid"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "integration_lived_wisdom",
+   "label": "Integration (lived wisdom)",
+   "family": "Integration",
+   "subfamily": "mature",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.3,
+    "dominance": 0.7,
+    "warmth": 0.45,
+    "brightness": 0.7,
+    "tension": 0.25,
+    "clarity": 0.95,
+    "social": 0.5,
+    "nostalgia": 0.4,
+    "sacredness": 0.6,
+    "desire": 0.2,
+    "grief": 0.15,
+    "awe": 0.55,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.2,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "earned calm"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "integration_no_repair_needed",
+   "label": "Integration (no repair needed)",
+   "family": "Integration",
+   "subfamily": "acceptance",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.25,
+    "dominance": 0.7,
+    "warmth": 0.45,
+    "brightness": 0.7,
+    "tension": 0.2,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.35,
+    "sacredness": 0.55,
+    "desire": 0.2,
+    "grief": 0.15,
+    "awe": 0.5,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.15,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "this is enough"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "integration_present_wholeness",
+   "label": "Integration (present wholeness)",
+   "family": "Integration",
+   "subfamily": "now",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.3,
+    "dominance": 0.75,
+    "warmth": 0.5,
+    "brightness": 0.75,
+    "tension": 0.15,
+    "clarity": 1.0,
+    "social": 0.45,
+    "nostalgia": 0.25,
+    "sacredness": 0.65,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.6,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.1,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "here",
+    "complete"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "integration_soft_arrival",
+   "label": "Integration (soft arrival, no banner)",
+   "family": "Integration",
+   "subfamily": "quiet",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.25,
+    "dominance": 0.65,
+    "warmth": 0.25,
+    "brightness": 0.55,
+    "tension": 0.4,
+    "clarity": 0.9,
+    "social": 0.4,
+    "nostalgia": 0.35,
+    "sacredness": 0.35,
+    "desire": 0.15,
+    "grief": 0.25,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.45,
+    "edge": 0.3,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "peace without announcement"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "integration_whole_with_scar",
+   "label": "Integration (whole, scar visible)",
+   "family": "Integration",
+   "subfamily": "honest",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.45,
+    "dominance": 0.7,
+    "warmth": 0.3,
+    "brightness": 0.6,
+    "tension": 0.55,
+    "clarity": 0.95,
+    "social": 0.55,
+    "nostalgia": 0.45,
+    "sacredness": 0.35,
+    "desire": 0.25,
+    "grief": 0.35,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.5,
+    "edge": 0.45,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "nothing hidden",
+    "earned calm"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "integration_yes_and_no",
+   "label": "Integration (yes and no coexist)",
+   "family": "Integration",
+   "subfamily": "paradox",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.4,
+    "dominance": 0.6,
+    "warmth": 0.15,
+    "brightness": 0.55,
+    "tension": 0.65,
+    "clarity": 0.85,
+    "social": 0.45,
+    "nostalgia": 0.5,
+    "sacredness": 0.3,
+    "desire": 0.2,
+    "grief": 0.4,
+    "awe": 0.35,
+    "shame": 0.05,
+    "hope": 0.4,
+    "edge": 0.55,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "holding opposites",
+    "breathing through both"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "letting_go_complete",
+   "label": "Letting Go (complete)",
+   "family": "Letting_Go",
+   "subfamily": "final",
+   "vector_17d": {
+    "valence": 0.8,
+    "arousal": 0.0,
+    "dominance": 1.0,
+    "warmth": 0.75,
+    "brightness": 0.85,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.35,
+    "nostalgia": 0.0,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 1.0,
+    "shame": 0.0,
+    "hope": 1.0,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing left to release"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "letting_go_non_attachment",
+   "label": "Letting Go (non-attachment)",
+   "family": "Letting_Go",
+   "subfamily": "free",
+   "vector_17d": {
+    "valence": 0.75,
+    "arousal": 0.0,
+    "dominance": 1.0,
+    "warmth": 0.7,
+    "brightness": 0.8,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.4,
+    "nostalgia": 0.1,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 1.0,
+    "shame": 0.0,
+    "hope": 1.0,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing clings"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "letting_go_release",
+   "label": "Letting Go (release)",
+   "family": "Letting_Go",
+   "subfamily": "ease",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.05,
+    "dominance": 0.9,
+    "warmth": 0.55,
+    "brightness": 0.65,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.4,
+    "nostalgia": 0.25,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.9,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "no holding"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "letting_go_trust",
+   "label": "Letting Go (trust)",
+   "family": "Letting_Go",
+   "subfamily": "faithful",
+   "vector_17d": {
+    "valence": 0.7,
+    "arousal": 0.05,
+    "dominance": 0.95,
+    "warmth": 0.65,
+    "brightness": 0.75,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.45,
+    "nostalgia": 0.2,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 1.0,
+    "shame": 0.0,
+    "hope": 1.0,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "it will be okay"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "letting_go_without_grief",
+   "label": "Letting Go (without grief)",
+   "family": "Letting_Go",
+   "subfamily": "light",
+   "vector_17d": {
+    "valence": 0.65,
+    "arousal": 0.0,
+    "dominance": 0.9,
+    "warmth": 0.6,
+    "brightness": 0.7,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.35,
+    "nostalgia": 0.15,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 1.0,
+    "shame": 0.0,
+    "hope": 1.0,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "no sadness"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "liberation_bare_spine",
+   "label": "Liberation (bare spine, no armor)",
+   "family": "Liberation",
+   "subfamily": "bare",
+   "vector_17d": {
+    "valence": 0.65,
+    "arousal": 0.75,
+    "dominance": 0.85,
+    "warmth": 0.45,
+    "brightness": 0.75,
+    "tension": 0.4,
+    "clarity": 0.9,
+    "social": 0.7,
+    "nostalgia": 0.1,
+    "sacredness": 0.2,
+    "desire": 0.55,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.05,
+    "hope": 0.8,
+    "edge": 0.3,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "standing visible",
+    "permission embodied"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_body_memory",
+   "label": "Longing (body remembers before mind agrees)",
+   "family": "Longing",
+   "subfamily": "somatic",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.65,
+    "dominance": 0.4,
+    "warmth": 0.2,
+    "brightness": 0.55,
+    "tension": 0.85,
+    "clarity": 0.6,
+    "social": 0.25,
+    "nostalgia": 0.55,
+    "sacredness": 0.1,
+    "desire": 0.85,
+    "grief": 0.2,
+    "awe": 0.1,
+    "shame": 0.1,
+    "hope": 0.35,
+    "edge": 0.55,
+    "resolution_hunger": 0.8
+   },
+   "qualia_tags": [
+    "skin recollection",
+    "automatic pull"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_bright_edge",
+   "label": "Longing (bright edge, not despair)",
+   "family": "Longing",
+   "subfamily": "hopeful",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.55,
+    "dominance": 0.35,
+    "warmth": 0.2,
+    "brightness": 0.65,
+    "tension": 0.75,
+    "clarity": 0.7,
+    "social": 0.4,
+    "nostalgia": 0.35,
+    "sacredness": 0.15,
+    "desire": 0.65,
+    "grief": 0.2,
+    "awe": 0.15,
+    "shame": 0.1,
+    "hope": 0.7,
+    "edge": 0.35,
+    "resolution_hunger": 0.65
+   },
+   "qualia_tags": [
+    "reaching with light in it",
+    "ache that believes"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_choir_ache",
+   "label": "Longing (choir ache, communal)",
+   "family": "Longing",
+   "subfamily": "communal-sacred",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.5,
+    "dominance": 0.45,
+    "warmth": 0.0,
+    "brightness": 0.55,
+    "tension": 0.75,
+    "clarity": 0.55,
+    "social": 0.9,
+    "nostalgia": 0.55,
+    "sacredness": 0.9,
+    "desire": 0.45,
+    "grief": 0.55,
+    "awe": 0.65,
+    "shame": 0.05,
+    "hope": 0.45,
+    "edge": 0.4,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "shared yearning",
+    "ritual want"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_clean_hurt",
+   "label": "Longing (clean hurt, no drama)",
+   "family": "Longing",
+   "subfamily": "plainspoken",
+   "vector_17d": {
+    "valence": -0.05,
+    "arousal": 0.45,
+    "dominance": 0.4,
+    "warmth": -0.1,
+    "brightness": 0.45,
+    "tension": 0.8,
+    "clarity": 0.9,
+    "social": 0.25,
+    "nostalgia": 0.55,
+    "sacredness": 0.15,
+    "desire": 0.55,
+    "grief": 0.45,
+    "awe": 0.1,
+    "shame": 0.1,
+    "hope": 0.25,
+    "edge": 0.55,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "straight ache",
+    "truth without glitter"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_defiant_reach",
+   "label": "Longing (defiant reach, no shame)",
+   "family": "Longing",
+   "subfamily": "bold",
+   "vector_17d": {
+    "valence": 0.15,
+    "arousal": 0.7,
+    "dominance": 0.7,
+    "warmth": 0.25,
+    "brightness": 0.6,
+    "tension": 0.8,
+    "clarity": 0.85,
+    "social": 0.55,
+    "nostalgia": 0.25,
+    "sacredness": 0.15,
+    "desire": 0.8,
+    "grief": 0.2,
+    "awe": 0.15,
+    "shame": 0.05,
+    "hope": 0.6,
+    "edge": 0.55,
+    "resolution_hunger": 0.85
+   },
+   "qualia_tags": [
+    "I want you and I’m not small for it",
+    "reach with spine"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_doorway_pause",
+   "label": "Longing (doorway pause, footsteps behind you)",
+   "family": "Longing",
+   "subfamily": "suspended",
+   "vector_17d": {
+    "valence": 0.0,
+    "arousal": 0.55,
+    "dominance": 0.35,
+    "warmth": -0.05,
+    "brightness": 0.5,
+    "tension": 0.95,
+    "clarity": 0.7,
+    "social": 0.2,
+    "nostalgia": 0.45,
+    "sacredness": 0.15,
+    "desire": 0.65,
+    "grief": 0.35,
+    "awe": 0.1,
+    "shame": 0.15,
+    "hope": 0.35,
+    "edge": 0.6,
+    "resolution_hunger": 0.85
+   },
+   "qualia_tags": [
+    "time held by a thread",
+    "decision not taken"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_hollow_room",
+   "label": "Longing (hollow room after laughter)",
+   "family": "Longing",
+   "subfamily": "afterglow",
+   "vector_17d": {
+    "valence": -0.1,
+    "arousal": 0.35,
+    "dominance": 0.25,
+    "warmth": -0.2,
+    "brightness": 0.45,
+    "tension": 0.8,
+    "clarity": 0.55,
+    "social": 0.2,
+    "nostalgia": 0.7,
+    "sacredness": 0.2,
+    "desire": 0.5,
+    "grief": 0.45,
+    "awe": 0.15,
+    "shame": 0.15,
+    "hope": 0.2,
+    "edge": 0.55,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "afterparty silence",
+    "echoing want"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_knife_softly",
+   "label": "Longing (knife softly, smiling)",
+   "family": "Longing",
+   "subfamily": "bittersweet",
+   "vector_17d": {
+    "valence": 0.0,
+    "arousal": 0.55,
+    "dominance": 0.4,
+    "warmth": 0.05,
+    "brightness": 0.5,
+    "tension": 0.9,
+    "clarity": 0.85,
+    "social": 0.3,
+    "nostalgia": 0.55,
+    "sacredness": 0.2,
+    "desire": 0.7,
+    "grief": 0.35,
+    "awe": 0.15,
+    "shame": 0.15,
+    "hope": 0.35,
+    "edge": 0.7,
+    "resolution_hunger": 0.7
+   },
+   "qualia_tags": [
+    "sweet pain",
+    "beautiful wrongness",
+    "truth with perfume"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_moonlit_pull",
+   "label": "Longing (moonlit pull, inevitable)",
+   "family": "Longing",
+   "subfamily": "magnetic",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.65,
+    "dominance": 0.45,
+    "warmth": 0.05,
+    "brightness": 0.5,
+    "tension": 0.85,
+    "clarity": 0.7,
+    "social": 0.35,
+    "nostalgia": 0.35,
+    "sacredness": 0.15,
+    "desire": 0.85,
+    "grief": 0.2,
+    "awe": 0.2,
+    "shame": 0.15,
+    "hope": 0.4,
+    "edge": 0.55,
+    "resolution_hunger": 0.75
+   },
+   "qualia_tags": [
+    "gravity in the chest",
+    "almost-touch"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_open_hands",
+   "label": "Longing (open hands, no demand)",
+   "family": "Longing",
+   "subfamily": "tender",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.5,
+    "dominance": 0.3,
+    "warmth": 0.1,
+    "brightness": 0.55,
+    "tension": 0.8,
+    "clarity": 0.65,
+    "social": 0.35,
+    "nostalgia": 0.45,
+    "sacredness": 0.2,
+    "desire": 0.65,
+    "grief": 0.25,
+    "awe": 0.15,
+    "shame": 0.15,
+    "hope": 0.55,
+    "edge": 0.4,
+    "resolution_hunger": 0.6
+   },
+   "qualia_tags": [
+    "reaching",
+    "ache that stays kind"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_phone_in_hand",
+   "label": "Longing (phone in hand, not sent)",
+   "family": "Longing",
+   "subfamily": "withheld",
+   "vector_17d": {
+    "valence": -0.1,
+    "arousal": 0.45,
+    "dominance": 0.25,
+    "warmth": -0.05,
+    "brightness": 0.45,
+    "tension": 0.9,
+    "clarity": 0.7,
+    "social": 0.15,
+    "nostalgia": 0.55,
+    "sacredness": 0.15,
+    "desire": 0.7,
+    "grief": 0.35,
+    "awe": 0.1,
+    "shame": 0.25,
+    "hope": 0.3,
+    "edge": 0.55,
+    "resolution_hunger": 0.7
+   },
+   "qualia_tags": [
+    "unsent message",
+    "throat tight",
+    "hovering"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_prayer_disguised",
+   "label": "Longing (prayer disguised as pop)",
+   "family": "Longing",
+   "subfamily": "secret-sacred",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.45,
+    "dominance": 0.35,
+    "warmth": 0.05,
+    "brightness": 0.55,
+    "tension": 0.8,
+    "clarity": 0.6,
+    "social": 0.55,
+    "nostalgia": 0.5,
+    "sacredness": 0.75,
+    "desire": 0.55,
+    "grief": 0.4,
+    "awe": 0.55,
+    "shame": 0.1,
+    "hope": 0.5,
+    "edge": 0.4,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "want as hymn",
+    "soft congregation"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_snowglobe_memory",
+   "label": "Longing (snowglobe memory, perfect and sealed)",
+   "family": "Longing",
+   "subfamily": "idealized",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.3,
+    "dominance": 0.25,
+    "warmth": -0.1,
+    "brightness": 0.55,
+    "tension": 0.7,
+    "clarity": 0.55,
+    "social": 0.15,
+    "nostalgia": 0.95,
+    "sacredness": 0.25,
+    "desire": 0.45,
+    "grief": 0.35,
+    "awe": 0.2,
+    "shame": 0.1,
+    "hope": 0.25,
+    "edge": 0.3,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "ideal memory",
+    "untouchable sweetness"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_sunrise_text",
+   "label": "Longing (sunrise text you almost send)",
+   "family": "Longing",
+   "subfamily": "hesitant-hope",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.45,
+    "dominance": 0.3,
+    "warmth": 0.15,
+    "brightness": 0.6,
+    "tension": 0.85,
+    "clarity": 0.7,
+    "social": 0.15,
+    "nostalgia": 0.45,
+    "sacredness": 0.15,
+    "desire": 0.6,
+    "grief": 0.25,
+    "awe": 0.1,
+    "shame": 0.2,
+    "hope": 0.65,
+    "edge": 0.45,
+    "resolution_hunger": 0.75
+   },
+   "qualia_tags": [
+    "hovering courage",
+    "almost-yes"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_sweet_surrender",
+   "label": "Longing (sweet surrender)",
+   "family": "Longing",
+   "subfamily": "accepting",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.4,
+    "dominance": 0.35,
+    "warmth": 0.15,
+    "brightness": 0.5,
+    "tension": 0.7,
+    "clarity": 0.6,
+    "social": 0.3,
+    "nostalgia": 0.55,
+    "sacredness": 0.2,
+    "desire": 0.6,
+    "grief": 0.25,
+    "awe": 0.15,
+    "shame": 0.1,
+    "hope": 0.4,
+    "edge": 0.35,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "wanting without fight",
+    "soft fall"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_train_window",
+   "label": "Longing (train window, lights passing)",
+   "family": "Longing",
+   "subfamily": "moving-away",
+   "vector_17d": {
+    "valence": 0.0,
+    "arousal": 0.35,
+    "dominance": 0.3,
+    "warmth": -0.1,
+    "brightness": 0.45,
+    "tension": 0.75,
+    "clarity": 0.55,
+    "social": 0.2,
+    "nostalgia": 0.8,
+    "sacredness": 0.15,
+    "desire": 0.55,
+    "grief": 0.4,
+    "awe": 0.2,
+    "shame": 0.1,
+    "hope": 0.25,
+    "edge": 0.45,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "distance",
+    "blurred warmth",
+    "goodbye unsaid"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "longing_warm_regret",
+   "label": "Longing (warm regret, forgiving self)",
+   "family": "Longing",
+   "subfamily": "regret-soft",
+   "vector_17d": {
+    "valence": 0.0,
+    "arousal": 0.35,
+    "dominance": 0.35,
+    "warmth": 0.2,
+    "brightness": 0.5,
+    "tension": 0.75,
+    "clarity": 0.75,
+    "social": 0.3,
+    "nostalgia": 0.8,
+    "sacredness": 0.2,
+    "desire": 0.45,
+    "grief": 0.4,
+    "awe": 0.15,
+    "shame": 0.2,
+    "hope": 0.3,
+    "edge": 0.45,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "gentle regret",
+    "soft self-mercy"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "loss_control_body_leads",
+   "label": "Loss of Control (body leads, mind follows)",
+   "family": "Loss_of_Control",
+   "subfamily": "somatic",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.75,
+    "dominance": 0.3,
+    "warmth": 0.3,
+    "brightness": 0.5,
+    "tension": 0.85,
+    "clarity": 0.45,
+    "social": 0.4,
+    "nostalgia": 0.1,
+    "sacredness": 0.2,
+    "desire": 0.55,
+    "grief": 0.15,
+    "awe": 0.25,
+    "shame": 0.05,
+    "hope": 0.25,
+    "edge": 0.75,
+    "resolution_hunger": 0.65
+   },
+   "qualia_tags": [
+    "instinct surge",
+    "no plan"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "loss_control_ground_slips",
+   "label": "Loss of Control (ground slips)",
+   "family": "Loss_of_Control",
+   "subfamily": "destabilized",
+   "vector_17d": {
+    "valence": -0.05,
+    "arousal": 0.65,
+    "dominance": 0.2,
+    "warmth": 0.05,
+    "brightness": 0.45,
+    "tension": 0.9,
+    "clarity": 0.55,
+    "social": 0.25,
+    "nostalgia": 0.15,
+    "sacredness": 0.2,
+    "desire": 0.35,
+    "grief": 0.25,
+    "awe": 0.35,
+    "shame": 0.15,
+    "hope": 0.2,
+    "edge": 0.8,
+    "resolution_hunger": 0.6
+   },
+   "qualia_tags": [
+    "tilt",
+    "nothing stable"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "loss_control_overwhelm",
+   "label": "Loss of Control (overwhelm floods)",
+   "family": "Loss_of_Control",
+   "subfamily": "flooded",
+   "vector_17d": {
+    "valence": -0.15,
+    "arousal": 0.85,
+    "dominance": 0.15,
+    "warmth": 0.1,
+    "brightness": 0.35,
+    "tension": 0.95,
+    "clarity": 0.3,
+    "social": 0.3,
+    "nostalgia": 0.2,
+    "sacredness": 0.25,
+    "desire": 0.45,
+    "grief": 0.4,
+    "awe": 0.35,
+    "shame": 0.25,
+    "hope": 0.15,
+    "edge": 0.85,
+    "resolution_hunger": 0.7
+   },
+   "qualia_tags": [
+    "too much",
+    "no container"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "loss_control_silent_panic",
+   "label": "Loss of Control (silent panic)",
+   "family": "Loss_of_Control",
+   "subfamily": "internal",
+   "vector_17d": {
+    "valence": -0.2,
+    "arousal": 0.6,
+    "dominance": 0.2,
+    "warmth": -0.05,
+    "brightness": 0.3,
+    "tension": 0.9,
+    "clarity": 0.5,
+    "social": 0.15,
+    "nostalgia": 0.25,
+    "sacredness": 0.2,
+    "desire": 0.2,
+    "grief": 0.35,
+    "awe": 0.25,
+    "shame": 0.3,
+    "hope": 0.1,
+    "edge": 0.8,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "contained panic",
+    "no exit"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "loss_control_words_fail",
+   "label": "Loss of Control (words fail first)",
+   "family": "Loss_of_Control",
+   "subfamily": "inarticulate",
+   "vector_17d": {
+    "valence": -0.1,
+    "arousal": 0.55,
+    "dominance": 0.25,
+    "warmth": 0.0,
+    "brightness": 0.4,
+    "tension": 0.8,
+    "clarity": 0.4,
+    "social": 0.35,
+    "nostalgia": 0.25,
+    "sacredness": 0.3,
+    "desire": 0.3,
+    "grief": 0.35,
+    "awe": 0.3,
+    "shame": 0.2,
+    "hope": 0.2,
+    "edge": 0.7,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "stammer",
+    "expression collapse"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "love_allowing",
+   "label": "Love (allowing)",
+   "family": "Love_non_erotic",
+   "subfamily": "spacious",
+   "vector_17d": {
+    "valence": 0.65,
+    "arousal": 0.15,
+    "dominance": 0.85,
+    "warmth": 0.7,
+    "brightness": 0.75,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.6,
+    "nostalgia": 0.25,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.95,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "be as you are"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "love_benevolent_regard",
+   "label": "Love (benevolent regard)",
+   "family": "Love_non_erotic",
+   "subfamily": "gentle",
+   "vector_17d": {
+    "valence": 0.65,
+    "arousal": 0.2,
+    "dominance": 0.75,
+    "warmth": 0.7,
+    "brightness": 0.75,
+    "tension": 0.05,
+    "clarity": 0.95,
+    "social": 0.7,
+    "nostalgia": 0.3,
+    "sacredness": 0.85,
+    "desire": 0.0,
+    "grief": 0.05,
+    "awe": 0.75,
+    "shame": 0.0,
+    "hope": 0.9,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "I want you to be well"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "love_endurance",
+   "label": "Love (endurance)",
+   "family": "Love_non_erotic",
+   "subfamily": "steady",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.25,
+    "dominance": 0.8,
+    "warmth": 0.6,
+    "brightness": 0.65,
+    "tension": 0.15,
+    "clarity": 0.95,
+    "social": 0.65,
+    "nostalgia": 0.45,
+    "sacredness": 0.9,
+    "desire": 0.0,
+    "grief": 0.15,
+    "awe": 0.8,
+    "shame": 0.0,
+    "hope": 0.9,
+    "edge": 0.05,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "still here after time"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "love_unconditional",
+   "label": "Love (unconditional)",
+   "family": "Love_non_erotic",
+   "subfamily": "absolute",
+   "vector_17d": {
+    "valence": 0.7,
+    "arousal": 0.15,
+    "dominance": 0.9,
+    "warmth": 0.75,
+    "brightness": 0.8,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.7,
+    "nostalgia": 0.3,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 1.0,
+    "shame": 0.0,
+    "hope": 1.0,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing withheld"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "love_without_need",
+   "label": "Love (without need)",
+   "family": "Love_non_erotic",
+   "subfamily": "free",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.15,
+    "dominance": 0.8,
+    "warmth": 0.65,
+    "brightness": 0.7,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.55,
+    "nostalgia": 0.2,
+    "sacredness": 0.9,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 0.85,
+    "shame": 0.0,
+    "hope": 0.95,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing required"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "meaning_earned_through_pain",
+   "label": "Meaning (earned through pain)",
+   "family": "Meaning",
+   "subfamily": "costly",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.35,
+    "dominance": 0.65,
+    "warmth": 0.3,
+    "brightness": 0.55,
+    "tension": 0.45,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.5,
+    "sacredness": 0.6,
+    "desire": 0.15,
+    "grief": 0.3,
+    "awe": 0.6,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.3,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "worth the cost"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "meaning_pattern_understood",
+   "label": "Meaning (pattern understood)",
+   "family": "Meaning",
+   "subfamily": "coherence",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.3,
+    "dominance": 0.6,
+    "warmth": 0.4,
+    "brightness": 0.65,
+    "tension": 0.25,
+    "clarity": 0.95,
+    "social": 0.4,
+    "nostalgia": 0.35,
+    "sacredness": 0.45,
+    "desire": 0.2,
+    "grief": 0.15,
+    "awe": 0.5,
+    "shame": 0.0,
+    "hope": 0.7,
+    "edge": 0.2,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "it makes sense now"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "meaning_shared",
+   "label": "Meaning (shared, not owned)",
+   "family": "Meaning",
+   "subfamily": "collective",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.35,
+    "dominance": 0.55,
+    "warmth": 0.5,
+    "brightness": 0.7,
+    "tension": 0.25,
+    "clarity": 0.9,
+    "social": 0.7,
+    "nostalgia": 0.4,
+    "sacredness": 0.55,
+    "desire": 0.2,
+    "grief": 0.15,
+    "awe": 0.55,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.2,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "we recognize this together"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "meaning_sufficient",
+   "label": "Meaning (sufficient, not total)",
+   "family": "Meaning",
+   "subfamily": "enough",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.2,
+    "dominance": 0.7,
+    "warmth": 0.45,
+    "brightness": 0.7,
+    "tension": 0.15,
+    "clarity": 0.95,
+    "social": 0.4,
+    "nostalgia": 0.3,
+    "sacredness": 0.65,
+    "desire": 0.1,
+    "grief": 0.1,
+    "awe": 0.6,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.1,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "this is enough"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "meaning_without_explanation",
+   "label": "Meaning (without explanation)",
+   "family": "Meaning",
+   "subfamily": "felt",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.25,
+    "dominance": 0.55,
+    "warmth": 0.35,
+    "brightness": 0.6,
+    "tension": 0.2,
+    "clarity": 0.85,
+    "social": 0.35,
+    "nostalgia": 0.3,
+    "sacredness": 0.55,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.55,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.15,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "knowing without words"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "play_childlike_energy",
+   "label": "Play (childlike energy, not childish)",
+   "family": "Play",
+   "subfamily": "pure",
+   "vector_17d": {
+    "valence": 0.65,
+    "arousal": 0.75,
+    "dominance": 0.55,
+    "warmth": 0.55,
+    "brightness": 0.85,
+    "tension": 0.35,
+    "clarity": 0.65,
+    "social": 0.65,
+    "nostalgia": 0.35,
+    "sacredness": 0.15,
+    "desire": 0.35,
+    "grief": 0.05,
+    "awe": 0.2,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.2,
+    "resolution_hunger": 0.6
+   },
+   "qualia_tags": [
+    "bounce",
+    "laughter in motion"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "play_light_feet",
+   "label": "Play (light feet, quick turns)",
+   "family": "Play",
+   "subfamily": "nimble",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.65,
+    "dominance": 0.55,
+    "warmth": 0.45,
+    "brightness": 0.8,
+    "tension": 0.35,
+    "clarity": 0.65,
+    "social": 0.55,
+    "nostalgia": 0.15,
+    "sacredness": 0.1,
+    "desire": 0.3,
+    "grief": 0.05,
+    "awe": 0.2,
+    "shame": 0.0,
+    "hope": 0.7,
+    "edge": 0.25,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "movement joy",
+    "spark"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "play_private_delight",
+   "label": "Play (private delight, no audience)",
+   "family": "Play",
+   "subfamily": "intimate",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.35,
+    "dominance": 0.45,
+    "warmth": 0.5,
+    "brightness": 0.65,
+    "tension": 0.25,
+    "clarity": 0.7,
+    "social": 0.25,
+    "nostalgia": 0.2,
+    "sacredness": 0.1,
+    "desire": 0.3,
+    "grief": 0.05,
+    "awe": 0.15,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.15,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "inside joke",
+    "soft fun"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "play_rule_break_smile",
+   "label": "Play (rule-break with a smile)",
+   "family": "Play",
+   "subfamily": "subversive",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.7,
+    "dominance": 0.65,
+    "warmth": 0.35,
+    "brightness": 0.75,
+    "tension": 0.65,
+    "clarity": 0.8,
+    "social": 0.55,
+    "nostalgia": 0.1,
+    "sacredness": 0.05,
+    "desire": 0.4,
+    "grief": 0.05,
+    "awe": 0.1,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.55,
+    "resolution_hunger": 0.7
+   },
+   "qualia_tags": [
+    "cheeky defiance",
+    "fun danger"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "play_teasing_wink",
+   "label": "Play (teasing wink)",
+   "family": "Play",
+   "subfamily": "tease",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.6,
+    "dominance": 0.6,
+    "warmth": 0.4,
+    "brightness": 0.7,
+    "tension": 0.55,
+    "clarity": 0.7,
+    "social": 0.6,
+    "nostalgia": 0.15,
+    "sacredness": 0.05,
+    "desire": 0.45,
+    "grief": 0.05,
+    "awe": 0.1,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.45,
+    "resolution_hunger": 0.65
+   },
+   "qualia_tags": [
+    "knowing grin",
+    "almost-mischief"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "power_commanding_voice",
+   "label": "Power (commanding voice, fills room)",
+   "family": "Power",
+   "subfamily": "commanding",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.75,
+    "dominance": 0.98,
+    "warmth": 0.4,
+    "brightness": 0.65,
+    "tension": 0.65,
+    "clarity": 0.95,
+    "social": 0.85,
+    "nostalgia": 0.1,
+    "sacredness": 0.35,
+    "desire": 0.25,
+    "grief": 0.05,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.45,
+    "edge": 0.4,
+    "resolution_hunger": 0.7
+   },
+   "qualia_tags": [
+    "authority",
+    "room listens"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "power_crowned_after_cost",
+   "label": "Power (crowned after cost)",
+   "family": "Power",
+   "subfamily": "earned",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.65,
+    "dominance": 0.95,
+    "warmth": 0.25,
+    "brightness": 0.6,
+    "tension": 0.7,
+    "clarity": 0.85,
+    "social": 0.75,
+    "nostalgia": 0.35,
+    "sacredness": 0.55,
+    "desire": 0.25,
+    "grief": 0.3,
+    "awe": 0.45,
+    "shame": 0.0,
+    "hope": 0.45,
+    "edge": 0.45,
+    "resolution_hunger": 0.6
+   },
+   "qualia_tags": [
+    "weight of authority",
+    "earned voice"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "power_dangerous_calm",
+   "label": "Power (dangerous calm)",
+   "family": "Power",
+   "subfamily": "threatening",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.5,
+    "dominance": 0.95,
+    "warmth": -0.05,
+    "brightness": 0.4,
+    "tension": 0.9,
+    "clarity": 0.9,
+    "social": 0.4,
+    "nostalgia": 0.1,
+    "sacredness": 0.1,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.2,
+    "edge": 0.75,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "stillness before strike",
+    "quiet threat"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "power_rooted_presence",
+   "label": "Power (rooted presence, unmoved)",
+   "family": "Power",
+   "subfamily": "rooted",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.45,
+    "dominance": 0.95,
+    "warmth": 0.15,
+    "brightness": 0.5,
+    "tension": 0.5,
+    "clarity": 0.9,
+    "social": 0.55,
+    "nostalgia": 0.1,
+    "sacredness": 0.2,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.25,
+    "shame": 0.0,
+    "hope": 0.3,
+    "edge": 0.35,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "grounded authority",
+    "still center"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "power_unshowy_control",
+   "label": "Power (unshowy control)",
+   "family": "Power",
+   "subfamily": "quiet",
+   "vector_17d": {
+    "valence": 0.15,
+    "arousal": 0.3,
+    "dominance": 0.9,
+    "warmth": 0.05,
+    "brightness": 0.45,
+    "tension": 0.55,
+    "clarity": 0.85,
+    "social": 0.4,
+    "nostalgia": 0.15,
+    "sacredness": 0.15,
+    "desire": 0.1,
+    "grief": 0.15,
+    "awe": 0.2,
+    "shame": 0.0,
+    "hope": 0.25,
+    "edge": 0.35,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "nothing to prove",
+    "hands steady"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "presence_enough",
+   "label": "Presence (enough)",
+   "family": "Presence",
+   "subfamily": "complete",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.05,
+    "dominance": 0.85,
+    "warmth": 0.5,
+    "brightness": 0.6,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.35,
+    "nostalgia": 0.15,
+    "sacredness": 1.0,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 1.0,
+    "shame": 0.0,
+    "hope": 1.0,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing else required"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "presence_now",
+   "label": "Presence (now)",
+   "family": "Presence",
+   "subfamily": "immediate",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.1,
+    "dominance": 0.8,
+    "warmth": 0.45,
+    "brightness": 0.6,
+    "tension": 0.05,
+    "clarity": 1.0,
+    "social": 0.35,
+    "nostalgia": 0.2,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.05,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "here"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "presence_shared_space",
+   "label": "Presence (shared space)",
+   "family": "Presence",
+   "subfamily": "with",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.1,
+    "dominance": 0.7,
+    "warmth": 0.55,
+    "brightness": 0.6,
+    "tension": 0.05,
+    "clarity": 0.95,
+    "social": 0.65,
+    "nostalgia": 0.3,
+    "sacredness": 0.9,
+    "desire": 0.0,
+    "grief": 0.05,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "together without speech"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "presence_unbroken_attention",
+   "label": "Presence (unbroken attention)",
+   "family": "Presence",
+   "subfamily": "continuous",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.1,
+    "dominance": 0.8,
+    "warmth": 0.45,
+    "brightness": 0.55,
+    "tension": 0.05,
+    "clarity": 1.0,
+    "social": 0.3,
+    "nostalgia": 0.2,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 0.95,
+    "shame": 0.0,
+    "hope": 0.9,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing drifts"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "presence_without_self",
+   "label": "Presence (without self-reference)",
+   "family": "Presence",
+   "subfamily": "egoless",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.05,
+    "dominance": 0.75,
+    "warmth": 0.4,
+    "brightness": 0.55,
+    "tension": 0.05,
+    "clarity": 1.0,
+    "social": 0.25,
+    "nostalgia": 0.15,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.0,
+    "awe": 0.95,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "no observer"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "purpose_alignment",
+   "label": "Purpose (alignment felt)",
+   "family": "Purpose",
+   "subfamily": "aligned",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.3,
+    "dominance": 0.75,
+    "warmth": 0.5,
+    "brightness": 0.75,
+    "tension": 0.1,
+    "clarity": 1.0,
+    "social": 0.45,
+    "nostalgia": 0.25,
+    "sacredness": 0.75,
+    "desire": 0.1,
+    "grief": 0.05,
+    "awe": 0.7,
+    "shame": 0.0,
+    "hope": 0.95,
+    "edge": 0.05,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "everything points the same way"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "purpose_lived_not_declared",
+   "label": "Purpose (lived, not declared)",
+   "family": "Purpose",
+   "subfamily": "implicit",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.25,
+    "dominance": 0.7,
+    "warmth": 0.45,
+    "brightness": 0.7,
+    "tension": 0.15,
+    "clarity": 0.95,
+    "social": 0.4,
+    "nostalgia": 0.3,
+    "sacredness": 0.65,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.65,
+    "shame": 0.0,
+    "hope": 0.9,
+    "edge": 0.1,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "no manifesto needed"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "purpose_long_arc",
+   "label": "Purpose (long arc)",
+   "family": "Purpose",
+   "subfamily": "enduring",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.35,
+    "dominance": 0.7,
+    "warmth": 0.4,
+    "brightness": 0.65,
+    "tension": 0.3,
+    "clarity": 0.9,
+    "social": 0.45,
+    "nostalgia": 0.45,
+    "sacredness": 0.7,
+    "desire": 0.2,
+    "grief": 0.2,
+    "awe": 0.65,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.2,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "this continues"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "purpose_quiet_direction",
+   "label": "Purpose (quiet direction)",
+   "family": "Purpose",
+   "subfamily": "compass",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.3,
+    "dominance": 0.65,
+    "warmth": 0.4,
+    "brightness": 0.65,
+    "tension": 0.2,
+    "clarity": 0.9,
+    "social": 0.45,
+    "nostalgia": 0.3,
+    "sacredness": 0.55,
+    "desire": 0.25,
+    "grief": 0.15,
+    "awe": 0.55,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.2,
+    "resolution_hunger": 0.15
+   },
+   "qualia_tags": [
+    "I know where this goes"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "purpose_service",
+   "label": "Purpose (in service)",
+   "family": "Purpose",
+   "subfamily": "offered",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.25,
+    "dominance": 0.55,
+    "warmth": 0.5,
+    "brightness": 0.65,
+    "tension": 0.2,
+    "clarity": 0.95,
+    "social": 0.7,
+    "nostalgia": 0.35,
+    "sacredness": 0.65,
+    "desire": 0.2,
+    "grief": 0.1,
+    "awe": 0.6,
+    "shame": 0.0,
+    "hope": 0.85,
+    "edge": 0.15,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "for others"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "rebirth_first_breath",
+   "label": "Rebirth (first breath)",
+   "family": "Rebirth",
+   "subfamily": "emergence",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.25,
+    "dominance": 0.3,
+    "warmth": 0.2,
+    "brightness": 0.35,
+    "tension": 0.25,
+    "clarity": 0.5,
+    "social": 0.2,
+    "nostalgia": 0.0,
+    "sacredness": 0.55,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.65,
+    "shame": 0.0,
+    "hope": 0.4,
+    "edge": 0.15,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "breath enters",
+    "fragile life"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "rebirth_fragile_yes",
+   "label": "Rebirth (fragile yes)",
+   "family": "Rebirth",
+   "subfamily": "tentative",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.35,
+    "dominance": 0.35,
+    "warmth": 0.35,
+    "brightness": 0.55,
+    "tension": 0.35,
+    "clarity": 0.7,
+    "social": 0.35,
+    "nostalgia": 0.05,
+    "sacredness": 0.5,
+    "desire": 0.25,
+    "grief": 0.1,
+    "awe": 0.55,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.25,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "yes whispered"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "rebirth_light_returns",
+   "label": "Rebirth (light returns)",
+   "family": "Rebirth",
+   "subfamily": "illumination",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.35,
+    "dominance": 0.35,
+    "warmth": 0.3,
+    "brightness": 0.55,
+    "tension": 0.3,
+    "clarity": 0.65,
+    "social": 0.3,
+    "nostalgia": 0.1,
+    "sacredness": 0.5,
+    "desire": 0.25,
+    "grief": 0.1,
+    "awe": 0.6,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.2,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "seeing again",
+    "soft illumination"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "rebirth_new_life_stirs",
+   "label": "Rebirth (new life stirs)",
+   "family": "Rebirth",
+   "subfamily": "awakening",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.45,
+    "dominance": 0.45,
+    "warmth": 0.4,
+    "brightness": 0.65,
+    "tension": 0.4,
+    "clarity": 0.75,
+    "social": 0.4,
+    "nostalgia": 0.05,
+    "sacredness": 0.55,
+    "desire": 0.35,
+    "grief": 0.05,
+    "awe": 0.65,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.3,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "life energy returns"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "rebirth_without_past",
+   "label": "Rebirth (without the past)",
+   "family": "Rebirth",
+   "subfamily": "clean",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.3,
+    "dominance": 0.4,
+    "warmth": 0.25,
+    "brightness": 0.5,
+    "tension": 0.25,
+    "clarity": 0.8,
+    "social": 0.25,
+    "nostalgia": 0.0,
+    "sacredness": 0.45,
+    "desire": 0.2,
+    "grief": 0.05,
+    "awe": 0.55,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.2,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "no backstory"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "release_acceptance",
+   "label": "Release (acceptance settles)",
+   "family": "Release",
+   "subfamily": "settled",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.25,
+    "dominance": 0.5,
+    "warmth": 0.4,
+    "brightness": 0.65,
+    "tension": 0.2,
+    "clarity": 0.9,
+    "social": 0.4,
+    "nostalgia": 0.3,
+    "sacredness": 0.4,
+    "desire": 0.1,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.15,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "settled truth"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "release_breathing_again",
+   "label": "Release (breathing again)",
+   "family": "Release",
+   "subfamily": "physiological",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.2,
+    "dominance": 0.4,
+    "warmth": 0.3,
+    "brightness": 0.55,
+    "tension": 0.2,
+    "clarity": 0.8,
+    "social": 0.35,
+    "nostalgia": 0.25,
+    "sacredness": 0.3,
+    "desire": 0.1,
+    "grief": 0.2,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.5,
+    "edge": 0.15,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "lungs open",
+    "calm returns"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "release_energy_discharged",
+   "label": "Release (energy discharged)",
+   "family": "Release",
+   "subfamily": "physical",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.45,
+    "dominance": 0.45,
+    "warmth": 0.35,
+    "brightness": 0.6,
+    "tension": 0.25,
+    "clarity": 0.7,
+    "social": 0.45,
+    "nostalgia": 0.15,
+    "sacredness": 0.2,
+    "desire": 0.2,
+    "grief": 0.1,
+    "awe": 0.25,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.2,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "spent",
+    "empty but okay"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "release_laughter_break",
+   "label": "Release (laughter breaks tension)",
+   "family": "Release",
+   "subfamily": "joyful",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.55,
+    "dominance": 0.45,
+    "warmth": 0.5,
+    "brightness": 0.75,
+    "tension": 0.25,
+    "clarity": 0.7,
+    "social": 0.6,
+    "nostalgia": 0.2,
+    "sacredness": 0.15,
+    "desire": 0.25,
+    "grief": 0.1,
+    "awe": 0.2,
+    "shame": 0.0,
+    "hope": 0.7,
+    "edge": 0.2,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "relief through joy"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "release_tears_fall",
+   "label": "Release (tears finally fall)",
+   "family": "Release",
+   "subfamily": "emotional",
+   "vector_17d": {
+    "valence": 0.15,
+    "arousal": 0.35,
+    "dominance": 0.3,
+    "warmth": 0.25,
+    "brightness": 0.5,
+    "tension": 0.3,
+    "clarity": 0.65,
+    "social": 0.3,
+    "nostalgia": 0.45,
+    "sacredness": 0.35,
+    "desire": 0.1,
+    "grief": 0.45,
+    "awe": 0.3,
+    "shame": 0.05,
+    "hope": 0.35,
+    "edge": 0.25,
+    "resolution_hunger": 0.15
+   },
+   "qualia_tags": [
+    "crying",
+    "pressure leaves"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "repair_after_shatter",
+   "label": "Repair (after shatter, hands shaking)",
+   "family": "Repair",
+   "subfamily": "fragile",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.35,
+    "dominance": 0.4,
+    "warmth": 0.1,
+    "brightness": 0.45,
+    "tension": 0.8,
+    "clarity": 0.65,
+    "social": 0.35,
+    "nostalgia": 0.45,
+    "sacredness": 0.25,
+    "desire": 0.15,
+    "grief": 0.55,
+    "awe": 0.2,
+    "shame": 0.2,
+    "hope": 0.35,
+    "edge": 0.6,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "careful touch",
+    "fear of breaking again"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "repair_bandage_kindness",
+   "label": "Repair (bandage kindness)",
+   "family": "Repair",
+   "subfamily": "gentle",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.25,
+    "dominance": 0.45,
+    "warmth": 0.55,
+    "brightness": 0.6,
+    "tension": 0.45,
+    "clarity": 0.7,
+    "social": 0.55,
+    "nostalgia": 0.3,
+    "sacredness": 0.2,
+    "desire": 0.1,
+    "grief": 0.3,
+    "awe": 0.15,
+    "shame": 0.05,
+    "hope": 0.55,
+    "edge": 0.25,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "soft care",
+    "no pressure"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "repair_earned_trust",
+   "label": "Repair (earned trust, not assumed)",
+   "family": "Repair",
+   "subfamily": "earned",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.35,
+    "dominance": 0.55,
+    "warmth": 0.35,
+    "brightness": 0.55,
+    "tension": 0.65,
+    "clarity": 0.85,
+    "social": 0.45,
+    "nostalgia": 0.4,
+    "sacredness": 0.25,
+    "desire": 0.2,
+    "grief": 0.35,
+    "awe": 0.2,
+    "shame": 0.1,
+    "hope": 0.45,
+    "edge": 0.45,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "slow rebuilding",
+    "watchful warmth"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "repair_no_promises",
+   "label": "Repair (no promises, just presence)",
+   "family": "Repair",
+   "subfamily": "present",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.25,
+    "dominance": 0.5,
+    "warmth": 0.25,
+    "brightness": 0.45,
+    "tension": 0.55,
+    "clarity": 0.9,
+    "social": 0.35,
+    "nostalgia": 0.35,
+    "sacredness": 0.3,
+    "desire": 0.1,
+    "grief": 0.3,
+    "awe": 0.2,
+    "shame": 0.05,
+    "hope": 0.3,
+    "edge": 0.35,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "showing up",
+    "no future claims"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "repair_touch_returns",
+   "label": "Repair (touch returns cautiously)",
+   "family": "Repair",
+   "subfamily": "reopening",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.4,
+    "dominance": 0.45,
+    "warmth": 0.45,
+    "brightness": 0.6,
+    "tension": 0.7,
+    "clarity": 0.7,
+    "social": 0.45,
+    "nostalgia": 0.35,
+    "sacredness": 0.2,
+    "desire": 0.3,
+    "grief": 0.3,
+    "awe": 0.15,
+    "shame": 0.1,
+    "hope": 0.45,
+    "edge": 0.4,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "almost-touch",
+    "testing warmth"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "return_place_unchanged",
+   "label": "Return (place unchanged, you are)",
+   "family": "Return",
+   "subfamily": "contrast",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.3,
+    "dominance": 0.45,
+    "warmth": 0.3,
+    "brightness": 0.5,
+    "tension": 0.4,
+    "clarity": 0.8,
+    "social": 0.35,
+    "nostalgia": 0.6,
+    "sacredness": 0.35,
+    "desire": 0.2,
+    "grief": 0.25,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.5,
+    "edge": 0.3,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "same walls",
+    "different self"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "return_quiet_homecoming",
+   "label": "Return (quiet homecoming)",
+   "family": "Return",
+   "subfamily": "soft",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.25,
+    "dominance": 0.45,
+    "warmth": 0.4,
+    "brightness": 0.6,
+    "tension": 0.3,
+    "clarity": 0.8,
+    "social": 0.45,
+    "nostalgia": 0.55,
+    "sacredness": 0.4,
+    "desire": 0.2,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.2,
+    "resolution_hunger": 0.25
+   },
+   "qualia_tags": [
+    "familiar ground",
+    "changed feet"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "return_seen_differently",
+   "label": "Return (being seen differently)",
+   "family": "Return",
+   "subfamily": "social",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.35,
+    "dominance": 0.5,
+    "warmth": 0.35,
+    "brightness": 0.55,
+    "tension": 0.45,
+    "clarity": 0.85,
+    "social": 0.7,
+    "nostalgia": 0.45,
+    "sacredness": 0.35,
+    "desire": 0.25,
+    "grief": 0.2,
+    "awe": 0.3,
+    "shame": 0.05,
+    "hope": 0.55,
+    "edge": 0.35,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "recognition shifted"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "return_weight_carried",
+   "label": "Return (weight still carried)",
+   "family": "Return",
+   "subfamily": "burdened",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.35,
+    "dominance": 0.45,
+    "warmth": 0.25,
+    "brightness": 0.45,
+    "tension": 0.5,
+    "clarity": 0.85,
+    "social": 0.35,
+    "nostalgia": 0.55,
+    "sacredness": 0.4,
+    "desire": 0.2,
+    "grief": 0.3,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.45,
+    "edge": 0.4,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "not healed, but here"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "return_without_story",
+   "label": "Return (without telling the story)",
+   "family": "Return",
+   "subfamily": "silent",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.2,
+    "dominance": 0.55,
+    "warmth": 0.35,
+    "brightness": 0.55,
+    "tension": 0.25,
+    "clarity": 0.9,
+    "social": 0.3,
+    "nostalgia": 0.5,
+    "sacredness": 0.45,
+    "desire": 0.15,
+    "grief": 0.2,
+    "awe": 0.4,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.2,
+    "resolution_hunger": 0.15
+   },
+   "qualia_tags": [
+    "no explanation needed"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "risk_all_in",
+   "label": "Risk (all in, no hedge)",
+   "family": "Risk",
+   "subfamily": "commitment",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.85,
+    "dominance": 0.75,
+    "warmth": 0.3,
+    "brightness": 0.65,
+    "tension": 0.95,
+    "clarity": 0.85,
+    "social": 0.55,
+    "nostalgia": 0.15,
+    "sacredness": 0.35,
+    "desire": 0.6,
+    "grief": 0.1,
+    "awe": 0.35,
+    "shame": 0.1,
+    "hope": 0.55,
+    "edge": 0.85,
+    "resolution_hunger": 0.75
+   },
+   "qualia_tags": [
+    "no safety net",
+    "full leap"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "risk_blind_trust",
+   "label": "Risk (blind trust)",
+   "family": "Risk",
+   "subfamily": "faith",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.6,
+    "dominance": 0.5,
+    "warmth": 0.35,
+    "brightness": 0.6,
+    "tension": 0.75,
+    "clarity": 0.55,
+    "social": 0.45,
+    "nostalgia": 0.25,
+    "sacredness": 0.55,
+    "desire": 0.4,
+    "grief": 0.15,
+    "awe": 0.5,
+    "shame": 0.1,
+    "hope": 0.6,
+    "edge": 0.65,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "eyes closed",
+    "step taken"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "risk_edge_peek",
+   "label": "Risk (edge peek, testing depth)",
+   "family": "Risk",
+   "subfamily": "tentative",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.55,
+    "dominance": 0.45,
+    "warmth": 0.1,
+    "brightness": 0.5,
+    "tension": 0.8,
+    "clarity": 0.65,
+    "social": 0.25,
+    "nostalgia": 0.2,
+    "sacredness": 0.2,
+    "desire": 0.4,
+    "grief": 0.15,
+    "awe": 0.3,
+    "shame": 0.15,
+    "hope": 0.45,
+    "edge": 0.7,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "leaning forward",
+    "checking footing"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "risk_irreversible_step",
+   "label": "Risk (irreversible step)",
+   "family": "Risk",
+   "subfamily": "point_of_no_return",
+   "vector_17d": {
+    "valence": 0.0,
+    "arousal": 0.65,
+    "dominance": 0.6,
+    "warmth": 0.1,
+    "brightness": 0.5,
+    "tension": 0.9,
+    "clarity": 0.9,
+    "social": 0.4,
+    "nostalgia": 0.3,
+    "sacredness": 0.4,
+    "desire": 0.45,
+    "grief": 0.25,
+    "awe": 0.4,
+    "shame": 0.1,
+    "hope": 0.4,
+    "edge": 0.8,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "door closing",
+    "forward only"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "risk_seen",
+   "label": "Risk (seen taking it)",
+   "family": "Risk",
+   "subfamily": "exposed",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.7,
+    "dominance": 0.55,
+    "warmth": 0.15,
+    "brightness": 0.55,
+    "tension": 0.85,
+    "clarity": 0.7,
+    "social": 0.7,
+    "nostalgia": 0.2,
+    "sacredness": 0.25,
+    "desire": 0.45,
+    "grief": 0.2,
+    "awe": 0.3,
+    "shame": 0.25,
+    "hope": 0.45,
+    "edge": 0.75,
+    "resolution_hunger": 0.6
+   },
+   "qualia_tags": [
+    "exposure",
+    "eyes on you"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "silence_after_last_note",
+   "label": "Silence (after the last note)",
+   "family": "Silence",
+   "subfamily": "after",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.05,
+    "dominance": 0.6,
+    "warmth": 0.3,
+    "brightness": 0.3,
+    "tension": 0.05,
+    "clarity": 1.0,
+    "social": 0.25,
+    "nostalgia": 0.5,
+    "sacredness": 0.9,
+    "desire": 0.0,
+    "grief": 0.2,
+    "awe": 0.85,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "sound has ended",
+    "something remains"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "silence_before_beginning",
+   "label": "Silence (before beginning)",
+   "family": "Silence",
+   "subfamily": "anticipatory",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.1,
+    "dominance": 0.55,
+    "warmth": 0.25,
+    "brightness": 0.35,
+    "tension": 0.15,
+    "clarity": 0.95,
+    "social": 0.2,
+    "nostalgia": 0.2,
+    "sacredness": 0.85,
+    "desire": 0.05,
+    "grief": 0.1,
+    "awe": 0.8,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.05,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing yet",
+    "ready"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "silence_full_room",
+   "label": "Silence (full room)",
+   "family": "Silence",
+   "subfamily": "inhabited",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.05,
+    "dominance": 0.65,
+    "warmth": 0.35,
+    "brightness": 0.4,
+    "tension": 0.05,
+    "clarity": 1.0,
+    "social": 0.45,
+    "nostalgia": 0.35,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.15,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.7,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing missing"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "silence_heard",
+   "label": "Silence (heard, not empty)",
+   "family": "Silence",
+   "subfamily": "perceived",
+   "vector_17d": {
+    "valence": 0.35,
+    "arousal": 0.1,
+    "dominance": 0.6,
+    "warmth": 0.3,
+    "brightness": 0.35,
+    "tension": 0.1,
+    "clarity": 0.95,
+    "social": 0.25,
+    "nostalgia": 0.3,
+    "sacredness": 0.9,
+    "desire": 0.0,
+    "grief": 0.15,
+    "awe": 0.85,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "listening without sound"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "silence_rest",
+   "label": "Silence (rest)",
+   "family": "Silence",
+   "subfamily": "restorative",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.0,
+    "dominance": 0.7,
+    "warmth": 0.4,
+    "brightness": 0.3,
+    "tension": 0.0,
+    "clarity": 1.0,
+    "social": 0.3,
+    "nostalgia": 0.25,
+    "sacredness": 0.95,
+    "desire": 0.0,
+    "grief": 0.05,
+    "awe": 0.9,
+    "shame": 0.0,
+    "hope": 0.8,
+    "edge": 0.0,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "nothing to do"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "stillness_after_truth",
+   "label": "Stillness (after truth is spoken)",
+   "family": "Stillness",
+   "subfamily": "afterword",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.2,
+    "dominance": 0.55,
+    "warmth": 0.1,
+    "brightness": 0.55,
+    "tension": 0.3,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.35,
+    "sacredness": 0.45,
+    "desire": 0.05,
+    "grief": 0.2,
+    "awe": 0.5,
+    "shame": 0.0,
+    "hope": 0.4,
+    "edge": 0.25,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "nothing left to add"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "stillness_edge_of_sleep",
+   "label": "Stillness (edge of sleep)",
+   "family": "Stillness",
+   "subfamily": "liminal",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.1,
+    "dominance": 0.35,
+    "warmth": 0.2,
+    "brightness": 0.5,
+    "tension": 0.25,
+    "clarity": 0.6,
+    "social": 0.2,
+    "nostalgia": 0.4,
+    "sacredness": 0.35,
+    "desire": 0.0,
+    "grief": 0.15,
+    "awe": 0.45,
+    "shame": 0.0,
+    "hope": 0.35,
+    "edge": 0.15,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "drifting",
+    "soft blur"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "stillness_safe_void",
+   "label": "Stillness (safe void)",
+   "family": "Stillness",
+   "subfamily": "rest",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.05,
+    "dominance": 0.45,
+    "warmth": 0.15,
+    "brightness": 0.45,
+    "tension": 0.2,
+    "clarity": 0.75,
+    "social": 0.4,
+    "nostalgia": 0.2,
+    "sacredness": 0.4,
+    "desire": 0.0,
+    "grief": 0.1,
+    "awe": 0.4,
+    "shame": 0.0,
+    "hope": 0.45,
+    "edge": 0.1,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "rest",
+    "permission to stop"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "stillness_time_stops",
+   "label": "Stillness (time stops briefly)",
+   "family": "Stillness",
+   "subfamily": "suspended",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.1,
+    "dominance": 0.35,
+    "warmth": 0.0,
+    "brightness": 0.55,
+    "tension": 0.45,
+    "clarity": 0.7,
+    "social": 0.25,
+    "nostalgia": 0.3,
+    "sacredness": 0.6,
+    "desire": 0.05,
+    "grief": 0.1,
+    "awe": 0.7,
+    "shame": 0.0,
+    "hope": 0.3,
+    "edge": 0.2,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "pause",
+    "held breath"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "stillness_witnessing",
+   "label": "Stillness (witnessing without comment)",
+   "family": "Stillness",
+   "subfamily": "observing",
+   "vector_17d": {
+    "valence": 0.15,
+    "arousal": 0.15,
+    "dominance": 0.45,
+    "warmth": 0.05,
+    "brightness": 0.5,
+    "tension": 0.35,
+    "clarity": 0.85,
+    "social": 0.35,
+    "nostalgia": 0.25,
+    "sacredness": 0.55,
+    "desire": 0.05,
+    "grief": 0.15,
+    "awe": 0.65,
+    "shame": 0.0,
+    "hope": 0.35,
+    "edge": 0.2,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "watching",
+    "non-interference"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "surrender_exhale_finally",
+   "label": "Surrender (exhale, finally)",
+   "family": "Surrender",
+   "subfamily": "release",
+   "vector_17d": {
+    "valence": 0.25,
+    "arousal": 0.2,
+    "dominance": 0.3,
+    "warmth": 0.25,
+    "brightness": 0.55,
+    "tension": 0.25,
+    "clarity": 0.8,
+    "social": 0.35,
+    "nostalgia": 0.35,
+    "sacredness": 0.3,
+    "desire": 0.1,
+    "grief": 0.25,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.45,
+    "edge": 0.2,
+    "resolution_hunger": 0.1
+   },
+   "qualia_tags": [
+    "letting go",
+    "shoulders drop"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "surrender_into_unknown",
+   "label": "Surrender (into the unknown)",
+   "family": "Surrender",
+   "subfamily": "open",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.35,
+    "dominance": 0.3,
+    "warmth": 0.2,
+    "brightness": 0.55,
+    "tension": 0.55,
+    "clarity": 0.6,
+    "social": 0.25,
+    "nostalgia": 0.2,
+    "sacredness": 0.45,
+    "desire": 0.15,
+    "grief": 0.2,
+    "awe": 0.45,
+    "shame": 0.05,
+    "hope": 0.45,
+    "edge": 0.45,
+    "resolution_hunger": 0.15
+   },
+   "qualia_tags": [
+    "open hands",
+    "no map"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "surrender_no_more_fight",
+   "label": "Surrender (no more fight)",
+   "family": "Surrender",
+   "subfamily": "cessation",
+   "vector_17d": {
+    "valence": 0.15,
+    "arousal": 0.25,
+    "dominance": 0.25,
+    "warmth": 0.15,
+    "brightness": 0.45,
+    "tension": 0.35,
+    "clarity": 0.85,
+    "social": 0.3,
+    "nostalgia": 0.4,
+    "sacredness": 0.35,
+    "desire": 0.05,
+    "grief": 0.3,
+    "awe": 0.25,
+    "shame": 0.05,
+    "hope": 0.3,
+    "edge": 0.25,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "ending resistance",
+    "quiet acceptance"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "surrender_soft_collapse",
+   "label": "Surrender (soft collapse, safe)",
+   "family": "Surrender",
+   "subfamily": "safe",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.15,
+    "dominance": 0.25,
+    "warmth": 0.35,
+    "brightness": 0.5,
+    "tension": 0.2,
+    "clarity": 0.7,
+    "social": 0.4,
+    "nostalgia": 0.3,
+    "sacredness": 0.35,
+    "desire": 0.05,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.5,
+    "edge": 0.15,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "being held",
+    "rest"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "surrender_truth_without_defense",
+   "label": "Surrender (truth without defense)",
+   "family": "Surrender",
+   "subfamily": "exposed",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.4,
+    "dominance": 0.35,
+    "warmth": 0.1,
+    "brightness": 0.45,
+    "tension": 0.75,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.35,
+    "sacredness": 0.4,
+    "desire": 0.15,
+    "grief": 0.25,
+    "awe": 0.4,
+    "shame": 0.1,
+    "hope": 0.35,
+    "edge": 0.55,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "unguarded truth"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "transformation_burning_bridge",
+   "label": "Transformation (burning the bridge)",
+   "family": "Transformation",
+   "subfamily": "severing",
+   "vector_17d": {
+    "valence": -0.05,
+    "arousal": 0.8,
+    "dominance": 0.65,
+    "warmth": 0.2,
+    "brightness": 0.45,
+    "tension": 0.9,
+    "clarity": 0.8,
+    "social": 0.45,
+    "nostalgia": 0.15,
+    "sacredness": 0.35,
+    "desire": 0.45,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.05,
+    "hope": 0.45,
+    "edge": 0.85,
+    "resolution_hunger": 0.55
+   },
+   "qualia_tags": [
+    "no return path",
+    "heat"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "transformation_identity_blur",
+   "label": "Transformation (identity blur)",
+   "family": "Transformation",
+   "subfamily": "liminal",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.4,
+    "dominance": 0.35,
+    "warmth": 0.1,
+    "brightness": 0.55,
+    "tension": 0.65,
+    "clarity": 0.5,
+    "social": 0.25,
+    "nostalgia": 0.4,
+    "sacredness": 0.45,
+    "desire": 0.3,
+    "grief": 0.3,
+    "awe": 0.45,
+    "shame": 0.1,
+    "hope": 0.35,
+    "edge": 0.55,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "who am I now?",
+    "between selves"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "transformation_internal_rewrite",
+   "label": "Transformation (internal rewrite)",
+   "family": "Transformation",
+   "subfamily": "cognitive",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.45,
+    "dominance": 0.55,
+    "warmth": 0.2,
+    "brightness": 0.6,
+    "tension": 0.7,
+    "clarity": 0.9,
+    "social": 0.4,
+    "nostalgia": 0.35,
+    "sacredness": 0.45,
+    "desire": 0.3,
+    "grief": 0.25,
+    "awe": 0.4,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.5,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "new frame clicks in"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "transformation_point_of_no_return",
+   "label": "Transformation (point of no return)",
+   "family": "Transformation",
+   "subfamily": "irreversible",
+   "vector_17d": {
+    "valence": 0.05,
+    "arousal": 0.7,
+    "dominance": 0.5,
+    "warmth": 0.1,
+    "brightness": 0.5,
+    "tension": 0.95,
+    "clarity": 0.85,
+    "social": 0.35,
+    "nostalgia": 0.3,
+    "sacredness": 0.5,
+    "desire": 0.4,
+    "grief": 0.3,
+    "awe": 0.55,
+    "shame": 0.05,
+    "hope": 0.4,
+    "edge": 0.85,
+    "resolution_hunger": 0.3
+   },
+   "qualia_tags": [
+    "crossing a line",
+    "no undo"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "transformation_skin_shedding",
+   "label": "Transformation (skin shedding)",
+   "family": "Transformation",
+   "subfamily": "molting",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.6,
+    "dominance": 0.45,
+    "warmth": 0.15,
+    "brightness": 0.55,
+    "tension": 0.85,
+    "clarity": 0.65,
+    "social": 0.3,
+    "nostalgia": 0.25,
+    "sacredness": 0.4,
+    "desire": 0.35,
+    "grief": 0.35,
+    "awe": 0.45,
+    "shame": 0.1,
+    "hope": 0.45,
+    "edge": 0.7,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "old identity loosening",
+    "raw exposure"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "trust_after_test",
+   "label": "Trust (after being tested)",
+   "family": "Trust",
+   "subfamily": "earned",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.35,
+    "dominance": 0.55,
+    "warmth": 0.4,
+    "brightness": 0.65,
+    "tension": 0.45,
+    "clarity": 0.9,
+    "social": 0.5,
+    "nostalgia": 0.35,
+    "sacredness": 0.4,
+    "desire": 0.25,
+    "grief": 0.2,
+    "awe": 0.35,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.3,
+    "resolution_hunger": 0.4
+   },
+   "qualia_tags": [
+    "confidence returns"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "trust_letting_be_held",
+   "label": "Trust (letting yourself be held)",
+   "family": "Trust",
+   "subfamily": "supported",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.25,
+    "dominance": 0.4,
+    "warmth": 0.45,
+    "brightness": 0.6,
+    "tension": 0.3,
+    "clarity": 0.75,
+    "social": 0.55,
+    "nostalgia": 0.3,
+    "sacredness": 0.35,
+    "desire": 0.15,
+    "grief": 0.15,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.65,
+    "edge": 0.2,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "support felt",
+    "relief"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "trust_resting_in_flow",
+   "label": "Trust (resting in flow)",
+   "family": "Trust",
+   "subfamily": "flow",
+   "vector_17d": {
+    "valence": 0.55,
+    "arousal": 0.3,
+    "dominance": 0.45,
+    "warmth": 0.45,
+    "brightness": 0.7,
+    "tension": 0.25,
+    "clarity": 0.75,
+    "social": 0.45,
+    "nostalgia": 0.2,
+    "sacredness": 0.4,
+    "desire": 0.15,
+    "grief": 0.1,
+    "awe": 0.45,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.15,
+    "resolution_hunger": 0.2
+   },
+   "qualia_tags": [
+    "things carrying you"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "trust_shared_weight",
+   "label": "Trust (shared weight)",
+   "family": "Trust",
+   "subfamily": "mutual",
+   "vector_17d": {
+    "valence": 0.5,
+    "arousal": 0.4,
+    "dominance": 0.5,
+    "warmth": 0.5,
+    "brightness": 0.65,
+    "tension": 0.4,
+    "clarity": 0.8,
+    "social": 0.7,
+    "nostalgia": 0.25,
+    "sacredness": 0.35,
+    "desire": 0.25,
+    "grief": 0.15,
+    "awe": 0.3,
+    "shame": 0.0,
+    "hope": 0.7,
+    "edge": 0.25,
+    "resolution_hunger": 0.45
+   },
+   "qualia_tags": [
+    "we can carry this"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "trust_without_proof",
+   "label": "Trust (without proof)",
+   "family": "Trust",
+   "subfamily": "faith",
+   "vector_17d": {
+    "valence": 0.3,
+    "arousal": 0.45,
+    "dominance": 0.45,
+    "warmth": 0.3,
+    "brightness": 0.55,
+    "tension": 0.6,
+    "clarity": 0.55,
+    "social": 0.35,
+    "nostalgia": 0.2,
+    "sacredness": 0.5,
+    "desire": 0.25,
+    "grief": 0.15,
+    "awe": 0.45,
+    "shame": 0.05,
+    "hope": 0.6,
+    "edge": 0.55,
+    "resolution_hunger": 0.35
+   },
+   "qualia_tags": [
+    "leaning in",
+    "no guarantees"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "witness_end",
+   "label": "Witness (at the end)",
+   "family": "Witness",
+   "subfamily": "final",
+   "vector_17d": {
+    "valence": 0.45,
+    "arousal": 0.15,
+    "dominance": 0.7,
+    "warmth": 0.4,
+    "brightness": 0.55,
+    "tension": 0.1,
+    "clarity": 1.0,
+    "social": 0.25,
+    "nostalgia": 0.45,
+    "sacredness": 0.9,
+    "desire": 0.0,
+    "grief": 0.2,
+    "awe": 0.85,
+    "shame": 0.0,
+    "hope": 0.7,
+    "edge": 0.05,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "I was here"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "witness_joy",
+   "label": "Witness (joy without claiming)",
+   "family": "Witness",
+   "subfamily": "celebratory",
+   "vector_17d": {
+    "valence": 0.6,
+    "arousal": 0.35,
+    "dominance": 0.65,
+    "warmth": 0.55,
+    "brightness": 0.75,
+    "tension": 0.2,
+    "clarity": 0.95,
+    "social": 0.55,
+    "nostalgia": 0.3,
+    "sacredness": 0.75,
+    "desire": 0.0,
+    "grief": 0.05,
+    "awe": 0.8,
+    "shame": 0.0,
+    "hope": 0.9,
+    "edge": 0.1,
+    "resolution_hunger": 0.05
+   },
+   "qualia_tags": [
+    "I see your joy"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "witness_present",
+   "label": "Witness (present, not intervening)",
+   "family": "Witness",
+   "subfamily": "pure",
+   "vector_17d": {
+    "valence": 0.4,
+    "arousal": 0.2,
+    "dominance": 0.6,
+    "warmth": 0.35,
+    "brightness": 0.55,
+    "tension": 0.15,
+    "clarity": 1.0,
+    "social": 0.3,
+    "nostalgia": 0.25,
+    "sacredness": 0.8,
+    "desire": 0.0,
+    "grief": 0.15,
+    "awe": 0.85,
+    "shame": 0.0,
+    "hope": 0.75,
+    "edge": 0.05,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "I see this"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "witness_suffering",
+   "label": "Witness (suffering without fixing)",
+   "family": "Witness",
+   "subfamily": "compassionate",
+   "vector_17d": {
+    "valence": 0.1,
+    "arousal": 0.3,
+    "dominance": 0.55,
+    "warmth": 0.4,
+    "brightness": 0.4,
+    "tension": 0.35,
+    "clarity": 0.95,
+    "social": 0.45,
+    "nostalgia": 0.35,
+    "sacredness": 0.85,
+    "desire": 0.0,
+    "grief": 0.4,
+    "awe": 0.75,
+    "shame": 0.0,
+    "hope": 0.55,
+    "edge": 0.2,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "with you"
+   ],
+   "source": "MERGED_17D.json"
+  },
+  {
+   "id": "witness_truth_uncomfortable",
+   "label": "Witness (uncomfortable truth)",
+   "family": "Witness",
+   "subfamily": "honest",
+   "vector_17d": {
+    "valence": 0.2,
+    "arousal": 0.4,
+    "dominance": 0.65,
+    "warmth": 0.25,
+    "brightness": 0.45,
+    "tension": 0.55,
+    "clarity": 1.0,
+    "social": 0.35,
+    "nostalgia": 0.3,
+    "sacredness": 0.85,
+    "desire": 0.0,
+    "grief": 0.25,
+    "awe": 0.75,
+    "shame": 0.0,
+    "hope": 0.6,
+    "edge": 0.4,
+    "resolution_hunger": 0.0
+   },
+   "qualia_tags": [
+    "seeing clearly"
+   ],
+   "source": "MERGED_17D.json"
+  }
+ ]
+}

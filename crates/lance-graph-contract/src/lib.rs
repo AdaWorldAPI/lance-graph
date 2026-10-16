@@ -147,6 +147,11 @@ pub mod plan;
 pub mod property;
 pub mod proprioception;
 pub mod qualia;
+/// ICC-style profile for felt states: the 219-row named-qualia table (PCS), palette index,
+/// K residual, gamut + rendering intents, mix. See the module doc for the three spaces.
+pub mod qualia_profile;
+#[doc(hidden)]
+pub mod qualia_profile_table;
 pub mod rail_geometry;
 pub mod rbac;
 /// RBAC hot-plug: the [`hotplug`] pattern for authorization — a consumer's

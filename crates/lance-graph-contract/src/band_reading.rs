@@ -10,20 +10,25 @@
 //! > read through [`epistemic_state5`](crate::epistemic_state5). The split
 //! > reading below is a **legacy compatibility surface**, not a peer authority.
 //! > A class that declared `TruthLens::Topology` + the P7a certification band
-//! > wrote exactly the canonical product (identity packing); a class that
-//! > declared `TruthLens::Trust` or the historical `ReasoningBand` wrote other
+//! > wrote exactly the canonical product (identity packing). `TruthLens::Trust`
+//! > is the same lower coordinate under the Meta-Uncertainty-Layer names
+//! > (`Crystalline`…`Murky` ≡ `Direct`…`Unknown`, identity mapping), not a
+//! > second meaning. Only the historical `ReasoningBand` on 61..63 wrote other
 //! > meanings, has no canonical declaration, and its bits are never
-//! > reinterpreted. [`EdgeProvenance`] stays here unchanged and is shared by
-//! > both readings. Kept, not deleted (append-only).
+//! > reinterpreted. ⊘ The earlier text here listed `TruthLens::Trust` with
+//! > `ReasoningBand` as "other meanings"; struck 2026-10-15.
+//! > [`EdgeProvenance`] stays here unchanged and is shared by both readings.
+//! > Kept, not deleted (append-only).
 //!
-//! Two bits (the truth tail) and three bits (the band tail) of a causal edge
-//! carry FOUR shipped readings between them — `TrustTexture` vs
-//! `CausalTopology` on the 2-bit field, `ReasoningBand`-present vs spare on
-//! the 3-bit field — and **which reading a producer wrote is not recoverable
-//! from the bits**. A consumer that reads one lens while the producer wrote
-//! the other gets a plausible wrong answer, silently. This module is the
-//! producer knowledge, declared per `(classid, rail)`, that the bits
-//! themselves cannot carry.
+//! Two bits (the topology coordinate) and three bits (the band tail) of a
+//! causal edge carry the readings this module declares: ONE reading under two
+//! vocabularies on the 2-bit field (`TrustTexture` is the MUL name for
+//! `CausalTopology`), and `ReasoningBand`-present vs spare on the 3-bit
+//! field — and **on the 3-bit field, which reading a producer wrote is not
+//! recoverable from the bits**. A consumer that reads a band from spare bits,
+//! or a certification from a reasoning level, gets a plausible wrong answer,
+//! silently. This module is the producer knowledge, declared per
+//! `(classid, rail)`, that the bits themselves cannot carry.
 //!
 //! # One contract, TWO carriers
 //!
@@ -99,12 +104,18 @@ pub const BAND_STATES: usize = 8;
 const _: () = assert!(TRUTH_STATES == 4 && (TRUTH_STATES - 1) == 0b11);
 const _: () = assert!(BAND_STATES == 8 && (BAND_STATES - 1) == 0b111);
 
-/// WHICH projection of the 2-bit truth field this class's producers wrote.
+/// WHICH vocabulary this class's producers used for the 2-bit topology
+/// coordinate (bits 59-60).
 ///
-/// The two shipped readings are ordinal-identical on the wire (`Crystalline` ≡
-/// `Direct` … `Murky` ≡ `Unknown`), which is precisely why the bits cannot
-/// disambiguate themselves. The names below are doc-comment pointers to the
-/// edge crate's enums, **never imports** (both crates are zero-dep):
+/// The two variants name ONE reading: `Crystalline` ≡ `Direct` … `Murky` ≡
+/// `Unknown`, ordinal-identical on the wire and identical in meaning
+/// (`Trust` is the Meta-Uncertainty-Layer's vocabulary for the Faktorortung
+/// cells). The declaration records which names the producer wrote with; it
+/// does not change what the bits mean. [`project_truth`](BandReading::project_truth)
+/// still refuses a request for the other vocabulary (`LensMismatch`): the
+/// gate checks the declaration, it is not a semantic firewall. The names below are doc-comment
+/// pointers to the edge crate's enums, **never imports** (both crates are
+/// zero-dep):
 ///
 /// - [`Trust`](TruthLens::Trust) → `causal_edge::layout::TrustTexture`
 ///   (4 variants — NOT `contract::mul::TrustTexture`, NOT the planner's
@@ -113,11 +124,12 @@ const _: () = assert!(BAND_STATES == 8 && (BAND_STATES - 1) == 0b111);
 /// - [`Topology`](TruthLens::Topology) → `causal_edge::layout::CausalTopology`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum TruthLens {
-    /// Epistemic-trust reading — the canonical default (`layout.rs`: "the
-    /// canonical epistemic-trust reading").
+    /// The Meta-Uncertainty-Layer names (`Crystalline` / `Solid` / `Fuzzy` /
+    /// `Murky`) for the topology cells. The default.
     #[default]
     Trust,
-    /// Causal-topology reading — the additive factual view of the same bits.
+    /// The Faktorortung names (`Direct` / `IndirectKnownIntermediates` /
+    /// `IndirectUnknownIntermediates` / `Unknown`) for the same cells.
     Topology,
 }
 

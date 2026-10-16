@@ -1,3 +1,11 @@
+## ISS-QUALIA-A2B-CLUT-UNMEASURED — no measured transform from convergence 17D to the calibrated PCS 17D (2026-10-16)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`contract::qualia_profile::SHARED_AXES` maps 5 of 17 axes by name; `device_to_pcs_shared` returns `measured = false` for the other 12). HYPOTHESIS: same-named axes mean the same thing.
+
+- The workspace has two 17-axis "qualia" vectors on different axes: `qualia::AXIS_LABELS` (convergence observables, computed) and `qualia_profile::PCS_AXES` (phenomenological, hand-calibrated, 219 patches). Only valence / arousal / tension / warmth / clarity coincide by name.
+- `engine_bridge::classification_distance` compares device telemetry to six Ekman archetypes in a 6-axis device subspace — observer vocabulary applied to mechanism signal, no PCS in between — and after D-CSV-5b the stored value is a constant `1.0`.
+- **What closes it:** the chart probe. Drive each of the 219 named patches through the thinking engine (Jina lens → convergence 17D), record the pairs, fit the A2B CLUT, and report per-axis Spearman ρ under Jirak's rate (`I-NOISE-FLOOR-JIRAK`). Shared axes with ρ below the floor falsify the HYPOTHESIS. The `.bin1024` file beside the JSON is the proposal side for Haspelmath adjacency (Hamming between patches), not the CLUT.
+
 ## ISS-SUPERVISOR-RESPAWN-BACKOFF-NOT-APPLIED — a crashed consumer actor is respawned at once and the respawn is rescheduled forever (2026-10-13)
 
 **Status:** RESOLVED 2026-10-13 by #1540 (merged `f2bf199`). The delayed cast is now the only respawn path and is scheduled from `ActorTerminated`; the `RespawnG` arm spawns once and does nothing if the slot is already live; the crash count is carried and restarts at 1 when the previous crash is more than five minutes old (spec §5.3); more than 10 crashes in that window escalate and the child stays down. TEST-PINNED in `tests/supervisor_respawn_backoff.rs` (one respawn per crash after its backoff; escalation; window reset), each disable-verified red. The bullets below describe the defect as found. **Was:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-supervisor/src/supervisor.rs`, `RespawnG` arm); found by the codex review of #1536.

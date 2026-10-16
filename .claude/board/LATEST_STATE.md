@@ -1,3 +1,17 @@
+## 2026-10-16 — main after #1569 (merged `09f31561`); H14b on main as a withdrawn record
+
+- **On `main` (#1569):** D-HOLO H14b arm M and its results, marked withdrawn: no layout verdict on C. Probe code only (an example), no library change.
+- **In PR:** #1573 (D-HOLO H14c: thought-first reads, Hamming presence, Lance 13 masked I/O).
+
+## 2026-10-16 — D-QPROF-0 qualia profile (branch `qualia-profile-icc`, in PR)
+
+- **Contract delta (branch):** `lance_graph_contract::qualia_profile` + generated `qualia_profile_table` — the first named-emotion calibration set in the repo (219 rows from Upstash `ada:qualia:calibrated:*`, previously cited in `thinking-engine/src/qualia.rs` as "220 calibrated pairs in Upstash" and absent). Data: `data/qualia/calibrated_219.json` (+ `.bin1024` sign-binarized Jina embeddings), generator `scripts/gen_qualia_profile.py` (deterministic, rustfmt-stable, FNV-pinned).
+- Open: the device→PCS CLUT for the 12 non-shared axes is a chart probe, not a constant (`ISS-QUALIA-A2B-CLUT-UNMEASURED`). Σ-codebook slot assignment (64 glyphs vs 219 named) is NOT decided here; the module only defines the palette numbering `0 | 1..=219 | 220..=255 reserved`.
+
+### Current Contract Inventory — net delta (`qualia_profile.rs`, `qualia_profile_table.rs`)
+
+- `lance_graph_contract::qualia_profile::{PCS_AXES, PCS_DIMS, Pcs, NamedQualia, UNNAMED, RESERVED_FROM, named, index_of, pcs_l1, nearest_named, nearest_named_in, Gamut, RenderingIntent, Rendered, render, Mix, SHARED_AXES, device_to_pcs_shared}` and re-exports `{NAMED, NAMED_COUNT, PROFILE_ID, SOURCE_FNV, TABLE_FNV}` — an ICC-style profile for felt states. Three spaces kept apart: **device** (`qualia::AXIS_LABELS`, convergence observables), **PCS** (`PCS_AXES`, 17 phenomenological axes, 219 calibrated patches in hundredths as `[i8; 17]`), **observer** (e.g. the six Ekman archetypes). `nearest_named` is B2A on the PCS side and its residual is the K channel — the `classification_distance` the i4 cutover stopped storing, measured against the inner vocabulary. `Gamut` is a 256-bit mask per rendering device; three intents adapted to a discrete palette (absolute / relative-in-family / perceptual); `Mix` = up to three inks (what `ada:qualia:active` carries). Only the five same-named axes (valence, arousal, tension, warmth, clarity) have a device→PCS mapping, and that is a CONJECTURE until the chart probe runs. 12 tests, each with a stated falsifier (`TABLE_FNV` and `SOURCE_FNV` mutations both verified red — the pair (source, table) is pinned from both sides, after codex P2 on the first push; intent inertness; anti-vacuity on gamut and nearest).
+
 ## 2026-10-15 — main after #1567 (merged `b1f1365d`); D-HOLO H6c/H14 and the writer's version clock on main
 
 - **On `main` (#1566, merged `c18aefcb`):** D-HOLO H6c and H14 probes and results; H14b open (awaits the operator).

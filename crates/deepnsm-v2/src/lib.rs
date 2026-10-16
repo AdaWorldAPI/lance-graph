@@ -42,6 +42,7 @@ pub mod codebook;
 pub mod corpus;
 pub mod evidence;
 pub mod fsm;
+pub mod haspelmath;
 pub mod hydrate;
 pub mod introspect;
 pub mod lexical;

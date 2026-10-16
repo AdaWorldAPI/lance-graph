@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1569 (merged `09f31561`, branch `ccr-9f3b8075-74u47l-holo-h14b`, head `2f07941c`) — D-HOLO H14b: lane mask M measured, then withdrawn
+
+- **Added:** arm M (C's per-lane tables plus one `u32` per row naming the changed lanes) in `holo_lane_storage_probe` with 4 tests; plan section, entry `2026-10-15-d-holo-h14b-lane-mask.md`, STATUS row D-HOLO-H14b (WITHDRAWN).
+- **Locked:** M is withdrawn as a layout candidate for thought-first C, and no A/B/C/M layout verdict is drawn from H14 or H14b. Both measured whole-row reconstruction, which is not C's operation; `Mask[i]` transposes C's presence planes into a row-first index. The measurements stay as a record.
+- **Deferred / open:** C's own operation (a thought evaluated over an address range, reading operand values positionally) is unmeasured; see D-HOLO-H14c.
+- **Confidence:** high for the withdrawal; the writer-byte rule held by construction, not by measurement (Codex P2, `2f07941c`).
+
 ## 2026-10-15 — lance-graph PR #1567 (merged `b1f1365d`, branch `ccr-9f3b8075-74u47l-version-clock`, head `6ced7887`, 3 commits) — D-WAL-6: the version clock wired into `LanceCycleWriter`
 
 - **Added:** `LanceCycleWriter::version_clock()`; `sync_clock` after open, bootstrap and every commit: records the new head's row positions (sum of `physical_rows` over fragments), keeps the clock on a no-op, reseeds when history went back. Seven tests in `cycle_sink.rs`, written first (red against a stub returning `None`).

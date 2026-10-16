@@ -51,3 +51,8 @@ test = true
 [[example]]
 name = "holo_lane_storage_probe"
 test = true
+
+# D-HOLO H14c (plan d-holo-h14c-thought-first-v1).
+[[example]]
+name = "holo_thought_first_probe"
+test = true
