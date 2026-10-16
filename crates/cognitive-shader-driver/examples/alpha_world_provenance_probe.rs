@@ -104,7 +104,7 @@ fn edge(s: u8, p: u8, o: u8) -> CausalEdge64 {
         200,
         180,
         CausalMask::SO,
-        0b010,
+        causal_edge::Orientation::from_code(0b010),
         PlasticityState::ALL_HOT,
     )
     .with_inference_mantissa(1)

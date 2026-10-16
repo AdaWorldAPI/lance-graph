@@ -219,7 +219,7 @@ impl CascadeChannels8 {
             freq_u8,
             conf_u8,
             causal_mask,
-            0,
+            causal_edge::Orientation::Core,
             causal_edge::PlasticityState::ALL_FROZEN,
         )
         .with_inference_mantissa(mantissa_signed)

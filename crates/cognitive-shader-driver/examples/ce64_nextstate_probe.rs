@@ -91,7 +91,7 @@ fn busy() -> CausalEdge64 {
         201,
         149,
         CausalMask::SO,
-        0b101,
+        causal_edge::Orientation::from_code(0b101),
         PlasticityState::from_bits(0b011),
     )
     .with_inference_mantissa(-6)

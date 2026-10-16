@@ -77,7 +77,7 @@ fn p2_edge_round_trips_palette_indices_and_mask() {
             freq,
             conf,
             CausalMask::SPO,
-            0,
+            causal_edge::Orientation::Core,
             PlasticityState::ALL_FROZEN,
         );
 
@@ -106,7 +106,7 @@ fn p2_causal_distance_of_two_edges_is_the_plane_sum() {
                 128,
                 200,
                 CausalMask::SPO,
-                0,
+                causal_edge::Orientation::Core,
                 PlasticityState::ALL_FROZEN,
             )
         };
@@ -134,7 +134,7 @@ fn p3_pearl_masks_drop_exactly_the_excluded_plane() {
                 128,
                 200,
                 CausalMask::PO, // Level-2 Intervention on the osint_person pair
-                0,
+                causal_edge::Orientation::Core,
                 PlasticityState::ALL_FROZEN,
             ))
         };

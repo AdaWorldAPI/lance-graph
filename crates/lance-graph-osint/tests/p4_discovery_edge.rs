@@ -127,7 +127,7 @@ fn p4_rule_truth_packs_into_causal_edge() {
         truth.frequency,
         truth.confidence,
         CausalMask::SPO,
-        0,
+        causal_edge::Orientation::Core,
         PlasticityState::ALL_FROZEN,
     );
     assert_eq!(edge.frequency_u8(), truth.frequency, "freq → edge wire");

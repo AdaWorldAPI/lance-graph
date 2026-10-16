@@ -32,7 +32,7 @@ fn edge(f: u8, c: u8) -> CausalEdge64 {
         f,
         c,
         CausalMask::SPO,
-        0,
+        causal_edge::Orientation::Core,
         InferenceType::Deduction,
         PlasticityState::ALL_HOT,
         0,

@@ -950,7 +950,8 @@ fn question(s: &Snap) -> CausalMask {
 fn record(p: &Pending, w: u8, act: i32, surprise: u8, epi: EpistemicState5) -> CausalEdge64 {
     let mut e = CausalEdge64(0);
     e.set_causal_mask(p.question);
-    e.set_direction(p.dir);
+    // The Moore direction (`p.dir`) is not a CE64 field: bits 43..45 are the
+    // orientation (D-CGW-1), which a Moore move leaves at `Core`.
     e.set_inference_mantissa(act.clamp(-7, 7) as i8);
     e.0 = (e.0 & !PLAST_MASK) | (u64::from(surprise & 7) << PLAST_SHIFT);
     e.set_w_slot(w);

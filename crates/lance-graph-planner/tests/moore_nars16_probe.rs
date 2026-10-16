@@ -15,14 +15,14 @@
 //! The two canonical fields MooreNars16 does not hold are absent for
 //! different reasons, and each has its own falsifier:
 //!
-//! - **Direction3** is the canonical S/P/O sign triple. No ISA operation reads
-//!   it to compute anything (`forward` copies the weight's, `syllogize` writes
-//!   0, `learn` never reads it). A Moore tenant declares a DIFFERENT reading:
-//!   lane geometry (the slot) x a polarity bit. A consumer of the sign triple
-//!   must refuse the Moore reading. The production consumer,
-//!   `CausalNetwork::detect_simpsons_paradox`, takes bare edges and CANNOT
-//!   refuse today: it silently reports "no pattern" (pinned below). The
-//!   refusal here is the contract a tagged boundary would have to provide.
+//! - **Direction3** (CE64 43..45) was a per-plane S/P/O sign triple when
+//!   this probe was written. ⊘ D-CGW-1 (2026-10-16) made those bits the
+//!   orientation (`causal_edge::Orientation`), one meaning everywhere, and
+//!   removed the triad and its only consumer (`detect_simpsons_paradox`). A
+//!   Moore lane holds no orientation; the contract's `lift_ce64` now refuses
+//!   an oriented edge. This probe's projection predates that and still drops
+//!   the bits, so its equivalence below excludes them: it is a record of the
+//!   #1406 measurement, not a model for new code.
 //! - **Witness6** is lifted to the tenant: one W for all eight lanes. That is
 //!   valid only if two lanes of one tenant never need different W at once;
 //!   the projection refuses a tenant whose lanes disagree.
@@ -42,8 +42,6 @@
 
 use causal_edge::edge::CausalEdge64;
 use causal_edge::isa::{IsaFault, Opcode};
-use causal_edge::network::CausalNetwork;
-use causal_edge::tables::NarsTables;
 use lance_graph_contract::epistemic_state5::{Epi5Gen, EpistemicState5};
 
 // ─── CE64 field geometry (v2 layout) ────────────────────────────────────
@@ -164,20 +162,11 @@ fn directed_relation(slot: usize, lane: MooreNars16) -> ((i8, i8), (i8, i8)) {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum DirectionReading {
-    /// CE64 bits 43..45 are the canonical S/P/O sign triple.
-    SignTriple,
-    /// Direction is (lane slot, polarity); CE64 bits 43..45 carry nothing.
-    Moore { slot: usize, polarity: bool },
-}
-
-/// A logical operand: the CE64 the ISA executes on, plus how its direction
-/// bits are to be read.
+/// A logical operand: the CE64 the ISA executes on. Its direction is the
+/// lane's slot and polarity, which stay in the tenant.
 #[derive(Clone, Copy, Debug)]
 struct Operand {
     edge: CausalEdge64,
-    reading: DirectionReading,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -190,24 +179,6 @@ enum Refusal {
         expected: u8,
         found: u8,
     },
-}
-
-/// The required behaviour of a sign-triple consumer behind a tagged boundary
-/// (Simpson's pattern S and O pathological, P not, as
-/// `CausalNetwork::detect_simpsons_paradox` reads it): refuse a Moore
-/// reading, which has no sign triple. Probe-local; the production detector
-/// does not see the tag (see the test after this one).
-#[derive(Debug, PartialEq, Eq)]
-struct ReadingMismatch;
-
-fn simpson_pattern(op: Operand) -> Result<bool, ReadingMismatch> {
-    match op.reading {
-        DirectionReading::SignTriple => {
-            let d = op.edge.direction();
-            Ok(d & 0b001 != 0 && d & 0b100 != 0 && d & 0b010 == 0)
-        }
-        DirectionReading::Moore { .. } => Err(ReadingMismatch),
-    }
 }
 
 // ─── Tenant ─────────────────────────────────────────────────────────────
@@ -305,13 +276,7 @@ impl MooreTenant {
         e = Field::Plasticity.set(e, u64::from(lane.plasticity3()));
         e = Field::W.set(e, u64::from(witness));
         e = Field::Epi5.set(e, u64::from(lane.epi5()));
-        Operand {
-            edge: e,
-            reading: DirectionReading::Moore {
-                slot: k,
-                polarity: lane.polarity(),
-            },
-        }
+        Operand { edge: e }
     }
 }
 
@@ -680,72 +645,6 @@ fn polarity_reverses_the_relation_and_leaves_plasticity_alone() {
             );
         }
     }
-}
-
-/// 3. A sign-triple consumer refuses the Moore reading and still works on the
-/// canonical one. Without the reading tag it would read the zeroed bits and
-/// silently report "no Simpson pattern".
-#[test]
-fn sign_triple_consumers_refuse_the_moore_reading() {
-    let mut r = Rng(0x51);
-    let (mut edges, polarity, _) = tenant_fixture(&mut r);
-    edges[2].set_direction(0b101); // S and O pathological, P not: Simpson
-    let canonical_op = Operand {
-        edge: edges[2],
-        reading: DirectionReading::SignTriple,
-    };
-    assert_eq!(simpson_pattern(canonical_op), Ok(true));
-
-    let tenant = MooreTenant::project(edges, polarity, Mutation::None).unwrap();
-    let moore = tenant.operand(2);
-    assert_eq!(simpson_pattern(moore), Err(ReadingMismatch));
-    // What an untagged read would have said: the triple is gone.
-    let untagged = Operand {
-        reading: DirectionReading::SignTriple,
-        ..moore
-    };
-    assert_eq!(simpson_pattern(untagged), Ok(false));
-}
-
-/// MEASURED GAP (pinned): the production sign-triple consumer cannot refuse.
-/// `CausalNetwork::detect_simpsons_paradox` reads bare edges, so a
-/// Moore-reconstructed edge (sign triple zeroed) is reported as "no pattern"
-/// rather than refused. A Moore resident path must not reach this detector
-/// until it takes a tagged operand.
-///
-/// FAILS IF: the detector starts refusing or flagging the Moore edge (then
-/// flip this test and say which boundary does it).
-#[test]
-fn the_production_simpson_detector_cannot_refuse_a_moore_edge() {
-    let mut r = Rng(0x52);
-    let (mut edges, polarity, _) = tenant_fixture(&mut r);
-    edges[2].set_direction(0b101);
-    edges[2].set_confidence_u8(200); // the detector skips c < 0.5
-    let tenant = MooreTenant::project(edges, polarity, Mutation::None).unwrap();
-    let detect = |edge: CausalEdge64| {
-        let zeros = || Box::new([0u8; 256 * 256]);
-        let dz = || Box::new([0u16; 256 * 256]);
-        CausalNetwork {
-            edges: vec![edge],
-            row_ptr: vec![],
-            col_idx: vec![],
-            edge_idx: vec![],
-            compose_s: zeros(),
-            compose_p: zeros(),
-            compose_o: zeros(),
-            dist_s: dz(),
-            dist_p: dz(),
-            dist_o: dz(),
-            nars_tables: NarsTables::build(1),
-            current_time: 0,
-        }
-        .detect_simpsons_paradox()
-        .len()
-    };
-    // Can-fire: the canonical edge is flagged.
-    assert_eq!(detect(edges[2]), 1);
-    // The Moore edge is silently not flagged; nothing refuses it.
-    assert_eq!(detect(tenant.operand(2).edge), 0);
 }
 
 // ─── F: Witness ownership scope ─────────────────────────────────────────

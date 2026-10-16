@@ -1,5 +1,11 @@
 //! D-WA-0: Witness × Angle as a declared, sparse local source coordinate.
 //!
+//! ⊘ SUPERSEDED BY D-CGW-1 (2026-10-16): every CE64 field has one meaning,
+//! fixed by the `causal-edge` contract, and bits 43..45 are the orientation
+//! (`causal_edge::Orientation`). A per-class reading of those bits, which this
+//! probe tests, is no longer allowed. The probe is kept as a record and reads
+//! the orientation's code as its "angle"; it is not a model for new code.
+//!
 //! Claim under test: inside a world the Alpha route has already selected,
 //! two resident CE64 fields can address a local source reading under a law
 //! the class declares:
@@ -19,8 +25,8 @@
 //!
 //! # Readings of the same bits that refuse here
 //!
-//! - **Pathology triad**: the shipped meaning of bits 43..45
-//!   (`s/p/o_pathological`).
+//! - **Pathology triad**: the former meaning of bits 43..45
+//!   (`s/p/o_pathological`, removed by D-CGW-1).
 //! - **Cohort witness**: the shipped meaning of bits 53..58 in
 //!   `witness_table::WitnessTable` (slot → `(mailbox_ref, spo_fact_ref)`).
 //!
@@ -189,7 +195,7 @@ fn local_source(
     if !gens.contains(&generation) {
         return Err(Refusal::UndeclaredGeneration(generation));
     }
-    let (witness, angle) = (edge.w_slot(), edge.direction());
+    let (witness, angle) = (edge.w_slot(), edge.orientation().code());
     if witness == 0 {
         return Err(Refusal::NoAnchor);
     }
@@ -215,7 +221,7 @@ fn edge(witness: u8, angle: u8) -> CausalEdge64 {
         200,
         180,
         CausalMask::SO,
-        angle,
+        causal_edge::Orientation::from_code(angle),
         PlasticityState::ALL_HOT,
     )
     .with_inference_mantissa(1)
@@ -228,7 +234,7 @@ fn main() {
     println!(
         "  bits                      w={} a={}",
         e.w_slot(),
-        e.direction()
+        e.orientation().code()
     );
     for (name, c, g) in [
         ("observations gen 1", CLASS_OBS, 1),
@@ -355,12 +361,12 @@ mod tests {
                 10,
                 20,
                 CausalMask::SPO,
-                5,
+                causal_edge::Orientation::from_code(5),
                 PlasticityState::ALL_HOT,
             )
             .with_w_slot(23),
             edge(23, 5).with_inference_mantissa(-6),
-            CausalEdge64::pack_v2(0, 0, 0, 0, 0, CausalMask::None, 5, PlasticityState::ALL_HOT)
+            CausalEdge64::pack_v2(0, 0, 0, 0, 0, CausalMask::None, causal_edge::Orientation::from_code(5), PlasticityState::ALL_HOT)
                 .with_w_slot(23),
         ];
         for e in others {

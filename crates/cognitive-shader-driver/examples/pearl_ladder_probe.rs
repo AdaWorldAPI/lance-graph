@@ -623,7 +623,7 @@ mod tests {
 
         for direction in 0u8..8 {
             let mut q = baseline_q;
-            q.set_direction(direction);
+            q.set_orientation(causal_edge::Orientation::from_code(direction));
             let measured = reason(q, &ev, Edit::None);
             assert_eq!(
                 computed(&measured),
@@ -632,7 +632,7 @@ mod tests {
             );
             assert_eq!(measured.edge(), q);
             let out = revise(&measured, rd(&decl)).unwrap();
-            assert_eq!(out.direction(), direction);
+            assert_eq!(out.orientation().code(), direction);
             assert_eq!(certification(out), Certification3::Causes);
         }
     }

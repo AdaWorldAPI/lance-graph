@@ -25,7 +25,7 @@ const IS_A: u8 = 0x07; // predicate placeholder slot (shared)
 
 /// Build an `is_a`-style premise edge on the palette with the given truth bytes.
 fn premise(s: u8, o: u8, f: u8, c: u8) -> CausalEdge64 {
-    CausalEdge64::pack_v2(s, IS_A, o, f, c, CausalMask::SPO, 0, PlasticityState::ALL_FROZEN)
+    CausalEdge64::pack_v2(s, IS_A, o, f, c, CausalMask::SPO, causal_edge::Orientation::Core, PlasticityState::ALL_FROZEN)
 }
 
 #[test]

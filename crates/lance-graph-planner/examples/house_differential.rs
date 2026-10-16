@@ -747,7 +747,7 @@ fn run_a1c(
                 freq_u8,
                 conf_u8,
                 CausalMask::PO,
-                0b101,
+                causal_edge::Orientation::from_code(0b101),
                 InferenceType::Abduction,
                 PlasticityState::S_HOT,
                 0,

@@ -544,7 +544,7 @@ mod tests {
             200,                           // frequency
             150,                           // confidence
             CausalMask::SO,                // causal: S+O active (association)
-            0,                             // direction
+            causal_edge::Orientation::Core,                             // direction
             InferenceType::Deduction,      // inference
             PlasticityState::from_bits(0), // plasticity
             0,                             // temporal
@@ -584,7 +584,7 @@ mod tests {
                     128,
                     128,
                     CausalMask::from_bits((i % 7) as u8),
-                    0,
+                    causal_edge::Orientation::Core,
                     infer_types[i % 5],
                     PlasticityState::from_bits(0),
                     0,

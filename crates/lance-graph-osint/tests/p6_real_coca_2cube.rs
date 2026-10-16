@@ -114,7 +114,7 @@ fn p6_real_coca_spo_round_trips_the_edge_carrier() {
         200, // freq — Grok-grade truth ≈0.78, the COCA-wire stand-in
         163, // conf
         CausalMask::SPO,
-        0,
+        causal_edge::Orientation::Core,
         PlasticityState::ALL_FROZEN,
     );
 
@@ -150,7 +150,7 @@ fn p6_real_coca_2cube_ladder_holds_on_a_real_parse() {
         200,
         163,
         CausalMask::SPO,
-        0,
+        causal_edge::Orientation::Core,
         PlasticityState::ALL_FROZEN,
     ));
     let ctx = head_of(CausalEdge64::pack_v2(
@@ -160,7 +160,7 @@ fn p6_real_coca_2cube_ladder_holds_on_a_real_parse() {
         200,
         163,
         CausalMask::SPO,
-        0,
+        causal_edge::Orientation::Core,
         PlasticityState::ALL_FROZEN,
     ));
 

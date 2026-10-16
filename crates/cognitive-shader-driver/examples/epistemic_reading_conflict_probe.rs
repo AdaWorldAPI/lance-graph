@@ -70,7 +70,7 @@ fn base() -> CausalEdge64 {
         200,
         150,
         CausalMask::SPO,
-        0,
+        causal_edge::Orientation::Core,
         PlasticityState::from_bits(0),
     )
 }
