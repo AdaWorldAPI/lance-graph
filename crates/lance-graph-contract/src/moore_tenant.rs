@@ -646,39 +646,48 @@ mod tests {
         }
     }
 
-    /// H. A Moore direction is refused by a sign-triple consumer; a sign
-    /// triple is passed through.
+    /// H. A Moore lane's direction is its slot and polarity, nothing else.
     #[test]
-    fn h_direction_refusal() {
+    fn h_direction_is_slot_and_polarity() {
         for slot in MooreSlot::ALL {
             for pol in [false, true] {
                 let d = MooreNars16::new(0, 0, 0, pol, 0).direction(slot);
-                assert_eq!(
-                    d,
-                    DirectionReading::Moore {
-                        slot,
-                        polarity: pol
-                    }
-                );
-                assert_eq!(
-                    d.require_sign_triple(),
-                    Err(DirectionRefusal {
-                        slot,
-                        polarity: pol
-                    })
-                );
+                assert_eq!(d, MooreDirection { slot, polarity: pol });
             }
-        }
-        for bits in 0..8u8 {
-            assert_eq!(
-                DirectionReading::SignTriple(bits).require_sign_triple(),
-                Ok(bits)
-            );
         }
     }
 
+    /// H2. CE64 bits 43..45 are the orientation (D-CGW-1). A Moore lane has
+    /// none, so lifting an oriented edge is refused instead of dropping it,
+    /// and a refusal writes nothing. A Core (0) edge lifts.
+    #[test]
+    fn h2_an_oriented_edge_is_refused() {
+        let pol = [false; MOORE_LANES];
+        let core = [edge(5, 0, 7); MOORE_LANES];
+        let mut value = [0u8; VALUE_SLAB_LEN];
+        assert_eq!(MooreTenantMut::new(&mut value).lift_ce64(&core, pol), Ok(5));
+        for code in 1..8u64 {
+            let mut edges = core;
+            edges[3] |= code << 43;
+            let mut value = [0u8; VALUE_SLAB_LEN];
+            assert_eq!(
+                MooreTenantMut::new(&mut value).lift_ce64(&edges, pol),
+                Err(MooreRefusal::Oriented {
+                    slot: MooreSlot::ALL[3],
+                    code: code as u8
+                })
+            );
+            assert_eq!(value, [0u8; VALUE_SLAB_LEN], "a refusal writes nothing");
+        }
+    }
+
+    /// A CE64 word with witness `w` and Epi5 `epi`, orientation `Core`
+    /// (a Moore tenant holds no orientation), other bits from `salt`.
     fn edge(w: u8, epi: u8, salt: u64) -> u64 {
-        let base = salt.wrapping_mul(0x9E37_79B9_7F4A_7C15) & !(0x3Fu64 << 53) & !(0x1Fu64 << 59);
+        let base = salt.wrapping_mul(0x9E37_79B9_7F4A_7C15)
+            & !(0x3Fu64 << 53)
+            & !(0x1Fu64 << 59)
+            & !(0b111u64 << 43);
         base | (u64::from(w & 0x3F) << 53) | (u64::from(epi & 0x1F) << 59)
     }
 
