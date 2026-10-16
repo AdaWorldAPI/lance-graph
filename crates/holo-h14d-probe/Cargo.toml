@@ -1,0 +1,26 @@
+[package]
+name = "holo-h14d-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "D-HOLO-H14d: C's own operation in four stages: logic, address mask, masked read, terminal (plan d-holo-h14d-logic-mask-read-v1)"
+
+# Its own workspace root and excluded from the workspace: it path-deps
+# lance-graph-relalg (which git-deps OGAR through lance-graph-r2il) and pulls
+# lance 13, so it changes no dependency of any workspace crate. Run with
+#   cargo run --release --manifest-path crates/holo-h14d-probe/Cargo.toml
+#   cargo test --release --manifest-path crates/holo-h14d-probe/Cargo.toml
+[workspace]
+
+[dependencies]
+lance-graph-relalg = { path = "../lance-graph-relalg" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance = { version = "13.*", default-features = false }
+arrow-array = "58"
+arrow-schema = "58"
+futures = "0.3"
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
+tempfile = "3"
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
