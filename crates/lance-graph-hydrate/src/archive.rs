@@ -203,7 +203,10 @@ fn unpack_zip(
         let entry = zip
             .by_index_raw(i)
             .map_err(|e| HydrateArchiveError::Archive(format!("read entry {i}: {e}")))?;
-        let name = entry.name().to_string();
+        let name = entry
+            .name()
+            .map_err(|e| HydrateArchiveError::Archive(format!("read entry {i} name: {e}")))?
+            .into_owned();
         // `enclosed_name` is zip's own traversal guard; the root check is the
         // narrower contract on top of it. Both must hold.
         let ok = entry
@@ -225,10 +228,14 @@ fn unpack_zip(
         let mut entry = zip
             .by_index(i)
             .map_err(|e| HydrateArchiveError::Archive(format!("read entry {i}: {e}")))?;
+        let name = entry
+            .name()
+            .map_err(|e| HydrateArchiveError::Archive(format!("read entry {i} name: {e}")))?
+            .into_owned();
         let rel = entry
             .enclosed_name()
             .ok_or_else(|| HydrateArchiveError::EscapingEntry {
-                entry: entry.name().to_string(),
+                entry: name,
                 root: root.to_string(),
             })?;
         let dest = staging.join(&rel);
@@ -276,8 +283,8 @@ mod tests {
     /// Build a zip from `(name, contents)` pairs; `None` means a directory.
     fn zip_with(entries: &[(&str, Option<&[u8]>)]) -> Vec<u8> {
         let mut w = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-        let opts: zip::write::FileOptions<'_, ()> =
-            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        let opts = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
         for (name, body) in entries {
             match body {
                 Some(data) => {
