@@ -36,6 +36,18 @@ pub enum DativeFunction {
 }
 
 impl DativeFunction {
+    /// All eight functions in ordinal order.
+    pub const ALL: [Self; 8] = [
+        Self::Direction,
+        Self::Recipient,
+        Self::Experiencer,
+        Self::Purpose,
+        Self::Beneficiary,
+        Self::PredicativePossessor,
+        Self::ExternalPossessor,
+        Self::Judicantis,
+    ];
+
     #[must_use]
     pub const fn bit(self) -> u8 {
         1 << (self as u8)

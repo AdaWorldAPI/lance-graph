@@ -371,6 +371,151 @@ pub fn answered_questions(tokens: &[Tagged]) -> Vec<CausalMask> {
     out
 }
 
+/// How a triple's slots came off the surface: the clause path that emitted it.
+///
+/// This is what `CausalEdge64`'s orientation field (bits 43..45) reads — which
+/// way the relation is read — and what the relative-clause antecedent pointer
+/// (`Locus::Antecedent`) is derived from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Origin {
+    /// Matrix clause, subject taken from the clause's own surface subject.
+    Main,
+    /// Matrix clause, subject carried over from the previous triple's object
+    /// (serial-verb chain: "gave **him** the charge").
+    Carried,
+    /// Object-relative clause ("rat that cat bit"): the OBJECT is the
+    /// relativizer's antecedent, read before the embedded subject and verb.
+    ObjRelative,
+    /// Subject-relative clause ("dog that chased cat"): the SUBJECT is the
+    /// relativizer's antecedent.
+    SubjRelative,
+}
+
+impl Origin {
+    /// Is the triple emitted inside a relative clause?
+    #[must_use]
+    pub const fn is_relative(self) -> bool {
+        matches!(self, Origin::ObjRelative | Origin::SubjRelative)
+    }
+}
+
+/// One triple with the clause path that emitted it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Traced {
+    /// The triple, exactly as [`parse_to_spo`] emits it.
+    pub spo: Spo,
+    /// Which clause path emitted it.
+    pub origin: Origin,
+    /// Sentence ordinal within the input (incremented at every `Stop`).
+    pub sentence: u32,
+    /// Input index of the token that closed the triple.
+    pub closed_at: usize,
+}
+
+/// [`parse_to_spo`] with each triple's [`Origin`]. Steps the SAME transition
+/// table; the triples are identical to [`parse_to_spo`]'s, in the same order.
+#[must_use]
+pub fn parse_to_spo_traced(tokens: &[Tagged]) -> Vec<Traced> {
+    let mut out = Vec::new();
+    let mut core = Core::START;
+    let mut sentence = 0u32;
+    for (i, &t) in tokens.iter().enumerate() {
+        if t.pos == Pos::Stop {
+            core.state = State::Start;
+            core.rel = Rel::None;
+            sentence += 1;
+            continue;
+        }
+        // The path is decided by the registers BEFORE the closing token.
+        let origin = match core.rel {
+            Rel::ObjSubject(_) => Origin::ObjRelative,
+            Rel::HaveVerb { .. } => Origin::SubjRelative,
+            Rel::Open | Rel::None if core.subject_carried => Origin::Carried,
+            Rel::Open | Rel::None => Origin::Main,
+        };
+        if let Some(spo) = core.step(t) {
+            out.push(Traced {
+                spo,
+                origin,
+                sentence,
+                closed_at: i,
+            });
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod traced_tests {
+    use super::*;
+
+    fn n(id: WordId) -> Tagged {
+        Tagged::new(id, Pos::Noun)
+    }
+    fn v(id: WordId) -> Tagged {
+        Tagged::new(id, Pos::Verb)
+    }
+    fn det() -> Tagged {
+        Tagged::new(0, Pos::Det)
+    }
+    fn rel() -> Tagged {
+        Tagged::new(0, Pos::Rel)
+    }
+    fn stop() -> Tagged {
+        Tagged::new(0, Pos::Stop)
+    }
+
+    /// The traced parse emits exactly `parse_to_spo`'s triples, in order, on
+    /// inputs that exercise all four paths.
+    #[test]
+    fn traced_triples_equal_parse_to_spo() {
+        let streams: Vec<Vec<Tagged>> = vec![
+            vec![det(), n(1), rel(), det(), n(2), v(3), v(4), det(), n(5)],
+            vec![det(), n(1), rel(), v(2), det(), n(3), v(4), det(), n(5)],
+            vec![n(1), v(2), n(3), v(4), n(5), stop(), n(6), v(7), n(8)],
+        ];
+        for s in streams {
+            let traced: Vec<Spo> = parse_to_spo_traced(&s).iter().map(|t| t.spo).collect();
+            assert_eq!(traced, parse_to_spo(&s));
+            assert!(!traced.is_empty(), "anti-vacuity: the stream emits");
+        }
+    }
+
+    /// Each path is named: object-relative, subject-relative, main, carried.
+    /// Two-sided: every stream carries at least two different origins.
+    #[test]
+    fn each_clause_path_is_named() {
+        let obj = parse_to_spo_traced(&[det(), n(1), rel(), det(), n(2), v(3), v(4), det(), n(5)]);
+        assert_eq!(
+            obj.iter().map(|t| t.origin).collect::<Vec<_>>(),
+            vec![Origin::ObjRelative, Origin::Main]
+        );
+        assert_eq!(
+            obj[0].spo,
+            Spo::new(2, 3, 1),
+            "the antecedent is the object"
+        );
+
+        let subj = parse_to_spo_traced(&[det(), n(1), rel(), v(2), det(), n(3), v(4), det(), n(5)]);
+        assert_eq!(
+            subj.iter().map(|t| t.origin).collect::<Vec<_>>(),
+            vec![Origin::SubjRelative, Origin::Main]
+        );
+        assert_eq!(subj[0].spo.subject, 1, "the antecedent is the subject");
+
+        let chain = parse_to_spo_traced(&[n(1), v(2), n(3), v(4), n(5), stop(), n(6), v(7), n(8)]);
+        assert_eq!(
+            chain
+                .iter()
+                .map(|t| (t.origin, t.sentence))
+                .collect::<Vec<_>>(),
+            vec![(Origin::Main, 0), (Origin::Carried, 0), (Origin::Main, 1)]
+        );
+        assert_eq!(chain[0].closed_at, 2);
+        assert_eq!(chain[2].closed_at, 8);
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Multi-reading input (D-LXC-2)
 // ─────────────────────────────────────────────────────────────────────────────

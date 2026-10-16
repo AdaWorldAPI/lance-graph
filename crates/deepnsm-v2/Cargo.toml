@@ -30,6 +30,9 @@ lance-graph-contract = { path = "../lance-graph-contract", features = ["guid-v3-
 # The Pearl 2³ ladder: `fsm::answered_questions` returns its `CausalMask`, the
 # same eight masks CausalEdge64 packs at bits [40:42]. Zero-dependency crate.
 causal-edge = { path = "../causal-edge" }
+# F/C of wired edges: arm-discovery's `arm_to_truth_u8` (the OpenCog/learn-
+# adjacent rule miner). Zero dependencies by default.
+lance-graph-arm-discovery = { path = "../lance-graph-arm-discovery" }
 
 # `test = true` makes `cargo test` run the example's own `#[cfg(test)]` tests
 # (the D-LXC-1 tagger). Cargo only compiles an example by default; its `main()`

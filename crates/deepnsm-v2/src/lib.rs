@@ -57,6 +57,7 @@ pub mod tekamolo;
 pub mod toc;
 pub mod vocab;
 pub mod wave;
+pub mod wire;
 
 use lance_graph_contract::temporal_pov::{TemporalPov, VersionRange};
 

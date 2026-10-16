@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1590 (merged `2a6d502d`, branch `ccr-9f3b8075-74u47l-violation-banners`, head `d43a6ac5`, 1 commit) — board: mark the gather designs as violations; point at D-HOLO H14c/H14d
+
+- **Added:** capital-letter VIOLATION banners on plans `wcoj-closing-atoms-v1`, `quack-multitable-bind-v1`, `metta-datalog-assimilation-v1-council-v3`, the D-CMR-5 row, the joins line of `relalg-v1`; entries `wcoj-closing-atoms-council`, `wcoj-probes-1-3`, `coresearch-wcoj-leapfrog`, `asm-accepted-proposals`; STATUS rows D-QMB-0..5, D-ASM-11/11A/11B, D-CMR-5, D-RA-4; both 2026-10-16 INTEGRATION_PLANS entries; `TD-NO-BOUNDED-U32-GATHER-1`. Each names `d-holo-h14c-thought-first-v1.md` and `d-holo-h14d-logic-mask-read-v1.md` as the correct plans.
+- **Locked:** a read at a position taken from another lane's values (gather, foreign lanes, the preimage hop) is a violation; nothing is deleted.
+- **Deferred / open:** the gather surface that already exists in code is a separate change.
+- **Confidence:** n/a (board).
+
 ## 2026-10-16 — lance-graph PR #1588 (merged `399c8558`, branch `ccr-9f3b8075-74u47l-cats-validity`, head `ba4d0b19`, 3 commits) — sap: optional CATS code fields bind three-valued through validity planes
 
 - **Added:** `CatsBatch::bind` builds one validity plane per optional `U32` field (`OPTIONAL_CODE_FIELDS = [6, 7, 8, 16, 20, 21]`, unit test pins it against `FIELDS`); `CatsBatch::masks(live)` returns live first, then the validity planes; `CatsBinder::field` binds optional fields with `validity: Some(validity_mask(..))`. Files: `lance-graph-sap` `bind.rs`, `binder.rs`, `tests/binder.rs`; two hypothesis notes in `lance-graph-glove-parity` `basis.rs`; `LATEST_STATE.md`, `PR_ARC_INVENTORY.md`.

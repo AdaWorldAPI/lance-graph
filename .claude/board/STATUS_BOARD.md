@@ -1,3 +1,25 @@
+## D-CGW — CE64 grammar wiring: every upper-half field of a parsed triple from its source (2026-10-16)
+
+Plan: `.claude/plans/ce64-grammar-wiring-v1.md`. Entry: `entries/2026-10-16-grammar-coordinates-annotation-wiring.md` §7–§11. Related: D-SMD-2 (grammar topology from Haspelmath maps), D-SAG-CF-1 (counterfactual contract), D-LXC-29 (8 rails), EW64 OD-5.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-CGW-0** | `deepnsm-v2::wire`: CE64 0..63 from named sources; Gadamer gate before counting; W = Markov arc in `WitnessTable<64>`; activation = update-caused frequency change; 43..45 = Haspelmath function; Antecedent / TEKAMOLO / Quorum / Contradiction loci; qualia register; `wired_reasoning_probe` | In PR | 229 tests; probe 741 rows, 5 rules, 0 violations; disable runs red per entry §7–§11 |
+| **D-CGW-1** | one global meaning per CE64 field, held in the `causal-edge` contract (no per-tenant readings; superseded the same day); amend 43..45 to orientation with all triad readers migrated | Queued | one code table shared by accessor, writer and readers; field isolation 43..49. **Gate:** wire edges stay in the probe until this lands |
+| **D-CGW-2** | frequency-ranked default reading (COCA, DeReKo) + antecedent-tested promotion of the alternative (relative pronoun) with agreement | Queued | `der Mann, der …` promoted; `der Mann gab der Frau …` silent; English `that` promoted without a COCA Rel tag |
+| **D-CGW-3** | case morphology decides argument order in the parser (`Den Hund biss der Mann`) | Queued | OVS flips, SVO unchanged, syncretic case unresolved; UD German GSD dev measured |
+| **D-CGW-4** | counterfactual lanes: `CausalCandidate` → `Causes` only with `IncreaseEligible` ∧ `Necessary` | Queued | necessary / dispensable / not-run triple |
+| **D-CGW-5** | concessive markers as gate resistance and refuted implication | Queued | marked vs unmarked contest |
+| **D-CGW-6** | witness arcs across 63-row cohorts (196/741 probe rows broke) | Queued | arc walk across cohorts; `arc_breaks` 0 for the fixture |
+| **D-CGW-7** | loci 24 → 32 × i4 over the full 16-byte lane | Queued | envelope audit; field isolation over 32 slots |
+| **D-CGW-8** | S/P/O identity as 8 × u8:u8 rails beside the u8 palette | Queued | decision: palette stays in 0..23 |
+| **D-CGW-9** | 46..49 stays the ISA inference mantissa (law); activation moves out of the edge until the contract gives it a field | Queued | every wire edge decodes through the mantissa decoder as the inference it states |
+| **D-CGW-10** | `ce64-semantic-upper-half.md`: the grammar reading of 43..45 declared beside the triad | Queued | doc only |
+| **D-CGW-11** | Judicantis and multifunctional forms without a lane: measure before adding context rules | Queued | measurement on a corpus with attested forms |
+| **D-CGW-12** | word → qualia index source (WordNet × Jina) | Deferred (operator) | — |
+| **D-CGW-13** | all oracles (Java OpenNARS, ONA, MeTTa, OpenCog, MORK) read out on the same CE64 fields | Queued | D-ORACLE readout |
+| **D-CGW-14** | OpenPSI modulators as a qualia device profile into the #1571 PCS (demands stay goals) | Queued | — |
+
 ## Catch-up (2026-10-16) — D-ids named by merged PRs that had no row
 
 Found by the PR-arc catch-up over #1388–#1588. HubSPO-rs D-ids (D-IAM-2, D-IAM-3, D-QRY-1) belong to that repo's board; D-K16 and D-V3M were renamed in their own PRs (to D-KEY16, D-HPR).
