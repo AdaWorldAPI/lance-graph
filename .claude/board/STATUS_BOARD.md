@@ -1,3 +1,16 @@
+## D-QMB — multi-table bind for Quack (2026-10-16)
+
+Plan: `.claude/plans/quack-multitable-bind-v1.md`. Shared by D-ASM-1/11 and SAP joins.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-QMB-0** | tests first: two-table draft == expert query + slot layout; binder call count; nested-loop oracle incl. dangling and deleted targets | Queued (not authorized) | disable: drop the live `Semijoin` → deleted target kept (red); skip slot dedup (red) |
+| **D-QMB-1** | `Binder::addresses` (default), `Draft::via`, `Bound`, `bind_joined`, `BindError::{NotAnAddress, Unsupported}` | Queued (not authorized) | the four existing `Binder` implementers compile unchanged |
+| **D-QMB-2** | SAP: CATS hours through a functional employee assignment | Queued (not authorized) | answer == the SAP fixture's expected rows |
+| **D-QMB-3** | MeTTa: two-atom acyclic body through `via` | Queued (not authorized) | answer == datafrog SET |
+| **D-QMB-4** | nested `via` chains in one program | Queued (not authorized) | check the #1521/#1522 withdrawal first |
+| **D-QMB-5** | cyclic bodies and n:m relations | Queued (gated on the council-p7 predicates) | answer == datafrog SET on F2/F3a/F3b/F4 |
+
 ## D-WAL — `LanceCycleWriter` vs the lancedb 0.40 MemWAL write path (2026-10-14)
 
 Plan: `.claude/plans/wal-shootout-v1.md`. Feeds D-LNC-7; decides nothing.

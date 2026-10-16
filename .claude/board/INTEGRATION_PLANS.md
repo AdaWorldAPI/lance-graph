@@ -1,3 +1,11 @@
+## 2026-10-16 (2) — quack-multitable-bind-v1 — one bind path for joins, shared by MeTTa bodies and SAP → `.claude/plans/quack-multitable-bind-v1.md`
+
+**Status:** PROPOSAL; nothing built. D-QMB-0..5.
+
+- `Binder` gains a default `addresses(table, field)`; `Draft::via(field)` scopes predicates to the addressed table; `bind_joined` returns the `Query` plus the `Foreign` slot layout it assumes.
+- Every hop conjoins the target's live plane as a `Semijoin`, so a deleted or dangling target is a known FALSE.
+- v1 binds `=` on coded foreign fields only; `<>`, `I32` and optional foreign fields are refused until pinned; cyclic and n:m bodies wait for the council-p7 predicates.
+
 ## 2026-10-16 — d-holo-h14d-logic-mask-read-v1 — C's own operation: logic → address mask → masked read → terminal → `.claude/plans/d-holo-h14d-logic-mask-read-v1.md`
 
 **Status:** PRE-REGISTERED; not run.
