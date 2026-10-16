@@ -29,7 +29,10 @@ F3. Zero copy is a law without escape hatches; a binder never holds atoms, it ho
     plan §5).
 F4. The 16-byte key and the 512-byte stride are canon; a tenant may be added, the stride never changes
     (`CLAUDE.md` § CANON — Minimal SoA node; `v3-envelope-auditor`).
-F5. AdaWorldAPI forks only, never crates.io for a forked crate; the lance family excepted (`CLAUDE.md` P0). Pins: hyperon-experimental
+F5. AdaWorldAPI forks only, never crates.io for a forked crate; the lance family excepted (`CLAUDE.md` P0). **⊘ v3.1 (DECISION,
+    2026-10-16): NO PINS.** Git deps float on the fork's default branch (`branch = "main"`, no `rev`, no `tag`) and no `Cargo.lock` is
+    tracked (`lance-graph/.gitignore:15`, fork `.gitignore:8` — already so), so every build compiles the latest fork head. The SHAs
+    below are the heads the inventory was READ at, dated evidence, never a build pin: hyperon-experimental
     `3f76dc4`, PeTTa `1d19a1d`, ONA `dc4efd0`, OpenNARS Java `4d1bdb0` — MEASURED as the clone heads 2026-10-16 (`git rev-parse --short HEAD`
     in each clone); datafrog `edd7cfc` (master) per `crates/lance-graph-metta/Cargo.lock` (gitignored, local).
 F6. Hyperon's interpreter is called, never ported or modified for this; an unsupported shape is never approximated
@@ -192,8 +195,8 @@ R-6 **Migration order.** W1 (R-4 binder + R-1b values) and W2 (R-1(a)/(b) loweri
    files; W3 (R-5) after both. No commit touches `canonical_node.rs`, `facet.rs`, `causal-edge`, relalg, or mask-risc `ir.rs`.
 R-7 **Deleted/kept/aliased.** Nothing deleted. `join_probe.rs`/`join_range_probe.rs` kept (quack-path precedent; G4 reads them).
    `lance-graph-metta/src/lib.rs` stub replaced. metta gains deps `hyperon-atom`, `hyperon-space` (`git = "https://github.com/AdaWorldAPI/hyperon-experimental"`,
-   `rev = "3f76dc4"`, never `branch`, never crates.io — F5, S4 #2, R3 P2),
-   keeps quack + mask-risc; dev-dep `hyperon` (interpreter) at the SAME rev with `default-features = false` (defaults pull `das`
+   `branch = "main"` — ⊘ v3.1: was `rev = "3f76dc4"`, struck by the NO PINS decision in F5; never crates.io — S4 #2, R3 P2),
+   keeps quack + mask-risc; dev-dep `hyperon` (interpreter) on the SAME branch with `default-features = false` (defaults pull `das`
    from a singnet git source and `pkg_mgmt`). Transitive set read from the fork manifests by S4: common, macros, bitset, unescaper, bimap, smallvec, log — no
    interpreter crate at `[dependencies]` level; G8b turns that into a `cargo tree` assertion rather than a manifest reading (R1 P2). `crates/lance-graph-metta/Cargo.lock` is gitignored (`.gitignore:15`), as
    the no-lock rule requires. No CI workflow names `lance-graph-metta` today; a job is a FOLLOW-UP, so G7 is a local gate in this
@@ -261,7 +264,8 @@ G5 (W2/3) **`b4_nondeterm` is the ROUTING fixture, not the multiplicity fixture*
    $x`) is the fold fixture from Hyperon's own corpus. Kill condition rewritten: if `GroupReduce{Count}` cannot reproduce the bag
    fixture's multiset, the tranche ships counts only and says so.
 G6 (W3) **`hyperon-probe/golden` is ABSENT on disk (S3 #5); "32/33" is struck.** W3's FIRST step builds and commits the baseline:
-   the fork's 26 `python/tests/scripts/*.metta` run through the fork's Rust runner at `3f76dc4`, pass/fail recorded per script
+   the fork's 26 `python/tests/scripts/*.metta` run through the fork's Rust runner at the `main` head of the run (the sha RECORDED
+   with the result — ⊘ v3.1, was "at `3f76dc4`"; fork main is `e55dc61` today and carries both trie fixes), pass/fail recorded per script
    BEFORE any `LanceSpace` exists (MEASURED, with the command). Then: that baseline unchanged with facts moved into `LanceSpace`;
    every LanceSpace answer == Hyperon per CATEGORY (R-8) or a named refusal; inner-space answers counted per kind and DISJOINT from
    fold answers (S2 #10); PeTTa divergences logged by fixture; whole-conjunction vs per-conjunct call counts recorded.
@@ -392,4 +396,5 @@ Conflicts between reviewers: none. Stricter verdict rule not invoked.
 | P2 plan §E still described the struck tenant; D-ASM-5 row kept it | `metta-datalog-assimilation-v1.md:97-105,132,141,181` | plan §E rewritten around the interned table; D-ASM-5 row, kill condition and ONA row reworded |
 | P2 D-MTP-2 gate still said "32/33 golden files" | `STATUS_BOARD.md:40` vs G6 | row gate = the 26-script baseline (G6) |
 | P2 N4 contradicted R-9 | this file | N4 rewritten (above) |
+| DECISION (operator, 2026-10-16): no pins; always compile from latest | `.gitignore:15` (lance-graph), fork `.gitignore:8`; no `rev =` in any `Cargo.toml` (`grep`, read) | F5 ⊘ NO PINS; R-7 `branch = "main"`; G6 baseline at the run's main head, sha recorded |
 Nothing in §3 R-1..R-9 beyond the two ⊘ paragraphs changed; W1–W3 remain NOT authorized.
