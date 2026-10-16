@@ -1312,11 +1312,13 @@ mod tests {
                 (MAN, Pos::Noun, "man", 0),
                 (WHO, Pos::Adj, "quick", QUICK),
                 (0, Pos::Stop, ".", 0),
-                (THE, Pos::Det, "the", 0),
-                (CAT, Pos::Noun, "cat", 0),
-                (SAW, Pos::Verb, "saw", 0),
+                // The next sentence opens with `dog`, the subject of the
+                // first: an unbounded noun search would qualify it there.
                 (THE, Pos::Det, "the", 0),
                 (DOG, Pos::Noun, "dog", 0),
+                (SAW, Pos::Verb, "saw", 0),
+                (THE, Pos::Det, "the", 0),
+                (CAT, Pos::Noun, "cat", 0),
             ])],
             1,
             &abi(),
@@ -1325,7 +1327,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(w.rows.len(), 2);
-        assert_eq!(qualia_at(w.rows[1].qualia, Q_SUBJECT), 0);
+        for row in &w.rows {
+            assert_eq!(qualia_at(row.qualia, Q_SUBJECT), 0);
+        }
         assert_eq!(w.report.qualia_unattached, 1);
         assert_eq!(w.report.qualia_adjectival, 0);
     }
