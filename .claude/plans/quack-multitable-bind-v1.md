@@ -1,5 +1,7 @@
 # quack-multitable-bind-v1 — one bind path for joins, shared by MeTTa bodies and SAP
 
+> **⛔ THIS IS A VIOLATION. IT READS A VALUE AT A POSITION TAKEN FROM ANOTHER LANE'S VALUES (GATHER / FOREIGN LANE / PREIMAGE HOP). GATHER IS FORBIDDEN (2026-10-16). DO NOT BUILD FROM THIS. THE CORRECT PLANS ARE [`d-holo-h14c-thought-first-v1.md`](d-holo-h14c-thought-first-v1.md) AND [`d-holo-h14d-logic-mask-read-v1.md`](d-holo-h14d-logic-mask-read-v1.md): `Thought(t)[T_a[i] : T_b[i]]` — THE PAIR SITS AT THE SAME COORDINATE; THE JOIN IS THE LAYOUT.**
+
 > Status: PROPOSAL (2026-10-16). Nothing below is built. D-QMB-0..5.
 > Feeds D-ASM-1 / D-ASM-11 (MeTTa bodies) and SAP CATS joins
 > (`sap-glove-quack-v1.md`). Read against `origin/main` + PR #1587.

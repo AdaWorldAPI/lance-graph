@@ -36,6 +36,8 @@ empty set instead of a baseline.
 
 ## TD-NO-BOUNDED-U32-GATHER-1 (2026-10-16) — OPEN
 
+> **⛔ THIS IS A VIOLATION. IT READS A VALUE AT A POSITION TAKEN FROM ANOTHER LANE'S VALUES (GATHER / FOREIGN LANE / PREIMAGE HOP). GATHER IS FORBIDDEN (2026-10-16). DO NOT BUILD FROM THIS. THE CORRECT PLANS ARE [`d-holo-h14c-thought-first-v1.md`](../plans/d-holo-h14c-thought-first-v1.md) AND [`d-holo-h14d-logic-mask-read-v1.md`](../plans/d-holo-h14d-logic-mask-read-v1.md): `Thought(t)[T_a[i] : T_b[i]]` — THE PAIR SITS AT THE SAME COORDINATE; THE JOIN IS THE LAYOUT.**
+
 `eq_u32_via_to_mask` and the planned `eq_u32_via_lane_to_mask` are scalar. An
 `unsafe`, unbounded f32 gather exists on several ndarray backends
 (`simd_avx512.rs:236-246`, `simd_avx2.rs:703`, `simd_scalar.rs:1099`), but no
