@@ -1,5 +1,7 @@
 # 2026-10-16 — D-ASM follow-ups: learn measures, DAS attention probe, Atomese front end, MORK oracle
 
+> **⛔ THIS IS A VIOLATION. IT READS A VALUE AT A POSITION TAKEN FROM ANOTHER LANE'S VALUES (GATHER / FOREIGN LANE / PREIMAGE HOP). GATHER IS FORBIDDEN (2026-10-16). DO NOT BUILD FROM THIS. THE CORRECT PLANS ARE [`d-holo-h14c-thought-first-v1.md`](../../plans/d-holo-h14c-thought-first-v1.md) AND [`d-holo-h14d-logic-mask-read-v1.md`](../../plans/d-holo-h14d-logic-mask-read-v1.md): `Thought(t)[T_a[i] : T_b[i]]` — THE PAIR SITS AT THE SAME COORDINATE; THE JOIN IS THE LAYOUT.**
+
 **Status:** DECISION (board rows only; nothing built).
 
 Five proposals from the OpenCog / DAS / MORK mapping were accepted the same day.

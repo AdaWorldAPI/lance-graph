@@ -67,6 +67,6 @@ for it.
 
 ## 4. Not built
 
-Joins (a hop is a preimage over coordinates, D-CMR-5, never a foreign key),
+**⛔ VIOLATION — THE PREIMAGE HOP BELOW IS GATHER. THE JOIN IS THE LAYOUT: `d-holo-h14c-thought-first-v1.md` / `d-holo-h14d-logic-mask-read-v1.md`.** Joins (a hop is a preimage over coordinates, D-CMR-5, never a foreign key),
 recursion, row intervals, `Sum(A) − Sum(A∧B)`. Datalog text as a query path
 is excluded by design: strings are labels, the query is algebra.

@@ -1,5 +1,7 @@
 # RATIFIED v3 — metta-datalog-assimilation council (2026-10-16) — metta-datalog-assimilation, tranche W1–W3 (D-ASM-1..4) + ratification of decisions A–H
 
+> **⛔ THIS IS A VIOLATION. IT READS A VALUE AT A POSITION TAKEN FROM ANOTHER LANE'S VALUES (GATHER / FOREIGN LANE / PREIMAGE HOP). GATHER IS FORBIDDEN (2026-10-16). DO NOT BUILD FROM THIS. THE CORRECT PLANS ARE [`d-holo-h14c-thought-first-v1.md`](d-holo-h14c-thought-first-v1.md) AND [`d-holo-h14d-logic-mask-read-v1.md`](d-holo-h14d-logic-mask-read-v1.md): `Thought(t)[T_a[i] : T_b[i]]` — THE PAIR SITS AT THE SAME COORDINATE; THE JOIN IS THE LAYOUT.**
+
 > v3 = v2 with the three reviewers' verdicts applied (0 BLOCK, 2 FIX-P1, 16 FIX-P2; §9 ledger). v2 = v1.1 with every savant finding applied; §8 is that ledger.
 > Status words: DECISION / MEASURED (with command) / VERIFIED-IN-CODE (with location) / POLICY PIN (a chosen bound, not a measurement) / OPEN.
 > v1.1 = v1 re-asked after the premise gate (PREMISE-SPLIT; §6 stamp sub-premise PREMISE-WRONG). §3 below is the

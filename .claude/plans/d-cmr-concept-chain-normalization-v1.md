@@ -213,7 +213,7 @@ when the first floating-point or quantized column arrives, not before.
 | D-CMR-2 | **Lowering** to mask-risc: runs → extents, residual → predicates within each run, the three measurement levels. Level 2 for residual comparisons needs predicate fusion in mask-risc (`fused_ternlog` declines `Pred` today) | == row oracle; a `Count` with no residual reads zero rows (instrumented); disabling level 1 or 2 keeps answers |
 | D-CMR-3 | **Quack normalization pass:** over `Filter`, computing set values (ranges on a proven basis → `Runs`, other leaves → `Res`, `sql_where` first). Extent hoisting falls out of this (Experiment C) | answers identical to today's `lower` path on the quack suite; a range on another basis stays residual (negative control) |
 | D-CMR-4 | **Two dimensions:** `Rect` over composite coordinates, linearized row-major or in Morton order | rectangle `∩` == bitset oracle; run count within the stated bound |
-| D-CMR-5 | **Preimage** `f⁻¹(S)` under a proven mapping (the hop) | == row oracle; a many-to-one image is refused |
+| D-CMR-5 | **⛔ VIOLATION — GATHER. CORRECT: `d-holo-h14c-thought-first-v1.md` / `d-holo-h14d-logic-mask-read-v1.md`.** **Preimage** `f⁻¹(S)` under a proven mapping (the hop) | == row oracle; a many-to-one image is refused |
 | D-CMR-6 | **Rule catalogue and fixpoint driver**: complement, relational difference `Sum(A) − Sum(A∧B) → Sum(A∧¬B)` | Experiments A, D, E; each guard removal fails |
 | D-CMR-7 | **NAL normalization pass:** aperture → `Runs` over the R2IL program, R2IL route unchanged (after NAL lands in core) | NAL W2 tests unchanged |
 | D-CMR-8 | **Equality-saturation probe** (`egg`, `egglog` as references only) | only if rules compete; compared against D-CMR-6; no dependency without evidence |
