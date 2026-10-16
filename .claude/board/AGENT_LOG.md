@@ -1,3 +1,9 @@
+## 2026-10-16 — PR-body harvest #1582–#1591 (general-purpose on Haiku)
+
+- One run: ten PR bodies and file lists, verbatim, into the session scratchpad.
+- Spot checks: #1588's two test names found in `tests/binder.rs`; #1587 and #1591 file counts equal `git diff --stat` (17, 18).
+- Misses: none. Written by the orchestrating main thread only.
+
 ## 2026-10-16 — board catch-up for merged PRs #1388–#1588 (Haiku + Sonnet grindwork)
 
 - Six Sonnet writers drafted 115 `PR_ARC_INVENTORY` entries from each PR's description and file list (brief: facts only, shas copied from the JSON). The main thread matched every header against the PR metadata mechanically and read samples; inserted by a script that refuses duplicates and a shorter file.
