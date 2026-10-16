@@ -33,3 +33,9 @@ residue is the ratified spec and the ⊘ notes. MIRROR — BIAS CHECK: the v1 sp
 (anchoring on the plan's own wording); the premise gate, not the savants, caught it.
 
 **Addendum (2026-10-16, later):** fork PR `AdaWorldAPI/hyperon-experimental#1` merged (`e55dc61`), so both trie fixes are on fork `main`. lance-graph's `hyperon-*` pin is still `3f76dc4`; D-MTP-4's remaining step is the pin bump, OPEN, not authorized here.
+
+**Addendum (2026-10-16, Codex review on #1576):** five findings, all verified against code (two P1): the keyed count undercounts
+FOREIGN fan-out (`Semijoin` mask × `GroupReduce{Count}`), and `Space::query -> BindingsSet` has no error channel. Applied as
+spec §10 (v3.1): R-3 limit + G2b split (ii pinned two-sided) + N1c; R-5 `try_query` / counted-empty trait path / `(lance-match …)`
+grounded op; N4 rewritten; plan §E and D-ASM-5 reworded around the interned term table; D-MTP-2 gate = the 26-script baseline.
+OPEN (operator): what the adapter answers for a foreign fan-out query in W1–W3 (tagged bag is the written default).

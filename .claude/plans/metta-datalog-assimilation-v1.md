@@ -98,11 +98,13 @@ iteration, bounded, refusing an unbounded closure rather than truncating. The in
 INTERNED once, frame-side, in a term table with ONA `Term_Hash/Equal/ExtractSubterm/Complexity` parity; a row carries a 16-byte
 reference to it; a subterm-match lane is a derived projection of that table. The "fixed 64-byte per-row tenant" below is struck
 (+64 B per row = 12.5 % of the 512-byte stride; a label filed as a row value; ONA itself calls the encoding wasteful for
-low-complexity terms, `Term.h:36`). The parity surface and the strided-match idea survive; the per-row copy does not. A compound term is a fixed 64-byte tenant of u8 atom indices in
-binary-heap order, hashed once, with `Term_Equal`, `Term_ExtractSubterm`, `Term_Complexity`, `Term_Hash` as the parity surface.
-Subterm extraction is index arithmetic, so a compound-term predicate is a strided u8 match (`MatchFacet16Strided` family), not a
-tree walk. This lifts ledger R10 for NAL-3/4/5 statements and for MeTTa expressions deeper than one level. Rejected: a pointer
-tree (allocation in the bulk loop) and widening the 16-byte facet (the key is canon).
+low-complexity terms, `Term.h:36`). The parity surface and the strided-match idea survive; the per-row copy does not. **The surviving
+design (⊘ v3.1, Codex P2 on #1576 — the struck sentence used to follow here and read as live):** the term TABLE holds each distinct
+compound term once, in ONA binary-heap order, hashed once; `Term_Equal`, `Term_ExtractSubterm`, `Term_Complexity`, `Term_Hash` are
+the parity surface OF THE TABLE; a fact row carries a 16-byte reference (a facet, like every other key) to its term; subterm
+extraction is index arithmetic over the table row, so a compound-term predicate is a strided match over the table's projection,
+not a tree walk per fact row. This lifts ledger R10 for NAL-3/4/5 statements and for MeTTa expressions deeper than one level.
+Rejected: a pointer tree (allocation in the bulk loop), widening the 16-byte facet (the key is canon), and the per-row 64-byte copy.
 
 **F. NAL rules are Datalog rules with a truth-function label and an engine-order tag (DECISION, new: D-ASM-6).** ONA's 135
 `R1`/`R2` lines (`NAL.h`) and OpenNARS's syllogistic/local/compositional tables are harvested into the AST as data: premise shapes,
@@ -129,7 +131,7 @@ refuses these at `add` with a typed error; they live in the module's own `Ground
 | D-ASM-3 | W2 | **Bag terminal**: emit projected tuples with multiplicity; adapter builds `BindingsSet` | `b4_nondeterm` multiset equal to Hyperon's; a dedup arm fails it (the falsifier must fire); new terminal only with an insufficiency proof | D-ASM-2 |
 | D-ASM-4 | W3 | **`LanceSpace`** (`Space + SpaceMut`) as a named space over D-ASM-1..3; three-way harness Hyperon · PeTTa · LanceSpace on `b4`, `c1`, `e1`, `join_n`, `anc_n`; refusals counted | Hyperon golden corpus unchanged (32/33); every LanceSpace answer equal to Hyperon's as a normalised multiset or a named refusal; PeTTa divergences logged | D-MTP-2, D-MTP-5 |
 | D-RA-4 / D-MTP-3 | W4 | **μ via d′** for Datalog-fragment rules stored in `LanceSpace` | `anc_n` identical; no fixpoint state in mask-risc; unbounded closure refused | D-ASM-4 |
-| D-ASM-5 | W5 | **ONA-shaped compound-term tenant**: 64 × u8 heap, `Term_Hash`/`Equal`/`ExtractSubterm`/`Complexity` parity vs ONA on its `examples/nal/*.nal` terms; strided predicate over subterm positions | byte-identical hash and extraction on every fixture term; a term wider than 64 atoms refused, never truncated; `v3-envelope-auditor` LAYOUT-CLEAN (a tenant, no stride change) | D-ASM-1 |
+| D-ASM-5 | W5 | **ONA-shaped compound-term TABLE** (⊘ v3.1: was "per-row tenant"): one interned heap-ordered term per distinct compound, `Term_Hash`/`Equal`/`ExtractSubterm`/`Complexity` parity vs ONA on its `examples/nal/*.nal` terms; a fact row carries a 16-byte reference; strided predicate over the table's subterm projection | byte-identical hash and extraction on every fixture term; a term wider than the table's heap width refused, never truncated; `v3-envelope-auditor` LAYOUT-CLEAN (a reference lane, no stride change) | D-ASM-1 |
 | D-ASM-6 | W5 | **Rule catalogue as data**: ONA's `R1`/`R2` table and OpenNARS's syllogistic tables harvested into Datalog rules with truth-function label + engine argument-order tag; `Narsese.rs` as the NAL front end into the same AST | each harvested rule re-emits its source line; the order tag is proven by running one fixture through both engines and binding by shape | D-ASM-1, D-NALP-4 |
 | D-NALP-5 | W6 | syllogistic population ops = D-ASM-2 join + D-NALP-4 law, now over the shared AST | equals the scalar rule pair by pair; equals ONA and OpenNARS under their own order tags | D-ASM-2, D-ASM-6 |
 | D-ASM-7 | W7 | **Mining seam** reserved: `lance-graph-cog` as a driver tier (support = D-ASM-2/3 count, specialisation = lane census, surprisingness via `arm-discovery`), oracle `hyperon-miner`; its own plan, not authorized here | — | D-ASM-3 |
@@ -138,7 +140,7 @@ refuses these at `add` with a typed error; they live in the module's own `Ground
 - D-ASM-3: if no composition of existing terminals reproduces `b4_nondeterm`'s multiset and the insufficiency proof for a new
   terminal fails the warden, the MeTTa adapter answers counts only and says so; it does not dedup.
 - D-ASM-4: any answer that differs from Hyperon's and is not a named refusal is a lowering bug, never a re-pin of the fixture.
-- D-ASM-5: if heap-order extraction cannot be a strided match (measured: a tree walk per row), the tenant is rejected and R10 stays open.
+- D-ASM-5: if heap-order extraction over the term table cannot be a strided match (measured: a tree walk per term), the table design is rejected and R10 stays open.
 - D-ASM-6: a rule whose argument order cannot be proven by shape on both engines is kept out of the catalogue.
 - Anywhere: a new opcode or vocabulary byte without an execution-level insufficiency proof; any change to what a `Symbol`,
   `Expression`, `Variable` or `Grounded` atom means; any Hyperon interpreter code ported rather than called.
@@ -178,7 +180,7 @@ The target is one unified substrate. It is validated in two passes, in this orde
 | `lance-graph-nal` | OpenNARS Java `4d1bdb0` (`RunNal.java`), ONA `dc4efd0` (`./NAR shell`) | NAL-1/2 fixtures, `revision_points.nal`; truth to one u8 code; argument order bound by rule shape | evidence classes (`INDEPENDENT/DUPLICATE/OVERLAP/NO_PROVENANCE`), W witness, 59..63 written by `pearl::hydrate`/`revise` | a population revision that refuses dependent evidence by class where both originals silently pool it; a statement's epistemic state after an executed intervention, which neither original represents |
 | `lance-graph-relalg` | `AdaWorldAPI/datafrog` `edd7cfc` (exact Datalog) | bags of tuples at n = 10²..10⁶; `μ` closures | 40..42 as the question asked of a join (SO/PO/SPO/SP) | a join whose pairs carry a Pearl mask and a topology, so a two-hop answer states whether the middle term is a known intermediate |
 | `lance-graph-metta` | hyperon-experimental `3f76dc4` (interpreter), PeTTa `1d19a1d` | `b4_nondeterm`, `c1_grounded_basic`, `e1_kb_write`, golden 32/33, `join_n`, `anc_n`; multisets, refusals named | facts assimilated with provenance; `(stv f c)` into F/C; stamp travels as an atom | answers Hyperon panics or times out on (join_10000, anc_800) with identical multisets where it finishes; a `match` whose answer is gated by provenance, which no space in Hyperon or PeTTa can express |
-| `lance-graph-ona` (when it exists) | ONA `dc4efd0` (`Term_*`, `Truth_*`, `examples/nal/*.nal`) | `Term_Hash`/`Equal`/`ExtractSubterm` byte parity on the 64 × u8 heap; sensorimotor fixtures if NAL-7/8 enter scope | compound terms as a tenant addressable by strided match; events as rows with time lanes | a compound-term predicate as one fold over the population where ONA walks concepts one at a time |
+| `lance-graph-ona` (when it exists) | ONA `dc4efd0` (`Term_*`, `Truth_*`, `examples/nal/*.nal`) | `Term_Hash`/`Equal`/`ExtractSubterm` byte parity on the interned heap-ordered term table (⊘ v3.1: not a per-row tenant); sensorimotor fixtures if NAL-7/8 enter scope | compound terms as a tenant addressable by strided match; events as rows with time lanes | a compound-term predicate as one fold over the population where ONA walks concepts one at a time |
 | `lance-graph-cog` (when it exists) | `trueagi-io/hyperon-miner` (patterns, surprisingness), PeTTa `lib_pln.metta` second, classic `opencog/miner` read-only | mined pattern set and surprisingness on the shared fixture (HY-Q15) | support counted under provenance masks; patterns scored with `NarsTruth` via `arm-discovery` | a mined pattern whose support excludes dependent evidence; attention left to #1497 |
 
 Rules of the doctrine:

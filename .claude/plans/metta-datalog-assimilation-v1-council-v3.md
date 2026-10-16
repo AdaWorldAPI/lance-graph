@@ -123,6 +123,15 @@ R-2 **The join leaf** — unchanged words: constant on one side → `Pred::EqU32
 R-3 **Multiplicity** = R-1(b): `GroupReduce{Count}` is the carrier (keyed count = bag; prior art: the bag/set split in
    `quack/tests/gremlin_parity.rs:556` and entry `2026-10-12-edge-table-anchor-distinct.md`, S1 #5). `CountKeyRunsU32` is the
    dedup FALSIFIER only (`COUNT(DISTINCT)`, key-ordered, `LaneNotOrdered` at run — S3 #3). No third option; no new terminal (F2).
+   **⊘ v3.1 LIMIT (Codex P1, 2026-10-16):** the keyed count equals the bag only where the multiplicity lives on the HEAD table
+   (k facts per subject in the table being counted). `Filter::Semijoin` yields a survivor MASK, and `GroupReduce{Count}` counts
+   each surviving head row once; a FOREIGN fan-out (k foreign facts matching one fk) contributes 1, where a relational bag join
+   contributes k. So for `(, (p ?x ?y) (q ?y ?z))` projected on `?x`, the keyed count UNDERCOUNTS by the foreign multiplicity.
+   Carrying it needs a per-row fan-out value (a `GroupAgg::SumI32(Col)` over a derived head-table lane, or a tuple carrier) —
+   neither exists; it is the SAME gap as N1b and is filed as N1c (W4+). In W1–W3 the limit is pinned two-sided by G2b(ii), not
+   hidden. Which answer the adapter gives for such a query (the under-counted bag, tagged, or a refusal — a foreign fan-out is
+   not detectable statically) is OPEN for the operator; the spec's default until then is the TAGGED bag (the fold-bag category
+   carries `fanout: Head`), so a consumer can tell it from a Hyperon multiset.
    **R-3b — the one named exit (a different layer from the carrier):** `Space::query` must return a by-value `BindingsSet`, and `BindingsSet::count(n)`
    yields n EMPTY `Bindings` (`matcher.rs:975-977`, S3 #4), so the adapter pushes n `Bindings{?x ↦ Symbol(label)}` per key. That is
    O(answer) and population-proportional; it is the ONE named exit `materialize_bindings(keyed_counts) -> BindingsSet`, O(Σn)
@@ -155,7 +164,19 @@ R-5 **`LanceSpace` (D-ASM-4) — the refusal CHANNEL.** `SpaceMut::add(&mut self
    is answered by `complex_query`-style folding over the two (recorded in the harness as "per-conjunct"). The answer is a TWO-CATEGORY result: a fold-bag (key-derived `Bindings`, may carry an evidence lane later) and an inner-bag
    (matcher-derived `Bindings`, never carries evidence), each tagged with its origin in the adapter's own return type and only then
    concatenated into the `BindingsSet` the trait demands; the harness diffs each category separately per R-8 (R2 P1). Errors that are not routing (unknown label at bind of a QUERY constant, `CrossTableProjection`, `AnswerTooLarge`, `CodebookFull`,
-   `ProjectionTooWide`) surface as Hyperon `Error` atoms, never as an empty `BindingsSet`. F6 is amended: "refused at `add`" reads
+   `ProjectionTooWide`) surface as Hyperon `Error` atoms, never as an empty `BindingsSet`. **⊘ v3.1 (Codex P1, 2026-10-16) — the
+   CHANNEL, which v3 named but did not define:** `Space::query(&self, &Atom) -> BindingsSet` (fork `hyperon-space/src/lib.rs:175`)
+   has no error variant, so the sentence above is unexecutable as written. Defined: (1) the real API is
+   `LanceSpace::try_query(&Atom) -> Result<TaggedAnswer, Refusal>`; (2) the TRAIT impl maps `Err(r)` to `BindingsSet::empty()` AND
+   increments `refused_queries[kind_of(r)]`, inspectable via `(lance-space-stats &kb)` — "never as an empty `BindingsSet`" is
+   struck and reads "never SILENTLY empty: every refusal is counted, and the harness asserts the counter per fixture"; (3) the
+   path that surfaces a Hyperon `Error` atom is a grounded op `(lance-match &kb pattern template)` whose `execute` returns
+   `Err(ExecError::Runtime(reason))`, which the interpreter turns into an error expression (fork `hyperon-atom/src/lib.rs:383-387`);
+   the harness calls THAT op for every named-refusal gate; (4) `CodebookFull` is a ROUTING outcome at `add` (F6), never a
+   query-time error: the overflowing atom goes to the inner space and is counted `codebook_full`; (5) an unknown label in a query
+   constant means the pattern does NOT bind, so it is answered by the inner space (the label may live there after an overflow) —
+   never minted, never an error; `UnknownValue` is the binder's internal verdict that selects routing, and G3(d) reads "minting at
+   query time breaks the test asserting the codebook size is unchanged after a query". F6 is amended: "refused at `add`" reads
    "routed at `add`, refused at `query`". Named-space binding (F7) unchanged. **Batching (S2 #6 GAP):** `add` appends to a RESIDENT staging fold; one Lance version
    is published per batch at an explicit boundary — `(lance-space-flush &kb)` or implicitly before every `query` (read-your-writes
    for `e1_kb_write`), never one version per `add` (split-tunnel, `split-tunnel-sparse-append-resident-fold.md`). `remove` =
@@ -195,10 +216,13 @@ N1. μ / recursion (W4, D-RA-4/D-MTP-3): the driver d′ and the `Rule` VALUE ar
     inner space and `match` over it is Hyperon's own answer.
 N1b. Cross-table projections (two-hop, both ends projected): refused `CrossTableProjection`, counted; the lift needs a tuple
     carrier that does not exist (W4+). Same-table two-variable projections are NOT limited (`GroupAddr::Pair`).
+N1c. (⊘ v3.1) Bag-exact FOREIGN fan-out in a one-variable projection (R-3 limit): needs the same carrier as N1b; W4+.
 N2. Compound terms deeper than one level, the 64 × u8 tenant (W5, D-ASM-5): a nested `Expression` is refused in W1.
 N3. NAL rule catalogue, Narsese.rs front end (W5/W6, D-ASM-6, D-NALP-5).
-N4. Any write to CE64 bands 40..42 / 50..52 / 53..58 / 59..63 for assimilated facts; the stamp-as-atom shape (plan §6 last
-    bullet) stays OPEN and is asked of the council as a question, not resolved here.
+N4. Any write to CE64 bands 40..42 / 50..52 / 53..58 / 59..63 for assimilated facts, and the evidence LANE's layout: both are
+    W5/W6 work. (⊘ v3.1, Codex P2: the earlier text kept the stamp SHAPE open; that contradicted R-9, which DECIDED it — the
+    stamp is a lane beside the atom, and W1 writes `3` = `NO_PROVENANCE` into the reserved lane, R-4. Only the writes and the
+    layout remain deferred.)
 N5. Merging/upstreaming Hyperon's trie-panic fix (D-MTP-4: `5c9afd4` exists on the fork branch; `1ffdbd6` is upstream PR #1107;
     merging to fork main and bumping the pin is the operator's call); the gate for join_10000 is "LanceSpace answers",
     Hyperon's panic is recorded as the oracle's behaviour.
@@ -212,7 +236,10 @@ G1 (W1) every fixture atom from `e1_kb_write` and `a1_symbols` binds to the same
    at 65,535 labels refuses the next with `CodebookFull` (can-fire) and accepts the 65,535th (can-stay-silent).
 G2 (W2) the datalog→quack two-hop: pairs == datafrog as a BAG at n = 10², 10³, 10⁴, 10⁵, 10⁶ on the D-MTP-1 generator; join_10000
    answers where Hyperon panics (the panic is recorded as the oracle's behaviour, N5).
-G2b (W2) a NON-functional fixture (k facts per subject, k ∈ {2, 7}) diffed against datafrog as a bag — closes D-MTP-1's one-to-many OPEN.
+G2b (W2) a NON-functional fixture, in TWO arms (⊘ v3.1, Codex P1): (i) k facts per subject on the HEAD table (k ∈ {2, 7}) diffed
+   against datafrog as a BAG — equality claimed, closes D-MTP-1's one-to-many OPEN; (ii) k FOREIGN facts per fk target: the keyed
+   count is asserted == datafrog as a SET and asserted != datafrog as a BAG (the R-3 limit, pinned two-sided so a later fan-out
+   carrier must re-pin it, never drift past it). The harness tags arm (ii)'s answers `fanout: Head`.
 G3 (W2) disable runs, each red-then-green, each with the patch anchor asserted (`assert s.count(old) == 1`): (a) swapping fk/key in
    the lowered `EqU32Via` breaks a named test; (b) replacing `GroupReduce{Count}` by `CountKeyRunsU32` (the dedup arm) breaks the
    BAG fixture's multiset test; (c) answering a cross-table projection through the `Pair` path instead of refusing breaks a named
@@ -356,3 +383,13 @@ S5 #7 vs v1.1 tranche limit — Pair wins (quack `GroupAddr::Pair` exists); the 
 | R2 | P2: "head table's row" phrasing; R-3 exit in the carrier paragraph; R-2/G4 `valid(fk)` wording; §8 S4 #4 row | R-1 phrasing fixed; R-3b split out; R-2 rewritten to "enclosing `Plane(valid)` baked into `Gather{under}`"; row added |
 | R3 firewall | GATE PASS; P2: fork URL; TECH_DEBT/ISSUES homes; one-writer; supersession literally last; P3 serde check | R-7 URL; G9 extended; G8b |
 Conflicts between reviewers: none. Stricter verdict rule not invoked.
+
+## 10. CHANGE LEDGER v3 → v3.1 (post-review, Codex on PR #1576, 2026-10-16 — text only; not re-ruled by the council)
+| finding | verified against | applied as |
+|---|---|---|
+| P1 foreign multiplicity: `Semijoin` mask + `GroupReduce{Count}` counts a head row once, a bag join counts it k times | `quack/src/lib.rs:387` `Semijoin`, `:1261-1276` `pub enum GroupAgg` (no fan-out fold) | R-3 ⊘ limit; G2b split (i)/(ii), (ii) pinned two-sided; N1c; adapter default = tagged bag, OPEN for the operator |
+| P1 no error channel: `Space::query -> BindingsSet`; `add -> ()` | fork `hyperon-space/src/lib.rs:175,237`; `hyperon-atom/src/lib.rs:383-395` `pub enum ExecError` | R-5 ⊘: `try_query` + counted empty on the trait path + `(lance-match …)` grounded op for `Error` atoms; `CodebookFull` = routing at `add`; unknown query label = inner space |
+| P2 plan §E still described the struck tenant; D-ASM-5 row kept it | `metta-datalog-assimilation-v1.md:97-105,132,141,181` | plan §E rewritten around the interned table; D-ASM-5 row, kill condition and ONA row reworded |
+| P2 D-MTP-2 gate still said "32/33 golden files" | `STATUS_BOARD.md:40` vs G6 | row gate = the 26-script baseline (G6) |
+| P2 N4 contradicted R-9 | this file | N4 rewritten (above) |
+Nothing in §3 R-1..R-9 beyond the two ⊘ paragraphs changed; W1–W3 remain NOT authorized.
