@@ -1,3 +1,8 @@
+## 2026-10-15 — D-HOLO H14b result count: one census run
+
+- Card `census-counter` (run as a general-purpose agent on Haiku with the card's rules pasted), the H14b table of `h14b_run1.txt`, lines 59–94: k <= 4 cells, cells above 1.25× B on full-row and session read, min/max per density, F3 and byte comparisons.
+- Ledger: every count matched the orchestrator's independent awk run (9 failing cells, same cells and ratios); 0 wrong, 0 missed. One cosmetic defect: its echo labels were shell-expanded; the counting commands were unaffected. About 396k subagent tokens. No conclusion came from the card.
+
 ## 2026-10-15 — ledger-correction batch: two Haiku harvest runs
 
 - Card `harvest-scout` over ndarray `src/hpc/*cascade*` + blackboard (O20): hits at `cascade.rs:270-276`, `:813`, blackboard `:84-90` read and confirmed; 0 wrong, 0 missed. Earlier in the session the doc scout returned counts without hits (one miss on that kind of task).
