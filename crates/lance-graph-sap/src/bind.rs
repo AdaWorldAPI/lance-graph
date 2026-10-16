@@ -23,6 +23,21 @@ pub const BILLING_VALUES: &[(&str, bool)] = &[
     ("Non-Billable", false),
     ("Internal Cost", false),
 ];
+/// The optional dictionary/NUMC fields, in validity-plane order: the plane of
+/// `OPTIONAL_CODE_FIELDS[k]` is mask `1 + k` (mask 0 is the live plane). These
+/// are exactly the optional fields with a `U32` carrier; the U64 instant has
+/// no `FieldKind` and gets no plane. Pinned against `FIELDS` by a test.
+pub const OPTIONAL_CODE_FIELDS: [usize; 6] = [6, 7, 8, 16, 20, 21];
+
+/// The validity mask index of an optional code field, `None` for any other.
+#[must_use]
+pub fn validity_mask(ordinal: usize) -> Option<lance_graph_quack::Mask> {
+    OPTIONAL_CODE_FIELDS
+        .iter()
+        .position(|&o| o == ordinal)
+        .map(|k| lance_graph_quack::Mask(1 + k as u16))
+}
+
 /// A billing indicator the DTO does not document: neither billable nor not.
 /// A filter on either boolean never selects it.
 pub const BILLABLE_UNKNOWN: u32 = u32::MAX;
@@ -70,6 +85,9 @@ pub struct CatsBatch {
     pub schema: CatsSchema,
     columns: Vec<Column>,
     dictionaries: [Vec<String>; FIELD_COUNT],
+    /// One plane per [`OPTIONAL_CODE_FIELDS`] entry: bit set where the value
+    /// is present. NULL is the clear bit, never the sentinel in the lane.
+    validity: Vec<Vec<u64>>,
     len: usize,
     scale: u32,
 }
@@ -88,6 +106,7 @@ impl CatsBatch {
         }
         let mut dictionaries: [Vec<String>; FIELD_COUNT] = std::array::from_fn(|_| Vec::new());
         let mut columns = Vec::with_capacity(LANE_COUNT);
+        let mut validity = Vec::with_capacity(OPTIONAL_CODE_FIELDS.len());
         let mut scale = 0;
         for f in FIELDS {
             let index = usize::from(f.ordinal.0);
@@ -107,6 +126,15 @@ impl CatsBatch {
                         return Err(error("field width exceeded"));
                     }
                 }
+            }
+            if OPTIONAL_CODE_FIELDS.contains(&index) {
+                let mut plane = vec![0u64; len.div_ceil(64)];
+                for (i, value) in values.iter().enumerate() {
+                    if value.is_some() {
+                        plane[i / 64] |= 1 << (i % 64);
+                    }
+                }
+                validity.push(plane);
             }
             let column = if index == HOURS {
                 let decimals: Vec<_> = values
@@ -197,6 +225,7 @@ impl CatsBatch {
             schema,
             columns,
             dictionaries,
+            validity,
             len,
             scale,
         })
@@ -209,6 +238,13 @@ impl CatsBatch {
     }
     pub fn scale(&self) -> u32 {
         self.scale
+    }
+    /// The executor's mask planes: `live` first (mask 0), then one validity
+    /// plane per [`OPTIONAL_CODE_FIELDS`] entry (masks `1..`).
+    pub fn masks<'a>(&'a self, live: &'a [u64]) -> Vec<&'a [u64]> {
+        std::iter::once(live)
+            .chain(self.validity.iter().map(Vec::as_slice))
+            .collect()
     }
     pub fn lanes(&self) -> [LaneRef<'_>; LANE_COUNT] {
         std::array::from_fn(|i| self.columns[i].borrow())
@@ -388,6 +424,17 @@ fn format_utc(n: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// FAILS IF the validity-plane list drifts from the schema.
+    #[test]
+    fn optional_code_fields_are_exactly_the_optional_u32_fields() {
+        let want: Vec<usize> = FIELDS
+            .iter()
+            .filter(|f| f.optional && matches!(f.carrier, lance_graph_mask_risc::LaneKind::U32))
+            .map(|f| usize::from(f.ordinal.0))
+            .collect();
+        assert_eq!(OPTIONAL_CODE_FIELDS.to_vec(), want);
+    }
+
     #[test]
     fn lossless_adapters_reject_lossy_inputs() {
         assert_eq!(numc("00000042"), Ok(42));

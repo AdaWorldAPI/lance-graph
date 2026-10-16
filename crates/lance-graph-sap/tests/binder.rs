@@ -200,25 +200,128 @@ fn unknown_names_and_values_are_bind_errors_never_defaults() {
     ));
 }
 
+/// Runs a bound query over the batch with its validity planes and returns the
+/// kept rows.
+fn kept_rows(batch: &lance_graph_sap::bind::CatsBatch, q: &Query) -> Vec<usize> {
+    let n = batch.len();
+    let program = lower(q).unwrap();
+    let live = live_words(n);
+    let lanes = batch.lanes();
+    let masks = batch.masks(&live);
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let mut scratch = Scratch::for_program(&program, n).unwrap();
+    let mut mask = vec![0; words_for(n)];
+    execute_into(
+        &program,
+        &planes,
+        &Foreign::NONE,
+        &mut scratch,
+        Out::Mask(&mut mask),
+    )
+    .unwrap();
+    (0..n)
+        .filter(|i| (mask[i / 64] >> (i % 64)) & 1 != 0)
+        .collect()
+}
+
+/// Optional fields bind through a validity plane built at `CatsBatch::bind`.
+/// NULL is the plane's clear bit, so `=` and `<>` both drop NULL rows, as in
+/// SQL. (Replaces the earlier refusal: CATS stores NULL as a sentinel, and a
+/// field bound without a plane would let `<>` keep NULL rows.)
 #[test]
-fn optional_and_instant_fields_are_refused_not_read_through_sentinels() {
-    // CATS stores NULL as a sentinel (code 0, u32::MAX, timestamp 0), not as a
-    // validity plane. Binding an optional field without one would let `<>`
-    // keep NULL rows, so the binder refuses it.
-    let mut input = mixed(3);
-    input[6][1] = None; // customer_number is optional
+fn optional_fields_bind_three_valued_through_a_validity_plane() {
+    use lance_graph_quack::bind::FieldRef;
+    for n in [3, 64, 65, 200] {
+        let mut input = mixed(n);
+        for i in 0..n {
+            input[6][i] = match i % 3 {
+                0 => None, // NULL customer
+                1 => Some("0000000123"),
+                _ => Some("0000000456"),
+            };
+        }
+        let batch = bind(&input);
+        let b = CatsBinder::new(&batch);
+        let f = b.field(T, "customer_number").unwrap();
+        assert_eq!((f.col, f.kind), (Col(6), FieldKind::Code));
+        assert!(f.validity.is_some(), "an optional field carries its plane");
+
+        let eq = table(TABLE)
+            .where_eq("customer_number", "0000000123")
+            .rows()
+            .bind(&b)
+            .unwrap();
+        assert_eq!(
+            kept_rows(&batch, &eq),
+            (0..n).filter(|i| i % 3 == 1).collect::<Vec<_>>()
+        );
+        let ne = table(TABLE)
+            .where_(FieldRef::new(TABLE, "customer_number").ne("0000000123"))
+            .rows()
+            .bind(&b)
+            .unwrap();
+        let want: Vec<usize> = (0..n).filter(|i| i % 3 == 2).collect();
+        assert_eq!(
+            kept_rows(&batch, &ne),
+            want,
+            "n={n}: <> must drop NULL rows"
+        );
+
+        // Can-fire: the same `<>` read through the sentinel lane alone keeps
+        // the NULL rows (code 0 differs from 123's code).
+        let raw = Query {
+            filter: Filter::and([
+                Filter::plane(lance_graph_sap::binder::LIVE),
+                Filter::cmp(f.col, Cmp::NeU32(b.code(T, f.col, "0000000123").unwrap())),
+            ]),
+            agg: Agg::Rows,
+        };
+        let raw_rows = kept_rows(&batch, &raw);
+        assert!(raw_rows.iter().any(|i| i % 3 == 0));
+        assert_ne!(raw_rows, want);
+    }
+}
+
+/// Every optional `U32` field gets its own plane; the PERNR one uses NUMC
+/// literals; U64 instants still have no `FieldKind` and stay refused.
+#[test]
+fn every_optional_code_field_has_a_plane_and_instants_stay_refused() {
+    let mut input = mixed(5);
+    input[21][2] = Some("00000042");
     let batch = bind(&input);
     let b = CatsBinder::new(&batch);
-    assert_eq!(b.field(T, "customer_number"), None);
-    assert_eq!(b.field(T, "approver_employee_num"), None);
+    let mut planes = Vec::new();
+    for name in [
+        "customer_number",
+        "project_code",
+        "task_code",
+        "sanitization_reason",
+        "notes",
+        "approver_employee_num",
+    ] {
+        let f = b.field(T, name).unwrap_or_else(|| panic!("{name} binds"));
+        planes.push(f.validity.expect("plane"));
+    }
+    planes.sort();
+    planes.dedup();
+    assert_eq!(planes.len(), 6, "one plane per optional field");
+    assert!(!planes.contains(&lance_graph_sap::binder::LIVE));
+    assert_eq!(batch.masks(&live_words(5)).len(), 7);
+    let f = b.field(T, "approver_employee_num").unwrap();
+    assert_eq!(b.code(T, f.col, "00000042"), Some(42));
+    let q = table(TABLE)
+        .where_eq("approver_employee_num", "00000042")
+        .rows()
+        .bind(&b)
+        .unwrap();
+    assert_eq!(kept_rows(&batch, &q), vec![2]);
     // U64 instants have no `FieldKind`; the derived `work_day` is the bindable lens.
+    assert_eq!(b.field(T, "approval_timestamp_utc"), None);
     assert_eq!(b.field(T, "work_date_utc"), None);
-    assert!(matches!(
-        table(TABLE)
-            .where_eq("customer_number", "0000000123")
-            .bind(&b),
-        Err(BindError::UnknownField { .. })
-    ));
 }
 
 /// The billable lens is a VERIFIED conversion (plan §C.6.2): on real rows with

@@ -13,9 +13,11 @@
 //!   ABAP_BOOL, the batch dictionary otherwise. Nothing is minted;
 //! - `live`: plane [`LIVE`], supplied by the executor as [`live_words`].
 //!
-//! Refused, deliberately, as unknown fields: optional fields (CATS stores NULL
-//! as a sentinel, not a validity plane, so `<>` would keep NULL rows) and U64
-//! instants (no `FieldKind`; `work_day` is their bindable lens).
+//! Optional code fields bind with a validity plane built at
+//! [`CatsBatch::bind`](crate::bind::CatsBatch::bind) (masks `1..`, see
+//! [`CatsBatch::masks`](crate::bind::CatsBatch::masks)), so `=` and `<>` drop
+//! NULL rows. Refused, deliberately, as unknown fields: U64 instants (no
+//! `FieldKind`; `work_day` is their bindable lens).
 use crate::bind::{numc, CatsBatch, BILLABLE, WORK_DAY};
 use crate::schema::FIELDS;
 use lance_graph_mask_risc::LaneKind;
@@ -80,9 +82,14 @@ impl Binder for CatsBinder<'_> {
         }
         let col = self.batch.schema.resolve(name)?;
         let field = &FIELDS[usize::from(col.0)];
-        if field.optional {
-            return None;
-        }
+        // An optional field binds only through its validity plane: CATS
+        // stores NULL as a sentinel, and `<>` read through the lane alone
+        // would keep NULL rows.
+        let validity = if field.optional {
+            Some(crate::bind::validity_mask(usize::from(col.0))?)
+        } else {
+            None
+        };
         let kind = match field.carrier {
             LaneKind::I32 => FieldKind::I32,
             LaneKind::U32 => FieldKind::Code,
@@ -91,7 +98,7 @@ impl Binder for CatsBinder<'_> {
         Some(BoundField {
             col,
             kind,
-            validity: None,
+            validity,
         })
     }
     fn code(&self, _: TableId, col: Col, literal: &str) -> Option<u32> {
