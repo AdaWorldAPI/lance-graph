@@ -104,6 +104,7 @@ space for `(= (let $r <expr> …) $X)`, and the trie cannot key an expression
 that wide. `(size-atom (0 … 1023))` called directly does not panic, because a
 grounded op is executed without a space query. This is what stopped join_10000
 (its `collapse` result has 10,000 children). Not fixed here; reproduced on `1ffdbd6`.
+⊘ Corrected 2026-10-16 (the fork was read, not the board): TWO fixes exist on `AdaWorldAPI/hyperon-experimental` — `1ffdbd6` (`fix-trie-key-value`, id decoding above 1023) is upstream PR trueagi-io#1107 (`refs/pull/1107/head` == `1ffdbd6`, open against upstream main `3f76dc4`), and `5c9afd4` on `ccr-9f3b8075-74u47l-trie-expr-width` (2026-10-14; `b5ae248` adds the failing ≥ 1,024-children tests first, `5c9afd4` splits the `TrieKey` value bits so expression width is bounded by trie recursion depth, ~1,100 children debug / 2,048 release on a 2 MB stack, not by `TK_MAX_EXPRESSION_SIZE`). Neither is on the fork's `main`; the lance-graph pins (`rev = 3f76dc4`) therefore still carry the panic. What waits on the operator is merging `5c9afd4` to the fork's main and/or upstreaming it, not writing the fix.
 
 ## 4. Can MeTTa work as an IR?
 
@@ -171,7 +172,9 @@ MeTTa text ─► hyperon parser ─► Hyperon interpreter (fork, unchanged, 12
   `classid × NodeGuid` (or a term id within a class); an `Expression` fact of
   fixed shape `(functor a₁ … aₖ)` is a row of a class keyed by the functor and
   arity, one lane per argument. `Variable` never reaches a row. Shapes the
-  class does not declare are refused, never stored as text.
+  class does not declare are refused, never stored as text. ⊘ Council v3 (2026-10-16, `metta-datalog-assimilation-v1-council-v3.md`
+  R-5): `SpaceMut::add` returns `()`, so such shapes are never stored as ROWS but stay atoms in the named space's inner
+  `GroundingSpace`, counted by kind; the module's `&self` remains a separate space as above.
 - **Multiplicity is part of the answer.** `BindingsSet` is a bag; the
   terminal must emit one `Bindings` per match (the `b4_nondeterm` kill
   condition in the parity map). A row mask alone is not an answer.
@@ -386,7 +389,7 @@ the gather. Pair emission still reads `dst` twice per pair; a chained range
 | D-MTP-1 | pre-registered probe (§6a): the two-hop join lowered by hand through Quack `Semijoin` (relalg has no hop) against datafrog, Hyperon and PeTTa, n = 10²..10⁶, v4 | answers identical (count and bag of pairs); cost reported, no threshold claimed before the run — **measured, §6b** |
 | D-MTP-2 | `LanceSpace` adapter (`Space + SpaceMut`) for the non-recursive Datalog subset, bound as a named space; Hyperon's golden corpus (`hyperon-probe/golden`, 32 of 33 passing) rerun with facts moved into it | every golden file that passes today still passes; refusals named; the probe records whether the space received whole conjunctions or single conjuncts |
 | D-MTP-3 | recursive Datalog rules declared into `LanceSpace` → relalg `μ` through d′, queried by `match` over the derived relation | `anc_n` answers identical; no fixpoint state inside mask-risc |
-| D-MTP-4 | the §3.1 expression-width panic as a fix on the fork, test first (separate from `1ffdbd6`) | red before, green after; upstream only with the operator's word |
+| D-MTP-4 | the §3.1 expression-width panic as a fix on the fork, test first (separate from `1ffdbd6`) — ⊘ 2026-10-16: the fix is written, `5c9afd4` on `ccr-9f3b8075-74u47l-trie-expr-width` (tests `b5ae248` first); `1ffdbd6` is upstream PR #1107; open item = merge to fork main / upstream | red before, green after; upstream only with the operator's word |
 | D-MTP-1b | the hop as a range (§6c): preimage of `valid`'s runs under a monotone `dst`, against the gather on clustered and scattered layouts | pairs == datafrog on F3/F4 and their scattered twins; two disable runs red; costs reported — **measured, §6d** |
 | D-MTP-6 | datafrog as the exact Rust oracle in D-MTP-1/3 probes and the `ruff_metta_spo` lowerable tag (test-only dependency) | answers identical to Hyperon and PeTTa as bags of pairs, not only counts |
 | D-MTP-5 | PeTTa as the second oracle in the probes (needs SWI-Prolog ≥ 9.3; 10.0.2 installed from the official PPA) | divergences between PeTTa and Hyperon recorded, never averaged |

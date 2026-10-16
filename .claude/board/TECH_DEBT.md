@@ -4596,3 +4596,25 @@ bijection needs re-seeding. Pair: D-IDENTITY-4.
 - **TD-CI-EXCLUDED-FUSE (F5):** main's CI never compiles the workspace-`exclude`d `lance-graph-ogar`, so its compile-time `COUNT_FUSE` fires only in *consumers'* builds (medcare hit E0080 twice). Fix: one CI job `cargo check`-ing the excluded crate against OGAR main. Effort S.
 - **TD-OGAR-LOCK-UNDECIDED (F3):** `lance-graph-ogar/Cargo.lock` is gitignored → fresh checkouts build the fuse against OGAR HEAD (floating canary) while the workspace lock pins. Decide canary-vs-pin; document in one sentence. Effort S.
 - **TD-BOARD-PREPEND-CONFLICTS (F6):** at fleet cadence the append-only board files (EPIPHANIES/LATEST_STATE/PR_ARC) are the only recurring rebase-conflict cost (~30-60 min/day/session). Per-entry board files + generated index make the conflict structurally impossible. Council-sized; forwarded to the V3/coordination session.
+
+## TD-METTA-FRONT-END-PROCEDURES-REROUTE-1 (2026-10-16) — OPEN
+
+`lance-graph-metta::datalog` (council v3 R-1b) lowers its bound plan into quack `Query` and `quack::lower`, exactly as
+`lance-graph-cypher-quack` does today. `sql-polyfill-r2il-v1.md:115-117` records the DECISION that once the procedures crate
+exists every front end lowers through the procedures. When it lands, both front ends re-route; neither may be cited as a reason to
+skip it. Close by: the re-route PR for both, with byte-identical `Program`s before and after.
+
+## TD-METTA-NO-CI-LINE-1 (2026-10-16) — OPEN
+
+No `.github/workflows` job names `crates/lance-graph-metta` (own workspace root, excluded; `grep -rn lance-graph-metta
+.github/workflows` is empty, 2026-10-16). Council gate G7 is therefore a LOCAL gate until a job exists; an excluded crate with
+no CI line rots invisibly (the tesseract-rs `spider_doc_ir` precedent). Close by: a `member-tests`-shaped job running
+`cargo test --manifest-path crates/lance-graph-metta/Cargo.toml` (datafrog + hyperon git dev-deps resolved).
+
+## TD-CONTRACT-NARS-INFERENCETYPE-DOC-DRIFT-1 (2026-10-16) — OPEN
+
+`crates/lance-graph-contract/src/nars.rs:12-23` `pub enum InferenceType` documents its variants (Deduction, Induction, Abduction, Revision, Synthesis)
+as CAM search modes ("exact CAM search", "wide CAM scan", "DN-tree traversal") while the shipped meaning is the NAL truth law
+(`causal_edge::isa::truth::code`, D-NALP-4) with the argument-order split recorded in
+`.claude/research/2026-10-15-nars-metta-ce64-mapping-inventory.md` §6. Doc-only; close by one PR that rewrites the five doc
+comments to the truth-function meaning and names the OpenNARS/ONA order convention.

@@ -27,3 +27,5 @@
 
 **Open:** whether `match &self` can reach whole conjunctions without patching Hyperon; D-MTP-1..5
 not authorized; the expression-width panic has no fix yet.
+
+Addendum 2026-10-16: "the expression-width panic has no fix yet" was wrong when the next session re-read the fork. ⊘ Corrected 2026-10-16 (the fork was read, not the board): TWO fixes exist on `AdaWorldAPI/hyperon-experimental` — `1ffdbd6` (`fix-trie-key-value`, id decoding above 1023) is upstream PR trueagi-io#1107 (`refs/pull/1107/head` == `1ffdbd6`, open against upstream main `3f76dc4`), and `5c9afd4` on `ccr-9f3b8075-74u47l-trie-expr-width` (2026-10-14; `b5ae248` adds the failing ≥ 1,024-children tests first, `5c9afd4` splits the `TrieKey` value bits so expression width is bounded by trie recursion depth, ~1,100 children debug / 2,048 release on a 2 MB stack, not by `TK_MAX_EXPRESSION_SIZE`). Neither is on the fork's `main`; the lance-graph pins (`rev = 3f76dc4`) therefore still carry the panic. What waits on the operator is merging `5c9afd4` to the fork's main and/or upstreaming it, not writing the fix.

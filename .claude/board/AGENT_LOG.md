@@ -1,3 +1,13 @@
+## 2026-10-16 — /5plus3 council: metta-datalog-assimilation W1–W3 spec (D-ASM-1..4)
+
+- Phase 0: spec v1 by the orchestrator; premise-auditor (Opus) → PREMISE-SPLIT (stamp sub-premise PREMISE-WRONG); six of its code claims re-read and confirmed; spec re-asked as v1.1 before any savant was cast.
+- Phase 1 (one parallel spawn): prior-art-savant (Opus), iron-rule-savant, code-truth (general-purpose, runtime-archaeologist charter), cascade-impact-savant, creative-explorer-savant (Sonnet). 49 findings: CONFIRMS 17 · PRIOR-ART-AT 7 · GAP 11 · RISK 12 · VIOLATES 3. Orchestrator re-read every load-bearing claim it applied (`GroupAddr::Pair`, `Agg::GroupReduce` lowering, `BindingsSet::count`, b4 fixture shape, lockfile ignore, no CI line); S4's "Cargo.lock tracked" was wrong (gitignored), all else held.
+- Phase 2: draft v2 + ledger (raw savant output banked in the session scratchpad, not forwarded).
+- Phase 3 (one parallel spawn, on v2 only): overclaim-auditor, dilution-collapse-sentinel, firewall-warden (Sonnet). 0 BLOCK, 2 FIX-P1 (`NO_PROVENANCE = 3` not 0; two-category answer), 16 FIX-P2, 1 P3.
+- Phase 4/5: v3 ratified and landed as `.claude/plans/metta-datalog-assimilation-v1-council-v3.md`; plan ⊘ notes on A–E, G, §6; `metta-polyfill-v1.md` §5 amended; STATUS_BOARD D-ASM-1..5, D-MTP-2, D-RA-3 reworded (all still Queued, not authorized); 3 TECH_DEBT rows; entry `entries/2026-10-16-metta-datalog-assimilation-council-v3.md`.
+- v1→v2→v3 deltas: struck relalg `Atom::Via`/`Rel::Semijoin`, `Keep+CountKeyRunsU32` as bag carrier, "refused at add", `Rule` value in W1–W3, "existing label codebook", blanket multi-var refusal, b4 as multiplicity gate, "golden 32/33", u32 label ids, one version per add; added `materialize_bindings` as the named exit, reserved evidence lane, G2b/G4b/G8b, POLICY-PIN labelling.
+- Written by the orchestrating main thread only. About 0.37–0.44 M subagent tokens per agent, nine agents.
+
 ## 2026-10-15 — D-HOLO H14c: one Haiku census run
 
 - General-purpose on Haiku, read-only census of `Program::new` constructions in mask-risc tests and `lance-graph-quack` (D-HOLO-H14c-6): 169 occurrences, 61 literal, 108 dynamic; distinct lanes per literal program 0:26, 1:31, 2:4.
