@@ -60,7 +60,7 @@ every relied-on item re-read from source on the main thread; ledger at the end.
 | X11 `mul_add` not bit-identical | **LOOSE and sharper**: `simd.rs:1241` documents "`F32x8::mul_add` is FUSED on every arm", but `simd_wasm.rs:197-199` computes `f32x4_add(f32x4_mul(a,b),c)` without `relaxed-simd` (two roundings) | the test `f32x8_mul_add_is_fused` carries no target cfg (`simd.rs:1247`), so it would fail on wasm32 without `relaxed-simd`; whether any CI row runs ndarray's lib tests there is NOT checked |
 | X16 consumer sweep | LOOSE: `ndarray_bridge.rs` raw `_mm256_*` / `_mm512_*` blocks still present, all under `cfg(not(feature = "ndarray-hpc"))` (`:155`…`:449`) | dead in default builds; delete or keep as the no-ndarray fallback is a decision |
 | X17 forbidden remedies in records | LOOSE: `ISS-NDARRAY-CANONICAL-COORDINATE-COUPLES-FLEET-MSRV` still lists a pinned `rev` option and a 1.98 table; `CARGO-COMPUTE-SUBSTRATE.md:218` still shows `rev = "<pinned>"`; lichess-rs `CLAUDE.md:32,60` and `README.md:93-97` say `+1.95`; tesseract `rust.yml:59-60,316` comments say 1.98.1 / "1.95 floor" while the step installs 1.99.0 | docs only |
-| X18 two ndarray package ids | LOOSE and wider: OGAR `ogar-encryption` takes `encryption` from ndarray git `branch = "master"`; lance-graph takes ndarray by path; since #1534 lance-graph also takes OGAR by git `main` | PROBE: `cargo metadata` on a lance-graph binary that links `ogar-encryption` / `ogar-auth`, count ndarray ids |
+| X18 two ndarray package ids | CLOSED for lance-graph: OGAR's git-`master` ndarray is patched to the same `../ndarray` by the root and relalg `[patch]` sections | none here; check only an unpatched consumer manifest if one appears |
 | X19 lgj | LOOSE: `native/lgj-abi/.cargo/config.toml:2-5` still says ndarray "pins v3/AVX2" (it is `native`) and ":35 one known host"; `abi.rs:722-728` still asserts backend ∈ {AVX2, AVX-512}; `check_build_cpu` has 0 hits in lgj-abi | the handshake call from the 2026-10-11 low-fruit table is not done |
 | TD-NDARRAY-SIMD-POPCNT-NATIVE | LOOSE: item (b) still proposes runtime detection of VPOPCNTDQ/AMX, which the startup-only rule forbids; the case it describes (host CPUID ≠ compiled features) is what `cpu_guard` now reports | regrade, strike (b) |
 
@@ -143,9 +143,13 @@ different population — concept ids, not data symbols — and stays separate.
 provenance, policies) are queued against D-SAG-1, which #1524 withdrew. Their
 new base is the D-CMR rebuild; until it exists they cannot start.
 
-**D7 — two ndarray identities** (X18) now on two edges: OGAR git master and
-lance-graph path, joined by #1534's OGAR-by-git. A binary that links both
-compiles two `ndarray` packages.
+**D7 — two ndarray identities** (X18): CLOSED for this repo. OGAR takes
+ndarray by git `master`, lance-graph by path, but the root `Cargo.toml`
+(`[patch."https://github.com/AdaWorldAPI/ndarray"]`) and the standalone relalg
+workspace both patch that git coordinate to the same `../ndarray`, so a
+lance-graph build resolves one package. The risk remains only for a consumer
+manifest that pulls OGAR by git and ndarray by path without that patch; none is
+named here, so nothing is queued.
 
 **D8 — doc drift that contradicts rulings** (X11 fused claim, X17, X19,
 TD-POPCNT (b), `lance-graph/.cargo/config.toml:55-56` "anything below v3 still
@@ -174,7 +178,6 @@ the guard reports).
 | H3 | S3 Titan arm on H14d: same R twice, bytes / requests / RSS, uniform vs clustered | D3 | counts, not milliseconds |
 | H4 | clustered write layout for one class (D-HL-7 shape), re-run H14d stage 3 | D3 | bytes ≤ 0.25× at 1 % clustered by construction |
 | H5 | parity groups for the 18 uncovered facade types | A | disable: flip one scalar `cmpgt` in a new group, it must go red |
-| H6 | X18 probe | D7 | `cargo metadata` ndarray id count == 1 |
 | H7 | aarch64 guard via `AT_HWCAP/HWCAP2` | A | dotprod build under `qemu-aarch64 -cpu cortex-a53` reports, does not SIGILL |
 | H8 | classify the 96 `is_x86_feature_detected!` sites | D | `simd_caps.rs` once, `bitwise.rs`/`bgz17_bridge.rs` per call must classify correctly |
 
@@ -182,7 +185,7 @@ the guard reports).
 
 | # | item | why |
 |---|---|---|
-| V1 | one `Binder::code` implementation for MeTTa, NAL and Datalog labels | D5; decide before D-ASM-1 builds |
+| V1 | label codebooks: one per classid and space, not one shared (see §9) | D5; measured in §9; decide before D-ASM-1 builds |
 | V2 | D-ASM W1–W3 (binder, semijoin existence, bag count, `LanceSpace`) | ratified, not authorized |
 | V3 | D-NALP-5…7 (populations, typed surface, OpenNARS parity) | D4 |
 | V4 | SAG-5 rebased on the D-CMR rebuild | D6 |
@@ -206,3 +209,49 @@ backup branch beyond its board rows.
 | substrate-mapper | board delta (STATUS/ISSUES/TECH_DEBT/entries) | 203 / 3 / 3 / 51, DONE | ten status rows re-read before editing |
 | quote-harvester | 13 stale sites | 12/13; tesseract used `origin/main` from the brief (its branch is `master`) — brief error, re-quoted by hand | Q3, Q5, Q6, Q10, Q13 re-read |
 | census-counter | ndarray counters | DONE; one stray `send_message` call with a placeholder, which failed and sent nothing (a miss: out-of-card tool use) | parity type counts re-run with a wider pattern; aarch64 lines re-read |
+
+## 8. Reconciled with the recovery ledger (`LEDGER-REVISION-2026-10-16.md`, #1578)
+
+Another session revised the recovery ledger the same day. Where both list one
+item, the ledger id is the one to use; this map keeps only what the ledger does
+not carry.
+
+| this map | ledger id | verdict |
+|---|---|---|
+| relalg absorption (D1, H1) | N17 | same item; use N17 |
+| D3 version clock not wired to a reader, soak cut at 27.5 min | N18 | same item; use N18 |
+| D3 clustered write layout, page-bound masked reads (H4) | N19 | same stream; use N19 |
+| D4 truth: per-row lane vs scalar law (D-NALP-4) | O25 + K2', O30 | the ledger's evidence root is the larger frame; D-NALP-4 waits on O30 |
+| D-ASM authorization, 26-script baseline | N15 → D-ASM | same item |
+| D5 one label codebook (V1) | N16 (operand registry) | related, not the same: N16 maps word ids to 8:8:8 operands per epoch; V1 maps symbols to label ids. Kept here, scoped below |
+| D2 preimage op, D6 SAG on withdrawn base, X-rows (SIMD, lgj, doc drift) | — | not in the ledger; kept here |
+| D7 two ndarray ids | — | closed: the root and relalg `[patch]` sections already resolve one package (codex review, #1579) |
+
+## 9. Label codebook sizes (measured 2026-10-16)
+
+Question: can each vocabulary get its own classid and a codebook of at most 256
+entries, so 256-wide methods (u8 index, 256-entry LUT, 4×u64 mask) apply.
+
+Counted with a token regex over the `.metta` files (strings, comments,
+`$variables` and numbers removed; a symbol right after `(` counted as a
+functor). This is not the Hyperon parser.
+
+| vocabulary | measured | fits 256? |
+|---|---|---|
+| ONA | `ATOMS_MAX 255` (`Config.h:142`, read in #1574); an ONA atom is already a u8 | yes, by construction |
+| NAL (ours) | term addresses are u16 (`nal/src/lib.rs` `Statement`); the audit fixture `revision_points.nal` uses 25 atoms; copulas are a 4-variant enum, not labels | per knowledge base, yes; no corpus bound exists |
+| MeTTa stdlib (`hyperon-experimental/lib`, 10 files) | 266 symbols | no |
+| MeTTa golden scripts (26 files) | 282 symbols in all; 207 not in the stdlib; per script at most 45, at most 26 outside the stdlib; 163 symbols in argument positions, 93 never used as a functor | per script, yes; the 26 together, no |
+| MeTTa whole repo (67 files) / PeTTa (541 files) | 835 / 1,823 symbols; largest file 196 / 173 | per file, yes; per corpus, no |
+| cog (rung 2–4) | 144 verbs (12×12), 34 tactic recipes, 36 styles = 214 | yes, together |
+
+Reading: no two corpora fit one 256 codebook together, and MeTTa's stdlib alone
+does not. What fits is one codebook per classid, scoped to one knowledge base or
+space, with functors going to the class `(f, k)` and only argument symbols
+taking label ids. That is the OGAR rule that the class prefix selects the
+codebook. It also answers V1: one shared u16 codebook only makes sense if no
+vocabulary needs its own treatment, and ONA's fixed u8 atom table already does.
+
+OPEN: the stdlib's 266 symbols are mostly grounded operations and functors;
+which of them would ever take a label id has not been counted with the real
+parser.
