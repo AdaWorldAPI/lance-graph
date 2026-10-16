@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-352 entries, 2026-08-06 .. 2026-10-16.
+353 entries, 2026-08-06 .. 2026-10-16.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-16 | `synergy-map-since-1011` |  | [2026-10-16-synergy-map-since-1011.md](2026-10-16-synergy-map-since-1011.md) |
+| 2026-10-16 | `opencog-oracle-scope` |  | [2026-10-16-opencog-oracle-scope.md](2026-10-16-opencog-oracle-scope.md) |
 | 2026-10-16 | `D-ASM-1` |  | [2026-10-16-metta-datalog-assimilation-council-v3.md](2026-10-16-metta-datalog-assimilation-council-v3.md) |
 | 2026-10-16 | `ledger-revision-after-1576` |  | [2026-10-16-ledger-revision-after-1576.md](2026-10-16-ledger-revision-after-1576.md) |
 | 2026-10-16 | `D-HOLO-H14d` |  | [2026-10-16-d-holo-h14d-logic-mask-read.md](2026-10-16-d-holo-h14d-logic-mask-read.md) |
