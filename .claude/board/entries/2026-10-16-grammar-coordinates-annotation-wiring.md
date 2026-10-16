@@ -238,3 +238,38 @@ Not done, recorded so it is not lost:
 - OPEN: bits 46..49 are also `InferenceType`'s mantissa, and
   `contract::counterfactual::deposit_counterfactual` writes −6 there to mark
   the road not taken. Activation and that marker cannot share the bits.
+
+## 11. Gadamer gate, Haspelmath orientation, peer loci (`18c2363e`, `c9a3e13b`)
+
+- **Gate first (G5).** Each `(S, P)` group is an `InterpretiveHorizon`
+  (claims = objects, roots = independent verses, 256 bits each). Every
+  observation is passed through `GadamerRevision`; only `IncreaseEligible`
+  observations are counted, reach the facts arena, or climb. Claims are never
+  withdrawn, so a contest no longer resets the rival's rung (G3). A rival from
+  a verse already counted is `ContradictionPreserved`: suspended, no fact.
+  Rows carry the gate's kind and `contested`.
+- **43..45 = Haspelmath.** The dative-map function the relation is read in
+  (Fig. 8.1): 0 core argument, 1..7 Direction, Recipient, Experiencer,
+  Purpose, Beneficiary, Predicative possessor, External possessor. Source:
+  the forms attested in the clause span (bounded by the sentence start),
+  narrowed by TEKAMOLO lanes (Kausal → Purpose, Lokal → Direction). Several
+  functions left → 0 and the row is unresolved. Judicantis has no code. The
+  clause path now feeds only the topology. The earlier clause-path code was
+  wrong.
+- **Loci.** The antecedent is tested in both directions within −8..+7,
+  nearest first, as matrix subject or object (right-corner relatives were
+  missed before). Every row points at its nearest Quorum and Contradiction
+  peer in the whole row stream.
+- Probe corpus (741 rows): 593 fusions, 8 suspended, 132 echoes, 423 quorum
+  and 609 contradiction pointers, 0 violations. `arc_breaks` 196: cohorts of
+  63 rows cut many arcs.
+- Nine disables red (four gate, five orientation/loci).
+- Measured (DeReKo-2014, local only, CC BY-NC): the relative-pronoun reading
+  is a minority of every article form (`der` 4.6 %, `die` 13 %, `das` 13 %,
+  `den` 1.2 %); COCA has no relativizer tag at all (`that` = c 8.3 M / d
+  5.0 M). Frequency gives a default only; the antecedent test promotes.
+- OPEN: frequency-ranked promotion of an alternative reading in the parser;
+  case morphology for argument order (*Den Hund biss der Mann*); the
+  counterfactual lanes for `CausalCandidate` → `Causes`; concessive markers
+  as resistance; 32 × i4 loci over the full 16-byte lane; S/P/O as 16-byte
+  identities (8 × u8:u8) instead of the u8 palette.
