@@ -1,3 +1,10 @@
+## 2026-10-16 — lance-graph PR #1587 (merged `215f9753`, branch `ccr-9f3b8075-74u47l-wcoj-probes`, head `ab5a1047`, 11 commits) — WCOJ map items 1–3, hybrid seek, closing-atom spec, multi-table bind plan
+
+- **Added:** contract `ordered_lane::{gallop_partition_point, seek_partition_point, SEEK_LINEAR_GAP}`, `SealedFacetLane::seek_from`; `lance-graph-relalg::join_body::is_alpha_acyclic` (GYO); `lance-graph-metta/examples/wcoj_probe.rs` (F4, bag oracle, P-7); `lance-graph-contract/examples/seek_probe.rs`; entries `2026-10-16-wcoj-probes-1-3.md`, `2026-10-16-wcoj-closing-atoms-council.md`; plans `wcoj-closing-atoms-v1.md`, `quack-multitable-bind-v1.md`; STATUS D-ASM-11A/B, D-QMB-0..5; TD-NO-BOUNDED-U32-GATHER-1; the #1585/#1586 arc entries.
+- **Locked:** seek routing step ≤ 16 / whole-lane search at gap² ≥ N / gallop otherwise, from v4 timings; P-7: the exact cyclic mask needs a closing atom (a disjunction costs about 4 ops per value).
+- **Deferred / open:** D-ASM-11A/B and D-QMB-0/1 authorized 2026-10-16, not built; DuckDB research items read at abstract level only.
+- **Confidence:** tests + v4 timings (`avx512f=true`).
+
 ## 2026-10-16 — lance-graph PR #1586 (merged `f2892f98`, branch `ccr-9f3b8075-74u47l-coresearch-wcoj`, head `2284376a`, 1 commit) — board: co-research map for worst-case-optimal joins (D-ASM-11)
 
 - **Added:** entry `2026-10-16-coresearch-wcoj-leapfrog.md` (leapfrog family mapped onto our surfaces, ADOPT-NOW / PROBE / PARK / SKIP per idea, fixtures F2/F3a/F3b/F4, probes P-1..P-12).
