@@ -137,3 +137,33 @@ front end lowers from the bound plan, never the raw AST, `fold-carrier-scientist
 - Whether `match &self` can reach a whole conjunction without patching Hyperon (D-MTP-2's open point) — if not, the named-space rule is permanent.
 - The 59..63 / 40..42 writer for assimilated facts: a MeTTa fact arrives with no evidence; `Revision` refuses `MissingProvenance` by design.
   The stamp has to travel as an atom. Shape not decided.
+
+## 7. Validation doctrine — oracle parity first, CE64 enrichment second (DECISION 2026-10-15)
+
+The target is one unified substrate. It is validated in two passes, in this order, and a crate does not enter pass 2 until pass 1 is green:
+
+1. **Each `lance-graph-*` crate is validated against its original as the oracle.** The original's answers on its own fixtures are the
+   ground truth for that crate's surface. Divergences are recorded per engine and never averaged (Decision G).
+2. **Then CausalEdge64 is used to enrich, to validate, and to measure expansion potential.** Enrichment = the bands the original does not
+   have (40..42 Pearl mask, 50..52 plasticity, 53..58 witness, 59..63 epistemic ladder, provenance classes). Validation = the enriched
+   answer must still reproduce the original's answer when the enrichment is zero (ZERO_FALLBACK, all-zero CE64 fields). Expansion =
+   a falsifiable claim the original cannot make, measured, not asserted.
+
+| crate | original (oracle, pinned) | pass-1 parity surface | pass-2 CE64 enrichment axis | expansion claim (falsifiable) |
+|---|---|---|---|---|
+| `lance-graph-nal` | OpenNARS Java `4d1bdb0` (`RunNal.java`), ONA `dc4efd0` (`./NAR shell`) | NAL-1/2 fixtures, `revision_points.nal`; truth to one u8 code; argument order bound by rule shape | evidence classes (`INDEPENDENT/DUPLICATE/OVERLAP/NO_PROVENANCE`), W witness, 59..63 written by `pearl::hydrate`/`revise` | a population revision that refuses dependent evidence by class where both originals silently pool it; a statement's epistemic state after an executed intervention, which neither original represents |
+| `lance-graph-relalg` | `AdaWorldAPI/datafrog` `edd7cfc` (exact Datalog) | bags of tuples at n = 10²..10⁶; `μ` closures | 40..42 as the question asked of a join (SO/PO/SPO/SP) | a join whose pairs carry a Pearl mask and a topology, so a two-hop answer states whether the middle term is a known intermediate |
+| `lance-graph-metta` | hyperon-experimental `3f76dc4` (interpreter), PeTTa `1d19a1d` | `b4_nondeterm`, `c1_grounded_basic`, `e1_kb_write`, golden 32/33, `join_n`, `anc_n`; multisets, refusals named | facts assimilated with provenance; `(stv f c)` into F/C; stamp travels as an atom | answers Hyperon panics or times out on (join_10000, anc_800) with identical multisets where it finishes; a `match` whose answer is gated by provenance, which no space in Hyperon or PeTTa can express |
+| `lance-graph-ona` (when it exists) | ONA `dc4efd0` (`Term_*`, `Truth_*`, `examples/nal/*.nal`) | `Term_Hash`/`Equal`/`ExtractSubterm` byte parity on the 64 × u8 heap; sensorimotor fixtures if NAL-7/8 enter scope | compound terms as a tenant addressable by strided match; events as rows with time lanes | a compound-term predicate as one fold over the population where ONA walks concepts one at a time |
+| `lance-graph-cog` (when it exists) | `trueagi-io/hyperon-miner` (patterns, surprisingness), PeTTa `lib_pln.metta` second, classic `opencog/miner` read-only | mined pattern set and surprisingness on the shared fixture (HY-Q15) | support counted under provenance masks; patterns scored with `NarsTruth` via `arm-discovery` | a mined pattern whose support excludes dependent evidence; attention left to #1497 |
+
+Rules of the doctrine:
+- **The oracle is the original, never a sibling.** `lance-graph-metta` is not validated against `lance-graph-nal`, and PeTTa is not a
+  substitute for Hyperon (HY-Q12). CE64 is never the oracle in pass 1.
+- **Zero enrichment must be invisible.** With every CE64 band at its zero fallback, pass-2 answers equal pass-1 answers byte for byte.
+  A difference is a lowering bug, not a feature.
+- **An expansion claim is a fixture the original cannot run.** It is recorded with the original's actual behaviour on that input
+  (refusal, panic, timeout, silent pooling) and ours, and graded `MEASURED` only with the command that produced both.
+- **Enrichment never changes the original's answer on the original's inputs.** If an enriched reading disagrees with the oracle on an
+  oracle fixture, the enrichment is wrong, not the oracle.
+- The status vocabulary is the repo's: `MEASURED` with its command, `VERIFIED-IN-CODE` with its location, `HYPOTHESIS`, `OPEN`.
