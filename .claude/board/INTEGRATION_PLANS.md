@@ -1,3 +1,11 @@
+## 2026-10-16 (3) — wcoj-closing-atoms-v1 — the exact cyclic existence mask: two closing atoms → `.claude/plans/wcoj-closing-atoms-v1.md`
+
+**Status:** RATIFIED SPEC (5+3 council); not authorized. D-ASM-11A, D-ASM-11B.
+
+- Part A `Pred::EqU32ViaLane`: comparison through an address lane, three-valued, O(1) per row; functional relations.
+- Part B `MaskOp::RunsMeet`: EXISTS over two sorted runs, gated beside `Gather`, Semijoin's NULL rule, order checked at validate; n:m relations.
+- Council record: entry `2026-10-16-wcoj-closing-atoms-council.md`.
+
 ## 2026-10-16 (2) — quack-multitable-bind-v1 — one bind path for joins, shared by MeTTa bodies and SAP → `.claude/plans/quack-multitable-bind-v1.md`
 
 **Status:** PROPOSAL; nothing built. D-QMB-0..5.
