@@ -1,6 +1,9 @@
 # metta-datalog-assimilation-v1 — Hyperon / PeTTa / MeTTa atoms assimilated into a Datalog-AST · NAL · R2IL · ONA-shaped substrate, with MeTTa as the oracle
 
 **Status:** PROPOSAL (D-ASM-0 only: this plan, its board rows, and the inventory it rests on). Nothing else is authorized.
+**Council:** `/5plus3` ran 2026-10-16 on decisions A–H and the W1–W3 tranche (D-ASM-1..4); the ratified, executable spec is
+`metta-datalog-assimilation-v1-council-v3.md` (premise gate PREMISE-SPLIT, 5 savants, 3 reviewers, 0 BLOCK). Where a decision
+below carries a ⊘ note, the council's text supersedes it; the original wording stays for the record.
 Every wave below is gated on the measurement of the one before it, and the plan goes through `/5plus3` before the first
 non-probe code lands.
 **Date:** 2026-10-15.
@@ -60,26 +63,42 @@ the parser is Hyperon's own, the `Space` trait is the only seam, and refusal is 
 
 ## 3. Decisions (each with the alternative it rejects)
 
-**A. One Datalog AST, two front ends, as relalg values (DECISION, extends D-RA-3).** `Fact(rel, args)`, `Rule(head, body)`,
+**A. One Datalog AST, two front ends, as relalg values (DECISION, extends D-RA-3).** ⊘ Council v3 (R-1b): the values live in
+`lance-graph-metta::datalog` as the front end's bound plan and lower into quack `Query`, not in relalg (whose scope is one table's
+row set) and not in quack's `bind.rs`; no `Rule` value in W1–W3 (an `=` atom is routed, the value arrives with W4 and d′). `Fact(rel, args)`, `Rule(head, body)`,
 `Query(body, project)` are values over coordinates: relation = `(functor classid, arity)`, argument = lane index, constant =
 codebook id, variable = a join column. MeTTa (via `SExprParser`) and Narsese (via `Narsese.rs`) both produce it. Rejected:
 a MeTTa-specific IR beside a NAL-specific one (two spellings of a join), and Datalog text as a query path (strings are labels).
 
-**B. The join is the D-CMR-5 preimage, lowered to what exists (DECISION).** A shared variable between two body atoms lowers to
+**B. The join is the D-CMR-5 preimage, lowered to what exists (DECISION).** ⊘ Council v3 (R-1/R-2): the premise gate split this
+into an EXISTENCE half (which rows satisfy the body: quack `Filter::{Semijoin, EqU32Via}`, as D-MTP-1 shipped) and an ANSWER half
+(which binding tuples, with multiplicity: a keyed count). "In relalg" is struck; relalg gains nothing in this tranche (D-RA-3 stays
+behind D-RA-2). A shared variable between two body atoms lowers to
 `Pred::EqU32Via { fk, key, v }` when one side is a constant and to `MaskOp::Gather { lane, foreign, under, dst }` (gated semijoin)
 otherwise; the range form (D-MTP-1b) when the lane is address-ordered. No new byte. Rejected: a hash join inside mask-risc
 (a second engine), and a `Rel::Join` that materialises an intermediate relation (the exact cost §2 measured in Hyperon).
 
-**C. Multiplicity is a terminal, not a post-pass (DECISION, the b4 kill condition).** A `query` answer is a bag of `Bindings`.
+**C. Multiplicity is a terminal, not a post-pass (DECISION, the b4 kill condition).** ⊘ Council v3 (R-1(b)/R-3): the bag is
+`Terminal::GroupReduce{Count}` keyed on the projected label lane (`GroupAddr::Local`, or `Pair` for two same-table variables);
+`CountKeyRunsU32` is `COUNT(DISTINCT)` and is the dedup falsifier, never the carrier; `b4_nondeterm` never reaches the fold (every
+fact is an `=` rule) and is the ROUTING fixture — the multiplicity fixture is purpose-built. Cross-table projections are refused
+in W1–W3. A `query` answer is a bag of `Bindings`.
 The terminal emits projected key tuples with their multiplicity; the adapter builds `Bindings` from them. Whether this is a
 composition of `Keep` + `Gather` + `CountKeyRunsU32` or needs one new terminal is D-ASM-3's measurement, with the
 `isa-anti-lasagne-warden` insufficiency proof required for the latter. Rejected: dedup-then-count (loses `superpose` semantics).
 
-**D. Recursion is a driver outside the engine (DECISION, = D-RA-4 / D-MTP-3).** Datalog-fragment `=` rules are stored in
+**D. Recursion is a driver outside the engine (DECISION, = D-RA-4 / D-MTP-3).** ⊘ Council v3 (R-9): a Datalog `=` rule is a PROGRAM
+for d′, not space content; `match` over the derived relation answers the closure only through the EVALUATED call, and `SpaceMut::add`
+returns `()` so there is no refusal channel at `add` — `LanceSpace` routes at `add` and refuses at `query`. Wording to be corrected
+when W4 opens. Datalog-fragment `=` rules are stored in
 `LanceSpace` as algebra values; `match` over a derived relation answers with the closure computed by d′, semi-naive, one fold per
 iteration, bounded, refusing an unbounded closure rather than truncating. The interpreter never sees these rules in `&self`.
 
-**E. Compound terms take ONA's shape (DECISION, new: D-ASM-5).** A compound term is a fixed 64-byte tenant of u8 atom indices in
+**E. Compound terms take ONA's shape (DECISION, new: D-ASM-5).** ⊘ Council v3 (R-9, premise gate test 3): a compound term is
+INTERNED once, frame-side, in a term table with ONA `Term_Hash/Equal/ExtractSubterm/Complexity` parity; a row carries a 16-byte
+reference to it; a subterm-match lane is a derived projection of that table. The "fixed 64-byte per-row tenant" below is struck
+(+64 B per row = 12.5 % of the 512-byte stride; a label filed as a row value; ONA itself calls the encoding wasteful for
+low-complexity terms, `Term.h:36`). The parity surface and the strided-match idea survive; the per-row copy does not. A compound term is a fixed 64-byte tenant of u8 atom indices in
 binary-heap order, hashed once, with `Term_Equal`, `Term_ExtractSubterm`, `Term_Complexity`, `Term_Hash` as the parity surface.
 Subterm extraction is index arithmetic, so a compound-term predicate is a strided u8 match (`MatchFacet16Strided` family), not a
 tree walk. This lifts ledger R10 for NAL-3/4/5 statements and for MeTTa expressions deeper than one level. Rejected: a pointer
@@ -90,7 +109,9 @@ tree (allocation in the bulk loop) and widening the 16-byte facet (the key is ca
 conclusion shape, truth function, and which argument convention the source engine uses. The per-row truth law stays D-NALP-4's
 single candidate byte; everything else is the join of D-ASM-2. Rejected: porting `RuleTables.reason` or `RuleTable.c`.
 
-**G. Three oracles, never averaged (DECISION, = D-MTP-5/6, D-NALP-7).** Hyperon fork, PeTTa, and datafrog for Datalog answers;
+**G. Three oracles, never averaged (DECISION, = D-MTP-5/6, D-NALP-7).** ⊘ Council v3 (R-8): every comparison names its CATEGORY
+(bag vs bag, set vs Hyperon's bag deduplicated, count vs bag size) and projects the oracle's answer to it before the diff; the oracle
+call is the evaluated call, never a raw `space.query` on a rule atom. Hyperon fork, PeTTa, and datafrog for Datalog answers;
 ONA `./NAR shell` and OpenNARS `RunNal.java` for NAL truth. Divergences are recorded per engine. An answer that only one oracle
 produces is reported, not adopted.
 
@@ -136,7 +157,10 @@ front end lowers from the bound plan, never the raw AST, `fold-carrier-scientist
 - HY-Q08: `new-space`/multi-space scope vs Lance versions; D-ASM-4 proves isolation on `e1` only.
 - Whether `match &self` can reach a whole conjunction without patching Hyperon (D-MTP-2's open point) — if not, the named-space rule is permanent.
 - The 59..63 / 40..42 writer for assimilated facts: a MeTTa fact arrives with no evidence; `Revision` refuses `MissingProvenance` by design.
-  The stamp has to travel as an atom. Shape not decided.
+  ⊘ DECISION (council v3, premise gate PREMISE-WRONG on "as an atom"): the stamp travels BESIDE the atom as an evidence lane at the
+  same coordinate (the nal `Evidence`/class-lane shape), never inside it — an atom has no provenance field, and a stamp inside it would
+  make two pieces of evidence two atoms and break revision's grouping by statement key. 53..58 and 59..63 are runtime state written
+  over that lane. W1 reserves the lane (written `3` = `NO_PROVENANCE`); its layout is W5/W6 work.
 
 ## 7. Validation doctrine — oracle parity first, CE64 enrichment second (DECISION 2026-10-15)
 

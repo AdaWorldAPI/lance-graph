@@ -171,7 +171,9 @@ MeTTa text ─► hyperon parser ─► Hyperon interpreter (fork, unchanged, 12
   `classid × NodeGuid` (or a term id within a class); an `Expression` fact of
   fixed shape `(functor a₁ … aₖ)` is a row of a class keyed by the functor and
   arity, one lane per argument. `Variable` never reaches a row. Shapes the
-  class does not declare are refused, never stored as text.
+  class does not declare are refused, never stored as text. ⊘ Council v3 (2026-10-16, `metta-datalog-assimilation-v1-council-v3.md`
+  R-5): `SpaceMut::add` returns `()`, so such shapes are never stored as ROWS but stay atoms in the named space's inner
+  `GroundingSpace`, counted by kind; the module's `&self` remains a separate space as above.
 - **Multiplicity is part of the answer.** `BindingsSet` is a bag; the
   terminal must emit one `Bindings` per match (the `b4_nondeterm` kill
   condition in the parity map). A row mask alone is not an answer.
