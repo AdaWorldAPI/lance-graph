@@ -17,6 +17,8 @@ Plan: `.claude/plans/ce64-grammar-wiring-v1.md`. Entry: `entries/2026-10-16-gram
 | **D-CGW-10** | `ce64-semantic-upper-half.md`: the grammar reading of 43..45 declared beside the triad | Queued | doc only |
 | **D-CGW-11** | Judicantis and multifunctional forms without a lane: measure before adding context rules | Queued | measurement on a corpus with attested forms |
 | **D-CGW-12** | word → qualia index source (WordNet × Jina) | Deferred (operator) | — |
+| **D-CGW-13** | all oracles (Java OpenNARS, ONA, MeTTa, OpenCog, MORK) read out on the same CE64 fields | Queued | D-ORACLE readout |
+| **D-CGW-14** | OpenPSI modulators as a qualia device profile into the #1571 PCS (demands stay goals) | Queued | — |
 
 ## Catch-up (2026-10-16) — D-ids named by merged PRs that had no row
 

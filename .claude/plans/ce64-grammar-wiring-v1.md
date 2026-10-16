@@ -241,11 +241,54 @@ inputs); files; dependencies; the decision it needs, if any.
   patches' Jina embeddings (`data/qualia/calibrated_219.bin1024`). Until then the
   caller supplies indices.
 
+### D-CGW-13 — every oracle reads out on the same CE64 fields
+
+- **Why now.** Because each CE64 field has one global meaning (D-CGW-1), the
+  answers of independent reasoners can be compared on the same register: F and C
+  (24..39), the Pearl question (40..42), orientation (43..45), the inference
+  mantissa (46..49) and the certification ladder (59..63). This is the readout of
+  the existing oracle plan `d-oracle-fidelity-matrix-v1.md` (D-ORACLE), not a new
+  harness: Java OpenNARS (Pei Wang's lineage, `opennars/opennars`), ONA, MeTTa
+  (Hyperon and PeTTa, golden corpus #48), OpenCog (temporary oracle only, entry
+  `2026-10-16-opencog-oracle-scope.md`) and MORK (D-ASM-10).
+- **Tests first.** One fixture, all oracles, each native answer recorded
+  verbatim; then a per-oracle projection onto the CE64 fields, where a field the
+  oracle has no notion of is written as "not comparable", never as 0. Falsifier:
+  two oracles that disagree in their native output must not project to equal
+  edges unless the disagreement lies in a field marked not comparable.
+- **Fences.** Native outputs stay separate (D-ORACLE F9: non-parity does not mean
+  one is wrong). Oracle code runs outside the workspace; only inputs we generated
+  and recorded answers are committed. No blended score.
+- **Needs.** D-CGW-1 (the contract amendment), D-ORACLE runners pinned.
+
+### D-CGW-14 — OpenPSI motivation as a qualia device (#1571)
+
+- **Shape.** OpenPSI is another *device* in the ICC sense of
+  `contract::qualia_profile` (#1571, D-QPROF-0), beside the engine telemetry and
+  the Ekman observer: its modulators (activation/arousal, resolution level,
+  selection threshold, securing rate) get a device → PCS profile, measured, not
+  declared. Arousal and resolution meet the PCS axes `arousal`,
+  `resolution_hunger` and `clarity` by name; every other mapping is fitted from
+  probe pairs, like the A2B CLUT the module says it does not ship yet.
+- **What does not move.** The edge carries no qualia (D-CGW-1: the edge is the
+  fixed point). OpenPSI *demands* are goals, not felt states: they are never
+  revised by counting and stay with the Rubikon planning/evaluation path
+  (revision invariants G1–G7); only the modulators enter the qualia profile.
+  D-ORACLE row D already marks the OpenPSI ↔ Rubikon correspondence as a
+  hypothesis.
+- **Tests first.** Drive one OpenPSI scenario as an oracle (outside the
+  workspace), record its modulator trace, fit the shared-axis transform, and
+  check it with a held-out trace; a guard that maps every trace to the same
+  palette index fails.
+- **Source.** Written from the published PSI/MicroPsi model and OpenPSI's
+  observed behaviour, never from its source.
+
 ## 3. Order
 
-D-CGW-1 → D-CGW-9 (same binding) → D-CGW-2 → D-CGW-3 → D-CGW-5 → D-CGW-4 →
+D-CGW-1 → D-CGW-9 (same contract amendment) → D-CGW-2 → D-CGW-3 → D-CGW-5 → D-CGW-4 →
 D-CGW-6 → D-CGW-7 / D-CGW-8 (layout, need the envelope audit) → D-CGW-10 / 11.
-D-CGW-12 waits for the operator.
+D-CGW-12 waits for the operator. D-CGW-13 follows D-CGW-1; D-CGW-14 follows
+D-CGW-13's OpenPSI runner.
 
 ## 4. Not in scope
 
