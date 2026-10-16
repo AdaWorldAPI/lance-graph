@@ -1,5 +1,7 @@
 # wcoj-closing-atoms-v1 — the exact cyclic existence mask: two closing atoms
 
+> **⛔ THIS IS A VIOLATION. IT READS A VALUE AT A POSITION TAKEN FROM ANOTHER LANE'S VALUES (GATHER / FOREIGN LANE / PREIMAGE HOP). GATHER IS FORBIDDEN (2026-10-16). DO NOT BUILD FROM THIS. THE CORRECT PLANS ARE [`d-holo-h14c-thought-first-v1.md`](d-holo-h14c-thought-first-v1.md) AND [`d-holo-h14d-logic-mask-read-v1.md`](d-holo-h14d-logic-mask-read-v1.md): `Thought(t)[T_a[i] : T_b[i]]` — THE PAIR SITS AT THE SAME COORDINATE; THE JOIN IS THE LAYOUT.**
+
 > Status: RATIFIED SPEC (5+3 council, 2026-10-16); not authorized to build.
 > D-ASM-11 is "Queued (not authorized)"; ratifying this spec does not change that.
 > Council record: board entry `2026-10-16-wcoj-closing-atoms-council.md`.

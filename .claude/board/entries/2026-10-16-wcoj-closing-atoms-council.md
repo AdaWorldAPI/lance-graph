@@ -1,5 +1,7 @@
 # 2026-10-16 — WCOJ closing atoms: 5+3 council record
 
+> **⛔ THIS IS A VIOLATION. IT READS A VALUE AT A POSITION TAKEN FROM ANOTHER LANE'S VALUES (GATHER / FOREIGN LANE / PREIMAGE HOP). GATHER IS FORBIDDEN (2026-10-16). DO NOT BUILD FROM THIS. THE CORRECT PLANS ARE [`d-holo-h14c-thought-first-v1.md`](../../plans/d-holo-h14c-thought-first-v1.md) AND [`d-holo-h14d-logic-mask-read-v1.md`](../../plans/d-holo-h14d-logic-mask-read-v1.md): `Thought(t)[T_a[i] : T_b[i]]` — THE PAIR SITS AT THE SAME COORDINATE; THE JOIN IS THE LAYOUT.**
+
 **Status:** RATIFIED SPEC (`.claude/plans/wcoj-closing-atoms-v1.md`); not
 authorized to build. Follows the P-7 insufficiency in
 `2026-10-16-wcoj-probes-1-3.md`.
