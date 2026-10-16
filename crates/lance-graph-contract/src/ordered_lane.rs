@@ -425,17 +425,19 @@ pub fn gallop_partition_point<T>(
 }
 
 /// Gaps up to this many rows are stepped one row at a time before galloping.
-pub const SEEK_LINEAR_GAP: usize = 4;
+pub const SEEK_LINEAR_GAP: usize = 16;
 
 /// The cursor seek that picks its method from the caller's expected gap
 /// between successive seeks (in a leapfrog join, the other side's length
-/// divided into this one's). Counted over 2²⁰ keys
-/// (`p1_galloping_beats_binary_search_dense_and_linear_merge_sparse`):
+/// divided into this one's). The thresholds come from the v4 timings of
+/// `examples/seek_probe.rs`, not from comparison counts, which disagree:
 /// - a gap of at most [`SEEK_LINEAR_GAP`] rows: step, then gallop if the
-///   steps run out (a step costs one comparison, galloping starts at two);
-/// - a gap whose square exceeds the rows left: binary search the rest of the
-///   lane, since galloping costs about `2·log2(gap)` and the search
-///   `log2(rest)`;
+///   steps run out (a predictable step beats galloping's branches even where
+///   galloping makes fewer comparisons);
+/// - a gap whose square reaches the lane length: binary search the WHOLE
+///   lane. The answer is the same, since `pred` holds below `from`, and a
+///   whole-lane search revisits the same top midpoints, which stay in cache;
+///   a search over the shrinking tail measured about 2× slower;
 /// - otherwise gallop ([`gallop_partition_point`]).
 ///
 /// Same contract as [`gallop_partition_point`]; the hint changes only the
@@ -451,7 +453,6 @@ pub fn seek_partition_point<T>(
     if from >= n {
         return n;
     }
-    let rest = n - from;
     if gap_hint <= SEEK_LINEAR_GAP {
         let stop = (from + 2 * SEEK_LINEAR_GAP).min(n);
         let mut i = from;
@@ -463,8 +464,8 @@ pub fn seek_partition_point<T>(
         }
         return gallop_partition_point(keys, i, pred);
     }
-    if gap_hint.saturating_mul(gap_hint) > rest {
-        return from + keys[from..].partition_point(pred);
+    if gap_hint.saturating_mul(gap_hint) >= n {
+        return keys.partition_point(pred);
     }
     gallop_partition_point(keys, from, pred)
 }
@@ -814,20 +815,25 @@ mod tests {
 
     // ── P-1: galloping seek from a cursor (D-ASM-11, coresearch map 2026-10-16) ──
 
-    /// The hybrid seek with the true gap as its hint costs at most a small
-    /// constant more than the best of the three plain seeks, at every ratio,
-    /// and always agrees with `partition_point`. Disable run: ignore the hint
-    /// (always gallop) and the sparse ratio goes red.
+    /// The hybrid seek routes by its gap hint and agrees with
+    /// `partition_point`. Its comparison count equals that of the method its
+    /// rule picks: the linear step at gaps up to `SEEK_LINEAR_GAP`, the
+    /// whole-lane search once `gap² >= N`, galloping in between. (The
+    /// thresholds are v4 timings, `examples/seek_probe.rs`; the linear step
+    /// makes more comparisons than galloping at a gap of 16 and is still
+    /// faster.) Disable run: ignore the hint (always gallop) and the
+    /// whole-lane ratios go red.
     #[test]
-    fn hybrid_seek_tracks_the_best_plain_seek_at_every_ratio() {
+    fn hybrid_seek_routes_by_gap_hint() {
         let n = 1 << 20;
         let keys: Vec<u32> = (0..n as u32).map(|i| 2 * i).collect();
         for m in [n / 2, n / 16, n / 256, n / 4096, n / 65536] {
+            let ratio = n / m;
             let targets: Vec<u32> = (0..m).map(|j| ((2 * n * j) / m) as u32 + 1).collect();
             let mut hybrid = 0u64;
             let mut cursor = 0usize;
             for &t in &targets {
-                let h = seek_partition_point(&keys, cursor, n / m, |&k| {
+                let h = seek_partition_point(&keys, cursor, ratio, |&k| {
                     hybrid += 1;
                     k < t
                 });
@@ -835,11 +841,16 @@ mod tests {
                 cursor = h;
             }
             let (g, f, l) = seek_costs(n, m);
-            let best = g.min(f).min(l);
-            assert!(
-                hybrid <= best + best / 4 + 2 * m as u64,
-                "N/m = {}: hybrid {hybrid}, best plain {best} (gallop {g}, fresh {f}, linear {l})",
-                n / m
+            let picked = if ratio <= SEEK_LINEAR_GAP {
+                l
+            } else if ratio * ratio >= n {
+                f
+            } else {
+                g
+            };
+            assert_eq!(
+                hybrid, picked,
+                "N/m = {ratio}: gallop {g}, fresh {f}, linear {l}"
             );
         }
     }
