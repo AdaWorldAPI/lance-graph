@@ -38,7 +38,9 @@ sha2 = "0.10"
 # between reading one file and reading all of them. Sync API, driven from
 # `spawn_blocking` — the work is CPU + local file I/O after the download, not
 # network.
-zip = { version = "2", default-features = false, features = ["deflate"] }
+# Major 9: every 2.x through 9.0.2 release is yanked on crates.io (checked
+# 2026-10-16), and no lockfile is tracked, so `"2"` stopped resolving.
+zip = { version = "9", default-features = false, features = ["deflate"] }
 thiserror = "1"
 
 [target.'cfg(unix)'.dependencies]

@@ -4,6 +4,11 @@
 - Spot checks: merge counts re-run (97, 9); ten status rows re-read before editing; quotes Q3/Q5/Q6/Q10/Q13 re-read; parity type counts re-run with a wider pattern.
 - Misses: census-counter made one out-of-card `send_message` call with a placeholder (failed, nothing sent); quote-harvester used `origin/main` for tesseract-rs as the brief said (its branch is `master`; brief error). No conclusion drawn by any card.
 - Result: entry `2026-10-16-synergy-map-since-1011.md`; ten STATUS cells corrected. Written by the orchestrating main thread only.
+## 2026-10-16 — ledger revision after #1576: three Haiku runs
+
+- `quote-harvester` (PR bodies): refused correctly, the card has no GitHub or Write tool. Re-run as general-purpose on Haiku: 16/16 fetched; 7 bodies read in full and used; 0 wrong.
+- `harvest-scout` (band_reading callers, stale "two readings" prose): positive hits correct; 3 zero-hit claims false (`causal-plane-inventory.md:55`, `TYPE_DUPLICATION_MAP.md:15`, `causaledge64-mailbox-rename-soa-v1.md:57`). Second miss on zero-hit Markdown searches: that kind goes back to Sonnet.
+- Cost: about 318k, 427k and 331k subagent tokens. No conclusion came from a card.
 
 ## 2026-10-16 — /5plus3 council: metta-datalog-assimilation W1–W3 spec (D-ASM-1..4)
 
