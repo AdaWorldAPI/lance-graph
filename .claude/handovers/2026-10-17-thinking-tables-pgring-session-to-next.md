@@ -19,8 +19,8 @@ standing rules in the repo, not in a container that may be gone.
 | # | Decision | Recommendation | Why | Caveats | Needs from you |
 |---|---|---|---|---|---|
 | 1 | ~~"Thoughts" or "lanes"~~ DECIDED 2026-10-17 | "thought", numbered `0..64`; "lane" stays the SoA lane | — | — | — |
-| 2 | Thought tables: session or storage | session by default, materialized only through the D-HL-8 commit ladder | D-HL `:474` (session addresses) vs capstone `:148` (sparse storage layer); a commit step reconciles both | a cached population then needs its own type over the same word layout, never `AlphaMask` | yes/no |
-| 3 | Thought table as bracketed loop state (chained-hop option b / b-lite) | b-lite: one owner, session lifetime, commit only through the ladder | fixes the law-A1 objection at `2026-10-03-coresearch-chained-hop.md:51-53` without a new writer | needs a written amendment of law A1 | approve the amendment |
+| 2 | ~~Session or storage~~ DECIDED 2026-10-17 | both: compute and storage, squash-committed to main like a git branch, max 64 | — | open design points in the wiring doc row 11 (second writer of main, provenance through the squash, Simpson) | — |
+| 3 | ~~Thought table as loop state~~ ANSWERED by #2 | a thought holds its own loop state in its branch until the squash | — | law A1 amendment still to be written for the squash | — |
 | 4 | Push the ruff PG-Ring harvester | push + draft PR | it is the only durable copy of the harvest method | PG-Ring is GPL-3.0: the example reads structure only, never vendors code | approval to push to ruff |
 
 Older open items carry over unchanged: D-ARG-1..4; ndarray PR C (CE64 compat);

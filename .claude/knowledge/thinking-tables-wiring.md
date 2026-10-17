@@ -230,6 +230,37 @@ validation ladder), but no plan treats "open a thought table, run a fixpoint in
 it, commit or free it" as one lifecycle. The commit step is D-HL-8, unbuilt
 (`ce64-hypothesis-layers-v1.md:36`).
 
+**DECISION 2026-10-17 — the lifecycle is git branching.** A thought table is
+both compute and storage. Thoughts are branches over main (thought 0, the
+givens); at most 64 exist at once. A thought computes and stores in its own
+table; when it is done it is flattened (squash-committed) into main, which
+frees its slot so a new thought branch can open. BASIS: "A thought table is
+compute and storage. It just needs to flatten/flush/squash the commit to the
+main to open new thought branches. Same as if you use GitHub and max 64
+branches." The squash is the D-HL-8 commit. Consequences for the open
+points: O2 is closed (both), N2 is answered (a thought holds its own loop
+state; its writes stay in its branch until the squash), and O4 narrows to
+the squash itself (derived facts live in the branch; only the squash writes
+main).
+
+Points this ruling leaves to design, not yet decided:
+
+- **The squash writes the next version, not the givens table.** Only
+  hydration writes thought 0, and a given is never overwritten; the givens
+  table is read-only per (classid, sealed version)
+  (`ce64-hypothesis-layers-v1.md:702-725`). So the squash lands as the next
+  sealed version of main, whose givens are rebuilt at seal; it must pass
+  the revision gate (G1–G7), and a conflict with a given stays the existing
+  contradiction record, never an overwrite.
+- **Provenance through the squash.** Flattening a branch must keep each
+  fact's source bitset (D-HL-3); otherwise revision in main cannot tell an
+  echo from an independent confirmation (G1).
+- **Branch count.** Main is thought 0 (the givens), so 63 hypothesis
+  branches (1..63) can be open at once beside it (`:702-705`).
+- **Simpson.** Squashing several per-stratum branches into one main is the
+  amalgamation the Simpson map warns about (O5); strata need to survive the
+  squash as a declared axis.
+
 The nearest lifecycle prior is the goal state machine of
 `.claude/plans/rubicon-volition-v1.md:24-50` (open, candidate, committed,
 acting, evaluating, released), and the revision invariants R1–R4. It is for
@@ -242,7 +273,7 @@ replayable transitions) but not its records.
 | # | item | evidence of absence | where it would land |
 |---|---|---|---|
 | N1 | FIFO order as the stratum order: a table frees at its fixpoint, and the next stratum may read it negated. The wave scheduler exists; what it lacks is produced objects with identity (schedule_depth `:89-98`) | row 8 search space | `self-reasoning-substrate-v1` D-SRS-2 or a new D-HL item; needs a test that a negated read of an unfinished table is refused |
-| N2 | A thought table as the bracketed loop state the chained-hop round 2 asked for (one owner, session lifetime, commit only through the ladder) | chained-hop `:51-53` holds loop state pending an amendment; D-HL `:474` sessions are temporary | a decision on chained-hop option (b)/b-lite, recorded against D-HL-5 |
+| N2 | A thought table as the bracketed loop state the chained-hop round 2 asked for (one owner, branch lifetime, squash to main only through the ladder; answered by the row-11 DECISION) | chained-hop `:51-53` holds loop state pending an amendment; D-HL `:474` sessions are temporary | a decision on chained-hop option (b)/b-lite, recorded against D-HL-5 |
 | N3 | Fixpoint (μ) inside one thought table | relalg `:68-72` (no recursion); D-RA-4 `:63` driver only | D-RA-4, once its step is rewritten without the gather-bannered preimage |
 | N4 | The written-by / presence queries named as the metacognition surface | rows 4 and 10: the queries exist and are measured; no front end exposes them | NAL-9 strategy table (`#1597` §6) |
 | N5 | The lifecycle as one unit | row 11 | D-HL-8 |
@@ -252,9 +283,9 @@ replayable transitions) but not its records.
 | # | point | sources |
 |---|---|---|
 | O1 | CLOSED 2026-10-17: the word is **thought** (`0..64`); "lane" stays the SoA lane. | D-HL `:386-391`; vocabulary paragraph above |
-| O2 | Session or storage: D-HL says the 64 thoughts are session addresses, not storage; the capstone says a thought's materialization is its table's sparse storage layer. If kept, a cached population needs its own type over the same word layout, never `AlphaMask`. | D-HL `:474`; `#1597` `:148`; photo-probe `:57-63` |
+| O2 | CLOSED 2026-10-17: both — a thought table is compute and storage, squash-committed to main like a git branch (row 11). Was: session or storage: D-HL says the 64 thoughts are session addresses, not storage; the capstone says a thought's materialization is its table's sparse storage layer. If kept, a cached population needs its own type over the same word layout, never `AlphaMask`. | D-HL `:474`; `#1597` `:148`; photo-probe `:57-63` |
 | O3 | Precedence or fold: a merged read uses "higher thought index wins a shared lane", an overwrite rule; set questions use presence folds. Which reads use which is not written down. | D-HL `:412`, `:491`; H14c `:93-95` |
-| O4 | Derived facts written into a table versus split-tunnel rule 7 (derived reads write nothing) and law A1 (only demanded population writes). | split-tunnel rule 7; chained-hop `:51` |
+| O4 | NARROWED 2026-10-17: derived facts live in the thought's branch; only the squash writes main (row 11). Was: derived facts written into a table versus split-tunnel rule 7 (derived reads write nothing) and law A1 (only demanded population writes). | split-tunnel rule 7; chained-hop `:51` |
 | O5 | Tables as strata: folding per-year or per-lens tables for revision reproduces Simpson's amalgamation; the stratum guard is only a probe. | Simpson map rows 1, 4 |
 | O6 | The relalg absorption defect and the home of the set IR wait on D-RA-2. | synergy map D1; ledger N17 |
 | O7 | The model's reading "W = the classid of the table" is not in any plan and is not recorded here as canon; `#1597` records W as the thought layer, and its classid commit was reverted. | `#1597` D-HL-1 note |
