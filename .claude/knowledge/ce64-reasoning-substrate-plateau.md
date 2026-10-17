@@ -138,6 +138,10 @@ stored bits mean requires a version gate (`I-LEGACY-API-FEATURE-GATED`).
 
 ---
 
+> **2026-10-17:** O1 and O3 decided (46..49 = activation i4; W = thought
+> layer, 0 givens, 1..63 hypotheses); O5 was decided 2026-10-14. O2 and O6
+> stay open. See plan D-HL-1 and entry `2026-10-17-epistemic-frontier-clicks.md`.
+
 ## §5 — The proposed unification (HYPOTHESIS until its probe runs)
 
 **U1 — Opaque bytes, readings declared per class.** The design's "opaque

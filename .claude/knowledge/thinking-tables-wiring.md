@@ -49,7 +49,8 @@ trie zipper), clean-room, and is cited here only where it bears on row 6/7.
 ## Wiring (each cited line read in source)
 
 Paths are relative to the repository root. `#1597` is the epistemic-frontier
-capstone, a draft PR not yet on `main`; its lines are cited as `(#1597)`.
+capstone, `.claude/knowledge/epistemic-frontier-capstone.md` (merged as
+#1597); its lines are cited as `(#1597)`.
 
 **Vocabulary first.** The plans count **thoughts**, not lanes: up to 64
 thoughts, each owning up to 32 lane-tables (lane 0 identity, 1 edge, 2..31

@@ -1,5 +1,15 @@
 # CLAUDE.md — lance-graph
 
+## P0 — architecture map, read first
+
+- `docs/architecture/` — the architecture documents (CE64 upper half,
+  SoA three-tier model, ownership and addressing, ONA/NAL fold assimilation,
+  and the rest; diagrams in `img/`). Check here before re-deriving a design.
+- `.claude/knowledge/epistemic-frontier-capstone.md` — how the address
+  space, the alpha channel, the 64 thought layers, presence bits, the CE64
+  fields, the NAL ladder and the front ends connect, with file and status
+  per node.
+
 ## P0 — lane fold, read before touching mask-risc or quack
 
 `.grok/board/CLAUDE_LANE_FOLD_CAPSTONE.md`. Settled numbers, the ten open points, the refusal list. Do not re-derive. Do not cite 0.6 ns as a join.

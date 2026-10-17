@@ -1,3 +1,10 @@
+## 2026-10-17 — lance-graph PR #1597 (merged `dd00245b`, branch `ccr-9f3b8075-74u47l-epistemic-capstone`, head `134a4d29`, 7 commits) — epistemic frontier capstone; O1/O3 decisions
+
+- **Added:** `.claude/knowledge/epistemic-frontier-capstone.md`; entry `2026-10-17-epistemic-frontier-clicks.md`; D-HL-1 note in `ce64-hypothesis-layers-v1.md`, plateau §4 note, STATUS_BOARD row; CLAUDE.md links to `docs/architecture/` and the capstone.
+- **Locked:** CE64 46..49 is the activation; W (53..58) is the thought layer (0 givens, 1..63 hypotheses). The reading "W = classid of the thinking lane" was committed and reverted in the same PR.
+- **Deferred / open:** the capstone's open points; session vs storage for thought tables (see `thinking-tables-wiring.md` O2).
+- **Confidence:** decisions recorded; a VIOLATION banner on the unwired `witness_table.rs` (foreign key; kept until its removal PR), no behaviour change.
+
 ## 2026-10-17 — lance-graph PR #1598 (merged `c90549ec`, branch `ccr-9f3b8075-74u47l-haiku-read-in-full`, head `b2a5cfc5`, 4 commits) — Haiku cards: read in full, output capped
 
 - **Added:** on all six Haiku cards: every file in the brief is read in full (a brief may cap the search space, never the reading depth); output is capped (128k tokens, thinking included) while reading is not; past about 10,000 words a result is split into parts or reported PARTIAL with a `remaining:` line; `tiered-agent-execution-protocol.md` cites the Haiku 5.5 limits from the platform docs.

@@ -1,7 +1,7 @@
-## 2026-10-17 — main after #1598; thinking-tables wiring in PR
+## 2026-10-17 — main after #1597; thinking-tables wiring in PR
 
-- **On main since #1594:** #1592 (ledger revision c), #1595 (CE64 one layout), #1596 (Simpson co-research, P-pool test), #1598 (Haiku cards read in full, output capped).
-- **In PR:** `.claude/knowledge/thinking-tables-wiring.md` and entry `2026-10-17-thinking-tables-wiring.md`; arc entries for #1592, #1595, #1596, #1598.
+- **On main since #1594:** #1592 (ledger revision c), #1595 (CE64 one layout), #1596 (Simpson co-research, P-pool test), #1598 (Haiku cards read in full, output capped), #1597 (epistemic frontier capstone; 46..49 activation, W = thought layer).
+- **In PR:** `.claude/knowledge/thinking-tables-wiring.md` and entry `2026-10-17-thinking-tables-wiring.md`; arc entries for #1592, #1595, #1596, #1597, #1598.
 
 ## 2026-10-17 — CE64 one layout; Moore tenant as synapse, membrane and local NARS (board, #1595 in PR)
 

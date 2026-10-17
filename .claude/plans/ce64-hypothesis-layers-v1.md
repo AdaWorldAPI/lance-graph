@@ -51,6 +51,17 @@ D-HL-1 gates any stored-meaning change; D-HL-2..6 are probes and need no decisio
 
 ### D-HL-1 — decisions (operator)
 
+> **2026-10-17 DECISION — O1 and O3 (BASIS: the user's statements that day;
+> entry `.claude/board/entries/2026-10-17-epistemic-frontier-clicks.md`).**
+> O1: bits 46..49 = activation i4 (+7 excitation … −8 inhibition); the
+> operation stays in the running thought. The opcode reading in `isa.rs`
+> becomes a declared legacy reading behind a version gate. O3: W (53..58) =
+> the thought layer the state belongs to (0 givens, 1..63 hypotheses),
+> written when a value is merged or materialized out of the layered view;
+> fixing PROBE-W-PRESERVE is the first step. `WitnessTable` is withdrawn
+> as a foreign key. O2 and O6 stay open. Map:
+> `.claude/knowledge/epistemic-frontier-capstone.md`.
+
 Plateau §4, rows O1 (bits 46..49), O2 (bits 50..52), O3 (W ownership, the
 coresearch G6), O5 (10 rung lanes vs a 64-lane budget), O6 (what persists).
 The recommendation in plateau §5 U1 is to declare readings per classid
