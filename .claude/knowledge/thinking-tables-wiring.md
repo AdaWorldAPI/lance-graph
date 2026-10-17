@@ -286,6 +286,55 @@ Rebase is the one with no counterpart: a thought opened on version v and
 squashed after main reached v+1 must be compared against v+1, not v, or it
 squashes against stale givens.
 
+### Rebase — design proposal from git prior art (HYPOTHESIS, not built)
+
+Asked for 2026-10-17 ("I don't mind a rebase … I presume GitHub prior art
+will help"). Git replays a branch's commits onto the new tip of main and
+stops on each conflict; GitHub's "require branches to be up to date" makes
+that a precondition of merging. Carried over:
+
+1. **Rule (branch protection).** A thought may squash only when its
+   merge-base is the current sealed version of main. Otherwise it rebases
+   first. Rebase happens lazily, at squash time, not every time main moves.
+2. **A rebase moves no data.** A thought is a sparse delta keyed by the
+   immutable address, so replaying it onto v+1 rewrites nothing: the
+   merge-base advances and four masks decide what else happens. Let `M` be
+   the cells main changed between v and v+1 (the written-by plane of the
+   squash that made v+1), `W` the cells the thought wrote, `R` the cells it
+   read:
+   - `W ∧ ¬M` and `R ∧ M = ∅`: clean; fast-forward the merge-base.
+   - `W ∧ M`, same value as main: agreement; the cell leaves the delta
+     (git drops an empty commit).
+   - `W ∧ M`, different value: conflict; the existing contradiction record
+     (row, thought, lanes, offered cell), never an overwrite.
+   - `R ∧ M ∧ ¬W`: nothing collides textually, but facts the thought derived
+     from those cells may be stale (git's "rebased cleanly, tests fail").
+     The thought re-runs its fixpoint with `R ∧ M` as the delta, the same
+     semi-naive step as row 7 (`f ← Aᵀf ∧ ¬v`).
+3. **What is missing is `R`.** The written-by word gives `W` and the squash
+   gives `M`; no plan records what a thought read. `R` would be one more
+   presence plane per thought, the shape H14c already uses for writes.
+4. **Merge queue.** When several thoughts are ready, GitHub's merge queue
+   squashes them one at a time, each rebased on the result of the one
+   before. That order is a FIFO of squashes, which is where row 8's
+   "FIFO order as the stratum order" would live.
+5. **rerere.** Git can reuse a recorded conflict resolution. The
+   contradiction records already persist, so a repeated conflict on the same
+   (row, lanes, offered value) can be resolved the same way without a second
+   revision pass.
+
+**Falsifier.** For any thought T opened on v and any main advance v→v+1:
+`squash(rebase(T, v+1))` equals `squash(T re-run from scratch on v+1)`, cell
+for cell, contradiction records included. Fixture cases: clean, agreement,
+conflict, stale read, and a merge queue of three thoughts. Disables: drop the
+`R ∧ M` re-run (the stale-read case must fail), and squash without rebasing
+(the conflict case must fail).
+
+Open: whether `R` is recorded per cell or per aperture (a range over the
+address is cheaper and may suffice, since reads are apertures); where in
+D-HL-8 the rule sits; whether a long-lived thought should rebase eagerly to
+keep its conflicts small.
+
 Points this ruling leaves to design, not yet decided:
 
 - **The squash writes the next version, not the givens table.** Only
