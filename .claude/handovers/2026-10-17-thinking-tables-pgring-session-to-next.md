@@ -15,6 +15,19 @@ standing rules in the repo, not in a container that may be gone.
 | Thought git API (D-TGA-0..6) | proposal, in #1599; next step D-TGA-0 pre-registration | `.claude/plans/thought-git-api-v1.md` |
 | PG-Ring idea catalogue | done, in PR (22 rows: 11 HAVE, 7 ADOPT, 1 REFUSED, 3 OPEN) | lance-graph #1600, branch `ccr-9f3b8075-74u47l-pgring-catalogue`; `.claude/research/2026-10-17-pgring-idea-catalogue.md` |
 
+## 1b. Decisions taken late on 2026-10-17 (all in `thought-git-api-v1.md` and the wiring doc row 11)
+
+- The unit is a **thought**, `0..64`; "lane" is the SoA lane only.
+- A thought table is compute and storage, run like a git branch off main
+  (thought 0, the givens); max 64; partial squash into a kept intermediate.
+- The full git model applies; rebase is designed (four masks, no data moved),
+  needs a read plane R.
+- A thought's delta IS the alpha overlay (the attention saccade).
+- A sealed version is a PR entry: blame/revert/checkout/merge-base point at
+  versions, never at reused thought slots.
+- Verbs execute as range fold, presence masks, leapfrog seek or ordered merge
+  by operand density; relalg for non-recursive verbs, Datalog for fixpoints.
+
 ## 2. Decisions the user still owes
 
 | # | Decision | Recommendation | Why | Caveats | Needs from you |
