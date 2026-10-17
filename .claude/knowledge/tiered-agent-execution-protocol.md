@@ -260,9 +260,12 @@ REVISIT WHEN: a single file exceeds what a Haiku context can hold; then the
 brief splits the file into named pages, all of which are read.
 
 The asymmetry runs the other way for OUTPUT. A Haiku response has an output
-cap far below what it can read, and its exact size is not known to the
-worker (the limit for this tier is not documented anywhere the cards can
-cite). A map or reply written in one long call can be cut off silently. Each
+cap far below what it can read: 128k tokens per response at the API against
+a 1M-token context (published limits, 2026-10-17), and the harness running a
+subagent may set a lower per-response cap. A map or reply written in one long
+call can be cut off silently. Measured in the run that prompted this: a
+12,255-word map (784 lines) came through one Write intact, so the cards'
+split threshold of about 10,000 words sits under every cap seen so far. Each
 card therefore carries an "Output is capped; reading is not" section:
 substrate-mapper writes long maps as numbered parts and re-reads the end of
 each; the reply-only cards stop at a whole item, report PARTIAL and list what
