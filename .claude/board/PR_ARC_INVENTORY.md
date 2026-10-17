@@ -1,3 +1,10 @@
+## 2026-10-17 — lance-graph PR #1594 (merged `8f50cd9e`, branch `ccr-9f3b8075-74u47l-cgw1`, head `0ee072cb`, 10 commits) — D-CGW-1: CE64 bits 43..45 are the orientation
+
+- **Added:** `causal_edge::Orientation` (Core + seven Haspelmath dative functions) as the one meaning of 43..45; `orientation()` / `set_orientation()`; `pack` / `pack_v2` take an `Orientation`; contract `MooreDirection { slot, polarity }` and `MooreRefusal::Oriented` (`lift_ce64` refuses an oriented edge and writes nothing); `causal-edge/tests/orientation_contract.rs`; ~85 call sites migrated across 8 crates; entry `2026-10-16-d-cgw-1-orientation-contract.md`; arc entry for #1593.
+- **Locked:** removed the S/P/O pathological triad, `concern_level` and `CausalNetwork::detect_simpsons_paradox` (no production writer of the triad).
+- **Deferred / open:** D-CGW-9 (activation off 46..49), the 50..52 ruling, two edge-facet writers on the 12+4 reading, WordNet G1–G3.
+- **Confidence:** orientation_contract 5 tests (red first); moore_tenant h/h2 with a disable run; causal-edge, contract, deepnsm-v2, planner, shader-driver, osint, p64-bridge, thinking-engine tests pass; KJV `bible_wave` exits 0. `intervene_counterfactual` not run locally (disk), left to CI.
+
 ## 2026-10-16 — lance-graph PR #1593 (merged `124eb6cf`, branch `ccr-9f3b8075-74u47l-synergy-1591`, head `526a0bc5`) — synergy map since #1579; config note reword; D-ARG-1..4 queued
 
 - **Added:** entry `2026-10-16-synergy-map-since-1579.md` (§1–§9: revision of every base point, CE64 vs identity/edge tenants and the 24×i4 loci, triangle join as presence-plane intersection); `.cargo/config.toml` note on the avx and v2 arms; STATUS rows D-CGW-13/14 and D-ARG-1..4.

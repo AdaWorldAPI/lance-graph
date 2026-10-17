@@ -1,4 +1,8 @@
-## 2026-10-16 — D-CGW-1: CE64 bits 43..45 are the orientation (in PR)
+## 2026-10-17 — CE64 one layout; Moore tenant as synapse, membrane and local NARS (board, #1595 in PR)
+
+- Entry `2026-10-17-ce64-one-layout-moore-synapse-membrane.md`: eleven decisions with their basis (CE64 = 64-bit ISA contract in three regions, one layout aligned by migration, Moore reuses it minus what locality answers, the witness is two neighbours agreeing on a membrane, Hebbian wiring = SPOFC evidence with local NARS), the CE64 reader catalog, open items. No code.
+
+## 2026-10-16 — D-CGW-1: CE64 bits 43..45 are the orientation (#1594, merged `8f50cd9e`)
 
 `causal_edge::Orientation` (Core + the seven Haspelmath dative functions) is the one meaning of 43..45; `direction()` → `orientation()`, `pack`/`pack_v2` take it. The S/P/O pathological triad and `detect_simpsons_paradox` are removed (no production writer). Contract `MooreDirection` replaces `DirectionReading`; `lift_ce64` refuses an oriented edge. #1593 merged (`124eb6cf`). Entry `2026-10-16-d-cgw-1-orientation-contract.md`.
 
