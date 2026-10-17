@@ -1,0 +1,108 @@
+# Handover 2026-10-17 — thinking-tables wiring, PG-Ring catalogue
+
+Written so the next session starts with the state, the open decisions and the
+standing rules in the repo, not in a container that may be gone.
+
+## 1. Where things stand
+
+| item | state | where |
+|---|---|---|
+| Thinking-tables wiring (64 thought tables × set AST × presence folds × FIFO strata × metacognition) | done, in PR | lance-graph #1599, branch `ccr-9f3b8075-74u47l-thinking-tables-wiring`; `.claude/knowledge/thinking-tables-wiring.md`, entry `2026-10-17-thinking-tables-wiring.md` |
+| Epistemic frontier capstone | merged | #1597 (`dd00245b`); `.claude/knowledge/epistemic-frontier-capstone.md` |
+| Haiku cards: read in full, output capped | merged | #1598 |
+| Board arc entries #1592, #1595, #1596, #1597, #1598 | in #1599 | `PR_ARC_INVENTORY.md`, `LATEST_STATE.md` |
+| PG-Ring harvester | committed locally only, NOT pushed (ruff push needs the user's approval) | ruff branch `ccr-9f3b8075-74u47l-pgring-harvest`, commit `d2f4c2dcfb`, file `crates/ruff_cpp_spo/examples/harvest_pgring.rs` |
+| Thought git API (D-TGA-0..6) | proposal, in #1599; next step D-TGA-0 pre-registration | `.claude/plans/thought-git-api-v1.md` |
+| PG-Ring idea catalogue | done, in PR (22 rows: 11 HAVE, 7 ADOPT, 1 REFUSED, 3 OPEN) | lance-graph #1600, branch `ccr-9f3b8075-74u47l-pgring-catalogue`; `.claude/research/2026-10-17-pgring-idea-catalogue.md` |
+
+## 1b. Decisions taken late on 2026-10-17 (all in `thought-git-api-v1.md` and the wiring doc row 11)
+
+- The unit is a **thought**, `0..=63` (64 in all; ranges inclusive); "lane" is the SoA lane only.
+- A thought table is compute and storage, run like a git branch off main
+  (thought 0, the givens); 64 thoughts = main + at most 63 branches; partial squash into a kept intermediate.
+- The full git model applies; rebase is designed (four masks, no data moved),
+  needs a read plane R.
+- A thought's delta IS the alpha overlay (the attention saccade).
+- A sealed version is a PR entry: blame/revert/checkout/merge-base point at
+  versions, never at reused thought slots.
+- Verbs execute as range fold, presence masks, leapfrog seek or ordered merge
+  by operand density; relalg for non-recursive verbs, Datalog for fixpoints.
+
+## 2. Decisions the user still owes
+
+| # | Decision | Recommendation | Why | Caveats | Needs from you |
+|---|---|---|---|---|---|
+| 1 | ~~"Thoughts" or "lanes"~~ DECIDED 2026-10-17 | "thought", numbered `0..=63`; "lane" stays the SoA lane | — | — | — |
+| 2 | ~~Session or storage~~ DECIDED 2026-10-17 | both: compute and storage, squash-committed to main like a git branch, max 64 | — | open design points in the wiring doc row 11 (squash lands as the next sealed version through the revision gate, provenance through the squash, Simpson) | — |
+| 3 | ~~Thought table as loop state~~ ANSWERED by #2 | a thought holds its own loop state in its branch until the squash | — | law A1 amendment still to be written for the squash | — |
+| 4 | Push the ruff PG-Ring harvester | push + draft PR | it is the only durable copy of the harvest method | PG-Ring is GPL-3.0: the example reads structure only, never vendors code | approval to push to ruff |
+
+Older open items carry over unchanged: D-ARG-1..4; ndarray PR C (CE64 compat);
+lance-graph `edge.rs` conformance; the "bits 61..63" comment in
+cognitive-shader-driver's `Cargo.toml` (must name `EpistemicState5`, bits
+59..63, as one field).
+
+## 3. PG-Ring catalogue — how it was built, and how to redo it
+
+The catalogue is written (#1600). Next steps it names: the dense-AND vs
+sparse-seek probe (catalogue §3.3) and the three OPEN rows. The paper text
+was read via alphaXiv (`get_paper_content`, arXiv 2608.03840, 2,145 lines
+with appendices). What follows is how to rebuild the structural harvest.
+
+Goal: a clean-room idea catalogue of PG-Ring (Gómez-Brandón, Hogan, Navarro,
+ISWC 2026, arXiv 2608.03840; ring index over BWT for property graphs) as prior
+art to LEARN FROM for D-ASM-11 (leapfrog triejoin). Ideas and structure only;
+no PG-Ring code enters any AdaWorldAPI repo. D-ASM-11 and 11A/11B carry
+VIOLATION banners (gather); a catalogue item that needs a data-indexed read is
+recorded as such and mapped to presence-bit / range-intersection form
+(D-HOLO H14c/H14d), never designed as a gather.
+
+Inputs (clone if the container is fresh):
+
+```sh
+mkdir -p /home/user/adaworldapi && cd /home/user/adaworldapi
+git clone https://github.com/AdaWorldAPI/pg-ring          # at ce012ba
+git clone https://github.com/adriangbrandon/sdsl-lite     # at 8a1e8be
+cd /home/user/ruff-pgring   # or re-create from the local commit if it survived
+PGRING_SRC=/home/user/adaworldapi/pg-ring \
+SDSL_INCLUDE=/home/user/adaworldapi/sdsl-lite/include \
+LIBCLANG_PATH=/usr/lib/llvm-18/lib OUT_DIR=<scratch>/pgring_harvest \
+CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 \
+  cargo run -p ruff_cpp_spo --features libclang --example harvest_pgring
+```
+
+Known harvest noise: most headers report `divsufsort.h` not found and the
+`register` storage-class error from sdsl; classes and call graphs are still
+emitted (63 summary files last run). If the local ruff commit is gone and
+was never pushed, rewrite the example from the shape of `harvest_textord.rs` (same directory).
+
+Method (the first attempt lost seven Haiku maps that never wrote output):
+one file group per chunk, written to the catalogue file immediately with
+`tee -a`, committed after each chunk. Each catalogue row: PG-Ring component
+→ what it does (from the paper and the harvested signatures) → our
+counterpart or gap (sealed ordered lanes, `seek_from`, `fold_ranges`,
+presence-bit rank) → verdict (adopt idea / already have / refused shape).
+
+## 4. Standing rules a fresh session must know
+
+The full set lives in session memory, which does not survive a new
+container; these are the ones that bit this session.
+
+- Read before concluding: search finds candidates, a full Read decides.
+- Vocabulary: the 64 hypothesis tables are **thoughts** (`0..=63`, 0 = givens);
+  "lane" means an SoA lane only.
+- No foreign keys, no gather, no foreign lanes: a join is a layout that
+  co-locates the pair at one coordinate; hops are range intersections,
+  computed symbolically and folded into one mask before any plane AND.
+- CE64 bits 59..63 are one field, `EpistemicState5`; never name a sub-range.
+  S/P/O (bits 0..23) hold palette256 codes only.
+- A user's mental model is not canon (e.g. "W = classid of the table" is not
+  recorded; W is the thought layer, #1597).
+- Do not write "operator-ruled/-pinned/-locked/-confirmed" as a status here.
+- cargo always with debug 0; v4 timings only, printed tier, ns per element.
+- Pushes outside ndarray need the user's approval per case; branches are
+  `ccr-9f3b8075-74u47l[-slug]`; PRs as drafts, then subscribe.
+- Never `git add -A`; stage by name. On an `entries/README.md` conflict take
+  main's file and rerun `entries_index.py --write`.
+- Decisions for the user go in a table: #, Decision, Recommendation, Why,
+  Caveats, Needs from you.

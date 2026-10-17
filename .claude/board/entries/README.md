@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-366 entries, 2026-08-06 .. 2026-10-17.
+367 entries, 2026-08-06 .. 2026-10-17.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-17 | `thinking-tables-wiring` |  | [2026-10-17-thinking-tables-wiring.md](2026-10-17-thinking-tables-wiring.md) |
 | 2026-10-17 | `epistemic-frontier-clicks` |  | [2026-10-17-epistemic-frontier-clicks.md](2026-10-17-epistemic-frontier-clicks.md) |
 | 2026-10-17 | `coresearch-simpson-epistemic` |  | [2026-10-17-coresearch-simpson-epistemic.md](2026-10-17-coresearch-simpson-epistemic.md) |
 | 2026-10-17 | `ce64-one-layout-moore-synapse-membrane` |  | [2026-10-17-ce64-one-layout-moore-synapse-membrane.md](2026-10-17-ce64-one-layout-moore-synapse-membrane.md) |
