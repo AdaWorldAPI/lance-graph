@@ -260,6 +260,32 @@ consequences follow from slots being reused:
   per-lens thoughts into one intermediate per stratum, instead of into main,
   keeps the stratum axis the Simpson map asks for (O5).
 
+**The full git model applies (same day).** BASIS: "In principle everything
+you already know from GitHub." The mapping below is a design reading of that
+ruling; the third column says what in the substrate already plays the part,
+and nothing in it is built for this purpose yet.
+
+| git | thought tables | already in the substrate |
+|---|---|---|
+| main | thought 0, the givens of the current sealed version | givens table per (classid, sealed version), D-HL `:702-725` |
+| commit on main | a new sealed version | a Lance version |
+| branch | thought 1..63, a sparse delta over main | the per-thought delta, D-HL `:16-19` |
+| diff | the thought's written rows | presence plane and written-by word |
+| merge-base | the sealed version the thought branched from | Lance version number |
+| squash merge | flatten a thought into the next sealed version | D-HL `:19-20` ("a layer that clears a validation ladder is composited into the base"); the D-HL-8 commit, unbuilt |
+| merge conflict | a thought's value against a given or against main's newer value | contradiction record, D-HL `:706-709` |
+| review before merge | the revision gate deciding whether a squash may land | Gadamer gate G1–G7 (`2026-10-14-revision-layer-invariants.md`) |
+| rebase | replay a thought's delta onto a newer main when main advanced since its merge-base | none yet |
+| integration branch | partial squash into a kept intermediate thought | none yet |
+| blame | which source supplied a fact | per-fact source bitset, D-HL-3 |
+| revert | a new sealed version that undoes a squash | none yet; Lance time travel reads old versions |
+| checkout of an old commit | read main as of an earlier sealed version | Lance version read; D-WAL-6 version clock |
+| branch limit | 64 open thoughts including main | the thought budget, D-HL `:386-391` |
+
+Rebase is the one with no counterpart: a thought opened on version v and
+squashed after main reached v+1 must be compared against v+1, not v, or it
+squashes against stale givens.
+
 Points this ruling leaves to design, not yet decided:
 
 - **The squash writes the next version, not the givens table.** Only
