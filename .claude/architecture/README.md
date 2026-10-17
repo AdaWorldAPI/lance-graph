@@ -5,6 +5,8 @@ This directory holds cross-substrate *architecture* documents. They are navigati
 ## Start here
 
 - [Cartesian Epistemic Self-Model](cartesian-epistemic-self-model.md) — How deterministic thought-first addressing, two orientations of a 64-thought presence matrix, declared CE64 epistemic readings, alpha-channel saccades, demand-scoped relational closure, and provenance could support an independently testable software self-model. Includes current implementation status, measured bounds, known conflicts, scaling risks, and proposed falsification gates.
+- [Neurofunctional Rubikon / Moore Synaptic Plasticity](neurofunctional-rubicon-moore-plasticity.md) — Maps ada-rs GoalGenerator/WillEngine, merged qualia-profile #1571, experimental Hyperon/OpenPsi, Heckhausen + Axon Rubikon, Moore tenant/NARS16×8 local learning, and thought-Git into one falsifiable three-timescale control loop. Explicit CE64/W migrations, source-root independence and independent lesion/learning tests.
+
 
 ## Source precedence
 
