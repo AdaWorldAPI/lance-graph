@@ -11,7 +11,7 @@ ndarray `hpc/{causal_diff,p64_bridge,jina/causal,entropy_ladder}.rs`.
 | # | DECISION | BASIS (user, 2026-10-17) | consequence |
 |---|---|---|---|
 | D1 | CE64 is an ISA contract, a lever read like BF16 mantissa bits; it is not storage and is not written back into | "Causaledge64 is not storage it's the 'TCP IP' ISA contract for AGI, a contract lever"; "Akin to BF16 mantissa bits" | no "result lands in 59..63" designs; no retiring of contract bits as storage |
-| D2 | CE64 stays 64 bits; no CE128 user asked "Would it improve anything to switch to causaledge128 or would it dillute the mantissa reading as a wire format"; the session answered stay at 64 and the user did not reopen it | widening would dilute the mantissa reading of the wire |
+| D2 | CE64 stays 64 bits; no CE128 | user asked "Would it improve anything to switch to causaledge128 or would it dillute the mantissa reading as a wire format"; the session answered stay at 64 and the user did not reopen it | widening would dilute the mantissa reading of the wire |
 | D3 | There is ONE CE64 layout. Align every reader on it, migrate, catalog. No renames | "There is no other layouts / We just need to aligh on one / And migrate and catalog"; "Don't rename, use what exists and harden the bit layout to be canonical" | ndarray's three divergent layouts are migration targets, not alternatives |
 | D4 | The layout is three regions: bits 0..23 S/P/O payload (read as palette256 codes or as an ISA register), bits 24..39 F/C (palette256 or ISA register), bits 40..63 a 24-bit fixed contract with one meaning for every reader | "causaledge64 is 24 bit spo payload that can be read either as palette256 or ISA register / And FC that can be read either as palette256 or ISA register / And 24 bit fixed contract" | `causal_edge::layout` v2 is the canon; domains choose only what payload palette codes mean |
 | D5 | NARS16x8 / the Moore tenant reuses the same layout and omits the bits locality already answers | "NARS16X8 reuses it for Moore tenant / By omitting 8 Bits when locality already answers the 8 Bits" | `MooreNars16` = contract 24 − orientation 3 (43..45) − W 6 + polarity 1 = 16 bits (`moore_tenant.rs:107-219` on main at 124eb6cf). Since D-CGW-1 (#1594) 43..45 is `Orientation`; the Moore reading takes `Core` only and refuses an oriented edge (`MooreRefusal::Oriented`), its direction being `MooreDirection { slot, polarity }` |
@@ -27,7 +27,9 @@ ndarray `hpc/{causal_diff,p64_bridge,jina/causal,entropy_ladder}.rs`.
 - **SPOFC per synapse fills the three Moore tenants.** Per lane:
   `MoorePalettePairs` (u8:u8) = P and O palette codes; `Nars16x8` (u8:u8) = F and C;
   `MooreNars16` = the contract part; locality answers S (the centre cell), the direction (the
-  slot) and W (the membrane). 48 stored + 16 answered = 64, a full CE64 per synapse.
+  slot, 3 bits of orientation) and W (the membrane, 6). The 48 stored bits are 47 CE64
+  bits plus the Moore-local polarity bit, which has no CE64 home; locality answers 17
+  (S 8 + orientation 3 + W 6). 47 + 17 = 64, a full CE64 per synapse.
   This would give the CANDIDATE `Nars16x8` (`moore_tenant.rs:8`) its reading.
 - **Local NARS is triangle closure inside the 3×3 neighbourhood.** Deduction A→B, B→C
   gives A→C when `offset(s)+offset(t)` is a Moore offset; induction/abduction over a
