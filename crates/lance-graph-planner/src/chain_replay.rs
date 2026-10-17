@@ -393,7 +393,7 @@ pub(crate) mod tests {
             (100 + rng.below(150)) as u8,
             (100 + rng.below(120)) as u8,
             CausalMask::PO,
-            0b101,
+            causal_edge::Orientation::from_code(0b101),
             InferenceType::Deduction,
             PlasticityState::S_HOT,
             0,

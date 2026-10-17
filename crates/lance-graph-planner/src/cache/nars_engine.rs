@@ -564,7 +564,7 @@ impl NarsEngine {
             head.freq,
             head.conf,
             CausalMask::from_bits(head.pearl),
-            0, // direction
+            causal_edge::Orientation::Core, // direction
             infer_type,
             PlasticityState::from_bits(0b111), // all hot
             head.temporal as u16,

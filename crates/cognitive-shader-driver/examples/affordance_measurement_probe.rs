@@ -222,7 +222,7 @@ fn busy_edge(pearl: CausalMask) -> CausalEdge64 {
         200,
         150,
         pearl,
-        0b101,
+        causal_edge::Orientation::from_code(0b101),
         PlasticityState::from_bits(0b011),
     )
     .with_inference_mantissa(-6)
@@ -372,7 +372,7 @@ mod tests {
                     v,
                     255 - v,
                     CausalMask::SPO,
-                    0b101,
+                    causal_edge::Orientation::from_code(0b101),
                     PlasticityState::from_bits(0b011),
                 );
                 same(with_code(
@@ -382,7 +382,7 @@ mod tests {
             }
             for v in 0..8u8 {
                 let mut d = base;
-                d.set_direction(v);
+                d.set_orientation(causal_edge::Orientation::from_code(v));
                 same(d);
                 let mut pl = base;
                 pl.set_plasticity(PlasticityState::from_bits(v));

@@ -116,13 +116,31 @@ fn with_code(edge: CausalEdge64, code: u8) -> CausalEdge64 {
 /// The tracked relation as an observation carrying `(f, c)`. S/P/O match the
 /// register, so `learn` never re-targets it.
 fn observation(f: u8, c: u8) -> CausalEdge64 {
-    CausalEdge64::pack_v2(1, 2, 3, f, c, CausalMask::SO, 0, PlasticityState::ALL_HOT)
+    CausalEdge64::pack_v2(
+        1,
+        2,
+        3,
+        f,
+        c,
+        CausalMask::SO,
+        causal_edge::Orientation::Core,
+        PlasticityState::ALL_HOT,
+    )
 }
 
 /// The register before any evidence: code `Direct × Open`, no confidence.
 fn initial() -> CausalEdge64 {
     with_code(
-        CausalEdge64::pack_v2(1, 2, 3, 128, 0, CausalMask::SO, 0, PlasticityState::ALL_HOT),
+        CausalEdge64::pack_v2(
+            1,
+            2,
+            3,
+            128,
+            0,
+            CausalMask::SO,
+            causal_edge::Orientation::Core,
+            PlasticityState::ALL_HOT,
+        ),
         CODE_OPEN,
     )
 }

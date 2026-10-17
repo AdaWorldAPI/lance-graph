@@ -305,7 +305,7 @@ fn initial() -> CausalEdge64 {
             177,
             91,
             CausalMask::SO,
-            0,
+            causal_edge::Orientation::Core,
             PlasticityState::ALL_HOT,
         ),
         CODE_OPEN,

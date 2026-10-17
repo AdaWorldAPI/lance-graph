@@ -122,39 +122,6 @@ impl CausalNetwork {
         results
     }
 
-    /// Detect Simpson's Paradox: find edges where S_O and _PO disagree.
-    ///
-    /// Returns edge indices with potential Simpson's Paradox,
-    /// along with the associational and interventional directions.
-    pub fn detect_simpsons_paradox(&self) -> Vec<(usize, u8, u8)> {
-        let mut paradoxes = Vec::new();
-
-        for (i, &edge) in self.edges.iter().enumerate() {
-            // Check if this edge has enough evidence
-            if edge.confidence() < 0.5 {
-                continue;
-            }
-
-            // Compare direction at S_O (association) vs _PO (intervention)
-            // We need to query neighbors at both levels to get directions.
-            // Simplified: check if the edge's own direction bits suggest
-            // conflicting signals across planes.
-            let dir = edge.direction();
-            let s_path = dir & 0b001 != 0; // S pathological
-            let o_path = dir & 0b100 != 0; // O pathological
-
-            // If subject is pathological AND outcome is pathological,
-            // but the predicate (treatment) is NOT pathological,
-            // there may be confounding: sick patients get treated,
-            // treatment works, but S_O still shows negative association.
-            if s_path && o_path && !(dir & 0b010 != 0) {
-                paradoxes.push((i, dir, edge.causal_mask() as u8));
-            }
-        }
-
-        paradoxes
-    }
-
     /// Evidence audit: trace how a specific edge's truth value evolved.
     ///
     /// Returns edges with the same SPO indices sorted by temporal index.

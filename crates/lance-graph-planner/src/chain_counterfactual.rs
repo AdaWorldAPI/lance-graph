@@ -305,7 +305,7 @@ mod tests {
             freq,
             conf,
             CausalMask::PO,
-            0b101,
+            causal_edge::Orientation::from_code(0b101),
             InferenceType::Deduction,
             PlasticityState::S_HOT,
             0,

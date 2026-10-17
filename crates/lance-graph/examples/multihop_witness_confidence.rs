@@ -84,7 +84,7 @@ fn main() {
                 freq0,
                 conf0,
                 CausalMask::SPO,
-                0, // direction
+                causal_edge::Orientation::Core, // direction
                 InferenceType::Revision,
                 PlasticityState::from_bits(0b111), // all hot
                 0,

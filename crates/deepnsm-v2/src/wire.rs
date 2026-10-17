@@ -15,7 +15,7 @@
 //! | 24..31 | frequency | `lance-graph-arm-discovery` [`arm_to_truth_u8`], rule `(S, P) → O` over independent verses: `f = cooccur / antecedent` |
 //! | 32..39 | confidence | the same: `c = cooccur / (cooccur + k)`, `k = 1` (the NAL horizon) |
 //! | 40..42 | Pearl ladder | the TEKAMOLO read: a Kausal lane stated on this event → `PO` (the claim sits at the intervention rung); otherwise `SO` (association) |
-//! | 43..45 | orientation / syntax | the Haspelmath function the relation is read in ([`orientation_code`]): the dative-map functions the clause's attested forms allow, narrowed by its TEKAMOLO lanes; `0` = plain core argument or undecided. The clause path ([`Origin`]) goes to the topology in 59..63 |
+//! | 43..45 | orientation / syntax | the Haspelmath function the relation is read in ([`orientation_of`]): the dative-map functions the clause's attested forms allow, narrowed by its TEKAMOLO lanes; `0` = plain core argument or undecided. The clause path ([`Origin`]) goes to the topology in 59..63 |
 //! | 46..49 | activation i4 | what this sentence's update caused: the change of the statement's arm frequency over the prior state, in eighths, clamped to `-8..=7`; `0` when the update changes nothing |
 //! | 50..52 | novelty → wisdom | the statement's rung after this update, `1` Staunen ..= `7` wisdom |
 //! | 53..58 | belief-state update | W slot into the cohort's [`WitnessTable`]: the entry that witnessed this statement's PRIOR state; `0` = first sighting or the prior is in another cohort |
@@ -109,7 +109,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use causal_edge::{CausalEdge64, CausalMask};
+use causal_edge::{CausalEdge64, CausalMask, Orientation};
 use lance_graph_arm_discovery::{arm_to_truth_u8, CandidateRule, Item};
 use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
 use lance_graph_contract::epistemic_state5::{Certification3, Epi5Gen, EpistemicState5, Topology2};
@@ -137,37 +137,37 @@ use crate::tekamolo::{read_clause, GrammarHeuristics, LaneAddress, ReadParams};
 /// The TEKAMOLO lane index of Kausal, in Te-Ka-Mo-Lo order.
 pub const KAUSAL_LANE: usize = 1;
 
-/// The orientation code of a Haspelmath function (bits 43..45): the
+/// The orientation a Haspelmath function is written as (bits 43..45): the
 /// function the relation is read in, on the dative semantic map
-/// (Haspelmath 2003, Fig. 8.1). `0` is the plain core argument (no dative-map
-/// function); `1..=7` are the seven functions below. `Judicantis` has no code.
+/// (Haspelmath 2003, Fig. 8.1). The code table is the contract's
+/// [`Orientation`]; this only names which [`DativeFunction`] each one is.
+/// `Judicantis` has no orientation.
 #[must_use]
-pub const fn orientation_code(f: DativeFunction) -> Option<u8> {
+pub const fn orientation_of(f: DativeFunction) -> Option<Orientation> {
     match f {
-        DativeFunction::Direction => Some(1),
-        DativeFunction::Recipient => Some(2),
-        DativeFunction::Experiencer => Some(3),
-        DativeFunction::Purpose => Some(4),
-        DativeFunction::Beneficiary => Some(5),
-        DativeFunction::PredicativePossessor => Some(6),
-        DativeFunction::ExternalPossessor => Some(7),
+        DativeFunction::Direction => Some(Orientation::Direction),
+        DativeFunction::Recipient => Some(Orientation::Recipient),
+        DativeFunction::Experiencer => Some(Orientation::Experiencer),
+        DativeFunction::Purpose => Some(Orientation::Purpose),
+        DativeFunction::Beneficiary => Some(Orientation::Beneficiary),
+        DativeFunction::PredicativePossessor => Some(Orientation::PredicativePossessor),
+        DativeFunction::ExternalPossessor => Some(Orientation::ExternalPossessor),
         DativeFunction::Judicantis => None,
     }
 }
 
-/// The function an orientation code names; `None` for `0` (core argument)
-/// and anything above 7.
+/// The function an orientation names; `None` for [`Orientation::Core`].
 #[must_use]
-pub const fn orientation_function(code: u8) -> Option<DativeFunction> {
-    match code {
-        1 => Some(DativeFunction::Direction),
-        2 => Some(DativeFunction::Recipient),
-        3 => Some(DativeFunction::Experiencer),
-        4 => Some(DativeFunction::Purpose),
-        5 => Some(DativeFunction::Beneficiary),
-        6 => Some(DativeFunction::PredicativePossessor),
-        7 => Some(DativeFunction::ExternalPossessor),
-        _ => None,
+pub const fn orientation_function(o: Orientation) -> Option<DativeFunction> {
+    match o {
+        Orientation::Core => None,
+        Orientation::Direction => Some(DativeFunction::Direction),
+        Orientation::Recipient => Some(DativeFunction::Recipient),
+        Orientation::Experiencer => Some(DativeFunction::Experiencer),
+        Orientation::Purpose => Some(DativeFunction::Purpose),
+        Orientation::Beneficiary => Some(DativeFunction::Beneficiary),
+        Orientation::PredicativePossessor => Some(DativeFunction::PredicativePossessor),
+        Orientation::ExternalPossessor => Some(DativeFunction::ExternalPossessor),
     }
 }
 
@@ -815,25 +815,25 @@ pub fn wire(
                 if f & lanes != 0 {
                     f &= lanes;
                 }
-                let code = match f.count_ones() {
-                    0 => 0,
+                let orientation = match f.count_ones() {
+                    0 => Orientation::Core,
                     1 => {
                         let func = DativeFunction::ALL[f.trailing_zeros() as usize];
-                        orientation_code(func).unwrap_or_else(|| {
+                        orientation_of(func).unwrap_or_else(|| {
                             rep.orientation_unrepresented += 1;
-                            0
+                            Orientation::Core
                         })
                     }
                     _ => {
                         rep.orientation_ambiguous += 1;
                         undecided[k] = true;
-                        0
+                        Orientation::Core
                     }
                 };
-                if code != 0 {
+                if orientation != Orientation::Core {
                     rep.orientation_coded += 1;
                 }
-                rows[first + k].edge.set_direction(code);
+                rows[first + k].edge.set_orientation(orientation);
             }
         }
 
@@ -1130,26 +1130,27 @@ mod tests {
         EpistemicState5::decode(Epi5Gen::V1, e.epistemic_raw5()).unwrap()
     }
 
-    /// The seven listed functions round-trip through codes 1..=7; code 0 is
-    /// the plain core argument; Judicantis has no code.
+    /// The seven listed functions round-trip through the contract's codes
+    /// 1..=7; `Core` (0) is the plain core argument; Judicantis has none.
     #[test]
     fn orientation_codes_round_trip() {
         for f in DativeFunction::ALL {
-            match orientation_code(f) {
-                Some(c) => assert_eq!(orientation_function(c), Some(f)),
+            match orientation_of(f) {
+                Some(o) => assert_eq!(orientation_function(o), Some(f)),
                 None => assert_eq!(f, DativeFunction::Judicantis),
             }
         }
         let codes: Vec<u8> = DativeFunction::ALL
             .iter()
-            .filter_map(|&f| orientation_code(f))
+            .filter_map(|&f| orientation_of(f))
+            .map(Orientation::code)
             .collect();
         assert_eq!(
             codes,
             [1, 2, 3, 4, 5, 6, 7],
             "all seven non-zero states used"
         );
-        assert_eq!(orientation_function(0), None);
+        assert_eq!(orientation_function(Orientation::Core), None);
     }
 
     #[test]
@@ -1169,7 +1170,11 @@ mod tests {
         assert_eq!(last.novelty_wisdom(), 3);
         assert_eq!(epi(last).certification(), Certification3::Related);
         assert_eq!(epi(last).topology(), Topology2::Direct);
-        assert_eq!(last.direction(), 0, "no attested form: plain core argument");
+        assert_eq!(
+            last.orientation(),
+            Orientation::Core,
+            "no attested form: plain core argument"
+        );
         assert_eq!(last.causal_mask(), CausalMask::SO);
         // The rows of one statement are its time series.
         let rungs: Vec<u8> = rows.iter().map(|r| r.edge.novelty_wisdom()).collect();
@@ -1398,7 +1403,7 @@ mod tests {
         let (rows, rep) = run(&[v]);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].origin, Some(Origin::SubjRelative));
-        assert_eq!(rows[0].edge.direction(), 0);
+        assert_eq!(rows[0].edge.orientation(), Orientation::Core);
         assert_eq!(rows[0].loci.at(Locus::Antecedent), 1);
         assert_eq!(rep.antecedent_bound, 1);
         assert_eq!(epi(rows[0].edge).topology(), Topology2::IndirectKnown);
@@ -1477,7 +1482,11 @@ mod tests {
             gave_to(vec![]),
             vec![form(TO, &[DativeFunction::Recipient])],
         );
-        assert_eq!(w.rows[0].edge.direction(), 2, "Recipient");
+        assert_eq!(
+            w.rows[0].edge.orientation(),
+            Orientation::Recipient,
+            "Recipient"
+        );
         assert_eq!(w.report.orientation_coded, 1);
         let w = run_forms(
             gave_to(vec![]),
@@ -1486,7 +1495,7 @@ mod tests {
                 &[DativeFunction::Direction, DativeFunction::Recipient],
             )],
         );
-        assert_eq!(w.rows[0].edge.direction(), 0);
+        assert_eq!(w.rows[0].edge.orientation(), Orientation::Core);
         assert_eq!(w.report.orientation_ambiguous, 1);
         // A second clause without the form stays at 0.
         let mut second = vec![Reading::stop()];
@@ -1497,8 +1506,8 @@ mod tests {
         );
         assert_eq!(w.rows.len(), 2);
         assert_eq!(
-            w.rows[1].edge.direction(),
-            0,
+            w.rows[1].edge.orientation(),
+            Orientation::Core,
             "the form is in the other clause"
         );
     }
@@ -1539,9 +1548,17 @@ mod tests {
         )
         .unwrap();
         assert!(w.rows[0].tekamolo[3].is_some(), "the Lokal lane landed");
-        assert_eq!(w.rows[0].edge.direction(), 1, "Direction");
+        assert_eq!(
+            w.rows[0].edge.orientation(),
+            Orientation::Direction,
+            "Direction"
+        );
         let w = wire(&[(1, 1)], &ins, 1, &abi(), None, ReadParams::RIGHT_CORNER).unwrap();
-        assert_eq!(w.rows[0].edge.direction(), 0, "no lane: undecided");
+        assert_eq!(
+            w.rows[0].edge.orientation(),
+            Orientation::Core,
+            "no lane: undecided"
+        );
     }
 
     /// Quorum points at the nearest agreeing row, Contradiction at the
@@ -1571,7 +1588,7 @@ mod tests {
         let r = rows
             .get(1)
             .expect("the certain triple survives the ambiguity");
-        assert_eq!(r.edge.direction(), 0);
+        assert_eq!(r.edge.orientation(), Orientation::Core);
         assert_eq!(epi(r.edge).topology(), Topology2::Unknown);
         assert_eq!(r.edge.novelty_wisdom(), 1, "unresolved: no climb");
     }

@@ -23,7 +23,7 @@ as current behaviour and the diagram's name as a proposed interpretation.
 | 24..31 | F, frequency | `frequency_u8` | same |
 | 32..39 | C, confidence | `confidence_u8` | same |
 | 40..42 | Pearl ladder: asks the causal question | `CausalMask` (`pearl.rs`): `SO` association, `PO` intervention, `SPO` counterfactual, `SP` confounder detection, plus the marginals `None`, `O`, `P`, `S` | same. The diagram's "ablation" row has no mask of its own: ablation is the counterfactual edit (a cut), as the diagram's reasoning loop also says |
-| 43..45 | orientation / syntax: which way the relation is read | `direction()`: a 3-bit triad, one "pathological" sign bit per S, P, O plane | different reading. Grammar, Gestalt, Moore and relation direction are not implemented on these bits |
+| 43..45 | orientation / syntax: which way the relation is read | `orientation()` → `Orientation` (`orientation.rs`): 0 `Core`, then the seven Haspelmath dative-map functions (Direction, Recipient, Experiencer, Purpose, Beneficiary, Predicative possessor, External possessor) | same (D-CGW-1). The old S/P/O "pathological" sign triad was removed: nothing in production wrote it. A Moore lane writes `Core`; its direction is its slot and polarity |
 | 46..49 | activation i4: +7 excitation … −8 inhibition | signed i4 inference mantissa: sign = chain direction, magnitude = NARS rule index; +6 Intervention, −6 Counterfactual | different reading. In code this field names the inference operation, not an excitation level |
 | 50..52 | entropy / novelty: how unresolved or surprising | `PlasticityState`: one bit per S, P, O plane, hot = accepts palette reassignment under evidence pressure | different reading. Plasticity is related to how settled a plane is, but it is not an entropy measure |
 | 53..58 | belief-state update: witness / G breadcrumb | `w_slot()`: witness corpus root handle, 0..=63, 0 = no anchor. The G-slot was dropped in v2 (L-3) | partly. The six bits hold one handle; the W1 → W2 → W3 history in the diagram is not stored in the edge |
@@ -49,12 +49,12 @@ as current behaviour and the diagram's name as a proposed interpretation.
 Three things are kept apart:
 
 - **Physical encoding**: which bits a field occupies (`layout.rs`).
-- **Declared reading**: what those bits mean for a given tenant. The S/P/O
-  sign triad on bits 43..45 is the one reading implemented today. It does
-  not oblige every future tenant to read those bits the same way, and a
-  different reading (for example a Moore slot plus polarity, with the axis
-  fixed by the tenant's HHTL address) does not reconstruct the sign triad.
-  Readings are told apart by a versioned binding, never inferred.
+- **Meaning**: what those bits mean. Each field has one meaning everywhere,
+  fixed by the `causal-edge` contract, like a wire format (D-CGW-1). No
+  tenant reads a field its own way; a field changes meaning only by amending
+  the contract once, with every reader migrated in the same change. Readings
+  that are not the field's meaning (qualia, a Moore slot and polarity) sit
+  beside the edge in the row, never inside it.
 - **ISA operation**: what an instruction computes on the declared reading
   (`crates/causal-edge/src/isa.rs`). The decoder executes only the
   implemented inference codes, and each instruction declares which fields
@@ -62,9 +62,9 @@ Three things are kept apart:
 
 ## Open
 
-- Whether bits 43..52 should be re-read as orientation, activation and
-  novelty. That would change the meaning of bits that existing code writes,
-  so it needs a version gate (`I-LEGACY-API-FEATURE-GATED`). It is not done
-  here.
+- Bits 43..45 are settled as the orientation (D-CGW-1). Bits 46..49 stay
+  the inference mantissa; activation moves to a row field (D-CGW-9). Bits
+  50..52 still carry two writers' meanings (plasticity in `learn`, the
+  novelty → wisdom rung in `wire`) and need a ruling.
 - Where a belief-update history longer than one witness handle lives. It is
   not in the edge.

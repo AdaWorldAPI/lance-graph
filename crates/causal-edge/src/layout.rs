@@ -11,7 +11,8 @@ pub const O_SHIFT: u32 = 16;
 pub const FREQ_SHIFT: u32 = 24;
 pub const CONF_SHIFT: u32 = 32;
 pub const CAUSAL_SHIFT: u32 = 40;
-pub const DIR_SHIFT: u32 = 43;
+/// Orientation (bits 43..45); see [`crate::orientation::Orientation`].
+pub const ORIENT_SHIFT: u32 = 43;
 
 // ── v1→v2 EXPANDED field ────────────────────────────────────────────────────
 /// Inference mantissa: 4-bit signed (−8..+7).
@@ -125,7 +126,7 @@ const _LAYOUT_COVERAGE: () = {
         | (BYTE_MASK  << FREQ_SHIFT)              // bits 24-31
         | (BYTE_MASK  << CONF_SHIFT)              // bits 32-39
         | (BITS3_MASK << CAUSAL_SHIFT)            // bits 40-42
-        | (BITS3_MASK << DIR_SHIFT)               // bits 43-45
+        | (BITS3_MASK << ORIENT_SHIFT)            // bits 43-45
         | (BITS4_MASK << INFER_SHIFT)             // bits 46-49 (4b signed mantissa)
         | (BITS3_MASK << PLAST_SHIFT)             // bits 50-52 (shifted from v1)
         | (BITS6_MASK << W_SHIFT)                 // bits 53-58 (NEW)
@@ -347,8 +348,8 @@ impl CausalTopology {
 ///   `ReasoningBand::Counterfactual`.
 /// - `Perspective` = perspective/decentration reasoning (I/Thou/It,
 ///   Self/Other/World). This is **not**
-///   [`super::edge::CausalEdge64::direction`] (bits 43-45), the
-///   pathology-per-plane sign triad.
+///   [`super::edge::CausalEdge64::orientation`] (bits 43-45), the function
+///   a relation is read in.
 /// - `Meta` = reasoning ABOUT reasoning/evidence/revision (meta-cognition),
 ///   independent of every other field on the edge.
 /// - `Transcendent` = mechanically, the highest ordinal this 3-bit
@@ -401,7 +402,7 @@ pub enum ReasoningBand {
     /// inference mantissa's −6 slot.
     Counterfactual = 4,
     /// Perspective/decentration reasoning. See the orthogonality note re:
-    /// `direction`.
+    /// `orientation`.
     Perspective = 5,
     /// Meta-cognitive reasoning (reasoning about reasoning/evidence/revision).
     Meta = 6,
