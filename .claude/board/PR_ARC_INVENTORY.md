@@ -2,7 +2,7 @@
 
 - **Added:** entry `2026-10-17-ce64-one-layout-moore-synapse-membrane.md` (decisions D1–D15 with quotes; working model SPOFC per synapse, 47 + 17 = 64; CE64 reader catalog; open list); arc entry for #1594; STATUS_BOARD D-CGW-1 → Shipped; LATEST_STATE line.
 - **Locked:** one CE64 layout (24-bit SPO payload, 16-bit F/C, 24-bit contract); every other reader migrates to it, nothing is renamed.
-- **Deferred / open:** `MixedWitness` removal, Nars16x8 = F:C ratification, "fired" definition, evidence stamp, Hebbian decay, `ndarray::ce64` home, Simpson branch. The ndarray readers (#365 jina, #366 causal_diff, compat PR) and the cross-repo conformance test follow.
+- **Deferred / open:** `MixedWitness` removal, Nars16x8 = F:C ratification, "fired" definition, evidence stamp, Hebbian decay, `ndarray::ce64` home, Simpson branch. The ndarray readers (#365 jina, the compat PR) and the cross-repo conformance test follow; `causal_diff::CausalEdge64` is a weight-diff record, not a CE64, and stays open (#366 closed: it wrote non-palette values into S/P/O).
 - **Confidence:** board-index checks green; Codex P2 (missing D2 table cell, wrong bit sum) fixed in `a868112c`.
 
 ## 2026-10-17 — lance-graph PR #1594 (merged `8f50cd9e`, branch `ccr-9f3b8075-74u47l-cgw1`, head `0ee072cb`, 10 commits) — D-CGW-1: CE64 bits 43..45 are the orientation
