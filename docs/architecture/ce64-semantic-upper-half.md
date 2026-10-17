@@ -68,3 +68,13 @@ Three things are kept apart:
   novelty → wisdom rung in `wire`) and need a ruling.
 - Where a belief-update history longer than one witness handle lives. It is
   not in the edge.
+
+> ⊘ **2026-10-17 DECISION (BASIS: the user's bit diagram and rulings of that
+> day; entry `2026-10-17-epistemic-frontier-clicks.md`).** "Bits 46..49 stay
+> the inference mantissa; activation moves to a row field (D-CGW-9)" above is
+> superseded: 46..49 = activation i4 (+7 excitation … −8 inhibition), and the
+> operation stays in the running thought, never in the result edge. The
+> opcode reading in `isa.rs` becomes a declared legacy reading (D-HL-1).
+> Bits 53..58 are no longer a witness handle: W = the thought layer the state
+> belongs to (0 givens, 1..63 hypotheses); `WitnessTable` is withdrawn as a
+> foreign key. Map: `.claude/knowledge/epistemic-frontier-capstone.md`.
