@@ -1108,7 +1108,8 @@ the runtime Blackboard. Keep them architecturally distinct.
   DECISION (2026-10-14): Haiku is no longer on the forbidden list. It is the
   default for cheap harvest discovery: one question over a closed, named
   search space, returning candidates, counts or verbatim quotes with their
-  locations — never a conclusion. Its main job is deep mapping of the
+  locations — never a conclusion. Its tokens are cheap enough that reading
+  every file in full is the default, never rationed by a brief. Its main job is deep mapping of the
   substrate, whose token size makes reading it on the main thread too
   expensive: a Haiku mapper turns one bounded unit into a compact fact map,
   and the orchestrator reasons over the map. Six cards carry the contract:

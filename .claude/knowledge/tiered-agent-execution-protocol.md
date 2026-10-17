@@ -245,6 +245,20 @@ checks costing more than a Sonnet run, or Haiku is proposed for edits.
 | `spec-editor` | per-edit APPLIED / REFUSED for exact edits to one file | Read, Edit |
 | `guarded-executor` | a run-record for a pre-written command card | Bash, Read, Write (its own run-record only) |
 
+### Reading is free: briefs never ration it (DECISION 2026-10-17)
+
+DECISION (2026-10-17): "Their tokens are so immensely cheap that reading
+becomes the normal at no cost, that's the whole point." BASIS: the first
+wiring maps (five slices over PRs #1447-#1596) came back PARTIAL. The
+orchestrator's brief had said "read the first 120 lines", and the mappers
+substituted grep scans and 40-line windows for reading. A Haiku card reads
+every file it reports on in full, every page; a search hit is only where to
+read. A brief must never cap reading depth (first N lines, one section); it
+caps the search SPACE. A card given such a cap reads the whole file anyway
+and notes it. Each card carries this as its "Read in full" section.
+REVISIT WHEN: a single file exceeds what a Haiku context can hold; then the
+brief splits the file into named pages, all of which are read.
+
 ### What makes a brief Haiku-sized
 
 - ONE question, answerable as a list, a count or a quote.
