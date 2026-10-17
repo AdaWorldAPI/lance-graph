@@ -54,7 +54,9 @@ capstone, `.claude/knowledge/epistemic-frontier-capstone.md` (merged as
 #1597); its lines are cited as `(#1597)`.
 
 **Vocabulary (DECISION 2026-10-17).** The unit is a **thought**, numbered
-`0..63` (thought 0 = givens, 1..63 = hypotheses; the W field). "Lane" is
+`0..=63`, 64 in all (thought 0 = givens, `1..=63` = the 63 hypotheses; the
+W field, CE64 bits 53..=58). Ranges are written inclusive (`..=`) so no
+reader takes them as Rust's half-open `0..63`, which stops at 62. "Lane" is
 reserved for SoA lanes: each thought owns up to 32 lane-tables (lane 0
 identity, 1 edge, 2..31 value), so up to 2,048 lane-tables
 (`.claude/plans/ce64-hypothesis-layers-v1.md:386-391`). The model's
@@ -118,7 +120,7 @@ used for SoA lanes". SCOPE: docs, code and PR text from here on.
   supplied the value, so their evidence is not conflated."
 - `#1597` capstone `:148`: W and the written-by word name the lane; they point
   nowhere. Its D-HL-1 note records W (CE64 53..58) as the thought layer
-  (0 givens, 1..63 hypotheses).
+  (0 givens, `1..=63` hypotheses).
 
 ### 5. Independence decided by source bits, not by the table — WIRED (probe not run)
 
@@ -237,7 +239,8 @@ table; when it is done it is flattened (squash-committed) into main, which
 frees its slot so a new thought branch can open. BASIS: "A thought table is
 compute and storage. It just needs to flatten/flush/squash the commit to the
 main to open new thought branches. Same as if you use GitHub and max 64
-branches." The squash is the D-HL-8 commit. Consequences for the open
+branches." The 64 are thought 0 (main) plus 63 branches, so at most 63
+branches are open at once. The squash is the D-HL-8 commit. Consequences for the open
 points: O2 is closed (both), N2 is answered (a thought holds its own loop
 state; its writes stay in its branch until the squash), and O4 narrows to
 the squash itself (derived facts live in the branch; only the squash writes
@@ -269,7 +272,7 @@ and nothing in it is built for this purpose yet.
 |---|---|---|
 | main | thought 0, the givens of the current sealed version | givens table per (classid, sealed version), D-HL `:702-725` |
 | commit on main | a new sealed version | a Lance version |
-| branch | thought 1..63, a sparse delta over main | the per-thought delta, D-HL `:16-19` |
+| branch | thought `1..=63`, a sparse delta over main | the per-thought delta, D-HL `:16-19` |
 | diff | the thought's written rows | presence plane and written-by word |
 | merge-base | the sealed version the thought branched from | Lance version number |
 | squash merge | flatten a thought into the next sealed version | D-HL `:19-20` ("a layer that clears a validation ladder is composited into the base"); the D-HL-8 commit, unbuilt |
@@ -348,7 +351,7 @@ Points this ruling leaves to design, not yet decided:
   fact's source bitset (D-HL-3); otherwise revision in main cannot tell an
   echo from an independent confirmation (G1).
 - **Branch count.** Main is thought 0 (the givens), so 63 hypothesis
-  branches (1..63) can be open at once beside it (`:702-705`).
+  branches (`1..=63`) can be open at once beside it (`:702-705`).
 - **Simpson.** Squashing several per-stratum branches into one main is the
   amalgamation the Simpson map warns about (O5); strata need to survive the
   squash as a declared axis.
@@ -374,7 +377,7 @@ replayable transitions) but not its records.
 
 | # | point | sources |
 |---|---|---|
-| O1 | CLOSED 2026-10-17: the word is **thought** (`0..63`); "lane" stays the SoA lane. | D-HL `:386-391`; vocabulary paragraph above |
+| O1 | CLOSED 2026-10-17: the word is **thought** (`0..=63`); "lane" stays the SoA lane. | D-HL `:386-391`; vocabulary paragraph above |
 | O2 | CLOSED 2026-10-17: both — a thought table is compute and storage, squash-committed to main like a git branch (row 11). Was: session or storage: D-HL says the 64 thoughts are session addresses, not storage; the capstone says a thought's materialization is its table's sparse storage layer. If kept, a cached population needs its own type over the same word layout, never `AlphaMask`. | D-HL `:474`; `#1597` `:148`; photo-probe `:57-63` |
 | O3 | Precedence or fold: a merged read uses "higher thought index wins a shared lane", an overwrite rule; set questions use presence folds. Which reads use which is not written down. | D-HL `:412`, `:491`; H14c `:93-95` |
 | O4 | NARROWED 2026-10-17: derived facts live in the thought's branch; only the squash writes main (row 11). Was: derived facts written into a table versus split-tunnel rule 7 (derived reads write nothing) and law A1 (only demanded population writes). | split-tunnel rule 7; chained-hop `:51` |

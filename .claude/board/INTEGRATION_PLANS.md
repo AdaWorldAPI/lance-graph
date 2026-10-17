@@ -2,7 +2,7 @@
 
 **Status:** D-TGA-0..6 PROPOSAL, test-first; nothing built.
 
-- Thoughts 1..63 branch off main (thought 0, the givens); `land` squashes into the next sealed version through the revision gate; `squash_into` keeps a partial squash as an intermediate thought; `rebase` is four masks and moves no data.
+- Thoughts `1..=63` branch off main (thought 0, the givens); `land` squashes into the next sealed version through the revision gate; `squash_into` keeps a partial squash as an intermediate thought; `rebase` is four masks and moves no data.
 - A thought's delta is the alpha overlay (the attention saccade), carried to 64 thoughts; the alpha doc's rule against reference data in the overlay is met because `land` writes the next sealed version.
 - Missing piece: a read plane R per thought (D-TGA-2).
 

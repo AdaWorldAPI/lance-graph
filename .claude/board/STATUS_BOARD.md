@@ -259,7 +259,7 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-HL-7** | SparseDelta record through the split-tunnel append | Queued | replay composite = in-memory composite; dropping one delta changes only its rows |
 | **D-HL-8** | Validation ladder: when a layer may commit | Queued | some rung beats "commit everything" on oracle agreement, with a no-meta control |
 | **D-TGA-0** | Thought git API: pre-registration (fixtures, from-scratch oracle, disables) — `.claude/plans/thought-git-api-v1.md` | Queued | written before any code |
-| **D-TGA-1** | Thought type, branch/discard/write/diff, 64-slot limit, givens refusal | Queued | 65th branch refused; a new value on a given records a contradiction and changes nothing |
+| **D-TGA-1** | Thought type, branch/discard/write/diff, 63-branch limit (64 thoughts with main), givens refusal | Queued | 63rd branch accepted, 64th refused, slot 0 never handed out; a new value on a given records a contradiction and changes nothing |
 | **D-TGA-2** | Read plane R and status | Queued | a read outside R is never reported stale |
 | **D-TGA-3** | rebase (four masks, no data moved) | Queued | rebase-then-squash == from-scratch re-run on v+1; disables: no stale re-run, no conflict check |
 | **D-TGA-4** | land through the revision gate into the next Lance version (D-HL-8) | Queued | landing a thought that is behind is refused |

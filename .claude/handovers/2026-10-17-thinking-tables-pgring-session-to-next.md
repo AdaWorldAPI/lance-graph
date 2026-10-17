@@ -17,9 +17,9 @@ standing rules in the repo, not in a container that may be gone.
 
 ## 1b. Decisions taken late on 2026-10-17 (all in `thought-git-api-v1.md` and the wiring doc row 11)
 
-- The unit is a **thought**, `0..63`; "lane" is the SoA lane only.
+- The unit is a **thought**, `0..=63` (64 in all; ranges inclusive); "lane" is the SoA lane only.
 - A thought table is compute and storage, run like a git branch off main
-  (thought 0, the givens); max 64; partial squash into a kept intermediate.
+  (thought 0, the givens); 64 thoughts = main + at most 63 branches; partial squash into a kept intermediate.
 - The full git model applies; rebase is designed (four masks, no data moved),
   needs a read plane R.
 - A thought's delta IS the alpha overlay (the attention saccade).
@@ -32,7 +32,7 @@ standing rules in the repo, not in a container that may be gone.
 
 | # | Decision | Recommendation | Why | Caveats | Needs from you |
 |---|---|---|---|---|---|
-| 1 | ~~"Thoughts" or "lanes"~~ DECIDED 2026-10-17 | "thought", numbered `0..63`; "lane" stays the SoA lane | — | — | — |
+| 1 | ~~"Thoughts" or "lanes"~~ DECIDED 2026-10-17 | "thought", numbered `0..=63`; "lane" stays the SoA lane | — | — | — |
 | 2 | ~~Session or storage~~ DECIDED 2026-10-17 | both: compute and storage, squash-committed to main like a git branch, max 64 | — | open design points in the wiring doc row 11 (squash lands as the next sealed version through the revision gate, provenance through the squash, Simpson) | — |
 | 3 | ~~Thought table as loop state~~ ANSWERED by #2 | a thought holds its own loop state in its branch until the squash | — | law A1 amendment still to be written for the squash | — |
 | 4 | Push the ruff PG-Ring harvester | push + draft PR | it is the only durable copy of the harvest method | PG-Ring is GPL-3.0: the example reads structure only, never vendors code | approval to push to ruff |
@@ -89,7 +89,7 @@ The full set lives in session memory, which does not survive a new
 container; these are the ones that bit this session.
 
 - Read before concluding: search finds candidates, a full Read decides.
-- Vocabulary: the 64 hypothesis tables are **thoughts** (`0..63`, 0 = givens);
+- Vocabulary: the 64 hypothesis tables are **thoughts** (`0..=63`, 0 = givens);
   "lane" means an SoA lane only.
 - No foreign keys, no gather, no foreign lanes: a join is a layout that
   co-locates the pair at one coordinate; hops are range intersections,

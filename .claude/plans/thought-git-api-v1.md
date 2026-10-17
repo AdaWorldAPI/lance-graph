@@ -3,7 +3,7 @@
 **Status:** PROPOSAL, 2026-10-17. Test-first; nothing built.
 **Asked for:** "What would be genuinely valuable would be a git like API."
 **Model (decided 2026-10-17, `.claude/knowledge/thinking-tables-wiring.md`
-row 11):** a thought table is compute and storage. Thoughts 1..63 branch off
+row 11):** a thought table is compute and storage. Thoughts `1..=63` branch off
 main (thought 0, the givens of the current sealed version); a finished thought
 is squash-committed into the next sealed version, freeing its slot; a
 selection of thoughts can be squashed into a kept intermediate thought; the
@@ -14,7 +14,7 @@ rest of git applies.
 One small surface over pieces that exist, so a caller reasons about thoughts
 the way they reason about branches, and every verb lowers to mask algebra and
 Lance versions. No new algebra, no interpreter, no strings as addresses:
-a thought is its number (`0..63`), a version is a Lance version, a cell is a
+a thought is its number (`0..=63`, 64 in all), a version is a Lance version, a cell is a
 coordinate; names are labels resolved once through the label codebook.
 
 ## What exists and is reused
@@ -62,13 +62,13 @@ What changes in the overlay to carry it:
 
 ```text
 Main            (sealed version v, givens table thought 0)
-  .branch()                  -> Result<Thought, BranchesFull>   // takes a free slot 1..63
+  .branch()                  -> Result<Thought, BranchesFull>   // takes a free slot in 1..=63
   .version()                 -> LanceVersion
   .checkout(v)               -> Main                            // read-only, Lance version read
   .log()                     -> versions with the squash that made each
   .blame(addr, lane)         -> SourceBits                      // D-HL-3
 
-Thought         (slot 1..63, merge_base = the version it branched from)
+Thought         (slot 1..=63, merge_base = the version it branched from)
   .write(addr, lane, cell, source)                              // W; givens refuse, contradiction recorded
   .read(aperture)            -> mask                            // R, recorded (new plane)
   .diff()                    -> mask                            // W
@@ -180,9 +180,12 @@ carry has to be checked before choosing.
   any code.
 - [ ] **D-TGA-1** The alpha overlay carried to 64 thoughts (a thought axis
   beside the rung lanes, presence-rank lookup instead of `HashMap`); `branch` /
-  `discard` / `write` / `diff`; 64-slot limit; givens refusal with a
-  contradiction record. Falsifier: the 65th branch is refused; a write to a
-  given's lane with a new value records a contradiction and changes nothing.
+  `discard` / `write` / `diff`; limit of 63 branches (64 thoughts with
+  main); givens refusal with a contradiction record. Falsifiers at both
+  edges: with 62 branches open the 63rd `branch()` succeeds and gets the
+  last free slot; with 63 open the 64th is refused; slot 0 is never handed
+  out; a write to a given's lane with a new value records a contradiction
+  and changes nothing.
 - [ ] **D-TGA-2** Read plane `R` and `status`. Falsifier: a read outside
   `R` is never reported stale.
 - [ ] **D-TGA-3** `rebase`. Falsifier: rebase-then-squash equals a
