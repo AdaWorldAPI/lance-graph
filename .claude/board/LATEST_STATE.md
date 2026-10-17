@@ -1,3 +1,8 @@
+## 2026-10-17 — main after #1598; thinking-tables wiring in PR
+
+- **On main since #1594:** #1592 (ledger revision c), #1595 (CE64 one layout), #1596 (Simpson co-research, P-pool test), #1598 (Haiku cards read in full, output capped).
+- **In PR:** `.claude/knowledge/thinking-tables-wiring.md` and entry `2026-10-17-thinking-tables-wiring.md`; arc entries for #1592, #1595, #1596, #1598.
+
 ## 2026-10-17 — CE64 one layout; Moore tenant as synapse, membrane and local NARS (board, #1595 in PR)
 
 - Entry `2026-10-17-ce64-one-layout-moore-synapse-membrane.md`: eleven decisions with their basis (CE64 = 64-bit ISA contract in three regions, one layout aligned by migration, Moore reuses it minus what locality answers, the witness is two neighbours agreeing on a membrane, Hebbian wiring = SPOFC evidence with local NARS), the CE64 reader catalog, open items. No code.

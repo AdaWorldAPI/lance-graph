@@ -1,3 +1,31 @@
+## 2026-10-17 — lance-graph PR #1598 (merged `c90549ec`, branch `ccr-9f3b8075-74u47l-haiku-read-in-full`, head `b2a5cfc5`, 4 commits) — Haiku cards: read in full, output capped
+
+- **Added:** on all six Haiku cards: every file in the brief is read in full (a brief may cap the search space, never the reading depth); output is capped (128k tokens, thinking included) while reading is not; past about 10,000 words a result is split into parts or reported PARTIAL with a `remaining:` line; `tiered-agent-execution-protocol.md` cites the Haiku 5.5 limits from the platform docs.
+- **Locked:** none (agent cards and protocol only).
+- **Deferred / open:** none.
+- **Confidence:** medium (rules written after a measured 12,255-word single write and two PARTIAL maps).
+
+## 2026-10-17 — lance-graph PR #1596 (merged `4680ba8f`, branch `ccr-9f3b8075-74u47l-simpson`, head `4241f541`, 2 commits) — co-research: Simpson's paradox as an epistemic signal
+
+- **Added:** entry `2026-10-17-coresearch-simpson-epistemic.md` (premise split into four concepts; 14-row crosswalk; seams SEAM-C2M, SEAM-STRATUM-PROVENANCE, SEAM-ADMISSIBLE-MASK, SEAM-PROPOSE-RESEAL; probes with silence twins); test `lance-graph-planner/tests/simpson_revision_pooling.rs` (P-pool: NAL revision of stratum beliefs equals the union recount and reverses the stratified direction).
+- **Locked:** none; the map ratifies nothing.
+- **Deferred / open:** rows 1–8 are PROBE or PARK; rows 9 (rename) and 10 (strata declared before the seal) ADOPT-NOW, not done.
+- **Confidence:** P-pool measured; the rest is an exploration map.
+
+## 2026-10-17 — lance-graph PR #1595 (merged `3443b3f3`, branch `ccr-9f3b8075-74u47l-ce64-layout-canon`, head `a868112c`, 6 commits) — CE64 one layout; Moore tenant as synapse, membrane and local NARS
+
+- **Added:** entry `2026-10-17-ce64-one-layout-moore-synapse-membrane.md` (eleven decisions with their basis); STATUS_BOARD rows.
+- **Locked:** CE64 is one 64-bit layout aligned by migration; 59..63 is one field, `EpistemicState5`.
+- **Deferred / open:** the migration work the decisions name.
+- **Confidence:** decisions recorded; no code in this PR.
+
+## 2026-10-16 — lance-graph PR #1592 (merged `a5c5d353`, branch `ccr-b2e415d9-4jfvyk`, head `7cb43b31`, 1 commit) — recovery ledger revision (c) against #1582–#1591
+
+- **Added:** `.claude/research/2026-10-recovery/LEDGER-REVISION-2026-10-16c.md`; entry `2026-10-16-ledger-revision-1582-1591.md`; arc entries for #1549 and #1581.
+- **Locked:** none (research document).
+- **Deferred / open:** the ledger's open rows.
+- **Confidence:** medium.
+
 ## 2026-10-17 — lance-graph PR #1594 (merged `8f50cd9e`, branch `ccr-9f3b8075-74u47l-cgw1`, head `0ee072cb`, 10 commits) — D-CGW-1: CE64 bits 43..45 are the orientation
 
 - **Added:** `causal_edge::Orientation` (Core + seven Haspelmath dative functions) as the one meaning of 43..45; `orientation()` / `set_orientation()`; `pack` / `pack_v2` take an `Orientation`; contract `MooreDirection { slot, polarity }` and `MooreRefusal::Oriented` (`lift_ce64` refuses an oriented edge and writes nothing); `causal-edge/tests/orientation_contract.rs`; ~85 call sites migrated across 8 crates; entry `2026-10-16-d-cgw-1-orientation-contract.md`; arc entry for #1593.
