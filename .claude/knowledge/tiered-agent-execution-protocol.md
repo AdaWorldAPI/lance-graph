@@ -259,6 +259,16 @@ and notes it. Each card carries this as its "Read in full" section.
 REVISIT WHEN: a single file exceeds what a Haiku context can hold; then the
 brief splits the file into named pages, all of which are read.
 
+The asymmetry runs the other way for OUTPUT. A Haiku response has an output
+cap far below what it can read, and its exact size is not known to the
+worker (the limit for this tier is not documented anywhere the cards can
+cite). A map or reply written in one long call can be cut off silently. Each
+card therefore carries an "Output is capped; reading is not" section:
+substrate-mapper writes long maps as numbered parts and re-reads the end of
+each; the reply-only cards stop at a whole item, report PARTIAL and list what
+remains. The orchestrator answers a PARTIAL-for-length by splitting the
+brief, never by asking for shallower reading.
+
 ### What makes a brief Haiku-sized
 
 - ONE question, answerable as a list, a count or a quote.
