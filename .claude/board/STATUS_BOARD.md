@@ -261,10 +261,10 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-TGA-0** | Thought git API: pre-registration (fixtures, from-scratch oracle, disables) — `.claude/plans/thought-git-api-v1.md` | Queued | written before any code |
 | **D-TGA-1** | Thought type, branch/discard/write/diff, 63-branch limit (64 thoughts with main), givens refusal | Queued | 63rd branch accepted, 64th refused, slot 0 never handed out; a new value on a given records a contradiction and changes nothing |
 | **D-TGA-2** | Read plane R and status | Queued | a read outside R is never reported stale |
-| **D-TGA-3** | rebase (four masks, no data moved) | Queued | rebase-then-squash == from-scratch re-run on v+1; disables: no stale re-run, no conflict check |
+| **D-TGA-3** | rebase (four masks, no data moved) | Queued | rebase-then-squash == from-scratch re-run on v+1, including a deletion in main (retract then re-derive); disables: no stale re-run, no conflict check, no retraction |
 | **D-TGA-4** | land through the revision gate into the next Lance version (D-HL-8) | Queued | landing a thought that is behind is refused |
 | **D-TGA-5** | squash_into (partial squash) and blame | Queued | blame returns original sources after slot reuse |
-| **D-TGA-6** | MergeQueue | Queued | queue result == the same thoughts landed by hand in FIFO order |
+| **D-TGA-6** | MergeQueue | Queued | independent thoughts == landed by hand in FIFO order; a thought reading another negated lands after it; a cycle through negation refused at enqueue |
 | **D-HL-9** | Hydration budget split sweep | Queued | agreement not flat in k |
 | **D-HL-10** | NAL inference ISA: `ogar-nal` loco vocabulary + mask-risc dialect (a vocabulary on the existing IR, ledger R18); detailed as D-NALP | Queued (design; after D-HL-4) | per-op parity with the CE64 register method of the same name; agreement with OpenNARS within D-HL-4's tolerance; no second IR |
 

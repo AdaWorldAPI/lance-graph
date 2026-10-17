@@ -57,6 +57,19 @@ What changes in the overlay to carry it:
 - **Lookup.** `AlphaOverlay` finds a claimed row through a `HashMap`; under
   the rule against key reads, positions become the rank in the overlay's own
   presence plane (see "No hash lookups" below).
+- **Values (Codex review on #1599).** Today a claimed overlay row carries
+  only its `AlphaStamp` in value slot 0 and zeroes the rest of the value
+  slab and the edge block (`alpha.rs`, `claim`). That records where
+  attention went, not what the thought wrote there, so `diff`, the rebase
+  value comparison, `blame` and `land` have nothing to read. Carrying the
+  overlay to thoughts therefore needs the written cells (lane, value,
+  source bits) at the same coordinate as the claim. Two layouts keep that
+  rule: (a) the claimed row's own value slab, after the stamp; (b) a sparse
+  value plane per thought indexed by the same presence rank. The choice is
+  D-TGA-1's first decision; either one changes a stored layout and needs
+  the field-isolation tests (I-LEGACY-API-FEATURE-GATED). The values a
+  thought writes are its own derivations, not reference data, so neither
+  layout conflicts with the alpha doc's rule.
 
 ## The surface (methods on carriers)
 
@@ -105,7 +118,7 @@ recurses:
 |---|---|---|
 | **relalg** (`Rel` + `normalize`, D-RA-1; proven rewrites) | the non-recursive verbs: `diff`, `status`, the four rebase masks, `land`'s up-to-date check | each is a fixed set expression over W, R, M and the givens; `normalize` simplifies it (absorption, range merging) before it lowers to one of the executions above |
 | **Datalog** (semi-naive fixpoint; recursion in the external d′ driver, D-RA-4) | the stale-read re-run, any rule a thought derives with | recursion needs μ, which relalg does not have; Δ = new AND NOT old is the same step as row 7 of the wiring doc |
-| **stratification** | `MergeQueue` order, squashes that read another thought's result negated | a negated read of a thought that has not reached its fixpoint is unsafe; FIFO landing order is the stratum order (wiring doc row 8, N1) |
+| **stratification** | `MergeQueue` order, squashes that read another thought's result negated | a negated read of a thought that has not reached its fixpoint is unsafe. FIFO order alone does not give strata (Codex review on #1599): a caller can enqueue B, which reads A negated, before A. So each thought records which thoughts it reads negated; `land` refuses B while A is unlanded, the queue orders by that dependency and keeps FIFO only among independent thoughts, and a cycle through negation is refused at `enqueue` (wiring doc row 8, N1) |
 
 The relalg path waits on D-RA-2 (the absorption defect and where the set IR
 lives, synergy map D1); the Datalog path on D-RA-4's step being rewritten
@@ -162,6 +175,13 @@ carry has to be checked before choosing.
    since `merge_base`): clean → fast-forward; same value → drop the cell;
    different value → contradiction record; `R ∧ M ∧ ¬W` → re-run the
    thought's fixpoint from that delta.
+   A semi-naive re-run only adds facts, so a deletion or changed value in
+   `M` would leave conclusions derived from the old value behind (Codex
+   review on #1599). Before the re-run, every derived cell whose derivation
+   read a cell in `R ∧ M` is retracted, then re-derived if it still follows
+   (delete-and-rederive, DRed: Gupta, Mumick, Subrahmanian 1993). This
+   needs, per derived cell, the cells it was derived from: the per-fact
+   source bitset (D-HL-3) or a read-provenance plane, decided in D-TGA-3.
 3. **Landing writes the next version.** A given is never overwritten and the
    givens table is read-only per sealed version; `land` produces version
    v+1 and the givens are rebuilt at its seal.
@@ -189,14 +209,19 @@ carry has to be checked before choosing.
 - [ ] **D-TGA-2** Read plane `R` and `status`. Falsifier: a read outside
   `R` is never reported stale.
 - [ ] **D-TGA-3** `rebase`. Falsifier: rebase-then-squash equals a
-  from-scratch re-run on v+1, cell for cell, records included. Disables: drop
-  the stale-read re-run; skip the conflict check.
+  from-scratch re-run on v+1, cell for cell, records included, on fixtures
+  that include a deletion in main (the thought derived B from A, main
+  deletes A: B must be gone after rebase). Disables: drop the stale-read
+  re-run; skip the conflict check; skip the retraction step.
 - [ ] **D-TGA-4** `land` through the revision gate into the next Lance
   version (D-HL-8). Falsifier: landing a thought that is behind is refused.
 - [ ] **D-TGA-5** `squash_into` and `blame`. Falsifier: after a partial
   squash and slot reuse, `blame` still returns the original sources.
-- [ ] **D-TGA-6** `MergeQueue`. Falsifier: three thoughts landed through the
-  queue equal the same three landed by hand in FIFO order, rebasing each.
+- [ ] **D-TGA-6** `MergeQueue`. Falsifiers: three independent thoughts
+  landed through the queue equal the same three landed by hand in FIFO
+  order, rebasing each; B enqueued before A, with B reading A negated,
+  lands after A; a cycle through negation is refused at `enqueue`.
+  Disable: order by FIFO only.
 
 ## Open
 
