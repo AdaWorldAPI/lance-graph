@@ -69,6 +69,30 @@ MergeQueue      (FIFO of thoughts ready to land)
 squashed or discarded thought cannot be written again: slot freeing is a
 compile-time property, as `discard` already is for overlays.
 
+## How the verbs are executed (the optimisation)
+
+Every verb is one of four existing executions; which one is chosen by the
+shape and density of its operands, never per verb by hand.
+
+| execution | what it is | verbs that use it |
+|---|---|---|
+| **range fold** (Schnittpunkt, `fold_ranges`) | intersect apertures symbolically before anything runs; most reads are apertures, so `R ∧ M` is often a range intersection with no plane touched | `read`, `status`, `rebase` (stale check), `checkout` bounds |
+| **presence-bit masks** | word-wise AND / AND-NOT / popcount over the 65,536-bit planes, dense and branch-free; measured 0.9–1.2 ns per 64-address word (H14c) | `diff`, `status`, `rebase` when W, R, M are dense |
+| **leapfrog seek** (`OrderedLane::seek_from`, galloping) | intersect sorted sparse address lists in time proportional to their alternation, not to the plane size | `rebase` and `status` when W, R, M are sparse; `blame` lookups |
+| **ordered merge / fold** | k-way merge of sorted sparse deltas by address in a fixed order, as `AlphaTunnel::merge` does by `(rung, seq)` | `squash_into`, `land`, `MergeQueue` (FIFO), the stale-read fixpoint re-run (semi-naive fold) |
+
+Two consequences:
+
+- **Dense vs sparse is the open measurement.** A thought usually writes few
+  cells of a 64k table, so its W is sparse while M after a big squash may be
+  dense. The crossover between mask AND and leapfrog seek is exactly the
+  OPEN rows P3/P11 of the PG-Ring catalogue (#1600); the rebase verb is that
+  probe's first real consumer.
+- **No hash lookups.** Positions inside a thought's sparse storage are the
+  rank of the address in the thought's own presence plane (popcount of the
+  bits before it). `AlphaOverlay` keeps a `HashMap` from address to slot;
+  the thought type does not copy that.
+
 ## Rules
 
 1. **Up to date before landing.** `land` refuses a thought whose
@@ -114,3 +138,5 @@ compile-time property, as `discard` already is for overlays.
 - Where the thought type lives: contract (types only) with execution in
   mask-risc / quack, as every other carrier.
 - Timings: v4 only, ns per cell, tier printed by the program.
+- The dense/sparse crossover that picks presence masks or leapfrog seek per
+  operand (catalogue P3/P11); measured, not assumed.
