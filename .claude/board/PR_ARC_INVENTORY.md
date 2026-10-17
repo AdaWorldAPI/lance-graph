@@ -1,3 +1,10 @@
+## 2026-10-17 — lance-graph PR #1595 (merged `3443b3f3`, branch `ccr-9f3b8075-74u47l-ce64-layout-canon`, head `a868112c`, 6 commits incl. a merge of main) — CE64 one layout; Moore synapse/membrane decisions recorded
+
+- **Added:** entry `2026-10-17-ce64-one-layout-moore-synapse-membrane.md` (decisions D1–D15 with quotes; working model SPOFC per synapse, 47 + 17 = 64; CE64 reader catalog; open list); arc entry for #1594; STATUS_BOARD D-CGW-1 → Shipped; LATEST_STATE line.
+- **Locked:** one CE64 layout (24-bit SPO payload, 16-bit F/C, 24-bit contract); every other reader migrates to it, nothing is renamed.
+- **Deferred / open:** `MixedWitness` removal, Nars16x8 = F:C ratification, "fired" definition, evidence stamp, Hebbian decay, `ndarray::ce64` home, Simpson branch. The ndarray readers (#365 jina, #366 causal_diff, compat PR) and the cross-repo conformance test follow.
+- **Confidence:** board-index checks green; Codex P2 (missing D2 table cell, wrong bit sum) fixed in `a868112c`.
+
 ## 2026-10-17 — lance-graph PR #1594 (merged `8f50cd9e`, branch `ccr-9f3b8075-74u47l-cgw1`, head `0ee072cb`, 10 commits) — D-CGW-1: CE64 bits 43..45 are the orientation
 
 - **Added:** `causal_edge::Orientation` (Core + seven Haspelmath dative functions) as the one meaning of 43..45; `orientation()` / `set_orientation()`; `pack` / `pack_v2` take an `Orientation`; contract `MooreDirection { slot, polarity }` and `MooreRefusal::Oriented` (`lift_ce64` refuses an oriented edge and writes nothing); `causal-edge/tests/orientation_contract.rs`; ~85 call sites migrated across 8 crates; entry `2026-10-16-d-cgw-1-orientation-contract.md`; arc entry for #1593.

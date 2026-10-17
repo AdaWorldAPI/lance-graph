@@ -9,3 +9,8 @@ license = "Apache-2.0"
 [dependencies]
 causal-edge = { path = "../causal-edge" }
 bgz17 = { path = "../bgz17" }
+
+[dev-dependencies]
+# Cross-repo CE64 conformance: ndarray's readers must agree with this crate's
+# on the same words (tests/ce64_conformance.rs).
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std", "hpc-extras"] }

@@ -137,19 +137,27 @@ impl InferenceType {
 
 /// The 64-bit causal neuron.
 ///
-/// Layout (LSB to MSB):
+/// Canonical layout (LSB to MSB; the constants live in [`crate::layout`],
+/// which is authoritative):
 /// ```text
-/// [0:7]   S palette index
-/// [8:15]  P palette index
-/// [16:23] O palette index
+/// [0:7]   S palette code (palette256)
+/// [8:15]  P palette code (palette256)
+/// [16:23] O palette code (palette256)
 /// [24:31] NARS frequency (u8, f = val/255)
 /// [32:39] NARS confidence (u8, c = val/255)
-/// [40:42] Causal mask (3 bits, Pearl's 2³)
-/// [43:45] Direction triad (3 bits, sign(dim0) per S,P,O)
-/// [46:48] Inference type (3 bits)
-/// [49:51] Plasticity flags (3 bits, hot/cold per S,P,O)
-/// [52:63] Temporal index (12 bits, 4096 time slots)
+/// [40:42] Pearl causal mask (S = 0b100, P = 0b010, O = 0b001)
+/// [43:45] Orientation (Core = 0, then the Haspelmath functions)
+/// [46:49] Inference mantissa (signed i4: Ded +1, Ind +2, Abd -1, Rev +4,
+///         Syn +5, Intervention +6, Counterfactual -6, neutral 0)
+/// [50:52] Plasticity flags (3 bits)
+/// [53:58] W slot (6 bits)
+/// [59:63] EpistemicState5 (topology 59..60, certification 61..63)
 /// ```
+///
+/// ⊘ V1-legacy: this comment used to show the pre-v2 layout (a direction
+/// triad at 43..45, a 3-bit inference at 46..48, plasticity at 49..51 and a
+/// 12-bit temporal index at 52..63). That layout survives only behind
+/// `default-features = false`; no new word is written in it.
 ///
 /// `#[repr(transparent)]`: a single-`u64` newtype whose layout is GUARANTEED
 /// identical to `u64`, so `&[CausalEdge64]` can be soundly reinterpreted as
