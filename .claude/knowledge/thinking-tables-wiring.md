@@ -243,6 +243,23 @@ state; its writes stay in its branch until the squash), and O4 narrows to
 the squash itself (derived facts live in the branch; only the squash writes
 main).
 
+**Partial squash (same day).** A selection of thoughts can also be squashed
+into an intermediate thought that is kept as a thought of its own, like
+merging several branches into an integration branch. The selected slots are
+freed except the one the intermediate occupies; the intermediate can later
+be squashed to main, or combined again. BASIS: "You could also squash a
+selection of the 64 thoughts and keep the squashed intermediate." Two
+consequences follow from slots being reused:
+
+- **Provenance cannot be the thought number.** After a squash a freed number
+  is reused by an unrelated thought, so the written-by word only says which
+  slot wrote a row now. What survives a squash, partial or to main, is each
+  fact's source bitset (D-HL-3), which is why D-HL-3 decides independence by
+  source bits and not by the thought.
+- **A partial squash is where strata can be kept.** Squashing per-year or
+  per-lens thoughts into one intermediate per stratum, instead of into main,
+  keeps the stratum axis the Simpson map asks for (O5).
+
 Points this ruling leaves to design, not yet decided:
 
 - **The squash writes the next version, not the givens table.** Only
