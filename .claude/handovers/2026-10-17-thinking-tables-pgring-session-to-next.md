@@ -12,7 +12,7 @@ standing rules in the repo, not in a container that may be gone.
 | Haiku cards: read in full, output capped | merged | #1598 |
 | Board arc entries #1592, #1595, #1596, #1597, #1598 | in #1599 | `PR_ARC_INVENTORY.md`, `LATEST_STATE.md` |
 | PG-Ring harvester | committed locally only, NOT pushed (ruff push needs the user's approval) | ruff branch `ccr-9f3b8075-74u47l-pgring-harvest`, commit `d2f4c2dcfb`, file `crates/ruff_cpp_spo/examples/harvest_pgring.rs` |
-| PG-Ring idea catalogue | not started | see §3 |
+| PG-Ring idea catalogue | done, in PR (22 rows: 11 HAVE, 7 ADOPT, 1 REFUSED, 3 OPEN) | lance-graph #1600, branch `ccr-9f3b8075-74u47l-pgring-catalogue`; `.claude/research/2026-10-17-pgring-idea-catalogue.md` |
 
 ## 2. Decisions the user still owes
 
@@ -28,7 +28,12 @@ lance-graph `edge.rs` conformance; the "bits 61..63" comment in
 cognitive-shader-driver's `Cargo.toml` (must name `EpistemicState5`, bits
 59..63, as one field).
 
-## 3. PG-Ring catalogue — how to resume
+## 3. PG-Ring catalogue — how it was built, and how to redo it
+
+The catalogue is written (#1600). Next steps it names: the dense-AND vs
+sparse-seek probe (catalogue §3.3) and the three OPEN rows. The paper text
+was read via alphaXiv (`get_paper_content`, arXiv 2608.03840, 2,145 lines
+with appendices). What follows is how to rebuild the structural harvest.
 
 Goal: a clean-room idea catalogue of PG-Ring (Gómez-Brandón, Hogan, Navarro,
 ISWC 2026, arXiv 2608.03840; ring index over BWT for property graphs) as prior
