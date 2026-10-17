@@ -81,6 +81,19 @@ shape and density of its operands, never per verb by hand.
 | **leapfrog seek** (`OrderedLane::seek_from`, galloping) | intersect sorted sparse address lists in time proportional to their alternation, not to the plane size | `rebase` and `status` when W, R, M are sparse; `blame` lookups |
 | **ordered merge / fold** | k-way merge of sorted sparse deltas by address in a fixed order, as `AlphaTunnel::merge` does by `(rung, seq)` | `squash_into`, `land`, `MergeQueue` (FIFO), the stale-read fixpoint re-run (semi-naive fold) |
 
+Above the four executions sits the choice of IR, by whether the verb
+recurses:
+
+| IR | used for | why |
+|---|---|---|
+| **relalg** (`Rel` + `normalize`, D-RA-1; proven rewrites) | the non-recursive verbs: `diff`, `status`, the four rebase masks, `land`'s up-to-date check | each is a fixed set expression over W, R, M and the givens; `normalize` simplifies it (absorption, range merging) before it lowers to one of the executions above |
+| **Datalog** (semi-naive fixpoint; recursion in the external d′ driver, D-RA-4) | the stale-read re-run, any rule a thought derives with | recursion needs μ, which relalg does not have; Δ = new AND NOT old is the same step as row 7 of the wiring doc |
+| **stratification** | `MergeQueue` order, squashes that read another thought's result negated | a negated read of a thought that has not reached its fixpoint is unsafe; FIFO landing order is the stratum order (wiring doc row 8, N1) |
+
+The relalg path waits on D-RA-2 (the absorption defect and where the set IR
+lives, synergy map D1); the Datalog path on D-RA-4's step being rewritten
+without the gather-bannered preimage.
+
 Two consequences:
 
 - **Dense vs sparse is the open measurement.** A thought usually writes few
