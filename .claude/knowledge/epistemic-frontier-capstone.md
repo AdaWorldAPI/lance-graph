@@ -60,7 +60,7 @@ IMMUTABLE ADDRESS SPACE (the frame)
       43..45 orientation (D-CGW-1)
       46..49 activation i4: +7 excitation … −8 inhibition     (DECISION 2026-10-17, see §4)
       50..52 novelty → wisdom (Staunen 1 … wisdom 7), moved by 46..49    (O2 still open)
-      53..58 W = the classid of the thinking lane (0 givens, 1..63 hypotheses)
+      53..58 W = the thought layer the state belongs to (0 givens, 1..63 hypotheses)
       59..63 EpistemicState5, ONE field: Topology2 × Certification3 (Open … Causes)
 
 FRONT ENDS (label views)                      ONE BACK END
@@ -145,7 +145,7 @@ identity". Provenance, G and evidence therefore all enter as layers:
 
 | what a reference would carry | what carries it instead |
 |---|---|
-| which thought holds a state | the lane itself: a thought runs in one of 64 isolated epistemic boundaries, and its materialization is that lane's sparse storage layer (alpha channel, split tunnel, sparse write, merge on read). The 64 lanes in storage are the thoughts that inhabit them; W and the written-by word name the lane, they point nowhere. W is to the lane what a classid is to a node: an address that routes to what the lane is |
+| which thought holds a state | the lane itself: a thought runs in one of 64 isolated epistemic boundaries, and its materialization is that lane's sparse storage layer (alpha channel, split tunnel, sparse write, merge on read). The 64 lanes in storage are the thoughts that inhabit them; W and the written-by word name the lane, they point nowhere |
 | which sources a belief rests on | a source bitset per delta, inside the lane (D-HL-3): presence bits over sources, not a reference. Independence for revision is decided by these bits, never by the lane number: one observation copied into two lanes counts once, two independent observations in one lane count twice |
 | which graph G a quad belongs to | `classid >> 16` in the address; a tenant mask |
 | the evidence behind a value | the givens layer and the hypothesis layers, compared by mask; independence decided by the source bitsets, not by lane membership |
@@ -169,25 +169,8 @@ covers all 64 bits once). One layout, every reader migrated to it (D3,
 | 43..45 | orientation | `Orientation`: `Core` + the seven dative-map functions | the reading | CURRENT-CONTRACT (D-CGW-1) |
 | 46..49 | activation i4 | +7 excitation … 0 neutral … −8 inhibition: the signed reaction, never the operation | the running thought | DECISION 2026-10-17; code still reads it as the inference mantissa (`isa.rs`), see §8 |
 | 50..52 | novelty → wisdom | Staunen 1 … wisdom 7, climbed one step at a time, moved by 46..49 | the maturation | OPEN (O2): `learn()` also reads these bits as plasticity |
-| 53..58 | W | the classid of the thinking lane: 0 givens, 1..63 hypotheses; the breadcrumb to what changed the state | the merge / materialization | DECISION 2026-10-17; three competing readings exist, see §8 |
+| 53..58 | W | the thought layer this state belongs to: 0 givens, 1..63 hypotheses; the breadcrumb to what changed the state | the merge / materialization | DECISION 2026-10-17; three competing readings exist, see §8 |
 | 59..63 | EpistemicState5 | ONE field, never split: Topology2 × Certification3 (Open, Associated, Related, Supports, CausalCandidate, Causes) | hydration; then only measured results | CURRENT-CONTRACT (`epistemic_state5.rs`) |
-
-**W as the lane's classid (WORKING-MODEL, 2026-10-17).** Read W the way
-a node's classid is read: it is pure address, and the meaning is at what it
-resolves to. Consequences:
-
-- **Zero fallback.** W = 0 is the givens lane, as classid 0 is the default
-  class: the state everything else is read against.
-- **Prerender without decode.** A reader knows from W which lane's overlay to
-  merge, without reading the value, as a classid selects the ClassView before
-  any value byte is read.
-- **Resolve once.** W resolves to the lane's definition (which thought, which
-  rules, which isolation boundary) once per session, like classid →
-  ClassView. The six bits are a lane-local short id; the lane's full identity
-  is what the 64-entry lane table holds, never a key read per edge.
-- **Not the evidence.** A classid names a class, not which instance or source
-  produced a row; W names a lane, not the sources behind a belief. Those stay
-  in the per-delta source bitset (D-HL-3).
 
 **The operation lives in the running thought, the result lives in 59..63,
 and the breadcrumb to what changed it lives in W.** Writing the operation
@@ -284,7 +267,7 @@ through the codebook; a rule or query holds coordinates, never strings.
 | # | open point | the conflict | where it is tracked |
 |---|---|---|---|
 | 1 | 46..49 | DECISION 2026-10-17 says activation; `isa.rs` executes opcodes from these bits (+1, +2, −1, +4, +5) and `ce64-semantic-upper-half.md` § Open said "stay the inference mantissa; activation moves to a row field (D-CGW-9)". Resolution proposed in the plateau (U1): the opcode reading becomes the declared "isa-v2" reading behind a version gate | plateau §4 O1; D-HL-1 |
-| 2 | W (53..58) | three readings: corpus root handle (`witness_table.rs`, unwired), the Moore membrane locality answers (`MooreNars16` omits W, entry D5/D6), and the thought layer, read as the classid of the thinking lane (DECISION 2026-10-17). `forward` / `syllogize` return W = 0 (PROBE-W-PRESERVE) | plateau §4 O3 (G6); D-HL-1 |
+| 2 | W (53..58) | three readings: corpus root handle (`witness_table.rs`, unwired), the Moore membrane locality answers (`MooreNars16` omits W, entry D5/D6), and the thought layer (DECISION 2026-10-17). `forward` / `syllogize` return W = 0 (PROBE-W-PRESERVE) | plateau §4 O3 (G6); D-HL-1 |
 | 3 | 50..52 | novelty → wisdom (`wire`) and per-plane plasticity (`learn`) on the same bits | plateau §4 O2 |
 | 4 | "CE64 is not storage" vs "the result lives in 59..63" | entry D1 says CE64 is a contract lever, not written back into; the 2026-10-17 diagram says the result lives in 59..63 and current CE64 = current state + breadcrumb. Both may hold if the edge is written once per transition (a new state, not a log); needs one sentence from the user | entry 2026-10-17-ce64-one-layout D1; this capstone |
 | 5 | promotion to `EPIPHANIES.md` | the file is generated from `epiphanies-canon.json`, whose rows must resolve to archive lines; a post-baseline Eureka has no route in | entry 2026-10-17-ce64-one-layout § OPEN |
