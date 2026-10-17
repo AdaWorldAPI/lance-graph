@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-365 entries, 2026-08-06 .. 2026-10-17.
+366 entries, 2026-08-06 .. 2026-10-17.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-17 | `epistemic-frontier-clicks` |  | [2026-10-17-epistemic-frontier-clicks.md](2026-10-17-epistemic-frontier-clicks.md) |
+| 2026-10-17 | `coresearch-simpson-epistemic` |  | [2026-10-17-coresearch-simpson-epistemic.md](2026-10-17-coresearch-simpson-epistemic.md) |
 | 2026-10-17 | `ce64-one-layout-moore-synapse-membrane` |  | [2026-10-17-ce64-one-layout-moore-synapse-membrane.md](2026-10-17-ce64-one-layout-moore-synapse-membrane.md) |
 | 2026-10-16 | `wcoj-probes-1-3` |  | [2026-10-16-wcoj-probes-1-3.md](2026-10-16-wcoj-probes-1-3.md) |
 | 2026-10-16 | `wcoj-closing-atoms-council` |  | [2026-10-16-wcoj-closing-atoms-council.md](2026-10-16-wcoj-closing-atoms-council.md) |
