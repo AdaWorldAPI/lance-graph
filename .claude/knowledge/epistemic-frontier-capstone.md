@@ -145,10 +145,10 @@ identity". Provenance, G and evidence therefore all enter as layers:
 
 | what a reference would carry | what carries it instead |
 |---|---|
-| which thought holds a state | the thought layer (W, and the written-by word) |
-| which sources a belief rests on | a per-delta evidential base: a source bitset carried with each delta (D-HL-3). It is never derived from the layer: one observation copied into two layers counts once, two independent observations in one layer count twice |
+| which thought holds a state | the lane itself: a thought runs in one of 64 isolated epistemic boundaries, and its materialization is that lane's sparse storage layer (alpha channel, split tunnel, sparse write, merge on read). The 64 lanes in storage are the thoughts that inhabit them; W and the written-by word name the lane, they point nowhere |
+| which sources a belief rests on | a source bitset per delta, inside the lane (D-HL-3): presence bits over sources, not a reference. Independence for revision is decided by these bits, never by the lane number: one observation copied into two lanes counts once, two independent observations in one lane count twice |
 | which graph G a quad belongs to | `classid >> 16` in the address; a tenant mask |
-| the evidence behind a value | the givens layer and the hypothesis layers, compared by mask; independence decided by the evidential bases, not by layer membership |
+| the evidence behind a value | the givens layer and the hypothesis layers, compared by mask; independence decided by the source bitsets, not by lane membership |
 | which facts two ontologies share | the AND of their masks over one allocation |
 | who disagrees with the givens | the contradiction records (row, thought, lanes, offered value) |
 
