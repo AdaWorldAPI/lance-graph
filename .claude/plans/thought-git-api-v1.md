@@ -27,9 +27,9 @@ coordinate; names are labels resolved once through the label codebook.
 | diff between two branches | `AlphaOverlay::only_in` | `alpha.rs` |
 | delete a branch | `AlphaOverlay::discard` (consumes self) | `alpha.rs` |
 | mask set algebra | `AlphaMask::{and, or, and_not, xor, not}` | `alpha.rs` |
-| givens, contradiction records | D-HL givens layer | `.claude/plans/ce64-hypothesis-layers-v1.md:696-725` |
-| written-by word, coverage orientations | D-HL arm M, R/C | same, `:596-660` |
-| source bitset (blame) | D-HL-3 evidential base | same, `:73-90` |
+| givens, contradiction records | D-HL givens layer | `ce64-hypothesis-layers-v1.md` section "Givens layer: hydration is thought 0" |
+| written-by word, coverage orientations | D-HL arm M, R/C | same plan, section "Coverage orientation: per-thought masks or per-row words" |
+| source bitset (blame) | D-HL-3 evidential base | same plan, under D-HL-3 |
 | review before merge | revision gate G1–G7 | `.claude/board/entries/2026-10-14-revision-layer-invariants.md` |
 
 **Caveat, load-bearing:** the alpha overlay records *attention* and its module
