@@ -54,6 +54,15 @@ ndarray `hpc/{causal_diff,p64_bridge,jina/causal,entropy_ladder}.rs`.
 Not CE64, out of scope: holograph `pack_edge`, contract `dawg::pack_edge`, ogar-obo
 `pack_edges`, `CausalEdgeV3`.
 
+## Also decided 2026-10-15/16, not yet on the board elsewhere
+
+| # | DECISION | BASIS (user) | consequence |
+|---|---|---|---|
+| D12 | SPOFC's 8-bit fields work like gas, gear and shift: granular enough to single out one thing in one cohort and one concept; once singled out, the other bits carry it as a fact, otherwise it goes to revision | 2026-10-17: "The 8 bit of spoFC can be used like gas and gear and shift in a car / It's granular enough to detect one thing in one cohort and one concept, which then needs to be carried by the other bits as a fact and otherwise revision" | the payload regions are a control surface, not a precision limit; identity splitting (D11) is what keeps a u8 F/C meaningful |
+| D13 | Hyperon atoms extract into classes and SoA: a class is head + arity + position shapes, its ClassView is its positions, one plane per position, row = instance. The IR (classes, positions, layout) stays separate from the masking algebra, which runs over planes at coordinates and never sees atoms, symbols or shapes. Datalog holds the abstraction; NAL, ONA and relalg are the reusable reasoning parts | 2026-10-16: "So an atom is basically the an array of structs?"; "Shouldn't it be easy to extract classes and SoA"; "And separate IR from masking algebra"; "We have datalog for the Abstraktion"; "And we have reusable nal ONA relalg etc" | D-ASM work lowers atoms to class planes first; no atom or symbol type enters mask-risc |
+| D14 | The edge facet exists to free edges from identity: a 6-tier HHTL path is too tight to spend on edges, which is why edges were rarely used; the 16-nibble DN identity plus a 16-slot edge facet (2×16, the existing 128-bit format) makes edge use independent of identity | 2026-10-16: "reason being is that 6 HHTL depth is extremely tight"; "and we hardly use edged because of that"; "2x 16 makes usage of edges independent of identity"; "we already introduced that format as an 128 optin / its already wired" | mechanism recorded in `2026-10-16-d-cgw-1-orientation-contract.md` (Decided 2026-10-16); this row keeps the reason |
+| D15 | The givens layer (thought layer 0, written only by hydration) is also the global reference lane, held behind a `LazyLock`, for later reference operations | 2026-10-15: "How about we use the first empty thought / For hydrate.rs and use that lane as a global lazylock variable for further reference operations" | layer 0 is recorded in `.claude/plans/ce64-hypothesis-layers-v1.md` (lines 688–701); the `LazyLock` reference lane is the part not yet written down |
+
 ## OPEN
 
 - Remove `MixedWitness` from `lift_ce64` and reword the module header (D6), or keep
@@ -69,6 +78,23 @@ Not CE64, out of scope: holograph `pack_edge`, contract `dawg::pack_edge`, ogar-
 - PAL8 version gate when `causal_diff` moves to v2.
 - `moore_nars16_probe` / `moore_plasticity_probe` (PR #1406) not yet read; read before
   the learning probe.
+- `ndarray::ce64::*` (2026-10-17: "Later on when accepting as a wire format / Would
+  that open a door? / ndarray::ce64::*"): unanswered. If the layout becomes a wire
+  format shared with ndarray readers, does the canonical register live in ndarray
+  (hardware tier, beside the SIMD it runs on) with `causal_edge::layout` re-exporting
+  it, or stay in `causal-edge`? Today ndarray carries three divergent layouts and
+  `causal-edge` the canon; the conformance test in the catalog above comes first
+  either way.
+- Ontology bridge, marked for later review (2026-10-16: "also mark the ontology
+  bridge for later review if the bindignspace dto quack thing can improve the old
+  hash to lance approach"): `lance-graph-ontology` and
+  `.claude/plans/sql-spo-ontology-bridge-v1.md` predate the BindSpace DTO / Quack
+  path; review whether their hash-to-Lance mapping can move onto it.
+- Simpson co-research (task #76): the map
+  `2026-10-17-coresearch-simpson-epistemic.md` and the P-pool test
+  (`lance-graph-planner/tests/simpson_revision_pooling.rs`) sit on branch
+  `ccr-9f3b8075-74u47l-simpson-coresearch`, not on main; the map still needs the
+  rows the architecture already covers marked as such (D11).
 - Promotion path: `EPIPHANIES.md` is generated from `epiphanies-canon.json`, whose row
   sources must resolve to archive lines, so a post-baseline Eureka has no route into the
   projection today. These decisions live here until that path exists.
