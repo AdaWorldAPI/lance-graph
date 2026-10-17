@@ -32,14 +32,31 @@ coordinate; names are labels resolved once through the label codebook.
 | source bitset (blame) | D-HL-3 evidential base | same plan, under D-HL-3 |
 | review before merge | revision gate G1–G7 | `.claude/board/entries/2026-10-14-revision-layer-invariants.md` |
 
-**Caveat, load-bearing:** the alpha overlay records *attention* and its module
-doc forbids it from holding a measured value ("a changed reference value is a
-new reference version from a new bake, never an overlay write"). Thought
-tables hold *values*. So D-TGA reuses the alpha mechanics (shared
-allocation, one writer, ordered merge, consume-to-discard) but does not reuse
-`AlphaOverlay` or `AlphaMask` as the thought type; a thought gets its own
-type over the same word layout, as the O2 note in the wiring doc already
-requires.
+**The delta is the attention saccade (DECISION 2026-10-17).** A thought's
+delta is not a second kind of thing beside the alpha overlay: it *is* the
+overlay, the record of where attention went, the way a PR is the attention
+of a code update. BASIS: "The delta IS the attention saccade. The same way a
+PR is the attention of a code update." So the thought type is the alpha
+overlay, carried to 64 thoughts. This is consistent with the overlay's own
+doc: what it forbids is *reference* data (a value a bake measured,
+calibration, coverage) living in the overlay, and it says a changed reference
+value is a new reference version, never an overlay write. That is exactly
+`land`: a squash writes the next sealed version, never into the overlay or
+the current givens.
+
+(Superseded first reading, same day: this paragraph previously kept a
+separate thought type because "alpha holds attention, thoughts hold values".
+The distinction the alpha doc draws is attention vs reference, not attention
+vs value.)
+
+What changes in the overlay to carry it:
+
+- **Axis.** `AlphaTunnel` has 10 lanes, one per rung; D-HL places up to 64
+  thoughts beside the 10 rung lanes. The thought axis is a second index over
+  the same shared allocation, not a re-use of the rung index.
+- **Lookup.** `AlphaOverlay` finds a claimed row through a `HashMap`; under
+  the rule against key reads, positions become the rank in the overlay's own
+  presence plane (see "No hash lookups" below).
 
 ## The surface (methods on carriers)
 
@@ -103,8 +120,8 @@ Two consequences:
   probe's first real consumer.
 - **No hash lookups.** Positions inside a thought's sparse storage are the
   rank of the address in the thought's own presence plane (popcount of the
-  bits before it). `AlphaOverlay` keeps a `HashMap` from address to slot;
-  the thought type does not copy that.
+  bits before it). `AlphaOverlay` keeps a `HashMap` from address to slot
+  today; carrying it to thoughts replaces that with the rank.
 
 ## Rules
 
@@ -129,7 +146,8 @@ Two consequences:
   stale read, partial squash, merge queue of three), the oracle (a thought
   re-run from scratch on the new version), and the disables, written before
   any code.
-- [ ] **D-TGA-1** Thought type over the D-HL word layout; `branch` /
+- [ ] **D-TGA-1** The alpha overlay carried to 64 thoughts (a thought axis
+  beside the rung lanes, presence-rank lookup instead of `HashMap`); `branch` /
   `discard` / `write` / `diff`; 64-slot limit; givens refusal with a
   contradiction record. Falsifier: the 65th branch is refused; a write to a
   given's lane with a new value records a contradiction and changes nothing.

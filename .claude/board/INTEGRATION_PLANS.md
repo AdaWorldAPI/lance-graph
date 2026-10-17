@@ -3,7 +3,7 @@
 **Status:** D-TGA-0..6 PROPOSAL, test-first; nothing built.
 
 - Thoughts 1..63 branch off main (thought 0, the givens); `land` squashes into the next sealed version through the revision gate; `squash_into` keeps a partial squash as an intermediate thought; `rebase` is four masks and moves no data.
-- Reuses the alpha mechanics (shared allocation, one writer per branch, ordered merge, consume-to-discard) but not the alpha types: alpha records attention and must not hold values.
+- A thought's delta is the alpha overlay (the attention saccade), carried to 64 thoughts; the alpha doc's rule against reference data in the overlay is met because `land` writes the next sealed version.
 - Missing piece: a read plane R per thought (D-TGA-2).
 
 ## 2026-10-16 (5) — ce64-grammar-wiring-v1 — every CE64 upper-half field of a parsed triple from its source → `.claude/plans/ce64-grammar-wiring-v1.md`
