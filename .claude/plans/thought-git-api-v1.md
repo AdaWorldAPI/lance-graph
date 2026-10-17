@@ -14,7 +14,7 @@ rest of git applies.
 One small surface over pieces that exist, so a caller reasons about thoughts
 the way they reason about branches, and every verb lowers to mask algebra and
 Lance versions. No new algebra, no interpreter, no strings as addresses:
-a thought is its number (`0..64`), a version is a Lance version, a cell is a
+a thought is its number (`0..63`), a version is a Lance version, a cell is a
 coordinate; names are labels resolved once through the label codebook.
 
 ## What exists and is reused

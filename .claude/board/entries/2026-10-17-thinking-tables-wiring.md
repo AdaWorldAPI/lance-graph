@@ -19,7 +19,7 @@ FIFO order as the stratum order, and written-by queries as metacognition.
   written-by queries named as the metacognition surface, the table lifecycle as
   one unit.
 
-DECISION: the unit is a thought (`0..64`); "lane" stays the SoA lane.
+DECISION: the unit is a thought (`0..63`); "lane" stays the SoA lane.
 DECISION: a thought table is compute and storage; it is squash-committed to
 main like a git branch (max 64), freeing its slot.
 OPEN: precedence vs fold on merged reads; derived writes vs split-tunnel rule 7 and

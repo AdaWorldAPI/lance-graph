@@ -54,7 +54,7 @@ capstone, `.claude/knowledge/epistemic-frontier-capstone.md` (merged as
 #1597); its lines are cited as `(#1597)`.
 
 **Vocabulary (DECISION 2026-10-17).** The unit is a **thought**, numbered
-`0..64` (thought 0 = givens, 1..63 = hypotheses; the W field). "Lane" is
+`0..63` (thought 0 = givens, 1..63 = hypotheses; the W field). "Lane" is
 reserved for SoA lanes: each thought owns up to 32 lane-tables (lane 0
 identity, 1 edge, 2..31 value), so up to 2,048 lane-tables
 (`.claude/plans/ce64-hypothesis-layers-v1.md:386-391`). The model's
@@ -374,7 +374,7 @@ replayable transitions) but not its records.
 
 | # | point | sources |
 |---|---|---|
-| O1 | CLOSED 2026-10-17: the word is **thought** (`0..64`); "lane" stays the SoA lane. | D-HL `:386-391`; vocabulary paragraph above |
+| O1 | CLOSED 2026-10-17: the word is **thought** (`0..63`); "lane" stays the SoA lane. | D-HL `:386-391`; vocabulary paragraph above |
 | O2 | CLOSED 2026-10-17: both — a thought table is compute and storage, squash-committed to main like a git branch (row 11). Was: session or storage: D-HL says the 64 thoughts are session addresses, not storage; the capstone says a thought's materialization is its table's sparse storage layer. If kept, a cached population needs its own type over the same word layout, never `AlphaMask`. | D-HL `:474`; `#1597` `:148`; photo-probe `:57-63` |
 | O3 | Precedence or fold: a merged read uses "higher thought index wins a shared lane", an overwrite rule; set questions use presence folds. Which reads use which is not written down. | D-HL `:412`, `:491`; H14c `:93-95` |
 | O4 | NARROWED 2026-10-17: derived facts live in the thought's branch; only the squash writes main (row 11). Was: derived facts written into a table versus split-tunnel rule 7 (derived reads write nothing) and law A1 (only demanded population writes). | split-tunnel rule 7; chained-hop `:51` |
