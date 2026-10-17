@@ -151,7 +151,7 @@ impl InferenceType {
 ///         Syn +5, Intervention +6, Counterfactual -6, neutral 0)
 /// [50:52] Plasticity flags (3 bits)
 /// [53:58] W slot (6 bits)
-/// [59:63] EpistemicState5 (topology 59..60, certification 61..63)
+/// [59:63] EpistemicState5 (one 5-bit field)
 /// ```
 ///
 /// ⊘ V1-legacy: this comment used to show the pre-v2 layout (a direction
