@@ -8,8 +8,11 @@ full, appendices A–F included). Implementation structure from a
 and method signatures and call graphs only).
 **Licence fence:** PG-Ring is GPL-3.0. Nothing below is code from it; each
 row is an idea, stated in our terms, with the paper as the citation.
-**Feeds:** D-ASM-11 (leapfrog probe; banner: gather, correct plans D-HOLO
-H14c/H14d). This catalogue is prior art to learn from; it authorizes nothing.
+**Feeds:** no work item. D-ASM-11 (the leapfrog probe, both arms) carries a
+DO NOT BUILD banner (gather; correct plans D-HOLO H14c / H14d), and its
+replacement is H4 in `.claude/board/entries/2026-10-16-synergy-map-since-1579.md`
+(the triangle as an intersection of planes, the pair placed at one coordinate).
+This catalogue is prior art to learn from; it authorizes nothing.
 
 ## 1. What PG-Ring is
 
@@ -33,13 +36,14 @@ the acyclic ones to MillDB, at 32 % of MillDB's space.
 
 ## 2. Catalogue
 
-Verdicts: **HAVE** (we already do it), **ADOPT** (idea worth carrying over),
+Verdicts: **HAVE** (we already do it), **PARTIAL** (part of it ships, the
+rest is queued), **ADOPT** (idea worth carrying over),
 **REFUSED** (the shape breaks a substrate rule; the row says which and what
 replaces it), **OPEN** (needs a measurement or a ruling).
 
 | # | PG-Ring idea (paper §) | Our counterpart / gap | Verdict |
 |---|---|---|---|
-| P1 | Leaptor: any ordered set with `leap(c)`; LTJ intersects leaptors, not just trie children (§4) | `OrderedLane::seek_from` (galloping lower bound from a cursor, `O(1 + log gap)`), `crates/lance-graph-contract/src/ordered_lane.rs:343` | HAVE (the primitive); the leaptor-as-interface is the D-ASM-11 arm A question |
+| P1 | Leaptor: any ordered set with `leap(c)`; LTJ intersects leaptors, not just trie children (§4) | `OrderedLane::seek_from` (galloping lower bound from a cursor, `O(1 + log gap)`), `crates/lance-graph-contract/src/ordered_lane.rs:343` | HAVE (the primitive); whether a leaptor interface is wanted is unassigned (D-ASM-11, where it was asked, is DO NOT BUILD) |
 | P2 | Filters pushed into the intersection, not pre/post (§4.1, §6.2: 15× vs pre, 16 % vs post) | Our doctrine already folds every predicate into one mask before the terminal (photolithography; D-HOLO H14d). Difference: they intersect *ordered sets* by seeking, we AND *planes* word-wise | HAVE in principle; the dense-vs-sparse carrier choice is OPEN (see P11) |
 | P3 | Alternation complexity: cost of an intersection is the number of switches between sorted sequences, not their sizes (§3.2) | No cost model in our planner uses it; word-wise AND costs `n/64` regardless of alternation | OPEN: a probe on clustered vs interleaved sets would show where seek beats AND |
 | P4 | Property range filter as a grid `M_π`; `leap` = orthogonal range successor `leftmost([c,∞]×[a,b])` (§4.1) | Property values sit at the row's coordinate, so `a ≤ x.π ≤ b` is a range compare to a mask over the property plane, and successor is the next set bit | HAVE (as mask + next set bit); no grid structure needed because the value is co-located |
@@ -53,28 +57,32 @@ replaces it), **OPEN** (needs a measurement or a ruling).
 | P12 | Count arrays `A_*` give each constant's range in O(1): the range of `(s,*,*)` is `[A_S[s]+1, A_S[s+1]]` (§4.3) | Prefix-sum lanes computed at seal, the open decision "prefix-sum lanes at seal vs fold over the aperture" | ADOPT as evidence for the prefix-sum option: for a query constant this is a range bound, not a data-indexed read |
 | P13 | Tracking a triple across orders, `i' = A_O[o] + rank_o(L_SPO, i)` with `o = L_SPO[i]` (LF mapping, §4.3) | Reads a position computed from another sequence's value: a data-indexed read | REFUSED (gather). We co-locate the pair at one coordinate instead (`s_dst[i][a]:rb[i][a]`). Consequence: where the Ring stores 3 orders and tracks between them, we must store every order we read, so the space trade differs; record it, do not port it |
 | P14 | Three cyclic orders suffice for all six trie orders because of tracking (§4.3) | Without tracking, each needed order is its own sealed lane | OPEN: count which orders our workloads actually read before assuming six |
-| P15 | Adaptive variable elimination order: choose the next variable after each binding, by the smallest locus range length (App. B.1, after the Ring paper) | Range length is a population count we already have per aperture | ADOPT for D-ASM-11's arm A; the paper reports adaptive beats static |
-| P16 | VEO classes: non-lonely node variables first, then non-lonely edge variables, then lonely variables last (App. B.1) | No VEO in our stack yet | ADOPT as the default order heuristic for the probe |
+| P15 | Adaptive variable elimination order: choose the next variable after each binding, by the smallest locus range length (App. B.1, after the Ring paper) | Range length is a population count we already have per aperture | ADOPT as a research input, unassigned; the paper reports adaptive beats static |
+| P16 | VEO classes: non-lonely node variables first, then non-lonely edge variables, then lonely variables last (App. B.1) | No VEO in our stack yet | ADOPT as a research input for any future join order, unassigned |
 | P17 | Selectivity: AND = product, OR = 1−(1−s1)(1−s2); labels by fraction of set bits; property comparisons by uniform area of the min/max box; exact counting only for the static VEO because it costs O(log) per branch (App. B.1) | Popcount gives the exact fraction for free on a sealed plane | ADOPT, with popcount in place of the uniformity guess where the plane is resident |
 | P18 | Identifier comparisons (`x < y`) as a leaptor: `leap(c) = c` if allowed else +∞ (App. A.2), used to drop symmetric duplicates | A range bound on the variable's coordinate given the bound one | HAVE in shape (range bound); no work |
 | P19 | Order-preserving integer encoding per value type, plus a front-coded string dictionary; strings only at the edges of a query (App. B) | Label codebook; "strings are never an address, only a label" | HAVE (same rule) |
 | P20 | Bag semantics, homomorphic matching (App. B) | D-ASM-11 Q-A is checked as a bag against datafrog | HAVE (oracle already bag-shaped) |
-| P21 | Read-only index; updates via dynamic or adaptive dynamic bitvectors at a query-time penalty (§7) | Sparse delta per thought table, merged on read (D-HL) | HAVE (different mechanism, same goal) |
+| P21 | Read-only index; updates via dynamic or adaptive dynamic bitvectors at a query-time penalty (§7) | Sparse delta per thought table, merged on read (D-HL). The in-memory probe exists (D-HL-5); the persisted `SparseDelta` path (D-HL-7) and D-HL-2 are queued | PARTIAL (different mechanism, same goal; persistence not shipped) |
 | P22 | Benchmarks: LSQB Q1–Q6 (cyclic Q2, Q3, Q6) and a 1,000-query Wikidata log sample with filters (App. C, E) | Our cyclic fixture is F4 (#1587) | ADOPT: LSQB Q2/Q3/Q6 shapes as additional cyclic fixtures; Q1/Q4/Q5 as acyclic controls where a semijoin chain should suffice (GYO, P-3) |
 
-## 3. What this changes for D-ASM-11
+## 3. Where these ideas could go (unassigned)
 
-1. Arm A already has its leap: `seek_from`. What PG-Ring adds is the
-   interface around it (P1), the adaptive order (P15–P17) and the evidence
-   that filters belong inside the intersection (P2).
+None of this is a work item. D-ASM-11 (leapfrog triejoin, both arms) is
+marked DO NOT BUILD (gather) and `seek_from` is an orphan awaiting a
+keep / gate / remove decision, so nothing here resumes it.
+
+1. The cyclic case is handled by H4 (synergy map since #1579, §9): the
+   triangle is an intersection of planes with the pair placed at one
+   coordinate. PG-Ring's ideas that fit that shape are the label leaptor as
+   next set / unset bit (P6, P7), the per-variable Boolean reduction (P10),
+   popcount selectivity (P17) and the LSQB fixtures (P22).
 2. The Ring's space advantage rests on tracking (P13), which our rules
-   refuse. A clean-room port therefore cannot reproduce its space numbers;
-   the probe should compare time per element on the v4 arm only, and record
-   lane count separately.
-3. Dense AND vs sparse seek is the real question (P2, P3, P11): PG-Ring
-   wins where sets are sparse and clustered. A falsifiable probe: the same
-   cyclic query on interleaved vs clustered identifiers, both carriers,
-   answers equal, ns per element printed with the tier.
+   refuse, so a clean-room port cannot reproduce its space numbers.
+3. Dense AND vs sparse seek (P2, P3, P11) stays a measurement question:
+   PG-Ring wins where sets are sparse and clustered. A probe would compare
+   the same query on interleaved vs clustered identifiers, answers equal,
+   ns per element on v4, and must not read at a value-derived position.
 
 ## 4. Open points
 
