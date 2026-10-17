@@ -123,6 +123,37 @@ Two consequences:
   bits before it). `AlphaOverlay` keeps a `HashMap` from address to slot
   today; carrying it to thoughts replaces that with the rank.
 
+## A sealed version is a PR entry (DECISION 2026-10-17)
+
+BASIS: "If we use sealed version as PR entries it would make versions
+cheaper and cleaner reference." Each `land` produces exactly one sealed
+version, and that version *is* the record of the landed thought: what it
+changed (its delta), which sources it carried (source bitsets), what the
+revision gate decided, which conflicts were recorded, which version it was
+rebased onto. `Main::log()` is then the PR history.
+
+Why it is cheaper: a version holds only the squashed delta, so it costs the
+cells the thought changed, not a rewrite of the table. The split-tunnel
+pattern already asks for one batch = one Lance version from one writer
+(`split-tunnel-sparse-append-resident-fold.md`, rule 2); a landed thought is
+that batch.
+
+Why it is a cleaner reference: a version number is never reused, while a
+thought number is (slots are freed by squash). So:
+
+- **blame** returns `(landing version, source bitset)`: which PR brought a
+  fact in, and from what evidence;
+- **revert** is a new version that undoes one PR entry;
+- **checkout** reads main as of a PR entry;
+- **merge-base** is a PR entry, so rebase compares against a named, fixed
+  reference;
+- a citation, a contradiction record or a NAL stamp can point at the
+  version that landed a fact, a stable address, instead of at a slot.
+
+Open: where the PR record lives (alongside the version as its metadata, or
+as rows of a small log table keyed by version); what Lance 13 lets a commit
+carry has to be checked before choosing.
+
 ## Rules
 
 1. **Up to date before landing.** `land` refuses a thought whose
@@ -135,7 +166,8 @@ Two consequences:
    givens table is read-only per sealed version; `land` produces version
    v+1 and the givens are rebuilt at its seal.
 4. **Blame survives the squash.** Every squashed cell keeps its source
-   bitset; the thought number does not survive (slots are reused).
+   bitset and the version that landed it; the thought number does not
+   survive (slots are reused), the version number does.
 5. **Strata survive.** A partial squash per stratum keeps the stratum axis;
    squashing strata straight into main is refused unless the caller declares
    the pooling (Simpson map).
