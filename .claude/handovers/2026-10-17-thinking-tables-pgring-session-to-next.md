@@ -12,6 +12,7 @@ standing rules in the repo, not in a container that may be gone.
 | Haiku cards: read in full, output capped | merged | #1598 |
 | Board arc entries #1592, #1595, #1596, #1597, #1598 | in #1599 | `PR_ARC_INVENTORY.md`, `LATEST_STATE.md` |
 | PG-Ring harvester | committed locally only, NOT pushed (ruff push needs the user's approval) | ruff branch `ccr-9f3b8075-74u47l-pgring-harvest`, commit `d2f4c2dcfb`, file `crates/ruff_cpp_spo/examples/harvest_pgring.rs` |
+| Thought git API (D-TGA-0..6) | proposal, in #1599; next step D-TGA-0 pre-registration | `.claude/plans/thought-git-api-v1.md` |
 | PG-Ring idea catalogue | done, in PR (22 rows: 11 HAVE, 7 ADOPT, 1 REFUSED, 3 OPEN) | lance-graph #1600, branch `ccr-9f3b8075-74u47l-pgring-catalogue`; `.claude/research/2026-10-17-pgring-idea-catalogue.md` |
 
 ## 2. Decisions the user still owes
