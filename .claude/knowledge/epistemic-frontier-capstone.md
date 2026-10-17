@@ -145,9 +145,10 @@ identity". Provenance, G and evidence therefore all enter as layers:
 
 | what a reference would carry | what carries it instead |
 |---|---|
-| which source witnessed a belief | the thought layer the state is in (W, and the written-by word) |
+| which thought holds a state | the thought layer (W, and the written-by word) |
+| which sources a belief rests on | a per-delta evidential base: a source bitset carried with each delta (D-HL-3). It is never derived from the layer: one observation copied into two layers counts once, two independent observations in one layer count twice |
 | which graph G a quad belongs to | `classid >> 16` in the address; a tenant mask |
-| the evidence behind a value | the givens layer and the hypothesis layers, compared by mask |
+| the evidence behind a value | the givens layer and the hypothesis layers, compared by mask; independence decided by the evidential bases, not by layer membership |
 | which facts two ontologies share | the AND of their masks over one allocation |
 | who disagrees with the givens | the contradiction records (row, thought, lanes, offered value) |
 
@@ -248,7 +249,12 @@ operation yet; their closest resemblances are recorded in
 | `lance-graph-metta` | MeTTa / Hyperon atoms | probe only (D-MTP-1 `join_probe`); `Space` adapter is D-MTP-2 | `metta-polyfill-v1.md` (D-MTP) |
 | `lance-graph-cog` | Atomese / OpenCog bridge | not created; planned as our Apache-2.0 API with a separate AGPL `atomspace-lance` adapter; mining seam D-ASM-7 | `metta-datalog-assimilation-v1.md` (D-ASM) |
 
-All lower to R2IL `FoldDialect` → mask-risc → `ndarray::simd`. Atoms extract
+Target topology: every front end lowers to R2IL `FoldDialect` → mask-risc →
+`ndarray::simd`. Current paths differ per crate: `lance-graph-nal` and
+`lance-graph-relalg` depend on `lance-graph-r2il` and lower through it;
+`lance-graph-metta` is a probe that lowers by hand through Quack into
+mask-risc, with no R2IL dependency yet; `lance-graph-cog` does not exist.
+Build against the current path of a crate, not the target. Atoms extract
 into classes and SoA (head + arity + positions; one plane per position, row =
 instance); the IR describes, the masking algebra executes and never sees
 atoms or symbols (entry 2026-10-17 D13). Text is a label resolved once
