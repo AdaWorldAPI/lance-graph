@@ -527,7 +527,7 @@ impl ShaderDriver {
                 f,
                 c,
                 CausalMask::from_bits(h.predicates & 0x07),
-                0,
+                causal_edge::Orientation::Core,
                 style_ord_to_inference(style_ord),
                 PlasticityState::from_bits(0),
                 (h.cycle_index & 0xFFF) as u16,

@@ -150,7 +150,7 @@ fn edge(rng: &mut Lcg, infer: InferenceType) -> CausalEdge64 {
         (128 + rng.below(128)) as u8,
         (128 + rng.below(100)) as u8,
         CausalMask::PO,
-        0b101,
+        causal_edge::Orientation::from_code(0b101),
         infer,
         PlasticityState::S_HOT,
         0,

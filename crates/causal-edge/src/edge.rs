@@ -5,6 +5,7 @@
 use super::pearl::CausalMask;
 use super::plasticity::PlasticityState;
 use crate::isa::{Compose, IsaFault, Opcode};
+use crate::orientation::Orientation;
 
 /// NARS inference types encoded in 3 bits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -186,7 +187,7 @@ const O_SHIFT: u32 = 16;
 const FREQ_SHIFT: u32 = 24;
 const CONF_SHIFT: u32 = 32;
 const CAUSAL_SHIFT: u32 = 40;
-const DIR_SHIFT: u32 = 43;
+const ORIENT_SHIFT: u32 = 43;
 const INFER_SHIFT: u32 = 46;
 // v1 plasticity bit position; under v2 plasticity moves to `crate::layout::PLAST_SHIFT`.
 // Live on the v1 pack/read paths, dead under the default v2 feature.
@@ -239,7 +240,7 @@ impl CausalEdge64 {
         frequency: u8,
         confidence: u8,
         causal_mask: CausalMask,
-        direction: u8,
+        orientation: Orientation,
         inference: InferenceType,
         plasticity: PlasticityState,
         temporal: u16,
@@ -251,7 +252,7 @@ impl CausalEdge64 {
         v |= (frequency as u64) << FREQ_SHIFT;
         v |= (confidence as u64) << CONF_SHIFT;
         v |= ((causal_mask as u64) & BITS3_MASK) << CAUSAL_SHIFT;
-        v |= ((direction as u64) & BITS3_MASK) << DIR_SHIFT;
+        v |= (orientation.code() as u64) << ORIENT_SHIFT;
         // v2 layout: write the signed mantissa (4 bits, bits 46-49) via the
         // enum→mantissa mapping so that subsequent reads via inference_mantissa()
         // + InferenceType::from_mantissa() round-trip the *semantic* meaning.
@@ -442,37 +443,18 @@ impl CausalEdge64 {
         (self.0 >> CAUSAL_SHIFT) & 0b001 != 0
     }
 
-    // ─── Direction Triad ────────────────────────────────────────────
+    // ─── Orientation (bits 43..45) ──────────────────────────────────
 
-    /// 3-bit direction triad: sign(dim0) per S, P, O.
-    /// bit 0 = S pathological, bit 1 = P pathological, bit 2 = O pathological.
+    /// The relation's orientation (bits 43..45); see [`Orientation`].
     #[inline(always)]
-    pub fn direction(self) -> u8 {
-        ((self.0 >> DIR_SHIFT) & BITS3_MASK) as u8
+    pub fn orientation(self) -> Orientation {
+        Orientation::from_code(((self.0 >> ORIENT_SHIFT) & BITS3_MASK) as u8)
     }
 
-    /// Set direction triad.
+    /// Set the orientation (bits 43..45).
     #[inline]
-    pub fn set_direction(&mut self, d: u8) {
-        self.0 = (self.0 & !(BITS3_MASK << DIR_SHIFT)) | (((d as u64) & BITS3_MASK) << DIR_SHIFT);
-    }
-
-    /// Is the subject plane pathological (dim0 negative)?
-    #[inline(always)]
-    pub fn s_pathological(self) -> bool {
-        self.direction() & 0b001 != 0
-    }
-
-    /// Is the predicate plane pathological?
-    #[inline(always)]
-    pub fn p_pathological(self) -> bool {
-        self.direction() & 0b010 != 0
-    }
-
-    /// Is the outcome plane pathological?
-    #[inline(always)]
-    pub fn o_pathological(self) -> bool {
-        self.direction() & 0b100 != 0
+    pub fn set_orientation(&mut self, o: Orientation) {
+        self.0 = (self.0 & !(BITS3_MASK << ORIENT_SHIFT)) | ((o.code() as u64) << ORIENT_SHIFT);
     }
 
     // ─── Inference Type ─────────────────────────────────────────────
@@ -805,7 +787,7 @@ impl CausalEdge64 {
             f_out,
             c_out,
             mask_out,
-            rhs.direction(), // TODO: recompute from composed palette dim0 signs
+            rhs.orientation(), // the conclusion is read in the second premise's orientation
             op.inference_type(),
             rhs.plasticity(),
             t_out,
@@ -902,13 +884,6 @@ impl CausalEdge64 {
         self.causal_mask() == CausalMask::SPO && self.confidence() >= confidence_threshold
     }
 
-    /// Clinical concern level: count of pathological planes.
-    #[inline]
-    pub fn concern_level(self) -> u8 {
-        let d = self.direction();
-        (d & 1) + ((d >> 1) & 1) + ((d >> 2) & 1)
-    }
-
     /// Is this edge fully frozen (all planes)?
     #[inline]
     pub fn is_frozen(self) -> bool {
@@ -935,12 +910,12 @@ impl CausalEdge64 {
         frequency: u8,
         confidence: u8,
         causal_mask: CausalMask,
-        direction: u8,
+        orientation: Orientation,
         plasticity: PlasticityState,
     ) -> Self {
         use crate::layout::{
-            BITS3_MASK as B3, CAUSAL_SHIFT as LCA, CONF_SHIFT as LC, DIR_SHIFT as LD,
-            FREQ_SHIFT as LF, O_SHIFT as LO, PLAST_SHIFT as LPL, P_SHIFT as LP, S_SHIFT as LS,
+            BITS3_MASK as B3, CAUSAL_SHIFT as LCA, CONF_SHIFT as LC, FREQ_SHIFT as LF,
+            ORIENT_SHIFT as LD, O_SHIFT as LO, PLAST_SHIFT as LPL, P_SHIFT as LP, S_SHIFT as LS,
         };
         let mut v: u64 = 0;
         v |= (s_idx as u64) << LS;
@@ -949,7 +924,7 @@ impl CausalEdge64 {
         v |= (frequency as u64) << LF;
         v |= (confidence as u64) << LC;
         v |= ((causal_mask as u64) & B3) << LCA;
-        v |= ((direction as u64) & B3) << LD;
+        v |= (orientation.code() as u64) << LD;
         // inference mantissa defaults to 0 (Identity/neutral)
         v |= ((plasticity.bits() as u64) & B3) << LPL;
         // W-slot, truth-band, spare default to 0
@@ -1463,7 +1438,7 @@ impl std::fmt::Debug for CausalEdge64 {
             .field("f", &format!("{:.3}", self.frequency()))
             .field("c", &format!("{:.3}", self.confidence()))
             .field("pearl", &self.causal_mask())
-            .field("dir", &format!("{:03b}", self.direction()))
+            .field("orient", &self.orientation())
             .field("infer", &self.inference_type())
             .field("plast", &self.plasticity())
             .field("t", &self.temporal())
@@ -1546,7 +1521,7 @@ mod tests {
             209,
             181,            // f=0.82, c=0.71
             CausalMask::PO, // interventional level
-            0b101,          // S and O pathological
+            Orientation::Recipient,
             InferenceType::Deduction,
             PlasticityState::S_HOT,
             42, // temporal index
@@ -1558,7 +1533,7 @@ mod tests {
         assert_eq!(edge.frequency_u8(), 209);
         assert_eq!(edge.confidence_u8(), 181);
         assert_eq!(edge.causal_mask(), CausalMask::PO);
-        assert_eq!(edge.direction(), 0b101);
+        assert_eq!(edge.orientation(), Orientation::Recipient);
         assert_eq!(edge.inference_type(), InferenceType::Deduction);
         assert_eq!(edge.plasticity(), PlasticityState::S_HOT);
         assert_eq!(edge.temporal(), 42);
@@ -1573,7 +1548,7 @@ mod tests {
             204,
             178, // f=0.80, c=0.70
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Deduction,
             PlasticityState::ALL_HOT,
             1,
@@ -1585,7 +1560,7 @@ mod tests {
             229,
             204, // f=0.90, c=0.80
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Deduction,
             PlasticityState::ALL_FROZEN,
             2,
@@ -1620,7 +1595,7 @@ mod tests {
             204,
             127, // f=0.80, c=0.50
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Revision,
             PlasticityState::ALL_HOT,
             1,
@@ -1632,7 +1607,7 @@ mod tests {
             204,
             127, // same frequency, same confidence
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Revision,
             PlasticityState::ALL_HOT,
             2,
@@ -1655,7 +1630,7 @@ mod tests {
             200,
             200,
             CausalMask::PO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Deduction,
             PlasticityState::ALL_FROZEN,
             0,
@@ -1681,7 +1656,7 @@ mod tests {
             200,
             200,
             CausalMask::SPO,
-            0,
+            Orientation::Core,
             InferenceType::Revision,
             PlasticityState::ALL_HOT,
             100,
@@ -1693,7 +1668,7 @@ mod tests {
             200,
             200,
             CausalMask::SPO,
-            0,
+            Orientation::Core,
             InferenceType::Revision,
             PlasticityState::ALL_HOT,
             200,
@@ -1725,7 +1700,7 @@ mod tests {
             200,
             200,
             mask,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Deduction,
             PlasticityState::ALL_FROZEN,
             0,

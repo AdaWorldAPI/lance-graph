@@ -251,7 +251,7 @@ fn raw_edge(s: u8, o: u8, freq: u8) -> CausalEdge64 {
         freq,
         200,
         CausalMask::SO,
-        0b101,
+        causal_edge::Orientation::from_code(0b101),
         InferenceType::Deduction,
         PlasticityState::from_bits(0),
         0,

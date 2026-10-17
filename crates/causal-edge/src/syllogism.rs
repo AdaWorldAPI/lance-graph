@@ -221,7 +221,7 @@ impl CausalEdge64 {
             f,
             c,
             mask,
-            0, // direction: neutral; recomputed from composed palette downstream
+            crate::orientation::Orientation::Core, // direction: neutral; recomputed from composed palette downstream
             figure.rule(),
             PlasticityState::ALL_HOT,
             0, // temporal: structural under v2 (chain-position / AriGraph anchor)
@@ -248,7 +248,7 @@ mod tests {
             f,
             c,
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Deduction,
             PlasticityState::ALL_HOT,
             0,
@@ -381,7 +381,7 @@ mod tests {
             200,
             200,
             CausalMask::SPO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Deduction,
             PlasticityState::ALL_HOT,
             0,
@@ -394,7 +394,7 @@ mod tests {
             200,
             200,
             CausalMask::PO,
-            0,
+            crate::orientation::Orientation::Core,
             InferenceType::Deduction,
             PlasticityState::ALL_HOT,
             0,

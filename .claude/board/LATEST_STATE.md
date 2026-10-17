@@ -1,3 +1,7 @@
+## 2026-10-16 — D-CGW-1: CE64 bits 43..45 are the orientation (in PR)
+
+`causal_edge::Orientation` (Core + the seven Haspelmath dative functions) is the one meaning of 43..45; `direction()` → `orientation()`, `pack`/`pack_v2` take it. The S/P/O pathological triad and `detect_simpsons_paradox` are removed (no production writer). Contract `MooreDirection` replaces `DirectionReading`; `lift_ce64` refuses an oriented edge. #1593 merged (`124eb6cf`). Entry `2026-10-16-d-cgw-1-orientation-contract.md`.
+
 ## 2026-10-16 — synergy map since #1579 (entry `2026-10-16-synergy-map-since-1579.md`, in PR)
 
 - Revises every point of the #1579 map against merges #1580–#1591. D2 (preimage op) closed as a violation; L6 closed (#1544 closed); X17 and D8 partly closed by #1582. Decisions recorded: 43..45 amended to orientation in the contract, activation becomes a row field, OpenPSI modulators only into qualia.

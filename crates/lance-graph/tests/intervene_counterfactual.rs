@@ -124,7 +124,7 @@ fn causal_edge_intervention_roundtrip() {
         200,
         200,
         CausalMask::PO, // Level 2: Intervention — P and O active, S projected out
-        0,
+        causal_edge::Orientation::Core,
         InferenceType::Intervention,
         PlasticityState::ALL_FROZEN,
         42,
@@ -156,7 +156,7 @@ fn causal_edge_counterfactual_roundtrip() {
         200,
         200,
         CausalMask::SPO, // Level 3: Counterfactual — all planes active
-        0,
+        causal_edge::Orientation::Core,
         InferenceType::Counterfactual,
         PlasticityState::ALL_FROZEN,
         99,
