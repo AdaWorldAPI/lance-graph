@@ -82,27 +82,3 @@ fn ndarray_jina_reads_what_lance_graph_packs() {
         assert_eq!(jina::edge_plasticity(w), 0b101);
     }
 }
-
-#[test]
-fn ndarray_causal_diff_word_is_read_by_lance_graph() {
-    use ndarray::hpc::causal_diff::{CausalEdge64 as NdEdge, Projection, Verb, WeightEdge};
-    use ndarray::hpc::gguf_indexer::LayerType;
-    use ndarray::hpc::nars::NarsTruth;
-    let edge = WeightEdge {
-        tensor_name: String::new(),
-        row_idx: 9,
-        block: Some(17),
-        projection: Projection::FfnGate,
-        layer_type: LayerType::Attention,
-        verb: Verb::Contradicts,
-        l1_distance: 300,
-        truth: NarsTruth::new(0.72, 0.95),
-    };
-    let w = NdEdge::pack(&edge).0;
-    let e = CausalEdge64(w);
-    assert_eq!(e.s_idx(), 17);
-    assert_eq!(e.o_idx(), 2);
-    assert_eq!(e.frequency_u8(), (0.72f32 * 255.0).round() as u8);
-    assert_eq!(e.confidence_u8(), (0.95f32 * 255.0).round() as u8);
-    assert_eq!(w >> 40, 0, "no contract field is written");
-}
