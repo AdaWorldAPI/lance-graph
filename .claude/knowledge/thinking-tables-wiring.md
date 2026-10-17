@@ -26,7 +26,8 @@ lines that define, decide or measure something. Each wiring claim below is
 then verified against the source itself, never against the map alone.
 
 Separate input, same session: a ruff_cpp_spo harvest of PG-Ring (leapfrog
-triejoin over compact ring indexes) with seven Haiku maps. It feeds D-ASM-11
+triejoin over compact ring indexes); its idea catalogue is
+`.claude/research/2026-10-17-pgring-idea-catalogue.md` (#1600). It feeds D-ASM-11
 (leapfrog as prior art to learn from, arm A seek over sealed lanes vs arm B
 trie zipper), clean-room, and is cited here only where it bears on row 6/7.
 
@@ -34,15 +35,15 @@ trie zipper), clean-room, and is cited here only where it bears on row 6/7.
 
 | # | Element | Claim to verify | Candidate prior work | Status |
 |---|---|---|---|---|
-| 1 | 64 lanes are 64 tables over one identity | each lane is a whole table over the shared NodeGuid rows; sparse write, merge on read | D-HL (ce64-hypothesis-layers-v1), D-HL-5 thought lanes, D-HOLO H14c | WIRED |
-| 2 | Writes are isolated per lane | a lane writes only its own dirty bytes; no lane writes another | D-HL, D-WAL (cycle writer), sparse-write rulings | WIRED |
-| 3 | Reads cross lanes by presence-bit folds | `T_a[i] : T_b[i]` at the same coordinate, never a gather or foreign key | D-HOLO H14d `Thought(t)[T_a[i] : T_b[i]]`, presence planes P_l | WIRED |
-| 4 | Provenance is the written-by word | per row, which lanes wrote it, as presence bits | D-HL-3 evidential base, H14c/H14d presence planes | WIRED |
-| 5 | Independence for revision is decided by source bits | per-delta source bitset, not the lane number | D-HL-3, revision layer invariants (G1–G7), isa::truth | WIRED (probe not run) |
+| 1 | 64 thoughts are 64 tables over one identity | each thought is a whole table over the shared NodeGuid rows; sparse write, merge on read | D-HL (ce64-hypothesis-layers-v1), D-HL-5 thought lanes, D-HOLO H14c | WIRED |
+| 2 | Writes are isolated per thought | a thought writes only its own dirty bytes; no thought writes another | D-HL, D-WAL (cycle writer), sparse-write rulings | WIRED |
+| 3 | Reads cross thoughts by presence-bit folds | `T_a[i] : T_b[i]` at the same coordinate, never a gather or foreign key | D-HOLO H14d `Thought(t)[T_a[i] : T_b[i]]`, presence planes P_l | WIRED |
+| 4 | Provenance is the written-by word | per row, which thoughts wrote it, as presence bits | D-HL-3 evidential base, H14c/H14d presence planes | WIRED |
+| 5 | Independence for revision is decided by source bits | per-delta source bitset, not the thought number | D-HL-3, revision layer invariants (G1–G7), isa::truth | WIRED (probe not run) |
 | 6 | Set theory is the AST | ∩ AND, ∪ OR, − AND NOT, σ aperture, π table/field choice, ⋈ layout, μ fixpoint | relalg-v1 (D-RA-1..4), metta-datalog-assimilation (D-ASM), D-TELEPORT fold_ranges | PARTIAL |
-| 7 | Datalog fixpoint over lanes | semi-naive: Δ = new AND NOT old, done when popcount(Δ) = 0 | D-RA-3/4 (rules as algebra values, μ via the d′ driver), D-MTP-1 | PARTIAL |
-| 8 | FIFO scheduling is stratification | a lane frees at fixpoint; FIFO order is the stratum order negation needs | D-ASM schedule, NAL schedule-depth audit, D-NALP | PARTIAL |
-| 9 | Uses: time series, lenses, parallel NAL rules | one lane per year, per lens, or per NAL rule | D-WAL-6/7 temporal, nal-polyfill-v1, NAL audit inventory | PARTIAL |
+| 7 | Datalog fixpoint inside a thought | semi-naive: Δ = new AND NOT old, done when popcount(Δ) = 0 | D-RA-3/4 (rules as algebra values, μ via the d′ driver), D-MTP-1 | PARTIAL |
+| 8 | FIFO scheduling is stratification | a thought frees at fixpoint; FIFO order is the stratum order negation needs | D-ASM schedule, NAL schedule-depth audit, D-NALP | PARTIAL |
+| 9 | Uses: time series, lenses, parallel NAL rules | one thought per year, per lens, or per NAL rule | D-WAL-6/7 temporal, nal-polyfill-v1, NAL audit inventory | PARTIAL |
 | 10 | Foreign-key-shaped queries are native metacognition | who wrote it, who agrees (AND + popcount), who disagrees, as plane algebra | NAL-9 inventory, epistemic-frontier capstone (#1597), Simpson coresearch (#1596) | PARTIAL |
 | 11 | The 64-layer table itself | 64 tables as the unit of thought, with its lifecycle | none expected | NEW (as a unit) |
 
@@ -52,12 +53,13 @@ Paths are relative to the repository root. `#1597` is the epistemic-frontier
 capstone, `.claude/knowledge/epistemic-frontier-capstone.md` (merged as
 #1597); its lines are cited as `(#1597)`.
 
-**Vocabulary first.** The plans count **thoughts**, not lanes: up to 64
-thoughts, each owning up to 32 lane-tables (lane 0 identity, 1 edge, 2..31
-value), so up to 2,048 lane-tables (`.claude/plans/ce64-hypothesis-layers-v1.md:386-391`).
-The model's "64 lanes = 64 tables" is the plans' 64 thought tables; a lane in
-the plans is a 16-byte column inside one. Below, "thought table" means the
-model's lane.
+**Vocabulary (DECISION 2026-10-17).** The unit is a **thought**, numbered
+`0..64` (thought 0 = givens, 1..63 = hypotheses; the W field). "Lane" is
+reserved for SoA lanes: each thought owns up to 32 lane-tables (lane 0
+identity, 1 edge, 2..31 value), so up to 2,048 lane-tables
+(`.claude/plans/ce64-hypothesis-layers-v1.md:386-391`). The model's
+"64 lanes = 64 tables" reads as 64 thought tables. BASIS: "lanes is already
+used for SoA lanes". SCOPE: docs, code and PR text from here on.
 
 ### 1. 64 thought tables over one identity — WIRED
 
@@ -249,7 +251,7 @@ replayable transitions) but not its records.
 
 | # | point | sources |
 |---|---|---|
-| O1 | Thoughts or lanes: the plans count 64 thoughts × 32 lanes; the model counts 64 lanes. One word should be chosen before anything is written to code. | D-HL `:386-391` |
+| O1 | CLOSED 2026-10-17: the word is **thought** (`0..64`); "lane" stays the SoA lane. | D-HL `:386-391`; vocabulary paragraph above |
 | O2 | Session or storage: D-HL says the 64 thoughts are session addresses, not storage; the capstone says a thought's materialization is its table's sparse storage layer. If kept, a cached population needs its own type over the same word layout, never `AlphaMask`. | D-HL `:474`; `#1597` `:148`; photo-probe `:57-63` |
 | O3 | Precedence or fold: a merged read uses "higher thought index wins a shared lane", an overwrite rule; set questions use presence folds. Which reads use which is not written down. | D-HL `:412`, `:491`; H14c `:93-95` |
 | O4 | Derived facts written into a table versus split-tunnel rule 7 (derived reads write nothing) and law A1 (only demanded population writes). | split-tunnel rule 7; chained-hop `:51` |

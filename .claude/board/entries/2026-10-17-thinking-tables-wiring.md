@@ -19,7 +19,8 @@ FIFO order as the stratum order, and written-by queries as metacognition.
   written-by queries named as the metacognition surface, the table lifecycle as
   one unit.
 
-OPEN: thoughts vs lanes as the word; session vs storage (D-HL vs #1597);
+DECISION: the unit is a thought (`0..64`); "lane" stays the SoA lane.
+OPEN: session vs storage (D-HL vs #1597);
 precedence vs fold on merged reads; derived writes vs split-tunnel rule 7 and
 law A1; tables as strata under revision (Simpson); D-RA-2. Coverage gaps are
 listed in the document (O8).
