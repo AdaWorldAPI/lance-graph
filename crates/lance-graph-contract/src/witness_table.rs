@@ -1,5 +1,17 @@
 //! # `WitnessTable` — column-type primitive resolving the 6-bit W slot in `CausalEdge64 v2`.
 //!
+//! ## VIOLATION — THIS IS A FOREIGN KEY. DO NOT WIRE IT.
+//!
+//! `(mailbox_ref, spo_fact_ref)` behind the W slot is a reference that must be
+//! followed to learn anything: a key read into another table. The substrate
+//! has no foreign keys. DECISION 2026-10-17: W (bits 53..58) is the THOUGHT
+//! LAYER the state belongs to (0 = givens, 1..63 = hypotheses), and what this
+//! table would carry is carried by presence bits instead — the per-row
+//! written-by word and the per-thought masks over one allocation. Correct
+//! design: `.claude/plans/ce64-hypothesis-layers-v1.md` (givens layer,
+//! coverage orientation) and `.claude/knowledge/epistemic-frontier-capstone.md`
+//! §3. The type is unwired and kept only until its removal PR.
+//!
 //! ## Architectural context
 //!
 //! `CausalEdge64 v2` (plan §6 / bits 53–58) reserves a **6-bit W-slot index** (0..=63)
