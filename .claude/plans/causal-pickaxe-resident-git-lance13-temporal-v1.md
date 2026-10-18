@@ -1,7 +1,7 @@
 # D-CPG-v1: Causal Pickaxe over resident Git, Lance 13 refs, stable identity and temporal horizons
 
 **Status:** PROPOSAL / PRE-REGISTERED FALSIFIERS (2026-10-18). No runtime implementation, new persistent carrier, dependency upgrade, causal certificate, or benchmark claim.
-**What changes:** A **version-plane adapter and causal-debugger query contract** joining existing D-TGA thought Git (#1599), candidate resolutions (#1604), the Lance 13/LanceDB 0.40 capability surface, immutable NodeGuid identity, and `crates/lance-graph-planner/src/temporal.rs`.
+**What changes:** A **Git porcelain-to-epistemic-algebra contract**, version-plane adapter and causal-debugger query contract joining existing D-TGA thought Git (#1599), candidate resolutions (#1604), the Lance 13/LanceDB 0.40 capability surface, immutable NodeGuid identity, and `crates/lance-graph-planner/src/temporal.rs`.
 **Why:** The user asks whether Git can *literally* fit around Lance versioning × stable rows × `temporal.rs` and whether semantic Pickaxe can become a causal debugger. Earlier 64k kanban work shows a fold-to-write cost ratio requiring **resident speculative history with selective durable squashes**, not per-step Lance writes.
 
 ## 0. The answer, bounded
@@ -191,3 +191,114 @@ Harness to land **first**, in an isolated probe (no default workspace pins or pr
 - The explicit causal query is answered using only `NoDeps`, "Strict" default sentinel, copied witnesses, or grammatical/Haspelmath orientation as a causal proof.
 
 **Bottom line:** Git **around** Lance13 stable and temporal versions is promising. Git **inside each fold** is precisely the problem we originally eliminated. First demonstrate that a resident branch-and-squash graph can buy causal debugging without paying per-step I/O, and that temporal and semantic causality remain separately justified.
+
+## 9. Git porcelain is the public surface of epistemic algebra (2026-10-18 amendment)
+
+**Operator insight:** "The one API that despite the complexity nobody can resist as a surface of masking relalg Datalog AST NAL." The follow-up decision is to **expand this PR**, not open #1606: #1599 already owns thought lifecycle, #1604 owns candidate semantics, and this plan owns the *public Git vocabulary → typed operation → existing evaluation substrate* seam. The interface needs to look familiar; the semantic engine must remain singular.
+
+**Architectural law:** **Git is the porcelain, not the VM.** Git verbs compile or route to operations already owned by the D-TGA lifecycle, RelAlg normalization, the external Datalog fixpoint driver, R2IL / mask-risc, NAL/ONA evidential revision, temporal read-horizon checks, and Lance durable version refs. A Git command may compose them, but MUST NOT introduce a new inference evaluator, witness counter, causal edge model, graph-key lookup, independently materialized row universe, or per-fold persistence.
+
+### 9.1 Vocabulary mapping and its limits
+
+| Public porcelain | Meaning for an epistemic user | Existing execution / contract | Refusal or caveat |
+| --- | --- | --- | --- |
+| `status` | pending proposals, dirty/clean/stale, conflicts, unresolved evidence | D-TGA `R/W/M` masks, `popcount`, candidate outcomes (#1604), NAL-root status | No "supported" claim from thought-popcount alone; no implicit hydration/mutation |
+| `branch` | start another possible interpretation | D-TGA branch slot 1..=63, shared immutable NodeGuid spine, parent logical revision | Not a new Lance dataset by default; slot != historical commit ID |
+| `add -p` / `stage` | select some proposed semantic deltas for review/landing | address/field aperture AND changed mask; typed candidate and policy gates | **Staged ≠ true, proved, causal, authorized, or persisted**; selection alone never upgrades CE64 F/C |
+| `diff --semantic` | compare interpretations, not just occupancy | `P_a XOR P_b` **candidate locations**, then typed value comparisons at same address under aperture; explicit binding algebra where needed | XOR of presence != semantic disagreement; identical presence and different values still differ |
+| `merge` | reconcile compatible branches without dropping alternatives | D-TGA dependency-ordered queue, DRed, NAL independent-root checks, G1–G7 gate | No "ours/theirs/latest wins" as epistemic truth; conflicts remain visible |
+| `rebase` | re-evaluate with newly sealed evidence | D-TGA read/write masks, stale comparisons, semi-naive Datalog re-run + retraction | Rebase after premise deletion must equal from-scratch recomputation; no future evidence leakage |
+| `blame` | inspect origin of a claim, rules, independent roots, landing version | root bitsets, derivation receipt, logical DAG/version mapping | Git commit author/CE64 W identifies a producing perspective, not independent evidence |
+| `bisect` | locate earliest revision that changes an oracle result | pinned logical commit DAG, deterministic reconstruction, predicate oracle | Only meaningful if oracle stable and replay coverage sufficient; otherwise `LineageUnavailable` |
+| `pickaxe` | find claim/value changes and investigate derivational cause | change-mask + temporal aperture + pinned revision, then witness dependency and optional model-intervention replay | Temporal/provenance/ablation/real-world causal grades must not collapse |
+| `squash` | retain justifiable semantic progress and sufficient reconstruction | D-TGA partial squash; artifact gate; one writer; receipts | No micro-commit per fold; explicit query fidelity/retention limitations |
+| `checkout` / `log` | view previous warranted states and why they landed | pinned resident revision or `DurableRef{dataset,branch,version}`; `temporal.rs` | No unbounded `QueryReference::default()` for historical audit |
+| `revert` | propose reversing a semantic change | new reviewed inverse/retraction proposal + DRed at next version | Do NOT silently invoke Lance `restore`, erase independent evidence, or rewrite published history |
+
+**Command spelling is a proposal, not a released CLI.** User-facing `mind status` or `git know status` can be aliases to the same typed operation. Avoid hijacking the system's actual `git` executable or assuming a filesystem implementation. Names are label-codebook lookups at admission, not hot-path String keys.
+
+### 9.2 A single lowering path, never an implementation per verb
+
+```text
+human | AI agent | Rust caller
+       ↓
+Git-like porcelain (admission, parsed options, explicit scope)
+       ↓
+typed intent: operation, NodeGuid/claim aperture, thought/revision,
+              event window, pinned observed head, authorization,
+              evidence policy (no "just true" checkbox)
+       ↓
+RelAlg normalize (∩ ∪ complement / selection / projection where supported)
+    ↘ Datalog external fixpoint / DRed only for genuinely recursive dependencies
+       ↓
+R2IL / mask-risc  → bitset address mask + typed resident payload terminal
+       ↓
+candidate outcomes / NAL evidence revision gates / temporal classification
+       ↓
+read-only report  OR  D-TGA speculative change  OR  reviewed sparse Lance land
+```
+
+The lowering chooses a pre-existing operation by **semantic effect** (read, speculative edit, evidential review, durable land), not by the CLI verb spelling. Two porcelain expressions with the same typed intent and sealed inputs must normalize to equivalent results. When a command requires true variable-binding joins rather than already coindexed addresses, it may only use a validated relational operator/projection. Boolean mask AND is not a general Datalog join or an established WCOJ.
+
+The "Git" similarity stops at meaningful semantics:
+- `branch`/`diff` are often cheap mask/overlay operations; `merge` is **not** a 3-way text merge, but independent-root revision plus contradictory alternatives.
+- `add -p` is candidate *admission to a stage*, **not epistemic certification**; staging must retain negative witnesses and rejected alternatives.
+- `status` is a version-specific *view*; no derived cache writes just because someone asked.
+- `bisect`/`pickaxe` are only as exact as the **retained** input, codebook, program, source roots and commit lineage; reject unsupported historical precision instead of fabricating it.
+- A user agent cannot upgrade authorization by checking out an earlier branch. Apply row/field/tenant/temporal masks **before** payload.
+- No new CE64 field: bits 43..45 retain Haspelmath registered function, 53..58 thought W; causal Pickaxe requests and receipts live outside those bits.
+
+### 9.3 Make the familiar commands useful without hiding epistemic nuance
+
+Illustrative porcelain, entirely **NOT_IMPLEMENTED**:
+
+```sh
+mind branch possible-inheritance
+mind query 'Why does this user have this effective permission?' --as-of main@V421
+mind status --evidence
+mind diff main@V421..possible-inheritance --semantic
+mind add -p --scope permission:effective      # propose selected changed cells
+mind rebase possible-inheritance --onto main@V422
+mind blame permission:effective --roots
+mind pickaxe permission:inherited --since '20 minutes' --explain
+mind merge possible-inheritance --revision-policy nal
+mind squash --receipt sufficient-for-pickaxe
+```
+
+Illustrative status *semantics*:
+
+```text
+On thought: possible-inheritance
+Pinned base: dataset/main@V421
+Compared head: dataset/main@V422
+
+  43 candidate claims
+  11 with independent supporting roots
+   7 conflicting alternatives
+  25 unresolved
+   3 selected for review
+   2 require additional evidence
+  0 durable changes until authorized, successful land
+
+Changes are proposals; confidence and proof status come from evidence,
+not from staging, membership, or Git ancestry.
+```
+
+Counts above are fictional UI fixture values, not repository benchmarks or verified NAL verdicts. Maintain human and AI parity: an agent issuing the same command against the same sealed context sees the same provenance-bearing result, except fields hidden by its authorization.
+
+### 9.4 Extended falsification: porcelain is a compilation surface
+
+The JSON preregistration adds `CPG-18`–`CPG-25` and **does not constitute executed tests**:
+
+- Two different Git command spellings with equivalent typed intent produce identical masks and results; no distinct evaluator executes.
+- `status` on unchanged inputs produces zero durable writes and does not grant source independence by thought-count.
+- `diff` catches a value change when both presence planes are equal.
+- `add -p` selects a proper changed subset but never certifies candidates or silently drops conflicting evidence.
+- `merge` preserves incompatible alternatives and refuses duplicated source-root inflation.
+- `bisect` with a nonmonotonic oracle is either exhaustive/validated or refuses the unsafe binary search; pruned lineage gives `LineageUnavailable`.
+- A historical unauthorized branch remains unreadable and respects a concretely pinned strict knowledge horizon.
+- A command alias and its machine-authored AST share the identical audited execution path and outcome.
+
+**Review gate:** treat the porcelain feature as **DESIGN-ONLY** until D-TGA's falsifiers, H14c/H14d operators, strict temporal horizon enforcement, source-root policy, and stable-row/branch API probes have actual passing fixtures. A presentable CLI is not evidence of a correct reasoning engine.
+
+**Summary:** **One porcelain, one typed meaning, one mask execution substrate, one evidence policy, one durable writer.** Git makes epistemic algebra approachable precisely because it does not replace that algebra.
