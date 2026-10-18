@@ -13,7 +13,8 @@
     "Mock version numbers and sample event timestamps are illustrative, not actual historical records.",
     "Test the exact supported API in a standalone pinned probe before declaring an operation available in local storage.",
     "Source independence and authorization are preconditions; count of thoughts or commits cannot establish epistemic support.",
-    "Measured fold-to-write ratios from Lance11 cannot be assumed unchanged in Lance13."
+    "Measured fold-to-write ratios from Lance11 cannot be assumed unchanged in Lance13.",
+    "CPG-18..CPG-25 specify Git porcelain as a typed-IR interface over existing execution; they neither implement a CLI nor establish proof of correctness."
   ],
   "cases": [
     {
@@ -407,6 +408,242 @@
       "expected": {
         "payload_read_count": 0,
         "cannot_bypass_via_checkout": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-18",
+      "title": "Porcelain equivalence to one normalized mask program",
+      "input": {
+        "porcelain": [
+          "mind diff A..B --semantic",
+          "mind compare --left A --right B --field semantics"
+        ],
+        "typed_intent": {
+          "read_only": true,
+          "left": "A",
+          "right": "B",
+          "selected": "semantic-lanes"
+        },
+        "fixture": "same sealed base, same permissions and independent source roots"
+      },
+      "expected": {
+        "same_address_mask": true,
+        "same_typed_differences": true,
+        "execution_backend": "existing RelAlg/R2IL/mask-risc",
+        "separate_verb_evaluators": 0,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-19",
+      "title": "Read-only epistemic status, no invented witnesses",
+      "input": {
+        "command": "mind status --evidence",
+        "first_read": {
+          "base_version": 421,
+          "thoughts_writing_same_root": 3,
+          "root": "observation-A"
+        },
+        "repeat": 4
+      },
+      "expected": {
+        "durable_versions_added": 0,
+        "epistemic_independent_root_count": 1,
+        "no_claim_certification_from_thought_count": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-20",
+      "title": "Semantic diff differs from presence XOR",
+      "input": {
+        "left": {
+          "presence": [
+            "X"
+          ],
+          "values": {
+            "X": "A"
+          }
+        },
+        "right": {
+          "presence": [
+            "X"
+          ],
+          "values": {
+            "X": "B"
+          }
+        },
+        "aperture": [
+          "X"
+        ]
+      },
+      "expected": {
+        "presence_xor": [],
+        "typed_value_diff": [
+          "X"
+        ],
+        "report_semantic_change": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-21",
+      "title": "Patch staging selects without proving",
+      "input": {
+        "unreviewed_candidates": [
+          "C1",
+          "C2",
+          "C3"
+        ],
+        "patch_selection": [
+          "C1",
+          "C3"
+        ],
+        "conflict_between": [
+          "C1",
+          "C3"
+        ],
+        "source_roots": {
+          "C1": [
+            "A"
+          ],
+          "C3": [
+            "A"
+          ]
+        }
+      },
+      "expected": {
+        "staged": [
+          "C1",
+          "C3"
+        ],
+        "unstaged": [
+          "C2"
+        ],
+        "proven_or_established_from_staging": [],
+        "duplicate_root_not_added_twice": true,
+        "conflicting_alternative_preserved": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-22",
+      "title": "Semantic merge preserves incompatible candidates",
+      "input": {
+        "base": "V421",
+        "left": {
+          "claim": "effective_permission:direct",
+          "roots": [
+            "R1"
+          ]
+        },
+        "right": {
+          "claim": "effective_permission:inherited",
+          "roots": [
+            "R1"
+          ]
+        },
+        "merge_policy": "NAL_revision_G1_G7"
+      },
+      "expected": {
+        "retain_distinct_claims": true,
+        "root_independence_count": 1,
+        "never_latest_wins": true,
+        "stale_negative_dependency_requires_stratum_check": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-23",
+      "title": "Bisect nonmonotonic oracle and discarded lineage refusal",
+      "input": {
+        "revisions": [
+          "c0",
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "oracle_results": [
+          false,
+          true,
+          false,
+          true,
+          false
+        ],
+        "discarded": [
+          "c2"
+        ],
+        "query": "find_first_failure"
+      },
+      "expected": {
+        "reject_unchecked_binary_search": true,
+        "permitted_results": [
+          "exhaustive_scan_when_all_required_history_retained",
+          "LineageUnavailable"
+        ],
+        "no_false_first_failure": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-24",
+      "title": "Historical checkout honors authorization and strict temporal read",
+      "input": {
+        "command": "mind checkout dataset/main@V5; mind status --evidence",
+        "observed_head": 5,
+        "requested_reference": {
+          "version": 5,
+          "mode": "Strict"
+        },
+        "visible_root": {
+          "version": 5,
+          "tenant": "public"
+        },
+        "hidden_root": {
+          "version": 4,
+          "tenant": "private"
+        },
+        "future_root": {
+          "version": 6,
+          "tenant": "public"
+        }
+      },
+      "expected": {
+        "admitted_roots": [
+          "visible_root"
+        ],
+        "excluded_roots": [
+          "hidden_root",
+          "future_root"
+        ],
+        "decoded_denied_payloads": 0,
+        "refuse_default_unbounded_ref": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-25",
+      "title": "CLI and AST program equivalence for AI and human",
+      "input": {
+        "human": "mind pickaxe claim:X --as-of dataset/main@V5",
+        "agent_ast": {
+          "op": "Pickaxe",
+          "claim": "X",
+          "snapshot": {
+            "dataset": "dataset",
+            "branch": "main",
+            "version": 5
+          }
+        },
+        "authorized_scope": "identical"
+      },
+      "expected": {
+        "same_typed_operation": true,
+        "same_address_selection": true,
+        "same_provenance_report": true,
+        "only_one_backend": true,
         "status": "NOT_RUN"
       }
     }
