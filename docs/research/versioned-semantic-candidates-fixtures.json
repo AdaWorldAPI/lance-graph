@@ -1,5 +1,5 @@
 {
-  "description": "Illustrative, manually authored candidate-resolution oracle cases. This document is not a JSON schema despite the '$schema' metadata. All symbolic IDs must be bound by a future canonical codebook-aware test runner; outputs are expectations, not measured results.",
+  "description": "Illustrative manually authored candidate-resolution oracle fixtures (not a schema, not yet executed). Symbolic IDs must be bound by a future canonical codebook-aware test runner.",
   "format": "lance-graph-versioned-semantic-candidates/fixtures-v1",
   "status": "unexecuted",
   "date": "2026-10-18",
@@ -126,8 +126,9 @@
       "expected": {
         "canonical_claim_equivalent": true,
         "canonical_predicate": "opens",
-        "agent": "k1",
-        "theme": "d1"
+        "opener": "k1",
+        "opened_entity": "d1",
+        "agency_not_assumed": true
       }
     },
     {
