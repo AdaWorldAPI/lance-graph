@@ -1,0 +1,395 @@
+{
+  "description": "Illustrative, manually authored candidate-resolution oracle cases. This document is not a JSON schema despite the '$schema' metadata. All symbolic IDs must be bound by a future canonical codebook-aware test runner; outputs are expectations, not measured results.",
+  "format": "lance-graph-versioned-semantic-candidates/fixtures-v1",
+  "status": "unexecuted",
+  "date": "2026-10-18",
+  "reference_docs": [
+    "docs/research/versioned-semantic-candidates-64-thoughts-rfc.md",
+    ".claude/plans/thought-git-api-v1.md"
+  ],
+  "notes": [
+    "No NodeGuid values or CE64 fields are minted by the fixture.",
+    "No claims about current implementation passing these tests.",
+    "C-05 coreference plausibility is not gold truth.",
+    "Scopes, codebook versions and permission masks must be pinned before executable validation."
+  ],
+  "cases": [
+    {
+      "id": "C-01",
+      "name": "Ring rotations with explicit identity",
+      "type": "semantic_equivalence",
+      "input": {
+        "sentences": [
+          "That key opens a door.",
+          "That door hides a garden.",
+          "That garden shelters a fox.",
+          "That fox carries a key."
+        ],
+        "entry_orders": [
+          [
+            0,
+            1,
+            2,
+            3
+          ],
+          [
+            1,
+            2,
+            3,
+            0
+          ],
+          [
+            2,
+            3,
+            0,
+            1
+          ],
+          [
+            3,
+            0,
+            1,
+            2
+          ]
+        ],
+        "external_identity_witness": {
+          "lhs": "last_sentence.key",
+          "rhs": "first_sentence.key",
+          "root": "independent_coref_witness_1"
+        }
+      },
+      "expected": {
+        "canonical_relation_set_equivalent": true,
+        "cycle_closed": true,
+        "allow_different_physical_plans": true,
+        "preserve_witness": true
+      }
+    },
+    {
+      "id": "C-02",
+      "name": "No fabricated closure",
+      "type": "abstention",
+      "input": {
+        "sentences": [
+          "That key opens a door.",
+          "That door hides a garden.",
+          "That garden shelters a fox.",
+          "That fox carries a key."
+        ],
+        "entry_orders": [
+          [
+            0,
+            1,
+            2,
+            3
+          ],
+          [
+            1,
+            2,
+            3,
+            0
+          ],
+          [
+            2,
+            3,
+            0,
+            1
+          ],
+          [
+            3,
+            0,
+            1,
+            2
+          ]
+        ],
+        "external_identity_witness": null
+      },
+      "expected": {
+        "cycle_closed": false,
+        "coreference_status": "Unresolved",
+        "no_implicit_identity_mint": true
+      }
+    },
+    {
+      "id": "C-03",
+      "name": "Active passive role normalization",
+      "type": "semantic_equivalence",
+      "input": {
+        "paraphrases": [
+          "That key opens a door.",
+          "A door is opened by that key."
+        ],
+        "referents": {
+          "key": "k1",
+          "door": "d1"
+        }
+      },
+      "expected": {
+        "canonical_claim_equivalent": true,
+        "canonical_predicate": "opens",
+        "agent": "k1",
+        "theme": "d1"
+      }
+    },
+    {
+      "id": "C-04",
+      "name": "Predicate change cannot preserve claim identity",
+      "type": "non_equivalence",
+      "input": {
+        "original": "That fox carries a key.",
+        "changed": "That fox destroys a key.",
+        "same_explicit_entities": true
+      },
+      "expected": {
+        "canonical_claim_equivalent": false,
+        "unlabeled_topology_may_match": true
+      }
+    },
+    {
+      "id": "C-05",
+      "name": "German neuter pronoun alternatives",
+      "type": "candidate_admission",
+      "input": {
+        "sentence": "Das Kind nahm das Buch, weil es lernen wollte.",
+        "surface": "es",
+        "grammar_compatible_antecedents": [
+          "Kind",
+          "Buch"
+        ],
+        "contextual_semantic_gold": null
+      },
+      "expected": {
+        "distinct_candidate_ids": [
+          "corefers(es,Kind)",
+          "corefers(es,Buch)"
+        ],
+        "candidate_count": 2,
+        "force_established": false,
+        "retain_alternatives": true
+      }
+    },
+    {
+      "id": "C-06",
+      "name": "Replicated source not independent",
+      "type": "evidence_independence",
+      "input": {
+        "thoughts": [
+          1,
+          2,
+          3
+        ],
+        "sources_by_thought": {
+          "1": [
+            "source-A"
+          ],
+          "2": [
+            "source-A"
+          ],
+          "3": [
+            "source-A"
+          ]
+        }
+      },
+      "expected": {
+        "written_by_population": 3,
+        "independent_source_count": 1
+      }
+    },
+    {
+      "id": "C-07",
+      "name": "Two independent sources in one perspective",
+      "type": "evidence_independence",
+      "input": {
+        "thoughts": [
+          9
+        ],
+        "sources_by_thought": {
+          "9": [
+            "source-A",
+            "source-B"
+          ]
+        }
+      },
+      "expected": {
+        "written_by_population": 1,
+        "independent_source_count": 2
+      }
+    },
+    {
+      "id": "C-08",
+      "name": "Perspective evaluations not factual contradiction",
+      "type": "perspective",
+      "input": {
+        "claim": "fox carries key",
+        "perspectives": [
+          {
+            "thought": 24,
+            "lens": "fable narrative"
+          },
+          {
+            "thought": 27,
+            "lens": "animal welfare"
+          },
+          {
+            "thought": 48,
+            "lens": "philosophy of language"
+          }
+        ]
+      },
+      "expected": {
+        "different_interpretive_questions": true,
+        "auto_mark_factual_conflict": false,
+        "auto_increase_nal_confidence": false
+      }
+    },
+    {
+      "id": "C-09",
+      "name": "Derived belief retracts after premise deletion",
+      "type": "rebase_retraction",
+      "input": {
+        "v1": {
+          "givens": [
+            "A"
+          ],
+          "rule": "A -> B",
+          "derived": [
+            "B"
+          ]
+        },
+        "v2": {
+          "removed": [
+            "A"
+          ],
+          "added": []
+        }
+      },
+      "expected": {
+        "v2_derived": [],
+        "must_rederive_from_scratch": true,
+        "stale_B_refused": true
+      }
+    },
+    {
+      "id": "C-10",
+      "name": "Landing version survives thought slot reuse",
+      "type": "identity_versioning",
+      "input": {
+        "thought_slot": 12,
+        "first_landing_version": "v8",
+        "first_sources": [
+          "source-A"
+        ],
+        "slot_reused_later": true
+      },
+      "expected": {
+        "first_blame_version": "v8",
+        "first_blame_sources": [
+          "source-A"
+        ],
+        "blame_not_by_reused_slot": true
+      }
+    },
+    {
+      "id": "C-11",
+      "name": "Association and causal certification distinct",
+      "type": "epistemic_gate",
+      "input": {
+        "claim": "X associated_with Y",
+        "source_roots": [
+          "observational-A"
+        ],
+        "intervention_result": null
+      },
+      "expected": {
+        "must_not_certify": "Causes",
+        "retains_claim_predicate": "associated_with"
+      }
+    },
+    {
+      "id": "C-12",
+      "name": "Different sealed allocations refuse mask fusion",
+      "type": "mask_version_safety",
+      "input": {
+        "left": {
+          "frame": "reference-v10",
+          "allocation": "alloc-A"
+        },
+        "right": {
+          "frame": "reference-v11",
+          "allocation": "alloc-B"
+        }
+      },
+      "expected": {
+        "cross_mask_AND": "Refused",
+        "reason": "UnalignedAddressSpace"
+      }
+    },
+    {
+      "id": "C-13",
+      "name": "Stratified negation beats FIFO",
+      "type": "negative_dependency",
+      "input": {
+        "enqueue_order": [
+          "B",
+          "A"
+        ],
+        "requires_fixpoint_before": [
+          [
+            "A",
+            "B"
+          ]
+        ],
+        "cycle_through_negation": false
+      },
+      "expected": {
+        "land_order": [
+          "A",
+          "B"
+        ],
+        "no_FIFO_only_override": true
+      }
+    },
+    {
+      "id": "C-14",
+      "name": "Compact ABI round-trip with retained witnesses",
+      "type": "replay",
+      "input": {
+        "thoughts": [
+          1,
+          5,
+          62
+        ],
+        "alternatives": [
+          "claim-X",
+          "claim-Y"
+        ],
+        "independent_source_roots": [
+          "source-A",
+          "source-B"
+        ],
+        "sealed_version": "v17",
+        "remove_history": false
+      },
+      "expected": {
+        "same_claim_identity_after_replay": true,
+        "same_candidate_set_after_replay": true,
+        "same_independent_source_roots_after_replay": true,
+        "requires_external_receipt_for_lost_information": true
+      }
+    },
+    {
+      "id": "C-15",
+      "name": "63 branches plus givens capacity",
+      "type": "capacity",
+      "input": {
+        "sealed_thought": 0,
+        "hypotheses_requested": 64,
+        "max_thought_id": 63
+      },
+      "expected": {
+        "hypotheses_admitted": 63,
+        "hypotheses_refused": 1,
+        "givens_slot_protected": true
+      }
+    }
+  ]
+}
