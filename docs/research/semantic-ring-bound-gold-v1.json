@@ -1,0 +1,72 @@
+{
+  "format": "lance-graph-semantic-ring-bound-gold/v2",
+  "status": "manually-bound-symbolic-test-gold-not-production-parser-output",
+  "scope": "C-01/C-02: identities remain stable; a sealed version witnesses an identity assertion at its claim address",
+  "sentences": [
+    "That key opens a door.",
+    "That door hides a garden.",
+    "That garden shelters a fox.",
+    "That fox carries a key."
+  ],
+  "facts": [
+    {
+      "sentence_index": 0,
+      "subject": "first_sentence.key",
+      "predicate": "opens",
+      "object": "door"
+    },
+    {
+      "sentence_index": 1,
+      "subject": "door",
+      "predicate": "hides",
+      "object": "garden"
+    },
+    {
+      "sentence_index": 2,
+      "subject": "garden",
+      "predicate": "shelters",
+      "object": "fox"
+    },
+    {
+      "sentence_index": 3,
+      "subject": "fox",
+      "predicate": "carries",
+      "object": "last_sentence.key"
+    }
+  ],
+  "read_heads": {
+    "C-01": {
+      "dataset": "symbolic-ring",
+      "branch": "main",
+      "version": 17
+    },
+    "C-02": {
+      "dataset": "symbolic-ring",
+      "branch": "main",
+      "version": 16
+    }
+  },
+  "attested_identity": [
+    {
+      "lhs": "last_sentence.key",
+      "rhs": "first_sentence.key",
+      "claim_address": "corefers(last_sentence.key,first_sentence.key)",
+      "sealed_in": {
+        "dataset": "symbolic-ring",
+        "branch": "main",
+        "version": 17
+      },
+      "source_roots": [
+        "independent_coref_witness_1"
+      ]
+    }
+  ],
+  "caveats": [
+    "Identifiers here are fixed manually authored symbolic claim/referent coordinates, not runtime-minted NodeGuids.",
+    "The version of a claim at its thought address is its historical witness; no separate witness entity or foreign-key lookup is created.",
+    "The source root is separately retained in the version receipt for evidential independence. Neither the thought slot nor the version number by itself proves that sources are independent.",
+    "An attestation being present in a version witnesses the assertion in the test history; it does not establish externally observed coreference truth.",
+    "Read horizons use dataset + branch + version, never a naked version or latest/unbounded temporal default.",
+    "No production R2IL relation join, CE64 truth promotion, actual Lance manifest or real-world source attestation is claimed."
+  ]
+}
