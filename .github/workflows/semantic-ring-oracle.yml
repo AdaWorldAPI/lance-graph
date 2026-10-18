@@ -1,0 +1,33 @@
+name: Semantic ring reference oracle
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/semantic-ring-oracle.yml'
+      - 'docs/research/versioned-semantic-candidates-fixtures.json'
+      - 'docs/research/semantic-ring-bound-gold-v1.json'
+      - 'tools/semantic_ring_oracle/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/semantic-ring-oracle.yml'
+      - 'docs/research/versioned-semantic-candidates-fixtures.json'
+      - 'docs/research/semantic-ring-bound-gold-v1.json'
+      - 'tools/semantic_ring_oracle/**'
+
+permissions:
+  contents: read
+
+jobs:
+  reference-oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Assert C-01/C-02 and negative controls
+        run: |
+          python3 tools/semantic_ring_oracle/ring_reference.py
+          python3 -m unittest discover -s tools/semantic_ring_oracle -p 'test_*.py' -v
