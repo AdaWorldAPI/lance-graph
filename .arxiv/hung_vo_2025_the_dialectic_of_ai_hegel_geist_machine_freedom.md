@@ -1,12 +1,7 @@
 # The Dialectic of AI: Hegel, Geist, and the Path to Machine Freedom
 
 **Author:** Hung Vo  
-**Published:** March 2025 (per saved page title)  
-**Original article:** https://hungvtm.medium.com/the-dialectic-of-ai-hegel-geist-and-the-path-to-machine-freedom-2432a0b75566  
-**Archived snapshot:** https://archive.ph/20250322031357/https://hungvtm.medium.com/the-dialectic-of-ai-hegel-geist-and-the-path-to-machine-freedom-2432a0b75566  
-**Source:** User-provided Medium webpage archive (MHTML).
-
-> Transcription note: Article body and wording are preserved, including the author's speculative claims. Obvious punctuation damaged in the saved archive was normalized contextually. Navigation, recommendations, follower controls and other site UI are excluded.
+**Published:** March 2025   https://hungvtm.medium.com/the-dialectic-of-ai-hegel-geist-and-the-path-to-machine-freedom-2432a0b75566  
 
 ---
 
