@@ -1,0 +1,50 @@
+{
+  "format": "lance-graph-semantic-ring-bound-gold/v1",
+  "status": "manual-independent-oracle-input-not-parser-output",
+  "scope": "C-01/C-02 only; four source-bound relations, with distinct first and last keys",
+  "sentences": [
+    "That key opens a door.",
+    "That door hides a garden.",
+    "That garden shelters a fox.",
+    "That fox carries a key."
+  ],
+  "facts": [
+    {
+      "sentence_index": 0,
+      "subject": "first_sentence.key",
+      "predicate": "opens",
+      "object": "door"
+    },
+    {
+      "sentence_index": 1,
+      "subject": "door",
+      "predicate": "hides",
+      "object": "garden"
+    },
+    {
+      "sentence_index": 2,
+      "subject": "garden",
+      "predicate": "shelters",
+      "object": "fox"
+    },
+    {
+      "sentence_index": 3,
+      "subject": "fox",
+      "predicate": "carries",
+      "object": "last_sentence.key"
+    }
+  ],
+  "attested_identity": [
+    {
+      "lhs": "last_sentence.key",
+      "rhs": "first_sentence.key",
+      "root": "independent_coref_witness_1"
+    }
+  ],
+  "caveats": [
+    "Symbolic bindings are manually authored semantic gold, not DeepNSM-v2 output.",
+    "The attestation is a synthetic test fixture, not empirical certification.",
+    "Only an explicitly activated, exact attestation may unify the two key referents.",
+    "No NodeGuid minting, physical join, Datalog fixpoint, or CE64 truth promotion is performed."
+  ]
+}
