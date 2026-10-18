@@ -269,9 +269,7 @@
         }
       },
       "expected": {
-        "must_derive_after": [
-          ""
-        ],
+        "must_derive_after": [],
         "stale_B_refused": true,
         "status": "NOT_RUN"
       }
