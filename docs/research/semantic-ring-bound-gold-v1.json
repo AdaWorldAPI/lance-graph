@@ -1,7 +1,7 @@
 {
-  "format": "lance-graph-semantic-ring-bound-gold/v1",
-  "status": "manual-independent-oracle-input-not-parser-output",
-  "scope": "C-01/C-02 only; four source-bound relations, with distinct first and last keys",
+  "format": "lance-graph-semantic-ring-bound-gold/v2",
+  "status": "manually-bound-symbolic-test-gold-not-production-parser-output",
+  "scope": "C-01/C-02: identities remain stable; a sealed version witnesses an identity assertion at its claim address",
   "sentences": [
     "That key opens a door.",
     "That door hides a garden.",
@@ -34,17 +34,39 @@
       "object": "last_sentence.key"
     }
   ],
+  "read_heads": {
+    "C-01": {
+      "dataset": "symbolic-ring",
+      "branch": "main",
+      "version": 17
+    },
+    "C-02": {
+      "dataset": "symbolic-ring",
+      "branch": "main",
+      "version": 16
+    }
+  },
   "attested_identity": [
     {
       "lhs": "last_sentence.key",
       "rhs": "first_sentence.key",
-      "root": "independent_coref_witness_1"
+      "claim_address": "corefers(last_sentence.key,first_sentence.key)",
+      "sealed_in": {
+        "dataset": "symbolic-ring",
+        "branch": "main",
+        "version": 17
+      },
+      "source_roots": [
+        "independent_coref_witness_1"
+      ]
     }
   ],
   "caveats": [
-    "Symbolic bindings are manually authored semantic gold, not DeepNSM-v2 output.",
-    "The attestation is a synthetic test fixture, not empirical certification.",
-    "Only an explicitly activated, exact attestation may unify the two key referents.",
-    "No NodeGuid minting, physical join, Datalog fixpoint, or CE64 truth promotion is performed."
+    "Identifiers here are fixed manually authored symbolic claim/referent coordinates, not runtime-minted NodeGuids.",
+    "The version of a claim at its thought address is its historical witness; no separate witness entity or foreign-key lookup is created.",
+    "The source root is separately retained in the version receipt for evidential independence. Neither the thought slot nor the version number by itself proves that sources are independent.",
+    "An attestation being present in a version witnesses the assertion in the test history; it does not establish externally observed coreference truth.",
+    "Read horizons use dataset + branch + version, never a naked version or latest/unbounded temporal default.",
+    "No production R2IL relation join, CE64 truth promotion, actual Lance manifest or real-world source attestation is claimed."
   ]
 }
