@@ -1,0 +1,651 @@
+{
+  "format": "lance-graph-causal-pickaxe-pre-registration-v1",
+  "created": "2026-10-18",
+  "status": "PROPOSED_NOT_EXECUTED",
+  "description": "Symbolic negative-control fixtures only: not production tests, not measured, not an implemented runner.",
+  "sources": {
+    "plan": ".claude/plans/causal-pickaxe-resident-git-lance13-temporal-v1.md",
+    "lance": "https://docs.rs/lance/13.0.0/lance/dataset/struct.Dataset.html",
+    "lancedb": "https://docs.rs/lancedb/latest/lancedb/table/struct.Table.html",
+    "temporal": "crates/lance-graph-planner/src/temporal.rs"
+  },
+  "notes": [
+    "Mock version numbers and sample event timestamps are illustrative, not actual historical records.",
+    "Test the exact supported API in a standalone pinned probe before declaring an operation available in local storage.",
+    "Source independence and authorization are preconditions; count of thoughts or commits cannot establish epistemic support.",
+    "Measured fold-to-write ratios from Lance11 cannot be assumed unchanged in Lance13.",
+    "CPG-18..CPG-25 specify Git porcelain as a typed-IR interface over existing execution; they neither implement a CLI nor establish proof of correctness."
+  ],
+  "cases": [
+    {
+      "id": "CPG-00",
+      "title": "Exact version API and release pin",
+      "input": {
+        "lance": "=13.0.0",
+        "lancedb": "=0.40.0",
+        "run": "isolated compile; branch/tag/delta/read_version_transaction probe"
+      },
+      "expected": {
+        "fail_if": "unavailable operation silently claimed as shipped",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-01",
+      "title": "Semantic ID versus storage row IDs",
+      "input": {
+        "nodeguid": "K",
+        "operations": [
+          "append",
+          "update",
+          "delete",
+          "reopen",
+          "compaction"
+        ],
+        "stable_row_ids_enabled": true
+      },
+      "expected": {
+        "require": "NodeGuid interpretation remains pinned; row mapping validated per version",
+        "reject": "stale _rowaddr used after move",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-02",
+      "title": "Native branch safety",
+      "input": {
+        "base": [
+          "main",
+          7
+        ],
+        "fork": "experimental",
+        "mutate_on": "experimental",
+        "checkout": "main@7"
+      },
+      "expected": {
+        "expect": "main@7 unchanged; checked-out pinned view read-only; restore cannot be treated as Git revert",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-03",
+      "title": "Thought capacity",
+      "input": {
+        "given": 0,
+        "requested_hypothesis_slots": 64
+      },
+      "expected": {
+        "admit": 63,
+        "refuse": 1,
+        "no_lance_writes_for_transient_branches": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-04",
+      "title": "Fold-versus-write economic arms",
+      "input": {
+        "folds": 1000000,
+        "arms": [
+          "stepwise_lance_write",
+          "resident_sparse_squash",
+          "native_lance_branch",
+          "resident_regenerate"
+        ],
+        "dirty_rows": [
+          0,
+          1,
+          10,
+          100,
+          1000,
+          65536
+        ]
+      },
+      "expected": {
+        "require": "equal final semantic content+roots under identical inputs",
+        "report": [
+          "p50_ns",
+          "p95_ns",
+          "peak_bytes",
+          "lance_versions",
+          "rows_written"
+        ],
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-05",
+      "title": "Strict historical horizon excludes future observation",
+      "input": {
+        "pinned_vref": 5,
+        "rung": 0,
+        "evidence": [
+          {
+            "root": "A",
+            "row_version": 5,
+            "knowable_from": 3
+          },
+          {
+            "root": "B",
+            "row_version": 6,
+            "knowable_from": 6
+          }
+        ]
+      },
+      "expected": {
+        "admitted_roots": [
+          "A"
+        ],
+        "refuse_future_root": "B",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-06",
+      "title": "Deinterlace each owner trajectory",
+      "input": {
+        "global_event_order": [
+          "A:0",
+          "C:0",
+          "B:0",
+          "A:1",
+          "C:1"
+        ]
+      },
+      "expected": {
+        "owner_chains": {
+          "A": [
+            "A:0",
+            "A:1"
+          ],
+          "B": [
+            "B:0"
+          ],
+          "C": [
+            "C:0",
+            "C:1"
+          ]
+        },
+        "require": "durable unique monotone per-owner sequence across restart",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-07",
+      "title": "Witness independence",
+      "input": {
+        "thoughts": {
+          "1": [
+            "rootA"
+          ],
+          "2": [
+            "rootA"
+          ],
+          "3": [
+            "rootA"
+          ],
+          "4": [
+            "rootB",
+            "rootC"
+          ]
+        }
+      },
+      "expected": {
+        "written_by_count": 4,
+        "independent_root_count": 3,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-08",
+      "title": "Changed rule versus changed evidence",
+      "input": {
+        "conclusion": "Y",
+        "branches": [
+          {
+            "name": "rule_changed",
+            "evidence": [
+              "A"
+            ],
+            "rule": "R2"
+          },
+          {
+            "name": "evidence_changed",
+            "evidence": [
+              "B"
+            ],
+            "rule": "R1"
+          }
+        ],
+        "base_rule": "R1",
+        "base_evidence": [
+          "A"
+        ]
+      },
+      "expected": {
+        "require": "attribute each candidate source of divergence separately; abstain when interactions underdetermined",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-09",
+      "title": "Overdetermination",
+      "input": {
+        "derivations": {
+          "Y": [
+            [
+              "A"
+            ],
+            [
+              "B"
+            ]
+          ]
+        },
+        "remove_root": "A"
+      },
+      "expected": {
+        "Y_remains": true,
+        "rootA_contributed": true,
+        "rootA_is_necessary": false,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-10",
+      "title": "Deletion retracts stale premise",
+      "input": {
+        "v1": {
+          "given": [
+            "A"
+          ],
+          "rule": "A implies B",
+          "derived": [
+            "B"
+          ]
+        },
+        "v2": {
+          "delete": [
+            "A"
+          ]
+        }
+      },
+      "expected": {
+        "must_derive_after": [],
+        "stale_B_refused": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-11",
+      "title": "Squash with advertised replay limits",
+      "input": {
+        "intermediates": [
+          "h1",
+          "h2",
+          "h3"
+        ],
+        "kept_receipt": [
+          "input_roots",
+          "program_digest",
+          "final_claims",
+          "provenance"
+        ],
+        "discarded_microsteps": [
+          "h1",
+          "h2"
+        ]
+      },
+      "expected": {
+        "final_claims_replayable": true,
+        "query_exact_h1": "LineageUnavailable",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-12",
+      "title": "Branch+version is not globally unique",
+      "input": {
+        "durable_refs": [
+          [
+            "datasetD",
+            "main",
+            7
+          ],
+          [
+            "datasetD",
+            "experiment",
+            7
+          ],
+          [
+            "datasetE",
+            "main",
+            7
+          ]
+        ]
+      },
+      "expected": {
+        "distinct_references": 3,
+        "bare_version7": "Ambiguous",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-13",
+      "title": "Default NoDeps cannot certify dependencies",
+      "input": {
+        "temporal_policy": "NoDeps",
+        "hlc": null,
+        "request": "prove cause(X,Y)"
+      },
+      "expected": {
+        "allowed_result": "DependencyModelUnavailable",
+        "forbidden_result": "CertifiedCause",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-14",
+      "title": "Late evidence versus commit timestamp",
+      "input": {
+        "evidence": {
+          "event_ts": "2026-10-18T10:00:00Z",
+          "publish_ts": "2026-10-18T11:30:00Z",
+          "published_v": 8
+        },
+        "query": {
+          "event_range": [
+            "2026-10-18T09:00:00Z",
+            "2026-10-18T10:30:00Z"
+          ],
+          "observed_v": 7
+        }
+      },
+      "expected": {
+        "event_in_requested_window": true,
+        "available_to_historical_reader": false,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-15",
+      "title": "Retention and version pin",
+      "input": {
+        "checkout_ref": [
+          "datasetD",
+          "main",
+          3
+        ],
+        "cleanup_requested": true
+      },
+      "expected": {
+        "require": "pin prevents cleanup OR explicit retention refusal; no silent reconstructed data",
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-16",
+      "title": "Retry after lost acknowledgement",
+      "input": {
+        "cycle": 9,
+        "batch_hash": "hash9",
+        "retries": 2,
+        "same_one_writer": true
+      },
+      "expected": {
+        "durable_effect_count": 1,
+        "no_false_atomic_CAS_claim": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-17",
+      "title": "Historical authorization before read",
+      "input": {
+        "historical_row": "K",
+        "tenant": "private",
+        "reader_access": "denied"
+      },
+      "expected": {
+        "payload_read_count": 0,
+        "cannot_bypass_via_checkout": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-18",
+      "title": "Porcelain equivalence to one normalized mask program",
+      "input": {
+        "porcelain": [
+          "mind diff A..B --semantic",
+          "mind compare --left A --right B --field semantics"
+        ],
+        "typed_intent": {
+          "read_only": true,
+          "left": "A",
+          "right": "B",
+          "selected": "semantic-lanes"
+        },
+        "fixture": "same sealed base, same permissions and independent source roots"
+      },
+      "expected": {
+        "same_address_mask": true,
+        "same_typed_differences": true,
+        "execution_backend": "existing RelAlg/R2IL/mask-risc",
+        "separate_verb_evaluators": 0,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-19",
+      "title": "Read-only epistemic status, no invented witnesses",
+      "input": {
+        "command": "mind status --evidence",
+        "first_read": {
+          "base_version": 421,
+          "thoughts_writing_same_root": 3,
+          "root": "observation-A"
+        },
+        "repeat": 4
+      },
+      "expected": {
+        "durable_versions_added": 0,
+        "epistemic_independent_root_count": 1,
+        "no_claim_certification_from_thought_count": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-20",
+      "title": "Semantic diff differs from presence XOR",
+      "input": {
+        "left": {
+          "presence": [
+            "X"
+          ],
+          "values": {
+            "X": "A"
+          }
+        },
+        "right": {
+          "presence": [
+            "X"
+          ],
+          "values": {
+            "X": "B"
+          }
+        },
+        "aperture": [
+          "X"
+        ]
+      },
+      "expected": {
+        "presence_xor": [],
+        "typed_value_diff": [
+          "X"
+        ],
+        "report_semantic_change": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-21",
+      "title": "Patch staging selects without proving",
+      "input": {
+        "unreviewed_candidates": [
+          "C1",
+          "C2",
+          "C3"
+        ],
+        "patch_selection": [
+          "C1",
+          "C3"
+        ],
+        "conflict_between": [
+          "C1",
+          "C3"
+        ],
+        "source_roots": {
+          "C1": [
+            "A"
+          ],
+          "C3": [
+            "A"
+          ]
+        }
+      },
+      "expected": {
+        "staged": [
+          "C1",
+          "C3"
+        ],
+        "unstaged": [
+          "C2"
+        ],
+        "proven_or_established_from_staging": [],
+        "duplicate_root_not_added_twice": true,
+        "conflicting_alternative_preserved": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-22",
+      "title": "Semantic merge preserves incompatible candidates",
+      "input": {
+        "base": "V421",
+        "left": {
+          "claim": "effective_permission:direct",
+          "roots": [
+            "R1"
+          ]
+        },
+        "right": {
+          "claim": "effective_permission:inherited",
+          "roots": [
+            "R1"
+          ]
+        },
+        "merge_policy": "NAL_revision_G1_G7"
+      },
+      "expected": {
+        "retain_distinct_claims": true,
+        "root_independence_count": 1,
+        "never_latest_wins": true,
+        "stale_negative_dependency_requires_stratum_check": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-23",
+      "title": "Bisect nonmonotonic oracle and discarded lineage refusal",
+      "input": {
+        "revisions": [
+          "c0",
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "oracle_results": [
+          false,
+          true,
+          false,
+          true,
+          false
+        ],
+        "discarded": [
+          "c2"
+        ],
+        "query": "find_first_failure"
+      },
+      "expected": {
+        "reject_unchecked_binary_search": true,
+        "permitted_results": [
+          "exhaustive_scan_when_all_required_history_retained",
+          "LineageUnavailable"
+        ],
+        "no_false_first_failure": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-24",
+      "title": "Historical checkout honors authorization and strict temporal read",
+      "input": {
+        "command": "mind checkout dataset/main@V5; mind status --evidence",
+        "observed_head": 5,
+        "requested_reference": {
+          "version": 5,
+          "mode": "Strict"
+        },
+        "visible_root": {
+          "version": 5,
+          "tenant": "public"
+        },
+        "hidden_root": {
+          "version": 4,
+          "tenant": "private"
+        },
+        "future_root": {
+          "version": 6,
+          "tenant": "public"
+        }
+      },
+      "expected": {
+        "admitted_roots": [
+          "visible_root"
+        ],
+        "excluded_roots": [
+          "hidden_root",
+          "future_root"
+        ],
+        "decoded_denied_payloads": 0,
+        "refuse_default_unbounded_ref": true,
+        "status": "NOT_RUN"
+      }
+    },
+    {
+      "id": "CPG-25",
+      "title": "CLI and AST program equivalence for AI and human",
+      "input": {
+        "human": "mind pickaxe claim:X --as-of dataset/main@V5",
+        "agent_ast": {
+          "op": "Pickaxe",
+          "claim": "X",
+          "snapshot": {
+            "dataset": "dataset",
+            "branch": "main",
+            "version": 5
+          }
+        },
+        "authorized_scope": "identical"
+      },
+      "expected": {
+        "same_typed_operation": true,
+        "same_address_selection": true,
+        "same_provenance_report": true,
+        "only_one_backend": true,
+        "status": "NOT_RUN"
+      }
+    }
+  ]
+}
