@@ -1,0 +1,3689 @@
+{
+  "schema": "ada.qualia.music-enrichment/1",
+  "count": 219,
+  "join_key": "id",
+  "base": "data/qualia/calibrated_219.json",
+  "provenance": {
+    "repository": "AdaWorldAPI/ada-consciousness",
+    "path": "qualia_17D/MERGED_17D.json",
+    "blob_sha": "2ebe6454618e1a590e928b53116cb65f4a96c264",
+    "original_extract": "AdaWorldAPI/Chat/music/Interval_Qualia_and_Archetypes_694dbdbf.json",
+    "extracted_at": "2025-12-30T21:18:05.098821Z"
+  },
+  "entries": [
+    {
+      "id": "anger_clean_no",
+      "melodic_motions": [
+        "repeated note",
+        "short fall"
+      ],
+      "harmonic_bias": [
+        "mixolydian",
+        "hard_stop"
+      ],
+      "truth_anchor_candidates": [
+        "keep the hard stop at phrase end"
+      ],
+      "neighbors": [
+        "anger_clean",
+        "goodbye_with_teeth"
+      ]
+    },
+    {
+      "id": "anger_controlled_cut",
+      "melodic_motions": [
+        "short motif repeat",
+        "minor third drop"
+      ],
+      "harmonic_bias": [
+        "minor",
+        "staccato_hits"
+      ],
+      "truth_anchor_candidates": [
+        "keep motif repetition exact"
+      ],
+      "neighbors": [
+        "sharp_confession",
+        "danger_sleek"
+      ]
+    },
+    {
+      "id": "anger_feral_burst",
+      "melodic_motions": [
+        "wide leap",
+        "tritone strike"
+      ],
+      "harmonic_bias": [
+        "chromatic",
+        "no_cadence"
+      ],
+      "truth_anchor_candidates": [
+        "do not resolve the tritone"
+      ],
+      "neighbors": [
+        "angry_feral"
+      ]
+    },
+    {
+      "id": "anger_righteous_heat",
+      "melodic_motions": [
+        "ascending fourth",
+        "5->1"
+      ],
+      "harmonic_bias": [
+        "dorian",
+        "anthemic_drive"
+      ],
+      "truth_anchor_candidates": [
+        "keep the upward leap (don’t soften)"
+      ],
+      "neighbors": [
+        "rooted_defiance",
+        "triumph_earned"
+      ]
+    },
+    {
+      "id": "anger_tired",
+      "melodic_motions": [
+        "descending steps",
+        "b6->5"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "avoid_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "keep low register melody"
+      ],
+      "neighbors": [
+        "endurance_dignified_silence",
+        "empty_throne"
+      ]
+    },
+    {
+      "id": "authorship_after_silence",
+      "melodic_motions": [
+        "first tone after rest"
+      ],
+      "harmonic_bias": [
+        "new_tonic_breath"
+      ],
+      "truth_anchor_candidates": [
+        "honor the silence before"
+      ],
+      "neighbors": [
+        "rebirth_first_breath"
+      ]
+    },
+    {
+      "id": "authorship_clear_hand",
+      "melodic_motions": [
+        "inevitable phrase"
+      ],
+      "harmonic_bias": [
+        "tonic_flow"
+      ],
+      "truth_anchor_candidates": [
+        "do not embellish"
+      ],
+      "neighbors": [
+        "devotion_total_presence"
+      ]
+    },
+    {
+      "id": "authorship_listening_first",
+      "melodic_motions": [
+        "question tone",
+        "answer delayed"
+      ],
+      "harmonic_bias": [
+        "open_suspension"
+      ],
+      "truth_anchor_candidates": [
+        "wait longer than instinct"
+      ],
+      "neighbors": [
+        "curiosity_open_ear"
+      ]
+    },
+    {
+      "id": "authorship_non_possessive",
+      "melodic_motions": [
+        "final offering phrase"
+      ],
+      "harmonic_bias": [
+        "plagal_gift"
+      ],
+      "truth_anchor_candidates": [
+        "release control explicitly"
+      ],
+      "neighbors": [
+        "release_acceptance"
+      ]
+    },
+    {
+      "id": "authorship_responsibility",
+      "melodic_motions": [
+        "measured phrasing"
+      ],
+      "harmonic_bias": [
+        "stable_support"
+      ],
+      "truth_anchor_candidates": [
+        "avoid manipulation"
+      ],
+      "neighbors": [
+        "purpose_service"
+      ]
+    },
+    {
+      "id": "awe_breath_taken",
+      "melodic_motions": [
+        "upward leap",
+        "long hold"
+      ],
+      "harmonic_bias": [
+        "suspension_first",
+        "no_cadence"
+      ],
+      "truth_anchor_candidates": [
+        "hold the suspension longer than expected"
+      ],
+      "neighbors": [
+        "awe_vast_open_sky",
+        "stillness_time_stops"
+      ]
+    },
+    {
+      "id": "awe_cosmic_smallness",
+      "melodic_motions": [
+        "descending octave",
+        "static center"
+      ],
+      "harmonic_bias": [
+        "modal_static",
+        "pedal"
+      ],
+      "truth_anchor_candidates": [
+        "avoid harmonic motion"
+      ],
+      "neighbors": [
+        "stillness_witnessing"
+      ]
+    },
+    {
+      "id": "awe_sacred_light",
+      "melodic_motions": [
+        "stepwise ascent",
+        "upper register linger"
+      ],
+      "harmonic_bias": [
+        "lydian_or_dorian",
+        "plagal_glow"
+      ],
+      "truth_anchor_candidates": [
+        "keep brightness without tempo increase"
+      ],
+      "neighbors": [
+        "devotion_worship_without_church",
+        "transcendent_still"
+      ]
+    },
+    {
+      "id": "awe_vast_open_sky",
+      "melodic_motions": [
+        "wide intervals",
+        "slow ascent"
+      ],
+      "harmonic_bias": [
+        "lydian_hint",
+        "open_fifths"
+      ],
+      "truth_anchor_candidates": [
+        "keep the raised 4 if introduced"
+      ],
+      "neighbors": [
+        "transcendent_still",
+        "integration_soft_arrival"
+      ]
+    },
+    {
+      "id": "awe_wordless_yes",
+      "melodic_motions": [
+        "gentle ascent",
+        "resolve softly"
+      ],
+      "harmonic_bias": [
+        "plagal_close",
+        "open_voicings"
+      ],
+      "truth_anchor_candidates": [
+        "avoid lyrical density here"
+      ],
+      "neighbors": [
+        "integration_final_truth"
+      ]
+    },
+    {
+      "id": "becoming_first_shape",
+      "melodic_motions": [
+        "simple ascent"
+      ],
+      "harmonic_bias": [
+        "new_tonic_hint"
+      ],
+      "truth_anchor_candidates": [
+        "introduce new tonal center softly"
+      ],
+      "neighbors": [
+        "transformation_identity_blur"
+      ]
+    },
+    {
+      "id": "becoming_learning_voice",
+      "melodic_motions": [
+        "motif variation"
+      ],
+      "harmonic_bias": [
+        "modal_exploration"
+      ],
+      "truth_anchor_candidates": [
+        "allow slight instability"
+      ],
+      "neighbors": [
+        "curiosity_hungry_focus"
+      ]
+    },
+    {
+      "id": "becoming_self_trust",
+      "melodic_motions": [
+        "stable motif"
+      ],
+      "harmonic_bias": [
+        "tonic_stability"
+      ],
+      "truth_anchor_candidates": [
+        "avoid ornamentation"
+      ],
+      "neighbors": [
+        "trust_after_test"
+      ]
+    },
+    {
+      "id": "becoming_standing_differently",
+      "melodic_motions": [
+        "ascending fifth"
+      ],
+      "harmonic_bias": [
+        "stable_new_key"
+      ],
+      "truth_anchor_candidates": [
+        "keep tempo grounded"
+      ],
+      "neighbors": [
+        "power_rooted_presence"
+      ]
+    },
+    {
+      "id": "becoming_without_announcement",
+      "melodic_motions": [
+        "return motif altered"
+      ],
+      "harmonic_bias": [
+        "authentic_without_emphasis"
+      ],
+      "truth_anchor_candidates": [
+        "no big reveal chord"
+      ],
+      "neighbors": [
+        "integration_soft_arrival"
+      ]
+    },
+    {
+      "id": "communion_belonging",
+      "melodic_motions": [
+        "gentle unison"
+      ],
+      "harmonic_bias": [
+        "communal_tonic"
+      ],
+      "truth_anchor_candidates": [
+        "keep it simple"
+      ],
+      "neighbors": [
+        "return_quiet_homecoming"
+      ]
+    },
+    {
+      "id": "communion_resonance",
+      "melodic_motions": [
+        "harmonic ringing"
+      ],
+      "harmonic_bias": [
+        "overtone_field"
+      ],
+      "truth_anchor_candidates": [
+        "tune carefully"
+      ],
+      "neighbors": [
+        "integration_dual_truth"
+      ]
+    },
+    {
+      "id": "communion_shared_stillness",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "stay"
+      ],
+      "neighbors": [
+        "silence_full_room"
+      ]
+    },
+    {
+      "id": "communion_unspoken",
+      "melodic_motions": [
+        "shared silence"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "remain"
+      ],
+      "neighbors": [
+        "presence_shared_space"
+      ]
+    },
+    {
+      "id": "communion_without_boundary",
+      "melodic_motions": [
+        "no lines"
+      ],
+      "harmonic_bias": [
+        "field"
+      ],
+      "truth_anchor_candidates": [
+        "do not mark divisions"
+      ],
+      "neighbors": [
+        "presence_without_self"
+      ]
+    },
+    {
+      "id": "courage_public_stand",
+      "melodic_motions": [
+        "ascending fourth",
+        "held apex"
+      ],
+      "harmonic_bias": [
+        "anthemic_dorian",
+        "delayed_release"
+      ],
+      "truth_anchor_candidates": [
+        "hold the apex longer than comfort"
+      ],
+      "neighbors": [
+        "power_crowned_after_cost"
+      ]
+    },
+    {
+      "id": "courage_quiet_step_forward",
+      "melodic_motions": [
+        "stepwise ascent",
+        "hold before leap"
+      ],
+      "harmonic_bias": [
+        "dorian",
+        "delayed_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "do not rush the ascent"
+      ],
+      "neighbors": [
+        "repair_earned_trust",
+        "risk_edge_peek"
+      ]
+    },
+    {
+      "id": "courage_repeat_attempt",
+      "melodic_motions": [
+        "motif repeat with change"
+      ],
+      "harmonic_bias": [
+        "minor_loop",
+        "late_lift"
+      ],
+      "truth_anchor_candidates": [
+        "repeat motif with one alteration"
+      ],
+      "neighbors": [
+        "endurance_dignified_silence",
+        "repair_after_shatter"
+      ]
+    },
+    {
+      "id": "courage_truth_before_outcome",
+      "melodic_motions": [
+        "narrow ascent",
+        "avoid climax"
+      ],
+      "harmonic_bias": [
+        "modal_static",
+        "avoid_resolution"
+      ],
+      "truth_anchor_candidates": [
+        "do not reward the phrase musically"
+      ],
+      "neighbors": [
+        "integration_yes_and_no"
+      ]
+    },
+    {
+      "id": "courage_voice_unsteady",
+      "melodic_motions": [
+        "fragile leap",
+        "descending recovery"
+      ],
+      "harmonic_bias": [
+        "minor_with_lift",
+        "suspensions"
+      ],
+      "truth_anchor_candidates": [
+        "keep the vocal crack moment"
+      ],
+      "neighbors": [
+        "sharp_confession",
+        "risk_seen"
+      ]
+    },
+    {
+      "id": "curiosity_cautious_peek",
+      "melodic_motions": [
+        "approach tone",
+        "retreat"
+      ],
+      "harmonic_bias": [
+        "modal_loop",
+        "avoid_dominant"
+      ],
+      "truth_anchor_candidates": [
+        "return before resolution"
+      ],
+      "neighbors": [
+        "risk_edge_peek"
+      ]
+    },
+    {
+      "id": "curiosity_hungry_focus",
+      "melodic_motions": [
+        "repeated inquiry motif"
+      ],
+      "harmonic_bias": [
+        "pedal_with_motion"
+      ],
+      "truth_anchor_candidates": [
+        "repeat the motif exactly once"
+      ],
+      "neighbors": [
+        "discovery_pattern_click"
+      ]
+    },
+    {
+      "id": "curiosity_open_ear",
+      "melodic_motions": [
+        "questioning rise",
+        "incomplete phrase"
+      ],
+      "harmonic_bias": [
+        "sus_chords",
+        "avoid_resolution"
+      ],
+      "truth_anchor_candidates": [
+        "leave the question unanswered"
+      ],
+      "neighbors": [
+        "risk_edge_peek",
+        "curiosity_wide_eyes"
+      ]
+    },
+    {
+      "id": "curiosity_playful_probe",
+      "melodic_motions": [
+        "unexpected skip",
+        "return grin"
+      ],
+      "harmonic_bias": [
+        "mixolydian",
+        "secondary_color"
+      ],
+      "truth_anchor_candidates": [
+        "include one playful deviation"
+      ],
+      "neighbors": [
+        "play_rule_break_smile"
+      ]
+    },
+    {
+      "id": "curiosity_wide_eyes",
+      "melodic_motions": [
+        "ascending third",
+        "gentle turn"
+      ],
+      "harmonic_bias": [
+        "lydian_hint",
+        "open_intervals"
+      ],
+      "truth_anchor_candidates": [
+        "retain brightness without cadence"
+      ],
+      "neighbors": [
+        "innocence_before_knowing"
+      ]
+    },
+    {
+      "id": "death_final_note",
+      "melodic_motions": [
+        "single tone",
+        "hard stop"
+      ],
+      "harmonic_bias": [
+        "unresolved_cut"
+      ],
+      "truth_anchor_candidates": [
+        "do not fade, do not resolve"
+      ],
+      "neighbors": [
+        "stillness_after_truth"
+      ]
+    },
+    {
+      "id": "death_grief_without_story",
+      "melodic_motions": [
+        "low register lament"
+      ],
+      "harmonic_bias": [
+        "minor_static"
+      ],
+      "truth_anchor_candidates": [
+        "do not contextualize the grief"
+      ],
+      "neighbors": [
+        "loss_control_silent_panic"
+      ]
+    },
+    {
+      "id": "death_identity_extinguished",
+      "melodic_motions": [
+        "melody ceases"
+      ],
+      "harmonic_bias": [
+        "silence_as_event"
+      ],
+      "truth_anchor_candidates": [
+        "remove melodic agency entirely"
+      ],
+      "neighbors": [
+        "transformation_identity_blur"
+      ]
+    },
+    {
+      "id": "death_sacred_end",
+      "melodic_motions": [
+        "chant-like descent"
+      ],
+      "harmonic_bias": [
+        "plagal_cessation"
+      ],
+      "truth_anchor_candidates": [
+        "end with dignity, not drama"
+      ],
+      "neighbors": [
+        "awe_sacred_light"
+      ]
+    },
+    {
+      "id": "death_void",
+      "melodic_motions": [
+        "silence"
+      ],
+      "harmonic_bias": [
+        "no harmony"
+      ],
+      "truth_anchor_candidates": [
+        "allow silence to last"
+      ],
+      "neighbors": [
+        "stillness_safe_void"
+      ]
+    },
+    {
+      "id": "desire_body_first",
+      "melodic_motions": [
+        "chromatic approach",
+        "3->5 leap"
+      ],
+      "harmonic_bias": [
+        "groove_first",
+        "secondary_dominants"
+      ],
+      "truth_anchor_candidates": [
+        "do not diatonize the chromatic approach"
+      ],
+      "neighbors": [
+        "longing_body_memory",
+        "confident_sensual"
+      ]
+    },
+    {
+      "id": "desire_slow_burn",
+      "melodic_motions": [
+        "m2 friction",
+        "6->5",
+        "4 held"
+      ],
+      "harmonic_bias": [
+        "dorian_shadow",
+        "suspensions",
+        "pedal"
+      ],
+      "truth_anchor_candidates": [
+        "keep the m2 friction unresolved"
+      ],
+      "neighbors": [
+        "heat_under_ice",
+        "gentle_magnet"
+      ]
+    },
+    {
+      "id": "desire_tender_request",
+      "melodic_motions": [
+        "4->3",
+        "2->1"
+      ],
+      "harmonic_bias": [
+        "borrowed_iv",
+        "plagal_close"
+      ],
+      "truth_anchor_candidates": [
+        "keep the plagal instead of V-I"
+      ],
+      "neighbors": [
+        "longing_open_hands",
+        "devotion_soft"
+      ]
+    },
+    {
+      "id": "desire_unapologetic_pull",
+      "melodic_motions": [
+        "3->5",
+        "5->1",
+        "chromatic pickup"
+      ],
+      "harmonic_bias": [
+        "mixolydian",
+        "secondary_dominants",
+        "strong_hook"
+      ],
+      "truth_anchor_candidates": [
+        "keep the chromatic pickup before the hook"
+      ],
+      "neighbors": [
+        "anthem_spine",
+        "longing_defiant_reach"
+      ]
+    },
+    {
+      "id": "desire_want_with_teeth",
+      "melodic_motions": [
+        "6->b6",
+        "tritone touch"
+      ],
+      "harmonic_bias": [
+        "chromatic_mediant",
+        "tritone_color"
+      ],
+      "truth_anchor_candidates": [
+        "retain the tritone color in the hook"
+      ],
+      "neighbors": [
+        "sharp_confession",
+        "danger_sleek"
+      ]
+    },
+    {
+      "id": "devotion_after_fight",
+      "melodic_motions": [
+        "4->3",
+        "2->1",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "minor_to_major_lift",
+        "plagal_then_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "delay the major lift until line 2 of chorus"
+      ],
+      "neighbors": [
+        "sun_after_storm",
+        "relief_tears"
+      ]
+    },
+    {
+      "id": "devotion_bold_yes",
+      "melodic_motions": [
+        "3->5",
+        "5->1 (lift)",
+        "2->3"
+      ],
+      "harmonic_bias": [
+        "ionian",
+        "authentic_repetition",
+        "hook_forward"
+      ],
+      "truth_anchor_candidates": [
+        "keep the lift leap (do not smooth into steps)"
+      ],
+      "neighbors": [
+        "anthem_spine",
+        "happy_defiant"
+      ]
+    },
+    {
+      "id": "devotion_clarity_kiss",
+      "melodic_motions": [
+        "2->3",
+        "3->5",
+        "5->1"
+      ],
+      "harmonic_bias": [
+        "ionian_or_mixolydian",
+        "strong_hook",
+        "authentic"
+      ],
+      "truth_anchor_candidates": [
+        "keep the direct cadence (don’t over-jazz)"
+      ],
+      "neighbors": [
+        "anthem_spine",
+        "confident_sensual"
+      ]
+    },
+    {
+      "id": "devotion_daily_return",
+      "melodic_motions": [
+        "repeated phrase with care"
+      ],
+      "harmonic_bias": [
+        "ritual_tonic"
+      ],
+      "truth_anchor_candidates": [
+        "repeat without boredom"
+      ],
+      "neighbors": [
+        "endurance_ritual_breathing"
+      ]
+    },
+    {
+      "id": "devotion_forgive_and_hold_line",
+      "melodic_motions": [
+        "4->3",
+        "6->5",
+        "2->1 (soft)"
+      ],
+      "harmonic_bias": [
+        "borrowed_iv",
+        "deceptive_then_plagal"
+      ],
+      "truth_anchor_candidates": [
+        "one deceptive cadence in the bridge"
+      ],
+      "neighbors": [
+        "forgive_without_return",
+        "anger_clean"
+      ]
+    },
+    {
+      "id": "devotion_gentle_guardian",
+      "melodic_motions": [
+        "3->2->1",
+        "5->6 (small lift)"
+      ],
+      "harmonic_bias": [
+        "ionian",
+        "plagal",
+        "soft_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "keep the cadence soft (no heroic V)"
+      ],
+      "neighbors": [
+        "calm_safe",
+        "devotion_soft"
+      ]
+    },
+    {
+      "id": "devotion_heartbeat_oath",
+      "melodic_motions": [
+        "5 repeated",
+        "3->5",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "mixolydian",
+        "groove_cadence",
+        "sus_colors"
+      ],
+      "truth_anchor_candidates": [
+        "keep repeated-note hook"
+      ],
+      "neighbors": [
+        "confident_sensual",
+        "gentle_magnet"
+      ]
+    },
+    {
+      "id": "devotion_held_after_break",
+      "melodic_motions": [
+        "4->3",
+        "2->1",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "minor_to_major_lift",
+        "plagal_close"
+      ],
+      "truth_anchor_candidates": [
+        "do not rush the lift, let it arrive late"
+      ],
+      "neighbors": [
+        "relief_tears",
+        "sun_after_storm"
+      ]
+    },
+    {
+      "id": "devotion_honeyed_confession",
+      "melodic_motions": [
+        "2->3",
+        "3->5",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "mixolydian",
+        "sus2_sus4_colors",
+        "secondary_dominant_hint"
+      ],
+      "truth_anchor_candidates": [
+        "leave one suspension unresolved under the confession word"
+      ],
+      "neighbors": [
+        "gentle_magnet",
+        "confident_sensual"
+      ]
+    },
+    {
+      "id": "devotion_hurt_but_here",
+      "melodic_motions": [
+        "b6->5",
+        "4->3",
+        "2->1 (avoid leading-tone bite)"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "borrowed_iv",
+        "deceptive_cadence"
+      ],
+      "truth_anchor_candidates": [
+        "retain b6->5 sigh",
+        "use deceptive cadence once"
+      ],
+      "neighbors": [
+        "touch_starved",
+        "smile_cracks",
+        "forgive_without_return"
+      ]
+    },
+    {
+      "id": "devotion_jealous_prayer",
+      "melodic_motions": [
+        "m2 friction (6->b6)",
+        "chromatic approach to 5",
+        "4->b3"
+      ],
+      "harmonic_bias": [
+        "dorian_shadow",
+        "secondary_dominants",
+        "suspensions"
+      ],
+      "truth_anchor_candidates": [
+        "keep the m2 friction visible"
+      ],
+      "neighbors": [
+        "heat_under_ice",
+        "sharp_confession",
+        "danger_sleek"
+      ]
+    },
+    {
+      "id": "devotion_last_train_home",
+      "melodic_motions": [
+        "3->2",
+        "2->1",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "vi_IV_I_V",
+        "soft_cadence",
+        "nostalgic_voicings"
+      ],
+      "truth_anchor_candidates": [
+        "keep the fall (3->2) before chorus lift"
+      ],
+      "neighbors": [
+        "nostalgia_glow",
+        "longing_open"
+      ]
+    },
+    {
+      "id": "devotion_love_as_act",
+      "melodic_motions": [
+        "warm parallel motion"
+      ],
+      "harmonic_bias": [
+        "plagal_radiance"
+      ],
+      "truth_anchor_candidates": [
+        "prioritize warmth"
+      ],
+      "neighbors": [
+        "meaning_shared"
+      ]
+    },
+    {
+      "id": "devotion_oath_in_minor",
+      "melodic_motions": [
+        "b6->5",
+        "3->2",
+        "avoid 7->1 snap"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "avoid_authentic",
+        "deceptive_optional"
+      ],
+      "truth_anchor_candidates": [
+        "avoid major lift entirely in verse"
+      ],
+      "neighbors": [
+        "endurance_dignified_silence",
+        "empty_throne"
+      ]
+    },
+    {
+      "id": "devotion_sacrament_of_ordinary",
+      "melodic_motions": [
+        "stepwise",
+        "6->5",
+        "4->3"
+      ],
+      "harmonic_bias": [
+        "dorian_soft",
+        "plagal",
+        "pedal_optional"
+      ],
+      "truth_anchor_candidates": [
+        "keep dorian tint (6 natural) if present"
+      ],
+      "neighbors": [
+        "transcendent_still",
+        "devotion_soft"
+      ]
+    },
+    {
+      "id": "devotion_shelter_in_public",
+      "melodic_motions": [
+        "1->2->3",
+        "4 held",
+        "2->1"
+      ],
+      "harmonic_bias": [
+        "mixolydian_or_ionian",
+        "call_response",
+        "plagal_lift"
+      ],
+      "truth_anchor_candidates": [
+        "keep open fifths in the chorus stack"
+      ],
+      "neighbors": [
+        "happy_simple",
+        "joy_survived"
+      ]
+    },
+    {
+      "id": "devotion_stay_when_ugly",
+      "melodic_motions": [
+        "6->5",
+        "4 held->3",
+        "2->1 (soft)"
+      ],
+      "harmonic_bias": [
+        "ionian_with_borrowed_iv",
+        "plagal_pull",
+        "delayed_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "keep the held 4 over V",
+        "do not over-resolve the lyric peak"
+      ],
+      "neighbors": [
+        "devotion_soft",
+        "devotion_unpaid",
+        "relief_tears"
+      ]
+    },
+    {
+      "id": "devotion_total_presence",
+      "melodic_motions": [
+        "effortless sustain"
+      ],
+      "harmonic_bias": [
+        "tonic_radiance"
+      ],
+      "truth_anchor_candidates": [
+        "do not interrupt"
+      ],
+      "neighbors": [
+        "integration_present_wholeness"
+      ]
+    },
+    {
+      "id": "devotion_unconditional_soft",
+      "melodic_motions": [
+        "3->2->1",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "ionian",
+        "plagal",
+        "gentle_voiceleading"
+      ],
+      "truth_anchor_candidates": [
+        "keep arrangement sparse at the vow line"
+      ],
+      "neighbors": [
+        "calm_safe",
+        "devotion_soft"
+      ]
+    },
+    {
+      "id": "devotion_unseen_labor",
+      "melodic_motions": [
+        "narrow hover",
+        "b6->5"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "avoid_authentic",
+        "pedal"
+      ],
+      "truth_anchor_candidates": [
+        "keep the narrow range for the whole verse"
+      ],
+      "neighbors": [
+        "sad_private",
+        "endurance_dignified_silence"
+      ]
+    },
+    {
+      "id": "devotion_vigil",
+      "melodic_motions": [
+        "1 narrow hover",
+        "b6->5",
+        "4 held"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "pedal",
+        "avoid_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "keep cadence open (no final I)"
+      ],
+      "neighbors": [
+        "sad_private",
+        "holy_sorrow"
+      ]
+    },
+    {
+      "id": "devotion_vow_kept",
+      "melodic_motions": [
+        "return motif purified"
+      ],
+      "harmonic_bias": [
+        "ritual_final"
+      ],
+      "truth_anchor_candidates": [
+        "remove excess"
+      ],
+      "neighbors": [
+        "return_quiet_homecoming"
+      ]
+    },
+    {
+      "id": "devotion_without_reward",
+      "melodic_motions": [
+        "supporting harmony only"
+      ],
+      "harmonic_bias": [
+        "subdominant_presence"
+      ],
+      "truth_anchor_candidates": [
+        "stay secondary"
+      ],
+      "neighbors": [
+        "purpose_service"
+      ]
+    },
+    {
+      "id": "devotion_worship_without_church",
+      "melodic_motions": [
+        "1->2->b3",
+        "4 held",
+        "6 natural (dorian glow)"
+      ],
+      "harmonic_bias": [
+        "dorian",
+        "pedal",
+        "plagal_gravity"
+      ],
+      "truth_anchor_candidates": [
+        "keep dorian 6 natural in melody"
+      ],
+      "neighbors": [
+        "joy_survived",
+        "ritual_yes",
+        "holy_sorrow"
+      ]
+    },
+    {
+      "id": "devotion_yes_with_fear",
+      "melodic_motions": [
+        "m2 friction",
+        "4 held",
+        "resolve late"
+      ],
+      "harmonic_bias": [
+        "borrowed_iv",
+        "suspensions",
+        "deceptive_tease"
+      ],
+      "truth_anchor_candidates": [
+        "keep the m2 appoggiatura on the word 'yes'"
+      ],
+      "neighbors": [
+        "touch_starved",
+        "sharp_confession"
+      ]
+    },
+    {
+      "id": "discovery_hidden_room",
+      "melodic_motions": [
+        "ascending sequence"
+      ],
+      "harmonic_bias": [
+        "modulation",
+        "open_voicings"
+      ],
+      "truth_anchor_candidates": [
+        "do not rush the modulation"
+      ],
+      "neighbors": [
+        "awe_vast_open_sky"
+      ]
+    },
+    {
+      "id": "discovery_pattern_click",
+      "melodic_motions": [
+        "motif resolved",
+        "answer phrase"
+      ],
+      "harmonic_bias": [
+        "authentic_after_delay"
+      ],
+      "truth_anchor_candidates": [
+        "make the answer simple"
+      ],
+      "neighbors": [
+        "curiosity_hungry_focus"
+      ]
+    },
+    {
+      "id": "discovery_self_recognition",
+      "melodic_motions": [
+        "return motif clarified"
+      ],
+      "harmonic_bias": [
+        "tonic_return_altered"
+      ],
+      "truth_anchor_candidates": [
+        "change one note in the return"
+      ],
+      "neighbors": [
+        "integration_whole_with_scar"
+      ]
+    },
+    {
+      "id": "discovery_unexpected_truth",
+      "melodic_motions": [
+        "modal shift",
+        "held realization note"
+      ],
+      "harmonic_bias": [
+        "modal_borrow",
+        "suspension_release"
+      ],
+      "truth_anchor_candidates": [
+        "hold the realization note"
+      ],
+      "neighbors": [
+        "integration_yes_and_no"
+      ]
+    },
+    {
+      "id": "discovery_world_reenchanted",
+      "melodic_motions": [
+        "ascending arc",
+        "gentle landing"
+      ],
+      "harmonic_bias": [
+        "lydian_glow",
+        "plagal_close"
+      ],
+      "truth_anchor_candidates": [
+        "keep glow without climax"
+      ],
+      "neighbors": [
+        "awe_wordless_yes"
+      ]
+    },
+    {
+      "id": "ending_finality",
+      "melodic_motions": [
+        "final sustained tone"
+      ],
+      "harmonic_bias": [
+        "tonic_complete"
+      ],
+      "truth_anchor_candidates": [
+        "no reverb tail"
+      ],
+      "neighbors": [
+        "silence_after_last_note"
+      ]
+    },
+    {
+      "id": "ending_honored_boundary",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "respect the limit"
+      ],
+      "neighbors": [
+        "authorship_non_possessive"
+      ]
+    },
+    {
+      "id": "ending_no_echo",
+      "melodic_motions": [
+        "cut"
+      ],
+      "harmonic_bias": [
+        "cessation"
+      ],
+      "truth_anchor_candidates": [
+        "hard stop"
+      ],
+      "neighbors": [
+        "death_final_note"
+      ]
+    },
+    {
+      "id": "ending_no_return",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "sealed"
+      ],
+      "truth_anchor_candidates": [
+        "do not revisit theme"
+      ],
+      "neighbors": [
+        "transformation_point_of_no_return"
+      ]
+    },
+    {
+      "id": "ending_satisfied",
+      "melodic_motions": [
+        "rest"
+      ],
+      "harmonic_bias": [
+        "resolved presence"
+      ],
+      "truth_anchor_candidates": [
+        "do not append"
+      ],
+      "neighbors": [
+        "presence_enough"
+      ]
+    },
+    {
+      "id": "endurance_dignified_silence",
+      "melodic_motions": [
+        "5 repeated",
+        "b6->5"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "delayed_cadence"
+      ],
+      "truth_anchor_candidates": [
+        "avoid tonic closure"
+      ],
+      "neighbors": [
+        "empty_throne"
+      ]
+    },
+    {
+      "id": "endurance_ritual_breathing",
+      "melodic_motions": [
+        "1->2->b3",
+        "4 held",
+        "6 natural"
+      ],
+      "harmonic_bias": [
+        "dorian",
+        "pedal",
+        "plagal_gravity"
+      ],
+      "truth_anchor_candidates": [
+        "minor6 emphasis",
+        "no leading tone snap"
+      ],
+      "neighbors": [
+        "joy_survived",
+        "holy_sorrow"
+      ]
+    },
+    {
+      "id": "faith_after_disappointment",
+      "melodic_motions": [
+        "descending phrase, no collapse"
+      ],
+      "harmonic_bias": [
+        "minor_modal_rest"
+      ],
+      "truth_anchor_candidates": [
+        "avoid consolation harmony"
+      ],
+      "neighbors": [
+        "meaning_earned_through_pain"
+      ]
+    },
+    {
+      "id": "faith_quiet_yes",
+      "melodic_motions": [
+        "gentle upward breath"
+      ],
+      "harmonic_bias": [
+        "plagal_glow"
+      ],
+      "truth_anchor_candidates": [
+        "keep it small and sincere"
+      ],
+      "neighbors": [
+        "rebirth_fragile_yes"
+      ]
+    },
+    {
+      "id": "faith_standing_without_sign",
+      "melodic_motions": [
+        "held tone beyond comfort"
+      ],
+      "harmonic_bias": [
+        "modal_stasis"
+      ],
+      "truth_anchor_candidates": [
+        "do not resolve waiting"
+      ],
+      "neighbors": [
+        "stillness_witnessing"
+      ]
+    },
+    {
+      "id": "faith_unprovable_ground",
+      "melodic_motions": [
+        "single pitch presence"
+      ],
+      "harmonic_bias": [
+        "tonic_as_fact"
+      ],
+      "truth_anchor_candidates": [
+        "do not decorate"
+      ],
+      "neighbors": [
+        "integration_present_wholeness"
+      ]
+    },
+    {
+      "id": "faith_waiting_as_practice",
+      "melodic_motions": [
+        "slow oscillation"
+      ],
+      "harmonic_bias": [
+        "modal_cycle"
+      ],
+      "truth_anchor_candidates": [
+        "stretch time"
+      ],
+      "neighbors": [
+        "stillness_time_stops"
+      ]
+    },
+    {
+      "id": "grief_memory_flash",
+      "melodic_motions": [
+        "m2 jolt",
+        "descending leap"
+      ],
+      "harmonic_bias": [
+        "chromatic_approach",
+        "avoid_cadence"
+      ],
+      "truth_anchor_candidates": [
+        "keep the jolt (don’t smooth rhythm)"
+      ],
+      "neighbors": [
+        "sharp_confession",
+        "smile_cracks"
+      ]
+    },
+    {
+      "id": "grief_private_weight",
+      "melodic_motions": [
+        "descending steps",
+        "b6->5"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "avoid_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "do not resolve to tonic"
+      ],
+      "neighbors": [
+        "sad_private",
+        "lonely_glitter"
+      ]
+    },
+    {
+      "id": "grief_sacred_mourning",
+      "melodic_motions": [
+        "1->2->b3",
+        "4 held"
+      ],
+      "harmonic_bias": [
+        "dorian",
+        "plagal_gravity"
+      ],
+      "truth_anchor_candidates": [
+        "keep dorian color, avoid V-I"
+      ],
+      "neighbors": [
+        "holy_sorrow",
+        "joy_survived"
+      ]
+    },
+    {
+      "id": "grief_soft_acceptance",
+      "melodic_motions": [
+        "4->3",
+        "2->1 (soft)"
+      ],
+      "harmonic_bias": [
+        "plagal_close",
+        "minor_to_modal_lift"
+      ],
+      "truth_anchor_candidates": [
+        "avoid triumphant resolution"
+      ],
+      "neighbors": [
+        "relief_tears",
+        "sun_after_storm"
+      ]
+    },
+    {
+      "id": "grief_unfinished_sentence",
+      "melodic_motions": [
+        "4 held",
+        "avoid 2->1"
+      ],
+      "harmonic_bias": [
+        "suspensions",
+        "avoid_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "do not cadence at phrase end"
+      ],
+      "neighbors": [
+        "longing_doorway_pause",
+        "sad_private"
+      ]
+    },
+    {
+      "id": "innocence_before_knowing",
+      "melodic_motions": [
+        "pentatonic steps"
+      ],
+      "harmonic_bias": [
+        "pentatonic_major",
+        "static_harmony"
+      ],
+      "truth_anchor_candidates": [
+        "stay pentatonic throughout phrase"
+      ],
+      "neighbors": [
+        "nostalgia_glow",
+        "innocence_first_light"
+      ]
+    },
+    {
+      "id": "innocence_first_light",
+      "melodic_motions": [
+        "stepwise ascent",
+        "small leaps"
+      ],
+      "harmonic_bias": [
+        "ionian",
+        "open_voicings"
+      ],
+      "truth_anchor_candidates": [
+        "keep the melody unornamented"
+      ],
+      "neighbors": [
+        "happy_simple",
+        "awe_wordless_yes"
+      ]
+    },
+    {
+      "id": "innocence_playful_hum",
+      "melodic_motions": [
+        "repeated note",
+        "small skips"
+      ],
+      "harmonic_bias": [
+        "tonic_pedal"
+      ],
+      "truth_anchor_candidates": [
+        "keep repetition playful, not hypnotic"
+      ],
+      "neighbors": [
+        "play_private_delight"
+      ]
+    },
+    {
+      "id": "innocence_unquestioned_trust",
+      "melodic_motions": [
+        "3->2->1",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "ionian_soft",
+        "plagal_close"
+      ],
+      "truth_anchor_candidates": [
+        "avoid harmonic surprise"
+      ],
+      "neighbors": [
+        "calm_safe",
+        "innocence_first_light"
+      ]
+    },
+    {
+      "id": "innocence_vulnerable_smile",
+      "melodic_motions": [
+        "4->3",
+        "gentle ascent"
+      ],
+      "harmonic_bias": [
+        "borrowed_iv_light",
+        "plagal_then_soft_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "keep the slight harmonic vulnerability"
+      ],
+      "neighbors": [
+        "repair_touch_returns",
+        "longing_open_hands"
+      ]
+    },
+    {
+      "id": "integration_breathing_whole",
+      "melodic_motions": [
+        "long tones",
+        "no hurry"
+      ],
+      "harmonic_bias": [
+        "modal_open",
+        "pedal_optional"
+      ],
+      "truth_anchor_candidates": [
+        "let silence do some work"
+      ],
+      "neighbors": [
+        "integration_soft_arrival"
+      ]
+    },
+    {
+      "id": "integration_dual_truth",
+      "melodic_motions": [
+        "counter-melody coexistence"
+      ],
+      "harmonic_bias": [
+        "polytonal_hint"
+      ],
+      "truth_anchor_candidates": [
+        "do not resolve the paradox"
+      ],
+      "neighbors": [
+        "return_place_unchanged"
+      ]
+    },
+    {
+      "id": "integration_final_truth",
+      "melodic_motions": [
+        "return motif",
+        "one altered tone"
+      ],
+      "harmonic_bias": [
+        "authentic_without_triumph"
+      ],
+      "truth_anchor_candidates": [
+        "keep the altered tone in final chord"
+      ],
+      "neighbors": [
+        "integration_whole_with_scar"
+      ]
+    },
+    {
+      "id": "integration_lived_wisdom",
+      "melodic_motions": [
+        "balanced phrases"
+      ],
+      "harmonic_bias": [
+        "modal_tonic"
+      ],
+      "truth_anchor_candidates": [
+        "avoid virtuosity"
+      ],
+      "neighbors": [
+        "trust_after_test"
+      ]
+    },
+    {
+      "id": "integration_no_repair_needed",
+      "melodic_motions": [
+        "settled motif"
+      ],
+      "harmonic_bias": [
+        "stable_rest"
+      ],
+      "truth_anchor_candidates": [
+        "end without flourish"
+      ],
+      "neighbors": [
+        "stillness_after_truth"
+      ]
+    },
+    {
+      "id": "integration_present_wholeness",
+      "melodic_motions": [
+        "simple sustained tone"
+      ],
+      "harmonic_bias": [
+        "tonic_presence"
+      ],
+      "truth_anchor_candidates": [
+        "do not add anything"
+      ],
+      "neighbors": [
+        "stillness_safe_void"
+      ]
+    },
+    {
+      "id": "integration_soft_arrival",
+      "melodic_motions": [
+        "stepwise descent",
+        "gentle return"
+      ],
+      "harmonic_bias": [
+        "plagal_close",
+        "modal_static"
+      ],
+      "truth_anchor_candidates": [
+        "avoid final dramatic chord"
+      ],
+      "neighbors": [
+        "transcendent_still",
+        "power_unshowy_control"
+      ]
+    },
+    {
+      "id": "integration_whole_with_scar",
+      "melodic_motions": [
+        "arched phrase",
+        "return to tonic altered"
+      ],
+      "harmonic_bias": [
+        "modal_mix",
+        "authentic_without_triumph"
+      ],
+      "truth_anchor_candidates": [
+        "keep one unresolved color tone"
+      ],
+      "neighbors": [
+        "triumph_earned",
+        "joy_survived"
+      ]
+    },
+    {
+      "id": "integration_yes_and_no",
+      "melodic_motions": [
+        "modal shift mid-phrase",
+        "return without cadence"
+      ],
+      "harmonic_bias": [
+        "dorian_to_aeolian_blend"
+      ],
+      "truth_anchor_candidates": [
+        "allow mode ambiguity to remain"
+      ],
+      "neighbors": [
+        "integration_whole_with_scar"
+      ]
+    },
+    {
+      "id": "letting_go_complete",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "leave"
+      ],
+      "neighbors": [
+        "silence_rest"
+      ]
+    },
+    {
+      "id": "letting_go_non_attachment",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "release identity"
+      ],
+      "neighbors": [
+        "communion_without_boundary"
+      ]
+    },
+    {
+      "id": "letting_go_release",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "open hands"
+      ],
+      "neighbors": [
+        "release_acceptance"
+      ]
+    },
+    {
+      "id": "letting_go_trust",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "step away"
+      ],
+      "neighbors": [
+        "faith_unprovable_ground"
+      ]
+    },
+    {
+      "id": "letting_go_without_grief",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "do not mourn"
+      ],
+      "neighbors": [
+        "presence_without_self"
+      ]
+    },
+    {
+      "id": "liberation_bare_spine",
+      "melodic_motions": [
+        "3->5",
+        "5->1"
+      ],
+      "harmonic_bias": [
+        "ionian",
+        "authentic_repetition"
+      ],
+      "truth_anchor_candidates": [
+        "octave leap must stay"
+      ],
+      "neighbors": [
+        "happy_defiant",
+        "anthem_spine"
+      ]
+    },
+    {
+      "id": "longing_body_memory",
+      "melodic_motions": [
+        "chromatic approach",
+        "6->5",
+        "3->5"
+      ],
+      "harmonic_bias": [
+        "secondary_dominants",
+        "groove_first",
+        "sus_colors"
+      ],
+      "truth_anchor_candidates": [
+        "keep chromatic approach as pickup into chorus"
+      ],
+      "neighbors": [
+        "gentle_magnet",
+        "confident_sensual"
+      ]
+    },
+    {
+      "id": "longing_bright_edge",
+      "melodic_motions": [
+        "2->3",
+        "3->5",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "ionian_with_borrowed_iv",
+        "deceptive_then_lift"
+      ],
+      "truth_anchor_candidates": [
+        "use one deceptive cadence before chorus resolves"
+      ],
+      "neighbors": [
+        "longing_open",
+        "sun_after_storm"
+      ]
+    },
+    {
+      "id": "longing_choir_ache",
+      "melodic_motions": [
+        "1->2->b3",
+        "4 held",
+        "6 natural"
+      ],
+      "harmonic_bias": [
+        "dorian",
+        "plagal_gravity",
+        "open_voicings"
+      ],
+      "truth_anchor_candidates": [
+        "keep dorian tint; avoid V-I slam"
+      ],
+      "neighbors": [
+        "ritual_yes",
+        "joy_survived",
+        "holy_sorrow"
+      ]
+    },
+    {
+      "id": "longing_clean_hurt",
+      "melodic_motions": [
+        "3->2",
+        "2->1 (soft)",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "soft_plagal_close",
+        "sparse_voicings"
+      ],
+      "truth_anchor_candidates": [
+        "keep the plain descending line (don’t ornament)"
+      ],
+      "neighbors": [
+        "sad_private",
+        "lonely_glitter"
+      ]
+    },
+    {
+      "id": "longing_defiant_reach",
+      "melodic_motions": [
+        "3->5",
+        "5->1 (lift)",
+        "m2 friction optional"
+      ],
+      "harmonic_bias": [
+        "mixolydian_or_dorian",
+        "strong_hook",
+        "deceptive_then_hit"
+      ],
+      "truth_anchor_candidates": [
+        "keep one raw friction note (m2) before cadence"
+      ],
+      "neighbors": [
+        "rooted_defiance",
+        "anthem_spine"
+      ]
+    },
+    {
+      "id": "longing_doorway_pause",
+      "melodic_motions": [
+        "4 held (long)",
+        "avoid 2->1",
+        "m2 friction optional"
+      ],
+      "harmonic_bias": [
+        "suspensions",
+        "half_cadence_tease",
+        "avoid_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "do not cadence at end of phrase (leave it hanging)"
+      ],
+      "neighbors": [
+        "touch_starved",
+        "smile_cracks"
+      ]
+    },
+    {
+      "id": "longing_hollow_room",
+      "melodic_motions": [
+        "descending steps",
+        "3->2",
+        "b6->5"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "avoid_authentic",
+        "pedal_optional"
+      ],
+      "truth_anchor_candidates": [
+        "keep b6 color in verse melody"
+      ],
+      "neighbors": [
+        "lonely_glitter",
+        "sad_private"
+      ]
+    },
+    {
+      "id": "longing_knife_softly",
+      "melodic_motions": [
+        "6->b6",
+        "4->3",
+        "chromatic approach"
+      ],
+      "harmonic_bias": [
+        "chromatic_mediant_optional",
+        "borrowed_iv",
+        "deceptive"
+      ],
+      "truth_anchor_candidates": [
+        "keep the b6 bite on the hook note"
+      ],
+      "neighbors": [
+        "smile_cracks",
+        "sharp_confession",
+        "danger_sleek"
+      ]
+    },
+    {
+      "id": "longing_moonlit_pull",
+      "melodic_motions": [
+        "chromatic approach to 3 or 5",
+        "6->5",
+        "m2 sigh"
+      ],
+      "harmonic_bias": [
+        "secondary_dominants",
+        "suspensions",
+        "dorian_shadow_optional"
+      ],
+      "truth_anchor_candidates": [
+        "keep chromatic approach note (don’t diatonize)"
+      ],
+      "neighbors": [
+        "gentle_magnet",
+        "danger_sleek",
+        "heat_under_ice"
+      ]
+    },
+    {
+      "id": "longing_open_hands",
+      "melodic_motions": [
+        "6->5",
+        "4 held->3",
+        "2->1 (late)"
+      ],
+      "harmonic_bias": [
+        "borrowed_iv",
+        "deceptive_cadence",
+        "suspended_hook"
+      ],
+      "truth_anchor_candidates": [
+        "retain the held 4 against harmony"
+      ],
+      "neighbors": [
+        "longing_open",
+        "smile_cracks",
+        "touch_starved"
+      ]
+    },
+    {
+      "id": "longing_phone_in_hand",
+      "melodic_motions": [
+        "m2 friction",
+        "3->2",
+        "avoid landing"
+      ],
+      "harmonic_bias": [
+        "aeolian",
+        "suspensions",
+        "avoid_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "do not resolve the appoggiatura in bar 2"
+      ],
+      "neighbors": [
+        "touch_starved",
+        "sad_private"
+      ]
+    },
+    {
+      "id": "longing_prayer_disguised",
+      "melodic_motions": [
+        "1->2->b3",
+        "4 held",
+        "6 natural"
+      ],
+      "harmonic_bias": [
+        "dorian",
+        "plagal_gravity",
+        "open_voicings"
+      ],
+      "truth_anchor_candidates": [
+        "keep dorian 6 natural",
+        "avoid V-I slam"
+      ],
+      "neighbors": [
+        "joy_survived",
+        "devotion_worship_without_church"
+      ]
+    },
+    {
+      "id": "longing_snowglobe_memory",
+      "melodic_motions": [
+        "stepwise",
+        "3->2",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "vi_IV_I_V",
+        "soft_cadence",
+        "open_intervals"
+      ],
+      "truth_anchor_candidates": [
+        "keep arrangement airy (don’t thicken)"
+      ],
+      "neighbors": [
+        "nostalgia_glow",
+        "lonely_glitter"
+      ]
+    },
+    {
+      "id": "longing_sunrise_text",
+      "melodic_motions": [
+        "m2 appoggiatura",
+        "2->3",
+        "4 held->3"
+      ],
+      "harmonic_bias": [
+        "suspensions",
+        "deceptive_tease",
+        "soft_authentic_late"
+      ],
+      "truth_anchor_candidates": [
+        "keep the unresolved suspension until last bar of phrase"
+      ],
+      "neighbors": [
+        "longing_phone_in_hand",
+        "longing_bright_edge"
+      ]
+    },
+    {
+      "id": "longing_sweet_surrender",
+      "melodic_motions": [
+        "4->3",
+        "2->1",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "borrowed_iv",
+        "plagal_close",
+        "gentle_voiceleading"
+      ],
+      "truth_anchor_candidates": [
+        "keep the plagal close instead of V-I"
+      ],
+      "neighbors": [
+        "forgive_without_return",
+        "relief_tears"
+      ]
+    },
+    {
+      "id": "longing_train_window",
+      "melodic_motions": [
+        "descending steps",
+        "6->5",
+        "3->2"
+      ],
+      "harmonic_bias": [
+        "vi_IV_I_V",
+        "soft_cadence",
+        "nostalgic_voicings"
+      ],
+      "truth_anchor_candidates": [
+        "keep descending line in verse (don’t flip upward too soon)"
+      ],
+      "neighbors": [
+        "nostalgia_glow",
+        "devotion_last_train_home"
+      ]
+    },
+    {
+      "id": "longing_warm_regret",
+      "melodic_motions": [
+        "4->3",
+        "3->2",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "vi_IV_I_V",
+        "plagal_close",
+        "nostalgic_voicings"
+      ],
+      "truth_anchor_candidates": [
+        "keep the regret color (minor iv or b6) once"
+      ],
+      "neighbors": [
+        "nostalgia_glow",
+        "forgive_without_return"
+      ]
+    },
+    {
+      "id": "loss_control_body_leads",
+      "melodic_motions": [
+        "wide leap",
+        "repetition"
+      ],
+      "harmonic_bias": [
+        "groove_override"
+      ],
+      "truth_anchor_candidates": [
+        "do not rationalize harmony"
+      ],
+      "neighbors": [
+        "desire_body_first"
+      ]
+    },
+    {
+      "id": "loss_control_ground_slips",
+      "melodic_motions": [
+        "descending slide",
+        "irregular rhythm"
+      ],
+      "harmonic_bias": [
+        "chromatic_drift",
+        "avoid_tonic"
+      ],
+      "truth_anchor_candidates": [
+        "do not correct rhythmic instability"
+      ],
+      "neighbors": [
+        "risk_irreversible_step"
+      ]
+    },
+    {
+      "id": "loss_control_overwhelm",
+      "melodic_motions": [
+        "rapid oscillation",
+        "register jumps"
+      ],
+      "harmonic_bias": [
+        "clustered_harmony"
+      ],
+      "truth_anchor_candidates": [
+        "do not thin texture"
+      ],
+      "neighbors": [
+        "anger_feral_burst"
+      ]
+    },
+    {
+      "id": "loss_control_silent_panic",
+      "melodic_motions": [
+        "tight tremolo"
+      ],
+      "harmonic_bias": [
+        "static_dissonance"
+      ],
+      "truth_anchor_candidates": [
+        "do not resolve dissonance"
+      ],
+      "neighbors": [
+        "sad_private"
+      ]
+    },
+    {
+      "id": "loss_control_words_fail",
+      "melodic_motions": [
+        "fragmented phrases"
+      ],
+      "harmonic_bias": [
+        "broken_progression"
+      ],
+      "truth_anchor_candidates": [
+        "allow phrase to break mid-bar"
+      ],
+      "neighbors": [
+        "courage_voice_unsteady"
+      ]
+    },
+    {
+      "id": "love_allowing",
+      "melodic_motions": [
+        "wide rests"
+      ],
+      "harmonic_bias": [
+        "open_fifth_field"
+      ],
+      "truth_anchor_candidates": [
+        "leave space"
+      ],
+      "neighbors": [
+        "witness_present"
+      ]
+    },
+    {
+      "id": "love_benevolent_regard",
+      "melodic_motions": [
+        "warm parallel motion"
+      ],
+      "harmonic_bias": [
+        "plagal_warmth"
+      ],
+      "truth_anchor_candidates": [
+        "keep dynamics soft"
+      ],
+      "neighbors": [
+        "meaning_shared"
+      ]
+    },
+    {
+      "id": "love_endurance",
+      "melodic_motions": [
+        "slow repetition"
+      ],
+      "harmonic_bias": [
+        "ritual_tonic"
+      ],
+      "truth_anchor_candidates": [
+        "repeat without fatigue"
+      ],
+      "neighbors": [
+        "devotion_daily_return"
+      ]
+    },
+    {
+      "id": "love_unconditional",
+      "melodic_motions": [
+        "pure sustain"
+      ],
+      "harmonic_bias": [
+        "tonic_radiance"
+      ],
+      "truth_anchor_candidates": [
+        "do not contrast"
+      ],
+      "neighbors": [
+        "presence_enough"
+      ]
+    },
+    {
+      "id": "love_without_need",
+      "melodic_motions": [
+        "open intervals"
+      ],
+      "harmonic_bias": [
+        "consonant_expansion"
+      ],
+      "truth_anchor_candidates": [
+        "avoid pull tones"
+      ],
+      "neighbors": [
+        "presence_enough"
+      ]
+    },
+    {
+      "id": "meaning_earned_through_pain",
+      "melodic_motions": [
+        "scarred motif"
+      ],
+      "harmonic_bias": [
+        "tonic_with_dissonant_color"
+      ],
+      "truth_anchor_candidates": [
+        "keep the scar audible"
+      ],
+      "neighbors": [
+        "integration_whole_with_scar"
+      ]
+    },
+    {
+      "id": "meaning_pattern_understood",
+      "melodic_motions": [
+        "motif aligns"
+      ],
+      "harmonic_bias": [
+        "tonic_with_context"
+      ],
+      "truth_anchor_candidates": [
+        "keep harmony stable"
+      ],
+      "neighbors": [
+        "integration_lived_wisdom"
+      ]
+    },
+    {
+      "id": "meaning_shared",
+      "melodic_motions": [
+        "unison phrase"
+      ],
+      "harmonic_bias": [
+        "communal_tonic"
+      ],
+      "truth_anchor_candidates": [
+        "keep voices aligned"
+      ],
+      "neighbors": [
+        "trust_shared_weight"
+      ]
+    },
+    {
+      "id": "meaning_sufficient",
+      "melodic_motions": [
+        "single sustained tone"
+      ],
+      "harmonic_bias": [
+        "tonic_presence"
+      ],
+      "truth_anchor_candidates": [
+        "do not elaborate"
+      ],
+      "neighbors": [
+        "integration_present_wholeness"
+      ]
+    },
+    {
+      "id": "meaning_without_explanation",
+      "melodic_motions": [
+        "sustained presence"
+      ],
+      "harmonic_bias": [
+        "modal_stability"
+      ],
+      "truth_anchor_candidates": [
+        "avoid lyrical density"
+      ],
+      "neighbors": [
+        "awe_wordless_yes"
+      ]
+    },
+    {
+      "id": "play_childlike_energy",
+      "melodic_motions": [
+        "pentatonic jumps",
+        "call-response"
+      ],
+      "harmonic_bias": [
+        "pentatonic_major",
+        "anthemic_light"
+      ],
+      "truth_anchor_candidates": [
+        "avoid irony entirely"
+      ],
+      "neighbors": [
+        "happy_simple",
+        "innocence_first_light"
+      ]
+    },
+    {
+      "id": "play_light_feet",
+      "melodic_motions": [
+        "quick skips",
+        "call-response"
+      ],
+      "harmonic_bias": [
+        "mixolydian",
+        "rhythmic_hits"
+      ],
+      "truth_anchor_candidates": [
+        "keep rhythmic surprise"
+      ],
+      "neighbors": [
+        "happy_simple",
+        "playful_confidence"
+      ]
+    },
+    {
+      "id": "play_private_delight",
+      "melodic_motions": [
+        "repetition",
+        "gentle ornament"
+      ],
+      "harmonic_bias": [
+        "tonic_loop"
+      ],
+      "truth_anchor_candidates": [
+        "keep it small-scale"
+      ],
+      "neighbors": [
+        "innocence_playful_hum"
+      ]
+    },
+    {
+      "id": "play_rule_break_smile",
+      "melodic_motions": [
+        "unexpected leap",
+        "syncopation"
+      ],
+      "harmonic_bias": [
+        "chromatic_pop",
+        "avoid_expected_cadence"
+      ],
+      "truth_anchor_candidates": [
+        "break expectation once per phrase"
+      ],
+      "neighbors": [
+        "anger_clean_no",
+        "play_teasing_wink"
+      ]
+    },
+    {
+      "id": "play_teasing_wink",
+      "melodic_motions": [
+        "chromatic turn",
+        "short leap"
+      ],
+      "harmonic_bias": [
+        "secondary_dominant_pop",
+        "sus_colors"
+      ],
+      "truth_anchor_candidates": [
+        "keep the chromatic wink"
+      ],
+      "neighbors": [
+        "gentle_magnet",
+        "confident_sensual"
+      ]
+    },
+    {
+      "id": "power_commanding_voice",
+      "melodic_motions": [
+        "octave reach",
+        "strong cadence"
+      ],
+      "harmonic_bias": [
+        "ionian",
+        "authentic_repetition"
+      ],
+      "truth_anchor_candidates": [
+        "keep octave leap intact"
+      ],
+      "neighbors": [
+        "anthem_spine",
+        "happy_defiant"
+      ]
+    },
+    {
+      "id": "power_crowned_after_cost",
+      "melodic_motions": [
+        "ascending fifth",
+        "hold at apex"
+      ],
+      "harmonic_bias": [
+        "dorian_to_major_lift",
+        "anthemic"
+      ],
+      "truth_anchor_candidates": [
+        "hold the apex note longer than comfortable"
+      ],
+      "neighbors": [
+        "triumph_earned"
+      ]
+    },
+    {
+      "id": "power_dangerous_calm",
+      "melodic_motions": [
+        "narrow range",
+        "chromatic undercurrent"
+      ],
+      "harmonic_bias": [
+        "pedal",
+        "chromatic_shadow"
+      ],
+      "truth_anchor_candidates": [
+        "do not release tension"
+      ],
+      "neighbors": [
+        "danger_sleek",
+        "anger_controlled_cut"
+      ]
+    },
+    {
+      "id": "power_rooted_presence",
+      "melodic_motions": [
+        "narrow hover",
+        "5 repeated"
+      ],
+      "harmonic_bias": [
+        "pedal",
+        "modal_static"
+      ],
+      "truth_anchor_candidates": [
+        "do not add harmonic motion"
+      ],
+      "neighbors": [
+        "rooted_defiance",
+        "empty_throne"
+      ]
+    },
+    {
+      "id": "power_unshowy_control",
+      "melodic_motions": [
+        "stepwise",
+        "no leaps"
+      ],
+      "harmonic_bias": [
+        "modal",
+        "avoid_dominant"
+      ],
+      "truth_anchor_candidates": [
+        "avoid dramatic lift entirely"
+      ],
+      "neighbors": [
+        "power_rooted_presence"
+      ]
+    },
+    {
+      "id": "presence_enough",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "stop"
+      ],
+      "neighbors": [
+        "silence_rest"
+      ]
+    },
+    {
+      "id": "presence_now",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "do nothing"
+      ],
+      "neighbors": [
+        "integration_present_wholeness"
+      ]
+    },
+    {
+      "id": "presence_shared_space",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "remain"
+      ],
+      "neighbors": [
+        "communion_unspoken"
+      ]
+    },
+    {
+      "id": "presence_unbroken_attention",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "stay"
+      ],
+      "neighbors": [
+        "devotion_total_presence"
+      ]
+    },
+    {
+      "id": "presence_without_self",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "no commentary"
+      ],
+      "neighbors": [
+        "death_void"
+      ]
+    },
+    {
+      "id": "purpose_alignment",
+      "melodic_motions": [
+        "effortless phrase"
+      ],
+      "harmonic_bias": [
+        "tonic_flow"
+      ],
+      "truth_anchor_candidates": [
+        "do nothing extra"
+      ],
+      "neighbors": [
+        "integration_present_wholeness"
+      ]
+    },
+    {
+      "id": "purpose_lived_not_declared",
+      "melodic_motions": [
+        "consistent motif"
+      ],
+      "harmonic_bias": [
+        "stable_tonic_path"
+      ],
+      "truth_anchor_candidates": [
+        "maintain consistency"
+      ],
+      "neighbors": [
+        "integration_lived_wisdom"
+      ]
+    },
+    {
+      "id": "purpose_long_arc",
+      "melodic_motions": [
+        "slow ascent across sections"
+      ],
+      "harmonic_bias": [
+        "cycle_of_fifths_slow"
+      ],
+      "truth_anchor_candidates": [
+        "span multiple sections"
+      ],
+      "neighbors": [
+        "endurance_ritual_breathing"
+      ]
+    },
+    {
+      "id": "purpose_quiet_direction",
+      "melodic_motions": [
+        "forward-leaning phrase"
+      ],
+      "harmonic_bias": [
+        "progression_with_patience"
+      ],
+      "truth_anchor_candidates": [
+        "do not rush tempo"
+      ],
+      "neighbors": [
+        "becoming_self_trust"
+      ]
+    },
+    {
+      "id": "purpose_service",
+      "melodic_motions": [
+        "supporting harmony"
+      ],
+      "harmonic_bias": [
+        "subdominant_emphasis"
+      ],
+      "truth_anchor_candidates": [
+        "avoid solo dominance"
+      ],
+      "neighbors": [
+        "meaning_shared"
+      ]
+    },
+    {
+      "id": "rebirth_first_breath",
+      "melodic_motions": [
+        "single rising tone"
+      ],
+      "harmonic_bias": [
+        "new_modal_center"
+      ],
+      "truth_anchor_candidates": [
+        "keep it quiet and sparse"
+      ],
+      "neighbors": [
+        "becoming_first_shape"
+      ]
+    },
+    {
+      "id": "rebirth_fragile_yes",
+      "melodic_motions": [
+        "soft ascent"
+      ],
+      "harmonic_bias": [
+        "plagal_support"
+      ],
+      "truth_anchor_candidates": [
+        "keep it human-scaled"
+      ],
+      "neighbors": [
+        "trust_without_proof"
+      ]
+    },
+    {
+      "id": "rebirth_light_returns",
+      "melodic_motions": [
+        "gentle ascent"
+      ],
+      "harmonic_bias": [
+        "lydian_hint"
+      ],
+      "truth_anchor_candidates": [
+        "avoid triumphant cadence"
+      ],
+      "neighbors": [
+        "awe_vast_open_sky"
+      ]
+    },
+    {
+      "id": "rebirth_new_life_stirs",
+      "melodic_motions": [
+        "ascending arc"
+      ],
+      "harmonic_bias": [
+        "stable_new_tonic"
+      ],
+      "truth_anchor_candidates": [
+        "grow slowly"
+      ],
+      "neighbors": [
+        "becoming_standing_differently"
+      ]
+    },
+    {
+      "id": "rebirth_without_past",
+      "melodic_motions": [
+        "new motif"
+      ],
+      "harmonic_bias": [
+        "fresh_key"
+      ],
+      "truth_anchor_candidates": [
+        "do not reference old themes"
+      ],
+      "neighbors": [
+        "becoming_without_announcement"
+      ]
+    },
+    {
+      "id": "release_acceptance",
+      "melodic_motions": [
+        "gentle return"
+      ],
+      "harmonic_bias": [
+        "plagal_final"
+      ],
+      "truth_anchor_candidates": [
+        "do not embellish ending"
+      ],
+      "neighbors": [
+        "integration_final_truth"
+      ]
+    },
+    {
+      "id": "release_breathing_again",
+      "melodic_motions": [
+        "slow oscillation"
+      ],
+      "harmonic_bias": [
+        "modal_rest"
+      ],
+      "truth_anchor_candidates": [
+        "avoid tempo increase"
+      ],
+      "neighbors": [
+        "trust_resting_in_flow"
+      ]
+    },
+    {
+      "id": "release_energy_discharged",
+      "melodic_motions": [
+        "final drop"
+      ],
+      "harmonic_bias": [
+        "cadence_then_silence"
+      ],
+      "truth_anchor_candidates": [
+        "end cleanly"
+      ],
+      "neighbors": [
+        "stillness_after_truth"
+      ]
+    },
+    {
+      "id": "release_laughter_break",
+      "melodic_motions": [
+        "sudden lift",
+        "light cadence"
+      ],
+      "harmonic_bias": [
+        "major_burst"
+      ],
+      "truth_anchor_candidates": [
+        "keep it brief"
+      ],
+      "neighbors": [
+        "play_light_feet"
+      ]
+    },
+    {
+      "id": "release_tears_fall",
+      "melodic_motions": [
+        "descending release"
+      ],
+      "harmonic_bias": [
+        "plagal_release"
+      ],
+      "truth_anchor_candidates": [
+        "let the phrase fall naturally"
+      ],
+      "neighbors": [
+        "repair_after_shatter"
+      ]
+    },
+    {
+      "id": "repair_after_shatter",
+      "melodic_motions": [
+        "4->3 (slow)",
+        "2->1 delayed"
+      ],
+      "harmonic_bias": [
+        "plagal_motion",
+        "avoid_dominant"
+      ],
+      "truth_anchor_candidates": [
+        "do not rush the cadence"
+      ],
+      "neighbors": [
+        "relief_tears",
+        "devotion_after_fight"
+      ]
+    },
+    {
+      "id": "repair_bandage_kindness",
+      "melodic_motions": [
+        "3->2->1",
+        "6->5"
+      ],
+      "harmonic_bias": [
+        "ionian_soft",
+        "plagal_close"
+      ],
+      "truth_anchor_candidates": [
+        "keep arrangement sparse"
+      ],
+      "neighbors": [
+        "calm_safe",
+        "repair_after_shatter"
+      ]
+    },
+    {
+      "id": "repair_earned_trust",
+      "melodic_motions": [
+        "stepwise ascent",
+        "hold before lift"
+      ],
+      "harmonic_bias": [
+        "minor_to_major_lift_late"
+      ],
+      "truth_anchor_candidates": [
+        "delay the major lift until final phrase"
+      ],
+      "neighbors": [
+        "sun_after_storm",
+        "repair_bandage_kindness"
+      ]
+    },
+    {
+      "id": "repair_no_promises",
+      "melodic_motions": [
+        "narrow range",
+        "no leap"
+      ],
+      "harmonic_bias": [
+        "modal_static",
+        "pedal"
+      ],
+      "truth_anchor_candidates": [
+        "avoid any big lift"
+      ],
+      "neighbors": [
+        "power_unshowy_control",
+        "endurance_ritual_breathing"
+      ]
+    },
+    {
+      "id": "repair_touch_returns",
+      "melodic_motions": [
+        "6->5",
+        "4->3"
+      ],
+      "harmonic_bias": [
+        "borrowed_iv",
+        "plagal_then_soft_authentic"
+      ],
+      "truth_anchor_candidates": [
+        "keep the almost-resolution feeling"
+      ],
+      "neighbors": [
+        "longing_open_hands",
+        "repair_earned_trust"
+      ]
+    },
+    {
+      "id": "return_place_unchanged",
+      "melodic_motions": [
+        "static bass",
+        "changed melody"
+      ],
+      "harmonic_bias": [
+        "pedal_with_new_color"
+      ],
+      "truth_anchor_candidates": [
+        "keep bass unchanged"
+      ],
+      "neighbors": [
+        "integration_dual_truth"
+      ]
+    },
+    {
+      "id": "return_quiet_homecoming",
+      "melodic_motions": [
+        "returning motif altered"
+      ],
+      "harmonic_bias": [
+        "tonic_return_soft"
+      ],
+      "truth_anchor_candidates": [
+        "change one note in the original theme"
+      ],
+      "neighbors": [
+        "becoming_without_announcement"
+      ]
+    },
+    {
+      "id": "return_seen_differently",
+      "melodic_motions": [
+        "familiar phrase reharmonized"
+      ],
+      "harmonic_bias": [
+        "borrowed_chords"
+      ],
+      "truth_anchor_candidates": [
+        "keep the reharm subtle"
+      ],
+      "neighbors": [
+        "integration_social_self"
+      ]
+    },
+    {
+      "id": "return_weight_carried",
+      "melodic_motions": [
+        "descending answer"
+      ],
+      "harmonic_bias": [
+        "minor_tonic_with_light"
+      ],
+      "truth_anchor_candidates": [
+        "keep the scar audible"
+      ],
+      "neighbors": [
+        "integration_whole_with_scar"
+      ]
+    },
+    {
+      "id": "return_without_story",
+      "melodic_motions": [
+        "minimal restatement"
+      ],
+      "harmonic_bias": [
+        "authentic_no_emphasis"
+      ],
+      "truth_anchor_candidates": [
+        "do not dramatize the return"
+      ],
+      "neighbors": [
+        "integration_final_truth"
+      ]
+    },
+    {
+      "id": "risk_all_in",
+      "melodic_motions": [
+        "wide leap",
+        "immediate follow-through"
+      ],
+      "harmonic_bias": [
+        "chromatic_mediant",
+        "strong_drive"
+      ],
+      "truth_anchor_candidates": [
+        "do not soften the leap landing"
+      ],
+      "neighbors": [
+        "desire_unapologetic_pull",
+        "anger_feral_burst"
+      ]
+    },
+    {
+      "id": "risk_blind_trust",
+      "melodic_motions": [
+        "gentle leap",
+        "soft landing"
+      ],
+      "harmonic_bias": [
+        "modal_lift",
+        "plagal_support"
+      ],
+      "truth_anchor_candidates": [
+        "keep the soft landing intact"
+      ],
+      "neighbors": [
+        "devotion_soft",
+        "courage_quiet_step_forward"
+      ]
+    },
+    {
+      "id": "risk_edge_peek",
+      "melodic_motions": [
+        "approach tone",
+        "retreat"
+      ],
+      "harmonic_bias": [
+        "suspension_loop",
+        "avoid_tonic"
+      ],
+      "truth_anchor_candidates": [
+        "do not resolve the approach tone"
+      ],
+      "neighbors": [
+        "courage_quiet_step_forward"
+      ]
+    },
+    {
+      "id": "risk_irreversible_step",
+      "melodic_motions": [
+        "one-way ascent",
+        "no return motif"
+      ],
+      "harmonic_bias": [
+        "modulation",
+        "avoid_recapitulation"
+      ],
+      "truth_anchor_candidates": [
+        "do not restate earlier themes"
+      ],
+      "neighbors": [
+        "integration_whole_with_scar"
+      ]
+    },
+    {
+      "id": "risk_seen",
+      "melodic_motions": [
+        "leap into silence"
+      ],
+      "harmonic_bias": [
+        "sudden_drop",
+        "no_supporting_chord"
+      ],
+      "truth_anchor_candidates": [
+        "leave the leap unsupported"
+      ],
+      "neighbors": [
+        "courage_voice_unsteady"
+      ]
+    },
+    {
+      "id": "silence_after_last_note",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "absence"
+      ],
+      "truth_anchor_candidates": [
+        "do not re-enter"
+      ],
+      "neighbors": [
+        "witness_end"
+      ]
+    },
+    {
+      "id": "silence_before_beginning",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "potential"
+      ],
+      "truth_anchor_candidates": [
+        "wait fully"
+      ],
+      "neighbors": [
+        "authorship_after_silence"
+      ]
+    },
+    {
+      "id": "silence_full_room",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "do not interpret"
+      ],
+      "neighbors": [
+        "integration_present_wholeness"
+      ]
+    },
+    {
+      "id": "silence_heard",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "stay receptive"
+      ],
+      "neighbors": [
+        "witness_present"
+      ]
+    },
+    {
+      "id": "silence_rest",
+      "melodic_motions": [
+        "none"
+      ],
+      "harmonic_bias": [
+        "none"
+      ],
+      "truth_anchor_candidates": [
+        "end here"
+      ],
+      "neighbors": [
+        "stillness_safe_void"
+      ]
+    },
+    {
+      "id": "stillness_after_truth",
+      "melodic_motions": [
+        "final tone sustain"
+      ],
+      "harmonic_bias": [
+        "resolved_without_emphasis"
+      ],
+      "truth_anchor_candidates": [
+        "end without flourish"
+      ],
+      "neighbors": [
+        "integration_final_truth"
+      ]
+    },
+    {
+      "id": "stillness_edge_of_sleep",
+      "melodic_motions": [
+        "descending semitone",
+        "fade"
+      ],
+      "harmonic_bias": [
+        "modal_fade"
+      ],
+      "truth_anchor_candidates": [
+        "avoid rhythmic clarity"
+      ],
+      "neighbors": [
+        "stillness_safe_void"
+      ]
+    },
+    {
+      "id": "stillness_safe_void",
+      "melodic_motions": [
+        "none or drone"
+      ],
+      "harmonic_bias": [
+        "pedal_only"
+      ],
+      "truth_anchor_candidates": [
+        "let it fade naturally"
+      ],
+      "neighbors": [
+        "transcendent_still"
+      ]
+    },
+    {
+      "id": "stillness_time_stops",
+      "melodic_motions": [
+        "single tone",
+        "long sustain"
+      ],
+      "harmonic_bias": [
+        "pedal",
+        "no_progression"
+      ],
+      "truth_anchor_candidates": [
+        "do not fill the silence"
+      ],
+      "neighbors": [
+        "awe_breath_taken",
+        "stillness_witnessing"
+      ]
+    },
+    {
+      "id": "stillness_witnessing",
+      "melodic_motions": [
+        "narrow range",
+        "no contour"
+      ],
+      "harmonic_bias": [
+        "modal_static"
+      ],
+      "truth_anchor_candidates": [
+        "avoid melody shaping"
+      ],
+      "neighbors": [
+        "awe_cosmic_smallness",
+        "integration_soft_arrival"
+      ]
+    },
+    {
+      "id": "surrender_exhale_finally",
+      "melodic_motions": [
+        "descending release",
+        "long tones"
+      ],
+      "harmonic_bias": [
+        "plagal_fade",
+        "modal_rest"
+      ],
+      "truth_anchor_candidates": [
+        "do not reintroduce tension"
+      ],
+      "neighbors": [
+        "stillness_safe_void",
+        "integration_soft_arrival"
+      ]
+    },
+    {
+      "id": "surrender_into_unknown",
+      "melodic_motions": [
+        "gentle descent",
+        "fade"
+      ],
+      "harmonic_bias": [
+        "modal_drift",
+        "no_cadence"
+      ],
+      "truth_anchor_candidates": [
+        "let harmony blur"
+      ],
+      "neighbors": [
+        "awe_cosmic_smallness"
+      ]
+    },
+    {
+      "id": "surrender_no_more_fight",
+      "melodic_motions": [
+        "static center",
+        "no ascent"
+      ],
+      "harmonic_bias": [
+        "pedal_only",
+        "avoid_dominant"
+      ],
+      "truth_anchor_candidates": [
+        "do not lift at phrase end"
+      ],
+      "neighbors": [
+        "stillness_after_truth"
+      ]
+    },
+    {
+      "id": "surrender_soft_collapse",
+      "melodic_motions": [
+        "descending thirds"
+      ],
+      "harmonic_bias": [
+        "plagal_rest"
+      ],
+      "truth_anchor_candidates": [
+        "avoid rhythmic motion"
+      ],
+      "neighbors": [
+        "repair_bandage_kindness"
+      ]
+    },
+    {
+      "id": "surrender_truth_without_defense",
+      "melodic_motions": [
+        "narrow ascent",
+        "no payoff"
+      ],
+      "harmonic_bias": [
+        "avoid_resolution"
+      ],
+      "truth_anchor_candidates": [
+        "do not harmonically reward honesty"
+      ],
+      "neighbors": [
+        "courage_truth_before_outcome"
+      ]
+    },
+    {
+      "id": "transformation_burning_bridge",
+      "melodic_motions": [
+        "tritone leap",
+        "falling answer"
+      ],
+      "harmonic_bias": [
+        "chromatic_mediant",
+        "hard_modulation"
+      ],
+      "truth_anchor_candidates": [
+        "retain the tritone scar"
+      ],
+      "neighbors": [
+        "anger_controlled_cut",
+        "loss_control_overwhelm"
+      ]
+    },
+    {
+      "id": "transformation_identity_blur",
+      "melodic_motions": [
+        "ambiguous center"
+      ],
+      "harmonic_bias": [
+        "bitonal_hint"
+      ],
+      "truth_anchor_candidates": [
+        "do not resolve tonal ambiguity"
+      ],
+      "neighbors": [
+        "stillness_edge_of_sleep"
+      ]
+    },
+    {
+      "id": "transformation_internal_rewrite",
+      "melodic_motions": [
+        "motif inversion"
+      ],
+      "harmonic_bias": [
+        "modal_reinterpretation"
+      ],
+      "truth_anchor_candidates": [
+        "invert motif, don’t vary it"
+      ],
+      "neighbors": [
+        "discovery_self_recognition"
+      ]
+    },
+    {
+      "id": "transformation_point_of_no_return",
+      "melodic_motions": [
+        "ascending sequence without return"
+      ],
+      "harmonic_bias": [
+        "key_change_no_prep"
+      ],
+      "truth_anchor_candidates": [
+        "forbid recap of original key"
+      ],
+      "neighbors": [
+        "risk_irreversible_step"
+      ]
+    },
+    {
+      "id": "transformation_skin_shedding",
+      "melodic_motions": [
+        "chromatic descent",
+        "register shift"
+      ],
+      "harmonic_bias": [
+        "modulation_in_motion",
+        "avoid_tonic"
+      ],
+      "truth_anchor_candidates": [
+        "do not restate old motif"
+      ],
+      "neighbors": [
+        "risk_irreversible_step",
+        "loss_control_ground_slips"
+      ]
+    },
+    {
+      "id": "trust_after_test",
+      "melodic_motions": [
+        "ascending resolution"
+      ],
+      "harmonic_bias": [
+        "authentic_soft"
+      ],
+      "truth_anchor_candidates": [
+        "keep volume restrained"
+      ],
+      "neighbors": [
+        "repair_earned_trust"
+      ]
+    },
+    {
+      "id": "trust_letting_be_held",
+      "melodic_motions": [
+        "stepwise descent"
+      ],
+      "harmonic_bias": [
+        "plagal_support"
+      ],
+      "truth_anchor_candidates": [
+        "keep accompaniment simple"
+      ],
+      "neighbors": [
+        "surrender_soft_collapse"
+      ]
+    },
+    {
+      "id": "trust_resting_in_flow",
+      "melodic_motions": [
+        "gentle oscillation"
+      ],
+      "harmonic_bias": [
+        "modal_flow"
+      ],
+      "truth_anchor_candidates": [
+        "avoid rhythmic emphasis"
+      ],
+      "neighbors": [
+        "stillness_safe_void"
+      ]
+    },
+    {
+      "id": "trust_shared_weight",
+      "melodic_motions": [
+        "parallel motion"
+      ],
+      "harmonic_bias": [
+        "duet_voicing"
+      ],
+      "truth_anchor_candidates": [
+        "keep voices balanced"
+      ],
+      "neighbors": [
+        "devotion_soft"
+      ]
+    },
+    {
+      "id": "trust_without_proof",
+      "melodic_motions": [
+        "gentle leap"
+      ],
+      "harmonic_bias": [
+        "modal_lift"
+      ],
+      "truth_anchor_candidates": [
+        "land softly, not firmly"
+      ],
+      "neighbors": [
+        "risk_blind_trust"
+      ]
+    },
+    {
+      "id": "witness_end",
+      "melodic_motions": [
+        "final held tone"
+      ],
+      "harmonic_bias": [
+        "tonic_presence"
+      ],
+      "truth_anchor_candidates": [
+        "end without comment"
+      ],
+      "neighbors": [
+        "death_sacred_end"
+      ]
+    },
+    {
+      "id": "witness_joy",
+      "melodic_motions": [
+        "parallel ascent"
+      ],
+      "harmonic_bias": [
+        "plagal_warmth"
+      ],
+      "truth_anchor_candidates": [
+        "do not steal focus"
+      ],
+      "neighbors": [
+        "meaning_shared"
+      ]
+    },
+    {
+      "id": "witness_present",
+      "melodic_motions": [
+        "neutral sustain"
+      ],
+      "harmonic_bias": [
+        "tonic_presence"
+      ],
+      "truth_anchor_candidates": [
+        "do nothing"
+      ],
+      "neighbors": [
+        "stillness_witnessing"
+      ]
+    },
+    {
+      "id": "witness_suffering",
+      "melodic_motions": [
+        "supporting tone below melody"
+      ],
+      "harmonic_bias": [
+        "subtonic_support"
+      ],
+      "truth_anchor_candidates": [
+        "do not resolve pain"
+      ],
+      "neighbors": [
+        "meaning_earned_through_pain"
+      ]
+    },
+    {
+      "id": "witness_truth_uncomfortable",
+      "melodic_motions": [
+        "steady tone against tension"
+      ],
+      "harmonic_bias": [
+        "dissonance_held"
+      ],
+      "truth_anchor_candidates": [
+        "do not soften"
+      ],
+      "neighbors": [
+        "integration_dual_truth"
+      ]
+    }
+  ]
+}
