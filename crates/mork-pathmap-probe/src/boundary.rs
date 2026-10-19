@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use mork::space::Space;
 use pathmap::PathMap;
-use pathmap::zipper::{ZipperIteration, ZipperPath};
+use pathmap::zipper::{ZipperIteration, ZipperPath, ZipperValues};
 
 use crate::{Answers, JoinInput, Semantics};
 
@@ -236,6 +236,128 @@ fn path_answers(trie: &PathMap<()>) -> Answers {
         }
     }
     out
+}
+
+// ---- PathMap as a relationship index (D-RMAP-1A focus probe) ----------------
+
+/// A PathMap trie over `(p, s, o)` facts, keyed `p ‖ s ‖ o` big-endian, each
+/// leaf holding the canonical row number of its fact.
+///
+/// It is an INDEX, not the facts: the canonical rows stay in the caller's
+/// slice and the leaf is a row reference. The key bytes are a copy of `p`, `s`
+/// and `o` (12 bytes per fact), which [`SpogTrie::key_bytes`] reports; that is
+/// the cost of a byte trie and the reason the native sorted run in
+/// [`crate::rmap`] carries row references only.
+pub struct SpogTrie(PathMap<u32>);
+
+fn spog_key(p: u32, s: u32, o: u32) -> [u8; 12] {
+    let mut k = [0u8; 12];
+    k[0..4].copy_from_slice(&p.to_be_bytes());
+    k[4..8].copy_from_slice(&s.to_be_bytes());
+    k[8..12].copy_from_slice(&o.to_be_bytes());
+    k
+}
+
+impl SpogTrie {
+    /// Index `facts` (`[s, p, o]` rows). Row `i` becomes the leaf of its key.
+    pub fn build(facts: &[[u32; 3]]) -> Self {
+        let mut t = PathMap::new();
+        for (row, &[s, p, o]) in facts.iter().enumerate() {
+            t.insert(spog_key(p, s, o), row as u32);
+        }
+        SpogTrie(t)
+    }
+
+    /// Number of indexed facts (a full walk: PathMap's `val_count` is O(n)).
+    pub fn len(&self) -> usize {
+        self.0.val_count()
+    }
+
+    /// Whether the index holds no fact.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Lower bound on what the index stores: its key bytes. Node and
+    /// allocator overhead are not counted (MORK installs a global allocator,
+    /// so this probe cannot count allocations; see ISS-MORK-LIBRARY-GLOBAL-ALLOCATOR).
+    pub fn key_bytes(&self) -> usize {
+        self.len() * 12
+    }
+
+    /// Prefix seek to `p ‖ s`, then every `(o, row)` under it in `o` order.
+    pub fn objects(&self, p: u32, s: u32, mut f: impl FnMut(u32, u32)) {
+        let mut prefix = [0u8; 8];
+        prefix[0..4].copy_from_slice(&p.to_be_bytes());
+        prefix[4..8].copy_from_slice(&s.to_be_bytes());
+        let mut z = self.0.read_zipper_at_path(prefix);
+        while z.to_next_val() {
+            let o = u32::from_be_bytes(z.path()[0..4].try_into().unwrap());
+            let row = *z.val().expect("to_next_val stops on a value");
+            f(o, row);
+        }
+    }
+
+    /// The facts whose `(p, s)` is in `pairs`, as a trie that shares the
+    /// subtries it keeps with `self` (PathMap's `restrict`): the focus's
+    /// outgoing relationships, cut out without re-inserting a fact.
+    pub fn restrict_to(&self, pairs: impl IntoIterator<Item = (u32, u32)>) -> SpogTrie {
+        let mut keep = PathMap::new();
+        for (p, s) in pairs {
+            let mut k = [0u8; 8];
+            k[0..4].copy_from_slice(&p.to_be_bytes());
+            k[4..8].copy_from_slice(&s.to_be_bytes());
+            keep.insert(k, 0u32);
+        }
+        SpogTrie(self.0.restrict(&keep))
+    }
+}
+
+/// A PathMap posting index keyed `term ‖ doc` big-endian (inverted index).
+pub struct PostingTrie(PathMap<()>);
+
+impl PostingTrie {
+    /// Index `(term, doc)` pairs.
+    pub fn build(pairs: &[[u32; 2]]) -> Self {
+        let mut t = PathMap::new();
+        for &[term, doc] in pairs {
+            let mut k = [0u8; 8];
+            k[0..4].copy_from_slice(&term.to_be_bytes());
+            k[4..8].copy_from_slice(&doc.to_be_bytes());
+            t.insert(k, ());
+        }
+        PostingTrie(t)
+    }
+
+    /// Every doc of `term`, in doc order (one prefix seek, then a walk).
+    pub fn docs(&self, term: u32, mut f: impl FnMut(u32)) {
+        let mut z = self.0.read_zipper_at_path(term.to_be_bytes());
+        while z.to_next_val() {
+            f(u32::from_be_bytes(z.path()[0..4].try_into().unwrap()));
+        }
+    }
+
+    /// Docs of both terms, merged from two ordered zipper walks.
+    pub fn intersect(&self, a: u32, b: u32) -> Vec<u32> {
+        let mut za = self.0.read_zipper_at_path(a.to_be_bytes());
+        let mut zb = self.0.read_zipper_at_path(b.to_be_bytes());
+        let read = |p: &[u8]| u32::from_be_bytes(p[0..4].try_into().unwrap());
+        let mut out = Vec::new();
+        let (mut ha, mut hb) = (za.to_next_val(), zb.to_next_val());
+        while ha && hb {
+            let (x, y) = (read(za.path()), read(zb.path()));
+            if x == y {
+                out.push(x);
+                ha = za.to_next_val();
+                hb = zb.to_next_val();
+            } else if x < y {
+                ha = za.to_next_val();
+            } else {
+                hb = zb.to_next_val();
+            }
+        }
+        out
+    }
 }
 
 #[cfg(test)]

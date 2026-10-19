@@ -23,6 +23,7 @@ use std::collections::BTreeMap;
 
 pub mod boundary;
 pub mod reference;
+pub mod rmap;
 
 pub use boundary::{Backend, BoundIndex, Refusal, bind, capability};
 

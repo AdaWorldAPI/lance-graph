@@ -226,6 +226,72 @@ A adds a second ledger beside Lance and Thought Git, the duplicated truth this p
 
 The MORK/PathMap probe ([#1620](https://github.com/AdaWorldAPI/lance-graph/pull/1620)) binds a `RelationView { rows, generation: u64 }` and refuses `Stale { bound, current }`. That `u64` is a stand-in: under §7 it becomes the `(DurableRef, IndexSeal, QueryReference)` part of the binding witness. The backend switch (MORK, PathMap, native) does not touch the witness: the witness is about the data, the backend is a physical capability BIND attests. No new executor, store, or per-fold commit; the no-gather ruling is unchanged.
 
+## 8. Focus probe: a focus-bound RelationshipMap over existing indexes (measured 2026-10-19)
+
+> **Status: MEASURED, probe only.** Code: `crates/mork-pathmap-probe/src/rmap.rs` (module `rmap`), `tests/rmap.rs`, `examples/rmap_cost.rs` (`cargo run --release -p mork-pathmap-probe --example rmap_cost`). Release build, one machine, warm caches, medians of 5 repetitions. Nothing here is adopted. No new executor, store, opcode, ABI, CE64 field or gather: every evaluation runs through `lance-graph-mask-risc` `execute`/`execute_into` with the existing `MaskOp` set, and address translation happens only in preparation.
+
+### 8.1 What the probe builds
+
+| Layer | Probe type | Owns | Copies of canonical facts |
+| --- | --- | --- | --- |
+| Canonical facts | `&[Fact]` (`[s,p,o]` u32) | the only payload | none |
+| Ordered index | `SortedRun` (row permutation, `(p,s,o)`) or `SpogTrie` (PathMap, key `p‖s‖o`) | row references / trie keys | trie: keys copy p, s, o |
+| Focus | `Focus{ids, generation}`, 256 slots | slot↔identity binding | none |
+| Prepared map | `Csr` (per predicate: offsets, `u8` targets, canonical row, escapes) | slot-space adjacency + `Witness` | none (row refs kept) |
+| Tile | `Tile`, one 65 536-bit plane per predicate, address `(target<<8)\|source` | derived from `Csr` | none |
+| Thought delta | `ThoughtDelta{thought, p, add, del}` | per-thought edits over the shared tile | none |
+
+`Witness{facts, seal, focus, scope}` stands in for §7.5's `BindingWitness` (`DurableRef`, `IndexSeal`, `FocusGeneration`, `AuthorizationReceipt`); `ThoughtDelta.thought` stands in for `ThoughtCommitId`. Out-of-focus targets are never dropped: a reach reports them as escapes (identities, or source slots with identities on demand), and `global()` refuses `IncompleteFocus` while any remain.
+
+### 8.2 Correctness (12 tests, all green, independent scan oracle)
+
+Every arm (direct over run, direct over trie, CSR, tile via mask-risc; identity and source-slot escape modes) equals a full-slice scan for 1, 2 and 3 hops on 18 cases. Disable runs confirmed all 11 guards load-bearing (red with the guard removed, green restored), including: per-dimension witness refusal, thought-delta refusal for another incarnation, the escape report, canonical-row retention, `Ordering` mismatch refusal, and incremental rebind ≡ full preparation (which needed an expansion fixture with incoming edges before its escape re-resolve guard could fail).
+
+### 8.3 Cost per representation, 65 536 identities, focus 256 (µs unless noted)
+
+| Fixture | facts | sorted run build | trie build | CSR prepare | tile from CSR | direct/run per eval | CSR per eval | tile per eval | break-even reuses (CSR / tile) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| sparse, 3 preds, degree 2 | 392 238 | 29.4 ms | 126.4 ms | 341.7 | 1.5 | 8.49 | 3.33 | 5.08 | 76 / 116 |
+| sparse, 3 preds, degree 8 | 1 561 508 | 236.0 ms | 1 350.6 ms | 1 187.4 | 3.0 | 114.73 | 5.58 | 5.74 | 11 / 11 |
+| dense, 1 pred, degree 48 | 2 862 756 | 483.2 ms | 2 118.2 ms | 955.1 | 6.4 | 565.53 | 12.38 | 4.53 | 1.8 / 1.8 |
+
+Per-eval figures are a 3-hop scoped reach in source-slot mode. Break-even counts are **arithmetic** from those medians (prepare ÷ per-eval saving), not separate measurements. Amortization was measured at N = 1, 8, 64, 1 024, 65 536 and 1 000 000; direct-arm runs above 20 s were capped and extrapolated, and are labelled CAPPED in the log.
+
+- **Escape identities dominate when degree grows.** At degree 8, reporting escapes as identities costs CSR 50.4 µs per eval; as source slots, 5.6 µs. Materialize identities only when the next frontier needs them.
+- **Tile vs CSR is a density question.** The tile wins only on the dense relation (4.5 vs 12.4); on sparse ones CSR wins (3.3 vs 5.1). Neither is a default.
+- **Bytes per focus:** binding 3 072 B; CSR 18–66 KB; tile 8 KiB per predicate.
+
+### 8.4 Focus churn: incremental rebind vs full re-preparation (µs)
+
+| replaced slots k | sparse d2 | sparse d8 | dense |
+| ---: | --- | --- | --- |
+| 1 | 41.8 / 357.2 | 223.9 / 1 657.7 | 308.2 / 892.9 |
+| 16 | 60.4 / 433.1 | 298.1 / 1 985.2 | 752.6 / 744.9 |
+| 128 | 156.5 / 310.7 | 850.4 / 937.7 | 970.3 / 833.2 |
+| 256 | 344.3 / 305.3 | 1 238.4 / 971.3 | 1 011.0 / 644.9 |
+
+Incremental rebind (forward seek for changed slots, old escapes re-resolved against the new focus; no reverse index) wins for small k and loses at k = 256; on the dense relation it loses from k ≥ 16. A rebind policy needs the crossover, not a fixed choice.
+
+### 8.5 Thoughts over one shared tile
+
+Per-thought delta: 32 B as sparse edits, 16 KiB when lowered to executor planes. Per-eval cost over 1 / 8 / 64 concurrent thoughts: 2.61 / 2.66 / 2.79 µs (sparse d2), 8.04 / 8.14 / 8.28 (d8), 5.27 / 5.56 / 5.51 (dense). The shared tile is stored once; no thought copies it.
+
+### 8.6 PathMap / MORK: what they do and do not buy here
+
+- **Prefix seek is real.** Direct traversal over the trie beats the sorted run on sparse relations (7.0 vs 8.5 µs; 100.9 vs 114.7 µs), because a prefix seek reaches the objects without an indirect fact lookup. It loses on the dense relation (1 184 vs 566 µs).
+- **Build and bytes cost more.** Trie build is 4–6× the sorted run, and its keys are at least 3× the run's bytes, because keys copy p, s and o. Node overhead is not measurable under MORK's allocator.
+- **`restrict` yields the focus facts exactly, without copying shared nodes**, but takes 0.45–1.44 ms (slower than CSR preparation on the sparse fixtures) and its result still needs slot translation before execution.
+- **Postings:** zipper merge 2.32 µs vs sorted merge 0.41 µs vs mask-risc And+Count 0.082 µs over prepared membership planes.
+- **MORK pattern matching was not needed** for these fixtures and was not exercised; nothing here measures it.
+
+### 8.7 Places: zero-copy focus mask vs register copy
+
+On 65 536 places with a focus of 256, a bounding-box + class count through mask-risc over the canonical lanes takes 20–24 µs with 0 B copied, while loading the focus's lanes into a 3 072 B register and counting there takes 0.78 + 0.38–1.27 µs. The canonical-lane path is slow because the `under` gate is word-granular: 228–235 of 1 024 words are live for 256 rows. This is an open tension between zero-copy and a register copy, not a decision; bit-granular gating would remove it.
+
+### 8.8 Not covered, and blockers
+
+Lance-backed `DurableRef` and real stable-row-id seals (the probe's seals are integers); cold-cache and page-fault measurement; MORK matching; any gather-admission ruling. The probe answers §6's economics for in-memory, warm, single-machine fixtures only.
+
 **Stop condition:** any design that requires copying canonical map facts per thought, using RelAlg as a table store, or allocating new CE64 bits to identify MapId/MapPaletteId has chosen the wrong boundary.
 
 **Short form: RelationshipMapStore stores. OGAR types. ThoughtMapPalette selects. BIND borrows. RelAlg describes. Quack lowers. Mask-RISC executes. CE64 remains opaque.**
