@@ -1,3 +1,18 @@
+## MORK / PathMap Schnellverschluss (2026-10-19)
+
+Plan `mork-pathmap-schnellverschluss-v1.md`; entry `entries/2026-10-19-mork-pathmap-schnellverschluss.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-MPS-0 | source and type inventory; fork/upstream switch through Cargo `[patch]` | MEASURED | one `pathmap` package in the graph; 0 / 18 upstream files differ (PathMap / MORK stable branch) |
+| D-MPS-1 | differential probe `crates/mork-pathmap-probe`: MORK (product-zipper, leapfrog) and PathMap zipper vs nested-loop oracle | MEASURED (probe; CI job `mork-pathmap-probe.yml`) | 8 + 1 tests in both builds; 4 disable runs red |
+| D-MPS-2 | upstream MORK: PathMap as git/version dependency, not `../PathMap` | PROPOSAL | MORK git dep resolves without `[patch]` |
+| D-MPS-3 | upstream MORK: `nightly` opt-in (fork `de9312e`) | PROPOSAL | upstream `main` builds on stable |
+| D-MPS-4 | upstream MORK: no library-level `jemalloc` global allocator | PROPOSAL | consumer binary sets its own allocator |
+| D-MPS-5 | upstream MORK: leapfrog join generic over a cursor provider + reindex hook | PROPOSAL | MORK corpus unchanged on `PathMap<()>` |
+| D-MPS-6 | Lance-owned PathMap-trait cursor over a sealed `RelationOrder` | BLOCKED (`RelationOrder` not built) | no copy, or the copy stated |
+| D-MPS-7 | licence: no MORK source vendored until a licence is declared (#148 unmerged) | OPEN | probe vendors nothing |
+
 ## Post-merge recovery for #1601–#1617 (2026-10-19)
 
 These PRs merged with no board rows. Every row below is a PROPOSAL (documents and fixtures) unless it says otherwise. Entry: `entries/2026-10-19-post-merge-recovery-1601-1617.md` (review-thread reconciliation).

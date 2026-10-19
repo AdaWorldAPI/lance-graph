@@ -1,3 +1,8 @@
+## 2026-10-19 — MORK / PathMap Schnellverschluss probe (in PR)
+
+- New excluded crate `crates/mork-pathmap-probe` (own workspace, git deps on the AdaWorldAPI MORK and PathMap forks, results only) with CI job `mork-pathmap-probe.yml`; plan `mork-pathmap-schnellverschluss-v1.md`; entry `2026-10-19-mork-pathmap-schnellverschluss.md`; issue `ISS-MORK-LIBRARY-GLOBAL-ALLOCATOR`.
+- Contract inventory delta: none.
+
 ## 2026-10-19 — main after #1617 (merged `47697c77`); post-merge recovery in PR
 
 - **On main since #1597:** #1601–#1617 (17 PRs: research notes, plans, a qualia archive, the ACT-R crate, the mask-risc hop, the D-RMAP plans). None had board rows; the arc entries, STATUS_BOARD rows and plan index entries are added in this PR.

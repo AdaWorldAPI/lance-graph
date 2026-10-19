@@ -1,3 +1,11 @@
+## 2026-10-19 — mork-pathmap-schnellverschluss-v1 — MORK / PathMap behind one replaceable boundary → `.claude/plans/mork-pathmap-schnellverschluss-v1.md`
+
+**Status:** D-MPS-0/1 MEASURED (probe, results only); D-MPS-2..5 upstream PROPOSALS; D-MPS-6 BLOCKED; D-MPS-7 OPEN.
+
+- Source switch: pinned git revisions plus one `[patch]` for MORK's out-of-repo `../PathMap` path; one package identity, no upstream file edited.
+- Execution switch: `Backend::{Mork, PathMapZipper, Native}` with typed refusals (`SetOnly`, `NoAdmittedNativeJoin`, `Stale`); the native arm is refused under the no-gather ruling.
+- MORK stays an oracle outside the workspace (D-ASM-10); nothing is wired into Quack, R2IL or mask-risc.
+
 ## 2026-10-19 — catch-up: seven plans from #1605 and #1612–#1617 had no index entry
 
 **Status:** INDEX CATCH-UP (post-merge recovery, entry `2026-10-19-post-merge-recovery-1601-1617.md`). All PROPOSAL; nothing implemented.
