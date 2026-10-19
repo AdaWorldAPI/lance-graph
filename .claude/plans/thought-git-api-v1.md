@@ -231,3 +231,20 @@ carry has to be checked before choosing.
 - Timings: v4 only, ns per cell, tier printed by the program.
 - The dense/sparse crossover that picks presence masks or leapfrog seek per
   operand (catalogue P3/P11); measured, not assumed.
+
+## Gaps found by D-RMAP-1A §7 (2026-10-19, PROPOSED)
+
+D-RMAP-1A §7 derives its map, palette and binding generations from this plan
+and #1605 instead of keeping its own counters. Two things it needs are not
+specified here yet:
+
+- **A thought identity that survives slot reuse.** Slots are reused (Rule 4),
+  and nothing here names the thought that occupied a slot. #1605's
+  `ThoughtCommitId` is the candidate; it must never be reused, including after
+  `discard` and `squash` (D-RMAP X4).
+- **A dirty bit.** Whether a thought has writes after its last commit. A
+  cached projection built from the last commit must be refused while it is
+  set (D-RMAP X5); a commit per fold is ruled out (#1605 §5.8).
+
+The PR-record open item above also decides whether a landed thought that
+writes several datasets has one `DurableRef` per dataset (D-RMAP §7.6.3).
