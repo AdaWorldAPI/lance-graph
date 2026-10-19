@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | OGAR Class / ClassView / DTO-IR | Types, fields, associations, actions, compiled class vocabulary, generated field masks and DTO projection descriptors | Persistent relationship index pages, RelAlg evaluator, runtime DTO copies |
 | RelationshipMapStore | Separate relation-fact tables, sorted index permutations, global relationship-map identity, seal/version, eligible physical capabilities and optional relation tiles | Datalog syntax/AST, CE64 fields, per-thought graph copies |
-| ThoughtMapPaletteBinding | Thought slot and incarnation -> MapPaletteId under a witnessed frame; selected subset and order of maps | Relation-fact payload, evidence roots |
+| ThoughtMapPaletteBinding | Thought slot and incarnation -> MapPaletteId **and the palette generation it bound** under a witnessed frame; selected subset and order of maps | Relation-fact payload, evidence roots |
 | MapPalette | Palette ID **and its own palette generation**, plus 0..255 local map selectors -> globally stable MapId + map generation | Global relationship truth or per-object row materialization |
 | FocusBinding | Source/target global identities -> focus-local slots; lifetime, version and ACL attestation | Persistent semantic facts |
 | BIND | Resolves metadata and borrows native spans, masks, indexed ranges or permutations with a mapping witness | RelAlg rewrite rules, storage ownership, separate runtime evaluator |
@@ -31,7 +31,7 @@ The following are proposed **logical tables**, not physical record layouts or ma
 | RelationOrder | Sealed indexed permutations of original fact row references: e.g. predicate-subject-object, object-predicate-subject | Derived ordering; no source payload copy |
 | **RelationshipMap** | Separate MapId, map generation, underlying relation-order view handles, constraints and capability metadata | **Global shared table** |
 | **MapPalette** | MapPaletteId + **palette generation**, local map ordinal 0..255 to MapId and map generation. Reassigning any slot bumps the palette generation (or mints a new palette; palettes may also be immutable) | **Shared palette table** |
-| **ThoughtMapPaletteBinding** | (thought slot, incarnation, frame witness) to MapPaletteId; optional sparse palette visibility override | **Separate thought map** |
+| **ThoughtMapPaletteBinding** | (thought slot, incarnation, frame witness) to MapPaletteId + the palette generation it bound; resolution refuses when the palette's current generation differs; optional sparse palette visibility override | **Separate thought map** |
 | FocusBinding | Frame witness, source/target slot-to-global identity maps and authorization | Local map binding |
 | RelationTile | Optional cached source-slot to local target mask, keyed by **global MapId + map generation (or index seal digest)** + FocusBinding generation + authorization scope. A frame id or local palette slot alone is never a sufficient key | Disposable derived bits |
 | RelationDelta | Separately typed fact changes, binding changes, tile invalidations, speculative thought claims | Incremental witnesses |
@@ -68,9 +68,9 @@ OGAR's DTO plans can provide an ergonomically tiny API over this binding, but OG
 
 ~~~text
 ThoughtMapPaletteBinding
-  (thought_slot=7, incarnation=41, frame=9) -> map_palette=23
+  (thought_slot=7, incarnation=41, frame=9) -> map_palette=23, palette generation 5
 
-MapPalette[23]
+MapPalette[23], palette generation 5
   slot 0 -> global MapId(is_a), map generation 12
   slot 1 -> global MapId(part_of), map generation 8
   slot 2 -> global MapId(mentioned_in), map generation 3

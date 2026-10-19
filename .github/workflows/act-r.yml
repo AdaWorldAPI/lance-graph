@@ -7,11 +7,13 @@ on:
     paths:
       - 'crates/lance-graph-act-r/**'
       - '.github/workflows/act-r.yml'
+      - 'rust-toolchain.toml'
   push:
     branches: [main]
     paths:
       - 'crates/lance-graph-act-r/**'
       - '.github/workflows/act-r.yml'
+      - 'rust-toolchain.toml'
   workflow_dispatch:
 permissions:
   contents: read
